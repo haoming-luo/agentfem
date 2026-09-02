@@ -63,6 +63,9 @@ def test_windows_installer_defaults_to_side_by_side_without_overwrite():
     assert "@IMAGE_FILENAME@" in installer
     assert "@IMAGE_SHA256@" in installer
     assert "@VERSION@" in installer
+    assert "AGENTFEM_PROJECTS_HOME/p" in installer
+    assert "Persistent projects:" in installer
+    assert "ProjectDirectory" in installer
 
 
 def test_windows_installer_has_explicit_transactional_replacement_upgrade():
@@ -93,6 +96,8 @@ def test_wsl_oobe_can_reuse_upgrade_username_without_duplicating_identity():
     assert "AGENTFEM_UPGRADE_USER" in oobe
     assert "Reusing Linux username" in oobe
     assert '[[ "$username" != root ]]' in oobe
+    assert "workspace --protect" in oobe
+    assert "first-workspace.log" in oobe
 
 
 def test_windows_bundle_contains_human_and_agent_start_here_contract():
@@ -107,8 +112,24 @@ def test_windows_bundle_contains_human_and_agent_start_here_contract():
     assert "-RemoveBackupAfterSuccess" in guide
     assert "re-imports the old snapshot" in guide
     assert "agentfem doctor" in guide
+    assert "agentfem workspace" in guide
+    assert "Remove-AgentFEM.ps1" in guide
     assert 'output / "START-HERE.txt"' in builder
     assert "render_wsl_start_here()" in builder
+
+
+def test_windows_bundle_contains_fail_closed_safe_removal():
+    remover = (RUNTIME / "wsl" / "Remove-AgentFEM.ps1").read_text(
+        encoding="utf-8"
+    )
+    builder = (RUNTIME / "build_runtime.py").read_text(encoding="utf-8")
+    assert "workspace --protect" in remover
+    assert "--export $DistributionName $backup" in remover
+    assert "--unregister $DistributionName" in remover
+    assert "Nothing was removed" in remover
+    assert "Projects retained at:" in remover
+    assert 'output / "Remove-AgentFEM.ps1"' in builder
+    assert "remover," in builder
 
 
 def test_windows_installer_and_guide_render_without_placeholders():

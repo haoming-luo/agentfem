@@ -82,6 +82,19 @@ agentfem doctor
 PyPI does not provision DOLFINx or PETSc for AgentFEM. A bare pip install is
 therefore not the recommended first installation on any platform.
 
+### Persistent project storage on WSL
+
+When this environment is inside WSL, establish a durable project workspace:
+
+```bash
+agentfem workspace --protect
+```
+
+This keeps the familiar `~/AgentFEMProjects` path while storing its project
+inputs, results, and checkpoints in Windows `Documents\AgentFEMProjects`.
+Mamba upgrades then replace packages without owning project data, and removing
+the WSL distribution cannot silently remove the protected workspace.
+
 ## PyPI and Source Development
 
 PyPI remains available when AgentFEM needs to be installed into an existing
@@ -113,6 +126,11 @@ MPI libraries.
 The recommended first-release route is WSL2 with Ubuntu, Miniforge/Mambaforge,
 and the Linux environment above. This uses the same package family exercised
 by AgentFEM's Linux CI.
+
+Do not run `wsl --unregister` until `agentfem workspace --json` reports
+`protected_from_distribution_removal: true`. For the Complete Runtime, use its
+bundled `Remove-AgentFEM.ps1`; an ordinary Mamba environment may be removed
+normally because its protected projects are independent of that environment.
 
 Native Windows is experimental, not a release-supported route. FEniCSx 0.11
 has `win-64` packages, but AgentFEM currently uses PETSc-based solver APIs and

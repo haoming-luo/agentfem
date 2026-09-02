@@ -28,10 +28,32 @@ adduser --uid "$default_uid" --disabled-password --gecos "" "$username"
 echo "Choose the Linux password used when this account runs sudo."
 passwd "$username"
 usermod -aG sudo "$username"
-mkdir -p "/home/$username/AgentFEMProjects" "/home/$username/.local/state/agentfem"
-chown -R "$username:$username" "/home/$username/AgentFEMProjects" "/home/$username/.local"
+mkdir -p "/home/$username/.local/state/agentfem"
+chown -R "$username:$username" "/home/$username/.local"
+
+if [[ -n "$preset_username" ]]; then
+  # A replacement upgrade restores the previous home first; the installer
+  # invokes the same workspace transaction afterwards.
+  mkdir -p "/home/$username/AgentFEMProjects"
+  chown -R "$username:$username" "/home/$username/AgentFEMProjects"
+else
+  workspace_path=${AGENTFEM_PROJECTS_HOME:-}
+  workspace_args=(workspace --protect)
+  if [[ -n "$workspace_path" ]]; then
+    workspace_args+=(--path "$workspace_path")
+  fi
+  if ! runuser -u "$username" -- /opt/conda/bin/agentfem "${workspace_args[@]}" \
+      > "/home/$username/.local/state/agentfem/first-workspace.log" 2>&1; then
+    echo "Persistent Windows workspace setup did not complete."
+    echo "No project data was removed. Run: agentfem workspace --protect"
+    mkdir -p "/home/$username/AgentFEMProjects"
+    chown -R "$username:$username" "/home/$username/AgentFEMProjects"
+  fi
+fi
 
 su - "$username" -c "/opt/conda/bin/agentfem doctor > ~/.local/state/agentfem/first-doctor.log 2>&1" || true
 echo
 echo "AgentFEM is ready. Projects belong in ~/AgentFEMProjects."
+echo "This path is protected on the Windows drive when installed with the AgentFEM installer."
+echo "Check: agentfem workspace"
 echo "Run: agentfem doctor"

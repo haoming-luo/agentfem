@@ -54,6 +54,7 @@ The first stable boundary is intentionally process based:
 
 ```bash
 agentfem doctor --json
+agentfem workspace --json
 agentfem templates --json
 agentfem capabilities --json
 agentfem init --template static-solid ./case --json

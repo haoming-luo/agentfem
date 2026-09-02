@@ -171,6 +171,7 @@ COMPATIBILITY_MODEL_REPLACEMENTS = {
 
 CLI_COMMANDS = (
     "doctor",
+    "workspace",
     "init",
     "templates",
     "check",
@@ -193,6 +194,7 @@ CLI_COMMANDS = (
 
 MACHINE_COMMANDS = {
     "environment_check": "agentfem doctor --json",
+    "workspace_check": "agentfem workspace --json",
     "capabilities": "agentfem capabilities --json",
     "project_check": "agentfem check --json",
     "run": "agentfem run --json",

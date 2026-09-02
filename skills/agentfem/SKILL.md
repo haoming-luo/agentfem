@@ -33,6 +33,12 @@ documentation site, use the left navigation pages `Workflow`, `Concepts`, and
   mainland China, use one conda-forge mirror for the whole PETSc/MPI/DOLFINx
   stack; do not assemble the runtime with a bare pip install or mixed channels.
 - Keep the finite-element workflow visible.
+- On WSL, run `agentfem workspace --json` before creating, upgrading, or
+  removing an installed-use project environment. Require
+  `protected_from_distribution_removal: true`; otherwise run
+  `agentfem workspace --protect`. Never issue raw `wsl --unregister` for an
+  AgentFEM runtime. Project and result custody are scientific provenance, not
+  disposable environment setup.
 - Identify the study context before selecting constitutive laws or operators.
 - Inspect mesh summaries and required tags before building weak forms.
 - Use lightweight models for registry, checks, summaries, and model-owned

@@ -57,7 +57,8 @@ Windows users should currently use WSL2. Optional mesh, visualization, and
 machine-learning integrations are described in the
 [installation and platform guide](getting_started.md). Users in mainland
 China can use the documented TUNA mirror without changing their global conda
-configuration.
+configuration. On WSL, run `agentfem workspace --protect` once; the same safe project layout
+is used by both Mamba installations and the Complete Runtime.
 
 ## First finite-element model
 

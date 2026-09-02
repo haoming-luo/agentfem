@@ -91,7 +91,12 @@ mamba activate agentfem-env
 agentfem doctor
 ```
 
-On Windows, run these commands inside an Ubuntu WSL2 terminal.
+On Windows, run these commands inside an Ubuntu WSL2 terminal, then protect
+projects and results from distribution removal:
+
+```bash
+agentfem workspace --protect
+```
 
 <details>
 <summary><strong>Mainland China mirror / 中国大陆镜像</strong></summary>
@@ -138,6 +143,12 @@ validated backup-and-rollback transaction:
 ```powershell
 powershell -ExecutionPolicy Bypass -File .\Install-AgentFEM.ps1 -Upgrade
 ```
+
+The installer keeps projects and results in Windows
+`Documents\AgentFEMProjects`, visible inside WSL as `~/AgentFEMProjects`.
+Use the bundled `Remove-AgentFEM.ps1` instead of manually unregistering the
+distribution; the safe remover verifies project custody and retains a recovery
+snapshot first.
 
 ### Existing FEniCSx environment: PyPI
 

@@ -1580,9 +1580,17 @@ together without hand-maintaining a long argument list:</p>
 </code></pre></div>
 <h2 id="windows-recommendation">Windows recommendation<a class="headerlink" href="#windows-recommendation" title="Permanent link">&para;</a></h2>
 <p>Install WSL2 with Ubuntu, install Miniforge inside WSL, and follow
-<code>INSTALL.md</code>. Keep the project inside the WSL Linux filesystem for compilation
-and I/O performance. ParaView may run either inside WSLg or on Windows while
-opening output copied or exposed from the WSL filesystem.</p>
+<code>INSTALL.md</code>. Then establish the same durable workspace used by the Complete
+Runtime:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>agentfem<span class="w"> </span>workspace<span class="w"> </span>--protect
+</code></pre></div>
+<p>The familiar <code>~/AgentFEMProjects</code> path then resolves to Windows
+<code>Documents\AgentFEMProjects</code>, so project inputs, results, and checkpoints are
+not owned by the replaceable WSL distribution. ParaView on Windows can open
+those outputs directly. For very I/O-intensive work, advanced users may keep
+recomputable scratch data in the Linux filesystem, but should publish accepted
+results back to the protected workspace before upgrading or unregistering the
+distribution.</p>
 <p>Native Windows should become supported only after all of the following exist:</p>
 <ol>
 <li>a supported linear/nonlinear algebra provider for AgentFEM's public steps;</li>
@@ -1601,8 +1609,8 @@ opening output copied or exposed from the WSL filesystem.</p>
    Gmsh Python API.</li>
 </ol>
 <p>Install only the route required by the model:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>python<span class="w"> </span>-m<span class="w"> </span>pip<span class="w"> </span>install<span class="w"> </span><span class="s1">&#39;agentfem[mesh-formats]&#39;</span>
-<a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a>python<span class="w"> </span>-m<span class="w"> </span>pip<span class="w"> </span>install<span class="w"> </span><span class="s1">&#39;agentfem[gmsh]&#39;</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a>python<span class="w"> </span>-m<span class="w"> </span>pip<span class="w"> </span>install<span class="w"> </span><span class="s1">&#39;agentfem[mesh-formats]&#39;</span>
+<a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a>python<span class="w"> </span>-m<span class="w"> </span>pip<span class="w"> </span>install<span class="w"> </span><span class="s1">&#39;agentfem[gmsh]&#39;</span>
 </code></pre></div>
 <p>The Gmsh project distributes its software under GPL-2.0-or-later with a
 published exception. AgentFEM does not vendor or bundle Gmsh, does not list it

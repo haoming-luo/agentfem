@@ -62,6 +62,7 @@ class RuntimeReport:
     numerics: dict[str, object]
     optional: tuple[dependencies.DependencyStatus, ...]
     execution: dict[str, object]
+    workspace: dict[str, object]
 
     def summary(self) -> dict[str, object]:
         return {
@@ -76,6 +77,7 @@ class RuntimeReport:
             "numerics": dict(self.numerics),
             "optional": tuple(item.summary() for item in self.optional),
             "execution": dict(self.execution),
+            "workspace": dict(self.workspace),
         }
 
     def format(self) -> str:
@@ -100,6 +102,13 @@ class RuntimeReport:
             f"{self.execution['installed_distribution'] or 'not installed'}"
         )
         lines.append(f"  runtime mode: {self.execution['mode']}")
+        protected = self.workspace["protected_from_distribution_removal"]
+        lines.append(
+            "  project workspace: "
+            f"{self.workspace['link']} ({'protected' if protected else 'not protected'})"
+        )
+        if self.workspace.get("warning"):
+            lines.append(f"  warning: {self.workspace['warning']}")
         if self.execution["distribution_mismatch"]:
             runtime = self.execution.get("runtime_version")
             installed = self.execution.get("distribution_version")
@@ -218,6 +227,7 @@ def runtime_report() -> RuntimeReport:
     # legitimately shadow an older installed distribution, in which case
     # importlib.metadata would otherwise describe the wrong AgentFEM runtime.
     from . import __version__ as runtime_version
+    from .project import workspace_report
 
     core_packages = (
         "fenics-dolfinx",
@@ -272,6 +282,7 @@ def runtime_report() -> RuntimeReport:
             ),
         ),
         execution=_execution_identity(runtime_version=runtime_version),
+        workspace=workspace_report().summary(),
     )
 
 

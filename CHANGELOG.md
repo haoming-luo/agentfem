@@ -6,12 +6,27 @@ experimental formulation to a validated one.
 
 ## [Unreleased]
 
+### Added
+
+- Add one runtime-independent `agentfem workspace` custody contract for the
+  Complete WSL2 Runtime and ordinary Mamba installations, including verified
+  migration to durable Windows storage and machine-readable safety status.
+- Add a fail-closed Windows runtime remover that protects the project
+  workspace and exports a complete recovery snapshot before unregistering the
+  AgentFEM distribution.
+
 ### Changed
 
 - Pin the documented conda installation route to the release-tested Python
   3.11 and DOLFINx 0.11 stack, publish a no-global-configuration TUNA mirror
   route for mainland China, and expose both commands to AI agents through the
   machine-readable documentation manifest.
+- Keep Windows projects, results, and checkpoints in
+  `Documents\AgentFEMProjects` by default while preserving the familiar
+  `~/AgentFEMProjects` path inside WSL.
+- Attach resolved project and output storage custody to project summaries and
+  execution evidence, warning when a path remains owned by a replaceable WSL
+  distribution.
 
 ## [0.3.1] - 2026-08-31
 

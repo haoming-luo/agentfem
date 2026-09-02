@@ -1,7 +1,9 @@
 # Workflow Reference
 
-For an existing installed project, start with `agentfem doctor --json`,
-`agentfem check --json`, and `agentfem upgrade --json`. Automatic migration is
+For an existing installed project, start with `agentfem doctor --json`. On
+WSL, also run `agentfem workspace --json` and protect the workspace before any
+runtime lifecycle operation. Then run `agentfem check --json` and
+`agentfem upgrade --json`. Automatic migration is
 limited to deterministic metadata. A finding with `semantic_review=true`
 requires inspection and re-verification of the finite-element meaning.
 

@@ -9,16 +9,19 @@ architecture before running the first model.
 1. Follow [Installation and first project](../getting_started.md) to create a
    compatible FEniCSx environment and install AgentFEM.
 2. Run `agentfem doctor` to record the actual numerical stack.
-3. Create a project with the `static-solid` template.
-4. Read the generated `case.py`, then run `agentfem check` and `agentfem run`.
-5. Inspect `result.json` and the field output instead of relying only on a
+3. On WSL, run `agentfem workspace --protect` once so projects survive runtime
+   replacement or distribution removal.
+4. Create a project with the `static-solid` template.
+5. Read the generated `case.py`, then run `agentfem check` and `agentfem run`.
+6. Inspect `result.json` and the field output instead of relying only on a
    successful process exit.
-6. Continue to the [user guide](../guide/index.md) for the nearest physical
+7. Continue to the [user guide](../guide/index.md) for the nearest physical
    problem and the [examples](../examples/index.md) for executable evidence.
 
 ## First project
 
 ```bash
+cd ~/AgentFEMProjects  # recommended durable location on WSL
 mkdir beam
 cd beam
 agentfem init --template static-solid .

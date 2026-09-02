@@ -1111,6 +1111,10 @@ status and scientific evidence.</p>
 <td>Environment capability check</td>
 </tr>
 <tr>
+<td><code>agentfem workspace --json</code></td>
+<td>Runtime-independent project custody check</td>
+</tr>
+<tr>
 <td><code>agentfem capabilities --json</code></td>
 <td>Public API, providers, maturity, and benchmark evidence</td>
 </tr>
@@ -1145,7 +1149,7 @@ status and scientific evidence.</p>
 </tbody>
 </table>
 <h2 id="safe-operating-sequence">Safe operating sequence<a class="headerlink" href="#safe-operating-sequence" title="Permanent link">&para;</a></h2>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>discover → doctor → init/open → inspect project → edit case.py → check
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>discover → doctor → protect workspace → init/open → inspect project → edit case.py → check
 <a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>         → run → inspect structured result → verify policy → publish or revise
 </code></pre></div>
 <p>If no environment exists, consume the installation contract from
@@ -1155,6 +1159,11 @@ compiled numerical stack.</p>
 <p>An agent must not infer scientific validity from a zero exit code. It should
 inspect convergence, requested outputs, quality policy, applicability limits,
 benchmark evidence, and any explicit failure record.</p>
+<p>On WSL, an agent must not replace or unregister a distribution until
+<code>agentfem workspace --json</code> reports that project data is protected from
+distribution removal. Use <code>agentfem workspace --protect</code>; for the Complete
+Runtime, use its lifecycle scripts rather than reproducing destructive WSL
+commands.</p>
 <p>For an Abaqus migration, inspect before creating a project. Preserve the
 complete source graph and review every issue in <code>migration.json</code>; never remove
 an element suffix, collapse Part/Instance scopes, or execute a generated

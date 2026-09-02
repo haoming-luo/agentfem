@@ -3988,6 +3988,31 @@ and evidence remain in the linked guides and scientific function reference.</p>
 <td>Return a sortable, collision-resistant identifier for one execution.</td>
 </tr>
 <tr>
+<td>function</td>
+<td><code>recommended_workspace(path: str \| Path \| None = None) -&gt; Path</code></td>
+<td>Return the cross-installation project root recommended on this host.</td>
+</tr>
+<tr>
+<td>class</td>
+<td><code>WorkspaceReport</code></td>
+<td>Custody report for the conventional installed-use project directory.</td>
+</tr>
+<tr>
+<td>function</td>
+<td><code>workspace_report(path: str \| Path \| None = None, *, link: str \| Path \| None = None) -&gt; WorkspaceReport</code></td>
+<td>Inspect project custody without changing the filesystem.</td>
+</tr>
+<tr>
+<td>function</td>
+<td><code>storage_custody(path: str \| Path) -&gt; dict[str, object]</code></td>
+<td>Describe whether a project path survives removal of its runtime.</td>
+</tr>
+<tr>
+<td>function</td>
+<td><code>protect_workspace(path: str \| Path \| None = None, *, link: str \| Path \| None = None) -&gt; WorkspaceReport</code></td>
+<td>Create or migrate the conventional workspace to durable host storage.</td>
+</tr>
+<tr>
 <td>class</td>
 <td><code>ProjectConfig</code></td>
 <td>Operational metadata for an AgentFEM case directory.</td>

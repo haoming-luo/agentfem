@@ -84,7 +84,11 @@ following:
 10. a real WSL2 acceptance record for the public `.wsl` image.
 
 User projects live outside the runtime prefix. Replacing or uninstalling a
-runtime must never remove project data.
+runtime must never remove project data. On Windows, the authoritative default
+is `Documents\AgentFEMProjects`; `~/AgentFEMProjects` inside WSL is a familiar
+link to that host directory. The same `agentfem workspace --protect` contract
+applies to both the Complete Runtime and an ordinary Mamba installation inside
+an existing WSL distribution.
 
 macOS runtime prefixes are versioned and immutable. A later release installs
 beside the prior environment and updates `AgentFEM Terminal.command` to the
@@ -101,3 +105,8 @@ and repeats `agentfem doctor`. Any failure after the switch restores the old
 snapshot. Every released installer script must pass PowerShell's parser in CI;
 the replacement route additionally remains Preview until exercised on a real
 Windows/WSL2 host.
+
+Every Windows bundle also includes `Remove-AgentFEM.ps1`. It fails closed
+unless project custody is protected, exports a full recovery snapshot by
+default, and only then unregisters the runtime. Raw `wsl --unregister` is not
+an AgentFEM removal workflow.

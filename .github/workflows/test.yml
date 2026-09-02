@@ -31,19 +31,24 @@ jobs:
       - name: Verify reliability collector schema boundary
         run: node --test services/reliability-collector/worker.test.mjs
 
-      - name: Parse the Windows runtime installer
+      - name: Parse the Windows runtime lifecycle scripts
         shell: pwsh
         run: |
-          $tokens = $null
-          $errors = $null
-          [System.Management.Automation.Language.Parser]::ParseFile(
+          foreach ($path in @(
             "packaging/runtime/wsl/Install-AgentFEM.ps1",
-            [ref]$tokens,
-            [ref]$errors
-          ) | Out-Null
-          if ($errors.Count -gt 0) {
-            $errors | ForEach-Object { Write-Error $_.Message }
-            exit 1
+            "packaging/runtime/wsl/Remove-AgentFEM.ps1"
+          )) {
+            $tokens = $null
+            $errors = $null
+            [System.Management.Automation.Language.Parser]::ParseFile(
+              $path,
+              [ref]$tokens,
+              [ref]$errors
+            ) | Out-Null
+            if ($errors.Count -gt 0) {
+              $errors | ForEach-Object { Write-Error "$path`: $($_.Message)" }
+              exit 1
+            }
           }
 
   documentation:

@@ -24,7 +24,15 @@ from . import provenance
 from . import upgrades
 from ._api_contract import CAPABILITIES_SCHEMA_VERSION, CLI_COMMANDS
 from .mpi_runtime import audit_mpi_runtime, mpi_command
-from .project import PROJECT_FILENAME, ProjectConfig, RunContext, discover, new_run_id
+from .project import (
+    PROJECT_FILENAME,
+    ProjectConfig,
+    RunContext,
+    discover,
+    new_run_id,
+    protect_workspace,
+    workspace_report,
+)
 
 
 TEMPLATE_PACKAGE = "agentfem.templates"
@@ -104,6 +112,10 @@ def _project(value: str | None) -> ProjectConfig:
 
 def _check_project(project: ProjectConfig) -> dict[str, object]:
     errors = list(project.check())
+    storage = project.summary()["storage"]
+    warnings = tuple(
+        item for item in (storage.get("warning"),) if isinstance(item, str) and item
+    )
     syntax = "not_checked"
     if project.entrypoint.is_file():
         try:
@@ -124,6 +136,7 @@ def _check_project(project: ProjectConfig) -> dict[str, object]:
         "project": project.summary(),
         "syntax": syntax,
         "errors": errors,
+        "warnings": warnings,
         "upgrade_status": upgrade.status,
         "upgrade_findings": tuple(
             item.as_dict(root=project.root) for item in upgrade.findings
@@ -140,6 +153,10 @@ def _format_check(record: dict[str, object]) -> str:
         text += (
             f"\nUpgrade review recommended: {count} finding(s). "
             "Run `agentfem upgrade`."
+        )
+    if record.get("warnings"):
+        text += "\n" + "\n".join(
+            f"Warning: {warning}" for warning in record["warnings"]
         )
     return text
 
@@ -161,6 +178,19 @@ def _command_upgrade(args) -> int:
         record["plan"] = str(plan_path.resolve())
     _emit(record, as_json=args.json, human=report.format())
     return 2 if report.errors else 0
+
+
+def _command_workspace(args) -> int:
+    """Inspect or protect the conventional installed-use project directory."""
+
+    report = (
+        protect_workspace(args.path)
+        if args.protect
+        else workspace_report(args.path)
+    )
+    record = report.summary()
+    _emit(record, as_json=args.json, human=report.format())
+    return 0 if report.protected or not report.under_wsl else 2
 
 
 def _run_context(project: ProjectConfig, run_id: str | None, output: str | None) -> RunContext:
@@ -261,6 +291,7 @@ def _command_run(args) -> int:
         return 2
     extensions.load_extensions(project.extensions)
     context = _run_context(project, args.run_id, args.output)
+    output_storage = context.summary()["output_storage"]
     previous_environment = {key: os.environ.get(key) for key in context.environment()}
     os.environ.update(context.environment())
     previous_directory = Path.cwd()
@@ -268,7 +299,18 @@ def _command_run(args) -> int:
     try:
         os.chdir(project.root)
         if MPI.COMM_WORLD.rank == 0 and not args.json:
-            print(f"AgentFEM run {context.run_id}\n  project: {project.name}\n  output: {context.output_directory}", flush=True)
+            print(
+                f"AgentFEM run {context.run_id}\n"
+                f"  project: {project.name}\n"
+                f"  output: {context.output_directory}",
+                flush=True,
+            )
+            printed_warnings = list(check.get("warnings", ()))
+            for warning in printed_warnings:
+                print(f"  warning: {warning}", flush=True)
+            output_warning = output_storage.get("warning")
+            if output_warning and output_warning not in printed_warnings:
+                print(f"  warning: {output_warning}", flush=True)
         with ExitStack() as stack:
             if args.json:
                 rank = MPI.COMM_WORLD.rank
@@ -590,6 +632,18 @@ def build_parser() -> argparse.ArgumentParser:
     doctor = sub.add_parser("doctor", help="Report the numerical runtime and optional integrations.")
     doctor.add_argument("--json", action="store_true")
 
+    workspace = sub.add_parser(
+        "workspace",
+        help="Inspect or protect the project directory used by installed AgentFEM.",
+    )
+    workspace.add_argument("--path")
+    workspace.add_argument(
+        "--protect",
+        action="store_true",
+        help="On WSL, migrate ~/AgentFEMProjects to durable Windows storage.",
+    )
+    workspace.add_argument("--json", action="store_true")
+
     init = sub.add_parser("init", help="Create an installed-use AgentFEM project.")
     init.add_argument("path", nargs="?", default=".")
     init.add_argument("--template", default="static-solid")
@@ -750,6 +804,8 @@ def _dispatch(argv: list[str] | None = None) -> int:
             report = platforms.runtime_report()
             _emit(report.summary(), as_json=args.json, human=report.format())
             return 0
+        if args.command == "workspace":
+            return _command_workspace(args)
         if args.command == "templates":
             record = {"schema": "agentfem.templates", "schema_version": "0.1.0", "templates": _templates()}
             _emit(record, as_json=args.json, human="Available templates:\n" + "\n".join(f"  - {item}" for item in _templates()))

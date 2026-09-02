@@ -97,6 +97,10 @@ def test_runtime_report_is_serializable_and_names_optional_integrations():
     assert report["execution"]["runtime_version"] == __version__
     assert "source" in report["execution"]
     assert "distribution" in report["execution"]
+    assert report["workspace"]["schema"] == "agentfem.workspace"
+    assert isinstance(
+        report["workspace"]["protected_from_distribution_removal"], bool
+    )
     if report["execution"]["mode"] == "source_checkout":
         assert report["execution"]["source"]["commit"]
         assert isinstance(report["execution"]["source"]["tracked_dirty"], bool)

@@ -751,6 +751,11 @@ def build_wsl(args: argparse.Namespace) -> Path:
         ),
         encoding="utf-8",
     )
+    remover = output / "Remove-AgentFEM.ps1"
+    remover.write_text(
+        (RUNTIME / "wsl" / "Remove-AgentFEM.ps1").read_text(encoding="utf-8"),
+        encoding="utf-8",
+    )
     start_here = output / "START-HERE.txt"
     start_here.write_text(
         render_wsl_start_here(),
@@ -760,6 +765,7 @@ def build_wsl(args: argparse.Namespace) -> Path:
     bundle_files = [
         artifact,
         installer,
+        remover,
         start_here,
         record_path,
         sbom,

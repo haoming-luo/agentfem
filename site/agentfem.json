@@ -34,6 +34,7 @@
   },
   "commands": {
     "environment_check": "agentfem doctor --json",
+    "workspace_check": "agentfem workspace --json",
     "capabilities": "agentfem capabilities --json",
     "project_check": "agentfem check --json",
     "run": "agentfem run --json",

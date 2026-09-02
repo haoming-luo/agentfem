@@ -105,9 +105,20 @@ python promotion_gate.py \
 ## Windows recommendation
 
 Install WSL2 with Ubuntu, install Miniforge inside WSL, and follow
-`INSTALL.md`. Keep the project inside the WSL Linux filesystem for compilation
-and I/O performance. ParaView may run either inside WSLg or on Windows while
-opening output copied or exposed from the WSL filesystem.
+`INSTALL.md`. Then establish the same durable workspace used by the Complete
+Runtime:
+
+```bash
+agentfem workspace --protect
+```
+
+The familiar `~/AgentFEMProjects` path then resolves to Windows
+`Documents\AgentFEMProjects`, so project inputs, results, and checkpoints are
+not owned by the replaceable WSL distribution. ParaView on Windows can open
+those outputs directly. For very I/O-intensive work, advanced users may keep
+recomputable scratch data in the Linux filesystem, but should publish accepted
+results back to the protected workspace before upgrading or unregistering the
+distribution.
 
 Native Windows should become supported only after all of the following exist:
 

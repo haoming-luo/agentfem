@@ -16,6 +16,14 @@ password when prompted. Password characters are intentionally not displayed.
 When setup finishes, run:
 
    agentfem doctor
+   agentfem workspace
+
+By default, projects and results are stored in the Windows Documents folder:
+
+   Documents\AgentFEMProjects
+
+Inside WSL the same directory appears as `~/AgentFEMProjects`. Removing or
+replacing the AgentFEM WSL distribution does not remove this Windows folder.
 
 Later, start AgentFEM from the Start menu or run this in PowerShell:
 
@@ -79,11 +87,37 @@ candidate, exports the old runtime, then switches. If a later step fails it
 re-imports the old snapshot. Never interrupt Windows while the script says it
 is switching or restoring a distribution.
 
+Removing AgentFEM safely
+------------------------
+
+Do not use `wsl --unregister AgentFEM` directly. It permanently deletes every
+file still stored inside that distribution. Use the bundled safety wrapper:
+
+   powershell -ExecutionPolicy Bypass -File .\Remove-AgentFEM.ps1
+
+It first verifies that the project workspace is on the Windows drive, exports
+a recovery snapshot of the runtime, and only then removes the distribution.
+The persistent `Documents\AgentFEMProjects` folder is never removed.
+
+Existing WSL or Mamba installations
+-----------------------------------
+
+The same storage contract works when AgentFEM was installed with Mamba inside
+Ubuntu or another WSL distribution:
+
+   agentfem workspace --protect
+
+This copies and verifies existing `~/AgentFEMProjects` data before linking the
+familiar Linux path to the durable Windows Documents folder.
+
 For an AI agent
 ---------------
 
 Follow this file as the installation contract. Use the default side-by-side
 route unless the user explicitly asks for `-Upgrade`; that switch authorizes
 the installer-managed backup and replacement transaction only. Do not run
-`wsl --unregister` yourself. After installation, report the distribution
-name, AgentFEM version, health-check result, and retained backup path, if any.
+`wsl --unregister` yourself. Before every upgrade or removal, require
+`agentfem workspace --json` to report
+`protected_from_distribution_removal: true`. After installation, report the
+distribution name, AgentFEM version, health-check result, persistent project
+directory, and retained backup path, if any.

@@ -1052,7 +1052,8 @@ FEniCSx/PETSc/MPI foundation together:</p>
 machine-learning integrations are described in the
 <a href="getting_started/">installation and platform guide</a>. Users in mainland
 China can use the documented TUNA mirror without changing their global conda
-configuration.</p>
+configuration. On WSL, run <code>agentfem workspace --protect</code> once; the same safe project layout
+is used by both Mamba installations and the Complete Runtime.</p>
 <h2 id="first-finite-element-model">First finite-element model<a class="headerlink" href="#first-finite-element-model" title="Permanent link">&para;</a></h2>
 <p>The following complete example solves a two-dimensional linear-elastic
 cantilever. The left boundary is fixed and a traction is applied on the right.</p>

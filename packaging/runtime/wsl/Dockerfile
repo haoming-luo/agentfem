@@ -8,7 +8,7 @@ SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
 RUN apt-get update && \
     DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
-      adduser bash ca-certificates gzip passwd sudo && \
+      adduser bash ca-certificates gzip passwd sudo util-linux && \
     rm -rf /var/lib/apt/lists/*
 
 COPY build/runtime/runtime-lock.txt /tmp/runtime-lock.txt

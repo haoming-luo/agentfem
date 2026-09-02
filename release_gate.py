@@ -76,6 +76,7 @@ REQUIRED_WHEEL_MEMBERS = (
     "agentfem/knowledge/cards/transient_checkpoint_portability.json",
     "agentfem/knowledge/decisions/0016-thin-model-facade-and-execution-policy.md",
     "agentfem/knowledge/decisions/0017-public-api-lifecycle.md",
+    "agentfem/knowledge/decisions/0024-runtime-project-custody.md",
     "agentfem/materials/data/steel_generic.json",
 )
 
@@ -508,11 +509,16 @@ def run_agent_entrypoint_smoke(*, environment=None) -> dict[str, object]:
         doctor = _installed_cli_json(
             ("doctor",), environment=environment, cwd=directory
         )
+        workspace = _installed_cli_json(
+            ("workspace",), environment=environment, cwd=directory
+        )
         capabilities = _installed_cli_json(
             ("capabilities",), environment=environment, cwd=directory
         )
     if doctor.get("schema") != "agentfem.runtime-report":
         raise RuntimeError("Installed `agentfem doctor` returned an unknown schema.")
+    if workspace.get("schema") != "agentfem.workspace":
+        raise RuntimeError("Installed `agentfem workspace` returned an unknown schema.")
     if capabilities.get("schema") != "agentfem.capabilities":
         raise RuntimeError(
             "Installed `agentfem capabilities` returned an unknown schema."
@@ -535,6 +541,7 @@ def run_agent_entrypoint_smoke(*, environment=None) -> dict[str, object]:
         "schema_version": "0.1.0",
         "agentfem_version": capabilities["agentfem_version"],
         "runtime": "passed",
+        "workspace": workspace,
         "runtime_fingerprint": {
             "platform": doctor["platform"],
             "operating_system": doctor["operating_system"],

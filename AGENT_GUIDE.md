@@ -9,8 +9,13 @@ finite-element simulation with AgentFEM.
    guessing a pip-only numerical environment. The release-tested environment
    is Python 3.11 with DOLFINx 0.11. In mainland China, use the documented
    single-mirror command; do not combine conda channels for PETSc/MPI/DOLFINx.
-2. For an installed case, run `agentfem doctor --json`, then
-   `agentfem check --json`. For an existing case also run
+2. For an installed case, run `agentfem doctor --json`. On WSL, also run
+   `agentfem workspace --json`; before any runtime replacement or removal it
+   must report `protected_from_distribution_removal: true`. If it does not,
+   run `agentfem workspace --protect` before creating or moving project data.
+   Never run raw `wsl --unregister`; use the Complete Runtime's bundled
+   `Remove-AgentFEM.ps1`. Then run `agentfem check --json`. For an existing
+   case also run
    `agentfem upgrade --json`; treat `semantic_review=true` as a requirement to
    inspect the finite-element meaning, not as permission for blind text
    replacement. For repository work, also read this guide.

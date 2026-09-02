@@ -108,12 +108,58 @@ path for a stalled Store download and the exact `wsl --status` / `wsl
 --version` diagnostics.
 
 The imported distribution creates a Start-menu entry and Windows Terminal
-profile using its registered distribution name. Simulation projects are kept
-in `~/AgentFEMProjects`. A normal side-by-side install leaves that directory in
-the old distribution; `-Upgrade` migrates the complete user home into the new
-stable distribution and keeps a recovery snapshot. This makes project custody
-explicit while preserving the convenience of the conventional
-`wsl -d AgentFEM` command.
+profile using its registered distribution name. The installer creates the
+authoritative project workspace in Windows `Documents\AgentFEMProjects` and
+exposes it inside Linux as `~/AgentFEMProjects`. Project inputs, result
+manifests, field files, histories, and checkpoints therefore survive replacing
+or unregistering the runtime distribution. Check the custody contract with:
+
+```bash
+agentfem workspace
+agentfem workspace --json
+```
+
+The same mechanism applies to AgentFEM installed through Mamba in an existing
+Ubuntu or other WSL distribution. One command migrates an existing conventional
+workspace with a copy, content verification, retained pre-migration copy, and
+only then a link switch:
+
+```bash
+agentfem workspace --protect
+```
+
+A different Windows location is equally valid, for example a large `D:` drive:
+
+```bash
+agentfem workspace --protect --path /mnt/d/AgentFEMProjects
+```
+
+Projects created below that workspace keep their default `outputs/` directory
+beside the model, so the complete reproducible project remains one portable
+Windows folder.
+
+Use the Windows host workspace as the safe default. Linux-native storage can be
+faster for very high-frequency temporary I/O, so advanced workflows may keep
+recomputable scratch or caches inside WSL, but an accepted project's only copy
+must not remain there. This follows Microsoft's guidance that cross-filesystem
+I/O can be slower while also respecting its warning that unregistering a WSL
+distribution permanently deletes its contents.
+
+To remove the Complete Runtime, use the bundled fail-closed wrapper:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\Remove-AgentFEM.ps1
+```
+
+It verifies persistent project custody and exports a full recovery snapshot
+before unregistering the distribution. It never deletes the Windows project
+directory. Neither users nor agents should call `wsl --unregister AgentFEM`
+directly.
+
+Every project summary and execution record carries both `project_storage` and
+`output_storage` custody metadata. A project or explicit output path remaining
+inside a replaceable WSL distribution is therefore visible to people, agents,
+and downstream verification rather than being a hidden installation detail.
 
 ## Integrity and mirrors
 

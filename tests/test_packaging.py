@@ -43,7 +43,16 @@ def test_release_gate_exercises_every_installed_project_template():
 def test_release_gate_exercises_agent_machine_entrypoints():
     source = (PROJECT_ROOT / "release_gate.py").read_text(encoding="utf-8")
     assert "run_agent_entrypoint_smoke" in source
-    for command in ("doctor", "capabilities", "init", "check", "run", "inspect", "verify"):
+    for command in (
+        "doctor",
+        "workspace",
+        "capabilities",
+        "init",
+        "check",
+        "run",
+        "inspect",
+        "verify",
+    ):
         assert f'"{command}"' in source
 
 

@@ -34,6 +34,18 @@ agentfem doctor
 The full [`INSTALL.md`](https://github.com/haoming-luo/agentfem/blob/main/INSTALL.md)
 also covers package search, release-cache refresh, PyPI fallback, and Windows.
 
+### Persistent project storage on WSL
+
+On WSL, protect the conventional project directory before creating the first
+case:
+
+```bash
+agentfem workspace --protect
+```
+
+It remains available as `~/AgentFEMProjects`, while the authoritative files
+live in Windows `Documents\AgentFEMProjects` and survive runtime replacement.
+
 The JSON form is intended for issue reports, IDE integrations, and agents. It
 records the platform route, exact interpreter and imported package, core
 versions, and optional mesh, visualization, machine-learning, and
@@ -48,7 +60,10 @@ The same report separates the concise `Model` vocabulary from advanced and
 built-in Step provider. Agents and interfaces should consume those contracts
 instead of guessing solver arguments from examples.
 
-## Create a project anywhere
+## Create a project
+
+On WSL, begin below `~/AgentFEMProjects`. On Linux and macOS, projects may live
+in any user-owned directory.
 
 ```bash
 agentfem templates

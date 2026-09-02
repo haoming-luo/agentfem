@@ -4,6 +4,7 @@ param(
     [string]$ExpectedSha256 = "@IMAGE_SHA256@",
     [string]$DistributionName = "AgentFEM",
     [string]$InstallLocation = "",
+    [string]$ProjectDirectory = "",
     [switch]$Upgrade,
     [string]$BackupDirectory = "",
     [switch]$RemoveBackupAfterSuccess
@@ -151,6 +152,35 @@ function Restore-UpgradeUserEnvironment {
     }
 }
 
+function Set-ProjectWorkspaceEnvironment {
+    param([Parameter(Mandatory = $true)][string]$WindowsPath)
+
+    $script:PreviousProjectsHome = $env:AGENTFEM_PROJECTS_HOME
+    $script:PreviousProjectsWslEnv = $env:WSLENV
+    $env:AGENTFEM_PROJECTS_HOME = $WindowsPath
+    $entries = @()
+    if ($env:WSLENV) {
+        $entries = @($env:WSLENV -split ':')
+    }
+    if ($entries -notcontains "AGENTFEM_PROJECTS_HOME/p") {
+        $entries += "AGENTFEM_PROJECTS_HOME/p"
+    }
+    $env:WSLENV = $entries -join ':'
+}
+
+function Restore-ProjectWorkspaceEnvironment {
+    if ($null -eq $script:PreviousProjectsHome) {
+        Remove-Item Env:AGENTFEM_PROJECTS_HOME -ErrorAction SilentlyContinue
+    } else {
+        $env:AGENTFEM_PROJECTS_HOME = $script:PreviousProjectsHome
+    }
+    if ($null -eq $script:PreviousProjectsWslEnv) {
+        Remove-Item Env:WSLENV -ErrorAction SilentlyContinue
+    } else {
+        $env:WSLENV = $script:PreviousProjectsWslEnv
+    }
+}
+
 function Set-ImportedDefaultUser {
     param(
         [Parameter(Mandatory = $true)][string]$Name,
@@ -169,7 +199,10 @@ function Set-ImportedDefaultUser {
 }
 
 function Install-SideBySide {
-    param([Parameter(Mandatory = $true)][string]$RequestedName)
+    param(
+        [Parameter(Mandatory = $true)][string]$RequestedName,
+        [Parameter(Mandatory = $true)][string]$Projects
+    )
 
     $existing = Get-WslDistributions
     $selectedName = $RequestedName
@@ -189,11 +222,25 @@ function Install-SideBySide {
     Install-AgentFEMDistribution -Name $selectedName -Location $InstallLocation
     Write-Host "Starting AgentFEM for first-time user setup..." -ForegroundColor Green
     Write-Host "When setup is complete, run 'agentfem doctor'." -ForegroundColor Green
-    & wsl.exe --distribution $selectedName
+    Set-ProjectWorkspaceEnvironment -WindowsPath $Projects
+    $setupExitCode = 0
+    try {
+        & wsl.exe --distribution $selectedName
+        $setupExitCode = $LASTEXITCODE
+    } finally {
+        Restore-ProjectWorkspaceEnvironment
+    }
+    if ($setupExitCode -ne 0) {
+        throw "The AgentFEM first-time setup did not complete. The Windows project directory was not removed."
+    }
+    Write-Host "Persistent projects: $Projects" -ForegroundColor Green
 }
 
 function Upgrade-AgentFEMDistribution {
-    param([Parameter(Mandatory = $true)][string]$Name)
+    param(
+        [Parameter(Mandatory = $true)][string]$Name,
+        [Parameter(Mandatory = $true)][string]$Projects
+    )
 
     if ($Name -ne "AgentFEM") {
         throw "Transactional replacement currently supports only the stable 'AgentFEM' distribution name."
@@ -292,6 +339,16 @@ function Upgrade-AgentFEMDistribution {
             "--exec", "tar", "-C", "/", "-xzf", $newHomePath
         ) -FailureMessage "The new runtime was installed, but the previous user files could not be restored."
 
+        $newProjectsPath = Convert-ToWslPath -Name $Name -WindowsPath $Projects
+        Invoke-WslChecked -Arguments @(
+            "--distribution", $Name,
+            "--exec", "/opt/conda/bin/agentfem", "workspace",
+            "--protect", "--path", $newProjectsPath, "--json"
+        ) -FailureMessage (
+            "The upgraded runtime was restored, but its projects could not be " +
+            "verified and moved to persistent Windows storage."
+        )
+
         Test-AgentFEMDistribution -Name $Name
         Invoke-WslChecked -Arguments @(
             "--distribution", $Name,
@@ -310,10 +367,12 @@ function Upgrade-AgentFEMDistribution {
             home_backup = $homeBackup
             doctor = "passed"
             projects_restored = $true
+            persistent_projects = $Projects
         } | ConvertTo-Json | Set-Content -Encoding UTF8 $transactionRecord
 
         Write-Host "AgentFEM was upgraded in place to $RuntimeVersion." -ForegroundColor Green
         Write-Host "Projects and user settings were restored for '$oldUser'." -ForegroundColor Green
+        Write-Host "Persistent projects: $Projects" -ForegroundColor Green
         & wsl.exe --unregister $candidateName | Out-Null
         if ($LASTEXITCODE -ne 0) {
             Write-Warning "Upgrade succeeded, but temporary candidate '$candidateName' could not be removed. Remove only that candidate after inspection."
@@ -412,8 +471,18 @@ $requestedName = $DistributionName.Trim()
 if (-not $requestedName) {
     throw "DistributionName must not be empty."
 }
+if (-not $ProjectDirectory) {
+    $documents = [Environment]::GetFolderPath("MyDocuments")
+    if (-not $documents) {
+        $documents = Join-Path $env:USERPROFILE "Documents"
+    }
+    $ProjectDirectory = Join-Path $documents "AgentFEMProjects"
+}
+$persistentProjects = [System.IO.Path]::GetFullPath($ProjectDirectory)
+New-Item -ItemType Directory -Force -Path $persistentProjects | Out-Null
+Write-Host "User projects will persist outside WSL at: $persistentProjects" -ForegroundColor Green
 if ($Upgrade) {
-    Upgrade-AgentFEMDistribution -Name $requestedName
+    Upgrade-AgentFEMDistribution -Name $requestedName -Projects $persistentProjects
 } else {
-    Install-SideBySide -RequestedName $requestedName
+    Install-SideBySide -RequestedName $requestedName -Projects $persistentProjects
 }

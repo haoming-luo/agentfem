@@ -69,6 +69,8 @@ output_directory = "outputs"
     assert manifest["schema"] == "agentfem.simulation-result"
     assert execution["status"] == "completed"
     assert execution["structured_result"] is True
+    assert execution["project_storage"]["protected_from_distribution_removal"]
+    assert execution["output_storage"]["protected_from_distribution_removal"]
     assert latest["run_id"] == "test-run"
 
 
@@ -132,6 +134,165 @@ def test_cli_init_and_check_use_installed_template(tmp_path):
     assert (target / "agentfem.toml").is_file()
     assert cli.main(["check", "--project", str(target)]) == 0
     assert cli.main(["templates", "--json"]) == 0
+
+
+def test_wsl_workspace_protection_copies_verifies_and_retains_source(
+    tmp_path, monkeypatch
+):
+    home = tmp_path / "linux-home"
+    source = home / "AgentFEMProjects"
+    source.mkdir(parents=True)
+    (source / "beam").mkdir()
+    (source / "beam" / "case.py").write_text("print('safe')\n", encoding="utf-8")
+    target = tmp_path / "windows-documents" / "AgentFEMProjects"
+
+    monkeypatch.setattr(project, "_running_under_wsl", lambda: True)
+    monkeypatch.setattr(project, "_is_windows_host_path", lambda path: path == target)
+
+    report = project.protect_workspace(target, link=source)
+
+    assert report.protected is True
+    assert report.storage == "windows_host"
+    assert source.is_symlink()
+    assert source.resolve() == target
+    assert (target / "beam" / "case.py").read_text(encoding="utf-8") == (
+        "print('safe')\n"
+    )
+    assert report.retained_source is not None
+    assert (report.retained_source / "beam" / "case.py").is_file()
+
+
+def test_wsl_workspace_protection_fails_closed_on_conflicting_target(
+    tmp_path, monkeypatch
+):
+    source = tmp_path / "home" / "AgentFEMProjects"
+    source.mkdir(parents=True)
+    (source / "case.py").write_text("old\n", encoding="utf-8")
+    target = tmp_path / "host" / "AgentFEMProjects"
+    target.mkdir(parents=True)
+    (target / "case.py").write_text("different\n", encoding="utf-8")
+
+    monkeypatch.setattr(project, "_running_under_wsl", lambda: True)
+    monkeypatch.setattr(project, "_is_windows_host_path", lambda path: path == target)
+
+    with pytest.raises(FileExistsError, match="differs"):
+        project.protect_workspace(target, link=source)
+
+    assert source.is_dir() and not source.is_symlink()
+    assert (source / "case.py").read_text(encoding="utf-8") == "old\n"
+    assert (target / "case.py").read_text(encoding="utf-8") == "different\n"
+
+
+def test_wsl_workspace_protection_rejects_unverified_symlinks_without_mutation(
+    tmp_path, monkeypatch
+):
+    source = tmp_path / "home" / "AgentFEMProjects"
+    source.mkdir(parents=True)
+    external = tmp_path / "external.dat"
+    external.write_text("external\n", encoding="utf-8")
+    (source / "external.dat").symlink_to(external)
+    target = tmp_path / "host" / "AgentFEMProjects"
+
+    monkeypatch.setattr(project, "_running_under_wsl", lambda: True)
+    monkeypatch.setattr(project, "_is_windows_host_path", lambda path: path == target)
+
+    with pytest.raises(ValueError, match="symbolic links safely"):
+        project.protect_workspace(target, link=source)
+
+    assert source.is_dir() and not source.is_symlink()
+    assert (source / "external.dat").is_symlink()
+    assert not target.exists()
+
+
+def test_wsl_workspace_protection_rejects_file_target(tmp_path, monkeypatch):
+    source = tmp_path / "home" / "AgentFEMProjects"
+    source.mkdir(parents=True)
+    target = tmp_path / "host" / "AgentFEMProjects"
+    target.parent.mkdir(parents=True)
+    target.write_text("not a directory\n", encoding="utf-8")
+
+    monkeypatch.setattr(project, "_running_under_wsl", lambda: True)
+    monkeypatch.setattr(project, "_is_windows_host_path", lambda path: path == target)
+
+    with pytest.raises(ValueError, match="target is not a directory"):
+        project.protect_workspace(target, link=source)
+
+    assert source.is_dir()
+    assert target.read_text(encoding="utf-8") == "not a directory\n"
+
+
+def test_workspace_cli_reports_and_protects_generic_wsl_mamba_install(
+    tmp_path, monkeypatch, capsys
+):
+    home = tmp_path / "home"
+    link = home / "AgentFEMProjects"
+    target = tmp_path / "windows" / "AgentFEMProjects"
+    monkeypatch.setenv("HOME", str(home))
+    monkeypatch.setattr(project, "_running_under_wsl", lambda: True)
+    monkeypatch.setattr(project, "_is_windows_host_path", lambda path: path == target)
+
+    assert cli.main(["workspace", "--path", str(target), "--json"]) == 2
+    unsafe = json.loads(capsys.readouterr().out)
+    assert unsafe["protected_from_distribution_removal"] is False
+
+    assert (
+        cli.main(
+            ["workspace", "--protect", "--path", str(target), "--json"]
+        )
+        == 0
+    )
+    protected = json.loads(capsys.readouterr().out)
+    assert protected["protected_from_distribution_removal"] is True
+    assert link.is_symlink()
+
+
+def test_project_storage_follows_protected_workspace_symlink(tmp_path, monkeypatch):
+    home = tmp_path / "home"
+    link = home / "AgentFEMProjects"
+    target = tmp_path / "windows" / "AgentFEMProjects"
+    project_root = target / "beam"
+    project_root.mkdir(parents=True)
+    link.parent.mkdir(parents=True)
+    link.symlink_to(target, target_is_directory=True)
+
+    monkeypatch.setattr(project, "_running_under_wsl", lambda: True)
+    monkeypatch.setattr(
+        project,
+        "_is_windows_host_path",
+        lambda path: str(path).startswith(str(target)),
+    )
+
+    custody = project.storage_custody(link / "beam")
+
+    assert custody["path"] == str(link / "beam")
+    assert custody["resolved_path"] == str(project_root)
+    assert custody["storage"] == "windows_host"
+    assert custody["protected_from_distribution_removal"] is True
+    assert custody["warning"] is None
+
+
+def test_workspace_report_reuses_existing_link_without_host_discovery(
+    tmp_path, monkeypatch
+):
+    link = tmp_path / "home" / "AgentFEMProjects"
+    target = tmp_path / "windows" / "AgentFEMProjects"
+    target.mkdir(parents=True)
+    link.parent.mkdir(parents=True)
+    link.symlink_to(target, target_is_directory=True)
+
+    monkeypatch.setattr(project, "_running_under_wsl", lambda: True)
+    monkeypatch.setattr(project.Path, "home", lambda: link.parent)
+    monkeypatch.setattr(
+        project,
+        "_windows_documents_from_wsl",
+        lambda: pytest.fail("configured workspace must not query the Windows host"),
+    )
+    monkeypatch.setattr(project, "_is_windows_host_path", lambda path: path == target)
+
+    report = project.workspace_report()
+
+    assert report.protected is True
+    assert report.target == target
 
 
 def test_template_copy_ignores_runtime_cache_directories(tmp_path, monkeypatch):

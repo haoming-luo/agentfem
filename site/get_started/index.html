@@ -1016,6 +1016,8 @@ architecture before running the first model.</p>
 <li>Follow <a href="../getting_started/">Installation and first project</a> to create a
    compatible FEniCSx environment and install AgentFEM.</li>
 <li>Run <code>agentfem doctor</code> to record the actual numerical stack.</li>
+<li>On WSL, run <code>agentfem workspace --protect</code> once so projects survive runtime
+   replacement or distribution removal.</li>
 <li>Create a project with the <code>static-solid</code> template.</li>
 <li>Read the generated <code>case.py</code>, then run <code>agentfem check</code> and <code>agentfem run</code>.</li>
 <li>Inspect <code>result.json</code> and the field output instead of relying only on a
@@ -1024,13 +1026,14 @@ architecture before running the first model.</p>
    problem and the <a href="../examples/">examples</a> for executable evidence.</li>
 </ol>
 <h2 id="first-project">First project<a class="headerlink" href="#first-project" title="Permanent link">&para;</a></h2>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>mkdir<span class="w"> </span>beam
-<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="nb">cd</span><span class="w"> </span>beam
-<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>agentfem<span class="w"> </span>init<span class="w"> </span>--template<span class="w"> </span>static-solid<span class="w"> </span>.
-<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>agentfem<span class="w"> </span>check
-<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>agentfem<span class="w"> </span>run
-<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>agentfem<span class="w"> </span>inspect
-<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>agentfem<span class="w"> </span>verify
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nb">cd</span><span class="w"> </span>~/AgentFEMProjects<span class="w">  </span><span class="c1"># recommended durable location on WSL</span>
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>mkdir<span class="w"> </span>beam
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="nb">cd</span><span class="w"> </span>beam
+<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>agentfem<span class="w"> </span>init<span class="w"> </span>--template<span class="w"> </span>static-solid<span class="w"> </span>.
+<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>agentfem<span class="w"> </span>check
+<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>agentfem<span class="w"> </span>run
+<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>agentfem<span class="w"> </span>inspect
+<a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>agentfem<span class="w"> </span>verify
 </code></pre></div>
 <p>The generated project remains ordinary Python:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>beam/

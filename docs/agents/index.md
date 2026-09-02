@@ -14,6 +14,7 @@ status and scientific evidence.
 | `installation` in `/agentfem.json` | Tested runtime and official/mainland-China environment commands |
 | `src/agentfem/knowledge/catalog.json` | Scientific cards, formulas, evidence, consumers, and maturity |
 | `agentfem doctor --json` | Environment capability check |
+| `agentfem workspace --json` | Runtime-independent project custody check |
 | `agentfem capabilities --json` | Public API, providers, maturity, and benchmark evidence |
 | `agentfem check --json` | Static project and upgrade check |
 | `agentfem run --json` | Addressable execution result |
@@ -26,7 +27,7 @@ status and scientific evidence.
 ## Safe operating sequence
 
 ```text
-discover → doctor → init/open → inspect project → edit case.py → check
+discover → doctor → protect workspace → init/open → inspect project → edit case.py → check
          → run → inspect structured result → verify policy → publish or revise
 ```
 
@@ -38,6 +39,12 @@ compiled numerical stack.
 An agent must not infer scientific validity from a zero exit code. It should
 inspect convergence, requested outputs, quality policy, applicability limits,
 benchmark evidence, and any explicit failure record.
+
+On WSL, an agent must not replace or unregister a distribution until
+`agentfem workspace --json` reports that project data is protected from
+distribution removal. Use `agentfem workspace --protect`; for the Complete
+Runtime, use its lifecycle scripts rather than reproducing destructive WSL
+commands.
 
 For an Abaqus migration, inspect before creating a project. Preserve the
 complete source graph and review every issue in `migration.json`; never remove

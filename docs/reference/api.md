@@ -366,6 +366,11 @@ and evidence remain in the linked guides and scientific function reference.
 | Kind | Public object | Purpose |
 | --- | --- | --- |
 | function | `new_run_id(now: datetime \| None = None) -> str` | Return a sortable, collision-resistant identifier for one execution. |
+| function | `recommended_workspace(path: str \| Path \| None = None) -> Path` | Return the cross-installation project root recommended on this host. |
+| class | `WorkspaceReport` | Custody report for the conventional installed-use project directory. |
+| function | `workspace_report(path: str \| Path \| None = None, *, link: str \| Path \| None = None) -> WorkspaceReport` | Inspect project custody without changing the filesystem. |
+| function | `storage_custody(path: str \| Path) -> dict[str, object]` | Describe whether a project path survives removal of its runtime. |
+| function | `protect_workspace(path: str \| Path \| None = None, *, link: str \| Path \| None = None) -> WorkspaceReport` | Create or migrate the conventional workspace to durable host storage. |
 | class | `ProjectConfig` | Operational metadata for an AgentFEM case directory. |
 | function | `discover(start: str \| Path \| None = None) -> ProjectConfig` | Find the nearest ``agentfem.toml`` from ``start`` upward. |
 | class | `RunContext` | Filesystem and identity contract shared by scripts, CLIs, GUIs, and agents. |
