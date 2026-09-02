@@ -1,0 +1,45 @@
+{
+  "schema": "agentfem.benchmark-card",
+  "schema_version": "0.1.0",
+  "id": "agentfem.benchmark.nafems_le10_3d_elasticity",
+  "title": "NAFEMS LE10 three-dimensional thick elliptical plate",
+  "status": "external_release_regression",
+  "purpose": "Verify AgentFEM's canonical three-dimensional static-solid path against a public bending-dominated continuum benchmark with curved geometry, quadratic displacement interpolation, mixed component constraints, surface pressure, stress recovery, force balance, and work balance.",
+  "physics": "three-dimensional small-strain isotropic linear elasticity under transverse pressure",
+  "source": {
+    "organization": "NAFEMS",
+    "title": "LE10 Thick Plate Pressure",
+    "reference": "The Standard NAFEMS Benchmarks, Test LE10; public target sigma_yy(D) = -5.38 MPa",
+    "abaqus_reference": "https://docs.software.vt.edu/abaqusv2025/English/SIMACAEBMKRefMap/simabmk-c-le10.htm",
+    "nafems_reference": "https://www.nafems.org/publications/resource_center/p18/",
+    "secondary_displacement_reference": "https://www.seamplex.com/fino/cases/012-nafems-le10/"
+  },
+  "execution": {
+    "command": "python -m pytest -q tests/test_external_elasticity_3d_benchmark.py",
+    "example": "examples/nafems_le10_3d.py",
+    "structural_api": "Study -> Model -> fields/material/loads/constraints -> model.step -> SimulationResult",
+    "evidence": "A curved quadratic mapped-hexahedron model compares the recovered top-surface sigma_yy at D=(2,0,0.6) with the published -5.38 MPa target while independently checking algebraic force balance, strain-energy balance, and default unsmoothed stress-field semantics."
+  },
+  "observables": [
+    "recovered top-surface sigma_yy at point D",
+    "point-D displacement against an independent public LE10 implementation",
+    "relative error against the NAFEMS -5.38 MPa target",
+    "integrated pressure resultant against the analytical quarter-ellipse area",
+    "global reaction plus applied pressure resultant",
+    "strain energy and external work balance",
+    "default DG0 cell-average stress processing metadata"
+  ],
+  "acceptance": [
+    "The recovered sigma_yy(D) differs from the NAFEMS target by less than 5%.",
+    "The versioned 4 x 12 x 2 curved quadratic mesh remains within 1% of the published stress target.",
+    "The point-D displacement vector remains within 3% of the independent public Fino/FeenoX result.",
+    "Relative force and energy balance errors remain below 1e-9.",
+    "The integrated loaded-area error remains below 5e-5.",
+    "The benchmark-only nodal recovery remains explicit and does not silently replace AgentFEM's traceable DG0 cell-average stress output."
+  ],
+  "limitations": [
+    "The NAFEMS comparison quantity depends on a stated stress-recovery convention; raw integration-point, cell-average, nodally extrapolated, and globally projected stresses are not interchangeable.",
+    "This benchmark verifies continuum Lagrange solid mechanics, not shells, contact, plasticity, or nearly incompressible mixed formulations.",
+    "The public reference target is a numerical benchmark value rather than a closed-form solution."
+  ]
+}

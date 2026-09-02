@@ -7085,6 +7085,21 @@ and evidence remain in the linked guides and scientific function reference.</p>
 </tr>
 <tr>
 <td>class</td>
+<td><code>Elasticity3DBenchmark</code></td>
+<td>Rank-independent evidence from a public 3D elasticity benchmark.</td>
+</tr>
+<tr>
+<td>function</td>
+<td><code>nafems_le10_3d_benchmark(*, radial_cells: int = 4, angular_cells: int = 12, thickness_cells: int = 2, comm = MPI.COMM_WORLD, output = None) -&gt; tuple[Elasticity3DBenchmark, object]</code></td>
+<td>Solve NAFEMS LE10 and return benchmark evidence plus SimulationResult.</td>
+</tr>
+<tr>
+<td>function</td>
+<td><code>nafems_le10_mesh(*, radial_cells: int = 4, angular_cells: int = 12, thickness_cells: int = 2, geometry_degree: int = 2, comm = MPI.COMM_WORLD)</code></td>
+<td>Create the quarter thick-elliptical-plate domain from NAFEMS LE10.</td>
+</tr>
+<tr>
+<td>class</td>
 <td><code>CenterCrackLEFMBenchmark</code></td>
 <td>One solved center-crack model and its independently extracted evidence.</td>
 </tr>

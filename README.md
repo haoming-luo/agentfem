@@ -109,7 +109,13 @@ powershell -ExecutionPolicy Bypass -File .\Install-AgentFEM.ps1
 ```
 
 The included `START-HERE.txt` gives the same short contract to people and AI
-agents. If WSL is absent, the installer explains how to enable it first.
+agents. If WSL is absent, the installer explains how to enable it first. A new
+bundle can be tested beside the old runtime, or safely replace it with a
+validated backup-and-rollback transaction:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\Install-AgentFEM.ps1 -Upgrade
+```
 
 ### Existing FEniCSx environment: PyPI
 
@@ -202,6 +208,9 @@ for the detailed scope.
 
 - [Static elasticity](examples/static_elasticity_2d.py) — the readable beginner
   workflow.
+- [NAFEMS LE10 3D elasticity](examples/nafems_le10_3d.py) — a public curved-
+  solid pressure benchmark with stress, displacement, force, energy, and MPI
+  evidence.
 - [Transient heat transfer](examples/transient_heat_2d.py) — implicit time
   integration, progress, and field output.
 - [Wave propagation with an inclusion](examples/wave_packet_inclusion_2d.py) —

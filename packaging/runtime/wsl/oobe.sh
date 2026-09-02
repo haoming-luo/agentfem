@@ -10,13 +10,19 @@ fi
 
 echo "AgentFEM Runtime $version"
 echo "Create the Linux user used for your simulation projects."
-while true; do
-  read -r -p "Username: " username
-  if [[ "$username" =~ ^[a-z_][a-z0-9_-]*$ ]]; then
-    break
-  fi
-  echo "Use lowercase letters, numbers, '_' or '-', starting with a letter."
-done
+preset_username=${AGENTFEM_UPGRADE_USER:-}
+if [[ "$preset_username" =~ ^[a-z_][a-z0-9_-]*$ ]] && [[ "$preset_username" != root ]]; then
+  username=$preset_username
+  echo "Reusing Linux username '$username' from the previous AgentFEM runtime."
+else
+  while true; do
+    read -r -p "Username: " username
+    if [[ "$username" =~ ^[a-z_][a-z0-9_-]*$ ]] && [[ "$username" != root ]]; then
+      break
+    fi
+    echo "Use lowercase letters, numbers, '_' or '-', starting with a letter."
+  done
+fi
 
 adduser --uid "$default_uid" --disabled-password --gecos "" "$username"
 echo "Choose the Linux password used when this account runs sudo."

@@ -1,13 +1,15 @@
 AgentFEM Complete Runtime for Windows (WSL2 Preview)
 ===================================================
 
+Runtime version: @VERSION@
+
 1. Extract the entire ZIP file. Do not run the installer from inside the ZIP.
 2. Open PowerShell in this extracted folder.
 3. Run:
 
    powershell -ExecutionPolicy Bypass -File .\Install-AgentFEM.ps1
 
-The installer verifies the bundled image, creates the AgentFEM WSL2
+The installer checks WSL, verifies the bundled image, creates an AgentFEM WSL2
 distribution, and opens its first-time setup. Choose a Linux username and
 password when prompted. Password characters are intentionally not displayed.
 
@@ -24,15 +26,64 @@ If WSL is not installed
 
 Open PowerShell as Administrator and run:
 
-   wsl --install --no-distribution
+   wsl --install --no-distribution --web-download
 
 Restart Windows, extract this ZIP again if necessary, and repeat the three
 installation steps above. Windows may need internet access to enable WSL;
 the AgentFEM runtime itself is installed from this offline package.
 
+If WSL installation stops making progress
+-----------------------------------------
+
+Do not unregister any existing Linux distribution. Open Administrator
+PowerShell and inspect the installation first:
+
+   wsl --status
+   wsl --version
+
+After a pending Windows restart, restart the computer. If WSL is installed but
+out of date, run:
+
+   wsl --update --web-download
+
+If the optional Windows feature was not completed, retry:
+
+   wsl --install --no-distribution --web-download
+
+Installing a newer AgentFEM runtime
+-----------------------------------
+
+Choose one of two explicit upgrade policies.
+
+Safest preview (default): run the newer installer normally. If AgentFEM
+already exists, the new runtime is installed beside it as AgentFEM-@VERSION@.
+The old runtime and its projects are untouched. Start the candidate with:
+
+   wsl -d AgentFEM-@VERSION@
+
+Replacement upgrade: let the installer validate the new image, back up the
+complete old distribution and user home, restore the projects into the new
+runtime, and run the health check before finishing:
+
+   powershell -ExecutionPolicy Bypass -File .\Install-AgentFEM.ps1 -Upgrade
+
+The stable launch command remains `wsl -d AgentFEM`. The recovery backup is
+kept under LocalAppData by default and its exact path is printed. Delete it
+only after opening important projects and checking the new runtime. Advanced
+users who explicitly do not want a retained recovery copy may add
+`-RemoveBackupAfterSuccess`.
+
+Replacement is transactional rather than a blind overwrite. WSL has no safe
+in-place distribution replacement: the installer first validates a temporary
+candidate, exports the old runtime, then switches. If a later step fails it
+re-imports the old snapshot. Never interrupt Windows while the script says it
+is switching or restoring a distribution.
+
 For an AI agent
 ---------------
 
-Follow this file as the installation contract. Do not delete or overwrite an
-existing WSL distribution. After installation, report the AgentFEM version
-and the result of `agentfem doctor` to the user.
+Follow this file as the installation contract. Use the default side-by-side
+route unless the user explicitly asks for `-Upgrade`; that switch authorizes
+the installer-managed backup and replacement transaction only. Do not run
+`wsl --unregister` yourself. After installation, report the distribution
+name, AgentFEM version, health-check result, and retained backup path, if any.

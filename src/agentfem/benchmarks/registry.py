@@ -78,6 +78,26 @@ _BENCHMARKS = (
         status="release_regression",
     ),
     BenchmarkSpec(
+        identifier="nafems_le10_3d_elasticity",
+        capability="linear_elasticity",
+        level="external_finite_element_benchmark",
+        reference="knowledge/benchmarks/nafems_le10_3d_elasticity.json",
+        criterion=(
+            "the canonical 3D static-solid workflow recovers the published "
+            "NAFEMS LE10 sigma_yy(D) target within 5% while force and energy "
+            "balances close below 1e-9"
+        ),
+        automated_test="tests/test_external_elasticity_3d_benchmark.py",
+        status="external_release_regression",
+        evidence=(
+            "external_reference",
+            "finite_element",
+            "stress_recovery",
+            "force_balance",
+            "energy_balance",
+        ),
+    ),
+    BenchmarkSpec(
         identifier="lefm_center_crack_mode_i",
         capability="linear_elastic_fracture_mechanics",
         level="finite_element_and_postprocess",

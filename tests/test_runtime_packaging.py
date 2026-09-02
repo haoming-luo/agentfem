@@ -47,24 +47,87 @@ def test_wsl_distribution_has_oobe_and_stable_default_name():
     assert "windowsterminal" in configuration
 
 
-def test_windows_installer_fails_closed_on_existing_distribution():
+def test_windows_installer_defaults_to_side_by_side_without_overwrite():
     installer = (RUNTIME / "wsl" / "Install-AgentFEM.ps1").read_text(
         encoding="utf-8"
     )
-    assert "will not overwrite it" in installer
+    assert "installing this runtime side by side" in installer
+    assert '"AgentFEM-$RuntimeVersion"' in installer
+    assert "will not be modified" in installer
     assert "Get-FileHash -Algorithm SHA256" in installer
-    assert "--install --from-file" in installer
+    assert '"--install"' in installer
+    assert '"--from-file"' in installer
+    assert '"--name", $Name' in installer
+    assert '"--no-launch"' in installer
+    assert "wsl --update --web-download" in installer
     assert "@IMAGE_FILENAME@" in installer
     assert "@IMAGE_SHA256@" in installer
+    assert "@VERSION@" in installer
+
+
+def test_windows_installer_has_explicit_transactional_replacement_upgrade():
+    installer = (RUNTIME / "wsl" / "Install-AgentFEM.ps1").read_text(
+        encoding="utf-8"
+    )
+    assert "[switch]$Upgrade" in installer
+    assert "[switch]$RemoveBackupAfterSuccess" in installer
+    assert '"$stamp-before-$RuntimeVersion"' in installer
+    assert "Test-AgentFEMDistribution -Name $candidateName" in installer
+    assert '"doctor", "--json"' in installer
+    assert '"--export", $Name, $fullBackup' in installer
+    assert '"home/$oldUser"' in installer
+    assert '"--unregister", $Name' in installer
+    assert '"--import", $Name, $rollbackLocation, $fullBackup' in installer
+    assert 'schema = "agentfem.runtime-upgrade"' in installer
+    assert 'status = "completed"' in installer
+    assert 'status = "rolled_back"' in installer
+    assert 'status = "failed_before_switch"' in installer
+    assert "Get-AgentFEMRuntimeVersion" in installer
+    assert "Automatic rollback failed" in installer
+    assert "%LOCALAPPDATA%" not in installer
+    assert 'Join-Path $env:LOCALAPPDATA "AgentFEM\\Backups"' in installer
+
+
+def test_wsl_oobe_can_reuse_upgrade_username_without_duplicating_identity():
+    oobe = (RUNTIME / "wsl" / "oobe.sh").read_text(encoding="utf-8")
+    assert "AGENTFEM_UPGRADE_USER" in oobe
+    assert "Reusing Linux username" in oobe
+    assert '[[ "$username" != root ]]' in oobe
 
 
 def test_windows_bundle_contains_human_and_agent_start_here_contract():
     guide = (RUNTIME / "wsl" / "START-HERE.txt").read_text(encoding="utf-8")
     builder = (RUNTIME / "build_runtime.py").read_text(encoding="utf-8")
     assert "powershell -ExecutionPolicy Bypass -File .\\Install-AgentFEM.ps1" in guide
-    assert "wsl --install --no-distribution" in guide
+    assert "wsl --install --no-distribution --web-download" in guide
+    assert "wsl --status" in guide
+    assert "wsl --version" in guide
+    assert "AgentFEM-@VERSION@" in guide
+    assert ".\\Install-AgentFEM.ps1 -Upgrade" in guide
+    assert "-RemoveBackupAfterSuccess" in guide
+    assert "re-imports the old snapshot" in guide
     assert "agentfem doctor" in guide
-    assert 'RUNTIME / "wsl" / "START-HERE.txt"' in builder
+    assert 'output / "START-HERE.txt"' in builder
+    assert "render_wsl_start_here()" in builder
+
+
+def test_windows_installer_and_guide_render_without_placeholders():
+    installer = RUNTIME_BUILDER["render_wsl_installer"](
+        image_filename="AgentFEM-Complete-9.8.7-WSL2-x86_64.wsl",
+        image_sha256="a" * 64,
+        version="9.8.7",
+    )
+    guide = RUNTIME_BUILDER["render_wsl_start_here"](version="9.8.7")
+
+    assert "@IMAGE_FILENAME@" not in installer
+    assert "@IMAGE_SHA256@" not in installer
+    assert "@VERSION@" not in installer
+    assert '$RuntimeVersion = "9.8.7"' in installer
+    assert '"AgentFEM-$RuntimeVersion"' in installer
+    assert "[switch]$Upgrade" in installer
+    assert "AgentFEM-Complete-9.8.7-WSL2-x86_64.wsl" in installer
+    assert "AgentFEM-9.8.7" in guide
+    assert "@VERSION@" not in guide
 
 
 def test_macos_preview_is_explicitly_unsigned():

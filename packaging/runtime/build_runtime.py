@@ -744,20 +744,23 @@ def build_wsl(args: argparse.Namespace) -> Path:
         json.dumps(record, indent=2, sort_keys=True) + "\n", encoding="utf-8"
     )
     installer = output / "Install-AgentFEM.ps1"
-    installer_template = (RUNTIME / "wsl" / "Install-AgentFEM.ps1").read_text(
-        encoding="utf-8"
-    )
     installer.write_text(
-        installer_template.replace("@IMAGE_FILENAME@", artifact.name).replace(
-            "@IMAGE_SHA256@", sha256(artifact)
+        render_wsl_installer(
+            image_filename=artifact.name,
+            image_sha256=sha256(artifact),
         ),
+        encoding="utf-8",
+    )
+    start_here = output / "START-HERE.txt"
+    start_here.write_text(
+        render_wsl_start_here(),
         encoding="utf-8",
     )
     bundle = output / f"{product}-{project_version()}-WSL2-x86_64-preview-offline.zip"
     bundle_files = [
         artifact,
         installer,
-        RUNTIME / "wsl" / "START-HERE.txt",
+        start_here,
         record_path,
         sbom,
         published["lock"],
@@ -791,6 +794,32 @@ def build_wsl(args: argparse.Namespace) -> Path:
             )
             archive.write(path, path.name, compress_type=compression)
     return bundle
+
+
+def render_wsl_installer(
+    *, image_filename: str, image_sha256: str, version: str | None = None
+) -> str:
+    """Render the Windows installer without building the large runtime image."""
+
+    selected_version = project_version() if version is None else str(version)
+    return (
+        (RUNTIME / "wsl" / "Install-AgentFEM.ps1")
+        .read_text(encoding="utf-8")
+        .replace("@IMAGE_FILENAME@", str(image_filename))
+        .replace("@IMAGE_SHA256@", str(image_sha256))
+        .replace("@VERSION@", selected_version)
+    )
+
+
+def render_wsl_start_here(*, version: str | None = None) -> str:
+    """Render the human and agent Windows installation contract."""
+
+    selected_version = project_version() if version is None else str(version)
+    return (
+        (RUNTIME / "wsl" / "START-HERE.txt")
+        .read_text(encoding="utf-8")
+        .replace("@VERSION@", selected_version)
+    )
 
 
 def write_manifest(output_dir: Path) -> Path:

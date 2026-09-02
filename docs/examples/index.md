@@ -12,6 +12,7 @@ problem-specific qualification.
 | --- | --- | --- |
 | [Wave packet with an inclusion](wave_packet_inclusion.md) | Heterogeneous solid wave, explicit central difference | Release |
 | [2D static elasticity](#2d-static-elasticity) | Plane-strain linear solid, direct linear solve | Release |
+| [NAFEMS LE10 3D elasticity](#nafems-le10-3d-elasticity) | Curved quadratic 3D solid, pressure, external stress target | Release |
 | [Axisymmetric thick cylinder](#axisymmetric-thick-cylinder) | Full-revolution linear solid, direct linear solve | Release |
 | [Transient heat transfer](#transient-heat-transfer) | Heat equation, backward Euler | Release |
 | [Abaqus periodic hyperelastic cell](#abaqus-periodic-hyperelastic-cell) | Imported 3D quadratic mesh, equations, finite strain | Engineering |
@@ -46,6 +47,25 @@ python examples/static_elasticity_2d.py
 [Source code](https://github.com/haoming-luo/agentfem/blob/main/examples/static_elasticity_2d.py)
 · [Linear-solid guide](../guide/solid_mechanics.md)
 · [Golden benchmark record](https://github.com/haoming-luo/agentfem/blob/main/src/agentfem/knowledge/benchmarks/linear_static_cantilever.json)
+
+## NAFEMS LE10 3D elasticity
+
+<span class="af-status af-status--release">Release</span>
+
+The public NAFEMS LE10 thick elliptical plate exercises the complete 3D
+static-solid workflow: curved quadratic hexahedral geometry, quadratic
+displacement, component constraints, surface pressure, standard result fields,
+stress recovery, force balance, and energy balance. The versioned mesh obtains
+\(\sigma_{yy}(D)=-5.399\) MPa, 0.35% from the published -5.38 MPa target, and
+retains AgentFEM's unsmoothed DG0 stress as the default scientific field.
+
+```bash
+python examples/nafems_le10_3d.py
+```
+
+[Source code](https://github.com/haoming-luo/agentfem/blob/main/examples/nafems_le10_3d.py)
+· [Benchmark record](https://github.com/haoming-luo/agentfem/blob/main/src/agentfem/knowledge/benchmarks/nafems_le10_3d_elasticity.json)
+· [NAFEMS benchmark index](https://www.nafems.org/publications/resource_center/p18/)
 
 ## Axisymmetric thick cylinder
 

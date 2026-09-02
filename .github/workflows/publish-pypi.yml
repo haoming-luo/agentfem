@@ -215,6 +215,11 @@ jobs:
           python tests/external_inelastic_benchmark_driver.py write /tmp/agentfem-j2-cylinder.json
           mpirun -n 2 python tests/external_inelastic_benchmark_driver.py compare /tmp/agentfem-j2-cylinder.json
 
+      - name: Verify NAFEMS LE10 3D elasticity across MPI rank counts
+        run: |
+          python tests/external_elasticity_3d_benchmark_driver.py write /tmp/agentfem-nafems-le10.json
+          mpirun -n 2 python tests/external_elasticity_3d_benchmark_driver.py compare /tmp/agentfem-nafems-le10.json
+
   ml-verify:
     name: Verify the optional PyTorch bridge from the candidate wheel
     needs: build

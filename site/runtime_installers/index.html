@@ -1142,13 +1142,8 @@ cloning a repository.</p>
 </tr>
 <tr>
 <td>Apple Silicon macOS</td>
-<td><code>AgentFEM-Complete-&lt;version&gt;-macOS-arm64.pkg</code></td>
-<td>Formal route after Developer ID signing, Apple notarization, stapling and clean-runner acceptance</td>
-</tr>
-<tr>
-<td>Apple Silicon macOS</td>
 <td><code>AgentFEM-Complete-&lt;version&gt;-macOS-arm64-unsigned-preview.pkg</code></td>
-<td>Explicitly unsigned Preview while signing credentials are unavailable</td>
+<td>Public Preview; installed and exercised on a clean Apple Silicon runner, explicitly not signed or notarized</td>
 </tr>
 <tr>
 <td>Intel macOS</td>
@@ -1166,7 +1161,7 @@ cloning a repository.</p>
 for cold-cache form JIT, and the exact AgentFEM wheel associated with the
 release. It does not replace the system Python or alter shell initialization.</p>
 <p>On macOS each runtime is installed in a versioned, immutable prefix such as
-<code>~/Library/agentfemruntime-0.3.0</code>. A new version is installed beside the old
+<code>~/Library/agentfemruntime-0.3.1</code>. A new version is installed beside the old
 one and the visible launcher is updated to the selected runtime. User projects
 remain in <code>~/AgentFEMProjects</code>, outside every runtime.</p>
 <p>The recommended <strong>Complete</strong> profile includes the Gmsh executable and Python
@@ -1179,26 +1174,9 @@ carries the Gmsh license and publishes the exact corresponding source and
 conda-forge build recipe beside the installer. Noncommercial use does not
 remove these redistribution obligations.</p>
 <h2 id="macos">macOS<a class="headerlink" href="#macos" title="Permanent link">&para;</a></h2>
-<p>The formal macOS package is built by the dedicated <code>Signed macOS runtime</code>
-workflow from an immutable release tag. It imports Developer ID Application
-and Developer ID Installer identities into an ephemeral keychain, signs the
-runtime and installer, submits the package through <code>notarytool</code>, staples the
-ticket, checks Gatekeeper acceptance, installs the package on a clean Apple
-Silicon runner, and only then permits upload to the GitHub Release.</p>
-<p>The repository secrets required by that workflow are:</p>
-<ul>
-<li><code>APPLE_DEVELOPER_CERTIFICATE_P12</code>: base64 of one password-protected P12
-  containing the Developer ID Application and Developer ID Installer
-  certificates and private keys;</li>
-<li><code>APPLE_DEVELOPER_CERTIFICATE_PASSWORD</code> and
-  <code>APPLE_BUILD_KEYCHAIN_PASSWORD</code>;</li>
-<li><code>APPLE_NOTARY_KEY_P8</code>, <code>APPLE_NOTARY_KEY_ID</code>, and
-  <code>APPLE_NOTARY_ISSUER_ID</code> for an App Store Connect API key accepted by
-  <code>notarytool</code>.</li>
-</ul>
-<p>When these identities are unavailable, the ordinary runtime workflow may
-publish an explicitly unsigned Preview. Its filename always contains
-<code>unsigned-preview</code>, and the download page must preserve that wording.</p>
+<p>AgentFEM 0.3.1 deliberately publishes an unsigned Preview and does not require
+Apple Developer credentials. Its filename always contains <code>unsigned-preview</code>,
+and the download page preserves that wording.</p>
 <p>Verify the published SHA-256 checksum, open the package, and follow the normal
 installer. macOS may block the first open because the package is not notarized;
 use the one-time <strong>Open Anyway</strong> control in System Settings → Privacy &amp;
@@ -1206,27 +1184,60 @@ Security after verifying the checksum. Do not disable Gatekeeper globally and
 do not run an undocumented quarantine-removal command. After installation,
 open <code>AgentFEM Terminal.command</code>; it starts the isolated runtime and performs a
 health check.</p>
-<p>The Preview route is convenient but deliberately not described as signed,
-notarized, or trusted by Apple. The workflow still installs and exercises the
-exact package on a clean GitHub-hosted Apple Silicon runner before publishing
-the Preview.</p>
+<p>The Preview is not described as signed, notarized, or trusted by Apple. The
+workflow still installs and exercises the exact package on a clean GitHub-
+hosted Apple Silicon runner before publishing it.</p>
 <h2 id="windows-through-wsl2">Windows through WSL2<a class="headerlink" href="#windows-through-wsl2" title="Permanent link">&para;</a></h2>
-<p>Unzip the Preview. For WSL 2.4.4 or newer, its <code>.wsl</code> image can be opened
-directly in File Explorer or installed from PowerShell:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="n">wsl</span> <span class="p">-</span><span class="n">-install</span> <span class="p">-</span><span class="n">-from</span><span class="o">-file</span> <span class="p">.\</span><span class="n">AgentFEM-Complete</span><span class="p">-&lt;</span><span class="n">version</span><span class="p">&gt;</span><span class="n">-WSL2-x86_64</span><span class="p">.</span><span class="n">wsl</span>
+<p>Extract the entire Preview ZIP, open PowerShell in the extracted folder, and
+run the bundled installer:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="n">powershell</span> <span class="n">-ExecutionPolicy</span> <span class="n">Bypass</span> <span class="o">-File</span> <span class="p">.\</span><span class="nb">Install-AgentFEM</span><span class="p">.</span><span class="n">ps1</span>
 </code></pre></div>
-<p>The offline bundle includes <code>Install-AgentFEM.ps1</code>, which verifies the image,
-refuses to overwrite an existing <code>AgentFEM</code> distribution, imports it, and
-starts the first-use account setup. If WSL itself is absent, Windows must first
-enable that operating-system feature; this may require administrator access,
-a reboot, and Microsoft network access.</p>
-<p>The imported distribution creates an <code>AgentFEM</code> Start-menu entry and Windows
-Terminal profile. Simulation projects are kept in <code>~/AgentFEMProjects</code>, apart
-from the immutable runtime.</p>
+<p>Do not run the script while browsing inside the compressed ZIP. The bundle's
+<code>START-HERE.txt</code> records the same procedure for both people and AI agents.</p>
+<p>For WSL 2.4.4 or newer, advanced users may instead install the <code>.wsl</code> image
+directly:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="n">wsl</span> <span class="p">-</span><span class="n">-install</span> <span class="p">-</span><span class="n">-from</span><span class="o">-file</span> <span class="p">.\</span><span class="n">AgentFEM-Complete</span><span class="p">-&lt;</span><span class="n">version</span><span class="p">&gt;</span><span class="n">-WSL2-x86_64</span><span class="p">.</span><span class="n">wsl</span>
+</code></pre></div>
+<p><code>Install-AgentFEM.ps1</code> checks that WSL 2.4.4 or newer is available, verifies
+the image, imports it, and starts the first-use account setup. If an existing
+<code>AgentFEM</code> distribution is present, the default remains a non-destructive
+side-by-side installation named <code>AgentFEM-&lt;version&gt;</code>.</p>
+<p>Users who want the normal stable name to move to the new runtime can request a
+transactional replacement:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="n">powershell</span> <span class="n">-ExecutionPolicy</span> <span class="n">Bypass</span> <span class="o">-File</span> <span class="p">.\</span><span class="nb">Install-AgentFEM</span><span class="p">.</span><span class="n">ps1</span> <span class="n">-Upgrade</span>
+</code></pre></div>
+<p>This is not a blind in-place overwrite. The installer first imports the new
+image under a temporary name and requires its embedded identity and
+<code>agentfem doctor</code> check to pass. It then exports a complete snapshot of the old
+distribution, separately archives the Linux user home, switches the stable
+<code>AgentFEM</code> registration, restores the user files, and repeats the health check.
+If a post-switch step fails, the previous full snapshot is imported again. The
+recovery directory is retained under <code>%LOCALAPPDATA%\AgentFEM\Backups</code> unless
+the user explicitly supplies <code>-RemoveBackupAfterSuccess</code>.</p>
+<p>The distinction is required by WSL's lifecycle: WSL provides distribution
+export/import and destructive unregister operations, but no atomic in-place
+runtime replacement or rename. The installer is therefore the owner of the
+backup, validation, switching, and rollback transaction. Users and agents must
+not reproduce its internal <code>wsl --unregister</code> steps manually.</p>
+<p>If WSL itself is absent, Windows must first enable that operating-system
+feature; this may require administrator access, a reboot, and Microsoft network
+access. The bundled <code>START-HERE.txt</code> includes the <code>--web-download</code> recovery
+path for a stalled Store download and the exact <code>wsl --status</code> / <code>wsl
+--version</code> diagnostics.</p>
+<p>The imported distribution creates a Start-menu entry and Windows Terminal
+profile using its registered distribution name. Simulation projects are kept
+in <code>~/AgentFEMProjects</code>. A normal side-by-side install leaves that directory in
+the old distribution; <code>-Upgrade</code> migrates the complete user home into the new
+stable distribution and keeps a recovery snapshot. This makes project custody
+explicit while preserving the convenience of the conventional
+<code>wsl -d AgentFEM</code> command.</p>
 <h2 id="integrity-and-mirrors">Integrity and mirrors<a class="headerlink" href="#integrity-and-mirrors" title="Permanent link">&para;</a></h2>
-<p>Every release publishes <code>SHA256SUMS</code>, <code>runtime-artifacts.json</code>, the exact
-package lock, a software bill of materials, and third-party notices. Official
-GitHub assets and the domestic mirror must contain byte-identical files.
+<p>GitHub records a SHA-256 digest for every public release asset. The Windows
+offline ZIP also contains <code>SHA256SUMS</code>, <code>runtime-artifacts.json</code>, the exact
+package lock, a software bill of materials, and third-party notices. The macOS
+package embeds its runtime identity, lock, software bill of materials, and
+notices, while its acceptance record is published beside it. Official GitHub
+assets and any project-operated mirror must contain byte-identical files.
 Uncontrolled download proxies are not official distribution channels.</p>
 <p>Runtime installation never makes a numerical result trusted by itself. The
 installed runtime still attaches solver, environment, provenance, balance,

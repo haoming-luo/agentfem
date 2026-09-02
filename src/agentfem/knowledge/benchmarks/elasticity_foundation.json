@@ -35,6 +35,6 @@
   "limitations": [
     "This contract covers continuum Lagrange solid fields, not beams, shells, mixed incompressible elements, contact, or axisymmetric kinematics.",
     "Affine MPC, weak, and contact reactions require separate force definitions.",
-    "The next external linear-elasticity benchmark should be NAFEMS LE10 or an equivalently published geometry and stress target."
+    "External curved-solid bending and stress recovery are verified separately by agentfem.benchmark.nafems_le10_3d_elasticity."
   ]
 }

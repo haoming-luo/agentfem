@@ -253,6 +253,13 @@
       "title": "Mooney--Rivlin material-path and Explicit-consumer contract"
     },
     {
+      "id": "agentfem.benchmark.nafems_le10_3d_elasticity",
+      "physics": "three-dimensional small-strain isotropic linear elasticity under transverse pressure",
+      "source": "src/agentfem/knowledge/benchmarks/nafems_le10_3d_elasticity.json",
+      "status": "external_release_regression",
+      "title": "NAFEMS LE10 three-dimensional thick elliptical plate"
+    },
+    {
       "id": "agentfem.benchmark.neo_hookean_release",
       "physics": "compressible Neo-Hookean hyperelasticity",
       "source": "src/agentfem/knowledge/benchmarks/neo_hookean_release.json",

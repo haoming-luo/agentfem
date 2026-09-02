@@ -901,6 +901,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#nafems-le10-3d-elasticity" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        NAFEMS LE10 3D elasticity
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#axisymmetric-thick-cylinder" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1083,6 +1094,11 @@ problem-specific qualification.</p>
 <td>Release</td>
 </tr>
 <tr>
+<td><a href="#nafems-le10-3d-elasticity">NAFEMS LE10 3D elasticity</a></td>
+<td>Curved quadratic 3D solid, pressure, external stress target</td>
+<td>Release</td>
+</tr>
+<tr>
 <td><a href="#axisymmetric-thick-cylinder">Axisymmetric thick cylinder</a></td>
 <td>Full-revolution linear solid, direct linear solve</td>
 <td>Release</td>
@@ -1132,6 +1148,19 @@ isotropic elasticity, strong constraints, traction, a linear step, standard
 <p><a href="https://github.com/haoming-luo/agentfem/blob/main/examples/static_elasticity_2d.py">Source code</a>
 · <a href="../guide/solid_mechanics/">Linear-solid guide</a>
 · <a href="https://github.com/haoming-luo/agentfem/blob/main/src/agentfem/knowledge/benchmarks/linear_static_cantilever.json">Golden benchmark record</a></p>
+<h2 id="nafems-le10-3d-elasticity">NAFEMS LE10 3D elasticity<a class="headerlink" href="#nafems-le10-3d-elasticity" title="Permanent link">&para;</a></h2>
+<p><span class="af-status af-status--release">Release</span></p>
+<p>The public NAFEMS LE10 thick elliptical plate exercises the complete 3D
+static-solid workflow: curved quadratic hexahedral geometry, quadratic
+displacement, component constraints, surface pressure, standard result fields,
+stress recovery, force balance, and energy balance. The versioned mesh obtains
+<span class="arithmatex">\(\sigma_{yy}(D)=-5.399\)</span> MPa, 0.35% from the published -5.38 MPa target, and
+retains AgentFEM's unsmoothed DG0 stress as the default scientific field.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>python<span class="w"> </span>examples/nafems_le10_3d.py
+</code></pre></div>
+<p><a href="https://github.com/haoming-luo/agentfem/blob/main/examples/nafems_le10_3d.py">Source code</a>
+· <a href="https://github.com/haoming-luo/agentfem/blob/main/src/agentfem/knowledge/benchmarks/nafems_le10_3d_elasticity.json">Benchmark record</a>
+· <a href="https://www.nafems.org/publications/resource_center/p18/">NAFEMS benchmark index</a></p>
 <h2 id="axisymmetric-thick-cylinder">Axisymmetric thick cylinder<a class="headerlink" href="#axisymmetric-thick-cylinder" title="Permanent link">&para;</a></h2>
 <p><span class="af-status af-status--release">Release</span></p>
 <p>A Q2 meridian model of a long pressurized cylinder demonstrates native
@@ -1139,7 +1168,7 @@ axisymmetric strain, full <code>(r, theta, z)</code> stress, the <code>2*pi*r</c
 pressure loading, standard output, and comparison with the analytical Lamé
 solution. The same formulation is consumed by the stateful J2 and implicit
 creep providers.</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>python<span class="w"> </span>examples/axisymmetric_thick_cylinder.py
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>python<span class="w"> </span>examples/axisymmetric_thick_cylinder.py
 </code></pre></div>
 <p><a href="https://github.com/haoming-luo/agentfem/blob/main/examples/axisymmetric_thick_cylinder.py">Source code</a>
 · <a href="../guide/solid_mechanics/#axisymmetric-solids">Solid-mechanics guide</a>
@@ -1149,7 +1178,7 @@ creep providers.</p>
 <p>This case exercises capacity and conduction operators, backward-Euler time
 integration, accepted-increment progress, temperature histories, unified field
 output, and a release Golden observable.</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>python<span class="w"> </span>examples/transient_heat_2d.py
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>python<span class="w"> </span>examples/transient_heat_2d.py
 </code></pre></div>
 <p><a href="https://github.com/haoming-luo/agentfem/blob/main/examples/transient_heat_2d.py">Source code</a>
 · <a href="../guide/heat_transfer/">Heat-transfer guide</a></p>
@@ -1160,8 +1189,8 @@ preserves quadratic-node and hybrid/constant-pressure identity, solves a
 P2/DG0 finite-strain Neo-Hookean problem with exact periodic constraints, and
 writes homogenized and visualization results.</p>
 <p><strong>Research background.</strong> This benchmark is informed by Haoming Luo's work with
-Julie Diani and Kostas Danas on the finite-strain response of nonlinear elastic
-composites containing particles or voids: <a href="https://www.sciencedirect.com/science/article/pii/S0997753823001687"><em>Numerical estimation via remeshing
+Julie Diani, Kostas Danas, and Zahra Hooshmand-Ahoor on the finite-strain
+response of nonlinear elastic composites containing particles or voids: <a href="https://www.sciencedirect.com/science/article/pii/S0997753823001687"><em>Numerical estimation via remeshing
 and analytical modeling of nonlinear elastic composites</em></a>.</p>
 <p>Read the <a href="../abaqus_c3d10h_periodic_cell/">complete periodic-cell workflow</a> before
 running the case; it explains the source files, element mapping, periodic
@@ -1175,7 +1204,7 @@ backward-Euler constitutive integration, analytical consistent tangent,
 physical-time automatic incrementation, rollback/cutback, creep output, energy
 evidence, and restart. The same global step can consume a prescribed
 temperature field through the Arrhenius material factory.</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>python<span class="w"> </span>examples/implicit_creep_relaxation_3d.py
+<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>python<span class="w"> </span>examples/implicit_creep_relaxation_3d.py
 </code></pre></div>
 <p><a href="https://github.com/haoming-luo/agentfem/blob/main/examples/implicit_creep_relaxation_3d.py">Source code</a>
 · <a href="../guide/creep_and_inelasticity/">Creep and inelasticity</a>
@@ -1186,7 +1215,7 @@ temperature field through the Arrhenius material factory.</p>
 then an explicitly identified local creep assessment. It demonstrates how the
 software distinguishes a global field solution from a material-point or
 assessment-level model.</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>python<span class="w"> </span>examples/creep_hot_wall_assessment.py
+<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>python<span class="w"> </span>examples/creep_hot_wall_assessment.py
 </code></pre></div>
 <p><a href="https://github.com/haoming-luo/agentfem/blob/main/examples/creep_hot_wall_assessment.py">Source code</a></p>
 <h2 id="elasticity-surrogate-campaign">Elasticity surrogate campaign<a class="headerlink" href="#elasticity-surrogate-campaign" title="Permanent link">&para;</a></h2>
@@ -1194,7 +1223,7 @@ assessment-level model.</p>
 <p>The campaign varies declared parameters, runs the same finite-element model,
 records failures and evidence, creates an accepted scientific dataset, trains
 a surrogate, checks its applicability domain, and retains an FEM fallback.</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>python<span class="w"> </span>examples/static_elasticity_surrogate_campaign.py
+<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>python<span class="w"> </span>examples/static_elasticity_surrogate_campaign.py
 </code></pre></div>
 <p><a href="https://github.com/haoming-luo/agentfem/blob/main/examples/static_elasticity_surrogate_campaign.py">Source code</a>
 · <a href="../guide/simulation_to_learning/">Simulation to learning</a></p>

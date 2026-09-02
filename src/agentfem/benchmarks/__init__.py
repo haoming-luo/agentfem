@@ -41,6 +41,11 @@ from .inelastic import (
     power_law_creep_cylinder_stress,
     thick_cylinder_sector_mesh,
 )
+from .elasticity_3d import (
+    Elasticity3DBenchmark,
+    nafems_le10_3d_benchmark,
+    nafems_le10_mesh,
+)
 from .lefm import (
     CenterCrackLEFMBenchmark,
     center_crack_lefm_mesh,
@@ -69,6 +74,7 @@ __all__ = [
     "WeakInterfaceTransitionSuite",
     "WeakInterfaceConvergenceStudy",
     "InelasticStructuralBenchmark",
+    "Elasticity3DBenchmark",
     "CenterCrackLEFMBenchmark",
     "center_crack_lefm_mesh",
     "center_crack_mode_i_benchmark",
@@ -91,5 +97,7 @@ __all__ = [
     "plane_stress_thin_3d_crosscheck",
     "prestressed_weak_interface_separation",
     "thick_cylinder_sector_mesh",
+    "nafems_le10_3d_benchmark",
+    "nafems_le10_mesh",
     "list_benchmarks",
 ]

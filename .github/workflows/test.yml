@@ -31,6 +31,21 @@ jobs:
       - name: Verify reliability collector schema boundary
         run: node --test services/reliability-collector/worker.test.mjs
 
+      - name: Parse the Windows runtime installer
+        shell: pwsh
+        run: |
+          $tokens = $null
+          $errors = $null
+          [System.Management.Automation.Language.Parser]::ParseFile(
+            "packaging/runtime/wsl/Install-AgentFEM.ps1",
+            [ref]$tokens,
+            [ref]$errors
+          ) | Out-Null
+          if ($errors.Count -gt 0) {
+            $errors | ForEach-Object { Write-Error $_.Message }
+            exit 1
+          }
+
   documentation:
     name: Documentation and machine entrypoints
     runs-on: ubuntu-latest
@@ -154,6 +169,11 @@ jobs:
         run: |
           python tests/external_inelastic_benchmark_driver.py write /tmp/agentfem-j2-cylinder.json
           mpirun -n 2 python tests/external_inelastic_benchmark_driver.py compare /tmp/agentfem-j2-cylinder.json
+
+      - name: Verify NAFEMS LE10 3D elasticity across MPI rank counts
+        run: |
+          python tests/external_elasticity_3d_benchmark_driver.py write /tmp/agentfem-nafems-le10.json
+          mpirun -n 2 python tests/external_elasticity_3d_benchmark_driver.py compare /tmp/agentfem-nafems-le10.json
 
       - name: Run static FEniCSx smoke test
         run: python examples/static_elasticity_2d.py

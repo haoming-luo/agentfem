@@ -91,3 +91,13 @@ beside the prior environment and updates `AgentFEM Terminal.command` to the
 new version. This makes upgrades non-destructive and keeps an older numerical
 environment available for exact reproduction until the user elects to remove
 it.
+
+Windows offers both policies explicitly. The default installer path creates a
+versioned side-by-side WSL distribution. `Install-AgentFEM.ps1 -Upgrade`
+performs a controlled replacement of the stable `AgentFEM` distribution: it
+accepts a temporary candidate, exports a full rollback snapshot, archives the
+user home independently, switches the registration, restores the user files,
+and repeats `agentfem doctor`. Any failure after the switch restores the old
+snapshot. Every released installer script must pass PowerShell's parser in CI;
+the replacement route additionally remains Preview until exercised on a real
+Windows/WSL2 host.

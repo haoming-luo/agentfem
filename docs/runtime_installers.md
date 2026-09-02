@@ -71,15 +71,49 @@ directly:
 wsl --install --from-file .\AgentFEM-Complete-<version>-WSL2-x86_64.wsl
 ```
 
-`Install-AgentFEM.ps1` verifies the image,
-refuses to overwrite an existing `AgentFEM` distribution, imports it, and
-starts the first-use account setup. If WSL itself is absent, Windows must first
-enable that operating-system feature; this may require administrator access,
-a reboot, and Microsoft network access.
+`Install-AgentFEM.ps1` checks that WSL 2.4.4 or newer is available, verifies
+the image, imports it, and starts the first-use account setup. If an existing
+`AgentFEM` distribution is present, the default remains a non-destructive
+side-by-side installation named `AgentFEM-<version>`.
 
-The imported distribution creates an `AgentFEM` Start-menu entry and Windows
-Terminal profile. Simulation projects are kept in `~/AgentFEMProjects`, apart
-from the immutable runtime.
+Users who want the normal stable name to move to the new runtime can request a
+transactional replacement:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\Install-AgentFEM.ps1 -Upgrade
+```
+
+This is not a blind in-place overwrite. The installer first imports the new
+image under a temporary name and requires its embedded identity and
+`agentfem doctor` check to pass. It then exports a complete snapshot of the old
+distribution, separately archives the Linux user home, switches the stable
+`AgentFEM` registration, restores the user files, and repeats the health check.
+If a post-switch step fails, the previous full snapshot is imported again. The
+recovery directory is retained under `%LOCALAPPDATA%\AgentFEM\Backups` unless
+the user explicitly supplies `-RemoveBackupAfterSuccess`.
+
+The distinction is required by WSL's lifecycle: WSL provides distribution
+export/import and destructive unregister operations, but no atomic in-place
+runtime replacement or rename. The installer is therefore the owner of the
+backup, validation, switching, and rollback transaction. Users and agents must
+not reproduce its internal `wsl --unregister` steps manually.
+[Microsoft's WSL command reference](https://learn.microsoft.com/en-us/windows/wsl/basic-commands)
+defines these lifecycle operations and explicitly warns that unregistering a
+distribution permanently removes its data.
+
+If WSL itself is absent, Windows must first enable that operating-system
+feature; this may require administrator access, a reboot, and Microsoft network
+access. The bundled `START-HERE.txt` includes the `--web-download` recovery
+path for a stalled Store download and the exact `wsl --status` / `wsl
+--version` diagnostics.
+
+The imported distribution creates a Start-menu entry and Windows Terminal
+profile using its registered distribution name. Simulation projects are kept
+in `~/AgentFEMProjects`. A normal side-by-side install leaves that directory in
+the old distribution; `-Upgrade` migrates the complete user home into the new
+stable distribution and keeps a recovery snapshot. This makes project custody
+explicit while preserving the convenience of the conventional
+`wsl -d AgentFEM` command.
 
 ## Integrity and mirrors
 
