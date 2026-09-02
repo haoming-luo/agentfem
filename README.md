@@ -102,6 +102,15 @@ bundles AgentFEM, FEniCSx, PETSc, MPI, HDF5, and Gmsh in one verified download:
 
 [**Download the latest Complete Runtime →**](https://github.com/haoming-luo/agentfem/releases/latest)
 
+For Windows, extract the complete ZIP, open PowerShell in that folder, and run:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\Install-AgentFEM.ps1
+```
+
+The included `START-HERE.txt` gives the same short contract to people and AI
+agents. If WSL is absent, the installer explains how to enable it first.
+
 ### Existing FEniCSx environment: PyPI
 
 If you already maintain a compatible FEniCSx environment:

@@ -757,6 +757,7 @@ def build_wsl(args: argparse.Namespace) -> Path:
     bundle_files = [
         artifact,
         installer,
+        RUNTIME / "wsl" / "START-HERE.txt",
         record_path,
         sbom,
         published["lock"],

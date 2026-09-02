@@ -54,14 +54,24 @@ hosted Apple Silicon runner before publishing it.
 
 ## Windows through WSL2
 
-Unzip the Preview. For WSL 2.4.4 or newer, its `.wsl` image can be opened
-directly in File Explorer or installed from PowerShell:
+Extract the entire Preview ZIP, open PowerShell in the extracted folder, and
+run the bundled installer:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\Install-AgentFEM.ps1
+```
+
+Do not run the script while browsing inside the compressed ZIP. The bundle's
+`START-HERE.txt` records the same procedure for both people and AI agents.
+
+For WSL 2.4.4 or newer, advanced users may instead install the `.wsl` image
+directly:
 
 ```powershell
 wsl --install --from-file .\AgentFEM-Complete-<version>-WSL2-x86_64.wsl
 ```
 
-The offline bundle includes `Install-AgentFEM.ps1`, which verifies the image,
+`Install-AgentFEM.ps1` verifies the image,
 refuses to overwrite an existing `AgentFEM` distribution, imports it, and
 starts the first-use account setup. If WSL itself is absent, Windows must first
 enable that operating-system feature; this may require administrator access,

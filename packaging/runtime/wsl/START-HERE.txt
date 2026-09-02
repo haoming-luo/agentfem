@@ -1,0 +1,38 @@
+AgentFEM Complete Runtime for Windows (WSL2 Preview)
+===================================================
+
+1. Extract the entire ZIP file. Do not run the installer from inside the ZIP.
+2. Open PowerShell in this extracted folder.
+3. Run:
+
+   powershell -ExecutionPolicy Bypass -File .\Install-AgentFEM.ps1
+
+The installer verifies the bundled image, creates the AgentFEM WSL2
+distribution, and opens its first-time setup. Choose a Linux username and
+password when prompted. Password characters are intentionally not displayed.
+
+When setup finishes, run:
+
+   agentfem doctor
+
+Later, start AgentFEM from the Start menu or run this in PowerShell:
+
+   wsl -d AgentFEM
+
+If WSL is not installed
+-----------------------
+
+Open PowerShell as Administrator and run:
+
+   wsl --install --no-distribution
+
+Restart Windows, extract this ZIP again if necessary, and repeat the three
+installation steps above. Windows may need internet access to enable WSL;
+the AgentFEM runtime itself is installed from this offline package.
+
+For an AI agent
+---------------
+
+Follow this file as the installation contract. Do not delete or overwrite an
+existing WSL distribution. After installation, report the AgentFEM version
+and the result of `agentfem doctor` to the user.

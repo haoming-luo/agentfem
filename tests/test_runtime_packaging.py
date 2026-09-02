@@ -58,6 +58,15 @@ def test_windows_installer_fails_closed_on_existing_distribution():
     assert "@IMAGE_SHA256@" in installer
 
 
+def test_windows_bundle_contains_human_and_agent_start_here_contract():
+    guide = (RUNTIME / "wsl" / "START-HERE.txt").read_text(encoding="utf-8")
+    builder = (RUNTIME / "build_runtime.py").read_text(encoding="utf-8")
+    assert "powershell -ExecutionPolicy Bypass -File .\\Install-AgentFEM.ps1" in guide
+    assert "wsl --install --no-distribution" in guide
+    assert "agentfem doctor" in guide
+    assert 'RUNTIME / "wsl" / "START-HERE.txt"' in builder
+
+
 def test_macos_preview_is_explicitly_unsigned():
     constructor = (RUNTIME / "macos" / "construct.yaml.in").read_text(
         encoding="utf-8"
