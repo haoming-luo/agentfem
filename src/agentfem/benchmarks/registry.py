@@ -534,25 +534,32 @@ _BENCHMARKS = (
     BenchmarkSpec(
         identifier="delamination_structural_family",
         capability="mixed_mode_cohesive_fracture",
-        level="assembled_dcb_provider_and_convergence_contract",
+        level="assembled_dcb_propagation_and_enf_compliance_foundation",
         reference="knowledge/benchmarks/delamination_structural_family.json",
         criterion=(
             "an assembled Q1 bulk and paired-facet DCB model produces an "
             "increasing structure-level compliance curve on aligned precrack "
-            "geometries; promotion still requires three-level DCB convergence "
-            "and equivalent source-identified ENF/MMB execution"
+            "geometries; a separate displacement-controlled path must commit "
+            "irreversible cohesive state and retain reaction, crack-front and "
+            "work-energy evidence; an independent assembled ENF provider must "
+            "recover Mode-II compliance and refinement evidence; promotion still "
+            "requires source-identified DCB/ENF propagation and MMB execution"
         ),
         automated_test=(
             "tests/test_delamination_fem_benchmark.py; "
+            "tests/test_enf_fem_benchmark.py; "
             "tests/test_mixed_mode_benchmark.py"
         ),
-        status="assembled_dcb_provider_ci_pending_external_convergence_pending",
+        status="assembled_dcb_propagation_and_enf_compliance_suite_passed",
         evidence=(
             "finite_element",
             "cohesive_interface",
             "compliance_curve",
             "analytical_oracle",
             "convergence_contract",
+            "cohesive_propagation",
+            "mode_ii_compliance",
+            "work_energy_balance",
             "failure_behavior",
         ),
     ),

@@ -21,6 +21,17 @@ experimental formulation to a validated one.
   three or more assembled mesh levels, decreasing reference and inter-level
   errors, bounded equilibrium residuals and stable evidence identities, while
   explicitly excluding cohesive evolution and crack-propagation validation.
+- Add a distinct irreversible DCB propagation route with converged-state
+  commit/rollback, automatic displacement-increment cutback, reaction and
+  crack-front histories, and a bulk/cohesive/work energy ledger. A three-level
+  nondimensional assembled regression now exercises the propagation
+  certificate; source-identified DCB/ENF/MMB curves remain separate external
+  promotion gates.
+- Add a separate assembled ENF provider with three-point-bending supports,
+  displacement control, a full vector cohesive tie, aligned precracks,
+  reaction-derived compliance and pure Mode-II energy-release output. Its
+  three-level certificate reaches the declared beam oracle without implying
+  Mode-II propagation or external material-curve validation.
 
 - Add committed finite-strain J2 `PDENER` state, quadrature output, volume
   quantity and homogenized history. The rate-independent linear-hardening law
@@ -480,7 +491,12 @@ because the package version is stable.
   platform with readable study, model, step, result, campaign, and evidence
   contracts.
 
-[Unreleased]: https://github.com/haoming-luo/agentfem/compare/v0.2.3...HEAD
+[Unreleased]: https://github.com/haoming-luo/agentfem/compare/v0.3.1...HEAD
+[0.3.1]: https://github.com/haoming-luo/agentfem/compare/v0.3.0...v0.3.1
+[0.3.0]: https://github.com/haoming-luo/agentfem/compare/v0.2.6...v0.3.0
+[0.2.6]: https://github.com/haoming-luo/agentfem/compare/v0.2.5...v0.2.6
+[0.2.5]: https://github.com/haoming-luo/agentfem/compare/v0.2.4...v0.2.5
+[0.2.4]: https://github.com/haoming-luo/agentfem/compare/v0.2.3...v0.2.4
 [0.2.3]: https://github.com/haoming-luo/agentfem/compare/v0.2.2...v0.2.3
 [0.2.2]: https://github.com/haoming-luo/agentfem/compare/v0.2.1...v0.2.2
 [0.2.1]: https://github.com/haoming-luo/agentfem/compare/v0.2.0...v0.2.1

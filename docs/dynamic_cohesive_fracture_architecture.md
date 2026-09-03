@@ -171,8 +171,29 @@ compliance certificate: mesh sizes, reference error, successive change,
 observed order, residual norms and stable curve identities. Spatial
 asymptotic behavior is judged from decreasing inter-mesh changes; the 2D
 continuum solution is not required to approach a lower-dimensional beam oracle
-monotonically. This first gate
-explicitly excludes cohesive evolution and crack propagation.
+monotonically. This first gate explicitly excludes cohesive evolution and
+crack propagation. `dcb_cohesive_propagation_curve(...)` is the distinct
+irreversible gate. It uses displacement control, commits interface history
+only after global Newton convergence, bisects failed requested increments
+into internal subincrements, and retains reaction, front length,
+Newton/cutback evidence, bulk energy, cohesive stored and dissipated energy,
+external work, and balance error at the requested output coordinates.
+`dcb_cohesive_propagation_convergence(...)` runs three or more refined meshes;
+its certificate requires propagation beyond the initialized precrack,
+adequate cohesive-zone resolution, bounded energy error, and stable
+finest-level peak load and damaged length. The automated three-level
+nondimensional fixture is an assembled solver regression informed by the NASA
+specimen family; it is not presented as a reproduction of NASA material data
+or experiment.
+`enf_finite_element_curve(...)` now supplies the independent Mode-II structural
+rung. It assembles a two-arm split specimen under three-point bending, uses a
+full normal--tangential cohesive tie ahead of the precrack, applies the
+mid-span motion as a declared control coordinate, and obtains load from the
+conjugate reaction. `enf_finite_element_convergence(...)` checks at least three
+meshes against the separately declared ENF beam-compliance oracle while
+retaining residual, evidence identity and pure Mode-II energy-partition
+semantics. This closes ENF elastic compliance only; it does not promote Mode-II
+cohesive propagation or an external material curve.
 `compliance_energy_release_curve(...)` recovers structure-level
 \(G=P^2(\mathrm dC/\mathrm da)/(2b)\), and MMB requires an independently
 declared Mode-I partition. Acceptance also checks cohesive-zone resolution
@@ -181,11 +202,13 @@ at least three successively refined structural curves and additionally checks
 the last-refinement change, Mode-I partition, and an improving asymptotic
 trend. `MixedModeBendingCurve` separately reads a source-
 identified external trace and compares load, displacement and Mode-I fraction
-under required tolerances. These contracts do not claim that a published
-finite-element or experimental curve has already been reproduced; that
-promotion remains closed until the assembled DCB compliance study passes in
-CI and refined propagation curves plus equivalent source-identified ENF/MMB
-curves satisfy the fracture certificate.
+under required tolerances. The assembled DCB compliance/propagation and ENF
+compliance studies now pass in the automated scientific suite. External
+promotion remains closed until
+source-identified DCB and ENF propagation curves and an assembled MMB curve
+satisfy their declared comparison contracts. The separation is intentional:
+a stable internal structural regression is not an external material
+calibration.
 
 Damage and solver state still use begin/commit/rollback. Mixed-mode checkpoint
 fields are stored by the same physical facet and quadrature identity as the

@@ -6930,6 +6930,111 @@ and evidence remain in the linked guides and scientific function reference.</p>
 </tr>
 <tr>
 <td>class</td>
+<td><code>DCBCohesivePropagationCertificate</code></td>
+<td>Three-level DCB propagation, energy and process-zone certificate.</td>
+</tr>
+<tr>
+<td>class</td>
+<td><code>DCBCohesivePropagationCurve</code></td>
+<td>Accepted DCB cohesive evolution and its work--energy evidence.</td>
+</tr>
+<tr>
+<td>class</td>
+<td><code>DCBCohesivePropagationPoint</code></td>
+<td>One accepted displacement-controlled DCB propagation increment.</td>
+</tr>
+<tr>
+<td>class</td>
+<td><code>DCBCohesivePropagationStudy</code></td>
+<td>Three-or-more-level assembled DCB cohesive propagation study.</td>
+</tr>
+<tr>
+<td>class</td>
+<td><code>DCBComplianceConvergenceCertificate</code></td>
+<td>Spatial-convergence evidence for a precracked, elastic DCB model.</td>
+</tr>
+<tr>
+<td>class</td>
+<td><code>DCBFiniteElementCurve</code></td>
+<td>Structure-level DCB compliance and energy-release evidence.</td>
+</tr>
+<tr>
+<td>class</td>
+<td><code>DCBFiniteElementConvergenceStudy</code></td>
+<td>Three-or-more-level assembled DCB compliance study.</td>
+</tr>
+<tr>
+<td>class</td>
+<td><code>DCBFiniteElementPoint</code></td>
+<td>One load--opening solution for a discretized DCB specimen.</td>
+</tr>
+<tr>
+<td>function</td>
+<td><code>certify_dcb_cohesive_propagation(spec: DelaminationBenchmarkSpec, curves, *, refinement_relative_tolerance: float = 0.1, energy_relative_tolerance: float = 0.03, required_process_zone_elements: float = 3.0) -&gt; DCBCohesivePropagationCertificate</code></td>
+<td>Certify refined DCB propagation without conflating local-law tests.</td>
+</tr>
+<tr>
+<td>function</td>
+<td><code>certify_dcb_compliance_convergence(spec: DelaminationBenchmarkSpec, curves, *, reference_relative_tolerance: float, refinement_relative_tolerance: float, residual_tolerance: float = 1e-08) -&gt; DCBComplianceConvergenceCertificate</code></td>
+<td>Certify assembled DCB compliance against a declared beam oracle.</td>
+</tr>
+<tr>
+<td>function</td>
+<td><code>dcb_cohesive_propagation_convergence(spec: DelaminationBenchmarkSpec, *, precrack_length: float, specimen_length: float, opening, strength: float, fracture_energy: float, initial_stiffness: float, mesh_levels, poisson: float = 0.3, assumption: str = 'plane_stress', solver_options = None, minimum_opening_increment: float \| None = None, maximum_cutbacks: int = 12, refinement_relative_tolerance: float = 0.1, energy_relative_tolerance: float = 0.03, required_process_zone_elements: float = 3.0) -&gt; DCBCohesivePropagationStudy</code></td>
+<td>Execute and certify three or more DCB cohesive propagation levels.</td>
+</tr>
+<tr>
+<td>function</td>
+<td><code>dcb_cohesive_propagation_curve(spec: DelaminationBenchmarkSpec, *, precrack_length: float, specimen_length: float, opening, strength: float, fracture_energy: float, initial_stiffness: float, elements_along: int, elements_per_arm: int, poisson: float = 0.3, assumption: str = 'plane_stress', solver_options = None, minimum_opening_increment: float \| None = None, maximum_cutbacks: int = 12) -&gt; DCBCohesivePropagationCurve</code></td>
+<td>Run a displacement-controlled, irreversible Mode-I DCB path.</td>
+</tr>
+<tr>
+<td>function</td>
+<td><code>dcb_finite_element_convergence(spec: DelaminationBenchmarkSpec, *, crack_length, load: float, specimen_length: float, mesh_levels, poisson: float = 0.3, assumption: str = 'plane_stress', interface_stiffness: float \| None = None, solver_options = None, reference_relative_tolerance: float = 0.1, refinement_relative_tolerance: float = 0.05, residual_tolerance: float = 1e-08) -&gt; DCBFiniteElementConvergenceStudy</code></td>
+<td>Run and certify three or more assembled DCB mesh levels.</td>
+</tr>
+<tr>
+<td>function</td>
+<td><code>dcb_finite_element_curve(spec: DelaminationBenchmarkSpec, *, crack_length, load: float, specimen_length: float, elements_along: int, elements_per_arm: int, poisson: float = 0.3, assumption: str = 'plane_stress', interface_stiffness: float \| None = None, solver_options = None) -&gt; DCBFiniteElementCurve</code></td>
+<td>Solve a linear-elastic DCB family with one fixed-path interface.</td>
+</tr>
+<tr>
+<td>class</td>
+<td><code>ENFComplianceConvergenceCertificate</code></td>
+<td>Three-level ENF compliance evidence against a declared beam oracle.</td>
+</tr>
+<tr>
+<td>class</td>
+<td><code>ENFFiniteElementConvergenceStudy</code></td>
+<td>Three-or-more-level assembled ENF compliance study.</td>
+</tr>
+<tr>
+<td>class</td>
+<td><code>ENFFiniteElementCurve</code></td>
+<td>Assembled ENF compliance and pure Mode-II energy-release evidence.</td>
+</tr>
+<tr>
+<td>class</td>
+<td><code>ENFFiniteElementPoint</code></td>
+<td>One displacement-controlled solution of an ENF specimen.</td>
+</tr>
+<tr>
+<td>function</td>
+<td><code>certify_enf_compliance_convergence(spec: DelaminationBenchmarkSpec, curves, *, reference_relative_tolerance: float, refinement_relative_tolerance: float, residual_tolerance: float = 1e-08) -&gt; ENFComplianceConvergenceCertificate</code></td>
+<td>Compare refined assembled ENF compliance with simple-beam theory.</td>
+</tr>
+<tr>
+<td>function</td>
+<td><code>enf_finite_element_convergence(spec: DelaminationBenchmarkSpec, *, crack_length, control_displacement: float, mesh_levels, poisson: float = 0.3, assumption: str = 'plane_stress', interface_stiffness: float \| None = None, solver_options = None, reference_relative_tolerance: float = 0.1, refinement_relative_tolerance: float = 0.05, residual_tolerance: float = 1e-08) -&gt; ENFFiniteElementConvergenceStudy</code></td>
+<td>Run and certify three or more assembled ENF mesh levels.</td>
+</tr>
+<tr>
+<td>function</td>
+<td><code>enf_finite_element_curve(spec: DelaminationBenchmarkSpec, *, crack_length, control_displacement: float, elements_along: int, elements_per_arm: int, poisson: float = 0.3, assumption: str = 'plane_stress', interface_stiffness: float \| None = None, solver_options = None) -&gt; ENFFiniteElementCurve</code></td>
+<td>Solve a precracked ENF family under three-point bending.</td>
+</tr>
+<tr>
+<td>class</td>
 <td><code>DelaminationBenchmarkAssessment</code></td>
 <td>Acceptance evidence for one structural cohesive benchmark.</td>
 </tr>
