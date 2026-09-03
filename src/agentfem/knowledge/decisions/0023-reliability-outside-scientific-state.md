@@ -28,6 +28,10 @@ without making scientific state an analytics payload.
 - a release without a reviewed project-owned collector keeps only a bounded
   local queue and says delivery is unavailable;
 - the collector stores daily aggregates, not raw events or source IPs;
+- reviewed regional ingress routes share the same allowlist and use
+  first-success delivery rather than duplicating events;
+- a mainland privacy relay forwards only validated JSON and never copies
+  function-URL headers to the aggregate collector;
 - GitHub issue creation remains authenticated and user initiated;
 - reliability evidence never changes a result's scientific trust level.
 
@@ -36,4 +40,5 @@ without making scientific state an analytics payload.
 - strict client and collector schema validators;
 - tests that inject secret messages, paths, source lines and material names;
 - queue, opt-out, repetition and sanitized bundle regression tests;
+- collector and mainland-relay rejection/failover contract tests;
 - installed-wheel CLI and documentation release gates.

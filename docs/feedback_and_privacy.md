@@ -1,8 +1,9 @@
 # Reliability Feedback and Private Support
 
-AgentFEM uses a small, privacy-bounded reliability channel to learn which
-platforms and workflows succeed or fail in real use. It is independent of the
-finite-element model and numerical result lifecycle.
+AgentFEM uses a minimal anonymous reliability signal to improve the free,
+open-source software. It learns which platforms and workflows succeed or fail
+in real use while remaining independent of the finite-element model and
+numerical result lifecycle.
 
 ## What basic reporting contains
 
@@ -37,8 +38,10 @@ day used for aggregate reliability counts.
 Use `agentfem telemetry show-last` to inspect the exact latest event, including
 after successful delivery. This local snapshot follows the same strict schema;
 `agentfem telemetry off` deletes it together with every unsent event. If the
-project-owned endpoint is temporarily unavailable, AgentFEM keeps only the
-bounded local queue and never delays or fails a simulation.
+first project-owned endpoint is temporarily unavailable, AgentFEM tries the
+next reviewed route within the same bounded delivery budget. It sends an event
+through the first successful route only. If all routes are unavailable,
+AgentFEM keeps only the bounded local queue and never fails a simulation.
 
 ## Repeated failure and Agent assistance
 
@@ -71,6 +74,11 @@ AgentFEM first searches for an open issue carrying the same fingerprint to
 reduce duplicates. The issue contains only the sanitized report; confidential
 model evidence must never be attached automatically.
 
+This escalation benefits the reporting user as well as the project: one
+confirmed report can lead directly to a diagnosis, bug fix, clearer message,
+or generally useful capability. It is never an automatic extension of basic
+reporting.
+
 ## Collector boundary
 
 The reference collector in `services/reliability-collector/` validates the
@@ -80,3 +88,19 @@ events, source IP addresses, user identities, exception text, or scientific
 data. The 0.3.1 endpoint is project-owned and passed health, rejection and
 aggregation smoke tests before publication; an unowned placeholder remains
 forbidden.
+
+## Global and mainland-China ingress
+
+The packaged endpoint manifest can declare more than one reviewed HTTPS route.
+The global route reaches the aggregate collector directly. The mainland-China
+route is a Tencent Cloud SCF privacy relay: it validates the exact same schema,
+does not store a request, and forwards only the validated JSON body. Function
+URL headers, including the transport address supplied by SCF, are not copied.
+The aggregate collector therefore sees the relay rather than the originating
+client.
+
+The relay is intentionally not a second analytics implementation. Client,
+relay, and collector retain one event schema and one privacy boundary. Route
+failure changes only delivery; it never changes, duplicates, enriches, or
+reinterprets an event. The deployable reference and contract tests live in
+`services/reliability-relay-tencent/`.

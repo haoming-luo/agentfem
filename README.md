@@ -186,9 +186,9 @@ the Apache-2.0 Python package; the recommended offline Complete runtime may
 aggregate it with its license and corresponding source for a one-click
 CAD-to-mesh workflow.
 
-AgentFEM can share a strictly anonymous reliability signal; models, meshes,
-parameters, code, paths, and results are never included. Inspect or disable it
-with `agentfem telemetry status|off`. See the
+AgentFEM can share a minimal anonymous reliability signal to improve the free,
+open-source software; models, meshes, parameters, code, paths, and results are
+never included. Inspect or disable it with `agentfem telemetry status|off`. See the
 [feedback and privacy contract](docs/feedback_and_privacy.md).
 
 ## Run Your First Model

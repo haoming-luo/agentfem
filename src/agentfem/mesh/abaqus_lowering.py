@@ -107,9 +107,11 @@ class AbaqusNativePressure:
 
 @dataclass(frozen=True)
 class AbaqusNativeGravity:
-    """One whole-model Abaqus ``GRAV`` load accepted by the native draft."""
+    """One region/material Abaqus ``GRAV`` load accepted by the native draft."""
 
     acceleration: tuple[float, ...]
+    region: str
+    material_name: str
     step: str
     location: abaqus_migration.AbaqusSourceLocation
     reference_acceleration: tuple[float, ...] | None = None
@@ -118,6 +120,8 @@ class AbaqusNativeGravity:
     def summary(self) -> dict[str, object]:
         return {
             "acceleration": list(self.acceleration),
+            "region": self.region,
+            "material_name": self.material_name,
             "reference_acceleration": (
                 None
                 if self.reference_acceleration is None
@@ -693,8 +697,9 @@ def _parse_pressures(plan, surface_aliases, amplitudes, findings):
     return tuple(accepted)
 
 
-def _parse_gravities(plan, dimension, section_region, amplitudes, findings):
+def _parse_gravities(plan, dimension, material_assignments, amplitudes, findings):
     accepted = []
+    by_region = {item.region.upper(): item for item in material_assignments}
     for asset in plan.pending_assets:
         if asset.keyword != "*DLOAD":
             continue
@@ -718,13 +723,15 @@ def _parse_gravities(plan, dimension, section_region, amplitudes, findings):
                     )
                 )
                 continue
-            if section_region is None or row[0].upper() != section_region.upper():
+            assignment = by_region.get(row[0].upper())
+            if assignment is None:
                 findings.append(
                     _finding(
                         "AFM-ABAQUS-LOWER-GRAV-003",
                         "error",
-                        "The first GRAV lowering requires its ELSET to equal the "
-                        "single homogeneous Section region.",
+                        "GRAV lowering requires its ELSET to identify exactly one "
+                        "lowered SOLID SECTION region. Parent or overlapping ELSET "
+                        "membership is preserved but not guessed.",
                         asset.location,
                     )
                 )
@@ -757,6 +764,8 @@ def _parse_gravities(plan, dimension, section_region, amplitudes, findings):
             accepted.append(
                 AbaqusNativeGravity(
                     acceleration=tuple(value * amplitude_scale for value in reference),
+                    region=assignment.region,
+                    material_name=assignment.material_name,
                     step=asset.step or "<unspecified>",
                     location=asset.location,
                     reference_acceleration=reference,
@@ -996,9 +1005,12 @@ def assess(plan: abaqus_migration.AbaqusMigrationPlan) -> AbaqusNativeLoweringAs
         plan, dimension, nsets, amplitude_lookup, findings
     )
     pressures = _parse_pressures(plan, surfaces, amplitude_lookup, findings)
-    section_region = plan.sections[0].region if len(plan.sections) == 1 else None
     gravities = _parse_gravities(
-        plan, dimension, section_region, amplitude_lookup, findings
+        plan,
+        dimension,
+        material_assignments,
+        amplitude_lookup,
+        findings,
     )
     referenced_amplitudes = {
         item.amplitude
@@ -1255,11 +1267,14 @@ def _native_case_source(assessment, *, source_entry):
         f"    displacement = model.field(fields.displacement(cell.domain, degree={assessment.degree}))",
         )
     )
-    for assignment in assessment.material_assignments:
+    material_variables = {}
+    for material_index, assignment in enumerate(assessment.material_assignments, 1):
         material = assignment.material
+        variable = f"material_{material_index}"
+        material_variables[assignment.material_name.upper()] = variable
         lines.extend(
             (
-                "    model.material(",
+                f"    {variable} = model.material(",
                 "        elasticity.isotropic_elastic(",
                 f"            young={material['young']!r},",
                 f"            poisson={material['poisson']!r},",
@@ -1293,10 +1308,12 @@ def _native_case_source(assessment, *, source_entry):
             )
         )
     for index, item in enumerate(assessment.gravities, 1):
+        material_variable = material_variables[item.material_name.upper()]
         lines.extend(
             (
                 "    model.gravity(",
                 f"        {item.acceleration!r},",
+                f"        material={material_variable},",
                 f'        name="abaqus_gravity_{index}",',
                 "    )",
             )

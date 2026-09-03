@@ -293,8 +293,9 @@ documentation site, use the left navigation pages `Workflow`, `Concepts`, and
   evidence without assuming it contains the scientific model. Never run
   `agentfem feedback --github` or transmit a support archive without explicit
   user authorization. `agentfem telemetry status --json` describes the exact
-  automatic reliability boundary and `agentfem telemetry off` remains a
-  permanent user control.
+  automatic reliability boundary: a minimal anonymous signal used to improve
+  the free, open-source software, with no model, mesh, parameter, source, path,
+  or result data. `agentfem telemetry off` remains a permanent user control.
 - Use `learning` as the public umbrella but preserve exact roles. A surrogate,
   neural operator, neural-field solver, and learned constitutive model are not
   interchangeable. PINN/DEM/XDEM providers must consume explicit objectives,

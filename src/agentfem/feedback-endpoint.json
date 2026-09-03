@@ -1,5 +1,11 @@
 {
   "schema": "agentfem.feedback-endpoint",
-  "schema_version": "0.1.0",
-  "endpoint": "https://agentfem-reliability.horming-luo.workers.dev/v1/reliability"
+  "schema_version": "0.2.0",
+  "endpoints": [
+    {
+      "name": "global",
+      "region": "global",
+      "url": "https://agentfem-reliability.horming-luo.workers.dev/v1/reliability"
+    }
+  ]
 }

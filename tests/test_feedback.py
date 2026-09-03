@@ -30,15 +30,16 @@ def feedback_home(tmp_path, monkeypatch):
     monkeypatch.setenv("AGENTFEM_TELEMETRY_TESTING", "1")
     monkeypatch.delenv("AGENTFEM_TELEMETRY", raising=False)
     monkeypatch.delenv("AGENTFEM_FEEDBACK_ENDPOINT", raising=False)
-    monkeypatch.setattr(feedback, "_endpoint_from_package", lambda: None)
+    monkeypatch.delenv("AGENTFEM_FEEDBACK_ENDPOINTS", raising=False)
+    monkeypatch.setattr(feedback, "_endpoints_from_package", lambda: ())
     monkeypatch.setattr(feedback, "_safe_runtime", lambda: dict(SAFE_RUNTIME))
     return home
 
 
 def test_release_contains_the_owned_https_collector():
-    endpoint = feedback._endpoint_from_package()
-    assert endpoint == (
-        "https://agentfem-reliability.horming-luo.workers.dev/v1/reliability"
+    endpoints = feedback._endpoints_from_package()
+    assert endpoints == (
+        "https://agentfem-reliability.horming-luo.workers.dev/v1/reliability",
     )
 
 
@@ -115,6 +116,22 @@ def test_feedback_is_on_by_default_and_can_be_disabled(feedback_home):
     assert feedback.enqueue(event).is_file()
 
 
+def test_marking_notice_preserves_packaged_failover_routes(feedback_home, monkeypatch):
+    routes = (
+        "https://cn.example/v1/reliability",
+        "https://global.example/v1/reliability",
+    )
+    monkeypatch.setattr(feedback, "_endpoints_from_package", lambda: routes)
+
+    assert feedback.preferences().endpoints == routes
+    configured = feedback.configure("basic", notice_shown=True)
+
+    assert configured.notice_shown is True
+    assert configured.endpoints == routes
+    stored = json.loads((feedback_home / "preferences.json").read_text(encoding="utf-8"))
+    assert stored["endpoints"] == list(routes)
+
+
 def test_bounded_transport_sends_only_the_whitelisted_batch(
     feedback_home, monkeypatch
 ):
@@ -139,7 +156,7 @@ def test_bounded_transport_sends_only_the_whitelisted_batch(
 
     monkeypatch.setattr(feedback.urlrequest, "urlopen", open_request)
     delivered = feedback.flush()
-    assert delivered == {"status": "sent", "sent": 1, "remaining": 0}
+    assert delivered == {"status": "sent", "sent": 1, "remaining": 0, "route": 0}
     payload = json.loads(captured["request"].data)
     assert payload["schema"] == "agentfem.reliability-batch"
     assert payload["events"] == [event]
@@ -148,6 +165,42 @@ def test_bounded_transport_sends_only_the_whitelisted_batch(
     assert feedback.last_event() == event
     feedback.configure("off")
     assert feedback.last_event() is None
+
+
+def test_transport_uses_first_successful_reviewed_route(feedback_home, monkeypatch):
+    monkeypatch.setenv(
+        "AGENTFEM_FEEDBACK_ENDPOINTS",
+        "https://cn.example/v1/reliability,https://global.example/v1/reliability",
+    )
+    event = feedback.build_event("run", "failed", error={"type": "RuntimeError"})
+    feedback.enqueue(event)
+    attempted = []
+
+    class Response:
+        status = 202
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_):
+            return False
+
+    def open_request(request, *, timeout):
+        attempted.append((request.full_url, timeout))
+        if "cn.example" in request.full_url:
+            raise feedback.urlerror.URLError("unavailable")
+        return Response()
+
+    monkeypatch.setattr(feedback.urlrequest, "urlopen", open_request)
+    delivered = feedback.flush()
+
+    assert delivered == {"status": "sent", "sent": 1, "remaining": 0, "route": 1}
+    assert tuple(item[0] for item in attempted) == (
+        "https://cn.example/v1/reliability",
+        "https://global.example/v1/reliability",
+    )
+    assert all(item[1] <= feedback.DEFAULT_TIMEOUT_SECONDS / 2 for item in attempted)
+    assert feedback.preferences().summary()["delivery_route_count"] == 2
 
 
 def test_repeated_failure_suggests_agent_only_once(feedback_home):
@@ -175,7 +228,9 @@ def test_notice_never_blocks_a_command_when_local_state_is_read_only(
         lambda *args, **kwargs: (_ for _ in ()).throw(OSError("read only")),
     )
     assert feedback.show_notice_once() is True
-    assert "Models and simulation data are never included" in capsys.readouterr().err
+    notice = capsys.readouterr().err
+    assert "Models, meshes, parameters, code, paths, and results are never included" in notice
+    assert "agentfem telemetry off" in notice
 
 
 def test_support_bundle_is_local_sanitized_and_integrity_checked(

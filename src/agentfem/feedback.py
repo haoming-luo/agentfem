@@ -140,14 +140,42 @@ def _last_event_path() -> Path:
     return _feedback_home() / "last-event.json"
 
 
-def _endpoint_from_package() -> str | None:
+def _endpoints_from_package() -> tuple[str, ...]:
+    """Return reviewed delivery routes in their declared failover order."""
+
     try:
         path = resources.files("agentfem") / "feedback-endpoint.json"
         record = json.loads(path.read_text(encoding="utf-8"))
     except (FileNotFoundError, json.JSONDecodeError, TypeError):
-        return None
-    value = record.get("endpoint")
-    return _validated_endpoint(value) if value else None
+        return ()
+    declared = record.get("endpoints")
+    if declared is None:
+        value = record.get("endpoint")
+        if not value:
+            return ()
+        try:
+            return (_validated_endpoint(value),)
+        except (TypeError, ValueError):
+            return ()
+    if not isinstance(declared, list):
+        return ()
+    accepted = []
+    for item in declared:
+        value = item.get("url") if isinstance(item, Mapping) else item
+        try:
+            endpoint = _validated_endpoint(value)
+        except (TypeError, ValueError):
+            continue
+        if endpoint not in accepted:
+            accepted.append(endpoint)
+    return tuple(accepted)
+
+
+def _endpoint_from_package() -> str | None:
+    """Compatibility view of the first reviewed delivery route."""
+
+    endpoints = _endpoints_from_package()
+    return endpoints[0] if endpoints else None
 
 
 def _validated_endpoint(value: object) -> str:
@@ -166,6 +194,17 @@ class FeedbackPreferences:
     mode: str = DEFAULT_MODE
     notice_shown: bool = False
     endpoint: str | None = None
+    fallback_endpoints: tuple[str, ...] = ()
+
+    @property
+    def endpoints(self) -> tuple[str, ...]:
+        """Return primary and fallback routes without duplicates."""
+
+        result = []
+        for value in (self.endpoint, *self.fallback_endpoints):
+            if value and value not in result:
+                result.append(value)
+        return tuple(result)
 
     def summary(self) -> dict[str, object]:
         return {
@@ -174,7 +213,8 @@ class FeedbackPreferences:
             "mode": self.mode,
             "notice_shown": self.notice_shown,
             "endpoint": self.endpoint,
-            "delivery_available": bool(self.endpoint),
+            "delivery_available": bool(self.endpoints),
+            "delivery_route_count": len(self.endpoints),
             "queue_size": queue_size(),
             "privacy": {
                 "models": "never",
@@ -193,6 +233,7 @@ def preferences() -> FeedbackPreferences:
 
     mode_override = os.environ.get("AGENTFEM_TELEMETRY")
     endpoint_override = os.environ.get("AGENTFEM_FEEDBACK_ENDPOINT")
+    endpoints_override = os.environ.get("AGENTFEM_FEEDBACK_ENDPOINTS")
     record: dict[str, object] = {}
     path = _preferences_path()
     try:
@@ -202,15 +243,31 @@ def preferences() -> FeedbackPreferences:
     mode = str(mode_override or record.get("mode", DEFAULT_MODE)).strip().lower()
     if mode not in _MODES:
         mode = DEFAULT_MODE
-    endpoint = endpoint_override or record.get("endpoint") or _endpoint_from_package()
-    try:
-        selected_endpoint = _validated_endpoint(endpoint) if endpoint else None
-    except ValueError:
-        selected_endpoint = None
+    declared = ()
+    recorded_endpoints = record.get("endpoints")
+    if endpoints_override:
+        declared = tuple(item.strip() for item in endpoints_override.split(",") if item.strip())
+    elif endpoint_override:
+        declared = (endpoint_override,)
+    elif isinstance(recorded_endpoints, list):
+        declared = tuple(recorded_endpoints)
+    elif record.get("endpoint"):
+        declared = (record.get("endpoint"),)
+    else:
+        declared = _endpoints_from_package()
+    accepted = []
+    for endpoint in declared:
+        try:
+            selected = _validated_endpoint(endpoint)
+        except (TypeError, ValueError):
+            continue
+        if selected not in accepted:
+            accepted.append(selected)
     return FeedbackPreferences(
         mode=mode,
         notice_shown=bool(record.get("notice_shown", False)),
-        endpoint=selected_endpoint,
+        endpoint=accepted[0] if accepted else None,
+        fallback_endpoints=tuple(accepted[1:]),
     )
 
 
@@ -226,13 +283,17 @@ def configure(
     if selected not in _MODES:
         raise ValueError(f"Feedback mode must be one of {_MODES}; received {mode!r}.")
     previous = preferences()
-    selected_endpoint = previous.endpoint if endpoint is None else _validated_endpoint(endpoint)
+    selected_endpoints = (
+        previous.endpoints if endpoint is None else (_validated_endpoint(endpoint),)
+    )
+    selected_endpoint = selected_endpoints[0] if selected_endpoints else None
     record = {
         "schema": PREFERENCES_SCHEMA,
         "schema_version": SCHEMA_VERSION,
         "mode": selected,
         "notice_shown": previous.notice_shown if notice_shown is None else bool(notice_shown),
         "endpoint": selected_endpoint,
+        "endpoints": list(selected_endpoints),
     }
     _atomic_json(_preferences_path(), record)
     if selected == "off":
@@ -242,14 +303,14 @@ def configure(
 
 def notice_text() -> str:
     opening = (
-        "AgentFEM automatically shares anonymous error and reliability reports "
-        "to improve the software."
+        "AgentFEM shares a minimal anonymous reliability signal to improve this "
+        "free, open-source software."
         if preferences().endpoint
         else "AgentFEM records anonymous error and reliability reports locally; "
         "online delivery is not configured in this build."
     )
     return (
-        f"{opening} Models and simulation data are never included.\n"
+        f"{opening} Models, meshes, parameters, code, paths, and results are never included.\n"
         "Turn off anytime: agentfem telemetry off"
     )
 
@@ -531,7 +592,7 @@ def flush(*, timeout: float = DEFAULT_TIMEOUT_SECONDS) -> dict[str, object]:
     paths = _queued_paths()[:MAX_BATCH_EVENTS]
     if selected.mode != "basic":
         return {"status": "disabled", "sent": 0, "remaining": len(paths)}
-    if not selected.endpoint:
+    if not selected.endpoints:
         return {"status": "endpoint_unavailable", "sent": 0, "remaining": queue_size()}
     if not paths:
         return {"status": "empty", "sent": 0, "remaining": 0}
@@ -558,20 +619,28 @@ def flush(*, timeout: float = DEFAULT_TIMEOUT_SECONDS) -> dict[str, object]:
         {"schema": BATCH_SCHEMA, "schema_version": SCHEMA_VERSION, "events": events},
         separators=(",", ":"),
     ).encode("utf-8")
-    request = urlrequest.Request(
-        selected.endpoint,
-        data=payload,
-        method="POST",
-        headers={
-            "Content-Type": "application/json",
-            "User-Agent": f"AgentFEM/{events[0]['agentfem_version']} reliability",
-        },
-    )
-    try:
-        with urlrequest.urlopen(request, timeout=float(timeout)) as response:
-            if not 200 <= int(response.status) < 300:
-                raise OSError(f"collector returned HTTP {response.status}")
-    except (OSError, TimeoutError, urlerror.URLError):
+    delivered_route = None
+    total_timeout = max(0.0, float(timeout))
+    route_timeout = total_timeout / len(selected.endpoints)
+    for route_index, endpoint in enumerate(selected.endpoints):
+        request = urlrequest.Request(
+            endpoint,
+            data=payload,
+            method="POST",
+            headers={
+                "Content-Type": "application/json",
+                "User-Agent": f"AgentFEM/{events[0]['agentfem_version']} reliability",
+            },
+        )
+        try:
+            with urlrequest.urlopen(request, timeout=route_timeout) as response:
+                if not 200 <= int(response.status) < 300:
+                    raise OSError(f"collector returned HTTP {response.status}")
+            delivered_route = route_index
+            break
+        except (OSError, TimeoutError, urlerror.URLError):
+            continue
+    if delivered_route is None:
         _delivery_failure(now)
         return {"status": "unavailable", "sent": 0, "remaining": queue_size()}
     for path in valid_paths:
@@ -580,7 +649,12 @@ def flush(*, timeout: float = DEFAULT_TIMEOUT_SECONDS) -> dict[str, object]:
         except OSError:
             pass
     _delivery_success()
-    return {"status": "sent", "sent": len(valid_paths), "remaining": queue_size()}
+    return {
+        "status": "sent",
+        "sent": len(valid_paths),
+        "remaining": queue_size(),
+        "route": delivered_route,
+    }
 
 
 def _success_sample_allowed(now: datetime | None = None) -> bool:

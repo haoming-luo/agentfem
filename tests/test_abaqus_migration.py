@@ -1054,6 +1054,9 @@ def test_native_lowering_maps_multiple_solid_sections_to_material_regions(tmp_pa
                 "*Static",
                 "*Boundary",
                 "FIXED,1,3,0.",
+                "*Dload",
+                "SOFT, GRAV, 9.81, 0., 0., -1.",
+                "STIFF, GRAV, 9.81, 0., 0., -1.",
                 "*End Step",
             )
         )
@@ -1076,6 +1079,11 @@ def test_native_lowering_maps_multiple_solid_sections_to_material_regions(tmp_pa
         "RUBBER",
         "STEEL",
     ]
+    assert [item.region for item in assessment.gravities] == ["SOFT", "STIFF"]
+    assert [item.material_name for item in assessment.gravities] == [
+        "RUBBER",
+        "STEEL",
+    ]
 
     abaqus_lowering.lower_project(
         project,
@@ -1083,8 +1091,12 @@ def test_native_lowering_maps_multiple_solid_sections_to_material_regions(tmp_pa
         unit_system="SI",
     )
     native = (project / "case.native.py").read_text(encoding="utf-8")
+    assert "material_1 = model.material(" in native
+    assert "material_2 = model.material(" in native
     assert "region=cell.element_set('SOFT')" in native
     assert "region=cell.element_set('STIFF')" in native
+    assert "material=material_1" in native
+    assert "material=material_2" in native
 
     imported = fem_mesh.read_abaqus_mesh(
         project / "mesh" / "abaqus-expanded.inp",

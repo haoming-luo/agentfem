@@ -37,8 +37,9 @@ If an installed run repeatedly fails, use `agentfem diagnose --json`, then
 assuming that its sanitized evidence contains the scientific model. Do not
 upload a report or run `agentfem feedback --github` unless the user explicitly
 authorizes that external action. Basic anonymous reliability reports never
-contain model, mesh, material, source, path, or result data; inspect the exact
-contract with `agentfem telemetry status --json`.
+contain model, mesh, material, source, path, or result data. Explain that this
+minimal signal improves the free, open-source software and can be disabled at
+any time. Inspect the exact contract with `agentfem telemetry status --json`.
 
 ## Progressive Reading
 

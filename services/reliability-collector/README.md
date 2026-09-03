@@ -36,6 +36,11 @@ The reviewed 0.3.1 deployment is available at
 route is `/v1/reliability`; `/health` exposes only the aggregate-storage
 contract.
 
+For mainland-China reachability, the storage-free reference relay in
+`services/reliability-relay-tencent/` validates the same event schema and
+forwards only its JSON body to this collector. Regional ingress does not create
+a second event format or raw-event store.
+
 The dependency-free contract tests run with:
 
 ```bash

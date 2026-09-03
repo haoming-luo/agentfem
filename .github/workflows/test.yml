@@ -29,7 +29,9 @@ jobs:
           ruff check . --no-cache
 
       - name: Verify reliability collector schema boundary
-        run: node --test services/reliability-collector/worker.test.mjs
+        run: |
+          node --test services/reliability-collector/worker.test.mjs
+          node --test services/reliability-relay-tencent/index.test.cjs
 
       - name: Parse the Windows runtime lifecycle scripts
         shell: pwsh

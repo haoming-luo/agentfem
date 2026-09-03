@@ -53,6 +53,29 @@ model.distributing_coupling(
 )
 ```
 
+For ordinary self-weight, density belongs to the material and acceleration
+belongs to the load:
+
+```python
+steel = model.material(
+    elasticity.isotropic_elastic(
+        young=210.0e9,
+        poisson=0.30,
+        density=7850.0,
+    )
+)
+model.gravity((0.0, 0.0, -9.81))
+```
+
+`model.gravity(...)` creates the reference volume force density
+`rho * acceleration`. With multiple registered materials it creates one load
+per explicitly assigned material region, preserving each density. A raw force
+density remains available as `model.body_force(...)`. Both routes enter the
+same external-force operator, amplitude, Step activation, reaction, and work
+contracts used by the selected procedure. Abaqus `*DLOAD, GRAV` migration can
+lower one or more explicitly assigned three-dimensional solid-section regions;
+parent or overlapping ELSET membership is never guessed.
+
 The foundation contributes a boundary stiffness matrix. Centrifugal loading
 uses registered material densities and regions. Hydrostatic pressure follows
 `p = p_ref + rho g dot (x - x_ref)`. Distributing coupling constructs a
