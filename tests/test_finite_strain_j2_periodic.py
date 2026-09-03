@@ -654,7 +654,7 @@ def test_public_finite_strain_j2_periodic_cube_matches_material_point(tmp_path):
         rtol=5.0e-6,
         atol=5.0e-8,
     )
-    peeq = step.response.state.committed_state_vectors()[:, -1]
+    peeq = step.response.state.committed_state_vectors()[:, -2]
     assert np.ptp(peeq) < 1.0e-9
     assert np.mean(peeq) > 0.0
 
@@ -667,11 +667,25 @@ def test_public_finite_strain_j2_periodic_cube_matches_material_point(tmp_path):
         "SENER",
         "FP",
         "PEEQ",
+        "PDENER",
     } <= set(result.fields)
     assert result.fields["PEEQ"].location == "quadrature_points"
     assert result.quantity("maximum_equivalent_plastic_strain") == pytest.approx(
-        float(expected.state_new[-1]),
+        float(
+            material.state_schema.unpack(expected.state_new)[
+                "equivalent_plastic_strain"
+            ]
+        ),
         rel=5.0e-6,
+    )
+    assert result.quantity("plastic_dissipation") > 0.0
+    assert (
+        result.quantity("homogenized_plastic_dissipation_density")
+        == pytest.approx(
+            material.yield_stress
+            * result.quantity("maximum_equivalent_plastic_strain"),
+            rel=5.0e-6,
+        )
     )
     np.testing.assert_allclose(
         result.histories["homogenized_first_piola_stress"].values[-1],

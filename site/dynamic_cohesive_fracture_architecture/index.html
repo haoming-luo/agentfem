@@ -1999,10 +1999,14 @@ families. DCB/ENF classical compliance derivatives are automated analytical
 oracles; <code>compliance_energy_release_curve(...)</code> recovers structure-level
 <span class="arithmatex">\(G=P^2(\mathrm dC/\mathrm da)/(2b)\)</span>, and MMB requires an independently
 declared Mode-I partition. Acceptance also checks cohesive-zone resolution
-and artificial dissipation. <code>MixedModeBendingCurve</code> separately reads a source-
+and artificial dissipation. <code>certify_delamination_convergence(...)</code> requires
+at least three successively refined structural curves and additionally checks
+the last-refinement change, Mode-I partition, and an improving asymptotic
+trend. <code>MixedModeBendingCurve</code> separately reads a source-
 identified external trace and compares load, displacement and Mode-I fraction
 under required tolerances. These contracts do not claim that a published
-finite-element or experimental curve has already been reproduced.</p>
+finite-element or experimental curve has already been reproduced; that
+promotion remains closed until real solver curves satisfy the certificate.</p>
 <p>Damage and solver state still use begin/commit/rollback. Mixed-mode checkpoint
 fields are stored by the same physical facet and quadrature identity as the
 Mode-I maximum-opening state, so a different rank partition does not become a

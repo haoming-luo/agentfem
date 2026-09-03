@@ -267,6 +267,8 @@ and evidence remain in the linked guides and scientific function reference.
 | Kind | Public object | Purpose |
 | --- | --- | --- |
 | class | `ConstraintCapabilities` | Solver-facing capability contract for one kinematic constraint. |
+| class | `ConstraintDualEvidence` | Provider-owned force and optional work-conjugate coordinate. |
+| function | `constraint_dual(constraint, *, force, coordinate = None, resultant = None, role = 'mpc_constraint', source = 'provider_dual', complete = True) -> ConstraintDualEvidence` | Create provider evidence tied to one named constraint asset. |
 | class | `DirichletConstraint` | Strong Dirichlet constraint and its optional mutable value object. |
 | class | `TimeDependentDirichlet` | Dirichlet constraint driven by an amplitude. |
 | class | `RemoteDisplacementConstraint` | Rigid boundary motion prescribed about a named reference point. |
@@ -295,7 +297,7 @@ and evidence remain in the linked guides and scientific function reference.
 | function | `periodic(target, *, master, slave, match_axis: str \| int = 0, method: str = 'projection', tolerance: float = 1e-12, name: str = 'periodic')` | Create a periodic constraint with an explicit method choice. |
 | function | `periodic_projection(target, *, master, slave, match_axis: str \| int = 0, tolerance: float = 1e-12, name: str = 'periodic_projection') -> PeriodicProjectionConstraint` | Create component-wise dof pairs for projection-style periodicity. |
 | function | `constraint_capabilities(constraint) -> ConstraintCapabilities \| None` | Return the public capability contract of a known constraint asset. |
-| function | `constraint_balance_contract(constraints) -> dict[str, object]` | Describe whether strong-reaction force/work diagnostics are complete. |
+| function | `constraint_balance_contract(constraints, *, provider_duals = ()) -> dict[str, object]` | Describe whether strong-reaction force/work diagnostics are complete. |
 | function | `validate_solver_compatibility(*, constraints, analysis: str, procedure: str \| None = None, comm_size: int = 1)` | Validate constraint/procedure compatibility before assembly or solve. |
 | class | `PeriodicConstraintSpec` | Geometric description of a periodic constraint. |
 | class | `ConstraintSet` | Collection of constraints used by assembly or field updates. |
@@ -409,8 +411,8 @@ and evidence remain in the linked guides and scientific function reference.
 | function | `sample_points(field, points, *, padding: float = 1e-10, missing: str = 'raise') -> np.ndarray` | Evaluate a finite-element field at common physical points under MPI. |
 | function | `sample_rectilinear_grid(field, *, bbox, shape, reduction: str \| None = None, component: int \| None = None, padding: float = 1e-10) -> RectilinearGridSample` | Sample a scalar or vector field on a 2D/3D rectilinear grid. |
 | function | `section_resultant(stress, *, on, normal = None, about = None) -> ForceMomentResultant` | Integrate section force and moment from a Cauchy/nominal stress field. |
-| function | `static_force_balance(problem, *, constraints = ()) -> StaticForceBalance` | Evaluate ``R + F = 0`` for a converged linear static solid. |
-| function | `static_work_balance(problem, *, constraints = ()) -> StaticWorkBalance` | Evaluate linear-static work including nonzero strong Dirichlet data. |
+| function | `static_force_balance(problem, *, constraints = (), provider_duals = ()) -> StaticForceBalance` | Evaluate ``R + F = 0`` for a converged linear static solid. |
+| function | `static_work_balance(problem, *, constraints = (), provider_duals = ()) -> StaticWorkBalance` | Evaluate linear-static work including nonzero strong Dirichlet data. |
 | function | `project(expression, *, domain = None, family: str = 'DG', degree: int = 0, name: str = 'ProjectedField', weight = 1.0)` | Return the global L2 projection of a UFL expression. |
 | function | `project_piecewise(terms, *, domain = None, family: str = 'DG', degree: int = 0, name: str = 'ProjectedField', weight = 1.0)` | Project region-dependent expressions into one finite-element field. |
 | function | `small_strain_cell_fields(displacement, properties, *, study = None, variables = ('S', 'E', 'MISES', 'SENER'), degree: int = 0) -> tuple[object, ...]` | Create standard projected fields for linear small-strain elasticity. |
@@ -669,12 +671,6 @@ and evidence remain in the linked guides and scientific function reference.
 | class | `MixedModeCyclicCohesiveLaw` | Replaceable cyclic damage layered on a mixed-mode cohesive envelope. |
 | class | `MixedModeCyclicCohesiveTransaction(law: MixedModeCyclicCohesiveLaw, size: int)` | Atomic full-vector cycle transaction with mixed-mode energy evidence. |
 | class | `FieldStateTransaction(fields, *, assets = None)` | In-memory rollback for bulk fields and other transactional assets. |
-| class | `GeneralizedWorkSample` | One named force--displacement pair at an accepted equilibrium point. |
-| function | `generalized_work_sample(name, *, force, displacement, role = 'natural_load') -> GeneralizedWorkSample` | Declare one generalized work-conjugate channel. |
-| function | `reference_point_work_sample(load, *, translation, rotation = None) -> GeneralizedWorkSample` | Pair a distributed reference load with measured rigid motion. |
-| class | `CyclicEnergyFrame` | One accepted or trial cycle-block work--energy closure. |
-| class | `CyclicWorkEnergyLedger(*, name = 'cyclic work-energy ledger')` | Transactional generalized-work and cycle-block energy accounting. |
-| function | `cyclic_work_energy_ledger(**options) -> CyclicWorkEnergyLedger` | Create a transactional cycle-block work--energy ledger. |
 | class | `CyclicEquilibriumPoint` | Evidence returned by one converged cyclic equilibrium solve. |
 | class | `CyclicFatigueBlock` | Accepted structure-level cycle block and its error evidence. |
 | class | `GlobalCyclicFatigueStep(*, cycle: ForceCycle, stop_cycle: int, interfaces, state, solve_equilibrium, jump: CycleJumpPolicy \| None = None, landing_cycles = (), maximum_opening_feedback: float = 0.02, maximum_energy_balance_error: float \| None = None, energy_ledger: CyclicWorkEnergyLedger \| None = None, ordered_path_phases = (), observe = None, name: str = 'cyclic fatigue')` | Quasi-static cyclic fatigue loop with global rollback and cutback. |
@@ -1033,12 +1029,14 @@ and evidence remain in the linked guides and scientific function reference.
 | function | `golden_benchmark(identifier: str) -> GoldenBenchmark` | Load a numerical contract by stable benchmark-card identifier. |
 | class | `DelaminationBenchmarkAssessment` | Acceptance evidence for one structural cohesive benchmark. |
 | class | `DelaminationBenchmarkSpec` | Geometry and evidence contract for DCB, ENF or MMB verification. |
+| class | `DelaminationConvergenceCertificate` | Three-level spatial convergence and structural-reference evidence. |
 | class | `DelaminationEnergyReleaseCurve` | Compliance-derived structural GI/GII evidence versus crack length. |
 | class | `MixedModeBendingComparison` | Curve-level errors under explicitly declared scientific tolerances. |
 | class | `MixedModeBendingCurve` | One traceable load/displacement/mode-mix curve versus crack length. |
 | function | `assess_delamination_benchmark(spec, predicted, reference, *, energy_release_relative_tolerance, minimum_process_zone_elements, required_process_zone_elements = 3.0, artificial_dissipation = 0.0, internal_energy = 1.0) -> DelaminationBenchmarkAssessment` | Apply curve, cohesive-zone resolution and dissipation guardrails. |
 | function | `beam_theory_energy_release_curve(spec, *, crack_length, load)` | Return a DCB/ENF analytical oracle through the same public contract. |
 | function | `compliance_energy_release_curve(spec: DelaminationBenchmarkSpec, *, crack_length, load, displacement = None, compliance = None, mode_i_fraction = None, source: str \| None = None) -> DelaminationEnergyReleaseCurve` | Recover structural energy release by the compliance derivative. |
+| function | `certify_delamination_convergence(spec, curves, reference, *, element_sizes, process_zone_elements, artificial_dissipation_fractions, reference_relative_tolerance, refinement_relative_tolerance, mode_partition_absolute_tolerance = 0.02, required_process_zone_elements = 3.0, allowed_artificial_dissipation_fraction = 0.05) -> DelaminationConvergenceCertificate` | Certify a DCB/ENF/MMB curve using three or more structural levels. |
 | function | `compare_mixed_mode_bending_curves(reference: MixedModeBendingCurve, predicted: MixedModeBendingCurve, *, load_relative_tolerance: float, displacement_relative_tolerance: float, mode_i_fraction_absolute_tolerance: float) -> MixedModeBendingComparison` | Compare a computed curve on the reference crack-length coordinates. |
 | function | `dcb_beam_compliance(spec, crack_length)` | Euler--Bernoulli DCB compliance for two arms of thickness ``h``. |
 | function | `delamination_benchmark_spec(kind, **geometry) -> DelaminationBenchmarkSpec` | Create a DCB, ENF or MMB numerical-verification specification. |

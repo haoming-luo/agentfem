@@ -365,6 +365,7 @@ class FiniteStrainJ2StateTransaction:
             "SENER": self.response.strain_energy_density,
             "FP": self.response.state.committed["plastic_deformation_gradient"],
             "PEEQ": self.response.state.committed["equivalent_plastic_strain"],
+            "PDENER": self.response.state.committed["plastic_dissipation"],
         }
         fields.update(self.response.stored_energy_density_components)
         return fields
@@ -382,6 +383,10 @@ class FiniteStrainJ2StateTransaction:
             "HARDENER": "Stored linear-isotropic-hardening free-energy density.",
             "FP": "Committed plastic deformation gradient.",
             "PEEQ": "Committed equivalent plastic strain.",
+            "PDENER": (
+                "Committed cumulative irrecoverable plastic dissipation "
+                "density per reference volume."
+            ),
         }
         recovered_fields = []
         for name, source in self.snapshot_fields().items():
@@ -393,12 +398,12 @@ class FiniteStrainJ2StateTransaction:
                 processing={
                     "source_position": "quadrature_points",
                     "method": (
-                        "constitutive_state" if name in {"FP", "PEEQ"}
+                        "constitutive_state" if name in {"FP", "PEEQ", "PDENER"}
                         else "accepted_constitutive_response"
                     ),
                     "representation": "quadrature_values",
                     "postprocessed": False,
-                    "committed": name in {"FP", "PEEQ"},
+                    "committed": name in {"FP", "PEEQ", "PDENER"},
                 },
             )
             recovered = recover_integration_point_field(
@@ -415,6 +420,17 @@ class FiniteStrainJ2StateTransaction:
             )
             recovered_fields.append(recovered.field)
         peeq = self.response.state.committed["equivalent_plastic_strain"]
+        pdener = self.response.state.committed["plastic_dissipation"]
+        weights = pdener.owned_physical_weights()
+        local_dissipation = float(
+            np.dot(weights, np.asarray(pdener.owned_values).reshape(-1))
+        )
+        plastic_dissipation = float(
+            pdener.function.function_space.mesh.comm.allreduce(
+                local_dissipation,
+                op=MPI.SUM,
+            )
+        )
         result.add_quantities(
             {
                 "maximum_equivalent_plastic_strain": peeq.global_max(),
@@ -422,6 +438,7 @@ class FiniteStrainJ2StateTransaction:
                     tolerance=1.0e-14
                 ),
                 "accepted_load_factor": self.accepted_factor,
+                "plastic_dissipation": plastic_dissipation,
             },
             kind="diagnostic",
         )
@@ -439,7 +456,7 @@ class FiniteStrainJ2StateTransaction:
             ),
             "energy_scope": (
                 "SENER = ELENER + HARDENER is recoverable stored energy; "
-                "plastic dissipation is not yet part of the balance ledger"
+                "PDENER is cumulative irrecoverable plastic dissipation"
             ),
         }
 

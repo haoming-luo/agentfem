@@ -402,8 +402,9 @@ The current executable foundation covers:
 24. named generalized-work integration for reference points, prescribed
     motion and MPC channels, with atomic energy rejection and restart;
 25. DCB/ENF analytical structural energy-release oracles plus an MMB contract
-    that requires independently declared mode partition, process-zone
-    resolution and numerical-dissipation evidence.
+    that requires independently declared mode partition, and a three-or-more-
+    level convergence certificate covering reference error, last-refinement
+    change, process-zone resolution and numerical-dissipation evidence.
 
 Promotion to a cylinder-validated fatigue-crack-growth capability still requires:
 

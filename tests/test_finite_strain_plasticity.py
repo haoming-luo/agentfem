@@ -51,6 +51,7 @@ def test_finite_strain_j2_declares_portable_state_and_rejects_bad_parameters():
     state = material.state_schema.unpack(material.state_schema.initial_state())
     np.testing.assert_allclose(state["plastic_deformation_gradient"], np.eye(3))
     assert state["equivalent_plastic_strain"] == pytest.approx(0.0)
+    assert state["plastic_dissipation"] == pytest.approx(0.0)
     assert material.tangent_convention.stress_measure == "first_piola"
     assert material.summary()["status"] == "experimental_material_point"
     with pytest.raises(ValueError, match="nu < 0.5"):
@@ -155,9 +156,12 @@ def test_finite_strain_j2_separates_recoverable_energy_components():
         sum(plastic.stored_energy_density_components.values()),
         rel=2.0e-12,
     )
-    assert (
-        material.summary()["stored_energy_density"]["plastic_dissipation"]
-        == "not_implemented"
+    assert plastic_state["plastic_dissipation"] == pytest.approx(
+        material.yield_stress * plastic_state["equivalent_plastic_strain"],
+        rel=2.0e-12,
+    )
+    assert "yield_stress_times_equivalent_plastic_strain" in (
+        material.summary()["stored_energy_density"]["PDENER"]
     )
 
 
@@ -185,6 +189,9 @@ def test_finite_strain_j2_unloading_does_not_erase_plastic_history():
     assert unloaded_state["equivalent_plastic_strain"] == pytest.approx(
         loaded_state["equivalent_plastic_strain"], abs=2.0e-13
     )
+    assert unloaded_state["plastic_dissipation"] == pytest.approx(
+        loaded_state["plastic_dissipation"], abs=2.0e-10
+    )
     np.testing.assert_allclose(
         unloaded_state["plastic_deformation_gradient"],
         loaded_state["plastic_deformation_gradient"],
@@ -204,6 +211,9 @@ def test_finite_strain_j2_unloading_does_not_erase_plastic_history():
     reversed_state = material.state_schema.unpack(reversed_response.state_new)
     assert reversed_state["equivalent_plastic_strain"] > loaded_state[
         "equivalent_plastic_strain"
+    ]
+    assert reversed_state["plastic_dissipation"] > loaded_state[
+        "plastic_dissipation"
     ]
 
 
@@ -239,6 +249,12 @@ def test_finite_strain_j2_reload_preserves_then_extends_history():
     assert reloaded["equivalent_plastic_strain"] == pytest.approx(
         loaded["equivalent_plastic_strain"], abs=2.0e-13
     )
+    assert unloaded["plastic_dissipation"] == pytest.approx(
+        loaded["plastic_dissipation"], abs=2.0e-10
+    )
+    assert reloaded["plastic_dissipation"] == pytest.approx(
+        loaded["plastic_dissipation"], abs=2.0e-10
+    )
     np.testing.assert_allclose(
         reloaded["plastic_deformation_gradient"],
         loaded["plastic_deformation_gradient"],
@@ -248,6 +264,7 @@ def test_finite_strain_j2_reload_preserves_then_extends_history():
     assert extended["equivalent_plastic_strain"] > reloaded[
         "equivalent_plastic_strain"
     ]
+    assert extended["plastic_dissipation"] > reloaded["plastic_dissipation"]
     for selected in states:
         assert np.linalg.det(
             selected["plastic_deformation_gradient"]
@@ -374,6 +391,19 @@ def test_finite_strain_j2_point_properties_cannot_silently_override_provider():
         material.update(point)
 
 
+def test_finite_strain_j2_rejects_inconsistent_dissipation_state():
+    material = constitutive.finite_strain_j2_logarithmic(
+        young=210_000.0,
+        poisson=0.3,
+        yield_stress=250.0,
+        hardening_modulus=1_000.0,
+    )
+    state = material.state_schema.initial_state()
+    state[-2:] = (0.01, 0.0)
+    with pytest.raises(ValueError, match="PDENER is inconsistent"):
+        material.update(_point(material, np.eye(3), state=state))
+
+
 def test_finite_strain_j2_quadrature_batch_respects_trial_commit_and_rollback():
     material = constitutive.finite_strain_j2_logarithmic(
         young=210_000.0,
@@ -405,6 +435,10 @@ def test_finite_strain_j2_quadrature_batch_respects_trial_commit_and_rollback():
     np.testing.assert_allclose(state.committed_state_vectors(), committed_before)
     np.testing.assert_allclose(state.trial_state_vectors(), trial_result.state_new)
     assert np.all(
+        state.trial_state_vectors()[:, -2]
+        > state.committed_state_vectors()[:, -2]
+    )
+    assert np.all(
         state.trial_state_vectors()[:, -1]
         > state.committed_state_vectors()[:, -1]
     )
@@ -424,6 +458,12 @@ def test_finite_strain_j2_quadrature_batch_respects_trial_commit_and_rollback():
     np.testing.assert_allclose(
         state.committed_state_vectors(),
         committed_result.state_new,
+    )
+    np.testing.assert_allclose(
+        committed_result.state_new[:, -1],
+        material.yield_stress * committed_result.state_new[:, -2],
+        rtol=2.0e-12,
+        atol=2.0e-12,
     )
     assert committed_result.summary()["point_count"] == point_count
     assert tuple(committed_result.stored_energy_density_components) == (
@@ -575,8 +615,9 @@ def test_global_finite_strain_j2_patch_consumes_neutral_tangent_and_state():
     assert step.accepted_load_factor == pytest.approx(1.0)
     assert len(step.accepted_increments) == 4
     assert all(item.converged for item in step.accepted_increments)
+    assert np.max(state[:, -2]) > 0.0
     assert np.max(state[:, -1]) > 0.0
-    for plastic_gradient in state[:, :-1].reshape((-1, 3, 3)):
+    for plastic_gradient in state[:, :9].reshape((-1, 3, 3)):
         assert np.linalg.det(plastic_gradient) == pytest.approx(1.0, abs=5.0e-10)
     assert np.max(solution.x.array) == pytest.approx(0.02)
     assert step.summary()["maturity"] == "experimental_global_mpi_restart"
@@ -632,6 +673,12 @@ def test_global_finite_strain_j2_checkpoint_restart_matches_continuous_path(
         rtol=2.0e-8,
         atol=2.0e-10,
     )
+    np.testing.assert_allclose(
+        restarted.response.state.committed_state_vectors()[:, -1],
+        reference.response.state.committed_state_vectors()[:, -1],
+        rtol=2.0e-8,
+        atol=2.0e-10,
+    )
     assert [
         item.load_factor for item in restarted.accepted_increments
     ] == pytest.approx([0.25, 0.5, 0.75, 1.0])
@@ -649,8 +696,8 @@ def test_global_finite_strain_j2_multielement_patch_preserves_uniform_path():
         cells=(2, 2, 2),
     )
     refined.solve()
-    reference_peeq = reference.response.state.committed_state_vectors()[:, -1]
-    refined_peeq = refined.response.state.committed_state_vectors()[:, -1]
+    reference_peeq = reference.response.state.committed_state_vectors()[:, -2]
+    refined_peeq = refined.response.state.committed_state_vectors()[:, -2]
 
     assert len(refined_peeq) > len(reference_peeq)
     assert np.ptp(refined_peeq) < 2.0e-10

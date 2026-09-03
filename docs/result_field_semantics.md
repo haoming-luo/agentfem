@@ -49,6 +49,7 @@ set `U/S/E/MISES`:
 | `SENER` | strain-energy density | available but opt-in diagnostic field; for finite-strain J2, `ELENER + HARDENER` |
 | `ELENER` | elastic stored-energy density | provider-owned finite-strain J2 quadrature field |
 | `HARDENER` | isotropic-hardening stored-energy density | provider-owned finite-strain J2 quadrature field |
+| `PDENER` | cumulative irrecoverable plastic-dissipation density | provider-owned finite-strain J2 quadrature state field |
 | `V`, `A` | velocity and acceleration | nodal transient state fields |
 | `KED` | kinetic-energy density per reference volume | cell field computed as $\tfrac12\rho_0\mathbf{v}\cdot\mathbf{v}$ when velocity and density are supplied |
 
@@ -59,8 +60,10 @@ universally useful than total strain energy and energy-balance histories.
 For finite-strain J2, `SENER` remains backward compatible and has the precise
 meaning `ELENER + HARDENER`: recoverable Hencky elastic free energy plus the
 stored linear-isotropic-hardening free energy. It is not plastic dissipation.
-That dissipative channel requires accepted-increment stress power and a
-separate work ledger and is not currently reported.
+`PDENER` is reported separately as committed cumulative material dissipation
+for the declared rate-independent linear-hardening law. It does not by itself
+close the structural energy balance: external work for every load and
+constraint remains provider-owned evidence.
 
 The default `DG0` result is a cell average. It is discontinuous, performs no
 nodal extrapolation, and does not average across elements or material
@@ -99,7 +102,7 @@ The current release implements the second layer for elasticity. Small-strain
 J2 results retain committed `S/PE/PEEQ` and pointwise `MISES` on the
 constitutive quadrature. The experimental public ordinary and affine/MPC
 finite-strain J2 providers retain the same provider-owned accepted
-`F/P/S/MISES/SENER/ELENER/HARDENER/FP/PEEQ` at the
+`F/P/S/MISES/SENER/ELENER/HARDENER/PDENER/FP/PEEQ` at the
 same quadrature identity; the output layer does not recompute them from a
 history-free constitutive expression. Explicit `*_CELL` products never
 overwrite a same-named raw quadrature field. J2 and implicit creep also expose

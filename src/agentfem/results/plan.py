@@ -321,6 +321,9 @@ class PeriodicCellHistoryRequest:
             )
             for frame in frames
         )
+        dissipation_availability = tuple(
+            frame.plastic_dissipation_density is not None for frame in frames
+        )
         if any(any(item) for item in component_availability):
             if not all(all(item) for item in component_availability):
                 raise RuntimeError(
@@ -335,6 +338,30 @@ class PeriodicCellHistoryRequest:
                     float(frame.hardening_energy_density) for frame in frames
                 ],
             }
+        if any(dissipation_availability):
+            if not all(dissipation_availability):
+                raise RuntimeError(
+                    "Homogenized plastic dissipation must be available on every "
+                    "accepted frame when the provider declares it."
+                )
+            dissipation_history = [
+                float(frame.plastic_dissipation_density) for frame in frames
+            ]
+            scale = max((abs(value) for value in dissipation_history), default=1.0)
+            tolerance = 1.0e-12 * max(scale, 1.0)
+            if any(
+                right < left - tolerance
+                for left, right in zip(
+                    dissipation_history[:-1], dissipation_history[1:]
+                )
+            ):
+                raise RuntimeError(
+                    "Homogenized cumulative plastic dissipation decreased "
+                    "between accepted frames."
+                )
+            energy_components["homogenized_plastic_dissipation_density"] = (
+                dissipation_history
+            )
         context.result.add_histories(
             factors,
             {
@@ -473,6 +500,10 @@ class PeriodicCellHistoryRequest:
                 "homogenized_hardening_energy_density": (
                     "Volume-averaged isotropic-hardening stored-energy density."
                 ),
+                "homogenized_plastic_dissipation_density": (
+                    "Volume-averaged cumulative irrecoverable plastic "
+                    "dissipation density."
+                ),
             },
         )
         final = frames[-1]
@@ -500,6 +531,15 @@ class PeriodicCellHistoryRequest:
                         ),
                         "homogenized_hardening_energy_density": (
                             final.hardening_energy_density
+                        ),
+                        **(
+                            {
+                                "homogenized_plastic_dissipation_density": (
+                                    final.plastic_dissipation_density
+                                )
+                            }
+                            if final.plastic_dissipation_density is not None
+                            else {}
                         ),
                     }
                     if energy_components

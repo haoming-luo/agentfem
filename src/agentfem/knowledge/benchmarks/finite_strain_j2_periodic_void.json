@@ -220,7 +220,7 @@
     "Linux CI requires the two-rank invariant mode but does not claim that a Linux result is the Darwin/arm64 fixed-stack Golden; the strict numerical Golden remains a declared-reference-stack maintainer check.",
     "The h/L=0.25 Golden is a fixed-stack software regression, not a mesh-converged RVE reference solution; its meshed solid-volume error is about 1.074 percent.",
     "Maximum PEEQ is localization-sensitive and remains diagnostic rather than an acceptance quantity.",
-    "Hill--Mandel work consistency is not a complete energy balance; plastic dissipation and an independent generalized macro reaction remain open.",
+    "Hill--Mandel work consistency is not a complete energy balance; PDENER now records committed material dissipation, while an independent generalized macro reaction and complete external-work channel remain open.",
     "The Zhang--Feng--Khandelwal external gate remains failed, so this card does not promote finite-strain J2 to externally verified maturity."
   ]
 }

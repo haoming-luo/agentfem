@@ -165,12 +165,19 @@ def test_public_standard_j2_provider_result_output_progress_and_checkpoint(tmp_p
         "HARDENER",
         "FP",
         "PEEQ",
+        "PDENER",
         "RF",
     } <= set(result.fields)
     assert result.fields["PEEQ"].location == "quadrature_points"
     state = step.response.state.committed_state_vectors()
+    assert np.max(state[:, -2]) > 0.0
     assert np.max(state[:, -1]) > 0.0
-    for plastic_gradient in state[:, :-1].reshape((-1, 3, 3)):
+    assert result.quantity("plastic_dissipation") > 0.0
+    np.testing.assert_allclose(
+        result.fields["PDENER"].field.x.array,
+        step.response.state.committed["plastic_dissipation"].function.x.array,
+    )
+    for plastic_gradient in state[:, :9].reshape((-1, 3, 3)):
         assert np.linalg.det(plastic_gradient) == pytest.approx(
             1.0,
             abs=5.0e-10,
@@ -230,6 +237,12 @@ def test_standard_j2_real_cutback_and_manual_restart_are_equivalent(tmp_path):
     np.testing.assert_allclose(
         restarted.response.state.committed_state_vectors(),
         expected_state,
+        rtol=2e-8,
+        atol=2e-10,
+    )
+    np.testing.assert_allclose(
+        restarted.response.state.committed_state_vectors()[:, -1],
+        reference.response.state.committed_state_vectors()[:, -1],
         rtol=2e-8,
         atol=2e-10,
     )
@@ -354,7 +367,7 @@ def test_public_standard_j2_lowers_registered_material_regions():
 
     assert isinstance(step.material, constitutive.QuadratureMaterialMap)
     assert step.last_solve_info.converged
-    assert np.max(step.response.state.committed_state_vectors()[:, -1]) > 0.0
+    assert np.max(step.response.state.committed_state_vectors()[:, -2]) > 0.0
 
 
 def test_standard_j2_remote_displacement_uses_the_shared_value_path():

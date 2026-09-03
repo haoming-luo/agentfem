@@ -33,6 +33,7 @@ class HomogenizedFrame:
     stress_consistency_error: float
     elastic_energy_density: float | None = None
     hardening_energy_density: float | None = None
+    plastic_dissipation_density: float | None = None
 
     def as_dict(self) -> dict[str, object]:
         return {
@@ -49,6 +50,7 @@ class HomogenizedFrame:
             "stress_consistency_error": self.stress_consistency_error,
             "elastic_energy_density": self.elastic_energy_density,
             "hardening_energy_density": self.hardening_energy_density,
+            "plastic_dissipation_density": self.plastic_dissipation_density,
         }
 
     @classmethod
@@ -84,6 +86,11 @@ class HomogenizedFrame:
                 None
                 if record.get("hardening_energy_density") is None
                 else float(record["hardening_energy_density"])
+            ),
+            plastic_dissipation_density=(
+                None
+                if record.get("plastic_dissipation_density") is None
+                else float(record["plastic_dissipation_density"])
             ),
         )
 
@@ -657,6 +664,7 @@ def homogenize_periodic_cell(
     provider_owned = bool(provider_flags[0])
     elastic_energy_integral = None
     hardening_energy_integral = None
+    plastic_dissipation_integral = None
     if provider_owned:
         Fq = selected_fields["F"]
         Pq = selected_fields["P"]
@@ -678,15 +686,22 @@ def homogenize_periodic_cell(
             if all(component_presence)
             else {}
         )
+        dissipation_field = selected_fields.get("PDENER")
+        accepted_response_fields = (
+            ("F", Fq),
+            ("P", Pq),
+            ("S", Sq),
+            ("SENER", energy_q),
+            *component_fields.items(),
+            *(
+                (("PDENER", dissipation_field),)
+                if dissipation_field is not None
+                else ()
+            ),
+        )
         local_problem = None
         try:
-            for name, value in (
-                ("F", Fq),
-                ("P", Pq),
-                ("S", Sq),
-                ("SENER", energy_q),
-                *component_fields.items(),
-            ):
+            for name, value in accepted_response_fields:
                 if not hasattr(value, "owned_values") or not hasattr(
                     value, "owned_physical_weights"
                 ):
@@ -718,6 +733,13 @@ def homogenize_periodic_cell(
                 name: np.asarray(value.owned_values, dtype=float).reshape(-1)
                 for name, value in component_fields.items()
             }
+            dissipation_values = (
+                None
+                if dissipation_field is None
+                else np.asarray(
+                    dissipation_field.owned_values, dtype=float
+                ).reshape(-1)
+            )
             if not (
                 len(F_values)
                 == len(P_values)
@@ -727,6 +749,10 @@ def homogenize_periodic_cell(
                 and all(
                     len(values) == len(weights)
                     for values in component_values.values()
+                )
+                and (
+                    dissipation_values is None
+                    or len(dissipation_values) == len(weights)
                 )
             ):
                 raise ValueError(
@@ -742,6 +768,13 @@ def homogenize_periodic_cell(
                 raise ValueError(
                     "Accepted ELENER and HARDENER fields do not sum to SENER."
                 )
+            if dissipation_values is not None:
+                dissipation_tolerance = 256.0 * np.finfo(float).eps * max(
+                    1.0,
+                    float(np.max(np.abs(dissipation_values), initial=0.0)),
+                )
+                if np.any(dissipation_values < -dissipation_tolerance):
+                    raise ValueError("Accepted PDENER values must be nonnegative.")
             determinants = np.linalg.det(F_values)
             if np.any(determinants <= 0.0):
                 raise ValueError(
@@ -786,6 +819,12 @@ def homogenize_periodic_cell(
             hardening_energy_integral = float(
                 domain.comm.allreduce(
                     float(np.dot(weights, component_values["HARDENER"]))
+                )
+            )
+        if dissipation_values is not None:
+            plastic_dissipation_integral = float(
+                domain.comm.allreduce(
+                    float(np.dot(weights, dissipation_values))
                 )
             )
     elif isinstance(properties, hyperelasticity.MixedNeoHookeanProperties):
@@ -842,6 +881,11 @@ def homogenize_periodic_cell(
             None
             if hardening_energy_integral is None
             else hardening_energy_integral / cell_reference_volume
+        ),
+        plastic_dissipation_density=(
+            None
+            if plastic_dissipation_integral is None
+            else plastic_dissipation_integral / cell_reference_volume
         ),
     )
 
@@ -1220,6 +1264,14 @@ def write_homogenized_history(
                 for frame in selected
             ]
         ),
+        plastic_dissipation_density=np.asarray(
+            [
+                np.nan
+                if frame.plastic_dissipation_density is None
+                else frame.plastic_dissipation_density
+                for frame in selected
+            ]
+        ),
         solid_reference_fraction=np.asarray(
             [frame.solid_reference_fraction for frame in selected]
         ),
@@ -1308,6 +1360,7 @@ def write_homogenized_csv(
             "strain_energy_density",
             "elastic_energy_density",
             "hardening_energy_density",
+            "plastic_dissipation_density",
             "solid_reference_fraction",
             "solid_current_fraction",
             "stress_consistency_error",
@@ -1347,6 +1400,11 @@ def write_homogenized_csv(
                     np.nan
                     if frame.hardening_energy_density is None
                     else frame.hardening_energy_density
+                ),
+                (
+                    np.nan
+                    if frame.plastic_dissipation_density is None
+                    else frame.plastic_dissipation_density
                 ),
                 frame.solid_reference_fraction,
                 frame.solid_current_fraction,

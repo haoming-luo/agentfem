@@ -1317,6 +1317,11 @@ set <code>U/S/E/MISES</code>:</p>
 <td>provider-owned finite-strain J2 quadrature field</td>
 </tr>
 <tr>
+<td><code>PDENER</code></td>
+<td>cumulative irrecoverable plastic-dissipation density</td>
+<td>provider-owned finite-strain J2 quadrature state field</td>
+</tr>
+<tr>
 <td><code>V</code>, <code>A</code></td>
 <td>velocity and acceleration</td>
 <td>nodal transient state fields</td>
@@ -1335,8 +1340,10 @@ universally useful than total strain energy and energy-balance histories.
 For finite-strain J2, <code>SENER</code> remains backward compatible and has the precise
 meaning <code>ELENER + HARDENER</code>: recoverable Hencky elastic free energy plus the
 stored linear-isotropic-hardening free energy. It is not plastic dissipation.
-That dissipative channel requires accepted-increment stress power and a
-separate work ledger and is not currently reported.</p>
+<code>PDENER</code> is reported separately as committed cumulative material dissipation
+for the declared rate-independent linear-hardening law. It does not by itself
+close the structural energy balance: external work for every load and
+constraint remains provider-owned evidence.</p>
 <p>The default <code>DG0</code> result is a cell average. It is discontinuous, performs no
 nodal extrapolation, and does not average across elements or material
 interfaces. For first-order displacement elements in linear elasticity this
@@ -1368,7 +1375,7 @@ metadata is retained in the result manifest.</p>
 J2 results retain committed <code>S/PE/PEEQ</code> and pointwise <code>MISES</code> on the
 constitutive quadrature. The experimental public ordinary and affine/MPC
 finite-strain J2 providers retain the same provider-owned accepted
-<code>F/P/S/MISES/SENER/ELENER/HARDENER/FP/PEEQ</code> at the
+<code>F/P/S/MISES/SENER/ELENER/HARDENER/PDENER/FP/PEEQ</code> at the
 same quadrature identity; the output layer does not recompute them from a
 history-free constitutive expression. Explicit <code>*_CELL</code> products never
 overwrite a same-named raw quadrature field. J2 and implicit creep also expose

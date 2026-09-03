@@ -55,13 +55,18 @@
         "label": "recoverable stored energy",
         "expression": "\\mathrm{SENER}=\\mathrm{ELENER}+\\mathrm{HARDENER}=\\psi_e+\\frac{1}{2}H\\bar\\varepsilon_p^2",
         "description": "The two provider-owned components separate Hencky elastic free energy from isotropic-hardening storage; plastic dissipation is a distinct incremental-work quantity and is not reported by this field."
+      },
+      {
+        "label": "irrecoverable plastic dissipation",
+        "expression": "\\mathrm{PDENER}_{n+1}=\\mathrm{PDENER}_n+\\sigma_{y0}\\Delta\\bar\\varepsilon_p",
+        "description": "For the declared rate-independent associative J2 law, hardening energy is stored separately and the remaining initial-yield work is accumulated as nonnegative plastic dissipation."
       }
     ],
     "inputs": [
       {
         "name": "deformation gradients",
         "type": "old and new finite 3x3 tensors with positive determinant",
-        "unit_role": "dimensionless",
+        "unit_role": "FP and PEEQ are dimensionless; PDENER is energy per reference volume",
         "description": "The local update consumes the new gradient and a committed multiplicative state; the old gradient remains in the neutral provider contract."
       },
       {
@@ -79,15 +84,15 @@
         "description": "The current-configuration stress is returned by the neutral material contract."
       },
       {
-        "name": "FP and PEEQ",
+        "name": "FP, PEEQ and PDENER",
         "type": "committed/trial quadrature state",
         "unit_role": "dimensionless",
-        "description": "The full plastic deformation gradient and accumulated equivalent plastic strain have a versioned portable schema."
+        "description": "The full plastic deformation gradient, accumulated equivalent plastic strain and cumulative plastic dissipation have a versioned portable schema."
       },
       {
-        "name": "F, P, S, MISES, SENER, ELENER and HARDENER",
+        "name": "F, P, S, MISES, SENER, ELENER, HARDENER and PDENER",
         "type": "accepted provider-owned quadrature response",
-        "unit_role": "kinematics, stress and stored energy density",
+        "unit_role": "kinematics, stress, stored energy density and dissipated energy density",
         "description": "Both public equilibrium providers retain accepted constitutive fields without reconstructing them from a history-free material law; explicitly named DG0 cell averages are separate visualization products."
       },
       {
@@ -119,7 +124,7 @@
       "No independent external finite-strain plasticity structure benchmark has yet passed.",
       "The current low-order displacement-only tetrahedral route is not a substitute for a mixed displacement--pressure discretization in near-incompressible plasticity.",
       "Plane stress, kinematic hardening, thermal coupling, damage and deletion are outside this first provider.",
-      "SENER separates into recoverable ELENER and HARDENER fields; accumulated plastic dissipation and a complete incremental work ledger are not yet implemented."
+      "SENER separates into recoverable ELENER and HARDENER fields; PDENER supplies committed material dissipation, while complete external-work closure for follower, weak and contact loading remains provider-owned."
     ]
   },
   "usage": {
@@ -167,8 +172,8 @@
       "Portable full-Step checkpoints resume equivalently after changing from two ranks to one and from one rank to two.",
       "The public ordinary provider consumes nonlinear tabular amplitudes, remote displacement and reference body force, reports reaction balance and accepted integration-point fields, performs real cutback, and rolls back atomically when accepted-state finalization fails.",
       "Unsupported nested periodic/MPC constraints, follower loads and weak boundary models fail closed instead of being discarded during strong-boundary lowering.",
-      "The public model.step affine-periodic cube matches the same accepted material-point path and records provider-owned F/P/S/MISES/SENER/ELENER/HARDENER/FP/PEEQ fields plus Hill--Mandel evidence.",
-      "Material-point and public output tests verify SENER = ELENER + HARDENER while retaining plastic dissipation as an explicit unimplemented ledger channel.",
+      "The public model.step affine-periodic cube matches the same accepted material-point path and records provider-owned F/P/S/MISES/SENER/ELENER/HARDENER/PDENER/FP/PEEQ fields plus Hill--Mandel evidence.",
+      "Material-point and public output tests verify SENER = ELENER + HARDENER and nonnegative monotone PDENER under plastic loading and rollback/restart.",
       "An accepted public affine checkpoint restores displacement, quadrature state, accepted and attempted increment histories, the next adaptive increment, and execution evidence before continuing.",
       "A mutated periodic-equation identity is rejected before any restored state is accepted.",
       "Regional material dispatch shares one atomic trial/commit/rollback transaction and preserves scientific identity across one-to-two and two-to-one-rank portable restart.",

@@ -3533,6 +3533,16 @@ and evidence remain in the linked guides and scientific function reference.</p>
 </tr>
 <tr>
 <td>class</td>
+<td><code>ConstraintDualEvidence</code></td>
+<td>Provider-owned force and optional work-conjugate coordinate.</td>
+</tr>
+<tr>
+<td>function</td>
+<td><code>constraint_dual(constraint, *, force, coordinate = None, resultant = None, role = 'mpc_constraint', source = 'provider_dual', complete = True) -&gt; ConstraintDualEvidence</code></td>
+<td>Create provider evidence tied to one named constraint asset.</td>
+</tr>
+<tr>
+<td>class</td>
 <td><code>DirichletConstraint</code></td>
 <td>Strong Dirichlet constraint and its optional mutable value object.</td>
 </tr>
@@ -3673,7 +3683,7 @@ and evidence remain in the linked guides and scientific function reference.</p>
 </tr>
 <tr>
 <td>function</td>
-<td><code>constraint_balance_contract(constraints) -&gt; dict[str, object]</code></td>
+<td><code>constraint_balance_contract(constraints, *, provider_duals = ()) -&gt; dict[str, object]</code></td>
 <td>Describe whether strong-reaction force/work diagnostics are complete.</td>
 </tr>
 <tr>
@@ -4191,12 +4201,12 @@ and evidence remain in the linked guides and scientific function reference.</p>
 </tr>
 <tr>
 <td>function</td>
-<td><code>static_force_balance(problem, *, constraints = ()) -&gt; StaticForceBalance</code></td>
+<td><code>static_force_balance(problem, *, constraints = (), provider_duals = ()) -&gt; StaticForceBalance</code></td>
 <td>Evaluate <code>R + F = 0</code> for a converged linear static solid.</td>
 </tr>
 <tr>
 <td>function</td>
-<td><code>static_work_balance(problem, *, constraints = ()) -&gt; StaticWorkBalance</code></td>
+<td><code>static_work_balance(problem, *, constraints = (), provider_duals = ()) -&gt; StaticWorkBalance</code></td>
 <td>Evaluate linear-static work including nonzero strong Dirichlet data.</td>
 </tr>
 <tr>
@@ -5319,36 +5329,6 @@ and evidence remain in the linked guides and scientific function reference.</p>
 <td>class</td>
 <td><code>FieldStateTransaction(fields, *, assets = None)</code></td>
 <td>In-memory rollback for bulk fields and other transactional assets.</td>
-</tr>
-<tr>
-<td>class</td>
-<td><code>GeneralizedWorkSample</code></td>
-<td>One named force--displacement pair at an accepted equilibrium point.</td>
-</tr>
-<tr>
-<td>function</td>
-<td><code>generalized_work_sample(name, *, force, displacement, role = 'natural_load') -&gt; GeneralizedWorkSample</code></td>
-<td>Declare one generalized work-conjugate channel.</td>
-</tr>
-<tr>
-<td>function</td>
-<td><code>reference_point_work_sample(load, *, translation, rotation = None) -&gt; GeneralizedWorkSample</code></td>
-<td>Pair a distributed reference load with measured rigid motion.</td>
-</tr>
-<tr>
-<td>class</td>
-<td><code>CyclicEnergyFrame</code></td>
-<td>One accepted or trial cycle-block work--energy closure.</td>
-</tr>
-<tr>
-<td>class</td>
-<td><code>CyclicWorkEnergyLedger(*, name = 'cyclic work-energy ledger')</code></td>
-<td>Transactional generalized-work and cycle-block energy accounting.</td>
-</tr>
-<tr>
-<td>function</td>
-<td><code>cyclic_work_energy_ledger(**options) -&gt; CyclicWorkEnergyLedger</code></td>
-<td>Create a transactional cycle-block work--energy ledger.</td>
 </tr>
 <tr>
 <td>class</td>
@@ -6960,6 +6940,11 @@ and evidence remain in the linked guides and scientific function reference.</p>
 </tr>
 <tr>
 <td>class</td>
+<td><code>DelaminationConvergenceCertificate</code></td>
+<td>Three-level spatial convergence and structural-reference evidence.</td>
+</tr>
+<tr>
+<td>class</td>
 <td><code>DelaminationEnergyReleaseCurve</code></td>
 <td>Compliance-derived structural GI/GII evidence versus crack length.</td>
 </tr>
@@ -6987,6 +6972,11 @@ and evidence remain in the linked guides and scientific function reference.</p>
 <td>function</td>
 <td><code>compliance_energy_release_curve(spec: DelaminationBenchmarkSpec, *, crack_length, load, displacement = None, compliance = None, mode_i_fraction = None, source: str \| None = None) -&gt; DelaminationEnergyReleaseCurve</code></td>
 <td>Recover structural energy release by the compliance derivative.</td>
+</tr>
+<tr>
+<td>function</td>
+<td><code>certify_delamination_convergence(spec, curves, reference, *, element_sizes, process_zone_elements, artificial_dissipation_fractions, reference_relative_tolerance, refinement_relative_tolerance, mode_partition_absolute_tolerance = 0.02, required_process_zone_elements = 3.0, allowed_artificial_dissipation_fraction = 0.05) -&gt; DelaminationConvergenceCertificate</code></td>
+<td>Certify a DCB/ENF/MMB curve using three or more structural levels.</td>
 </tr>
 <tr>
 <td>function</td>

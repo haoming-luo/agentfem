@@ -9,7 +9,7 @@
   "execution": {
     "example": "tests/test_mixed_mode_benchmark.py",
     "command": "python -m pytest tests/test_mixed_mode_benchmark.py",
-    "evidence": "The dependency-free data contract validates source identity, explicit physical units, strictly increasing crack coordinates, interpolation coverage, explicit tolerances, deterministic SHA-256 identity, and accepted/rejected curve comparisons."
+    "evidence": "The dependency-free data contract validates source identity, explicit physical units, strictly increasing crack coordinates, interpolation coverage, explicit tolerances, deterministic SHA-256 identity, internally consistent GI/GII/G channels, and accepted/rejected curve comparisons."
   },
   "observables": [
     "Applied load versus crack length.",

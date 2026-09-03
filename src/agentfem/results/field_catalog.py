@@ -83,6 +83,13 @@ _VARIABLES = {
         "Stored isotropic-hardening free-energy density",
         derived_from=("PEEQ",),
     ),
+    "PDENER": FieldVariable(
+        "PDENER",
+        "PlasticDissipationDensity",
+        "cells",
+        "scalar",
+        "Cumulative irrecoverable plastic dissipation density",
+    ),
     "KED": FieldVariable(
         "KED",
         "KineticEnergyDensity",

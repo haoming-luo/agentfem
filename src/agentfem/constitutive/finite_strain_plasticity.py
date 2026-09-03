@@ -36,6 +36,7 @@ class _FiniteStrainJ2Integration:
     strain_energy_density: float
     elastic_energy_density: float
     hardening_energy_density: float
+    plastic_dissipation_density: float
     trial_yield_function: float
     plastic_multiplier_increment: float
 
@@ -116,8 +117,17 @@ class FiniteStrainJ2Logarithmic:
                         description="Accumulated equivalent plastic strain.",
                         output_name="PEEQ",
                     ),
+                    MaterialStateVariable(
+                        "plastic_dissipation",
+                        unit="consistent stress unit",
+                        description=(
+                            "Cumulative irrecoverable plastic dissipation per "
+                            "reference volume."
+                        ),
+                        output_name="PDENER",
+                    ),
                 ),
-                version="0.1.0",
+                version="0.2.0",
             ),
         )
         object.__setattr__(
@@ -187,6 +197,25 @@ class FiniteStrainJ2Logarithmic:
             state["plastic_deformation_gradient"], dtype=float
         )
         equivalent_plastic_strain = float(state["equivalent_plastic_strain"])
+        plastic_dissipation = float(state["plastic_dissipation"])
+        if equivalent_plastic_strain < 0.0 or plastic_dissipation < 0.0:
+            raise ValueError(
+                "Committed equivalent plastic strain and plastic dissipation "
+                "must be nonnegative."
+            )
+        expected_dissipation = self.yield_stress * equivalent_plastic_strain
+        if not np.isclose(
+            plastic_dissipation,
+            expected_dissipation,
+            rtol=1.0e-10,
+            atol=256.0
+            * np.finfo(float).eps
+            * max(1.0, abs(expected_dissipation)),
+        ):
+            raise ValueError(
+                "Committed PDENER is inconsistent with the declared "
+                "rate-independent linear-hardening J2 history."
+            )
         plastic_jacobian = float(np.linalg.det(plastic_gradient))
         if plastic_jacobian <= 0.0:
             raise ValueError("The committed plastic deformation gradient is inverted.")
@@ -265,7 +294,12 @@ class FiniteStrainJ2Logarithmic:
                 (
                     plastic_new.reshape(-1),
                     np.asarray(
-                        [equivalent_plastic_strain + plastic_increment], dtype=float
+                        [
+                            equivalent_plastic_strain + plastic_increment,
+                            plastic_dissipation
+                            + self.yield_stress * plastic_increment,
+                        ],
+                        dtype=float,
                     ),
                 )
             )
@@ -300,6 +334,9 @@ class FiniteStrainJ2Logarithmic:
             strain_energy_density=elastic_energy + hardening_energy,
             elastic_energy_density=elastic_energy,
             hardening_energy_density=hardening_energy,
+            plastic_dissipation_density=(
+                plastic_dissipation + self.yield_stress * plastic_increment
+            ),
             trial_yield_function=trial_yield,
             plastic_multiplier_increment=plastic_increment,
         )
@@ -372,7 +409,10 @@ class FiniteStrainJ2Logarithmic:
                 "SENER": "ELENER + HARDENER",
                 "ELENER": "quadratic_Hencky_elastic_free_energy",
                 "HARDENER": "linear_isotropic_hardening_free_energy",
-                "plastic_dissipation": "not_implemented",
+                "PDENER": (
+                    "cumulative_rate_independent_plastic_dissipation_"
+                    "yield_stress_times_equivalent_plastic_strain"
+                ),
             },
             "tangent": self.tangent_convention.summary(),
             "tangent_evaluation": "central_difference_of_discrete_return",

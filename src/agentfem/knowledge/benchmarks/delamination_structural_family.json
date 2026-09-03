@@ -3,20 +3,21 @@
   "schema_version": "0.1.0",
   "id": "agentfem.benchmark.delamination_structural_family",
   "title": "DCB, ENF and MMB structural cohesive verification family",
-  "status": "analytical_oracles_automated_external_curves_pending",
+  "status": "convergence_certificate_ready_external_fem_pending",
   "purpose": "Provide one software-neutral promotion ladder from local cohesive-law tests to structure-level Mode-I, Mode-II and mixed-mode delamination evidence.",
   "physics": "Fixed-path delamination under DCB Mode I, ENF Mode II and MMB mixed-mode loading",
   "execution": {
     "example": "tests/test_mixed_mode_benchmark.py",
     "command": "python -m pytest -q tests/test_mixed_mode_benchmark.py",
-    "evidence": "The automated suite checks classical DCB/ENF beam compliance and compliance-derived energy release, mandatory MMB mode partition, process-zone resolution, numerical-dissipation guardrails, traceable external curve identity and explicit tolerances."
+    "evidence": "The automated suite checks classical DCB/ENF beam compliance and compliance-derived energy release, mandatory MMB mode partition, strict curve integrity, traceable external curve identity, and a three-or-more-level certificate spanning reference error, refinement change, process-zone resolution and artificial dissipation."
   },
   "observables": [
     "Load and load-point displacement versus crack length.",
     "Structural total, Mode-I and Mode-II energy-release rates from G=P^2/(2b)dC/da.",
     "Cohesive process-zone resolution in elements.",
     "Cohesive and artificial dissipation fractions.",
-    "Source identity, curve coverage and convergence evidence."
+    "Source identity, curve coverage and convergence evidence.",
+    "Deterministic SHA-256 identities for the reference and every structural refinement curve."
   ],
   "acceptance": [
     "DCB and ENF analytical compliance derivatives recover their classical pure-mode energy-release formulas.",
@@ -24,11 +25,12 @@
     "A computed curve covers the complete reference crack-length interval and meets a caller-declared relative tolerance.",
     "The cohesive process zone contains at least three elements unless a stricter project threshold is declared.",
     "Artificial dissipation remains at or below five percent of the declared physical internal-energy scale.",
+    "Structural promotion requires at least three successively refined curves, decreasing reference and inter-level errors, a bounded final refinement change, and a bounded Mode-I partition error.",
     "External promotion additionally pins geometry, material, loading, contact, mesh and the exact source trace."
   ],
   "limitations": [
     "ASTM identifiers describe the specimen families; this software contract does not reproduce proprietary standards or imply certification.",
-    "The automated DCB/ENF checks are analytical structural oracles, not a completed cohesive finite-element mesh-convergence campaign.",
+    "The automated DCB/ENF checks are analytical structural oracles and synthetic certificate rejection tests, not a completed cohesive finite-element mesh-convergence campaign.",
     "MMB external curve execution and an independent cohesive finite-element comparison remain pending and are not labelled validated."
   ],
   "references": [

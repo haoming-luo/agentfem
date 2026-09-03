@@ -188,3 +188,171 @@ def test_mmb_requires_declared_partition_and_assessment_checks_guardrails():
     )
     assert accepted.accepted
     assert not rejected.accepted
+
+
+def test_delamination_energy_curve_rejects_malformed_or_inconsistent_channels():
+    common = {
+        "crack_length": (10.0, 20.0, 30.0),
+        "compliance": (1.0, 2.0, 3.0),
+        "total_energy_release_rate": (2.0, 3.0, 4.0),
+        "mode_i_energy_release_rate": (1.0, 1.5, 2.0),
+        "mode_ii_energy_release_rate": (1.0, 1.5, 2.0),
+        "source": "traceable fixture",
+    }
+    valid = benchmarks.DelaminationEnergyReleaseCurve(**common)
+    assert not valid.crack_length.flags.writeable
+    assert len(valid.identity_sha256) == 64
+    assert valid.summary()["identity_sha256"] == valid.identity_sha256
+    with pytest.raises(ValueError, match="sum to total G"):
+        benchmarks.DelaminationEnergyReleaseCurve(
+            **{**common, "mode_ii_energy_release_rate": (0.0, 0.0, 0.0)}
+        )
+    with pytest.raises(ValueError, match="strictly increasing"):
+        benchmarks.DelaminationEnergyReleaseCurve(
+            **{**common, "crack_length": (10.0, 10.0, 30.0)}
+        )
+    with pytest.raises(ValueError, match="identify its source"):
+        benchmarks.DelaminationEnergyReleaseCurve(**{**common, "source": " "})
+
+
+@pytest.mark.parametrize("kind", ("dcb", "enf", "mmb"))
+def test_delamination_convergence_certificate_needs_three_improving_levels(kind):
+    geometry = {
+        "width": 20.0,
+        "arm_thickness": 2.0,
+        "elastic_modulus": 70_000.0,
+        "source": "NASA independent delamination benchmark family",
+    }
+    if kind in {"enf", "mmb"}:
+        geometry["half_span"] = 50.0
+    spec = benchmarks.delamination_benchmark_spec(kind, **geometry)
+    crack = np.linspace(10.0, 30.0, 41)
+    load = np.full_like(crack, 100.0)
+    if kind == "mmb":
+        compliance = 1.0e-4 + 2.0e-8 * crack**3
+        reference = benchmarks.compliance_energy_release_curve(
+            spec,
+            crack_length=crack,
+            load=load,
+            compliance=compliance,
+            mode_i_fraction=np.linspace(0.2, 0.6, crack.size),
+        )
+    else:
+        reference = benchmarks.beam_theory_energy_release_curve(
+            spec,
+            crack_length=crack,
+            load=load,
+        )
+
+    def biased(factor):
+        return benchmarks.DelaminationEnergyReleaseCurve(
+            crack_length=reference.crack_length.copy(),
+            compliance=reference.compliance.copy(),
+            total_energy_release_rate=(
+                reference.total_energy_release_rate * (1.0 + factor)
+            ),
+            mode_i_energy_release_rate=(
+                reference.mode_i_energy_release_rate * (1.0 + factor)
+            ),
+            mode_ii_energy_release_rate=(
+                reference.mode_ii_energy_release_rate * (1.0 + factor)
+            ),
+            source=f"computed {kind} level {factor}",
+        )
+
+    certificate = benchmarks.certify_delamination_convergence(
+        spec,
+        (biased(0.08), biased(0.02), biased(0.005)),
+        reference,
+        element_sizes=(1.0, 0.5, 0.25),
+        process_zone_elements=(4.0, 8.0, 16.0),
+        artificial_dissipation_fractions=(0.02, 0.01, 0.005),
+        reference_relative_tolerance=0.01,
+        refinement_relative_tolerance=0.02,
+    )
+
+    assert certificate.accepted
+    assert certificate.asymptotic_trend
+    assert certificate.observed_order == pytest.approx(2.0, rel=0.2)
+    assert certificate.mode_i_fraction_maximum_errors[-1] < 1.0e-12
+    assert certificate.reference_identity_sha256 == reference.identity_sha256
+    assert certificate.curve_identity_sha256 == tuple(
+        item.identity_sha256
+        for item in (biased(0.08), biased(0.02), biased(0.005))
+    )
+    assert certificate.summary()["schema"] == (
+        "agentfem.delamination-convergence-certificate.v1"
+    )
+
+    unresolved = benchmarks.certify_delamination_convergence(
+        spec,
+        (biased(0.08), biased(0.02), biased(0.005)),
+        reference,
+        element_sizes=(1.0, 0.5, 0.25),
+        process_zone_elements=(2.0, 4.0, 8.0),
+        artificial_dissipation_fractions=(0.02, 0.01, 0.005),
+        reference_relative_tolerance=0.01,
+        refinement_relative_tolerance=0.02,
+    )
+    assert not unresolved.accepted
+
+
+def test_delamination_certificate_rejects_mode_partition_and_bad_level_order():
+    spec = benchmarks.delamination_benchmark_spec(
+        "mmb",
+        width=20.0,
+        arm_thickness=2.0,
+        elastic_modulus=70_000.0,
+        half_span=50.0,
+        source="source-identified MMB fixture",
+    )
+    crack = np.linspace(10.0, 30.0, 21)
+    load = np.full_like(crack, 100.0)
+    reference = benchmarks.compliance_energy_release_curve(
+        spec,
+        crack_length=crack,
+        load=load,
+        compliance=1.0e-4 + 2.0e-8 * crack**3,
+        mode_i_fraction=np.full_like(crack, 0.4),
+    )
+
+    def wrong_partition(total_factor, fraction):
+        total = reference.total_energy_release_rate * total_factor
+        return benchmarks.DelaminationEnergyReleaseCurve(
+            crack_length=crack,
+            compliance=reference.compliance,
+            total_energy_release_rate=total,
+            mode_i_energy_release_rate=total * fraction,
+            mode_ii_energy_release_rate=total * (1.0 - fraction),
+            source="computed structural level",
+        )
+
+    certificate = benchmarks.certify_delamination_convergence(
+        spec,
+        (
+            wrong_partition(1.08, 0.55),
+            wrong_partition(1.02, 0.55),
+            wrong_partition(1.005, 0.55),
+        ),
+        reference,
+        element_sizes=(1.0, 0.5, 0.25),
+        process_zone_elements=(4.0, 8.0, 16.0),
+        artificial_dissipation_fractions=(0.02, 0.01, 0.005),
+        reference_relative_tolerance=0.01,
+        refinement_relative_tolerance=0.02,
+        mode_partition_absolute_tolerance=0.02,
+    )
+    assert not certificate.accepted
+    assert certificate.mode_i_fraction_maximum_errors[-1] == pytest.approx(0.15)
+
+    with pytest.raises(ValueError, match="decrease from coarse to fine"):
+        benchmarks.certify_delamination_convergence(
+            spec,
+            (reference, reference, reference),
+            reference,
+            element_sizes=(1.0, 0.5, 0.75),
+            process_zone_elements=(4.0, 8.0, 16.0),
+            artificial_dissipation_fractions=(0.0, 0.0, 0.0),
+            reference_relative_tolerance=0.01,
+            refinement_relative_tolerance=0.02,
+        )

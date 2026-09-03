@@ -213,6 +213,7 @@ def test_public_two_phase_periodic_j2_uses_standard_output_lifecycle(tmp_path):
             "ELENER",
             "HARDENER",
             "PEEQ",
+            "PDENER",
             every=2,
             configuration="reference",
             backend="xdmf",
@@ -259,6 +260,7 @@ def test_public_two_phase_periodic_j2_uses_standard_output_lifecycle(tmp_path):
         "HARDENER",
         "FP",
         "PEEQ",
+        "PDENER",
     } <= set(result.fields)
     np.testing.assert_allclose(
         step.response.strain_energy_density.values,
@@ -272,6 +274,15 @@ def test_public_two_phase_periodic_j2_uses_standard_output_lifecycle(tmp_path):
     assert "HARDENER" in xdmf_text
     assert "homogenized_elastic_energy_density" in result.histories
     assert "homogenized_hardening_energy_density" in result.histories
+    assert "homogenized_plastic_dissipation_density" in result.histories
+    assert np.all(
+        np.diff(
+            result.histories[
+                "homogenized_plastic_dissipation_density"
+            ].values
+        )
+        >= -2.0e-10
+    )
     np.testing.assert_allclose(
         result.histories["homogenized_strain_energy_density"].values,
         result.histories["homogenized_elastic_energy_density"].values
@@ -287,7 +298,8 @@ def test_public_two_phase_periodic_j2_uses_standard_output_lifecycle(tmp_path):
 
     points_per_cell = len(step.response.state.reference_field.points)
     point_regions = np.repeat(step.material.cell_regions, points_per_cell)
-    peeq = step.response.state.committed_state_vectors()[:, -1]
+    peeq = step.response.state.committed_state_vectors()[:, -2]
+    pdener = step.response.state.committed_state_vectors()[:, -1]
     stress = step.response.cauchy_stress.values
     mises = np.sqrt(
         1.5
@@ -298,4 +310,8 @@ def test_public_two_phase_periodic_j2_uses_standard_output_lifecycle(tmp_path):
         )
     )
     assert not np.isclose(np.mean(peeq[point_regions == 1]), np.mean(peeq[point_regions == 2]))
+    assert not np.isclose(
+        np.mean(pdener[point_regions == 1]),
+        np.mean(pdener[point_regions == 2]),
+    )
     assert not np.isclose(np.mean(mises[point_regions == 1]), np.mean(mises[point_regions == 2]))

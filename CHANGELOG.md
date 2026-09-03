@@ -8,6 +8,14 @@ experimental formulation to a validated one.
 
 ### Added
 
+- Add committed finite-strain J2 `PDENER` state, quadrature output, volume
+  quantity and homogenized history. The rate-independent linear-hardening law
+  now separates recoverable `ELENER + HARDENER` from irrecoverable initial-
+  yield work across trial, commit, rollback and restart.
+- Add a solver-independent three-or-more-level DCB/ENF/MMB convergence
+  certificate that checks reference error, last-refinement change, mode
+  partition, cohesive-zone resolution and artificial dissipation. Malformed
+  or internally inconsistent energy-release curves now fail before scoring.
 - Add provider-owned MPC/weak/contact dual evidence with actual generalized
   force, accepted coordinate and physical resultant values. Static force and
   work ledgers now consume these values and remain unavailable when any channel

@@ -74,7 +74,7 @@ the compact machine-readable `agentfem/knowledge/catalog.json`.
 | `agentfem.benchmark.creep_hot_wall_release` | Sequential hot-wall creep assessment release contract | sequential transient heat conduction, plane-strain thermoelasticity, and local creep-damage assessment | automated_regression |
 | `agentfem.benchmark.creep_nafems_r0027_test7` | NAFEMS R0027 Test 7 pressurized-cylinder secondary creep | Plane-strain thick cylinder under constant internal pressure with Mises secondary power-law creep | automated_external_structural_verification |
 | `agentfem.benchmark.cyclic_cohesive_global_lifecycle` | Global cyclic cohesive transaction, cutback, restart and named 3D interfaces | Quasi-static force-controlled fixed-path Mode-I cohesive fatigue | experimental_automated_foundation |
-| `agentfem.benchmark.delamination_structural_family` | DCB, ENF and MMB structural cohesive verification family | Fixed-path delamination under DCB Mode I, ENF Mode II and MMB mixed-mode loading | analytical_oracles_automated_external_curves_pending |
+| `agentfem.benchmark.delamination_structural_family` | DCB, ENF and MMB structural cohesive verification family | Fixed-path delamination under DCB Mode I, ENF Mode II and MMB mixed-mode loading | convergence_certificate_ready_external_fem_pending |
 | `agentfem.benchmark.distributed_cohesive_force` | Two-rank sparse fixed-path cohesive force and portable restart | Two-dimensional normal and mixed-mode bilinear cohesive interfaces in finite-strain assembly and Explicit dynamics | experimental_mpi_sparse_automated |
 | `agentfem.benchmark.dynamic_fracture_energy_v2` | Finite-strain and cohesive dynamic energy closure | Total-Lagrangian Neo-Hookean dynamics with optional Mode-I cohesive separation | experimental_v2_automated |
 | `agentfem.benchmark.elasticity_foundation` | Foundational small-strain elasticity verification | two- and three-dimensional small-strain linear elasticity | automated |
@@ -765,11 +765,19 @@ $$
 
 The two provider-owned components separate Hencky elastic free energy from isotropic-hardening storage; plastic dissipation is a distinct incremental-work quantity and is not reported by this field.
 
+**irrecoverable plastic dissipation**
+
+$$
+\mathrm{PDENER}_{n+1}=\mathrm{PDENER}_n+\sigma_{y0}\Delta\bar\varepsilon_p
+$$
+
+For the declared rate-independent associative J2 law, hardening energy is stored separately and the remaining initial-yield work is accumulated as nonnegative plastic dissipation.
+
 #### Inputs
 
 | Name | Type | Unit role | Meaning |
 | --- | --- | --- | --- |
-| deformation gradients | old and new finite 3x3 tensors with positive determinant | dimensionless | The local update consumes the new gradient and a committed multiplicative state; the old gradient remains in the neutral provider contract. |
+| deformation gradients | old and new finite 3x3 tensors with positive determinant | FP and PEEQ are dimensionless; PDENER is energy per reference volume | The local update consumes the new gradient and a committed multiplicative state; the old gradient remains in the neutral provider contract. |
 | material parameters | E, nu, initial yield stress, linear hardening modulus | consistent stress system | The public factory owns these reviewed values; duplicated point properties may not silently override them. |
 
 #### Outputs
@@ -777,8 +785,8 @@ The two provider-owned components separate Hencky elastic free energy from isotr
 | Name | Type | Unit role | Meaning |
 | --- | --- | --- | --- |
 | Cauchy stress | symmetric 3x3 tensor per integration point | stress | The current-configuration stress is returned by the neutral material contract. |
-| FP and PEEQ | committed/trial quadrature state | dimensionless | The full plastic deformation gradient and accumulated equivalent plastic strain have a versioned portable schema. |
-| F, P, S, MISES, SENER, ELENER and HARDENER | accepted provider-owned quadrature response | kinematics, stress and stored energy density | Both public equilibrium providers retain accepted constitutive fields without reconstructing them from a history-free material law; explicitly named DG0 cell averages are separate visualization products. |
+| FP, PEEQ and PDENER | committed/trial quadrature state | dimensionless | The full plastic deformation gradient, accumulated equivalent plastic strain and cumulative plastic dissipation have a versioned portable schema. |
+| F, P, S, MISES, SENER, ELENER, HARDENER and PDENER | accepted provider-owned quadrature response | kinematics, stress, stored energy density and dissipated energy density | Both public equilibrium providers retain accepted constitutive fields without reconstructing them from a history-free material law; explicitly named DG0 cell averages are separate visualization products. |
 | consistent tangent | 9 by 9 derivative of first Piola stress with respect to deformation gradient | stress | The initial implementation differentiates the complete discrete return with fixed old state and is independently checked with a different perturbation. |
 
 #### Assumptions
@@ -807,7 +815,7 @@ The two provider-owned components separate Hencky elastic free energy from isotr
 - No independent external finite-strain plasticity structure benchmark has yet passed.
 - The current low-order displacement-only tetrahedral route is not a substitute for a mixed displacement--pressure discretization in near-incompressible plasticity.
 - Plane stress, kinematic hardening, thermal coupling, damage and deletion are outside this first provider.
-- SENER separates into recoverable ELENER and HARDENER fields; accumulated plastic dissipation and a complete incremental work ledger are not yet implemented.
+- SENER separates into recoverable ELENER and HARDENER fields; PDENER supplies committed material dissipation, while complete external-work closure for follower, weak and contact loading remains provider-owned.
 
 ### Minimal example
 
@@ -858,8 +866,8 @@ material = constitutive.finite_strain_j2_logarithmic(young=210e3, poisson=0.3, y
 - Portable full-Step checkpoints resume equivalently after changing from two ranks to one and from one rank to two.
 - The public ordinary provider consumes nonlinear tabular amplitudes, remote displacement and reference body force, reports reaction balance and accepted integration-point fields, performs real cutback, and rolls back atomically when accepted-state finalization fails.
 - Unsupported nested periodic/MPC constraints, follower loads and weak boundary models fail closed instead of being discarded during strong-boundary lowering.
-- The public model.step affine-periodic cube matches the same accepted material-point path and records provider-owned F/P/S/MISES/SENER/ELENER/HARDENER/FP/PEEQ fields plus Hill--Mandel evidence.
-- Material-point and public output tests verify SENER = ELENER + HARDENER while retaining plastic dissipation as an explicit unimplemented ledger channel.
+- The public model.step affine-periodic cube matches the same accepted material-point path and records provider-owned F/P/S/MISES/SENER/ELENER/HARDENER/PDENER/FP/PEEQ fields plus Hill--Mandel evidence.
+- Material-point and public output tests verify SENER = ELENER + HARDENER and nonnegative monotone PDENER under plastic loading and rollback/restart.
 - An accepted public affine checkpoint restores displacement, quadrature state, accepted and attempted increment histories, the next adaptive increment, and execution evidence before continuing.
 - A mutated periodic-equation identity is rejected before any restored state is accepted.
 - Regional material dispatch shares one atomic trial/commit/rollback transaction and preserves scientific identity across one-to-two and two-to-one-rank portable restart.

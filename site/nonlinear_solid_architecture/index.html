@@ -1642,7 +1642,7 @@ The older <code>mechanics.experimental_finite_strain_j2_step(...)</code> remains
 compatibility/development entry point rather than the recommended application
 language.</p>
 <p>The state transaction owns accepted quadrature <code>F</code>, <code>P</code>, <code>S</code>, <code>MISES</code>,
-<code>SENER</code>, <code>ELENER</code>, <code>HARDENER</code>, <code>FP</code>, and <code>PEEQ</code>. Scientific output uses those
+<code>SENER</code>, <code>ELENER</code>, <code>HARDENER</code>, <code>PDENER</code>, <code>FP</code>, and <code>PEEQ</code>. Scientific output uses those
 provider-owned fields;
 it does not reconstruct an inelastic response from a stateless hyperelastic
 formula. Explicitly named <code>*_CELL</code> fields are physical quadrature-weighted DG0
@@ -1650,10 +1650,12 @@ averages for visualization and do not replace the integration-point evidence.</p
 <p>For this J2 provider, <code>ELENER</code> is the quadratic Hencky elastic free-energy
 density and <code>HARDENER</code> is
 <span class="arithmatex">\(\tfrac12 H\bar\varepsilon_p^2\)</span>. The backward-compatible <code>SENER</code> field is
-their sum. None of these names denotes plastic dissipation. A complete
-dissipation balance still requires accepted-increment stress power and an
-explicit cumulative ledger; it is intentionally not inferred from the final
-state alone.</p>
+their sum. <code>PDENER</code> is a separate committed state channel,
+<span class="arithmatex">\(D_{n+1}=D_n+\sigma_{y0}\Delta\bar\varepsilon_p\)</span>, which records the
+irrecoverable initial-yield work for this rate-independent linear-hardening
+law. It is emitted from the accepted constitutive transaction, not reconstructed
+from a final visualization field. A complete structural energy balance still
+requires provider-owned external work for every active load and constraint.</p>
 <p>Portable checkpoints are accepted-state boundaries. They store <code>U</code>,
 <code>U_ACCEPTED</code>, committed quadrature state, accepted and attempted increment
 histories, and the next adaptive increment. Restore validates
@@ -1665,6 +1667,10 @@ in both directions. A resumed solve restores the previous execution trace,
 appends a new resumed segment, and starts a new field series from the accepted
 boundary; earlier visualization frames remain in the earlier result artifact
 and are not silently reconstructed or merged.</p>
+<p>Adding <code>PDENER</code> changes the finite-strain J2 material-state schema from v0.1
+to v0.2. A checkpoint written with the earlier schema therefore fails closed
+instead of inventing a dissipation history. Re-run that accepted model with
+the current material schema before using its state as new release evidence.</p>
 <p>The present public scope is deliberately narrow. The ordinary route accepts
 proportional prescribed motion and reference dead loads but not follower-load
 tangents, absolute time histories, weak boundary models, contact, or MPC. The

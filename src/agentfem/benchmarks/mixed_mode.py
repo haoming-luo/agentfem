@@ -250,10 +250,83 @@ class DelaminationEnergyReleaseCurve:
     mode_ii_energy_release_rate: np.ndarray
     source: str
 
+    def __post_init__(self) -> None:
+        arrays = {
+            "crack_length": np.asarray(self.crack_length, dtype=float).reshape(-1),
+            "compliance": np.asarray(self.compliance, dtype=float).reshape(-1),
+            "total_energy_release_rate": np.asarray(
+                self.total_energy_release_rate, dtype=float
+            ).reshape(-1),
+            "mode_i_energy_release_rate": np.asarray(
+                self.mode_i_energy_release_rate, dtype=float
+            ).reshape(-1),
+            "mode_ii_energy_release_rate": np.asarray(
+                self.mode_ii_energy_release_rate, dtype=float
+            ).reshape(-1),
+        }
+        sizes = {values.size for values in arrays.values()}
+        if len(sizes) != 1 or next(iter(sizes), 0) < 3:
+            raise ValueError(
+                "A delamination energy-release curve requires at least three "
+                "points in every channel."
+            )
+        if any(not np.all(np.isfinite(values)) for values in arrays.values()):
+            raise ValueError("Delamination energy-release curves must be finite.")
+        if np.any(arrays["crack_length"] <= 0.0) or np.any(
+            np.diff(arrays["crack_length"]) <= 0.0
+        ):
+            raise ValueError("crack_length must be positive and strictly increasing.")
+        if np.any(arrays["compliance"] <= 0.0):
+            raise ValueError("Delamination compliance must be positive.")
+        energy_channels = (
+            arrays["total_energy_release_rate"],
+            arrays["mode_i_energy_release_rate"],
+            arrays["mode_ii_energy_release_rate"],
+        )
+        energy_scale = max(
+            (float(np.max(np.abs(values), initial=0.0)) for values in energy_channels),
+            default=1.0,
+        )
+        tolerance = 256.0 * np.finfo(float).eps * max(energy_scale, 1.0)
+        if any(np.any(values < -tolerance) for values in energy_channels):
+            raise ValueError("Energy-release-rate channels must be nonnegative.")
+        if not np.allclose(
+            arrays["mode_i_energy_release_rate"]
+            + arrays["mode_ii_energy_release_rate"],
+            arrays["total_energy_release_rate"],
+            rtol=1.0e-10,
+            atol=tolerance,
+        ):
+            raise ValueError("Mode-I and Mode-II channels must sum to total G.")
+        source = str(self.source).strip()
+        if not source:
+            raise ValueError("A delamination curve must identify its source.")
+        for name, values in arrays.items():
+            selected = values.copy()
+            selected.setflags(write=False)
+            object.__setattr__(self, name, selected)
+        object.__setattr__(self, "source", source)
+
+    @property
+    def identity_sha256(self) -> str:
+        digest = sha256()
+        digest.update(self.source.encode("utf-8"))
+        for name in (
+            "crack_length",
+            "compliance",
+            "total_energy_release_rate",
+            "mode_i_energy_release_rate",
+            "mode_ii_energy_release_rate",
+        ):
+            digest.update(name.encode("ascii"))
+            digest.update(np.asarray(getattr(self, name), dtype="<f8").tobytes())
+        return digest.hexdigest()
+
     def summary(self) -> dict[str, object]:
         return {
             "schema": "agentfem.delamination-energy-release-curve.v1",
             "source": self.source,
+            "identity_sha256": self.identity_sha256,
             "points": int(self.crack_length.size),
             "crack_length": self.crack_length.tolist(),
             "compliance": self.compliance.tolist(),
@@ -279,6 +352,45 @@ class DelaminationBenchmarkAssessment:
     def summary(self) -> dict[str, object]:
         return {
             "schema": "agentfem.delamination-benchmark-assessment.v1",
+            **self.__dict__,
+        }
+
+
+@dataclass(frozen=True)
+class DelaminationConvergenceCertificate:
+    """Three-level spatial convergence and structural-reference evidence.
+
+    The certificate is solver independent: a cohesive, VCCT or another
+    delamination provider supplies curves recovered from three successively
+    refined structural models.  Acceptance requires the fine curve to match
+    the source-identified reference, the last refinement change to be small,
+    every level to resolve the declared process zone, and artificial
+    dissipation to remain bounded.  It therefore cannot be satisfied by a
+    single analytical curve relabelled as a finite-element result.
+    """
+
+    kind: str
+    reference_source: str
+    reference_identity_sha256: str
+    curve_identity_sha256: tuple[str, ...]
+    element_sizes: tuple[float, ...]
+    relative_errors_to_reference: tuple[float, ...]
+    mode_i_fraction_maximum_errors: tuple[float, ...]
+    successive_relative_changes: tuple[float, ...]
+    observed_order: float | None
+    asymptotic_trend: bool
+    minimum_process_zone_elements: float
+    maximum_artificial_dissipation_fraction: float
+    reference_relative_tolerance: float
+    refinement_relative_tolerance: float
+    mode_partition_absolute_tolerance: float
+    required_process_zone_elements: float
+    allowed_artificial_dissipation_fraction: float
+    accepted: bool
+
+    def summary(self) -> dict[str, object]:
+        return {
+            "schema": "agentfem.delamination-convergence-certificate.v1",
             **self.__dict__,
         }
 
@@ -448,7 +560,149 @@ def assess_delamination_benchmark(
         artificial_dissipation_fraction=fraction,
         maximum_artificial_dissipation_fraction=maximum_fraction,
         accepted=(
-            error <= tolerance and elements >= required and fraction <= maximum_fraction
+            error <= tolerance
+            and elements >= required
+            and fraction <= maximum_fraction
+        ),
+    )
+
+
+def certify_delamination_convergence(
+    spec,
+    curves,
+    reference,
+    *,
+    element_sizes,
+    process_zone_elements,
+    artificial_dissipation_fractions,
+    reference_relative_tolerance,
+    refinement_relative_tolerance,
+    mode_partition_absolute_tolerance=0.02,
+    required_process_zone_elements=3.0,
+    allowed_artificial_dissipation_fraction=0.05,
+) -> DelaminationConvergenceCertificate:
+    """Certify a DCB/ENF/MMB curve using three or more structural levels."""
+
+    if not isinstance(spec, DelaminationBenchmarkSpec):
+        raise TypeError("A DelaminationBenchmarkSpec is required.")
+    selected = tuple(curves)
+    if len(selected) < 3 or not all(
+        isinstance(item, DelaminationEnergyReleaseCurve) for item in selected
+    ):
+        raise ValueError("Delamination convergence requires at least three curves.")
+    if not isinstance(reference, DelaminationEnergyReleaseCurve):
+        raise TypeError("reference must be a DelaminationEnergyReleaseCurve.")
+    sizes = tuple(float(value) for value in element_sizes)
+    zones = tuple(float(value) for value in process_zone_elements)
+    dissipation = tuple(float(value) for value in artificial_dissipation_fractions)
+    if not (len(sizes) == len(zones) == len(dissipation) == len(selected)):
+        raise ValueError("Every structural level needs size, process-zone and dissipation evidence.")
+    if any(not np.isfinite(value) or value <= 0.0 for value in sizes + zones):
+        raise ValueError("Element sizes and process-zone resolutions must be positive.")
+    if any(not np.isfinite(value) or value < 0.0 for value in dissipation):
+        raise ValueError("Artificial-dissipation fractions must be nonnegative.")
+    if any(left <= right for left, right in zip(sizes[:-1], sizes[1:])):
+        raise ValueError("element_sizes must decrease from coarse to fine.")
+    coordinates = reference.crack_length
+
+    def aligned(curve):
+        if (
+            curve.crack_length[0] > coordinates[0]
+            or curve.crack_length[-1] < coordinates[-1]
+        ):
+            raise ValueError("Every curve must cover the reference crack range.")
+        return {
+            "total": np.interp(
+                coordinates,
+                curve.crack_length,
+                curve.total_energy_release_rate,
+            ),
+            "mode_i": np.interp(
+                coordinates,
+                curve.crack_length,
+                curve.mode_i_energy_release_rate,
+            ),
+        }
+
+    values = tuple(aligned(item) for item in selected)
+    errors = tuple(
+        _relative_l2(item["total"], reference.total_energy_release_rate)
+        for item in values
+    )
+    changes = tuple(
+        _relative_l2(right["total"], left["total"])
+        for left, right in zip(values[:-1], values[1:])
+    )
+    reference_total = np.asarray(reference.total_energy_release_rate, dtype=float)
+    reference_mode_i = np.asarray(reference.mode_i_energy_release_rate, dtype=float)
+    active = np.abs(reference_total) > np.finfo(float).eps
+    if not np.any(active):
+        raise ValueError("Reference energy-release curve is identically zero.")
+    reference_fraction = reference_mode_i[active] / reference_total[active]
+    partition_errors = tuple(
+        (
+            float("inf")
+            if np.any(np.abs(item["total"][active]) <= np.finfo(float).eps)
+            else float(
+                np.max(
+                    np.abs(
+                        item["mode_i"][active] / item["total"][active]
+                        - reference_fraction
+                    ),
+                    initial=0.0,
+                )
+            )
+        )
+        for item in values
+    )
+    observed_order = None
+    if changes[-1] > np.finfo(float).eps and len(changes) >= 2:
+        ratio = sizes[-2] / sizes[-1]
+        if ratio > 1.0 and changes[-2] > 0.0:
+            observed_order = float(np.log(changes[-2] / changes[-1]) / np.log(ratio))
+    asymptotic = bool(
+        all(right < left for left, right in zip(errors[:-1], errors[1:]))
+        and all(right < left for left, right in zip(changes[:-1], changes[1:]))
+    )
+    reference_tolerance = float(reference_relative_tolerance)
+    refinement_tolerance = float(refinement_relative_tolerance)
+    partition_tolerance = float(mode_partition_absolute_tolerance)
+    required_zone = float(required_process_zone_elements)
+    allowed_dissipation = float(allowed_artificial_dissipation_fraction)
+    controls = (
+        reference_tolerance,
+        refinement_tolerance,
+        partition_tolerance,
+        required_zone,
+        allowed_dissipation,
+    )
+    if any(not np.isfinite(value) or value < 0.0 for value in controls):
+        raise ValueError("Convergence tolerances must be finite and nonnegative.")
+    return DelaminationConvergenceCertificate(
+        kind=spec.kind,
+        reference_source=reference.source,
+        reference_identity_sha256=reference.identity_sha256,
+        curve_identity_sha256=tuple(item.identity_sha256 for item in selected),
+        element_sizes=sizes,
+        relative_errors_to_reference=errors,
+        mode_i_fraction_maximum_errors=partition_errors,
+        successive_relative_changes=changes,
+        observed_order=observed_order,
+        asymptotic_trend=asymptotic,
+        minimum_process_zone_elements=min(zones),
+        maximum_artificial_dissipation_fraction=max(dissipation),
+        reference_relative_tolerance=reference_tolerance,
+        refinement_relative_tolerance=refinement_tolerance,
+        mode_partition_absolute_tolerance=partition_tolerance,
+        required_process_zone_elements=required_zone,
+        allowed_artificial_dissipation_fraction=allowed_dissipation,
+        accepted=(
+            asymptotic
+            and errors[-1] <= reference_tolerance
+            and changes[-1] <= refinement_tolerance
+            and partition_errors[-1] <= partition_tolerance
+            and min(zones) >= required_zone
+            and max(dissipation) <= allowed_dissipation
         ),
     )
 
@@ -533,12 +787,14 @@ def compare_mixed_mode_bending_curves(
 __all__ = [
     "DelaminationBenchmarkAssessment",
     "DelaminationBenchmarkSpec",
+    "DelaminationConvergenceCertificate",
     "DelaminationEnergyReleaseCurve",
     "MixedModeBendingComparison",
     "MixedModeBendingCurve",
     "assess_delamination_benchmark",
     "beam_theory_energy_release_curve",
     "compliance_energy_release_curve",
+    "certify_delamination_convergence",
     "compare_mixed_mode_bending_curves",
     "dcb_beam_compliance",
     "delamination_benchmark_spec",

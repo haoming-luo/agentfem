@@ -201,7 +201,7 @@ compatibility/development entry point rather than the recommended application
 language.
 
 The state transaction owns accepted quadrature `F`, `P`, `S`, `MISES`,
-`SENER`, `ELENER`, `HARDENER`, `FP`, and `PEEQ`. Scientific output uses those
+`SENER`, `ELENER`, `HARDENER`, `PDENER`, `FP`, and `PEEQ`. Scientific output uses those
 provider-owned fields;
 it does not reconstruct an inelastic response from a stateless hyperelastic
 formula. Explicitly named `*_CELL` fields are physical quadrature-weighted DG0
@@ -210,10 +210,12 @@ averages for visualization and do not replace the integration-point evidence.
 For this J2 provider, `ELENER` is the quadratic Hencky elastic free-energy
 density and `HARDENER` is
 \(\tfrac12 H\bar\varepsilon_p^2\). The backward-compatible `SENER` field is
-their sum. None of these names denotes plastic dissipation. A complete
-dissipation balance still requires accepted-increment stress power and an
-explicit cumulative ledger; it is intentionally not inferred from the final
-state alone.
+their sum. `PDENER` is a separate committed state channel,
+\(D_{n+1}=D_n+\sigma_{y0}\Delta\bar\varepsilon_p\), which records the
+irrecoverable initial-yield work for this rate-independent linear-hardening
+law. It is emitted from the accepted constitutive transaction, not reconstructed
+from a final visualization field. A complete structural energy balance still
+requires provider-owned external work for every active load and constraint.
 
 Portable checkpoints are accepted-state boundaries. They store `U`,
 `U_ACCEPTED`, committed quadrature state, accepted and attempted increment
@@ -226,6 +228,11 @@ in both directions. A resumed solve restores the previous execution trace,
 appends a new resumed segment, and starts a new field series from the accepted
 boundary; earlier visualization frames remain in the earlier result artifact
 and are not silently reconstructed or merged.
+
+Adding `PDENER` changes the finite-strain J2 material-state schema from v0.1
+to v0.2. A checkpoint written with the earlier schema therefore fails closed
+instead of inventing a dissipation history. Re-run that accepted model with
+the current material schema before using its state as new release evidence.
 
 The present public scope is deliberately narrow. The ordinary route accepts
 proportional prescribed motion and reference dead loads but not follower-load

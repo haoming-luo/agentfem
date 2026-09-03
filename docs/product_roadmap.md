@@ -69,7 +69,8 @@ Deepen the finite-element core before broadening the catalog:
 - promote finite-strain J2 through a locking-resistant mixed displacement--
   pressure formulation, a passed independent structural benchmark, a
   production analytical tangent, follower-load tangent, and complete
-  prescribed-work/plastic-dissipation ledger;
+  prescribed-work balance; cumulative material plastic dissipation is now a
+  committed quadrature channel rather than being inferred in postprocessing;
 - richer thermal--mechanical and high-temperature histories;
 - provider-owned reactions, work, and energy for MPC/weak/contact constraints;
   unsupported dual channels already fail closed rather than publishing a
@@ -137,7 +138,7 @@ A serious scientific capability advances through five evidence levels:
 A public name does not imply the highest level. Experimental capabilities
 remain useful, but their status must stay visible to users and agents.
 
-## Toward 0.3
+## Consolidating 0.3.x
 
 The 0.3 series is the point at which AgentFEM's platform contract becomes
 coherent enough for wider extension and application development. Its focus is:

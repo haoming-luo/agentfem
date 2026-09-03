@@ -59,8 +59,8 @@ def main() -> None:
     cell_map = domain.topology.index_map(domain.topology.dim)
     owned_points = int(cell_map.size_local) * points_per_cell
     owned = state[:owned_points]
-    local_min = float(np.min(owned[:, -1], initial=np.inf))
-    local_max = float(np.max(owned[:, -1], initial=-np.inf))
+    local_min = float(np.min(owned[:, -2], initial=np.inf))
+    local_max = float(np.max(owned[:, -2], initial=-np.inf))
     global_min = float(comm.allreduce(local_min, op=MPI.MIN))
     global_max = float(comm.allreduce(local_max, op=MPI.MAX))
     local_displacement = float(np.max(solution.x.array, initial=-np.inf))
@@ -68,7 +68,7 @@ def main() -> None:
     local_fp_error = max(
         (
             abs(float(np.linalg.det(value)) - 1.0)
-            for value in owned[:, :-1].reshape((-1, 3, 3))
+            for value in owned[:, :9].reshape((-1, 3, 3))
         ),
         default=0.0,
     )
