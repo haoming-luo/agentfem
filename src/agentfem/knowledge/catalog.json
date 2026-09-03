@@ -95,7 +95,7 @@
       "id": "agentfem.benchmark.delamination_structural_family",
       "physics": "Fixed-path delamination under DCB Mode I, ENF Mode II and MMB mixed-mode loading",
       "source": "src/agentfem/knowledge/benchmarks/delamination_structural_family.json",
-      "status": "convergence_certificate_ready_external_fem_pending",
+      "status": "assembled_dcb_provider_ci_pending_external_convergence_pending",
       "title": "DCB, ENF and MMB structural cohesive verification family"
     },
     {

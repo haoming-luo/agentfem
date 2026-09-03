@@ -8,6 +8,16 @@ experimental formulation to a validated one.
 
 ### Added
 
+- Add a machine-readable multi-source runtime distribution contract and an
+  optional S3-compatible mainland China publication path. GitHub remains the
+  canonical release identity; every regional download must preserve the exact
+  accepted filename, byte count and SHA-256.
+- Add a distinct assembled DCB finite-element benchmark provider using Q1 bulk
+  elasticity, a paired zero-thickness interface and mesh-aligned precracks.
+  It produces structural compliance/G evidence without relabelling the
+  existing analytical beam oracle; ENF/MMB execution and convergence remain
+  explicit promotion gates.
+
 - Add committed finite-strain J2 `PDENER` state, quadrature output, volume
   quantity and homogenized history. The rate-independent linear-hardening law
   now separates recoverable `ELENER + HARDENER` from irrecoverable initial-

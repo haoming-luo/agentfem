@@ -171,6 +171,14 @@ notices, while its acceptance record is published beside it. Official GitHub
 assets and any project-operated mirror must contain byte-identical files.
 Uncontrolled download proxies are not official distribution channels.
 
+Each release also carries `distribution-manifest.json`. It separates artifact
+identity from delivery: GitHub is the canonical route, while a project-
+operated mainland China route may be preferred when reachable. Both URLs name
+the same accepted file and advertise the same byte count and SHA-256. A
+download with a different digest is rejected rather than installed. This
+keeps a faster regional route from creating a second, scientifically distinct
+runtime.
+
 Runtime installation never makes a numerical result trusted by itself. The
 installed runtime still attaches solver, environment, provenance, balance,
 and verification evidence to each `SimulationResult`.

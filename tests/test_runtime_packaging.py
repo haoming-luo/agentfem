@@ -10,6 +10,7 @@ import sys
 ROOT = Path(__file__).resolve().parents[1]
 RUNTIME = ROOT / "packaging" / "runtime"
 RUNTIME_BUILDER = runpy.run_path(str(RUNTIME / "build_runtime.py"))
+RUNTIME_DISTRIBUTION = runpy.run_path(str(RUNTIME / "distribution.py"))
 
 
 def test_runtime_specs_keep_heavy_optional_packs_out_of_core():
@@ -300,3 +301,126 @@ def test_manifest_command_is_deterministic_for_empty_output(tmp_path):
     assert manifest["agentfem_version"]
     assert manifest["artifacts"] == []
     assert (tmp_path / "SHA256SUMS").read_text() == ""
+
+
+def test_runtime_identity_manifest_never_hashes_delivery_metadata(tmp_path):
+    (tmp_path / "runtime.pkg").write_bytes(b"immutable runtime")
+    (tmp_path / "distribution-manifest.json").write_text("{}\n")
+
+    RUNTIME_BUILDER["write_manifest"](tmp_path)
+
+    manifest = json.loads((tmp_path / "runtime-artifacts.json").read_text())
+    assert [item["filename"] for item in manifest["artifacts"]] == ["runtime.pkg"]
+
+
+def test_runtime_download_manifest_keeps_one_identity_across_routes(tmp_path):
+    artifact = tmp_path / "AgentFEM-Complete-9.8.7-WSL2-x86_64.zip"
+    artifact.write_bytes(b"one immutable runtime")
+    RUNTIME_BUILDER["write_manifest"](tmp_path)
+    route = RUNTIME_DISTRIBUTION["DownloadRoute"]
+    payload = RUNTIME_DISTRIBUTION["build_download_manifest"](
+        tmp_path / "runtime-artifacts.json",
+        routes=(
+            route(
+                "china",
+                "https://download.example.cn/agentfem/v9.8.7",
+                audience="mainland-china",
+                priority=10,
+            ),
+            route(
+                "github",
+                "https://github.com/haoming-luo/agentfem/releases/download/v9.8.7",
+                canonical=True,
+            ),
+        ),
+    )
+
+    record = next(
+        item for item in payload["artifacts"] if item["filename"] == artifact.name
+    )
+    assert record["sha256"] == RUNTIME_BUILDER["sha256"](artifact)
+    assert [item["route"] for item in record["downloads"]] == [
+        "china",
+        "github",
+    ]
+    assert payload["routes"][0]["audience"] == "mainland-china"
+    assert sum(item["canonical"] for item in payload["routes"]) == 1
+
+
+def test_runtime_download_selection_prefers_reachable_local_audience(tmp_path):
+    artifact = tmp_path / "runtime.pkg"
+    artifact.write_bytes(b"verified")
+    RUNTIME_BUILDER["write_manifest"](tmp_path)
+    route = RUNTIME_DISTRIBUTION["DownloadRoute"]
+    payload = RUNTIME_DISTRIBUTION["build_download_manifest"](
+        tmp_path / "runtime-artifacts.json",
+        routes=(
+            route(
+                "github",
+                "https://github.example/releases/v1",
+                canonical=True,
+            ),
+            route(
+                "china",
+                "https://china.example/releases/v1",
+                audience="mainland-china",
+                priority=10,
+            ),
+        ),
+    )
+    selected = RUNTIME_DISTRIBUTION["select_download"](
+        payload,
+        artifact.name,
+        audience="mainland-china",
+        reachable=lambda url: "china.example" in url,
+    )
+    assert selected["route"] == "china"
+    RUNTIME_DISTRIBUTION["verify_artifact"](artifact, selected)
+
+    artifact.write_bytes(b"tampered")
+    try:
+        RUNTIME_DISTRIBUTION["verify_artifact"](artifact, selected)
+    except ValueError as exc:
+        assert "SHA256" in str(exc) or "byte count" in str(exc)
+    else:  # pragma: no cover - defensive assertion
+        raise AssertionError("A modified runtime artifact must be rejected.")
+
+
+def test_runtime_distribution_refuses_insecure_or_ambiguous_routes(tmp_path):
+    route = RUNTIME_DISTRIBUTION["DownloadRoute"]
+    try:
+        route("mirror", "http://download.example/runtime")
+    except ValueError as exc:
+        assert "HTTPS" in str(exc)
+    else:  # pragma: no cover - defensive assertion
+        raise AssertionError("An insecure runtime mirror must be rejected.")
+
+    RUNTIME_BUILDER["write_manifest"](tmp_path)
+    try:
+        RUNTIME_DISTRIBUTION["build_download_manifest"](
+            tmp_path / "runtime-artifacts.json",
+            routes=(
+                route("first", "https://one.example", canonical=True),
+                route("second", "https://two.example", canonical=True),
+            ),
+        )
+    except ValueError as exc:
+        assert "Exactly one" in str(exc)
+    else:  # pragma: no cover - defensive assertion
+        raise AssertionError("Multiple canonical routes must be rejected.")
+
+
+def test_runtime_release_publishes_one_identity_to_optional_china_mirror():
+    workflow = (ROOT / ".github" / "workflows" / "runtime-installers.yml").read_text(
+        encoding="utf-8"
+    )
+    assert "packaging/runtime/build_runtime.py manifest --output-dir release-assets" in workflow
+    assert "packaging/runtime/distribution.py" in workflow
+    assert "distribution-manifest.json" in workflow
+    assert "AGENTFEM_CHINA_MIRROR_BASE_URL" in workflow
+    assert "AGENTFEM_CHINA_MIRROR_S3_URI" in workflow
+    assert "aws s3 sync release-assets/" in workflow
+    assert "release-assets/runtime-artifacts.json" in workflow
+    assert workflow.index("Publish byte-identical mainland mirror") < workflow.index(
+        "Publish accepted assets and download routes"
+    )

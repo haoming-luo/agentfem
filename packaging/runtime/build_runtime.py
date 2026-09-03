@@ -830,7 +830,11 @@ def render_wsl_start_here(*, version: str | None = None) -> str:
 
 def write_manifest(output_dir: Path) -> Path:
     output_dir.mkdir(parents=True, exist_ok=True)
-    ignored = {"SHA256SUMS", "runtime-artifacts.json"}
+    ignored = {
+        "SHA256SUMS",
+        "runtime-artifacts.json",
+        "distribution-manifest.json",
+    }
     artifacts = []
     for path in sorted(item for item in output_dir.iterdir() if item.is_file()):
         if path.name in ignored:

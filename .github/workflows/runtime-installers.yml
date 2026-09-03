@@ -173,21 +173,63 @@ jobs:
           pattern: agentfem-${{ env.RUNTIME_PROFILE }}-*
           path: release-input
 
-      - name: Upload compact preview assets
+      - name: Prepare compact preview assets
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           REQUESTED_TAG: ${{ github.event_name == 'workflow_dispatch' && inputs.release_tag || '' }}
+          CHINA_MIRROR_BASE_URL: ${{ vars.AGENTFEM_CHINA_MIRROR_BASE_URL }}
+          CHINA_MIRROR_S3_URI: ${{ vars.AGENTFEM_CHINA_MIRROR_S3_URI }}
         run: |
           VERSION="$(python -c 'import tomllib; print(tomllib.load(open("pyproject.toml", "rb"))["project"]["version"])')"
           TAG="${REQUESTED_TAG:-v${VERSION}}"
           test "${TAG}" = "v${VERSION}"
-          if ! gh release view "${TAG}" >/dev/null 2>&1; then
-            gh release create "${TAG}" --verify-tag --title "AgentFEM ${VERSION}" --generate-notes
-          fi
+          echo "RUNTIME_RELEASE_TAG=${TAG}" >> "${GITHUB_ENV}"
+          echo "RUNTIME_RELEASE_VERSION=${VERSION}" >> "${GITHUB_ENV}"
           mkdir -p release-assets
           find release-input -type f -name '*-unsigned-preview.pkg' -exec cp {} release-assets/ \;
           find release-input -type f -name '*-preview-offline.zip' -exec cp {} release-assets/ \;
           find release-input -type f -name '*acceptance.json' -exec cp {} release-assets/ \;
           test "$(find release-assets -type f -name '*.pkg' | wc -l)" -eq 1
           test "$(find release-assets -type f -name '*.zip' | wc -l)" -eq 1
-          gh release upload "${TAG}" release-assets/* --clobber
+          python packaging/runtime/build_runtime.py manifest --output-dir release-assets
+          DISTRIBUTION_ARGS=(
+            release-assets/runtime-artifacts.json
+            --output release-assets/distribution-manifest.json
+            --official "github=https://github.com/haoming-luo/agentfem/releases/download/${TAG}"
+          )
+          if [[ -n "${CHINA_MIRROR_BASE_URL}" || -n "${CHINA_MIRROR_S3_URI}" ]]; then
+            test -n "${CHINA_MIRROR_BASE_URL}"
+            test -n "${CHINA_MIRROR_S3_URI}"
+            DISTRIBUTION_ARGS+=(
+              --mirror "china=${CHINA_MIRROR_BASE_URL%/}/${TAG}"
+            )
+          fi
+          python packaging/runtime/distribution.py "${DISTRIBUTION_ARGS[@]}"
+
+      - name: Publish byte-identical mainland mirror
+        if: ${{ vars.AGENTFEM_CHINA_MIRROR_S3_URI != '' }}
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AGENTFEM_CHINA_MIRROR_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AGENTFEM_CHINA_MIRROR_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: ${{ vars.AGENTFEM_CHINA_MIRROR_REGION || 'auto' }}
+          MIRROR_ENDPOINT: ${{ vars.AGENTFEM_CHINA_MIRROR_ENDPOINT }}
+          MIRROR_S3_URI: ${{ vars.AGENTFEM_CHINA_MIRROR_S3_URI }}
+        run: |
+          test -n "${AWS_ACCESS_KEY_ID}"
+          test -n "${AWS_SECRET_ACCESS_KEY}"
+          test -n "${MIRROR_ENDPOINT}"
+          aws s3 sync release-assets/ "${MIRROR_S3_URI%/}/${RUNTIME_RELEASE_TAG}/" \
+            --endpoint-url "${MIRROR_ENDPOINT}" \
+            --no-progress \
+            --only-show-errors
+
+      - name: Publish accepted assets and download routes
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          if ! gh release view "${RUNTIME_RELEASE_TAG}" >/dev/null 2>&1; then
+            gh release create "${RUNTIME_RELEASE_TAG}" \
+              --verify-tag \
+              --title "AgentFEM ${RUNTIME_RELEASE_VERSION}" \
+              --generate-notes
+          fi
+          gh release upload "${RUNTIME_RELEASE_TAG}" release-assets/* --clobber

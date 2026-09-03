@@ -161,7 +161,11 @@ unresolved waveform from extrema.
 The external structural promotion route is now explicit rather than implicit.
 `benchmarks.DelaminationBenchmarkSpec` defines DCB, ENF and MMB specimen
 families. DCB/ENF classical compliance derivatives are automated analytical
-oracles; `compliance_energy_release_curve(...)` recovers structure-level
+oracles. `dcb_finite_element_curve(...)` is a separate executable provider: it
+assembles a small-strain 2D bulk, a completely split paired-facet interface,
+an explicit precrack, and the intact interface tie ahead of the crack. Its
+compliance therefore comes from a solved structure rather than from the beam
+formula. `compliance_energy_release_curve(...)` recovers structure-level
 \(G=P^2(\mathrm dC/\mathrm da)/(2b)\), and MMB requires an independently
 declared Mode-I partition. Acceptance also checks cohesive-zone resolution
 and artificial dissipation. `certify_delamination_convergence(...)` requires
@@ -171,7 +175,8 @@ trend. `MixedModeBendingCurve` separately reads a source-
 identified external trace and compares load, displacement and Mode-I fraction
 under required tolerances. These contracts do not claim that a published
 finite-element or experimental curve has already been reproduced; that
-promotion remains closed until real solver curves satisfy the certificate.
+promotion remains closed until three refined DCB solver curves and equivalent
+source-identified ENF/MMB curves satisfy the certificate.
 
 Damage and solver state still use begin/commit/rollback. Mixed-mode checkpoint
 fields are stored by the same physical facet and quadrature identity as the

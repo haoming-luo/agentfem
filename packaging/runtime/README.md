@@ -45,6 +45,21 @@ python packaging/runtime/build_runtime.py manifest \
   --output-dir dist/runtime
 ```
 
+Bind those immutable artifacts to the official release and optional mirrors:
+
+```bash
+python packaging/runtime/distribution.py \
+  dist/runtime/runtime-artifacts.json \
+  --output dist/runtime/distribution-manifest.json \
+  --official github=https://github.com/haoming-luo/agentfem/releases/download/vX.Y.Z \
+  --mirror china=https://download.example.cn/agentfem/vX.Y.Z
+```
+
+This is a routing manifest, not another build. Every route points to the same
+filename, byte count, and SHA-256 identity. A mirror is publishable only by
+copying the already accepted `release-assets/` directory; rebuilding on the
+mirror is forbidden.
+
 After installing a candidate on the target machine, run the cold-cache serial,
 MPI, Gmsh (Complete only), project, and verification acceptance contract:
 
@@ -110,3 +125,20 @@ Every Windows bundle also includes `Remove-AgentFEM.ps1`. It fails closed
 unless project custody is protected, exports a full recovery snapshot by
 default, and only then unregisters the runtime. Raw `wsl --unregister` is not
 an AgentFEM removal workflow.
+
+## Multi-source publication
+
+GitHub Releases remains the canonical public identity. The release workflow
+can additionally copy the exact same assets to an S3-compatible mainland
+China endpoint. Configure repository variables
+`AGENTFEM_CHINA_MIRROR_BASE_URL`, `AGENTFEM_CHINA_MIRROR_ENDPOINT`,
+`AGENTFEM_CHINA_MIRROR_REGION`, and `AGENTFEM_CHINA_MIRROR_S3_URI`, plus the
+two repository secrets `AGENTFEM_CHINA_MIRROR_ACCESS_KEY_ID` and
+`AGENTFEM_CHINA_MIRROR_SECRET_ACCESS_KEY`. With no mirror variables, the
+official release path is unchanged.
+
+The mirror is not a second release authority. `runtime-artifacts.json` owns
+the accepted bytes; `distribution-manifest.json` only records where those
+bytes can be downloaded. Installers and agents must verify byte count and
+SHA-256 before installation and fall back to GitHub if the preferred route is
+unreachable.

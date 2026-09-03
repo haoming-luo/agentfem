@@ -65,7 +65,9 @@ the roadmap does not turn an experimental formula into a validated solver.
 Deepen the finite-element core before broadening the catalog:
 
 - external and convergence evidence for nonlinear materials and cohesive
-  fracture;
+  fracture; the first assembled DCB compliance provider is now distinct from
+  its analytical oracle, while refined DCB and equivalent ENF/MMB execution
+  remain promotion gates;
 - promote finite-strain J2 through a locking-resistant mixed displacement--
   pressure formulation, a passed independent structural benchmark, a
   production analytical tangent, follower-load tangent, and complete
@@ -95,6 +97,9 @@ Make real simulation projects easier to construct and maintain:
   postprocessing;
 - richer direct integration-point exchange and scalable collective checkpoint
   backends beyond the current portable laboratory-scale state contracts.
+- one accepted desktop-runtime identity with checksum-enforced official and
+  optional regional delivery routes, rather than independently rebuilt
+  platform or mirror artifacts.
 
 ### 3. AI and data
 
