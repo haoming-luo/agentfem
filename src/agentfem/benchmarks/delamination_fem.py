@@ -473,12 +473,13 @@ def _dcb_point(
         density=1.0,
         name="DCB isotropic elastic",
     )
+    bulk_measure = ufl.Measure("dx", domain=domain)
     internal = operators.internal_force_vector(
         displacement.value,
         displacement.test,
         material,
         study=study,
-        measure=spec.width * ufl.dx,
+        measure=spec.width * bulk_measure,
     )
 
     facet_dimension = domain.topology.dim - 1

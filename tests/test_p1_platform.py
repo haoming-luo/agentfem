@@ -1142,7 +1142,7 @@ def test_linear_static_result_includes_nonzero_prescribed_motion_work():
         0.0, abs=1.0e-10
     )
     assert simulation.metadata["static_work"]["reaction_scope"] == (
-        "strong Dirichlet constraints"
+        "all declared constraints"
     )
 
 
