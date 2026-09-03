@@ -66,8 +66,9 @@ Deepen the finite-element core before broadening the catalog:
 
 - external and convergence evidence for nonlinear materials and cohesive
   fracture; the first assembled DCB compliance provider is now distinct from
-  its analytical oracle, while refined DCB and equivalent ENF/MMB execution
-  remain promotion gates;
+  its analytical oracle and has a scoped three-level compliance certificate,
+  while real-CI execution, cohesive propagation and equivalent ENF/MMB
+  execution remain promotion gates;
 - promote finite-strain J2 through a locking-resistant mixed displacement--
   pressure formulation, a passed independent structural benchmark, a
   production analytical tangent, follower-load tangent, and complete

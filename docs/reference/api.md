@@ -1027,6 +1027,13 @@ and evidence remain in the linked guides and scientific function reference.
 | class | `GoldenBenchmark` | A named collection of numerical observables from a benchmark card. |
 | class | `GoldenQuantity` | One expected physical observable with explicit numerical tolerances. |
 | function | `golden_benchmark(identifier: str) -> GoldenBenchmark` | Load a numerical contract by stable benchmark-card identifier. |
+| class | `DCBComplianceConvergenceCertificate` | Spatial-convergence evidence for a precracked, elastic DCB model. |
+| class | `DCBFiniteElementCurve` | Structure-level DCB compliance and energy-release evidence. |
+| class | `DCBFiniteElementConvergenceStudy` | Three-or-more-level assembled DCB compliance study. |
+| class | `DCBFiniteElementPoint` | One load--opening solution for a discretized DCB specimen. |
+| function | `certify_dcb_compliance_convergence(spec: DelaminationBenchmarkSpec, curves, *, reference_relative_tolerance: float, refinement_relative_tolerance: float, residual_tolerance: float = 1e-08) -> DCBComplianceConvergenceCertificate` | Certify assembled DCB compliance against a declared beam oracle. |
+| function | `dcb_finite_element_convergence(spec: DelaminationBenchmarkSpec, *, crack_length, load: float, specimen_length: float, mesh_levels, poisson: float = 0.3, assumption: str = 'plane_stress', interface_stiffness: float \| None = None, solver_options = None, reference_relative_tolerance: float = 0.1, refinement_relative_tolerance: float = 0.05, residual_tolerance: float = 1e-08) -> DCBFiniteElementConvergenceStudy` | Run and certify three or more assembled DCB mesh levels. |
+| function | `dcb_finite_element_curve(spec: DelaminationBenchmarkSpec, *, crack_length, load: float, specimen_length: float, elements_along: int, elements_per_arm: int, poisson: float = 0.3, assumption: str = 'plane_stress', interface_stiffness: float \| None = None, solver_options = None) -> DCBFiniteElementCurve` | Solve a linear-elastic DCB family with one fixed-path interface. |
 | class | `DelaminationBenchmarkAssessment` | Acceptance evidence for one structural cohesive benchmark. |
 | class | `DelaminationBenchmarkSpec` | Geometry and evidence contract for DCB, ENF or MMB verification. |
 | class | `DelaminationConvergenceCertificate` | Three-level spatial convergence and structural-reference evidence. |

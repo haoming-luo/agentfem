@@ -4,8 +4,12 @@ from .registry import BenchmarkSpec, benchmark, list_benchmarks
 from .evidence import CapabilityEvidence, audit_capability_evidence, capability_evidence
 from .golden import GoldenBenchmark, GoldenQuantity, golden_benchmark
 from .delamination_fem import (
+    DCBComplianceConvergenceCertificate,
     DCBFiniteElementCurve,
+    DCBFiniteElementConvergenceStudy,
     DCBFiniteElementPoint,
+    certify_dcb_compliance_convergence,
+    dcb_finite_element_convergence,
     dcb_finite_element_curve,
 )
 from .mixed_mode import (
@@ -64,7 +68,9 @@ __all__ = [
     "CapabilityEvidence",
     "GoldenBenchmark",
     "GoldenQuantity",
+    "DCBComplianceConvergenceCertificate",
     "DCBFiniteElementCurve",
+    "DCBFiniteElementConvergenceStudy",
     "DCBFiniteElementPoint",
     "DelaminationBenchmarkAssessment",
     "DelaminationBenchmarkSpec",
@@ -96,7 +102,9 @@ __all__ = [
     "compare_mixed_mode_bending_curves",
     "compliance_energy_release_curve",
     "certify_delamination_convergence",
+    "certify_dcb_compliance_convergence",
     "dcb_beam_compliance",
+    "dcb_finite_element_convergence",
     "dcb_finite_element_curve",
     "delamination_benchmark_spec",
     "enf_beam_compliance",

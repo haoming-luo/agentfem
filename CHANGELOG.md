@@ -17,6 +17,10 @@ experimental formulation to a validated one.
   It produces structural compliance/G evidence without relabelling the
   existing analytical beam oracle; ENF/MMB execution and convergence remain
   explicit promotion gates.
+- Add a scoped DCB compliance convergence study and certificate. It requires
+  three or more assembled mesh levels, decreasing reference and inter-level
+  errors, bounded equilibrium residuals and stable evidence identities, while
+  explicitly excluding cohesive evolution and crack-propagation validation.
 
 - Add committed finite-strain J2 `PDENER` state, quadrature output, volume
   quantity and homogenized history. The rate-independent linear-hardening law

@@ -3,13 +3,13 @@
   "schema_version": "0.1.0",
   "id": "agentfem.benchmark.delamination_structural_family",
   "title": "DCB, ENF and MMB structural cohesive verification family",
-  "status": "assembled_dcb_provider_ci_pending_external_convergence_pending",
+  "status": "assembled_dcb_compliance_certificate_ci_pending_propagation_pending",
   "purpose": "Provide one software-neutral promotion ladder from local cohesive-law tests to structure-level Mode-I, Mode-II and mixed-mode delamination evidence.",
   "physics": "Fixed-path delamination under DCB Mode I, ENF Mode II and MMB mixed-mode loading",
   "execution": {
     "example": "tests/test_delamination_fem_benchmark.py",
     "command": "python -m pytest -q tests/test_mixed_mode_benchmark.py tests/test_delamination_fem_benchmark.py",
-    "evidence": "The suite separates analytical oracles from an assembled Q1 bulk plus paired-facet DCB provider. It checks compliance-derived energy release, mandatory MMB mode partition, strict curve integrity, traceable external curve identity, and a three-or-more-level certificate spanning reference error, refinement change, process-zone resolution and artificial dissipation."
+    "evidence": "The suite separates analytical oracles from an assembled Q1 bulk plus paired-facet DCB provider. A scoped DCB compliance certificate checks three or more assembled levels, reference error, refinement change, residual norms and evidence identity. The separate propagation certificate retains process-zone, mode-partition and artificial-dissipation requirements."
   },
   "observables": [
     "Load and load-point displacement versus crack length.",
@@ -25,12 +25,14 @@
     "A computed curve covers the complete reference crack-length interval and meets a caller-declared relative tolerance.",
     "The cohesive process zone contains at least three elements unless a stricter project threshold is declared.",
     "Artificial dissipation remains at or below five percent of the declared physical internal-energy scale.",
-    "Structural promotion requires at least three successively refined curves, decreasing reference and inter-level errors, a bounded final refinement change, and a bounded Mode-I partition error.",
+    "Precracked elastic DCB compliance promotion requires at least three successively refined assembled curves, decreasing reference and inter-level errors, a bounded final refinement change and bounded equilibrium residuals.",
+    "Cohesive propagation promotion separately requires process-zone resolution, mode-partition and artificial-dissipation evidence.",
     "External promotion additionally pins geometry, material, loading, contact, mesh and the exact source trace."
   ],
   "limitations": [
     "ASTM identifiers describe the specimen families; this software contract does not reproduce proprietary standards or imply certification.",
-    "The executable DCB provider is an isotropic structure-level verification rung with an intact cohesive tie and explicit precrack. Its first CI smoke test is not a completed DCB mesh/convergence certificate or propagation benchmark.",
+    "The executable DCB provider is an isotropic structure-level verification rung with an intact cohesive tie and explicit precrack. Its compliance certificate is not a cohesive evolution or propagation benchmark.",
+    "The assembled DCB smoke and three-level study still await execution in an unrestricted CI runtime.",
     "ENF and MMB do not yet have equivalent assembled providers.",
     "MMB external curve execution and an independent cohesive finite-element comparison remain pending and are not labelled validated."
   ],

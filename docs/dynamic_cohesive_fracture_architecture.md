@@ -165,7 +165,15 @@ oracles. `dcb_finite_element_curve(...)` is a separate executable provider: it
 assembles a small-strain 2D bulk, a completely split paired-facet interface,
 an explicit precrack, and the intact interface tie ahead of the crack. Its
 compliance therefore comes from a solved structure rather than from the beam
-formula. `compliance_energy_release_curve(...)` recovers structure-level
+formula. `dcb_finite_element_convergence(...)` executes three or more such
+mesh levels and `certify_dcb_compliance_convergence(...)` records a scoped
+compliance certificate: mesh sizes, reference error, successive change,
+observed order, residual norms and stable curve identities. Spatial
+asymptotic behavior is judged from decreasing inter-mesh changes; the 2D
+continuum solution is not required to approach a lower-dimensional beam oracle
+monotonically. This first gate
+explicitly excludes cohesive evolution and crack propagation.
+`compliance_energy_release_curve(...)` recovers structure-level
 \(G=P^2(\mathrm dC/\mathrm da)/(2b)\), and MMB requires an independently
 declared Mode-I partition. Acceptance also checks cohesive-zone resolution
 and artificial dissipation. `certify_delamination_convergence(...)` requires
@@ -175,8 +183,9 @@ trend. `MixedModeBendingCurve` separately reads a source-
 identified external trace and compares load, displacement and Mode-I fraction
 under required tolerances. These contracts do not claim that a published
 finite-element or experimental curve has already been reproduced; that
-promotion remains closed until three refined DCB solver curves and equivalent
-source-identified ENF/MMB curves satisfy the certificate.
+promotion remains closed until the assembled DCB compliance study passes in
+CI and refined propagation curves plus equivalent source-identified ENF/MMB
+curves satisfy the fracture certificate.
 
 Damage and solver state still use begin/commit/rollback. Mixed-mode checkpoint
 fields are stored by the same physical facet and quadrature identity as the

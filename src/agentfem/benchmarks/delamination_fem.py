@@ -8,6 +8,8 @@ zero-thickness interface problem; it is never relabelled beam theory.
 from __future__ import annotations
 
 from dataclasses import dataclass
+import hashlib
+import json
 
 import numpy as np
 
@@ -15,6 +17,7 @@ from .mixed_mode import (
     DelaminationBenchmarkSpec,
     DelaminationEnergyReleaseCurve,
     compliance_energy_release_curve,
+    dcb_beam_compliance,
 )
 
 
@@ -52,6 +55,15 @@ class DCBFiniteElementCurve:
     def element_size(self) -> float:
         return max(point.element_size for point in self.points)
 
+    @property
+    def identity_sha256(self) -> str:
+        """Stable identity of the mesh-level structural evidence."""
+
+        encoded = json.dumps(
+            self.summary(), sort_keys=True, separators=(",", ":"), allow_nan=False
+        ).encode("utf-8")
+        return hashlib.sha256(encoded).hexdigest()
+
     def summary(self) -> dict[str, object]:
         return {
             "schema": "agentfem.dcb-finite-element-curve.v1",
@@ -66,6 +78,222 @@ class DCBFiniteElementCurve:
                 "precrack": "fully failed interface facets",
             },
         }
+
+
+@dataclass(frozen=True)
+class DCBComplianceConvergenceCertificate:
+    """Spatial-convergence evidence for a precracked, elastic DCB model.
+
+    This certificate deliberately covers structural compliance only.  It does
+    not certify cohesive-zone evolution, fracture energy or crack growth.
+    Those require the separate delamination propagation certificate.
+    """
+
+    reference_source: str
+    curve_identity_sha256: tuple[str, ...]
+    element_sizes: tuple[float, ...]
+    relative_errors_to_reference: tuple[float, ...]
+    successive_relative_changes: tuple[float, ...]
+    maximum_residual_norms: tuple[float, ...]
+    observed_order: float | None
+    asymptotic_trend: bool
+    reference_errors_nonincreasing: bool
+    reference_relative_tolerance: float
+    refinement_relative_tolerance: float
+    residual_tolerance: float
+    accepted: bool
+
+    def summary(self) -> dict[str, object]:
+        return {
+            "schema": "agentfem.dcb-compliance-convergence-certificate.v1",
+            **self.__dict__,
+            "scope": "precracked elastic structural compliance",
+            "excludes": (
+                "cohesive-zone evolution",
+                "fracture-energy calibration",
+                "crack propagation",
+            ),
+        }
+
+
+@dataclass(frozen=True)
+class DCBFiniteElementConvergenceStudy:
+    """Three-or-more-level assembled DCB compliance study."""
+
+    specification: DelaminationBenchmarkSpec
+    curves: tuple[DCBFiniteElementCurve, ...]
+    certificate: DCBComplianceConvergenceCertificate
+
+    def summary(self) -> dict[str, object]:
+        return {
+            "schema": "agentfem.dcb-finite-element-convergence-study.v1",
+            "specification": self.specification.summary(),
+            "curves": [curve.summary() for curve in self.curves],
+            "certificate": self.certificate.summary(),
+        }
+
+
+def certify_dcb_compliance_convergence(
+    spec: DelaminationBenchmarkSpec,
+    curves,
+    *,
+    reference_relative_tolerance: float,
+    refinement_relative_tolerance: float,
+    residual_tolerance: float = 1.0e-8,
+) -> DCBComplianceConvergenceCertificate:
+    """Certify assembled DCB compliance against a declared beam oracle.
+
+    The curves must describe successively refined meshes on identical crack
+    coordinates.  The oracle is useful for a thin-beam verification rung but
+    remains explicitly identified as analytical rather than experimental.
+    Acceptance requires a decreasing inter-mesh change; it does not require
+    every 2D elasticity mesh to approach the lower-dimensional beam oracle
+    monotonically.
+    """
+
+    if not isinstance(spec, DelaminationBenchmarkSpec) or spec.kind != "dcb":
+        raise ValueError("DCB compliance convergence requires a DCB specification.")
+    selected = tuple(curves)
+    if len(selected) < 3 or not all(
+        isinstance(curve, DCBFiniteElementCurve) for curve in selected
+    ):
+        raise ValueError("DCB compliance convergence requires at least three FE curves.")
+    coordinates = np.asarray(
+        [point.effective_crack_length for point in selected[0].points], dtype=float
+    )
+    if coordinates.size < 3:
+        raise ValueError("Every DCB convergence curve needs at least three cracks.")
+    reference = np.asarray(dcb_beam_compliance(spec, coordinates), dtype=float)
+    reference_scale = float(np.linalg.norm(reference))
+    if reference_scale <= np.finfo(float).eps:
+        raise ValueError("The DCB analytical compliance reference is zero.")
+
+    compliance = []
+    sizes = []
+    residuals = []
+    for curve in selected:
+        if curve.specification != spec:
+            raise ValueError("Every DCB curve must use the same specification.")
+        curve_coordinates = np.asarray(
+            [point.effective_crack_length for point in curve.points], dtype=float
+        )
+        if curve_coordinates.shape != coordinates.shape or not np.allclose(
+            curve_coordinates, coordinates, rtol=0.0, atol=1.0e-12
+        ):
+            raise ValueError("Every DCB curve must use identical crack coordinates.")
+        compliance.append(np.asarray([point.compliance for point in curve.points]))
+        sizes.append(float(curve.element_size))
+        residuals.append(max(point.residual_norm for point in curve.points))
+    if any(left <= right for left, right in zip(sizes[:-1], sizes[1:])):
+        raise ValueError("DCB element sizes must decrease from coarse to fine.")
+
+    errors = tuple(
+        float(np.linalg.norm(values - reference) / reference_scale)
+        for values in compliance
+    )
+    changes = tuple(
+        float(np.linalg.norm(right - left) / max(np.linalg.norm(right), np.finfo(float).eps))
+        for left, right in zip(compliance[:-1], compliance[1:])
+    )
+    refinement_ratios = tuple(
+        left / right for left, right in zip(sizes[:-1], sizes[1:])
+    )
+    uniform_refinement = bool(
+        max(refinement_ratios) / min(refinement_ratios) <= 1.05
+    )
+    observed_order = None
+    if (
+        uniform_refinement
+        and len(changes) >= 2
+        and changes[-1] > np.finfo(float).eps
+    ):
+        ratio = refinement_ratios[-1]
+        if changes[-2] > 0.0:
+            observed_order = float(np.log(changes[-2] / changes[-1]) / np.log(ratio))
+    asymptotic = bool(
+        all(right < left for left, right in zip(changes[:-1], changes[1:]))
+    )
+    reference_errors_nonincreasing = bool(
+        all(right <= left for left, right in zip(errors[:-1], errors[1:]))
+    )
+    reference_limit = float(reference_relative_tolerance)
+    refinement_limit = float(refinement_relative_tolerance)
+    residual_limit = float(residual_tolerance)
+    if any(
+        not np.isfinite(value) or value < 0.0
+        for value in (reference_limit, refinement_limit, residual_limit)
+    ):
+        raise ValueError("DCB convergence tolerances must be finite and nonnegative.")
+    return DCBComplianceConvergenceCertificate(
+        reference_source=f"{spec.source}; classical simple-beam compliance",
+        curve_identity_sha256=tuple(curve.identity_sha256 for curve in selected),
+        element_sizes=tuple(sizes),
+        relative_errors_to_reference=errors,
+        successive_relative_changes=changes,
+        maximum_residual_norms=tuple(float(value) for value in residuals),
+        observed_order=observed_order,
+        asymptotic_trend=asymptotic,
+        reference_errors_nonincreasing=reference_errors_nonincreasing,
+        reference_relative_tolerance=reference_limit,
+        refinement_relative_tolerance=refinement_limit,
+        residual_tolerance=residual_limit,
+        accepted=(
+            asymptotic
+            and errors[-1] <= reference_limit
+            and changes[-1] <= refinement_limit
+            and max(residuals) <= residual_limit
+        ),
+    )
+
+
+def dcb_finite_element_convergence(
+    spec: DelaminationBenchmarkSpec,
+    *,
+    crack_length,
+    load: float,
+    specimen_length: float,
+    mesh_levels,
+    poisson: float = 0.3,
+    assumption: str = "plane_stress",
+    interface_stiffness: float | None = None,
+    solver_options=None,
+    reference_relative_tolerance: float = 0.10,
+    refinement_relative_tolerance: float = 0.05,
+    residual_tolerance: float = 1.0e-8,
+) -> DCBFiniteElementConvergenceStudy:
+    """Run and certify three or more assembled DCB mesh levels."""
+
+    levels = tuple((int(nx), int(ny)) for nx, ny in mesh_levels)
+    if len(levels) < 3 or any(nx < 4 or ny < 1 for nx, ny in levels):
+        raise ValueError("DCB convergence needs at least three valid mesh levels.")
+    if any(
+        right[0] <= left[0] or right[1] < left[1]
+        for left, right in zip(levels[:-1], levels[1:])
+    ):
+        raise ValueError("DCB mesh levels must refine axial and arm discretization.")
+    curves = tuple(
+        dcb_finite_element_curve(
+            spec,
+            crack_length=crack_length,
+            load=load,
+            specimen_length=specimen_length,
+            elements_along=nx,
+            elements_per_arm=ny,
+            poisson=poisson,
+            assumption=assumption,
+            interface_stiffness=interface_stiffness,
+            solver_options=solver_options,
+        )
+        for nx, ny in levels
+    )
+    certificate = certify_dcb_compliance_convergence(
+        spec,
+        curves,
+        reference_relative_tolerance=reference_relative_tolerance,
+        refinement_relative_tolerance=refinement_relative_tolerance,
+        residual_tolerance=residual_tolerance,
+    )
+    return DCBFiniteElementConvergenceStudy(spec, curves, certificate)
 
 
 def dcb_finite_element_curve(
@@ -398,7 +626,11 @@ def _dcb_point(
 
 
 __all__ = [
+    "DCBComplianceConvergenceCertificate",
     "DCBFiniteElementCurve",
+    "DCBFiniteElementConvergenceStudy",
     "DCBFiniteElementPoint",
+    "certify_dcb_compliance_convergence",
+    "dcb_finite_element_convergence",
     "dcb_finite_element_curve",
 ]
