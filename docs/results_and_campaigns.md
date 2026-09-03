@@ -184,7 +184,12 @@ multiplier constraints require provider-owned dual forces. When any declared
 constraint lacks that channel, `SimulationResult` records
 `static_equilibrium.status = unavailable` and a
 `constraint_balance_contract` instead of publishing a partial reaction sum as
-a complete equilibrium check.
+a complete equilibrium check. A provider closes force balance only by supplying
+both its generalized dual and the corresponding physical-space resultant; it
+closes work only by also supplying the accepted work-conjugate coordinate.
+`AnalysisStep.constraint_dual_provider` is the narrow post-convergence seam for
+that evidence. The common ledger consumes the returned records; a provider is
+not allowed to promote completeness by returning a Boolean flag alone.
 
 XDMF is the small XML description and HDF5 is the compact numerical payload.
 Inlining millions of values into XML would produce a much larger and slower

@@ -149,7 +149,13 @@ OWNERSHIP_BOUNDARIES = (
             "constitutive state evolution",
             "model construction",
         ),
-        modules=("results", "verification", "provenance", "convergence"),
+        modules=(
+            "results",
+            "verification",
+            "provenance",
+            "convergence",
+            "_work_energy",
+        ),
     ),
 )
 

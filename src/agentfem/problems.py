@@ -1560,6 +1560,7 @@ class AnalysisStep:
     procedure: object | None = None
     result_field_factory: object | None = None
     constraint_assets: tuple[object, ...] = ()
+    constraint_dual_provider: object | None = None
 
     @property
     def system(self):
@@ -1659,26 +1660,34 @@ class AnalysisStep:
             and len(tuple(getattr(solution, "ufl_shape", ()))) == 1
         )
         if is_static_solid:
+            provider_duals = ()
+            if self.constraint_dual_provider is not None:
+                provider_duals = tuple(
+                    self.constraint_dual_provider(self.problem) or ()
+                )
             balance_contract = constraint_api.constraint_balance_contract(
-                self.constraint_assets
+                self.constraint_assets,
+                provider_duals=provider_duals,
             )
             result.metadata["constraint_balance_contract"] = balance_contract
             try:
                 equilibrium = static_force_balance(
                     self.problem,
                     constraints=self.constraint_assets,
+                    provider_duals=provider_duals,
                 )
             except NotImplementedError as exc:
                 equilibrium = None
                 result.metadata["static_equilibrium"] = {
                     "status": "unavailable",
                     "reason": str(exc),
-                    "reaction_scope": "strong Dirichlet constraints",
+                    "reaction_scope": balance_contract["reaction_scope"],
                 }
             try:
                 work = static_work_balance(
                     self.problem,
                     constraints=self.constraint_assets,
+                    provider_duals=provider_duals,
                 )
             except NotImplementedError as exc:
                 work = None
@@ -1691,6 +1700,9 @@ class AnalysisStep:
                     {
                         "external_force_resultant": equilibrium.external,
                         "reaction_force_resultant": equilibrium.reaction,
+                        "provider_reaction_force_resultant": (
+                            equilibrium.provider_reaction
+                        ),
                         "force_balance_residual": equilibrium.residual,
                         "relative_force_balance_error": equilibrium.relative_error,
                     },
@@ -1700,7 +1712,12 @@ class AnalysisStep:
                             "Resultant of the assembled linear-system right-hand side."
                         ),
                         "reaction_force_resultant": (
-                            "Resultant of strong-constraint algebraic reactions."
+                            "Resultant of all declared constraint reactions included "
+                            "by the balance contract."
+                        ),
+                        "provider_reaction_force_resultant": (
+                            "Physical-space resultant supplied by MPC, weak, or "
+                            "contact providers."
                         ),
                         "force_balance_residual": "Reaction plus external-force resultant.",
                         "relative_force_balance_error": (
@@ -1716,6 +1733,7 @@ class AnalysisStep:
                         "strain_energy": work.strain_energy,
                         "natural_load_work": work.natural_load_work,
                         "prescribed_motion_work": work.prescribed_motion_work,
+                        "provider_constraint_work": work.provider_constraint_work,
                         "external_work": work.external_work,
                         "energy_balance_error": work.balance_error,
                     },
@@ -1742,6 +1760,15 @@ class AnalysisStep:
             "problem": self.problem.summary(),
             "procedure": (
                 None if self.procedure is None else self.procedure.summary()
+            ),
+            "constraint_dual_provider": (
+                None
+                if self.constraint_dual_provider is None
+                else getattr(
+                    self.constraint_dual_provider,
+                    "__name__",
+                    type(self.constraint_dual_provider).__name__,
+                )
             ),
         }
 

@@ -93,6 +93,8 @@ class StaticForceBalance:
     residual: object
     absolute_error: float
     relative_error: float
+    provider_reaction: object = 0.0
+    reaction_scope: str = "strong Dirichlet constraints"
 
     def as_dict(self) -> dict[str, object]:
         def value(item):
@@ -102,11 +104,12 @@ class StaticForceBalance:
         return {
             "external_force_resultant": value(self.external),
             "reaction_force_resultant": value(self.reaction),
+            "provider_reaction_force_resultant": value(self.provider_reaction),
             "force_balance_residual": value(self.residual),
             "absolute_error": float(self.absolute_error),
             "relative_error": float(self.relative_error),
             "definition": "reaction + assembled external force",
-            "reaction_scope": "strong Dirichlet constraints",
+            "reaction_scope": self.reaction_scope,
         }
 
 
@@ -120,17 +123,20 @@ class StaticWorkBalance:
     external_work: float
     balance_error: float
     prescribed_dof_count: int
+    provider_constraint_work: float = 0.0
+    reaction_scope: str = "strong Dirichlet constraints"
 
     def as_dict(self) -> dict[str, object]:
         return {
             "strain_energy": float(self.strain_energy),
             "natural_load_work": float(self.natural_load_work),
             "prescribed_motion_work": float(self.prescribed_motion_work),
+            "provider_constraint_work": float(self.provider_constraint_work),
             "external_work": float(self.external_work),
             "energy_balance_error": float(self.balance_error),
             "prescribed_dof_count": int(self.prescribed_dof_count),
             "path": "linear proportional ramp from zero",
-            "reaction_scope": "strong Dirichlet constraints",
+            "reaction_scope": self.reaction_scope,
         }
 
 
@@ -595,18 +601,26 @@ def external_force_resultant(problem):
         vector.destroy()
 
 
-def static_force_balance(problem, *, constraints=()) -> StaticForceBalance:
+def static_force_balance(
+    problem,
+    *,
+    constraints=(),
+    provider_duals=(),
+) -> StaticForceBalance:
     """Evaluate ``R + F = 0`` for a converged linear static solid.
 
-    Reactions are the unconstrained residual at strong Dirichlet dofs. Affine
-    MPC, weak, contact, and multiplier reactions need dedicated definitions.
-    When such an asset is declared, the diagnostic fails closed instead of
-    publishing a partial resultant as a complete force balance.
+    Strong-Dirichlet reactions come from the unconstrained residual. Affine
+    MPC, weak, contact, and multiplier providers must supply both their
+    generalized dual and a physical-space resultant. When either is missing,
+    the diagnostic fails closed instead of publishing a partial balance.
     """
 
     from .. import constraints as constraint_api
 
-    contract = constraint_api.constraint_balance_contract(constraints)
+    contract = constraint_api.constraint_balance_contract(
+        constraints,
+        provider_duals=provider_duals,
+    )
     if not contract["force_balance_available"]:
         raise NotImplementedError(
             "static_force_balance requires complete strong-Dirichlet reaction "
@@ -616,6 +630,18 @@ def static_force_balance(problem, *, constraints=()) -> StaticForceBalance:
 
     external = external_force_resultant(problem)
     reaction = reaction_resultant(problem)
+    provider_reaction = np.zeros_like(np.asarray(reaction), dtype=float)
+    for item in provider_duals:
+        selected = np.asarray(item.resultant, dtype=float)
+        if selected.size != provider_reaction.size:
+            raise ValueError(
+                f"Constraint dual {item.constraint_name!r} resultant has "
+                f"{selected.size} components; expected {provider_reaction.size}."
+            )
+        provider_reaction = provider_reaction + selected.reshape(
+            provider_reaction.shape
+        )
+    reaction = np.asarray(reaction) + provider_reaction
     residual = np.asarray(external) + np.asarray(reaction)
     absolute = float(np.linalg.norm(np.atleast_1d(residual)))
     scale = max(
@@ -631,17 +657,28 @@ def static_force_balance(problem, *, constraints=()) -> StaticForceBalance:
         residual=residual,
         absolute_error=absolute,
         relative_error=relative,
+        provider_reaction=(
+            float(provider_reaction)
+            if provider_reaction.ndim == 0
+            else provider_reaction
+        ),
+        reaction_scope=str(contract["reaction_scope"]),
     )
 
 
-def static_work_balance(problem, *, constraints=()) -> StaticWorkBalance:
+def static_work_balance(
+    problem,
+    *,
+    constraints=(),
+    provider_duals=(),
+) -> StaticWorkBalance:
     """Evaluate linear-static work including nonzero strong Dirichlet data.
 
     Natural loads and prescribed values are assumed to ramp proportionally
     from zero.  The prescribed-motion contribution is the trapezoidal path
     integral ``0.5 * R_c dot ubar`` on uniquely constrained owned dofs.  MPC,
-    weak, contact, and multiplier constraints need their own dual variables
-    and are deliberately rejected by this helper.
+    weak, contact, and multiplier constraints contribute through provider-owned
+    dual force/coordinate records. No missing channel is inferred as zero.
     """
 
     if not hasattr(problem, "system") or not hasattr(problem, "reaction_field"):
@@ -649,7 +686,10 @@ def static_work_balance(problem, *, constraints=()) -> StaticWorkBalance:
     from .. import constraints as constraint_api
     from .. import operators
 
-    contract = constraint_api.constraint_balance_contract(constraints)
+    contract = constraint_api.constraint_balance_contract(
+        constraints,
+        provider_duals=provider_duals,
+    )
     if not contract["work_balance_available"]:
         raise NotImplementedError(
             "static_work_balance requires inspectable proportional strong-"
@@ -713,7 +753,13 @@ def static_work_balance(problem, *, constraints=()) -> StaticWorkBalance:
     comm = solution.function_space.mesh.comm
     generalized = float(comm.allreduce(float(local_generalized), op=MPI.SUM))
     prescribed_work = 0.5 * generalized
-    external = float(natural + prescribed_work)
+    provider_work = float(
+        sum(
+            0.5 * np.dot(item.force, item.coordinate)
+            for item in provider_duals
+        )
+    )
+    external = float(natural + prescribed_work + provider_work)
     return StaticWorkBalance(
         strain_energy=float(strain),
         natural_load_work=float(natural),
@@ -721,6 +767,8 @@ def static_work_balance(problem, *, constraints=()) -> StaticWorkBalance:
         external_work=external,
         balance_error=float(external - strain),
         prescribed_dof_count=int(comm.allreduce(len(prescribed), op=MPI.SUM)),
+        provider_constraint_work=provider_work,
+        reaction_scope=str(contract["work_scope"]),
     )
 
 

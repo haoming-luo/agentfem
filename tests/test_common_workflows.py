@@ -984,6 +984,96 @@ def test_constraint_balance_contract_refuses_partial_mpc_reactions():
     )
 
 
+def test_constraint_balance_contract_accepts_complete_provider_dual_path():
+    periodic = constraints.RectangularPeriodicMPC(
+        backend=object(),
+        lower=(0.0, 0.0),
+        upper=(1.0, 1.0),
+        axes=(0,),
+        tolerance=1.0e-12,
+        name="periodic_x",
+    )
+    dual = constraints.constraint_dual(
+        periodic,
+        role="mpc_constraint",
+        force=(12.0,),
+        coordinate=(0.02,),
+        resultant=(-12.0, 0.0),
+        source="affine_reduced_equilibrium",
+    )
+
+    contract = constraints.constraint_balance_contract(
+        (periodic,),
+        provider_duals=(dual,),
+    )
+
+    assert contract["force_balance_available"] is True
+    assert contract["work_balance_available"] is True
+    assert contract["force_balance_gaps"] == ()
+    assert dual.work_sample().summary() == {
+        "name": "periodic_x",
+        "role": "mpc_constraint",
+        "force": [12.0],
+        "displacement": [0.02],
+    }
+
+
+def test_constraint_balance_contract_rejects_partial_or_unmatched_duals():
+    periodic = constraints.RectangularPeriodicMPC(
+        backend=object(),
+        lower=(0.0, 0.0),
+        upper=(1.0, 1.0),
+        axes=(0,),
+        tolerance=1.0e-12,
+        name="periodic_x",
+    )
+    force_only = constraints.constraint_dual(
+        periodic,
+        force=(12.0,),
+        resultant=(-12.0, 0.0),
+        source="force_only_provider",
+    )
+    contract = constraints.constraint_balance_contract(
+        (periodic,),
+        provider_duals=(force_only,),
+    )
+    assert contract["force_balance_available"] is True
+    assert contract["work_balance_available"] is False
+
+    generalized_only = constraints.constraint_dual(
+        periodic,
+        force=(12.0,),
+        coordinate=(0.02,),
+        source="generalized_force_without_spatial_resultant",
+    )
+    contract = constraints.constraint_balance_contract(
+        (periodic,),
+        provider_duals=(generalized_only,),
+    )
+    assert contract["force_balance_available"] is False
+    assert contract["work_balance_available"] is True
+
+    unrelated = constraints.constraint_dual(
+        "another_constraint",
+        force=(1.0,),
+        coordinate=(0.0,),
+    )
+    with pytest.raises(ValueError, match="does not match"):
+        constraints.constraint_balance_contract(
+            (periodic,),
+            provider_duals=(unrelated,),
+        )
+
+    duplicate_name = constraints.PeriodicConstraintSpec(
+        slave_marker=lambda x: x,
+        master_marker=lambda x: x,
+        map_slave_to_master=lambda x: x,
+        name="periodic_x",
+    )
+    with pytest.raises(ValueError, match="names must be unique"):
+        constraints.constraint_balance_contract((periodic, duplicate_name))
+
+
 def test_model_rejects_periodic_projection_for_newmark_before_problem_build():
     domain = mesh.rectangle(
         (0.0, 0.0),

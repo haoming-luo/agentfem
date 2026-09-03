@@ -8,6 +8,13 @@ experimental formulation to a validated one.
 
 ### Added
 
+- Add provider-owned MPC/weak/contact dual evidence with actual generalized
+  force, accepted coordinate and physical resultant values. Static force and
+  work ledgers now consume these values and remain unavailable when any channel
+  is partial, duplicate or unmatched.
+- Move the shared generalized work and cyclic energy ledger out of the fatigue
+  domain module into the Result/Verification ownership layer while preserving
+  the existing public compatibility imports.
 - Add one runtime-independent `agentfem workspace` custody contract for the
   Complete WSL2 Runtime and ordinary Mamba installations, including verified
   migration to durable Windows storage and machine-readable safety status.

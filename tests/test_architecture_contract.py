@@ -94,3 +94,11 @@ def test_problem_compatibility_exports_point_to_new_owners():
     assert problems.ExplicitDynamicsState is state.ExplicitDynamicsState
     assert problems.second_order_state is state.second_order_state
     assert problems.LumpedMassOperator is operators.LumpedMassOperator
+
+
+def test_fatigue_work_contract_is_owned_by_shared_internal_layer():
+    from agentfem import fatigue_fracture
+    from agentfem import _work_energy
+
+    assert fatigue_fracture.GeneralizedWorkSample is _work_energy.GeneralizedWorkSample
+    assert fatigue_fracture.CyclicWorkEnergyLedger is _work_energy.CyclicWorkEnergyLedger

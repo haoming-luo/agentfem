@@ -62,6 +62,136 @@ class ConstraintCapabilities:
 
 
 @dataclass(frozen=True)
+class ConstraintDualEvidence:
+    """Provider-owned force and optional work-conjugate coordinate.
+
+    MPC, weak and contact reactions cannot be reconstructed from the strong-
+    Dirichlet residual.  Their active provider must publish this record after
+    convergence.  The record carries values and provenance; it never changes
+    the constraint or solver state.
+    """
+
+    constraint_name: str
+    role: str
+    force: np.ndarray
+    coordinate: np.ndarray | None = None
+    resultant: np.ndarray | None = None
+    source: str = "provider_dual"
+    complete: bool = True
+
+    def __post_init__(self) -> None:
+        name = str(self.constraint_name).strip()
+        role = str(self.role).strip().lower().replace("-", "_")
+        allowed = {"mpc_constraint", "weak_constraint", "contact_constraint"}
+        force = np.asarray(self.force, dtype=float).reshape(-1)
+        coordinate = (
+            None
+            if self.coordinate is None
+            else np.asarray(self.coordinate, dtype=float).reshape(-1)
+        )
+        resultant = (
+            None
+            if self.resultant is None
+            else np.asarray(self.resultant, dtype=float).reshape(-1)
+        )
+        if not name or role not in allowed:
+            raise ValueError("Constraint dual evidence needs a name and dual role.")
+        if force.size == 0 or not np.all(np.isfinite(force)):
+            raise ValueError("Constraint dual force must contain finite values.")
+        if coordinate is not None and (
+            coordinate.shape != force.shape or not np.all(np.isfinite(coordinate))
+        ):
+            raise ValueError(
+                "Constraint dual coordinate must be finite and match the force."
+            )
+        if resultant is not None and (
+            resultant.size == 0 or not np.all(np.isfinite(resultant))
+        ):
+            raise ValueError("Constraint dual resultant must contain finite values.")
+        if not str(self.source).strip():
+            raise ValueError("Constraint dual evidence must identify its provider.")
+        object.__setattr__(self, "constraint_name", name)
+        object.__setattr__(self, "role", role)
+        object.__setattr__(self, "force", force.copy())
+        object.__setattr__(
+            self,
+            "coordinate",
+            None if coordinate is None else coordinate.copy(),
+        )
+        object.__setattr__(
+            self,
+            "resultant",
+            None if resultant is None else resultant.copy(),
+        )
+
+    @property
+    def force_complete(self) -> bool:
+        """Whether a physical-space resultant closes global force balance."""
+
+        return bool(self.complete and self.resultant is not None)
+
+    @property
+    def work_complete(self) -> bool:
+        return bool(self.complete and self.coordinate is not None)
+
+    def work_sample(self):
+        """Return the shared work sample, failing if no coordinate was supplied."""
+
+        if self.coordinate is None:
+            raise RuntimeError(
+                f"Constraint dual {self.constraint_name!r} has no work coordinate."
+            )
+        from .._work_energy import GeneralizedWorkSample
+
+        return GeneralizedWorkSample(
+            name=self.constraint_name,
+            role=self.role,
+            force=self.force,
+            displacement=self.coordinate,
+        )
+
+    def summary(self) -> dict[str, object]:
+        return {
+            "constraint_name": self.constraint_name,
+            "role": self.role,
+            "force": self.force.tolist(),
+            "coordinate": (
+                None if self.coordinate is None else self.coordinate.tolist()
+            ),
+            "resultant": (
+                None if self.resultant is None else self.resultant.tolist()
+            ),
+            "source": self.source,
+            "complete": bool(self.complete),
+            "force_complete": self.force_complete,
+            "work_complete": self.work_complete,
+        }
+
+
+def constraint_dual(
+    constraint,
+    *,
+    force,
+    coordinate=None,
+    resultant=None,
+    role="mpc_constraint",
+    source="provider_dual",
+    complete=True,
+) -> ConstraintDualEvidence:
+    """Create provider evidence tied to one named constraint asset."""
+
+    return ConstraintDualEvidence(
+        constraint_name=str(getattr(constraint, "name", constraint)),
+        role=role,
+        force=force,
+        coordinate=coordinate,
+        resultant=resultant,
+        source=source,
+        complete=complete,
+    )
+
+
+@dataclass(frozen=True)
 class DirichletConstraint:
     """Strong Dirichlet constraint and its optional mutable value object."""
 
@@ -1130,7 +1260,7 @@ def constraint_capabilities(constraint) -> ConstraintCapabilities | None:
     return None
 
 
-def constraint_balance_contract(constraints) -> dict[str, object]:
+def constraint_balance_contract(constraints, *, provider_duals=()) -> dict[str, object]:
     """Describe whether strong-reaction force/work diagnostics are complete.
 
     Strong Dirichlet elimination exposes reactions through the unconstrained
@@ -1139,6 +1269,12 @@ def constraint_balance_contract(constraints) -> dict[str, object]:
     being silently omitted from a global balance reported as complete.
     """
 
+    dual_records = tuple(provider_duals)
+    if any(not isinstance(item, ConstraintDualEvidence) for item in dual_records):
+        raise TypeError("provider_duals must contain ConstraintDualEvidence records.")
+    duals = {item.constraint_name: item for item in dual_records}
+    if len(duals) != len(dual_records):
+        raise ValueError("Provider dual constraint names must be unique.")
     records = []
     force_gaps = []
     work_gaps = []
@@ -1155,19 +1291,50 @@ def constraint_balance_contract(constraints) -> dict[str, object]:
             }
         else:
             summary = {"name": name, **capability.summary()}
+        dual = duals.get(name)
+        if dual is not None:
+            summary["provider_dual"] = dual.summary()
         records.append(summary)
-        if summary["reaction_evidence"] != "unconstrained_residual":
+        force_available = summary["reaction_evidence"] == "unconstrained_residual"
+        work_available = summary["work_evidence"] == "proportional_prescribed_path"
+        if summary["reaction_evidence"] == "provider_dual_required":
+            force_available = bool(dual is not None and dual.force_complete)
+        if summary["work_evidence"] == "provider_dual_path_required":
+            work_available = bool(dual is not None and dual.work_complete)
+        if not force_available:
             force_gaps.append(name)
-        if summary["work_evidence"] != "proportional_prescribed_path":
+        if not work_available:
             work_gaps.append(name)
+    names = {record["name"] for record in records}
+    if len(names) != len(records):
+        raise ValueError(
+            "Constraint names must be unique when assembling balance evidence."
+        )
+    unexpected = tuple(sorted(set(duals) - names))
+    if unexpected:
+        raise ValueError(
+            "Provider dual evidence does not match declared constraints: "
+            f"{unexpected!r}."
+        )
     return {
         "kind": "constraint_balance_contract",
-        "reaction_scope": "strong Dirichlet constraints",
+        "reaction_scope": (
+            "all declared constraints"
+            if not force_gaps
+            else "available constraint channels"
+        ),
+        "work_scope": (
+            "all declared constraints"
+            if not work_gaps
+            else "available constraint channels"
+        ),
         "force_balance_available": not force_gaps,
         "work_balance_available": not work_gaps,
         "force_balance_gaps": tuple(force_gaps),
         "work_balance_gaps": tuple(work_gaps),
         "constraints": tuple(records),
+        "provider_duals": tuple(item.summary() for item in dual_records),
+        "unexpected_provider_duals": unexpected,
     }
 
 

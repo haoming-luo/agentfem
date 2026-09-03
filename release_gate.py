@@ -32,6 +32,7 @@ SOURCE_PACKAGE = ROOT / "src" / "agentfem"
 REQUIRED_WHEEL_MEMBERS = (
     "agentfem/__init__.py",
     "agentfem/_axisymmetric.py",
+    "agentfem/_work_energy.py",
     "agentfem/_step_builders.py",
     "agentfem/models.py",
     "agentfem/dependencies.py",
@@ -77,6 +78,7 @@ REQUIRED_WHEEL_MEMBERS = (
     "agentfem/knowledge/decisions/0016-thin-model-facade-and-execution-policy.md",
     "agentfem/knowledge/decisions/0017-public-api-lifecycle.md",
     "agentfem/knowledge/decisions/0024-runtime-project-custody.md",
+    "agentfem/knowledge/decisions/0025-provider-owned-constraint-duals.md",
     "agentfem/materials/data/steel_generic.json",
 )
 
