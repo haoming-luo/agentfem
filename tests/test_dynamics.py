@@ -87,7 +87,7 @@ def test_dense_modal_reference_and_modal_superposition():
     assert basis.to_result().quantity("frequencies").shape == (2,)
 
 
-def test_modal_step_uses_public_model_language_and_removes_fixed_dofs():
+def test_modal_step_uses_public_model_language_and_removes_fixed_dofs(tmp_path):
     domain = mesh.rectangle(
         (0.0, 0.0),
         (1.0, 0.2),
@@ -118,13 +118,22 @@ def test_modal_step_uses_public_model_language_and_removes_fixed_dofs():
         options={"modes": 3},
     )
     step = model.step(target=displacement, modes=3)
-    result = step.solve_result()
+    result = step.solve_result(
+        output=tmp_path / "modes.xdmf",
+        strict_output=True,
+    )
 
     assert capability["provider"]["name"] == "linear_structural_modes"
     assert result.quantity("frequencies").shape == (3,)
     assert np.all(np.diff(result.quantity("frequencies")) > 0.0)
     assert np.max(result.quantity("residual_norms")) < 1.0e-7
     assert tuple(result.fields) == ("Mode_1", "Mode_2", "Mode_3")
+    assert result.artifacts["fields_xdmf"].exists()
+    assert result.metadata["field_output_fields"]["included"] == (
+        "Mode_1",
+        "Mode_2",
+        "Mode_3",
+    )
     for mode in result.fields.values():
         assert operators.quadratic_form(step.mass, mode.field) == pytest.approx(
             1.0,

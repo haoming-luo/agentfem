@@ -534,7 +534,6 @@ class ModalAnalysisStep:
             self,
             result,
             output=output,
-            fields=modes,
             strict_output=strict_output,
         )
 

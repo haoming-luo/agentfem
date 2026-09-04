@@ -39,9 +39,12 @@ model.clamp(
     ),
 )
 
-result = model.step(target=u, modes=6).solve_result()
+output = Path("outputs/modal_cantilever_2d")
+result = model.step(target=u, modes=6).solve_result(
+    output=output / "modes.xdmf",
+    strict_output=True,
+)
 if MPI.COMM_WORLD.rank == 0:
-    output = Path("outputs/modal_cantilever_2d")
     output.mkdir(parents=True, exist_ok=True)
     result.write_manifest(output / "result.json")
     print("Natural frequencies:", result.quantity("frequencies"))
