@@ -48,6 +48,10 @@ experimental formulation to a validated one.
   force, accepted coordinate and physical resultant values. Static force and
   work ledgers now consume these values and remain unavailable when any channel
   is partial, duplicate or unmatched.
+- Make exact affine periodic constraints the first native dual provider. The
+  macro reaction comes from full-residual virtual work, accepted path work is
+  checkpoint-safe, and periodic J2 tests independently match both
+  \(V\mathbf{P}:\mathrm d\mathbf{F}/\mathrm d\lambda\) and Hill--Mandel work.
 - Move the shared generalized work and cyclic energy ledger out of the fatigue
   domain module into the Result/Verification ownership layer while preserving
   the existing public compatibility imports.

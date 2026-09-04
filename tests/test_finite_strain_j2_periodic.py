@@ -407,6 +407,18 @@ def test_public_affine_j2_consumes_unload_and_nonproportional_macro_path(tmp_pat
         rtol=8.0e-6,
         atol=8.0e-6,
     )
+    final_path_tangent = (gradients[-1] - gradients[-2]) / (
+        coordinates[-1] - coordinates[-2]
+    )
+    assert result.quantity("affine_path_generalized_reaction") == pytest.approx(
+        periodicity.reference_cell_volume
+        * float(np.sum(expected_first_piola * final_path_tangent)),
+        rel=8.0e-6,
+        abs=8.0e-6,
+    )
+    assert not result.metadata["constraint_balance_contract"][
+        "work_balance_available"
+    ]
     identity = periodicity.scientific_identity()
     assert identity["deformation_gradient_path"]["fingerprint"] == path.summary()[
         "fingerprint"
@@ -694,6 +706,42 @@ def test_public_finite_strain_j2_periodic_cube_matches_material_point(tmp_path):
         atol=5.0e-6,
     )
     assert result.quantity("maximum_hill_mandel_relative_error") < 1.0e-8
+    expected_macro_reaction = periodicity.reference_cell_volume * float(
+        np.sum(
+            expected_first_piola
+            * (fixture.deformation_gradient - np.eye(3))
+        )
+    )
+    assert result.quantity("affine_path_generalized_reaction") == pytest.approx(
+        expected_macro_reaction,
+        rel=8.0e-6,
+        abs=8.0e-6,
+    )
+    np.testing.assert_allclose(
+        result.quantity("affine_constraint_force_resultant"),
+        np.zeros(3),
+        atol=2.0e-7,
+    )
+    balance_contract = result.metadata["constraint_balance_contract"]
+    assert balance_contract["force_balance_available"]
+    assert not balance_contract["work_balance_available"]
+    assert balance_contract["work_balance_gaps"] == (periodicity.name,)
+    assert result.metadata["constraint_duals"][0]["source"] == (
+        "exact_affine_reduction_full_residual_virtual_work"
+    )
+    assert result.metadata["affine_constraint_path_work"]["status"] == "complete"
+    expected_path_work = periodicity.reference_cell_volume * float(
+        np.sum(
+            result.histories[
+                "hill_mandel_macroscopic_work_density"
+            ].values
+        )
+    )
+    assert result.quantity("affine_constraint_path_work") == pytest.approx(
+        expected_path_work,
+        rel=8.0e-6,
+        abs=8.0e-6,
+    )
     assert result.metadata["output_plan"]["status"] == "completed"
 
 
@@ -739,6 +787,7 @@ def test_public_finite_strain_j2_periodic_checkpoint_restart_is_equivalent(
     assert [
         item.load_factor for item in restarted.last_solve_info.increments
     ] == pytest.approx([0.25, 0.5, 0.75, 1.0])
+    assert restarted.constraint_dual_history == reference.constraint_dual_history
     assert restarted.state_transaction.accepted_factor == pytest.approx(1.0)
 
 
@@ -760,6 +809,24 @@ def test_affine_checkpoint_refuses_mutated_constraint_identity(tmp_path):
     )
     assert mutated.accepted_load_factor == pytest.approx(0.0)
     assert mutated.state_transaction.accepted_factor == pytest.approx(0.0)
+
+
+def test_affine_checkpoint_rejects_corrupt_constraint_dual_history(tmp_path):
+    source = _periodic_j2_step()
+    source.solve(until=0.5)
+    checkpoint = source.save_checkpoint(tmp_path / "corrupt_dual_history")
+    payload = json.loads(checkpoint.read_text(encoding="utf-8"))
+    payload["constraint_dual_history"]["records"][-1]["force"] = [float("nan")]
+    checkpoint.write_text(
+        json.dumps(payload, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+
+    target = _periodic_j2_step()
+    with pytest.raises(ValueError, match="Invalid affine constraint dual history"):
+        target.load_checkpoint(checkpoint)
+    assert target.accepted_load_factor == pytest.approx(0.0)
+    assert target.constraint_dual_history.records == []
 
 
 @pytest.mark.parametrize(

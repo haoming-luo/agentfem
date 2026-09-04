@@ -194,6 +194,24 @@ only as a compatibility bridge for older internal providers; new enforcement
 backends should keep extraction beside the assembly that defines the dual. A
 provider cannot promote completeness with a Boolean flag alone.
 
+The exact affine periodic provider is the first native implementation of this
+contract. It evaluates the generalized reaction from the full unconstrained
+residual and the affine path tangent,
+
+\[
+Q_\lambda = \mathbf{R}_{\mathrm{full}}\!\cdot
+\frac{\partial\mathbf{u}_{\mathrm{aff}}}{\partial\lambda},
+\]
+
+and reports the component-wise physical resultant from the same displacement
+residual. For a homogeneous periodic cell this is checked against
+\(V\,\mathbf{P}:\partial\mathbf{F}/\partial\lambda\). The nonlinear endpoint
+does **not** pretend that one force--coordinate pair is the complete work.
+Instead, the affine problem records accepted \((Q_\lambda,\lambda)\) samples,
+persists them through checkpoint/restart, and publishes their trapezoidal
+integral as `affine_constraint_path_work`. This path work is independently
+checked against the Hill--Mandel macroscopic work for periodic J2 cells.
+
 XDMF is the small XML description and HDF5 is the compact numerical payload.
 Inlining millions of values into XML would produce a much larger and slower
 file, so the pair should be treated as one logical result dataset. The optional
@@ -552,8 +570,7 @@ optimizers, and training loops.
 
 ## Next Result Priorities
 
-1. affine-MPC, weak, and contact reaction force/resultant definitions beyond
-   the current named strong-boundary and J2 residual fields;
+1. physical dual extraction for rectangular MPC, weak, and contact providers;
 2. nodal smoothing and higher-order stress recovery beyond implemented DG
    projection;
 3. natural-load, weak-constraint, affine-MPC, and broader transient work/energy

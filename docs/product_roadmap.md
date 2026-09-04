@@ -84,8 +84,13 @@ Deepen the finite-element core before broadening the catalog:
 - richer thermal--mechanical and high-temperature histories;
 - native MPC/weak/contact extraction through the provider-owned
   `dual_evidence(problem)` protocol. The shared collector, force/work ledger,
-  ownership validation and fail-closed behavior are complete; each numerical
-  enforcement backend must still implement and verify its physical dual;
+  ownership validation and fail-closed behavior are complete. Exact affine
+  periodic elimination now supplies a full-residual physical resultant and a
+  macro-path generalized reaction verified against
+  \(V\mathbf{P}:\mathrm d\mathbf{F}/\mathrm d\lambda\). Its accepted nonlinear
+  path work is restartable and agrees with the independently computed
+  Hill--Mandel macro work; rectangular MPC, weak and contact providers remain
+  explicit promotion gates;
 - selected cyclic plasticity, creep--fatigue, and fracture extensions.
 
 ### 2. Engineering workflow

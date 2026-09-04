@@ -13,7 +13,7 @@ constraint graph and delegate ownership-aware assembly to ``dolfinx_mpc``.
 from __future__ import annotations
 
 from collections.abc import Iterable
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from hashlib import sha256
 from itertools import product
 import json
@@ -258,6 +258,151 @@ class AffineReduction:
             "eliminated_or_prescribed_dofs": self.eliminated_count,
             "transformation_nonzeros": int(self.coefficients.size),
         }
+
+
+@dataclass
+class AffineConstraintDualHistory:
+    """Restartable accepted-path evidence owned by an affine provider."""
+
+    records: list[dict[str, object]] = field(default_factory=list)
+
+    _SCHEMA = "agentfem.affine-constraint-dual-history.v1"
+
+    def clear(self) -> None:
+        self.records.clear()
+
+    def append(self, load_factor: float, evidence) -> None:
+        factor = float(load_factor)
+        force = np.asarray(evidence.force, dtype=float).reshape(-1)
+        resultant = (
+            None
+            if evidence.resultant is None
+            else np.asarray(evidence.resultant, dtype=float).reshape(-1)
+        )
+        record = {
+            "load_factor": factor,
+            "force": force.tolist(),
+            "resultant": None if resultant is None else resultant.tolist(),
+            "source": str(evidence.source),
+        }
+        validated = self._validated((*self.records, record))
+        self.records[:] = validated
+
+    @classmethod
+    def _validated(cls, records, *, accepted_factor: float | None = None):
+        selected = []
+        force_size = None
+        resultant_size = None
+        previous = -np.inf
+        for index, raw in enumerate(records):
+            if not isinstance(raw, dict):
+                raise TypeError(
+                    "Affine constraint dual history entries must be mappings."
+                )
+            factor = float(raw["load_factor"])
+            force = np.asarray(raw["force"], dtype=float).reshape(-1)
+            raw_resultant = raw.get("resultant")
+            resultant = (
+                None
+                if raw_resultant is None
+                else np.asarray(raw_resultant, dtype=float).reshape(-1)
+            )
+            source = str(raw.get("source", "")).strip()
+            if (
+                not np.isfinite(factor)
+                or factor <= previous
+                or force.size == 0
+                or not np.all(np.isfinite(force))
+                or not source
+            ):
+                raise ValueError(
+                    f"Invalid affine constraint dual history entry {index}."
+                )
+            if resultant is not None and (
+                resultant.size == 0 or not np.all(np.isfinite(resultant))
+            ):
+                raise ValueError(
+                    f"Invalid affine constraint resultant at history entry {index}."
+                )
+            layout = None if resultant is None else resultant.size
+            if force_size is None:
+                force_size = force.size
+                resultant_size = layout
+            elif force.size != force_size or layout != resultant_size:
+                raise ValueError(
+                    "Affine constraint dual history changed its vector layout."
+                )
+            selected.append(
+                {
+                    "load_factor": factor,
+                    "force": force.tolist(),
+                    "resultant": (
+                        None if resultant is None else resultant.tolist()
+                    ),
+                    "source": source,
+                }
+            )
+            previous = factor
+        if (
+            selected
+            and accepted_factor is not None
+            and abs(selected[-1]["load_factor"] - float(accepted_factor)) > 1.0e-12
+        ):
+            raise ValueError(
+                "Affine constraint dual history does not end at the accepted "
+                "checkpoint coordinate."
+            )
+        return selected
+
+    def snapshot_runtime_state(self) -> list[dict[str, object]]:
+        return self._validated(self.records)
+
+    def restore_runtime_state(self, records) -> None:
+        self.records[:] = self._validated(records)
+
+    def checkpoint_state(self) -> dict[str, object]:
+        return {"schema": self._SCHEMA, "records": self._validated(self.records)}
+
+    def restore_checkpoint_state(self, payload, *, accepted_factor: float) -> None:
+        if payload is None:
+            self.clear()
+            return
+        if not isinstance(payload, dict) or payload.get("schema") != self._SCHEMA:
+            raise ValueError("Unsupported affine constraint dual history schema.")
+        self.records[:] = self._validated(
+            payload.get("records", ()),
+            accepted_factor=accepted_factor,
+        )
+
+    @property
+    def complete(self) -> bool:
+        return bool(
+            len(self.records) >= 2
+            and abs(float(self.records[0]["load_factor"])) <= 1.0e-12
+        )
+
+    @property
+    def factors(self) -> np.ndarray:
+        return np.asarray(
+            [item["load_factor"] for item in self.records], dtype=float
+        )
+
+    @property
+    def forces(self) -> np.ndarray:
+        return np.asarray([item["force"] for item in self.records], dtype=float)
+
+    def work(self) -> float:
+        if not self.complete:
+            raise RuntimeError(
+                "Affine path work requires accepted dual history from zero."
+            )
+        return float(
+            np.sum(
+                0.5
+                * np.sum(self.forces[:-1] + self.forces[1:], axis=1)
+                * np.diff(self.factors)
+            )
+        )
 
 
 @dataclass
@@ -650,6 +795,128 @@ class AbaqusPeriodicConstraint:
         )
         return np.eye(len(self.reference_nodes)) + (
             displacement_lattice @ np.linalg.inv(self._reference_lattice())
+        )
+
+    def dual_evidence(self, problem, *, load_factor: float | None = None):
+        """Return the converged affine-path dual owned by this constraint.
+
+        The generalized reaction is the virtual work of the *full*,
+        unconstrained residual against a unit increment of the prescribed
+        affine path.  It therefore includes forces transmitted through every
+        eliminated equation dof; reading only the reference-node residual
+        would not.  The physical-space resultant is the component-wise sum of
+        the same displacement residual.
+
+        Nonlinear and non-proportional paths deliberately expose no endpoint
+        work coordinate.  Their external work requires accepted path samples,
+        not ``0.5 * Q(lambda) * lambda`` inferred from one final state.
+        """
+
+        if getattr(problem, "constraint", None) is not self:
+            raise ValueError(
+                "Affine dual evidence requires the problem that consumed this "
+                "exact constraint instance."
+            )
+        residual_form = getattr(problem, "residual_form", None)
+        solution = getattr(problem, "solution", None)
+        if residual_form is None or solution is None:
+            raise TypeError(
+                "Affine dual evidence requires a converged problem exposing "
+                "residual_form and solution."
+            )
+
+        import dolfinx.fem.petsc as fem_petsc
+
+        accepted_factor = float(
+            getattr(problem, "accepted_load_factor", 1.0)
+            if load_factor is None
+            else load_factor
+        )
+        if not 0.0 <= accepted_factor <= 1.0:
+            raise ValueError("Accepted affine load factor must lie in [0, 1].")
+        if self.deformation_gradient_path is None:
+            path_left, path_right = 0.0, 1.0
+        else:
+            coordinates = np.asarray(
+                self.deformation_gradient_path.coordinates, dtype=float
+            )
+            right_index = int(
+                np.searchsorted(coordinates, accepted_factor, side="left")
+            )
+            right_index = min(max(right_index, 1), coordinates.size - 1)
+            path_left = float(coordinates[right_index - 1])
+            path_right = float(coordinates[right_index])
+        path_span = path_right - path_left
+
+        residual = fem_petsc.assemble_vector(fem.form(residual_form))
+        residual.ghostUpdate(
+            addv=PETSc.InsertMode.ADD,
+            mode=PETSc.ScatterMode.REVERSE,
+        )
+        try:
+            function, displacement_space, parent_map, block_size = (
+                self._displacement_layout()
+            )
+            parent_map = np.asarray(parent_map, dtype=np.int64)
+            if self.is_mixed:
+                # Mixed affine reduction is serial in the public provider, so
+                # the collapsed displacement map is an exact local selection.
+                displacement_residual = np.asarray(residual.array_r)[parent_map]
+                direction = (
+                    self.reduction(path_right).offset
+                    - self.reduction(path_left).offset
+                )[parent_map] / path_span
+            else:
+                owned = int(displacement_space.dofmap.index_map.size_local) * int(
+                    block_size
+                )
+                displacement_residual = np.asarray(residual.array_r[:owned])
+                if function.function_space.mesh.comm.size == 1:
+                    direction = (
+                        self.reduction(path_right).offset
+                        - self.reduction(path_left).offset
+                    )[:owned] / path_span
+                else:
+                    coordinates = np.asarray(
+                        displacement_space.tabulate_dof_coordinates(), dtype=float
+                    )
+                    origin = self.nodes.coordinate(int(self.anchor_node))[:block_size]
+                    delta_gradient = (
+                        self.deformation_gradient_at(path_right)
+                        - self.deformation_gradient_at(path_left)
+                    ) / path_span
+                    direction = (
+                        (coordinates[:, :block_size] - origin) @ delta_gradient.T
+                    ).reshape(-1)[:owned]
+            if displacement_residual.size != direction.size:
+                raise RuntimeError(
+                    "Affine path direction and displacement residual do not align."
+                )
+            local_force = float(np.dot(displacement_residual, direction))
+            local_resultant = np.sum(
+                displacement_residual.reshape((-1, block_size)), axis=0
+            )
+            comm = function.function_space.mesh.comm
+            generalized_force = float(comm.allreduce(local_force, op=MPI.SUM))
+            resultant = np.empty(block_size, dtype=float)
+            comm.Allreduce(
+                np.asarray(local_resultant, dtype=float),
+                resultant,
+                op=MPI.SUM,
+            )
+        finally:
+            residual.destroy()
+
+        from . import constraint_dual
+
+        return constraint_dual(
+            self,
+            force=(generalized_force,),
+            coordinate=None,
+            resultant=resultant,
+            role="mpc_constraint",
+            source="exact_affine_reduction_full_residual_virtual_work",
+            complete=True,
         )
 
     def reduction(self, load_factor: float = 1.0) -> AffineReduction:

@@ -17,6 +17,7 @@ from . import assembly
 from . import fields
 from . import time
 from .diagnostics import PerformanceLedger
+from .constraints.affine import AffineConstraintDualHistory
 from .kernel import dofs
 from .operators.core import LumpedMassOperator
 from .solvers import (
@@ -796,6 +797,19 @@ class AffineNonlinearVariationalProblem:
     accepted_increments: list[object] = field(default_factory=list, init=False)
     attempted_increments: list[object] = field(default_factory=list, init=False)
     next_increment_size: float | None = field(default=None, init=False)
+    constraint_dual_history: AffineConstraintDualHistory = field(
+        default_factory=AffineConstraintDualHistory,
+        init=False,
+    )
+
+    def _capture_constraint_dual(self, load_factor: float) -> None:
+        provider = getattr(self.constraint, "dual_evidence", None)
+        if provider is None:
+            return
+        evidence = provider(self, load_factor=float(load_factor))
+        if evidence is None:
+            return
+        self.constraint_dual_history.append(load_factor, evidence)
 
     def solve(self, *, until: float = 1.0):
         """Advance to an accepted load factor without discarding prior history."""
@@ -828,6 +842,7 @@ class AffineNonlinearVariationalProblem:
         try:
             if fresh:
                 self.execution_events.clear()
+                self.constraint_dual_history.clear()
                 if self.state_transaction is not None and hasattr(
                     self.state_transaction, "initialize"
                 ):
@@ -857,6 +872,8 @@ class AffineNonlinearVariationalProblem:
                     observer.prepare_resume(initial_snapshot)
                 else:
                     observer.reset(initial_snapshot)
+            if fresh:
+                self._capture_constraint_dual(self.accepted_load_factor)
         except BaseException:
             self.solution.x.array[:] = initial_solution
             self.solution.x.scatter_forward()
@@ -884,6 +901,9 @@ class AffineNonlinearVariationalProblem:
                 "next_increment_size": self.next_increment_size,
                 "execution_events": list(self.execution_events),
                 "checkpoints": list(self.checkpoints),
+                "constraint_dual_history": (
+                    self.constraint_dual_history.snapshot_runtime_state()
+                ),
             }
 
         def restore_pending_acceptance():
@@ -899,6 +919,9 @@ class AffineNonlinearVariationalProblem:
             self.next_increment_size = state["next_increment_size"]
             self.execution_events[:] = state["execution_events"]
             self.checkpoints[:] = state["checkpoints"]
+            self.constraint_dual_history.restore_runtime_state(
+                state["constraint_dual_history"]
+            )
             pending_acceptance = None
 
         def capture(index, factor, solution, solve_info):
@@ -933,6 +956,7 @@ class AffineNonlinearVariationalProblem:
                     )
                 for observer in self.accepted_observers:
                     observer.accept(accepted_snapshot)
+                self._capture_constraint_dual(factor)
                 if should_save:
                     self.snapshots.append(accepted_snapshot)
             except BaseException:
@@ -1179,6 +1203,9 @@ class AffineNonlinearVariationalProblem:
                 )
                 if hasattr(recorder, "checkpoint_state")
             },
+            "constraint_dual_history": (
+                self.constraint_dual_history.checkpoint_state()
+            ),
         }
         error = None
         if comm.rank == 0:
@@ -1295,6 +1322,9 @@ class AffineNonlinearVariationalProblem:
             "last_solve_info": self.last_solve_info,
             "snapshots": list(self.snapshots),
             "checkpoints": list(self.checkpoints),
+            "constraint_dual_history": (
+                self.constraint_dual_history.snapshot_runtime_state()
+            ),
         }
         observer_backup = {
             name: recorder.snapshot_runtime_state()
@@ -1344,6 +1374,10 @@ class AffineNonlinearVariationalProblem:
                 SolveEvent.from_dict(item)
                 for item in payload.get("execution_events", ())
             ]
+            self.constraint_dual_history.restore_checkpoint_state(
+                payload.get("constraint_dual_history"),
+                accepted_factor=coordinate,
+            )
             self.state_transaction.accepted_factor = coordinate
             self.state_transaction.prepare_resume()
             observer_state = payload.get("accepted_observer_state", {})
@@ -1391,6 +1425,9 @@ class AffineNonlinearVariationalProblem:
             self.last_solve_info = lifecycle_backup["last_solve_info"]
             self.snapshots[:] = lifecycle_backup["snapshots"]
             self.checkpoints[:] = lifecycle_backup["checkpoints"]
+            self.constraint_dual_history.restore_runtime_state(
+                lifecycle_backup["constraint_dual_history"]
+            )
             for name, state in observer_backup.items():
                 recorder = self.accepted_history_recorders.get(name)
                 if recorder is not None and hasattr(
@@ -1427,6 +1464,7 @@ class AffineNonlinearVariationalProblem:
         """Solve and complete one affine nonlinear result lifecycle."""
 
         from .results import add_execution_trace, complete_result, from_solution
+        from . import constraints as constraint_api
 
         solution = self.solve()
         generated = (
@@ -1477,6 +1515,81 @@ class AffineNonlinearVariationalProblem:
             )
         for checkpoint in self.checkpoints:
             result.add_checkpoint(checkpoint)
+        provider_duals = constraint_api.collect_provider_duals(
+            (self.constraint,),
+            self,
+        )
+        balance_contract = constraint_api.constraint_balance_contract(
+            (self.constraint,),
+            provider_duals=provider_duals,
+        )
+        result.metadata["constraint_balance_contract"] = balance_contract
+        result.metadata["constraint_duals"] = tuple(
+            item.summary() for item in provider_duals
+        )
+        if len(provider_duals) == 1:
+            dual = provider_duals[0]
+            result.add_quantities(
+                {
+                    "affine_path_generalized_reaction": float(dual.force[0]),
+                    "affine_constraint_force_resultant": dual.resultant,
+                },
+                kind="diagnostic",
+                descriptions={
+                    "affine_path_generalized_reaction": (
+                        "Virtual work of the converged full residual against a "
+                        "unit increment of the prescribed affine path."
+                    ),
+                    "affine_constraint_force_resultant": (
+                        "Physical-space resultant of the converged displacement "
+                        "residual owned by the affine constraint provider."
+                    ),
+                },
+            )
+        dual_history = tuple(self.constraint_dual_history.records)
+        complete_dual_path = bool(
+            len(dual_history) >= 2
+            and abs(float(dual_history[0]["load_factor"])) <= 1.0e-12
+            and abs(
+                float(dual_history[-1]["load_factor"])
+                - self.accepted_load_factor
+            )
+            <= 1.0e-12
+        )
+        result.metadata["affine_constraint_path_work"] = {
+            "status": "complete" if complete_dual_path else "unavailable",
+            "sample_count": len(dual_history),
+            "integration": "accepted_path_trapezoidal",
+            "reason": (
+                None
+                if complete_dual_path
+                else "Accepted generalized-force history does not start at zero."
+            ),
+        }
+        if complete_dual_path:
+            factors = self.constraint_dual_history.factors
+            forces = self.constraint_dual_history.forces
+            path_work = self.constraint_dual_history.work()
+            result.add_history(
+                "affine_path_generalized_reaction",
+                factors,
+                forces,
+                abscissa_name="load_factor",
+                description=(
+                    "Full-residual generalized reaction conjugate to the "
+                    "accepted affine path coordinate."
+                ),
+            )
+            result.add_quantity(
+                "affine_constraint_path_work",
+                path_work,
+                kind="diagnostic",
+                description=(
+                    "Trapezoidal work of the affine generalized reaction over "
+                    "all accepted load-path increments."
+                ),
+            )
+            result.metadata["affine_constraint_path_work"]["value"] = path_work
         add_execution_trace(result, self.execution_events)
         selected_completion_fields = (*transaction_fields, *tuple(fields))
         return complete_result(
@@ -1511,6 +1624,9 @@ class AffineNonlinearVariationalProblem:
             "accepted_increment_count": len(self.accepted_increments),
             "attempted_increment_count": len(self.attempted_increments),
             "next_increment_size": self.next_increment_size,
+            "constraint_dual_sample_count": len(
+                self.constraint_dual_history.records
+            ),
             "checkpoint_policy": (
                 None
                 if self.checkpoint_policy is None

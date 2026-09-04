@@ -32,6 +32,15 @@ balanced while omitting a real reaction or prescribed-motion contribution.
 - Result/Verification owns the common balance and work ledger;
 - each new enforcement backend must define its dual extraction before claiming
   complete force or work evidence;
+- the exact affine provider evaluates its macroscopic path reaction as
+  ``R_full . du_affine/dlambda`` and its physical resultant from the same full
+  displacement residual. It does not sum reference-node or eliminated-slave
+  residuals in isolation;
+- one nonlinear endpoint never closes path work. The affine nonlinear problem
+  therefore records the provider dual at every accepted boundary and
+  trapezoidally integrates the actual generalized-force/path-coordinate
+  history; the endpoint evidence remains intentionally incomplete for generic
+  static-work consumers;
 - existing strong-Dirichlet workflows retain their unconstrained-residual
   route and public result names.
 
@@ -44,3 +53,8 @@ balanced while omitting a real reaction or prescribed-motion contribution.
 - non-callable providers and records attributed to another constraint are
   rejected before any balance is published;
 - old calls without provider evidence remain fail-closed.
+- proportional and non-proportional periodic J2 tests compare the provider
+  dual against ``V * P : dF/dlambda`` and require zero global resultant in the
+  unloaded homogeneous cell.
+- accepted affine-path work is checked against the independently assembled
+  Hill--Mandel macroscopic work and survives portable checkpoint/restart.
