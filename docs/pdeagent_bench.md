@@ -87,6 +87,10 @@ periodic Burgers cases use matching-face MPC constraints when the optional
 `dolfinx_mpc` integration is installed. The benchmark adapter consumes the
 same `constraints.rectangular_periodic_mpc` constructor exposed by the
 core package; it no longer carries a benchmark-private periodic implementation.
+Its repeated semi-implicit solves also use the shared
+`solvers.prepare_mpc_linear_problem` lifecycle, so solver policy, convergence
+evidence, distributed state transfer, and future fixes remain common platform
+behavior rather than benchmark-specific glue.
 
 For \(\Delta^2u=f\), AgentFEM exposes the mixed split
 \(w=-\Delta u\), \(-\Delta w=f\). When the public case supplies only

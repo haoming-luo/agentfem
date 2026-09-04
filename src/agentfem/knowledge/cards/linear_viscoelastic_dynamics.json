@@ -128,7 +128,9 @@
     ],
     "validation_rules": [
       "Eliminate strong constrained degrees of freedom before the modal solve and reject insufficient free degrees of freedom.",
+      "Return the requested eigenmodes nearest a declared target frequency, then order the selected set by increasing frequency.",
       "Require positive moduli and relaxation times, and Prony ratios summing to less than one.",
+      "Reject singular or non-finite time-temperature shift factors before updating material state.",
       "Separate trial and committed branch state and preserve rollback equivalence.",
       "Reject nonuniform FFT sampling and mark unexcited FRF bins invalid."
     ]

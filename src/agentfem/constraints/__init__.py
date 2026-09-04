@@ -1205,11 +1205,12 @@ def periodic(
         )
     if normalized in {"mpc", "multi_point_constraint"}:
         raise NotImplementedError(
-            "Automatic model.step lowering for constraints.periodic(..., "
-            "method='mpc') is not yet available. Rectangular exact construction "
-            "is exposed as constraints.rectangular_periodic_mpc(...) for an "
-            "MPC-aware provider or expert problem; use method='projection' only "
-            "for serial explicit central-difference workflows."
+            "Automatic exact-MPC construction from arbitrary master/slave "
+            "markers is not yet available. For rectangular domains, use "
+            "constraints.rectangular_periodic_mpc(...); linear-static and "
+            "steady-heat model.step() providers lower that asset through the "
+            "shared exact-MPC solver. Use method='projection' only for serial "
+            "explicit central-difference workflows."
         )
     raise ValueError(f"Unknown periodic constraint method: {method!r}.")
 
@@ -1319,6 +1320,7 @@ def constraint_capabilities(constraint) -> ConstraintCapabilities | None:
         return ConstraintCapabilities(
             kind="periodic_constraint",
             enforcement="exact_multi_point_constraint",
+            analyses=("linear_static", "first_order_transient"),
             strict=True,
             supports_parallel=True,
             reaction_evidence="provider_dual_required",

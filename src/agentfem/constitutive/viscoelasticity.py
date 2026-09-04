@@ -25,13 +25,27 @@ class WLFShift:
     c1: float
     c2: float
 
+    def __post_init__(self) -> None:
+        values = (self.reference_temperature, self.c1, self.c2)
+        if not np.all(np.isfinite(values)) or self.c1 <= 0.0 or self.c2 <= 0.0:
+            raise ValueError(
+                "WLF reference_temperature, c1, and c2 must be finite; "
+                "c1 and c2 must be positive."
+            )
+
     def factor(self, temperature) -> np.ndarray:
         temperature = np.asarray(temperature, dtype=float)
         difference = temperature - float(self.reference_temperature)
         denominator = float(self.c2) + difference
-        if np.any(np.isclose(denominator, 0.0)):
-            raise ValueError("WLF shift is singular at the supplied temperature.")
-        return np.power(10.0, -float(self.c1) * difference / denominator)
+        if np.any(denominator <= 0.0) or np.any(np.isclose(denominator, 0.0)):
+            raise ValueError(
+                "WLF temperature lies at or below the model singularity; "
+                "restrict the declared temperature range."
+            )
+        factor = np.power(10.0, -float(self.c1) * difference / denominator)
+        if not np.all(np.isfinite(factor)) or np.any(factor <= 0.0):
+            raise ValueError("WLF shift factor must remain finite and positive.")
+        return factor
 
     def summary(self) -> dict[str, object]:
         return {
@@ -51,6 +65,13 @@ class ArrheniusShift:
     gas_constant: float = 8.31446261815324
 
     def __post_init__(self) -> None:
+        values = (
+            self.activation_energy,
+            self.reference_temperature,
+            self.gas_constant,
+        )
+        if not np.all(np.isfinite(values)):
+            raise ValueError("Arrhenius parameters must be finite.")
         if self.activation_energy <= 0.0 or self.reference_temperature <= 0.0:
             raise ValueError("activation_energy and reference_temperature must be positive.")
         if self.gas_constant <= 0.0:
@@ -63,7 +84,10 @@ class ArrheniusShift:
         exponent = self.activation_energy / self.gas_constant * (
             1.0 / temperature - 1.0 / self.reference_temperature
         )
-        return np.exp(exponent)
+        factor = np.exp(exponent)
+        if not np.all(np.isfinite(factor)) or np.any(factor <= 0.0):
+            raise ValueError("Arrhenius shift factor must remain finite and positive.")
+        return factor
 
     def summary(self) -> dict[str, object]:
         return {
@@ -233,6 +257,12 @@ class GeneralizedMaxwell:
         selected = np.asarray(strain, dtype=float)
         if selected.shape != state.strain.shape:
             raise ValueError("strain shape must match state.strain.")
+        if not np.all(np.isfinite(selected)):
+            raise ValueError("strain must contain only finite values.")
+        if not np.all(np.isfinite(state.strain)) or not np.all(
+            np.isfinite(state.overstress)
+        ):
+            raise ValueError("Maxwell state must contain only finite values.")
         if state.overstress.shape != (self.branch_moduli.size, *selected.shape):
             raise ValueError("state.overstress does not match the Maxwell spectrum.")
         times = self.shifted_relaxation_times(temperature)

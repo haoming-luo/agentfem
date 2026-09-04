@@ -31,7 +31,15 @@ def linear_static(
 
     from . import operators, problems
 
-    model.check(target=target, step_options={"K": K, "F": F})
+    selected_constraints = model.constraints if constraints is None else constraints
+    model.check(
+        target=target,
+        step_options={
+            "K": K,
+            "F": F,
+            "constraints": selected_constraints,
+        },
+    )
     update_at_step_end = model._time_update_callback()
     if update_at_step_end is not None:
         update_at_step_end(1.0)
@@ -128,7 +136,7 @@ def linear_static(
         F,
         study=model.study,
         unknown=target,
-        constraints=model.constraints if constraints is None else constraints,
+        constraints=selected_constraints,
         solver_options=solver_options,
         result_field_factory=result_field_factory,
         name=name,
@@ -163,6 +171,7 @@ def heat_transfer(
 
     from . import operators, problems
 
+    selected_constraints = model.constraints if constraints is None else constraints
     model.check(
         target=target,
         step_options={
@@ -171,6 +180,7 @@ def heat_transfer(
             "F": Q,
             "dt": dt,
             "steps": steps,
+            "constraints": selected_constraints,
         },
     )
     if hasattr(model.study, "require"):
@@ -274,7 +284,7 @@ def heat_transfer(
             dt=dt,
             steps=steps,
             study=model.study,
-            constraints=model.constraints if constraints is None else constraints,
+            constraints=selected_constraints,
             solver_options=solver_options,
             update_load=model._time_update_callback(update_load),
             save_every=save_every,

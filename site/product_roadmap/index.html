@@ -1555,8 +1555,13 @@ the roadmap does not turn an experimental formula into a validated solver.</p>
   macro-path generalized reaction verified against
   <span class="arithmatex">\(V\mathbf{P}:\mathrm d\mathbf{F}/\mathrm d\lambda\)</span>. Its accepted nonlinear
   path work is restartable and agrees with the independently computed
-  Hill--Mandel macro work; rectangular MPC, weak and contact providers remain
-  explicit promotion gates;</li>
+  Hill--Mandel macro work. Rectangular periodic MPC construction now exposes
+  MPI-aware owned/ghost slave, master-relation and coefficient diagnostics and
+  rejects an incomplete graph before solve. Exact-MPC linear problems now use
+  one shared prepared solver lifecycle across benchmark and future engineering
+  consumers, including ordinary solver policy and convergence evidence. Its
+  distributed reaction distribution and macroscopic work, plus weak and
+  contact providers, remain explicit promotion gates;</li>
 <li>selected cyclic plasticity, creep--fatigue, and fracture extensions.</li>
 <li>promote generalized-Maxwell/Prony behavior from material-point and spectral
   verification to a global stateful FEM transient, then add direct harmonic
@@ -1627,6 +1632,9 @@ coherent enough for wider extension and application development. Its focus is:</
 <li>one recommended engineering grammar centered on <code>model.step(...)</code>;</li>
 <li>provider-owned lowering instead of material-specific logic accumulating in
   the Model facade;</li>
+<li>one shared exact-MPC linear lifecycle consumed by formal structural and heat
+  Steps, without moving constraint construction or physical-dual ownership
+  into the Model;</li>
 <li>one inspectable execution and evidence lifecycle;</li>
 <li>machine-readable compatibility guidance for existing projects;</li>
 <li>reproducible installed use on Linux and macOS, with Windows through WSL2

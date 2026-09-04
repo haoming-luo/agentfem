@@ -964,6 +964,37 @@ def test_periodic_projection_declares_and_enforces_procedure_capabilities():
     )
 
 
+def test_rectangular_exact_mpc_declares_its_current_analysis_boundary():
+    periodic = constraints.RectangularPeriodicMPC(
+        backend=object(),
+        lower=(0.0, 0.0),
+        upper=(1.0, 1.0),
+        axes=(0,),
+        tolerance=1.0e-12,
+    )
+
+    linear_static = constraints.validate_solver_compatibility(
+        constraints=periodic,
+        analysis="linear_static",
+    )
+    transient_heat = constraints.validate_solver_compatibility(
+        constraints=periodic,
+        analysis="first_order_transient",
+        procedure="implicit_euler",
+    )
+    implicit_dynamics = constraints.validate_solver_compatibility(
+        constraints=periodic,
+        analysis="second_order_dynamics",
+        procedure="newmark",
+    )
+
+    assert linear_static.is_valid
+    assert transient_heat.is_valid
+    assert {item.code for item in implicit_dynamics.errors} == {
+        "AFM-CONSTRAINT-ANALYSIS-001"
+    }
+
+
 def test_constraint_balance_contract_refuses_partial_mpc_reactions():
     periodic = constraints.RectangularPeriodicMPC(
         backend=object(),

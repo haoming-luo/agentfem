@@ -4,7 +4,7 @@ import numpy as np
 import pytest
 from mpi4py import MPI
 
-from agentfem import dynamics, fields, mesh, models, studies
+from agentfem import dynamics, fields, mesh, models, operators, studies
 from agentfem.constitutive import elasticity
 from agentfem.results import HistoryResult
 
@@ -117,13 +117,20 @@ def test_modal_step_uses_public_model_language_and_removes_fixed_dofs():
         target=displacement,
         options={"modes": 3},
     )
-    result = model.step(target=displacement, modes=3).solve_result()
+    step = model.step(target=displacement, modes=3)
+    result = step.solve_result()
 
     assert capability["provider"]["name"] == "linear_structural_modes"
     assert result.quantity("frequencies").shape == (3,)
     assert np.all(np.diff(result.quantity("frequencies")) > 0.0)
     assert np.max(result.quantity("residual_norms")) < 1.0e-7
     assert tuple(result.fields) == ("Mode_1", "Mode_2", "Mode_3")
+    for mode in result.fields.values():
+        assert operators.quadratic_form(step.mass, mode.field) == pytest.approx(
+            1.0,
+            rel=1.0e-10,
+            abs=1.0e-12,
+        )
     euler_bernoulli = (
         1.875104068711961**2
         / (2.0 * np.pi)
@@ -133,3 +140,39 @@ def test_modal_step_uses_public_model_language_and_removes_fixed_dofs():
         euler_bernoulli,
         rel=0.035,
     )
+
+
+def test_modal_target_frequency_selects_nearest_mode_not_lowest_mode():
+    domain = mesh.rectangle(
+        (0.0, 0.0),
+        (1.0, 0.2),
+        (8, 2),
+        comm=MPI.COMM_SELF,
+        cell_type="quadrilateral",
+    )
+    model = models.create(
+        study=studies.modal_solid(dimension=2, assumption="plane_stress"),
+        mesh=domain,
+    )
+    displacement = model.field(fields.displacement(domain, degree=2))
+    model.material(
+        elasticity.isotropic_elastic(
+            young=210.0e9,
+            poisson=0.3,
+            density=7800.0,
+        )
+    )
+    model.clamp(
+        displacement,
+        on=mesh.boundary(domain, _left, name="left", tag=1),
+    )
+
+    low_modes = model.step(target=displacement, modes=5).solve_result()
+    reference = low_modes.quantity("frequencies")[2]
+    targeted = model.step(
+        target=displacement,
+        modes=1,
+        target_frequency=1.01 * reference,
+    ).solve_result()
+
+    assert targeted.quantity("frequencies")[0] == pytest.approx(reference, rel=1.0e-8)

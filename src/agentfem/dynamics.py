@@ -318,6 +318,9 @@ def frequency_response(
     of silently producing very large ratios.
     """
 
+    if not np.isfinite(minimum_input_ratio) or minimum_input_ratio < 0.0:
+        raise ValueError("minimum_input_ratio must be finite and nonnegative.")
+
     if response is None:
         input_time, input_values = _history_arrays(time, name="excitation_history")
         output_time, output_values = _history_arrays(
@@ -351,6 +354,8 @@ def damping_from_free_decay(signal, *, peak_indices: Sequence[int] | None = None
         candidates = np.asarray(peak_indices, dtype=int)
     if candidates.ndim != 1 or candidates.size < 2:
         raise ValueError("At least two positive free-decay peaks are required.")
+    if np.any(candidates < 0) or np.any(candidates >= values.size):
+        raise ValueError("peak_indices must lie within the signal.")
     peaks = values[candidates]
     if np.any(peaks <= 0.0) or np.any(np.diff(candidates) <= 0):
         raise ValueError("peak_indices must identify ordered positive peaks.")

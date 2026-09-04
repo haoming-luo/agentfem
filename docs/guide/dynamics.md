@@ -41,6 +41,8 @@ The result retains eigenvalues, angular frequencies, frequencies, relative
 eigenpair residuals, and each mass-normalized live mode field. `slepc4py` is
 an optional execution dependency because a dense array eigensolver is not a
 scalable replacement for distributed finite-element modal analysis.
+When `target_frequency` is supplied, AgentFEM returns the requested modes
+nearest that frequency and orders the selected set by increasing frequency.
 
 ## Frequency and decay post-processing
 
@@ -88,6 +90,8 @@ strain increment and a commit/restore state. This release therefore supports
 material-point relaxation paths and time/frequency spectra. A global FEM
 transient provider consuming those internal variables is a separate promotion
 gate and is not implied by the public material name.
+WLF and Arrhenius shifts reject singular, non-finite, or non-positive shift
+factors instead of allowing an invalid temperature range into a state update.
 
 For reviewed relaxation data and user-declared relaxation times,
 `constitutive.fit_relaxation_prony(...)` provides a deterministic positive
@@ -107,9 +111,13 @@ backend. A serial-only constraint requested under MPI similarly emits
 and future GUIs. `PeriodicProjectionConstraint.diagnostics(field)` adds the
 pair count, coordinate pairing error, unmatched count, and live field
 mismatch. Exact rectangular matching-face construction is shared through
-`constraints.rectangular_periodic_mpc`; consumers still select an MPC-aware
-linear or nonlinear solver explicitly because ordinary DOLFINx and
-`dolfinx_mpc` assembly are not interchangeable.
+`constraints.rectangular_periodic_mpc`. Linear consumers use
+`solvers.prepare_mpc_linear_problem`, which shares solver policy, convergence
+evidence, repeated-solve state transfer, and MPI behavior across procedures.
+Strong boundary conditions must be supplied when the MPC is constructed; a
+late Dirichlet condition that overlaps an owned slave is rejected before
+assembly. Nonlinear consumers still select an MPC-aware provider explicitly
+because ordinary DOLFINx and `dolfinx_mpc` assembly are not interchangeable.
 
 ## Engineering questions to make explicit
 

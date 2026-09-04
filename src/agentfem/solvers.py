@@ -6,6 +6,7 @@ from dataclasses import dataclass, field
 from math import isfinite
 
 import numpy as np
+from mpi4py import MPI
 from petsc4py import PETSc
 
 from dolfinx import fem
@@ -641,6 +642,239 @@ def prepare_linear_problem(
         bcs=bcs,
         options=options,
     )
+
+
+class PreparedMPCLinearProblem:
+    """Reusable linear solve lowered through one exact MPC provider.
+
+    The object deliberately owns only the numerical lifecycle: compiled-form,
+    PETSc allocation and KSP reuse, right-hand-side refresh, convergence
+    evidence, and transfer from the augmented ``dolfinx_mpc`` function layout
+    to the public solution. The current upstream backend reassembles matrix
+    values on every solve; the summary states this explicitly.
+    Constraint construction and physical dual recovery remain owned by the
+    constraint provider.
+    """
+
+    def __init__(
+        self,
+        bilinear_form,
+        linear_form,
+        solution,
+        constraint,
+        *,
+        bcs=None,
+        options: LinearSolverOptions | None = None,
+        petsc_options_prefix: str = "agentfem_mpc_linear_",
+    ):
+        try:
+            import dolfinx_mpc
+        except ImportError as exc:
+            raise ImportError(
+                "Exact MPC linear solves require optional `dolfinx_mpc`."
+            ) from exc
+
+        prefix = str(petsc_options_prefix).strip()
+        if not prefix:
+            raise ValueError("petsc_options_prefix must not be empty.")
+        self.bilinear_form = bilinear_form
+        self.linear_form = linear_form
+        self.solution = solution
+        self.constraint = constraint
+        self.backend = getattr(constraint, "backend", constraint)
+        if not _compatible_mpc_function_spaces(
+            getattr(solution, "function_space", None),
+            getattr(self.backend, "function_space", None),
+        ):
+            raise ValueError(
+                "MPC solution and constraint must use compatible FunctionSpace "
+                "layouts. Construct the constraint from the target field or space."
+            )
+        self.bcs = (
+            []
+            if bcs is None
+            else [getattr(item, "bc", item) for item in bcs]
+        )
+        _validate_mpc_bc_overlap(self.backend, self.bcs)
+        self.options = options or LinearSolverOptions()
+        self.petsc_options_prefix = prefix
+        self.problem = dolfinx_mpc.LinearProblem(
+            bilinear_form,
+            linear_form,
+            self.backend,
+            bcs=self.bcs,
+            petsc_options_prefix=prefix,
+            petsc_options=_linear_petsc_options(self.options),
+        )
+        self.last_solve_info: LinearSolveInfo | None = None
+        self.solve_count = 0
+
+    def solve(self):
+        """Refresh the load, solve, backsubstitute, and copy owned DOFs."""
+
+        solved = self.problem.solve()
+        _copy_owned_function_values(self.solution, solved)
+        solver = self.problem.solver
+        info = LinearSolveInfo(
+            converged_reason=int(solver.getConvergedReason()),
+            iterations=int(solver.getIterationNumber()),
+            residual_norm=float(solver.getResidualNorm()),
+        )
+        self.last_solve_info = info
+        self.solve_count += 1
+        if not info.converged and self.options.error_if_not_converged:
+            _raise_linear_failure(info)
+        return self.solution
+
+    def summary(self) -> dict[str, object]:
+        constraint_summary = getattr(self.constraint, "summary", None)
+        return {
+            "kind": "prepared_mpc_linear_problem",
+            "matrix_allocation_reused": True,
+            "matrix_values_reassembled": True,
+            "solve_count": int(self.solve_count),
+            "num_bcs": len(self.bcs),
+            "constraint": (
+                constraint_summary()
+                if callable(constraint_summary)
+                else type(self.constraint).__name__
+            ),
+            "solver": self.options.summary(),
+            "last_solve": (
+                None if self.last_solve_info is None else self.last_solve_info.as_dict()
+            ),
+        }
+
+
+def prepare_mpc_linear_problem(
+    bilinear_form,
+    linear_form,
+    solution,
+    constraint,
+    *,
+    bcs=None,
+    options: LinearSolverOptions | None = None,
+    petsc_options_prefix: str = "agentfem_mpc_linear_",
+) -> PreparedMPCLinearProblem:
+    """Prepare one exact-MPC operator for repeated right-hand sides."""
+
+    return PreparedMPCLinearProblem(
+        bilinear_form,
+        linear_form,
+        solution,
+        constraint,
+        bcs=bcs,
+        options=options,
+        petsc_options_prefix=petsc_options_prefix,
+    )
+
+
+def solve_mpc_linear_problem(
+    bilinear_form,
+    linear_form,
+    solution,
+    constraint,
+    *,
+    bcs=None,
+    options: LinearSolverOptions | None = None,
+    petsc_options_prefix: str = "agentfem_mpc_linear_",
+    return_info: bool = False,
+):
+    """Solve one linear variational problem with an exact MPC backend."""
+
+    problem = prepare_mpc_linear_problem(
+        bilinear_form,
+        linear_form,
+        solution,
+        constraint,
+        bcs=bcs,
+        options=options,
+        petsc_options_prefix=petsc_options_prefix,
+    )
+    solved = problem.solve()
+    return (solved, problem.last_solve_info) if return_info else solved
+
+
+def _linear_petsc_options(options: LinearSolverOptions) -> dict[str, object]:
+    values: dict[str, object] = {
+        "ksp_type": options.ksp_type,
+        "pc_type": options.pc_type,
+        # Keep PETSc from raising before AgentFEM can retain a stable
+        # LinearSolveInfo. The public policy is enforced immediately after the
+        # solve by PreparedMPCLinearProblem.
+        "ksp_error_if_not_converged": False,
+    }
+    if options.rtol is not None:
+        values["ksp_rtol"] = options.rtol
+    if options.atol is not None:
+        values["ksp_atol"] = options.atol
+    if options.max_it is not None:
+        values["ksp_max_it"] = options.max_it
+    if options.factor_solver_type is not None:
+        values["pc_factor_mat_solver_type"] = options.factor_solver_type
+    return values
+
+
+def _copy_owned_function_values(target, source) -> None:
+    """Copy one distributed state without assuming equal ghost layouts."""
+
+    target_map = target.function_space.dofmap
+    source_map = source.function_space.dofmap
+    target_owned = int(target_map.index_map.size_local * target_map.index_map_bs)
+    source_owned = int(source_map.index_map.size_local * source_map.index_map_bs)
+    if target_owned != source_owned:
+        raise RuntimeError(
+            "Cannot transfer MPC solution between different owned DOF layouts: "
+            f"target={target_owned}, source={source_owned}."
+        )
+    target.x.array[:target_owned] = source.x.array[:source_owned]
+    target.x.scatter_forward()
+
+
+def _compatible_mpc_function_spaces(target, constrained) -> bool:
+    """Compare public/original and MPC-cloned layouts without object identity."""
+
+    if target is None or constrained is None:
+        return False
+    if target.mesh is not constrained.mesh:
+        return False
+    target_map = target.dofmap
+    constrained_map = constrained.dofmap
+    return bool(
+        target_map.index_map_bs == constrained_map.index_map_bs
+        and target_map.index_map.size_global == constrained_map.index_map.size_global
+        and target_map.index_map.size_local == constrained_map.index_map.size_local
+        and target.element == constrained.element
+    )
+
+
+def _validate_mpc_bc_overlap(backend, bcs) -> None:
+    """Reject strong conditions added after MPC slave selection."""
+
+    num_owned_slaves = int(getattr(backend, "num_local_slaves", 0))
+    slaves = np.asarray(backend.slaves, dtype=np.int64).reshape(-1)[
+        :num_owned_slaves
+    ]
+    local_overlap = 0
+    for bc in bcs:
+        provider = getattr(bc, "dof_indices", None)
+        if not callable(provider):
+            raise TypeError("MPC bcs must be DOLFINx Dirichlet conditions.")
+        indices, num_owned = provider()
+        local_overlap += int(
+            np.intersect1d(
+                slaves,
+                np.asarray(indices, dtype=np.int64).reshape(-1)[: int(num_owned)],
+                assume_unique=False,
+            ).size
+        )
+    comm = backend.function_space.mesh.comm
+    global_overlap = int(comm.allreduce(local_overlap, op=MPI.SUM))
+    if global_overlap:
+        raise ValueError(
+            "Dirichlet and MPC slave DOFs overlap. Rebuild the MPC with the "
+            "same bcs passed to constraints.rectangular_periodic_mpc(...)."
+        )
 
 
 def solve_matrix_system(

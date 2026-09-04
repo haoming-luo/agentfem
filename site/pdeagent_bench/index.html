@@ -1626,7 +1626,11 @@ advances with a consistent Newton tangent. Scalar
 periodic Burgers cases use matching-face MPC constraints when the optional
 <code>dolfinx_mpc</code> integration is installed. The benchmark adapter consumes the
 same <code>constraints.rectangular_periodic_mpc</code> constructor exposed by the
-core package; it no longer carries a benchmark-private periodic implementation.</p>
+core package; it no longer carries a benchmark-private periodic implementation.
+Its repeated semi-implicit solves also use the shared
+<code>solvers.prepare_mpc_linear_problem</code> lifecycle, so solver policy, convergence
+evidence, distributed state transfer, and future fixes remain common platform
+behavior rather than benchmark-specific glue.</p>
 <p>For <span class="arithmatex">\(\Delta^2u=f\)</span>, AgentFEM exposes the mixed split
 <span class="arithmatex">\(w=-\Delta u\)</span>, <span class="arithmatex">\(-\Delta w=f\)</span>. When the public case supplies only
 <span class="arithmatex">\(u=g\)</span> on the boundary, the adapter closes the otherwise under-specified

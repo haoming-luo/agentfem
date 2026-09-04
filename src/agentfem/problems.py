@@ -26,6 +26,8 @@ from .solvers import (
     NewtonSolverOptions,
     NonlinearSolverOptions,
     SolveEvent,
+    prepare_linear_problem,
+    prepare_mpc_linear_problem,
     solve_affine_nonlinear_path,
     solve_linear_problem,
     solve_nonlinear_problem,
@@ -119,8 +121,10 @@ class LinearSystemProblem:
     solution: object | None = None
     unknown: object | None = None
     bcs: list = field(default_factory=list)
+    mpc_constraint: object | None = None
     solver_options: LinearSolverOptions | None = None
     last_solve_info: object | None = field(default=None, init=False)
+    last_lifecycle_summary: dict[str, object] | None = field(default=None, init=False)
 
     @classmethod
     def from_operators(
@@ -139,27 +143,58 @@ class LinearSystemProblem:
 
         from . import operators
 
+        strong_bcs, mpc_constraint = _split_linear_constraints(
+            constraints=constraints,
+            bcs=bcs,
+        )
         return cls(
             system=operators.linear_system(K, F, name=name),
             unknown=unknown,
             solution=solution,
-            bcs=_collect_bcs(constraints=constraints, bcs=bcs),
+            bcs=strong_bcs,
+            mpc_constraint=mpc_constraint,
             solver_options=solver_options,
         )
 
     def solve(self):
         """Compile the system operators and solve into ``solution``."""
 
+        prepared = self.prepare()
+        try:
+            return self.solve_prepared(prepared)
+        finally:
+            close = getattr(prepared, "close", None)
+            if callable(close):
+                close()
+
+    def prepare(self):
+        """Prepare the constant linear operator for one or more solves."""
+
         solution = self._solution()
-        solution, info = solve_linear_problem(
-            fem.form(self.system.lhs_form()),
-            fem.form(self.system.rhs_form()),
+        if self.mpc_constraint is None:
+            return prepare_linear_problem(
+                fem.form(self.system.lhs_form()),
+                fem.form(self.system.rhs_form()),
+                solution,
+                bcs=self.bcs,
+                options=self.solver_options,
+            )
+        return prepare_mpc_linear_problem(
+            self.system.lhs_form(),
+            self.system.rhs_form(),
             solution,
+            self.mpc_constraint,
             bcs=self.bcs,
             options=self.solver_options,
-            return_info=True,
+            petsc_options_prefix="agentfem_linear_system_mpc_",
         )
-        self.last_solve_info = info
+
+    def solve_prepared(self, prepared):
+        """Solve with a compatible prepared lifecycle and retain evidence."""
+
+        solution = prepared.solve()
+        self.last_solve_info = prepared.last_solve_info
+        self.last_lifecycle_summary = dict(prepared.summary())
         return solution
 
     def solve_result(self, *, name: str | None = None):
@@ -182,6 +217,11 @@ class LinearSystemProblem:
             "system": self.system.summary() if hasattr(self.system, "summary") else repr(self.system),
             "solution": getattr(self._solution(), "name", repr(self._solution())),
             "num_bcs": len(self.bcs),
+            "constraint_provider": (
+                None
+                if self.mpc_constraint is None
+                else _describe_asset(self.mpc_constraint)
+            ),
             "solver": (
                 self.solver_options.summary()
                 if self.solver_options is not None
@@ -192,6 +232,7 @@ class LinearSystemProblem:
                 if self.last_solve_info is None
                 else self.last_solve_info.as_dict()
             ),
+            "linear_lifecycle": self.last_lifecycle_summary,
         }
 
     def reaction_field(self, *, name: str = "RF"):
@@ -295,12 +336,21 @@ class ModalAnalysisStep:
     def __post_init__(self) -> None:
         if int(self.modes) <= 0:
             raise ValueError("Modal analysis requires modes > 0.")
-        if self.tolerance <= 0.0 or int(self.maximum_iterations) <= 0:
+        if (
+            not np.isfinite(self.tolerance)
+            or self.tolerance <= 0.0
+            or int(self.maximum_iterations) <= 0
+        ):
             raise ValueError("Modal tolerance and maximum_iterations must be positive.")
-        if self.rigid_mode_tolerance < 0.0:
+        if (
+            not np.isfinite(self.rigid_mode_tolerance)
+            or self.rigid_mode_tolerance < 0.0
+        ):
             raise ValueError("rigid_mode_tolerance must be nonnegative.")
-        if self.target_frequency is not None and self.target_frequency < 0.0:
-            raise ValueError("target_frequency must be nonnegative.")
+        if self.target_frequency is not None and (
+            not np.isfinite(self.target_frequency) or self.target_frequency < 0.0
+        ):
+            raise ValueError("target_frequency must be finite and nonnegative.")
 
     def solve(self):
         from .dependencies import require
@@ -355,6 +405,7 @@ class ModalAnalysisStep:
         requested = min(free_count - 1, int(self.modes) + min(8, free_count - int(self.modes) - 1))
         eps.setDimensions(requested)
         eps.setTolerances(tol=float(self.tolerance), max_it=int(self.maximum_iterations))
+        target_eigenvalue = None
         if self.target_frequency is None:
             # Interior targeting at zero is substantially more reliable for
             # the smallest structural modes than an untransformed extremal
@@ -382,11 +433,27 @@ class ModalAnalysisStep:
             if abs(float(np.imag(eigenvalue))) > self.tolerance:
                 continue
             candidates.append((float(np.real(eigenvalue)), index))
-        candidates.sort(key=lambda item: item[0])
         scale = max(1.0, max((abs(item[0]) for item in candidates), default=1.0))
-        for eigenvalue, index in candidates:
-            if eigenvalue <= self.rigid_mode_tolerance * scale:
-                continue
+        candidates = [
+            item
+            for item in candidates
+            if item[0] > self.rigid_mode_tolerance * scale
+        ]
+        if target_eigenvalue is None:
+            selected_candidates = sorted(candidates, key=lambda item: item[0])[
+                : int(self.modes)
+            ]
+        else:
+            # SLEPc returns the eigenpairs closest to the declared shift. Keep
+            # that physical selection when turning the solver output into an
+            # ordered public result; sorting every candidate by eigenvalue
+            # would silently turn a targeted solve back into a low-mode solve.
+            selected_candidates = sorted(
+                candidates,
+                key=lambda item: abs(item[0] - target_eigenvalue),
+            )[: int(self.modes)]
+            selected_candidates.sort(key=lambda item: item[0])
+        for eigenvalue, index in selected_candidates:
             eps.getEigenvector(index, reduced_vector)
             local_values = np.asarray(reduced_vector.array_r)
             if local_values.size != free_local.size:
@@ -401,8 +468,6 @@ class ModalAnalysisStep:
                 float(eps.computeError(index, SLEPc.EPS.ErrorType.RELATIVE))
             )
             mode_shapes.append(mode)
-            if len(mode_shapes) == int(self.modes):
-                break
 
         info = ModalSolveInfo(
             converged_eigenpairs=converged,
@@ -1961,10 +2026,12 @@ class AnalysisStep:
 
         return self.problem.bcs
 
-    def solve(self):
+    def solve(self, *, prepared=None):
         """Solve this analysis step."""
 
-        return self.problem.solve()
+        if prepared is None:
+            return self.problem.solve()
+        return self.problem.solve_prepared(prepared)
 
     def solve_result(
         self,
@@ -2855,6 +2922,9 @@ class FirstOrderTransientStep:
         _emit_transient_started(reporter, self)
         _record_transient_history(self, self.completed_steps * self.dt)
         self._record_captured_histories(force=True)
+        linear_problem = getattr(self.problem, "problem", None)
+        prepare = getattr(linear_problem, "prepare", None)
+        prepared = prepare() if callable(prepare) else None
 
         def advance(info):
             if self.update_load is not None:
@@ -2862,7 +2932,10 @@ class FirstOrderTransientStep:
             current_rollback = self.current.x.array.copy()
             previous_rollback = self.previous.x.array.copy()
             try:
-                self.problem.solve()
+                if prepared is None:
+                    self.problem.solve()
+                else:
+                    self.problem.solve(prepared=prepared)
             except Exception:
                 self.current.x.array[:] = current_rollback
                 self.current.x.scatter_forward()
@@ -2879,27 +2952,32 @@ class FirstOrderTransientStep:
                 force=self.completed_steps == self.steps
             )
 
-        if output is None:
-            for info in stepper:
-                advance(info)
+        try:
+            if output is None:
+                for info in stepper:
+                    advance(info)
+                _emit_transient_completed(reporter, self)
+                return self
+            domain = self.current.function_space.mesh
+            series, actual_output, backend, layout = _transient_result_series(
+                self.last_output,
+                domain,
+            )
+            self.last_output = actual_output
+            self.last_output_backend = backend
+            self.last_output_layout = layout
+            with series as xdmf:
+                xdmf.write_fields(self.completed_steps * self.dt, *selected_fields)
+                for info in stepper:
+                    advance(info)
+                    if info.should_save:
+                        xdmf.write_fields(info.time, *selected_fields)
             _emit_transient_completed(reporter, self)
             return self
-        domain = self.current.function_space.mesh
-        series, actual_output, backend, layout = _transient_result_series(
-            self.last_output,
-            domain,
-        )
-        self.last_output = actual_output
-        self.last_output_backend = backend
-        self.last_output_layout = layout
-        with series as xdmf:
-            xdmf.write_fields(self.completed_steps * self.dt, *selected_fields)
-            for info in stepper:
-                advance(info)
-                if info.should_save:
-                    xdmf.write_fields(info.time, *selected_fields)
-        _emit_transient_completed(reporter, self)
-        return self
+        finally:
+            close = getattr(prepared, "close", None)
+            if callable(close):
+                close()
 
     def _record_captured_histories(self, *, force: bool = False) -> None:
         selected_time = self.completed_steps * self.dt
@@ -4403,6 +4481,56 @@ def _collect_bcs(*, constraints=None, bcs=None) -> list:
                     "backend for non-Dirichlet kinematic relations."
                 )
     return result
+
+
+def _split_linear_constraints(*, constraints=None, bcs=None) -> tuple[list, object | None]:
+    """Separate strong data from one exact-MPC linear lowering provider.
+
+    A linear system has two distinct assembly contracts: ordinary Dirichlet
+    elimination and exact multi-point elimination.  Keeping the split here
+    prevents a public MPC asset from being mistaken for a boundary condition,
+    while unknown constraint providers continue to fail before assembly.
+    """
+
+    from . import constraints as constraint_api
+
+    strong_bcs = [] if bcs is None else list(_as_list(bcs))
+    exact_mpc = []
+    for item in constraint_api.constraint_assets(constraints):
+        capability = constraint_api.constraint_capabilities(item)
+        if (
+            capability is not None
+            and capability.enforcement == "exact_multi_point_constraint"
+        ):
+            if not hasattr(item, "backend"):
+                raise TypeError(
+                    "AFM-CONSTRAINT-MPC-001: an exact-MPC provider must expose "
+                    "its assembled backend through a `backend` attribute."
+                )
+            exact_mpc.append(item)
+        elif hasattr(item, "bcs"):
+            strong_bcs.extend(item.bcs)
+        elif hasattr(item, "bc"):
+            strong_bcs.append(item.bc)
+        elif callable(getattr(item, "dof_indices", None)):
+            strong_bcs.append(item)
+        else:
+            raise TypeError(
+                "AFM-CONSTRAINT-PROCEDURE-001: linear analysis received "
+                f"{type(item).__name__}, which has no supported strong or "
+                "exact-MPC lowering contract. Run model.check() and select a "
+                "compatible constraint provider."
+            )
+    if len(exact_mpc) > 1:
+        names = tuple(
+            str(getattr(item, "name", type(item).__name__)) for item in exact_mpc
+        )
+        raise ValueError(
+            "AFM-CONSTRAINT-MPC-002: one linear system can consume exactly one "
+            f"exact MPC provider; received {names!r}. Combine the relations in "
+            "one provider before constructing the step."
+        )
+    return strong_bcs, (None if not exact_mpc else exact_mpc[0])
 
 
 def _reaction_field(residual_form, solution, *, name: str):

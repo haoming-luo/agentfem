@@ -29,6 +29,27 @@ layer.
 6. Request standard fields and histories.
 7. Accept the result only after the required verification policy passes.
 
+## Exact periodic linear systems
+
+Rectangular small-strain cells can use the same public Step grammar with an
+exact distributed constraint:
+
+```python
+periodicity = constraints.rectangular_periodic_mpc(displacement)
+result = model.step(
+    target=displacement,
+    constraints=periodicity,
+).solve_result()
+```
+
+The linear provider separates ordinary Dirichlet data from exact MPC
+elimination before assembly and supports the same route in serial and MPI.
+Only one exact-MPC provider may own a linear system. The solved field and
+constraint-construction diagnostics are retained in the Result; global
+reaction and work balance remain explicitly unavailable until that provider
+can supply a physical-space dual and its conjugate coordinate. Solver
+convergence alone is not used to invent those quantities.
+
 ## Axisymmetric solids
 
 Declare the formulation on the Study; do not manually insert cylindrical

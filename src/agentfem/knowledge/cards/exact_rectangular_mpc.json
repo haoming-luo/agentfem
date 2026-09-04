@@ -1,0 +1,107 @@
+{
+  "schema": "agentfem.scientific-function-card",
+  "schema_version": "0.1.0",
+  "id": "agentfem.constraint.exact_rectangular_mpc",
+  "title": "Exact rectangular periodic multi-point constraint",
+  "kind": "constraint",
+  "status": "supported",
+  "summary": "Constructs a checked rectangular periodic relation and lowers it through the ordinary linear structural and heat-transfer Step lifecycle in serial or MPI.",
+  "public_api": [
+    "agentfem.constraints.rectangular_periodic_mpc",
+    "agentfem.constraints.RectangularPeriodicMPC",
+    "agentfem.solvers.prepare_mpc_linear_problem"
+  ],
+  "implementation": [
+    "constraints/mpc.py",
+    "constraints/__init__.py",
+    "solvers.py",
+    "problems.py",
+    "_step_builders.py"
+  ],
+  "science": {
+    "statement": "An exact periodic constraint changes the admissible discrete space by eliminating slave degrees of freedom in favor of geometrically matched masters; it is not a post-solve projection.",
+    "equations": [
+      {
+        "label": "periodic field relation",
+        "expression": "\\mathbf{u}(\\mathbf{x}^{+})=\\mathbf{u}(\\mathbf{x}^{-})",
+        "description": "Opposite rectangular faces share one field value for every selected periodic axis."
+      },
+      {
+        "label": "multi-point elimination",
+        "expression": "u_s=\\sum_{j\\in\\mathcal{M}(s)}c_{sj}u_j",
+        "description": "Each owned slave is lowered to one checked unit-coefficient master relation in the current provider."
+      }
+    ],
+    "inputs": [
+      {
+        "name": "target and periodic axes",
+        "type": "finite-element FunctionSpace or field plus axis indices",
+        "unit_role": "field dependent",
+        "description": "The mesh bounding box defines opposite minimum and maximum faces; optional strong conditions must be declared during MPC construction."
+      }
+    ],
+    "outputs": [
+      {
+        "name": "exact MPC provider",
+        "type": "RectangularPeriodicMPC",
+        "unit_role": "dimensionless relation",
+        "description": "Carries the assembled backend, construction diagnostics, selected axes and geometric tolerance into model.step lowering and result evidence."
+      }
+    ],
+    "assumptions": [
+      "The periodic domain is rectangular in the selected coordinate axes.",
+      "Opposite-face finite-element degrees of freedom have a one-to-one coordinate match within tolerance.",
+      "Any strong boundary conditions that remove selected slaves are supplied when the MPC is constructed."
+    ],
+    "conventions": [
+      "Maximum-coordinate faces are slaves and minimum-coordinate faces are masters.",
+      "Corners map directly to the opposite corner instead of forming chained slave relations.",
+      "The current public relation is homogeneous; finite-strain affine macroscopic loading uses AbaqusPeriodicConstraint instead."
+    ],
+    "applicability": [
+      "Linear-static solids, steady linear heat transfer, and constant-property implicit transient heat transfer on rectangular cells.",
+      "Serial and distributed meshes with a dolfinx_mpc build compatible with the active DOLFINx runtime."
+    ],
+    "limitations": [
+      "Arbitrary master/slave geometry, nonlinear structural Steps, and implicit structural dynamics require separate reviewed providers.",
+      "The generic exact solver does not recover a physical reaction distribution or macroscopic work coordinate; those result channels remain unavailable without provider dual evidence.",
+      "Only one exact-MPC provider may own a linear system."
+    ]
+  },
+  "usage": {
+    "minimal_example": "periodicity = constraints.rectangular_periodic_mpc(u); result = model.step(target=u, constraints=periodicity).solve_result()",
+    "examples": [
+      "tests/test_parallel_affine.py"
+    ]
+  },
+  "verification": {
+    "tests": [
+      "tests/test_parallel_affine.py",
+      "tests/test_common_workflows.py"
+    ],
+    "benchmarks": [],
+    "validation_rules": [
+      "Reject unmatched, multiply matched, non-unit, or overlapping strong/MPC slave relations before solve.",
+      "Reproduce analytical constant scalar and vector fields through ordinary model.step calls.",
+      "Reuse one prepared linear lifecycle across accepted transient increments.",
+      "Match serial and two-rank solutions and retain provider diagnostics in SimulationResult.",
+      "Reject unsupported analyses, missing provider backends, and multiple exact providers before assembly.",
+      "Keep global reaction and work evidence unavailable when the provider has no physical dual."
+    ]
+  },
+  "references": [
+    {
+      "title": "DOLFINx_MPC documentation",
+      "locator": "https://jsdokken.com/dolfinx_mpc/"
+    },
+    {
+      "title": "DOLFINx_MPC source repository",
+      "locator": "https://github.com/jorgensd/dolfinx_mpc"
+    }
+  ],
+  "related_cards": [
+    "agentfem.operator.system_contracts",
+    "agentfem.workflow.periodic_cell_homogenization",
+    "agentfem.workflow.transient_checkpoint_portability"
+  ]
+}

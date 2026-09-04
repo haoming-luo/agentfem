@@ -93,9 +93,11 @@ Deepen the finite-element core before broadening the catalog:
   path work is restartable and agrees with the independently computed
   Hill--Mandel macro work. Rectangular periodic MPC construction now exposes
   MPI-aware owned/ghost slave, master-relation and coefficient diagnostics and
-  rejects an incomplete graph before solve. Its distributed reaction
-  distribution and macroscopic work, plus weak and contact providers, remain
-  explicit promotion gates;
+  rejects an incomplete graph before solve. Exact-MPC linear problems now use
+  one shared prepared solver lifecycle across benchmark and future engineering
+  consumers, including ordinary solver policy and convergence evidence. Its
+  distributed reaction distribution and macroscopic work, plus weak and
+  contact providers, remain explicit promotion gates;
 - selected cyclic plasticity, creep--fatigue, and fracture extensions.
 - promote generalized-Maxwell/Prony behavior from material-point and spectral
   verification to a global stateful FEM transient, then add direct harmonic
@@ -173,6 +175,9 @@ coherent enough for wider extension and application development. Its focus is:
 - one recommended engineering grammar centered on `model.step(...)`;
 - provider-owned lowering instead of material-specific logic accumulating in
   the Model facade;
+- one shared exact-MPC linear lifecycle consumed by formal structural and heat
+  Steps, without moving constraint construction or physical-dual ownership
+  into the Model;
 - one inspectable execution and evidence lifecycle;
 - machine-readable compatibility guidance for existing projects;
 - reproducible installed use on Linux and macOS, with Windows through WSL2

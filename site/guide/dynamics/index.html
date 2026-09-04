@@ -1468,7 +1468,9 @@ the assembled matrices before SLEPc solves</p>
 <p>The result retains eigenvalues, angular frequencies, frequencies, relative
 eigenpair residuals, and each mass-normalized live mode field. <code>slepc4py</code> is
 an optional execution dependency because a dense array eigensolver is not a
-scalable replacement for distributed finite-element modal analysis.</p>
+scalable replacement for distributed finite-element modal analysis.
+When <code>target_frequency</code> is supplied, AgentFEM returns the requested modes
+nearest that frequency and orders the selected set by increasing frequency.</p>
 <h2 id="frequency-and-decay-post-processing">Frequency and decay post-processing<a class="headerlink" href="#frequency-and-decay-post-processing" title="Permanent link">&para;</a></h2>
 <p><code>agentfem.dynamics</code> provides solver-independent processing for uniformly
 sampled histories:</p>
@@ -1505,7 +1507,9 @@ standard-linear-solid convenience factory:</p>
 strain increment and a commit/restore state. This release therefore supports
 material-point relaxation paths and time/frequency spectra. A global FEM
 transient provider consuming those internal variables is a separate promotion
-gate and is not implied by the public material name.</p>
+gate and is not implied by the public material name.
+WLF and Arrhenius shifts reject singular, non-finite, or non-positive shift
+factors instead of allowing an invalid temperature range into a state update.</p>
 <p>For reviewed relaxation data and user-declared relaxation times,
 <code>constitutive.fit_relaxation_prony(...)</code> provides a deterministic positive
 reference fit. Automatic spectrum selection, multi-experiment uncertainty,
@@ -1522,9 +1526,13 @@ backend. A serial-only constraint requested under MPI similarly emits
 and future GUIs. <code>PeriodicProjectionConstraint.diagnostics(field)</code> adds the
 pair count, coordinate pairing error, unmatched count, and live field
 mismatch. Exact rectangular matching-face construction is shared through
-<code>constraints.rectangular_periodic_mpc</code>; consumers still select an MPC-aware
-linear or nonlinear solver explicitly because ordinary DOLFINx and
-<code>dolfinx_mpc</code> assembly are not interchangeable.</p>
+<code>constraints.rectangular_periodic_mpc</code>. Linear consumers use
+<code>solvers.prepare_mpc_linear_problem</code>, which shares solver policy, convergence
+evidence, repeated-solve state transfer, and MPI behavior across procedures.
+Strong boundary conditions must be supplied when the MPC is constructed; a
+late Dirichlet condition that overlaps an owned slave is rejected before
+assembly. Nonlinear consumers still select an MPC-aware provider explicitly
+because ordinary DOLFINx and <code>dolfinx_mpc</code> assembly are not interchangeable.</p>
 <h2 id="engineering-questions-to-make-explicit">Engineering questions to make explicit<a class="headerlink" href="#engineering-questions-to-make-explicit" title="Permanent link">&para;</a></h2>
 <ul>
 <li>mass representation and density;</li>

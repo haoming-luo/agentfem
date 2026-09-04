@@ -942,20 +942,31 @@ def _solve_burgers(case, domain, policy, degree):
     info = None
     solved = unknown.value
     if periodic:
-        problem, _periodic_constraint = _prepare_periodic_linear_problem(
-            a,
-            L,
-            unknown.value,
-            prefix="agentfem_pdebench_burgers_periodic_",
-        )
+        try:
+            from ...constraints.mpc import rectangular_periodic_mpc
+
+            periodicity = rectangular_periodic_mpc(unknown.value.function_space)
+            problem = solvers.prepare_mpc_linear_problem(
+                a,
+                L,
+                unknown.value,
+                periodicity,
+                options=policy.linear_options(indefinite=True),
+                petsc_options_prefix="agentfem_pdebench_burgers_periodic_",
+            )
+        except ImportError as exc:
+            raise BenchmarkContractError(
+                "AFM-PDEB-009",
+                "periodic PDE cases require the optional dolfinx_mpc backend",
+            ) from exc
         for step in range(1, steps + 1):
             time.value = t0 + step * dt
             expressions.interpolate(source, source_spec, parameters={"t": time})
             problem.solve()
-            _copy_owned_function_values(previous, problem.u)
-        _copy_owned_function_values(unknown.value, problem.u)
+            previous.x.array[:] = unknown.value.x.array
+            previous.x.scatter_forward()
         solved = unknown.value
-        info = _mpc_linear_info(problem.solver)
+        info = problem.last_solve_info
     else:
         with solvers.prepare_linear_problem(
             a,
@@ -1452,72 +1463,6 @@ def _require_output_coverage(case, values):
             "AFM-PDEB-007",
             f"structured-domain output contains {missing} missing samples",
         )
-
-
-def _prepare_periodic_linear_problem(a, L, solution, *, prefix: str):
-    """Prepare one scalar linear problem with matching periodic faces.
-
-    The public benchmark contract describes a rectangular periodic cell.  A
-    single geometric relation maps every maximum face to its matching minimum
-    face; a corner is therefore mapped directly to the opposite corner rather
-    than creating chained constraints.
-    """
-
-    try:
-        import dolfinx_mpc
-    except ImportError as exc:
-        raise BenchmarkContractError(
-            "AFM-PDEB-009",
-            "periodic PDE cases require the optional dolfinx_mpc backend",
-        ) from exc
-
-    from ...constraints.mpc import rectangular_periodic_mpc
-
-    constructed = rectangular_periodic_mpc(solution.function_space)
-    constraint = constructed.backend
-    options = {
-        # Semi-implicit Burgers transport is nonsymmetric. A direct solve is
-        # the same robust policy used for its strongly constrained route;
-        # reporting it as CG would be numerically misleading even if a
-        # particular case happened to converge.
-        "ksp_type": "preonly",
-        "pc_type": "lu",
-        "pc_factor_mat_solver_type": "mumps",
-        "ksp_error_if_not_converged": True,
-    }
-    problem = dolfinx_mpc.LinearProblem(
-        a,
-        L,
-        constraint,
-        bcs=[],
-        petsc_options_prefix=prefix,
-        petsc_options=options,
-    )
-    return problem, constraint
-
-
-def _mpc_linear_info(ksp):
-    return solvers.LinearSolveInfo(
-        converged_reason=int(ksp.getConvergedReason()),
-        iterations=int(ksp.getIterationNumber()),
-        residual_norm=float(ksp.getResidualNorm()),
-    )
-
-
-def _copy_owned_function_values(target, source) -> None:
-    """Copy an MPI function state without assuming equal ghost layouts."""
-
-    target_map = target.function_space.dofmap
-    source_map = source.function_space.dofmap
-    target_owned = int(target_map.index_map.size_local * target_map.index_map_bs)
-    source_owned = int(source_map.index_map.size_local * source_map.index_map_bs)
-    if target_owned != source_owned:
-        raise RuntimeError(
-            "Cannot transfer finite-element state between different owned DOF layouts: "
-            f"target={target_owned}, source={source_owned}."
-        )
-    target.x.array[:target_owned] = source.x.array[:source_owned]
-    target.x.scatter_forward()
 
 
 def _linear_info(info, policy, *, indefinite=False):

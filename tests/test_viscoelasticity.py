@@ -75,6 +75,19 @@ def test_prony_factory_and_temperature_shift_contracts():
     assert float(arrhenius.factor(313.15)) < 1.0
 
 
+def test_temperature_shift_rejects_singular_or_nonfinite_inputs():
+    wlf = WLFShift(reference_temperature=293.15, c1=17.44, c2=51.6)
+    arrhenius = ArrheniusShift(
+        activation_energy=50.0e3,
+        reference_temperature=293.15,
+    )
+
+    with pytest.raises(ValueError, match="singularity"):
+        wlf.factor(293.15 - 51.6)
+    with pytest.raises(ValueError, match="finite"):
+        arrhenius.factor(np.nan)
+
+
 def test_fixed_spectrum_prony_fit_recovers_positive_reference_model():
     reference = GeneralizedMaxwell(3.0, [5.0, 2.0], [0.2, 20.0])
     time = np.concatenate(([0.0], np.logspace(-3, 3, 120)))

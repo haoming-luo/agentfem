@@ -346,6 +346,24 @@
   ],
   "cards": [
     {
+      "id": "agentfem.constraint.exact_rectangular_mpc",
+      "kind": "constraint",
+      "public_api": [
+        "agentfem.constraints.rectangular_periodic_mpc",
+        "agentfem.constraints.RectangularPeriodicMPC",
+        "agentfem.solvers.prepare_mpc_linear_problem"
+      ],
+      "related_cards": [
+        "agentfem.operator.system_contracts",
+        "agentfem.workflow.periodic_cell_homogenization",
+        "agentfem.workflow.transient_checkpoint_portability"
+      ],
+      "source": "src/agentfem/knowledge/cards/exact_rectangular_mpc.json",
+      "status": "supported",
+      "summary": "Constructs a checked rectangular periodic relation and lowers it through the ordinary linear structural and heat-transfer Step lifecycle in serial or MPI.",
+      "title": "Exact rectangular periodic multi-point constraint"
+    },
+    {
       "id": "agentfem.formulation.axisymmetric_solid",
       "kind": "workflow",
       "public_api": [
