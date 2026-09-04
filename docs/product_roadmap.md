@@ -89,7 +89,10 @@ Deepen the finite-element core before broadening the catalog:
   macro-path generalized reaction verified against
   \(V\mathbf{P}:\mathrm d\mathbf{F}/\mathrm d\lambda\). Its accepted nonlinear
   path work is restartable and agrees with the independently computed
-  Hill--Mandel macro work; rectangular MPC, weak and contact providers remain
+  Hill--Mandel macro work. Rectangular periodic MPC construction now exposes
+  MPI-aware owned/ghost slave, master-relation and coefficient diagnostics and
+  rejects an incomplete graph before solve. Its distributed reaction
+  distribution and macroscopic work, plus weak and contact providers, remain
   explicit promotion gates;
 - selected cyclic plasticity, creep--fatigue, and fracture extensions.
 

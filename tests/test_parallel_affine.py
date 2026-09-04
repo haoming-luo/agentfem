@@ -27,6 +27,7 @@ def test_rectangular_periodic_mpc_is_public_strict_and_distributed():
     assert global_slaves > 0
     summary = periodicity.summary()
     assert summary.pop("tolerance") > 0.0
+    diagnostics = summary.pop("diagnostics")
     assert summary == {
         "name": "rectangular_periodic_mpc",
         "kind": "periodic_constraint",
@@ -38,6 +39,17 @@ def test_rectangular_periodic_mpc_is_public_strict_and_distributed():
         "strict": True,
         "supports_parallel": True,
     }
+    assert diagnostics["status"] == "valid"
+    assert diagnostics["global_slave_dofs"] == global_slaves
+    assert diagnostics["global_master_relations"] == global_slaves
+    assert diagnostics["unmatched_slave_dofs"] == 0
+    assert diagnostics["multiply_matched_slave_dofs"] == 0
+    assert diagnostics["nonunit_coefficients_detected"] is False
+    assert diagnostics["comm_size"] == MPI.COMM_WORLD.size
+    assert diagnostics["reaction_distribution"] == (
+        "unavailable_without_provider_dual"
+    )
+    assert periodicity.diagnostics() == diagnostics
 
 
 def test_distributed_abaqus_equation_mapping_and_source_order():

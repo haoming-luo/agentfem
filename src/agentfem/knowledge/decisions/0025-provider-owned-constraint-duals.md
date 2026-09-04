@@ -47,6 +47,10 @@ balanced while omitting a real reaction or prescribed-motion contribution.
   across two different deformation directions;
 - existing strong-Dirichlet workflows retain their unconstrained-residual
   route and public result names.
+- rectangular periodic MPC construction may prove graph integrity without
+  claiming a dual: owned and ghost slaves, master cardinality and unit
+  coefficients are diagnosed collectively, while eliminated multipliers,
+  face reactions and macroscopic work remain unavailable.
 
 ## Verification
 
@@ -62,3 +66,5 @@ balanced while omitting a real reaction or prescribed-motion contribution.
   unloaded homogeneous cell.
 - accepted affine-path work is checked against the independently assembled
   Hill--Mandel macroscopic work and survives portable checkpoint/restart.
+- two-rank rectangular MPC tests verify owned/ghost accounting and require one
+  unit-coefficient master relation for every globally owned slave DOF.

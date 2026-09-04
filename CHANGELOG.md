@@ -53,6 +53,11 @@ experimental formulation to a validated one.
   checkpoint-safe, and periodic J2 tests independently match both
   \(V\mathbf{P}:\mathrm d\mathbf{F}/\mathrm d\lambda\) and Hill--Mandel work.
   Non-proportional path kinks retain distinct incoming and outgoing duals.
+- Add MPI-aware construction diagnostics to exact rectangular periodic MPCs.
+  Reports distinguish owned from ghost slaves and reject missing, multiply
+  matched, or non-unit periodic relations before solve, while continuing to
+  mark reaction distributions and macroscopic work unavailable until a real
+  provider dual and work coordinate exist.
 - Move the shared generalized work and cyclic energy ledger out of the fatigue
   domain module into the Result/Verification ownership layer while preserving
   the existing public compatibility imports.

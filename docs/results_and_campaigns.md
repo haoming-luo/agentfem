@@ -216,6 +216,15 @@ At a kink in a non-proportional deformation history, the result retains both
 `affine_path_outgoing_generalized_reaction` (right-sided). The work on each
 increment therefore uses that increment's own deformation-gradient tangent.
 
+Exact rectangular periodic MPC construction has a separate, narrower
+diagnostic contract. `periodicity.diagnostics()` reports globally owned slave
+DOFs, ghost copies, master relations, unmatched or multiply matched slaves,
+coefficient validity, participating ranks, periods, and coordinate tolerance.
+This proves that the elimination graph was constructed consistently; it does
+not reconstruct eliminated multipliers, face-reaction distributions, or a
+macroscopic work coordinate. Those balance channels therefore remain
+fail-closed until the numerical provider supplies their actual dual evidence.
+
 XDMF is the small XML description and HDF5 is the compact numerical payload.
 Inlining millions of values into XML would produce a much larger and slower
 file, so the pair should be treated as one logical result dataset. The optional
