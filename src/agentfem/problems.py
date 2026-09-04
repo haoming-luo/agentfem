@@ -28,6 +28,7 @@ from .solvers import (
     SolveEvent,
     solve_affine_nonlinear_path,
     solve_linear_problem,
+    solve_mpc_linear_problem,
     solve_nonlinear_problem,
 )
 from .state import (
@@ -119,6 +120,7 @@ class LinearSystemProblem:
     solution: object | None = None
     unknown: object | None = None
     bcs: list = field(default_factory=list)
+    mpc_constraint: object | None = None
     solver_options: LinearSolverOptions | None = None
     last_solve_info: object | None = field(default=None, init=False)
 
@@ -139,11 +141,16 @@ class LinearSystemProblem:
 
         from . import operators
 
+        strong_bcs, mpc_constraint = _split_linear_constraints(
+            constraints=constraints,
+            bcs=bcs,
+        )
         return cls(
             system=operators.linear_system(K, F, name=name),
             unknown=unknown,
             solution=solution,
-            bcs=_collect_bcs(constraints=constraints, bcs=bcs),
+            bcs=strong_bcs,
+            mpc_constraint=mpc_constraint,
             solver_options=solver_options,
         )
 
@@ -151,14 +158,26 @@ class LinearSystemProblem:
         """Compile the system operators and solve into ``solution``."""
 
         solution = self._solution()
-        solution, info = solve_linear_problem(
-            fem.form(self.system.lhs_form()),
-            fem.form(self.system.rhs_form()),
-            solution,
-            bcs=self.bcs,
-            options=self.solver_options,
-            return_info=True,
-        )
+        if self.mpc_constraint is None:
+            solution, info = solve_linear_problem(
+                fem.form(self.system.lhs_form()),
+                fem.form(self.system.rhs_form()),
+                solution,
+                bcs=self.bcs,
+                options=self.solver_options,
+                return_info=True,
+            )
+        else:
+            solution, info = solve_mpc_linear_problem(
+                self.system.lhs_form(),
+                self.system.rhs_form(),
+                solution,
+                self.mpc_constraint,
+                bcs=self.bcs,
+                options=self.solver_options,
+                petsc_options_prefix="agentfem_linear_system_mpc_",
+                return_info=True,
+            )
         self.last_solve_info = info
         return solution
 
@@ -182,6 +201,11 @@ class LinearSystemProblem:
             "system": self.system.summary() if hasattr(self.system, "summary") else repr(self.system),
             "solution": getattr(self._solution(), "name", repr(self._solution())),
             "num_bcs": len(self.bcs),
+            "constraint_provider": (
+                None
+                if self.mpc_constraint is None
+                else _describe_asset(self.mpc_constraint)
+            ),
             "solver": (
                 self.solver_options.summary()
                 if self.solver_options is not None
@@ -4114,6 +4138,56 @@ def _collect_bcs(*, constraints=None, bcs=None) -> list:
                     "backend for non-Dirichlet kinematic relations."
                 )
     return result
+
+
+def _split_linear_constraints(*, constraints=None, bcs=None) -> tuple[list, object | None]:
+    """Separate strong data from one exact-MPC linear lowering provider.
+
+    A linear system has two distinct assembly contracts: ordinary Dirichlet
+    elimination and exact multi-point elimination.  Keeping the split here
+    prevents a public MPC asset from being mistaken for a boundary condition,
+    while unknown constraint providers continue to fail before assembly.
+    """
+
+    from . import constraints as constraint_api
+
+    strong_bcs = [] if bcs is None else list(_as_list(bcs))
+    exact_mpc = []
+    for item in constraint_api.constraint_assets(constraints):
+        capability = constraint_api.constraint_capabilities(item)
+        if (
+            capability is not None
+            and capability.enforcement == "exact_multi_point_constraint"
+        ):
+            if not hasattr(item, "backend"):
+                raise TypeError(
+                    "AFM-CONSTRAINT-MPC-001: an exact-MPC provider must expose "
+                    "its assembled backend through a `backend` attribute."
+                )
+            exact_mpc.append(item)
+        elif hasattr(item, "bcs"):
+            strong_bcs.extend(item.bcs)
+        elif hasattr(item, "bc"):
+            strong_bcs.append(item.bc)
+        elif callable(getattr(item, "dof_indices", None)):
+            strong_bcs.append(item)
+        else:
+            raise TypeError(
+                "AFM-CONSTRAINT-PROCEDURE-001: linear analysis received "
+                f"{type(item).__name__}, which has no supported strong or "
+                "exact-MPC lowering contract. Run model.check() and select a "
+                "compatible constraint provider."
+            )
+    if len(exact_mpc) > 1:
+        names = tuple(
+            str(getattr(item, "name", type(item).__name__)) for item in exact_mpc
+        )
+        raise ValueError(
+            "AFM-CONSTRAINT-MPC-002: one linear system can consume exactly one "
+            f"exact MPC provider; received {names!r}. Combine the relations in "
+            "one provider before constructing the step."
+        )
+    return strong_bcs, (None if not exact_mpc else exact_mpc[0])
 
 
 def _reaction_field(residual_form, solution, *, name: str):

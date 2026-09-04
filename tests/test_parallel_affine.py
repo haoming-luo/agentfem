@@ -7,7 +7,16 @@ from dolfinx import fem
 from dolfinx import mesh as dolfinx_mesh
 from mpi4py import MPI
 
-from agentfem import constitutive, constraints, results, solvers
+from agentfem import (
+    constitutive,
+    constraints,
+    fields,
+    models,
+    operators,
+    results,
+    solvers,
+    studies,
+)
 from agentfem.mesh import abaqus
 from portable_affine_j2_periodic_driver import _step as _finite_strain_j2_step
 
@@ -110,6 +119,116 @@ def test_prepared_mpc_linear_problem_transfers_vector_field_layout():
 
     assert np.max(np.abs(values[:, 0] - 1.0)) < 1.0e-10
     assert np.max(np.abs(values[:, 1] + 2.0)) < 1.0e-10
+
+
+def test_model_step_lowers_exact_mpc_and_keeps_balance_fail_closed():
+    domain = dolfinx_mesh.create_unit_square(MPI.COMM_WORLD, 4, 3)
+    model = models.create(
+        study=studies.static_solid(dimension=2, assumption="plane_strain"),
+        mesh=domain,
+        name="periodic_vector_step",
+    )
+    displacement = model.field(fields.displacement(domain))
+    source = fem.Function(displacement.space, name="prescribed_source")
+    source.interpolate(
+        lambda x: np.vstack((np.ones_like(x[0]), -2.0 * np.ones_like(x[0])))
+    )
+    periodicity = constraints.rectangular_periodic_mpc(displacement)
+
+    step = model.step(
+        target=displacement,
+        K=operators.mass_operator(displacement),
+        F=operators.mass_action_vector(source, displacement),
+        constraints=periodicity,
+        solver_options=solvers.direct_solver(package="mumps"),
+    )
+    simulation = step.solve_result()
+    values = displacement.value.x.array.reshape(-1, 2)
+
+    assert np.max(np.abs(values[:, 0] - 1.0)) < 1.0e-10
+    assert np.max(np.abs(values[:, 1] + 2.0)) < 1.0e-10
+    problem_summary = simulation.metadata["step"]["problem"]
+    assert problem_summary["constraint_provider"]["method"] == "dolfinx_mpc"
+    assert problem_summary["last_solve"]["converged"] is True
+    assert simulation.metadata["static_equilibrium"]["status"] == "unavailable"
+    assert simulation.metadata["static_work"]["status"] == "unavailable"
+    contract = simulation.metadata["constraint_balance_contract"]
+    assert contract["force_balance_available"] is False
+    assert contract["work_balance_available"] is False
+
+
+def test_steady_heat_step_uses_the_same_exact_mpc_lowering():
+    domain = dolfinx_mesh.create_unit_square(MPI.COMM_WORLD, 4, 3)
+    model = models.create(
+        study=studies.steady_heat_transfer(dimension=2),
+        mesh=domain,
+        name="periodic_scalar_step",
+    )
+    temperature = model.field(fields.temperature(domain))
+    source = fem.Function(temperature.space, name="prescribed_temperature")
+    source.x.array[:] = 3.0
+    source.x.scatter_forward()
+    periodicity = constraints.rectangular_periodic_mpc(temperature)
+
+    simulation = model.step(
+        target=temperature,
+        K=operators.mass_operator(temperature),
+        F=operators.mass_action_vector(source, temperature),
+        constraints=periodicity,
+        solver_options=solvers.direct_solver(package="mumps"),
+    ).solve_result()
+
+    assert np.max(np.abs(temperature.value.x.array - 3.0)) < 1.0e-10
+    provider = simulation.metadata["step"]["problem"]["constraint_provider"]
+    assert provider["enforcement"] == "exact_multi_point_constraint"
+
+
+def test_model_step_rejects_multiple_exact_mpc_providers():
+    domain = dolfinx_mesh.create_unit_square(MPI.COMM_WORLD, 2, 2)
+    model = models.create(
+        study=studies.static_solid(dimension=2, assumption="plane_strain"),
+        mesh=domain,
+    )
+    displacement = model.field(fields.displacement(domain))
+    source = fem.Function(displacement.space)
+    first = constraints.rectangular_periodic_mpc(displacement, name="periodic_first")
+    second = constraints.rectangular_periodic_mpc(displacement, name="periodic_second")
+
+    with pytest.raises(ValueError, match="AFM-CONSTRAINT-MPC-002"):
+        model.step(
+            target=displacement,
+            K=operators.mass_operator(displacement),
+            F=operators.mass_action_vector(source, displacement),
+            constraints=(first, second),
+        )
+
+
+def test_model_step_rejects_exact_mpc_provider_without_backend():
+    class IncompleteExactMPC:
+        name = "incomplete_exact_mpc"
+
+        @staticmethod
+        def capabilities():
+            return constraints.ConstraintCapabilities(
+                kind="periodic_constraint",
+                enforcement="exact_multi_point_constraint",
+            )
+
+    domain = dolfinx_mesh.create_unit_square(MPI.COMM_WORLD, 2, 2)
+    model = models.create(
+        study=studies.steady_heat_transfer(dimension=2),
+        mesh=domain,
+    )
+    temperature = model.field(fields.temperature(domain))
+    source = fem.Function(temperature.space)
+
+    with pytest.raises(TypeError, match="AFM-CONSTRAINT-MPC-001"):
+        model.step(
+            target=temperature,
+            K=operators.mass_operator(temperature),
+            F=operators.mass_action_vector(source, temperature),
+            constraints=IncompleteExactMPC(),
+        )
 
 
 def test_prepared_mpc_linear_problem_rejects_another_function_space():

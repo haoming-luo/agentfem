@@ -31,7 +31,15 @@ def linear_static(
 
     from . import operators, problems
 
-    model.check(target=target, step_options={"K": K, "F": F})
+    selected_constraints = model.constraints if constraints is None else constraints
+    model.check(
+        target=target,
+        step_options={
+            "K": K,
+            "F": F,
+            "constraints": selected_constraints,
+        },
+    )
     update_at_step_end = model._time_update_callback()
     if update_at_step_end is not None:
         update_at_step_end(1.0)
@@ -128,7 +136,7 @@ def linear_static(
         F,
         study=model.study,
         unknown=target,
-        constraints=model.constraints if constraints is None else constraints,
+        constraints=selected_constraints,
         solver_options=solver_options,
         result_field_factory=result_field_factory,
         name=name,

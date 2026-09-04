@@ -14,6 +14,13 @@ the same study/model/step/result lifecycle used by solid mechanics.
 - thermal-field handoff to thermoelastic stress workflows;
 - common result, progress, checkpoint, and verification concepts.
 
+Steady linear conduction on a rectangular periodic cell accepts
+`constraints.rectangular_periodic_mpc(temperature)` through the ordinary
+`model.step(...)` call. It uses the same exact-MPC lowering as linear solids,
+including serial/MPI diagnostics and pre-assembly rejection of overlapping or
+ambiguous constraint providers. General master/slave geometry still requires
+a dedicated reviewed construction provider.
+
 ## Typical workflow
 
 ```text

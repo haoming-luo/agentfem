@@ -170,6 +170,9 @@ coherent enough for wider extension and application development. Its focus is:
 - one recommended engineering grammar centered on `model.step(...)`;
 - provider-owned lowering instead of material-specific logic accumulating in
   the Model facade;
+- one shared exact-MPC linear lifecycle consumed by formal structural and heat
+  Steps, without moving constraint construction or physical-dual ownership
+  into the Model;
 - one inspectable execution and evidence lifecycle;
 - machine-readable compatibility guidance for existing projects;
 - reproducible installed use on Linux and macOS, with Windows through WSL2

@@ -66,6 +66,11 @@ experimental formulation to a validated one.
   matrix values that the current upstream backend still reassembles per solve.
   A distributed preflight also rejects Dirichlet conditions that were added
   after MPC slave selection and overlap owned slave DOFs.
+- Lower one public `RectangularPeriodicMPC` directly through ordinary linear
+  static and steady-heat `model.step(...)` workflows. Strong Dirichlet data
+  and exact elimination now follow separate assembly contracts; multiple or
+  unknown providers fail before assembly, and reaction/work evidence remains
+  unavailable until the active MPC provider supplies a physical dual.
 - Move the shared generalized work and cyclic energy ledger out of the fatigue
   domain module into the Result/Verification ownership layer while preserving
   the existing public compatibility imports.
