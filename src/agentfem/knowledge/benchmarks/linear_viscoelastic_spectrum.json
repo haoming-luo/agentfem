@@ -1,0 +1,62 @@
+{
+  "schema": "agentfem.benchmark-card",
+  "schema_version": "0.1.0",
+  "id": "agentfem.benchmark.linear_viscoelastic_spectrum",
+  "title": "Generalized-Maxwell relaxation and dynamic spectrum",
+  "status": "automated_analytical_verification",
+  "purpose": "Verify the reusable material-point and signal-processing foundation for linear viscoelastic dynamics without presenting it as a global viscoelastic finite-element solve.",
+  "physics": "Small-strain thermorheologically simple linear viscoelastic relaxation",
+  "execution": {
+    "command": "python -m pytest -q tests/test_viscoelasticity.py tests/test_dynamics.py",
+    "example": "tests/test_viscoelasticity.py",
+    "evidence": "Analytical instantaneous and equilibrium modulus limits, complex storage/loss response, exact branch update and viscous dissipation, temperature-shift direction, positive fixed-spectrum recovery, one-sided FFT amplitude, spectral-ratio FRF, and logarithmic decrement are automated."
+  },
+  "observables": [
+    "Relaxation modulus at zero and long time.",
+    "Storage modulus, loss modulus, and loss factor versus angular frequency.",
+    "Algorithmic modulus, overstress, and non-negative viscous dissipation for an exact material-point update.",
+    "Recovered positive Prony coefficients for a declared relaxation-time spectrum.",
+    "FFT amplitude/frequency, FRF phase/amplitude, and free-decay damping quantities."
+  ],
+  "acceptance": [
+    "Standard-linear-solid time and frequency limits must match their analytical values.",
+    "The exact linear-increment update and integrated branch dissipation must match their closed forms.",
+    "The fixed-spectrum fit must recover a synthetic positive two-branch reference to relative RMS error below 1e-12.",
+    "Unexcited FRF bins must remain explicitly invalid rather than producing finite high-gain artifacts.",
+    "Structured result conversion must retain frequency axes, units, and validity evidence."
+  ],
+  "golden": {
+    "reference_version": "generalized-maxwell-foundation-1",
+    "quantities": [
+      {
+        "name": "instantaneous_modulus",
+        "expected": 10.0,
+        "relative_tolerance": 1e-12,
+        "absolute_tolerance": 1e-12,
+        "unit": "consistent stress unit",
+        "description": "Standard linear solid with equilibrium modulus 2 and one relaxing branch of modulus 8."
+      },
+      {
+        "name": "storage_modulus_at_omega_tau_one",
+        "expected": 6.0,
+        "relative_tolerance": 1e-12,
+        "absolute_tolerance": 1e-12,
+        "unit": "consistent stress unit",
+        "description": "At omega tau = 1, the relaxing branch contributes half its modulus to storage."
+      },
+      {
+        "name": "loss_modulus_at_omega_tau_one",
+        "expected": 4.0,
+        "relative_tolerance": 1e-12,
+        "absolute_tolerance": 1e-12,
+        "unit": "consistent stress unit",
+        "description": "At omega tau = 1, the relaxing branch contributes half its modulus to loss."
+      }
+    ]
+  },
+  "limitations": [
+    "This benchmark is material-point and post-processing evidence, not global finite-element viscoelastic validation.",
+    "Relaxation times are user-declared; automatic spectrum selection and uncertainty inference are outside this contract.",
+    "Nonlinear viscoelasticity, physical aging, complex modes, and direct harmonic finite-element assembly are not verified here."
+  ]
+}

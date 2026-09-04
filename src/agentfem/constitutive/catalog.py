@@ -132,6 +132,25 @@ _CAPABILITIES = {
             "thermal expansion tables are interpreted as secant coefficients relative to the declared reference temperature",
         ),
     ),
+    "linear_viscoelasticity": ConstitutiveCapability(
+        name="linear_viscoelasticity",
+        model=(
+            "standard-linear-solid and generalized-Maxwell/Prony small-strain "
+            "relaxation spectra"
+        ),
+        maturity="material_point_and_spectral_verified",
+        available_scope=(
+            "relaxation modulus, storage/loss modulus, loss factor, WLF or "
+            "Arrhenius time-temperature shift, exact linear-increment branch "
+            "updates, atomic material-point state, and deterministic fitting "
+            "for a user-declared relaxation-time spectrum"
+        ),
+        limitations=(
+            "the generalized-Maxwell state is not yet consumed by a global finite-element transient provider",
+            "nonlinear finite-strain viscoelasticity and physical-aging models are not implemented",
+            "automatic relaxation-time selection and uncertainty quantification remain identification-layer work",
+        ),
+    ),
     "power_law_creep": ConstitutiveCapability(
         name="power_law_creep",
         model="isothermal and Arrhenius Mises time-hardening power-law creep",

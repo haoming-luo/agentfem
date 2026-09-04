@@ -409,3 +409,12 @@ equilibrium retains its separate NAFEMS promotion gate. Their constitutive
 transactions and quadrature archives are MPI-safe and portable across rank
 counts. Product depth and external verification take
 priority over adding material names or backend abstractions.
+
+For undamped linear structural modes, use
+`studies.modal_solid(...)` followed by `model.step(target=u, modes=...)`.
+The SLEPc provider removes strongly constrained degrees of freedom and returns
+frequencies, eigenpair residuals, and mode fields through `SimulationResult`.
+Use `dynamics.spectrum(...)`, `frequency_response(...)`, and
+`damping_from_free_decay(...)` on arrays or scalar result histories. Treat
+`constitutive.GeneralizedMaxwell` as a verified material-point and spectral
+asset: it is not yet a global viscoelastic FEM Step.

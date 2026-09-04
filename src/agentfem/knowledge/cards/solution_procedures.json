@@ -9,6 +9,7 @@
   "public_api": [
     "agentfem.procedures.SolutionProcedure",
     "agentfem.procedures.resolve",
+    "agentfem.studies.modal_solid",
     "agentfem.time.newmark",
     "agentfem.time.generalized_alpha",
     "agentfem.problems.LinearSystemProblem.reaction_field",
@@ -32,6 +33,11 @@
         "label": "second-order system",
         "expression": "\\mathbf{M}\\ddot{\\mathbf{u}}+\\mathbf{C}\\dot{\\mathbf{u}}+\\mathbf{K}\\mathbf{u}=\\mathbf{F}",
         "description": "The same physical system may be solved by implicit Newmark, generalized-alpha, or explicit central difference."
+      },
+      {
+        "label": "linear structural modes",
+        "expression": "\\mathbf{K}\\boldsymbol{\\phi}_j=\\omega_j^2\\mathbf{M}\\boldsymbol{\\phi}_j",
+        "description": "The modal procedure removes strong constrained degrees of freedom before a generalized Hermitian eigensolve."
       },
       {
         "label": "generalized-alpha equilibrium",
@@ -92,7 +98,7 @@
       }
     ],
     "assumptions": [
-      "Newmark and generalized-alpha are currently linear structural dynamics routes.",
+      "Modal, Newmark and generalized-alpha are currently linear structural dynamics routes.",
       "Implicit heat transfer currently uses backward Euler.",
       "Central difference uses a lumped mass operator."
     ],
@@ -105,7 +111,7 @@
       ,"Automatic checkpoints are written only after state, history, and the accepted-increment event are committed."
     ],
     "applicability": [
-      "Selecting and inspecting current linear static, nonlinear static, heat-transfer, and structural-dynamics routes."
+      "Selecting and inspecting current linear static, nonlinear static, heat-transfer, modal, and structural-dynamics routes."
     ],
     "limitations": [
       "Nonlinear implicit structural dynamics is not implemented.",
@@ -125,6 +131,7 @@
       "tests/test_p1_platform.py",
       "tests/test_transient_restart.py",
       "tests/test_parallel_transient.py"
+      ,"tests/test_dynamics.py"
     ],
     "benchmarks": [],
     "validation_rules": [

@@ -276,6 +276,281 @@ class LinearSystemProblem:
         raise ValueError("LinearSystemProblem requires solution or unknown.")
 
 
+@dataclass(frozen=True)
+class ModalSolveInfo:
+    """Convergence and filtering evidence for one modal solve."""
+
+    converged_eigenpairs: int
+    requested_modes: int
+    accepted_modes: int
+    constrained_dofs: int
+    free_dofs: int
+    residual_norms: tuple[float, ...]
+    eigensolver: str
+    target_frequency: float | None = None
+
+    @property
+    def converged(self) -> bool:
+        return self.accepted_modes >= self.requested_modes
+
+    def as_dict(self) -> dict[str, object]:
+        return {
+            "converged": self.converged,
+            "converged_eigenpairs": self.converged_eigenpairs,
+            "requested_modes": self.requested_modes,
+            "accepted_modes": self.accepted_modes,
+            "constrained_dofs": self.constrained_dofs,
+            "free_dofs": self.free_dofs,
+            "residual_norms": self.residual_norms,
+            "eigensolver": self.eigensolver,
+            "target_frequency": self.target_frequency,
+        }
+
+
+@dataclass
+class ModalAnalysisStep:
+    """Constrained linear modes from ``K phi = lambda M phi``.
+
+    Strong Dirichlet dofs are removed algebraically rather than assigned an
+    artificial diagonal eigenvalue. This preserves the physical low spectrum
+    and gives the same public Step/Result lifecycle as other analyses.
+    """
+
+    name: str
+    target: object
+    stiffness: object
+    mass: object
+    modes: int
+    study: object | None = None
+    constraints: tuple[object, ...] = ()
+    bcs: tuple[object, ...] = ()
+    target_frequency: float | None = None
+    tolerance: float = 1.0e-9
+    maximum_iterations: int = 1000
+    rigid_mode_tolerance: float = 1.0e-10
+    procedure: object | None = None
+    eigenvalues: np.ndarray | None = field(default=None, init=False)
+    mode_shapes: tuple[object, ...] = field(default=(), init=False)
+    last_solve_info: ModalSolveInfo | None = field(default=None, init=False)
+
+    def __post_init__(self) -> None:
+        if int(self.modes) <= 0:
+            raise ValueError("Modal analysis requires modes > 0.")
+        if (
+            not np.isfinite(self.tolerance)
+            or self.tolerance <= 0.0
+            or int(self.maximum_iterations) <= 0
+        ):
+            raise ValueError("Modal tolerance and maximum_iterations must be positive.")
+        if (
+            not np.isfinite(self.rigid_mode_tolerance)
+            or self.rigid_mode_tolerance < 0.0
+        ):
+            raise ValueError("rigid_mode_tolerance must be nonnegative.")
+        if self.target_frequency is not None and (
+            not np.isfinite(self.target_frequency) or self.target_frequency < 0.0
+        ):
+            raise ValueError("target_frequency must be finite and nonnegative.")
+
+    def solve(self):
+        from .dependencies import require
+
+        SLEPc = require(
+            "slepc4py.SLEPc",
+            extra="modal",
+            capability="distributed structural modal analysis",
+        )
+
+        target = getattr(self.target, "value", self.target)
+        V = target.function_space
+        comm = V.mesh.comm
+        selected_bcs = _collect_bcs(constraints=self.constraints, bcs=self.bcs)
+        stiffness = self.stiffness.assemble_matrix(bcs=None)
+        mass = self.mass.assemble_matrix(bcs=None)
+
+        block_size = int(V.dofmap.index_map_bs)
+        owned_blocks = int(V.dofmap.index_map.size_local)
+        owned_scalar = owned_blocks * block_size
+        constrained_local = []
+        for bc in selected_bcs:
+            indices, first_ghost = bc.dof_indices()
+            constrained_local.extend(np.asarray(indices[:first_ghost], dtype=np.int64))
+        constrained_local = np.unique(np.asarray(constrained_local, dtype=np.int64))
+        constrained_local = constrained_local[constrained_local < owned_scalar]
+        free_mask = np.ones(owned_scalar, dtype=bool)
+        free_mask[constrained_local] = False
+        free_local = np.flatnonzero(free_mask).astype(np.int32)
+
+        local_blocks = free_local // block_size
+        components = free_local % block_size
+        global_blocks = V.dofmap.index_map.local_to_global(local_blocks)
+        free_global = (
+            np.asarray(global_blocks, dtype=PETSc.IntType) * block_size
+            + components.astype(PETSc.IntType)
+        )
+        free_is = PETSc.IS().createGeneral(free_global, comm=comm)
+        reduced_stiffness = stiffness.createSubMatrix(free_is, free_is)
+        reduced_mass = mass.createSubMatrix(free_is, free_is)
+        free_count = int(comm.allreduce(free_local.size, op=MPI.SUM))
+        constrained_count = int(comm.allreduce(constrained_local.size, op=MPI.SUM))
+        if free_count <= int(self.modes):
+            raise ValueError(
+                f"Modal analysis has {free_count} free dofs but requests {self.modes} modes."
+            )
+
+        eps = SLEPc.EPS().create(comm)
+        eps.setOperators(reduced_stiffness, reduced_mass)
+        eps.setProblemType(SLEPc.EPS.ProblemType.GHEP)
+        eps.setType(SLEPc.EPS.Type.KRYLOVSCHUR)
+        requested = min(free_count - 1, int(self.modes) + min(8, free_count - int(self.modes) - 1))
+        eps.setDimensions(requested)
+        eps.setTolerances(tol=float(self.tolerance), max_it=int(self.maximum_iterations))
+        target_eigenvalue = None
+        if self.target_frequency is None:
+            # Interior targeting at zero is substantially more reliable for
+            # the smallest structural modes than an untransformed extremal
+            # search, especially when stiffness and mass scales differ by
+            # many orders of magnitude.
+            eps.setTarget(0.0)
+            eps.setWhichEigenpairs(SLEPc.EPS.Which.TARGET_REAL)
+            eps.getST().setType(SLEPc.ST.Type.SINVERT)
+        else:
+            target_eigenvalue = (2.0 * np.pi * float(self.target_frequency)) ** 2
+            eps.setTarget(target_eigenvalue)
+            eps.setWhichEigenpairs(SLEPc.EPS.Which.TARGET_REAL)
+            eps.getST().setType(SLEPc.ST.Type.SINVERT)
+        eps.setFromOptions()
+        eps.solve()
+
+        converged = int(eps.getConverged())
+        eigenvalues = []
+        residual_norms = []
+        mode_shapes = []
+        reduced_vector = reduced_stiffness.createVecRight()
+        candidates = []
+        for index in range(converged):
+            eigenvalue = eps.getEigenvalue(index)
+            if abs(float(np.imag(eigenvalue))) > self.tolerance:
+                continue
+            candidates.append((float(np.real(eigenvalue)), index))
+        scale = max(1.0, max((abs(item[0]) for item in candidates), default=1.0))
+        candidates = [
+            item
+            for item in candidates
+            if item[0] > self.rigid_mode_tolerance * scale
+        ]
+        if target_eigenvalue is None:
+            selected_candidates = sorted(candidates, key=lambda item: item[0])[
+                : int(self.modes)
+            ]
+        else:
+            # SLEPc returns the eigenpairs closest to the declared shift. Keep
+            # that physical selection when turning the solver output into an
+            # ordered public result; sorting every candidate by eigenvalue
+            # would silently turn a targeted solve back into a low-mode solve.
+            selected_candidates = sorted(
+                candidates,
+                key=lambda item: abs(item[0] - target_eigenvalue),
+            )[: int(self.modes)]
+            selected_candidates.sort(key=lambda item: item[0])
+        for eigenvalue, index in selected_candidates:
+            eps.getEigenvector(index, reduced_vector)
+            local_values = np.asarray(reduced_vector.array_r)
+            if local_values.size != free_local.size:
+                raise RuntimeError(
+                    "Distributed modal subspace layout does not match the free-dof map."
+                )
+            mode = fem.Function(V, name=f"Mode_{len(mode_shapes) + 1}")
+            mode.x.array[free_local] = np.real(local_values)
+            mode.x.scatter_forward()
+            eigenvalues.append(eigenvalue)
+            residual_norms.append(
+                float(eps.computeError(index, SLEPc.EPS.ErrorType.RELATIVE))
+            )
+            mode_shapes.append(mode)
+
+        info = ModalSolveInfo(
+            converged_eigenpairs=converged,
+            requested_modes=int(self.modes),
+            accepted_modes=len(mode_shapes),
+            constrained_dofs=constrained_count,
+            free_dofs=free_count,
+            residual_norms=tuple(residual_norms),
+            eigensolver=str(eps.getType()),
+            target_frequency=self.target_frequency,
+        )
+        self.last_solve_info = info
+        self.eigenvalues = np.asarray(eigenvalues, dtype=float)
+        self.mode_shapes = tuple(mode_shapes)
+
+        reduced_vector.destroy()
+        eps.destroy()
+        reduced_stiffness.destroy()
+        reduced_mass.destroy()
+        free_is.destroy()
+        stiffness.destroy()
+        mass.destroy()
+        if not info.converged:
+            raise RuntimeError(
+                f"Modal solve accepted {info.accepted_modes} of {info.requested_modes} requested modes."
+            )
+        return self.mode_shapes
+
+    def solve_result(self, *, output=None, strict_output: bool = False):
+        from .results import SimulationResult, complete_result
+
+        modes = self.solve()
+        assert self.eigenvalues is not None
+        assert self.last_solve_info is not None
+        result = SimulationResult(name=self.name)
+        result.add_quantities(
+            {
+                "eigenvalues": self.eigenvalues,
+                "angular_frequencies": np.sqrt(self.eigenvalues),
+                "frequencies": np.sqrt(self.eigenvalues) / (2.0 * np.pi),
+                "residual_norms": np.asarray(self.last_solve_info.residual_norms),
+            },
+            units={
+                "eigenvalues": "rad^2/s^2",
+                "angular_frequencies": "rad/s",
+                "frequencies": "Hz",
+            },
+            kind="modal",
+        )
+        for index, mode in enumerate(modes, start=1):
+            result.add_field(
+                f"Mode_{index}",
+                mode,
+                unit="1",
+                processing={
+                    "method": "generalized_hermitian_eigenproblem",
+                    "normalization": "mass",
+                    "postprocessed": False,
+                },
+            )
+        result.metadata["problem"] = self.summary()
+        result.metadata["solve"] = self.last_solve_info.as_dict()
+        return complete_result(
+            self,
+            result,
+            output=output,
+            strict_output=strict_output,
+        )
+
+    def summary(self) -> dict[str, object]:
+        return {
+            "kind": "modal_analysis_step",
+            "name": self.name,
+            "requested_modes": int(self.modes),
+            "target_frequency": self.target_frequency,
+            "constraints": len(_collect_bcs(constraints=self.constraints, bcs=self.bcs)),
+            "stiffness": self.stiffness.summary(),
+            "mass": self.mass.summary(),
+            "procedure": None if self.procedure is None else self.procedure.summary(),
+            "last_solve": None if self.last_solve_info is None else self.last_solve_info.as_dict(),
+        }
+
+
 @dataclass
 class NonlinearVariationalProblem:
     """Nonlinear residual problem ``R(u; v) = 0`` solved by PETSc SNES."""
@@ -4032,6 +4307,43 @@ def explicit_dynamics(
         status_file=status_file,
         checkpoint_policy=checkpoint_policy,
         procedure=procedures.central_difference(),
+    )
+
+
+def modal_analysis(
+    *,
+    target,
+    mass,
+    stiffness,
+    modes: int,
+    study=None,
+    constraints=(),
+    bcs=None,
+    target_frequency: float | None = None,
+    tolerance: float = 1.0e-9,
+    maximum_iterations: int = 1000,
+    rigid_mode_tolerance: float = 1.0e-10,
+    name: str = "modal_analysis",
+) -> ModalAnalysisStep:
+    """Create an undamped linear structural modal analysis."""
+
+    from . import procedures
+
+    _require_study_analysis(study, "modal")
+    return ModalAnalysisStep(
+        name=name,
+        target=target,
+        stiffness=stiffness,
+        mass=mass,
+        modes=int(modes),
+        study=study,
+        constraints=tuple(_as_list(constraints)),
+        bcs=tuple(_as_list(bcs)),
+        target_frequency=target_frequency,
+        tolerance=float(tolerance),
+        maximum_iterations=int(maximum_iterations),
+        rigid_mode_tolerance=float(rigid_mode_tolerance),
+        procedure=procedures.modal(),
     )
 
 

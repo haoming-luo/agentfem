@@ -62,6 +62,21 @@ _BENCHMARKS = (
         status="release_regression",
     ),
     BenchmarkSpec(
+        identifier="linear_cantilever_modal",
+        capability="structural_modal_analysis",
+        level="finite_element",
+        reference="knowledge/benchmarks/linear_cantilever_modal.json",
+        criterion=(
+            "the public Q2 cantilever modal Step remains within 3.5 percent "
+            "of its Euler--Bernoulli first-mode reference, closes every "
+            "eigenpair below 1e-7 relative residual, and reproduces the "
+            "serial spectrum with two MPI ranks"
+        ),
+        automated_test="tests/test_dynamics.py tests/test_parallel_modal.py",
+        status="experimental_automated_foundation",
+        evidence=("finite_element", "mpi", "analytical_reference"),
+    ),
+    BenchmarkSpec(
         identifier="elasticity_foundation",
         capability="linear_elasticity",
         level="finite_element",
@@ -143,6 +158,21 @@ _BENCHMARKS = (
         reference="DOLFINx hyperelasticity demo; compressible Neo-Hookean energy",
         criterion="analytical first Piola stress matches a centered energy derivative",
         automated_test="tests/test_constitutive_models.py::test_neo_hookean_nominal_stress_is_energy_derivative",
+    ),
+    BenchmarkSpec(
+        identifier="linear_viscoelastic_spectrum",
+        capability="linear_viscoelasticity",
+        level="material_point_and_postprocess",
+        reference="knowledge/benchmarks/linear_viscoelastic_spectrum.json",
+        criterion=(
+            "generalized-Maxwell relaxation and complex-modulus limits, exact "
+            "state update and dissipation, temperature shifts, positive Prony "
+            "fit, FFT, FRF, and free-decay observables satisfy their analytical "
+            "contracts"
+        ),
+        automated_test="tests/test_viscoelasticity.py tests/test_dynamics.py",
+        status="experimental_automated_foundation",
+        evidence=("material_point", "postprocess", "state_transaction"),
     ),
     BenchmarkSpec(
         identifier="neo_hookean_displacement_patch",

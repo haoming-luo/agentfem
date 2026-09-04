@@ -1494,7 +1494,9 @@ foundation.</p>
 <p>AgentFEM currently provides executable foundations for:</p>
 <ul>
 <li>linear static solids and steady/transient heat transfer;</li>
-<li>central-difference, Newmark, and generalized-alpha structural dynamics;</li>
+<li>constrained structural modal analysis, central-difference, Newmark, and
+  generalized-alpha structural dynamics, plus reusable FFT, FRF, and
+  free-decay post-processing;</li>
 <li>finite-strain Neo-Hookean and Mooney--Rivlin workflows, plus experimental
   public 3D logarithmic J2 providers for ordinary strong boundaries/reference
   dead loads and affine/MPC cells, with shared provider-owned quadrature output
@@ -1561,6 +1563,9 @@ the roadmap does not turn an experimental formula into a validated solver.</p>
   distributed reaction distribution and macroscopic work, plus weak and
   contact providers, remain explicit promotion gates;</li>
 <li>selected cyclic plasticity, creep--fatigue, and fracture extensions.</li>
+<li>promote generalized-Maxwell/Prony behavior from material-point and spectral
+  verification to a global stateful FEM transient, then add direct harmonic
+  response and independently checked complex modes;</li>
 </ul>
 <h3 id="2-engineering-workflow">2. Engineering workflow<a class="headerlink" href="#2-engineering-workflow" title="Permanent link">&para;</a></h3>
 <p>Make real simulation projects easier to construct and maintain:</p>
@@ -1627,6 +1632,9 @@ coherent enough for wider extension and application development. Its focus is:</
 <li>one recommended engineering grammar centered on <code>model.step(...)</code>;</li>
 <li>provider-owned lowering instead of material-specific logic accumulating in
   the Model facade;</li>
+<li>one shared exact-MPC linear lifecycle consumed by formal structural and heat
+  Steps, without moving constraint construction or physical-dual ownership
+  into the Model;</li>
 <li>one inspectable execution and evidence lifecycle;</li>
 <li>machine-readable compatibility guidance for existing projects;</li>
 <li>reproducible installed use on Linux and macOS, with Windows through WSL2

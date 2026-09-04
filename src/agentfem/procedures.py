@@ -89,6 +89,18 @@ def linear_static() -> SolutionProcedure:
     )
 
 
+def modal() -> SolutionProcedure:
+    """Undamped linear modes from ``K phi = lambda M phi``."""
+
+    return SolutionProcedure(
+        name="linear modal analysis",
+        family="standard",
+        equation_order="static",
+        control="single_solve",
+        algorithm="generalized_hermitian_eigenproblem",
+    )
+
+
 def nonlinear_static(*, stateful: bool = False) -> SolutionProcedure:
     return SolutionProcedure(
         name="nonlinear static",
@@ -187,6 +199,8 @@ def for_step(*, analysis: str, method: str | None = None, stateful: bool = False
     selected_method = _normalize(method or "")
     if selected_analysis == "linear_static":
         return linear_static()
+    if selected_analysis == "modal":
+        return modal()
     if selected_analysis == "nonlinear_static":
         return nonlinear_static(stateful=stateful)
     if selected_analysis == "first_order_transient":
@@ -277,6 +291,11 @@ def _validate_method_name(analysis: str, method: str | None) -> None:
             "central_difference",
         },
         "explicit_dynamics": {"explicit", "central_difference"},
+        "modal": {
+            "modal",
+            "eigenvalue",
+            "generalized_hermitian_eigenproblem",
+        },
     }.get(analysis)
     if allowed is not None and selected not in allowed:
         choices = ", ".join(sorted(allowed))
@@ -297,6 +316,7 @@ def _validate_for_analysis(
         "nonlinear_transient": "first_order",
         "second_order_dynamics": "second_order",
         "explicit_dynamics": "second_order",
+        "modal": "static",
     }.get(analysis)
     if expected_order is None:
         return
@@ -318,6 +338,8 @@ def _validate_for_analysis(
         )
     if analysis == "linear_static" and procedure.nonlinear:
         raise ValueError("A linear-static Study cannot use a nonlinear procedure.")
+    if analysis == "modal" and procedure.nonlinear:
+        raise ValueError("A modal Study cannot use a nonlinear procedure.")
     if analysis in {"nonlinear_static", "nonlinear_transient"} and not procedure.nonlinear:
         raise ValueError(
             f"Analysis {analysis!r} requires a nonlinear SolutionProcedure."
@@ -341,6 +363,7 @@ __all__ = [
     "implicit_euler",
     "implicit_creep",
     "linear_static",
+    "modal",
     "newmark",
     "nonlinear_static",
     "resolve",

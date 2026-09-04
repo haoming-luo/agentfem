@@ -32,6 +32,8 @@ Repository package paths below are relative to `src/agentfem/`.
 - `constraints/`: constraint containers and semantic Dirichlet constructors
 - `loads.py`: loads, natural boundary data, and semantic constructors
 - `constitutive/`: local response relations and queryable maturity catalog
+- `constitutive/viscoelasticity.py`: generalized-Maxwell/Prony spectra,
+  temperature shifts, exact material-point updates, and fixed-spectrum fitting
 - `assessments.py`: standard-neutral engineering damage consumers, explicit
   interaction diagrams, and structured result attachment
 - `constitutive/quadrature.py`: committed/trial integration-point state,
@@ -49,6 +51,7 @@ Repository package paths below are relative to `src/agentfem/`.
 - `operators/`: engineering-level K/M/C/F, transport, SUPG, reaction operators,
   and system containers
 - `time/`: central difference, Newmark, generalized-alpha, progress, and cadence
+- `dynamics.py`: modal reductions, FFT/FRF, and free-decay signal processing
 - `state.py`: restart/replace protocols and generic first-/second-order state
 - `problems.py`: analysis steps and discrete system problems; historical state
   imports are compatibility aliases

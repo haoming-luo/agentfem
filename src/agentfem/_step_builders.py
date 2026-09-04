@@ -1446,6 +1446,50 @@ def finite_strain_explicit_dynamics(
     return model.add_step(step)
 
 
+def modal(
+    model,
+    *,
+    target,
+    modes: int,
+    M=None,
+    K=None,
+    constraints=None,
+    target_frequency: float | None = None,
+    tolerance: float = 1.0e-9,
+    maximum_iterations: int = 1000,
+    rigid_mode_tolerance: float = 1.0e-10,
+    name: str = "modal_analysis",
+):
+    """Build a constrained linear structural modal analysis."""
+
+    from . import problems
+
+    selected_constraints = model.constraints if constraints is None else constraints
+    model.check(
+        target=target,
+        step_options={
+            "M": M,
+            "K": K,
+            "modes": modes,
+            "constraints": selected_constraints,
+        },
+    )
+    step = problems.modal_analysis(
+        target=target,
+        mass=model.mass(target) if M is None else M,
+        stiffness=model.stiffness(target) if K is None else K,
+        modes=modes,
+        study=model.study,
+        constraints=selected_constraints,
+        target_frequency=target_frequency,
+        tolerance=tolerance,
+        maximum_iterations=maximum_iterations,
+        rigid_mode_tolerance=rigid_mode_tolerance,
+        name=name,
+    )
+    return model.add_step(step)
+
+
 def implicit_dynamics(
     model,
     *,

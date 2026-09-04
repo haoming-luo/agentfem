@@ -61,6 +61,13 @@
 - Explicit dynamics integrator: time integrator such as
   `time.explicit.central_difference(...)`; central difference is Newmark with
   beta=0 and gamma=1/2.
+- Modal analysis: constrained generalized Hermitian eigensolve
+  \(K\phi=\omega^2M\phi\); strong prescribed degrees of freedom are removed
+  before solving and each accepted mode retains a relative residual.
+- Generalized Maxwell spectrum: small-strain material-point relaxation model
+  with an equilibrium modulus and positive relaxing branches. It supplies
+  relaxation/storage/loss response and transactional state, but does not by
+  itself imply global finite-element viscoelastic assembly.
 - Diagnostic: quantity used to inspect correctness, stability, or physics.
 - Simulation result: named QoIs, fields, histories, metadata, scientific-input
   identity, and artifact links from one analysis; it bridges solves,

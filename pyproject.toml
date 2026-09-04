@@ -59,6 +59,8 @@ visualization = [
   "imageio",
   "imageio-ffmpeg",
 ]
+modal = ["slepc4py>=3.23"]
+identification = ["scipy>=1.11"]
 parallel-mpc = ["dolfinx_mpc>=0.11,<0.12"]
 docs = [
   "mkdocs>=1.6,<2",

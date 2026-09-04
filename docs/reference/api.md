@@ -33,6 +33,7 @@ and evidence remain in the linked guides and scientific function reference.
 | function | `implicit_dynamics(*, physics: str, dimension: int, assumption: str \| None = None, method: str = 'newmark', name: str \| None = None) -> Study` | Define second-order dynamics with a Standard/implicit preference. |
 | function | `explicit_dynamics(*, physics: str, dimension: int, assumption: str \| None = None, name: str \| None = None) -> Study` | Define second-order dynamics with an Explicit preference. |
 | function | `dynamic_solid(*, dimension: int, assumption: str \| None = None, method: str = 'explicit', name: str \| None = None) -> Study` | Define structural dynamics without repeating the physics name. |
+| function | `modal_solid(*, dimension: int, assumption: str \| None = None, name: str \| None = None) -> Study` | Define a linear structural modal analysis. |
 
 ## `agentfem.mesh`
 
@@ -261,6 +262,14 @@ and evidence remain in the linked guides and scientific function reference.
 | class | `UserMaterial` | Protocol implemented by native or adapted material-point models. |
 | function | `check_material_tangent(material: UserMaterial, point: MaterialPointInput, *, relative_step: float = 1e-07, tolerance: float = 1e-05) -> MaterialTangentCheck` | Compare a declared ``dP/dF`` against fixed-state finite differences. |
 | function | `validated_material_update(material: UserMaterial, point: MaterialPointInput) -> MaterialPointOutput` | Run one material update and verify the complete solver contract. |
+| class | `ArrheniusShift` | Arrhenius time-temperature shift factor. |
+| class | `GeneralizedMaxwell` | Small-strain generalized-Maxwell relaxation spectrum. |
+| class | `MaxwellState` | Committed state for a generalized-Maxwell material point. |
+| class | `PronyFit` | Deterministic fixed-spectrum relaxation fit with validation evidence. |
+| class | `ViscoelasticUpdate` | One trial material-point update that can be committed atomically. |
+| class | `WLFShift` | Williams--Landel--Ferry time-temperature shift factor. |
+| function | `fit_relaxation_prony(time, modulus, relaxation_times, *, nonnegative: bool = True, name: str = 'fitted_prony_series') -> PronyFit` | Fit a relaxation spectrum for user-declared relaxation times. |
+| function | `standard_linear_solid(*, equilibrium_modulus: float, relaxing_modulus: float, relaxation_time: float, shift: WLFShift \| ArrheniusShift \| None = None, name: str = 'standard_linear_solid') -> GeneralizedMaxwell` | Create a standard linear solid as one Maxwell branch in parallel. |
 
 ## `agentfem.constraints`
 
@@ -632,6 +641,20 @@ and evidence remain in the linked guides and scientific function reference.
 | function | `fem_observation_sample(function, grid, *, name: str \| None = None, unit: str \| None = None, role: str = 'output', components = (), outside: str = 'raise', fill_value: float = 0.0, coordinate_map = None, configuration: str = 'reference') -> FEMFieldSample` | Sample a FEM field on a reusable structured observation grid. |
 | function | `to_torch(dataset: ScientificDataset, *, normalized_inputs: bool = True, dtype: str = 'float32', device: str = 'cpu') -> TorchDatasetBundle` | Expose a validated campaign dataset as a PyTorch ``TensorDataset``. |
 
+## `agentfem.dynamics`
+
+| Kind | Public object | Purpose |
+| --- | --- | --- |
+| class | `SignalSpectrum` | One-sided spectrum of a uniformly sampled real signal. |
+| class | `FrequencyResponse` | Complex frequency-response function with inspectable coherence mask. |
+| class | `DampingEstimate` | Free-decay damping estimate from same-sign displacement peaks. |
+| class | `ModalBasis` | Mass-normalized modes and their natural frequencies. |
+| function | `spectrum(time, signal = None, *, window: str \| None = 'hann', remove_mean: bool = True) -> SignalSpectrum` | Compute a correctly scaled one-sided FFT for a real signal. |
+| function | `frequency_response(time, excitation, response = None, *, window: str \| None = 'hann', minimum_input_ratio: float = 1e-10) -> FrequencyResponse` | Estimate an FRF from synchronous input and output time histories. |
+| function | `damping_from_free_decay(signal, *, peak_indices: Sequence[int] \| None = None) -> DampingEstimate` | Estimate damping from positive peaks of an underdamped free decay. |
+| function | `solve_dense_modes(stiffness, mass, *, modes: int \| None = None) -> ModalBasis` | Solve a small dense symmetric generalized eigenproblem. |
+| function | `modal_frequency_response(basis: ModalBasis, frequencies, modal_force, *, damping_ratio = 0.0) -> np.ndarray` | Return modal coordinates for harmonic forcing by modal superposition. |
+
 ## `agentfem.events`
 
 | Kind | Public object | Purpose |
@@ -905,6 +928,7 @@ and evidence remain in the linked guides and scientific function reference.
 | --- | --- | --- |
 | class | `SolutionProcedure` | Inspectable, backend-neutral description of a solution algorithm. |
 | function | `linear_static() -> SolutionProcedure` | Public AgentFEM object. |
+| function | `modal() -> SolutionProcedure` | Undamped linear modes from ``K phi = lambda M phi``. |
 | function | `nonlinear_static(*, stateful: bool = False) -> SolutionProcedure` | Public AgentFEM object. |
 | function | `implicit_euler(*, nonlinear: bool = False, stateful: bool = True) -> SolutionProcedure` | Public AgentFEM object. |
 | function | `implicit_creep() -> SolutionProcedure` | Quasi-static backward-Euler creep with global Newton equilibrium. |
@@ -1241,6 +1265,8 @@ This package exposes its public objects through focused submodules.
 | class | `FEMProblem` | Lightweight finite-element problem description. |
 | class | `LinearVariationalProblem` | A standard linear variational problem, ``a(u, v) = L(v)``. |
 | class | `LinearSystemProblem` | Engineering-level linear system problem, usually ``K x = F``. |
+| class | `ModalSolveInfo` | Convergence and filtering evidence for one modal solve. |
+| class | `ModalAnalysisStep` | Constrained linear modes from ``K phi = lambda M phi``. |
 | class | `NonlinearVariationalProblem` | Nonlinear residual problem ``R(u; v) = 0`` solved by PETSc SNES. |
 | class | `NonlinearLoadIncrementInfo` | Convergence evidence for one ordinary nonlinear load increment. |
 | class | `NonlinearLoadPathInfo` | Accepted and attempted increments for an ordinary nonlinear step. |
@@ -1260,6 +1286,7 @@ This package exposes its public objects through focused submodules.
 | function | `first_order_transient_run(*, capacity, stiffness, history, current, previous, dt: float, steps: int, source = None, study = None, constraints = None, bcs = None, solver_options: LinearSolverOptions \| None = None, update_load = None, save_every: int \| None = None, print_every: int \| None = None, progress = True, status_file = None, checkpoint_policy = None, name: str = 'first_order_transient') -> FirstOrderTransientStep` | Create an executable implicit-Euler time step and loop. |
 | function | `nonlinear_first_order_transient_run(*, residual, jacobian, current, previous, dt: float, steps: int, study = None, constraints = None, bcs = None, solver_options: NonlinearSolverOptions \| NewtonSolverOptions \| None = None, update_load = None, save_every: int \| None = None, print_every: int \| None = None, progress = True, status_file = None, checkpoint_policy = None, history_monitor = None, name: str = 'nonlinear_first_order_transient', petsc_options_prefix: str = 'agentfem_nonlinear_transient_') -> FirstOrderTransientStep` | Create a nonlinear implicit-Euler step with the shared lifecycle. |
 | function | `explicit_dynamics(*, state, integrator, residual, stiffness = None, dt: float, steps: int, study = None, prescribed = (), constraints = (), update_load = None, save_every: int \| None = None, print_every: int \| None = None, history_every: int = 1, progress = True, status_file = None, checkpoint_policy = None, history_monitor = None, stability = None, name: str = 'explicit_dynamics') -> ExplicitDynamicsStep` | Create a second-order explicit dynamics step. |
+| function | `modal_analysis(*, target, mass, stiffness, modes: int, study = None, constraints = (), bcs = None, target_frequency: float \| None = None, tolerance: float = 1e-09, maximum_iterations: int = 1000, rigid_mode_tolerance: float = 1e-10, name: str = 'modal_analysis') -> ModalAnalysisStep` | Create an undamped linear structural modal analysis. |
 | function | `implicit_dynamics(*, state, mass, stiffness, force, damping = None, dt: float, steps: int, parameters = None, study = None, constraints = (), bcs = None, solver_options: LinearSolverOptions \| None = None, update_load = None, progress = True, status_file = None, checkpoint_policy = None, save_every: int \| None = None, print_every: int \| None = None, name: str = 'implicit_dynamics') -> ImplicitDynamicsStep` | Create a linear Newmark or generalized-alpha dynamics step. |
 
 ## `agentfem.provenance`

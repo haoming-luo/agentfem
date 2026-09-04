@@ -15,49 +15,54 @@ unless the example is intentionally advanced.
    Intermediate template. Demonstrates first-order transient heat conduction
    with visible `C`, `K`, history, source, time stepper, and output.
 
-3. `wave_packet_plate_2d.py`
+3. `modal_cantilever_2d.py`
+   Linear structural dynamics foundation. Demonstrates the public modal Study,
+   Q2 bending discretization, strong-constraint elimination, distributed SLEPc
+   modes, and structured natural-frequency and mode-shape output.
+
+4. `wave_packet_plate_2d.py`
    Advanced explicit dynamics example. Demonstrates source amplitudes,
    central-difference integration, periodic projection, and absorbing boundary
    contributions.
 
-4. `wave_packet_inclusion_2d.py`
+5. `wave_packet_inclusion_2d.py`
    Advanced material-region example. Demonstrates a stiff circular inclusion,
    regional material assignment, explicit dynamics, periodic projection, and
    absorbing boundary handling.
 
-5. `static_elasticity_surrogate_campaign.py`
+6. `static_elasticity_surrogate_campaign.py`
    AI-native collection workflow. Demonstrates typed parameters, a
    reproducible design of experiments, fresh FEniCSx model construction per
    case, resumable execution records, a unit-aware scientific dataset, a
    failure-aware dataset gate, a transparent surrogate baseline, independent
    validation, and guarded high-fidelity fallback.
 
-6. `campaign_from_json.py`
+7. `campaign_from_json.py`
    Small declarative sweep. Parameters, sampling, outputs, and execution policy
    come from JSON; trusted scientific evaluation remains Python.
 
-7. `material_models.py`
+8. `material_models.py`
    Nonlinear-material scope example. Prints the maturity catalog and exercises
    a J2 uniaxial load path, power-law creep history, rainflow counting, and
    Miner damage.
 
-8. `j2_plasticity_3d.py`
+9. `j2_plasticity_3d.py`
    Global path-dependent mechanics. Demonstrates quadrature-point state,
    analytical consistent tangent, automatic incrementation, rollback, and the
    standard progress stream.
 
-9. `thermal_stress_wall_2d.py`
+10. `thermal_stress_wall_2d.py`
    Power-plant-oriented sequential coupling. One thermoelastic material feeds
    implicit heat transfer and the equivalent thermal-expansion load of a
    plane-strain stress solve.
 
-10. `creep_hot_wall_assessment.py`
+11. `creep_hot_wall_assessment.py`
    Power-component screening route. Connects transient heat FEM, sequential
    thermoelastic stress, exact Kachanov--Rabotnov damage integration, and a
    modified-theta projection in one result manifest. Parameters are
    illustrative and the example clearly does not claim a global creep field.
 
-11. `abaqus_c3d10h_periodic_cell/case.py`
+12. `abaqus_c3d10h_periodic_cell/case.py`
    Advanced interoperability and finite-deformation reference. Imports a real
    Abaqus `C3D10H` mesh, preserves hybrid identity and node labels, eliminates 4,212 periodic
    `*EQUATION` constraints, solves a 3D Neo-Hookean load path, and writes
@@ -70,6 +75,7 @@ From the `agentfem` directory:
 
 ```bash
 python examples/static_elasticity_2d.py
+python examples/modal_cantilever_2d.py
 python examples/transient_heat_2d.py
 python examples/static_elasticity_surrogate_campaign.py
 python examples/campaign_from_json.py

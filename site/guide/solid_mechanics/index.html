@@ -574,6 +574,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#exact-periodic-linear-systems" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Exact periodic linear systems
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#axisymmetric-solids" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1287,6 +1298,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#exact-periodic-linear-systems" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Exact periodic linear systems
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#axisymmetric-solids" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1494,15 +1516,31 @@ layer.</p>
 <li>Request standard fields and histories.</li>
 <li>Accept the result only after the required verification policy passes.</li>
 </ol>
+<h2 id="exact-periodic-linear-systems">Exact periodic linear systems<a class="headerlink" href="#exact-periodic-linear-systems" title="Permanent link">&para;</a></h2>
+<p>Rectangular small-strain cells can use the same public Step grammar with an
+exact distributed constraint:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="n">periodicity</span> <span class="o">=</span> <span class="n">constraints</span><span class="o">.</span><span class="n">rectangular_periodic_mpc</span><span class="p">(</span><span class="n">displacement</span><span class="p">)</span>
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="n">result</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">step</span><span class="p">(</span>
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>    <span class="n">target</span><span class="o">=</span><span class="n">displacement</span><span class="p">,</span>
+<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>    <span class="n">constraints</span><span class="o">=</span><span class="n">periodicity</span><span class="p">,</span>
+<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="p">)</span><span class="o">.</span><span class="n">solve_result</span><span class="p">()</span>
+</code></pre></div>
+<p>The linear provider separates ordinary Dirichlet data from exact MPC
+elimination before assembly and supports the same route in serial and MPI.
+Only one exact-MPC provider may own a linear system. The solved field and
+constraint-construction diagnostics are retained in the Result; global
+reaction and work balance remain explicitly unavailable until that provider
+can supply a physical-space dual and its conjugate coordinate. Solver
+convergence alone is not used to invent those quantities.</p>
 <h2 id="axisymmetric-solids">Axisymmetric solids<a class="headerlink" href="#axisymmetric-solids" title="Permanent link">&para;</a></h2>
 <p>Declare the formulation on the Study; do not manually insert cylindrical
 weights into an ordinary planar model:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="n">study</span> <span class="o">=</span> <span class="n">studies</span><span class="o">.</span><span class="n">static_solid</span><span class="p">(</span><span class="n">dimension</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">assumption</span><span class="o">=</span><span class="s2">&quot;axisymmetric&quot;</span><span class="p">)</span>
-<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="n">model</span> <span class="o">=</span> <span class="n">models</span><span class="o">.</span><span class="n">create</span><span class="p">(</span><span class="n">study</span><span class="o">=</span><span class="n">study</span><span class="p">,</span> <span class="n">mesh</span><span class="o">=</span><span class="n">meridian</span><span class="p">)</span>
-<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="n">u</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">field</span><span class="p">(</span><span class="n">fields</span><span class="o">.</span><span class="n">displacement</span><span class="p">(</span><span class="n">meridian</span><span class="p">,</span> <span class="n">degree</span><span class="o">=</span><span class="mi">2</span><span class="p">))</span>
-<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="n">model</span><span class="o">.</span><span class="n">material</span><span class="p">(</span><span class="n">constitutive</span><span class="o">.</span><span class="n">isotropic_elastic</span><span class="p">(</span><span class="n">young</span><span class="o">=</span><span class="n">E</span><span class="p">,</span> <span class="n">poisson</span><span class="o">=</span><span class="n">nu</span><span class="p">))</span>
-<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="n">model</span><span class="o">.</span><span class="n">pressure</span><span class="p">(</span><span class="n">p</span><span class="p">,</span> <span class="n">on</span><span class="o">=</span><span class="n">inner_wall</span><span class="p">)</span>
-<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="n">result</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">step</span><span class="p">(</span><span class="n">target</span><span class="o">=</span><span class="n">u</span><span class="p">)</span><span class="o">.</span><span class="n">solve_result</span><span class="p">()</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="n">study</span> <span class="o">=</span> <span class="n">studies</span><span class="o">.</span><span class="n">static_solid</span><span class="p">(</span><span class="n">dimension</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">assumption</span><span class="o">=</span><span class="s2">&quot;axisymmetric&quot;</span><span class="p">)</span>
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="n">model</span> <span class="o">=</span> <span class="n">models</span><span class="o">.</span><span class="n">create</span><span class="p">(</span><span class="n">study</span><span class="o">=</span><span class="n">study</span><span class="p">,</span> <span class="n">mesh</span><span class="o">=</span><span class="n">meridian</span><span class="p">)</span>
+<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="n">u</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">field</span><span class="p">(</span><span class="n">fields</span><span class="o">.</span><span class="n">displacement</span><span class="p">(</span><span class="n">meridian</span><span class="p">,</span> <span class="n">degree</span><span class="o">=</span><span class="mi">2</span><span class="p">))</span>
+<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="n">model</span><span class="o">.</span><span class="n">material</span><span class="p">(</span><span class="n">constitutive</span><span class="o">.</span><span class="n">isotropic_elastic</span><span class="p">(</span><span class="n">young</span><span class="o">=</span><span class="n">E</span><span class="p">,</span> <span class="n">poisson</span><span class="o">=</span><span class="n">nu</span><span class="p">))</span>
+<a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a><span class="n">model</span><span class="o">.</span><span class="n">pressure</span><span class="p">(</span><span class="n">p</span><span class="p">,</span> <span class="n">on</span><span class="o">=</span><span class="n">inner_wall</span><span class="p">)</span>
+<a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a><span class="n">result</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">step</span><span class="p">(</span><span class="n">target</span><span class="o">=</span><span class="n">u</span><span class="p">)</span><span class="o">.</span><span class="n">solve_result</span><span class="p">()</span>
 </code></pre></div>
 <p>Coordinates and displacement are <span class="arithmatex">\((r,z)\)</span>; <code>S</code> and <code>E</code> are full
 <span class="arithmatex">\((r,\theta,z)\)</span> tensors. Pressure, traction, body loads, energy, and standard
@@ -1517,22 +1555,22 @@ regularity declaration is absent.</p>
 non-overlapping equilibrium providers. Ordinary solids use strong Dirichlet or
 remote-displacement constraints and may include body forces or natural loads
 defined in the reference configuration:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="n">material</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">material</span><span class="p">(</span>
-<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>    <span class="n">constitutive</span><span class="o">.</span><span class="n">finite_strain_j2_logarithmic</span><span class="p">(</span>
-<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>        <span class="n">young</span><span class="o">=</span><span class="mf">210e3</span><span class="p">,</span>
-<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a>        <span class="n">poisson</span><span class="o">=</span><span class="mf">0.3</span><span class="p">,</span>
-<a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a>        <span class="n">yield_stress</span><span class="o">=</span><span class="mf">250.0</span><span class="p">,</span>
-<a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a>        <span class="n">hardening_modulus</span><span class="o">=</span><span class="mf">1e3</span><span class="p">,</span>
-<a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a>    <span class="p">)</span>
-<a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a><span class="p">)</span>
-<a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a><span class="n">model</span><span class="o">.</span><span class="n">fix</span><span class="p">(</span><span class="n">u</span><span class="p">,</span> <span class="n">on</span><span class="o">=</span><span class="n">clamp</span><span class="p">,</span> <span class="n">value</span><span class="o">=</span><span class="p">(</span><span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">))</span>
-<a id="__codelineno-1-10" name="__codelineno-1-10" href="#__codelineno-1-10"></a><span class="n">model</span><span class="o">.</span><span class="n">body_force</span><span class="p">((</span><span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="o">-</span><span class="n">body_force</span><span class="p">),</span> <span class="n">target</span><span class="o">=</span><span class="n">u</span><span class="p">)</span>
-<a id="__codelineno-1-11" name="__codelineno-1-11" href="#__codelineno-1-11"></a><span class="n">step</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">step</span><span class="p">(</span>
-<a id="__codelineno-1-12" name="__codelineno-1-12" href="#__codelineno-1-12"></a>    <span class="n">target</span><span class="o">=</span><span class="n">u</span><span class="p">,</span>
-<a id="__codelineno-1-13" name="__codelineno-1-13" href="#__codelineno-1-13"></a>    <span class="n">material</span><span class="o">=</span><span class="n">material</span><span class="p">,</span>
-<a id="__codelineno-1-14" name="__codelineno-1-14" href="#__codelineno-1-14"></a>    <span class="n">incrementation</span><span class="o">=</span><span class="n">steps</span><span class="o">.</span><span class="n">automatic</span><span class="p">(</span><span class="n">initial</span><span class="o">=</span><span class="mf">0.1</span><span class="p">,</span> <span class="n">maximum</span><span class="o">=</span><span class="mf">0.2</span><span class="p">),</span>
-<a id="__codelineno-1-15" name="__codelineno-1-15" href="#__codelineno-1-15"></a><span class="p">)</span>
-<a id="__codelineno-1-16" name="__codelineno-1-16" href="#__codelineno-1-16"></a><span class="n">result</span> <span class="o">=</span> <span class="n">step</span><span class="o">.</span><span class="n">solve_result</span><span class="p">()</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="n">material</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">material</span><span class="p">(</span>
+<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>    <span class="n">constitutive</span><span class="o">.</span><span class="n">finite_strain_j2_logarithmic</span><span class="p">(</span>
+<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>        <span class="n">young</span><span class="o">=</span><span class="mf">210e3</span><span class="p">,</span>
+<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a>        <span class="n">poisson</span><span class="o">=</span><span class="mf">0.3</span><span class="p">,</span>
+<a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a>        <span class="n">yield_stress</span><span class="o">=</span><span class="mf">250.0</span><span class="p">,</span>
+<a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a>        <span class="n">hardening_modulus</span><span class="o">=</span><span class="mf">1e3</span><span class="p">,</span>
+<a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a>    <span class="p">)</span>
+<a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a><span class="p">)</span>
+<a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a><span class="n">model</span><span class="o">.</span><span class="n">fix</span><span class="p">(</span><span class="n">u</span><span class="p">,</span> <span class="n">on</span><span class="o">=</span><span class="n">clamp</span><span class="p">,</span> <span class="n">value</span><span class="o">=</span><span class="p">(</span><span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">))</span>
+<a id="__codelineno-2-10" name="__codelineno-2-10" href="#__codelineno-2-10"></a><span class="n">model</span><span class="o">.</span><span class="n">body_force</span><span class="p">((</span><span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="o">-</span><span class="n">body_force</span><span class="p">),</span> <span class="n">target</span><span class="o">=</span><span class="n">u</span><span class="p">)</span>
+<a id="__codelineno-2-11" name="__codelineno-2-11" href="#__codelineno-2-11"></a><span class="n">step</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">step</span><span class="p">(</span>
+<a id="__codelineno-2-12" name="__codelineno-2-12" href="#__codelineno-2-12"></a>    <span class="n">target</span><span class="o">=</span><span class="n">u</span><span class="p">,</span>
+<a id="__codelineno-2-13" name="__codelineno-2-13" href="#__codelineno-2-13"></a>    <span class="n">material</span><span class="o">=</span><span class="n">material</span><span class="p">,</span>
+<a id="__codelineno-2-14" name="__codelineno-2-14" href="#__codelineno-2-14"></a>    <span class="n">incrementation</span><span class="o">=</span><span class="n">steps</span><span class="o">.</span><span class="n">automatic</span><span class="p">(</span><span class="n">initial</span><span class="o">=</span><span class="mf">0.1</span><span class="p">,</span> <span class="n">maximum</span><span class="o">=</span><span class="mf">0.2</span><span class="p">),</span>
+<a id="__codelineno-2-15" name="__codelineno-2-15" href="#__codelineno-2-15"></a><span class="p">)</span>
+<a id="__codelineno-2-16" name="__codelineno-2-16" href="#__codelineno-2-16"></a><span class="n">result</span> <span class="o">=</span> <span class="n">step</span><span class="o">.</span><span class="n">solve_result</span><span class="p">()</span>
 </code></pre></div>
 <p>Follower/current-configuration loads, absolute time-dependent Dirichlet
 histories, weak boundary models, contact, and MPC constraints fail closed until
@@ -1548,24 +1586,24 @@ execution uses the reviewed <code>dolfinx_mpc</code> reduction.</p>
 <p>A proportional endpoint may be passed as <code>deformation_gradient=F_end</code>. For
 unloading, reloading, or a change of loading direction, declare the physical
 matrix history explicitly:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="n">macro_path</span> <span class="o">=</span> <span class="n">constraints</span><span class="o">.</span><span class="n">deformation_gradient_path</span><span class="p">(</span>
-<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>    <span class="p">(</span><span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.35</span><span class="p">,</span> <span class="mf">0.65</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">),</span>
-<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>    <span class="p">(</span><span class="n">F_identity</span><span class="p">,</span> <span class="n">F_loaded</span><span class="p">,</span> <span class="n">F_unloaded</span><span class="p">,</span> <span class="n">F_shear</span><span class="p">),</span>
-<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="p">)</span>
-<a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a><span class="n">periodicity</span> <span class="o">=</span> <span class="n">constraints</span><span class="o">.</span><span class="n">abaqus_periodic_cell</span><span class="p">(</span>
-<a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a>    <span class="n">displacement</span><span class="p">,</span>
-<a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a>    <span class="n">nodes</span><span class="o">=</span><span class="n">nodes</span><span class="p">,</span>
-<a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a>    <span class="n">equations</span><span class="o">=</span><span class="n">equations</span><span class="p">,</span>
-<a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a>    <span class="n">anchor_node</span><span class="o">=</span><span class="n">anchor</span><span class="p">,</span>
-<a id="__codelineno-2-10" name="__codelineno-2-10" href="#__codelineno-2-10"></a>    <span class="n">reference_nodes</span><span class="o">=</span><span class="n">references</span><span class="p">,</span>
-<a id="__codelineno-2-11" name="__codelineno-2-11" href="#__codelineno-2-11"></a>    <span class="n">deformation_gradient_path</span><span class="o">=</span><span class="n">macro_path</span><span class="p">,</span>
-<a id="__codelineno-2-12" name="__codelineno-2-12" href="#__codelineno-2-12"></a><span class="p">)</span>
-<a id="__codelineno-2-13" name="__codelineno-2-13" href="#__codelineno-2-13"></a><span class="n">step</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">step</span><span class="p">(</span>
-<a id="__codelineno-2-14" name="__codelineno-2-14" href="#__codelineno-2-14"></a>    <span class="n">target</span><span class="o">=</span><span class="n">displacement</span><span class="p">,</span>
-<a id="__codelineno-2-15" name="__codelineno-2-15" href="#__codelineno-2-15"></a>    <span class="n">material</span><span class="o">=</span><span class="n">material</span><span class="p">,</span>
-<a id="__codelineno-2-16" name="__codelineno-2-16" href="#__codelineno-2-16"></a>    <span class="n">constraints</span><span class="o">=</span><span class="n">periodicity</span><span class="p">,</span>
-<a id="__codelineno-2-17" name="__codelineno-2-17" href="#__codelineno-2-17"></a>    <span class="n">incrementation</span><span class="o">=</span><span class="n">steps</span><span class="o">.</span><span class="n">automatic</span><span class="p">(</span><span class="n">initial</span><span class="o">=</span><span class="mf">0.2</span><span class="p">,</span> <span class="n">maximum</span><span class="o">=</span><span class="mf">0.2</span><span class="p">),</span>
-<a id="__codelineno-2-18" name="__codelineno-2-18" href="#__codelineno-2-18"></a><span class="p">)</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="n">macro_path</span> <span class="o">=</span> <span class="n">constraints</span><span class="o">.</span><span class="n">deformation_gradient_path</span><span class="p">(</span>
+<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>    <span class="p">(</span><span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.35</span><span class="p">,</span> <span class="mf">0.65</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">),</span>
+<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a>    <span class="p">(</span><span class="n">F_identity</span><span class="p">,</span> <span class="n">F_loaded</span><span class="p">,</span> <span class="n">F_unloaded</span><span class="p">,</span> <span class="n">F_shear</span><span class="p">),</span>
+<a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="p">)</span>
+<a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a><span class="n">periodicity</span> <span class="o">=</span> <span class="n">constraints</span><span class="o">.</span><span class="n">abaqus_periodic_cell</span><span class="p">(</span>
+<a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a>    <span class="n">displacement</span><span class="p">,</span>
+<a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a>    <span class="n">nodes</span><span class="o">=</span><span class="n">nodes</span><span class="p">,</span>
+<a id="__codelineno-3-8" name="__codelineno-3-8" href="#__codelineno-3-8"></a>    <span class="n">equations</span><span class="o">=</span><span class="n">equations</span><span class="p">,</span>
+<a id="__codelineno-3-9" name="__codelineno-3-9" href="#__codelineno-3-9"></a>    <span class="n">anchor_node</span><span class="o">=</span><span class="n">anchor</span><span class="p">,</span>
+<a id="__codelineno-3-10" name="__codelineno-3-10" href="#__codelineno-3-10"></a>    <span class="n">reference_nodes</span><span class="o">=</span><span class="n">references</span><span class="p">,</span>
+<a id="__codelineno-3-11" name="__codelineno-3-11" href="#__codelineno-3-11"></a>    <span class="n">deformation_gradient_path</span><span class="o">=</span><span class="n">macro_path</span><span class="p">,</span>
+<a id="__codelineno-3-12" name="__codelineno-3-12" href="#__codelineno-3-12"></a><span class="p">)</span>
+<a id="__codelineno-3-13" name="__codelineno-3-13" href="#__codelineno-3-13"></a><span class="n">step</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">step</span><span class="p">(</span>
+<a id="__codelineno-3-14" name="__codelineno-3-14" href="#__codelineno-3-14"></a>    <span class="n">target</span><span class="o">=</span><span class="n">displacement</span><span class="p">,</span>
+<a id="__codelineno-3-15" name="__codelineno-3-15" href="#__codelineno-3-15"></a>    <span class="n">material</span><span class="o">=</span><span class="n">material</span><span class="p">,</span>
+<a id="__codelineno-3-16" name="__codelineno-3-16" href="#__codelineno-3-16"></a>    <span class="n">constraints</span><span class="o">=</span><span class="n">periodicity</span><span class="p">,</span>
+<a id="__codelineno-3-17" name="__codelineno-3-17" href="#__codelineno-3-17"></a>    <span class="n">incrementation</span><span class="o">=</span><span class="n">steps</span><span class="o">.</span><span class="n">automatic</span><span class="p">(</span><span class="n">initial</span><span class="o">=</span><span class="mf">0.2</span><span class="p">,</span> <span class="n">maximum</span><span class="o">=</span><span class="mf">0.2</span><span class="p">),</span>
+<a id="__codelineno-3-18" name="__codelineno-3-18" href="#__codelineno-3-18"></a><span class="p">)</span>
 </code></pre></div>
 <p>The normalized step coordinate remains increasing while the physical
 deformation-gradient components may reverse. The path must start at the
