@@ -13,6 +13,7 @@ Basic reporting is on by default and can be disabled at any time:
 agentfem telemetry status
 agentfem telemetry off
 agentfem telemetry on
+agentfem telemetry route auto       # or: global / china
 ```
 
 Turning reporting off also deletes every unsent automatic event. Local
@@ -31,7 +32,8 @@ It never contains model definitions, meshes, material parameters, source
 code, project or file names, filesystem paths, result values or fields,
 exception messages, or tracebacks. Events are capped at 8 KiB, a maximum of
 64 events is queued locally, successful use is sampled at most once per day,
-and network failure never delays or fails a simulation. The event does not
+and delivery has a 1.5-second total network budget followed by exponential
+backoff. Network failure never fails a simulation. The event does not
 contain the client's activity timestamp; the collector supplies only the UTC
 day used for aggregate reliability counts.
 
@@ -89,18 +91,19 @@ data. The 0.3.1 endpoint is project-owned and passed health, rejection and
 aggregation smoke tests before publication; an unowned placeholder remains
 forbidden.
 
-## Global and mainland-China ingress
+## Independent delivery routes
 
 The packaged endpoint manifest can declare more than one reviewed HTTPS route.
-The global route reaches the aggregate collector directly. The mainland-China
-route is a Tencent Cloud SCF privacy relay: it validates the exact same schema,
-does not store a request, and forwards only the validated JSON body. Function
-URL headers, including the transport address supplied by SCF, are not copied.
-The aggregate collector therefore sees the relay rather than the originating
-client.
+`auto` uses the declared order and remembers the last successful route;
+`global` or `china` moves that reviewed route first. AgentFEM does not infer a
+user's location from an IP address, locale, or model path. One batch stops after
+the first accepted response, so failover does not intentionally duplicate it.
 
-The relay is intentionally not a second analytics implementation. Client,
-relay, and collector retain one event schema and one privacy boundary. Route
-failure changes only delivery; it never changes, duplicates, enriches, or
-reinterprets an event. The deployable reference and contract tests live in
+The global Cloudflare route and Tencent Cloud route are independent aggregate
+collectors. Both validate the same exact schema and immediately reduce valid
+events to daily counters. The Tencent function never reads or stores Function
+URL headers such as the transport address, and its private COS bucket accepts
+only aggregate objects through an SCF runtime role. Route failure changes only
+delivery; it never changes, enriches, or reinterprets a scientific result. The
+deployable Tencent reference and contract tests live in
 `services/reliability-relay-tencent/`.

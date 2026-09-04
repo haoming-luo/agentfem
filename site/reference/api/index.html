@@ -7485,6 +7485,11 @@ and evidence remain in the linked guides and scientific function reference.</p>
 <tbody>
 <tr>
 <td>class</td>
+<td><code>FeedbackEndpoint</code></td>
+<td>One reviewed collector route; never inferred from the user's address.</td>
+</tr>
+<tr>
+<td>class</td>
 <td><code>FeedbackPreferences</code></td>
 <td>Persistent, user-controllable reliability-report preferences.</td>
 </tr>
@@ -7495,7 +7500,7 @@ and evidence remain in the linked guides and scientific function reference.</p>
 </tr>
 <tr>
 <td>function</td>
-<td><code>configure(mode: str, *, endpoint: str \| None = None, notice_shown: bool \| None = None) -&gt; FeedbackPreferences</code></td>
+<td><code>configure(mode: str, *, route: str \| None = None, endpoint: str \| None = None, notice_shown: bool \| None = None) -&gt; FeedbackPreferences</code></td>
 <td>Persist <code>basic</code> or <code>off</code> and return the effective preferences.</td>
 </tr>
 <tr>

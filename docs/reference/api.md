@@ -1152,9 +1152,10 @@ This package exposes its public objects through focused submodules.
 
 | Kind | Public object | Purpose |
 | --- | --- | --- |
+| class | `FeedbackEndpoint` | One reviewed collector route; never inferred from the user's address. |
 | class | `FeedbackPreferences` | Persistent, user-controllable reliability-report preferences. |
 | function | `preferences() -> FeedbackPreferences` | Return the effective preferences without creating local state. |
-| function | `configure(mode: str, *, endpoint: str \| None = None, notice_shown: bool \| None = None) -> FeedbackPreferences` | Persist ``basic`` or ``off`` and return the effective preferences. |
+| function | `configure(mode: str, *, route: str \| None = None, endpoint: str \| None = None, notice_shown: bool \| None = None) -> FeedbackPreferences` | Persist ``basic`` or ``off`` and return the effective preferences. |
 | function | `notice_text() -> str` | Public AgentFEM object. |
 | function | `show_notice_once(*, as_json: bool = False, stream = None) -> bool` | Show the one-time reliability notice on an interactive human route. |
 | function | `failure_fingerprint(error: Mapping[str, object] \| None, *, command: str = 'run') -> str \| None` | Return a message/path-free identity for one class of failure. |

@@ -46,6 +46,7 @@
     "abaqus_lower": "agentfem lower-abaqus ./project --reviewed-by REVIEWER --unit-system SI --json",
     "verify": "agentfem verify --json",
     "telemetry_status": "agentfem telemetry status --json",
+    "telemetry_route": "agentfem telemetry route auto --json",
     "diagnose": "agentfem diagnose --json",
     "assist": "agentfem assist --json",
     "feedback_archive": "agentfem feedback --json"

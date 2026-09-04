@@ -31,7 +31,8 @@ def feedback_home(tmp_path, monkeypatch):
     monkeypatch.delenv("AGENTFEM_TELEMETRY", raising=False)
     monkeypatch.delenv("AGENTFEM_FEEDBACK_ENDPOINT", raising=False)
     monkeypatch.delenv("AGENTFEM_FEEDBACK_ENDPOINTS", raising=False)
-    monkeypatch.setattr(feedback, "_endpoints_from_package", lambda: ())
+    monkeypatch.delenv("AGENTFEM_FEEDBACK_ROUTE", raising=False)
+    monkeypatch.setattr(feedback, "_endpoint_records_from_package", lambda: ())
     monkeypatch.setattr(feedback, "_safe_runtime", lambda: dict(SAFE_RUNTIME))
     return home
 
@@ -40,6 +41,7 @@ def test_release_contains_the_owned_https_collector():
     endpoints = feedback._endpoints_from_package()
     assert endpoints == (
         "https://agentfem-reliability.horming-luo.workers.dev/v1/reliability",
+        "https://1480699086-evo2jiworj.ap-guangzhou.tencentscf.com/v1/reliability",
     )
 
 
@@ -88,7 +90,7 @@ def test_basic_reliability_event_is_exactly_whitelisted(feedback_home):
             "traceback": "private source",
         },
         now=datetime(2026, 8, 31, 8, 42, 23, tzinfo=timezone.utc),
-        event_id="00000000-0000-0000-0000-000000000001",
+        event_id="00000000-0000-4000-8000-000000000001",
     )
     encoded = json.dumps(event)
     assert event["agentfem_version"] == __version__
@@ -102,6 +104,8 @@ def test_basic_reliability_event_is_exactly_whitelisted(feedback_home):
     feedback.validate_event(event)
     with pytest.raises(ValueError, match="whitelist"):
         feedback.validate_event({**event, "project": "confidential"})
+    with pytest.raises(ValueError, match="UUID"):
+        feedback.validate_event({**event, "event_id": "customer-or-project"})
 
 
 def test_feedback_is_on_by_default_and_can_be_disabled(feedback_home):
@@ -121,7 +125,14 @@ def test_marking_notice_preserves_packaged_failover_routes(feedback_home, monkey
         "https://cn.example/v1/reliability",
         "https://global.example/v1/reliability",
     )
-    monkeypatch.setattr(feedback, "_endpoints_from_package", lambda: routes)
+    monkeypatch.setattr(
+        feedback,
+        "_endpoint_records_from_package",
+        lambda: (
+            feedback.FeedbackEndpoint("china", "china", routes[0]),
+            feedback.FeedbackEndpoint("global", "global", routes[1]),
+        ),
+    )
 
     assert feedback.preferences().endpoints == routes
     configured = feedback.configure("basic", notice_shown=True)
@@ -129,7 +140,8 @@ def test_marking_notice_preserves_packaged_failover_routes(feedback_home, monkey
     assert configured.notice_shown is True
     assert configured.endpoints == routes
     stored = json.loads((feedback_home / "preferences.json").read_text(encoding="utf-8"))
-    assert stored["endpoints"] == list(routes)
+    assert stored["endpoints"] == []
+    assert stored["route"] == "auto"
 
 
 def test_bounded_transport_sends_only_the_whitelisted_batch(
@@ -156,7 +168,10 @@ def test_bounded_transport_sends_only_the_whitelisted_batch(
 
     monkeypatch.setattr(feedback.urlrequest, "urlopen", open_request)
     delivered = feedback.flush()
-    assert delivered == {"status": "sent", "sent": 1, "remaining": 0, "route": 0}
+    assert delivered == {
+        "status": "sent", "sent": 1, "remaining": 0,
+        "route": 0, "route_name": "custom-0",
+    }
     payload = json.loads(captured["request"].data)
     assert payload["schema"] == "agentfem.reliability-batch"
     assert payload["events"] == [event]
@@ -194,13 +209,37 @@ def test_transport_uses_first_successful_reviewed_route(feedback_home, monkeypat
     monkeypatch.setattr(feedback.urlrequest, "urlopen", open_request)
     delivered = feedback.flush()
 
-    assert delivered == {"status": "sent", "sent": 1, "remaining": 0, "route": 1}
+    assert delivered == {
+        "status": "sent", "sent": 1, "remaining": 0,
+        "route": 1, "route_name": "custom-1",
+    }
     assert tuple(item[0] for item in attempted) == (
         "https://cn.example/v1/reliability",
         "https://global.example/v1/reliability",
     )
     assert all(item[1] <= feedback.DEFAULT_TIMEOUT_SECONDS / 2 for item in attempted)
     assert feedback.preferences().summary()["delivery_route_count"] == 2
+
+
+def test_route_preference_reorders_reviewed_collectors_without_geolocation(
+    feedback_home, monkeypatch
+):
+    records = (
+        feedback.FeedbackEndpoint("global", "global", "https://global.example/v1/reliability"),
+        feedback.FeedbackEndpoint("china", "china", "https://cn.example/v1/reliability"),
+    )
+    monkeypatch.setattr(feedback, "_endpoint_records_from_package", lambda: records)
+
+    assert feedback.preferences().route_names == ("global", "china")
+    selected = feedback.configure("basic", route="china")
+    assert selected.route == "china"
+    assert selected.route_names == ("china", "global")
+    assert selected.endpoints[0] == "https://cn.example/v1/reliability"
+
+    feedback._delivery_success("global")
+    automatic = feedback.configure("basic", route="auto")
+    assert automatic.route_names == ("global", "china")
+
 
 
 def test_repeated_failure_suggests_agent_only_once(feedback_home):
@@ -268,6 +307,10 @@ def test_cli_telemetry_is_machine_readable(feedback_home, capsys):
     assert cli.main(["telemetry", "off", "--json"]) == 0
     disabled = json.loads(capsys.readouterr().out)
     assert disabled["mode"] == "off"
+    assert cli.main(["telemetry", "route", "china", "--json"]) == 0
+    routed = json.loads(capsys.readouterr().out)
+    assert routed["mode"] == "basic"
+    assert routed["route"] == "china"
 
 
 def test_cli_diagnose_assist_and_feedback_do_not_upload(

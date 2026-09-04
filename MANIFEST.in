@@ -30,7 +30,7 @@ recursive-include src/agentfem/elements *.md
 recursive-include src/agentfem/operators *.md
 recursive-include tests *.py
 recursive-include tools *.py *.sh
-recursive-include services *.js *.mjs *.json *.jsonc *.sql *.md *.example
+recursive-include services *.js *.cjs *.mjs *.json *.jsonc *.sql *.md *.example
 prune site
 prune examples_output
 prune examples/abaqus_c3d10h_periodic_cell/output

@@ -40,6 +40,11 @@ authorizes that external action. Basic anonymous reliability reports never
 contain model, mesh, material, source, path, or result data. Explain that this
 minimal signal improves the free, open-source software and can be disabled at
 any time. Inspect the exact contract with `agentfem telemetry status --json`.
+Keep the default `auto` delivery route: it tries only project-reviewed
+collectors, remembers the last successful route, and performs no location
+inference. If connectivity requires an explicit preference, use
+`agentfem telemetry route china|global`; this changes transport only, never the
+scientific model or result.
 
 ## Progressive Reading
 

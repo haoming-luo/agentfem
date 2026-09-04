@@ -902,10 +902,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#global-and-mainland-china-ingress" class="md-nav__link">
+  <a href="#independent-delivery-routes" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Global and mainland-China ingress
+        Independent delivery routes
       
     </span>
   </a>
@@ -1413,10 +1413,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#global-and-mainland-china-ingress" class="md-nav__link">
+  <a href="#independent-delivery-routes" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Global and mainland-China ingress
+        Independent delivery routes
       
     </span>
   </a>
@@ -1519,6 +1519,7 @@ numerical result lifecycle.</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>agentfem<span class="w"> </span>telemetry<span class="w"> </span>status
 <a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>agentfem<span class="w"> </span>telemetry<span class="w"> </span>off
 <a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>agentfem<span class="w"> </span>telemetry<span class="w"> </span>on
+<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>agentfem<span class="w"> </span>telemetry<span class="w"> </span>route<span class="w"> </span>auto<span class="w">       </span><span class="c1"># or: global / china</span>
 </code></pre></div>
 <p>Turning reporting off also deletes every unsent automatic event. Local
 scientific results and user-created support bundles are unaffected.</p>
@@ -1535,7 +1536,8 @@ scientific results and user-created support bundles are unaffected.</p>
 code, project or file names, filesystem paths, result values or fields,
 exception messages, or tracebacks. Events are capped at 8 KiB, a maximum of
 64 events is queued locally, successful use is sampled at most once per day,
-and network failure never delays or fails a simulation. The event does not
+and delivery has a 1.5-second total network budget followed by exponential
+backoff. Network failure never fails a simulation. The event does not
 contain the client's activity timestamp; the collector supplies only the UTC
 day used for aggregate reliability counts.</p>
 <p>Use <code>agentfem telemetry show-last</code> to inspect the exact latest event, including
@@ -1576,18 +1578,19 @@ events, source IP addresses, user identities, exception text, or scientific
 data. The 0.3.1 endpoint is project-owned and passed health, rejection and
 aggregation smoke tests before publication; an unowned placeholder remains
 forbidden.</p>
-<h2 id="global-and-mainland-china-ingress">Global and mainland-China ingress<a class="headerlink" href="#global-and-mainland-china-ingress" title="Permanent link">&para;</a></h2>
+<h2 id="independent-delivery-routes">Independent delivery routes<a class="headerlink" href="#independent-delivery-routes" title="Permanent link">&para;</a></h2>
 <p>The packaged endpoint manifest can declare more than one reviewed HTTPS route.
-The global route reaches the aggregate collector directly. The mainland-China
-route is a Tencent Cloud SCF privacy relay: it validates the exact same schema,
-does not store a request, and forwards only the validated JSON body. Function
-URL headers, including the transport address supplied by SCF, are not copied.
-The aggregate collector therefore sees the relay rather than the originating
-client.</p>
-<p>The relay is intentionally not a second analytics implementation. Client,
-relay, and collector retain one event schema and one privacy boundary. Route
-failure changes only delivery; it never changes, duplicates, enriches, or
-reinterprets an event. The deployable reference and contract tests live in
+<code>auto</code> uses the declared order and remembers the last successful route;
+<code>global</code> or <code>china</code> moves that reviewed route first. AgentFEM does not infer a
+user's location from an IP address, locale, or model path. One batch stops after
+the first accepted response, so failover does not intentionally duplicate it.</p>
+<p>The global Cloudflare route and Tencent Cloud route are independent aggregate
+collectors. Both validate the same exact schema and immediately reduce valid
+events to daily counters. The Tencent function never reads or stores Function
+URL headers such as the transport address, and its private COS bucket accepts
+only aggregate objects through an SCF runtime role. Route failure changes only
+delivery; it never changes, enriches, or reinterprets a scientific result. The
+deployable Tencent reference and contract tests live in
 <code>services/reliability-relay-tencent/</code>.</p>
 
 

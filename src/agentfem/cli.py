@@ -537,7 +537,13 @@ def _format_record(record: dict[str, object], path: Path) -> str:
 def _command_telemetry(args) -> int:
     from . import feedback as reliability
 
-    if args.action == "on":
+    if args.action == "route":
+        if args.route is None:
+            raise ValueError("Use `agentfem telemetry route auto|global|china`.")
+        selected = reliability.configure("basic", route=args.route)
+        record = selected.summary()
+        human = f"Reliability route preference: {selected.route}."
+    elif args.action == "on":
         selected = reliability.configure("basic")
         record = selected.summary()
         human = (
@@ -563,6 +569,7 @@ def _command_telemetry(args) -> int:
         record = reliability.preferences().summary()
         human = (
             f"Anonymous reliability reporting: {record['mode']}\n"
+            f"Route preference: {record['route']}\n"
             f"Delivery available: {record['delivery_available']}\n"
             f"Queued reports: {record['queue_size']}"
         )
@@ -762,7 +769,13 @@ def build_parser() -> argparse.ArgumentParser:
         "action",
         nargs="?",
         default="status",
-        choices=("status", "on", "off", "show-last", "flush"),
+        choices=("status", "on", "off", "route", "show-last", "flush"),
+    )
+    telemetry.add_argument(
+        "route",
+        nargs="?",
+        choices=("auto", "global", "china"),
+        help="Preferred reliability route when action is 'route'.",
     )
     telemetry.add_argument("--json", action="store_true")
 

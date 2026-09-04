@@ -42,10 +42,14 @@ ISSUES_URL = f"https://github.com/{REPOSITORY}/issues"
 MAX_QUEUED_EVENTS = 64
 MAX_EVENT_BYTES = 8 * 1024
 MAX_BATCH_EVENTS = 8
-DEFAULT_TIMEOUT_SECONDS = 0.75
+# Preserve the original 0.75 s allowance per reviewed collector when two
+# independent routes are packaged. The exponential backoff prevents this
+# worst-case budget from recurring on every command while offline.
+DEFAULT_TIMEOUT_SECONDS = 1.5
 FAILURE_ESCALATION_COUNT = 3
 
 _MODES = ("basic", "off")
+_ROUTES = ("auto", "global", "china")
 _OUTCOMES = ("completed", "failed", "cancelled")
 _DURATION_BUCKETS = (
     "<1s",
@@ -140,8 +144,17 @@ def _last_event_path() -> Path:
     return _feedback_home() / "last-event.json"
 
 
-def _endpoints_from_package() -> tuple[str, ...]:
-    """Return reviewed delivery routes in their declared failover order."""
+@dataclass(frozen=True)
+class FeedbackEndpoint:
+    """One reviewed collector route; never inferred from the user's address."""
+
+    name: str
+    region: str
+    url: str
+
+
+def _endpoint_records_from_package() -> tuple[FeedbackEndpoint, ...]:
+    """Return reviewed delivery routes and their non-user geographic scope."""
 
     try:
         path = resources.files("agentfem") / "feedback-endpoint.json"
@@ -154,21 +167,30 @@ def _endpoints_from_package() -> tuple[str, ...]:
         if not value:
             return ()
         try:
-            return (_validated_endpoint(value),)
+            return (FeedbackEndpoint("global", "global", _validated_endpoint(value)),)
         except (TypeError, ValueError):
             return ()
     if not isinstance(declared, list):
         return ()
-    accepted = []
-    for item in declared:
+    accepted: list[FeedbackEndpoint] = []
+    for index, item in enumerate(declared):
         value = item.get("url") if isinstance(item, Mapping) else item
         try:
             endpoint = _validated_endpoint(value)
         except (TypeError, ValueError):
             continue
-        if endpoint not in accepted:
-            accepted.append(endpoint)
+        if any(record.url == endpoint for record in accepted):
+            continue
+        name = str(item.get("name", f"route-{index}")) if isinstance(item, Mapping) else f"route-{index}"
+        region = str(item.get("region", "global")) if isinstance(item, Mapping) else "global"
+        accepted.append(FeedbackEndpoint(name=name[:32], region=region[:32], url=endpoint))
     return tuple(accepted)
+
+
+def _endpoints_from_package() -> tuple[str, ...]:
+    """Compatibility view of reviewed URLs in their declared order."""
+
+    return tuple(record.url for record in _endpoint_records_from_package())
 
 
 def _endpoint_from_package() -> str | None:
@@ -195,6 +217,8 @@ class FeedbackPreferences:
     notice_shown: bool = False
     endpoint: str | None = None
     fallback_endpoints: tuple[str, ...] = ()
+    route: str = "auto"
+    route_names: tuple[str, ...] = ()
 
     @property
     def endpoints(self) -> tuple[str, ...]:
@@ -211,10 +235,12 @@ class FeedbackPreferences:
             "schema": PREFERENCES_SCHEMA,
             "schema_version": SCHEMA_VERSION,
             "mode": self.mode,
+            "route": self.route,
             "notice_shown": self.notice_shown,
             "endpoint": self.endpoint,
             "delivery_available": bool(self.endpoints),
             "delivery_route_count": len(self.endpoints),
+            "delivery_routes": list(self.route_names),
             "queue_size": queue_size(),
             "privacy": {
                 "models": "never",
@@ -234,6 +260,7 @@ def preferences() -> FeedbackPreferences:
     mode_override = os.environ.get("AGENTFEM_TELEMETRY")
     endpoint_override = os.environ.get("AGENTFEM_FEEDBACK_ENDPOINT")
     endpoints_override = os.environ.get("AGENTFEM_FEEDBACK_ENDPOINTS")
+    route_override = os.environ.get("AGENTFEM_FEEDBACK_ROUTE")
     record: dict[str, object] = {}
     path = _preferences_path()
     try:
@@ -243,18 +270,27 @@ def preferences() -> FeedbackPreferences:
     mode = str(mode_override or record.get("mode", DEFAULT_MODE)).strip().lower()
     if mode not in _MODES:
         mode = DEFAULT_MODE
+    route = str(route_override or record.get("route", "auto")).strip().lower()
+    if route not in _ROUTES:
+        route = "auto"
     declared = ()
     recorded_endpoints = record.get("endpoints")
     if endpoints_override:
         declared = tuple(item.strip() for item in endpoints_override.split(",") if item.strip())
     elif endpoint_override:
         declared = (endpoint_override,)
-    elif isinstance(recorded_endpoints, list):
+    elif isinstance(recorded_endpoints, list) and recorded_endpoints:
         declared = tuple(recorded_endpoints)
     elif record.get("endpoint"):
         declared = (record.get("endpoint"),)
     else:
-        declared = _endpoints_from_package()
+        packaged = list(_endpoint_records_from_package())
+        preferred = _last_successful_route()
+        if route != "auto":
+            packaged.sort(key=lambda item: (item.region != route and item.name != route))
+        elif preferred:
+            packaged.sort(key=lambda item: item.name != preferred)
+        declared = tuple(item.url for item in packaged)
     accepted = []
     for endpoint in declared:
         try:
@@ -263,17 +299,22 @@ def preferences() -> FeedbackPreferences:
             continue
         if selected not in accepted:
             accepted.append(selected)
+    packaged_names = {item.url: item.name for item in _endpoint_records_from_package()}
+    route_names = tuple(packaged_names.get(endpoint, f"custom-{index}") for index, endpoint in enumerate(accepted))
     return FeedbackPreferences(
         mode=mode,
         notice_shown=bool(record.get("notice_shown", False)),
         endpoint=accepted[0] if accepted else None,
         fallback_endpoints=tuple(accepted[1:]),
+        route=route,
+        route_names=route_names,
     )
 
 
 def configure(
     mode: str,
     *,
+    route: str | None = None,
     endpoint: str | None = None,
     notice_shown: bool | None = None,
 ) -> FeedbackPreferences:
@@ -283,16 +324,21 @@ def configure(
     if selected not in _MODES:
         raise ValueError(f"Feedback mode must be one of {_MODES}; received {mode!r}.")
     previous = preferences()
+    selected_route = previous.route if route is None else str(route).strip().lower()
+    if selected_route not in _ROUTES:
+        raise ValueError(f"Feedback route must be one of {_ROUTES}; received {route!r}.")
     selected_endpoints = (
-        previous.endpoints if endpoint is None else (_validated_endpoint(endpoint),)
+        previous.endpoints
+        if endpoint is None and any(name.startswith("custom-") for name in previous.route_names)
+        else () if endpoint is None
+        else (_validated_endpoint(endpoint),)
     )
-    selected_endpoint = selected_endpoints[0] if selected_endpoints else None
     record = {
         "schema": PREFERENCES_SCHEMA,
         "schema_version": SCHEMA_VERSION,
         "mode": selected,
+        "route": selected_route,
         "notice_shown": previous.notice_shown if notice_shown is None else bool(notice_shown),
-        "endpoint": selected_endpoint,
         "endpoints": list(selected_endpoints),
     }
     _atomic_json(_preferences_path(), record)
@@ -477,6 +523,12 @@ def validate_event(record: Mapping[str, object]) -> None:
         raise ValueError("Reliability event outcome is invalid.")
     if record.get("duration_bucket") not in _DURATION_BUCKETS:
         raise ValueError("Reliability duration bucket is invalid.")
+    try:
+        event_id = uuid.UUID(str(record.get("event_id")))
+    except (AttributeError, TypeError, ValueError) as exc:
+        raise ValueError("Reliability event ID must be a UUID.") from exc
+    if event_id.version not in {1, 2, 3, 4, 5}:
+        raise ValueError("Reliability event ID must be a versioned UUID.")
     encoded = json.dumps(record, sort_keys=True, ensure_ascii=False).encode("utf-8")
     if len(encoded) > MAX_EVENT_BYTES:
         raise ValueError("Reliability event exceeds the maximum safe size.")
@@ -556,6 +608,19 @@ def _backoff_path() -> Path:
     return _feedback_home() / "delivery.json"
 
 
+def _route_preference_path() -> Path:
+    return _feedback_home() / "last-route.json"
+
+
+def _last_successful_route() -> str | None:
+    try:
+        record = json.loads(_route_preference_path().read_text(encoding="utf-8"))
+        value = str(record.get("route", "")).strip()
+        return value or None
+    except (FileNotFoundError, OSError, json.JSONDecodeError):
+        return None
+
+
 def _delivery_allowed(now: float) -> bool:
     try:
         record = json.loads(_backoff_path().read_text(encoding="utf-8"))
@@ -578,11 +643,15 @@ def _delivery_failure(now: float) -> None:
     )
 
 
-def _delivery_success() -> None:
+def _delivery_success(route: str) -> None:
     try:
         _backoff_path().unlink()
     except FileNotFoundError:
         pass
+    _atomic_json(
+        _route_preference_path(),
+        {"schema": "agentfem.feedback-route", "route": str(route)[:32]},
+    )
 
 
 def flush(*, timeout: float = DEFAULT_TIMEOUT_SECONDS) -> dict[str, object]:
@@ -648,12 +717,18 @@ def flush(*, timeout: float = DEFAULT_TIMEOUT_SECONDS) -> dict[str, object]:
             path.unlink()
         except OSError:
             pass
-    _delivery_success()
+    delivered_name = (
+        selected.route_names[delivered_route]
+        if delivered_route < len(selected.route_names)
+        else f"route-{delivered_route}"
+    )
+    _delivery_success(delivered_name)
     return {
         "status": "sent",
         "sent": len(valid_paths),
         "remaining": queue_size(),
         "route": delivered_route,
+        "route_name": delivered_name,
     }
 
 

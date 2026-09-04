@@ -19,6 +19,8 @@ status and scientific evidence.
 | `agentfem check --json` | Static project and upgrade check |
 | `agentfem run --json` | Addressable execution result |
 | `agentfem inspect --json` | Result and artifact discovery |
+| `agentfem telemetry status --json` | Exact privacy mode, queue and reviewed delivery routes |
+| `agentfem telemetry route auto|global|china --json` | Optional transport preference without location inference |
 | `agentfem inspect-abaqus model.inp --json` | Side-effect-free legacy-deck inventory |
 | `agentfem inspect-user-material material.for --json` | Fingerprinted UMAT/UHYPER source inventory and migration route |
 | `agentfem migrate-abaqus model.inp ./project --json` | Fail-closed Abaqus migration project |

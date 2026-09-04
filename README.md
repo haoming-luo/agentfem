@@ -99,7 +99,7 @@ agentfem workspace --protect
 ```
 
 <details>
-<summary><strong>Mainland China mirror / 中国大陆镜像</strong></summary>
+<summary><strong>镜像通道</strong></summary>
 
 Use the TUNA conda-forge mirror without changing your global conda
 configuration:
@@ -113,9 +113,8 @@ agentfem doctor
 ```
 
 The mirror carries byte-identical conda artifacts for synchronized releases
-but may briefly lag a new release. See the
-[mainland-China installation notes](INSTALL.md)
-for verification, PyPI fallback, and cache refresh commands.
+but may briefly lag a new release. See the [installation notes](INSTALL.md)
+for verification, fallback, and cache-refresh commands.
 
 </details>
 
