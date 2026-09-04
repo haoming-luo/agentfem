@@ -2,11 +2,12 @@ from __future__ import annotations
 
 import numpy as np
 import pytest
+import ufl
 from dolfinx import fem
 from dolfinx import mesh as dolfinx_mesh
 from mpi4py import MPI
 
-from agentfem import constitutive, constraints, results
+from agentfem import constitutive, constraints, results, solvers
 from agentfem.mesh import abaqus
 from portable_affine_j2_periodic_driver import _step as _finite_strain_j2_step
 
@@ -50,6 +51,134 @@ def test_rectangular_periodic_mpc_is_public_strict_and_distributed():
         "unavailable_without_provider_dual"
     )
     assert periodicity.diagnostics() == diagnostics
+
+
+def test_prepared_mpc_linear_problem_reuses_lifecycle_and_updates_load():
+    domain = dolfinx_mesh.create_unit_square(MPI.COMM_WORLD, 4, 3)
+    space = fem.functionspace(domain, ("Lagrange", 1))
+    solution = fem.Function(space, name="temperature")
+    trial = ufl.TrialFunction(space)
+    test = ufl.TestFunction(space)
+    source = fem.Constant(domain, 1.0)
+    lhs = (ufl.inner(ufl.grad(trial), ufl.grad(test)) + trial * test) * ufl.dx
+    rhs = source * test * ufl.dx
+    periodicity = constraints.rectangular_periodic_mpc(space)
+    problem = solvers.prepare_mpc_linear_problem(
+        lhs,
+        rhs,
+        solution,
+        periodicity,
+        options=solvers.direct_solver(package="mumps"),
+        petsc_options_prefix="agentfem_test_periodic_mass_",
+    )
+
+    first = problem.solve().x.array.copy()
+    source.value = 2.0
+    second = problem.solve().x.array.copy()
+
+    assert problem.last_solve_info is not None
+    assert problem.last_solve_info.converged
+    assert problem.solve_count == 2
+    assert np.max(np.abs(first - 1.0)) < 1.0e-10
+    assert np.max(np.abs(second - 2.0)) < 1.0e-10
+    summary = problem.summary()
+    assert summary["matrix_allocation_reused"] is True
+    assert summary["matrix_values_reassembled"] is True
+    assert summary["constraint"]["diagnostics"]["status"] == "valid"
+
+
+def test_prepared_mpc_linear_problem_transfers_vector_field_layout():
+    domain = dolfinx_mesh.create_unit_square(MPI.COMM_WORLD, 4, 3)
+    space = fem.functionspace(domain, ("Lagrange", 1, (2,)))
+    solution = fem.Function(space, name="displacement")
+    trial = ufl.TrialFunction(space)
+    test = ufl.TestFunction(space)
+    source = fem.Constant(domain, np.asarray((1.0, -2.0)))
+    lhs = (ufl.inner(ufl.grad(trial), ufl.grad(test)) + ufl.inner(trial, test)) * ufl.dx
+    rhs = ufl.inner(source, test) * ufl.dx
+    periodicity = constraints.rectangular_periodic_mpc(space)
+
+    solved = solvers.solve_mpc_linear_problem(
+        lhs,
+        rhs,
+        solution,
+        periodicity,
+        options=solvers.direct_solver(package="mumps"),
+        petsc_options_prefix="agentfem_test_periodic_vector_",
+    )
+    values = solved.x.array.reshape(-1, 2)
+
+    assert np.max(np.abs(values[:, 0] - 1.0)) < 1.0e-10
+    assert np.max(np.abs(values[:, 1] + 2.0)) < 1.0e-10
+
+
+def test_prepared_mpc_linear_problem_rejects_another_function_space():
+    domain = dolfinx_mesh.create_unit_square(MPI.COMM_WORLD, 2, 2)
+    constrained_space = fem.functionspace(domain, ("Lagrange", 1))
+    other_space = fem.functionspace(domain, ("Lagrange", 2))
+    trial = ufl.TrialFunction(constrained_space)
+    test = ufl.TestFunction(constrained_space)
+    periodicity = constraints.rectangular_periodic_mpc(constrained_space)
+
+    with pytest.raises(ValueError, match="compatible FunctionSpace"):
+        solvers.prepare_mpc_linear_problem(
+            trial * test * ufl.dx,
+            test * ufl.dx,
+            fem.Function(other_space),
+            periodicity,
+        )
+
+
+def test_prepared_mpc_linear_problem_rejects_late_overlapping_bc():
+    domain = dolfinx_mesh.create_unit_square(MPI.COMM_WORLD, 3, 2)
+    space = fem.functionspace(domain, ("Lagrange", 1))
+    trial = ufl.TrialFunction(space)
+    test = ufl.TestFunction(space)
+    periodicity = constraints.rectangular_periodic_mpc(space, axes=(0,))
+    right_dofs = fem.locate_dofs_geometrical(
+        space,
+        lambda x: np.isclose(x[0], 1.0),
+    )
+    right = fem.dirichletbc(fem.Constant(domain, 0.0), right_dofs, space)
+
+    with pytest.raises(ValueError, match="Dirichlet and MPC slave DOFs overlap"):
+        solvers.prepare_mpc_linear_problem(
+            trial * test * ufl.dx,
+            test * ufl.dx,
+            fem.Function(space),
+            periodicity,
+            bcs=(right,),
+        )
+
+
+def test_prepared_mpc_linear_problem_accepts_bc_declared_with_constraint():
+    domain = dolfinx_mesh.create_unit_square(MPI.COMM_WORLD, 3, 2)
+    space = fem.functionspace(domain, ("Lagrange", 1))
+    trial = ufl.TrialFunction(space)
+    test = ufl.TestFunction(space)
+    anchor_dofs = fem.locate_dofs_geometrical(
+        space,
+        lambda x: np.logical_and(np.isclose(x[0], 1.0), np.isclose(x[1], 0.0)),
+    )
+    anchor = fem.dirichletbc(fem.Constant(domain, 0.0), anchor_dofs, space)
+    periodicity = constraints.rectangular_periodic_mpc(
+        space,
+        axes=(0,),
+        bcs=(anchor,),
+    )
+
+    problem = solvers.prepare_mpc_linear_problem(
+        (ufl.inner(ufl.grad(trial), ufl.grad(test)) + trial * test) * ufl.dx,
+        test * ufl.dx,
+        fem.Function(space),
+        periodicity,
+        bcs=(anchor,),
+        options=solvers.direct_solver(package="mumps"),
+        petsc_options_prefix="agentfem_test_periodic_with_anchor_",
+    )
+
+    assert problem.solve_count == 0
+    assert problem.summary()["num_bcs"] == 1
 
 
 def test_distributed_abaqus_equation_mapping_and_source_order():

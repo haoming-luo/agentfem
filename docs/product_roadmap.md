@@ -91,9 +91,11 @@ Deepen the finite-element core before broadening the catalog:
   path work is restartable and agrees with the independently computed
   Hill--Mandel macro work. Rectangular periodic MPC construction now exposes
   MPI-aware owned/ghost slave, master-relation and coefficient diagnostics and
-  rejects an incomplete graph before solve. Its distributed reaction
-  distribution and macroscopic work, plus weak and contact providers, remain
-  explicit promotion gates;
+  rejects an incomplete graph before solve. Exact-MPC linear problems now use
+  one shared prepared solver lifecycle across benchmark and future engineering
+  consumers, including ordinary solver policy and convergence evidence. Its
+  distributed reaction distribution and macroscopic work, plus weak and
+  contact providers, remain explicit promotion gates;
 - selected cyclic plasticity, creep--fatigue, and fracture extensions.
 
 ### 2. Engineering workflow

@@ -6564,6 +6564,21 @@ and evidence remain in the linked guides and scientific function reference.</p>
 <td>Prepare one constant linear operator for repeated right-hand sides.</td>
 </tr>
 <tr>
+<td>class</td>
+<td><code>PreparedMPCLinearProblem(bilinear_form, linear_form, solution, constraint, *, bcs = None, options: LinearSolverOptions \| None = None, petsc_options_prefix: str = 'agentfem_mpc_linear_')</code></td>
+<td>Reusable linear solve lowered through one exact MPC provider.</td>
+</tr>
+<tr>
+<td>function</td>
+<td><code>prepare_mpc_linear_problem(bilinear_form, linear_form, solution, constraint, *, bcs = None, options: LinearSolverOptions \| None = None, petsc_options_prefix: str = 'agentfem_mpc_linear_') -&gt; PreparedMPCLinearProblem</code></td>
+<td>Prepare one exact-MPC operator for repeated right-hand sides.</td>
+</tr>
+<tr>
+<td>function</td>
+<td><code>solve_mpc_linear_problem(bilinear_form, linear_form, solution, constraint, *, bcs = None, options: LinearSolverOptions \| None = None, petsc_options_prefix: str = 'agentfem_mpc_linear_', return_info: bool = False)</code></td>
+<td>Solve one linear variational problem with an exact MPC backend.</td>
+</tr>
+<tr>
 <td>function</td>
 <td><code>solve_matrix_system(A, b, x, options: LinearSolverOptions \| None = None, *, raise_on_failure: bool \| None = None) -&gt; LinearSolveInfo</code></td>
 <td>Solve <code>A x = b</code> and return explicit PETSc convergence evidence.</td>

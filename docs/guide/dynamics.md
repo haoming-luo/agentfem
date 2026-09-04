@@ -25,9 +25,13 @@ backend. A serial-only constraint requested under MPI similarly emits
 and future GUIs. `PeriodicProjectionConstraint.diagnostics(field)` adds the
 pair count, coordinate pairing error, unmatched count, and live field
 mismatch. Exact rectangular matching-face construction is shared through
-`constraints.rectangular_periodic_mpc`; consumers still select an MPC-aware
-linear or nonlinear solver explicitly because ordinary DOLFINx and
-`dolfinx_mpc` assembly are not interchangeable.
+`constraints.rectangular_periodic_mpc`. Linear consumers use
+`solvers.prepare_mpc_linear_problem`, which shares solver policy, convergence
+evidence, repeated-solve state transfer, and MPI behavior across procedures.
+Strong boundary conditions must be supplied when the MPC is constructed; a
+late Dirichlet condition that overlaps an owned slave is rejected before
+assembly. Nonlinear consumers still select an MPC-aware provider explicitly
+because ordinary DOLFINx and `dolfinx_mpc` assembly are not interchangeable.
 
 ## Engineering questions to make explicit
 

@@ -1553,8 +1553,13 @@ the roadmap does not turn an experimental formula into a validated solver.</p>
   macro-path generalized reaction verified against
   <span class="arithmatex">\(V\mathbf{P}:\mathrm d\mathbf{F}/\mathrm d\lambda\)</span>. Its accepted nonlinear
   path work is restartable and agrees with the independently computed
-  Hill--Mandel macro work; rectangular MPC, weak and contact providers remain
-  explicit promotion gates;</li>
+  Hill--Mandel macro work. Rectangular periodic MPC construction now exposes
+  MPI-aware owned/ghost slave, master-relation and coefficient diagnostics and
+  rejects an incomplete graph before solve. Exact-MPC linear problems now use
+  one shared prepared solver lifecycle across benchmark and future engineering
+  consumers, including ordinary solver policy and convergence evidence. Its
+  distributed reaction distribution and macroscopic work, plus weak and
+  contact providers, remain explicit promotion gates;</li>
 <li>selected cyclic plasticity, creep--fatigue, and fracture extensions.</li>
 </ul>
 <h3 id="2-engineering-workflow">2. Engineering workflow<a class="headerlink" href="#2-engineering-workflow" title="Permanent link">&para;</a></h3>

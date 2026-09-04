@@ -987,6 +987,11 @@ decision or when a lower layer imports an orchestration layer.</p>
 <li>State has one minimal structural contract for restart and atomic replacement.
   Procedure-specific trial creation remains explicit because a Newton
   increment and a fatigue cycle do not begin with the same scientific inputs.</li>
+<li>Exact MPC construction remains in <code>constraints</code>, while compiled-form,
+  PETSc-allocation, KSP and state-transfer lifecycle lives in <code>solvers</code>. The
+  PDE benchmark consumes this shared boundary rather than owning a private
+  <code>dolfinx_mpc.LinearProblem</code>. Provider-specific reaction and work recovery is
+  deliberately not moved into the solver.</li>
 </ul>
 <p>The next structural split should be evidence-driven: <code>_step_builders.py</code> may
 become a private builder package when independent provider families need

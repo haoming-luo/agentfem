@@ -58,6 +58,14 @@ experimental formulation to a validated one.
   matched, or non-unit periodic relations before solve, while continuing to
   mark reaction distributions and macroscopic work unavailable until a real
   provider dual and work coordinate exist.
+- Add a reusable prepared exact-MPC linear solve lifecycle with ordinary
+  `LinearSolverOptions`, convergence evidence, safe augmented-to-public field
+  transfer, and serial/MPI behavior. The periodic PDE benchmark now consumes
+  this shared solver boundary instead of maintaining private lowering code.
+  Evidence distinguishes reused compilation, allocation, and KSP state from
+  matrix values that the current upstream backend still reassembles per solve.
+  A distributed preflight also rejects Dirichlet conditions that were added
+  after MPC slave selection and overlap owned slave DOFs.
 - Move the shared generalized work and cyclic energy ledger out of the fatigue
   domain module into the Result/Verification ownership layer while preserving
   the existing public compatibility imports.
