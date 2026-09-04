@@ -809,7 +809,16 @@ class AffineNonlinearVariationalProblem:
         evidence = provider(self, load_factor=float(load_factor))
         if evidence is None:
             return
-        self.constraint_dual_history.append(load_factor, evidence)
+        outgoing_evidence = provider(
+            self,
+            load_factor=float(load_factor),
+            path_side="right",
+        )
+        self.constraint_dual_history.append(
+            load_factor,
+            evidence,
+            outgoing_evidence=outgoing_evidence,
+        )
 
     def solve(self, *, until: float = 1.0):
         """Advance to an accepted load factor without discarding prior history."""
@@ -1578,6 +1587,16 @@ class AffineNonlinearVariationalProblem:
                 description=(
                     "Full-residual generalized reaction conjugate to the "
                     "accepted affine path coordinate."
+                ),
+            )
+            result.add_history(
+                "affine_path_outgoing_generalized_reaction",
+                factors,
+                self.constraint_dual_history.outgoing_forces,
+                abscissa_name="load_factor",
+                description=(
+                    "Right-sided generalized reaction at affine path knots; "
+                    "equal to the incoming value on a smooth path."
                 ),
             )
             result.add_quantity(

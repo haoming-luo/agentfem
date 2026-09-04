@@ -73,6 +73,35 @@ def _integrate_gradient_history(material, coordinates, gradients):
     return response
 
 
+def _material_first_piola_history(material, coordinates, gradients):
+    state = material.state_schema.initial_state()
+    old_gradient = np.asarray(gradients[0], dtype=float)
+    first_piola = [np.zeros_like(old_gradient)]
+    for start, target, new_gradient in zip(
+        coordinates[:-1], coordinates[1:], gradients[1:]
+    ):
+        selected_gradient = np.asarray(new_gradient, dtype=float)
+        response = material.update(
+            constitutive.MaterialPointInput(
+                deformation_gradient_old=old_gradient,
+                deformation_gradient_new=selected_gradient,
+                time=float(target),
+                time_increment=float(target - start),
+                properties=[],
+                state_old=state,
+                state_schema=material.state_schema,
+            )
+        )
+        first_piola.append(
+            np.linalg.det(selected_gradient)
+            * response.cauchy_stress
+            @ np.linalg.inv(selected_gradient).T
+        )
+        state = response.state_new.copy()
+        old_gradient = selected_gradient
+    return tuple(first_piola)
+
+
 def _nonproportional_gradient_path(*, final_shear: float = 0.03):
     coordinates = (0.0, 0.35, 0.65, 1.0)
     loaded = np.diag((1.04, 1.0 / np.sqrt(1.04), 1.0 / np.sqrt(1.04)))
@@ -407,6 +436,28 @@ def test_public_affine_j2_consumes_unload_and_nonproportional_macro_path(tmp_pat
         rtol=8.0e-6,
         atol=8.0e-6,
     )
+    piola_history = _material_first_piola_history(
+        material, coordinates, gradients
+    )
+    expected_path_work = periodicity.reference_cell_volume * sum(
+        0.5 * float(np.sum((left_P + right_P) * (right_F - left_F)))
+        for left_P, right_P, left_F, right_F in zip(
+            piola_history[:-1],
+            piola_history[1:],
+            gradients[:-1],
+            gradients[1:],
+        )
+    )
+    assert result.quantity("affine_constraint_path_work") == pytest.approx(
+        expected_path_work,
+        rel=8.0e-6,
+        abs=8.0e-6,
+    )
+    incoming = result.histories["affine_path_generalized_reaction"].values
+    outgoing = result.histories[
+        "affine_path_outgoing_generalized_reaction"
+    ].values
+    assert abs(float(incoming[1, 0] - outgoing[1, 0])) > 1.0e-3
     final_path_tangent = (gradients[-1] - gradients[-2]) / (
         coordinates[-1] - coordinates[-2]
     )

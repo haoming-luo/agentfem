@@ -52,6 +52,7 @@ experimental formulation to a validated one.
   macro reaction comes from full-residual virtual work, accepted path work is
   checkpoint-safe, and periodic J2 tests independently match both
   \(V\mathbf{P}:\mathrm d\mathbf{F}/\mathrm d\lambda\) and Hill--Mandel work.
+  Non-proportional path kinks retain distinct incoming and outgoing duals.
 - Move the shared generalized work and cyclic energy ledger out of the fatigue
   domain module into the Result/Verification ownership layer while preserving
   the existing public compatibility imports.

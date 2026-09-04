@@ -41,6 +41,10 @@ balanced while omitting a real reaction or prescribed-motion contribution.
   trapezoidally integrates the actual generalized-force/path-coordinate
   history; the endpoint evidence remains intentionally incomplete for generic
   static-work consumers;
+- a non-proportional piecewise-linear path stores both incoming and outgoing
+  generalized forces at every kink. Each increment uses the two forces
+  projected on its own path tangent; one ambiguous knot value is never reused
+  across two different deformation directions;
 - existing strong-Dirichlet workflows retain their unconstrained-residual
   route and public result names.
 

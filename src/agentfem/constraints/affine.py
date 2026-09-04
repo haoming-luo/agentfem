@@ -271,7 +271,7 @@ class AffineConstraintDualHistory:
     def clear(self) -> None:
         self.records.clear()
 
-    def append(self, load_factor: float, evidence) -> None:
+    def append(self, load_factor: float, evidence, *, outgoing_evidence=None) -> None:
         factor = float(load_factor)
         force = np.asarray(evidence.force, dtype=float).reshape(-1)
         resultant = (
@@ -282,6 +282,14 @@ class AffineConstraintDualHistory:
         record = {
             "load_factor": factor,
             "force": force.tolist(),
+            "outgoing_force": np.asarray(
+                (
+                    evidence.force
+                    if outgoing_evidence is None
+                    else outgoing_evidence.force
+                ),
+                dtype=float,
+            ).reshape(-1).tolist(),
             "resultant": None if resultant is None else resultant.tolist(),
             "source": str(evidence.source),
         }
@@ -301,6 +309,9 @@ class AffineConstraintDualHistory:
                 )
             factor = float(raw["load_factor"])
             force = np.asarray(raw["force"], dtype=float).reshape(-1)
+            outgoing_force = np.asarray(
+                raw.get("outgoing_force", raw["force"]), dtype=float
+            ).reshape(-1)
             raw_resultant = raw.get("resultant")
             resultant = (
                 None
@@ -313,6 +324,8 @@ class AffineConstraintDualHistory:
                 or factor <= previous
                 or force.size == 0
                 or not np.all(np.isfinite(force))
+                or outgoing_force.shape != force.shape
+                or not np.all(np.isfinite(outgoing_force))
                 or not source
             ):
                 raise ValueError(
@@ -336,6 +349,7 @@ class AffineConstraintDualHistory:
                 {
                     "load_factor": factor,
                     "force": force.tolist(),
+                    "outgoing_force": outgoing_force.tolist(),
                     "resultant": (
                         None if resultant is None else resultant.tolist()
                     ),
@@ -391,6 +405,12 @@ class AffineConstraintDualHistory:
     def forces(self) -> np.ndarray:
         return np.asarray([item["force"] for item in self.records], dtype=float)
 
+    @property
+    def outgoing_forces(self) -> np.ndarray:
+        return np.asarray(
+            [item["outgoing_force"] for item in self.records], dtype=float
+        )
+
     def work(self) -> float:
         if not self.complete:
             raise RuntimeError(
@@ -399,7 +419,7 @@ class AffineConstraintDualHistory:
         return float(
             np.sum(
                 0.5
-                * np.sum(self.forces[:-1] + self.forces[1:], axis=1)
+                * np.sum(self.outgoing_forces[:-1] + self.forces[1:], axis=1)
                 * np.diff(self.factors)
             )
         )
@@ -797,7 +817,13 @@ class AbaqusPeriodicConstraint:
             displacement_lattice @ np.linalg.inv(self._reference_lattice())
         )
 
-    def dual_evidence(self, problem, *, load_factor: float | None = None):
+    def dual_evidence(
+        self,
+        problem,
+        *,
+        load_factor: float | None = None,
+        path_side: str = "left",
+    ):
         """Return the converged affine-path dual owned by this constraint.
 
         The generalized reaction is the virtual work of the *full*,
@@ -834,15 +860,20 @@ class AbaqusPeriodicConstraint:
         )
         if not 0.0 <= accepted_factor <= 1.0:
             raise ValueError("Accepted affine load factor must lie in [0, 1].")
+        selected_side = str(path_side).strip().lower()
+        if selected_side not in {"left", "right"}:
+            raise ValueError("Affine dual path_side must be 'left' or 'right'.")
         if self.deformation_gradient_path is None:
             path_left, path_right = 0.0, 1.0
         else:
             coordinates = np.asarray(
                 self.deformation_gradient_path.coordinates, dtype=float
             )
-            right_index = int(
-                np.searchsorted(coordinates, accepted_factor, side="left")
-            )
+            right_index = int(np.searchsorted(
+                coordinates,
+                accepted_factor,
+                side=selected_side,
+            ))
             right_index = min(max(right_index, 1), coordinates.size - 1)
             path_left = float(coordinates[right_index - 1])
             path_right = float(coordinates[right_index])

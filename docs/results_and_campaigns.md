@@ -211,6 +211,10 @@ Instead, the affine problem records accepted \((Q_\lambda,\lambda)\) samples,
 persists them through checkpoint/restart, and publishes their trapezoidal
 integral as `affine_constraint_path_work`. This path work is independently
 checked against the Hill--Mandel macroscopic work for periodic J2 cells.
+At a kink in a non-proportional deformation history, the result retains both
+`affine_path_generalized_reaction` (incoming) and
+`affine_path_outgoing_generalized_reaction` (right-sided). The work on each
+increment therefore uses that increment's own deformation-gradient tangent.
 
 XDMF is the small XML description and HDF5 is the compact numerical payload.
 Inlining millions of values into XML would produce a much larger and slower
