@@ -225,11 +225,25 @@
       "title": "Mode-I center-crack LEFM extraction"
     },
     {
+      "id": "agentfem.benchmark.linear_cantilever_modal",
+      "physics": "Two-dimensional plane-stress linear-elastic cantilever free vibration",
+      "source": "src/agentfem/knowledge/benchmarks/linear_cantilever_modal.json",
+      "status": "automated_analytical_verification",
+      "title": "Clamped rectangular cantilever first bending mode"
+    },
+    {
       "id": "agentfem.benchmark.linear_static_cantilever",
       "physics": "small-strain isotropic linear elasticity in plane strain",
       "source": "src/agentfem/knowledge/benchmarks/linear_static_cantilever.json",
       "status": "numerical_regression",
       "title": "Two-dimensional linear-static cantilever"
+    },
+    {
+      "id": "agentfem.benchmark.linear_viscoelastic_spectrum",
+      "physics": "Small-strain thermorheologically simple linear viscoelastic relaxation",
+      "source": "src/agentfem/knowledge/benchmarks/linear_viscoelastic_spectrum.json",
+      "status": "automated_analytical_verification",
+      "title": "Generalized-Maxwell relaxation and dynamic spectrum"
     },
     {
       "id": "agentfem.benchmark.mixed_mode_bending_external_contract",
@@ -534,6 +548,31 @@
       "status": "supported",
       "summary": "Three-dimensional and two-dimensional axisymmetric Mises plasticity with linear isotropic hardening, a shared quadrature transaction, analytical algorithmic tangent, cyclic amplitude paths, physical-increment cutback, portable restart, standard fields, and work/energy histories verified on homogeneous, nonuniform, and public thick-cylinder paths.",
       "title": "Global small-strain J2 plasticity"
+    },
+    {
+      "id": "agentfem.material.linear_viscoelastic_dynamics",
+      "kind": "material",
+      "public_api": [
+        "agentfem.studies.modal_solid",
+        "agentfem.models.Model.step",
+        "agentfem.dynamics.spectrum",
+        "agentfem.dynamics.frequency_response",
+        "agentfem.dynamics.damping_from_free_decay",
+        "agentfem.dynamics.modal_frequency_response",
+        "agentfem.constitutive.GeneralizedMaxwell",
+        "agentfem.constitutive.standard_linear_solid",
+        "agentfem.constitutive.WLFShift",
+        "agentfem.constitutive.ArrheniusShift",
+        "agentfem.constitutive.fit_relaxation_prony"
+      ],
+      "related_cards": [
+        "agentfem.workflow.solution_procedures",
+        "agentfem.workflow.transient_checkpoint_portability"
+      ],
+      "source": "src/agentfem/knowledge/cards/linear_viscoelastic_dynamics.json",
+      "status": "experimental",
+      "summary": "Provides standard-linear-solid and generalized-Maxwell/Prony relaxation spectra, exact material-point history updates, temperature shift, positive fixed-spectrum fitting, and solver-independent dynamic signal processing beside the SLEPc structural modal Step.",
+      "title": "Linear viscoelastic relaxation spectrum"
     },
     {
       "id": "agentfem.material.mixed_hybrid_hyperelasticity",
@@ -1096,6 +1135,7 @@
       "public_api": [
         "agentfem.procedures.SolutionProcedure",
         "agentfem.procedures.resolve",
+        "agentfem.studies.modal_solid",
         "agentfem.time.newmark",
         "agentfem.time.generalized_alpha",
         "agentfem.problems.LinearSystemProblem.reaction_field",

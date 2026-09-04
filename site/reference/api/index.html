@@ -1052,6 +1052,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#agentfemdynamics" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        agentfem.dynamics
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#agentfemevents" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1912,6 +1923,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#agentfemdynamics" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        agentfem.dynamics
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#agentfemevents" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -2438,6 +2460,11 @@ and evidence remain in the linked guides and scientific function reference.</p>
 <td>function</td>
 <td><code>dynamic_solid(*, dimension: int, assumption: str \| None = None, method: str = 'explicit', name: str \| None = None) -&gt; Study</code></td>
 <td>Define structural dynamics without repeating the physics name.</td>
+</tr>
+<tr>
+<td>function</td>
+<td><code>modal_solid(*, dimension: int, assumption: str \| None = None, name: str \| None = None) -&gt; Study</code></td>
+<td>Define a linear structural modal analysis.</td>
 </tr>
 </tbody>
 </table>
@@ -3513,6 +3540,46 @@ and evidence remain in the linked guides and scientific function reference.</p>
 <td>function</td>
 <td><code>validated_material_update(material: UserMaterial, point: MaterialPointInput) -&gt; MaterialPointOutput</code></td>
 <td>Run one material update and verify the complete solver contract.</td>
+</tr>
+<tr>
+<td>class</td>
+<td><code>ArrheniusShift</code></td>
+<td>Arrhenius time-temperature shift factor.</td>
+</tr>
+<tr>
+<td>class</td>
+<td><code>GeneralizedMaxwell</code></td>
+<td>Small-strain generalized-Maxwell relaxation spectrum.</td>
+</tr>
+<tr>
+<td>class</td>
+<td><code>MaxwellState</code></td>
+<td>Committed state for a generalized-Maxwell material point.</td>
+</tr>
+<tr>
+<td>class</td>
+<td><code>PronyFit</code></td>
+<td>Deterministic fixed-spectrum relaxation fit with validation evidence.</td>
+</tr>
+<tr>
+<td>class</td>
+<td><code>ViscoelasticUpdate</code></td>
+<td>One trial material-point update that can be committed atomically.</td>
+</tr>
+<tr>
+<td>class</td>
+<td><code>WLFShift</code></td>
+<td>Williams--Landel--Ferry time-temperature shift factor.</td>
+</tr>
+<tr>
+<td>function</td>
+<td><code>fit_relaxation_prony(time, modulus, relaxation_times, *, nonnegative: bool = True, name: str = 'fitted_prony_series') -&gt; PronyFit</code></td>
+<td>Fit a relaxation spectrum for user-declared relaxation times.</td>
+</tr>
+<tr>
+<td>function</td>
+<td><code>standard_linear_solid(*, equilibrium_modulus: float, relaxing_modulus: float, relaxation_time: float, shift: WLFShift \| ArrheniusShift \| None = None, name: str = 'standard_linear_solid') -&gt; GeneralizedMaxwell</code></td>
+<td>Create a standard linear solid as one Maxwell branch in parallel.</td>
 </tr>
 </tbody>
 </table>
@@ -5171,6 +5238,63 @@ and evidence remain in the linked guides and scientific function reference.</p>
 </tr>
 </tbody>
 </table>
+<h2 id="agentfemdynamics"><code>agentfem.dynamics</code><a class="headerlink" href="#agentfemdynamics" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Kind</th>
+<th>Public object</th>
+<th>Purpose</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>class</td>
+<td><code>SignalSpectrum</code></td>
+<td>One-sided spectrum of a uniformly sampled real signal.</td>
+</tr>
+<tr>
+<td>class</td>
+<td><code>FrequencyResponse</code></td>
+<td>Complex frequency-response function with inspectable coherence mask.</td>
+</tr>
+<tr>
+<td>class</td>
+<td><code>DampingEstimate</code></td>
+<td>Free-decay damping estimate from same-sign displacement peaks.</td>
+</tr>
+<tr>
+<td>class</td>
+<td><code>ModalBasis</code></td>
+<td>Mass-normalized modes and their natural frequencies.</td>
+</tr>
+<tr>
+<td>function</td>
+<td><code>spectrum(time, signal = None, *, window: str \| None = 'hann', remove_mean: bool = True) -&gt; SignalSpectrum</code></td>
+<td>Compute a correctly scaled one-sided FFT for a real signal.</td>
+</tr>
+<tr>
+<td>function</td>
+<td><code>frequency_response(time, excitation, response = None, *, window: str \| None = 'hann', minimum_input_ratio: float = 1e-10) -&gt; FrequencyResponse</code></td>
+<td>Estimate an FRF from synchronous input and output time histories.</td>
+</tr>
+<tr>
+<td>function</td>
+<td><code>damping_from_free_decay(signal, *, peak_indices: Sequence[int] \| None = None) -&gt; DampingEstimate</code></td>
+<td>Estimate damping from positive peaks of an underdamped free decay.</td>
+</tr>
+<tr>
+<td>function</td>
+<td><code>solve_dense_modes(stiffness, mass, *, modes: int \| None = None) -&gt; ModalBasis</code></td>
+<td>Solve a small dense symmetric generalized eigenproblem.</td>
+</tr>
+<tr>
+<td>function</td>
+<td><code>modal_frequency_response(basis: ModalBasis, frequencies, modal_force, *, damping_ratio = 0.0) -&gt; np.ndarray</code></td>
+<td>Return modal coordinates for harmonic forcing by modal superposition.</td>
+</tr>
+</tbody>
+</table>
 <h2 id="agentfemevents"><code>agentfem.events</code><a class="headerlink" href="#agentfemevents" title="Permanent link">&para;</a></h2>
 <table>
 <thead>
@@ -6408,6 +6532,11 @@ and evidence remain in the linked guides and scientific function reference.</p>
 <td>function</td>
 <td><code>linear_static() -&gt; SolutionProcedure</code></td>
 <td>Public AgentFEM object.</td>
+</tr>
+<tr>
+<td>function</td>
+<td><code>modal() -&gt; SolutionProcedure</code></td>
+<td>Undamped linear modes from <code>K phi = lambda M phi</code>.</td>
 </tr>
 <tr>
 <td>function</td>
@@ -7832,6 +7961,16 @@ and evidence remain in the linked guides and scientific function reference.</p>
 </tr>
 <tr>
 <td>class</td>
+<td><code>ModalSolveInfo</code></td>
+<td>Convergence and filtering evidence for one modal solve.</td>
+</tr>
+<tr>
+<td>class</td>
+<td><code>ModalAnalysisStep</code></td>
+<td>Constrained linear modes from <code>K phi = lambda M phi</code>.</td>
+</tr>
+<tr>
+<td>class</td>
 <td><code>NonlinearVariationalProblem</code></td>
 <td>Nonlinear residual problem <code>R(u; v) = 0</code> solved by PETSc SNES.</td>
 </tr>
@@ -7924,6 +8063,11 @@ and evidence remain in the linked guides and scientific function reference.</p>
 <td>function</td>
 <td><code>explicit_dynamics(*, state, integrator, residual, stiffness = None, dt: float, steps: int, study = None, prescribed = (), constraints = (), update_load = None, save_every: int \| None = None, print_every: int \| None = None, history_every: int = 1, progress = True, status_file = None, checkpoint_policy = None, history_monitor = None, stability = None, name: str = 'explicit_dynamics') -&gt; ExplicitDynamicsStep</code></td>
 <td>Create a second-order explicit dynamics step.</td>
+</tr>
+<tr>
+<td>function</td>
+<td><code>modal_analysis(*, target, mass, stiffness, modes: int, study = None, constraints = (), bcs = None, target_frequency: float \| None = None, tolerance: float = 1e-09, maximum_iterations: int = 1000, rigid_mode_tolerance: float = 1e-10, name: str = 'modal_analysis') -&gt; ModalAnalysisStep</code></td>
+<td>Create an undamped linear structural modal analysis.</td>
 </tr>
 <tr>
 <td>function</td>

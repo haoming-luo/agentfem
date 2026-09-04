@@ -1,0 +1,154 @@
+{
+  "schema": "agentfem.scientific-function-card",
+  "schema_version": "0.1.0",
+  "id": "agentfem.material.linear_viscoelastic_dynamics",
+  "title": "Linear viscoelastic relaxation spectrum",
+  "kind": "material",
+  "status": "experimental",
+  "summary": "Provides standard-linear-solid and generalized-Maxwell/Prony relaxation spectra, exact material-point history updates, temperature shift, positive fixed-spectrum fitting, and solver-independent dynamic signal processing beside the SLEPc structural modal Step.",
+  "public_api": [
+    "agentfem.studies.modal_solid",
+    "agentfem.models.Model.step",
+    "agentfem.dynamics.spectrum",
+    "agentfem.dynamics.frequency_response",
+    "agentfem.dynamics.damping_from_free_decay",
+    "agentfem.dynamics.modal_frequency_response",
+    "agentfem.constitutive.GeneralizedMaxwell",
+    "agentfem.constitutive.standard_linear_solid",
+    "agentfem.constitutive.WLFShift",
+    "agentfem.constitutive.ArrheniusShift",
+    "agentfem.constitutive.fit_relaxation_prony"
+  ],
+  "implementation": [
+    "dynamics.py",
+    "constitutive/viscoelasticity.py",
+    "problems.py",
+    "step_providers.py"
+  ],
+  "science": {
+    "statement": "Linear structural modes and generalized-Maxwell relaxation are separate reusable assets: the former resolves the constrained K--M spectrum, while the latter describes causal time- and frequency-dependent material response without treating an FFT peak or optimizer loss as constitutive verification.",
+    "equations": [
+      {
+        "label": "undamped modes",
+        "expression": "\\mathbf{K}\\boldsymbol{\\phi}_j=\\omega_j^2\\mathbf{M}\\boldsymbol{\\phi}_j",
+        "description": "Strongly constrained degrees of freedom are removed before the generalized Hermitian eigensolve."
+      },
+      {
+        "label": "relaxation modulus",
+        "expression": "E(t)=E_{\\infty}+\\sum_{i=1}^{N}E_i\\exp\\!\\left(-t/\\tau_i\\right)",
+        "description": "The equilibrium modulus and positive relaxing branches define the instantaneous and long-time limits."
+      },
+      {
+        "label": "complex modulus",
+        "expression": "E^{*}(\\omega)=E_{\\infty}+\\sum_{i=1}^{N}E_i\\frac{\\mathrm{i}\\omega\\tau_i}{1+\\mathrm{i}\\omega\\tau_i}",
+        "description": "Real and imaginary parts give storage and loss modulus; their ratio gives the loss factor."
+      },
+      {
+        "label": "exact branch update",
+        "expression": "q_i^{n+1}=\\exp\\!\\left(-\\Delta t/\\tau_i\\right)q_i^n+E_i\\frac{\\tau_i}{\\Delta t}\\left(1-\\exp\\!\\left(-\\Delta t/\\tau_i\\right)\\right)\\Delta\\varepsilon",
+        "description": "A linear strain path over one increment has an exact branch update and algorithmic modulus."
+      }
+    ],
+    "inputs": [
+      {
+        "name": "modal operators",
+        "type": "symmetric stiffness K, positive mass M, strong constraints and requested mode count",
+        "unit_role": "one consistent mechanical unit system",
+        "description": "The low structural spectrum is solved with SLEPc; a target frequency may be declared."
+      },
+      {
+        "name": "relaxation spectrum",
+        "type": "positive equilibrium modulus, branch moduli and relaxation times",
+        "unit_role": "stress and time",
+        "description": "A Prony factory accepts instantaneous modulus and normalized relaxing ratios."
+      },
+      {
+        "name": "sampled histories",
+        "type": "uniform time and synchronous signal arrays",
+        "unit_role": "time and signal dependent",
+        "description": "FFT and spectral-ratio FRF processing require uniform sampling and record the selected window."
+      }
+    ],
+    "outputs": [
+      {
+        "name": "modal result",
+        "type": "SimulationResult quantities and live mode fields",
+        "unit_role": "inverse time and mass-normalized shape",
+        "description": "Includes eigenvalues, angular frequencies, frequencies, relative residuals and each mode shape."
+      },
+      {
+        "name": "dynamic signal records",
+        "type": "one-sided spectrum, FRF and damping estimate",
+        "unit_role": "frequency, phase and signal-dependent response",
+        "description": "Invalid unexcited FRF bins remain explicit and are excluded from finite result histories."
+      },
+      {
+        "name": "viscoelastic response",
+        "type": "relaxation, storage/loss modulus, loss factor and committed branch state",
+        "unit_role": "stress, time and temperature",
+        "description": "Material-point state may be snapshotted, committed or restored independently of a global solver."
+      }
+    ],
+    "assumptions": [
+      "Modal analysis is linear, undamped, and based on symmetric stiffness and mass operators.",
+      "The generalized-Maxwell law is small-strain and thermorheologically simple when one shift law is supplied.",
+      "The FFT/FRF reference uses uniformly sampled real histories."
+    ],
+    "conventions": [
+      "SLEPc mass-normalizes generalized Hermitian eigenvectors.",
+      "Storage and loss modulus consume angular frequency, not cyclic frequency.",
+      "Positive Prony ratios are fractions of the instantaneous modulus and must sum to less than one.",
+      "A trial material-point update does not modify accepted state until explicitly committed."
+    ],
+    "applicability": [
+      "Natural-frequency and mode-shape analysis for supported linear solid models.",
+      "DMA, relaxation, free-decay and modal-superposition preparation for small-strain linear viscoelastic studies."
+    ],
+    "limitations": [
+      "The generalized-Maxwell state is not yet assembled into a global finite-element transient provider.",
+      "Direct complex harmonic finite-element assembly, complex modes, nonlinear viscoelasticity and physical aging are not implemented.",
+      "Fixed-spectrum fitting does not automatically choose relaxation times or replace calibration/validation separation."
+    ]
+  },
+  "usage": {
+    "minimal_example": "Create studies.modal_solid(...), register displacement/material/constraints, and solve model.step(target=u, modes=6). Use constitutive.GeneralizedMaxwell.from_prony(...) for relaxation/storage/loss curves and dynamics.spectrum(...) or frequency_response(...) for sampled histories.",
+    "examples": [
+      "examples/modal_cantilever_2d.py"
+    ]
+  },
+  "verification": {
+    "tests": [
+      "tests/test_dynamics.py",
+      "tests/test_viscoelasticity.py",
+      "tests/test_parallel_modal.py"
+    ],
+    "benchmarks": [
+      "agentfem.benchmark.linear_cantilever_modal",
+      "agentfem.benchmark.linear_viscoelastic_spectrum"
+    ],
+    "validation_rules": [
+      "Eliminate strong constrained degrees of freedom before the modal solve and reject insufficient free degrees of freedom.",
+      "Require positive moduli and relaxation times, and Prony ratios summing to less than one.",
+      "Separate trial and committed branch state and preserve rollback equivalence.",
+      "Reject nonuniform FFT sampling and mark unexcited FRF bins invalid."
+    ]
+  },
+  "references": [
+    {
+      "title": "SLEPc EPS generalized eigenvalue problem documentation",
+      "locator": "https://slepc.upv.es/release/slepc4py/reference/slepc4py.SLEPc.EPS.html"
+    },
+    {
+      "title": "Abaqus time-domain viscoelastic rod benchmark",
+      "locator": "https://docs.software.vt.edu/abaqusv2025/English/SIMACAEBMKRefMap/simabmk-c-viscorod.htm"
+    },
+    {
+      "title": "Abaqus frequency-domain viscoelasticity",
+      "locator": "https://docs.software.vt.edu/abaqusv2025/English/SIMACAETHERefMap/simathe-c-freqdomainvisco.htm"
+    }
+  ],
+  "related_cards": [
+    "agentfem.workflow.solution_procedures",
+    "agentfem.workflow.transient_checkpoint_portability"
+  ]
+}

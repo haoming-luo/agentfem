@@ -10,6 +10,7 @@ from . import material_driver
 from . import plasticity
 from . import quadrature
 from . import user_material
+from . import viscoelasticity
 from .catalog import ConstitutiveCapability, capabilities, capability
 from .creep import (
     ArrheniusPowerLawCreep,
@@ -126,6 +127,16 @@ from .user_material import (
     check_material_tangent,
     validated_material_update,
 )
+from .viscoelasticity import (
+    ArrheniusShift,
+    GeneralizedMaxwell,
+    MaxwellState,
+    PronyFit,
+    ViscoelasticUpdate,
+    WLFShift,
+    fit_relaxation_prony,
+    standard_linear_solid,
+)
 
 __all__ = [
     "catalog",
@@ -138,8 +149,10 @@ __all__ = [
     "plasticity",
     "quadrature",
     "user_material",
+    "viscoelasticity",
     "AbaqusUserMaterialBridge",
     "ArrheniusPowerLawCreep",
+    "ArrheniusShift",
     "AnisotropicElasticMaterial2D",
     "ConstitutiveCapability",
     "BasquinCurve",
@@ -182,9 +195,11 @@ __all__ = [
     "MaterialStateVariable",
     "MaterialTangentCheck",
     "MaterialTangentConvention",
+    "MaxwellState",
     "KachanovRabotnovCreep",
     "ModifiedThetaProjection",
     "PowerLawCreep",
+    "PronyFit",
     "QuadratureField",
     "QuadratureTransaction",
     "chaboche",
@@ -193,8 +208,11 @@ __all__ = [
     "save_portable_quadrature_state",
     "TabulatedSNCurve",
     "SinhCreep",
+    "GeneralizedMaxwell",
     "UniaxialPlasticState",
     "UserMaterial",
+    "ViscoelasticUpdate",
+    "WLFShift",
     "validated_material_update",
     "update_material_points",
     "check_material_tangent",
@@ -219,6 +237,7 @@ __all__ = [
     "damage_from_history",
     "goodman_amplitude",
     "finite_strain_j2_logarithmic",
+    "fit_relaxation_prony",
     "miner_damage",
     "rainflow_cycles",
     "neo_hookean",
@@ -235,6 +254,7 @@ __all__ = [
     "mooney_rivlin_plane_stress",
     "orthotropic_plane_stress_2d",
     "stress",
+    "standard_linear_solid",
     "turning_points",
     "update_uniaxial",
     "von_mises",

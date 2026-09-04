@@ -1494,7 +1494,9 @@ foundation.</p>
 <p>AgentFEM currently provides executable foundations for:</p>
 <ul>
 <li>linear static solids and steady/transient heat transfer;</li>
-<li>central-difference, Newmark, and generalized-alpha structural dynamics;</li>
+<li>constrained structural modal analysis, central-difference, Newmark, and
+  generalized-alpha structural dynamics, plus reusable FFT, FRF, and
+  free-decay post-processing;</li>
 <li>finite-strain Neo-Hookean and Mooney--Rivlin workflows, plus experimental
   public 3D logarithmic J2 providers for ordinary strong boundaries/reference
   dead loads and affine/MPC cells, with shared provider-owned quadrature output
@@ -1556,6 +1558,9 @@ the roadmap does not turn an experimental formula into a validated solver.</p>
   Hill--Mandel macro work; rectangular MPC, weak and contact providers remain
   explicit promotion gates;</li>
 <li>selected cyclic plasticity, creep--fatigue, and fracture extensions.</li>
+<li>promote generalized-Maxwell/Prony behavior from material-point and spectral
+  verification to a global stateful FEM transient, then add direct harmonic
+  response and independently checked complex modes;</li>
 </ul>
 <h3 id="2-engineering-workflow">2. Engineering workflow<a class="headerlink" href="#2-engineering-workflow" title="Permanent link">&para;</a></h3>
 <p>Make real simulation projects easier to construct and maintain:</p>

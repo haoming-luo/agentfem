@@ -19,6 +19,7 @@ _MATURITY_REQUIREMENTS = {
     "curve_projection_verified": ("curve_projection",),
     "postprocessor": ("postprocess",),
     "material_point_verified": ("material_point",),
+    "material_point_and_spectral_verified": ("material_point", "postprocess"),
     "material_point_experimental": ("material_point",),
     "experimental_global_patch": ("material_point", "finite_element"),
     "experimental_global_mpi_restart": (

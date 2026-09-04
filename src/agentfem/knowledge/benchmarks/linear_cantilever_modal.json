@@ -1,0 +1,45 @@
+{
+  "schema": "agentfem.benchmark-card",
+  "schema_version": "0.1.0",
+  "id": "agentfem.benchmark.linear_cantilever_modal",
+  "title": "Clamped rectangular cantilever first bending mode",
+  "status": "automated_analytical_verification",
+  "purpose": "Verify that the public modal Study assembles consistent solid stiffness and mass, eliminates fixed degrees of freedom, resolves low modes accurately, and returns mass-normalized mode fields with eigenpair residual evidence.",
+  "physics": "Two-dimensional plane-stress linear-elastic cantilever free vibration",
+  "execution": {
+    "command": "python -m pytest -q tests/test_dynamics.py -k modal_step; mpiexec -n 2 python -m pytest -q tests/test_parallel_modal.py",
+    "example": "tests/test_dynamics.py",
+    "evidence": "A Q2 plane-stress solid mesh with 8 by 2 cells gives a first bending frequency of 163.27832561 Hz, 2.60 percent below the Euler--Bernoulli value 167.63805088 Hz. Three eigenpairs pass a relative residual threshold of 1e-7 and the fixed dofs are absent from the reduced K--M problem."
+  },
+  "observables": [
+    "First three positive natural frequencies.",
+    "Relative SLEPc eigenpair residual for every accepted mode.",
+    "Constrained and free degree-of-freedom counts.",
+    "Mass-normalized live finite-element mode fields."
+  ],
+  "acceptance": [
+    "The first finite-element bending frequency must remain within 3.5 percent of the Euler--Bernoulli slender-beam reference for the fixed Q2 mesh.",
+    "The first three accepted frequencies must be positive and strictly increasing.",
+    "Every relative eigenpair residual must remain below 1e-7.",
+    "The result must expose exactly three mode fields through the common SimulationResult contract."
+    ,"The two-rank distributed solve must reproduce the serial frequencies within 1e-7 relative error."
+  ],
+  "golden": {
+    "reference_version": "cantilever-q2-8x2-1",
+    "quantities": [
+      {
+        "name": "first_natural_frequency",
+        "expected": 163.27832561,
+        "relative_tolerance": 1e-7,
+        "absolute_tolerance": 1e-7,
+        "unit": "Hz for the declared SI inputs",
+        "description": "First SLEPc mode for a 1.0 by 0.2 plane-stress cantilever with E=210 GPa, nu=0.3 and density=7800 kg/m^3."
+      }
+    ]
+  },
+  "limitations": [
+    "Euler--Bernoulli theory is used only as a bounded first-mode reference; the finite-height 2D solid contains shear and rotary effects absent from that theory.",
+    "This benchmark verifies undamped linear modes, not complex modes, harmonic response or nonlinear vibration.",
+    "The 3.5 percent criterion is an AgentFEM verification contract, not an external standard tolerance."
+  ]
+}

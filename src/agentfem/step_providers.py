@@ -532,6 +532,7 @@ def _resolve_procedure(model, *, analysis: str, options, requested):
         "nonlinear_transient",
         "second_order_dynamics",
         "explicit_dynamics",
+        "modal",
     }
     if analysis not in known:
         if requested is not None and not isinstance(
@@ -1213,6 +1214,41 @@ def _lower_implicit_dynamics(model, request: StepRequest):
     )
 
 
+def _accept_modal(model, request: StepRequest) -> bool:
+    complete_system = all(
+        request.options.get(item) is not None for item in ("M", "K")
+    )
+    return (
+        request.target is not None
+        and _is_vector_target(request.target)
+        and getattr(getattr(model, "study", None), "physics", None)
+        == "solid_mechanics"
+        and getattr(getattr(model, "study", None), "analysis", None) == "modal"
+        and (
+            complete_system
+            or _all_materials_support(model, request, _supports_dynamics)
+        )
+    )
+
+
+def _lower_modal(model, request: StepRequest):
+    from . import _step_builders
+
+    options = dict(request.options)
+    for key in (
+        "material",
+        "F",
+        "solver_options",
+        "output",
+        "history",
+        "progress",
+        "checkpoint",
+    ):
+        options.pop(key, None)
+    name = options.pop("name", None) or "modal_analysis"
+    return _step_builders.modal(model, target=request.target, name=name, **options)
+
+
 def _normalize(value: str) -> str:
     normalized = str(value).lower().replace("-", "_").strip()
     aliases = {
@@ -1536,6 +1572,26 @@ register_step_provider(
             "output_every",
             "progress",
             "status_file",
+        ),
+    )
+)
+register_step_provider(
+    StepProvider(
+        name="linear_structural_modes",
+        analyses=("modal",),
+        accepts=_accept_modal,
+        lower=_lower_modal,
+        priority=110,
+        description="Lower K/M operators to a constrained SLEPc modal solve.",
+        procedure="standard/generalized_hermitian_eigenproblem",
+        option_contract=_option_contract(
+            "M",
+            "modes",
+            "target_frequency",
+            "tolerance",
+            "maximum_iterations",
+            "rigid_mode_tolerance",
+            required=("modes",),
         ),
     )
 )

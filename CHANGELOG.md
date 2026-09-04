@@ -8,6 +8,17 @@ experimental formulation to a validated one.
 
 ### Added
 
+- Add a public structural modal Study and SLEPc-backed generalized Hermitian
+  Step. Strongly constrained degrees of freedom are removed before the solve;
+  natural frequencies, residual evidence, and mass-normalized mode fields use
+  the common `SimulationResult` lifecycle in serial and MPI.
+- Add solver-independent FFT, FRF, free-decay damping, and modal-superposition
+  tools that consume arrays or structured histories without embedding a
+  beam-specific workflow.
+- Add standard-linear-solid and generalized-Maxwell/Prony material-point
+  spectra with exact state updates and dissipation, WLF/Arrhenius shifts, and
+  a transparent fixed-spectrum fit. Global viscoelastic FEM assembly remains
+  a separate, explicitly documented promotion gate.
 - Advance the moving development branch to `0.3.2.dev0`, add a development
   release contract, and fail packaging tests when commits beyond a published
   tag continue to report that tag's stable version.

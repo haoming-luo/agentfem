@@ -399,6 +399,24 @@ def dynamic_solid(
 structural_dynamics = dynamic_solid
 
 
+def modal_solid(
+    *,
+    dimension: int,
+    assumption: str | None = None,
+    name: str | None = None,
+) -> Study:
+    """Define a linear structural modal analysis."""
+
+    return define(
+        analysis="modal",
+        physics="solid_mechanics",
+        dimension=dimension,
+        assumption=assumption,
+        preferred_procedure="generalized_hermitian_eigenproblem",
+        name=name or "structural_modal_analysis",
+    )
+
+
 def _normalize(value: str) -> str:
     return value.strip().lower().replace(" ", "_").replace("-", "_")
 

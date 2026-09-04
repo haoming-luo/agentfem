@@ -8,6 +8,10 @@ dependencies:
   - mpich
   - mpi4py
   - petsc4py
+  # Modal analysis and transparent fixed-spectrum identification are optional
+  # at runtime, but form part of the development verification matrix.
+  - slepc4py
+  - scipy
   - h5py
   # CI exercises optional CAD/true-void fixtures; AgentFEM runtime stays optional.
   - gmsh

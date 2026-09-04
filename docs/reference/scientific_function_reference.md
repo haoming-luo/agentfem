@@ -24,6 +24,7 @@ the compact machine-readable `agentfem/knowledge/catalog.json`.
 | [`agentfem.material.finite_strain_plane_stress`](#agentfem-material-finite_strain_plane_stress) | Locally condensed finite-strain plane-stress Neo-Hookean membrane | material | experimental |
 | [`agentfem.material.global_implicit_creep`](#agentfem-material-global_implicit_creep) | Global implicit power-law creep | material | supported |
 | [`agentfem.material.j2_global_plasticity`](#agentfem-material-j2_global_plasticity) | Global small-strain J2 plasticity | material | supported |
+| [`agentfem.material.linear_viscoelastic_dynamics`](#agentfem-material-linear_viscoelastic_dynamics) | Linear viscoelastic relaxation spectrum | material | experimental |
 | [`agentfem.material.mixed_hybrid_hyperelasticity`](#agentfem-material-mixed_hybrid_hyperelasticity) | Constant-pressure mixed Neo-Hookean solid | material | supported |
 | [`agentfem.material.mixed_mode_cyclic_cohesive`](#agentfem-material-mixed_mode_cyclic_cohesive) | Proportional and ordered-path mixed-mode cyclic cohesive damage | material | experimental |
 | [`agentfem.material.mooney_rivlin_hyperelasticity`](#agentfem-material-mooney_rivlin_hyperelasticity) | Mooney--Rivlin finite-strain solids and incompressible sheets | material | experimental |
@@ -93,7 +94,9 @@ the compact machine-readable `agentfem/knowledge/catalog.json`.
 | `agentfem.benchmark.jmps_weak_interface_convergence_v4` | Two-dimensional weak-interface supershear refinement contract | near-incompressible finite-strain plane-stress Neo-Hookean strip with ten or more cells through the height, homogeneous preload, smooth remote impact, a fixed bilinear Mode-I cohesive interface, and a precrack | experimental_v4_2d_convergence_accepted |
 | `agentfem.benchmark.jmps_weak_interface_transition_v4` | Prestressed weak-interface crack-to-supershear-to-spall mechanism ladder | near-incompressible finite-strain plane-stress Neo-Hookean strip with homogeneous preload, smooth remote impact, a fixed zero-thickness bilinear Mode-I interface, and a precrack | experimental_v4_mechanism_executable |
 | `agentfem.benchmark.lefm_center_crack_mode_i` | Mode-I center-crack LEFM extraction | two-dimensional plane-stress isotropic linear elasticity with a traction-free straight center crack under remote tension | experimental_automated_foundation |
+| `agentfem.benchmark.linear_cantilever_modal` | Clamped rectangular cantilever first bending mode | Two-dimensional plane-stress linear-elastic cantilever free vibration | automated_analytical_verification |
 | `agentfem.benchmark.linear_static_cantilever` | Two-dimensional linear-static cantilever | small-strain isotropic linear elasticity in plane strain | numerical_regression |
+| `agentfem.benchmark.linear_viscoelastic_spectrum` | Generalized-Maxwell relaxation and dynamic spectrum | Small-strain thermorheologically simple linear viscoelastic relaxation | automated_analytical_verification |
 | `agentfem.benchmark.mixed_mode_bending_external_contract` | Source-identified mixed-mode bending curve comparison | Mixed-mode bending delamination or a mechanically equivalent fixed-path cohesive structure with measured load, displacement, crack length, and Mode-I fraction | contract_ready_external_data_pending |
 | `agentfem.benchmark.mixed_mode_cyclic_cohesive_foundation` | Mixed-mode cyclic cohesive paths, energy lifecycle and portable state | Fixed-path proportional and ordered non-proportional mixed-mode cyclic cohesive degradation | experimental_automated_foundation |
 | `agentfem.benchmark.mooney_rivlin_material_paths` | Mooney--Rivlin material-path and Explicit-consumer contract | incompressible plane-stress Mooney--Rivlin hyperelasticity | experimental_automated_regression |
@@ -1247,6 +1250,139 @@ Register J2LinearIsotropicHardening in a 3D nonlinear_static Model, add supports
 
 - Abaqus theory: classical metal plasticity: `https://docs.software.vt.edu/abaqusv2024/English/SIMACAETHERefMap/simathe-c-isoelastoplast.htm`
 - MOOSE radial return stress update: `https://mooseframework.inl.gov/moose/source/materials/RadialReturnStressUpdate.html`
+
+<a id="agentfem-material-linear_viscoelastic_dynamics"></a>
+
+## Linear viscoelastic relaxation spectrum
+
+**Stable ID:** `agentfem.material.linear_viscoelastic_dynamics`<br>
+**Kind:** `material`<br>
+**Status:** `experimental`<br>
+**Source card:** `src/agentfem/knowledge/cards/linear_viscoelastic_dynamics.json`
+
+Provides standard-linear-solid and generalized-Maxwell/Prony relaxation spectra, exact material-point history updates, temperature shift, positive fixed-spectrum fitting, and solver-independent dynamic signal processing beside the SLEPc structural modal Step.
+
+### Public API
+
+- `agentfem.studies.modal_solid`
+- `agentfem.models.Model.step`
+- `agentfem.dynamics.spectrum`
+- `agentfem.dynamics.frequency_response`
+- `agentfem.dynamics.damping_from_free_decay`
+- `agentfem.dynamics.modal_frequency_response`
+- `agentfem.constitutive.GeneralizedMaxwell`
+- `agentfem.constitutive.standard_linear_solid`
+- `agentfem.constitutive.WLFShift`
+- `agentfem.constitutive.ArrheniusShift`
+- `agentfem.constitutive.fit_relaxation_prony`
+
+### Scientific contract
+
+Linear structural modes and generalized-Maxwell relaxation are separate reusable assets: the former resolves the constrained K--M spectrum, while the latter describes causal time- and frequency-dependent material response without treating an FFT peak or optimizer loss as constitutive verification.
+
+**undamped modes**
+
+$$
+\mathbf{K}\boldsymbol{\phi}_j=\omega_j^2\mathbf{M}\boldsymbol{\phi}_j
+$$
+
+Strongly constrained degrees of freedom are removed before the generalized Hermitian eigensolve.
+
+**relaxation modulus**
+
+$$
+E(t)=E_{\infty}+\sum_{i=1}^{N}E_i\exp\!\left(-t/\tau_i\right)
+$$
+
+The equilibrium modulus and positive relaxing branches define the instantaneous and long-time limits.
+
+**complex modulus**
+
+$$
+E^{*}(\omega)=E_{\infty}+\sum_{i=1}^{N}E_i\frac{\mathrm{i}\omega\tau_i}{1+\mathrm{i}\omega\tau_i}
+$$
+
+Real and imaginary parts give storage and loss modulus; their ratio gives the loss factor.
+
+**exact branch update**
+
+$$
+q_i^{n+1}=\exp\!\left(-\Delta t/\tau_i\right)q_i^n+E_i\frac{\tau_i}{\Delta t}\left(1-\exp\!\left(-\Delta t/\tau_i\right)\right)\Delta\varepsilon
+$$
+
+A linear strain path over one increment has an exact branch update and algorithmic modulus.
+
+#### Inputs
+
+| Name | Type | Unit role | Meaning |
+| --- | --- | --- | --- |
+| modal operators | symmetric stiffness K, positive mass M, strong constraints and requested mode count | one consistent mechanical unit system | The low structural spectrum is solved with SLEPc; a target frequency may be declared. |
+| relaxation spectrum | positive equilibrium modulus, branch moduli and relaxation times | stress and time | A Prony factory accepts instantaneous modulus and normalized relaxing ratios. |
+| sampled histories | uniform time and synchronous signal arrays | time and signal dependent | FFT and spectral-ratio FRF processing require uniform sampling and record the selected window. |
+
+#### Outputs
+
+| Name | Type | Unit role | Meaning |
+| --- | --- | --- | --- |
+| modal result | SimulationResult quantities and live mode fields | inverse time and mass-normalized shape | Includes eigenvalues, angular frequencies, frequencies, relative residuals and each mode shape. |
+| dynamic signal records | one-sided spectrum, FRF and damping estimate | frequency, phase and signal-dependent response | Invalid unexcited FRF bins remain explicit and are excluded from finite result histories. |
+| viscoelastic response | relaxation, storage/loss modulus, loss factor and committed branch state | stress, time and temperature | Material-point state may be snapshotted, committed or restored independently of a global solver. |
+
+#### Assumptions
+
+- Modal analysis is linear, undamped, and based on symmetric stiffness and mass operators.
+- The generalized-Maxwell law is small-strain and thermorheologically simple when one shift law is supplied.
+- The FFT/FRF reference uses uniformly sampled real histories.
+
+#### Conventions
+
+- SLEPc mass-normalizes generalized Hermitian eigenvectors.
+- Storage and loss modulus consume angular frequency, not cyclic frequency.
+- Positive Prony ratios are fractions of the instantaneous modulus and must sum to less than one.
+- A trial material-point update does not modify accepted state until explicitly committed.
+
+#### Applicability
+
+- Natural-frequency and mode-shape analysis for supported linear solid models.
+- DMA, relaxation, free-decay and modal-superposition preparation for small-strain linear viscoelastic studies.
+
+#### Limitations
+
+- The generalized-Maxwell state is not yet assembled into a global finite-element transient provider.
+- Direct complex harmonic finite-element assembly, complex modes, nonlinear viscoelasticity and physical aging are not implemented.
+- Fixed-spectrum fitting does not automatically choose relaxation times or replace calibration/validation separation.
+
+### Minimal example
+
+```python
+Create studies.modal_solid(...), register displacement/material/constraints, and solve model.step(target=u, modes=6). Use constitutive.GeneralizedMaxwell.from_prony(...) for relaxation/storage/loss curves and dynamics.spectrum(...) or frequency_response(...) for sampled histories.
+```
+
+### Verification
+
+**Tests**
+
+- `tests/test_dynamics.py`
+- `tests/test_viscoelasticity.py`
+- `tests/test_parallel_modal.py`
+
+**Benchmarks**
+
+- `agentfem.benchmark.linear_cantilever_modal`
+- `agentfem.benchmark.linear_viscoelastic_spectrum`
+
+**Validation rules**
+
+- Eliminate strong constrained degrees of freedom before the modal solve and reject insufficient free degrees of freedom.
+- Require positive moduli and relaxation times, and Prony ratios summing to less than one.
+- Separate trial and committed branch state and preserve rollback equivalence.
+- Reject nonuniform FFT sampling and mark unexcited FRF bins invalid.
+
+### References
+
+- SLEPc EPS generalized eigenvalue problem documentation: `https://slepc.upv.es/release/slepc4py/reference/slepc4py.SLEPc.EPS.html`
+- Abaqus time-domain viscoelastic rod benchmark: `https://docs.software.vt.edu/abaqusv2025/English/SIMACAEBMKRefMap/simabmk-c-viscorod.htm`
+- Abaqus frequency-domain viscoelasticity: `https://docs.software.vt.edu/abaqusv2025/English/SIMACAETHERefMap/simathe-c-freqdomainvisco.htm`
 
 <a id="agentfem-material-mixed_hybrid_hyperelasticity"></a>
 
@@ -4224,6 +4360,7 @@ Separates physical analysis intent from Standard/Explicit selection, equation or
 
 - `agentfem.procedures.SolutionProcedure`
 - `agentfem.procedures.resolve`
+- `agentfem.studies.modal_solid`
 - `agentfem.time.newmark`
 - `agentfem.time.generalized_alpha`
 - `agentfem.problems.LinearSystemProblem.reaction_field`
@@ -4243,6 +4380,14 @@ $$
 $$
 
 The same physical system may be solved by implicit Newmark, generalized-alpha, or explicit central difference.
+
+**linear structural modes**
+
+$$
+\mathbf{K}\boldsymbol{\phi}_j=\omega_j^2\mathbf{M}\boldsymbol{\phi}_j
+$$
+
+The modal procedure removes strong constrained degrees of freedom before a generalized Hermitian eigensolve.
 
 **generalized-alpha equilibrium**
 
@@ -4272,7 +4417,7 @@ Algorithmic parameters control stability, accuracy, and high-frequency dissipati
 
 #### Assumptions
 
-- Newmark and generalized-alpha are currently linear structural dynamics routes.
+- Modal, Newmark and generalized-alpha are currently linear structural dynamics routes.
 - Implicit heat transfer currently uses backward Euler.
 - Central difference uses a lumped mass operator.
 
@@ -4287,7 +4432,7 @@ Algorithmic parameters control stability, accuracy, and high-frequency dissipati
 
 #### Applicability
 
-- Selecting and inspecting current linear static, nonlinear static, heat-transfer, and structural-dynamics routes.
+- Selecting and inspecting current linear static, nonlinear static, heat-transfer, modal, and structural-dynamics routes.
 
 #### Limitations
 
@@ -4309,6 +4454,7 @@ step = model.step(target=u, procedure=procedures.generalized_alpha(), dt=..., st
 - `tests/test_p1_platform.py`
 - `tests/test_transient_restart.py`
 - `tests/test_parallel_transient.py`
+- `tests/test_dynamics.py`
 
 **Benchmarks**
 

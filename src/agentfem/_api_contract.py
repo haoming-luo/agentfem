@@ -33,6 +33,7 @@ ADVANCED_WORKFLOW_MODULES = (
     "checkpointing",
     "coordinates",
     "datasets",
+    "dynamics",
     "events",
     "expressions",
     "fatigue_fracture",
