@@ -35,7 +35,7 @@
     "ASTM identifiers describe the specimen families; this software contract does not reproduce proprietary standards or imply certification.",
     "The elastic DCB compliance certificate and the irreversible propagation certificate remain distinct evidence objects; passing one cannot promote the other.",
     "The assembled compliance study and a three-level nondimensional propagation certificate pass in the automated scientific suite. The latter is an internal nonlinear solver regression, not acceptance against an external material curve.",
-    "ENF now has an assembled elastic-compliance provider, but not a Mode-II cohesive-propagation certificate or external material-curve comparison.",
+    "ENF now has an assembled elastic-compliance provider, but not a Mode-II cohesive-propagation certificate or external material-curve comparison. Finite cohesive-zone trials show that ordinary displacement-control Newton may jump across an unstable post-peak branch; promotion therefore requires continuation that preserves the equilibrium path and closes the work-energy ledger, not a relaxed acceptance threshold.",
     "MMB assembled execution, external DCB/ENF/MMB curve comparison and independent cohesive finite-element comparison remain pending and are not labelled validated."
   ],
   "references": [

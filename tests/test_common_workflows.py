@@ -1018,6 +1018,95 @@ def test_constraint_balance_contract_accepts_complete_provider_dual_path():
     }
 
 
+def test_constraint_provider_publishes_its_own_converged_dual_evidence():
+    class ProviderOwnedConstraint:
+        name = "weak_support"
+
+        def capabilities(self):
+            return constraints.ConstraintCapabilities(
+                kind="weak_constraint",
+                enforcement="nitsche",
+                reaction_evidence="provider_dual_required",
+                work_evidence="provider_dual_path_required",
+            )
+
+        def dual_evidence(self, problem):
+            assert problem == "converged_problem"
+            return constraints.constraint_dual(
+                self,
+                role="weak_constraint",
+                force=(8.0,),
+                coordinate=(0.025,),
+                resultant=(-8.0, 0.0),
+                source="nitsche_boundary_traction",
+            )
+
+    selected = ProviderOwnedConstraint()
+    duals = constraints.collect_provider_duals(
+        (selected,),
+        "converged_problem",
+    )
+    contract = constraints.constraint_balance_contract(
+        (selected,),
+        provider_duals=duals,
+    )
+
+    assert len(duals) == 1
+    assert duals[0].source == "nitsche_boundary_traction"
+    assert contract["force_balance_available"] is True
+    assert contract["work_balance_available"] is True
+
+
+def test_constraint_dual_collection_rejects_wrong_owner_and_duplicates():
+    class WrongOwner:
+        name = "declared"
+
+        def dual_evidence(self, _problem):
+            return constraints.constraint_dual(
+                "another_constraint",
+                force=(1.0,),
+                coordinate=(0.0,),
+            )
+
+    with pytest.raises(ValueError, match="does not match"):
+        constraints.collect_provider_duals((WrongOwner(),), object())
+
+    periodic = constraints.RectangularPeriodicMPC(
+        backend=object(),
+        lower=(0.0, 0.0),
+        upper=(1.0, 1.0),
+        axes=(0,),
+        tolerance=1.0e-12,
+        name="periodic_x",
+    )
+    duplicate = constraints.constraint_dual(
+        periodic,
+        force=(1.0,),
+        coordinate=(0.0,),
+        resultant=(0.0, 0.0),
+    )
+    with pytest.raises(ValueError, match="must be unique"):
+        constraints.collect_provider_duals(
+            (periodic,),
+            object(),
+            extra=(duplicate, duplicate),
+        )
+
+    wrong_role = constraints.constraint_dual(
+        periodic,
+        role="contact_constraint",
+        force=(1.0,),
+        coordinate=(0.0,),
+        resultant=(0.0, 0.0),
+    )
+    with pytest.raises(ValueError, match="roles do not match"):
+        constraints.collect_provider_duals(
+            (periodic,),
+            object(),
+            extra=(wrong_role,),
+        )
+
+
 def test_constraint_balance_contract_rejects_partial_or_unmatched_duals():
     periodic = constraints.RectangularPeriodicMPC(
         backend=object(),

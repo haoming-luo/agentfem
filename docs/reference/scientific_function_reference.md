@@ -655,7 +655,7 @@ Monotonic and cyclic degradation remain separately inspectable and combine witho
 
 #### Limitations
 
-- The generalized work-energy ledger accepts reference-point, prescribed-motion, MPC, weak and contact channels, but automatic extraction of all such reactions from every native provider remains a separate gate.
+- The generalized work-energy ledger accepts reference-point, prescribed-motion, MPC, weak and contact channels through the shared provider-owned dual protocol, but each native enforcement backend must still implement and verify its own extraction.
 - This Mode-I card does not claim mixed-mode calibration; free-path growth, cylinder validation and experimental prediction remain separate gates.
 - Bulk-field durable restart currently requires the same MPI partition; cohesive facet state is physically keyed and portable.
 
@@ -4427,7 +4427,7 @@ Natural loads and strong prescribed values are ramped proportionally from zero; 
 #### Limitations
 
 - Nodal smoothing and superconvergent stress recovery are not implemented.
-- Affine MPC, weak, and contact reactions need dedicated provider dual definitions; both strong-Dirichlet force and work balances are marked unavailable for those assets.
+- Affine MPC, weak, and contact reactions require their numerical provider to implement the shared dual_evidence(problem) protocol; force or work balance remains unavailable for any provider that has not supplied the corresponding physical dual.
 - Thermoelastic output requires temperature-aware field construction in a later extension.
 
 ### Minimal example

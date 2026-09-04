@@ -1,4 +1,5 @@
 from pathlib import Path
+import subprocess
 import tomllib
 
 import pytest
@@ -8,6 +9,38 @@ from agentfem import __version__, cli
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
+
+
+def test_unreleased_checkout_does_not_reuse_a_published_tag_version():
+    """Keep a moving checkout distinguishable from its latest release."""
+
+    if not (PROJECT_ROOT / ".git").exists():
+        pytest.skip("release identity requires a Git checkout")
+
+    exact = subprocess.run(
+        ["git", "describe", "--tags", "--exact-match", "--match", "v[0-9]*"],
+        cwd=PROJECT_ROOT,
+        capture_output=True,
+        check=False,
+        text=True,
+    )
+    if exact.returncode == 0:
+        assert exact.stdout.strip() == f"v{__version__}"
+        return
+
+    latest = subprocess.run(
+        ["git", "describe", "--tags", "--abbrev=0", "--match", "v[0-9]*"],
+        cwd=PROJECT_ROOT,
+        capture_output=True,
+        check=False,
+        text=True,
+    )
+    if latest.returncode != 0:
+        pytest.skip("checkout has no release tag history")
+    assert latest.stdout.strip() != f"v{__version__}", (
+        "HEAD has moved beyond the latest release but still reports its published "
+        "version; advance to the next development or release-candidate version"
+    )
 
 
 def test_release_gate_rejects_build_machine_bytecode_and_cache_members():

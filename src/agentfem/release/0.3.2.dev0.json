@@ -1,0 +1,100 @@
+{
+  "schema": "agentfem.release-contract",
+  "schema_version": "0.2.0",
+  "target_version": "0.3.2.dev0",
+  "channel": "development",
+  "status": "development",
+  "supported_python": "3.11",
+  "platform_evidence": {
+    "continuous_integration": ["Linux", "macOS"],
+    "runtime_previews": [
+      "Windows through WSL2 complete offline image",
+      "Apple Silicon macOS unsigned package"
+    ],
+    "formal_runtime_routes": [],
+    "tracked_nonblocking": ["Windows through real WSL2"]
+  },
+  "installed_templates": [
+    "static-solid",
+    "steady-heat",
+    "structural-dynamics"
+  ],
+  "workflows": [
+    {
+      "id": "linear-static-solid",
+      "maturity": "release",
+      "example": "examples/static_elasticity_2d.py",
+      "evidence": [
+        "golden-observable",
+        "single-grid-output",
+        "serial-and-two-rank-smoke"
+      ]
+    },
+    {
+      "id": "transient-heat",
+      "maturity": "release",
+      "example": "examples/transient_heat_2d.py",
+      "evidence": [
+        "golden-observable",
+        "checkpoint-tests",
+        "installed-wheel-smoke"
+      ]
+    },
+    {
+      "id": "finite-strain-j2-rve",
+      "maturity": "experimental",
+      "example": "tests/periodic_void_fixture.py",
+      "evidence": [
+        "strong-and-affine-periodic-global-equilibrium",
+        "mpi-portable-state",
+        "plastic-dissipation-output"
+      ]
+    },
+    {
+      "id": "delamination-structural-family",
+      "maturity": "engineering",
+      "example": "tests/test_delamination_fem_benchmark.py",
+      "evidence": [
+        "assembled-dcb-compliance",
+        "irreversible-dcb-propagation",
+        "assembled-enf-compliance",
+        "work-energy-and-convergence-certificates"
+      ]
+    },
+    {
+      "id": "simulation-to-learning",
+      "maturity": "engineering",
+      "example": "examples/static_elasticity_surrogate_campaign.py",
+      "evidence": [
+        "accepted-dataset-policy",
+        "framework-neutral-provider-contract",
+        "fem-fallback"
+      ]
+    }
+  ],
+  "required_gates": [
+    "version-contract-agreement",
+    "unreleased-checkout-version-identity",
+    "clean-wheel-and-sdist",
+    "full-serial-tests",
+    "distributed-tests",
+    "installed-wheel-identity",
+    "linux-and-macos-platform-acceptance",
+    "scientific-knowledge-check",
+    "documentation-strict-build",
+    "ownership-boundary-regression",
+    "companion-provider-acceptance",
+    "fresh-agent-zero-intervention-acceptance",
+    "optional-pytorch-bridge",
+    "reliability-event-privacy-whitelist",
+    "runtime-preview-installed-acceptance"
+  ],
+  "not_release_claims": [
+    "native Windows solver support",
+    "real WSL2 acceptance before corresponding evidence exists",
+    "general contact",
+    "general arbitrary-path fracture",
+    "universally validated nonlinear material models",
+    "monolithic thermo-mechanical coupling"
+  ]
+}

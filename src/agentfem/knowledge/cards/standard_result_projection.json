@@ -100,7 +100,7 @@
     ],
     "limitations": [
       "Nodal smoothing and superconvergent stress recovery are not implemented.",
-      "Affine MPC, weak, and contact reactions need dedicated provider dual definitions; both strong-Dirichlet force and work balances are marked unavailable for those assets.",
+      "Affine MPC, weak, and contact reactions require their numerical provider to implement the shared dual_evidence(problem) protocol; force or work balance remains unavailable for any provider that has not supplied the corresponding physical dual.",
       "Thermoelastic output requires temperature-aware field construction in a later extension."
     ]
   },

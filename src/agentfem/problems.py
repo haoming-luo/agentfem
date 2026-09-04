@@ -1660,11 +1660,16 @@ class AnalysisStep:
             and len(tuple(getattr(solution, "ufl_shape", ()))) == 1
         )
         if is_static_solid:
-            provider_duals = ()
+            callback_duals = ()
             if self.constraint_dual_provider is not None:
-                provider_duals = tuple(
+                callback_duals = tuple(
                     self.constraint_dual_provider(self.problem) or ()
                 )
+            provider_duals = constraint_api.collect_provider_duals(
+                self.constraint_assets,
+                self.problem,
+                extra=callback_duals,
+            )
             balance_contract = constraint_api.constraint_balance_contract(
                 self.constraint_assets,
                 provider_duals=provider_duals,

@@ -73,16 +73,19 @@ Deepen the finite-element core before broadening the catalog:
   three-point-bending ENF provider
   now passes three-level elastic compliance, residual and pure Mode-II
   partition checks; Mode-II cohesive propagation, its source-identified curve,
-  and assembled MMB execution remain the next external promotion gates;
+  and assembled MMB execution remain the next external promotion gates. ENF
+  propagation must use a verified post-peak continuation/energy-control route
+  when ordinary displacement control skips an unstable branch;
 - promote finite-strain J2 through a locking-resistant mixed displacement--
   pressure formulation, a passed independent structural benchmark, a
   production analytical tangent, follower-load tangent, and complete
   prescribed-work balance; cumulative material plastic dissipation is now a
   committed quadrature channel rather than being inferred in postprocessing;
 - richer thermal--mechanical and high-temperature histories;
-- provider-owned reactions, work, and energy for MPC/weak/contact constraints;
-  unsupported dual channels already fail closed rather than publishing a
-  partial balance;
+- native MPC/weak/contact extraction through the provider-owned
+  `dual_evidence(problem)` protocol. The shared collector, force/work ledger,
+  ownership validation and fail-closed behavior are complete; each numerical
+  enforcement backend must still implement and verify its physical dual;
 - selected cyclic plasticity, creep--fatigue, and fracture extensions.
 
 ### 2. Engineering workflow

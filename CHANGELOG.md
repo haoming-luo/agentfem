@@ -8,6 +8,9 @@ experimental formulation to a validated one.
 
 ### Added
 
+- Advance the moving development branch to `0.3.2.dev0`, add a development
+  release contract, and fail packaging tests when commits beyond a published
+  tag continue to report that tag's stable version.
 - Add a machine-readable multi-source runtime distribution contract and an
   optional S3-compatible mainland China publication path. GitHub remains the
   canonical release identity; every regional download must preserve the exact

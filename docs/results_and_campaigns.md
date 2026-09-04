@@ -187,9 +187,12 @@ constraint lacks that channel, `SimulationResult` records
 a complete equilibrium check. A provider closes force balance only by supplying
 both its generalized dual and the corresponding physical-space resultant; it
 closes work only by also supplying the accepted work-conjugate coordinate.
-`AnalysisStep.constraint_dual_provider` is the narrow post-convergence seam for
-that evidence. The common ledger consumes the returned records; a provider is
-not allowed to promote completeness by returning a Boolean flag alone.
+The constraint provider itself may expose `dual_evidence(problem)` after
+convergence. AgentFEM collects and validates those named records before the
+common ledger consumes them. `AnalysisStep.constraint_dual_provider` remains
+only as a compatibility bridge for older internal providers; new enforcement
+backends should keep extraction beside the assembly that defines the dual. A
+provider cannot promote completeness with a Boolean flag alone.
 
 XDMF is the small XML description and HDF5 is the compact numerical payload.
 Inlining millions of values into XML would produce a much larger and slower
@@ -403,9 +406,11 @@ work, strain energy, and their closure automatically.
 Affine MPC reactions must be defined from the dual of the reduced constraint
 or from a declared macro-motion mode; summing eliminated slave residuals is
 not invariant to the chosen elimination graph. Weak-constraint reactions are
-consistent boundary tractions/fluxes from the weak form. Until those dual
-consumers are implemented, AgentFEM marks their work balance unavailable
-instead of applying the strong-Dirichlet formula.
+consistent boundary tractions/fluxes from the weak form. Providers that can
+extract these values publish a `ConstraintDualEvidence` record through the
+shared protocol. A provider that cannot do so remains explicitly incomplete;
+AgentFEM then marks its force or work balance unavailable instead of applying
+the strong-Dirichlet formula.
 
 A model-generated linear static solid also records force equilibrium without
 extra application code:

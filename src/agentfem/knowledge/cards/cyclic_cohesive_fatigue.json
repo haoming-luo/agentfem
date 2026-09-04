@@ -108,7 +108,7 @@
       "Material-point studies, current 2D/3D paired-facet cohesive assemblers and the global peak/valley lifecycle for fixed-path surface-fatigue crack growth."
     ],
     "limitations": [
-      "The generalized work-energy ledger accepts reference-point, prescribed-motion, MPC, weak and contact channels, but automatic extraction of all such reactions from every native provider remains a separate gate.",
+      "The generalized work-energy ledger accepts reference-point, prescribed-motion, MPC, weak and contact channels through the shared provider-owned dual protocol, but each native enforcement backend must still implement and verify its own extraction.",
       "This Mode-I card does not claim mixed-mode calibration; free-path growth, cylinder validation and experimental prediction remain separate gates.",
       "Bulk-field durable restart currently requires the same MPI partition; cohesive facet state is physically keyed and portable."
     ]

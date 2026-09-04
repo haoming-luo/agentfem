@@ -27,6 +27,8 @@ balanced while omitting a real reaction or prescribed-motion contribution.
 
 - Model continues to own engineering constraint declarations, not multipliers;
 - Procedure/provider code extracts dual values after convergence;
+- a constraint publishes them through `dual_evidence(problem)`; the Step
+  collects records automatically after solve convergence;
 - Result/Verification owns the common balance and work ledger;
 - each new enforcement backend must define its dual extraction before claiming
   complete force or work evidence;
@@ -39,4 +41,6 @@ balanced while omitting a real reaction or prescribed-motion contribution.
 - force evidence without a coordinate cannot close work;
 - a generalized force without a physical resultant cannot close global force;
 - duplicate or unmatched records are rejected;
+- non-callable providers and records attributed to another constraint are
+  rejected before any balance is published;
 - old calls without provider evidence remain fail-closed.

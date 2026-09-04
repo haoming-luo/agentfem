@@ -191,6 +191,91 @@ def constraint_dual(
     )
 
 
+def collect_provider_duals(constraints, problem, *, extra=()) -> tuple[ConstraintDualEvidence, ...]:
+    """Collect converged dual evidence from active constraint providers.
+
+    A constraint that owns reactions outside the strong-Dirichlet residual may
+    implement ``dual_evidence(problem)`` and return one
+    :class:`ConstraintDualEvidence` record, an iterable of records, or ``None``.
+    AgentFEM only transports and validates those provider-owned values; it does
+    not reconstruct an MPC multiplier, weak-boundary traction, or contact force
+    from incomplete public state.
+
+    ``extra`` retains the internal callback bridge used by older Step
+    providers while they migrate to the constraint-owned protocol.
+    """
+
+    records: list[ConstraintDualEvidence] = []
+    assets = _flatten_constraint_assets(constraints)
+    declared = {
+        str(getattr(item, "name", type(item).__name__)) for item in assets
+    }
+    for item in assets:
+        provider = getattr(item, "dual_evidence", None)
+        if provider is None:
+            continue
+        if not callable(provider):
+            raise TypeError(
+                f"Constraint {getattr(item, 'name', type(item).__name__)!r} "
+                "exposes a non-callable dual_evidence provider."
+            )
+        supplied = provider(problem)
+        if supplied is None:
+            continue
+        selected = (
+            (supplied,)
+            if isinstance(supplied, ConstraintDualEvidence)
+            else tuple(supplied)
+        )
+        if any(not isinstance(value, ConstraintDualEvidence) for value in selected):
+            raise TypeError(
+                "Constraint dual_evidence providers must return "
+                "ConstraintDualEvidence records."
+            )
+        records.extend(selected)
+    records.extend(tuple(extra))
+    if any(not isinstance(item, ConstraintDualEvidence) for item in records):
+        raise TypeError("extra provider duals must be ConstraintDualEvidence records.")
+    unexpected = tuple(
+        sorted({item.constraint_name for item in records}.difference(declared))
+    )
+    if unexpected:
+        raise ValueError(
+            "Provider dual evidence does not match declared constraints: "
+            f"{unexpected!r}."
+        )
+    names = tuple(item.constraint_name for item in records)
+    if len(set(names)) != len(names):
+        raise ValueError("Provider dual constraint names must be unique.")
+    expected_roles = {}
+    for item in assets:
+        capability = constraint_capabilities(item)
+        if capability is None:
+            continue
+        role = {
+            "periodic_constraint": "mpc_constraint",
+            "mpc_constraint": "mpc_constraint",
+            "weak_constraint": "weak_constraint",
+            "contact_constraint": "contact_constraint",
+        }.get(capability.kind)
+        if role is not None:
+            expected_roles[str(getattr(item, "name", type(item).__name__))] = role
+    incompatible = tuple(
+        sorted(
+            (item.constraint_name, item.role, expected_roles[item.constraint_name])
+            for item in records
+            if item.constraint_name in expected_roles
+            and item.role != expected_roles[item.constraint_name]
+        )
+    )
+    if incompatible:
+        raise ValueError(
+            "Provider dual roles do not match declared constraint capabilities: "
+            f"{incompatible!r}."
+        )
+    return tuple(records)
+
+
 @dataclass(frozen=True)
 class DirichletConstraint:
     """Strong Dirichlet constraint and its optional mutable value object."""

@@ -269,6 +269,7 @@ and evidence remain in the linked guides and scientific function reference.
 | class | `ConstraintCapabilities` | Solver-facing capability contract for one kinematic constraint. |
 | class | `ConstraintDualEvidence` | Provider-owned force and optional work-conjugate coordinate. |
 | function | `constraint_dual(constraint, *, force, coordinate = None, resultant = None, role = 'mpc_constraint', source = 'provider_dual', complete = True) -> ConstraintDualEvidence` | Create provider evidence tied to one named constraint asset. |
+| function | `collect_provider_duals(constraints, problem, *, extra = ()) -> tuple[ConstraintDualEvidence, ...]` | Collect converged dual evidence from active constraint providers. |
 | class | `DirichletConstraint` | Strong Dirichlet constraint and its optional mutable value object. |
 | class | `TimeDependentDirichlet` | Dirichlet constraint driven by an amplitude. |
 | class | `RemoteDisplacementConstraint` | Rigid boundary motion prescribed about a named reference point. |
