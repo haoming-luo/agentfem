@@ -2,7 +2,8 @@
 
 ## Decision
 
-The ordinary linear-static and steady-heat `model.step(...)` providers may
+The ordinary linear-static, steady-heat, and constant-property transient-heat
+`model.step(...)` providers may
 consume exactly one reviewed exact-MPC constraint. `LinearSystemProblem`
 separates strong Dirichlet data from the MPC provider before assembly, then
 dispatches to the shared solver lifecycle. The Model remains an engineering
@@ -33,8 +34,10 @@ complete engineering balance.
 
 ## Verification
 
-- vector linear-static and scalar steady-heat Steps reproduce constant fields;
+- vector linear-static, scalar steady-heat, and two-increment transient-heat
+  Steps reproduce constant fields;
 - both routes execute through ordinary `model.step(...)` in serial and MPI;
+- transient runs retain one prepared operator lifecycle across accepted steps;
 - the Result identifies the exact provider and retains solver convergence;
 - force/work evidence remains fail-closed without a provider dual;
 - multiple exact providers fail before matrix assembly;

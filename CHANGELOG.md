@@ -67,10 +67,13 @@ experimental formulation to a validated one.
   A distributed preflight also rejects Dirichlet conditions that were added
   after MPC slave selection and overlap owned slave DOFs.
 - Lower one public `RectangularPeriodicMPC` directly through ordinary linear
-  static and steady-heat `model.step(...)` workflows. Strong Dirichlet data
+  static, steady-heat, and constant-property transient-heat `model.step(...)`
+  workflows. Strong Dirichlet data
   and exact elimination now follow separate assembly contracts; multiple or
   unknown providers fail before assembly, and reaction/work evidence remains
-  unavailable until the active MPC provider supplies a physical dual.
+  unavailable until the active MPC provider supplies a physical dual. Linear
+  transient runs prepare the operator lifecycle once per run instead of
+  rebuilding it at every accepted time increment.
 - Move the shared generalized work and cyclic energy ledger out of the fatigue
   domain module into the Result/Verification ownership layer while preserving
   the existing public compatibility imports.

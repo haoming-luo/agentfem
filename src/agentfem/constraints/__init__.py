@@ -1320,6 +1320,7 @@ def constraint_capabilities(constraint) -> ConstraintCapabilities | None:
         return ConstraintCapabilities(
             kind="periodic_constraint",
             enforcement="exact_multi_point_constraint",
+            analyses=("linear_static", "first_order_transient"),
             strict=True,
             supports_parallel=True,
             reaction_evidence="provider_dual_required",

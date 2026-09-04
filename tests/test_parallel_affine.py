@@ -183,6 +183,45 @@ def test_steady_heat_step_uses_the_same_exact_mpc_lowering():
     assert provider["enforcement"] == "exact_multi_point_constraint"
 
 
+def test_transient_heat_step_uses_exact_mpc_on_every_increment():
+    domain = dolfinx_mesh.create_unit_square(MPI.COMM_WORLD, 4, 3)
+    model = models.create(
+        study=studies.transient_heat_transfer(dimension=2),
+        mesh=domain,
+        name="periodic_transient_scalar_step",
+    )
+    temperature = model.field(fields.temperature(domain, value=5.0))
+    model.material(
+        constitutive.thermoelastic(
+            young=1.0,
+            poisson=0.25,
+            density=2.0,
+            thermal_expansion=0.0,
+            conductivity=3.0,
+            specific_heat=4.0,
+            reference_temperature=1.0,
+        )
+    )
+    periodicity = constraints.rectangular_periodic_mpc(temperature)
+
+    step = model.step(
+        target=temperature,
+        dt=0.1,
+        steps=2,
+        constraints=periodicity,
+        solver_options=solvers.direct_solver(package="mumps"),
+        progress=False,
+    )
+    simulation = step.solve_result()
+
+    assert np.max(np.abs(temperature.value.x.array - 5.0)) < 1.0e-10
+    assert step.completed_steps == 2
+    problem_summary = simulation.metadata["step"]["problem"]["problem"]
+    assert problem_summary["constraint_provider"]["method"] == "dolfinx_mpc"
+    assert problem_summary["linear_lifecycle"]["solve_count"] == 2
+    assert problem_summary["linear_lifecycle"]["matrix_allocation_reused"] is True
+
+
 def test_model_step_rejects_multiple_exact_mpc_providers():
     domain = dolfinx_mesh.create_unit_square(MPI.COMM_WORLD, 2, 2)
     model = models.create(

@@ -26,9 +26,10 @@ from .solvers import (
     NewtonSolverOptions,
     NonlinearSolverOptions,
     SolveEvent,
+    prepare_linear_problem,
+    prepare_mpc_linear_problem,
     solve_affine_nonlinear_path,
     solve_linear_problem,
-    solve_mpc_linear_problem,
     solve_nonlinear_problem,
 )
 from .state import (
@@ -123,6 +124,7 @@ class LinearSystemProblem:
     mpc_constraint: object | None = None
     solver_options: LinearSolverOptions | None = None
     last_solve_info: object | None = field(default=None, init=False)
+    last_lifecycle_summary: dict[str, object] | None = field(default=None, init=False)
 
     @classmethod
     def from_operators(
@@ -157,28 +159,42 @@ class LinearSystemProblem:
     def solve(self):
         """Compile the system operators and solve into ``solution``."""
 
+        prepared = self.prepare()
+        try:
+            return self.solve_prepared(prepared)
+        finally:
+            close = getattr(prepared, "close", None)
+            if callable(close):
+                close()
+
+    def prepare(self):
+        """Prepare the constant linear operator for one or more solves."""
+
         solution = self._solution()
         if self.mpc_constraint is None:
-            solution, info = solve_linear_problem(
+            return prepare_linear_problem(
                 fem.form(self.system.lhs_form()),
                 fem.form(self.system.rhs_form()),
                 solution,
                 bcs=self.bcs,
                 options=self.solver_options,
-                return_info=True,
             )
-        else:
-            solution, info = solve_mpc_linear_problem(
-                self.system.lhs_form(),
-                self.system.rhs_form(),
-                solution,
-                self.mpc_constraint,
-                bcs=self.bcs,
-                options=self.solver_options,
-                petsc_options_prefix="agentfem_linear_system_mpc_",
-                return_info=True,
-            )
-        self.last_solve_info = info
+        return prepare_mpc_linear_problem(
+            self.system.lhs_form(),
+            self.system.rhs_form(),
+            solution,
+            self.mpc_constraint,
+            bcs=self.bcs,
+            options=self.solver_options,
+            petsc_options_prefix="agentfem_linear_system_mpc_",
+        )
+
+    def solve_prepared(self, prepared):
+        """Solve with a compatible prepared lifecycle and retain evidence."""
+
+        solution = prepared.solve()
+        self.last_solve_info = prepared.last_solve_info
+        self.last_lifecycle_summary = dict(prepared.summary())
         return solution
 
     def solve_result(self, *, name: str | None = None):
@@ -216,6 +232,7 @@ class LinearSystemProblem:
                 if self.last_solve_info is None
                 else self.last_solve_info.as_dict()
             ),
+            "linear_lifecycle": self.last_lifecycle_summary,
         }
 
     def reaction_field(self, *, name: str = "RF"):
@@ -1733,10 +1750,12 @@ class AnalysisStep:
 
         return self.problem.bcs
 
-    def solve(self):
+    def solve(self, *, prepared=None):
         """Solve this analysis step."""
 
-        return self.problem.solve()
+        if prepared is None:
+            return self.problem.solve()
+        return self.problem.solve_prepared(prepared)
 
     def solve_result(
         self,
@@ -2627,6 +2646,9 @@ class FirstOrderTransientStep:
         _emit_transient_started(reporter, self)
         _record_transient_history(self, self.completed_steps * self.dt)
         self._record_captured_histories(force=True)
+        linear_problem = getattr(self.problem, "problem", None)
+        prepare = getattr(linear_problem, "prepare", None)
+        prepared = prepare() if callable(prepare) else None
 
         def advance(info):
             if self.update_load is not None:
@@ -2634,7 +2656,10 @@ class FirstOrderTransientStep:
             current_rollback = self.current.x.array.copy()
             previous_rollback = self.previous.x.array.copy()
             try:
-                self.problem.solve()
+                if prepared is None:
+                    self.problem.solve()
+                else:
+                    self.problem.solve(prepared=prepared)
             except Exception:
                 self.current.x.array[:] = current_rollback
                 self.current.x.scatter_forward()
@@ -2651,27 +2676,32 @@ class FirstOrderTransientStep:
                 force=self.completed_steps == self.steps
             )
 
-        if output is None:
-            for info in stepper:
-                advance(info)
+        try:
+            if output is None:
+                for info in stepper:
+                    advance(info)
+                _emit_transient_completed(reporter, self)
+                return self
+            domain = self.current.function_space.mesh
+            series, actual_output, backend, layout = _transient_result_series(
+                self.last_output,
+                domain,
+            )
+            self.last_output = actual_output
+            self.last_output_backend = backend
+            self.last_output_layout = layout
+            with series as xdmf:
+                xdmf.write_fields(self.completed_steps * self.dt, *selected_fields)
+                for info in stepper:
+                    advance(info)
+                    if info.should_save:
+                        xdmf.write_fields(info.time, *selected_fields)
             _emit_transient_completed(reporter, self)
             return self
-        domain = self.current.function_space.mesh
-        series, actual_output, backend, layout = _transient_result_series(
-            self.last_output,
-            domain,
-        )
-        self.last_output = actual_output
-        self.last_output_backend = backend
-        self.last_output_layout = layout
-        with series as xdmf:
-            xdmf.write_fields(self.completed_steps * self.dt, *selected_fields)
-            for info in stepper:
-                advance(info)
-                if info.should_save:
-                    xdmf.write_fields(info.time, *selected_fields)
-        _emit_transient_completed(reporter, self)
-        return self
+        finally:
+            close = getattr(prepared, "close", None)
+            if callable(close):
+                close()
 
     def _record_captured_histories(self, *, force: bool = False) -> None:
         selected_time = self.completed_steps * self.dt
