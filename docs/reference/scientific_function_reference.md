@@ -15,6 +15,7 @@ the compact machine-readable `agentfem/knowledge/catalog.json`.
 
 | Stable ID | Title | Kind | Status |
 | --- | --- | --- | --- |
+| [`agentfem.constraint.exact_rectangular_mpc`](#agentfem-constraint-exact_rectangular_mpc) | Exact rectangular periodic multi-point constraint | constraint | supported |
 | [`agentfem.formulation.axisymmetric_solid`](#agentfem-formulation-axisymmetric_solid) | Axisymmetric solid formulation | workflow | supported |
 | [`agentfem.load.surface_resultant`](#agentfem-load-surface_resultant) | Uniform boundary traction from a requested resultant force | workflow | supported |
 | [`agentfem.material.chaboche_global_plasticity`](#agentfem-material-chaboche_global_plasticity) | Global Chaboche combined-hardening plasticity | material | experimental |
@@ -108,6 +109,109 @@ the compact machine-readable `agentfem/knowledge/catalog.json`.
 | `agentfem.benchmark.transient_heat_release` | Implicit-Euler transient heat release regression | two-dimensional transient heat conduction with constant isotropic properties | numerical_regression |
 | `agentfem.benchmark.vector_cohesive_interface` | Vector cohesive kinematics, mixed-mode energy and model rank | Two- and three-dimensional fixed-path cohesive interfaces under normal, shear, mixed and compressive separation | experimental_automated_foundation |
 | `agentfem.benchmark.wave_release` | Explicit elastic-wave inclusion release contract | two-dimensional plane-strain linear elastodynamics | automated_regression |
+
+<a id="agentfem-constraint-exact_rectangular_mpc"></a>
+
+## Exact rectangular periodic multi-point constraint
+
+**Stable ID:** `agentfem.constraint.exact_rectangular_mpc`<br>
+**Kind:** `constraint`<br>
+**Status:** `supported`<br>
+**Source card:** `src/agentfem/knowledge/cards/exact_rectangular_mpc.json`
+
+Constructs a checked rectangular periodic relation and lowers it through the ordinary linear structural and heat-transfer Step lifecycle in serial or MPI.
+
+### Public API
+
+- `agentfem.constraints.rectangular_periodic_mpc`
+- `agentfem.constraints.RectangularPeriodicMPC`
+- `agentfem.solvers.prepare_mpc_linear_problem`
+
+### Scientific contract
+
+An exact periodic constraint changes the admissible discrete space by eliminating slave degrees of freedom in favor of geometrically matched masters; it is not a post-solve projection.
+
+**periodic field relation**
+
+$$
+\mathbf{u}(\mathbf{x}^{+})=\mathbf{u}(\mathbf{x}^{-})
+$$
+
+Opposite rectangular faces share one field value for every selected periodic axis.
+
+**multi-point elimination**
+
+$$
+u_s=\sum_{j\in\mathcal{M}(s)}c_{sj}u_j
+$$
+
+Each owned slave is lowered to one checked unit-coefficient master relation in the current provider.
+
+#### Inputs
+
+| Name | Type | Unit role | Meaning |
+| --- | --- | --- | --- |
+| target and periodic axes | finite-element FunctionSpace or field plus axis indices | field dependent | The mesh bounding box defines opposite minimum and maximum faces; optional strong conditions must be declared during MPC construction. |
+
+#### Outputs
+
+| Name | Type | Unit role | Meaning |
+| --- | --- | --- | --- |
+| exact MPC provider | RectangularPeriodicMPC | dimensionless relation | Carries the assembled backend, construction diagnostics, selected axes and geometric tolerance into model.step lowering and result evidence. |
+
+#### Assumptions
+
+- The periodic domain is rectangular in the selected coordinate axes.
+- Opposite-face finite-element degrees of freedom have a one-to-one coordinate match within tolerance.
+- Any strong boundary conditions that remove selected slaves are supplied when the MPC is constructed.
+
+#### Conventions
+
+- Maximum-coordinate faces are slaves and minimum-coordinate faces are masters.
+- Corners map directly to the opposite corner instead of forming chained slave relations.
+- The current public relation is homogeneous; finite-strain affine macroscopic loading uses AbaqusPeriodicConstraint instead.
+
+#### Applicability
+
+- Linear-static solids, steady linear heat transfer, and constant-property implicit transient heat transfer on rectangular cells.
+- Serial and distributed meshes with a dolfinx_mpc build compatible with the active DOLFINx runtime.
+
+#### Limitations
+
+- Arbitrary master/slave geometry, nonlinear structural Steps, and implicit structural dynamics require separate reviewed providers.
+- The generic exact solver does not recover a physical reaction distribution or macroscopic work coordinate; those result channels remain unavailable without provider dual evidence.
+- Only one exact-MPC provider may own a linear system.
+
+### Minimal example
+
+```python
+periodicity = constraints.rectangular_periodic_mpc(u); result = model.step(target=u, constraints=periodicity).solve_result()
+```
+
+### Verification
+
+**Tests**
+
+- `tests/test_parallel_affine.py`
+- `tests/test_common_workflows.py`
+
+**Benchmarks**
+
+- None declared.
+
+**Validation rules**
+
+- Reject unmatched, multiply matched, non-unit, or overlapping strong/MPC slave relations before solve.
+- Reproduce analytical constant scalar and vector fields through ordinary model.step calls.
+- Reuse one prepared linear lifecycle across accepted transient increments.
+- Match serial and two-rank solutions and retain provider diagnostics in SimulationResult.
+- Reject unsupported analyses, missing provider backends, and multiple exact providers before assembly.
+- Keep global reaction and work evidence unavailable when the provider has no physical dual.
+
+### References
+
+- DOLFINx_MPC documentation: `https://jsdokken.com/dolfinx_mpc/`
+- DOLFINx_MPC source repository: `https://github.com/jorgensd/dolfinx_mpc`
 
 <a id="agentfem-formulation-axisymmetric_solid"></a>
 
