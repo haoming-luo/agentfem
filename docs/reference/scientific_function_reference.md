@@ -1428,7 +1428,7 @@ A linear strain path over one increment has an exact branch update and algorithm
 
 | Name | Type | Unit role | Meaning |
 | --- | --- | --- | --- |
-| modal result | SimulationResult quantities and live mode fields | inverse time and mass-normalized shape | Includes eigenvalues, angular frequencies, frequencies, relative residuals and each mode shape. |
+| modal result | SimulationResult quantities and live mode fields | inverse time and mass-normalized shape | Includes eigenvalues, angular frequencies, frequencies, relative residuals, orthogonality evidence and each deterministically oriented mode shape. |
 | dynamic signal records | one-sided spectrum, FRF and damping estimate | frequency, phase and signal-dependent response | Invalid unexcited FRF bins remain explicit and are excluded from finite result histories. |
 | viscoelastic response | relaxation, storage/loss modulus, loss factor and committed branch state | stress, time and temperature | Material-point state may be snapshotted, committed or restored independently of a global solver. |
 
@@ -1440,7 +1440,8 @@ A linear strain path over one increment has an exact branch update and algorithm
 
 #### Conventions
 
-- SLEPc mass-normalizes generalized Hermitian eigenvectors.
+- SLEPc mass-normalizes generalized Hermitian eigenvectors; AgentFEM records mass-orthogonality and stiffness-diagonalization errors and makes the largest global component positive to remove arbitrary sign changes between runs.
+- A mass-normalized mode shape is a relative spatial pattern and does not carry a physical displacement amplitude until combined with a modal coordinate.
 - Storage and loss modulus consume angular frequency, not cyclic frequency.
 - Positive Prony ratios are fractions of the instantaneous modulus and must sum to less than one.
 - A trial material-point update does not modify accepted state until explicitly committed.
@@ -1478,6 +1479,9 @@ Create studies.modal_solid(...), register displacement/material/constraints, and
 **Validation rules**
 
 - Eliminate strong constrained degrees of freedom before the modal solve and reject insufficient free degrees of freedom.
+- Reject a modal result when mass orthogonality or stiffness diagonalization exceeds the recorded numerical tolerance.
+- Reject assembled stiffness or mass operators that violate the symmetric generalized-Hermitian problem contract.
+- Use one deterministic global sign convention for serial and MPI mode fields and preserve the actual mode-field name in visualization metadata.
 - Return the requested eigenmodes nearest a declared target frequency, then order the selected set by increasing frequency.
 - Require positive moduli and relaxation times, and Prony ratios summing to less than one.
 - Reject singular or non-finite time-temperature shift factors before updating material state.

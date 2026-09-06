@@ -48,5 +48,11 @@ def test_structural_modes_use_one_distributed_reduced_eigenproblem():
     for rank_frequency in gathered:
         np.testing.assert_allclose(rank_frequency, frequency, rtol=1.0e-10)
     assert frequency[0] == pytest.approx(163.27832561, rel=1.0e-7)
-    assert result.metadata["solve"]["free_dofs"] > 0
-    assert result.metadata["solve"]["constrained_dofs"] > 0
+    solve = result.metadata["solve"]
+    assert solve["free_dofs"] > 0
+    assert solve["constrained_dofs"] > 0
+    assert solve["mass_orthogonality_error"] < 1.0e-10
+    assert solve["stiffness_diagonalization_error"] < 1.0e-10
+    assert len(solve["orientation_anchor_dofs"]) == 3
+    gathered_anchors = MPI.COMM_WORLD.allgather(solve["orientation_anchor_dofs"])
+    assert all(item == gathered_anchors[0] for item in gathered_anchors)

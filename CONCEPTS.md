@@ -376,6 +376,13 @@ unchanged across continuation because missing past states are not fabricated.
 The step should not hide the finite-element meaning. It is the place where
 visible operators become a solveable algebraic problem.
 
+For a generalized Hermitian modal Step, SLEPc supplies mass-normalized
+eigenvectors. AgentFEM separately fixes their otherwise arbitrary sign through
+one deterministic global degree-of-freedom convention and records both
+mass-orthogonality and stiffness-diagonalization errors. A mode shape is a
+normalized spatial pattern, not a physical displacement until a modal
+coordinate supplies its amplitude.
+
 ## Increment, Attempt, and Iteration
 
 An Increment advances load or time within one analysis Step. An Attempt is one
@@ -414,6 +421,10 @@ consistent human and agent workflows.
 A collection of fields used by a solver or time integrator. Examples include
 first-order transient states and second-order displacement/velocity/acceleration
 states.
+
+State snapshots and restores reject non-finite field values. Checkpointing a
+NaN or infinity would preserve file bytes but not a valid numerical state, so
+this guard belongs to State rather than to an output format.
 
 For explicit second-order dynamics, the state may also store a mid-step
 velocity such as `v_mid`, because central-difference boundary damping and

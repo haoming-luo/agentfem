@@ -142,10 +142,7 @@ class FieldOutput:
 
         if self.intervals is None:
             return ()
-        return tuple(
-            index / self.intervals
-            for index in range(1, self.intervals + 1)
-        )
+        return tuple(index / self.intervals for index in range(1, self.intervals + 1))
 
     def write_finite_strain(
         self,
@@ -194,9 +191,7 @@ class FieldOutput:
             else:
                 unified_xdmf = output / f"{basename}.xdmf"
                 geometry_scale = (
-                    0.0
-                    if self.configuration == "reference"
-                    else self.deformation_scale
+                    0.0 if self.configuration == "reference" else self.deformation_scale
                 )
                 unified_xdmf = write_unified_xdmf_series(
                     unified_xdmf,
@@ -279,6 +274,7 @@ def write_parallel_vtk_series(path, snapshots, fields_by_frame) -> Path:
             )
     return output
 
+
 def field_output(
     *variables,
     every: int | str | None = None,
@@ -348,12 +344,16 @@ class UnifiedXDMFTimeSeries:
         deformation_scale: float = 0.0,
         store_reference_geometry: bool = True,
         compression: int = 4,
+        primary_name: str | None = None,
+        primary_semantic_name: str | None = None,
     ) -> None:
         self.path = Path(path)
         self.h5_path = self.path.with_suffix(".h5")
         self.deformation_scale = float(deformation_scale)
         self.store_reference_geometry = bool(store_reference_geometry)
         self.compression = int(compression)
+        self.primary_name = primary_name
+        self.primary_semantic_name = primary_semantic_name
         self._h5 = None
         self._root = None
         self._temporal = None
@@ -385,9 +385,7 @@ class UnifiedXDMFTimeSeries:
             )
         topology, cell_types, coordinates = plot.vtk_mesh(primary.function_space)
         nodes_per_cell = int(topology[0])
-        connectivity = np.asarray(topology).reshape(
-            -1, nodes_per_cell + 1
-        )[:, 1:]
+        connectivity = np.asarray(topology).reshape(-1, nodes_per_cell + 1)[:, 1:]
         unique_cell_types = np.unique(cell_types)
         if unique_cell_types.size != 1:
             raise ValueError("Unified XDMF currently requires one VTK cell type.")
@@ -397,8 +395,11 @@ class UnifiedXDMFTimeSeries:
                 "Unified XDMF primary fields support scalar or vector fields."
             )
         vector_primary = len(primary_shape) == 1
-        primary_name = (
+        primary_name = self.primary_name or (
             "U" if vector_primary else str(getattr(primary, "name", "Primary"))
+        )
+        primary_semantic_name = self.primary_semantic_name or (
+            "Displacement" if vector_primary else primary_name
         )
         topology_type = _xdmf_topology_type(
             domain.topology.cell_type.name,
@@ -443,9 +444,7 @@ class UnifiedXDMFTimeSeries:
         self._h5.attrs["point_count"] = self._point_count
         self._h5.attrs["cell_count"] = self._cell_count
         self._h5.attrs["primary_field"] = primary_name
-        self._h5.attrs["primary_semantic_name"] = (
-            "Displacement" if vector_primary else primary_name
-        )
+        self._h5.attrs["primary_semantic_name"] = primary_semantic_name
         self._h5.attrs["geometry_dimension"] = self._geometry_dimension
         self._h5.attrs["physical_model_dimension"] = self._physical_model_dimension
         self._h5.attrs["primary_physical_components"] = (
@@ -459,9 +458,7 @@ class UnifiedXDMFTimeSeries:
             "deformed" if effective_scale != 0.0 else "reference"
         )
         mesh_group = self._h5.create_group("Mesh")
-        mesh_group.create_dataset(
-            "Topology", data=connectivity, **self._h5_options
-        )
+        mesh_group.create_dataset("Topology", data=connectivity, **self._h5_options)
         if self.store_reference_geometry:
             mesh_group.create_dataset(
                 "ReferenceGeometry", data=coordinates, **self._h5_options
@@ -478,26 +475,20 @@ class UnifiedXDMFTimeSeries:
         if tuple(getattr(primary, "ufl_shape", ())) != self._primary_shape:
             raise ValueError("Unified XDMF primary-field shape changed between frames.")
 
-        value_size = (
-            int(np.prod(self._primary_shape)) if self._primary_shape else 1
-        )
+        value_size = int(np.prod(self._primary_shape)) if self._primary_shape else 1
         primary_values = np.asarray(primary.x.array).reshape(-1, value_size)
         if primary_values.shape[0] != self._point_count:
             raise ValueError("Unified XDMF primary-field dofs must match mesh points.")
         displacement = np.zeros_like(self._reference_coordinates)
         if self._vector_primary:
             displacement[:, : int(self._primary_shape[0])] = primary_values
-        geometry = (
-            self._reference_coordinates + self._effective_scale * displacement
-        )
+        geometry = self._reference_coordinates + self._effective_scale * displacement
 
         frame_name = f"{self._frame_count:04d}"
         frame_group = self._h5.create_group(f"Frames/{frame_name}")
         frame_group.attrs["load_factor"] = float(time)
         frame_group.attrs["coordinate"] = float(time)
-        frame_group.create_dataset(
-            "Geometry", data=geometry, **self._h5_options
-        )
+        frame_group.create_dataset("Geometry", data=geometry, **self._h5_options)
         point_group = frame_group.create_group("Point")
         cell_group = frame_group.create_group("Cell")
         stored_primary = displacement if self._vector_primary else primary_values[:, 0]
@@ -511,7 +502,9 @@ class UnifiedXDMFTimeSeries:
             self._geometry_dimension if self._vector_primary else 1
         )
         if self._vector_primary:
-            primary_dataset.attrs["semantic_name"] = "Displacement"
+            primary_dataset.attrs["semantic_name"] = (
+                self.primary_semantic_name or "Displacement"
+            )
         attributes = [(self._primary_name, "Node", stored_primary)]
         if self._vector_primary:
             magnitude = np.linalg.norm(primary_values, axis=1)
@@ -549,8 +542,7 @@ class UnifiedXDMFTimeSeries:
             self._field_contract = contract
         elif contract != self._field_contract:
             raise ValueError(
-                "Unified XDMF field names, locations, or shapes changed "
-                "between frames."
+                "Unified XDMF field names, locations, or shapes changed between frames."
             )
 
         grid = ET.SubElement(
@@ -599,6 +591,8 @@ def write_unified_xdmf_series(
     deformation_scale: float = 1.0,
     store_reference_geometry: bool = True,
     compression: int = 4,
+    primary_name: str | None = None,
+    primary_semantic_name: str | None = None,
 ) -> Path:
     """Write one temporal XDMF and one compressed HDF5 heavy-data file.
 
@@ -621,6 +615,8 @@ def write_unified_xdmf_series(
         deformation_scale=deformation_scale,
         store_reference_geometry=store_reference_geometry,
         compression=compression,
+        primary_name=primary_name,
+        primary_semantic_name=primary_semantic_name,
     ) as writer:
         for snapshot, fields in zip(selected, fields_by_frame):
             writer.write_fields(
@@ -665,9 +661,7 @@ def write_result_fields(
             f"{forbidden!r}. Request their recovered *_CELL fields or use the "
             "quadrature-state export contract."
         )
-    writable = tuple(
-        item for item in live if item.location != "quadrature_points"
-    )
+    writable = tuple(item for item in live if item.location != "quadrature_points")
     if not writable:
         raise ValueError(
             "No visualization-ready live fields remain after excluding "
@@ -693,6 +687,19 @@ def write_result_fields(
     physical_components = int(physical_shape[0]) if vector_solution else None
     geometry_dimension = int(domain.geometry.x.shape[1])
     stored_components = geometry_dimension if vector_solution else None
+    primary_method = str(primary.processing.get("method", ""))
+    modal_shape = (
+        vector_solution and primary_method == "generalized_hermitian_eigenproblem"
+    )
+    if modal_shape:
+        storage_name = str(getattr(solution, "name", "") or primary.name)
+        warp_semantic = "Mode shape"
+    elif vector_solution:
+        storage_name = "U"
+        warp_semantic = "Displacement"
+    else:
+        storage_name = str(getattr(solution, "name", "") or primary.name)
+        warp_semantic = None
     selected_path = Path(path)
     if domain.comm.size == 1:
         write_unified_xdmf_series(
@@ -700,6 +707,8 @@ def write_result_fields(
             (SimpleNamespace(solution=solution, load_factor=float(time)),),
             (auxiliary,),
             deformation_scale=float(deformation_scale),
+            primary_name=storage_name,
+            primary_semantic_name=warp_semantic,
         )
         layout = "single_uniform_grid"
         backend = "agentfem_unified_xdmf"
@@ -712,14 +721,12 @@ def write_result_fields(
             if function is solution:
                 coordinate_maps = getattr(domain.geometry, "cmaps", ())
                 degree = int(
-                    getattr(coordinate_maps[0], "degree", 1)
-                    if coordinate_maps
-                    else 1
+                    getattr(coordinate_maps[0], "degree", 1) if coordinate_maps else 1
                 )
                 function = io.interpolate_for_xdmf(
                     function,
                     degree=degree,
-                    name=getattr(function, "name", primary.name),
+                    name=storage_name,
                 )
             output_fields.append(function)
         with io.XDMFTimeSeries(selected_path, domain) as writer:
@@ -737,13 +744,15 @@ def write_result_fields(
         backend=backend,
         layout=layout,
         geometry=("deformed" if float(deformation_scale) != 0.0 else "reference"),
-        warp_field=("U" if vector_solution else None),
-        warp_field_semantic=("Displacement" if vector_solution else None),
+        warp_field=(storage_name if vector_solution else None),
+        warp_field_semantic=warp_semantic,
         physical_components=physical_components,
         stored_components=stored_components,
         geometry_dimension=geometry_dimension,
         physical_model_dimension=int(domain.geometry.dim),
-        warp_compatible=bool(vector_solution and stored_components == geometry_dimension),
+        warp_compatible=bool(
+            vector_solution and stored_components == geometry_dimension
+        ),
         field_names=tuple(item.name for item in writable),
         omitted_fields=tuple(
             item.name for item in live if item.location == "quadrature_points"
@@ -966,13 +975,9 @@ def write_deformed_vtk_series(
     frame_directory = pvd.parent / f"{pvd.stem}_frames"
     frame_directory.mkdir(parents=True, exist_ok=True)
     frame_paths = []
-    for frame_index, (snapshot, fields) in enumerate(
-        zip(selected, fields_by_frame)
-    ):
+    for frame_index, (snapshot, fields) in enumerate(zip(selected, fields_by_frame)):
         solution = snapshot.solution
-        topology, cell_types, coordinates = plot.vtk_mesh(
-            solution.function_space
-        )
+        topology, cell_types, coordinates = plot.vtk_mesh(solution.function_space)
         grid = pv.UnstructuredGrid(topology, cell_types, coordinates)
         value_dimension = solution.ufl_shape[0]
         displacement_values = np.asarray(solution.x.array).reshape(

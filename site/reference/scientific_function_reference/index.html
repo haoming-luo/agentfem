@@ -15711,7 +15711,7 @@ q_i^{n+1}=\exp\!\left(-\Delta t/\tau_i\right)q_i^n+E_i\frac{\tau_i}{\Delta t}\le
 <td>modal result</td>
 <td>SimulationResult quantities and live mode fields</td>
 <td>inverse time and mass-normalized shape</td>
-<td>Includes eigenvalues, angular frequencies, frequencies, relative residuals and each mode shape.</td>
+<td>Includes eigenvalues, angular frequencies, frequencies, relative residuals, orthogonality evidence and each deterministically oriented mode shape.</td>
 </tr>
 <tr>
 <td>dynamic signal records</td>
@@ -15735,7 +15735,8 @@ q_i^{n+1}=\exp\!\left(-\Delta t/\tau_i\right)q_i^n+E_i\frac{\tau_i}{\Delta t}\le
 </ul>
 <h4 id="conventions_10">Conventions<a class="headerlink" href="#conventions_10" title="Permanent link">&para;</a></h4>
 <ul>
-<li>SLEPc mass-normalizes generalized Hermitian eigenvectors.</li>
+<li>SLEPc mass-normalizes generalized Hermitian eigenvectors; AgentFEM records mass-orthogonality and stiffness-diagonalization errors and makes the largest global component positive to remove arbitrary sign changes between runs.</li>
+<li>A mass-normalized mode shape is a relative spatial pattern and does not carry a physical displacement amplitude until combined with a modal coordinate.</li>
 <li>Storage and loss modulus consume angular frequency, not cyclic frequency.</li>
 <li>Positive Prony ratios are fractions of the instantaneous modulus and must sum to less than one.</li>
 <li>A trial material-point update does not modify accepted state until explicitly committed.</li>
@@ -15769,6 +15770,9 @@ q_i^{n+1}=\exp\!\left(-\Delta t/\tau_i\right)q_i^n+E_i\frac{\tau_i}{\Delta t}\le
 <p><strong>Validation rules</strong></p>
 <ul>
 <li>Eliminate strong constrained degrees of freedom before the modal solve and reject insufficient free degrees of freedom.</li>
+<li>Reject a modal result when mass orthogonality or stiffness diagonalization exceeds the recorded numerical tolerance.</li>
+<li>Reject assembled stiffness or mass operators that violate the symmetric generalized-Hermitian problem contract.</li>
+<li>Use one deterministic global sign convention for serial and MPI mode fields and preserve the actual mode-field name in visualization metadata.</li>
 <li>Return the requested eigenmodes nearest a declared target frequency, then order the selected set by increasing frequency.</li>
 <li>Require positive moduli and relaxation times, and Prony ratios summing to less than one.</li>
 <li>Reject singular or non-finite time-temperature shift factors before updating material state.</li>

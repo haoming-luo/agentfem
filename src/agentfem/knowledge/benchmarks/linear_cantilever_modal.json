@@ -15,14 +15,18 @@
     "First three positive natural frequencies.",
     "Relative SLEPc eigenpair residual for every accepted mode.",
     "Constrained and free degree-of-freedom counts.",
-    "Mass-normalized live finite-element mode fields."
+    "Mass-normalized, deterministically oriented live finite-element mode fields.",
+    "Mass-orthogonality and stiffness-diagonalization errors.",
+    "Symmetry evidence for the assembled free-DOF stiffness and mass operators."
   ],
   "acceptance": [
     "The first finite-element bending frequency must remain within 3.5 percent of the Euler--Bernoulli slender-beam reference for the fixed Q2 mesh.",
     "The first three accepted frequencies must be positive and strictly increasing.",
     "Every relative eigenpair residual must remain below 1e-7.",
-    "The result must expose exactly three mode fields through the common SimulationResult contract."
-    ,"The two-rank distributed solve must reproduce the serial frequencies within 1e-7 relative error."
+    "Mass-orthogonality and relative stiffness-diagonalization errors must remain below 1e-7.",
+    "The result must expose exactly three mode fields through the common SimulationResult contract.",
+    "The two-rank distributed solve must reproduce the serial frequencies within 1e-7 relative error.",
+    "An unsymmetric user-supplied stiffness or mass operator must fail before the generalized-Hermitian eigensolve."
   ],
   "golden": {
     "reference_version": "cantilever-q2-8x2-1",

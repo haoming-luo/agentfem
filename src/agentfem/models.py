@@ -1995,10 +1995,14 @@ class Model:
         selected_material = (
             None if step_options is None else step_options.get("material")
         )
-        explicit_linear_system = bool(
+        analysis = None if study is None else getattr(study, "analysis", None)
+        required_operators = {
+            "modal": ("K", "M"),
+            "second_order_dynamics": ("K", "M", "F"),
+        }.get(analysis, ("K", "F"))
+        complete_operator_system = bool(
             step_options
-            and step_options.get("K") is not None
-            and step_options.get("F") is not None
+            and all(step_options.get(name) is not None for name in required_operators)
         )
         if (
             study is not None
@@ -2008,7 +2012,7 @@ class Model:
             )
             and not self.materials
             and selected_material is None
-            and not explicit_linear_system
+            and not complete_operator_system
         ):
             physics = getattr(study, "physics", "finite-element")
             issues.append(

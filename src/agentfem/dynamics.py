@@ -10,6 +10,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from math import pi
+from operator import index as integer_index
 from typing import Mapping, Sequence
 
 import numpy as np
@@ -18,10 +19,44 @@ import numpy as np
 def _one_dimensional(values, *, name: str, minimum: int = 1) -> np.ndarray:
     array = np.asarray(values, dtype=float)
     if array.ndim != 1 or array.size < minimum:
-        raise ValueError(f"{name} must be a one-dimensional array with at least {minimum} values.")
+        raise ValueError(
+            f"{name} must be a one-dimensional array with at least {minimum} values."
+        )
     if not np.all(np.isfinite(array)):
         raise ValueError(f"{name} must contain only finite values.")
     return array
+
+
+def _positive_integer(value, *, name: str) -> int:
+    if isinstance(value, (bool, np.bool_)):
+        raise ValueError(f"{name} must be a positive integer.")
+    try:
+        selected = integer_index(value)
+    except TypeError as exc:
+        raise ValueError(f"{name} must be a positive integer.") from exc
+    if selected <= 0:
+        raise ValueError(f"{name} must be a positive integer.")
+    return int(selected)
+
+
+def _orient_dense_modes(vectors: np.ndarray) -> tuple[np.ndarray, tuple[int, ...]]:
+    """Apply the same largest-component-positive convention as the FEM Step."""
+
+    selected = np.asarray(vectors, dtype=float).copy()
+    anchors = []
+    for column in range(selected.shape[1]):
+        values = selected[:, column]
+        maximum = float(np.max(np.abs(values)))
+        if not np.isfinite(maximum) or maximum <= 0.0:
+            raise ValueError("Dense modal eigenvector has no finite nonzero component.")
+        tied = np.flatnonzero(
+            np.abs(values) >= maximum * (1.0 - 64.0 * np.finfo(float).eps)
+        )
+        anchor = int(tied[0])
+        if values[anchor] < 0.0:
+            selected[:, column] *= -1.0
+        anchors.append(anchor)
+    return selected, tuple(anchors)
 
 
 def _uniform_spacing(coordinate, *, name: str) -> tuple[np.ndarray, float]:
@@ -79,9 +114,11 @@ class SignalSpectrum:
         if values.ndim != 1 or not (
             frequency.size == values.size == amplitude.size == phase.size
         ):
-            raise ValueError("Spectrum arrays must have one common one-dimensional shape.")
-        if self.sample_spacing <= 0.0:
-            raise ValueError("sample_spacing must be positive.")
+            raise ValueError(
+                "Spectrum arrays must have one common one-dimensional shape."
+            )
+        if not np.isfinite(self.sample_spacing) or self.sample_spacing <= 0.0:
+            raise ValueError("sample_spacing must be finite and positive.")
         object.__setattr__(self, "frequency", frequency.copy())
         object.__setattr__(self, "values", values.copy())
         object.__setattr__(self, "amplitude", amplitude.copy())
@@ -139,6 +176,8 @@ class FrequencyResponse:
             raise ValueError("response and valid must be one-dimensional.")
         if not (frequency.size == response.size == valid.size):
             raise ValueError("Frequency-response arrays must have a common shape.")
+        if not np.all(np.isfinite(response[valid])):
+            raise ValueError("Valid frequency-response bins must be finite.")
         object.__setattr__(self, "frequency", frequency.copy())
         object.__setattr__(self, "response", response.copy())
         object.__setattr__(self, "valid", valid.copy())
@@ -210,7 +249,9 @@ class ModalBasis:
         if modes.ndim != 2 or modes.shape[1] != eigenvalues.size:
             raise ValueError("modes must have shape (dofs, number_of_eigenvalues).")
         if np.any(eigenvalues <= 0.0):
-            raise ValueError("Modal eigenvalues must be positive after rigid-mode filtering.")
+            raise ValueError(
+                "Modal eigenvalues must be positive after rigid-mode filtering."
+            )
         residuals = (
             np.full(eigenvalues.size, np.nan)
             if self.residual_norms is None
@@ -257,9 +298,7 @@ class ModalBasis:
         )
         result.metadata["modal_basis"] = {
             "mode_count": self.mode_count,
-            "residual_norms_available": bool(
-                np.all(np.isfinite(self.residual_norms))
-            ),
+            "residual_norms_available": bool(np.all(np.isfinite(self.residual_norms))),
             **dict(self.metadata or {}),
         }
         return result
@@ -328,28 +367,41 @@ def frequency_response(
             name="response_history",
         )
         if not np.array_equal(input_time, output_time):
-            raise ValueError("Excitation and response histories must share one time axis.")
+            raise ValueError(
+                "Excitation and response histories must share one time axis."
+            )
         time, excitation, response = input_time, input_values, output_values
     input_spectrum = spectrum(time, excitation, window=window)
     output_spectrum = spectrum(time, response, window=window)
     scale = float(np.max(np.abs(input_spectrum.values)))
     threshold = max(np.finfo(float).eps, minimum_input_ratio * scale)
     valid = np.abs(input_spectrum.values) > threshold
+    if not np.any(valid):
+        raise ValueError(
+            "Frequency response requires at least one observable excitation bin."
+        )
     ratio = np.full(input_spectrum.values.shape, np.nan + 1j * np.nan)
     ratio[valid] = output_spectrum.values[valid] / input_spectrum.values[valid]
     return FrequencyResponse(input_spectrum.frequency, ratio, valid)
 
 
-def damping_from_free_decay(signal, *, peak_indices: Sequence[int] | None = None) -> DampingEstimate:
+def damping_from_free_decay(
+    signal, *, peak_indices: Sequence[int] | None = None
+) -> DampingEstimate:
     """Estimate damping from positive peaks of an underdamped free decay."""
 
     if hasattr(signal, "abscissa") and hasattr(signal, "values"):
         _, signal = _history_arrays(signal, name="history")
     values = _one_dimensional(signal, name="signal", minimum=3)
     if peak_indices is None:
-        candidates = np.flatnonzero(
-            (values[1:-1] > values[:-2]) & (values[1:-1] >= values[2:]) & (values[1:-1] > 0.0)
-        ) + 1
+        candidates = (
+            np.flatnonzero(
+                (values[1:-1] > values[:-2])
+                & (values[1:-1] >= values[2:])
+                & (values[1:-1] > 0.0)
+            )
+            + 1
+        )
     else:
         candidates = np.asarray(peak_indices, dtype=int)
     if candidates.ndim != 1 or candidates.size < 2:
@@ -385,6 +437,8 @@ def solve_dense_modes(stiffness, mass, *, modes: int | None = None) -> ModalBasi
         raise ValueError("stiffness must be a square matrix.")
     if mass.shape != stiffness.shape:
         raise ValueError("mass must match stiffness shape.")
+    if not np.all(np.isfinite(stiffness)) or not np.all(np.isfinite(mass)):
+        raise ValueError("stiffness and mass must contain only finite values.")
     if not np.allclose(stiffness, stiffness.T) or not np.allclose(mass, mass.T):
         raise ValueError("Dense modal reference requires symmetric stiffness and mass.")
     try:
@@ -401,17 +455,39 @@ def solve_dense_modes(stiffness, mass, *, modes: int | None = None) -> ModalBasi
     eigenvalues = eigenvalues[positive]
     vectors = vectors[:, positive]
     if modes is not None:
-        if int(modes) <= 0:
-            raise ValueError("modes must be positive.")
-        eigenvalues = eigenvalues[: int(modes)]
-        vectors = vectors[:, : int(modes)]
+        selected_modes = _positive_integer(modes, name="modes")
+        if selected_modes > eigenvalues.size:
+            raise ValueError(
+                f"Dense modal solve found {eigenvalues.size} positive modes but "
+                f"requests {selected_modes}."
+            )
+        eigenvalues = eigenvalues[:selected_modes]
+        vectors = vectors[:, :selected_modes]
+    vectors, anchors = _orient_dense_modes(vectors)
     residuals = np.asarray(
         [
-            np.linalg.norm(stiffness @ vectors[:, i] - eigenvalues[i] * mass @ vectors[:, i])
+            np.linalg.norm(
+                stiffness @ vectors[:, i] - eigenvalues[i] * mass @ vectors[:, i]
+            )
+            / max(
+                np.finfo(float).tiny,
+                np.linalg.norm(stiffness @ vectors[:, i])
+                + abs(eigenvalues[i]) * np.linalg.norm(mass @ vectors[:, i]),
+            )
             for i in range(eigenvalues.size)
         ]
     )
-    return ModalBasis(eigenvalues, vectors, residuals, {"solver": "dense_reference"})
+    return ModalBasis(
+        eigenvalues,
+        vectors,
+        residuals,
+        {
+            "solver": "dense_reference",
+            "residual_definition": "relative_backward_error",
+            "orientation_convention": "largest_component_positive",
+            "orientation_anchor_dofs": anchors,
+        },
+    )
 
 
 def modal_frequency_response(
@@ -428,11 +504,18 @@ def modal_frequency_response(
     if force.size != basis.mode_count:
         raise ValueError("modal_force must provide one value per mode.")
     damping = np.broadcast_to(np.asarray(damping_ratio, dtype=float), force.shape)
-    if np.any(damping < 0.0):
-        raise ValueError("damping_ratio must be nonnegative.")
+    if not np.all(np.isfinite(damping)) or np.any(damping < 0.0):
+        raise ValueError("damping_ratio must be finite and nonnegative.")
+    if np.any(frequency < 0.0):
+        raise ValueError("frequencies must be nonnegative.")
     omega = 2.0 * pi * frequency[:, None]
     natural = basis.angular_frequencies[None, :]
     denominator = natural**2 - omega**2 + 2j * damping[None, :] * natural * omega
+    scale = np.maximum(natural**2 + omega**2, np.finfo(float).tiny)
+    if np.any(np.abs(denominator) <= np.finfo(float).eps * scale):
+        raise ValueError(
+            "Undamped modal response is singular at a requested natural frequency."
+        )
     return force[None, :] / denominator
 
 

@@ -1466,11 +1466,25 @@ the assembled matrices before SLEPc solves</p>
 <a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a><span class="n">mode_1</span> <span class="o">=</span> <span class="n">result</span><span class="o">.</span><span class="n">field</span><span class="p">(</span><span class="s2">&quot;Mode_1&quot;</span><span class="p">)</span>
 </code></pre></div>
 <p>The result retains eigenvalues, angular frequencies, frequencies, relative
-eigenpair residuals, and each mass-normalized live mode field. <code>slepc4py</code> is
-an optional execution dependency because a dense array eigensolver is not a
-scalable replacement for distributed finite-element modal analysis.
+eigenpair residuals, mass-orthogonality and stiffness-diagonalization errors,
+and each mass-normalized live mode field. Since an eigenvector and its negative
+describe the same mode, AgentFEM makes the largest global component positive
+using a deterministic degree-of-freedom tie rule. This stabilizes comparisons
+and datasets without changing the eigenspace. A mass-normalized mode shape has
+no physical displacement amplitude until it is multiplied by a modal
+coordinate. <code>slepc4py</code> is an optional execution dependency because a dense
+array eigensolver is not a scalable replacement for distributed finite-element
+modal analysis.
+The finite-element provider checks the assembled free-DOF stiffness and mass
+operators for symmetry before declaring the generalized Hermitian problem to
+SLEPc. This also applies to a complete user-supplied <code>K/M</code> pair. An
+unsymmetric operator is rejected rather than silently interpreted as
+Hermitian.
 When <code>target_frequency</code> is supplied, AgentFEM returns the requested modes
-nearest that frequency and orders the selected set by increasing frequency.</p>
+nearest that frequency and orders the selected set by increasing frequency.
+The compact result writer preserves the field name (for example <code>Mode_1</code>) and
+labels it as a mode shape rather than silently advertising it as displacement
+<code>U</code>.</p>
 <h2 id="frequency-and-decay-post-processing">Frequency and decay post-processing<a class="headerlink" href="#frequency-and-decay-post-processing" title="Permanent link">&para;</a></h2>
 <p><code>agentfem.dynamics</code> provides solver-independent processing for uniformly
 sampled histories:</p>

@@ -97,6 +97,15 @@ experimental formulation to a validated one.
 
 ### Changed
 
+- Harden structural modal analysis with exact integer validation, deterministic
+  serial/MPI mode orientation, operator-symmetry preflight, mass-orthogonality
+  and stiffness-diagonalization evidence, and physically neutral mode-shape
+  output semantics. Complete user-supplied `K/M` systems remain a valid
+  material-free expert path.
+- Reject non-finite generic and generalized-Maxwell state at snapshot,
+  restore, trial and commit boundaries; use cancellation-safe exact branch
+  updates for very small increments and fail closed on singular spectral
+  requests.
 - Pin the documented conda installation route to the release-tested Python
   3.11 and DOLFINx 0.11 stack, publish a no-global-configuration TUNA mirror
   route for mainland China, and expose both commands to AI agents through the

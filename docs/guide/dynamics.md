@@ -38,11 +38,25 @@ mode_1 = result.field("Mode_1")
 ```
 
 The result retains eigenvalues, angular frequencies, frequencies, relative
-eigenpair residuals, and each mass-normalized live mode field. `slepc4py` is
-an optional execution dependency because a dense array eigensolver is not a
-scalable replacement for distributed finite-element modal analysis.
+eigenpair residuals, mass-orthogonality and stiffness-diagonalization errors,
+and each mass-normalized live mode field. Since an eigenvector and its negative
+describe the same mode, AgentFEM makes the largest global component positive
+using a deterministic degree-of-freedom tie rule. This stabilizes comparisons
+and datasets without changing the eigenspace. A mass-normalized mode shape has
+no physical displacement amplitude until it is multiplied by a modal
+coordinate. `slepc4py` is an optional execution dependency because a dense
+array eigensolver is not a scalable replacement for distributed finite-element
+modal analysis.
+The finite-element provider checks the assembled free-DOF stiffness and mass
+operators for symmetry before declaring the generalized Hermitian problem to
+SLEPc. This also applies to a complete user-supplied `K/M` pair. An
+unsymmetric operator is rejected rather than silently interpreted as
+Hermitian.
 When `target_frequency` is supplied, AgentFEM returns the requested modes
 nearest that frequency and orders the selected set by increasing frequency.
+The compact result writer preserves the field name (for example `Mode_1`) and
+labels it as a mode shape rather than silently advertising it as displacement
+`U`.
 
 ## Frequency and decay post-processing
 

@@ -63,7 +63,12 @@ def test_ownership_contract_is_small_stable_and_machine_readable():
         "backend",
         "result_verification",
     )
-    assert all(item["question"] and item["owns"] and item["excludes"] for item in records)
+    assert all(
+        item["question"] and item["owns"] and item["excludes"] for item in records
+    )
+    by_name = {item["name"]: item for item in records}
+    assert by_name["constitutive"]["modules"] == ("constitutive",)
+    assert "mechanics" in by_name["procedure"]["modules"]
 
 
 def test_forbidden_cross_layer_imports_do_not_regrow():
@@ -101,4 +106,6 @@ def test_fatigue_work_contract_is_owned_by_shared_internal_layer():
     from agentfem import _work_energy
 
     assert fatigue_fracture.GeneralizedWorkSample is _work_energy.GeneralizedWorkSample
-    assert fatigue_fracture.CyclicWorkEnergyLedger is _work_energy.CyclicWorkEnergyLedger
+    assert (
+        fatigue_fracture.CyclicWorkEnergyLedger is _work_energy.CyclicWorkEnergyLedger
+    )

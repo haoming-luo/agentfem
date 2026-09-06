@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field, replace
 import json
+from operator import index as integer_index
 from pathlib import Path
 from time import perf_counter
 
@@ -67,10 +68,14 @@ class FEMProblem:
             "geometric_dim": self.domain.geometry.dim,
             "spaces": tuple(self.spaces.keys()),
             "fields": tuple(self.fields.keys()),
-            "materials": tuple(_describe_asset(material) for material in self.materials),
+            "materials": tuple(
+                _describe_asset(material) for material in self.materials
+            ),
             "constraints": tuple(_describe_asset(item) for item in self.constraints),
             "loads": tuple(_describe_asset(item) for item in self.loads),
-            "boundary_models": tuple(_describe_asset(item) for item in self.boundary_models),
+            "boundary_models": tuple(
+                _describe_asset(item) for item in self.boundary_models
+            ),
             "forms": tuple(self.forms.keys()),
         }
 
@@ -214,7 +219,9 @@ class LinearSystemProblem:
 
         return {
             "kind": "linear_system_problem",
-            "system": self.system.summary() if hasattr(self.system, "summary") else repr(self.system),
+            "system": self.system.summary()
+            if hasattr(self.system, "summary")
+            else repr(self.system),
             "solution": getattr(self._solution(), "name", repr(self._solution())),
             "num_bcs": len(self.bcs),
             "constraint_provider": (
@@ -228,9 +235,7 @@ class LinearSystemProblem:
                 else LinearSolverOptions().summary()
             ),
             "last_solve": (
-                None
-                if self.last_solve_info is None
-                else self.last_solve_info.as_dict()
+                None if self.last_solve_info is None else self.last_solve_info.as_dict()
             ),
             "linear_lifecycle": self.last_lifecycle_summary,
         }
@@ -288,10 +293,29 @@ class ModalSolveInfo:
     residual_norms: tuple[float, ...]
     eigensolver: str
     target_frequency: float | None = None
+    mass_orthogonality_error: float = float("nan")
+    stiffness_diagonalization_error: float = float("nan")
+    orthogonality_tolerance: float = 1.0e-7
+    orientation_anchor_dofs: tuple[int, ...] = ()
+    operator_symmetry_relative_tolerance: float = float("nan")
+    stiffness_symmetry_absolute_tolerance: float = float("nan")
+    mass_symmetry_absolute_tolerance: float = float("nan")
+    stiffness_symmetric: bool = False
+    mass_symmetric: bool = False
 
     @property
     def converged(self) -> bool:
-        return self.accepted_modes >= self.requested_modes
+        errors = (
+            self.mass_orthogonality_error,
+            self.stiffness_diagonalization_error,
+        )
+        return (
+            self.accepted_modes >= self.requested_modes
+            and all(np.isfinite(value) for value in errors)
+            and all(value <= self.orthogonality_tolerance for value in errors)
+            and self.stiffness_symmetric
+            and self.mass_symmetric
+        )
 
     def as_dict(self) -> dict[str, object]:
         return {
@@ -304,7 +328,128 @@ class ModalSolveInfo:
             "residual_norms": self.residual_norms,
             "eigensolver": self.eigensolver,
             "target_frequency": self.target_frequency,
+            "mass_orthogonality_error": self.mass_orthogonality_error,
+            "stiffness_diagonalization_error": self.stiffness_diagonalization_error,
+            "orthogonality_tolerance": self.orthogonality_tolerance,
+            "orientation_convention": "largest_global_component_positive",
+            "orientation_anchor_dofs": self.orientation_anchor_dofs,
+            "operator_symmetry_relative_tolerance": (
+                self.operator_symmetry_relative_tolerance
+            ),
+            "stiffness_symmetry_absolute_tolerance": (
+                self.stiffness_symmetry_absolute_tolerance
+            ),
+            "mass_symmetry_absolute_tolerance": (
+                self.mass_symmetry_absolute_tolerance
+            ),
+            "stiffness_symmetric": self.stiffness_symmetric,
+            "mass_symmetric": self.mass_symmetric,
         }
+
+
+def _positive_integer(value, *, name: str) -> int:
+    """Return one exact positive integer without truncating user input."""
+
+    if isinstance(value, (bool, np.bool_)):
+        raise ValueError(f"{name} must be a positive integer.")
+    try:
+        selected = integer_index(value)
+    except TypeError as exc:
+        raise ValueError(f"{name} must be a positive integer.") from exc
+    if selected <= 0:
+        raise ValueError(f"{name} must be a positive integer.")
+    return int(selected)
+
+
+def _orient_mode_deterministically(mode, free_local, free_global) -> int:
+    """Choose a stable sign for a real distributed eigenvector.
+
+    Eigenvectors are defined only up to sign.  The owned scalar dof with the
+    smallest global index among components tied for the largest magnitude is
+    made positive.  The near-tie band avoids partition-dependent sign changes
+    caused by roundoff in symmetric modes.
+    """
+
+    comm = mode.function_space.mesh.comm
+    values = np.real(np.asarray(mode.x.array[free_local]))
+    local_maximum = float(np.max(np.abs(values))) if values.size else 0.0
+    maximum = float(comm.allreduce(local_maximum, op=MPI.MAX))
+    if not np.isfinite(maximum) or maximum <= 0.0:
+        raise RuntimeError("Modal eigenvector has no finite nonzero component.")
+    tied = np.abs(values) >= maximum * (1.0 - 64.0 * np.finfo(float).eps)
+    sentinel = int(np.iinfo(np.int64).max)
+    local_anchor = (
+        int(np.min(np.asarray(free_global, dtype=np.int64)[tied]))
+        if np.any(tied)
+        else sentinel
+    )
+    anchor = int(comm.allreduce(local_anchor, op=MPI.MIN))
+    local_value = float(
+        np.sum(values[np.asarray(free_global, dtype=np.int64) == anchor])
+    )
+    anchor_value = float(comm.allreduce(local_value, op=MPI.SUM))
+    if not np.isfinite(anchor_value) or anchor_value == 0.0:
+        raise RuntimeError("Modal sign anchor could not be resolved.")
+    if anchor_value < 0.0:
+        mode.x.array[:] *= -1.0
+        mode.x.scatter_forward()
+    return anchor
+
+
+def _modal_orthogonality_evidence(stiffness, mass, modes, eigenvalues):
+    """Return global mass-orthogonality and stiffness-diagonalization errors."""
+
+    count = len(modes)
+    if count == 0:
+        return float("inf"), float("inf")
+    mass_gram = np.empty((count, count), dtype=float)
+    stiffness_gram = np.empty((count, count), dtype=float)
+    mass_action = mass.createVecLeft()
+    stiffness_action = stiffness.createVecLeft()
+    try:
+        for column, right in enumerate(modes):
+            mass.mult(right.x.petsc_vec, mass_action)
+            stiffness.mult(right.x.petsc_vec, stiffness_action)
+            for row, left in enumerate(modes):
+                mass_gram[row, column] = float(
+                    np.real(left.x.petsc_vec.dot(mass_action))
+                )
+                stiffness_gram[row, column] = float(
+                    np.real(left.x.petsc_vec.dot(stiffness_action))
+                )
+    finally:
+        mass_action.destroy()
+        stiffness_action.destroy()
+    mass_error = float(np.max(np.abs(mass_gram - np.eye(count))))
+    expected_stiffness = np.diag(np.asarray(eigenvalues, dtype=float))
+    stiffness_scale = max(1.0, float(np.max(np.abs(eigenvalues))))
+    stiffness_error = float(
+        np.max(np.abs(stiffness_gram - expected_stiffness)) / stiffness_scale
+    )
+    return mass_error, stiffness_error
+
+
+def _modal_operator_symmetry(matrix, *, name: str, relative_tolerance: float) -> float:
+    """Require the real symmetric operator promised to the GHEP solver.
+
+    PETSc's symmetry tolerance is absolute, whereas engineering stiffness and
+    mass matrices may differ by many orders of magnitude.  Scale it by the
+    infinity norm and record the resulting absolute tolerance as solver
+    evidence.  This check matters most for user-supplied operators: declaring
+    an unsymmetric pair as a Hermitian eigenproblem can otherwise return
+    plausible-looking but invalid modes.
+    """
+
+    scale = float(matrix.norm(PETSc.NormType.INFINITY))
+    if not np.isfinite(scale):
+        raise ValueError(f"Modal {name} operator contains nonfinite values.")
+    absolute_tolerance = max(1.0, scale) * float(relative_tolerance)
+    if not matrix.isSymmetric(tol=absolute_tolerance):
+        raise ValueError(
+            f"Modal {name} operator must be symmetric for the generalized "
+            "Hermitian eigenproblem."
+        )
+    return absolute_tolerance
 
 
 @dataclass
@@ -334,14 +479,13 @@ class ModalAnalysisStep:
     last_solve_info: ModalSolveInfo | None = field(default=None, init=False)
 
     def __post_init__(self) -> None:
-        if int(self.modes) <= 0:
-            raise ValueError("Modal analysis requires modes > 0.")
-        if (
-            not np.isfinite(self.tolerance)
-            or self.tolerance <= 0.0
-            or int(self.maximum_iterations) <= 0
-        ):
-            raise ValueError("Modal tolerance and maximum_iterations must be positive.")
+        self.modes = _positive_integer(self.modes, name="modes")
+        self.maximum_iterations = _positive_integer(
+            self.maximum_iterations,
+            name="maximum_iterations",
+        )
+        if not np.isfinite(self.tolerance) or self.tolerance <= 0.0:
+            raise ValueError("Modal tolerance must be finite and positive.")
         if (
             not np.isfinite(self.rigid_mode_tolerance)
             or self.rigid_mode_tolerance < 0.0
@@ -384,27 +528,56 @@ class ModalAnalysisStep:
         local_blocks = free_local // block_size
         components = free_local % block_size
         global_blocks = V.dofmap.index_map.local_to_global(local_blocks)
-        free_global = (
-            np.asarray(global_blocks, dtype=PETSc.IntType) * block_size
-            + components.astype(PETSc.IntType)
-        )
-        free_is = PETSc.IS().createGeneral(free_global, comm=comm)
-        reduced_stiffness = stiffness.createSubMatrix(free_is, free_is)
-        reduced_mass = mass.createSubMatrix(free_is, free_is)
+        free_global = np.asarray(
+            global_blocks, dtype=PETSc.IntType
+        ) * block_size + components.astype(PETSc.IntType)
         free_count = int(comm.allreduce(free_local.size, op=MPI.SUM))
         constrained_count = int(comm.allreduce(constrained_local.size, op=MPI.SUM))
         if free_count <= int(self.modes):
+            stiffness.destroy()
+            mass.destroy()
             raise ValueError(
                 f"Modal analysis has {free_count} free dofs but requests {self.modes} modes."
             )
+
+        free_is = PETSc.IS().createGeneral(free_global, comm=comm)
+        reduced_stiffness = stiffness.createSubMatrix(free_is, free_is)
+        reduced_mass = mass.createSubMatrix(free_is, free_is)
+
+        relative_symmetry_tolerance = max(
+            100.0 * np.finfo(float).eps,
+            min(1.0e-8, 10.0 * float(self.tolerance)),
+        )
+        try:
+            stiffness_symmetry_tolerance = _modal_operator_symmetry(
+                reduced_stiffness,
+                name="stiffness",
+                relative_tolerance=relative_symmetry_tolerance,
+            )
+            mass_symmetry_tolerance = _modal_operator_symmetry(
+                reduced_mass,
+                name="mass",
+                relative_tolerance=relative_symmetry_tolerance,
+            )
+        except Exception:
+            reduced_stiffness.destroy()
+            reduced_mass.destroy()
+            free_is.destroy()
+            stiffness.destroy()
+            mass.destroy()
+            raise
 
         eps = SLEPc.EPS().create(comm)
         eps.setOperators(reduced_stiffness, reduced_mass)
         eps.setProblemType(SLEPc.EPS.ProblemType.GHEP)
         eps.setType(SLEPc.EPS.Type.KRYLOVSCHUR)
-        requested = min(free_count - 1, int(self.modes) + min(8, free_count - int(self.modes) - 1))
+        requested = min(
+            free_count - 1, int(self.modes) + min(8, free_count - int(self.modes) - 1)
+        )
         eps.setDimensions(requested)
-        eps.setTolerances(tol=float(self.tolerance), max_it=int(self.maximum_iterations))
+        eps.setTolerances(
+            tol=float(self.tolerance), max_it=int(self.maximum_iterations)
+        )
         target_eigenvalue = None
         if self.target_frequency is None:
             # Interior targeting at zero is substantially more reliable for
@@ -426,6 +599,7 @@ class ModalAnalysisStep:
         eigenvalues = []
         residual_norms = []
         mode_shapes = []
+        orientation_anchors = []
         reduced_vector = reduced_stiffness.createVecRight()
         candidates = []
         for index in range(converged):
@@ -435,9 +609,7 @@ class ModalAnalysisStep:
             candidates.append((float(np.real(eigenvalue)), index))
         scale = max(1.0, max((abs(item[0]) for item in candidates), default=1.0))
         candidates = [
-            item
-            for item in candidates
-            if item[0] > self.rigid_mode_tolerance * scale
+            item for item in candidates if item[0] > self.rigid_mode_tolerance * scale
         ]
         if target_eigenvalue is None:
             selected_candidates = sorted(candidates, key=lambda item: item[0])[
@@ -463,11 +635,22 @@ class ModalAnalysisStep:
             mode = fem.Function(V, name=f"Mode_{len(mode_shapes) + 1}")
             mode.x.array[free_local] = np.real(local_values)
             mode.x.scatter_forward()
+            orientation_anchors.append(
+                _orient_mode_deterministically(mode, free_local, free_global)
+            )
             eigenvalues.append(eigenvalue)
             residual_norms.append(
                 float(eps.computeError(index, SLEPc.EPS.ErrorType.RELATIVE))
             )
             mode_shapes.append(mode)
+
+        orthogonality_tolerance = max(1.0e-7, 100.0 * float(self.tolerance))
+        mass_error, stiffness_error = _modal_orthogonality_evidence(
+            stiffness,
+            mass,
+            mode_shapes,
+            eigenvalues,
+        )
 
         info = ModalSolveInfo(
             converged_eigenpairs=converged,
@@ -478,6 +661,15 @@ class ModalAnalysisStep:
             residual_norms=tuple(residual_norms),
             eigensolver=str(eps.getType()),
             target_frequency=self.target_frequency,
+            mass_orthogonality_error=mass_error,
+            stiffness_diagonalization_error=stiffness_error,
+            orthogonality_tolerance=orthogonality_tolerance,
+            orientation_anchor_dofs=tuple(orientation_anchors),
+            operator_symmetry_relative_tolerance=relative_symmetry_tolerance,
+            stiffness_symmetry_absolute_tolerance=stiffness_symmetry_tolerance,
+            mass_symmetry_absolute_tolerance=mass_symmetry_tolerance,
+            stiffness_symmetric=True,
+            mass_symmetric=True,
         )
         self.last_solve_info = info
         self.eigenvalues = np.asarray(eigenvalues, dtype=float)
@@ -509,6 +701,8 @@ class ModalAnalysisStep:
                 "angular_frequencies": np.sqrt(self.eigenvalues),
                 "frequencies": np.sqrt(self.eigenvalues) / (2.0 * np.pi),
                 "residual_norms": np.asarray(self.last_solve_info.residual_norms),
+                "mass_orthogonality_error": self.last_solve_info.mass_orthogonality_error,
+                "stiffness_diagonalization_error": self.last_solve_info.stiffness_diagonalization_error,
             },
             units={
                 "eigenvalues": "rad^2/s^2",
@@ -521,10 +715,15 @@ class ModalAnalysisStep:
             result.add_field(
                 f"Mode_{index}",
                 mode,
-                unit="1",
+                unit=None,
+                description=(
+                    "Mass-normalized eigenvector; its amplitude is a normalization "
+                    "coordinate rather than a physical displacement."
+                ),
                 processing={
                     "method": "generalized_hermitian_eigenproblem",
                     "normalization": "mass",
+                    "orientation": "largest_global_component_positive",
                     "postprocessed": False,
                 },
             )
@@ -543,11 +742,15 @@ class ModalAnalysisStep:
             "name": self.name,
             "requested_modes": int(self.modes),
             "target_frequency": self.target_frequency,
-            "constraints": len(_collect_bcs(constraints=self.constraints, bcs=self.bcs)),
+            "constraints": len(
+                _collect_bcs(constraints=self.constraints, bcs=self.bcs)
+            ),
             "stiffness": self.stiffness.summary(),
             "mass": self.mass.summary(),
             "procedure": None if self.procedure is None else self.procedure.summary(),
-            "last_solve": None if self.last_solve_info is None else self.last_solve_info.as_dict(),
+            "last_solve": None
+            if self.last_solve_info is None
+            else self.last_solve_info.as_dict(),
         }
 
 
@@ -606,13 +809,9 @@ class NonlinearVariationalProblem:
                 else NonlinearSolverOptions().summary()
             ),
             "last_solve": (
-                None
-                if self.last_solve_info is None
-                else self.last_solve_info.as_dict()
+                None if self.last_solve_info is None else self.last_solve_info.as_dict()
             ),
-            "procedure": (
-                None if self.procedure is None else self.procedure.summary()
-            ),
+            "procedure": (None if self.procedure is None else self.procedure.summary()),
         }
 
     def reaction_field(self, *, name: str = "RF"):
@@ -646,9 +845,7 @@ class NonlinearLoadIncrementInfo:
             "converged": self.converged,
             "iterations": self.iterations,
             "residual_norm": (
-                float(self.residual_norm)
-                if np.isfinite(self.residual_norm)
-                else None
+                float(self.residual_norm) if np.isfinite(self.residual_norm) else None
             ),
             "converged_reason": self.converged_reason,
             "message": self.message,
@@ -866,12 +1063,9 @@ class IncrementalNonlinearVariationalProblem:
                 accepted_size = factor - accepted_factor
                 accepted_factor = factor
                 cutbacks = 0
-                if (
-                    self.output_every is not None
-                    and (
-                        len(history) % self.output_every == 0
-                        or abs(factor - 1.0) <= 1.0e-12
-                    )
+                if self.output_every is not None and (
+                    len(history) % self.output_every == 0
+                    or abs(factor - 1.0) <= 1.0e-12
                 ):
                     self.snapshots.append(
                         _load_snapshot(
@@ -1009,7 +1203,8 @@ class IncrementalNonlinearVariationalProblem:
 
         solution = self.solve()
         generated = (
-            () if self.result_field_factory is None
+            ()
+            if self.result_field_factory is None
             else tuple(self.result_field_factory())
         )
         primary = solution if not generated else generated[0]
@@ -1057,23 +1252,20 @@ class IncrementalNonlinearVariationalProblem:
             "name": self.name,
             "num_bcs": len(self.bcs),
             "incrementation": (
-                None
-                if self.incrementation is None
-                else self.incrementation.summary()
+                None if self.incrementation is None else self.incrementation.summary()
             ),
             "snapshot_count": len(self.snapshots),
             "primary_result_fields": (
-                None if self.result_field_factory is None else tuple(self.primary_fields)
-                if hasattr(self, "primary_fields") else "generated"
+                None
+                if self.result_field_factory is None
+                else tuple(self.primary_fields)
+                if hasattr(self, "primary_fields")
+                else "generated"
             ),
             "last_solve": (
-                None
-                if self.last_solve_info is None
-                else self.last_solve_info.as_dict()
+                None if self.last_solve_info is None else self.last_solve_info.as_dict()
             ),
-            "procedure": (
-                None if self.procedure is None else self.procedure.summary()
-            ),
+            "procedure": (None if self.procedure is None else self.procedure.summary()),
         }
 
 
@@ -1257,17 +1449,13 @@ class AffineNonlinearVariationalProblem:
                 )
             pending_acceptance = acceptance_backup()
             save_by_increment = (
-                self.output_every is not None
-                and index % self.output_every == 0
+                self.output_every is not None and index % self.output_every == 0
             )
             save_by_factor = any(
-                abs(factor - value) <= 1.0e-12
-                for value in self.output_factors
+                abs(factor - value) <= 1.0e-12 for value in self.output_factors
             )
             should_save = (
-                save_by_increment
-                or save_by_factor
-                or abs(factor - 1.0) <= 1.0e-12
+                save_by_increment or save_by_factor or abs(factor - 1.0) <= 1.0e-12
             )
             try:
                 accepted_snapshot = None
@@ -1302,9 +1490,7 @@ class AffineNonlinearVariationalProblem:
             try:
                 self.accepted_increments[:] = list(accepted_history)
                 self.attempted_increments[:] = list(attempted_history)
-                self.accepted_load_factor = float(
-                    accepted_history[-1].load_factor
-                )
+                self.accepted_load_factor = float(accepted_history[-1].load_factor)
                 self.next_increment_size = next_increment_size
                 policy = self.checkpoint_policy
                 if policy is not None:
@@ -1403,9 +1589,7 @@ class AffineNonlinearVariationalProblem:
                 material.summary() if hasattr(material, "summary") else material
             ),
             "state_schema": (
-                response.state.state_schema.summary()
-                if response is not None
-                else None
+                response.state.state_schema.summary() if response is not None else None
             ),
             "quadrature_degree": (
                 None if response is None else int(response.state.degree)
@@ -1424,9 +1608,7 @@ class AffineNonlinearVariationalProblem:
             "constraint": constraint_identity,
             "accepted_history_recorders": {
                 name: {"kind": type(recorder).__name__}
-                for name, recorder in sorted(
-                    self.accepted_history_recorders.items()
-                )
+                for name, recorder in sorted(self.accepted_history_recorders.items())
             },
         }
 
@@ -1451,13 +1633,15 @@ class AffineNonlinearVariationalProblem:
             raise TypeError("Affine checkpointing requires a state transaction.")
         comm = self.solution.function_space.mesh.comm
         local_problem = None
-        if abs(
-            float(self.state_transaction.accepted_factor)
-            - self.accepted_load_factor
-        ) > 1.0e-12:
+        if (
+            abs(
+                float(self.state_transaction.accepted_factor)
+                - self.accepted_load_factor
+            )
+            > 1.0e-12
+        ):
             local_problem = (
-                "Checkpointing is permitted only at a fully accepted "
-                "material state."
+                "Checkpointing is permitted only at a fully accepted material state."
             )
         elif not np.allclose(
             self.solution.x.array,
@@ -1465,14 +1649,11 @@ class AffineNonlinearVariationalProblem:
             rtol=0.0,
             atol=1.0e-12,
         ):
-            local_problem = (
-                "Checkpointing is permitted only when U equals U_ACCEPTED."
-            )
+            local_problem = "Checkpointing is permitted only when U equals U_ACCEPTED."
         problems = comm.allgather(local_problem)
         if any(problem is not None for problem in problems):
             rank = next(
-                index for index, problem in enumerate(problems)
-                if problem is not None
+                index for index, problem in enumerate(problems) if problem is not None
             )
             raise RuntimeError(f"Rank {rank}: {problems[rank]}")
         # ``portable=False`` is retained for compatibility with the common
@@ -1523,9 +1704,7 @@ class AffineNonlinearVariationalProblem:
             ],
             "accepted_observer_state": {
                 name: recorder.checkpoint_state()
-                for name, recorder in sorted(
-                    self.accepted_history_recorders.items()
-                )
+                for name, recorder in sorted(self.accepted_history_recorders.items())
                 if hasattr(recorder, "checkpoint_state")
             },
             "constraint_dual_history": (
@@ -1631,8 +1810,7 @@ class AffineNonlinearVariationalProblem:
         validation = comm.bcast(validation, root=0)
         if validation["error"] is not None:
             raise RuntimeError(
-                "Affine checkpoint payload validation failed: "
-                f"{validation['error']}"
+                f"Affine checkpoint payload validation failed: {validation['error']}"
             )
         quadrature_path = Path(validation["quadrature_path"])
         solution_backup = self.solution.x.array.copy()
@@ -1721,9 +1899,7 @@ class AffineNonlinearVariationalProblem:
             for name, record in observer_state.items():
                 recorder = self.accepted_history_recorders[name]
                 if not hasattr(recorder, "restore_checkpoint_state"):
-                    raise TypeError(
-                        f"Accepted observer {name!r} is not restartable."
-                    )
+                    raise TypeError(f"Accepted observer {name!r} is not restartable.")
                 recorder.restore_checkpoint_state(
                     record,
                     current_snapshot=current_snapshot,
@@ -1734,18 +1910,10 @@ class AffineNonlinearVariationalProblem:
             self.state_transaction.accepted_solution.x.array[:] = accepted_backup
             self.state_transaction.accepted_solution.x.scatter_forward()
             self.state_transaction.restore_runtime_state(transaction_backup)
-            self.accepted_load_factor = lifecycle_backup[
-                "accepted_load_factor"
-            ]
-            self.accepted_increments[:] = lifecycle_backup[
-                "accepted_increments"
-            ]
-            self.attempted_increments[:] = lifecycle_backup[
-                "attempted_increments"
-            ]
-            self.next_increment_size = lifecycle_backup[
-                "next_increment_size"
-            ]
+            self.accepted_load_factor = lifecycle_backup["accepted_load_factor"]
+            self.accepted_increments[:] = lifecycle_backup["accepted_increments"]
+            self.attempted_increments[:] = lifecycle_backup["attempted_increments"]
+            self.next_increment_size = lifecycle_backup["next_increment_size"]
             self.execution_events[:] = lifecycle_backup["execution_events"]
             self.last_solve_info = lifecycle_backup["last_solve_info"]
             self.snapshots[:] = lifecycle_backup["snapshots"]
@@ -1793,7 +1961,8 @@ class AffineNonlinearVariationalProblem:
 
         solution = self.solve()
         generated = (
-            () if self.result_field_factory is None
+            ()
+            if self.result_field_factory is None
             else tuple(self.result_field_factory())
         )
         primary = solution if not generated else generated[0]
@@ -1875,10 +2044,7 @@ class AffineNonlinearVariationalProblem:
         complete_dual_path = bool(
             len(dual_history) >= 2
             and abs(float(dual_history[0]["load_factor"])) <= 1.0e-12
-            and abs(
-                float(dual_history[-1]["load_factor"])
-                - self.accepted_load_factor
-            )
+            and abs(float(dual_history[-1]["load_factor"]) - self.accepted_load_factor)
             <= 1.0e-12
         )
         result.metadata["affine_constraint_path_work"] = {
@@ -1944,9 +2110,7 @@ class AffineNonlinearVariationalProblem:
             "constraint": self.constraint.summary(),
             "load_factors": self.load_factors,
             "incrementation": (
-                None
-                if self.incrementation is None
-                else self.incrementation.summary()
+                None if self.incrementation is None else self.incrementation.summary()
             ),
             "output_every": self.output_every,
             "output_factors": self.output_factors,
@@ -1959,9 +2123,7 @@ class AffineNonlinearVariationalProblem:
             "accepted_increment_count": len(self.accepted_increments),
             "attempted_increment_count": len(self.attempted_increments),
             "next_increment_size": self.next_increment_size,
-            "constraint_dual_sample_count": len(
-                self.constraint_dual_history.records
-            ),
+            "constraint_dual_sample_count": len(self.constraint_dual_history.records),
             "checkpoint_policy": (
                 None
                 if self.checkpoint_policy is None
@@ -1984,13 +2146,9 @@ class AffineNonlinearVariationalProblem:
                 else AffineNewtonOptions().summary()
             ),
             "last_solve": (
-                None
-                if self.last_solve_info is None
-                else self.last_solve_info.as_dict()
+                None if self.last_solve_info is None else self.last_solve_info.as_dict()
             ),
-            "procedure": (
-                None if self.procedure is None else self.procedure.summary()
-            ),
+            "procedure": (None if self.procedure is None else self.procedure.summary()),
         }
 
 
@@ -2216,9 +2374,7 @@ class AnalysisStep:
             "method": self.method,
             "dt": self.dt,
             "problem": self.problem.summary(),
-            "procedure": (
-                None if self.procedure is None else self.procedure.summary()
-            ),
+            "procedure": (None if self.procedure is None else self.procedure.summary()),
             "constraint_dual_provider": (
                 None
                 if self.constraint_dual_provider is None
@@ -2462,7 +2618,11 @@ class ExplicitDynamicsStep:
         return _save_transient_checkpoint(
             self,
             path,
-            {"displacement": self.state.u, "velocity": self.state.v, "acceleration": self.state.a},
+            {
+                "displacement": self.state.u,
+                "velocity": self.state.v,
+                "acceleration": self.state.a,
+            },
             portable=portable,
         )
 
@@ -2472,7 +2632,11 @@ class ExplicitDynamicsStep:
         _load_transient_checkpoint(
             self,
             path,
-            {"displacement": self.state.u, "velocity": self.state.v, "acceleration": self.state.a},
+            {
+                "displacement": self.state.u,
+                "velocity": self.state.v,
+                "acceleration": self.state.a,
+            },
         )
         self.integrator.last_residual_owned = None
 
@@ -2533,13 +2697,13 @@ class ExplicitDynamicsStep:
                 else repr(self.integrator)
             ),
             "residual": (
-                self.residual.summary() if hasattr(self.residual, "summary") else repr(self.residual)
+                self.residual.summary()
+                if hasattr(self.residual, "summary")
+                else repr(self.residual)
             ),
             "num_prescribed": len(self.prescribed),
             "num_constraints": len(self.constraints),
-            "procedure": (
-                None if self.procedure is None else self.procedure.summary()
-            ),
+            "procedure": (None if self.procedure is None else self.procedure.summary()),
         }
 
 
@@ -2635,7 +2799,11 @@ class ImplicitDynamicsStep:
             for info in stepper:
                 self._advance_one(info.time)
                 _accept_transient_increment(
-                    self, info, reporter, selected_progress, self.state,
+                    self,
+                    info,
+                    reporter,
+                    selected_progress,
+                    self.state,
                     selected_comm,
                 )
             _emit_transient_completed(reporter, self)
@@ -2653,7 +2821,11 @@ class ImplicitDynamicsStep:
             for info in stepper:
                 self._advance_one(info.time)
                 _accept_transient_increment(
-                    self, info, reporter, selected_progress, self.state,
+                    self,
+                    info,
+                    reporter,
+                    selected_progress,
+                    self.state,
                     selected_comm,
                 )
                 if info.should_save:
@@ -2697,7 +2869,11 @@ class ImplicitDynamicsStep:
         return _save_transient_checkpoint(
             self,
             path,
-            {"displacement": self.state.u, "velocity": self.state.v, "acceleration": self.state.a},
+            {
+                "displacement": self.state.u,
+                "velocity": self.state.v,
+                "acceleration": self.state.a,
+            },
             portable=portable,
         )
 
@@ -2707,7 +2883,11 @@ class ImplicitDynamicsStep:
         _load_transient_checkpoint(
             self,
             path,
-            {"displacement": self.state.u, "velocity": self.state.v, "acceleration": self.state.a},
+            {
+                "displacement": self.state.u,
+                "velocity": self.state.v,
+                "acceleration": self.state.a,
+            },
         )
 
     def _advance_one(self, time_value: float) -> None:
@@ -2719,21 +2899,15 @@ class ImplicitDynamicsStep:
         u_predictor = self.displacement_predictor
         v_predictor = self.velocity_predictor
         u_predictor.x.array[:] = (
-            u.x.array
-            + dt * v.x.array
-            + dt**2 * (0.5 - p.beta) * a.x.array
+            u.x.array + dt * v.x.array + dt**2 * (0.5 - p.beta) * a.x.array
         )
-        v_predictor.x.array[:] = (
-            v.x.array + dt * (1.0 - p.gamma) * a.x.array
-        )
+        v_predictor.x.array[:] = v.x.array + dt * (1.0 - p.gamma) * a.x.array
         self.displacement_alpha_predictor.x.array[:] = (
-            (1.0 - p.alpha_f) * u_predictor.x.array
-            + p.alpha_f * u.x.array
-        )
+            1.0 - p.alpha_f
+        ) * u_predictor.x.array + p.alpha_f * u.x.array
         self.velocity_alpha_predictor.x.array[:] = (
-            (1.0 - p.alpha_f) * v_predictor.x.array
-            + p.alpha_f * v.x.array
-        )
+            1.0 - p.alpha_f
+        ) * v_predictor.x.array + p.alpha_f * v.x.array
         for function in (
             u_predictor,
             v_predictor,
@@ -2742,19 +2916,16 @@ class ImplicitDynamicsStep:
         ):
             function.x.scatter_forward()
         if self.update_load is not None:
-            evaluation_time = (
-                (1.0 - p.alpha_f) * time_value
-                + p.alpha_f * (time_value - dt)
+            evaluation_time = (1.0 - p.alpha_f) * time_value + p.alpha_f * (
+                time_value - dt
             )
             self.update_load(evaluation_time)
         self.problem.solve()
         self.state.u_next.value.x.array[:] = (
-            u_predictor.x.array
-            + p.beta * dt**2 * self.state.a_next.value.x.array
+            u_predictor.x.array + p.beta * dt**2 * self.state.a_next.value.x.array
         )
         self.state.v_next.value.x.array[:] = (
-            v_predictor.x.array
-            + p.gamma * dt * self.state.a_next.value.x.array
+            v_predictor.x.array + p.gamma * dt * self.state.a_next.value.x.array
         )
         self.state.u_next.value.x.scatter_forward()
         self.state.v_next.value.x.scatter_forward()
@@ -2765,9 +2936,7 @@ class ImplicitDynamicsStep:
             "kind": "implicit_dynamics_step",
             "name": self.name,
             "study": _describe_asset(self.study) if self.study is not None else None,
-            "procedure": (
-                None if self.procedure is None else self.procedure.summary()
-            ),
+            "procedure": (None if self.procedure is None else self.procedure.summary()),
             "integration": self.parameters.summary(),
             "dt": self.dt,
             "steps": self.steps,
@@ -2859,9 +3028,7 @@ class FirstOrderTransientStep:
                     else None
                 ),
                 "source_study": (
-                    self.study.summary()
-                    if hasattr(self.study, "summary")
-                    else None
+                    self.study.summary() if hasattr(self.study, "summary") else None
                 ),
                 "accepted_time_only": True,
                 "transfer_role": "sequential_field_input",
@@ -2944,12 +3111,14 @@ class FirstOrderTransientStep:
             self.previous.x.array[:] = self.current.x.array
             self.previous.x.scatter_forward()
             _accept_transient_increment(
-                self, info, reporter, selected_progress, self.current,
+                self,
+                info,
+                reporter,
+                selected_progress,
+                self.current,
                 selected_comm,
             )
-            self._record_captured_histories(
-                force=self.completed_steps == self.steps
-            )
+            self._record_captured_histories(force=self.completed_steps == self.steps)
 
         try:
             if output is None:
@@ -3034,9 +3203,7 @@ class FirstOrderTransientStep:
             "kind": "first_order_transient_step",
             "name": self.name,
             "study": _describe_asset(self.study) if self.study is not None else None,
-            "procedure": (
-                None if self.procedure is None else self.procedure.summary()
-            ),
+            "procedure": (None if self.procedure is None else self.procedure.summary()),
             "dt": self.dt,
             "steps": self.steps,
             "completed_steps": self.completed_steps,
@@ -3123,7 +3290,9 @@ def _solve_transient_result(
 def _attach_transient_output(result, step, output_fields) -> None:
     """Attach the accepted time axis and one single-geometry field dataset."""
 
-    result.metadata["accepted_times"] = tuple(float(item) for item in step.accepted_times)
+    result.metadata["accepted_times"] = tuple(
+        float(item) for item in step.accepted_times
+    )
     output_start = step.last_output_start_time
     result.metadata["transient"] = {
         "completed_steps": int(step.completed_steps),
@@ -3143,27 +3312,16 @@ def _attach_transient_output(result, step, output_fields) -> None:
         ]
     if step.history_records:
         coordinates = [item["time"] for item in step.history_records]
-        names = tuple(
-            name
-            for name in step.history_records[0]
-            if name != "time"
-        )
+        names = tuple(name for name in step.history_records[0] if name != "time")
         requests = {
-            request.name: request
-            for request in getattr(step, "history_requests", ())
+            request.name: request for request in getattr(step, "history_requests", ())
         }
         result.add_histories(
             coordinates,
-            {
-                name: [item[name] for item in step.history_records]
-                for name in names
-            },
+            {name: [item[name] for item in step.history_records] for name in names},
             abscissa_name="time",
             abscissa_unit="s",
-            units={
-                name: getattr(requests.get(name), "unit", None)
-                for name in names
-            },
+            units={name: getattr(requests.get(name), "unit", None) for name in names},
             descriptions={
                 name: (
                     getattr(requests.get(name), "description", "")
@@ -3177,9 +3335,7 @@ def _attach_transient_output(result, step, output_fields) -> None:
     path = step.last_output
     if path is None:
         return
-    primary = (
-        None if not output_fields else _unwrap_result_field(output_fields[0])
-    )
+    primary = None if not output_fields else _unwrap_result_field(output_fields[0])
     primary_shape = () if primary is None else tuple(getattr(primary, "ufl_shape", ()))
     vector_primary = len(primary_shape) == 1
     domain = None if primary is None else primary.function_space.mesh
@@ -3209,11 +3365,11 @@ def _attach_transient_output(result, step, output_fields) -> None:
         "visualization_requires_extract_block": False,
         "warp_field": storage_name,
         "warp_field_semantic": semantic_name,
-        "physical_components": (
-            int(primary_shape[0]) if vector_primary else None
-        ),
+        "physical_components": (int(primary_shape[0]) if vector_primary else None),
         "stored_components": (
-            None if not vector_primary or domain is None else int(domain.geometry.x.shape[1])
+            None
+            if not vector_primary or domain is None
+            else int(domain.geometry.x.shape[1])
         ),
         "geometry_dimension": (
             None if domain is None else int(domain.geometry.x.shape[1])
@@ -3308,9 +3464,8 @@ def _emit_transient_started(reporter, step) -> None:
         controller = getattr(stability, "controller", None)
         if selected is not None:
             ratio = float(step.dt) / float(selected)
-            stability_message = (
-                f"dt={float(step.dt):.6g}, dt/dt_limit={ratio:.3g}"
-                + ("" if controller is None else f", controller={controller}")
+            stability_message = f"dt={float(step.dt):.6g}, dt/dt_limit={ratio:.3g}" + (
+                "" if controller is None else f", controller={controller}"
             )
     reporter.emit(
         SolveEvent(
@@ -3339,8 +3494,7 @@ def _report_transient_increment(
             channels = []
             if "relative_energy_balance_error" in latest:
                 channels.append(
-                    "energy_err="
-                    f"{float(latest['relative_energy_balance_error']):.3e}"
+                    f"energy_err={float(latest['relative_energy_balance_error']):.3e}"
                 )
             elif "energy_balance_error" in latest:
                 channels.append(
@@ -3453,9 +3607,13 @@ def _record_transient_history(
     if monitor is None and not requests:
         return
     selected_time = float(time_value)
-    if store and step.history_records and np.isclose(
-        step.history_records[-1]["time"],
-        selected_time,
+    if (
+        store
+        and step.history_records
+        and np.isclose(
+            step.history_records[-1]["time"],
+            selected_time,
+        )
     ):
         if hasattr(monitor, "restore"):
             monitor.restore(step.history_records[-1])
@@ -3937,9 +4095,7 @@ def affine_nonlinear(
         ),
         incrementation=incrementation,
         solver_options=solver_options,
-        output_every=(
-            None if output_every is None else int(output_every)
-        ),
+        output_every=(None if output_every is None else int(output_every)),
         output_factors=tuple(float(value) for value in output_factors),
         state_transaction=state_transaction,
         checkpoint_policy=checkpoint_policy,
@@ -3971,11 +4127,7 @@ class LoadIncrementSnapshot:
             "load_factor": self.load_factor,
             "solution": getattr(self.solution, "name", type(self.solution).__name__),
             "fields": tuple(self.fields),
-            "solve": (
-                None
-                if self.solve_info is None
-                else self.solve_info.as_dict()
-            ),
+            "solve": (None if self.solve_info is None else self.solve_info.as_dict()),
         }
 
 
@@ -4335,13 +4487,13 @@ def modal_analysis(
         target=target,
         stiffness=stiffness,
         mass=mass,
-        modes=int(modes),
+        modes=modes,
         study=study,
         constraints=tuple(_as_list(constraints)),
         bcs=tuple(_as_list(bcs)),
         target_frequency=target_frequency,
         tolerance=float(tolerance),
-        maximum_iterations=int(maximum_iterations),
+        maximum_iterations=maximum_iterations,
         rigid_mode_tolerance=float(rigid_mode_tolerance),
         procedure=procedures.modal(),
     )
@@ -4391,9 +4543,7 @@ def implicit_dynamics(
     gamma = selected.gamma
     effective_expression = (
         (1.0 - am) * mass.expression
-        + (1.0 - af) * gamma * dt * (
-            0 if damping is None else damping.expression
-        )
+        + (1.0 - af) * gamma * dt * (0 if damping is None else damping.expression)
         + (1.0 - af) * beta * dt**2 * stiffness.expression
     )
     V = state.a.value.function_space
@@ -4482,7 +4632,9 @@ def _collect_bcs(*, constraints=None, bcs=None) -> list:
     return result
 
 
-def _split_linear_constraints(*, constraints=None, bcs=None) -> tuple[list, object | None]:
+def _split_linear_constraints(
+    *, constraints=None, bcs=None
+) -> tuple[list, object | None]:
     """Separate strong data from one exact-MPC linear lowering provider.
 
     A linear system has two distinct assembly contracts: ordinary Dirichlet

@@ -974,8 +974,9 @@ decision or when a lower layer imports an orchestration layer.</p>
 <li><code>results</code> owns scientific result semantics and the common completion path.
   Low-level <code>io.XDMFTimeSeries</code> remains an expert DOLFINx-compatible writer;
   ordinary workflows use the single-grid result writers and <code>SimulationResult</code>.</li>
-<li>Constitutive modules own material-point laws, while <code>mechanics</code> owns global
-  finite-element integration. Generic checkpointing owns field/time state;
+<li>Constitutive modules own material-point laws, while <code>mechanics</code> belongs to
+  the procedure boundary and owns global finite-element integration of those
+  laws. Generic checkpointing owns field/time state;
   cohesive checkpointing additionally owns physical interface identity. These
   are deliberate layer pairs, not duplicate implementations.</li>
 <li><code>_architecture_contract.py</code> now defines the seven stable ownership

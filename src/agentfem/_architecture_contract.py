@@ -72,7 +72,7 @@ OWNERSHIP_BOUNDARIES = (
             "mesh traversal policy",
             "accepted state lifetime",
         ),
-        modules=("constitutive", "mechanics"),
+        modules=("constitutive",),
     ),
     OwnershipBoundary(
         name="state",
@@ -118,7 +118,13 @@ OWNERSHIP_BOUNDARIES = (
             "backend algebra implementation",
             "scientific acceptance",
         ),
-        modules=("procedures", "step_providers", "_step_builders", "problems"),
+        modules=(
+            "procedures",
+            "step_providers",
+            "_step_builders",
+            "problems",
+            "mechanics",
+        ),
     ),
     OwnershipBoundary(
         name="backend",

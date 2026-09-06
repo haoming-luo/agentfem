@@ -39,12 +39,10 @@ def test_generalized_maxwell_exact_update_commits_and_restores_state():
     expected_tangent = 2.0 + 8.0 * (1.0 - np.exp(-0.5)) / 0.5
     assert update.algorithmic_modulus == pytest.approx(expected_tangent)
     assert float(update.stress) == pytest.approx(expected_tangent * 0.1)
-    expected_dissipation = 1.6**2 / 8.0 * (
-        0.5 - 2.0 * (1.0 - np.exp(-0.5)) + 0.5 * (1.0 - np.exp(-1.0))
+    expected_dissipation = (
+        1.6**2 / 8.0 * (0.5 - 2.0 * (1.0 - np.exp(-0.5)) + 0.5 * (1.0 - np.exp(-1.0)))
     )
-    assert update.dissipated_energy_increment == pytest.approx(
-        expected_dissipation
-    )
+    assert update.dissipated_energy_increment == pytest.approx(expected_dissipation)
     assert update.dissipated_energy_increment > 0.0
     assert float(state.strain) == 0.0
     state.commit(update)
@@ -52,6 +50,19 @@ def test_generalized_maxwell_exact_update_commits_and_restores_state():
     state.restore(snapshot)
     assert float(state.strain) == 0.0
     assert state.dissipated_energy == 0.0
+
+
+def test_generalized_maxwell_small_increment_retains_instantaneous_tangent():
+    material = GeneralizedMaxwell(2.0, [8.0], [1.0])
+    state = MaxwellState.zero(1)
+    update = material.update(state, np.asarray(1.0e-12), 1.0e-16)
+
+    assert update.algorithmic_modulus == pytest.approx(
+        material.instantaneous_modulus,
+        rel=1.0e-15,
+    )
+    assert np.isfinite(update.dissipated_energy_increment)
+    assert update.dissipated_energy_increment >= 0.0
 
 
 def test_prony_factory_and_temperature_shift_contracts():
@@ -86,6 +97,50 @@ def test_temperature_shift_rejects_singular_or_nonfinite_inputs():
         wlf.factor(293.15 - 51.6)
     with pytest.raises(ValueError, match="finite"):
         arrhenius.factor(np.nan)
+
+
+def test_maxwell_state_rejects_invalid_branch_count_snapshot_and_commit():
+    with pytest.raises(ValueError, match="positive integer"):
+        MaxwellState.zero(1.5)
+    with pytest.raises(ValueError, match="positive integer"):
+        MaxwellState.zero(True)
+
+    state = MaxwellState.zero(1)
+    invalid_snapshot = state.snapshot()
+    invalid_snapshot["dissipated_energy"] = np.nan
+    with pytest.raises(ValueError, match="finite state"):
+        state.restore(invalid_snapshot)
+
+    invalid_update = GeneralizedMaxwell(2.0, [8.0], [1.0]).update(
+        state,
+        np.asarray(0.1),
+        0.5,
+    )
+    invalid_update = type(invalid_update)(
+        strain=invalid_update.strain,
+        overstress=invalid_update.overstress,
+        stress=invalid_update.stress,
+        algorithmic_modulus=invalid_update.algorithmic_modulus,
+        dissipated_energy_increment=np.nan,
+    )
+    with pytest.raises(ValueError, match="nonnegative dissipation"):
+        state.commit(invalid_update)
+
+
+def test_maxwell_update_rejects_nonfinite_time_increment_and_shifted_times():
+    material = GeneralizedMaxwell(2.0, [8.0], [1.0])
+    state = MaxwellState.zero(1)
+    with pytest.raises(ValueError, match="finite and positive"):
+        material.update(state, np.asarray(0.1), np.nan)
+
+    shifted = GeneralizedMaxwell(
+        2.0,
+        [8.0],
+        [np.finfo(float).max],
+        shift=WLFShift(reference_temperature=300.0, c1=1.0, c2=100.0),
+    )
+    with pytest.raises(ValueError, match="Shifted relaxation times"):
+        shifted.shifted_relaxation_times(201.0)
 
 
 def test_fixed_spectrum_prony_fit_recovers_positive_reference_model():

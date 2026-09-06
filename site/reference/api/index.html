@@ -4533,7 +4533,7 @@ and evidence remain in the linked guides and scientific function reference.</p>
 </tr>
 <tr>
 <td>class</td>
-<td><code>UnifiedXDMFTimeSeries(path, *, deformation_scale: float = 0.0, store_reference_geometry: bool = True, compression: int = 4) -&gt; None</code></td>
+<td><code>UnifiedXDMFTimeSeries(path, *, deformation_scale: float = 0.0, store_reference_geometry: bool = True, compression: int = 4, primary_name: str \| None = None, primary_semantic_name: str \| None = None) -&gt; None</code></td>
 <td>Incremental single-grid XDMF/HDF5 writer for serial result histories.</td>
 </tr>
 <tr>
@@ -4563,7 +4563,7 @@ and evidence remain in the linked guides and scientific function reference.</p>
 </tr>
 <tr>
 <td>function</td>
-<td><code>write_unified_xdmf_series(xdmf_path, snapshots, cell_fields, *, deformation_scale: float = 1.0, store_reference_geometry: bool = True, compression: int = 4) -&gt; Path</code></td>
+<td><code>write_unified_xdmf_series(xdmf_path, snapshots, cell_fields, *, deformation_scale: float = 1.0, store_reference_geometry: bool = True, compression: int = 4, primary_name: str \| None = None, primary_semantic_name: str \| None = None) -&gt; Path</code></td>
 <td>Write one temporal XDMF and one compressed HDF5 heavy-data file.</td>
 </tr>
 <tr>

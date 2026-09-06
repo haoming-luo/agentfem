@@ -413,7 +413,10 @@ priority over adding material names or backend abstractions.
 For undamped linear structural modes, use
 `studies.modal_solid(...)` followed by `model.step(target=u, modes=...)`.
 The SLEPc provider removes strongly constrained degrees of freedom and returns
-frequencies, eigenpair residuals, and mode fields through `SimulationResult`.
+frequencies, eigenpair residuals, orthogonality evidence, and deterministically
+oriented mode fields through `SimulationResult`. Treat a mass-normalized mode
+shape as a relative pattern, not as a dimensionless or physical displacement;
+use its recorded `Mode shape` warp field for visualization.
 Use `dynamics.spectrum(...)`, `frequency_response(...)`, and
 `damping_from_free_decay(...)` on arrays or scalar result histories. Treat
 `constitutive.GeneralizedMaxwell` as a verified material-point and spectral

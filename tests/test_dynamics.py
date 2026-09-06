@@ -1,10 +1,12 @@
 from __future__ import annotations
 
+import h5py
 import numpy as np
 import pytest
 from mpi4py import MPI
+import ufl
 
-from agentfem import dynamics, fields, mesh, models, operators, studies
+from agentfem import dynamics, fields, mesh, models, operators, problems, studies
 from agentfem.constitutive import elasticity
 from agentfem.results import HistoryResult
 
@@ -68,7 +70,9 @@ def test_free_decay_returns_standard_damping_quantities():
     estimate = dynamics.damping_from_free_decay(samples)
 
     assert estimate.logarithmic_decrement == pytest.approx(0.2)
-    assert estimate.quality_factor == pytest.approx(1.0 / (2.0 * estimate.damping_ratio))
+    assert estimate.quality_factor == pytest.approx(
+        1.0 / (2.0 * estimate.damping_ratio)
+    )
 
 
 def test_dense_modal_reference_and_modal_superposition():
@@ -85,6 +89,33 @@ def test_dense_modal_reference_and_modal_superposition():
     np.testing.assert_allclose(basis.angular_frequencies, [2.0, 3.0])
     assert response.shape == (2, 2)
     assert basis.to_result().quantity("frequencies").shape == (2,)
+    assert np.max(basis.residual_norms) < 1.0e-14
+    assert basis.metadata["residual_definition"] == "relative_backward_error"
+    for column, anchor in enumerate(basis.metadata["orientation_anchor_dofs"]):
+        assert basis.modes[anchor, column] > 0.0
+
+
+def test_dense_modal_reference_rejects_truncation_and_missing_positive_modes():
+    stiffness = np.diag([0.0, 4.0])
+    mass = np.eye(2)
+    with pytest.raises(ValueError, match="positive integer"):
+        dynamics.solve_dense_modes(stiffness, mass, modes=1.5)
+    with pytest.raises(ValueError, match="found 1 positive modes"):
+        dynamics.solve_dense_modes(stiffness, mass, modes=2)
+
+
+def test_dynamic_postprocessors_reject_unobservable_or_singular_requests():
+    time = np.arange(0.0, 1.0, 0.01)
+    with pytest.raises(ValueError, match="observable excitation"):
+        dynamics.frequency_response(time, np.zeros_like(time), np.ones_like(time))
+    basis = dynamics.solve_dense_modes(np.diag([4.0, 9.0]), np.eye(2))
+    with pytest.raises(ValueError, match="singular"):
+        dynamics.modal_frequency_response(
+            basis,
+            [basis.frequencies[0]],
+            [1.0, 0.0],
+            damping_ratio=0.0,
+        )
 
 
 def test_modal_step_uses_public_model_language_and_removes_fixed_dofs(tmp_path):
@@ -134,12 +165,43 @@ def test_modal_step_uses_public_model_language_and_removes_fixed_dofs(tmp_path):
         "Mode_2",
         "Mode_3",
     )
+    assert result.metadata["field_output"]["warp_field"] == "Mode_1"
+    assert result.metadata["field_output"]["warp_field_semantic"] == "Mode shape"
+    assert result.metadata["field_output"]["field_aliases"] == {"Mode shape": "Mode_1"}
+    with h5py.File(result.artifacts["fields_hdf5"], "r") as h5:
+        assert h5.attrs["primary_field"] == "Mode_1"
+        assert h5.attrs["primary_semantic_name"] == "Mode shape"
+        assert "Mode_1" in h5["Frames/0000/Point"]
+    solve = result.metadata["solve"]
+    assert solve["mass_orthogonality_error"] < 1.0e-10
+    assert solve["stiffness_diagonalization_error"] < 1.0e-10
+    assert solve["orientation_convention"] == "largest_global_component_positive"
+    assert solve["stiffness_symmetric"]
+    assert solve["mass_symmetric"]
+    assert solve["operator_symmetry_relative_tolerance"] > 0.0
+    assert solve["stiffness_symmetry_absolute_tolerance"] > 0.0
+    assert solve["mass_symmetry_absolute_tolerance"] > 0.0
+    assert len(solve["orientation_anchor_dofs"]) == 3
     for mode in result.fields.values():
         assert operators.quadratic_form(step.mass, mode.field) == pytest.approx(
             1.0,
             rel=1.0e-10,
             abs=1.0e-12,
         )
+        assert mode.unit is None
+    for left_index, left in enumerate(result.fields.values()):
+        for right_index, right in enumerate(result.fields.values()):
+            expected = 1.0 if left_index == right_index else 0.0
+            assert operators.bilinear_form(
+                step.mass,
+                left.field,
+                right.field,
+            ) == pytest.approx(expected, rel=1.0e-10, abs=1.0e-12)
+    for mode, anchor in zip(
+        result.fields.values(),
+        solve["orientation_anchor_dofs"],
+    ):
+        assert mode.field.x.array[int(anchor)] > 0.0
     euler_bernoulli = (
         1.875104068711961**2
         / (2.0 * np.pi)
@@ -185,3 +247,65 @@ def test_modal_target_frequency_selects_nearest_mode_not_lowest_mode():
     ).solve_result()
 
     assert targeted.quantity("frequencies")[0] == pytest.approx(reference, rel=1.0e-8)
+
+
+def test_modal_step_rejects_an_unsymmetric_custom_operator():
+    domain = mesh.rectangle(
+        (0.0, 0.0),
+        (1.0, 0.2),
+        (2, 1),
+        comm=MPI.COMM_SELF,
+        cell_type="quadrilateral",
+    )
+    model = models.create(
+        study=studies.modal_solid(dimension=2, assumption="plane_stress"),
+        mesh=domain,
+    )
+    displacement = model.field(fields.displacement(domain, degree=1))
+    model.clamp(
+        displacement,
+        on=mesh.boundary(domain, _left, name="left", tag=1),
+    )
+    trial = displacement.trial
+    test = displacement.test
+    unsymmetric = operators.OperatorForm(
+        name="K_unsymmetric",
+        kind="test_unsymmetric_stiffness",
+        role="matrix",
+        family="test",
+        expression=(
+            trial[0] * test[0]
+            + trial[1] * test[1]
+            + trial[0] * test[1]
+        )
+        * ufl.dx,
+    )
+    mass = operators.mass_operator(displacement, density=1.0)
+
+    step = model.step(
+        target=displacement,
+        modes=1,
+        K=unsymmetric,
+        M=mass,
+    )
+    with pytest.raises(ValueError, match="stiffness operator must be symmetric"):
+        step.solve()
+
+
+@pytest.mark.parametrize(
+    ("keyword", "value"),
+    (("modes", 1.5), ("modes", True), ("maximum_iterations", 3.5)),
+)
+def test_modal_step_rejects_values_that_would_be_silently_truncated(
+    keyword,
+    value,
+):
+    options = {
+        "target": object(),
+        "mass": object(),
+        "stiffness": object(),
+        "modes": 1,
+        keyword: value,
+    }
+    with pytest.raises(ValueError, match="positive integer"):
+        problems.modal_analysis(**options)

@@ -473,13 +473,13 @@ and evidence remain in the linked guides and scientific function reference.
 | class | `FieldOutput` | What fields to save, how often, and in which configuration. |
 | class | `FieldOutputArtifacts` | Files and final live fields produced by one output plan. |
 | class | `ResultFieldArtifacts` | One completed-result field dataset and its explicit layout contract. |
-| class | `UnifiedXDMFTimeSeries(path, *, deformation_scale: float = 0.0, store_reference_geometry: bool = True, compression: int = 4) -> None` | Incremental single-grid XDMF/HDF5 writer for serial result histories. |
+| class | `UnifiedXDMFTimeSeries(path, *, deformation_scale: float = 0.0, store_reference_geometry: bool = True, compression: int = 4, primary_name: str \| None = None, primary_semantic_name: str \| None = None) -> None` | Incremental single-grid XDMF/HDF5 writer for serial result histories. |
 | function | `field_output(*variables, every: int \| str \| None = None, intervals: int \| None = None, configuration: str = 'deformed', deformation_scale: float = 1.0, backend: str = 'xdmf') -> FieldOutput` | Create a concise, inspectable field-output request. |
 | function | `read_unified_xdmf_series(xdmf_path) -> tuple[object, ...]` | Read AgentFEM's compact XDMF/HDF5 frames as PyVista grids. |
 | function | `write_deformed_vtk_series(pvd_path, snapshots, cell_fields, *, deformation_scale: float = 1.0) -> tuple[Path, tuple[Path, ...]]` | Write one deformed VTU grid per frame and a ParaView PVD collection. |
 | function | `write_parallel_vtk_series(path, snapshots, fields_by_frame) -> Path` | Write collective single-dataset ParaView frames under MPI. |
 | function | `write_result_fields(result, path, *, time: float = 0.0, names = (), deformation_scale: float = 0.0) -> ResultFieldArtifacts` | Write the live, visualization-ready fields of one SimulationResult. |
-| function | `write_unified_xdmf_series(xdmf_path, snapshots, cell_fields, *, deformation_scale: float = 1.0, store_reference_geometry: bool = True, compression: int = 4) -> Path` | Write one temporal XDMF and one compressed HDF5 heavy-data file. |
+| function | `write_unified_xdmf_series(xdmf_path, snapshots, cell_fields, *, deformation_scale: float = 1.0, store_reference_geometry: bool = True, compression: int = 4, primary_name: str \| None = None, primary_semantic_name: str \| None = None) -> Path` | Write one temporal XDMF and one compressed HDF5 heavy-data file. |
 | function | `render_deformation_animation(undeformed_path, snapshots, nodes, output_path, *, fps: int = 2) -> Path` | Render scale-one deformation history as GIF or MP4. |
 | function | `render_deformation_comparison(undeformed_path, deformed_path, output_path, *, scalar: str = 'DisplacementMagnitude') -> Path` | Render side-by-side undeformed/deformed surfaces with PyVista. |
 | function | `render_unified_xdmf_animation(xdmf_path, output_path, *, scalar: str = 'UMAG', fps: int = 2) -> Path` | Render a GIF or MP4 from AgentFEM's single XDMF/HDF5 series. |

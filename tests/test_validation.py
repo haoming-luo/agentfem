@@ -155,3 +155,20 @@ def test_explicit_linear_operators_are_a_valid_material_free_expert_path():
     )
 
     assert report.is_valid
+
+
+def test_complete_modal_operators_are_a_valid_material_free_expert_path():
+    mesh = _Mesh()
+    model = models.create(
+        study=studies.modal_solid(dimension=2, assumption="plane_stress"),
+        mesh=mesh,
+        name="operator_defined_modes",
+    )
+    target = model.field(_Field(mesh, kind="displacement"))
+
+    report = model.validate(
+        target=target,
+        step_options={"K": object(), "M": object(), "modes": 3},
+    )
+
+    assert report.is_valid

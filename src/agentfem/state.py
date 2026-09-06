@@ -87,13 +87,11 @@ def capabilities(value: object) -> StateCapabilities:
         replaceable=replaceable,
         begins_trial=has("begin"),
         increment_transaction=(
-            has("commit_increment")
-            and has("rollback_increment")
-            and restartable
+            has("commit_increment") and has("rollback_increment") and restartable
         ),
-        cycle_transaction=has("begin_cycle") and (
-            has("commit_cycle") or has("commit")
-        ) and has("rollback"),
+        cycle_transaction=has("begin_cycle")
+        and (has("commit_cycle") or has("commit"))
+        and has("rollback"),
     )
 
 
@@ -121,7 +119,10 @@ def require_replaceable(value: object, *, name: str = "state") -> ReplaceableSta
 
 def _array(value) -> np.ndarray:
     selected = fields.unwrap(value)
-    return np.asarray(selected.x.array)
+    array = np.asarray(selected.x.array)
+    if not np.all(np.isfinite(array)):
+        raise ValueError("State fields must remain finite before snapshot.")
+    return array
 
 
 def _assign(value, data, *, label: str) -> None:
@@ -132,6 +133,8 @@ def _assign(value, data, *, label: str) -> None:
             f"State field {label!r} shape changed from {restored.shape} "
             f"to {selected.x.array.shape}."
         )
+    if not np.all(np.isfinite(restored)):
+        raise ValueError(f"State field {label!r} must contain only finite values.")
     selected.x.array[:] = restored
     if callable(getattr(selected.x, "scatter_forward", None)):
         selected.x.scatter_forward()
@@ -139,7 +142,9 @@ def _assign(value, data, *, label: str) -> None:
 
 def _snapshot_record(snapshot: object, *, label: str) -> Mapping[str, object]:
     if not isinstance(snapshot, Mapping):
-        raise TypeError(f"{label} snapshot must be a mapping, not {type(snapshot).__name__}.")
+        raise TypeError(
+            f"{label} snapshot must be a mapping, not {type(snapshot).__name__}."
+        )
     return snapshot
 
 
@@ -221,9 +226,7 @@ class SecondOrderDynamicsState:
         time.acceleration_from_residual(self.a_next, residual, inv_mass)
 
     def update_midstep_velocity(self, dt: float) -> None:
-        time.central_difference_update_midstep_velocity(
-            self.v_mid, self.v, self.a, dt
-        )
+        time.central_difference_update_midstep_velocity(self.v_mid, self.v, self.a, dt)
 
     def correct_velocity(self, dt: float) -> None:
         time.central_difference_correct_velocity(
@@ -269,9 +272,7 @@ class SecondOrderDynamicsState:
         names = ("u", "v", "a", "v_mid", "u_next", "v_next", "a_next")
         return {
             "schema": "agentfem.second-order-dynamics-state.v1",
-            "fields": {
-                name: _array(getattr(self, name)).copy() for name in names
-            },
+            "fields": {name: _array(getattr(self, name)).copy() for name in names},
         }
 
     def restore(self, snapshot: object) -> None:

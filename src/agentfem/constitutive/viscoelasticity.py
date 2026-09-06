@@ -42,7 +42,8 @@ class WLFShift:
                 "WLF temperature lies at or below the model singularity; "
                 "restrict the declared temperature range."
             )
-        factor = np.power(10.0, -float(self.c1) * difference / denominator)
+        with np.errstate(over="ignore", under="ignore", invalid="ignore"):
+            factor = np.power(10.0, -float(self.c1) * difference / denominator)
         if not np.all(np.isfinite(factor)) or np.any(factor <= 0.0):
             raise ValueError("WLF shift factor must remain finite and positive.")
         return factor
@@ -73,7 +74,9 @@ class ArrheniusShift:
         if not np.all(np.isfinite(values)):
             raise ValueError("Arrhenius parameters must be finite.")
         if self.activation_energy <= 0.0 or self.reference_temperature <= 0.0:
-            raise ValueError("activation_energy and reference_temperature must be positive.")
+            raise ValueError(
+                "activation_energy and reference_temperature must be positive."
+            )
         if self.gas_constant <= 0.0:
             raise ValueError("gas_constant must be positive.")
 
@@ -81,10 +84,13 @@ class ArrheniusShift:
         temperature = np.asarray(temperature, dtype=float)
         if np.any(temperature <= 0.0):
             raise ValueError("Arrhenius temperature must be absolute and positive.")
-        exponent = self.activation_energy / self.gas_constant * (
-            1.0 / temperature - 1.0 / self.reference_temperature
+        exponent = (
+            self.activation_energy
+            / self.gas_constant
+            * (1.0 / temperature - 1.0 / self.reference_temperature)
         )
-        factor = np.exp(exponent)
+        with np.errstate(over="ignore", under="ignore", invalid="ignore"):
+            factor = np.exp(exponent)
         if not np.all(np.isfinite(factor)) or np.any(factor <= 0.0):
             raise ValueError("Arrhenius shift factor must remain finite and positive.")
         return factor
@@ -119,12 +125,18 @@ class MaxwellState:
 
     @classmethod
     def zero(cls, branch_count: int, *, value_shape=()) -> "MaxwellState":
-        if int(branch_count) <= 0:
+        if isinstance(branch_count, (bool, np.bool_)):
+            raise ValueError("branch_count must be a positive integer.")
+        try:
+            selected_count = int(branch_count.__index__())
+        except (AttributeError, TypeError) as exc:
+            raise ValueError("branch_count must be a positive integer.") from exc
+        if selected_count <= 0:
             raise ValueError("branch_count must be positive.")
         shape = tuple(value_shape)
         return cls(
             strain=np.zeros(shape, dtype=float),
-            overstress=np.zeros((int(branch_count), *shape), dtype=float),
+            overstress=np.zeros((selected_count, *shape), dtype=float),
         )
 
     def snapshot(self) -> dict[str, object]:
@@ -137,15 +149,46 @@ class MaxwellState:
     def restore(self, snapshot) -> None:
         strain = np.asarray(snapshot["strain"], dtype=float)
         overstress = np.asarray(snapshot["overstress"], dtype=float)
-        if strain.shape != self.strain.shape or overstress.shape != self.overstress.shape:
+        if (
+            strain.shape != self.strain.shape
+            or overstress.shape != self.overstress.shape
+        ):
             raise ValueError("Viscoelastic snapshot shape does not match the state.")
+        dissipated_energy = float(snapshot["dissipated_energy"])
+        if (
+            not np.all(np.isfinite(strain))
+            or not np.all(np.isfinite(overstress))
+            or not np.isfinite(dissipated_energy)
+            or dissipated_energy < 0.0
+        ):
+            raise ValueError(
+                "Viscoelastic snapshot must contain finite state and nonnegative dissipation."
+            )
         self.strain[...] = strain
         self.overstress[...] = overstress
-        self.dissipated_energy = float(snapshot["dissipated_energy"])
+        self.dissipated_energy = dissipated_energy
 
     def commit(self, update: ViscoelasticUpdate) -> None:
-        if update.strain.shape != self.strain.shape or update.overstress.shape != self.overstress.shape:
+        if (
+            update.strain.shape != self.strain.shape
+            or update.overstress.shape != self.overstress.shape
+        ):
             raise ValueError("Viscoelastic update shape does not match the state.")
+        if (
+            not np.all(np.isfinite(update.strain))
+            or not np.all(np.isfinite(update.overstress))
+            or not np.all(np.isfinite(update.stress))
+            or not np.isfinite(update.algorithmic_modulus)
+            or update.algorithmic_modulus <= 0.0
+            or not np.isfinite(update.dissipated_energy_increment)
+            or update.dissipated_energy_increment < 0.0
+            or not np.isfinite(self.dissipated_energy)
+            or self.dissipated_energy < 0.0
+        ):
+            raise ValueError(
+                "Viscoelastic update must contain finite state, a positive tangent, "
+                "and nonnegative dissipation."
+            )
         self.strain[...] = update.strain
         self.overstress[...] = update.overstress
         self.dissipated_energy += float(update.dissipated_energy_increment)
@@ -171,7 +214,9 @@ class GeneralizedMaxwell:
         moduli = _positive_vector(self.branch_moduli, name="branch_moduli")
         times = _positive_vector(self.relaxation_times, name="relaxation_times")
         if moduli.size != times.size:
-            raise ValueError("branch_moduli and relaxation_times must have equal length.")
+            raise ValueError(
+                "branch_moduli and relaxation_times must have equal length."
+            )
         object.__setattr__(self, "branch_moduli", moduli.copy())
         object.__setattr__(self, "relaxation_times", times.copy())
 
@@ -188,10 +233,11 @@ class GeneralizedMaxwell:
         ratios = _positive_vector(ratios, name="ratios")
         if np.sum(ratios) >= 1.0:
             raise ValueError("Prony modulus ratios must sum to less than one.")
-        if instantaneous_modulus <= 0.0:
-            raise ValueError("instantaneous_modulus must be positive.")
+        if not np.isfinite(instantaneous_modulus) or instantaneous_modulus <= 0.0:
+            raise ValueError("instantaneous_modulus must be finite and positive.")
         return cls(
-            equilibrium_modulus=float(instantaneous_modulus) * (1.0 - float(np.sum(ratios))),
+            equilibrium_modulus=float(instantaneous_modulus)
+            * (1.0 - float(np.sum(ratios))),
             branch_moduli=float(instantaneous_modulus) * ratios,
             relaxation_times=relaxation_times,
             shift=shift,
@@ -212,7 +258,13 @@ class GeneralizedMaxwell:
         factor = np.asarray(self.shift.factor(temperature), dtype=float)
         if factor.ndim != 0:
             raise ValueError("A material-point update requires one scalar temperature.")
-        return self.relaxation_times * float(factor)
+        with np.errstate(over="ignore", invalid="ignore"):
+            shifted = self.relaxation_times * float(factor)
+        if not np.all(np.isfinite(shifted)) or np.any(shifted <= 0.0):
+            raise ValueError(
+                "Shifted relaxation times must remain finite and positive."
+            )
+        return shifted
 
     def relaxation_modulus(self, time, *, temperature=None) -> np.ndarray:
         time = np.asarray(time, dtype=float)
@@ -226,7 +278,9 @@ class GeneralizedMaxwell:
     def complex_modulus(self, angular_frequency, *, temperature=None) -> np.ndarray:
         omega = np.asarray(angular_frequency, dtype=float)
         if np.any(omega < 0.0) or not np.all(np.isfinite(omega)):
-            raise ValueError("angular_frequency must contain finite nonnegative values.")
+            raise ValueError(
+                "angular_frequency must contain finite nonnegative values."
+            )
         times = self.shifted_relaxation_times(temperature)
         reduced = omega[..., None] * times
         branches = self.branch_moduli * (1j * reduced) / (1.0 + 1j * reduced)
@@ -252,8 +306,8 @@ class GeneralizedMaxwell:
     ) -> ViscoelasticUpdate:
         """Return an exact branch update for linear strain over one increment."""
 
-        if dt <= 0.0:
-            raise ValueError("dt must be positive.")
+        if not np.isfinite(dt) or dt <= 0.0:
+            raise ValueError("dt must be finite and positive.")
         selected = np.asarray(strain, dtype=float)
         if selected.shape != state.strain.shape:
             raise ValueError("strain shape must match state.strain.")
@@ -266,13 +320,17 @@ class GeneralizedMaxwell:
         if state.overstress.shape != (self.branch_moduli.size, *selected.shape):
             raise ValueError("state.overstress does not match the Maxwell spectrum.")
         times = self.shifted_relaxation_times(temperature)
-        decay = np.exp(-float(dt) / times)
-        integration = times / float(dt) * (1.0 - decay)
+        reduced_increment = float(dt) / times
+        decay = np.exp(-reduced_increment)
+        one_minus_decay = -np.expm1(-reduced_increment)
+        one_minus_decay_squared = -np.expm1(-2.0 * reduced_increment)
+        integration = one_minus_decay / reduced_increment
         reshape = (self.branch_moduli.size,) + (1,) * selected.ndim
         increment = selected - state.strain
-        overstress = decay.reshape(reshape) * state.overstress + (
-            self.branch_moduli * integration
-        ).reshape(reshape) * increment
+        overstress = (
+            decay.reshape(reshape) * state.overstress
+            + (self.branch_moduli * integration).reshape(reshape) * increment
+        )
         stress = self.equilibrium_modulus * selected + np.sum(overstress, axis=0)
         tangent = float(
             self.equilibrium_modulus + np.sum(self.branch_moduli * integration)
@@ -293,15 +351,15 @@ class GeneralizedMaxwell:
             * steady_overstress
             * transient_overstress
             * branch_times
-            * (1.0 - decay.reshape(reshape))
+            * one_minus_decay.reshape(reshape)
             + 0.5
             * transient_overstress**2
             * branch_times
-            * (1.0 - decay.reshape(reshape) ** 2)
+            * one_minus_decay_squared.reshape(reshape)
         )
-        dissipation = float(
-            np.sum(integral_q_squared / (branch_moduli * branch_times))
-        )
+        dissipation = float(np.sum(integral_q_squared / (branch_moduli * branch_times)))
+        if not np.isfinite(dissipation):
+            raise RuntimeError("Generalized-Maxwell dissipation became non-finite.")
         if dissipation < -1.0e-12 * max(1.0, abs(dissipation)):
             raise RuntimeError("Generalized-Maxwell dissipation became negative.")
         dissipation = max(0.0, dissipation)
@@ -384,7 +442,9 @@ def fit_relaxation_prony(
     measured = np.asarray(modulus, dtype=float)
     times = _positive_vector(relaxation_times, name="relaxation_times")
     if time.ndim != 1 or measured.shape != time.shape or time.size < times.size + 1:
-        raise ValueError("time and modulus must be equal one-dimensional arrays with enough samples.")
+        raise ValueError(
+            "time and modulus must be equal one-dimensional arrays with enough samples."
+        )
     if np.any(time < 0.0) or np.any(measured <= 0.0):
         raise ValueError("Relaxation time must be nonnegative and modulus positive.")
     design = np.column_stack((np.ones(time.size), np.exp(-time[:, None] / times)))
@@ -400,7 +460,9 @@ def fit_relaxation_prony(
     else:
         coefficients, *_ = np.linalg.lstsq(design, measured, rcond=None)
     if coefficients[0] <= 0.0 or np.any(coefficients[1:] <= 0.0):
-        raise ValueError("Fitted spectrum is not strictly positive; revise relaxation_times or data.")
+        raise ValueError(
+            "Fitted spectrum is not strictly positive; revise relaxation_times or data."
+        )
     model = GeneralizedMaxwell(coefficients[0], coefficients[1:], times, name=name)
     predicted = model.relaxation_modulus(time)
     residual = predicted - measured

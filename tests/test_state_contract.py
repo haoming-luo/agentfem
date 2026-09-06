@@ -77,3 +77,24 @@ def test_state_restore_rejects_unstructured_snapshots():
         assert "snapshot must be a mapping" in str(exc)
     else:
         raise AssertionError("An unstructured state snapshot was accepted.")
+
+
+def test_state_snapshot_and_restore_reject_nonfinite_fields():
+    selected = state.TransientState.create(_space())
+    selected.current.x.array[0] = np.nan
+    try:
+        selected.snapshot()
+    except ValueError as exc:
+        assert "finite before snapshot" in str(exc)
+    else:
+        raise AssertionError("A non-finite state was serialized.")
+
+    selected.current.x.array[0] = 0.0
+    snapshot = selected.snapshot()
+    snapshot["next"][0] = np.inf
+    try:
+        selected.restore(snapshot)
+    except ValueError as exc:
+        assert "only finite values" in str(exc)
+    else:
+        raise AssertionError("A non-finite state was restored.")

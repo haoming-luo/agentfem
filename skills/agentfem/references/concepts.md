@@ -47,6 +47,12 @@
   It is data, not the equation itself, and packaged generic cards are not
   industrial design allowables.
 - Material properties: typed parameter object used by constitutive relations.
+- Modal result: frequencies plus relative eigenpair, mass-orthogonality, and
+  stiffness-diagonalization evidence. Mode signs follow a deterministic
+  largest-global-component-positive convention; normalized shape amplitude is
+  not a physical displacement.
+- State snapshot: finite accepted/trial values only. Non-finite fields are
+  rejected before checkpointing and during restore.
 - Analysis step: solve stage under a study, such as linear static or implicit
   Euler, built from visible operators.
 - Problem: discrete algebraic or transient system, such as `K x = F`,

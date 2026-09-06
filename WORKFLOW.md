@@ -74,6 +74,11 @@ record.
     optional endpoint creep-rate time-error tolerance as separate acceptance
     decisions. Declare a model unit system when time histories require a
     physical unit label.
+    A modal result additionally retains relative eigenpair residuals,
+    mass-orthogonality and stiffness-diagonalization errors. Mode fields use a
+    deterministic largest-global-component-positive orientation so repeated
+    runs can be compared without mistaking arbitrary eigenvector sign for a
+    physical change. Their normalized amplitude is not a displacement unit.
 18. Evaluate physical QoIs, diagnostics, and histories. Keep coefficient
     statistics distinct from assembled physical integrals.
 19. Write visualization/output artifacts and attach them to the result. The
