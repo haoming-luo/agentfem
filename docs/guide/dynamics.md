@@ -39,14 +39,18 @@ mode_1 = result.field("Mode_1")
 
 The result retains eigenvalues, angular frequencies, frequencies, relative
 eigenpair residuals, mass-orthogonality and stiffness-diagonalization errors,
-and each mass-normalized live mode field. Since an eigenvector and its negative
-describe the same mode, AgentFEM makes the largest global component positive
-using a deterministic degree-of-freedom tie rule. This stabilizes comparisons
-and datasets without changing the eigenspace. A mass-normalized mode shape has
-no physical displacement amplitude until it is multiplied by a modal
-coordinate. `slepc4py` is an optional execution dependency because a dense
-array eigensolver is not a scalable replacement for distributed finite-element
-modal analysis.
+eigenvalue clusters, and each mass-normalized live mode field. For an isolated
+mode, AgentFEM resolves the arbitrary sign by making the largest global
+component positive. Vectors spanning a repeated or numerically clustered
+eigenvalue are not individually unique: solvers may return any rotated basis
+of the same eigenspace. AgentFEM therefore compares that cluster through
+canonical correlations, principal angles, and projection distance of the
+whole invariant subspace. It also records when a requested mode count cuts a
+cluster, so downstream comparison does not assign physical identity to an
+incomplete basis. A mass-normalized mode shape has no physical displacement
+amplitude until it is multiplied by a modal coordinate. `slepc4py` is an
+optional execution dependency because a dense array eigensolver is not a
+scalable replacement for distributed finite-element modal analysis.
 The finite-element provider checks the assembled free-DOF stiffness and mass
 operators for symmetry before declaring the generalized Hermitian problem to
 SLEPc. This also applies to a complete user-supplied `K/M` pair. An
@@ -100,10 +104,37 @@ tan_delta = material.loss_factor(2.0 * np.pi * frequency)
 ```
 
 The same object owns an exact generalized-Maxwell branch update for a linear
-strain increment and a commit/restore state. This release therefore supports
-material-point relaxation paths and time/frequency spectra. A global FEM
-transient provider consuming those internal variables is a separate promotion
-gate and is not implied by the public material name.
+strain increment and a commit/restore state. A complete material history can
+use the common Procedure/State/Result lifecycle:
+
+```python
+step = material.history(time, strain, temperature=temperature)
+result = step.solve_result()
+
+stress = result.histories["stress"]
+energy_error = result.histories["energy_balance_error"]
+restart_state = step.last_response.final_state
+```
+
+For a stress-relaxation test, initialize the physical history explicitly:
+
+```python
+initial = material.initial_state(strain[0], condition="instantaneous")
+result = material.history(time, strain, initial_state=initial).solve_result()
+```
+
+`condition="equilibrated"` instead means the declared initial strain has been
+held until every Maxwell branch has relaxed. This prevents a nonzero initial
+strain from silently acquiring an unspecified past.
+
+The result includes accepted stress and branch-overstress histories, the exact
+algorithmic modulus, recoverable energy, independently integrated mechanical
+work, nonnegative viscous dissipation, and their balance error. A restarted
+history begins from the copied accepted `MaxwellState`; an incompatible first
+strain or branch layout fails before advancement. This remains a material-point
+procedure. A global tensor-valued FEM transient provider consuming these
+internal variables is a separate promotion gate and is not implied by the
+public material name.
 WLF and Arrhenius shifts reject singular, non-finite, or non-positive shift
 factors instead of allowing an invalid temperature range into a state update.
 

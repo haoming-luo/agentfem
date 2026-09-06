@@ -32,6 +32,9 @@ SOURCE_PACKAGE = ROOT / "src" / "agentfem"
 REQUIRED_WHEEL_MEMBERS = (
     "agentfem/__init__.py",
     "agentfem/_axisymmetric.py",
+    "agentfem/_material_history.py",
+    "agentfem/_modal.py",
+    "agentfem/_modal_fem.py",
     "agentfem/_work_energy.py",
     "agentfem/_step_builders.py",
     "agentfem/models.py",

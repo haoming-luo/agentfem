@@ -9,7 +9,7 @@
   "execution": {
     "command": "python -m pytest -q tests/test_dynamics.py -k modal_step; mpiexec -n 2 python -m pytest -q tests/test_parallel_modal.py",
     "example": "tests/test_dynamics.py",
-    "evidence": "A Q2 plane-stress solid mesh with 8 by 2 cells gives a first bending frequency of 163.27832561 Hz, 2.60 percent below the Euler--Bernoulli value 167.63805088 Hz. Three eigenpairs pass a relative residual threshold of 1e-7 and the fixed dofs are absent from the reduced K--M problem."
+    "evidence": "A Q2 plane-stress solid mesh with 8 by 2 cells gives a first bending frequency of 163.27832561 Hz, 2.60 percent below the Euler--Bernoulli value 167.63805088 Hz. An independent slender-beam sequence with 8, 16 and 32 longitudinal cells gives 41.99073739, 41.89343725 and 41.86490747 Hz; the last refinement changes the result by 0.068 percent and the finest solid result is within 0.2 percent of the Euler--Bernoulli value 41.90951272 Hz. Three eigenpairs pass a relative residual threshold of 1e-7 and the fixed dofs are absent from the reduced K--M problem."
   },
   "observables": [
     "First three positive natural frequencies.",
@@ -17,7 +17,8 @@
     "Constrained and free degree-of-freedom counts.",
     "Mass-normalized, deterministically oriented live finite-element mode fields.",
     "Mass-orthogonality and stiffness-diagonalization errors.",
-    "Symmetry evidence for the assembled free-DOF stiffness and mass operators."
+    "Symmetry evidence for the assembled free-DOF stiffness and mass operators.",
+    "Eigenvalue-cluster membership and whether every touched repeated cluster is complete."
   ],
   "acceptance": [
     "The first finite-element bending frequency must remain within 3.5 percent of the Euler--Bernoulli slender-beam reference for the fixed Q2 mesh.",
@@ -26,7 +27,8 @@
     "Mass-orthogonality and relative stiffness-diagonalization errors must remain below 1e-7.",
     "The result must expose exactly three mode fields through the common SimulationResult contract.",
     "The two-rank distributed solve must reproduce the serial frequencies within 1e-7 relative error.",
-    "An unsymmetric user-supplied stiffness or mass operator must fail before the generalized-Hermitian eigensolve."
+    "An unsymmetric user-supplied stiffness or mass operator must fail before the generalized-Hermitian eigensolve.",
+    "The three-mesh slender-beam sequence must show decreasing frequency increments; its finest increment must remain below 0.07 percent and its finest result within 0.2 percent of Euler--Bernoulli theory."
   ],
   "golden": {
     "reference_version": "cantilever-q2-8x2-1",
@@ -44,6 +46,7 @@
   "limitations": [
     "Euler--Bernoulli theory is used only as a bounded first-mode reference; the finite-height 2D solid contains shear and rotary effects absent from that theory.",
     "This benchmark verifies undamped linear modes, not complex modes, harmonic response or nonlinear vibration.",
+    "Repeated or numerically clustered modes are compared as invariant subspaces; their individual basis vectors are not unique.",
     "The 3.5 percent criterion is an AgentFEM verification contract, not an external standard tolerance."
   ]
 }

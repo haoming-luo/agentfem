@@ -645,6 +645,7 @@ and evidence remain in the linked guides and scientific function reference.
 
 | Kind | Public object | Purpose |
 | --- | --- | --- |
+| class | `ModalSolveInfo` | Convergence, operator and eigenspace evidence for one FEM solve. |
 | class | `SignalSpectrum` | One-sided spectrum of a uniformly sampled real signal. |
 | class | `FrequencyResponse` | Complex frequency-response function with inspectable coherence mask. |
 | class | `DampingEstimate` | Free-decay damping estimate from same-sign displacement peaks. |
@@ -932,6 +933,7 @@ and evidence remain in the linked guides and scientific function reference.
 | function | `nonlinear_static(*, stateful: bool = False) -> SolutionProcedure` | Public AgentFEM object. |
 | function | `implicit_euler(*, nonlinear: bool = False, stateful: bool = True) -> SolutionProcedure` | Public AgentFEM object. |
 | function | `implicit_creep() -> SolutionProcedure` | Quasi-static backward-Euler creep with global Newton equilibrium. |
+| function | `viscoelastic_history() -> SolutionProcedure` | Exact increment-wise generalized-Maxwell material history. |
 | function | `newmark() -> SolutionProcedure` | Public AgentFEM object. |
 | function | `generalized_alpha() -> SolutionProcedure` | Public AgentFEM object. |
 | function | `central_difference() -> SolutionProcedure` | Public AgentFEM object. |
@@ -1265,7 +1267,6 @@ This package exposes its public objects through focused submodules.
 | class | `FEMProblem` | Lightweight finite-element problem description. |
 | class | `LinearVariationalProblem` | A standard linear variational problem, ``a(u, v) = L(v)``. |
 | class | `LinearSystemProblem` | Engineering-level linear system problem, usually ``K x = F``. |
-| class | `ModalSolveInfo` | Convergence and filtering evidence for one modal solve. |
 | class | `ModalAnalysisStep` | Constrained linear modes from ``K phi = lambda M phi``. |
 | class | `NonlinearVariationalProblem` | Nonlinear residual problem ``R(u; v) = 0`` solved by PETSc SNES. |
 | class | `NonlinearLoadIncrementInfo` | Convergence evidence for one ordinary nonlinear load increment. |

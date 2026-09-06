@@ -4,8 +4,12 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from math import exp
+from typing import TYPE_CHECKING
 
 import numpy as np
+
+if TYPE_CHECKING:
+    from .._material_history import GeneralizedMaxwellHistoryStep
 
 
 def _positive_vector(value, *, name: str) -> np.ndarray:
@@ -113,6 +117,7 @@ class ViscoelasticUpdate:
     stress: np.ndarray
     algorithmic_modulus: float
     dissipated_energy_increment: float
+    mechanical_work_increment: float = 0.0
 
 
 @dataclass
@@ -182,6 +187,7 @@ class MaxwellState:
             or update.algorithmic_modulus <= 0.0
             or not np.isfinite(update.dissipated_energy_increment)
             or update.dissipated_energy_increment < 0.0
+            or not np.isfinite(update.mechanical_work_increment)
             or not np.isfinite(self.dissipated_energy)
             or self.dissipated_energy < 0.0
         ):
@@ -192,6 +198,16 @@ class MaxwellState:
         self.strain[...] = update.strain
         self.overstress[...] = update.overstress
         self.dissipated_energy += float(update.dissipated_energy_increment)
+
+    def copy(self) -> "MaxwellState":
+        """Return a detached accepted state for a new procedure or branch."""
+
+        copied = MaxwellState.zero(
+            self.overstress.shape[0],
+            value_shape=self.strain.shape,
+        )
+        copied.restore(self.snapshot())
+        return copied
 
 
 @dataclass(frozen=True)
@@ -265,6 +281,37 @@ class GeneralizedMaxwell:
                 "Shifted relaxation times must remain finite and positive."
             )
         return shifted
+
+    def initial_state(
+        self,
+        strain=0.0,
+        *,
+        condition: str = "equilibrated",
+    ) -> MaxwellState:
+        """Create an accepted state with an explicit loading-history meaning.
+
+        ``equilibrated`` means the strain has been held until every Maxwell
+        branch relaxed. ``instantaneous`` means the strain was just applied,
+        so every branch initially carries its elastic share.
+        """
+
+        selected_strain = np.asarray(strain, dtype=float)
+        if not np.all(np.isfinite(selected_strain)):
+            raise ValueError("initial strain must contain only finite values.")
+        selected_condition = str(condition).strip().lower().replace("-", "_")
+        if selected_condition not in {"equilibrated", "instantaneous"}:
+            raise ValueError(
+                "condition must be 'equilibrated' or 'instantaneous'."
+            )
+        state = MaxwellState.zero(
+            self.branch_moduli.size,
+            value_shape=selected_strain.shape,
+        )
+        state.strain[...] = selected_strain
+        if selected_condition == "instantaneous":
+            reshape = (self.branch_moduli.size,) + (1,) * selected_strain.ndim
+            state.overstress[...] = self.branch_moduli.reshape(reshape) * selected_strain
+        return state
 
     def relaxation_modulus(self, time, *, temperature=None) -> np.ndarray:
         time = np.asarray(time, dtype=float)
@@ -363,12 +410,30 @@ class GeneralizedMaxwell:
         if dissipation < -1.0e-12 * max(1.0, abs(dissipation)):
             raise RuntimeError("Generalized-Maxwell dissipation became negative.")
         dissipation = max(0.0, dissipation)
+        equilibrium_work = 0.5 * self.equilibrium_modulus * float(
+            np.sum(selected**2 - state.strain**2)
+        )
+        branch_work = float(
+            np.sum(
+                strain_rate
+                * (
+                    steady_overstress * float(dt)
+                    + transient_overstress
+                    * branch_times
+                    * one_minus_decay.reshape(reshape)
+                )
+            )
+        )
+        mechanical_work = equilibrium_work + branch_work
+        if not np.isfinite(mechanical_work):
+            raise RuntimeError("Generalized-Maxwell mechanical work became non-finite.")
         return ViscoelasticUpdate(
             strain=selected.copy(),
             overstress=overstress,
             stress=np.asarray(stress),
             algorithmic_modulus=tangent,
             dissipated_energy_increment=dissipation,
+            mechanical_work_increment=mechanical_work,
         )
 
     def summary(self) -> dict[str, object]:
@@ -382,6 +447,32 @@ class GeneralizedMaxwell:
             "prony_ratios": self.prony_ratios.tolist(),
             "shift": None if self.shift is None else self.shift.summary(),
         }
+
+    def history(
+        self,
+        time,
+        strain,
+        *,
+        temperature=None,
+        initial_state: MaxwellState | None = None,
+        name: str = "generalized_maxwell_history",
+    ) -> "GeneralizedMaxwellHistoryStep":
+        """Create an inspectable material-history procedure.
+
+        This is a constitutive material-point route, not a claim that a global
+        tensor-valued viscoelastic FEM provider has been selected.
+        """
+
+        from .._material_history import GeneralizedMaxwellHistoryStep
+
+        return GeneralizedMaxwellHistoryStep(
+            material=self,
+            time=time,
+            strain=strain,
+            temperature=temperature,
+            initial_state=initial_state,
+            name=name,
+        )
 
 
 def standard_linear_solid(

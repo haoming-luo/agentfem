@@ -122,6 +122,7 @@ def test_maxwell_state_rejects_invalid_branch_count_snapshot_and_commit():
         stress=invalid_update.stress,
         algorithmic_modulus=invalid_update.algorithmic_modulus,
         dissipated_energy_increment=np.nan,
+        mechanical_work_increment=invalid_update.mechanical_work_increment,
     )
     with pytest.raises(ValueError, match="nonnegative dissipation"):
         state.commit(invalid_update)
@@ -152,3 +153,101 @@ def test_fixed_spectrum_prony_fit_recovers_positive_reference_model():
     assert fit.relative_root_mean_square_error < 1.0e-12
     assert fit.model.equilibrium_modulus == pytest.approx(3.0)
     np.testing.assert_allclose(fit.model.branch_moduli, [5.0, 2.0])
+
+
+def test_generalized_maxwell_history_uses_common_state_procedure_and_result():
+    material = GeneralizedMaxwell(2.0, [8.0, 3.0], [0.2, 5.0])
+    time = np.linspace(0.0, 2.0, 21)
+    strain = np.minimum(time, 0.5) * 0.02
+
+    step = material.history(time, strain, temperature=293.15)
+    result = step.solve_result()
+
+    assert step.procedure.algorithm == "exact_generalized_maxwell_update"
+    assert not step.procedure.requires_global_solve
+    assert result.metadata["procedure"] == step.procedure.summary()
+    assert result.metadata["state"]["accepted_increments"] == 20
+    assert result.metadata["state"]["restartable"]
+    assert result.metadata["scope"]["level"] == "material_point"
+    assert not result.metadata["scope"]["global_fem_provider"]
+    assert set(result.histories) >= {
+        "strain",
+        "stress",
+        "branch_overstress",
+        "stored_energy",
+        "dissipated_energy",
+        "mechanical_work",
+        "energy_balance_error",
+        "temperature",
+    }
+    assert np.all(np.diff(result.histories["dissipated_energy"].values) >= 0.0)
+    assert result.quantity("maximum_absolute_energy_balance_error") < 1.0e-14
+    assert result.scientific_input_manifest()["complete"]
+
+
+def test_generalized_maxwell_history_restart_matches_uninterrupted_path():
+    material = GeneralizedMaxwell(2.0, [8.0, 3.0], [0.2, 5.0])
+    time = np.linspace(0.0, 2.0, 21)
+    strain = np.minimum(time, 0.5) * 0.02
+    complete = material.history(time, strain).solve()
+
+    first = material.history(time[:11], strain[:11]).solve()
+    restarted = material.history(
+        time[10:],
+        strain[10:],
+        initial_state=first.final_state,
+    ).solve()
+
+    np.testing.assert_allclose(restarted.stress, complete.stress[10:])
+    np.testing.assert_allclose(
+        restarted.branch_overstress,
+        complete.branch_overstress[10:],
+    )
+    assert restarted.final_state.dissipated_energy == pytest.approx(
+        complete.final_state.dissipated_energy
+    )
+    np.testing.assert_allclose(
+        restarted.final_state.overstress,
+        complete.final_state.overstress,
+    )
+
+
+def test_instantaneous_state_relaxes_to_the_closed_form_and_closes_energy():
+    material = GeneralizedMaxwell(2.0, [8.0, 3.0], [0.2, 5.0])
+    time = np.linspace(0.0, 10.0, 101)
+    strain = np.full(time.size, 0.02)
+    initial = material.initial_state(0.02, condition="instantaneous")
+
+    response = material.history(time, strain, initial_state=initial).solve()
+
+    np.testing.assert_allclose(
+        response.stress,
+        0.02 * material.relaxation_modulus(time),
+        rtol=1.0e-13,
+        atol=1.0e-14,
+    )
+    np.testing.assert_allclose(response.mechanical_work, response.mechanical_work[0])
+    assert np.max(np.abs(response.energy_balance_error)) < 1.0e-16
+    assert response.dissipated_energy[-1] > 0.0
+
+
+def test_generalized_maxwell_initial_state_has_explicit_history_semantics():
+    material = GeneralizedMaxwell(2.0, [8.0], [1.0])
+    equilibrated = material.initial_state([0.1, 0.2])
+    instantaneous = material.initial_state([0.1, 0.2], condition="instantaneous")
+
+    np.testing.assert_allclose(equilibrated.overstress, 0.0)
+    np.testing.assert_allclose(instantaneous.overstress, [[0.8, 1.6]])
+    with pytest.raises(ValueError, match="condition"):
+        material.initial_state(0.0, condition="unknown")
+
+
+def test_generalized_maxwell_history_rejects_incompatible_restart_and_time():
+    material = GeneralizedMaxwell(2.0, [8.0], [1.0])
+    with pytest.raises(ValueError, match="strictly increasing"):
+        material.history([0.0, 0.0], [0.0, 0.1]).solve()
+
+    state = MaxwellState.zero(1)
+    state.strain[...] = 0.2
+    with pytest.raises(ValueError, match="first strain sample"):
+        material.history([0.0, 1.0], [0.0, 0.1], initial_state=state).solve()

@@ -9,18 +9,22 @@
   "execution": {
     "command": "python -m pytest -q tests/test_viscoelasticity.py tests/test_dynamics.py",
     "example": "tests/test_viscoelasticity.py",
-    "evidence": "Analytical instantaneous and equilibrium modulus limits, complex storage/loss response, exact branch update and viscous dissipation, temperature-shift direction, positive fixed-spectrum recovery, one-sided FFT amplitude, spectral-ratio FRF, and logarithmic decrement are automated."
+    "evidence": "Analytical instantaneous and equilibrium modulus limits, complex storage/loss response, exact branch update, independently integrated work and viscous dissipation, restart equivalence, temperature-shift direction, positive fixed-spectrum recovery, one-sided FFT amplitude, spectral-ratio FRF, and logarithmic decrement are automated."
   },
   "observables": [
     "Relaxation modulus at zero and long time.",
     "Storage modulus, loss modulus, and loss factor versus angular frequency.",
     "Algorithmic modulus, overstress, and non-negative viscous dissipation for an exact material-point update.",
+    "Accepted stress/internal-state histories and cumulative work--stored-energy--dissipation balance through SimulationResult.",
     "Recovered positive Prony coefficients for a declared relaxation-time spectrum.",
     "FFT amplitude/frequency, FRF phase/amplitude, and free-decay damping quantities."
   ],
   "acceptance": [
     "Standard-linear-solid time and frequency limits must match their analytical values.",
     "The exact linear-increment update and integrated branch dissipation must match their closed forms.",
+    "Split and uninterrupted histories must recover identical accepted stress, branch state and cumulative dissipation.",
+    "An explicitly instantaneous nonzero initial state held at constant strain must reproduce the closed-form relaxation modulus.",
+    "Independently integrated constitutive work must close against recoverable energy plus viscous dissipation to floating-point tolerance.",
     "The fixed-spectrum fit must recover a synthetic positive two-branch reference to relative RMS error below 1e-12.",
     "Unexcited FRF bins must remain explicitly invalid rather than producing finite high-gain artifacts.",
     "Structured result conversion must retain frequency axes, units, and validity evidence."

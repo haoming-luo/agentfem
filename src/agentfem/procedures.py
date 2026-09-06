@@ -139,6 +139,20 @@ def implicit_creep() -> SolutionProcedure:
     )
 
 
+def viscoelastic_history() -> SolutionProcedure:
+    """Exact increment-wise generalized-Maxwell material history."""
+
+    return SolutionProcedure(
+        name="generalized-Maxwell material history",
+        family="standard",
+        equation_order="first_order",
+        control="time_increments",
+        algorithm="exact_generalized_maxwell_update",
+        requires_global_solve=False,
+        stateful=True,
+    )
+
+
 def newmark() -> SolutionProcedure:
     return SolutionProcedure(
         name="Newmark",
@@ -367,4 +381,5 @@ __all__ = [
     "newmark",
     "nonlinear_static",
     "resolve",
+    "viscoelastic_history",
 ]

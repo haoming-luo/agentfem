@@ -381,7 +381,18 @@ eigenvectors. AgentFEM separately fixes their otherwise arbitrary sign through
 one deterministic global degree-of-freedom convention and records both
 mass-orthogonality and stiffness-diagonalization errors. A mode shape is a
 normalized spatial pattern, not a physical displacement until a modal
-coordinate supplies its amplitude.
+coordinate supplies its amplitude. A repeated eigenvalue has no unique ordered
+set of eigenvectors, so AgentFEM clusters the spectrum and compares the whole
+invariant subspace rather than treating one solver-dependent rotation as a
+scientific identity. A result records if its requested truncation cuts such a
+cluster.
+
+Material-point procedures use the same ownership logic without pretending to
+be global FEM analyses. `GeneralizedMaxwell.history(...)` advances accepted
+branch state increment by increment and returns a `SimulationResult` carrying
+stress, internal state, work, stored energy, dissipation, and balance. The
+global tensor-valued viscoelastic residual and tangent remain a separate
+provider responsibility.
 
 ## Increment, Attempt, and Iteration
 

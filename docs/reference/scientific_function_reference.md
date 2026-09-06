@@ -1428,9 +1428,9 @@ A linear strain path over one increment has an exact branch update and algorithm
 
 | Name | Type | Unit role | Meaning |
 | --- | --- | --- | --- |
-| modal result | SimulationResult quantities and live mode fields | inverse time and mass-normalized shape | Includes eigenvalues, angular frequencies, frequencies, relative residuals, orthogonality evidence and each deterministically oriented mode shape. |
+| modal result | SimulationResult quantities and live mode fields | inverse time and mass-normalized shape | Includes eigenvalues, angular frequencies, frequencies, relative residuals, orthogonality evidence, cluster membership, invariant-subspace semantics and each deterministically oriented singleton mode shape. |
 | dynamic signal records | one-sided spectrum, FRF and damping estimate | frequency, phase and signal-dependent response | Invalid unexcited FRF bins remain explicit and are excluded from finite result histories. |
-| viscoelastic response | relaxation, storage/loss modulus, loss factor and committed branch state | stress, time and temperature | Material-point state may be snapshotted, committed or restored independently of a global solver. |
+| viscoelastic response | relaxation, storage/loss modulus, accepted branch histories and common SimulationResult | stress, time and temperature | Material-point state may be snapshotted, committed or restored independently of a global solver; the history result carries exact tangents and a work--stored-energy--dissipation ledger. |
 
 #### Assumptions
 
@@ -1440,10 +1440,12 @@ A linear strain path over one increment has an exact branch update and algorithm
 
 #### Conventions
 
-- SLEPc mass-normalizes generalized Hermitian eigenvectors; AgentFEM records mass-orthogonality and stiffness-diagonalization errors and makes the largest global component positive to remove arbitrary sign changes between runs.
+- SLEPc mass-normalizes generalized Hermitian eigenvectors; AgentFEM records mass-orthogonality and stiffness-diagonalization errors and makes the largest global component positive for isolated modes.
+- Repeated or numerically clustered modes are compared as invariant subspaces because their individual basis vectors may rotate without changing the eigenspace.
 - A mass-normalized mode shape is a relative spatial pattern and does not carry a physical displacement amplitude until combined with a modal coordinate.
 - Storage and loss modulus consume angular frequency, not cyclic frequency.
 - Positive Prony ratios are fractions of the instantaneous modulus and must sum to less than one.
+- A nonzero initial strain declares either an instantaneous loading state or a fully equilibrated state; the material history never invents that past implicitly.
 - A trial material-point update does not modify accepted state until explicitly committed.
 
 #### Applicability
@@ -1460,7 +1462,7 @@ A linear strain path over one increment has an exact branch update and algorithm
 ### Minimal example
 
 ```python
-Create studies.modal_solid(...), register displacement/material/constraints, and solve model.step(target=u, modes=6). Use constitutive.GeneralizedMaxwell.from_prony(...) for relaxation/storage/loss curves and dynamics.spectrum(...) or frequency_response(...) for sampled histories.
+Create studies.modal_solid(...), register displacement/material/constraints, and solve model.step(target=u, modes=6). Use constitutive.GeneralizedMaxwell.from_prony(...) for relaxation/storage/loss curves, material.history(time, strain).solve_result() for an accepted material-point path, and dynamics.spectrum(...) or frequency_response(...) for sampled histories.
 ```
 
 ### Verification
@@ -1482,15 +1484,19 @@ Create studies.modal_solid(...), register displacement/material/constraints, and
 - Reject a modal result when mass orthogonality or stiffness diagonalization exceeds the recorded numerical tolerance.
 - Reject assembled stiffness or mass operators that violate the symmetric generalized-Hermitian problem contract.
 - Use one deterministic global sign convention for serial and MPI mode fields and preserve the actual mode-field name in visualization metadata.
+- Compare repeated eigenvalue clusters through invariant-subspace evidence and mark a requested truncation that cuts a cluster.
 - Return the requested eigenmodes nearest a declared target frequency, then order the selected set by increasing frequency.
 - Require positive moduli and relaxation times, and Prony ratios summing to less than one.
+- Recover the closed-form relaxation modulus from an instantaneous initial state under constant strain.
 - Reject singular or non-finite time-temperature shift factors before updating material state.
 - Separate trial and committed branch state and preserve rollback equivalence.
+- Require restarted material histories to match the accepted initial strain and branch layout, and close independently integrated work against stored energy plus dissipation.
 - Reject nonuniform FFT sampling and mark unexcited FRF bins invalid.
 
 ### References
 
 - SLEPc EPS generalized eigenvalue problem documentation: `https://slepc.upv.es/release/slepc4py/reference/slepc4py.SLEPc.EPS.html`
+- SLEPc EPS eigensolver manual: invariant subspaces and clustered eigenvalues: `https://slepc.upv.es/release/documentation/manual/eps.html`
 - Abaqus time-domain viscoelastic rod benchmark: `https://docs.software.vt.edu/abaqusv2025/English/SIMACAEBMKRefMap/simabmk-c-viscorod.htm`
 - Abaqus frequency-domain viscoelasticity: `https://docs.software.vt.edu/abaqusv2025/English/SIMACAETHERefMap/simathe-c-freqdomainvisco.htm`
 

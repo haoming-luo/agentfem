@@ -17,6 +17,13 @@ from petsc4py import PETSc
 from . import assembly
 from . import fields
 from . import time
+from ._modal import cluster_summaries, selected_clusters_are_complete
+from ._modal_fem import (
+    orient_mode_deterministically,
+    orthogonality_evidence,
+    require_symmetric_operator,
+)
+from .dynamics import ModalSolveInfo
 from .diagnostics import PerformanceLedger
 from .constraints.affine import AffineConstraintDualHistory
 from .kernel import dofs
@@ -281,72 +288,6 @@ class LinearSystemProblem:
         raise ValueError("LinearSystemProblem requires solution or unknown.")
 
 
-@dataclass(frozen=True)
-class ModalSolveInfo:
-    """Convergence and filtering evidence for one modal solve."""
-
-    converged_eigenpairs: int
-    requested_modes: int
-    accepted_modes: int
-    constrained_dofs: int
-    free_dofs: int
-    residual_norms: tuple[float, ...]
-    eigensolver: str
-    target_frequency: float | None = None
-    mass_orthogonality_error: float = float("nan")
-    stiffness_diagonalization_error: float = float("nan")
-    orthogonality_tolerance: float = 1.0e-7
-    orientation_anchor_dofs: tuple[int, ...] = ()
-    operator_symmetry_relative_tolerance: float = float("nan")
-    stiffness_symmetry_absolute_tolerance: float = float("nan")
-    mass_symmetry_absolute_tolerance: float = float("nan")
-    stiffness_symmetric: bool = False
-    mass_symmetric: bool = False
-
-    @property
-    def converged(self) -> bool:
-        errors = (
-            self.mass_orthogonality_error,
-            self.stiffness_diagonalization_error,
-        )
-        return (
-            self.accepted_modes >= self.requested_modes
-            and all(np.isfinite(value) for value in errors)
-            and all(value <= self.orthogonality_tolerance for value in errors)
-            and self.stiffness_symmetric
-            and self.mass_symmetric
-        )
-
-    def as_dict(self) -> dict[str, object]:
-        return {
-            "converged": self.converged,
-            "converged_eigenpairs": self.converged_eigenpairs,
-            "requested_modes": self.requested_modes,
-            "accepted_modes": self.accepted_modes,
-            "constrained_dofs": self.constrained_dofs,
-            "free_dofs": self.free_dofs,
-            "residual_norms": self.residual_norms,
-            "eigensolver": self.eigensolver,
-            "target_frequency": self.target_frequency,
-            "mass_orthogonality_error": self.mass_orthogonality_error,
-            "stiffness_diagonalization_error": self.stiffness_diagonalization_error,
-            "orthogonality_tolerance": self.orthogonality_tolerance,
-            "orientation_convention": "largest_global_component_positive",
-            "orientation_anchor_dofs": self.orientation_anchor_dofs,
-            "operator_symmetry_relative_tolerance": (
-                self.operator_symmetry_relative_tolerance
-            ),
-            "stiffness_symmetry_absolute_tolerance": (
-                self.stiffness_symmetry_absolute_tolerance
-            ),
-            "mass_symmetry_absolute_tolerance": (
-                self.mass_symmetry_absolute_tolerance
-            ),
-            "stiffness_symmetric": self.stiffness_symmetric,
-            "mass_symmetric": self.mass_symmetric,
-        }
-
-
 def _positive_integer(value, *, name: str) -> int:
     """Return one exact positive integer without truncating user input."""
 
@@ -359,97 +300,6 @@ def _positive_integer(value, *, name: str) -> int:
     if selected <= 0:
         raise ValueError(f"{name} must be a positive integer.")
     return int(selected)
-
-
-def _orient_mode_deterministically(mode, free_local, free_global) -> int:
-    """Choose a stable sign for a real distributed eigenvector.
-
-    Eigenvectors are defined only up to sign.  The owned scalar dof with the
-    smallest global index among components tied for the largest magnitude is
-    made positive.  The near-tie band avoids partition-dependent sign changes
-    caused by roundoff in symmetric modes.
-    """
-
-    comm = mode.function_space.mesh.comm
-    values = np.real(np.asarray(mode.x.array[free_local]))
-    local_maximum = float(np.max(np.abs(values))) if values.size else 0.0
-    maximum = float(comm.allreduce(local_maximum, op=MPI.MAX))
-    if not np.isfinite(maximum) or maximum <= 0.0:
-        raise RuntimeError("Modal eigenvector has no finite nonzero component.")
-    tied = np.abs(values) >= maximum * (1.0 - 64.0 * np.finfo(float).eps)
-    sentinel = int(np.iinfo(np.int64).max)
-    local_anchor = (
-        int(np.min(np.asarray(free_global, dtype=np.int64)[tied]))
-        if np.any(tied)
-        else sentinel
-    )
-    anchor = int(comm.allreduce(local_anchor, op=MPI.MIN))
-    local_value = float(
-        np.sum(values[np.asarray(free_global, dtype=np.int64) == anchor])
-    )
-    anchor_value = float(comm.allreduce(local_value, op=MPI.SUM))
-    if not np.isfinite(anchor_value) or anchor_value == 0.0:
-        raise RuntimeError("Modal sign anchor could not be resolved.")
-    if anchor_value < 0.0:
-        mode.x.array[:] *= -1.0
-        mode.x.scatter_forward()
-    return anchor
-
-
-def _modal_orthogonality_evidence(stiffness, mass, modes, eigenvalues):
-    """Return global mass-orthogonality and stiffness-diagonalization errors."""
-
-    count = len(modes)
-    if count == 0:
-        return float("inf"), float("inf")
-    mass_gram = np.empty((count, count), dtype=float)
-    stiffness_gram = np.empty((count, count), dtype=float)
-    mass_action = mass.createVecLeft()
-    stiffness_action = stiffness.createVecLeft()
-    try:
-        for column, right in enumerate(modes):
-            mass.mult(right.x.petsc_vec, mass_action)
-            stiffness.mult(right.x.petsc_vec, stiffness_action)
-            for row, left in enumerate(modes):
-                mass_gram[row, column] = float(
-                    np.real(left.x.petsc_vec.dot(mass_action))
-                )
-                stiffness_gram[row, column] = float(
-                    np.real(left.x.petsc_vec.dot(stiffness_action))
-                )
-    finally:
-        mass_action.destroy()
-        stiffness_action.destroy()
-    mass_error = float(np.max(np.abs(mass_gram - np.eye(count))))
-    expected_stiffness = np.diag(np.asarray(eigenvalues, dtype=float))
-    stiffness_scale = max(1.0, float(np.max(np.abs(eigenvalues))))
-    stiffness_error = float(
-        np.max(np.abs(stiffness_gram - expected_stiffness)) / stiffness_scale
-    )
-    return mass_error, stiffness_error
-
-
-def _modal_operator_symmetry(matrix, *, name: str, relative_tolerance: float) -> float:
-    """Require the real symmetric operator promised to the GHEP solver.
-
-    PETSc's symmetry tolerance is absolute, whereas engineering stiffness and
-    mass matrices may differ by many orders of magnitude.  Scale it by the
-    infinity norm and record the resulting absolute tolerance as solver
-    evidence.  This check matters most for user-supplied operators: declaring
-    an unsymmetric pair as a Hermitian eigenproblem can otherwise return
-    plausible-looking but invalid modes.
-    """
-
-    scale = float(matrix.norm(PETSc.NormType.INFINITY))
-    if not np.isfinite(scale):
-        raise ValueError(f"Modal {name} operator contains nonfinite values.")
-    absolute_tolerance = max(1.0, scale) * float(relative_tolerance)
-    if not matrix.isSymmetric(tol=absolute_tolerance):
-        raise ValueError(
-            f"Modal {name} operator must be symmetric for the generalized "
-            "Hermitian eigenproblem."
-        )
-    return absolute_tolerance
 
 
 @dataclass
@@ -549,12 +399,12 @@ class ModalAnalysisStep:
             min(1.0e-8, 10.0 * float(self.tolerance)),
         )
         try:
-            stiffness_symmetry_tolerance = _modal_operator_symmetry(
+            stiffness_symmetry_tolerance = require_symmetric_operator(
                 reduced_stiffness,
                 name="stiffness",
                 relative_tolerance=relative_symmetry_tolerance,
             )
-            mass_symmetry_tolerance = _modal_operator_symmetry(
+            mass_symmetry_tolerance = require_symmetric_operator(
                 reduced_mass,
                 name="mass",
                 relative_tolerance=relative_symmetry_tolerance,
@@ -625,6 +475,24 @@ class ModalAnalysisStep:
                 key=lambda item: abs(item[0] - target_eigenvalue),
             )[: int(self.modes)]
             selected_candidates.sort(key=lambda item: item[0])
+        cluster_relative_tolerance = max(
+            1.0e-8,
+            100.0 * float(self.tolerance),
+        )
+        ordered_candidates = sorted(candidates, key=lambda item: item[0])
+        selected_solver_indices = {item[1] for item in selected_candidates}
+        selected_positions = tuple(
+            position
+            for position, item in enumerate(ordered_candidates)
+            if item[1] in selected_solver_indices
+        )
+        selected_clusters_complete = bool(ordered_candidates) and (
+            selected_clusters_are_complete(
+                [item[0] for item in ordered_candidates],
+                selected_positions,
+                relative_tolerance=cluster_relative_tolerance,
+            )
+        )
         for eigenvalue, index in selected_candidates:
             eps.getEigenvector(index, reduced_vector)
             local_values = np.asarray(reduced_vector.array_r)
@@ -636,7 +504,7 @@ class ModalAnalysisStep:
             mode.x.array[free_local] = np.real(local_values)
             mode.x.scatter_forward()
             orientation_anchors.append(
-                _orient_mode_deterministically(mode, free_local, free_global)
+                orient_mode_deterministically(mode, free_local, free_global)
             )
             eigenvalues.append(eigenvalue)
             residual_norms.append(
@@ -645,7 +513,7 @@ class ModalAnalysisStep:
             mode_shapes.append(mode)
 
         orthogonality_tolerance = max(1.0e-7, 100.0 * float(self.tolerance))
-        mass_error, stiffness_error = _modal_orthogonality_evidence(
+        mass_error, stiffness_error = orthogonality_evidence(
             stiffness,
             mass,
             mode_shapes,
@@ -670,6 +538,16 @@ class ModalAnalysisStep:
             mass_symmetry_absolute_tolerance=mass_symmetry_tolerance,
             stiffness_symmetric=True,
             mass_symmetric=True,
+            cluster_relative_tolerance=cluster_relative_tolerance,
+            eigenvalue_clusters=(
+                cluster_summaries(
+                    eigenvalues,
+                    relative_tolerance=cluster_relative_tolerance,
+                )
+                if eigenvalues
+                else ()
+            ),
+            selected_clusters_complete=selected_clusters_complete,
         )
         self.last_solve_info = info
         self.eigenvalues = np.asarray(eigenvalues, dtype=float)
@@ -711,6 +589,14 @@ class ModalAnalysisStep:
             },
             kind="modal",
         )
+        cluster_by_mode = {
+            int(mode_index): cluster_index
+            for cluster_index, cluster in enumerate(
+                self.last_solve_info.eigenvalue_clusters,
+                start=1,
+            )
+            for mode_index in cluster["indices"]
+        }
         for index, mode in enumerate(modes, start=1):
             result.add_field(
                 f"Mode_{index}",
@@ -724,6 +610,12 @@ class ModalAnalysisStep:
                     "method": "generalized_hermitian_eigenproblem",
                     "normalization": "mass",
                     "orientation": "largest_global_component_positive",
+                    "eigenvalue_cluster": cluster_by_mode[index],
+                    "comparison_object": next(
+                        cluster["comparison_object"]
+                        for cluster in self.last_solve_info.eigenvalue_clusters
+                        if index in cluster["indices"]
+                    ),
                     "postprocessed": False,
                 },
             )

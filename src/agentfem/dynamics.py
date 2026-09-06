@@ -15,6 +15,89 @@ from typing import Mapping, Sequence
 
 import numpy as np
 
+from ._modal import (
+    EigenvalueCluster,
+    ModalBasisComparison,
+    ModalClusterComparison,
+    cluster_eigenvalues,
+    cluster_summaries,
+    compare_modal_bases,
+    selected_clusters_are_complete,
+)
+
+
+@dataclass(frozen=True)
+class ModalSolveInfo:
+    """Convergence, operator and eigenspace evidence for one FEM solve."""
+
+    converged_eigenpairs: int
+    requested_modes: int
+    accepted_modes: int
+    constrained_dofs: int
+    free_dofs: int
+    residual_norms: tuple[float, ...]
+    eigensolver: str
+    target_frequency: float | None = None
+    mass_orthogonality_error: float = float("nan")
+    stiffness_diagonalization_error: float = float("nan")
+    orthogonality_tolerance: float = 1.0e-7
+    orientation_anchor_dofs: tuple[int, ...] = ()
+    operator_symmetry_relative_tolerance: float = float("nan")
+    stiffness_symmetry_absolute_tolerance: float = float("nan")
+    mass_symmetry_absolute_tolerance: float = float("nan")
+    stiffness_symmetric: bool = False
+    mass_symmetric: bool = False
+    cluster_relative_tolerance: float = float("nan")
+    eigenvalue_clusters: tuple[dict[str, object], ...] = ()
+    selected_clusters_complete: bool = True
+
+    @property
+    def converged(self) -> bool:
+        errors = (
+            self.mass_orthogonality_error,
+            self.stiffness_diagonalization_error,
+        )
+        return (
+            self.accepted_modes >= self.requested_modes
+            and all(np.isfinite(value) for value in errors)
+            and all(value <= self.orthogonality_tolerance for value in errors)
+            and self.stiffness_symmetric
+            and self.mass_symmetric
+        )
+
+    def as_dict(self) -> dict[str, object]:
+        return {
+            "converged": self.converged,
+            "converged_eigenpairs": self.converged_eigenpairs,
+            "requested_modes": self.requested_modes,
+            "accepted_modes": self.accepted_modes,
+            "constrained_dofs": self.constrained_dofs,
+            "free_dofs": self.free_dofs,
+            "residual_norms": self.residual_norms,
+            "eigensolver": self.eigensolver,
+            "target_frequency": self.target_frequency,
+            "mass_orthogonality_error": self.mass_orthogonality_error,
+            "stiffness_diagonalization_error": self.stiffness_diagonalization_error,
+            "orthogonality_tolerance": self.orthogonality_tolerance,
+            "orientation_convention": "largest_global_component_positive",
+            "orientation_anchor_dofs": self.orientation_anchor_dofs,
+            "operator_symmetry_relative_tolerance": (
+                self.operator_symmetry_relative_tolerance
+            ),
+            "stiffness_symmetry_absolute_tolerance": (
+                self.stiffness_symmetry_absolute_tolerance
+            ),
+            "mass_symmetry_absolute_tolerance": (
+                self.mass_symmetry_absolute_tolerance
+            ),
+            "stiffness_symmetric": self.stiffness_symmetric,
+            "mass_symmetric": self.mass_symmetric,
+            "cluster_relative_tolerance": self.cluster_relative_tolerance,
+            "eigenvalue_clusters": self.eigenvalue_clusters,
+            "selected_clusters_complete": self.selected_clusters_complete,
+            "repeated_modes_compare_as": "invariant_subspace",
+        }
+
 
 def _one_dimensional(values, *, name: str, minimum: int = 1) -> np.ndarray:
     array = np.asarray(values, dtype=float)
@@ -248,10 +331,14 @@ class ModalBasis:
         modes = np.asarray(self.modes, dtype=float)
         if modes.ndim != 2 or modes.shape[1] != eigenvalues.size:
             raise ValueError("modes must have shape (dofs, number_of_eigenvalues).")
+        if not np.all(np.isfinite(modes)):
+            raise ValueError("modes must contain only finite values.")
         if np.any(eigenvalues <= 0.0):
             raise ValueError(
                 "Modal eigenvalues must be positive after rigid-mode filtering."
             )
+        if np.any(np.diff(eigenvalues) < 0.0):
+            raise ValueError("Modal eigenvalues must be sorted in nondecreasing order.")
         residuals = (
             np.full(eigenvalues.size, np.nan)
             if self.residual_norms is None
@@ -275,6 +362,42 @@ class ModalBasis:
     @property
     def mode_count(self) -> int:
         return int(self.eigenvalues.size)
+
+    def clusters(
+        self,
+        *,
+        relative_tolerance: float = 1.0e-6,
+    ) -> tuple[EigenvalueCluster, ...]:
+        """Return singleton and repeated eigenspectrum clusters."""
+
+        return cluster_eigenvalues(
+            self.eigenvalues,
+            relative_tolerance=relative_tolerance,
+        )
+
+    def compare(
+        self,
+        candidate: "ModalBasis",
+        *,
+        metric=None,
+        cluster_tolerance: float = 1.0e-6,
+        eigenvalue_tolerance: float = 1.0e-5,
+        subspace_tolerance: float = 1.0e-4,
+    ) -> ModalBasisComparison:
+        """Compare another basis using invariant subspaces for repeated modes."""
+
+        if not isinstance(candidate, ModalBasis):
+            raise TypeError("candidate must be a ModalBasis.")
+        return compare_modal_bases(
+            self.eigenvalues,
+            self.modes,
+            candidate.eigenvalues,
+            candidate.modes,
+            metric=metric,
+            cluster_tolerance=cluster_tolerance,
+            eigenvalue_tolerance=eigenvalue_tolerance,
+            subspace_tolerance=subspace_tolerance,
+        )
 
     def to_result(self, *, name: str = "modal_analysis"):
         from .results import SimulationResult
@@ -454,6 +577,8 @@ def solve_dense_modes(stiffness, mass, *, modes: int | None = None) -> ModalBasi
     positive = eigenvalues > max(1.0, float(np.max(np.abs(eigenvalues)))) * 1.0e-12
     eigenvalues = eigenvalues[positive]
     vectors = vectors[:, positive]
+    cluster_tolerance = 1.0e-8
+    selection_complete = True
     if modes is not None:
         selected_modes = _positive_integer(modes, name="modes")
         if selected_modes > eigenvalues.size:
@@ -461,6 +586,11 @@ def solve_dense_modes(stiffness, mass, *, modes: int | None = None) -> ModalBasi
                 f"Dense modal solve found {eigenvalues.size} positive modes but "
                 f"requests {selected_modes}."
             )
+        selection_complete = selected_clusters_are_complete(
+            eigenvalues,
+            range(selected_modes),
+            relative_tolerance=cluster_tolerance,
+        )
         eigenvalues = eigenvalues[:selected_modes]
         vectors = vectors[:, :selected_modes]
     vectors, anchors = _orient_dense_modes(vectors)
@@ -486,6 +616,13 @@ def solve_dense_modes(stiffness, mass, *, modes: int | None = None) -> ModalBasi
             "residual_definition": "relative_backward_error",
             "orientation_convention": "largest_component_positive",
             "orientation_anchor_dofs": anchors,
+            "cluster_relative_tolerance": cluster_tolerance,
+            "eigenvalue_clusters": cluster_summaries(
+                eigenvalues,
+                relative_tolerance=cluster_tolerance,
+            ),
+            "selected_clusters_complete": selection_complete,
+            "repeated_modes_compare_as": "invariant_subspace",
         },
     )
 
@@ -521,12 +658,17 @@ def modal_frequency_response(
 
 __all__ = [
     "DampingEstimate",
+    "EigenvalueCluster",
     "FrequencyResponse",
     "ModalBasis",
+    "ModalBasisComparison",
+    "ModalClusterComparison",
+    "ModalSolveInfo",
     "SignalSpectrum",
     "damping_from_free_decay",
     "frequency_response",
     "modal_frequency_response",
+    "compare_modal_bases",
     "solve_dense_modes",
     "spectrum",
 ]

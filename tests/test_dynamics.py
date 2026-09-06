@@ -6,7 +6,16 @@ import pytest
 from mpi4py import MPI
 import ufl
 
-from agentfem import dynamics, fields, mesh, models, operators, problems, studies
+from agentfem import (
+    dynamics,
+    fields,
+    mesh,
+    models,
+    operators,
+    problems,
+    studies,
+    verification,
+)
 from agentfem.constitutive import elasticity
 from agentfem.results import HistoryResult
 
@@ -104,6 +113,78 @@ def test_dense_modal_reference_rejects_truncation_and_missing_positive_modes():
         dynamics.solve_dense_modes(stiffness, mass, modes=2)
 
 
+def test_repeated_modes_compare_as_an_invariant_subspace():
+    reference = dynamics.solve_dense_modes(
+        np.diag([4.0, 4.0, 9.0]),
+        np.eye(3),
+    )
+    angle = np.pi / 5.0
+    rotation = np.array(
+        [
+            [np.cos(angle), -np.sin(angle)],
+            [np.sin(angle), np.cos(angle)],
+        ]
+    )
+    rotated_modes = reference.modes.copy()
+    rotated_modes[:, :2] = rotated_modes[:, :2] @ rotation
+    candidate = dynamics.ModalBasis(
+        reference.eigenvalues,
+        rotated_modes,
+        reference.residual_norms,
+    )
+
+    comparison = reference.compare(candidate)
+
+    assert comparison.accepted
+    assert tuple(cluster.multiplicity for cluster in reference.clusters()) == (2, 1)
+    repeated = comparison.clusters[0]
+    assert repeated.modal_assurance is None
+    assert repeated.projection_distance == pytest.approx(0.0, abs=1.0e-14)
+    assert repeated.maximum_principal_angle_degrees == pytest.approx(
+        0.0,
+        abs=1.0e-6,
+    )
+    assert comparison.clusters[1].modal_assurance == pytest.approx(1.0)
+    assert reference.metadata["repeated_modes_compare_as"] == "invariant_subspace"
+
+
+def test_modal_comparison_detects_a_different_repeated_subspace():
+    reference = dynamics.ModalBasis(
+        [4.0, 4.0],
+        np.array([[1.0, 0.0], [0.0, 1.0], [0.0, 0.0]]),
+    )
+    candidate = dynamics.ModalBasis(
+        [4.0, 4.0],
+        np.array([[1.0, 0.0], [0.0, 0.0], [0.0, 1.0]]),
+    )
+
+    comparison = reference.compare(candidate)
+
+    assert not comparison.accepted
+    assert comparison.clusters[0].projection_distance == pytest.approx(1.0)
+    assert comparison.clusters[0].maximum_principal_angle_degrees == pytest.approx(
+        90.0
+    )
+
+
+def test_dense_modal_metadata_marks_a_cluster_cut_by_mode_count():
+    basis = dynamics.solve_dense_modes(
+        np.diag([4.0, 4.0, 9.0]),
+        np.eye(3),
+        modes=1,
+    )
+
+    assert not basis.metadata["selected_clusters_complete"]
+    assert basis.metadata["eigenvalue_clusters"][0]["multiplicity"] == 1
+
+
+def test_modal_basis_rejects_nonfinite_modes_and_unsorted_eigenvalues():
+    with pytest.raises(ValueError, match="finite"):
+        dynamics.ModalBasis([1.0], [[np.nan]])
+    with pytest.raises(ValueError, match="sorted"):
+        dynamics.ModalBasis([2.0, 1.0], np.eye(2))
+
+
 def test_dynamic_postprocessors_reject_unobservable_or_singular_requests():
     time = np.arange(0.0, 1.0, 0.01)
     with pytest.raises(ValueError, match="observable excitation"):
@@ -182,6 +263,11 @@ def test_modal_step_uses_public_model_language_and_removes_fixed_dofs(tmp_path):
     assert solve["stiffness_symmetry_absolute_tolerance"] > 0.0
     assert solve["mass_symmetry_absolute_tolerance"] > 0.0
     assert len(solve["orientation_anchor_dofs"]) == 3
+    assert solve["selected_clusters_complete"]
+    assert solve["repeated_modes_compare_as"] == "invariant_subspace"
+    assert sum(
+        cluster["multiplicity"] for cluster in solve["eigenvalue_clusters"]
+    ) == 3
     for mode in result.fields.values():
         assert operators.quadratic_form(step.mass, mode.field) == pytest.approx(
             1.0,
@@ -189,6 +275,11 @@ def test_modal_step_uses_public_model_language_and_removes_fixed_dofs(tmp_path):
             abs=1.0e-12,
         )
         assert mode.unit is None
+        assert mode.processing["comparison_object"] in {
+            "individual_mode",
+            "invariant_subspace",
+        }
+        assert mode.processing["eigenvalue_cluster"] >= 1
     for left_index, left in enumerate(result.fields.values()):
         for right_index, right in enumerate(result.fields.values()):
             expected = 1.0 if left_index == right_index else 0.0
@@ -211,6 +302,76 @@ def test_modal_step_uses_public_model_language_and_removes_fixed_dofs(tmp_path):
         euler_bernoulli,
         rel=0.035,
     )
+
+
+def test_slender_cantilever_frequency_has_analytical_and_mesh_convergence_evidence():
+    frequencies = []
+    for longitudinal_cells in (8, 16, 32):
+        domain = mesh.rectangle(
+            (0.0, 0.0),
+            (1.0, 0.05),
+            (longitudinal_cells, max(1, longitudinal_cells // 8)),
+            comm=MPI.COMM_SELF,
+            cell_type="quadrilateral",
+        )
+        model = models.create(
+            study=studies.modal_solid(dimension=2, assumption="plane_stress"),
+            mesh=domain,
+        )
+        displacement = model.field(fields.displacement(domain, degree=2))
+        model.material(
+            elasticity.isotropic_elastic(
+                young=210.0e9,
+                poisson=0.3,
+                density=7800.0,
+            )
+        )
+        model.clamp(
+            displacement,
+            on=mesh.boundary(domain, _left, name="left", tag=1),
+        )
+        result = model.step(target=displacement, modes=1).solve_result()
+        frequencies.append(float(result.quantity("frequencies")[0]))
+
+    euler_bernoulli = (
+        1.875104068711961**2
+        / (2.0 * np.pi)
+        * np.sqrt(210.0e9 * 0.05**2 / (12.0 * 7800.0))
+    )
+    convergence = verification.ConvergenceStudy(
+        name="slender_cantilever_modal_mesh_convergence",
+        observable="first_natural_frequency",
+        samples=tuple(
+            verification.ConvergenceSample(
+                1.0 / longitudinal_cells,
+                frequency,
+                label=f"q2_{longitudinal_cells}x{max(1, longitudinal_cells // 8)}",
+            )
+            for longitudinal_cells, frequency in zip((8, 16, 32), frequencies)
+        ),
+    )
+    convergence_claim = convergence.verify(
+        maximum_relative_change=7.0e-4,
+        minimum_observed_order=1.5,
+    )
+    analytical_claim = verification.VerificationClaim.compare(
+        name="slender_cantilever_euler_bernoulli",
+        observable="first_natural_frequency",
+        actual=frequencies[-1],
+        expected=euler_bernoulli,
+        reference="Euler--Bernoulli clamped-free bending frequency",
+        relative_tolerance=2.0e-3,
+        validity_domain="slender homogeneous plane-stress cantilever",
+    )
+
+    np.testing.assert_allclose(
+        frequencies,
+        [41.9907373893, 41.8934372526, 41.8649074705],
+        rtol=1.0e-7,
+    )
+    assert convergence_claim.status == "passed"
+    assert convergence.observed_order > 1.5
+    assert analytical_claim.status == "passed"
 
 
 def test_modal_target_frequency_selects_nearest_mode_not_lowest_mode():

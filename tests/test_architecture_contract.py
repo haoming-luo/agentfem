@@ -92,13 +92,30 @@ def test_model_does_not_construct_discrete_problem_objects_directly():
 
 
 def test_problem_compatibility_exports_point_to_new_owners():
-    from agentfem import operators, problems, state
+    from agentfem import dynamics, operators, problems, state
 
     assert problems.TransientState is state.TransientState
     assert problems.SecondOrderDynamicsState is state.SecondOrderDynamicsState
     assert problems.ExplicitDynamicsState is state.ExplicitDynamicsState
     assert problems.second_order_state is state.second_order_state
     assert problems.LumpedMassOperator is operators.LumpedMassOperator
+    assert problems.ModalSolveInfo is dynamics.ModalSolveInfo
+
+
+def test_material_history_orchestration_has_a_procedure_owner():
+    from agentfem import constitutive
+
+    material = constitutive.standard_linear_solid(
+        equilibrium_modulus=2.0,
+        relaxing_modulus=3.0,
+        relaxation_time=1.0,
+    )
+    step = material.history([0.0, 1.0], [0.0, 0.1])
+
+    assert step.__class__.__module__ == "agentfem._material_history"
+    assert "class GeneralizedMaxwellHistoryStep" not in (
+        PACKAGE / "constitutive" / "viscoelasticity.py"
+    ).read_text(encoding="utf-8")
 
 
 def test_fatigue_work_contract_is_owned_by_shared_internal_layer():

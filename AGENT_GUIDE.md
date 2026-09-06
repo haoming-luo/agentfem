@@ -414,10 +414,15 @@ For undamped linear structural modes, use
 `studies.modal_solid(...)` followed by `model.step(target=u, modes=...)`.
 The SLEPc provider removes strongly constrained degrees of freedom and returns
 frequencies, eigenpair residuals, orthogonality evidence, and deterministically
-oriented mode fields through `SimulationResult`. Treat a mass-normalized mode
-shape as a relative pattern, not as a dimensionless or physical displacement;
-use its recorded `Mode shape` warp field for visualization.
+oriented singleton mode fields through `SimulationResult`. Repeated or
+numerically clustered modes must be compared through their recorded invariant
+subspace, not by matching individual vectors; reject a comparison when
+`selected_clusters_complete` is false. Treat a mass-normalized mode shape as a
+relative pattern, not as a dimensionless or physical displacement; use its
+recorded `Mode shape` warp field for visualization.
 Use `dynamics.spectrum(...)`, `frequency_response(...)`, and
 `damping_from_free_decay(...)` on arrays or scalar result histories. Treat
 `constitutive.GeneralizedMaxwell` as a verified material-point and spectral
-asset: it is not yet a global viscoelastic FEM Step.
+asset. `material.history(time, strain).solve_result()` provides its accepted
+state, restart boundary and energy ledger through the shared result contract;
+it is not yet a global tensor-valued viscoelastic FEM Step.

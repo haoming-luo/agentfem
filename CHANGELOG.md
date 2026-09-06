@@ -17,8 +17,11 @@ experimental formulation to a validated one.
   beam-specific workflow.
 - Add standard-linear-solid and generalized-Maxwell/Prony material-point
   spectra with exact state updates and dissipation, WLF/Arrhenius shifts, and
-  a transparent fixed-spectrum fit. Global viscoelastic FEM assembly remains
-  a separate, explicitly documented promotion gate.
+  a transparent fixed-spectrum fit. A restartable material-history procedure
+  now returns accepted stress/internal-state histories and an independently
+  integrated work--stored-energy--dissipation ledger through `SimulationResult`.
+  Global tensor-valued viscoelastic FEM assembly remains a separate, explicitly
+  documented promotion gate.
 - Advance the moving development branch to `0.3.2.dev0`, add a development
   release contract, and fail packaging tests when commits beyond a published
   tag continue to report that tag's stable version.
@@ -100,8 +103,11 @@ experimental formulation to a validated one.
 - Harden structural modal analysis with exact integer validation, deterministic
   serial/MPI mode orientation, operator-symmetry preflight, mass-orthogonality
   and stiffness-diagonalization evidence, and physically neutral mode-shape
-  output semantics. Complete user-supplied `K/M` systems remain a valid
-  material-free expert path.
+  output semantics. Repeated eigenvalues now carry explicit cluster membership
+  and invariant-subspace comparison, while incomplete truncations are marked
+  rather than assigned false mode identity. A three-mesh slender-cantilever
+  sequence adds analytical and discretization-convergence evidence. Complete
+  user-supplied `K/M` systems remain a valid material-free expert path.
 - Reject non-finite generic and generalized-Maxwell state at snapshot,
   restore, trial and commit boundaries; use cancellation-safe exact branch
   updates for very small increments and fail closed on singular spectral

@@ -26,7 +26,8 @@ AgentFEM currently provides executable foundations for:
 - linear static solids and steady/transient heat transfer;
 - constrained structural modal analysis, central-difference, Newmark, and
   generalized-alpha structural dynamics, plus reusable FFT, FRF, and
-  free-decay post-processing;
+  free-decay post-processing. Modal evidence treats repeated eigenvalues as
+  invariant subspaces and includes a three-mesh analytical convergence route;
 - finite-strain Neo-Hookean and Mooney--Rivlin workflows, plus experimental
   public 3D logarithmic J2 providers for ordinary strong boundaries/reference
   dead loads and affine/MPC cells, with shared provider-owned quadrature output
@@ -99,9 +100,10 @@ Deepen the finite-element core before broadening the catalog:
   distributed reaction distribution and macroscopic work, plus weak and
   contact providers, remain explicit promotion gates;
 - selected cyclic plasticity, creep--fatigue, and fracture extensions.
-- promote generalized-Maxwell/Prony behavior from material-point and spectral
-  verification to a global stateful FEM transient, then add direct harmonic
-  response and independently checked complex modes;
+- promote generalized-Maxwell/Prony behavior from its exact restartable
+  material-history Procedure/State/Result contract to a global tensor-valued
+  stateful FEM transient, then add direct harmonic response and independently
+  checked complex modes;
 
 ### 2. Engineering workflow
 

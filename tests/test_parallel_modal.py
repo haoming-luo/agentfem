@@ -53,6 +53,13 @@ def test_structural_modes_use_one_distributed_reduced_eigenproblem():
     assert solve["constrained_dofs"] > 0
     assert solve["mass_orthogonality_error"] < 1.0e-10
     assert solve["stiffness_diagonalization_error"] < 1.0e-10
+    assert solve["selected_clusters_complete"]
+    assert solve["repeated_modes_compare_as"] == "invariant_subspace"
+    assert sum(
+        cluster["multiplicity"] for cluster in solve["eigenvalue_clusters"]
+    ) == 3
     assert len(solve["orientation_anchor_dofs"]) == 3
     gathered_anchors = MPI.COMM_WORLD.allgather(solve["orientation_anchor_dofs"])
     assert all(item == gathered_anchors[0] for item in gathered_anchors)
+    gathered_clusters = MPI.COMM_WORLD.allgather(solve["eigenvalue_clusters"])
+    assert all(item == gathered_clusters[0] for item in gathered_clusters)
