@@ -189,22 +189,24 @@ step = model.step(
 Adaptive `incrementation=steps.automatic(...)` is mutually exclusive with a
 prescribed `steps`/`time_points` path. The prescribed routes are useful when
 output must land on an experiment clock; the automatic route resolves the path
-from a tolerance and records its decisions. A serial checkpoint preserves the
-accepted adaptive path and next proposed increment so a resumed run does not
-silently choose a different continuation.
+from a tolerance and records its decisions. A checkpoint preserves the accepted
+adaptive path and next proposed increment so a resumed run does not silently
+choose a different continuation. With `portable=True`, nodal displacement and
+every committed Maxwell branch are stored by physical mesh identity and can be
+resumed with a different MPI partition or rank count.
 
 This first global provider solves small-strain quasi-static equilibrium on a
 prescribed or automatically resolved physical-time path. Each accepted increment
 commits the exact generalized-Maxwell quadrature state. Results expose `S`, `E`, `SENER`,
 `VDENER`, `MISES`, their cell-recovered visualization fields, `RF`, and the
 work--stored-energy--dissipation ledger. A WLF or Arrhenius material consumes
-an explicitly supplied temperature scalar or field. Serial checkpoints reject
-a changed material, amplitude, temperature, time grid, quadrature identity or
-solution layout before restart.
+an explicitly supplied temperature scalar or field. Portable checkpoints reject
+a changed material, amplitude, temperature, time grid, physical quadrature
+identity or nodal field identity before restart. Response fields are rebuilt
+from the accepted branch state without advancing relaxation time.
 
 This is a bounded global FEM foundation, not a claim of nonlinear finite-strain
-viscoelasticity, physical aging, direct harmonic assembly or distributed
-portable restart.
+viscoelasticity, physical aging or direct harmonic assembly.
 The independent three-dimensional
 [Abaqus viscoelastic-rod benchmark](https://docs.software.vt.edu/abaqusv2025/English/SIMACAEBMKRefMap/simabmk-c-viscorod.htm)
 checks prescribed traction, near-incompressible lateral contraction and the

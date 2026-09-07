@@ -841,6 +841,69 @@ class IsotropicGeneralizedMaxwell:
             state_new=state_new,
         )
 
+    def accepted_response(
+        self,
+        state,
+        *,
+        tangent_dt: float | None = None,
+        temperature=None,
+    ) -> tuple[np.ndarray, np.ndarray, float]:
+        """Recover stress, next-increment tangent and energy from accepted state.
+
+        This operation does not advance relaxation time.  It is used after a
+        portable restart, where the committed branch stresses are the durable
+        scientific state and response fields must be rebuilt on the receiving
+        mesh partition.  ``tangent_dt`` selects the algorithmic tangent for the
+        next increment; when omitted, the instantaneous elastic tangent is
+        returned.
+        """
+
+        unpacked = self.state_schema.unpack(state)
+        strain = np.asarray(unpacked["strain"], dtype=float)
+        shear = np.asarray(unpacked["shear_overstress"], dtype=float)
+        bulk = np.asarray(unpacked["bulk_overstress"], dtype=float)
+        trace = float(np.trace(strain))
+        deviator = strain - trace * np.eye(3) / 3.0
+        stress = (
+            self.equilibrium_bulk_modulus * trace * np.eye(3)
+            + 2.0 * self.equilibrium_shear_modulus * deviator
+            + np.sum(shear, axis=0)
+            + float(np.sum(bulk)) * np.eye(3)
+        )
+        stored = (
+            self.equilibrium_shear_modulus * float(np.sum(deviator**2))
+            + 0.5 * self.equilibrium_bulk_modulus * trace**2
+        )
+        for index in range(self.branch_count):
+            if self.shear_branch_moduli[index] > 0.0:
+                stored += float(np.sum(shear[index] ** 2)) / (
+                    4.0 * self.shear_branch_moduli[index]
+                )
+            if self.bulk_branch_moduli[index] > 0.0:
+                stored += float(bulk[index] ** 2) / (
+                    2.0 * self.bulk_branch_moduli[index]
+                )
+
+        bulk_tangent = self.instantaneous_bulk_modulus
+        shear_tangent = self.instantaneous_shear_modulus
+        if tangent_dt is not None:
+            selected_dt = float(tangent_dt)
+            if not np.isfinite(selected_dt) or selected_dt <= 0.0:
+                raise ValueError("tangent_dt must be finite and positive.")
+            times = self.shifted_relaxation_times(temperature)
+            factors = times / selected_dt * (-np.expm1(-selected_dt / times))
+            bulk_tangent = self.equilibrium_bulk_modulus + float(
+                np.sum(self.bulk_branch_moduli * factors)
+            )
+            shear_tangent = self.equilibrium_shear_modulus + float(
+                np.sum(self.shear_branch_moduli * factors)
+            )
+        return (
+            stress,
+            _isotropic_tangent(bulk_tangent, shear_tangent),
+            float(stored),
+        )
+
     def summary(self) -> dict[str, object]:
         return {
             "name": self.name,

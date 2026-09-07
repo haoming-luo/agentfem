@@ -1460,8 +1460,7 @@ A linear strain path over one increment has an exact branch update and algorithm
 
 #### Limitations
 
-- The first global provider supports 3D solids, strong constraints, prescribed or adaptive physical-time paths and serial restart.
-- Portable restart across different MPI partitions remains a promotion gate.
+- The first global provider supports 3D solids, strong constraints, prescribed or adaptive physical-time paths and physical-keyed portable restart.
 - Direct complex harmonic finite-element assembly, complex modes, nonlinear viscoelasticity and physical aging are not implemented.
 - Fixed-spectrum fitting does not automatically choose relaxation times or replace calibration/validation separation.
 
@@ -1478,6 +1477,7 @@ For global relaxation, create studies.viscoelastic_solid(dimension=3), register 
 - `tests/test_dynamics.py`
 - `tests/test_viscoelasticity.py`
 - `tests/test_parallel_inelastic.py`
+- `tests/portable_viscoelastic_step_driver.py`
 - `tests/test_parallel_modal.py`
 
 **Benchmarks**
@@ -1505,9 +1505,11 @@ For global relaxation, create studies.viscoelastic_solid(dimension=3), register 
 - Estimate adaptive physical-time error by comparing one full increment with two half increments in displacement and quadrature stress, and accept only the finer state.
 - Reject an increment whose estimated time error exceeds the declared tolerance, restore displacement and all quadrature history atomically, and retry from the same accepted time with a smaller increment.
 - Require adaptive checkpoint/restart to preserve the accepted path and next proposed increment, and require serial and two-rank adaptive decisions to be collective.
+- Require generalized-Maxwell displacement, committed branch state, stress and energy history to remain equivalent across one-to-two and two-to-one-rank portable restart.
+- Reject a corrupt portable quadrature payload by checksum and restore every in-memory field and history atomically.
 - Require the public global Step to recover the same exact relaxation stress with two MPI ranks and to preserve complete regional material maps.
 - Require a nonuniform-grid, traction-controlled three-dimensional rod to match the published Abaqus short- and long-time axial strains and effective Poisson ratio.
-- Invalidate global restart when material, amplitude, temperature, time grid, quadrature identity or solution layout differs.
+- Invalidate global restart when material, amplitude, temperature, time grid, physical quadrature identity or portable solution identity differs.
 - Reject nonuniform FFT sampling and mark unexcited FRF bins invalid.
 
 ### References

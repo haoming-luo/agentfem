@@ -327,6 +327,59 @@ class ViscoelasticQuadratureState:
         self.stored_energy.assign(snapshot["stored_energy"])
         self.work_increment.assign(snapshot["work_increment"])
 
+    def refresh_response(
+        self,
+        material: IsotropicGeneralizedMaxwell | QuadratureMaterialMap,
+        *,
+        tangent_dt: float | None = None,
+        temperature_values=None,
+    ) -> None:
+        """Rebuild accepted response fields without advancing material time."""
+
+        committed = self.state.committed_state_vectors()
+        temperatures = None
+        if temperature_values is not None:
+            temperatures = np.asarray(temperature_values, dtype=float).reshape(-1)
+            if len(temperatures) != len(committed):
+                raise ValueError(
+                    "Temperature and Maxwell quadrature layouts do not match."
+                )
+        stresses = np.empty_like(self.stress.values)
+        tangents = np.empty_like(self.tangent.values)
+        stored = np.empty(len(committed), dtype=float)
+        points_per_cell = len(self.stress.points)
+        for index, state in enumerate(committed):
+            selected_material = (
+                material.material_for_point(index, points_per_cell=points_per_cell)
+                if isinstance(material, QuadratureMaterialMap)
+                else material
+            )
+            stress, tangent, energy = selected_material.accepted_response(
+                state,
+                tangent_dt=tangent_dt,
+                temperature=(
+                    None if temperatures is None else float(temperatures[index])
+                ),
+            )
+            stresses[index] = stress
+            tangents[index] = tangent
+            stored[index] = energy
+        self.stress.assign(stresses)
+        self.tangent.assign(tangents)
+        self.stored_energy.assign(stored)
+        self.work_increment.assign(np.zeros(len(committed), dtype=float))
+        self.rollback()
+
+    def save(self, path, *, material=None) -> Path:
+        """Collectively save committed Maxwell state by physical cell identity."""
+
+        return self.state.save(path, material=material)
+
+    def load(self, path, *, material=None) -> None:
+        """Collectively restore committed Maxwell state by physical cell identity."""
+
+        self.state.load(path, material=material)
+
     def equivalent_stress(self) -> QuadratureField:
         stress = self.stress.values
         trace = np.trace(stress, axis1=-2, axis2=-1)
@@ -1095,13 +1148,15 @@ class QuasistaticViscoelasticStep:
         residual.destroy()
         return reaction
 
-    def save_checkpoint(self, path) -> Path:
-        """Save a serial restart at an accepted time boundary."""
+    def save_checkpoint(self, path, *, portable: bool | None = None) -> Path:
+        """Save an accepted boundary, portable across MPI rank counts on request."""
 
-        if self.state.domain.comm.size != 1:
-            raise NotImplementedError(
-                "Distributed viscoelastic restart requires the portable state bundle."
-            )
+        comm = self.state.domain.comm
+        selected_portable = comm.size != 1 if portable is None else bool(portable)
+        if selected_portable:
+            return self._save_portable_checkpoint(path)
+        if comm.size != 1:
+            raise ValueError("Distributed viscoelastic checkpoints must use portable=True.")
         selected = Path(path)
         if selected.suffix != ".npz":
             selected = selected.with_suffix(".npz")
@@ -1151,9 +1206,46 @@ class QuasistaticViscoelasticStep:
         return selected
 
     def load_checkpoint(self, path) -> None:
+        selected = Path(path)
+        comm = self.state.domain.comm
+        manifest = (
+            selected
+            if selected.name.endswith(".checkpoint.json")
+            else selected.with_suffix("").with_name(
+                selected.with_suffix("").name + ".checkpoint.json"
+            )
+        )
+        manifest_exists = comm.bcast(
+            manifest.is_file() if comm.rank == 0 else None,
+            root=0,
+        )
+        if manifest_exists:
+            packet = None
+            if comm.rank == 0:
+                try:
+                    packet = {
+                        "payload": json.loads(manifest.read_text(encoding="utf-8")),
+                        "error": None,
+                    }
+                except Exception as exc:
+                    packet = {
+                        "payload": None,
+                        "error": f"{type(exc).__name__}: {exc}",
+                    }
+            packet = comm.bcast(packet, root=0)
+            if packet["error"] is not None:
+                raise RuntimeError(
+                    "Viscoelastic checkpoint manifest read failed: "
+                    f"{packet['error']}"
+                )
+            payload = packet["payload"]
+            if payload.get("schema") == "agentfem.generalized-maxwell-step-checkpoint.v2":
+                self._load_portable_checkpoint(manifest, payload)
+                return
         if self.state.domain.comm.size != 1:
-            raise NotImplementedError(
-                "Distributed viscoelastic restart requires the portable state bundle."
+            raise ValueError(
+                "This legacy viscoelastic checkpoint is partition-bound; use a v2 "
+                "portable checkpoint for distributed restart."
             )
         with np.load(path, allow_pickle=False) as data:
             if str(data["schema"]) != "agentfem.generalized-maxwell-step-checkpoint.v1":
@@ -1197,6 +1289,199 @@ class QuasistaticViscoelasticStep:
             )
         self._apply_loading(self.accepted_time)
         self.last_solve_info = self._path_info()
+
+    def _save_portable_checkpoint(self, path) -> Path:
+        from ..checkpointing import (
+            atomic_write_text,
+            checkpoint_file_record,
+            save_portable_state_bundle,
+        )
+
+        selected = Path(path)
+        if selected.suffix:
+            selected = selected.with_suffix("")
+        manifest = selected.with_name(selected.name + ".checkpoint.json")
+        bundle = save_portable_state_bundle(manifest, state={"U": self.solution})
+        quadrature = self.state.save(
+            manifest.with_name(f"{selected.name}.{bundle['generation']}.quadrature"),
+            material=self.material,
+        )
+        payload = {
+            "schema": "agentfem.generalized-maxwell-step-checkpoint.v2",
+            "step_identity": self._portable_checkpoint_identity(),
+            "coordinate": float(self.accepted_time),
+            "nodal_state": bundle["record"],
+            "nodal_identity": bundle["identities"],
+            "quadrature_state": checkpoint_file_record(quadrature),
+            "accepted_increments": [item.as_dict() for item in self.accepted_increments],
+            "attempted_increments": [item.as_dict() for item in self.attempted_increments],
+            "execution_events": [item.as_dict() for item in self.execution_events],
+            "energy_history": [item.as_dict() for item in self.energy_history],
+            "next_increment_size": self.next_increment_size,
+        }
+        comm = self.state.domain.comm
+        error = None
+        if comm.rank == 0:
+            try:
+                atomic_write_text(
+                    manifest, json.dumps(payload, indent=2, sort_keys=True) + "\n"
+                )
+            except Exception as exc:
+                error = f"{type(exc).__name__}: {exc}"
+        error = comm.bcast(error, root=0)
+        if error is not None:
+            raise RuntimeError(f"Viscoelastic checkpoint manifest write failed: {error}")
+        comm.barrier()
+        from ..results import CheckpointRecord
+
+        self.checkpoints.append(
+            CheckpointRecord(
+                name=f"{self.name}_{self.accepted_time:g}",
+                path=manifest,
+                schema="agentfem.generalized-maxwell-step-checkpoint.v2",
+                step_name=self.name,
+                coordinate_name="time",
+                coordinate_value=self.accepted_time,
+                portable=True,
+                metadata={
+                    "state_variables": (
+                        "U",
+                        *self.state.state.transaction.names,
+                    ),
+                    "portability": "physical nodal and quadrature identity",
+                },
+            )
+        )
+        return manifest
+
+    def _load_portable_checkpoint(self, manifest: Path, payload: dict) -> None:
+        from ..checkpointing import (
+            load_portable_state_bundle,
+            validate_checkpoint_record,
+        )
+
+        current = json.loads(
+            json.dumps(self._portable_checkpoint_identity(), sort_keys=True)
+        )
+        if payload.get("step_identity") != current:
+            raise ValueError("Portable viscoelastic checkpoint scientific identity differs.")
+
+        displacement = self.solution.x.array.copy()
+        state_snapshot = self.state.snapshot()
+        coordinate = self.accepted_time
+        accepted = list(self.accepted_increments)
+        attempted = list(self.attempted_increments)
+        events = list(self.execution_events)
+        energy = list(self.energy_history)
+        next_size = self.next_increment_size
+        try:
+            load_portable_state_bundle(
+                manifest,
+                state={"U": self.solution},
+                record=payload["nodal_state"],
+                identities=payload["nodal_identity"],
+            )
+            self.state.load(
+                validate_checkpoint_record(
+                    manifest.parent, payload["quadrature_state"]
+                ),
+                material=self.material,
+            )
+            self.accepted_time = float(payload["coordinate"])
+            self.accepted_increments[:] = [
+                ViscoelasticIncrementInfo.from_dict(item)
+                for item in payload["accepted_increments"]
+            ]
+            self.attempted_increments[:] = [
+                ViscoelasticIncrementInfo.from_dict(item)
+                for item in payload["attempted_increments"]
+            ]
+            self.execution_events[:] = [
+                SolveEvent.from_dict(item) for item in payload["execution_events"]
+            ]
+            self.energy_history[:] = [
+                ViscoelasticEnergyFrame(**item) for item in payload["energy_history"]
+            ]
+            self.next_increment_size = payload.get("next_increment_size")
+            self._apply_loading(self.accepted_time)
+            self.state.refresh_response(
+                self.material,
+                tangent_dt=self._restart_tangent_dt(),
+                temperature_values=self._temperature_values(),
+            )
+            self.last_solve_info = self._path_info()
+        except Exception:
+            self.solution.x.array[:] = displacement
+            self.solution.x.scatter_forward()
+            self.state.restore(state_snapshot)
+            self.accepted_time = coordinate
+            self.accepted_increments[:] = accepted
+            self.attempted_increments[:] = attempted
+            self.execution_events[:] = events
+            self.energy_history[:] = energy
+            self.next_increment_size = next_size
+            self._apply_loading(self.accepted_time)
+            self.last_solve_info = self._path_info()
+            raise
+
+    def _restart_tangent_dt(self) -> float | None:
+        if self.accepted_time >= self.duration - self._time_tolerance():
+            return None
+        if self.next_increment_size is not None:
+            return min(
+                self.duration - self.accepted_time,
+                self.duration * float(self.next_increment_size),
+            )
+        if self.time_points is not None:
+            future = [
+                time for time in self.time_points
+                if time > self.accepted_time + self._time_tolerance()
+            ]
+            if future:
+                return float(future[0] - self.accepted_time)
+        return None
+
+    def _portable_checkpoint_identity(self) -> dict[str, object]:
+        from ..checkpointing import function_portable_identity
+
+        return {
+            "step_name": self.name,
+            "procedure": self.procedure.summary(),
+            "material": self.material.as_dict(),
+            "duration": self.duration,
+            "steps": self.steps,
+            "time_points": self.time_points,
+            "incrementation": (
+                None
+                if self.incrementation is None
+                else self.incrementation.summary()
+            ),
+            "time_error_tolerance": self.time_error_tolerance,
+            "amplitude": self.amplitude.summary(),
+            "quadrature": self.state.summary()["transaction"],
+            "temperature": self._portable_temperature_summary(),
+            "solution": function_portable_identity(self.solution),
+        }
+
+    def _portable_temperature_summary(self) -> dict[str, object] | None:
+        if hasattr(self.temperature, "portable_identity"):
+            return self.temperature.portable_identity()
+        if hasattr(self.temperature, "scientific_identity"):
+            return self.temperature.scientific_identity()
+        selected = getattr(self.temperature, "value", self.temperature)
+        if selected is None:
+            return None
+        if hasattr(selected, "function_space"):
+            from ..checkpointing import function_portable_identity
+
+            return {
+                "kind": "finite_element_field",
+                "unit": "K",
+                "field_name": getattr(selected, "name", None),
+                "identity": function_portable_identity(selected),
+            }
+        scalar = np.asarray(selected, dtype=float)
+        return {"kind": "constant", "unit": "K", "value": scalar.tolist()}
 
     def _checkpoint_identity(self) -> dict[str, object]:
         return {

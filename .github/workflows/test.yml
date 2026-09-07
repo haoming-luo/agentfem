@@ -152,6 +152,10 @@ jobs:
           python tests/portable_inelastic_step_driver.py read /tmp/agentfem-portable-inelastic-step
           python tests/portable_inelastic_step_driver.py write /tmp/agentfem-portable-inelastic-step-reverse
           mpirun -n 2 python tests/portable_inelastic_step_driver.py read /tmp/agentfem-portable-inelastic-step-reverse
+          mpirun -n 2 python tests/portable_viscoelastic_step_driver.py write /tmp/agentfem-portable-viscoelastic
+          python tests/portable_viscoelastic_step_driver.py read /tmp/agentfem-portable-viscoelastic
+          python tests/portable_viscoelastic_step_driver.py write /tmp/agentfem-portable-viscoelastic-reverse
+          mpirun -n 2 python tests/portable_viscoelastic_step_driver.py read /tmp/agentfem-portable-viscoelastic-reverse
           mpirun -n 2 python tests/portable_finite_strain_j2_driver.py write /tmp/agentfem-portable-finite-strain-j2
           python tests/portable_finite_strain_j2_driver.py read /tmp/agentfem-portable-finite-strain-j2
           python tests/portable_finite_strain_j2_driver.py write /tmp/agentfem-portable-finite-strain-j2-reverse

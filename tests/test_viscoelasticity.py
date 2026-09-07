@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import replace
+import json
 
 import numpy as np
 import pytest
@@ -637,6 +638,68 @@ def test_global_generalized_maxwell_restart_matches_uninterrupted_path(tmp_path)
         [item.constitutive_energy_residual for item in restarted.energy_history],
         [item.constitutive_energy_residual for item in reference.energy_history],
     )
+
+
+def test_global_generalized_maxwell_portable_restart_matches_uninterrupted_path(
+    tmp_path,
+):
+    control = steps.automatic(
+        initial=0.25,
+        minimum=0.01,
+        maximum=0.25,
+        max_increments=40,
+        cutback_factor=0.5,
+    )
+    options = {
+        "steps": None,
+        "incrementation": control,
+        "time_error_tolerance": 1.0e-3,
+    }
+    reference = _global_viscoelastic_relaxation_patch(step_options=options)
+    reference.solve()
+    partial = _global_viscoelastic_relaxation_patch(step_options=options)
+    partial.solve(until=1.0)
+    checkpoint = partial.save_checkpoint(
+        tmp_path / "portable_viscoelastic", portable=True
+    )
+    restarted = _global_viscoelastic_relaxation_patch(step_options=options)
+    restarted.load_checkpoint(checkpoint)
+
+    assert restarted.next_increment_size == pytest.approx(partial.next_increment_size)
+    np.testing.assert_allclose(restarted.state.stress.values, partial.state.stress.values)
+    np.testing.assert_allclose(
+        restarted.state.stored_energy.values,
+        partial.state.stored_energy.values,
+    )
+    restarted.solve()
+    np.testing.assert_allclose(restarted.solution.x.array, reference.solution.x.array)
+    np.testing.assert_allclose(
+        restarted.state.state.committed_state_vectors(),
+        reference.state.state.committed_state_vectors(),
+    )
+
+
+def test_global_generalized_maxwell_portable_restore_is_atomic(tmp_path):
+    source = _global_viscoelastic_relaxation_patch()
+    source.solve(until=1.0)
+    manifest = source.save_checkpoint(tmp_path / "portable_corrupt", portable=True)
+    payload = json.loads(manifest.read_text(encoding="utf-8"))
+    quadrature = manifest.parent / payload["quadrature_state"]["path"]
+    with quadrature.open("ab") as stream:
+        stream.write(b"corrupt")
+
+    target = _global_viscoelastic_relaxation_patch()
+    target.solution.x.array[:] = 0.123
+    target.solution.x.scatter_forward()
+    displacement_before = target.solution.x.array.copy()
+    state_before = target.state.snapshot()
+    with pytest.raises(ValueError, match="size|checksum"):
+        target.load_checkpoint(manifest)
+
+    np.testing.assert_array_equal(target.solution.x.array, displacement_before)
+    for name, values in state_before["state"].items():
+        np.testing.assert_array_equal(target.state.snapshot()["state"][name], values)
+    assert target.accepted_time == 0.0
 
 
 def test_global_generalized_maxwell_consumes_temperature_shift_and_guards_restart(
