@@ -5099,8 +5099,13 @@ and evidence remain in the linked guides and scientific function reference.</p>
 </tr>
 <tr>
 <td>function</td>
-<td><code>remove_stateful_checkpoint(path, *, comm) -&gt; None</code></td>
+<td><code>remove_stateful_checkpoint(path, *, comm, expected_schema: str = 'agentfem.affine-stateful-checkpoint.v1') -&gt; None</code></td>
 <td>Collectively remove one manifest and only its declared state payloads.</td>
+</tr>
+<tr>
+<td>function</td>
+<td><code>remove_serial_checkpoint(path, *, comm, expected_schema: str) -&gt; None</code></td>
+<td>Collectively remove one serial payload and its typed result sidecar.</td>
 </tr>
 <tr>
 <td>function</td>
@@ -6236,7 +6241,7 @@ and evidence remain in the linked guides and scientific function reference.</p>
 </tr>
 <tr>
 <td>function</td>
-<td><code>quasistatic_viscoelastic_step(*, displacement, material, duration: float, steps: int \| None = None, time_points = None, incrementation = None, time_error_tolerance: float \| None = None, external_force = None, constraints = (), study = None, solver_options = None, quadrature_degree: int = 2, amplitude = None, temperature = None, time_unit: str \| None = None, progress = True, status_file = None, name: str = 'viscoelastic') -&gt; QuasistaticViscoelasticStep</code></td>
+<td><code>quasistatic_viscoelastic_step(*, displacement, material, duration: float, steps: int \| None = None, time_points = None, incrementation = None, time_error_tolerance: float \| None = None, external_force = None, constraints = (), study = None, solver_options = None, quadrature_degree: int = 2, amplitude = None, temperature = None, time_unit: str \| None = None, progress = True, status_file = None, checkpoint_policy = None, name: str = 'viscoelastic') -&gt; QuasistaticViscoelasticStep</code></td>
 <td>Build a 3D quasi-static generalized-Maxwell Step.</td>
 </tr>
 </tbody>

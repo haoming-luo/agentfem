@@ -431,6 +431,7 @@ class QuasistaticViscoelasticStep:
     study: object | None = None
     progress: object = True
     status_file: object | None = None
+    checkpoint_policy: object | None = None
     step_number: int = 1
     procedure: object = field(default_factory=procedures.quasistatic_viscoelasticity)
     accepted_time: float = field(default=0.0, init=False)
@@ -530,6 +531,38 @@ class QuasistaticViscoelasticStep:
             elasticity.strain(self.solution, study=self.study)
         )
 
+    def _snapshot_accepted_boundary(self) -> dict[str, object]:
+        """Capture every mutable channel before accepted-state finalization."""
+
+        return {
+            "solution": self.solution.x.array.copy(),
+            "state": self.state.snapshot(),
+            "accepted_time": float(self.accepted_time),
+            "accepted_increments": list(self.accepted_increments),
+            "attempted_increments": list(self.attempted_increments),
+            "execution_events": list(self.execution_events),
+            "energy_history": list(self.energy_history),
+            "checkpoints": list(self.checkpoints),
+            "last_solve_info": self.last_solve_info,
+            "next_increment_size": self.next_increment_size,
+        }
+
+    def _restore_accepted_boundary(self, boundary: dict[str, object]) -> None:
+        """Undo a failed post-solve finalization as one scientific transaction."""
+
+        self.solution.x.array[:] = boundary["solution"]
+        self.solution.x.scatter_forward()
+        self.state.restore(boundary["state"])
+        self.accepted_time = float(boundary["accepted_time"])
+        self.accepted_increments[:] = boundary["accepted_increments"]
+        self.attempted_increments[:] = boundary["attempted_increments"]
+        self.execution_events[:] = boundary["execution_events"]
+        self.energy_history[:] = boundary["energy_history"]
+        self.checkpoints[:] = boundary["checkpoints"]
+        self.last_solve_info = boundary["last_solve_info"]
+        self.next_increment_size = boundary["next_increment_size"]
+        self._apply_loading(self.accepted_time)
+
     @property
     def time_increment(self) -> float | None:
         if self.time_points is None:
@@ -566,6 +599,7 @@ class QuasistaticViscoelasticStep:
             ),
         )
         for grid_index in target_indices:
+            boundary = self._snapshot_accepted_boundary()
             start_time = float(grid[grid_index - 1])
             end_time = float(grid[grid_index])
             increment = len(self.accepted_increments) + 1
@@ -639,6 +673,7 @@ class QuasistaticViscoelasticStep:
                     time=end_time,
                 ),
             )
+            self._finalize_scheduled_checkpoint(boundary)
         self.last_solve_info = self._path_info()
         self._emit(
             reporter,
@@ -694,6 +729,7 @@ class QuasistaticViscoelasticStep:
             end_time = target_factor * self.duration
             increment = len(self.accepted_increments) + 1
             attempt = consecutive_cutbacks + 1
+            boundary = self._snapshot_accepted_boundary()
             self._emit(
                 reporter,
                 SolveEvent(
@@ -757,6 +793,7 @@ class QuasistaticViscoelasticStep:
                         ),
                     ),
                 )
+                self._finalize_scheduled_checkpoint(boundary)
                 continue
 
             consecutive_cutbacks += 1
@@ -1147,6 +1184,91 @@ class QuasistaticViscoelasticStep:
         reaction.x.scatter_forward()
         residual.destroy()
         return reaction
+
+    def _finalize_scheduled_checkpoint(self, boundary) -> None:
+        """Publish a due checkpoint or restore the previous accepted boundary."""
+
+        policy = self.checkpoint_policy
+        if policy is None:
+            return
+        increment = len(self.accepted_increments)
+        due = increment % int(policy.every) == 0
+        due = due or (
+            bool(policy.final)
+            and self.accepted_time >= self.duration - self._time_tolerance()
+        )
+        if not due:
+            return
+        problem = None
+        try:
+            self.save_checkpoint(
+                policy.path(step_name=self.name, increment=increment),
+                portable=(
+                    True
+                    if self.state.domain.comm.size > 1
+                    else bool(policy.portable)
+                ),
+            )
+            record = self.checkpoints[-1]
+            self.checkpoints[-1] = replace(
+                record,
+                metadata={**record.metadata, "role": "scheduled_checkpoint"},
+            )
+            if not self.checkpoints[-1].portable:
+                self.checkpoints[-1].write_manifest()
+            self._prune_scheduled_checkpoints()
+        except BaseException as exc:
+            problem = f"{type(exc).__name__}: {exc}"
+        problems = self.state.domain.comm.allgather(problem)
+        if any(item is not None for item in problems):
+            self._restore_accepted_boundary(boundary)
+            rank = next(
+                index for index, item in enumerate(problems) if item is not None
+            )
+            raise RuntimeError(
+                "Viscoelastic accepted-state checkpoint failed collectively; "
+                f"rank {rank}: {problems[rank]}"
+            )
+
+    def _prune_scheduled_checkpoints(self) -> None:
+        policy = self.checkpoint_policy
+        keep_last = None if policy is None else policy.keep_last
+        scheduled = [
+            record
+            for record in self.checkpoints
+            if record.metadata.get("role") == "scheduled_checkpoint"
+        ]
+        if keep_last is None or len(scheduled) <= int(keep_last):
+            return
+        obsolete = scheduled[: -int(keep_last)]
+        for record in obsolete:
+            self._remove_checkpoint_record(record)
+        removed = {id(record) for record in obsolete}
+        self.checkpoints[:] = [
+            record for record in self.checkpoints if id(record) not in removed
+        ]
+
+    def _remove_checkpoint_record(self, record) -> None:
+        """Collectively remove only files declared by one viscoelastic checkpoint."""
+
+        from ..checkpointing import (
+            remove_serial_checkpoint,
+            remove_stateful_checkpoint,
+        )
+
+        comm = self.state.domain.comm
+        if record.portable:
+            remove_stateful_checkpoint(
+                record.path,
+                comm=comm,
+                expected_schema="agentfem.generalized-maxwell-step-checkpoint.v2",
+            )
+        else:
+            remove_serial_checkpoint(
+                record.path,
+                comm=comm,
+                expected_schema="agentfem.generalized-maxwell-step-checkpoint.v1",
+            )
 
     def save_checkpoint(self, path, *, portable: bool | None = None) -> Path:
         """Save an accepted boundary, portable across MPI rank counts on request."""
@@ -1673,6 +1795,13 @@ class QuasistaticViscoelasticStep:
         )
 
     def summary(self) -> dict[str, object]:
+        checkpoint_policy = None
+        if self.checkpoint_policy is not None:
+            checkpoint_policy = {
+                **self.checkpoint_policy.summary(),
+                "effective_portable": bool(self.checkpoint_policy.portable)
+                or self.state.domain.comm.size > 1,
+            }
         return {
             "kind": "quasistatic_viscoelastic_step",
             "name": self.name,
@@ -1697,6 +1826,8 @@ class QuasistaticViscoelasticStep:
             "time_unit": self.time_unit,
             "amplitude": self.amplitude.summary(),
             "temperature": self._temperature_summary(),
+            "checkpoint_policy": checkpoint_policy,
+            "checkpoint_count": len(self.checkpoints),
             "solver": self.solver_options.summary(),
             "last_solve": (
                 None if self.last_solve_info is None else self.last_solve_info.as_dict()
@@ -1759,6 +1890,7 @@ def quasistatic_viscoelastic_step(
     time_unit: str | None = None,
     progress=True,
     status_file=None,
+    checkpoint_policy=None,
     name: str = "viscoelastic",
 ) -> QuasistaticViscoelasticStep:
     """Build a 3D quasi-static generalized-Maxwell Step."""
@@ -1864,6 +1996,7 @@ def quasistatic_viscoelastic_step(
         study=study,
         progress=progress,
         status_file=status_file,
+        checkpoint_policy=checkpoint_policy,
     )
 
 

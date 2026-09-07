@@ -1366,13 +1366,14 @@ Register J2LinearIsotropicHardening in a 3D nonlinear_static Model, add supports
 **Status:** `experimental`<br>
 **Source card:** `src/agentfem/knowledge/cards/linear_viscoelastic_dynamics.json`
 
-Provides generalized-Maxwell/Prony spectra, exact material-point histories and a three-dimensional quasi-static global FEM Step with committed quadrature state, error-controlled physical-time increments, temperature shift, energy evidence, restart and standard result fields.
+Provides generalized-Maxwell/Prony spectra, exact material-point histories and a three-dimensional quasi-static global FEM Step with committed quadrature state, error-controlled physical-time increments, temperature shift, energy evidence, automatic accepted-boundary checkpointing, portable restart and standard result fields.
 
 ### Public API
 
 - `agentfem.studies.modal_solid`
 - `agentfem.studies.viscoelastic_solid`
 - `agentfem.models.Model.step`
+- `agentfem.checkpointing.every`
 - `agentfem.dynamics.spectrum`
 - `agentfem.dynamics.frequency_response`
 - `agentfem.dynamics.damping_from_free_decay`
@@ -1434,7 +1435,7 @@ A linear strain path over one increment has an exact branch update and algorithm
 | --- | --- | --- | --- |
 | modal result | SimulationResult quantities and live mode fields | inverse time and mass-normalized shape | Includes eigenvalues, angular frequencies, frequencies, relative residuals, orthogonality evidence, cluster membership, invariant-subspace semantics and each deterministically oriented singleton mode shape. |
 | dynamic signal records | one-sided spectrum, FRF and damping estimate | frequency, phase and signal-dependent response | Invalid unexcited FRF bins remain explicit and are excluded from finite result histories. |
-| viscoelastic response | relaxation, storage/loss modulus, accepted branch histories, global fields and common SimulationResult | stress, time and temperature | Material-point and global quadrature state use exact branch updates. The global result carries accepted and rejected physical-time attempts, local time-error estimates, quadrature and recovered S, E, SENER, VDENER and MISES fields, RF, temperature evidence and a constitutive work--storage--dissipation ledger. |
+| viscoelastic response | relaxation, storage/loss modulus, accepted branch histories, global fields and common SimulationResult | stress, time and temperature | Material-point and global quadrature state use exact branch updates. The global result carries accepted and rejected physical-time attempts, local time-error estimates, quadrature and recovered S, E, SENER, VDENER and MISES fields, RF, temperature evidence, scheduled accepted-boundary checkpoints and a constitutive work--storage--dissipation ledger. |
 
 #### Assumptions
 
@@ -1467,7 +1468,7 @@ A linear strain path over one increment has an exact branch update and algorithm
 ### Minimal example
 
 ```python
-For global relaxation, create studies.viscoelastic_solid(dimension=3), register displacement, IsotropicGeneralizedMaxwell and constraints, then call model.step(target=u, material=material, duration=5.0, incrementation=steps.automatic(initial=0.1, minimum=1e-4, maximum=0.25), time_error_tolerance=1e-3, amplitude=load_then_hold).solve_result(). Use steps or time_points instead when a prescribed physical-time grid is required, and GeneralizedMaxwell for scalar material-point spectra and histories.
+For global relaxation, create studies.viscoelastic_solid(dimension=3), register displacement, IsotropicGeneralizedMaxwell and constraints, then call model.step(target=u, material=material, duration=5.0, incrementation=steps.automatic(initial=0.1, minimum=1e-4, maximum=0.25), time_error_tolerance=1e-3, amplitude=load_then_hold, checkpoint=checkpointing.every(10, directory='checkpoints', keep_last=2)).solve_result(). Use steps or time_points instead when a prescribed physical-time grid is required, and GeneralizedMaxwell for scalar material-point spectra and histories.
 ```
 
 ### Verification
@@ -1506,6 +1507,7 @@ For global relaxation, create studies.viscoelastic_solid(dimension=3), register 
 - Reject an increment whose estimated time error exceeds the declared tolerance, restore displacement and all quadrature history atomically, and retry from the same accepted time with a smaller increment.
 - Require adaptive checkpoint/restart to preserve the accepted path and next proposed increment, and require serial and two-rank adaptive decisions to be collective.
 - Require generalized-Maxwell displacement, committed branch state, stress and energy history to remain equivalent across one-to-two and two-to-one-rank portable restart.
+- Require automatic checkpoint cadence to publish accepted physical-time boundaries, select portable state under MPI, retain complete generations, and atomically restore the preceding boundary when publication fails.
 - Reject a corrupt portable quadrature payload by checksum and restore every in-memory field and history atomically.
 - Require the public global Step to recover the same exact relaxation stress with two MPI ranks and to preserve complete regional material maps.
 - Require a nonuniform-grid, traction-controlled three-dimensional rod to match the published Abaqus short- and long-time axial strains and effective Poisson ratio.

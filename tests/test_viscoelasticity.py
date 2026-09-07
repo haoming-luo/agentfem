@@ -11,6 +11,7 @@ from mpi4py import MPI
 from agentfem import (
     amplitudes,
     benchmarks,
+    checkpointing,
     constraints,
     fields,
     mesh,
@@ -638,6 +639,59 @@ def test_global_generalized_maxwell_restart_matches_uninterrupted_path(tmp_path)
         [item.constitutive_energy_residual for item in restarted.energy_history],
         [item.constitutive_energy_residual for item in reference.energy_history],
     )
+
+
+def test_global_generalized_maxwell_schedules_and_retains_checkpoints(tmp_path):
+    directory = tmp_path / "scheduled"
+    policy = checkpointing.every(
+        2,
+        directory=directory,
+        final=True,
+        keep_last=1,
+    )
+    step = _global_viscoelastic_relaxation_patch(
+        step_options={"steps": 4, "checkpoint": policy}
+    )
+
+    result = step.solve_result()
+
+    assert len(result.checkpoints) == 1
+    record = next(iter(result.checkpoints.values()))
+    assert record.coordinate_value == pytest.approx(2.0)
+    assert record.metadata["role"] == "scheduled_checkpoint"
+    assert record.path.is_file()
+    assert record.path.with_suffix(record.path.suffix + ".checkpoint.json").is_file()
+    assert len(tuple(directory.glob("*.npz"))) == 1
+    assert len(tuple(directory.glob("*.checkpoint.json"))) == 1
+    assert result.metadata["step"]["checkpoint_policy"]["keep_last"] == 1
+    assert result.metadata["step"]["checkpoint_policy"][
+        "effective_portable"
+    ] is False
+
+
+def test_global_generalized_maxwell_checkpoint_failure_is_atomic(tmp_path):
+    policy = checkpointing.every(1, directory=tmp_path / "scheduled")
+    step = _global_viscoelastic_relaxation_patch(
+        step_options={"checkpoint": policy}
+    )
+    initial_solution = step.solution.x.array.copy()
+    initial_state = step.state.snapshot()
+
+    def fail_checkpoint(*_args, **_kwargs):
+        raise OSError("injected checkpoint failure")
+
+    step.save_checkpoint = fail_checkpoint
+    with pytest.raises(RuntimeError, match="checkpoint failed collectively"):
+        step.solve(until=1.0)
+
+    np.testing.assert_array_equal(step.solution.x.array, initial_solution)
+    for name, values in initial_state["state"].items():
+        np.testing.assert_array_equal(step.state.snapshot()["state"][name], values)
+    assert step.accepted_time == 0.0
+    assert step.accepted_increments == []
+    assert step.attempted_increments == []
+    assert step.energy_history == []
+    assert step.checkpoints == []
 
 
 def test_global_generalized_maxwell_portable_restart_matches_uninterrupted_path(

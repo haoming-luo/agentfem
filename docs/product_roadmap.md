@@ -30,7 +30,8 @@ AgentFEM currently provides executable foundations for:
   invariant subspaces and includes a three-mesh analytical convergence route;
 - three-dimensional small-strain generalized-Maxwell evolution with exact
   Prony updates, adaptive physical-time error control, temperature shift,
-  energy evidence and one-to-two/two-to-one-rank portable restart;
+  energy evidence, scheduled accepted-increment checkpoints, bounded retention,
+  and one-to-two/two-to-one-rank portable restart;
 - finite-strain Neo-Hookean and Mooney--Rivlin workflows, plus experimental
   public 3D logarithmic J2 providers for ordinary strong boundaries/reference
   dead loads and affine/MPC cells, with shared provider-owned quadrature output
@@ -110,8 +111,9 @@ Deepen the finite-element core before broadening the catalog:
 - promote the 3D generalized-Maxwell global Step beyond its analytical
   ramp--hold patch and independent Abaqus rod benchmark through portable MPI
   restart; adaptive error-controlled physical time, atomic cutback, restart
-  continuity and collective MPI path decisions are now automated. Then add
-  direct harmonic response and independently checked complex modes;
+  continuity, collective MPI path decisions and automatic accepted-boundary
+  checkpoint retention are now automated. Then add direct harmonic response
+  and independently checked complex modes;
 
 ### 2. Engineering workflow
 

@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from pathlib import Path
+
 import numpy as np
 import pytest
 from dolfinx import mesh as dolfinx_mesh
@@ -9,6 +11,7 @@ from mpi4py import MPI
 
 from agentfem import (
     amplitudes,
+    checkpointing,
     constitutive,
     fields,
     mechanics,
@@ -183,7 +186,9 @@ def test_distributed_creep_global_newton_evolves_regional_state():
     assert result.quantity("maximum_equivalent_creep_strain") > 0.0
 
 
-def test_distributed_viscoelastic_global_equilibrium_matches_exact_relaxation():
+def test_distributed_viscoelastic_global_equilibrium_matches_exact_relaxation(
+    tmp_path,
+):
     if MPI.COMM_WORLD.size != 2:
         pytest.skip("distributed viscoelastic acceptance requires two ranks")
     domain = dolfinx_mesh.create_unit_cube(MPI.COMM_WORLD, 2, 1, 1)
@@ -211,12 +216,19 @@ def test_distributed_viscoelastic_global_equilibrium_matches_exact_relaxation():
         component=0,
         value=0.01,
     )
+    root = str(tmp_path) if MPI.COMM_WORLD.rank == 0 else None
+    root = MPI.COMM_WORLD.bcast(root, root=0)
     step = model.step(
         target=displacement,
         material=material,
         duration=2.0,
         steps=2,
         amplitude=amplitudes.tabular([0.0, 1.0, 2.0], [0.0, 1.0, 1.0]),
+        checkpoint=checkpointing.every(
+            1,
+            directory=Path(root) / "viscoelastic",
+            keep_last=1,
+        ),
         progress=False,
     )
     simulation = step.solve_result()
@@ -237,6 +249,14 @@ def test_distributed_viscoelastic_global_equilibrium_matches_exact_relaxation():
         item == pytest.approx(stress)
         for item in MPI.COMM_WORLD.allgather(stress)
     )
+    assert len(step.checkpoints) == 1
+    assert step.checkpoints[0].portable is True
+    assert step.checkpoints[0].coordinate_value == pytest.approx(2.0)
+    assert simulation.metadata["step"]["checkpoint_policy"][
+        "effective_portable"
+    ] is True
+    if MPI.COMM_WORLD.rank == 0:
+        assert len(tuple((Path(root) / "viscoelastic").glob("*.checkpoint.json"))) == 1
 
 
 def test_distributed_viscoelastic_adaptive_time_path_is_collective():

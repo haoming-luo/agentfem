@@ -157,6 +157,11 @@ step = model.step(
         maximum=0.25,
     ),
     time_error_tolerance=1.0e-3,
+    checkpoint=checkpointing.every(
+        10,
+        directory="outputs/viscoelastic/checkpoints",
+        keep_last=2,
+    ),
     amplitude=amplitudes.tabular(
         (0.0, 0.5, 5.0),
         (0.0, 1.0, 1.0),
@@ -194,6 +199,14 @@ adaptive path and next proposed increment so a resumed run does not silently
 choose a different continuation. With `portable=True`, nodal displacement and
 every committed Maxwell branch are stored by physical mesh identity and can be
 resumed with a different MPI partition or rank count.
+
+The common `checkpointing.every(...)` policy publishes only accepted physical-
+time boundaries. Under MPI the viscoelastic Step automatically writes the
+portable nodal and quadrature representation, even when the policy does not ask
+the user to choose a storage backend. `keep_last` removes complete older
+generations rather than leaving detached state payloads. A checkpoint write or
+retention failure restores displacement, committed Maxwell state, time,
+histories and result records to the preceding accepted boundary.
 
 This first global provider solves small-strain quasi-static equilibrium on a
 prescribed or automatically resolved physical-time path. Each accepted increment

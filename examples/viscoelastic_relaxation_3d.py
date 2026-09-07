@@ -6,6 +6,7 @@ from mpi4py import MPI
 
 from agentfem import (
     amplitudes,
+    checkpointing,
     constitutive,
     fields,
     mesh,
@@ -68,6 +69,11 @@ step = model.step(
     ),
     time_error_tolerance=1.0e-3,
     amplitude=load_then_hold,
+    checkpoint=checkpointing.every(
+        10,
+        directory="outputs/viscoelastic_relaxation_3d/checkpoints",
+        keep_last=2,
+    ),
 )
 
 output = Path("outputs/viscoelastic_relaxation_3d")

@@ -796,7 +796,12 @@ def _remove_transient_checkpoint(path, *, comm) -> None:
     comm.barrier()
 
 
-def remove_stateful_checkpoint(path, *, comm) -> None:
+def remove_stateful_checkpoint(
+    path,
+    *,
+    comm,
+    expected_schema: str = "agentfem.affine-stateful-checkpoint.v1",
+) -> None:
     """Collectively remove one manifest and only its declared state payloads."""
 
     manifest = _manifest_path(path)
@@ -804,7 +809,7 @@ def remove_stateful_checkpoint(path, *, comm) -> None:
     if comm.rank == 0:
         try:
             metadata = json.loads(manifest.read_text(encoding="utf-8"))
-            if metadata.get("schema") != "agentfem.affine-stateful-checkpoint.v1":
+            if metadata.get("schema") != str(expected_schema):
                 raise ValueError("Refusing to remove an unrelated checkpoint schema.")
             for key in ("nodal_state", "quadrature_state"):
                 record = metadata.get(key)
@@ -819,6 +824,28 @@ def remove_stateful_checkpoint(path, *, comm) -> None:
     error = comm.bcast(error, root=0)
     if error is not None:
         raise RuntimeError(f"Stateful checkpoint removal failed: {error}")
+    comm.barrier()
+
+
+def remove_serial_checkpoint(path, *, comm, expected_schema: str) -> None:
+    """Collectively remove one serial payload and its typed result sidecar."""
+
+    selected = Path(path)
+    sidecar = selected.with_suffix(selected.suffix + ".checkpoint.json")
+    error = None
+    if comm.rank == 0:
+        try:
+            metadata = json.loads(sidecar.read_text(encoding="utf-8"))
+            if metadata.get("schema") != str(expected_schema):
+                raise ValueError("Refusing to remove an unrelated checkpoint schema.")
+            if selected.exists():
+                selected.unlink()
+            sidecar.unlink()
+        except Exception as exc:  # pragma: no cover - filesystem failure
+            error = f"{type(exc).__name__}: {exc}"
+    error = comm.bcast(error, root=0)
+    if error is not None:
+        raise RuntimeError(f"Serial checkpoint removal failed: {error}")
     comm.barrier()
 
 
@@ -987,5 +1014,7 @@ __all__ = [
     "mesh_portable_identity",
     "every",
     "load_transient_checkpoint",
+    "remove_serial_checkpoint",
+    "remove_stateful_checkpoint",
     "save_transient_checkpoint",
 ]

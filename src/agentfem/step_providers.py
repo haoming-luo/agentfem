@@ -1490,6 +1490,7 @@ register_step_provider(
             "quadrature_degree",
             "progress",
             "status_file",
+            "checkpoint",
             "amplitude",
             "temperature",
             required=("duration",),

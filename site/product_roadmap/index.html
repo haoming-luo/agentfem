@@ -1500,7 +1500,8 @@ foundation.</p>
   invariant subspaces and includes a three-mesh analytical convergence route;</li>
 <li>three-dimensional small-strain generalized-Maxwell evolution with exact
   Prony updates, adaptive physical-time error control, temperature shift,
-  energy evidence and one-to-two/two-to-one-rank portable restart;</li>
+  energy evidence, scheduled accepted-increment checkpoints, bounded retention,
+  and one-to-two/two-to-one-rank portable restart;</li>
 <li>finite-strain Neo-Hookean and Mooney--Rivlin workflows, plus experimental
   public 3D logarithmic J2 providers for ordinary strong boundaries/reference
   dead loads and affine/MPC cells, with shared provider-owned quadrature output
@@ -1574,8 +1575,9 @@ the roadmap does not turn an experimental formula into a validated solver.</p>
 <li>promote the 3D generalized-Maxwell global Step beyond its analytical
   ramp--hold patch and independent Abaqus rod benchmark through portable MPI
   restart; adaptive error-controlled physical time, atomic cutback, restart
-  continuity and collective MPI path decisions are now automated. Then add
-  direct harmonic response and independently checked complex modes;</li>
+  continuity, collective MPI path decisions and automatic accepted-boundary
+  checkpoint retention are now automated. Then add direct harmonic response
+  and independently checked complex modes;</li>
 </ul>
 <h3 id="2-engineering-workflow">2. Engineering workflow<a class="headerlink" href="#2-engineering-workflow" title="Permanent link">&para;</a></h3>
 <p>Make real simulation projects easier to construct and maintain:</p>

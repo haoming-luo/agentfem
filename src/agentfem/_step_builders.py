@@ -786,6 +786,7 @@ def viscoelastic(
     temperature=None,
     progress=True,
     status_file=None,
+    checkpoint=None,
     name: str = "viscoelastic",
 ):
     """Build and register a global 3D generalized-Maxwell Step."""
@@ -837,6 +838,7 @@ def viscoelastic(
         time_unit=getattr(model.unit_system, "time", None),
         progress=progress,
         status_file=status_file,
+        checkpoint_policy=checkpoint,
         name=name,
     )
     return model.add_step(step)

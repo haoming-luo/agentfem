@@ -1565,12 +1565,17 @@ solid, use the isotropic tensor material through the same public workflow:</p>
 <a id="__codelineno-5-18" name="__codelineno-5-18" href="#__codelineno-5-18"></a>        <span class="n">maximum</span><span class="o">=</span><span class="mf">0.25</span><span class="p">,</span>
 <a id="__codelineno-5-19" name="__codelineno-5-19" href="#__codelineno-5-19"></a>    <span class="p">),</span>
 <a id="__codelineno-5-20" name="__codelineno-5-20" href="#__codelineno-5-20"></a>    <span class="n">time_error_tolerance</span><span class="o">=</span><span class="mf">1.0e-3</span><span class="p">,</span>
-<a id="__codelineno-5-21" name="__codelineno-5-21" href="#__codelineno-5-21"></a>    <span class="n">amplitude</span><span class="o">=</span><span class="n">amplitudes</span><span class="o">.</span><span class="n">tabular</span><span class="p">(</span>
-<a id="__codelineno-5-22" name="__codelineno-5-22" href="#__codelineno-5-22"></a>        <span class="p">(</span><span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.5</span><span class="p">,</span> <span class="mf">5.0</span><span class="p">),</span>
-<a id="__codelineno-5-23" name="__codelineno-5-23" href="#__codelineno-5-23"></a>        <span class="p">(</span><span class="mf">0.0</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">),</span>
-<a id="__codelineno-5-24" name="__codelineno-5-24" href="#__codelineno-5-24"></a>    <span class="p">),</span>
-<a id="__codelineno-5-25" name="__codelineno-5-25" href="#__codelineno-5-25"></a><span class="p">)</span>
-<a id="__codelineno-5-26" name="__codelineno-5-26" href="#__codelineno-5-26"></a><span class="n">result</span> <span class="o">=</span> <span class="n">step</span><span class="o">.</span><span class="n">solve_result</span><span class="p">(</span><span class="n">output</span><span class="o">=</span><span class="s2">&quot;outputs/viscoelastic/fields.xdmf&quot;</span><span class="p">)</span>
+<a id="__codelineno-5-21" name="__codelineno-5-21" href="#__codelineno-5-21"></a>    <span class="n">checkpoint</span><span class="o">=</span><span class="n">checkpointing</span><span class="o">.</span><span class="n">every</span><span class="p">(</span>
+<a id="__codelineno-5-22" name="__codelineno-5-22" href="#__codelineno-5-22"></a>        <span class="mi">10</span><span class="p">,</span>
+<a id="__codelineno-5-23" name="__codelineno-5-23" href="#__codelineno-5-23"></a>        <span class="n">directory</span><span class="o">=</span><span class="s2">&quot;outputs/viscoelastic/checkpoints&quot;</span><span class="p">,</span>
+<a id="__codelineno-5-24" name="__codelineno-5-24" href="#__codelineno-5-24"></a>        <span class="n">keep_last</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span>
+<a id="__codelineno-5-25" name="__codelineno-5-25" href="#__codelineno-5-25"></a>    <span class="p">),</span>
+<a id="__codelineno-5-26" name="__codelineno-5-26" href="#__codelineno-5-26"></a>    <span class="n">amplitude</span><span class="o">=</span><span class="n">amplitudes</span><span class="o">.</span><span class="n">tabular</span><span class="p">(</span>
+<a id="__codelineno-5-27" name="__codelineno-5-27" href="#__codelineno-5-27"></a>        <span class="p">(</span><span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.5</span><span class="p">,</span> <span class="mf">5.0</span><span class="p">),</span>
+<a id="__codelineno-5-28" name="__codelineno-5-28" href="#__codelineno-5-28"></a>        <span class="p">(</span><span class="mf">0.0</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">),</span>
+<a id="__codelineno-5-29" name="__codelineno-5-29" href="#__codelineno-5-29"></a>    <span class="p">),</span>
+<a id="__codelineno-5-30" name="__codelineno-5-30" href="#__codelineno-5-30"></a><span class="p">)</span>
+<a id="__codelineno-5-31" name="__codelineno-5-31" href="#__codelineno-5-31"></a><span class="n">result</span> <span class="o">=</span> <span class="n">step</span><span class="o">.</span><span class="n">solve_result</span><span class="p">(</span><span class="n">output</span><span class="o">=</span><span class="s2">&quot;outputs/viscoelastic/fields.xdmf&quot;</span><span class="p">)</span>
 </code></pre></div>
 <p>This route compares each proposed full time increment with two half increments.
 The larger of the relative endpoint displacement and stress differences is the
@@ -1597,6 +1602,13 @@ adaptive path and next proposed increment so a resumed run does not silently
 choose a different continuation. With <code>portable=True</code>, nodal displacement and
 every committed Maxwell branch are stored by physical mesh identity and can be
 resumed with a different MPI partition or rank count.</p>
+<p>The common <code>checkpointing.every(...)</code> policy publishes only accepted physical-
+time boundaries. Under MPI the viscoelastic Step automatically writes the
+portable nodal and quadrature representation, even when the policy does not ask
+the user to choose a storage backend. <code>keep_last</code> removes complete older
+generations rather than leaving detached state payloads. A checkpoint write or
+retention failure restores displacement, committed Maxwell state, time,
+histories and result records to the preceding accepted boundary.</p>
 <p>This first global provider solves small-strain quasi-static equilibrium on a
 prescribed or automatically resolved physical-time path. Each accepted increment
 commits the exact generalized-Maxwell quadrature state. Results expose <code>S</code>, <code>E</code>, <code>SENER</code>,

@@ -607,7 +607,8 @@ and evidence remain in the linked guides and scientific function reference.
 | function | `validate_checkpoint_record(directory, record: dict[str, object]) -> Path` | Validate and return a payload referenced by a scientific manifest. |
 | function | `function_portable_identity(function) -> dict[str, object]` | Return an MPI-partition-independent identity for a nodal field. |
 | function | `mesh_portable_identity(domain) -> dict[str, object]` | Hash cell geometry independently of local numbering and partition. |
-| function | `remove_stateful_checkpoint(path, *, comm) -> None` | Collectively remove one manifest and only its declared state payloads. |
+| function | `remove_stateful_checkpoint(path, *, comm, expected_schema: str = 'agentfem.affine-stateful-checkpoint.v1') -> None` | Collectively remove one manifest and only its declared state payloads. |
+| function | `remove_serial_checkpoint(path, *, comm, expected_schema: str) -> None` | Collectively remove one serial payload and its typed result sidecar. |
 | function | `function_partition_identity(function) -> dict[str, object]` | Return a JSON-safe identity for one field on one mesh partition. |
 | function | `atomic_savez(path, **arrays) -> Path` | Atomically publish one NumPy archive in its destination directory. |
 | function | `atomic_write_text(path, content: str) -> Path` | Atomically publish UTF-8 text in its destination directory. |
@@ -863,7 +864,7 @@ and evidence remain in the linked guides and scientific function reference.
 | class | `ViscoelasticIncrementInfo` | Accepted equilibrium evidence for one physical-time increment. |
 | class | `ViscoelasticPathInfo` | Resolved fixed physical-time path. |
 | class | `ViscoelasticQuadratureState` | Typed committed/trial Maxwell state and current response fields. |
-| function | `quasistatic_viscoelastic_step(*, displacement, material, duration: float, steps: int \| None = None, time_points = None, incrementation = None, time_error_tolerance: float \| None = None, external_force = None, constraints = (), study = None, solver_options = None, quadrature_degree: int = 2, amplitude = None, temperature = None, time_unit: str \| None = None, progress = True, status_file = None, name: str = 'viscoelastic') -> QuasistaticViscoelasticStep` | Build a 3D quasi-static generalized-Maxwell Step. |
+| function | `quasistatic_viscoelastic_step(*, displacement, material, duration: float, steps: int \| None = None, time_points = None, incrementation = None, time_error_tolerance: float \| None = None, external_force = None, constraints = (), study = None, solver_options = None, quadrature_degree: int = 2, amplitude = None, temperature = None, time_unit: str \| None = None, progress = True, status_file = None, checkpoint_policy = None, name: str = 'viscoelastic') -> QuasistaticViscoelasticStep` | Build a 3D quasi-static generalized-Maxwell Step. |
 
 ## `agentfem.operators`
 
