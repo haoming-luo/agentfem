@@ -125,6 +125,20 @@ def implicit_euler(*, nonlinear: bool = False, stateful: bool = True) -> Solutio
     )
 
 
+def quasistatic_viscoelasticity() -> SolutionProcedure:
+    """Exact generalized-Maxwell update with incremental equilibrium."""
+
+    return SolutionProcedure(
+        name="quasi-static linear viscoelasticity",
+        family="standard",
+        equation_order="first_order",
+        control="time_increments",
+        algorithm="exact_generalized_maxwell_equilibrium",
+        nonlinear=False,
+        stateful=True,
+    )
+
+
 def implicit_creep() -> SolutionProcedure:
     """Quasi-static backward-Euler creep with global Newton equilibrium."""
 
@@ -218,6 +232,12 @@ def for_step(*, analysis: str, method: str | None = None, stateful: bool = False
     if selected_analysis == "nonlinear_static":
         return nonlinear_static(stateful=stateful)
     if selected_analysis == "first_order_transient":
+        if selected_method in {
+            "quasistatic_viscoelasticity",
+            "generalized_maxwell",
+            "exact_generalized_maxwell_equilibrium",
+        }:
+            return quasistatic_viscoelasticity()
         return implicit_euler(stateful=True)
     if selected_analysis == "nonlinear_transient":
         if selected_method in {
@@ -291,6 +311,9 @@ def _validate_method_name(analysis: str, method: str | None) -> None:
         "first_order_transient": {
             "implicit_euler",
             "backward_euler",
+            "quasistatic_viscoelasticity",
+            "generalized_maxwell",
+            "exact_generalized_maxwell_equilibrium",
         },
         "nonlinear_transient": {
             "implicit_creep",
@@ -380,6 +403,7 @@ __all__ = [
     "modal",
     "newmark",
     "nonlinear_static",
+    "quasistatic_viscoelasticity",
     "resolve",
     "viscoelastic_history",
 ]

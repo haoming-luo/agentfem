@@ -228,6 +228,7 @@ def first_order_transient(
     dimension: int,
     assumption: str | None = None,
     name: str | None = None,
+    procedure: str | None = None,
 ) -> Study:
     """Define a first-order transient study."""
 
@@ -237,6 +238,7 @@ def first_order_transient(
         dimension=dimension,
         assumption=assumption,
         name=name,
+        preferred_procedure=procedure,
     )
 
 
@@ -246,6 +248,7 @@ def transient(
     dimension: int,
     assumption: str | None = None,
     name: str | None = None,
+    procedure: str | None = None,
 ) -> Study:
     """Compatibility alias for ``first_order_transient``."""
 
@@ -254,6 +257,7 @@ def transient(
         dimension=dimension,
         assumption=assumption,
         name=name,
+        procedure=procedure,
     )
 
 
@@ -264,6 +268,23 @@ def transient_heat_transfer(*, dimension: int, name: str | None = None) -> Study
         physics="heat_transfer",
         dimension=dimension,
         name=name or "transient_heat_transfer",
+    )
+
+
+def viscoelastic_solid(
+    *,
+    dimension: int = 3,
+    assumption: str | None = None,
+    name: str | None = None,
+) -> Study:
+    """Define quasi-static small-strain generalized-Maxwell evolution."""
+
+    return first_order_transient(
+        physics="solid_mechanics",
+        dimension=dimension,
+        assumption=assumption,
+        procedure="quasistatic_viscoelasticity",
+        name=name or "viscoelastic_solid",
     )
 
 

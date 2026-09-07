@@ -8,6 +8,8 @@ from typing import TYPE_CHECKING
 
 import numpy as np
 
+from .user_material import MaterialStateSchema, MaterialStateVariable
+
 if TYPE_CHECKING:
     from .._material_history import GeneralizedMaxwellHistoryStep
 
@@ -118,6 +120,21 @@ class ViscoelasticUpdate:
     algorithmic_modulus: float
     dissipated_energy_increment: float
     mechanical_work_increment: float = 0.0
+
+
+@dataclass(frozen=True)
+class IsotropicMaxwellUpdate:
+    """One exact tensor-valued generalized-Maxwell trial update."""
+
+    strain: np.ndarray
+    shear_overstress: np.ndarray
+    bulk_overstress: np.ndarray
+    stress: np.ndarray
+    consistent_tangent: np.ndarray
+    stored_energy_density: float
+    dissipated_energy_increment: float
+    mechanical_work_increment: float
+    state_new: np.ndarray
 
 
 @dataclass
@@ -475,6 +492,373 @@ class GeneralizedMaxwell:
         )
 
 
+def _nonnegative_vector(value, *, name: str, size: int | None = None) -> np.ndarray:
+    array = np.asarray(value, dtype=float)
+    if array.ndim != 1 or (size is not None and array.size != size):
+        expected = "a one-dimensional array" if size is None else f"{size} values"
+        raise ValueError(f"{name} must contain {expected}.")
+    if not np.all(np.isfinite(array)) or np.any(array < 0.0):
+        raise ValueError(f"{name} must contain finite nonnegative values.")
+    return array
+
+
+def _isotropic_tangent(bulk_modulus: float, shear_modulus: float) -> np.ndarray:
+    identity = np.eye(3)
+    symmetric_identity = 0.5 * (
+        np.einsum("ik,jl->ijkl", identity, identity)
+        + np.einsum("il,jk->ijkl", identity, identity)
+    )
+    volumetric = np.einsum("ij,kl->ijkl", identity, identity)
+    deviatoric = symmetric_identity - volumetric / 3.0
+    return bulk_modulus * volumetric + 2.0 * shear_modulus * deviatoric
+
+
+def _exact_overstress_update(old, modulus, relaxation_time, increment, dt):
+    """Return branch stress, tangent factor, work and dissipation.
+
+    ``old`` and ``increment`` may be scalars or tensors.  Their inner product
+    is the ordinary Euclidean contraction appropriate to the stored physical
+    tensor, not engineering-shear Voigt components.
+    """
+
+    if modulus == 0.0:
+        return np.zeros_like(old), 0.0, 0.0, 0.0
+    reduced = float(dt) / float(relaxation_time)
+    decay = np.exp(-reduced)
+    one_minus_decay = -np.expm1(-reduced)
+    one_minus_decay_squared = -np.expm1(-2.0 * reduced)
+    integration = one_minus_decay / reduced
+    rate = np.asarray(increment, dtype=float) / float(dt)
+    steady = float(modulus) * float(relaxation_time) * rate
+    transient = np.asarray(old, dtype=float) - steady
+    new = decay * old + float(modulus) * integration * increment
+    integral = (
+        steady**2 * float(dt)
+        + 2.0 * steady * transient * float(relaxation_time) * one_minus_decay
+        + 0.5
+        * transient**2
+        * float(relaxation_time)
+        * one_minus_decay_squared
+    )
+    work = float(
+        np.sum(
+            rate
+            * (
+                steady * float(dt)
+                + transient * float(relaxation_time) * one_minus_decay
+            )
+        )
+    )
+    return np.asarray(new), float(integration), work, float(np.sum(integral))
+
+
+@dataclass(frozen=True)
+class IsotropicGeneralizedMaxwell:
+    """Small-strain isotropic generalized-Maxwell solid for global FEM.
+
+    The constitutive split is
+
+    ``sigma = K tr(epsilon) I + 2 G dev(epsilon)``.
+
+    Shear and bulk relaxation branches remain separate, matching common
+    Prony-series input while avoiding any engineering-shear ambiguity.
+    """
+
+    equilibrium_bulk_modulus: float
+    equilibrium_shear_modulus: float
+    shear_branch_moduli: object
+    bulk_branch_moduli: object
+    relaxation_times: object
+    shift: WLFShift | ArrheniusShift | None = None
+    name: str = "isotropic_generalized_maxwell"
+
+    def __post_init__(self) -> None:
+        bulk = float(self.equilibrium_bulk_modulus)
+        shear = float(self.equilibrium_shear_modulus)
+        times = _positive_vector(self.relaxation_times, name="relaxation_times")
+        shear_branches = _nonnegative_vector(
+            self.shear_branch_moduli,
+            name="shear_branch_moduli",
+            size=times.size,
+        )
+        bulk_branches = _nonnegative_vector(
+            self.bulk_branch_moduli,
+            name="bulk_branch_moduli",
+            size=times.size,
+        )
+        if not np.isfinite(bulk) or not np.isfinite(shear) or bulk <= 0.0 or shear <= 0.0:
+            raise ValueError("Equilibrium bulk and shear moduli must be finite and positive.")
+        if np.any((shear_branches == 0.0) & (bulk_branches == 0.0)):
+            raise ValueError("Every relaxation time must own a shear or bulk branch.")
+        if self.shift is not None and not isinstance(self.shift, (WLFShift, ArrheniusShift)):
+            raise TypeError("shift must be WLFShift, ArrheniusShift, or None.")
+        if not str(self.name).strip():
+            raise ValueError("Viscoelastic material name must not be empty.")
+        object.__setattr__(self, "equilibrium_bulk_modulus", bulk)
+        object.__setattr__(self, "equilibrium_shear_modulus", shear)
+        object.__setattr__(self, "shear_branch_moduli", shear_branches.copy())
+        object.__setattr__(self, "bulk_branch_moduli", bulk_branches.copy())
+        object.__setattr__(self, "relaxation_times", times.copy())
+
+    @classmethod
+    def from_prony(
+        cls,
+        *,
+        instantaneous_young_modulus: float,
+        instantaneous_poisson_ratio: float,
+        shear_relaxation_ratios,
+        relaxation_times,
+        bulk_relaxation_ratios=None,
+        shift: WLFShift | ArrheniusShift | None = None,
+        name: str = "isotropic_generalized_maxwell",
+    ) -> "IsotropicGeneralizedMaxwell":
+        """Build from instantaneous elasticity and normalized Prony ratios."""
+
+        young = float(instantaneous_young_modulus)
+        poisson = float(instantaneous_poisson_ratio)
+        if not np.isfinite(young) or young <= 0.0:
+            raise ValueError("instantaneous_young_modulus must be finite and positive.")
+        if not np.isfinite(poisson) or not -1.0 < poisson < 0.5:
+            raise ValueError("instantaneous_poisson_ratio must lie between -1 and 0.5.")
+        times = _positive_vector(relaxation_times, name="relaxation_times")
+        shear_ratios = _nonnegative_vector(
+            shear_relaxation_ratios,
+            name="shear_relaxation_ratios",
+            size=times.size,
+        )
+        bulk_ratios = _nonnegative_vector(
+            np.zeros(times.size) if bulk_relaxation_ratios is None else bulk_relaxation_ratios,
+            name="bulk_relaxation_ratios",
+            size=times.size,
+        )
+        if np.sum(shear_ratios) >= 1.0 or np.sum(bulk_ratios) >= 1.0:
+            raise ValueError("The sum of each Prony-ratio family must be less than one.")
+        instantaneous_shear = young / (2.0 * (1.0 + poisson))
+        instantaneous_bulk = young / (3.0 * (1.0 - 2.0 * poisson))
+        return cls(
+            equilibrium_bulk_modulus=instantaneous_bulk * (1.0 - np.sum(bulk_ratios)),
+            equilibrium_shear_modulus=instantaneous_shear * (1.0 - np.sum(shear_ratios)),
+            shear_branch_moduli=instantaneous_shear * shear_ratios,
+            bulk_branch_moduli=instantaneous_bulk * bulk_ratios,
+            relaxation_times=times,
+            shift=shift,
+            name=name,
+        )
+
+    @property
+    def branch_count(self) -> int:
+        return int(self.relaxation_times.size)
+
+    @property
+    def instantaneous_bulk_modulus(self) -> float:
+        return float(self.equilibrium_bulk_modulus + np.sum(self.bulk_branch_moduli))
+
+    @property
+    def instantaneous_shear_modulus(self) -> float:
+        return float(self.equilibrium_shear_modulus + np.sum(self.shear_branch_moduli))
+
+    @property
+    def state_schema(self) -> MaterialStateSchema:
+        return MaterialStateSchema(
+            name=f"isotropic_generalized_maxwell_{self.branch_count}_branch",
+            version="1.0.0",
+            variables=(
+                MaterialStateVariable("strain", shape=(3, 3), output_name="E_ACCEPTED"),
+                MaterialStateVariable(
+                    "shear_overstress",
+                    shape=(self.branch_count, 3, 3),
+                    output_name="S_MAXWELL",
+                ),
+                MaterialStateVariable(
+                    "bulk_overstress",
+                    shape=(self.branch_count,),
+                    output_name="P_MAXWELL",
+                ),
+                MaterialStateVariable(
+                    "dissipated_energy",
+                    output_name="VDENER",
+                    description="Cumulative viscous dissipation density.",
+                ),
+            ),
+        )
+
+    def shifted_relaxation_times(self, temperature=None) -> np.ndarray:
+        if self.shift is None:
+            if temperature is not None:
+                raise ValueError("temperature requires a declared time-temperature shift law.")
+            return self.relaxation_times.copy()
+        if temperature is None:
+            raise ValueError("A shifted viscoelastic material requires temperature.")
+        shifted = self.relaxation_times * float(np.asarray(self.shift.factor(temperature)))
+        if not np.all(np.isfinite(shifted)) or np.any(shifted <= 0.0):
+            raise ValueError("Shifted relaxation times must remain finite and positive.")
+        return shifted
+
+    def relaxation_moduli(self, time, *, temperature=None) -> tuple[np.ndarray, np.ndarray]:
+        selected = np.asarray(time, dtype=float)
+        if not np.all(np.isfinite(selected)) or np.any(selected < 0.0):
+            raise ValueError("time must contain finite nonnegative values.")
+        times = self.shifted_relaxation_times(temperature)
+        decay = np.exp(-selected[..., None] / times)
+        bulk = self.equilibrium_bulk_modulus + np.sum(self.bulk_branch_moduli * decay, axis=-1)
+        shear = self.equilibrium_shear_modulus + np.sum(self.shear_branch_moduli * decay, axis=-1)
+        return bulk, shear
+
+    def initial_state(self, strain=None, *, condition: str = "equilibrated") -> np.ndarray:
+        """Return a schema-ordered state with an explicit prior-history meaning."""
+
+        selected = np.zeros((3, 3)) if strain is None else np.asarray(strain, dtype=float)
+        if selected.shape != (3, 3) or not np.all(np.isfinite(selected)):
+            raise ValueError("initial strain must be a finite 3x3 tensor.")
+        selected = 0.5 * (selected + selected.T)
+        mode = str(condition).strip().lower().replace("-", "_")
+        if mode not in {"equilibrated", "instantaneous"}:
+            raise ValueError("condition must be 'equilibrated' or 'instantaneous'.")
+        state = self.state_schema.initial_state()
+        state[:9] = selected.reshape(-1)
+        if mode == "instantaneous":
+            trace = float(np.trace(selected))
+            deviator = selected - trace * np.eye(3) / 3.0
+            offset = 9
+            count = self.branch_count * 9
+            state[offset : offset + count] = (
+                2.0 * self.shear_branch_moduli[:, None, None] * deviator
+            ).reshape(-1)
+            offset += count
+            state[offset : offset + self.branch_count] = (
+                self.bulk_branch_moduli * trace
+            )
+        return state
+
+    def update(
+        self,
+        state_old,
+        strain,
+        dt: float,
+        *,
+        temperature=None,
+    ) -> IsotropicMaxwellUpdate:
+        """Return the exact response for a linear strain path over ``dt``."""
+
+        if not np.isfinite(dt) or dt <= 0.0:
+            raise ValueError("dt must be finite and positive.")
+        state = self.state_schema.unpack(state_old)
+        old_strain = np.asarray(state["strain"], dtype=float)
+        selected = np.asarray(strain, dtype=float)
+        if selected.shape != (3, 3) or not np.all(np.isfinite(selected)):
+            raise ValueError("strain must be a finite 3x3 tensor.")
+        selected = 0.5 * (selected + selected.T)
+        old_strain = 0.5 * (old_strain + old_strain.T)
+        shear_old = np.asarray(state["shear_overstress"], dtype=float)
+        bulk_old = np.asarray(state["bulk_overstress"], dtype=float)
+        times = self.shifted_relaxation_times(temperature)
+        identity = np.eye(3)
+        trace_old = float(np.trace(old_strain))
+        trace_new = float(np.trace(selected))
+        dev_old = old_strain - trace_old * identity / 3.0
+        dev_new = selected - trace_new * identity / 3.0
+
+        shear_new = np.empty_like(shear_old)
+        bulk_new = np.empty_like(bulk_old)
+        shear_tangent = self.equilibrium_shear_modulus
+        bulk_tangent = self.equilibrium_bulk_modulus
+        work = (
+            self.equilibrium_shear_modulus
+            * float(np.sum(dev_new**2 - dev_old**2))
+            + 0.5
+            * self.equilibrium_bulk_modulus
+            * (trace_new**2 - trace_old**2)
+        )
+        dissipation = 0.0
+        for index, relaxation_time in enumerate(times):
+            shear_new[index], factor, branch_work, integral = _exact_overstress_update(
+                shear_old[index],
+                2.0 * self.shear_branch_moduli[index],
+                relaxation_time,
+                dev_new - dev_old,
+                dt,
+            )
+            shear_tangent += self.shear_branch_moduli[index] * factor
+            work += branch_work
+            if self.shear_branch_moduli[index] > 0.0:
+                dissipation += integral / (
+                    2.0 * self.shear_branch_moduli[index] * relaxation_time
+                )
+            bulk_new[index], factor, branch_work, integral = _exact_overstress_update(
+                np.asarray(bulk_old[index]),
+                self.bulk_branch_moduli[index],
+                relaxation_time,
+                np.asarray(trace_new - trace_old),
+                dt,
+            )
+            bulk_tangent += self.bulk_branch_moduli[index] * factor
+            work += branch_work
+            if self.bulk_branch_moduli[index] > 0.0:
+                dissipation += integral / (
+                    self.bulk_branch_moduli[index] * relaxation_time
+                )
+
+        stress = (
+            self.equilibrium_bulk_modulus * trace_new * identity
+            + 2.0 * self.equilibrium_shear_modulus * dev_new
+            + np.sum(shear_new, axis=0)
+            + float(np.sum(bulk_new)) * identity
+        )
+        stored = (
+            self.equilibrium_shear_modulus * float(np.sum(dev_new**2))
+            + 0.5 * self.equilibrium_bulk_modulus * trace_new**2
+        )
+        for index in range(self.branch_count):
+            if self.shear_branch_moduli[index] > 0.0:
+                stored += float(np.sum(shear_new[index] ** 2)) / (
+                    4.0 * self.shear_branch_moduli[index]
+                )
+            if self.bulk_branch_moduli[index] > 0.0:
+                stored += float(bulk_new[index] ** 2) / (
+                    2.0 * self.bulk_branch_moduli[index]
+                )
+        state_new = self.state_schema.initial_state()
+        state_new[:9] = selected.reshape(-1)
+        offset = 9
+        count = self.branch_count * 9
+        state_new[offset : offset + count] = shear_new.reshape(-1)
+        offset += count
+        state_new[offset : offset + self.branch_count] = bulk_new
+        state_new[-1] = float(state["dissipated_energy"]) + dissipation
+        return IsotropicMaxwellUpdate(
+            strain=selected,
+            shear_overstress=shear_new,
+            bulk_overstress=bulk_new,
+            stress=stress,
+            consistent_tangent=_isotropic_tangent(bulk_tangent, shear_tangent),
+            stored_energy_density=float(stored),
+            dissipated_energy_increment=float(dissipation),
+            mechanical_work_increment=float(work),
+            state_new=state_new,
+        )
+
+    def summary(self) -> dict[str, object]:
+        return {
+            "name": self.name,
+            "model": "isotropic_generalized_maxwell",
+            "instantaneous_bulk_modulus": self.instantaneous_bulk_modulus,
+            "instantaneous_shear_modulus": self.instantaneous_shear_modulus,
+            "equilibrium_bulk_modulus": self.equilibrium_bulk_modulus,
+            "equilibrium_shear_modulus": self.equilibrium_shear_modulus,
+            "shear_branch_moduli": self.shear_branch_moduli.tolist(),
+            "bulk_branch_moduli": self.bulk_branch_moduli.tolist(),
+            "relaxation_times": self.relaxation_times.tolist(),
+            "shift": None if self.shift is None else self.shift.summary(),
+            "state_schema": self.state_schema.summary(),
+        }
+
+
+def isotropic_generalized_maxwell(**kwargs) -> IsotropicGeneralizedMaxwell:
+    """Create an isotropic tensor Prony solid from instantaneous properties."""
+
+    return IsotropicGeneralizedMaxwell.from_prony(**kwargs)
+
+
 def standard_linear_solid(
     *,
     equilibrium_modulus: float,
@@ -565,10 +949,13 @@ def fit_relaxation_prony(
 __all__ = [
     "ArrheniusShift",
     "GeneralizedMaxwell",
+    "IsotropicGeneralizedMaxwell",
+    "IsotropicMaxwellUpdate",
     "MaxwellState",
     "PronyFit",
     "ViscoelasticUpdate",
     "WLFShift",
     "fit_relaxation_prony",
+    "isotropic_generalized_maxwell",
     "standard_linear_solid",
 ]

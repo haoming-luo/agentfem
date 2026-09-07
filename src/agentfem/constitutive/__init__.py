@@ -130,11 +130,14 @@ from .user_material import (
 from .viscoelasticity import (
     ArrheniusShift,
     GeneralizedMaxwell,
+    IsotropicGeneralizedMaxwell,
+    IsotropicMaxwellUpdate,
     MaxwellState,
     PronyFit,
     ViscoelasticUpdate,
     WLFShift,
     fit_relaxation_prony,
+    isotropic_generalized_maxwell,
     standard_linear_solid,
 )
 
@@ -209,6 +212,8 @@ __all__ = [
     "TabulatedSNCurve",
     "SinhCreep",
     "GeneralizedMaxwell",
+    "IsotropicGeneralizedMaxwell",
+    "IsotropicMaxwellUpdate",
     "UniaxialPlasticState",
     "UserMaterial",
     "ViscoelasticUpdate",
@@ -238,6 +243,7 @@ __all__ = [
     "goodman_amplitude",
     "finite_strain_j2_logarithmic",
     "fit_relaxation_prony",
+    "isotropic_generalized_maxwell",
     "miner_damage",
     "rainflow_cycles",
     "neo_hookean",

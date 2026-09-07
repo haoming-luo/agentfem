@@ -3,14 +3,31 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
+from agentfem import procedures, studies
 from agentfem.constitutive import (
     ArrheniusShift,
     GeneralizedMaxwell,
+    IsotropicGeneralizedMaxwell,
     MaxwellState,
     WLFShift,
     fit_relaxation_prony,
+    isotropic_generalized_maxwell,
     standard_linear_solid,
 )
+
+
+def test_viscoelastic_study_resolves_its_declared_procedure():
+    study = studies.viscoelastic_solid(dimension=3)
+    procedure = procedures.for_step(
+        analysis=study.analysis,
+        method=study.preferred_procedure,
+        stateful=True,
+    )
+
+    assert study.physics == "solid_mechanics"
+    assert study.is_transient
+    assert procedure.algorithm == "exact_generalized_maxwell_equilibrium"
+    assert procedure.stateful
 
 
 def test_standard_linear_solid_has_correct_time_and_frequency_limits():
@@ -251,3 +268,119 @@ def test_generalized_maxwell_history_rejects_incompatible_restart_and_time():
     state.strain[...] = 0.2
     with pytest.raises(ValueError, match="first strain sample"):
         material.history([0.0, 1.0], [0.0, 0.1], initial_state=state).solve()
+
+
+def test_isotropic_tensor_prony_factory_preserves_instantaneous_elasticity():
+    material = isotropic_generalized_maxwell(
+        instantaneous_young_modulus=1200.0,
+        instantaneous_poisson_ratio=0.3,
+        shear_relaxation_ratios=[0.2, 0.3],
+        bulk_relaxation_ratios=[0.1, 0.2],
+        relaxation_times=[0.5, 5.0],
+    )
+
+    assert material.instantaneous_shear_modulus == pytest.approx(
+        1200.0 / (2.0 * 1.3)
+    )
+    assert material.instantaneous_bulk_modulus == pytest.approx(
+        1200.0 / (3.0 * 0.4)
+    )
+    bulk, shear = material.relaxation_moduli([0.0, 1.0e8])
+    assert bulk[0] == pytest.approx(material.instantaneous_bulk_modulus)
+    assert shear[0] == pytest.approx(material.instantaneous_shear_modulus)
+    assert bulk[-1] == pytest.approx(material.equilibrium_bulk_modulus)
+    assert shear[-1] == pytest.approx(material.equilibrium_shear_modulus)
+
+
+def test_isotropic_tensor_maxwell_relaxation_and_energy_are_exact():
+    material = IsotropicGeneralizedMaxwell.from_prony(
+        instantaneous_young_modulus=1000.0,
+        instantaneous_poisson_ratio=0.25,
+        shear_relaxation_ratios=[0.4],
+        bulk_relaxation_ratios=[0.2],
+        relaxation_times=[2.0],
+    )
+    strain = np.diag([0.02, -0.005, 0.003])
+    state = material.initial_state(strain, condition="instantaneous")
+    unpacked = material.state_schema.unpack(state)
+    initial_stress = (
+        material.instantaneous_bulk_modulus * np.trace(strain) * np.eye(3)
+        + 2.0
+        * material.instantaneous_shear_modulus
+        * (strain - np.trace(strain) * np.eye(3) / 3.0)
+    )
+
+    update = material.update(state, strain, 1.25)
+    bulk, shear = material.relaxation_moduli(1.25)
+    expected = (
+        bulk * np.trace(strain) * np.eye(3)
+        + 2.0 * shear * (strain - np.trace(strain) * np.eye(3) / 3.0)
+    )
+
+    np.testing.assert_allclose(
+        material.equilibrium_bulk_modulus * np.trace(strain) * np.eye(3)
+        + 2.0
+        * material.equilibrium_shear_modulus
+        * (strain - np.trace(strain) * np.eye(3) / 3.0)
+        + np.sum(unpacked["shear_overstress"], axis=0)
+        + np.sum(unpacked["bulk_overstress"]) * np.eye(3),
+        initial_stress,
+    )
+    np.testing.assert_allclose(update.stress, expected, rtol=2.0e-14, atol=1.0e-13)
+    assert update.mechanical_work_increment == pytest.approx(0.0, abs=1.0e-14)
+    assert update.dissipated_energy_increment > 0.0
+    previous_energy = (
+        material.equilibrium_shear_modulus
+        * np.sum((strain - np.trace(strain) * np.eye(3) / 3.0) ** 2)
+        + 0.5 * material.equilibrium_bulk_modulus * np.trace(strain) ** 2
+        + sum(
+            np.sum(value**2) / (4.0 * modulus)
+            for value, modulus in zip(
+                unpacked["shear_overstress"],
+                material.shear_branch_moduli,
+                strict=True,
+            )
+            if modulus > 0.0
+        )
+        + sum(
+            value**2 / (2.0 * modulus)
+            for value, modulus in zip(
+                unpacked["bulk_overstress"],
+                material.bulk_branch_moduli,
+                strict=True,
+            )
+            if modulus > 0.0
+        )
+    )
+    assert previous_energy == pytest.approx(
+        update.stored_energy_density + update.dissipated_energy_increment,
+        rel=2.0e-13,
+        abs=1.0e-13,
+    )
+
+
+def test_isotropic_tensor_maxwell_algorithmic_tangent_matches_fixed_state_difference():
+    material = IsotropicGeneralizedMaxwell.from_prony(
+        instantaneous_young_modulus=1500.0,
+        instantaneous_poisson_ratio=0.32,
+        shear_relaxation_ratios=[0.25, 0.15],
+        bulk_relaxation_ratios=[0.05, 0.1],
+        relaxation_times=[0.1, 8.0],
+    )
+    old_strain = np.asarray(
+        [[0.01, 0.002, 0.0], [0.002, -0.003, 0.001], [0.0, 0.001, 0.004]]
+    )
+    state = material.initial_state(old_strain, condition="instantaneous")
+    new_strain = old_strain + np.asarray(
+        [[0.003, -0.001, 0.0005], [-0.001, 0.001, 0.0], [0.0005, 0.0, -0.002]]
+    )
+    update = material.update(state, new_strain, 0.7)
+    direction = np.asarray(
+        [[0.7, -0.2, 0.1], [-0.2, -0.4, 0.3], [0.1, 0.3, 0.2]]
+    )
+    step = 1.0e-7
+    plus = material.update(state, new_strain + step * direction, 0.7).stress
+    minus = material.update(state, new_strain - step * direction, 0.7).stress
+    numerical = (plus - minus) / (2.0 * step)
+    analytical = np.einsum("ijkl,kl->ij", update.consistent_tangent, direction)
+    np.testing.assert_allclose(analytical, numerical, rtol=2.0e-8, atol=2.0e-7)
