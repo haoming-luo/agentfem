@@ -466,6 +466,14 @@ def test_runs_and_show_make_structured_results_discoverable(tmp_path, capsys):
     assert "AgentFEM result · static_load" in shown
     assert "displacement_max_abs: 0.0012 m" in shown
 
+    assert cli.main(["inspect", "--project", str(tmp_path), "--json"]) == 0
+    inspected = json.loads(capsys.readouterr().out)
+    assert inspected["schema"] == "agentfem.simulation-result"
+    assert inspected["run_id"] == "machine-evidence-id"
+    assert inspected["run_name"] == "baseline"
+    assert inspected["run_number"] == 1
+    assert inspected["directory_name"] == "001-baseline"
+
 
 def test_cli_inspects_abaqus_deck_without_converting_or_solving(tmp_path, capsys):
     source = tmp_path / "one_hex.inp"

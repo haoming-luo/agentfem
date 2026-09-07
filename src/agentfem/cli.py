@@ -470,12 +470,20 @@ def _command_inspect(args) -> int:
         raise FileNotFoundError(f"No inspectable AgentFEM record found at {selected}.")
     record = json.loads(selected.read_text(encoding="utf-8"))
     if record.get("schema") == "agentfem.latest-run":
+        latest = record
         target = Path(str(record.get("result_manifest", ""))).expanduser()
         if not target.is_absolute():
             target = (selected.parent / target).resolve()
         if target.is_file():
             selected = target
             record = json.loads(target.read_text(encoding="utf-8"))
+            # Inspecting ``latest`` returns the scientific result, but run
+            # identity remains part of that answer.  This keeps humans,
+            # automation and release acceptance from having to reopen the
+            # pointer merely to learn which immutable run was selected.
+            for name in ("run_id", "run_name", "run_number", "directory_name"):
+                if latest.get(name) is not None:
+                    record.setdefault(name, latest[name])
     _emit(record, as_json=args.json, human=presentation.format_record(record, selected))
     return 0
 
