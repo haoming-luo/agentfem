@@ -5,15 +5,17 @@
   "title": "Linear viscoelastic relaxation spectrum",
   "kind": "material",
   "status": "experimental",
-  "summary": "Provides standard-linear-solid and generalized-Maxwell/Prony relaxation spectra, exact material-point history updates, temperature shift, positive fixed-spectrum fitting, and solver-independent dynamic signal processing beside the SLEPc structural modal Step.",
+  "summary": "Provides generalized-Maxwell/Prony spectra, exact material-point histories and a three-dimensional quasi-static global FEM Step with committed quadrature state, temperature shift, energy evidence, restart and standard result fields.",
   "public_api": [
     "agentfem.studies.modal_solid",
+    "agentfem.studies.viscoelastic_solid",
     "agentfem.models.Model.step",
     "agentfem.dynamics.spectrum",
     "agentfem.dynamics.frequency_response",
     "agentfem.dynamics.damping_from_free_decay",
     "agentfem.dynamics.modal_frequency_response",
     "agentfem.constitutive.GeneralizedMaxwell",
+    "agentfem.constitutive.IsotropicGeneralizedMaxwell",
     "agentfem.constitutive.standard_linear_solid",
     "agentfem.constitutive.WLFShift",
     "agentfem.constitutive.ArrheniusShift",
@@ -22,6 +24,7 @@
   "implementation": [
     "dynamics.py",
     "constitutive/viscoelasticity.py",
+    "mechanics/viscoelasticity.py",
     "problems.py",
     "step_providers.py"
   ],
@@ -84,9 +87,9 @@
       },
       {
         "name": "viscoelastic response",
-        "type": "relaxation, storage/loss modulus, accepted branch histories and common SimulationResult",
+        "type": "relaxation, storage/loss modulus, accepted branch histories, global fields and common SimulationResult",
         "unit_role": "stress, time and temperature",
-        "description": "Material-point state may be snapshotted, committed or restored independently of a global solver; the history result carries exact tangents and a work--stored-energy--dissipation ledger."
+        "description": "Material-point and global quadrature state use exact branch updates. The global result carries quadrature and recovered S, E, SENER, VDENER and MISES fields, RF, temperature evidence and a constitutive work--storage--dissipation ledger."
       }
     ],
     "assumptions": [
@@ -105,29 +108,35 @@
     ],
     "applicability": [
       "Natural-frequency and mode-shape analysis for supported linear solid models.",
-      "DMA, relaxation, free-decay and modal-superposition preparation for small-strain linear viscoelastic studies."
+      "DMA, relaxation, free-decay and modal-superposition preparation for small-strain linear viscoelastic studies.",
+      "Three-dimensional small-strain quasi-static generalized-Maxwell loading and relaxation on a uniform or explicitly declared nonuniform physical-time grid."
     ],
     "limitations": [
-      "The generalized-Maxwell state is not yet assembled into a global finite-element transient provider.",
+      "The first global provider supports 3D solids, strong constraints, declared physical-time grids and serial restart.",
+      "Adaptive error-controlled time stepping and portable distributed restart remain promotion gates.",
       "Direct complex harmonic finite-element assembly, complex modes, nonlinear viscoelasticity and physical aging are not implemented.",
       "Fixed-spectrum fitting does not automatically choose relaxation times or replace calibration/validation separation."
     ]
   },
   "usage": {
-    "minimal_example": "Create studies.modal_solid(...), register displacement/material/constraints, and solve model.step(target=u, modes=6). Use constitutive.GeneralizedMaxwell.from_prony(...) for relaxation/storage/loss curves, material.history(time, strain).solve_result() for an accepted material-point path, and dynamics.spectrum(...) or frequency_response(...) for sampled histories.",
+    "minimal_example": "For global relaxation, create studies.viscoelastic_solid(dimension=3), register displacement, IsotropicGeneralizedMaxwell and constraints, then call model.step(target=u, material=material, duration=5.0, steps=50, amplitude=load_then_hold).solve_result(). Replace steps with time_points for an explicitly nonuniform physical-time grid. Use GeneralizedMaxwell for scalar material-point spectra and histories.",
     "examples": [
-      "examples/modal_cantilever_2d.py"
+      "examples/modal_cantilever_2d.py",
+      "examples/viscoelastic_relaxation_3d.py"
     ]
   },
   "verification": {
     "tests": [
       "tests/test_dynamics.py",
       "tests/test_viscoelasticity.py",
+      "tests/test_parallel_inelastic.py",
       "tests/test_parallel_modal.py"
     ],
     "benchmarks": [
       "agentfem.benchmark.linear_cantilever_modal",
-      "agentfem.benchmark.linear_viscoelastic_spectrum"
+      "agentfem.benchmark.linear_viscoelastic_spectrum",
+      "agentfem.benchmark.global_viscoelastic_relaxation",
+      "agentfem.benchmark.abaqus_viscoelastic_rod"
     ],
     "validation_rules": [
       "Eliminate strong constrained degrees of freedom before the modal solve and reject insufficient free degrees of freedom.",
@@ -141,6 +150,11 @@
       "Reject singular or non-finite time-temperature shift factors before updating material state.",
       "Separate trial and committed branch state and preserve rollback equivalence.",
       "Require restarted material histories to match the accepted initial strain and branch layout, and close independently integrated work against stored energy plus dissipation.",
+      "Require the global 3D ramp--hold patch to match the exact generalized-Maxwell stress after both the ramp and hold.",
+      "Require split and uninterrupted global paths to preserve displacement, stress, committed branch state and energy history.",
+      "Require the public global Step to recover the same exact relaxation stress with two MPI ranks and to preserve complete regional material maps.",
+      "Require a nonuniform-grid, traction-controlled three-dimensional rod to match the published Abaqus short- and long-time axial strains and effective Poisson ratio.",
+      "Invalidate global restart when material, amplitude, temperature, time grid, quadrature identity or solution layout differs.",
       "Reject nonuniform FFT sampling and mark unexcited FRF bins invalid."
     ]
   },

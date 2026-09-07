@@ -104,10 +104,10 @@ Deepen the finite-element core before broadening the catalog:
   distributed reaction distribution and macroscopic work, plus weak and
   contact providers, remain explicit promotion gates;
 - selected cyclic plasticity, creep--fatigue, and fracture extensions.
-- promote generalized-Maxwell/Prony behavior from its exact restartable
-  material-history Procedure/State/Result contract to a global tensor-valued
-  stateful FEM transient, then add direct harmonic response and independently
-  checked complex modes;
+- promote the 3D generalized-Maxwell global Step beyond its analytical
+  ramp--hold patch and independent Abaqus rod benchmark through adaptive
+  error-controlled physical time and portable MPI restart; then add direct
+  harmonic response and independently checked complex modes;
 
 ### 2. Engineering workflow
 

@@ -51,18 +51,25 @@ unless the example is intentionally advanced.
    analytical consistent tangent, automatic incrementation, rollback, and the
    standard progress stream.
 
-10. `thermal_stress_wall_2d.py`
+10. `viscoelastic_relaxation_3d.py`
+   Global linear viscoelasticity. Demonstrates a generalized-Maxwell
+   ramp--hold path, exact committed quadrature state, equilibrium, standard
+   fields, energy evidence, temperature-shift readiness and restart. The same
+   provider is independently checked against the public Abaqus constant-load
+   viscoelastic rod benchmark.
+
+11. `thermal_stress_wall_2d.py`
    Power-plant-oriented sequential coupling. One thermoelastic material feeds
    implicit heat transfer and the equivalent thermal-expansion load of a
    plane-strain stress solve.
 
-11. `creep_hot_wall_assessment.py`
+12. `creep_hot_wall_assessment.py`
    Power-component screening route. Connects transient heat FEM, sequential
    thermoelastic stress, exact Kachanov--Rabotnov damage integration, and a
    modified-theta projection in one result manifest. Parameters are
    illustrative and the example clearly does not claim a global creep field.
 
-12. `abaqus_c3d10h_periodic_cell/case.py`
+13. `abaqus_c3d10h_periodic_cell/case.py`
    Advanced interoperability and finite-deformation reference. Imports a real
    Abaqus `C3D10H` mesh, preserves hybrid identity and node labels, eliminates 4,212 periodic
    `*EQUATION` constraints, solves a 3D Neo-Hookean load path, and writes
@@ -81,6 +88,7 @@ python examples/static_elasticity_surrogate_campaign.py
 python examples/campaign_from_json.py
 python examples/material_models.py
 python examples/j2_plasticity_3d.py
+python examples/viscoelastic_relaxation_3d.py
 python examples/thermal_stress_wall_2d.py
 python examples/creep_hot_wall_assessment.py
 ```

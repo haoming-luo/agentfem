@@ -956,6 +956,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#viscoelastic-relaxation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Viscoelastic relaxation
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#hot-wall-creep-assessment" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1119,6 +1130,11 @@ problem-specific qualification.</p>
 <td>Engineering</td>
 </tr>
 <tr>
+<td><a href="#viscoelastic-relaxation">Viscoelastic relaxation</a></td>
+<td>3D generalized-Maxwell equilibrium, exact state and restart</td>
+<td>Engineering</td>
+</tr>
+<tr>
 <td><a href="#elasticity-surrogate-campaign">Elasticity surrogate campaign</a></td>
 <td>Repeated FEM, accepted dataset, surrogate and fallback</td>
 <td>Release</td>
@@ -1209,13 +1225,28 @@ temperature field through the Arrhenius material factory.</p>
 <p><a href="https://github.com/haoming-luo/agentfem/blob/main/examples/implicit_creep_relaxation_3d.py">Source code</a>
 · <a href="../guide/creep_and_inelasticity/">Creep and inelasticity</a>
 · <a href="../reference/theory_and_conventions/#j2-plasticity-and-creep-state">Constitutive equations</a></p>
+<h2 id="viscoelastic-relaxation">Viscoelastic relaxation<a class="headerlink" href="#viscoelastic-relaxation" title="Permanent link">&para;</a></h2>
+<p><span class="af-status af-status--engineering">Engineering</span></p>
+<p>A three-dimensional generalized-Maxwell solid is ramped to a prescribed
+strain and then held. The global Step combines exact Prony-branch updates,
+committed quadrature state, incremental equilibrium, standard stress/strain/
+energy fields, nonnegative viscous dissipation, temperature-shift support and
+restart. Its automated homogeneous patch matches the closed-form stress after
+both the ramp and hold. A separate three-dimensional traction-controlled rod
+test matches the published Abaqus 0.001 s and 50 s creep response.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>python<span class="w"> </span>examples/viscoelastic_relaxation_3d.py
+</code></pre></div>
+<p><a href="https://github.com/haoming-luo/agentfem/blob/main/examples/viscoelastic_relaxation_3d.py">Source code</a>
+· <a href="../guide/dynamics/#linear-viscoelastic-spectra">Dynamics and viscoelasticity</a>
+· <a href="https://github.com/haoming-luo/agentfem/blob/main/src/agentfem/knowledge/benchmarks/global_viscoelastic_relaxation.json">Golden benchmark record</a>
+· <a href="https://github.com/haoming-luo/agentfem/blob/main/src/agentfem/knowledge/benchmarks/abaqus_viscoelastic_rod.json">External rod benchmark</a></p>
 <h2 id="hot-wall-creep-assessment">Hot-wall creep assessment<a class="headerlink" href="#hot-wall-creep-assessment" title="Permanent link">&para;</a></h2>
 <p><span class="af-status af-status--engineering">Engineering</span></p>
 <p>The hot-wall case performs a thermal/thermoelastic finite-element workflow and
 then an explicitly identified local creep assessment. It demonstrates how the
 software distinguishes a global field solution from a material-point or
 assessment-level model.</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>python<span class="w"> </span>examples/creep_hot_wall_assessment.py
+<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>python<span class="w"> </span>examples/creep_hot_wall_assessment.py
 </code></pre></div>
 <p><a href="https://github.com/haoming-luo/agentfem/blob/main/examples/creep_hot_wall_assessment.py">Source code</a></p>
 <h2 id="elasticity-surrogate-campaign">Elasticity surrogate campaign<a class="headerlink" href="#elasticity-surrogate-campaign" title="Permanent link">&para;</a></h2>
@@ -1223,7 +1254,7 @@ assessment-level model.</p>
 <p>The campaign varies declared parameters, runs the same finite-element model,
 records failures and evidence, creates an accepted scientific dataset, trains
 a surrogate, checks its applicability domain, and retains an FEM fallback.</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>python<span class="w"> </span>examples/static_elasticity_surrogate_campaign.py
+<div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a>python<span class="w"> </span>examples/static_elasticity_surrogate_campaign.py
 </code></pre></div>
 <p><a href="https://github.com/haoming-luo/agentfem/blob/main/examples/static_elasticity_surrogate_campaign.py">Source code</a>
 · <a href="../guide/simulation_to_learning/">Simulation to learning</a></p>

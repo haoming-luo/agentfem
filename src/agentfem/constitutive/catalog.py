@@ -138,15 +138,21 @@ _CAPABILITIES = {
             "standard-linear-solid and generalized-Maxwell/Prony small-strain "
             "relaxation spectra"
         ),
-        maturity="material_point_and_spectral_verified",
+        maturity="fem_integrated_foundation",
         available_scope=(
             "relaxation modulus, storage/loss modulus, loss factor, WLF or "
             "Arrhenius time-temperature shift, exact linear-increment branch "
             "updates, atomic material-point state, and deterministic fitting "
-            "for a user-declared relaxation-time spectrum"
+            "for a user-declared relaxation-time spectrum; plus a 3D "
+            "small-strain quasi-static global Step with exact quadrature state, "
+            "incremental equilibrium, regional materials, serial/MPI solve, "
+            "standard fields, constitutive energy evidence, temperature shift, "
+            "uniform or declared nonuniform time grids, serial restart, and an "
+            "independent Abaqus traction-controlled rod benchmark"
         ),
         limitations=(
-            "the generalized-Maxwell state is not yet consumed by a global finite-element transient provider",
+            "the first global provider uses a declared physical-time grid and strong constraints",
+            "adaptive error-controlled time stepping and distributed portable restart remain promotion gates",
             "nonlinear finite-strain viscoelasticity and physical-aging models are not implemented",
             "automatic relaxation-time selection and uncertainty quantification remain identification-layer work",
         ),

@@ -6209,6 +6209,36 @@ and evidence remain in the linked guides and scientific function reference.</p>
 <td><code>j2_plasticity_step(*, displacement, material, external_force, constraints = (), study = None, incrementation = None, solver_options = None, quadrature_degree: int = 2, progress = True, status_file = None, amplitude = None, name: str = 'j2_plasticity', _experimental_distributed: bool = False) -&gt; J2PlasticityStep</code></td>
 <td>Build a global 3D or axisymmetric J2 step.</td>
 </tr>
+<tr>
+<td>class</td>
+<td><code>QuasistaticViscoelasticStep</code></td>
+<td>Incremental equilibrium for a small-strain generalized-Maxwell solid.</td>
+</tr>
+<tr>
+<td>class</td>
+<td><code>ViscoelasticEnergyFrame</code></td>
+<td>Exact constitutive work--storage--dissipation ledger.</td>
+</tr>
+<tr>
+<td>class</td>
+<td><code>ViscoelasticIncrementInfo</code></td>
+<td>Accepted equilibrium evidence for one physical-time increment.</td>
+</tr>
+<tr>
+<td>class</td>
+<td><code>ViscoelasticPathInfo</code></td>
+<td>Resolved fixed physical-time path.</td>
+</tr>
+<tr>
+<td>class</td>
+<td><code>ViscoelasticQuadratureState</code></td>
+<td>Typed committed/trial Maxwell state and current response fields.</td>
+</tr>
+<tr>
+<td>function</td>
+<td><code>quasistatic_viscoelastic_step(*, displacement, material, duration: float, steps: int \| None = None, time_points = None, external_force = None, constraints = (), study = None, solver_options = None, quadrature_degree: int = 2, amplitude = None, temperature = None, time_unit: str \| None = None, progress = True, status_file = None, name: str = 'viscoelastic') -&gt; QuasistaticViscoelasticStep</code></td>
+<td>Build a 3D quasi-static generalized-Maxwell Step.</td>
+</tr>
 </tbody>
 </table>
 <h2 id="agentfemoperators"><code>agentfem.operators</code><a class="headerlink" href="#agentfemoperators" title="Permanent link">&para;</a></h2>

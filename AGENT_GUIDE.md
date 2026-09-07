@@ -421,8 +421,14 @@ subspace, not by matching individual vectors; reject a comparison when
 relative pattern, not as a dimensionless or physical displacement; use its
 recorded `Mode shape` warp field for visualization.
 Use `dynamics.spectrum(...)`, `frequency_response(...)`, and
-`damping_from_free_decay(...)` on arrays or scalar result histories. Treat
-`constitutive.GeneralizedMaxwell` as a verified material-point and spectral
-asset. `material.history(time, strain).solve_result()` provides its accepted
-state, restart boundary and energy ledger through the shared result contract;
-it is not yet a global tensor-valued viscoelastic FEM Step.
+`damping_from_free_decay(...)` on arrays or scalar result histories.
+`constitutive.GeneralizedMaxwell` remains the scalar material-point and
+spectral asset. For global solid equilibrium, register
+`constitutive.IsotropicGeneralizedMaxwell`, select
+`studies.viscoelastic_solid(dimension=3)`, and call
+`model.step(target=u, duration=..., steps=..., amplitude=...)`. Use
+`time_points=(0.0, ..., duration)` instead of `steps` when known loading events
+or separated relaxation scales require a nonuniform grid. The Step owns
+committed quadrature history, exact branch updates, standard viscoelastic
+fields, energy evidence and serial restart. Do not reinterpret it as finite
+strain, physical aging, harmonic response or distributed portable restart.

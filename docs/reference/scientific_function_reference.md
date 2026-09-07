@@ -63,6 +63,7 @@ the compact machine-readable `agentfem/knowledge/catalog.json`.
 
 | Stable ID | Title | Physics | Status |
 | --- | --- | --- | --- |
+| `agentfem.benchmark.abaqus_viscoelastic_rod` | Viscoelastic rod under suddenly applied constant axial traction | Three-dimensional small-strain isotropic linear viscoelastic creep under prescribed traction | automated_external_structural_verification |
 | `agentfem.benchmark.arrhenius_global_creep` | Transient heat to global Arrhenius creep contract | three-dimensional small-strain Mises power-law creep with prescribed or time-varying Arrhenius temperature fields | automated_regression |
 | `agentfem.benchmark.axisymmetric_lame_cylinder` | Axisymmetric Lamé thick-cylinder elasticity | small-strain isotropic axisymmetric elasticity for a long pressurized thick cylinder | release_regression |
 | `agentfem.benchmark.c3d10h_periodic_cell` | Imported C3D10H near-incompressible periodic cell | three-dimensional near-incompressible mixed Neo-Hookean periodic homogenization | manual_release_regression |
@@ -86,6 +87,7 @@ the compact machine-readable `agentfem/knowledge/catalog.json`.
 | `agentfem.benchmark.finite_strain_j2_periodic_multi_void` | Finite-strain J2 periodic cell with a deterministic multi-void realization | Three-dimensional finite-strain logarithmic J2 plasticity in a unit periodic cube containing four non-overlapping geometric spherical voids under isochoric macroscopic tension. | automated_fixed_stack_regression_with_refinement_mpi_restart |
 | `agentfem.benchmark.finite_strain_j2_periodic_void` | Finite-strain J2 periodic cell with a true spherical void | Three-dimensional finite-strain logarithmic J2 plasticity in a unit periodic cube containing a geometric spherical void under isochoric macroscopic tension. | automated_fixed_stack_regression_experimental_science |
 | `agentfem.benchmark.finite_strain_j2_zhang_2021_table5` | Zhang--Feng--Khandelwal finite-strain periodic composite, Table 5 | Plane-strain periodic composite with two stiff circular inclusions, one circular void, logarithmic finite-strain J2 matrix plasticity, elastic inclusions, and macroscopic simple shear. | experimental_external_fixture_not_promoted |
+| `agentfem.benchmark.global_viscoelastic_relaxation` | Three-dimensional generalized-Maxwell relaxation patch | Three-dimensional small-strain isotropic linear viscoelasticity | automated_analytical_verification |
 | `agentfem.benchmark.implicit_creep_relaxation` | Three-dimensional implicit power-law creep relaxation and restart | three-dimensional small-strain isotropic Mises power-law creep | automated_regression |
 | `agentfem.benchmark.j2_abaqus_rate_independent` | Published Abaqus rate-independent Mises plasticity uniaxial state | three-dimensional small-strain Mises plasticity with linear isotropic hardening | automated_external_verification |
 | `agentfem.benchmark.j2_global_restart` | Three-dimensional J2 path, physical cutback, cyclic amplitude, energy, and restart equivalence | three-dimensional small-strain Mises plasticity with linear isotropic hardening | automated_regression |
@@ -1364,17 +1366,19 @@ Register J2LinearIsotropicHardening in a 3D nonlinear_static Model, add supports
 **Status:** `experimental`<br>
 **Source card:** `src/agentfem/knowledge/cards/linear_viscoelastic_dynamics.json`
 
-Provides standard-linear-solid and generalized-Maxwell/Prony relaxation spectra, exact material-point history updates, temperature shift, positive fixed-spectrum fitting, and solver-independent dynamic signal processing beside the SLEPc structural modal Step.
+Provides generalized-Maxwell/Prony spectra, exact material-point histories and a three-dimensional quasi-static global FEM Step with committed quadrature state, temperature shift, energy evidence, restart and standard result fields.
 
 ### Public API
 
 - `agentfem.studies.modal_solid`
+- `agentfem.studies.viscoelastic_solid`
 - `agentfem.models.Model.step`
 - `agentfem.dynamics.spectrum`
 - `agentfem.dynamics.frequency_response`
 - `agentfem.dynamics.damping_from_free_decay`
 - `agentfem.dynamics.modal_frequency_response`
 - `agentfem.constitutive.GeneralizedMaxwell`
+- `agentfem.constitutive.IsotropicGeneralizedMaxwell`
 - `agentfem.constitutive.standard_linear_solid`
 - `agentfem.constitutive.WLFShift`
 - `agentfem.constitutive.ArrheniusShift`
@@ -1430,7 +1434,7 @@ A linear strain path over one increment has an exact branch update and algorithm
 | --- | --- | --- | --- |
 | modal result | SimulationResult quantities and live mode fields | inverse time and mass-normalized shape | Includes eigenvalues, angular frequencies, frequencies, relative residuals, orthogonality evidence, cluster membership, invariant-subspace semantics and each deterministically oriented singleton mode shape. |
 | dynamic signal records | one-sided spectrum, FRF and damping estimate | frequency, phase and signal-dependent response | Invalid unexcited FRF bins remain explicit and are excluded from finite result histories. |
-| viscoelastic response | relaxation, storage/loss modulus, accepted branch histories and common SimulationResult | stress, time and temperature | Material-point state may be snapshotted, committed or restored independently of a global solver; the history result carries exact tangents and a work--stored-energy--dissipation ledger. |
+| viscoelastic response | relaxation, storage/loss modulus, accepted branch histories, global fields and common SimulationResult | stress, time and temperature | Material-point and global quadrature state use exact branch updates. The global result carries quadrature and recovered S, E, SENER, VDENER and MISES fields, RF, temperature evidence and a constitutive work--storage--dissipation ledger. |
 
 #### Assumptions
 
@@ -1452,17 +1456,19 @@ A linear strain path over one increment has an exact branch update and algorithm
 
 - Natural-frequency and mode-shape analysis for supported linear solid models.
 - DMA, relaxation, free-decay and modal-superposition preparation for small-strain linear viscoelastic studies.
+- Three-dimensional small-strain quasi-static generalized-Maxwell loading and relaxation on a uniform or explicitly declared nonuniform physical-time grid.
 
 #### Limitations
 
-- The generalized-Maxwell state is not yet assembled into a global finite-element transient provider.
+- The first global provider supports 3D solids, strong constraints, declared physical-time grids and serial restart.
+- Adaptive error-controlled time stepping and portable distributed restart remain promotion gates.
 - Direct complex harmonic finite-element assembly, complex modes, nonlinear viscoelasticity and physical aging are not implemented.
 - Fixed-spectrum fitting does not automatically choose relaxation times or replace calibration/validation separation.
 
 ### Minimal example
 
 ```python
-Create studies.modal_solid(...), register displacement/material/constraints, and solve model.step(target=u, modes=6). Use constitutive.GeneralizedMaxwell.from_prony(...) for relaxation/storage/loss curves, material.history(time, strain).solve_result() for an accepted material-point path, and dynamics.spectrum(...) or frequency_response(...) for sampled histories.
+For global relaxation, create studies.viscoelastic_solid(dimension=3), register displacement, IsotropicGeneralizedMaxwell and constraints, then call model.step(target=u, material=material, duration=5.0, steps=50, amplitude=load_then_hold).solve_result(). Replace steps with time_points for an explicitly nonuniform physical-time grid. Use GeneralizedMaxwell for scalar material-point spectra and histories.
 ```
 
 ### Verification
@@ -1471,12 +1477,15 @@ Create studies.modal_solid(...), register displacement/material/constraints, and
 
 - `tests/test_dynamics.py`
 - `tests/test_viscoelasticity.py`
+- `tests/test_parallel_inelastic.py`
 - `tests/test_parallel_modal.py`
 
 **Benchmarks**
 
 - `agentfem.benchmark.linear_cantilever_modal`
 - `agentfem.benchmark.linear_viscoelastic_spectrum`
+- `agentfem.benchmark.global_viscoelastic_relaxation`
+- `agentfem.benchmark.abaqus_viscoelastic_rod`
 
 **Validation rules**
 
@@ -1491,6 +1500,11 @@ Create studies.modal_solid(...), register displacement/material/constraints, and
 - Reject singular or non-finite time-temperature shift factors before updating material state.
 - Separate trial and committed branch state and preserve rollback equivalence.
 - Require restarted material histories to match the accepted initial strain and branch layout, and close independently integrated work against stored energy plus dissipation.
+- Require the global 3D ramp--hold patch to match the exact generalized-Maxwell stress after both the ramp and hold.
+- Require split and uninterrupted global paths to preserve displacement, stress, committed branch state and energy history.
+- Require the public global Step to recover the same exact relaxation stress with two MPI ranks and to preserve complete regional material maps.
+- Require a nonuniform-grid, traction-controlled three-dimensional rod to match the published Abaqus short- and long-time axial strains and effective Poisson ratio.
+- Invalidate global restart when material, amplitude, temperature, time grid, quadrature identity or solution layout differs.
 - Reject nonuniform FFT sampling and mark unexcited FRF bins invalid.
 
 ### References

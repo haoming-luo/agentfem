@@ -7,7 +7,18 @@ import pytest
 from dolfinx import mesh as dolfinx_mesh
 from mpi4py import MPI
 
-from agentfem import constitutive, fields, mechanics, mesh, models, solvers, steps, studies
+from agentfem import (
+    amplitudes,
+    constitutive,
+    fields,
+    mechanics,
+    mesh,
+    models,
+    results,
+    solvers,
+    steps,
+    studies,
+)
 
 
 def _model_with_regions(*, creep: bool, yielding: bool = False):
@@ -170,6 +181,62 @@ def test_distributed_creep_global_newton_evolves_regional_state():
     assert step.last_solve_info.completed_step
     assert step.last_solve_info.increments[-1].residual_norm < 1.0e-7
     assert result.quantity("maximum_equivalent_creep_strain") > 0.0
+
+
+def test_distributed_viscoelastic_global_equilibrium_matches_exact_relaxation():
+    if MPI.COMM_WORLD.size != 2:
+        pytest.skip("distributed viscoelastic acceptance requires two ranks")
+    domain = dolfinx_mesh.create_unit_cube(MPI.COMM_WORLD, 2, 1, 1)
+    model = models.create(
+        study=studies.viscoelastic_solid(dimension=3),
+        mesh=domain,
+        name="distributed_viscoelastic_patch",
+    )
+    displacement = model.field(fields.displacement(domain))
+    material = model.material(
+        constitutive.IsotropicGeneralizedMaxwell.from_prony(
+            instantaneous_young_modulus=1000.0,
+            instantaneous_poisson_ratio=0.0,
+            shear_relaxation_ratios=[0.4],
+            bulk_relaxation_ratios=[0.4],
+            relaxation_times=[1.0],
+        )
+    )
+    model.fix(displacement, on=mesh.face(domain, axis="x", value=0.0), component=0)
+    model.fix(displacement, on=mesh.face(domain, axis="y", value=0.0), component=1)
+    model.fix(displacement, on=mesh.face(domain, axis="z", value=0.0), component=2)
+    model.fix(
+        displacement,
+        on=mesh.face(domain, axis="x", value=1.0),
+        component=0,
+        value=0.01,
+    )
+    step = model.step(
+        target=displacement,
+        material=material,
+        duration=2.0,
+        steps=2,
+        amplitude=amplitudes.tabular([0.0, 1.0, 2.0], [0.0, 1.0, 1.0]),
+        progress=False,
+    )
+    simulation = step.solve_result()
+    stress = results.average(
+        step.state.stress.function[0, 0], measure=step.state.measure
+    )
+    expected = 0.01 * (
+        600.0 + 400.0 * (1.0 - np.exp(-1.0)) * np.exp(-1.0)
+    )
+
+    assert step.last_solve_info.completed_step
+    assert stress == pytest.approx(expected, rel=1.0e-9)
+    assert simulation.histories["constitutive_energy_residual"].latest == pytest.approx(
+        0.0,
+        abs=1.0e-11,
+    )
+    assert all(
+        item == pytest.approx(stress)
+        for item in MPI.COMM_WORLD.allgather(stress)
+    )
 
 
 def test_distributed_j2_cutback_rollback_matches_fixed_reference():

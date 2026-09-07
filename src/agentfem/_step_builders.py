@@ -769,6 +769,75 @@ def creep(
     return model.add_step(step)
 
 
+def viscoelastic(
+    model,
+    *,
+    target,
+    duration: float,
+    steps: int | None = None,
+    time_points=None,
+    material=None,
+    constraints=None,
+    solver_options=None,
+    quadrature_degree: int = 2,
+    amplitude=None,
+    temperature=None,
+    progress=True,
+    status_file=None,
+    name: str = "viscoelastic",
+):
+    """Build and register a global 3D generalized-Maxwell Step."""
+
+    from . import mechanics
+    from .constitutive.quadrature import QuadratureMaterialMap
+    from .constitutive.viscoelasticity import IsotropicGeneralizedMaxwell
+
+    model.check(target=target, step_options={"material": material})
+    if hasattr(model.study, "require"):
+        model.study.require(
+            analysis="first_order_transient",
+            physics="solid_mechanics",
+        )
+    properties = _quadrature_material(
+        model,
+        target,
+        material,
+        material_type=IsotropicGeneralizedMaxwell,
+        label="model.step with generalized-Maxwell viscoelasticity",
+    )
+    if not isinstance(properties, (IsotropicGeneralizedMaxwell, QuadratureMaterialMap)):
+        raise TypeError("model.step requires IsotropicGeneralizedMaxwell here.")
+    selected_loads, selected_amplitude = _single_shared_amplitude_loads(
+        model.loads,
+        amplitude,
+        label="viscoelastic",
+        physical_time=True,
+    )
+    step = mechanics.quasistatic_viscoelastic_step(
+        displacement=target,
+        material=properties,
+        duration=duration,
+        steps=steps,
+        time_points=time_points,
+        external_force=(
+            model.external_force(target, loads=selected_loads)
+            if selected_loads
+            else None
+        ),
+        constraints=model.constraints if constraints is None else constraints,
+        study=model.study,
+        solver_options=solver_options,
+        quadrature_degree=quadrature_degree,
+        amplitude=selected_amplitude,
+        temperature=temperature,
+        time_unit=getattr(model.unit_system, "time", None),
+        progress=progress,
+        status_file=status_file,
+        name=name,
+    )
+    return model.add_step(step)
+
+
 def hyperelastic(
     model,
     *,

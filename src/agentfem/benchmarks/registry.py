@@ -175,6 +175,49 @@ _BENCHMARKS = (
         evidence=("material_point", "postprocess", "state_transaction"),
     ),
     BenchmarkSpec(
+        identifier="global_viscoelastic_relaxation",
+        capability="linear_viscoelasticity",
+        level="finite_element",
+        reference="knowledge/benchmarks/global_viscoelastic_relaxation.json",
+        criterion=(
+            "a three-dimensional ramp-and-hold patch matches the exact "
+            "generalized-Maxwell stress, closes its constitutive energy ledger, "
+            "and preserves state across restart"
+        ),
+        automated_test="tests/test_viscoelasticity.py",
+        status="automated_analytical_verification",
+        evidence=(
+            "finite_element",
+            "state_transaction",
+            "energy_balance",
+            "mpi",
+            "restart",
+            "temperature_shift",
+        ),
+    ),
+    BenchmarkSpec(
+        identifier="abaqus_viscoelastic_rod",
+        capability="linear_viscoelasticity",
+        level="finite_element_external",
+        reference="knowledge/benchmarks/abaqus_viscoelastic_rod.json",
+        criterion=(
+            "a three-dimensional traction-controlled rod matches the published "
+            "Abaqus short- and long-time strain and Poisson-ratio response"
+        ),
+        automated_test=(
+            "tests/test_viscoelasticity.py::"
+            "test_global_generalized_maxwell_matches_public_abaqus_viscoelastic_rod"
+        ),
+        status="automated_external_structural_verification",
+        evidence=(
+            "finite_element",
+            "external_reference",
+            "traction_control",
+            "nonuniform_time_grid",
+            "near_incompressibility",
+        ),
+    ),
+    BenchmarkSpec(
         identifier="neo_hookean_displacement_patch",
         capability="neo_hookean",
         level="finite_element",

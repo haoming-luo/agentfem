@@ -24,6 +24,14 @@ from .plasticity import (
     J2PlasticityStep,
     j2_plasticity_step,
 )
+from .viscoelasticity import (
+    QuasistaticViscoelasticStep,
+    ViscoelasticEnergyFrame,
+    ViscoelasticIncrementInfo,
+    ViscoelasticPathInfo,
+    ViscoelasticQuadratureState,
+    quasistatic_viscoelastic_step,
+)
 
 __all__ = [
     "CreepEnergyFrame",
@@ -39,9 +47,15 @@ __all__ = [
     "J2IncrementInfo",
     "J2LoadPathInfo",
     "J2PlasticityStep",
+    "QuasistaticViscoelasticStep",
+    "ViscoelasticEnergyFrame",
+    "ViscoelasticIncrementInfo",
+    "ViscoelasticPathInfo",
+    "ViscoelasticQuadratureState",
     "implicit_creep_step",
     "experimental_finite_strain_j2_step",
     "finite_strain_j2_affine_problem",
     "finite_strain_j2_standard_problem",
     "j2_plasticity_step",
+    "quasistatic_viscoelastic_step",
 ]

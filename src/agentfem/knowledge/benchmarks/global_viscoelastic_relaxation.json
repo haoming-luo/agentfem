@@ -1,0 +1,57 @@
+{
+  "schema": "agentfem.benchmark-card",
+  "schema_version": "0.1.0",
+  "id": "agentfem.benchmark.global_viscoelastic_relaxation",
+  "title": "Three-dimensional generalized-Maxwell relaxation patch",
+  "status": "automated_analytical_verification",
+  "purpose": "Verify that the public viscoelastic Study lowers to global equilibrium while retaining exact branch history, energy accounting, temperature shift, rollback, restart and standard field output.",
+  "physics": "Three-dimensional small-strain isotropic linear viscoelasticity",
+  "execution": {
+    "command": "python -m pytest -q tests/test_viscoelasticity.py",
+    "example": "examples/viscoelastic_relaxation_3d.py",
+    "evidence": "A homogeneous cube is ramped to one percent axial strain and held. The global finite-element stress is compared with the closed-form generalized-Maxwell response after the ramp and hold; split restart and uninterrupted paths are compared exactly."
+  },
+  "observables": [
+    "Volume-averaged axial stress after a linear strain ramp.",
+    "Volume-averaged axial stress after a subsequent constant-strain hold.",
+    "Committed Prony-branch state and displacement after checkpoint/restart.",
+    "Recoverable energy, cumulative viscous dissipation and constitutive energy residual.",
+    "Temperature consumed by an optional WLF or Arrhenius shift law."
+  ],
+  "acceptance": [
+    "The global ramp and hold stresses must match the exact uniaxial generalized-Maxwell solution.",
+    "Stress must decrease during the constant-strain hold and viscous dissipation must remain nonnegative.",
+    "Constitutive work must close against stored energy plus cumulative dissipation to floating-point tolerance.",
+    "A split serial checkpoint path must reproduce uninterrupted displacement, stress, state and energy histories.",
+    "Serial and two-rank global equilibrium must recover the same exact relaxation stress.",
+    "Regional materials must be lowered to one complete quadrature material map without losing region identity.",
+    "A changed temperature, material, amplitude, time grid or quadrature identity must invalidate restart.",
+    "The common result must expose quadrature and recovered cell S, E, SENER, VDENER and MISES fields plus RF."
+  ],
+  "golden": {
+    "reference_version": "generalized-maxwell-global-patch-1",
+    "quantities": [
+      {
+        "name": "mean_axial_stress_after_ramp",
+        "expected": 8.52848223531423,
+        "relative_tolerance": 1e-09,
+        "absolute_tolerance": 1e-11,
+        "unit": "consistent stress unit",
+        "description": "E0=1000, E_infinity=600, one branch E1=400, tau=1, strain ramps linearly from 0 to 0.01 over one time unit."
+      },
+      {
+        "name": "mean_axial_stress_after_hold",
+        "expected": 6.930176631739319,
+        "relative_tolerance": 1e-09,
+        "absolute_tolerance": 1e-11,
+        "unit": "consistent stress unit",
+        "description": "The ramp state is held at strain 0.01 for one further time unit."
+      }
+    ]
+  },
+  "limitations": [
+    "This is a homogeneous analytical patch and not an independent external structural benchmark.",
+    "The first global provider is three-dimensional, quasi-static and small-strain; this particular patch uses a fixed physical-time grid.",
+    "Nonlinear finite-strain viscoelasticity, physical aging, direct harmonic assembly and distributed portable restart are not verified here."
+  ]
+}

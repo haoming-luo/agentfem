@@ -572,6 +572,10 @@ class IsotropicGeneralizedMaxwell:
     shift: WLFShift | ArrheniusShift | None = None
     name: str = "isotropic_generalized_maxwell"
 
+    # Public procedure dispatch uses this structural declaration rather than
+    # importing every built-in material class into the model layer.
+    stateful_constitutive = True
+
     def __post_init__(self) -> None:
         bulk = float(self.equilibrium_bulk_modulus)
         shear = float(self.equilibrium_shear_modulus)
@@ -851,6 +855,11 @@ class IsotropicGeneralizedMaxwell:
             "shift": None if self.shift is None else self.shift.summary(),
             "state_schema": self.state_schema.summary(),
         }
+
+    def as_dict(self) -> dict[str, object]:
+        """Return the stable material record used by results and restart."""
+
+        return self.summary()
 
 
 def isotropic_generalized_maxwell(**kwargs) -> IsotropicGeneralizedMaxwell:

@@ -1,14 +1,30 @@
 from __future__ import annotations
 
+from dataclasses import replace
+
 import numpy as np
 import pytest
+from dolfinx import mesh as dolfinx_mesh
+from mpi4py import MPI
 
-from agentfem import procedures, studies
+from agentfem import (
+    amplitudes,
+    benchmarks,
+    constraints,
+    fields,
+    mesh,
+    models,
+    procedures,
+    results,
+    solvers,
+    studies,
+)
 from agentfem.constitutive import (
     ArrheniusShift,
     GeneralizedMaxwell,
     IsotropicGeneralizedMaxwell,
     MaxwellState,
+    QuadratureMaterialMap,
     WLFShift,
     fit_relaxation_prony,
     isotropic_generalized_maxwell,
@@ -384,3 +400,325 @@ def test_isotropic_tensor_maxwell_algorithmic_tangent_matches_fixed_state_differ
     numerical = (plus - minus) / (2.0 * step)
     analytical = np.einsum("ijkl,kl->ij", update.consistent_tangent, direction)
     np.testing.assert_allclose(analytical, numerical, rtol=2.0e-8, atol=2.0e-7)
+
+
+def _global_viscoelastic_relaxation_patch(*, shift=None, temperature=None):
+    domain = dolfinx_mesh.create_unit_cube(MPI.COMM_SELF, 1, 1, 1)
+    model = models.create(
+        study=studies.viscoelastic_solid(dimension=3),
+        mesh=domain,
+        name="generalized_maxwell_relaxation",
+    )
+    displacement = model.field(fields.displacement(domain))
+    material = model.material(
+        IsotropicGeneralizedMaxwell.from_prony(
+            instantaneous_young_modulus=1000.0,
+            instantaneous_poisson_ratio=0.0,
+            shear_relaxation_ratios=[0.4],
+            bulk_relaxation_ratios=[0.4],
+            relaxation_times=[1.0],
+            shift=shift,
+        )
+    )
+    model.constraint(
+        constraints.fixed_component(
+            displacement,
+            0,
+            on=mesh.face(domain, axis="x", value=0.0, name="left"),
+        )
+    )
+    model.constraint(
+        constraints.fixed_component(
+            displacement,
+            1,
+            on=mesh.face(domain, axis="y", value=0.0, name="y_symmetry"),
+        )
+    )
+    model.constraint(
+        constraints.fixed_component(
+            displacement,
+            2,
+            on=mesh.face(domain, axis="z", value=0.0, name="z_symmetry"),
+        )
+    )
+    model.constraint(
+        constraints.fixed_component(
+            displacement,
+            0,
+            value=0.01,
+            on=mesh.face(domain, axis="x", value=1.0, name="right"),
+        )
+    )
+    step = model.step(
+        target=displacement,
+        material=material,
+        duration=2.0,
+        steps=2,
+        amplitude=amplitudes.tabular([0.0, 1.0, 2.0], [0.0, 1.0, 1.0]),
+        temperature=temperature,
+        solver_options=solvers.newton(
+            relative_tolerance=1.0e-10,
+            absolute_tolerance=1.0e-11,
+            maximum_iterations=4,
+        ),
+        progress=False,
+    )
+    return step
+
+
+def test_global_generalized_maxwell_relaxation_matches_exact_solution():
+    step = _global_viscoelastic_relaxation_patch()
+    step.solve(until=1.0)
+    stress_after_ramp = results.average(
+        step.state.stress.function[0, 0], measure=step.state.measure
+    )
+    simulation = step.solve_result()
+    final_stress = results.average(
+        step.state.stress.function[0, 0], measure=step.state.measure
+    )
+    branch = 0.4 * 1000.0
+    equilibrium = 0.6 * 1000.0
+    expected_ramp = 0.01 * (equilibrium + branch * (1.0 - np.exp(-1.0)))
+    expected_final = 0.01 * (
+        equilibrium + branch * (1.0 - np.exp(-1.0)) * np.exp(-1.0)
+    )
+    golden = benchmarks.golden_benchmark(
+        "agentfem.benchmark.global_viscoelastic_relaxation"
+    )
+
+    assert step.procedure.algorithm == "exact_generalized_maxwell_equilibrium"
+    assert step.last_solve_info.completed_step
+    assert stress_after_ramp == pytest.approx(expected_ramp, rel=2.0e-10)
+    assert final_stress == pytest.approx(expected_final, rel=2.0e-10)
+    assert all(
+        golden.verify(
+            {
+                "mean_axial_stress_after_ramp": stress_after_ramp,
+                "mean_axial_stress_after_hold": final_stress,
+            }
+        ).values()
+    )
+    assert final_stress < stress_after_ramp
+    assert {"S", "E", "SENER", "VDENER", "MISES", "RF"} <= set(
+        simulation.fields
+    )
+    assert simulation.histories["viscous_dissipation"].latest > 0.0
+    assert abs(simulation.histories["constitutive_energy_residual"].latest) < 1.0e-12
+
+
+def test_global_generalized_maxwell_restart_matches_uninterrupted_path(tmp_path):
+    reference = _global_viscoelastic_relaxation_patch()
+    reference.solve()
+
+    partial = _global_viscoelastic_relaxation_patch()
+    partial.solve(until=1.0)
+    checkpoint = partial.save_checkpoint(tmp_path / "viscoelastic_restart.npz")
+    assert checkpoint.with_suffix(checkpoint.suffix + ".checkpoint.json").is_file()
+    restarted = _global_viscoelastic_relaxation_patch()
+    restarted.load_checkpoint(checkpoint)
+    restarted.solve()
+
+    assert restarted.last_solve_info.completed_step
+    np.testing.assert_allclose(restarted.solution.x.array, reference.solution.x.array)
+    np.testing.assert_allclose(
+        restarted.state.state.committed_state_vectors(),
+        reference.state.state.committed_state_vectors(),
+    )
+    np.testing.assert_allclose(restarted.state.stress.values, reference.state.stress.values)
+    np.testing.assert_allclose(
+        [item.constitutive_energy_residual for item in restarted.energy_history],
+        [item.constitutive_energy_residual for item in reference.energy_history],
+    )
+
+
+def test_global_generalized_maxwell_consumes_temperature_shift_and_guards_restart(
+    tmp_path,
+):
+    shift = WLFShift(reference_temperature=293.15, c1=8.0, c2=80.0)
+    reference = _global_viscoelastic_relaxation_patch(
+        shift=shift,
+        temperature=293.15,
+    )
+    hot = _global_viscoelastic_relaxation_patch(
+        shift=shift,
+        temperature=313.15,
+    )
+    reference_result = reference.solve_result()
+    hot_result = hot.solve_result()
+    reference_stress = results.average(
+        reference.state.stress.function[0, 0], measure=reference.state.measure
+    )
+    hot_stress = results.average(
+        hot.state.stress.function[0, 0], measure=hot.state.measure
+    )
+
+    assert hot_stress < reference_stress
+    assert hot_result.quantity("minimum_viscoelastic_temperature") == pytest.approx(
+        313.15
+    )
+    assert hot_result.quantity("maximum_viscoelastic_temperature") == pytest.approx(
+        313.15
+    )
+    checkpoint = reference.save_checkpoint(tmp_path / "reference_temperature.npz")
+    incompatible = _global_viscoelastic_relaxation_patch(
+        shift=shift,
+        temperature=303.15,
+    )
+    with pytest.raises(ValueError, match="temperature"):
+        incompatible.load_checkpoint(checkpoint)
+    assert reference_result.metadata["step"]["temperature"]["unit"] == "K"
+
+
+def test_global_generalized_maxwell_consumes_regional_materials():
+    domain = dolfinx_mesh.create_box(
+        MPI.COMM_SELF,
+        [np.zeros(3), np.ones(3)],
+        [1, 2, 1],
+        cell_type=dolfinx_mesh.CellType.tetrahedron,
+    )
+    model = models.create(
+        study=studies.viscoelastic_solid(dimension=3),
+        mesh=domain,
+        name="regional_viscoelastic_patch",
+    )
+    displacement = model.field(fields.displacement(domain))
+    regions = mesh.partition_cells(
+        domain,
+        lower=lambda x: x[1] <= 0.5,
+        upper=lambda x: x[1] > 0.5,
+    )
+    for young, region in ((1000.0, regions.lower), (2000.0, regions.upper)):
+        model.material(
+            IsotropicGeneralizedMaxwell.from_prony(
+                instantaneous_young_modulus=young,
+                instantaneous_poisson_ratio=0.0,
+                shear_relaxation_ratios=[0.4],
+                bulk_relaxation_ratios=[0.4],
+                relaxation_times=[1.0],
+            ),
+            region=region,
+        )
+    model.fix(displacement, on=mesh.face(domain, axis="x", value=0.0), component=0)
+    model.fix(displacement, on=mesh.face(domain, axis="y", value=0.0), component=1)
+    model.fix(displacement, on=mesh.face(domain, axis="z", value=0.0), component=2)
+    model.fix(
+        displacement,
+        on=mesh.face(domain, axis="x", value=1.0),
+        component=0,
+        value=0.01,
+    )
+
+    step = model.step(target=displacement, duration=1.0, steps=1, progress=False)
+    step.solve()
+    axial_stress = step.state.stress.values[:, 0, 0]
+
+    assert isinstance(step.material, QuadratureMaterialMap)
+    assert len(step.material.materials) == 2
+    assert np.max(axial_stress) == pytest.approx(2.0 * np.min(axial_stress))
+
+
+def _abaqus_viscoelastic_rod_step():
+    """Three-dimensional form of the public Abaqus viscoelastic-rod benchmark."""
+
+    k1 = 6.89
+    k2 = 62.01
+    bulk = 689.0
+    instantaneous_extensional = k1 + k2
+    equilibrium_shear = 3.0 * bulk * k1 / (9.0 * bulk - k1)
+    instantaneous_shear = (
+        3.0
+        * bulk
+        * instantaneous_extensional
+        / (9.0 * bulk - instantaneous_extensional)
+    )
+    shear_relaxation_time = (
+        (9.0 * bulk - instantaneous_extensional) / (9.0 * bulk - k1)
+    )
+    material = IsotropicGeneralizedMaxwell(
+        equilibrium_bulk_modulus=bulk,
+        equilibrium_shear_modulus=equilibrium_shear,
+        shear_branch_moduli=(instantaneous_shear - equilibrium_shear,),
+        bulk_branch_moduli=(0.0,),
+        relaxation_times=(shear_relaxation_time,),
+        name="abaqus_viscoelastic_rod",
+    )
+    domain = mesh.cuboid(
+        (0.0, 0.0, 0.0),
+        (254.0, 1.0, 1.0),
+        (2, 1, 1),
+        comm=MPI.COMM_SELF,
+        cell_type="hexahedron",
+    )
+    model = models.create(
+        study=studies.viscoelastic_solid(dimension=3),
+        mesh=domain,
+        name="abaqus_viscoelastic_rod",
+    )
+    displacement = model.field(fields.displacement(domain))
+    model.material(material)
+    model.fix(displacement, on=mesh.face(domain, axis="x", value=0.0), component=0)
+    model.fix(displacement, on=mesh.face(domain, axis="y", value=0.0), component=1)
+    model.fix(displacement, on=mesh.face(domain, axis="z", value=0.0), component=2)
+    model.traction(
+        (0.689, 0.0, 0.0),
+        on=mesh.face(domain, axis="x", value=254.0),
+    )
+    time_points = np.concatenate(
+        ([0.0, 0.001], np.geomspace(0.005, 50.0, 120))
+    )
+    return model.step(
+        target=displacement,
+        material=material,
+        duration=50.0,
+        time_points=time_points,
+        amplitude=amplitudes.tabular(
+            [0.0, 0.001, 50.0],
+            [0.0, 1.0, 1.0],
+            name="sudden_constant_traction",
+        ),
+        solver_options=solvers.newton(
+            relative_tolerance=1.0e-10,
+            absolute_tolerance=1.0e-11,
+            maximum_iterations=6,
+        ),
+        progress=False,
+    )
+
+
+def test_global_generalized_maxwell_matches_public_abaqus_viscoelastic_rod():
+    step = _abaqus_viscoelastic_rod_step()
+    step.solve(until=0.001)
+    initial_axial_strain = results.average(
+        step.state.accepted_strain.function[0, 0], measure=step.state.measure
+    )
+    step.solve()
+    final_axial_strain = results.average(
+        step.state.accepted_strain.function[0, 0], measure=step.state.measure
+    )
+    final_lateral_strain = results.average(
+        step.state.accepted_strain.function[1, 1], measure=step.state.measure
+    )
+    exact_final = 0.1 * (1.0 - 0.9 * np.exp(-5.0))
+    final_poisson = -final_lateral_strain / final_axial_strain
+    golden = benchmarks.golden_benchmark(
+        "agentfem.benchmark.abaqus_viscoelastic_rod"
+    )
+
+    assert step.time_increment is None
+    assert step.summary()["time_grid"]["kind"] == "nonuniform"
+    assert final_axial_strain == pytest.approx(exact_final, rel=2.0e-3)
+    assert all(
+        golden.verify(
+            {
+                "axial_strain_at_0.001_seconds": initial_axial_strain,
+                "axial_strain_at_50_seconds": final_axial_strain,
+                "effective_poisson_ratio_at_50_seconds": final_poisson,
+            }
+        ).values()
+    )
+
+
+def test_global_generalized_maxwell_rejects_invalid_declared_time_grid():
+    step = _global_viscoelastic_relaxation_patch()
+    with pytest.raises(ValueError, match="time_points"):
+        replace(step, time_points=(0.0, 1.0, 0.5))

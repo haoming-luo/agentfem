@@ -1542,10 +1542,57 @@ strain from silently acquiring an unspecified past.</p>
 algorithmic modulus, recoverable energy, independently integrated mechanical
 work, nonnegative viscous dissipation, and their balance error. A restarted
 history begins from the copied accepted <code>MaxwellState</code>; an incompatible first
-strain or branch layout fails before advancement. This remains a material-point
-procedure. A global tensor-valued FEM transient provider consuming these
-internal variables is a separate promotion gate and is not implied by the
-public material name.
+strain or branch layout fails before advancement.</p>
+<p>The scalar object above remains a material-point procedure. For a global 3D
+solid, use the isotropic tensor material through the same public workflow:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="n">material</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">material</span><span class="p">(</span>
+<a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a>    <span class="n">constitutive</span><span class="o">.</span><span class="n">IsotropicGeneralizedMaxwell</span><span class="o">.</span><span class="n">from_prony</span><span class="p">(</span>
+<a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a>        <span class="n">instantaneous_young_modulus</span><span class="o">=</span><span class="mf">1.0e6</span><span class="p">,</span>
+<a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a>        <span class="n">instantaneous_poisson_ratio</span><span class="o">=</span><span class="mf">0.30</span><span class="p">,</span>
+<a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a>        <span class="n">shear_relaxation_ratios</span><span class="o">=</span><span class="p">(</span><span class="mf">0.25</span><span class="p">,</span> <span class="mf">0.15</span><span class="p">),</span>
+<a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a>        <span class="n">bulk_relaxation_ratios</span><span class="o">=</span><span class="p">(</span><span class="mf">0.25</span><span class="p">,</span> <span class="mf">0.15</span><span class="p">),</span>
+<a id="__codelineno-5-7" name="__codelineno-5-7" href="#__codelineno-5-7"></a>        <span class="n">relaxation_times</span><span class="o">=</span><span class="p">(</span><span class="mf">0.2</span><span class="p">,</span> <span class="mf">2.0</span><span class="p">),</span>
+<a id="__codelineno-5-8" name="__codelineno-5-8" href="#__codelineno-5-8"></a>    <span class="p">)</span>
+<a id="__codelineno-5-9" name="__codelineno-5-9" href="#__codelineno-5-9"></a><span class="p">)</span>
+<a id="__codelineno-5-10" name="__codelineno-5-10" href="#__codelineno-5-10"></a>
+<a id="__codelineno-5-11" name="__codelineno-5-11" href="#__codelineno-5-11"></a><span class="n">step</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">step</span><span class="p">(</span>
+<a id="__codelineno-5-12" name="__codelineno-5-12" href="#__codelineno-5-12"></a>    <span class="n">target</span><span class="o">=</span><span class="n">u</span><span class="p">,</span>
+<a id="__codelineno-5-13" name="__codelineno-5-13" href="#__codelineno-5-13"></a>    <span class="n">material</span><span class="o">=</span><span class="n">material</span><span class="p">,</span>
+<a id="__codelineno-5-14" name="__codelineno-5-14" href="#__codelineno-5-14"></a>    <span class="n">duration</span><span class="o">=</span><span class="mf">5.0</span><span class="p">,</span>
+<a id="__codelineno-5-15" name="__codelineno-5-15" href="#__codelineno-5-15"></a>    <span class="n">steps</span><span class="o">=</span><span class="mi">50</span><span class="p">,</span>
+<a id="__codelineno-5-16" name="__codelineno-5-16" href="#__codelineno-5-16"></a>    <span class="n">amplitude</span><span class="o">=</span><span class="n">amplitudes</span><span class="o">.</span><span class="n">tabular</span><span class="p">(</span>
+<a id="__codelineno-5-17" name="__codelineno-5-17" href="#__codelineno-5-17"></a>        <span class="p">(</span><span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.5</span><span class="p">,</span> <span class="mf">5.0</span><span class="p">),</span>
+<a id="__codelineno-5-18" name="__codelineno-5-18" href="#__codelineno-5-18"></a>        <span class="p">(</span><span class="mf">0.0</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">),</span>
+<a id="__codelineno-5-19" name="__codelineno-5-19" href="#__codelineno-5-19"></a>    <span class="p">),</span>
+<a id="__codelineno-5-20" name="__codelineno-5-20" href="#__codelineno-5-20"></a><span class="p">)</span>
+<a id="__codelineno-5-21" name="__codelineno-5-21" href="#__codelineno-5-21"></a><span class="n">result</span> <span class="o">=</span> <span class="n">step</span><span class="o">.</span><span class="n">solve_result</span><span class="p">(</span><span class="n">output</span><span class="o">=</span><span class="s2">&quot;outputs/viscoelastic/fields.xdmf&quot;</span><span class="p">)</span>
+</code></pre></div>
+<p>Use <code>steps=...</code> for a uniform time grid. Loading events and widely separated
+relaxation times can instead be resolved explicitly without thousands of empty
+increments:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="n">step</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">step</span><span class="p">(</span>
+<a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a>    <span class="n">target</span><span class="o">=</span><span class="n">u</span><span class="p">,</span>
+<a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a>    <span class="n">material</span><span class="o">=</span><span class="n">material</span><span class="p">,</span>
+<a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a>    <span class="n">duration</span><span class="o">=</span><span class="mf">50.0</span><span class="p">,</span>
+<a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a>    <span class="n">time_points</span><span class="o">=</span><span class="p">(</span><span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.001</span><span class="p">,</span> <span class="mf">0.01</span><span class="p">,</span> <span class="mf">0.1</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">,</span> <span class="mf">10.0</span><span class="p">,</span> <span class="mf">50.0</span><span class="p">),</span>
+<a id="__codelineno-6-6" name="__codelineno-6-6" href="#__codelineno-6-6"></a>    <span class="n">amplitude</span><span class="o">=</span><span class="n">load_then_hold</span><span class="p">,</span>
+<a id="__codelineno-6-7" name="__codelineno-6-7" href="#__codelineno-6-7"></a><span class="p">)</span>
+</code></pre></div>
+<p>This first global provider solves small-strain quasi-static equilibrium on a
+declared uniform or nonuniform physical-time grid. Each accepted increment commits the exact
+generalized-Maxwell quadrature state. Results expose <code>S</code>, <code>E</code>, <code>SENER</code>,
+<code>VDENER</code>, <code>MISES</code>, their cell-recovered visualization fields, <code>RF</code>, and the
+work--stored-energy--dissipation ledger. A WLF or Arrhenius material consumes
+an explicitly supplied temperature scalar or field. Serial checkpoints reject
+a changed material, amplitude, temperature, time grid, quadrature identity or
+solution layout before restart.</p>
+<p>This is a bounded global FEM foundation, not a claim of nonlinear finite-strain
+viscoelasticity, physical aging, direct harmonic assembly or distributed
+portable restart.
+The independent three-dimensional
+<a href="https://docs.software.vt.edu/abaqusv2025/English/SIMACAEBMKRefMap/simabmk-c-viscorod.htm">Abaqus viscoelastic-rod benchmark</a>
+checks prescribed traction, near-incompressible lateral contraction and the
+published 0.001 s and 50 s creep response.
 WLF and Arrhenius shifts reject singular, non-finite, or non-positive shift
 factors instead of allowing an invalid temperature range into a state update.</p>
 <p>For reviewed relaxation data and user-declared relaxation times,

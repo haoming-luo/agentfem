@@ -858,6 +858,12 @@ and evidence remain in the linked guides and scientific function reference.
 | class | `J2LoadPathInfo` | Public AgentFEM object. |
 | class | `J2PlasticityStep` | Incremental global equilibrium for 3D small-strain J2 plasticity. |
 | function | `j2_plasticity_step(*, displacement, material, external_force, constraints = (), study = None, incrementation = None, solver_options = None, quadrature_degree: int = 2, progress = True, status_file = None, amplitude = None, name: str = 'j2_plasticity', _experimental_distributed: bool = False) -> J2PlasticityStep` | Build a global 3D or axisymmetric J2 step. |
+| class | `QuasistaticViscoelasticStep` | Incremental equilibrium for a small-strain generalized-Maxwell solid. |
+| class | `ViscoelasticEnergyFrame` | Exact constitutive work--storage--dissipation ledger. |
+| class | `ViscoelasticIncrementInfo` | Accepted equilibrium evidence for one physical-time increment. |
+| class | `ViscoelasticPathInfo` | Resolved fixed physical-time path. |
+| class | `ViscoelasticQuadratureState` | Typed committed/trial Maxwell state and current response fields. |
+| function | `quasistatic_viscoelastic_step(*, displacement, material, duration: float, steps: int \| None = None, time_points = None, external_force = None, constraints = (), study = None, solver_options = None, quadrature_degree: int = 2, amplitude = None, temperature = None, time_unit: str \| None = None, progress = True, status_file = None, name: str = 'viscoelastic') -> QuasistaticViscoelasticStep` | Build a 3D quasi-static generalized-Maxwell Step. |
 
 ## `agentfem.operators`
 

@@ -1040,6 +1040,50 @@ def _lower_implicit_creep(model, request: StepRequest):
     )
 
 
+def _accept_quasistatic_viscoelasticity(model, request: StepRequest) -> bool:
+    from .constitutive.viscoelasticity import IsotropicGeneralizedMaxwell
+
+    study = getattr(model, "study", None)
+    method = _procedure_method(model, request)
+    return (
+        getattr(study, "physics", None) == "solid_mechanics"
+        and getattr(study, "analysis", None) == "first_order_transient"
+        and getattr(study, "dimension", None) == 3
+        and _is_vector_target(request.target)
+        and _normalize(method or "exact_generalized_maxwell_equilibrium")
+        in {
+            "quasistatic_viscoelasticity",
+            "generalized_maxwell",
+            "exact_generalized_maxwell_equilibrium",
+        }
+        and _all_materials_support(
+            model,
+            request,
+            lambda item: isinstance(item, IsotropicGeneralizedMaxwell),
+        )
+    )
+
+
+def _lower_quasistatic_viscoelasticity(model, request: StepRequest):
+    from . import _step_builders
+
+    options = dict(request.options)
+    material = request.material
+    options.pop("material", None)
+    options.pop("K", None)
+    options.pop("F", None)
+    options.pop("method", None)
+    options.pop("output", None)
+    name = options.pop("name", None) or "viscoelastic"
+    return _step_builders.viscoelastic(
+        model,
+        target=request.target,
+        material=material,
+        name=name,
+        **options,
+    )
+
+
 def _lower_neo_hookean(model, request: StepRequest):
     from . import _step_builders
 
@@ -1416,6 +1460,32 @@ register_step_provider(
             "incrementation",
             "quadrature_degree",
             "creep_strain_error_tolerance",
+            "progress",
+            "status_file",
+            "amplitude",
+            "temperature",
+            required=("duration",),
+        ),
+    )
+)
+register_step_provider(
+    StepProvider(
+        name="quasistatic_generalized_maxwell",
+        analyses=("first_order_transient",),
+        accepts=_accept_quasistatic_viscoelasticity,
+        lower=_lower_quasistatic_viscoelasticity,
+        priority=120,
+        description=(
+            "Lower an isotropic generalized-Maxwell solid to exact quadrature "
+            "history and incremental global equilibrium."
+        ),
+        procedure="standard/exact_generalized_maxwell/stateful",
+        option_contract=_option_contract(
+            "duration",
+            "steps",
+            "time_points",
+            "method",
+            "quadrature_degree",
             "progress",
             "status_file",
             "amplitude",

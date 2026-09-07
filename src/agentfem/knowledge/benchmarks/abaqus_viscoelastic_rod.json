@@ -1,0 +1,72 @@
+{
+  "schema": "agentfem.benchmark-card",
+  "schema_version": "0.1.0",
+  "id": "agentfem.benchmark.abaqus_viscoelastic_rod",
+  "title": "Viscoelastic rod under suddenly applied constant axial traction",
+  "status": "automated_external_structural_verification",
+  "purpose": "Verify the three-dimensional global generalized-Maxwell procedure against the public Abaqus/Standard viscoelastic rod benchmark and its analytical creep-compliance solution.",
+  "physics": "Three-dimensional small-strain isotropic linear viscoelastic creep under prescribed traction",
+  "reference": {
+    "title": "Abaqus Benchmarks Guide: Viscoelastic rod subjected to constant axial load",
+    "url": "https://docs.software.vt.edu/abaqusv2025/English/SIMACAEBMKRefMap/simabmk-c-viscorod.htm",
+    "underlying_reference": "Collingwood, Becker and Miller (1985); analytical inversion follows Pipkin (1972).",
+    "published_values": {
+      "axial_strain_at_0.001_seconds": 0.010005,
+      "axial_strain_at_50_seconds": 0.099291,
+      "effective_poisson_ratio_at_0.001_seconds": 0.4833,
+      "effective_poisson_ratio_at_50_seconds": 0.4983
+    },
+    "analytical_axial_strain": "epsilon(t) = 0.1 * (1 - 0.9 * exp(-t / 10))"
+  },
+  "execution": {
+    "command": "python -m pytest -q tests/test_viscoelasticity.py::test_global_generalized_maxwell_matches_public_abaqus_viscoelastic_rod",
+    "example": "examples/viscoelastic_relaxation_3d.py",
+    "evidence": "A 254 mm three-dimensional brick rod uses the published shear Prony conversion, constant bulk modulus, symmetry constraints and 0.689 MPa end traction. A declared nonuniform physical-time grid resolves the 0.001 s loading ramp and the 50 s creep hold."
+  },
+  "observables": [
+    "Volume-averaged axial strain after the 0.001 s loading ramp.",
+    "Volume-averaged axial strain after the 50 s constant-traction hold.",
+    "Effective Poisson ratio from volume-averaged lateral and axial strain.",
+    "Difference from the published continuous creep-compliance curve."
+  ],
+  "acceptance": [
+    "The 0.001 s and 50 s axial strains must match the published Abaqus values within their explicit Golden tolerances.",
+    "The 50 s effective Poisson ratio must match the published Abaqus value.",
+    "The 50 s strain must also remain within 0.2% of the continuous analytical creep-compliance curve.",
+    "The public model.step API must accept and identify the nonuniform physical-time grid."
+  ],
+  "golden": {
+    "reference_version": "abaqus-2025-viscorod-small-strain",
+    "quantities": [
+      {
+        "name": "axial_strain_at_0.001_seconds",
+        "expected": 0.010005,
+        "relative_tolerance": 0.005,
+        "absolute_tolerance": 1e-7,
+        "unit": "dimensionless",
+        "description": "Published Abaqus result after the 0.001 s near-instantaneous loading step."
+      },
+      {
+        "name": "axial_strain_at_50_seconds",
+        "expected": 0.099291,
+        "relative_tolerance": 0.0005,
+        "absolute_tolerance": 1e-7,
+        "unit": "dimensionless",
+        "description": "Published Abaqus result after the 50 s constant-traction creep hold."
+      },
+      {
+        "name": "effective_poisson_ratio_at_50_seconds",
+        "expected": 0.4983,
+        "relative_tolerance": 0.0005,
+        "absolute_tolerance": 1e-6,
+        "unit": "dimensionless",
+        "description": "Published long-time effective Poisson ratio extracted from lateral and axial strain."
+      }
+    ]
+  },
+  "limitations": [
+    "This verifies small-strain quasi-static viscoelasticity, not the separate large-strain Abaqus variant.",
+    "The AgentFEM model uses a compact three-dimensional hexahedral realization instead of the reference axisymmetric hybrid element.",
+    "Automatic error-controlled time stepping and distributed portable restart remain separate advancement gates."
+  ]
+}

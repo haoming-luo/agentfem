@@ -131,10 +131,65 @@ The result includes accepted stress and branch-overstress histories, the exact
 algorithmic modulus, recoverable energy, independently integrated mechanical
 work, nonnegative viscous dissipation, and their balance error. A restarted
 history begins from the copied accepted `MaxwellState`; an incompatible first
-strain or branch layout fails before advancement. This remains a material-point
-procedure. A global tensor-valued FEM transient provider consuming these
-internal variables is a separate promotion gate and is not implied by the
-public material name.
+strain or branch layout fails before advancement.
+
+The scalar object above remains a material-point procedure. For a global 3D
+solid, use the isotropic tensor material through the same public workflow:
+
+```python
+material = model.material(
+    constitutive.IsotropicGeneralizedMaxwell.from_prony(
+        instantaneous_young_modulus=1.0e6,
+        instantaneous_poisson_ratio=0.30,
+        shear_relaxation_ratios=(0.25, 0.15),
+        bulk_relaxation_ratios=(0.25, 0.15),
+        relaxation_times=(0.2, 2.0),
+    )
+)
+
+step = model.step(
+    target=u,
+    material=material,
+    duration=5.0,
+    steps=50,
+    amplitude=amplitudes.tabular(
+        (0.0, 0.5, 5.0),
+        (0.0, 1.0, 1.0),
+    ),
+)
+result = step.solve_result(output="outputs/viscoelastic/fields.xdmf")
+```
+
+Use `steps=...` for a uniform time grid. Loading events and widely separated
+relaxation times can instead be resolved explicitly without thousands of empty
+increments:
+
+```python
+step = model.step(
+    target=u,
+    material=material,
+    duration=50.0,
+    time_points=(0.0, 0.001, 0.01, 0.1, 1.0, 10.0, 50.0),
+    amplitude=load_then_hold,
+)
+```
+
+This first global provider solves small-strain quasi-static equilibrium on a
+declared uniform or nonuniform physical-time grid. Each accepted increment commits the exact
+generalized-Maxwell quadrature state. Results expose `S`, `E`, `SENER`,
+`VDENER`, `MISES`, their cell-recovered visualization fields, `RF`, and the
+work--stored-energy--dissipation ledger. A WLF or Arrhenius material consumes
+an explicitly supplied temperature scalar or field. Serial checkpoints reject
+a changed material, amplitude, temperature, time grid, quadrature identity or
+solution layout before restart.
+
+This is a bounded global FEM foundation, not a claim of nonlinear finite-strain
+viscoelasticity, physical aging, direct harmonic assembly or distributed
+portable restart.
+The independent three-dimensional
+[Abaqus viscoelastic-rod benchmark](https://docs.software.vt.edu/abaqusv2025/English/SIMACAEBMKRefMap/simabmk-c-viscorod.htm)
+checks prescribed traction, near-incompressible lateral contraction and the
+published 0.001 s and 50 s creep response.
 WLF and Arrhenius shifts reject singular, non-finite, or non-positive shift
 factors instead of allowing an invalid temperature range into a state update.
 

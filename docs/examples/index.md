@@ -17,6 +17,7 @@ problem-specific qualification.
 | [Transient heat transfer](#transient-heat-transfer) | Heat equation, backward Euler | Release |
 | [Abaqus periodic hyperelastic cell](#abaqus-periodic-hyperelastic-cell) | Imported 3D quadratic mesh, equations, finite strain | Engineering |
 | [Implicit creep relaxation](#implicit-creep-relaxation) | 3D power-law creep, global/local Newton and cutback | Engineering |
+| [Viscoelastic relaxation](#viscoelastic-relaxation) | 3D generalized-Maxwell equilibrium, exact state and restart | Engineering |
 | [Elasticity surrogate campaign](#elasticity-surrogate-campaign) | Repeated FEM, accepted dataset, surrogate and fallback | Release |
 | [Science supershear data protocol](#science-supershear-data-protocol) | Public-data identity, XLSX inspection, research handoff | Experimental |
 
@@ -138,6 +139,27 @@ python examples/implicit_creep_relaxation_3d.py
 [Source code](https://github.com/haoming-luo/agentfem/blob/main/examples/implicit_creep_relaxation_3d.py)
 · [Creep and inelasticity](../guide/creep_and_inelasticity.md)
 · [Constitutive equations](../reference/theory_and_conventions.md#j2-plasticity-and-creep-state)
+
+## Viscoelastic relaxation
+
+<span class="af-status af-status--engineering">Engineering</span>
+
+A three-dimensional generalized-Maxwell solid is ramped to a prescribed
+strain and then held. The global Step combines exact Prony-branch updates,
+committed quadrature state, incremental equilibrium, standard stress/strain/
+energy fields, nonnegative viscous dissipation, temperature-shift support and
+restart. Its automated homogeneous patch matches the closed-form stress after
+both the ramp and hold. A separate three-dimensional traction-controlled rod
+test matches the published Abaqus 0.001 s and 50 s creep response.
+
+```bash
+python examples/viscoelastic_relaxation_3d.py
+```
+
+[Source code](https://github.com/haoming-luo/agentfem/blob/main/examples/viscoelastic_relaxation_3d.py)
+· [Dynamics and viscoelasticity](../guide/dynamics.md#linear-viscoelastic-spectra)
+· [Golden benchmark record](https://github.com/haoming-luo/agentfem/blob/main/src/agentfem/knowledge/benchmarks/global_viscoelastic_relaxation.json)
+· [External rod benchmark](https://github.com/haoming-luo/agentfem/blob/main/src/agentfem/knowledge/benchmarks/abaqus_viscoelastic_rod.json)
 
 ## Hot-wall creep assessment
 
