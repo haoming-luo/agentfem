@@ -776,6 +776,8 @@ def viscoelastic(
     duration: float,
     steps: int | None = None,
     time_points=None,
+    incrementation=None,
+    time_error_tolerance: float | None = None,
     material=None,
     constraints=None,
     solver_options=None,
@@ -819,6 +821,8 @@ def viscoelastic(
         duration=duration,
         steps=steps,
         time_points=time_points,
+        incrementation=incrementation,
+        time_error_tolerance=time_error_tolerance,
         external_force=(
             model.external_force(target, loads=selected_loads)
             if selected_loads

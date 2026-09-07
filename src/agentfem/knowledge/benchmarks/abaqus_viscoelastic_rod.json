@@ -67,6 +67,6 @@
   "limitations": [
     "This verifies small-strain quasi-static viscoelasticity, not the separate large-strain Abaqus variant.",
     "The AgentFEM model uses a compact three-dimensional hexahedral realization instead of the reference axisymmetric hybrid element.",
-    "Automatic error-controlled time stepping and distributed portable restart remain separate advancement gates."
+    "Distributed portable restart remains a separate advancement gate; this external benchmark retains the published nonuniform time grid rather than replacing it with adaptive control."
   ]
 }

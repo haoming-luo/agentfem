@@ -20,8 +20,14 @@ experimental formulation to a validated one.
   a transparent fixed-spectrum fit. A restartable material-history procedure
   now returns accepted stress/internal-state histories and an independently
   integrated work--stored-energy--dissipation ledger through `SimulationResult`.
-  Global tensor-valued viscoelastic FEM assembly remains a separate, explicitly
-  documented promotion gate.
+- Add a three-dimensional quasi-static generalized-Maxwell finite-element Step
+  with committed quadrature state, regional materials, temperature shift,
+  standard fields and work--storage--dissipation evidence. Prescribed uniform
+  and nonuniform clocks are joined by error-controlled physical-time
+  incrementation: one full step is checked against two half steps, rejected
+  attempts roll back nodal and quadrature state atomically, and serial restart
+  preserves the accepted path and next proposal. The adaptive decision is
+  collective under MPI; restart across a changed MPI partition remains gated.
 - Advance the moving development branch to `0.3.2.dev0`, add a development
   release contract, and fail packaging tests when commits beyond a published
   tag continue to report that tag's stable version.

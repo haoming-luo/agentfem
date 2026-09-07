@@ -151,7 +151,12 @@ step = model.step(
     target=u,
     material=material,
     duration=5.0,
-    steps=50,
+    incrementation=steps.automatic(
+        initial=0.1,
+        minimum=1.0e-4,
+        maximum=0.25,
+    ),
+    time_error_tolerance=1.0e-3,
     amplitude=amplitudes.tabular(
         (0.0, 0.5, 5.0),
         (0.0, 1.0, 1.0),
@@ -160,9 +165,16 @@ step = model.step(
 result = step.solve_result(output="outputs/viscoelastic/fields.xdmf")
 ```
 
-Use `steps=...` for a uniform time grid. Loading events and widely separated
-relaxation times can instead be resolved explicitly without thousands of empty
-increments:
+This route compares each proposed full time increment with two half increments.
+The larger of the relative endpoint displacement and stress differences is the
+recorded `time_error_estimate`. An excessive estimate or failed equilibrium
+causes one atomic rollback of displacement and every Maxwell state variable,
+followed by the declared cutback. Only the two-half-step solution is committed;
+accepted and rejected attempts remain in the result evidence.
+
+Use `steps=...` for a prescribed uniform time grid. Loading events and widely
+separated relaxation times can instead be resolved explicitly without thousands
+of empty increments:
 
 ```python
 step = model.step(
@@ -174,9 +186,16 @@ step = model.step(
 )
 ```
 
+Adaptive `incrementation=steps.automatic(...)` is mutually exclusive with a
+prescribed `steps`/`time_points` path. The prescribed routes are useful when
+output must land on an experiment clock; the automatic route resolves the path
+from a tolerance and records its decisions. A serial checkpoint preserves the
+accepted adaptive path and next proposed increment so a resumed run does not
+silently choose a different continuation.
+
 This first global provider solves small-strain quasi-static equilibrium on a
-declared uniform or nonuniform physical-time grid. Each accepted increment commits the exact
-generalized-Maxwell quadrature state. Results expose `S`, `E`, `SENER`,
+prescribed or automatically resolved physical-time path. Each accepted increment
+commits the exact generalized-Maxwell quadrature state. Results expose `S`, `E`, `SENER`,
 `VDENER`, `MISES`, their cell-recovered visualization fields, `RF`, and the
 work--stored-energy--dissipation ledger. A WLF or Arrhenius material consumes
 an explicitly supplied temperature scalar or field. Serial checkpoints reject

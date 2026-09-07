@@ -428,7 +428,12 @@ spectral asset. For global solid equilibrium, register
 `studies.viscoelastic_solid(dimension=3)`, and call
 `model.step(target=u, duration=..., steps=..., amplitude=...)`. Use
 `time_points=(0.0, ..., duration)` instead of `steps` when known loading events
-or separated relaxation scales require a nonuniform grid. The Step owns
-committed quadrature history, exact branch updates, standard viscoelastic
-fields, energy evidence and serial restart. Do not reinterpret it as finite
-strain, physical aging, harmonic response or distributed portable restart.
+or separated relaxation scales require a nonuniform grid. For an automatically
+resolved path, pass `incrementation=steps.automatic(...)` and optionally
+`time_error_tolerance=...`; do not combine these controls. The error-controlled
+route accepts the two-half-step endpoint, rolls back all nodal and quadrature
+state after a rejected attempt, and records accepted/rejected increments. The
+Step owns committed quadrature history, exact branch updates, standard
+viscoelastic fields, energy evidence and serial restart. Do not reinterpret it
+as finite strain, physical aging, harmonic response or distributed portable
+restart.

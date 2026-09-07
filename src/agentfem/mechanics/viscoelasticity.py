@@ -7,7 +7,7 @@ rollback, progress, result fields, and constitutive energy evidence.
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from hashlib import sha256
 from pathlib import Path
 import json
@@ -21,6 +21,7 @@ from petsc4py import PETSc
 
 from .. import amplitudes
 from .. import procedures
+from .. import steps as step_controls
 from ..constitutive import elasticity
 from ..constitutive.quadrature import (
     MaterialQuadratureState,
@@ -48,6 +49,9 @@ class ViscoelasticIncrementInfo:
     iterations: int
     initial_residual_norm: float
     residual_norm: float
+    attempt: int = 1
+    time_error_estimate: float | None = None
+    rejection_reason: str | None = None
 
     def as_dict(self) -> dict[str, object]:
         return {
@@ -59,6 +63,9 @@ class ViscoelasticIncrementInfo:
             "iterations": self.iterations,
             "initial_residual_norm": self.initial_residual_norm,
             "residual_norm": self.residual_norm,
+            "attempt": self.attempt,
+            "time_error_estimate": self.time_error_estimate,
+            "rejection_reason": self.rejection_reason,
         }
 
     @classmethod
@@ -71,6 +78,13 @@ class ViscoelasticIncrementInfo:
             iterations=int(record["iterations"]),
             initial_residual_norm=float(record["initial_residual_norm"]),
             residual_norm=float(record["residual_norm"]),
+            attempt=int(record.get("attempt", 1)),
+            time_error_estimate=(
+                None
+                if record.get("time_error_estimate") is None
+                else float(record["time_error_estimate"])
+            ),
+            rejection_reason=record.get("rejection_reason"),
         )
 
 
@@ -80,7 +94,9 @@ class ViscoelasticPathInfo:
 
     increments: tuple[ViscoelasticIncrementInfo, ...]
     duration: float
-    steps: int
+    steps: int | None
+    attempts: tuple[ViscoelasticIncrementInfo, ...] = ()
+    incrementation: object | None = None
 
     @property
     def converged(self) -> bool:
@@ -102,7 +118,15 @@ class ViscoelasticPathInfo:
             "completed_step": self.completed_step,
             "duration": self.duration,
             "steps": self.steps,
+            "accepted_increments": len(self.increments),
+            "attempted_increments": len(self.attempts),
+            "incrementation": (
+                None
+                if self.incrementation is None
+                else self.incrementation.summary()
+            ),
             "increments": [item.as_dict() for item in self.increments],
+            "attempts": [item.as_dict() for item in self.attempts],
         }
 
 
@@ -347,6 +371,8 @@ class QuasistaticViscoelasticStep:
     steps: int | None
     solver_options: NewtonSolverOptions
     time_points: tuple[float, ...] | None = None
+    incrementation: object | None = None
+    time_error_tolerance: float | None = None
     temperature: object | None = None
     time_unit: str | None = None
     study: object | None = None
@@ -358,17 +384,36 @@ class QuasistaticViscoelasticStep:
     accepted_increments: list[ViscoelasticIncrementInfo] = field(
         default_factory=list, init=False
     )
+    attempted_increments: list[ViscoelasticIncrementInfo] = field(
+        default_factory=list, init=False
+    )
     execution_events: list[object] = field(default_factory=list, init=False)
     energy_history: list[ViscoelasticEnergyFrame] = field(default_factory=list, init=False)
     checkpoints: list[object] = field(default_factory=list, init=False)
     last_solve_info: ViscoelasticPathInfo | None = field(default=None, init=False)
+    next_increment_size: float | None = field(default=None, init=False)
     _strain_evaluator: object = field(init=False, repr=False)
 
     def __post_init__(self) -> None:
         self.duration = float(self.duration)
         if not np.isfinite(self.duration) or self.duration <= 0.0:
             raise ValueError("Viscoelastic duration must be finite and positive.")
-        if self.time_points is None:
+        automatic = isinstance(
+            self.incrementation, step_controls.AutomaticIncrementation
+        )
+        if self.incrementation is not None and not automatic:
+            raise TypeError(
+                "Viscoelastic incrementation currently accepts steps.automatic(...); "
+                "use steps= or time_points= for a prescribed path."
+            )
+        if automatic and (self.steps is not None or self.time_points is not None):
+            raise ValueError(
+                "Specify adaptive incrementation or a prescribed steps/time_points "
+                "path, not both."
+            )
+        if automatic:
+            grid = None
+        elif self.time_points is None:
             if self.steps is None or int(self.steps) <= 0:
                 raise ValueError(
                     "Viscoelastic steps must be positive when time_points is omitted."
@@ -395,7 +440,20 @@ class QuasistaticViscoelasticStep:
                     "steps must equal len(time_points) - 1 when both are supplied."
                 )
             self.steps = declared_steps
-        self.time_points = tuple(float(value) for value in grid)
+        self.time_points = (
+            None if grid is None else tuple(float(value) for value in grid)
+        )
+        if self.time_error_tolerance is not None:
+            self.time_error_tolerance = float(self.time_error_tolerance)
+            if (
+                not np.isfinite(self.time_error_tolerance)
+                or self.time_error_tolerance <= 0.0
+            ):
+                raise ValueError("time_error_tolerance must be finite and positive.")
+            if not automatic:
+                raise ValueError(
+                    "time_error_tolerance requires adaptive incrementation."
+                )
         if not np.isclose(self.amplitude(0.0), 0.0):
             raise ValueError(
                 "The first global viscoelastic provider requires a load amplitude "
@@ -421,20 +479,27 @@ class QuasistaticViscoelasticStep:
 
     @property
     def time_increment(self) -> float | None:
+        if self.time_points is None:
+            return None
         increments = np.diff(self.time_points)
         if np.allclose(increments, increments[0], rtol=1.0e-12, atol=0.0):
             return float(increments[0])
         return None
 
     def solve(self, *, until: float | None = None):
-        """Advance on the declared physical-time grid."""
+        """Advance on the declared or automatically resolved physical-time path."""
+
+        if isinstance(self.incrementation, step_controls.AutomaticIncrementation):
+            return self._solve_adaptive(until=until)
 
         selected_until = self.duration if until is None else float(until)
         grid = np.asarray(self.time_points, dtype=float)
         candidates = np.flatnonzero(grid > self.accepted_time + 1.0e-12)
-        target_indices = [index for index in candidates if grid[index] <= selected_until + 1e-12]
+        target_indices = [
+            index for index in candidates if grid[index] <= selected_until + 1e-12
+        ]
         if not target_indices or not np.isclose(grid[target_indices[-1]], selected_until):
-            raise ValueError("until must be an undeclared future point on the fixed time grid.")
+            raise ValueError("until must be a future point on the fixed time grid.")
 
         reporter = self._reporter()
         self._emit(
@@ -469,18 +534,18 @@ class QuasistaticViscoelasticStep:
             self._apply_loading(end_time)
             info = self._solve_increment(
                 increment=increment,
+                attempt=1,
                 start_time=start_time,
                 end_time=end_time,
                 reporter=reporter,
             )
+            self.attempted_increments.append(info)
             if not info.converged:
                 self.solution.x.array[:] = displacement_snapshot
                 self.solution.x.scatter_forward()
                 self.state.restore(state_snapshot)
                 self._apply_loading(start_time)
-                self.last_solve_info = ViscoelasticPathInfo(
-                    tuple((*self.accepted_increments, info)), self.duration, self.steps
-                )
+                self.last_solve_info = self._path_info()
                 message = (
                     f"{self.name}: equilibrium failed at t={end_time:g}; "
                     f"residual={info.residual_norm:.6g}."
@@ -521,9 +586,7 @@ class QuasistaticViscoelasticStep:
                     time=end_time,
                 ),
             )
-        self.last_solve_info = ViscoelasticPathInfo(
-            tuple(self.accepted_increments), self.duration, self.steps
-        )
+        self.last_solve_info = self._path_info()
         self._emit(
             reporter,
             SolveEvent(
@@ -536,7 +599,319 @@ class QuasistaticViscoelasticStep:
         )
         return self.solution
 
-    def _solve_increment(self, *, increment, start_time, end_time, reporter):
+    def _solve_adaptive(self, *, until: float | None = None):
+        """Advance with atomic cutback and optional step-doubling control."""
+
+        selected_until = self.duration if until is None else float(until)
+        if not self.accepted_time < selected_until <= self.duration:
+            raise ValueError(
+                "until must be greater than accepted_time and no larger than duration."
+            )
+        control = self.incrementation
+        reporter = self._reporter()
+        proposed_size = (
+            control.initial
+            if self.next_increment_size is None
+            else self.next_increment_size
+        )
+        consecutive_cutbacks = 0
+        self._emit(
+            reporter,
+            SolveEvent(
+                "step_started",
+                self.name,
+                step_number=self.step_number,
+                incrementation=(
+                    "exact generalized-Maxwell / automatic physical time"
+                ),
+                time=self.accepted_time,
+            ),
+        )
+        while self.accepted_time < selected_until - self._time_tolerance():
+            if len(self.accepted_increments) >= control.max_increments:
+                raise RuntimeError(
+                    "Viscoelastic analysis reached max_increments before the step end."
+                )
+            start_time = self.accepted_time
+            start_factor = start_time / self.duration
+            target_factor = min(
+                selected_until / self.duration,
+                start_factor + proposed_size,
+            )
+            end_time = target_factor * self.duration
+            increment = len(self.accepted_increments) + 1
+            attempt = consecutive_cutbacks + 1
+            self._emit(
+                reporter,
+                SolveEvent(
+                    "increment_started",
+                    self.name,
+                    step_number=self.step_number,
+                    increment=increment,
+                    attempt=attempt,
+                    start_factor=start_factor,
+                    target_factor=target_factor,
+                    time=end_time,
+                ),
+            )
+            info, work_increment = self._attempt_adaptive_increment(
+                increment=increment,
+                attempt=attempt,
+                start_time=start_time,
+                end_time=end_time,
+            )
+            self.attempted_increments.append(info)
+            if info.converged:
+                self.state.commit()
+                self.accepted_time = end_time
+                self.accepted_increments.append(info)
+                self._record_energy(end_time, work_increment=work_increment)
+                accepted_size = target_factor - start_factor
+                proposed_size = control.after_convergence(
+                    accepted_size,
+                    info.iterations,
+                )
+                if (
+                    self.time_error_tolerance is not None
+                    and info.time_error_estimate is not None
+                    and info.time_error_estimate
+                    < 0.125 * self.time_error_tolerance
+                    and info.iterations < control.slow_iterations
+                ):
+                    proposed_size = min(
+                        control.maximum,
+                        max(proposed_size, accepted_size * control.growth_factor),
+                    )
+                self.next_increment_size = proposed_size
+                consecutive_cutbacks = 0
+                self._emit(
+                    reporter,
+                    SolveEvent(
+                        "increment_converged",
+                        self.name,
+                        step_number=self.step_number,
+                        increment=increment,
+                        attempt=attempt,
+                        start_factor=start_factor,
+                        target_factor=target_factor,
+                        iteration=info.iterations,
+                        residual_norm=info.residual_norm,
+                        time=end_time,
+                        message=(
+                            None
+                            if info.time_error_estimate is None
+                            else f"time_error={info.time_error_estimate:.6g}"
+                        ),
+                    ),
+                )
+                continue
+
+            consecutive_cutbacks += 1
+            proposed_size = control.after_failure(target_factor - start_factor)
+            self.next_increment_size = proposed_size
+            if (
+                consecutive_cutbacks > control.max_cutbacks
+                or proposed_size < control.minimum
+            ):
+                self.last_solve_info = self._path_info()
+                reason = info.rejection_reason or "global equilibrium did not converge"
+                message = (
+                    f"{self.name}: automatic time incrementation failed near "
+                    f"t={end_time:g}: {reason}."
+                )
+                self._emit(
+                    reporter,
+                    SolveEvent(
+                        "step_failed",
+                        self.name,
+                        step_number=self.step_number,
+                        increment=increment,
+                        attempt=attempt,
+                        start_factor=start_factor,
+                        target_factor=target_factor,
+                        residual_norm=info.residual_norm,
+                        message=message,
+                        time=end_time,
+                    ),
+                )
+                if self.solver_options.error_if_not_converged:
+                    raise RuntimeError(message)
+                return self.solution
+            self._emit(
+                reporter,
+                SolveEvent(
+                    "increment_cutback",
+                    self.name,
+                    step_number=self.step_number,
+                    increment=increment,
+                    attempt=attempt,
+                    start_factor=start_factor,
+                    target_factor=target_factor,
+                    iteration=info.iterations,
+                    residual_norm=info.residual_norm,
+                    next_increment=proposed_size,
+                    message=info.rejection_reason,
+                    time=end_time,
+                ),
+            )
+
+        self.last_solve_info = self._path_info()
+        self._emit(
+            reporter,
+            SolveEvent(
+                "step_completed"
+                if self.accepted_time >= self.duration - self._time_tolerance()
+                else "step_paused",
+                self.name,
+                step_number=self.step_number,
+                increment=len(self.accepted_increments),
+                attempt=len(self.attempted_increments),
+                time=self.accepted_time,
+            ),
+        )
+        return self.solution
+
+    def _attempt_adaptive_increment(
+        self, *, increment: int, attempt: int, start_time: float, end_time: float
+    ) -> tuple[ViscoelasticIncrementInfo, float]:
+        """Try one interval and leave only an accepted fine trial in memory."""
+
+        displacement_start = self.solution.x.array.copy()
+        state_start = self.state.snapshot()
+        self._apply_loading(end_time)
+        coarse = self._solve_increment(
+            increment=increment,
+            attempt=attempt,
+            start_time=start_time,
+            end_time=end_time,
+            reporter=None,
+        )
+        if not coarse.converged or self.time_error_tolerance is None:
+            if not coarse.converged:
+                self._restore_attempt(displacement_start, state_start, start_time)
+                coarse = replace(
+                    coarse,
+                    rejection_reason="global equilibrium did not converge",
+                )
+                return coarse, 0.0
+            return coarse, self._integral(self.state.work_increment)
+
+        displacement_coarse = self.solution.x.array.copy()
+        stress_coarse = self.state.stress.values.copy()
+        self._restore_attempt(displacement_start, state_start, start_time)
+        midpoint = 0.5 * (start_time + end_time)
+        self._apply_loading(midpoint)
+        first = self._solve_increment(
+            increment=increment,
+            attempt=attempt,
+            start_time=start_time,
+            end_time=midpoint,
+            reporter=None,
+        )
+        if not first.converged:
+            self._restore_attempt(displacement_start, state_start, start_time)
+            return replace(
+                first,
+                start_time=start_time,
+                end_time=end_time,
+                rejection_reason="first error-control half-step did not converge",
+            ), 0.0
+        first_work = self._integral(self.state.work_increment)
+        self.state.commit()
+        self._apply_loading(end_time)
+        second = self._solve_increment(
+            increment=increment,
+            attempt=attempt,
+            start_time=midpoint,
+            end_time=end_time,
+            reporter=None,
+        )
+        if not second.converged:
+            self._restore_attempt(displacement_start, state_start, start_time)
+            return replace(
+                second,
+                start_time=start_time,
+                rejection_reason="second error-control half-step did not converge",
+            ), 0.0
+        second_work = self._integral(self.state.work_increment)
+        error = max(
+            self._relative_endpoint_error(
+                displacement_coarse,
+                self.solution.x.array,
+                owned_count=self._owned_solution_values(),
+            ),
+            self._relative_endpoint_error(
+                stress_coarse,
+                self.state.stress.values,
+                owned_count=self._owned_quadrature_points(),
+            ),
+        )
+        info = replace(
+            second,
+            start_time=start_time,
+            iterations=max(first.iterations, second.iterations),
+            initial_residual_norm=max(
+                first.initial_residual_norm,
+                second.initial_residual_norm,
+            ),
+            time_error_estimate=error,
+        )
+        if error > self.time_error_tolerance:
+            self._restore_attempt(displacement_start, state_start, start_time)
+            return replace(
+                info,
+                converged=False,
+                rejection_reason=(
+                    f"step-doubling estimate {error:.6g} exceeds "
+                    f"{self.time_error_tolerance:.6g}"
+                ),
+            ), 0.0
+        return info, first_work + second_work
+
+    def _restore_attempt(self, displacement, state, time: float) -> None:
+        self.solution.x.array[:] = displacement
+        self.solution.x.scatter_forward()
+        self.state.restore(state)
+        self._apply_loading(time)
+
+    def _owned_solution_values(self) -> int:
+        dofmap = self.solution.function_space.dofmap
+        return int(dofmap.index_map.size_local) * int(dofmap.index_map_bs)
+
+    def _owned_quadrature_points(self) -> int:
+        cell_map = self.state.domain.topology.index_map(self.state.domain.topology.dim)
+        return int(cell_map.size_local) * len(self.state.stress.points)
+
+    def _relative_endpoint_error(self, coarse, fine, *, owned_count: int) -> float:
+        coarse_values = np.asarray(coarse)[:owned_count].reshape(-1)
+        fine_values = np.asarray(fine)[:owned_count].reshape(-1)
+        delta = fine_values - coarse_values
+        local_difference = float(np.dot(delta, delta))
+        local_coarse = float(np.dot(coarse_values, coarse_values))
+        local_fine = float(np.dot(fine_values, fine_values))
+        difference = self.state.domain.comm.allreduce(local_difference, op=MPI.SUM)
+        scale = max(
+            self.state.domain.comm.allreduce(local_coarse, op=MPI.SUM),
+            self.state.domain.comm.allreduce(local_fine, op=MPI.SUM),
+            np.finfo(float).tiny,
+        )
+        return float(np.sqrt(difference / scale))
+
+    def _time_tolerance(self) -> float:
+        return 1.0e-12 * max(1.0, self.duration)
+
+    def _path_info(self) -> ViscoelasticPathInfo:
+        return ViscoelasticPathInfo(
+            tuple(self.accepted_increments),
+            self.duration,
+            self.steps,
+            attempts=tuple(self.attempted_increments),
+            incrementation=self.incrementation,
+        )
+
+    def _solve_increment(
+        self, *, increment, attempt, start_time, end_time, reporter
+    ):
         initial_norm = None
         norm = float("inf")
         converged = False
@@ -588,7 +963,7 @@ class QuasistaticViscoelasticStep:
                     self.name,
                     step_number=self.step_number,
                     increment=increment,
-                    attempt=1,
+                    attempt=attempt,
                     start_factor=start_time / self.duration,
                     target_factor=end_time / self.duration,
                     iteration=iteration + 1,
@@ -605,6 +980,7 @@ class QuasistaticViscoelasticStep:
             iterations=iteration,
             initial_residual_norm=float(initial_norm or 0.0),
             residual_norm=float(norm),
+            attempt=attempt,
         )
 
     def _correction_rhs(self):
@@ -683,10 +1059,16 @@ class QuasistaticViscoelasticStep:
         local = fem.assemble_scalar(fem.form(field_value.function * self.state.measure))
         return float(self.state.domain.comm.allreduce(local, op=MPI.SUM))
 
-    def _record_energy(self, time: float) -> None:
+    def _record_energy(
+        self, time: float, *, work_increment: float | None = None
+    ) -> None:
         stored = self._integral(self.state.stored_energy)
         dissipation = self._integral(self.state.dissipated_energy)
-        increment = self._integral(self.state.work_increment)
+        increment = (
+            self._integral(self.state.work_increment)
+            if work_increment is None
+            else float(work_increment)
+        )
         material_work = increment + (
             0.0 if not self.energy_history else self.energy_history[-1].material_work
         )
@@ -740,7 +1122,13 @@ class QuasistaticViscoelasticStep:
             stored_energy=self.state.stored_energy.values,
             work_increment=self.state.work_increment.values,
             increments=json.dumps([item.as_dict() for item in self.accepted_increments]),
+            attempts=json.dumps([item.as_dict() for item in self.attempted_increments]),
             energy=json.dumps([item.as_dict() for item in self.energy_history]),
+            next_increment_size=(
+                np.nan
+                if self.next_increment_size is None
+                else self.next_increment_size
+            ),
         )
         from ..results import CheckpointRecord
 
@@ -791,14 +1179,24 @@ class QuasistaticViscoelasticStep:
                 ViscoelasticIncrementInfo.from_dict(item)
                 for item in json.loads(str(data["increments"]))
             ]
+            self.attempted_increments[:] = [
+                ViscoelasticIncrementInfo.from_dict(item)
+                for item in json.loads(str(data["attempts"]))
+            ] if "attempts" in data else list(self.accepted_increments)
             self.energy_history[:] = [
                 ViscoelasticEnergyFrame(**item)
                 for item in json.loads(str(data["energy"]))
             ]
+            stored_next = (
+                float(data["next_increment_size"])
+                if "next_increment_size" in data
+                else np.nan
+            )
+            self.next_increment_size = (
+                None if np.isnan(stored_next) else stored_next
+            )
         self._apply_loading(self.accepted_time)
-        self.last_solve_info = ViscoelasticPathInfo(
-            tuple(self.accepted_increments), self.duration, self.steps
-        )
+        self.last_solve_info = self._path_info()
 
     def _checkpoint_identity(self) -> dict[str, object]:
         return {
@@ -807,6 +1205,12 @@ class QuasistaticViscoelasticStep:
             "duration": self.duration,
             "steps": self.steps,
             "time_points": self.time_points,
+            "incrementation": (
+                None
+                if self.incrementation is None
+                else self.incrementation.summary()
+            ),
+            "time_error_tolerance": self.time_error_tolerance,
             "amplitude": self.amplitude.summary(),
             "quadrature": self.state.summary()["transaction"],
             "temperature": self._temperature_summary(),
@@ -925,10 +1329,25 @@ class QuasistaticViscoelasticStep:
             )
         if self.accepted_increments:
             times = np.asarray([item.end_time for item in self.accepted_increments])
-            result.add_history(
-                "equilibrium_iterations",
+            increment_histories = {
+                "equilibrium_iterations": [
+                    item.iterations for item in self.accepted_increments
+                ],
+                "time_increment": [
+                    item.end_time - item.start_time
+                    for item in self.accepted_increments
+                ],
+            }
+            if all(
+                item.time_error_estimate is not None
+                for item in self.accepted_increments
+            ):
+                increment_histories["time_error_estimate"] = [
+                    item.time_error_estimate for item in self.accepted_increments
+                ]
+            result.add_histories(
                 times,
-                [item.iterations for item in self.accepted_increments],
+                increment_histories,
                 abscissa_name="time",
                 abscissa_unit=self.time_unit,
             )
@@ -979,16 +1398,17 @@ class QuasistaticViscoelasticStep:
             "duration": self.duration,
             "steps": self.steps,
             "time_increment": self.time_increment,
-            "time_grid": {
-                "kind": "uniform" if self.time_increment is not None else "nonuniform",
-                "points": len(self.time_points),
-                "minimum_increment": float(np.min(np.diff(self.time_points))),
-                "maximum_increment": float(np.max(np.diff(self.time_points))),
-                "sha256": sha256(
-                    np.asarray(self.time_points, dtype=np.float64).tobytes()
-                ).hexdigest(),
-            },
+            "time_grid": self._time_grid_summary(),
+            "incrementation": (
+                None
+                if self.incrementation is None
+                else self.incrementation.summary()
+            ),
+            "time_error_tolerance": self.time_error_tolerance,
             "accepted_time": self.accepted_time,
+            "accepted_increments": len(self.accepted_increments),
+            "attempted_increments": len(self.attempted_increments),
+            "next_increment_size": self.next_increment_size,
             "time_unit": self.time_unit,
             "amplitude": self.amplitude.summary(),
             "temperature": self._temperature_summary(),
@@ -996,6 +1416,26 @@ class QuasistaticViscoelasticStep:
             "last_solve": (
                 None if self.last_solve_info is None else self.last_solve_info.as_dict()
             ),
+        }
+
+    def _time_grid_summary(self) -> dict[str, object]:
+        if self.time_points is None:
+            return {
+                "kind": "automatic",
+                "points": None,
+                "minimum_increment": self.duration * self.incrementation.minimum,
+                "maximum_increment": self.duration * self.incrementation.maximum,
+                "sha256": None,
+            }
+        increments = np.diff(self.time_points)
+        return {
+            "kind": "uniform" if self.time_increment is not None else "nonuniform",
+            "points": len(self.time_points),
+            "minimum_increment": float(np.min(increments)),
+            "maximum_increment": float(np.max(increments)),
+            "sha256": sha256(
+                np.asarray(self.time_points, dtype=np.float64).tobytes()
+            ).hexdigest(),
         }
 
     def _reporter(self):
@@ -1022,6 +1462,8 @@ def quasistatic_viscoelastic_step(
     duration: float,
     steps: int | None = None,
     time_points=None,
+    incrementation=None,
+    time_error_tolerance: float | None = None,
     external_force=None,
     constraints=(),
     study=None,
@@ -1060,6 +1502,15 @@ def quasistatic_viscoelastic_step(
         else amplitudes.as_amplitude(
             amplitude, name="viscoelastic_load_amplitude"
         )
+    )
+    if incrementation is not None and (steps is not None or time_points is not None):
+        raise ValueError(
+            "Specify incrementation or a prescribed steps/time_points path, not both."
+        )
+    selected_incrementation = (
+        None
+        if incrementation is None
+        else step_controls.normalize(incrementation)
     )
     load_factor = fem.Constant(domain, PETSc.ScalarType(selected_amplitude(0.0)))
     state = ViscoelasticQuadratureState.create(
@@ -1116,6 +1567,8 @@ def quasistatic_viscoelastic_step(
         time_points=(
             None if time_points is None else tuple(float(value) for value in time_points)
         ),
+        incrementation=selected_incrementation,
+        time_error_tolerance=time_error_tolerance,
         solver_options=(
             newton(maximum_iterations=4, line_search="basic")
             if solver_options is None

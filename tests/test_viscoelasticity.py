@@ -17,6 +17,7 @@ from agentfem import (
     procedures,
     results,
     solvers,
+    steps,
     studies,
 )
 from agentfem.constitutive import (
@@ -402,7 +403,9 @@ def test_isotropic_tensor_maxwell_algorithmic_tangent_matches_fixed_state_differ
     np.testing.assert_allclose(analytical, numerical, rtol=2.0e-8, atol=2.0e-7)
 
 
-def _global_viscoelastic_relaxation_patch(*, shift=None, temperature=None):
+def _global_viscoelastic_relaxation_patch(
+    *, shift=None, temperature=None, step_options=None
+):
     domain = dolfinx_mesh.create_unit_cube(MPI.COMM_SELF, 1, 1, 1)
     model = models.create(
         study=studies.viscoelastic_solid(dimension=3),
@@ -449,19 +452,25 @@ def _global_viscoelastic_relaxation_patch(*, shift=None, temperature=None):
             on=mesh.face(domain, axis="x", value=1.0, name="right"),
         )
     )
-    step = model.step(
-        target=displacement,
-        material=material,
-        duration=2.0,
-        steps=2,
-        amplitude=amplitudes.tabular([0.0, 1.0, 2.0], [0.0, 1.0, 1.0]),
-        temperature=temperature,
-        solver_options=solvers.newton(
+    options = {
+        "steps": 2,
+        "amplitude": amplitudes.tabular(
+            [0.0, 1.0, 2.0], [0.0, 1.0, 1.0]
+        ),
+        "temperature": temperature,
+        "solver_options": solvers.newton(
             relative_tolerance=1.0e-10,
             absolute_tolerance=1.0e-11,
             maximum_iterations=4,
         ),
-        progress=False,
+        "progress": False,
+    }
+    options.update(step_options or {})
+    step = model.step(
+        target=displacement,
+        material=material,
+        duration=2.0,
+        **options,
     )
     return step
 
@@ -504,6 +513,105 @@ def test_global_generalized_maxwell_relaxation_matches_exact_solution():
     )
     assert simulation.histories["viscous_dissipation"].latest > 0.0
     assert abs(simulation.histories["constitutive_energy_residual"].latest) < 1.0e-12
+
+
+def test_global_generalized_maxwell_adaptive_time_control_rejects_and_recovers():
+    quadratic = amplitudes.Amplitude(
+        name="quadratic_loading",
+        value=lambda time: (time / 2.0) ** 2,
+        serializable=False,
+    )
+    adaptive = _global_viscoelastic_relaxation_patch(
+        step_options={
+            "steps": None,
+            "incrementation": steps.automatic(
+                initial=1.0,
+                minimum=1.0 / 256.0,
+                maximum=1.0,
+                max_increments=256,
+                max_cutbacks=10,
+                cutback_factor=0.5,
+                growth_factor=1.5,
+            ),
+            "time_error_tolerance": 2.0e-3,
+            "amplitude": quadratic,
+        }
+    )
+    reference = _global_viscoelastic_relaxation_patch(
+        step_options={
+            "steps": 256,
+            "amplitude": quadratic,
+        }
+    )
+
+    adaptive.solve()
+    reference.solve()
+    simulation = adaptive.solve_result()
+
+    assert adaptive.last_solve_info.completed_step
+    assert len(adaptive.attempted_increments) > len(adaptive.accepted_increments)
+    assert any(not item.converged for item in adaptive.attempted_increments)
+    assert all(
+        item.time_error_estimate <= adaptive.time_error_tolerance
+        for item in adaptive.accepted_increments
+    )
+    assert adaptive.summary()["time_grid"]["kind"] == "automatic"
+    assert adaptive.summary()["attempted_increments"] == len(
+        adaptive.attempted_increments
+    )
+    assert {
+        "equilibrium_iterations",
+        "time_increment",
+        "time_error_estimate",
+    } <= set(simulation.histories)
+    assert simulation.metadata["solve"]["attempted_increments"] == len(
+        adaptive.attempted_increments
+    )
+    assert any(
+        not item["converged"] for item in simulation.metadata["solve"]["attempts"]
+    )
+    np.testing.assert_allclose(
+        adaptive.state.stress.values,
+        reference.state.stress.values,
+        rtol=5.0e-3,
+        atol=1.0e-8,
+    )
+
+
+def test_global_generalized_maxwell_adaptive_restart_preserves_next_increment(
+    tmp_path,
+):
+    control = steps.automatic(
+        initial=0.25,
+        minimum=0.01,
+        maximum=0.25,
+        max_increments=40,
+        cutback_factor=0.5,
+    )
+    options = {
+        "steps": None,
+        "incrementation": control,
+        "time_error_tolerance": 1.0e-3,
+    }
+    reference = _global_viscoelastic_relaxation_patch(step_options=options)
+    reference.solve()
+    partial = _global_viscoelastic_relaxation_patch(step_options=options)
+    partial.solve(until=1.0)
+    checkpoint = partial.save_checkpoint(tmp_path / "adaptive_viscoelastic.npz")
+    restarted = _global_viscoelastic_relaxation_patch(step_options=options)
+    restarted.load_checkpoint(checkpoint)
+
+    assert restarted.next_increment_size == pytest.approx(
+        partial.next_increment_size
+    )
+    restarted.solve()
+    np.testing.assert_allclose(
+        restarted.state.state.committed_state_vectors(),
+        reference.state.state.committed_state_vectors(),
+    )
+    assert [item.end_time for item in restarted.accepted_increments] == pytest.approx(
+        [item.end_time for item in reference.accepted_increments]
+    )
 
 
 def test_global_generalized_maxwell_restart_matches_uninterrupted_path(tmp_path):
@@ -722,3 +830,18 @@ def test_global_generalized_maxwell_rejects_invalid_declared_time_grid():
     step = _global_viscoelastic_relaxation_patch()
     with pytest.raises(ValueError, match="time_points"):
         replace(step, time_points=(0.0, 1.0, 0.5))
+
+
+def test_global_generalized_maxwell_rejects_ambiguous_time_controls():
+    control = steps.automatic(initial=0.1, minimum=0.01, maximum=0.25)
+    with pytest.raises(ValueError, match="incrementation or a prescribed"):
+        _global_viscoelastic_relaxation_patch(
+            step_options={"incrementation": control}
+        )
+
+
+def test_global_generalized_maxwell_requires_adaptive_control_for_time_error():
+    with pytest.raises(ValueError, match="requires adaptive incrementation"):
+        _global_viscoelastic_relaxation_patch(
+            step_options={"time_error_tolerance": 1.0e-3}
+        )

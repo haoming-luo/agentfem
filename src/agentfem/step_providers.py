@@ -1484,6 +1484,8 @@ register_step_provider(
             "duration",
             "steps",
             "time_points",
+            "incrementation",
+            "time_error_tolerance",
             "method",
             "quadrature_degree",
             "progress",

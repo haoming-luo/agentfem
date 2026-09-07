@@ -147,12 +147,13 @@ _CAPABILITIES = {
             "small-strain quasi-static global Step with exact quadrature state, "
             "incremental equilibrium, regional materials, serial/MPI solve, "
             "standard fields, constitutive energy evidence, temperature shift, "
-            "uniform or declared nonuniform time grids, serial restart, and an "
+            "uniform, declared nonuniform or adaptive error-controlled physical-time "
+            "paths with atomic cutback, serial restart, and an "
             "independent Abaqus traction-controlled rod benchmark"
         ),
         limitations=(
-            "the first global provider uses a declared physical-time grid and strong constraints",
-            "adaptive error-controlled time stepping and distributed portable restart remain promotion gates",
+            "the first global provider is three-dimensional, quasi-static, small-strain and uses strong constraints",
+            "distributed portable restart remains a promotion gate",
             "nonlinear finite-strain viscoelasticity and physical-aging models are not implemented",
             "automatic relaxation-time selection and uncertainty quantification remain identification-layer work",
         ),

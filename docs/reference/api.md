@@ -863,7 +863,7 @@ and evidence remain in the linked guides and scientific function reference.
 | class | `ViscoelasticIncrementInfo` | Accepted equilibrium evidence for one physical-time increment. |
 | class | `ViscoelasticPathInfo` | Resolved fixed physical-time path. |
 | class | `ViscoelasticQuadratureState` | Typed committed/trial Maxwell state and current response fields. |
-| function | `quasistatic_viscoelastic_step(*, displacement, material, duration: float, steps: int \| None = None, time_points = None, external_force = None, constraints = (), study = None, solver_options = None, quadrature_degree: int = 2, amplitude = None, temperature = None, time_unit: str \| None = None, progress = True, status_file = None, name: str = 'viscoelastic') -> QuasistaticViscoelasticStep` | Build a 3D quasi-static generalized-Maxwell Step. |
+| function | `quasistatic_viscoelastic_step(*, displacement, material, duration: float, steps: int \| None = None, time_points = None, incrementation = None, time_error_tolerance: float \| None = None, external_force = None, constraints = (), study = None, solver_options = None, quadrature_degree: int = 2, amplitude = None, temperature = None, time_unit: str \| None = None, progress = True, status_file = None, name: str = 'viscoelastic') -> QuasistaticViscoelasticStep` | Build a 3D quasi-static generalized-Maxwell Step. |
 
 ## `agentfem.operators`
 

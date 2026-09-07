@@ -4,7 +4,16 @@ from pathlib import Path
 
 from mpi4py import MPI
 
-from agentfem import amplitudes, constitutive, fields, mesh, models, results, studies
+from agentfem import (
+    amplitudes,
+    constitutive,
+    fields,
+    mesh,
+    models,
+    results,
+    steps,
+    studies,
+)
 
 
 domain = mesh.cuboid(
@@ -49,7 +58,15 @@ step = model.step(
     target=u,
     material=material,
     duration=5.0,
-    steps=50,
+    incrementation=steps.automatic(
+        initial=0.1,
+        minimum=1.0e-4,
+        maximum=0.25,
+        max_increments=100,
+        max_cutbacks=8,
+        cutback_factor=0.5,
+    ),
+    time_error_tolerance=1.0e-3,
     amplitude=load_then_hold,
 )
 

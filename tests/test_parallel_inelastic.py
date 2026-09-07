@@ -239,6 +239,67 @@ def test_distributed_viscoelastic_global_equilibrium_matches_exact_relaxation():
     )
 
 
+def test_distributed_viscoelastic_adaptive_time_path_is_collective():
+    if MPI.COMM_WORLD.size != 2:
+        pytest.skip("distributed viscoelastic acceptance requires two ranks")
+    domain = dolfinx_mesh.create_unit_cube(MPI.COMM_WORLD, 2, 1, 1)
+    model = models.create(
+        study=studies.viscoelastic_solid(dimension=3),
+        mesh=domain,
+        name="distributed_adaptive_viscoelastic_patch",
+    )
+    displacement = model.field(fields.displacement(domain))
+    material = model.material(
+        constitutive.IsotropicGeneralizedMaxwell.from_prony(
+            instantaneous_young_modulus=1000.0,
+            instantaneous_poisson_ratio=0.0,
+            shear_relaxation_ratios=[0.4],
+            bulk_relaxation_ratios=[0.4],
+            relaxation_times=[1.0],
+        )
+    )
+    model.fix(displacement, on=mesh.face(domain, axis="x", value=0.0), component=0)
+    model.fix(displacement, on=mesh.face(domain, axis="y", value=0.0), component=1)
+    model.fix(displacement, on=mesh.face(domain, axis="z", value=0.0), component=2)
+    model.fix(
+        displacement,
+        on=mesh.face(domain, axis="x", value=1.0),
+        component=0,
+        value=0.01,
+    )
+    step = model.step(
+        target=displacement,
+        material=material,
+        duration=2.0,
+        incrementation=steps.automatic(
+            initial=1.0,
+            minimum=1.0 / 128.0,
+            maximum=1.0,
+            max_increments=128,
+            max_cutbacks=10,
+            cutback_factor=0.5,
+        ),
+        time_error_tolerance=3.0e-3,
+        amplitude=amplitudes.Amplitude(
+            name="quadratic_loading",
+            value=lambda time: (time / 2.0) ** 2,
+            serializable=False,
+        ),
+        progress=False,
+    )
+    step.solve()
+
+    path = tuple(item.end_time for item in step.accepted_increments)
+    attempts = len(step.attempted_increments)
+    assert step.last_solve_info.completed_step
+    assert attempts > len(path)
+    assert all(candidate == path for candidate in MPI.COMM_WORLD.allgather(path))
+    assert all(
+        candidate == attempts
+        for candidate in MPI.COMM_WORLD.allgather(attempts)
+    )
+
+
 def test_distributed_j2_cutback_rollback_matches_fixed_reference():
     if MPI.COMM_WORLD.size != 2:
         pytest.skip("distributed J2 rollback acceptance requires two ranks")

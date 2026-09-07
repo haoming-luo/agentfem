@@ -105,9 +105,10 @@ Deepen the finite-element core before broadening the catalog:
   contact providers, remain explicit promotion gates;
 - selected cyclic plasticity, creep--fatigue, and fracture extensions.
 - promote the 3D generalized-Maxwell global Step beyond its analytical
-  ramp--hold patch and independent Abaqus rod benchmark through adaptive
-  error-controlled physical time and portable MPI restart; then add direct
-  harmonic response and independently checked complex modes;
+  ramp--hold patch and independent Abaqus rod benchmark through portable MPI
+  restart; adaptive error-controlled physical time, atomic cutback, restart
+  continuity and collective MPI path decisions are now automated. Then add
+  direct harmonic response and independently checked complex modes;
 
 ### 2. Engineering workflow
 
