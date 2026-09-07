@@ -28,6 +28,14 @@ experimental formulation to a validated one.
   attempts roll back nodal and quadrature state atomically, and serial restart
   preserves the accepted path and next proposal. The adaptive decision is
   collective under MPI; restart across a changed MPI partition remains gated.
+- Add `ScientificFieldDataset`, a portable multi-field collection for neural
+  operators and other field-learning workflows. It preserves channel-first
+  shapes, units, geometry policies, masks, parameters, case evidence,
+  deterministic train/validation/test splits, lossless NPZ storage and a
+  content fingerprint without adding a machine-learning dependency to core.
+- Tighten `FieldEncoding` and `NeuralOperatorSpec` validation, including
+  normalized FNO/TFNO names, unique field and parameter identities, explicit
+  boundary encoding and structured-grid compatibility.
 - Advance the moving development branch to `0.3.2.dev0`, add a development
   release contract, and fail packaging tests when commits beyond a published
   tag continue to report that tag's stable version.
