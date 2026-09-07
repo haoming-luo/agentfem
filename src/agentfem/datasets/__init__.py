@@ -11,6 +11,7 @@ from .external import (
     science_supershear_dryad_manifest,
     science_supershear_v5_research_task,
 )
+from .fields import FieldDatasetSplit, ScientificFieldDataset
 from .schema import Quantity, Sample, decode_quantities
 from .observations import RectilinearObservation
 from .torch import (
@@ -27,10 +28,12 @@ __all__ = [
     "ExternalDatasetManifest",
     "ExternalFile",
     "FEMFieldSample",
+    "FieldDatasetSplit",
     "Quantity",
     "RectilinearObservation",
     "Sample",
     "ScientificDataset",
+    "ScientificFieldDataset",
     "SpreadsheetSheet",
     "SpreadsheetWorkbook",
     "TorchDatasetBundle",

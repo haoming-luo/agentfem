@@ -249,7 +249,8 @@ class FieldEncoding:
     metadata: Mapping[str, object] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
-        if not str(self.name).strip():
+        name = str(self.name).strip()
+        if not name:
             raise ValueError("FieldEncoding.name must not be empty.")
         role = self.role.lower().replace("-", "_")
         if role not in {"input", "output", "condition", "coordinate"}:
@@ -278,10 +279,22 @@ class FieldEncoding:
             raise ValueError(f"Unknown mesh policy {self.mesh_policy!r}.")
         if self.shape is not None and any(int(value) <= 0 for value in self.shape):
             raise ValueError("FieldEncoding.shape dimensions must be positive.")
+        components = tuple(str(item).strip() for item in self.components)
+        if any(not item for item in components) or len(set(components)) != len(components):
+            raise ValueError("FieldEncoding components must be non-empty and unique.")
+        unit = None if self.unit is None else str(self.unit).strip()
+        if unit == "":
+            raise ValueError("FieldEncoding.unit must not be an empty string.")
+        geometry_encoding = str(self.geometry_encoding).strip()
+        if not geometry_encoding:
+            raise ValueError("FieldEncoding.geometry_encoding must not be empty.")
+        object.__setattr__(self, "name", name)
         object.__setattr__(self, "role", role)
+        object.__setattr__(self, "unit", unit)
         object.__setattr__(self, "representation", representation)
         object.__setattr__(self, "mesh_policy", mesh_policy)
-        object.__setattr__(self, "components", tuple(self.components))
+        object.__setattr__(self, "components", components)
+        object.__setattr__(self, "geometry_encoding", geometry_encoding)
         object.__setattr__(
             self,
             "shape",
@@ -329,7 +342,13 @@ class NeuralOperatorSpec:
         if any(field.role != "output" for field in self.outputs):
             raise ValueError("Neural-operator outputs must use role='output'.")
         architecture = self.architecture.lower().replace("-", "_")
-        if architecture in {"fno", "fourier_neural_operator"}:
+        aliases = {
+            "fourier_neural_operator": "fno",
+            "tensorized_fourier_neural_operator": "tfno",
+            "tensorized_fno": "tfno",
+        }
+        architecture = aliases.get(architecture, architecture)
+        if architecture in {"fno", "tfno"}:
             incompatible = [
                 field.name
                 for field in (*self.inputs, *self.outputs)
@@ -340,11 +359,29 @@ class NeuralOperatorSpec:
                     "A basic FNO contract requires structured_grid encodings; "
                     f"incompatible fields={incompatible}."
                 )
+        input_names = tuple(item.name for item in self.inputs)
+        output_names = tuple(item.name for item in self.outputs)
+        if len(set(input_names)) != len(input_names):
+            raise ValueError("Neural-operator input field names must be unique.")
+        if len(set(output_names)) != len(output_names):
+            raise ValueError("Neural-operator output field names must be unique.")
+        if set(input_names).intersection(output_names):
+            raise ValueError("Neural-operator input and output names must be distinct.")
+        parameters = tuple(str(item).strip() for item in self.parameter_inputs)
+        if any(not item for item in parameters) or len(set(parameters)) != len(parameters):
+            raise ValueError("Neural-operator parameter inputs must be non-empty and unique.")
+        checks = tuple(str(item).strip() for item in self.required_checks)
+        if any(not item for item in checks) or len(set(checks)) != len(checks):
+            raise ValueError("Neural-operator required checks must be non-empty and unique.")
+        boundary_encoding = str(self.boundary_encoding).strip()
+        if not boundary_encoding:
+            raise ValueError("NeuralOperatorSpec.boundary_encoding must not be empty.")
         object.__setattr__(self, "architecture", architecture)
         object.__setattr__(self, "inputs", tuple(self.inputs))
         object.__setattr__(self, "outputs", tuple(self.outputs))
-        object.__setattr__(self, "parameter_inputs", tuple(self.parameter_inputs))
-        object.__setattr__(self, "required_checks", tuple(self.required_checks))
+        object.__setattr__(self, "boundary_encoding", boundary_encoding)
+        object.__setattr__(self, "parameter_inputs", parameters)
+        object.__setattr__(self, "required_checks", checks)
 
     def summary(self) -> dict[str, object]:
         return {

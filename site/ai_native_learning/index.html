@@ -1270,14 +1270,19 @@ networks. It is specifying:</p>
 <li>out-of-distribution behavior.</li>
 </ul>
 <p><code>FieldEncoding</code> and <code>NeuralOperatorSpec</code> define the learning contract.
-<code>ObservationGrid</code> and <code>datasets.fem_observation_sample(...)</code> now make the
+<code>ObservationGrid</code> and <code>datasets.fem_observation_sample(...)</code> make the
 structured-grid branch executable in serial and MPI, including coordinates,
-layout, units, and an optional geometry mask. An elementary FNO specification
-is rejected when its fields are not represented on structured grids. This
-avoids attaching a fashionable architecture name to incompatible data.</p>
-<p>Production neural-operator trainers remain external. Planned adapters should
-consume the same dataset and write a model artifact with the same validation
-and applicability evidence.</p>
+layout, units, and an optional geometry mask. <code>ScientificFieldDataset</code> then
+collects complete input/output fields without collapsing them into an ordinary
+tabular response. An elementary FNO or TFNO specification is rejected when its
+fields are not represented on structured grids. This avoids attaching a
+fashionable architecture name to incompatible data.</p>
+<p>AgentFEM core does not depend on a neural-operator framework. The optional
+AgentFEM-Learning companion binds the maintained NeuralOperator package to the
+same <code>model.step(...) -&gt; SimulationResult</code> lifecycle. User-owned trainers can
+consume the public field dataset and specification directly. In both cases,
+held-out field error, unresolved physical checks, model state, training
+history and exact dataset identity remain explicit result evidence.</p>
 <h2 id="pinns-and-physics-informed-learning">PINNs and Physics-Informed Learning<a class="headerlink" href="#pinns-and-physics-informed-learning" title="Permanent link">&para;</a></h2>
 <p>PINNs do not serve the same role as ordinary surrogates.</p>
 <p>For selected equations, <code>TorchPINNAdapter</code> makes a reviewed <code>PINNSpec</code>

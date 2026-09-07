@@ -636,6 +636,8 @@ and evidence remain in the linked guides and scientific function reference.
 | function | `read_xlsx_workbook(path: str \| Path) -> SpreadsheetWorkbook` | Read values and cached formula results from an XLSX without pandas. |
 | function | `science_supershear_dryad_manifest() -> ExternalDatasetManifest` | Return the pinned CC0 Dryad v7 manifest for Science 2023. |
 | function | `science_supershear_v5_research_task() -> dict[str, object]` | Return the installed machine-readable V5 research handoff. |
+| class | `FieldDatasetSplit` | Reproducible train/validation/test partition of field cases. |
+| class | `ScientificFieldDataset` | A scientific collection whose samples are complete physical fields. |
 | class | `Quantity` | One scalar, curve, vector, or sampled-field output contract. |
 | class | `Sample` | One successful simulation sample and its scientific lineage. |
 | function | `decode_quantities(quantities: tuple[Quantity, ...], row) -> dict[str, object]` | Restore one flattened numeric row to declared named quantities. |

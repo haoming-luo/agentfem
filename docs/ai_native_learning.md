@@ -321,15 +321,20 @@ networks. It is specifying:
 - out-of-distribution behavior.
 
 `FieldEncoding` and `NeuralOperatorSpec` define the learning contract.
-`ObservationGrid` and `datasets.fem_observation_sample(...)` now make the
+`ObservationGrid` and `datasets.fem_observation_sample(...)` make the
 structured-grid branch executable in serial and MPI, including coordinates,
-layout, units, and an optional geometry mask. An elementary FNO specification
-is rejected when its fields are not represented on structured grids. This
-avoids attaching a fashionable architecture name to incompatible data.
+layout, units, and an optional geometry mask. `ScientificFieldDataset` then
+collects complete input/output fields without collapsing them into an ordinary
+tabular response. An elementary FNO or TFNO specification is rejected when its
+fields are not represented on structured grids. This avoids attaching a
+fashionable architecture name to incompatible data.
 
-Production neural-operator trainers remain external. Planned adapters should
-consume the same dataset and write a model artifact with the same validation
-and applicability evidence.
+AgentFEM core does not depend on a neural-operator framework. The optional
+AgentFEM-Learning companion binds the maintained NeuralOperator package to the
+same `model.step(...) -> SimulationResult` lifecycle. User-owned trainers can
+consume the public field dataset and specification directly. In both cases,
+held-out field error, unresolved physical checks, model state, training
+history and exact dataset identity remain explicit result evidence.
 
 ## PINNs and Physics-Informed Learning
 

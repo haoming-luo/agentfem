@@ -506,6 +506,40 @@ For three dimensions, `shape=(nx, ny, nz)` produces `(nz, ny, nx)`. Domain
 exterior values are `NaN` and the explicit mask is authoritative. The routine
 is MPI-safe and uses the same ownership rules as point probes.
 
+## Scientific field datasets
+
+`ScientificDataset` remains the compact contract for parameter-to-quantity
+surrogates. Function-to-function learning uses a distinct collection so a
+field is never flattened until a selected trainer explicitly requests it:
+
+```python
+field_dataset = datasets.ScientificFieldDataset(
+    case_ids=case_ids,
+    encodings=(source_encoding, temperature_encoding),
+    fields={
+        "heat_source": source_fields,       # (case, channel, nx, ny)
+        "temperature": temperature_fields,
+    },
+    parameters={"source_amplitude": amplitudes},
+    case_metadata=case_evidence,
+)
+
+split = field_dataset.split(
+    validation_fraction=0.2,
+    test_fraction=0.1,
+    seed=2026,
+)
+field_dataset.write("heat_operator_dataset")
+```
+
+The manifest retains every field's role, unit, components, representation,
+geometry policy and per-case shape. All arrays share a leading case axis;
+content hashes cover fields, parameters, coordinates, masks, case IDs and
+metadata. Reload refuses modified data whose fingerprint no longer matches.
+The built-in compressed NPZ storage is deliberately a small, portable
+reference backend. Large chunked storage can implement the same contract
+without changing a trainer or the scientific specification.
+
 ## Campaign to Dataset
 
 A campaign evaluator may return:
