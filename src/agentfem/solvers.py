@@ -58,6 +58,24 @@ class LinearSolverOptions:
             "error_if_not_converged": self.error_if_not_converged,
         }
 
+    def petsc_options(self) -> dict[str, object]:
+        """Return the namespaced PETSc options consumed by linear problems."""
+
+        values: dict[str, object] = {
+            "ksp_type": self.ksp_type,
+            "pc_type": self.pc_type,
+            "ksp_error_if_not_converged": False,
+        }
+        if self.rtol is not None:
+            values["ksp_rtol"] = self.rtol
+        if self.atol is not None:
+            values["ksp_atol"] = self.atol
+        if self.max_it is not None:
+            values["ksp_max_it"] = self.max_it
+        if self.factor_solver_type is not None:
+            values["pc_factor_mat_solver_type"] = self.factor_solver_type
+        return values
+
 
 def direct_solver(*, package: str | None = None) -> LinearSolverOptions:
     """Create a direct linear-solver policy without PETSc option names."""
@@ -796,23 +814,9 @@ def solve_mpc_linear_problem(
 
 
 def _linear_petsc_options(options: LinearSolverOptions) -> dict[str, object]:
-    values: dict[str, object] = {
-        "ksp_type": options.ksp_type,
-        "pc_type": options.pc_type,
-        # Keep PETSc from raising before AgentFEM can retain a stable
-        # LinearSolveInfo. The public policy is enforced immediately after the
-        # solve by PreparedMPCLinearProblem.
-        "ksp_error_if_not_converged": False,
-    }
-    if options.rtol is not None:
-        values["ksp_rtol"] = options.rtol
-    if options.atol is not None:
-        values["ksp_atol"] = options.atol
-    if options.max_it is not None:
-        values["ksp_max_it"] = options.max_it
-    if options.factor_solver_type is not None:
-        values["pc_factor_mat_solver_type"] = options.factor_solver_type
-    return values
+    # Keep PETSc from raising before AgentFEM can retain a stable
+    # LinearSolveInfo. The public policy is enforced immediately after solve.
+    return options.petsc_options()
 
 
 def _copy_owned_function_values(target, source) -> None:

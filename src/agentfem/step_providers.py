@@ -1064,6 +1064,47 @@ def _accept_quasistatic_viscoelasticity(model, request: StepRequest) -> bool:
     )
 
 
+def _accept_harmonic_viscoelasticity(model, request: StepRequest) -> bool:
+    from .constitutive.viscoelasticity import IsotropicGeneralizedMaxwell
+
+    study = getattr(model, "study", None)
+    method = _procedure_method(model, request)
+    return (
+        getattr(study, "physics", None) == "solid_mechanics"
+        and getattr(study, "analysis", None) == "frequency_domain"
+        and getattr(study, "dimension", None) == 3
+        and _is_vector_target(request.target)
+        and _normalize(method or "direct_harmonic")
+        in {"direct_harmonic", "harmonic", "real_block_complex_harmonic"}
+        and _all_materials_support(
+            model,
+            request,
+            lambda item: isinstance(item, IsotropicGeneralizedMaxwell),
+        )
+    )
+
+
+def _lower_harmonic_viscoelasticity(model, request: StepRequest):
+    from . import _step_builders
+
+    options = request.lowering_options(
+        "K",
+        "F",
+        "method",
+        "output",
+        "history",
+        "progress",
+        "checkpoint",
+    )
+    name = options.pop("name", None) or "harmonic_viscoelastic"
+    return _step_builders.harmonic_viscoelastic(
+        model,
+        target=request.target,
+        name=name,
+        **options,
+    )
+
+
 def _lower_quasistatic_viscoelasticity(model, request: StepRequest):
     from . import _step_builders
 
@@ -1465,6 +1506,30 @@ register_step_provider(
             "amplitude",
             "temperature",
             required=("duration",),
+        ),
+    )
+)
+register_step_provider(
+    StepProvider(
+        name="harmonic_generalized_maxwell",
+        analyses=("frequency_domain",),
+        accepts=_accept_harmonic_viscoelasticity,
+        lower=_lower_harmonic_viscoelasticity,
+        priority=120,
+        description=(
+            "Lower isotropic generalized-Maxwell storage/loss moduli to a "
+            "real-block direct harmonic finite-element system."
+        ),
+        procedure="standard/direct_harmonic/real_block_complex",
+        option_contract=_option_contract(
+            "frequency",
+            "angular_frequency",
+            "method",
+            "density",
+            "load_phase",
+            "temperature",
+            "solver_options",
+            "output",
         ),
     )
 )

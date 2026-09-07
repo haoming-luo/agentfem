@@ -87,6 +87,7 @@ the compact machine-readable `agentfem/knowledge/catalog.json`.
 | `agentfem.benchmark.finite_strain_j2_periodic_multi_void` | Finite-strain J2 periodic cell with a deterministic multi-void realization | Three-dimensional finite-strain logarithmic J2 plasticity in a unit periodic cube containing four non-overlapping geometric spherical voids under isochoric macroscopic tension. | automated_fixed_stack_regression_with_refinement_mpi_restart |
 | `agentfem.benchmark.finite_strain_j2_periodic_void` | Finite-strain J2 periodic cell with a true spherical void | Three-dimensional finite-strain logarithmic J2 plasticity in a unit periodic cube containing a geometric spherical void under isochoric macroscopic tension. | automated_fixed_stack_regression_experimental_science |
 | `agentfem.benchmark.finite_strain_j2_zhang_2021_table5` | Zhang--Feng--Khandelwal finite-strain periodic composite, Table 5 | Plane-strain periodic composite with two stiff circular inclusions, one circular void, logarithmic finite-strain J2 matrix plasticity, elastic inclusions, and macroscopic simple shear. | experimental_external_fixture_not_promoted |
+| `agentfem.benchmark.global_viscoelastic_harmonic_bar` | Three-dimensional generalized-Maxwell harmonic bar | Three-dimensional small-strain isotropic linear viscoelasticity | automated_analytical_verification |
 | `agentfem.benchmark.global_viscoelastic_relaxation` | Three-dimensional generalized-Maxwell relaxation patch | Three-dimensional small-strain isotropic linear viscoelasticity | automated_analytical_verification |
 | `agentfem.benchmark.implicit_creep_relaxation` | Three-dimensional implicit power-law creep relaxation and restart | three-dimensional small-strain isotropic Mises power-law creep | automated_regression |
 | `agentfem.benchmark.j2_abaqus_rate_independent` | Published Abaqus rate-independent Mises plasticity uniaxial state | three-dimensional small-strain Mises plasticity with linear isotropic hardening | automated_external_verification |
@@ -1366,12 +1367,13 @@ Register J2LinearIsotropicHardening in a 3D nonlinear_static Model, add supports
 **Status:** `experimental`<br>
 **Source card:** `src/agentfem/knowledge/cards/linear_viscoelastic_dynamics.json`
 
-Provides generalized-Maxwell/Prony spectra, exact material-point histories and a three-dimensional quasi-static global FEM Step with committed quadrature state, error-controlled physical-time increments, temperature shift, energy evidence, automatic accepted-boundary checkpointing, portable restart and standard result fields.
+Provides generalized-Maxwell/Prony spectra, exact material-point histories, a three-dimensional quasi-static global FEM Step with committed quadrature state and a direct harmonic Step that lowers complex storage/loss response to a real PETSc block system.
 
 ### Public API
 
 - `agentfem.studies.modal_solid`
 - `agentfem.studies.viscoelastic_solid`
+- `agentfem.studies.harmonic_solid`
 - `agentfem.models.Model.step`
 - `agentfem.checkpointing.every`
 - `agentfem.dynamics.spectrum`
@@ -1380,6 +1382,7 @@ Provides generalized-Maxwell/Prony spectra, exact material-point histories and a
 - `agentfem.dynamics.modal_frequency_response`
 - `agentfem.constitutive.GeneralizedMaxwell`
 - `agentfem.constitutive.IsotropicGeneralizedMaxwell`
+- `agentfem.constitutive.IsotropicHarmonicModuli`
 - `agentfem.constitutive.standard_linear_solid`
 - `agentfem.constitutive.WLFShift`
 - `agentfem.constitutive.ArrheniusShift`
@@ -1413,6 +1416,14 @@ $$
 
 Real and imaginary parts give storage and loss modulus; their ratio gives the loss factor.
 
+**real block harmonic equilibrium**
+
+$$
+\begin{bmatrix}\mathbf K'-\omega^2\mathbf M&-\mathbf K''\\\mathbf K''&\mathbf K'-\omega^2\mathbf M\end{bmatrix}\begin{bmatrix}\mathbf u'\\\mathbf u''\end{bmatrix}=\begin{bmatrix}\mathbf f'\\\mathbf f''\end{bmatrix}
+$$
+
+The exact complex steady-state problem is solved on a normal real-valued PETSc installation without discarding loss stiffness.
+
 **exact branch update**
 
 $$
@@ -1436,6 +1447,7 @@ A linear strain path over one increment has an exact branch update and algorithm
 | modal result | SimulationResult quantities and live mode fields | inverse time and mass-normalized shape | Includes eigenvalues, angular frequencies, frequencies, relative residuals, orthogonality evidence, cluster membership, invariant-subspace semantics and each deterministically oriented singleton mode shape. |
 | dynamic signal records | one-sided spectrum, FRF and damping estimate | frequency, phase and signal-dependent response | Invalid unexcited FRF bins remain explicit and are excluded from finite result histories. |
 | viscoelastic response | relaxation, storage/loss modulus, accepted branch histories, global fields and common SimulationResult | stress, time and temperature | Material-point and global quadrature state use exact branch updates. The global result carries accepted and rejected physical-time attempts, local time-error estimates, quadrature and recovered S, E, SENER, VDENER and MISES fields, RF, temperature evidence, scheduled accepted-boundary checkpoints and a constitutive work--storage--dissipation ledger. |
+| harmonic viscoelastic response | complex bulk/shear material state, phasor displacement fields and energy-loss evidence | frequency and the model's consistent mechanical units | The direct harmonic result exposes U_REAL, U_IMAG, component-wise U_AMPLITUDE/U_PHASE, solve evidence, stored energy, loss per cycle and mean dissipated power. |
 
 #### Assumptions
 
@@ -1449,6 +1461,7 @@ A linear strain path over one increment has an exact branch update and algorithm
 - Repeated or numerically clustered modes are compared as invariant subspaces because their individual basis vectors may rotate without changing the eigenspace.
 - A mass-normalized mode shape is a relative spatial pattern and does not carry a physical displacement amplitude until combined with a modal coordinate.
 - Storage and loss modulus consume angular frequency, not cyclic frequency.
+- The public harmonic Step accepts cyclic frequency in Hz or angular frequency in rad/s, never both, and records the exp(+i*omega*t) phasor convention.
 - Positive Prony ratios are fractions of the instantaneous modulus and must sum to less than one.
 - A nonzero initial strain declares either an instantaneous loading state or a fully equilibrated state; the material history never invents that past implicitly.
 - A trial material-point update does not modify accepted state until explicitly committed.
@@ -1458,17 +1471,19 @@ A linear strain path over one increment has an exact branch update and algorithm
 - Natural-frequency and mode-shape analysis for supported linear solid models.
 - DMA, relaxation, free-decay and modal-superposition preparation for small-strain linear viscoelastic studies.
 - Three-dimensional small-strain quasi-static generalized-Maxwell loading and relaxation on a uniform, explicitly declared nonuniform, or automatically error-controlled physical-time path.
+- Three-dimensional direct harmonic generalized-Maxwell response with optional inertia and a common load phase.
 
 #### Limitations
 
-- The first global provider supports 3D solids, strong constraints, prescribed or adaptive physical-time paths and physical-keyed portable restart.
-- Direct complex harmonic finite-element assembly, complex modes, nonlinear viscoelasticity and physical aging are not implemented.
+- The time-domain global provider supports 3D solids, strong constraints, prescribed or adaptive physical-time paths and physical-keyed portable restart.
+- The direct harmonic provider currently supports one 3D isotropic material, uniform temperature, homogeneous strong constraints and one common load phase; material maps, MPC/weak constraints, independent load phases and automated frequency sweeps remain future work.
+- Complex modes, nonlinear viscoelasticity and physical aging are not implemented.
 - Fixed-spectrum fitting does not automatically choose relaxation times or replace calibration/validation separation.
 
 ### Minimal example
 
 ```python
-For global relaxation, create studies.viscoelastic_solid(dimension=3), register displacement, IsotropicGeneralizedMaxwell and constraints, then call model.step(target=u, material=material, duration=5.0, incrementation=steps.automatic(initial=0.1, minimum=1e-4, maximum=0.25), time_error_tolerance=1e-3, amplitude=load_then_hold, checkpoint=checkpointing.every(10, directory='checkpoints', keep_last=2)).solve_result(). Use steps or time_points instead when a prescribed physical-time grid is required, and GeneralizedMaxwell for scalar material-point spectra and histories.
+For a direct frequency response, create studies.harmonic_solid(dimension=3), register displacement, one IsotropicGeneralizedMaxwell material, homogeneous constraints and loads, then call model.step(target=u, frequency=25.0, density=1000.0).solve_result(). For global relaxation, use studies.viscoelastic_solid and pass duration plus an increment path through the same model.step entry.
 ```
 
 ### Verification
@@ -1486,6 +1501,7 @@ For global relaxation, create studies.viscoelastic_solid(dimension=3), register 
 - `agentfem.benchmark.linear_cantilever_modal`
 - `agentfem.benchmark.linear_viscoelastic_spectrum`
 - `agentfem.benchmark.global_viscoelastic_relaxation`
+- `agentfem.benchmark.global_viscoelastic_harmonic_bar`
 - `agentfem.benchmark.abaqus_viscoelastic_rod`
 
 **Validation rules**
@@ -1511,6 +1527,8 @@ For global relaxation, create studies.viscoelastic_solid(dimension=3), register 
 - Reject a corrupt portable quadrature payload by checksum and restore every in-memory field and history atomically.
 - Require the public global Step to recover the same exact relaxation stress with two MPI ranks and to preserve complete regional material maps.
 - Require a nonuniform-grid, traction-controlled three-dimensional rod to match the published Abaqus short- and long-time axial strains and effective Poisson ratio.
+- Require the public harmonic Study to recover the analytical complex compliance of a traction-controlled three-dimensional bar and retain positive cycle loss.
+- Reject ambiguous frequency units, nonhomogeneous prescribed harmonic motion, unsupported constraint families and unsupported nested direct factorization rather than silently changing the harmonic problem.
 - Invalidate global restart when material, amplitude, temperature, time grid, physical quadrature identity or portable solution identity differs.
 - Reject nonuniform FFT sampling and mark unexcited FRF bins invalid.
 

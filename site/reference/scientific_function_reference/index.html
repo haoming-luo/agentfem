@@ -14019,6 +14019,12 @@ the compact machine-readable <code>agentfem/knowledge/catalog.json</code>.</p>
 <td>experimental_external_fixture_not_promoted</td>
 </tr>
 <tr>
+<td><code>agentfem.benchmark.global_viscoelastic_harmonic_bar</code></td>
+<td>Three-dimensional generalized-Maxwell harmonic bar</td>
+<td>Three-dimensional small-strain isotropic linear viscoelasticity</td>
+<td>automated_analytical_verification</td>
+</tr>
+<tr>
 <td><code>agentfem.benchmark.global_viscoelastic_relaxation</code></td>
 <td>Three-dimensional generalized-Maxwell relaxation patch</td>
 <td>Three-dimensional small-strain isotropic linear viscoelasticity</td>
@@ -15640,11 +15646,12 @@ f_{\mathrm{trial}}=q_{\mathrm{trial}}-(\sigma_{y0}+Hp_n)
 <strong>Kind:</strong> <code>material</code><br>
 <strong>Status:</strong> <code>experimental</code><br>
 <strong>Source card:</strong> <code>src/agentfem/knowledge/cards/linear_viscoelastic_dynamics.json</code></p>
-<p>Provides generalized-Maxwell/Prony spectra, exact material-point histories and a three-dimensional quasi-static global FEM Step with committed quadrature state, error-controlled physical-time increments, temperature shift, energy evidence, automatic accepted-boundary checkpointing, portable restart and standard result fields.</p>
+<p>Provides generalized-Maxwell/Prony spectra, exact material-point histories, a three-dimensional quasi-static global FEM Step with committed quadrature state and a direct harmonic Step that lowers complex storage/loss response to a real PETSc block system.</p>
 <h3 id="public-api_10">Public API<a class="headerlink" href="#public-api_10" title="Permanent link">&para;</a></h3>
 <ul>
 <li><code>agentfem.studies.modal_solid</code></li>
 <li><code>agentfem.studies.viscoelastic_solid</code></li>
+<li><code>agentfem.studies.harmonic_solid</code></li>
 <li><code>agentfem.models.Model.step</code></li>
 <li><code>agentfem.checkpointing.every</code></li>
 <li><code>agentfem.dynamics.spectrum</code></li>
@@ -15653,6 +15660,7 @@ f_{\mathrm{trial}}=q_{\mathrm{trial}}-(\sigma_{y0}+Hp_n)
 <li><code>agentfem.dynamics.modal_frequency_response</code></li>
 <li><code>agentfem.constitutive.GeneralizedMaxwell</code></li>
 <li><code>agentfem.constitutive.IsotropicGeneralizedMaxwell</code></li>
+<li><code>agentfem.constitutive.IsotropicHarmonicModuli</code></li>
 <li><code>agentfem.constitutive.standard_linear_solid</code></li>
 <li><code>agentfem.constitutive.WLFShift</code></li>
 <li><code>agentfem.constitutive.ArrheniusShift</code></li>
@@ -15675,6 +15683,11 @@ E(t)=E_{\infty}+\sum_{i=1}^{N}E_i\exp\!\left(-t/\tau_i\right)
 E^{*}(\omega)=E_{\infty}+\sum_{i=1}^{N}E_i\frac{\mathrm{i}\omega\tau_i}{1+\mathrm{i}\omega\tau_i}
 \]</div>
 <p>Real and imaginary parts give storage and loss modulus; their ratio gives the loss factor.</p>
+<p><strong>real block harmonic equilibrium</strong></p>
+<div class="arithmatex">\[
+\begin{bmatrix}\mathbf K'-\omega^2\mathbf M&amp;-\mathbf K''\\\mathbf K''&amp;\mathbf K'-\omega^2\mathbf M\end{bmatrix}\begin{bmatrix}\mathbf u'\\\mathbf u''\end{bmatrix}=\begin{bmatrix}\mathbf f'\\\mathbf f''\end{bmatrix}
+\]</div>
+<p>The exact complex steady-state problem is solved on a normal real-valued PETSc installation without discarding loss stiffness.</p>
 <p><strong>exact branch update</strong></p>
 <div class="arithmatex">\[
 q_i^{n+1}=\exp\!\left(-\Delta t/\tau_i\right)q_i^n+E_i\frac{\tau_i}{\Delta t}\left(1-\exp\!\left(-\Delta t/\tau_i\right)\right)\Delta\varepsilon
@@ -15740,6 +15753,12 @@ q_i^{n+1}=\exp\!\left(-\Delta t/\tau_i\right)q_i^n+E_i\frac{\tau_i}{\Delta t}\le
 <td>stress, time and temperature</td>
 <td>Material-point and global quadrature state use exact branch updates. The global result carries accepted and rejected physical-time attempts, local time-error estimates, quadrature and recovered S, E, SENER, VDENER and MISES fields, RF, temperature evidence, scheduled accepted-boundary checkpoints and a constitutive work--storage--dissipation ledger.</td>
 </tr>
+<tr>
+<td>harmonic viscoelastic response</td>
+<td>complex bulk/shear material state, phasor displacement fields and energy-loss evidence</td>
+<td>frequency and the model's consistent mechanical units</td>
+<td>The direct harmonic result exposes U_REAL, U_IMAG, component-wise U_AMPLITUDE/U_PHASE, solve evidence, stored energy, loss per cycle and mean dissipated power.</td>
+</tr>
 </tbody>
 </table>
 <h4 id="assumptions_10">Assumptions<a class="headerlink" href="#assumptions_10" title="Permanent link">&para;</a></h4>
@@ -15754,6 +15773,7 @@ q_i^{n+1}=\exp\!\left(-\Delta t/\tau_i\right)q_i^n+E_i\frac{\tau_i}{\Delta t}\le
 <li>Repeated or numerically clustered modes are compared as invariant subspaces because their individual basis vectors may rotate without changing the eigenspace.</li>
 <li>A mass-normalized mode shape is a relative spatial pattern and does not carry a physical displacement amplitude until combined with a modal coordinate.</li>
 <li>Storage and loss modulus consume angular frequency, not cyclic frequency.</li>
+<li>The public harmonic Step accepts cyclic frequency in Hz or angular frequency in rad/s, never both, and records the exp(+i<em>omega</em>t) phasor convention.</li>
 <li>Positive Prony ratios are fractions of the instantaneous modulus and must sum to less than one.</li>
 <li>A nonzero initial strain declares either an instantaneous loading state or a fully equilibrated state; the material history never invents that past implicitly.</li>
 <li>A trial material-point update does not modify accepted state until explicitly committed.</li>
@@ -15763,15 +15783,17 @@ q_i^{n+1}=\exp\!\left(-\Delta t/\tau_i\right)q_i^n+E_i\frac{\tau_i}{\Delta t}\le
 <li>Natural-frequency and mode-shape analysis for supported linear solid models.</li>
 <li>DMA, relaxation, free-decay and modal-superposition preparation for small-strain linear viscoelastic studies.</li>
 <li>Three-dimensional small-strain quasi-static generalized-Maxwell loading and relaxation on a uniform, explicitly declared nonuniform, or automatically error-controlled physical-time path.</li>
+<li>Three-dimensional direct harmonic generalized-Maxwell response with optional inertia and a common load phase.</li>
 </ul>
 <h4 id="limitations_10">Limitations<a class="headerlink" href="#limitations_10" title="Permanent link">&para;</a></h4>
 <ul>
-<li>The first global provider supports 3D solids, strong constraints, prescribed or adaptive physical-time paths and physical-keyed portable restart.</li>
-<li>Direct complex harmonic finite-element assembly, complex modes, nonlinear viscoelasticity and physical aging are not implemented.</li>
+<li>The time-domain global provider supports 3D solids, strong constraints, prescribed or adaptive physical-time paths and physical-keyed portable restart.</li>
+<li>The direct harmonic provider currently supports one 3D isotropic material, uniform temperature, homogeneous strong constraints and one common load phase; material maps, MPC/weak constraints, independent load phases and automated frequency sweeps remain future work.</li>
+<li>Complex modes, nonlinear viscoelasticity and physical aging are not implemented.</li>
 <li>Fixed-spectrum fitting does not automatically choose relaxation times or replace calibration/validation separation.</li>
 </ul>
 <h3 id="minimal-example_10">Minimal example<a class="headerlink" href="#minimal-example_10" title="Permanent link">&para;</a></h3>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a><span class="n">For</span> <span class="k">global</span> <span class="n">relaxation</span><span class="p">,</span> <span class="n">create</span> <span class="n">studies</span><span class="o">.</span><span class="n">viscoelastic_solid</span><span class="p">(</span><span class="n">dimension</span><span class="o">=</span><span class="mi">3</span><span class="p">),</span> <span class="n">register</span> <span class="n">displacement</span><span class="p">,</span> <span class="n">IsotropicGeneralizedMaxwell</span> <span class="ow">and</span> <span class="n">constraints</span><span class="p">,</span> <span class="n">then</span> <span class="n">call</span> <span class="n">model</span><span class="o">.</span><span class="n">step</span><span class="p">(</span><span class="n">target</span><span class="o">=</span><span class="n">u</span><span class="p">,</span> <span class="n">material</span><span class="o">=</span><span class="n">material</span><span class="p">,</span> <span class="n">duration</span><span class="o">=</span><span class="mf">5.0</span><span class="p">,</span> <span class="n">incrementation</span><span class="o">=</span><span class="n">steps</span><span class="o">.</span><span class="n">automatic</span><span class="p">(</span><span class="n">initial</span><span class="o">=</span><span class="mf">0.1</span><span class="p">,</span> <span class="n">minimum</span><span class="o">=</span><span class="mf">1e-4</span><span class="p">,</span> <span class="n">maximum</span><span class="o">=</span><span class="mf">0.25</span><span class="p">),</span> <span class="n">time_error_tolerance</span><span class="o">=</span><span class="mf">1e-3</span><span class="p">,</span> <span class="n">amplitude</span><span class="o">=</span><span class="n">load_then_hold</span><span class="p">,</span> <span class="n">checkpoint</span><span class="o">=</span><span class="n">checkpointing</span><span class="o">.</span><span class="n">every</span><span class="p">(</span><span class="mi">10</span><span class="p">,</span> <span class="n">directory</span><span class="o">=</span><span class="s1">&#39;checkpoints&#39;</span><span class="p">,</span> <span class="n">keep_last</span><span class="o">=</span><span class="mi">2</span><span class="p">))</span><span class="o">.</span><span class="n">solve_result</span><span class="p">()</span><span class="o">.</span> <span class="n">Use</span> <span class="n">steps</span> <span class="ow">or</span> <span class="n">time_points</span> <span class="n">instead</span> <span class="n">when</span> <span class="n">a</span> <span class="n">prescribed</span> <span class="n">physical</span><span class="o">-</span><span class="n">time</span> <span class="n">grid</span> <span class="ow">is</span> <span class="n">required</span><span class="p">,</span> <span class="ow">and</span> <span class="n">GeneralizedMaxwell</span> <span class="k">for</span> <span class="n">scalar</span> <span class="n">material</span><span class="o">-</span><span class="n">point</span> <span class="n">spectra</span> <span class="ow">and</span> <span class="n">histories</span><span class="o">.</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a><span class="n">For</span> <span class="n">a</span> <span class="n">direct</span> <span class="n">frequency</span> <span class="n">response</span><span class="p">,</span> <span class="n">create</span> <span class="n">studies</span><span class="o">.</span><span class="n">harmonic_solid</span><span class="p">(</span><span class="n">dimension</span><span class="o">=</span><span class="mi">3</span><span class="p">),</span> <span class="n">register</span> <span class="n">displacement</span><span class="p">,</span> <span class="n">one</span> <span class="n">IsotropicGeneralizedMaxwell</span> <span class="n">material</span><span class="p">,</span> <span class="n">homogeneous</span> <span class="n">constraints</span> <span class="ow">and</span> <span class="n">loads</span><span class="p">,</span> <span class="n">then</span> <span class="n">call</span> <span class="n">model</span><span class="o">.</span><span class="n">step</span><span class="p">(</span><span class="n">target</span><span class="o">=</span><span class="n">u</span><span class="p">,</span> <span class="n">frequency</span><span class="o">=</span><span class="mf">25.0</span><span class="p">,</span> <span class="n">density</span><span class="o">=</span><span class="mf">1000.0</span><span class="p">)</span><span class="o">.</span><span class="n">solve_result</span><span class="p">()</span><span class="o">.</span> <span class="n">For</span> <span class="k">global</span> <span class="n">relaxation</span><span class="p">,</span> <span class="n">use</span> <span class="n">studies</span><span class="o">.</span><span class="n">viscoelastic_solid</span> <span class="ow">and</span> <span class="k">pass</span> <span class="n">duration</span> <span class="n">plus</span> <span class="n">an</span> <span class="n">increment</span> <span class="n">path</span> <span class="n">through</span> <span class="n">the</span> <span class="n">same</span> <span class="n">model</span><span class="o">.</span><span class="n">step</span> <span class="n">entry</span><span class="o">.</span>
 </code></pre></div>
 <h3 id="verification_10">Verification<a class="headerlink" href="#verification_10" title="Permanent link">&para;</a></h3>
 <p><strong>Tests</strong></p>
@@ -15787,6 +15809,7 @@ q_i^{n+1}=\exp\!\left(-\Delta t/\tau_i\right)q_i^n+E_i\frac{\tau_i}{\Delta t}\le
 <li><code>agentfem.benchmark.linear_cantilever_modal</code></li>
 <li><code>agentfem.benchmark.linear_viscoelastic_spectrum</code></li>
 <li><code>agentfem.benchmark.global_viscoelastic_relaxation</code></li>
+<li><code>agentfem.benchmark.global_viscoelastic_harmonic_bar</code></li>
 <li><code>agentfem.benchmark.abaqus_viscoelastic_rod</code></li>
 </ul>
 <p><strong>Validation rules</strong></p>
@@ -15812,6 +15835,8 @@ q_i^{n+1}=\exp\!\left(-\Delta t/\tau_i\right)q_i^n+E_i\frac{\tau_i}{\Delta t}\le
 <li>Reject a corrupt portable quadrature payload by checksum and restore every in-memory field and history atomically.</li>
 <li>Require the public global Step to recover the same exact relaxation stress with two MPI ranks and to preserve complete regional material maps.</li>
 <li>Require a nonuniform-grid, traction-controlled three-dimensional rod to match the published Abaqus short- and long-time axial strains and effective Poisson ratio.</li>
+<li>Require the public harmonic Study to recover the analytical complex compliance of a traction-controlled three-dimensional bar and retain positive cycle loss.</li>
+<li>Reject ambiguous frequency units, nonhomogeneous prescribed harmonic motion, unsupported constraint families and unsupported nested direct factorization rather than silently changing the harmonic problem.</li>
 <li>Invalidate global restart when material, amplitude, temperature, time grid, physical quadrature identity or portable solution identity differs.</li>
 <li>Reject nonuniform FFT sampling and mark unexcited FRF bins invalid.</li>
 </ul>

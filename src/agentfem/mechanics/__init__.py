@@ -25,11 +25,13 @@ from .plasticity import (
     j2_plasticity_step,
 )
 from .viscoelasticity import (
+    HarmonicViscoelasticStep,
     QuasistaticViscoelasticStep,
     ViscoelasticEnergyFrame,
     ViscoelasticIncrementInfo,
     ViscoelasticPathInfo,
     ViscoelasticQuadratureState,
+    harmonic_viscoelastic_step,
     quasistatic_viscoelastic_step,
 )
 
@@ -47,6 +49,7 @@ __all__ = [
     "J2IncrementInfo",
     "J2LoadPathInfo",
     "J2PlasticityStep",
+    "HarmonicViscoelasticStep",
     "QuasistaticViscoelasticStep",
     "ViscoelasticEnergyFrame",
     "ViscoelasticIncrementInfo",
@@ -56,6 +59,7 @@ __all__ = [
     "experimental_finite_strain_j2_step",
     "finite_strain_j2_affine_problem",
     "finite_strain_j2_standard_problem",
+    "harmonic_viscoelastic_step",
     "j2_plasticity_step",
     "quasistatic_viscoelastic_step",
 ]

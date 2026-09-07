@@ -844,6 +844,64 @@ def viscoelastic(
     return model.add_step(step)
 
 
+def harmonic_viscoelastic(
+    model,
+    *,
+    target,
+    frequency: float | None = None,
+    angular_frequency: float | None = None,
+    material=None,
+    constraints=None,
+    density: float | None = None,
+    load_phase: float = 0.0,
+    temperature: float | None = None,
+    solver_options=None,
+    name: str = "harmonic_viscoelastic",
+):
+    """Build and register one direct generalized-Maxwell harmonic Step."""
+
+    from . import mechanics
+    from .constitutive.viscoelasticity import IsotropicGeneralizedMaxwell
+
+    model.check(target=target, step_options={"material": material})
+    model.study.require(analysis="frequency_domain", physics="solid_mechanics")
+    properties = (
+        model._material_record(material).item
+        if material is not None
+        else _single_material(model, "model.step harmonic response").item
+    )
+    if not isinstance(properties, IsotropicGeneralizedMaxwell):
+        raise TypeError(
+            "A harmonic generalized-Maxwell Step requires one "
+            "IsotropicGeneralizedMaxwell material."
+        )
+    selected_loads = load_api.load_assets(model.loads)
+    if any(isinstance(item, load_api.AmplitudeLoad) for item in selected_loads):
+        raise ValueError(
+            "Frequency-domain loads use load_phase on the Step; time-domain "
+            "AmplitudeLoad assets are not valid in a harmonic Study."
+        )
+    step = mechanics.harmonic_viscoelastic_step(
+        displacement=target,
+        material=properties,
+        frequency=frequency,
+        angular_frequency=angular_frequency,
+        external_force=(
+            model.external_force(target, loads=selected_loads)
+            if selected_loads
+            else None
+        ),
+        constraints=model.constraints if constraints is None else constraints,
+        density=density,
+        load_phase=load_phase,
+        temperature=temperature,
+        study=model.study,
+        solver_options=solver_options,
+        name=name,
+    )
+    return model.add_step(step)
+
+
 def hyperelastic(
     model,
     *,

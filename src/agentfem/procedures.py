@@ -139,6 +139,20 @@ def quasistatic_viscoelasticity() -> SolutionProcedure:
     )
 
 
+def direct_harmonic() -> SolutionProcedure:
+    """Direct real-block solve of a complex steady-state harmonic system."""
+
+    return SolutionProcedure(
+        name="direct harmonic response",
+        family="standard",
+        equation_order="second_order",
+        control="single_solve",
+        algorithm="real_block_complex_harmonic",
+        nonlinear=False,
+        stateful=False,
+    )
+
+
 def implicit_creep() -> SolutionProcedure:
     """Quasi-static backward-Euler creep with global Newton equilibrium."""
 
@@ -229,6 +243,8 @@ def for_step(*, analysis: str, method: str | None = None, stateful: bool = False
         return linear_static()
     if selected_analysis == "modal":
         return modal()
+    if selected_analysis == "frequency_domain":
+        return direct_harmonic()
     if selected_analysis == "nonlinear_static":
         return nonlinear_static(stateful=stateful)
     if selected_analysis == "first_order_transient":
@@ -333,6 +349,11 @@ def _validate_method_name(analysis: str, method: str | None) -> None:
             "eigenvalue",
             "generalized_hermitian_eigenproblem",
         },
+        "frequency_domain": {
+            "direct_harmonic",
+            "harmonic",
+            "real_block_complex_harmonic",
+        },
     }.get(analysis)
     if allowed is not None and selected not in allowed:
         choices = ", ".join(sorted(allowed))
@@ -354,6 +375,7 @@ def _validate_for_analysis(
         "second_order_dynamics": "second_order",
         "explicit_dynamics": "second_order",
         "modal": "static",
+        "frequency_domain": "second_order",
     }.get(analysis)
     if expected_order is None:
         return
@@ -377,6 +399,8 @@ def _validate_for_analysis(
         raise ValueError("A linear-static Study cannot use a nonlinear procedure.")
     if analysis == "modal" and procedure.nonlinear:
         raise ValueError("A modal Study cannot use a nonlinear procedure.")
+    if analysis == "frequency_domain" and procedure.nonlinear:
+        raise ValueError("A frequency-domain Study cannot use a nonlinear procedure.")
     if analysis in {"nonlinear_static", "nonlinear_transient"} and not procedure.nonlinear:
         raise ValueError(
             f"Analysis {analysis!r} requires a nonlinear SolutionProcedure."
@@ -395,6 +419,7 @@ __all__ = [
     "SolutionProcedure",
     "central_difference",
     "cyclic_fatigue",
+    "direct_harmonic",
     "for_step",
     "generalized_alpha",
     "implicit_euler",

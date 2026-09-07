@@ -28,6 +28,7 @@ and evidence remain in the linked guides and scientific function reference.
 | function | `transient(*, physics: str, dimension: int, assumption: str \| None = None, name: str \| None = None, procedure: str \| None = None) -> Study` | Compatibility alias for ``first_order_transient``. |
 | function | `transient_heat_transfer(*, dimension: int, name: str \| None = None) -> Study` | Define an implicit first-order heat-transfer study. |
 | function | `viscoelastic_solid(*, dimension: int = 3, assumption: str \| None = None, name: str \| None = None) -> Study` | Define quasi-static small-strain generalized-Maxwell evolution. |
+| function | `harmonic_solid(*, dimension: int = 3, assumption: str \| None = None, name: str \| None = None) -> Study` | Define a direct steady-state harmonic solid-mechanics study. |
 | function | `nonlinear_transient(*, physics: str, dimension: int, assumption: str \| None = None, name: str \| None = None, procedure: str \| None = None) -> Study` | Define a nonlinear time-domain study. |
 | function | `creep_solid(*, dimension: int = 3, assumption: str \| None = None, name: str \| None = None) -> Study` | Define an implicit quasi-static creep study. |
 | function | `second_order_dynamics(*, physics: str, dimension: int, assumption: str \| None = None, name: str \| None = None, procedure: str \| None = None) -> Study` | Define a second-order dynamics study. |
@@ -266,6 +267,7 @@ and evidence remain in the linked guides and scientific function reference.
 | class | `ArrheniusShift` | Arrhenius time-temperature shift factor. |
 | class | `GeneralizedMaxwell` | Small-strain generalized-Maxwell relaxation spectrum. |
 | class | `IsotropicGeneralizedMaxwell` | Small-strain isotropic generalized-Maxwell solid for global FEM. |
+| class | `IsotropicHarmonicModuli` | Complex isotropic moduli at one angular frequency. |
 | class | `IsotropicMaxwellUpdate` | One exact tensor-valued generalized-Maxwell trial update. |
 | class | `MaxwellState` | Committed state for a generalized-Maxwell material point. |
 | class | `PronyFit` | Deterministic fixed-spectrum relaxation fit with validation evidence. |
@@ -861,11 +863,13 @@ and evidence remain in the linked guides and scientific function reference.
 | class | `J2LoadPathInfo` | Public AgentFEM object. |
 | class | `J2PlasticityStep` | Incremental global equilibrium for 3D small-strain J2 plasticity. |
 | function | `j2_plasticity_step(*, displacement, material, external_force, constraints = (), study = None, incrementation = None, solver_options = None, quadrature_degree: int = 2, progress = True, status_file = None, amplitude = None, name: str = 'j2_plasticity', _experimental_distributed: bool = False) -> J2PlasticityStep` | Build a global 3D or axisymmetric J2 step. |
+| class | `HarmonicViscoelasticStep` | Direct harmonic generalized-Maxwell equilibrium in a real PETSc build. |
 | class | `QuasistaticViscoelasticStep` | Incremental equilibrium for a small-strain generalized-Maxwell solid. |
 | class | `ViscoelasticEnergyFrame` | Exact constitutive work--storage--dissipation ledger. |
 | class | `ViscoelasticIncrementInfo` | Accepted equilibrium evidence for one physical-time increment. |
 | class | `ViscoelasticPathInfo` | Resolved fixed physical-time path. |
 | class | `ViscoelasticQuadratureState` | Typed committed/trial Maxwell state and current response fields. |
+| function | `harmonic_viscoelastic_step(*, displacement, material, frequency: float \| None = None, angular_frequency: float \| None = None, external_force = None, constraints = (), density: float \| None = None, load_phase: float = 0.0, temperature: float \| None = None, study = None, solver_options = None, name: str = 'harmonic_viscoelastic') -> HarmonicViscoelasticStep` | Build one direct 3D harmonic generalized-Maxwell equilibrium Step. |
 | function | `quasistatic_viscoelastic_step(*, displacement, material, duration: float, steps: int \| None = None, time_points = None, incrementation = None, time_error_tolerance: float \| None = None, external_force = None, constraints = (), study = None, solver_options = None, quadrature_degree: int = 2, amplitude = None, temperature = None, time_unit: str \| None = None, progress = True, status_file = None, checkpoint_policy = None, name: str = 'viscoelastic') -> QuasistaticViscoelasticStep` | Build a 3D quasi-static generalized-Maxwell Step. |
 
 ## `agentfem.operators`
@@ -946,6 +950,7 @@ and evidence remain in the linked guides and scientific function reference.
 | function | `nonlinear_static(*, stateful: bool = False) -> SolutionProcedure` | Public AgentFEM object. |
 | function | `implicit_euler(*, nonlinear: bool = False, stateful: bool = True) -> SolutionProcedure` | Public AgentFEM object. |
 | function | `quasistatic_viscoelasticity() -> SolutionProcedure` | Exact generalized-Maxwell update with incremental equilibrium. |
+| function | `direct_harmonic() -> SolutionProcedure` | Direct real-block solve of a complex steady-state harmonic system. |
 | function | `implicit_creep() -> SolutionProcedure` | Quasi-static backward-Euler creep with global Newton equilibrium. |
 | function | `viscoelastic_history() -> SolutionProcedure` | Exact increment-wise generalized-Maxwell material history. |
 | function | `newmark() -> SolutionProcedure` | Public AgentFEM object. |

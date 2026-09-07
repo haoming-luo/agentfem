@@ -13,6 +13,7 @@ loads, fields, and results.
 | Newmark | Implicit | Structural response with controllable numerical parameters |
 | Generalized-alpha | Implicit | Dynamics with high-frequency numerical dissipation |
 | Central difference | Explicit | Wave propagation and short transient events |
+| Direct harmonic | Real-block complex | Steady-state response of generalized-Maxwell solids |
 
 ## Modal analysis
 
@@ -217,6 +218,52 @@ an explicitly supplied temperature scalar or field. Portable checkpoints reject
 a changed material, amplitude, temperature, time grid, physical quadrature
 identity or nodal field identity before restart. Response fields are rebuilt
 from the accepted branch state without advancing relaxation time.
+
+### Direct harmonic viscoelastic response
+
+The same generalized-Maxwell material can be used directly in the frequency
+domain. The public workflow remains an engineering model and one `model.step`:
+
+```python
+model = models.create(
+    study=studies.harmonic_solid(dimension=3),
+    mesh=domain,
+)
+u = model.field(fields.displacement(domain))
+model.material(material)
+model.fix(u, on=fixed_end)
+model.traction((1000.0, 0.0, 0.0), on=loaded_end)
+
+result = model.step(
+    target=u,
+    frequency=25.0,   # Hz
+    density=1000.0,   # include inertia; omit for quasi-static harmonic response
+).solve_result(output="outputs/harmonic/fields.xdmf")
+```
+
+For the declared \(\exp(+\mathrm{i}\omega t)\) convention, the constitutive
+object evaluates independent complex bulk and shear moduli. AgentFEM lowers
+the complex equilibrium equation exactly to a real two-by-two block system,
+
+\[
+\begin{bmatrix}
+\mathbf K'-\omega^2\mathbf M & -\mathbf K''\\
+\mathbf K'' & \mathbf K'-\omega^2\mathbf M
+\end{bmatrix}
+\begin{bmatrix}\mathbf u'\\\mathbf u''\end{bmatrix}
+=
+\begin{bmatrix}\mathbf f'\\\mathbf f''\end{bmatrix}.
+\]
+
+It therefore works with the normal real-valued DOLFINx/PETSc distribution;
+no complex PETSc installation is hidden from the user. The result exposes
+`U_REAL`, `U_IMAG`, component-wise `U_AMPLITUDE` and `U_PHASE`, the frequency,
+solver evidence, cycle-mean stored energy, dissipated energy per cycle, and
+mean dissipated power. The present provider accepts one three-dimensional
+isotropic material, uniform temperature, homogeneous strong constraints, and
+one common load phase. Multiple material regions, MPC/weak constraints,
+per-load phases, automated frequency sweeps and an external structural
+benchmark remain promotion gates rather than being silently approximated.
 
 This is a bounded global FEM foundation, not a claim of nonlinear finite-strain
 viscoelasticity, physical aging or direct harmonic assembly.

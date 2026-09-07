@@ -2438,6 +2438,11 @@ and evidence remain in the linked guides and scientific function reference.</p>
 </tr>
 <tr>
 <td>function</td>
+<td><code>harmonic_solid(*, dimension: int = 3, assumption: str \| None = None, name: str \| None = None) -&gt; Study</code></td>
+<td>Define a direct steady-state harmonic solid-mechanics study.</td>
+</tr>
+<tr>
+<td>function</td>
 <td><code>nonlinear_transient(*, physics: str, dimension: int, assumption: str \| None = None, name: str \| None = None, procedure: str \| None = None) -&gt; Study</code></td>
 <td>Define a nonlinear time-domain study.</td>
 </tr>
@@ -3560,6 +3565,11 @@ and evidence remain in the linked guides and scientific function reference.</p>
 <td>class</td>
 <td><code>IsotropicGeneralizedMaxwell</code></td>
 <td>Small-strain isotropic generalized-Maxwell solid for global FEM.</td>
+</tr>
+<tr>
+<td>class</td>
+<td><code>IsotropicHarmonicModuli</code></td>
+<td>Complex isotropic moduli at one angular frequency.</td>
 </tr>
 <tr>
 <td>class</td>
@@ -6226,6 +6236,11 @@ and evidence remain in the linked guides and scientific function reference.</p>
 </tr>
 <tr>
 <td>class</td>
+<td><code>HarmonicViscoelasticStep</code></td>
+<td>Direct harmonic generalized-Maxwell equilibrium in a real PETSc build.</td>
+</tr>
+<tr>
+<td>class</td>
 <td><code>QuasistaticViscoelasticStep</code></td>
 <td>Incremental equilibrium for a small-strain generalized-Maxwell solid.</td>
 </tr>
@@ -6248,6 +6263,11 @@ and evidence remain in the linked guides and scientific function reference.</p>
 <td>class</td>
 <td><code>ViscoelasticQuadratureState</code></td>
 <td>Typed committed/trial Maxwell state and current response fields.</td>
+</tr>
+<tr>
+<td>function</td>
+<td><code>harmonic_viscoelastic_step(*, displacement, material, frequency: float \| None = None, angular_frequency: float \| None = None, external_force = None, constraints = (), density: float \| None = None, load_phase: float = 0.0, temperature: float \| None = None, study = None, solver_options = None, name: str = 'harmonic_viscoelastic') -&gt; HarmonicViscoelasticStep</code></td>
+<td>Build one direct 3D harmonic generalized-Maxwell equilibrium Step.</td>
 </tr>
 <tr>
 <td>function</td>
@@ -6622,6 +6642,11 @@ and evidence remain in the linked guides and scientific function reference.</p>
 <td>function</td>
 <td><code>quasistatic_viscoelasticity() -&gt; SolutionProcedure</code></td>
 <td>Exact generalized-Maxwell update with incremental equilibrium.</td>
+</tr>
+<tr>
+<td>function</td>
+<td><code>direct_harmonic() -&gt; SolutionProcedure</code></td>
+<td>Direct real-block solve of a complex steady-state harmonic system.</td>
 </tr>
 <tr>
 <td>function</td>

@@ -649,6 +649,23 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="Linear viscoelastic spectra">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#direct-harmonic-viscoelastic-response" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Direct harmonic viscoelastic response
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
       
         <li class="md-nav__item">
@@ -1300,6 +1317,23 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="Linear viscoelastic spectra">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#direct-harmonic-viscoelastic-response" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Direct harmonic viscoelastic response
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
       
         <li class="md-nav__item">
@@ -1444,6 +1478,11 @@ loads, fields, and results.</p>
 <td>Central difference</td>
 <td>Explicit</td>
 <td>Wave propagation and short transient events</td>
+</tr>
+<tr>
+<td>Direct harmonic</td>
+<td>Real-block complex</td>
+<td>Steady-state response of generalized-Maxwell solids</td>
 </tr>
 </tbody>
 </table>
@@ -1618,6 +1657,45 @@ an explicitly supplied temperature scalar or field. Portable checkpoints reject
 a changed material, amplitude, temperature, time grid, physical quadrature
 identity or nodal field identity before restart. Response fields are rebuilt
 from the accepted branch state without advancing relaxation time.</p>
+<h3 id="direct-harmonic-viscoelastic-response">Direct harmonic viscoelastic response<a class="headerlink" href="#direct-harmonic-viscoelastic-response" title="Permanent link">&para;</a></h3>
+<p>The same generalized-Maxwell material can be used directly in the frequency
+domain. The public workflow remains an engineering model and one <code>model.step</code>:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="n">model</span> <span class="o">=</span> <span class="n">models</span><span class="o">.</span><span class="n">create</span><span class="p">(</span>
+<a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a>    <span class="n">study</span><span class="o">=</span><span class="n">studies</span><span class="o">.</span><span class="n">harmonic_solid</span><span class="p">(</span><span class="n">dimension</span><span class="o">=</span><span class="mi">3</span><span class="p">),</span>
+<a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a>    <span class="n">mesh</span><span class="o">=</span><span class="n">domain</span><span class="p">,</span>
+<a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a><span class="p">)</span>
+<a id="__codelineno-7-5" name="__codelineno-7-5" href="#__codelineno-7-5"></a><span class="n">u</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">field</span><span class="p">(</span><span class="n">fields</span><span class="o">.</span><span class="n">displacement</span><span class="p">(</span><span class="n">domain</span><span class="p">))</span>
+<a id="__codelineno-7-6" name="__codelineno-7-6" href="#__codelineno-7-6"></a><span class="n">model</span><span class="o">.</span><span class="n">material</span><span class="p">(</span><span class="n">material</span><span class="p">)</span>
+<a id="__codelineno-7-7" name="__codelineno-7-7" href="#__codelineno-7-7"></a><span class="n">model</span><span class="o">.</span><span class="n">fix</span><span class="p">(</span><span class="n">u</span><span class="p">,</span> <span class="n">on</span><span class="o">=</span><span class="n">fixed_end</span><span class="p">)</span>
+<a id="__codelineno-7-8" name="__codelineno-7-8" href="#__codelineno-7-8"></a><span class="n">model</span><span class="o">.</span><span class="n">traction</span><span class="p">((</span><span class="mf">1000.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">),</span> <span class="n">on</span><span class="o">=</span><span class="n">loaded_end</span><span class="p">)</span>
+<a id="__codelineno-7-9" name="__codelineno-7-9" href="#__codelineno-7-9"></a>
+<a id="__codelineno-7-10" name="__codelineno-7-10" href="#__codelineno-7-10"></a><span class="n">result</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">step</span><span class="p">(</span>
+<a id="__codelineno-7-11" name="__codelineno-7-11" href="#__codelineno-7-11"></a>    <span class="n">target</span><span class="o">=</span><span class="n">u</span><span class="p">,</span>
+<a id="__codelineno-7-12" name="__codelineno-7-12" href="#__codelineno-7-12"></a>    <span class="n">frequency</span><span class="o">=</span><span class="mf">25.0</span><span class="p">,</span>   <span class="c1"># Hz</span>
+<a id="__codelineno-7-13" name="__codelineno-7-13" href="#__codelineno-7-13"></a>    <span class="n">density</span><span class="o">=</span><span class="mf">1000.0</span><span class="p">,</span>   <span class="c1"># include inertia; omit for quasi-static harmonic response</span>
+<a id="__codelineno-7-14" name="__codelineno-7-14" href="#__codelineno-7-14"></a><span class="p">)</span><span class="o">.</span><span class="n">solve_result</span><span class="p">(</span><span class="n">output</span><span class="o">=</span><span class="s2">&quot;outputs/harmonic/fields.xdmf&quot;</span><span class="p">)</span>
+</code></pre></div>
+<p>For the declared <span class="arithmatex">\(\exp(+\mathrm{i}\omega t)\)</span> convention, the constitutive
+object evaluates independent complex bulk and shear moduli. AgentFEM lowers
+the complex equilibrium equation exactly to a real two-by-two block system,</p>
+<div class="arithmatex">\[
+\begin{bmatrix}
+\mathbf K'-\omega^2\mathbf M &amp; -\mathbf K''\\
+\mathbf K'' &amp; \mathbf K'-\omega^2\mathbf M
+\end{bmatrix}
+\begin{bmatrix}\mathbf u'\\\mathbf u''\end{bmatrix}
+=
+\begin{bmatrix}\mathbf f'\\\mathbf f''\end{bmatrix}.
+\]</div>
+<p>It therefore works with the normal real-valued DOLFINx/PETSc distribution;
+no complex PETSc installation is hidden from the user. The result exposes
+<code>U_REAL</code>, <code>U_IMAG</code>, component-wise <code>U_AMPLITUDE</code> and <code>U_PHASE</code>, the frequency,
+solver evidence, cycle-mean stored energy, dissipated energy per cycle, and
+mean dissipated power. The present provider accepts one three-dimensional
+isotropic material, uniform temperature, homogeneous strong constraints, and
+one common load phase. Multiple material regions, MPC/weak constraints,
+per-load phases, automated frequency sweeps and an external structural
+benchmark remain promotion gates rather than being silently approximated.</p>
 <p>This is a bounded global FEM foundation, not a claim of nonlinear finite-strain
 viscoelasticity, physical aging or direct harmonic assembly.
 The independent three-dimensional

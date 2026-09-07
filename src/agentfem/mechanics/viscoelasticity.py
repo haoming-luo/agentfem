@@ -36,6 +36,7 @@ from ..diagnostics import (
     compose_reporters,
 )
 from ..solvers import NewtonSolverOptions, SolveEvent, newton, solve_matrix_system
+from ..solvers import LinearSolveInfo, LinearSolverOptions
 
 
 @dataclass(frozen=True)
@@ -143,6 +144,238 @@ class ViscoelasticEnergyFrame:
 
     def as_dict(self) -> dict[str, float]:
         return {name: float(getattr(self, name)) for name in self.__dataclass_fields__}
+
+
+@dataclass
+class HarmonicViscoelasticStep:
+    """Direct harmonic generalized-Maxwell equilibrium in a real PETSc build.
+
+    The complex system is lowered to the exact real block form
+
+    ``[[K' - w^2 M, -K''], [K'', K' - w^2 M]]``.
+
+    Real and imaginary displacement fields remain separate public fields, so
+    the implementation works with ordinary real-valued DOLFINx/PETSc packages
+    and does not hide phasor semantics in complex backend storage.
+    """
+
+    name: str
+    solution_real: object
+    solution_imaginary: object
+    material: IsotropicGeneralizedMaxwell
+    angular_frequency: float
+    bilinear_forms: object
+    linear_forms: object
+    bcs: tuple[object, ...]
+    solver_options: LinearSolverOptions
+    load_phase: float = 0.0
+    density: float | None = None
+    temperature: float | None = None
+    study: object | None = None
+    procedure: object = field(default_factory=procedures.direct_harmonic)
+    last_solve_info: LinearSolveInfo | None = field(default=None, init=False)
+    displacement_amplitude: object | None = field(default=None, init=False)
+    displacement_phase: object | None = field(default=None, init=False)
+
+    def solve(self):
+        """Solve once and return the real displacement field."""
+
+        problem = fem_petsc.LinearProblem(
+            self.bilinear_forms,
+            self.linear_forms,
+            u=[self.solution_real, self.solution_imaginary],
+            bcs=list(self.bcs),
+            kind="nest",
+            petsc_options_prefix="agentfem_harmonic_viscoelastic_",
+            petsc_options=self.solver_options.petsc_options(),
+        )
+        problem.solve()
+        solver = problem.solver
+        info = LinearSolveInfo(
+            converged_reason=int(solver.getConvergedReason()),
+            iterations=int(solver.getIterationNumber()),
+            residual_norm=float(solver.getResidualNorm()),
+        )
+        self.last_solve_info = info
+        if not info.converged and self.solver_options.error_if_not_converged:
+            raise RuntimeError(
+                "Harmonic viscoelastic linear solve did not converge: "
+                f"reason={info.converged_reason}, iterations={info.iterations}, "
+                f"residual={info.residual_norm:.6e}."
+            )
+        self._refresh_polar_fields()
+        return self.solution_real
+
+    def _refresh_polar_fields(self) -> None:
+        real = np.asarray(self.solution_real.x.array, dtype=float)
+        imaginary = np.asarray(self.solution_imaginary.x.array, dtype=float)
+        amplitude = fem.Function(
+            self.solution_real.function_space,
+            name="U_AMPLITUDE",
+        )
+        phase = fem.Function(self.solution_real.function_space, name="U_PHASE")
+        amplitude.x.array[:] = np.hypot(real, imaginary)
+        phase.x.array[:] = np.arctan2(imaginary, real)
+        amplitude.x.scatter_forward()
+        phase.x.scatter_forward()
+        self.displacement_amplitude = amplitude
+        self.displacement_phase = phase
+
+    @property
+    def complex_dofs(self) -> np.ndarray:
+        """Return a local copy of the complex displacement coefficients."""
+
+        return self.solution_real.x.array.copy() + 1j * self.solution_imaginary.x.array
+
+    def summary(self) -> dict[str, object]:
+        return {
+            "kind": "harmonic_viscoelastic_step",
+            "name": self.name,
+            "frequency": self.angular_frequency / (2.0 * np.pi),
+            "angular_frequency": self.angular_frequency,
+            "phasor_convention": "exp(+i*omega*t)",
+            "load_phase": self.load_phase,
+            "density": self.density,
+            "includes_inertia": self.density is not None,
+            "temperature": self.temperature,
+            "material": self.material.harmonic_moduli(
+                self.angular_frequency,
+                temperature=self.temperature,
+            ).summary(),
+            "procedure": self.procedure.summary(),
+            "solver": self.solver_options.summary(),
+            "solve": (
+                None if self.last_solve_info is None else self.last_solve_info.as_dict()
+            ),
+        }
+
+    def energy_evidence(self) -> dict[str, float]:
+        """Return cycle loss and time-averaged recoverable energy integrals."""
+
+        harmonic = self.material.harmonic_moduli(
+            self.angular_frequency,
+            temperature=self.temperature,
+        )
+        strain_real = elasticity.strain(self.solution_real, study=self.study)
+        strain_imaginary = elasticity.strain(
+            self.solution_imaginary,
+            study=self.study,
+        )
+        identity = ufl.Identity(3)
+        trace_squared = ufl.tr(strain_real) ** 2 + ufl.tr(strain_imaginary) ** 2
+        deviator_real = strain_real - ufl.tr(strain_real) * identity / 3.0
+        deviator_imaginary = (
+            strain_imaginary - ufl.tr(strain_imaginary) * identity / 3.0
+        )
+        deviator_squared = ufl.inner(deviator_real, deviator_real) + ufl.inner(
+            deviator_imaginary,
+            deviator_imaginary,
+        )
+        stored_density = 0.25 * (
+            float(harmonic.bulk.real) * trace_squared
+            + 2.0 * float(harmonic.shear.real) * deviator_squared
+        )
+        loss_density = np.pi * (
+            float(harmonic.bulk.imag) * trace_squared
+            + 2.0 * float(harmonic.shear.imag) * deviator_squared
+        )
+
+        def integral(expression) -> float:
+            local = fem.assemble_scalar(fem.form(expression * ufl.dx))
+            return float(
+                self.solution_real.function_space.mesh.comm.allreduce(
+                    local,
+                    op=MPI.SUM,
+                )
+            )
+
+        stored = integral(stored_density)
+        per_cycle = integral(loss_density)
+        return {
+            "mean_stored_energy": stored,
+            "dissipated_energy_per_cycle": per_cycle,
+            "mean_dissipated_power": (
+                0.0
+                if self.angular_frequency == 0.0
+                else self.angular_frequency * per_cycle / (2.0 * np.pi)
+            ),
+        }
+
+    def solve_result(self, *, output=None, strict_output: bool = False):
+        """Solve and publish real, imaginary, amplitude and phase fields."""
+
+        from .. import results
+
+        self.solve()
+        result = results.from_solution(
+            self.solution_real,
+            name=self.name,
+            field_name="U_REAL",
+            metadata={"step": self.summary()},
+            scientific_inputs={
+                "material": self.material,
+                "harmonic_excitation": {
+                    "frequency": self.angular_frequency / (2.0 * np.pi),
+                    "angular_frequency": self.angular_frequency,
+                    "phasor_convention": "exp(+i*omega*t)",
+                    "load_phase": self.load_phase,
+                    "density": self.density,
+                    "temperature": self.temperature,
+                },
+            },
+        )
+        result.add_field(
+            "U_IMAG",
+            self.solution_imaginary,
+            description="Imaginary displacement phasor component.",
+            processing={"phasor_convention": "exp(+i*omega*t)"},
+        )
+        result.add_field(
+            "U_AMPLITUDE",
+            self.displacement_amplitude,
+            description="Component-wise displacement phasor amplitude.",
+            processing={"method": "hypot(U_REAL,U_IMAG)"},
+        )
+        result.add_field(
+            "U_PHASE",
+            self.displacement_phase,
+            unit="rad",
+            description="Component-wise displacement phase.",
+            processing={"method": "atan2(U_IMAG,U_REAL)"},
+        )
+        result.add_quantity(
+            "frequency",
+            self.angular_frequency / (2.0 * np.pi),
+            unit="Hz",
+        )
+        result.add_quantity(
+            "angular_frequency",
+            self.angular_frequency,
+            unit="rad/s",
+        )
+        result.add_quantities(
+            self.energy_evidence(),
+            kind="energy_evidence",
+            descriptions={
+                "mean_stored_energy": (
+                    "Cycle-mean recoverable energy in the model's consistent "
+                    "mechanical unit system."
+                ),
+                "dissipated_energy_per_cycle": (
+                    "Positive material energy loss per harmonic cycle."
+                ),
+                "mean_dissipated_power": (
+                    "Cycle-mean viscoelastic dissipation rate."
+                ),
+            },
+        )
+        return results.complete_result(
+            self,
+            result,
+            output=output,
+            fields=("U_REAL", "U_IMAG", "U_AMPLITUDE", "U_PHASE"),
+            strict_output=strict_output,
+        )
 
 
 @dataclass
@@ -2000,11 +2233,249 @@ def quasistatic_viscoelastic_step(
     )
 
 
+def harmonic_viscoelastic_step(
+    *,
+    displacement,
+    material,
+    frequency: float | None = None,
+    angular_frequency: float | None = None,
+    external_force=None,
+    constraints=(),
+    density: float | None = None,
+    load_phase: float = 0.0,
+    temperature: float | None = None,
+    study=None,
+    solver_options=None,
+    name: str = "harmonic_viscoelastic",
+) -> HarmonicViscoelasticStep:
+    """Build one direct 3D harmonic generalized-Maxwell equilibrium Step.
+
+    Exactly one of ``frequency`` (Hz) and ``angular_frequency`` (rad/s) is
+    required.  The first release accepts a common load phase and homogeneous
+    strong constraints.  Inertia is included only when ``density`` is given.
+    """
+
+    if not isinstance(material, IsotropicGeneralizedMaxwell):
+        raise TypeError(
+            "harmonic_viscoelastic_step requires one "
+            "IsotropicGeneralizedMaxwell material."
+        )
+    if (frequency is None) == (angular_frequency is None):
+        raise ValueError("Specify exactly one of frequency or angular_frequency.")
+    omega = (
+        2.0 * np.pi * float(frequency)
+        if frequency is not None
+        else float(angular_frequency)
+    )
+    if not np.isfinite(omega) or omega < 0.0:
+        raise ValueError("Harmonic frequency must be finite and nonnegative.")
+    phase = float(load_phase)
+    if not np.isfinite(phase):
+        raise ValueError("load_phase must be finite radians.")
+    selected_density = None if density is None else float(density)
+    if selected_density is not None and (
+        not np.isfinite(selected_density) or selected_density <= 0.0
+    ):
+        raise ValueError("density must be finite and positive when supplied.")
+    selected_temperature = None if temperature is None else float(temperature)
+    harmonic = material.harmonic_moduli(
+        omega,
+        temperature=selected_temperature,
+    )
+    domain = displacement.value.function_space.mesh
+    if domain.geometry.dim != 3:
+        raise NotImplementedError(
+            "Direct harmonic generalized-Maxwell assembly currently supports 3D solids."
+        )
+    if study is not None and hasattr(study, "require"):
+        study.require(analysis="frequency_domain", physics="solid_mechanics")
+
+    selected_bcs = _harmonic_strong_bcs(constraints)
+    _require_homogeneous_harmonic_bcs(displacement.value, selected_bcs)
+    solution_real = displacement.value
+    solution_real.name = "U_REAL"
+    real_space = solution_real.function_space
+    imaginary_space = real_space.clone()
+    solution_imaginary = fem.Function(imaginary_space, name="U_IMAG")
+    real_trial = ufl.TrialFunction(real_space)
+    real_test = ufl.TestFunction(real_space)
+    imaginary_trial = ufl.TrialFunction(imaginary_space)
+    imaginary_test = ufl.TestFunction(imaginary_space)
+    identity = ufl.Identity(3)
+
+    def stiffness_form(trial, test, bulk, shear):
+        strain_trial = elasticity.strain(trial, study=study)
+        strain_test = elasticity.strain(test, study=study)
+        trial_deviator = strain_trial - ufl.tr(strain_trial) * identity / 3.0
+        bulk_coefficient = fem.Constant(domain, PETSc.ScalarType(float(bulk)))
+        shear_coefficient = fem.Constant(domain, PETSc.ScalarType(float(shear)))
+        stress = (
+            bulk_coefficient * ufl.tr(strain_trial) * identity
+            + 2.0 * shear_coefficient * trial_deviator
+        )
+        return ufl.inner(stress, strain_test) * ufl.dx
+
+    storage_rr = stiffness_form(
+        real_trial, real_test, harmonic.bulk.real, harmonic.shear.real
+    )
+    storage_ii = stiffness_form(
+        imaginary_trial, imaginary_test, harmonic.bulk.real, harmonic.shear.real
+    )
+    loss_ri = stiffness_form(
+        imaginary_trial, real_test, harmonic.bulk.imag, harmonic.shear.imag
+    )
+    loss_ir = stiffness_form(
+        real_trial, imaginary_test, harmonic.bulk.imag, harmonic.shear.imag
+    )
+    if selected_density is not None and omega:
+        storage_rr -= (
+            selected_density
+            * omega**2
+            * ufl.inner(real_trial, real_test)
+            * ufl.dx
+        )
+        storage_ii -= (
+            selected_density
+            * omega**2
+            * ufl.inner(imaginary_trial, imaginary_test)
+            * ufl.dx
+        )
+    if external_force is None:
+        zero = fem.Constant(domain, np.zeros(3, dtype=PETSc.ScalarType))
+        real_load = ufl.inner(zero, real_test) * ufl.dx
+        imaginary_load = ufl.inner(zero, imaginary_test) * ufl.dx
+    else:
+        source_load = external_force.expression
+        if len(source_load.arguments()) != 1:
+            raise RuntimeError(
+                "Harmonic external force must be a linear form; got arguments "
+                f"{source_load.arguments()!r}."
+            )
+        source_test = source_load.arguments()[0]
+        real_load = ufl.replace(source_load, {source_test: real_test})
+        imaginary_load = ufl.replace(source_load, {source_test: imaginary_test})
+    real_factor = fem.Constant(domain, PETSc.ScalarType(np.cos(phase)))
+    imaginary_factor = fem.Constant(domain, PETSc.ScalarType(np.sin(phase)))
+    real_load = real_factor * real_load
+    imaginary_load = imaginary_factor * imaginary_load
+    imaginary_bcs = _clone_zero_harmonic_bcs(
+        real_space,
+        imaginary_space,
+        selected_bcs,
+    )
+    options = solver_options or LinearSolverOptions(
+        ksp_type="gmres",
+        pc_type="fieldsplit",
+        rtol=1.0e-11,
+        max_it=500,
+    )
+    if not isinstance(options, LinearSolverOptions):
+        raise TypeError("solver_options must be LinearSolverOptions.")
+    if options.pc_type.lower() != "fieldsplit":
+        raise NotImplementedError(
+            "The real-block harmonic provider currently requires "
+            "pc_type='fieldsplit'. This prevents unsupported direct "
+            "factorization of a PETSc MatNest."
+        )
+    return HarmonicViscoelasticStep(
+        name=str(name),
+        solution_real=solution_real,
+        solution_imaginary=solution_imaginary,
+        material=material,
+        angular_frequency=omega,
+        bilinear_forms=[
+            [storage_rr, -loss_ri],
+            [loss_ir, storage_ii],
+        ],
+        linear_forms=[real_load, imaginary_load],
+        bcs=(*selected_bcs, *imaginary_bcs),
+        solver_options=options,
+        load_phase=phase,
+        density=selected_density,
+        temperature=selected_temperature,
+        study=study,
+    )
+
+
+def _harmonic_strong_bcs(constraints) -> tuple[object, ...]:
+    selected = []
+    for item in constraints or ():
+        if hasattr(item, "bcs"):
+            selected.extend(item.bcs)
+        elif hasattr(item, "bc"):
+            selected.append(item.bc)
+        elif callable(getattr(item, "dof_indices", None)):
+            selected.append(item)
+        else:
+            raise NotImplementedError(
+                "Direct harmonic viscoelasticity currently supports strong "
+                "Dirichlet constraints; MPC and weak constraints require a "
+                "dedicated complex dual contract."
+            )
+    return tuple(selected)
+
+
+def _require_homogeneous_harmonic_bcs(solution, bcs) -> None:
+    if not bcs:
+        return
+    probe = fem.Function(solution.function_space)
+    fem_petsc.set_bc(probe.x.petsc_vec, list(bcs))
+    owned = int(
+        probe.function_space.dofmap.index_map.size_local
+        * probe.function_space.dofmap.index_map_bs
+    )
+    local = float(np.max(np.abs(probe.x.array[:owned]))) if owned else 0.0
+    maximum = float(probe.function_space.mesh.comm.allreduce(local, op=MPI.MAX))
+    if maximum > 64.0 * np.finfo(float).eps:
+        raise NotImplementedError(
+            "Direct harmonic viscoelasticity currently requires homogeneous "
+            "strong constraints. Express harmonic excitation as a load phasor."
+        )
+
+
+def _clone_zero_harmonic_bcs(source_space, target_space, bcs) -> tuple[object, ...]:
+    """Mirror constrained parent dofs onto a distinct imaginary space."""
+
+    if not bcs:
+        return ()
+    cloned = []
+    value_size = int(np.prod(source_space.element.value_shape or (1,)))
+    for bc in bcs:
+        dofs, _owned = bc.dof_indices()
+        selected_dofs = np.asarray(dofs, dtype=np.int32).reshape(-1)
+        component = next(
+            (
+                index
+                for index in range(value_size)
+                if source_space.sub(index)._cpp_object.contains(bc.function_space)
+            ),
+            None,
+        )
+        if component is None:
+            zero = fem.Function(target_space)
+            cloned.append(fem.dirichletbc(zero, selected_dofs))
+        else:
+            zero = fem.Constant(
+                target_space.mesh,
+                PETSc.ScalarType(0.0),
+            )
+            cloned.append(
+                fem.dirichletbc(
+                    zero,
+                    selected_dofs,
+                    target_space.sub(component),
+                )
+            )
+    return tuple(cloned)
+
+
 __all__ = [
+    "HarmonicViscoelasticStep",
     "QuasistaticViscoelasticStep",
     "ViscoelasticEnergyFrame",
     "ViscoelasticIncrementInfo",
     "ViscoelasticPathInfo",
     "ViscoelasticQuadratureState",
+    "harmonic_viscoelastic_step",
     "quasistatic_viscoelastic_step",
 ]

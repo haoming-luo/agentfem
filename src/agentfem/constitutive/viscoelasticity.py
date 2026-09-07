@@ -137,6 +137,87 @@ class IsotropicMaxwellUpdate:
     state_new: np.ndarray
 
 
+@dataclass(frozen=True)
+class IsotropicHarmonicModuli:
+    """Complex isotropic moduli at one angular frequency.
+
+    AgentFEM uses the ``exp(i omega t)`` convention.  Positive imaginary
+    parts therefore represent passive material loss.  Keeping bulk and shear
+    channels explicit avoids creating a frequency-dependent Poisson ratio and
+    then silently treating it as real during finite-element assembly.
+    """
+
+    angular_frequency: float
+    bulk: complex
+    shear: complex
+    temperature: float | None = None
+
+    def __post_init__(self) -> None:
+        omega = float(self.angular_frequency)
+        if not np.isfinite(omega) or omega < 0.0:
+            raise ValueError("angular_frequency must be finite and nonnegative.")
+        if not np.isfinite(self.bulk) or not np.isfinite(self.shear):
+            raise ValueError("Harmonic bulk and shear moduli must be finite.")
+        if self.bulk.real <= 0.0 or self.shear.real <= 0.0:
+            raise ValueError("Harmonic storage moduli must be positive.")
+        tolerance = 64.0 * np.finfo(float).eps * max(
+            1.0, abs(self.bulk), abs(self.shear)
+        )
+        if self.bulk.imag < -tolerance or self.shear.imag < -tolerance:
+            raise ValueError("Passive harmonic loss moduli must be nonnegative.")
+        if self.temperature is not None:
+            selected = float(self.temperature)
+            if not np.isfinite(selected) or selected <= 0.0:
+                raise ValueError("Harmonic temperature must be positive kelvin.")
+            object.__setattr__(self, "temperature", selected)
+        object.__setattr__(self, "angular_frequency", omega)
+        object.__setattr__(self, "bulk", complex(self.bulk))
+        object.__setattr__(self, "shear", complex(self.shear))
+
+    @property
+    def young(self) -> complex:
+        """Complex Young modulus derived from the isotropic ``K*``/``G*`` pair."""
+
+        return 9.0 * self.bulk * self.shear / (3.0 * self.bulk + self.shear)
+
+    @property
+    def poisson(self) -> complex:
+        """Complex Poisson ratio derived without discarding phase."""
+
+        return (3.0 * self.bulk - 2.0 * self.shear) / (
+            2.0 * (3.0 * self.bulk + self.shear)
+        )
+
+    @property
+    def loss_factors(self) -> tuple[float, float]:
+        """Return ``(bulk tan(delta), shear tan(delta))``."""
+
+        return (
+            float(self.bulk.imag / self.bulk.real),
+            float(self.shear.imag / self.shear.real),
+        )
+
+    def summary(self) -> dict[str, object]:
+        bulk_loss, shear_loss = self.loss_factors
+        return {
+            "kind": "isotropic_harmonic_moduli",
+            "phasor_convention": "exp(+i*omega*t)",
+            "angular_frequency": self.angular_frequency,
+            "frequency": self.angular_frequency / (2.0 * np.pi),
+            "temperature": self.temperature,
+            "bulk_storage": float(self.bulk.real),
+            "bulk_loss": float(self.bulk.imag),
+            "shear_storage": float(self.shear.real),
+            "shear_loss": float(self.shear.imag),
+            "bulk_loss_factor": bulk_loss,
+            "shear_loss_factor": shear_loss,
+            "young_storage": float(self.young.real),
+            "young_loss": float(self.young.imag),
+            "poisson_real": float(self.poisson.real),
+            "poisson_imaginary": float(self.poisson.imag),
+        }
+
+
 @dataclass
 class MaxwellState:
     """Committed state for a generalized-Maxwell material point."""
@@ -708,6 +789,69 @@ class IsotropicGeneralizedMaxwell:
         shear = self.equilibrium_shear_modulus + np.sum(self.shear_branch_moduli * decay, axis=-1)
         return bulk, shear
 
+    def complex_moduli(
+        self,
+        angular_frequency,
+        *,
+        temperature=None,
+    ) -> tuple[np.ndarray, np.ndarray]:
+        """Return complex ``(bulk, shear)`` spectra for ``exp(i omega t)``.
+
+        The two channels are evaluated directly from the Prony branches.  This
+        is the canonical frequency-domain constitutive contract used by the
+        harmonic finite-element provider; no real-valued Poisson-ratio
+        approximation is introduced.
+        """
+
+        omega = np.asarray(angular_frequency, dtype=float)
+        if not np.all(np.isfinite(omega)) or np.any(omega < 0.0):
+            raise ValueError(
+                "angular_frequency must contain finite nonnegative values."
+            )
+        times = self.shifted_relaxation_times(temperature)
+        reduced = omega[..., None] * times
+        transfer = 1j * reduced / (1.0 + 1j * reduced)
+        bulk = self.equilibrium_bulk_modulus + np.sum(
+            self.bulk_branch_moduli * transfer,
+            axis=-1,
+        )
+        shear = self.equilibrium_shear_modulus + np.sum(
+            self.shear_branch_moduli * transfer,
+            axis=-1,
+        )
+        return bulk, shear
+
+    def harmonic_moduli(
+        self,
+        angular_frequency: float,
+        *,
+        temperature=None,
+    ) -> IsotropicHarmonicModuli:
+        """Return one typed harmonic constitutive state for FEM assembly."""
+
+        omega = np.asarray(angular_frequency, dtype=float)
+        if omega.ndim != 0:
+            raise ValueError(
+                "harmonic_moduli describes one solve frequency; use "
+                "complex_moduli for a frequency array."
+            )
+        bulk, shear = self.complex_moduli(float(omega), temperature=temperature)
+        selected_temperature = None
+        if temperature is not None:
+            values = np.asarray(temperature, dtype=float)
+            if values.ndim != 0:
+                raise ValueError(
+                    "Direct harmonic assembly currently requires one uniform "
+                    "material temperature."
+                )
+            selected_temperature = float(values)
+        return IsotropicHarmonicModuli(
+            float(omega),
+            complex(bulk),
+            complex(shear),
+            temperature=selected_temperature,
+        )
+
     def initial_state(self, strain=None, *, condition: str = "equilibrated") -> np.ndarray:
         """Return a schema-ordered state with an explicit prior-history meaning."""
 
@@ -1022,6 +1166,7 @@ __all__ = [
     "ArrheniusShift",
     "GeneralizedMaxwell",
     "IsotropicGeneralizedMaxwell",
+    "IsotropicHarmonicModuli",
     "IsotropicMaxwellUpdate",
     "MaxwellState",
     "PronyFit",

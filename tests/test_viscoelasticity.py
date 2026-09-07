@@ -48,6 +48,16 @@ def test_viscoelastic_study_resolves_its_declared_procedure():
     assert procedure.algorithm == "exact_generalized_maxwell_equilibrium"
     assert procedure.stateful
 
+    harmonic_study = studies.harmonic_solid(dimension=3)
+    harmonic_procedure = procedures.for_step(
+        analysis=harmonic_study.analysis,
+        method=harmonic_study.preferred_procedure,
+    )
+    assert harmonic_study.is_frequency_domain
+    assert not harmonic_study.is_transient
+    assert harmonic_procedure.algorithm == "real_block_complex_harmonic"
+    assert not harmonic_procedure.stateful
+
 
 def test_standard_linear_solid_has_correct_time_and_frequency_limits():
     material = standard_linear_solid(
@@ -64,6 +74,100 @@ def test_standard_linear_solid_has_correct_time_and_frequency_limits():
     assert material.storage_modulus(0.0) == pytest.approx(2.0)
     assert material.loss_modulus(0.0) == pytest.approx(0.0)
     assert material.storage_modulus(1.0e9) == pytest.approx(10.0)
+
+
+def test_isotropic_generalized_maxwell_exposes_bulk_shear_harmonic_contract():
+    material = IsotropicGeneralizedMaxwell.from_prony(
+        instantaneous_young_modulus=1000.0,
+        instantaneous_poisson_ratio=0.0,
+        shear_relaxation_ratios=[0.4],
+        bulk_relaxation_ratios=[0.4],
+        relaxation_times=[2.0],
+    )
+    harmonic = material.harmonic_moduli(0.5)
+    transfer = 1j / (1.0 + 1j)
+    expected_young = 600.0 + 400.0 * transfer
+
+    assert harmonic.young == pytest.approx(expected_young)
+    assert harmonic.bulk.imag > 0.0
+    assert harmonic.shear.imag > 0.0
+    assert harmonic.summary()["phasor_convention"] == "exp(+i*omega*t)"
+    bulk, shear = material.complex_moduli([0.0, 1.0e12])
+    np.testing.assert_allclose(
+        bulk.real,
+        [material.equilibrium_bulk_modulus, material.instantaneous_bulk_modulus],
+        rtol=1.0e-11,
+    )
+    np.testing.assert_allclose(
+        shear.real,
+        [material.equilibrium_shear_modulus, material.instantaneous_shear_modulus],
+        rtol=1.0e-11,
+    )
+
+
+def test_direct_harmonic_viscoelastic_bar_matches_complex_modulus():
+    length = 2.0
+    traction = 3.0
+    frequency = 1.0 / (4.0 * np.pi)
+    domain = mesh.cuboid(
+        (0.0, 0.0, 0.0),
+        (length, 1.0, 1.0),
+        (4, 1, 1),
+        comm=MPI.COMM_SELF,
+        cell_type="hexahedron",
+    )
+    model = models.create(
+        study=studies.harmonic_solid(dimension=3),
+        mesh=domain,
+        name="harmonic_viscoelastic_bar",
+    )
+    displacement = model.field(fields.displacement(domain))
+    material = model.material(
+        IsotropicGeneralizedMaxwell.from_prony(
+            instantaneous_young_modulus=1000.0,
+            instantaneous_poisson_ratio=0.0,
+            shear_relaxation_ratios=[0.4],
+            bulk_relaxation_ratios=[0.4],
+            relaxation_times=[2.0],
+        )
+    )
+    model.fix(
+        displacement,
+        on=mesh.face(domain, axis="x", value=0.0),
+        component=0,
+    )
+    model.fix(
+        displacement,
+        on=mesh.face(domain, axis="y", value=0.0),
+        component=1,
+    )
+    model.fix(
+        displacement,
+        on=mesh.face(domain, axis="z", value=0.0),
+        component=2,
+    )
+    model.traction(
+        (traction, 0.0, 0.0),
+        on=mesh.face(domain, axis="x", value=length),
+    )
+    step = model.step(target=displacement, frequency=frequency)
+    result = step.solve_result()
+    expected = traction * length / material.harmonic_moduli(0.5).young
+    right = mesh.face(domain, axis="x", value=length)
+    real = results.average(step.solution_real[0], measure=right.measure)
+    imaginary = results.average(step.solution_imaginary[0], measure=right.measure)
+
+    assert real + 1j * imaginary == pytest.approx(expected, rel=2.0e-10)
+    assert step.procedure.algorithm == "real_block_complex_harmonic"
+    assert result.quantity("frequency") == pytest.approx(frequency)
+    assert result.quantity("dissipated_energy_per_cycle") > 0.0
+    assert result.quantity("mean_stored_energy") > 0.0
+    assert set(result.fields) == {"U_REAL", "U_IMAG", "U_AMPLITUDE", "U_PHASE"}
+    assert result.metadata["step"]["includes_inertia"] is False
+    excitation = result.scientific_inputs["harmonic_excitation"]
+    assert excitation["frequency"] == pytest.approx(frequency)
+    assert excitation["phasor_convention"] == "exp(+i*omega*t)"
+    assert result.metadata["step"]["solve"]["converged"]
 
 
 def test_generalized_maxwell_exact_update_commits_and_restores_state():

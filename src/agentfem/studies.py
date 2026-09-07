@@ -11,6 +11,7 @@ from dataclasses import dataclass
 
 
 ANALYSIS_TYPES = {
+    "frequency_domain",
     "linear_static",
     "first_order_transient",
     "second_order_dynamics",
@@ -77,6 +78,12 @@ class Study:
         """Return true for time-domain analysis contexts."""
 
         return self.time_domain == "transient"
+
+    @property
+    def is_frequency_domain(self) -> bool:
+        """Return true for steady-state harmonic analyses."""
+
+        return self.time_domain == "frequency"
 
     @property
     def is_solid_mechanics(self) -> bool:
@@ -288,6 +295,24 @@ def viscoelastic_solid(
     )
 
 
+def harmonic_solid(
+    *,
+    dimension: int = 3,
+    assumption: str | None = None,
+    name: str | None = None,
+) -> Study:
+    """Define a direct steady-state harmonic solid-mechanics study."""
+
+    return define(
+        analysis="frequency_domain",
+        physics="solid_mechanics",
+        dimension=dimension,
+        assumption=assumption,
+        preferred_procedure="direct_harmonic",
+        name=name or "harmonic_solid",
+    )
+
+
 def nonlinear_transient(
     *,
     physics: str,
@@ -447,6 +472,8 @@ def _normalize_optional(value: str | None) -> str | None:
 
 
 def _default_time_domain(analysis: str) -> str:
+    if analysis == "frequency_domain":
+        return "frequency"
     if analysis in {"linear_static", "nonlinear_static", "modal"}:
         return "static"
     return "transient"

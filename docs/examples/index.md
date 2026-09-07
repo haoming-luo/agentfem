@@ -18,6 +18,7 @@ problem-specific qualification.
 | [Abaqus periodic hyperelastic cell](#abaqus-periodic-hyperelastic-cell) | Imported 3D quadratic mesh, equations, finite strain | Engineering |
 | [Implicit creep relaxation](#implicit-creep-relaxation) | 3D power-law creep, global/local Newton and cutback | Engineering |
 | [Viscoelastic relaxation](#viscoelastic-relaxation) | 3D generalized-Maxwell equilibrium, exact state and restart | Engineering |
+| [Viscoelastic harmonic response](#viscoelastic-harmonic-response) | 3D generalized-Maxwell direct frequency-domain response | Experimental |
 | [Elasticity surrogate campaign](#elasticity-surrogate-campaign) | Repeated FEM, accepted dataset, surrogate and fallback | Release |
 | [Science supershear data protocol](#science-supershear-data-protocol) | Public-data identity, XLSX inspection, research handoff | Experimental |
 
@@ -160,6 +161,24 @@ python examples/viscoelastic_relaxation_3d.py
 · [Dynamics and viscoelasticity](../guide/dynamics.md#linear-viscoelastic-spectra)
 · [Golden benchmark record](https://github.com/haoming-luo/agentfem/blob/main/src/agentfem/knowledge/benchmarks/global_viscoelastic_relaxation.json)
 · [External rod benchmark](https://github.com/haoming-luo/agentfem/blob/main/src/agentfem/knowledge/benchmarks/abaqus_viscoelastic_rod.json)
+
+## Viscoelastic harmonic response
+
+<span class="af-status af-status--experimental">Experimental</span>
+
+A three-dimensional generalized-Maxwell bar demonstrates direct harmonic
+assembly without requiring a complex PETSc build. Storage and loss stiffness,
+optional inertia and a load phasor are lowered to one exact real block system;
+the common result publishes real, imaginary, amplitude and phase displacement
+fields together with material-loss evidence.
+
+```bash
+python examples/viscoelastic_harmonic_3d.py
+```
+
+[Source code](https://github.com/haoming-luo/agentfem/blob/main/examples/viscoelastic_harmonic_3d.py)
+· [Dynamics and viscoelasticity](../guide/dynamics.md#direct-harmonic-viscoelastic-response)
+· [Golden benchmark record](https://github.com/haoming-luo/agentfem/blob/main/src/agentfem/knowledge/benchmarks/global_viscoelastic_harmonic_bar.json)
 
 ## Hot-wall creep assessment
 

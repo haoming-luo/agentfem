@@ -35,6 +35,13 @@ def test_solver_options_are_inspectable():
         "factor_solver_type": None,
         "error_if_not_converged": True,
     }
+    assert options.petsc_options() == {
+        "ksp_type": "cg",
+        "pc_type": "hypre",
+        "ksp_error_if_not_converged": False,
+        "ksp_rtol": 1.0e-8,
+        "ksp_max_it": 500,
+    }
 
 
 @pytest.mark.parametrize(

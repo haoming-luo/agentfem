@@ -5,10 +5,11 @@
   "title": "Linear viscoelastic relaxation spectrum",
   "kind": "material",
   "status": "experimental",
-  "summary": "Provides generalized-Maxwell/Prony spectra, exact material-point histories and a three-dimensional quasi-static global FEM Step with committed quadrature state, error-controlled physical-time increments, temperature shift, energy evidence, automatic accepted-boundary checkpointing, portable restart and standard result fields.",
+  "summary": "Provides generalized-Maxwell/Prony spectra, exact material-point histories, a three-dimensional quasi-static global FEM Step with committed quadrature state and a direct harmonic Step that lowers complex storage/loss response to a real PETSc block system.",
   "public_api": [
     "agentfem.studies.modal_solid",
     "agentfem.studies.viscoelastic_solid",
+    "agentfem.studies.harmonic_solid",
     "agentfem.models.Model.step",
     "agentfem.checkpointing.every",
     "agentfem.dynamics.spectrum",
@@ -17,6 +18,7 @@
     "agentfem.dynamics.modal_frequency_response",
     "agentfem.constitutive.GeneralizedMaxwell",
     "agentfem.constitutive.IsotropicGeneralizedMaxwell",
+    "agentfem.constitutive.IsotropicHarmonicModuli",
     "agentfem.constitutive.standard_linear_solid",
     "agentfem.constitutive.WLFShift",
     "agentfem.constitutive.ArrheniusShift",
@@ -46,6 +48,11 @@
         "label": "complex modulus",
         "expression": "E^{*}(\\omega)=E_{\\infty}+\\sum_{i=1}^{N}E_i\\frac{\\mathrm{i}\\omega\\tau_i}{1+\\mathrm{i}\\omega\\tau_i}",
         "description": "Real and imaginary parts give storage and loss modulus; their ratio gives the loss factor."
+      },
+      {
+        "label": "real block harmonic equilibrium",
+        "expression": "\\begin{bmatrix}\\mathbf K'-\\omega^2\\mathbf M&-\\mathbf K''\\\\\\mathbf K''&\\mathbf K'-\\omega^2\\mathbf M\\end{bmatrix}\\begin{bmatrix}\\mathbf u'\\\\\\mathbf u''\\end{bmatrix}=\\begin{bmatrix}\\mathbf f'\\\\\\mathbf f''\\end{bmatrix}",
+        "description": "The exact complex steady-state problem is solved on a normal real-valued PETSc installation without discarding loss stiffness."
       },
       {
         "label": "exact branch update",
@@ -91,6 +98,12 @@
         "type": "relaxation, storage/loss modulus, accepted branch histories, global fields and common SimulationResult",
         "unit_role": "stress, time and temperature",
         "description": "Material-point and global quadrature state use exact branch updates. The global result carries accepted and rejected physical-time attempts, local time-error estimates, quadrature and recovered S, E, SENER, VDENER and MISES fields, RF, temperature evidence, scheduled accepted-boundary checkpoints and a constitutive work--storage--dissipation ledger."
+      },
+      {
+        "name": "harmonic viscoelastic response",
+        "type": "complex bulk/shear material state, phasor displacement fields and energy-loss evidence",
+        "unit_role": "frequency and the model's consistent mechanical units",
+        "description": "The direct harmonic result exposes U_REAL, U_IMAG, component-wise U_AMPLITUDE/U_PHASE, solve evidence, stored energy, loss per cycle and mean dissipated power."
       }
     ],
     "assumptions": [
@@ -103,6 +116,7 @@
       "Repeated or numerically clustered modes are compared as invariant subspaces because their individual basis vectors may rotate without changing the eigenspace.",
       "A mass-normalized mode shape is a relative spatial pattern and does not carry a physical displacement amplitude until combined with a modal coordinate.",
       "Storage and loss modulus consume angular frequency, not cyclic frequency.",
+      "The public harmonic Step accepts cyclic frequency in Hz or angular frequency in rad/s, never both, and records the exp(+i*omega*t) phasor convention.",
       "Positive Prony ratios are fractions of the instantaneous modulus and must sum to less than one.",
       "A nonzero initial strain declares either an instantaneous loading state or a fully equilibrated state; the material history never invents that past implicitly.",
       "A trial material-point update does not modify accepted state until explicitly committed."
@@ -110,19 +124,22 @@
     "applicability": [
       "Natural-frequency and mode-shape analysis for supported linear solid models.",
       "DMA, relaxation, free-decay and modal-superposition preparation for small-strain linear viscoelastic studies.",
-      "Three-dimensional small-strain quasi-static generalized-Maxwell loading and relaxation on a uniform, explicitly declared nonuniform, or automatically error-controlled physical-time path."
+      "Three-dimensional small-strain quasi-static generalized-Maxwell loading and relaxation on a uniform, explicitly declared nonuniform, or automatically error-controlled physical-time path.",
+      "Three-dimensional direct harmonic generalized-Maxwell response with optional inertia and a common load phase."
     ],
     "limitations": [
-      "The first global provider supports 3D solids, strong constraints, prescribed or adaptive physical-time paths and physical-keyed portable restart.",
-      "Direct complex harmonic finite-element assembly, complex modes, nonlinear viscoelasticity and physical aging are not implemented.",
+      "The time-domain global provider supports 3D solids, strong constraints, prescribed or adaptive physical-time paths and physical-keyed portable restart.",
+      "The direct harmonic provider currently supports one 3D isotropic material, uniform temperature, homogeneous strong constraints and one common load phase; material maps, MPC/weak constraints, independent load phases and automated frequency sweeps remain future work.",
+      "Complex modes, nonlinear viscoelasticity and physical aging are not implemented.",
       "Fixed-spectrum fitting does not automatically choose relaxation times or replace calibration/validation separation."
     ]
   },
   "usage": {
-    "minimal_example": "For global relaxation, create studies.viscoelastic_solid(dimension=3), register displacement, IsotropicGeneralizedMaxwell and constraints, then call model.step(target=u, material=material, duration=5.0, incrementation=steps.automatic(initial=0.1, minimum=1e-4, maximum=0.25), time_error_tolerance=1e-3, amplitude=load_then_hold, checkpoint=checkpointing.every(10, directory='checkpoints', keep_last=2)).solve_result(). Use steps or time_points instead when a prescribed physical-time grid is required, and GeneralizedMaxwell for scalar material-point spectra and histories.",
+    "minimal_example": "For a direct frequency response, create studies.harmonic_solid(dimension=3), register displacement, one IsotropicGeneralizedMaxwell material, homogeneous constraints and loads, then call model.step(target=u, frequency=25.0, density=1000.0).solve_result(). For global relaxation, use studies.viscoelastic_solid and pass duration plus an increment path through the same model.step entry.",
     "examples": [
       "examples/modal_cantilever_2d.py",
-      "examples/viscoelastic_relaxation_3d.py"
+      "examples/viscoelastic_relaxation_3d.py",
+      "examples/viscoelastic_harmonic_3d.py"
     ]
   },
   "verification": {
@@ -137,6 +154,7 @@
       "agentfem.benchmark.linear_cantilever_modal",
       "agentfem.benchmark.linear_viscoelastic_spectrum",
       "agentfem.benchmark.global_viscoelastic_relaxation",
+      "agentfem.benchmark.global_viscoelastic_harmonic_bar",
       "agentfem.benchmark.abaqus_viscoelastic_rod"
     ],
     "validation_rules": [
@@ -161,6 +179,8 @@
       "Reject a corrupt portable quadrature payload by checksum and restore every in-memory field and history atomically.",
       "Require the public global Step to recover the same exact relaxation stress with two MPI ranks and to preserve complete regional material maps.",
       "Require a nonuniform-grid, traction-controlled three-dimensional rod to match the published Abaqus short- and long-time axial strains and effective Poisson ratio.",
+      "Require the public harmonic Study to recover the analytical complex compliance of a traction-controlled three-dimensional bar and retain positive cycle loss.",
+      "Reject ambiguous frequency units, nonhomogeneous prescribed harmonic motion, unsupported constraint families and unsupported nested direct factorization rather than silently changing the harmonic problem.",
       "Invalidate global restart when material, amplitude, temperature, time grid, physical quadrature identity or portable solution identity differs.",
       "Reject nonuniform FFT sampling and mark unexcited FRF bins invalid."
     ]

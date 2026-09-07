@@ -108,12 +108,15 @@ Deepen the finite-element core before broadening the catalog:
   distributed reaction distribution and macroscopic work, plus weak and
   contact providers, remain explicit promotion gates;
 - selected cyclic plasticity, creep--fatigue, and fracture extensions.
-- promote the 3D generalized-Maxwell global Step beyond its analytical
-  ramp--hold patch and independent Abaqus rod benchmark through portable MPI
-  restart; adaptive error-controlled physical time, atomic cutback, restart
-  continuity, collective MPI path decisions and automatic accepted-boundary
-  checkpoint retention are now automated. Then add direct harmonic response
-  and independently checked complex modes;
+- promote the 3D generalized-Maxwell family beyond its analytical ramp--hold
+  patch and independent Abaqus rod benchmark. Adaptive physical time, atomic
+  cutback, portable MPI restart and accepted-boundary checkpoints are
+  automated. A first direct harmonic provider now evaluates complex bulk and
+  shear spectra and solves the exact real block system on ordinary real PETSc;
+  multiple material regions, MPC/weak constraints, independent load phases,
+  frequency campaigns, MPI evidence and an external structural frequency-
+  response benchmark remain its promotion gates. Independently checked
+  complex modes follow only after that route is established;
 
 ### 2. Engineering workflow
 

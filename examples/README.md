@@ -58,18 +58,24 @@ unless the example is intentionally advanced.
    provider is independently checked against the public Abaqus constant-load
    viscoelastic rod benchmark.
 
-11. `thermal_stress_wall_2d.py`
+11. `viscoelastic_harmonic_3d.py`
+   Direct frequency-domain viscoelasticity. Demonstrates the same
+   generalized-Maxwell material in a harmonic Study, optional inertia, an
+   exact real-block complex solve and standard phasor/result fields without a
+   complex PETSc installation.
+
+12. `thermal_stress_wall_2d.py`
    Power-plant-oriented sequential coupling. One thermoelastic material feeds
    implicit heat transfer and the equivalent thermal-expansion load of a
    plane-strain stress solve.
 
-12. `creep_hot_wall_assessment.py`
+13. `creep_hot_wall_assessment.py`
    Power-component screening route. Connects transient heat FEM, sequential
    thermoelastic stress, exact Kachanov--Rabotnov damage integration, and a
    modified-theta projection in one result manifest. Parameters are
    illustrative and the example clearly does not claim a global creep field.
 
-13. `abaqus_c3d10h_periodic_cell/case.py`
+14. `abaqus_c3d10h_periodic_cell/case.py`
    Advanced interoperability and finite-deformation reference. Imports a real
    Abaqus `C3D10H` mesh, preserves hybrid identity and node labels, eliminates 4,212 periodic
    `*EQUATION` constraints, solves a 3D Neo-Hookean load path, and writes
@@ -89,6 +95,7 @@ python examples/campaign_from_json.py
 python examples/material_models.py
 python examples/j2_plasticity_3d.py
 python examples/viscoelastic_relaxation_3d.py
+python examples/viscoelastic_harmonic_3d.py
 python examples/thermal_stress_wall_2d.py
 python examples/creep_hot_wall_assessment.py
 ```
