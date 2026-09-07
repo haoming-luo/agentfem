@@ -113,7 +113,7 @@ def test_standard_reporter_flushes_concise_status_and_iteration_text(
 ):
     comm = type("Comm", (), {"rank": 0})()
     status = tmp_path / "job.sta"
-    reporter = StandardRunReporter(comm, status_file=status)
+    reporter = StandardRunReporter(comm, status_file=status, verbosity=2)
     base = {
         "step_name": "nonlinear_static",
         "step_number": 1,
@@ -153,6 +153,44 @@ def test_standard_reporter_flushes_concise_status_and_iteration_text(
     assert "[STEP 1]" in console
     assert "[INC 1 | ATT 1]" in console
     assert "ITER 01" in console
+    assert "CONVERGED" in status.read_text(encoding="utf-8")
+
+
+def test_standard_reporter_default_hides_routine_newton_noise_but_keeps_status(
+    tmp_path,
+    capsys,
+):
+    comm = type("Comm", (), {"rank": 0})()
+    status = tmp_path / "job.sta"
+    reporter = StandardRunReporter(comm, status_file=status, verbosity=0)
+    base = {
+        "step_name": "nonlinear_static",
+        "step_number": 1,
+        "increment": 1,
+        "attempt": 1,
+        "start_factor": 0.0,
+        "target_factor": 0.25,
+    }
+
+    reporter.emit(SolveEvent("increment_started", **base))
+    reporter.emit(
+        SolveEvent(
+            "iteration",
+            **base,
+            iteration=1,
+            residual_norm=1.0e-5,
+        )
+    )
+    reporter.emit(
+        SolveEvent(
+            "increment_converged",
+            **base,
+            iteration=1,
+            residual_norm=1.0e-10,
+        )
+    )
+
+    assert capsys.readouterr().out == ""
     assert "CONVERGED" in status.read_text(encoding="utf-8")
 
 

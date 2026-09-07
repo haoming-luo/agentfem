@@ -2418,18 +2418,23 @@ and evidence remain in the linked guides and scientific function reference.</p>
 </tr>
 <tr>
 <td>function</td>
-<td><code>first_order_transient(*, physics: str, dimension: int, assumption: str \| None = None, name: str \| None = None) -&gt; Study</code></td>
+<td><code>first_order_transient(*, physics: str, dimension: int, assumption: str \| None = None, name: str \| None = None, procedure: str \| None = None) -&gt; Study</code></td>
 <td>Define a first-order transient study.</td>
 </tr>
 <tr>
 <td>function</td>
-<td><code>transient(*, physics: str, dimension: int, assumption: str \| None = None, name: str \| None = None) -&gt; Study</code></td>
+<td><code>transient(*, physics: str, dimension: int, assumption: str \| None = None, name: str \| None = None, procedure: str \| None = None) -&gt; Study</code></td>
 <td>Compatibility alias for <code>first_order_transient</code>.</td>
 </tr>
 <tr>
 <td>function</td>
 <td><code>transient_heat_transfer(*, dimension: int, name: str \| None = None) -&gt; Study</code></td>
 <td>Define an implicit first-order heat-transfer study.</td>
+</tr>
+<tr>
+<td>function</td>
+<td><code>viscoelastic_solid(*, dimension: int = 3, assumption: str \| None = None, name: str \| None = None) -&gt; Study</code></td>
+<td>Define quasi-static small-strain generalized-Maxwell evolution.</td>
 </tr>
 <tr>
 <td>function</td>
@@ -3553,6 +3558,16 @@ and evidence remain in the linked guides and scientific function reference.</p>
 </tr>
 <tr>
 <td>class</td>
+<td><code>IsotropicGeneralizedMaxwell</code></td>
+<td>Small-strain isotropic generalized-Maxwell solid for global FEM.</td>
+</tr>
+<tr>
+<td>class</td>
+<td><code>IsotropicMaxwellUpdate</code></td>
+<td>One exact tensor-valued generalized-Maxwell trial update.</td>
+</tr>
+<tr>
+<td>class</td>
 <td><code>MaxwellState</code></td>
 <td>Committed state for a generalized-Maxwell material point.</td>
 </tr>
@@ -3575,6 +3590,11 @@ and evidence remain in the linked guides and scientific function reference.</p>
 <td>function</td>
 <td><code>fit_relaxation_prony(time, modulus, relaxation_times, *, nonnegative: bool = True, name: str = 'fitted_prony_series') -&gt; PronyFit</code></td>
 <td>Fit a relaxation spectrum for user-declared relaxation times.</td>
+</tr>
+<tr>
+<td>function</td>
+<td><code>isotropic_generalized_maxwell(**kwargs) -&gt; IsotropicGeneralizedMaxwell</code></td>
+<td>Create an isotropic tensor Prony solid from instantaneous properties.</td>
 </tr>
 <tr>
 <td>function</td>
@@ -6552,6 +6572,11 @@ and evidence remain in the linked guides and scientific function reference.</p>
 <td>function</td>
 <td><code>implicit_euler(*, nonlinear: bool = False, stateful: bool = True) -&gt; SolutionProcedure</code></td>
 <td>Public AgentFEM object.</td>
+</tr>
+<tr>
+<td>function</td>
+<td><code>quasistatic_viscoelasticity() -&gt; SolutionProcedure</code></td>
+<td>Exact generalized-Maxwell update with incremental equilibrium.</td>
 </tr>
 <tr>
 <td>function</td>

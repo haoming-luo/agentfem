@@ -26,8 +26,9 @@ mkdir beam
 cd beam
 agentfem init --template static-solid .
 agentfem check
-agentfem run
-agentfem inspect
+agentfem run --name baseline
+agentfem runs
+agentfem show latest
 agentfem verify
 ```
 
@@ -48,13 +49,20 @@ project information but does not duplicate the finite-element model.
 ## Files produced by a run
 
 ```text
-outputs/<project>/<run-id>/
+outputs/001-baseline/
 ├── execution.json       process and failure record
 ├── result.json          quantities, fields, histories, trust, and artifacts
+├── summary.md           disposable human view of result.json
 ├── fields.xdmf          field metadata and time-series structure
 ├── fields.h5            numerical field arrays
 └── logs/                captured execution logs
 ```
+
+The readable directory name is not the scientific identity. Every run still
+carries an immutable, collision-resistant `run_id` in `execution.json` and
+`result.json`. Numbered names help people browse; the internal ID protects
+provenance and automation. Older `outputs/<project>/<run-id>/` projects remain
+discoverable.
 
 The exact artifacts depend on the analysis and output request. A completed run
 is not automatically a scientifically verified result; convergence,

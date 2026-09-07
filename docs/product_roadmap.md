@@ -48,6 +48,9 @@ AgentFEM currently provides executable foundations for:
 - common fields, histories, energy records, checkpoint/restart, provenance,
   convergence evidence, and ParaView-oriented output with one recommended
   visualization dataset per saved time in serial and MPI;
+- human-readable numbered run folders, concise result summaries, recent-run
+  discovery, progressive capability views, and a separate complete JSON
+  contract for agents and GUIs;
 - resumable parameter campaigns, scientific datasets, surrogate models, and
   provider-neutral learning interfaces.
 
@@ -55,7 +58,8 @@ Each capability has an explicit maturity and applicability boundary. Query the
 installed package with:
 
 ```bash
-agentfem capabilities --json
+agentfem capabilities                 # concise human index
+agentfem capabilities --json          # complete machine contract
 ```
 
 The executable capability catalog and benchmark registry are authoritative;
@@ -110,6 +114,9 @@ Deepen the finite-element core before broadening the catalog:
 Make real simulation projects easier to construct and maintain:
 
 - one public Step and result lifecycle across supported procedures;
+- extend the current `run --name`, `runs`, and `show latest` experience with
+  run comparison and platform-native artifact opening, without making the
+  terminal the source of scientific truth;
 - richer imported-mesh regions, surfaces, sets, and quality diagnostics;
 - progressive Abaqus migration from broad topology/asset inventory to selected
   verified native formulations, without silently discarding element suffixes;

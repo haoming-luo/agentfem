@@ -180,6 +180,8 @@ CLI_COMMANDS = (
     "run",
     "mpi-run",
     "inspect",
+    "show",
+    "runs",
     "inspect-abaqus",
     "inspect-user-material",
     "migrate-abaqus",
@@ -201,6 +203,8 @@ MACHINE_COMMANDS = {
     "run": "agentfem run --json",
     "mpi_run": "agentfem mpi-run -n 2 -- python case.py",
     "inspect": "agentfem inspect --json",
+    "show_latest": "agentfem show latest --json",
+    "runs": "agentfem runs --json",
     "abaqus_inspect": "agentfem inspect-abaqus model.inp --json",
     "abaqus_user_material_inspect": (
         "agentfem inspect-user-material material.for --json"

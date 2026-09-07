@@ -750,7 +750,11 @@ def _load_execution_for_project(project: str | Path | None) -> dict[str, object]
         from .project import discover
 
         selected = discover(project)
-        pointer = selected.output_directory / selected.name / "latest.json"
+        candidates = (
+            selected.output_directory / "latest.json",
+            selected.output_directory / selected.name / "latest.json",
+        )
+        pointer = next((path for path in candidates if path.is_file()), candidates[0])
         latest = json.loads(pointer.read_text(encoding="utf-8"))
         execution = Path(str(latest["execution_record"])).expanduser()
         if not execution.is_absolute():
@@ -856,7 +860,11 @@ def _resolve_execution(path: str | Path | None = None, *, project: str | Path | 
         from .project import discover
 
         selected = discover(project)
-        candidate = selected.output_directory / selected.name / "latest.json"
+        candidates = (
+            selected.output_directory / "latest.json",
+            selected.output_directory / selected.name / "latest.json",
+        )
+        candidate = next((path for path in candidates if path.is_file()), candidates[0])
     else:
         candidate = Path(path).expanduser().resolve()
     if candidate.is_dir():

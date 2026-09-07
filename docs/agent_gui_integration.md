@@ -61,7 +61,8 @@ agentfem init --template static-solid ./case --json
 agentfem check --project ./case --json
 agentfem upgrade --project ./case --json
 agentfem run --project ./case --json
-agentfem inspect ./case/outputs/case/latest.json --json
+agentfem runs --project ./case --json
+agentfem show latest --project ./case --json
 ```
 
 This can be called from Python, JavaScript, a desktop application, a web

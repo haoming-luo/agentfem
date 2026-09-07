@@ -24,9 +24,10 @@ and evidence remain in the linked guides and scientific function reference.
 | function | `nonlinear_static(*, physics: str, dimension: int, assumption: str \| None = None, name: str \| None = None) -> Study` | Define a nonlinear static study. |
 | function | `static_solid(*, dimension: int, assumption: str \| None = None, nonlinear: bool = False, name: str \| None = None) -> Study` | Define a static solid-mechanics study with concise engineering syntax. |
 | function | `steady_heat_transfer(*, dimension: int, name: str \| None = None) -> Study` | Define steady heat conduction, including source, flux, and convection. |
-| function | `first_order_transient(*, physics: str, dimension: int, assumption: str \| None = None, name: str \| None = None) -> Study` | Define a first-order transient study. |
-| function | `transient(*, physics: str, dimension: int, assumption: str \| None = None, name: str \| None = None) -> Study` | Compatibility alias for ``first_order_transient``. |
+| function | `first_order_transient(*, physics: str, dimension: int, assumption: str \| None = None, name: str \| None = None, procedure: str \| None = None) -> Study` | Define a first-order transient study. |
+| function | `transient(*, physics: str, dimension: int, assumption: str \| None = None, name: str \| None = None, procedure: str \| None = None) -> Study` | Compatibility alias for ``first_order_transient``. |
 | function | `transient_heat_transfer(*, dimension: int, name: str \| None = None) -> Study` | Define an implicit first-order heat-transfer study. |
+| function | `viscoelastic_solid(*, dimension: int = 3, assumption: str \| None = None, name: str \| None = None) -> Study` | Define quasi-static small-strain generalized-Maxwell evolution. |
 | function | `nonlinear_transient(*, physics: str, dimension: int, assumption: str \| None = None, name: str \| None = None, procedure: str \| None = None) -> Study` | Define a nonlinear time-domain study. |
 | function | `creep_solid(*, dimension: int = 3, assumption: str \| None = None, name: str \| None = None) -> Study` | Define an implicit quasi-static creep study. |
 | function | `second_order_dynamics(*, physics: str, dimension: int, assumption: str \| None = None, name: str \| None = None, procedure: str \| None = None) -> Study` | Define a second-order dynamics study. |
@@ -264,11 +265,14 @@ and evidence remain in the linked guides and scientific function reference.
 | function | `validated_material_update(material: UserMaterial, point: MaterialPointInput) -> MaterialPointOutput` | Run one material update and verify the complete solver contract. |
 | class | `ArrheniusShift` | Arrhenius time-temperature shift factor. |
 | class | `GeneralizedMaxwell` | Small-strain generalized-Maxwell relaxation spectrum. |
+| class | `IsotropicGeneralizedMaxwell` | Small-strain isotropic generalized-Maxwell solid for global FEM. |
+| class | `IsotropicMaxwellUpdate` | One exact tensor-valued generalized-Maxwell trial update. |
 | class | `MaxwellState` | Committed state for a generalized-Maxwell material point. |
 | class | `PronyFit` | Deterministic fixed-spectrum relaxation fit with validation evidence. |
 | class | `ViscoelasticUpdate` | One trial material-point update that can be committed atomically. |
 | class | `WLFShift` | Williams--Landel--Ferry time-temperature shift factor. |
 | function | `fit_relaxation_prony(time, modulus, relaxation_times, *, nonnegative: bool = True, name: str = 'fitted_prony_series') -> PronyFit` | Fit a relaxation spectrum for user-declared relaxation times. |
+| function | `isotropic_generalized_maxwell(**kwargs) -> IsotropicGeneralizedMaxwell` | Create an isotropic tensor Prony solid from instantaneous properties. |
 | function | `standard_linear_solid(*, equilibrium_modulus: float, relaxing_modulus: float, relaxation_time: float, shift: WLFShift \| ArrheniusShift \| None = None, name: str = 'standard_linear_solid') -> GeneralizedMaxwell` | Create a standard linear solid as one Maxwell branch in parallel. |
 
 ## `agentfem.constraints`
@@ -932,6 +936,7 @@ and evidence remain in the linked guides and scientific function reference.
 | function | `modal() -> SolutionProcedure` | Undamped linear modes from ``K phi = lambda M phi``. |
 | function | `nonlinear_static(*, stateful: bool = False) -> SolutionProcedure` | Public AgentFEM object. |
 | function | `implicit_euler(*, nonlinear: bool = False, stateful: bool = True) -> SolutionProcedure` | Public AgentFEM object. |
+| function | `quasistatic_viscoelasticity() -> SolutionProcedure` | Exact generalized-Maxwell update with incremental equilibrium. |
 | function | `implicit_creep() -> SolutionProcedure` | Quasi-static backward-Euler creep with global Newton equilibrium. |
 | function | `viscoelastic_history() -> SolutionProcedure` | Exact increment-wise generalized-Maxwell material history. |
 | function | `newmark() -> SolutionProcedure` | Public AgentFEM object. |

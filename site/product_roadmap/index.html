@@ -1518,12 +1518,16 @@ foundation.</p>
 <li>common fields, histories, energy records, checkpoint/restart, provenance,
   convergence evidence, and ParaView-oriented output with one recommended
   visualization dataset per saved time in serial and MPI;</li>
+<li>human-readable numbered run folders, concise result summaries, recent-run
+  discovery, progressive capability views, and a separate complete JSON
+  contract for agents and GUIs;</li>
 <li>resumable parameter campaigns, scientific datasets, surrogate models, and
   provider-neutral learning interfaces.</li>
 </ul>
 <p>Each capability has an explicit maturity and applicability boundary. Query the
 installed package with:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>agentfem<span class="w"> </span>capabilities<span class="w"> </span>--json
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>agentfem<span class="w"> </span>capabilities<span class="w">                 </span><span class="c1"># concise human index</span>
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>agentfem<span class="w"> </span>capabilities<span class="w"> </span>--json<span class="w">          </span><span class="c1"># complete machine contract</span>
 </code></pre></div>
 <p>The executable capability catalog and benchmark registry are authoritative;
 the roadmap does not turn an experimental formula into a validated solver.</p>
@@ -1573,6 +1577,9 @@ the roadmap does not turn an experimental formula into a validated solver.</p>
 <p>Make real simulation projects easier to construct and maintain:</p>
 <ul>
 <li>one public Step and result lifecycle across supported procedures;</li>
+<li>extend the current <code>run --name</code>, <code>runs</code>, and <code>show latest</code> experience with
+  run comparison and platform-native artifact opening, without making the
+  terminal the source of scientific truth;</li>
 <li>richer imported-mesh regions, surfaces, sets, and quality diagnostics;</li>
 <li>progressive Abaqus migration from broad topology/asset inventory to selected
   verified native formulations, without silently discarding element suffixes;

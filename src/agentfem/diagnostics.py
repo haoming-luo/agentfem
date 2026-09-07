@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+import os
 from pathlib import Path
 from time import monotonic
 from typing import Callable
@@ -112,13 +113,22 @@ class StandardRunReporter:
 
     comm: object
     status_file: str | Path | None = None
-    show_iterations: bool = True
+    show_iterations: bool | None = None
+    verbosity: int | None = None
     heartbeat_seconds: float = 30.0
 
     def __post_init__(self) -> None:
         self.heartbeat_seconds = float(self.heartbeat_seconds)
         if self.heartbeat_seconds < 0.0:
             raise ValueError("heartbeat_seconds must be nonnegative.")
+        if self.verbosity is None:
+            try:
+                self.verbosity = int(os.environ.get("AGENTFEM_VERBOSITY", "0"))
+            except ValueError:
+                self.verbosity = 0
+        self.verbosity = max(0, int(self.verbosity))
+        if self.show_iterations is None:
+            self.show_iterations = self.verbosity >= 2
         self.status_file = (
             None if self.status_file is None else Path(self.status_file)
         )
@@ -150,11 +160,12 @@ class StandardRunReporter:
                 "STEP INC ATT LOAD_FACTOR INCREMENT ITERATIONS RESIDUAL STATUS ELAPSED_S"
             )
         elif kind == "increment_started":
-            self._print(
-                f"  [INC {event.increment} | ATT {event.attempt}] "
-                f"{event.start_factor:.6g} -> {event.target_factor:.6g} "
-                f"(d={event.target_factor - event.start_factor:.3g})"
-            )
+            if self.verbosity >= 1:
+                self._print(
+                    f"  [INC {event.increment} | ATT {event.attempt}] "
+                    f"{event.start_factor:.6g} -> {event.target_factor:.6g} "
+                    f"(d={event.target_factor - event.start_factor:.3g})"
+                )
         elif kind == "iteration" and self.show_iterations:
             alpha = (
                 ""
@@ -166,12 +177,13 @@ class StandardRunReporter:
                 f"| residual={event.residual_norm:.6e}{alpha}"
             )
         elif kind == "increment_converged":
-            self._print(
-                f"  [INC {event.increment}] CONVERGED "
-                f"| iterations={event.iteration} "
-                f"| residual={event.residual_norm:.6e} "
-                f"| elapsed={elapsed:.1f}s"
-            )
+            if self.verbosity >= 1:
+                self._print(
+                    f"  [INC {event.increment}] CONVERGED "
+                    f"| iterations={event.iteration} "
+                    f"| residual={event.residual_norm:.6e} "
+                    f"| elapsed={elapsed:.1f}s"
+                )
             self._write_status(
                 f"{event.step_number} {event.increment} {event.attempt} "
                 f"{event.target_factor:.16g} "

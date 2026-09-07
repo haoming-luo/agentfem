@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -536,8 +537,10 @@ def test_reviewed_abaqus_native_draft_runs_to_structured_result(tmp_path, capsys
     assert cli.main(["run", "--project", str(project), "--json"]) == 0
     execution = capsys.readouterr().out
     assert '"status": "completed"' in execution
-    latest = project / "outputs" / "native-project" / "latest.json"
+    latest = project / "outputs" / "latest.json"
     assert latest.is_file()
+    pointer = json.loads(latest.read_text(encoding="utf-8"))
+    assert pointer["directory_name"] == "001-run"
 
 
 def test_reviewed_abaqus_surface_pressure_lowers_and_runs(tmp_path, capsys):

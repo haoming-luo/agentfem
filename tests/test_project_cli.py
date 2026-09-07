@@ -58,6 +58,9 @@ output_directory = "outputs"
     simulation = results.SimulationResult("portable")
     simulation.add_quantity("response", 2.0, unit="m")
     run.publish(simulation)
+    assert "AgentFEM result · portable" in (
+        run.output_directory / "summary.md"
+    ).read_text(encoding="utf-8")
 
     manifest = json.loads(run.manifest_path.read_text(encoding="utf-8"))
     execution = json.loads(run.execution_path.read_text(encoding="utf-8"))
@@ -72,6 +75,53 @@ output_directory = "outputs"
     assert execution["project_storage"]["protected_from_distribution_removal"]
     assert execution["output_storage"]["protected_from_distribution_removal"]
     assert latest["run_id"] == "test-run"
+
+
+def test_human_run_layout_separates_readable_directory_from_machine_identity(
+    tmp_path,
+):
+    (tmp_path / "case.py").write_text("print('case')\n", encoding="utf-8")
+    config = project.ProjectConfig(
+        root=tmp_path,
+        name="beam",
+        entrypoint=tmp_path / "case.py",
+        output_directory=tmp_path / "outputs",
+    )
+
+    first = project.RunContext.create(
+        config,
+        run_id="immutable-machine-id-a",
+        run_name="baseline",
+        human_layout=True,
+    ).prepare()
+    assert first.output_directory == tmp_path / "outputs" / "001-baseline"
+    assert first.run_id == "immutable-machine-id-a"
+    assert first.run_number == 1
+    first.write_execution("completed", structured_result=False)
+
+    second = project.RunContext.create(
+        config,
+        run_id="immutable-machine-id-b",
+        run_name="fine mesh",
+        human_layout=True,
+    )
+    assert second.output_directory == tmp_path / "outputs" / "002-fine-mesh"
+    latest = json.loads((tmp_path / "outputs" / "latest.json").read_text())
+    assert latest["directory_name"] == "001-baseline"
+    assert latest["run_name"] == "baseline"
+
+    conflicting = project.RunContext(
+        project_root=tmp_path,
+        project_name="beam",
+        run_id="different-machine-id",
+        output_directory=first.output_directory,
+        manifest_path=first.manifest_path,
+        execution_path=first.execution_path,
+        run_name="baseline",
+        run_number=1,
+    )
+    with pytest.raises(FileExistsError, match="different execution"):
+        conflicting.prepare()
 
 
 def test_artifacts_cannot_escape_run_directory(tmp_path):
@@ -371,6 +421,50 @@ def test_capability_command_is_json_serializable(capsys):
     )
     assert "solver_options" in linear["options"]["accepted"]
     assert record["extensions"]["schema"] == "agentfem.extensions"
+
+
+def test_capability_command_is_progressively_human_readable(capsys):
+    assert cli.main(["capabilities"]) == 0
+    summary = capsys.readouterr().out
+    assert "workflow" in summary
+    assert "materials" in summary
+    assert "Full machine record" in summary
+    assert '"constitutive"' not in summary
+    assert len(summary.splitlines()) <= 15
+
+    assert cli.main(["capabilities", "linear_elasticity"]) == 0
+    detail = capsys.readouterr().out
+    assert "linear_elasticity" in detail
+    assert "maturity:" in detail
+    assert '"schema"' not in detail
+
+
+def test_runs_and_show_make_structured_results_discoverable(tmp_path, capsys):
+    (tmp_path / "case.py").write_text("print('case')\n", encoding="utf-8")
+    (tmp_path / "agentfem.toml").write_text(
+        "[project]\nname='beam'\nentrypoint='case.py'\n",
+        encoding="utf-8",
+    )
+    config = project.ProjectConfig.load(tmp_path)
+    run = project.RunContext.create(
+        config,
+        run_id="machine-evidence-id",
+        run_name="baseline",
+        human_layout=True,
+    ).prepare()
+    simulation = results.SimulationResult("static_load")
+    simulation.add_quantity("displacement_max_abs", 0.0012, unit="m")
+    run.publish(simulation)
+
+    assert cli.main(["runs", "--project", str(tmp_path)]) == 0
+    listing = capsys.readouterr().out
+    assert "001-baseline" in listing
+    assert "completed" in listing
+
+    assert cli.main(["show", "latest", "--project", str(tmp_path)]) == 0
+    shown = capsys.readouterr().out
+    assert "AgentFEM result · static_load" in shown
+    assert "displacement_max_abs: 0.0012 m" in shown
 
 
 def test_cli_inspects_abaqus_deck_without_converting_or_solving(tmp_path, capsys):

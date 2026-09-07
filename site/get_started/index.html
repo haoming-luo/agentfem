@@ -1031,9 +1031,10 @@ architecture before running the first model.</p>
 <a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="nb">cd</span><span class="w"> </span>beam
 <a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>agentfem<span class="w"> </span>init<span class="w"> </span>--template<span class="w"> </span>static-solid<span class="w"> </span>.
 <a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>agentfem<span class="w"> </span>check
-<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>agentfem<span class="w"> </span>run
-<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>agentfem<span class="w"> </span>inspect
-<a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>agentfem<span class="w"> </span>verify
+<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>agentfem<span class="w"> </span>run<span class="w"> </span>--name<span class="w"> </span>baseline
+<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>agentfem<span class="w"> </span>runs
+<a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>agentfem<span class="w"> </span>show<span class="w"> </span>latest
+<a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a>agentfem<span class="w"> </span>verify
 </code></pre></div>
 <p>The generated project remains ordinary Python:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>beam/
@@ -1046,13 +1047,19 @@ architecture before running the first model.</p>
 <p><code>case.py</code> is the source of modeling truth. <code>agentfem.toml</code> contains operational
 project information but does not duplicate the finite-element model.</p>
 <h2 id="files-produced-by-a-run">Files produced by a run<a class="headerlink" href="#files-produced-by-a-run" title="Permanent link">&para;</a></h2>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>outputs/&lt;project&gt;/&lt;run-id&gt;/
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>outputs/001-baseline/
 <a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>├── execution.json       process and failure record
 <a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>├── result.json          quantities, fields, histories, trust, and artifacts
-<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a>├── fields.xdmf          field metadata and time-series structure
-<a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a>├── fields.h5            numerical field arrays
-<a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a>└── logs/                captured execution logs
+<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a>├── summary.md           disposable human view of result.json
+<a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a>├── fields.xdmf          field metadata and time-series structure
+<a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a>├── fields.h5            numerical field arrays
+<a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a>└── logs/                captured execution logs
 </code></pre></div>
+<p>The readable directory name is not the scientific identity. Every run still
+carries an immutable, collision-resistant <code>run_id</code> in <code>execution.json</code> and
+<code>result.json</code>. Numbered names help people browse; the internal ID protects
+provenance and automation. Older <code>outputs/&lt;project&gt;/&lt;run-id&gt;/</code> projects remain
+discoverable.</p>
 <p>The exact artifacts depend on the analysis and output request. A completed run
 is not automatically a scientifically verified result; convergence,
 verification claims, and required artifacts remain separate evidence.</p>

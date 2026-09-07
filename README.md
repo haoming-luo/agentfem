@@ -198,8 +198,8 @@ Create and run a complete static-solid project in any directory:
 mkdir first-agentfem-model && cd first-agentfem-model
 agentfem init --template static-solid .
 agentfem check
-agentfem run
-agentfem inspect
+agentfem run --name baseline
+agentfem show latest
 ```
 
 The generated `case.py` is ordinary, editable Python. Its public workflow reads
@@ -218,8 +218,11 @@ result = model.step(target=u, name="static_load").solve_result()
 result.verify("engineering").require()
 ```
 
-The CLI gives the same model a repeatable project root, run identity,
-structured result manifest, MPI launch path, and machine-readable interface.
+The CLI gives the same model a readable run folder such as
+`outputs/001-baseline/`, an immutable evidence identity, a concise result
+summary, an MPI launch path, and a machine-readable interface. Use
+`agentfem runs` to find earlier runs and `--json` when an agent or GUI needs the
+complete record.
 You can also run `case.py` directly with Python.
 
 ## What Works Today

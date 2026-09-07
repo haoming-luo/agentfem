@@ -1256,7 +1256,10 @@ live in Windows <code>Documents\AgentFEMProjects</code> and survive runtime repl
 records the platform route, exact interpreter and imported package, core
 versions, and optional mesh, visualization, machine-learning, and
 distributed-MPC integrations.</p>
-<p><code>agentfem capabilities --json</code> also separates the public Python surface into
+<p><code>agentfem capabilities</code> gives people a one-screen index with progressively
+expandable topics such as <code>materials</code>, <code>procedures</code>, and an individual model
+name. <code>agentfem capabilities --json</code> supplies the complete stable record and
+also separates the public Python surface into
 <code>core</code>, <code>advanced</code>, and <code>expert</code> layers. A generated first case should normally
 use only the core layer; this reduces API search without restricting direct
 access to advanced finite-element or backend capabilities.
@@ -1272,9 +1275,10 @@ in any user-owned directory.</p>
 <a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="nb">cd</span><span class="w"> </span>beam
 <a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a>agentfem<span class="w"> </span>init<span class="w"> </span>--template<span class="w"> </span>static-solid<span class="w"> </span>.
 <a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a>agentfem<span class="w"> </span>check
-<a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a>agentfem<span class="w"> </span>run
-<a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a>agentfem<span class="w"> </span>inspect
-<a id="__codelineno-3-8" name="__codelineno-3-8" href="#__codelineno-3-8"></a>agentfem<span class="w"> </span>verify
+<a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a>agentfem<span class="w"> </span>run<span class="w"> </span>--name<span class="w"> </span>baseline
+<a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a>agentfem<span class="w"> </span>runs
+<a id="__codelineno-3-8" name="__codelineno-3-8" href="#__codelineno-3-8"></a>agentfem<span class="w"> </span>show<span class="w"> </span>latest
+<a id="__codelineno-3-9" name="__codelineno-3-9" href="#__codelineno-3-9"></a>agentfem<span class="w"> </span>verify
 </code></pre></div>
 <p>Initial templates include <code>static-solid</code>, <code>steady-heat</code>, and
 <code>structural-dynamics</code>. The generated layout is intentionally small:</p>
@@ -1352,9 +1356,11 @@ directory:</p>
 </code></pre></div>
 <p>The product shell adds a stable run identity and output contract:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a>agentfem<span class="w"> </span>run
-<a id="__codelineno-12-2" name="__codelineno-12-2" href="#__codelineno-12-2"></a>agentfem<span class="w"> </span>run<span class="w"> </span>--run-id<span class="w"> </span>baseline
+<a id="__codelineno-12-2" name="__codelineno-12-2" href="#__codelineno-12-2"></a>agentfem<span class="w"> </span>run<span class="w"> </span>--name<span class="w"> </span>baseline
 <a id="__codelineno-12-3" name="__codelineno-12-3" href="#__codelineno-12-3"></a>agentfem<span class="w"> </span>run<span class="w"> </span>--mpi<span class="w"> </span><span class="m">4</span>
 </code></pre></div>
+<p><code>--name</code> controls the readable folder label. <code>--run-id</code> is reserved for an
+explicit immutable execution identity in automation and compatibility flows.</p>
 <p>The product shell inspects the launcher against the MPI implementation used by
 <code>mpi4py</code>. This avoids accidentally starting a conda MPICH runtime with a system
 Open MPI launcher. For a test or another MPI-aware program, let AgentFEM select
@@ -1365,12 +1371,13 @@ the compatible launcher instead of calling bare <code>mpiexec</code>:</p>
 detects the communicator and runs the entrypoint on it.</p>
 <h2 id="understand-the-output-contract">Understand the output contract<a class="headerlink" href="#understand-the-output-contract" title="Permanent link">&para;</a></h2>
 <p>Each run receives its own directory:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a>outputs/&lt;project&gt;/&lt;run-id&gt;/
+<div class="highlight"><pre><span></span><code><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a>outputs/001-baseline/
 <a id="__codelineno-14-2" name="__codelineno-14-2" href="#__codelineno-14-2"></a>├── execution.json
 <a id="__codelineno-14-3" name="__codelineno-14-3" href="#__codelineno-14-3"></a>├── result.json
-<a id="__codelineno-14-4" name="__codelineno-14-4" href="#__codelineno-14-4"></a>├── fields.xdmf
-<a id="__codelineno-14-5" name="__codelineno-14-5" href="#__codelineno-14-5"></a>├── fields.h5
-<a id="__codelineno-14-6" name="__codelineno-14-6" href="#__codelineno-14-6"></a>└── logs/
+<a id="__codelineno-14-4" name="__codelineno-14-4" href="#__codelineno-14-4"></a>├── summary.md
+<a id="__codelineno-14-5" name="__codelineno-14-5" href="#__codelineno-14-5"></a>├── fields.xdmf
+<a id="__codelineno-14-6" name="__codelineno-14-6" href="#__codelineno-14-6"></a>├── fields.h5
+<a id="__codelineno-14-7" name="__codelineno-14-7" href="#__codelineno-14-7"></a>└── logs/
 </code></pre></div>
 <ul>
 <li><code>execution.json</code> answers whether the application completed or failed. A
@@ -1379,11 +1386,16 @@ detects the communicator and runs the entrypoint on it.</p>
   required in order to diagnose a preflight or execution failure.</li>
 <li><code>result.json</code> is the published <code>SimulationResult</code>, including quantities,
   histories, artifacts, checkpoints, metadata, and verification evidence.</li>
-<li><code>outputs/&lt;project&gt;/latest.json</code> points to the most recent run without a
+<li><code>outputs/latest.json</code> points to the most recent run without a
   platform-specific symbolic link.</li>
 <li>XDMF/HDF5, CSV, NPZ, images, and reports are artifacts referenced by the
   result rather than replacements for it.</li>
 </ul>
+<p><code>001-baseline</code> is a human-facing run number and name. The immutable <code>run_id</code>
+stored in the records remains the machine/provenance identity. Use
+<code>agentfem run --name fine-mesh</code> for the next named run, <code>agentfem runs</code> to list
+recent work, and <code>agentfem show latest</code> for the concise result view. AgentFEM
+continues to recognize the earlier <code>outputs/&lt;project&gt;/&lt;run-id&gt;/</code> layout.</p>
 <p>Published results are sealed automatically. <code>agentfem verify</code> follows the
 latest run by default and checks both the manifest and all registered files.
 It detects changed or incomplete output; it does not replace convergence,

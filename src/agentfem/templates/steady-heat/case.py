@@ -1,5 +1,6 @@
 """Steady heat conduction with convection to an ambient environment."""
 
+import os
 from pathlib import Path
 
 import numpy as np
@@ -46,8 +47,9 @@ def main():
     simulation.add_dof_statistics(temperature, prefix="temperature", unit="K")
     if MPI.COMM_WORLD.rank == 0:
         run.publish(simulation)
-        print(simulation.format())
-        print(f"Result manifest: {run.manifest_path}")
+        if not os.environ.get("AGENTFEM_CLI_MANAGED"):
+            print(simulation.format())
+            print(f"Result manifest: {run.manifest_path}")
     MPI.COMM_WORLD.barrier()
     return simulation
 

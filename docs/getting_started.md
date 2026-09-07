@@ -51,7 +51,10 @@ records the platform route, exact interpreter and imported package, core
 versions, and optional mesh, visualization, machine-learning, and
 distributed-MPC integrations.
 
-`agentfem capabilities --json` also separates the public Python surface into
+`agentfem capabilities` gives people a one-screen index with progressively
+expandable topics such as `materials`, `procedures`, and an individual model
+name. `agentfem capabilities --json` supplies the complete stable record and
+also separates the public Python surface into
 `core`, `advanced`, and `expert` layers. A generated first case should normally
 use only the core layer; this reduces API search without restricting direct
 access to advanced finite-element or backend capabilities.
@@ -71,8 +74,9 @@ mkdir beam
 cd beam
 agentfem init --template static-solid .
 agentfem check
-agentfem run
-agentfem inspect
+agentfem run --name baseline
+agentfem runs
+agentfem show latest
 agentfem verify
 ```
 
@@ -185,9 +189,12 @@ The product shell adds a stable run identity and output contract:
 
 ```bash
 agentfem run
-agentfem run --run-id baseline
+agentfem run --name baseline
 agentfem run --mpi 4
 ```
+
+`--name` controls the readable folder label. `--run-id` is reserved for an
+explicit immutable execution identity in automation and compatibility flows.
 
 The product shell inspects the launcher against the MPI implementation used by
 `mpi4py`. This avoids accidentally starting a conda MPICH runtime with a system
@@ -206,9 +213,10 @@ detects the communicator and runs the entrypoint on it.
 Each run receives its own directory:
 
 ```text
-outputs/<project>/<run-id>/
+outputs/001-baseline/
 ├── execution.json
 ├── result.json
+├── summary.md
 ├── fields.xdmf
 ├── fields.h5
 └── logs/
@@ -220,10 +228,16 @@ outputs/<project>/<run-id>/
   required in order to diagnose a preflight or execution failure.
 - `result.json` is the published `SimulationResult`, including quantities,
   histories, artifacts, checkpoints, metadata, and verification evidence.
-- `outputs/<project>/latest.json` points to the most recent run without a
+- `outputs/latest.json` points to the most recent run without a
   platform-specific symbolic link.
 - XDMF/HDF5, CSV, NPZ, images, and reports are artifacts referenced by the
   result rather than replacements for it.
+
+`001-baseline` is a human-facing run number and name. The immutable `run_id`
+stored in the records remains the machine/provenance identity. Use
+`agentfem run --name fine-mesh` for the next named run, `agentfem runs` to list
+recent work, and `agentfem show latest` for the concise result view. AgentFEM
+continues to recognize the earlier `outputs/<project>/<run-id>/` layout.
 
 Published results are sealed automatically. `agentfem verify` follows the
 latest run by default and checks both the manifest and all registered files.

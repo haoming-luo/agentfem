@@ -20,6 +20,7 @@ from mpi4py import MPI
 from . import __version__
 from . import extensions
 from . import platforms
+from . import presentation
 from . import provenance
 from . import upgrades
 from ._api_contract import CAPABILITIES_SCHEMA_VERSION, CLI_COMMANDS
@@ -110,6 +111,31 @@ def _project(value: str | None) -> ProjectConfig:
     return discover(value)
 
 
+def _latest_pointer(project: ProjectConfig) -> Path:
+    """Return the current pointer while recognizing the pre-0.3 layout."""
+
+    candidates = (
+        project.output_directory / "latest.json",
+        project.output_directory / project.name / "latest.json",
+    )
+    return next((path for path in candidates if path.is_file()), candidates[0])
+
+
+def _record_path(value: str | None, project_path: str | None) -> Path:
+    if value and str(value).strip().lower() != "latest":
+        selected = Path(value).expanduser().resolve()
+    else:
+        selected = _latest_pointer(_project(project_path))
+    if selected.is_dir():
+        candidates = (
+            selected / "result.json",
+            selected / "execution.json",
+            selected / "latest.json",
+        )
+        selected = next((item for item in candidates if item.is_file()), selected)
+    return selected
+
+
 def _check_project(project: ProjectConfig) -> dict[str, object]:
     errors = list(project.check())
     storage = project.summary()["storage"]
@@ -193,10 +219,41 @@ def _command_workspace(args) -> int:
     return 0 if report.protected or not report.under_wsl else 2
 
 
-def _run_context(project: ProjectConfig, run_id: str | None, output: str | None) -> RunContext:
+def _run_context(
+    project: ProjectConfig,
+    run_id: str | None,
+    run_name: str | None,
+    output: str | None,
+) -> RunContext:
     comm = MPI.COMM_WORLD
-    selected_id = comm.bcast(run_id or (new_run_id() if comm.rank == 0 else None), root=0)
-    context = RunContext.create(project, run_id=selected_id, output_directory=output)
+    payload = None
+    if comm.rank == 0:
+        selected = RunContext.create(
+            project,
+            run_id=run_id or new_run_id(),
+            run_name=run_name,
+            output_directory=output,
+            human_layout=run_id is None,
+        )
+        payload = {
+            "run_id": selected.run_id,
+            "run_name": selected.run_name,
+            "run_number": selected.run_number,
+            "output_directory": str(selected.output_directory),
+            "manifest_path": str(selected.manifest_path),
+            "execution_path": str(selected.execution_path),
+        }
+    payload = comm.bcast(payload, root=0)
+    context = RunContext(
+        project_root=project.root,
+        project_name=project.name,
+        run_id=payload["run_id"],
+        output_directory=Path(payload["output_directory"]),
+        manifest_path=Path(payload["manifest_path"]),
+        execution_path=Path(payload["execution_path"]),
+        run_name=payload["run_name"],
+        run_number=payload["run_number"],
+    )
     prepare_error = None
     if comm.rank == 0:
         try:
@@ -253,10 +310,13 @@ def _launch_mpi(args) -> int:
         child.extend(("--project", args.project))
     if args.run_id:
         child.extend(("--run-id", args.run_id))
+    if args.name:
+        child.extend(("--name", args.name))
     if args.output:
         child.extend(("--output", args.output))
     if args.json:
         child.append("--json")
+    child.extend("-v" for _ in range(args.verbose))
     child.append("--inside-mpi")
     command = mpi_command(args.mpi, child)
     return subprocess.run(command, check=False).returncode
@@ -290,19 +350,29 @@ def _command_run(args) -> int:
         _emit(check, as_json=args.json, human="Project check failed:\n" + "\n".join(check["errors"]))
         return 2
     extensions.load_extensions(project.extensions)
-    context = _run_context(project, args.run_id, args.output)
+    context = _run_context(project, args.run_id, args.name, args.output)
     output_storage = context.summary()["output_storage"]
-    previous_environment = {key: os.environ.get(key) for key in context.environment()}
-    os.environ.update(context.environment())
+    environment = {
+        **context.environment(),
+        "AGENTFEM_VERBOSITY": str(int(args.verbose)),
+        "AGENTFEM_CLI_MANAGED": "1",
+    }
+    previous_environment = {key: os.environ.get(key) for key in environment}
+    os.environ.update(environment)
     previous_directory = Path.cwd()
     local_error = None
     try:
         os.chdir(project.root)
         if MPI.COMM_WORLD.rank == 0 and not args.json:
+            output = context.output_directory
+            try:
+                output = output.relative_to(project.root)
+            except ValueError:
+                pass
             print(
-                f"AgentFEM run {context.run_id}\n"
-                f"  project: {project.name}\n"
-                f"  output: {context.output_directory}",
+                f"AgentFEM · {project.name}\n"
+                f"  run: {context.output_directory.name}\n"
+                f"  output: {output}",
                 flush=True,
             )
             printed_warnings = list(check.get("warnings", ()))
@@ -373,30 +443,67 @@ def _command_run(args) -> int:
         if MPI.COMM_WORLD.rank == 0
         else {}
     )
+    human = (
+        f"Run completed · {project.name}\n"
+        f"  run: {context.output_directory.name}\n"
+        f"  result: script completed without a published SimulationResult\n"
+        f"  record: {context.execution_path}"
+    )
+    if MPI.COMM_WORLD.rank == 0 and context.manifest_path.is_file():
+        result_record = json.loads(context.manifest_path.read_text(encoding="utf-8"))
+        try:
+            displayed_manifest = context.manifest_path.relative_to(project.root)
+        except ValueError:
+            displayed_manifest = context.manifest_path
+        human = presentation.format_result(result_record, displayed_manifest)
     _emit(
         record,
         as_json=args.json,
-        human=(
-            f"Run completed: {context.run_id}\n"
-            f"  result: {context.manifest_path if context.manifest_path.is_file() else 'script completed without a published SimulationResult'}\n"
-            f"  execution: {context.execution_path}"
-        ),
+        human=human,
     )
     return 0
 
 
 def _command_inspect(args) -> int:
-    selected = Path(args.path).expanduser().resolve() if args.path else None
-    if selected is None:
-        project = _project(args.project)
-        selected = project.output_directory / project.name / "latest.json"
-    if selected.is_dir():
-        candidates = (selected / "execution.json", selected / "result.json", selected / "latest.json")
-        selected = next((item for item in candidates if item.is_file()), selected)
+    selected = _record_path(args.path, args.project)
     if not selected.is_file():
         raise FileNotFoundError(f"No inspectable AgentFEM record found at {selected}.")
     record = json.loads(selected.read_text(encoding="utf-8"))
-    _emit(record, as_json=args.json, human=_format_record(record, selected))
+    if record.get("schema") == "agentfem.latest-run":
+        target = Path(str(record.get("result_manifest", ""))).expanduser()
+        if not target.is_absolute():
+            target = (selected.parent / target).resolve()
+        if target.is_file():
+            selected = target
+            record = json.loads(target.read_text(encoding="utf-8"))
+    _emit(record, as_json=args.json, human=presentation.format_record(record, selected))
+    return 0
+
+
+def _command_runs(args) -> int:
+    project = _project(args.project)
+    records = []
+    if project.output_directory.is_dir():
+        paths = sorted(
+            project.output_directory.rglob("execution.json"),
+            key=lambda path: path.stat().st_mtime,
+            reverse=True,
+        )
+        for path in paths[: args.limit]:
+            try:
+                record = json.loads(path.read_text(encoding="utf-8"))
+            except (OSError, json.JSONDecodeError):
+                continue
+            record["directory_name"] = path.parent.name
+            record["record"] = str(path)
+            records.append(record)
+    result = {
+        "schema": "agentfem.run-index",
+        "schema_version": "0.1.0",
+        "project": project.name,
+        "runs": records,
+    }
+    _emit(result, as_json=args.json, human=presentation.format_run_table(records))
     return 0
 
 
@@ -487,10 +594,11 @@ def _command_lower_abaqus(args) -> int:
 def _result_manifest_path(path: str | None, project_path: str | None) -> Path:
     """Resolve a result manifest from a file, run directory, or latest pointer."""
 
-    selected = Path(path).expanduser().resolve() if path else None
+    selected = None
+    if path and str(path).strip().lower() != "latest":
+        selected = Path(path).expanduser().resolve()
     if selected is None:
-        project = _project(project_path)
-        selected = project.output_directory / project.name / "latest.json"
+        selected = _latest_pointer(_project(project_path))
     if selected.is_dir():
         selected = selected / "result.json"
     for _ in range(3):
@@ -520,18 +628,6 @@ def _command_verify(args) -> int:
     report = provenance.verify_manifest(path)
     _emit(report.summary(), as_json=args.json, human=report.format())
     return 0 if report.verified else 2
-
-
-def _format_record(record: dict[str, object], path: Path) -> str:
-    lines = [f"AgentFEM record: {path}"]
-    for key in ("schema", "project", "run_id", "name", "status", "trust_level"):
-        if key in record:
-            lines.append(f"  {key}: {record[key]}")
-    if "quantities" in record:
-        lines.append(f"  quantities: {', '.join(record['quantities']) or '<none>'}")
-    if "artifacts" in record:
-        lines.append(f"  artifacts: {', '.join(record['artifacts']) or '<none>'}")
-    return "\n".join(lines)
 
 
 def _command_telemetry(args) -> int:
@@ -677,8 +773,16 @@ def build_parser() -> argparse.ArgumentParser:
     run = sub.add_parser("run", help="Run a project with a standard output and evidence contract.")
     run.add_argument("--project")
     run.add_argument("--run-id")
+    run.add_argument("--name", help="Short human name for this run, such as baseline or fine-mesh.")
     run.add_argument("--output")
     run.add_argument("--mpi", type=int, default=1)
+    run.add_argument(
+        "-v",
+        "--verbose",
+        action="count",
+        default=0,
+        help="Show increment detail; repeat (-vv) to show nonlinear iterations.",
+    )
     run.add_argument("--json", action="store_true")
     run.add_argument("--inside-mpi", action="store_true", help=argparse.SUPPRESS)
 
@@ -693,6 +797,16 @@ def build_parser() -> argparse.ArgumentParser:
     inspect.add_argument("path", nargs="?")
     inspect.add_argument("--project")
     inspect.add_argument("--json", action="store_true")
+
+    show = sub.add_parser("show", help="Show a concise result summary; defaults to the latest run.")
+    show.add_argument("path", nargs="?", default="latest")
+    show.add_argument("--project")
+    show.add_argument("--json", action="store_true")
+
+    runs = sub.add_parser("runs", help="List recent runs for the current project.")
+    runs.add_argument("--project")
+    runs.add_argument("--limit", type=int, default=20)
+    runs.add_argument("--json", action="store_true")
 
     inspect_abaqus = sub.add_parser(
         "inspect-abaqus",
@@ -752,7 +866,15 @@ def build_parser() -> argparse.ArgumentParser:
     verify.add_argument("--project")
     verify.add_argument("--json", action="store_true")
 
-    capabilities = sub.add_parser("capabilities", help="Return machine-readable runtime capabilities.")
+    capabilities = sub.add_parser(
+        "capabilities",
+        help="Summarize capabilities for people; use --json for the complete contract.",
+    )
+    capabilities.add_argument(
+        "topic",
+        nargs="?",
+        help="materials, procedures, workflow, runtime, extensions, or a material name",
+    )
     capabilities.add_argument("--json", action="store_true")
     extension_command = sub.add_parser(
         "extensions",
@@ -847,6 +969,12 @@ def _dispatch(argv: list[str] | None = None) -> int:
             return _command_mpi_run(args)
         if args.command == "inspect":
             return _command_inspect(args)
+        if args.command == "show":
+            return _command_inspect(args)
+        if args.command == "runs":
+            if args.limit <= 0:
+                parser.error("--limit must be positive")
+            return _command_runs(args)
         if args.command == "inspect-abaqus":
             return _command_inspect_abaqus(args)
         if args.command == "inspect-user-material":
@@ -916,7 +1044,11 @@ def _dispatch(argv: list[str] | None = None) -> int:
                 ),
                 "extensions": extensions.extension_status(),
             }
-            _emit(record, as_json=args.json, human=_json(record))
+            _emit(
+                record,
+                as_json=args.json,
+                human=presentation.format_capabilities(record, args.topic),
+            )
             return 0
     except (OSError, FileExistsError, ValueError, RuntimeError) as exc:
         error = {"type": type(exc).__name__, "message": str(exc)}

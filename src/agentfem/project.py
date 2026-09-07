@@ -32,6 +32,8 @@ _ENV_PROJECT_ROOT = "AGENTFEM_PROJECT_ROOT"
 _ENV_PROJECT_NAME = "AGENTFEM_PROJECT_NAME"
 _ENV_OUTPUT_DIR = "AGENTFEM_OUTPUT_DIR"
 _ENV_RUN_ID = "AGENTFEM_RUN_ID"
+_ENV_RUN_NAME = "AGENTFEM_RUN_NAME"
+_ENV_RUN_NUMBER = "AGENTFEM_RUN_NUMBER"
 _ENV_MANIFEST = "AGENTFEM_RESULT_MANIFEST"
 _ENV_EXECUTION = "AGENTFEM_EXECUTION_RECORD"
 _ENV_PROJECTS_HOME = "AGENTFEM_PROJECTS_HOME"
@@ -51,6 +53,21 @@ def new_run_id(now: datetime | None = None) -> str:
     selected = now or datetime.now(timezone.utc)
     stamp = selected.astimezone(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
     return f"{stamp}-{secrets.token_hex(3)}"
+
+
+def _next_run_number(root: Path) -> int:
+    """Return the next human sequence number without treating it as identity."""
+
+    if not root.is_dir():
+        return 1
+    numbers = []
+    for path in root.iterdir():
+        if not path.is_dir():
+            continue
+        match = re.match(r"^(\d+)-", path.name)
+        if match is not None:
+            numbers.append(int(match.group(1)))
+    return max(numbers, default=0) + 1
 
 
 def _running_under_wsl() -> bool:
@@ -513,6 +530,8 @@ class RunContext:
     output_directory: Path
     manifest_path: Path
     execution_path: Path
+    run_name: str | None = None
+    run_number: int | None = None
 
     @classmethod
     def create(
@@ -520,7 +539,9 @@ class RunContext:
         project: ProjectConfig,
         *,
         run_id: str | None = None,
+        run_name: str | None = None,
         output_directory: str | Path | None = None,
+        human_layout: bool = False,
     ) -> "RunContext":
         selected_id = _safe_name(run_id or new_run_id(), label="run_id")
         root = (
@@ -528,7 +549,15 @@ class RunContext:
             if output_directory is None
             else Path(output_directory).expanduser().resolve()
         )
-        run_directory = root / project.name / selected_id
+        selected_name = _safe_name(run_name or "run", label="run_name").lower()
+        run_number = None
+        if human_layout:
+            container = root if output_directory is None else root / project.name
+            run_number = _next_run_number(container)
+            directory_name = f"{run_number:03d}-{selected_name}"
+            run_directory = container / directory_name
+        else:
+            run_directory = root / project.name / selected_id
         return cls(
             project_root=project.root,
             project_name=project.name,
@@ -536,6 +565,8 @@ class RunContext:
             output_directory=run_directory,
             manifest_path=run_directory / "result.json",
             execution_path=run_directory / "execution.json",
+            run_name=selected_name,
+            run_number=run_number,
         )
 
     @classmethod
@@ -544,6 +575,8 @@ class RunContext:
         project_name = os.environ.get(_ENV_PROJECT_NAME)
         output = os.environ.get(_ENV_OUTPUT_DIR)
         run_id = os.environ.get(_ENV_RUN_ID)
+        run_name = os.environ.get(_ENV_RUN_NAME)
+        run_number = os.environ.get(_ENV_RUN_NUMBER)
         manifest = os.environ.get(_ENV_MANIFEST)
         execution = os.environ.get(_ENV_EXECUTION)
         if not all((root, project_name, output, run_id, manifest, execution)):
@@ -556,10 +589,23 @@ class RunContext:
             output_directory=Path(output).resolve(),
             manifest_path=Path(manifest).resolve(),
             execution_path=Path(execution).resolve(),
+            run_name=None if not run_name else _safe_name(run_name, label="run_name"),
+            run_number=None if not run_number else int(run_number),
         )
 
     def prepare(self) -> "RunContext":
         self.output_directory.mkdir(parents=True, exist_ok=True)
+        owner = self.output_directory / ".agentfem-run-id"
+        try:
+            with owner.open("x", encoding="utf-8") as stream:
+                stream.write(self.run_id + "\n")
+        except FileExistsError:
+            existing = owner.read_text(encoding="utf-8").strip()
+            if existing != self.run_id:
+                raise FileExistsError(
+                    f"Run directory {self.output_directory} is already owned by "
+                    f"a different execution. Rerun to allocate the next number."
+                )
         return self
 
     def artifact(self, name: str | Path) -> Path:
@@ -578,6 +624,8 @@ class RunContext:
             _ENV_PROJECT_NAME: self.project_name,
             _ENV_OUTPUT_DIR: str(self.output_directory),
             _ENV_RUN_ID: self.run_id,
+            _ENV_RUN_NAME: self.run_name or "run",
+            _ENV_RUN_NUMBER: "" if self.run_number is None else str(self.run_number),
             _ENV_MANIFEST: str(self.manifest_path),
             _ENV_EXECUTION: str(self.execution_path),
         }
@@ -590,6 +638,9 @@ class RunContext:
             "schema_version": "0.1.0",
             "project": self.project_name,
             "run_id": self.run_id,
+            "run_name": self.run_name,
+            "run_number": self.run_number,
+            "directory_name": self.output_directory.name,
             "project_root": str(self.project_root),
             "output_directory": str(self.output_directory),
             "result_manifest": str(self.manifest_path),
@@ -634,11 +685,18 @@ class RunContext:
 
         if not hasattr(result, "write_manifest"):
             raise TypeError("RunContext.publish requires a SimulationResult-like object.")
+        from .presentation import result_summary_markdown
+
         result.metadata.setdefault("run", self.summary())
         path = result.write_manifest(
             self.manifest_path,
             include_histories=include_histories,
             relative_artifacts=True,
+        )
+        record = json.loads(path.read_text(encoding="utf-8"))
+        self.artifact("summary.md").write_text(
+            result_summary_markdown(record, Path("result.json")),
+            encoding="utf-8",
         )
         self.write_execution("completed", result_manifest=path, structured_result=True)
         return path
@@ -652,6 +710,9 @@ class RunContext:
                 "schema_version": "0.1.0",
                 "project": self.project_name,
                 "run_id": self.run_id,
+                "run_name": self.run_name,
+                "run_number": self.run_number,
+                "directory_name": self.output_directory.name,
                 "status": status,
                 "execution_record": str(self.execution_path),
                 "result_manifest": str(self.manifest_path),
@@ -679,7 +740,11 @@ def current_run(
             entrypoint=root / "case.py",
             output_directory=root / "outputs",
         )
-    return RunContext.create(config).prepare()
+    return RunContext.create(
+        config,
+        run_name="run",
+        human_layout=True,
+    ).prepare()
 
 
 def _write_json(path: Path, record: Mapping[str, object]) -> None:
