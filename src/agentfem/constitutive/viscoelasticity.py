@@ -23,6 +23,21 @@ def _positive_vector(value, *, name: str) -> np.ndarray:
     return array
 
 
+def _maxwell_frequency_transfer(reduced_frequency) -> np.ndarray:
+    """Evaluate ``i*x/(1+i*x)`` without overflow at extreme ``x``."""
+
+    selected = np.asarray(reduced_frequency, dtype=float)
+    transfer = np.empty(selected.shape, dtype=complex)
+    direct = selected <= 1.0
+    values = selected[direct]
+    denominator = 1.0 + values**2
+    transfer[direct] = values**2 / denominator + 1j * values / denominator
+    inverse = 1.0 / selected[~direct]
+    denominator = 1.0 + inverse**2
+    transfer[~direct] = 1.0 / denominator + 1j * inverse / denominator
+    return transfer
+
+
 @dataclass(frozen=True)
 class WLFShift:
     """Williams--Landel--Ferry time-temperature shift factor."""
@@ -809,8 +824,9 @@ class IsotropicGeneralizedMaxwell:
                 "angular_frequency must contain finite nonnegative values."
             )
         times = self.shifted_relaxation_times(temperature)
-        reduced = omega[..., None] * times
-        transfer = 1j * reduced / (1.0 + 1j * reduced)
+        with np.errstate(over="ignore"):
+            reduced = omega[..., None] * times
+        transfer = _maxwell_frequency_transfer(reduced)
         bulk = self.equilibrium_bulk_modulus + np.sum(
             self.bulk_branch_moduli * transfer,
             axis=-1,

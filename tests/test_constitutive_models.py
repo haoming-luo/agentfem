@@ -605,6 +605,7 @@ def test_step_option_contract_is_inspectable_and_repairs_misspellings():
     assert contract.summary() == {
         "accepted": ("dt", "steps", "solver_options"),
         "required": ("dt", "steps"),
+        "exactly_one_of": (),
     }
     with pytest.raises(TypeError, match="Did you mean 'solver_options'"):
         contract.validate(
@@ -631,6 +632,28 @@ def test_step_option_contract_reports_required_physical_time_inputs():
     )
     with pytest.raises(ValueError, match="non-empty strings"):
         models.StepOptionContract(accepted=("dt", 1))
+
+
+def test_step_option_contract_exposes_exactly_one_scientific_coordinate():
+    contract = models.StepOptionContract(
+        accepted=("frequency", "angular_frequency", "output"),
+        exactly_one_of=(("frequency", "angular_frequency"),),
+    )
+
+    missing = contract.issues({"output": "fields.xdmf"})
+    ambiguous = contract.issues(
+        {"frequency": 1.0, "angular_frequency": 2.0 * np.pi}
+    )
+
+    assert missing[0]["code"] == "AFM-STEP-OPTION-003"
+    assert missing[0]["selected"] == ()
+    assert ambiguous[0]["selected"] == ("frequency", "angular_frequency")
+    assert contract.issues({}, require_required=False) == ()
+    with pytest.raises(ValueError, match="at least two distinct accepted"):
+        models.StepOptionContract(
+            accepted=("frequency",),
+            exactly_one_of=(("frequency",),),
+        )
 
 
 def test_provider_registry_tries_a_lower_priority_compatible_option_contract():

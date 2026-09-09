@@ -174,6 +174,8 @@ class HarmonicViscoelasticStep:
     study: object | None = None
     procedure: object = field(default_factory=procedures.direct_harmonic)
     last_solve_info: LinearSolveInfo | None = field(default=None, init=False)
+    algebraic_equilibrium: dict[str, float] | None = field(default=None, init=False)
+    cycle_input_energy: float | None = field(default=None, init=False)
     displacement_amplitude: object | None = field(default=None, init=False)
     displacement_phase: object | None = field(default=None, init=False)
 
@@ -191,6 +193,7 @@ class HarmonicViscoelasticStep:
         )
         problem.solve()
         solver = problem.solver
+        self._capture_algebraic_evidence(problem)
         info = LinearSolveInfo(
             converged_reason=int(solver.getConvergedReason()),
             iterations=int(solver.getIterationNumber()),
@@ -203,8 +206,85 @@ class HarmonicViscoelasticStep:
                 f"reason={info.converged_reason}, iterations={info.iterations}, "
                 f"residual={info.residual_norm:.6e}."
             )
+        relative_tolerance = max(
+            10.0 * (self.solver_options.rtol or 1.0e-8),
+            100.0 * np.finfo(float).eps,
+        )
+        absolute_tolerance = 10.0 * (self.solver_options.atol or 0.0)
+        equilibrium = self.algebraic_equilibrium or {}
+        if (
+            float(equilibrium.get("relative_residual_norm", np.inf))
+            > relative_tolerance
+            and float(equilibrium.get("residual_norm", np.inf))
+            > absolute_tolerance
+            and self.solver_options.error_if_not_converged
+        ):
+            raise RuntimeError(
+                "Harmonic viscoelastic solve reported convergence but failed "
+                "the assembled A*x-b equilibrium check: relative_residual="
+                f"{equilibrium['relative_residual_norm']:.6e}, "
+                f"tolerance={relative_tolerance:.6e}."
+            )
         self._refresh_polar_fields()
         return self.solution_real
+
+    def _capture_algebraic_evidence(self, problem) -> None:
+        """Cache unpreconditioned block equilibrium and applied cycle work.
+
+        PETSc's reported KSP norm depends on the selected norm and
+        preconditioner.  The assembled ``A*x-b`` residual is therefore kept as
+        separate physical solve evidence.  The already assembled load and
+        solution vectors also provide the exact external phasor work without
+        rebuilding UFL actions or allocating compatible coefficient fields.
+        """
+
+        action = problem.b.duplicate()
+        residual = problem.b.duplicate()
+        try:
+            problem.A.mult(problem.x, action)
+            action.copy(residual)
+            residual.axpy(-1.0, problem.b)
+            action_blocks = action.getNestSubVecs()
+            residual_blocks = residual.getNestSubVecs()
+            rhs_blocks = problem.b.getNestSubVecs()
+            solution_blocks = problem.x.getNestSubVecs()
+            if not all(
+                len(blocks) == 2
+                for blocks in (
+                    action_blocks,
+                    residual_blocks,
+                    rhs_blocks,
+                    solution_blocks,
+                )
+            ):
+                raise RuntimeError(
+                    "Harmonic real-block evidence requires exactly two PETSc blocks."
+                )
+
+            action_norm = float(action.norm())
+            rhs_norm = float(problem.b.norm())
+            system_scale = max(action_norm, rhs_norm, np.finfo(float).tiny)
+
+            self.algebraic_equilibrium = {
+                "residual_norm": float(residual.norm()),
+                "relative_residual_norm": float(residual.norm()) / system_scale,
+                "relative_real_block_residual_norm": (
+                    float(residual_blocks[0].norm()) / system_scale
+                ),
+                "relative_imaginary_block_residual_norm": (
+                    float(residual_blocks[1].norm()) / system_scale
+                ),
+            }
+            self.cycle_input_energy = float(
+                np.pi
+                * (
+                    rhs_blocks[1].dot(solution_blocks[0])
+                    - rhs_blocks[0].dot(solution_blocks[1])
+                )
+            )
+        finally:
+            residual.destroy()
+            action.destroy()
 
     def _refresh_polar_fields(self) -> None:
         real = np.asarray(self.solution_real.x.array, dtype=float)
@@ -228,29 +308,47 @@ class HarmonicViscoelasticStep:
         return self.solution_real.x.array.copy() + 1j * self.solution_imaginary.x.array
 
     def summary(self) -> dict[str, object]:
+        harmonic = self.material.harmonic_moduli(
+            self.angular_frequency,
+            temperature=self.temperature,
+        )
+        bulk_shear_ratio = float(abs(harmonic.bulk) / abs(harmonic.shear))
         return {
             "kind": "harmonic_viscoelastic_step",
             "name": self.name,
             "frequency": self.angular_frequency / (2.0 * np.pi),
             "angular_frequency": self.angular_frequency,
+            "frequency_regime": (
+                "static_limit" if self.angular_frequency == 0.0 else "harmonic"
+            ),
             "phasor_convention": "exp(+i*omega*t)",
             "load_phase": self.load_phase,
             "density": self.density,
             "includes_inertia": self.density is not None,
             "temperature": self.temperature,
-            "material": self.material.harmonic_moduli(
-                self.angular_frequency,
-                temperature=self.temperature,
-            ).summary(),
+            "material": harmonic.summary(),
+            "discretization_diagnostic": {
+                "formulation": "pure_displacement",
+                "bulk_to_shear_magnitude_ratio": bulk_shear_ratio,
+                "volumetric_locking_risk": (
+                    "elevated" if bulk_shear_ratio >= 100.0 else "not_flagged"
+                ),
+                "screening_criterion": "abs(K*)/abs(G*) >= 100",
+            },
             "procedure": self.procedure.summary(),
             "solver": self.solver_options.summary(),
             "solve": (
-                None if self.last_solve_info is None else self.last_solve_info.as_dict()
+                None
+                if self.last_solve_info is None
+                else {
+                    **self.last_solve_info.as_dict(),
+                    "algebraic_equilibrium": self.algebraic_equilibrium,
+                }
             ),
         }
 
     def energy_evidence(self) -> dict[str, float]:
-        """Return cycle loss and time-averaged recoverable energy integrals."""
+        """Return harmonic storage, dissipation, inertia and cycle balance."""
 
         harmonic = self.material.harmonic_moduli(
             self.angular_frequency,
@@ -291,9 +389,39 @@ class HarmonicViscoelasticStep:
 
         stored = integral(stored_density)
         per_cycle = integral(loss_density)
+        kinetic = 0.0
+        if self.density is not None and self.angular_frequency:
+            kinetic = integral(
+                0.25
+                * self.density
+                * self.angular_frequency**2
+                * (
+                    ufl.inner(self.solution_real, self.solution_real)
+                    + ufl.inner(self.solution_imaginary, self.solution_imaginary)
+                )
+            )
+        # For exp(+i*omega*t), the energy supplied by F over one cycle is
+        # pi*Im(F dot conjugate(U)).  The two real load forms already contain
+        # the declared common load phase.
+        if self.cycle_input_energy is None:
+            raise RuntimeError(
+                "Harmonic cycle-energy evidence requires a completed solve."
+            )
+        input_per_cycle = self.cycle_input_energy
+        balance_error = input_per_cycle - per_cycle
+        balance_scale = max(
+            abs(input_per_cycle),
+            abs(per_cycle),
+            np.sqrt(np.finfo(float).eps) * (abs(stored) + abs(kinetic)),
+            np.finfo(float).eps,
+        )
         return {
             "mean_stored_energy": stored,
+            "mean_kinetic_energy": kinetic,
             "dissipated_energy_per_cycle": per_cycle,
+            "input_energy_per_cycle": input_per_cycle,
+            "cycle_energy_balance_error": balance_error,
+            "relative_cycle_energy_balance_error": abs(balance_error) / balance_scale,
             "mean_dissipated_power": (
                 0.0
                 if self.angular_frequency == 0.0
@@ -361,11 +489,49 @@ class HarmonicViscoelasticStep:
                     "Cycle-mean recoverable energy in the model's consistent "
                     "mechanical unit system."
                 ),
+                "mean_kinetic_energy": (
+                    "Cycle-mean kinetic energy; zero when inertia is omitted."
+                ),
                 "dissipated_energy_per_cycle": (
                     "Positive material energy loss per harmonic cycle."
                 ),
+                "input_energy_per_cycle": (
+                    "External load energy supplied over one harmonic cycle."
+                ),
+                "cycle_energy_balance_error": (
+                    "External cycle input minus material loss."
+                ),
+                "relative_cycle_energy_balance_error": (
+                    "Mismatch between external cycle input and material loss, "
+                    "normalized by the larger cycle-energy scale."
+                ),
                 "mean_dissipated_power": (
                     "Cycle-mean viscoelastic dissipation rate."
+                ),
+            },
+        )
+        if self.algebraic_equilibrium is None:
+            raise RuntimeError(
+                "Harmonic algebraic-equilibrium evidence requires a completed solve."
+            )
+        result.add_quantities(
+            self.algebraic_equilibrium,
+            kind="solver_evidence",
+            descriptions={
+                "residual_norm": (
+                    "Unpreconditioned Euclidean norm of the assembled A*x-b "
+                    "real-block residual."
+                ),
+                "relative_residual_norm": (
+                    "Assembled real-block residual normalized by max(||A*x||,||b||)."
+                ),
+                "relative_real_block_residual_norm": (
+                    "Real-block assembled residual normalized by the global "
+                    "max(||A*x||,||b||) system scale."
+                ),
+                "relative_imaginary_block_residual_norm": (
+                    "Imaginary-block assembled residual normalized by the global "
+                    "max(||A*x||,||b||) system scale."
                 ),
             },
         )
@@ -2260,6 +2426,11 @@ def harmonic_viscoelastic_step(
             "harmonic_viscoelastic_step requires one "
             "IsotropicGeneralizedMaxwell material."
         )
+    if np.issubdtype(np.dtype(PETSc.ScalarType), np.complexfloating):
+        raise NotImplementedError(
+            "The real-block harmonic provider requires a real PETSc scalar build; "
+            "native complex PETSc lowering is a separate future provider."
+        )
     if (frequency is None) == (angular_frequency is None):
         raise ValueError("Specify exactly one of frequency or angular_frequency.")
     omega = (
@@ -2277,6 +2448,19 @@ def harmonic_viscoelastic_step(
         not np.isfinite(selected_density) or selected_density <= 0.0
     ):
         raise ValueError("density must be finite and positive when supplied.")
+    inertial_coefficient = 0.0
+    if selected_density is not None and omega:
+        with np.errstate(over="ignore", invalid="ignore"):
+            inertial_coefficient = float(
+                np.float64(selected_density)
+                * np.float64(omega)
+                * np.float64(omega)
+            )
+        if not np.isfinite(inertial_coefficient):
+            raise ValueError(
+                "The harmonic inertia coefficient density*angular_frequency**2 "
+                "must remain finite."
+            )
     selected_temperature = None if temperature is None else float(temperature)
     harmonic = material.harmonic_moduli(
         omega,
@@ -2327,18 +2511,12 @@ def harmonic_viscoelastic_step(
     loss_ir = stiffness_form(
         real_trial, imaginary_test, harmonic.bulk.imag, harmonic.shear.imag
     )
-    if selected_density is not None and omega:
+    if inertial_coefficient:
         storage_rr -= (
-            selected_density
-            * omega**2
-            * ufl.inner(real_trial, real_test)
-            * ufl.dx
+            inertial_coefficient * ufl.inner(real_trial, real_test) * ufl.dx
         )
         storage_ii -= (
-            selected_density
-            * omega**2
-            * ufl.inner(imaginary_trial, imaginary_test)
-            * ufl.dx
+            inertial_coefficient * ufl.inner(imaginary_trial, imaginary_test) * ufl.dx
         )
     if external_force is None:
         zero = fem.Constant(domain, np.zeros(3, dtype=PETSc.ScalarType))

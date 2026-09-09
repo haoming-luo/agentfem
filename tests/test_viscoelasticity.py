@@ -105,9 +105,27 @@ def test_isotropic_generalized_maxwell_exposes_bulk_shear_harmonic_contract():
     )
 
 
-def test_direct_harmonic_viscoelastic_bar_matches_complex_modulus():
+def test_generalized_maxwell_frequency_limit_remains_finite_without_overflow():
+    material = IsotropicGeneralizedMaxwell.from_prony(
+        instantaneous_young_modulus=1000.0,
+        instantaneous_poisson_ratio=0.2,
+        shear_relaxation_ratios=[0.4],
+        bulk_relaxation_ratios=[0.2],
+        relaxation_times=[2.0],
+    )
+
+    bulk, shear = material.complex_moduli(np.finfo(float).max)
+
+    assert np.isfinite(bulk)
+    assert np.isfinite(shear)
+    assert bulk == pytest.approx(material.instantaneous_bulk_modulus)
+    assert shear == pytest.approx(material.instantaneous_shear_modulus)
+
+
+def test_direct_harmonic_viscoelastic_bar_matches_complex_modulus(tmp_path):
     length = 2.0
     traction = 3.0
+    instantaneous_young = 1000.0
     frequency = 1.0 / (4.0 * np.pi)
     domain = mesh.cuboid(
         (0.0, 0.0, 0.0),
@@ -124,7 +142,7 @@ def test_direct_harmonic_viscoelastic_bar_matches_complex_modulus():
     displacement = model.field(fields.displacement(domain))
     material = model.material(
         IsotropicGeneralizedMaxwell.from_prony(
-            instantaneous_young_modulus=1000.0,
+            instantaneous_young_modulus=instantaneous_young,
             instantaneous_poisson_ratio=0.0,
             shear_relaxation_ratios=[0.4],
             bulk_relaxation_ratios=[0.4],
@@ -151,23 +169,354 @@ def test_direct_harmonic_viscoelastic_bar_matches_complex_modulus():
         on=mesh.face(domain, axis="x", value=length),
     )
     step = model.step(target=displacement, frequency=frequency)
-    result = step.solve_result()
+    output = tmp_path / "fields.xdmf"
+    result = step.solve_result(output=output, strict_output=True)
+    manifest = result.write_manifest(tmp_path / "result.json")
     expected = traction * length / material.harmonic_moduli(0.5).young
     right = mesh.face(domain, axis="x", value=length)
     real = results.average(step.solution_real[0], measure=right.measure)
     imaginary = results.average(step.solution_imaginary[0], measure=right.measure)
+    golden = benchmarks.golden_benchmark(
+        "agentfem.benchmark.global_viscoelastic_harmonic_bar"
+    )
+    normalized = (real + 1j * imaginary) * (
+        instantaneous_young / (traction * length)
+    )
 
     assert real + 1j * imaginary == pytest.approx(expected, rel=2.0e-10)
+    golden.quantity("normalized_complex_end_displacement").assert_accepts(
+        [normalized.real, normalized.imag]
+    )
     assert step.procedure.algorithm == "real_block_complex_harmonic"
     assert result.quantity("frequency") == pytest.approx(frequency)
     assert result.quantity("dissipated_energy_per_cycle") > 0.0
+    assert result.quantity("input_energy_per_cycle") > 0.0
+    assert result.quantity("mean_kinetic_energy") == pytest.approx(0.0)
+    assert result.quantity("relative_cycle_energy_balance_error") < 1.0e-10
+    assert result.quantity("relative_residual_norm") < 1.0e-10
+    assert result.quantity("relative_real_block_residual_norm") < 1.0e-10
+    assert result.quantity("relative_imaginary_block_residual_norm") < 1.0e-10
     assert result.quantity("mean_stored_energy") > 0.0
     assert set(result.fields) == {"U_REAL", "U_IMAG", "U_AMPLITUDE", "U_PHASE"}
+    assert output.exists()
+    assert (tmp_path / "fields.h5").exists()
+    saved = json.loads(manifest.read_text(encoding="utf-8"))
+    assert {item["name"] for item in saved["field_records"]} == set(result.fields)
     assert result.metadata["step"]["includes_inertia"] is False
     excitation = result.scientific_inputs["harmonic_excitation"]
     assert excitation["frequency"] == pytest.approx(frequency)
     assert excitation["phasor_convention"] == "exp(+i*omega*t)"
     assert result.metadata["step"]["solve"]["converged"]
+
+
+def test_harmonic_viscoelastic_bar_with_inertia_converges_to_wave_solution():
+    length = 2.0
+    traction = 3.0
+    density = 1.0
+    omega = 8.0
+    material = IsotropicGeneralizedMaxwell.from_prony(
+        instantaneous_young_modulus=1000.0,
+        instantaneous_poisson_ratio=0.0,
+        shear_relaxation_ratios=[0.4],
+        bulk_relaxation_ratios=[0.4],
+        relaxation_times=[0.125],
+    )
+    complex_young = material.harmonic_moduli(omega).young
+    wave_number = omega * np.sqrt(density / complex_young)
+    expected = traction * np.tan(wave_number * length) / (
+        complex_young * wave_number
+    )
+    errors = []
+
+    finest_result = None
+    for longitudinal_cells in (4, 8, 16):
+        domain = mesh.cuboid(
+            (0.0, 0.0, 0.0),
+            (length, 1.0, 1.0),
+            (longitudinal_cells, 1, 1),
+            comm=MPI.COMM_SELF,
+            cell_type="hexahedron",
+        )
+        model = models.create(
+            study=studies.harmonic_solid(dimension=3),
+            mesh=domain,
+            name=f"harmonic_inertial_bar_{longitudinal_cells}",
+        )
+        displacement = model.field(fields.displacement(domain))
+        model.material(material)
+        model.fix(
+            displacement,
+            on=mesh.face(domain, axis="x", value=0.0),
+            component=0,
+        )
+        model.fix(
+            displacement,
+            on=mesh.face(domain, axis="y", value=0.0),
+            component=1,
+        )
+        model.fix(
+            displacement,
+            on=mesh.face(domain, axis="z", value=0.0),
+            component=2,
+        )
+        loaded_end = mesh.face(domain, axis="x", value=length)
+        model.traction((traction, 0.0, 0.0), on=loaded_end)
+
+        step = model.step(
+            target=displacement,
+            angular_frequency=omega,
+            density=density,
+        )
+        result = step.solve_result()
+        finest_result = result
+        tip = results.average(
+            step.solution_real[0], measure=loaded_end.measure
+        ) + 1j * results.average(
+            step.solution_imaginary[0], measure=loaded_end.measure
+        )
+        errors.append(abs(tip - expected) / abs(expected))
+
+        assert result.quantity("mean_kinetic_energy") > 0.0
+        assert result.quantity("relative_cycle_energy_balance_error") < 1.0e-9
+
+    assert errors[2] < errors[1] < errors[0]
+    golden = benchmarks.golden_benchmark(
+        "agentfem.benchmark.global_viscoelastic_harmonic_bar"
+    )
+    golden.quantity("inertial_tip_relative_error").assert_accepts(errors[-1])
+    golden.quantity("relative_cycle_energy_balance_error").assert_accepts(
+        finest_result.quantity("relative_cycle_energy_balance_error")
+    )
+
+
+def test_harmonic_bar_resolves_independent_bulk_and_shear_relaxation():
+    length = 2.0
+    width = 1.0
+    thickness = 0.5
+    traction = 3.0
+    omega = 2.5
+    domain = mesh.cuboid(
+        (0.0, 0.0, 0.0),
+        (length, width, thickness),
+        (4, 2, 1),
+        comm=MPI.COMM_SELF,
+        cell_type="hexahedron",
+    )
+    model = models.create(
+        study=studies.harmonic_solid(dimension=3),
+        mesh=domain,
+        name="independent_bulk_shear_harmonic_bar",
+    )
+    displacement = model.field(fields.displacement(domain))
+    material = model.material(
+        IsotropicGeneralizedMaxwell.from_prony(
+            instantaneous_young_modulus=1200.0,
+            instantaneous_poisson_ratio=0.25,
+            shear_relaxation_ratios=[0.2],
+            bulk_relaxation_ratios=[0.55],
+            relaxation_times=[0.4],
+        )
+    )
+    model.fix(
+        displacement,
+        on=mesh.face(domain, axis="x", value=0.0),
+        component=0,
+    )
+    model.fix(
+        displacement,
+        on=mesh.face(domain, axis="y", value=0.0),
+        component=1,
+    )
+    model.fix(
+        displacement,
+        on=mesh.face(domain, axis="z", value=0.0),
+        component=2,
+    )
+    loaded_end = mesh.face(domain, axis="x", value=length)
+    lateral_y = mesh.face(domain, axis="y", value=width)
+    lateral_z = mesh.face(domain, axis="z", value=thickness)
+    model.traction((traction, 0.0, 0.0), on=loaded_end)
+
+    step = model.step(target=displacement, angular_frequency=omega)
+    step.solve()
+    harmonic = material.harmonic_moduli(omega)
+
+    def phasor(component, surface):
+        return results.average(
+            step.solution_real[component], measure=surface.measure
+        ) + 1j * results.average(
+            step.solution_imaginary[component], measure=surface.measure
+        )
+
+    assert phasor(0, loaded_end) == pytest.approx(
+        traction * length / harmonic.young,
+        rel=5.0e-10,
+    )
+    assert phasor(1, lateral_y) == pytest.approx(
+        -harmonic.poisson * traction * width / harmonic.young,
+        rel=5.0e-10,
+    )
+    assert phasor(2, lateral_z) == pytest.approx(
+        -harmonic.poisson * traction * thickness / harmonic.young,
+        rel=5.0e-10,
+    )
+    assert abs(harmonic.poisson.imag) > 1.0e-3
+
+
+def test_harmonic_step_resolves_and_enforces_the_central_procedure_contract():
+    domain = mesh.cuboid(
+        (0.0, 0.0, 0.0),
+        (1.0, 1.0, 1.0),
+        (1, 1, 1),
+        comm=MPI.COMM_SELF,
+        cell_type="hexahedron",
+    )
+    model = models.create(
+        study=studies.harmonic_solid(dimension=3),
+        mesh=domain,
+    )
+    displacement = model.field(fields.displacement(domain))
+    model.material(
+        IsotropicGeneralizedMaxwell.from_prony(
+            instantaneous_young_modulus=1000.0,
+            instantaneous_poisson_ratio=0.0,
+            shear_relaxation_ratios=[0.2],
+            bulk_relaxation_ratios=[0.2],
+            relaxation_times=[1.0],
+        )
+    )
+
+    capability = models.step_capability(
+        model,
+        target=displacement,
+        options={"frequency": 1.0},
+    )
+    step = model.step(target=displacement, frequency=1.0)
+
+    assert capability["procedure"]["algorithm"] == "real_block_complex_harmonic"
+    assert capability["supported"] is True
+    assert capability["ready"] is True
+    assert step.procedure.algorithm == "real_block_complex_harmonic"
+    with pytest.raises(ValueError, match="Unknown numerical method"):
+        model.step(target=displacement, frequency=1.0, method="newmark")
+
+    incomplete = models.step_capability(model, target=displacement)
+    assert incomplete["supported"] is True
+    assert incomplete["ready"] is False
+    assert incomplete["readiness_issues"][0]["code"] == "AFM-STEP-OPTION-003"
+
+
+def test_harmonic_step_rejects_ambiguous_frequency_and_time_domain_loading():
+    domain = mesh.cuboid(
+        (0.0, 0.0, 0.0),
+        (1.0, 1.0, 1.0),
+        (1, 1, 1),
+        comm=MPI.COMM_SELF,
+        cell_type="hexahedron",
+    )
+    model = models.create(
+        study=studies.harmonic_solid(dimension=3),
+        mesh=domain,
+    )
+    displacement = model.field(fields.displacement(domain))
+    model.material(
+        IsotropicGeneralizedMaxwell.from_prony(
+            instantaneous_young_modulus=1000.0,
+            instantaneous_poisson_ratio=0.0,
+            shear_relaxation_ratios=[0.2],
+            bulk_relaxation_ratios=[0.2],
+            relaxation_times=[1.0],
+        )
+    )
+    model.traction(
+        (1.0, 0.0, 0.0),
+        on=mesh.face(domain, axis="x", value=1.0),
+        amplitude=amplitudes.sine(amplitude=1.0, frequency=1.0),
+    )
+
+    with pytest.raises(ValueError, match="AmplitudeLoad"):
+        model.step(target=displacement, frequency=1.0)
+
+    clean = models.create(
+        study=studies.harmonic_solid(dimension=3),
+        mesh=domain,
+    )
+    clean_displacement = clean.field(fields.displacement(domain))
+    clean.material(model.materials[0].item)
+    with pytest.raises(TypeError, match="exactly one"):
+        clean.step(
+            target=clean_displacement,
+            frequency=1.0,
+            angular_frequency=2.0 * np.pi,
+        )
+
+
+def test_harmonic_step_rejects_nonhomogeneous_constraints_and_nested_lu():
+    domain = mesh.cuboid(
+        (0.0, 0.0, 0.0),
+        (1.0, 1.0, 1.0),
+        (1, 1, 1),
+        comm=MPI.COMM_SELF,
+        cell_type="hexahedron",
+    )
+    material = IsotropicGeneralizedMaxwell.from_prony(
+        instantaneous_young_modulus=1000.0,
+        instantaneous_poisson_ratio=0.0,
+        shear_relaxation_ratios=[0.2],
+        bulk_relaxation_ratios=[0.2],
+        relaxation_times=[1.0],
+    )
+
+    prescribed = models.create(
+        study=studies.harmonic_solid(dimension=3),
+        mesh=domain,
+    )
+    prescribed_u = prescribed.field(fields.displacement(domain))
+    prescribed.material(material)
+    prescribed.fix(
+        prescribed_u,
+        on=mesh.face(domain, axis="x", value=0.0),
+        component=0,
+        value=0.1,
+    )
+    with pytest.raises(NotImplementedError, match="homogeneous strong constraints"):
+        prescribed.step(target=prescribed_u, frequency=1.0)
+
+    factored = models.create(
+        study=studies.harmonic_solid(dimension=3),
+        mesh=domain,
+    )
+    factored_u = factored.field(fields.displacement(domain))
+    factored.material(material)
+    with pytest.raises(NotImplementedError, match="pc_type='fieldsplit'"):
+        factored.step(
+            target=factored_u,
+            frequency=1.0,
+            solver_options=solvers.direct_solver(),
+        )
+
+    unsupported = models.create(
+        study=studies.harmonic_solid(dimension=3),
+        mesh=domain,
+    )
+    unsupported_u = unsupported.field(fields.displacement(domain))
+    unsupported.material(material)
+    unsupported.add_constraint(object())
+    with pytest.raises(NotImplementedError, match="strong Dirichlet constraints"):
+        unsupported.step(target=unsupported_u, frequency=1.0)
+
+    overflow = models.create(
+        study=studies.harmonic_solid(dimension=3),
+        mesh=domain,
+    )
+    overflow_u = overflow.field(fields.displacement(domain))
+    overflow.material(material)
+    with pytest.raises(ValueError, match="inertia coefficient"):
+        overflow.step(
+            target=overflow_u,
+            angular_frequency=1.0e100,
+            density=1.0e200,
+        )
 
 
 def test_generalized_maxwell_exact_update_commits_and_restores_state():

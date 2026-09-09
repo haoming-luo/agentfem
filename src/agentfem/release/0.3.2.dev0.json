@@ -27,6 +27,7 @@
       "evidence": [
         "golden-observable",
         "single-grid-output",
+        "2d-warp-compatible-vector",
         "serial-and-two-rank-smoke"
       ]
     },
@@ -41,13 +42,48 @@
       ]
     },
     {
+      "id": "explicit-wave-inclusion",
+      "maturity": "engineering",
+      "example": "examples/wave_packet_inclusion_2d.py",
+      "evidence": [
+        "stability-estimate",
+        "absorbing-boundary-tests",
+        "release-smoke"
+      ]
+    },
+    {
+      "id": "abaqus-reviewed-migration",
+      "maturity": "engineering",
+      "example": "tests/fixtures/abaqus_native_lowering/static.inp",
+      "evidence": [
+        "recursive-source-graph",
+        "scope-and-section-preservation",
+        "fail-closed-native-lowering",
+        "serial-and-mpi-region-tests"
+      ]
+    },
+    {
       "id": "finite-strain-j2-rve",
       "maturity": "experimental",
       "example": "tests/periodic_void_fixture.py",
       "evidence": [
+        "material-point-paths",
+        "consistent-tangent",
         "strong-and-affine-periodic-global-equilibrium",
+        "cutback-and-cross-rank-restart",
         "mpi-portable-state",
-        "plastic-dissipation-output"
+        "plastic-dissipation-output",
+        "void-and-multi-void-goldens"
+      ]
+    },
+    {
+      "id": "lefm-interaction-integral",
+      "maturity": "engineering",
+      "example": "examples/lefm_center_crack_2d.py",
+      "evidence": [
+        "analytic-field-extraction",
+        "dolfinx-field-extraction",
+        "path-variation-and-equilibrium-diagnostics"
       ]
     },
     {
@@ -62,12 +98,55 @@
       ]
     },
     {
+      "id": "dynamic-cohesive-fracture",
+      "maturity": "experimental",
+      "example": "examples/science_supershear_v5_protocol.py",
+      "evidence": [
+        "v0-v4-guardrails",
+        "mpi-interface-tests",
+        "energy-balance-tests"
+      ]
+    },
+    {
+      "id": "structural-modal",
+      "maturity": "engineering",
+      "example": "examples/modal_cantilever_2d.py",
+      "evidence": [
+        "slender-beam-mesh-convergence",
+        "residual-and-mass-orthogonality",
+        "serial-and-two-rank-equivalence"
+      ]
+    },
+    {
+      "id": "generalized-maxwell-transient",
+      "maturity": "engineering",
+      "example": "examples/viscoelastic_relaxation_3d.py",
+      "evidence": [
+        "independent-abaqus-rod-benchmark",
+        "adaptive-rollback-and-restart",
+        "serial-and-two-rank-state"
+      ]
+    },
+    {
+      "id": "generalized-maxwell-harmonic",
+      "maturity": "experimental",
+      "example": "examples/viscoelastic_harmonic_3d.py",
+      "evidence": [
+        "quasistatic-complex-compliance",
+        "inertial-rod-mesh-convergence",
+        "cycle-energy-closure",
+        "fail-closed-option-contract"
+      ]
+    },
+    {
       "id": "simulation-to-learning",
       "maturity": "engineering",
       "example": "examples/static_elasticity_surrogate_campaign.py",
       "evidence": [
         "accepted-dataset-policy",
         "framework-neutral-provider-contract",
+        "framework-neutral-neural-field-contract",
+        "surrogate-validation",
         "fem-fallback"
       ]
     }
@@ -79,6 +158,7 @@
     "full-serial-tests",
     "distributed-tests",
     "installed-wheel-identity",
+    "installed-project-template-loop",
     "linux-and-macos-platform-acceptance",
     "scientific-knowledge-check",
     "documentation-strict-build",
@@ -87,14 +167,18 @@
     "fresh-agent-zero-intervention-acceptance",
     "optional-pytorch-bridge",
     "reliability-event-privacy-whitelist",
+    "sanitized-support-bundle-integrity",
     "runtime-preview-installed-acceptance"
   ],
   "not_release_claims": [
+    "universal finite-element coverage",
     "native Windows solver support",
     "real WSL2 acceptance before corresponding evidence exists",
+    "Apple-signed or notarized macOS distribution without signed acceptance evidence",
     "general contact",
     "general arbitrary-path fracture",
     "universally validated nonlinear material models",
-    "monolithic thermo-mechanical coupling"
+    "monolithic thermo-mechanical coupling",
+    "automatic neural-operator or PINN training for arbitrary meshes"
   ]
 }

@@ -13,8 +13,11 @@ Public discovery is progressive. Begin with `agentfem.public_api("core")` and
 `models.model_api("core")`. Methods reported by
 `models.model_api("compatibility")` remain executable during 0.2.x but are not
 the language for new cases. Built-in Step providers publish accepted and
-required keyword names through `StepOptionContract`; inspect the same contracts
-with `agentfem capabilities --json` before generating a Step call.
+required keyword names and mutually exclusive scientific-coordinate aliases
+through `StepOptionContract`; inspect the same contracts with
+`agentfem capabilities --json` before generating a Step call. Treat
+`supported=true` as provider availability and `ready=true` as confirmation
+that the concrete request has all required inputs.
 The CLI capability record and `/agentfem.json` documentation manifest are
 generated views of the same dependency-free product contract; do not infer a
 parallel workflow language from one example.

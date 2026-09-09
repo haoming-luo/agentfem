@@ -52,6 +52,19 @@ inputs such as `dt`, `steps`, or `duration` are checked at lowering. The same
 contract is emitted by `agentfem capabilities --json`, so command-line agents,
 IDEs, and future GUIs inspect exactly what runtime execution enforces.
 
+The contract distinguishes three relationships: `accepted` names define the
+provider vocabulary, `required` names must all be present, and an
+`exactly_one_of` group represents equivalent scientific coordinates for which
+one—and only one—must be selected. For example, harmonic analysis accepts
+either `frequency` in Hz or `angular_frequency` in rad/s, never both. A
+capability report consequently separates `supported` (a provider exists and
+the supplied options fit its vocabulary) from `ready` (all required scientific
+inputs are present). This lets discovery stay useful before a model is fully
+specified without weakening execution-time validation. `model.validate()` may
+receive a partial option mapping while builder compatibility checks; complete
+required-input enforcement belongs to the immutable request consumed by
+`model.step(...)` lowering.
+
 `model.step(...)` normalizes this call into an immutable `StepRequest`. The
 request carries the resolved `SolutionProcedure`, target, material reference,
 and a read-only option mapping through both `step_capability(...)` and provider

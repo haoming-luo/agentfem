@@ -16,7 +16,7 @@ otherwise; runnable examples remain in the repository-level `examples/`.
 | Study context: analysis type, physics, dimension, and assumptions | `studies.py` |
 | Shared axisymmetric (r,z) kinematics and full-revolution lowering | `_axisymmetric.py` |
 | Standard/Explicit family, equation order, algorithm, and state policy | `procedures.py` |
-| Model registry/facade, amplitudes, material assignments, checks, summaries, and model-first operators | `models.py` |
+| Model registry/facade, amplitudes, material assignments, checks, summaries, and model-first operator delegates | `models.py` |
 | Built-in scientific Step construction behind the facade | `_step_builders.py` |
 | Extensible analysis/material lowering and execution-policy normalization behind `model.step()` | `step_providers.py` |
 | Function spaces and Lagrange defaults | `spaces.py` |
@@ -38,7 +38,7 @@ otherwise; runnable examples remain in the repository-level `examples/`.
 | Boundary models | `boundary_models/` |
 | UFL weak-form blocks, including stiffness, mass, diffusion, and loads | `forms.py` |
 | Assembly | `assembly.py` |
-| Engineering-level K/M/C/F, transport, SUPG, and reaction operators | `operators/` |
+| Engineering-level K/M/C/F, registered-assignment lowering, transport, SUPG, and reaction operators | `operators/` |
 | Central difference, Newmark, generalized-alpha, and runtime cadence | `time/` |
 | Analysis steps and discrete system problems | `problems.py` |
 | Shared transient checkpoint envelope, integrity, accepted-increment cadence, and partition identity | `checkpointing.py` |

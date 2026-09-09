@@ -71,12 +71,21 @@ step = model.step(
     amplitude=load_then_hold,
     checkpoint=checkpointing.every(
         10,
-        directory="outputs/viscoelastic_relaxation_3d/checkpoints",
+        directory=(
+            Path(__file__).resolve().parents[1]
+            / "examples_output"
+            / "viscoelastic_relaxation_3d"
+            / "checkpoints"
+        ),
         keep_last=2,
     ),
 )
 
-output = Path("outputs/viscoelastic_relaxation_3d")
+output = (
+    Path(__file__).resolve().parents[1]
+    / "examples_output"
+    / "viscoelastic_relaxation_3d"
+)
 simulation = step.solve_result(output=output / "fields.xdmf")
 mean_stress = results.average(
     step.state.stress.function[0, 0],

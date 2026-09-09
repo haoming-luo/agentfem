@@ -4,27 +4,32 @@
   "id": "agentfem.benchmark.global_viscoelastic_harmonic_bar",
   "title": "Three-dimensional generalized-Maxwell harmonic bar",
   "status": "automated_analytical_verification",
-  "purpose": "Verify direct frequency-domain lowering of independent complex bulk and shear moduli, harmonic traction and standard phasor results on a real PETSc build.",
+  "purpose": "Verify direct frequency-domain lowering of independent complex bulk and shear moduli, harmonic traction, inertia, phasor results and cycle-energy closure on a real PETSc build.",
   "physics": "Three-dimensional small-strain isotropic linear viscoelasticity",
   "execution": {
-    "command": "python -m pytest -q tests/test_viscoelasticity.py -k harmonic",
+    "command": "python -m pytest -q tests/test_viscoelasticity.py -k harmonic && agentfem mpi-run -n 2 -- python -m pytest -q tests/test_parallel_viscoelasticity.py",
     "example": "examples/viscoelastic_harmonic_3d.py",
-    "evidence": "A homogeneous bar with Poisson ratio zero is driven by a harmonic end traction. The finite-element end-displacement phasor is compared with traction times length divided by the exact generalized-Maxwell complex Young modulus."
+    "evidence": "A homogeneous bar first checks quasi-static complex compliance and independent bulk/shear relaxation. A second fixed--traction bar includes inertia and is compared over three meshes with the closed-form one-dimensional complex wave solution derived from the published generalized viscoelastic rod boundary-value problem. The quasi-static bar is also solved on two MPI ranks; its phasor, energy ledger and four-field collective XDMF/ParaView output are required to remain rank-consistent."
   },
   "observables": [
     "Real and imaginary end-displacement phasor components.",
     "Complex bulk, shear, Young and Poisson quantities at the solve frequency.",
-    "Cycle-mean stored energy, energy dissipated per cycle and mean dissipated power.",
-    "Linear solver convergence reason, iterations and residual norm."
+    "Cycle-mean stored and kinetic energy, external input and material dissipation per cycle, their balance error, and mean dissipated power.",
+    "Linear solver convergence reason and iterations plus the independently assembled global, real-block and imaginary-block A*x-b residuals."
   ],
   "acceptance": [
     "The assembled end displacement must match the analytical complex compliance to the declared numerical tolerance.",
+    "Independent bulk and shear relaxation ratios must recover the analytical complex axial and lateral displacement phasors.",
+    "The inertial end displacement error must decrease over 4, 8 and 16 longitudinal cells and finish below 0.2 percent.",
+    "External input over one cycle must close against viscoelastic material loss to the declared tolerance.",
+    "The independently assembled A*x-b residual must close globally and in both real phasor blocks rather than relying only on the preconditioned KSP norm.",
     "The result must expose U_REAL, U_IMAG, U_AMPLITUDE and U_PHASE without requiring a complex PETSc installation.",
+    "A two-rank solve must reproduce the analytical compliance, identical global energy evidence on every rank, and one collective ParaView dataset containing all four phasor fields.",
     "A passive generalized-Maxwell material must report nonnegative loss moduli and positive dissipation at positive frequency.",
     "Frequency, angular frequency and the exp(+i*omega*t) convention must remain explicit in the result evidence."
   ],
   "golden": {
-    "reference_version": "generalized-maxwell-harmonic-bar-1",
+    "reference_version": "generalized-maxwell-harmonic-bar-2",
     "quantities": [
       {
         "name": "normalized_complex_end_displacement",
@@ -33,12 +38,28 @@
         "absolute_tolerance": 1e-11,
         "unit": "dimensionless",
         "description": "End displacement divided by traction times length over the instantaneous Young modulus for one branch with ratio 0.4 and omega*tau=1."
+      },
+      {
+        "name": "inertial_tip_relative_error",
+        "expected": 0.0,
+        "relative_tolerance": 0.0,
+        "absolute_tolerance": 0.002,
+        "unit": "1",
+        "description": "Relative error of the finest fixed--traction inertial-bar end phasor against the closed-form one-dimensional wave solution."
+      },
+      {
+        "name": "relative_cycle_energy_balance_error",
+        "expected": 0.0,
+        "relative_tolerance": 0.0,
+        "absolute_tolerance": 1e-09,
+        "unit": "1",
+        "description": "External cycle input minus material loss, normalized by the declared harmonic energy scale."
       }
     ]
   },
   "limitations": [
-    "This is an analytical homogeneous patch rather than an independent external structural benchmark.",
+    "This is an automated analytical verification derived from a published boundary-value problem, not an independent external finite-element result curve.",
     "The current harmonic provider accepts one isotropic 3D material, homogeneous strong constraints and one common load phase.",
-    "Automated frequency sweeps, multiple materials, MPC/weak constraints, distributed evidence and complex modes remain promotion gates."
+    "Near-incompressible mixed formulations, near-resonance preconditioning, automated frequency sweeps, multiple materials, MPC/weak constraints and complex modes remain promotion gates."
   ]
 }

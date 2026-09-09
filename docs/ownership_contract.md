@@ -42,6 +42,15 @@ Study -> Model -> scientific assets -> model.step(...)
 that path. Historical material-specific `*_step()` methods remain thin 0.2.x
 compatibility delegates; new workflows use `model.step(...)`.
 
+The same rule applies before a Step is built. Model-first conveniences such as
+`model.stiffness(...)`, `model.mass(...)`, `model.conduction(...)`, and
+`model.heat_capacity(...)` remain the stable public language, but they pass
+the model-owned material assignments to a private operator lowering boundary.
+That boundary resolves regional measures, validates physical coefficients,
+builds each contribution, and composes partitioned operators. It consumes an
+immutable assignment sequence rather than importing `Model`, so the readable
+facade does not become the owner of finite-element forms.
+
 ## State is a boundary, not one universal algorithm
 
 `agentfem.state` provides two minimal structural protocols:

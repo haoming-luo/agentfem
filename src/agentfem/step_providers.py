@@ -48,14 +48,20 @@ class StepOptionContract:
     contract restores the precision that would otherwise be lost behind its
     extensible ``**options`` boundary: humans receive immediate repairable
     errors, while agents, IDEs, and GUIs can inspect the same option vocabulary
-    that the selected provider enforces at runtime.
+    that the selected provider enforces at runtime. ``required`` names must all
+    be present. Each ``exactly_one_of`` group expresses scientific aliases for
+    which precisely one coordinate must be supplied, such as frequency in Hz
+    versus angular frequency in rad/s.
     """
 
     accepted: tuple[str, ...]
     required: tuple[str, ...] = ()
+    exactly_one_of: tuple[tuple[str, ...], ...] = ()
 
     def __post_init__(self) -> None:
-        raw = (*self.accepted, *self.required)
+        raw_groups = tuple(tuple(group) for group in self.exactly_one_of)
+        grouped_names = tuple(name for group in raw_groups for name in group)
+        raw = (*self.accepted, *self.required, *grouped_names)
         invalid = tuple(item for item in raw if not isinstance(item, str) or not item)
         if invalid:
             raise ValueError("Step option names must be non-empty strings.")
@@ -67,8 +73,24 @@ class StepOptionContract:
                 "Required Step options must also be accepted: "
                 f"{unknown_required!r}."
             )
+        invalid_groups = tuple(
+            group
+            for group in raw_groups
+            if len(tuple(dict.fromkeys(group))) < 2
+            or any(name not in accepted for name in group)
+        )
+        if invalid_groups:
+            raise ValueError(
+                "Each exactly_one_of group must contain at least two distinct "
+                "accepted Step options."
+            )
         object.__setattr__(self, "accepted", accepted)
         object.__setattr__(self, "required", required)
+        object.__setattr__(
+            self,
+            "exactly_one_of",
+            tuple(tuple(dict.fromkeys(group)) for group in raw_groups),
+        )
 
     def issues(
         self,
@@ -101,6 +123,22 @@ class StepOptionContract:
                             "suggestions": (),
                         }
                     )
+        for group in self.exactly_one_of:
+            selected = tuple(
+                name for name in group if name in options and options[name] is not None
+            )
+            if len(selected) > 1 or (require_required and not selected):
+                choices = ", ".join(repr(name) for name in group)
+                issues.append(
+                    {
+                        "code": "AFM-STEP-OPTION-003",
+                        "option": "|".join(group),
+                        "options": group,
+                        "selected": selected,
+                        "message": f"Specify exactly one of {choices}.",
+                        "suggestions": (),
+                    }
+                )
         return tuple(issues)
 
     def validate(self, options: Mapping[str, object], *, provider: str) -> None:
@@ -126,6 +164,7 @@ class StepOptionContract:
         return {
             "accepted": self.accepted,
             "required": self.required,
+            "exactly_one_of": self.exactly_one_of,
         }
 
 
@@ -421,8 +460,11 @@ def step_capability(
     """Describe whether the current model can be lowered without executing it.
 
     This is deliberately based on the same provider predicates used by
-    :func:`lower_step`.  A GUI, agent, or ``model.check()`` therefore cannot
+    :func:`lower_step`. A GUI, agent, or ``model.check()`` therefore cannot
     advertise a Study/provider combination that the solver will later reject.
+    ``supported`` answers whether the selected Study and explicit options fit
+    an installed provider. ``ready`` additionally answers whether all required
+    scientific inputs have been supplied.
     """
 
     selected_analysis = _normalize(
@@ -447,6 +489,7 @@ def step_capability(
     )
     provider = None
     option_issues = ()
+    readiness_issues = ()
     selected_target = targets[0]
     for candidate_target in targets:
         request = StepRequest(
@@ -481,6 +524,8 @@ def step_capability(
             if provider is None and rejected:
                 provider, option_issues = rejected[0]
             selected_target = candidate_target
+            if provider is not None and provider.option_contract is not None:
+                readiness_issues = provider.option_contract.issues(request.options)
             break
     return {
         "analysis": selected_analysis,
@@ -488,6 +533,7 @@ def step_capability(
         "dimension": getattr(getattr(model, "study", None), "dimension", None),
         "assumption": getattr(getattr(model, "study", None), "assumption", None),
         "supported": provider is not None and not option_issues,
+        "ready": provider is not None and not readiness_issues,
         "target": _target_summary(selected_target),
         "procedure": (
             None
@@ -497,6 +543,7 @@ def step_capability(
         "provider": None if provider is None else provider.summary(),
         "candidate_providers": tuple(item.name for item in candidates),
         "option_issues": option_issues,
+        "readiness_issues": readiness_issues,
     }
 
 
@@ -533,6 +580,7 @@ def _resolve_procedure(model, *, analysis: str, options, requested):
         "second_order_dynamics",
         "explicit_dynamics",
         "modal",
+        "frequency_domain",
     }
     if analysis not in known:
         if requested is not None and not isinstance(
@@ -1356,12 +1404,17 @@ _COMMON_STEP_OPTIONS = (
 )
 
 
-def _option_contract(*extra: str, required=()) -> StepOptionContract:
+def _option_contract(
+    *extra: str,
+    required=(),
+    exactly_one_of=(),
+) -> StepOptionContract:
     """Build a deterministic built-in contract without repeated core names."""
 
     return StepOptionContract(
         accepted=tuple(dict.fromkeys((*_COMMON_STEP_OPTIONS, *extra))),
         required=tuple(required),
+        exactly_one_of=tuple(tuple(group) for group in exactly_one_of),
     )
 
 
@@ -1530,6 +1583,7 @@ register_step_provider(
             "temperature",
             "solver_options",
             "output",
+            exactly_one_of=(("frequency", "angular_frequency"),),
         ),
     )
 )

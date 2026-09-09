@@ -124,6 +124,7 @@ jobs:
           tests/test_parallel_modal.py
           tests/test_parallel_results.py
           tests/test_parallel_transient.py
+          tests/test_parallel_viscoelasticity.py
 
       - name: Verify three-dimensional block Stokes with two MPI ranks
         run: mpirun -n 2 python -m pytest tests/test_pdeagent_bench.py -k three_dimensional_stokes

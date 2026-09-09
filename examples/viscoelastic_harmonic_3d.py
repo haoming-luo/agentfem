@@ -43,7 +43,11 @@ step = model.step(
     frequency=frequency,
     density=1000.0,
 )
-output = Path("outputs/viscoelastic_harmonic_3d")
+output = (
+    Path(__file__).resolve().parents[1]
+    / "examples_output"
+    / "viscoelastic_harmonic_3d"
+)
 simulation = step.solve_result(output=output / "fields.xdmf")
 
 tip_real = results.average(step.solution_real[0], measure=loaded_end.measure)

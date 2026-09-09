@@ -863,7 +863,14 @@ def harmonic_viscoelastic(
     from . import mechanics
     from .constitutive.viscoelasticity import IsotropicGeneralizedMaxwell
 
-    model.check(target=target, step_options={"material": material})
+    model.check(
+        target=target,
+        step_options={
+            "material": material,
+            "frequency": frequency,
+            "angular_frequency": angular_frequency,
+        },
+    )
     model.study.require(analysis="frequency_domain", physics="solid_mechanics")
     properties = (
         model._material_record(material).item

@@ -55,6 +55,11 @@
         "description": "The exact complex steady-state problem is solved on a normal real-valued PETSc installation without discarding loss stiffness."
       },
       {
+        "label": "fixed--traction viscoelastic rod response",
+        "expression": "u(L)=\\frac{T\\tan(qL)}{E^{*}q},\\qquad q=\\omega\\sqrt{\\rho/E^{*}}",
+        "description": "A one-dimensional inertial boundary-value problem supplies an independent end-response and mesh-convergence oracle away from a resonance pole."
+      },
+      {
         "label": "exact branch update",
         "expression": "q_i^{n+1}=\\exp\\!\\left(-\\Delta t/\\tau_i\\right)q_i^n+E_i\\frac{\\tau_i}{\\Delta t}\\left(1-\\exp\\!\\left(-\\Delta t/\\tau_i\\right)\\right)\\Delta\\varepsilon",
         "description": "A linear strain path over one increment has an exact branch update and algorithmic modulus."
@@ -101,14 +106,15 @@
       },
       {
         "name": "harmonic viscoelastic response",
-        "type": "complex bulk/shear material state, phasor displacement fields and energy-loss evidence",
+        "type": "complex bulk/shear material state, phasor displacement fields and harmonic energy evidence",
         "unit_role": "frequency and the model's consistent mechanical units",
-        "description": "The direct harmonic result exposes U_REAL, U_IMAG, component-wise U_AMPLITUDE/U_PHASE, solve evidence, stored energy, loss per cycle and mean dissipated power."
+        "description": "The direct harmonic result exposes U_REAL, U_IMAG, component-wise U_AMPLITUDE/U_PHASE, the independently assembled A*x-b block residual, mean stored and kinetic energy, external input and material loss per cycle, their relative balance error, and mean dissipated power."
       }
     ],
     "assumptions": [
       "Modal analysis is linear, undamped, and based on symmetric stiffness and mass operators.",
       "The generalized-Maxwell law is small-strain and thermorheologically simple when one shift law is supplied.",
+      "The direct harmonic route is a small-amplitude perturbation with one pure-displacement spatial discretization and no prestressed small-on-large state.",
       "The FFT/FRF reference uses uniformly sampled real histories."
     ],
     "conventions": [
@@ -117,6 +123,7 @@
       "A mass-normalized mode shape is a relative spatial pattern and does not carry a physical displacement amplitude until combined with a modal coordinate.",
       "Storage and loss modulus consume angular frequency, not cyclic frequency.",
       "The public harmonic Step accepts cyclic frequency in Hz or angular frequency in rad/s, never both, and records the exp(+i*omega*t) phasor convention.",
+      "A zero frequency is recorded as the relaxed static limit; positive frequency is required before interpreting a finite cycle period.",
       "Positive Prony ratios are fractions of the instantaneous modulus and must sum to less than one.",
       "A nonzero initial strain declares either an instantaneous loading state or a fully equilibrated state; the material history never invents that past implicitly.",
       "A trial material-point update does not modify accepted state until explicitly committed."
@@ -130,6 +137,8 @@
     "limitations": [
       "The time-domain global provider supports 3D solids, strong constraints, prescribed or adaptive physical-time paths and physical-keyed portable restart.",
       "The direct harmonic provider currently supports one 3D isotropic material, uniform temperature, homogeneous strong constraints and one common load phase; material maps, MPC/weak constraints, independent load phases and automated frequency sweeps remain future work.",
+      "The pure-displacement harmonic formulation records abs(K*)/abs(G*); values at or above 100 are flagged as elevated volumetric-locking risk rather than being silently treated as a verified near-incompressible solution.",
+      "The real-block provider requires a real PETSc scalar build; native complex-PETSc lowering is not yet a separate verified provider.",
       "Complex modes, nonlinear viscoelasticity and physical aging are not implemented.",
       "Fixed-spectrum fitting does not automatically choose relaxation times or replace calibration/validation separation."
     ]
@@ -147,6 +156,7 @@
       "tests/test_dynamics.py",
       "tests/test_viscoelasticity.py",
       "tests/test_parallel_inelastic.py",
+      "tests/test_parallel_viscoelasticity.py",
       "tests/portable_viscoelastic_step_driver.py",
       "tests/test_parallel_modal.py"
     ],
@@ -180,6 +190,10 @@
       "Require the public global Step to recover the same exact relaxation stress with two MPI ranks and to preserve complete regional material maps.",
       "Require a nonuniform-grid, traction-controlled three-dimensional rod to match the published Abaqus short- and long-time axial strains and effective Poisson ratio.",
       "Require the public harmonic Study to recover the analytical complex compliance of a traction-controlled three-dimensional bar and retain positive cycle loss.",
+      "Require independent bulk and shear Prony spectra to recover both complex axial compliance and complex lateral contraction without replacing complex Poisson response by a real scalar.",
+      "Require a fixed--traction inertial bar to converge monotonically to the closed-form complex wave solution and close external cycle input against material loss.",
+      "Require the unpreconditioned assembled real-block A*x-b residual and both phasor-block residuals to satisfy the declared solver tolerance in serial and MPI.",
+      "Require a two-rank harmonic solve to reproduce the analytical compliance and one collective ParaView dataset carrying all four phasor fields.",
       "Reject ambiguous frequency units, nonhomogeneous prescribed harmonic motion, unsupported constraint families and unsupported nested direct factorization rather than silently changing the harmonic problem.",
       "Invalidate global restart when material, amplitude, temperature, time grid, physical quadrature identity or portable solution identity differs.",
       "Reject nonuniform FFT sampling and mark unexcited FRF bins invalid."
@@ -201,6 +215,10 @@
     {
       "title": "Abaqus frequency-domain viscoelasticity",
       "locator": "https://docs.software.vt.edu/abaqusv2025/English/SIMACAETHERefMap/simathe-c-freqdomainvisco.htm"
+    },
+    {
+      "title": "Van Houten et al. (2023), closed-form one-dimensional viscoelastic wave boundary-value problem",
+      "locator": "https://doi.org/10.1002/cnm.3741"
     }
   ],
   "related_cards": [

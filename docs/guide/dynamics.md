@@ -266,7 +266,7 @@ per-load phases, automated frequency sweeps and an external structural
 benchmark remain promotion gates rather than being silently approximated.
 
 This is a bounded global FEM foundation, not a claim of nonlinear finite-strain
-viscoelasticity, physical aging or direct harmonic assembly.
+viscoelasticity, physical aging or prestressed small-on-large response.
 The independent three-dimensional
 [Abaqus viscoelastic-rod benchmark](https://docs.software.vt.edu/abaqusv2025/English/SIMACAEBMKRefMap/simabmk-c-viscorod.htm)
 checks prescribed traction, near-incompressible lateral contraction and the

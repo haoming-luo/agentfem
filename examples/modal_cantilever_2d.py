@@ -39,7 +39,7 @@ model.clamp(
     ),
 )
 
-output = Path("outputs/modal_cantilever_2d")
+output = Path(__file__).resolve().parents[1] / "examples_output" / "modal_cantilever_2d"
 result = model.step(target=u, modes=6).solve_result(
     output=output / "modes.xdmf",
     strict_output=True,

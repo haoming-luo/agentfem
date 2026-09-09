@@ -1,3 +1,4 @@
+import json
 from pathlib import Path
 import subprocess
 import tomllib
@@ -68,9 +69,31 @@ def test_release_contract_is_complete_and_references_real_workflows():
     }
     assert len(contract["required_gates"]) >= 10
 
+    previous = json.loads(
+        (PROJECT_ROOT / "src/agentfem/release/0.3.1.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    workflow_ids = {item["id"] for item in contract["workflows"]}
+    previous_ids = {item["id"] for item in previous["workflows"]}
+    assert previous_ids <= workflow_ids
+    assert set(previous["required_gates"]) <= set(contract["required_gates"])
+    assert {
+        "structural-modal",
+        "generalized-maxwell-transient",
+        "generalized-maxwell-harmonic",
+    } <= workflow_ids
+
 
 def test_release_gate_exercises_every_installed_project_template():
     assert release_gate.INSTALLED_PROJECT_TEMPLATES == cli._templates()
+
+
+def test_release_smoke_includes_both_global_viscoelastic_routes():
+    examples = {relative for relative, _arguments in release_gate.SMOKE_COMMANDS}
+
+    assert "examples/viscoelastic_relaxation_3d.py" in examples
+    assert "examples/viscoelastic_harmonic_3d.py" in examples
 
 
 def test_release_gate_exercises_agent_machine_entrypoints():

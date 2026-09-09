@@ -14,7 +14,6 @@ import numpy as np
 from . import constraints as constraint_api
 from . import loads as load_api
 from .materials.definitions import MaterialDefinition
-from .materials.properties import constant_volumetric_heat_capacity
 from ._api_contract import (
     ADVANCED_MODEL_API,
     COMPATIBILITY_MODEL_API,
@@ -778,70 +777,24 @@ class Model:
     ):
         """Create a stiffness operator from registered material assets.
 
-        This is the model-first path. It delegates every contribution to
-        ``agentfem.operators.stiffness`` and combines regional contributions
-        explicitly, so the generated operator remains inspectable.
+        This model-first facade preserves the readable public workflow.  The
+        operator layer owns regional measure resolution and form composition.
         """
 
-        from . import operators
+        from .operators import _model_lowering
 
-        selected_study = study or self.study
-        if material is not None:
-            record = self._material_record(material)
-            return _stiffness_from_record(
-                target,
-                record,
-                operators=operators,
-                study=selected_study,
-                measure=measure,
-                law=law,
-                temperature=temperature,
-                name=name,
-            )
-
-        if not self.materials:
-            raise ValueError("model.stiffness requires at least one registered material.")
-        if measure is not None and len(self.materials) > 1:
-            raise ValueError(
-                "model.stiffness with multiple materials cannot use one explicit measure. "
-                "Pass material=... or let each material use its registered region."
-            )
-        if len(self.materials) == 1:
-            return _stiffness_from_record(
-                target,
-                self.materials[0],
-                operators=operators,
-                study=selected_study,
-                measure=measure,
-                law=law,
-                temperature=temperature,
-                name=name,
-            )
-
-        parts = []
-        missing = []
-        for record in self.materials:
-            if record.region is None:
-                missing.append(_describe(record.item))
-                continue
-            parts.append(
-                _stiffness_from_record(
-                    target,
-                    record,
-                    operators=operators,
-                    study=selected_study,
-                    measure=record.region.measure,
-                    law=law,
-                    temperature=temperature,
-                    name=f"K_{getattr(record.region, 'name', len(parts))}",
-                )
-            )
-        if missing:
-            raise ValueError(
-                "Multiple-material stiffness requires every material to have a region. "
-                f"Materials without regions: {missing}."
-            )
-        return operators.combine(*parts, name=name, kind="partitioned_stiffness")
+        return _model_lowering.lower_stiffness(
+            target,
+            assignments=tuple(self.materials),
+            selected=(
+                self._material_record(material) if material is not None else None
+            ),
+            study=study or self.study,
+            measure=measure,
+            law=law,
+            temperature=temperature,
+            name=name,
+        )
 
     def mass(
         self,
@@ -853,48 +806,17 @@ class Model:
     ):
         """Create a consistent mass operator from registered densities."""
 
-        import ufl
+        from .operators import _model_lowering
 
-        from . import _axisymmetric
-        from . import operators
-
-        weight = _axisymmetric.integration_weight(target, self.study)
-
-        records = (
-            (self._material_record(material),)
-            if material is not None
-            else tuple(self.materials)
-        )
-        if not records:
-            raise ValueError("model.mass requires at least one registered material.")
-        if measure is not None and len(records) > 1:
-            raise ValueError("Pass material=... when using one explicit mass measure.")
-        parts = []
-        for index, record in enumerate(records):
-            selected_measure = (
-                measure
-                if measure is not None
-                else (
-                    record.region.measure
-                    if record.region is not None
-                    else ufl.dx
-                )
-            )
-            if len(records) > 1 and record.region is None:
-                raise ValueError(
-                    "Multiple-material mass requires a region for every material."
-                )
-            parts.append(
-                operators.mass_operator(
-                    target,
-                    _density(record.item) * weight,
-                    measure=selected_measure,
-                ).renamed(f"{name}_{index}" if len(records) > 1 else name)
-            )
-        return (
-            parts[0]
-            if len(parts) == 1
-            else operators.combine(*parts, name=name, kind="partitioned_mass")
+        return _model_lowering.lower_mass(
+            target,
+            assignments=tuple(self.materials),
+            selected=(
+                self._material_record(material) if material is not None else None
+            ),
+            study=self.study,
+            measure=measure,
+            name=name,
         )
 
     def damping(self, target, coefficient, *, measure=None, name: str = "C"):
@@ -919,90 +841,33 @@ class Model:
         :meth:`stiffness` and :meth:`mass`.
         """
 
-        import ufl
+        from .operators import _model_lowering
 
-        from . import operators
-
-        records = (
-            (self._material_record(material),)
-            if material is not None
-            else tuple(self.materials)
-        )
-        if not records:
-            raise ValueError("model.conduction requires at least one material.")
-        if measure is not None and len(records) > 1:
-            raise ValueError("Pass material=... when using one explicit conduction measure.")
-        parts = []
-        for index, record in enumerate(records):
-            if not hasattr(record.item, "conductivity"):
-                raise ValueError(
-                    f"Material {_describe(record.item)!r} does not define conductivity."
-                )
-            if len(records) > 1 and record.region is None:
-                raise ValueError(
-                    "Multiple-material conduction requires a region for every material."
-                )
-            selected_measure = (
-                measure
-                if measure is not None
-                else (record.region.measure if record.region is not None else ufl.dx)
-            )
-            parts.append(
-                operators.conduction_operator(
-                    temperature,
-                    record.item.conductivity,
-                    measure=selected_measure,
-                ).renamed(
-                    name if len(records) == 1 else f"{name}_{getattr(record.region, 'name', index)}"
-                )
-            )
-        return (
-            parts[0]
-            if len(parts) == 1
-            else operators.combine(*parts, name=name, kind="partitioned_conduction")
+        return _model_lowering.lower_conduction(
+            temperature,
+            assignments=tuple(self.materials),
+            selected=(
+                self._material_record(material) if material is not None else None
+            ),
+            measure=measure,
+            name=name,
         )
 
-    def heat_capacity(self, temperature, material=None, *, measure=None, name: str = "C"):
+    def heat_capacity(
+        self, temperature, material=None, *, measure=None, name: str = "C"
+    ):
         """Create region-aware ``rho c_p`` heat capacity."""
 
-        import ufl
+        from .operators import _model_lowering
 
-        from . import operators
-
-        records = (
-            (self._material_record(material),)
-            if material is not None
-            else tuple(self.materials)
-        )
-        if not records:
-            raise ValueError("model.heat_capacity requires at least one material.")
-        if measure is not None and len(records) > 1:
-            raise ValueError("Pass material=... when using one explicit capacity measure.")
-        parts = []
-        for index, record in enumerate(records):
-            capacity = constant_volumetric_heat_capacity(record.item)
-            if len(records) > 1 and record.region is None:
-                raise ValueError(
-                    "Multiple-material heat capacity requires a region for every material."
-                )
-            selected_measure = (
-                measure
-                if measure is not None
-                else (record.region.measure if record.region is not None else ufl.dx)
-            )
-            parts.append(
-                operators.capacity_operator(
-                    temperature,
-                    capacity,
-                    measure=selected_measure,
-                ).renamed(
-                    name if len(records) == 1 else f"{name}_{getattr(record.region, 'name', index)}"
-                )
-            )
-        return (
-            parts[0]
-            if len(parts) == 1
-            else operators.combine(*parts, name=name, kind="partitioned_heat_capacity")
+        return _model_lowering.lower_heat_capacity(
+            temperature,
+            assignments=tuple(self.materials),
+            selected=(
+                self._material_record(material) if material is not None else None
+            ),
+            measure=measure,
+            name=name,
         )
 
     def thermal_expansion(
@@ -1883,7 +1748,6 @@ class Model:
                         capability=capability,
                     )
                 )
-
         if domain is None:
             issues.append(
                 issue(
@@ -2348,41 +2212,6 @@ def create(*, study, mesh=None, name: str = "model", units=None) -> Model:
     return Model(study=study, mesh=mesh, name=name, unit_system=units)
 
 
-def _stiffness_from_record(
-    target,
-    record: _WithRegion,
-    *,
-    operators,
-    study,
-    measure=None,
-    law=None,
-    temperature=None,
-    name: str = "K",
-):
-    from .constitutive import hyperelasticity
-
-    if hyperelasticity.is_finite_strain_hyperelastic(record.item) and law is None:
-        raise TypeError(
-            "A hyperelastic material has a deformation-dependent tangent, not "
-            "one linear stiffness operator. Build its finite-strain residual "
-            "and use operators.linearize(...) when a tangent is required."
-        )
-    selected_measure = measure
-    if selected_measure is None and record.region is not None:
-        selected_measure = record.region.measure
-    kwargs = {"study": study}
-    if law is not None:
-        kwargs["law"] = law
-    if temperature is not None:
-        kwargs["temperature"] = getattr(temperature, "value", temperature)
-    if selected_measure is not None:
-        kwargs["measure"] = selected_measure
-    operator = operators.stiffness(target, record.item, **kwargs)
-    if record.region is not None:
-        return operator.renamed(name, kind="regional_stiffness")
-    return operator.renamed(name)
-
-
 def _internal_force_from_record(
     displacement,
     test_function,
@@ -2451,12 +2280,9 @@ def _assemble_lumped_mass(assembly, V, density: float, measure):
 
 
 def _density(material) -> float:
-    if not hasattr(material, "density"):
-        raise ValueError(f"Material {_describe(material)!r} does not define density.")
-    density = float(material.density)
-    if density <= 0.0:
-        raise ValueError(f"Material {_describe(material)!r} must have positive density.")
-    return density
+    from .operators._model_lowering import material_density
+
+    return material_density(material)
 
 
 def _single_material(model: Model, caller: str) -> "_WithRegion":

@@ -91,6 +91,39 @@ def test_model_does_not_construct_discrete_problem_objects_directly():
     assert "problems." not in source
 
 
+def test_model_first_operator_facade_delegates_lowering_to_operator_owner():
+    tree = ast.parse((PACKAGE / "models.py").read_text(encoding="utf-8"))
+    model_class = next(
+        node
+        for node in tree.body
+        if isinstance(node, ast.ClassDef) and node.name == "Model"
+    )
+    methods = {
+        node.name: node
+        for node in model_class.body
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
+    }
+
+    expected = {
+        "stiffness": "_model_lowering.lower_stiffness",
+        "mass": "_model_lowering.lower_mass",
+        "conduction": "_model_lowering.lower_conduction",
+        "heat_capacity": "_model_lowering.lower_heat_capacity",
+    }
+    for method_name, delegate in expected.items():
+        method = methods[method_name]
+        source = ast.unparse(method)
+        assert delegate in source
+        assert not any(
+            isinstance(node, (ast.For, ast.AsyncFor, ast.comprehension))
+            for node in ast.walk(method)
+        )
+
+    lowering = PACKAGE / "operators" / "_model_lowering.py"
+    assert lowering.exists()
+    assert "models" not in _agentfem_imports(lowering)
+
+
 def test_problem_compatibility_exports_point_to_new_owners():
     from agentfem import dynamics, operators, problems, state
 

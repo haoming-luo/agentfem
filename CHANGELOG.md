@@ -28,6 +28,14 @@ experimental formulation to a validated one.
   attempts roll back nodal and quadrature state atomically, and serial restart
   preserves the accepted path and next proposal. The adaptive decision is
   collective under MPI; restart across a changed MPI partition remains gated.
+- Add a direct three-dimensional generalized-Maxwell harmonic Step. It lowers
+  complex bulk/shear spectra and optional inertia to an exact real PETSc block
+  system, publishes real/imaginary/amplitude/phase fields, and records stored,
+  kinetic, dissipated and externally supplied cycle-energy evidence. A
+  two-rank regression now verifies rank-identical phasors and energy evidence
+  plus collective XDMF/ParaView output carrying all four fields. Successful
+  solves also verify the unpreconditioned assembled global and per-block
+  `A*x-b` residual instead of trusting only the KSP-reported norm.
 - Add `ScientificFieldDataset`, a portable multi-field collection for neural
   operators and other field-learning workflows. It preserves channel-first
   shapes, units, geometry policies, masks, parameters, case evidence,

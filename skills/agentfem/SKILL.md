@@ -55,7 +55,9 @@ documentation site, use the left navigation pages `Workflow`, `Concepts`, and
   of the task.
 - Treat `model.check()` and `models.step_capability(model)` as the executable
   Study/provider preflight. Do not advertise or lower a combination that no
-  registered provider accepts.
+  registered provider accepts. Read both `supported` and `ready`: the first
+  reports that an installed provider owns the requested analysis, while the
+  second confirms that required scientific inputs have been supplied.
 - Use AgentFEM modules before writing ad hoc DOLFINx/PETSc boilerplate.
 - Discover modules with `agentfem.public_api("core")` first. Disclose
   `"advanced"` and `"expert"` only when the requested workflow needs them.
@@ -79,7 +81,8 @@ documentation site, use the left navigation pages `Workflow`, `Concepts`, and
   a registered step provider; do not add one public model method per material.
   Every built-in provider must declare a `StepOptionContract`, and agents
   should read provider option summaries from `agentfem capabilities --json`
-  rather than guessing keywords from one example.
+  rather than guessing keywords from one example. Respect `required` and
+  `exactly_one_of` relationships instead of choosing aliases simultaneously.
   Solver, output, transient-history, progress, and checkpoint declarations are
   retained as one inspectable execution-policy summary. Prefer
   `model.step(history=...)` when the common result lifecycle should own the
