@@ -19,7 +19,7 @@ for cold-cache form JIT, and the exact AgentFEM wheel associated with the
 release. It does not replace the system Python or alter shell initialization.
 
 On macOS each runtime is installed in a versioned, immutable prefix such as
-`~/Library/agentfemruntime-0.3.1`. A new version is installed beside the old
+`~/Library/agentfemruntime-<version>`. A new version is installed beside the old
 one and the visible launcher is updated to the selected runtime. User projects
 remain in `~/AgentFEMProjects`, outside every runtime.
 
@@ -36,7 +36,7 @@ remove these redistribution obligations.
 
 ## macOS
 
-AgentFEM 0.3.1 deliberately publishes an unsigned Preview and does not require
+AgentFEM currently publishes an unsigned Preview and does not require
 Apple Developer credentials. Its filename always contains `unsigned-preview`,
 and the download page preserves that wording.
 

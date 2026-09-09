@@ -6,6 +6,8 @@ experimental formulation to a validated one.
 
 ## [Unreleased]
 
+## [0.3.2] - 2026-09-09
+
 ### Added
 
 - Add a public structural modal Study and SLEPc-backed generalized Hermitian
@@ -27,7 +29,9 @@ experimental formulation to a validated one.
   incrementation: one full step is checked against two half steps, rejected
   attempts roll back nodal and quadrature state atomically, and serial restart
   preserves the accepted path and next proposal. The adaptive decision is
-  collective under MPI; restart across a changed MPI partition remains gated.
+  collective under MPI, and portable checkpoints are verified across one- and
+  two-rank partitions; arbitrary production-scale repartition remains outside
+  the release claim.
 - Add a direct three-dimensional generalized-Maxwell harmonic Step. It lowers
   complex bulk/shear spectra and optional inertia to an exact real PETSc block
   system, publishes real/imaginary/amplitude/phase fields, and records stored,
@@ -44,9 +48,8 @@ experimental formulation to a validated one.
 - Tighten `FieldEncoding` and `NeuralOperatorSpec` validation, including
   normalized FNO/TFNO names, unique field and parameter identities, explicit
   boundary encoding and structured-grid compatibility.
-- Advance the moving development branch to `0.3.2.dev0`, add a development
-  release contract, and fail packaging tests when commits beyond a published
-  tag continue to report that tag's stable version.
+- Add a versioned 0.3.2 release contract and fail packaging tests when commits
+  beyond a published tag continue to report that tag's stable version.
 - Add a machine-readable multi-source runtime distribution contract and an
   optional S3-compatible mainland China publication path. GitHub remains the
   canonical release identity; every regional download must preserve the exact
@@ -119,6 +122,11 @@ experimental formulation to a validated one.
 - Add a fail-closed Windows runtime remover that protects the project
   workspace and exports a complete recovery snapshot before unregistering the
   AgentFEM distribution.
+- Add the NAFEMS LE10 curved three-dimensional elasticity benchmark with
+  external stress evidence, mesh convergence and serial/two-rank equivalence.
+- Add density-aware gravity and reference body-force lowering to ordinary and
+  migrated Abaqus workflows, including the corresponding reaction and energy
+  accounting paths.
 
 ### Changed
 
@@ -144,6 +152,21 @@ experimental formulation to a validated one.
 - Attach resolved project and output storage custody to project summaries and
   execution evidence, warning when a path remains owned by a replaceable WSL
   distribution.
+- Make run directories and CLI summaries readable to people while retaining
+  stable machine identities, latest-run lookup and structured JSON for agents.
+- Add transactional replacement upgrades for the Complete Windows Runtime and
+  independent global/China reliability routing under the same privacy schema.
+
+### Boundaries
+
+- Generalized-Maxwell harmonic analysis remains experimental until an
+  independent structural frequency-response benchmark and robust
+  near-resonance solver evidence are complete.
+- DCB/ENF evidence verifies the declared assembled compliance and propagation
+  workflows; it does not claim arbitrary delamination paths, general contact,
+  or universal cohesive parameters.
+- Windows remains supported through the WSL2 Complete Runtime Preview rather
+  than a native PETSc solver stack.
 
 ## [0.3.1] - 2026-08-31
 
@@ -568,7 +591,8 @@ because the package version is stable.
   platform with readable study, model, step, result, campaign, and evidence
   contracts.
 
-[Unreleased]: https://github.com/haoming-luo/agentfem/compare/v0.3.1...HEAD
+[Unreleased]: https://github.com/haoming-luo/agentfem/compare/v0.3.2...HEAD
+[0.3.2]: https://github.com/haoming-luo/agentfem/compare/v0.3.1...v0.3.2
 [0.3.1]: https://github.com/haoming-luo/agentfem/compare/v0.3.0...v0.3.1
 [0.3.0]: https://github.com/haoming-luo/agentfem/compare/v0.2.6...v0.3.0
 [0.2.6]: https://github.com/haoming-luo/agentfem/compare/v0.2.5...v0.2.6
