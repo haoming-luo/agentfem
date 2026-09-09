@@ -22,6 +22,7 @@ from petsc4py import PETSc
 from .. import amplitudes
 from .. import procedures
 from .. import steps as step_controls
+from ..backends._harmonic import PreparedHarmonicLinearProblem
 from ..constitutive import elasticity
 from ..constitutive.quadrature import (
     MaterialQuadratureState,
@@ -178,27 +179,33 @@ class HarmonicViscoelasticStep:
     cycle_input_energy: float | None = field(default=None, init=False)
     displacement_amplitude: object | None = field(default=None, init=False)
     displacement_phase: object | None = field(default=None, init=False)
+    _prepared_problem: PreparedHarmonicLinearProblem | None = field(
+        default=None,
+        init=False,
+        repr=False,
+    )
 
     def solve(self):
         """Solve once and return the real displacement field."""
 
-        problem = fem_petsc.LinearProblem(
-            self.bilinear_forms,
-            self.linear_forms,
-            u=[self.solution_real, self.solution_imaginary],
-            bcs=list(self.bcs),
-            kind="nest",
-            petsc_options_prefix="agentfem_harmonic_viscoelastic_",
-            petsc_options=self.solver_options.petsc_options(),
-        )
-        problem.solve()
-        solver = problem.solver
-        self._capture_algebraic_evidence(problem)
-        info = LinearSolveInfo(
-            converged_reason=int(solver.getConvergedReason()),
-            iterations=int(solver.getIterationNumber()),
-            residual_norm=float(solver.getResidualNorm()),
-        )
+        if self._prepared_problem is None:
+            prefix_name = "".join(
+                character if character.isalnum() else "_"
+                for character in self.name
+            )
+            self._prepared_problem = PreparedHarmonicLinearProblem(
+                self.bilinear_forms,
+                self.linear_forms,
+                solution_real=self.solution_real,
+                solution_imaginary=self.solution_imaginary,
+                bcs=self.bcs,
+                solver_options=self.solver_options,
+                petsc_options_prefix=f"agentfem_harmonic_{prefix_name}_",
+            )
+        evidence = self._prepared_problem.solve()
+        info = evidence.solve
+        self.algebraic_equilibrium = evidence.equilibrium()
+        self.cycle_input_energy = evidence.input_energy_per_cycle
         self.last_solve_info = info
         if not info.converged and self.solver_options.error_if_not_converged:
             raise RuntimeError(
@@ -227,64 +234,6 @@ class HarmonicViscoelasticStep:
             )
         self._refresh_polar_fields()
         return self.solution_real
-
-    def _capture_algebraic_evidence(self, problem) -> None:
-        """Cache unpreconditioned block equilibrium and applied cycle work.
-
-        PETSc's reported KSP norm depends on the selected norm and
-        preconditioner.  The assembled ``A*x-b`` residual is therefore kept as
-        separate physical solve evidence.  The already assembled load and
-        solution vectors also provide the exact external phasor work without
-        rebuilding UFL actions or allocating compatible coefficient fields.
-        """
-
-        action = problem.b.duplicate()
-        residual = problem.b.duplicate()
-        try:
-            problem.A.mult(problem.x, action)
-            action.copy(residual)
-            residual.axpy(-1.0, problem.b)
-            action_blocks = action.getNestSubVecs()
-            residual_blocks = residual.getNestSubVecs()
-            rhs_blocks = problem.b.getNestSubVecs()
-            solution_blocks = problem.x.getNestSubVecs()
-            if not all(
-                len(blocks) == 2
-                for blocks in (
-                    action_blocks,
-                    residual_blocks,
-                    rhs_blocks,
-                    solution_blocks,
-                )
-            ):
-                raise RuntimeError(
-                    "Harmonic real-block evidence requires exactly two PETSc blocks."
-                )
-
-            action_norm = float(action.norm())
-            rhs_norm = float(problem.b.norm())
-            system_scale = max(action_norm, rhs_norm, np.finfo(float).tiny)
-
-            self.algebraic_equilibrium = {
-                "residual_norm": float(residual.norm()),
-                "relative_residual_norm": float(residual.norm()) / system_scale,
-                "relative_real_block_residual_norm": (
-                    float(residual_blocks[0].norm()) / system_scale
-                ),
-                "relative_imaginary_block_residual_norm": (
-                    float(residual_blocks[1].norm()) / system_scale
-                ),
-            }
-            self.cycle_input_energy = float(
-                np.pi
-                * (
-                    rhs_blocks[1].dot(solution_blocks[0])
-                    - rhs_blocks[0].dot(solution_blocks[1])
-                )
-            )
-        finally:
-            residual.destroy()
-            action.destroy()
 
     def _refresh_polar_fields(self) -> None:
         real = np.asarray(self.solution_real.x.array, dtype=float)
@@ -337,6 +286,11 @@ class HarmonicViscoelasticStep:
             },
             "procedure": self.procedure.summary(),
             "solver": self.solver_options.summary(),
+            "backend_execution": (
+                None
+                if self._prepared_problem is None
+                else self._prepared_problem.summary()
+            ),
             "solve": (
                 None
                 if self.last_solve_info is None

@@ -207,6 +207,18 @@ def test_direct_harmonic_viscoelastic_bar_matches_complex_modulus(tmp_path):
     assert excitation["frequency"] == pytest.approx(frequency)
     assert excitation["phasor_convention"] == "exp(+i*omega*t)"
     assert result.metadata["step"]["solve"]["converged"]
+    assert result.metadata["step"]["backend_execution"] == {
+        "backend": "fenicsx_petsc_real_block",
+        "problem_allocation_count": 1,
+        "matrix_allocation_count": 1,
+        "matrix_values_reassembled_each_solve": True,
+        "ksp_object_reused": True,
+        "factorization_reuse_claimed": False,
+        "solve_count": 1,
+    }
+
+    step.solve()
+    assert step.summary()["backend_execution"]["solve_count"] == 2
 
 
 def test_harmonic_viscoelastic_bar_with_inertia_converges_to_wave_solution():

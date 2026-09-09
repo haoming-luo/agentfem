@@ -158,6 +158,24 @@ def test_analysis_step_delegates_result_assembly_to_result_owner():
     assert not hasattr(results, "from_analysis_step")
 
 
+def test_harmonic_step_delegates_petsc_problem_to_backend_owner():
+    tree = ast.parse(
+        (PACKAGE / "mechanics" / "viscoelasticity.py").read_text(encoding="utf-8")
+    )
+    step_class = next(
+        node
+        for node in tree.body
+        if isinstance(node, ast.ClassDef) and node.name == "HarmonicViscoelasticStep"
+    )
+    source = ast.unparse(step_class)
+    backend = (PACKAGE / "backends" / "_harmonic.py").read_text(encoding="utf-8")
+
+    assert "fem_petsc.LinearProblem" not in source
+    assert "PreparedHarmonicLinearProblem" in source
+    assert "fem_petsc.LinearProblem" in backend
+    assert "mechanics" not in _agentfem_imports(PACKAGE / "backends" / "_harmonic.py")
+
+
 def test_problem_compatibility_exports_point_to_new_owners():
     from agentfem import dynamics, operators, problems, state
 
