@@ -13,7 +13,7 @@ loads, fields, and results.
 | Newmark | Implicit | Structural response with controllable numerical parameters |
 | Generalized-alpha | Implicit | Dynamics with high-frequency numerical dissipation |
 | Central difference | Explicit | Wave propagation and short transient events |
-| Direct harmonic | Real-block complex | Steady-state response of generalized-Maxwell solids |
+| Direct harmonic | Real-block complex | Steady-state response of linear solids and generalized-Maxwell materials |
 
 ## Modal analysis
 
@@ -259,11 +259,99 @@ It therefore works with the normal real-valued DOLFINx/PETSc distribution;
 no complex PETSc installation is hidden from the user. The result exposes
 `U_REAL`, `U_IMAG`, component-wise `U_AMPLITUDE` and `U_PHASE`, the frequency,
 solver evidence, cycle-mean stored energy, dissipated energy per cycle, and
-mean dissipated power. The present provider accepts one three-dimensional
-isotropic material, uniform temperature, homogeneous strong constraints, and
-one common load phase. Multiple material regions, MPC/weak constraints,
-per-load phases, automated frequency sweeps and an external structural
-benchmark remain promotion gates rather than being silently approximated.
+mean dissipated power. A declared frequency array uses the same prepared
+operator and returns synchronous response and solver-evidence histories for
+each requested sample. The material-owned route presently accepts one
+three-dimensional isotropic material, uniform temperature, homogeneous strong
+constraints, and one common load phase. Multiple material regions, MPC/weak
+constraints, and per-load phases remain promotion gates rather than being
+silently approximated.
+
+For a long sweep, named scalar responses, progress and checkpointing use the
+same result lifecycle as transient procedures:
+
+```python
+import numpy as np
+
+from agentfem import checkpointing, results
+
+tip = results.harmonic_response(
+    "tip_uy",
+    lambda point: results.average(
+        point.solution_real[1], measure=loaded_end.measure
+    ) + 1j * results.average(
+        point.solution_imaginary[1], measure=loaded_end.measure
+    ),
+    unit="m",
+)
+sweep = model.step(
+    target=u,
+    K=K,
+    M=M,
+    C=C,
+    F=F,
+    frequencies=np.linspace(40.0, 45.0, 50),
+    responses=(tip,),
+    checkpoint=checkpointing.every(
+        10,
+        directory="outputs/checkpoints",
+        keep_last=2,
+    ),
+    status_file="outputs/harmonic.status",
+)
+result = sweep.solve_result()
+```
+
+This generic sweep is **operator-invariant**: one real spatial `K/M/C/K_loss/F`
+system is prepared for the complete frequency axis. Frequency changes only
+the declared scalar coefficients, and the single real spatial force operator
+is multiplied by one global complex phase. Arbitrary complex spatial load
+patterns and frequency-dependent operator families require a different
+provider and are not accepted by this route.
+
+`U_AMPLITUDE` and `U_PHASE` are polar values of each scalar displacement
+coefficient, component by component. They are not a vector magnitude and one
+shared vector phase. The sweep quantity
+`maximum_displacement_vector_amplitude` is the largest physical-cycle maximum
+of a discrete vector-valued displacement coefficient (a node for the current
+Lagrange fields), over all owned coefficients and MPI ranks. It is a discrete
+coefficient statistic, not a supremum of the continuous finite-element field
+inside the domain.
+
+The checkpoint is an atomic scalar evidence ledger: it stores the canonical
+frequency axis, completed points, response phasors, residuals, energy evidence,
+solver records and a scientific-input fingerprint. It deliberately does not
+store one full displacement field per frequency. Consequently it is portable
+across forward/reverse execution order and MPI partitions, while the live FEM
+field is explicitly identified as belonging only to the last frequency solved
+in the current process. By default the terminal prints the first and last point,
+about twenty intermediate milestones, and a wall-clock heartbeat; it does not
+accumulate or print every point in a very large sweep.
+
+#### External forced-vibration comparison
+
+The automated
+[NAFEMS R0016 Test 5H](https://www.nafems.org/publications/resource_center/r0016/)
+comparison exercises the generic direct-frequency-domain `K/M/C/F` route. It
+uses the public 10 m by 2 m by 2 m beam, solid-model supports, 0.5 MPa top-face
+pressure amplitude, Rayleigh coefficients, and 50 frequencies from 40 to
+45 Hz. The published reference peak is 42.65 Hz, with 13.45 mm midspan
+vertical-displacement amplitude and 241.9 MPa longitudinal extreme-fibre
+stress amplitude. The public problem statement and reference results are also
+available in the
+[Abaqus Test 5H documentation](https://docs.software.vt.edu/abaqusv2025/English/SIMACAEBMKRefMap/simabmk-c-forcedvibrationtest5h.htm).
+
+AgentFEM's automated configuration is intentionally named: a 5 by 2 by 1 mesh
+of complete quadratic hexahedra and continuous-P1 global L2 stress recovery
+for the external scalar comparison. It is not element-identical to the public
+Abaqus rows, and the recovered comparison stress is not relabelled as a raw
+integration-point extreme. The 1% frequency, 2% displacement, and 3% stress
+limits are AgentFEM release gates; NAFEMS does not publish those tolerances.
+This first result is therefore an external single-mesh numerical comparison,
+not mesh-convergence evidence or experimental validation. The retained
+frequency axis, peak indices, unsmoothed cell-side stress trace, algebraic
+residual, cycle-energy balance, load measure, source identities, and phasor
+convention keep that boundary inspectable.
 
 This is a bounded global FEM foundation, not a claim of nonlinear finite-strain
 viscoelasticity, physical aging or prestressed small-on-large response.

@@ -70,19 +70,62 @@ def test_release_contract_is_complete_and_references_real_workflows():
     assert len(contract["required_gates"]) >= 10
 
     previous = json.loads(
-        (PROJECT_ROOT / "src/agentfem/release/0.3.1.json").read_text(
+        (PROJECT_ROOT / "src/agentfem/release/0.3.2.json").read_text(
             encoding="utf-8"
         )
     )
     workflow_ids = {item["id"] for item in contract["workflows"]}
+    workflow_maturity = {
+        item["id"]: item["maturity"] for item in contract["workflows"]
+    }
     previous_ids = {item["id"] for item in previous["workflows"]}
     assert previous_ids <= workflow_ids
     assert set(previous["required_gates"]) <= set(contract["required_gates"])
     assert {
         "structural-modal",
+        "structural-direct-harmonic",
         "generalized-maxwell-transient",
         "generalized-maxwell-harmonic",
     } <= workflow_ids
+    assert workflow_maturity["structural-direct-harmonic"] == "engineering"
+    assert workflow_maturity["generalized-maxwell-harmonic"] == "experimental"
+    assert {
+        "nafems-r0016-test5h-external-comparison",
+        "harmonic-three-level-observable-stability",
+        "harmonic-two-rank-complete-sweep-equivalence",
+        "harmonic-cross-rank-scalar-checkpoint-portability",
+        "harmonic-prepared-configuration-fail-closed",
+        "harmonic-nonfinite-evidence-rejection",
+    } <= set(contract["required_gates"])
+    assert {
+        "NAFEMS-authored Test 5H acceptance tolerances",
+        (
+            "external generalized-Maxwell harmonic validation from the elastic "
+            "Rayleigh-damped Test 5H benchmark"
+        ),
+        "full-field harmonic checkpoint recovery",
+    } <= set(contract["not_release_claims"])
+
+
+def test_release_wheel_requires_the_direct_harmonic_evidence_chain():
+    assert {
+        "agentfem/backends/_harmonic.py",
+        "agentfem/benchmarks/forced_vibration.py",
+        "agentfem/checkpointing.py",
+        "agentfem/mechanics/harmonic.py",
+        "agentfem/operators/harmonic.py",
+        "agentfem/operators/identity.py",
+        "agentfem/results/_harmonic.py",
+        "agentfem/results/harmonic.py",
+        (
+            "agentfem/knowledge/benchmarks/"
+            "nafems_r0016_test5h_forced_vibration.json"
+        ),
+        (
+            "agentfem/knowledge/benchmarks/"
+            "nafems_r0016_test5h_spatial_refinement.json"
+        ),
+    } <= set(release_gate.REQUIRED_WHEEL_MEMBERS)
 
 
 def test_release_gate_exercises_every_installed_project_template():

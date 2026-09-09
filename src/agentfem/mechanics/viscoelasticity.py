@@ -123,9 +123,7 @@ class ViscoelasticPathInfo:
             "accepted_increments": len(self.increments),
             "attempted_increments": len(self.attempts),
             "incrementation": (
-                None
-                if self.incrementation is None
-                else self.incrementation.summary()
+                None if self.incrementation is None else self.incrementation.summary()
             ),
             "increments": [item.as_dict() for item in self.increments],
             "attempts": [item.as_dict() for item in self.attempts],
@@ -145,6 +143,139 @@ class ViscoelasticEnergyFrame:
 
     def as_dict(self) -> dict[str, float]:
         return {name: float(getattr(self, name)) for name in self.__dataclass_fields__}
+
+
+def _harmonic_array_contract(values) -> tuple[object, ...]:
+    array = np.asarray(values)
+    if array.dtype.hasobject:
+        raise TypeError("Harmonic construction contracts require numeric arrays.")
+    canonical = np.ascontiguousarray(array)
+    return (
+        tuple(int(value) for value in canonical.shape),
+        canonical.dtype.str,
+        sha256(canonical.tobytes()).hexdigest(),
+    )
+
+
+def _harmonic_record_contract(value):
+    """Freeze one JSON-like scientific record without lossy string coercion."""
+
+    if value is None or isinstance(value, (bool, str, int, float)):
+        return value
+    if isinstance(value, complex):
+        return ("complex", float(value.real), float(value.imag))
+    if isinstance(value, np.generic):
+        return _harmonic_record_contract(value.item())
+    if isinstance(value, np.ndarray):
+        return ("array", *_harmonic_array_contract(value))
+    if isinstance(value, dict):
+        return (
+            "mapping",
+            tuple(
+                (str(key), _harmonic_record_contract(item))
+                for key, item in sorted(value.items(), key=lambda pair: str(pair[0]))
+            ),
+        )
+    if isinstance(value, (list, tuple)):
+        return (
+            type(value).__name__,
+            tuple(_harmonic_record_contract(item) for item in value),
+        )
+    raise TypeError(
+        "Harmonic construction contract cannot safely freeze "
+        f"{type(value).__module__}.{type(value).__qualname__}."
+    )
+
+
+def _harmonic_summary_contract(value):
+    if value is None:
+        return None
+    summary = getattr(value, "summary", None)
+    if not callable(summary):
+        raise TypeError(
+            "Harmonic construction inputs must expose a stable summary; got "
+            f"{type(value).__module__}.{type(value).__qualname__}."
+        )
+    return _harmonic_record_contract(summary())
+
+
+def _harmonic_function_contract(value) -> tuple[object, ...]:
+    space = getattr(value, "function_space", None)
+    if space is None or not hasattr(space, "mesh"):
+        raise TypeError("Harmonic solution fields must be DOLFINx Functions.")
+    return (
+        type(value).__module__,
+        type(value).__qualname__,
+        id(value),
+        id(space),
+        id(space.mesh),
+        str(getattr(value, "name", "")),
+    )
+
+
+def _harmonic_terminal_contract(value) -> tuple[object, ...]:
+    if hasattr(value, "x") and hasattr(value.x, "array"):
+        payload = _harmonic_array_contract(value.x.array)
+    elif hasattr(value, "value"):
+        payload = _harmonic_array_contract(value.value)
+    else:
+        raise TypeError(
+            "Harmonic form terminal cannot be monitored safely: "
+            f"{type(value).__module__}.{type(value).__qualname__}."
+        )
+    return (
+        type(value).__module__,
+        type(value).__qualname__,
+        id(value),
+        payload,
+    )
+
+
+def _harmonic_form_contract(value) -> tuple[object, ...]:
+    signature = getattr(value, "signature", None)
+    coefficients = getattr(value, "coefficients", None)
+    constants = getattr(value, "constants", None)
+    if not callable(signature) or not callable(coefficients) or not callable(constants):
+        raise TypeError(
+            "Harmonic form contracts require uncompiled UFL forms; got "
+            f"{type(value).__module__}.{type(value).__qualname__}."
+        )
+    return (
+        "ufl_form",
+        id(value),
+        signature(),
+        tuple(_harmonic_terminal_contract(item) for item in coefficients()),
+        tuple(_harmonic_terminal_contract(item) for item in constants()),
+    )
+
+
+def _harmonic_form_tree_contract(value):
+    if isinstance(value, (list, tuple)):
+        return (
+            type(value).__name__,
+            tuple(_harmonic_form_tree_contract(item) for item in value),
+        )
+    return _harmonic_form_contract(value)
+
+
+def _harmonic_bc_contract(value, *, template) -> tuple[object, ...]:
+    dof_indices = getattr(value, "dof_indices", None)
+    setter = getattr(value, "set", None)
+    if not callable(dof_indices) or not callable(setter):
+        raise TypeError(
+            "Harmonic boundary contracts require DOLFINx DirichletBC objects."
+        )
+    indices, owned = dof_indices()
+    applied = np.zeros_like(template.x.array)
+    setter(applied)
+    return (
+        type(value).__module__,
+        type(value).__qualname__,
+        id(value),
+        int(owned),
+        _harmonic_array_contract(indices),
+        _harmonic_array_contract(applied),
+    )
 
 
 @dataclass
@@ -169,6 +300,7 @@ class HarmonicViscoelasticStep:
     linear_forms: object
     bcs: tuple[object, ...]
     solver_options: LinearSolverOptions
+    _lowered_configuration: object = field(repr=False)
     load_phase: float = 0.0
     density: float | None = None
     temperature: float | None = None
@@ -184,14 +316,103 @@ class HarmonicViscoelasticStep:
         init=False,
         repr=False,
     )
+    _construction_contract: dict[str, object] = field(
+        default_factory=dict,
+        init=False,
+        repr=False,
+    )
+
+    def __post_init__(self) -> None:
+        # Harmonic material coefficients, inertia and load phase have already
+        # been lowered into fixed UFL forms by ``harmonic_viscoelastic_step``.
+        # Preserve that exact construction boundary so public metadata cannot
+        # drift away from the forms later consumed by the prepared PETSc
+        # problem.
+        lowered = self._capture_lowered_configuration()
+        if lowered != self._lowered_configuration:
+            raise RuntimeError(
+                "HarmonicViscoelasticStep inputs do not match the configuration "
+                "used to build its fixed forms. Create the step through "
+                "harmonic_viscoelastic_step()."
+            )
+        self._construction_contract = self._capture_construction_contract()
+
+    def _capture_lowered_configuration(self):
+        return _harmonic_record_contract(
+            {
+                "material": self.material.summary(),
+                "angular_frequency": float(self.angular_frequency),
+                "temperature": (
+                    None if self.temperature is None else float(self.temperature)
+                ),
+                "density": None if self.density is None else float(self.density),
+                "load_phase": float(self.load_phase),
+                "study": (None if self.study is None else self.study.summary()),
+            }
+        )
+
+    def _capture_construction_contract(self) -> dict[str, object]:
+        return {
+            "name": str(self.name),
+            "solution_real": _harmonic_function_contract(self.solution_real),
+            "solution_imaginary": _harmonic_function_contract(self.solution_imaginary),
+            "material": _harmonic_record_contract(self.material.summary()),
+            "angular_frequency": float(self.angular_frequency),
+            "temperature": (
+                None if self.temperature is None else float(self.temperature)
+            ),
+            "density": None if self.density is None else float(self.density),
+            "load_phase": float(self.load_phase),
+            "bilinear_forms": _harmonic_form_tree_contract(self.bilinear_forms),
+            "linear_forms": _harmonic_form_tree_contract(self.linear_forms),
+            "bcs": tuple(
+                _harmonic_bc_contract(item, template=self.solution_real)
+                for item in self.bcs
+            ),
+            "solver_options": _harmonic_record_contract(self.solver_options.summary()),
+            "study": _harmonic_summary_contract(self.study),
+            "procedure": _harmonic_summary_contract(self.procedure),
+        }
+
+    def _require_unchanged_construction_contract(self) -> None:
+        current = self._capture_construction_contract()
+        changed = tuple(
+            key
+            for key, expected in self._construction_contract.items()
+            if current.get(key) != expected
+        )
+        if not changed:
+            return
+        raise RuntimeError(
+            "HarmonicViscoelasticStep configuration changed after its "
+            "frequency-dependent forms were built: "
+            f"{', '.join(changed)}. Build a new harmonic step instead; this "
+            "material-owned provider does not rebuild fixed forms in place."
+        )
+
+    def set_frequency(
+        self,
+        *,
+        frequency: float | None = None,
+        angular_frequency: float | None = None,
+    ) -> None:
+        """Reject in-place frequency changes that would leave stale forms."""
+
+        if (frequency is None) == (angular_frequency is None):
+            raise ValueError("Specify exactly one of frequency or angular_frequency.")
+        raise NotImplementedError(
+            "HarmonicViscoelasticStep has frequency-dependent material, "
+            "inertia and load forms fixed at construction. Build a new "
+            "model.step(...) for each frequency."
+        )
 
     def solve(self):
         """Solve once and return the real displacement field."""
 
+        self._require_unchanged_construction_contract()
         if self._prepared_problem is None:
             prefix_name = "".join(
-                character if character.isalnum() else "_"
-                for character in self.name
+                character if character.isalnum() else "_" for character in self.name
             )
             self._prepared_problem = PreparedHarmonicLinearProblem(
                 self.bilinear_forms,
@@ -222,8 +443,7 @@ class HarmonicViscoelasticStep:
         if (
             float(equilibrium.get("relative_residual_norm", np.inf))
             > relative_tolerance
-            and float(equilibrium.get("residual_norm", np.inf))
-            > absolute_tolerance
+            and float(equilibrium.get("residual_norm", np.inf)) > absolute_tolerance
             and self.solver_options.error_if_not_converged
         ):
             raise RuntimeError(
@@ -257,6 +477,7 @@ class HarmonicViscoelasticStep:
         return self.solution_real.x.array.copy() + 1j * self.solution_imaginary.x.array
 
     def summary(self) -> dict[str, object]:
+        self._require_unchanged_construction_contract()
         harmonic = self.material.harmonic_moduli(
             self.angular_frequency,
             temperature=self.temperature,
@@ -304,6 +525,7 @@ class HarmonicViscoelasticStep:
     def energy_evidence(self) -> dict[str, float]:
         """Return harmonic storage, dissipation, inertia and cycle balance."""
 
+        self._require_unchanged_construction_contract()
         harmonic = self.material.harmonic_moduli(
             self.angular_frequency,
             temperature=self.temperature,
@@ -459,9 +681,7 @@ class HarmonicViscoelasticStep:
                     "Mismatch between external cycle input and material loss, "
                     "normalized by the larger cycle-energy scale."
                 ),
-                "mean_dissipated_power": (
-                    "Cycle-mean viscoelastic dissipation rate."
-                ),
+                "mean_dissipated_power": ("Cycle-mean viscoelastic dissipation rate."),
             },
         )
         if self.algebraic_equilibrium is None:
@@ -586,9 +806,13 @@ class ViscoelasticQuadratureState:
         if temperature_values is not None:
             temperatures = np.asarray(temperature_values, dtype=float).reshape(-1)
             if len(temperatures) != len(committed):
-                raise ValueError("Temperature and Maxwell quadrature layouts do not match.")
+                raise ValueError(
+                    "Temperature and Maxwell quadrature layouts do not match."
+                )
             if not np.all(np.isfinite(temperatures)) or np.any(temperatures <= 0.0):
-                raise ValueError("Viscoelastic temperatures must be positive kelvin values.")
+                raise ValueError(
+                    "Viscoelastic temperatures must be positive kelvin values."
+                )
 
         stresses = np.empty_like(self.stress.values)
         tangents = np.empty_like(self.tangent.values)
@@ -795,7 +1019,9 @@ class QuasistaticViscoelasticStep:
         default_factory=list, init=False
     )
     execution_events: list[object] = field(default_factory=list, init=False)
-    energy_history: list[ViscoelasticEnergyFrame] = field(default_factory=list, init=False)
+    energy_history: list[ViscoelasticEnergyFrame] = field(
+        default_factory=list, init=False
+    )
     checkpoints: list[object] = field(default_factory=list, init=False)
     last_solve_info: ViscoelasticPathInfo | None = field(default=None, init=False)
     next_increment_size: float | None = field(default=None, init=False)
@@ -937,7 +1163,9 @@ class QuasistaticViscoelasticStep:
         target_indices = [
             index for index in candidates if grid[index] <= selected_until + 1e-12
         ]
-        if not target_indices or not np.isclose(grid[target_indices[-1]], selected_until):
+        if not target_indices or not np.isclose(
+            grid[target_indices[-1]], selected_until
+        ):
             raise ValueError("until must be a future point on the fixed time grid.")
 
         reporter = self._reporter()
@@ -1031,7 +1259,9 @@ class QuasistaticViscoelasticStep:
         self._emit(
             reporter,
             SolveEvent(
-                "step_completed" if self.last_solve_info.completed_step else "step_paused",
+                "step_completed"
+                if self.last_solve_info.completed_step
+                else "step_paused",
                 self.name,
                 step_number=self.step_number,
                 increment=len(self.accepted_increments),
@@ -1062,9 +1292,7 @@ class QuasistaticViscoelasticStep:
                 "step_started",
                 self.name,
                 step_number=self.step_number,
-                incrementation=(
-                    "exact generalized-Maxwell / automatic physical time"
-                ),
+                incrementation=("exact generalized-Maxwell / automatic physical time"),
                 time=self.accepted_time,
             ),
         )
@@ -1116,8 +1344,7 @@ class QuasistaticViscoelasticStep:
                 if (
                     self.time_error_tolerance is not None
                     and info.time_error_estimate is not None
-                    and info.time_error_estimate
-                    < 0.125 * self.time_error_tolerance
+                    and info.time_error_estimate < 0.125 * self.time_error_tolerance
                     and info.iterations < control.slow_iterations
                 ):
                     proposed_size = min(
@@ -1352,9 +1579,7 @@ class QuasistaticViscoelasticStep:
             incrementation=self.incrementation,
         )
 
-    def _solve_increment(
-        self, *, increment, attempt, start_time, end_time, reporter
-    ):
+    def _solve_increment(self, *, increment, attempt, start_time, end_time, reporter):
         initial_norm = None
         norm = float("inf")
         converged = False
@@ -1471,7 +1696,9 @@ class QuasistaticViscoelasticStep:
             return self.state.evaluate_scalar(selected)
         value = np.asarray(selected, dtype=float)
         if value.size != 1:
-            raise ValueError("Viscoelastic temperature must be scalar or a scalar field.")
+            raise ValueError(
+                "Viscoelastic temperature must be scalar or a scalar field."
+            )
         return np.full(len(self.state.stress.values), float(value.reshape(-1)[0]))
 
     def _temperature_summary(self) -> dict[str, object] | None:
@@ -1557,9 +1784,7 @@ class QuasistaticViscoelasticStep:
             self.save_checkpoint(
                 policy.path(step_name=self.name, increment=increment),
                 portable=(
-                    True
-                    if self.state.domain.comm.size > 1
-                    else bool(policy.portable)
+                    True if self.state.domain.comm.size > 1 else bool(policy.portable)
                 ),
             )
             record = self.checkpoints[-1]
@@ -1631,7 +1856,9 @@ class QuasistaticViscoelasticStep:
         if selected_portable:
             return self._save_portable_checkpoint(path)
         if comm.size != 1:
-            raise ValueError("Distributed viscoelastic checkpoints must use portable=True.")
+            raise ValueError(
+                "Distributed viscoelastic checkpoints must use portable=True."
+            )
         selected = Path(path)
         if selected.suffix != ".npz":
             selected = selected.with_suffix(".npz")
@@ -1651,13 +1878,13 @@ class QuasistaticViscoelasticStep:
             tangent=self.state.tangent.values,
             stored_energy=self.state.stored_energy.values,
             work_increment=self.state.work_increment.values,
-            increments=json.dumps([item.as_dict() for item in self.accepted_increments]),
+            increments=json.dumps(
+                [item.as_dict() for item in self.accepted_increments]
+            ),
             attempts=json.dumps([item.as_dict() for item in self.attempted_increments]),
             energy=json.dumps([item.as_dict() for item in self.energy_history]),
             next_increment_size=(
-                np.nan
-                if self.next_increment_size is None
-                else self.next_increment_size
+                np.nan if self.next_increment_size is None else self.next_increment_size
             ),
         )
         from ..results import CheckpointRecord
@@ -1710,11 +1937,13 @@ class QuasistaticViscoelasticStep:
             packet = comm.bcast(packet, root=0)
             if packet["error"] is not None:
                 raise RuntimeError(
-                    "Viscoelastic checkpoint manifest read failed: "
-                    f"{packet['error']}"
+                    f"Viscoelastic checkpoint manifest read failed: {packet['error']}"
                 )
             payload = packet["payload"]
-            if payload.get("schema") == "agentfem.generalized-maxwell-step-checkpoint.v2":
+            if (
+                payload.get("schema")
+                == "agentfem.generalized-maxwell-step-checkpoint.v2"
+            ):
                 self._load_portable_checkpoint(manifest, payload)
                 return
         if self.state.domain.comm.size != 1:
@@ -1746,10 +1975,14 @@ class QuasistaticViscoelasticStep:
                 ViscoelasticIncrementInfo.from_dict(item)
                 for item in json.loads(str(data["increments"]))
             ]
-            self.attempted_increments[:] = [
-                ViscoelasticIncrementInfo.from_dict(item)
-                for item in json.loads(str(data["attempts"]))
-            ] if "attempts" in data else list(self.accepted_increments)
+            self.attempted_increments[:] = (
+                [
+                    ViscoelasticIncrementInfo.from_dict(item)
+                    for item in json.loads(str(data["attempts"]))
+                ]
+                if "attempts" in data
+                else list(self.accepted_increments)
+            )
             self.energy_history[:] = [
                 ViscoelasticEnergyFrame(**item)
                 for item in json.loads(str(data["energy"]))
@@ -1759,9 +1992,7 @@ class QuasistaticViscoelasticStep:
                 if "next_increment_size" in data
                 else np.nan
             )
-            self.next_increment_size = (
-                None if np.isnan(stored_next) else stored_next
-            )
+            self.next_increment_size = None if np.isnan(stored_next) else stored_next
         self._apply_loading(self.accepted_time)
         self.last_solve_info = self._path_info()
 
@@ -1788,8 +2019,12 @@ class QuasistaticViscoelasticStep:
             "nodal_state": bundle["record"],
             "nodal_identity": bundle["identities"],
             "quadrature_state": checkpoint_file_record(quadrature),
-            "accepted_increments": [item.as_dict() for item in self.accepted_increments],
-            "attempted_increments": [item.as_dict() for item in self.attempted_increments],
+            "accepted_increments": [
+                item.as_dict() for item in self.accepted_increments
+            ],
+            "attempted_increments": [
+                item.as_dict() for item in self.attempted_increments
+            ],
             "execution_events": [item.as_dict() for item in self.execution_events],
             "energy_history": [item.as_dict() for item in self.energy_history],
             "next_increment_size": self.next_increment_size,
@@ -1805,7 +2040,9 @@ class QuasistaticViscoelasticStep:
                 error = f"{type(exc).__name__}: {exc}"
         error = comm.bcast(error, root=0)
         if error is not None:
-            raise RuntimeError(f"Viscoelastic checkpoint manifest write failed: {error}")
+            raise RuntimeError(
+                f"Viscoelastic checkpoint manifest write failed: {error}"
+            )
         comm.barrier()
         from ..results import CheckpointRecord
 
@@ -1839,7 +2076,9 @@ class QuasistaticViscoelasticStep:
             json.dumps(self._portable_checkpoint_identity(), sort_keys=True)
         )
         if payload.get("step_identity") != current:
-            raise ValueError("Portable viscoelastic checkpoint scientific identity differs.")
+            raise ValueError(
+                "Portable viscoelastic checkpoint scientific identity differs."
+            )
 
         displacement = self.solution.x.array.copy()
         state_snapshot = self.state.snapshot()
@@ -1909,7 +2148,8 @@ class QuasistaticViscoelasticStep:
             )
         if self.time_points is not None:
             future = [
-                time for time in self.time_points
+                time
+                for time in self.time_points
                 if time > self.accepted_time + self._time_tolerance()
             ]
             if future:
@@ -1927,9 +2167,7 @@ class QuasistaticViscoelasticStep:
             "steps": self.steps,
             "time_points": self.time_points,
             "incrementation": (
-                None
-                if self.incrementation is None
-                else self.incrementation.summary()
+                None if self.incrementation is None else self.incrementation.summary()
             ),
             "time_error_tolerance": self.time_error_tolerance,
             "amplitude": self.amplitude.summary(),
@@ -1966,16 +2204,16 @@ class QuasistaticViscoelasticStep:
             "steps": self.steps,
             "time_points": self.time_points,
             "incrementation": (
-                None
-                if self.incrementation is None
-                else self.incrementation.summary()
+                None if self.incrementation is None else self.incrementation.summary()
             ),
             "time_error_tolerance": self.time_error_tolerance,
             "amplitude": self.amplitude.summary(),
             "quadrature": self.state.summary()["transaction"],
             "temperature": self._temperature_summary(),
             "solution_layout": {
-                "global_size": int(self.solution.function_space.dofmap.index_map.size_global),
+                "global_size": int(
+                    self.solution.function_space.dofmap.index_map.size_global
+                ),
                 "block_size": int(self.solution.function_space.dofmap.index_map_bs),
             },
         }
@@ -2016,8 +2254,16 @@ class QuasistaticViscoelasticStep:
         quadrature_fields = (
             ("S", self.state.stress, "Generalized-Maxwell Cauchy stress."),
             ("E", self.state.accepted_strain, "Committed small strain."),
-            ("SENER", self.state.stored_energy, "Recoverable viscoelastic energy density."),
-            ("VDENER", self.state.dissipated_energy, "Cumulative viscous dissipation density."),
+            (
+                "SENER",
+                self.state.stored_energy,
+                "Recoverable viscoelastic energy density.",
+            ),
+            (
+                "VDENER",
+                self.state.dissipated_energy,
+                "Cumulative viscous dissipation density.",
+            ),
             ("MISES", self.state.equivalent_stress(), "Von Mises stress."),
         )
         for name, source, description in quadrature_fields:
@@ -2094,8 +2340,7 @@ class QuasistaticViscoelasticStep:
                     item.iterations for item in self.accepted_increments
                 ],
                 "time_increment": [
-                    item.end_time - item.start_time
-                    for item in self.accepted_increments
+                    item.end_time - item.start_time for item in self.accepted_increments
                 ],
             }
             if all(
@@ -2116,14 +2361,21 @@ class QuasistaticViscoelasticStep:
             result.add_histories(
                 times,
                 {
-                    "load_amplitude": [item.load_amplitude for item in self.energy_history],
-                    "stored_energy": [item.stored_energy for item in self.energy_history],
+                    "load_amplitude": [
+                        item.load_amplitude for item in self.energy_history
+                    ],
+                    "stored_energy": [
+                        item.stored_energy for item in self.energy_history
+                    ],
                     "viscous_dissipation": [
                         item.viscous_dissipation for item in self.energy_history
                     ],
-                    "material_work": [item.material_work for item in self.energy_history],
+                    "material_work": [
+                        item.material_work for item in self.energy_history
+                    ],
                     "constitutive_energy_residual": [
-                        item.constitutive_energy_residual for item in self.energy_history
+                        item.constitutive_energy_residual
+                        for item in self.energy_history
                     ],
                 },
                 abscissa_name="time",
@@ -2167,9 +2419,7 @@ class QuasistaticViscoelasticStep:
             "time_increment": self.time_increment,
             "time_grid": self._time_grid_summary(),
             "incrementation": (
-                None
-                if self.incrementation is None
-                else self.incrementation.summary()
+                None if self.incrementation is None else self.incrementation.summary()
             ),
             "time_error_tolerance": self.time_error_tolerance,
             "accepted_time": self.accepted_time,
@@ -2212,7 +2462,9 @@ class QuasistaticViscoelasticStep:
         if self.progress is True:
             return compose_reporters(
                 recorder,
-                StandardRunReporter(comm_of(self.solution), status_file=self.status_file),
+                StandardRunReporter(
+                    comm_of(self.solution), status_file=self.status_file
+                ),
             )
         if self.progress in (False, None):
             return recorder
@@ -2265,22 +2517,20 @@ def quasistatic_viscoelastic_step(
             isinstance(item, IsotropicGeneralizedMaxwell)
             for item in material.materials.values()
         ):
-            raise TypeError("Every regional viscoelastic material must share this family.")
+            raise TypeError(
+                "Every regional viscoelastic material must share this family."
+            )
     selected_amplitude = (
         amplitudes.ramp(end_time=float(duration), name="viscoelastic_ramp")
         if amplitude is None
-        else amplitudes.as_amplitude(
-            amplitude, name="viscoelastic_load_amplitude"
-        )
+        else amplitudes.as_amplitude(amplitude, name="viscoelastic_load_amplitude")
     )
     if incrementation is not None and (steps is not None or time_points is not None):
         raise ValueError(
             "Specify incrementation or a prescribed steps/time_points path, not both."
         )
     selected_incrementation = (
-        None
-        if incrementation is None
-        else step_controls.normalize(incrementation)
+        None if incrementation is None else step_controls.normalize(incrementation)
     )
     load_factor = fem.Constant(domain, PETSc.ScalarType(selected_amplitude(0.0)))
     state = ViscoelasticQuadratureState.create(
@@ -2317,7 +2567,11 @@ def quasistatic_viscoelastic_step(
                 value = getattr(candidate, "value", None)
                 if value is not None and hasattr(value, "value"):
                     prescribed_values.append(
-                        (value, np.asarray(value.value, dtype=float).copy(), candidate.bc)
+                        (
+                            value,
+                            np.asarray(value.value, dtype=float).copy(),
+                            candidate.bc,
+                        )
                     )
     return QuasistaticViscoelasticStep(
         name=name,
@@ -2335,7 +2589,9 @@ def quasistatic_viscoelastic_step(
         duration=duration,
         steps=steps,
         time_points=(
-            None if time_points is None else tuple(float(value) for value in time_points)
+            None
+            if time_points is None
+            else tuple(float(value) for value in time_points)
         ),
         incrementation=selected_incrementation,
         time_error_tolerance=time_error_tolerance,
@@ -2406,9 +2662,7 @@ def harmonic_viscoelastic_step(
     if selected_density is not None and omega:
         with np.errstate(over="ignore", invalid="ignore"):
             inertial_coefficient = float(
-                np.float64(selected_density)
-                * np.float64(omega)
-                * np.float64(omega)
+                np.float64(selected_density) * np.float64(omega) * np.float64(omega)
             )
         if not np.isfinite(inertial_coefficient):
             raise ValueError(
@@ -2466,9 +2720,7 @@ def harmonic_viscoelastic_step(
         real_trial, imaginary_test, harmonic.bulk.imag, harmonic.shear.imag
     )
     if inertial_coefficient:
-        storage_rr -= (
-            inertial_coefficient * ufl.inner(real_trial, real_test) * ufl.dx
-        )
+        storage_rr -= inertial_coefficient * ufl.inner(real_trial, real_test) * ufl.dx
         storage_ii -= (
             inertial_coefficient * ufl.inner(imaginary_trial, imaginary_test) * ufl.dx
         )
@@ -2509,6 +2761,16 @@ def harmonic_viscoelastic_step(
             "pc_type='fieldsplit'. This prevents unsupported direct "
             "factorization of a PETSc MatNest."
         )
+    lowered_configuration = _harmonic_record_contract(
+        {
+            "material": material.summary(),
+            "angular_frequency": omega,
+            "temperature": selected_temperature,
+            "density": selected_density,
+            "load_phase": phase,
+            "study": None if study is None else study.summary(),
+        }
+    )
     return HarmonicViscoelasticStep(
         name=str(name),
         solution_real=solution_real,
@@ -2522,6 +2784,7 @@ def harmonic_viscoelastic_step(
         linear_forms=[real_load, imaginary_load],
         bcs=(*selected_bcs, *imaginary_bcs),
         solver_options=options,
+        _lowered_configuration=lowered_configuration,
         load_phase=phase,
         density=selected_density,
         temperature=selected_temperature,

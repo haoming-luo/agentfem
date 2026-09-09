@@ -1570,6 +1570,10 @@
       
         
       
+        
+      
+        
+      
     
     
     
@@ -4312,6 +4316,16 @@ and evidence remain in the linked guides and scientific function reference.</p>
 <td>Evaluate linear-static work including nonzero strong Dirichlet data.</td>
 </tr>
 <tr>
+<td>class</td>
+<td><code>PreparedProjection(problem, output) -&gt; None</code></td>
+<td>A reusable L2 projection with one assembled mass matrix.</td>
+</tr>
+<tr>
+<td>function</td>
+<td><code>prepare_projection(expression, *, domain = None, family: str = 'DG', degree: int = 0, name: str = 'ProjectedField', weight = 1.0) -&gt; PreparedProjection</code></td>
+<td>Prepare a reusable global L2 projection with a static mass operator.</td>
+</tr>
+<tr>
 <td>function</td>
 <td><code>project(expression, *, domain = None, family: str = 'DG', degree: int = 0, name: str = 'ProjectedField', weight = 1.0)</code></td>
 <td>Return the global L2 projection of a UFL expression.</td>
@@ -4365,6 +4379,16 @@ and evidence remain in the linked guides and scientific function reference.</p>
 <td>function</td>
 <td><code>execution_context(step)</code></td>
 <td>Return the context bound by :meth:<code>Model.step</code>, when available.</td>
+</tr>
+<tr>
+<td>class</td>
+<td><code>HarmonicResponse</code></td>
+<td>One named scalar real or complex response sampled at each frequency.</td>
+</tr>
+<tr>
+<td>function</td>
+<td><code>harmonic_response(name: str, evaluate, *, unit: str \| None = None, description: str = '') -&gt; HarmonicResponse</code></td>
+<td>Declare a traceable scalar response for an ordered frequency sweep.</td>
 </tr>
 <tr>
 <td>class</td>
@@ -5066,6 +5090,21 @@ and evidence remain in the linked guides and scientific function reference.</p>
 <td>function</td>
 <td><code>every(increments: int, *, directory = 'checkpoints', final: bool = True, prefix: str \| None = None, keep_last: int \| None = None, portable: bool = False) -&gt; CheckpointPolicy</code></td>
 <td>Create an automatic checkpoint policy for accepted time increments.</td>
+</tr>
+<tr>
+<td>function</td>
+<td><code>save_harmonic_sweep_checkpoint(path, *, step_name: str, frequencies, records, scientific_inputs, field_identity: dict[str, object], execution_events = (), comm = MPI.COMM_WORLD)</code></td>
+<td>Atomically publish a partition-independent scalar sweep ledger.</td>
+</tr>
+<tr>
+<td>function</td>
+<td><code>load_harmonic_sweep_checkpoint(path, *, step_name: str, frequencies, scientific_inputs, field_identity: dict[str, object], comm = MPI.COMM_WORLD) -&gt; dict[str, object]</code></td>
+<td>Validate and load a scalar harmonic sweep ledger without field mutation.</td>
+</tr>
+<tr>
+<td>function</td>
+<td><code>remove_harmonic_sweep_checkpoint(path, *, comm = MPI.COMM_WORLD) -&gt; None</code></td>
+<td>Collectively remove exactly one typed scalar sweep manifest.</td>
 </tr>
 <tr>
 <td>function</td>
@@ -6216,6 +6255,26 @@ and evidence remain in the linked guides and scientific function reference.</p>
 </tr>
 <tr>
 <td>class</td>
+<td><code>DirectHarmonicStep</code></td>
+<td>One direct steady-state harmonic solve with separated ownership.</td>
+</tr>
+<tr>
+<td>class</td>
+<td><code>DirectHarmonicSweepStep</code></td>
+<td>A bounded-memory ordered frequency sweep over one prepared Step.</td>
+</tr>
+<tr>
+<td>function</td>
+<td><code>direct_harmonic_step(*, displacement, system: DirectHarmonicSystem, frequency: float \| None = None, angular_frequency: float \| None = None, constraints = (), load_phase: float = 0.0, study = None, solver_options = None, name: str = 'direct_harmonic') -&gt; DirectHarmonicStep</code></td>
+<td>Build one direct harmonic Step from explicit operator contributions.</td>
+</tr>
+<tr>
+<td>function</td>
+<td><code>harmonic_frequency_sweep_step(point_step: DirectHarmonicStep, *, frequencies, responses = (), execution_order: str = 'forward', scientific_assets: dict[str, object] \| None = None, status_file = None, name: str \| None = None) -&gt; DirectHarmonicSweepStep</code></td>
+<td>Create a reusable ordered sweep around one direct harmonic Step.</td>
+</tr>
+<tr>
+<td>class</td>
 <td><code>J2IncrementInfo</code></td>
 <td>Public AgentFEM object.</td>
 </tr>
@@ -6543,6 +6602,16 @@ and evidence remain in the linked guides and scientific function reference.</p>
 </tr>
 <tr>
 <td>class</td>
+<td><code>DirectHarmonicSystem</code></td>
+<td>One linear steady-state harmonic system.</td>
+</tr>
+<tr>
+<td>function</td>
+<td><code>direct_harmonic_system(K, F, *, M = None, C = None, K_loss = None, name: str = 'direct_harmonic_system') -&gt; DirectHarmonicSystem</code></td>
+<td>Create an inspectable direct harmonic <code>K/M/C/F</code> system.</td>
+</tr>
+<tr>
+<td>class</td>
 <td><code>FirstOrderSystem</code></td>
 <td>First-order transient system, <code>C x_dot + K x = F</code>.</td>
 </tr>
@@ -6647,6 +6716,11 @@ and evidence remain in the linked guides and scientific function reference.</p>
 <td>function</td>
 <td><code>direct_harmonic() -&gt; SolutionProcedure</code></td>
 <td>Direct real-block solve of a complex steady-state harmonic system.</td>
+</tr>
+<tr>
+<td>function</td>
+<td><code>direct_harmonic_sweep() -&gt; SolutionProcedure</code></td>
+<td>Ordered independent solves over one canonical frequency axis.</td>
 </tr>
 <tr>
 <td>function</td>
@@ -7471,6 +7545,31 @@ and evidence remain in the linked guides and scientific function reference.</p>
 <td>function</td>
 <td><code>nafems_le10_mesh(*, radial_cells: int = 4, angular_cells: int = 12, thickness_cells: int = 2, geometry_degree: int = 2, comm = MPI.COMM_WORLD)</code></td>
 <td>Create the quarter thick-elliptical-plate domain from NAFEMS LE10.</td>
+</tr>
+<tr>
+<td>class</td>
+<td><code>ForcedVibrationBenchmark</code></td>
+<td>Rank-independent evidence for one public forced-vibration problem.</td>
+</tr>
+<tr>
+<td>class</td>
+<td><code>ForcedVibrationConvergenceCertificate</code></td>
+<td>Spatial-refinement stability evidence for a harmonic benchmark.</td>
+</tr>
+<tr>
+<td>function</td>
+<td><code>certify_nafems_r0016_test5h_spatial_convergence(levels, *, refinement_relative_tolerances = None, residual_tolerance: float = 1e-08, energy_tolerance: float = 1e-08) -&gt; ForcedVibrationConvergenceCertificate</code></td>
+<td>Certify a declared three-or-more-level Test 5H refinement sequence.</td>
+</tr>
+<tr>
+<td>function</td>
+<td><code>nafems_r0016_test5h_benchmark(*, cells = (5, 2, 1), frequencies = None, comm = MPI.COMM_WORLD) -&gt; tuple[ForcedVibrationBenchmark, object]</code></td>
+<td>Solve the public NAFEMS R0016 Test 5H physical problem.</td>
+</tr>
+<tr>
+<td>function</td>
+<td><code>nafems_r0016_test5h_spatial_convergence(*, cells = ((5, 2, 1), (9, 4, 3), (13, 6, 5)), comm = MPI.COMM_WORLD)</code></td>
+<td>Execute the declared Test 5H spatial-refinement stability study.</td>
 </tr>
 <tr>
 <td>class</td>

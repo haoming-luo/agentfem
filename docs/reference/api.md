@@ -429,6 +429,8 @@ and evidence remain in the linked guides and scientific function reference.
 | function | `section_resultant(stress, *, on, normal = None, about = None) -> ForceMomentResultant` | Integrate section force and moment from a Cauchy/nominal stress field. |
 | function | `static_force_balance(problem, *, constraints = (), provider_duals = ()) -> StaticForceBalance` | Evaluate ``R + F = 0`` for a converged linear static solid. |
 | function | `static_work_balance(problem, *, constraints = (), provider_duals = ()) -> StaticWorkBalance` | Evaluate linear-static work including nonzero strong Dirichlet data. |
+| class | `PreparedProjection(problem, output) -> None` | A reusable L2 projection with one assembled mass matrix. |
+| function | `prepare_projection(expression, *, domain = None, family: str = 'DG', degree: int = 0, name: str = 'ProjectedField', weight = 1.0) -> PreparedProjection` | Prepare a reusable global L2 projection with a static mass operator. |
 | function | `project(expression, *, domain = None, family: str = 'DG', degree: int = 0, name: str = 'ProjectedField', weight = 1.0)` | Return the global L2 projection of a UFL expression. |
 | function | `project_piecewise(terms, *, domain = None, family: str = 'DG', degree: int = 0, name: str = 'ProjectedField', weight = 1.0)` | Project region-dependent expressions into one finite-element field. |
 | function | `small_strain_cell_fields(displacement, properties, *, study = None, variables = ('S', 'E', 'MISES', 'SENER'), degree: int = 0) -> tuple[object, ...]` | Create standard projected fields for linear small-strain elasticity. |
@@ -440,6 +442,8 @@ and evidence remain in the linked guides and scientific function reference.
 | function | `execution_records(events: Iterable[object]) -> tuple[dict[str, object], ...]` | Normalize solver events without depending on a particular procedure. |
 | function | `complete_result(step, result, *, output = None, fields = (), strict_output: bool = False, deformation_scale: float = 0.0, metadata: Mapping[str, object] \| None = None)` | Complete output and metadata through one compatibility-safe path. |
 | function | `execution_context(step)` | Return the context bound by :meth:`Model.step`, when available. |
+| class | `HarmonicResponse` | One named scalar real or complex response sampled at each frequency. |
+| function | `harmonic_response(name: str, evaluate, *, unit: str \| None = None, description: str = '') -> HarmonicResponse` | Declare a traceable scalar response for an ordered frequency sweep. |
 | class | `HillMandelIncrement` | Finite-strain macrohomogeneity evidence over one accepted increment. |
 | class | `HomogenizedFrame` | Macroscopic response reconstructed from one periodic-cell state. |
 | class | `LiveFiniteStrainCellFields` | Derived cell fields refreshed from active Explicit state at output time. |
@@ -601,6 +605,9 @@ and evidence remain in the linked guides and scientific function reference.
 | --- | --- | --- |
 | class | `CheckpointPolicy` | Automatic accepted-increment checkpoint cadence for transient steps. |
 | function | `every(increments: int, *, directory = 'checkpoints', final: bool = True, prefix: str \| None = None, keep_last: int \| None = None, portable: bool = False) -> CheckpointPolicy` | Create an automatic checkpoint policy for accepted time increments. |
+| function | `save_harmonic_sweep_checkpoint(path, *, step_name: str, frequencies, records, scientific_inputs, field_identity: dict[str, object], execution_events = (), comm = MPI.COMM_WORLD)` | Atomically publish a partition-independent scalar sweep ledger. |
+| function | `load_harmonic_sweep_checkpoint(path, *, step_name: str, frequencies, scientific_inputs, field_identity: dict[str, object], comm = MPI.COMM_WORLD) -> dict[str, object]` | Validate and load a scalar harmonic sweep ledger without field mutation. |
+| function | `remove_harmonic_sweep_checkpoint(path, *, comm = MPI.COMM_WORLD) -> None` | Collectively remove exactly one typed scalar sweep manifest. |
 | function | `save_transient_checkpoint(path, *, step_kind: str, step_name: str, procedure, dt: float, total_steps: int, completed_steps: int, state: dict[str, object], accepted_times = (), execution_events = (), history_records = (), auxiliary_state: dict[str, object] \| None = None, portable: bool = False)` | Write a transient restart, optionally with partition-independent state. |
 | function | `load_transient_checkpoint(path, *, step_kind: str, step_name: str, procedure, dt: float, total_steps: int, state: dict[str, object]) -> dict[str, object]` | Restore a transient state after validating its scientific identity. |
 | function | `save_portable_state_bundle(path, *, state: dict[str, object]) -> dict[str, object]` | Collectively publish a portable nodal-state bundle. |
@@ -859,6 +866,10 @@ and evidence remain in the linked guides and scientific function reference.
 | function | `experimental_finite_strain_j2_step(*, displacement, material: FiniteStrainJ2Logarithmic, external_force = None, constraints = (), incrementation = None, solver_options = None, quadrature_degree: int = 2, amplitude = None, name: str = 'finite_strain_j2_experimental') -> ExperimentalFiniteStrainPlasticityStep` | Compatibility alias for :func:`finite_strain_j2_standard_problem`. |
 | function | `finite_strain_j2_affine_problem(*, displacement, material: FiniteStrainJ2Logarithmic \| QuadratureMaterialMap, constraint, external_force = None, incrementation = None, solver_options = None, quadrature_degree: int = 2, output_every: int \| None = 1, output_factors = (), progress = True, status_file = None, checkpoint_policy = None, name: str = 'finite_strain_j2')` | Build stateful finite-strain J2 under exact affine/MPC kinematics. |
 | function | `finite_strain_j2_standard_problem(*, displacement, material: FiniteStrainJ2Logarithmic \| QuadratureMaterialMap, external_force = None, load_identity = None, constraints = (), incrementation = None, solver_options = None, quadrature_degree: int = 2, amplitude = None, output_every: int \| None = 1, output_factors = (), progress = True, status_file = None, checkpoint_policy = None, name: str = 'finite_strain_j2') -> FiniteStrainJ2StandardProblem` | Build stateful finite-strain J2 under ordinary strong boundaries. |
+| class | `DirectHarmonicStep` | One direct steady-state harmonic solve with separated ownership. |
+| class | `DirectHarmonicSweepStep` | A bounded-memory ordered frequency sweep over one prepared Step. |
+| function | `direct_harmonic_step(*, displacement, system: DirectHarmonicSystem, frequency: float \| None = None, angular_frequency: float \| None = None, constraints = (), load_phase: float = 0.0, study = None, solver_options = None, name: str = 'direct_harmonic') -> DirectHarmonicStep` | Build one direct harmonic Step from explicit operator contributions. |
+| function | `harmonic_frequency_sweep_step(point_step: DirectHarmonicStep, *, frequencies, responses = (), execution_order: str = 'forward', scientific_assets: dict[str, object] \| None = None, status_file = None, name: str \| None = None) -> DirectHarmonicSweepStep` | Create a reusable ordered sweep around one direct harmonic Step. |
 | class | `J2IncrementInfo` | Public AgentFEM object. |
 | class | `J2LoadPathInfo` | Public AgentFEM object. |
 | class | `J2PlasticityStep` | Incremental global equilibrium for 3D small-strain J2 plasticity. |
@@ -927,6 +938,8 @@ and evidence remain in the linked guides and scientific function reference.
 | function | `viscous_flow_operator(velocity, test_velocity, viscosity, *, measure = ufl.dx, name: str = 'K_viscous') -> OperatorForm` | Return ``nu (grad(u), grad(v))`` for incompressible momentum. |
 | function | `auxiliary_laplacian_boundary(boundary_expression)` | Return ``-Delta(g)`` for the auxiliary field ``w=-Delta(u)``. |
 | function | `split_laplacian_operator(trial, test, *, measure = ufl.dx, name: str = 'K_split_laplacian') -> OperatorForm` | Return one second-order block of a mixed biharmonic split. |
+| class | `DirectHarmonicSystem` | One linear steady-state harmonic system. |
+| function | `direct_harmonic_system(K, F, *, M = None, C = None, K_loss = None, name: str = 'direct_harmonic_system') -> DirectHarmonicSystem` | Create an inspectable direct harmonic ``K/M/C/F`` system. |
 | class | `FirstOrderSystem` | First-order transient system, ``C x_dot + K x = F``. |
 | class | `LinearSystem` | Engineering-level static system, usually ``K x = F``. |
 | class | `SecondOrderSystem` | Engineering-level second-order system, ``M a + C v + K u = F``. |
@@ -951,6 +964,7 @@ and evidence remain in the linked guides and scientific function reference.
 | function | `implicit_euler(*, nonlinear: bool = False, stateful: bool = True) -> SolutionProcedure` | Public AgentFEM object. |
 | function | `quasistatic_viscoelasticity() -> SolutionProcedure` | Exact generalized-Maxwell update with incremental equilibrium. |
 | function | `direct_harmonic() -> SolutionProcedure` | Direct real-block solve of a complex steady-state harmonic system. |
+| function | `direct_harmonic_sweep() -> SolutionProcedure` | Ordered independent solves over one canonical frequency axis. |
 | function | `implicit_creep() -> SolutionProcedure` | Quasi-static backward-Euler creep with global Newton equilibrium. |
 | function | `viscoelastic_history() -> SolutionProcedure` | Exact increment-wise generalized-Maxwell material history. |
 | function | `newmark() -> SolutionProcedure` | Public AgentFEM object. |
@@ -1134,6 +1148,11 @@ and evidence remain in the linked guides and scientific function reference.
 | class | `Elasticity3DBenchmark` | Rank-independent evidence from a public 3D elasticity benchmark. |
 | function | `nafems_le10_3d_benchmark(*, radial_cells: int = 4, angular_cells: int = 12, thickness_cells: int = 2, comm = MPI.COMM_WORLD, output = None) -> tuple[Elasticity3DBenchmark, object]` | Solve NAFEMS LE10 and return benchmark evidence plus SimulationResult. |
 | function | `nafems_le10_mesh(*, radial_cells: int = 4, angular_cells: int = 12, thickness_cells: int = 2, geometry_degree: int = 2, comm = MPI.COMM_WORLD)` | Create the quarter thick-elliptical-plate domain from NAFEMS LE10. |
+| class | `ForcedVibrationBenchmark` | Rank-independent evidence for one public forced-vibration problem. |
+| class | `ForcedVibrationConvergenceCertificate` | Spatial-refinement stability evidence for a harmonic benchmark. |
+| function | `certify_nafems_r0016_test5h_spatial_convergence(levels, *, refinement_relative_tolerances = None, residual_tolerance: float = 1e-08, energy_tolerance: float = 1e-08) -> ForcedVibrationConvergenceCertificate` | Certify a declared three-or-more-level Test 5H refinement sequence. |
+| function | `nafems_r0016_test5h_benchmark(*, cells = (5, 2, 1), frequencies = None, comm = MPI.COMM_WORLD) -> tuple[ForcedVibrationBenchmark, object]` | Solve the public NAFEMS R0016 Test 5H physical problem. |
+| function | `nafems_r0016_test5h_spatial_convergence(*, cells = ((5, 2, 1), (9, 4, 3), (13, 6, 5)), comm = MPI.COMM_WORLD)` | Execute the declared Test 5H spatial-refinement stability study. |
 | class | `CenterCrackLEFMBenchmark` | One solved center-crack model and its independently extracted evidence. |
 | function | `center_crack_lefm_mesh(*, half_crack_length: float = 1.0, half_width: float = 8.0, half_height: float = 8.0, comm = MPI.COMM_SELF)` | Build the serial, conforming split mesh used by the LEFM benchmark. |
 | function | `center_crack_mode_i_benchmark(*, young_modulus: float = 1000.0, poisson_ratio: float = 0.25, half_crack_length: float = 1.0, half_width: float = 8.0, half_height: float = 8.0, remote_strain: float = 0.001, relative_tolerance: float = 0.05) -> CenterCrackLEFMBenchmark` | Solve and verify a finite-plate Mode-I crack with the public workflow. |

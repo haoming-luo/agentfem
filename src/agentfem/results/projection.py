@@ -4,12 +4,60 @@ from __future__ import annotations
 
 import ufl
 from dolfinx import fem
-import dolfinx.fem.petsc as fem_petsc
+from ufl.algorithms.analysis import extract_coefficients, extract_constants
 
 from .. import _axisymmetric
 from .. import fields as field_api
 from ..constitutive import elasticity
+from ..solvers import LinearSolverOptions, prepare_linear_problem
 from .field_catalog import resolve_field_variables
+
+
+class PreparedProjection:
+    """A reusable L2 projection with one assembled mass matrix.
+
+    The projected expression may depend on live finite-element fields. Calling
+    :meth:`solve` reassembles only the right-hand side, while retaining the
+    projection space, matrix, and KSP. This is the appropriate lifecycle for
+    frequency sweeps and time histories that repeatedly recover one field.
+    Its weight and integration measure are fixed for this lifecycle; mutable
+    coefficients may appear in the projected expression but not in the mass
+    operator.
+    """
+
+    def __init__(self, problem, output) -> None:
+        self._problem = problem
+        self.output = output
+
+    @property
+    def solve_count(self) -> int:
+        return int(self._problem.solve_count)
+
+    def solve(self):
+        """Project the current expression into the retained output field."""
+
+        self._problem.solve()
+        return self.output
+
+    def summary(self) -> dict[str, object]:
+        return {
+            "kind": "prepared_l2_projection",
+            "matrix_reused": True,
+            "solve_count": self.solve_count,
+            "field_name": self.output.name,
+        }
+
+    def close(self) -> None:
+        """Release the retained PETSc matrix and solver."""
+
+        self._problem.close()
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc, traceback):
+        self.close()
+        return False
 
 
 def project(
@@ -37,13 +85,53 @@ def project(
         raise ValueError(
             "Could not infer a mesh from the expression; pass domain=... explicitly."
         )
-    return _project_terms(
+    prepared = _prepare_projection_terms(
         ((expression, ufl.dx(domain=selected_domain), weight),),
         domain=selected_domain,
         family=family,
         degree=selected_degree,
         name=name,
         weight=weight,
+    )
+    try:
+        return prepared.solve()
+    finally:
+        prepared.close()
+
+
+def prepare_projection(
+    expression,
+    *,
+    domain=None,
+    family: str = "DG",
+    degree: int = 0,
+    name: str = "ProjectedField",
+    weight=1.0,
+) -> PreparedProjection:
+    """Prepare a reusable global L2 projection with a static mass operator.
+
+    The projected expression may contain changing finite-element fields. The
+    ``weight`` and measure must not contain mutable UFL Constants or Functions;
+    use :func:`project` after each change when the projection mass operator
+    itself evolves.
+    """
+
+    selected_degree = int(degree)
+    if selected_degree < 0:
+        raise ValueError("Projection degree must be non-negative.")
+    selected_domain = domain or _expression_domain(expression)
+    if selected_domain is None:
+        raise ValueError(
+            "Could not infer a mesh from the expression; pass domain=... explicitly."
+        )
+    return _prepare_projection_terms(
+        ((expression, ufl.dx(domain=selected_domain), weight),),
+        domain=selected_domain,
+        family=family,
+        degree=selected_degree,
+        name=name,
+        weight=weight,
+        require_static_lhs=True,
     )
 
 
@@ -75,7 +163,7 @@ def project_piecewise(
         raise ValueError(
             "Could not infer a mesh from the expressions; pass domain=... explicitly."
         )
-    return _project_terms(
+    prepared = _prepare_projection_terms(
         selected_terms,
         domain=selected_domain,
         family=family,
@@ -83,9 +171,22 @@ def project_piecewise(
         name=name,
         weight=weight,
     )
+    try:
+        return prepared.solve()
+    finally:
+        prepared.close()
 
 
-def _project_terms(terms, *, domain, family, degree, name, weight=1.0):
+def _prepare_projection_terms(
+    terms,
+    *,
+    domain,
+    family,
+    degree,
+    name,
+    weight=1.0,
+    require_static_lhs: bool = False,
+):
     shape = tuple(getattr(terms[0][0], "ufl_shape", ()))
     element = (
         (str(family), degree)
@@ -112,22 +213,25 @@ def _project_terms(terms, *, domain, family, degree, name, weight=1.0):
         rhs_term = term_weight * ufl.inner(expression, test) * measure
         lhs = lhs_term if lhs is None else lhs + lhs_term
         rhs = rhs_term if rhs is None else rhs + rhs_term
-    problem = fem_petsc.LinearProblem(
+    if require_static_lhs and (extract_coefficients(lhs) or extract_constants(lhs)):
+        raise ValueError(
+            "prepare_projection requires a time-invariant weight and measure; "
+            "the projection mass operator contains a mutable UFL coefficient. "
+            "Use results.project(...) after each change instead."
+        )
+    problem = prepare_linear_problem(
         lhs,
         rhs,
-        u=output,
-        petsc_options_prefix="agentfem_result_projection_",
-        petsc_options={
-            "ksp_type": "cg",
-            "pc_type": "jacobi",
-            "ksp_rtol": 1.0e-12,
-            "ksp_atol": 1.0e-14,
-            "ksp_error_if_not_converged": True,
-        },
+        output,
+        options=LinearSolverOptions(
+            ksp_type="cg",
+            pc_type="jacobi",
+            rtol=1.0e-12,
+            atol=1.0e-14,
+            error_if_not_converged=True,
+        ),
     )
-    projected = problem.solve()
-    projected.x.scatter_forward()
-    return projected
+    return PreparedProjection(problem, output)
 
 
 def small_strain_cell_fields(

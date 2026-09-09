@@ -77,6 +77,56 @@ _BENCHMARKS = (
         evidence=("finite_element", "mpi", "analytical_reference"),
     ),
     BenchmarkSpec(
+        identifier="nafems_r0016_test5h_forced_vibration",
+        capability="structural_harmonic_response",
+        level="external_finite_element_benchmark",
+        reference="knowledge/benchmarks/nafems_r0016_test5h_forced_vibration.json",
+        criterion=(
+            "the declared complete-Q2 single mesh recovers the published "
+            "Test 5H frequency, displacement and recovered extreme-fibre "
+            "stress within AgentFEM's self-defined 1%, 2% and 3% gates, "
+            "while algebraic residual, cycle-energy balance and loaded-area "
+            "checks close independently"
+        ),
+        automated_test="tests/test_external_forced_vibration_benchmark.py",
+        status="automated_external_single_mesh_comparison",
+        evidence=(
+            "external_reference",
+            "finite_element",
+            "direct_frequency_domain",
+            "rayleigh_damping",
+            "energy_balance",
+            "stress_recovery",
+        ),
+    ),
+    BenchmarkSpec(
+        identifier="nafems_r0016_test5h_spatial_refinement",
+        capability="structural_harmonic_response",
+        level="external_finite_element_refinement",
+        reference=(
+            "knowledge/benchmarks/nafems_r0016_test5h_spatial_refinement.json"
+        ),
+        criterion=(
+            "three successively refined complete-Q2 meshes pass the separate "
+            "Test 5H comparison and close the final changes in discrete peak "
+            "frequency, displacement and declared recovered stress below the "
+            "AgentFEM 1% stability gate without asserting an observed order"
+        ),
+        automated_test=(
+            "tests/test_external_forced_vibration_benchmark.py "
+            "-k spatial_refinement"
+        ),
+        status="opt_in_automated_peak_observable_spatial_refinement_stability",
+        evidence=(
+            "external_reference",
+            "finite_element",
+            "spatial_refinement",
+            "direct_frequency_domain",
+            "energy_balance",
+            "stress_recovery",
+        ),
+    ),
+    BenchmarkSpec(
         identifier="elasticity_foundation",
         capability="linear_elasticity",
         level="finite_element",

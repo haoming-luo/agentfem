@@ -854,6 +854,61 @@ def test_projection_requires_a_mesh_for_domain_free_expression():
         results.project(ufl.as_ufl(2.0))
 
 
+def test_prepared_projection_reuses_one_mass_operator_for_live_fields():
+    domain = mesh.rectangle(
+        (0.0, 0.0),
+        (1.0, 0.5),
+        (4, 2),
+        comm=MPI.COMM_SELF,
+        cell_type="quadrilateral",
+    )
+    space = fem.functionspace(domain, ("Lagrange", 1))
+    source = fem.Function(space)
+    source.interpolate(lambda x: x[0] + 2.0 * x[1])
+
+    with results.prepare_projection(
+        source,
+        domain=domain,
+        family="DG",
+        degree=0,
+        name="LIVE_RECOVERY",
+    ) as prepared:
+        output = prepared.solve()
+        first = output.x.array.copy()
+        source.x.array[:] *= 2.0
+        source.x.scatter_forward()
+        assert prepared.solve() is output
+        np.testing.assert_allclose(output.x.array, 2.0 * first, rtol=1.0e-12)
+        assert prepared.summary() == {
+            "kind": "prepared_l2_projection",
+            "matrix_reused": True,
+            "solve_count": 2,
+            "field_name": "LIVE_RECOVERY",
+        }
+
+
+def test_prepared_projection_rejects_mutable_weight_but_one_shot_reassembles():
+    domain = mesh.rectangle(
+        (0.0, 0.0),
+        (1.0, 0.5),
+        (2, 1),
+        comm=MPI.COMM_SELF,
+        cell_type="quadrilateral",
+    )
+    space = fem.functionspace(domain, ("Lagrange", 1))
+    source = fem.Function(space)
+    source.interpolate(lambda x: 1.0 + x[0])
+    weight = fem.Constant(domain, 1.0)
+
+    with pytest.raises(ValueError, match="time-invariant weight"):
+        results.prepare_projection(source, domain=domain, weight=weight)
+
+    first = results.project(source, domain=domain, weight=weight)
+    weight.value = 2.0
+    second = results.project(source, domain=domain, weight=weight)
+    np.testing.assert_allclose(second.x.array, first.x.array, rtol=1.0e-12)
+
+
 def test_field_output_is_declarative_and_validated():
     request = results.field_output(
         "U",

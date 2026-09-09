@@ -6,6 +6,7 @@ import numpy as np
 
 from .core import from_solution
 from .core import SimulationResult
+from .execution import add_execution_trace
 from .lifecycle import complete_result
 
 
@@ -73,20 +74,17 @@ def from_harmonic_sweep(step, *, strict_output: bool = False):
         name=step.name,
         metadata={
             "step": step.summary(),
-            "last_solved_frequency": step.point_step.frequency,
-            "field_retention": "scalar_histories_only",
+            "last_solved_frequency": step.last_live_field_frequency,
+            "field_retention": "last_executed_frequency_only",
+            "live_field_state": (
+                "available_for_last_executed_frequency"
+                if step.last_live_field_frequency is not None
+                else "not_restored_scalar_checkpoint_only"
+            ),
             "phase_convention": "wrapped atan2 in [-pi,pi]",
             "zero_amplitude_phase": "numerically reported but physically undefined",
         },
-        scientific_inputs={
-            "harmonic_system": step.point_step.system,
-            "frequency_axis": {
-                "values": frequencies,
-                "unit": "Hz",
-                "canonical_order": "ascending",
-            },
-            "responses": step.responses,
-        },
+        scientific_inputs=step.scientific_inputs(),
     )
     common = {
         "maximum_displacement_vector_amplitude": [
@@ -177,6 +175,16 @@ def from_harmonic_sweep(step, *, strict_output: bool = False):
         "peak_maximum_displacement_vector_amplitude",
         amplitudes[peak_index],
     )
+    add_execution_trace(result, step.execution_events)
+    result.metadata["execution"].update(
+        {
+            "retention": "bounded_milestone_preferred",
+            "max_events": step.execution_event_capacity,
+            "dropped_events": step.dropped_execution_events,
+        }
+    )
+    for checkpoint in step.checkpoints:
+        result.add_checkpoint(checkpoint)
     return complete_result(step, result)
 
 

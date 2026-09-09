@@ -862,6 +862,7 @@ def direct_harmonic(
     constraints=None,
     load_phase: float = 0.0,
     solver_options=None,
+    status_file=None,
     name: str = "direct_harmonic",
 ):
     """Build and register a direct harmonic Step from explicit operators."""
@@ -907,12 +908,15 @@ def direct_harmonic(
         sweep_frequencies = tuple(value / (2.0 * np.pi) for value in angular_axis)
         point_angular_frequency = angular_axis[0]
 
+    selected_constraints = (
+        model.constraints if constraints is None else constraints
+    )
     point_step = mechanics.direct_harmonic_step(
         displacement=target,
         system=system,
         frequency=point_frequency,
         angular_frequency=point_angular_frequency,
-        constraints=model.constraints if constraints is None else constraints,
+        constraints=selected_constraints,
         load_phase=load_phase,
         study=model.study,
         solver_options=solver_options,
@@ -925,6 +929,14 @@ def direct_harmonic(
         frequencies=sweep_frequencies,
         responses=responses,
         execution_order=execution_order,
+        scientific_assets={
+            "study": model.study,
+            "materials": tuple(model.materials),
+            "loads": tuple(model.loads),
+            "constraints": tuple(selected_constraints),
+            "boundary_models": tuple(model.boundary_models),
+        },
+        status_file=status_file,
         name=name,
     )
     return model.add_step(sweep)

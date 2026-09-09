@@ -7,8 +7,17 @@ import numpy as np
 from mpi4py import MPI
 import pytest
 
-from agentfem import benchmarks, fields, mesh, models, results, studies
-from agentfem.constitutive import IsotropicGeneralizedMaxwell
+from agentfem import (
+    benchmarks,
+    fields,
+    mesh,
+    models,
+    operators,
+    results,
+    solvers,
+    studies,
+)
+from agentfem.constitutive import IsotropicGeneralizedMaxwell, isotropic_elastic
 
 
 def test_harmonic_generalized_maxwell_solve_and_output_are_distributed(tmp_path):
@@ -140,3 +149,139 @@ def test_harmonic_generalized_maxwell_solve_and_output_are_distributed(tmp_path)
             )
         }
         assert {"U", "U_IMAG", "U_AMPLITUDE", "U_PHASE"} <= point_arrays
+
+
+def test_generic_direct_harmonic_sweep_is_distributed_and_monolithic():
+    """Keep the generic K/M/C/F direct-solve route rank consistent."""
+
+    if MPI.COMM_WORLD.size != 2:
+        pytest.skip("generic direct harmonic MPI regression requires two ranks")
+
+    comm = MPI.COMM_WORLD
+    length = 2.0
+    traction = 3.0
+    young = 1000.0
+    density = 1.0
+    alpha = 0.4
+    beta = 2.0e-3
+    domain = mesh.cuboid(
+        (0.0, 0.0, 0.0),
+        (length, 1.0, 1.0),
+        (12, 1, 1),
+        comm=comm,
+        cell_type="hexahedron",
+    )
+    model = models.create(
+        study=studies.harmonic_solid(dimension=3),
+        mesh=domain,
+        name="parallel_generic_harmonic_bar",
+    )
+    displacement = model.field(fields.displacement(domain))
+    model.material(
+        isotropic_elastic(
+            young=young,
+            poisson=0.0,
+            density=density,
+        )
+    )
+    model.fix(
+        displacement,
+        on=mesh.face(domain, axis="x", value=0.0),
+        component=0,
+    )
+    model.fix(
+        displacement,
+        on=mesh.face(domain, axis="y", value=0.0),
+        component=1,
+    )
+    model.fix(
+        displacement,
+        on=mesh.face(domain, axis="z", value=0.0),
+        component=2,
+    )
+    loaded_end = mesh.face(domain, axis="x", value=length)
+    model.traction((traction, 0.0, 0.0), on=loaded_end)
+    stiffness = model.stiffness(displacement)
+    mass = model.mass(displacement)
+    damping = operators.rayleigh_damping(
+        mass,
+        stiffness,
+        mass_coefficient=alpha,
+        stiffness_coefficient=beta,
+    )
+    response = results.harmonic_response(
+        "tip_x",
+        lambda point: results.average(
+            point.solution_real[0], measure=loaded_end.measure
+        )
+        + 1j
+        * results.average(
+            point.solution_imaginary[0], measure=loaded_end.measure
+        ),
+        unit="m",
+    )
+    frequencies = (0.5, 0.875, 1.25)
+    step = model.step(
+        target=displacement,
+        K=stiffness,
+        M=mass,
+        C=damping,
+        F=model.external_force(displacement),
+        frequencies=frequencies,
+        responses=(response,),
+        solver_options=solvers.direct_solver(),
+        progress=False,
+    )
+    simulation = step.solve_result()
+
+    actual = np.asarray(simulation.histories["tip_x_REAL"].values) + 1j * np.asarray(
+        simulation.histories["tip_x_IMAG"].values
+    )
+    expected = []
+    for frequency in frequencies:
+        omega = 2.0 * np.pi * frequency
+        effective_young = young * (1.0 + 1j * omega * beta)
+        wave_number = np.sqrt(
+            density * (omega**2 - 1j * omega * alpha) / effective_young
+        )
+        expected.append(
+            traction
+            * np.tan(wave_number * length)
+            / (effective_young * wave_number)
+        )
+    np.testing.assert_allclose(actual, expected, rtol=4.0e-3)
+    assert np.max(
+        simulation.histories["relative_cycle_energy_balance_error"].values
+    ) < 1.0e-9
+    assert np.max(simulation.histories["relative_residual_norm"].values) < 1.0e-9
+    backend = step.point_step.summary()["backend_execution"]
+    assert backend["matrix_layout"] == "monolithic"
+    assert backend["component_residuals_available"] is False
+    gathered = comm.allgather(actual)
+    for value in gathered:
+        np.testing.assert_allclose(value, actual, rtol=1.0e-12, atol=1.0e-14)
+
+
+def test_nafems_r0016_test5h_direct_sweep_matches_with_two_ranks():
+    """Promote Test 5H only when its complete sweep is rank consistent."""
+
+    if MPI.COMM_WORLD.size != 2:
+        pytest.skip("NAFEMS Test 5H MPI regression requires two ranks")
+
+    benchmark, _simulation = benchmarks.nafems_r0016_test5h_benchmark(
+        comm=MPI.COMM_WORLD
+    )
+    golden = benchmarks.golden_benchmark(
+        "agentfem.benchmark.nafems_r0016_test5h_forced_vibration"
+    )
+
+    assert benchmark.acceptable
+    assert benchmark.mpi_ranks == 2
+    for name in (
+        "peak_frequency_hz",
+        "peak_displacement_m",
+        "peak_recovered_s11_pa",
+    ):
+        golden.quantity(name).assert_accepts(benchmark.quantities[name])
+    gathered = MPI.COMM_WORLD.allgather(benchmark.quantities)
+    assert all(item == gathered[0] for item in gathered)

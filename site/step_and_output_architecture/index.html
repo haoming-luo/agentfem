@@ -1062,6 +1062,10 @@
       
         
       
+        
+      
+        
+      
     
     
     
@@ -1394,6 +1398,18 @@ keywords fail before form assembly with a repair suggestion; required physical
 inputs such as <code>dt</code>, <code>steps</code>, or <code>duration</code> are checked at lowering. The same
 contract is emitted by <code>agentfem capabilities --json</code>, so command-line agents,
 IDEs, and future GUIs inspect exactly what runtime execution enforces.</p>
+<p>The contract distinguishes three relationships: <code>accepted</code> names define the
+provider vocabulary, <code>required</code> names must all be present, and an
+<code>exactly_one_of</code> group represents equivalent scientific coordinates for which
+one—and only one—must be selected. For example, harmonic analysis accepts
+either <code>frequency</code> in Hz or <code>angular_frequency</code> in rad/s, never both. A
+capability report consequently separates <code>supported</code> (a provider exists and
+the supplied options fit its vocabulary) from <code>ready</code> (all required scientific
+inputs are present). This lets discovery stay useful before a model is fully
+specified without weakening execution-time validation. <code>model.validate()</code> may
+receive a partial option mapping while builder compatibility checks; complete
+required-input enforcement belongs to the immutable request consumed by
+<code>model.step(...)</code> lowering.</p>
 <p><code>model.step(...)</code> normalizes this call into an immutable <code>StepRequest</code>. The
 request carries the resolved <code>SolutionProcedure</code>, target, material reference,
 and a read-only option mapping through both <code>step_capability(...)</code> and provider

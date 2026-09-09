@@ -63,7 +63,7 @@ conda search --override-channels \
 ```
 
 For a reproducible run, append the required AgentFEM version, for example
-`agentfem=0.3.2`, and retain the resulting environment specification with the
+`agentfem=0.3.3`, and retain the resulting environment specification with the
 simulation evidence. When a newly published version is not yet visible, run
 `conda clean -i` and query again after the mirror has synchronized. Do not mix
 several conda mirrors or combine `defaults` and `conda-forge` packages in this

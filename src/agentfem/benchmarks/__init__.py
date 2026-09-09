@@ -73,6 +73,13 @@ from .elasticity_3d import (
     nafems_le10_3d_benchmark,
     nafems_le10_mesh,
 )
+from .forced_vibration import (
+    ForcedVibrationBenchmark,
+    ForcedVibrationConvergenceCertificate,
+    certify_nafems_r0016_test5h_spatial_convergence,
+    nafems_r0016_test5h_benchmark,
+    nafems_r0016_test5h_spatial_convergence,
+)
 from .lefm import (
     CenterCrackLEFMBenchmark,
     center_crack_lefm_mesh,
@@ -115,10 +122,13 @@ __all__ = [
     "WeakInterfaceConvergenceStudy",
     "InelasticStructuralBenchmark",
     "Elasticity3DBenchmark",
+    "ForcedVibrationBenchmark",
+    "ForcedVibrationConvergenceCertificate",
     "CenterCrackLEFMBenchmark",
     "center_crack_lefm_mesh",
     "center_crack_mode_i_benchmark",
     "creep_thick_cylinder_benchmark",
+    "certify_nafems_r0016_test5h_spatial_convergence",
     "classical_cohesive_crack",
     "assess_delamination_benchmark",
     "beam_theory_energy_release_curve",
@@ -148,5 +158,7 @@ __all__ = [
     "thick_cylinder_sector_mesh",
     "nafems_le10_3d_benchmark",
     "nafems_le10_mesh",
+    "nafems_r0016_test5h_benchmark",
+    "nafems_r0016_test5h_spatial_convergence",
     "list_benchmarks",
 ]

@@ -12,6 +12,9 @@
     "agentfem.studies.harmonic_solid",
     "agentfem.models.Model.step",
     "agentfem.checkpointing.every",
+    "agentfem.operators.direct_harmonic_system",
+    "agentfem.results.harmonic_response",
+    "agentfem.results.prepare_projection",
     "agentfem.dynamics.spectrum",
     "agentfem.dynamics.frequency_response",
     "agentfem.dynamics.damping_from_free_decay",
@@ -27,7 +30,14 @@
   "implementation": [
     "dynamics.py",
     "constitutive/viscoelasticity.py",
+    "operators/harmonic.py",
+    "backends/_harmonic.py",
+    "mechanics/harmonic.py",
     "mechanics/viscoelasticity.py",
+    "results/harmonic.py",
+    "results/_harmonic.py",
+    "results/projection.py",
+    "checkpointing.py",
     "problems.py",
     "step_providers.py"
   ],
@@ -83,6 +93,12 @@
         "type": "uniform time and synchronous signal arrays",
         "unit_role": "time and signal dependent",
         "description": "FFT and spectral-ratio FRF processing require uniform sampling and record the selected window."
+      },
+      {
+        "name": "direct harmonic operator system",
+        "type": "inspectable stiffness K, optional mass M, viscous damping C and material-loss K_loss, plus force F",
+        "unit_role": "one consistent mechanical and frequency unit system",
+        "description": "The generic route accepts either one frequency or a strictly increasing canonical sweep and does not require a generalized-Maxwell material. A sweep reuses one frequency-invariant real spatial K/M/C/K_loss/F system; frequency supplies scalar coefficients and one global phase multiplies the real spatial force operator."
       }
     ],
     "outputs": [
@@ -108,7 +124,13 @@
         "name": "harmonic viscoelastic response",
         "type": "complex bulk/shear material state, phasor displacement fields and harmonic energy evidence",
         "unit_role": "frequency and the model's consistent mechanical units",
-        "description": "The direct harmonic result exposes U_REAL, U_IMAG, component-wise U_AMPLITUDE/U_PHASE, the independently assembled A*x-b block residual, mean stored and kinetic energy, external input and material loss per cycle, their relative balance error, and mean dissipated power."
+        "description": "The direct harmonic result exposes U_REAL, U_IMAG, per-DOF component phasors U_AMPLITUDE/U_PHASE, the independently assembled A*x-b block residual, mean stored and kinetic energy, external input and material loss per cycle, their relative balance error, and mean dissipated power."
+      },
+      {
+        "name": "harmonic frequency sweep",
+        "type": "SimulationResult histories, bounded execution events and scalar-ledger checkpoints",
+        "unit_role": "Hz plus each named response unit",
+        "description": "Canonical histories retain complex response, displacement-amplitude, solver and cycle-energy evidence. The maximum vector amplitude is the physical-cycle maximum of a discrete node/DOF-coefficient vector and is not a continuous-domain supremum. Portable checkpoints store accepted scalar evidence and scientific identity, not one full finite-element field per frequency."
       }
     ],
     "assumptions": [
@@ -123,6 +145,11 @@
       "A mass-normalized mode shape is a relative spatial pattern and does not carry a physical displacement amplitude until combined with a modal coordinate.",
       "Storage and loss modulus consume angular frequency, not cyclic frequency.",
       "The public harmonic Step accepts cyclic frequency in Hz or angular frequency in rad/s, never both, and records the exp(+i*omega*t) phasor convention.",
+      "The generic direct sweep is operator-invariant: one real spatial K/M/C/K_loss/F system is reused over the frequency axis, while frequency changes scalar coefficients and one global load phase multiplies F.",
+      "U_AMPLITUDE and U_PHASE are polar values of each scalar displacement coefficient, component by component; they are not one vector magnitude and phase.",
+      "The sweep maximum-displacement statistic is the largest physical-cycle maximum of a discrete vector-valued node/DOF coefficient across MPI ranks, not a continuous-domain field supremum.",
+      "Frequency sweeps publish histories in ascending canonical order even when points are executed or resumed in reverse order.",
+      "A sweep checkpoint is an atomic scalar evidence ledger; the only live full field belongs to the last frequency solved in the current process and is never claimed to have been restored from that ledger.",
       "A zero frequency is recorded as the relaxed static limit; positive frequency is required before interpreting a finite cycle period.",
       "Positive Prony ratios are fractions of the instantaneous modulus and must sum to less than one.",
       "A nonzero initial strain declares either an instantaneous loading state or a fully equilibrated state; the material history never invents that past implicitly.",
@@ -132,13 +159,16 @@
       "Natural-frequency and mode-shape analysis for supported linear solid models.",
       "DMA, relaxation, free-decay and modal-superposition preparation for small-strain linear viscoelastic studies.",
       "Three-dimensional small-strain quasi-static generalized-Maxwell loading and relaxation on a uniform, explicitly declared nonuniform, or automatically error-controlled physical-time path.",
-      "Three-dimensional direct harmonic generalized-Maxwell response with optional inertia and a common load phase."
+      "Three-dimensional direct harmonic generalized-Maxwell response with optional inertia and a common load phase.",
+      "Linear direct steady-state frequency response expressed through generic K/M/C/K_loss/F operators, named scalar responses and restartable frequency sweeps."
     ],
     "limitations": [
       "The time-domain global provider supports 3D solids, strong constraints, prescribed or adaptive physical-time paths and physical-keyed portable restart.",
-      "The direct harmonic provider currently supports one 3D isotropic material, uniform temperature, homogeneous strong constraints and one common load phase; material maps, MPC/weak constraints, independent load phases and automated frequency sweeps remain future work.",
+      "The material-owned direct harmonic provider currently supports one 3D isotropic material, uniform temperature, homogeneous strong constraints and one common load phase; material maps, MPC/weak constraints and independent load phases remain future work. A declared frequency array is supported by the generic K/M/C/F route.",
       "The pure-displacement harmonic formulation records abs(K*)/abs(G*); values at or above 100 are flagged as elevated volumetric-locking risk rather than being silently treated as a verified near-incompressible solution.",
       "The real-block provider requires a real PETSc scalar build; native complex-PETSc lowering is not yet a separate verified provider.",
+      "The generic direct sweep does not accept arbitrary complex spatial load patterns or frequency-dependent operator families; these require an explicitly different provider contract.",
+      "Frequency-sweep field output requires explicitly selected snapshot frequencies; the bounded scalar sweep does not retain every full field.",
       "Complex modes, nonlinear viscoelasticity and physical aging are not implemented.",
       "Fixed-spectrum fitting does not automatically choose relaxation times or replace calibration/validation separation."
     ]
@@ -157,14 +187,18 @@
       "tests/test_viscoelasticity.py",
       "tests/test_parallel_inelastic.py",
       "tests/test_parallel_viscoelasticity.py",
+      "tests/portable_harmonic_sweep_driver.py",
       "tests/portable_viscoelastic_step_driver.py",
-      "tests/test_parallel_modal.py"
+      "tests/test_parallel_modal.py",
+      "tests/test_external_forced_vibration_benchmark.py"
     ],
     "benchmarks": [
       "agentfem.benchmark.linear_cantilever_modal",
       "agentfem.benchmark.linear_viscoelastic_spectrum",
       "agentfem.benchmark.global_viscoelastic_relaxation",
       "agentfem.benchmark.global_viscoelastic_harmonic_bar",
+      "agentfem.benchmark.nafems_r0016_test5h_forced_vibration",
+      "agentfem.benchmark.nafems_r0016_test5h_spatial_refinement",
       "agentfem.benchmark.abaqus_viscoelastic_rod"
     ],
     "validation_rules": [
@@ -194,6 +228,12 @@
       "Require a fixed--traction inertial bar to converge monotonically to the closed-form complex wave solution and close external cycle input against material loss.",
       "Require the unpreconditioned assembled real-block A*x-b residual and both phasor-block residuals to satisfy the declared solver tolerance in serial and MPI.",
       "Require a two-rank harmonic solve to reproduce the analytical compliance and one collective ParaView dataset carrying all four phasor fields.",
+      "Require scalar sweep checkpoint/restart to reproduce an uninterrupted result across forward and reverse execution order, reject changed scientific identity before mutating state, and remain portable between one and two MPI ranks.",
+      "Require nested and monolithic real-block layouts to reproduce one nonzero-phase complex response and cycle input work, while rejecting SPD-only solver policies.",
+      "Freeze every operator, live coefficient, boundary condition, load phase, solution field and solver policy captured by a prepared harmonic backend; reject configuration drift and all non-finite solution, residual or energy evidence before publishing a result.",
+      "Compute the sweep maximum-displacement vector statistic as the exact physical-cycle maximum for each discrete vector coefficient, including non-proportional component phases, rather than as a complex coefficient norm.",
+      "Require the frozen complete-Q2 NAFEMS R0016 Test 5H configuration to recover the public discrete peak frequency, displacement amplitude and explicitly recovered stress amplitude within AgentFEM's stated gates; do not describe those gates as NAFEMS tolerances or claim Abaqus element identity.",
+      "Require three successively refined complete-Q2 Test 5H meshes to stabilize the discrete peak frequency, displacement and declared recovered-stress observables without inferring an observed order from nonuniform refinement ratios.",
       "Reject ambiguous frequency units, nonhomogeneous prescribed harmonic motion, unsupported constraint families and unsupported nested direct factorization rather than silently changing the harmonic problem.",
       "Invalidate global restart when material, amplitude, temperature, time grid, physical quadrature identity or portable solution identity differs.",
       "Reject nonuniform FFT sampling and mark unexcited FRF bins invalid."
@@ -215,6 +255,14 @@
     {
       "title": "Abaqus frequency-domain viscoelasticity",
       "locator": "https://docs.software.vt.edu/abaqusv2025/English/SIMACAETHERefMap/simathe-c-freqdomainvisco.htm"
+    },
+    {
+      "title": "NAFEMS R0016 Selected Benchmarks for Forced Vibration",
+      "locator": "https://www.nafems.org/publications/resource_center/r0016/"
+    },
+    {
+      "title": "Abaqus Benchmarks Guide: NAFEMS Test 5H forced vibration of a simply supported beam",
+      "locator": "https://docs.software.vt.edu/abaqusv2025/English/SIMACAEBMKRefMap/simabmk-c-forcedvibrationtest5h.htm"
     },
     {
       "title": "Van Houten et al. (2023), closed-form one-dimensional viscoelastic wave boundary-value problem",

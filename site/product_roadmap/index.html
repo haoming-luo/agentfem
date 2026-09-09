@@ -647,6 +647,10 @@
       
         
       
+        
+      
+        
+      
     
     
     
@@ -1006,6 +1010,62 @@
   
 
       
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../release_0.3.3/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Release 0.3.3
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../release_0.3.2/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Release 0.3.2
+  
+
+    
+  </span>
+  
+  
+
+      </a>
     </li>
   
 
@@ -1576,11 +1636,22 @@ the roadmap does not turn an experimental formula into a validated solver.</p>
   patch and independent Abaqus rod benchmark. Adaptive physical time, atomic
   cutback, portable MPI restart and accepted-boundary checkpoints are
   automated. A first direct harmonic provider now evaluates complex bulk and
-  shear spectra and solves the exact real block system on ordinary real PETSc;
-  multiple material regions, MPC/weak constraints, independent load phases,
-  frequency campaigns, MPI evidence and an external structural frequency-
-  response benchmark remain its promotion gates. Independently checked
-  complex modes follow only after that route is established;</li>
+  shear spectra and solves the exact real block system on ordinary real PETSc.
+  Analytical compliance, inertial-wave convergence, cycle-energy closure,
+  independently assembled block residuals, and collective two-rank field
+  output are automated. The first public NAFEMS R0016 Test 5H single-mesh
+  direct-frequency comparison now checks peak frequency, midspan displacement,
+  recovered extreme-fibre stress, load measure, residual and energy, while
+  naming AgentFEM's own discretization, recovery and self-defined tolerances.
+  The complete 50-point problem also reproduces the frozen regression with two
+  MPI ranks. A separate three-level certificate now demonstrates stabilization
+  of the discrete peak frequency, displacement and declared recovered stress;
+  its nonuniform ratios are not used to invent an observed order. Portable
+  scalar sweep restart is exercised in both one-to-two and two-to-one rank
+  directions. Multiple material regions, MPC/weak constraints and independent
+  load phases remain open.
+  Independently checked complex modes follow only after that route is
+  established;</li>
 </ul>
 <h3 id="2-engineering-workflow">2. Engineering workflow<a class="headerlink" href="#2-engineering-workflow" title="Permanent link">&para;</a></h3>
 <p>Make real simulation projects easier to construct and maintain:</p>

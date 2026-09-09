@@ -1202,6 +1202,15 @@ def _validate_direct_harmonic_axis(request: StepRequest) -> None:
             f"the request supplies {'a frequency axis' if plural else 'one frequency'} "
             f"and therefore requires {expected}."
         )
+    if not plural and request.option("checkpoint") is not None:
+        raise ValueError(
+            "Direct harmonic checkpointing is defined for a frequency sweep; "
+            "one independent frequency has no partial lifecycle to resume."
+        )
+    if not plural and request.option("status_file") is not None:
+        raise ValueError(
+            "Direct harmonic status_file is defined for a frequency sweep."
+        )
 
 
 def _lower_harmonic_viscoelasticity(model, request: StepRequest):
@@ -1660,6 +1669,9 @@ register_step_provider(
             "execution_order",
             "solver_options",
             "output",
+            "progress",
+            "checkpoint",
+            "status_file",
             required=("K", "F"),
             exactly_one_of=(
                 (

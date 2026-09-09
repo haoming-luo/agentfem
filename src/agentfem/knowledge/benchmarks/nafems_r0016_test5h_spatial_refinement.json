@@ -1,0 +1,84 @@
+{
+  "schema": "agentfem.benchmark-card",
+  "schema_version": "0.1.0",
+  "id": "agentfem.benchmark.nafems_r0016_test5h_spatial_refinement",
+  "title": "NAFEMS R0016 Test 5H spatial-refinement stability",
+  "status": "opt_in_automated_peak_observable_spatial_refinement_stability",
+  "purpose": "Check whether three successively refined complete-Q2 meshes stabilize the discrete Test 5H peak frequency, displacement amplitude and declared recovered-stress amplitude without claiming an observed order or continuum error estimate.",
+  "physics": "Three-dimensional small-strain isotropic linear elasticity with inertia, Rayleigh damping and sinusoidal transverse pressure",
+  "source": {
+    "organization": "NAFEMS",
+    "title": "R0016 Selected Benchmarks for Forced Vibration",
+    "nafems_reference": "https://www.nafems.org/publications/resource_center/r0016/",
+    "abaqus_reference": "https://docs.software.vt.edu/abaqusv2025/English/SIMACAEBMKRefMap/simabmk-c-forcedvibrationtest5h.htm"
+  },
+  "execution": {
+    "command": "AGENTFEM_REQUIRE_TEST5H_REFINEMENT=1 python -m pytest -q tests/test_external_forced_vibration_benchmark.py -k spatial_refinement",
+    "example": "tests/test_external_forced_vibration_benchmark.py",
+    "mesh_cells": [[5, 2, 1], [9, 4, 3], [13, 6, 5]],
+    "cell_widths_m": [[2.0, 1.0, 2.0], [1.1111111111111112, 0.5, 0.6666666666666666], [0.7692307692307693, 0.3333333333333333, 0.4]],
+    "characteristic_size_definition": "Euclidean cell-box diagonal",
+    "characteristic_sizes_m": [3.0, 1.3888888888888888, 0.9288848623174306],
+    "frequency_spacing_hz": 0.10204081632653061,
+    "uniform_refinement": false,
+    "observed_order": null,
+    "evidence": "Complete-Q2 meshes with 5x2x1, 9x4x3 and 13x6x5 cells give discrete peak frequencies 42.5510, 42.3469 and 42.2449 Hz, displacement amplitudes 13.2326, 13.3494 and 13.4120 mm, and declared recovered S11 amplitudes 236.398, 242.692 and 243.910 MPa. The final pair changes by 0.242%, 0.466% and 0.499%, respectively. These values establish stability of the three named discrete observables under this nonuniform refinement sequence; they do not establish an observed order or a continuum-error bound."
+  },
+  "observables": [
+    "Discrete peak frequency over the frozen 50-point 40--45 Hz axis.",
+    "Complex vertical-displacement amplitude at the frozen midspan point.",
+    "Longitudinal S11 amplitude from the declared continuous-P1 global L2 recovery.",
+    "Per-level external-reference errors, algebraic residual and cycle-energy balance."
+  ],
+  "acceptance": [
+    "All three cell counts increase and the declared characteristic cell size decreases at every level.",
+    "The final two levels differ by no more than 1% for each of the three peak observables.",
+    "Successive changes decrease for each peak observable.",
+    "Every level also passes the separate Test 5H external-comparison gates and closes residual and cycle-energy errors below 1e-8.",
+    "The 1% refinement limit is an AgentFEM release gate, not a NAFEMS tolerance."
+  ],
+  "golden": {
+    "reference_version": "agentfem-complete-q2-three-level-r0016-test5h-1",
+    "quantities": [
+      {
+        "name": "peak_frequencies_hz",
+        "expected": [42.55102040816327, 42.3469387755102, 42.244897959183675],
+        "relative_tolerance": 0.0,
+        "absolute_tolerance": 1e-12,
+        "unit": "Hz",
+        "description": "Regression values for discrete maxima on the frozen frequency axis; not additional NAFEMS reference values."
+      },
+      {
+        "name": "peak_displacements_m",
+        "expected": [0.013232642580820695, 0.0133494324191, 0.0134119984405],
+        "relative_tolerance": 0.00005,
+        "absolute_tolerance": 1e-9,
+        "unit": "m",
+        "description": "Regression values for the declared midspan displacement amplitude."
+      },
+      {
+        "name": "peak_recovered_s11_pa",
+        "expected": [236397684.48838434, 242692300.198, 243910285.998],
+        "relative_tolerance": 0.0005,
+        "absolute_tolerance": 10000.0,
+        "unit": "Pa",
+        "description": "Regression values for the declared continuous-P1 global L2 stress recovery."
+      },
+      {
+        "name": "finest_pair_relative_changes",
+        "expected": [0.002415458937198023, 0.004664929069113981, 0.004993581123552819],
+        "relative_tolerance": 0.001,
+        "absolute_tolerance": 1e-8,
+        "unit": null,
+        "description": "Frequency, displacement and recovered-stress changes between the final two declared levels."
+      }
+    ]
+  },
+  "limitations": [
+    "The refinement ratios are not uniform, so no observed order, Richardson extrapolation or GCI is reported.",
+    "The frequency maximum is quantized by the fixed 0.1020408 Hz sampling interval; the final frequency change is one frequency point.",
+    "The public-reference errors do not decrease monotonically, so the evidence is not described as monotonic convergence toward the NAFEMS values.",
+    "This is a spatial-refinement stability certificate for three named observables, not experimental validation or a bound on continuum error.",
+    "The expensive three-level execution is opt-in; the normal suite tests the certificate contract against frozen evidence."
+  ]
+}

@@ -115,10 +115,19 @@ Deepen the finite-element core before broadening the catalog:
   shear spectra and solves the exact real block system on ordinary real PETSc.
   Analytical compliance, inertial-wave convergence, cycle-energy closure,
   independently assembled block residuals, and collective two-rank field
-  output are automated; multiple material regions, MPC/weak constraints,
-  independent load phases, frequency campaigns and an external structural
-  frequency-response benchmark remain its promotion gates. Independently
-  checked complex modes follow only after that route is established;
+  output are automated. The first public NAFEMS R0016 Test 5H single-mesh
+  direct-frequency comparison now checks peak frequency, midspan displacement,
+  recovered extreme-fibre stress, load measure, residual and energy, while
+  naming AgentFEM's own discretization, recovery and self-defined tolerances.
+  The complete 50-point problem also reproduces the frozen regression with two
+  MPI ranks. A separate three-level certificate now demonstrates stabilization
+  of the discrete peak frequency, displacement and declared recovered stress;
+  its nonuniform ratios are not used to invent an observed order. Portable
+  scalar sweep restart is exercised in both one-to-two and two-to-one rank
+  directions. Multiple material regions, MPC/weak constraints and independent
+  load phases remain open.
+  Independently checked complex modes follow only after that route is
+  established;
 
 ### 2. Engineering workflow
 

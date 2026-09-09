@@ -105,6 +105,8 @@ the compact machine-readable `agentfem/knowledge/catalog.json`.
 | `agentfem.benchmark.mixed_mode_cyclic_cohesive_foundation` | Mixed-mode cyclic cohesive paths, energy lifecycle and portable state | Fixed-path proportional and ordered non-proportional mixed-mode cyclic cohesive degradation | experimental_automated_foundation |
 | `agentfem.benchmark.mooney_rivlin_material_paths` | Mooney--Rivlin material-path and Explicit-consumer contract | incompressible plane-stress Mooney--Rivlin hyperelasticity | experimental_automated_regression |
 | `agentfem.benchmark.nafems_le10_3d_elasticity` | NAFEMS LE10 three-dimensional thick elliptical plate | three-dimensional small-strain isotropic linear elasticity under transverse pressure | external_release_regression |
+| `agentfem.benchmark.nafems_r0016_test5h_forced_vibration` | NAFEMS R0016 Test 5H forced vibration of a simply supported beam | Three-dimensional small-strain isotropic linear elasticity with inertia, Rayleigh damping and sinusoidal transverse pressure | automated_external_single_mesh_comparison |
+| `agentfem.benchmark.nafems_r0016_test5h_spatial_refinement` | NAFEMS R0016 Test 5H spatial-refinement stability | Three-dimensional small-strain isotropic linear elasticity with inertia, Rayleigh damping and sinusoidal transverse pressure | opt_in_automated_peak_observable_spatial_refinement_stability |
 | `agentfem.benchmark.neo_hookean_release` | Compressible Neo-Hookean finite-strain release contract | compressible Neo-Hookean hyperelasticity | automated_regression |
 | `agentfem.benchmark.operator_contracts` | Operator role, system, and residual-linearization contracts | backend-facing finite-element operator algebra | automated |
 | `agentfem.benchmark.pdeagent_bench_eleven_family` | PDEAgent-Bench eleven-family fixed-adapter milestone | Poisson, heat, linear elasticity, Helmholtz, convection--diffusion, reaction--diffusion, scalar wave, Burgers, Stokes, Navier--Stokes, and biharmonic equations | external_runner_development_snapshot |
@@ -1376,6 +1378,9 @@ Provides generalized-Maxwell/Prony spectra, exact material-point histories, a th
 - `agentfem.studies.harmonic_solid`
 - `agentfem.models.Model.step`
 - `agentfem.checkpointing.every`
+- `agentfem.operators.direct_harmonic_system`
+- `agentfem.results.harmonic_response`
+- `agentfem.results.prepare_projection`
 - `agentfem.dynamics.spectrum`
 - `agentfem.dynamics.frequency_response`
 - `agentfem.dynamics.damping_from_free_decay`
@@ -1447,6 +1452,7 @@ A linear strain path over one increment has an exact branch update and algorithm
 | modal operators | symmetric stiffness K, positive mass M, strong constraints and requested mode count | one consistent mechanical unit system | The low structural spectrum is solved with SLEPc; a target frequency may be declared. |
 | relaxation spectrum | positive equilibrium modulus, branch moduli and relaxation times | stress and time | A Prony factory accepts instantaneous modulus and normalized relaxing ratios. |
 | sampled histories | uniform time and synchronous signal arrays | time and signal dependent | FFT and spectral-ratio FRF processing require uniform sampling and record the selected window. |
+| direct harmonic operator system | inspectable stiffness K, optional mass M, viscous damping C and material-loss K_loss, plus force F | one consistent mechanical and frequency unit system | The generic route accepts either one frequency or a strictly increasing canonical sweep and does not require a generalized-Maxwell material. A sweep reuses one frequency-invariant real spatial K/M/C/K_loss/F system; frequency supplies scalar coefficients and one global phase multiplies the real spatial force operator. |
 
 #### Outputs
 
@@ -1455,7 +1461,8 @@ A linear strain path over one increment has an exact branch update and algorithm
 | modal result | SimulationResult quantities and live mode fields | inverse time and mass-normalized shape | Includes eigenvalues, angular frequencies, frequencies, relative residuals, orthogonality evidence, cluster membership, invariant-subspace semantics and each deterministically oriented singleton mode shape. |
 | dynamic signal records | one-sided spectrum, FRF and damping estimate | frequency, phase and signal-dependent response | Invalid unexcited FRF bins remain explicit and are excluded from finite result histories. |
 | viscoelastic response | relaxation, storage/loss modulus, accepted branch histories, global fields and common SimulationResult | stress, time and temperature | Material-point and global quadrature state use exact branch updates. The global result carries accepted and rejected physical-time attempts, local time-error estimates, quadrature and recovered S, E, SENER, VDENER and MISES fields, RF, temperature evidence, scheduled accepted-boundary checkpoints and a constitutive work--storage--dissipation ledger. |
-| harmonic viscoelastic response | complex bulk/shear material state, phasor displacement fields and harmonic energy evidence | frequency and the model's consistent mechanical units | The direct harmonic result exposes U_REAL, U_IMAG, component-wise U_AMPLITUDE/U_PHASE, the independently assembled A*x-b block residual, mean stored and kinetic energy, external input and material loss per cycle, their relative balance error, and mean dissipated power. |
+| harmonic viscoelastic response | complex bulk/shear material state, phasor displacement fields and harmonic energy evidence | frequency and the model's consistent mechanical units | The direct harmonic result exposes U_REAL, U_IMAG, per-DOF component phasors U_AMPLITUDE/U_PHASE, the independently assembled A*x-b block residual, mean stored and kinetic energy, external input and material loss per cycle, their relative balance error, and mean dissipated power. |
+| harmonic frequency sweep | SimulationResult histories, bounded execution events and scalar-ledger checkpoints | Hz plus each named response unit | Canonical histories retain complex response, displacement-amplitude, solver and cycle-energy evidence. The maximum vector amplitude is the physical-cycle maximum of a discrete node/DOF-coefficient vector and is not a continuous-domain supremum. Portable checkpoints store accepted scalar evidence and scientific identity, not one full finite-element field per frequency. |
 
 #### Assumptions
 
@@ -1471,6 +1478,11 @@ A linear strain path over one increment has an exact branch update and algorithm
 - A mass-normalized mode shape is a relative spatial pattern and does not carry a physical displacement amplitude until combined with a modal coordinate.
 - Storage and loss modulus consume angular frequency, not cyclic frequency.
 - The public harmonic Step accepts cyclic frequency in Hz or angular frequency in rad/s, never both, and records the exp(+i*omega*t) phasor convention.
+- The generic direct sweep is operator-invariant: one real spatial K/M/C/K_loss/F system is reused over the frequency axis, while frequency changes scalar coefficients and one global load phase multiplies F.
+- U_AMPLITUDE and U_PHASE are polar values of each scalar displacement coefficient, component by component; they are not one vector magnitude and phase.
+- The sweep maximum-displacement statistic is the largest physical-cycle maximum of a discrete vector-valued node/DOF coefficient across MPI ranks, not a continuous-domain field supremum.
+- Frequency sweeps publish histories in ascending canonical order even when points are executed or resumed in reverse order.
+- A sweep checkpoint is an atomic scalar evidence ledger; the only live full field belongs to the last frequency solved in the current process and is never claimed to have been restored from that ledger.
 - A zero frequency is recorded as the relaxed static limit; positive frequency is required before interpreting a finite cycle period.
 - Positive Prony ratios are fractions of the instantaneous modulus and must sum to less than one.
 - A nonzero initial strain declares either an instantaneous loading state or a fully equilibrated state; the material history never invents that past implicitly.
@@ -1482,13 +1494,16 @@ A linear strain path over one increment has an exact branch update and algorithm
 - DMA, relaxation, free-decay and modal-superposition preparation for small-strain linear viscoelastic studies.
 - Three-dimensional small-strain quasi-static generalized-Maxwell loading and relaxation on a uniform, explicitly declared nonuniform, or automatically error-controlled physical-time path.
 - Three-dimensional direct harmonic generalized-Maxwell response with optional inertia and a common load phase.
+- Linear direct steady-state frequency response expressed through generic K/M/C/K_loss/F operators, named scalar responses and restartable frequency sweeps.
 
 #### Limitations
 
 - The time-domain global provider supports 3D solids, strong constraints, prescribed or adaptive physical-time paths and physical-keyed portable restart.
-- The direct harmonic provider currently supports one 3D isotropic material, uniform temperature, homogeneous strong constraints and one common load phase; material maps, MPC/weak constraints, independent load phases and automated frequency sweeps remain future work.
+- The material-owned direct harmonic provider currently supports one 3D isotropic material, uniform temperature, homogeneous strong constraints and one common load phase; material maps, MPC/weak constraints and independent load phases remain future work. A declared frequency array is supported by the generic K/M/C/F route.
 - The pure-displacement harmonic formulation records abs(K*)/abs(G*); values at or above 100 are flagged as elevated volumetric-locking risk rather than being silently treated as a verified near-incompressible solution.
 - The real-block provider requires a real PETSc scalar build; native complex-PETSc lowering is not yet a separate verified provider.
+- The generic direct sweep does not accept arbitrary complex spatial load patterns or frequency-dependent operator families; these require an explicitly different provider contract.
+- Frequency-sweep field output requires explicitly selected snapshot frequencies; the bounded scalar sweep does not retain every full field.
 - Complex modes, nonlinear viscoelasticity and physical aging are not implemented.
 - Fixed-spectrum fitting does not automatically choose relaxation times or replace calibration/validation separation.
 
@@ -1506,8 +1521,10 @@ For a direct frequency response, create studies.harmonic_solid(dimension=3), reg
 - `tests/test_viscoelasticity.py`
 - `tests/test_parallel_inelastic.py`
 - `tests/test_parallel_viscoelasticity.py`
+- `tests/portable_harmonic_sweep_driver.py`
 - `tests/portable_viscoelastic_step_driver.py`
 - `tests/test_parallel_modal.py`
+- `tests/test_external_forced_vibration_benchmark.py`
 
 **Benchmarks**
 
@@ -1515,6 +1532,8 @@ For a direct frequency response, create studies.harmonic_solid(dimension=3), reg
 - `agentfem.benchmark.linear_viscoelastic_spectrum`
 - `agentfem.benchmark.global_viscoelastic_relaxation`
 - `agentfem.benchmark.global_viscoelastic_harmonic_bar`
+- `agentfem.benchmark.nafems_r0016_test5h_forced_vibration`
+- `agentfem.benchmark.nafems_r0016_test5h_spatial_refinement`
 - `agentfem.benchmark.abaqus_viscoelastic_rod`
 
 **Validation rules**
@@ -1545,6 +1564,12 @@ For a direct frequency response, create studies.harmonic_solid(dimension=3), reg
 - Require a fixed--traction inertial bar to converge monotonically to the closed-form complex wave solution and close external cycle input against material loss.
 - Require the unpreconditioned assembled real-block A*x-b residual and both phasor-block residuals to satisfy the declared solver tolerance in serial and MPI.
 - Require a two-rank harmonic solve to reproduce the analytical compliance and one collective ParaView dataset carrying all four phasor fields.
+- Require scalar sweep checkpoint/restart to reproduce an uninterrupted result across forward and reverse execution order, reject changed scientific identity before mutating state, and remain portable between one and two MPI ranks.
+- Require nested and monolithic real-block layouts to reproduce one nonzero-phase complex response and cycle input work, while rejecting SPD-only solver policies.
+- Freeze every operator, live coefficient, boundary condition, load phase, solution field and solver policy captured by a prepared harmonic backend; reject configuration drift and all non-finite solution, residual or energy evidence before publishing a result.
+- Compute the sweep maximum-displacement vector statistic as the exact physical-cycle maximum for each discrete vector coefficient, including non-proportional component phases, rather than as a complex coefficient norm.
+- Require the frozen complete-Q2 NAFEMS R0016 Test 5H configuration to recover the public discrete peak frequency, displacement amplitude and explicitly recovered stress amplitude within AgentFEM's stated gates; do not describe those gates as NAFEMS tolerances or claim Abaqus element identity.
+- Require three successively refined complete-Q2 Test 5H meshes to stabilize the discrete peak frequency, displacement and declared recovered-stress observables without inferring an observed order from nonuniform refinement ratios.
 - Reject ambiguous frequency units, nonhomogeneous prescribed harmonic motion, unsupported constraint families and unsupported nested direct factorization rather than silently changing the harmonic problem.
 - Invalidate global restart when material, amplitude, temperature, time grid, physical quadrature identity or portable solution identity differs.
 - Reject nonuniform FFT sampling and mark unexcited FRF bins invalid.
@@ -1555,6 +1580,8 @@ For a direct frequency response, create studies.harmonic_solid(dimension=3), reg
 - SLEPc EPS eigensolver manual: invariant subspaces and clustered eigenvalues: `https://slepc.upv.es/release/documentation/manual/eps.html`
 - Abaqus time-domain viscoelastic rod benchmark: `https://docs.software.vt.edu/abaqusv2025/English/SIMACAEBMKRefMap/simabmk-c-viscorod.htm`
 - Abaqus frequency-domain viscoelasticity: `https://docs.software.vt.edu/abaqusv2025/English/SIMACAETHERefMap/simathe-c-freqdomainvisco.htm`
+- NAFEMS R0016 Selected Benchmarks for Forced Vibration: `https://www.nafems.org/publications/resource_center/r0016/`
+- Abaqus Benchmarks Guide: NAFEMS Test 5H forced vibration of a simply supported beam: `https://docs.software.vt.edu/abaqusv2025/English/SIMACAEBMKRefMap/simabmk-c-forcedvibrationtest5h.htm`
 - Van Houten et al. (2023), closed-form one-dimensional viscoelastic wave boundary-value problem: `https://doi.org/10.1002/cnm.3741`
 
 <a id="agentfem-material-mixed_hybrid_hyperelasticity"></a>
@@ -4657,6 +4684,7 @@ Produces engineering-default S, E, and MISES plus opt-in SENER as traceable cell
 ### Public API
 
 - `agentfem.results.project`
+- `agentfem.results.prepare_projection`
 - `agentfem.results.project_piecewise`
 - `agentfem.results.small_strain_cell_fields`
 - `agentfem.results.small_strain_partition_fields`
@@ -4718,6 +4746,7 @@ Natural loads and strong prescribed values are ramped proportionally from zero; 
 | Name | Type | Unit role | Meaning |
 | --- | --- | --- | --- |
 | standard fields | DG projected Functions named S, E, MISES, and optionally SENER | stress, strain, and energy density | Serial solve_result(output=...) stores these cell fields with nodal U on one Uniform Grid. |
+| prepared projection | reusable L2 projection space, mass matrix, KSP and live output Function | the projected expression's unit | Repeated recovery reassembles only the right-hand side while retaining the constant projection operator and solver. |
 | resultants, force balance, and energy closure | MPI-global scalar/vector, StaticForceBalance, and LinearStaticEnergy | force and energy | Compact engineering histories or verification quantities. |
 
 #### Assumptions
@@ -4731,6 +4760,7 @@ Natural loads and strong prescribed values are ramped proportionally from zero; 
 
 - DG0 is the default output space and represents a cell average.
 - DG0 result fields are discontinuous and are not extrapolated or averaged across neighboring cells or material boundaries.
+- A prepared projection owns PETSc resources and should be closed explicitly or used as a context manager after the repeated recovery path.
 - The engineering default is U/S/E/MISES; SENER is an explicit diagnostic request.
 - E means infinitesimal strain in a small-strain context.
 - Non-zero strong prescribed-displacement work is recorded separately from natural-load work and included in total external work.
@@ -4779,6 +4809,7 @@ peak = results.field_extrema(result.fields['MISES'], location=True)
 - Check the automatically attached assembled-force, strong-reaction, and relative global balance evidence.
 - Check that unresolved periodic/MPC evidence suppresses partial force and work balances and reports the missing named channel.
 - Verify a regional two-material series bar through one piecewise projection.
+- Require a prepared projection to track a changed live field while reusing one assembled mass operator and output Function.
 
 ### References
 

@@ -1,0 +1,78 @@
+{
+  "schema": "agentfem.benchmark-card",
+  "schema_version": "0.1.0",
+  "id": "agentfem.benchmark.nafems_r0016_test5h_forced_vibration",
+  "title": "NAFEMS R0016 Test 5H forced vibration of a simply supported beam",
+  "status": "automated_external_single_mesh_comparison",
+  "purpose": "Check AgentFEM's three-dimensional direct steady-state harmonic route against the public NAFEMS R0016 Test 5H peak frequency, displacement-amplitude and extreme-fibre stress-amplitude values while retaining independent residual, energy and load-measure evidence.",
+  "physics": "Three-dimensional small-strain isotropic linear elasticity with inertia, Rayleigh damping and sinusoidal transverse pressure",
+  "source": {
+    "organization": "NAFEMS",
+    "title": "R0016 Selected Benchmarks for Forced Vibration",
+    "nafems_reference": "https://www.nafems.org/publications/resource_center/r0016/",
+    "abaqus_reference": "https://docs.software.vt.edu/abaqusv2025/English/SIMACAEBMKRefMap/simabmk-c-forcedvibrationtest5h.htm",
+    "reference_values": "42.65 Hz response peak, 13.45 mm vertical displacement amplitude and 241.9 MPa longitudinal extreme-fibre stress amplitude",
+    "abaqus_c3d10_input_sha256": "4e5b52c3cf6f4ef391e8ba5a5de301c3d8013d716a611fa0d7e24f6fc9ed0a79",
+    "abaqus_c3d27_input_sha256": "14a50519f66b27f5d144d88118ad0463e970d08ed5103b6cf15c6535d7bf473b"
+  },
+  "execution": {
+    "command": "python -m pytest -q tests/test_external_forced_vibration_benchmark.py",
+    "example": "tests/test_external_forced_vibration_benchmark.py",
+    "structural_api": "Study -> Model -> field/material/loads/constraints -> K/M/C/F -> model.step -> SimulationResult",
+    "evidence": "A 10 m by 2 m by 2 m beam uses E=200 GPa, nu=0.3, density=8000 kg/m^3, Rayleigh coefficients alpha=5.36 1/s and beta=7.46e-5 s, the published solid-model support conditions, and a -0.5 MPa pressure amplitude on the 20 m^2 top face. The response is evaluated at the discrete maximum of the published 50-point 40--45 Hz axis."
+  },
+  "observables": [
+    "Discrete peak frequency and vertical-displacement amplitude at the frozen midspan top-edge point.",
+    "Longitudinal S11 amplitude from an explicitly labelled continuous-P1 global L2 recovery for the external scalar comparison.",
+    "Unsmoothed discontinuous-Q2 cell-side S11 trace retained as an extraction audit channel.",
+    "Independently integrated loaded area and pressure-resultant amplitude.",
+    "Global algebraic residual and cycle-energy balance over every frequency sample.",
+    "Frequency axis, peak indices, phasor convention, source identities and discretization disclaimer."
+  ],
+  "acceptance": [
+    "The discrete peak frequency differs from 42.65 Hz by less than 1%.",
+    "The peak vertical-displacement amplitude differs from 13.45 mm by less than 2%.",
+    "The recovered peak longitudinal stress amplitude differs from 241.9 MPa by less than 3%.",
+    "The maximum relative algebraic residual and cycle-energy balance error remain below 1e-8.",
+    "The loaded-area relative error remains below 1e-10.",
+    "All numerical percentages above are AgentFEM verification gates; NAFEMS R0016 does not publish an acceptance tolerance for Test 5H."
+  ],
+  "golden": {
+    "reference_version": "agentfem-complete-q2-5x2x1-r0016-test5h-1",
+    "quantities": [
+      {
+        "name": "peak_frequency_hz",
+        "expected": 42.55102040816327,
+        "relative_tolerance": 0.0,
+        "absolute_tolerance": 1e-12,
+        "unit": "Hz",
+        "description": "AgentFEM regression value for the discrete peak on the declared 50-point axis; it is not an additional NAFEMS reference value."
+      },
+      {
+        "name": "peak_displacement_m",
+        "expected": 0.013232642580820695,
+        "relative_tolerance": 5e-05,
+        "absolute_tolerance": 1e-09,
+        "unit": "m",
+        "description": "AgentFEM regression value for the absolute complex UY amplitude on the declared complete-Q2 mesh."
+      },
+      {
+        "name": "peak_recovered_s11_pa",
+        "expected": 236397684.48838434,
+        "relative_tolerance": 0.0005,
+        "absolute_tolerance": 10000.0,
+        "unit": "Pa",
+        "description": "AgentFEM regression value for the explicitly labelled continuous-P1 global L2 recovered stress amplitude."
+      }
+    ]
+  },
+  "limitations": [
+    "This is a single-mesh external numerical comparison, not an analytical proof, mesh-convergence certificate or experimental validation.",
+    "AgentFEM uses complete quadratic Q2 hexahedra. The public Abaqus C3D27 deck states a 21-node element realization, so element-by-element identity is not claimed.",
+    "The public solid decks choose an available through-width node on the midspan top edge according to their mesh. AgentFEM freezes (5,2,1) m and records that point explicitly.",
+    "Stress depends on recovery and location. The continuous-P1 global L2 value used for the scalar comparison is not interchangeable with the retained discontinuous cell-side stress or an integration-point extreme.",
+    "The comparison recovery is frozen as part of this benchmark identity. Selecting a different stress recovery after seeing its error requires a new benchmark record rather than silent replacement.",
+    "AgentFEM uses exp(+i*omega*t), whereas the source describes sinusoidal forcing. Only amplitudes are compared; a phase comparison would require an explicit convention conversion.",
+    "This card remains a single-mesh comparison. Spatial refinement, two-rank equivalence and portable harmonic checkpoint recovery are recorded by separate automated evidence rather than being silently folded into this result."
+  ]
+}

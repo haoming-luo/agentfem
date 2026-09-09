@@ -457,6 +457,10 @@ class SolveEvent:
     message: str = ""
     time: float | None = None
     total_increments: int = 0
+    coordinate_name: str | None = None
+    coordinate_value: float | None = None
+    coordinate_unit: str | None = None
+    metrics: dict[str, float] = field(default_factory=dict)
     display: bool = True
 
     def as_dict(self) -> dict[str, object]:
@@ -484,6 +488,13 @@ class SolveEvent:
             "message": self.message,
             "time": finite_or_none(self.time),
             "total_increments": int(self.total_increments),
+            "coordinate_name": self.coordinate_name,
+            "coordinate_value": finite_or_none(self.coordinate_value),
+            "coordinate_unit": self.coordinate_unit,
+            "metrics": {
+                str(name): finite_or_none(value)
+                for name, value in self.metrics.items()
+            },
             "display": bool(self.display),
         }
 
@@ -507,6 +518,14 @@ class SolveEvent:
             message=str(record.get("message", "")),
             time=record.get("time"),
             total_increments=int(record.get("total_increments", 0)),
+            coordinate_name=record.get("coordinate_name"),
+            coordinate_value=record.get("coordinate_value"),
+            coordinate_unit=record.get("coordinate_unit"),
+            metrics={
+                str(name): float(value)
+                for name, value in dict(record.get("metrics", {})).items()
+                if value is not None
+            },
             display=bool(record.get("display", True)),
         )
 

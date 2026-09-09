@@ -158,6 +158,13 @@ jobs:
       - name: Run the complete serial suite
         run: python -m pytest
 
+      - name: Verify Test 5H spatial-refinement stability
+        env:
+          AGENTFEM_REQUIRE_TEST5H_REFINEMENT: "1"
+        run: >-
+          python -m pytest -q tests/test_external_forced_vibration_benchmark.py
+          -k spatial_refinement
+
       - name: Run distributed constraint, fracture, and result tests
         run: >-
           mpirun -n 2 python -m pytest
@@ -178,6 +185,10 @@ jobs:
         run: |
           mpirun -n 2 python tests/portable_checkpoint_driver.py write /tmp/agentfem-portable-heat
           python tests/portable_checkpoint_driver.py read /tmp/agentfem-portable-heat
+          mpirun -n 2 python tests/portable_harmonic_sweep_driver.py write /tmp/agentfem-portable-harmonic
+          python tests/portable_harmonic_sweep_driver.py read /tmp/agentfem-portable-harmonic
+          python tests/portable_harmonic_sweep_driver.py write /tmp/agentfem-portable-harmonic-reverse
+          mpirun -n 2 python tests/portable_harmonic_sweep_driver.py read /tmp/agentfem-portable-harmonic-reverse
           mpirun -n 2 python tests/portable_field_history_driver.py write /tmp/agentfem-portable-field-history
           python tests/portable_field_history_driver.py read /tmp/agentfem-portable-field-history.npz
           python tests/portable_field_history_driver.py write /tmp/agentfem-portable-field-history-reverse

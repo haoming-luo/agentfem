@@ -20,6 +20,18 @@ from petsc4py import PETSc
 from ..solvers import LinearSolveInfo
 
 
+def _finite_harmonic_scalar(value, *, quantity: str) -> float:
+    """Return one finite evidence scalar or fail before it can be published."""
+
+    selected = float(value)
+    if not np.isfinite(selected):
+        raise FloatingPointError(
+            "Direct harmonic solve produced non-finite "
+            f"{quantity}: {selected!r}. No solve evidence was accepted."
+        )
+    return selected
+
+
 @dataclass(frozen=True)
 class HarmonicLinearSolveEvidence:
     """One direct harmonic linear solve and its physical residual evidence."""
@@ -27,25 +39,46 @@ class HarmonicLinearSolveEvidence:
     solve: LinearSolveInfo
     residual_norm: float
     relative_residual_norm: float
-    relative_real_block_residual_norm: float
-    relative_imaginary_block_residual_norm: float
+    relative_real_block_residual_norm: float | None
+    relative_imaginary_block_residual_norm: float | None
     input_energy_per_cycle: float
+
+    def __post_init__(self) -> None:
+        values = {
+            "KSP residual norm": self.solve.residual_norm,
+            "algebraic residual norm": self.residual_norm,
+            "relative algebraic residual norm": self.relative_residual_norm,
+            "input energy per cycle": self.input_energy_per_cycle,
+        }
+        if self.relative_real_block_residual_norm is not None:
+            values["relative real-block residual norm"] = (
+                self.relative_real_block_residual_norm
+            )
+        if self.relative_imaginary_block_residual_norm is not None:
+            values["relative imaginary-block residual norm"] = (
+                self.relative_imaginary_block_residual_norm
+            )
+        for quantity, value in values.items():
+            _finite_harmonic_scalar(value, quantity=quantity)
 
     @property
     def converged(self) -> bool:
         return self.solve.converged
 
     def equilibrium(self) -> dict[str, float]:
-        return {
+        values = {
             "residual_norm": self.residual_norm,
             "relative_residual_norm": self.relative_residual_norm,
-            "relative_real_block_residual_norm": (
-                self.relative_real_block_residual_norm
-            ),
-            "relative_imaginary_block_residual_norm": (
-                self.relative_imaginary_block_residual_norm
-            ),
         }
+        if self.relative_real_block_residual_norm is not None:
+            values["relative_real_block_residual_norm"] = (
+                self.relative_real_block_residual_norm
+            )
+        if self.relative_imaginary_block_residual_norm is not None:
+            values["relative_imaginary_block_residual_norm"] = (
+                self.relative_imaginary_block_residual_norm
+            )
+        return values
 
 
 class PreparedHarmonicLinearProblem:
@@ -65,6 +98,7 @@ class PreparedHarmonicLinearProblem:
         solution_imaginary,
         bcs,
         solver_options,
+        matrix_kind: str = "nest",
         petsc_options_prefix: str,
     ) -> None:
         self._problem = fem_petsc.LinearProblem(
@@ -72,11 +106,12 @@ class PreparedHarmonicLinearProblem:
             linear_forms,
             u=[solution_real, solution_imaginary],
             bcs=list(bcs),
-            kind="nest",
+            kind=matrix_kind,
             petsc_options_prefix=petsc_options_prefix,
             petsc_options=solver_options.petsc_options(),
         )
         self._solve_count = 0
+        self._matrix_kind = str(matrix_kind)
 
     @classmethod
     def from_system(
@@ -164,6 +199,9 @@ class PreparedHarmonicLinearProblem:
             system.force,
             imaginary_test,
         )
+        matrix_kind = (
+            "nest" if solver_options.pc_type.lower() == "fieldsplit" else "mpi"
+        )
         prepared = cls(
             [[dynamic_rr, -coupling_ri], [coupling_ir, dynamic_ii]],
             [real_load, imaginary_load],
@@ -171,10 +209,21 @@ class PreparedHarmonicLinearProblem:
             solution_imaginary=solution_imaginary,
             bcs=bcs,
             solver_options=solver_options,
+            matrix_kind=matrix_kind,
             petsc_options_prefix=petsc_options_prefix,
         )
         prepared._angular_frequency = omega
         prepared._system = system
+        prepared._solution_real = solution_real
+        prepared._solution_imaginary = solution_imaginary
+        prepared._load_phase = phase
+        if matrix_kind != "nest":
+            prepared._input_energy_forms = _compile_input_energy_forms(
+                system,
+                solution_real=solution_real,
+                solution_imaginary=solution_imaginary,
+            )
+            prepared._input_energy_comm = domain.comm
         return prepared
 
     @property
@@ -206,10 +255,13 @@ class PreparedHarmonicLinearProblem:
         problem.solve()
         self._solve_count += 1
         solver = problem.solver
+        _finite_harmonic_scalar(problem.x.norm(), quantity="solution-vector norm")
         solve = LinearSolveInfo(
             converged_reason=int(solver.getConvergedReason()),
             iterations=int(solver.getIterationNumber()),
-            residual_norm=float(solver.getResidualNorm()),
+            residual_norm=_finite_harmonic_scalar(
+                solver.getResidualNorm(), quantity="KSP residual norm"
+            ),
         )
 
         action = problem.b.duplicate()
@@ -218,44 +270,63 @@ class PreparedHarmonicLinearProblem:
             problem.A.mult(problem.x, action)
             action.copy(residual)
             residual.axpy(-1.0, problem.b)
-            action_blocks = action.getNestSubVecs()
-            residual_blocks = residual.getNestSubVecs()
-            rhs_blocks = problem.b.getNestSubVecs()
-            solution_blocks = problem.x.getNestSubVecs()
-            if not all(
-                len(blocks) == 2
-                for blocks in (
-                    action_blocks,
-                    residual_blocks,
-                    rhs_blocks,
-                    solution_blocks,
-                )
-            ):
-                raise RuntimeError(
-                    "Harmonic real-block evidence requires exactly two PETSc blocks."
-                )
-
-            action_norm = float(action.norm())
-            rhs_norm = float(problem.b.norm())
-            residual_norm = float(residual.norm())
-            system_scale = max(action_norm, rhs_norm, np.finfo(float).tiny)
-            input_energy = float(
-                np.pi
-                * (
-                    rhs_blocks[1].dot(solution_blocks[0])
-                    - rhs_blocks[0].dot(solution_blocks[1])
-                )
+            action_norm = _finite_harmonic_scalar(action.norm(), quantity="A*x norm")
+            rhs_norm = _finite_harmonic_scalar(
+                problem.b.norm(), quantity="right-hand-side norm"
             )
+            residual_norm = _finite_harmonic_scalar(
+                residual.norm(), quantity="A*x-b norm"
+            )
+            system_scale = max(action_norm, rhs_norm, np.finfo(float).tiny)
+            relative_real = None
+            relative_imaginary = None
+            if self._matrix_kind == "nest":
+                residual_blocks = residual.getNestSubVecs()
+                rhs_blocks = problem.b.getNestSubVecs()
+                solution_blocks = problem.x.getNestSubVecs()
+                if not all(
+                    len(blocks) == 2
+                    for blocks in (residual_blocks, rhs_blocks, solution_blocks)
+                ):
+                    raise RuntimeError(
+                        "Harmonic nested evidence requires exactly two PETSc blocks."
+                    )
+                for index, block in enumerate(solution_blocks):
+                    _finite_harmonic_scalar(
+                        block.norm(),
+                        quantity=f"solution block {index} norm",
+                    )
+                relative_real = _finite_harmonic_scalar(
+                    float(residual_blocks[0].norm()) / system_scale,
+                    quantity="relative real-block residual norm",
+                )
+                relative_imaginary = _finite_harmonic_scalar(
+                    float(residual_blocks[1].norm()) / system_scale,
+                    quantity="relative imaginary-block residual norm",
+                )
+                input_energy = _finite_harmonic_scalar(
+                    np.pi
+                    * (
+                        rhs_blocks[1].dot(solution_blocks[0])
+                        - rhs_blocks[0].dot(solution_blocks[1])
+                    ),
+                    quantity="input energy per cycle",
+                )
+            else:
+                input_energy = _input_energy_per_cycle(
+                    self._input_energy_forms,
+                    comm=self._input_energy_comm,
+                    load_phase=self._load_phase,
+                )
             return HarmonicLinearSolveEvidence(
                 solve=solve,
                 residual_norm=residual_norm,
-                relative_residual_norm=residual_norm / system_scale,
-                relative_real_block_residual_norm=(
-                    float(residual_blocks[0].norm()) / system_scale
+                relative_residual_norm=_finite_harmonic_scalar(
+                    residual_norm / system_scale,
+                    quantity="relative algebraic residual norm",
                 ),
-                relative_imaginary_block_residual_norm=(
-                    float(residual_blocks[1].norm()) / system_scale
-                ),
+                relative_real_block_residual_norm=relative_real,
+                relative_imaginary_block_residual_norm=relative_imaginary,
                 input_energy_per_cycle=input_energy,
             )
         finally:
@@ -274,11 +345,62 @@ class PreparedHarmonicLinearProblem:
         }
         if self.angular_frequency is not None:
             summary["angular_frequency"] = self.angular_frequency
+            summary["matrix_layout"] = (
+                "nested" if self._matrix_kind == "nest" else "monolithic"
+            )
+            summary["petsc_matrix_type"] = self._problem.A.getType()
+            summary["component_residuals_available"] = self._matrix_kind == "nest"
+            if self._matrix_kind != "nest":
+                summary["component_residuals_unavailable_reason"] = (
+                    "The monolithic PETSc layout exposes the total real-block "
+                    "residual; component residuals require an explicit index split."
+                )
         return summary
 
 
 def _expression(operator):
     return operator.expression if hasattr(operator, "expression") else operator
+
+
+def _compile_input_energy_forms(
+    system,
+    *,
+    solution_real,
+    solution_imaginary,
+) -> tuple[object, object]:
+    """Compile load-action forms once for a reusable monolithic sweep."""
+
+    expression = _expression(system.force)
+    arguments = tuple(expression.arguments())
+    if len(arguments) != 1:
+        raise ValueError("Harmonic input work requires one linear force operator.")
+    real_action = ufl.replace(expression, {arguments[0]: solution_real})
+    imaginary_action = ufl.replace(expression, {arguments[0]: solution_imaginary})
+    return fem.form(real_action), fem.form(imaginary_action)
+
+
+def _input_energy_per_cycle(
+    forms,
+    *,
+    comm,
+    load_phase: float,
+) -> float:
+    """Integrate phasor load work without depending on PETSc block layout."""
+
+    real_form, imaginary_form = forms
+    real = _finite_harmonic_scalar(
+        comm.allreduce(fem.assemble_scalar(real_form)),
+        quantity="real load action",
+    )
+    imaginary = _finite_harmonic_scalar(
+        comm.allreduce(fem.assemble_scalar(imaginary_form)),
+        quantity="imaginary load action",
+    )
+    phase = _finite_harmonic_scalar(load_phase, quantity="load phase")
+    return _finite_harmonic_scalar(
+        np.pi * (np.sin(phase) * real - np.cos(phase) * imaginary),
+        quantity="input energy per cycle",
+    )
 
 
 def _bind_bilinear(operator, trial, test):

@@ -8,6 +8,7 @@
   "summary": "Produces engineering-default S, E, and MISES plus opt-in SENER as traceable cell-average fields, including full (r,theta,z) axisymmetric tensors and weighted projection, extracts MPI-global resultants, and records assembled external-force versus strong-reaction equilibrium.",
   "public_api": [
     "agentfem.results.project",
+    "agentfem.results.prepare_projection",
     "agentfem.results.project_piecewise",
     "agentfem.results.small_strain_cell_fields",
     "agentfem.results.small_strain_partition_fields",
@@ -72,6 +73,12 @@
         "description": "Serial solve_result(output=...) stores these cell fields with nodal U on one Uniform Grid."
       },
       {
+        "name": "prepared projection",
+        "type": "reusable L2 projection space, mass matrix, KSP and live output Function",
+        "unit_role": "the projected expression's unit",
+        "description": "Repeated recovery reassembles only the right-hand side while retaining the constant projection operator and solver."
+      },
+      {
         "name": "resultants, force balance, and energy closure",
         "type": "MPI-global scalar/vector, StaticForceBalance, and LinearStaticEnergy",
         "unit_role": "force and energy",
@@ -87,6 +94,7 @@
     "conventions": [
       "DG0 is the default output space and represents a cell average.",
       "DG0 result fields are discontinuous and are not extrapolated or averaged across neighboring cells or material boundaries.",
+      "A prepared projection owns PETSc resources and should be closed explicitly or used as a context manager after the repeated recovery path.",
       "The engineering default is U/S/E/MISES; SENER is an explicit diagnostic request.",
       "E means infinitesimal strain in a small-strain context.",
       "Non-zero strong prescribed-displacement work is recorded separately from natural-load work and included in total external work.",
@@ -120,7 +128,8 @@
       "Check named-boundary reaction equilibrium and proportional static energy closure.",
       "Check the automatically attached assembled-force, strong-reaction, and relative global balance evidence.",
       "Check that unresolved periodic/MPC evidence suppresses partial force and work balances and reports the missing named channel.",
-      "Verify a regional two-material series bar through one piecewise projection."
+      "Verify a regional two-material series bar through one piecewise projection.",
+      "Require a prepared projection to track a changed live field while reusing one assembled mass operator and output Function."
     ]
   },
   "references": [

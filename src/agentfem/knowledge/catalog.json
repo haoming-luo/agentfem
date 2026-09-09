@@ -295,6 +295,20 @@
       "title": "NAFEMS LE10 three-dimensional thick elliptical plate"
     },
     {
+      "id": "agentfem.benchmark.nafems_r0016_test5h_forced_vibration",
+      "physics": "Three-dimensional small-strain isotropic linear elasticity with inertia, Rayleigh damping and sinusoidal transverse pressure",
+      "source": "src/agentfem/knowledge/benchmarks/nafems_r0016_test5h_forced_vibration.json",
+      "status": "automated_external_single_mesh_comparison",
+      "title": "NAFEMS R0016 Test 5H forced vibration of a simply supported beam"
+    },
+    {
+      "id": "agentfem.benchmark.nafems_r0016_test5h_spatial_refinement",
+      "physics": "Three-dimensional small-strain isotropic linear elasticity with inertia, Rayleigh damping and sinusoidal transverse pressure",
+      "source": "src/agentfem/knowledge/benchmarks/nafems_r0016_test5h_spatial_refinement.json",
+      "status": "opt_in_automated_peak_observable_spatial_refinement_stability",
+      "title": "NAFEMS R0016 Test 5H spatial-refinement stability"
+    },
+    {
       "id": "agentfem.benchmark.neo_hookean_release",
       "physics": "compressible Neo-Hookean hyperelasticity",
       "source": "src/agentfem/knowledge/benchmarks/neo_hookean_release.json",
@@ -597,6 +611,9 @@
         "agentfem.studies.harmonic_solid",
         "agentfem.models.Model.step",
         "agentfem.checkpointing.every",
+        "agentfem.operators.direct_harmonic_system",
+        "agentfem.results.harmonic_response",
+        "agentfem.results.prepare_projection",
         "agentfem.dynamics.spectrum",
         "agentfem.dynamics.frequency_response",
         "agentfem.dynamics.damping_from_free_decay",
@@ -1202,6 +1219,7 @@
       "kind": "workflow",
       "public_api": [
         "agentfem.results.project",
+        "agentfem.results.prepare_projection",
         "agentfem.results.project_piecewise",
         "agentfem.results.small_strain_cell_fields",
         "agentfem.results.small_strain_partition_fields",

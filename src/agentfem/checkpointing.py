@@ -24,6 +24,7 @@ from . import fields
 
 
 TRANSIENT_CHECKPOINT_SCHEMA = "agentfem.transient-checkpoint.v3"
+HARMONIC_SWEEP_CHECKPOINT_SCHEMA = "agentfem.harmonic-sweep-checkpoint.v2"
 _LEGACY_TRANSIENT_CHECKPOINT_SCHEMAS = {
     "agentfem.transient-checkpoint.v1",
     "agentfem.transient-checkpoint.v2",
@@ -100,6 +101,348 @@ def every(
         keep_last=keep_last,
         portable=portable,
     )
+
+
+def save_harmonic_sweep_checkpoint(
+    path,
+    *,
+    step_name: str,
+    frequencies,
+    records,
+    scientific_inputs,
+    field_identity: dict[str, object],
+    execution_events=(),
+    comm=MPI.COMM_WORLD,
+):
+    """Atomically publish a partition-independent scalar sweep ledger.
+
+    A direct harmonic frequency point has no history state needed by another
+    point. The durable restart boundary is therefore accepted scalar evidence,
+    not the last displacement field. This keeps the checkpoint portable across
+    MPI partitions and rank counts without gathering one field per frequency.
+    """
+
+    from .provenance import content_fingerprint, scientific_input_manifest
+
+    axis = _harmonic_frequency_axis(frequencies)
+    input_manifest = _harmonic_scientific_input_manifest(
+        scientific_inputs,
+        scientific_input_manifest=scientific_input_manifest,
+        content_fingerprint=content_fingerprint,
+    )
+    if not input_manifest["complete"]:
+        missing = ", ".join(
+            str(item["path"]) for item in input_manifest["missing"][:5]
+        )
+        raise ValueError(
+            "Harmonic sweep checkpoint requires complete scientific-input "
+            f"identity; unresolved inputs: {missing or 'unknown'}."
+        )
+    encoded_records = _encode_harmonic_records(records, axis)
+    identity = json.loads(
+        json.dumps(
+            {
+                "scientific_inputs": input_manifest,
+                "field_identity": field_identity,
+            },
+            sort_keys=True,
+            allow_nan=False,
+        )
+    )
+    identity_fingerprint = content_fingerprint(identity)
+    local_fingerprint = content_fingerprint(
+        {"identity": identity, "records": encoded_records}
+    )
+    fingerprints = comm.allgather(local_fingerprint)
+    if any(item != fingerprints[0] for item in fingerprints[1:]):
+        raise RuntimeError(
+            "Harmonic sweep checkpoint records or identity differ across MPI ranks."
+        )
+
+    events = [
+        event.as_dict() if hasattr(event, "as_dict") else dict(event)
+        for event in execution_events
+    ]
+    manifest = _manifest_path(path)
+    payload = {
+        "schema": HARMONIC_SWEEP_CHECKPOINT_SCHEMA,
+        "created_at": datetime.now(timezone.utc).isoformat(),
+        "software": {"name": "AgentFEM", "version": _software_version()},
+        "step_kind": "direct_harmonic_frequency_sweep",
+        "step_name": str(step_name),
+        "rank_count_at_write": int(comm.size),
+        "portable": True,
+        "portability": (
+            "scalar frequency evidence portable across MPI partitions, rank counts, "
+            "and execution order; live finite-element fields are not stored"
+        ),
+        "frequency_axis": {
+            "name": "frequency",
+            "unit": "Hz",
+            "values": list(axis),
+            "canonical_order": "ascending",
+        },
+        "completed_indices": [item["index"] for item in encoded_records],
+        "records": encoded_records,
+        "execution_events": events,
+        "identity": identity,
+        "identity_fingerprint": identity_fingerprint,
+        "field_state": "not_stored_scalar_ledger_only",
+    }
+    payload["payload_fingerprint"] = content_fingerprint(payload)
+    root_error = None
+    if comm.rank == 0:
+        try:
+            atomic_write_text(
+                manifest,
+                json.dumps(
+                    payload,
+                    indent=2,
+                    sort_keys=True,
+                    ensure_ascii=False,
+                    allow_nan=False,
+                )
+                + "\n",
+            )
+        except Exception as exc:  # pragma: no cover - filesystem failure
+            root_error = f"{type(exc).__name__}: {exc}"
+    root_error = comm.bcast(root_error, root=0)
+    if root_error is not None:
+        raise RuntimeError(
+            f"Harmonic sweep checkpoint manifest write failed: {root_error}"
+        )
+    comm.barrier()
+    return manifest
+
+
+def load_harmonic_sweep_checkpoint(
+    path,
+    *,
+    step_name: str,
+    frequencies,
+    scientific_inputs,
+    field_identity: dict[str, object],
+    comm=MPI.COMM_WORLD,
+) -> dict[str, object]:
+    """Validate and load a scalar harmonic sweep ledger without field mutation."""
+
+    from .provenance import content_fingerprint, scientific_input_manifest
+
+    axis = _harmonic_frequency_axis(frequencies)
+    current_inputs = _harmonic_scientific_input_manifest(
+        scientific_inputs,
+        scientific_input_manifest=scientific_input_manifest,
+        content_fingerprint=content_fingerprint,
+    )
+    if not current_inputs["complete"]:
+        missing = ", ".join(
+            str(item["path"]) for item in current_inputs["missing"][:5]
+        )
+        raise ValueError(
+            "Harmonic sweep checkpoint requires complete scientific-input "
+            f"identity; unresolved inputs: {missing or 'unknown'}."
+        )
+    current_identity = json.loads(
+        json.dumps(
+            {
+                "scientific_inputs": current_inputs,
+                "field_identity": field_identity,
+            },
+            sort_keys=True,
+            allow_nan=False,
+        )
+    )
+    current_fingerprint = content_fingerprint(current_identity)
+    fingerprints = comm.allgather(current_fingerprint)
+    if any(item != fingerprints[0] for item in fingerprints[1:]):
+        raise RuntimeError(
+            "Current harmonic sweep identity differs across MPI ranks."
+        )
+
+    manifest = _manifest_path(path)
+    response = None
+    if comm.rank == 0:
+        try:
+            payload = json.loads(manifest.read_text(encoding="utf-8"))
+            stored_fingerprint = payload.pop("payload_fingerprint", None)
+            actual_fingerprint = content_fingerprint(payload)
+            payload["payload_fingerprint"] = stored_fingerprint
+            if stored_fingerprint != actual_fingerprint:
+                raise ValueError("checkpoint payload fingerprint does not match")
+            response = {"payload": payload, "error": None}
+        except Exception as exc:
+            response = {
+                "payload": None,
+                "error": f"{type(exc).__name__}: {exc}",
+            }
+    response = comm.bcast(response, root=0)
+    if response["error"] is not None:
+        raise RuntimeError(
+            f"Harmonic sweep checkpoint manifest read failed: {response['error']}"
+        )
+    payload = response["payload"]
+    if payload.get("schema") != HARMONIC_SWEEP_CHECKPOINT_SCHEMA:
+        raise ValueError(
+            "Unsupported harmonic sweep checkpoint schema. Version 1 ledgers "
+            "did not bind the executable operator and constraint identity and "
+            "cannot be resumed safely."
+        )
+    current_software = {"name": "AgentFEM", "version": _software_version()}
+    if payload.get("software") != current_software:
+        raise ValueError(
+            "Harmonic sweep checkpoint software identity differs: "
+            f"stored={payload.get('software')!r}, current={current_software!r}. "
+            "No checkpoint migration was declared."
+        )
+    if payload.get("step_name") != str(step_name):
+        raise ValueError(
+            "Harmonic sweep checkpoint step name differs: "
+            f"stored={payload.get('step_name')!r}, current={str(step_name)!r}."
+        )
+    stored_axis = tuple(float(value) for value in payload["frequency_axis"]["values"])
+    if stored_axis != axis:
+        raise ValueError("Harmonic sweep checkpoint frequency axis differs.")
+    if payload.get("identity_fingerprint") != current_fingerprint:
+        raise ValueError(
+            "Harmonic sweep checkpoint scientific identity differs from the "
+            "current model, operators, responses, or solver contract."
+        )
+    if payload.get("identity") != current_identity:
+        raise ValueError("Harmonic sweep checkpoint identity record differs.")
+    decoded = _decode_harmonic_records(payload.get("records", ()), axis)
+    if tuple(payload.get("completed_indices", ())) != tuple(sorted(decoded)):
+        raise ValueError("Harmonic sweep checkpoint completed-index ledger differs.")
+    payload["records"] = decoded
+    payload["manifest_path"] = str(manifest)
+    return payload
+
+
+def remove_harmonic_sweep_checkpoint(path, *, comm=MPI.COMM_WORLD) -> None:
+    """Collectively remove exactly one typed scalar sweep manifest."""
+
+    manifest = _manifest_path(path)
+    error = None
+    if comm.rank == 0:
+        try:
+            payload = json.loads(manifest.read_text(encoding="utf-8"))
+            if payload.get("schema") != HARMONIC_SWEEP_CHECKPOINT_SCHEMA:
+                raise ValueError("Refusing to remove an unrelated checkpoint schema.")
+            manifest.unlink()
+        except Exception as exc:  # pragma: no cover - filesystem failure
+            error = f"{type(exc).__name__}: {exc}"
+    error = comm.bcast(error, root=0)
+    if error is not None:
+        raise RuntimeError(f"Harmonic sweep checkpoint removal failed: {error}")
+    comm.barrier()
+
+
+def _harmonic_frequency_axis(values) -> tuple[float, ...]:
+    axis = tuple(float(value) for value in values)
+    if not axis or any(not np.isfinite(value) or value < 0.0 for value in axis):
+        raise ValueError(
+            "Harmonic sweep checkpoint frequency axis must be finite, nonnegative, "
+            "and non-empty."
+        )
+    if any(right <= left for left, right in zip(axis, axis[1:])):
+        raise ValueError(
+            "Harmonic sweep checkpoint frequency axis must be strictly increasing."
+        )
+    return axis
+
+
+def _harmonic_scientific_input_manifest(
+    value,
+    *,
+    scientific_input_manifest,
+    content_fingerprint,
+) -> dict[str, object]:
+    """Remove declared rank-local evidence from a portable sweep identity."""
+
+    manifest = scientific_input_manifest(
+        value,
+        label="harmonic_sweep_inputs",
+        require_nonempty=True,
+    )
+    record = _partition_neutral_harmonic_record(manifest["record"])
+    selected = {
+        **manifest,
+        "record": record,
+    }
+    selected["fingerprint"] = content_fingerprint(
+        {"label": selected["label"], "record": record}
+    )
+    return selected
+
+
+def _partition_neutral_harmonic_record(value):
+    if isinstance(value, list):
+        return [_partition_neutral_harmonic_record(item) for item in value]
+    if not isinstance(value, dict):
+        return value
+    selected = {
+        str(name): _partition_neutral_harmonic_record(item)
+        for name, item in value.items()
+    }
+    if selected.get("kind") == "boundary_region":
+        selected.pop("local_facets", None)
+    return selected
+
+
+def _encode_harmonic_records(records, axis) -> list[dict[str, object]]:
+    encoded = []
+    seen = set()
+    source = records.items() if hasattr(records, "items") else enumerate(records)
+    for supplied_index, record in source:
+        item = dict(record)
+        index = int(item.get("index", supplied_index))
+        if index in seen or index < 0 or index >= len(axis):
+            raise ValueError("Harmonic sweep checkpoint contains an invalid index.")
+        if float(item.get("frequency")) != axis[index]:
+            raise ValueError(
+                "Harmonic sweep checkpoint record frequency does not match its axis."
+            )
+        responses = {}
+        for name, value in dict(item.get("responses", {})).items():
+            selected = complex(value)
+            if not np.isfinite(selected.real) or not np.isfinite(selected.imag):
+                raise ValueError("Harmonic sweep response values must be finite.")
+            responses[str(name)] = {
+                "real": float(selected.real),
+                "imaginary": float(selected.imag),
+            }
+        item["index"] = index
+        item["frequency"] = axis[index]
+        item["responses"] = responses
+        encoded.append(
+            json.loads(json.dumps(item, sort_keys=True, allow_nan=False))
+        )
+        seen.add(index)
+    encoded.sort(key=lambda item: item["index"])
+    return encoded
+
+
+def _decode_harmonic_records(records, axis) -> dict[int, dict[str, object]]:
+    decoded = {}
+    for item in records:
+        record = dict(item)
+        index = int(record["index"])
+        if index in decoded or index < 0 or index >= len(axis):
+            raise ValueError("Harmonic sweep checkpoint contains an invalid index.")
+        if float(record["frequency"]) != axis[index]:
+            raise ValueError(
+                "Harmonic sweep checkpoint record frequency does not match its axis."
+            )
+        responses = {}
+        for name, value in dict(record.get("responses", {})).items():
+            selected = dict(value)
+            responses[str(name)] = complex(
+                float(selected["real"]), float(selected["imaginary"])
+            )
+        record["responses"] = responses
+        # Re-encoding is the compact finite-value and JSON-shape validator.
+        _encode_harmonic_records({index: record}, axis)
+        decoded[index] = record
+    return decoded
 
 
 def save_transient_checkpoint(
@@ -1006,6 +1349,7 @@ def _raise_collective_checkpoint_error(comm, action: str, local_error) -> None:
 
 __all__ = [
     "CheckpointPolicy",
+    "HARMONIC_SWEEP_CHECKPOINT_SCHEMA",
     "TRANSIENT_CHECKPOINT_SCHEMA",
     "atomic_savez",
     "atomic_write_text",
@@ -1013,8 +1357,11 @@ __all__ = [
     "function_portable_identity",
     "mesh_portable_identity",
     "every",
+    "load_harmonic_sweep_checkpoint",
     "load_transient_checkpoint",
+    "remove_harmonic_sweep_checkpoint",
     "remove_serial_checkpoint",
     "remove_stateful_checkpoint",
     "save_transient_checkpoint",
+    "save_harmonic_sweep_checkpoint",
 ]

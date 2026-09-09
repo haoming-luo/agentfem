@@ -135,6 +135,7 @@ class StandardRunReporter:
         self._started = monotonic()
         self._last_heartbeat = self._started
         self._status_initialized = False
+        self._sweep_start_increment = 0
 
     def emit(self, event) -> None:
         """Report one solver event; non-root ranks remain silent."""
@@ -144,12 +145,12 @@ class StandardRunReporter:
         elapsed = monotonic() - self._started
         kind = event.kind
         visible = bool(getattr(event, "display", True))
-        if kind == "time_increment" and not visible:
+        if kind in {"time_increment", "sweep_point"} and not visible:
             now = monotonic()
             visible = now - self._last_heartbeat >= float(self.heartbeat_seconds)
         if not visible:
             return
-        if kind == "time_increment":
+        if kind in {"time_increment", "sweep_point"}:
             self._last_heartbeat = monotonic()
         if kind == "step_started":
             self._print(
@@ -279,6 +280,71 @@ class StandardRunReporter:
                 f"{event.step_number} {event.increment} {event.time:.16g} "
                 f"COMPLETED {elapsed:.6f}"
             )
+        elif kind in {"sweep_started", "sweep_resumed"}:
+            self._sweep_start_increment = int(event.increment)
+            state = "RESUMED" if kind == "sweep_resumed" else "STARTED"
+            self._print(
+                f"[SWEEP {event.step_number}] {state} {event.step_name} "
+                f"| points={event.increment}/{event.total_increments}"
+            )
+            self._write_status(
+                "SWEEP POINT COORDINATE VALUE UNIT RESIDUAL STATUS ELAPSED_S"
+            )
+        elif kind == "sweep_point":
+            advanced = max(0, event.increment - self._sweep_start_increment)
+            rate = advanced / elapsed if elapsed > 0.0 else 0.0
+            remaining = max(0, event.total_increments - event.increment)
+            eta = remaining / rate if rate > 0.0 else 0.0
+            percent = (
+                100.0 * event.increment / event.total_increments
+                if event.total_increments
+                else 0.0
+            )
+            coordinate = _coordinate(event)
+            metrics = getattr(event, "metrics", {})
+            maximum = metrics.get("maximum_displacement_vector_amplitude")
+            energy = metrics.get("relative_cycle_energy_balance_error")
+            detail = (
+                f" | max|U|={_number(maximum)}"
+                f" | residual={_number(event.residual_norm)}"
+                f" | energy_err={_number(energy)}"
+            )
+            self._print(
+                f"  [POINT {event.increment}/{event.total_increments}] "
+                f"{coordinate} | {percent:.1f}% | elapsed={elapsed:.1f}s "
+                f"| ETA~{eta:.0f}s{detail}"
+            )
+            self._write_status(
+                f"{event.step_number} {event.increment} "
+                f"{event.coordinate_name or 'coordinate'} "
+                f"{_number(event.coordinate_value)} "
+                f"{event.coordinate_unit or '-'} {_number(event.residual_norm)} "
+                f"ACCEPTED {elapsed:.6f}"
+            )
+        elif kind in {"sweep_paused", "sweep_completed"}:
+            state = "PAUSED" if kind == "sweep_paused" else "COMPLETED"
+            self._print(
+                f"[SWEEP {event.step_number}] {state} "
+                f"| points={event.increment}/{event.total_increments} "
+                f"| elapsed={elapsed:.1f}s"
+            )
+            self._write_status(
+                f"{event.step_number} {event.increment} frequency - Hz 0 "
+                f"{state} {elapsed:.6f}"
+            )
+        elif kind == "sweep_failed":
+            self._print(
+                f"[SWEEP {event.step_number}] FAILED "
+                f"| point={event.increment}/{event.total_increments} "
+                f"| {_coordinate(event)} | {event.message}"
+            )
+            self._write_status(
+                f"{event.step_number} {event.increment} "
+                f"{event.coordinate_name or 'coordinate'} "
+                f"{_number(event.coordinate_value)} "
+                f"{event.coordinate_unit or '-'} {_number(event.residual_norm)} "
+                f"FAILED {elapsed:.6f}"
+            )
 
     def _print(self, message: str) -> None:
         print(message, flush=True)
@@ -321,13 +387,16 @@ class SolveEventRecorder:
         if len(self.events) < self.max_events:
             self.events.append(event)
             return
-        important = bool(getattr(event, "display", True)) or getattr(
-            event, "kind", ""
-        ) != "time_increment"
+        repetitive = getattr(event, "kind", "") in {
+            "time_increment",
+            "sweep_point",
+        }
+        important = bool(getattr(event, "display", True)) or not repetitive
         if important:
             for index, existing in enumerate(self.events):
                 if (
-                    getattr(existing, "kind", "") == "time_increment"
+                    getattr(existing, "kind", "")
+                    in {"time_increment", "sweep_point"}
                     and not bool(getattr(existing, "display", True))
                 ):
                     del self.events[index]
@@ -377,6 +446,13 @@ def _number(value) -> str:
     if value is None:
         return "n/a"
     return f"{float(value):.6e}"
+
+
+def _coordinate(event) -> str:
+    name = getattr(event, "coordinate_name", None) or "coordinate"
+    value = _number(getattr(event, "coordinate_value", None))
+    unit = getattr(event, "coordinate_unit", None)
+    return f"{name}={value}{'' if not unit else ' ' + str(unit)}"
 
 
 def kinetic_energy(mass_lumped: np.ndarray, velocity: fem.Function) -> float:

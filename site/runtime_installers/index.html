@@ -878,6 +878,10 @@
       
         
       
+        
+      
+        
+      
     
     
     
@@ -1161,7 +1165,7 @@ cloning a repository.</p>
 for cold-cache form JIT, and the exact AgentFEM wheel associated with the
 release. It does not replace the system Python or alter shell initialization.</p>
 <p>On macOS each runtime is installed in a versioned, immutable prefix such as
-<code>~/Library/agentfemruntime-0.3.1</code>. A new version is installed beside the old
+<code>~/Library/agentfemruntime-&lt;version&gt;</code>. A new version is installed beside the old
 one and the visible launcher is updated to the selected runtime. User projects
 remain in <code>~/AgentFEMProjects</code>, outside every runtime.</p>
 <p>The recommended <strong>Complete</strong> profile includes the Gmsh executable and Python
@@ -1174,7 +1178,7 @@ carries the Gmsh license and publishes the exact corresponding source and
 conda-forge build recipe beside the installer. Noncommercial use does not
 remove these redistribution obligations.</p>
 <h2 id="macos">macOS<a class="headerlink" href="#macos" title="Permanent link">&para;</a></h2>
-<p>AgentFEM 0.3.1 deliberately publishes an unsigned Preview and does not require
+<p>AgentFEM currently publishes an unsigned Preview and does not require
 Apple Developer credentials. Its filename always contains <code>unsigned-preview</code>,
 and the download page preserves that wording.</p>
 <p>Verify the published SHA-256 checksum, open the package, and follow the normal

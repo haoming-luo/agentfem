@@ -647,6 +647,10 @@
       
         
       
+        
+      
+        
+      
     
     
     
@@ -930,6 +934,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#external-numerical-comparisons" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        External numerical comparisons
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#discretization-evidence" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1126,6 +1141,62 @@
   
 
       
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../release_0.3.3/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Release 0.3.3
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../release_0.3.2/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Release 0.3.2
+  
+
+    
+  </span>
+  
+  
+
+      </a>
     </li>
   
 
@@ -1446,6 +1517,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#external-numerical-comparisons" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        External numerical comparisons
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#discretization-evidence" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1675,6 +1757,20 @@ the corresponding interface, material-point, curve, post-processing, or
 finite-element evidence. It intentionally does not promote an experimental
 capability merely because its present tests pass; external validation,
 generality, and stated limitations remain separate scientific claims.</p>
+<h2 id="external-numerical-comparisons">External numerical comparisons<a class="headerlink" href="#external-numerical-comparisons" title="Permanent link">&para;</a></h2>
+<p>An external benchmark card records the source problem, compared observables,
+discretization and extraction semantics, and the authority for every
+acceptance limit. It does not make an external source responsible for a
+tolerance that AgentFEM selected.</p>
+<p>For example, the NAFEMS R0016 Test 5H card compares a complete-Q2 AgentFEM beam
+with the public direct forced-vibration peak. The 1%, 2%, and 3% limits for
+frequency, displacement, and recovered stress are AgentFEM gates, not NAFEMS
+tolerances. Its first automated result is labelled a single-mesh numerical
+comparison because neither one passing mesh nor agreement with another finite-
+element result establishes mesh convergence or physical validation. The raw
+source identity, point and stress-recovery convention remain attached to the
+result so a later refinement or cross-code study cannot silently change the
+quantity being compared.</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="n">claim</span> <span class="o">=</span> <span class="n">verification</span><span class="o">.</span><span class="n">VerificationClaim</span><span class="o">.</span><span class="n">compare</span><span class="p">(</span>
 <a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>    <span class="n">name</span><span class="o">=</span><span class="s2">&quot;beam_reference&quot;</span><span class="p">,</span>
 <a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a>    <span class="n">observable</span><span class="o">=</span><span class="s2">&quot;tip_displacement&quot;</span><span class="p">,</span>

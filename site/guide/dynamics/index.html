@@ -661,6 +661,23 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="Direct harmonic viscoelastic response">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#external-forced-vibration-comparison" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        External forced-vibration comparison
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
         
       </ul>
@@ -1156,6 +1173,10 @@
       
         
       
+        
+      
+        
+      
     
     
     
@@ -1329,6 +1350,23 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="Direct harmonic viscoelastic response">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#external-forced-vibration-comparison" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        External forced-vibration comparison
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
         
       </ul>
@@ -1482,7 +1520,7 @@ loads, fields, and results.</p>
 <tr>
 <td>Direct harmonic</td>
 <td>Real-block complex</td>
-<td>Steady-state response of generalized-Maxwell solids</td>
+<td>Steady-state response of linear solids and generalized-Maxwell materials</td>
 </tr>
 </tbody>
 </table>
@@ -1691,13 +1729,92 @@ the complex equilibrium equation exactly to a real two-by-two block system,</p>
 no complex PETSc installation is hidden from the user. The result exposes
 <code>U_REAL</code>, <code>U_IMAG</code>, component-wise <code>U_AMPLITUDE</code> and <code>U_PHASE</code>, the frequency,
 solver evidence, cycle-mean stored energy, dissipated energy per cycle, and
-mean dissipated power. The present provider accepts one three-dimensional
-isotropic material, uniform temperature, homogeneous strong constraints, and
-one common load phase. Multiple material regions, MPC/weak constraints,
-per-load phases, automated frequency sweeps and an external structural
-benchmark remain promotion gates rather than being silently approximated.</p>
+mean dissipated power. A declared frequency array uses the same prepared
+operator and returns synchronous response and solver-evidence histories for
+each requested sample. The material-owned route presently accepts one
+three-dimensional isotropic material, uniform temperature, homogeneous strong
+constraints, and one common load phase. Multiple material regions, MPC/weak
+constraints, and per-load phases remain promotion gates rather than being
+silently approximated.</p>
+<p>For a long sweep, named scalar responses, progress and checkpointing use the
+same result lifecycle as transient procedures:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a>
+<a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a><span class="kn">from</span><span class="w"> </span><span class="nn">agentfem</span><span class="w"> </span><span class="kn">import</span> <span class="n">checkpointing</span><span class="p">,</span> <span class="n">results</span>
+<a id="__codelineno-8-4" name="__codelineno-8-4" href="#__codelineno-8-4"></a>
+<a id="__codelineno-8-5" name="__codelineno-8-5" href="#__codelineno-8-5"></a><span class="n">tip</span> <span class="o">=</span> <span class="n">results</span><span class="o">.</span><span class="n">harmonic_response</span><span class="p">(</span>
+<a id="__codelineno-8-6" name="__codelineno-8-6" href="#__codelineno-8-6"></a>    <span class="s2">&quot;tip_uy&quot;</span><span class="p">,</span>
+<a id="__codelineno-8-7" name="__codelineno-8-7" href="#__codelineno-8-7"></a>    <span class="k">lambda</span> <span class="n">point</span><span class="p">:</span> <span class="n">results</span><span class="o">.</span><span class="n">average</span><span class="p">(</span>
+<a id="__codelineno-8-8" name="__codelineno-8-8" href="#__codelineno-8-8"></a>        <span class="n">point</span><span class="o">.</span><span class="n">solution_real</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">measure</span><span class="o">=</span><span class="n">loaded_end</span><span class="o">.</span><span class="n">measure</span>
+<a id="__codelineno-8-9" name="__codelineno-8-9" href="#__codelineno-8-9"></a>    <span class="p">)</span> <span class="o">+</span> <span class="mi">1</span><span class="n">j</span> <span class="o">*</span> <span class="n">results</span><span class="o">.</span><span class="n">average</span><span class="p">(</span>
+<a id="__codelineno-8-10" name="__codelineno-8-10" href="#__codelineno-8-10"></a>        <span class="n">point</span><span class="o">.</span><span class="n">solution_imaginary</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">measure</span><span class="o">=</span><span class="n">loaded_end</span><span class="o">.</span><span class="n">measure</span>
+<a id="__codelineno-8-11" name="__codelineno-8-11" href="#__codelineno-8-11"></a>    <span class="p">),</span>
+<a id="__codelineno-8-12" name="__codelineno-8-12" href="#__codelineno-8-12"></a>    <span class="n">unit</span><span class="o">=</span><span class="s2">&quot;m&quot;</span><span class="p">,</span>
+<a id="__codelineno-8-13" name="__codelineno-8-13" href="#__codelineno-8-13"></a><span class="p">)</span>
+<a id="__codelineno-8-14" name="__codelineno-8-14" href="#__codelineno-8-14"></a><span class="n">sweep</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">step</span><span class="p">(</span>
+<a id="__codelineno-8-15" name="__codelineno-8-15" href="#__codelineno-8-15"></a>    <span class="n">target</span><span class="o">=</span><span class="n">u</span><span class="p">,</span>
+<a id="__codelineno-8-16" name="__codelineno-8-16" href="#__codelineno-8-16"></a>    <span class="n">K</span><span class="o">=</span><span class="n">K</span><span class="p">,</span>
+<a id="__codelineno-8-17" name="__codelineno-8-17" href="#__codelineno-8-17"></a>    <span class="n">M</span><span class="o">=</span><span class="n">M</span><span class="p">,</span>
+<a id="__codelineno-8-18" name="__codelineno-8-18" href="#__codelineno-8-18"></a>    <span class="n">C</span><span class="o">=</span><span class="n">C</span><span class="p">,</span>
+<a id="__codelineno-8-19" name="__codelineno-8-19" href="#__codelineno-8-19"></a>    <span class="n">F</span><span class="o">=</span><span class="n">F</span><span class="p">,</span>
+<a id="__codelineno-8-20" name="__codelineno-8-20" href="#__codelineno-8-20"></a>    <span class="n">frequencies</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="mf">40.0</span><span class="p">,</span> <span class="mf">45.0</span><span class="p">,</span> <span class="mi">50</span><span class="p">),</span>
+<a id="__codelineno-8-21" name="__codelineno-8-21" href="#__codelineno-8-21"></a>    <span class="n">responses</span><span class="o">=</span><span class="p">(</span><span class="n">tip</span><span class="p">,),</span>
+<a id="__codelineno-8-22" name="__codelineno-8-22" href="#__codelineno-8-22"></a>    <span class="n">checkpoint</span><span class="o">=</span><span class="n">checkpointing</span><span class="o">.</span><span class="n">every</span><span class="p">(</span>
+<a id="__codelineno-8-23" name="__codelineno-8-23" href="#__codelineno-8-23"></a>        <span class="mi">10</span><span class="p">,</span>
+<a id="__codelineno-8-24" name="__codelineno-8-24" href="#__codelineno-8-24"></a>        <span class="n">directory</span><span class="o">=</span><span class="s2">&quot;outputs/checkpoints&quot;</span><span class="p">,</span>
+<a id="__codelineno-8-25" name="__codelineno-8-25" href="#__codelineno-8-25"></a>        <span class="n">keep_last</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span>
+<a id="__codelineno-8-26" name="__codelineno-8-26" href="#__codelineno-8-26"></a>    <span class="p">),</span>
+<a id="__codelineno-8-27" name="__codelineno-8-27" href="#__codelineno-8-27"></a>    <span class="n">status_file</span><span class="o">=</span><span class="s2">&quot;outputs/harmonic.status&quot;</span><span class="p">,</span>
+<a id="__codelineno-8-28" name="__codelineno-8-28" href="#__codelineno-8-28"></a><span class="p">)</span>
+<a id="__codelineno-8-29" name="__codelineno-8-29" href="#__codelineno-8-29"></a><span class="n">result</span> <span class="o">=</span> <span class="n">sweep</span><span class="o">.</span><span class="n">solve_result</span><span class="p">()</span>
+</code></pre></div>
+<p>This generic sweep is <strong>operator-invariant</strong>: one real spatial <code>K/M/C/K_loss/F</code>
+system is prepared for the complete frequency axis. Frequency changes only
+the declared scalar coefficients, and the single real spatial force operator
+is multiplied by one global complex phase. Arbitrary complex spatial load
+patterns and frequency-dependent operator families require a different
+provider and are not accepted by this route.</p>
+<p><code>U_AMPLITUDE</code> and <code>U_PHASE</code> are polar values of each scalar displacement
+coefficient, component by component. They are not a vector magnitude and one
+shared vector phase. The sweep quantity
+<code>maximum_displacement_vector_amplitude</code> is the largest physical-cycle maximum
+of a discrete vector-valued displacement coefficient (a node for the current
+Lagrange fields), over all owned coefficients and MPI ranks. It is a discrete
+coefficient statistic, not a supremum of the continuous finite-element field
+inside the domain.</p>
+<p>The checkpoint is an atomic scalar evidence ledger: it stores the canonical
+frequency axis, completed points, response phasors, residuals, energy evidence,
+solver records and a scientific-input fingerprint. It deliberately does not
+store one full displacement field per frequency. Consequently it is portable
+across forward/reverse execution order and MPI partitions, while the live FEM
+field is explicitly identified as belonging only to the last frequency solved
+in the current process. By default the terminal prints the first and last point,
+about twenty intermediate milestones, and a wall-clock heartbeat; it does not
+accumulate or print every point in a very large sweep.</p>
+<h4 id="external-forced-vibration-comparison">External forced-vibration comparison<a class="headerlink" href="#external-forced-vibration-comparison" title="Permanent link">&para;</a></h4>
+<p>The automated
+<a href="https://www.nafems.org/publications/resource_center/r0016/">NAFEMS R0016 Test 5H</a>
+comparison exercises the generic direct-frequency-domain <code>K/M/C/F</code> route. It
+uses the public 10 m by 2 m by 2 m beam, solid-model supports, 0.5 MPa top-face
+pressure amplitude, Rayleigh coefficients, and 50 frequencies from 40 to
+45 Hz. The published reference peak is 42.65 Hz, with 13.45 mm midspan
+vertical-displacement amplitude and 241.9 MPa longitudinal extreme-fibre
+stress amplitude. The public problem statement and reference results are also
+available in the
+<a href="https://docs.software.vt.edu/abaqusv2025/English/SIMACAEBMKRefMap/simabmk-c-forcedvibrationtest5h.htm">Abaqus Test 5H documentation</a>.</p>
+<p>AgentFEM's automated configuration is intentionally named: a 5 by 2 by 1 mesh
+of complete quadratic hexahedra and continuous-P1 global L2 stress recovery
+for the external scalar comparison. It is not element-identical to the public
+Abaqus rows, and the recovered comparison stress is not relabelled as a raw
+integration-point extreme. The 1% frequency, 2% displacement, and 3% stress
+limits are AgentFEM release gates; NAFEMS does not publish those tolerances.
+This first result is therefore an external single-mesh numerical comparison,
+not mesh-convergence evidence or experimental validation. The retained
+frequency axis, peak indices, unsmoothed cell-side stress trace, algebraic
+residual, cycle-energy balance, load measure, source identities, and phasor
+convention keep that boundary inspectable.</p>
 <p>This is a bounded global FEM foundation, not a claim of nonlinear finite-strain
-viscoelasticity, physical aging or direct harmonic assembly.
+viscoelasticity, physical aging or prestressed small-on-large response.
 The independent three-dimensional
 <a href="https://docs.software.vt.edu/abaqusv2025/English/SIMACAEBMKRefMap/simabmk-c-viscorod.htm">Abaqus viscoelastic-rod benchmark</a>
 checks prescribed traction, near-incompressible lateral contraction and the

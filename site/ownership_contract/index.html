@@ -962,6 +962,10 @@
       
         
       
+        
+      
+        
+      
     
     
     
@@ -1280,6 +1284,14 @@ Architecture tests also reject selected cross-layer imports, including a
 <p><code>Model</code> is a readable engineering facade, not the owner of every object on
 that path. Historical material-specific <code>*_step()</code> methods remain thin 0.2.x
 compatibility delegates; new workflows use <code>model.step(...)</code>.</p>
+<p>The same rule applies before a Step is built. Model-first conveniences such as
+<code>model.stiffness(...)</code>, <code>model.mass(...)</code>, <code>model.conduction(...)</code>, and
+<code>model.heat_capacity(...)</code> remain the stable public language, but they pass
+the model-owned material assignments to a private operator lowering boundary.
+That boundary resolves regional measures, validates physical coefficients,
+builds each contribution, and composes partitioned operators. It consumes an
+immutable assignment sequence rather than importing <code>Model</code>, so the readable
+facade does not become the owner of finite-element forms.</p>
 <h2 id="state-is-a-boundary-not-one-universal-algorithm">State is a boundary, not one universal algorithm<a class="headerlink" href="#state-is-a-boundary-not-one-universal-algorithm" title="Permanent link">&para;</a></h2>
 <p><code>agentfem.state</code> provides two minimal structural protocols:</p>
 <ul>

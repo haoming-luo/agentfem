@@ -38,6 +38,8 @@ from .quantities import (
     static_work_balance,
 )
 from .projection import (
+    PreparedProjection,
+    prepare_projection,
     project,
     project_piecewise,
     small_strain_cell_fields,
@@ -145,6 +147,7 @@ __all__ = [
     "PeriodicCellHistoryRequest",
     "ProbeHistoryRequest",
     "PresentationOutput",
+    "PreparedProjection",
     "ResultQuantity",
     "SimulationResult",
     "SolverHistoryRequest",
@@ -190,6 +193,7 @@ __all__ = [
     "static_force_balance",
     "static_work_balance",
     "project",
+    "prepare_projection",
     "project_piecewise",
     "small_strain_cell_fields",
     "small_strain_partition_fields",

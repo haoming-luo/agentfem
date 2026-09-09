@@ -6,6 +6,75 @@ experimental formulation to a validated one.
 
 ## [Unreleased]
 
+## [0.3.3] - 2026-09-09
+
+### Added
+
+- Add a provider-neutral direct harmonic system over inspectable `K`, `M`, `C`,
+  `K_loss`, and `F` operators. One prepared real-block problem now supports
+  canonical frequency sweeps, named complex responses, forward/reverse
+  execution and common `SimulationResult` histories without retaining every
+  frequency field.
+- Add atomic scalar-ledger checkpoint/restart for direct harmonic sweeps. The
+  ledger binds the model assets, operator system, solver, response definitions,
+  frequency axis and portable field identity; it can resume across execution
+  order and MPI partitions while explicitly recording that full fields are not
+  stored. Bounded progress events, status files and checkpoint retention use
+  the shared execution lifecycle.
+- Add reusable L2 projection preparation for repeated recovery of a live field.
+  The projection space, mass matrix and KSP are assembled once while only the
+  right-hand side changes, reducing Test 5H serial runtime and making long
+  transient or frequency-domain recovery a first-class result operation.
+- Add an automated external single-mesh comparison with NAFEMS R0016 Test 5H.
+  The public 50-point forced-vibration sweep checks peak frequency, midspan
+  displacement and explicitly recovered longitudinal stress, while independent
+  residual, energy and loaded-area evidence and a machine-readable benchmark
+  card retain the source, discretization and extraction boundary. The 1%, 2%
+  and 3% acceptance limits are identified as AgentFEM gates rather than NAFEMS
+  tolerances.
+- Add a separate three-level Test 5H spatial-refinement stability certificate.
+  The nonuniform complete-Q2 sequence requires decreasing successive changes
+  and less than 1% change in the final pair for peak frequency, displacement
+  and declared recovered stress. It deliberately reports neither observed
+  order nor a continuum-error estimate, and does not relabel the nonmonotonic
+  external-reference errors as convergence toward the published values.
+- Add installed-wheel acceptance for the complete 50-point Test 5H sweep in
+  serial and on two MPI ranks, plus scalar-ledger checkpoint transfers from
+  one to two ranks and from two to one rank. Checkpoints bind executable
+  operator, constraint, response, solver and software identity; they preserve
+  accepted scalar evidence and explicitly do not restore finite-element fields.
+
+### Changed
+
+- Direct harmonic systems may select either nested field-split iteration or a
+  monolithic direct/iterative policy. Evidence names the layout and PETSc matrix
+  type; SPD-only Cholesky, ICC and CG policies are rejected because the dynamic
+  real-block operator is not generally positive definite or symmetric.
+- Prepared harmonic problems now freeze their actual lowering contract. Changes
+  to operators, live coefficients, constraints, load phase, solution identity,
+  material configuration or solver policy fail closed instead of mixing a
+  cached matrix with new result metadata. NaN/Inf in the solution, residual or
+  energy ledger is likewise rejected before evidence is published.
+- The sweep maximum-displacement statistic now evaluates the exact maximum
+  vector norm over one physical cycle. It no longer overestimates circular or
+  otherwise non-proportional component motion by using the complex coefficient
+  norm.
+
+### Boundaries
+
+- The provider-neutral small-strain structural direct-harmonic workflow is
+  engineering maturity for the declared linear `K/M/C/K_loss/F` formulation,
+  supported strong constraints and bounded frequency sweeps.
+- Generalized-Maxwell harmonic response remains experimental. Test 5H exercises
+  an elastic Rayleigh-damped structural system; it is not external validation of
+  the generalized-Maxwell constitutive spectrum.
+- Test 5H is an external numerical comparison, not experimental validation.
+  Its acceptance limits are AgentFEM release gates, not NAFEMS tolerances, and
+  its three-level evidence is observable stability rather than a GCI or
+  continuum-error certificate.
+- Complex modes, prestressed small-on-large response and nonlinear harmonic
+  balance remain outside this release.
+
 ## [0.3.2] - 2026-09-09
 
 ### Added
@@ -591,7 +660,8 @@ because the package version is stable.
   platform with readable study, model, step, result, campaign, and evidence
   contracts.
 
-[Unreleased]: https://github.com/haoming-luo/agentfem/compare/v0.3.2...HEAD
+[Unreleased]: https://github.com/haoming-luo/agentfem/compare/v0.3.3...HEAD
+[0.3.3]: https://github.com/haoming-luo/agentfem/compare/v0.3.2...v0.3.3
 [0.3.2]: https://github.com/haoming-luo/agentfem/compare/v0.3.1...v0.3.2
 [0.3.1]: https://github.com/haoming-luo/agentfem/compare/v0.3.0...v0.3.1
 [0.3.0]: https://github.com/haoming-luo/agentfem/compare/v0.2.6...v0.3.0

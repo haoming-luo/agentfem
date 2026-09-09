@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from hashlib import sha256
 
 from dolfinx import fem
 import dolfinx.fem.petsc as fem_petsc
@@ -14,6 +15,7 @@ from petsc4py import PETSc
 from .. import procedures
 from ..backends._harmonic import PreparedHarmonicLinearProblem
 from ..operators.harmonic import DirectHarmonicSystem
+from ..provenance import content_fingerprint
 from ..solvers import LinearSolveInfo, LinearSolverOptions
 
 
@@ -40,6 +42,9 @@ class DirectHarmonicStep:
     _prepared_problem: PreparedHarmonicLinearProblem | None = field(
         default=None, init=False, repr=False
     )
+    _prepared_configuration_fingerprint: str | None = field(
+        default=None, init=False, repr=False
+    )
 
     @property
     def frequency(self) -> float:
@@ -52,7 +57,9 @@ class DirectHarmonicStep:
     def solve(self):
         """Solve the current frequency and return the real displacement field."""
 
-        self._clear_solve_evidence()
+        current_configuration = self._require_prepared_configuration_current(
+            collective=True
+        )
         if self._prepared_problem is None:
             prefix_name = "".join(
                 character if character.isalnum() else "_" for character in self.name
@@ -67,8 +74,10 @@ class DirectHarmonicStep:
                 load_phase=self.load_phase,
                 petsc_options_prefix=f"agentfem_harmonic_{prefix_name}_",
             )
+            self._prepared_configuration_fingerprint = current_configuration
         else:
             self._prepared_problem.set_angular_frequency(self.angular_frequency)
+        self._clear_solve_evidence()
         evidence = self._prepared_problem.solve()
         self.last_solve_info = evidence.solve
         self.algebraic_equilibrium = evidence.equilibrium()
@@ -133,6 +142,7 @@ class DirectHarmonicStep:
     def energy_evidence(self) -> dict[str, float]:
         """Return separated storage, inertia, and dissipation evidence."""
 
+        self._require_prepared_configuration_current()
         if self.solved_angular_frequency != self.angular_frequency:
             raise RuntimeError(
                 "Harmonic energy evidence requires a solution at the selected "
@@ -158,6 +168,14 @@ class DirectHarmonicStep:
             else np.pi
             * self.angular_frequency
             * self._quadratic_pair(self.system.damping)
+        )
+        _require_finite_harmonic_values(
+            {
+                "mean stored energy": stored,
+                "mean kinetic energy": kinetic,
+                "material dissipated energy per cycle": material_loss,
+                "viscous dissipated energy per cycle": viscous_loss,
+            }
         )
         loss_scale = max(
             abs(stored),
@@ -186,7 +204,7 @@ class DirectHarmonicStep:
             np.sqrt(np.finfo(float).eps) * (abs(stored) + abs(kinetic)),
             np.finfo(float).eps,
         )
-        return {
+        evidence = {
             "mean_stored_energy": stored,
             "mean_kinetic_energy": kinetic,
             "material_dissipated_energy_per_cycle": material_loss,
@@ -201,6 +219,8 @@ class DirectHarmonicStep:
                 else self.angular_frequency * dissipated / (2.0 * np.pi)
             ),
         }
+        _require_finite_harmonic_values(evidence)
+        return evidence
 
     def _quadratic_pair(self, operator) -> float:
         return _quadratic_integral(operator, self.solution_real) + _quadratic_integral(
@@ -208,6 +228,7 @@ class DirectHarmonicStep:
         )
 
     def summary(self) -> dict[str, object]:
+        self._require_prepared_configuration_current()
         return {
             "kind": "direct_harmonic_step",
             "name": self.name,
@@ -236,15 +257,32 @@ class DirectHarmonicStep:
             ),
         }
 
+    def _require_prepared_configuration_current(
+        self, *, collective: bool = False
+    ) -> str:
+        current = _prepared_configuration_fingerprint(self)
+        if self._prepared_problem is None:
+            return current
+        changed = current != self._prepared_configuration_fingerprint
+        if collective:
+            comm = self.solution_real.function_space.mesh.comm
+            changed = bool(comm.allreduce(changed, op=MPI.LOR))
+        if changed:
+            raise RuntimeError(
+                "The direct harmonic system, coefficients, constraints, load "
+                "phase, solution fields, or solver policy changed after the "
+                "backend was prepared. Create a new Step so the executed "
+                "operator and reported scientific contract cannot diverge."
+            )
+        return current
+
     def solve_result(self, *, output=None, strict_output: bool = False):
         """Solve and delegate result assembly to the Result owner."""
 
         from ..results._harmonic import from_harmonic_step
 
         self.solve()
-        return from_harmonic_step(
-            self, output=output, strict_output=strict_output
-        )
+        return from_harmonic_step(self, output=output, strict_output=strict_output)
 
 
 @dataclass
@@ -256,9 +294,21 @@ class DirectHarmonicSweepStep:
     frequencies: tuple[float, ...]
     responses: tuple[object, ...] = ()
     execution_order: str = "forward"
+    scientific_assets: dict[str, object] | None = None
+    status_file: object | None = None
     procedure: object = field(default_factory=procedures.direct_harmonic_sweep)
     records: dict[int, dict[str, object]] = field(default_factory=dict, init=False)
     failure: dict[str, object] | None = field(default=None, init=False)
+    execution_events: list[object] = field(default_factory=list, init=False)
+    checkpoints: list[object] = field(default_factory=list, init=False)
+    last_live_field_frequency: float | None = field(default=None, init=False)
+    _event_recorder: object = field(default=None, init=False, repr=False)
+    _checkpoint_field_identity_record: dict[str, object] | None = field(
+        default=None, init=False, repr=False
+    )
+    _frozen_executable_identity: dict[str, object] | None = field(
+        default=None, init=False, repr=False
+    )
 
     def __post_init__(self) -> None:
         self.frequencies = _frequency_axis(self.frequencies)
@@ -274,9 +324,10 @@ class DirectHarmonicSweepStep:
             or not callable(getattr(item, "summary", None))
             for item in self.responses
         ):
-            raise TypeError(
-                "responses must be results.harmonic_response(...) objects."
-            )
+            raise TypeError("responses must be results.harmonic_response(...) objects.")
+        from ..diagnostics import SolveEventRecorder
+
+        self._event_recorder = SolveEventRecorder(self.execution_events)
 
     @property
     def completed(self) -> bool:
@@ -290,6 +341,14 @@ class DirectHarmonicSweepStep:
     def solution_imaginary(self):
         return self.point_step.solution_imaginary
 
+    @property
+    def execution_event_capacity(self) -> int:
+        return int(self._event_recorder.max_events)
+
+    @property
+    def dropped_execution_events(self) -> int:
+        return int(self._event_recorder.dropped_events)
+
     def solve(self, *, max_points: int | None = None):
         """Advance pending frequency points, retaining only scalar records."""
 
@@ -300,19 +359,76 @@ class DirectHarmonicSweepStep:
                 raise TypeError("max_points must be an integer when supplied.")
             if int(max_points) <= 0:
                 raise ValueError("max_points must be positive when supplied.")
+        self._checkpoint_policy()
+        self._freeze_executable_identity()
         indices = list(range(len(self.frequencies)))
         if self.execution_order == "reverse":
             indices.reverse()
         pending = [index for index in indices if index not in self.records]
         if max_points is not None:
             pending = pending[: int(max_points)]
+        if not pending and self.completed:
+            return self
+        reporter = self._reporter()
+        from ..solvers import SolveEvent
+
+        reporter.emit(
+            SolveEvent(
+                "sweep_resumed" if self.records else "sweep_started",
+                self.name,
+                increment=len(self.records),
+                total_increments=len(self.frequencies),
+                incrementation="independent_frequency_points",
+            )
+        )
         self.failure = None
+        display_every = max(1, int(np.ceil(len(self.frequencies) / 20.0)))
         for index in pending:
             frequency = self.frequencies[index]
             try:
                 self.point_step.set_frequency(frequency=frequency)
                 self.point_step.solve()
                 self.records[index] = self._record(index, frequency)
+                self.last_live_field_frequency = frequency
+                record = self.records[index]
+                completed = len(self.records)
+                reporter.emit(
+                    SolveEvent(
+                        "sweep_point",
+                        self.name,
+                        increment=completed,
+                        total_increments=len(self.frequencies),
+                        residual_norm=record["equilibrium"].get(
+                            "relative_residual_norm"
+                        ),
+                        coordinate_name="frequency",
+                        coordinate_value=frequency,
+                        coordinate_unit="Hz",
+                        metrics={
+                            "maximum_displacement_vector_amplitude": record[
+                                "maximum_displacement_vector_amplitude"
+                            ],
+                            "relative_cycle_energy_balance_error": record["energy"][
+                                "relative_cycle_energy_balance_error"
+                            ],
+                        },
+                        display=(
+                            completed == 1
+                            or completed == len(self.frequencies)
+                            or completed % display_every == 0
+                        ),
+                    )
+                )
+                if index == pending[-1]:
+                    reporter.emit(
+                        SolveEvent(
+                            ("sweep_completed" if self.completed else "sweep_paused"),
+                            self.name,
+                            increment=len(self.records),
+                            total_increments=len(self.frequencies),
+                        )
+                    )
+                self._write_scheduled_checkpoint()
             except Exception as exc:
                 self.failure = {
                     "index": index,
@@ -320,26 +436,281 @@ class DirectHarmonicSweepStep:
                     "error_type": type(exc).__name__,
                     "message": str(exc),
                 }
+                reporter.emit(
+                    SolveEvent(
+                        "sweep_failed",
+                        self.name,
+                        increment=len(self.records),
+                        total_increments=len(self.frequencies),
+                        coordinate_name="frequency",
+                        coordinate_value=frequency,
+                        coordinate_unit="Hz",
+                        message=f"{type(exc).__name__}: {exc}",
+                    )
+                )
                 raise RuntimeError(
                     f"Harmonic sweep failed at index={index}, "
                     f"frequency={frequency:.12g} Hz: {exc}"
                 ) from exc
         return self
 
-    def _record(self, index: int, frequency: float) -> dict[str, object]:
-        amplitude = self.point_step.displacement_amplitude
-        owned = int(
-            amplitude.function_space.dofmap.index_map.size_local
-            * amplitude.function_space.dofmap.index_map_bs
+    def scientific_inputs(self, *, require_checkpoint_assets: bool = False):
+        """Return the scientific identity shared by results and restart gates."""
+
+        assets = self.scientific_assets
+        executable_identity = None
+        if require_checkpoint_assets:
+            executable_identity = self._validated_executable_identity()
+        return {
+            "harmonic_system": self.point_step.system,
+            "frequency_axis": {
+                "values": self.frequencies,
+                "unit": "Hz",
+                "canonical_order": "ascending",
+            },
+            "responses": self.responses,
+            "load_phase": self.point_step.load_phase,
+            "solver": self.point_step.solver_options,
+            "procedure": self.procedure,
+            "model_assets": {} if assets is None else assets,
+            "executable_identity": executable_identity,
+        }
+
+    def save_checkpoint(self, path, *, role: str = "manual_checkpoint"):
+        """Persist accepted scalar evidence without retaining live FEM fields."""
+
+        from .. import checkpointing
+        from ..results import CheckpointRecord
+
+        comm = self.solution_real.function_space.mesh.comm
+        manifest = checkpointing.save_harmonic_sweep_checkpoint(
+            path,
+            step_name=self.name,
+            frequencies=self.frequencies,
+            records=self.records,
+            scientific_inputs=self.scientific_inputs(require_checkpoint_assets=True),
+            field_identity=self._checkpoint_field_identity(),
+            execution_events=self.execution_events,
+            comm=comm,
         )
-        block_size = int(amplitude.function_space.dofmap.index_map_bs)
-        values = np.asarray(amplitude.x.array[:owned], dtype=float)
-        local_max = 0.0
-        if owned:
-            local_max = float(
-                np.max(np.linalg.norm(values.reshape(-1, block_size), axis=1))
+        self.checkpoints[:] = [
+            item for item in self.checkpoints if item.path != manifest
+        ]
+        self.checkpoints.append(
+            CheckpointRecord(
+                name=f"{self.name}_frequency_checkpoint_{len(self.records)}",
+                path=manifest,
+                schema=checkpointing.HARMONIC_SWEEP_CHECKPOINT_SCHEMA,
+                step_name=self.name,
+                coordinate_name="completed_frequency_points",
+                coordinate_value=len(self.records),
+                portable=True,
+                metadata={
+                    "role": str(role),
+                    "rank_count_at_write": int(comm.size),
+                    "producer_software": {
+                        "name": "AgentFEM",
+                        "version": checkpointing._software_version(),
+                    },
+                    "requested_portable": self._requested_checkpoint_portability(),
+                    "effective_portable": True,
+                    "field_state": "not_stored_scalar_ledger_only",
+                    "portability": (
+                        "portable across MPI partitions, rank counts, and "
+                        "frequency execution order"
+                    ),
+                },
             )
-        comm = amplitude.function_space.mesh.comm
+        )
+        return manifest
+
+    def load_checkpoint(self, path):
+        """Restore accepted scalar evidence after a fail-closed identity check."""
+
+        from .. import checkpointing
+        from ..results import CheckpointRecord
+        from ..solvers import SolveEvent
+
+        comm = self.solution_real.function_space.mesh.comm
+        frozen_before = self._frozen_executable_identity
+        field_identity_before = self._checkpoint_field_identity_record
+        try:
+            payload = checkpointing.load_harmonic_sweep_checkpoint(
+                path,
+                step_name=self.name,
+                frequencies=self.frequencies,
+                scientific_inputs=self.scientific_inputs(
+                    require_checkpoint_assets=True
+                ),
+                field_identity=self._checkpoint_field_identity(),
+                comm=comm,
+            )
+            restored_events = tuple(
+                SolveEvent.from_dict(record)
+                for record in payload.get("execution_events", ())
+            )
+            manifest = payload["manifest_path"]
+            restored_checkpoint = CheckpointRecord(
+                name=f"{self.name}_restart_source_{len(payload['records'])}",
+                path=manifest,
+                schema=checkpointing.HARMONIC_SWEEP_CHECKPOINT_SCHEMA,
+                step_name=self.name,
+                coordinate_name="completed_frequency_points",
+                coordinate_value=len(payload["records"]),
+                portable=True,
+                metadata={
+                    "role": "restart_source",
+                    "rank_count_at_write": payload["rank_count_at_write"],
+                    "rank_count_at_read": int(comm.size),
+                    "field_state": "not_restored_scalar_ledger_only",
+                    "identity_fingerprint": payload["identity_fingerprint"],
+                    "producer_software": dict(payload["software"]),
+                    "requested_portable": self._requested_checkpoint_portability(),
+                    "effective_portable": True,
+                },
+            )
+        except Exception:
+            self._frozen_executable_identity = frozen_before
+            self._checkpoint_field_identity_record = field_identity_before
+            raise
+
+        # Every fallible parse and identity check is complete. Commit the
+        # restored state only at this final transaction boundary.
+        self.records.clear()
+        self.records.update(payload["records"])
+        self.failure = None
+        self.point_step._clear_solve_evidence()
+        self.last_live_field_frequency = None
+        self._event_recorder.clear()
+        for event in restored_events:
+            self._event_recorder.emit(event)
+        self.checkpoints.append(restored_checkpoint)
+        return payload
+
+    def _reporter(self):
+        from ..diagnostics import StandardRunReporter, compose_reporters
+
+        context = getattr(self, "execution_context", None)
+        selected = None if context is None else context.policy.progress
+        visible = None
+        if selected is None or selected is True:
+            visible = StandardRunReporter(
+                self.solution_real.function_space.mesh.comm,
+                status_file=self.status_file,
+                show_iterations=False,
+            )
+        elif selected is not False:
+            visible = selected
+        return compose_reporters(self._event_recorder, visible)
+
+    def _checkpoint_field_identity(self) -> dict[str, object]:
+        if self._checkpoint_field_identity_record is None:
+            from ..checkpointing import function_portable_identity
+
+            self._checkpoint_field_identity_record = function_portable_identity(
+                self.solution_real
+            )
+        return dict(self._checkpoint_field_identity_record)
+
+    def _current_executable_identity(self) -> dict[str, object]:
+        from ..operators.identity import harmonic_executable_identity
+
+        identity = harmonic_executable_identity(
+            self.point_step.system,
+            solution=self.point_step.solution_real,
+            bcs=self.point_step.bcs,
+        )
+        if not identity["complete"]:
+            missing = ", ".join(str(item["path"]) for item in identity["missing"][:5])
+            raise ValueError(
+                "Harmonic sweep checkpointing cannot establish a portable "
+                "executable identity for the actual operators or constraints: "
+                f"{missing or 'unknown'}."
+            )
+        return identity
+
+    def _freeze_executable_identity(self) -> dict[str, object]:
+        current = self._current_executable_identity()
+        if self._frozen_executable_identity is None:
+            self._frozen_executable_identity = current
+        elif current["fingerprint"] != self._frozen_executable_identity["fingerprint"]:
+            raise RuntimeError(
+                "The executable harmonic operators, coefficients, mesh tags, "
+                "or constrained DOFs changed after the sweep began. Start a "
+                "new sweep instead of mixing frequency evidence."
+            )
+        return dict(self._frozen_executable_identity)
+
+    def _validated_executable_identity(self) -> dict[str, object]:
+        return self._freeze_executable_identity()
+
+    def _requested_checkpoint_portability(self) -> bool | None:
+        policy = self._checkpoint_policy()
+        return None if policy is None else bool(policy.portable)
+
+    def _write_scheduled_checkpoint(self) -> None:
+        policy = self._checkpoint_policy()
+        if policy is None:
+            return
+
+        completed = len(self.records)
+        if not policy.due(completed, len(self.frequencies)):
+            return
+        self.save_checkpoint(
+            policy.path(step_name=self.name, increment=completed),
+            role="scheduled_checkpoint",
+        )
+        self._prune_scheduled_checkpoints(policy.keep_last)
+
+    def _checkpoint_policy(self):
+        context = getattr(self, "execution_context", None)
+        policy = None if context is None else context.policy.checkpoint
+        if policy is None:
+            return None
+        from ..checkpointing import CheckpointPolicy
+
+        if not isinstance(policy, CheckpointPolicy):
+            raise TypeError(
+                "Harmonic sweep checkpoint= must be checkpointing.every(...)."
+            )
+        return policy
+
+    def _prune_scheduled_checkpoints(self, keep_last) -> None:
+        if keep_last is None:
+            return
+        scheduled = [
+            item
+            for item in self.checkpoints
+            if item.metadata.get("role") == "scheduled_checkpoint"
+        ]
+        obsolete = scheduled[: -int(keep_last)]
+        if not obsolete:
+            return
+        from ..checkpointing import remove_harmonic_sweep_checkpoint
+
+        comm = self.solution_real.function_space.mesh.comm
+        for item in obsolete:
+            remove_harmonic_sweep_checkpoint(item.path, comm=comm)
+        removed = {id(item) for item in obsolete}
+        self.checkpoints[:] = [
+            item for item in self.checkpoints if id(item) not in removed
+        ]
+
+    def _record(self, index: int, frequency: float) -> dict[str, object]:
+        real_field = self.point_step.solution_real
+        imaginary_field = self.point_step.solution_imaginary
+        owned = int(
+            real_field.function_space.dofmap.index_map.size_local
+            * real_field.function_space.dofmap.index_map_bs
+        )
+        block_size = int(real_field.function_space.dofmap.index_map_bs)
+        local_amplitudes = _physical_cycle_vector_amplitudes(
+            np.asarray(real_field.x.array[:owned], dtype=float),
+            np.asarray(imaginary_field.x.array[:owned], dtype=float),
+            block_size=block_size,
+        )
+        local_max = float(np.max(local_amplitudes)) if local_amplitudes.size else 0.0
+        comm = real_field.function_space.mesh.comm
         maximum = float(comm.allreduce(local_max, op=MPI.MAX))
         response_values = {
             item.name: item.sample(self.point_step) for item in self.responses
@@ -367,6 +738,16 @@ class DirectHarmonicSweepStep:
         return tuple(self.records[index] for index in range(len(self.frequencies)))
 
     def summary(self) -> dict[str, object]:
+        checkpoint_policy = self._checkpoint_policy()
+        checkpoint_summary = None
+        if checkpoint_policy is not None:
+            checkpoint_summary = {
+                **checkpoint_policy.summary(),
+                "requested_portable": bool(checkpoint_policy.portable),
+                "effective_portable": True,
+                "portable": True,
+                "portability_mode": "scalar_evidence_ledger_no_field_state",
+            }
         return {
             "kind": "direct_harmonic_frequency_sweep",
             "name": self.name,
@@ -381,6 +762,19 @@ class DirectHarmonicSweepStep:
             "completed_points": len(self.records),
             "completed": self.completed,
             "failure": self.failure,
+            "execution_event_count": len(self.execution_events),
+            "execution_event_capacity": self.execution_event_capacity,
+            "execution_events_dropped": self.dropped_execution_events,
+            "checkpoint_count": len(self.checkpoints),
+            "checkpoint_policy": checkpoint_summary,
+            "last_live_field_frequency": self.last_live_field_frequency,
+            "field_retention": "last_executed_frequency_only",
+            "operator_evolution": "frequency_invariant",
+            "load_phasor": "real_spatial_force_times_one_global_phase",
+            "maximum_displacement_vector_amplitude_semantics": (
+                "maximum physical-cycle vector norm over owned nodal/DOF "
+                "coefficient blocks and MPI ranks"
+            ),
             "responses": tuple(item.summary() for item in self.responses),
             "procedure": self.procedure.summary(),
             "point_step": self.point_step.summary(),
@@ -410,6 +804,8 @@ def harmonic_frequency_sweep_step(
     frequencies,
     responses=(),
     execution_order: str = "forward",
+    scientific_assets: dict[str, object] | None = None,
+    status_file=None,
     name: str | None = None,
 ) -> DirectHarmonicSweepStep:
     """Create a reusable ordered sweep around one direct harmonic Step."""
@@ -422,6 +818,8 @@ def harmonic_frequency_sweep_step(
         frequencies=tuple(frequencies),
         responses=tuple(responses or ()),
         execution_order=execution_order,
+        scientific_assets=scientific_assets,
+        status_file=status_file,
     )
 
 
@@ -446,9 +844,7 @@ def direct_harmonic_step(
         raise NotImplementedError(
             "The real-block harmonic provider requires a real PETSc scalar build."
         )
-    omega = _angular_frequency(
-        frequency=frequency, angular_frequency=angular_frequency
-    )
+    omega = _angular_frequency(frequency=frequency, angular_frequency=angular_frequency)
     if omega == 0.0 and system.loss is not None:
         raise ValueError(
             "A material loss operator is undefined at zero cyclic frequency. "
@@ -474,10 +870,29 @@ def direct_harmonic_step(
     )
     if not isinstance(options, LinearSolverOptions):
         raise TypeError("solver_options must be LinearSolverOptions.")
-    if options.pc_type.lower() != "fieldsplit":
-        raise NotImplementedError(
-            "The real-block harmonic provider currently requires "
-            "pc_type='fieldsplit'."
+    if options.pc_type.lower() in {"cholesky", "icc"}:
+        raise ValueError(
+            "Direct harmonic real-block systems are generally indefinite and "
+            "may be nonsymmetric; pc_type='cholesky' and pc_type='icc' are "
+            "not valid harmonic solver policies. Use LU or a nonsymmetric "
+            "iterative preconditioner."
+        )
+    if options.ksp_type.lower() in {
+        "cg",
+        "cr",
+        "groppcg",
+        "minres",
+        "pipecg",
+        "pipecgrr",
+        "pipecr",
+        "qcg",
+        "symmlq",
+    }:
+        raise ValueError(
+            "Direct harmonic real-block systems do not guarantee the symmetric "
+            "operator properties required by "
+            f"ksp_type={options.ksp_type!r}. The verified policies are "
+            "GMRES/field-split and direct LU."
         )
     return DirectHarmonicStep(
         name=str(name),
@@ -552,6 +967,185 @@ def clone_zero_harmonic_bcs(source_space, target_space, bcs) -> tuple[object, ..
                 fem.dirichletbc(zero, selected_dofs, target_space.sub(component))
             )
     return tuple(cloned)
+
+
+def _prepared_configuration_fingerprint(step: DirectHarmonicStep) -> str:
+    """Fingerprint every mutable input captured by a prepared backend.
+
+    This is deliberately a lightweight, process-lifetime guard rather than a
+    portable checkpoint identity.  It hashes rank-local coefficient, mesh-tag,
+    geometry and boundary-condition contents.  The solve path reduces the
+    local drift decision collectively, so repeated frequency points avoid
+    gathering a complete distributed mesh while every rank still fails
+    together if any partition drifts.
+    """
+
+    operator_records = []
+    for name, operator in (
+        ("storage", step.system.storage),
+        ("mass", step.system.mass),
+        ("damping", step.system.damping),
+        ("loss", step.system.loss),
+        ("force", step.system.force),
+    ):
+        if operator is None:
+            operator_records.append((name, None))
+            continue
+        expression = (
+            operator.expression if hasattr(operator, "expression") else operator
+        )
+        signature = getattr(expression, "signature", None)
+        operator_records.append(
+            (
+                name,
+                {
+                    "operator_id": id(operator),
+                    "expression_id": id(expression),
+                    "ufl_signature": (
+                        str(signature()) if callable(signature) else None
+                    ),
+                    "coefficients": [
+                        _runtime_value_identity(value)
+                        for value in tuple(expression.coefficients())
+                    ],
+                    "constants": [
+                        _runtime_value_identity(value)
+                        for value in tuple(expression.constants())
+                    ],
+                    "subdomain_data": _runtime_subdomain_identity(expression),
+                },
+            )
+        )
+
+    boundary_records = []
+    for bc in step.bcs:
+        dofs, owned = bc.dof_indices()
+        boundary_records.append(
+            {
+                "bc_id": id(bc),
+                "owned_dofs": int(owned),
+                "dofs": _runtime_array_identity(np.asarray(dofs)),
+                "value": _runtime_value_identity(bc.g),
+            }
+        )
+
+    domain = step.solution_real.function_space.mesh
+    local_record = {
+        "schema": "agentfem.prepared-harmonic-runtime-identity.v1",
+        "system_id": id(step.system),
+        "solution_real_id": id(step.solution_real),
+        "solution_imaginary_id": id(step.solution_imaginary),
+        "target_element": str(step.solution_real.ufl_element()),
+        "geometry": _runtime_array_identity(domain.geometry.x),
+        "operators": operator_records,
+        "homogeneous_dirichlet": boundary_records,
+        "load_phase": float(step.load_phase),
+        "solver": step.solver_options.summary(),
+        "phasor_convention": step.system.phasor_convention,
+    }
+    return content_fingerprint(local_record)
+
+
+def _runtime_subdomain_identity(expression) -> list[dict[str, object]]:
+    records = []
+    for _domain, by_integral_type in expression.subdomain_data().items():
+        for integral_type in sorted(by_integral_type):
+            for value in by_integral_type[integral_type]:
+                if value is None:
+                    continue
+                records.append(
+                    {
+                        "integral_type": str(integral_type),
+                        "object_id": id(value),
+                        "dimension": getattr(value, "dim", None),
+                        "indices": _runtime_array_identity(
+                            np.asarray(getattr(value, "indices", ()))
+                        ),
+                        "values": _runtime_array_identity(
+                            np.asarray(getattr(value, "values", ()))
+                        ),
+                    }
+                )
+    return records
+
+
+def _runtime_value_identity(value) -> dict[str, object]:
+    record: dict[str, object] = {
+        "object_id": id(value),
+        "python_type": f"{type(value).__module__}.{type(value).__qualname__}",
+    }
+    constant_value = getattr(value, "value", None)
+    if constant_value is not None:
+        record["value"] = _runtime_array_identity(constant_value)
+        return record
+    vector = getattr(value, "x", None)
+    array = None if vector is None else getattr(vector, "array", None)
+    if array is not None:
+        record["value"] = _runtime_array_identity(array)
+    return record
+
+
+def _runtime_array_identity(value) -> dict[str, object]:
+    selected = np.ascontiguousarray(np.asarray(value))
+    return {
+        "dtype": selected.dtype.str,
+        "shape": list(selected.shape),
+        "sha256": sha256(selected.tobytes(order="C")).hexdigest(),
+    }
+
+
+def _require_finite_harmonic_values(values) -> None:
+    nonfinite = [name for name, value in values.items() if not np.isfinite(value)]
+    if nonfinite:
+        raise FloatingPointError(
+            "Direct harmonic evidence contains NaN or Inf in: "
+            + ", ".join(nonfinite)
+            + ". No energy evidence was accepted."
+        )
+
+
+def _physical_cycle_vector_amplitudes(
+    real,
+    imaginary,
+    *,
+    block_size: int,
+) -> np.ndarray:
+    r"""Return exact ``max_theta ||a cos(theta) - b sin(theta)||`` per block."""
+
+    selected_block_size = int(block_size)
+    if selected_block_size <= 0:
+        raise ValueError("block_size must be positive.")
+    real_values = np.asarray(real, dtype=float).reshape(-1)
+    imaginary_values = np.asarray(imaginary, dtype=float).reshape(-1)
+    if real_values.shape != imaginary_values.shape:
+        raise ValueError("Real and imaginary harmonic arrays must have equal shape.")
+    if real_values.size % selected_block_size:
+        raise ValueError("Harmonic array size must be divisible by block_size.")
+    if not np.all(np.isfinite(real_values)) or not np.all(
+        np.isfinite(imaginary_values)
+    ):
+        raise RuntimeError("Harmonic displacement contains NaN or Inf values.")
+    if not real_values.size:
+        return np.empty(0, dtype=float)
+
+    a = real_values.reshape((-1, selected_block_size))
+    b = imaginary_values.reshape((-1, selected_block_size))
+    scale = np.maximum(np.max(np.abs(a), axis=1), np.max(np.abs(b), axis=1))
+    nonzero = scale > 0.0
+    normalized_a = np.zeros_like(a)
+    normalized_b = np.zeros_like(b)
+    normalized_a[nonzero] = a[nonzero] / scale[nonzero, None]
+    normalized_b[nonzero] = b[nonzero] / scale[nonzero, None]
+    a_squared = np.einsum("ij,ij->i", normalized_a, normalized_a)
+    b_squared = np.einsum("ij,ij->i", normalized_b, normalized_b)
+    coupling = np.einsum("ij,ij->i", normalized_a, normalized_b)
+    largest_gram_eigenvalue = 0.5 * (
+        a_squared + b_squared + np.hypot(a_squared - b_squared, 2.0 * coupling)
+    )
+    amplitudes = scale * np.sqrt(np.maximum(largest_gram_eigenvalue, 0.0))
+    if not np.all(np.isfinite(amplitudes)):
+        raise FloatingPointError("Harmonic physical-cycle vector amplitude overflowed.")
+    return amplitudes
 
 
 def _angular_frequency(*, frequency, angular_frequency) -> float:

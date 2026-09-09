@@ -77,6 +77,23 @@ finite-element evidence. It intentionally does not promote an experimental
 capability merely because its present tests pass; external validation,
 generality, and stated limitations remain separate scientific claims.
 
+## External numerical comparisons
+
+An external benchmark card records the source problem, compared observables,
+discretization and extraction semantics, and the authority for every
+acceptance limit. It does not make an external source responsible for a
+tolerance that AgentFEM selected.
+
+For example, the NAFEMS R0016 Test 5H card compares a complete-Q2 AgentFEM beam
+with the public direct forced-vibration peak. The 1%, 2%, and 3% limits for
+frequency, displacement, and recovered stress are AgentFEM gates, not NAFEMS
+tolerances. Its first automated result is labelled a single-mesh numerical
+comparison because neither one passing mesh nor agreement with another finite-
+element result establishes mesh convergence or physical validation. The raw
+source identity, point and stress-recovery convention remain attached to the
+result so a later refinement or cross-code study cannot silently change the
+quantity being compared.
+
 ```python
 claim = verification.VerificationClaim.compare(
     name="beam_reference",
