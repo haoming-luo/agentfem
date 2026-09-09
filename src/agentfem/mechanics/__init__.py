@@ -18,6 +18,7 @@ from .finite_strain_plasticity import (
     finite_strain_j2_affine_problem,
     finite_strain_j2_standard_problem,
 )
+from .harmonic import DirectHarmonicStep, direct_harmonic_step
 from .plasticity import (
     J2IncrementInfo,
     J2LoadPathInfo,
@@ -39,6 +40,7 @@ __all__ = [
     "CreepEnergyFrame",
     "CreepIncrementInfo",
     "CreepPathInfo",
+    "DirectHarmonicStep",
     "ImplicitCreepStep",
     "ExperimentalFiniteStrainPlasticityStep",
     "FiniteStrainJ2AffineTransaction",
@@ -59,6 +61,7 @@ __all__ = [
     "experimental_finite_strain_j2_step",
     "finite_strain_j2_affine_problem",
     "finite_strain_j2_standard_problem",
+    "direct_harmonic_step",
     "harmonic_viscoelastic_step",
     "j2_plasticity_step",
     "quasistatic_viscoelastic_step",

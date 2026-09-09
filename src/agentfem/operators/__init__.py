@@ -61,6 +61,7 @@ from .flow import (
     viscous_flow_operator,
 )
 from .fourth_order import auxiliary_laplacian_boundary, split_laplacian_operator
+from .harmonic import DirectHarmonicSystem, direct_harmonic_system
 from .system import (
     FirstOrderSystem,
     LinearSystem,
@@ -87,6 +88,7 @@ __all__ = [
     "FirstOrderSystem",
     "OperatorForm",
     "SecondOrderSystem",
+    "DirectHarmonicSystem",
     "action",
     "advection_operator",
     "auxiliary_laplacian_boundary",
@@ -109,6 +111,7 @@ __all__ = [
     "damping_operator",
     "dual_product",
     "diffusion_operator",
+    "direct_harmonic_system",
     "elastic_stiffness",
     "elasticity",
     "force_vector",

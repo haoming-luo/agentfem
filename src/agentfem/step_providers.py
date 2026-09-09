@@ -1133,6 +1133,40 @@ def _accept_harmonic_viscoelasticity(model, request: StepRequest) -> bool:
     )
 
 
+def _accept_direct_harmonic_system(model, request: StepRequest) -> bool:
+    study = getattr(model, "study", None)
+    method = _procedure_method(model, request)
+    return (
+        getattr(study, "physics", None) == "solid_mechanics"
+        and getattr(study, "analysis", None) == "frequency_domain"
+        and _is_vector_target(request.target)
+        and request.option("K") is not None
+        and request.option("F") is not None
+        and _normalize(method or "direct_harmonic")
+        in {"direct_harmonic", "harmonic", "real_block_complex_harmonic"}
+    )
+
+
+def _lower_direct_harmonic_system(model, request: StepRequest):
+    from . import _step_builders
+
+    options = request.lowering_options(
+        "method",
+        "output",
+        "history",
+        "progress",
+        "checkpoint",
+        "material",
+    )
+    name = options.pop("name", None) or "direct_harmonic"
+    return _step_builders.direct_harmonic(
+        model,
+        target=request.target,
+        name=name,
+        **options,
+    )
+
+
 def _lower_harmonic_viscoelasticity(model, request: StepRequest):
     from . import _step_builders
 
@@ -1560,6 +1594,33 @@ register_step_provider(
             "amplitude",
             "temperature",
             required=("duration",),
+        ),
+    )
+)
+register_step_provider(
+    StepProvider(
+        name="direct_harmonic_system",
+        analyses=("frequency_domain",),
+        accepts=_accept_direct_harmonic_system,
+        lower=_lower_direct_harmonic_system,
+        priority=140,
+        description=(
+            "Lower explicit storage, loss, mass, viscous damping and force "
+            "operators to a real-block direct harmonic finite-element system."
+        ),
+        procedure="standard/direct_harmonic/real_block_complex",
+        option_contract=_option_contract(
+            "M",
+            "C",
+            "K_loss",
+            "frequency",
+            "angular_frequency",
+            "method",
+            "load_phase",
+            "solver_options",
+            "output",
+            required=("K", "F"),
+            exactly_one_of=(("frequency", "angular_frequency"),),
         ),
     )
 )

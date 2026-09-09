@@ -1199,6 +1199,8 @@ class Model:
         steps: int | None = None,
         duration: float | None = None,
         K=None,
+        M=None,
+        C=None,
         F=None,
         constraints=None,
         solver_options=None,
@@ -1251,6 +1253,8 @@ class Model:
             "executor_options": executor_options,
             "progress": progress,
             "checkpoint": checkpoint,
+            "M": M,
+            "C": C,
         }
         options.update(
             (key, value) for key, value in common.items() if value is not None

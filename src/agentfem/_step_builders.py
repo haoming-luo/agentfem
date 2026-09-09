@@ -844,6 +844,49 @@ def viscoelastic(
     return model.add_step(step)
 
 
+def direct_harmonic(
+    model,
+    *,
+    target,
+    K,
+    F,
+    M=None,
+    C=None,
+    K_loss=None,
+    frequency: float | None = None,
+    angular_frequency: float | None = None,
+    constraints=None,
+    load_phase: float = 0.0,
+    solver_options=None,
+    name: str = "direct_harmonic",
+):
+    """Build and register a direct harmonic Step from explicit operators."""
+
+    from . import mechanics, operators
+
+    model.study.require(analysis="frequency_domain", physics="solid_mechanics")
+    system = operators.direct_harmonic_system(
+        K,
+        F,
+        M=M,
+        C=C,
+        K_loss=K_loss,
+        name=f"{name}_system",
+    )
+    step = mechanics.direct_harmonic_step(
+        displacement=target,
+        system=system,
+        frequency=frequency,
+        angular_frequency=angular_frequency,
+        constraints=model.constraints if constraints is None else constraints,
+        load_phase=load_phase,
+        study=model.study,
+        solver_options=solver_options,
+        name=name,
+    )
+    return model.add_step(step)
+
+
 def harmonic_viscoelastic(
     model,
     *,
