@@ -1117,6 +1117,7 @@ def _accept_harmonic_viscoelasticity(model, request: StepRequest) -> bool:
 
     study = getattr(model, "study", None)
     method = _procedure_method(model, request)
+    materials = _registered_materials(model, request)
     return (
         getattr(study, "physics", None) == "solid_mechanics"
         and getattr(study, "analysis", None) == "frequency_domain"
@@ -1124,11 +1125,11 @@ def _accept_harmonic_viscoelasticity(model, request: StepRequest) -> bool:
         and _is_vector_target(request.target)
         and _normalize(method or "direct_harmonic")
         in {"direct_harmonic", "harmonic", "real_block_complex_harmonic"}
-        and _all_materials_support(
-            model,
-            request,
-            lambda item: isinstance(item, IsotropicGeneralizedMaxwell),
-        )
+        # The current harmonic builder assembles one homogeneous constitutive
+        # operator.  Do not advertise a regional multi-material model unless
+        # the request explicitly selects the one material to lower.
+        and len(materials) == 1
+        and isinstance(materials[0], IsotropicGeneralizedMaxwell)
     )
 
 

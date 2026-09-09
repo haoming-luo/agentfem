@@ -406,6 +406,64 @@ def test_harmonic_step_resolves_and_enforces_the_central_procedure_contract():
     assert incomplete["readiness_issues"][0]["code"] == "AFM-STEP-OPTION-003"
 
 
+def test_harmonic_provider_requires_one_unambiguous_material():
+    domain = dolfinx_mesh.create_box(
+        MPI.COMM_SELF,
+        [np.zeros(3), np.ones(3)],
+        [1, 2, 1],
+        cell_type=dolfinx_mesh.CellType.tetrahedron,
+    )
+    model = models.create(
+        study=studies.harmonic_solid(dimension=3),
+        mesh=domain,
+    )
+    displacement = model.field(fields.displacement(domain))
+    regions = mesh.partition_cells(
+        domain,
+        lower=lambda x: x[1] <= 0.5,
+        upper=lambda x: x[1] > 0.5,
+    )
+    registered = []
+    for young, region in ((1000.0, regions.lower), (2000.0, regions.upper)):
+        registered.append(
+            model.material(
+                IsotropicGeneralizedMaxwell.from_prony(
+                    instantaneous_young_modulus=young,
+                    instantaneous_poisson_ratio=0.0,
+                    shear_relaxation_ratios=[0.2],
+                    bulk_relaxation_ratios=[0.2],
+                    relaxation_times=[1.0],
+                ),
+                region=region,
+            )
+        )
+
+    ambiguous = models.step_capability(
+        model,
+        target=displacement,
+        options={"frequency": 1.0},
+    )
+    selected = models.step_capability(
+        model,
+        target=displacement,
+        options={"frequency": 1.0, "material": registered[0]},
+    )
+
+    assert ambiguous["supported"] is False
+    assert ambiguous["provider"] is None
+    assert "harmonic_generalized_maxwell" in ambiguous["candidate_providers"]
+    with pytest.raises(NotImplementedError, match="No step provider accepted"):
+        model.step(target=displacement, frequency=1.0)
+    assert selected["supported"] is True
+    assert selected["ready"] is True
+    step = model.step(
+        target=displacement,
+        material=registered[0],
+        frequency=1.0,
+    )
+    assert step.material is registered[0]
+
+
 def test_harmonic_step_rejects_ambiguous_frequency_and_time_domain_loading():
     domain = mesh.cuboid(
         (0.0, 0.0, 0.0),
