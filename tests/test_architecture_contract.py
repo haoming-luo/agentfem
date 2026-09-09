@@ -124,6 +124,40 @@ def test_model_first_operator_facade_delegates_lowering_to_operator_owner():
     assert "models" not in _agentfem_imports(lowering)
 
 
+def test_analysis_step_delegates_result_assembly_to_result_owner():
+    from agentfem import results
+
+    tree = ast.parse((PACKAGE / "problems.py").read_text(encoding="utf-8"))
+    step_class = next(
+        node
+        for node in tree.body
+        if isinstance(node, ast.ClassDef) and node.name == "AnalysisStep"
+    )
+    method = next(
+        node
+        for node in step_class.body
+        if isinstance(node, ast.FunctionDef) and node.name == "solve_result"
+    )
+    source = ast.unparse(method)
+
+    assert "self.problem.solve()" in source
+    assert "from_analysis_step(self, solution" in source
+    assert not any(
+        isinstance(node, (ast.For, ast.AsyncFor, ast.Try, ast.With))
+        for node in ast.walk(method)
+    )
+    assert "add_field" not in source
+    assert "add_quantities" not in source
+    assert "static_force_balance" not in source
+    assert "constraint_balance_contract" not in source
+
+    result_factory = PACKAGE / "results" / "_analysis_step.py"
+    assert result_factory.exists()
+    assert "problems" not in _agentfem_imports(result_factory)
+    assert "from_analysis_step" not in results.__all__
+    assert not hasattr(results, "from_analysis_step")
+
+
 def test_problem_compatibility_exports_point_to_new_owners():
     from agentfem import dynamics, operators, problems, state
 

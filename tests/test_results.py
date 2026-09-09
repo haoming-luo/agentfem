@@ -151,6 +151,22 @@ def test_linear_step_result_carries_ksp_evidence_consumed_by_engineering_quality
     assert simulation.metadata["static_equilibrium"]["definition"] == (
         "reaction + assembled external force"
     )
+    manifest = simulation.manifest()
+    assert manifest["schema"] == "agentfem.simulation-result"
+    assert manifest["schema_version"] == "0.1.0"
+    assert tuple(item["name"] for item in manifest["quantity_records"]) == (
+        "external_force_resultant",
+        "reaction_force_resultant",
+        "provider_reaction_force_resultant",
+        "force_balance_residual",
+        "relative_force_balance_error",
+        "strain_energy",
+        "natural_load_work",
+        "prescribed_motion_work",
+        "provider_constraint_work",
+        "external_work",
+        "energy_balance_error",
+    )
     assert quality.trust_level == "converged"
     assert quality.acceptable
 
