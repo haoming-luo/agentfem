@@ -36,6 +36,7 @@ class DirectHarmonicStep:
     cycle_input_energy: float | None = field(default=None, init=False)
     displacement_amplitude: object | None = field(default=None, init=False)
     displacement_phase: object | None = field(default=None, init=False)
+    solved_angular_frequency: float | None = field(default=None, init=False)
     _prepared_problem: PreparedHarmonicLinearProblem | None = field(
         default=None, init=False, repr=False
     )
@@ -51,6 +52,7 @@ class DirectHarmonicStep:
     def solve(self):
         """Solve the current frequency and return the real displacement field."""
 
+        self._clear_solve_evidence()
         if self._prepared_problem is None:
             prefix_name = "".join(
                 character if character.isalnum() else "_" for character in self.name
@@ -77,6 +79,7 @@ class DirectHarmonicStep:
             context=f"Direct harmonic solve at {self.frequency:.12g} Hz",
         )
         self._refresh_polar_fields()
+        self.solved_angular_frequency = self.angular_frequency
         return self.solution_real
 
     def set_frequency(
@@ -87,18 +90,39 @@ class DirectHarmonicStep:
     ) -> None:
         """Select another frequency while retaining the prepared backend."""
 
-        self.angular_frequency = _angular_frequency(
+        selected = _angular_frequency(
             frequency=frequency,
             angular_frequency=angular_frequency,
         )
+        if selected != self.angular_frequency:
+            self.angular_frequency = selected
+            self._clear_solve_evidence()
+
+    def _clear_solve_evidence(self) -> None:
+        self.last_solve_info = None
+        self.algebraic_equilibrium = None
+        self.cycle_input_energy = None
+        self.solved_angular_frequency = None
+        self.solution_real.x.array[:] = 0.0
+        self.solution_imaginary.x.array[:] = 0.0
+        self.solution_real.x.scatter_forward()
+        self.solution_imaginary.x.scatter_forward()
+        for field_value in (self.displacement_amplitude, self.displacement_phase):
+            if field_value is not None:
+                field_value.x.array[:] = np.nan
+                field_value.x.scatter_forward()
 
     def _refresh_polar_fields(self) -> None:
         real = np.asarray(self.solution_real.x.array, dtype=float)
         imaginary = np.asarray(self.solution_imaginary.x.array, dtype=float)
-        amplitude = fem.Function(
-            self.solution_real.function_space, name="U_AMPLITUDE"
-        )
-        phase = fem.Function(self.solution_real.function_space, name="U_PHASE")
+        amplitude = self.displacement_amplitude
+        phase = self.displacement_phase
+        if amplitude is None:
+            amplitude = fem.Function(
+                self.solution_real.function_space, name="U_AMPLITUDE"
+            )
+        if phase is None:
+            phase = fem.Function(self.solution_real.function_space, name="U_PHASE")
         amplitude.x.array[:] = np.hypot(real, imaginary)
         phase.x.array[:] = np.arctan2(imaginary, real)
         amplitude.x.scatter_forward()
@@ -108,6 +132,12 @@ class DirectHarmonicStep:
 
     def energy_evidence(self) -> dict[str, float]:
         """Return separated storage, inertia, and dissipation evidence."""
+
+        if self.solved_angular_frequency != self.angular_frequency:
+            raise RuntimeError(
+                "Harmonic energy evidence requires a solution at the selected "
+                "frequency. Call solve() after set_frequency()."
+            )
 
         stored = 0.25 * self._quadratic_pair(self.system.storage)
         kinetic = (
@@ -129,6 +159,21 @@ class DirectHarmonicStep:
             * self.angular_frequency
             * self._quadratic_pair(self.system.damping)
         )
+        loss_scale = max(
+            abs(stored),
+            abs(kinetic),
+            abs(material_loss),
+            abs(viscous_loss),
+            np.finfo(float).eps,
+        )
+        if material_loss < -1.0e-12 * loss_scale:
+            raise RuntimeError(
+                "The declared material-loss operator produced negative cycle work."
+            )
+        if viscous_loss < -1.0e-12 * loss_scale:
+            raise RuntimeError(
+                "The declared viscous-damping operator produced negative cycle work."
+            )
         dissipated = material_loss + viscous_loss
         if self.cycle_input_energy is None:
             raise RuntimeError(
@@ -202,6 +247,184 @@ class DirectHarmonicStep:
         )
 
 
+@dataclass
+class DirectHarmonicSweepStep:
+    """A bounded-memory ordered frequency sweep over one prepared Step."""
+
+    name: str
+    point_step: DirectHarmonicStep
+    frequencies: tuple[float, ...]
+    responses: tuple[object, ...] = ()
+    execution_order: str = "forward"
+    procedure: object = field(default_factory=procedures.direct_harmonic_sweep)
+    records: dict[int, dict[str, object]] = field(default_factory=dict, init=False)
+    failure: dict[str, object] | None = field(default=None, init=False)
+
+    def __post_init__(self) -> None:
+        self.frequencies = _frequency_axis(self.frequencies)
+        order = str(self.execution_order).strip().lower().replace("-", "_")
+        if order not in {"forward", "reverse"}:
+            raise ValueError("execution_order must be 'forward' or 'reverse'.")
+        self.execution_order = order
+        self.responses = tuple(self.responses)
+        if len({item.name for item in self.responses}) != len(self.responses):
+            raise ValueError("Harmonic response names must be unique.")
+        if any(
+            not callable(getattr(item, "sample", None))
+            or not callable(getattr(item, "summary", None))
+            for item in self.responses
+        ):
+            raise TypeError(
+                "responses must be results.harmonic_response(...) objects."
+            )
+
+    @property
+    def completed(self) -> bool:
+        return len(self.records) == len(self.frequencies) and self.failure is None
+
+    @property
+    def solution_real(self):
+        return self.point_step.solution_real
+
+    @property
+    def solution_imaginary(self):
+        return self.point_step.solution_imaginary
+
+    def solve(self, *, max_points: int | None = None):
+        """Advance pending frequency points, retaining only scalar records."""
+
+        if max_points is not None:
+            if isinstance(max_points, (bool, np.bool_)) or not isinstance(
+                max_points, (int, np.integer)
+            ):
+                raise TypeError("max_points must be an integer when supplied.")
+            if int(max_points) <= 0:
+                raise ValueError("max_points must be positive when supplied.")
+        indices = list(range(len(self.frequencies)))
+        if self.execution_order == "reverse":
+            indices.reverse()
+        pending = [index for index in indices if index not in self.records]
+        if max_points is not None:
+            pending = pending[: int(max_points)]
+        self.failure = None
+        for index in pending:
+            frequency = self.frequencies[index]
+            try:
+                self.point_step.set_frequency(frequency=frequency)
+                self.point_step.solve()
+                self.records[index] = self._record(index, frequency)
+            except Exception as exc:
+                self.failure = {
+                    "index": index,
+                    "frequency": frequency,
+                    "error_type": type(exc).__name__,
+                    "message": str(exc),
+                }
+                raise RuntimeError(
+                    f"Harmonic sweep failed at index={index}, "
+                    f"frequency={frequency:.12g} Hz: {exc}"
+                ) from exc
+        return self
+
+    def _record(self, index: int, frequency: float) -> dict[str, object]:
+        amplitude = self.point_step.displacement_amplitude
+        owned = int(
+            amplitude.function_space.dofmap.index_map.size_local
+            * amplitude.function_space.dofmap.index_map_bs
+        )
+        block_size = int(amplitude.function_space.dofmap.index_map_bs)
+        values = np.asarray(amplitude.x.array[:owned], dtype=float)
+        local_max = 0.0
+        if owned:
+            local_max = float(
+                np.max(np.linalg.norm(values.reshape(-1, block_size), axis=1))
+            )
+        comm = amplitude.function_space.mesh.comm
+        maximum = float(comm.allreduce(local_max, op=MPI.MAX))
+        response_values = {
+            item.name: item.sample(self.point_step) for item in self.responses
+        }
+        return {
+            "index": index,
+            "frequency": frequency,
+            "angular_frequency": 2.0 * np.pi * frequency,
+            "maximum_displacement_vector_amplitude": maximum,
+            "responses": response_values,
+            "energy": self.point_step.energy_evidence(),
+            "equilibrium": dict(self.point_step.algebraic_equilibrium or {}),
+            "solve": (
+                None
+                if self.point_step.last_solve_info is None
+                else self.point_step.last_solve_info.as_dict()
+            ),
+        }
+
+    def canonical_records(self) -> tuple[dict[str, object], ...]:
+        if not self.completed:
+            raise RuntimeError(
+                "A partial harmonic sweep cannot be published as completed."
+            )
+        return tuple(self.records[index] for index in range(len(self.frequencies)))
+
+    def summary(self) -> dict[str, object]:
+        return {
+            "kind": "direct_harmonic_frequency_sweep",
+            "name": self.name,
+            "frequency_axis": {
+                "name": "frequency",
+                "unit": "Hz",
+                "values": self.frequencies,
+                "count": len(self.frequencies),
+                "canonical_order": "ascending",
+            },
+            "execution_order": self.execution_order,
+            "completed_points": len(self.records),
+            "completed": self.completed,
+            "failure": self.failure,
+            "responses": tuple(item.summary() for item in self.responses),
+            "procedure": self.procedure.summary(),
+            "point_step": self.point_step.summary(),
+        }
+
+    def solve_result(self, *, output=None, strict_output: bool = False):
+        """Complete the sweep and publish canonical frequency histories."""
+
+        context = getattr(self, "execution_context", None)
+        configured_output = (
+            None if context is None else getattr(context, "configured_output", None)
+        )
+        if output is not None or configured_output is not None:
+            raise NotImplementedError(
+                "Frequency-sweep field output requires explicit snapshot frequencies; "
+                "the sweep currently publishes bounded-memory scalar histories."
+            )
+        from ..results._harmonic import from_harmonic_sweep
+
+        self.solve()
+        return from_harmonic_sweep(self, strict_output=strict_output)
+
+
+def harmonic_frequency_sweep_step(
+    point_step: DirectHarmonicStep,
+    *,
+    frequencies,
+    responses=(),
+    execution_order: str = "forward",
+    name: str | None = None,
+) -> DirectHarmonicSweepStep:
+    """Create a reusable ordered sweep around one direct harmonic Step."""
+
+    if not isinstance(point_step, DirectHarmonicStep):
+        raise TypeError("harmonic_frequency_sweep_step requires DirectHarmonicStep.")
+    return DirectHarmonicSweepStep(
+        name=name or point_step.name,
+        point_step=point_step,
+        frequencies=tuple(frequencies),
+        responses=tuple(responses or ()),
+        execution_order=execution_order,
+    )
+
+
 def direct_harmonic_step(
     *,
     displacement,
@@ -226,6 +449,11 @@ def direct_harmonic_step(
     omega = _angular_frequency(
         frequency=frequency, angular_frequency=angular_frequency
     )
+    if omega == 0.0 and system.loss is not None:
+        raise ValueError(
+            "A material loss operator is undefined at zero cyclic frequency. "
+            "Use a positive frequency or omit K_loss for the static limit."
+        )
     phase = float(load_phase)
     if not np.isfinite(phase):
         raise ValueError("load_phase must be finite radians.")
@@ -339,6 +567,18 @@ def _angular_frequency(*, frequency, angular_frequency) -> float:
     return omega
 
 
+def _frequency_axis(values) -> tuple[float, ...]:
+    selected = tuple(float(value) for value in values)
+    if not selected:
+        raise ValueError("A harmonic frequency sweep requires at least one point.")
+    if any(not np.isfinite(value) or value < 0.0 for value in selected):
+        raise ValueError("Sweep frequencies must be finite and nonnegative.")
+    ordered = tuple(sorted(selected))
+    if any(right == left for left, right in zip(ordered, ordered[1:])):
+        raise ValueError("Sweep frequencies must be unique.")
+    return ordered
+
+
 def _quadratic_integral(operator, value) -> float:
     expression = operator.expression if hasattr(operator, "expression") else operator
     arguments = tuple(expression.arguments())
@@ -373,4 +613,9 @@ def _require_solve_evidence(evidence, *, solver_options, context: str) -> None:
         )
 
 
-__all__ = ["DirectHarmonicStep", "direct_harmonic_step"]
+__all__ = [
+    "DirectHarmonicStep",
+    "DirectHarmonicSweepStep",
+    "direct_harmonic_step",
+    "harmonic_frequency_sweep_step",
+]

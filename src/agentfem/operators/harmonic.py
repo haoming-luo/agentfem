@@ -115,6 +115,20 @@ class DirectHarmonicSystem:
             "validation": self.validate().summary(),
         }
 
+    def to_ir(self) -> dict[str, object]:
+        """Expose every scientific operator to the common input fingerprint."""
+
+        return {
+            "name": self.name,
+            "equation": self.equation,
+            "phasor_convention": self.phasor_convention,
+            "storage": self.storage,
+            "loss": self.loss,
+            "mass": self.mass,
+            "damping": self.damping,
+            "force": self.force,
+        }
+
 
 def direct_harmonic_system(
     K,

@@ -50,6 +50,7 @@ from .recovery import (
 )
 from .execution import add_execution_trace, execution_records
 from .lifecycle import complete_result, execution_context
+from .harmonic import HarmonicResponse, harmonic_response
 from .finite_strain import (
     HillMandelIncrement,
     HomogenizedFrame,
@@ -130,6 +131,7 @@ __all__ = [
     "FiniteStrainDiagnosticRequest",
     "HistoryRequest",
     "HistoryResult",
+    "HarmonicResponse",
     "HillMandelIncrement",
     "HomogenizedFrame",
     "LiveFiniteStrainCellFields",
@@ -152,6 +154,7 @@ __all__ = [
     "execution_records",
     "complete_result",
     "execution_context",
+    "harmonic_response",
     "from_solution",
     "average",
     "cauchy_stress_invariants",

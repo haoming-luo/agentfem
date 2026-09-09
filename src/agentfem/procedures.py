@@ -18,6 +18,7 @@ _CONTROL = {
     "load_increments",
     "time_increments",
     "cycle_increments",
+    "frequency_points",
 }
 
 
@@ -153,6 +154,20 @@ def direct_harmonic() -> SolutionProcedure:
     )
 
 
+def direct_harmonic_sweep() -> SolutionProcedure:
+    """Ordered independent solves over one canonical frequency axis."""
+
+    return SolutionProcedure(
+        name="direct harmonic frequency sweep",
+        family="standard",
+        equation_order="second_order",
+        control="frequency_points",
+        algorithm="real_block_complex_harmonic_sweep",
+        nonlinear=False,
+        stateful=False,
+    )
+
+
 def implicit_creep() -> SolutionProcedure:
     """Quasi-static backward-Euler creep with global Newton equilibrium."""
 
@@ -244,6 +259,12 @@ def for_step(*, analysis: str, method: str | None = None, stateful: bool = False
     if selected_analysis == "modal":
         return modal()
     if selected_analysis == "frequency_domain":
+        if selected_method in {
+            "direct_harmonic_sweep",
+            "harmonic_sweep",
+            "real_block_complex_harmonic_sweep",
+        }:
+            return direct_harmonic_sweep()
         return direct_harmonic()
     if selected_analysis == "nonlinear_static":
         return nonlinear_static(stateful=stateful)
@@ -353,6 +374,9 @@ def _validate_method_name(analysis: str, method: str | None) -> None:
             "direct_harmonic",
             "harmonic",
             "real_block_complex_harmonic",
+            "direct_harmonic_sweep",
+            "harmonic_sweep",
+            "real_block_complex_harmonic_sweep",
         },
     }.get(analysis)
     if allowed is not None and selected not in allowed:
@@ -420,6 +444,7 @@ __all__ = [
     "central_difference",
     "cyclic_fatigue",
     "direct_harmonic",
+    "direct_harmonic_sweep",
     "for_step",
     "generalized_alpha",
     "implicit_euler",

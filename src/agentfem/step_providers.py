@@ -591,6 +591,13 @@ def _resolve_procedure(model, *, analysis: str, options, requested):
             )
         return requested
     method = options.get("method")
+    if (
+        analysis == "frequency_domain"
+        and requested is None
+        and method is None
+        and any(options.get(name) is not None for name in ("frequencies", "angular_frequencies"))
+    ):
+        method = "direct_harmonic_sweep"
     if requested is not None and method is not None:
         requested_name = (
             requested.algorithm
@@ -1143,13 +1150,21 @@ def _accept_direct_harmonic_system(model, request: StepRequest) -> bool:
         and request.option("K") is not None
         and request.option("F") is not None
         and _normalize(method or "direct_harmonic")
-        in {"direct_harmonic", "harmonic", "real_block_complex_harmonic"}
+        in {
+            "direct_harmonic",
+            "harmonic",
+            "real_block_complex_harmonic",
+            "direct_harmonic_sweep",
+            "harmonic_sweep",
+            "real_block_complex_harmonic_sweep",
+        }
     )
 
 
 def _lower_direct_harmonic_system(model, request: StepRequest):
     from . import _step_builders
 
+    _validate_direct_harmonic_axis(request)
     options = request.lowering_options(
         "method",
         "output",
@@ -1165,6 +1180,28 @@ def _lower_direct_harmonic_system(model, request: StepRequest):
         name=name,
         **options,
     )
+
+
+def _validate_direct_harmonic_axis(request: StepRequest) -> None:
+    """Keep the selected Procedure consistent with scalar or sweep input."""
+
+    plural = any(
+        request.option(name) is not None
+        for name in ("frequencies", "angular_frequencies")
+    )
+    method = _normalize(_procedure_method(None, request) or "direct_harmonic")
+    sweep = method in {
+        "direct_harmonic_sweep",
+        "harmonic_sweep",
+        "real_block_complex_harmonic_sweep",
+    }
+    if plural != sweep:
+        expected = "a sweep procedure" if plural else "a single-frequency procedure"
+        raise ValueError(
+            "Direct harmonic frequency coordinates and procedure disagree: "
+            f"the request supplies {'a frequency axis' if plural else 'one frequency'} "
+            f"and therefore requires {expected}."
+        )
 
 
 def _lower_harmonic_viscoelasticity(model, request: StepRequest):
@@ -1615,12 +1652,23 @@ register_step_provider(
             "K_loss",
             "frequency",
             "angular_frequency",
+            "frequencies",
+            "angular_frequencies",
             "method",
             "load_phase",
+            "responses",
+            "execution_order",
             "solver_options",
             "output",
             required=("K", "F"),
-            exactly_one_of=(("frequency", "angular_frequency"),),
+            exactly_one_of=(
+                (
+                    "frequency",
+                    "angular_frequency",
+                    "frequencies",
+                    "angular_frequencies",
+                ),
+            ),
         ),
     )
 )

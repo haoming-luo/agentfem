@@ -263,7 +263,7 @@ class PreparedHarmonicLinearProblem:
             action.destroy()
 
     def summary(self) -> dict[str, object]:
-        return {
+        summary = {
             "backend": "fenicsx_petsc_real_block",
             "problem_allocation_count": 1,
             "matrix_allocation_count": 1,
@@ -271,8 +271,10 @@ class PreparedHarmonicLinearProblem:
             "ksp_object_reused": True,
             "factorization_reuse_claimed": False,
             "solve_count": self.solve_count,
-            "angular_frequency": self.angular_frequency,
         }
+        if self.angular_frequency is not None:
+            summary["angular_frequency"] = self.angular_frequency
+        return summary
 
 
 def _expression(operator):

@@ -855,6 +855,10 @@ def direct_harmonic(
     K_loss=None,
     frequency: float | None = None,
     angular_frequency: float | None = None,
+    frequencies=None,
+    angular_frequencies=None,
+    responses=(),
+    execution_order: str = "forward",
     constraints=None,
     load_phase: float = 0.0,
     solver_options=None,
@@ -873,18 +877,57 @@ def direct_harmonic(
         K_loss=K_loss,
         name=f"{name}_system",
     )
-    step = mechanics.direct_harmonic_step(
+    selected = tuple(
+        value
+        for value in (
+            frequency,
+            angular_frequency,
+            frequencies,
+            angular_frequencies,
+        )
+        if value is not None
+    )
+    if len(selected) != 1:
+        raise ValueError(
+            "Specify exactly one of frequency, angular_frequency, frequencies, "
+            "or angular_frequencies."
+        )
+    sweep_frequencies = None
+    point_frequency = frequency
+    point_angular_frequency = angular_frequency
+    if frequencies is not None:
+        sweep_frequencies = tuple(float(value) for value in frequencies)
+        if not sweep_frequencies:
+            raise ValueError("frequencies must contain at least one point.")
+        point_frequency = sweep_frequencies[0]
+    elif angular_frequencies is not None:
+        angular_axis = tuple(float(value) for value in angular_frequencies)
+        if not angular_axis:
+            raise ValueError("angular_frequencies must contain at least one point.")
+        sweep_frequencies = tuple(value / (2.0 * np.pi) for value in angular_axis)
+        point_angular_frequency = angular_axis[0]
+
+    point_step = mechanics.direct_harmonic_step(
         displacement=target,
         system=system,
-        frequency=frequency,
-        angular_frequency=angular_frequency,
+        frequency=point_frequency,
+        angular_frequency=point_angular_frequency,
         constraints=model.constraints if constraints is None else constraints,
         load_phase=load_phase,
         study=model.study,
         solver_options=solver_options,
         name=name,
     )
-    return model.add_step(step)
+    if sweep_frequencies is None:
+        return model.add_step(point_step)
+    sweep = mechanics.harmonic_frequency_sweep_step(
+        point_step,
+        frequencies=sweep_frequencies,
+        responses=responses,
+        execution_order=execution_order,
+        name=name,
+    )
+    return model.add_step(sweep)
 
 
 def harmonic_viscoelastic(
