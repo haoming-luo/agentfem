@@ -421,6 +421,9 @@ def test_runtime_release_publishes_one_identity_to_optional_china_mirror():
     assert "AGENTFEM_CHINA_MIRROR_S3_URI" in workflow
     assert "aws s3 sync release-assets/" in workflow
     assert "release-assets/runtime-artifacts.json" in workflow
+    assert "fetch-depth: 0" in workflow
+    assert "path: build/runtime/release-input" in workflow
+    assert "find build/runtime/release-input" in workflow
     assert workflow.index("Publish byte-identical mainland mirror") < workflow.index(
         "Publish accepted assets and download routes"
     )

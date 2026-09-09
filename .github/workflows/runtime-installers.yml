@@ -166,12 +166,15 @@ jobs:
         uses: actions/checkout@v6
         with:
           ref: ${{ env.RUNTIME_REF }}
+          fetch-depth: 0
 
       - name: Download accepted runtime previews
         uses: actions/download-artifact@v8
         with:
           pattern: agentfem-${{ env.RUNTIME_PROFILE }}-*
-          path: release-input
+          # Keep downloaded build products under an ignored directory so they
+          # cannot make a clean tagged source checkout appear dirty.
+          path: build/runtime/release-input
 
       - name: Prepare compact preview assets
         env:
@@ -185,9 +188,9 @@ jobs:
           echo "RUNTIME_RELEASE_TAG=${TAG}" >> "${GITHUB_ENV}"
           echo "RUNTIME_RELEASE_VERSION=${VERSION}" >> "${GITHUB_ENV}"
           mkdir -p release-assets
-          find release-input -type f -name '*-unsigned-preview.pkg' -exec cp {} release-assets/ \;
-          find release-input -type f -name '*-preview-offline.zip' -exec cp {} release-assets/ \;
-          find release-input -type f -name '*acceptance.json' -exec cp {} release-assets/ \;
+          find build/runtime/release-input -type f -name '*-unsigned-preview.pkg' -exec cp {} release-assets/ \;
+          find build/runtime/release-input -type f -name '*-preview-offline.zip' -exec cp {} release-assets/ \;
+          find build/runtime/release-input -type f -name '*acceptance.json' -exec cp {} release-assets/ \;
           test "$(find release-assets -type f -name '*.pkg' | wc -l)" -eq 1
           test "$(find release-assets -type f -name '*.zip' | wc -l)" -eq 1
           python packaging/runtime/build_runtime.py manifest --output-dir release-assets
