@@ -20,6 +20,11 @@ Steady and constant-property implicit transient conduction on a rectangular peri
 including serial/MPI diagnostics and pre-assembly rejection of overlapping or
 ambiguous constraint providers. The constant operator lifecycle is prepared
 once per transient run and reused while the history/source vector changes.
+The same provider-owned dual recovery is available after a converged linear
+solve; in a thermal problem the nodal distribution is the algebraic flux dual
+to the homogeneous periodic temperature relation rather than a mechanical
+force. Structural force/work quantities are therefore attached only by solid
+analysis Steps.
 General master/slave geometry still requires a dedicated reviewed construction
 provider.
 

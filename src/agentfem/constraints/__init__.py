@@ -9,6 +9,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from numbers import Integral, Real
+from types import MappingProxyType
+from typing import Mapping
 
 import numpy as np
 from dolfinx import fem
@@ -77,6 +79,8 @@ class ConstraintDualEvidence:
     force: np.ndarray
     coordinate: np.ndarray | None = None
     resultant: np.ndarray | None = None
+    distribution: object | None = None
+    diagnostics: Mapping[str, object] = field(default_factory=dict)
     source: str = "provider_dual"
     complete: bool = True
 
@@ -124,6 +128,11 @@ class ConstraintDualEvidence:
             "resultant",
             None if resultant is None else resultant.copy(),
         )
+        object.__setattr__(
+            self,
+            "diagnostics",
+            MappingProxyType(dict(self.diagnostics)),
+        )
 
     @property
     def force_complete(self) -> bool:
@@ -152,6 +161,7 @@ class ConstraintDualEvidence:
         )
 
     def summary(self) -> dict[str, object]:
+        distribution = self.distribution
         return {
             "constraint_name": self.constraint_name,
             "role": self.role,
@@ -162,6 +172,16 @@ class ConstraintDualEvidence:
             "resultant": (
                 None if self.resultant is None else self.resultant.tolist()
             ),
+            "distribution": (
+                None
+                if distribution is None
+                else {
+                    "name": getattr(distribution, "name", type(distribution).__name__),
+                    "value_shape": tuple(getattr(distribution, "ufl_shape", ())),
+                    "location": "nodes",
+                }
+            ),
+            "diagnostics": dict(self.diagnostics),
             "source": self.source,
             "complete": bool(self.complete),
             "force_complete": self.force_complete,
@@ -175,6 +195,8 @@ def constraint_dual(
     force,
     coordinate=None,
     resultant=None,
+    distribution=None,
+    diagnostics=None,
     role="mpc_constraint",
     source="provider_dual",
     complete=True,
@@ -187,6 +209,8 @@ def constraint_dual(
         force=force,
         coordinate=coordinate,
         resultant=resultant,
+        distribution=distribution,
+        diagnostics={} if diagnostics is None else diagnostics,
         source=source,
         complete=complete,
     )

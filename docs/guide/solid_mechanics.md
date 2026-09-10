@@ -45,10 +45,14 @@ result = model.step(
 The linear provider separates ordinary Dirichlet data from exact MPC
 elimination before assembly and supports the same route in serial and MPI.
 Only one exact-MPC provider may own a linear system. The solved field and
-constraint-construction diagnostics are retained in the Result; global
-reaction and work balance remain explicitly unavailable until that provider
-can supply a physical-space dual and its conjugate coordinate. Solver
-convergence alone is not used to invent those quantities.
+constraint-construction diagnostics are retained in the Result. After a
+converged solve, the provider recovers the owned slave multipliers from the
+full residual, publishes a nodal `rectangular_periodic_mpc_reaction` field,
+checks the constraint gap, and contributes its physical resultant and virtual
+work to the common balance ledger. The current relation is homogeneous, so
+its exact constraint work is zero up to solver tolerance; affine macroscopic
+loading and nonlinear path work use the separate affine-periodic provider.
+Solver convergence alone is not used to invent any missing dual quantity.
 
 ## Axisymmetric solids
 

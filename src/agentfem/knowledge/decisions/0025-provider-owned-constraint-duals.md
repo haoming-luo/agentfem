@@ -47,10 +47,11 @@ balanced while omitting a real reaction or prescribed-motion contribution.
   across two different deformation directions;
 - existing strong-Dirichlet workflows retain their unconstrained-residual
   route and public result names.
-- rectangular periodic MPC construction may prove graph integrity without
-  claiming a dual: owned and ghost slaves, master cardinality and unit
-  coefficients are diagnosed collectively, while eliminated multipliers,
-  face reactions and macroscopic work remain unavailable.
+- rectangular periodic MPC construction proves graph integrity before solve;
+  after convergence the same provider reads multipliers from owned slave
+  residual equations, scatters `B.T @ lambda` into a nodal distribution, and
+  publishes the homogeneous relation's zero virtual work. The generic solver
+  still owns neither the multiplier nor its scientific interpretation.
 
 ## Verification
 
@@ -68,3 +69,7 @@ balanced while omitting a real reaction or prescribed-motion contribution.
   Hill--Mandel macroscopic work and survives portable checkpoint/restart.
 - two-rank rectangular MPC tests verify owned/ghost accounting and require one
   unit-coefficient master relation for every globally owned slave DOF.
+- a deliberately non-periodic source produces nonzero multipliers while the
+  reconstructed serial/two-rank reaction distribution retains zero global
+  resultant, zero constraint gap and zero homogeneous-constraint work to
+  numerical tolerance.

@@ -1102,14 +1102,19 @@ def test_constraint_dual_collection_rejects_wrong_owner_and_duplicates():
     with pytest.raises(ValueError, match="does not match"):
         constraints.collect_provider_duals((WrongOwner(),), object())
 
-    periodic = constraints.RectangularPeriodicMPC(
-        backend=object(),
-        lower=(0.0, 0.0),
-        upper=(1.0, 1.0),
-        axes=(0,),
-        tolerance=1.0e-12,
-        name="periodic_x",
-    )
+    class PeriodicProvider:
+        name = "periodic_x"
+
+        @staticmethod
+        def capabilities():
+            return constraints.ConstraintCapabilities(
+                kind="periodic_constraint",
+                enforcement="test_exact_constraint",
+                reaction_evidence="provider_dual_required",
+                work_evidence="provider_dual_path_required",
+            )
+
+    periodic = PeriodicProvider()
     duplicate = constraints.constraint_dual(
         periodic,
         force=(1.0,),

@@ -166,6 +166,7 @@ Each owned slave is lowered to one checked unit-coefficient master relation in t
 | Name | Type | Unit role | Meaning |
 | --- | --- | --- | --- |
 | exact MPC provider | RectangularPeriodicMPC | dimensionless relation | Carries the assembled backend, construction diagnostics, selected axes and geometric tolerance into model.step lowering and result evidence. |
+| constraint dual | ConstraintDualEvidence plus nodal reaction field | force/flux and conjugate field unit | Contains the MPI-global physical resultant, homogeneous-constraint virtual work, multiplier/gap norms, and provider-owned nodal distribution after convergence. |
 
 #### Assumptions
 
@@ -187,7 +188,8 @@ Each owned slave is lowered to one checked unit-coefficient master relation in t
 #### Limitations
 
 - Arbitrary master/slave geometry, nonlinear structural Steps, and implicit structural dynamics require separate reviewed providers.
-- The generic exact solver does not recover a physical reaction distribution or macroscopic work coordinate; those result channels remain unavailable without provider dual evidence.
+- The rectangular provider recovers a physical reaction/flux distribution only after a converged linear solve. Construction diagnostics alone do not constitute dual evidence.
+- Its current homogeneous periodic relation performs zero constraint work. Nonzero affine macroscopic work belongs to the affine-periodic path provider rather than this endpoint contract.
 - Only one exact-MPC provider may own a linear system.
 
 ### Minimal example
@@ -213,8 +215,9 @@ periodicity = constraints.rectangular_periodic_mpc(u); result = model.step(targe
 - Reproduce analytical constant scalar and vector fields through ordinary model.step calls.
 - Reuse one prepared linear lifecycle across accepted transient increments.
 - Match serial and two-rank solutions and retain provider diagnostics in SimulationResult.
+- Recover a deliberately nonzero slave multiplier, scatter equal-and-opposite nodal reactions across ranks, and require near-zero resultant, constraint gap, and homogeneous-constraint virtual work.
 - Reject unsupported analyses, missing provider backends, and multiple exact providers before assembly.
-- Keep global reaction and work evidence unavailable when the provider has no physical dual.
+- Keep global reaction and work evidence unavailable for every provider that has not supplied its own physical dual.
 
 ### References
 
@@ -4739,7 +4742,7 @@ At converged free degrees of freedom R is zero to solver tolerance; prescribed d
 **global static force balance**
 
 $$
-\mathbf{r}_{\mathrm{balance}}=\sum\mathbf{R}_{\mathrm{strong}}+\sum\mathbf{F}_{\mathrm{assembled}}
+\mathbf{r}_{\mathrm{balance}}=\sum\mathbf{R}_{\mathrm{strong}}+\sum\mathbf{R}_{\mathrm{provider}}+\sum\mathbf{F}_{\mathrm{assembled}}
 $$
 
 The relative error is the residual norm divided by the larger external or reaction resultant norm.
@@ -4747,10 +4750,10 @@ The relative error is the residual norm divided by the larger external or reacti
 **proportional linear work**
 
 $$
-W_{\mathrm{ext}}=\tfrac{1}{2}\mathbf{u}^{T}\mathbf{F}+\tfrac{1}{2}\mathbf{R}_{c}^{T}\bar{\mathbf{u}},\qquad U=\tfrac{1}{2}\mathbf{u}^{T}\mathbf{K}\mathbf{u}
+W_{\mathrm{ext}}=\tfrac{1}{2}\mathbf{u}^{T}\mathbf{F}+\tfrac{1}{2}\mathbf{R}_{c}^{T}\bar{\mathbf{u}}+\tfrac{1}{2}\mathbf{q}_{p}^{T}\mathbf{a}_{p},\qquad U=\tfrac{1}{2}\mathbf{u}^{T}\mathbf{K}\mathbf{u}
 $$
 
-Natural loads and strong prescribed values are ramped proportionally from zero; the constrained residual supplies the conjugate prescribed-motion work.
+Natural loads and strong prescribed values are ramped proportionally from zero; the constrained residual supplies prescribed-motion work and each non-Dirichlet provider owns its generalized dual pair.
 
 #### Inputs
 
@@ -4772,7 +4775,7 @@ Natural loads and strong prescribed values are ramped proportionally from zero; 
 - Small-strain standard fields use the selected linear-elastic constitutive relation.
 - Plane-strain isotropic Mises stress includes the constitutively implied out-of-plane stress.
 - Axisymmetric fields are full 3x3 tensors and projection uses the same 2 pi r physical measure as equilibrium.
-- Reaction resultant semantics are limited to strong Dirichlet constraints.
+- reaction_resultant alone reports the unconstrained residual route; complete model-level balance also consumes every declared provider-owned resultant.
 
 #### Conventions
 
@@ -4794,7 +4797,7 @@ Natural loads and strong prescribed values are ramped proportionally from zero; 
 #### Limitations
 
 - Nodal smoothing and superconvergent stress recovery are not implemented.
-- Affine MPC, weak, and contact reactions require their numerical provider to implement the shared dual_evidence(problem) protocol; force or work balance remains unavailable for any provider that has not supplied the corresponding physical dual.
+- Affine MPC, arbitrary MPC, weak, and contact reactions require their numerical provider to implement the shared dual_evidence(problem) protocol; force or work balance remains unavailable for any provider that has not supplied the corresponding physical dual. The rectangular homogeneous periodic provider implements this protocol; weak and contact providers do not yet claim complete evidence.
 - Thermoelastic output requires temperature-aware field construction in a later extension.
 
 ### Minimal example

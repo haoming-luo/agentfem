@@ -57,9 +57,9 @@ class RectangularPeriodicMPC:
         """Return immutable construction evidence for the exact MPC graph.
 
         These counts verify that every declared slave has exactly one unit-
-        coefficient master relation.  They do not claim access to the
-        eliminated constraint multiplier, a boundary reaction distribution,
-        or macroscopic work.
+        coefficient master relation.  Construction alone does not claim an
+        eliminated multiplier, reaction distribution, or work value; those
+        quantities are recovered by :meth:`dual_evidence` after convergence.
         """
 
         if self.construction_diagnostics is None:
@@ -68,6 +68,159 @@ class RectangularPeriodicMPC:
                 "reason": "constructed outside rectangular_periodic_mpc",
             }
         return dict(self.construction_diagnostics)
+
+    def dual_evidence(self, problem):
+        """Recover exact-MPC reactions and homogeneous-constraint work.
+
+        For ``u_s = C u_m`` the converged full residual obeys
+        ``r_s = lambda``.  The provider therefore reads multipliers only from
+        owned slave equations and scatters ``B.T @ lambda`` into a nodal
+        reaction field.  This keeps physical dual ownership here rather than
+        teaching the result layer about one backend's elimination graph.
+        """
+
+        if getattr(problem, "mpc_constraint", None) is not self:
+            raise ValueError(
+                "Rectangular MPC dual evidence requires the converged problem "
+                "that consumed this exact constraint instance."
+            )
+        reaction_field = getattr(problem, "reaction_field", None)
+        solution_getter = getattr(problem, "_solution", None)
+        if not callable(reaction_field) or not callable(solution_getter):
+            raise TypeError(
+                "Rectangular MPC dual evidence requires a converged linear "
+                "system problem exposing reaction_field() and its solution."
+            )
+
+        from dolfinx import fem
+        from petsc4py import PETSc
+
+        solution = solution_getter()
+        if getattr(problem, "last_solve_info", None) is None:
+            raise RuntimeError("Rectangular MPC dual evidence requires a solved problem.")
+        full_residual = reaction_field(name=f"{self.name}_full_residual")
+        backend = self.backend
+        slaves = np.asarray(backend.slaves, dtype=np.int64).reshape(-1)
+        owned_slaves = slaves[: int(backend.num_local_slaves)]
+        residual_values = np.asarray(full_residual.x.array)
+        multipliers = np.asarray(residual_values[owned_slaves], dtype=float)
+
+        distribution = fem.Function(
+            solution.function_space,
+            name=f"{self.name}_reaction",
+        )
+        distribution.x.array[:] = 0.0
+        vector = distribution.x.petsc_vec
+        extended_map = backend.function_space.dofmap
+        coefficients, offsets = backend.coefficients()
+        coefficients = np.asarray(coefficients, dtype=float)
+        offsets = np.asarray(offsets, dtype=np.int64)
+        global_indices: list[int] = []
+        contributions: list[float] = []
+        for slave, multiplier in zip(owned_slaves, multipliers):
+            global_indices.append(_global_scalar_dof(extended_map, int(slave)))
+            contributions.append(float(multiplier))
+            masters = np.asarray(backend.masters.links(int(slave)), dtype=np.int64)
+            selected = coefficients[offsets[slave] : offsets[slave + 1]]
+            if masters.size != selected.size:
+                raise RuntimeError("MPC master and coefficient layouts do not align.")
+            for master, coefficient in zip(masters, selected):
+                global_indices.append(_global_scalar_dof(extended_map, int(master)))
+                contributions.append(-float(coefficient) * float(multiplier))
+        if global_indices:
+            vector.setValues(
+                np.asarray(global_indices, dtype=PETSc.IntType),
+                np.asarray(contributions, dtype=float),
+                addv=PETSc.InsertMode.ADD_VALUES,
+            )
+        vector.assemblyBegin()
+        vector.assemblyEnd()
+        distribution.x.scatter_forward()
+
+        original_map = solution.function_space.dofmap
+        owned = int(original_map.index_map.size_local * original_map.index_map_bs)
+        reaction_values = np.asarray(distribution.x.array[:owned], dtype=float)
+        solution_values = np.asarray(solution.x.array[:owned], dtype=float)
+        comm = solution.function_space.mesh.comm
+        constraint_work = float(
+            comm.allreduce(float(np.dot(reaction_values, solution_values)), op=MPI.SUM)
+        )
+
+        value_shape = tuple(getattr(solution, "ufl_shape", ()))
+        if not value_shape:
+            local_resultant = np.asarray((float(np.sum(reaction_values)),))
+        elif len(value_shape) == 1:
+            components = int(value_shape[0])
+            if reaction_values.size % components:
+                raise RuntimeError(
+                    "MPC reaction storage is incompatible with the field shape."
+                )
+            local_resultant = np.sum(
+                reaction_values.reshape((-1, components)), axis=0
+            )
+        else:
+            raise NotImplementedError(
+                "Rectangular MPC dual evidence currently supports scalar or "
+                "vector fields."
+            )
+        resultant = np.empty_like(local_resultant, dtype=float)
+        comm.Allreduce(local_resultant, resultant, op=MPI.SUM)
+
+        extended_solution = fem.Function(backend.function_space)
+        extended_owned = int(
+            extended_map.index_map.size_local * extended_map.index_map_bs
+        )
+        extended_solution.x.array[:extended_owned] = solution.x.array[:owned]
+        extended_solution.x.scatter_forward()
+        local_gap_squared = 0.0
+        local_gap_maximum = 0.0
+        for slave in owned_slaves:
+            masters = np.asarray(backend.masters.links(int(slave)), dtype=np.int64)
+            selected = coefficients[offsets[slave] : offsets[slave + 1]]
+            gap = float(extended_solution.x.array[slave]) - float(
+                np.dot(selected, extended_solution.x.array[masters])
+            )
+            local_gap_squared += gap * gap
+            local_gap_maximum = max(local_gap_maximum, abs(gap))
+        multiplier_squared = float(np.dot(multipliers, multipliers))
+        multiplier_maximum = float(np.max(np.abs(multipliers))) if multipliers.size else 0.0
+        diagnostics = {
+            "status": "complete",
+            "relation_count": int(
+                comm.allreduce(int(owned_slaves.size), op=MPI.SUM)
+            ),
+            "reaction_distribution": distribution.name,
+            "distribution_location": "nodes",
+            "multiplier_l2_norm": float(
+                np.sqrt(comm.allreduce(multiplier_squared, op=MPI.SUM))
+            ),
+            "multiplier_linf_norm": float(
+                comm.allreduce(multiplier_maximum, op=MPI.MAX)
+            ),
+            "constraint_gap_l2_norm": float(
+                np.sqrt(comm.allreduce(local_gap_squared, op=MPI.SUM))
+            ),
+            "constraint_gap_linf_norm": float(
+                comm.allreduce(local_gap_maximum, op=MPI.MAX)
+            ),
+            "constraint_virtual_work": constraint_work,
+            "resultant_norm": float(np.linalg.norm(resultant)),
+            "comm_size": int(comm.size),
+        }
+
+        from . import constraint_dual
+
+        return constraint_dual(
+            self,
+            force=(constraint_work,),
+            coordinate=(1.0,),
+            resultant=resultant,
+            distribution=distribution,
+            diagnostics=diagnostics,
+            role="mpc_constraint",
+            source="exact_mpc_slave_residual_multiplier_recovery",
+            complete=True,
+        )
 
 
 def rectangular_periodic_mpc(
@@ -246,8 +399,8 @@ def _construction_diagnostics(
             "axes": tuple(int(axis) for axis in axes),
             "periods": tuple(float(span[axis]) for axis in axes),
             "coordinate_tolerance": float(tolerance),
-            "reaction_distribution": "unavailable_without_provider_dual",
-            "macroscopic_work": "unavailable_without_work_coordinate",
+            "reaction_distribution": "available_after_converged_solve",
+            "macroscopic_work": "available_after_converged_solve",
         }
     )
 
@@ -260,6 +413,19 @@ def _space(target):
     if hasattr(target, "value") and hasattr(target.value, "function_space"):
         return target.value.function_space
     return target
+
+
+def _global_scalar_dof(dofmap, local_scalar_dof: int) -> int:
+    """Map one local scalar dof to the backend-stable global scalar index."""
+
+    block_size = int(dofmap.index_map_bs)
+    local_block, component = divmod(int(local_scalar_dof), block_size)
+    global_block = int(
+        dofmap.index_map.local_to_global(
+            np.asarray((local_block,), dtype=np.int32)
+        )[0]
+    )
+    return global_block * block_size + component
 
 
 __all__ = ["RectangularPeriodicMPC", "rectangular_periodic_mpc"]

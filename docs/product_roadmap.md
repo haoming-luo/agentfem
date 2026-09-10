@@ -119,9 +119,13 @@ Deepen the finite-element core before broadening the catalog:
   MPI-aware owned/ghost slave, master-relation and coefficient diagnostics and
   rejects an incomplete graph before solve. Exact-MPC linear problems now use
   one shared prepared solver lifecycle across benchmark and future engineering
-  consumers, including ordinary solver policy and convergence evidence. Its
-  distributed reaction distribution and macroscopic work, plus weak and
-  contact providers, remain explicit promotion gates;
+  consumers, including ordinary solver policy and convergence evidence. The
+  rectangular provider now recovers its multiplier from owned slave equations,
+  scatters the paired nodal reaction distribution across MPI ranks, measures
+  the solved constraint gap, and publishes its zero homogeneous-constraint
+  virtual work through the shared result ledger. Nonzero-multiplier serial and
+  two-rank tests guard the physical dual rather than merely the graph. Weak and
+  contact providers remain the next explicit promotion gates;
 - selected cyclic plasticity, creep--fatigue, and fracture extensions.
 - promote the 3D generalized-Maxwell family beyond its analytical ramp--hold
   patch and independent Abaqus rod benchmark. Adaptive physical time, atomic

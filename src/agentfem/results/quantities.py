@@ -705,7 +705,16 @@ def static_work_balance(
     block_size = int(solution.function_space.dofmap.index_map_bs)
     prescribed: dict[int, float] = {}
     unsupported = []
-    for item in constraint_api.dirichlet_constraints(constraints):
+    strong_constraints = tuple(
+        item
+        for item in constraint_api.constraint_assets(constraints)
+        if (
+            (capability := constraint_api.constraint_capabilities(item))
+            is not None
+            and capability.kind == "dirichlet_constraint"
+        )
+    )
+    for item in strong_constraints:
         bc = getattr(item, "bc", None)
         if bc is None:
             unsupported.append(type(item).__name__)

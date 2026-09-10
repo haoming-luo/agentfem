@@ -56,9 +56,8 @@ def test_rectangular_periodic_mpc_is_public_strict_and_distributed():
     assert diagnostics["multiply_matched_slave_dofs"] == 0
     assert diagnostics["nonunit_coefficients_detected"] is False
     assert diagnostics["comm_size"] == MPI.COMM_WORLD.size
-    assert diagnostics["reaction_distribution"] == (
-        "unavailable_without_provider_dual"
-    )
+    assert diagnostics["reaction_distribution"] == "available_after_converged_solve"
+    assert diagnostics["macroscopic_work"] == "available_after_converged_solve"
     assert periodicity.diagnostics() == diagnostics
 
 
@@ -125,7 +124,7 @@ def test_prepared_mpc_linear_problem_transfers_vector_field_layout():
     assert np.max(np.abs(values[:, 1] + 2.0)) < 1.0e-10
 
 
-def test_model_step_lowers_exact_mpc_and_keeps_balance_fail_closed():
+def test_model_step_lowers_exact_mpc_and_publishes_dual_evidence():
     domain = dolfinx_mesh.create_unit_square(MPI.COMM_WORLD, 4, 3)
     model = models.create(
         study=studies.static_solid(dimension=2, assumption="plane_strain"),
@@ -154,11 +153,59 @@ def test_model_step_lowers_exact_mpc_and_keeps_balance_fail_closed():
     problem_summary = simulation.metadata["step"]["problem"]
     assert problem_summary["constraint_provider"]["method"] == "dolfinx_mpc"
     assert problem_summary["last_solve"]["converged"] is True
-    assert simulation.metadata["static_equilibrium"]["status"] == "unavailable"
-    assert simulation.metadata["static_work"]["status"] == "unavailable"
     contract = simulation.metadata["constraint_balance_contract"]
-    assert contract["force_balance_available"] is False
-    assert contract["work_balance_available"] is False
+    assert contract["force_balance_available"] is True
+    assert contract["work_balance_available"] is True
+    dual = simulation.metadata["constraint_duals"][0]
+    assert dual["source"] == "exact_mpc_slave_residual_multiplier_recovery"
+    assert dual["force_complete"] is True
+    assert dual["work_complete"] is True
+    assert dual["diagnostics"]["status"] == "complete"
+    assert dual["diagnostics"]["relation_count"] > 0
+    assert dual["diagnostics"]["constraint_gap_linf_norm"] < 1.0e-12
+    assert abs(dual["diagnostics"]["constraint_virtual_work"]) < 1.0e-12
+    assert dual["diagnostics"]["resultant_norm"] < 1.0e-12
+    reaction_name = dual["distribution"]["name"]
+    assert reaction_name in simulation.fields
+    assert abs(simulation.metadata["static_work"]["energy_balance_error"]) < 1.0e-12
+
+
+def test_exact_mpc_recovers_nonzero_multiplier_distribution():
+    domain = dolfinx_mesh.create_unit_square(MPI.COMM_WORLD, 6, 5)
+    model = models.create(
+        study=studies.static_solid(dimension=2, assumption="plane_strain"),
+        mesh=domain,
+        name="periodic_dual_distribution",
+    )
+    displacement = model.field(fields.displacement(domain))
+    source = fem.Function(displacement.space, name="nonperiodic_source")
+    source.interpolate(
+        lambda x: np.vstack((x[0] + 0.25 * x[1], x[1] - 0.5 * x[0]))
+    )
+    periodicity = constraints.rectangular_periodic_mpc(displacement)
+    stiffness = operators.combine(
+        operators.diffusion_operator(displacement, conductivity=1.0),
+        operators.mass_operator(displacement, density=0.5),
+        name="regularized_periodic_stiffness",
+    )
+
+    simulation = model.step(
+        target=displacement,
+        K=stiffness,
+        F=operators.mass_action_vector(source, displacement),
+        constraints=periodicity,
+        solver_options=solvers.direct_solver(package="mumps"),
+    ).solve_result()
+
+    dual = simulation.metadata["constraint_duals"][0]
+    diagnostics = dual["diagnostics"]
+    assert diagnostics["multiplier_l2_norm"] > 1.0e-5
+    assert diagnostics["multiplier_linf_norm"] > 1.0e-6
+    assert diagnostics["constraint_gap_linf_norm"] < 1.0e-11
+    assert abs(diagnostics["constraint_virtual_work"]) < 1.0e-11
+    assert diagnostics["resultant_norm"] < 1.0e-11
+    distribution = simulation.fields[dual["distribution"]["name"]].field
+    assert np.max(np.abs(distribution.x.array)) > 1.0e-6
 
 
 def test_steady_heat_step_uses_the_same_exact_mpc_lowering():

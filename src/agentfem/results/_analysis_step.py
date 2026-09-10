@@ -100,6 +100,28 @@ def _add_static_balance_evidence(step, result) -> None:
         provider_duals=provider_duals,
     )
     result.metadata["constraint_balance_contract"] = balance_contract
+    result.metadata["constraint_duals"] = tuple(
+        item.summary() for item in provider_duals
+    )
+    for item in provider_duals:
+        distribution = item.distribution
+        if distribution is None:
+            continue
+        result.add_field(
+            getattr(distribution, "name", f"{item.constraint_name}_reaction"),
+            distribution,
+            location="nodes",
+            description=(
+                "Provider-owned nodal reaction distribution reconstructed from "
+                "the converged constraint dual."
+            ),
+            processing={
+                "source": item.source,
+                "constraint": item.constraint_name,
+                "role": item.role,
+                "method": "provider_dual_reaction_distribution",
+            },
+        )
     try:
         equilibrium = static_force_balance(
             step.problem,

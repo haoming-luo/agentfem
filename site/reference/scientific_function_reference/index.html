@@ -14265,6 +14265,12 @@ u_s=\sum_{j\in\mathcal{M}(s)}c_{sj}u_j
 <td>dimensionless relation</td>
 <td>Carries the assembled backend, construction diagnostics, selected axes and geometric tolerance into model.step lowering and result evidence.</td>
 </tr>
+<tr>
+<td>constraint dual</td>
+<td>ConstraintDualEvidence plus nodal reaction field</td>
+<td>force/flux and conjugate field unit</td>
+<td>Contains the MPI-global physical resultant, homogeneous-constraint virtual work, multiplier/gap norms, and provider-owned nodal distribution after convergence.</td>
+</tr>
 </tbody>
 </table>
 <h4 id="assumptions">Assumptions<a class="headerlink" href="#assumptions" title="Permanent link">&para;</a></h4>
@@ -14287,7 +14293,8 @@ u_s=\sum_{j\in\mathcal{M}(s)}c_{sj}u_j
 <h4 id="limitations">Limitations<a class="headerlink" href="#limitations" title="Permanent link">&para;</a></h4>
 <ul>
 <li>Arbitrary master/slave geometry, nonlinear structural Steps, and implicit structural dynamics require separate reviewed providers.</li>
-<li>The generic exact solver does not recover a physical reaction distribution or macroscopic work coordinate; those result channels remain unavailable without provider dual evidence.</li>
+<li>The rectangular provider recovers a physical reaction/flux distribution only after a converged linear solve. Construction diagnostics alone do not constitute dual evidence.</li>
+<li>Its current homogeneous periodic relation performs zero constraint work. Nonzero affine macroscopic work belongs to the affine-periodic path provider rather than this endpoint contract.</li>
 <li>Only one exact-MPC provider may own a linear system.</li>
 </ul>
 <h3 id="minimal-example">Minimal example<a class="headerlink" href="#minimal-example" title="Permanent link">&para;</a></h3>
@@ -14309,8 +14316,9 @@ u_s=\sum_{j\in\mathcal{M}(s)}c_{sj}u_j
 <li>Reproduce analytical constant scalar and vector fields through ordinary model.step calls.</li>
 <li>Reuse one prepared linear lifecycle across accepted transient increments.</li>
 <li>Match serial and two-rank solutions and retain provider diagnostics in SimulationResult.</li>
+<li>Recover a deliberately nonzero slave multiplier, scatter equal-and-opposite nodal reactions across ranks, and require near-zero resultant, constraint gap, and homogeneous-constraint virtual work.</li>
 <li>Reject unsupported analyses, missing provider backends, and multiple exact providers before assembly.</li>
-<li>Keep global reaction and work evidence unavailable when the provider has no physical dual.</li>
+<li>Keep global reaction and work evidence unavailable for every provider that has not supplied its own physical dual.</li>
 </ul>
 <h3 id="references">References<a class="headerlink" href="#references" title="Permanent link">&para;</a></h3>
 <ul>
@@ -19589,14 +19597,14 @@ q=\frac{12(3V)^{2/3}}{\sum_e l_e^2}
 <p>At converged free degrees of freedom R is zero to solver tolerance; prescribed degrees retain reaction entries.</p>
 <p><strong>global static force balance</strong></p>
 <div class="arithmatex">\[
-\mathbf{r}_{\mathrm{balance}}=\sum\mathbf{R}_{\mathrm{strong}}+\sum\mathbf{F}_{\mathrm{assembled}}
+\mathbf{r}_{\mathrm{balance}}=\sum\mathbf{R}_{\mathrm{strong}}+\sum\mathbf{R}_{\mathrm{provider}}+\sum\mathbf{F}_{\mathrm{assembled}}
 \]</div>
 <p>The relative error is the residual norm divided by the larger external or reaction resultant norm.</p>
 <p><strong>proportional linear work</strong></p>
 <div class="arithmatex">\[
-W_{\mathrm{ext}}=\tfrac{1}{2}\mathbf{u}^{T}\mathbf{F}+\tfrac{1}{2}\mathbf{R}_{c}^{T}\bar{\mathbf{u}},\qquad U=\tfrac{1}{2}\mathbf{u}^{T}\mathbf{K}\mathbf{u}
+W_{\mathrm{ext}}=\tfrac{1}{2}\mathbf{u}^{T}\mathbf{F}+\tfrac{1}{2}\mathbf{R}_{c}^{T}\bar{\mathbf{u}}+\tfrac{1}{2}\mathbf{q}_{p}^{T}\mathbf{a}_{p},\qquad U=\tfrac{1}{2}\mathbf{u}^{T}\mathbf{K}\mathbf{u}
 \]</div>
-<p>Natural loads and strong prescribed values are ramped proportionally from zero; the constrained residual supplies the conjugate prescribed-motion work.</p>
+<p>Natural loads and strong prescribed values are ramped proportionally from zero; the constrained residual supplies prescribed-motion work and each non-Dirichlet provider owns its generalized dual pair.</p>
 <h4 id="inputs_39">Inputs<a class="headerlink" href="#inputs_39" title="Permanent link">&para;</a></h4>
 <table>
 <thead>
@@ -19658,7 +19666,7 @@ W_{\mathrm{ext}}=\tfrac{1}{2}\mathbf{u}^{T}\mathbf{F}+\tfrac{1}{2}\mathbf{R}_{c}
 <li>Small-strain standard fields use the selected linear-elastic constitutive relation.</li>
 <li>Plane-strain isotropic Mises stress includes the constitutively implied out-of-plane stress.</li>
 <li>Axisymmetric fields are full 3x3 tensors and projection uses the same 2 pi r physical measure as equilibrium.</li>
-<li>Reaction resultant semantics are limited to strong Dirichlet constraints.</li>
+<li>reaction_resultant alone reports the unconstrained residual route; complete model-level balance also consumes every declared provider-owned resultant.</li>
 </ul>
 <h4 id="conventions_39">Conventions<a class="headerlink" href="#conventions_39" title="Permanent link">&para;</a></h4>
 <ul>
@@ -19680,7 +19688,7 @@ W_{\mathrm{ext}}=\tfrac{1}{2}\mathbf{u}^{T}\mathbf{F}+\tfrac{1}{2}\mathbf{R}_{c}
 <h4 id="limitations_39">Limitations<a class="headerlink" href="#limitations_39" title="Permanent link">&para;</a></h4>
 <ul>
 <li>Nodal smoothing and superconvergent stress recovery are not implemented.</li>
-<li>Affine MPC, weak, and contact reactions require their numerical provider to implement the shared dual_evidence(problem) protocol; force or work balance remains unavailable for any provider that has not supplied the corresponding physical dual.</li>
+<li>Affine MPC, arbitrary MPC, weak, and contact reactions require their numerical provider to implement the shared dual_evidence(problem) protocol; force or work balance remains unavailable for any provider that has not supplied the corresponding physical dual. The rectangular homogeneous periodic provider implements this protocol; weak and contact providers do not yet claim complete evidence.</li>
 <li>Thermoelastic output requires temperature-aware field construction in a later extension.</li>
 </ul>
 <h3 id="minimal-example_39">Minimal example<a class="headerlink" href="#minimal-example_39" title="Permanent link">&para;</a></h3>

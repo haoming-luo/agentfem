@@ -42,13 +42,13 @@
       },
       {
         "label": "global static force balance",
-        "expression": "\\mathbf{r}_{\\mathrm{balance}}=\\sum\\mathbf{R}_{\\mathrm{strong}}+\\sum\\mathbf{F}_{\\mathrm{assembled}}",
+        "expression": "\\mathbf{r}_{\\mathrm{balance}}=\\sum\\mathbf{R}_{\\mathrm{strong}}+\\sum\\mathbf{R}_{\\mathrm{provider}}+\\sum\\mathbf{F}_{\\mathrm{assembled}}",
         "description": "The relative error is the residual norm divided by the larger external or reaction resultant norm."
       },
       {
         "label": "proportional linear work",
-        "expression": "W_{\\mathrm{ext}}=\\tfrac{1}{2}\\mathbf{u}^{T}\\mathbf{F}+\\tfrac{1}{2}\\mathbf{R}_{c}^{T}\\bar{\\mathbf{u}},\\qquad U=\\tfrac{1}{2}\\mathbf{u}^{T}\\mathbf{K}\\mathbf{u}",
-        "description": "Natural loads and strong prescribed values are ramped proportionally from zero; the constrained residual supplies the conjugate prescribed-motion work."
+        "expression": "W_{\\mathrm{ext}}=\\tfrac{1}{2}\\mathbf{u}^{T}\\mathbf{F}+\\tfrac{1}{2}\\mathbf{R}_{c}^{T}\\bar{\\mathbf{u}}+\\tfrac{1}{2}\\mathbf{q}_{p}^{T}\\mathbf{a}_{p},\\qquad U=\\tfrac{1}{2}\\mathbf{u}^{T}\\mathbf{K}\\mathbf{u}",
+        "description": "Natural loads and strong prescribed values are ramped proportionally from zero; the constrained residual supplies prescribed-motion work and each non-Dirichlet provider owns its generalized dual pair."
       }
     ],
     "inputs": [
@@ -89,7 +89,7 @@
       "Small-strain standard fields use the selected linear-elastic constitutive relation.",
       "Plane-strain isotropic Mises stress includes the constitutively implied out-of-plane stress.",
       "Axisymmetric fields are full 3x3 tensors and projection uses the same 2 pi r physical measure as equilibrium.",
-      "Reaction resultant semantics are limited to strong Dirichlet constraints."
+      "reaction_resultant alone reports the unconstrained residual route; complete model-level balance also consumes every declared provider-owned resultant."
     ],
     "conventions": [
       "DG0 is the default output space and represents a cell average.",
@@ -108,7 +108,7 @@
     ],
     "limitations": [
       "Nodal smoothing and superconvergent stress recovery are not implemented.",
-      "Affine MPC, weak, and contact reactions require their numerical provider to implement the shared dual_evidence(problem) protocol; force or work balance remains unavailable for any provider that has not supplied the corresponding physical dual.",
+      "Affine MPC, arbitrary MPC, weak, and contact reactions require their numerical provider to implement the shared dual_evidence(problem) protocol; force or work balance remains unavailable for any provider that has not supplied the corresponding physical dual. The rectangular homogeneous periodic provider implements this protocol; weak and contact providers do not yet claim complete evidence.",
       "Thermoelastic output requires temperature-aware field construction in a later extension."
     ]
   },
