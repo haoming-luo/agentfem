@@ -6,6 +6,18 @@ experimental formulation to a validated one.
 
 ## [Unreleased]
 
+### Changed
+
+- Separate structural modal ownership without changing the public workflow:
+  `mechanics` now selects physical modes, the FEniCSx/SLEPc backend owns
+  distributed reduction and deterministic resource teardown, and `results`
+  publishes modal fields and evidence. The compatibility entry point in
+  `problems` remains available.
+- Establish one internal `PreparedSolve` lifetime contract for reusable
+  numerical allocations. Ordinary linear, exact-MPC, and harmonic prepared
+  solves expose terminal, idempotent close semantics while retaining summaries
+  and public solution fields after backend resources are released.
+
 ## [0.3.3] - 2026-09-10
 
 ### Added

@@ -608,11 +608,20 @@ class PreparedLinearProblem:
         self.solve_count = 0
         self._closed = False
 
+    @property
+    def closed(self) -> bool:
+        """Whether this prepared numerical allocation has been released."""
+
+        return self._closed
+
+    def _require_open(self) -> None:
+        if self._closed:
+            raise RuntimeError("PreparedLinearProblem is closed.")
+
     def solve(self):
         """Assemble the current right-hand side and reuse the prepared solve."""
 
-        if self._closed:
-            raise RuntimeError("PreparedLinearProblem is closed.")
+        self._require_open()
         vector = fem_petsc.assemble_vector(self.linear_form)
         fem_petsc.apply_lifting(vector, [self.bilinear_form], [self.bcs])
         vector.ghostUpdate(
@@ -650,11 +659,23 @@ class PreparedLinearProblem:
 
         if self._closed:
             return
-        self.ksp.destroy()
-        self.matrix.destroy()
+        ksp = self.ksp
+        matrix = self.matrix
+        self.ksp = None
+        self.matrix = None
         self._closed = True
+        first_error = None
+        for resource in (ksp, matrix):
+            try:
+                resource.destroy()
+            except Exception as exc:  # pragma: no cover - PETSc failure path
+                if first_error is None:
+                    first_error = exc
+        if first_error is not None:
+            raise first_error
 
     def __enter__(self):
+        self._require_open()
         return self
 
     def __exit__(self, exc_type, exc, traceback):

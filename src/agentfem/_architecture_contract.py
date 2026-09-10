@@ -143,7 +143,7 @@ OWNERSHIP_BOUNDARIES = (
             "material selection",
             "verification policy",
         ),
-        modules=("backends", "kernel"),
+        modules=("backends", "kernel", "_solver_lifecycle"),
     ),
     OwnershipBoundary(
         name="result_verification",

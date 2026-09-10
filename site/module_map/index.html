@@ -1226,7 +1226,7 @@ otherwise; runnable examples remain in the repository-level <code>examples/</cod
 <td><code>fracture.py</code></td>
 </tr>
 <tr>
-<td>Global stateful solid-mechanics procedures</td>
+<td>Global stateful and modal solid-mechanics procedures</td>
 <td><code>mechanics/</code></td>
 </tr>
 <tr>
@@ -1258,8 +1258,12 @@ otherwise; runnable examples remain in the repository-level <code>examples/</cod
 <td><code>time/</code></td>
 </tr>
 <tr>
-<td>Analysis steps and discrete system problems</td>
+<td>Common analysis steps, discrete system problems, and compatibility delegates</td>
 <td><code>problems.py</code></td>
+</tr>
+<tr>
+<td>Structural modal procedure, distributed eigensolver execution, and result assembly</td>
+<td><code>mechanics/modal.py</code>, <code>backends/_modal.py</code>, <code>results/_modal.py</code></td>
 </tr>
 <tr>
 <td>Shared transient checkpoint envelope, integrity, accepted-increment cadence, and partition identity</td>
@@ -1270,8 +1274,8 @@ otherwise; runnable examples remain in the repository-level <code>examples/</cod
 <td><code>steps.py</code></td>
 </tr>
 <tr>
-<td>Linear/nonlinear solvers and convergence evidence</td>
-<td><code>solvers.py</code></td>
+<td>Linear/nonlinear solvers, prepared-solve lifecycle, and convergence evidence</td>
+<td><code>_solver_lifecycle.py</code>, <code>solvers.py</code></td>
 </tr>
 <tr>
 <td>Scientific results, MPI-safe point/path/integral QoIs, histories, artifacts, and dataset bridge</td>

@@ -997,6 +997,16 @@ decision or when a lower layer imports an orchestration layer.</p>
   PDE benchmark consumes this shared boundary rather than owning a private
   <code>dolfinx_mpc.LinearProblem</code>. Provider-specific reaction and work recovery is
   deliberately not moved into the solver.</li>
+<li>Structural modal analysis now follows the same ownership rule: <code>mechanics</code>
+  owns rigid-mode filtering and physical eigenpair selection, <code>backends</code>
+  owns distributed matrix reduction, SLEPc execution and deterministic
+  teardown, and <code>results</code> owns modal fields and verification evidence.
+  <code>problems.modal_analysis(...)</code> remains a compatibility construction route,
+  not a second eigensolver implementation.</li>
+<li>Reusable numerical allocations share the internal <code>PreparedSolve</code> contract:
+  solve and summary while open, a visible terminal <code>closed</code> state, and an
+  idempotent <code>close()</code>. Execution scopes—not Model—own these resources, and
+  summaries plus borrowed public fields remain readable after teardown.</li>
 </ul>
 <p>The next structural split should be evidence-driven: <code>_step_builders.py</code> may
 become a private builder package when independent provider families need

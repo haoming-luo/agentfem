@@ -124,10 +124,11 @@ Deepen the finite-element core before broadening the catalog:
   of the discrete peak frequency, displacement and declared recovered stress;
   its nonuniform ratios are not used to invent an observed order. Portable
   scalar sweep restart is exercised in both one-to-two and two-to-one rank
-  directions. Multiple material regions, MPC/weak constraints and independent
-  load phases remain open.
-  Independently checked complex modes follow only after that route is
-  established;
+  directions. This bounded modal and provider-neutral direct-harmonic track is
+  complete for the current 0.3 line. Complex modes, prestressed response,
+  multiple viscoelastic regions, MPC/weak harmonic constraints and independent
+  load phases remain later extensions while finite-strain J2/RVE and cohesive
+  structural verification return to priority;
 
 ### 2. Engineering workflow
 

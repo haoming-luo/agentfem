@@ -470,3 +470,31 @@ def test_modal_step_rejects_values_that_would_be_silently_truncated(
     }
     with pytest.raises(ValueError, match="positive integer"):
         problems.modal_analysis(**options)
+
+
+def test_modal_problem_facade_delegates_to_the_mechanics_owner():
+    step = problems.modal_analysis(
+        target=object(),
+        mass=object(),
+        stiffness=object(),
+        modes=1,
+    )
+
+    assert type(step) is problems.ModalAnalysisStep
+    assert type(step).__module__ == "agentfem.mechanics.modal"
+
+
+def test_modal_constraint_failure_names_the_actual_procedure():
+    step = problems.modal_analysis(
+        target=object(),
+        mass=object(),
+        stiffness=object(),
+        modes=1,
+        constraints=(object(),),
+    )
+
+    with pytest.raises(
+        TypeError,
+        match="modal analysis received.*not a strong Dirichlet constraint",
+    ):
+        step.solve()

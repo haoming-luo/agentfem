@@ -24,6 +24,7 @@ from .harmonic import (
     direct_harmonic_step,
     harmonic_frequency_sweep_step,
 )
+from .modal import ModalAnalysisStep
 from .plasticity import (
     J2IncrementInfo,
     J2LoadPathInfo,
@@ -58,6 +59,7 @@ __all__ = [
     "J2LoadPathInfo",
     "J2PlasticityStep",
     "HarmonicViscoelasticStep",
+    "ModalAnalysisStep",
     "QuasistaticViscoelasticStep",
     "ViscoelasticEnergyFrame",
     "ViscoelasticIncrementInfo",

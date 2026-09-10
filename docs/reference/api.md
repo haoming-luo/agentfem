@@ -870,6 +870,7 @@ and evidence remain in the linked guides and scientific function reference.
 | class | `DirectHarmonicSweepStep` | A bounded-memory ordered frequency sweep over one prepared Step. |
 | function | `direct_harmonic_step(*, displacement, system: DirectHarmonicSystem, frequency: float \| None = None, angular_frequency: float \| None = None, constraints = (), load_phase: float = 0.0, study = None, solver_options = None, name: str = 'direct_harmonic') -> DirectHarmonicStep` | Build one direct harmonic Step from explicit operator contributions. |
 | function | `harmonic_frequency_sweep_step(point_step: DirectHarmonicStep, *, frequencies, responses = (), execution_order: str = 'forward', scientific_assets: dict[str, object] \| None = None, status_file = None, name: str \| None = None) -> DirectHarmonicSweepStep` | Create a reusable ordered sweep around one direct harmonic Step. |
+| class | `ModalAnalysisStep` | Constrained linear modes from ``K phi = lambda M phi``. |
 | class | `J2IncrementInfo` | Public AgentFEM object. |
 | class | `J2LoadPathInfo` | Public AgentFEM object. |
 | class | `J2PlasticityStep` | Incremental global equilibrium for 3D small-strain J2 plasticity. |
@@ -1305,7 +1306,6 @@ This package exposes its public objects through focused submodules.
 | class | `FEMProblem` | Lightweight finite-element problem description. |
 | class | `LinearVariationalProblem` | A standard linear variational problem, ``a(u, v) = L(v)``. |
 | class | `LinearSystemProblem` | Engineering-level linear system problem, usually ``K x = F``. |
-| class | `ModalAnalysisStep` | Constrained linear modes from ``K phi = lambda M phi``. |
 | class | `NonlinearVariationalProblem` | Nonlinear residual problem ``R(u; v) = 0`` solved by PETSc SNES. |
 | class | `NonlinearLoadIncrementInfo` | Convergence evidence for one ordinary nonlinear load increment. |
 | class | `NonlinearLoadPathInfo` | Accepted and attempted increments for an ordinary nonlinear step. |

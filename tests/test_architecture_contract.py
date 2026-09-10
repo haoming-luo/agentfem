@@ -176,6 +176,28 @@ def test_harmonic_step_delegates_petsc_problem_to_backend_owner():
     assert "mechanics" not in _agentfem_imports(PACKAGE / "backends" / "_harmonic.py")
 
 
+def test_modal_analysis_separates_procedure_backend_and_result_owners():
+    problem_source = (PACKAGE / "problems.py").read_text(encoding="utf-8")
+    mechanics_path = PACKAGE / "mechanics" / "modal.py"
+    backend_path = PACKAGE / "backends" / "_modal.py"
+    result_path = PACKAGE / "results" / "_modal.py"
+    mechanics_source = mechanics_path.read_text(encoding="utf-8")
+    backend_source = backend_path.read_text(encoding="utf-8")
+    result_source = result_path.read_text(encoding="utf-8")
+
+    assert "class ModalAnalysisStep" not in problem_source
+    assert "from .mechanics.modal import ModalAnalysisStep" in problem_source
+    assert "class ModalAnalysisStep" in mechanics_source
+    assert "_select_modal_solution" in mechanics_source
+    assert "SLEPc.EPS" not in mechanics_source
+    assert "SimulationResult" not in mechanics_source
+    assert "SLEPc.EPS" in backend_source
+    assert "selected_clusters_are_complete" not in backend_source
+    assert "mechanics" not in _agentfem_imports(backend_path)
+    assert "from_modal_step" in result_source
+    assert "problems" not in _agentfem_imports(result_path)
+
+
 def test_problem_compatibility_exports_point_to_new_owners():
     from agentfem import dynamics, operators, problems, state
 

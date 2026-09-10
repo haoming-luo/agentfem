@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field, replace
 import json
-from operator import index as integer_index
 from pathlib import Path
 from time import perf_counter
 
@@ -17,16 +16,12 @@ from petsc4py import PETSc
 from . import assembly
 from . import fields
 from . import time
-from ._modal import cluster_summaries, selected_clusters_are_complete
-from ._modal_fem import (
-    orient_mode_deterministically,
-    orthogonality_evidence,
-    require_symmetric_operator,
-)
+from ._solver_lifecycle import PreparedSolve
 from .dynamics import ModalSolveInfo
 from .diagnostics import PerformanceLedger
 from .constraints.affine import AffineConstraintDualHistory
 from .kernel import dofs
+from .mechanics.modal import ModalAnalysisStep
 from .operators.core import LumpedMassOperator
 from .solvers import (
     AffineNewtonOptions,
@@ -179,7 +174,7 @@ class LinearSystemProblem:
             if callable(close):
                 close()
 
-    def prepare(self):
+    def prepare(self) -> PreparedSolve:
         """Prepare the constant linear operator for one or more solves."""
 
         solution = self._solution()
@@ -201,7 +196,7 @@ class LinearSystemProblem:
             petsc_options_prefix="agentfem_linear_system_mpc_",
         )
 
-    def solve_prepared(self, prepared):
+    def solve_prepared(self, prepared: PreparedSolve):
         """Solve with a compatible prepared lifecycle and retain evidence."""
 
         solution = prepared.solve()
@@ -286,364 +281,6 @@ class LinearSystemProblem:
         if self.unknown is not None and hasattr(self.unknown, "value"):
             return self.unknown.value
         raise ValueError("LinearSystemProblem requires solution or unknown.")
-
-
-def _positive_integer(value, *, name: str) -> int:
-    """Return one exact positive integer without truncating user input."""
-
-    if isinstance(value, (bool, np.bool_)):
-        raise ValueError(f"{name} must be a positive integer.")
-    try:
-        selected = integer_index(value)
-    except TypeError as exc:
-        raise ValueError(f"{name} must be a positive integer.") from exc
-    if selected <= 0:
-        raise ValueError(f"{name} must be a positive integer.")
-    return int(selected)
-
-
-@dataclass
-class ModalAnalysisStep:
-    """Constrained linear modes from ``K phi = lambda M phi``.
-
-    Strong Dirichlet dofs are removed algebraically rather than assigned an
-    artificial diagonal eigenvalue. This preserves the physical low spectrum
-    and gives the same public Step/Result lifecycle as other analyses.
-    """
-
-    name: str
-    target: object
-    stiffness: object
-    mass: object
-    modes: int
-    study: object | None = None
-    constraints: tuple[object, ...] = ()
-    bcs: tuple[object, ...] = ()
-    target_frequency: float | None = None
-    tolerance: float = 1.0e-9
-    maximum_iterations: int = 1000
-    rigid_mode_tolerance: float = 1.0e-10
-    procedure: object | None = None
-    eigenvalues: np.ndarray | None = field(default=None, init=False)
-    mode_shapes: tuple[object, ...] = field(default=(), init=False)
-    last_solve_info: ModalSolveInfo | None = field(default=None, init=False)
-
-    def __post_init__(self) -> None:
-        self.modes = _positive_integer(self.modes, name="modes")
-        self.maximum_iterations = _positive_integer(
-            self.maximum_iterations,
-            name="maximum_iterations",
-        )
-        if not np.isfinite(self.tolerance) or self.tolerance <= 0.0:
-            raise ValueError("Modal tolerance must be finite and positive.")
-        if (
-            not np.isfinite(self.rigid_mode_tolerance)
-            or self.rigid_mode_tolerance < 0.0
-        ):
-            raise ValueError("rigid_mode_tolerance must be nonnegative.")
-        if self.target_frequency is not None and (
-            not np.isfinite(self.target_frequency) or self.target_frequency < 0.0
-        ):
-            raise ValueError("target_frequency must be finite and nonnegative.")
-
-    def solve(self):
-        from .dependencies import require
-
-        SLEPc = require(
-            "slepc4py.SLEPc",
-            extra="modal",
-            capability="distributed structural modal analysis",
-        )
-
-        target = getattr(self.target, "value", self.target)
-        V = target.function_space
-        comm = V.mesh.comm
-        selected_bcs = _collect_bcs(constraints=self.constraints, bcs=self.bcs)
-        stiffness = self.stiffness.assemble_matrix(bcs=None)
-        mass = self.mass.assemble_matrix(bcs=None)
-
-        block_size = int(V.dofmap.index_map_bs)
-        owned_blocks = int(V.dofmap.index_map.size_local)
-        owned_scalar = owned_blocks * block_size
-        constrained_local = []
-        for bc in selected_bcs:
-            indices, first_ghost = bc.dof_indices()
-            constrained_local.extend(np.asarray(indices[:first_ghost], dtype=np.int64))
-        constrained_local = np.unique(np.asarray(constrained_local, dtype=np.int64))
-        constrained_local = constrained_local[constrained_local < owned_scalar]
-        free_mask = np.ones(owned_scalar, dtype=bool)
-        free_mask[constrained_local] = False
-        free_local = np.flatnonzero(free_mask).astype(np.int32)
-
-        local_blocks = free_local // block_size
-        components = free_local % block_size
-        global_blocks = V.dofmap.index_map.local_to_global(local_blocks)
-        free_global = np.asarray(
-            global_blocks, dtype=PETSc.IntType
-        ) * block_size + components.astype(PETSc.IntType)
-        free_count = int(comm.allreduce(free_local.size, op=MPI.SUM))
-        constrained_count = int(comm.allreduce(constrained_local.size, op=MPI.SUM))
-        if free_count <= int(self.modes):
-            stiffness.destroy()
-            mass.destroy()
-            raise ValueError(
-                f"Modal analysis has {free_count} free dofs but requests {self.modes} modes."
-            )
-
-        free_is = PETSc.IS().createGeneral(free_global, comm=comm)
-        reduced_stiffness = stiffness.createSubMatrix(free_is, free_is)
-        reduced_mass = mass.createSubMatrix(free_is, free_is)
-
-        relative_symmetry_tolerance = max(
-            100.0 * np.finfo(float).eps,
-            min(1.0e-8, 10.0 * float(self.tolerance)),
-        )
-        try:
-            stiffness_symmetry_tolerance = require_symmetric_operator(
-                reduced_stiffness,
-                name="stiffness",
-                relative_tolerance=relative_symmetry_tolerance,
-            )
-            mass_symmetry_tolerance = require_symmetric_operator(
-                reduced_mass,
-                name="mass",
-                relative_tolerance=relative_symmetry_tolerance,
-            )
-        except Exception:
-            reduced_stiffness.destroy()
-            reduced_mass.destroy()
-            free_is.destroy()
-            stiffness.destroy()
-            mass.destroy()
-            raise
-
-        eps = SLEPc.EPS().create(comm)
-        eps.setOperators(reduced_stiffness, reduced_mass)
-        eps.setProblemType(SLEPc.EPS.ProblemType.GHEP)
-        eps.setType(SLEPc.EPS.Type.KRYLOVSCHUR)
-        requested = min(
-            free_count - 1, int(self.modes) + min(8, free_count - int(self.modes) - 1)
-        )
-        eps.setDimensions(requested)
-        eps.setTolerances(
-            tol=float(self.tolerance), max_it=int(self.maximum_iterations)
-        )
-        target_eigenvalue = None
-        if self.target_frequency is None:
-            # Interior targeting at zero is substantially more reliable for
-            # the smallest structural modes than an untransformed extremal
-            # search, especially when stiffness and mass scales differ by
-            # many orders of magnitude.
-            eps.setTarget(0.0)
-            eps.setWhichEigenpairs(SLEPc.EPS.Which.TARGET_REAL)
-            eps.getST().setType(SLEPc.ST.Type.SINVERT)
-        else:
-            target_eigenvalue = (2.0 * np.pi * float(self.target_frequency)) ** 2
-            eps.setTarget(target_eigenvalue)
-            eps.setWhichEigenpairs(SLEPc.EPS.Which.TARGET_REAL)
-            eps.getST().setType(SLEPc.ST.Type.SINVERT)
-        eps.setFromOptions()
-        eps.solve()
-
-        converged = int(eps.getConverged())
-        eigenvalues = []
-        residual_norms = []
-        mode_shapes = []
-        orientation_anchors = []
-        reduced_vector = reduced_stiffness.createVecRight()
-        candidates = []
-        for index in range(converged):
-            eigenvalue = eps.getEigenvalue(index)
-            if abs(float(np.imag(eigenvalue))) > self.tolerance:
-                continue
-            candidates.append((float(np.real(eigenvalue)), index))
-        scale = max(1.0, max((abs(item[0]) for item in candidates), default=1.0))
-        candidates = [
-            item for item in candidates if item[0] > self.rigid_mode_tolerance * scale
-        ]
-        if target_eigenvalue is None:
-            selected_candidates = sorted(candidates, key=lambda item: item[0])[
-                : int(self.modes)
-            ]
-        else:
-            # SLEPc returns the eigenpairs closest to the declared shift. Keep
-            # that physical selection when turning the solver output into an
-            # ordered public result; sorting every candidate by eigenvalue
-            # would silently turn a targeted solve back into a low-mode solve.
-            selected_candidates = sorted(
-                candidates,
-                key=lambda item: abs(item[0] - target_eigenvalue),
-            )[: int(self.modes)]
-            selected_candidates.sort(key=lambda item: item[0])
-        cluster_relative_tolerance = max(
-            1.0e-8,
-            100.0 * float(self.tolerance),
-        )
-        ordered_candidates = sorted(candidates, key=lambda item: item[0])
-        selected_solver_indices = {item[1] for item in selected_candidates}
-        selected_positions = tuple(
-            position
-            for position, item in enumerate(ordered_candidates)
-            if item[1] in selected_solver_indices
-        )
-        selected_clusters_complete = bool(ordered_candidates) and (
-            selected_clusters_are_complete(
-                [item[0] for item in ordered_candidates],
-                selected_positions,
-                relative_tolerance=cluster_relative_tolerance,
-            )
-        )
-        for eigenvalue, index in selected_candidates:
-            eps.getEigenvector(index, reduced_vector)
-            local_values = np.asarray(reduced_vector.array_r)
-            if local_values.size != free_local.size:
-                raise RuntimeError(
-                    "Distributed modal subspace layout does not match the free-dof map."
-                )
-            mode = fem.Function(V, name=f"Mode_{len(mode_shapes) + 1}")
-            mode.x.array[free_local] = np.real(local_values)
-            mode.x.scatter_forward()
-            orientation_anchors.append(
-                orient_mode_deterministically(mode, free_local, free_global)
-            )
-            eigenvalues.append(eigenvalue)
-            residual_norms.append(
-                float(eps.computeError(index, SLEPc.EPS.ErrorType.RELATIVE))
-            )
-            mode_shapes.append(mode)
-
-        orthogonality_tolerance = max(1.0e-7, 100.0 * float(self.tolerance))
-        mass_error, stiffness_error = orthogonality_evidence(
-            stiffness,
-            mass,
-            mode_shapes,
-            eigenvalues,
-        )
-
-        info = ModalSolveInfo(
-            converged_eigenpairs=converged,
-            requested_modes=int(self.modes),
-            accepted_modes=len(mode_shapes),
-            constrained_dofs=constrained_count,
-            free_dofs=free_count,
-            residual_norms=tuple(residual_norms),
-            eigensolver=str(eps.getType()),
-            target_frequency=self.target_frequency,
-            mass_orthogonality_error=mass_error,
-            stiffness_diagonalization_error=stiffness_error,
-            orthogonality_tolerance=orthogonality_tolerance,
-            orientation_anchor_dofs=tuple(orientation_anchors),
-            operator_symmetry_relative_tolerance=relative_symmetry_tolerance,
-            stiffness_symmetry_absolute_tolerance=stiffness_symmetry_tolerance,
-            mass_symmetry_absolute_tolerance=mass_symmetry_tolerance,
-            stiffness_symmetric=True,
-            mass_symmetric=True,
-            cluster_relative_tolerance=cluster_relative_tolerance,
-            eigenvalue_clusters=(
-                cluster_summaries(
-                    eigenvalues,
-                    relative_tolerance=cluster_relative_tolerance,
-                )
-                if eigenvalues
-                else ()
-            ),
-            selected_clusters_complete=selected_clusters_complete,
-        )
-        self.last_solve_info = info
-        self.eigenvalues = np.asarray(eigenvalues, dtype=float)
-        self.mode_shapes = tuple(mode_shapes)
-
-        reduced_vector.destroy()
-        eps.destroy()
-        reduced_stiffness.destroy()
-        reduced_mass.destroy()
-        free_is.destroy()
-        stiffness.destroy()
-        mass.destroy()
-        if not info.converged:
-            raise RuntimeError(
-                f"Modal solve accepted {info.accepted_modes} of {info.requested_modes} requested modes."
-            )
-        return self.mode_shapes
-
-    def solve_result(self, *, output=None, strict_output: bool = False):
-        from .results import SimulationResult, complete_result
-
-        modes = self.solve()
-        assert self.eigenvalues is not None
-        assert self.last_solve_info is not None
-        result = SimulationResult(name=self.name)
-        result.add_quantities(
-            {
-                "eigenvalues": self.eigenvalues,
-                "angular_frequencies": np.sqrt(self.eigenvalues),
-                "frequencies": np.sqrt(self.eigenvalues) / (2.0 * np.pi),
-                "residual_norms": np.asarray(self.last_solve_info.residual_norms),
-                "mass_orthogonality_error": self.last_solve_info.mass_orthogonality_error,
-                "stiffness_diagonalization_error": self.last_solve_info.stiffness_diagonalization_error,
-            },
-            units={
-                "eigenvalues": "rad^2/s^2",
-                "angular_frequencies": "rad/s",
-                "frequencies": "Hz",
-            },
-            kind="modal",
-        )
-        cluster_by_mode = {
-            int(mode_index): cluster_index
-            for cluster_index, cluster in enumerate(
-                self.last_solve_info.eigenvalue_clusters,
-                start=1,
-            )
-            for mode_index in cluster["indices"]
-        }
-        for index, mode in enumerate(modes, start=1):
-            result.add_field(
-                f"Mode_{index}",
-                mode,
-                unit=None,
-                description=(
-                    "Mass-normalized eigenvector; its amplitude is a normalization "
-                    "coordinate rather than a physical displacement."
-                ),
-                processing={
-                    "method": "generalized_hermitian_eigenproblem",
-                    "normalization": "mass",
-                    "orientation": "largest_global_component_positive",
-                    "eigenvalue_cluster": cluster_by_mode[index],
-                    "comparison_object": next(
-                        cluster["comparison_object"]
-                        for cluster in self.last_solve_info.eigenvalue_clusters
-                        if index in cluster["indices"]
-                    ),
-                    "postprocessed": False,
-                },
-            )
-        result.metadata["problem"] = self.summary()
-        result.metadata["solve"] = self.last_solve_info.as_dict()
-        return complete_result(
-            self,
-            result,
-            output=output,
-            strict_output=strict_output,
-        )
-
-    def summary(self) -> dict[str, object]:
-        return {
-            "kind": "modal_analysis_step",
-            "name": self.name,
-            "requested_modes": int(self.modes),
-            "target_frequency": self.target_frequency,
-            "constraints": len(
-                _collect_bcs(constraints=self.constraints, bcs=self.bcs)
-            ),
-            "stiffness": self.stiffness.summary(),
-            "mass": self.mass.summary(),
-            "procedure": None if self.procedure is None else self.procedure.summary(),
-            "last_solve": None
-            if self.last_solve_info is None
-            else self.last_solve_info.as_dict(),
-        }
 
 
 @dataclass

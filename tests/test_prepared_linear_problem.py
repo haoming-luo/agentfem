@@ -3,8 +3,10 @@ from __future__ import annotations
 import numpy as np
 from dolfinx import fem
 from mpi4py import MPI
+import pytest
 
 from agentfem import constraints, fields, mesh, operators, results, solvers
+from agentfem._solver_lifecycle import PreparedSolve
 
 
 def test_prepared_linear_problem_reuses_matrix_for_updated_rhs():
@@ -39,6 +41,8 @@ def test_prepared_linear_problem_reuses_matrix_for_updated_rhs():
         bcs=fixed.bcs,
         options=solvers.direct_solver(),
     ) as prepared:
+        assert isinstance(prepared, PreparedSolve)
+        assert not prepared.closed
         first = prepared.solve()
         first_center = results.probe(first, at=(0.5, 0.5))
         source.value = 2.0
@@ -51,3 +55,7 @@ def test_prepared_linear_problem_reuses_matrix_for_updated_rhs():
     assert summary["matrix_reused"] is True
     assert summary["solve_count"] == 2
     assert summary["last_solve"]["converged"] is True
+    assert prepared.closed
+    assert prepared.summary() == summary
+    with pytest.raises(RuntimeError, match="PreparedLinearProblem is closed"):
+        prepared.solve()

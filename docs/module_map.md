@@ -32,7 +32,7 @@ otherwise; runnable examples remain in the repository-level `examples/`.
 | Monotonic cohesive laws, paired interface topology, and physical-keyed state | `interfaces.py`, `cohesive_checkpoint.py` |
 | Independent cycle coordinate, cyclic cohesive damage, cycle jumps, and 3D fatigue-crack observations | `fatigue_fracture.py` |
 | Finite-strain cohesive forces, named interface composition, energy, wave speeds, and dynamic crack evidence | `fracture.py` |
-| Global stateful solid-mechanics procedures | `mechanics/` |
+| Global stateful and modal solid-mechanics procedures | `mechanics/` |
 | Material-point contracts, UMAT/UHYPER source inspection, and bridge specifications | `constitutive/user_material.py` |
 | Named material definitions, project Python assets, physics-role compatibility, reference records, and property containers | `materials/` |
 | Boundary models | `boundary_models/` |
@@ -40,10 +40,11 @@ otherwise; runnable examples remain in the repository-level `examples/`.
 | Assembly | `assembly.py` |
 | Engineering-level K/M/C/F, registered-assignment lowering, transport, SUPG, and reaction operators | `operators/` |
 | Central difference, Newmark, generalized-alpha, and runtime cadence | `time/` |
-| Analysis steps and discrete system problems | `problems.py` |
+| Common analysis steps, discrete system problems, and compatibility delegates | `problems.py` |
+| Structural modal procedure, distributed eigensolver execution, and result assembly | `mechanics/modal.py`, `backends/_modal.py`, `results/_modal.py` |
 | Shared transient checkpoint envelope, integrity, accepted-increment cadence, and partition identity | `checkpointing.py` |
 | Automatic/fixed incrementation and cutback policy | `steps.py` |
-| Linear/nonlinear solvers and convergence evidence | `solvers.py` |
+| Linear/nonlinear solvers, prepared-solve lifecycle, and convergence evidence | `_solver_lifecycle.py`, `solvers.py` |
 | Scientific results, MPI-safe point/path/integral QoIs, histories, artifacts, and dataset bridge | `results/` |
 | Finite-strain fields and periodic-cell homogenization | `results/finite_strain.py` |
 | Global and regional L2 projection; engineering-default `S`/`E`/`MISES`, opt-in `SENER`, and explicit processing metadata | `results/projection.py`, `results/core.py` |
