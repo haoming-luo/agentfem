@@ -867,8 +867,11 @@ class OutputPlan:
             model.write_ir(ir_path)
         if self.write_manifest:
             result.add_artifact("result_manifest", manifest_path)
-            if comm.rank == 0:
-                result.write_manifest(manifest_path, include_histories=True)
+            result.write_manifest(
+                manifest_path,
+                include_histories=True,
+                comm=comm,
+            )
         comm.barrier()
         return result
 

@@ -1618,6 +1618,12 @@ the assembled matrices before SLEPc solves</p>
 <a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a><span class="n">frequencies</span> <span class="o">=</span> <span class="n">result</span><span class="o">.</span><span class="n">quantity</span><span class="p">(</span><span class="s2">&quot;frequencies&quot;</span><span class="p">)</span>
 <a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a><span class="n">mode_1</span> <span class="o">=</span> <span class="n">result</span><span class="o">.</span><span class="n">field</span><span class="p">(</span><span class="s2">&quot;Mode_1&quot;</span><span class="p">)</span>
 </code></pre></div>
+<p>This modal route is deliberately linearized about a stationary reference
+configuration. Its supports must be homogeneous, time independent, strong
+Dirichlet constraints. A nonzero support displacement, a prescribed history,
+or remote motion is rejected before eigensolver assembly; it is not silently
+reinterpreted as a fixed degree of freedom. Such problems require a separately
+verified prestressed or base-state modal formulation.</p>
 <p>The result retains eigenvalues, angular frequencies, frequencies, relative
 eigenpair residuals, mass-orthogonality and stiffness-diagonalization errors,
 eigenvalue clusters, and each mass-normalized live mode field. For an isolated
@@ -1632,6 +1638,10 @@ incomplete basis. A mass-normalized mode shape has no physical displacement
 amplitude until it is multiplied by a modal coordinate. <code>slepc4py</code> is an
 optional execution dependency because a dense array eigensolver is not a
 scalable replacement for distributed finite-element modal analysis.
+Finite accepted eigenpair residuals are part of the solve-convergence gate.
+Cluster completeness has a different meaning: it governs whether a selected
+mode may be compared individually. A converged request that cuts a repeated
+cluster must instead be enlarged or compared through its invariant subspace.
 The finite-element provider checks the assembled free-DOF stiffness and mass
 operators for symmetry before declaring the generalized Hermitian problem to
 SLEPc. This also applies to a complete user-supplied <code>K/M</code> pair. An
@@ -1641,7 +1651,19 @@ When <code>target_frequency</code> is supplied, AgentFEM returns the requested m
 nearest that frequency and orders the selected set by increasing frequency.
 The compact result writer preserves the field name (for example <code>Mode_1</code>) and
 labels it as a mode shape rather than silently advertising it as displacement
-<code>U</code>.</p>
+<code>U</code>.
+Every published modal result also binds a partition-neutral executable identity
+of the mesh, live stiffness and mass coefficients, and exact constrained-DOF
+set. Missing identity or operator/constraint drift after the solve fails closed.
+Under MPI, rank-local identity, boundary-reduction and backend candidate errors
+are exchanged before the next collective operation. Every rank therefore
+reports the same failed stage instead of leaving healthy ranks waiting inside
+PETSc or MPI. Result publication also compares the complete
+<code>SimulationResult</code> record on every rank before retaining rank zero's canonical
+manifest.
+The accepted modal request is frozen with that identity. Changing the requested
+mode count, target frequency, tolerances, study, or procedure after the solve
+cannot publish the previous eigenpairs under a new scientific description.</p>
 <h2 id="frequency-and-decay-post-processing">Frequency and decay post-processing<a class="headerlink" href="#frequency-and-decay-post-processing" title="Permanent link">&para;</a></h2>
 <p><code>agentfem.dynamics</code> provides solver-independent processing for uniformly
 sampled histories:</p>
@@ -1777,6 +1799,11 @@ particular material. The provider-neutral route consumes explicit, inspectable
 <code>K</code>, <code>F</code>, and optional <code>M</code>, <code>C</code>, and <code>K_loss</code> operators. A constitutive model
 may supply an operator, but it does not change the procedure's ownership or
 verification contract.</p>
+<p>Both the material-owned and provider-neutral routes accept only stationary,
+homogeneous strong Dirichlet supports. Nonzero values, prescribed histories,
+remote displacement, MPC and weak constraints are rejected before backend
+preparation. Harmonic excitation belongs in <code>F</code> and <code>load_phase</code>; a moving
+support requires a separately verified provider.</p>
 <h3 id="generalized-maxwell-material-coupling">Generalized-Maxwell material coupling<a class="headerlink" href="#generalized-maxwell-material-coupling" title="Permanent link">&para;</a></h3>
 <p>The same generalized-Maxwell material can be used directly in the frequency
 domain. The public workflow remains an engineering model and one <code>model.step</code>:</p>
@@ -1818,6 +1845,10 @@ three-dimensional isotropic material, uniform temperature, homogeneous strong
 constraints, and one common load phase. Multiple material regions, MPC/weak
 constraints, and per-load phases remain promotion gates rather than being
 silently approximated.</p>
+<p>Single-frequency and sweep results bind the executable mesh, live
+<code>K/M/C/K_loss/F</code> coefficients and exact constrained-DOF set. The material-loss
+operator is undefined at zero frequency in this formulation, so every selected
+sweep point is checked independently of the user's execution order.</p>
 <h3 id="provider-neutral-operator-sweeps">Provider-neutral operator sweeps<a class="headerlink" href="#provider-neutral-operator-sweeps" title="Permanent link">&para;</a></h3>
 <p>For a long sweep, named scalar responses, progress and checkpointing use the
 same result lifecycle as transient procedures:</p>
@@ -1825,32 +1856,35 @@ same result lifecycle as transient procedures:</p>
 <a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a>
 <a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a><span class="kn">from</span><span class="w"> </span><span class="nn">agentfem</span><span class="w"> </span><span class="kn">import</span> <span class="n">checkpointing</span><span class="p">,</span> <span class="n">results</span>
 <a id="__codelineno-8-4" name="__codelineno-8-4" href="#__codelineno-8-4"></a>
-<a id="__codelineno-8-5" name="__codelineno-8-5" href="#__codelineno-8-5"></a><span class="n">tip</span> <span class="o">=</span> <span class="n">results</span><span class="o">.</span><span class="n">harmonic_response</span><span class="p">(</span>
+<a id="__codelineno-8-5" name="__codelineno-8-5" href="#__codelineno-8-5"></a><span class="n">tip</span> <span class="o">=</span> <span class="n">results</span><span class="o">.</span><span class="n">harmonic_average_response</span><span class="p">(</span>
 <a id="__codelineno-8-6" name="__codelineno-8-6" href="#__codelineno-8-6"></a>    <span class="s2">&quot;tip_uy&quot;</span><span class="p">,</span>
-<a id="__codelineno-8-7" name="__codelineno-8-7" href="#__codelineno-8-7"></a>    <span class="k">lambda</span> <span class="n">point</span><span class="p">:</span> <span class="n">results</span><span class="o">.</span><span class="n">average</span><span class="p">(</span>
-<a id="__codelineno-8-8" name="__codelineno-8-8" href="#__codelineno-8-8"></a>        <span class="n">point</span><span class="o">.</span><span class="n">solution_real</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">measure</span><span class="o">=</span><span class="n">loaded_end</span><span class="o">.</span><span class="n">measure</span>
-<a id="__codelineno-8-9" name="__codelineno-8-9" href="#__codelineno-8-9"></a>    <span class="p">)</span> <span class="o">+</span> <span class="mi">1</span><span class="n">j</span> <span class="o">*</span> <span class="n">results</span><span class="o">.</span><span class="n">average</span><span class="p">(</span>
-<a id="__codelineno-8-10" name="__codelineno-8-10" href="#__codelineno-8-10"></a>        <span class="n">point</span><span class="o">.</span><span class="n">solution_imaginary</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">measure</span><span class="o">=</span><span class="n">loaded_end</span><span class="o">.</span><span class="n">measure</span>
-<a id="__codelineno-8-11" name="__codelineno-8-11" href="#__codelineno-8-11"></a>    <span class="p">),</span>
-<a id="__codelineno-8-12" name="__codelineno-8-12" href="#__codelineno-8-12"></a>    <span class="n">unit</span><span class="o">=</span><span class="s2">&quot;m&quot;</span><span class="p">,</span>
-<a id="__codelineno-8-13" name="__codelineno-8-13" href="#__codelineno-8-13"></a><span class="p">)</span>
-<a id="__codelineno-8-14" name="__codelineno-8-14" href="#__codelineno-8-14"></a><span class="n">sweep</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">step</span><span class="p">(</span>
-<a id="__codelineno-8-15" name="__codelineno-8-15" href="#__codelineno-8-15"></a>    <span class="n">target</span><span class="o">=</span><span class="n">u</span><span class="p">,</span>
-<a id="__codelineno-8-16" name="__codelineno-8-16" href="#__codelineno-8-16"></a>    <span class="n">K</span><span class="o">=</span><span class="n">K</span><span class="p">,</span>
-<a id="__codelineno-8-17" name="__codelineno-8-17" href="#__codelineno-8-17"></a>    <span class="n">M</span><span class="o">=</span><span class="n">M</span><span class="p">,</span>
-<a id="__codelineno-8-18" name="__codelineno-8-18" href="#__codelineno-8-18"></a>    <span class="n">C</span><span class="o">=</span><span class="n">C</span><span class="p">,</span>
-<a id="__codelineno-8-19" name="__codelineno-8-19" href="#__codelineno-8-19"></a>    <span class="n">F</span><span class="o">=</span><span class="n">F</span><span class="p">,</span>
-<a id="__codelineno-8-20" name="__codelineno-8-20" href="#__codelineno-8-20"></a>    <span class="n">frequencies</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="mf">40.0</span><span class="p">,</span> <span class="mf">45.0</span><span class="p">,</span> <span class="mi">50</span><span class="p">),</span>
-<a id="__codelineno-8-21" name="__codelineno-8-21" href="#__codelineno-8-21"></a>    <span class="n">responses</span><span class="o">=</span><span class="p">(</span><span class="n">tip</span><span class="p">,),</span>
-<a id="__codelineno-8-22" name="__codelineno-8-22" href="#__codelineno-8-22"></a>    <span class="n">checkpoint</span><span class="o">=</span><span class="n">checkpointing</span><span class="o">.</span><span class="n">every</span><span class="p">(</span>
-<a id="__codelineno-8-23" name="__codelineno-8-23" href="#__codelineno-8-23"></a>        <span class="mi">10</span><span class="p">,</span>
-<a id="__codelineno-8-24" name="__codelineno-8-24" href="#__codelineno-8-24"></a>        <span class="n">directory</span><span class="o">=</span><span class="s2">&quot;outputs/checkpoints&quot;</span><span class="p">,</span>
-<a id="__codelineno-8-25" name="__codelineno-8-25" href="#__codelineno-8-25"></a>        <span class="n">keep_last</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span>
-<a id="__codelineno-8-26" name="__codelineno-8-26" href="#__codelineno-8-26"></a>    <span class="p">),</span>
-<a id="__codelineno-8-27" name="__codelineno-8-27" href="#__codelineno-8-27"></a>    <span class="n">status_file</span><span class="o">=</span><span class="s2">&quot;outputs/harmonic.status&quot;</span><span class="p">,</span>
-<a id="__codelineno-8-28" name="__codelineno-8-28" href="#__codelineno-8-28"></a><span class="p">)</span>
-<a id="__codelineno-8-29" name="__codelineno-8-29" href="#__codelineno-8-29"></a><span class="n">result</span> <span class="o">=</span> <span class="n">sweep</span><span class="o">.</span><span class="n">solve_result</span><span class="p">()</span>
+<a id="__codelineno-8-7" name="__codelineno-8-7" href="#__codelineno-8-7"></a>    <span class="k">lambda</span> <span class="n">point</span><span class="p">:</span> <span class="p">(</span><span class="n">point</span><span class="o">.</span><span class="n">solution_real</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">point</span><span class="o">.</span><span class="n">solution_imaginary</span><span class="p">[</span><span class="mi">1</span><span class="p">]),</span>
+<a id="__codelineno-8-8" name="__codelineno-8-8" href="#__codelineno-8-8"></a>    <span class="n">on</span><span class="o">=</span><span class="n">loaded_end</span><span class="p">,</span>
+<a id="__codelineno-8-9" name="__codelineno-8-9" href="#__codelineno-8-9"></a>    <span class="n">unit</span><span class="o">=</span><span class="s2">&quot;m&quot;</span><span class="p">,</span>
+<a id="__codelineno-8-10" name="__codelineno-8-10" href="#__codelineno-8-10"></a><span class="p">)</span>
+<a id="__codelineno-8-11" name="__codelineno-8-11" href="#__codelineno-8-11"></a><span class="n">sweep</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">step</span><span class="p">(</span>
+<a id="__codelineno-8-12" name="__codelineno-8-12" href="#__codelineno-8-12"></a>    <span class="n">target</span><span class="o">=</span><span class="n">u</span><span class="p">,</span>
+<a id="__codelineno-8-13" name="__codelineno-8-13" href="#__codelineno-8-13"></a>    <span class="n">K</span><span class="o">=</span><span class="n">K</span><span class="p">,</span>
+<a id="__codelineno-8-14" name="__codelineno-8-14" href="#__codelineno-8-14"></a>    <span class="n">M</span><span class="o">=</span><span class="n">M</span><span class="p">,</span>
+<a id="__codelineno-8-15" name="__codelineno-8-15" href="#__codelineno-8-15"></a>    <span class="n">C</span><span class="o">=</span><span class="n">C</span><span class="p">,</span>
+<a id="__codelineno-8-16" name="__codelineno-8-16" href="#__codelineno-8-16"></a>    <span class="n">F</span><span class="o">=</span><span class="n">F</span><span class="p">,</span>
+<a id="__codelineno-8-17" name="__codelineno-8-17" href="#__codelineno-8-17"></a>    <span class="n">frequencies</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="mf">40.0</span><span class="p">,</span> <span class="mf">45.0</span><span class="p">,</span> <span class="mi">50</span><span class="p">),</span>
+<a id="__codelineno-8-18" name="__codelineno-8-18" href="#__codelineno-8-18"></a>    <span class="n">responses</span><span class="o">=</span><span class="p">(</span><span class="n">tip</span><span class="p">,),</span>
+<a id="__codelineno-8-19" name="__codelineno-8-19" href="#__codelineno-8-19"></a>    <span class="n">checkpoint</span><span class="o">=</span><span class="n">checkpointing</span><span class="o">.</span><span class="n">every</span><span class="p">(</span>
+<a id="__codelineno-8-20" name="__codelineno-8-20" href="#__codelineno-8-20"></a>        <span class="mi">10</span><span class="p">,</span>
+<a id="__codelineno-8-21" name="__codelineno-8-21" href="#__codelineno-8-21"></a>        <span class="n">directory</span><span class="o">=</span><span class="s2">&quot;outputs/checkpoints&quot;</span><span class="p">,</span>
+<a id="__codelineno-8-22" name="__codelineno-8-22" href="#__codelineno-8-22"></a>        <span class="n">keep_last</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span>
+<a id="__codelineno-8-23" name="__codelineno-8-23" href="#__codelineno-8-23"></a>    <span class="p">),</span>
+<a id="__codelineno-8-24" name="__codelineno-8-24" href="#__codelineno-8-24"></a>    <span class="n">status_file</span><span class="o">=</span><span class="s2">&quot;outputs/harmonic.status&quot;</span><span class="p">,</span>
+<a id="__codelineno-8-25" name="__codelineno-8-25" href="#__codelineno-8-25"></a><span class="p">)</span>
+<a id="__codelineno-8-26" name="__codelineno-8-26" href="#__codelineno-8-26"></a><span class="n">result</span> <span class="o">=</span> <span class="n">sweep</span><span class="o">.</span><span class="n">solve_result</span><span class="p">()</span>
 </code></pre></div>
+<p><code>harmonic_average_response</code> and <code>harmonic_probe_response</code> deliberately split
+rank-local finite-element evaluation from framework-owned MPI reduction. A
+plain <code>harmonic_response</code> remains convenient for serial work; under MPI it
+requires an explicit rank-local <code>reduction=</code> contract and its callback must not
+perform MPI collectives. This prevents one rank from failing before a hidden
+callback collective while its peers wait indefinitely.</p>
 <p>This generic sweep is <strong>operator-invariant</strong>: one real spatial <code>K/M/C/K_loss/F</code>
 system is prepared for the complete frequency axis. Frequency changes only
 the declared scalar coefficients, and the single real spatial force operator
@@ -1869,11 +1903,26 @@ inside the domain.</p>
 frequency axis, completed points, response phasors, residuals, energy evidence,
 solver records and a scientific-input fingerprint. It deliberately does not
 store one full displacement field per frequency. Consequently it is portable
-across forward/reverse execution order and MPI partitions, while the live FEM
-field is explicitly identified as belonging only to the last frequency solved
-in the current process. By default the terminal prints the first and last point,
+across MPI partitions and rank counts under the same frozen sweep request. The
+frequency axis, response definitions, execution order, study, procedure, solver,
+load phase and declared scientific assets are frozen before the first accepted
+point; changing any of them requires a new sweep. The live FEM field is
+explicitly identified as belonging only to the last frequency solved in the
+current process. By default the terminal prints the first and last point,
 about twenty intermediate milestones, and a wall-clock heartbeat; it does not
 accumulate or print every point in a very large sweep.</p>
+<p>A published point result copies its real, imaginary, amplitude and phase fields;
+point and sweep results also retain a canonical snapshot of the scientific
+inputs used for publication. Reusing the Step at another frequency or changing
+a live load coefficient therefore cannot rewrite an earlier Result. Under MPI,
+constraint lowering, homogeneity checks, identity drift and scientific-input
+publication fail together before a peer can enter a mismatched collective.
+Equivalent input records and complete result manifests retain rank zero's
+canonical representation on every rank.
+The prepared harmonic allocation has an explicit collective lifetime: call
+<code>step.close()</code> on every participating rank (or use the Step as a context
+manager). Repeated close is idempotent when every rank has reached the same
+lifecycle state; rank-divergent close is rejected before PETSc teardown.</p>
 <h3 id="external-forced-vibration-comparison">External forced-vibration comparison<a class="headerlink" href="#external-forced-vibration-comparison" title="Permanent link">&para;</a></h3>
 <p>The automated
 <a href="https://www.nafems.org/publications/resource_center/r0016/">NAFEMS R0016 Test 5H</a>

@@ -19,6 +19,25 @@ hashed by bytes, arrays by dtype/shape/content, and public scientific objects
 through their IR or summary contract. An opaque object is recorded as an
 explicit coverage gap; it is never silently converted into a complete claim.
 
+## MPI publication
+
+Modal and direct-harmonic publishers construct the scientific-input and full
+`SimulationResult` records on every MPI rank. A rank-local serialization error
+or different fingerprint makes all ranks fail together; equivalent records
+retain rank zero's canonical copy. Declarative `OutputPlan` publication uses
+the same contract, and direct callers can request it with
+`result.write_manifest(path, comm=comm)`. Runtime evidence and artifact bytes
+are sealed only by rank zero after that agreement, so parallel ranks neither
+race to overwrite one manifest nor silently publish different scientific
+records.
+
+Executable mesh and degree-of-freedom identities bind absolute coordinates
+through lossless hexadecimal IEEE-754 values rather than tolerance-rounded
+spatial keys. Translation and small geometry changes at a large coordinate
+offset therefore remain visible. Live finite-element coefficient ghosts are
+synchronized before content hashing so the values identified are also the
+values available to distributed assembly.
+
 No account, server, key, optional dependency, or extra case code is required.
 The numerical fields are never modified. A user, agent, CI job, or future GUI
 can check a result directory with:

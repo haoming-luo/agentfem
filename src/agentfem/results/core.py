@@ -627,42 +627,123 @@ class SimulationResult:
             }
         return record
 
+    def collective_manifest(
+        self,
+        comm,
+        *,
+        include_histories: bool = False,
+        artifact_base: str | Path | None = None,
+    ) -> dict[str, object]:
+        """Return one rank-consistent complete result record.
+
+        Every rank first constructs its own record so rank-local quantities,
+        metadata, field descriptions, or artifact names cannot be silently
+        published as a global MPI result.  Equivalent records retain rank
+        zero's canonical copy on every rank.
+        """
+
+        record = None
+        local_error = None
+        try:
+            record = self.manifest(
+                include_histories=include_histories,
+                artifact_base=artifact_base,
+            )
+        except Exception as exc:  # pragma: no cover - exercised under MPI
+            local_error = f"{type(exc).__name__}: {exc}"
+        errors = comm.allgather(local_error)
+        failures = [
+            f"rank {rank}: {error}"
+            for rank, error in enumerate(errors)
+            if error is not None
+        ]
+        if failures:
+            raise RuntimeError(
+                "SimulationResult manifest construction failed collectively; "
+                + "; ".join(failures)
+            )
+        from ..provenance import collective_canonical_record
+
+        return collective_canonical_record(
+            record,
+            comm=comm,
+            label="SimulationResult manifest",
+        )
+
     def write_manifest(
         self,
         path: str | Path,
         *,
         include_histories: bool = False,
         relative_artifacts: bool = True,
+        comm=None,
     ) -> Path:
         output = Path(path)
-        output.parent.mkdir(parents=True, exist_ok=True)
-        record = self.manifest(
-            include_histories=include_histories,
-            artifact_base=output.parent if relative_artifacts else None,
-        )
+        if comm is not None:
+            publication_contracts = tuple(
+                comm.allgather(
+                    (
+                        str(output.expanduser().resolve()),
+                        bool(include_histories),
+                        bool(relative_artifacts),
+                    )
+                )
+            )
+            if any(
+                value != publication_contracts[0]
+                for value in publication_contracts[1:]
+            ):
+                raise RuntimeError(
+                    "SimulationResult manifest publication contract differs "
+                    f"across MPI ranks: {publication_contracts}."
+                )
+        artifact_base = output.parent if relative_artifacts else None
+        if comm is None:
+            record = self.manifest(
+                include_histories=include_histories,
+                artifact_base=artifact_base,
+            )
+        else:
+            record = self.collective_manifest(
+                comm,
+                include_histories=include_histories,
+                artifact_base=artifact_base,
+            )
         from .. import __version__
         from ..provenance import runtime_manifest, seal_manifest
 
-        record["runtime"] = runtime_manifest()
-
-        record["provenance_seal"] = seal_manifest(
-            record,
-            base=output.parent,
-            producer_version=__version__,
-        )
-        temporary = output.with_suffix(output.suffix + ".tmp")
-        temporary.write_text(
-            json.dumps(
-                record,
-                indent=2,
-                sort_keys=True,
-                ensure_ascii=False,
-                allow_nan=False,
-            )
-            + "\n",
-            encoding="utf-8",
-        )
-        temporary.replace(output)
+        write_error = None
+        if comm is None or comm.rank == 0:
+            try:
+                output.parent.mkdir(parents=True, exist_ok=True)
+                record["runtime"] = runtime_manifest()
+                record["provenance_seal"] = seal_manifest(
+                    record,
+                    base=output.parent,
+                    producer_version=__version__,
+                )
+                temporary = output.with_suffix(output.suffix + ".tmp")
+                temporary.write_text(
+                    json.dumps(
+                        record,
+                        indent=2,
+                        sort_keys=True,
+                        ensure_ascii=False,
+                        allow_nan=False,
+                    )
+                    + "\n",
+                    encoding="utf-8",
+                )
+                temporary.replace(output)
+            except Exception as exc:  # pragma: no cover - exercised under MPI
+                write_error = f"{type(exc).__name__}: {exc}"
+        if comm is not None:
+            write_error = comm.bcast(write_error, root=0)
+            if write_error is not None:
+                raise RuntimeError(
+                    "SimulationResult manifest publication failed on rank 0: "
+                    f"{write_error}"
+                )
         return output
 
 

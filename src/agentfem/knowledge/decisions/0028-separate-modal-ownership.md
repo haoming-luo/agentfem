@@ -35,8 +35,18 @@ finite-element assembly.
 - PETSc/SLEPc objects are destroyed on successful and exceptional paths before
   a modal solve returns;
 - returned DOLFINx mode fields remain usable after backend teardown;
-- unsupported modal constraints fail before assembly and name modal analysis
-  rather than implicit dynamics;
+- nonzero, time-dependent, remote and otherwise unsupported modal constraints
+  fail before eigensolver assembly and name modal analysis rather than implicit
+  dynamics;
+- accepted residuals decide eigensolver convergence, whereas cluster
+  completeness separately decides whether individual-mode comparison is
+  scientifically meaningful;
+- every published Result binds a portable executable identity of the mesh,
+  live stiffness/mass coefficients and exact constrained-degree set, and
+  post-solve drift fails closed;
+- rank-local identity, boundary-reduction, candidate-eigenvalue and reduced-
+  vector failures are synchronized before the next collective, so all ranks
+  fail at the same named stage;
 - future modal backends can return the same raw candidate and Gram evidence
   without changing the public Step or Result language.
 
@@ -46,5 +56,14 @@ finite-element assembly.
   result-output tests retain their values and evidence;
 - the public compatibility entry returns the mechanics-owned Step;
 - unsupported constraints fail with the modal-specific compatibility message;
+- nonzero, history-driven and remote strong constraints are rejected before
+  backend execution;
+- coefficient changes alter the result fingerprint, and an incomplete
+  executable identity prevents publication;
+- a small three-dimensional solid cantilever reproduces the first
+  Euler--Bernoulli bending-frequency limit within its declared tolerance;
 - a two-rank modal solve followed by distributed result tests completes without
-  relying on Python garbage-collection order.
+  relying on Python garbage-collection order and retains the same executable
+  fingerprint on every rank;
+- injected rank-local backend and identity failures reach every rank, after
+  which a communicator barrier still completes.

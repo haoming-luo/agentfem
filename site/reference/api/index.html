@@ -3814,6 +3814,11 @@ and evidence remain in the linked guides and scientific function reference.</p>
 </tr>
 <tr>
 <td>class</td>
+<td><code>AffineMacroGradientLift</code></td>
+<td>Exact full-DOF lift for independent macroscopic gradient changes.</td>
+</tr>
+<tr>
+<td>class</td>
 <td><code>AffineReduction</code></td>
 <td>Sparse serial representation of <code>u = T q + offset</code>.</td>
 </tr>
@@ -4382,13 +4387,33 @@ and evidence remain in the linked guides and scientific function reference.</p>
 </tr>
 <tr>
 <td>class</td>
+<td><code>HarmonicAverageResponse</code></td>
+<td>Measure-weighted complex average with rank-local assembly.</td>
+</tr>
+<tr>
+<td>class</td>
+<td><code>HarmonicProbeResponse</code></td>
+<td>Complex finite-element point probe with framework-owned MPI selection.</td>
+</tr>
+<tr>
+<td>class</td>
 <td><code>HarmonicResponse</code></td>
-<td>One named scalar real or complex response sampled at each frequency.</td>
+<td>One scalar response computed locally and reduced by AgentFEM.</td>
 </tr>
 <tr>
 <td>function</td>
-<td><code>harmonic_response(name: str, evaluate, *, unit: str \| None = None, description: str = '') -&gt; HarmonicResponse</code></td>
-<td>Declare a traceable scalar response for an ordered frequency sweep.</td>
+<td><code>harmonic_average_response(name: str, evaluate, *, on, study = None, unit: str \| None = None, description: str = '') -&gt; HarmonicAverageResponse</code></td>
+<td>Declare a complex region average safe for serial and MPI sweeps.</td>
+</tr>
+<tr>
+<td>function</td>
+<td><code>harmonic_probe_response(name: str, evaluate, *, at, component: int \| None = None, padding: float = 1e-10, unit: str \| None = None, description: str = '') -&gt; HarmonicProbeResponse</code></td>
+<td>Declare a complex point response safe for serial and MPI sweeps.</td>
+</tr>
+<tr>
+<td>function</td>
+<td><code>harmonic_response(name: str, evaluate, *, unit: str \| None = None, description: str = '', reduction: str \| None = None) -&gt; HarmonicResponse</code></td>
+<td>Declare a scalar response with an explicit rank-local reduction.</td>
 </tr>
 <tr>
 <td>class</td>
@@ -4399,6 +4424,11 @@ and evidence remain in the linked guides and scientific function reference.</p>
 <td>class</td>
 <td><code>HomogenizedFrame</code></td>
 <td>Macroscopic response reconstructed from one periodic-cell state.</td>
+</tr>
+<tr>
+<td>class</td>
+<td><code>HomogenizedAlgorithmicTangent</code></td>
+<td>Condensed current-state tangent for a prescribed periodic cell.</td>
 </tr>
 <tr>
 <td>class</td>
@@ -4444,6 +4474,11 @@ and evidence remain in the linked guides and scientific function reference.</p>
 <td>function</td>
 <td><code>homogenize_periodic_path(snapshots, properties, *, constraint) -&gt; tuple[HomogenizedFrame, ...]</code></td>
 <td>Homogenize every saved state of an affine periodic-cell analysis.</td>
+</tr>
+<tr>
+<td>function</td>
+<td><code>homogenized_algorithmic_tangent(problem, constraint, *, linear_solver_options = None) -&gt; HomogenizedAlgorithmicTangent</code></td>
+<td>Condense a converged periodic-cell Jacobian to :math:<code>d\bar P/d\bar F</code>.</td>
 </tr>
 <tr>
 <td>function</td>
@@ -8322,8 +8357,23 @@ and evidence remain in the linked guides and scientific function reference.</p>
 </tr>
 <tr>
 <td>function</td>
+<td><code>collective_call(operation, *, comm, label: str)</code></td>
+<td>Evaluate rank-local Python work and deliver any failure to all ranks.</td>
+</tr>
+<tr>
+<td>function</td>
+<td><code>collective_canonical_record(record: object, *, comm, label: str) -&gt; object</code></td>
+<td>Require one JSON-safe record on every rank and retain rank zero's copy.</td>
+</tr>
+<tr>
+<td>function</td>
 <td><code>scientific_input_manifest(value: object, *, label: str = 'scientific_inputs', require_nonempty: bool = False) -&gt; dict[str, object]</code></td>
 <td>Describe and fingerprint scientific inputs without hiding opaque parts.</td>
+</tr>
+<tr>
+<td>function</td>
+<td><code>collective_scientific_input_manifest(value: object, *, comm, label: str = 'scientific_inputs', require_nonempty: bool = False) -&gt; dict[str, object]</code></td>
+<td>Return one rank-consistent scientific-input manifest.</td>
 </tr>
 <tr>
 <td>function</td>

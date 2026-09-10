@@ -2,8 +2,11 @@
 
 from __future__ import annotations
 
+from copy import deepcopy
+
 import numpy as np
 
+from ..provenance import collective_call, collective_scientific_input_manifest
 from .core import SimulationResult
 from .lifecycle import complete_result
 
@@ -11,10 +14,48 @@ from .lifecycle import complete_result
 def from_modal_step(step, *, output=None, strict_output: bool = False):
     """Publish modal fields, frequencies, and invariant-subspace evidence."""
 
-    if step.eigenvalues is None or step.last_solve_info is None:
-        raise RuntimeError("Modal result assembly requires a completed solve.")
-    modes = step.mode_shapes
-    result = SimulationResult(name=step.name)
+    target = getattr(step.target, "value", step.target)
+    comm = target.function_space.mesh.comm
+
+    def require_local_solution():
+        if (
+            step.eigenvalues is None
+            or step.last_solve_info is None
+            or not step.last_solve_info.converged
+            or not step.mode_shapes
+        ):
+            raise RuntimeError("Modal result assembly requires a completed solve.")
+        return tuple(step.mode_shapes)
+
+    modes = collective_call(
+        require_local_solution,
+        comm=comm,
+        label="Modal result readiness",
+    )
+    mode_counts = tuple(comm.allgather(len(modes)))
+    if any(count != mode_counts[0] for count in mode_counts[1:]):
+        raise RuntimeError(
+            f"Modal result mode count differs across MPI ranks: {mode_counts}."
+        )
+    manifest = collective_scientific_input_manifest(
+        step.scientific_inputs(),
+        comm=comm,
+        label="modal_result_inputs",
+        require_nonempty=True,
+    )
+    if not manifest["complete"]:
+        missing = ", ".join(
+            str(item["path"]) for item in manifest["missing"][:5]
+        )
+        raise ValueError(
+            "Modal result publication cannot freeze a complete scientific-"
+            f"input identity: {missing or 'unknown'}."
+        )
+    result = SimulationResult(
+        name=step.name,
+        scientific_inputs=deepcopy(manifest["record"]),
+        metadata={"scientific_input_retention": "frozen_identity_snapshot"},
+    )
     result.add_quantities(
         {
             "eigenvalues": step.eigenvalues,
@@ -67,12 +108,14 @@ def from_modal_step(step, *, output=None, strict_output: bool = False):
         )
     result.metadata["problem"] = step.summary()
     result.metadata["solve"] = step.last_solve_info.as_dict()
-    return complete_result(
+    completed = complete_result(
         step,
         result,
         output=output,
         strict_output=strict_output,
     )
+    completed.collective_manifest(comm, include_histories=True)
+    return completed
 
 
 __all__ = ()

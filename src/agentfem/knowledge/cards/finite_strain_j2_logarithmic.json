@@ -19,7 +19,10 @@
     "agentfem.mechanics.finite_strain_j2_affine_problem",
     "agentfem.mechanics.finite_strain_j2_mixed_affine_problem",
     "agentfem.results.MixedJ2ElasticEnergyDiagnostics",
-    "agentfem.results.mixed_j2_elastic_energy_diagnostics"
+    "agentfem.results.mixed_j2_elastic_energy_diagnostics",
+    "agentfem.results.HomogenizedAlgorithmicTangent",
+    "agentfem.results.homogenized_algorithmic_tangent",
+    "agentfem.constraints.AffineMacroGradientLift"
   ],
   "implementation": [
     "constitutive/finite_strain_plasticity.py",
@@ -141,6 +144,12 @@
         "description": "The initial implementation differentiates the complete discrete return with fixed old state and is independently checked with a different perturbation."
       },
       {
+        "name": "homogenized current-state algorithmic tangent",
+        "type": "4 by 4 or 9 by 9 derivative of homogenized first-Piola stress with respect to the prescribed macroscopic deformation gradient",
+        "unit_role": "stress",
+        "description": "The serial affine-periodic recovery condenses the converged full Jacobian through the exact provider-owned macro-gradient lift. It uses the final accepted increment only while a state-owned linearization token proves the tangent came from that increment, and records one PETSc solve plus reduced-equilibrium evidence per column; it does not rerun or finite-difference the load path. A checkpoint restoration that did not persist the macro tangent fails closed."
+      },
+      {
         "name": "MEAN_KIRCHHOFF_STRESS, MEAN_KIRCHHOFF_STRESS_CELL and MIXED_POTENTIAL",
         "type": "exact mixed primary field, recovered visualization field, and provider-owned quadrature diagnostic",
         "unit_role": "stress, stress, and energy per reference volume",
@@ -172,6 +181,7 @@
       "The affine provider requires exactly one AbaqusPeriodicConstraint and no body-force or natural-load power; all regional materials must share one declared state schema, tangent convention, and stored-energy component contract.",
       "The mixed provider requires 3D tetrahedral P2/DG0 or 2D plane-strain quadrilateral Q2/DPC1, one exact affine-periodic constraint, serial sparse reduction, and bulk/shear no greater than the temporary 1e4 implementation ceiling; a plastic simple-shear direction test guards tangent accuracy at that ceiling, but the value is not a material-model validity range, a general accuracy range, or evidence of locking-free response. Distributed mixed MPC, ordinary strong-boundary mixed lowering, and body/natural-load power are not implemented.",
       "The numerical tangent prioritizes a verifiable discrete derivative; a production analytical deviatoric tangent is not implemented. Its subtractive volumetric cancellation becomes ill-conditioned as K/mu grows, so results within the admitted K/mu range still require residual, pressure-defect, energy, and mesh/formulation-convergence evidence.",
+      "The homogenized current-state algorithmic tangent is presently a serial exact-affine recovery for providers declaring purely kinematic macro-gradient dependence. Its analytical homogeneous Q2/DPC1 and P2/DG0 checks establish the Schur-condensation convention, not Zhang benchmark agreement or distributed mixed-MPC support. A restart that reconstructs point response without persisting the accepted-increment macro tangent intentionally makes that tangent unavailable.",
       "No independent external finite-strain plasticity structure benchmark has yet passed.",
       "The exact Zhang--Feng--Khandelwal two-inclusion/one-void geometry now has a 2D Q2/DPC1 diagnostic execution with explicit primal/condensed energy decomposition, but no complete or content-bound Table 5 evidence has passed; the thin-3D P2/DG0 diagnostic remains a distinct formulation.",
       "Plane stress, kinematic hardening, thermal coupling, damage and deletion are outside this first provider.",
@@ -237,7 +247,7 @@
       "The serial mixed P2/DG0 route assembles Kuu, Kup, Kpu and Kpp, passes homogeneous and heterogeneous affine cells, independently checks displacement and pressure residual-Jacobian directions, preserves non-affine fluctuations, distinguishes condensed mixed-energy output from MIXED_POTENTIAL, and restores split primary fields through a portable checkpoint.",
       "A serial plane-strain Q2/DPC1 affine patch embeds F33=1, retains three pressure modes per quadrilateral, follows the same mixed transaction, reports max_q |ln(J_q)-p_h(q)/kappa| without reducing DPC1 to DG0, preserves the exact primary field in SimulationResult/checkpoint, writes only the explicit *_CELL recovery to XDMF, and fails closed for unsupported interpolation, dimension, conditioning, and parallel execution.",
       "Aligned mixed J2 quadrature fields reproduce the primal-minus-condensed energy identity and report the signed gap, pressure-orthogonality, nonnegative pressure-constraint-defect, and decomposition-residual channels without treating decomposition as solver convergence.",
-      "The Zhang--Feng--Khandelwal Table 5 fixture remains fail-closed. One unarchived thin-3D P2/DG0 diagnostic passed the first-Piola vector-L2 threshold but failed the P11 and P22 componentwise checks; its condensed ELENER is not the published primal-energy observable, so that energy gate remained incomplete. The exact Q9/DPC1 execution also remains diagnostic: no content-bound evidence archive exists, and load-path, mesh/formulation, effective-tangent, cell-replication, MPI, and restart gates remain open.",
+      "The Zhang--Feng--Khandelwal Table 5 fixture remains fail-closed. One unarchived thin-3D P2/DG0 diagnostic passed the first-Piola vector-L2 threshold but failed the P11 and P22 componentwise checks; its condensed ELENER is not the published primal-energy observable, so that energy gate remained incomplete. The exact Q9/DPC1 driver now computes the effective tangent rather than accepting a missing placeholder, but no content-bound evidence archive exists and load-path, mesh/formulation, Table 5 comparison, cell-replication, MPI, and restart gates remain open.",
       "The Lewandowski et al. self-weight beam gate remains fail-closed until an independently reexecuted, content-bound upstream curve passes observer reconciliation, mesh and increment convergence, serial/MPI equivalence and restart equivalence."
     ]
   },

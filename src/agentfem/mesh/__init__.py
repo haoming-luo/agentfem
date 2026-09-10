@@ -160,6 +160,28 @@ class BoundaryRegion:
             "local_facets": int(len(self.facets)),
         }
 
+    def to_ir(self) -> dict[str, object]:
+        """Return the partition-neutral scientific definition of the region.
+
+        ``local_facets`` remains useful runtime evidence in :meth:`summary`,
+        but it changes with the MPI partition and therefore cannot identify a
+        scientific boundary.  Geometric selectors retain their predicate
+        contract; imported regions are identified by their canonical tag and
+        selection mode, while executable UFL identities bind the actual tag
+        membership used by an operator.
+        """
+
+        return {
+            "name": self.name,
+            "kind": "boundary_region",
+            "tag": int(self.tag),
+            "selection": self.selection,
+            "selector": self.marker,
+            "facet_tag_dimension": (
+                None if self.facet_tags is None else int(self.facet_tags.dim)
+            ),
+        }
+
 
 @dataclass(frozen=True)
 class CellRegion:
@@ -1120,8 +1142,12 @@ def _axis_name(axis_id: int) -> str:
 
 
 def _coordinate_tolerance(domain) -> float:
-    coords = domain.geometry.x
-    if coords.size == 0:
+    coords = np.asarray(domain.geometry.x, dtype=float)
+    local_min = float(np.min(coords)) if coords.size else np.inf
+    local_max = float(np.max(coords)) if coords.size else -np.inf
+    global_min = float(domain.comm.allreduce(local_min, op=MPI.MIN))
+    global_max = float(domain.comm.allreduce(local_max, op=MPI.MAX))
+    if not np.isfinite(global_min) or not np.isfinite(global_max):
         return 1.0e-12
-    span = float(np.max(coords) - np.min(coords))
+    span = global_max - global_min
     return max(1.0, span) * 1.0e-12

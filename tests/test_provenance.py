@@ -2,11 +2,15 @@ from __future__ import annotations
 
 import json
 from copy import deepcopy
+from functools import partial
+from types import SimpleNamespace
 
+from mpi4py import MPI
 import numpy as np
 import pytest
 
 from agentfem import cli, provenance, results
+from agentfem.operators.identity import mesh_executable_identity
 
 
 def _sealed_result(tmp_path):
@@ -237,6 +241,79 @@ def test_callable_fingerprint_includes_bound_defaults_and_source_file():
     assert first["record"]["source_file_sha256"]
     assert first["record"]["defaults"] == [1.0]
     assert first["fingerprint"] != second["fingerprint"]
+
+
+def test_partial_callable_fingerprints_function_arguments_without_wrapper_source():
+    def evaluate(value, *, scale):
+        return scale * value
+
+    first = provenance.scientific_input_manifest(partial(evaluate, scale=1.0))
+    second = provenance.scientific_input_manifest(partial(evaluate, scale=2.0))
+
+    assert first["complete"] is True
+    assert first["record"]["kind"] == "partial_callable"
+    assert first["record"]["keywords"] == {"scale": 1.0}
+    assert first["fingerprint"] != second["fingerprint"]
+
+
+def test_mesh_executable_identity_preserves_reference_cell_node_order():
+    coordinates = np.asarray(
+        ((0.0, 0.0), (1.0, 0.0), (1.0, 1.0), (0.0, 1.0)),
+        dtype=float,
+    )
+
+    def domain(order):
+        topology = SimpleNamespace(
+            dim=2,
+            cell_name=lambda: "quadrilateral",
+            index_map=lambda _dimension: SimpleNamespace(size_local=1),
+        )
+        geometry = SimpleNamespace(
+            dofmaps=(np.asarray((order,), dtype=np.int32),),
+            input_global_indices=np.arange(4, dtype=np.int64),
+            x=coordinates,
+            dim=2,
+        )
+        return SimpleNamespace(
+            topology=topology,
+            geometry=geometry,
+            comm=MPI.COMM_SELF,
+        )
+
+    forward = mesh_executable_identity(domain((0, 1, 2, 3)))
+    reversed_cell = mesh_executable_identity(domain((0, 3, 2, 1)))
+
+    assert forward["cell_node_order"] == "dolfinx_geometry_dofmap"
+    assert forward["connectivity_sha256"] != reversed_cell["connectivity_sha256"]
+
+
+def test_mesh_executable_identity_binds_absolute_coordinates_losslessly():
+    def domain(coordinates):
+        selected = np.asarray(coordinates, dtype=float)
+        topology = SimpleNamespace(
+            dim=1,
+            cell_name=lambda: "interval",
+            index_map=lambda _dimension: SimpleNamespace(size_local=1),
+        )
+        geometry = SimpleNamespace(
+            dofmaps=(np.asarray(((0, 1),), dtype=np.int32),),
+            input_global_indices=np.arange(2, dtype=np.int64),
+            x=selected.reshape((-1, 1)),
+            dim=1,
+        )
+        return SimpleNamespace(
+            topology=topology,
+            geometry=geometry,
+            comm=MPI.COMM_SELF,
+        )
+
+    origin = mesh_executable_identity(domain((0.0, 0.01)))
+    translated = mesh_executable_identity(domain((1.0e12, 1.0e12 + 0.01)))
+    shortened = mesh_executable_identity(domain((1.0e12, 1.0e12 + 0.009)))
+
+    assert origin["coordinate_key"] == "exact_ieee754_hex_with_input_node_id"
+    assert origin["connectivity_sha256"] != translated["connectivity_sha256"]
+    assert translated["connectivity_sha256"] != shortened["connectivity_sha256"]
 
 
 def test_empty_result_does_not_claim_complete_input_coverage():

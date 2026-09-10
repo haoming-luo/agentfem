@@ -20,6 +20,7 @@ from ..kernel import constants, dofs
 from . import boundary, mpc
 from .affine import (
     AbaqusPeriodicConstraint,
+    AffineMacroGradientLift,
     AffineReduction,
     DeformationGradientPath,
     DistributedAffineReduction,

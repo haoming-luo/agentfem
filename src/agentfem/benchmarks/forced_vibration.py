@@ -10,8 +10,6 @@ AgentFEM's own Q2-hexahedral discretization and stress-recovery semantics.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from functools import partial
-
 from mpi4py import MPI
 import numpy as np
 
@@ -209,8 +207,12 @@ class _PreparedStressSampler:
     name: str
     _real: object | None = None
     _imaginary: object | None = None
+    _real_field: object | None = None
+    _imaginary_field: object | None = None
 
-    def __call__(self, step) -> complex:
+    def prepare_harmonic_response(self, step) -> None:
+        """Update both projected fields before the local probe phase."""
+
         if self._real is None or self._imaginary is None:
             row, column = (int(value) for value in self.component)
             self._real = results.prepare_projection(
@@ -231,12 +233,13 @@ class _PreparedStressSampler:
                 degree=self.degree,
                 name=f"{self.name}_IMAG_SAMPLE",
             )
-        real = self._real.solve()
-        imaginary = self._imaginary.solve()
-        return complex(
-            results.probe(real, at=self.point),
-            results.probe(imaginary, at=self.point),
-        )
+        self._real_field = self._real.solve()
+        self._imaginary_field = self._imaginary.solve()
+
+    def __call__(self, step):
+        if self._real_field is None or self._imaginary_field is None:
+            self.prepare_harmonic_response(step)
+        return self._real_field, self._imaginary_field
 
     def to_ir(self) -> dict[str, object]:
         return {
@@ -363,9 +366,11 @@ def nafems_r0016_test5h_benchmark(
     )
     force = model.external_force(displacement)
     point = (5.0, 2.0, 1.0)
-    response_displacement = results.harmonic_response(
+    response_displacement = results.harmonic_probe_response(
         "MIDSPAN_UY",
-        partial(_point_displacement, point=point, component=1),
+        lambda current: (current.solution_real, current.solution_imaginary),
+        at=point,
+        component=1,
         unit="m",
         description="Complex vertical displacement at the frozen midspan point.",
     )
@@ -389,15 +394,17 @@ def nafems_r0016_test5h_benchmark(
         degree=1,
         name="MIDSPAN_S11_NAFEMS_RECOVERED",
     )
-    response_cell_stress = results.harmonic_response(
+    response_cell_stress = results.harmonic_probe_response(
         "MIDSPAN_S11_CELL_SIDE",
         cell_stress_sampler,
+        at=point,
         unit="Pa",
         description="Unsmoothed discontinuous-Q2 cell-side axial stress.",
     )
-    response_recovered_stress = results.harmonic_response(
+    response_recovered_stress = results.harmonic_probe_response(
         "MIDSPAN_S11_NAFEMS_RECOVERED",
         recovered_stress_sampler,
+        at=point,
         unit="Pa",
         description="Continuous-P1 L2 recovered axial stress for comparison.",
     )
@@ -974,14 +981,6 @@ def _relative_change(coarse: float, fine: float) -> float:
             "Refinement observables must have a finite nonzero fine value."
         )
     return abs(float(fine) - float(coarse)) / scale
-
-
-def _point_displacement(step, *, point, component: int) -> complex:
-    real = np.asarray(results.probe(step.solution_real, at=point), dtype=float)
-    imaginary = np.asarray(
-        results.probe(step.solution_imaginary, at=point), dtype=float
-    )
-    return complex(real[int(component)], imaginary[int(component)])
 
 
 __all__ = [

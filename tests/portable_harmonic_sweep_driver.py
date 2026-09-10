@@ -44,11 +44,7 @@ def harmonic_sweep(*, execution_order: str = "forward"):
     force = model.external_force(displacement)
 
     def tip_x(point):
-        return results.average(
-            point.solution_real[0], measure=loaded_end.measure
-        ) + 1j * results.average(
-            point.solution_imaginary[0], measure=loaded_end.measure
-        )
+        return point.solution_real[0], point.solution_imaginary[0]
 
     return model.step(
         target=displacement,
@@ -58,9 +54,10 @@ def harmonic_sweep(*, execution_order: str = "forward"):
         F=force,
         frequencies=(1.25, 0.5, 0.875),
         responses=(
-            results.harmonic_response(
+            results.harmonic_average_response(
                 "tip_x",
                 tip_x,
+                on=loaded_end,
                 unit="m",
                 description="Mean loaded-end axial displacement phasor.",
             ),

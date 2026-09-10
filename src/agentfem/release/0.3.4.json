@@ -1,0 +1,145 @@
+{
+  "schema": "agentfem.release-contract",
+  "schema_version": "0.2.0",
+  "target_version": "0.3.4",
+  "channel": "stable",
+  "status": "candidate",
+  "supported_python": "3.11",
+  "platform_evidence": {
+    "continuous_integration": ["Linux", "macOS"],
+    "runtime_previews": [
+      "Windows through WSL2 complete offline image",
+      "Apple Silicon macOS unsigned package"
+    ],
+    "formal_runtime_routes": [],
+    "tracked_nonblocking": ["Windows through real WSL2"]
+  },
+  "installed_templates": ["static-solid", "steady-heat", "structural-dynamics"],
+  "workflows": [
+    {
+      "id": "linear-static-solid",
+      "maturity": "release",
+      "example": "examples/static_elasticity_2d.py",
+      "evidence": ["golden-observable", "single-grid-output", "2d-warp-compatible-vector", "serial-and-two-rank-smoke"]
+    },
+    {
+      "id": "transient-heat",
+      "maturity": "release",
+      "example": "examples/transient_heat_2d.py",
+      "evidence": ["golden-observable", "checkpoint-tests", "installed-wheel-smoke"]
+    },
+    {
+      "id": "explicit-wave-inclusion",
+      "maturity": "engineering",
+      "example": "examples/wave_packet_inclusion_2d.py",
+      "evidence": ["stability-estimate", "absorbing-boundary-tests", "release-smoke"]
+    },
+    {
+      "id": "abaqus-reviewed-migration",
+      "maturity": "engineering",
+      "example": "tests/fixtures/abaqus_native_lowering/static.inp",
+      "evidence": ["recursive-source-graph", "scope-and-section-preservation", "fail-closed-native-lowering", "serial-and-mpi-region-tests"]
+    },
+    {
+      "id": "finite-strain-j2-rve",
+      "maturity": "experimental",
+      "example": "tests/periodic_void_fixture.py",
+      "evidence": ["material-point-paths", "consistent-tangent", "strong-and-affine-periodic-global-equilibrium", "cutback-and-cross-rank-restart", "mpi-portable-state", "plastic-dissipation-output", "void-and-multi-void-goldens", "state-bound-condensed-homogenized-algorithmic-tangent"]
+    },
+    {
+      "id": "lefm-interaction-integral",
+      "maturity": "engineering",
+      "example": "examples/lefm_center_crack_2d.py",
+      "evidence": ["analytic-field-extraction", "dolfinx-field-extraction", "path-variation-and-equilibrium-diagnostics"]
+    },
+    {
+      "id": "delamination-structural-family",
+      "maturity": "engineering",
+      "example": "tests/test_delamination_fem_benchmark.py",
+      "evidence": ["assembled-dcb-compliance", "irreversible-dcb-propagation", "assembled-enf-compliance", "work-energy-and-convergence-certificates"]
+    },
+    {
+      "id": "dynamic-cohesive-fracture",
+      "maturity": "experimental",
+      "example": "examples/science_supershear_v5_protocol.py",
+      "evidence": ["v0-v4-guardrails", "mpi-interface-tests", "energy-balance-tests"]
+    },
+    {
+      "id": "structural-modal",
+      "maturity": "engineering",
+      "example": "examples/modal_cantilever_2d.py",
+      "evidence": ["slender-beam-mesh-convergence", "residual-and-mass-orthogonality", "serial-and-two-rank-equivalence", "executed-request-and-operator-identity", "collective-backend-failure-and-resource-teardown", "lossless-mesh-and-dof-identity"]
+    },
+    {
+      "id": "structural-direct-harmonic",
+      "maturity": "engineering",
+      "example": "tests/test_external_forced_vibration_benchmark.py",
+      "evidence": ["provider-neutral-k-m-c-k-loss-f-system", "single-frequency-and-bounded-frequency-sweep", "nested-and-monolithic-real-block-solvers", "nafems-r0016-test5h-single-mesh-external-comparison", "three-level-nonuniform-observable-stability", "serial-and-two-rank-complete-sweep-equivalence", "one-to-two-and-two-to-one-rank-scalar-checkpoint-portability", "executable-identity-bound-restart", "complete-sweep-request-freeze", "structured-mpi-average-and-point-responses", "record-derived-frequency-publication", "prepared-lowering-configuration-fail-closed", "nonfinite-solution-residual-and-energy-rejection", "exact-physical-cycle-vector-amplitude", "residual-cycle-energy-and-load-measure-evidence"]
+    },
+    {
+      "id": "generalized-maxwell-transient",
+      "maturity": "engineering",
+      "example": "examples/viscoelastic_relaxation_3d.py",
+      "evidence": ["independent-abaqus-rod-benchmark", "adaptive-rollback-and-restart", "serial-and-two-rank-state"]
+    },
+    {
+      "id": "generalized-maxwell-harmonic",
+      "maturity": "experimental",
+      "example": "examples/viscoelastic_harmonic_3d.py",
+      "evidence": ["quasistatic-complex-compliance", "inertial-rod-mesh-convergence", "cycle-energy-closure", "fail-closed-option-contract"]
+    },
+    {
+      "id": "simulation-to-learning",
+      "maturity": "engineering",
+      "example": "examples/static_elasticity_surrogate_campaign.py",
+      "evidence": ["accepted-dataset-policy", "framework-neutral-provider-contract", "framework-neutral-neural-field-contract", "surrogate-validation", "fem-fallback"]
+    }
+  ],
+  "required_gates": [
+    "version-contract-agreement",
+    "clean-wheel-and-sdist",
+    "full-serial-tests",
+    "distributed-tests",
+    "installed-wheel-identity",
+    "installed-project-template-loop",
+    "linux-and-macos-platform-acceptance",
+    "scientific-knowledge-check",
+    "documentation-strict-build",
+    "ownership-boundary-regression",
+    "companion-provider-acceptance",
+    "fresh-agent-zero-intervention-acceptance",
+    "optional-pytorch-bridge",
+    "reliability-event-privacy-whitelist",
+    "sanitized-support-bundle-integrity",
+    "runtime-preview-installed-acceptance",
+    "nafems-r0016-test5h-external-comparison",
+    "harmonic-three-level-observable-stability",
+    "harmonic-two-rank-complete-sweep-equivalence",
+    "harmonic-cross-rank-scalar-checkpoint-portability",
+    "harmonic-prepared-configuration-fail-closed",
+    "harmonic-nonfinite-evidence-rejection",
+    "modal-executed-request-and-operator-identity",
+    "modal-two-rank-fail-together-and-teardown",
+    "harmonic-complete-request-freeze",
+    "harmonic-structured-response-mpi-safety",
+    "finite-strain-rve-condensed-tangent-state-binding"
+  ],
+  "not_release_claims": [
+    "universal finite-element coverage",
+    "native Windows solver support",
+    "real WSL2 acceptance before corresponding evidence exists",
+    "Apple-signed or notarized macOS distribution without signed acceptance evidence",
+    "general contact",
+    "general arbitrary-path fracture",
+    "universally validated nonlinear material models",
+    "monolithic thermo-mechanical coupling",
+    "automatic neural-operator or PINN training for arbitrary meshes",
+    "NAFEMS-authored Test 5H acceptance tolerances",
+    "experimental validation from the Test 5H numerical comparison",
+    "observed order, GCI or continuum-error bounds from the nonuniform three-level Test 5H sequence",
+    "external generalized-Maxwell harmonic validation from the elastic Rayleigh-damped Test 5H benchmark",
+    "full-field harmonic checkpoint recovery",
+    "complex modes, prestressed small-on-large response or nonlinear harmonic balance",
+    "externally validated finite-strain J2 homogenized tangent for arbitrary microstructures"
+  ]
+}

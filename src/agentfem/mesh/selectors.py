@@ -44,6 +44,15 @@ class Selector:
 
         return {"name": self.name, "kind": "selector"}
 
+    def to_ir(self) -> dict[str, object]:
+        """Return the partition-neutral scientific definition of the selector."""
+
+        return {
+            "name": self.name,
+            "kind": "selector",
+            "predicate": self.predicate,
+        }
+
 
 def where(predicate, *, name: str | None = None) -> Selector:
     """Create a selector from a vectorized coordinate predicate."""

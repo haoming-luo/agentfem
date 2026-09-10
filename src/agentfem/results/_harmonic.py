@@ -2,8 +2,12 @@
 
 from __future__ import annotations
 
+from copy import deepcopy
+
+from dolfinx import fem
 import numpy as np
 
+from ..provenance import collective_scientific_input_manifest
 from .core import from_solution
 from .core import SimulationResult
 from .execution import add_execution_trace
@@ -13,36 +17,45 @@ from .lifecycle import complete_result
 def from_harmonic_step(step, *, output=None, strict_output: bool = False):
     """Publish phasor fields and separated harmonic evidence."""
 
+    comm = step.solution_real.function_space.mesh.comm
+    scientific_inputs = _frozen_scientific_inputs(
+        step.scientific_inputs(),
+        comm=comm,
+    )
+    step_summary = deepcopy(step.summary())
+    solution_real = _copy_function(step.solution_real, "U_REAL")
+    solution_imaginary = _copy_function(step.solution_imaginary, "U_IMAG")
+    displacement_amplitude = _copy_function(
+        step.displacement_amplitude,
+        "U_AMPLITUDE",
+    )
+    displacement_phase = _copy_function(step.displacement_phase, "U_PHASE")
     result = from_solution(
-        step.solution_real,
+        solution_real,
         name=step.name,
         field_name="U_REAL",
-        metadata={"step": step.summary()},
-        scientific_inputs={
-            "harmonic_system": step.system,
-            "harmonic_excitation": {
-                "frequency": step.frequency,
-                "angular_frequency": step.angular_frequency,
-                "phasor_convention": step.system.phasor_convention,
-                "load_phase": step.load_phase,
-            },
+        metadata={
+            "step": step_summary,
+            "field_retention": "frozen_solution_snapshot",
+            "scientific_input_retention": "frozen_identity_snapshot",
         },
+        scientific_inputs=scientific_inputs,
     )
     result.add_field(
         "U_IMAG",
-        step.solution_imaginary,
+        solution_imaginary,
         description="Imaginary displacement phasor component.",
         processing={"phasor_convention": step.system.phasor_convention},
     )
     result.add_field(
         "U_AMPLITUDE",
-        step.displacement_amplitude,
+        displacement_amplitude,
         description="Component-wise displacement phasor amplitude.",
         processing={"method": "hypot(U_REAL,U_IMAG)"},
     )
     result.add_field(
         "U_PHASE",
-        step.displacement_phase,
+        displacement_phase,
         unit="rad",
         description="Component-wise displacement phase.",
         processing={"method": "atan2(U_IMAG,U_REAL)"},
@@ -55,13 +68,54 @@ def from_harmonic_step(step, *, output=None, strict_output: bool = False):
             "Harmonic algebraic-equilibrium evidence requires a completed solve."
         )
     result.add_quantities(step.algebraic_equilibrium, kind="solver_evidence")
-    return complete_result(
+    completed = complete_result(
         step,
         result,
         output=output,
         fields=("U_REAL", "U_IMAG", "U_AMPLITUDE", "U_PHASE"),
         strict_output=strict_output,
     )
+    completed.collective_manifest(comm, include_histories=True)
+    return completed
+
+
+def _copy_function(function, name: str):
+    """Return an independent field snapshot on the same function space."""
+
+    if function is None:
+        raise RuntimeError(
+            f"Harmonic result field {name!r} requires a completed solve."
+        )
+    snapshot = fem.Function(function.function_space, name=name)
+    snapshot.x.array[:] = function.x.array
+    snapshot.x.scatter_forward()
+    return snapshot
+
+
+def _frozen_scientific_inputs(inputs, *, comm) -> dict[str, object]:
+    """Freeze canonical input identities without copying live UFL objects.
+
+    DOLFINx function spaces and UFL coefficient graphs are not safely
+    deep-copyable.  The provenance layer already resolves those live objects
+    to a complete, content-addressed record, so retaining that record is the
+    faithful immutable result contract.
+    """
+
+    manifest = collective_scientific_input_manifest(
+        inputs,
+        comm=comm,
+        label="harmonic_result_inputs",
+        require_nonempty=True,
+    )
+    if not manifest["complete"]:
+        missing = ", ".join(
+            str(item["path"]) for item in manifest["missing"][:5]
+        )
+        raise ValueError(
+            "Direct harmonic result publication cannot freeze a complete "
+            f"scientific-input identity: {missing or 'unknown'}."
+        )
+    return deepcopy(manifest["record"])
 
 
 def from_harmonic_sweep(step, *, strict_output: bool = False):
@@ -69,7 +123,11 @@ def from_harmonic_sweep(step, *, strict_output: bool = False):
 
     del strict_output
     records = step.canonical_records()
-    frequencies = step.frequencies
+    frequencies = tuple(float(record["frequency"]) for record in records)
+    scientific_inputs = _frozen_scientific_inputs(
+        step.scientific_inputs(require_checkpoint_assets=True),
+        comm=step.solution_real.function_space.mesh.comm,
+    )
     result = SimulationResult(
         name=step.name,
         metadata={
@@ -83,8 +141,9 @@ def from_harmonic_sweep(step, *, strict_output: bool = False):
             ),
             "phase_convention": "wrapped atan2 in [-pi,pi]",
             "zero_amplitude_phase": "numerically reported but physically undefined",
+            "scientific_input_retention": "frozen_identity_snapshot",
         },
-        scientific_inputs=step.scientific_inputs(),
+        scientific_inputs=scientific_inputs,
     )
     common = {
         "maximum_displacement_vector_amplitude": [
@@ -185,7 +244,12 @@ def from_harmonic_sweep(step, *, strict_output: bool = False):
     )
     for checkpoint in step.checkpoints:
         result.add_checkpoint(checkpoint)
-    return complete_result(step, result)
+    completed = complete_result(step, result)
+    completed.collective_manifest(
+        step.solution_real.function_space.mesh.comm,
+        include_histories=True,
+    )
+    return completed
 
 
 __all__ = ()

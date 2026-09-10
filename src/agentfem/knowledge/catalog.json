@@ -533,7 +533,10 @@
         "agentfem.mechanics.finite_strain_j2_affine_problem",
         "agentfem.mechanics.finite_strain_j2_mixed_affine_problem",
         "agentfem.results.MixedJ2ElasticEnergyDiagnostics",
-        "agentfem.results.mixed_j2_elastic_energy_diagnostics"
+        "agentfem.results.mixed_j2_elastic_energy_diagnostics",
+        "agentfem.results.HomogenizedAlgorithmicTangent",
+        "agentfem.results.homogenized_algorithmic_tangent",
+        "agentfem.constraints.AffineMacroGradientLift"
       ],
       "related_cards": [
         "agentfem.material.j2_global_plasticity",
@@ -1194,6 +1197,9 @@
         "agentfem.time.generalized_alpha",
         "agentfem.operators.direct_harmonic_system",
         "agentfem.results.harmonic_response",
+        "agentfem.results.harmonic_average_response",
+        "agentfem.results.harmonic_probe_response",
+        "agentfem.results.SimulationResult.collective_manifest",
         "agentfem.results.prepare_projection",
         "agentfem.problems.LinearSystemProblem.reaction_field",
         "agentfem.diagnostics.SolveEventRecorder",

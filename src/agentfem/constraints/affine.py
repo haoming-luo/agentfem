@@ -260,6 +260,57 @@ class AffineReduction:
         }
 
 
+@dataclass(frozen=True)
+class AffineMacroGradientLift:
+    r"""Exact full-DOF lift for independent macroscopic gradient changes.
+
+    Columns of ``values`` are :math:`\partial\bar{u}/\partial F_{ij}` in
+    column-major tensor order.  The lift contains displacement and, for a
+    mixed field, zero pressure entries.  It is purely kinematic: constitutive
+    condensation and the effective tangent belong to result recovery.
+    """
+
+    values: np.ndarray
+    component_order: tuple[str, ...]
+    spatial_dimension: int
+    reference_volume: float
+
+    def __post_init__(self) -> None:
+        values = np.asarray(self.values, dtype=PETSc.ScalarType)
+        dimension = int(self.spatial_dimension)
+        order = tuple(str(value) for value in self.component_order)
+        volume = float(self.reference_volume)
+        if dimension not in {2, 3}:
+            raise ValueError("Macro-gradient lift requires dimension 2 or 3.")
+        if values.ndim != 2 or values.shape[1] != dimension**2:
+            raise ValueError(
+                "Macro-gradient lift must contain one column per tensor component."
+            )
+        if order != tuple(
+            f"{row + 1}{column + 1}"
+            for column in range(dimension)
+            for row in range(dimension)
+        ):
+            raise ValueError(
+                "Macro-gradient lift component_order must be column-major."
+            )
+        if not np.all(np.isfinite(values)) or not np.isfinite(volume) or volume <= 0.0:
+            raise ValueError("Macro-gradient lift values and volume must be finite.")
+        object.__setattr__(self, "values", values.copy())
+        object.__setattr__(self, "component_order", order)
+        object.__setattr__(self, "spatial_dimension", dimension)
+        object.__setattr__(self, "reference_volume", volume)
+
+    def summary(self) -> dict[str, object]:
+        return {
+            "kind": "affine_macro_gradient_lift",
+            "full_dofs": int(self.values.shape[0]),
+            "component_order": self.component_order,
+            "spatial_dimension": self.spatial_dimension,
+            "reference_volume": self.reference_volume,
+        }
+
+
 @dataclass
 class AffineConstraintDualHistory:
     """Restartable accepted-path evidence owned by an affine provider."""
@@ -980,6 +1031,16 @@ class AbaqusPeriodicConstraint:
 
         if not np.isfinite(load_factor) or load_factor < 0.0:
             raise ValueError("load_factor must be finite and non-negative.")
+        return self._reduction_from_prescribed_values(
+            self.prescribed_values_at(load_factor)
+        )
+
+    def _reduction_from_prescribed_values(
+        self,
+        prescribed_values: Mapping[tuple[int, int], float],
+    ) -> AffineReduction:
+        """Build one serial reduction from an explicit control-node map."""
+
         function, displacement_space, parent_map, block_size = (
             self._displacement_layout()
         )
@@ -1025,7 +1086,7 @@ class AbaqusPeriodicConstraint:
             relations[slave] = dependency
 
         prescribed: dict[int, float] = {}
-        for (label, component), value in self.prescribed_values_at(load_factor).items():
+        for (label, component), value in prescribed_values.items():
             block = node_to_block[label]
             parent_dof = int(parent_map[block * block_size + component])
             prescribed[parent_dof] = float(value)
@@ -1036,6 +1097,69 @@ class AbaqusPeriodicConstraint:
                 f"{sorted(conflicts)[:8]}."
             )
         return _build_reduction(full_size, relations, prescribed)
+
+    def macro_gradient_lift(self) -> AffineMacroGradientLift:
+        """Return exact lifts for every prescribed macroscopic ``F`` component.
+
+        The constraint topology remains fixed while each reference-node
+        displacement is differentiated with respect to the complete
+        macroscopic deformation gradient.  Free macro control DOFs are
+        rejected because they belong in the reduced equilibrium unknowns and
+        do not define a fully prescribed homogenized tangent.
+        """
+
+        if self.has_free_macro_dofs:
+            raise NotImplementedError(
+                "A complete macro-gradient lift requires every macroscopic "
+                "control DOF to be prescribed."
+            )
+        dimension = len(self.reference_nodes)
+        zero_values = {
+            (int(node), component): 0.0
+            for node in self.control_nodes
+            for component in range(dimension)
+        }
+        baseline = self._reduction_from_prescribed_values(zero_values)
+        lattice = self._reference_lattice()
+        columns = []
+        component_order = []
+        for column in range(dimension):
+            for row in range(dimension):
+                variation = np.zeros((dimension, dimension), dtype=float)
+                variation[row, column] = 1.0
+                reference_values = (variation @ lattice).T
+                prescribed = dict(zero_values)
+                for label, values in zip(
+                    self.reference_nodes,
+                    reference_values,
+                    strict=True,
+                ):
+                    for component, value in enumerate(values):
+                        prescribed[(int(label), component)] = float(value)
+                selected = self._reduction_from_prescribed_values(prescribed)
+                if not (
+                    np.array_equal(selected.row_offsets, baseline.row_offsets)
+                    and np.array_equal(
+                        selected.column_indices, baseline.column_indices
+                    )
+                    and np.array_equal(selected.coefficients, baseline.coefficients)
+                    and np.array_equal(
+                        selected.independent_full_dofs,
+                        baseline.independent_full_dofs,
+                    )
+                ):
+                    raise RuntimeError(
+                        "Affine constraint topology changed while constructing "
+                        "the macro-gradient lift."
+                    )
+                columns.append(selected.offset - baseline.offset)
+                component_order.append(f"{row + 1}{column + 1}")
+        return AffineMacroGradientLift(
+            values=np.column_stack(columns),
+            component_order=tuple(component_order),
+            spatial_dimension=dimension,
+            reference_volume=self.reference_cell_volume,
+        )
 
     def initial_reduced_values(
         self,

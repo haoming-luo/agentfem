@@ -41,6 +41,7 @@ class ModalSolveInfo:
     mass_orthogonality_error: float = float("nan")
     stiffness_diagonalization_error: float = float("nan")
     orthogonality_tolerance: float = 1.0e-7
+    residual_tolerance: float = 1.0e-7
     orientation_anchor_dofs: tuple[int, ...] = ()
     operator_symmetry_relative_tolerance: float = float("nan")
     stiffness_symmetry_absolute_tolerance: float = float("nan")
@@ -57,8 +58,12 @@ class ModalSolveInfo:
             self.mass_orthogonality_error,
             self.stiffness_diagonalization_error,
         )
-        return (
+        residuals = np.asarray(self.residual_norms, dtype=float)
+        return bool(
             self.accepted_modes >= self.requested_modes
+            and residuals.size == self.accepted_modes
+            and np.all(np.isfinite(residuals))
+            and np.all(residuals <= self.residual_tolerance)
             and all(np.isfinite(value) for value in errors)
             and all(value <= self.orthogonality_tolerance for value in errors)
             and self.stiffness_symmetric
@@ -79,6 +84,7 @@ class ModalSolveInfo:
             "mass_orthogonality_error": self.mass_orthogonality_error,
             "stiffness_diagonalization_error": self.stiffness_diagonalization_error,
             "orthogonality_tolerance": self.orthogonality_tolerance,
+            "residual_tolerance": self.residual_tolerance,
             "orientation_convention": "largest_global_component_positive",
             "orientation_anchor_dofs": self.orientation_anchor_dofs,
             "operator_symmetry_relative_tolerance": (

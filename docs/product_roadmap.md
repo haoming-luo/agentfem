@@ -96,10 +96,12 @@ Deepen the finite-element core before broadening the catalog:
   Fresh-Step continue equivalence is verified for both serial routes, 3D
   P2/DG0 and 2D plane-strain Q2/DPC1, while generic DPC cell-moment identity
   alone has cross-rank acceptance coverage and does not establish a mixed MPI
-  solve or restart. Promotion still requires executing the
-  Zhang geometry and observables through the Q2/DPC1 route, equivalent formulation-convergence
-  evidence, load-path convergence, the Table 5 current-state effective
-  tangent, cell-replication invariance, distributed mixed MPC/restart, a
+  solve or restart. The exact Q2/DPC1 Zhang driver now executes the geometry
+  and observables and recovers the current-state effective tangent by exact
+  Schur condensation of the converged Jacobian; a homogeneous analytical patch
+  verifies that recovery. Promotion still requires Table 5 tangent agreement,
+  formulation and mesh convergence, load-path convergence,
+  cell-replication invariance, distributed mixed MPC/restart, a
   production analytical deviatoric tangent, an accuracy study replacing the
   temporary \(\kappa/\mu=10^4\) implementation ceiling, follower-load tangent,
   and complete prescribed-work balance. Cumulative material plastic dissipation

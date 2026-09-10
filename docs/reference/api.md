@@ -318,6 +318,7 @@ and evidence remain in the linked guides and scientific function reference.
 | class | `PeriodicConstraintSpec` | Geometric description of a periodic constraint. |
 | class | `ConstraintSet` | Collection of constraints used by assembly or field updates. |
 | class | `AbaqusPeriodicConstraint` | Periodic equations controlled by prescribed or free reference dofs. |
+| class | `AffineMacroGradientLift` | Exact full-DOF lift for independent macroscopic gradient changes. |
 | class | `AffineReduction` | Sparse serial representation of ``u = T q + offset``. |
 | class | `DeformationGradientPath` | Piecewise-linear macroscopic deformation-gradient history. |
 | class | `DistributedAffineReduction` | Homogeneous correction space for a distributed affine constraint. |
@@ -442,10 +443,15 @@ and evidence remain in the linked guides and scientific function reference.
 | function | `execution_records(events: Iterable[object]) -> tuple[dict[str, object], ...]` | Normalize solver events without depending on a particular procedure. |
 | function | `complete_result(step, result, *, output = None, fields = (), strict_output: bool = False, deformation_scale: float = 0.0, metadata: Mapping[str, object] \| None = None)` | Complete output and metadata through one compatibility-safe path. |
 | function | `execution_context(step)` | Return the context bound by :meth:`Model.step`, when available. |
-| class | `HarmonicResponse` | One named scalar real or complex response sampled at each frequency. |
-| function | `harmonic_response(name: str, evaluate, *, unit: str \| None = None, description: str = '') -> HarmonicResponse` | Declare a traceable scalar response for an ordered frequency sweep. |
+| class | `HarmonicAverageResponse` | Measure-weighted complex average with rank-local assembly. |
+| class | `HarmonicProbeResponse` | Complex finite-element point probe with framework-owned MPI selection. |
+| class | `HarmonicResponse` | One scalar response computed locally and reduced by AgentFEM. |
+| function | `harmonic_average_response(name: str, evaluate, *, on, study = None, unit: str \| None = None, description: str = '') -> HarmonicAverageResponse` | Declare a complex region average safe for serial and MPI sweeps. |
+| function | `harmonic_probe_response(name: str, evaluate, *, at, component: int \| None = None, padding: float = 1e-10, unit: str \| None = None, description: str = '') -> HarmonicProbeResponse` | Declare a complex point response safe for serial and MPI sweeps. |
+| function | `harmonic_response(name: str, evaluate, *, unit: str \| None = None, description: str = '', reduction: str \| None = None) -> HarmonicResponse` | Declare a scalar response with an explicit rank-local reduction. |
 | class | `HillMandelIncrement` | Finite-strain macrohomogeneity evidence over one accepted increment. |
 | class | `HomogenizedFrame` | Macroscopic response reconstructed from one periodic-cell state. |
+| class | `HomogenizedAlgorithmicTangent` | Condensed current-state tangent for a prescribed periodic cell. |
 | class | `LiveFiniteStrainCellFields` | Derived cell fields refreshed from active Explicit state at output time. |
 | class | `MixedJ2ElasticEnergyDiagnostics` | Volume-normalized energy identity for mixed finite-strain J2 fields. |
 | class | `StressStateInvariants` | Three-dimensional Cauchy-stress invariants with explicit validity. |
@@ -455,6 +461,7 @@ and evidence remain in the linked guides and scientific function reference.
 | function | `finite_strain_cell_fields(displacement, properties, *, variables = ('F', 'E', 'GREEN', 'P', 'S', 'MISES', 'J', 'SENER', 'EVOL'), pressure = None, velocity = None, density = None) -> tuple[object, ...]` | Create requested standard P0 finite-strain cell fields. |
 | function | `homogenize_periodic_cell(displacement, properties, *, pressure = None, accepted_fields = None, macro_deformation_gradient, cell_reference_volume: float, load_factor: float) -> HomogenizedFrame` | Return volume-normalized macroscopic finite-strain response. |
 | function | `homogenize_periodic_path(snapshots, properties, *, constraint) -> tuple[HomogenizedFrame, ...]` | Homogenize every saved state of an affine periodic-cell analysis. |
+| function | `homogenized_algorithmic_tangent(problem, constraint, *, linear_solver_options = None) -> HomogenizedAlgorithmicTangent` | Condense a converged periodic-cell Jacobian to :math:`d\bar P/d\bar F`. |
 | function | `hill_mandel_increment(start_snapshot, snapshot, properties, *, constraint, start_frame: HomogenizedFrame \| None = None, frame: HomogenizedFrame \| None = None) -> HillMandelIncrement` | Compare microscopic and macroscopic first-Piola work increments. |
 | function | `hill_mandel_periodic_path(snapshots, properties, *, constraint, frames = None) -> tuple[HillMandelIncrement, ...]` | Evaluate Hill--Mandel evidence between consecutive saved states. |
 | function | `mixed_j2_elastic_energy_diagnostics(*, deformation_gradient, pressure, inverse_bulk_modulus, condensed_elastic_energy_density, reference_volume: float) -> MixedJ2ElasticEnergyDiagnostics` | Audit mixed J2 elastic energy using aligned accepted quadrature fields. |
@@ -1336,7 +1343,10 @@ This package exposes its public objects through focused submodules.
 | Kind | Public object | Purpose |
 | --- | --- | --- |
 | function | `content_fingerprint(record: object) -> str` | Return a canonical content identity for one JSON-safe scientific record. |
+| function | `collective_call(operation, *, comm, label: str)` | Evaluate rank-local Python work and deliver any failure to all ranks. |
+| function | `collective_canonical_record(record: object, *, comm, label: str) -> object` | Require one JSON-safe record on every rank and retain rank zero's copy. |
 | function | `scientific_input_manifest(value: object, *, label: str = 'scientific_inputs', require_nonempty: bool = False) -> dict[str, object]` | Describe and fingerprint scientific inputs without hiding opaque parts. |
+| function | `collective_scientific_input_manifest(value: object, *, comm, label: str = 'scientific_inputs', require_nonempty: bool = False) -> dict[str, object]` | Return one rank-consistent scientific-input manifest. |
 | function | `seal_manifest(manifest: Mapping[str, object], *, base: str \| Path, producer_version: str) -> dict[str, object]` | Return a deterministic integrity seal for an unsealed manifest. |
 | function | `runtime_manifest() -> dict[str, object]` | Capture runtime evidence and a stable compatibility identity. |
 | function | `freeze_runtime(path: str \| Path) -> Path` | Atomically write the current runtime lock for a frozen campaign. |

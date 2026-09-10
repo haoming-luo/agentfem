@@ -38,6 +38,13 @@ frequencies = result.quantity("frequencies")
 mode_1 = result.field("Mode_1")
 ```
 
+This modal route is deliberately linearized about a stationary reference
+configuration. Its supports must be homogeneous, time independent, strong
+Dirichlet constraints. A nonzero support displacement, a prescribed history,
+or remote motion is rejected before eigensolver assembly; it is not silently
+reinterpreted as a fixed degree of freedom. Such problems require a separately
+verified prestressed or base-state modal formulation.
+
 The result retains eigenvalues, angular frequencies, frequencies, relative
 eigenpair residuals, mass-orthogonality and stiffness-diagonalization errors,
 eigenvalue clusters, and each mass-normalized live mode field. For an isolated
@@ -52,6 +59,10 @@ incomplete basis. A mass-normalized mode shape has no physical displacement
 amplitude until it is multiplied by a modal coordinate. `slepc4py` is an
 optional execution dependency because a dense array eigensolver is not a
 scalable replacement for distributed finite-element modal analysis.
+Finite accepted eigenpair residuals are part of the solve-convergence gate.
+Cluster completeness has a different meaning: it governs whether a selected
+mode may be compared individually. A converged request that cuts a repeated
+cluster must instead be enlarged or compared through its invariant subspace.
 The finite-element provider checks the assembled free-DOF stiffness and mass
 operators for symmetry before declaring the generalized Hermitian problem to
 SLEPc. This also applies to a complete user-supplied `K/M` pair. An
@@ -62,6 +73,18 @@ nearest that frequency and orders the selected set by increasing frequency.
 The compact result writer preserves the field name (for example `Mode_1`) and
 labels it as a mode shape rather than silently advertising it as displacement
 `U`.
+Every published modal result also binds a partition-neutral executable identity
+of the mesh, live stiffness and mass coefficients, and exact constrained-DOF
+set. Missing identity or operator/constraint drift after the solve fails closed.
+Under MPI, rank-local identity, boundary-reduction and backend candidate errors
+are exchanged before the next collective operation. Every rank therefore
+reports the same failed stage instead of leaving healthy ranks waiting inside
+PETSc or MPI. Result publication also compares the complete
+`SimulationResult` record on every rank before retaining rank zero's canonical
+manifest.
+The accepted modal request is frozen with that identity. Changing the requested
+mode count, target frequency, tolerances, study, or procedure after the solve
+cannot publish the previous eigenpairs under a new scientific description.
 
 ## Frequency and decay post-processing
 
@@ -227,6 +250,12 @@ particular material. The provider-neutral route consumes explicit, inspectable
 may supply an operator, but it does not change the procedure's ownership or
 verification contract.
 
+Both the material-owned and provider-neutral routes accept only stationary,
+homogeneous strong Dirichlet supports. Nonzero values, prescribed histories,
+remote displacement, MPC and weak constraints are rejected before backend
+preparation. Harmonic excitation belongs in `F` and `load_phase`; a moving
+support requires a separately verified provider.
+
 ### Generalized-Maxwell material coupling
 
 The same generalized-Maxwell material can be used directly in the frequency
@@ -275,6 +304,11 @@ constraints, and one common load phase. Multiple material regions, MPC/weak
 constraints, and per-load phases remain promotion gates rather than being
 silently approximated.
 
+Single-frequency and sweep results bind the executable mesh, live
+`K/M/C/K_loss/F` coefficients and exact constrained-DOF set. The material-loss
+operator is undefined at zero frequency in this formulation, so every selected
+sweep point is checked independently of the user's execution order.
+
 ### Provider-neutral operator sweeps
 
 For a long sweep, named scalar responses, progress and checkpointing use the
@@ -285,13 +319,10 @@ import numpy as np
 
 from agentfem import checkpointing, results
 
-tip = results.harmonic_response(
+tip = results.harmonic_average_response(
     "tip_uy",
-    lambda point: results.average(
-        point.solution_real[1], measure=loaded_end.measure
-    ) + 1j * results.average(
-        point.solution_imaginary[1], measure=loaded_end.measure
-    ),
+    lambda point: (point.solution_real[1], point.solution_imaginary[1]),
+    on=loaded_end,
     unit="m",
 )
 sweep = model.step(
@@ -311,6 +342,13 @@ sweep = model.step(
 )
 result = sweep.solve_result()
 ```
+
+`harmonic_average_response` and `harmonic_probe_response` deliberately split
+rank-local finite-element evaluation from framework-owned MPI reduction. A
+plain `harmonic_response` remains convenient for serial work; under MPI it
+requires an explicit rank-local `reduction=` contract and its callback must not
+perform MPI collectives. This prevents one rank from failing before a hidden
+callback collective while its peers wait indefinitely.
 
 This generic sweep is **operator-invariant**: one real spatial `K/M/C/K_loss/F`
 system is prepared for the complete frequency axis. Frequency changes only
@@ -332,11 +370,27 @@ The checkpoint is an atomic scalar evidence ledger: it stores the canonical
 frequency axis, completed points, response phasors, residuals, energy evidence,
 solver records and a scientific-input fingerprint. It deliberately does not
 store one full displacement field per frequency. Consequently it is portable
-across forward/reverse execution order and MPI partitions, while the live FEM
-field is explicitly identified as belonging only to the last frequency solved
-in the current process. By default the terminal prints the first and last point,
+across MPI partitions and rank counts under the same frozen sweep request. The
+frequency axis, response definitions, execution order, study, procedure, solver,
+load phase and declared scientific assets are frozen before the first accepted
+point; changing any of them requires a new sweep. The live FEM field is
+explicitly identified as belonging only to the last frequency solved in the
+current process. By default the terminal prints the first and last point,
 about twenty intermediate milestones, and a wall-clock heartbeat; it does not
 accumulate or print every point in a very large sweep.
+
+A published point result copies its real, imaginary, amplitude and phase fields;
+point and sweep results also retain a canonical snapshot of the scientific
+inputs used for publication. Reusing the Step at another frequency or changing
+a live load coefficient therefore cannot rewrite an earlier Result. Under MPI,
+constraint lowering, homogeneity checks, identity drift and scientific-input
+publication fail together before a peer can enter a mismatched collective.
+Equivalent input records and complete result manifests retain rank zero's
+canonical representation on every rank.
+The prepared harmonic allocation has an explicit collective lifetime: call
+`step.close()` on every participating rank (or use the Step as a context
+manager). Repeated close is idempotent when every rank has reached the same
+lifecycle state; rank-divergent close is rejected before PETSc teardown.
 
 ### External forced-vibration comparison
 

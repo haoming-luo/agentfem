@@ -8,6 +8,7 @@ from mpi4py import MPI
 
 from agentfem import (
     checkpointing,
+    constraints,
     fields,
     mesh,
     models,
@@ -133,6 +134,12 @@ def test_generic_direct_harmonic_rayleigh_bar_matches_complex_wave_solution():
     assert result.metadata["step"]["system"]["damping"]["family"] == (
         "rayleigh_damping"
     )
+    manifest = result.scientific_input_manifest()
+    assert manifest["complete"] is True
+    identity = result.scientific_inputs["executable_identity"]
+    assert identity["complete"] is True
+    assert identity["record"]["mesh"]["global_cells"] == 12
+    assert identity["record"]["homogeneous_dirichlet"]["global_scalar_dofs"] > 0
 
 
 def test_generic_harmonic_prepared_problem_reuses_allocation_across_frequency():
@@ -157,6 +164,82 @@ def test_generic_harmonic_prepared_problem_reuses_allocation_across_frequency():
     assert execution["solve_count"] == 2
     assert execution["ksp_object_reused"] is True
     assert execution["factorization_reuse_claimed"] is False
+
+
+def test_direct_harmonic_result_freezes_fields_and_scientific_inputs():
+    model, displacement, _end, stiffness, mass, damping, force = _rayleigh_bar(
+        cells=4
+    )
+    step = model.step(
+        target=displacement,
+        K=stiffness,
+        M=mass,
+        C=damping,
+        F=force,
+        frequency=0.5,
+    )
+    result = step.solve_result()
+    frozen_fields = {
+        name: result.field(name).x.array.copy()
+        for name in ("U_REAL", "U_IMAG", "U_AMPLITUDE", "U_PHASE")
+    }
+    frozen_manifest = result.scientific_input_manifest()
+
+    assert result.metadata["field_retention"] == "frozen_solution_snapshot"
+    assert result.field("U_REAL") is not step.solution_real
+    assert result.field("U_IMAG") is not step.solution_imaginary
+    assert result.field("U_AMPLITUDE") is not step.displacement_amplitude
+    assert result.field("U_PHASE") is not step.displacement_phase
+
+    step.set_frequency(frequency=1.25)
+    step.solve()
+    force_constant = tuple(step.system.F.expression.constants())[0]
+    force_constant.value[...] *= 1.1
+
+    for name, expected in frozen_fields.items():
+        np.testing.assert_array_equal(result.field(name).x.array, expected)
+    assert result.quantity("frequency") == pytest.approx(0.5)
+    assert result.scientific_input_manifest() == frozen_manifest
+
+
+def test_direct_harmonic_set_frequency_rejects_zero_material_loss_atomically():
+    model, displacement, _end, stiffness, mass, _damping, force = _rayleigh_bar(
+        cells=2
+    )
+    step = model.step(
+        target=displacement,
+        K=stiffness,
+        M=mass,
+        K_loss=stiffness,
+        F=force,
+        frequency=1.0,
+    )
+
+    with pytest.raises(ValueError, match="loss operator is undefined at zero"):
+        step.set_frequency(frequency=0.0)
+    assert step.frequency == pytest.approx(1.0)
+
+    step.angular_frequency = 0.0
+    with pytest.raises(ValueError, match="loss operator is undefined at zero"):
+        step.solve()
+    assert step.last_solve_info is None
+
+
+@pytest.mark.parametrize("axis", ((0.0, 1.0), (1.0, 0.0)))
+def test_direct_harmonic_sweep_rejects_zero_material_loss_independent_of_order(axis):
+    model, displacement, _end, stiffness, mass, _damping, force = _rayleigh_bar(
+        cells=2
+    )
+
+    with pytest.raises(ValueError, match="loss operator is undefined at zero"):
+        model.step(
+            target=displacement,
+            K=stiffness,
+            M=mass,
+            K_loss=stiffness,
+            F=force,
+            frequencies=axis,
+        )
 
 
 def test_direct_harmonic_close_is_idempotent_and_preserves_summary():
@@ -268,6 +351,105 @@ def test_prepared_direct_harmonic_step_rejects_configuration_drift(mutation):
     with pytest.raises(RuntimeError, match="backend was prepared"):
         step.solve()
     assert step.complex_dofs == pytest.approx(previous)
+
+
+def test_harmonic_executable_identity_tracks_live_operator_coefficients():
+    model, displacement, _end, stiffness, mass, damping, force = _rayleigh_bar(
+        cells=2
+    )
+    step = model.step(
+        target=displacement,
+        K=stiffness,
+        M=mass,
+        C=damping,
+        F=force,
+        frequency=0.5,
+    )
+    before = step.executable_identity()
+    constants = tuple(step.system.F.expression.constants())
+    assert constants
+
+    constants[0].value[...] *= 2.0
+    after = step.executable_identity()
+
+    assert before["fingerprint"] != after["fingerprint"]
+    assert (
+        before["record"]["operators"]["force"]["constants"]
+        != after["record"]["operators"]["force"]["constants"]
+    )
+
+
+def test_harmonic_rejects_an_affine_reduction_instead_of_dropping_its_mpc():
+    reduction = constraints.DistributedAffineReduction(
+        mpc=object(),
+        bcs=(),
+        original_space=object(),
+        full_size=2,
+        reduced_size=1,
+        slave_count=1,
+        control_dof_count=0,
+    )
+
+    with pytest.raises(NotImplementedError, match="AFM-HARMONIC-BC-003"):
+        harmonic_mechanics.harmonic_strong_bcs((reduction,))
+
+
+def test_harmonic_rechecks_zero_support_immediately_before_first_solve():
+    model, displacement, _end, stiffness, mass, damping, force = _rayleigh_bar(
+        cells=2
+    )
+    step = model.step(
+        target=displacement,
+        K=stiffness,
+        M=mass,
+        C=damping,
+        F=force,
+        frequency=0.5,
+    )
+    prescribed_value = step.bcs[0].g
+    prescribed_value.value[...] = 0.1
+
+    with pytest.raises(NotImplementedError, match="homogeneous strong"):
+        step.solve()
+    assert step._prepared_problem is None
+
+
+def test_harmonic_identity_fails_closed_when_dof_coordinates_are_not_unique(
+    monkeypatch,
+):
+    from agentfem.operators import identity as operator_identity
+
+    model, displacement, _end, stiffness, mass, damping, force = _rayleigh_bar(
+        cells=2
+    )
+    step = model.step(
+        target=displacement,
+        K=stiffness,
+        M=mass,
+        C=damping,
+        F=force,
+        frequency=0.5,
+    )
+
+    def colliding_keys(coordinates, domain, *, policy=None):
+        del policy
+        return np.zeros(
+            (len(np.asarray(coordinates)), int(domain.geometry.dim)),
+            dtype=np.int64,
+        )
+
+    monkeypatch.setattr(operator_identity, "_coordinate_keys", colliding_keys)
+    identity = operator_identity.harmonic_executable_identity(
+        step.system,
+        solution=step.solution_real,
+        bcs=step.bcs,
+    )
+
+    assert identity["complete"] is False
+    assert any(
+        item["reason"] == "coincident_target_dof_coordinates"
+        for item in identity["missing"]
+    )
 
 
 def test_direct_harmonic_energy_evidence_rejects_nonfinite_channels(monkeypatch):
@@ -393,9 +575,10 @@ def _rayleigh_sweep(*, execution_order="forward", comm=MPI.COMM_SELF, **step_opt
     model, displacement, loaded_end, stiffness, mass, damping, force = _rayleigh_bar(
         comm=comm
     )
-    response = results.harmonic_response(
+    response = results.harmonic_average_response(
         "tip_x",
-        lambda point: _tip_phasor(point, loaded_end),
+        lambda point: (point.solution_real[0], point.solution_imaginary[0]),
+        on=loaded_end,
         unit="m",
         description="Mean loaded-end axial displacement phasor.",
     )
@@ -439,6 +622,10 @@ def test_direct_harmonic_sweep_is_canonical_bounded_and_matches_reference():
     assert execution["matrix_allocation_count"] == 1
     assert execution["solve_count"] == 3
     assert len(step.records) == 3
+    identity = result.scientific_inputs["executable_identity"]
+    assert identity["complete"] is True
+    assert identity["fingerprint"] == step._frozen_executable_identity["fingerprint"]
+    assert result.scientific_input_manifest()["complete"] is True
 
 
 def test_direct_harmonic_sweep_forward_reverse_and_chunk_resume_are_equivalent():
@@ -467,9 +654,7 @@ def test_direct_harmonic_sweep_forward_reverse_and_chunk_resume_are_equivalent()
         )
 
 
-def test_direct_harmonic_sweep_json_checkpoint_resumes_across_execution_order(
-    tmp_path,
-):
+def test_direct_harmonic_sweep_json_checkpoint_resumes_same_frozen_request(tmp_path):
     _partial_model, partial = _rayleigh_sweep(execution_order="forward")
     partial.solve(max_points=1)
     checkpoint = partial.save_checkpoint(tmp_path / "rayleigh-sweep")
@@ -486,7 +671,7 @@ def test_direct_harmonic_sweep_json_checkpoint_resumes_across_execution_order(
     assert not tuple(tmp_path.glob("*.npz"))
     assert not tuple(tmp_path.glob("*.tmp"))
 
-    _resumed_model, resumed = _rayleigh_sweep(execution_order="reverse")
+    _resumed_model, resumed = _rayleigh_sweep(execution_order="forward")
     restored = resumed.load_checkpoint(checkpoint)
     assert tuple(restored["records"]) == (0,)
     assert resumed.last_live_field_frequency is None
@@ -580,6 +765,131 @@ def test_harmonic_sweep_rejects_operator_mutation_after_first_point():
     with pytest.raises(RuntimeError, match="operators.*changed"):
         step.solve(max_points=1)
     assert len(step.records) == 1
+
+
+@pytest.mark.parametrize(
+    ("mutate", "message"),
+    (
+        (
+            lambda step: setattr(step, "frequencies", (0.5, 0.9, 1.25)),
+            "frequency axis",
+        ),
+        (
+            lambda step: setattr(step, "responses", ()),
+            "responses",
+        ),
+        (
+            lambda step: setattr(step, "execution_order", "reverse"),
+            "execution order",
+        ),
+        (
+            lambda step: setattr(
+                step,
+                "scientific_assets",
+                {"material": "changed_after_first_accepted_point"},
+            ),
+            "scientific assets",
+        ),
+        (
+            lambda step: setattr(step, "procedure", procedures.direct_harmonic()),
+            "procedure",
+        ),
+    ),
+)
+def test_harmonic_sweep_rejects_request_mutation_after_first_point(
+    mutate,
+    message,
+):
+    _model, step = _rayleigh_sweep()
+    step.solve(max_points=1)
+    frozen = step._frozen_request_manifest["fingerprint"]
+    mutate(step)
+
+    with pytest.raises(RuntimeError, match="changed after the sweep began"):
+        step.solve(max_points=1)
+
+    assert len(step.records) == 1, message
+    assert step._frozen_request_manifest["fingerprint"] == frozen
+
+
+def test_direct_harmonic_result_rejects_request_mutation_after_solve():
+    model, displacement, _end, stiffness, mass, damping, force = _rayleigh_bar(
+        cells=2
+    )
+    step = model.step(
+        target=displacement,
+        K=stiffness,
+        M=mass,
+        C=damping,
+        F=force,
+        frequency=0.5,
+    )
+    step.solve()
+    step.procedure = procedures.direct_harmonic_sweep()
+
+    with pytest.raises(RuntimeError, match="procedure.*changed after solve"):
+        step.scientific_inputs()
+
+
+def test_harmonic_sweep_publication_uses_and_checks_recorded_frequency_axis():
+    from agentfem.results import _harmonic as harmonic_results
+
+    _model, step = _rayleigh_sweep()
+    step.solve()
+    step.records[1]["frequency"] = 0.9
+
+    with pytest.raises(RuntimeError, match="records.*frozen frequency axis"):
+        harmonic_results.from_harmonic_sweep(step)
+
+
+def test_harmonic_sweep_result_fingerprint_tracks_live_executable_coefficients():
+    _first_model, first = _rayleigh_sweep()
+    _second_model, second = _rayleigh_sweep()
+    force_constant = second.point_step.system.F.expression.constants()[0]
+    force_constant.value = 1.1 * force_constant.value
+
+    first_result = first.solve_result()
+    second_result = second.solve_result()
+    frozen_first_manifest = first_result.scientific_input_manifest()
+
+    assert (
+        first_result.scientific_input_manifest()["fingerprint"]
+        != second_result.scientific_input_manifest()["fingerprint"]
+    )
+    first_identity = first_result.scientific_inputs["executable_identity"]
+    second_identity = second_result.scientific_inputs["executable_identity"]
+    assert first_identity["fingerprint"] != second_identity["fingerprint"]
+    assert (
+        first_identity["record"]["operators"]["force"]["constants"]
+        != second_identity["record"]["operators"]["force"]["constants"]
+    )
+    first_force = first.point_step.system.F.expression.constants()[0]
+    first_force.value = 1.2 * first_force.value
+    assert first_result.scientific_input_manifest() == frozen_first_manifest
+
+
+def test_harmonic_sweep_result_publication_fails_closed_without_identity(
+    monkeypatch,
+):
+    from agentfem.operators import identity as operator_identity
+    from agentfem.results import _harmonic as harmonic_results
+
+    _model, step = _rayleigh_sweep()
+    step.solve()
+    monkeypatch.setattr(
+        operator_identity,
+        "harmonic_executable_identity",
+        lambda *_args, **_kwargs: {
+            "complete": False,
+            "missing": ({"path": "harmonic_system.force"},),
+            "record": {},
+            "fingerprint": "unavailable",
+        },
+    )
+    step._frozen_executable_identity = None
+
+    with pytest.raises(ValueError, match="cannot establish.*executable identity"):
+        harmonic_results.from_harmonic_sweep(step)
 
 
 @pytest.mark.parametrize(
@@ -720,7 +1030,7 @@ def test_direct_harmonic_sweep_checkpoint_identity_is_mpi_partition_neutral(
     assert payload["rank_count_at_write"] == comm.size
     assert payload["portable"] is True
     _resumed_model, resumed = _rayleigh_sweep(
-        execution_order="reverse",
+        execution_order="forward",
         comm=comm,
     )
     resumed.load_checkpoint(checkpoint)

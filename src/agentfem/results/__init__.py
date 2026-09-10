@@ -52,10 +52,18 @@ from .recovery import (
 )
 from .execution import add_execution_trace, execution_records
 from .lifecycle import complete_result, execution_context
-from .harmonic import HarmonicResponse, harmonic_response
+from .harmonic import (
+    HarmonicAverageResponse,
+    HarmonicProbeResponse,
+    HarmonicResponse,
+    harmonic_average_response,
+    harmonic_probe_response,
+    harmonic_response,
+)
 from .finite_strain import (
     HillMandelIncrement,
     HomogenizedFrame,
+    HomogenizedAlgorithmicTangent,
     LiveFiniteStrainCellFields,
     MixedJ2ElasticEnergyDiagnostics,
     StressStateInvariants,
@@ -65,6 +73,7 @@ from .finite_strain import (
     finite_strain_cell_fields,
     homogenize_periodic_cell,
     homogenize_periodic_path,
+    homogenized_algorithmic_tangent,
     hill_mandel_increment,
     hill_mandel_periodic_path,
     mixed_j2_elastic_energy_diagnostics,
@@ -136,8 +145,11 @@ __all__ = [
     "HistoryRequest",
     "HistoryResult",
     "HarmonicResponse",
+    "HarmonicAverageResponse",
+    "HarmonicProbeResponse",
     "HillMandelIncrement",
     "HomogenizedFrame",
+    "HomogenizedAlgorithmicTangent",
     "LiveFiniteStrainCellFields",
     "MixedJ2ElasticEnergyDiagnostics",
     "OutputPlan",
@@ -161,6 +173,8 @@ __all__ = [
     "complete_result",
     "execution_context",
     "harmonic_response",
+    "harmonic_average_response",
+    "harmonic_probe_response",
     "from_solution",
     "average",
     "cauchy_stress_invariants",
@@ -179,6 +193,7 @@ __all__ = [
     "field_variable",
     "homogenize_periodic_cell",
     "homogenize_periodic_path",
+    "homogenized_algorithmic_tangent",
     "hill_mandel_increment",
     "hill_mandel_periodic_path",
     "mixed_j2_elastic_energy_diagnostics",

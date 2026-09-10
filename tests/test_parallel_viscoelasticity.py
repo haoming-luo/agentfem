@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+from dataclasses import replace
 from pathlib import Path
+from types import SimpleNamespace
 import xml.etree.ElementTree as ET
 
 import numpy as np
@@ -18,6 +20,57 @@ from agentfem import (
     studies,
 )
 from agentfem.constitutive import IsotropicGeneralizedMaxwell, isotropic_elastic
+from agentfem.operators.identity import harmonic_executable_identity
+
+
+def test_rank_local_harmonic_response_failure_fails_together():
+    if MPI.COMM_WORLD.size != 2:
+        pytest.skip("harmonic response failure regression requires two ranks")
+
+    comm = MPI.COMM_WORLD
+    fake_step = SimpleNamespace(
+        solution_real=SimpleNamespace(
+            function_space=SimpleNamespace(mesh=SimpleNamespace(comm=comm))
+        )
+    )
+
+    def rank_local_response(_step):
+        if comm.rank == 1:
+            raise ValueError("injected response failure")
+        return 1.0
+
+    response = results.harmonic_response(
+        "injected",
+        rank_local_response,
+        reduction="identical",
+    )
+    with pytest.raises(RuntimeError, match="evaluation.*rank 1"):
+        response.sample(fake_step)
+    comm.barrier()
+
+
+def test_plain_harmonic_response_is_rejected_before_mpi_callback():
+    if MPI.COMM_WORLD.size != 2:
+        pytest.skip("plain response MPI contract requires two ranks")
+
+    comm = MPI.COMM_WORLD
+    fake_step = SimpleNamespace(
+        solution_real=SimpleNamespace(
+            function_space=SimpleNamespace(mesh=SimpleNamespace(comm=comm))
+        )
+    )
+    called = False
+
+    def hidden_collective(_step):
+        nonlocal called
+        called = True
+        return comm.allreduce(1.0)
+
+    response = results.harmonic_response("unsafe", hidden_collective)
+    with pytest.raises(NotImplementedError, match="AFM-HARMONIC-RESPONSE-001"):
+        response.sample(fake_step)
+    assert called is False
+    comm.barrier()
 
 
 def test_harmonic_generalized_maxwell_solve_and_output_are_distributed(
@@ -217,15 +270,10 @@ def test_generic_direct_harmonic_sweep_is_distributed_and_monolithic(request):
         mass_coefficient=alpha,
         stiffness_coefficient=beta,
     )
-    response = results.harmonic_response(
+    response = results.harmonic_average_response(
         "tip_x",
-        lambda point: results.average(
-            point.solution_real[0], measure=loaded_end.measure
-        )
-        + 1j
-        * results.average(
-            point.solution_imaginary[0], measure=loaded_end.measure
-        ),
+        lambda point: (point.solution_real[0], point.solution_imaginary[0]),
+        on=loaded_end,
         unit="m",
     )
     frequencies = (0.5, 0.875, 1.25)
@@ -266,9 +314,65 @@ def test_generic_direct_harmonic_sweep_is_distributed_and_monolithic(request):
     backend = step.point_step.summary()["backend_execution"]
     assert backend["matrix_layout"] == "monolithic"
     assert backend["component_residuals_available"] is False
+    manifest = simulation.scientific_input_manifest()
+    assert manifest["complete"] is True
+    gathered_manifests = comm.allgather(manifest["fingerprint"])
+    assert all(item == gathered_manifests[0] for item in gathered_manifests)
+    executable = simulation.scientific_inputs["executable_identity"]
+    assert executable["complete"] is True
+    gathered_fingerprints = comm.allgather(executable["fingerprint"])
+    assert all(item == gathered_fingerprints[0] for item in gathered_fingerprints)
     gathered = comm.allgather(actual)
     for value in gathered:
         np.testing.assert_allclose(value, actual, rtol=1.0e-12, atol=1.0e-14)
+
+    accepted_order = step.execution_order
+    if comm.rank == 1:
+        step.execution_order = "reverse"
+    with pytest.raises(RuntimeError, match="manifest differs across MPI ranks"):
+        step.canonical_records()
+    step.execution_order = accepted_order
+    comm.barrier()
+
+    inconsistent_system = replace(
+        step.point_step.system,
+        mass=None if comm.rank == 0 else step.point_step.system.mass,
+    )
+    inconsistent_identity = harmonic_executable_identity(
+        inconsistent_system,
+        solution=step.point_step.solution_real,
+        bcs=step.point_step.bcs,
+    )
+    assert inconsistent_identity["complete"] is False
+    assert any(
+        item["reason"] == "rank_inconsistent_operator_presence"
+        for item in inconsistent_identity["missing"]
+    )
+    comm.barrier()
+
+    live_constant = tuple(step.point_step.system.F.expression.constants())[0]
+    if comm.rank == 0:
+        live_constant.value[...] *= 1.01
+    with pytest.raises(RuntimeError, match="changed after the backend was prepared"):
+        step.point_step.scientific_inputs()
+    comm.barrier()
+
+    live_constant.value[...] /= 1.01 if comm.rank == 0 else 1.0
+    step.point_step.executable_identity()
+    accepted_fingerprint = step.point_step._prepared_configuration_fingerprint
+    if comm.rank == 1:
+        step.point_step._prepared_configuration_fingerprint = None
+    with pytest.raises(RuntimeError, match="state differs across MPI ranks"):
+        step.point_step.scientific_inputs()
+    step.point_step._prepared_configuration_fingerprint = accepted_fingerprint
+    comm.barrier()
+
+    if comm.rank == 1:
+        step.point_step._closed = True
+    with pytest.raises(RuntimeError, match="close lifecycle differs"):
+        step.point_step.close()
+    step.point_step._closed = False
+    comm.barrier()
 
     step.close()
     assert step.closed

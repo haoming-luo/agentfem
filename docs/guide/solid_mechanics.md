@@ -170,11 +170,12 @@ now solve an independent tension-positive `MEAN_KIRCHHOFF_STRESS`, assemble
 all four mixed Newton blocks, and keep the condensed `ELENER` representation
 separate from `MIXED_POTENTIAL`. Their
 thin-3D tetrahedral diagnostic remains distinct from the now executable 2D
-Q2/DPC1 interpolation. The Zhang geometry and Table 5 observables have not yet
-passed through that direct route. Load-path and formulation convergence, the
-published effective tangent and cell-replication checks, distributed mixed
-MPC/restart, and a production analytical deviatoric tangent remain promotion
-gates.
+Q2/DPC1 interpolation. The direct Zhang driver now evaluates the geometry,
+stress, primal/condensed energy channels and a Schur-condensed current-state
+effective tangent. Its homogeneous analytical tangent check has passed, but
+the published Table 5 comparison, load-path and formulation convergence,
+cell-replication checks, distributed mixed MPC/restart, and a production
+analytical deviatoric tangent remain promotion gates.
 
 ## Go deeper
 

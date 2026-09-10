@@ -307,12 +307,23 @@ support distributed block-aware MPC, ordinary strong-boundary mixed problems,
 or body/natural-load power. The Q2/DPC1 path supplies the three pressure modes
 of the 9/3 formulation. The exact Zhang--Feng--Khandelwal geometry now has a
 direct plane-strain diagnostic driver that reports both primal and condensed
-energy channels and their decomposition. That execution remains an unpromoted
-diagnostic: load-path, formulation and mesh convergence, the effective tangent,
-replicated cells, MPI/restart equivalence, and content-bound evidence remain
-open. The existing thin-3D tetrahedral fixture is a separate experimental
+energy channels and their decomposition. The same driver now condenses the
+converged full Jacobian through the exact affine lift, records the current-state
+homogenized algorithmic tangent, and checks its convention on a homogeneous
+Q2/DPC1 patch. That execution remains an unpromoted diagnostic: Table 5
+agreement, load-path, formulation and mesh convergence, replicated cells,
+MPI/restart equivalence, and content-bound evidence remain open. The existing
+thin-3D tetrahedral fixture is a separate experimental
 diagnostic rather than evidence of 2D formulation identity or locking
 convergence.
+
+Accepted finite-strain state also owns the origin of its live algorithmic
+linearization. A homogenized tangent is eligible only while its generation
+token still identifies the exact accepted start and target increment used by
+the converged Newton solve. Rollback invalidates that token. Resume may recover
+the constitutive fields, but a checkpoint that did not persist the accepted
+macro-tangent evidence leaves tangent recovery unavailable; AgentFEM never
+relabels a zero-increment relinearization as the tangent of the accepted path.
 
 The state transaction owns accepted quadrature `F`, `P`, `S`, `MISES`,
 `SENER`, `ELENER`, `HARDENER`, `PDENER`, `FP`, and `PEEQ`; the mixed route also

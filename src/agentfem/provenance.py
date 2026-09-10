@@ -58,6 +58,76 @@ def content_fingerprint(record: object) -> str:
     return f"sha256:{_digest(record)}"
 
 
+def collective_call(operation, *, comm, label: str):
+    """Evaluate rank-local Python work and deliver any failure to all ranks.
+
+    ``operation`` must not itself enter an MPI collective.  This helper is the
+    guard immediately before a collective phase: readiness checks, callbacks,
+    and local record construction either succeed everywhere or raise the same
+    diagnostic everywhere.
+    """
+
+    if comm.size == 1:
+        return operation()
+    value = None
+    local_error = None
+    try:
+        value = operation()
+    except BaseException as exc:  # pragma: no cover - exercised under MPI
+        local_error = f"{type(exc).__name__}: {exc}"
+    errors = comm.allgather(local_error)
+    failures = [
+        f"rank {rank}: {error}"
+        for rank, error in enumerate(errors)
+        if error is not None
+    ]
+    if failures:
+        raise RuntimeError(f"{label} failed collectively; " + "; ".join(failures))
+    return value
+
+
+def collective_canonical_record(
+    record: object,
+    *,
+    comm,
+    label: str,
+) -> object:
+    """Require one JSON-safe record on every rank and retain rank zero's copy."""
+
+    local_fingerprint = None
+    local_error = None
+    try:
+        local_fingerprint = content_fingerprint(record)
+    except Exception as exc:  # pragma: no cover - exercised under MPI
+        local_error = f"{type(exc).__name__}: {exc}"
+    errors = comm.allgather(local_error)
+    failures = [
+        f"rank {rank}: {error}"
+        for rank, error in enumerate(errors)
+        if error is not None
+    ]
+    if failures:
+        raise RuntimeError(
+            f"{label} serialization failed collectively; " + "; ".join(failures)
+        )
+    fingerprints = tuple(comm.allgather(local_fingerprint))
+    if any(fingerprint != fingerprints[0] for fingerprint in fingerprints[1:]):
+        records = comm.gather(record, root=0)
+        difference = None
+        if comm.rank == 0:
+            for rank, candidate in enumerate(records[1:], start=1):
+                difference = _first_record_difference(records[0], candidate)
+                if difference is not None:
+                    difference = f"rank 0 versus rank {rank}: {difference}"
+                    break
+        difference = comm.bcast(difference, root=0)
+        raise RuntimeError(
+            f"{label} differs across MPI ranks: {fingerprints}. First "
+            f"difference: {difference or 'unknown'}."
+        )
+    return comm.bcast(record if comm.rank == 0 else None, root=0)
+
+
 def scientific_input_manifest(
     value: object,
     *,
@@ -90,6 +160,85 @@ def scientific_input_manifest(
         "record": record,
         "fingerprint": content_fingerprint(identity),
     }
+
+
+def collective_scientific_input_manifest(
+    value: object,
+    *,
+    comm,
+    label: str = "scientific_inputs",
+    require_nonempty: bool = False,
+) -> dict[str, object]:
+    """Return one rank-consistent scientific-input manifest.
+
+    Manifest construction can inspect rank-local finite-element objects.  A
+    local serialization error or a different canonical fingerprint must be
+    exchanged before publication so every rank either retains the same record
+    or fails together.
+    """
+
+    manifest = None
+    local_error = None
+    try:
+        manifest = scientific_input_manifest(
+            value,
+            label=label,
+            require_nonempty=require_nonempty,
+        )
+    except Exception as exc:  # pragma: no cover - exercised under MPI
+        local_error = f"{type(exc).__name__}: {exc}"
+    errors = comm.allgather(local_error)
+    failures = [
+        f"rank {rank}: {error}"
+        for rank, error in enumerate(errors)
+        if error is not None
+    ]
+    if failures:
+        raise RuntimeError(
+            "Scientific-input manifest construction failed collectively; "
+            + "; ".join(failures)
+        )
+    return collective_canonical_record(
+        manifest,
+        comm=comm,
+        label="Scientific-input manifest",
+    )
+
+
+def _first_record_difference(left, right, *, path: str = "manifest") -> str | None:
+    """Describe the first deterministic difference between two JSON records."""
+
+    if type(left) is not type(right):
+        return f"{path} has types {type(left).__name__} and {type(right).__name__}"
+    if isinstance(left, Mapping):
+        left_keys = tuple(sorted(left, key=str))
+        right_keys = tuple(sorted(right, key=str))
+        if left_keys != right_keys:
+            return f"{path} has keys {left_keys!r} and {right_keys!r}"
+        for key in left_keys:
+            difference = _first_record_difference(
+                left[key],
+                right[key],
+                path=f"{path}.{key}",
+            )
+            if difference is not None:
+                return difference
+        return None
+    if isinstance(left, (tuple, list)):
+        if len(left) != len(right):
+            return f"{path} has lengths {len(left)} and {len(right)}"
+        for index, (left_item, right_item) in enumerate(zip(left, right, strict=True)):
+            difference = _first_record_difference(
+                left_item,
+                right_item,
+                path=f"{path}[{index}]",
+            )
+            if difference is not None:
+                return difference
+        return None
+    if left != right:
+        return f"{path} has values {left!r} and {right!r}"
+    return None
 
 
 def _scientific_input_record(value, *, path: str, missing, seen):
@@ -209,6 +358,28 @@ def _scientific_callable_record(
     missing,
     seen,
 ) -> dict[str, object]:
+    if isinstance(value, partial):
+        return {
+            "kind": "partial_callable",
+            "function": _scientific_input_record(
+                value.func,
+                path=f"{path}.func",
+                missing=missing,
+                seen=seen,
+            ),
+            "args": _scientific_input_record(
+                value.args,
+                path=f"{path}.args",
+                missing=missing,
+                seen=seen,
+            ),
+            "keywords": _scientific_input_record(
+                value.keywords or {},
+                path=f"{path}.keywords",
+                missing=missing,
+                seen=seen,
+            ),
+        }
     record = {
         "kind": "callable",
         "module": getattr(value, "__module__", None),
@@ -280,28 +451,7 @@ def _scientific_callable_record(
             missing=missing,
             seen=seen,
         )
-    if isinstance(value, partial):
-        record["partial"] = {
-            "function": _scientific_input_record(
-                value.func,
-                path=f"{path}.func",
-                missing=missing,
-                seen=seen,
-            ),
-            "args": _scientific_input_record(
-                value.args,
-                path=f"{path}.args",
-                missing=missing,
-                seen=seen,
-            ),
-            "keywords": _scientific_input_record(
-                value.keywords or {},
-                path=f"{path}.keywords",
-                missing=missing,
-                seen=seen,
-            ),
-        }
-    elif not inspect.isroutine(value):
+    if not inspect.isroutine(value):
         state = getattr(value, "__dict__", None)
         if isinstance(state, Mapping) and state:
             record["callable_state"] = _scientific_input_record(
@@ -711,6 +861,9 @@ __all__ = [
     "SealVerification",
     "RuntimeComparison",
     "compare_runtime",
+    "collective_call",
+    "collective_canonical_record",
+    "collective_scientific_input_manifest",
     "content_fingerprint",
     "freeze_runtime",
     "require_runtime",

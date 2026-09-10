@@ -1,12 +1,15 @@
 from __future__ import annotations
 
 import h5py
+from dolfinx import fem
 import numpy as np
 import pytest
 from mpi4py import MPI
+from petsc4py import PETSc
 import ufl
 
 from agentfem import (
+    constraints,
     dynamics,
     fields,
     mesh,
@@ -22,6 +25,35 @@ from agentfem.results import HistoryResult
 
 def _left(x):
     return np.isclose(x[0], 0.0)
+
+
+def _scaled_modal_step(*, stiffness_scale: float = 1.0):
+    domain = mesh.rectangle(
+        (0.0, 0.0),
+        (1.0, 0.2),
+        (2, 1),
+        comm=MPI.COMM_SELF,
+        cell_type="quadrilateral",
+    )
+    model = models.create(
+        study=studies.modal_solid(dimension=2, assumption="plane_stress"),
+        mesh=domain,
+    )
+    displacement = model.field(fields.displacement(domain, degree=1))
+    model.material(
+        elasticity.isotropic_elastic(
+            young=210.0e9,
+            poisson=0.3,
+            density=7800.0,
+        )
+    )
+    model.clamp(
+        displacement,
+        on=mesh.boundary(domain, _left, name="left", tag=1),
+    )
+    live_scale = fem.Constant(domain, PETSc.ScalarType(stiffness_scale))
+    stiffness = operators.scale(model.stiffness(displacement), live_scale)
+    return model.step(target=displacement, modes=1, K=stiffness), live_scale
 
 
 def test_fft_recovers_amplitude_frequency_and_phase_contract():
@@ -249,6 +281,12 @@ def test_modal_step_uses_public_model_language_and_removes_fixed_dofs(tmp_path):
     assert result.metadata["field_output"]["warp_field"] == "Mode_1"
     assert result.metadata["field_output"]["warp_field_semantic"] == "Mode shape"
     assert result.metadata["field_output"]["field_aliases"] == {"Mode shape": "Mode_1"}
+    manifest = result.scientific_input_manifest()
+    assert manifest["complete"] is True
+    identity = result.scientific_inputs["modal_executable_identity"]
+    assert identity["complete"] is True
+    assert identity["record"]["mesh"]["global_cells"] == 16
+    assert identity["record"]["homogeneous_dirichlet"]["global_scalar_dofs"] > 0
     with h5py.File(result.artifacts["fields_hdf5"], "r") as h5:
         assert h5.attrs["primary_field"] == "Mode_1"
         assert h5.attrs["primary_semantic_name"] == "Mode shape"
@@ -498,3 +536,229 @@ def test_modal_constraint_failure_names_the_actual_procedure():
         match="modal analysis received.*not a strong Dirichlet constraint",
     ):
         step.solve()
+
+
+def test_modal_step_rejects_nonzero_strong_support_before_eigensolve():
+    domain = mesh.rectangle(
+        (0.0, 0.0),
+        (1.0, 0.2),
+        (2, 1),
+        comm=MPI.COMM_SELF,
+        cell_type="quadrilateral",
+    )
+    model = models.create(
+        study=studies.modal_solid(dimension=2, assumption="plane_stress"),
+        mesh=domain,
+    )
+    displacement = model.field(fields.displacement(domain, degree=1))
+    model.material(
+        elasticity.isotropic_elastic(
+            young=210.0e9,
+            poisson=0.3,
+            density=7800.0,
+        )
+    )
+    model.clamp(
+        displacement,
+        on=mesh.boundary(domain, _left, name="moving_support", tag=1),
+        value=(0.1, 0.2),
+    )
+
+    step = model.step(target=displacement, modes=1)
+    with pytest.raises(NotImplementedError, match="AFM-MODAL-BC-003"):
+        step.solve()
+    assert step.last_solve_info is None
+
+
+@pytest.mark.parametrize(
+    ("asset", "code"),
+    (
+        (
+            constraints.TimeDependentDirichlet(
+                constant=object(),
+                bc=object(),
+                amplitude=object(),
+            ),
+            "AFM-MODAL-BC-001",
+        ),
+        (
+            constraints.RemoteDisplacementConstraint(
+                bc=object(),
+                value=object(),
+                reference_values=np.zeros(2),
+                reference_point=object(),
+                translation=(0.0, 0.0),
+                rotation=0.0,
+            ),
+            "AFM-MODAL-BC-002",
+        ),
+    ),
+)
+def test_modal_step_rejects_history_and_remote_support_semantics(asset, code):
+    step = problems.modal_analysis(
+        target=object(),
+        mass=object(),
+        stiffness=object(),
+        modes=1,
+        constraints=(asset,),
+    )
+
+    with pytest.raises(NotImplementedError, match=code):
+        step.solve()
+
+
+def test_modal_rejects_an_affine_reduction_instead_of_dropping_its_mpc():
+    reduction = constraints.DistributedAffineReduction(
+        mpc=object(),
+        bcs=(),
+        original_space=object(),
+        full_size=2,
+        reduced_size=1,
+        slave_count=1,
+        control_dof_count=0,
+    )
+    step = problems.modal_analysis(
+        target=object(),
+        mass=object(),
+        stiffness=object(),
+        modes=1,
+        constraints=(reduction,),
+    )
+
+    with pytest.raises(TypeError, match="not a strong Dirichlet constraint"):
+        step.solve()
+
+
+@pytest.mark.parametrize("residual", (float("inf"), 1.0e-3))
+def test_modal_solve_info_requires_finite_accepted_eigenpair_residuals(residual):
+    info = dynamics.ModalSolveInfo(
+        converged_eigenpairs=1,
+        requested_modes=1,
+        accepted_modes=1,
+        constrained_dofs=1,
+        free_dofs=2,
+        residual_norms=(residual,),
+        eigensolver="synthetic",
+        mass_orthogonality_error=0.0,
+        stiffness_diagonalization_error=0.0,
+        residual_tolerance=1.0e-7,
+        stiffness_symmetric=True,
+        mass_symmetric=True,
+    )
+
+    assert info.converged is False
+    assert info.as_dict()["residual_tolerance"] == pytest.approx(1.0e-7)
+
+
+def test_modal_result_fingerprint_tracks_live_executable_coefficients():
+    first_step, _first_scale = _scaled_modal_step(stiffness_scale=1.0)
+    second_step, _second_scale = _scaled_modal_step(stiffness_scale=1.1)
+
+    first = first_step.solve_result()
+    second = second_step.solve_result()
+
+    assert (
+        first.scientific_input_manifest()["fingerprint"]
+        != second.scientific_input_manifest()["fingerprint"]
+    )
+    first_identity = first.scientific_inputs["modal_executable_identity"]
+    second_identity = second.scientific_inputs["modal_executable_identity"]
+    assert first_identity["fingerprint"] != second_identity["fingerprint"]
+    assert (
+        first_identity["record"]["operators"]["stiffness"]["constants"]
+        != second_identity["record"]["operators"]["stiffness"]["constants"]
+    )
+
+
+def test_failed_modal_resolve_retains_the_last_accepted_result_atomically():
+    step, _scale = _scaled_modal_step()
+    step.solve()
+    accepted_values = step.eigenvalues.copy()
+    accepted_modes = tuple(mode.x.array.copy() for mode in step.mode_shapes)
+    accepted_info = step.last_solve_info
+    accepted_identity = step._executed_identity
+    accepted_request = step._executed_request_manifest
+
+    step.modes = 10_000
+    with pytest.raises(ValueError, match="free dofs.*requests"):
+        step.solve()
+
+    np.testing.assert_array_equal(step.eigenvalues, accepted_values)
+    for mode, values in zip(step.mode_shapes, accepted_modes, strict=True):
+        np.testing.assert_array_equal(mode.x.array, values)
+    assert step.last_solve_info is accepted_info
+    assert step._executed_identity == accepted_identity
+    assert step._executed_request_manifest == accepted_request
+    with pytest.raises(RuntimeError, match="mode count.*changed after solve"):
+        step.scientific_inputs()
+
+
+def test_modal_result_publication_fails_closed_without_executable_identity(
+    monkeypatch,
+):
+    from agentfem.operators import identity as operator_identity
+    from agentfem.results import _modal as modal_results
+
+    step, _scale = _scaled_modal_step()
+    step.solve()
+    monkeypatch.setattr(
+        operator_identity,
+        "modal_executable_identity",
+        lambda **_kwargs: {
+            "complete": False,
+            "missing": ({"path": "modal_system.stiffness"},),
+            "record": {},
+            "fingerprint": "unavailable",
+        },
+    )
+
+    with pytest.raises(ValueError, match="cannot establish.*executable identity"):
+        modal_results.from_modal_step(step)
+
+
+def test_three_dimensional_modal_cantilever_matches_beam_limit():
+    length = 1.0
+    width = 0.1
+    height = 0.05
+    young = 210.0e9
+    density = 7800.0
+    domain = mesh.cuboid(
+        (0.0, 0.0, 0.0),
+        (length, width, height),
+        (8, 1, 1),
+        comm=MPI.COMM_SELF,
+        cell_type="hexahedron",
+    )
+    model = models.create(
+        study=studies.modal_solid(dimension=3),
+        mesh=domain,
+    )
+    displacement = model.field(fields.displacement(domain, degree=2))
+    model.material(
+        elasticity.isotropic_elastic(
+            young=young,
+            poisson=0.3,
+            density=density,
+        )
+    )
+    model.clamp(
+        displacement,
+        on=mesh.boundary(domain, _left, name="fixed_end", tag=1),
+    )
+
+    result = model.step(target=displacement, modes=2).solve_result()
+    frequencies = np.asarray(result.quantity("frequencies"))
+    beta_1 = 1.875104068711961
+    beam_limit = (
+        beta_1**2
+        / (2.0 * np.pi)
+        * np.sqrt(young * height**2 / (12.0 * density * length**4))
+    )
+
+    assert frequencies[0] == pytest.approx(42.31395028, rel=1.0e-7)
+    assert frequencies[0] == pytest.approx(beam_limit, rel=1.5e-2)
+    assert frequencies[1] > frequencies[0]
+    assert result.metadata["solve"]["converged"] is True
+    assert max(result.quantity("residual_norms")) < 1.0e-7
+    executable = result.scientific_inputs["modal_executable_identity"]
+    assert executable["record"]["mesh"]["geometry_dimension"] == 3

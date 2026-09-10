@@ -34,6 +34,16 @@ def harmonic_executable_identity(system, *, solution, bcs=()) -> dict[str, objec
         ("loss", system.loss),
         ("force", system.force),
     ):
+        presence = tuple(domain.comm.allgather(operator is not None))
+        if any(value != presence[0] for value in presence[1:]):
+            missing.append(
+                {
+                    "path": f"harmonic_system.{name}",
+                    "reason": "rank_inconsistent_operator_presence",
+                }
+            )
+            operators[name] = {"rank_presence": presence}
+            continue
         if operator is None:
             operators[name] = None
             continue
@@ -57,45 +67,107 @@ def harmonic_executable_identity(system, *, solution, bcs=()) -> dict[str, objec
             function,
             tuple(bcs),
             missing=missing,
+            path="harmonic_system.bcs",
         ),
     }
-    return {
-        "complete": not missing,
-        "missing": tuple(missing),
-        "record": record,
-        "fingerprint": content_fingerprint(record),
+    return _finalize_collective_identity(
+        record,
+        missing,
+        comm=domain.comm,
+        path="harmonic_system",
+    )
+
+
+def modal_executable_identity(
+    *,
+    stiffness,
+    mass,
+    solution,
+    bcs=(),
+) -> dict[str, object]:
+    """Return a partition-neutral identity for an executable modal system."""
+
+    function = fields.unwrap(solution)
+    domain = function.function_space.mesh
+    missing: list[dict[str, str]] = []
+    operators = {}
+    for name, operator in (("stiffness", stiffness), ("mass", mass)):
+        operators[name] = _form_identity(
+            getattr(operator, "expression", operator),
+            domain=domain,
+            path=f"modal_system.{name}",
+            missing=missing,
+        )
+    record = {
+        "schema": "agentfem.modal-executable-identity.v1",
+        "equation": "K phi = lambda M phi",
+        "mesh": mesh_executable_identity(domain),
+        "target_element": str(function.ufl_element()),
+        "operators": operators,
+        "homogeneous_dirichlet": _homogeneous_dirichlet_identity(
+            function,
+            tuple(bcs),
+            missing=missing,
+            path="modal_system.bcs",
+        ),
     }
+    return _finalize_collective_identity(
+        record,
+        missing,
+        comm=domain.comm,
+        path="modal_system",
+    )
 
 
 def mesh_executable_identity(domain) -> dict[str, object]:
     """Hash source-node connectivity and geometry independent of partition."""
 
-    topology = domain.topology
-    cell_map = topology.index_map(topology.dim)
-    geometry_dofmap = np.asarray(domain.geometry.dofmaps[0])
-    input_indices = np.asarray(domain.geometry.input_global_indices, dtype=np.int64)
-    coordinates = np.asarray(domain.geometry.x, dtype=np.float64)[
-        :, : int(domain.geometry.dim)
-    ]
-    policy = _coordinate_key_policy(domain)
-    local = []
-    for cell in range(int(cell_map.size_local)):
-        geometry_dofs = np.asarray(geometry_dofmap[cell], dtype=np.int64)
-        source_ids = input_indices[geometry_dofs]
-        coordinate_keys = _coordinate_keys(
-            coordinates[geometry_dofs], domain, policy=policy
+    comm = domain.comm
+    local_error = None
+    try:
+        topology = domain.topology
+        cell_map = topology.index_map(topology.dim)
+        geometry_dofmap = np.asarray(domain.geometry.dofmaps[0])
+        input_indices = np.asarray(
+            domain.geometry.input_global_indices,
+            dtype=np.int64,
         )
-        nodes = sorted(
-            (
-                int(source_id),
-                *(int(value) for value in coordinate),
+        coordinates = np.asarray(domain.geometry.x, dtype=np.float64)[
+            :, : int(domain.geometry.dim)
+        ]
+    except Exception as exc:  # pragma: no cover - malformed distributed mesh
+        local_error = f"{type(exc).__name__}: {exc}"
+    _raise_collective_identity_error(
+        comm,
+        local_error,
+        context="build local mesh identity inputs",
+    )
+    local_error = None
+    local = None
+    try:
+        local = []
+        for cell in range(int(cell_map.size_local)):
+            geometry_dofs = np.asarray(geometry_dofmap[cell], dtype=np.int64)
+            source_ids = input_indices[geometry_dofs]
+            coordinate_keys = _coordinate_keys(coordinates[geometry_dofs], domain)
+            nodes = tuple(
+                (
+                    int(source_id),
+                    *(str(value) for value in coordinate),
+                )
+                for source_id, coordinate in zip(
+                    source_ids, coordinate_keys, strict=True
+                )
             )
-            for source_id, coordinate in zip(
-                source_ids, coordinate_keys, strict=True
-            )
-        )
-        local.append(nodes)
-    cells = [item for rank_items in domain.comm.allgather(local) for item in rank_items]
+            local.append(nodes)
+    except Exception as exc:  # pragma: no cover - malformed distributed mesh
+        local_error = f"{type(exc).__name__}: {exc}"
+    _raise_collective_identity_error(
+        comm,
+        local_error,
+        context="build local mesh identity payload",
+    )
+    cells = [item for rank_items in comm.allgather(local) for item in rank_items]
     cells.sort()
     record = {
         "cell_type": str(topology.cell_name()),
@@ -103,7 +175,8 @@ def mesh_executable_identity(domain) -> dict[str, object]:
         "geometry_dimension": int(domain.geometry.dim),
         "global_cells": len(cells),
         "cells": cells,
-        "coordinate_key": "relative_bounds_scaled_int64_with_input_node_id",
+        "coordinate_key": "exact_ieee754_hex_with_input_node_id",
+        "cell_node_order": "dolfinx_geometry_dofmap",
     }
     return {
         key: value for key, value in record.items() if key != "cells"
@@ -111,23 +184,62 @@ def mesh_executable_identity(domain) -> dict[str, object]:
 
 
 def _form_identity(form, *, domain, path: str, missing) -> dict[str, object]:
-    signature = getattr(form, "signature", None)
-    if not callable(signature):
-        missing.append({"path": path, "reason": "operator_is_not_a_ufl_form"})
+    local_error = None
+    ufl_signature = None
+    coefficients_source = ()
+    constants_source = ()
+    tag_entries = []
+    try:
+        signature = getattr(form, "signature", None)
+        if not callable(signature):
+            raise TypeError("operator_is_not_a_ufl_form")
+        ufl_signature = str(signature())
+        coefficients_source = tuple(form.coefficients())
+        constants_source = tuple(form.constants())
+        for _ufl_domain, by_integral_type in form.subdomain_data().items():
+            for integral_type in sorted(by_integral_type):
+                tag_entries.extend(
+                    (str(integral_type), item)
+                    for item in by_integral_type[integral_type]
+                    if item is not None
+                )
+    except Exception as exc:
+        local_error = f"{type(exc).__name__}: {exc}"
+    errors = domain.comm.allgather(local_error)
+    if any(error is not None for error in errors):
+        reason = next(error for error in errors if error is not None)
+        missing.append(
+            {
+                "path": path,
+                "reason": f"operator_identity_unavailable:{reason}",
+            }
+        )
         return {
             "python_type": f"{type(form).__module__}.{type(form).__qualname__}",
             "ufl_signature": None,
         }
-    try:
-        ufl_signature = str(signature())
-    except Exception as exc:
-        missing.append({"path": path, "reason": "ufl_signature_unavailable"})
-        return {"ufl_signature": None, "error": f"{type(exc).__name__}: {exc}"}
+
+    collective_layout = (
+        len(coefficients_source),
+        len(constants_source),
+        tuple(integral_type for integral_type, _item in tag_entries),
+    )
+    layouts = domain.comm.allgather(collective_layout)
+    if any(layout != layouts[0] for layout in layouts[1:]):
+        missing.append(
+            {
+                "path": path,
+                "reason": "rank_inconsistent_operator_layout",
+            }
+        )
+        return {"ufl_signature": ufl_signature, "layout": collective_layout}
 
     coefficients = []
-    for index, coefficient in enumerate(tuple(form.coefficients())):
+    for index, coefficient in enumerate(coefficients_source):
         try:
-            coefficients.append(_function_content_identity(coefficient))
+            coefficients.append(
+                _function_content_identity(coefficient, domain=domain)
+            )
         except (AttributeError, NotImplementedError, RuntimeError, ValueError) as exc:
             missing.append(
                 {
@@ -145,7 +257,7 @@ def _form_identity(form, *, domain, path: str, missing) -> dict[str, object]:
                 }
             )
     constants = []
-    for index, constant in enumerate(tuple(form.constants())):
+    for index, constant in enumerate(constants_source):
         value = getattr(constant, "value", None)
         if value is None:
             missing.append(
@@ -156,30 +268,35 @@ def _form_identity(form, *, domain, path: str, missing) -> dict[str, object]:
             )
             constants.append({"content_sha256": None})
             continue
-        constants.append(_array_identity(value))
+        try:
+            constants.append(_array_identity(value))
+        except (TypeError, ValueError) as exc:
+            missing.append(
+                {
+                    "path": f"{path}.constants[{index}]",
+                    "reason": f"constant_identity_unavailable:{exc}",
+                }
+            )
+            constants.append({"content_sha256": None})
 
     tags = []
-    for _ufl_domain, by_integral_type in form.subdomain_data().items():
-        for integral_type in sorted(by_integral_type):
-            for item in by_integral_type[integral_type]:
-                if item is None:
-                    continue
-                try:
-                    identity = _meshtags_identity(domain, item)
-                except (AttributeError, RuntimeError, ValueError) as exc:
-                    missing.append(
-                        {
-                            "path": f"{path}.subdomain_data.{integral_type}",
-                            "reason": f"portable_meshtags_identity_unavailable:{exc}",
-                        }
-                    )
-                    identity = {"content_sha256": None}
-                tags.append(
-                    {
-                        "integral_type": str(integral_type),
-                        "identity": identity,
-                    }
-                )
+    for integral_type, item in tag_entries:
+        try:
+            identity = _meshtags_identity(domain, item)
+        except (AttributeError, RuntimeError, ValueError) as exc:
+            missing.append(
+                {
+                    "path": f"{path}.subdomain_data.{integral_type}",
+                    "reason": f"portable_meshtags_identity_unavailable:{exc}",
+                }
+            )
+            identity = {"content_sha256": None}
+        tags.append(
+            {
+                "integral_type": integral_type,
+                "identity": identity,
+            }
+        )
     tags.sort(key=lambda item: json.dumps(item, sort_keys=True))
     return {
         "ufl_signature": ufl_signature,
@@ -189,29 +306,61 @@ def _form_identity(form, *, domain, path: str, missing) -> dict[str, object]:
     }
 
 
-def _function_content_identity(function) -> dict[str, object]:
-    value = fields.unwrap(function)
-    V = value.function_space
-    if int(V.dofmap.bs) != int(V.dofmap.index_map_bs):
-        raise NotImplementedError("mixed or subspace coefficient layout")
-    index_map = V.dofmap.index_map
-    owned = int(index_map.size_local)
-    block_size = int(V.dofmap.index_map_bs)
-    coordinates = np.asarray(V.tabulate_dof_coordinates(), dtype=np.float64)
-    if len(coordinates) < owned:
-        raise ValueError("coefficient does not expose every owned dof coordinate")
-    keys = _coordinate_keys(coordinates[:owned], V.mesh)
-    values = np.asarray(value.x.array[: owned * block_size]).reshape(
-        (owned, block_size)
+def _function_content_identity(function, *, domain) -> dict[str, object]:
+    comm = domain.comm
+    local_error = None
+    local = None
+    value = None
+    V = None
+    block_size = None
+    try:
+        value = fields.unwrap(function)
+        V = value.function_space
+        if V.mesh is not domain:
+            raise ValueError("coefficient belongs to a different mesh")
+        if int(V.dofmap.bs) != int(V.dofmap.index_map_bs):
+            raise NotImplementedError("mixed or subspace coefficient layout")
+        index_map = V.dofmap.index_map
+        owned = int(index_map.size_local)
+        block_size = int(V.dofmap.index_map_bs)
+        coordinates = np.asarray(V.tabulate_dof_coordinates(), dtype=np.float64)
+        if len(coordinates) < owned:
+            raise ValueError(
+                "coefficient does not expose every owned dof coordinate"
+            )
+    except Exception as exc:
+        local_error = f"{type(exc).__name__}: {exc}"
+    _raise_collective_identity_error(
+        comm,
+        local_error,
+        context="build local coefficient identity inputs",
     )
-    local = [
-        (
-            tuple(int(item) for item in key),
-            _array_identity(row),
+    # DOLFINx forms may consume ghost coefficients.  All ranks have now
+    # validated the field layout, so synchronize before recording the identity;
+    # the field that is hashed and the field subsequently assembled cannot then
+    # silently diverge through stale ghosts.
+    value.x.scatter_forward()
+    local_error = None
+    try:
+        values = np.asarray(value.x.array[: owned * block_size]).reshape(
+            (owned, block_size)
         )
-        for key, row in zip(keys, values, strict=True)
-    ]
-    rows = [item for rank_items in V.mesh.comm.allgather(local) for item in rank_items]
+        keys = _coordinate_keys(coordinates[:owned], V.mesh)
+        local = [
+            (
+                tuple(str(item) for item in key),
+                _array_identity(row),
+            )
+            for key, row in zip(keys, values, strict=True)
+        ]
+    except Exception as exc:
+        local_error = f"{type(exc).__name__}: {exc}"
+    _raise_collective_identity_error(
+        comm,
+        local_error,
+        context="build local coefficient identity payload",
+    )
+    rows = [item for rank_items in comm.allgather(local) for item in rank_items]
     rows.sort(key=lambda item: item[0])
     if any(left[0] == right[0] for left, right in zip(rows[:-1], rows[1:])):
         raise NotImplementedError("coincident coefficient dof coordinates")
@@ -221,48 +370,80 @@ def _function_content_identity(function) -> dict[str, object]:
         "block_size": block_size,
         "global_block_dofs": len(rows),
         "content_sha256": content_fingerprint(rows),
-        "key": "quantized_physical_dof_coordinate",
+        "key": "exact_ieee754_hex_physical_dof_coordinate",
     }
 
 
 def _meshtags_identity(domain, tags) -> dict[str, object]:
-    dimension = int(tags.dim)
-    index_map = domain.topology.index_map(dimension)
-    if index_map is None:
-        raise ValueError(f"mesh has no entity index map for dimension {dimension}")
-    indices = np.asarray(tags.indices, dtype=np.int32)
-    values = np.asarray(tags.values)
-    owned = indices < int(index_map.size_local)
-    selected_indices = indices[owned]
-    selected_values = values[owned]
-    if len(selected_indices):
-        geometry_dofs = mesh_api.entities_to_geometry(
-            domain, dimension, selected_indices, permute=False
-        )
-    else:
-        geometry_dofs = np.empty((0, 0), dtype=np.int32)
-    input_indices = np.asarray(domain.geometry.input_global_indices, dtype=np.int64)
-    coordinates = np.asarray(domain.geometry.x, dtype=np.float64)[
-        :, : int(domain.geometry.dim)
-    ]
-    policy = _coordinate_key_policy(domain)
-    local = []
-    for dofs, tag_value in zip(geometry_dofs, selected_values, strict=True):
-        dofs = np.asarray(dofs, dtype=np.int64)
-        source_ids = input_indices[dofs]
-        coordinate_keys = _coordinate_keys(coordinates[dofs], domain, policy=policy)
-        closure = sorted(
-            (
-                int(source_id),
-                *(int(value) for value in coordinate),
+    comm = domain.comm
+    local_error = None
+    local = None
+    dimension = None
+    try:
+        dimension = int(tags.dim)
+        index_map = domain.topology.index_map(dimension)
+        if index_map is None:
+            raise ValueError(
+                f"mesh has no entity index map for dimension {dimension}"
             )
-            for source_id, coordinate in zip(
-                source_ids, coordinate_keys, strict=True
+        indices = np.asarray(tags.indices, dtype=np.int32)
+        values = np.asarray(tags.values)
+        owned = indices < int(index_map.size_local)
+        selected_indices = indices[owned]
+        selected_values = values[owned]
+        if len(selected_indices):
+            geometry_dofs = mesh_api.entities_to_geometry(
+                domain, dimension, selected_indices, permute=False
             )
+        else:
+            geometry_dofs = np.empty((0, 0), dtype=np.int32)
+        input_indices = np.asarray(
+            domain.geometry.input_global_indices,
+            dtype=np.int64,
         )
-        local.append((int(tag_value), closure))
+        coordinates = np.asarray(domain.geometry.x, dtype=np.float64)[
+            :, : int(domain.geometry.dim)
+        ]
+    except Exception as exc:
+        local_error = f"{type(exc).__name__}: {exc}"
+    _raise_collective_identity_error(
+        comm,
+        local_error,
+        context="build local MeshTags identity inputs",
+    )
+    local_error = None
+    try:
+        local = []
+        for dofs, tag_value in zip(
+            geometry_dofs,
+            selected_values,
+            strict=True,
+        ):
+            dofs = np.asarray(dofs, dtype=np.int64)
+            source_ids = input_indices[dofs]
+            coordinate_keys = _coordinate_keys(
+                coordinates[dofs],
+                domain,
+            )
+            closure = sorted(
+                (
+                    int(source_id),
+                    *(str(value) for value in coordinate),
+                )
+                for source_id, coordinate in zip(
+                    source_ids, coordinate_keys, strict=True
+                )
+            )
+            local.append((int(tag_value), closure))
+    except Exception as exc:
+        local_error = f"{type(exc).__name__}: {exc}"
+    _raise_collective_identity_error(
+        comm,
+        local_error,
+        context="build local MeshTags identity payload",
+    )
     entities = [
-        item for rank_items in domain.comm.allgather(local) for item in rank_items
+        item for rank_items in comm.allgather(local) for item in rank_items
     ]
     entities.sort()
     return {
@@ -272,48 +453,104 @@ def _meshtags_identity(domain, tags) -> dict[str, object]:
     }
 
 
-def _homogeneous_dirichlet_identity(function, bcs, *, missing) -> dict[str, object]:
+def _homogeneous_dirichlet_identity(
+    function,
+    bcs,
+    *,
+    missing,
+    path: str,
+) -> dict[str, object]:
     V = function.function_space
-    block_size = int(V.dofmap.index_map_bs)
-    owned_scalar_dofs = int(V.dofmap.index_map.size_local) * block_size
-    coordinates = np.asarray(V.tabulate_dof_coordinates(), dtype=np.float64)
-    keys = _coordinate_keys(
-        coordinates[: int(V.dofmap.index_map.size_local)], V.mesh
+    comm = V.mesh.comm
+    local_error = None
+    local_missing = []
+    local = None
+    try:
+        block_size = int(V.dofmap.index_map_bs)
+        owned_scalar_dofs = int(V.dofmap.index_map.size_local) * block_size
+        coordinates = np.asarray(V.tabulate_dof_coordinates(), dtype=np.float64)
+    except Exception as exc:
+        local_error = f"{type(exc).__name__}: {exc}"
+    _raise_collective_identity_error(
+        comm,
+        local_error,
+        context="build local homogeneous-Dirichlet identity inputs",
     )
-    local = set()
-    for index, bc in enumerate(bcs):
-        dof_indices = getattr(bc, "dof_indices", None)
-        if not callable(dof_indices):
-            missing.append(
-                {
-                    "path": f"harmonic_system.bcs[{index}]",
-                    "reason": "concrete_dirichlet_dofs_unavailable",
-                }
-            )
-            continue
-        dofs, owned_count = dof_indices()
-        for dof in np.asarray(dofs[: int(owned_count)], dtype=np.int64):
-            if dof < 0 or dof >= owned_scalar_dofs:
-                missing.append(
+    local_error = None
+    try:
+        keys = _coordinate_keys(
+            coordinates[: int(V.dofmap.index_map.size_local)],
+            V.mesh,
+        )
+        constrained_local_dofs = set()
+        for index, bc in enumerate(bcs):
+            dof_indices = getattr(bc, "dof_indices", None)
+            if not callable(dof_indices):
+                local_missing.append(
                     {
-                        "path": f"harmonic_system.bcs[{index}]",
-                        "reason": "dirichlet_dof_outside_target_space",
+                        "path": f"{path}[{index}]",
+                        "reason": "concrete_dirichlet_dofs_unavailable",
                     }
                 )
                 continue
-            block, component = divmod(int(dof), block_size)
-            local.add((*tuple(int(item) for item in keys[block]), component))
-    constrained = [
+            dofs, owned_count = dof_indices()
+            for dof in np.asarray(dofs[: int(owned_count)], dtype=np.int64):
+                if dof < 0 or dof >= owned_scalar_dofs:
+                    local_missing.append(
+                        {
+                            "path": f"{path}[{index}]",
+                            "reason": "dirichlet_dof_outside_target_space",
+                        }
+                    )
+                    continue
+                block, component = divmod(int(dof), block_size)
+                constrained_local_dofs.add(int(dof))
+        local = [
+            (
+                *(str(item) for item in keys[dof // block_size]),
+                int(dof % block_size),
+            )
+            for dof in sorted(constrained_local_dofs)
+        ]
+        target_local = [
+            (*(str(item) for item in key), component)
+            for key in keys
+            for component in range(block_size)
+        ]
+    except Exception as exc:
+        local_error = f"{type(exc).__name__}: {exc}"
+    _raise_collective_identity_error(
+        comm,
+        local_error,
+        context="build local homogeneous-Dirichlet identity payload",
+    )
+    for rank_missing in comm.allgather(local_missing):
+        for item in rank_missing:
+            if item not in missing:
+                missing.append(item)
+    target_dofs = [
         item
-        for rank_items in V.mesh.comm.allgather(sorted(local))
+        for rank_items in comm.allgather(target_local)
         for item in rank_items
     ]
-    constrained = sorted(set(constrained))
+    if len(set(target_dofs)) != len(target_dofs):
+        missing.append(
+            {
+                "path": path,
+                "reason": "coincident_target_dof_coordinates",
+            }
+        )
+    constrained = [
+        item
+        for rank_items in comm.allgather(local)
+        for item in rank_items
+    ]
+    constrained.sort()
     return {
         "value": "homogeneous_zero",
         "global_scalar_dofs": len(constrained),
         "dof_set_sha256": content_fingerprint(constrained),
-        "key": "quantized_physical_block_coordinate_and_component",
+        "key": "exact_ieee754_hex_block_coordinate_and_component",
     }
 
 
@@ -327,46 +564,95 @@ def _array_identity(value) -> dict[str, object]:
     }
 
 
-def _coordinate_key_policy(domain) -> tuple[np.ndarray, float]:
-    coordinates = np.asarray(domain.geometry.x, dtype=np.float64)[
-        :, : int(domain.geometry.dim)
+def _raise_collective_identity_error(comm, local_error, *, context: str) -> None:
+    """Make a rank-local identity-construction failure fail together."""
+
+    errors = comm.allgather(local_error)
+    failures = [
+        f"rank {rank}: {error}"
+        for rank, error in enumerate(errors)
+        if error is not None
     ]
-    dimension = int(domain.geometry.dim)
-    local_min = (
-        np.min(coordinates, axis=0)
-        if len(coordinates)
-        else np.full(dimension, np.inf)
-    )
-    local_max = (
-        np.max(coordinates, axis=0)
-        if len(coordinates)
-        else np.full(dimension, -np.inf)
-    )
-    global_min = np.empty(dimension, dtype=np.float64)
-    global_max = np.empty(dimension, dtype=np.float64)
-    domain.comm.Allreduce(local_min, global_min, op=MPI.MIN)
-    domain.comm.Allreduce(local_max, global_max, op=MPI.MAX)
-    span = float(np.max(global_max - global_min))
-    scale = max(
-        span,
-        float(np.max(np.abs(global_min))),
-        float(np.max(np.abs(global_max))),
-        np.finfo(np.float64).tiny,
-    )
-    tolerance = max(
-        np.finfo(np.float64).tiny,
-        64.0 * np.finfo(np.float64).eps * scale,
-    )
-    return global_min, tolerance
+    if failures:
+        raise RuntimeError(
+            f"Executable identity could not {context}; " + "; ".join(failures)
+        )
 
 
-def _coordinate_keys(coordinates, domain, *, policy=None) -> np.ndarray:
+def _finalize_collective_identity(record, missing, *, comm, path: str):
+    """Return one communicator-wide identity or one shared fail-closed record."""
+
+    local_error = None
+    local_fingerprint = None
+    try:
+        local_fingerprint = content_fingerprint(record)
+    except Exception as exc:  # pragma: no cover - malformed identity record
+        local_error = f"{type(exc).__name__}: {exc}"
+    _raise_collective_identity_error(
+        comm,
+        local_error,
+        context=f"finalize {path}",
+    )
+    local = {
+        "fingerprint": local_fingerprint,
+        "missing": tuple(dict(item) for item in missing),
+    }
+    gathered = comm.allgather(local)
+    fingerprints = tuple(str(item["fingerprint"]) for item in gathered)
+    merged_missing = []
+    for item in gathered:
+        for problem in item["missing"]:
+            if problem not in merged_missing:
+                merged_missing.append(problem)
+    if len(set(fingerprints)) != 1:
+        merged_missing.append(
+            {
+                "path": path,
+                "reason": "rank_inconsistent_executable_identity",
+            }
+        )
+    shared_record = comm.bcast(record if comm.rank == 0 else None, root=0)
+    fingerprint = (
+        fingerprints[0]
+        if len(set(fingerprints)) == 1
+        else content_fingerprint({"rank_fingerprints": sorted(fingerprints)})
+    )
+    return {
+        "complete": not merged_missing,
+        "missing": tuple(merged_missing),
+        "record": shared_record,
+        "fingerprint": fingerprint,
+    }
+
+
+def _coordinate_keys(coordinates, domain, *, policy=None) -> tuple[tuple[str, ...], ...]:
+    """Return lossless, portable physical-coordinate keys.
+
+    A tolerance-scaled integer key is unsuitable for an executable identity:
+    translation can disappear when coordinates are made relative to the lower
+    bound, and a large absolute offset can quantize away mechanically material
+    changes on a small domain.  Python's hexadecimal float representation is a
+    canonical, lossless encoding of the finite IEEE-754 binary64 value and is
+    independent of host byte order.
+
+    ``policy`` remains an ignored compatibility keyword for private test and
+    downstream callers that used the former helper signature.
+    """
+
+    del policy
     selected = np.asarray(coordinates, dtype=np.float64)
-    global_min, tolerance = policy or _coordinate_key_policy(domain)
     dimension = int(domain.geometry.dim)
-    return np.rint(
-        (selected[:, :dimension] - global_min) / tolerance
-    ).astype(np.int64)
+    physical = selected[:, :dimension]
+    if not np.all(np.isfinite(physical)):
+        raise ValueError("mesh or degree-of-freedom coordinates contain NaN or Inf")
+    return tuple(
+        tuple(float(0.0 if value == 0.0 else value).hex() for value in row)
+        for row in physical
+    )
 
 
-__all__ = ["harmonic_executable_identity", "mesh_executable_identity"]
+__all__ = [
+    "harmonic_executable_identity",
+    "mesh_executable_identity",
+    "modal_executable_identity",
+]

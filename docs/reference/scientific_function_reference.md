@@ -836,6 +836,9 @@ Multiplicative finite-strain J2 plasticity with quadratic Hencky elasticity, ass
 - `agentfem.mechanics.finite_strain_j2_mixed_affine_problem`
 - `agentfem.results.MixedJ2ElasticEnergyDiagnostics`
 - `agentfem.results.mixed_j2_elastic_energy_diagnostics`
+- `agentfem.results.HomogenizedAlgorithmicTangent`
+- `agentfem.results.homogenized_algorithmic_tangent`
+- `agentfem.constraints.AffineMacroGradientLift`
 
 ### Scientific contract
 
@@ -931,6 +934,7 @@ The nonnegative condensed mixed-energy channel is distinct from MIXED_POTENTIAL,
 | F, P, S, MISES, SENER, ELENER, HARDENER and PDENER | accepted provider-owned quadrature response | F is dimensionless; P, S and MISES are stress; SENER, ELENER, HARDENER and PDENER are energy per reference volume | All public equilibrium lowerings retain accepted constitutive fields without reconstructing them from a history-free material law; explicitly named DG0 cell averages are separate visualization products. |
 | mixed J2 elastic-energy diagnostics | volume-normalized primal and condensed energies with decomposition evidence | energy per complete reference-cell volume | Aligned accepted F, mean-Kirchhoff-stress, inverse-bulk-modulus and condensed ELENER fields produce the primal energy, condensed energy, signed primal-minus-condensed gap, signed pressure-orthogonality term, nonnegative pressure-constraint-defect term, decomposition residual, and pressure-residual extrema. Decomposition verification is not solver convergence or benchmark promotion. |
 | consistent tangent | 9 by 9 derivative of first Piola stress with respect to deformation gradient | stress | The initial implementation differentiates the complete discrete return with fixed old state and is independently checked with a different perturbation. |
+| homogenized current-state algorithmic tangent | 4 by 4 or 9 by 9 derivative of homogenized first-Piola stress with respect to the prescribed macroscopic deformation gradient | stress | The serial affine-periodic recovery condenses the converged full Jacobian through the exact provider-owned macro-gradient lift. It uses the final accepted increment only while a state-owned linearization token proves the tangent came from that increment, and records one PETSc solve plus reduced-equilibrium evidence per column; it does not rerun or finite-difference the load path. A checkpoint restoration that did not persist the macro tangent fails closed. |
 | MEAN_KIRCHHOFF_STRESS, MEAN_KIRCHHOFF_STRESS_CELL and MIXED_POTENTIAL | exact mixed primary field, recovered visualization field, and provider-owned quadrature diagnostic | stress, stress, and energy per reference volume | MEAN_KIRCHHOFF_STRESS is the exact DG0 or DPC primary field, positive in tension, retained in SimulationResult and the transaction-owned portable checkpoint. For DPC1, XDMF writes the explicitly recovered DG0 cell-average MEAN_KIRCHHOFF_STRESS_CELL and does not silently serialize multiple DPC moments as one cell value. MIXED_POTENTIAL is a saddle variational density and cannot replace condensed ELENER, SENER, or the explicit primal-energy diagnostic. |
 
 #### Assumptions
@@ -962,6 +966,7 @@ The nonnegative condensed mixed-energy channel is distinct from MIXED_POTENTIAL,
 - The affine provider requires exactly one AbaqusPeriodicConstraint and no body-force or natural-load power; all regional materials must share one declared state schema, tangent convention, and stored-energy component contract.
 - The mixed provider requires 3D tetrahedral P2/DG0 or 2D plane-strain quadrilateral Q2/DPC1, one exact affine-periodic constraint, serial sparse reduction, and bulk/shear no greater than the temporary 1e4 implementation ceiling; a plastic simple-shear direction test guards tangent accuracy at that ceiling, but the value is not a material-model validity range, a general accuracy range, or evidence of locking-free response. Distributed mixed MPC, ordinary strong-boundary mixed lowering, and body/natural-load power are not implemented.
 - The numerical tangent prioritizes a verifiable discrete derivative; a production analytical deviatoric tangent is not implemented. Its subtractive volumetric cancellation becomes ill-conditioned as K/mu grows, so results within the admitted K/mu range still require residual, pressure-defect, energy, and mesh/formulation-convergence evidence.
+- The homogenized current-state algorithmic tangent is presently a serial exact-affine recovery for providers declaring purely kinematic macro-gradient dependence. Its analytical homogeneous Q2/DPC1 and P2/DG0 checks establish the Schur-condensation convention, not Zhang benchmark agreement or distributed mixed-MPC support. A restart that reconstructs point response without persisting the accepted-increment macro tangent intentionally makes that tangent unavailable.
 - No independent external finite-strain plasticity structure benchmark has yet passed.
 - The exact Zhang--Feng--Khandelwal two-inclusion/one-void geometry now has a 2D Q2/DPC1 diagnostic execution with explicit primal/condensed energy decomposition, but no complete or content-bound Table 5 evidence has passed; the thin-3D P2/DG0 diagnostic remains a distinct formulation.
 - Plane stress, kinematic hardening, thermal coupling, damage and deletion are outside this first provider.
@@ -1030,7 +1035,7 @@ material = constitutive.finite_strain_j2_logarithmic(young=210e3, poisson=0.3, y
 - The serial mixed P2/DG0 route assembles Kuu, Kup, Kpu and Kpp, passes homogeneous and heterogeneous affine cells, independently checks displacement and pressure residual-Jacobian directions, preserves non-affine fluctuations, distinguishes condensed mixed-energy output from MIXED_POTENTIAL, and restores split primary fields through a portable checkpoint.
 - A serial plane-strain Q2/DPC1 affine patch embeds F33=1, retains three pressure modes per quadrilateral, follows the same mixed transaction, reports max_q |ln(J_q)-p_h(q)/kappa| without reducing DPC1 to DG0, preserves the exact primary field in SimulationResult/checkpoint, writes only the explicit *_CELL recovery to XDMF, and fails closed for unsupported interpolation, dimension, conditioning, and parallel execution.
 - Aligned mixed J2 quadrature fields reproduce the primal-minus-condensed energy identity and report the signed gap, pressure-orthogonality, nonnegative pressure-constraint-defect, and decomposition-residual channels without treating decomposition as solver convergence.
-- The Zhang--Feng--Khandelwal Table 5 fixture remains fail-closed. One unarchived thin-3D P2/DG0 diagnostic passed the first-Piola vector-L2 threshold but failed the P11 and P22 componentwise checks; its condensed ELENER is not the published primal-energy observable, so that energy gate remained incomplete. The exact Q9/DPC1 execution also remains diagnostic: no content-bound evidence archive exists, and load-path, mesh/formulation, effective-tangent, cell-replication, MPI, and restart gates remain open.
+- The Zhang--Feng--Khandelwal Table 5 fixture remains fail-closed. One unarchived thin-3D P2/DG0 diagnostic passed the first-Piola vector-L2 threshold but failed the P11 and P22 componentwise checks; its condensed ELENER is not the published primal-energy observable, so that energy gate remained incomplete. The exact Q9/DPC1 driver now computes the effective tangent rather than accepting a missing placeholder, but no content-bound evidence archive exists and load-path, mesh/formulation, Table 5 comparison, cell-replication, MPI, and restart gates remain open.
 - The Lewandowski et al. self-weight beam gate remains fail-closed until an independently reexecuted, content-bound upstream curve passes observer reconciliation, mesh and increment convergence, serial/MPI equivalence and restart equivalence.
 
 ### References
@@ -4523,6 +4528,9 @@ Owns how a declared Study is solved: static or transient advancement, linear mod
 - `agentfem.time.generalized_alpha`
 - `agentfem.operators.direct_harmonic_system`
 - `agentfem.results.harmonic_response`
+- `agentfem.results.harmonic_average_response`
+- `agentfem.results.harmonic_probe_response`
+- `agentfem.results.SimulationResult.collective_manifest`
 - `agentfem.results.prepare_projection`
 - `agentfem.problems.LinearSystemProblem.reaction_field`
 - `agentfem.diagnostics.SolveEventRecorder`
@@ -4571,23 +4579,23 @@ Algorithmic parameters control stability, accuracy, and high-frequency dissipati
 | Name | Type | Unit role | Meaning |
 | --- | --- | --- | --- |
 | Study and procedure controls | analysis intent, algorithm, increment or frequency controls, and solver policy | none plus the declared time or frequency unit | The resolved procedure is carried through capability inspection and executable lowering without changing physical meaning. |
-| modal operator system | symmetric stiffness K, positive mass M, strong constraints, mode count and optional target frequency | one consistent mechanical unit system | The low structural spectrum is solved with SLEPc after constrained-degree elimination. |
-| direct harmonic operator system | stiffness K, optional mass M, viscous damping C and loss stiffness K_loss, plus force F | one consistent mechanical and frequency unit system | One frequency or a strictly increasing canonical sweep reuses the frequency-invariant spatial operator system; a material may supply K_loss but does not own the procedure. |
+| modal operator system | symmetric stiffness K, positive mass M, stationary homogeneous strong constraints, mode count and optional target frequency | one consistent mechanical unit system | The low structural spectrum is solved with SLEPc after constrained-degree elimination. |
+| direct harmonic operator system | stiffness K, optional mass M, viscous damping C and loss stiffness K_loss, force F, and stationary homogeneous strong Dirichlet supports | one consistent mechanical and frequency unit system | One frequency or a strictly increasing canonical sweep reuses the frequency-invariant spatial operator system; a material may supply K_loss but does not own the procedure. |
 
 #### Outputs
 
 | Name | Type | Unit role | Meaning |
 | --- | --- | --- | --- |
 | typed procedure record | immutable StepRequest and structured summary | none | Records family, order, algorithm, control, statefulness, and solve requirements. |
-| modal result | SimulationResult quantities and live mode fields | inverse time and mass-normalized shape | Includes positive frequencies, residuals, orthogonality evidence, cluster completeness, invariant-subspace semantics and deterministically oriented singleton mode fields. |
-| direct harmonic result | phasor fields, canonical sweep histories and scalar checkpoint ledger | frequency and the model's consistent mechanical units | Publishes real, imaginary, component amplitude and phase fields, exact discrete vector amplitude, algebraic residual, cycle-energy and load evidence; portable sweep restart retains scalar evidence rather than every full field. |
+| modal result | SimulationResult quantities and live mode fields | inverse time and mass-normalized shape | Includes positive frequencies, residuals, orthogonality evidence, cluster completeness, invariant-subspace semantics, deterministically oriented singleton mode fields and a portable identity of the executed mesh, K/M coefficients and constrained degrees of freedom. |
+| direct harmonic result | phasor fields, canonical sweep histories and scalar checkpoint ledger | frequency and the model's consistent mechanical units | Publishes real, imaginary, component amplitude and phase fields, exact discrete vector amplitude, algebraic residual, cycle-energy and load evidence; single-frequency and sweep results bind the executed mesh, live K/M/C/K_loss/F coefficients and constrained degrees of freedom, while portable sweep restart retains scalar evidence rather than every full field. |
 | advanced transient state | field state, execution trace, energy and convergence evidence | problem dependent | Accepted displacement, velocity, acceleration, temperature or material state follows the selected time procedure and common result lifecycle. |
 | reaction and mechanical energy diagnostics | nodal residual field and scalar energy record | force and energy | Strong-constraint reactions and visible M/K quadratic energies are retained for supported systems. |
 
 #### Assumptions
 
-- Modal analysis is linear, undamped, and based on symmetric stiffness and mass operators.
-- Direct harmonic analysis is a small-amplitude linear perturbation with one pure-displacement spatial discretization and no prestressed small-on-large state.
+- Modal analysis is linear, undamped, based on symmetric stiffness and mass operators, and currently linearized about a stationary reference configuration with homogeneous strong constraints.
+- Direct harmonic analysis is a small-amplitude linear perturbation with one pure-displacement spatial discretization, stationary homogeneous strong Dirichlet supports, and no prestressed small-on-large state.
 - Implicit heat transfer currently uses backward Euler.
 - Central difference uses a lumped mass operator.
 
@@ -4597,6 +4605,7 @@ Algorithmic parameters control stability, accuracy, and high-frequency dissipati
 - Explicit means no global linear solve at each time increment.
 - Step, increment, iteration, attempt, frequency sample, and output frame remain distinct.
 - SLEPc mass-normalizes generalized Hermitian eigenvectors; repeated or clustered modes are compared as invariant subspaces rather than individual vectors.
+- Accepted eigenpair residuals gate eigensolver convergence; cluster completeness separately governs whether selected modes may be compared individually or only as an invariant subspace.
 - A mass-normalized mode shape is a relative spatial pattern and has no physical displacement amplitude until combined with a modal coordinate.
 - The public harmonic Step accepts cyclic frequency in Hz or angular frequency in rad/s, never both, and records the exp(+i*omega*t) phasor convention.
 - U_AMPLITUDE and U_PHASE are component-wise polar values; the sweep maximum is the exact physical-cycle maximum of each discrete vector coefficient, not a continuous-domain supremum.
@@ -4612,7 +4621,8 @@ Algorithmic parameters control stability, accuracy, and high-frequency dissipati
 
 #### Limitations
 
-- Modal and direct harmonic engineering routes currently support the declared strong-constraint contracts; arbitrary MPC, weak and moving-support kinematics require separate verified providers.
+- Modal extraction currently accepts only stationary homogeneous strong Dirichlet constraints. Nonzero, time-dependent, remote, arbitrary MPC and weak kinematics require a verified prestressed/base-state or alternative constraint provider.
+- Direct harmonic engineering routes accept only stationary homogeneous strong Dirichlet constraints. Nonzero values, prescribed histories, remote displacement, arbitrary MPC and weak kinematics require separate verified providers.
 - Complex modes, prestressed small-on-large response and nonlinear harmonic balance are not implemented.
 - The generic direct sweep does not accept arbitrary complex spatial load patterns or frequency-dependent operator families.
 - Frequency-sweep field output requires explicitly selected snapshot frequencies; scalar-ledger restart does not retain every full field.
@@ -4634,6 +4644,7 @@ modal = model.step(target=u, modes=6).solve_result(); harmonic = model.step(targ
 - `tests/test_parallel_transient.py`
 - `tests/test_dynamics.py`
 - `tests/test_parallel_modal.py`
+- `tests/test_modal_backend_mpi_failures.py`
 - `tests/test_harmonic.py`
 - `tests/test_harmonic_backend_evidence.py`
 - `tests/test_external_forced_vibration_benchmark.py`
@@ -4651,10 +4662,18 @@ modal = model.step(target=u, modes=6).solve_result(); harmonic = model.step(targ
 - Require capability inspection and provider lowering to consume the same resolved SolutionProcedure.
 - Eliminate strong constrained degrees of freedom before modal solution and reject insufficient free degrees of freedom.
 - Reject modal stiffness or mass operators that violate the symmetric generalized-Hermitian contract.
-- Require accepted modes to satisfy eigenpair residual, mass-orthogonality, stiffness-diagonalization and cluster-completeness contracts.
+- Require accepted modes to satisfy finite eigenpair-residual, mass-orthogonality and stiffness-diagonalization convergence contracts.
+- Record cluster completeness as a separate applicability contract: an incomplete repeated cluster may not be compared as individually identifiable modes even when the eigensolve converged.
+- Reject nonzero, time-dependent and remote prescribed modal motion before eigensolver assembly.
+- Bind every published modal result to a partition-neutral executable identity covering the mesh, live K/M coefficients and exact constrained degree set; reject incomplete identity or post-solve drift.
+- Synchronize rank-local modal identity, boundary-reduction, eigenvalue-candidate and reduced-vector failures before the next collective, and require every rank to report the same failed stage.
 - Require serial and two-rank modal frequencies and invariant-subspace evidence to agree within declared tolerances.
 - Reject ambiguous frequency units, nonhomogeneous prescribed harmonic motion, unsupported constraint families and unsupported SPD-only harmonic solver policies.
 - Freeze every operator, live coefficient, boundary condition, load phase, solution field and solver policy captured by a prepared harmonic backend; reject configuration drift before solve.
+- Bind single-frequency and sweep harmonic results to the partition-neutral executable identity of the mesh, live K/M/C/K_loss/F coefficients and exact constrained degree set; reject missing identity before publication.
+- Synchronize direct-harmonic constraint lowering, homogeneity inspection, executable-identity drift and publication failures before the next collective operation.
+- Freeze published harmonic fields and rank-zero canonical scientific-input records so later frequency changes, re-solves or coefficient mutation cannot rewrite an earlier Result.
+- Require complete modal and direct-harmonic SimulationResult manifests to agree across MPI ranks before retaining or writing rank zero's canonical record.
 - Reject non-finite harmonic solution, residual or energy evidence before publishing a result.
 - Require the independently assembled real-block residual and phasor-block residuals to satisfy the declared solver tolerance in serial and MPI.
 - Require nested and monolithic real-block layouts to reproduce the same nonzero-phase response and cycle input work.

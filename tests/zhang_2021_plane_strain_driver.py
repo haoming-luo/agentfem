@@ -1,9 +1,10 @@
 """Run one exact-geometry 2D Q2/DPC1 Zhang Table 5 diagnostic.
 
 The driver exercises the public AgentFEM workflow on the published unit-cell
-geometry and interpolation family.  It deliberately omits the homogenized
-algorithmic tangent and convergence evidence, so its assessment cannot promote
-the benchmark even when the available stress and energy comparisons pass.
+geometry and interpolation family. It recovers the homogenized current-state
+algorithmic tangent from the converged Jacobian, but deliberately omits the
+remaining convergence evidence, so its assessment cannot promote the benchmark
+even when individual observable comparisons pass.
 """
 
 from __future__ import annotations
@@ -117,6 +118,7 @@ def main() -> int:
         ),
         reference_volume=periodicity.reference_cell_volume,
     )
+    tangent = results.homogenized_algorithmic_tangent(problem, periodicity)
     condensed_scale = max(abs(frame.elastic_energy_density), 1.0)
     if (
         abs(
@@ -133,7 +135,7 @@ def main() -> int:
         first_piola=frame.first_piola_stress,
         elastic_energy_density=energy.primal_elastic_energy_density,
         elastic_energy_semantics="primal_hencky_elastic_energy",
-        effective_tangent=None,
+        effective_tangent=tangent.values,
         convergence_evidence={
             "load_increment_path_converged": False,
             "mesh_converged": False,
@@ -167,6 +169,7 @@ def main() -> int:
                 "maximum_quadrature_pressure_projection_defect"
             ],
             "mixed_elastic_energy_diagnostics": energy.as_dict(),
+            "homogenized_algorithmic_tangent": tangent.as_dict(),
             "stored_energy_scope": (
                 "primal Hencky elastic energy reconstructed from the "
                 "provider-owned condensed ELENER channel; HARDENER and "

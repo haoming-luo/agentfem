@@ -174,7 +174,8 @@ def save_harmonic_sweep_checkpoint(
         "portable": True,
         "portability": (
             "scalar frequency evidence portable across MPI partitions, rank counts, "
-            "and execution order; live finite-element fields are not stored"
+            "and equivalent environments under the frozen sweep request; live "
+            "finite-element fields are not stored"
         ),
         "frequency_axis": {
             "name": "frequency",

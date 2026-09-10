@@ -15,6 +15,9 @@
     "agentfem.time.generalized_alpha",
     "agentfem.operators.direct_harmonic_system",
     "agentfem.results.harmonic_response",
+    "agentfem.results.harmonic_average_response",
+    "agentfem.results.harmonic_probe_response",
+    "agentfem.results.SimulationResult.collective_manifest",
     "agentfem.results.prepare_projection",
     "agentfem.problems.LinearSystemProblem.reaction_field",
     "agentfem.diagnostics.SolveEventRecorder",
@@ -34,7 +37,9 @@
     "results/_modal.py",
     "results/_harmonic.py",
     "results/harmonic.py",
+    "results/core.py",
     "results/projection.py",
+    "provenance.py",
     "problems.py",
     "step_providers.py",
     "checkpointing.py"
@@ -72,13 +77,13 @@
       },
       {
         "name": "modal operator system",
-        "type": "symmetric stiffness K, positive mass M, strong constraints, mode count and optional target frequency",
+        "type": "symmetric stiffness K, positive mass M, stationary homogeneous strong constraints, mode count and optional target frequency",
         "unit_role": "one consistent mechanical unit system",
         "description": "The low structural spectrum is solved with SLEPc after constrained-degree elimination."
       },
       {
         "name": "direct harmonic operator system",
-        "type": "stiffness K, optional mass M, viscous damping C and loss stiffness K_loss, plus force F",
+        "type": "stiffness K, optional mass M, viscous damping C and loss stiffness K_loss, force F, and stationary homogeneous strong Dirichlet supports",
         "unit_role": "one consistent mechanical and frequency unit system",
         "description": "One frequency or a strictly increasing canonical sweep reuses the frequency-invariant spatial operator system; a material may supply K_loss but does not own the procedure."
       }
@@ -94,13 +99,13 @@
         "name": "modal result",
         "type": "SimulationResult quantities and live mode fields",
         "unit_role": "inverse time and mass-normalized shape",
-        "description": "Includes positive frequencies, residuals, orthogonality evidence, cluster completeness, invariant-subspace semantics and deterministically oriented singleton mode fields."
+        "description": "Includes positive frequencies, residuals, orthogonality evidence, cluster completeness, invariant-subspace semantics, deterministically oriented singleton mode fields and a portable identity of the executed mesh, K/M coefficients and constrained degrees of freedom."
       },
       {
         "name": "direct harmonic result",
         "type": "phasor fields, canonical sweep histories and scalar checkpoint ledger",
         "unit_role": "frequency and the model's consistent mechanical units",
-        "description": "Publishes real, imaginary, component amplitude and phase fields, exact discrete vector amplitude, algebraic residual, cycle-energy and load evidence; portable sweep restart retains scalar evidence rather than every full field."
+        "description": "Publishes real, imaginary, component amplitude and phase fields, exact discrete vector amplitude, algebraic residual, cycle-energy and load evidence; single-frequency and sweep results bind the executed mesh, live K/M/C/K_loss/F coefficients and constrained degrees of freedom, while portable sweep restart retains scalar evidence rather than every full field."
       },
       {
         "name": "advanced transient state",
@@ -116,8 +121,8 @@
       }
     ],
     "assumptions": [
-      "Modal analysis is linear, undamped, and based on symmetric stiffness and mass operators.",
-      "Direct harmonic analysis is a small-amplitude linear perturbation with one pure-displacement spatial discretization and no prestressed small-on-large state.",
+      "Modal analysis is linear, undamped, based on symmetric stiffness and mass operators, and currently linearized about a stationary reference configuration with homogeneous strong constraints.",
+      "Direct harmonic analysis is a small-amplitude linear perturbation with one pure-displacement spatial discretization, stationary homogeneous strong Dirichlet supports, and no prestressed small-on-large state.",
       "Implicit heat transfer currently uses backward Euler.",
       "Central difference uses a lumped mass operator."
     ],
@@ -126,6 +131,7 @@
       "Explicit means no global linear solve at each time increment.",
       "Step, increment, iteration, attempt, frequency sample, and output frame remain distinct.",
       "SLEPc mass-normalizes generalized Hermitian eigenvectors; repeated or clustered modes are compared as invariant subspaces rather than individual vectors.",
+      "Accepted eigenpair residuals gate eigensolver convergence; cluster completeness separately governs whether selected modes may be compared individually or only as an invariant subspace.",
       "A mass-normalized mode shape is a relative spatial pattern and has no physical displacement amplitude until combined with a modal coordinate.",
       "The public harmonic Step accepts cyclic frequency in Hz or angular frequency in rad/s, never both, and records the exp(+i*omega*t) phasor convention.",
       "U_AMPLITUDE and U_PHASE are component-wise polar values; the sweep maximum is the exact physical-cycle maximum of each discrete vector coefficient, not a continuous-domain supremum.",
@@ -139,7 +145,8 @@
       "Linear direct steady-state response through generic K/M/C/K_loss/F operators, named scalar responses and bounded restartable frequency sweeps."
     ],
     "limitations": [
-      "Modal and direct harmonic engineering routes currently support the declared strong-constraint contracts; arbitrary MPC, weak and moving-support kinematics require separate verified providers.",
+      "Modal extraction currently accepts only stationary homogeneous strong Dirichlet constraints. Nonzero, time-dependent, remote, arbitrary MPC and weak kinematics require a verified prestressed/base-state or alternative constraint provider.",
+      "Direct harmonic engineering routes accept only stationary homogeneous strong Dirichlet constraints. Nonzero values, prescribed histories, remote displacement, arbitrary MPC and weak kinematics require separate verified providers.",
       "Complex modes, prestressed small-on-large response and nonlinear harmonic balance are not implemented.",
       "The generic direct sweep does not accept arbitrary complex spatial load patterns or frequency-dependent operator families.",
       "Frequency-sweep field output requires explicitly selected snapshot frequencies; scalar-ledger restart does not retain every full field.",
@@ -162,6 +169,7 @@
       "tests/test_parallel_transient.py",
       "tests/test_dynamics.py",
       "tests/test_parallel_modal.py",
+      "tests/test_modal_backend_mpi_failures.py",
       "tests/test_harmonic.py",
       "tests/test_harmonic_backend_evidence.py",
       "tests/test_external_forced_vibration_benchmark.py",
@@ -177,10 +185,18 @@
       "Require capability inspection and provider lowering to consume the same resolved SolutionProcedure.",
       "Eliminate strong constrained degrees of freedom before modal solution and reject insufficient free degrees of freedom.",
       "Reject modal stiffness or mass operators that violate the symmetric generalized-Hermitian contract.",
-      "Require accepted modes to satisfy eigenpair residual, mass-orthogonality, stiffness-diagonalization and cluster-completeness contracts.",
+      "Require accepted modes to satisfy finite eigenpair-residual, mass-orthogonality and stiffness-diagonalization convergence contracts.",
+      "Record cluster completeness as a separate applicability contract: an incomplete repeated cluster may not be compared as individually identifiable modes even when the eigensolve converged.",
+      "Reject nonzero, time-dependent and remote prescribed modal motion before eigensolver assembly.",
+      "Bind every published modal result to a partition-neutral executable identity covering the mesh, live K/M coefficients and exact constrained degree set; reject incomplete identity or post-solve drift.",
+      "Synchronize rank-local modal identity, boundary-reduction, eigenvalue-candidate and reduced-vector failures before the next collective, and require every rank to report the same failed stage.",
       "Require serial and two-rank modal frequencies and invariant-subspace evidence to agree within declared tolerances.",
       "Reject ambiguous frequency units, nonhomogeneous prescribed harmonic motion, unsupported constraint families and unsupported SPD-only harmonic solver policies.",
       "Freeze every operator, live coefficient, boundary condition, load phase, solution field and solver policy captured by a prepared harmonic backend; reject configuration drift before solve.",
+      "Bind single-frequency and sweep harmonic results to the partition-neutral executable identity of the mesh, live K/M/C/K_loss/F coefficients and exact constrained degree set; reject missing identity before publication.",
+      "Synchronize direct-harmonic constraint lowering, homogeneity inspection, executable-identity drift and publication failures before the next collective operation.",
+      "Freeze published harmonic fields and rank-zero canonical scientific-input records so later frequency changes, re-solves or coefficient mutation cannot rewrite an earlier Result.",
+      "Require complete modal and direct-harmonic SimulationResult manifests to agree across MPI ranks before retaining or writing rank zero's canonical record.",
       "Reject non-finite harmonic solution, residual or energy evidence before publishing a result.",
       "Require the independently assembled real-block residual and phasor-block residuals to satisfy the declared solver tolerance in serial and MPI.",
       "Require nested and monolithic real-block layouts to reproduce the same nonzero-phase response and cycle input work.",

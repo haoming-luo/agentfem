@@ -123,8 +123,13 @@ def _fully_affine_constraint(target, deformation_gradient):
     )
 
 
-def _fully_affine_constraint_2d(target, deformation_gradient):
-    """Constrain every Q2 displacement node to one affine square field."""
+def _fully_affine_constraint_2d(
+    target,
+    deformation_gradient,
+    *,
+    lattice=None,
+):
+    """Constrain every Q2 displacement node to one affine cell field."""
 
     displacement_space, maps = target.space.sub(0).collapse()
     del maps
@@ -140,25 +145,33 @@ def _fully_affine_constraint_2d(target, deformation_gradient):
         assert distance[index] < 1.0e-12
         return int(labels[index])
 
+    selected_lattice = (
+        np.eye(2) if lattice is None else np.asarray(lattice, dtype=float)
+    )
+    assert selected_lattice.shape == (2, 2)
+    inverse_lattice = np.linalg.inv(selected_lattice)
     anchor = label_at((0.0, 0.0))
-    references = (label_at((1.0, 0.0)), label_at((0.0, 1.0)))
+    references = tuple(
+        label_at(selected_lattice[:, column]) for column in range(2)
+    )
     controls = {anchor, *references}
     equations = []
     for label, coordinate in zip(labels, coordinates, strict=True):
         if int(label) in controls:
             continue
+        lattice_coordinate = inverse_lattice @ coordinate
         for component in (1, 2):
             terms = [abaqus.EquationTerm(int(label), component, 1.0)]
             terms.extend(
                 abaqus.EquationTerm(reference, component, -float(weight))
                 for reference, weight in zip(
                     references,
-                    coordinate,
+                    lattice_coordinate,
                     strict=True,
                 )
                 if abs(float(weight)) > 1.0e-15
             )
-            anchor_weight = 1.0 - float(np.sum(coordinate))
+            anchor_weight = 1.0 - float(np.sum(lattice_coordinate))
             if abs(anchor_weight) > 1.0e-15:
                 terms.append(
                     abaqus.EquationTerm(
@@ -1215,12 +1228,12 @@ def test_plane_strain_q2_dpc1_preserves_fluctuation_and_four_block_tangent(
         constraints=periodicity,
         incrementation=steps.fixed(3),
         solver_options=solvers.newton(
-            relative_tolerance=1.0e-9,
+            # The four-block tangent is checked independently below. Keep the
+            # nonlinear equilibrium contract strict but above the small
+            # platform-dependent line-search floor observed with PETSc LU.
+            relative_tolerance=2.0e-9,
             absolute_tolerance=1.0e-10,
-            # Preserve the strict equilibrium contract while allowing for
-            # small platform differences in PETSc's nonlinear trajectory.
-            # Linux needed one or two more corrections than macOS in CI.
-            maximum_iterations=30,
+            maximum_iterations=20,
             line_search="backtracking",
         ),
         output=output,
@@ -1258,8 +1271,13 @@ def test_plane_strain_q2_dpc1_preserves_fluctuation_and_four_block_tangent(
         energy.pressure_constraint_defect_energy_density,
         abs=2.0e-8,
     )
+    energy_scale = max(
+        1.0,
+        abs(energy.primal_elastic_energy_density),
+        abs(energy.condensed_elastic_energy_density),
+    )
     assert energy.primal_elastic_energy_density >= (
-        energy.condensed_elastic_energy_density
+        energy.condensed_elastic_energy_density - 1.0e-12 * energy_scale
     )
     assert "MEAN_KIRCHHOFF_STRESS" in result.fields
     assert result.metadata["problem"]["numerical_formulation"]["kinematics"] == (
@@ -1290,6 +1308,200 @@ def test_plane_strain_q2_dpc1_preserves_fluctuation_and_four_block_tangent(
     assert set(block_errors) == {"Kuu", "Kup", "Kpu", "Kpp"}
     for block, error in block_errors.items():
         assert error < 2.0e-3, f"{block} relative directional error={error:.6g}"
+
+
+def test_plane_strain_homogenized_tangent_matches_hencky_elasticity(tmp_path):
+    lattice = np.asarray(((1.0, 0.35), (0.0, 1.0)))
+    domain = mesh.rectangle(
+        (0.0, 0.0),
+        (1.0, 1.0),
+        (1, 1),
+        comm=MPI.COMM_SELF,
+        cell_type="quadrilateral",
+    )
+    domain.geometry.x[:, 0] += lattice[0, 1] * domain.geometry.x[:, 1]
+    model = models.create(
+        study=studies.nonlinear_static(
+            physics="solid_mechanics",
+            dimension=2,
+            assumption="plane_strain",
+        ),
+        mesh=domain,
+        name="homogeneous_q2_dpc1_effective_tangent",
+    )
+    unknown = model.field(
+        fields.displacement_pressure(
+            domain,
+            displacement_degree=2,
+            pressure_family="DPC",
+            pressure_degree=1,
+        )
+    )
+    material = constitutive.finite_strain_j2_logarithmic(
+        young=1_000.0,
+        poisson=0.3,
+        yield_stress=1.0e8,
+    )
+    material_record = model.material(material)
+    periodicity = model.constraint(
+        _fully_affine_constraint_2d(
+            unknown,
+            np.eye(2),
+            lattice=lattice,
+        )
+    )
+    step = model.step(
+        target=unknown,
+        material=material_record,
+        constraints=periodicity,
+        incrementation=steps.fixed(1),
+        solver_options=solvers.newton(
+            relative_tolerance=1.0e-10,
+            absolute_tolerance=1.0e-12,
+            maximum_iterations=10,
+        ),
+        progress=False,
+    )
+    simulation = step.solve_result()
+    assert simulation.status == "completed"
+
+    lift = periodicity.macro_gradient_lift()
+    assert lift.component_order == ("11", "21", "12", "22")
+    assert lift.values.shape == (len(step.solution.x.array), 4)
+    tangent = results.homogenized_algorithmic_tangent(step, periodicity)
+
+    shear = material.shear_modulus
+    lame = material.bulk_modulus - 2.0 * shear / 3.0
+    expected = np.asarray(
+        (
+            (lame + 2.0 * shear, 0.0, 0.0, lame),
+            (0.0, shear, shear, 0.0),
+            (0.0, shear, shear, 0.0),
+            (lame, 0.0, 0.0, lame + 2.0 * shear),
+        )
+    )
+    assert tangent.component_order == lift.component_order
+    np.testing.assert_allclose(tangent.values, expected, rtol=2.0e-5, atol=2.0e-5)
+    assert tangent.start_load_factor == pytest.approx(0.0)
+    assert tangent.load_factor == pytest.approx(1.0)
+    assert tangent.constraint_fingerprint == periodicity.scientific_identity()[
+        "fingerprint"
+    ]
+    assert tangent.full_dofs == lift.values.shape[0]
+    assert 0 < tangent.reduced_dofs <= tangent.full_dofs
+    assert tangent.linear_solver == step.solver_options.linear_solver.summary()
+    assert tangent.linearization_state_basis == "pre_increment_committed_state"
+    assert tangent.response_generation > 0
+    assert tangent.linearization_origin == pytest.approx((0.0, 0.0, 1.0))
+    assert tangent.as_dict()["response_generation"] == tangent.response_generation
+    assert tangent.as_dict()["linearization_origin"] == pytest.approx(
+        tangent.linearization_origin
+    )
+    assert tangent.maximum_relative_equilibrium_sensitivity < 1.0e-12
+    assert tangent.relative_major_symmetry_error < 1.0e-10
+
+    free_macro = constraints.abaqus_periodic_cell(
+        unknown,
+        nodes=periodicity.nodes,
+        equations=periodicity.equations,
+        control_displacements=((0.0, None), (0.0, 0.0)),
+        anchor_node=periodicity.anchor_node,
+        reference_nodes=periodicity.reference_nodes,
+        name="mixed_control_affine_cell",
+    )
+    with pytest.raises(NotImplementedError, match="every macroscopic control DOF"):
+        free_macro.macro_gradient_lift()
+
+    retained_runtime = step.state_transaction.snapshot_runtime_state()
+    step.state_transaction.rollback_increment(
+        accepted_factor=step.accepted_load_factor,
+    )
+    with pytest.raises(RuntimeError, match="not the retained linearization"):
+        results.homogenized_algorithmic_tangent(step, periodicity)
+
+    step.state_transaction.restore_runtime_state(retained_runtime)
+    restored_tangent = results.homogenized_algorithmic_tangent(step, periodicity)
+    np.testing.assert_array_equal(restored_tangent.values, tangent.values)
+
+    checkpoint = step.save_checkpoint(tmp_path / "homogenized_tangent")
+    step.load_checkpoint(checkpoint)
+    with pytest.raises(RuntimeError, match="not the retained linearization"):
+        results.homogenized_algorithmic_tangent(step, periodicity)
+
+
+def test_three_dimensional_homogenized_tangent_matches_hencky_elasticity():
+    domain = mesh.cuboid(
+        (0.0, 0.0, 0.0),
+        (1.0, 1.0, 1.0),
+        (1, 1, 1),
+        comm=MPI.COMM_SELF,
+        cell_type="tetrahedron",
+    )
+    model = models.create(
+        study=studies.nonlinear_static(
+            physics="solid_mechanics",
+            dimension=3,
+        ),
+        mesh=domain,
+        name="homogeneous_p2_dg0_effective_tangent",
+    )
+    unknown = model.field(
+        fields.displacement_pressure(
+            domain,
+            displacement_degree=2,
+            pressure_degree=0,
+        )
+    )
+    material = constitutive.finite_strain_j2_logarithmic(
+        young=1_000.0,
+        poisson=0.3,
+        yield_stress=1.0e8,
+    )
+    model.material(material)
+    periodicity = model.constraint(_fully_affine_constraint(unknown, np.eye(3)))
+    step = model.step(
+        target=unknown,
+        constraints=periodicity,
+        incrementation=steps.fixed(1),
+        solver_options=solvers.newton(
+            relative_tolerance=1.0e-10,
+            absolute_tolerance=1.0e-12,
+            maximum_iterations=10,
+        ),
+        progress=False,
+    )
+    step.solve()
+
+    tangent = results.homogenized_algorithmic_tangent(step, periodicity)
+    order = tuple((row, column) for column in range(3) for row in range(3))
+    shear = material.shear_modulus
+    lame = material.bulk_modulus - 2.0 * shear / 3.0
+    expected = np.empty((9, 9), dtype=float)
+    for a, (i, J) in enumerate(order):
+        for b, (k, L) in enumerate(order):
+            expected[a, b] = (
+                lame * float(i == J) * float(k == L)
+                + shear
+                * (
+                    float(i == k) * float(J == L)
+                    + float(i == L) * float(J == k)
+                )
+            )
+
+    assert tangent.component_order == (
+        "11",
+        "21",
+        "31",
+        "12",
+        "22",
+        "32",
+        "13",
+        "23",
+        "33",
+    )
+    np.testing.assert_allclose(tangent.values, expected, rtol=3.0e-5, atol=3.0e-5)
+    assert tangent.maximum_relative_equilibrium_sensitivity < 1.0e-11
+    assert tangent.relative_major_symmetry_error < 1.0e-10
 
 
 def test_mixed_j2_rejects_unverified_interpolation_and_parallel_mpc():

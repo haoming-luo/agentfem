@@ -368,9 +368,26 @@ history accepts the measured
 \(F_{33}=1\) for stress and Hill--Mandel evidence. The exact
 two-inclusion/one-void geometry now has a direct Q2/DPC1 diagnostic driver. It
 can report the Table 5 stress and an explicitly reconstructed primal Hencky
-elastic-energy channel beside the condensed mixed channel. This is still not a
-promoted Zhang benchmark: load-path, mesh and formulation convergence, the
-effective tangent, replicated cells, restart/MPI equivalence, and content-bound
+elastic-energy channel beside the condensed mixed channel. It also obtains the
+current-state homogenized algorithmic tangent by condensing the converged full
+Jacobian through the exact affine macro-gradient lift,
+
+\[
+ V\bar{\mathbb A}
+ =B^T K B-B^T K T\left(T^TKT\right)^{-1}T^TKB.
+\]
+
+Here \(u=Tq+B\bar F\), and the provider must declare that no additional
+explicit macro-gradient dependence is hidden in the residual. Each tangent
+column records its linear-solver status and reduced-equilibrium sensitivity.
+The recovery uses the final accepted increment only while a state-owned token
+proves that the live quadrature tangent came from that increment; it otherwise
+fails closed, including after a checkpoint reconstruction that did not persist
+the macro tangent. It does not rerun or finite-difference the load path.
+Homogeneous Q2/DPC1 and three-dimensional P2/DG0 Hencky-elastic patches verify
+the component order and Schur condensation. This is still not a promoted Zhang
+benchmark: Table 5 tangent agreement, load-path, mesh and formulation
+convergence, replicated cells, restart/MPI equivalence, and content-bound
 evidence remain open.
 
 AgentFEM now has two deliberately distinct thin-3D diagnostic lowerings of the
@@ -405,8 +422,8 @@ passed benchmark**. Promotion requires all of the following:
 - componentwise and vector-norm agreement of first-Piola stress, plus agreement
   of the published primal Hencky elastic energy;
 - a homogenized current-state algorithmic tangent obtained from the linearized
-  corrector with accepted internal variables fixed, compared in the published
-  component order;
+  corrector with the pre-increment committed state fixed and the local return
+  mapping consistently linearized, compared in the published component order;
 - 1x1, 1x2, 2x1, and 2x2 periodic-cell replication invariance;
 - serial/MPI and checkpoint/restart equivalence.
 

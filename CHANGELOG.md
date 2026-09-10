@@ -30,6 +30,14 @@ experimental formulation to a validated one.
 - Add an MPI-safe mixed-J2 energy audit that reports the primal Hencky energy,
   condensed mixed representation, signed gap, pressure orthogonality and
   nonnegative pressure-constraint defect as distinct scientific channels.
+- Add a provider-owned affine macro-gradient lift and serial homogenized
+  current-state algorithmic-tangent recovery. The recovery condenses the
+  converged full Jacobian, records every PETSc column solve and equilibrium
+  sensitivity, binds the constraint and accepted increment, and passes
+  analytical two- and three-dimensional Hencky-elastic checks.
+- Add structured harmonic region-average and point-probe responses. Local
+  finite-element evaluation now finishes on every rank before AgentFEM owns
+  the MPI reduction or deterministic point-owner selection.
 
 ### Changed
 
@@ -61,6 +69,30 @@ experimental formulation to a validated one.
 - Restrict the long Zhang diagnostic drivers to final-state spatial output;
   accepted scalar and homogenized histories remain available without writing
   one full field dataset per load increment.
+- Make modal and direct-harmonic publication bind the operators, live
+  coefficients, mesh and constrained DOFs actually solved. Linear modal
+  extraction rejects nonhomogeneous, time-dependent and remote prescribed
+  motion. Direct harmonic response likewise accepts only stationary,
+  homogeneous strong Dirichlet supports; moving, remote, MPC and weak
+  kinematics fail before backend preparation. Harmonic loss operators reject
+  zero frequency at every point and in either sweep order. Modal convergence now includes finite eigenpair
+  residuals while repeated-mode cluster completeness remains separate
+  comparison-applicability evidence. Rank-local identity, boundary-reduction,
+  homogeneity, eigenvalue-candidate, residual, response-callback and publication
+  failures are synchronized before the next collective so one bad rank cannot
+  strand its peers. Modal results bind the accepted solve request as well as the
+  operator identity, so changing the mode count, target or tolerances after a
+  solve cannot relabel old eigenpairs. Executable mesh and DOF identities now
+  use lossless IEEE-754 coordinate keys; translation and mechanically material
+  small changes at large coordinate offsets cannot collide through tolerance
+  quantization. Published modal and direct-harmonic results retain independent
+  field and scientific-identity snapshots rather than aliases to a reusable
+  Step. Complete MPI `SimulationResult` records must agree across ranks before
+  rank zero's canonical manifest can be retained or written. Harmonic sweeps
+  freeze the complete request before accepting their first point and publish
+  the frequency axis reconstructed from accepted records, preventing mutable
+  frequency, response, procedure or scientific-asset definitions from
+  relabelling older evidence.
 
 ### Boundaries
 
@@ -70,6 +102,11 @@ experimental formulation to a validated one.
   and natural/body-load power are not yet supported. A temporary implementation
   bulk-to-shear ratio ceiling of \(10^4\) protects the numerical tangent until
   a direct analytical deviatoric tangent replaces subtractive extraction.
+- Homogenized algorithmic-tangent recovery currently requires a completed
+  exact-affine path whose provider declares purely kinematic macroscopic-
+  gradient dependence. A checkpoint that reconstructs quadrature response
+  without persisting the accepted-increment macro tangent fails closed rather
+  than relabelling a zero-increment relinearization.
 - The thin-3D tetrahedral P2/DG0 Zhang fixture is an experimental mixed
   diagnostic intended to mitigate volumetric locking, not the publication's
   two-dimensional quadrilateral Q2/DPC1

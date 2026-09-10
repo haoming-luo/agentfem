@@ -507,6 +507,373 @@ def mixed_j2_elastic_energy_diagnostics(
     )
 
 
+@dataclass(frozen=True)
+class HomogenizedAlgorithmicTangent:
+    """Condensed current-state tangent for a prescribed periodic cell.
+
+    The tensor is reported as a matrix in the constraint provider's declared
+    component order.  It is obtained from the converged full Jacobian and the
+    exact affine kinematic lift; no load-path rerun or finite-difference
+    perturbation of the scientific model is performed.
+    """
+
+    values: np.ndarray
+    component_order: tuple[str, ...]
+    start_load_factor: float
+    load_factor: float
+    reference_volume: float
+    constraint_fingerprint: str
+    full_dofs: int
+    reduced_dofs: int
+    linear_solver: dict[str, object]
+    linearization_state_basis: str
+    response_generation: int
+    linearization_origin: tuple[float, float, float]
+    linear_solve_reasons: tuple[int, ...]
+    linear_solve_iterations: tuple[int, ...]
+    linear_solve_residual_norms: tuple[float, ...]
+    maximum_relative_equilibrium_sensitivity: float
+    relative_major_symmetry_error: float
+
+    def __post_init__(self) -> None:
+        values = np.asarray(self.values, dtype=float)
+        order = tuple(str(value) for value in self.component_order)
+        origin = tuple(float(value) for value in self.linearization_origin)
+        size = len(order)
+        scalars = (
+            self.start_load_factor,
+            self.load_factor,
+            self.reference_volume,
+            self.maximum_relative_equilibrium_sensitivity,
+            self.relative_major_symmetry_error,
+            *self.linear_solve_residual_norms,
+        )
+        if values.shape != (size, size) or size not in {4, 9}:
+            raise ValueError(
+                "Homogenized algorithmic tangent requires one 4x4 or 9x9 matrix."
+            )
+        if not np.all(np.isfinite(values)) or any(
+            not np.isfinite(value) for value in scalars
+        ):
+            raise ValueError("Homogenized tangent evidence must be finite.")
+        if self.reference_volume <= 0.0:
+            raise ValueError("Homogenized tangent reference_volume must be positive.")
+        if not 0.0 <= self.start_load_factor < self.load_factor <= 1.0 + 1.0e-12:
+            raise ValueError(
+                "Homogenized tangent requires one positive accepted load increment."
+            )
+        if not str(self.constraint_fingerprint).strip():
+            raise ValueError("Homogenized tangent requires a constraint fingerprint.")
+        if not 0 < int(self.reduced_dofs) <= int(self.full_dofs):
+            raise ValueError("Homogenized tangent DOF counts are inconsistent.")
+        if self.linearization_state_basis != "pre_increment_committed_state":
+            raise ValueError("Homogenized tangent linearization basis is unsupported.")
+        if (
+            isinstance(self.response_generation, bool)
+            or int(self.response_generation) != self.response_generation
+            or int(self.response_generation) <= 0
+        ):
+            raise ValueError(
+                "Homogenized tangent response_generation must be a positive integer."
+            )
+        expected_origin = (
+            float(self.start_load_factor),
+            float(self.start_load_factor),
+            float(self.load_factor),
+        )
+        if len(origin) != 3 or not np.allclose(
+            origin,
+            expected_origin,
+            rtol=0.0,
+            atol=1.0e-12,
+        ):
+            raise ValueError(
+                "Homogenized tangent linearization_origin must identify the "
+                "pre-increment committed, start, and target load factors."
+            )
+        if not (
+            len(self.linear_solve_reasons)
+            == len(self.linear_solve_iterations)
+            == len(self.linear_solve_residual_norms)
+            == size
+        ):
+            raise ValueError(
+                "Homogenized tangent needs one linear-solve record per column."
+            )
+        if any(reason <= 0 for reason in self.linear_solve_reasons):
+            raise ValueError("Homogenized tangent contains a failed linear solve.")
+        if min(
+            self.maximum_relative_equilibrium_sensitivity,
+            self.relative_major_symmetry_error,
+        ) < 0.0:
+            raise ValueError("Homogenized tangent error measures must be nonnegative.")
+        object.__setattr__(self, "values", values.copy())
+        object.__setattr__(self, "component_order", order)
+        object.__setattr__(self, "linear_solver", dict(self.linear_solver))
+        object.__setattr__(self, "response_generation", int(self.response_generation))
+        object.__setattr__(self, "linearization_origin", origin)
+
+    def as_dict(self) -> dict[str, object]:
+        return {
+            "kind": "homogenized_algorithmic_tangent",
+            "schema": "agentfem.homogenized-algorithmic-tangent",
+            "schema_version": "0.1.0",
+            "values": self.values.tolist(),
+            "component_order": self.component_order,
+            "start_load_factor": self.start_load_factor,
+            "load_factor": self.load_factor,
+            "reference_volume": self.reference_volume,
+            "constraint_fingerprint": self.constraint_fingerprint,
+            "full_dofs": self.full_dofs,
+            "reduced_dofs": self.reduced_dofs,
+            "linear_solver": self.linear_solver,
+            "linearization_state_basis": self.linearization_state_basis,
+            "response_generation": self.response_generation,
+            "linearization_origin": self.linearization_origin,
+            "linear_solve_reasons": self.linear_solve_reasons,
+            "linear_solve_iterations": self.linear_solve_iterations,
+            "linear_solve_residual_norms": self.linear_solve_residual_norms,
+            "maximum_relative_equilibrium_sensitivity": (
+                self.maximum_relative_equilibrium_sensitivity
+            ),
+            "relative_major_symmetry_error": self.relative_major_symmetry_error,
+            "method": "schur_condensation_of_converged_full_jacobian",
+            "state_semantics": (
+                "last accepted increment algorithmic material state, verified "
+                "by the state-owned linearization token; no load-path rerun"
+            ),
+        }
+
+
+def homogenized_algorithmic_tangent(
+    problem,
+    constraint,
+    *,
+    linear_solver_options=None,
+) -> HomogenizedAlgorithmicTangent:
+    r"""Condense a converged periodic-cell Jacobian to :math:`d\bar P/d\bar F`.
+
+    For ``u = T q + B Fbar``, equilibrium sensitivity gives
+
+    .. math::
+
+       \bar{\mathbb A}V =
+       B^T K B - B^T K T (T^T K T)^{-1} T^T K B.
+
+    ``constraint`` owns the exact affine lift ``B`` and reference volume;
+    ``problem`` owns the current assembled Jacobian ``K``.  The function is a
+    serial recovery route because the mixed affine reduction is currently
+    serial.  Every condensed column carries PETSc convergence evidence and a
+    reduced-equilibrium sensitivity residual.
+    """
+
+    from .. import solvers
+    from ..constraints import AffineMacroGradientLift
+
+    if getattr(problem, "constraint", None) is not constraint:
+        raise ValueError(
+            "Homogenized tangent requires the exact constraint consumed by "
+            "the converged problem."
+        )
+    required_contract = {
+        "macro_kinematics": "u_equals_Tq_plus_B_Fbar",
+        "macro_parameter_dependence": "kinematic_lift_only",
+        "linearization": "last_accepted_increment_algorithmic_state",
+    }
+    if getattr(problem, "homogenized_tangent_contract", None) != required_contract:
+        raise NotImplementedError(
+            "Homogenized tangent recovery requires a provider declaring that "
+            "the macroscopic gradient enters only through the exact affine "
+            "kinematic lift. Unknown explicit macro-parameter dependence "
+            "would require additional residual derivatives."
+        )
+    solution = getattr(problem, "solution", None)
+    jacobian_form = getattr(problem, "jacobian_form", None)
+    if solution is None or jacobian_form is None:
+        raise TypeError(
+            "Homogenized tangent requires a problem exposing solution and "
+            "jacobian_form."
+        )
+    comm = solution.function_space.mesh.comm
+    if comm.size != 1:
+        raise NotImplementedError(
+            "Homogenized tangent condensation currently requires the verified "
+            "serial affine reduction."
+        )
+    solve_info = getattr(problem, "last_solve_info", None)
+    if solve_info is None or not bool(getattr(solve_info, "completed_step", False)):
+        raise RuntimeError(
+            "Homogenized tangent requires a completed converged load step."
+        )
+    accepted_increments = tuple(getattr(problem, "accepted_increments", ()))
+    if not accepted_increments:
+        raise RuntimeError(
+            "Homogenized tangent requires an identified accepted increment."
+        )
+    last_increment = accepted_increments[-1]
+    if not bool(getattr(last_increment, "converged", False)):
+        raise RuntimeError("The final accepted increment is not converged.")
+    start_load_factor = float(last_increment.start_load_factor)
+    load_factor = float(getattr(problem, "accepted_load_factor", 1.0))
+    if abs(float(last_increment.load_factor) - load_factor) > 1.0e-12:
+        raise RuntimeError(
+            "Accepted increment history and problem load factor disagree."
+        )
+    transaction = getattr(problem, "state_transaction", None)
+    linearization_provider = getattr(
+        transaction,
+        "algorithmic_linearization_evidence",
+        None,
+    )
+    if not callable(linearization_provider):
+        raise TypeError(
+            "Homogenized tangent recovery requires state-owned algorithmic "
+            "linearization evidence."
+        )
+    linearization_evidence = linearization_provider(
+        start_factor=start_load_factor,
+        target_factor=load_factor,
+    )
+    accepted_solution = getattr(problem, "accepted_solution", None)
+    if accepted_solution is None or not np.allclose(
+        solution.x.array,
+        accepted_solution.x.array,
+        rtol=0.0,
+        atol=1.0e-12,
+    ):
+        raise RuntimeError(
+            "Homogenized tangent requires the live solution to equal the "
+            "accepted increment boundary."
+        )
+    lift = constraint.macro_gradient_lift()
+    if not isinstance(lift, AffineMacroGradientLift):
+        raise TypeError(
+            "constraint.macro_gradient_lift() returned an unsupported record."
+        )
+    reduction = constraint.reduction(load_factor)
+    if lift.values.shape[0] != reduction.full_size:
+        raise RuntimeError(
+            "Macro-gradient lift and converged affine reduction have different "
+            "full-DOF layouts."
+        )
+
+    selected_options = linear_solver_options
+    if selected_options is None:
+        nonlinear_options = getattr(problem, "solver_options", None)
+        selected_options = getattr(nonlinear_options, "linear_options", None)
+        if selected_options is None:
+            selected_options = getattr(nonlinear_options, "linear_solver", None)
+    if selected_options is None:
+        selected_options = solvers.LinearSolverOptions()
+    if not isinstance(selected_options, solvers.LinearSolverOptions):
+        raise TypeError(
+            "linear_solver_options must be a solvers.LinearSolverOptions record."
+        )
+
+    full_tangent = None
+    transformation = None
+    reduced_tangent = None
+    ksp = None
+    full_direction = None
+    full_force = None
+    reduced_rhs = None
+    reduced_correction = None
+    full_correction = None
+    reduced_residual = None
+    columns = lift.values.shape[1]
+    tangent = np.empty((columns, columns), dtype=float)
+    reasons = []
+    iterations = []
+    residual_norms = []
+    equilibrium_residuals = []
+    try:
+        full_tangent = fem_petsc.assemble_matrix(fem.form(jacobian_form))
+        full_tangent.assemble()
+        transformation = reduction.matrix(comm)
+        reduced_tangent = full_tangent.PtAP(transformation)
+        ksp = solvers.create_ksp(reduced_tangent.comm, selected_options)
+        ksp.setOperators(reduced_tangent)
+        full_direction = full_tangent.createVecRight()
+        full_force = full_tangent.createVecLeft()
+        reduced_rhs = transformation.createVecRight()
+        reduced_correction = transformation.createVecRight()
+        full_correction = transformation.createVecLeft()
+        reduced_residual = transformation.createVecRight()
+        for column in range(columns):
+            full_direction.array[:] = lift.values[:, column]
+            full_tangent.mult(full_direction, full_force)
+            transformation.multTranspose(full_force, reduced_rhs)
+            reduced_rhs.scale(-1.0)
+            reduced_correction.set(0.0)
+            ksp.solve(reduced_rhs, reduced_correction)
+            reason = int(ksp.getConvergedReason())
+            if reason <= 0:
+                raise RuntimeError(
+                    "Homogenized tangent condensation failed for macro "
+                    f"component {lift.component_order[column]!r}: PETSc KSP "
+                    f"reason {reason}."
+                )
+            reasons.append(reason)
+            iterations.append(int(ksp.getIterationNumber()))
+            residual_norms.append(float(ksp.getResidualNorm()))
+
+            transformation.mult(reduced_correction, full_correction)
+            full_direction.array[:] = (
+                lift.values[:, column] + full_correction.array_r
+            )
+            full_tangent.mult(full_direction, full_force)
+            tangent[:, column] = lift.values.T @ full_force.array_r
+            transformation.multTranspose(full_force, reduced_residual)
+            equilibrium_residuals.append(
+                float(reduced_residual.norm())
+                / max(float(full_force.norm()), np.finfo(float).tiny)
+            )
+    finally:
+        for resource in (
+            reduced_residual,
+            full_correction,
+            reduced_correction,
+            reduced_rhs,
+            full_force,
+            full_direction,
+            ksp,
+            reduced_tangent,
+            transformation,
+            full_tangent,
+        ):
+            if resource is not None:
+                resource.destroy()
+
+    tangent /= lift.reference_volume
+    tangent_norm = max(float(np.linalg.norm(tangent)), np.finfo(float).tiny)
+    symmetry_error = float(np.linalg.norm(tangent - tangent.T) / tangent_norm)
+    return HomogenizedAlgorithmicTangent(
+        values=tangent,
+        component_order=lift.component_order,
+        start_load_factor=start_load_factor,
+        load_factor=load_factor,
+        reference_volume=lift.reference_volume,
+        constraint_fingerprint=str(constraint.scientific_identity()["fingerprint"]),
+        full_dofs=int(reduction.full_size),
+        reduced_dofs=int(reduction.reduced_size),
+        linear_solver=selected_options.summary(),
+        linearization_state_basis=str(
+            linearization_evidence["linearization_state_basis"]
+        ),
+        response_generation=int(linearization_evidence["response_generation"]),
+        linearization_origin=(
+            float(linearization_evidence["committed_load_factor"]),
+            float(linearization_evidence["start_load_factor"]),
+            float(linearization_evidence["target_load_factor"]),
+        ),
+        linear_solve_reasons=tuple(reasons),
+        linear_solve_iterations=tuple(iterations),
+        linear_solve_residual_norms=tuple(residual_norms),
+        maximum_relative_equilibrium_sensitivity=max(equilibrium_residuals),
+        relative_major_symmetry_error=symmetry_error,
+    )
+
+
 @dataclass
 class PeriodicCellHistoryRecorder:
     """Collect lightweight RVE evidence at every accepted increment.

@@ -363,6 +363,69 @@ class FiniteStrainJ2StateTransaction:
         default=0.0,
         init=False,
     )
+    _response_linearization_generation: int = field(
+        default=0,
+        init=False,
+        repr=False,
+    )
+    _response_linearization_origin: tuple[float, float, float] | None = field(
+        default=None,
+        init=False,
+        repr=False,
+    )
+    _accepted_linearization_generation: int | None = field(
+        default=None,
+        init=False,
+        repr=False,
+    )
+    _accepted_linearization_origin: tuple[float, float, float] | None = field(
+        default=None,
+        init=False,
+        repr=False,
+    )
+
+    def algorithmic_linearization_evidence(
+        self,
+        *,
+        start_factor: float,
+        target_factor: float,
+    ) -> dict[str, object]:
+        """Verify and describe the retained accepted-increment tangent.
+
+        A restart or accepted-boundary reconstruction evaluates the material
+        with identical old and new states. Although that refresh preserves
+        stress, its tangent is not the algorithmic tangent of the increment
+        that reached the boundary. The generation check prevents result
+        recovery from silently assigning those different semantics to one
+        homogenized tangent.
+        """
+
+        expected = (
+            float(start_factor),
+            float(start_factor),
+            float(target_factor),
+        )
+        if (
+            self._accepted_linearization_generation is None
+            or self._response_linearization_generation
+            != self._accepted_linearization_generation
+            or self._response_linearization_origin != expected
+            or self._accepted_linearization_origin != expected
+        ):
+            raise RuntimeError(
+                "The current material tangent is not the retained "
+                "linearization of the last accepted load increment. A "
+                "restart or accepted-boundary refresh preserves stress but "
+                "must not be published as the previous increment's "
+                "algorithmic tangent."
+            )
+        return {
+            "linearization_state_basis": "pre_increment_committed_state",
+            "committed_load_factor": expected[0],
+            "start_load_factor": expected[1],
+            "target_load_factor": expected[2],
+            "response_generation": int(self._response_linearization_generation),
+        }
 
     def initialize(self) -> None:
         """Restore the declared initial state before the first snapshot."""
@@ -567,6 +630,12 @@ class FiniteStrainJ2StateTransaction:
         self.last_maximum_plastic_increment = float(
             comm.allreduce(local_maximum, op=MPI.MAX)
         )
+        self._response_linearization_generation += 1
+        self._response_linearization_origin = (
+            float(self.accepted_factor),
+            float(start_factor),
+            float(target_factor),
+        )
         return result
 
     def commit_increment(
@@ -575,11 +644,24 @@ class FiniteStrainJ2StateTransaction:
         start_factor: float,
         target_factor: float,
     ) -> None:
-        del start_factor
+        expected_origin = (
+            float(self.accepted_factor),
+            float(start_factor),
+            float(target_factor),
+        )
+        if self._response_linearization_origin != expected_origin:
+            raise RuntimeError(
+                "Finite-strain J2 commit requires the converged response "
+                "linearization from the same load increment."
+            )
         self.response.commit()
         self.accepted_solution.x.array[:] = self.solution.x.array
         self.accepted_solution.x.scatter_forward()
         self.accepted_factor = float(target_factor)
+        self._accepted_linearization_generation = (
+            self._response_linearization_generation
+        )
+        self._accepted_linearization_origin = expected_origin
 
     def rollback_increment(self, *, accepted_factor: float) -> None:
         self.response.rollback()
@@ -673,6 +755,14 @@ class FiniteStrainJ2StateTransaction:
                 if self.mixed_potential_density is None
                 else self.mixed_potential_density.values.copy()
             ),
+            "response_linearization_generation": int(
+                self._response_linearization_generation
+            ),
+            "response_linearization_origin": self._response_linearization_origin,
+            "accepted_linearization_generation": (
+                self._accepted_linearization_generation
+            ),
+            "accepted_linearization_origin": self._accepted_linearization_origin,
         }
 
     def restore_runtime_state(self, snapshot: dict[str, object]) -> None:
@@ -706,6 +796,25 @@ class FiniteStrainJ2StateTransaction:
         )
         self.last_maximum_pressure_projection_defect = float(
             snapshot.get("last_maximum_pressure_projection_defect", 0.0)
+        )
+        self._response_linearization_generation = int(
+            snapshot.get("response_linearization_generation", 0)
+        )
+        response_origin = snapshot.get("response_linearization_origin")
+        self._response_linearization_origin = (
+            None
+            if response_origin is None
+            else tuple(float(value) for value in response_origin)
+        )
+        accepted_generation = snapshot.get("accepted_linearization_generation")
+        self._accepted_linearization_generation = (
+            None if accepted_generation is None else int(accepted_generation)
+        )
+        accepted_origin = snapshot.get("accepted_linearization_origin")
+        self._accepted_linearization_origin = (
+            None
+            if accepted_origin is None
+            else tuple(float(value) for value in accepted_origin)
         )
 
     def snapshot(self) -> dict[str, object]:
@@ -2780,6 +2889,11 @@ def finite_strain_j2_affine_problem(
     problem.material = material
     problem.response = response
     problem.accepted_solution = transaction.accepted_solution
+    problem.homogenized_tangent_contract = {
+        "macro_kinematics": "u_equals_Tq_plus_B_Fbar",
+        "macro_parameter_dependence": "kinematic_lift_only",
+        "linearization": "last_accepted_increment_algorithmic_state",
+    }
     return problem
 
 
@@ -2994,6 +3108,11 @@ def finite_strain_j2_mixed_affine_problem(
     problem.material = material
     problem.response = response
     problem.accepted_solution = transaction.accepted_solution
+    problem.homogenized_tangent_contract = {
+        "macro_kinematics": "u_equals_Tq_plus_B_Fbar",
+        "macro_parameter_dependence": "kinematic_lift_only",
+        "linearization": "last_accepted_increment_algorithmic_state",
+    }
     problem.mixed_formulation = {
         "unknown": (
             "P2_displacement_DG0_pressure"

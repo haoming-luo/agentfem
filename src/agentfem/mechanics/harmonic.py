@@ -15,7 +15,7 @@ from petsc4py import PETSc
 from .. import procedures
 from ..backends._harmonic import PreparedHarmonicLinearProblem
 from ..operators.harmonic import DirectHarmonicSystem
-from ..provenance import content_fingerprint
+from ..provenance import collective_call, content_fingerprint
 from ..solvers import LinearSolveInfo, LinearSolverOptions
 
 
@@ -48,6 +48,9 @@ class DirectHarmonicStep:
     _closed_backend_summary: dict[str, object] | None = field(
         default=None, init=False, repr=False
     )
+    _executed_request_manifest: dict[str, object] | None = field(
+        default=None, init=False, repr=False
+    )
     _closed: bool = field(default=False, init=False, repr=False)
 
     @property
@@ -61,11 +64,43 @@ class DirectHarmonicStep:
     def solve(self):
         """Solve the current frequency and return the real displacement field."""
 
-        self._require_open()
+        comm = self.solution_real.function_space.mesh.comm
+        collective_call(
+            self._require_open,
+            comm=comm,
+            label="Direct harmonic solve lifecycle",
+        )
+        _require_supported_harmonic_frequency(
+            self.system,
+            self.angular_frequency,
+            comm=comm,
+        )
+        require_homogeneous_harmonic_bcs(self.solution_real, self.bcs)
         current_configuration = self._require_prepared_configuration_current(
             collective=True
         )
-        if self._prepared_problem is None:
+        request_manifest = self._current_request_manifest()
+        lifecycle = tuple(
+            comm.allgather(
+                (
+                    self._prepared_problem is not None,
+                    self._prepared_configuration_fingerprint is not None,
+                )
+            )
+        )
+        if any(state != lifecycle[0] for state in lifecycle[1:]) or (
+            lifecycle[0][0] != lifecycle[0][1]
+        ):
+            raise RuntimeError(
+                "Direct harmonic prepared-backend lifecycle differs across MPI "
+                f"ranks or is internally inconsistent: {lifecycle}."
+            )
+        prepared = lifecycle[0][0]
+        if not prepared:
+            # Bind the portable executable identity before entering backend
+            # construction.  In particular, optional operator presence and live
+            # coefficient ghosts are then synchronized on every rank.
+            self.executable_identity()
             prefix_name = "".join(
                 character if character.isalnum() else "_" for character in self.name
             )
@@ -94,6 +129,7 @@ class DirectHarmonicStep:
         )
         self._refresh_polar_fields()
         self.solved_angular_frequency = self.angular_frequency
+        self._executed_request_manifest = request_manifest
         return self.solution_real
 
     def set_frequency(
@@ -104,10 +140,19 @@ class DirectHarmonicStep:
     ) -> None:
         """Select another frequency while retaining the prepared backend."""
 
-        self._require_open()
-        selected = _angular_frequency(
-            frequency=frequency,
-            angular_frequency=angular_frequency,
+        comm = self.solution_real.function_space.mesh.comm
+        selected = collective_call(
+            lambda: _angular_frequency(
+                frequency=frequency,
+                angular_frequency=angular_frequency,
+            ),
+            comm=comm,
+            label="Direct harmonic frequency selection",
+        )
+        _require_supported_harmonic_frequency(
+            self.system,
+            selected,
+            comm=comm,
         )
         if selected != self.angular_frequency:
             self.angular_frequency = selected
@@ -148,7 +193,7 @@ class DirectHarmonicStep:
     def energy_evidence(self) -> dict[str, float]:
         """Return separated storage, inertia, and dissipation evidence."""
 
-        self._require_prepared_configuration_current()
+        self._require_prepared_configuration_current(collective=True)
         if self.solved_angular_frequency != self.angular_frequency:
             raise RuntimeError(
                 "Harmonic energy evidence requires a solution at the selected "
@@ -234,7 +279,7 @@ class DirectHarmonicStep:
         )
 
     def summary(self) -> dict[str, object]:
-        self._require_prepared_configuration_current()
+        self._require_prepared_configuration_current(collective=False)
         return {
             "kind": "direct_harmonic_step",
             "name": self.name,
@@ -264,12 +309,29 @@ class DirectHarmonicStep:
     def _require_prepared_configuration_current(
         self, *, collective: bool = False
     ) -> str:
-        current = _prepared_configuration_fingerprint(self)
-        if self._prepared_configuration_fingerprint is None:
+        comm = self.solution_real.function_space.mesh.comm
+        current = (
+            collective_call(
+                lambda: _prepared_configuration_fingerprint(self),
+                comm=comm,
+                label="Direct harmonic prepared-configuration fingerprint",
+            )
+            if collective
+            else _prepared_configuration_fingerprint(self)
+        )
+        baseline_missing = self._prepared_configuration_fingerprint is None
+        if collective:
+            baseline_states = tuple(comm.allgather(baseline_missing))
+            if any(state != baseline_states[0] for state in baseline_states[1:]):
+                raise RuntimeError(
+                    "Direct harmonic prepared-configuration state differs "
+                    f"across MPI ranks: {baseline_states}."
+                )
+            baseline_missing = baseline_states[0]
+        if baseline_missing:
             return current
         changed = current != self._prepared_configuration_fingerprint
         if collective:
-            comm = self.solution_real.function_space.mesh.comm
             changed = bool(comm.allreduce(changed, op=MPI.LOR))
         if changed:
             raise RuntimeError(
@@ -300,17 +362,48 @@ class DirectHarmonicStep:
     def close(self) -> None:
         """Deterministically release the retained harmonic PETSc allocation."""
 
-        if self._closed:
+        comm = self.solution_real.function_space.mesh.comm
+        closed_states = tuple(comm.allgather(bool(self._closed)))
+        if all(closed_states):
             return
+        if any(closed_states):
+            raise RuntimeError(
+                "Direct harmonic close lifecycle differs across MPI ranks: "
+                f"{closed_states}."
+            )
         prepared = self._prepared_problem
-        if prepared is not None:
-            backend_summary = prepared.summary()
+        prepared_states = tuple(comm.allgather(prepared is not None))
+        if any(state != prepared_states[0] for state in prepared_states[1:]):
+            raise RuntimeError(
+                "Direct harmonic backend ownership differs across MPI ranks: "
+                f"{prepared_states}."
+            )
+        if prepared_states[0]:
+            backend_summary = collective_call(
+                prepared.summary,
+                comm=comm,
+                label="Direct harmonic backend summary before close",
+            )
+            local_error = None
             try:
                 prepared.close()
+            except BaseException as exc:  # pragma: no cover - PETSc teardown
+                local_error = f"{type(exc).__name__}: {exc}"
             finally:
                 self._closed_backend_summary = backend_summary
                 self._prepared_problem = None
                 self._closed = True
+            errors = tuple(comm.allgather(local_error))
+            failures = [
+                f"rank {rank}: {error}"
+                for rank, error in enumerate(errors)
+                if error is not None
+            ]
+            if failures:
+                raise RuntimeError(
+                    "Direct harmonic backend close failed collectively; "
+                    + "; ".join(failures)
+                )
         else:
             self._closed = True
 
@@ -329,6 +422,93 @@ class DirectHarmonicStep:
 
         self.solve()
         return from_harmonic_step(self, output=output, strict_output=strict_output)
+
+    def executable_identity(self) -> dict[str, object]:
+        """Return the portable identity of the operators actually solved."""
+
+        from ..operators.identity import harmonic_executable_identity
+
+        require_homogeneous_harmonic_bcs(self.solution_real, self.bcs)
+        identity = harmonic_executable_identity(
+            self.system,
+            solution=self.solution_real,
+            bcs=self.bcs,
+        )
+        if not identity["complete"]:
+            missing = ", ".join(str(item["path"]) for item in identity["missing"][:5])
+            raise ValueError(
+                "Direct harmonic result publication cannot establish a portable "
+                "executable identity for the actual operators or constraints: "
+                f"{missing or 'unknown'}."
+            )
+        return identity
+
+    def scientific_inputs(self) -> dict[str, object]:
+        """Return the executed system, excitation, and numerical contract."""
+
+        comm = self.solution_real.function_space.mesh.comm
+        ready = (
+            self.solved_angular_frequency == self.angular_frequency
+            and self.last_solve_info is not None
+            and self.algebraic_equilibrium is not None
+            and self._executed_request_manifest is not None
+        )
+        readiness = tuple(comm.allgather(bool(ready)))
+        if not all(readiness):
+            raise RuntimeError(
+                "Direct harmonic scientific inputs require a solution at the "
+                "selected frequency."
+            )
+        self._require_prepared_configuration_current(collective=True)
+        current_request = self._current_request_manifest()
+        request_changed = (
+            current_request["fingerprint"]
+            != self._executed_request_manifest["fingerprint"]
+        )
+        if bool(comm.allreduce(request_changed, op=MPI.LOR)):
+            raise RuntimeError(
+                "The direct harmonic frequency, study, procedure, load phase, "
+                "or solver request changed after solve. Solve a new accepted "
+                "state before publishing a result."
+            )
+        frozen_request = dict(self._executed_request_manifest["record"])
+        return {
+            "harmonic_system": self.system,
+            **frozen_request,
+            "executable_identity": self.executable_identity(),
+        }
+
+    def _current_request_manifest(self) -> dict[str, object]:
+        """Return one communicator-wide identity for this point solve request."""
+
+        from ..provenance import collective_scientific_input_manifest
+
+        comm = self.solution_real.function_space.mesh.comm
+        manifest = collective_scientific_input_manifest(
+            {
+                "harmonic_excitation": {
+                    "frequency": self.frequency,
+                    "angular_frequency": self.angular_frequency,
+                    "phasor_convention": self.system.phasor_convention,
+                    "load_phase": self.load_phase,
+                },
+                "study": self.study,
+                "procedure": self.procedure,
+                "solver": self.solver_options,
+            },
+            comm=comm,
+            label="direct_harmonic_solve_request",
+            require_nonempty=True,
+        )
+        if not manifest["complete"]:
+            missing = ", ".join(
+                str(item["path"]) for item in manifest["missing"][:5]
+            )
+            raise ValueError(
+                "Direct harmonic analysis cannot establish a portable identity "
+                f"for the solve request: {missing or 'unknown'}."
+            )
+        return manifest
 
 
 @dataclass
@@ -355,23 +535,60 @@ class DirectHarmonicSweepStep:
     _frozen_executable_identity: dict[str, object] | None = field(
         default=None, init=False, repr=False
     )
+    _frozen_request_manifest: dict[str, object] | None = field(
+        default=None, init=False, repr=False
+    )
     _closed: bool = field(default=False, init=False, repr=False)
 
     def __post_init__(self) -> None:
-        self.frequencies = _frequency_axis(self.frequencies)
-        order = str(self.execution_order).strip().lower().replace("-", "_")
-        if order not in {"forward", "reverse"}:
-            raise ValueError("execution_order must be 'forward' or 'reverse'.")
+        comm = self.point_step.solution_real.function_space.mesh.comm
+        self.frequencies = collective_call(
+            lambda: _frequency_axis(self.frequencies),
+            comm=comm,
+            label="Harmonic sweep frequency-axis validation",
+        )
+        axes = tuple(comm.allgather(self.frequencies))
+        if any(axis != axes[0] for axis in axes[1:]):
+            raise RuntimeError(
+                f"Harmonic sweep frequency axes differ across MPI ranks: {axes}."
+            )
+        for frequency in self.frequencies:
+            _require_supported_harmonic_frequency(
+                self.point_step.system,
+                2.0 * np.pi * frequency,
+                comm=self.point_step.solution_real.function_space.mesh.comm,
+            )
+        def validate_local_definition():
+            order = str(self.execution_order).strip().lower().replace("-", "_")
+            if order not in {"forward", "reverse"}:
+                raise ValueError("execution_order must be 'forward' or 'reverse'.")
+            responses = tuple(self.responses)
+            if len({item.name for item in responses}) != len(responses):
+                raise ValueError("Harmonic response names must be unique.")
+            if any(
+                not callable(getattr(item, "sample", None))
+                or not callable(getattr(item, "summary", None))
+                for item in responses
+            ):
+                raise TypeError(
+                    "responses must be AgentFEM harmonic response objects."
+                )
+            return order, responses
+
+        order, responses = collective_call(
+            validate_local_definition,
+            comm=comm,
+            label="Harmonic sweep definition",
+        )
+        definitions = tuple(
+            comm.allgather((order, tuple(item.name for item in responses)))
+        )
+        if any(item != definitions[0] for item in definitions[1:]):
+            raise RuntimeError(
+                f"Harmonic sweep definitions differ across MPI ranks: {definitions}."
+            )
         self.execution_order = order
-        self.responses = tuple(self.responses)
-        if len({item.name for item in self.responses}) != len(self.responses):
-            raise ValueError("Harmonic response names must be unique.")
-        if any(
-            not callable(getattr(item, "sample", None))
-            or not callable(getattr(item, "summary", None))
-            for item in self.responses
-        ):
-            raise TypeError("responses must be results.harmonic_response(...) objects.")
+        self.responses = responses
         from ..diagnostics import SolveEventRecorder
 
         self._event_recorder = SolveEventRecorder(self.execution_events)
@@ -399,22 +616,55 @@ class DirectHarmonicSweepStep:
     def solve(self, *, max_points: int | None = None):
         """Advance pending frequency points, retaining only scalar records."""
 
-        self._require_open()
-        if max_points is not None:
-            if isinstance(max_points, (bool, np.bool_)) or not isinstance(
-                max_points, (int, np.integer)
-            ):
-                raise TypeError("max_points must be an integer when supplied.")
-            if int(max_points) <= 0:
-                raise ValueError("max_points must be positive when supplied.")
-        self._checkpoint_policy()
+        comm = self.solution_real.function_space.mesh.comm
+
+        def validate_local_request():
+            self._require_open()
+            if max_points is not None:
+                if isinstance(max_points, (bool, np.bool_)) or not isinstance(
+                    max_points, (int, np.integer)
+                ):
+                    raise TypeError("max_points must be an integer when supplied.")
+                if int(max_points) <= 0:
+                    raise ValueError("max_points must be positive when supplied.")
+            return None if max_points is None else int(max_points)
+
+        selected_max_points = collective_call(
+            validate_local_request,
+            comm=comm,
+            label="Harmonic sweep solve request",
+        )
+        point_limits = tuple(comm.allgather(selected_max_points))
+        if any(value != point_limits[0] for value in point_limits[1:]):
+            raise RuntimeError(
+                f"Harmonic sweep max_points differs across MPI ranks: {point_limits}."
+            )
+        record_indices = tuple(sorted(self.records))
+        distributed_indices = tuple(comm.allgather(record_indices))
+        if any(value != distributed_indices[0] for value in distributed_indices[1:]):
+            raise RuntimeError(
+                "Harmonic sweep accepted-record state differs across MPI ranks: "
+                f"{distributed_indices}."
+            )
+        for frequency in self.frequencies:
+            _require_supported_harmonic_frequency(
+                self.point_step.system,
+                2.0 * np.pi * frequency,
+                comm=comm,
+            )
+        collective_call(
+            self._checkpoint_policy,
+            comm=comm,
+            label="Harmonic sweep checkpoint policy",
+        )
+        self._freeze_request_manifest()
         self._freeze_executable_identity()
         indices = list(range(len(self.frequencies)))
         if self.execution_order == "reverse":
             indices.reverse()
         pending = [index for index in indices if index not in self.records]
-        if max_points is not None:
-            pending = pending[: int(max_points)]
+        if selected_max_points is not None:
+            pending = pending[:selected_max_points]
         if not pending and self.completed:
             return self
         reporter = self._reporter()
@@ -505,22 +755,13 @@ class DirectHarmonicSweepStep:
     def scientific_inputs(self, *, require_checkpoint_assets: bool = False):
         """Return the scientific identity shared by results and restart gates."""
 
-        assets = self.scientific_assets
         executable_identity = None
         if require_checkpoint_assets:
             executable_identity = self._validated_executable_identity()
+        request = self._validated_request_manifest()
         return {
             "harmonic_system": self.point_step.system,
-            "frequency_axis": {
-                "values": self.frequencies,
-                "unit": "Hz",
-                "canonical_order": "ascending",
-            },
-            "responses": self.responses,
-            "load_phase": self.point_step.load_phase,
-            "solver": self.point_step.solver_options,
-            "procedure": self.procedure,
-            "model_assets": {} if assets is None else assets,
+            **dict(request["record"]),
             "executable_identity": executable_identity,
         }
 
@@ -531,6 +772,7 @@ class DirectHarmonicSweepStep:
         from ..results import CheckpointRecord
 
         comm = self.solution_real.function_space.mesh.comm
+        self._validated_request_manifest()
         manifest = checkpointing.save_harmonic_sweep_checkpoint(
             path,
             step_name=self.name,
@@ -564,8 +806,8 @@ class DirectHarmonicSweepStep:
                     "effective_portable": True,
                     "field_state": "not_stored_scalar_ledger_only",
                     "portability": (
-                        "portable across MPI partitions, rank counts, and "
-                        "frequency execution order"
+                        "portable across MPI partitions and rank counts under "
+                        "the frozen sweep request"
                     ),
                 },
             )
@@ -581,8 +823,10 @@ class DirectHarmonicSweepStep:
 
         comm = self.solution_real.function_space.mesh.comm
         frozen_before = self._frozen_executable_identity
+        request_before = self._frozen_request_manifest
         field_identity_before = self._checkpoint_field_identity_record
         try:
+            self._freeze_request_manifest()
             payload = checkpointing.load_harmonic_sweep_checkpoint(
                 path,
                 step_name=self.name,
@@ -619,6 +863,7 @@ class DirectHarmonicSweepStep:
             )
         except Exception:
             self._frozen_executable_identity = frozen_before
+            self._frozen_request_manifest = request_before
             self._checkpoint_field_identity_record = field_identity_before
             raise
 
@@ -661,27 +906,25 @@ class DirectHarmonicSweepStep:
         return dict(self._checkpoint_field_identity_record)
 
     def _current_executable_identity(self) -> dict[str, object]:
-        from ..operators.identity import harmonic_executable_identity
-
-        identity = harmonic_executable_identity(
-            self.point_step.system,
-            solution=self.point_step.solution_real,
-            bcs=self.point_step.bcs,
-        )
-        if not identity["complete"]:
-            missing = ", ".join(str(item["path"]) for item in identity["missing"][:5])
-            raise ValueError(
-                "Harmonic sweep checkpointing cannot establish a portable "
-                "executable identity for the actual operators or constraints: "
-                f"{missing or 'unknown'}."
-            )
-        return identity
+        return self.point_step.executable_identity()
 
     def _freeze_executable_identity(self) -> dict[str, object]:
         current = self._current_executable_identity()
-        if self._frozen_executable_identity is None:
+        comm = self.solution_real.function_space.mesh.comm
+        frozen_missing = self._frozen_executable_identity is None
+        frozen_states = tuple(comm.allgather(frozen_missing))
+        if any(state != frozen_states[0] for state in frozen_states[1:]):
+            raise RuntimeError(
+                "The harmonic sweep executable-identity lifecycle differs "
+                f"across MPI ranks: {frozen_states}."
+            )
+        if frozen_states[0]:
             self._frozen_executable_identity = current
-        elif current["fingerprint"] != self._frozen_executable_identity["fingerprint"]:
+        changed = (
+            current["fingerprint"]
+            != self._frozen_executable_identity["fingerprint"]
+        )
+        if bool(comm.allreduce(changed, op=MPI.LOR)):
             raise RuntimeError(
                 "The executable harmonic operators, coefficients, mesh tags, "
                 "or constrained DOFs changed after the sweep began. Start a "
@@ -691,6 +934,73 @@ class DirectHarmonicSweepStep:
 
     def _validated_executable_identity(self) -> dict[str, object]:
         return self._freeze_executable_identity()
+
+    def _request_inputs(self) -> dict[str, object]:
+        return {
+            "frequency_axis": {
+                "values": self.frequencies,
+                "unit": "Hz",
+                "canonical_order": "ascending",
+            },
+            "responses": self.responses,
+            "execution_order": self.execution_order,
+            "load_phase": self.point_step.load_phase,
+            "solver": self.point_step.solver_options,
+            "study": self.point_step.study,
+            "point_procedure": self.point_step.procedure,
+            "sweep_procedure": self.procedure,
+            "model_assets": (
+                {} if self.scientific_assets is None else self.scientific_assets
+            ),
+        }
+
+    def _current_request_manifest(self) -> dict[str, object]:
+        from ..provenance import collective_scientific_input_manifest
+
+        comm = self.solution_real.function_space.mesh.comm
+        manifest = collective_scientific_input_manifest(
+            self._request_inputs(),
+            comm=comm,
+            label="direct_harmonic_sweep_request",
+            require_nonempty=True,
+        )
+        if not manifest["complete"]:
+            missing = ", ".join(
+                str(item["path"]) for item in manifest["missing"][:5]
+            )
+            raise ValueError(
+                "Harmonic sweep cannot establish a portable identity for its "
+                f"complete request: {missing or 'unknown'}."
+            )
+        return manifest
+
+    def _freeze_request_manifest(self) -> dict[str, object]:
+        current = self._current_request_manifest()
+        comm = self.solution_real.function_space.mesh.comm
+        missing = self._frozen_request_manifest is None
+        states = tuple(comm.allgather(missing))
+        if any(state != states[0] for state in states[1:]):
+            raise RuntimeError(
+                "The harmonic sweep request lifecycle differs across MPI ranks: "
+                f"{states}."
+            )
+        if states[0]:
+            self._frozen_request_manifest = current
+        changed = (
+            current["fingerprint"]
+            != self._frozen_request_manifest["fingerprint"]
+        )
+        if bool(comm.allreduce(changed, op=MPI.LOR)):
+            raise RuntimeError(
+                "The harmonic sweep frequency axis, responses, execution order, "
+                "study, procedure, solver, load phase, or scientific assets "
+                "changed after the sweep began. Start a new sweep instead of "
+                "mixing evidence from different requests."
+            )
+        return dict(self._frozen_request_manifest)
+
+    def _validated_request_manifest(self) -> dict[str, object]:
+        return self._freeze_request_manifest()
 
     def _requested_checkpoint_portability(self) -> bool | None:
         policy = self._checkpoint_policy()
@@ -779,11 +1089,42 @@ class DirectHarmonicSweepStep:
         }
 
     def canonical_records(self) -> tuple[dict[str, object], ...]:
-        if not self.completed:
+        comm = self.solution_real.function_space.mesh.comm
+        frozen_request = self._validated_request_manifest()
+        completion = tuple(comm.allgather(bool(self.completed)))
+        if not all(completion):
             raise RuntimeError(
-                "A partial harmonic sweep cannot be published as completed."
+                "A partial harmonic sweep or rank-inconsistent sweep cannot be "
+                f"published as completed: {completion}."
             )
-        return tuple(self.records[index] for index in range(len(self.frequencies)))
+        records = tuple(self.records[index] for index in range(len(self.frequencies)))
+        frozen_axis = tuple(
+            float(value)
+            for value in frozen_request["record"]["frequency_axis"]["values"]
+        )
+        actual_axis = tuple(float(record["frequency"]) for record in records)
+        if actual_axis != frozen_axis:
+            raise RuntimeError(
+                "Harmonic sweep records do not match the frozen frequency axis: "
+                f"records={actual_axis}, frozen={frozen_axis}."
+            )
+        for index, record in enumerate(records):
+            if int(record["index"]) != index:
+                raise RuntimeError(
+                    "Harmonic sweep records do not preserve canonical indices."
+                )
+            expected_omega = 2.0 * np.pi * actual_axis[index]
+            if not np.isclose(
+                float(record["angular_frequency"]),
+                expected_omega,
+                rtol=0.0,
+                atol=8.0 * np.finfo(float).eps * max(1.0, abs(expected_omega)),
+            ):
+                raise RuntimeError(
+                    "Harmonic sweep record angular frequency does not match its "
+                    f"accepted frequency at index {index}."
+                )
+        return records
 
     def summary(self) -> dict[str, object]:
         checkpoint_policy = self._checkpoint_policy()
@@ -858,8 +1199,15 @@ class DirectHarmonicSweepStep:
     def close(self) -> None:
         """Release the reusable point solve while preserving scalar records."""
 
-        if self._closed:
+        comm = self.solution_real.function_space.mesh.comm
+        closed_states = tuple(comm.allgather(bool(self._closed)))
+        if all(closed_states):
             return
+        if any(closed_states):
+            raise RuntimeError(
+                "Harmonic sweep close lifecycle differs across MPI ranks: "
+                f"{closed_states}."
+            )
         try:
             self.point_step.close()
         finally:
@@ -921,11 +1269,11 @@ def direct_harmonic_step(
             "The real-block harmonic provider requires a real PETSc scalar build."
         )
     omega = _angular_frequency(frequency=frequency, angular_frequency=angular_frequency)
-    if omega == 0.0 and system.loss is not None:
-        raise ValueError(
-            "A material loss operator is undefined at zero cyclic frequency. "
-            "Use a positive frequency or omit K_loss for the static limit."
-        )
+    _require_supported_harmonic_frequency(
+        system,
+        omega,
+        comm=displacement.value.function_space.mesh.comm,
+    )
     phase = float(load_phase)
     if not np.isfinite(phase):
         raise ValueError("load_phase must be finite radians.")
@@ -936,9 +1284,9 @@ def direct_harmonic_step(
     solution_real.name = "U_REAL"
     real_space = solution_real.function_space
     solution_imaginary = fem.Function(real_space.clone(), name="U_IMAG")
-    selected_bcs = harmonic_strong_bcs(constraints)
+    selected_bcs = _collect_harmonic_bcs_collectively(solution_real, constraints)
     require_homogeneous_harmonic_bcs(solution_real, selected_bcs)
-    imaginary_bcs = clone_zero_harmonic_bcs(
+    imaginary_bcs = _clone_zero_harmonic_bcs_collectively(
         real_space, solution_imaginary.function_space, selected_bcs
     )
     options = solver_options or LinearSolverOptions(
@@ -984,33 +1332,106 @@ def direct_harmonic_step(
 
 
 def harmonic_strong_bcs(constraints) -> tuple[object, ...]:
+    """Lower only explicit stationary strong-Dirichlet assets."""
+
+    from .. import constraints as constraint_api
+
     selected = []
-    for item in constraints or ():
-        if hasattr(item, "bcs"):
-            selected.extend(item.bcs)
-        elif hasattr(item, "bc"):
+    for item in constraint_api.constraint_assets(constraints):
+        if isinstance(item, constraint_api.TimeDependentDirichlet):
+            raise NotImplementedError(
+                "AFM-HARMONIC-BC-001: direct harmonic response does not accept "
+                "time-domain prescribed-displacement histories. Express the "
+                "excitation as a load phasor."
+            )
+        if isinstance(item, constraint_api.RemoteDisplacementConstraint):
+            raise NotImplementedError(
+                "AFM-HARMONIC-BC-002: direct harmonic response does not yet "
+                "support prescribed remote-motion phasors."
+            )
+        if isinstance(item, constraint_api.DirichletConstraint):
             selected.append(item.bc)
         elif callable(getattr(item, "dof_indices", None)):
             selected.append(item)
         else:
             raise NotImplementedError(
-                "Direct harmonic response currently supports strong Dirichlet "
-                "constraints; MPC and weak constraints require a complex dual contract."
+                "AFM-HARMONIC-BC-003: direct harmonic response received "
+                f"{type(item).__name__}, which is not a stationary strong "
+                "Dirichlet constraint. MPC and weak constraints require a "
+                "verified complex dual provider."
             )
     return tuple(selected)
 
 
+def _collect_harmonic_bcs_collectively(solution, constraints) -> tuple[object, ...]:
+    """Lower harmonic supports and synchronize rank-local Python failures."""
+
+    comm = solution.function_space.mesh.comm
+    if comm.size == 1:
+        return harmonic_strong_bcs(constraints)
+    selected = None
+    local_error = None
+    try:
+        selected = harmonic_strong_bcs(constraints)
+    except Exception as exc:  # pragma: no cover - exercised under MPI
+        local_error = f"{type(exc).__name__}: {exc}"
+    errors = comm.allgather(local_error)
+    failures = [
+        f"rank {rank}: {error}"
+        for rank, error in enumerate(errors)
+        if error is not None
+    ]
+    if failures:
+        raise RuntimeError(
+            "AFM-HARMONIC-BC-004: harmonic constraint lowering failed "
+            "collectively; " + "; ".join(failures)
+        )
+    counts = comm.allgather(len(selected))
+    if any(count != counts[0] for count in counts[1:]):
+        raise RuntimeError(
+            "AFM-HARMONIC-BC-004: harmonic constraints differ across MPI ranks."
+        )
+    return tuple(selected)
+
+
 def require_homogeneous_harmonic_bcs(solution, bcs) -> None:
-    if not bcs:
+    comm = solution.function_space.mesh.comm
+    counts = comm.allgather(len(bcs))
+    if any(count != counts[0] for count in counts[1:]):
+        raise RuntimeError(
+            "AFM-HARMONIC-BC-005: harmonic constraints differ across MPI ranks."
+        )
+    if counts[0] == 0:
         return
-    probe = fem.Function(solution.function_space)
-    fem_petsc.set_bc(probe.x.petsc_vec, list(bcs))
-    owned = int(
-        probe.function_space.dofmap.index_map.size_local
-        * probe.function_space.dofmap.index_map_bs
-    )
-    local = float(np.max(np.abs(probe.x.array[:owned]))) if owned else 0.0
-    maximum = float(probe.function_space.mesh.comm.allreduce(local, op=MPI.MAX))
+    local_error = None
+    local = 0.0
+    try:
+        for bc in bcs:
+            probe = fem.Function(solution.function_space)
+            fem_petsc.set_bc(probe.x.petsc_vec, [bc])
+            owned = int(
+                probe.function_space.dofmap.index_map.size_local
+                * probe.function_space.dofmap.index_map_bs
+            )
+            if owned:
+                local = max(
+                    local,
+                    float(np.max(np.abs(probe.x.array[:owned]))),
+                )
+    except Exception as exc:  # pragma: no cover - exercised under MPI
+        local_error = f"{type(exc).__name__}: {exc}"
+    errors = comm.allgather(local_error)
+    failures = [
+        f"rank {rank}: {error}"
+        for rank, error in enumerate(errors)
+        if error is not None
+    ]
+    if failures:
+        raise RuntimeError(
+            "AFM-HARMONIC-BC-005: harmonic support inspection failed "
+            "collectively; " + "; ".join(failures)
+        )
+    maximum = float(comm.allreduce(local, op=MPI.MAX))
     if maximum > 64.0 * np.finfo(float).eps:
         raise NotImplementedError(
             "Direct harmonic response currently requires homogeneous strong "
@@ -1042,6 +1463,36 @@ def clone_zero_harmonic_bcs(source_space, target_space, bcs) -> tuple[object, ..
             cloned.append(
                 fem.dirichletbc(zero, selected_dofs, target_space.sub(component))
             )
+    return tuple(cloned)
+
+
+def _clone_zero_harmonic_bcs_collectively(
+    source_space,
+    target_space,
+    bcs,
+) -> tuple[object, ...]:
+    """Clone imaginary supports without leaving a rank behind on failure."""
+
+    comm = source_space.mesh.comm
+    if comm.size == 1:
+        return clone_zero_harmonic_bcs(source_space, target_space, bcs)
+    cloned = None
+    local_error = None
+    try:
+        cloned = clone_zero_harmonic_bcs(source_space, target_space, bcs)
+    except Exception as exc:  # pragma: no cover - exercised under MPI
+        local_error = f"{type(exc).__name__}: {exc}"
+    errors = comm.allgather(local_error)
+    failures = [
+        f"rank {rank}: {error}"
+        for rank, error in enumerate(errors)
+        if error is not None
+    ]
+    if failures:
+        raise RuntimeError(
+            "AFM-HARMONIC-BC-006: imaginary support cloning failed "
+            "collectively; " + "; ".join(failures)
+        )
     return tuple(cloned)
 
 
@@ -1235,6 +1686,31 @@ def _angular_frequency(*, frequency, angular_frequency) -> float:
     if not np.isfinite(omega) or omega < 0.0:
         raise ValueError("Harmonic frequency must be finite and nonnegative.")
     return omega
+
+
+def _require_supported_harmonic_frequency(
+    system,
+    angular_frequency: float,
+    *,
+    comm=None,
+) -> None:
+    """Enforce frequency-dependent operator invariants at every entry point."""
+
+    def require_local_support() -> None:
+        if angular_frequency == 0.0 and system.loss is not None:
+            raise ValueError(
+                "A material loss operator is undefined at zero cyclic frequency. "
+                "Use a positive frequency or omit K_loss for the static limit."
+            )
+
+    if comm is None:
+        require_local_support()
+    else:
+        collective_call(
+            require_local_support,
+            comm=comm,
+            label="Direct harmonic frequency contract",
+        )
 
 
 def _frequency_axis(values) -> tuple[float, ...]:

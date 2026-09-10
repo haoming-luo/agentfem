@@ -5,6 +5,9 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from operator import index as integer_index
 
+from dolfinx import fem
+import dolfinx.fem.petsc as fem_petsc
+from mpi4py import MPI
 import numpy as np
 
 from .._modal import cluster_summaries, selected_clusters_are_complete
@@ -24,15 +27,63 @@ def _positive_integer(value, *, name: str) -> int:
     return int(selected)
 
 
+def _validated_modal_request(step) -> dict[str, object]:
+    """Validate mutable modal controls at every solve/publication boundary."""
+
+    modes = _positive_integer(step.modes, name="modes")
+    maximum_iterations = _positive_integer(
+        step.maximum_iterations,
+        name="maximum_iterations",
+    )
+    tolerance = float(step.tolerance)
+    if not np.isfinite(tolerance) or tolerance <= 0.0:
+        raise ValueError("Modal tolerance must be finite and positive.")
+    rigid_mode_tolerance = float(step.rigid_mode_tolerance)
+    if not np.isfinite(rigid_mode_tolerance) or rigid_mode_tolerance < 0.0:
+        raise ValueError("rigid_mode_tolerance must be nonnegative.")
+    target_frequency = (
+        None if step.target_frequency is None else float(step.target_frequency)
+    )
+    if target_frequency is not None and (
+        not np.isfinite(target_frequency) or target_frequency < 0.0
+    ):
+        raise ValueError("target_frequency must be finite and nonnegative.")
+    return {
+        "modes": modes,
+        "target_frequency": target_frequency,
+        "tolerance": tolerance,
+        "maximum_iterations": maximum_iterations,
+        "rigid_mode_tolerance": rigid_mode_tolerance,
+    }
+
+
 def _collect_modal_bcs(*, constraints=(), bcs=()) -> tuple[object, ...]:
     """Lower only strong Dirichlet assets for the current modal backend."""
 
-    selected = list(bcs or ())
-    for item in constraints or ():
-        if hasattr(item, "bcs"):
-            selected.extend(item.bcs)
-        elif hasattr(item, "bc"):
+    from .. import constraints as constraint_api
+
+    selected = []
+    assets = (
+        *constraint_api.constraint_assets(constraints),
+        *constraint_api.constraint_assets(bcs),
+    )
+    for item in assets:
+        if isinstance(item, constraint_api.TimeDependentDirichlet):
+            raise NotImplementedError(
+                "AFM-MODAL-BC-001: linear modal analysis does not accept "
+                "TimeDependentDirichlet histories. Modal extraction currently "
+                "requires a stationary homogeneous reference configuration."
+            )
+        if isinstance(item, constraint_api.RemoteDisplacementConstraint):
+            raise NotImplementedError(
+                "AFM-MODAL-BC-002: linear modal analysis does not accept remote "
+                "prescribed motion. Solve a verified prestressed/base-state "
+                "problem before requesting small-on-large modes."
+            )
+        if isinstance(item, constraint_api.DirichletConstraint):
             selected.append(item.bc)
+        elif callable(getattr(item, "dof_indices", None)):
+            selected.append(item)
         else:
             raise TypeError(
                 "AFM-CONSTRAINT-PROCEDURE-001: modal analysis received "
@@ -41,6 +92,87 @@ def _collect_modal_bcs(*, constraints=(), bcs=()) -> tuple[object, ...]:
                 "exact affine/MPC backend for non-Dirichlet kinematic relations."
             )
     return tuple(selected)
+
+
+def _collect_modal_bcs_collectively(solution, *, constraints=(), bcs=()):
+    """Lower modal supports and synchronize rank-local Python failures."""
+
+    function_space = getattr(solution, "function_space", None)
+    domain = getattr(function_space, "mesh", None)
+    comm = getattr(domain, "comm", None)
+    if comm is None or comm.size == 1:
+        return _collect_modal_bcs(constraints=constraints, bcs=bcs)
+    selected = None
+    local_error = None
+    try:
+        selected = _collect_modal_bcs(constraints=constraints, bcs=bcs)
+    except Exception as exc:  # pragma: no cover - exercised under MPI
+        local_error = f"{type(exc).__name__}: {exc}"
+    errors = comm.allgather(local_error)
+    failures = [
+        f"rank {rank}: {error}"
+        for rank, error in enumerate(errors)
+        if error is not None
+    ]
+    if failures:
+        raise RuntimeError(
+            "AFM-MODAL-BC-004: modal constraint lowering failed collectively; "
+            + "; ".join(failures)
+        )
+    counts = comm.allgather(len(selected))
+    if any(count != counts[0] for count in counts[1:]):
+        raise RuntimeError(
+            "AFM-MODAL-BC-004: modal constraints differ across MPI ranks."
+        )
+    return tuple(selected)
+
+
+def _require_homogeneous_modal_bcs(solution, bcs) -> None:
+    """Reject a base motion that the current eigenproblem cannot represent."""
+
+    comm = solution.function_space.mesh.comm
+    counts = comm.allgather(len(bcs))
+    if any(count != counts[0] for count in counts[1:]):
+        raise RuntimeError(
+            "AFM-MODAL-BC-004: modal constraints differ across MPI ranks."
+        )
+    if counts[0] == 0:
+        return
+    local_error = None
+    local = 0.0
+    try:
+        for bc in bcs:
+            probe = fem.Function(solution.function_space)
+            fem_petsc.set_bc(probe.x.petsc_vec, [bc])
+            owned = int(
+                probe.function_space.dofmap.index_map.size_local
+                * probe.function_space.dofmap.index_map_bs
+            )
+            if owned:
+                local = max(
+                    local,
+                    float(np.max(np.abs(probe.x.array[:owned]))),
+                )
+    except Exception as exc:  # pragma: no cover - rank-local backend failure
+        local_error = f"{type(exc).__name__}: {exc}"
+    errors = comm.allgather(local_error)
+    failures = [
+        f"rank {rank}: {error}"
+        for rank, error in enumerate(errors)
+        if error is not None
+    ]
+    if failures:
+        raise RuntimeError(
+            "AFM-MODAL-BC-004: modal support inspection failed "
+            "collectively; " + "; ".join(failures)
+        )
+    maximum = float(comm.allreduce(local, op=MPI.MAX))
+    if maximum > 64.0 * np.finfo(float).eps:
+        raise NotImplementedError(
+            "AFM-MODAL-BC-003: linear modal analysis requires homogeneous "
+            "strong constraints. A nonzero prescribed displacement needs a "
+            "verified prestressed/base-state modal formulation."
+        )
 
 
 @dataclass
@@ -68,6 +200,16 @@ class ModalAnalysisStep:
     eigenvalues: np.ndarray | None = field(default=None, init=False)
     mode_shapes: tuple[object, ...] = field(default=(), init=False)
     last_solve_info: ModalSolveInfo | None = field(default=None, init=False)
+    _executed_identity: dict[str, object] | None = field(
+        default=None,
+        init=False,
+        repr=False,
+    )
+    _executed_request_manifest: dict[str, object] | None = field(
+        default=None,
+        init=False,
+        repr=False,
+    )
 
     def __post_init__(self) -> None:
         self.modes = _positive_integer(self.modes, name="modes")
@@ -90,10 +232,15 @@ class ModalAnalysisStep:
     def solve(self):
         """Execute the distributed eigensolve and retain modal evidence."""
 
-        selected_bcs = _collect_modal_bcs(
+        solution = getattr(self.target, "value", self.target)
+        selected_bcs = _collect_modal_bcs_collectively(
+            solution,
             constraints=self.constraints,
             bcs=self.bcs,
         )
+        _require_homogeneous_modal_bcs(solution, selected_bcs)
+        executable_identity = self._current_executable_identity(selected_bcs)
+        request_manifest = self._current_request_manifest()
         solved = solve_modal_eigenproblem(
             target=self.target,
             stiffness=self.stiffness,
@@ -111,15 +258,116 @@ class ModalAnalysisStep:
             tolerance=float(self.tolerance),
             rigid_mode_tolerance=float(self.rigid_mode_tolerance),
         )
-        self.eigenvalues = eigenvalues
-        self.mode_shapes = mode_shapes
-        self.last_solve_info = solve_info
         if not solve_info.converged:
             raise RuntimeError(
                 f"Modal solve accepted {solve_info.accepted_modes} of "
                 f"{solve_info.requested_modes} requested modes."
             )
+        self.eigenvalues = eigenvalues
+        self.mode_shapes = mode_shapes
+        self.last_solve_info = solve_info
+        self._executed_identity = executable_identity
+        self._executed_request_manifest = request_manifest
         return self.mode_shapes
+
+    def _current_executable_identity(self, selected_bcs=None) -> dict[str, object]:
+        from ..operators.identity import modal_executable_identity
+
+        bcs = (
+            _collect_modal_bcs_collectively(
+                getattr(self.target, "value", self.target),
+                constraints=self.constraints,
+                bcs=self.bcs,
+            )
+            if selected_bcs is None
+            else tuple(selected_bcs)
+        )
+        identity = modal_executable_identity(
+            stiffness=self.stiffness,
+            mass=self.mass,
+            solution=getattr(self.target, "value", self.target),
+            bcs=bcs,
+        )
+        if not identity["complete"]:
+            missing = ", ".join(str(item["path"]) for item in identity["missing"][:5])
+            raise ValueError(
+                "Modal analysis cannot establish a portable executable identity "
+                "for the actual operators or constraints: "
+                f"{missing or 'unknown'}."
+            )
+        return identity
+
+    def _current_request_manifest(self) -> dict[str, object]:
+        """Return one communicator-wide identity for the requested solve."""
+
+        from ..provenance import collective_call, collective_scientific_input_manifest
+
+        solution = getattr(self.target, "value", self.target)
+        comm = solution.function_space.mesh.comm
+        request = collective_call(
+            lambda: _validated_modal_request(self),
+            comm=comm,
+            label="Modal solve-request validation",
+        )
+        manifest = collective_scientific_input_manifest(
+            {
+                "modal_request": request,
+                "study": self.study,
+                "procedure": self.procedure,
+            },
+            comm=comm,
+            label="modal_solve_request",
+            require_nonempty=True,
+        )
+        if not manifest["complete"]:
+            missing = ", ".join(
+                str(item["path"]) for item in manifest["missing"][:5]
+            )
+            raise ValueError(
+                "Modal analysis cannot establish a portable identity for the "
+                f"solve request: {missing or 'unknown'}."
+            )
+        return manifest
+
+    def scientific_inputs(self) -> dict[str, object]:
+        """Return the exact executed modal system and selection contract."""
+
+        solution = getattr(self.target, "value", self.target)
+        comm = solution.function_space.mesh.comm
+        ready = (
+            self._executed_identity is not None
+            and self._executed_request_manifest is not None
+            and self.last_solve_info is not None
+        )
+        readiness = tuple(comm.allgather(bool(ready)))
+        if not all(readiness):
+            raise RuntimeError("Modal scientific inputs require a completed solve.")
+        current = self._current_executable_identity()
+        operator_changed = (
+            current["fingerprint"] != self._executed_identity["fingerprint"]
+        )
+        if bool(comm.allreduce(operator_changed, op=MPI.LOR)):
+            raise RuntimeError(
+                "The modal operators, live coefficients, mesh, or constrained "
+                "DOFs changed after solve. Create and solve a new Step before "
+                "publishing a result."
+            )
+        request = self._current_request_manifest()
+        request_changed = (
+            request["fingerprint"]
+            != self._executed_request_manifest["fingerprint"]
+        )
+        if bool(comm.allreduce(request_changed, op=MPI.LOR)):
+            raise RuntimeError(
+                "The modal mode count, target, tolerances, study, or procedure "
+                "changed after solve. Create and solve a new Step before "
+                "publishing a result."
+            )
+        frozen_request = dict(self._executed_request_manifest["record"])
+        return {
+            "modal_executable_identity": dict(self._executed_identity),
+            **frozen_request,
+        }
 
     def solve_result(self, *, output=None, strict_output: bool = False):
         """Solve and publish the modal fields and verification evidence."""
@@ -140,7 +388,11 @@ class ModalAnalysisStep:
             "requested_modes": int(self.modes),
             "target_frequency": self.target_frequency,
             "constraints": len(
-                _collect_modal_bcs(constraints=self.constraints, bcs=self.bcs)
+                _collect_modal_bcs_collectively(
+                    getattr(self.target, "value", self.target),
+                    constraints=self.constraints,
+                    bcs=self.bcs,
+                )
             ),
             "stiffness": self.stiffness.summary(),
             "mass": self.mass.summary(),
@@ -216,6 +468,7 @@ def _select_modal_solution(
         eigenvalues,
     )
     orthogonality_tolerance = max(1.0e-7, 100.0 * tolerance)
+    residual_tolerance = max(1.0e-7, 100.0 * tolerance)
     solve_info = ModalSolveInfo(
         converged_eigenpairs=backend.converged_eigenpairs,
         requested_modes=modes,
@@ -228,6 +481,7 @@ def _select_modal_solution(
         mass_orthogonality_error=mass_error,
         stiffness_diagonalization_error=stiffness_error,
         orthogonality_tolerance=orthogonality_tolerance,
+        residual_tolerance=residual_tolerance,
         orientation_anchor_dofs=tuple(
             item.orientation_anchor_dof for _, item in selected
         ),
