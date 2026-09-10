@@ -49,15 +49,15 @@ records relative changes of approximately:
 
 | Quantity | Relative change |
 | --- | ---: |
-| Homogenized first Piola stress | 0.00121% |
-| Mean equivalent plastic strain | 0.000993% |
-| 95th-percentile equivalent plastic strain | 0.0751% |
+| Homogenized first Piola stress | 0.001159% |
+| Mean equivalent plastic strain | 0.001023% |
+| 95th-percentile equivalent plastic strain | 0.06637% |
 
-The certificate binds the exact source commit, scientific inputs and runtime
-fingerprint. It is load-path stability evidence for this declared problem; it
-is not a mesh-convergence result or external validation for arbitrary porous
-microstructures. The long installed-wheel path is opt-in CI evidence rather
-than a cost imposed on every ordinary change.
+The accepted Linux installed-wheel certificate binds the exact source commit,
+scientific inputs and runtime fingerprint. It is load-path stability evidence
+for this declared problem; it is not a mesh-convergence result or external
+validation for arbitrary porous microstructures. The long installed-wheel path
+is opt-in CI evidence rather than a cost imposed on every ordinary change.
 
 ## Modal and harmonic ownership
 

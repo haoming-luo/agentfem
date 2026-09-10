@@ -336,7 +336,7 @@ authors:
   - family-names: Luo
     given-names: Haoming
     affiliation: "Materials Department, Xi'an Thermal Power Research Institute (TPRI)"
-date-released: 2026-09-10
+date-released: 2026-09-11
 ```
 
 ## Author
