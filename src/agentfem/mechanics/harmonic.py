@@ -45,6 +45,10 @@ class DirectHarmonicStep:
     _prepared_configuration_fingerprint: str | None = field(
         default=None, init=False, repr=False
     )
+    _closed_backend_summary: dict[str, object] | None = field(
+        default=None, init=False, repr=False
+    )
+    _closed: bool = field(default=False, init=False, repr=False)
 
     @property
     def frequency(self) -> float:
@@ -57,6 +61,7 @@ class DirectHarmonicStep:
     def solve(self):
         """Solve the current frequency and return the real displacement field."""
 
+        self._require_open()
         current_configuration = self._require_prepared_configuration_current(
             collective=True
         )
@@ -99,6 +104,7 @@ class DirectHarmonicStep:
     ) -> None:
         """Select another frequency while retaining the prepared backend."""
 
+        self._require_open()
         selected = _angular_frequency(
             frequency=frequency,
             angular_frequency=angular_frequency,
@@ -243,9 +249,7 @@ class DirectHarmonicStep:
             "procedure": self.procedure.summary(),
             "solver": self.solver_options.summary(),
             "backend_execution": (
-                None
-                if self._prepared_problem is None
-                else self._prepared_problem.summary()
+                self._backend_execution_summary()
             ),
             "solve": (
                 None
@@ -261,7 +265,7 @@ class DirectHarmonicStep:
         self, *, collective: bool = False
     ) -> str:
         current = _prepared_configuration_fingerprint(self)
-        if self._prepared_problem is None:
+        if self._prepared_configuration_fingerprint is None:
             return current
         changed = current != self._prepared_configuration_fingerprint
         if collective:
@@ -275,6 +279,48 @@ class DirectHarmonicStep:
                 "operator and reported scientific contract cannot diverge."
             )
         return current
+
+    @property
+    def closed(self) -> bool:
+        """Whether this Step's retained backend allocation has been released."""
+
+        return self._closed
+
+    def _require_open(self) -> None:
+        if self._closed:
+            raise RuntimeError(f"DirectHarmonicStep {self.name!r} is closed.")
+
+    def _backend_execution_summary(self) -> dict[str, object] | None:
+        if self._prepared_problem is not None:
+            return self._prepared_problem.summary()
+        if self._closed_backend_summary is None:
+            return None
+        return dict(self._closed_backend_summary)
+
+    def close(self) -> None:
+        """Deterministically release the retained harmonic PETSc allocation."""
+
+        if self._closed:
+            return
+        prepared = self._prepared_problem
+        if prepared is not None:
+            backend_summary = prepared.summary()
+            try:
+                prepared.close()
+            finally:
+                self._closed_backend_summary = backend_summary
+                self._prepared_problem = None
+                self._closed = True
+        else:
+            self._closed = True
+
+    def __enter__(self):
+        self._require_open()
+        return self
+
+    def __exit__(self, exc_type, exc, traceback):
+        self.close()
+        return False
 
     def solve_result(self, *, output=None, strict_output: bool = False):
         """Solve and delegate result assembly to the Result owner."""
@@ -309,6 +355,7 @@ class DirectHarmonicSweepStep:
     _frozen_executable_identity: dict[str, object] | None = field(
         default=None, init=False, repr=False
     )
+    _closed: bool = field(default=False, init=False, repr=False)
 
     def __post_init__(self) -> None:
         self.frequencies = _frequency_axis(self.frequencies)
@@ -352,6 +399,7 @@ class DirectHarmonicSweepStep:
     def solve(self, *, max_points: int | None = None):
         """Advance pending frequency points, retaining only scalar records."""
 
+        self._require_open()
         if max_points is not None:
             if isinstance(max_points, (bool, np.bool_)) or not isinstance(
                 max_points, (int, np.integer)
@@ -796,6 +844,34 @@ class DirectHarmonicSweepStep:
 
         self.solve()
         return from_harmonic_sweep(self, strict_output=strict_output)
+
+    @property
+    def closed(self) -> bool:
+        """Whether this sweep's retained point-solve backend is closed."""
+
+        return self._closed
+
+    def _require_open(self) -> None:
+        if self._closed:
+            raise RuntimeError(f"DirectHarmonicSweepStep {self.name!r} is closed.")
+
+    def close(self) -> None:
+        """Release the reusable point solve while preserving scalar records."""
+
+        if self._closed:
+            return
+        try:
+            self.point_step.close()
+        finally:
+            self._closed = True
+
+    def __enter__(self):
+        self._require_open()
+        return self
+
+    def __exit__(self, exc_type, exc, traceback):
+        self.close()
+        return False
 
 
 def harmonic_frequency_sweep_step(

@@ -20,7 +20,9 @@ from agentfem import (
 from agentfem.constitutive import IsotropicGeneralizedMaxwell, isotropic_elastic
 
 
-def test_harmonic_generalized_maxwell_solve_and_output_are_distributed(tmp_path):
+def test_harmonic_generalized_maxwell_solve_and_output_are_distributed(
+    tmp_path, request
+):
     """Keep the harmonic solve, evidence and presentation output MPI-safe."""
 
     if MPI.COMM_WORLD.size != 2:
@@ -74,6 +76,9 @@ def test_harmonic_generalized_maxwell_solve_and_output_are_distributed(tmp_path)
     model.traction((traction, 0.0, 0.0), on=loaded_end)
 
     step = model.step(target=displacement, frequency=frequency)
+    # Distributed PETSc destruction must occur in the same test/lifecycle on
+    # every rank, not later through rank-local cyclic garbage collection.
+    request.addfinalizer(step.close)
     output = output_root / "harmonic_fields.xdmf"
     simulation = step.solve_result(output=output, strict_output=True)
     tip = results.average(
@@ -150,8 +155,11 @@ def test_harmonic_generalized_maxwell_solve_and_output_are_distributed(tmp_path)
         }
         assert {"U", "U_IMAG", "U_AMPLITUDE", "U_PHASE"} <= point_arrays
 
+    step.close()
+    assert step.closed
 
-def test_generic_direct_harmonic_sweep_is_distributed_and_monolithic():
+
+def test_generic_direct_harmonic_sweep_is_distributed_and_monolithic(request):
     """Keep the generic K/M/C/F direct-solve route rank consistent."""
 
     if MPI.COMM_WORLD.size != 2:
@@ -232,6 +240,7 @@ def test_generic_direct_harmonic_sweep_is_distributed_and_monolithic():
         solver_options=solvers.direct_solver(),
         progress=False,
     )
+    request.addfinalizer(step.close)
     simulation = step.solve_result()
 
     actual = np.asarray(simulation.histories["tip_x_REAL"].values) + 1j * np.asarray(
@@ -260,6 +269,9 @@ def test_generic_direct_harmonic_sweep_is_distributed_and_monolithic():
     gathered = comm.allgather(actual)
     for value in gathered:
         np.testing.assert_allclose(value, actual, rtol=1.0e-12, atol=1.0e-14)
+
+    step.close()
+    assert step.closed
 
 
 def test_nafems_r0016_test5h_direct_sweep_matches_with_two_ranks():

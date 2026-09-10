@@ -81,19 +81,23 @@ def test_prepared_mpc_linear_problem_reuses_lifecycle_and_updates_load():
         petsc_options_prefix="agentfem_test_periodic_mass_",
     )
 
-    first = problem.solve().x.array.copy()
-    source.value = 2.0
-    second = problem.solve().x.array.copy()
+    with problem:
+        first = problem.solve().x.array.copy()
+        source.value = 2.0
+        second = problem.solve().x.array.copy()
 
-    assert problem.last_solve_info is not None
-    assert problem.last_solve_info.converged
-    assert problem.solve_count == 2
-    assert np.max(np.abs(first - 1.0)) < 1.0e-10
-    assert np.max(np.abs(second - 2.0)) < 1.0e-10
-    summary = problem.summary()
-    assert summary["matrix_allocation_reused"] is True
-    assert summary["matrix_values_reassembled"] is True
-    assert summary["constraint"]["diagnostics"]["status"] == "valid"
+        assert problem.last_solve_info is not None
+        assert problem.last_solve_info.converged
+        assert problem.solve_count == 2
+        assert np.max(np.abs(first - 1.0)) < 1.0e-10
+        assert np.max(np.abs(second - 2.0)) < 1.0e-10
+        summary = problem.summary()
+        assert summary["matrix_allocation_reused"] is True
+        assert summary["matrix_values_reassembled"] is True
+        assert summary["constraint"]["diagnostics"]["status"] == "valid"
+
+    assert problem.closed
+    assert problem.summary() == summary
 
 
 def test_prepared_mpc_linear_problem_transfers_vector_field_layout():
@@ -337,6 +341,66 @@ def test_prepared_mpc_linear_problem_accepts_bc_declared_with_constraint():
 
     assert problem.solve_count == 0
     assert problem.summary()["num_bcs"] == 1
+    problem.close()
+
+
+def test_prepared_mpc_close_is_terminal_idempotent_and_keeps_borrowed_mpc():
+    domain = dolfinx_mesh.create_unit_square(MPI.COMM_WORLD, 3, 2)
+    space = fem.functionspace(domain, ("Lagrange", 1))
+    trial = ufl.TrialFunction(space)
+    test = ufl.TestFunction(space)
+    solution = fem.Function(space)
+    periodicity = constraints.rectangular_periodic_mpc(space)
+    problem = solvers.prepare_mpc_linear_problem(
+        (ufl.inner(ufl.grad(trial), ufl.grad(test)) + trial * test) * ufl.dx,
+        test * ufl.dx,
+        solution,
+        periodicity,
+        options=solvers.direct_solver(package="mumps"),
+        petsc_options_prefix="agentfem_test_periodic_close_",
+    )
+    native_problem = problem.problem
+    summary = problem.summary()
+    expected_solution = solution.x.array.copy()
+    global_slaves = domain.comm.allreduce(
+        periodicity.backend.num_local_slaves,
+        op=MPI.SUM,
+    )
+
+    problem.close()
+    problem.close()
+
+    assert problem.closed
+    assert problem.problem is None
+    assert problem.summary() == summary
+    assert all(
+        getattr(native_problem, name) is None
+        for name in ("_solver", "_A", "_b", "_x", "_P_mat")
+    )
+    # The provider and public field are borrowed rather than owned by the
+    # prepared numerical lifecycle.
+    assert domain.comm.allreduce(
+        periodicity.backend.num_local_slaves,
+        op=MPI.SUM,
+    ) == global_slaves
+    assert solution.function_space is space
+    np.testing.assert_array_equal(solution.x.array, expected_solution)
+    with pytest.raises(RuntimeError, match="PreparedMPCLinearProblem is closed"):
+        problem.solve()
+
+    # Closing the numerical allocation must not consume the provider: a fresh
+    # prepared solve can reuse the same exact MPC graph on every rank.
+    with solvers.prepare_mpc_linear_problem(
+        (ufl.inner(ufl.grad(trial), ufl.grad(test)) + trial * test) * ufl.dx,
+        test * ufl.dx,
+        solution,
+        periodicity,
+        options=solvers.direct_solver(package="mumps"),
+        petsc_options_prefix="agentfem_test_periodic_reopen_",
+    ) as replacement:
+        replacement.solve()
+        assert np.max(np.abs(solution.x.array - 1.0)) < 1.0e-10
+    assert replacement.closed
 
 
 def test_distributed_abaqus_equation_mapping_and_source_order():

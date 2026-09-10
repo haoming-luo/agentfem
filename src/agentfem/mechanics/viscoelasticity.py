@@ -321,6 +321,12 @@ class HarmonicViscoelasticStep:
         init=False,
         repr=False,
     )
+    _closed_backend_summary: dict[str, object] | None = field(
+        default=None,
+        init=False,
+        repr=False,
+    )
+    _closed: bool = field(default=False, init=False, repr=False)
 
     def __post_init__(self) -> None:
         # Harmonic material coefficients, inertia and load phase have already
@@ -409,6 +415,7 @@ class HarmonicViscoelasticStep:
     def solve(self):
         """Solve once and return the real displacement field."""
 
+        self._require_open()
         self._require_unchanged_construction_contract()
         if self._prepared_problem is None:
             prefix_name = "".join(
@@ -508,9 +515,7 @@ class HarmonicViscoelasticStep:
             "procedure": self.procedure.summary(),
             "solver": self.solver_options.summary(),
             "backend_execution": (
-                None
-                if self._prepared_problem is None
-                else self._prepared_problem.summary()
+                self._backend_execution_summary()
             ),
             "solve": (
                 None
@@ -716,6 +721,48 @@ class HarmonicViscoelasticStep:
             fields=("U_REAL", "U_IMAG", "U_AMPLITUDE", "U_PHASE"),
             strict_output=strict_output,
         )
+
+    @property
+    def closed(self) -> bool:
+        """Whether this Step's retained harmonic backend has been released."""
+
+        return self._closed
+
+    def _require_open(self) -> None:
+        if self._closed:
+            raise RuntimeError(f"HarmonicViscoelasticStep {self.name!r} is closed.")
+
+    def _backend_execution_summary(self) -> dict[str, object] | None:
+        if self._prepared_problem is not None:
+            return self._prepared_problem.summary()
+        if self._closed_backend_summary is None:
+            return None
+        return dict(self._closed_backend_summary)
+
+    def close(self) -> None:
+        """Deterministically release the retained harmonic PETSc allocation."""
+
+        if self._closed:
+            return
+        prepared = self._prepared_problem
+        if prepared is not None:
+            backend_summary = prepared.summary()
+            try:
+                prepared.close()
+            finally:
+                self._closed_backend_summary = backend_summary
+                self._prepared_problem = None
+                self._closed = True
+        else:
+            self._closed = True
+
+    def __enter__(self):
+        self._require_open()
+        return self
+
+    def __exit__(self, exc_type, exc, traceback):
+        self.close()
+        return False
 
 
 @dataclass

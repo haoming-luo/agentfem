@@ -30,6 +30,11 @@ optimization.
 - `prepare_mpc_linear_problem(...)` uses the ordinary `LinearSolverOptions`;
 - augmented MPC ghost layouts never leak into the public solution field;
 - repeated solves expose one stable `LinearSolveInfo` and solve count;
+- the prepared lifecycle has an idempotent `close()` and context-manager
+  contract; closing is terminal for that allocation but leaves the public
+  solution and provider-owned MPC graph usable;
+- one-shot and internally owned repeated-solve callers close in `finally`, so
+  collective PETSc destruction does not depend on Python cyclic-GC order;
 - Dirichlet conditions introduced after constraint construction are checked
   against owned MPC slaves on every rank and rejected when they overlap;
 - adapters translate domain-specific missing-dependency errors only at their
@@ -43,6 +48,8 @@ optimization.
 
 - one prepared object solves two independently known constant periodic fields;
 - the right-hand side changes without reconstructing the public object;
+- explicit close is idempotent, preserves the execution summary, rejects a
+  later solve, and permits a fresh solve using the same borrowed MPC graph;
 - scalar and vector serial/two-rank solutions reproduce their analytical
   constants, including blocked displacement-style layouts;
 - late Dirichlet/MPC conflicts fail before assembly in serial and MPI, while a

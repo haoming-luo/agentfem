@@ -959,14 +959,17 @@ def _solve_burgers(case, domain, policy, degree):
                 "AFM-PDEB-009",
                 "periodic PDE cases require the optional dolfinx_mpc backend",
             ) from exc
-        for step in range(1, steps + 1):
-            time.value = t0 + step * dt
-            expressions.interpolate(source, source_spec, parameters={"t": time})
-            problem.solve()
-            previous.x.array[:] = unknown.value.x.array
-            previous.x.scatter_forward()
-        solved = unknown.value
-        info = problem.last_solve_info
+        try:
+            for step in range(1, steps + 1):
+                time.value = t0 + step * dt
+                expressions.interpolate(source, source_spec, parameters={"t": time})
+                problem.solve()
+                previous.x.array[:] = unknown.value.x.array
+                previous.x.scatter_forward()
+            solved = unknown.value
+            info = problem.last_solve_info
+        finally:
+            problem.close()
     else:
         with solvers.prepare_linear_problem(
             a,

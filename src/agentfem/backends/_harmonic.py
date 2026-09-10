@@ -17,7 +17,7 @@ import numpy as np
 import ufl
 from petsc4py import PETSc
 
-from ..solvers import LinearSolveInfo
+from ..solvers import LinearSolveInfo, _destroy_dolfinx_linear_problem
 
 
 def _finite_harmonic_scalar(value, *, quantity: str) -> float:
@@ -112,6 +112,8 @@ class PreparedHarmonicLinearProblem:
         )
         self._solve_count = 0
         self._matrix_kind = str(matrix_kind)
+        self._petsc_matrix_type = self._problem.A.getType()
+        self._closed = False
 
     @classmethod
     def from_system(
@@ -231,9 +233,23 @@ class PreparedHarmonicLinearProblem:
         coefficient = getattr(self, "_angular_frequency", None)
         return None if coefficient is None else float(coefficient.value)
 
+    @property
+    def closed(self) -> bool:
+        """Whether the retained PETSc allocation has been released."""
+
+        return self._closed
+
+    def _require_open(self) -> None:
+        # Treat legacy/test doubles created without ``__init__`` as open; the
+        # closed state is an additive lifecycle guard, not a new prerequisite
+        # for inspecting backend evidence in isolation.
+        if getattr(self, "_closed", False):
+            raise RuntimeError("PreparedHarmonicLinearProblem is closed.")
+
     def set_angular_frequency(self, value: float) -> None:
         """Update the frequency coefficient without reallocating the problem."""
 
+        self._require_open()
         coefficient = getattr(self, "_angular_frequency", None)
         if coefficient is None:
             raise RuntimeError(
@@ -251,6 +267,7 @@ class PreparedHarmonicLinearProblem:
     def solve(self) -> HarmonicLinearSolveEvidence:
         """Reassemble, solve, and return KSP plus ``A*x-b`` evidence."""
 
+        self._require_open()
         problem = self._problem
         problem.solve()
         self._solve_count += 1
@@ -348,7 +365,7 @@ class PreparedHarmonicLinearProblem:
             summary["matrix_layout"] = (
                 "nested" if self._matrix_kind == "nest" else "monolithic"
             )
-            summary["petsc_matrix_type"] = self._problem.A.getType()
+            summary["petsc_matrix_type"] = self._petsc_matrix_type
             summary["component_residuals_available"] = self._matrix_kind == "nest"
             if self._matrix_kind != "nest":
                 summary["component_residuals_unavailable_reason"] = (
@@ -356,6 +373,32 @@ class PreparedHarmonicLinearProblem:
                     "residual; component residuals require an explicit index split."
                 )
         return summary
+
+    def close(self) -> None:
+        """Release the retained DOLFINx/PETSc solve allocation once.
+
+        DOLFINx 0.11 exposes destruction only through ``LinearProblem.__del__``.
+        Harmonic steps can participate in the model/execution-context reference
+        cycle, so waiting for cyclic garbage collection can retain distributed
+        KSP, matrix, and vector objects until interpreter shutdown.  Clearing
+        the owned PETSc attributes here preserves the upstream destructor while
+        ensuring it cannot destroy the same handles for a second time.
+        """
+
+        if self._closed:
+            return
+        problem = self._problem
+        self._problem = None
+        self._closed = True
+        _destroy_dolfinx_linear_problem(problem)
+
+    def __enter__(self):
+        self._require_open()
+        return self
+
+    def __exit__(self, exc_type, exc, traceback):
+        self.close()
+        return False
 
 
 def _expression(operator):

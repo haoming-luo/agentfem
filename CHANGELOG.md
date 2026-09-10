@@ -59,6 +59,11 @@ experimental formulation to a validated one.
   vector norm over one physical cycle. It no longer overestimates circular or
   otherwise non-proportional component motion by using the complex coefficient
   norm.
+- Reusable harmonic and exact-MPC problems now expose one deterministic,
+  idempotent resource lifecycle. Distributed PETSc allocations are released
+  collectively by their owner instead of later through rank-local Python
+  cyclic garbage collection; frozen results, summaries, public fields and
+  provider-owned MPC graphs remain readable after close.
 
 ### Boundaries
 

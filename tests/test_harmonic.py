@@ -159,6 +159,64 @@ def test_generic_harmonic_prepared_problem_reuses_allocation_across_frequency():
     assert execution["factorization_reuse_claimed"] is False
 
 
+def test_direct_harmonic_close_is_idempotent_and_preserves_summary():
+    model, displacement, _end, stiffness, mass, damping, force = _rayleigh_bar(
+        cells=2
+    )
+    step = model.step(
+        target=displacement,
+        K=stiffness,
+        M=mass,
+        C=damping,
+        F=force,
+        frequency=0.5,
+    )
+    step.solve_result()
+    prepared = step._prepared_problem
+    backend = prepared.summary()
+    dolfinx_problem = prepared._problem
+    expected_solution = step.complex_dofs
+
+    assert not step.closed
+    assert not prepared.closed
+    assert all(
+        getattr(dolfinx_problem, name) is not None
+        for name in ("_solver", "_A", "_b", "_x")
+    )
+
+    step.close()
+    step.close()
+
+    assert step.closed
+    assert prepared.closed
+    assert prepared.summary() == backend
+    assert step.summary()["backend_execution"] == backend
+    np.testing.assert_array_equal(step.complex_dofs, expected_solution)
+    assert all(
+        getattr(dolfinx_problem, name) is None
+        for name in ("_solver", "_A", "_b", "_x", "_P_mat")
+    )
+    with pytest.raises(RuntimeError, match="is closed"):
+        step.solve()
+
+
+def test_direct_harmonic_sweep_close_retains_scalar_result_and_is_terminal():
+    _model, step = _rayleigh_sweep()
+    result = step.solve_result()
+    expected = result.quantity("peak_frequency")
+    backend = step.point_step.summary()["backend_execution"]
+
+    step.close()
+    step.close()
+
+    assert step.closed
+    assert step.point_step.closed
+    assert step.summary()["point_step"]["backend_execution"] == backend
+    assert result.quantity("peak_frequency") == expected
+    with pytest.raises(RuntimeError, match="is closed"):
+        step.solve()
+
+
 def test_harmonic_vector_amplitude_is_the_exact_physical_cycle_maximum():
     amplitudes = _physical_cycle_vector_amplitudes(
         np.asarray((1.0, 0.0, 3.0, 0.0)),

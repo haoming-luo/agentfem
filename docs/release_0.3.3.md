@@ -28,6 +28,11 @@ scientific assets -> model.step(...) -> SimulationResult` lifecycle.
 - Repeated L2 recovery prepares its projection space, mass matrix and linear
   solver once, then updates only the right-hand side. This keeps scientific
   recovery explicit while avoiding repeated setup across a sweep.
+- Reusable harmonic and exact-MPC numerical allocations have an explicit,
+  idempotent `close()` lifecycle. Their owner releases distributed PETSc
+  resources collectively, preventing rank-local cyclic garbage collection
+  from entering an unrelated MPI collective; accepted results, summaries,
+  public fields and provider-owned constraint graphs remain available.
 - `U_AMPLITUDE` and `U_PHASE` are component-wise polar values of individual
   displacement coefficients. The reported maximum vector amplitude is the
   largest physical-cycle maximum of a discrete node/DOF-coefficient vector,

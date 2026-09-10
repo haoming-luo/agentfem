@@ -421,6 +421,11 @@ def nafems_r0016_test5h_benchmark(
     finally:
         cell_stress_sampler.close()
         recovered_stress_sampler.close()
+        # This benchmark owns the complete frequency sweep.  Release its
+        # distributed KSP/matrix/vector allocation before returning scalar
+        # evidence; otherwise the Model <-> execution-context cycle can defer
+        # DOLFINx cleanup until cyclic GC or MPI finalization.
+        step.close()
 
     displacement_amplitude = simulation.histories["MIDSPAN_UY_AMPLITUDE"].values
     recovered_stress = simulation.histories[

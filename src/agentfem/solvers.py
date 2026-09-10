@@ -745,10 +745,22 @@ class PreparedMPCLinearProblem:
         )
         self.last_solve_info: LinearSolveInfo | None = None
         self.solve_count = 0
+        self._closed = False
+
+    @property
+    def closed(self) -> bool:
+        """Whether this prepared numerical allocation has been released."""
+
+        return self._closed
+
+    def _require_open(self) -> None:
+        if self._closed:
+            raise RuntimeError("PreparedMPCLinearProblem is closed.")
 
     def solve(self):
         """Refresh the load, solve, backsubstitute, and copy owned DOFs."""
 
+        self._require_open()
         solved = self.problem.solve()
         _copy_owned_function_values(self.solution, solved)
         solver = self.problem.solver
@@ -781,6 +793,62 @@ class PreparedMPCLinearProblem:
                 None if self.last_solve_info is None else self.last_solve_info.as_dict()
             ),
         }
+
+    def close(self) -> None:
+        """Release the owned distributed PETSc allocation exactly once.
+
+        The constraint graph and public solution are borrowed and remain
+        usable.  Only the KSP, matrices, and work vectors allocated by the
+        upstream ``dolfinx_mpc.LinearProblem`` are destroyed.  Clearing each
+        handle before destruction also keeps its later Python finalizer from
+        revisiting a released collective PETSc object.
+        """
+
+        if self._closed:
+            return
+        problem = self.problem
+        self.problem = None
+        self._closed = True
+        _destroy_dolfinx_linear_problem(problem)
+
+    def __enter__(self):
+        self._require_open()
+        return self
+
+    def __exit__(self, exc_type, exc, traceback):
+        self.close()
+        return False
+
+
+def _destroy_dolfinx_linear_problem(problem) -> None:
+    """Close one upstream linear problem without stealing borrowed assets.
+
+    This narrow compatibility seam is shared by reusable ordinary, MPC, and
+    real-block problem owners.  Keep the DOLFINx-version-sensitive ownership
+    list here instead of copying it into each numerical backend.
+    """
+
+    native_close = getattr(problem, "close", None)
+    if callable(native_close):
+        native_close()
+        return
+
+    # DOLFINx 0.11 owns precisely these PETSc handles and releases them in
+    # this order from LinearProblem.__del__.  Do not destroy ``u``, forms, or
+    # ``_mpc``: those are public/borrowed scientific objects.
+    first_error = None
+    for name in ("_solver", "_A", "_b", "_x", "_P_mat"):
+        value = getattr(problem, name, None)
+        setattr(problem, name, None)
+        if value is None:
+            continue
+        try:
+            value.destroy()
+        except Exception as exc:  # pragma: no cover - PETSc failure path
+            if first_error is None:
+                first_error = exc
+    if first_error is not None:
+        raise first_error
 
 
 def prepare_mpc_linear_problem(
@@ -828,8 +896,12 @@ def solve_mpc_linear_problem(
         options=options,
         petsc_options_prefix=petsc_options_prefix,
     )
-    solved = problem.solve()
-    return (solved, problem.last_solve_info) if return_info else solved
+    try:
+        solved = problem.solve()
+        info = problem.last_solve_info
+        return (solved, info) if return_info else solved
+    finally:
+        problem.close()
 
 
 def _linear_petsc_options(options: LinearSolverOptions) -> dict[str, object]:

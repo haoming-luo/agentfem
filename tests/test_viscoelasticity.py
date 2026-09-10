@@ -217,6 +217,16 @@ def test_direct_harmonic_viscoelastic_bar_matches_complex_modulus(tmp_path):
 
     step.solve()
     assert step.summary()["backend_execution"]["solve_count"] == 2
+    backend = step.summary()["backend_execution"]
+
+    step.close()
+    step.close()
+
+    assert step.closed
+    assert step.summary()["backend_execution"] == backend
+    assert result.quantity("frequency") == pytest.approx(frequency)
+    with pytest.raises(RuntimeError, match="is closed"):
+        step.solve()
 
 
 def test_harmonic_viscoelastic_step_rejects_stale_construction_inputs():
