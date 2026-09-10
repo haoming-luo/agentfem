@@ -276,6 +276,13 @@
   "load_path_certificate": {
     "status": "accepted_successive_load_increment_stability",
     "command": "AGENTFEM_RUN_MULTI_VOID_RVE_LOAD_PATH=1 python -m pytest -q tests/test_multi_void_rve_golden.py -k real_multi_void_load_path_certificate",
+    "reference_source": {
+      "commit": "0491f2322e4adf1b6853de0335028df4e0fbd8d3",
+      "tracked_dirty": false,
+      "package_tree_sha256": "3bf8cc0f85f4a870006cd5fe0431edf8a1c5f30975ef839cbe6b46ea397ae020"
+    },
+    "runtime_mode": "source_checkout",
+    "runtime_fingerprint": "sha256:37c7fa42bddc9a1a50caf5def620d74b044d85d7a8bd8a5a2e98f9a1fa0ea2ed",
     "fixed_case_fingerprint": "sha256:60180a21fe7694e524a097485b4e8e55201f489b9675e3842b94bae7c5bce90c",
     "increments": [2, 4, 8],
     "thresholds": {
@@ -332,7 +339,7 @@
     "One deterministic realization is a software-regression asset, not a statistically representative porous material or a stochastic RVE-size study.",
     "The fixed h/L=0.16 Golden is a reference-stack regression; the three-level certificate shows successive stability only and does not establish an asymptotic range, an observed-order/GCI uncertainty or an external reference solution.",
     "The load-path certificate establishes final-state stability for one monotonic 2/4/8-increment sequence on one fixed mesh; it is not a general nonproportional-path convergence result or a temporal error estimator.",
-    "The fixed-stack, refinement, two-rank and restart evidence was regenerated from clean detached commit 17a2c66; a future release that changes the numerical package tree must rerun the complete evidence set before replacing this provenance.",
+    "The fixed-stack, refinement, two-rank and restart evidence was regenerated from clean detached commit 17a2c66; the separate load-path certificate was regenerated from clean commit 0491f23. A future release that changes the numerical package tree must rerun the corresponding evidence set before replacing either provenance record.",
     "PEEQ P99 and maximum and minimum local J remain mesh-sensitive diagnostics and are not Golden acceptance quantities.",
     "Hill--Mandel work consistency and recoverable-energy component closure are invariant audits, not a complete plastic-dissipation energy ledger.",
     "The low-order displacement-only tetrahedral route and this internal deterministic regression do not replace an independent externally published finite-strain plasticity benchmark."

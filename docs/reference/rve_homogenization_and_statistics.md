@@ -293,6 +293,9 @@ percent for PEEQ P95. The comparison removes only the increment count before
 hashing the case and rejects any change in mesh, material, loading, solver,
 quadrature, realization or constraint. It establishes final-state stability
 for this monotonic path on this fixed mesh, not a general temporal error bound.
+The stored certificate binds clean source commit `0491f23`, its package-tree
+hash, the complete runtime fingerprint and the fixed scientific-case
+fingerprint; a changed implementation or runtime cannot inherit it silently.
 
 The same realization also passes a one-rank/two-rank comparison: the relative
 first-Piola norm difference is about \(9.9\times10^{-14}\), all scalar
