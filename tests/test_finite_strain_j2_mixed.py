@@ -1237,6 +1237,10 @@ def test_plane_strain_q2_dpc1_preserves_fluctuation_and_four_block_tangent(
             absolute_tolerance=1.0e-10,
             maximum_iterations=30,
             line_search="backtracking",
+            # The displacement-pressure Jacobian is indefinite.  Select the
+            # same pivoting-aware direct solver on every release platform
+            # instead of inheriting PETSc's platform-specific LU default.
+            linear_solver=solvers.direct_solver(package="mumps"),
         ),
         output=output,
         progress=False,
@@ -1282,6 +1286,9 @@ def test_plane_strain_q2_dpc1_preserves_fluctuation_and_four_block_tangent(
         energy.condensed_elastic_energy_density - 1.0e-12 * energy_scale
     )
     assert "MEAN_KIRCHHOFF_STRESS" in result.fields
+    assert result.metadata["problem"]["solver"]["linear_solver"][
+        "factor_solver_type"
+    ] == "mumps"
     assert result.metadata["problem"]["numerical_formulation"]["kinematics"] == (
         "2D_plane_strain_F33_equals_1"
     )
