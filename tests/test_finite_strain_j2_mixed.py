@@ -1217,7 +1217,10 @@ def test_plane_strain_q2_dpc1_preserves_fluctuation_and_four_block_tangent(
         solver_options=solvers.newton(
             relative_tolerance=1.0e-9,
             absolute_tolerance=1.0e-10,
-            maximum_iterations=20,
+            # Preserve the strict equilibrium contract while allowing for
+            # small platform differences in PETSc's nonlinear trajectory.
+            # Linux needed one or two more corrections than macOS in CI.
+            maximum_iterations=30,
             line_search="backtracking",
         ),
         output=output,
