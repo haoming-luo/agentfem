@@ -6,7 +6,7 @@ experimental formulation to a validated one.
 
 ## [Unreleased]
 
-## [0.3.3] - 2026-09-09
+## [0.3.3] - 2026-09-10
 
 ### Added
 
