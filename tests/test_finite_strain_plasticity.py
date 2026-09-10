@@ -365,6 +365,81 @@ def test_finite_strain_j2_discrete_tangent_matches_independent_check(stretch):
     assert evidence.relative_error < 2.0e-5
 
 
+@pytest.mark.parametrize("stretch", (1.0005, 1.12))
+def test_finite_strain_j2_reused_baseline_is_strictly_equivalent(stretch):
+    material = constitutive.finite_strain_j2_logarithmic(
+        young=210_000.0,
+        poisson=0.3,
+        yield_stress=250.0,
+        hardening_modulus=1_000.0,
+        tangent_relative_step=2.0e-6,
+    )
+    gradient = _isochoric_extension(stretch)
+    state = material.state_schema.initial_state()
+    baseline = material._integrate(gradient, state)
+
+    legacy = material._algorithmic_tangent(gradient, state)
+    reused = material._algorithmic_tangent(
+        gradient,
+        state,
+        baseline=baseline,
+    )
+
+    np.testing.assert_array_equal(reused, legacy)
+
+
+def test_finite_strain_j2_reused_baseline_is_equivalent_for_one_sided_difference():
+    material = constitutive.finite_strain_j2_logarithmic(
+        young=210_000.0,
+        poisson=0.3,
+        yield_stress=250.0,
+        hardening_modulus=1_000.0,
+        tangent_relative_step=0.75,
+    )
+    gradient = np.diag((0.5, 1.0, 1.0))
+    state = material.state_schema.initial_state()
+    baseline = material._integrate(gradient, state)
+
+    legacy = material._algorithmic_tangent(gradient, state)
+    reused = material._algorithmic_tangent(
+        gradient,
+        state,
+        baseline=baseline,
+    )
+
+    # The F11 negative perturbation is inadmissible, so this exercises the
+    # forward-difference branch that consumes the reused baseline explicitly.
+    np.testing.assert_array_equal(reused, legacy)
+
+
+def test_finite_strain_j2_update_integrates_nineteen_times(monkeypatch):
+    material = constitutive.finite_strain_j2_logarithmic(
+        young=210_000.0,
+        poisson=0.3,
+        yield_stress=250.0,
+        hardening_modulus=1_000.0,
+        tangent_relative_step=2.0e-6,
+    )
+    original = constitutive.FiniteStrainJ2Logarithmic._integrate
+    call_count = 0
+
+    def counted_integrate(self, deformation_gradient, state_old):
+        nonlocal call_count
+        call_count += 1
+        return original(self, deformation_gradient, state_old)
+
+    monkeypatch.setattr(
+        constitutive.FiniteStrainJ2Logarithmic,
+        "_integrate",
+        counted_integrate,
+    )
+
+    material.update(_point(material, _isochoric_extension(1.12)))
+
+    # One baseline response plus two perturbations for each of nine F entries.
+    assert call_count == 19
+
+
 def test_finite_strain_j2_rejects_nonisochoric_committed_plastic_state():
     material = constitutive.finite_strain_j2_logarithmic(
         young=210_000.0,

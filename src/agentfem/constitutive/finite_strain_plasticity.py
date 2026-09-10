@@ -341,9 +341,19 @@ class FiniteStrainJ2Logarithmic:
             plastic_multiplier_increment=plastic_increment,
         )
 
-    def _algorithmic_tangent(self, deformation_gradient, state_old) -> np.ndarray:
+    def _algorithmic_tangent(
+        self,
+        deformation_gradient,
+        state_old,
+        *,
+        baseline: _FiniteStrainJ2Integration | None = None,
+    ) -> np.ndarray:
         selected = np.asarray(deformation_gradient, dtype=float)
-        baseline = self._integrate(selected, state_old).first_piola_stress
+        baseline_piola = (
+            self._integrate(selected, state_old).first_piola_stress
+            if baseline is None
+            else baseline.first_piola_stress
+        )
         tangent = np.empty((9, 9), dtype=float)
         for column in range(9):
             row, component = divmod(column, 3)
@@ -359,7 +369,7 @@ class FiniteStrainJ2Logarithmic:
                 minus_piola = self._integrate(minus, state_old).first_piola_stress
                 derivative = (plus_piola - minus_piola) / (2.0 * increment)
             else:
-                derivative = (plus_piola - baseline) / increment
+                derivative = (plus_piola - baseline_piola) / increment
             tangent[:, column] = derivative.reshape(-1)
         return tangent
 
@@ -376,6 +386,7 @@ class FiniteStrainJ2Logarithmic:
             consistent_tangent=self._algorithmic_tangent(
                 point.deformation_gradient_new,
                 point.state_old,
+                baseline=integrated,
             ),
             state_new=integrated.state,
             strain_energy_density=integrated.strain_energy_density,

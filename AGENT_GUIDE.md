@@ -420,6 +420,22 @@ subspace, not by matching individual vectors; reject a comparison when
 `selected_clusters_complete` is false. Treat a mass-normalized mode shape as a
 relative pattern, not as a dimensionless or physical displacement; use its
 recorded `Mode shape` warp field for visualization.
+
+For small-strain linear steady-state vibration, use
+`studies.harmonic_solid(...)` and give `model.step(...)` explicit `K`, `F`,
+and optional `M`, `C`, and `K_loss` operators. The lowering preserves them in
+an inspectable `operators.direct_harmonic_system(...)`. This provider-neutral
+procedure is at engineering maturity for
+supported strong constraints, one frequency or a bounded canonical sweep,
+and one real spatial load with a common phase. Supply exactly one of
+`frequency` in Hz or `angular_frequency` in rad/s. Results use the public
+`exp(+i*omega*t)` convention and expose `U_REAL`, `U_IMAG`, `U_AMPLITUDE`,
+`U_PHASE`, residual, cycle-energy, and load evidence. Sweep checkpoints are
+portable scalar evidence ledgers, not full-field recovery. Complex modes,
+prestressed small-on-large response, nonlinear harmonic balance, arbitrary
+constraint families, arbitrary complex spatial loads, and
+frequency-dependent operator families are not currently supported.
+
 Use `dynamics.spectrum(...)`, `frequency_response(...)`, and
 `damping_from_free_decay(...)` on arrays or scalar result histories.
 `constitutive.GeneralizedMaxwell` remains the scalar material-point and
@@ -434,6 +450,8 @@ resolved path, pass `incrementation=steps.automatic(...)` and optionally
 route accepts the two-half-step endpoint, rolls back all nodal and quadrature
 state after a rejected attempt, and records accepted/rejected increments. The
 Step owns committed quadrature history, exact branch updates, standard
-viscoelastic fields, energy evidence and serial restart. Do not reinterpret it
-as finite strain, physical aging, harmonic response or distributed portable
-restart.
+viscoelastic fields, energy evidence, and the declared portable serial/MPI
+restart route. The generalized-Maxwell material-specific harmonic provider is
+separate and remains experimental; do not infer its maturity from the
+engineering generic harmonic procedure or the elastic NAFEMS Test 5H
+comparison. Neither route implies finite strain or physical aging.

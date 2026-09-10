@@ -230,8 +230,9 @@ def _mixed_hencky_j2_response(
     # it is not a pointwise stored-energy density away from exact local
     # stationarity.  Report a nonnegative condensed energy representation.
     # It is pointwise equal to the primal volumetric storage only where
-    # p=kappa*ln(J); under a weak pressure equation its integrated value is the
-    # appropriate comparison channel, not an independent pointwise oracle.
+    # p=kappa*ln(J).  Integrating this representation does not make it the
+    # primal physical-energy channel; external primal-energy comparisons must
+    # use the explicit F/p/kappa energy diagnostic and retain its gap terms.
     condensed_volumetric_energy = 0.5 * pressures**2 * inverse_bulk
     energy_correction = condensed_volumetric_energy - old_volumetric_energy
     mixed_total_energy = total_energy + energy_correction
@@ -825,14 +826,21 @@ class FiniteStrainJ2StateTransaction:
             "P": "First Piola stress at accepted integration points.",
             "S": "Cauchy stress at accepted integration points.",
             "MISES": "Von Mises stress at accepted integration points.",
-            "SENER": "Stored elastic and hardening energy density.",
+            "SENER": (
+                "Stored primal elastic and hardening energy density."
+                if self.pressure_evaluator is None
+                else (
+                    "Condensed mixed elastic-energy plus hardening-energy "
+                    "representation; not automatically primal."
+                )
+            ),
             "ELENER": (
                 "Recoverable Hencky elastic free-energy density."
                 if self.pressure_evaluator is None
                 else (
-                    "Condensed mixed representation of recoverable Hencky "
-                    "energy; pointwise equivalent to the primal volumetric "
-                    "term only when p = kappa*ln(J)."
+                    "Condensed mixed elastic-energy representation; not a "
+                    "primal physical-energy value unless p = kappa*ln(J) "
+                    "holds pointwise."
                 )
             ),
             "HARDENER": "Stored linear-isotropic-hardening free-energy density.",
@@ -929,8 +937,10 @@ class FiniteStrainJ2StateTransaction:
             "energy_scope": (
                 "SENER = ELENER + HARDENER; mixed ELENER uses the condensed "
                 "p^2/(2*kappa) representation and is pointwise primal only "
-                "when p=kappa*ln(J); PDENER is cumulative irrecoverable "
-                "plastic dissipation"
+                "when p=kappa*ln(J); explicit primal comparisons require the "
+                "mixed J2 energy diagnostic with signed gap, orthogonality, "
+                "constraint-defect, and decomposition-residual channels; "
+                "PDENER is cumulative irrecoverable plastic dissipation"
             ),
         }
 

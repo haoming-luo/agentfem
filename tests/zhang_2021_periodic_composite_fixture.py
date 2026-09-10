@@ -303,6 +303,7 @@ def assess_table5(
     *,
     first_piola,
     elastic_energy_density: float | None = None,
+    elastic_energy_semantics: str | None = None,
     effective_tangent=None,
     convergence_evidence: dict[str, bool] | None = None,
     relative_tolerance: float = TABLE5_MAXIMUM_RELATIVE_TOLERANCE,
@@ -347,7 +348,17 @@ def assess_table5(
         np.all(stress_component_absolute_error <= stress_component_allowance)
     )
     energy_error = None
+    if elastic_energy_density is None and elastic_energy_semantics is not None:
+        raise ValueError(
+            "elastic_energy_semantics requires elastic_energy_density."
+        )
     if elastic_energy_density is not None:
+        if elastic_energy_semantics != "primal_hencky_elastic_energy":
+            raise ValueError(
+                "Table 5 energy comparison requires the primal Hencky elastic "
+                "energy. A condensed mixed or saddle-potential channel is not "
+                "the published observable."
+            )
         selected_energy = float(elastic_energy_density)
         if not np.isfinite(selected_energy):
             raise ValueError("elastic_energy_density must be finite.")
@@ -421,6 +432,7 @@ def assess_table5(
         "first_piola_component_error_ratio": stress_component_error_ratio.tolist(),
         "first_piola_componentwise_passed": stress_componentwise_passed,
         "elastic_energy_relative_error": energy_error,
+        "elastic_energy_semantics": elastic_energy_semantics,
         "effective_tangent_relative_frobenius_error": tangent_error,
         "missing_evidence": tuple(missing),
         "convergence": convergence,

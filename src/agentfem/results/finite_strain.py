@@ -154,6 +154,359 @@ class HillMandelIncrement:
         return cls(**{name: float(record[name]) for name in cls.__dataclass_fields__})
 
 
+@dataclass(frozen=True)
+class MixedJ2ElasticEnergyDiagnostics:
+    r"""Volume-normalized energy identity for mixed finite-strain J2 fields.
+
+    ``pressure`` is the mean Kirchhoff stress, positive in tension, and
+    ``inverse_bulk_modulus`` is :math:`1/\kappa`.  With
+    :math:`r_p=\ln J-p/\kappa`, the reported channels satisfy
+
+    .. math::
+
+       \overline{\psi}_{\mathrm{primal}}
+       -\overline{\psi}_{\mathrm{condensed}}
+       = \overline{p r_p}
+       + \overline{\tfrac{1}{2}\kappa r_p^2}.
+
+    The overbar denotes integration over owned material quadrature points
+    followed by MPI reduction and division by ``reference_volume``.  The
+    pressure-orthogonality channel is signed; it vanishes when the accepted
+    mixed pressure equation is satisfied with ``pressure`` as a test field.
+    The constraint-defect channel is nonnegative and measures the remaining
+    pointwise departure from :math:`p=\kappa\ln J`.
+
+    The energy gap and pressure-orthogonality channels are signed.  The
+    pressure-constraint-defect energy is nonnegative.
+
+    ``algebraic_identity_verified`` certifies only the algebraic identity and
+    aligned finite input fields.  It is deliberately not a solver-convergence
+    or benchmark-verification claim.
+    """
+
+    primal_elastic_energy_density: float
+    condensed_elastic_energy_density: float
+    signed_energy_gap_density: float
+    pressure_orthogonality_density: float
+    pressure_constraint_defect_energy_density: float
+    algebraic_identity_residual_density: float
+    integrated_absolute_algebraic_identity_residual_density: float
+    maximum_absolute_algebraic_identity_residual: float
+    maximum_absolute_pressure_constraint_residual: float
+    rms_pressure_constraint_residual: float
+    integrated_reference_measure: float
+    reference_volume: float
+    integration_point_count: int
+    algebraic_identity_verified: bool
+
+    def __post_init__(self) -> None:
+        scalar_names = (
+            "primal_elastic_energy_density",
+            "condensed_elastic_energy_density",
+            "signed_energy_gap_density",
+            "pressure_orthogonality_density",
+            "pressure_constraint_defect_energy_density",
+            "algebraic_identity_residual_density",
+            "integrated_absolute_algebraic_identity_residual_density",
+            "maximum_absolute_algebraic_identity_residual",
+            "maximum_absolute_pressure_constraint_residual",
+            "rms_pressure_constraint_residual",
+            "integrated_reference_measure",
+            "reference_volume",
+        )
+        if any(not np.isfinite(getattr(self, name)) for name in scalar_names):
+            raise ValueError("Mixed J2 energy diagnostics must be finite.")
+        if self.integrated_reference_measure <= 0.0 or self.reference_volume <= 0.0:
+            raise ValueError(
+                "Mixed J2 energy diagnostics require positive integration "
+                "measure and reference volume."
+            )
+        if self.integration_point_count <= 0:
+            raise ValueError(
+                "Mixed J2 energy diagnostics require at least one owned "
+                "integration point globally."
+            )
+        scale = max(
+            abs(self.signed_energy_gap_density),
+            abs(self.pressure_orthogonality_density),
+            abs(self.pressure_constraint_defect_energy_density),
+            np.finfo(float).tiny,
+        )
+        tolerance = 512.0 * np.finfo(float).eps * scale
+        if self.pressure_constraint_defect_energy_density < -tolerance:
+            raise ValueError(
+                "Mixed J2 pressure constraint-defect energy must be nonnegative."
+            )
+        if self.integrated_absolute_algebraic_identity_residual_density > tolerance:
+            raise ValueError(
+                "Mixed J2 primal/condensed energy decomposition is inconsistent."
+            )
+        if not self.algebraic_identity_verified:
+            raise ValueError(
+                "Mixed J2 diagnostics cannot be constructed without a verified "
+                "energy decomposition."
+            )
+
+    def as_dict(self) -> dict[str, object]:
+        """Return JSON-ready scientific channels and their conventions."""
+
+        return {
+            "kind": "mixed_j2_elastic_energy_diagnostics",
+            "schema": "agentfem.mixed-j2-elastic-energy-diagnostics",
+            "schema_version": "0.1.0",
+            "primal_elastic_energy_density": self.primal_elastic_energy_density,
+            "condensed_elastic_energy_density": (
+                self.condensed_elastic_energy_density
+            ),
+            "signed_energy_gap_density": self.signed_energy_gap_density,
+            "pressure_orthogonality_density": (
+                self.pressure_orthogonality_density
+            ),
+            "pressure_constraint_defect_energy_density": (
+                self.pressure_constraint_defect_energy_density
+            ),
+            "algebraic_identity_residual_density": (
+                self.algebraic_identity_residual_density
+            ),
+            "integrated_absolute_algebraic_identity_residual_density": (
+                self.integrated_absolute_algebraic_identity_residual_density
+            ),
+            "maximum_absolute_algebraic_identity_residual": (
+                self.maximum_absolute_algebraic_identity_residual
+            ),
+            "maximum_absolute_pressure_constraint_residual": (
+                self.maximum_absolute_pressure_constraint_residual
+            ),
+            "rms_pressure_constraint_residual": (
+                self.rms_pressure_constraint_residual
+            ),
+            "integrated_reference_measure": self.integrated_reference_measure,
+            "reference_volume": self.reference_volume,
+            "integration_point_count": self.integration_point_count,
+            "algebraic_identity_verified": self.algebraic_identity_verified,
+            "pressure_measure": "mean_kirchhoff_stress_positive_in_tension",
+            "pressure_constraint_residual": "ln(J) - p/kappa",
+            "normalization": "integral_over_material_reference_measure / reference_volume",
+            "energy_identity": (
+                "primal - condensed = pressure_orthogonality + "
+                "pressure_constraint_defect"
+            ),
+        }
+
+
+def mixed_j2_elastic_energy_diagnostics(
+    *,
+    deformation_gradient,
+    pressure,
+    inverse_bulk_modulus,
+    condensed_elastic_energy_density,
+    reference_volume: float,
+) -> MixedJ2ElasticEnergyDiagnostics:
+    r"""Audit mixed J2 elastic energy using aligned accepted quadrature fields.
+
+    All four inputs must be :class:`~agentfem.constitutive.QuadratureField`
+    instances from one constitutive transaction, on one mesh and with exactly
+    the same quadrature points and weights.  Tensor values use the common
+    embedded ``3 x 3`` representation; the other fields are scalar.  Only
+    owned cells contribute, so ghost cells are never double-counted under MPI.
+
+    The condensed input is the complete recoverable elastic energy density,
+    including :math:`p^2/(2\kappa)`.  This function replaces that volumetric
+    term by :math:`\kappa(\ln J)^2/2` to recover the primal channel.  It does
+    not reconstruct deviatoric energy from a different material law.
+
+    Invalid aligned fields fail collectively before integration once the
+    reference deformation-gradient field provides the MPI communicator.
+    ``reference_volume`` may exceed the integrated material measure, as it
+    does for an RVE whose normalization includes voids.
+    """
+
+    from ..constitutive.quadrature import QuadratureField
+
+    if not isinstance(deformation_gradient, QuadratureField):
+        raise TypeError("deformation_gradient must be a QuadratureField.")
+    domain = deformation_gradient.function.function_space.mesh
+    comm = domain.comm
+    fields = (
+        ("deformation_gradient", deformation_gradient, (3, 3)),
+        ("pressure", pressure, ()),
+        ("inverse_bulk_modulus", inverse_bulk_modulus, ()),
+        (
+            "condensed_elastic_energy_density",
+            condensed_elastic_energy_density,
+            (),
+        ),
+    )
+    local_problem = None
+    local_values = None
+    try:
+        selected_volume = float(reference_volume)
+        if not np.isfinite(selected_volume) or selected_volume <= 0.0:
+            raise ValueError("reference_volume must be finite and positive.")
+        for name, selected, expected_shape in fields:
+            if not isinstance(selected, QuadratureField):
+                raise TypeError(f"{name} must be a QuadratureField.")
+            if selected.function.function_space.mesh is not domain:
+                raise ValueError(f"{name} belongs to another mesh.")
+            if tuple(selected.value_shape) != expected_shape:
+                raise ValueError(
+                    f"{name} requires value shape {expected_shape}, got "
+                    f"{tuple(selected.value_shape)}."
+                )
+            if not np.array_equal(
+                selected.points,
+                deformation_gradient.points,
+            ) or not np.array_equal(
+                selected.weights,
+                deformation_gradient.weights,
+            ):
+                raise ValueError(
+                    f"{name} does not share the deformation-gradient "
+                    "quadrature rule."
+                )
+        values = tuple(
+            np.asarray(selected.owned_values, dtype=float)
+            for _, selected, _ in fields
+        )
+        F_values = values[0]
+        scalar_values = tuple(value.reshape(-1) for value in values[1:])
+        weights = np.asarray(
+            deformation_gradient.owned_physical_weights(),
+            dtype=float,
+        ).reshape(-1)
+        count = len(F_values)
+        if F_values.shape != (count, 3, 3) or any(
+            len(value) != count for value in scalar_values
+        ) or len(weights) != count:
+            raise ValueError(
+                "Mixed J2 diagnostic fields are not point-aligned on owned cells."
+            )
+        if any(not np.all(np.isfinite(value)) for value in (*values, weights)):
+            raise ValueError(
+                "Mixed J2 diagnostic fields and physical weights must be finite."
+            )
+        if np.any(weights < 0.0):
+            raise ValueError("Mixed J2 physical quadrature weights must be nonnegative.")
+        determinants = np.linalg.det(F_values)
+        if np.any(determinants <= 0.0):
+            raise ValueError(
+                "Mixed J2 energy diagnostics require positive deformation "
+                "Jacobians at every integration point."
+            )
+        selected_pressure, selected_inverse_bulk, selected_condensed = scalar_values
+        if np.any(selected_inverse_bulk <= 0.0):
+            raise ValueError(
+                "inverse_bulk_modulus must be positive at every integration point."
+            )
+        local_values = (
+            weights,
+            np.log(determinants),
+            selected_pressure,
+            selected_inverse_bulk,
+            selected_condensed,
+        )
+    except Exception as exc:
+        local_problem = f"{type(exc).__name__}: {exc}"
+    problems = comm.allgather(local_problem)
+    if any(problem is not None for problem in problems):
+        rank = next(
+            index for index, problem in enumerate(problems) if problem is not None
+        )
+        raise RuntimeError(
+            f"Rank {rank}: invalid mixed J2 energy diagnostic fields: "
+            f"{problems[rank]}"
+        )
+
+    volumes = tuple(float(value) for value in comm.allgather(reference_volume))
+    if not np.allclose(volumes, volumes[0], rtol=0.0, atol=0.0):
+        raise RuntimeError(
+            "Mixed J2 energy diagnostics require the same reference_volume "
+            "on every MPI rank."
+        )
+    selected_volume = volumes[0]
+    weights, logarithmic_volume, pressure_values, inverse_bulk, condensed = (
+        local_values
+    )
+    constraint_residual = logarithmic_volume - pressure_values * inverse_bulk
+    # Factor the difference of squares.  This retains the small energy gap
+    # when an almost-stationary pressure makes the two volumetric energies
+    # nearly equal.
+    energy_gap = 0.5 * constraint_residual * (
+        logarithmic_volume / inverse_bulk + pressure_values
+    )
+    pressure_orthogonality = pressure_values * constraint_residual
+    constraint_defect = 0.5 * constraint_residual**2 / inverse_bulk
+    decomposition_residual = (
+        energy_gap - pressure_orthogonality - constraint_defect
+    )
+    primal = condensed + energy_gap
+    integrands = np.asarray(
+        (
+            primal,
+            condensed,
+            energy_gap,
+            pressure_orthogonality,
+            constraint_defect,
+            decomposition_residual,
+            np.abs(decomposition_residual),
+            constraint_residual**2,
+            np.ones_like(weights),
+        )
+    )
+    local_integrals = np.einsum("ip,p->i", integrands, weights)
+    global_integrals = np.asarray(comm.allreduce(local_integrals), dtype=float)
+    global_point_count = int(comm.allreduce(len(weights)))
+    local_maximum = float(np.max(np.abs(constraint_residual), initial=0.0))
+    global_maximum = float(comm.allreduce(local_maximum, op=_mpi_max()))
+    integrated_measure = float(global_integrals[8])
+    if integrated_measure <= 0.0 or global_point_count <= 0:
+        raise RuntimeError(
+            "Mixed J2 energy diagnostics require positive global material measure."
+        )
+    normalized = global_integrals[:7] / selected_volume
+    rms_constraint_residual = float(
+        np.sqrt(max(0.0, global_integrals[7] / integrated_measure))
+    )
+    pointwise_identity_scale = np.maximum.reduce(
+        (
+            np.abs(energy_gap),
+            np.abs(pressure_orthogonality),
+            np.abs(constraint_defect),
+            np.full_like(energy_gap, np.finfo(float).tiny),
+        )
+    )
+    local_identity_scale = float(np.max(pointwise_identity_scale, initial=0.0))
+    global_identity_scale = float(
+        comm.allreduce(local_identity_scale, op=_mpi_max())
+    )
+    local_identity_residual = float(
+        np.max(np.abs(decomposition_residual), initial=0.0)
+    )
+    global_identity_residual = float(
+        comm.allreduce(local_identity_residual, op=_mpi_max())
+    )
+    verified = bool(
+        global_identity_residual
+        <= 512.0 * np.finfo(float).eps * global_identity_scale
+    )
+    return MixedJ2ElasticEnergyDiagnostics(
+        primal_elastic_energy_density=float(normalized[0]),
+        condensed_elastic_energy_density=float(normalized[1]),
+        signed_energy_gap_density=float(normalized[2]),
+        pressure_orthogonality_density=float(normalized[3]),
+        pressure_constraint_defect_energy_density=float(normalized[4]),
+        algebraic_identity_residual_density=float(normalized[5]),
+        integrated_absolute_algebraic_identity_residual_density=float(normalized[6]),
+        maximum_absolute_algebraic_identity_residual=global_identity_residual,
+        maximum_absolute_pressure_constraint_residual=global_maximum,
+        rms_pressure_constraint_residual=rms_constraint_residual,
+        integrated_reference_measure=integrated_measure,
+        reference_volume=selected_volume,
+        integration_point_count=global_point_count,
+        algebraic_identity_verified=verified,
+    )
+
+
 @dataclass
 class PeriodicCellHistoryRecorder:
     """Collect lightweight RVE evidence at every accepted increment.

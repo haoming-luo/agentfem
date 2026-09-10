@@ -938,6 +938,28 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#modal-cantilever" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Modal cantilever
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#nafems-r0016-test-5h-direct-harmonic-response" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        NAFEMS R0016 Test 5H direct harmonic response
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#abaqus-periodic-hyperelastic-cell" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1135,6 +1157,16 @@ problem-specific qualification.</p>
 <td>Release</td>
 </tr>
 <tr>
+<td><a href="#modal-cantilever">Modal cantilever</a></td>
+<td>Linear solid, generalized Hermitian eigensolve</td>
+<td>Engineering</td>
+</tr>
+<tr>
+<td><a href="#nafems-r0016-test-5h-direct-harmonic-response">NAFEMS R0016 Test 5H direct harmonic response</a></td>
+<td>3D linear solid, Rayleigh damping, direct frequency sweep</td>
+<td>Engineering</td>
+</tr>
+<tr>
 <td><a href="#abaqus-periodic-hyperelastic-cell">Abaqus periodic hyperelastic cell</a></td>
 <td>Imported 3D quadratic mesh, equations, finite strain</td>
 <td>Engineering</td>
@@ -1218,6 +1250,31 @@ output, and a release Golden observable.</p>
 </code></pre></div>
 <p><a href="https://github.com/haoming-luo/agentfem/blob/main/examples/transient_heat_2d.py">Source code</a>
 · <a href="../guide/heat_transfer/">Heat-transfer guide</a></p>
+<h2 id="modal-cantilever">Modal cantilever<a class="headerlink" href="#modal-cantilever" title="Permanent link">&para;</a></h2>
+<p><span class="af-status af-status--engineering">Engineering</span></p>
+<p>A quadratic plane-stress cantilever exercises the public linear modal
+procedure: constrained stiffness and consistent mass assembly, SLEPc's
+generalized Hermitian eigensolve, positive natural frequencies,
+mass-normalized mode fields, eigenpair residuals, orthogonality, cluster
+semantics, and serial/two-rank agreement. Mode fields are relative spatial
+patterns; they are not physical displacement amplitudes.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>python<span class="w"> </span>examples/modal_cantilever_2d.py
+</code></pre></div>
+<p><a href="https://github.com/haoming-luo/agentfem/blob/main/examples/modal_cantilever_2d.py">Source code</a>
+· <a href="../guide/dynamics/#modal-analysis">Dynamics guide</a>
+· <a href="https://github.com/haoming-luo/agentfem/blob/main/src/agentfem/knowledge/benchmarks/linear_cantilever_modal.json">Benchmark record</a></p>
+<h2 id="nafems-r0016-test-5h-direct-harmonic-response">NAFEMS R0016 Test 5H direct harmonic response<a class="headerlink" href="#nafems-r0016-test-5h-direct-harmonic-response" title="Permanent link">&para;</a></h2>
+<p><span class="af-status af-status--engineering">Engineering</span></p>
+<p>This public three-dimensional forced-vibration comparison exercises the
+provider-neutral direct harmonic procedure with visible stiffness, mass,
+viscous damping, loss stiffness, and load operators. The frozen 50-point
+frequency sweep checks peak frequency, displacement amplitude, a declared
+stress-recovery channel, residual, cyclic energy balance, applied resultant,
+serial/two-rank agreement, and portable scalar-ledger restart. Its acceptance
+limits are AgentFEM release gates, not NAFEMS tolerances.</p>
+<p><a href="../release_0.3.3/#nafems-r0016-test-5h-evidence">0.3.3 evidence and numerical comparison</a>
+· <a href="https://github.com/haoming-luo/agentfem/blob/main/tests/test_external_forced_vibration_benchmark.py">Executable benchmark</a>
+· <a href="https://github.com/haoming-luo/agentfem/blob/main/src/agentfem/knowledge/benchmarks/nafems_r0016_test5h_forced_vibration.json">Benchmark record</a></p>
 <h2 id="abaqus-periodic-hyperelastic-cell">Abaqus periodic hyperelastic cell<a class="headerlink" href="#abaqus-periodic-hyperelastic-cell" title="Permanent link">&para;</a></h2>
 <p><span class="af-status af-status--engineering">Engineering</span></p>
 <p>This workflow directly imports an Abaqus C3D10H mesh and equation constraints,
@@ -1240,7 +1297,7 @@ backward-Euler constitutive integration, analytical consistent tangent,
 physical-time automatic incrementation, rollback/cutback, creep output, energy
 evidence, and restart. The same global step can consume a prescribed
 temperature field through the Arrhenius material factory.</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>python<span class="w"> </span>examples/implicit_creep_relaxation_3d.py
+<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>python<span class="w"> </span>examples/implicit_creep_relaxation_3d.py
 </code></pre></div>
 <p><a href="https://github.com/haoming-luo/agentfem/blob/main/examples/implicit_creep_relaxation_3d.py">Source code</a>
 · <a href="../guide/creep_and_inelasticity/">Creep and inelasticity</a>
@@ -1254,7 +1311,7 @@ energy fields, nonnegative viscous dissipation, temperature-shift support and
 restart. Its automated homogeneous patch matches the closed-form stress after
 both the ramp and hold. A separate three-dimensional traction-controlled rod
 test matches the published Abaqus 0.001 s and 50 s creep response.</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>python<span class="w"> </span>examples/viscoelastic_relaxation_3d.py
+<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>python<span class="w"> </span>examples/viscoelastic_relaxation_3d.py
 </code></pre></div>
 <p><a href="https://github.com/haoming-luo/agentfem/blob/main/examples/viscoelastic_relaxation_3d.py">Source code</a>
 · <a href="../guide/dynamics/#linear-viscoelastic-spectra">Dynamics and viscoelasticity</a>
@@ -1262,15 +1319,17 @@ test matches the published Abaqus 0.001 s and 50 s creep response.</p>
 · <a href="https://github.com/haoming-luo/agentfem/blob/main/src/agentfem/knowledge/benchmarks/abaqus_viscoelastic_rod.json">External rod benchmark</a></p>
 <h2 id="viscoelastic-harmonic-response">Viscoelastic harmonic response<a class="headerlink" href="#viscoelastic-harmonic-response" title="Permanent link">&para;</a></h2>
 <p><span class="af-status af-status--experimental">Experimental</span></p>
-<p>A three-dimensional generalized-Maxwell bar demonstrates direct harmonic
-assembly without requiring a complex PETSc build. Storage and loss stiffness,
-optional inertia and a load phasor are lowered to one exact real block system;
-the common result publishes real, imaginary, amplitude and phase displacement
-fields together with material-loss evidence.</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>python<span class="w"> </span>examples/viscoelastic_harmonic_3d.py
+<p>A three-dimensional generalized-Maxwell bar demonstrates one material-specific
+consumer of the direct harmonic procedure without requiring a complex PETSc
+build. Storage and loss stiffness, optional inertia and a load phasor are
+lowered to one exact real block system; the common result publishes real,
+imaginary, amplitude and phase displacement fields together with material-loss
+evidence. This material coupling remains experimental even though the generic
+linear structural direct harmonic procedure is engineering maturity.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a>python<span class="w"> </span>examples/viscoelastic_harmonic_3d.py
 </code></pre></div>
 <p><a href="https://github.com/haoming-luo/agentfem/blob/main/examples/viscoelastic_harmonic_3d.py">Source code</a>
-· <a href="../guide/dynamics/#direct-harmonic-viscoelastic-response">Dynamics and viscoelasticity</a>
+· <a href="../guide/dynamics/#direct-harmonic-response">Direct harmonic response</a>
 · <a href="https://github.com/haoming-luo/agentfem/blob/main/src/agentfem/knowledge/benchmarks/global_viscoelastic_harmonic_bar.json">Golden benchmark record</a></p>
 <h2 id="hot-wall-creep-assessment">Hot-wall creep assessment<a class="headerlink" href="#hot-wall-creep-assessment" title="Permanent link">&para;</a></h2>
 <p><span class="af-status af-status--engineering">Engineering</span></p>
@@ -1278,7 +1337,7 @@ fields together with material-loss evidence.</p>
 then an explicitly identified local creep assessment. It demonstrates how the
 software distinguishes a global field solution from a material-point or
 assessment-level model.</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a>python<span class="w"> </span>examples/creep_hot_wall_assessment.py
+<div class="highlight"><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a>python<span class="w"> </span>examples/creep_hot_wall_assessment.py
 </code></pre></div>
 <p><a href="https://github.com/haoming-luo/agentfem/blob/main/examples/creep_hot_wall_assessment.py">Source code</a></p>
 <h2 id="elasticity-surrogate-campaign">Elasticity surrogate campaign<a class="headerlink" href="#elasticity-surrogate-campaign" title="Permanent link">&para;</a></h2>
@@ -1286,7 +1345,7 @@ assessment-level model.</p>
 <p>The campaign varies declared parameters, runs the same finite-element model,
 records failures and evidence, creates an accepted scientific dataset, trains
 a surrogate, checks its applicability domain, and retains an FEM fallback.</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a>python<span class="w"> </span>examples/static_elasticity_surrogate_campaign.py
+<div class="highlight"><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a>python<span class="w"> </span>examples/static_elasticity_surrogate_campaign.py
 </code></pre></div>
 <p><a href="https://github.com/haoming-luo/agentfem/blob/main/examples/static_elasticity_surrogate_campaign.py">Source code</a>
 · <a href="../guide/simulation_to_learning/">Simulation to learning</a></p>

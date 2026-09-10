@@ -537,13 +537,14 @@ _BENCHMARKS = (
         ),
         criterion=(
             "the published two-inclusion/one-void periodic composite must "
-            "reproduce Table 5 first-Piola stress, recoverable elastic "
+            "reproduce Table 5 first-Piola stress, primal Hencky elastic "
             "energy, and effective tangent within 3 percent after mesh, "
             "plane-strain formulation, cell-size, and serial/MPI convergence"
         ),
         automated_test=(
             "tests/test_zhang_2021_periodic_composite.py; "
-            "tests/zhang_2021_periodic_composite_driver.py"
+            "tests/zhang_2021_plane_strain_driver.py; "
+            "tests/zhang_2021_periodic_composite_driver.py (thin-3D diagnostic)"
         ),
         status="experimental_external_fixture_not_promoted",
         evidence=(

@@ -649,20 +649,41 @@
     </span>
   </a>
   
-    <nav class="md-nav" aria-label="Linear viscoelastic spectra">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#direct-harmonic-viscoelastic-response" class="md-nav__link">
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#direct-harmonic-response" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Direct harmonic viscoelastic response
+        Direct harmonic response
       
     </span>
   </a>
   
-    <nav class="md-nav" aria-label="Direct harmonic viscoelastic response">
+    <nav class="md-nav" aria-label="Direct harmonic response">
       <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#generalized-maxwell-material-coupling" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Generalized-Maxwell material coupling
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#provider-neutral-operator-sweeps" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Provider-neutral operator sweeps
+      
+    </span>
+  </a>
+  
+</li>
         
           <li class="md-nav__item">
   <a href="#external-forced-vibration-comparison" class="md-nav__link">
@@ -679,9 +700,26 @@
     </nav>
   
 </li>
-        
-      </ul>
-    </nav>
+      
+        <li class="md-nav__item">
+  <a href="#generalized-maxwell-validation-and-fitting" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Generalized-Maxwell validation and fitting
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#constraint-compatibility" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Constraint compatibility
+      
+    </span>
+  </a>
   
 </li>
       
@@ -1338,20 +1376,41 @@
     </span>
   </a>
   
-    <nav class="md-nav" aria-label="Linear viscoelastic spectra">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#direct-harmonic-viscoelastic-response" class="md-nav__link">
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#direct-harmonic-response" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Direct harmonic viscoelastic response
+        Direct harmonic response
       
     </span>
   </a>
   
-    <nav class="md-nav" aria-label="Direct harmonic viscoelastic response">
+    <nav class="md-nav" aria-label="Direct harmonic response">
       <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#generalized-maxwell-material-coupling" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Generalized-Maxwell material coupling
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#provider-neutral-operator-sweeps" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Provider-neutral operator sweeps
+      
+    </span>
+  </a>
+  
+</li>
         
           <li class="md-nav__item">
   <a href="#external-forced-vibration-comparison" class="md-nav__link">
@@ -1368,9 +1427,26 @@
     </nav>
   
 </li>
-        
-      </ul>
-    </nav>
+      
+        <li class="md-nav__item">
+  <a href="#generalized-maxwell-validation-and-fitting" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Generalized-Maxwell validation and fitting
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#constraint-compatibility" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Constraint compatibility
+      
+    </span>
+  </a>
   
 </li>
       
@@ -1695,7 +1771,13 @@ an explicitly supplied temperature scalar or field. Portable checkpoints reject
 a changed material, amplitude, temperature, time grid, physical quadrature
 identity or nodal field identity before restart. Response fields are rebuilt
 from the accepted branch state without advancing relaxation time.</p>
-<h3 id="direct-harmonic-viscoelastic-response">Direct harmonic viscoelastic response<a class="headerlink" href="#direct-harmonic-viscoelastic-response" title="Permanent link">&para;</a></h3>
+<h2 id="direct-harmonic-response">Direct harmonic response<a class="headerlink" href="#direct-harmonic-response" title="Permanent link">&para;</a></h2>
+<p>Direct harmonic response is owned by the solution procedure, not by a
+particular material. The provider-neutral route consumes explicit, inspectable
+<code>K</code>, <code>F</code>, and optional <code>M</code>, <code>C</code>, and <code>K_loss</code> operators. A constitutive model
+may supply an operator, but it does not change the procedure's ownership or
+verification contract.</p>
+<h3 id="generalized-maxwell-material-coupling">Generalized-Maxwell material coupling<a class="headerlink" href="#generalized-maxwell-material-coupling" title="Permanent link">&para;</a></h3>
 <p>The same generalized-Maxwell material can be used directly in the frequency
 domain. The public workflow remains an engineering model and one <code>model.step</code>:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="n">model</span> <span class="o">=</span> <span class="n">models</span><span class="o">.</span><span class="n">create</span><span class="p">(</span>
@@ -1736,6 +1818,7 @@ three-dimensional isotropic material, uniform temperature, homogeneous strong
 constraints, and one common load phase. Multiple material regions, MPC/weak
 constraints, and per-load phases remain promotion gates rather than being
 silently approximated.</p>
+<h3 id="provider-neutral-operator-sweeps">Provider-neutral operator sweeps<a class="headerlink" href="#provider-neutral-operator-sweeps" title="Permanent link">&para;</a></h3>
 <p>For a long sweep, named scalar responses, progress and checkpointing use the
 same result lifecycle as transient procedures:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
@@ -1791,7 +1874,7 @@ field is explicitly identified as belonging only to the last frequency solved
 in the current process. By default the terminal prints the first and last point,
 about twenty intermediate milestones, and a wall-clock heartbeat; it does not
 accumulate or print every point in a very large sweep.</p>
-<h4 id="external-forced-vibration-comparison">External forced-vibration comparison<a class="headerlink" href="#external-forced-vibration-comparison" title="Permanent link">&para;</a></h4>
+<h3 id="external-forced-vibration-comparison">External forced-vibration comparison<a class="headerlink" href="#external-forced-vibration-comparison" title="Permanent link">&para;</a></h3>
 <p>The automated
 <a href="https://www.nafems.org/publications/resource_center/r0016/">NAFEMS R0016 Test 5H</a>
 comparison exercises the generic direct-frequency-domain <code>K/M/C/F</code> route. It
@@ -1813,6 +1896,7 @@ not mesh-convergence evidence or experimental validation. The retained
 frequency axis, peak indices, unsmoothed cell-side stress trace, algebraic
 residual, cycle-energy balance, load measure, source identities, and phasor
 convention keep that boundary inspectable.</p>
+<h2 id="generalized-maxwell-validation-and-fitting">Generalized-Maxwell validation and fitting<a class="headerlink" href="#generalized-maxwell-validation-and-fitting" title="Permanent link">&para;</a></h2>
 <p>This is a bounded global FEM foundation, not a claim of nonlinear finite-strain
 viscoelasticity, physical aging or prestressed small-on-large response.
 The independent three-dimensional
@@ -1826,6 +1910,7 @@ factors instead of allowing an invalid temperature range into a state update.</p
 reference fit. Automatic spectrum selection, multi-experiment uncertainty,
 and constitutive-model recommendation belong to the future identification
 layer rather than to the finite-element material itself.</p>
+<h2 id="constraint-compatibility">Constraint compatibility<a class="headerlink" href="#constraint-compatibility" title="Permanent link">&para;</a></h2>
 <p>The solution procedure and the constraint enforcement are checked together
 before assembly. Projection periodicity is a serial, non-strict nodal
 projection supported by central difference. Newmark and generalized-alpha do
@@ -1863,7 +1948,7 @@ because ordinary DOLFINx and <code>dolfinx_mpc</code> assembly are not interchan
 <li><a href="../../operator_contracts/">Scientific operator contracts</a></li>
 <li><a href="../../step_and_output_architecture/">Stable steps and output</a></li>
 <li><a href="../../examples/wave_packet_inclusion/">Wave packet with an inclusion</a></li>
-<li><a href="../../reference/scientific_function_reference/#linear-viscoelastic-relaxation-spectrum">Linear viscoelastic material contract</a></li>
+<li><a href="../../reference/scientific_function_reference/#generalized-maxwell-linear-viscoelastic-material">Generalized-Maxwell material contract</a></li>
 </ul>
 
 

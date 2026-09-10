@@ -230,8 +230,9 @@ You can also run `case.py` directly with Python.
 | Area | Available workflow |
 | --- | --- |
 | Solid mechanics | Linear and thermoelastic statics; Neo-Hookean and Mooney--Rivlin finite strain; stateful 3D J2 plasticity |
-| Heat and dynamics | Steady/transient heat transfer; Newmark and generalized-alpha dynamics; central-difference explicit dynamics |
-| Time-dependent materials | Global power-law creep plus material-point Arrhenius, Kachanov--Rabotnov, Sinh, and fatigue assessment tools |
+| Heat transfer | Steady conduction and implicit transient heat transfer |
+| Dynamics and vibration | Newmark and generalized-alpha dynamics; central-difference explicit dynamics; engineering linear modal and direct harmonic procedures |
+| Time-dependent materials | Global power-law creep and generalized-Maxwell relaxation plus material-point Arrhenius, Kachanov--Rabotnov, Sinh, and fatigue assessment tools; generalized-Maxwell harmonic coupling remains experimental |
 | Fracture interfaces | Fixed-path cohesive interfaces, cyclic cohesive fatigue, mixed-mode driving, cycle jump, rollback, and restart; advanced routes remain experimental |
 | Meshes and constraints | Structured/XDMF meshes, optional Gmsh and meshio, reviewed Abaqus project migration, direct C3D10H import, equation constraints, and distributed periodic workflows |
 | Results and automation | Unified fields and histories, progress, checkpoints, Golden benchmarks, campaigns, scientific datasets, surrogate validation, and FEM fallback |
@@ -252,6 +253,12 @@ for the detailed scope.
   evidence.
 - [Transient heat transfer](examples/transient_heat_2d.py) — implicit time
   integration, progress, and field output.
+- [Modal cantilever](examples/modal_cantilever_2d.py) — linear natural
+  frequencies, mass-normalized mode fields, residuals, orthogonality, and MPI
+  evidence.
+- [NAFEMS R0016 Test 5H direct harmonic response](docs/release_0.3.3.md#nafems-r0016-test-5h-evidence)
+  — a public forced-vibration comparison for the provider-neutral
+  `K/M/C/K_loss/F` procedure.
 - [Wave propagation with an inclusion](examples/wave_packet_inclusion_2d.py) —
   dynamic fields, source amplitude, and boundary models.
 - [Abaqus C3D10H periodic cell](examples/abaqus_c3d10h_periodic_cell/) — direct

@@ -65,15 +65,16 @@ _VARIABLES = {
         "StrainEnergyDensity",
         "cells",
         "scalar",
-        "Strain-energy density; for finite-strain J2 this is ELENER + HARDENER",
+        "Provider-defined stored-energy channel; for finite-strain J2 this is "
+        "ELENER + HARDENER and retains the provider's ELENER semantics",
     ),
     "ELENER": FieldVariable(
         "ELENER",
         "ElasticStoredEnergyDensity",
         "cells",
         "scalar",
-        "Recoverable elastic free-energy density",
-        derived_from=("F", "FP"),
+        "Provider-defined elastic-energy channel; primal for displacement-only "
+        "finite-strain J2 and condensed, not automatically primal, for mixed J2",
     ),
     "HARDENER": FieldVariable(
         "HARDENER",

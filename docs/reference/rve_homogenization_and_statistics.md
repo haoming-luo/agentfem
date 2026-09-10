@@ -365,11 +365,13 @@ it does not independently exercise all nonconstant DPC modes. Periodic-cell
 history accepts the measured
 2-by-2 macro gradient only on this provider-owned path, embeds it in the same
 3-by-3 convention as the accepted quadrature tensors, and records
-\(F_{33}=1\) for stress and Hill--Mandel evidence. That is necessary
-formulation evidence, but it is not yet the Zhang external benchmark: the
-complex two-inclusion/one-void fixture, Table 5 homogenized observables,
-convergence axes, and restart/MPI contracts have not all been executed through
-this direct 2D route.
+\(F_{33}=1\) for stress and Hill--Mandel evidence. The exact
+two-inclusion/one-void geometry now has a direct Q2/DPC1 diagnostic driver. It
+can report the Table 5 stress and an explicitly reconstructed primal Hencky
+elastic-energy channel beside the condensed mixed channel. This is still not a
+promoted Zhang benchmark: load-path, mesh and formulation convergence, the
+effective tangent, replicated cells, restart/MPI equivalence, and content-bound
+evidence remain open.
 
 AgentFEM now has two deliberately distinct thin-3D diagnostic lowerings of the
 published plane-strain cell with \(F_{33}=1\):
@@ -398,10 +400,10 @@ passed benchmark**. Promotion requires all of the following:
 - load-increment/path convergence with the same prescribed macroscopic
   history;
 - mesh and numerical plane-strain-formulation convergence, including thickness
-  convergence for a thin-3D route and direct execution of the complex fixture
-  through the 2D Q2/DPC1 three-pressure-mode implementation;
+  convergence for a thin-3D route and converged execution of the complex
+  fixture through the 2D Q2/DPC1 three-pressure-mode implementation;
 - componentwise and vector-norm agreement of first-Piola stress, plus agreement
-  of the published recoverable elastic energy;
+  of the published primal Hencky elastic energy;
 - a homogenized current-state algorithmic tangent obtained from the linearized
   corrector with accepted internal variables fixed, compared in the published
   component order;
@@ -425,9 +427,10 @@ One unarchived current-stack coarse diagnostic makes that boundary concrete.
 On a 502-tetrahedron, thickness-0.10 P2/DG0 extrusion with 20 load increments,
 the first-Piola vector has 1.4324 percent relative L2 error and passes that
 global norm contract, but \(P_{11}\) and \(P_{22}\) fail the componentwise
-absolute-plus-relative contract. The condensed mixed `ELENER` is 0.002627074
-against the published 0.002423, an 8.4224 percent error, and therefore also
-fails. The maximum Hill--Mandel relative residual is
+absolute-plus-relative contract. Its condensed mixed `ELENER` is 0.002627074,
+but Table 5 reports the primal Hencky elastic energy. Those different channels
+must not be assigned a relative error; the thin-3D physical-energy comparison
+therefore remains incomplete. The maximum Hill--Mandel relative residual is
 \(1.054\times10^{-8}\) and the periodic mismatch is zero. These observations
 have not yet been committed as a content-addressed result with runtime and input
 identity. They are neither a Golden result nor a substitute for the required
@@ -458,11 +461,18 @@ pressure-block residual, and a separate `MIXED_POTENTIAL` quadrature diagnostic.
 Its condensed mixed `ELENER` uses deviatoric Hencky storage plus
 \(p^2/(2\kappa)\).
 That term is pointwise equal to the primal volumetric storage only where
-\(p=\kappa\ln J\) holds locally; the saddle potential is not treated as
-pointwise stored energy. Portable checkpoints split live and
-accepted mixed solutions into standalone displacement and mean-Kirchhoff-
-stress fields before serialization, then let the state owner reassemble them
-after identity validation. Fresh-Step checkpoint/continue equivalence is
+\(p=\kappa\ln J\) holds locally; integrating it does not make it the primal
+observable. The mixed-energy diagnostic reconstructs the primal channel from
+aligned accepted `F`, pressure, inverse-bulk-modulus and condensed `ELENER`
+fields. With \(r_p=\ln J-p/\kappa\), it retains the signed
+primal-minus-condensed gap, the signed pressure-orthogonality contribution
+\(\overline{p r_p}\), the nonnegative constraint-defect contribution
+\(\overline{\kappa r_p^2/2}\), and their decomposition residual. Table 5 can
+consume only that explicit primal result, never condensed `ELENER`. The saddle
+potential is not treated as pointwise stored energy. Portable checkpoints split
+live and accepted mixed solutions into standalone displacement and
+mean-Kirchhoff-stress fields before serialization, then let the state owner
+reassemble them after identity validation. Fresh-Step checkpoint/continue equivalence is
 verified for both serial mixed routes: 3D tetrahedral P2/DG0 and 2D plane-strain
 quadrilateral Q2/DPC1. Independently, the underlying generic DPC cell-moment
 identity has two-to-one and one-to-two MPI-rank acceptance coverage. This does

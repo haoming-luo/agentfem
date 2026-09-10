@@ -15,6 +15,8 @@ problem-specific qualification.
 | [NAFEMS LE10 3D elasticity](#nafems-le10-3d-elasticity) | Curved quadratic 3D solid, pressure, external stress target | Release |
 | [Axisymmetric thick cylinder](#axisymmetric-thick-cylinder) | Full-revolution linear solid, direct linear solve | Release |
 | [Transient heat transfer](#transient-heat-transfer) | Heat equation, backward Euler | Release |
+| [Modal cantilever](#modal-cantilever) | Linear solid, generalized Hermitian eigensolve | Engineering |
+| [NAFEMS R0016 Test 5H direct harmonic response](#nafems-r0016-test-5h-direct-harmonic-response) | 3D linear solid, Rayleigh damping, direct frequency sweep | Engineering |
 | [Abaqus periodic hyperelastic cell](#abaqus-periodic-hyperelastic-cell) | Imported 3D quadratic mesh, equations, finite strain | Engineering |
 | [Implicit creep relaxation](#implicit-creep-relaxation) | 3D power-law creep, global/local Newton and cutback | Engineering |
 | [Viscoelastic relaxation](#viscoelastic-relaxation) | 3D generalized-Maxwell equilibrium, exact state and restart | Engineering |
@@ -102,6 +104,41 @@ python examples/transient_heat_2d.py
 [Source code](https://github.com/haoming-luo/agentfem/blob/main/examples/transient_heat_2d.py)
 · [Heat-transfer guide](../guide/heat_transfer.md)
 
+## Modal cantilever
+
+<span class="af-status af-status--engineering">Engineering</span>
+
+A quadratic plane-stress cantilever exercises the public linear modal
+procedure: constrained stiffness and consistent mass assembly, SLEPc's
+generalized Hermitian eigensolve, positive natural frequencies,
+mass-normalized mode fields, eigenpair residuals, orthogonality, cluster
+semantics, and serial/two-rank agreement. Mode fields are relative spatial
+patterns; they are not physical displacement amplitudes.
+
+```bash
+python examples/modal_cantilever_2d.py
+```
+
+[Source code](https://github.com/haoming-luo/agentfem/blob/main/examples/modal_cantilever_2d.py)
+· [Dynamics guide](../guide/dynamics.md#modal-analysis)
+· [Benchmark record](https://github.com/haoming-luo/agentfem/blob/main/src/agentfem/knowledge/benchmarks/linear_cantilever_modal.json)
+
+## NAFEMS R0016 Test 5H direct harmonic response
+
+<span class="af-status af-status--engineering">Engineering</span>
+
+This public three-dimensional forced-vibration comparison exercises the
+provider-neutral direct harmonic procedure with visible stiffness, mass,
+viscous damping, loss stiffness, and load operators. The frozen 50-point
+frequency sweep checks peak frequency, displacement amplitude, a declared
+stress-recovery channel, residual, cyclic energy balance, applied resultant,
+serial/two-rank agreement, and portable scalar-ledger restart. Its acceptance
+limits are AgentFEM release gates, not NAFEMS tolerances.
+
+[0.3.3 evidence and numerical comparison](../release_0.3.3.md#nafems-r0016-test-5h-evidence)
+· [Executable benchmark](https://github.com/haoming-luo/agentfem/blob/main/tests/test_external_forced_vibration_benchmark.py)
+· [Benchmark record](https://github.com/haoming-luo/agentfem/blob/main/src/agentfem/knowledge/benchmarks/nafems_r0016_test5h_forced_vibration.json)
+
 ## Abaqus periodic hyperelastic cell
 
 <span class="af-status af-status--engineering">Engineering</span>
@@ -166,18 +203,20 @@ python examples/viscoelastic_relaxation_3d.py
 
 <span class="af-status af-status--experimental">Experimental</span>
 
-A three-dimensional generalized-Maxwell bar demonstrates direct harmonic
-assembly without requiring a complex PETSc build. Storage and loss stiffness,
-optional inertia and a load phasor are lowered to one exact real block system;
-the common result publishes real, imaginary, amplitude and phase displacement
-fields together with material-loss evidence.
+A three-dimensional generalized-Maxwell bar demonstrates one material-specific
+consumer of the direct harmonic procedure without requiring a complex PETSc
+build. Storage and loss stiffness, optional inertia and a load phasor are
+lowered to one exact real block system; the common result publishes real,
+imaginary, amplitude and phase displacement fields together with material-loss
+evidence. This material coupling remains experimental even though the generic
+linear structural direct harmonic procedure is engineering maturity.
 
 ```bash
 python examples/viscoelastic_harmonic_3d.py
 ```
 
 [Source code](https://github.com/haoming-luo/agentfem/blob/main/examples/viscoelastic_harmonic_3d.py)
-· [Dynamics and viscoelasticity](../guide/dynamics.md#direct-harmonic-viscoelastic-response)
+· [Direct harmonic response](../guide/dynamics.md#direct-harmonic-response)
 · [Golden benchmark record](https://github.com/haoming-luo/agentfem/blob/main/src/agentfem/knowledge/benchmarks/global_viscoelastic_harmonic_bar.json)
 
 ## Hot-wall creep assessment

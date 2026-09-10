@@ -937,6 +937,23 @@ def test_plane_strain_q2_dpc1_mixed_j2_uses_three_pressure_modes(tmp_path):
         rtol=4.0e-7,
         atol=4.0e-7,
     )
+    energy = results.mixed_j2_elastic_energy_diagnostics(
+        deformation_gradient=step.state_transaction.deformation_gradient,
+        pressure=step.state_transaction.mixed_pressure,
+        inverse_bulk_modulus=step.state_transaction.inverse_bulk_modulus,
+        condensed_elastic_energy_density=(
+            step.response.stored_energy_density_components["ELENER"]
+        ),
+        reference_volume=periodicity.reference_cell_volume,
+    )
+    assert energy.algebraic_identity_verified
+    assert energy.maximum_absolute_pressure_constraint_residual < 2.0e-10
+    assert energy.rms_pressure_constraint_residual < 2.0e-10
+    assert energy.signed_energy_gap_density == pytest.approx(0.0, abs=1.0e-10)
+    assert energy.primal_elastic_energy_density == pytest.approx(
+        energy.condensed_elastic_energy_density,
+        abs=1.0e-10,
+    )
     assert "MEAN_KIRCHHOFF_STRESS" in result.fields
     assert "MEAN_KIRCHHOFF_STRESS_CELL" in result.fields
     exact_pressure = result.fields["MEAN_KIRCHHOFF_STRESS"]
@@ -1222,12 +1239,36 @@ def test_plane_strain_q2_dpc1_preserves_fluctuation_and_four_block_tangent(
     actual = np.asarray(displacement.x.array).reshape((-1, 2))
     assert np.max(np.abs(actual - affine)) > 1.0e-6
     assert np.ptp(step.state_transaction.mixed_pressure.values) > 1.0e-4
+    energy = results.mixed_j2_elastic_energy_diagnostics(
+        deformation_gradient=step.state_transaction.deformation_gradient,
+        pressure=step.state_transaction.mixed_pressure,
+        inverse_bulk_modulus=step.state_transaction.inverse_bulk_modulus,
+        condensed_elastic_energy_density=(
+            step.response.stored_energy_density_components["ELENER"]
+        ),
+        reference_volume=periodicity.reference_cell_volume,
+    )
+    assert energy.algebraic_identity_verified
+    assert energy.pressure_constraint_defect_energy_density > 0.0
+    assert abs(energy.pressure_orthogonality_density) < 2.0e-8
+    assert energy.signed_energy_gap_density == pytest.approx(
+        energy.pressure_constraint_defect_energy_density,
+        abs=2.0e-8,
+    )
+    assert energy.primal_elastic_energy_density >= (
+        energy.condensed_elastic_energy_density
+    )
     assert "MEAN_KIRCHHOFF_STRESS" in result.fields
     assert result.metadata["problem"]["numerical_formulation"]["kinematics"] == (
         "2D_plane_strain_F33_equals_1"
     )
     recorder = step.accepted_history_recorders["homogenized_history"]
     assert len(recorder.frames) == 4
+    assert recorder.frames[-1].elastic_energy_density == pytest.approx(
+        energy.condensed_elastic_energy_density,
+        rel=2.0e-13,
+        abs=2.0e-13,
+    )
     embedded_macro_gradient = recorder.frames[-1].deformation_gradient
     assert embedded_macro_gradient.shape == (3, 3)
     np.testing.assert_allclose(

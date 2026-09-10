@@ -219,7 +219,15 @@ a changed material, amplitude, temperature, time grid, physical quadrature
 identity or nodal field identity before restart. Response fields are rebuilt
 from the accepted branch state without advancing relaxation time.
 
-### Direct harmonic viscoelastic response
+## Direct harmonic response
+
+Direct harmonic response is owned by the solution procedure, not by a
+particular material. The provider-neutral route consumes explicit, inspectable
+`K`, `F`, and optional `M`, `C`, and `K_loss` operators. A constitutive model
+may supply an operator, but it does not change the procedure's ownership or
+verification contract.
+
+### Generalized-Maxwell material coupling
 
 The same generalized-Maxwell material can be used directly in the frequency
 domain. The public workflow remains an engineering model and one `model.step`:
@@ -266,6 +274,8 @@ three-dimensional isotropic material, uniform temperature, homogeneous strong
 constraints, and one common load phase. Multiple material regions, MPC/weak
 constraints, and per-load phases remain promotion gates rather than being
 silently approximated.
+
+### Provider-neutral operator sweeps
 
 For a long sweep, named scalar responses, progress and checkpointing use the
 same result lifecycle as transient procedures:
@@ -328,7 +338,7 @@ in the current process. By default the terminal prints the first and last point,
 about twenty intermediate milestones, and a wall-clock heartbeat; it does not
 accumulate or print every point in a very large sweep.
 
-#### External forced-vibration comparison
+### External forced-vibration comparison
 
 The automated
 [NAFEMS R0016 Test 5H](https://www.nafems.org/publications/resource_center/r0016/)
@@ -353,6 +363,8 @@ frequency axis, peak indices, unsmoothed cell-side stress trace, algebraic
 residual, cycle-energy balance, load measure, source identities, and phasor
 convention keep that boundary inspectable.
 
+## Generalized-Maxwell validation and fitting
+
 This is a bounded global FEM foundation, not a claim of nonlinear finite-strain
 viscoelasticity, physical aging or prestressed small-on-large response.
 The independent three-dimensional
@@ -367,6 +379,8 @@ For reviewed relaxation data and user-declared relaxation times,
 reference fit. Automatic spectrum selection, multi-experiment uncertainty,
 and constitutive-model recommendation belong to the future identification
 layer rather than to the finite-element material itself.
+
+## Constraint compatibility
 
 The solution procedure and the constraint enforcement are checked together
 before assembly. Projection periodicity is a serial, non-strict nodal
@@ -407,4 +421,4 @@ because ordinary DOLFINx and `dolfinx_mpc` assembly are not interchangeable.
 - [Scientific operator contracts](../operator_contracts.md)
 - [Stable steps and output](../step_and_output_architecture.md)
 - [Wave packet with an inclusion](../examples/wave_packet_inclusion.md)
-- [Linear viscoelastic material contract](../reference/scientific_function_reference.md#linear-viscoelastic-relaxation-spectrum)
+- [Generalized-Maxwell material contract](../reference/scientific_function_reference.md#generalized-maxwell-linear-viscoelastic-material)

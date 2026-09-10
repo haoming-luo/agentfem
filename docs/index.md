@@ -126,7 +126,7 @@ adds a Golden benchmark and explicit release-quality checks.
 | Create and run an installed project | [Getting started](get_started/index.md) |
 | Linear, nonlinear, and thermoelastic solids | [Solid mechanics](guide/solid_mechanics.md) |
 | Steady and transient temperature problems | [Heat transfer](guide/heat_transfer.md) |
-| Standard and Explicit structural dynamics | [Dynamics and waves](guide/dynamics.md) |
+| Structural dynamics, modes, harmonic response, and waves | [Dynamics and waves](guide/dynamics.md) |
 | Plasticity, creep, state, and cutback | [Creep and inelasticity](guide/creep_and_inelasticity.md) |
 | Meshes, regions, loads, and constraints | [Model definition](guide/model_setup.md) |
 | Fields, histories, output, and post-processing | [Results](guide/results.md) |
@@ -138,8 +138,8 @@ adds a Golden benchmark and explicit release-quality checks.
 | --- | --- |
 | Solid mechanics | Linear elasticity, thermoelasticity, Neo-Hookean and Mooney--Rivlin finite strain, mixed displacement-pressure hyperelasticity, stateful small-strain J2, and experimental finite-strain J2 with 3D strong/displacement-only affine-MPC plus serial 3D P2/DG0 and 2D plane-strain Q2/DPC1 mixed providers |
 | Heat transfer | Steady conduction and implicit transient heat transfer |
-| Dynamics | Newmark/generalized-\(\alpha\) implicit dynamics and central-difference explicit wave propagation |
-| Time-dependent materials | Global isothermal/Arrhenius power-law creep plus reviewed material-point creep/damage tools |
+| Dynamics and vibration | Newmark/generalized-\(\alpha\) implicit dynamics, central-difference explicit wave propagation, and engineering linear modal and provider-neutral direct harmonic procedures |
+| Time-dependent materials | Global isothermal/Arrhenius power-law creep, engineering generalized-Maxwell transient equilibrium, and reviewed material-point creep/damage tools; generalized-Maxwell harmonic coupling remains experimental |
 | Mesh and constraints | Structured/XDMF meshes, optional Gmsh and meshio routes, direct Abaqus C3D10H import, equation constraints, and distributed periodic workflows |
 | Results and verification | Standard fields, histories, resultants, progress, checkpoints, Golden benchmarks, and explicit quality policies |
 | Simulation and learning | Parameter campaigns, scientific datasets, user-model execution, NumPy/PyTorch adapters, surrogate baselines, applicability guards, and FEM fallback |

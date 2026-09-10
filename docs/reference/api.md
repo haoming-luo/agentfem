@@ -447,6 +447,7 @@ and evidence remain in the linked guides and scientific function reference.
 | class | `HillMandelIncrement` | Finite-strain macrohomogeneity evidence over one accepted increment. |
 | class | `HomogenizedFrame` | Macroscopic response reconstructed from one periodic-cell state. |
 | class | `LiveFiniteStrainCellFields` | Derived cell fields refreshed from active Explicit state at output time. |
+| class | `MixedJ2ElasticEnergyDiagnostics` | Volume-normalized energy identity for mixed finite-strain J2 fields. |
 | class | `StressStateInvariants` | Three-dimensional Cauchy-stress invariants with explicit validity. |
 | function | `cauchy_stress_invariants(stress, *, relative_tolerance: float = 1e-12) -> StressStateInvariants` | Return triaxiality and normalized Lode state from a 3D Cauchy tensor. |
 | function | `finite_strain_dynamic_cell_fields(displacement, velocity, properties, *, variables = ('SENER', 'KED', 'J'), pressure = None, density = None) -> LiveFiniteStrainCellFields` | Create reusable SED/KED/stress fields for Explicit saved frames. |
@@ -456,6 +457,7 @@ and evidence remain in the linked guides and scientific function reference.
 | function | `homogenize_periodic_path(snapshots, properties, *, constraint) -> tuple[HomogenizedFrame, ...]` | Homogenize every saved state of an affine periodic-cell analysis. |
 | function | `hill_mandel_increment(start_snapshot, snapshot, properties, *, constraint, start_frame: HomogenizedFrame \| None = None, frame: HomogenizedFrame \| None = None) -> HillMandelIncrement` | Compare microscopic and macroscopic first-Piola work increments. |
 | function | `hill_mandel_periodic_path(snapshots, properties, *, constraint, frames = None) -> tuple[HillMandelIncrement, ...]` | Evaluate Hill--Mandel evidence between consecutive saved states. |
+| function | `mixed_j2_elastic_energy_diagnostics(*, deformation_gradient, pressure, inverse_bulk_modulus, condensed_elastic_energy_density, reference_volume: float) -> MixedJ2ElasticEnergyDiagnostics` | Audit mixed J2 elastic energy using aligned accepted quadrature fields. |
 | function | `write_homogenized_csv(path: str \| Path, frames, *, hill_mandel = (), increment_info = ()) -> Path` | Write flattened macro tensors in a human-readable table. |
 | function | `write_homogenized_history(path: str \| Path, frames, *, hill_mandel = (), increment_info = ()) -> Path` | Write an exact, compact NumPy history for plotting and ML reuse. |
 | class | `FieldVariable` | Stable public meaning of one result variable. |

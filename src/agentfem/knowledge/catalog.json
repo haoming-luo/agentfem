@@ -531,7 +531,9 @@
         "agentfem.mechanics.FiniteStrainJ2StandardProblem",
         "agentfem.mechanics.finite_strain_j2_standard_problem",
         "agentfem.mechanics.finite_strain_j2_affine_problem",
-        "agentfem.mechanics.finite_strain_j2_mixed_affine_problem"
+        "agentfem.mechanics.finite_strain_j2_mixed_affine_problem",
+        "agentfem.results.MixedJ2ElasticEnergyDiagnostics",
+        "agentfem.results.mixed_j2_elastic_energy_diagnostics"
       ],
       "related_cards": [
         "agentfem.material.j2_global_plasticity",
@@ -608,18 +610,6 @@
       "id": "agentfem.material.linear_viscoelastic_dynamics",
       "kind": "material",
       "public_api": [
-        "agentfem.studies.modal_solid",
-        "agentfem.studies.viscoelastic_solid",
-        "agentfem.studies.harmonic_solid",
-        "agentfem.models.Model.step",
-        "agentfem.checkpointing.every",
-        "agentfem.operators.direct_harmonic_system",
-        "agentfem.results.harmonic_response",
-        "agentfem.results.prepare_projection",
-        "agentfem.dynamics.spectrum",
-        "agentfem.dynamics.frequency_response",
-        "agentfem.dynamics.damping_from_free_decay",
-        "agentfem.dynamics.modal_frequency_response",
         "agentfem.constitutive.GeneralizedMaxwell",
         "agentfem.constitutive.IsotropicGeneralizedMaxwell",
         "agentfem.constitutive.IsotropicHarmonicModuli",
@@ -633,9 +623,9 @@
         "agentfem.workflow.transient_checkpoint_portability"
       ],
       "source": "src/agentfem/knowledge/cards/linear_viscoelastic_dynamics.json",
-      "status": "experimental",
-      "summary": "Provides generalized-Maxwell/Prony spectra, exact material-point histories, a three-dimensional quasi-static global FEM Step with committed quadrature state and a direct harmonic Step that lowers complex storage/loss response to a real PETSc block system.",
-      "title": "Linear viscoelastic relaxation spectrum"
+      "status": "supported",
+      "summary": "Defines generalized-Maxwell/Prony constitutive response, exact material-point history, temperature shifting, and committed quadrature state for the engineering three-dimensional transient equilibrium route. Modal and direct harmonic solution procedures are owned separately by the solution-procedure contract.",
+      "title": "Generalized-Maxwell linear viscoelastic material"
     },
     {
       "id": "agentfem.material.mixed_hybrid_hyperelasticity",
@@ -1199,8 +1189,12 @@
         "agentfem.procedures.SolutionProcedure",
         "agentfem.procedures.resolve",
         "agentfem.studies.modal_solid",
+        "agentfem.studies.harmonic_solid",
         "agentfem.time.newmark",
         "agentfem.time.generalized_alpha",
+        "agentfem.operators.direct_harmonic_system",
+        "agentfem.results.harmonic_response",
+        "agentfem.results.prepare_projection",
         "agentfem.problems.LinearSystemProblem.reaction_field",
         "agentfem.diagnostics.SolveEventRecorder",
         "agentfem.diagnostics.mechanical_energy",
@@ -1208,12 +1202,13 @@
         "agentfem.models.Model.step"
       ],
       "related_cards": [
-        "agentfem.material.j2_global_plasticity",
+        "agentfem.material.linear_viscoelastic_dynamics",
+        "agentfem.workflow.transient_checkpoint_portability",
         "agentfem.workflow.thermoelastic_analysis"
       ],
       "source": "src/agentfem/knowledge/cards/solution_procedures.json",
       "status": "supported",
-      "summary": "Separates physical analysis intent from Standard/Explicit selection, equation order, integration algorithm, state policy, and global-solve requirements.",
+      "summary": "Owns how a declared Study is solved: static or transient advancement, linear modal extraction, and provider-neutral direct harmonic response. Constitutive materials own their response and history separately.",
       "title": "Solution procedure vocabulary"
     },
     {

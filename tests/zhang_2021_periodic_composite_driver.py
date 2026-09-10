@@ -67,6 +67,13 @@ def main() -> int:
     periodicity = model.constraint(fixture.constraint(target))
     output = results.output_plan(
         args.output,
+        field=results.field_output(
+            "U",
+            "S",
+            "MISES",
+            intervals=1,
+            configuration="reference",
+        ),
         requests=(results.periodic_cell_history(periodicity),),
         presentation=None,
         basename="zhang_2021_table5",
@@ -87,15 +94,12 @@ def main() -> int:
     result = step.solve_result()
     recorder = step.accepted_history_recorders["homogenized_history"]
     frame = recorder.frames[-1]
-    if frame.elastic_energy_density is None:
-        raise RuntimeError(
-            "The finite-strain provider did not expose accepted ELENER. "
-            "Table 5 must not be compared against aggregate SENER."
-        )
-    elastic_energy = frame.elastic_energy_density
+    # This thin-3D diagnostic currently exposes only the mixed condensed
+    # ELENER channel. Table 5 reports the primal Hencky elastic energy, so the
+    # comparison stays absent rather than comparing different observables.
+    condensed_elastic_energy = frame.elastic_energy_density
     assessment = assess_table5(
         first_piola=frame.first_piola_stress,
-        elastic_energy_density=elastic_energy,
         effective_tangent=None,
         convergence_evidence={
             "load_increment_path_converged": False,
@@ -120,10 +124,10 @@ def main() -> int:
             "maximum_hill_mandel_relative_error": max(
                 item.relative_error for item in recorder.hill_mandel
             ),
-            "elastic_energy_density": elastic_energy,
+            "condensed_elastic_energy_density": condensed_elastic_energy,
             "stored_energy_scope": (
-                "provider-owned ELENER (recoverable Hencky elastic energy); "
-                "HARDENER and plastic dissipation are excluded"
+                "diagnostic-only mixed condensed ELENER; the published primal "
+                "Hencky elastic energy is not yet available on this thin-3D route"
             ),
             "formulation_mapping": (
                 "published 2D plane strain -> periodic thin 3D "

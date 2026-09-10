@@ -23,6 +23,13 @@ experimental formulation to a validated one.
   coefficients are keyed by original physical cell and local mode, guarded by
   reference-cell layout identity, with 2-to-1 and 1-to-2 MPI-rank checkpoint
   acceptance coverage. Shared facet/edge moments fail closed.
+- Add the exact two-dimensional Zhang--Feng--Khandelwal periodic-composite
+  geometry and a public Q2/DPC1 diagnostic driver. The Table 5 assessor keeps
+  every convergence and effective-tangent gate closed until content-bound
+  evidence exists.
+- Add an MPI-safe mixed-J2 energy audit that reports the primal Hencky energy,
+  condensed mixed representation, signed gap, pressure orthogonality and
+  nonnegative pressure-constraint defect as distinct scientific channels.
 
 ### Changed
 
@@ -48,6 +55,12 @@ experimental formulation to a validated one.
   gradient only when a plane-strain provider owns embedded 3D quadrature
   tensors. The recorder stores one common 3D tensor convention with
   `F33 = 1`; unrelated 2D constitutive paths continue to fail closed.
+- Reuse the accepted finite-strain J2 material response as the baseline of its
+  numerical algorithmic tangent, removing one redundant constitutive
+  integration per point without changing the response or derivative.
+- Restrict the long Zhang diagnostic drivers to final-state spatial output;
+  accepted scalar and homogenized histories remain available without writing
+  one full field dataset per load increment.
 
 ### Boundaries
 

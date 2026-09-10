@@ -5,13 +5,17 @@
   "title": "Solution procedure vocabulary",
   "kind": "analysis_step",
   "status": "supported",
-  "summary": "Separates physical analysis intent from Standard/Explicit selection, equation order, integration algorithm, state policy, and global-solve requirements.",
+  "summary": "Owns how a declared Study is solved: static or transient advancement, linear modal extraction, and provider-neutral direct harmonic response. Constitutive materials own their response and history separately.",
   "public_api": [
     "agentfem.procedures.SolutionProcedure",
     "agentfem.procedures.resolve",
     "agentfem.studies.modal_solid",
+    "agentfem.studies.harmonic_solid",
     "agentfem.time.newmark",
     "agentfem.time.generalized_alpha",
+    "agentfem.operators.direct_harmonic_system",
+    "agentfem.results.harmonic_response",
+    "agentfem.results.prepare_projection",
     "agentfem.problems.LinearSystemProblem.reaction_field",
     "agentfem.diagnostics.SolveEventRecorder",
     "agentfem.diagnostics.mechanical_energy",
@@ -22,12 +26,21 @@
     "procedures.py",
     "time/implicit.py",
     "time/explicit.py",
+    "operators/harmonic.py",
+    "backends/_modal.py",
+    "backends/_harmonic.py",
+    "mechanics/modal.py",
+    "mechanics/harmonic.py",
+    "results/_modal.py",
+    "results/_harmonic.py",
+    "results/harmonic.py",
+    "results/projection.py",
     "problems.py",
-    "step_providers.py"
-    ,"checkpointing.py"
+    "step_providers.py",
+    "checkpointing.py"
   ],
   "science": {
-    "statement": "A Study identifies the governing problem while a SolutionProcedure identifies how load or time is advanced and which global/local algorithm consumes it.",
+    "statement": "A Study identifies the governing problem, a material supplies constitutive response, and a SolutionProcedure owns the numerical evolution or spectral solve that consumes the assembled operators. Modal and direct harmonic response therefore remain procedures rather than material capabilities.",
     "equations": [
       {
         "label": "second-order system",
@@ -40,6 +53,11 @@
         "description": "The modal procedure removes strong constrained degrees of freedom before a generalized Hermitian eigensolve."
       },
       {
+        "label": "direct harmonic equilibrium",
+        "expression": "\\left(\\mathbf{K}+\\mathrm{i}\\mathbf{K}_{\\mathrm{loss}}+\\mathrm{i}\\omega\\mathbf{C}-\\omega^2\\mathbf{M}\\right)\\hat{\\mathbf{u}}=\\hat{\\mathbf{F}}",
+        "description": "The provider-neutral procedure consumes visible frequency-invariant spatial operators and lowers the complex equation to an exact real block system."
+      },
+      {
         "label": "generalized-alpha equilibrium",
         "expression": "\\mathbf{M}\\mathbf{a}_{n+1-\\alpha_m}+\\mathbf{C}\\mathbf{v}_{n+1-\\alpha_f}+\\mathbf{K}\\mathbf{u}_{n+1-\\alpha_f}=\\mathbf{F}_{n+1-\\alpha_f}",
         "description": "Algorithmic parameters control stability, accuracy, and high-frequency dissipation."
@@ -47,81 +65,92 @@
     ],
     "inputs": [
       {
-        "name": "Study",
-        "type": "analysis and physics context",
-        "unit_role": "none",
-        "description": "Defines static/transient order, physics, dimension, and assumptions."
+        "name": "Study and procedure controls",
+        "type": "analysis intent, algorithm, increment or frequency controls, and solver policy",
+        "unit_role": "none plus the declared time or frequency unit",
+        "description": "The resolved procedure is carried through capability inspection and executable lowering without changing physical meaning."
       },
       {
-        "name": "operators and controls",
-        "type": "M, C, K, F, dt, increments, solver policy",
-        "unit_role": "consistent finite-element system",
-        "description": "Visible numerical ingredients consumed by the selected procedure."
+        "name": "modal operator system",
+        "type": "symmetric stiffness K, positive mass M, strong constraints, mode count and optional target frequency",
+        "unit_role": "one consistent mechanical unit system",
+        "description": "The low structural spectrum is solved with SLEPc after constrained-degree elimination."
+      },
+      {
+        "name": "direct harmonic operator system",
+        "type": "stiffness K, optional mass M, viscous damping C and loss stiffness K_loss, plus force F",
+        "unit_role": "one consistent mechanical and frequency unit system",
+        "description": "One frequency or a strictly increasing canonical sweep reuses the frequency-invariant spatial operator system; a material may supply K_loss but does not own the procedure."
       }
     ],
     "outputs": [
       {
-        "name": "step summary",
-        "type": "structured procedure record",
+        "name": "typed procedure record",
+        "type": "immutable StepRequest and structured summary",
         "unit_role": "none",
         "description": "Records family, order, algorithm, control, statefulness, and solve requirements."
       },
       {
-        "name": "typed provider request",
-        "type": "immutable StepRequest",
-        "unit_role": "none",
-        "description": "Carries the resolved procedure through capability inspection and executable lowering."
+        "name": "modal result",
+        "type": "SimulationResult quantities and live mode fields",
+        "unit_role": "inverse time and mass-normalized shape",
+        "description": "Includes positive frequencies, residuals, orthogonality evidence, cluster completeness, invariant-subspace semantics and deterministically oriented singleton mode fields."
       },
       {
-        "name": "advanced state",
-        "type": "field state and convergence evidence",
+        "name": "direct harmonic result",
+        "type": "phasor fields, canonical sweep histories and scalar checkpoint ledger",
+        "unit_role": "frequency and the model's consistent mechanical units",
+        "description": "Publishes real, imaginary, component amplitude and phase fields, exact discrete vector amplitude, algebraic residual, cycle-energy and load evidence; portable sweep restart retains scalar evidence rather than every full field."
+      },
+      {
+        "name": "advanced transient state",
+        "type": "field state, execution trace, energy and convergence evidence",
         "unit_role": "problem dependent",
-        "description": "Accepted displacement, velocity, acceleration, temperature, or material state."
+        "description": "Accepted displacement, velocity, acceleration, temperature or material state follows the selected time procedure and common result lifecycle."
       },
       {
         "name": "reaction and mechanical energy diagnostics",
         "type": "nodal residual field and scalar energy record",
         "unit_role": "force and energy",
-        "description": "Strong-constraint reactions and visible M/K quadratic energies for supported systems."
-      },
-      {
-        "name": "execution trace",
-        "type": "ordered JSON-safe SolveEvent records",
-        "unit_role": "problem dependent",
-        "description": "One source for progress, status files, result histories, failures, and agent monitoring."
-      },
-      {
-        "name": "scheduled restart state",
-        "type": "integrity-checked checkpoint manifest and rank shards",
-        "unit_role": "time",
-        "description": "Written after accepted increments at one shared cadence across explicit, implicit-dynamics, and heat routes, with optional partition-independent nodal state."
+        "description": "Strong-constraint reactions and visible M/K quadratic energies are retained for supported systems."
       }
     ],
     "assumptions": [
-      "Modal, Newmark and generalized-alpha are currently linear structural dynamics routes.",
+      "Modal analysis is linear, undamped, and based on symmetric stiffness and mass operators.",
+      "Direct harmonic analysis is a small-amplitude linear perturbation with one pure-displacement spatial discretization and no prestressed small-on-large state.",
       "Implicit heat transfer currently uses backward Euler.",
       "Central difference uses a lumped mass operator."
     ],
     "conventions": [
-      "Standard means a global implicit/assembled solution route, not an Abaqus compatibility claim.",
+      "Standard means a global implicit or assembled solution route, not an Abaqus compatibility claim.",
       "Explicit means no global linear solve at each time increment.",
-      "Step, increment, iteration, attempt, and output frame remain distinct.",
-      "An explicit procedure object takes precedence over the Study preference and cannot conflict with method= or equation order.",
-      "Display cadence never removes an accepted or failed event from the execution trace."
-      ,"Automatic checkpoints are written only after state, history, and the accepted-increment event are committed."
+      "Step, increment, iteration, attempt, frequency sample, and output frame remain distinct.",
+      "SLEPc mass-normalizes generalized Hermitian eigenvectors; repeated or clustered modes are compared as invariant subspaces rather than individual vectors.",
+      "A mass-normalized mode shape is a relative spatial pattern and has no physical displacement amplitude until combined with a modal coordinate.",
+      "The public harmonic Step accepts cyclic frequency in Hz or angular frequency in rad/s, never both, and records the exp(+i*omega*t) phasor convention.",
+      "U_AMPLITUDE and U_PHASE are component-wise polar values; the sweep maximum is the exact physical-cycle maximum of each discrete vector coefficient, not a continuous-domain supremum.",
+      "Frequency sweeps publish histories in ascending canonical order even when points are executed or resumed in reverse order.",
+      "A harmonic sweep checkpoint is an atomic scalar evidence ledger; it does not claim recovery of one full finite-element field per frequency.",
+      "Automatic transient checkpoints are written only after state, history, and the accepted-increment event are committed."
     ],
     "applicability": [
-      "Selecting and inspecting current linear static, nonlinear static, heat-transfer, modal, and structural-dynamics routes."
+      "Selecting and inspecting current linear static, nonlinear static, heat-transfer, and structural-dynamics routes.",
+      "Natural-frequency and mode-shape analysis for supported linear solid models.",
+      "Linear direct steady-state response through generic K/M/C/K_loss/F operators, named scalar responses and bounded restartable frequency sweeps."
     ],
     "limitations": [
-      "Nonlinear implicit structural dynamics is not implemented.",
-      "Moving-support kinematics for implicit dynamics are not implemented.",
-      "Shared transient routes provide partition-independent nodal restart; J2, Chaboche, and implicit creep additionally own full-Step portable checkpoints for their named quadrature/internal-variable state."
+      "Modal and direct harmonic engineering routes currently support the declared strong-constraint contracts; arbitrary MPC, weak and moving-support kinematics require separate verified providers.",
+      "Complex modes, prestressed small-on-large response and nonlinear harmonic balance are not implemented.",
+      "The generic direct sweep does not accept arbitrary complex spatial load patterns or frequency-dependent operator families.",
+      "Frequency-sweep field output requires explicitly selected snapshot frequencies; scalar-ledger restart does not retain every full field.",
+      "The generalized-Maxwell global harmonic provider remains experimental even though it consumes this engineering procedure.",
+      "Nonlinear implicit structural dynamics is not implemented."
     ]
   },
   "usage": {
-    "minimal_example": "study = studies.dynamic_solid(dimension=2, assumption='plane_stress', method='newmark')\nstep = model.step(target=u, procedure=procedures.generalized_alpha(), dt=..., steps=...)",
+    "minimal_example": "modal = model.step(target=u, modes=6).solve_result(); harmonic = model.step(target=u, K=K, M=M, C=C, K_loss=K_loss, F=F, frequencies=(...)).solve_result()",
     "examples": [
+      "examples/modal_cantilever_2d.py",
       "examples/wave_packet_plate_2d.py",
       "examples/thermal_stress_wall_2d.py"
     ]
@@ -130,24 +159,57 @@
     "tests": [
       "tests/test_p1_platform.py",
       "tests/test_transient_restart.py",
-      "tests/test_parallel_transient.py"
-      ,"tests/test_dynamics.py"
+      "tests/test_parallel_transient.py",
+      "tests/test_dynamics.py",
+      "tests/test_parallel_modal.py",
+      "tests/test_harmonic.py",
+      "tests/test_harmonic_backend_evidence.py",
+      "tests/test_external_forced_vibration_benchmark.py",
+      "tests/portable_harmonic_sweep_driver.py"
     ],
-    "benchmarks": [],
+    "benchmarks": [
+      "agentfem.benchmark.linear_cantilever_modal",
+      "agentfem.benchmark.nafems_r0016_test5h_forced_vibration",
+      "agentfem.benchmark.nafems_r0016_test5h_spatial_refinement"
+    ],
     "validation_rules": [
       "Reject unknown procedure families, method names, equation orders, controls, or incompatible explicit/global-solve combinations.",
       "Require capability inspection and provider lowering to consume the same resolved SolutionProcedure.",
-      "Reject invalid generalized-alpha spectral radius and integration parameters."
+      "Eliminate strong constrained degrees of freedom before modal solution and reject insufficient free degrees of freedom.",
+      "Reject modal stiffness or mass operators that violate the symmetric generalized-Hermitian contract.",
+      "Require accepted modes to satisfy eigenpair residual, mass-orthogonality, stiffness-diagonalization and cluster-completeness contracts.",
+      "Require serial and two-rank modal frequencies and invariant-subspace evidence to agree within declared tolerances.",
+      "Reject ambiguous frequency units, nonhomogeneous prescribed harmonic motion, unsupported constraint families and unsupported SPD-only harmonic solver policies.",
+      "Freeze every operator, live coefficient, boundary condition, load phase, solution field and solver policy captured by a prepared harmonic backend; reject configuration drift before solve.",
+      "Reject non-finite harmonic solution, residual or energy evidence before publishing a result.",
+      "Require the independently assembled real-block residual and phasor-block residuals to satisfy the declared solver tolerance in serial and MPI.",
+      "Require nested and monolithic real-block layouts to reproduce the same nonzero-phase response and cycle input work.",
+      "Require the NAFEMS R0016 Test 5H comparison to meet the declared AgentFEM peak-frequency, displacement and recovered-stress gates without describing them as NAFEMS tolerances.",
+      "Require three successively refined Test 5H meshes to stabilize all three declared observables without inferring an observed order from nonuniform refinement ratios.",
+      "Require scalar harmonic sweep restart to preserve canonical results and scientific identity across forward/reverse execution and one/two-rank restart."
     ]
   },
   "references": [
     {
+      "title": "SLEPc EPS generalized eigenvalue problem documentation",
+      "locator": "https://slepc.upv.es/release/slepc4py/reference/slepc4py.SLEPc.EPS.html"
+    },
+    {
       "title": "Chung and Hulbert generalized-alpha method",
       "locator": "https://deepblue.lib.umich.edu/bitstream/handle/2027.42/50422/1640100803_ftp.pdf?isAllowed=y&sequence=1"
+    },
+    {
+      "title": "NAFEMS R0016 Selected Benchmarks for Forced Vibration",
+      "locator": "https://www.nafems.org/publications/resource_center/r0016/"
+    },
+    {
+      "title": "Abaqus Benchmarks Guide: NAFEMS Test 5H forced vibration of a simply supported beam",
+      "locator": "https://docs.software.vt.edu/abaqusv2025/English/SIMACAEBMKRefMap/simabmk-c-forcedvibrationtest5h.htm"
     }
   ],
   "related_cards": [
-    "agentfem.material.j2_global_plasticity",
+    "agentfem.material.linear_viscoelastic_dynamics",
+    "agentfem.workflow.transient_checkpoint_portability",
     "agentfem.workflow.thermoelastic_analysis"
   ]
 }

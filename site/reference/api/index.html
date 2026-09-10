@@ -4407,6 +4407,11 @@ and evidence remain in the linked guides and scientific function reference.</p>
 </tr>
 <tr>
 <td>class</td>
+<td><code>MixedJ2ElasticEnergyDiagnostics</code></td>
+<td>Volume-normalized energy identity for mixed finite-strain J2 fields.</td>
+</tr>
+<tr>
+<td>class</td>
 <td><code>StressStateInvariants</code></td>
 <td>Three-dimensional Cauchy-stress invariants with explicit validity.</td>
 </tr>
@@ -4449,6 +4454,11 @@ and evidence remain in the linked guides and scientific function reference.</p>
 <td>function</td>
 <td><code>hill_mandel_periodic_path(snapshots, properties, *, constraint, frames = None) -&gt; tuple[HillMandelIncrement, ...]</code></td>
 <td>Evaluate Hill--Mandel evidence between consecutive saved states.</td>
+</tr>
+<tr>
+<td>function</td>
+<td><code>mixed_j2_elastic_energy_diagnostics(*, deformation_gradient, pressure, inverse_bulk_modulus, condensed_elastic_energy_density, reference_volume: float) -&gt; MixedJ2ElasticEnergyDiagnostics</code></td>
+<td>Audit mixed J2 elastic energy using aligned accepted quadrature fields.</td>
 </tr>
 <tr>
 <td>function</td>

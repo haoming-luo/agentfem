@@ -46,8 +46,8 @@ set `U/S/E/MISES`:
 | `S` | Cauchy stress | discontinuous cell-average L2 projection |
 | `E` | infinitesimal strain | discontinuous cell-average L2 projection |
 | `MISES` | immediately useful invariant of stress | invariant evaluated from the constitutive stress, then discontinuously projected |
-| `SENER` | strain-energy density | available but opt-in diagnostic field; for finite-strain J2, `ELENER + HARDENER` |
-| `ELENER` | elastic or condensed mixed stored-energy representation | provider-owned finite-strain J2 quadrature field; mixed-route point values require the local pressure constraint for equivalence to the primal volumetric energy |
+| `SENER` | stored-energy channel | available but opt-in diagnostic field; for finite-strain J2, `ELENER + HARDENER`, with the provider-specific `ELENER` semantics retained |
+| `ELENER` | primal elastic or condensed mixed elastic-energy representation | provider-owned finite-strain J2 quadrature field; mixed-route values are not a substitute for primal elastic energy |
 | `HARDENER` | isotropic-hardening stored-energy density | provider-owned finite-strain J2 quadrature field |
 | `PDENER` | cumulative irrecoverable plastic-dissipation density | provider-owned finite-strain J2 quadrature state field |
 | `MEAN_KIRCHHOFF_STRESS` | independent mixed J2 volumetric unknown, positive in tension | discontinuous primary field for the experimental 3D P2/DG0 and 2D Q2/DPC1 finite-strain J2 routes |
@@ -60,8 +60,12 @@ it gives users an immediate deformed stress contour in ordinary visualization
 tools. `SENER` is not preselected because a full energy-density field is less
 universally useful than total strain energy and energy-balance histories.
 For finite-strain J2, `SENER` remains backward compatible and has the precise
-meaning `ELENER + HARDENER`: recoverable Hencky elastic free energy plus the
-stored linear-isotropic-hardening free energy. It is not plastic dissipation.
+algebraic meaning `ELENER + HARDENER`. For a displacement-only provider,
+`ELENER` is the primal Hencky elastic free energy. For a mixed provider it is
+the condensed representation defined below, so neither `ELENER` nor `SENER`
+may be relabelled as a primal physical-energy value without the explicit
+conversion and diagnostics. `HARDENER` is the stored linear-isotropic-hardening
+free energy. None of these channels is plastic dissipation.
 `PDENER` is reported separately as committed cumulative material dissipation
 for the declared rate-independent linear-hardening law. It does not by itself
 close the structural energy balance: external work for every load and
@@ -162,8 +166,19 @@ For mixed J2, `ELENER` contains the deviatoric elastic storage plus the
 nonnegative condensed mixed term \(p^2/(2\kappa)\). This term is pointwise
 equivalent to the primal volumetric energy \(\kappa(\ln J)^2/2\) only where the
 local constraint \(p=\kappa\ln J\) holds. The weak discrete equation does not
-make that pointwise identity automatic, so the channel must be described with
-its mixed discretisation when compared externally. The distinct
+make that pointwise identity automatic, and integrating the condensed channel
+does not turn it into the primal observable.
+
+`mixed_j2_elastic_energy_diagnostics(...)` therefore integrates aligned
+accepted `F`, `MEAN_KIRCHHOFF_STRESS`, inverse-bulk-modulus and condensed
+`ELENER` quadrature fields and reports the primal and condensed elastic
+energies separately. With \(r_p=\ln J-p/\kappa\), it also reports the signed
+primal-minus-condensed gap, the signed pressure-orthogonality contribution
+\(\overline{p r_p}\), the nonnegative constraint-defect contribution
+\(\overline{\kappa r_p^2/2}\), and their decomposition residual. An external
+physical-energy benchmark must compare its oracle with the explicit primal
+channel and retain these diagnostics; it must never compare the oracle directly
+with mixed `ELENER`. The distinct
 `MIXED_POTENTIAL` field carries the saddle density used to derive the pressure
 equation; it is never an alias for `ELENER` or `SENER`.
 

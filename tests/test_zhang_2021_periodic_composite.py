@@ -79,6 +79,7 @@ def test_table5_reference_preserves_published_component_order_and_evidence_gate(
     accepted = assess_table5(
         first_piola=tensor,
         elastic_energy_density=TABLE5.elastic_energy_density,
+        elastic_energy_semantics="primal_hencky_elastic_energy",
         effective_tangent=TABLE5.effective_tangent,
         convergence_evidence={
             "load_increment_path_converged": True,
@@ -108,6 +109,7 @@ def test_table5_reference_preserves_published_component_order_and_evidence_gate(
     missing_path_convergence = assess_table5(
         first_piola=tensor,
         elastic_energy_density=TABLE5.elastic_energy_density,
+        elastic_energy_semantics="primal_hencky_elastic_energy",
         effective_tangent=TABLE5.effective_tangent,
         convergence_evidence={
             "mesh_converged": True,
@@ -131,6 +133,7 @@ def test_table5_reference_preserves_published_component_order_and_evidence_gate(
     component_failure = assess_table5(
         first_piola=hidden_p11_error,
         elastic_energy_density=TABLE5.elastic_energy_density,
+        elastic_energy_semantics="primal_hencky_elastic_energy",
         effective_tangent=TABLE5.effective_tangent,
         convergence_evidence={
             "load_increment_path_converged": True,
@@ -149,6 +152,12 @@ def test_table5_reference_preserves_published_component_order_and_evidence_gate(
 
     with pytest.raises(ValueError, match="no greater than"):
         assess_table5(first_piola=tensor, relative_tolerance=0.031)
+    with pytest.raises(ValueError, match="primal Hencky elastic energy"):
+        assess_table5(
+            first_piola=tensor,
+            elastic_energy_density=TABLE5.elastic_energy_density,
+            elastic_energy_semantics="mixed_condensed_elastic_energy",
+        )
     with pytest.raises(TypeError, match="must be bool"):
         assess_table5(
             first_piola=tensor,

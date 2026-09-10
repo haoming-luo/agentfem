@@ -267,9 +267,23 @@ volumetric storage. It is pointwise identical to the primal
 \(\kappa(\ln J)^2/2\) term only where \(p=\kappa\ln J\) holds locally; the weak
 mixed equation does not make that identity unconditional at every quadrature
 point. The integrated channel is therefore suitable for a declared discrete
-mixed-energy comparison, but its point values must not be presented as the
-primal physical energy without checking the local constraint. `MIXED_POTENTIAL`
-retains the saddle variational density containing
+mixed-energy diagnostic, but integrating it does not make it the primal
+physical-energy observable. With
+
+\[
+r_p=\ln J-\frac{p}{\kappa},
+\qquad
+\overline{\psi}_{e,\mathrm{primal}}
+-\overline{\psi}_{e,\mathrm{condensed}}
+=\overline{p r_p}+\overline{\frac{\kappa r_p^2}{2}},
+\]
+
+the mixed-energy diagnostic reports the primal and condensed channels, their
+signed gap, the signed pressure-orthogonality term, the nonnegative
+constraint-defect term, and the residual of this decomposition. An external
+physical-energy oracle must be compared with the explicit primal channel while
+retaining those diagnostics. It must not be compared directly with mixed
+`ELENER`. `MIXED_POTENTIAL` retains the saddle variational density containing
 \(p\ln J-p^2/(2\kappa)\) and is never a stored-energy alias.
 
 Portable checkpointing also respects ownership. The generic archive never
@@ -291,11 +305,14 @@ implementation ceiling that guards the current subtractive tangent extraction;
 it is not an audited accuracy range or a material-model limit. They do not yet
 support distributed block-aware MPC, ordinary strong-boundary mixed problems,
 or body/natural-load power. The Q2/DPC1 path supplies the three pressure modes
-of the 9/3 formulation, but the Zhang--Feng--Khandelwal complex geometry and
-Table 5 observables must still be executed through it before external
-promotion. The existing thin-3D tetrahedral fixture remains a distinct
-experimental mixed diagnostic rather than evidence of 2D formulation identity
-or locking convergence.
+of the 9/3 formulation. The exact Zhang--Feng--Khandelwal geometry now has a
+direct plane-strain diagnostic driver that reports both primal and condensed
+energy channels and their decomposition. That execution remains an unpromoted
+diagnostic: load-path, formulation and mesh convergence, the effective tangent,
+replicated cells, MPI/restart equivalence, and content-bound evidence remain
+open. The existing thin-3D tetrahedral fixture is a separate experimental
+diagnostic rather than evidence of 2D formulation identity or locking
+convergence.
 
 The state transaction owns accepted quadrature `F`, `P`, `S`, `MISES`,
 `SENER`, `ELENER`, `HARDENER`, `PDENER`, `FP`, and `PEEQ`; the mixed route also
@@ -353,16 +370,21 @@ they do not establish an asymptotic range, GCI, or numerical uncertainty.
 The Zhang--Feng--Khandelwal external fixture now has a thin-3D tetrahedral
 P2/DG0 mixed diagnostic in addition to the older low-order displacement-only
 route. Neither is relabelled as the publication's 2D quadrilateral Q2/DPC1 9/3
-element. One unarchived local 502-cell, 20-increment diagnostic passed the
-global first-Piola vector-norm tolerance, but failed the componentwise
-\(P_{11}\) and \(P_{22}\) contracts and the `ELENER` tolerance. Those numbers
-are diagnostic observations, not a content-addressed Golden. Moreover, the
+element. One unarchived local 502-cell, 20-increment thin-3D diagnostic passed
+the global first-Piola vector-norm tolerance but failed the componentwise
+\(P_{11}\) and \(P_{22}\) contracts. Its condensed mixed `ELENER` was
+0.002627074. Table 5 reports the primal Hencky elastic energy, so no relative
+Table 5 energy error is assigned to that different channel and the
+physical-energy gate remains incomplete. Those numbers are diagnostic
+observations, not a content-addressed Golden. The exact Q9/DPC1 route can now
+reconstruct the primal channel and publish the signed energy-gap decomposition,
+but its current execution remains diagnostic and unpromoted. Moreover, the
 current Table 5 assessor checks caller-supplied comparison-completeness flags;
 until it consumes content-bound evidence records, it is not by itself a
 scientific promotion gate. Promotion still requires load-increment/path and
-spatial convergence, Table 5 stress, elastic energy and current-state effective
-tangent, 1x1/1x2/2x1/2x2 replication invariance, and serial/MPI plus restart
-evidence. An analytically linearized production
+spatial convergence, Table 5 stress, primal Hencky elastic energy and
+current-state effective tangent, 1x1/1x2/2x1/2x2 replication invariance, and
+serial/MPI plus restart evidence. An analytically linearized production
 deviatoric tangent also remains a performance and conditioning gate: the
 current mixed transformation removes the numerical volumetric tangent from the
 complete discrete `dP/dF`, which is correctness-first rather than a
