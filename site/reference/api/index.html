@@ -4734,6 +4734,16 @@ and evidence remain in the linked guides and scientific function reference.</p>
 </tr>
 <tr>
 <td>class</td>
+<td><code>MonotonicTargetAdvance</code></td>
+<td>Accepted internal path used to reach one requested physical target.</td>
+</tr>
+<tr>
+<td>function</td>
+<td><code>advance_monotonic_targets(targets: Iterable[float], *, try_accept: Callable[[float], object \| None], initial_coordinate: float = 0.0, minimum_increment: float, maximum_cutbacks: int, coordinate_name: str = 'load', failure_message: Callable[[], str] \| None = None) -&gt; tuple[MonotonicTargetAdvance, ...]</code></td>
+<td>Reach requested monotonic targets with transactional bisection.</td>
+</tr>
+<tr>
+<td>class</td>
 <td><code>EngineeringStep</code></td>
 <td>Named inherited activation state, separate from solver controls.</td>
 </tr>

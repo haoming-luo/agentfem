@@ -15,6 +15,7 @@ from agentfem import (
     models,
     procedures,
     results,
+    steps,
     studies,
 )
 from agentfem.constitutive import elasticity
@@ -793,6 +794,55 @@ def test_common_dynamic_study_factory_keeps_physics_and_procedure_distinct():
     assert explicit.analysis == implicit.analysis == "second_order_dynamics"
     assert explicit.preferred_procedure == "central_difference"
     assert implicit.preferred_procedure == "generalized_alpha"
+
+
+def test_monotonic_target_controller_preserves_requested_outputs_and_state_owner():
+    accepted = 0.0
+    attempted = []
+
+    def try_accept(target):
+        nonlocal accepted
+        attempted.append(target)
+        if target - accepted > 0.26:
+            return None
+        accepted = target
+        return {"coordinate": target}
+
+    path = steps.advance_monotonic_targets(
+        (0.0, 0.4, 1.0),
+        try_accept=try_accept,
+        minimum_increment=1.0e-3,
+        maximum_cutbacks=8,
+        coordinate_name="opening",
+    )
+
+    assert tuple(item.target_coordinate for item in path) == (0.0, 0.4, 1.0)
+    assert tuple(item.final["coordinate"] for item in path) == (0.0, 0.4, 1.0)
+    assert path[1].accepted_subincrements == 2
+    assert path[2].accepted_subincrements >= 3
+    assert path[2].subdivisions == path[2].accepted_subincrements - 1
+    assert path[2].failed_attempts >= 1
+    assert accepted == 1.0
+    assert len(attempted) > len(path)
+    assert "accepted_values" not in path[2].summary()
+
+
+def test_monotonic_target_controller_fails_closed_at_cutback_limit():
+    with pytest.raises(RuntimeError, match="last accepted load 0"):
+        steps.advance_monotonic_targets(
+            (1.0,),
+            try_accept=lambda _target: None,
+            minimum_increment=1.0e-6,
+            maximum_cutbacks=1,
+            failure_message=lambda: "equilibrium remained singular",
+        )
+    with pytest.raises(ValueError, match="increase strictly"):
+        steps.advance_monotonic_targets(
+            (0.5, 0.5),
+            try_accept=lambda target: target,
+            minimum_increment=1.0e-3,
+            maximum_cutbacks=1,
+        )
 
 
 def test_explicit_solution_procedure_drives_capability_and_lowering():

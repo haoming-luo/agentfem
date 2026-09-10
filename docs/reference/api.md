@@ -515,6 +515,8 @@ and evidence remain in the linked guides and scientific function reference.
 | function | `fixed(increments: int) -> FixedIncrementation` | Divide the normalized step interval into exactly ``increments`` parts. |
 | function | `at(*load_factors: float) -> FixedIncrementation` | Create a prescribed, nonuniform load-factor path. |
 | function | `normalize(value = None, *, increments: int \| None = None, load_factors = None)` | Normalize public and compatibility incrementation inputs. |
+| class | `MonotonicTargetAdvance` | Accepted internal path used to reach one requested physical target. |
+| function | `advance_monotonic_targets(targets: Iterable[float], *, try_accept: Callable[[float], object \| None], initial_coordinate: float = 0.0, minimum_increment: float, maximum_cutbacks: int, coordinate_name: str = 'load', failure_message: Callable[[], str] \| None = None) -> tuple[MonotonicTargetAdvance, ...]` | Reach requested monotonic targets with transactional bisection. |
 | class | `EngineeringStep` | Named inherited activation state, separate from solver controls. |
 | function | `engineering_step(name: str, *, previous: EngineeringStep \| None = None, inherit_model_loads: bool = False, inherit_model_constraints: bool = True)` | Public AgentFEM object. |
 

@@ -727,6 +727,7 @@ def dcb_cohesive_propagation_curve(
         operators,
         results,
         solvers,
+        steps,
         studies,
     )
 
@@ -955,31 +956,22 @@ def dcb_cohesive_propagation_curve(
             "process_length": process_length,
         }
 
-    def advance_to(target, *, depth, evidence):
-        start = previous_opening
-        accepted = accept_trial(target)
-        if accepted is not None:
-            evidence.append(accepted)
-            return accepted
-        interval = float(target) - start
-        if depth >= cutback_limit or 0.5 * interval < minimum_increment:
-            message = (
+    for increment, imposed in enumerate(openings):
+        advance = steps.advance_monotonic_targets(
+            (float(imposed),),
+            try_accept=accept_trial,
+            initial_coordinate=previous_opening,
+            minimum_increment=minimum_increment,
+            maximum_cutbacks=cutback_limit,
+            coordinate_name="DCB opening",
+            failure_message=lambda: (
                 equilibrium.last_info.message
                 if equilibrium.last_info is not None
                 else "unknown nonlinear failure"
-            )
-            raise RuntimeError(
-                "DCB cohesive continuation could not reach opening "
-                f"{float(target):.12g}; last accepted opening {start:.12g}; "
-                f"cutback depth {depth}; {message}."
-            )
-        midpoint = start + 0.5 * interval
-        advance_to(midpoint, depth=depth + 1, evidence=evidence)
-        return advance_to(target, depth=depth + 1, evidence=evidence)
-
-    for increment, imposed in enumerate(openings):
-        accepted_trials = []
-        accepted = advance_to(float(imposed), depth=0, evidence=accepted_trials)
+            ),
+        )[0]
+        accepted_trials = advance.accepted_values
+        accepted = advance.final
         solved = accepted["solved"]
         reaction = accepted["reaction"]
         bulk_energy = accepted["bulk_energy"]
@@ -1015,7 +1007,7 @@ def dcb_cohesive_propagation_curve(
                 ),
                 residual_norm=float(equilibrium.last_info.residual_norm),
                 accepted_subincrements=len(accepted_trials),
-                cutbacks=max(len(accepted_trials) - 1, 0),
+                cutbacks=advance.subdivisions,
             )
         )
     characteristic = law.characteristic_length(spec.elastic_modulus)

@@ -9,7 +9,7 @@
   "execution": {
     "example": "tests/test_delamination_fem_benchmark.py",
     "command": "python -m pytest -q tests/test_mixed_mode_benchmark.py tests/test_delamination_fem_benchmark.py tests/test_enf_fem_benchmark.py",
-    "evidence": "The suite separates analytical oracles from assembled Q1 bulk plus paired-facet providers. The DCB route has distinct compliance and irreversible-propagation certificates with converged-state commit, automatic cutback, reaction, crack-front, nonlinear-iteration, bulk/interface energy and external-work evidence. The ENF route independently assembles three-point bending, a split mid-plane and a full vector cohesive tie, then checks three refined compliance curves, residuals and pure Mode-II energy-release semantics against its declared beam oracle. These nondimensional regressions exercise the solver architecture; source-identified material-curve promotion remains separate."
+    "evidence": "The suite separates analytical oracles from assembled Q1 bulk plus paired-facet providers. The DCB route has distinct compliance and irreversible-propagation certificates with converged-state commit, reusable requested-target cutback control, reaction, crack-front, nonlinear-iteration, bulk/interface energy and external-work evidence. The ENF route independently assembles three-point bending, a split mid-plane and a full vector cohesive tie, then checks three refined compliance curves, residuals and pure Mode-II energy-release semantics against its declared beam oracle. These nondimensional regressions exercise the solver architecture; source-identified material-curve promotion remains separate."
   },
   "observables": [
     "Load and load-point displacement versus crack length.",

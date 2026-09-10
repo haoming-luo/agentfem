@@ -9,8 +9,10 @@ The controls in this module therefore describe how a normalized step interval
 
 from __future__ import annotations
 
+from collections.abc import Callable, Iterable
 from dataclasses import dataclass, field
 from math import isfinite
+from sys import float_info
 
 
 @dataclass(frozen=True)
@@ -206,6 +208,148 @@ def normalize(
     return value
 
 
+@dataclass(frozen=True)
+class MonotonicTargetAdvance:
+    """Accepted internal path used to reach one requested physical target.
+
+    ``accepted_values`` intentionally remains an in-memory procedure payload;
+    the compact :meth:`summary` records only coordinates and control evidence.
+    The caller continues to own constitutive commit/rollback and the scientific
+    meaning of each accepted value.
+    """
+
+    requested_index: int
+    start_coordinate: float
+    target_coordinate: float
+    accepted_coordinates: tuple[float, ...]
+    accepted_values: tuple[object, ...]
+    failed_attempts: int
+
+    @property
+    def final(self):
+        return self.accepted_values[-1]
+
+    @property
+    def accepted_subincrements(self) -> int:
+        return len(self.accepted_coordinates)
+
+    @property
+    def subdivisions(self) -> int:
+        return max(self.accepted_subincrements - 1, 0)
+
+    def summary(self) -> dict[str, object]:
+        return {
+            "kind": "monotonic_target_advance",
+            "requested_index": self.requested_index,
+            "start_coordinate": self.start_coordinate,
+            "target_coordinate": self.target_coordinate,
+            "accepted_coordinates": self.accepted_coordinates,
+            "accepted_subincrements": self.accepted_subincrements,
+            "subdivisions": self.subdivisions,
+            "failed_attempts": self.failed_attempts,
+        }
+
+
+def advance_monotonic_targets(
+    targets: Iterable[float],
+    *,
+    try_accept: Callable[[float], object | None],
+    initial_coordinate: float = 0.0,
+    minimum_increment: float,
+    maximum_cutbacks: int,
+    coordinate_name: str = "load",
+    failure_message: Callable[[], str] | None = None,
+) -> tuple[MonotonicTargetAdvance, ...]:
+    """Reach requested monotonic targets with transactional bisection.
+
+    ``try_accept(target)`` must commit all state when it returns a value and
+    restore the previously accepted state when it returns ``None``.  Failed
+    intervals are bisected, but only the caller's requested coordinates appear
+    as outer records.  This keeps nonlinear path control reusable without
+    moving constitutive-state ownership into the step controller.
+    """
+
+    selected = tuple(float(value) for value in targets)
+    initial = float(initial_coordinate)
+    minimum = float(minimum_increment)
+    cutback_limit = int(maximum_cutbacks)
+    name = str(coordinate_name).strip() or "load"
+    if not selected or not isfinite(initial) or any(
+        not isfinite(value) for value in selected
+    ):
+        raise ValueError("Monotonic targets and initial coordinate must be finite.")
+    tolerance = 64.0 * float_info.epsilon * max(
+        1.0, abs(initial), *(abs(value) for value in selected)
+    )
+    if selected[0] < initial - tolerance or any(
+        right <= left for left, right in zip(selected, selected[1:])
+    ):
+        raise ValueError(
+            "Monotonic targets must not precede the initial coordinate and "
+            "must then increase strictly."
+        )
+    if not isfinite(minimum) or minimum <= 0.0:
+        raise ValueError("minimum_increment must be finite and positive.")
+    if cutback_limit < 0:
+        raise ValueError("maximum_cutbacks must be nonnegative.")
+    if not callable(try_accept):
+        raise TypeError("try_accept must be callable.")
+
+    current = initial
+    records = []
+    for index, requested in enumerate(selected):
+        start = current
+        accepted_coordinates = []
+        accepted_values = []
+        failed_attempts = 0
+
+        def advance(
+            target: float,
+            depth: int,
+            _accepted_coordinates=accepted_coordinates,
+            _accepted_values=accepted_values,
+        ) -> None:
+            nonlocal current, failed_attempts
+            value = try_accept(float(target))
+            if value is not None:
+                current = float(target)
+                _accepted_coordinates.append(current)
+                _accepted_values.append(value)
+                return
+            failed_attempts += 1
+            interval = float(target) - current
+            if (
+                interval <= tolerance
+                or depth >= cutback_limit
+                or 0.5 * interval < minimum
+            ):
+                detail = ""
+                if failure_message is not None:
+                    message = str(failure_message()).strip()
+                    detail = f"; {message}" if message else ""
+                raise RuntimeError(
+                    f"Monotonic path could not reach {name} {float(target):.12g}; "
+                    f"last accepted {name} {current:.12g}; cutback depth {depth}"
+                    f"{detail}."
+                )
+            midpoint = current + 0.5 * interval
+            advance(midpoint, depth + 1)
+            advance(float(target), depth + 1)
+
+        advance(requested, 0)
+        records.append(
+            MonotonicTargetAdvance(
+                requested_index=index,
+                start_coordinate=start,
+                target_coordinate=requested,
+                accepted_coordinates=tuple(accepted_coordinates),
+                accepted_values=tuple(accepted_values),
+                failed_attempts=failed_attempts,
+            )
+        )
+    return tuple(records)
+
+
 @dataclass
 class EngineeringStep:
     """Named inherited activation state, separate from solver controls."""
@@ -311,7 +455,9 @@ def _asset_name(asset_or_name, explicit=None) -> str:
 __all__ = [
     "AutomaticIncrementation",
     "FixedIncrementation",
+    "MonotonicTargetAdvance",
     "EngineeringStep",
+    "advance_monotonic_targets",
     "at",
     "automatic",
     "fixed",

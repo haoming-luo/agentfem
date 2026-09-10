@@ -2023,7 +2023,12 @@ adequate cohesive-zone resolution, bounded energy error, and stable
 finest-level peak load and damaged length. The automated three-level
 nondimensional fixture is an assembled solver regression informed by the NASA
 specimen family; it is not presented as a reproduction of NASA material data
-or experiment.
+or experiment. Failed-increment bisection is no longer private benchmark
+control: <code>steps.advance_monotonic_targets(...)</code> owns the reusable requested-
+coordinate and cutback sequence, while each cohesive consumer still owns the
+actual equilibrium attempt and constitutive commit/rollback. This is the path
+control that a later ENF propagation provider will reuse; it does not by itself
+claim that an unstable Mode-II post-peak branch has been traced.
 <code>enf_finite_element_curve(...)</code> now supplies the independent Mode-II structural
 rung. It assembles a two-arm split specimen under three-point bending, uses a
 full normal--tangential cohesive tie ahead of the precrack, applies the
