@@ -85,7 +85,11 @@ def main() -> None:
             assert payload["completed_indices"] == [0]
         return
 
-    restarted = harmonic_sweep(execution_order="reverse")
+    # Rank-count portability does not relax the frozen scientific request.
+    # In particular, the execution order belongs to the restart contract:
+    # a resumed sweep may use a different partition, but it must not silently
+    # change which pending frequency is evaluated next.
+    restarted = harmonic_sweep(execution_order="forward")
     payload = restarted.load_checkpoint(arguments.checkpoint)
     if int(payload["rank_count_at_write"]) == comm.size:
         raise AssertionError("Acceptance read must use a different MPI rank count.")

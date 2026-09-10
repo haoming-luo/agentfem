@@ -414,7 +414,7 @@ def test_harmonic_rechecks_zero_support_immediately_before_first_solve():
     assert step._prepared_problem is None
 
 
-def test_harmonic_identity_fails_closed_when_dof_coordinates_are_not_unique(
+def test_harmonic_identity_fails_closed_when_dof_identities_are_not_unique(
     monkeypatch,
 ):
     from agentfem.operators import identity as operator_identity
@@ -431,14 +431,17 @@ def test_harmonic_identity_fails_closed_when_dof_coordinates_are_not_unique(
         frequency=0.5,
     )
 
-    def colliding_keys(coordinates, domain, *, policy=None):
-        del policy
+    def colliding_input_nodes(function):
         return np.zeros(
-            (len(np.asarray(coordinates)), int(domain.geometry.dim)),
+            int(function.function_space.dofmap.index_map.size_local),
             dtype=np.int64,
         )
 
-    monkeypatch.setattr(operator_identity, "_coordinate_keys", colliding_keys)
+    monkeypatch.setattr(
+        operator_identity,
+        "_owned_p1_input_node_ids",
+        colliding_input_nodes,
+    )
     identity = operator_identity.harmonic_executable_identity(
         step.system,
         solution=step.solution_real,

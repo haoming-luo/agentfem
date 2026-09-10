@@ -345,7 +345,15 @@ def _function_content_identity(function, *, domain) -> dict[str, object]:
         values = np.asarray(value.x.array[: owned * block_size]).reshape(
             (owned, block_size)
         )
-        keys = _coordinate_keys(coordinates[:owned], V.mesh)
+        try:
+            source_ids = _owned_p1_input_node_ids(value)
+        except NotImplementedError:
+            source_ids = None
+        keys = (
+            tuple((int(source_id),) for source_id in source_ids)
+            if source_ids is not None
+            else _coordinate_keys(coordinates[:owned], V.mesh)
+        )
         local = [
             (
                 tuple(str(item) for item in key),
@@ -370,7 +378,11 @@ def _function_content_identity(function, *, domain) -> dict[str, object]:
         "block_size": block_size,
         "global_block_dofs": len(rows),
         "content_sha256": content_fingerprint(rows),
-        "key": "exact_ieee754_hex_physical_dof_coordinate",
+        "key": (
+            "input_geometry_node_id"
+            if source_ids is not None
+            else "exact_ieee754_hex_physical_dof_coordinate"
+        ),
     }
 
 
@@ -478,9 +490,17 @@ def _homogeneous_dirichlet_identity(
     )
     local_error = None
     try:
-        keys = _coordinate_keys(
-            coordinates[: int(V.dofmap.index_map.size_local)],
-            V.mesh,
+        try:
+            source_ids = _owned_p1_input_node_ids(function)
+        except NotImplementedError:
+            source_ids = None
+        keys = (
+            tuple((int(source_id),) for source_id in source_ids)
+            if source_ids is not None
+            else _coordinate_keys(
+                coordinates[: int(V.dofmap.index_map.size_local)],
+                V.mesh,
+            )
         )
         constrained_local_dofs = set()
         for index, bc in enumerate(bcs):
@@ -550,8 +570,66 @@ def _homogeneous_dirichlet_identity(
         "value": "homogeneous_zero",
         "global_scalar_dofs": len(constrained),
         "dof_set_sha256": content_fingerprint(constrained),
-        "key": "exact_ieee754_hex_block_coordinate_and_component",
+        "key": (
+            "input_geometry_node_id_and_block_component"
+            if source_ids is not None
+            else "exact_ieee754_hex_block_coordinate_and_component"
+        ),
     }
+
+
+def _owned_p1_input_node_ids(function) -> np.ndarray:
+    """Map owned blocked P1 dofs to partition-neutral mesh input-node ids.
+
+    ``tabulate_dof_coordinates`` is geometrically correct but may differ by a
+    few floating-point ulps when the same mesh is repartitioned.  For a
+    first-order nodal field, the mesh input-node identity is both exact and
+    invariant under that repartitioning.  Higher-order or mixed layouts retain
+    the lossless coordinate fallback and therefore still fail closed if an
+    equivalent portable identity cannot be established.
+    """
+
+    V = function.function_space
+    domain = V.mesh
+    owned = int(V.dofmap.index_map.size_local)
+    if int(V.dofmap.bs) != int(V.dofmap.index_map_bs):
+        raise NotImplementedError("field is not a blocked nodal space")
+    geometry_maps = getattr(domain.geometry, "dofmaps", None)
+    geometry_dofmap = (
+        domain.geometry.dofmap if geometry_maps is None else geometry_maps[0]
+    )
+    input_indices = np.asarray(domain.geometry.input_global_indices, dtype=np.int64)
+    source = np.full(owned, -1, dtype=np.int64)
+    cell_map = domain.topology.index_map(domain.topology.dim)
+    for cell in range(int(cell_map.size_local + cell_map.num_ghosts)):
+        geometry_dofs = np.asarray(geometry_dofmap[cell], dtype=np.int64)
+        field_dofs = np.asarray(V.dofmap.cell_dofs(cell), dtype=np.int64)
+        if geometry_dofs.size != field_dofs.size:
+            raise NotImplementedError(
+                "field dofs do not coincide with first-order geometry nodes"
+            )
+        for geometry_dof, field_dof in zip(
+            geometry_dofs,
+            field_dofs,
+            strict=True,
+        ):
+            selected = int(field_dof)
+            if selected >= owned:
+                continue
+            node = int(input_indices[int(geometry_dof)])
+            previous = int(source[selected])
+            if previous not in {-1, node}:
+                raise RuntimeError(
+                    "one owned field dof maps to inconsistent input-node ids"
+                )
+            source[selected] = node
+    missing = np.flatnonzero(source < 0)
+    if missing.size:
+        raise NotImplementedError(
+            "field lacks input-node identity for owned dofs: "
+            f"{missing.tolist()}"
+        )
+    return source
 
 
 def _array_identity(value) -> dict[str, object]:
