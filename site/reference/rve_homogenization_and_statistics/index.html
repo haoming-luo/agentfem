@@ -1657,7 +1657,11 @@ quadrature, realization or constraint. It establishes final-state stability
 for this monotonic path on this fixed mesh, not a general temporal error bound.
 The stored certificate binds clean source commit <code>0491f23</code>, its package-tree
 hash, the complete runtime fingerprint and the fixed scientific-case
-fingerprint; a changed implementation or runtime cannot inherit it silently.</p>
+fingerprint; a changed implementation or runtime cannot inherit it silently.
+Maintainers can also request the same 2/4/8 comparison from the
+<code>Scheduled scientific benchmarks</code> workflow. That opt-in job builds and
+installs the candidate wheel, runs outside the source tree and uploads all
+three input records plus the comparison certificate.</p>
 <p>The same realization also passes a one-rank/two-rank comparison: the relative
 first-Piola norm difference is about <span class="arithmatex">\(9.9\times10^{-14}\)</span>, all scalar
 differences are below <span class="arithmatex">\(5.3\times10^{-16}\)</span>, and realization, scientific-input,

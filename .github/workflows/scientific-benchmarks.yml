@@ -18,6 +18,11 @@ on:
         description: Initial physical-time increments
         required: true
         default: "40"
+      run_multi_void_rve_load_path:
+        description: Run the finite-strain multi-void 2/4/8-increment certificate
+        required: true
+        type: boolean
+        default: false
 
 jobs:
   nafems-creep:
@@ -62,4 +67,63 @@ jobs:
         with:
           name: nafems-r0027-test7
           path: /tmp/nafems-r0027-test7.json
+          if-no-files-found: warn
+
+  finite-strain-rve-load-path:
+    if: ${{ inputs.run_multi_void_rve_load_path }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    env:
+      UCX_TLS: tcp,sm,self
+    defaults:
+      run:
+        shell: bash -el {0}
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Create FEniCSx environment
+        uses: conda-incubator/setup-miniconda@v4
+        with:
+          activate-environment: agentfem-benchmark
+          environment-file: environment.yml
+          miniforge-version: latest
+          use-mamba: true
+          channels: conda-forge
+          channel-priority: strict
+
+      - name: Install the exact candidate wheel
+        run: |
+          python -m pip install --upgrade build
+          python -m build --wheel
+          python -m pip install --no-deps --force-reinstall dist/*.whl
+
+      - name: Run fixed-mesh 2/4/8-increment paths from the installed wheel
+        run: |
+          cd /tmp
+          python "$GITHUB_WORKSPACE/tests/multi_void_rve_golden_driver.py" \
+            --mesh-size 0.16 --increments 2 \
+            --output /tmp/agentfem-multi-void-n2.json
+          python "$GITHUB_WORKSPACE/tests/multi_void_rve_golden_driver.py" \
+            --mesh-size 0.16 --increments 4 \
+            --output /tmp/agentfem-multi-void-n4.json
+          python "$GITHUB_WORKSPACE/tests/multi_void_rve_golden_driver.py" \
+            --mesh-size 0.16 --increments 8 \
+            --output /tmp/agentfem-multi-void-n8.json
+          python "$GITHUB_WORKSPACE/tests/multi_void_rve_golden_driver.py" \
+            --compare-load-path \
+            /tmp/agentfem-multi-void-n2.json \
+            /tmp/agentfem-multi-void-n4.json \
+            /tmp/agentfem-multi-void-n8.json \
+            --output /tmp/agentfem-multi-void-load-path-certificate.json
+
+      - name: Upload finite-strain RVE load-path evidence
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: finite-strain-rve-load-path
+          path: |
+            /tmp/agentfem-multi-void-n2.json
+            /tmp/agentfem-multi-void-n4.json
+            /tmp/agentfem-multi-void-n8.json
+            /tmp/agentfem-multi-void-load-path-certificate.json
           if-no-files-found: warn

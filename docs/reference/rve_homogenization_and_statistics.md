@@ -296,6 +296,10 @@ for this monotonic path on this fixed mesh, not a general temporal error bound.
 The stored certificate binds clean source commit `0491f23`, its package-tree
 hash, the complete runtime fingerprint and the fixed scientific-case
 fingerprint; a changed implementation or runtime cannot inherit it silently.
+Maintainers can also request the same 2/4/8 comparison from the
+`Scheduled scientific benchmarks` workflow. That opt-in job builds and
+installs the candidate wheel, runs outside the source tree and uploads all
+three input records plus the comparison certificate.
 
 The same realization also passes a one-rank/two-rank comparison: the relative
 first-Piola norm difference is about \(9.9\times10^{-14}\), all scalar
