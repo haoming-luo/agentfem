@@ -19,7 +19,7 @@ from dataclasses import dataclass
 
 import numpy as np
 
-from agentfem import constitutive, constraints, mesh
+from agentfem import constitutive, constraints, fields, mesh
 from agentfem.mesh import abaqus
 
 from periodic_void_fixture import _periodic_semantics
@@ -156,6 +156,128 @@ class Zhang2021PeriodicCompositeFixture:
         )
 
 
+@dataclass(frozen=True)
+class Zhang2021PlaneStrainCompositeFixture:
+    """Exact 2D geometry and Q2/DPC1 discretization preparation for Table 5.
+
+    This fixture establishes only the published plane-strain geometry and its
+    periodic finite-element topology.  It deliberately carries no claim that
+    the nonlinear solve or the Table 5 response has been reproduced.
+    """
+
+    domain: object
+    cell_tags: object
+    facet_tags: object
+    nodes: abaqus.AbaqusNodeTable
+    equations: abaqus.AbaqusEquationSet
+    deformation_gradient: np.ndarray
+    anchor_node: int
+    reference_nodes: tuple[int, int]
+    matrix_tag: int
+    inclusion_tag: int
+    periodic_boundary_tag: int
+    void_boundary_tag: int
+    mesh_size: float
+    element_order: int
+    gmsh_element_name: str
+    element_count: int
+    nodes_per_element: int
+    periodic_pair_counts: tuple[int, int]
+    periodic_expected_pair_counts: tuple[int, int]
+    periodic_pairing_error: float
+    minimum_scaled_jacobian: float
+    inclusion_surface_count: int
+    void_curve_count: int
+
+    @property
+    def reference_cell_area(self) -> float:
+        return 1.0
+
+    @property
+    def pressure_modes_per_cell(self) -> int:
+        return 3
+
+    @property
+    def region_tags(self) -> dict[str, int]:
+        return {
+            "matrix": self.matrix_tag,
+            "stiff_inclusions": self.inclusion_tag,
+        }
+
+    @property
+    def boundary_tags(self) -> dict[str, int]:
+        return {
+            "periodic_boundary": self.periodic_boundary_tag,
+            "void_boundary": self.void_boundary_tag,
+        }
+
+    @property
+    def matrix_moduli(self) -> tuple[float, float]:
+        return 17.5, 8.0
+
+    @property
+    def matrix_young_poisson(self) -> tuple[float, float]:
+        return young_poisson_from_bulk_shear(*self.matrix_moduli)
+
+    def regions(self):
+        return (
+            mesh.cell_region(
+                self.domain,
+                self.cell_tags,
+                tag=self.matrix_tag,
+                name="matrix",
+            ),
+            mesh.cell_region(
+                self.domain,
+                self.cell_tags,
+                tag=self.inclusion_tag,
+                name="stiff_inclusions",
+            ),
+        )
+
+    def materials(self):
+        """Return the same regional material definitions as the 3D diagnostic."""
+
+        young, poisson = self.matrix_young_poisson
+        matrix = constitutive.finite_strain_j2_logarithmic(
+            young=young,
+            poisson=poisson,
+            yield_stress=0.45,
+            hardening_modulus=0.1,
+        )
+        inclusion = constitutive.finite_strain_j2_logarithmic(
+            young=100.0 * young,
+            poisson=poisson,
+            yield_stress=1.0e6,
+            hardening_modulus=0.1,
+        )
+        return matrix, inclusion
+
+    def mixed_field(self):
+        """Create the published nine-displacement/three-pressure interpolation."""
+
+        return fields.displacement_pressure(
+            self.domain,
+            displacement_degree=2,
+            pressure_family="DPC",
+            pressure_degree=1,
+        )
+
+    def constraint(self, displacement_pressure):
+        """Create exact two-dimensional affine-periodic equations."""
+
+        return constraints.abaqus_periodic_cell(
+            displacement_pressure,
+            nodes=self.nodes,
+            equations=self.equations,
+            deformation_gradient=self.deformation_gradient,
+            anchor_node=self.anchor_node,
+            reference_nodes=self.reference_nodes,
+            tolerance=2.0e-9,
+            name="zhang_2021_table5_plane_strain_periodic_cell",
+        )
+
+
 def young_poisson_from_bulk_shear(bulk: float, shear: float) -> tuple[float, float]:
     """Convert three-dimensional bulk/shear moduli to ``E, nu``."""
 
@@ -206,7 +328,7 @@ def assess_table5(
         raise ValueError(
             "relative_tolerance must be finite, positive, and no greater "
             f"than the fixed {TABLE5_MAXIMUM_RELATIVE_TOLERANCE:.0%} "
-            "external-promotion contract."
+            "comparison contract."
         )
     stress = column_major_plane_components(first_piola)
     stress_error = float(
@@ -303,6 +425,209 @@ def assess_table5(
         "missing_evidence": tuple(missing),
         "convergence": convergence,
     }
+
+
+def zhang_2021_plane_strain_composite(
+    comm,
+    *,
+    mesh_size: float = 0.12,
+    shear: float = 0.10,
+    element_order: int = 2,
+    model_rank: int = 0,
+) -> Zhang2021PlaneStrainCompositeFixture:
+    """Build the published 2D unit cell as a pure curved Q9 mesh.
+
+    Gmsh first creates a periodic linear surface mesh using Frontal-Delaunay
+    and the all-quadrilateral subdivision algorithm.  ``setOrder(2)`` then
+    upgrades the topology while retaining the periodic high-order node graph.
+    Any non-Q9 cell, invalid element, or missing periodic pairing is rejected
+    before the model reaches a solver.
+    """
+
+    mesh_size = float(mesh_size)
+    shear = float(shear)
+    if not np.isfinite(mesh_size) or mesh_size <= 0.0:
+        raise ValueError("mesh_size must be finite and positive.")
+    if not np.isfinite(shear):
+        raise ValueError("shear must be finite.")
+    if isinstance(element_order, bool) or int(element_order) != element_order:
+        raise ValueError("The exact plane-strain fixture requires element_order=2.")
+    element_order = int(element_order)
+    if element_order != 2:
+        raise ValueError("The exact plane-strain fixture requires element_order=2.")
+    if not 0 <= int(model_rank) < int(comm.size):
+        raise ValueError("model_rank must identify one rank in the communicator.")
+
+    gmsh = mesh.require_gmsh()
+    initialized_here = not gmsh.isInitialized()
+    if initialized_here:
+        gmsh.initialize()
+    semantics = None
+    diagnostics = None
+    previous_options = {}
+    selected_options = {
+        "General.Verbosity": 0.0,
+        "Mesh.MeshSizeMin": mesh_size,
+        "Mesh.MeshSizeMax": mesh_size,
+        "Mesh.Algorithm": 6.0,
+        "Mesh.RecombineAll": 0.0,
+        "Mesh.SubdivisionAlgorithm": 1.0,
+        "Mesh.SecondOrderIncomplete": 0.0,
+        "Mesh.SecondOrderLinear": 0.0,
+    }
+    try:
+        if comm.rank == model_rank:
+            gmsh.clear()
+            previous_options = {
+                name: float(gmsh.option.getNumber(name))
+                for name in selected_options
+            }
+            for name, value in selected_options.items():
+                gmsh.option.setNumber(name, float(value))
+            gmsh.model.add("zhang_2021_plane_strain_composite")
+
+            square = gmsh.model.occ.addRectangle(-0.5, -0.5, 0.0, 1.0, 1.0)
+            disks = tuple(
+                gmsh.model.occ.addDisk(x, y, 0.0, 0.15, 0.15)
+                for x, y in ((-0.2, 0.2), (-0.2, -0.2), (0.2, 0.0))
+            )
+            _surfaces, entity_maps = gmsh.model.occ.fragment(
+                [(2, square)],
+                [(2, tag) for tag in disks],
+                removeObject=True,
+                removeTool=True,
+            )
+            gmsh.model.occ.synchronize()
+            mapped_disks = []
+            for index in (1, 2, 3):
+                mapped = tuple(
+                    int(tag) for dim, tag in entity_maps[index] if int(dim) == 2
+                )
+                if len(mapped) != 1:
+                    raise RuntimeError(
+                        "The Zhang 2021 disks must remain three disjoint surfaces."
+                    )
+                mapped_disks.append(mapped[0])
+            inclusion_surfaces = tuple(mapped_disks[:2])
+            void_surface = int(mapped_disks[2])
+            gmsh.model.occ.remove([(2, void_surface)], recursive=True)
+            gmsh.model.occ.synchronize()
+
+            existing_surfaces = {
+                int(tag) for _dim, tag in gmsh.model.getEntities(2)
+            }
+            matrix_surfaces = tuple(
+                sorted(existing_surfaces - set(inclusion_surfaces))
+            )
+            if (
+                len(matrix_surfaces) != 1
+                or not set(inclusion_surfaces) <= existing_surfaces
+            ):
+                raise RuntimeError(
+                    "Could not identify one matrix and two inclusion surfaces."
+                )
+
+            periodic_curves, void_curves = _classify_periodic_curves_2d(gmsh)
+            for axis in range(2):
+                transform = np.eye(4)
+                transform[axis, 3] = 1.0
+                gmsh.model.mesh.setPeriodic(
+                    1,
+                    list(periodic_curves[(axis, 1)]),
+                    list(periodic_curves[(axis, 0)]),
+                    transform.reshape(-1).tolist(),
+                )
+
+            gmsh.model.addPhysicalGroup(2, list(matrix_surfaces), 1)
+            gmsh.model.setPhysicalName(2, 1, "matrix")
+            gmsh.model.addPhysicalGroup(2, list(inclusion_surfaces), 2)
+            gmsh.model.setPhysicalName(2, 2, "stiff_inclusions")
+            outer_curves = sorted(
+                {tag for tags in periodic_curves.values() for tag in tags}
+            )
+            gmsh.model.addPhysicalGroup(1, outer_curves, 10)
+            gmsh.model.setPhysicalName(1, 10, "periodic_boundary")
+            gmsh.model.addPhysicalGroup(1, list(void_curves), 20)
+            gmsh.model.setPhysicalName(1, 20, "void_boundary")
+
+            gmsh.model.mesh.generate(2)
+            gmsh.model.mesh.setOrder(2)
+            diagnostics = _quadrilateral9_mesh_diagnostics(gmsh)
+            semantics = _periodic_semantics_2d(
+                gmsh,
+                periodic_curves,
+                tolerance=1.0e-9,
+            )
+            semantics["inclusion_surface_count"] = len(inclusion_surfaces)
+            semantics["void_curve_count"] = len(void_curves)
+
+        semantics = comm.bcast(semantics, root=model_rank)
+        diagnostics = comm.bcast(diagnostics, root=model_rank)
+        imported = mesh.import_gmsh_model(
+            gmsh.model,
+            comm,
+            model_rank=model_rank,
+            gdim=2,
+        )
+    finally:
+        if comm.rank == model_rank and gmsh.isInitialized():
+            for name, value in previous_options.items():
+                gmsh.option.setNumber(name, value)
+        if initialized_here:
+            gmsh.finalize()
+
+    deformation_gradient = np.eye(2)
+    deformation_gradient[0, 1] = shear
+    return Zhang2021PlaneStrainCompositeFixture(
+        domain=imported.domain,
+        cell_tags=imported.cell_tags,
+        facet_tags=imported.facet_tags,
+        nodes=abaqus.AbaqusNodeTable(
+            labels=np.asarray(semantics["labels"], dtype=np.int64),
+            coordinates=np.asarray(semantics["coordinates"], dtype=float),
+        ),
+        equations=abaqus.AbaqusEquationSet(
+            tuple(
+                abaqus.LinearEquation(
+                    tuple(
+                        abaqus.EquationTerm(
+                            int(node),
+                            int(component),
+                            float(coefficient),
+                        )
+                        for node, component, coefficient in terms
+                    )
+                )
+                for terms in semantics["equations"]
+            )
+        ),
+        deformation_gradient=deformation_gradient,
+        anchor_node=int(semantics["anchor_node"]),
+        reference_nodes=tuple(
+            int(value) for value in semantics["reference_nodes"]
+        ),
+        matrix_tag=1,
+        inclusion_tag=2,
+        periodic_boundary_tag=10,
+        void_boundary_tag=20,
+        mesh_size=mesh_size,
+        element_order=2,
+        gmsh_element_name=str(diagnostics["element_name"]),
+        element_count=int(diagnostics["element_count"]),
+        nodes_per_element=int(diagnostics["nodes_per_element"]),
+        periodic_pair_counts=tuple(
+            int(value) for value in semantics["periodic_pair_counts"]
+        ),
+        periodic_expected_pair_counts=tuple(
+            int(value) for value in semantics["periodic_expected_pair_counts"]
+        ),
+        periodic_pairing_error=float(semantics["periodic_pairing_error"]),
+        minimum_scaled_jacobian=float(
+            diagnostics["minimum_scaled_jacobian"]
+        ),
+        inclusion_surface_count=int(semantics["inclusion_surface_count"]),
+        void_curve_count=int(semantics["void_curve_count"]),
+    )
 
 
 def zhang_2021_periodic_composite(
@@ -498,12 +823,251 @@ def _classify_periodic_faces(gmsh, thickness: float):
     return {key: tuple(value) for key, value in periodic.items()}, tuple(void_faces)
 
 
+def _classify_periodic_curves_2d(gmsh):
+    bounds = ((-0.5, 0.5), (-0.5, 0.5))
+    # OpenCASCADE bounding boxes carry its geometric tolerance beyond the
+    # analytical coordinate even though the curve itself is exact.
+    tolerance = 2.0e-6
+    periodic = {(axis, side): [] for axis in range(2) for side in (0, 1)}
+    void_curves = []
+    for _dimension, tag in gmsh.model.getEntities(1):
+        upward = gmsh.model.getAdjacencies(1, tag)[0]
+        if len(upward) == 0:
+            continue
+        box = np.asarray(gmsh.model.getBoundingBox(1, tag), dtype=float)
+        selected = None
+        for axis, (lower, upper) in enumerate(bounds):
+            if (
+                abs(box[axis] - lower) <= tolerance
+                and abs(box[axis + 3] - lower) <= tolerance
+            ):
+                selected = (axis, 0)
+                break
+            if (
+                abs(box[axis] - upper) <= tolerance
+                and abs(box[axis + 3] - upper) <= tolerance
+            ):
+                selected = (axis, 1)
+                break
+        if selected is None:
+            if len(upward) == 1:
+                void_curves.append(int(tag))
+        else:
+            periodic[selected].append(int(tag))
+
+    for axis in range(2):
+        key = lambda tag: tuple(
+            np.round(gmsh.model.occ.getCenterOfMass(1, tag), 12)
+        )
+        periodic[(axis, 0)].sort(key=key)
+        periodic[(axis, 1)].sort(key=key)
+        if (
+            not periodic[(axis, 0)]
+            or len(periodic[(axis, 0)]) != len(periodic[(axis, 1)])
+        ):
+            raise RuntimeError(f"Periodic curve topology differs on axis {axis}.")
+    if not void_curves:
+        raise RuntimeError("Could not identify the circular void boundary.")
+    return (
+        {key: tuple(value) for key, value in periodic.items()},
+        tuple(sorted(void_curves)),
+    )
+
+
+def _quadrilateral9_mesh_diagnostics(gmsh) -> dict[str, object]:
+    element_types, element_tags, element_nodes = gmsh.model.mesh.getElements(2)
+    if not element_types:
+        raise RuntimeError("Gmsh produced no two-dimensional cells.")
+    names = []
+    counts = []
+    all_tags = []
+    for element_type, tags, nodes in zip(
+        element_types,
+        element_tags,
+        element_nodes,
+    ):
+        name, dimension, order, node_count, *_rest = (
+            gmsh.model.mesh.getElementProperties(int(element_type))
+        )
+        names.append(str(name))
+        count = int(np.asarray(tags).size)
+        counts.append(count)
+        all_tags.extend(int(value) for value in np.asarray(tags).reshape(-1))
+        if (
+            name != "Quadrilateral 9"
+            or int(dimension) != 2
+            or int(order) != 2
+            or int(node_count) != 9
+            or np.asarray(nodes).size != 9 * count
+        ):
+            raise RuntimeError(
+                "The exact Zhang 2021 plane-strain fixture requires a pure "
+                "Quadrilateral 9 mesh; observed "
+                f"{name!r} with order={order} and nodes={node_count}."
+            )
+    if len(set(names)) != 1:
+        raise RuntimeError(
+            "The exact Zhang 2021 plane-strain fixture requires one Q9 cell type."
+        )
+    qualities = np.asarray(
+        gmsh.model.mesh.getElementQualities(all_tags, "minSJ"),
+        dtype=float,
+    )
+    if (
+        qualities.size != sum(counts)
+        or not np.all(np.isfinite(qualities))
+        or float(np.min(qualities)) <= 0.0
+    ):
+        raise RuntimeError(
+            "The exact Zhang 2021 plane-strain mesh contains an invalid Q9 cell."
+        )
+    return {
+        "element_name": names[0],
+        "element_count": sum(counts),
+        "nodes_per_element": 9,
+        "minimum_scaled_jacobian": float(np.min(qualities)),
+    }
+
+
+def _periodic_semantics_2d(gmsh, curves, *, tolerance: float):
+    """Return exact two-component equations for the unit-square lattice."""
+
+    origin = np.asarray((-0.5, -0.5, 0.0), dtype=float)
+    periods = np.asarray((1.0, 1.0), dtype=float)
+    node_tags, node_coordinates, _ = gmsh.model.mesh.getNodes()
+    coordinates = np.asarray(node_coordinates, dtype=float).reshape(-1, 3)
+    labels = np.asarray(node_tags, dtype=np.int64)
+    coordinate_to_label = {}
+    coordinate_by_label = {}
+    for label, coordinate in zip(labels, coordinates):
+        key = tuple(
+            np.rint(np.asarray(coordinate) / tolerance).astype(np.int64)
+        )
+        if key in coordinate_to_label:
+            raise RuntimeError("Gmsh produced duplicate source-node coordinates.")
+        coordinate_to_label[key] = int(label)
+        coordinate_by_label[int(label)] = coordinate
+
+    def label_at(coordinate):
+        key = tuple(
+            np.rint(np.asarray(coordinate) / tolerance).astype(np.int64)
+        )
+        try:
+            return coordinate_to_label[key]
+        except KeyError as exc:
+            raise RuntimeError(
+                f"The 2D periodic mesh has no node at {np.asarray(coordinate).tolist()}."
+            ) from exc
+
+    anchor = label_at(origin)
+    references = tuple(
+        label_at(origin + np.eye(3)[axis] * periods[axis])
+        for axis in range(2)
+    )
+    control_nodes = {anchor, *references}
+    boundary_labels = sorted(
+        int(label)
+        for label, coordinate in zip(labels, coordinates)
+        if any(
+            abs(coordinate[axis] - bound) <= tolerance
+            for axis in range(2)
+            for bound in (-0.5, 0.5)
+        )
+    )
+    equations = []
+    for slave in boundary_labels:
+        coordinate = coordinate_by_label[slave]
+        active_axes = tuple(
+            axis
+            for axis in range(2)
+            if abs(coordinate[axis] - 0.5) <= tolerance
+        )
+        if not active_axes or slave in control_nodes:
+            continue
+        wrapped = coordinate.copy()
+        wrapped[list(active_axes)] = -0.5
+        base = label_at(wrapped)
+        for component in (1, 2):
+            terms = [(slave, component, 1.0), (base, component, -1.0)]
+            terms.extend(
+                (references[axis], component, -1.0)
+                for axis in active_axes
+            )
+            terms.append((anchor, component, float(len(active_axes))))
+            equations.append(terms)
+
+    pairing_error = 0.0
+    pair_counts = []
+    expected_pair_counts = []
+    for axis in range(2):
+        selected_curves = curves[(axis, 1)]
+        slave_labels = set()
+        expected_slave_labels = {
+            int(label)
+            for label, coordinate in zip(labels, coordinates)
+            if abs(coordinate[axis] - 0.5) <= tolerance
+        }
+        found_pair = False
+        for selected_curve in selected_curves:
+            _master, slaves, masters, _transform = (
+                gmsh.model.mesh.getPeriodicNodes(1, int(selected_curve), True)
+            )
+            if len(slaves) == 0:
+                continue
+            found_pair = True
+            translation = np.eye(3)[axis]
+            for slave, master in zip(slaves, masters):
+                slave = int(slave)
+                master = int(master)
+                slave_labels.add(slave)
+                pairing_error = max(
+                    pairing_error,
+                    float(
+                        np.linalg.norm(
+                            coordinate_by_label[slave]
+                            - coordinate_by_label[master]
+                            - translation
+                        )
+                    ),
+                )
+        if not found_pair:
+            raise RuntimeError(
+                f"Gmsh did not retain periodic curve-node pairs on axis {axis}."
+            )
+        if slave_labels != expected_slave_labels:
+            missing = sorted(expected_slave_labels - slave_labels)
+            unexpected = sorted(slave_labels - expected_slave_labels)
+            raise RuntimeError(
+                "Gmsh periodic pairing does not cover the complete high-side "
+                f"Q9 node set on axis {axis}: missing={missing}, "
+                f"unexpected={unexpected}."
+            )
+        pair_counts.append(len(slave_labels))
+        expected_pair_counts.append(len(expected_slave_labels))
+
+    return {
+        "labels": boundary_labels,
+        "coordinates": [
+            coordinate_by_label[label][:2].tolist() for label in boundary_labels
+        ],
+        "equations": equations,
+        "anchor_node": anchor,
+        "reference_nodes": references,
+        "periodic_pair_counts": tuple(pair_counts),
+        "periodic_expected_pair_counts": tuple(expected_pair_counts),
+        "periodic_pairing_error": pairing_error,
+        "geometric_dimension": 2,
+    }
+
+
 __all__ = [
     "TABLE5",
+    "Zhang2021PlaneStrainCompositeFixture",
     "Zhang2021PeriodicCompositeFixture",
     "Zhang2021Table5Reference",
     "assess_table5",
     "column_major_plane_components",
     "young_poisson_from_bulk_shear",
+    "zhang_2021_plane_strain_composite",
     "zhang_2021_periodic_composite",
 ]

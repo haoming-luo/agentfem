@@ -15,6 +15,7 @@ from zhang_2021_periodic_composite_fixture import (
     assess_table5,
     column_major_plane_components,
     young_poisson_from_bulk_shear,
+    zhang_2021_plane_strain_composite,
     zhang_2021_periodic_composite,
 )
 
@@ -197,3 +198,151 @@ def test_zhang_cell_geometry_materials_and_affine_periodicity_are_explicit():
         rtol=0.0,
         atol=2.0e-12,
     )
+
+
+@pytest.mark.parametrize("mesh_size", (0.20, 0.12, 0.08))
+def test_exact_plane_strain_geometry_is_q9_only_and_periodic(mesh_size):
+    pytest.importorskip("gmsh")
+    fixture = zhang_2021_plane_strain_composite(
+        MPI.COMM_SELF,
+        mesh_size=mesh_size,
+    )
+    matrix_region, inclusion_region = fixture.regions()
+    matrix_area = fem.assemble_scalar(
+        fem.form(ufl.as_ufl(1.0) * matrix_region.measure)
+    )
+    inclusion_area = fem.assemble_scalar(
+        fem.form(ufl.as_ufl(1.0) * inclusion_region.measure)
+    )
+    boundary_measure = ufl.Measure(
+        "ds",
+        domain=fixture.domain,
+        subdomain_data=fixture.facet_tags,
+    )
+    outer_length = fem.assemble_scalar(
+        fem.form(ufl.as_ufl(1.0) * boundary_measure(fixture.periodic_boundary_tag))
+    )
+    void_length = fem.assemble_scalar(
+        fem.form(ufl.as_ufl(1.0) * boundary_measure(fixture.void_boundary_tag))
+    )
+
+    radius = 0.15
+    assert fixture.domain.topology.cell_type.name == "quadrilateral"
+    assert fixture.domain.geometry.cmaps[0].degree == 2
+    assert fixture.element_order == 2
+    assert fixture.gmsh_element_name == "Quadrilateral 9"
+    assert fixture.nodes_per_element == 9
+    assert fixture.element_count > 0
+    assert fixture.minimum_scaled_jacobian > 0.0
+    assert fixture.region_tags == {"matrix": 1, "stiff_inclusions": 2}
+    assert fixture.boundary_tags == {
+        "periodic_boundary": 10,
+        "void_boundary": 20,
+    }
+    assert set(np.unique(fixture.cell_tags.values)) == {1, 2}
+    assert set(np.unique(fixture.facet_tags.values)) == {10, 20}
+    assert fixture.inclusion_surface_count == 2
+    assert fixture.void_curve_count >= 1
+    assert matrix_area == pytest.approx(1.0 - 3.0 * np.pi * radius**2, rel=5.0e-3)
+    assert inclusion_area == pytest.approx(2.0 * np.pi * radius**2, rel=5.0e-3)
+    assert outer_length == pytest.approx(4.0, rel=1.0e-10)
+    assert void_length == pytest.approx(2.0 * np.pi * radius, rel=5.0e-3)
+    assert len(fixture.reference_nodes) == 2
+    assert fixture.nodes.coordinates.shape[1] == 2
+    assert fixture.deformation_gradient.shape == (2, 2)
+    assert all(count >= 3 for count in fixture.periodic_pair_counts)
+    assert fixture.periodic_pair_counts == fixture.periodic_expected_pair_counts
+    assert fixture.periodic_pair_counts[0] == fixture.periodic_pair_counts[1]
+    assert fixture.periodic_pairing_error < 1.0e-13
+    equation_summary = fixture.equations.summary()
+    assert equation_summary["equation_count"] > 0
+    assert set(equation_summary["slave_dofs_by_component"]) == {1, 2}
+
+
+def test_exact_plane_strain_fixture_prepares_three_dpc_pressure_modes():
+    pytest.importorskip("gmsh")
+    fixture = zhang_2021_plane_strain_composite(
+        MPI.COMM_SELF,
+        mesh_size=0.20,
+    )
+    unknown = fixture.mixed_field()
+    displacement_element, pressure_element = (
+        unknown.space.ufl_element().sub_elements
+    )
+    periodicity = fixture.constraint(unknown)
+
+    assert fixture.pressure_modes_per_cell == 3
+    assert displacement_element.dim == 18
+    assert pressure_element.dim == 3
+    assert unknown.summary()["pressure_unknowns_per_cell"] == 3
+    assert periodicity.reference_cell_volume == pytest.approx(
+        fixture.reference_cell_area
+    )
+    periodicity.apply_affine_increment(0.0, 1.0)
+    assert periodicity.mismatch() < 1.0e-12
+    np.testing.assert_allclose(
+        periodicity.measured_deformation_gradient(unknown.displacement),
+        fixture.deformation_gradient,
+        rtol=0.0,
+        atol=2.0e-12,
+    )
+
+
+def test_exact_plane_strain_fixture_restores_gmsh_global_options():
+    gmsh = pytest.importorskip("gmsh")
+    initialized_here = not gmsh.isInitialized()
+    if initialized_here:
+        gmsh.initialize()
+    names = (
+        "General.Verbosity",
+        "Mesh.MeshSizeMin",
+        "Mesh.MeshSizeMax",
+        "Mesh.Algorithm",
+        "Mesh.RecombineAll",
+        "Mesh.SubdivisionAlgorithm",
+        "Mesh.SecondOrderIncomplete",
+        "Mesh.SecondOrderLinear",
+    )
+    original = {name: float(gmsh.option.getNumber(name)) for name in names}
+    selected = {
+        "General.Verbosity": 2.0,
+        "Mesh.MeshSizeMin": 0.031,
+        "Mesh.MeshSizeMax": 0.37,
+        "Mesh.Algorithm": 5.0,
+        "Mesh.RecombineAll": 1.0,
+        "Mesh.SubdivisionAlgorithm": 0.0,
+        "Mesh.SecondOrderIncomplete": 1.0,
+        "Mesh.SecondOrderLinear": 1.0,
+    }
+    try:
+        for name, value in selected.items():
+            gmsh.option.setNumber(name, value)
+        zhang_2021_plane_strain_composite(
+            MPI.COMM_SELF,
+            mesh_size=0.20,
+        )
+        for name, value in selected.items():
+            assert gmsh.option.getNumber(name) == pytest.approx(value)
+    finally:
+        for name, value in original.items():
+            gmsh.option.setNumber(name, value)
+        gmsh.clear()
+        if initialized_here:
+            gmsh.finalize()
+
+
+@pytest.mark.parametrize(
+    ("kwargs", "message"),
+    (
+        ({"mesh_size": 0.0}, "mesh_size must be finite and positive"),
+        ({"mesh_size": np.nan}, "mesh_size must be finite and positive"),
+        ({"element_order": 1}, "requires element_order=2"),
+        ({"element_order": True}, "requires element_order=2"),
+    ),
+)
+def test_exact_plane_strain_fixture_fails_closed_for_unsupported_mesh(
+    kwargs,
+    message,
+):
+    with pytest.raises(ValueError, match=message):
+        zhang_2021_plane_strain_composite(MPI.COMM_SELF, **kwargs)
