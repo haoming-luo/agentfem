@@ -142,6 +142,7 @@ def evidence_policy() -> dict[str, object]:
         },
         "promotion_requires": [
             "successive-mesh stability",
+            "load-increment path stability",
             "two-rank invariant equivalence",
             "checkpoint/restart equivalence on the realized mesh",
         ],
@@ -582,6 +583,141 @@ def _refinement_case_fingerprint(evidence: dict[str, object]) -> str:
     return provenance.content_fingerprint(scientific_input)
 
 
+def _load_path_case_fingerprint(evidence: dict[str, object]) -> str:
+    """Bind path levels to one discretized problem, excluding increments."""
+
+    scientific_input = copy.deepcopy(evidence["identities"]["scientific_input"])
+    scientific_input.pop("increments", None)
+    return provenance.content_fingerprint(scientific_input)
+
+
+def compare_load_path_evidence(
+    *levels: dict[str, object],
+    macro_first_piola_tolerance: float = 2.0e-3,
+    peeq_mean_tolerance: float = 2.0e-3,
+    peeq_p95_tolerance: float = 5.0e-3,
+) -> dict[str, object]:
+    """Certify successive load-increment stability on one fixed RVE mesh.
+
+    At least three monotonically refined paths are required.  The certificate
+    compares only the final accepted state; all intermediate paths must still
+    pass the ordinary invariant gates.  This is deliberately distinct from a
+    temporal error estimator or proof of asymptotic convergence.
+    """
+
+    if len(levels) < 3:
+        raise ValueError("Load-path comparison requires at least three levels.")
+    required_sections = {
+        "schema",
+        "accepted_invariant_gates",
+        "execution",
+        "identities",
+        "quantities",
+    }
+    for index, evidence in enumerate(levels):
+        if not isinstance(evidence, dict) or not required_sections <= set(evidence):
+            raise ValueError(f"Load-path evidence {index} is incomplete.")
+        if evidence["schema"] != SCHEMA:
+            raise ValueError(
+                f"Load-path evidence {index} has an incompatible schema."
+            )
+
+    increments = tuple(
+        int(item["identities"]["scientific_input"]["increments"])
+        for item in levels
+    )
+    if any(value <= 0 for value in increments) or any(
+        right <= left for left, right in zip(increments, increments[1:])
+    ):
+        raise ValueError(
+            "Load-path increments must be positive and strictly increasing."
+        )
+    case_fingerprints = tuple(_load_path_case_fingerprint(item) for item in levels)
+    if len(set(case_fingerprints)) != 1:
+        raise ValueError(
+            "Load-path evidence changes the mesh, material, loading, solver, "
+            "quadrature, realization, or constraint identity."
+        )
+    runtime_fingerprints = tuple(
+        str(item["execution"]["runtime_manifest"]["fingerprint"])
+        for item in levels
+    )
+    if len(set(runtime_fingerprints)) != 1:
+        raise ValueError("Load-path evidence uses different runtime identities.")
+
+    limits = {
+        "macro_first_piola": float(macro_first_piola_tolerance),
+        "peeq_mean": float(peeq_mean_tolerance),
+        "peeq_p95": float(peeq_p95_tolerance),
+    }
+    if any(not np.isfinite(value) or value < 0.0 for value in limits.values()):
+        raise ValueError(
+            "Load-path stability tolerances must be finite and nonnegative."
+        )
+
+    def scalar_change(left, right, name):
+        reference = float(right["quantities"][name])
+        return float(
+            abs(reference - float(left["quantities"][name]))
+            / max(abs(reference), np.finfo(float).tiny)
+        )
+
+    def tensor_change(left, right):
+        reference = np.asarray(
+            right["quantities"]["homogenized_first_piola_stress"], dtype=float
+        )
+        candidate = np.asarray(
+            left["quantities"]["homogenized_first_piola_stress"], dtype=float
+        )
+        if candidate.shape != reference.shape:
+            raise ValueError("Load-path evidence uses different stress shapes.")
+        return float(
+            np.linalg.norm(candidate - reference)
+            / max(np.linalg.norm(reference), np.finfo(float).tiny)
+        )
+
+    intervals = []
+    for left, right in zip(levels, levels[1:]):
+        intervals.append(
+            {
+                "from_increments": int(
+                    left["identities"]["scientific_input"]["increments"]
+                ),
+                "to_increments": int(
+                    right["identities"]["scientific_input"]["increments"]
+                ),
+                "macro_first_piola": tensor_change(left, right),
+                "peeq_mean": scalar_change(left, right, "peeq_mean"),
+                "peeq_p95": scalar_change(left, right, "peeq_p95"),
+                "peeq_p99_diagnostic": scalar_change(left, right, "peeq_p99"),
+            }
+        )
+    latest = intervals[-1]
+    gates = {
+        "all_level_invariants": all(
+            bool(item["accepted_invariant_gates"]) for item in levels
+        ),
+        "macro_first_piola": latest["macro_first_piola"]
+        < limits["macro_first_piola"],
+        "peeq_mean": latest["peeq_mean"] < limits["peeq_mean"],
+        "peeq_p95": latest["peeq_p95"] < limits["peeq_p95"],
+    }
+    return {
+        "schema": "agentfem.multi-void-rve-load-path-certificate.v1",
+        "accepted": bool(all(gates.values())),
+        "fixed_case_fingerprint": case_fingerprints[0],
+        "runtime_fingerprint": runtime_fingerprints[0],
+        "increments": increments,
+        "thresholds": limits,
+        "interval_relative_changes": intervals,
+        "gates": gates,
+        "wording": (
+            "Successive load-increment stability of final-state observables "
+            "on one fixed discretization; not an asymptotic error estimate."
+        ),
+    }
+
+
 def compare_rank_evidence(
     serial: dict[str, object],
     parallel: dict[str, object],
@@ -721,6 +857,12 @@ def _parse_args() -> argparse.Namespace:
         type=Path,
         metavar=("SERIAL", "PARALLEL"),
     )
+    comparison.add_argument(
+        "--compare-load-path",
+        nargs=3,
+        type=Path,
+        metavar=("COARSE", "MEDIUM", "FINE"),
+    )
     parser.add_argument("--mesh-size", type=float, default=DEFAULT_MESH_SIZE)
     parser.add_argument("--increments", type=int, default=DEFAULT_INCREMENTS)
     parser.add_argument("--progress", action="store_true")
@@ -731,16 +873,28 @@ def _parse_args() -> argparse.Namespace:
 def main() -> None:
     options = _parse_args()
     comm = MPI.COMM_WORLD
-    if options.compare_refinement is not None or options.compare_ranks is not None:
+    if any(
+        item is not None
+        for item in (
+            options.compare_refinement,
+            options.compare_ranks,
+            options.compare_load_path,
+        )
+    ):
         if comm.size != 1:
             raise RuntimeError("Evidence comparison must run on one coordinator rank.")
-        paths = options.compare_refinement or options.compare_ranks
-        records = [json.loads(path.read_text(encoding="utf-8")) for path in paths]
-        evidence = (
-            compare_refinement_evidence(*records)
-            if options.compare_refinement is not None
-            else compare_rank_evidence(*records)
+        paths = (
+            options.compare_refinement
+            or options.compare_ranks
+            or options.compare_load_path
         )
+        records = [json.loads(path.read_text(encoding="utf-8")) for path in paths]
+        if options.compare_refinement is not None:
+            evidence = compare_refinement_evidence(*records)
+        elif options.compare_load_path is not None:
+            evidence = compare_load_path_evidence(*records)
+        else:
+            evidence = compare_rank_evidence(*records)
     else:
         evidence = run_candidate(
             mesh_size=options.mesh_size,

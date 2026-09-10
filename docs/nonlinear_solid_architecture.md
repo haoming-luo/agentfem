@@ -378,6 +378,11 @@ fraction, not a mesh-converged RVE reference value. An opt-in certificate
 separately compares two against four increments and successive `h/L=0.18` and
 `0.14` meshes. Its thresholds establish only successive-refinement stability;
 they do not establish an asymptotic range, GCI, or numerical uncertainty.
+The deterministic four-void RVE adds a distinct fixed-mesh 2/4/8-increment
+certificate: all paths must pass invariant gates, their case identities may
+differ only by increment count, and the final stress and physical-weighted
+PEEQ statistics must stabilize. This closes that internal monotonic-path
+regression axis without promoting the separate Zhang external benchmark.
 The Zhang--Feng--Khandelwal external fixture now has a thin-3D tetrahedral
 P2/DG0 mixed diagnostic in addition to the older low-order displacement-only
 route. Neither is relabelled as the publication's 2D quadrilateral Q2/DPC1 9/3

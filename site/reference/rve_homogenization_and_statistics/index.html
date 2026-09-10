@@ -1647,6 +1647,14 @@ The comparator removes only the realized mesh size and mesh-dependent equation
 identity before hashing the case; it rejects a comparison if the material,
 macroscopic path, increments, quadrature, solver, realization or geometry
 changes between levels.</p>
+<p>The fixed <code>h/L=0.16</code> mesh also has a separate 2/4/8-increment path
+certificate. All three paths pass the invariant gates. From four to eight
+increments, relative changes are approximately 0.00121 percent for the
+macroscopic first-Piola tensor, 0.000993 percent for mean PEEQ and 0.0751
+percent for PEEQ P95. The comparison removes only the increment count before
+hashing the case and rejects any change in mesh, material, loading, solver,
+quadrature, realization or constraint. It establishes final-state stability
+for this monotonic path on this fixed mesh, not a general temporal error bound.</p>
 <p>The same realization also passes a one-rank/two-rank comparison: the relative
 first-Piola norm difference is about <span class="arithmatex">\(9.9\times10^{-14}\)</span>, all scalar
 differences are below <span class="arithmatex">\(5.3\times10^{-16}\)</span>, and realization, scientific-input,
@@ -1665,9 +1673,13 @@ environment-aware launcher avoids mixing OpenMPI and MPICH:</p>
 <a id="__codelineno-5-10" name="__codelineno-5-10" href="#__codelineno-5-10"></a>python<span class="w"> </span>tests/multi_void_rve_restart_driver.py<span class="w"> </span><span class="se">\</span>
 <a id="__codelineno-5-11" name="__codelineno-5-11" href="#__codelineno-5-11"></a><span class="w">  </span>/tmp/agentfem-multi-void-restart<span class="w"> </span>--mesh-size<span class="w"> </span><span class="m">0</span>.16<span class="w"> </span>--increments<span class="w"> </span><span class="m">2</span><span class="w"> </span><span class="se">\</span>
 <a id="__codelineno-5-12" name="__codelineno-5-12" href="#__codelineno-5-12"></a><span class="w">  </span>--output<span class="w"> </span>/tmp/agentfem-multi-void-restart.json
+<a id="__codelineno-5-13" name="__codelineno-5-13" href="#__codelineno-5-13"></a>
+<a id="__codelineno-5-14" name="__codelineno-5-14" href="#__codelineno-5-14"></a><span class="nv">AGENTFEM_RUN_MULTI_VOID_RVE_LOAD_PATH</span><span class="o">=</span><span class="m">1</span><span class="w"> </span>python<span class="w"> </span>-m<span class="w"> </span>pytest<span class="w"> </span>-q<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-5-15" name="__codelineno-5-15" href="#__codelineno-5-15"></a><span class="w">  </span>tests/test_multi_void_rve_golden.py<span class="w"> </span>-k<span class="w"> </span>real_multi_void_load_path_certificate
 </code></pre></div>
 <p>These layers establish deterministic regression, spatial stability,
-distributed equivalence and restart equivalence. They do not replace the
+load-increment stability, distributed equivalence and restart equivalence.
+They do not replace the
 independent external promotion gate below or a multi-realization RVE-size and
 statistical-convergence study.</p>
 <h2 id="external-finite-strain-composite-benchmark">External finite-strain composite benchmark<a class="headerlink" href="#external-finite-strain-composite-benchmark" title="Permanent link">&para;</a></h2>

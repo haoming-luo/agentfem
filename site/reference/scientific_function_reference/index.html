@@ -14302,7 +14302,7 @@ the compact machine-readable <code>agentfem/knowledge/catalog.json</code>.</p>
 <td><code>agentfem.benchmark.finite_strain_j2_periodic_multi_void</code></td>
 <td>Finite-strain J2 periodic cell with a deterministic multi-void realization</td>
 <td>Three-dimensional finite-strain logarithmic J2 plasticity in a unit periodic cube containing four non-overlapping geometric spherical voids under isochoric macroscopic tension.</td>
-<td>automated_fixed_stack_regression_with_refinement_mpi_restart</td>
+<td>automated_fixed_stack_regression_with_refinement_path_mpi_restart</td>
 </tr>
 <tr>
 <td><code>agentfem.benchmark.finite_strain_j2_periodic_void</code></td>
@@ -15574,7 +15574,7 @@ p=\tfrac13\operatorname{tr}\boldsymbol\tau,\qquad \ln J-p/\kappa=0
 <li>A mutated periodic-equation identity is rejected before any restored state is accepted.</li>
 <li>Regional material dispatch shares one atomic trial/commit/rollback transaction and preserves scientific identity across one-to-two and two-to-one-rank portable restart.</li>
 <li>A true spherical-void periodic RVE satisfies geometric pairing, positive-J, Hill--Mandel, public-lifecycle and two-rank execution contracts; its fixed-stack Golden and opt-in successive-refinement stability certificate remain separate evidence and do not constitute formal mesh convergence or GCI.</li>
-<li>A deterministic four-void periodic RVE preserves realization, portable mesh and constraint identities; separates its h/L=0.16 Golden from three-level refinement evidence; and passes serial/two-rank and midpoint-restart equivalence without representing a stochastic porous-material ensemble.</li>
+<li>A deterministic four-void periodic RVE preserves realization, portable mesh and constraint identities; separates its h/L=0.16 Golden from three-level spatial-refinement and fixed-mesh 2/4/8-increment path certificates; and passes serial/two-rank and midpoint-restart equivalence without representing a stochastic porous-material ensemble.</li>
 <li>The serial mixed P2/DG0 route assembles Kuu, Kup, Kpu and Kpp, passes homogeneous and heterogeneous affine cells, independently checks displacement and pressure residual-Jacobian directions, preserves non-affine fluctuations, distinguishes condensed mixed-energy output from MIXED_POTENTIAL, and restores split primary fields through a portable checkpoint.</li>
 <li>A serial plane-strain Q2/DPC1 affine patch embeds F33=1, retains three pressure modes per quadrilateral, follows the same mixed transaction, reports max_q |ln(J_q)-p_h(q)/kappa| without reducing DPC1 to DG0, preserves the exact primary field in SimulationResult/checkpoint, writes only the explicit *_CELL recovery to XDMF, and fails closed for unsupported interpolation, dimension, conditioning, and parallel execution.</li>
 <li>Aligned mixed J2 quadrature fields reproduce the primal-minus-condensed energy identity and report the signed gap, pressure-orthogonality, nonnegative pressure-constraint-defect, and decomposition-residual channels without treating decomposition as solver convergence.</li>

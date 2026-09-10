@@ -151,7 +151,7 @@
       "id": "agentfem.benchmark.finite_strain_j2_periodic_multi_void",
       "physics": "Three-dimensional finite-strain logarithmic J2 plasticity in a unit periodic cube containing four non-overlapping geometric spherical voids under isochoric macroscopic tension.",
       "source": "src/agentfem/knowledge/benchmarks/finite_strain_j2_periodic_multi_void.json",
-      "status": "automated_fixed_stack_regression_with_refinement_mpi_restart",
+      "status": "automated_fixed_stack_regression_with_refinement_path_mpi_restart",
       "title": "Finite-strain J2 periodic cell with a deterministic multi-void realization"
     },
     {

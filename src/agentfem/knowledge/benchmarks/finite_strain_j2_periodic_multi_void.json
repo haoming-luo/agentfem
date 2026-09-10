@@ -3,18 +3,20 @@
   "schema_version": "0.1.0",
   "id": "agentfem.benchmark.finite_strain_j2_periodic_multi_void",
   "title": "Finite-strain J2 periodic cell with a deterministic multi-void realization",
-  "status": "automated_fixed_stack_regression_with_refinement_mpi_restart",
+  "status": "automated_fixed_stack_regression_with_refinement_path_mpi_restart",
   "purpose": "Freeze one deterministic four-void software-regression contract for the public finite-strain J2 affine-periodic workflow while keeping refinement, distributed execution, restart and external scientific validation as distinct evidence layers.",
   "physics": "Three-dimensional finite-strain logarithmic J2 plasticity in a unit periodic cube containing four non-overlapping geometric spherical voids under isochoric macroscopic tension.",
   "execution": {
     "command": "python tests/multi_void_rve_golden_driver.py --mesh-size 0.16 --increments 2 --output /tmp/agentfem-multi-void.json && AGENTFEM_RUN_MULTI_VOID_RVE_REFINEMENT=1 python -m pytest -q tests/test_multi_void_rve_golden.py -k successive_refinement",
     "example": "docs/reference/rve_homogenization_and_statistics.md",
-    "evidence": "The public model.step provider consumes one deterministic hard-core periodic realization, exact affine-periodic equations, provider-owned quadrature state, complete-cell homogenization and the ordinary SimulationResult lifecycle. A fixed h/L=0.16 reference is separated from the opt-in h/L=0.20, 0.16 and 0.12 successive-refinement certificate. Canonical two-rank and same-rank restart checks pass on the same realization and portable identities.",
+    "evidence": "The public model.step provider consumes one deterministic hard-core periodic realization, exact affine-periodic equations, provider-owned quadrature state, complete-cell homogenization and the ordinary SimulationResult lifecycle. A fixed h/L=0.16 reference is separated from opt-in spatial-refinement and 2/4/8-increment load-path certificates. Canonical two-rank and same-rank restart checks pass on the same realization and portable identities.",
     "fixed_stack": "python tests/multi_void_rve_golden_driver.py --mesh-size 0.16 --increments 2 --output /tmp/agentfem-multi-void.json",
     "refinement": "AGENTFEM_RUN_MULTI_VOID_RVE_REFINEMENT=1 python -m pytest -q tests/test_multi_void_rve_golden.py -k successive_refinement",
     "mpi": "agentfem mpi-run -n 2 -- python tests/multi_void_rve_golden_driver.py --mesh-size 0.16 --increments 2 --output /tmp/agentfem-multi-void-mpi2.json",
     "rank_comparison": "python tests/multi_void_rve_golden_driver.py --compare-ranks /tmp/agentfem-multi-void.json /tmp/agentfem-multi-void-mpi2.json --output /tmp/agentfem-multi-void-rank-certificate.json",
     "refinement_comparison": "python tests/multi_void_rve_golden_driver.py --compare-refinement /tmp/agentfem-multi-void-h020.json /tmp/agentfem-multi-void-h016.json /tmp/agentfem-multi-void-h012.json --output /tmp/agentfem-multi-void-refinement-certificate.json",
+    "load_path": "AGENTFEM_RUN_MULTI_VOID_RVE_LOAD_PATH=1 python -m pytest -q tests/test_multi_void_rve_golden.py -k real_multi_void_load_path_certificate",
+    "load_path_comparison": "python tests/multi_void_rve_golden_driver.py --compare-load-path /tmp/agentfem-multi-void-n2.json /tmp/agentfem-multi-void-n4.json /tmp/agentfem-multi-void-n8.json --output /tmp/agentfem-multi-void-load-path-certificate.json",
     "restart": "python tests/multi_void_rve_restart_driver.py /tmp/agentfem-multi-void-restart --mesh-size 0.16 --increments 2 --output /tmp/agentfem-multi-void-restart.json"
   },
   "observables": [
@@ -29,6 +31,7 @@
     "The accepted load factors are exactly 0, 0.5 and 1, all global Newton solves converge, and provider-owned F/P/S/MISES/SENER/ELENER/HARDENER/FP/PEEQ fields reach the SimulationResult.",
     "Periodic pairing remains below 1e-12 L, solved equation mismatch below 1e-10 L, minimum quadrature J above 0.99, maximum Hill--Mandel relative residual below 1e-8 and maximum SENER component-closure error below 1e-12.",
     "The h/L=0.20, 0.16 and 0.12 levels all pass invariant gates; the medium-to-fine relative changes remain below 0.5 percent for macroscopic first-Piola stress, 0.2 percent for PEEQ mean, 1.5 percent for PEEQ P95 and 0.2 percent for meshed solid fraction; finest geometry error remains below 1 percent.",
+    "On the fixed h/L=0.16 discretization, the 2, 4 and 8 increment paths all pass invariant gates; the 4-to-8 relative changes remain below 0.2 percent for macroscopic first-Piola stress and PEEQ mean and below 0.5 percent for PEEQ P95.",
     "A two-rank rerun preserves the realization, mesh and constraint identities and agrees with serial global and weighted observables within floating-point tolerance.",
     "A midpoint checkpoint followed by restart reproduces the uninterrupted nodal, quadrature, constitutive, macroscopic and increment-history state within the declared restart tolerances."
   ],
@@ -270,6 +273,25 @@
     "all_level_invariant_gates": "passed",
     "wording": "Successive-refinement stability under provisional software-promotion limits, not formal asymptotic convergence or a GCI claim."
   },
+  "load_path_certificate": {
+    "status": "accepted_successive_load_increment_stability",
+    "command": "AGENTFEM_RUN_MULTI_VOID_RVE_LOAD_PATH=1 python -m pytest -q tests/test_multi_void_rve_golden.py -k real_multi_void_load_path_certificate",
+    "fixed_case_fingerprint": "sha256:60180a21fe7694e524a097485b4e8e55201f489b9675e3842b94bae7c5bce90c",
+    "increments": [2, 4, 8],
+    "thresholds": {
+      "macro_first_piola": 0.002,
+      "peeq_mean": 0.002,
+      "peeq_p95": 0.005
+    },
+    "four_to_eight_relative_changes": {
+      "macro_first_piola": 1.2136565720018316e-05,
+      "peeq_mean": 9.930780069448657e-06,
+      "peeq_p95": 0.0007511149695162726,
+      "peeq_p99_diagnostic": 0.0019365828509477552
+    },
+    "all_level_invariant_gates": "passed",
+    "wording": "Successive load-increment stability of final-state observables on one fixed discretization, not an asymptotic error estimate."
+  },
   "distributed_and_restart_evidence": {
     "status": "accepted",
     "mpi": {
@@ -304,11 +326,12 @@
   "scope": [
     "One deterministic four-void hard-core periodic realization with stable void identities and no boundary-crossing voids.",
     "Public three-dimensional finite-strain J2 affine-periodic model.step route with provider-owned quadrature state.",
-    "Fixed two-increment isochoric macroscopic deformation, physical-weighted integration-point statistics, three-level spatial refinement, two-rank execution and midpoint restart evidence."
+    "Fixed two-increment isochoric macroscopic deformation, physical-weighted integration-point statistics, three-level spatial refinement, 2/4/8-increment path stability, two-rank execution and midpoint restart evidence."
   ],
   "limitations": [
     "One deterministic realization is a software-regression asset, not a statistically representative porous material or a stochastic RVE-size study.",
     "The fixed h/L=0.16 Golden is a reference-stack regression; the three-level certificate shows successive stability only and does not establish an asymptotic range, an observed-order/GCI uncertainty or an external reference solution.",
+    "The load-path certificate establishes final-state stability for one monotonic 2/4/8-increment sequence on one fixed mesh; it is not a general nonproportional-path convergence result or a temporal error estimator.",
     "The fixed-stack, refinement, two-rank and restart evidence was regenerated from clean detached commit 17a2c66; a future release that changes the numerical package tree must rerun the complete evidence set before replacing this provenance.",
     "PEEQ P99 and maximum and minimum local J remain mesh-sensitive diagnostics and are not Golden acceptance quantities.",
     "Hill--Mandel work consistency and recoverable-energy component closure are invariant audits, not a complete plastic-dissipation energy ledger.",

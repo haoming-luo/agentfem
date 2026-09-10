@@ -285,6 +285,15 @@ identity before hashing the case; it rejects a comparison if the material,
 macroscopic path, increments, quadrature, solver, realization or geometry
 changes between levels.
 
+The fixed `h/L=0.16` mesh also has a separate 2/4/8-increment path
+certificate. All three paths pass the invariant gates. From four to eight
+increments, relative changes are approximately 0.00121 percent for the
+macroscopic first-Piola tensor, 0.000993 percent for mean PEEQ and 0.0751
+percent for PEEQ P95. The comparison removes only the increment count before
+hashing the case and rejects any change in mesh, material, loading, solver,
+quadrature, realization or constraint. It establishes final-state stability
+for this monotonic path on this fixed mesh, not a general temporal error bound.
+
 The same realization also passes a one-rank/two-rank comparison: the relative
 first-Piola norm difference is about \(9.9\times10^{-14}\), all scalar
 differences are below \(5.3\times10^{-16}\), and realization, scientific-input,
@@ -305,10 +314,14 @@ python tests/multi_void_rve_golden_driver.py --compare-ranks \
 python tests/multi_void_rve_restart_driver.py \
   /tmp/agentfem-multi-void-restart --mesh-size 0.16 --increments 2 \
   --output /tmp/agentfem-multi-void-restart.json
+
+AGENTFEM_RUN_MULTI_VOID_RVE_LOAD_PATH=1 python -m pytest -q \
+  tests/test_multi_void_rve_golden.py -k real_multi_void_load_path_certificate
 ```
 
 These layers establish deterministic regression, spatial stability,
-distributed equivalence and restart equivalence. They do not replace the
+load-increment stability, distributed equivalence and restart equivalence.
+They do not replace the
 independent external promotion gate below or a multi-realization RVE-size and
 statistical-convergence study.
 

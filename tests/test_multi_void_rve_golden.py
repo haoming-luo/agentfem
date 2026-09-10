@@ -15,6 +15,7 @@ from agentfem import benchmarks, provenance
 
 from multi_void_rve_golden_driver import (
     SCHEMA,
+    compare_load_path_evidence,
     compare_rank_evidence,
     compare_refinement_evidence,
     deterministic_realization,
@@ -76,7 +77,10 @@ def _synthetic_level(*, mesh_size, cells, macro, mean, p95, p99, maximum, geomet
     return {
         "schema": SCHEMA,
         "accepted_invariant_gates": True,
-        "execution": {"global_cells": cells},
+        "execution": {
+            "global_cells": cells,
+            "runtime_manifest": {"fingerprint": "sha256:fixed-runtime"},
+        },
         "identities": {
             "realization": {"fingerprint": "fixed-realization"},
             "scientific_input": {
@@ -124,6 +128,7 @@ def test_multi_void_policy_separates_golden_quantities_from_local_diagnostics():
     assert "checkpoint/restart equivalence on the realized mesh" in policy[
         "promotion_requires"
     ]
+    assert "load-increment path stability" in policy["promotion_requires"]
     assert {
         "weighted_sample_count",
         "weighted_measure_matches_homogenization",
@@ -152,7 +157,7 @@ def test_multi_void_golden_contract_is_machine_readable_and_self_consistent():
     regression = card["regression_identity"]
 
     assert card["status"] == (
-        "automated_fixed_stack_regression_with_refinement_mpi_restart"
+        "automated_fixed_stack_regression_with_refinement_path_mpi_restart"
     )
     assert not regression["reference_source"]["tracked_dirty"]
     assert regression["scientific_input_fingerprint"] == (
@@ -285,6 +290,82 @@ def test_refinement_comparison_fails_closed_on_drift_or_identity_change():
         compare_refinement_evidence(levels[0], levels[1], incompatible)
 
 
+def test_load_path_comparison_accepts_stable_final_state():
+    levels = [
+        _synthetic_level(
+            mesh_size=0.16,
+            cells=200,
+            macro=macro,
+            mean=mean,
+            p95=p95,
+            p99=p99,
+            maximum=0.004,
+            geometry=0.004,
+        )
+        for macro, mean, p95, p99 in (
+            (100.4, 0.003020, 0.003240, 0.00360),
+            (100.1, 0.003005, 0.003210, 0.00356),
+            (100.0, 0.003002, 0.003205, 0.00355),
+        )
+    ]
+    for evidence, increments in zip(levels, (2, 4, 8)):
+        evidence["identities"]["scientific_input"]["increments"] = increments
+
+    certificate = compare_load_path_evidence(*levels)
+
+    assert certificate["accepted"]
+    assert certificate["increments"] == (2, 4, 8)
+    assert certificate["runtime_fingerprint"] == "sha256:fixed-runtime"
+    assert certificate["gates"] == {
+        "all_level_invariants": True,
+        "macro_first_piola": True,
+        "peeq_mean": True,
+        "peeq_p95": True,
+    }
+    assert "not an asymptotic error estimate" in certificate["wording"]
+
+
+def test_load_path_comparison_fails_closed_on_drift_and_changed_case():
+    levels = [
+        _synthetic_level(
+            mesh_size=0.16,
+            cells=200,
+            macro=macro,
+            mean=0.003,
+            p95=0.0032,
+            p99=0.0035,
+            maximum=0.004,
+            geometry=0.004,
+        )
+        for macro in (100.0, 100.1, 101.0)
+    ]
+    for evidence, increments in zip(levels, (2, 4, 8)):
+        evidence["identities"]["scientific_input"]["increments"] = increments
+
+    certificate = compare_load_path_evidence(*levels)
+    assert not certificate["accepted"]
+    assert not certificate["gates"]["macro_first_piola"]
+
+    incompatible = copy.deepcopy(levels[-1])
+    incompatible["identities"]["scientific_input"]["mesh"][
+        "nominal_size"
+    ] = 0.12
+    with pytest.raises(ValueError, match="changes the mesh"):
+        compare_load_path_evidence(levels[0], levels[1], incompatible)
+
+    changed_runtime = copy.deepcopy(levels[-1])
+    changed_runtime["execution"]["runtime_manifest"]["fingerprint"] = (
+        "sha256:different-runtime"
+    )
+    with pytest.raises(ValueError, match="different runtime identities"):
+        compare_load_path_evidence(levels[0], levels[1], changed_runtime)
+
+    nonmonotone = copy.deepcopy(levels)
+    nonmonotone[-1]["identities"]["scientific_input"]["increments"] = 4
+    with pytest.raises(ValueError, match="strictly increasing"):
+        compare_load_path_evidence(*nonmonotone)
+
+
 def test_refinement_comparison_rejects_changed_physics_or_numerics():
     levels = [
         _synthetic_level(
@@ -388,4 +469,20 @@ def test_real_multi_void_successive_refinement_certificate():
         for size in (0.20, 0.16, 0.12)
     ]
     certificate = compare_refinement_evidence(*evidence)
+    assert certificate["accepted"]
+
+
+@pytest.mark.skipif(
+    os.environ.get("AGENTFEM_RUN_MULTI_VOID_RVE_LOAD_PATH") != "1",
+    reason=(
+        "set AGENTFEM_RUN_MULTI_VOID_RVE_LOAD_PATH=1 for the three-level "
+        "multi-void load-increment certificate"
+    ),
+)
+def test_real_multi_void_load_path_certificate():
+    evidence = [
+        run_candidate(comm=MPI.COMM_SELF, increments=increments)
+        for increments in (2, 4, 8)
+    ]
+    certificate = compare_load_path_evidence(*evidence)
     assert certificate["accepted"]
