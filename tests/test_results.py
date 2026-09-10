@@ -339,11 +339,11 @@ def test_provider_reaction_distribution_is_written_with_static_result(tmp_path):
     )
     model.elastic_foundation(
         on=left,
-        stiffness=5.0e3,
-        mode="isotropic",
+        stiffness=((5.0e3, 5.0e2), (5.0e2, 2.5e3)),
+        mode="matrix",
         name="left_foundation",
     )
-    model.traction((10.0, 0.0), on=right)
+    model.traction((10.0, 4.0), on=right)
 
     output = tmp_path / "foundation.xdmf"
     simulation = model.step(target=displacement).solve_result(
@@ -369,6 +369,11 @@ def test_provider_reaction_distribution_is_written_with_static_result(tmp_path):
     assert reaction.shape[1] == 3
     np.testing.assert_allclose(reaction[:, 2], 0.0)
     assert np.max(np.linalg.norm(reaction[:, :2], axis=1)) > 0.0
+    np.testing.assert_allclose(
+        simulation.quantities["reaction_force_resultant"].value,
+        (-4.0, -1.6),
+        atol=1.0e-10,
+    )
 
 
 def test_two_material_elastic_bar_has_piecewise_fields_and_boundary_reaction():

@@ -749,7 +749,7 @@
       ],
       "source": "src/agentfem/knowledge/cards/elastic_foundation_reaction.json",
       "status": "supported",
-      "summary": "Adds an isotropic or normal linear spring-to-ground boundary operator and publishes its distributed reaction without double-counting stored energy.",
+      "summary": "Adds an isotropic, normal, or conservative matrix spring-to-ground boundary operator and publishes its distributed reaction without double-counting stored energy.",
       "title": "Linear elastic foundation reaction and energy ownership"
     },
     {

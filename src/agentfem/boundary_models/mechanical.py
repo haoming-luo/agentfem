@@ -30,9 +30,52 @@ class ElasticFoundation:
         if self.location is None or not hasattr(self.location, "measure"):
             raise ValueError("ElasticFoundation requires a boundary region.")
         selected = str(self.mode).lower().replace("-", "_")
-        if selected not in {"isotropic", "normal"}:
-            raise ValueError("Foundation mode must be isotropic or normal.")
+        if selected not in {"isotropic", "normal", "matrix"}:
+            raise ValueError(
+                "Foundation mode must be isotropic, normal, or matrix."
+            )
+        symbolic_shape = getattr(self.stiffness, "ufl_shape", None)
+        shape = tuple(
+            symbolic_shape
+            if symbolic_shape is not None
+            else np.asarray(self.stiffness).shape
+        )
+        if selected == "matrix":
+            if len(shape) != 2 or shape[0] != shape[1]:
+                raise ValueError(
+                    "Matrix foundation stiffness must be a square rank-two value."
+                )
+            self._validate_conservative_matrix()
+        elif shape:
+            raise ValueError(
+                f"{selected.capitalize()} foundation stiffness must be scalar."
+            )
         object.__setattr__(self, "mode", selected)
+
+    def _validate_conservative_matrix(self) -> None:
+        """Reject numerical matrices that cannot own conservative energy."""
+
+        raw = getattr(self.stiffness, "value", self.stiffness)
+        try:
+            matrix = np.asarray(raw, dtype=float)
+        except (TypeError, ValueError) as exc:
+            raise TypeError(
+                "Matrix foundation stiffness currently requires an explicit "
+                "numerical matrix so conservative energy can be verified."
+            ) from exc
+        if matrix.ndim != 2 or not np.all(np.isfinite(matrix)):
+            raise ValueError("Matrix foundation stiffness must be finite.")
+        scale = max(float(np.linalg.norm(matrix, ord=2)), 1.0)
+        tolerance = 256.0 * np.finfo(float).eps * scale
+        if not np.allclose(matrix, matrix.T, rtol=0.0, atol=tolerance):
+            raise ValueError(
+                "Conservative matrix foundation stiffness must be symmetric."
+            )
+        if float(np.min(np.linalg.eigvalsh(matrix))) < -tolerance:
+            raise ValueError(
+                "Conservative matrix foundation stiffness must be positive "
+                "semidefinite."
+            )
 
     def operator(self, displacement):
         trial, test = displacement.trial, displacement.test
@@ -55,6 +98,18 @@ class ElasticFoundation:
                 self.stiffness
                 * ufl.dot(trial, normal)
                 * ufl.dot(test, normal)
+                * self.location.measure
+            )
+        elif self.mode == "matrix":
+            shape = tuple(getattr(trial, "ufl_shape", ()))
+            stiffness_shape = tuple(getattr(self.stiffness, "ufl_shape", ()))
+            if len(shape) != 1 or stiffness_shape != (shape[0], shape[0]):
+                raise ValueError(
+                    "Matrix foundation stiffness must match the displacement "
+                    "dimension."
+                )
+            expression = (
+                ufl.inner(ufl.dot(self.stiffness, trial), test)
                 * self.location.measure
             )
         else:

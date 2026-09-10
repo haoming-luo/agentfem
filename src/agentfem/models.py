@@ -749,7 +749,7 @@ class Model:
         normal=None,
         name: str = "elastic_foundation",
     ):
-        """Register a distributed normal or isotropic spring support."""
+        """Register a distributed normal, isotropic, or matrix spring support."""
 
         from .boundary_models import mechanical
 

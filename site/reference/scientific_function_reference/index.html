@@ -16852,7 +16852,7 @@ u=g,\qquad w=-\Delta g\quad\text{on }\partial\Omega
 <strong>Kind:</strong> <code>operator</code><br>
 <strong>Status:</strong> <code>supported</code><br>
 <strong>Source card:</strong> <code>src/agentfem/knowledge/cards/elastic_foundation_reaction.json</code></p>
-<p>Adds an isotropic or normal linear spring-to-ground boundary operator and publishes its distributed reaction without double-counting stored energy.</p>
+<p>Adds an isotropic, normal, or conservative matrix spring-to-ground boundary operator and publishes its distributed reaction without double-counting stored energy.</p>
 <h3 id="public-api_16">Public API<a class="headerlink" href="#public-api_16" title="Permanent link">&para;</a></h3>
 <ul>
 <li><code>agentfem.boundary_models.elastic_foundation</code></li>
@@ -16871,6 +16871,11 @@ u=g,\qquad w=-\Delta g\quad\text{on }\partial\Omega
 \mathbf{t}_{f}=-k(\mathbf{u}\cdot\mathbf{n})\mathbf{n}
 \]</div>
 <p>Normal mode retains only the displacement along the declared reference-boundary normal.</p>
+<p><strong>matrix foundation traction</strong></p>
+<div class="arithmatex">\[
+\mathbf{t}_{f}=-\mathbf{K}\mathbf{u},\qquad \mathbf{K}=\mathbf{K}^{T}\succeq 0
+\]</div>
+<p>Matrix mode permits directional coupling while symmetry and positive semidefiniteness retain a conservative nonnegative energy.</p>
 <p><strong>weak stiffness and stored energy</strong></p>
 <div class="arithmatex">\[
 a_f(\mathbf{u},\mathbf{v})=\int_{\Gamma_f}k\mathbf{u}\cdot\mathbf{v}\,d\Gamma,\qquad U_f=\tfrac{1}{2}a_f(\mathbf{u},\mathbf{u})
@@ -16889,7 +16894,7 @@ a_f(\mathbf{u},\mathbf{v})=\int_{\Gamma_f}k\mathbf{u}\cdot\mathbf{v}\,d\Gamma,\q
 <tbody>
 <tr>
 <td>foundation boundary, stiffness, and mode</td>
-<td>BoundaryRegion, nonnegative coefficient, and isotropic/normal selector</td>
+<td>BoundaryRegion, nonnegative scalar or symmetric positive-semidefinite matrix, and isotropic/normal/matrix selector</td>
 <td>force per boundary measure per displacement</td>
 <td>The boundary measure determines whether stiffness is interpreted per unit length or area in the selected consistent unit system.</td>
 </tr>
@@ -16919,6 +16924,7 @@ a_f(\mathbf{u},\mathbf{v})=\int_{\Gamma_f}k\mathbf{u}\cdot\mathbf{v}\,d\Gamma,\q
 <li>The current provider is linear, conservative, and attached to fixed ground.</li>
 <li>The reaction/energy evidence route is verified for linear-static vector solid fields.</li>
 <li>Normal mode uses the reference-boundary normal supplied by the mesh or caller.</li>
+<li>Matrix mode is expressed in model coordinates and must match the displacement dimension.</li>
 </ul>
 <h4 id="conventions_16">Conventions<a class="headerlink" href="#conventions_16" title="Permanent link">&para;</a></h4>
 <ul>
@@ -16933,7 +16939,7 @@ a_f(\mathbf{u},\mathbf{v})=\int_{\Gamma_f}k\mathbf{u}\cdot\mathbf{v}\,d\Gamma,\q
 <h4 id="limitations_16">Limitations<a class="headerlink" href="#limitations_16" title="Permanent link">&para;</a></h4>
 <ul>
 <li>Nonlinear force-displacement laws, predeformation, moving normals, damping, finite-strain foundations, and pair/contact layers require separate providers.</li>
-<li>The current foundation stiffness is scalar rather than a fully coupled local stiffness tensor.</li>
+<li>Spatially rotating local matrix coordinates require a separate oriented-boundary provider.</li>
 </ul>
 <h3 id="minimal-example_16">Minimal example<a class="headerlink" href="#minimal-example_16" title="Permanent link">&para;</a></h3>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-16-1" name="__codelineno-16-1" href="#__codelineno-16-1"></a><span class="n">support</span> <span class="o">=</span> <span class="n">mesh</span><span class="o">.</span><span class="n">boundary</span><span class="p">(</span><span class="n">domain</span><span class="p">,</span> <span class="n">left</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="s1">&#39;support&#39;</span><span class="p">)</span>
@@ -16954,6 +16960,7 @@ a_f(\mathbf{u},\mathbf{v})=\int_{\Gamma_f}k\mathbf{u}\cdot\mathbf{v}\,d\Gamma,\q
 <p><strong>Validation rules</strong></p>
 <ul>
 <li>Reject negative stiffness and missing boundary regions.</li>
+<li>Reject non-square, dimension-mismatched, asymmetric, or indefinite numerical matrix stiffness.</li>
 <li>Recover the applied boundary resultant from the distributed foundation reaction.</li>
 <li>Require serial and two-rank force balance at numerical tolerance.</li>
 <li>Require proportional linear work closure without adding foundation energy twice.</li>
@@ -16964,6 +16971,7 @@ a_f(\mathbf{u},\mathbf{v})=\int_{\Gamma_f}k\mathbf{u}\cdot\mathbf{v}\,d\Gamma,\q
 <ul>
 <li>Abaqus Element Foundations: <code>https://docs.software.vt.edu/abaqusv2025/English/SIMACAEMODRefMap/simamod-c-foundation.htm</code></li>
 <li>COMSOL Elastic Energy: <code>https://doc.comsol.com/6.4/doc/com.comsol.help.sme/sme_ug_theory.06.125.html</code></li>
+<li>COMSOL Spring Foundation and Thin Elastic Layer: <code>https://doc.comsol.com/6.4/doc/com.comsol.help.sme/sme_ug_theory.06.068.html</code></li>
 </ul>
 <p><a id="agentfem-operator-incompressible_flow"></a></p>
 <h2 id="mixed-incompressible-flow-fields-and-operators">Mixed incompressible-flow fields and operators<a class="headerlink" href="#mixed-incompressible-flow-fields-and-operators" title="Permanent link">&para;</a></h2>

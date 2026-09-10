@@ -209,7 +209,17 @@ def test_exact_mpc_recovers_nonzero_multiplier_distribution():
     assert np.max(np.abs(distribution.x.array)) > 1.0e-6
 
 
-def test_elastic_foundation_owns_reaction_without_double_counting_energy():
+@pytest.mark.parametrize(
+    ("mode", "stiffness"),
+    (
+        ("isotropic", 5.0e3),
+        ("matrix", ((5.0e3, 5.0e2), (5.0e2, 2.5e3))),
+    ),
+)
+def test_elastic_foundation_owns_reaction_without_double_counting_energy(
+    mode,
+    stiffness,
+):
     domain = dolfinx_mesh.create_unit_square(MPI.COMM_WORLD, 8, 5)
     model = models.create(
         study=studies.static_solid(dimension=2, assumption="plane_stress"),
@@ -234,7 +244,7 @@ def test_elastic_foundation_owns_reaction_without_double_counting_energy():
         lambda x: np.isclose(x[0], 1.0),
         name="loaded_face",
     )
-    model.elastic_foundation(on=left, stiffness=5.0e3, mode="isotropic")
+    model.elastic_foundation(on=left, stiffness=stiffness, mode=mode)
     model.traction((10.0, 0.0), on=right)
 
     simulation = model.step(target=displacement).solve_result()

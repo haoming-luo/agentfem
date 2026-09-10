@@ -38,7 +38,20 @@ field and MPI-global resultant through the same balance contract as other
 constraints. Its spring energy is already part of the assembled stiffness and
 system strain energy, so the result ledger records that ownership instead of
 adding the energy a second time as prescribed-boundary work. `mode="normal"`
-retains only the current reference-boundary normal component; general
+retains only the current reference-boundary normal component. A conservative
+coupled support uses a symmetric positive-semidefinite matrix in the model
+coordinate system:
+
+```python
+model.elastic_foundation(
+    on=support,
+    stiffness=((5.0e6, 0.5e6), (0.5e6, 2.0e6)),
+    mode="matrix",
+)
+```
+
+The matrix dimension must match the displacement field; an asymmetric or
+indefinite numerical matrix is rejected before assembly. General
 nonlinear, moving-normal, damping, and contact foundations remain separate
 future providers.
 

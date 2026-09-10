@@ -2135,7 +2135,7 @@ Define w = -laplacian(u); solve split_laplacian_operator(w, q) = f*q and then sp
 **Status:** `supported`<br>
 **Source card:** `src/agentfem/knowledge/cards/elastic_foundation_reaction.json`
 
-Adds an isotropic or normal linear spring-to-ground boundary operator and publishes its distributed reaction without double-counting stored energy.
+Adds an isotropic, normal, or conservative matrix spring-to-ground boundary operator and publishes its distributed reaction without double-counting stored energy.
 
 ### Public API
 
@@ -2163,6 +2163,14 @@ $$
 
 Normal mode retains only the displacement along the declared reference-boundary normal.
 
+**matrix foundation traction**
+
+$$
+\mathbf{t}_{f}=-\mathbf{K}\mathbf{u},\qquad \mathbf{K}=\mathbf{K}^{T}\succeq 0
+$$
+
+Matrix mode permits directional coupling while symmetry and positive semidefiniteness retain a conservative nonnegative energy.
+
 **weak stiffness and stored energy**
 
 $$
@@ -2175,7 +2183,7 @@ The same reviewed operator supplies tangent stiffness, nodal reaction recovery, 
 
 | Name | Type | Unit role | Meaning |
 | --- | --- | --- | --- |
-| foundation boundary, stiffness, and mode | BoundaryRegion, nonnegative coefficient, and isotropic/normal selector | force per boundary measure per displacement | The boundary measure determines whether stiffness is interpreted per unit length or area in the selected consistent unit system. |
+| foundation boundary, stiffness, and mode | BoundaryRegion, nonnegative scalar or symmetric positive-semidefinite matrix, and isotropic/normal/matrix selector | force per boundary measure per displacement | The boundary measure determines whether stiffness is interpreted per unit length or area in the selected consistent unit system. |
 
 #### Outputs
 
@@ -2188,6 +2196,7 @@ The same reviewed operator supplies tangent stiffness, nodal reaction recovery, 
 - The current provider is linear, conservative, and attached to fixed ground.
 - The reaction/energy evidence route is verified for linear-static vector solid fields.
 - Normal mode uses the reference-boundary normal supplied by the mesh or caller.
+- Matrix mode is expressed in model coordinates and must match the displacement dimension.
 
 #### Conventions
 
@@ -2202,7 +2211,7 @@ The same reviewed operator supplies tangent stiffness, nodal reaction recovery, 
 #### Limitations
 
 - Nonlinear force-displacement laws, predeformation, moving normals, damping, finite-strain foundations, and pair/contact layers require separate providers.
-- The current foundation stiffness is scalar rather than a fully coupled local stiffness tensor.
+- Spatially rotating local matrix coordinates require a separate oriented-boundary provider.
 
 ### Minimal example
 
@@ -2227,6 +2236,7 @@ result = model.step(target=displacement).solve_result(output='foundation.xdmf')
 **Validation rules**
 
 - Reject negative stiffness and missing boundary regions.
+- Reject non-square, dimension-mismatched, asymmetric, or indefinite numerical matrix stiffness.
 - Recover the applied boundary resultant from the distributed foundation reaction.
 - Require serial and two-rank force balance at numerical tolerance.
 - Require proportional linear work closure without adding foundation energy twice.
@@ -2237,6 +2247,7 @@ result = model.step(target=displacement).solve_result(output='foundation.xdmf')
 
 - Abaqus Element Foundations: `https://docs.software.vt.edu/abaqusv2025/English/SIMACAEMODRefMap/simamod-c-foundation.htm`
 - COMSOL Elastic Energy: `https://doc.comsol.com/6.4/doc/com.comsol.help.sme/sme_ug_theory.06.125.html`
+- COMSOL Spring Foundation and Thin Elastic Layer: `https://doc.comsol.com/6.4/doc/com.comsol.help.sme/sme_ug_theory.06.068.html`
 
 <a id="agentfem-operator-incompressible_flow"></a>
 

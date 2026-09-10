@@ -424,6 +424,41 @@ def test_elastic_foundation_is_a_mechanical_boundary_matrix():
     assert operator.family == "mechanical_boundary"
 
 
+def test_elastic_foundation_matrix_requires_conservative_matching_stiffness():
+    domain = mesh.rectangle(
+        (0.0, 0.0), (1.0, 1.0), (1, 1),
+        comm=MPI.COMM_SELF, cell_type="triangle",
+    )
+    bottom = mesh.boundary(domain, lambda x: np.isclose(x[1], 0.0), name="bottom")
+    displacement = fields.displacement(domain)
+    foundation = boundary_models.elastic_foundation(
+        on=bottom,
+        stiffness=((10.0, 2.0), (2.0, 5.0)),
+        mode="matrix",
+    )
+
+    assert foundation.operator(displacement).role == "matrix"
+    assert foundation.summary()["stiffness"] == ((10.0, 2.0), (2.0, 5.0))
+    with pytest.raises(ValueError, match="symmetric"):
+        boundary_models.elastic_foundation(
+            on=bottom,
+            stiffness=((10.0, 2.0), (0.0, 5.0)),
+            mode="matrix",
+        )
+    with pytest.raises(ValueError, match="positive semidefinite"):
+        boundary_models.elastic_foundation(
+            on=bottom,
+            stiffness=((1.0, 0.0), (0.0, -1.0)),
+            mode="matrix",
+        )
+    with pytest.raises(ValueError, match="must be scalar"):
+        boundary_models.elastic_foundation(
+            on=bottom,
+            stiffness=(10.0, 5.0),
+            mode="isotropic",
+        )
+
+
 def test_centrifugal_and_hydrostatic_loads_have_physical_resultants():
     rotating = mesh.rectangle(
         (0.0, 0.0), (1.0, 1.0), (2, 2),

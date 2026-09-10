@@ -5,7 +5,7 @@
   "title": "Linear elastic foundation reaction and energy ownership",
   "kind": "operator",
   "status": "supported",
-  "summary": "Adds an isotropic or normal linear spring-to-ground boundary operator and publishes its distributed reaction without double-counting stored energy.",
+  "summary": "Adds an isotropic, normal, or conservative matrix spring-to-ground boundary operator and publishes its distributed reaction without double-counting stored energy.",
   "public_api": [
     "agentfem.boundary_models.elastic_foundation",
     "agentfem.boundary_models.ElasticFoundation",
@@ -30,6 +30,11 @@
         "description": "Normal mode retains only the displacement along the declared reference-boundary normal."
       },
       {
+        "label": "matrix foundation traction",
+        "expression": "\\mathbf{t}_{f}=-\\mathbf{K}\\mathbf{u},\\qquad \\mathbf{K}=\\mathbf{K}^{T}\\succeq 0",
+        "description": "Matrix mode permits directional coupling while symmetry and positive semidefiniteness retain a conservative nonnegative energy."
+      },
+      {
         "label": "weak stiffness and stored energy",
         "expression": "a_f(\\mathbf{u},\\mathbf{v})=\\int_{\\Gamma_f}k\\mathbf{u}\\cdot\\mathbf{v}\\,d\\Gamma,\\qquad U_f=\\tfrac{1}{2}a_f(\\mathbf{u},\\mathbf{u})",
         "description": "The same reviewed operator supplies tangent stiffness, nodal reaction recovery, and conservative stored energy."
@@ -38,7 +43,7 @@
     "inputs": [
       {
         "name": "foundation boundary, stiffness, and mode",
-        "type": "BoundaryRegion, nonnegative coefficient, and isotropic/normal selector",
+        "type": "BoundaryRegion, nonnegative scalar or symmetric positive-semidefinite matrix, and isotropic/normal/matrix selector",
         "unit_role": "force per boundary measure per displacement",
         "description": "The boundary measure determines whether stiffness is interpreted per unit length or area in the selected consistent unit system."
       }
@@ -54,7 +59,8 @@
     "assumptions": [
       "The current provider is linear, conservative, and attached to fixed ground.",
       "The reaction/energy evidence route is verified for linear-static vector solid fields.",
-      "Normal mode uses the reference-boundary normal supplied by the mesh or caller."
+      "Normal mode uses the reference-boundary normal supplied by the mesh or caller.",
+      "Matrix mode is expressed in model coordinates and must match the displacement dimension."
     ],
     "conventions": [
       "Positive stiffness enters the left-hand-side operator; the reported support reaction on the solid is its negative action.",
@@ -66,7 +72,7 @@
     ],
     "limitations": [
       "Nonlinear force-displacement laws, predeformation, moving normals, damping, finite-strain foundations, and pair/contact layers require separate providers.",
-      "The current foundation stiffness is scalar rather than a fully coupled local stiffness tensor."
+      "Spatially rotating local matrix coordinates require a separate oriented-boundary provider."
     ]
   },
   "usage": {
@@ -86,6 +92,7 @@
     ],
     "validation_rules": [
       "Reject negative stiffness and missing boundary regions.",
+      "Reject non-square, dimension-mismatched, asymmetric, or indefinite numerical matrix stiffness.",
       "Recover the applied boundary resultant from the distributed foundation reaction.",
       "Require serial and two-rank force balance at numerical tolerance.",
       "Require proportional linear work closure without adding foundation energy twice.",
@@ -101,6 +108,10 @@
     {
       "title": "COMSOL Elastic Energy",
       "locator": "https://doc.comsol.com/6.4/doc/com.comsol.help.sme/sme_ug_theory.06.125.html"
+    },
+    {
+      "title": "COMSOL Spring Foundation and Thin Elastic Layer",
+      "locator": "https://doc.comsol.com/6.4/doc/com.comsol.help.sme/sme_ug_theory.06.068.html"
     }
   ],
   "related_cards": [
