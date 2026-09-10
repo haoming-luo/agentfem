@@ -635,6 +635,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#elastic-foundations" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Elastic foundations
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#declare-the-numerical-unit-contract" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1291,6 +1302,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#elastic-foundations" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Elastic foundations
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#declare-the-numerical-unit-contract" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1420,15 +1442,30 @@ models, and step activation reusable rather than embedding them in one solver.</
 <li>distributed force and moment resultants;</li>
 <li>step-wise activation and deactivation.</li>
 </ul>
+<h2 id="elastic-foundations">Elastic foundations<a class="headerlink" href="#elastic-foundations" title="Permanent link">&para;</a></h2>
+<p>An elastic foundation is weak boundary physics, not a disguised fixed
+displacement. Register it independently of the material and loading:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="n">support</span> <span class="o">=</span> <span class="n">mesh</span><span class="o">.</span><span class="n">boundary</span><span class="p">(</span><span class="n">domain</span><span class="p">,</span> <span class="n">left</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="s2">&quot;support&quot;</span><span class="p">)</span>
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="n">model</span><span class="o">.</span><span class="n">elastic_foundation</span><span class="p">(</span><span class="n">on</span><span class="o">=</span><span class="n">support</span><span class="p">,</span> <span class="n">stiffness</span><span class="o">=</span><span class="mf">5.0e6</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="s2">&quot;isotropic&quot;</span><span class="p">)</span>
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="n">result</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">step</span><span class="p">(</span><span class="n">target</span><span class="o">=</span><span class="n">displacement</span><span class="p">)</span><span class="o">.</span><span class="n">solve_result</span><span class="p">()</span>
+</code></pre></div>
+<p>For a linear-static solid, the foundation provider publishes a nodal reaction
+field and MPI-global resultant through the same balance contract as other
+constraints. Its spring energy is already part of the assembled stiffness and
+system strain energy, so the result ledger records that ownership instead of
+adding the energy a second time as prescribed-boundary work. <code>mode="normal"</code>
+retains only the current reference-boundary normal component; general
+nonlinear, moving-normal, damping, and contact foundations remain separate
+future providers.</p>
 <h2 id="declare-the-numerical-unit-contract">Declare the numerical unit contract<a class="headerlink" href="#declare-the-numerical-unit-contract" title="Permanent link">&para;</a></h2>
 <p>Finite-element kernels operate on consistent numbers. Record the convention
 once so manifests, agents, datasets, and future interfaces do not infer units
 from magnitude:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="n">model</span> <span class="o">=</span> <span class="n">models</span><span class="o">.</span><span class="n">create</span><span class="p">(</span>
-<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="n">study</span><span class="o">=</span><span class="n">studies</span><span class="o">.</span><span class="n">static_solid</span><span class="p">(</span><span class="n">dimension</span><span class="o">=</span><span class="mi">3</span><span class="p">),</span>
-<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>    <span class="n">mesh</span><span class="o">=</span><span class="n">domain</span><span class="p">,</span>
-<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>    <span class="n">units</span><span class="o">=</span><span class="n">units</span><span class="o">.</span><span class="n">n_mm_mpa</span><span class="p">(),</span>
-<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="p">)</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="n">model</span> <span class="o">=</span> <span class="n">models</span><span class="o">.</span><span class="n">create</span><span class="p">(</span>
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>    <span class="n">study</span><span class="o">=</span><span class="n">studies</span><span class="o">.</span><span class="n">static_solid</span><span class="p">(</span><span class="n">dimension</span><span class="o">=</span><span class="mi">3</span><span class="p">),</span>
+<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>    <span class="n">mesh</span><span class="o">=</span><span class="n">domain</span><span class="p">,</span>
+<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a>    <span class="n">units</span><span class="o">=</span><span class="n">units</span><span class="o">.</span><span class="n">n_mm_mpa</span><span class="p">(),</span>
+<a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a><span class="p">)</span>
 </code></pre></div>
 <p><code>units.si()</code> and <code>units.n_mm_mpa()</code> are ready-to-use contracts;
 <code>units.consistent(...)</code> records another coherent system. AgentFEM does not

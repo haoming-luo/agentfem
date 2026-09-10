@@ -766,6 +766,7 @@ def static_work_balance(
         sum(
             0.5 * np.dot(item.force, item.coordinate)
             for item in provider_duals
+            if item.work_complete
         )
     )
     external = float(natural + prescribed_work + provider_work)

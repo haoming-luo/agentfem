@@ -1408,7 +1408,10 @@ def constraint_balance_contract(constraints, *, provider_duals=()) -> dict[str, 
             summary["provider_dual"] = dual.summary()
         records.append(summary)
         force_available = summary["reaction_evidence"] == "unconstrained_residual"
-        work_available = summary["work_evidence"] == "proportional_prescribed_path"
+        work_available = summary["work_evidence"] in {
+            "proportional_prescribed_path",
+            "internal_energy_operator",
+        }
         if summary["reaction_evidence"] == "provider_dual_required":
             force_available = bool(dual is not None and dual.force_complete)
         if summary["work_evidence"] == "provider_dual_path_required":

@@ -11,6 +11,7 @@ from agentfem import (
     constitutive,
     constraints,
     fields,
+    mesh,
     models,
     operators,
     results,
@@ -206,6 +207,53 @@ def test_exact_mpc_recovers_nonzero_multiplier_distribution():
     assert diagnostics["resultant_norm"] < 1.0e-11
     distribution = simulation.fields[dual["distribution"]["name"]].field
     assert np.max(np.abs(distribution.x.array)) > 1.0e-6
+
+
+def test_elastic_foundation_owns_reaction_without_double_counting_energy():
+    domain = dolfinx_mesh.create_unit_square(MPI.COMM_WORLD, 8, 5)
+    model = models.create(
+        study=studies.static_solid(dimension=2, assumption="plane_stress"),
+        mesh=domain,
+        name="weak_foundation_balance",
+    )
+    displacement = model.field(fields.displacement(domain))
+    model.material(
+        constitutive.elasticity.isotropic_elastic(
+            young=2.0e3,
+            poisson=0.25,
+            density=1.0,
+        )
+    )
+    left = mesh.boundary(
+        domain,
+        lambda x: np.isclose(x[0], 0.0),
+        name="foundation_face",
+    )
+    right = mesh.boundary(
+        domain,
+        lambda x: np.isclose(x[0], 1.0),
+        name="loaded_face",
+    )
+    model.elastic_foundation(on=left, stiffness=5.0e3, mode="isotropic")
+    model.traction((10.0, 0.0), on=right)
+
+    simulation = model.step(target=displacement).solve_result()
+
+    contract = simulation.metadata["constraint_balance_contract"]
+    assert contract["force_balance_available"] is True
+    assert contract["work_balance_available"] is True
+    dual = simulation.metadata["constraint_duals"][0]
+    assert dual["role"] == "weak_constraint"
+    assert dual["force_complete"] is True
+    assert dual["work_complete"] is False
+    assert dual["diagnostics"]["stored_energy"] > 0.0
+    assert dual["diagnostics"]["stored_energy_accounting"] == (
+        "included_in_system_strain_energy"
+    )
+    np.testing.assert_allclose(dual["resultant"], [-10.0, 0.0], atol=1.0e-9)
+    assert simulation.quantities["relative_force_balance_error"].value < 1.0e-10
+    assert abs(simulation.metadata["static_work"]["energy_balance_error"]) < 1.0e-10
+    assert dual["distribution"]["name"] in simulation.fields
 
 
 def test_steady_heat_step_uses_the_same_exact_mpc_lowering():

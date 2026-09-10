@@ -735,6 +735,24 @@
       "title": "Biharmonic split operators and boundary closure"
     },
     {
+      "id": "agentfem.operator.elastic_foundation_reaction",
+      "kind": "operator",
+      "public_api": [
+        "agentfem.boundary_models.elastic_foundation",
+        "agentfem.boundary_models.ElasticFoundation",
+        "agentfem.models.Model.elastic_foundation"
+      ],
+      "related_cards": [
+        "agentfem.workflow.standard_result_projection",
+        "agentfem.operator.system_contracts",
+        "agentfem.load.surface_resultant"
+      ],
+      "source": "src/agentfem/knowledge/cards/elastic_foundation_reaction.json",
+      "status": "supported",
+      "summary": "Adds an isotropic or normal linear spring-to-ground boundary operator and publishes its distributed reaction without double-counting stored energy.",
+      "title": "Linear elastic foundation reaction and energy ownership"
+    },
+    {
       "id": "agentfem.operator.incompressible_flow",
       "kind": "operator",
       "public_api": [

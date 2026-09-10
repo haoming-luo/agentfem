@@ -67,11 +67,12 @@ def linear_static(
             )
     else:
         K = K if K is not None else model.stiffness(target)
-        foundation_terms = tuple(
-            item.operator(target)
+        foundation_models = tuple(
+            item
             for item in model.boundary_models
             if item.__class__.__name__ == "ElasticFoundation"
         )
+        foundation_terms = tuple(item.operator(target) for item in foundation_models)
         if foundation_terms:
             K = operators.combine(
                 K,
@@ -141,6 +142,11 @@ def linear_static(
         result_field_factory=result_field_factory,
         name=name,
     )
+    if not getattr(model.study, "is_heat_transfer", False):
+        step.constraint_assets = (
+            *constraint_api.constraint_assets(selected_constraints),
+            *foundation_models,
+        )
     return model.add_step(step)
 
 

@@ -124,8 +124,12 @@ Deepen the finite-element core before broadening the catalog:
   scatters the paired nodal reaction distribution across MPI ranks, measures
   the solved constraint gap, and publishes its zero homogeneous-constraint
   virtual work through the shared result ledger. Nonzero-multiplier serial and
-  two-rank tests guard the physical dual rather than merely the graph. Weak and
-  contact providers remain the next explicit promotion gates;
+  two-rank tests guard the physical dual rather than merely the graph. The
+  linear elastic-foundation boundary operator is now the first native weak
+  provider: it publishes its nodal support reaction and global resultant while
+  its recoverable spring energy remains in system strain energy and is not
+  counted again as external work. General weak and contact providers remain
+  the next explicit promotion gates;
 - selected cyclic plasticity, creep--fatigue, and fracture extensions.
 - promote the 3D generalized-Maxwell family beyond its analytical ramp--hold
   patch and independent Abaqus rod benchmark. Adaptive physical time, atomic

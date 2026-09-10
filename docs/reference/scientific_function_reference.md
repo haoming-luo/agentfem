@@ -31,6 +31,7 @@ the compact machine-readable `agentfem/knowledge/catalog.json`.
 | [`agentfem.material.mooney_rivlin_hyperelasticity`](#agentfem-material-mooney_rivlin_hyperelasticity) | Mooney--Rivlin finite-strain solids and incompressible sheets | material | experimental |
 | [`agentfem.material.solver_neutral_user_material_contract`](#agentfem-material-solver_neutral_user_material_contract) | Solver-neutral finite-strain user-material contract | material | contract_only |
 | [`agentfem.operator.biharmonic_split`](#agentfem-operator-biharmonic_split) | Biharmonic split operators and boundary closure | operator | supported |
+| [`agentfem.operator.elastic_foundation_reaction`](#agentfem-operator-elastic_foundation_reaction) | Linear elastic foundation reaction and energy ownership | operator | supported |
 | [`agentfem.operator.incompressible_flow`](#agentfem-operator-incompressible_flow) | Mixed incompressible-flow fields and operators | operator | supported |
 | [`agentfem.operator.scalar_transport_reaction`](#agentfem-operator-scalar_transport_reaction) | Scalar transport and reaction operators | operator | supported |
 | [`agentfem.operator.system_contracts`](#agentfem-operator-system_contracts) | Finite-element operator and system contracts | operator | supported |
@@ -2124,6 +2125,116 @@ Define w = -laplacian(u); solve split_laplacian_operator(w, q) = f*q and then sp
 
 - UFL form language manual: `https://docs.fenicsproject.org/ufl/main/manual/form_language.html`
 - PDEAgent-Bench public repository: `https://github.com/YusanX/pde-agent-bench`
+
+<a id="agentfem-operator-elastic_foundation_reaction"></a>
+
+## Linear elastic foundation reaction and energy ownership
+
+**Stable ID:** `agentfem.operator.elastic_foundation_reaction`<br>
+**Kind:** `operator`<br>
+**Status:** `supported`<br>
+**Source card:** `src/agentfem/knowledge/cards/elastic_foundation_reaction.json`
+
+Adds an isotropic or normal linear spring-to-ground boundary operator and publishes its distributed reaction without double-counting stored energy.
+
+### Public API
+
+- `agentfem.boundary_models.elastic_foundation`
+- `agentfem.boundary_models.ElasticFoundation`
+- `agentfem.models.Model.elastic_foundation`
+
+### Scientific contract
+
+A linear elastic foundation is a conservative weak boundary operator whose force on the solid opposes displacement; its reaction closes global force balance while its recoverable energy remains part of the assembled system strain energy.
+
+**isotropic foundation traction**
+
+$$
+\mathbf{t}_{f}=-k\mathbf{u}
+$$
+
+The foundation force per reference boundary measure opposes every displacement component.
+
+**normal foundation traction**
+
+$$
+\mathbf{t}_{f}=-k(\mathbf{u}\cdot\mathbf{n})\mathbf{n}
+$$
+
+Normal mode retains only the displacement along the declared reference-boundary normal.
+
+**weak stiffness and stored energy**
+
+$$
+a_f(\mathbf{u},\mathbf{v})=\int_{\Gamma_f}k\mathbf{u}\cdot\mathbf{v}\,d\Gamma,\qquad U_f=\tfrac{1}{2}a_f(\mathbf{u},\mathbf{u})
+$$
+
+The same reviewed operator supplies tangent stiffness, nodal reaction recovery, and conservative stored energy.
+
+#### Inputs
+
+| Name | Type | Unit role | Meaning |
+| --- | --- | --- | --- |
+| foundation boundary, stiffness, and mode | BoundaryRegion, nonnegative coefficient, and isotropic/normal selector | force per boundary measure per displacement | The boundary measure determines whether stiffness is interpreted per unit length or area in the selected consistent unit system. |
+
+#### Outputs
+
+| Name | Type | Unit role | Meaning |
+| --- | --- | --- | --- |
+| foundation operator and dual evidence | OperatorForm, ConstraintDualEvidence, and nodal reaction field | stiffness, force, and energy | The result carries the MPI-global resultant, nodal support reaction, and foundation stored energy ownership. |
+
+#### Assumptions
+
+- The current provider is linear, conservative, and attached to fixed ground.
+- The reaction/energy evidence route is verified for linear-static vector solid fields.
+- Normal mode uses the reference-boundary normal supplied by the mesh or caller.
+
+#### Conventions
+
+- Positive stiffness enters the left-hand-side operator; the reported support reaction on the solid is its negative action.
+- Foundation stored energy is included in total system strain energy and contributes no separate prescribed-motion work.
+- The full nodal reaction remains a field artifact while JSON retains compact resultant, norm, energy, and provenance evidence.
+
+#### Applicability
+
+- Small-strain linear-static solids with isotropic or reference-normal spring support in serial or MPI.
+
+#### Limitations
+
+- Nonlinear force-displacement laws, predeformation, moving normals, damping, finite-strain foundations, and pair/contact layers require separate providers.
+- The current foundation stiffness is scalar rather than a fully coupled local stiffness tensor.
+
+### Minimal example
+
+```python
+support = mesh.boundary(domain, left, name='support')
+model.elastic_foundation(on=support, stiffness=5.0e6, mode='isotropic')
+result = model.step(target=displacement).solve_result()
+```
+
+### Verification
+
+**Tests**
+
+- `tests/test_engineering_workflows.py`
+- `tests/test_parallel_affine.py`
+
+**Benchmarks**
+
+- `agentfem.benchmark.elasticity_foundation`
+
+**Validation rules**
+
+- Reject negative stiffness and missing boundary regions.
+- Recover the applied boundary resultant from the distributed foundation reaction.
+- Require serial and two-rank force balance at numerical tolerance.
+- Require proportional linear work closure without adding foundation energy twice.
+- Retain the provider-owned nodal reaction distribution in SimulationResult.
+
+### References
+
+- Abaqus Element Foundations: `https://docs.software.vt.edu/abaqusv2025/English/SIMACAEMODRefMap/simamod-c-foundation.htm`
+- COMSOL Elastic Energy: `https://doc.comsol.com/6.4/doc/com.comsol.help.sme/sme_ug_theory.06.125.html`
 
 <a id="agentfem-operator-incompressible_flow"></a>
 
@@ -4797,7 +4908,7 @@ Natural loads and strong prescribed values are ramped proportionally from zero; 
 #### Limitations
 
 - Nodal smoothing and superconvergent stress recovery are not implemented.
-- Affine MPC, arbitrary MPC, weak, and contact reactions require their numerical provider to implement the shared dual_evidence(problem) protocol; force or work balance remains unavailable for any provider that has not supplied the corresponding physical dual. The rectangular homogeneous periodic provider implements this protocol; weak and contact providers do not yet claim complete evidence.
+- Affine MPC, arbitrary MPC, weak, and contact reactions require their numerical provider to implement the shared dual_evidence(problem) protocol; force or work balance remains unavailable for any provider that has not supplied the corresponding physical dual. The rectangular homogeneous periodic and linear elastic-foundation providers implement their bounded contracts; general weak and contact providers do not yet claim complete evidence.
 - Thermoelastic output requires temperature-aware field construction in a later extension.
 
 ### Minimal example
@@ -4816,6 +4927,7 @@ peak = results.field_extrema(result.fields['MISES'], location=True)
 
 - `tests/test_results.py`
 - `tests/test_p1_platform.py`
+- `tests/test_parallel_affine.py`
 
 **Benchmarks**
 
@@ -4829,6 +4941,7 @@ peak = results.field_extrema(result.fields['MISES'], location=True)
 - Check named-boundary reaction equilibrium and proportional static energy closure.
 - Check the automatically attached assembled-force, strong-reaction, and relative global balance evidence.
 - Check that unresolved periodic/MPC evidence suppresses partial force and work balances and reports the missing named channel.
+- Check that elastic-foundation reactions close force balance while their stored energy remains in system strain energy rather than being counted twice.
 - Verify a regional two-material series bar through one piecewise projection.
 - Require a prepared projection to track a changed live field while reusing one assembled mass operator and output Function.
 

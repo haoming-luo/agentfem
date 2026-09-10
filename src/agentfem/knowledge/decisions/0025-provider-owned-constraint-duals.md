@@ -52,6 +52,9 @@ balanced while omitting a real reaction or prescribed-motion contribution.
   residual equations, scatters `B.T @ lambda` into a nodal distribution, and
   publishes the homogeneous relation's zero virtual work. The generic solver
   still owns neither the multiplier nor its scientific interpretation.
+- the linear elastic-foundation weak provider publishes its operator action as
+  a nodal support reaction, but declares conservative spring energy as system
+  strain energy rather than a second external-work channel.
 
 ## Verification
 
