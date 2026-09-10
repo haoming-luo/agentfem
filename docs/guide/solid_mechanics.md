@@ -75,8 +75,8 @@ regularity declaration is absent.
 
 ## Finite-strain J2 plasticity
 
-The same material and `model.step(...)` vocabulary selects one of two
-non-overlapping equilibrium providers. Ordinary solids use strong Dirichlet or
+The same material and `model.step(...)` vocabulary selects one compatible
+equilibrium provider. Ordinary solids use strong Dirichlet or
 remote-displacement constraints and may include body forces or natural loads
 defined in the reference configuration:
 
@@ -149,8 +149,8 @@ constitutive-integration convergence study. Refine the accepted increments
 between knots when plastic history accuracy matters.
 
 Accepted increments retain provider-owned quadrature fields `F`, `P`, `S`,
-`MISES`, `SENER`, `ELENER`, `HARDENER`, `FP`, and `PEEQ`, with separately
-named cell averages for visualization. For this material,
+`MISES`, `SENER`, `ELENER`, `HARDENER`, `PDENER`, `FP`, and `PEEQ`, with
+separately named cell averages for visualization. For this material,
 `SENER = ELENER + HARDENER`; it records recoverable elastic and hardening
 storage, not accumulated plastic dissipation. The same accepted boundary can
 be checkpointed and restored across a compatible MPI repartition. This route
@@ -164,9 +164,17 @@ it is not a mesh-converged RVE reference solution. A separate opt-in check
 compares two and four increments and two successive mesh levels. Passing that
 check establishes only the declared successive-refinement stability, not
 formal asymptotic convergence or a GCI uncertainty estimate. The independent
-Zhang et al. periodic-composite gate still fails rather than being promoted. A
-mixed displacement--pressure route for near-incompressible plasticity and a
-production analytical tangent are not yet complete.
+Zhang et al. periodic-composite gate still fails rather than being promoted.
+Experimental serial 3D P2/DG0 and 2D plane-strain Q2/DPC1 mixed affine routes
+now solve an independent tension-positive `MEAN_KIRCHHOFF_STRESS`, assemble
+all four mixed Newton blocks, and keep the condensed `ELENER` representation
+separate from `MIXED_POTENTIAL`. Their
+thin-3D tetrahedral diagnostic remains distinct from the now executable 2D
+Q2/DPC1 interpolation. The Zhang geometry and Table 5 observables have not yet
+passed through that direct route. Load-path and formulation convergence, the
+published effective tangent and cell-replication checks, distributed mixed
+MPC/restart, and a production analytical deviatoric tangent remain promotion
+gates.
 
 ## Go deeper
 

@@ -1555,8 +1555,8 @@ If the meridian reaches <code>r=0</code>, register
 <code>constraints.axisymmetric_axis(u, on=axis)</code>; model validation warns when that
 regularity declaration is absent.</p>
 <h2 id="finite-strain-j2-plasticity">Finite-strain J2 plasticity<a class="headerlink" href="#finite-strain-j2-plasticity" title="Permanent link">&para;</a></h2>
-<p>The same material and <code>model.step(...)</code> vocabulary selects one of two
-non-overlapping equilibrium providers. Ordinary solids use strong Dirichlet or
+<p>The same material and <code>model.step(...)</code> vocabulary selects one compatible
+equilibrium provider. Ordinary solids use strong Dirichlet or
 remote-displacement constraints and may include body forces or natural loads
 defined in the reference configuration:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="n">material</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">material</span><span class="p">(</span>
@@ -1619,8 +1619,8 @@ Knots define the physical loading history; they are not, by themselves, a
 constitutive-integration convergence study. Refine the accepted increments
 between knots when plastic history accuracy matters.</p>
 <p>Accepted increments retain provider-owned quadrature fields <code>F</code>, <code>P</code>, <code>S</code>,
-<code>MISES</code>, <code>SENER</code>, <code>ELENER</code>, <code>HARDENER</code>, <code>FP</code>, and <code>PEEQ</code>, with separately
-named cell averages for visualization. For this material,
+<code>MISES</code>, <code>SENER</code>, <code>ELENER</code>, <code>HARDENER</code>, <code>PDENER</code>, <code>FP</code>, and <code>PEEQ</code>, with
+separately named cell averages for visualization. For this material,
 <code>SENER = ELENER + HARDENER</code>; it records recoverable elastic and hardening
 storage, not accumulated plastic dissipation. The same accepted boundary can
 be checkpointed and restored across a compatible MPI repartition. This route
@@ -1634,9 +1634,17 @@ it is not a mesh-converged RVE reference solution. A separate opt-in check
 compares two and four increments and two successive mesh levels. Passing that
 check establishes only the declared successive-refinement stability, not
 formal asymptotic convergence or a GCI uncertainty estimate. The independent
-Zhang et al. periodic-composite gate still fails rather than being promoted. A
-mixed displacement--pressure route for near-incompressible plasticity and a
-production analytical tangent are not yet complete.</p>
+Zhang et al. periodic-composite gate still fails rather than being promoted.
+Experimental serial 3D P2/DG0 and 2D plane-strain Q2/DPC1 mixed affine routes
+now solve an independent tension-positive <code>MEAN_KIRCHHOFF_STRESS</code>, assemble
+all four mixed Newton blocks, and keep the condensed <code>ELENER</code> representation
+separate from <code>MIXED_POTENTIAL</code>. Their
+thin-3D tetrahedral diagnostic remains distinct from the now executable 2D
+Q2/DPC1 interpolation. The Zhang geometry and Table 5 observables have not yet
+passed through that direct route. Load-path and formulation convergence, the
+published effective tangent and cell-replication checks, distributed mixed
+MPC/restart, and a production analytical deviatoric tangent remain promotion
+gates.</p>
 <h2 id="go-deeper">Go deeper<a class="headerlink" href="#go-deeper" title="Permanent link">&para;</a></h2>
 <ul>
 <li><a href="../../nonlinear_solid_architecture/">Nonlinear solid architecture</a></li>

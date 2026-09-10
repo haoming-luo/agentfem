@@ -151,12 +151,16 @@ fails closed if a provider changes either declaration. An undeclared legacy
 6-by-6 array remains inspectable, but it is not eligible for a global Newton
 consumer merely because it resembles a stiffness matrix. This is protocol
 foundation only: those declarations do not by themselves promote a material.
-Finite-strain J2 now has material paths, numerical tangent comparison, and two
-public three-dimensional `model.step(...)` equilibrium providers: ordinary
-strong boundaries with reference dead loads, and exact affine/MPC periodic
-kinematics. Both have cutback/restart equivalence and MPI-stable state identity.
-The capability remains experimental: an independent external structural
-benchmark still gates a broader engineering maturity claim.
+Finite-strain J2 now has material paths, numerical tangent comparison, and
+public `model.step(...)` lowerings for ordinary three-dimensional strong
+boundaries with reference dead loads, displacement-only three-dimensional
+affine/MPC periodic kinematics, and experimental mixed affine-periodic routes
+using P2/DG0 in 3D or Q2/DPC1 in 2D plane strain.
+The ordinary and displacement-only affine paths have cutback/restart
+equivalence and MPI-stable state identity. The mixed route deliberately has a
+narrower serial boundary described below. The capability remains experimental:
+independent external structural evidence still gates a broader engineering
+maturity claim.
 
 `MaterialQuadratureState.create(domain, schema, ...)` is the first lowering of
 that declaration. It creates one committed/trial quadrature pair for every
@@ -200,15 +204,109 @@ The older `mechanics.experimental_finite_strain_j2_step(...)` remains a
 compatibility/development entry point rather than the recommended application
 language.
 
+### Mixed finite-strain J2 ownership
+
+The first experimental mixed J2 lowerings intended to mitigate volumetric
+locking use either a three-dimensional tetrahedral P2/DG0 field with one
+constant pressure-like unknown per tetrahedron, or a
+two-dimensional plane-strain Q2/DPC1 field with three discontinuous pressure
+modes per quadrilateral and \(F_{33}=1\). Their scalar unknown is not the
+positive-compression Cauchy pressure used by the mixed Neo-Hookean provider. It
+is the mean Kirchhoff stress
+
+\[
+p=\tfrac13\operatorname{tr}\boldsymbol\tau,
+\]
+
+with positive values in tension, and is therefore published under the explicit
+field name `MEAN_KIRCHHOFF_STRESS`. The volumetric equation is
+
+\[
+\ln J-\frac{p}{\kappa}=0.
+\]
+
+The displacement equation uses
+\(\mathbf P=\operatorname{dev}(\boldsymbol\tau)\mathbf F^{-T}
++p\mathbf F^{-T}\). The Newton derivative is one monolithic mixed system:
+
+\[
+\begin{bmatrix}
+K_{uu} & K_{up}\\
+K_{pu} & K_{pp}
+\end{bmatrix}
+\begin{bmatrix}\Delta u\\\Delta p\end{bmatrix}
+=-
+\begin{bmatrix}R_u\\R_p\end{bmatrix}.
+\]
+
+All four blocks are assembled explicitly; pressure degrees of freedom are not
+silently removed by the affine displacement reduction. The reported
+`pressure_block_residual_norm` is the unnormalised Euclidean norm of the
+assembled pressure-equation coefficient vector. It depends on the mesh,
+pressure basis and scaling, so it is useful within one declared discretisation
+but must not be compared directly across meshes or pressure spaces. The
+separately reported maximum quadrature pressure-constraint defect is
+
+\[
+\max_q\left|\ln J_q-\frac{p_q}{\kappa_q}\right|.
+\]
+
+It is a quadrature representation diagnostic, not the mixed residual norm.
+
+Energy output follows the same separation of physical state from numerical
+formulation. For the mixed route,
+
+\[
+\mathrm{ELENER}=\psi_{e,\mathrm{dev}}+\frac{p^2}{2\kappa},
+\qquad
+\mathrm{SENER}=\mathrm{ELENER}+\mathrm{HARDENER}.
+\]
+
+Here \(p^2/(2\kappa)\) is a nonnegative condensed mixed representation of the
+volumetric storage. It is pointwise identical to the primal
+\(\kappa(\ln J)^2/2\) term only where \(p=\kappa\ln J\) holds locally; the weak
+mixed equation does not make that identity unconditional at every quadrature
+point. The integrated channel is therefore suitable for a declared discrete
+mixed-energy comparison, but its point values must not be presented as the
+primal physical energy without checking the local constraint. `MIXED_POTENTIAL`
+retains the saddle variational density containing
+\(p\ln J-p^2/(2\kappa)\) and is never a stored-energy alias.
+
+Portable checkpointing also respects ownership. The generic archive never
+serializes an opaque mixed-vector layout. The state transaction exposes live
+and accepted `U` and `MEAN_KIRCHHOFF_STRESS` as four standalone fields,
+preserves the provider-owned quadrature history beside them, and reassembles
+the mixed functions only after mesh, field, material, procedure, and
+constraint identities pass restore validation. Fresh-Step checkpoint/continue
+equivalence is verified for both serial mixed routes: 3D tetrahedral P2/DG0 and
+2D plane-strain quadrilateral Q2/DPC1. Separately, the generic DPC cell-interior
+state primitive has one-to-two and two-to-one-rank acceptance coverage. That
+serializer evidence is not evidence for an MPI mixed-J2 solve or a cross-rank
+restart of one.
+
+These routes are intentionally limited to tetrahedral 3D P2/DG0 or
+quadrilateral 2D plane-strain Q2/DPC1, one exact affine-periodic constraint,
+and serial sparse reduction. A bulk-to-shear ratio of \(10^4\) is a temporary
+implementation ceiling that guards the current subtractive tangent extraction;
+it is not an audited accuracy range or a material-model limit. They do not yet
+support distributed block-aware MPC, ordinary strong-boundary mixed problems,
+or body/natural-load power. The Q2/DPC1 path supplies the three pressure modes
+of the 9/3 formulation, but the Zhang--Feng--Khandelwal complex geometry and
+Table 5 observables must still be executed through it before external
+promotion. The existing thin-3D tetrahedral fixture remains a distinct
+experimental mixed diagnostic rather than evidence of 2D formulation identity
+or locking convergence.
+
 The state transaction owns accepted quadrature `F`, `P`, `S`, `MISES`,
-`SENER`, `ELENER`, `HARDENER`, `PDENER`, `FP`, and `PEEQ`. Scientific output uses those
-provider-owned fields;
+`SENER`, `ELENER`, `HARDENER`, `PDENER`, `FP`, and `PEEQ`; the mixed route also
+owns `MIXED_POTENTIAL`. Scientific output uses those provider-owned fields;
 it does not reconstruct an inelastic response from a stateless hyperelastic
 formula. Explicitly named `*_CELL` fields are physical quadrature-weighted DG0
 averages for visualization and do not replace the integration-point evidence.
 
-For this J2 provider, `ELENER` is the quadratic Hencky elastic free-energy
-density and `HARDENER` is
+For the displacement-only J2 providers, `ELENER` is the quadratic Hencky
+elastic free-energy density. For the mixed routes it has the condensed meaning
+defined above. In both cases, `HARDENER` is
 \(\tfrac12 H\bar\varepsilon_p^2\). The backward-compatible `SENER` field is
 their sum. `PDENER` is a separate committed state channel,
 \(D_{n+1}=D_n+\sigma_{y0}\Delta\bar\varepsilon_p\), which records the
@@ -217,14 +315,15 @@ law. It is emitted from the accepted constitutive transaction, not reconstructed
 from a final visualization field. A complete structural energy balance still
 requires provider-owned external work for every active load and constraint.
 
-Portable checkpoints are accepted-state boundaries. They store `U`,
-`U_ACCEPTED`, committed quadrature state, accepted and attempted increment
-histories, and the next adaptive increment. Restore validates
+Displacement-only portable checkpoints are accepted-state boundaries. They
+store `U`, `U_ACCEPTED`, committed quadrature state, accepted and attempted
+increment histories, and the next adaptive increment; the mixed split-field
+contract is defined above. Restore validates
 mesh/function identity, material and state schema, quadrature rule, procedure,
 solver, increment control, amplitude, constraints, and natural-load identity
 before changing the analysis. The affine route also binds its periodic
-equations. The same checkpoint has been resumed between one and two MPI ranks
-in both directions. A resumed solve restores the previous execution trace,
+equations. The displacement-only checkpoint has been resumed between one and
+two MPI ranks in both directions. A resumed solve restores the previous execution trace,
 appends a new resumed segment, and starts a new field series from the accepted
 boundary; earlier visualization frames remain in the earlier result artifact
 and are not silently reconstructed or merged.
@@ -237,8 +336,10 @@ the current material schema before using its state as new release evidence.
 The present public scope is deliberately narrow. The ordinary route accepts
 proportional prescribed motion and reference dead loads but not follower-load
 tangents, absolute time histories, weak boundary models, contact, or MPC. The
-affine route accepts prescribed macroscopic deformation, compatible regional
-materials, one periodic constraint, and no body-force or natural-load power.
+displacement-only affine route accepts prescribed macroscopic deformation,
+compatible regional materials, one periodic constraint, and no body-force or
+natural-load power. The mixed affine route has the narrower serial boundary
+defined above.
 The true spherical-void RVE now exercises
 geometric pairing, positive-J, public result lifecycle, two-rank execution,
 and Hill--Mandel evidence. Its versioned fixed-stack Golden additionally
@@ -249,12 +350,23 @@ fraction, not a mesh-converged RVE reference value. An opt-in certificate
 separately compares two against four increments and successive `h/L=0.18` and
 `0.14` meshes. Its thresholds establish only successive-refinement stability;
 they do not establish an asymptotic range, GCI, or numerical uncertainty.
-The Zhang--Feng--Khandelwal external fixture remains fail-closed because the
-current low-order displacement-only tetrahedral route has not matched the
-published mixed displacement--pressure result. A locking-resistant mixed
-formulation and an analytically linearized production tangent remain promotion
-gates. The current numerical `dP/dF` is a correctness-first discrete
-derivative, not a production-performance claim.
+The Zhang--Feng--Khandelwal external fixture now has a thin-3D tetrahedral
+P2/DG0 mixed diagnostic in addition to the older low-order displacement-only
+route. Neither is relabelled as the publication's 2D quadrilateral Q2/DPC1 9/3
+element. One unarchived local 502-cell, 20-increment diagnostic passed the
+global first-Piola vector-norm tolerance, but failed the componentwise
+\(P_{11}\) and \(P_{22}\) contracts and the `ELENER` tolerance. Those numbers
+are diagnostic observations, not a content-addressed Golden. Moreover, the
+current Table 5 assessor checks caller-supplied comparison-completeness flags;
+until it consumes content-bound evidence records, it is not by itself a
+scientific promotion gate. Promotion still requires load-increment/path and
+spatial convergence, Table 5 stress, elastic energy and current-state effective
+tangent, 1x1/1x2/2x1/2x2 replication invariance, and serial/MPI plus restart
+evidence. An analytically linearized production
+deviatoric tangent also remains a performance and conditioning gate: the
+current mixed transformation removes the numerical volumetric tangent from the
+complete discrete `dP/dF`, which is correctness-first rather than a
+production extreme-bulk-modulus route.
 
 ## Nonlinear control layers
 
@@ -334,9 +446,9 @@ store.
 ## Explicit non-goals for P1
 
 - no claim of general contact, arbitrary multi-physics, or finite-strain
-  plasticity beyond the two gated experimental J2 providers; locking-resistant
-  production formulations and independent external structural validation remain
-  promotion gates;
+  plasticity beyond the gated experimental J2 providers; demonstrated
+  locking-mitigation convergence and independent external structural validation
+  remain promotion gates;
 - no generic Abaqus deck execution;
 - no UMAT compatibility before state, tangent, tensor-convention, and ABI
   gates exist;

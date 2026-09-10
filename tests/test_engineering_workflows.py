@@ -33,8 +33,60 @@ def test_mixed_hybrid_unknown_has_one_constant_pressure_value_per_cell():
 
     assert unknown.displacement_degree == 2
     assert unknown.pressure_degree == 0
+    assert unknown.pressure_family == "DG"
+    assert unknown.identity() == {
+        "kind": "displacement_pressure",
+        "displacement_degree": 2,
+        "pressure_family": "DG",
+        "pressure_degree": 0,
+    }
     assert unknown.summary()["pressure_unknowns_per_cell"] == 1
     assert unknown.space.num_sub_spaces == 2
+
+
+def test_quadrilateral_q2_dpc1_has_nine_three_mixed_interpolation():
+    domain = mesh.rectangle(
+        (0.0, 0.0),
+        (1.0, 1.0),
+        (1, 1),
+        comm=MPI.COMM_SELF,
+        cell_type="quadrilateral",
+    )
+    unknown = fields.displacement_pressure(
+        domain,
+        displacement_degree=2,
+        pressure_family="DPC",
+        pressure_degree=1,
+    )
+    displacement_element, pressure_element = (
+        unknown.space.ufl_element().sub_elements
+    )
+
+    assert displacement_element.dim == 18
+    assert pressure_element.dim == 3
+    assert unknown.space.ufl_element().dim == 21
+    assert unknown.identity()["pressure_family"] == "DPC"
+    assert unknown.summary()["pressure_unknowns_per_cell"] == 3
+
+
+def test_dpc_pressure_rejects_non_tensor_product_cells_clearly():
+    domain = mesh.rectangle(
+        (0.0, 0.0),
+        (1.0, 1.0),
+        (1, 1),
+        comm=MPI.COMM_SELF,
+        cell_type="triangle",
+    )
+
+    with pytest.raises(
+        ValueError,
+        match="DPC pressure interpolation requires a quadrilateral or hexahedron",
+    ):
+        fields.displacement_pressure(
+            domain,
+            pressure_family="DPC",
+            pressure_degree=1,
+        )
 
 
 def test_mixed_material_is_selected_by_the_unified_step_provider():

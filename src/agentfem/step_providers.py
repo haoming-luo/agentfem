@@ -954,7 +954,64 @@ def _accept_finite_strain_j2_affine(model, request: StepRequest) -> bool:
     return (
         getattr(study, "physics", None) == "solid_mechanics"
         and getattr(study, "dimension", None) == 3
+        and getattr(request.target, "kind", None) != "displacement_pressure"
         and _is_vector_target(request.target)
+        and _all_materials_support(
+            model,
+            request,
+            lambda item: isinstance(item, FiniteStrainJ2Logarithmic),
+        )
+        and len(selected_constraints) == 1
+        and isinstance(selected_constraints[0], AbaqusPeriodicConstraint)
+        and not physical_loads
+    )
+
+
+def _accept_finite_strain_j2_mixed_affine(
+    model,
+    request: StepRequest,
+) -> bool:
+    from . import loads as load_api
+    from .constitutive import FiniteStrainJ2Logarithmic
+    from .constraints import AbaqusPeriodicConstraint, constraint_assets
+
+    study = getattr(model, "study", None)
+    selected_constraints = request.option("constraints")
+    if selected_constraints is None:
+        selected_constraints = tuple(getattr(model, "constraints", ()))
+    selected_constraints = constraint_assets(selected_constraints)
+    physical_loads = load_api.load_assets(
+        getattr(model, "loads", ()),
+        unwrap_amplitudes=True,
+    )
+    dimension = getattr(study, "dimension", None)
+    pressure_family = str(
+        getattr(request.target, "pressure_family", "DG")
+    ).upper()
+    domain = getattr(getattr(request.target, "space", None), "mesh", None)
+    cell_name = (
+        None if domain is None else str(domain.topology.cell_name())
+    )
+    interpolation_supported = (
+        dimension == 3
+        and cell_name == "tetrahedron"
+        and int(getattr(request.target, "displacement_degree", -1)) == 2
+        and pressure_family == "DG"
+        and int(getattr(request.target, "pressure_degree", -1)) == 0
+    ) or (
+        dimension == 2
+        and cell_name == "quadrilateral"
+        and getattr(study, "assumption", None) == "plane_strain"
+        and int(getattr(request.target, "displacement_degree", -1)) == 2
+        and pressure_family == "DPC"
+        and int(getattr(request.target, "pressure_degree", -1)) == 1
+    )
+    return (
+        getattr(study, "physics", None) == "solid_mechanics"
+        and interpolation_supported
+        and domain is not None
+        and int(domain.comm.size) == 1
+        and getattr(request.target, "kind", None) == "displacement_pressure"
         and _all_materials_support(
             model,
             request,
@@ -995,6 +1052,7 @@ def _accept_finite_strain_j2_strong(model, request: StepRequest) -> bool:
     return (
         getattr(study, "physics", None) == "solid_mechanics"
         and getattr(study, "dimension", None) == 3
+        and getattr(request.target, "kind", None) != "displacement_pressure"
         and _is_vector_target(request.target)
         and _all_materials_support(
             model,
@@ -1773,6 +1831,30 @@ register_step_provider(
         description="Lower K/F engineering operators to a linear static solve.",
         procedure="standard/linear",
         option_contract=_option_contract(),
+    )
+)
+register_step_provider(
+    StepProvider(
+        name="finite_strain_j2_mixed_affine_static",
+        analyses=("nonlinear_static",),
+        accepts=_accept_finite_strain_j2_mixed_affine,
+        lower=_lower_finite_strain_j2,
+        priority=135,
+        description=(
+            "Lower logarithmic finite-strain J2 to P2/DG0 3D or Q2/DPC1 "
+            "plane-strain mixed equilibrium under exact affine kinematics."
+        ),
+        procedure=(
+            "standard/newton/stateful/mixed_mean_kirchhoff_stress/affine_mpc"
+        ),
+        option_contract=_option_contract(
+            "incrementation",
+            "quadrature_degree",
+            "output_every",
+            "progress",
+            "status_file",
+            "checkpoint",
+        ),
     )
 )
 register_step_provider(

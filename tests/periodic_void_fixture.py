@@ -807,7 +807,7 @@ def _periodic_semantics(
         key = _coordinate_key(coordinate, tolerance)
         if key in coordinate_to_label:
             raise RuntimeError(
-                "Gmsh produced duplicate coordinates for a first-order mesh."
+                "Gmsh produced duplicate source-node coordinates."
             )
         coordinate_to_label[key] = int(label)
         coordinate_by_label[int(label)] = coordinate

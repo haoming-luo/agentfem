@@ -3,8 +3,10 @@
 This driver can never report ``accepted`` because it deliberately omits the
 effective tangent and promotion-level convergence evidence.  Available values
 outside the fixed tolerance report ``failed``; otherwise the result remains
-``incomplete``.  It is a manual evidence producer, not part of the fast
-regression suite.
+``incomplete``.  Its default route uses AgentFEM's P2/DG0 mixed
+displacement--pressure provider; the older displacement-only route remains an
+explicit diagnostic A/B option.  It is a manual evidence producer, not part of
+the fast regression suite.
 """
 
 from __future__ import annotations
@@ -28,6 +30,11 @@ def main() -> int:
     parser.add_argument("--mesh-size", type=float, default=0.24)
     parser.add_argument("--thickness", type=float, default=0.10)
     parser.add_argument("--increments", type=int, default=4)
+    parser.add_argument(
+        "--formulation",
+        choices=("mixed", "displacement"),
+        default="mixed",
+    )
     parser.add_argument("--output", type=Path, required=True)
     args = parser.parse_args()
     if args.increments <= 0:
@@ -38,6 +45,7 @@ def main() -> int:
         comm,
         mesh_size=args.mesh_size,
         thickness=args.thickness,
+        element_order=2 if args.formulation == "mixed" else 1,
     )
     model = models.create(
         study=studies.nonlinear_static(
@@ -47,12 +55,16 @@ def main() -> int:
         mesh=fixture.domain,
         name="zhang_2021_table5_diagnostic",
     )
-    displacement = model.field(fields.displacement(fixture.domain))
+    target = model.field(
+        fields.displacement_pressure(fixture.domain)
+        if args.formulation == "mixed"
+        else fields.displacement(fixture.domain)
+    )
     matrix_region, inclusion_region = fixture.regions()
     matrix, inclusion = fixture.materials()
     model.material(matrix, region=matrix_region)
     model.material(inclusion, region=inclusion_region)
-    periodicity = model.constraint(fixture.constraint(displacement))
+    periodicity = model.constraint(fixture.constraint(target))
     output = results.output_plan(
         args.output,
         requests=(results.periodic_cell_history(periodicity),),
@@ -60,7 +72,7 @@ def main() -> int:
         basename="zhang_2021_table5",
     )
     step = model.step(
-        target=displacement,
+        target=target,
         constraints=periodicity,
         incrementation=steps.fixed(args.increments),
         solver_options=solvers.newton(
@@ -86,6 +98,7 @@ def main() -> int:
         elastic_energy_density=elastic_energy,
         effective_tangent=None,
         convergence_evidence={
+            "load_increment_path_converged": False,
             "mesh_converged": False,
             "plane_strain_formulation_converged": False,
             "periodic_cell_size_invariant": False,
@@ -99,6 +112,8 @@ def main() -> int:
             "mesh_size": float(args.mesh_size),
             "thickness": float(args.thickness),
             "increments": int(args.increments),
+            "formulation": args.formulation,
+            "element_order": fixture.element_order,
             "global_cells": int(fixture.domain.topology.index_map(3).size_global),
             "periodic_pairing_error": fixture.periodic_pairing_error,
             "periodic_equation_mismatch": periodicity.mismatch(),
@@ -111,7 +126,12 @@ def main() -> int:
                 "HARDENER and plastic dissipation are excluded"
             ),
             "formulation_mapping": (
-                "published 2D plane strain -> periodic thin 3D P1 tetrahedra, F33=1"
+                "published 2D plane strain -> periodic thin 3D "
+                + (
+                    "P2/DG0 displacement-pressure tetrahedra, F33=1"
+                    if args.formulation == "mixed"
+                    else "P1 displacement tetrahedra, F33=1"
+                )
             ),
         }
     )

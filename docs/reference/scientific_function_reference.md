@@ -819,7 +819,7 @@ cycle = fatigue_fracture.force_cycle(fmin=226, fmax=2262); law = fatigue_fractur
 **Status:** `experimental`<br>
 **Source card:** `src/agentfem/knowledge/cards/finite_strain_j2_logarithmic.json`
 
-Multiplicative finite-strain J2 plasticity with quadratic Hencky elasticity, associated isochoric flow, linear isotropic hardening, and public three-dimensional ordinary strong-boundary and affine/MPC model.step routes sharing provider-owned quadrature evidence and portable accepted-state restart.
+Multiplicative finite-strain J2 plasticity with quadratic Hencky elasticity, associated isochoric flow, linear isotropic hardening, and public strong-boundary, displacement-only affine/MPC, 3D P2/DG0 mixed affine, and 2D plane-strain Q2/DPC1 mixed affine model.step routes sharing provider-owned quadrature evidence.
 
 ### Public API
 
@@ -827,11 +827,13 @@ Multiplicative finite-strain J2 plasticity with quadratic Hencky elasticity, ass
 - `agentfem.constitutive.MaterialPointBatchResult`
 - `agentfem.constitutive.finite_strain_j2_logarithmic`
 - `agentfem.constitutive.update_material_points`
+- `agentfem.fields.displacement_pressure`
 - `agentfem.models.Model.step`
 - `agentfem.mechanics.FiniteStrainJ2StateTransaction`
 - `agentfem.mechanics.FiniteStrainJ2StandardProblem`
 - `agentfem.mechanics.finite_strain_j2_standard_problem`
 - `agentfem.mechanics.finite_strain_j2_affine_problem`
+- `agentfem.mechanics.finite_strain_j2_mixed_affine_problem`
 
 ### Scientific contract
 
@@ -875,7 +877,7 @@ $$
 \mathrm{SENER}=\mathrm{ELENER}+\mathrm{HARDENER}=\psi_e+\frac{1}{2}H\bar\varepsilon_p^2
 $$
 
-The two provider-owned components separate Hencky elastic free energy from isotropic-hardening storage; plastic dissipation is a distinct incremental-work quantity and is not reported by this field.
+The two provider-owned components separate Hencky elastic free energy from isotropic-hardening storage. PDENER is an irrecoverable cumulative energy per reference volume and is not part of SENER.
 
 **irrecoverable plastic dissipation**
 
@@ -885,27 +887,55 @@ $$
 
 For the declared rate-independent associative J2 law, hardening energy is stored separately and the remaining initial-yield work is accumulated as nonnegative plastic dissipation.
 
+**mixed volumetric equation**
+
+$$
+p=\tfrac13\operatorname{tr}\boldsymbol\tau,\qquad \ln J-p/\kappa=0
+$$
+
+The experimental mixed route solves a cellwise mean Kirchhoff stress that is positive in tension; it is not the positive-compression Cauchy pressure of the mixed Neo-Hookean provider.
+
+**mixed Newton system**
+
+$$
+\begin{bmatrix}K_{uu}&K_{up}\\K_{pu}&K_{pp}\end{bmatrix}\begin{bmatrix}\Delta u\\\Delta p\end{bmatrix}=-\begin{bmatrix}R_u\\R_p\end{bmatrix}
+$$
+
+Displacement and pressure-like degrees of freedom remain independent and all four tangent blocks are assembled monolithically.
+
+**mixed condensed elastic-energy representation**
+
+$$
+\mathrm{ELENER}=\psi_{e,\mathrm{dev}}+\frac{p^2}{2\kappa}
+$$
+
+The nonnegative condensed mixed-energy channel is distinct from MIXED_POTENTIAL, which retains the saddle variational density. Its volumetric point value equals the primal storage only where p=kappa ln(J); under the weak pressure equation, use the integrated channel under a declared discretization rather than presenting every point as an independent primal-energy oracle. Homogenized ELENER is the solid-domain integral divided by the complete reference-cell measure; it is not total work and excludes HARDENER and PDENER.
+
 #### Inputs
 
 | Name | Type | Unit role | Meaning |
 | --- | --- | --- | --- |
-| deformation gradients | old and new finite 3x3 tensors with positive determinant | FP and PEEQ are dimensionless; PDENER is energy per reference volume | The local update consumes the new gradient and a committed multiplicative state; the old gradient remains in the neutral provider contract. |
+| deformation gradients | old and new finite 3x3 tensors with positive determinant | dimensionless kinematics | The local update consumes the new gradient and a committed multiplicative state; the old gradient remains in the neutral provider contract. |
 | material parameters | E, nu, initial yield stress, linear hardening modulus | consistent stress system | The public factory owns these reviewed values; duplicated point properties may not silently override them. |
+| optional mixed affine field | 3D P2/DG0 or 2D plane-strain Q2/DPC1 displacement and mean Kirchhoff stress with one exact affine-periodic constraint | length and stress | The experimental mixed lowering retains the constitutive J2 state but replaces its global volumetric response by an independently solved scalar field. |
 
 #### Outputs
 
 | Name | Type | Unit role | Meaning |
 | --- | --- | --- | --- |
 | Cauchy stress | symmetric 3x3 tensor per integration point | stress | The current-configuration stress is returned by the neutral material contract. |
-| FP, PEEQ and PDENER | committed/trial quadrature state | dimensionless | The full plastic deformation gradient, accumulated equivalent plastic strain and cumulative plastic dissipation have a versioned portable schema. |
-| F, P, S, MISES, SENER, ELENER, HARDENER and PDENER | accepted provider-owned quadrature response | kinematics, stress, stored energy density and dissipated energy density | Both public equilibrium providers retain accepted constitutive fields without reconstructing them from a history-free material law; explicitly named DG0 cell averages are separate visualization products. |
+| FP and PEEQ | committed/trial quadrature state | dimensionless | The full plastic deformation gradient and accumulated equivalent plastic strain have a versioned portable schema. |
+| PDENER | committed/trial cumulative quadrature state and accepted response | energy per reference volume | Cumulative irrecoverable plastic dissipation is nonnegative, is committed only with an accepted increment, and is neither a dimensionless history variable nor part of recoverable SENER. |
+| F, P, S, MISES, SENER, ELENER, HARDENER and PDENER | accepted provider-owned quadrature response | F is dimensionless; P, S and MISES are stress; SENER, ELENER, HARDENER and PDENER are energy per reference volume | All public equilibrium lowerings retain accepted constitutive fields without reconstructing them from a history-free material law; explicitly named DG0 cell averages are separate visualization products. |
 | consistent tangent | 9 by 9 derivative of first Piola stress with respect to deformation gradient | stress | The initial implementation differentiates the complete discrete return with fixed old state and is independently checked with a different perturbation. |
+| MEAN_KIRCHHOFF_STRESS, MEAN_KIRCHHOFF_STRESS_CELL and MIXED_POTENTIAL | exact mixed primary field, recovered visualization field, and provider-owned quadrature diagnostic | stress, stress, and energy per reference volume | MEAN_KIRCHHOFF_STRESS is the exact DG0 or DPC primary field, positive in tension, retained in SimulationResult and the transaction-owned portable checkpoint. For DPC1, XDMF writes the explicitly recovered DG0 cell-average MEAN_KIRCHHOFF_STRESS_CELL and does not silently serialize multiple DPC moments as one cell value. MIXED_POTENTIAL is a saddle variational density and cannot replace the condensed ELENER or SENER comparison channels. |
 
 #### Assumptions
 
 - Three-dimensional isothermal rate-independent isotropic material response.
 - Quadratic Hencky elasticity, associated J2 flow and linear isotropic hardening.
 - Plastic spin follows the elastic polar update used by the discrete logarithmic formulation.
+- The mixed routes use a three-dimensional P2/DG0 tetrahedral formulation or a two-dimensional plane-strain Q2/DPC1 quadrilateral formulation with F33=1 under exact affine-periodic kinematics.
 
 #### Conventions
 
@@ -913,21 +943,27 @@ For the declared rate-independent associative J2 law, hardening energy is stored
 - Global iterations read committed state and write trial state; only an accepted increment may commit.
 - The tangent is the row-major first-Piola/deformation-gradient reference derivative.
 - The ordinary route validates prescribed-value, natural-load, amplitude, solver, nodal, quadrature, mesh, material and increment-control identity; the affine route additionally validates the periodic-equation identity before restore.
+- Mixed portable checkpoints split live and accepted mixed functions into standalone U and exact MEAN_KIRCHHOFF_STRESS fields; only the owning state transaction reassembles them after identity validation. SimulationResult likewise retains the exact primary field independently of visualization recovery.
+- The assembled pressure-block residual is equilibrium evidence. The reported pointwise pressure defect is max_q |ln(J_q)-p_h(q)/kappa| at constitutive quadrature points; for DPC1, p_h varies within each cell, so this diagnostic is not DG0 and is not the assembled discrete residual.
+- The mixed interpolation is intended to mitigate volumetric locking; it is neither certified locking-free nor currently supported by a locking-convergence claim. Such claims require formulation and mesh-convergence evidence for the problem being reported.
 
 #### Applicability
 
 - Material-point studies and three-dimensional solids with ordinary strong boundaries, proportional prescribed motion and reference dead loads through model.step.
 - Three-dimensional affine-periodic cells with one or more explicitly partitioned compatible material regions under prescribed macroscopic deformation through model.step.
+- Serial three-dimensional P2/DG0 or two-dimensional plane-strain Q2/DPC1 mixed affine-periodic cells that use an independent mean Kirchhoff stress and are intended to mitigate volumetric locking.
 
 #### Limitations
 
 - The ordinary provider accepts strong Dirichlet or remote-displacement constraints, a shared normalized amplitude, and reference-configuration dead loads; absolute TimeDependentDirichlet histories, follower loads, weak boundary models, contact and MPC constraints require separate consistent lowering.
 - The affine provider requires exactly one AbaqusPeriodicConstraint and no body-force or natural-load power; all regional materials must share one declared state schema, tangent convention, and stored-energy component contract.
-- The numerical tangent prioritizes a verifiable discrete derivative; a production analytical tangent is not implemented.
+- The mixed provider requires 3D tetrahedral P2/DG0 or 2D plane-strain quadrilateral Q2/DPC1, one exact affine-periodic constraint, serial sparse reduction, and bulk/shear no greater than the temporary 1e4 implementation ceiling; a plastic simple-shear direction test guards tangent accuracy at that ceiling, but the value is not a material-model validity range, a general accuracy range, or evidence of locking-free response. Distributed mixed MPC, ordinary strong-boundary mixed lowering, and body/natural-load power are not implemented.
+- The numerical tangent prioritizes a verifiable discrete derivative; a production analytical deviatoric tangent is not implemented. Its subtractive volumetric cancellation becomes ill-conditioned as K/mu grows, so results within the admitted K/mu range still require residual, pressure-defect, energy, and mesh/formulation-convergence evidence.
 - No independent external finite-strain plasticity structure benchmark has yet passed.
-- The current low-order displacement-only tetrahedral route is not a substitute for a mixed displacement--pressure discretization in near-incompressible plasticity.
+- The 2D Q2/DPC1 provider has homogeneous patch evidence, but the Zhang--Feng--Khandelwal two-inclusion/one-void fixture and complete Table 5 evidence have not yet been executed through it; the thin-3D P2/DG0 diagnostic remains a distinct formulation.
 - Plane stress, kinematic hardening, thermal coupling, damage and deletion are outside this first provider.
-- SENER separates into recoverable ELENER and HARDENER fields; PDENER supplies committed material dissipation, while complete external-work closure for follower, weak and contact loading remains provider-owned.
+- SENER separates into recoverable ELENER and HARDENER fields. PDENER is cumulative irrecoverable energy per reference volume and is excluded from SENER; MIXED_POTENTIAL is not physical storage. Complete external-work closure for follower, weak and contact loading remains provider-owned.
+- For a DPC mixed primary field, MEAN_KIRCHHOFF_STRESS remains exact in SimulationResult and portable checkpoints; XDMF contains the separately named DG0 recovery MEAN_KIRCHHOFF_STRESS_CELL rather than silently discarding higher cell moments.
 
 ### Minimal example
 
@@ -953,6 +989,7 @@ material = constitutive.finite_strain_j2_logarithmic(young=210e3, poisson=0.3, y
 - `tests/test_multi_void_rve_golden.py`
 - `tests/multi_void_rve_golden_driver.py`
 - `tests/multi_void_rve_restart_driver.py`
+- `tests/test_finite_strain_j2_mixed.py`
 - `tests/test_zhang_2021_periodic_composite.py`
 - `tests/test_lewandowski_2023_self_weight_beam.py`
 - `tests/lewandowski_2023_self_weight_beam_driver.py`
@@ -985,7 +1022,9 @@ material = constitutive.finite_strain_j2_logarithmic(young=210e3, poisson=0.3, y
 - Regional material dispatch shares one atomic trial/commit/rollback transaction and preserves scientific identity across one-to-two and two-to-one-rank portable restart.
 - A true spherical-void periodic RVE satisfies geometric pairing, positive-J, Hill--Mandel, public-lifecycle and two-rank execution contracts; its fixed-stack Golden and opt-in successive-refinement stability certificate remain separate evidence and do not constitute formal mesh convergence or GCI.
 - A deterministic four-void periodic RVE preserves realization, portable mesh and constraint identities; separates its h/L=0.16 Golden from three-level refinement evidence; and passes serial/two-rank and midpoint-restart equivalence without representing a stochastic porous-material ensemble.
-- The Zhang--Feng--Khandelwal Table 5 fixture remains fail-closed because the current displacement-only P1 tetrahedral route has not matched the published mixed displacement--pressure result.
+- The serial mixed P2/DG0 route assembles Kuu, Kup, Kpu and Kpp, passes homogeneous and heterogeneous affine cells, independently checks displacement and pressure residual-Jacobian directions, preserves non-affine fluctuations, distinguishes condensed mixed-energy output from MIXED_POTENTIAL, and restores split primary fields through a portable checkpoint.
+- A serial plane-strain Q2/DPC1 affine patch embeds F33=1, retains three pressure modes per quadrilateral, follows the same mixed transaction, reports max_q |ln(J_q)-p_h(q)/kappa| without reducing DPC1 to DG0, preserves the exact primary field in SimulationResult/checkpoint, writes only the explicit *_CELL recovery to XDMF, and fails closed for unsupported interpolation, dimension, conditioning, and parallel execution.
+- The Zhang--Feng--Khandelwal Table 5 fixture remains fail-closed. One unarchived thin-3D P2/DG0 diagnostic passed the first-Piola vector-L2 threshold but failed the P11 and P22 componentwise checks and ELENER; no content-bound evidence archive exists, and load-path, direct 2D Q2/DPC1 formulation, effective-tangent, cell-replication, MPI, and restart gates remain open.
 - The Lewandowski et al. self-weight beam gate remains fail-closed until an independently reexecuted, content-bound upstream curve passes observer reconciliation, mesh and increment convergence, serial/MPI equivalence and restart equivalence.
 
 ### References
@@ -995,6 +1034,8 @@ material = constitutive.finite_strain_j2_logarithmic(young=210e3, poisson=0.3, y
 - MOOSE ComputeSimoHughesJ2PlasticityStress reference: `https://mooseframework.inl.gov/source/materials/lagrangian/ComputeSimoHughesJ2PlasticityStress.html`
 - Elastic properties of reinforced solids: Some theoretical principles: `https://doi.org/10.1016/0022-5096(63)90036-X`
 - Discrete averaging relations for micro to macro transition: `https://doi.org/10.1115/1.4033552`
+- A computational framework for homogenization and multiscale stability analyses of nonlinear periodic materials: `https://doi.org/10.1002/nme.6802`
+- Basix create_element and discontinuous DPC variant: `https://docs.fenicsproject.org/basix/main/python/_autosummary/basix.finite_element.html`
 
 <a id="agentfem-material-finite_strain_plane_stress"></a>
 

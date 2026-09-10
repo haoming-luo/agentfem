@@ -16,6 +16,7 @@ from .finite_strain_plasticity import (
     FiniteStrainPlasticityPathInfo,
     experimental_finite_strain_j2_step,
     finite_strain_j2_affine_problem,
+    finite_strain_j2_mixed_affine_problem,
     finite_strain_j2_standard_problem,
 )
 from .harmonic import (
@@ -68,6 +69,7 @@ __all__ = [
     "implicit_creep_step",
     "experimental_finite_strain_j2_step",
     "finite_strain_j2_affine_problem",
+    "finite_strain_j2_mixed_affine_problem",
     "finite_strain_j2_standard_problem",
     "direct_harmonic_step",
     "harmonic_frequency_sweep_step",

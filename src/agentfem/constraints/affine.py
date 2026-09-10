@@ -805,7 +805,32 @@ class AbaqusPeriodicConstraint:
 
         from ..mesh.abaqus import displacement_in_source_order
 
-        values = displacement_in_source_order(displacement, self.nodes)
+        selected = displacement
+        if self.is_mixed:
+            selected = (
+                self.target.value
+                if displacement is self.target
+                else getattr(displacement, "value", displacement)
+            )
+            if selected is self.target.value or selected.function_space is self.target.space:
+                selected = selected.sub(0).collapse()
+            elif (
+                displacement is self.target.displacement
+                or selected is self.target.displacement.value
+                or selected.function_space is self.target.displacement.space
+            ):
+                # DOLFINx subspaces cannot tabulate dof coordinates.  Collapse
+                # a live view before mapping it back to source-node order.
+                selected = selected.collapse()
+            elif tuple(getattr(selected, "ufl_shape", ())) != (
+                len(self.reference_nodes),
+            ):
+                raise ValueError(
+                    "Mixed periodic deformation-gradient recovery requires "
+                    "the mixed unknown, its displacement view, or a saved "
+                    "standalone displacement snapshot."
+                )
+        values = displacement_in_source_order(selected, self.nodes)
         anchor = values[self.nodes.index(int(self.anchor_node))]
         displacement_lattice = np.column_stack(
             [
@@ -1035,7 +1060,8 @@ class AbaqusPeriodicConstraint:
                 continue
             block, component = divmod(local, block_size)
             values[index] = (
-                (F - np.eye(block_size)) @ (coordinates[block] - origin)
+                (F - np.eye(block_size))
+                @ (coordinates[block, :block_size] - origin)
             )[component]
         return values
 

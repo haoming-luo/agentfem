@@ -749,11 +749,8 @@ class IncrementalNonlinearVariationalProblem:
             result.add_field(
                 getattr(field, "name", type(field).__name__),
                 field,
-                processing={
-                    "method": "primary_mixed_finite_element_subfield",
-                    "representation": "collapsed_finite_element_dofs",
-                    "postprocessed": False,
-                },
+                location=_field_location(field),
+                processing=_mixed_subfield_processing(field),
             )
         for selected in fields:
             function = _unwrap_result_field(selected)
@@ -1107,6 +1104,20 @@ class AffineNonlinearVariationalProblem:
             if hasattr(self.constraint, "scientific_identity")
             else self.constraint.summary()
         )
+        portable_nodal_state = (
+            None
+            if transaction is None
+            or not hasattr(transaction, "portable_nodal_state")
+            else transaction.portable_nodal_state()
+        )
+        solution_identity = (
+            function_portable_identity(self.solution)
+            if portable_nodal_state is None
+            else {
+                name: function_portable_identity(function)
+                for name, function in sorted(portable_nodal_state.items())
+            }
+        )
         return {
             "step_name": self.name,
             "procedure": (
@@ -1133,7 +1144,7 @@ class AffineNonlinearVariationalProblem:
                 if hasattr(self.solver_options, "summary")
                 else self.solver_options
             ),
-            "solution": function_portable_identity(self.solution),
+            "solution": solution_identity,
             "constraint": constraint_identity,
             "accepted_history_recorders": {
                 name: {"kind": type(recorder).__name__}
@@ -1196,12 +1207,22 @@ class AffineNonlinearVariationalProblem:
         from .results import CheckpointRecord
 
         manifest = self._checkpoint_manifest_path(path)
-        bundle = save_portable_state_bundle(
-            manifest,
-            state={
+        custom_nodal_state = (
+            None
+            if not hasattr(self.state_transaction, "portable_nodal_state")
+            else self.state_transaction.portable_nodal_state()
+        )
+        nodal_state = (
+            {
                 "U": self.solution,
                 "U_ACCEPTED": self.state_transaction.accepted_solution,
-            },
+            }
+            if custom_nodal_state is None
+            else custom_nodal_state
+        )
+        bundle = save_portable_state_bundle(
+            manifest,
+            state=nodal_state,
         )
         quadrature = self.state_transaction.response.state.save(
             manifest.with_name(
@@ -1364,15 +1385,37 @@ class AffineNonlinearVariationalProblem:
             if hasattr(recorder, "snapshot_runtime_state")
         }
         try:
-            load_portable_state_bundle(
-                manifest,
-                state={
+            custom_nodal_state = (
+                None
+                if not hasattr(self.state_transaction, "portable_nodal_state")
+                else self.state_transaction.portable_nodal_state()
+            )
+            nodal_state = (
+                {
                     "U": self.solution,
                     "U_ACCEPTED": self.state_transaction.accepted_solution,
-                },
+                }
+                if custom_nodal_state is None
+                else custom_nodal_state
+            )
+            load_portable_state_bundle(
+                manifest,
+                state=nodal_state,
                 record=payload["nodal_state"],
                 identities=payload["nodal_identity"],
             )
+            if custom_nodal_state is not None:
+                restore_nodal_state = getattr(
+                    self.state_transaction,
+                    "restore_portable_nodal_state",
+                    None,
+                )
+                if restore_nodal_state is None:
+                    raise TypeError(
+                        "A custom portable nodal-state provider must also "
+                        "implement restore_portable_nodal_state()."
+                    )
+                restore_nodal_state(nodal_state)
             self.state_transaction.response.state.load(
                 quadrature_path,
                 material=self.state_transaction.material,
@@ -1516,11 +1559,8 @@ class AffineNonlinearVariationalProblem:
             result.add_field(
                 getattr(field, "name", type(field).__name__),
                 field,
-                processing={
-                    "method": "primary_mixed_finite_element_subfield",
-                    "representation": "collapsed_finite_element_dofs",
-                    "postprocessed": False,
-                },
+                location=_field_location(field),
+                processing=_mixed_subfield_processing(field),
             )
         for selected in fields:
             function = _unwrap_result_field(selected)
@@ -1529,13 +1569,10 @@ class AffineNonlinearVariationalProblem:
                 function,
                 location=_field_location(function),
             )
-        transaction_fields = ()
         if self.state_transaction is not None and hasattr(
             self.state_transaction, "populate_result"
         ):
-            transaction_fields = tuple(
-                self.state_transaction.populate_result(result) or ()
-            )
+            self.state_transaction.populate_result(result)
         for checkpoint in self.checkpoints:
             result.add_checkpoint(checkpoint)
         provider_duals = constraint_api.collect_provider_duals(
@@ -1621,18 +1658,16 @@ class AffineNonlinearVariationalProblem:
             )
             result.metadata["affine_constraint_path_work"]["value"] = path_work
         add_execution_trace(result, self.execution_events)
-        selected_completion_fields = (*transaction_fields, *tuple(fields))
         return complete_result(
             self,
             result,
             output=output,
-            fields=selected_completion_fields,
             strict_output=strict_output,
             metadata=metadata,
         )
 
     def summary(self) -> dict[str, object]:
-        return {
+        summary = {
             "kind": "affine_nonlinear_variational_problem",
             "name": self.name,
             "solution": getattr(self.solution, "name", type(self.solution).__name__),
@@ -1679,6 +1714,9 @@ class AffineNonlinearVariationalProblem:
             ),
             "procedure": (None if self.procedure is None else self.procedure.summary()),
         }
+        if hasattr(self, "mixed_formulation"):
+            summary["numerical_formulation"] = dict(self.mixed_formulation)
+        return summary
 
 
 @dataclass
@@ -4207,6 +4245,37 @@ def _projected_field_processing(field) -> dict[str, object]:
         "nodal_extrapolation": False,
         "interelement_smoothing": False,
         "material_boundary_averaging": False,
+    }
+
+
+def _mixed_subfield_processing(field) -> dict[str, object]:
+    """Describe one exact field collapsed from a monolithic mixed unknown."""
+
+    element = getattr(field.function_space, "element", None)
+    basix_element = getattr(element, "basix_element", None)
+    degree = getattr(basix_element, "degree", None)
+    family = getattr(basix_element, "family", None)
+    selected_degree = None if degree is None else int(degree)
+    discontinuous = _field_location(field) == "cells"
+    if discontinuous and selected_degree == 0:
+        representation = "cellwise_constant"
+    elif discontinuous:
+        representation = "discontinuous_cell_moments"
+    else:
+        representation = "finite_element_dofs"
+    return {
+        "method": "primary_mixed_finite_element_subfield",
+        "representation": representation,
+        "space_family": (
+            None if family is None else str(getattr(family, "name", family))
+        ),
+        "space_degree": selected_degree,
+        "postprocessed": False,
+        "visualization_requires_cell_recovery": bool(
+            discontinuous
+            and selected_degree is not None
+            and selected_degree > 0
+        ),
     }
 
 

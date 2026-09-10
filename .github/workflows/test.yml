@@ -136,6 +136,10 @@ jobs:
         run: |
           mpirun -n 2 python tests/portable_checkpoint_driver.py write /tmp/agentfem-portable-heat
           python tests/portable_checkpoint_driver.py read /tmp/agentfem-portable-heat
+          mpirun -n 2 python tests/portable_dpc_state_driver.py write /tmp/agentfem-portable-dpc
+          python tests/portable_dpc_state_driver.py read /tmp/agentfem-portable-dpc
+          python tests/portable_dpc_state_driver.py write /tmp/agentfem-portable-dpc-reverse
+          mpirun -n 2 python tests/portable_dpc_state_driver.py read /tmp/agentfem-portable-dpc-reverse
           mpirun -n 2 python tests/portable_harmonic_sweep_driver.py write /tmp/agentfem-portable-harmonic
           python tests/portable_harmonic_sweep_driver.py read /tmp/agentfem-portable-harmonic
           python tests/portable_harmonic_sweep_driver.py write /tmp/agentfem-portable-harmonic-reverse

@@ -515,7 +515,7 @@ def finite_strain_j2(
     status_file=None,
     name: str = "finite_strain_j2",
 ):
-    """Build stateful finite-strain J2 for affine or ordinary strong kinematics."""
+    """Build stateful finite-strain J2 for supported global formulations."""
 
     from . import mechanics
     from .constitutive import FiniteStrainJ2Logarithmic
@@ -524,8 +524,48 @@ def finite_strain_j2(
     model.check(target=target, step_options={"material": material})
     if hasattr(model.study, "require"):
         model.study.require(analysis="nonlinear_static", physics="solid_mechanics")
-    if getattr(model.study, "dimension", None) != 3:
-        raise NotImplementedError("Finite-strain J2 currently requires a 3D Study.")
+    dimension = int(getattr(model.study, "dimension", -1))
+    mixed_target = getattr(target, "kind", None) == "displacement_pressure"
+    if dimension not in {2, 3} or (dimension == 2 and not mixed_target):
+        raise NotImplementedError(
+            "Finite-strain J2 currently requires a 3D Study or the explicit "
+            "2D plane-strain mixed formulation."
+        )
+    if dimension == 2 and getattr(model.study, "assumption", None) != "plane_strain":
+        raise NotImplementedError(
+            "Two-dimensional mixed finite-strain J2 currently requires "
+            "study assumption='plane_strain'."
+        )
+    if mixed_target:
+        domain = target.space.mesh
+        required_cell = "tetrahedron" if dimension == 3 else "quadrilateral"
+        actual_cell = str(domain.topology.cell_name())
+        if actual_cell != required_cell:
+            raise ValueError(
+                "Mixed finite-strain J2 currently has formulation evidence "
+                f"only for {required_cell} cells in {dimension}D; received "
+                f"{actual_cell}."
+            )
+        pressure_family = str(
+            getattr(target, "pressure_family", "DG")
+        ).upper()
+        interpolation = (
+            int(getattr(target, "displacement_degree", -1)),
+            pressure_family,
+            int(getattr(target, "pressure_degree", -1)),
+        )
+        required = (2, "DG", 0) if dimension == 3 else (2, "DPC", 1)
+        if interpolation != required:
+            label = "P2/DG0" if dimension == 3 else "Q2/DPC1"
+            raise ValueError(
+                f"Mixed finite-strain J2 currently requires the {label} "
+                "displacement-pressure unknown."
+            )
+        if hasattr(model.mesh, "require_formulation"):
+            model.mesh.require_formulation(
+                "hybrid",
+                operation="model.step with mixed finite-strain J2",
+            )
     properties = _quadrature_material(
         model,
         target,
@@ -555,6 +595,12 @@ def finite_strain_j2(
             "Finite-strain J2 cannot mix an affine/MPC constraint with ordinary "
             "strong boundary constraints in one Step."
         )
+    if mixed_target and not affine:
+        raise NotImplementedError(
+            "The first mixed finite-strain J2 provider requires one exact "
+            "AbaqusPeriodicConstraint. Ordinary strong-boundary mixed J2 "
+            "needs a separate block-aware boundary lowering."
+        )
     if output is not None and output_every is not None:
         raise ValueError("Pass output=... or output_every=..., not both.")
     selected_output_every = (
@@ -583,20 +629,36 @@ def finite_strain_j2(
                 "Affine finite-strain J2 reads its macroscopic deformation "
                 "path from AbaqusPeriodicConstraint; do not also pass amplitude=."
             )
-        problem = mechanics.finite_strain_j2_affine_problem(
-            displacement=target,
-            material=properties,
-            constraint=affine[0],
-            incrementation=incrementation,
-            solver_options=solver_options,
-            quadrature_degree=quadrature_degree,
-            output_every=selected_output_every,
-            output_factors=output_factors,
-            progress=progress,
-            status_file=status_file,
-            checkpoint_policy=checkpoint,
-            name=name,
-        )
+        if mixed_target:
+            problem = mechanics.finite_strain_j2_mixed_affine_problem(
+                target=target,
+                material=properties,
+                constraint=affine[0],
+                incrementation=incrementation,
+                solver_options=solver_options,
+                quadrature_degree=quadrature_degree,
+                output_every=selected_output_every,
+                output_factors=output_factors,
+                progress=progress,
+                status_file=status_file,
+                checkpoint_policy=checkpoint,
+                name=name,
+            )
+        else:
+            problem = mechanics.finite_strain_j2_affine_problem(
+                displacement=target,
+                material=properties,
+                constraint=affine[0],
+                incrementation=incrementation,
+                solver_options=solver_options,
+                quadrature_degree=quadrature_degree,
+                output_every=selected_output_every,
+                output_factors=output_factors,
+                progress=progress,
+                status_file=status_file,
+                checkpoint_policy=checkpoint,
+                name=name,
+            )
         has_external_power = False
     else:
         concrete = constraint_assets

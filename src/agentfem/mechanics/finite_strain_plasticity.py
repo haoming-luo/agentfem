@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 import json
 from pathlib import Path
 
@@ -21,6 +21,86 @@ from ..constitutive.quadrature import QuadratureField, QuadratureMaterialMap
 from ..solvers import NewtonSolverOptions, SolveEvent, newton, solve_matrix_system
 
 
+_MIXED_J2_MAXIMUM_BULK_TO_SHEAR_RATIO = 1.0e4
+
+
+def _mixed_j2_conditioning(material) -> dict[str, float]:
+    """Apply a temporary guard to the subtractive mixed-tangent route.
+
+    The first mixed implementation obtains the deviatoric algorithmic tangent
+    by removing the analytic Hencky volumetric contribution from the complete
+    material tangent.  That subtraction is accurate over the declared range,
+    but loses significant digits for arbitrarily large bulk moduli.  Keep the
+    limitation explicit until the material point owns a direct deviatoric
+    tangent rather than silently returning a poorly conditioned Jacobian.
+    """
+
+    selected_materials = (
+        tuple(material.materials.values())
+        if isinstance(material, QuadratureMaterialMap)
+        else (material,)
+    )
+    ratios = tuple(
+        float(item.bulk_modulus / item.shear_modulus)
+        for item in selected_materials
+    )
+    maximum = max(ratios)
+    if maximum > _MIXED_J2_MAXIMUM_BULK_TO_SHEAR_RATIO * (
+        1.0 + 32.0 * np.finfo(float).eps
+    ):
+        raise NotImplementedError(
+            "The mixed finite-strain J2 implementation guard currently permits "
+            "bulk/shear ratios up "
+            f"to {_MIXED_J2_MAXIMUM_BULK_TO_SHEAR_RATIO:.0e}; received "
+            f"{maximum:.6g}. This is a numerical-conditioning boundary of "
+            "the current tangent extraction, not a material-model limit."
+        )
+    return {
+        "maximum_requested_bulk_to_shear_ratio": maximum,
+        "temporary_implementation_bulk_to_shear_ratio_ceiling": (
+            _MIXED_J2_MAXIMUM_BULK_TO_SHEAR_RATIO
+        ),
+    }
+
+
+def _embedded_deformation_gradient(displacement, *, dimension: int):
+    """Return the 3D material-point gradient for 3D or 2D plane strain."""
+
+    gradient = ufl.grad(displacement)
+    if dimension == 3:
+        return ufl.Identity(3) + gradient
+    if dimension == 2:
+        return ufl.as_tensor(
+            (
+                (1.0 + gradient[0, 0], gradient[0, 1], 0.0),
+                (gradient[1, 0], 1.0 + gradient[1, 1], 0.0),
+                (0.0, 0.0, 1.0),
+            )
+        )
+    raise NotImplementedError(
+        "Finite-strain J2 kinematics require 3D or 2D plane strain."
+    )
+
+
+def _embedded_displacement_gradient(displacement, *, dimension: int):
+    """Return one 3D virtual/incremental gradient for mixed plane strain."""
+
+    gradient = ufl.grad(displacement)
+    if dimension == 3:
+        return gradient
+    if dimension == 2:
+        return ufl.as_tensor(
+            (
+                (gradient[0, 0], gradient[0, 1], 0.0),
+                (gradient[1, 0], gradient[1, 1], 0.0),
+                (0.0, 0.0, 0.0),
+            )
+        )
+    raise NotImplementedError(
+        "Finite-strain J2 kinematics require 3D or 2D plane strain."
+    )
+
+
 def _raise_collective_transaction_problem(comm, local_problem, *, context: str) -> None:
     """Raise the same trial-state failure on every participating MPI rank."""
 
@@ -29,6 +109,163 @@ def _raise_collective_transaction_problem(comm, local_problem, *, context: str) 
         return
     rank = next(index for index, problem in enumerate(problems) if problem is not None)
     raise RuntimeError(f"Rank {rank}: {context} failed: {problems[rank]}")
+
+
+def _mixed_hencky_j2_response(
+    *,
+    deformation_gradient,
+    pressure,
+    inverse_bulk_modulus,
+    first_piola,
+    cauchy_stress,
+    tangent,
+    strain_energy_density,
+    elastic_energy_density,
+) -> dict[str, np.ndarray]:
+    """Replace the volumetric J2 response by an independent pressure.
+
+    The logarithmic J2 return is isochoric, so its deviatoric Kirchhoff
+    response is independent of the volumetric elastic law. The mixed field
+    uses pressure equal to the mean Kirchhoff stress (positive in tension):
+    ``tau = dev(tau_J2) + p I`` and ``p = kappa ln(J)``.
+
+    The returned ``dP/dF`` is the exact linearization at fixed pressure. The
+    off-diagonal displacement-pressure blocks and the pressure-pressure block
+    belong to the mixed weak form rather than this point transformation.
+    """
+
+    gradients = np.asarray(deformation_gradient, dtype=float)
+    pressures = np.asarray(pressure, dtype=float).reshape(-1)
+    inverse_bulk = np.asarray(inverse_bulk_modulus, dtype=float).reshape(-1)
+    piola = np.asarray(first_piola, dtype=float)
+    cauchy = np.asarray(cauchy_stress, dtype=float)
+    algorithmic = np.asarray(tangent, dtype=float)
+    total_energy = np.asarray(strain_energy_density, dtype=float).reshape(-1)
+    elastic_energy = np.asarray(elastic_energy_density, dtype=float).reshape(-1)
+    point_count = len(gradients)
+    expected_tensor = (point_count, 3, 3)
+    expected_tangent = (point_count, 3, 3, 3, 3)
+    if gradients.shape != expected_tensor:
+        raise ValueError(
+            "Mixed finite-strain J2 deformation gradients require shape "
+            f"{expected_tensor}."
+        )
+    if piola.shape != expected_tensor or cauchy.shape != expected_tensor:
+        raise ValueError(
+            "Mixed finite-strain J2 stresses require one 3x3 tensor per point."
+        )
+    if algorithmic.shape != expected_tangent:
+        raise ValueError(
+            "Mixed finite-strain J2 tangent requires shape "
+            f"{expected_tangent}."
+        )
+    if any(
+        len(values) != point_count
+        for values in (pressures, inverse_bulk, total_energy, elastic_energy)
+    ):
+        raise ValueError(
+            "Mixed finite-strain J2 point arrays have inconsistent lengths."
+        )
+    if (
+        not np.all(np.isfinite(gradients))
+        or not np.all(np.isfinite(pressures))
+        or not np.all(np.isfinite(inverse_bulk))
+        or not np.all(np.isfinite(piola))
+        or not np.all(np.isfinite(cauchy))
+        or not np.all(np.isfinite(algorithmic))
+        or not np.all(np.isfinite(total_energy))
+        or not np.all(np.isfinite(elastic_energy))
+        or np.any(inverse_bulk <= 0.0)
+    ):
+        raise ValueError(
+            "Mixed finite-strain J2 response inputs must be finite and physical."
+        )
+
+    jacobians = np.linalg.det(gradients)
+    if np.any(jacobians <= 0.0):
+        raise ValueError(
+            "Mixed finite-strain J2 requires positive deformation Jacobians."
+        )
+    inverse_transpose = np.linalg.inv(gradients).transpose(0, 2, 1)
+    logarithmic_volume = np.log(jacobians)
+    bulk = 1.0 / inverse_bulk
+
+    mean_cauchy = np.trace(cauchy, axis1=1, axis2=2) / 3.0
+    deviatoric_cauchy = cauchy - mean_cauchy[:, None, None] * np.eye(3)
+    mixed_cauchy = deviatoric_cauchy + (
+        pressures / jacobians
+    )[:, None, None] * np.eye(3)
+    mixed_piola = np.einsum(
+        "p,pij,pjk->pik",
+        jacobians,
+        mixed_cauchy,
+        inverse_transpose,
+    )
+
+    # C_vol = d[kappa ln(J) F^-T]/dF. Remove it from the displacement
+    # material tangent, then add d[p F^-T]/dF at fixed p.
+    outer = np.einsum(
+        "pij,pkl->pijkl",
+        inverse_transpose,
+        inverse_transpose,
+    )
+    swapped = np.einsum(
+        "pil,pkj->pijkl",
+        inverse_transpose,
+        inverse_transpose,
+    )
+    volumetric_tangent = (
+        bulk[:, None, None, None, None] * outer
+        - (bulk * logarithmic_volume)[:, None, None, None, None] * swapped
+    )
+    pressure_tangent = -pressures[:, None, None, None, None] * swapped
+    mixed_tangent = algorithmic - volumetric_tangent + pressure_tangent
+
+    old_volumetric_energy = 0.5 * bulk * logarithmic_volume**2
+    mixed_potential_density = (
+        pressures * logarithmic_volume
+        - 0.5 * pressures**2 * inverse_bulk
+    )
+    # The saddle potential above owns the variational pressure equation, but
+    # it is not a pointwise stored-energy density away from exact local
+    # stationarity.  Report a nonnegative condensed energy representation.
+    # It is pointwise equal to the primal volumetric storage only where
+    # p=kappa*ln(J); under a weak pressure equation its integrated value is the
+    # appropriate comparison channel, not an independent pointwise oracle.
+    condensed_volumetric_energy = 0.5 * pressures**2 * inverse_bulk
+    energy_correction = condensed_volumetric_energy - old_volumetric_energy
+    mixed_total_energy = total_energy + energy_correction
+    mixed_elastic_energy = elastic_energy + energy_correction
+    if not all(
+        np.all(np.isfinite(values))
+        for values in (
+            mixed_piola,
+            mixed_cauchy,
+            mixed_tangent,
+            mixed_total_energy,
+            mixed_elastic_energy,
+            mixed_potential_density,
+        )
+    ):
+        raise ValueError(
+            "Mixed finite-strain J2 transformation produced non-finite values."
+        )
+    return {
+        "first_piola": mixed_piola,
+        "cauchy_stress": mixed_cauchy,
+        "tangent": mixed_tangent,
+        "strain_energy_density": mixed_total_energy,
+        "elastic_energy_density": mixed_elastic_energy,
+        "mixed_potential_density": (
+            mixed_potential_density
+            + total_energy
+            - old_volumetric_energy
+        ),
+        "logarithmic_volume": logarithmic_volume,
+        "pressure_constraint_residual": (
+            logarithmic_volume - pressures * inverse_bulk
+        ),
+    }
 
 
 @dataclass(frozen=True)
@@ -113,9 +350,18 @@ class FiniteStrainJ2StateTransaction:
     deformation_gradient_new: object
     deformation_gradient: QuadratureField
     equivalent_stress: QuadratureField
+    pressure_evaluator: object | None = field(default=None, repr=False)
+    mixed_pressure: QuadratureField | None = None
+    inverse_bulk_modulus: QuadratureField | None = None
+    logarithmic_volume: QuadratureField | None = None
+    mixed_potential_density: QuadratureField | None = None
     accepted_factor: float = field(default=0.0, init=False)
     last_plastic_points: int = field(default=0, init=False)
     last_maximum_plastic_increment: float = field(default=0.0, init=False)
+    last_maximum_pressure_projection_defect: float = field(
+        default=0.0,
+        init=False,
+    )
 
     def initialize(self) -> None:
         """Restore the declared initial state before the first snapshot."""
@@ -191,6 +437,88 @@ class FiniteStrainJ2StateTransaction:
             ),
             commit=False,
         )
+        if self.pressure_evaluator is not None:
+            mixed_problem = None
+            try:
+                pressure = self.response.state.evaluate_expression(
+                    self.pressure_evaluator,
+                    value_shape=(),
+                ).reshape(-1)
+                transformed = _mixed_hencky_j2_response(
+                    deformation_gradient=new_gradient,
+                    pressure=pressure,
+                    inverse_bulk_modulus=self.inverse_bulk_modulus.values,
+                    first_piola=self.response.first_piola_stress.values,
+                    cauchy_stress=self.response.cauchy_stress.values,
+                    tangent=self.response.tangent.values,
+                    strain_energy_density=(
+                        self.response.strain_energy_density.values
+                    ),
+                    elastic_energy_density=(
+                        self.response.stored_energy_density_components[
+                            "ELENER"
+                        ].values
+                    ),
+                )
+                self.response.first_piola_stress.assign(
+                    transformed["first_piola"]
+                )
+                self.response.cauchy_stress.assign(
+                    transformed["cauchy_stress"]
+                )
+                self.response.tangent.assign(transformed["tangent"])
+                self.response.strain_energy_density.assign(
+                    transformed["strain_energy_density"]
+                )
+                self.response.stored_energy_density_components[
+                    "ELENER"
+                ].assign(transformed["elastic_energy_density"])
+                self.mixed_pressure.assign(pressure)
+                self.logarithmic_volume.assign(
+                    transformed["logarithmic_volume"]
+                )
+                self.mixed_potential_density.assign(
+                    transformed["mixed_potential_density"]
+                )
+                mixed_components = dict(result.stored_energy_density_components)
+                mixed_components["ELENER"] = transformed[
+                    "elastic_energy_density"
+                ]
+                result = replace(
+                    result,
+                    cauchy_stress=transformed["cauchy_stress"],
+                    consistent_tangent=transformed["tangent"].reshape((-1, 9, 9)),
+                    strain_energy_density=transformed[
+                        "strain_energy_density"
+                    ],
+                    stored_energy_density_components=mixed_components,
+                )
+                local_pressure_residual = float(
+                    np.max(
+                        np.abs(
+                            transformed["pressure_constraint_residual"]
+                        ),
+                        initial=0.0,
+                    )
+                )
+            except Exception as exc:
+                mixed_problem = f"{type(exc).__name__}: {exc}"
+                local_pressure_residual = 0.0
+            mixed_problems = comm.allgather(mixed_problem)
+            if any(problem is not None for problem in mixed_problems):
+                self.response.rollback()
+                rank = next(
+                    index
+                    for index, problem in enumerate(mixed_problems)
+                    if problem is not None
+                )
+                raise RuntimeError(
+                    f"Rank {rank}: mixed finite-strain J2 response failed: "
+                    f"{mixed_problems[rank]}"
+                )
+            self.last_maximum_pressure_projection_defect = float(
+                comm.allreduce(local_pressure_residual, op=MPI.MAX)
+            )
         equivalent_stress = None
         local_count = 0
         local_maximum = 0.0
@@ -277,6 +605,9 @@ class FiniteStrainJ2StateTransaction:
             "last_maximum_plastic_increment": float(
                 self.last_maximum_plastic_increment
             ),
+            "last_maximum_pressure_projection_defect": float(
+                self.last_maximum_pressure_projection_defect
+            ),
         }
 
     def restore_accepted_boundary(self, snapshot: dict[str, object]) -> None:
@@ -291,6 +622,9 @@ class FiniteStrainJ2StateTransaction:
         self.last_maximum_plastic_increment = float(
             snapshot["last_maximum_plastic_increment"]
         )
+        self.last_maximum_pressure_projection_defect = float(
+            snapshot.get("last_maximum_pressure_projection_defect", 0.0)
+        )
 
     def snapshot_runtime_state(self) -> dict[str, object]:
         """Capture the complete mutable transaction boundary for recovery."""
@@ -300,6 +634,9 @@ class FiniteStrainJ2StateTransaction:
             "last_plastic_points": int(self.last_plastic_points),
             "last_maximum_plastic_increment": float(
                 self.last_maximum_plastic_increment
+            ),
+            "last_maximum_pressure_projection_defect": float(
+                self.last_maximum_pressure_projection_defect
             ),
             "committed_state": self.response.snapshot(),
             "trial_state": {
@@ -320,6 +657,21 @@ class FiniteStrainJ2StateTransaction:
             },
             "deformation_gradient": self.deformation_gradient.values.copy(),
             "equivalent_stress": self.equivalent_stress.values.copy(),
+            "mixed_pressure": (
+                None
+                if self.mixed_pressure is None
+                else self.mixed_pressure.values.copy()
+            ),
+            "logarithmic_volume": (
+                None
+                if self.logarithmic_volume is None
+                else self.logarithmic_volume.values.copy()
+            ),
+            "mixed_potential_density": (
+                None
+                if self.mixed_potential_density is None
+                else self.mixed_potential_density.values.copy()
+            ),
         }
 
     def restore_runtime_state(self, snapshot: dict[str, object]) -> None:
@@ -340,16 +692,109 @@ class FiniteStrainJ2StateTransaction:
             field.assign(snapshot["stored_energy_density_components"][name])
         self.deformation_gradient.assign(snapshot["deformation_gradient"])
         self.equivalent_stress.assign(snapshot["equivalent_stress"])
+        if self.mixed_pressure is not None:
+            self.mixed_pressure.assign(snapshot["mixed_pressure"])
+            self.logarithmic_volume.assign(snapshot["logarithmic_volume"])
+            self.mixed_potential_density.assign(
+                snapshot["mixed_potential_density"]
+            )
         self.accepted_factor = float(snapshot["accepted_factor"])
         self.last_plastic_points = int(snapshot["last_plastic_points"])
         self.last_maximum_plastic_increment = float(
             snapshot["last_maximum_plastic_increment"]
+        )
+        self.last_maximum_pressure_projection_defect = float(
+            snapshot.get("last_maximum_pressure_projection_defect", 0.0)
         )
 
     def snapshot(self) -> dict[str, object]:
         """Return the complete mutable boundary for generic state ownership."""
 
         return self.snapshot_runtime_state()
+
+    def portable_nodal_state(self) -> dict[str, object] | None:
+        """Expose mixed primary fields without serializing a mixed dof layout.
+
+        The common portable serializer is deliberately defined on standalone
+        nodal fields.  A mixed solution therefore crosses the checkpoint
+        boundary as four explicit scientific fields and is reassembled by the
+        owning state transaction after loading.
+        """
+
+        if self.pressure_evaluator is None:
+            return None
+        return {
+            "U": self.solution.sub(0).collapse(),
+            "MEAN_KIRCHHOFF_STRESS": self.solution.sub(1).collapse(),
+            "U_ACCEPTED": self.accepted_solution.sub(0).collapse(),
+            "MEAN_KIRCHHOFF_STRESS_ACCEPTED": (
+                self.accepted_solution.sub(1).collapse()
+            ),
+        }
+
+    def restore_portable_nodal_state(self, state) -> None:
+        """Reassemble a portable mixed checkpoint into both live states."""
+
+        if self.pressure_evaluator is None:
+            raise TypeError(
+                "Split nodal-state restoration belongs only to mixed J2."
+            )
+        expected = {
+            "U",
+            "MEAN_KIRCHHOFF_STRESS",
+            "U_ACCEPTED",
+            "MEAN_KIRCHHOFF_STRESS_ACCEPTED",
+        }
+        if set(state) != expected:
+            raise ValueError(
+                "Mixed finite-strain J2 checkpoint fields differ from the "
+                "declared U/mean-Kirchhoff-stress state."
+            )
+
+        displacement_space, displacement_map = (
+            self.solution.function_space.sub(0).collapse()
+        )
+        pressure_space, pressure_map = self.solution.function_space.sub(1).collapse()
+        del displacement_space, pressure_space
+        displacement_map = np.asarray(
+            (
+                displacement_map[0]
+                if isinstance(displacement_map, (list, tuple))
+                else displacement_map
+            ),
+            dtype=np.int64,
+        )
+        pressure_map = np.asarray(
+            pressure_map[0]
+            if isinstance(pressure_map, (list, tuple))
+            else pressure_map,
+            dtype=np.int64,
+        )
+
+        def restore(function, displacement_name, pressure_name):
+            displacement = state[displacement_name]
+            pressure = state[pressure_name]
+            if len(displacement.x.array) != len(displacement_map) or len(
+                pressure.x.array
+            ) != len(pressure_map):
+                raise ValueError(
+                    "Mixed checkpoint subfield layout differs from the "
+                    "current displacement-pressure space."
+                )
+            function.x.array[displacement_map] = displacement.x.array
+            function.x.array[pressure_map] = pressure.x.array
+            function.x.scatter_forward()
+
+        restore(
+            self.solution,
+            "U",
+            "MEAN_KIRCHHOFF_STRESS",
+        )
+        restore(
+            self.accepted_solution,
+            "U_ACCEPTED",
+            "MEAN_KIRCHHOFF_STRESS_ACCEPTED",
+        )
 
     def restore(self, snapshot: dict[str, object]) -> None:
         """Restore a generic state snapshot without changing increment policy."""
@@ -368,6 +813,8 @@ class FiniteStrainJ2StateTransaction:
             "PDENER": self.response.state.committed["plastic_dissipation"],
         }
         fields.update(self.response.stored_energy_density_components)
+        if self.mixed_potential_density is not None:
+            fields["MIXED_POTENTIAL"] = self.mixed_potential_density
         return fields
 
     def populate_result(self, result) -> tuple[object, ...]:
@@ -379,13 +826,25 @@ class FiniteStrainJ2StateTransaction:
             "S": "Cauchy stress at accepted integration points.",
             "MISES": "Von Mises stress at accepted integration points.",
             "SENER": "Stored elastic and hardening energy density.",
-            "ELENER": "Recoverable Hencky elastic free-energy density.",
+            "ELENER": (
+                "Recoverable Hencky elastic free-energy density."
+                if self.pressure_evaluator is None
+                else (
+                    "Condensed mixed representation of recoverable Hencky "
+                    "energy; pointwise equivalent to the primal volumetric "
+                    "term only when p = kappa*ln(J)."
+                )
+            ),
             "HARDENER": "Stored linear-isotropic-hardening free-energy density.",
             "FP": "Committed plastic deformation gradient.",
             "PEEQ": "Committed equivalent plastic strain.",
             "PDENER": (
                 "Committed cumulative irrecoverable plastic dissipation "
                 "density per reference volume."
+            ),
+            "MIXED_POTENTIAL": (
+                "Stationary mixed variational density; unlike ELENER this "
+                "is not interpreted as pointwise stored energy."
             ),
         }
         recovered_fields = []
@@ -454,9 +913,24 @@ class FiniteStrainJ2StateTransaction:
             "last_maximum_plastic_increment": (
                 self.last_maximum_plastic_increment
             ),
+            "formulation": (
+                "mixed_u_p_quadratic_hencky"
+                if self.pressure_evaluator is not None
+                else "displacement_quadratic_hencky"
+            ),
+            "pressure_measure": (
+                None
+                if self.pressure_evaluator is None
+                else "mean_kirchhoff_stress_positive_in_tension"
+            ),
+            "last_maximum_quadrature_pressure_projection_defect": (
+                self.last_maximum_pressure_projection_defect
+            ),
             "energy_scope": (
-                "SENER = ELENER + HARDENER is recoverable stored energy; "
-                "PDENER is cumulative irrecoverable plastic dissipation"
+                "SENER = ELENER + HARDENER; mixed ELENER uses the condensed "
+                "p^2/(2*kappa) representation and is pointwise primal only "
+                "when p=kappa*ln(J); PDENER is cumulative irrecoverable "
+                "plastic dissipation"
             ),
         }
 
@@ -1842,6 +2316,12 @@ def _finite_strain_j2_transaction(
     material: FiniteStrainJ2Logarithmic | QuadratureMaterialMap,
     *,
     quadrature_degree: int,
+    solution=None,
+    accepted_solution=None,
+    displacement_expression=None,
+    accepted_displacement_expression=None,
+    pressure_expression=None,
+    plane_strain: bool = False,
 ) -> FiniteStrainJ2StateTransaction:
     """Create the constraint-neutral material state used by both lowerings."""
 
@@ -1853,10 +2333,17 @@ def _finite_strain_j2_transaction(
             "Finite-strain J2 requires FiniteStrainJ2Logarithmic or a "
             "QuadratureMaterialMap of that family."
         )
-    solution = displacement.value
+    solution = displacement.value if solution is None else solution
     domain = solution.function_space.mesh
-    if domain.geometry.dim != 3:
-        raise NotImplementedError("Finite-strain J2 is currently three-dimensional.")
+    dimension = int(domain.geometry.dim)
+    topology_dimension = int(domain.topology.dim)
+    if topology_dimension != dimension or (
+        dimension != 3 and not (dimension == 2 and plane_strain)
+    ):
+        raise NotImplementedError(
+            "Finite-strain J2 currently requires a 3D volume mesh or the "
+            "explicit 2D plane-strain mixed formulation."
+        )
     if isinstance(material, QuadratureMaterialMap):
         if material.domain is not domain:
             raise ValueError(
@@ -1883,14 +2370,33 @@ def _finite_strain_j2_transaction(
         degree=quadrature_degree,
         stored_energy_component_names=stored_energy_component_names,
     )
-    accepted_solution = fem.Function(solution.function_space, name="U_ACCEPTED")
-    identity = ufl.Identity(3)
+    accepted_solution = (
+        fem.Function(solution.function_space, name="U_ACCEPTED")
+        if accepted_solution is None
+        else accepted_solution
+    )
+    current_displacement = (
+        displacement.value
+        if displacement_expression is None
+        else displacement_expression
+    )
+    accepted_displacement = (
+        accepted_solution
+        if accepted_displacement_expression is None
+        else accepted_displacement_expression
+    )
     old_gradient = response.state.compile_expression(
-        identity + ufl.grad(accepted_solution),
+        _embedded_deformation_gradient(
+            accepted_displacement,
+            dimension=dimension,
+        ),
         value_shape=(3, 3),
     )
     new_gradient = response.state.compile_expression(
-        identity + ufl.grad(solution),
+        _embedded_deformation_gradient(
+            current_displacement,
+            dimension=dimension,
+        ),
         value_shape=(3, 3),
     )
     gradient_field = QuadratureField.create(
@@ -1907,6 +2413,61 @@ def _finite_strain_j2_transaction(
         name="MISES",
         degree=quadrature_degree,
     )
+    pressure_evaluator = None
+    mixed_pressure = None
+    inverse_bulk_modulus = None
+    logarithmic_volume = None
+    mixed_potential_density = None
+    if pressure_expression is not None:
+        if "ELENER" not in response.stored_energy_density_components:
+            raise ValueError(
+                "Mixed finite-strain J2 requires the ELENER component."
+            )
+        pressure_evaluator = response.state.compile_expression(
+            pressure_expression,
+            value_shape=(),
+        )
+        common = {"degree": quadrature_degree}
+        mixed_pressure = QuadratureField.create(
+            domain,
+            name="PRESSURE_QP",
+            **common,
+        )
+        inverse_bulk_modulus = QuadratureField.create(
+            domain,
+            name="INV_BULK_MODULUS",
+            **common,
+        )
+        logarithmic_volume = QuadratureField.create(
+            domain,
+            name="LOGJ",
+            **common,
+        )
+        mixed_potential_density = QuadratureField.create(
+            domain,
+            name="MIXED_POTENTIAL",
+            **common,
+        )
+        points_per_cell = len(inverse_bulk_modulus.points)
+        inverse_bulk_modulus.assign(
+            np.asarray(
+                [
+                    1.0
+                    / float(
+                        (
+                            material.material_for_point(
+                                index,
+                                points_per_cell=points_per_cell,
+                            )
+                            if isinstance(material, QuadratureMaterialMap)
+                            else material
+                        ).bulk_modulus
+                    )
+                    for index in range(len(inverse_bulk_modulus.values))
+                ],
+                dtype=float,
+            )
+        )
     return FiniteStrainJ2StateTransaction(
         solution=solution,
         accepted_solution=accepted_solution,
@@ -1916,6 +2477,11 @@ def _finite_strain_j2_transaction(
         deformation_gradient_new=new_gradient,
         deformation_gradient=gradient_field,
         equivalent_stress=equivalent_stress,
+        pressure_evaluator=pressure_evaluator,
+        mixed_pressure=mixed_pressure,
+        inverse_bulk_modulus=inverse_bulk_modulus,
+        logarithmic_volume=logarithmic_volume,
+        mixed_potential_density=mixed_potential_density,
     )
 
 
@@ -2204,4 +2770,237 @@ def finite_strain_j2_affine_problem(
     problem.material = material
     problem.response = response
     problem.accepted_solution = transaction.accepted_solution
+    return problem
+
+
+def finite_strain_j2_mixed_affine_problem(
+    *,
+    target,
+    material: FiniteStrainJ2Logarithmic | QuadratureMaterialMap,
+    constraint,
+    incrementation=None,
+    solver_options=None,
+    quadrature_degree: int = 2,
+    output_every: int | None = 1,
+    output_factors=(),
+    progress=True,
+    status_file=None,
+    checkpoint_policy=None,
+    name: str = "finite_strain_j2_mixed",
+):
+    """Build mixed logarithmic-J2 equilibrium under affine kinematics.
+
+    The material transaction retains the multiplicative, isochoric J2 return.
+    The global formulation replaces its volumetric response by a solved mean
+    Kirchhoff pressure and the perturbed constraint ``ln(J) - p/kappa = 0``.
+    This is a real mixed Newton system: ``Kuu``, ``Kup``, ``Kpu`` and ``Kpp``
+    are assembled together while pressure dofs remain outside the affine
+    displacement reduction.  The supported pairs are P2/DG0 in 3D and the
+    three-pressure-mode Q2/DPC1 pair in 2D plane strain.
+    """
+
+    from .. import problems
+
+    if getattr(target, "kind", None) != "displacement_pressure":
+        raise TypeError(
+            "Mixed finite-strain J2 requires fields.displacement_pressure(...)."
+        )
+    if getattr(constraint, "target", None) is not target:
+        raise ValueError(
+            "Mixed affine finite-strain J2 constraint must target the complete "
+            "displacement-pressure unknown."
+        )
+    domain = target.value.function_space.mesh
+    dimension = int(domain.geometry.dim)
+    if int(domain.topology.dim) != dimension or dimension not in {2, 3}:
+        raise NotImplementedError(
+            "Mixed finite-strain J2 requires a 3D volume mesh or a 2D "
+            "plane-strain mesh."
+        )
+    pressure_family = str(getattr(target, "pressure_family", "DG")).upper()
+    interpolation = (
+        int(getattr(target, "displacement_degree", -1)),
+        pressure_family,
+        int(getattr(target, "pressure_degree", -1)),
+    )
+    required_interpolation = (2, "DG", 0) if dimension == 3 else (2, "DPC", 1)
+    if interpolation != required_interpolation:
+        label = "P2/DG0" if dimension == 3 else "Q2/DPC1"
+        raise ValueError(
+            f"Mixed finite-strain J2 currently requires {label} in "
+            f"{dimension}D."
+        )
+    required_cell = "tetrahedron" if dimension == 3 else "quadrilateral"
+    actual_cell = str(domain.topology.cell_name())
+    if actual_cell != required_cell:
+        raise ValueError(
+            "Mixed finite-strain J2 currently has formulation evidence only "
+            f"for {required_cell} cells in {dimension}D; received {actual_cell}."
+        )
+    if domain.comm.size != 1:
+        raise NotImplementedError(
+            "Mixed affine finite-strain J2 currently uses the serial sparse "
+            "affine reduction. Distributed mixed displacement-pressure MPC "
+            "requires a separate verified block-aware backend."
+        )
+    conditioning = _mixed_j2_conditioning(material)
+
+    solution = target.value
+    accepted_solution = fem.Function(target.space, name="UP_ACCEPTED")
+    displacement, pressure = ufl.split(solution)
+    accepted_displacement, _accepted_pressure = ufl.split(accepted_solution)
+    transaction = _finite_strain_j2_transaction(
+        target.displacement,
+        material,
+        quadrature_degree=quadrature_degree,
+        solution=solution,
+        accepted_solution=accepted_solution,
+        displacement_expression=displacement,
+        accepted_displacement_expression=accepted_displacement,
+        pressure_expression=pressure,
+        plane_strain=dimension == 2,
+    )
+    response = transaction.response
+    displacement_test, pressure_test = ufl.TestFunctions(target.space)
+    displacement_trial, pressure_trial = ufl.TrialFunctions(target.space)
+    deformation_gradient = _embedded_deformation_gradient(
+        displacement,
+        dimension=dimension,
+    )
+    inverse_transpose = ufl.inv(deformation_gradient).T
+    gradient_test = _embedded_displacement_gradient(
+        displacement_test,
+        dimension=dimension,
+    )
+    gradient_trial = _embedded_displacement_gradient(
+        displacement_trial,
+        dimension=dimension,
+    )
+    first_piola = response.first_piola_stress.function
+    tangent = response.tangent.function
+    inverse_bulk = transaction.inverse_bulk_modulus.function
+    i, j, k, l = ufl.indices(4)
+    tangent_action = ufl.as_tensor(
+        tangent[i, j, k, l] * gradient_trial[k, l],
+        (i, j),
+    )
+    displacement_residual = (
+        ufl.inner(first_piola, gradient_test) * response.measure
+    )
+    pressure_residual = (
+        pressure_test
+        * (ufl.ln(ufl.det(deformation_gradient)) - pressure * inverse_bulk)
+        * response.measure
+    )
+    residual = displacement_residual + pressure_residual
+    jacobian = (
+        ufl.inner(tangent_action, gradient_test)
+        + pressure_trial * ufl.inner(inverse_transpose, gradient_test)
+        + pressure_test * ufl.inner(inverse_transpose, gradient_trial)
+        - pressure_test * pressure_trial * inverse_bulk
+    ) * response.measure
+    pressure_residual_form = fem.form(pressure_residual)
+
+    def acceptance():
+        control = step_controls.normalize(incrementation)
+        limit = getattr(control, "maximum_inelastic_increment", None)
+        pressure_vector = fem_petsc.assemble_vector(pressure_residual_form)
+        pressure_vector.ghostUpdate(
+            addv=PETSc.InsertMode.ADD,
+            mode=PETSc.ScatterMode.REVERSE,
+        )
+        try:
+            pressure_block_residual_norm = float(pressure_vector.norm())
+        finally:
+            pressure_vector.destroy()
+        accepted = (
+            limit is None
+            or transaction.last_maximum_plastic_increment <= float(limit)
+        )
+        return {
+            "accepted": accepted,
+            "plastic_points": transaction.last_plastic_points,
+            "maximum_plastic_increment": (
+                transaction.last_maximum_plastic_increment
+            ),
+            "maximum_quadrature_pressure_projection_defect": (
+                transaction.last_maximum_pressure_projection_defect
+            ),
+            "pressure_block_residual_norm": pressure_block_residual_norm,
+            "message": (
+                ""
+                if accepted
+                else (
+                    "maximum equivalent plastic-strain increment "
+                    f"{transaction.last_maximum_plastic_increment:.6g} exceeds "
+                    f"{float(limit):.6g}"
+                )
+            ),
+        }
+
+    selected_solver_options = newton() if solver_options is None else solver_options
+    if not bool(getattr(selected_solver_options, "error_if_not_converged", True)):
+        raise ValueError(
+            "Public stateful finite-strain J2 requires "
+            "error_if_not_converged=True."
+        )
+    problem = problems.affine_nonlinear(
+        residual,
+        solution,
+        jacobian=jacobian,
+        constraint=constraint,
+        incrementation=step_controls.normalize(incrementation),
+        solver_options=selected_solver_options,
+        output_every=output_every,
+        output_factors=output_factors,
+        state_transaction=transaction,
+        checkpoint_policy=checkpoint_policy,
+        acceptance_check=acceptance,
+        progress=progress,
+        status_file=status_file,
+        name=name,
+    )
+    problem.primary_fields = {
+        "U": target.displacement,
+        "MEAN_KIRCHHOFF_STRESS": target.pressure,
+    }
+    problem.result_field_factory = lambda: (
+        target.collapsed_displacement(name="U"),
+        target.collapsed_pressure(name="MEAN_KIRCHHOFF_STRESS"),
+    )
+
+    def snapshot_fields():
+        return (
+            target.collapsed_displacement(name="U"),
+            {
+                "MEAN_KIRCHHOFF_STRESS": target.collapsed_pressure(
+                    name="MEAN_KIRCHHOFF_STRESS"
+                ),
+                **transaction.snapshot_fields(),
+            },
+        )
+
+    problem.snapshot_field_factory = snapshot_fields
+    problem.material = material
+    problem.response = response
+    problem.accepted_solution = transaction.accepted_solution
+    problem.mixed_formulation = {
+        "unknown": (
+            "P2_displacement_DG0_pressure"
+            if dimension == 3
+            else "Q2_displacement_DPC1_pressure"
+        ),
+        "kinematics": "3D" if dimension == 3 else "2D_plane_strain_F33_equals_1",
+        "pressure_measure": "mean_kirchhoff_stress_positive_in_tension",
+        "volumetric_constraint": "ln(J)-p/kappa=0",
+        "blocks": ("Kuu", "Kup", "Kpu", "Kpp"),
+        "primary_pressure_field": "MEAN_KIRCHHOFF_STRESS",
+        "condensed_energy_representation": (
+            "deviatoric_elastic_plus_pressure_squared_over_two_bulk; "
+            "pointwise_equivalent_to_primal_storage_only_when_p_equals_bulk_logJ"
+        ),
+        "variational_density_field": "MIXED_POTENTIAL",
+        "conditioning": conditioning,
+    }
+    problem.pressure_block_residual_form = pressure_residual_form
     return problem

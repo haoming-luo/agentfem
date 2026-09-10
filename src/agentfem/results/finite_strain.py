@@ -644,14 +644,6 @@ def homogenize_periodic_cell(
     function = getattr(displacement, "value", displacement)
     domain = function.function_space.mesh
     dx = ufl.dx(domain=domain)
-    Fbar = np.asarray(macro_deformation_gradient, dtype=float)
-    if Fbar.shape != (3, 3) or np.linalg.det(Fbar) <= 0.0:
-        raise ValueError("macro_deformation_gradient must be a positive-J 3x3 matrix.")
-    if not np.isfinite(cell_reference_volume) or cell_reference_volume <= 0.0:
-        raise ValueError("cell_reference_volume must be finite and positive.")
-
-    F = hyperelasticity.deformation_gradient(function)
-    J = ufl.det(F)
     selected_fields = {} if accepted_fields is None else dict(accepted_fields)
     local_provider_owned = all(
         name in selected_fields for name in ("F", "P", "S", "SENER")
@@ -662,6 +654,39 @@ def homogenize_periodic_cell(
             "Accepted constitutive response availability differs across MPI ranks."
         )
     provider_owned = bool(provider_flags[0])
+    Fbar = np.asarray(macro_deformation_gradient, dtype=float)
+    if Fbar.shape == (2, 2):
+        accepted_F = selected_fields.get("F")
+        accepted_shape = tuple(
+            getattr(getattr(accepted_F, "function", None), "ufl_shape", ())
+        )
+        if (
+            int(domain.geometry.dim) != 2
+            or not provider_owned
+            or accepted_shape != (3, 3)
+        ):
+            raise ValueError(
+                "A 2x2 macro_deformation_gradient is supported only for a "
+                "two-dimensional provider-owned plane-strain response with "
+                "embedded 3x3 accepted quadrature fields."
+            )
+        embedded = np.eye(3, dtype=float)
+        embedded[:2, :2] = Fbar
+        Fbar = embedded
+    if (
+        Fbar.shape != (3, 3)
+        or not np.all(np.isfinite(Fbar))
+        or np.linalg.det(Fbar) <= 0.0
+    ):
+        raise ValueError(
+            "macro_deformation_gradient must be a finite positive-J 3x3 "
+            "matrix, or an eligible provider-owned 2D plane-strain 2x2 matrix."
+        )
+    if not np.isfinite(cell_reference_volume) or cell_reference_volume <= 0.0:
+        raise ValueError("cell_reference_volume must be finite and positive.")
+
+    F = hyperelasticity.deformation_gradient(function)
+    J = ufl.det(F)
     elastic_energy_integral = None
     hardening_energy_integral = None
     plastic_dissipation_integral = None
@@ -725,6 +750,15 @@ def homogenize_periodic_cell(
             F_values = np.asarray(Fq.owned_values, dtype=float)
             P_values = np.asarray(Pq.owned_values, dtype=float)
             S_values = np.asarray(Sq.owned_values, dtype=float)
+            if (
+                F_values.shape[1:] != (3, 3)
+                or P_values.shape[1:] != (3, 3)
+                or S_values.shape[1:] != (3, 3)
+            ):
+                raise ValueError(
+                    "Accepted finite-strain provider tensors must use the "
+                    "common embedded 3x3 representation."
+                )
             energy_values = np.asarray(
                 energy_q.owned_values,
                 dtype=float,

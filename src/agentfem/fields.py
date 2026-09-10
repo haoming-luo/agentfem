@@ -186,6 +186,7 @@ class DisplacementPressureUnknown:
     pressure: UnknownField
     displacement_degree: int = 2
     pressure_degree: int = 0
+    pressure_family: str = "DG"
     kind: str = "displacement_pressure"
 
     @property
@@ -199,12 +200,22 @@ class DisplacementPressureUnknown:
     def summary(self) -> dict[str, object]:
         return {
             "name": self.name,
-            "kind": self.kind,
             "element": str(self.space.ufl_element()),
-            "displacement_degree": int(self.displacement_degree),
-            "pressure_degree": int(self.pressure_degree),
+            **self.identity(),
             "pressure_interpolation": "cellwise_discontinuous",
-            "pressure_unknowns_per_cell": 1 if self.pressure_degree == 0 else None,
+            "pressure_unknowns_per_cell": int(
+                self.space.ufl_element().sub_elements[1].dim
+            ),
+        }
+
+    def identity(self) -> dict[str, object]:
+        """Return the scientific interpolation identity of the mixed field."""
+
+        return {
+            "kind": self.kind,
+            "displacement_degree": int(self.displacement_degree),
+            "pressure_family": self.pressure_family,
+            "pressure_degree": int(self.pressure_degree),
         }
 
     def collapsed_displacement(self, *, name: str = "U"):
@@ -320,6 +331,7 @@ def displacement_pressure(
     *,
     displacement_degree: int = 2,
     pressure_degree: int = 0,
+    pressure_family: str = "DG",
     name: str = "DisplacementPressure",
 ) -> DisplacementPressureUnknown:
     """Create a mixed displacement/pressure unknown.
@@ -334,6 +346,7 @@ def displacement_pressure(
         domain,
         displacement_degree=displacement_degree,
         pressure_degree=pressure_degree,
+        pressure_family=pressure_family,
     )
     mixed_value = fem.Function(W, name=name)
     trial = tuple(ufl.TrialFunctions(W))
@@ -368,6 +381,7 @@ def displacement_pressure(
         pressure=pressure_unknown,
         displacement_degree=int(displacement_degree),
         pressure_degree=int(pressure_degree),
+        pressure_family=str(pressure_family).strip().upper(),
     )
 
 

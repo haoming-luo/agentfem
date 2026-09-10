@@ -6,6 +6,24 @@ experimental formulation to a validated one.
 
 ## [Unreleased]
 
+### Added
+
+- Add experimental mixed finite-strain J2 routes under exact affine-periodic
+  kinematics: three-dimensional P2/DG0 and two-dimensional plane-strain
+  Q2/DPC1, where DPC1 supplies the three pressure modes required by the 9/3
+  formulation. The monolithic Newton system assembles all four
+  `Kuu/Kup/Kpu/Kpp` blocks, preserves the existing multiplicative isochoric J2
+  state transaction, and reports the independent primary field as
+  `MEAN_KIRCHHOFF_STRESS` with tension-positive sign convention.
+- Add mixed-state checkpoint ownership without exposing backend mixed-vector
+  layout in the portable archive. The state transaction splits live and
+  accepted mixed states into standalone displacement and mean-Kirchhoff-stress
+  fields, then validates and reassembles them on restore.
+- Extend portable field identity to discontinuous cell-interior moments. DPC
+  coefficients are keyed by original physical cell and local mode, guarded by
+  reference-cell layout identity, with 2-to-1 and 1-to-2 MPI-rank checkpoint
+  acceptance coverage. Shared facet/edge moments fail closed.
+
 ### Changed
 
 - Separate structural modal ownership without changing the public workflow:
@@ -17,6 +35,34 @@ experimental formulation to a validated one.
   numerical allocations. Ordinary linear, exact-MPC, and harmonic prepared
   solves expose terminal, idempotent close semantics while retaining summaries
   and public solution fields after backend resources are released.
+- Separate the mixed J2 condensed energy representation from its saddle
+  variational density. `ELENER` uses \(p^2/(2\kappa)\), which is pointwise
+  equal to the primal volumetric energy only when \(p=\kappa\ln J\);
+  `MIXED_POTENTIAL` retains the pressure functional without presenting it as
+  pointwise stored energy.
+- Tighten the Zhang--Feng--Khandelwal Table 5 comparison contract with explicit
+  load-increment/path convergence and componentwise first-Piola checks in
+  addition to its vector, energy, tangent, cell-replication, MPI, restart, and
+  discretization gates.
+- Let periodic-cell history consume a two-dimensional macroscopic deformation
+  gradient only when a plane-strain provider owns embedded 3D quadrature
+  tensors. The recorder stores one common 3D tensor convention with
+  `F33 = 1`; unrelated 2D constitutive paths continue to fail closed.
+
+### Boundaries
+
+- The first mixed finite-strain J2 lowerings are serial and limited to one
+  exact affine-periodic constraint, with P2/DG0 in 3D or plane-strain Q2/DPC1
+  in 2D. Distributed block-aware MPC, ordinary strong-boundary mixed lowering,
+  and natural/body-load power are not yet supported. A temporary implementation
+  bulk-to-shear ratio ceiling of \(10^4\) protects the numerical tangent until
+  a direct analytical deviatoric tangent replaces subtractive extraction.
+- The thin-3D tetrahedral P2/DG0 Zhang fixture is an experimental mixed
+  diagnostic intended to mitigate volumetric locking, not the publication's
+  two-dimensional quadrilateral Q2/DPC1
+  three-pressure-mode 9/3 element. Table 5 remains unpromoted until the
+  declared path, effective-tangent, replication, MPI/restart, and
+  external-evidence gates pass.
 
 ## [0.3.3] - 2026-09-10
 

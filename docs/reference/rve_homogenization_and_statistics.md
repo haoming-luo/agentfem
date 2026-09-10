@@ -350,38 +350,88 @@ The material equations have also been compared directly. Both routes use the
 multiplicative split \(\mathbf F=\mathbf F_e\mathbf F_p\), a quadratic Hencky
 elastic energy, a Kirchhoff-stress \(J_2\) surface and linear isotropic
 hardening. The differing yield-function normalizations are algebraically
-equivalent. The leading diagnosis is therefore the discretization:
-the publication uses a two-dimensional mixed displacement--pressure high-order
-element, while the current public AgentFEM route uses displacement-only P1
-tetrahedra in a thin three-dimensional extrusion. Exact periodic pairing and a
-small Hill--Mandel residual do not remove volumetric locking or geometric
-approximation error. This diagnosis remains to be confirmed by a direct
-locking-resistant plane-strain A/B comparison.
+equivalent. Discretization must nevertheless be compared precisely. Zhang et
+al. use a two-dimensional Q2 nine-node quadrilateral displacement field and a
+three-mode discontinuous pressure space, which a direct AgentFEM route would
+represent with DPC1 and which is commonly abbreviated 9/3. The pressure
+interpolation spans three modes over a quadrilateral; it is not one constant
+pressure value per tetrahedron.
 
-The current public finite-strain J2 provider is three-dimensional. The
-published plane-strain cell is therefore lowered as a thin periodic extrusion
-with \(F_{33}=1\), using the ordinary Gmsh import, physical material regions,
-`model.step(...)`, accepted quadrature transaction, and periodic-cell history.
-This is an **experimental benchmark fixture, not a passed benchmark**. The
-paper used a mixed displacement--pressure high-order element, whereas the
-current fixture uses the public low-order displacement route. Promotion
-requires all of the following:
+The public mixed-field and finite-strain J2 lowering now support this
+two-dimensional plane-strain quadrilateral Q2/DPC1 interpolation and embed the
+material-point kinematics with \(F_{33}=1\). A homogeneous affine patch confirms
+the three-degree-of-freedom pressure space and constant-pressure coupled solve;
+it does not independently exercise all nonconstant DPC modes. Periodic-cell
+history accepts the measured
+2-by-2 macro gradient only on this provider-owned path, embeds it in the same
+3-by-3 convention as the accepted quadrature tensors, and records
+\(F_{33}=1\) for stress and Hill--Mandel evidence. That is necessary
+formulation evidence, but it is not yet the Zhang external benchmark: the
+complex two-inclusion/one-void fixture, Table 5 homogenized observables,
+convergence axes, and restart/MPI contracts have not all been executed through
+this direct 2D route.
 
-- mesh and numerical plane-strain-formulation convergence (for the current
-  thin extrusion, this includes thickness convergence);
-- periodic-cell-size invariance;
-- agreement of first-Piola stress and published elastic energy;
-- a homogenized algorithmic tangent compared in the published component order;
+AgentFEM now has two deliberately distinct thin-3D diagnostic lowerings of the
+published plane-strain cell with \(F_{33}=1\):
+
+1. the older displacement-only P1 tetrahedral route, retained as a locking
+   A/B diagnosis;
+2. a real mixed route with P2 tetrahedral displacement and DG0 mean Kirchhoff
+   stress, ordinary Gmsh physical regions, exact periodic kinematics,
+   `model.step(...)`, accepted quadrature transactions, and periodic-cell
+   histories.
+
+The second route removes the false assumption that a high-order source mesh is
+itself a hybrid formulation, and it provides an independent volumetric unknown
+through a monolithic four-block Newton system. It is an experimental mixed
+three-dimensional RVE formulation intended to mitigate volumetric locking; no
+locking-convergence or inf-sup claim follows from the present tests. It is
+**not** an exact
+reproduction of the paper's 2D quadrilateral Q2/DPC1 9/3
+element, so agreement from a coarse thin extrusion cannot by itself promote
+the benchmark. Exact periodic pairing and a small Hill--Mandel residual likewise
+do not establish spatial, path, or formulation convergence.
+
+The fixture therefore remains an **experimental benchmark fixture, not a
+passed benchmark**. Promotion requires all of the following:
+
+- load-increment/path convergence with the same prescribed macroscopic
+  history;
+- mesh and numerical plane-strain-formulation convergence, including thickness
+  convergence for a thin-3D route and direct execution of the complex fixture
+  through the 2D Q2/DPC1 three-pressure-mode implementation;
+- componentwise and vector-norm agreement of first-Piola stress, plus agreement
+  of the published recoverable elastic energy;
+- a homogenized current-state algorithmic tangent obtained from the linearized
+  corrector with accepted internal variables fixed, compared in the published
+  component order;
+- 1x1, 1x2, 2x1, and 2x2 periodic-cell replication invariance;
 - serial/MPI and checkpoint/restart equivalence.
 
 `tests/zhang_2021_periodic_composite_fixture.py` defines the geometry, material
-translation, oracle and fail-closed assessment. A missing tangent or missing
-convergence axis produces `incomplete`, even if one stress vector happens to
-be close. The 3 percent oracle may be tightened but cannot be relaxed, and
-acceptance requires explicit Boolean evidence for mesh, plane-strain
-formulation, cell-size, serial/MPI, and restart equivalence.
-`tests/test_zhang_2021_periodic_composite.py` verifies the fixture
+translation, oracle and fail-closed comparison-completeness assessment. A
+missing tangent or missing convergence axis produces `incomplete`, even if one
+stress vector happens to be close. The AgentFEM-owned 3 percent relative and
+componentwise absolute-plus-relative contracts may be tightened but cannot be
+relaxed. At present, however, the assessor accepts caller-supplied Boolean
+statements for load-increment/path, mesh, plane-strain formulation, cell-size,
+serial/MPI, and restart equivalence. It is therefore a completeness schema, not
+yet a content-bound scientific promotion gate. Promotion requires those flags
+to be derived from identified evidence artifacts rather than asserted by a
+caller. `tests/test_zhang_2021_periodic_composite.py` verifies the fixture
 semantics without claiming the external result has passed.
+
+One unarchived current-stack coarse diagnostic makes that boundary concrete.
+On a 502-tetrahedron, thickness-0.10 P2/DG0 extrusion with 20 load increments,
+the first-Piola vector has 1.4324 percent relative L2 error and passes that
+global norm contract, but \(P_{11}\) and \(P_{22}\) fail the componentwise
+absolute-plus-relative contract. The condensed mixed `ELENER` is 0.002627074
+against the published 0.002423, an 8.4224 percent error, and therefore also
+fails. The maximum Hill--Mandel relative residual is
+\(1.054\times10^{-8}\) and the periodic mismatch is zero. These observations
+have not yet been committed as a content-addressed result with runtime and input
+identity. They are neither a Golden result nor a substitute for the required
+path, mesh, formulation, tangent, replication, MPI, and restart evidence.
 
 A separate [finite-strain J2 self-weight beam gate](finite_strain_j2_external_beam.md)
 tests finite rotation and distributed body-force loading through the ordinary
@@ -394,22 +444,41 @@ content-addressed reference curve and all declared convergence gates exist.
 Current tests cover homogeneous finite-strain work equivalence, stress
 invariant conventions, sparse spatial output with complete accepted history,
 physical quadrature weights on distorted cells, validation failures and
-two-rank MPI reductions. The experimental finite-strain J2 route now enters
-this contract through public `model.step(...)` for single- or regional-material 3D
-affine-periodic cell. Macro averages and Hill--Mandel work are integrated from
-the provider-owned accepted quadrature `F`, `P`, `S`, `SENER`, `ELENER`, and
-`HARDENER` fields rather than reconstructed from a history-free material
-expression. Accepted-state
-checkpoint/restart preserves that state across compatible MPI rank-count
-changes.
+two-rank MPI reductions. The experimental displacement-only finite-strain J2
+route enters this contract through public `model.step(...)` for single- or
+regional-material 3D affine-periodic cells. Macro averages and Hill--Mandel
+work are integrated from provider-owned accepted quadrature `F`, `P`, `S`,
+`SENER`, `ELENER`, and `HARDENER` fields rather than reconstructed from a
+history-free material expression. Its accepted-state checkpoint/restart
+preserves that state across compatible MPI rank-count changes.
+
+The mixed tetrahedral P2/DG0 route reuses the same constitutive state
+transaction and adds `MEAN_KIRCHHOFF_STRESS`, an assembled discrete
+pressure-block residual, and a separate `MIXED_POTENTIAL` quadrature diagnostic.
+Its condensed mixed `ELENER` uses deviatoric Hencky storage plus
+\(p^2/(2\kappa)\).
+That term is pointwise equal to the primal volumetric storage only where
+\(p=\kappa\ln J\) holds locally; the saddle potential is not treated as
+pointwise stored energy. Portable checkpoints split live and
+accepted mixed solutions into standalone displacement and mean-Kirchhoff-
+stress fields before serialization, then let the state owner reassemble them
+after identity validation. Fresh-Step checkpoint/continue equivalence is
+verified for both serial mixed routes: 3D tetrahedral P2/DG0 and 2D plane-strain
+quadrilateral Q2/DPC1. Independently, the underlying generic DPC cell-moment
+identity has two-to-one and one-to-two MPI-rank acceptance coverage. This does
+not promote the mixed equilibrium provider itself: distributed mixed MPC, an
+MPI mixed-J2 solve, and cross-rank-count restart of a solved mixed J2 step remain
+unverified.
 
 These tests establish the software contract; an RVE used for a material claim
 still requires its own mesh, loading-path, convergence, and reference-result
 evidence. Multi-material finite-strain J2 dispatch is now part of the
-experimental public affine route. The Zhang fixture makes the independent
-external comparison executable, but it has not yet passed its convergence and
-effective-tangent gates. Stress-state-controlled macro loading and a production
-analytical tangent remain separate promotion gates.
+experimental public affine routes. The Zhang fixture makes the independent
+external comparison executable, but it has not yet passed its loading-path,
+formulation, replication, effective-tangent, or distributed-execution gates.
+Stress-state-controlled macro loading, full Zhang evidence through the direct
+2D Q2/DPC1 route, and a production analytical deviatoric tangent remain
+separate promotion gates.
 
 ## References
 
@@ -424,9 +493,11 @@ analytical tangent remain separate promotion gates.
    reversal and damage,” *International Journal of Material Forming* 12
    (2019), 339--353.
    [doi:10.1007/s12289-018-01466-z](https://doi.org/10.1007/s12289-018-01466-z).
-4. J. Zhang, X. Feng and K. Khandelwal, “A computational framework for
+4. G. Zhang, N. Feng and K. Khandelwal, “A computational framework for
    homogenization and multiscale stability analyses of nonlinear periodic
    materials,” *International Journal for Numerical Methods in Engineering*
    122 (2021), 6527--6575.
    [doi:10.1002/nme.6802](https://doi.org/10.1002/nme.6802),
    [open manuscript](https://arxiv.org/abs/2010.02371).
+5. FEniCS Project, “Basix `create_element` and discontinuous DPC variant,”
+   [official API reference](https://docs.fenicsproject.org/basix/main/python/_autosummary/basix.finite_element.html).

@@ -47,9 +47,11 @@ set `U/S/E/MISES`:
 | `E` | infinitesimal strain | discontinuous cell-average L2 projection |
 | `MISES` | immediately useful invariant of stress | invariant evaluated from the constitutive stress, then discontinuously projected |
 | `SENER` | strain-energy density | available but opt-in diagnostic field; for finite-strain J2, `ELENER + HARDENER` |
-| `ELENER` | elastic stored-energy density | provider-owned finite-strain J2 quadrature field |
+| `ELENER` | elastic or condensed mixed stored-energy representation | provider-owned finite-strain J2 quadrature field; mixed-route point values require the local pressure constraint for equivalence to the primal volumetric energy |
 | `HARDENER` | isotropic-hardening stored-energy density | provider-owned finite-strain J2 quadrature field |
 | `PDENER` | cumulative irrecoverable plastic-dissipation density | provider-owned finite-strain J2 quadrature state field |
+| `MEAN_KIRCHHOFF_STRESS` | independent mixed J2 volumetric unknown, positive in tension | discontinuous primary field for the experimental 3D P2/DG0 and 2D Q2/DPC1 finite-strain J2 routes |
+| `MIXED_POTENTIAL` | mixed J2 saddle variational density | provider-owned quadrature diagnostic; not pointwise stored energy |
 | `V`, `A` | velocity and acceleration | nodal transient state fields |
 | `KED` | kinetic-energy density per reference volume | cell field computed as $\tfrac12\rho_0\mathbf{v}\cdot\mathbf{v}$ when velocity and density are supplied |
 
@@ -71,6 +73,24 @@ interfaces. For first-order displacement elements in linear elasticity this
 also preserves the elementwise constant strain and stress exactly. For
 higher-order fields, `DG0` is a compact average rather than a complete record
 of within-element variation.
+
+The Q2/DPC1 mixed-J2 route preserves the exact
+`MEAN_KIRCHHOFF_STRESS` field as three discontinuous cell moments. XDMF's
+ordinary `Center="Cell"` attribute cannot encode those moments as one scalar
+value per cell. Final-result output therefore keeps the exact DPC1 field in
+`SimulationResult`, omits only that incompatible representation from the
+ParaView dataset, and adds an explicitly named
+`MEAN_KIRCHHOFF_STRESS_CELL` DG0 physical cell average. Its processing record
+states `global_l2_projection`, retains the source-field name, and forbids any
+interpretation as nodal extrapolation or smoothing. Explicit requests for the
+unrecovered DPC1 field fail closed instead of silently relabeling a reduced
+field. Portable checkpoint identity preserves the exact cell moments by
+original physical cell and local mode. Fresh-Step checkpoint/continue is
+verified for both serial mixed routes: 3D tetrahedral P2/DG0 and 2D plane-strain
+quadrilateral Q2/DPC1. The generic DPC state primitive independently has
+one-to-two and two-to-one-rank acceptance coverage, while the mixed J2
+equilibrium provider itself remains serial; serializer portability does not
+establish a mixed MPI solve or cross-rank mixed-Step restart.
 
 Every generated `FieldResult` records a `processing` mapping containing the
 projection method, result space, and explicit false flags for nodal
@@ -100,11 +120,12 @@ AgentFEM should ultimately expose three related but distinct products:
 
 The current release implements the second layer for elasticity. Small-strain
 J2 results retain committed `S/PE/PEEQ` and pointwise `MISES` on the
-constitutive quadrature. The experimental public ordinary and affine/MPC
-finite-strain J2 providers retain the same provider-owned accepted
-`F/P/S/MISES/SENER/ELENER/HARDENER/PDENER/FP/PEEQ` at the
-same quadrature identity; the output layer does not recompute them from a
-history-free constitutive expression. Explicit `*_CELL` products never
+constitutive quadrature. The experimental public ordinary, displacement-only
+affine/MPC, and mixed affine finite-strain J2 providers retain the same
+provider-owned accepted `F/P/S/MISES/SENER/ELENER/HARDENER/PDENER/FP/PEEQ` at
+the same quadrature identity; the mixed route additionally retains
+`MIXED_POTENTIAL`. The output layer does not recompute them from a history-free
+constitutive expression. Explicit `*_CELL` products never
 overwrite a same-named raw quadrature field. J2 and implicit creep also expose
 separately named `*_CELL` fields through
 `results.recover_integration_point_field(...)`. These fields use the actual
@@ -127,11 +148,24 @@ intentionally not presented as a standard smoothing method because it can
 erase real jumps at material interfaces and obscure singular or poorly
 converged regions.
 
-Mixed finite-strain output uses two unambiguous names: `PRESSURE` is the
-independent cellwise pressure unknown (positive in compression), while `P` is
-the first-Piola stress tensor derived from displacement and pressure. Both can
-be written beside `U`, `S`, `LE`, `J`, and energy fields in the same compact
-time series.
+The two mixed finite-strain families intentionally use different public field
+names because their scalar unknowns have different conventions. In mixed
+Neo-Hookean output, `PRESSURE` is the independent cellwise Cauchy-pressure
+unknown and is positive in compression. In mixed finite-strain J2 output,
+`MEAN_KIRCHHOFF_STRESS` is \(\operatorname{tr}\boldsymbol\tau/3\) and is
+positive in tension. `P` remains the first-Piola tensor derived from the
+coupled solution in both families. Software and users must not rename either
+scalar field to a generic `PRESSURE` and silently erase its stress measure or
+sign convention.
+
+For mixed J2, `ELENER` contains the deviatoric elastic storage plus the
+nonnegative condensed mixed term \(p^2/(2\kappa)\). This term is pointwise
+equivalent to the primal volumetric energy \(\kappa(\ln J)^2/2\) only where the
+local constraint \(p=\kappa\ln J\) holds. The weak discrete equation does not
+make that pointwise identity automatic, so the channel must be described with
+its mixed discretisation when compared externally. The distinct
+`MIXED_POTENTIAL` field carries the saddle density used to derive the pressure
+equation; it is never an alias for `ELENER` or `SENER`.
 
 ## References
 

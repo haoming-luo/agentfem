@@ -127,9 +127,9 @@ integration-point values or smoothed nodal contours.
 Plane stress, finite-strain kinematic hardening, external distributed
 finite-strain structural validation, and a general UMAT path remain future
 work. A separate experimental logarithmic finite-strain J2 route already
-provides ordinary strong-boundary and affine/MPC global equilibrium; its
-locking-resistant formulation and external promotion evidence are not yet
-complete.
+provides ordinary strong-boundary and affine/MPC global equilibrium. Its mixed
+lowerings are intended to mitigate volumetric locking, but locking-convergence
+evidence and external promotion evidence are not yet complete.
 
 ## Power-Law Creep
 

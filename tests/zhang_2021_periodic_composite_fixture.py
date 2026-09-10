@@ -6,9 +6,10 @@ constraint, regional material, and accepted-result contracts.
 
 Reference
 ---------
-Zhang, Feng and Khandelwal, *A computational framework for homogenization and
-multiscale stability analyses of nonlinear periodic materials*, International
-Journal for Numerical Methods in Engineering (2021), Table 5.
+G. Zhang, N. Feng and K. Khandelwal, *A computational framework for
+homogenization and multiscale stability analyses of nonlinear periodic
+materials*, International Journal for Numerical Methods in Engineering (2021),
+Table 5.
 https://doi.org/10.1002/nme.6802
 """
 
@@ -59,10 +60,14 @@ TABLE5 = Zhang2021Table5Reference(
     elastic_energy_density=2.423e-3,
 )
 
-# The external promotion oracle is deliberately fixed.  A caller may request
-# a stricter comparison, but cannot make a failed benchmark pass by relaxing
-# the contract used by the benchmark card and public documentation.
+# These are AgentFEM-owned comparison thresholds, not tolerances published by
+# Zhang et al.  They are deliberately fixed: a caller may request a stricter
+# comparison, but cannot make an out-of-tolerance candidate pass by relaxing
+# the contract used by the benchmark card and public documentation.  Passing
+# this numerical comparison is not, by itself, content-bound benchmark
+# evidence or authority to promote a capability.
 TABLE5_MAXIMUM_RELATIVE_TOLERANCE = 0.03
+TABLE5_COMPONENT_ABSOLUTE_TOLERANCE = 6.0e-4
 
 
 @dataclass(frozen=True)
@@ -80,6 +85,7 @@ class Zhang2021PeriodicCompositeFixture:
     matrix_tag: int
     inclusion_tag: int
     thickness: float
+    element_order: int
     periodic_pairing_error: float
 
     @property
@@ -179,13 +185,16 @@ def assess_table5(
     convergence_evidence: dict[str, bool] | None = None,
     relative_tolerance: float = TABLE5_MAXIMUM_RELATIVE_TOLERANCE,
 ) -> dict[str, object]:
-    """Assess, but never over-promote, one numerical Table 5 candidate.
+    """Compare caller-supplied Table 5 data and completeness assertions.
 
-    A single stress comparison is diagnostic, not external verification.  The
-    result becomes ``accepted`` only when stress, elastic energy, effective
-    tangent, discretization/cell-size convergence, serial/MPI equivalence, and
-    checkpoint/restart equivalence are all present and satisfy the declared
-    contract.  The published 3 percent gate can be tightened, not relaxed.
+    The arrays and every Boolean in ``convergence_evidence`` are supplied by
+    the caller.  This function checks their shapes, finiteness, numerical
+    agreement, and asserted completeness; it does not bind those assertions to
+    archived artifacts, provenance, or an independently executed result.
+    Consequently ``accepted`` means only that the supplied comparison passes.
+    It is not authority to promote the benchmark or solver capability.  The
+    AgentFEM-owned three-percent comparison threshold can be tightened, not
+    relaxed.
     """
 
     tolerance = float(relative_tolerance)
@@ -203,6 +212,17 @@ def assess_table5(
     stress_error = float(
         np.linalg.norm(stress - TABLE5.first_piola)
         / np.linalg.norm(TABLE5.first_piola)
+    )
+    stress_component_absolute_error = np.abs(stress - TABLE5.first_piola)
+    stress_component_allowance = (
+        TABLE5_COMPONENT_ABSOLUTE_TOLERANCE
+        + tolerance * np.abs(TABLE5.first_piola)
+    )
+    stress_component_error_ratio = (
+        stress_component_absolute_error / stress_component_allowance
+    )
+    stress_componentwise_passed = bool(
+        np.all(stress_component_absolute_error <= stress_component_allowance)
     )
     energy_error = None
     if elastic_energy_density is not None:
@@ -231,6 +251,7 @@ def assess_table5(
             + ", ".join(sorted(invalid_boolean_evidence))
         )
     required_convergence = (
+        "load_increment_path_converged",
         "mesh_converged",
         "plane_strain_formulation_converged",
         "periodic_cell_size_invariant",
@@ -246,17 +267,37 @@ def assess_table5(
     errors = tuple(
         value for value in (stress_error, energy_error, tangent_error) if value is not None
     )
-    accepted = not missing and all(value <= tolerance for value in errors)
-    failed = any(value > tolerance for value in errors)
+    accepted = (
+        not missing
+        and stress_componentwise_passed
+        and all(value <= tolerance for value in errors)
+    )
+    failed = (
+        not stress_componentwise_passed
+        or any(value > tolerance for value in errors)
+    )
     return {
         "schema": "agentfem.external-benchmark-assessment.v1",
         "benchmark": "Zhang-Feng-Khandelwal-2021-Table-5",
         "status": "accepted" if accepted else ("failed" if failed else "incomplete"),
         "accepted": accepted,
+        "comparison_accepted": accepted,
+        "evidence_authority": "caller_supplied_assertions_not_content_bound",
+        "content_bound": False,
+        "benchmark_promotion_authorized": False,
+        "decision_scope": "numeric_comparison_and_caller_asserted_completeness",
         "relative_tolerance": tolerance,
+        "component_absolute_tolerance": TABLE5_COMPONENT_ABSOLUTE_TOLERANCE,
+        "tolerance_authority": "AgentFEM comparison contract; not published",
         "component_order": TABLE5.component_order,
         "first_piola": stress.tolist(),
         "first_piola_relative_l2_error": stress_error,
+        "first_piola_component_absolute_error": (
+            stress_component_absolute_error.tolist()
+        ),
+        "first_piola_component_allowance": stress_component_allowance.tolist(),
+        "first_piola_component_error_ratio": stress_component_error_ratio.tolist(),
+        "first_piola_componentwise_passed": stress_componentwise_passed,
         "elastic_energy_relative_error": energy_error,
         "effective_tangent_relative_frobenius_error": tangent_error,
         "missing_evidence": tuple(missing),
@@ -270,6 +311,7 @@ def zhang_2021_periodic_composite(
     mesh_size: float = 0.12,
     thickness: float = 0.10,
     shear: float = 0.10,
+    element_order: int = 1,
     model_rank: int = 0,
 ) -> Zhang2021PeriodicCompositeFixture:
     """Build the two-inclusion/one-void Table 5 cell as a thin 3D extrusion.
@@ -284,6 +326,11 @@ def zhang_2021_periodic_composite(
     mesh_size = float(mesh_size)
     thickness = float(thickness)
     shear = float(shear)
+    if isinstance(element_order, bool) or int(element_order) != element_order:
+        raise ValueError("element_order must be either 1 or 2.")
+    element_order = int(element_order)
+    if element_order not in {1, 2}:
+        raise ValueError("element_order must be either 1 or 2.")
     if not np.isfinite(mesh_size) or mesh_size <= 0.0:
         raise ValueError("mesh_size must be finite and positive.")
     if not np.isfinite(thickness) or thickness <= 0.0:
@@ -352,6 +399,12 @@ def zhang_2021_periodic_composite(
             gmsh.option.setNumber("Mesh.MeshSizeMin", mesh_size)
             gmsh.option.setNumber("Mesh.MeshSizeMax", mesh_size)
             gmsh.model.mesh.generate(3)
+            if element_order == 2:
+                # Preserve the periodic source-node graph at the same order as
+                # the P2 displacement space.  Constraining only corner nodes
+                # would leave boundary edge dofs non-periodic and invalidate
+                # the mixed benchmark before the constitutive solve begins.
+                gmsh.model.mesh.setOrder(2)
             semantics = _periodic_semantics(
                 gmsh,
                 periodic_faces,
@@ -403,6 +456,7 @@ def zhang_2021_periodic_composite(
         matrix_tag=1,
         inclusion_tag=2,
         thickness=thickness,
+        element_order=element_order,
         periodic_pairing_error=float(semantics["periodic_pairing_error"]),
     )
 

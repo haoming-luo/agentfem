@@ -4,10 +4,10 @@
   "id": "agentfem.benchmark.finite_strain_j2_zhang_2021_table5",
   "title": "Zhang--Feng--Khandelwal finite-strain periodic composite, Table 5",
   "status": "experimental_external_fixture_not_promoted",
-  "purpose": "Provide an independent, fail-closed structure-level promotion gate for regional finite-strain J2 periodic-cell analysis without embedding external answers in solver logic.",
+  "purpose": "Provide a fail-closed numerical comparison fixture for regional finite-strain J2 periodic-cell analysis without embedding external answers in solver logic. The comparison consumes caller-supplied arrays and Boolean completeness assertions; it is not a content-bound promotion decision.",
   "physics": "Plane-strain periodic composite with two stiff circular inclusions, one circular void, logarithmic finite-strain J2 matrix plasticity, elastic inclusions, and macroscopic simple shear.",
   "source": {
-    "authors": "J. Zhang, X. Feng and K. Khandelwal",
+    "authors": "G. Zhang, N. Feng and K. Khandelwal",
     "title": "A computational framework for homogenization and multiscale stability analyses of nonlinear periodic materials",
     "journal": "International Journal for Numerical Methods in Engineering 122 (2021), 6527--6575",
     "doi": "https://doi.org/10.1002/nme.6802",
@@ -41,30 +41,37 @@
     ]
   },
   "execution": {
-    "command": "python tests/zhang_2021_periodic_composite_driver.py --mesh-size 0.12 --thickness 0.10 --increments 4 --output outputs/zhang-2021",
+    "command": "python tests/zhang_2021_periodic_composite_driver.py --mesh-size 0.24 --thickness 0.10 --increments 20 --formulation mixed --output outputs/zhang-2021",
     "example": "docs/reference/rve_homogenization_and_statistics.md",
     "fixture": "tests/zhang_2021_periodic_composite_fixture.py",
-    "evidence": "The fixture creates the published geometry with Gmsh physical regions, exact opposite-face periodic node pairing, the public affine-periodic constraint, regional finite-strain J2 materials, model.step, accepted quadrature state, and periodic-cell history. The assessment refuses promotion when any required observable or convergence axis is absent."
+    "evidence": "The fixture creates the published geometry with Gmsh physical regions, exact opposite-face periodic node pairing, the public affine-periodic constraint, regional finite-strain J2 materials, model.step, accepted quadrature state, and periodic-cell history. Its default diagnostic is a thin-3D tetrahedral P2/DG0 mixed route; the displacement-only P1 route remains an explicit A/B option. One exploratory 502-cell, 20-increment diagnostic reported 1.4324 percent first-Piola vector-L2 error, but P11 and P22 failed the componentwise absolute-plus-relative contract and ELENER had 8.4224 percent relative error. The reported run also had a 1.054e-8 maximum Hill--Mandel relative residual and zero periodic mismatch. Those values were not sealed in a content-bound evidence archive, so they are diagnostic context, not promotion evidence."
   },
   "observables": [
     "Homogenized first-Piola stress in the published column-major order.",
-    "Recoverable Hencky elastic energy ELENER, excluding hardening storage and plastic dissipation.",
+    "Recoverable Hencky elastic energy ELENER per complete reference-cell measure, excluding HARDENER, cumulative PDENER, and the mixed saddle potential.",
+    "Exact DG0 or DPC mean-Kirchhoff-stress primary field in SimulationResult and portable checkpoint; DPC XDMF uses the separately named *_CELL recovery.",
+    "The maximum quadrature defect max_q |ln(J_q)-p_h(q)/kappa|, which is not a DG0 quantity for DPC1 and is not the assembled pressure-block residual.",
     "Homogenized algorithmic tangent in the published component order.",
     "Periodic equation mismatch and opposite-face pairing error.",
     "Accepted-increment Hill--Mandel work residual.",
     "Mesh, plane-strain formulation, cell-size, serial/MPI, and restart convergence evidence."
   ],
   "acceptance": [
-    "First-Piola stress, recoverable elastic energy, and effective tangent must each satisfy the declared 3 percent relative-error contract.",
-    "The result must be converged with respect to mesh and the numerical plane-strain representation; the current thin-extrusion route must include thickness convergence.",
+    "Caller-supplied first-Piola stress, recoverable elastic energy, and effective tangent must each satisfy the declared 3 percent comparison contract; an accepted comparison is not a content-bound benchmark promotion.",
+    "The result must be converged with respect to load-increment/path, mesh, and the numerical plane-strain representation; a thin-extrusion route must include thickness convergence.",
+    "First-Piola stress must satisfy both vector-norm and componentwise absolute-plus-relative contracts so a small published component cannot be hidden by the global norm.",
     "The 1x1, 1x2, 2x1, and 2x2 cells must preserve the published cell-size invariance.",
     "Serial and MPI execution and checkpoint/restart must preserve the accepted response.",
-    "Missing evidence produces incomplete; any available observable outside tolerance produces failed."
+    "Missing caller assertions produce incomplete; any supplied observable outside tolerance produces failed.",
+    "The comparison result must declare evidence_authority=caller_supplied_assertions_not_content_bound and cannot authorize promotion until an external evidence archive independently binds inputs, outputs, provenance, and convergence records."
   ],
   "limitations": [
-    "The publication uses a mixed displacement--pressure 9/3 element to avoid locking from incompressible plastic flow. The current fixture lowers the problem through displacement-only P1 tetrahedra in a thin three-dimensional extrusion; this is the leading diagnosis and still requires a locking-resistant A/B confirmation.",
+    "The publication uses a two-dimensional quadrilateral Q2 nine-node displacement field with a DPC1 three-mode discontinuous pressure space. AgentFEM now has that plane-strain interpolation and a homogeneous affine patch, but the current complex-geometry diagnostic still uses tetrahedral P2 displacement and one DG0 mean-Kirchhoff-stress value per tetrahedron in a thin three-dimensional extrusion; it is intended to mitigate volumetric locking, has no locking-convergence claim, and is not the exact published 9/3 discretization.",
     "The published elastic inclusions are represented in the shared regional transaction by the same J2 provider with an intentionally unreachable yield stress; they remain elastic over the declared path but are not a distinct elastic constitutive implementation.",
-    "Coarse diagnostic runs preserve exact periodic kinematics and small Hill--Mandel residuals but do not reproduce Table 5 within tolerance; the benchmark is therefore not promoted.",
-    "A production mixed finite-strain J2 plane-strain route and a homogenized consistent tangent remain required before this external gate can pass."
+    "The unarchived thin-3D diagnostic passed the first-Piola vector-L2 threshold but failed the P11 and P22 componentwise checks and ELENER. Its reported periodic and Hill--Mandel values do not replace a sealed evidence archive, so the benchmark is not promoted.",
+    "For the mixed provider, K/mu <= 1e4 is a temporary implementation ceiling for subtractive tangent construction. A plastic simple-shear direction test guards tangent accuracy at the ceiling, but the value is not a general accuracy range, a constitutive validity range, or proof against volumetric locking. Residual, max_q |ln(J_q)-p_h(q)/kappa|, energy, and mesh/formulation convergence remain separate requirements.",
+    "Exact DPC primary values remain in SimulationResult and portable checkpoints. XDMF intentionally writes an explicitly recovered DG0 *_CELL field rather than relabeling multiple DPC moments as one exact cell value.",
+    "For the mixed route, ELENER is the declared integrated condensed elastic-energy comparison channel per reference-cell measure; its volumetric point value is primal only where p=kappa ln(J). HARDENER is separate recoverable hardening storage, PDENER is cumulative irrecoverable energy per reference volume, and MIXED_POTENTIAL is not physical stored energy.",
+    "The complex fixture must be executed through the direct 2D Q2/DPC1 route; load-path and formulation convergence, a current-state homogenized consistent tangent with internal variables fixed, 1x1/1x2/2x1/2x2 replication invariance, distributed mixed execution and portable restart remain required before this external gate can pass."
   ]
 }

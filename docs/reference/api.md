@@ -126,7 +126,7 @@ and evidence remain in the linked guides and scientific function reference.
 | function | `scalar_unknown(domain, *, name: str = 'Unknown', degree: int = 1, value = 0.0) -> UnknownField` | Create a scalar finite-element unknown. |
 | function | `vector_unknown(domain, *, name: str = 'Unknown', degree: int = 1, dim: int \| None = None, value = 0.0) -> UnknownField` | Create a vector finite-element unknown. |
 | function | `displacement(domain, *, degree: int = 1, dim: int \| None = None, value = 0.0) -> UnknownField` | Create a displacement unknown for mechanics workflows. |
-| function | `displacement_pressure(domain, *, displacement_degree: int = 2, pressure_degree: int = 0, name: str = 'DisplacementPressure') -> DisplacementPressureUnknown` | Create a mixed displacement/pressure unknown. |
+| function | `displacement_pressure(domain, *, displacement_degree: int = 2, pressure_degree: int = 0, pressure_family: str = 'DG', name: str = 'DisplacementPressure') -> DisplacementPressureUnknown` | Create a mixed displacement/pressure unknown. |
 | function | `velocity_pressure(domain, *, velocity_degree: int = 2, pressure_degree: int = 1, name: str = 'VelocityPressure') -> VelocityPressureUnknown` | Create a Taylor--Hood incompressible-flow unknown. |
 | function | `temperature(domain, *, degree: int = 1, value = 0.0) -> UnknownField` | Create a temperature unknown for heat-transfer workflows. |
 | function | `wrap(function, *, name: str \| None = None) -> Field` | Wrap a DOLFINx function as an AgentFEM field. |
@@ -865,6 +865,7 @@ and evidence remain in the linked guides and scientific function reference.
 | class | `FiniteStrainPlasticityPathInfo` | Accepted and attempted increments for a standard finite-strain J2 path. |
 | function | `experimental_finite_strain_j2_step(*, displacement, material: FiniteStrainJ2Logarithmic, external_force = None, constraints = (), incrementation = None, solver_options = None, quadrature_degree: int = 2, amplitude = None, name: str = 'finite_strain_j2_experimental') -> ExperimentalFiniteStrainPlasticityStep` | Compatibility alias for :func:`finite_strain_j2_standard_problem`. |
 | function | `finite_strain_j2_affine_problem(*, displacement, material: FiniteStrainJ2Logarithmic \| QuadratureMaterialMap, constraint, external_force = None, incrementation = None, solver_options = None, quadrature_degree: int = 2, output_every: int \| None = 1, output_factors = (), progress = True, status_file = None, checkpoint_policy = None, name: str = 'finite_strain_j2')` | Build stateful finite-strain J2 under exact affine/MPC kinematics. |
+| function | `finite_strain_j2_mixed_affine_problem(*, target, material: FiniteStrainJ2Logarithmic \| QuadratureMaterialMap, constraint, incrementation = None, solver_options = None, quadrature_degree: int = 2, output_every: int \| None = 1, output_factors = (), progress = True, status_file = None, checkpoint_policy = None, name: str = 'finite_strain_j2_mixed')` | Build mixed logarithmic-J2 equilibrium under affine kinematics. |
 | function | `finite_strain_j2_standard_problem(*, displacement, material: FiniteStrainJ2Logarithmic \| QuadratureMaterialMap, external_force = None, load_identity = None, constraints = (), incrementation = None, solver_options = None, quadrature_degree: int = 2, amplitude = None, output_every: int \| None = 1, output_factors = (), progress = True, status_file = None, checkpoint_policy = None, name: str = 'finite_strain_j2') -> FiniteStrainJ2StandardProblem` | Build stateful finite-strain J2 under ordinary strong boundaries. |
 | class | `DirectHarmonicStep` | One direct steady-state harmonic solve with separated ownership. |
 | class | `DirectHarmonicSweepStep` | A bounded-memory ordered frequency sweep over one prepared Step. |
@@ -1352,7 +1353,7 @@ This package exposes its public objects through focused submodules.
 | function | `vector_lagrange_space(domain, degree: int = 1, dim: int \| None = None)` | Create a vector Lagrange function space. |
 | function | `vector_space(domain, degree: int = 1, dim: int \| None = None)` | Create a vector Lagrange function space. |
 | function | `velocity_pressure_space(domain, *, velocity_degree: int = 2, pressure_degree: int = 1)` | Create a Taylor--Hood velocity/pressure mixed space. |
-| function | `displacement_pressure_space(domain, *, displacement_degree: int = 2, pressure_degree: int = 0)` | Create the mixed ``H1`` displacement / discontinuous-pressure space. |
+| function | `displacement_pressure_space(domain, *, displacement_degree: int = 2, pressure_degree: int = 0, pressure_family: str = 'DG')` | Create the mixed ``H1`` displacement / discontinuous-pressure space. |
 | function | `test_function(V)` | Create a UFL test function for a function space. |
 | function | `trial_function(V)` | Create a UFL trial function for a function space. |
 | function | `named_function(V, name: str, value = 0.0)` | Create a named finite-element function and optionally initialize it. |

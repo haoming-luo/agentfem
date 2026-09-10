@@ -920,34 +920,184 @@ def _portable_local_field(function) -> dict[str, np.ndarray]:
             "Portable checkpoints currently require a blocked nodal space, "
             "not a mixed/subspace dof layout."
         )
-    coordinates = np.asarray(V.tabulate_dof_coordinates(), dtype=np.float64)
-    if coordinates.shape[0] < owned:
-        raise ValueError("Function space does not expose every owned dof coordinate.")
-    coordinates = np.ascontiguousarray(
-        coordinates[:owned, : int(V.mesh.geometry.dim)]
-    )
-    coordinate_keys = _quantized_coordinate_keys(coordinates, V.mesh)
-    gathered_keys = V.mesh.comm.allgather(coordinate_keys)
-    global_keys = np.concatenate(gathered_keys, axis=0)
-    if _has_duplicate_coordinates(global_keys):
-        source_ids = _owned_p1_input_node_ids(function)
-        coordinate_keys = np.column_stack((coordinate_keys, source_ids))
-        key_mode = "quantized_physical_dof_coordinate_and_input_node_id"
-        gathered_augmented = V.mesh.comm.allgather(coordinate_keys)
-        if _has_duplicate_coordinates(np.concatenate(gathered_augmented, axis=0)):
-            raise NotImplementedError(
-                "Portable state cannot distinguish coincident owned dofs even "
-                "after adding their input-node identities."
-            )
+    try:
+        coordinates = np.asarray(V.tabulate_dof_coordinates(), dtype=np.float64)
+    except RuntimeError as exc:
+        coordinate_keys = _owned_cell_local_dof_keys(function, cause=exc)
+        key_mode = "original_physical_cell_and_local_dof"
+        layout_identity = _cell_local_layout_identity(V.mesh)
     else:
-        key_mode = "quantized_physical_dof_coordinate_and_block_component"
+        layout_identity = None
+        if coordinates.shape[0] < owned:
+            raise ValueError(
+                "Function space does not expose every owned dof coordinate."
+            )
+        coordinates = np.ascontiguousarray(
+            coordinates[:owned, : int(V.mesh.geometry.dim)]
+        )
+        coordinate_keys = _quantized_coordinate_keys(coordinates, V.mesh)
+        gathered_keys = V.mesh.comm.allgather(coordinate_keys)
+        global_keys = np.concatenate(gathered_keys, axis=0)
+        if _has_duplicate_coordinates(global_keys):
+            source_ids = _owned_p1_input_node_ids(function)
+            coordinate_keys = np.column_stack((coordinate_keys, source_ids))
+            key_mode = "quantized_physical_dof_coordinate_and_input_node_id"
+            gathered_augmented = V.mesh.comm.allgather(coordinate_keys)
+            if _has_duplicate_coordinates(
+                np.concatenate(gathered_augmented, axis=0)
+            ):
+                raise NotImplementedError(
+                    "Portable state cannot distinguish coincident owned dofs "
+                    "even after adding their input-node identities."
+                )
+        else:
+            key_mode = "quantized_physical_dof_coordinate_and_block_component"
     values = np.asarray(
         function.x.array[: owned * block_size]
     ).reshape((owned, block_size)).copy()
-    return {
+    result = {
         "coordinates": coordinate_keys,
         "values": values,
         "key_mode": key_mode,
+    }
+    if layout_identity is not None:
+        result["cell_local_layout"] = layout_identity
+    return result
+
+
+def _owned_cell_local_dof_keys(function, *, cause: Exception) -> np.ndarray:
+    """Key discontinuous moment dofs by stable physical cell and local mode.
+
+    Some valid finite elements, including DPC pressure modes, own integral
+    moments rather than point-evaluation nodes and therefore cannot expose dof
+    coordinates.  Such a space is portable only when every owned block dof is
+    local to exactly one owned physical cell.  Continuous/shared layouts fail
+    closed instead of receiving an order-dependent identity.
+    """
+
+    V = function.function_space
+    domain = V.mesh
+    _require_cell_interior_dof_layout(V, cause=cause)
+    dof_map = V.dofmap.index_map
+    owned_dofs = int(dof_map.size_local)
+    cell_map = domain.topology.index_map(domain.topology.dim)
+    owned_cells = int(cell_map.size_local)
+    local_cells = owned_cells + int(cell_map.num_ghosts)
+    original_cells = np.asarray(
+        domain.topology.original_cell_index,
+        dtype=np.int64,
+    )
+    if len(original_cells) < owned_cells:
+        raise RuntimeError(
+            "Mesh does not expose every owned physical-cell identity."
+        ) from cause
+    keys = np.full((owned_dofs, 2), -1, dtype=np.int64)
+    assigned = np.zeros(owned_dofs, dtype=bool)
+    for cell in range(local_cells):
+        cell_dofs = np.asarray(V.dofmap.cell_dofs(cell), dtype=np.int64)
+        for local_dof, dof in enumerate(cell_dofs):
+            if dof >= owned_dofs:
+                continue
+            if cell >= owned_cells:
+                raise NotImplementedError(
+                    "Portable non-pointwise state requires cell-local ownership; "
+                    "an owned dof is also attached to a ghost cell."
+                ) from cause
+            if assigned[dof]:
+                raise NotImplementedError(
+                    "Portable non-pointwise state requires cell-local dofs; "
+                    "an owned dof is shared by multiple cells."
+                ) from cause
+            keys[dof] = (int(original_cells[cell]), int(local_dof))
+            assigned[dof] = True
+    if not np.all(assigned):
+        missing = np.flatnonzero(~assigned)[:8].tolist()
+        raise NotImplementedError(
+            "Portable non-pointwise state could not assign every owned dof "
+            f"to one physical cell; missing local dofs={missing}."
+        ) from cause
+    gathered = domain.comm.allgather(keys)
+    global_keys = np.concatenate(gathered, axis=0)
+    if _has_duplicate_coordinates(global_keys):
+        raise RuntimeError(
+            "Portable cell-local dof identities are not globally unique."
+        )
+    return np.ascontiguousarray(keys)
+
+
+def _require_cell_interior_dof_layout(V, *, cause: Exception) -> None:
+    """Prove that a non-pointwise element stores only cell-interior modes."""
+
+    element = getattr(V.element, "basix_element", None)
+    if element is None:
+        raise NotImplementedError(
+            "Portable non-pointwise state requires a Basix element whose "
+            "topological dof ownership can be inspected."
+        ) from cause
+    entity_dofs = element.entity_dofs
+    tdim = int(V.mesh.topology.dim)
+    if len(entity_dofs) <= tdim or len(entity_dofs[tdim]) != 1:
+        raise NotImplementedError(
+            "Portable non-pointwise state requires one inspectable "
+            "top-dimensional cell entity."
+        ) from cause
+    lower_dimensional_dofs = [
+        int(dof)
+        for dimension in range(tdim)
+        for entity in entity_dofs[dimension]
+        for dof in entity
+    ]
+    cell_dofs = [int(dof) for dof in entity_dofs[tdim][0]]
+    expected = list(range(int(element.dim)))
+    if lower_dimensional_dofs or sorted(cell_dofs) != expected:
+        raise NotImplementedError(
+            "Portable non-pointwise state requires every dof to belong only "
+            "to the top-dimensional cell interior; facet/edge/vertex moments "
+            "are not a partition-independent fallback."
+        ) from cause
+    if not bool(element.dof_transformations_are_identity):
+        raise NotImplementedError(
+            "Portable non-pointwise state requires identity dof "
+            "transformations; orientation-dependent cell moments need an "
+            "explicit portable transformation contract."
+        ) from cause
+
+
+def _cell_local_layout_identity(domain) -> dict[str, object]:
+    """Bind cell-local modal coefficients to their reference-cell frames."""
+
+    topology = domain.topology
+    cell_map = topology.index_map(topology.dim)
+    owned_cells = int(cell_map.size_local)
+    original_cells = np.asarray(topology.original_cell_index, dtype=np.int64)
+    geometry_dofmap = np.asarray(domain.geometry.dofmaps[0])
+    input_indices = np.asarray(domain.geometry.input_global_indices, dtype=np.int64)
+    local_records = []
+    for cell in range(owned_cells):
+        source_nodes = np.asarray(
+            input_indices[geometry_dofmap[cell]],
+            dtype="<i8",
+        )
+        local_records.append(
+            (int(original_cells[cell]), np.ascontiguousarray(source_nodes).tobytes())
+        )
+    records = []
+    for rank_records in domain.comm.allgather(local_records):
+        records.extend(rank_records)
+    records.sort(key=lambda item: item[0])
+    original_ids = np.asarray([item[0] for item in records], dtype=np.int64)
+    if len(np.unique(original_ids)) != len(original_ids):
+        raise RuntimeError(
+            "Portable cell-local layout contains duplicate physical-cell ids."
+        )
+    digest = sha256()
+    for original_cell, source_nodes in records:
+        digest.update(np.asarray([original_cell], dtype="<i8").tobytes())
+        digest.update(source_nodes)
+    return {
+        "key": "original_physical_cell_and_ordered_input_geometry",
+        "global_cells": int(len(records)),
+        "sha256": digest.hexdigest(),
     }
 
 
@@ -958,7 +1108,7 @@ def function_portable_identity(function) -> dict[str, object]:
     V = function.function_space
     local = _portable_local_field(function)
     counts = V.mesh.comm.allgather(int(len(local["coordinates"])))
-    return {
+    identity = {
         "element": str(V.ufl_element()),
         "value_shape": list(function.ufl_shape),
         "block_size": int(V.dofmap.index_map_bs),
@@ -966,6 +1116,9 @@ def function_portable_identity(function) -> dict[str, object]:
         "mesh": mesh_portable_identity(V.mesh),
         "key": local["key_mode"],
     }
+    if "cell_local_layout" in local:
+        identity["cell_local_layout"] = local["cell_local_layout"]
+    return identity
 
 
 def _owned_p1_input_node_ids(function) -> np.ndarray:

@@ -87,11 +87,24 @@ Deepen the finite-element core before broadening the catalog:
   and assembled MMB execution remain the next external promotion gates. ENF
   propagation must use a verified post-peak continuation/energy-control route
   when ordinary displacement control skips an unstable branch;
-- promote finite-strain J2 through a locking-resistant mixed displacement--
-  pressure formulation, a passed independent structural benchmark, a
-  production analytical tangent, follower-load tangent, and complete
-  prescribed-work balance; cumulative material plastic dissipation is now a
-  committed quadrature channel rather than being inferred in postprocessing;
+- promote finite-strain J2 beyond its first experimental tetrahedral 3D P2/DG0
+  and quadrilateral 2D plane-strain Q2/DPC1 mixed affine-periodic lowerings,
+  which are intended to mitigate volumetric locking but do not yet establish a
+  locking-convergence claim. They own an independent tension-positive mean
+  Kirchhoff stress, all four Newton blocks, a condensed mixed-energy channel
+  distinct from its saddle potential, and split-field serial checkpointing.
+  Fresh-Step continue equivalence is verified for both serial routes, 3D
+  P2/DG0 and 2D plane-strain Q2/DPC1, while generic DPC cell-moment identity
+  alone has cross-rank acceptance coverage and does not establish a mixed MPI
+  solve or restart. Promotion still requires executing the
+  Zhang geometry and observables through the Q2/DPC1 route, equivalent formulation-convergence
+  evidence, load-path convergence, the Table 5 current-state effective
+  tangent, cell-replication invariance, distributed mixed MPC/restart, a
+  production analytical deviatoric tangent, an accuracy study replacing the
+  temporary \(\kappa/\mu=10^4\) implementation ceiling, follower-load tangent,
+  and complete prescribed-work balance. Cumulative material plastic dissipation
+  remains a committed quadrature channel rather than being inferred in
+  postprocessing;
 - richer thermal--mechanical and high-temperature histories;
 - native MPC/weak/contact extraction through the provider-owned
   `dual_evidence(problem)` protocol. The shared collector, force/work ledger,

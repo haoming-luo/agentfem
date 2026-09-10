@@ -643,11 +643,25 @@ def write_result_fields(
     """
 
     requested = tuple(str(item) for item in names)
-    records = tuple(result.fields.values())
+    recovered_discontinuous = _discontinuous_visualization_recoveries(result)
+    known_names = set(result.fields) | set(recovered_discontinuous.values())
     if requested:
-        missing = tuple(name for name in requested if name not in result.fields)
+        missing = tuple(name for name in requested if name not in known_names)
         if missing:
             raise KeyError(f"Unknown result fields requested for output: {missing!r}.")
+        recovery_sources = {
+            source
+            for source, recovered in recovered_discontinuous.items()
+            if recovered in requested
+        }
+    else:
+        recovery_sources = None
+    _recover_discontinuous_visualization_fields(
+        result,
+        sources=recovery_sources,
+    )
+    records = tuple(result.fields.values())
+    if requested:
         records = tuple(result.fields[name] for name in requested)
     live = tuple(item for item in records if item.field is not None)
     if not live:
@@ -655,13 +669,32 @@ def write_result_fields(
     forbidden = tuple(
         item.name for item in live if item.location == "quadrature_points"
     )
+    unrecoverable_as_is = tuple(
+        item.name
+        for item in live
+        if item.name in recovered_discontinuous
+    )
     if requested and forbidden:
         raise ValueError(
             "Quadrature fields cannot be written as ordinary XDMF attributes: "
             f"{forbidden!r}. Request their recovered *_CELL fields or use the "
             "quadrature-state export contract."
         )
-    writable = tuple(item for item in live if item.location != "quadrature_points")
+    if requested and unrecoverable_as_is:
+        alternatives = {
+            name: recovered_discontinuous[name] for name in unrecoverable_as_is
+        }
+        raise ValueError(
+            "Higher-order discontinuous fields cannot be written as one XDMF "
+            f"cell attribute: {unrecoverable_as_is!r}. Request the explicitly "
+            f"recovered DG0 cell-average fields instead: {alternatives!r}."
+        )
+    writable = tuple(
+        item
+        for item in live
+        if item.location != "quadrature_points"
+        and item.name not in recovered_discontinuous
+    )
     if not writable:
         raise ValueError(
             "No visualization-ready live fields remain after excluding "
@@ -755,7 +788,10 @@ def write_result_fields(
         ),
         field_names=tuple(item.name for item in writable),
         omitted_fields=tuple(
-            item.name for item in live if item.location == "quadrature_points"
+            item.name
+            for item in live
+            if item.location == "quadrature_points"
+            or item.name in recovered_discontinuous
         ),
     )
 
@@ -784,6 +820,12 @@ def attach_result_field_output(
         result.metadata["field_output_fields"] = {
             "included": artifacts.field_names,
             "omitted": artifacts.omitted_fields,
+            "recoveries": {
+                name: result.fields[name].processing["source_field"]
+                for name in artifacts.field_names
+                if name in result.fields
+                and "source_field" in result.fields[name].processing
+            },
         }
         result.add_artifact("fields_xdmf", artifacts.xdmf)
         if artifacts.hdf5 is not None:
@@ -808,6 +850,117 @@ def attach_result_field_output(
     return result
 
 
+def _discontinuous_visualization_recoveries(result) -> dict[str, str]:
+    """Plan source-to-cell-average names without mutating a result."""
+
+    recovered: dict[str, str] = {}
+    for item in tuple(result.fields.values()):
+        if item.field is None or item.location == "quadrature_points":
+            continue
+        function = getattr(item.field, "value", item.field)
+        if not _is_discontinuous(function):
+            continue
+        if _element_degree(function.function_space) == 0:
+            continue
+        recovered[item.name] = f"{item.name}_CELL"
+    return recovered
+
+
+def _recover_discontinuous_visualization_fields(
+    result,
+    *,
+    sources: set[str] | None = None,
+) -> dict[str, str]:
+    """Add explicit DG0 cell averages for non-DG0 discontinuous fields.
+
+    XDMF ``Center=\"Cell\"`` stores one scalar/vector/tensor value per cell and
+    therefore cannot represent the multiple local moments of DPC1 or DGk,
+    ``k > 0``.  The exact finite-element field remains live in
+    :class:`SimulationResult`; this output boundary adds a separately named
+    ``*_CELL`` global-L2 projection, which is the physical cell average, and
+    returns the source-to-recovery mapping used to omit only the incompatible
+    representation from the visualization dataset.
+    """
+
+    planned = _discontinuous_visualization_recoveries(result)
+    recovered: dict[str, str] = {}
+    for item in tuple(result.fields.values()):
+        recovered_name = planned.get(item.name)
+        if recovered_name is None:
+            continue
+        if sources is not None and item.name not in sources:
+            continue
+        recovered[item.name] = recovered_name
+        if recovered_name in result.fields:
+            existing = result.fields[recovered_name]
+            required_processing = {
+                "source_position": "discontinuous_finite_element_dofs",
+                "source_field": item.name,
+                "method": "global_l2_projection",
+                "representation": "cell_average",
+                "target_space": "DG0",
+            }
+            if (
+                existing.field is None
+                or existing.location != "cells"
+                or any(
+                    existing.processing.get(key) != value
+                    for key, value in required_processing.items()
+                )
+            ):
+                raise ValueError(
+                    f"Visualization recovery name {recovered_name!r} already "
+                    f"exists but is not the DG0 cell average of {item.name!r}. "
+                    "Choose a non-conflicting scientific field name."
+                )
+            continue
+        function = getattr(item.field, "value", item.field)
+        from .projection import project
+
+        field = project(
+            function,
+            domain=function.function_space.mesh,
+            family="DG",
+            degree=0,
+            name=recovered_name,
+        )
+        result.add_field(
+            recovered_name,
+            field,
+            unit=item.unit,
+            location="cells",
+            description=(
+                f"Physical cell average recovered from the higher-order "
+                f"discontinuous field {item.name}."
+            ),
+            processing={
+                "source_position": "discontinuous_finite_element_dofs",
+                "source_field": item.name,
+                "source_space_degree": _element_degree(function.function_space),
+                "method": "global_l2_projection",
+                "representation": "cell_average",
+                "target_space": "DG0",
+                "postprocessed": True,
+                "nodal_extrapolation": False,
+                "interelement_smoothing": False,
+                "material_boundary_averaging": False,
+            },
+        )
+    return recovered
+
+
+def _is_discontinuous(function) -> bool:
+    """Return the element discontinuity flag without relying on family text."""
+
+    element = function.function_space.element
+    basix_element = getattr(element, "basix_element", None)
+    discontinuous = getattr(basix_element, "discontinuous", None)
+    if discontinuous is not None:
+        return bool(discontinuous)
+    family = str(function.function_space.ufl_element().family()).lower()
+    return "discontinuous" in family or family in {"dg", "dp", "dpc"}
+
+
 def _unified_field_values(
     field,
     *,
@@ -818,12 +971,7 @@ def _unified_field_values(
     """Return XDMF center and values for one supported finite-element field."""
 
     function = field.field if hasattr(field, "field") else field
-    element = function.function_space.element
-    basix_element = getattr(element, "basix_element", None)
-    discontinuous = getattr(basix_element, "discontinuous", None)
-    if discontinuous is None:
-        family = str(function.function_space.ufl_element().family()).lower()
-        discontinuous = "discontinuous" in family or family in {"dg", "dp"}
+    discontinuous = _is_discontinuous(function)
     values = np.asarray(function.x.array)
     value_shape = tuple(getattr(function, "ufl_shape", ()))
     value_size = int(np.prod(value_shape)) if value_shape else 1

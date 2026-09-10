@@ -2,8 +2,10 @@ from __future__ import annotations
 
 import json
 
+import basix.ufl
 import numpy as np
 import pytest
+from dolfinx import fem
 from mpi4py import MPI
 
 from agentfem import (
@@ -336,6 +338,65 @@ def test_portable_transient_state_can_bypass_partition_identity(tmp_path):
     source = restarted.checkpoints[-1]
     assert source.portable is True
     assert "MPI partitions" in source.metadata["portability"]
+
+
+def test_portable_state_bundle_roundtrips_cell_local_dpc_modes(tmp_path):
+    domain = mesh.rectangle(
+        (0.0, 0.0),
+        (1.0, 1.0),
+        (2, 2),
+        comm=MPI.COMM_SELF,
+        cell_type="quadrilateral",
+    )
+    mixed = fields.displacement_pressure(
+        domain,
+        displacement_degree=2,
+        pressure_family="DPC",
+        pressure_degree=1,
+    )
+    pressure = mixed.collapsed_pressure(name="MEAN_KIRCHHOFF_STRESS")
+    expected = np.linspace(-3.0, 5.0, pressure.x.array.size)
+    pressure.x.array[:] = expected
+    pressure.x.scatter_forward()
+
+    bundle = checkpointing.save_portable_state_bundle(
+        tmp_path / "dpc_moments",
+        state={"P": pressure},
+    )
+    identity = bundle["identities"]["P"]
+    assert identity["key"] == "original_physical_cell_and_local_dof"
+    assert identity["cell_local_layout"]["global_cells"] == 4
+    assert len(identity["cell_local_layout"]["sha256"]) == 64
+
+    pressure.x.array[:] = 0.0
+    checkpointing.load_portable_state_bundle(
+        tmp_path / "dpc_moments",
+        state={"P": pressure},
+        record=bundle["record"],
+        identities=bundle["identities"],
+    )
+    np.testing.assert_array_equal(pressure.x.array, expected)
+
+
+def test_portable_nonpointwise_fallback_rejects_shared_facet_moments():
+    domain = mesh.rectangle(
+        (0.0, 0.0),
+        (1.0, 1.0),
+        (2, 2),
+        comm=MPI.COMM_SELF,
+        cell_type="quadrilateral",
+    )
+    space = fem.functionspace(
+        domain,
+        basix.ufl.element("RT", domain.basix_cell(), 1),
+    )
+    flux = fem.Function(space, name="Flux")
+
+    with pytest.raises(
+        NotImplementedError,
+        match="top-dimensional cell interior",
+    ):
+        checkpointing.function_portable_identity(flux)
 
 
 def test_heat_restart_matches_uninterrupted_state_and_thermal_history(tmp_path):

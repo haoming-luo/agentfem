@@ -2893,7 +2893,7 @@ and evidence remain in the linked guides and scientific function reference.</p>
 </tr>
 <tr>
 <td>function</td>
-<td><code>displacement_pressure(domain, *, displacement_degree: int = 2, pressure_degree: int = 0, name: str = 'DisplacementPressure') -&gt; DisplacementPressureUnknown</code></td>
+<td><code>displacement_pressure(domain, *, displacement_degree: int = 2, pressure_degree: int = 0, pressure_family: str = 'DG', name: str = 'DisplacementPressure') -&gt; DisplacementPressureUnknown</code></td>
 <td>Create a mixed displacement/pressure unknown.</td>
 </tr>
 <tr>
@@ -6250,6 +6250,11 @@ and evidence remain in the linked guides and scientific function reference.</p>
 </tr>
 <tr>
 <td>function</td>
+<td><code>finite_strain_j2_mixed_affine_problem(*, target, material: FiniteStrainJ2Logarithmic \| QuadratureMaterialMap, constraint, incrementation = None, solver_options = None, quadrature_degree: int = 2, output_every: int \| None = 1, output_factors = (), progress = True, status_file = None, checkpoint_policy = None, name: str = 'finite_strain_j2_mixed')</code></td>
+<td>Build mixed logarithmic-J2 equilibrium under affine kinematics.</td>
+</tr>
+<tr>
+<td>function</td>
 <td><code>finite_strain_j2_standard_problem(*, displacement, material: FiniteStrainJ2Logarithmic \| QuadratureMaterialMap, external_force = None, load_identity = None, constraints = (), incrementation = None, solver_options = None, quadrature_degree: int = 2, amplitude = None, output_every: int \| None = 1, output_factors = (), progress = True, status_file = None, checkpoint_policy = None, name: str = 'finite_strain_j2') -&gt; FiniteStrainJ2StandardProblem</code></td>
 <td>Build stateful finite-strain J2 under ordinary strong boundaries.</td>
 </tr>
@@ -8389,7 +8394,7 @@ and evidence remain in the linked guides and scientific function reference.</p>
 </tr>
 <tr>
 <td>function</td>
-<td><code>displacement_pressure_space(domain, *, displacement_degree: int = 2, pressure_degree: int = 0)</code></td>
+<td><code>displacement_pressure_space(domain, *, displacement_degree: int = 2, pressure_degree: int = 0, pressure_family: str = 'DG')</code></td>
 <td>Create the mixed <code>H1</code> displacement / discontinuous-pressure space.</td>
 </tr>
 <tr>

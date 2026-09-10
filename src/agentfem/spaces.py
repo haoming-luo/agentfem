@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import basix
 import basix.ufl
 import ufl
 from dolfinx import fem
@@ -79,13 +80,17 @@ def displacement_pressure_space(
     *,
     displacement_degree: int = 2,
     pressure_degree: int = 0,
+    pressure_family: str = "DG",
 ):
     """Create the mixed ``H1`` displacement / discontinuous-pressure space.
 
     The default ``P2/DG0`` pair provides one constant pressure unknown per
     cell.  This is AgentFEM's explicit mixed-field analogue for constant-
     pressure hybrid solid formulations such as Abaqus ``C3D10H``; the mesh
-    topology alone never selects this formulation implicitly.
+    topology alone never selects this formulation implicitly.  ``DPC`` is an
+    explicit alternative on quadrilateral and hexahedral cells; in particular,
+    ``P2/DPC1`` gives the complete three-mode discontinuous pressure space on a
+    quadrilateral without changing the public mixed-field contract.
     """
 
     domain = _domain(domain)
@@ -100,14 +105,47 @@ def displacement_pressure_space(
         int(displacement_degree),
         shape=(int(domain.geometry.dim),),
     )
-    pressure_element = basix.ufl.element(
-        "DG",
+    pressure_element = _discontinuous_pressure_element(
         cell,
-        int(pressure_degree),
+        degree=int(pressure_degree),
+        family=pressure_family,
     )
     return fem.functionspace(
         domain,
         basix.ufl.mixed_element((displacement_element, pressure_element)),
+    )
+
+
+def _discontinuous_pressure_element(
+    cell: basix.CellType,
+    *,
+    degree: int,
+    family: str,
+):
+    """Construct from the deliberately small public pressure-family set."""
+
+    if not isinstance(family, str):
+        raise TypeError("pressure_family must be a string: 'DG' or 'DPC'.")
+    selected = family.strip().upper()
+    if selected == "DG":
+        return basix.ufl.element("DG", cell, degree)
+    if selected != "DPC":
+        raise ValueError("pressure_family must be either 'DG' or 'DPC'.")
+    supported_cells = {
+        basix.CellType.quadrilateral,
+        basix.CellType.hexahedron,
+    }
+    if cell not in supported_cells:
+        raise ValueError(
+            "DPC pressure interpolation requires a quadrilateral or "
+            f"hexahedron cell; received {cell.name}."
+        )
+    return basix.ufl.element(
+        basix.ElementFamily.DPC,
+        cell,
+        degree,
+        dpc_variant=basix.DPCVariant.legendre,
+        discontinuous=True,
     )
 
 
