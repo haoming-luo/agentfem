@@ -306,6 +306,71 @@ def test_displacement_controlled_3d_elastic_patch_writes_standard_fields(tmp_pat
     assert field_records["S"]["processing"]["interelement_smoothing"] is False
 
 
+def test_provider_reaction_distribution_is_written_with_static_result(tmp_path):
+    domain = mesh.rectangle(
+        (0.0, 0.0),
+        (1.0, 0.4),
+        (8, 3),
+        comm=MPI.COMM_SELF,
+        cell_type="triangle",
+    )
+    model = models.create(
+        study=studies.static_solid(dimension=2, assumption="plane_stress"),
+        mesh=domain,
+        name="foundation_output",
+    )
+    displacement = model.field(fields.displacement(domain))
+    model.material(
+        elasticity.isotropic_elastic(
+            young=2.0e3,
+            poisson=0.25,
+            density=1.0,
+        )
+    )
+    left = mesh.boundary(
+        domain,
+        lambda x: np.isclose(x[0], 0.0),
+        name="foundation_face",
+    )
+    right = mesh.boundary(
+        domain,
+        lambda x: np.isclose(x[0], 1.0),
+        name="loaded_face",
+    )
+    model.elastic_foundation(
+        on=left,
+        stiffness=5.0e3,
+        mode="isotropic",
+        name="left_foundation",
+    )
+    model.traction((10.0, 0.0), on=right)
+
+    output = tmp_path / "foundation.xdmf"
+    simulation = model.step(target=displacement).solve_result(
+        output=output,
+        strict_output=True,
+    )
+
+    assert "left_foundation_reaction" in simulation.fields
+    assert "left_foundation_reaction" in (
+        simulation.metadata["field_output_fields"]["included"]
+    )
+    attributes = {
+        item.attrib["Name"]: item.attrib["Center"]
+        for item in ET.parse(output).findall(
+            ".//Grid[@GridType='Uniform']/Attribute"
+        )
+    }
+    assert attributes["left_foundation_reaction"] == "Node"
+    with h5py.File(output.with_suffix(".h5"), "r") as h5:
+        reaction = np.asarray(
+            h5["Frames/0000/Point/left_foundation_reaction"]
+        )
+    assert reaction.shape[1] == 3
+    np.testing.assert_allclose(reaction[:, 2], 0.0)
+    assert np.max(np.linalg.norm(reaction[:, :2], axis=1)) > 0.0
+
+
 def test_two_material_elastic_bar_has_piecewise_fields_and_boundary_reaction():
     domain = mesh.rectangle(
         (0.0, 0.0),

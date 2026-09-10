@@ -129,6 +129,7 @@
       "Check the automatically attached assembled-force, strong-reaction, and relative global balance evidence.",
       "Check that unresolved periodic/MPC evidence suppresses partial force and work balances and reports the missing named channel.",
       "Check that elastic-foundation reactions close force balance while their stored energy remains in system strain energy rather than being counted twice.",
+      "Require provider-owned nodal reaction distributions to follow the ordinary solve_result(output=...) path into the same visualization dataset.",
       "Verify a regional two-material series bar through one piecewise projection.",
       "Require a prepared projection to track a changed live field while reusing one assembled mass operator and output Function."
     ]

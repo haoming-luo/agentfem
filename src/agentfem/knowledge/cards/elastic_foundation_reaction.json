@@ -70,7 +70,7 @@
     ]
   },
   "usage": {
-    "minimal_example": "support = mesh.boundary(domain, left, name='support')\nmodel.elastic_foundation(on=support, stiffness=5.0e6, mode='isotropic')\nresult = model.step(target=displacement).solve_result()",
+    "minimal_example": "support = mesh.boundary(domain, left, name='support')\nmodel.elastic_foundation(on=support, stiffness=5.0e6, mode='isotropic')\nresult = model.step(target=displacement).solve_result(output='foundation.xdmf')",
     "examples": [
       "tests/test_parallel_affine.py"
     ]
@@ -78,7 +78,8 @@
   "verification": {
     "tests": [
       "tests/test_engineering_workflows.py",
-      "tests/test_parallel_affine.py"
+      "tests/test_parallel_affine.py",
+      "tests/test_results.py"
     ],
     "benchmarks": [
       "agentfem.benchmark.elasticity_foundation"
@@ -88,7 +89,8 @@
       "Recover the applied boundary resultant from the distributed foundation reaction.",
       "Require serial and two-rank force balance at numerical tolerance.",
       "Require proportional linear work closure without adding foundation energy twice.",
-      "Retain the provider-owned nodal reaction distribution in SimulationResult."
+      "Retain the provider-owned nodal reaction distribution in SimulationResult.",
+      "Write the nodal reaction beside displacement and stress in the ordinary single-grid XDMF/HDF5 result."
     ]
   },
   "references": [

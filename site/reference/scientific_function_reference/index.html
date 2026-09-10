@@ -16938,13 +16938,14 @@ a_f(\mathbf{u},\mathbf{v})=\int_{\Gamma_f}k\mathbf{u}\cdot\mathbf{v}\,d\Gamma,\q
 <h3 id="minimal-example_16">Minimal example<a class="headerlink" href="#minimal-example_16" title="Permanent link">&para;</a></h3>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-16-1" name="__codelineno-16-1" href="#__codelineno-16-1"></a><span class="n">support</span> <span class="o">=</span> <span class="n">mesh</span><span class="o">.</span><span class="n">boundary</span><span class="p">(</span><span class="n">domain</span><span class="p">,</span> <span class="n">left</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="s1">&#39;support&#39;</span><span class="p">)</span>
 <a id="__codelineno-16-2" name="__codelineno-16-2" href="#__codelineno-16-2"></a><span class="n">model</span><span class="o">.</span><span class="n">elastic_foundation</span><span class="p">(</span><span class="n">on</span><span class="o">=</span><span class="n">support</span><span class="p">,</span> <span class="n">stiffness</span><span class="o">=</span><span class="mf">5.0e6</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="s1">&#39;isotropic&#39;</span><span class="p">)</span>
-<a id="__codelineno-16-3" name="__codelineno-16-3" href="#__codelineno-16-3"></a><span class="n">result</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">step</span><span class="p">(</span><span class="n">target</span><span class="o">=</span><span class="n">displacement</span><span class="p">)</span><span class="o">.</span><span class="n">solve_result</span><span class="p">()</span>
+<a id="__codelineno-16-3" name="__codelineno-16-3" href="#__codelineno-16-3"></a><span class="n">result</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">step</span><span class="p">(</span><span class="n">target</span><span class="o">=</span><span class="n">displacement</span><span class="p">)</span><span class="o">.</span><span class="n">solve_result</span><span class="p">(</span><span class="n">output</span><span class="o">=</span><span class="s1">&#39;foundation.xdmf&#39;</span><span class="p">)</span>
 </code></pre></div>
 <h3 id="verification_16">Verification<a class="headerlink" href="#verification_16" title="Permanent link">&para;</a></h3>
 <p><strong>Tests</strong></p>
 <ul>
 <li><code>tests/test_engineering_workflows.py</code></li>
 <li><code>tests/test_parallel_affine.py</code></li>
+<li><code>tests/test_results.py</code></li>
 </ul>
 <p><strong>Benchmarks</strong></p>
 <ul>
@@ -16957,6 +16958,7 @@ a_f(\mathbf{u},\mathbf{v})=\int_{\Gamma_f}k\mathbf{u}\cdot\mathbf{v}\,d\Gamma,\q
 <li>Require serial and two-rank force balance at numerical tolerance.</li>
 <li>Require proportional linear work closure without adding foundation energy twice.</li>
 <li>Retain the provider-owned nodal reaction distribution in SimulationResult.</li>
+<li>Write the nodal reaction beside displacement and stress in the ordinary single-grid XDMF/HDF5 result.</li>
 </ul>
 <h3 id="references_16">References<a class="headerlink" href="#references_16" title="Permanent link">&para;</a></h3>
 <ul>
@@ -20129,6 +20131,7 @@ W_{\mathrm{ext}}=\tfrac{1}{2}\mathbf{u}^{T}\mathbf{F}+\tfrac{1}{2}\mathbf{R}_{c}
 <li>Check the automatically attached assembled-force, strong-reaction, and relative global balance evidence.</li>
 <li>Check that unresolved periodic/MPC evidence suppresses partial force and work balances and reports the missing named channel.</li>
 <li>Check that elastic-foundation reactions close force balance while their stored energy remains in system strain energy rather than being counted twice.</li>
+<li>Require provider-owned nodal reaction distributions to follow the ordinary solve_result(output=...) path into the same visualization dataset.</li>
 <li>Verify a regional two-material series bar through one piecewise projection.</li>
 <li>Require a prepared projection to track a changed live field while reusing one assembled mass operator and output Function.</li>
 </ul>

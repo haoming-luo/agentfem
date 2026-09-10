@@ -2209,7 +2209,7 @@ The same reviewed operator supplies tangent stiffness, nodal reaction recovery, 
 ```python
 support = mesh.boundary(domain, left, name='support')
 model.elastic_foundation(on=support, stiffness=5.0e6, mode='isotropic')
-result = model.step(target=displacement).solve_result()
+result = model.step(target=displacement).solve_result(output='foundation.xdmf')
 ```
 
 ### Verification
@@ -2218,6 +2218,7 @@ result = model.step(target=displacement).solve_result()
 
 - `tests/test_engineering_workflows.py`
 - `tests/test_parallel_affine.py`
+- `tests/test_results.py`
 
 **Benchmarks**
 
@@ -2230,6 +2231,7 @@ result = model.step(target=displacement).solve_result()
 - Require serial and two-rank force balance at numerical tolerance.
 - Require proportional linear work closure without adding foundation energy twice.
 - Retain the provider-owned nodal reaction distribution in SimulationResult.
+- Write the nodal reaction beside displacement and stress in the ordinary single-grid XDMF/HDF5 result.
 
 ### References
 
@@ -4942,6 +4944,7 @@ peak = results.field_extrema(result.fields['MISES'], location=True)
 - Check the automatically attached assembled-force, strong-reaction, and relative global balance evidence.
 - Check that unresolved periodic/MPC evidence suppresses partial force and work balances and reports the missing named channel.
 - Check that elastic-foundation reactions close force balance while their stored energy remains in system strain energy rather than being counted twice.
+- Require provider-owned nodal reaction distributions to follow the ordinary solve_result(output=...) path into the same visualization dataset.
 - Verify a regional two-material series bar through one piecewise projection.
 - Require a prepared projection to track a changed live field while reusing one assembled mass operator and output Function.
 
