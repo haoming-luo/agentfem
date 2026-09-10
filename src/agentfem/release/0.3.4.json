@@ -44,7 +44,7 @@
       "id": "finite-strain-j2-rve",
       "maturity": "experimental",
       "example": "tests/periodic_void_fixture.py",
-      "evidence": ["material-point-paths", "consistent-tangent", "strong-and-affine-periodic-global-equilibrium", "cutback-and-cross-rank-restart", "mpi-portable-state", "plastic-dissipation-output", "void-and-multi-void-goldens", "state-bound-condensed-homogenized-algorithmic-tangent"]
+      "evidence": ["material-point-paths", "consistent-tangent", "strong-and-affine-periodic-global-equilibrium", "cutback-and-cross-rank-restart", "mpi-portable-state", "plastic-dissipation-output", "void-and-multi-void-goldens", "state-bound-condensed-homogenized-algorithmic-tangent", "fixed-mesh-2-4-8-load-path-stability"]
     },
     {
       "id": "lefm-interaction-integral",
@@ -56,7 +56,13 @@
       "id": "delamination-structural-family",
       "maturity": "engineering",
       "example": "tests/test_delamination_fem_benchmark.py",
-      "evidence": ["assembled-dcb-compliance", "irreversible-dcb-propagation", "assembled-enf-compliance", "work-energy-and-convergence-certificates"]
+      "evidence": ["assembled-dcb-compliance", "irreversible-dcb-propagation", "assembled-enf-compliance", "work-energy-and-convergence-certificates", "shared-monotonic-target-cutback-control"]
+    },
+    {
+      "id": "constraint-and-weak-boundary-duals",
+      "maturity": "engineering",
+      "example": "tests/test_results.py",
+      "evidence": ["exact-rectangular-mpc-dual", "serial-and-two-rank-resultant", "scalar-normal-and-matrix-elastic-foundation", "reaction-work-and-stored-energy-closure", "single-grid-provider-reaction-output"]
     },
     {
       "id": "dynamic-cohesive-fracture",
@@ -122,7 +128,12 @@
     "modal-two-rank-fail-together-and-teardown",
     "harmonic-complete-request-freeze",
     "harmonic-structured-response-mpi-safety",
-    "finite-strain-rve-condensed-tangent-state-binding"
+    "finite-strain-rve-condensed-tangent-state-binding",
+    "exact-mpc-physical-dual-and-mpi-resultant",
+    "elastic-foundation-reaction-energy-closure",
+    "provider-reaction-single-dataset-output",
+    "finite-strain-rve-load-path-stability",
+    "shared-monotonic-target-cutback"
   ],
   "not_release_claims": [
     "universal finite-element coverage",

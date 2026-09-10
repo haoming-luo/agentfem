@@ -6,6 +6,8 @@ experimental formulation to a validated one.
 
 ## [Unreleased]
 
+## [0.3.4] - 2026-09-10
+
 ### Added
 
 - Add experimental mixed finite-strain J2 routes under exact affine-periodic
@@ -38,6 +40,18 @@ experimental formulation to a validated one.
 - Add structured harmonic region-average and point-probe responses. Local
   finite-element evaluation now finishes on every rank before AgentFEM owns
   the MPI reduction or deterministic point-owner selection.
+- Recover the exact rectangular-MPC multiplier from the owned slave residual
+  and expose the corresponding physical nodal reaction, global resultant,
+  constraint gap and virtual-work evidence in serial and across two ranks.
+- Add conservative elastic foundations with scalar isotropic, scalar normal
+  and symmetric positive-semidefinite matrix stiffness. Provider-owned nodal
+  reactions, resultants and stored energy now enter the common balance ledger.
+- Publish provider-owned reaction fields through the same compact XDMF/HDF5
+  dataset as ordinary results, including three-component ParaView-compatible
+  output for two-dimensional vector fields.
+- Add a content-bound fixed-mesh 2/4/8-increment certificate for the
+  finite-strain multi-void J2 RVE and an opt-in installed-wheel CI route for
+  the long scientific path.
 
 ### Changed
 
@@ -69,6 +83,9 @@ experimental formulation to a validated one.
 - Restrict the long Zhang diagnostic drivers to final-state spatial output;
   accepted scalar and homogenized histories remain available without writing
   one full field dataset per load increment.
+- Share one monotonic-target advance controller across nonlinear procedures.
+  It owns accepted targets, bounded cutback, rollback and structured progress
+  without moving constitutive or fracture state into the controller.
 - Make modal and direct-harmonic publication bind the operators, live
   coefficients, mesh and constrained DOFs actually solved. Linear modal
   extraction rejects nonhomogeneous, time-dependent and remote prescribed
@@ -113,6 +130,12 @@ experimental formulation to a validated one.
   three-pressure-mode 9/3 element. Table 5 remains unpromoted until the
   declared path, effective-tangent, replication, MPI/restart, and
   external-evidence gates pass.
+- General contact still has no universal provider dual. Exact MPC and elastic
+  foundation balance evidence applies only to their declared formulations;
+  unsupported weak or contact reactions continue to fail closed.
+- The fixed-mesh RVE load-path certificate is numerical path-stability
+  evidence for its declared mesh and load, not an external validation of an
+  arbitrary porous microstructure or a mesh-convergence claim.
 
 ## [0.3.3] - 2026-09-10
 

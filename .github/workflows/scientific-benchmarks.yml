@@ -6,6 +6,11 @@ permissions:
 on:
   workflow_dispatch:
     inputs:
+      run_nafems_creep:
+        description: Run the NAFEMS R0027 Test 7 creep comparison
+        required: true
+        type: boolean
+        default: true
       radial_cells:
         description: NAFEMS cylinder radial cells
         required: true
@@ -26,6 +31,7 @@ on:
 
 jobs:
   nafems-creep:
+    if: ${{ inputs.run_nafems_creep }}
     runs-on: ubuntu-latest
     timeout-minutes: 60
     env:
