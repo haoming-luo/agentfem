@@ -7,10 +7,58 @@ on:
   workflow_dispatch:
   push:
     branches: ["main"]
-    tags: ["v*"]
   pull_request:
 
+# A newer commit on the same branch or pull request supersedes an unfinished
+# development run. Release-tag evidence is produced by the immutable wheel,
+# platform-acceptance, and runtime-installer workflows instead of this one.
+concurrency:
+  group: test-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 jobs:
+  change-scope:
+    name: Classify validation scope
+    runs-on: ubuntu-latest
+    outputs:
+      numerical: ${{ steps.scope.outputs.numerical }}
+    steps:
+      - name: Check out enough history to classify the change
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Distinguish documentation-only changes
+        id: scope
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          BEFORE_SHA: ${{ github.event.before }}
+          PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: |
+          if [[ "${EVENT_NAME}" == "workflow_dispatch" ]]; then
+            echo "numerical=true" >> "${GITHUB_OUTPUT}"
+            exit 0
+          fi
+
+          BASE_SHA="${PR_BASE_SHA:-${BEFORE_SHA}}"
+          if [[ -z "${BASE_SHA}" || "${BASE_SHA}" =~ ^0+$ ]]; then
+            echo "numerical=true" >> "${GITHUB_OUTPUT}"
+            exit 0
+          fi
+
+          NUMERICAL=false
+          while IFS= read -r path; do
+            case "${path}" in
+              README.md|CONTRIBUTING.md|AGENT_GUIDE.md|WORKFLOW.md|CONCEPTS.md|CITATION.cff|docs/*|site/*|mkdocs.yml)
+                ;;
+              *)
+                NUMERICAL=true
+                break
+                ;;
+            esac
+          done < <(git diff --name-only "${BASE_SHA}" "${GITHUB_SHA}")
+          echo "numerical=${NUMERICAL}" >> "${GITHUB_OUTPUT}"
+
   static-analysis:
     name: Python correctness lint
     runs-on: ubuntu-latest
@@ -55,6 +103,8 @@ jobs:
 
   documentation:
     name: Documentation and machine entrypoints
+    needs: change-scope
+    if: needs.change-scope.outputs.numerical == 'true'
     runs-on: ubuntu-latest
     steps:
       - name: Check out repository
@@ -74,6 +124,8 @@ jobs:
           python -m mkdocs build --strict
 
   fenicsx:
+    needs: change-scope
+    if: needs.change-scope.outputs.numerical == 'true'
     runs-on: ubuntu-latest
     # Azure-hosted runners may expose a MANA verbs device that UCX discovers
     # but cannot initialize. The release path needs only local/shared-memory
@@ -251,6 +303,8 @@ jobs:
 
   ml-optional:
     name: Optional PyTorch bridge
+    needs: change-scope
+    if: needs.change-scope.outputs.numerical == 'true'
     runs-on: ubuntu-latest
     # Azure-hosted runners expose a MANA verbs device that UCX can select even
     # though it cannot create the required UD queue pair.  The ML bridge only

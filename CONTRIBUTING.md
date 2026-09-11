@@ -71,8 +71,10 @@ If the issue requires proprietary input, first reduce it to a synthetic case.
 
 ## Pull-request Checklist
 
-Before opening a pull request, run the smallest relevant tests and then the
-full suite when the environment permits:
+Before opening a pull request, run the smallest relevant tests first. Run the
+complete serial suite for cross-cutting numerical changes and before a release;
+do not repeat it after a documentation-only edit when the tested code commit is
+unchanged:
 
 ```bash
 python -m pytest -q
@@ -89,7 +91,8 @@ two ranks.
 
 See [`docs/development_testing.md`](docs/development_testing.md) for the
 targeted, serial, MPI, CI, and release validation layers. Full remote CI remains
-the merge evidence even when targeted local tests make development faster.
+the merge evidence for numerical changes even when targeted local tests make
+development faster.
 
 ## Commercial Extensions
 

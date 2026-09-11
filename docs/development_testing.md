@@ -10,9 +10,10 @@ the most expensive command after every keystroke.
 | --- | --- | --- |
 | Inner development loop | Direct unit/interface tests for the changed owner | `python -m pytest -q tests/test_extensions.py` |
 | Before committing | Related workflow tests, critical static analysis, misuse tests, and generated-asset checks | `ruff check . --no-cache`; `python build_knowledge.py --check --check-imports`; `python build_docs.py --check` |
-| Before pushing a coherent code change | Complete serial suite | `python -m pytest -q` |
+| Before pushing a coherent code change | Related suites; complete serial for cross-cutting numerical changes | `python -m pytest -q` when the change can cross ownership boundaries |
 | MPI-sensitive change | Relevant two-rank modules using the verified launcher | `agentfem mpi-run -n 2 -- python -m pytest ...` |
-| Pull request and `main` | Wheel installation, full serial, MPI, checkpoint portability, examples, documentation, and optional PyTorch bridge | GitHub Actions `Test` workflow |
+| Numerical pull request and `main` | Wheel installation, full serial, MPI, checkpoint portability, examples, documentation, and optional PyTorch bridge | GitHub Actions `Test` workflow |
+| Documentation-only pull request and `main` | Static correctness plus strict documentation build; no FEniCSx or PyTorch environment rebuild | GitHub Actions `Test` and `Documentation` workflows |
 | Release candidate/tag | All preceding checks plus distribution inspection and installed-wheel release smoke | `python release_gate.py --dist dist --smoke` |
 
 ## Source and installed-wheel evidence are separate
@@ -64,15 +65,37 @@ wheel; those same drivers then provide installed-artifact evidence.
 
 ## Why AgentFEM still runs full CI frequently
 
-AgentFEM currently has a compact suite: the local complete serial run is much
-cheaper than a nonlinear simulation campaign. Cross-module coupling is also
-high—changes to `Model`, providers, output, mesh identity, or checkpointing can
-affect many workflows. Therefore every push and pull request currently earns a
-full remote gate.
+Cross-module coupling is high—changes to `Model`, providers, output, mesh
+identity, or checkpointing can affect many workflows. A coherent numerical
+push or pull request therefore earns the full remote gate. Documentation-only
+changes retain static and strict documentation checks without rebuilding the
+FEniCSx or PyTorch environments. New commits cancel superseded development
+runs; immutable tag and release evidence is never replaced this way.
 
 Developers should still begin with the smallest relevant tests. Re-running the
 entire environment and MPI matrix after every one-line edit wastes time and
-delays diagnosis.
+delays diagnosis. Related edits should be collected into one reviewable commit
+and pushed after local evidence is green; a remote quota or infrastructure
+failure is recorded once rather than retried until green.
+
+## CI resource policy
+
+Validation depth follows the evidence claim, not the number of edited files:
+
+1. use targeted local tests while developing;
+2. push coherent changes rather than each intermediate edit;
+3. keep pull-request and `main` numerical gates complete;
+4. reserve hosted platform matrices, installers, and expensive scientific
+   benchmarks for tags, explicit dispatch, or scheduled evidence;
+5. let a newer development commit cancel an obsolete run;
+6. reuse evidence only when it remains bound to the exact code and artifact
+   digest that produced it.
+
+[Standard hosted runners are free for public repositories and metered for
+private repositories](https://docs.github.com/en/billing/concepts/product-billing/github-actions),
+but queue time, compute, storage, and reviewer attention are still finite
+engineering resources. Cost control must not weaken a release claim; equally,
+repeated computation that proves no new claim is not verification.
 
 ## When the suite grows
 
