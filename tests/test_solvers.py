@@ -201,6 +201,42 @@ def test_standard_reporter_default_hides_routine_newton_noise_but_keeps_status(
     assert "CONVERGED" in status.read_text(encoding="utf-8")
 
 
+def test_standard_reporter_heartbeat_exposes_long_nonlinear_iteration(
+    tmp_path,
+    capsys,
+):
+    comm = type("Comm", (), {"rank": 0})()
+    status = tmp_path / "job.sta"
+    reporter = StandardRunReporter(
+        comm,
+        status_file=status,
+        verbosity=0,
+        heartbeat_seconds=30.0,
+    )
+    reporter._last_heartbeat -= 31.0
+
+    reporter.emit(
+        SolveEvent(
+            "iteration",
+            "finite_strain_j2",
+            step_number=1,
+            increment=7,
+            attempt=1,
+            start_factor=0.30,
+            target_factor=0.35,
+            iteration=4,
+            residual_norm=2.5e-7,
+        )
+    )
+
+    console = capsys.readouterr().out
+    assert "[INC 7 | ITER 4] RUNNING" in console
+    assert "progress=35.0%" in console
+    assert "load=0.35" in console
+    assert "residual=2.500000e-07" in console
+    assert "RUNNING" in status.read_text(encoding="utf-8")
+
+
 def test_hidden_progress_event_is_recorded_but_not_printed(capsys):
     comm = type("Comm", (), {"rank": 0})()
     recorder = SolveEventRecorder()

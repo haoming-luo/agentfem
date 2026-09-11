@@ -177,8 +177,10 @@ dynamics evaluate them at physical time.
 
 ## Standard run feedback
 
-Nonlinear steps report progress on MPI rank zero without requiring routine CLI
-flags:
+Nonlinear steps report a concise rank-zero lifecycle without requiring routine
+CLI flags. The default stream keeps step boundaries, cutbacks, failures and a
+30-second wall-clock heartbeat; set `AGENTFEM_VERBOSITY=1` for every accepted
+increment or `AGENTFEM_VERBOSITY=2` for every Newton iteration:
 
 ```text
 [STEP 1] periodic_neo_hookean | automatic_incrementation
@@ -191,11 +193,13 @@ Passing `status_file="job.sta"` adds a flushed, line-oriented status record.
 `progress=False` remains available for managed campaigns, but silence is not
 the interactive default.
 
-Transient reporters also provide a wall-clock heartbeat when a nominal
-`print_every` interval takes unusually long. The default is deliberately
-coarse (30 seconds): it reports accepted increment/time, completion, rate,
-approximate ETA, stability information when available, and the latest energy
-error without emitting one line per internal operation.
+Transient and nonlinear reporters also provide a wall-clock heartbeat when a
+nominal output interval or one accepted load increment takes unusually long.
+The default is deliberately coarse (30 seconds). Transient heartbeats report
+accepted increment/time, completion, rate, approximate ETA, stability
+information when available, and the latest energy error. Nonlinear heartbeats
+report the active increment, load factor and latest completed Newton residual.
+Neither mode emits one line per internal operation.
 
 The event recorder is bounded rather than proportional to an arbitrarily long
 run. It retains up to 4096 execution events, preferentially preserving visible

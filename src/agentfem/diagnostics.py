@@ -104,10 +104,10 @@ def print_on_root(obj, *args, root: int = 0, flush: bool = True, **kwargs) -> No
 class StandardRunReporter:
     """Immediate rank-zero progress for long-running analysis steps.
 
-    The console is deliberately human-facing.  Transient output is throttled
-    both by the solver's step cadence and a wall-clock heartbeat, so a slow
-    increment loop remains observable without retaining or printing one record
-    per increment.  When ``status_file`` is given, every visible event is
+    The console is deliberately human-facing.  Transient and nonlinear output
+    is throttled by the solver cadence and a wall-clock heartbeat, so a slow
+    increment remains observable without retaining or printing one record per
+    internal operation.  When ``status_file`` is given, every visible event is
     flushed immediately for terminals, schedulers, and agents.
     """
 
@@ -145,12 +145,19 @@ class StandardRunReporter:
         elapsed = monotonic() - self._started
         kind = event.kind
         visible = bool(getattr(event, "display", True))
+        heartbeat = False
         if kind in {"time_increment", "sweep_point"} and not visible:
             now = monotonic()
             visible = now - self._last_heartbeat >= float(self.heartbeat_seconds)
+            heartbeat = visible
+        elif kind in {"iteration", "increment_converged"} and self.verbosity == 0:
+            now = monotonic()
+            heartbeat = (
+                now - self._last_heartbeat >= float(self.heartbeat_seconds)
+            )
         if not visible:
             return
-        if kind in {"time_increment", "sweep_point"}:
+        if kind in {"time_increment", "sweep_point"} or heartbeat:
             self._last_heartbeat = monotonic()
         if kind == "step_started":
             self._print(
@@ -167,18 +174,34 @@ class StandardRunReporter:
                     f"{event.start_factor:.6g} -> {event.target_factor:.6g} "
                     f"(d={event.target_factor - event.start_factor:.3g})"
                 )
-        elif kind == "iteration" and self.show_iterations:
-            alpha = (
-                ""
-                if event.step_length is None
-                else f" | alpha={event.step_length:.3g}"
-            )
-            self._print(
-                f"    ITER {event.iteration:02d} "
-                f"| residual={event.residual_norm:.6e}{alpha}"
-            )
+        elif kind == "iteration":
+            if self.show_iterations:
+                alpha = (
+                    ""
+                    if event.step_length is None
+                    else f" | alpha={event.step_length:.3g}"
+                )
+                self._print(
+                    f"    ITER {event.iteration:02d} "
+                    f"| residual={event.residual_norm:.6e}{alpha}"
+                )
+            elif heartbeat:
+                self._print(
+                    f"  [INC {event.increment} | ITER {event.iteration}] RUNNING "
+                    f"| progress={100.0 * event.target_factor:.1f}% "
+                    f"| load={event.target_factor:.6g} "
+                    f"| residual={_number(event.residual_norm)} "
+                    f"| elapsed={elapsed:.1f}s"
+                )
+                self._write_status(
+                    f"{event.step_number} {event.increment} {event.attempt} "
+                    f"{event.target_factor:.16g} "
+                    f"{event.target_factor - event.start_factor:.16g} "
+                    f"{event.iteration} {_number(event.residual_norm)} "
+                    f"RUNNING {elapsed:.6f}"
+                )
         elif kind == "increment_converged":
-            if self.verbosity >= 1:
+            if self.verbosity >= 1 or heartbeat:
                 self._print(
                     f"  [INC {event.increment}] CONVERGED "
                     f"| iterations={event.iteration} "
