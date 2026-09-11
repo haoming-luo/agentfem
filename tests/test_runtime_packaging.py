@@ -184,6 +184,15 @@ def test_release_does_not_require_apple_credentials():
     assert "unsigned-preview" in workflow
 
 
+def test_runtime_release_tolerates_pypi_index_propagation_delay():
+    workflow = (ROOT / ".github" / "workflows" / "runtime-installers.yml").read_text(
+        encoding="utf-8"
+    )
+    assert workflow.count("for delay in 0 15 30 60 120") == 2
+    assert workflow.count('test "$downloaded" = true') == 2
+    assert "PyPI has not exposed AgentFEM" in workflow
+
+
 def test_complete_profile_pins_redistributed_gmsh_source_contract():
     builder = (RUNTIME / "build_runtime.py").read_text(encoding="utf-8")
     constructor = (RUNTIME / "macos" / "construct.yaml.in").read_text(
