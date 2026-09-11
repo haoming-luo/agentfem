@@ -13,6 +13,7 @@
     "doi": "https://doi.org/10.1002/nme.6802",
     "open_manuscript": "https://arxiv.org/abs/2010.02371",
     "reference": "Section 3.2.1, Figure 9, Table 5 and Appendix B",
+    "mixed_formulation_reference": "T. Sussman and K.-J. Bathe, Computers & Structures 26 (1987) 357--409, https://doi.org/10.1016/0045-7949(87)90265-3",
     "retrieved": "2026-08-28"
   },
   "parameters": {
@@ -26,6 +27,8 @@
     "matrix_linear_isotropic_hardening_modulus": 0.1,
     "inclusion_stiffness_ratio": 100.0,
     "inclusion_yield_stress": 1000000.0,
+    "published_q9_element_count_unit_cell_1": 2823,
+    "pressure_interpolation": "three element-local discontinuous modes spanning 1, r and s on the reference quadrilateral",
     "macroscopic_deformation_gradient_order": ["11", "21", "12", "22"],
     "macroscopic_deformation_gradient": [1.0, 0.0, 0.1, 1.0]
   },
@@ -41,11 +44,11 @@
     ]
   },
   "execution": {
-    "command": "python tests/zhang_2021_plane_strain_driver.py --mesh-size 0.20 --output outputs/zhang-2021-q9-dpc1",
+    "command": "PYTHONPATH=\"$(pwd)/src\" python tests/zhang_2021_plane_strain_driver.py --mesh-size 0.20 --increments 40 --output outputs/zhang-2021-q9-dpc1",
     "thin_3d_diagnostic_command": "python tests/zhang_2021_periodic_composite_driver.py --mesh-size 0.24 --thickness 0.10 --increments 20 --formulation mixed --output outputs/zhang-2021-thin-3d",
     "example": "docs/reference/rve_homogenization_and_statistics.md",
     "fixture": "tests/zhang_2021_periodic_composite_fixture.py",
-    "evidence": "The fixture creates the published geometry with Gmsh physical regions, exact opposite-face periodic node pairing, the public affine-periodic constraint, regional finite-strain J2 materials, model.step, accepted quadrature state, and periodic-cell history. The primary diagnostic uses the exact two-dimensional Q9/DPC1 plane-strain route, reports an explicitly reconstructed primal Hencky elastic energy beside the condensed mixed channel and its gap decomposition, and condenses the converged full Jacobian through an exact macro-gradient lift to obtain the current-state algorithmic tangent without rerunning the load path. A homogeneous Q9/DPC1 elastic check verifies the tangent convention. The older thin-3D tetrahedral P2/DG0 route and displacement-only P1 route remain diagnostic A/B options. One exploratory 502-cell, 20-increment thin-3D diagnostic reported 1.4324 percent first-Piola vector-L2 error, while P11 and P22 failed the componentwise absolute-plus-relative contract. Its condensed ELENER was 0.002627074, but that is not the Table 5 primal-energy observable and no relative Table 5 energy error is assigned. The reported run also had a 1.054e-8 maximum Hill--Mandel relative residual and zero periodic mismatch. Neither route has a sealed, content-bound evidence archive, so these runs are diagnostic context, not promotion evidence."
+    "evidence": "The fixture creates the published geometry with Gmsh physical regions, exact opposite-face periodic node pairing, the public affine-periodic constraint, regional finite-strain J2 materials, model.step, accepted quadrature state, and periodic-cell history. The primary diagnostic uses the exact two-dimensional Q9/DPC1 plane-strain route, reports an explicitly reconstructed primal Hencky elastic energy beside the condensed mixed channel and its gap decomposition, and condenses the converged full Jacobian through an exact macro-gradient lift to obtain the current-state algorithmic tangent without rerunning the load path. A homogeneous Q9/DPC1 elastic check verifies the tangent convention. Every run records mesh quality, the complete accepted load path, and its element-count fraction of the publication's 2823-element unit-cell-1 mesh; --increments selects an exact uniform path. The older thin-3D tetrahedral P2/DG0 route and displacement-only P1 route remain diagnostic A/B options. One exploratory 502-cell, 20-increment thin-3D diagnostic reported 1.4324 percent first-Piola vector-L2 error, while P11 and P22 failed the componentwise absolute-plus-relative contract. Its condensed ELENER was 0.002627074, but that is not the Table 5 primal-energy observable and no relative Table 5 energy error is assigned. The reported run also had a 1.054e-8 maximum Hill--Mandel relative residual and zero periodic mismatch. Neither route has a sealed, content-bound evidence archive, so these runs are diagnostic context, not promotion evidence."
   },
   "observables": [
     "Homogenized first-Piola stress in the published column-major order.",

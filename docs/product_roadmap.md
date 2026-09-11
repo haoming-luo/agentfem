@@ -99,7 +99,9 @@ Deepen the finite-element core before broadening the catalog:
   solve or restart. The exact Q2/DPC1 Zhang driver now executes the geometry
   and observables and recovers the current-state effective tangent by exact
   Schur condensation of the converged Jacobian; a homogeneous analytical patch
-  verifies that recovery. Promotion still requires Table 5 tangent agreement,
+  verifies that recovery. Diagnostics now record their fraction of the
+  published 2823-element Q9 mesh and can prescribe one exact uniform increment
+  path. Promotion still requires Table 5 tangent agreement,
   formulation and mesh convergence, load-path convergence,
   cell-replication invariance, distributed mixed MPC/restart, a
   production analytical deviatoric tangent, an accuracy study replacing the

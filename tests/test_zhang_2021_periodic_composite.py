@@ -23,9 +23,11 @@ from zhang_2021_periodic_composite_fixture import (
 @pytest.mark.skip(
     reason=(
         "Zhang 2021 Table 5 promotion requires content-bound evidence: the "
-        "thin-3D P2/DG0 diagnostic is not the published 2D Q2/DPC1 "
-        "formulation and has not passed energy/effective-tangent, load-path/"
-        "mesh/cell-size convergence, or serial-MPI and restart equivalence."
+        "formulation-correspondent 2D Q2/DPC1 diagnostic has not passed the "
+        "stress, energy or "
+        "effective-tangent comparison and still lacks load-path/mesh/cell-size "
+        "convergence plus serial-MPI and restart equivalence. The thin-3D "
+        "P2/DG0 diagnostic is not the published formulation."
     )
 )
 def test_zhang_table5_external_numerical_verification_gate():
@@ -49,6 +51,7 @@ def test_table5_reference_preserves_published_component_order_and_evidence_gate(
     young, poisson = young_poisson_from_bulk_shear(17.5, 8.0)
     assert young == pytest.approx(20.826446280991735)
     assert poisson == pytest.approx(0.30165289256198347)
+    assert TABLE5.published_q9_element_count == 2823
 
     incomplete = assess_table5(first_piola=tensor)
     assert incomplete["status"] == "incomplete"

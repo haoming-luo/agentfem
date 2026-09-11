@@ -33,6 +33,7 @@ class Zhang2021Table5Reference:
     effective_tangent: np.ndarray
     elastic_energy_density: float
     component_order: tuple[str, ...] = ("11", "21", "12", "22")
+    published_q9_element_count: int = 2823
 
     def __post_init__(self) -> None:
         first_piola = np.asarray(self.first_piola, dtype=float)
@@ -43,6 +44,8 @@ class Zhang2021Table5Reference:
             raise ValueError("Table 5 tensors must be finite.")
         if not np.isfinite(self.elastic_energy_density):
             raise ValueError("Table 5 elastic energy must be finite.")
+        if self.published_q9_element_count <= 0:
+            raise ValueError("The published Q9 element count must be positive.")
         object.__setattr__(self, "first_piola", first_piola)
         object.__setattr__(self, "effective_tangent", tangent)
 

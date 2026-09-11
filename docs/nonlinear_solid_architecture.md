@@ -305,12 +305,22 @@ implementation ceiling that guards the current subtractive tangent extraction;
 it is not an audited accuracy range or a material-model limit. They do not yet
 support distributed block-aware MPC, ordinary strong-boundary mixed problems,
 or body/natural-load power. The Q2/DPC1 path supplies the three pressure modes
-of the 9/3 formulation. The exact Zhang--Feng--Khandelwal geometry now has a
-direct plane-strain diagnostic driver that reports both primal and condensed
-energy channels and their decomposition. The same driver now condenses the
-converged full Jacobian through the exact affine lift, records the current-state
+of the 9/3 formulation. The Zhang--Feng--Khandelwal geometry now has a direct,
+formulation-correspondent plane-strain diagnostic driver that reports primal
+and condensed
+energy channels and their decomposition. Its DPC1 pressure space spans the
+three element-local discontinuous modes \(1,r,s\) specified for the original
+[Sussman--Bathe 9/3 quadrilateral](https://doi.org/10.1016/0045-7949(87)90265-3);
+this is a formulation-level correspondence, not a claim that two independent
+implementations are identical. The same driver condenses the converged full
+Jacobian through the exact affine lift, records the current-state
 homogenized algorithmic tangent, and checks its convention on a homogeneous
-Q2/DPC1 patch. That execution remains an unpromoted diagnostic: Table 5
+Q2/DPC1 patch. The publication reports 2823 Q9 elements for unit cell 1; every
+diagnostic therefore records its own element count and fraction of that source
+discretization, mesh-quality measure, exact accepted load path and increment
+policy. The driver accepts `--increments N` for a prescribed uniform path so
+mesh and path studies do not silently compare different automatic histories.
+That execution remains an unpromoted diagnostic: Table 5
 agreement, load-path, formulation and mesh convergence, replicated cells,
 MPI/restart equivalence, and content-bound evidence remain open. The existing
 thin-3D tetrahedral fixture is a separate experimental

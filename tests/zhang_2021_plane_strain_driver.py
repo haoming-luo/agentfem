@@ -19,6 +19,7 @@ from mpi4py import MPI
 from agentfem import models, results, solvers, steps, studies
 
 from zhang_2021_periodic_composite_fixture import (
+    TABLE5,
     assess_table5,
     zhang_2021_plane_strain_composite,
 )
@@ -35,6 +36,14 @@ def main() -> int:
     parser.add_argument("--max-increments", type=int, default=80)
     parser.add_argument("--max-cutbacks", type=int, default=10)
     parser.add_argument(
+        "--increments",
+        type=int,
+        help=(
+            "Use an exact uniform load path with this many increments. "
+            "When supplied, automatic-incrementation options are ignored."
+        ),
+    )
+    parser.add_argument(
         "--progress",
         action="store_true",
         help="Show the human progress stream (quiet by default for diagnostics).",
@@ -45,6 +54,8 @@ def main() -> int:
         parser.error("--quadrature-degree must be at least 2")
     if arguments.max_increments <= 0 or arguments.max_cutbacks < 0:
         parser.error("--max-increments must be positive and --max-cutbacks nonnegative")
+    if arguments.increments is not None and arguments.increments <= 0:
+        parser.error("--increments must be positive")
 
     comm = MPI.COMM_WORLD
     fixture = zhang_2021_plane_strain_composite(
@@ -79,20 +90,22 @@ def main() -> int:
         presentation=None,
         basename="zhang_2021_table5_plane_strain",
     )
-    problem = model.step(
-        target=target,
-        constraints=periodicity,
-        quadrature_degree=arguments.quadrature_degree,
-        incrementation=steps.automatic(
+    if arguments.increments is None:
+        incrementation = steps.automatic(
             initial=arguments.initial_increment,
             minimum=arguments.minimum_increment,
             maximum=arguments.maximum_increment,
             max_increments=arguments.max_increments,
             max_cutbacks=arguments.max_cutbacks,
-            maximum_inelastic_increment=(
-                arguments.maximum_inelastic_increment
-            ),
-        ),
+            maximum_inelastic_increment=(arguments.maximum_inelastic_increment),
+        )
+    else:
+        incrementation = steps.fixed(arguments.increments)
+    problem = model.step(
+        target=target,
+        constraints=periodicity,
+        quadrature_degree=arguments.quadrature_degree,
+        incrementation=incrementation,
         solver_options=solvers.newton(
             relative_tolerance=1.0e-8,
             absolute_tolerance=1.0e-10,
@@ -121,10 +134,7 @@ def main() -> int:
     tangent = results.homogenized_algorithmic_tangent(problem, periodicity)
     condensed_scale = max(abs(frame.elastic_energy_density), 1.0)
     if (
-        abs(
-            frame.elastic_energy_density
-            - energy.condensed_elastic_energy_density
-        )
+        abs(frame.elastic_energy_density - energy.condensed_elastic_energy_density)
         > 256.0 * math.ulp(1.0) * condensed_scale
     ):
         raise RuntimeError(
@@ -151,10 +161,17 @@ def main() -> int:
             "result_status": simulation.status,
             "formulation": "2D_plane_strain_Q2_DPC1",
             "mesh_size": float(arguments.mesh_size),
-            "global_cells": int(
-                fixture.domain.topology.index_map(2).size_global
+            "global_cells": int(fixture.domain.topology.index_map(2).size_global),
+            "published_q9_element_count": TABLE5.published_q9_element_count,
+            "element_count_fraction_of_published": (
+                fixture.element_count / TABLE5.published_q9_element_count
             ),
+            "minimum_scaled_jacobian": fixture.minimum_scaled_jacobian,
             "quadrature_degree": int(arguments.quadrature_degree),
+            "incrementation": incrementation.summary(),
+            "accepted_increment_path": [
+                item.as_dict() for item in problem.accepted_increments
+            ],
             "accepted_increments": len(problem.accepted_increments),
             "attempted_increments": len(problem.attempted_increments),
             "periodic_pairing_error": fixture.periodic_pairing_error,
@@ -162,9 +179,7 @@ def main() -> int:
             "maximum_hill_mandel_relative_error": max(
                 item.relative_error for item in recorder.hill_mandel
             ),
-            "pressure_block_residual_norm": last_checks[
-                "pressure_block_residual_norm"
-            ],
+            "pressure_block_residual_norm": last_checks["pressure_block_residual_norm"],
             "maximum_quadrature_pressure_constraint_defect": last_checks[
                 "maximum_quadrature_pressure_projection_defect"
             ],
@@ -186,7 +201,16 @@ def main() -> int:
             json.dumps(assessment, indent=2, sort_keys=True) + "\n",
             encoding="utf-8",
         )
-        print(json.dumps(assessment, indent=2, sort_keys=True))
+        print(
+            "Zhang 2021 Table 5 diagnostic "
+            f"| {assessment['status'].upper()} "
+            f"| cells={assessment['global_cells']} "
+            f"| increments={assessment['accepted_increments']} "
+            f"| P_error={100.0 * assessment['first_piola_relative_l2_error']:.3f}% "
+            f"| energy_error={100.0 * assessment['elastic_energy_relative_error']:.3f}% "
+            f"| tangent_error={100.0 * assessment['effective_tangent_relative_frobenius_error']:.3f}%"
+        )
+        print(f"Evidence: {assessment_path}")
     return 0
 
 
