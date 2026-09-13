@@ -4,6 +4,7 @@ from . import catalog
 from . import creep
 from . import elasticity
 from . import fatigue
+from . import fabric
 from . import finite_strain_plasticity
 from . import hyperelasticity
 from . import material_driver
@@ -32,12 +33,15 @@ from .creep import (
 from .elasticity import (
     AnisotropicElasticMaterial2D,
     ElasticAnisotropic2DProperties,
+    ElasticAnisotropic3DProperties,
     ElasticIsotropicProperties,
     ThermoElasticIsotropicProperties,
     TemperatureDependentThermoElasticProperties,
     IsotropicElasticMaterial,
     anisotropic_stress_2d,
+    anisotropic_stress_3d,
     anisotropic_elastic_2d,
+    anisotropic_elastic_3d,
     estimate_elastic_wave_speeds,
     isotropic_stress,
     isotropic_elastic,
@@ -47,7 +51,17 @@ from .elasticity import (
     temperature_dependent_thermoelastic,
     thermoelastic_stress,
     orthotropic_plane_stress_2d,
+    orthotropic_elastic_3d,
     stress,
+)
+from .fabric import (
+    DecoupledFabricSurface,
+    FabricKinematics,
+    FabricSurfaceResponse,
+    SurfaceConstitutive,
+    TabulatedResponse,
+    decoupled_fabric_surface,
+    tabulated_response,
 )
 from .fatigue import (
     BasquinCurve,
@@ -147,6 +161,7 @@ __all__ = [
     "creep",
     "elasticity",
     "fatigue",
+    "fabric",
     "finite_strain_plasticity",
     "hyperelasticity",
     "material_driver",
@@ -173,6 +188,7 @@ __all__ = [
     "CreepDamageState",
     "CreepDamageUpdate",
     "ElasticAnisotropic2DProperties",
+    "ElasticAnisotropic3DProperties",
     "ElasticIsotropicProperties",
     "ThermoElasticIsotropicProperties",
     "TemperatureDependentThermoElasticProperties",
@@ -224,7 +240,17 @@ __all__ = [
     "update_material_points",
     "check_material_tangent",
     "anisotropic_stress_2d",
+    "anisotropic_stress_3d",
     "anisotropic_elastic_2d",
+    "anisotropic_elastic_3d",
+    "orthotropic_elastic_3d",
+    "DecoupledFabricSurface",
+    "FabricKinematics",
+    "FabricSurfaceResponse",
+    "SurfaceConstitutive",
+    "TabulatedResponse",
+    "decoupled_fabric_surface",
+    "tabulated_response",
     "assess_history",
     "assess_result_history",
     "estimate_elastic_wave_speeds",

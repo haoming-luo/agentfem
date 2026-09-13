@@ -21,6 +21,7 @@ the compact machine-readable `agentfem/knowledge/catalog.json`.
 | [`agentfem.material.chaboche_global_plasticity`](#agentfem-material-chaboche_global_plasticity) | Global Chaboche combined-hardening plasticity | material | experimental |
 | [`agentfem.material.creep_damage_assessment`](#agentfem-material-creep_damage_assessment) | Creep damage and modified-theta assessment | material | supported |
 | [`agentfem.material.cyclic_cohesive_fatigue`](#agentfem-material-cyclic_cohesive_fatigue) | Cyclic cohesive damage with an independent cycle coordinate | material | experimental |
+| [`agentfem.material.fabric_surface_constitutive`](#agentfem-material-fabric_surface_constitutive) | Non-orthogonal woven-fabric surface response | material | experimental |
 | [`agentfem.material.finite_strain_j2_logarithmic`](#agentfem-material-finite_strain_j2_logarithmic) | Finite-strain logarithmic J2 plasticity | material | experimental |
 | [`agentfem.material.finite_strain_plane_stress`](#agentfem-material-finite_strain_plane_stress) | Locally condensed finite-strain plane-stress Neo-Hookean membrane | material | experimental |
 | [`agentfem.material.global_implicit_creep`](#agentfem-material-global_implicit_creep) | Global implicit power-law creep | material | supported |
@@ -39,6 +40,7 @@ the compact machine-readable `agentfem/knowledge/catalog.json`.
 | [`agentfem.workflow.abaqus_reviewed_migration`](#agentfem-workflow-abaqus_reviewed_migration) | Reviewed Abaqus model and user-material migration | workflow | experimental |
 | [`agentfem.workflow.campaign_learning_pipeline`](#agentfem-workflow-campaign_learning_pipeline) | Simulation campaign to guarded learning workflow | workflow | supported |
 | [`agentfem.workflow.cohesive_state_portability`](#agentfem-workflow-cohesive_state_portability) | Physical-keyed cohesive state across MPI partitions | workflow | experimental |
+| [`agentfem.workflow.composite_orientation_and_laminate`](#agentfem-workflow-composite_orientation_and_laminate) | Composite material frames and laminate sections | workflow | experimental |
 | [`agentfem.workflow.coordinate_reference_coupling`](#agentfem-workflow-coordinate_reference_coupling) | Local coordinates and reference-point continuum coupling | workflow | supported |
 | [`agentfem.workflow.creep_fatigue_assessment`](#agentfem-workflow-creep_fatigue_assessment) | Engineering creep-fatigue assessment | workflow | supported |
 | [`agentfem.workflow.cyclic_work_energy_ledger`](#agentfem-workflow-cyclic_work_energy_ledger) | Transactional generalized work and cycle-block energy ledger | workflow | experimental |
@@ -813,6 +815,107 @@ cycle = fatigue_fracture.force_cycle(fmin=226, fmax=2262); law = fatigue_fractur
 - Roe and Siegmund, An irreversible cohesive zone model for interface fatigue crack growth simulation: `https://doi.org/10.1016/S0013-7944(02)00034-6`
 - Bak et al., A Simulation Method for High-Cycle Fatigue-Driven Delamination using a Cohesive Zone Model: `https://doi.org/10.1002/nme.5117`
 - AgentFEM cyclic cohesive fatigue architecture: `docs/cyclic_cohesive_fatigue_architecture.md`
+
+<a id="agentfem-material-fabric_surface_constitutive"></a>
+
+## Non-orthogonal woven-fabric surface response
+
+**Stable ID:** `agentfem.material.fabric_surface_constitutive`<br>
+**Kind:** `material`<br>
+**Status:** `experimental`<br>
+**Source card:** `src/agentfem/knowledge/cards/fabric_surface_constitutive.json`
+
+Defines a provider-neutral material-point surface law with independent convected warp/weft directions, tabulated yarn tension, trellising shear, bending moments, tangent, and stored energy without claiming an integrated forming shell.
+
+### Public API
+
+- `agentfem.materials.FiberFrame`
+- `agentfem.constitutive.SurfaceConstitutive`
+- `agentfem.constitutive.TabulatedResponse`
+- `agentfem.constitutive.DecoupledFabricSurface`
+- `agentfem.constitutive.decoupled_fabric_surface`
+
+### Scientific contract
+
+Warp and weft are independent structural directions that convect with the surface deformation, while yarn tension, trellising shear, and bending are calibrated and accumulated as distinct constitutive energy channels.
+
+**fiber stretches and trellising angle**
+
+$$
+\lambda_{i}=\lVert\mathbf{F}_{s}\mathbf{a}_{i}\rVert,\qquad \gamma=\Theta_{0}-\arccos(\widehat{\mathbf{F}_{s}\mathbf{a}_{1}}\cdot\widehat{\mathbf{F}_{s}\mathbf{a}_{2}})
+$$
+
+The two directions need not remain orthogonal, unlike a conventional material frame.
+
+**decoupled surface energy**
+
+$$
+\Psi_{s}=\Psi_{1}(\lambda_{1}-1)+\Psi_{2}(\lambda_{2}-1)+\Psi_{\gamma}(\gamma)+\tfrac{1}{2}\boldsymbol{\kappa}^{T}\mathbf{D}_{b}\boldsymbol{\kappa}
+$$
+
+Independent tension, in-plane shear, and bending data remain independently identifiable.
+
+#### Inputs
+
+| Name | Type | Unit role | Meaning |
+| --- | --- | --- | --- |
+| surface deformation, fiber frame, response curves, and curvature | 2D surface deformation gradient, two independent reference directions, piecewise-linear channels, and three generalized curvatures | dimensionless, radians, force per reference length, inverse length, and bending stiffness | Curve extrapolation and yarn compression behavior are explicit choices. |
+
+#### Outputs
+
+| Name | Type | Unit role | Meaning |
+| --- | --- | --- | --- |
+| surface constitutive response | fiber kinematics, membrane resultants, bending moments, 6x6 local tangent, and stored energy | dimensionless, force per length, moment per length, and energy per area in a consistent unit system | The response is suitable for consumption by a future finite-rotation shell provider. |
+
+#### Assumptions
+
+- The current foundation uses decoupled, rate-independent elastic channels.
+- Tabulated data are expressed in one consistent unit system.
+
+#### Conventions
+
+- Positive trellising shear is the reduction of the included warp/weft angle.
+- The shear response is odd and yarn compression is suppressed when tension_only is enabled.
+- Generalized bending order is warp, weft, then twist.
+
+#### Applicability
+
+- Material calibration, constitutive screening, and future woven-reinforcement forming providers.
+
+#### Limitations
+
+- No shell element, global residual/Jacobian, contact, friction, inter-ply slip, or forming Step currently consumes this response.
+- Rate effects, hysteresis, irreversible locking, yarn slippage, and damage need additional stateful laws.
+- Material-point tests do not establish a forming simulation or wrinkle prediction capability.
+
+### Minimal example
+
+```python
+frame = materials.fiber_frame((1, 0), (0, 1)); tension = constitutive.tabulated_response((0, 0.1), (0, 100), extrapolation='linear'); shear = constitutive.tabulated_response((0, 0.5), (0, 20), symmetry='odd', extrapolation='linear'); fabric = constitutive.decoupled_fabric_surface(frame=frame, warp_tension=tension, weft_tension=tension, shear=shear, bending_stiffness=((1,0,0),(0,1,0),(0,0,0.5)))
+```
+
+### Verification
+
+**Tests**
+
+- `tests/test_composite_materials.py`
+
+**Benchmarks**
+
+- None declared.
+
+**Validation rules**
+
+- Require independent non-collinear reference fiber directions and non-collapsed convected directions.
+- Require an odd trellising response and a symmetric positive-semidefinite bending stiffness.
+- Verify zero reference response, tension-only compression behavior, stored-energy consistency, and separation of tension, shear, and bending channels.
+- Keep FEM integration unavailable until shell patch, objectivity, contact, and forming benchmarks pass.
+
+### References
+
+- Boisse et al. (2022), bias-extension characterization review: `https://doi.org/10.1007/s12289-022-01682-8`
+- Liang, Colmars, and Boisse (2017), fibrous-reinforcement shell formulation: `https://doi.org/10.1016/j.compositesa.2017.04.024`
+- Bai et al., high-fidelity fibrous shell model for multilayer woven forming: `https://fhclxb.buaa.edu.cn/en/article/id/236271a2-01d7-4910-b99c-79ccc4cb21f6`
 
 <a id="agentfem-material-finite_strain_j2_logarithmic"></a>
 
@@ -2988,6 +3091,109 @@ ownership = interfaces.deterministic_facet_ownership(topology, comm=comm); manif
 
 - AgentFEM dynamic cohesive fracture architecture: `docs/dynamic_cohesive_fracture_architecture.md`
 - DOLFINx parallel checkpointing demo: `https://docs.fenicsproject.org/dolfinx/main/python/demos/demo_checkpointing.html`
+
+<a id="agentfem-workflow-composite_orientation_and_laminate"></a>
+
+## Composite material frames and laminate sections
+
+**Stable ID:** `agentfem.workflow.composite_orientation_and_laminate`<br>
+**Kind:** `workflow`<br>
+**Status:** `experimental`<br>
+**Source card:** `src/agentfem/knowledge/cards/composite_orientation_and_laminate.json`
+
+Keeps elastic behavior, material orientation, and ordered ply placement as separate reusable assets, with oriented 2D/3D solid response, classical laminate resultants, stable section-point recovery, and reviewed Abaqus composite-section lowering.
+
+### Public API
+
+- `agentfem.materials.MaterialFrame`
+- `agentfem.materials.oriented`
+- `agentfem.materials.Ply`
+- `agentfem.materials.LaminateSection`
+- `agentfem.materials.laminate_from_abaqus_section`
+- `agentfem.constitutive.orthotropic_plane_stress_2d`
+- `agentfem.constitutive.orthotropic_elastic_3d`
+- `agentfem.results.small_strain_cell_fields`
+
+### Scientific contract
+
+A constitutive stiffness is written in an orthonormal material frame, rotated into the model frame at assignment, and integrated through an ordered laminate thickness only when a section response is requested.
+
+**oriented elasticity**
+
+$$
+\boldsymbol{\sigma}=\mathbf{R}\,\mathbb{C}^{m}:[\mathbf{R}^{T}\boldsymbol{\varepsilon}\mathbf{R}]\,\mathbf{R}^{T}
+$$
+
+The material constants and their placement orientation remain independent assets.
+
+**laminate constitutive resultants**
+
+$$
+\begin{bmatrix}\mathbf{N}\\\mathbf{M}\end{bmatrix}=\begin{bmatrix}\mathbf{A}&\mathbf{B}\\\mathbf{B}&\mathbf{D}\end{bmatrix}\begin{bmatrix}\boldsymbol{\varepsilon}^{0}\\\boldsymbol{\kappa}\end{bmatrix}
+$$
+
+Ordered plies define membrane, coupling, and bending stiffness about the declared reference surface.
+
+#### Inputs
+
+| Name | Type | Unit role | Meaning |
+| --- | --- | --- | --- |
+| elastic material and material frame | 2D reduced or 3D engineering-Voigt stiffness plus right-handed orthonormal basis | stress and dimensionless direction cosines | The frame is attached to a material assignment rather than duplicated in material constants. |
+| ordered plies | material, thickness, angle, name, and section-point count per ply | stress, length, and degrees | Stable ply and section-point identities preserve provenance and recovery location. |
+
+#### Outputs
+
+| Name | Type | Unit role | Meaning |
+| --- | --- | --- | --- |
+| oriented solid fields and laminate response | global/material stress and strain, A/B/D matrices, generalized resultants, and per-ply section-point fields | stress, force per length, force, and consistent section units | S_MATERIAL and E_MATERIAL make the reporting coordinate system explicit. |
+
+#### Assumptions
+
+- The oriented solid response is small-strain linear elasticity with one constant frame per assignment.
+- LaminateSection uses classical laminate kinematics and plane-stress lamina stiffness.
+
+#### Conventions
+
+- 2D and 3D engineering shear strains use gamma_12 and gamma_23/gamma_13/gamma_12 respectively.
+- Ply angles are degrees measured counter-clockwise from the section reference axis.
+- A reviewed Abaqus section is lowered only after material references and row semantics are explicit.
+
+#### Applicability
+
+- Oriented linear-elastic solid analysis, laminate section studies, composite migration review, and future shell-provider inputs.
+
+#### Limitations
+
+- LaminateSection is a local section asset and is not yet a shell finite element.
+- Spatial orientation fields, finite-strain anisotropy, anisotropic thermal expansion, progressive ply damage, and delamination are separate capabilities.
+- Abaqus lowering covers reviewed common composite solid/continuum and shell rows rather than arbitrary keyword execution.
+
+### Minimal example
+
+```python
+lamina = constitutive.orthotropic_plane_stress_2d(ex=135e9, ey=10e9, nuxy=0.3, gxy=5e9, density=1600); frame = materials.MaterialFrame.from_angle(45); assigned = model.material(lamina, orientation=frame); section = materials.laminate([materials.ply(lamina, 1.25e-4, angle=0, name='ply_0'), materials.ply(lamina, 1.25e-4, angle=90, name='ply_90')])
+```
+
+### Verification
+
+**Tests**
+
+- `tests/test_composite_materials.py`
+
+**Benchmarks**
+
+- None declared.
+
+**Validation rules**
+
+- Reject non-orthonormal, left-handed, dimensionally incompatible, or orientation-reversing material frames.
+- Recover the isotropic limit of 3D engineering-constant orthotropy.
+- Preserve elastic energy under frame rotation and require the coupling matrix of a symmetric laminate to vanish.
+- Retain unique ply and section-point identities and fail closed on unreviewed or ambiguous imported sections.
+
+### References
+
+- Abaqus 2025 documentation, Defining composite plies: `https://docs.software.vt.edu/abaqusv2025/English/SIMACAECAERefMap/simacae-t-prpcompositesshellcontinuumplies.htm`
 
 <a id="agentfem-workflow-coordinate_reference_coupling"></a>
 

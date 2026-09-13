@@ -1,0 +1,107 @@
+{
+  "schema": "agentfem.scientific-function-card",
+  "schema_version": "0.1.0",
+  "id": "agentfem.workflow.composite_orientation_and_laminate",
+  "title": "Composite material frames and laminate sections",
+  "kind": "workflow",
+  "status": "experimental",
+  "summary": "Keeps elastic behavior, material orientation, and ordered ply placement as separate reusable assets, with oriented 2D/3D solid response, classical laminate resultants, stable section-point recovery, and reviewed Abaqus composite-section lowering.",
+  "public_api": [
+    "agentfem.materials.MaterialFrame",
+    "agentfem.materials.oriented",
+    "agentfem.materials.Ply",
+    "agentfem.materials.LaminateSection",
+    "agentfem.materials.laminate_from_abaqus_section",
+    "agentfem.constitutive.orthotropic_plane_stress_2d",
+    "agentfem.constitutive.orthotropic_elastic_3d",
+    "agentfem.results.small_strain_cell_fields"
+  ],
+  "implementation": [
+    "materials/orientations.py",
+    "materials/sections.py",
+    "constitutive/elasticity.py",
+    "results/projection.py"
+  ],
+  "science": {
+    "statement": "A constitutive stiffness is written in an orthonormal material frame, rotated into the model frame at assignment, and integrated through an ordered laminate thickness only when a section response is requested.",
+    "equations": [
+      {
+        "label": "oriented elasticity",
+        "expression": "\\boldsymbol{\\sigma}=\\mathbf{R}\\,\\mathbb{C}^{m}:[\\mathbf{R}^{T}\\boldsymbol{\\varepsilon}\\mathbf{R}]\\,\\mathbf{R}^{T}",
+        "description": "The material constants and their placement orientation remain independent assets."
+      },
+      {
+        "label": "laminate constitutive resultants",
+        "expression": "\\begin{bmatrix}\\mathbf{N}\\\\\\mathbf{M}\\end{bmatrix}=\\begin{bmatrix}\\mathbf{A}&\\mathbf{B}\\\\\\mathbf{B}&\\mathbf{D}\\end{bmatrix}\\begin{bmatrix}\\boldsymbol{\\varepsilon}^{0}\\\\\\boldsymbol{\\kappa}\\end{bmatrix}",
+        "description": "Ordered plies define membrane, coupling, and bending stiffness about the declared reference surface."
+      }
+    ],
+    "inputs": [
+      {
+        "name": "elastic material and material frame",
+        "type": "2D reduced or 3D engineering-Voigt stiffness plus right-handed orthonormal basis",
+        "unit_role": "stress and dimensionless direction cosines",
+        "description": "The frame is attached to a material assignment rather than duplicated in material constants."
+      },
+      {
+        "name": "ordered plies",
+        "type": "material, thickness, angle, name, and section-point count per ply",
+        "unit_role": "stress, length, and degrees",
+        "description": "Stable ply and section-point identities preserve provenance and recovery location."
+      }
+    ],
+    "outputs": [
+      {
+        "name": "oriented solid fields and laminate response",
+        "type": "global/material stress and strain, A/B/D matrices, generalized resultants, and per-ply section-point fields",
+        "unit_role": "stress, force per length, force, and consistent section units",
+        "description": "S_MATERIAL and E_MATERIAL make the reporting coordinate system explicit."
+      }
+    ],
+    "assumptions": [
+      "The oriented solid response is small-strain linear elasticity with one constant frame per assignment.",
+      "LaminateSection uses classical laminate kinematics and plane-stress lamina stiffness."
+    ],
+    "conventions": [
+      "2D and 3D engineering shear strains use gamma_12 and gamma_23/gamma_13/gamma_12 respectively.",
+      "Ply angles are degrees measured counter-clockwise from the section reference axis.",
+      "A reviewed Abaqus section is lowered only after material references and row semantics are explicit."
+    ],
+    "applicability": [
+      "Oriented linear-elastic solid analysis, laminate section studies, composite migration review, and future shell-provider inputs."
+    ],
+    "limitations": [
+      "LaminateSection is a local section asset and is not yet a shell finite element.",
+      "Spatial orientation fields, finite-strain anisotropy, anisotropic thermal expansion, progressive ply damage, and delamination are separate capabilities.",
+      "Abaqus lowering covers reviewed common composite solid/continuum and shell rows rather than arbitrary keyword execution."
+    ]
+  },
+  "usage": {
+    "minimal_example": "lamina = constitutive.orthotropic_plane_stress_2d(ex=135e9, ey=10e9, nuxy=0.3, gxy=5e9, density=1600); frame = materials.MaterialFrame.from_angle(45); assigned = model.material(lamina, orientation=frame); section = materials.laminate([materials.ply(lamina, 1.25e-4, angle=0, name='ply_0'), materials.ply(lamina, 1.25e-4, angle=90, name='ply_90')])",
+    "examples": [
+      "tests/test_composite_materials.py"
+    ]
+  },
+  "verification": {
+    "tests": [
+      "tests/test_composite_materials.py"
+    ],
+    "benchmarks": [],
+    "validation_rules": [
+      "Reject non-orthonormal, left-handed, dimensionally incompatible, or orientation-reversing material frames.",
+      "Recover the isotropic limit of 3D engineering-constant orthotropy.",
+      "Preserve elastic energy under frame rotation and require the coupling matrix of a symmetric laminate to vanish.",
+      "Retain unique ply and section-point identities and fail closed on unreviewed or ambiguous imported sections."
+    ]
+  },
+  "references": [
+    {
+      "title": "Abaqus 2025 documentation, Defining composite plies",
+      "locator": "https://docs.software.vt.edu/abaqusv2025/English/SIMACAECAERefMap/simacae-t-prpcompositesshellcontinuumplies.htm"
+    }
+  ],
+  "related_cards": [
+    "agentfem.workflow.abaqus_reviewed_migration",
+    "agentfem.workflow.standard_result_projection"
+  ]
+}

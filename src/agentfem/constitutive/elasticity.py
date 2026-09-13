@@ -9,6 +9,7 @@ from agentfem import fields as field_api
 from agentfem import _axisymmetric
 from agentfem.materials.properties import (
     ElasticAnisotropic2DProperties,
+    ElasticAnisotropic3DProperties,
     ElasticIsotropicProperties,
     ThermoElasticIsotropicProperties,
     TemperatureDependentThermoElasticProperties,
@@ -43,6 +44,33 @@ def stress_voigt_to_tensor_2d(stress_voigt):
     )
 
 
+def engineering_strain_voigt_3d_from_tensor(eps):
+    """3D engineering strain in ``11,22,33,23,13,12`` order."""
+
+    return ufl.as_vector(
+        [
+            eps[0, 0],
+            eps[1, 1],
+            eps[2, 2],
+            2.0 * eps[1, 2],
+            2.0 * eps[0, 2],
+            2.0 * eps[0, 1],
+        ]
+    )
+
+
+def stress_voigt_to_tensor_3d(stress_voigt):
+    """Convert ``11,22,33,23,13,12`` stress components to a tensor."""
+
+    return ufl.as_tensor(
+        [
+            [stress_voigt[0], stress_voigt[5], stress_voigt[4]],
+            [stress_voigt[5], stress_voigt[1], stress_voigt[3]],
+            [stress_voigt[4], stress_voigt[3], stress_voigt[2]],
+        ]
+    )
+
+
 def isotropic_pressure_wave_speed(young: float, poisson: float, density: float) -> float:
     """Longitudinal wave speed for a 3D isotropic elastic solid."""
 
@@ -67,7 +95,7 @@ def estimate_elastic_wave_speeds(material) -> tuple[float, float]:
 
     if isinstance(material, ElasticIsotropicProperties):
         return material.pressure_wave_speed, material.shear_wave_speed
-    if isinstance(material, ElasticAnisotropic2DProperties):
+    if isinstance(material, (ElasticAnisotropic2DProperties, ElasticAnisotropic3DProperties)):
         return material.pressure_wave_speed, material.shear_wave_speed
     if hasattr(material, "pressure_wave_speed"):
         pressure = float(material.pressure_wave_speed)
@@ -215,7 +243,13 @@ def isotropic_plane_stress_2d(displacement, properties: ElasticIsotropicProperti
     )
 
 
-def anisotropic_stress_2d(displacement, properties: ElasticAnisotropic2DProperties, *, study=None):
+def anisotropic_stress_2d(
+    displacement,
+    properties: ElasticAnisotropic2DProperties,
+    *,
+    study=None,
+    orientation=None,
+):
     """2D anisotropic stress from engineering-strain Voigt stiffness."""
 
     displacement = field_api.unwrap(displacement)
@@ -226,23 +260,84 @@ def anisotropic_stress_2d(displacement, properties: ElasticAnisotropic2DProperti
                 "Axisymmetric elasticity currently supports isotropic materials; "
                 "a planar 3-component stiffness matrix does not define the hoop response."
             )
-    strain_voigt = engineering_strain_voigt_2d(displacement)
+    eps = strain(displacement)
+    basis = _orientation_basis(orientation, 2)
+    if basis is not None:
+        eps = ufl.dot(ufl.transpose(basis), ufl.dot(eps, basis))
+    strain_voigt = ufl.as_vector([eps[0, 0], eps[1, 1], 2.0 * eps[0, 1]])
     stress_voigt = ufl.dot(ufl.as_matrix(properties.stiffness_voigt.tolist()), strain_voigt)
-    return stress_voigt_to_tensor_2d(stress_voigt)
+    local_stress = stress_voigt_to_tensor_2d(stress_voigt)
+    if basis is None:
+        return local_stress
+    return ufl.dot(basis, ufl.dot(local_stress, ufl.transpose(basis)))
+
+
+def anisotropic_stress_3d(
+    displacement,
+    properties: ElasticAnisotropic3DProperties,
+    *,
+    study=None,
+    orientation=None,
+):
+    """3D anisotropic stress with an optional independent material frame."""
+
+    displacement = field_api.unwrap(displacement)
+    if study is not None:
+        _require_elastic_study_supported(study)
+        if getattr(study, "dimension", None) != 3:
+            raise ValueError("3D anisotropic elasticity requires a 3D Study.")
+    eps = strain(displacement)
+    basis = _orientation_basis(orientation, 3)
+    if basis is not None:
+        eps = ufl.dot(ufl.transpose(basis), ufl.dot(eps, basis))
+    strain_voigt = engineering_strain_voigt_3d_from_tensor(eps)
+    stress_voigt = ufl.dot(ufl.as_matrix(properties.stiffness_voigt.tolist()), strain_voigt)
+    local_stress = stress_voigt_to_tensor_3d(stress_voigt)
+    if basis is None:
+        return local_stress
+    return ufl.dot(basis, ufl.dot(local_stress, ufl.transpose(basis)))
 
 
 def stress(displacement, properties, *, study=None, temperature=None):
     """Dispatch to the matching elastic stress relation."""
 
+    orientation = getattr(properties, "orientation", None)
+    properties = getattr(properties, "material", properties)
+
     if isinstance(properties, ElasticIsotropicProperties):
         return isotropic_stress(displacement, properties, study=study, temperature=temperature)
     if isinstance(properties, ElasticAnisotropic2DProperties):
-        return anisotropic_stress_2d(displacement, properties, study=study)
+        return anisotropic_stress_2d(
+            displacement, properties, study=study, orientation=orientation
+        )
+    if isinstance(properties, ElasticAnisotropic3DProperties):
+        return anisotropic_stress_3d(
+            displacement, properties, study=study, orientation=orientation
+        )
     if hasattr(properties, "stiffness_voigt"):
-        return anisotropic_stress_2d(displacement, properties, study=study)
+        components = np.asarray(properties.stiffness_voigt).shape[0]
+        if components == 3:
+            return anisotropic_stress_2d(
+                displacement, properties, study=study, orientation=orientation
+            )
+        if components == 6:
+            return anisotropic_stress_3d(
+                displacement, properties, study=study, orientation=orientation
+            )
     if hasattr(properties, "young") and hasattr(properties, "poisson"):
         return isotropic_stress(displacement, properties, study=study, temperature=temperature)
     raise TypeError(f"unsupported elastic properties object: {type(properties)!r}")
+
+
+def _orientation_basis(orientation, dimension: int):
+    if orientation is None:
+        return None
+    basis = np.asarray(getattr(orientation, "basis", orientation), dtype=float)
+    if basis.shape != (dimension, dimension):
+        raise ValueError(
+            f"material orientation must provide a {dimension}x{dimension} basis."
+        )
+    return ufl.as_matrix(basis.tolist())
 
 
 def _coefficient(properties, name: str, temperature=None):
@@ -355,6 +450,21 @@ def anisotropic_elastic_2d(
     )
 
 
+def anisotropic_elastic_3d(
+    *,
+    stiffness_voigt,
+    density: float,
+    name: str = "anisotropic elastic 3D",
+) -> ElasticAnisotropic3DProperties:
+    """Create 3D anisotropic elasticity in engineering Voigt notation."""
+
+    return ElasticAnisotropic3DProperties(
+        name=name,
+        stiffness_voigt=np.asarray(stiffness_voigt, dtype=float),
+        density=density,
+    )
+
+
 def orthotropic_plane_stress_2d(
     *,
     ex: float,
@@ -384,5 +494,48 @@ def orthotropic_plane_stress_2d(
     )
 
 
+def orthotropic_elastic_3d(
+    *,
+    ex: float,
+    ey: float,
+    ez: float,
+    nuxy: float,
+    nuxz: float,
+    nuyz: float,
+    gxy: float,
+    gxz: float,
+    gyz: float,
+    density: float,
+    name: str = "orthotropic elastic 3D",
+) -> ElasticAnisotropic3DProperties:
+    """Create a reciprocal, positive-definite 3D orthotropic material."""
+
+    values = (ex, ey, ez, gxy, gxz, gyz, density)
+    if any(not np.isfinite(value) or value <= 0.0 for value in values):
+        raise ValueError("Orthotropic moduli and density must be positive and finite.")
+    if any(not np.isfinite(value) for value in (nuxy, nuxz, nuyz)):
+        raise ValueError("Orthotropic Poisson ratios must be finite.")
+    compliance = np.array(
+        [
+            [1.0 / ex, -nuxy / ex, -nuxz / ex, 0.0, 0.0, 0.0],
+            [-nuxy / ex, 1.0 / ey, -nuyz / ey, 0.0, 0.0, 0.0],
+            [-nuxz / ex, -nuyz / ey, 1.0 / ez, 0.0, 0.0, 0.0],
+            [0.0, 0.0, 0.0, 1.0 / gyz, 0.0, 0.0],
+            [0.0, 0.0, 0.0, 0.0, 1.0 / gxz, 0.0],
+            [0.0, 0.0, 0.0, 0.0, 0.0, 1.0 / gxy],
+        ],
+        dtype=float,
+    )
+    if np.min(np.linalg.eigvalsh(compliance)) <= 0.0:
+        raise ValueError("Orthotropic engineering constants do not define stable elasticity.")
+    return ElasticAnisotropic3DProperties(
+        name=name,
+        stiffness_voigt=np.linalg.inv(compliance),
+        density=density,
+        model="orthotropic_linear_elastic_3d",
+    )
+
+
 IsotropicElasticMaterial = ElasticIsotropicProperties
 AnisotropicElasticMaterial2D = ElasticAnisotropic2DProperties
+AnisotropicElasticMaterial3D = ElasticAnisotropic3DProperties

@@ -518,6 +518,24 @@
       "title": "Cyclic cohesive damage with an independent cycle coordinate"
     },
     {
+      "id": "agentfem.material.fabric_surface_constitutive",
+      "kind": "material",
+      "public_api": [
+        "agentfem.materials.FiberFrame",
+        "agentfem.constitutive.SurfaceConstitutive",
+        "agentfem.constitutive.TabulatedResponse",
+        "agentfem.constitutive.DecoupledFabricSurface",
+        "agentfem.constitutive.decoupled_fabric_surface"
+      ],
+      "related_cards": [
+        "agentfem.workflow.composite_orientation_and_laminate"
+      ],
+      "source": "src/agentfem/knowledge/cards/fabric_surface_constitutive.json",
+      "status": "experimental",
+      "summary": "Defines a provider-neutral material-point surface law with independent convected warp/weft directions, tabulated yarn tension, trellising shear, bending moments, tangent, and stored energy without claiming an integrated forming shell.",
+      "title": "Non-orthogonal woven-fabric surface response"
+    },
+    {
       "id": "agentfem.material.finite_strain_j2_logarithmic",
       "kind": "material",
       "public_api": [
@@ -886,6 +904,28 @@
       "status": "experimental",
       "summary": "Assigns every locally visible cohesive facet one deterministic MPI owner and saves every declared committed quadrature-state field by ordered physical facet key, allowing a changed facet order or MPI rank count to recover the same irreversible monotonic or cyclic state.",
       "title": "Physical-keyed cohesive state across MPI partitions"
+    },
+    {
+      "id": "agentfem.workflow.composite_orientation_and_laminate",
+      "kind": "workflow",
+      "public_api": [
+        "agentfem.materials.MaterialFrame",
+        "agentfem.materials.oriented",
+        "agentfem.materials.Ply",
+        "agentfem.materials.LaminateSection",
+        "agentfem.materials.laminate_from_abaqus_section",
+        "agentfem.constitutive.orthotropic_plane_stress_2d",
+        "agentfem.constitutive.orthotropic_elastic_3d",
+        "agentfem.results.small_strain_cell_fields"
+      ],
+      "related_cards": [
+        "agentfem.workflow.abaqus_reviewed_migration",
+        "agentfem.workflow.standard_result_projection"
+      ],
+      "source": "src/agentfem/knowledge/cards/composite_orientation_and_laminate.json",
+      "status": "experimental",
+      "summary": "Keeps elastic behavior, material orientation, and ordered ply placement as separate reusable assets, with oriented 2D/3D solid response, classical laminate resultants, stable section-point recovery, and reviewed Abaqus composite-section lowering.",
+      "title": "Composite material frames and laminate sections"
     },
     {
       "id": "agentfem.workflow.coordinate_reference_coupling",

@@ -800,6 +800,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#ci-resource-policy" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        CI resource policy
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#when-the-suite-grows" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -886,8 +897,8 @@ the most expensive command after every keystroke.</p>
 </tr>
 <tr>
 <td>Before pushing a coherent code change</td>
-<td>Complete serial suite</td>
-<td><code>python -m pytest -q</code></td>
+<td>Related suites; complete serial for cross-cutting numerical changes</td>
+<td><code>python -m pytest -q</code> when the change can cross ownership boundaries</td>
 </tr>
 <tr>
 <td>MPI-sensitive change</td>
@@ -895,9 +906,14 @@ the most expensive command after every keystroke.</p>
 <td><code>agentfem mpi-run -n 2 -- python -m pytest ...</code></td>
 </tr>
 <tr>
-<td>Pull request and <code>main</code></td>
+<td>Numerical pull request and <code>main</code></td>
 <td>Wheel installation, full serial, MPI, checkpoint portability, examples, documentation, and optional PyTorch bridge</td>
 <td>GitHub Actions <code>Test</code> workflow</td>
+</tr>
+<tr>
+<td>Documentation-only pull request and <code>main</code></td>
+<td>Static correctness plus strict documentation build; no FEniCSx or PyTorch environment rebuild</td>
+<td>GitHub Actions <code>Test</code> and <code>Documentation</code> workflows</td>
 </tr>
 <tr>
 <td>Release candidate/tag</td>
@@ -942,14 +958,34 @@ commands with the checkout parent explicitly, for example:</p>
 <p>Release CI deliberately omits this prefix after force-installing the candidate
 wheel; those same drivers then provide installed-artifact evidence.</p>
 <h2 id="why-agentfem-still-runs-full-ci-frequently">Why AgentFEM still runs full CI frequently<a class="headerlink" href="#why-agentfem-still-runs-full-ci-frequently" title="Permanent link">&para;</a></h2>
-<p>AgentFEM currently has a compact suite: the local complete serial run is much
-cheaper than a nonlinear simulation campaign. Cross-module coupling is also
-high—changes to <code>Model</code>, providers, output, mesh identity, or checkpointing can
-affect many workflows. Therefore every push and pull request currently earns a
-full remote gate.</p>
+<p>Cross-module coupling is high—changes to <code>Model</code>, providers, output, mesh
+identity, or checkpointing can affect many workflows. A coherent numerical
+push or pull request therefore earns the full remote gate. Documentation-only
+changes retain static and strict documentation checks without rebuilding the
+FEniCSx or PyTorch environments. New commits cancel superseded development
+runs; immutable tag and release evidence is never replaced this way.</p>
 <p>Developers should still begin with the smallest relevant tests. Re-running the
 entire environment and MPI matrix after every one-line edit wastes time and
-delays diagnosis.</p>
+delays diagnosis. Related edits should be collected into one reviewable commit
+and pushed after local evidence is green; a remote quota or infrastructure
+failure is recorded once rather than retried until green.</p>
+<h2 id="ci-resource-policy">CI resource policy<a class="headerlink" href="#ci-resource-policy" title="Permanent link">&para;</a></h2>
+<p>Validation depth follows the evidence claim, not the number of edited files:</p>
+<ol>
+<li>use targeted local tests while developing;</li>
+<li>push coherent changes rather than each intermediate edit;</li>
+<li>keep pull-request and <code>main</code> numerical gates complete;</li>
+<li>reserve hosted platform matrices, installers, and expensive scientific
+   benchmarks for tags, explicit dispatch, or scheduled evidence;</li>
+<li>let a newer development commit cancel an obsolete run;</li>
+<li>reuse evidence only when it remains bound to the exact code and artifact
+   digest that produced it.</li>
+</ol>
+<p><a href="https://docs.github.com/en/billing/concepts/product-billing/github-actions">Standard hosted runners are free for public repositories and metered for
+private repositories</a>,
+but queue time, compute, storage, and reviewer attention are still finite
+engineering resources. Cost control must not weaken a release claim; equally,
+repeated computation that proves no new claim is not verification.</p>
 <h2 id="when-the-suite-grows">When the suite grows<a class="headerlink" href="#when-the-suite-grows" title="Permanent link">&para;</a></h2>
 <p>Introduce registered pytest markers only when runtime measurements justify
 them, for example <code>unit</code>, <code>fem</code>, <code>mpi</code>, <code>external</code>, and <code>release</code>. Markers must

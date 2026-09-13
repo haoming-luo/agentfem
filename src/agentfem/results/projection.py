@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import numpy as np
 import ufl
 from dolfinx import fem
 from ufl.algorithms.analysis import extract_coefficients, extract_constants
@@ -356,6 +357,19 @@ def _small_strain_expressions(
         "E": strain,
         "SENER": 0.5 * ufl.inner(stress, strain),
     }
+    if "S_MATERIAL" in variables or "E_MATERIAL" in variables:
+        orientation = getattr(properties, "orientation", None)
+        if orientation is None:
+            raise ValueError(
+                "S_MATERIAL/E_MATERIAL output requires a declared material orientation."
+            )
+        basis = ufl.as_matrix(np.asarray(orientation.basis, dtype=float).tolist())
+        expressions["S_MATERIAL"] = ufl.dot(
+            ufl.transpose(basis), ufl.dot(stress, basis)
+        )
+        expressions["E_MATERIAL"] = ufl.dot(
+            ufl.transpose(basis), ufl.dot(strain, basis)
+        )
     if "MISES" in variables:
         expressions["MISES"] = _von_mises(
             stress,

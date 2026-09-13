@@ -28,10 +28,34 @@ class ConstitutiveCapability:
 _CAPABILITIES = {
     "linear_elasticity": ConstitutiveCapability(
         name="linear_elasticity",
-        model="isotropic and selected 2D anisotropic small-strain elasticity",
+        model="isotropic and oriented 2D/3D anisotropic small-strain elasticity",
         maturity="fem_integrated",
         available_scope=(
-            "static, sequential thermoelasticity, and implicit/explicit dynamics"
+            "static and implicit/explicit dynamics; constant right-handed material "
+            "frames; 2D plane-stress orthotropy, general 2D reduced stiffness, and "
+            "general or engineering-constant 3D anisotropy"
+        ),
+        limitations=(
+            "spatially varying orientation fields are not yet lowered",
+            "anisotropic thermoelastic expansion is not yet implemented",
+            "laminate sections are currently section-level CLT assets, not shell elements",
+        ),
+    ),
+    "fabric_surface": ConstitutiveCapability(
+        name="fabric_surface",
+        model=(
+            "non-orthogonal warp/weft kinematics with independent tabulated yarn "
+            "tension, trellising shear, and bending channels"
+        ),
+        maturity="material_point_verified",
+        available_scope=(
+            "provider-neutral local surface response, convected fiber directions, "
+            "tension-only yarns, tangent, stored energy, and machine-readable output"
+        ),
+        limitations=(
+            "not yet integrated into a finite-rotation shell or membrane Step",
+            "tool contact, friction, inter-ply slip, locking, and forming controls are not implemented",
+            "tabulated curves require user-owned experimental calibration",
         ),
     ),
     "neo_hookean": ConstitutiveCapability(

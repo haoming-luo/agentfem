@@ -23,6 +23,15 @@ _VARIABLES = {
     "V": FieldVariable("V", "Velocity", "nodes", "vector", "Velocity"),
     "A": FieldVariable("A", "Acceleration", "nodes", "vector", "Acceleration"),
     "S": FieldVariable("S", "CauchyStress", "cells", "symmetric_tensor", "Cauchy stress"),
+    "S_MATERIAL": FieldVariable(
+        "S_MATERIAL",
+        "MaterialFrameStress",
+        "cells",
+        "symmetric_tensor",
+        "Small-strain stress components in the declared material frame",
+        aliases=("SMATERIAL",),
+        derived_from=("S",),
+    ),
     "P": FieldVariable("P", "FirstPiolaStress", "cells", "tensor", "First Piola stress"),
     "PRESSURE": FieldVariable(
         "PRESSURE",
@@ -102,6 +111,15 @@ _VARIABLES = {
     "EVOL": FieldVariable("EVOL", "CurrentElementVolume", "cells", "scalar", "Current element volume"),
     "TEMP": FieldVariable("TEMP", "Temperature", "nodes", "scalar", "Temperature", ("NT",)),
     "RF": FieldVariable("RF", "ReactionForce", "nodes", "vector", "Reaction force"),
+    "E_MATERIAL": FieldVariable(
+        "E_MATERIAL",
+        "MaterialFrameStrain",
+        "cells",
+        "symmetric_tensor",
+        "Infinitesimal strain components in the declared material frame",
+        aliases=("EMATERIAL",),
+        derived_from=("E",),
+    ),
 }
 
 

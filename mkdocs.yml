@@ -147,6 +147,7 @@ nav:
           - Simulation to Learning: guide/simulation_to_learning.md
       - Advanced Workflows:
           - Nonlinear Materials: nonlinear_materials.md
+          - Composite Materials and Forming: composite_materials_and_forming.md
           - Thermal Stress and Creep: solution_procedures_and_thermal_creep.md
           - Cohesive Fracture: dynamic_cohesive_fracture_architecture.md
           - Cyclic Cohesive Fatigue: cyclic_cohesive_fatigue_architecture.md

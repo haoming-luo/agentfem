@@ -517,3 +517,53 @@ class ElasticAnisotropic2DProperties:
         """Return a compact human-readable material-property summary."""
 
         return f"{self.name}: {self.model} properties, rho={self.density:.6e}"
+
+
+@dataclass(frozen=True)
+class ElasticAnisotropic3DProperties:
+    """3D linear elasticity in engineering-strain Voigt notation.
+
+    The component order is ``11, 22, 33, 23, 13, 12``.  Shear strain
+    components are engineering shears while stress components are tensorial.
+    """
+
+    name: str
+    stiffness_voigt: np.ndarray
+    density: float
+    model: str = "anisotropic_linear_elastic_3d"
+
+    def __post_init__(self) -> None:
+        C = np.asarray(self.stiffness_voigt, dtype=float)
+        if C.shape != (6, 6):
+            raise ValueError("3D anisotropic stiffness_voigt must be a 6x6 matrix.")
+        if not np.all(np.isfinite(C)):
+            raise ValueError("3D anisotropic stiffness_voigt must be finite.")
+        if not np.allclose(C, C.T, rtol=1.0e-10, atol=1.0e-12):
+            raise ValueError("3D anisotropic stiffness_voigt must be symmetric.")
+        if np.min(np.linalg.eigvalsh(C)) <= 0.0:
+            raise ValueError("3D anisotropic stiffness_voigt must be positive definite.")
+        if not isfinite(float(self.density)) or self.density <= 0.0:
+            raise ValueError("ElasticAnisotropic3DProperties.density must be positive.")
+        object.__setattr__(self, "stiffness_voigt", C)
+
+    @property
+    def pressure_wave_speed(self) -> float:
+        return float(np.sqrt(np.max(np.linalg.eigvalsh(self.stiffness_voigt)) / self.density))
+
+    @property
+    def shear_wave_speed(self) -> float:
+        return float(np.sqrt(np.min(np.diag(self.stiffness_voigt)[3:]) / self.density))
+
+    def as_dict(self) -> dict[str, object]:
+        return {
+            "name": self.name,
+            "model": self.model,
+            "density": self.density,
+            "voigt_order": ["11", "22", "33", "23", "13", "12"],
+            "stiffness_voigt": self.stiffness_voigt.tolist(),
+            "pressure_wave_speed_estimate": self.pressure_wave_speed,
+            "shear_wave_speed_estimate": self.shear_wave_speed,
+        }
+
+    def summary(self) -> str:
+        return f"{self.name}: {self.model} properties, rho={self.density:.6e}"

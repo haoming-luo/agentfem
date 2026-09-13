@@ -134,6 +134,13 @@ Deepen the finite-element core before broadening the catalog:
   work. Provider reaction fields follow the ordinary single-dataset output
   route. General weak and contact providers remain separate promotion gates;
 - selected cyclic plasticity, creep--fatigue, and fracture extensions.
+- deepen composite mechanics through the FEM-integrated constant-frame 2D/3D
+  orthotropic-solid route and locally verified ply/laminate section assets.
+  The next promotion sequence is spatial material orientations, shell patch
+  tests, then a finite-rotation fibrous-shell provider consuming the existing
+  non-orthogonal yarn tension/trellising/bending surface law. Tool contact,
+  friction, inter-ply slip, quasi-static explicit controls, and forming
+  experiments remain separate gates rather than implied features;
 - promote the 3D generalized-Maxwell family beyond its analytical ramp--hold
   patch and independent Abaqus rod benchmark. Adaptive physical time, atomic
   cutback, portable MPI restart and accepted-boundary checkpoints are

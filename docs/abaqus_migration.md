@@ -231,6 +231,13 @@ a review finding until the corresponding mesh transform has been lowered.
 Missing Part, ELSET, or material references receive stable error codes and
 block native execution.
 
+Composite section rows remain review-required during inspection. Once their
+references and units have been reviewed, common composite solid/continuum and
+shell row layouts may be lowered explicitly with
+`materials.laminate_from_abaqus_section(...)`. The resulting section retains
+the reviewer and source location; unsupported or ambiguous row layouts remain
+blocked rather than being reinterpreted.
+
 The `pending_assets` section is equally important: it keeps source rows and
 locations for procedures, loads, boundary conditions, amplitudes,
 interactions, and output requests. Their presence in the plan is evidence of

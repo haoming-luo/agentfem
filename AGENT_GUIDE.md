@@ -109,6 +109,12 @@ scientific model or result.
   combined-hardening route with quadrature rollback/restart and `ALPHA`
   output. Keep its external-definition evidence distinct from a calibrated
   structure-level stabilized-hysteresis validation.
+  For composite solids and sections, read
+  `docs/composite_materials_and_forming.md`. Keep a material's constants,
+  assignment orientation, and laminate placement separate. A
+  `DecoupledFabricSurface` is a local surface law; do not present it as a
+  finite-rotation shell, contact, or forming Step until those providers and
+  their benchmarks exist.
   `constitutive.finite_strain_j2_logarithmic(...)` has experimental public
   `model.step(...)` providers for ordinary strong boundaries/reference dead
   loads and for 3D affine-periodic cells with exactly one

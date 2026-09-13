@@ -106,6 +106,24 @@ def load_material(name: str, model: str | None = None):
             gxy=float(data["gxy"]),
             density=float(data["density"]),
         )
+    if model == "anisotropic_linear_elastic_3d":
+        from agentfem.constitutive import anisotropic_elastic_3d
+
+        return anisotropic_elastic_3d(
+            name=record.name,
+            stiffness_voigt=np.asarray(data["stiffness_voigt"], dtype=float),
+            density=float(data["density"]),
+        )
+    if model == "orthotropic_linear_elastic_3d":
+        from agentfem.constitutive import orthotropic_elastic_3d
+
+        return orthotropic_elastic_3d(
+            name=record.name,
+            **{key: float(data[key]) for key in (
+                "ex", "ey", "ez", "nuxy", "nuxz", "nuyz",
+                "gxy", "gxz", "gyz", "density",
+            )},
+        )
     raise ValueError(f"unsupported material model {model!r}.")
 
 

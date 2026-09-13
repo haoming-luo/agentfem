@@ -105,7 +105,7 @@ class Model:
             return self.add_amplitude(name_or_amplitude)
         return self.add_amplitude(amplitude, name=name_or_amplitude)
 
-    def add_material(self, material, *, region=None):
+    def add_material(self, material, *, region=None, orientation=None):
         """Register material data and return the executable behavior.
 
         A named ``materials.MaterialDefinition`` remains independent of the
@@ -120,13 +120,22 @@ class Model:
         if isinstance(material, MaterialDefinition):
             definition = material
             resolved = material.resolve_for(self.study)
+        if orientation is not None:
+            from .materials.orientations import OrientedMaterial, oriented
+
+            if isinstance(resolved, OrientedMaterial):
+                raise ValueError(
+                    "Material orientation was supplied twice. Pass an oriented material "
+                    "or orientation=..., not both."
+                )
+            resolved = oriented(resolved, orientation)
         self.materials.append(_WithRegion(resolved, region, definition))
         return resolved
 
-    def material(self, material, *, region=None):
-        """Register material data and return it."""
+    def material(self, material, *, region=None, orientation=None):
+        """Register material data with an optional independent material frame."""
 
-        return self.add_material(material, region=region)
+        return self.add_material(material, region=region, orientation=orientation)
 
     def add_constraint(self, constraint):
         """Register a strong constraint and return it."""

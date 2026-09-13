@@ -1498,8 +1498,10 @@ an amplitude evaluates that history at normalized step time and is not scaled
 again. Linear static evaluates model histories at step end, while heat and
 dynamics evaluate them at physical time.</p>
 <h2 id="standard-run-feedback">Standard run feedback<a class="headerlink" href="#standard-run-feedback" title="Permanent link">&para;</a></h2>
-<p>Nonlinear steps report progress on MPI rank zero without requiring routine CLI
-flags:</p>
+<p>Nonlinear steps report a concise rank-zero lifecycle without requiring routine
+CLI flags. The default stream keeps step boundaries, cutbacks, failures and a
+30-second wall-clock heartbeat; set <code>AGENTFEM_VERBOSITY=1</code> for every accepted
+increment or <code>AGENTFEM_VERBOSITY=2</code> for every Newton iteration:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>[STEP 1] periodic_neo_hookean | automatic_incrementation
 <a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a>  [INC 1 | ATT 1] 0 -&gt; 0.25 (d=0.25)
 <a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a>    ITER 01 | residual=...
@@ -1508,11 +1510,13 @@ flags:</p>
 <p>Passing <code>status_file="job.sta"</code> adds a flushed, line-oriented status record.
 <code>progress=False</code> remains available for managed campaigns, but silence is not
 the interactive default.</p>
-<p>Transient reporters also provide a wall-clock heartbeat when a nominal
-<code>print_every</code> interval takes unusually long. The default is deliberately
-coarse (30 seconds): it reports accepted increment/time, completion, rate,
-approximate ETA, stability information when available, and the latest energy
-error without emitting one line per internal operation.</p>
+<p>Transient and nonlinear reporters also provide a wall-clock heartbeat when a
+nominal output interval or one accepted load increment takes unusually long.
+The default is deliberately coarse (30 seconds). Transient heartbeats report
+accepted increment/time, completion, rate, approximate ETA, stability
+information when available, and the latest energy error. Nonlinear heartbeats
+report the active increment, load factor and latest completed Newton residual.
+Neither mode emits one line per internal operation.</p>
 <p>The event recorder is bounded rather than proportional to an arbitrarily long
 run. It retains up to 4096 execution events, preferentially preserving visible
 increments, cutbacks, failures, and completion events; hidden repetitive

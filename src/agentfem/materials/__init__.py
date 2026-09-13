@@ -20,20 +20,56 @@ from .library import (
 )
 from .properties import (
     ElasticAnisotropic2DProperties,
+    ElasticAnisotropic3DProperties,
     ElasticIsotropicProperties,
     ThermoElasticIsotropicProperties,
     TemperatureDependentThermoElasticProperties,
     TemperaturePropertyTable,
     temperature_property,
 )
+from .orientations import (
+    FiberFrame,
+    MaterialFrame,
+    OrientedMaterial,
+    fiber_frame,
+    material_frame,
+    oriented,
+)
+from .sections import (
+    LaminateResponse,
+    LaminateSection,
+    Ply,
+    PlyPointResult,
+    SectionPoint,
+    laminate,
+    laminate_from_abaqus_section,
+    ply,
+    transformed_reduced_stiffness,
+)
 from .schemas import validate_material_record
 
 __all__ = [
     "ElasticAnisotropic2DProperties",
+    "ElasticAnisotropic3DProperties",
     "ElasticIsotropicProperties",
     "ThermoElasticIsotropicProperties",
     "TemperatureDependentThermoElasticProperties",
     "TemperaturePropertyTable",
+    "FiberFrame",
+    "MaterialFrame",
+    "OrientedMaterial",
+    "LaminateResponse",
+    "LaminateSection",
+    "Ply",
+    "PlyPointResult",
+    "SectionPoint",
+    "fiber_frame",
+    "material_frame",
+    "oriented",
+    "laminate",
+    "laminate_from_abaqus_section",
+    "ply",
+    "transformed_reduced_stiffness",
     "temperature_property",
     "MaterialRecord",
     "MaterialAssetError",

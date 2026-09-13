@@ -1,0 +1,103 @@
+{
+  "schema": "agentfem.scientific-function-card",
+  "schema_version": "0.1.0",
+  "id": "agentfem.material.fabric_surface_constitutive",
+  "title": "Non-orthogonal woven-fabric surface response",
+  "kind": "material",
+  "status": "experimental",
+  "summary": "Defines a provider-neutral material-point surface law with independent convected warp/weft directions, tabulated yarn tension, trellising shear, bending moments, tangent, and stored energy without claiming an integrated forming shell.",
+  "public_api": [
+    "agentfem.materials.FiberFrame",
+    "agentfem.constitutive.SurfaceConstitutive",
+    "agentfem.constitutive.TabulatedResponse",
+    "agentfem.constitutive.DecoupledFabricSurface",
+    "agentfem.constitutive.decoupled_fabric_surface"
+  ],
+  "implementation": [
+    "materials/orientations.py",
+    "constitutive/fabric.py"
+  ],
+  "science": {
+    "statement": "Warp and weft are independent structural directions that convect with the surface deformation, while yarn tension, trellising shear, and bending are calibrated and accumulated as distinct constitutive energy channels.",
+    "equations": [
+      {
+        "label": "fiber stretches and trellising angle",
+        "expression": "\\lambda_{i}=\\lVert\\mathbf{F}_{s}\\mathbf{a}_{i}\\rVert,\\qquad \\gamma=\\Theta_{0}-\\arccos(\\widehat{\\mathbf{F}_{s}\\mathbf{a}_{1}}\\cdot\\widehat{\\mathbf{F}_{s}\\mathbf{a}_{2}})",
+        "description": "The two directions need not remain orthogonal, unlike a conventional material frame."
+      },
+      {
+        "label": "decoupled surface energy",
+        "expression": "\\Psi_{s}=\\Psi_{1}(\\lambda_{1}-1)+\\Psi_{2}(\\lambda_{2}-1)+\\Psi_{\\gamma}(\\gamma)+\\tfrac{1}{2}\\boldsymbol{\\kappa}^{T}\\mathbf{D}_{b}\\boldsymbol{\\kappa}",
+        "description": "Independent tension, in-plane shear, and bending data remain independently identifiable."
+      }
+    ],
+    "inputs": [
+      {
+        "name": "surface deformation, fiber frame, response curves, and curvature",
+        "type": "2D surface deformation gradient, two independent reference directions, piecewise-linear channels, and three generalized curvatures",
+        "unit_role": "dimensionless, radians, force per reference length, inverse length, and bending stiffness",
+        "description": "Curve extrapolation and yarn compression behavior are explicit choices."
+      }
+    ],
+    "outputs": [
+      {
+        "name": "surface constitutive response",
+        "type": "fiber kinematics, membrane resultants, bending moments, 6x6 local tangent, and stored energy",
+        "unit_role": "dimensionless, force per length, moment per length, and energy per area in a consistent unit system",
+        "description": "The response is suitable for consumption by a future finite-rotation shell provider."
+      }
+    ],
+    "assumptions": [
+      "The current foundation uses decoupled, rate-independent elastic channels.",
+      "Tabulated data are expressed in one consistent unit system."
+    ],
+    "conventions": [
+      "Positive trellising shear is the reduction of the included warp/weft angle.",
+      "The shear response is odd and yarn compression is suppressed when tension_only is enabled.",
+      "Generalized bending order is warp, weft, then twist."
+    ],
+    "applicability": [
+      "Material calibration, constitutive screening, and future woven-reinforcement forming providers."
+    ],
+    "limitations": [
+      "No shell element, global residual/Jacobian, contact, friction, inter-ply slip, or forming Step currently consumes this response.",
+      "Rate effects, hysteresis, irreversible locking, yarn slippage, and damage need additional stateful laws.",
+      "Material-point tests do not establish a forming simulation or wrinkle prediction capability."
+    ]
+  },
+  "usage": {
+    "minimal_example": "frame = materials.fiber_frame((1, 0), (0, 1)); tension = constitutive.tabulated_response((0, 0.1), (0, 100), extrapolation='linear'); shear = constitutive.tabulated_response((0, 0.5), (0, 20), symmetry='odd', extrapolation='linear'); fabric = constitutive.decoupled_fabric_surface(frame=frame, warp_tension=tension, weft_tension=tension, shear=shear, bending_stiffness=((1,0,0),(0,1,0),(0,0,0.5)))",
+    "examples": [
+      "tests/test_composite_materials.py"
+    ]
+  },
+  "verification": {
+    "tests": [
+      "tests/test_composite_materials.py"
+    ],
+    "benchmarks": [],
+    "validation_rules": [
+      "Require independent non-collinear reference fiber directions and non-collapsed convected directions.",
+      "Require an odd trellising response and a symmetric positive-semidefinite bending stiffness.",
+      "Verify zero reference response, tension-only compression behavior, stored-energy consistency, and separation of tension, shear, and bending channels.",
+      "Keep FEM integration unavailable until shell patch, objectivity, contact, and forming benchmarks pass."
+    ]
+  },
+  "references": [
+    {
+      "title": "Boisse et al. (2022), bias-extension characterization review",
+      "locator": "https://doi.org/10.1007/s12289-022-01682-8"
+    },
+    {
+      "title": "Liang, Colmars, and Boisse (2017), fibrous-reinforcement shell formulation",
+      "locator": "https://doi.org/10.1016/j.compositesa.2017.04.024"
+    },
+    {
+      "title": "Bai et al., high-fidelity fibrous shell model for multilayer woven forming",
+      "locator": "https://fhclxb.buaa.edu.cn/en/article/id/236271a2-01d7-4910-b99c-79ccc4cb21f6"
+    }
+  ],
+  "related_cards": [
+    "agentfem.workflow.composite_orientation_and_laminate"
+  ]
+}

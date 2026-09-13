@@ -8,7 +8,9 @@ import numpy as np
 SUPPORTED_MODELS = {
     "isotropic_linear_elastic",
     "anisotropic_linear_elastic_2d",
+    "anisotropic_linear_elastic_3d",
     "orthotropic_plane_stress_2d",
+    "orthotropic_linear_elastic_3d",
 }
 
 
@@ -77,6 +79,22 @@ def validate_material_model(material_name: str, model: str, record: dict) -> Non
                 "must be positive definite."
             )
         return
+    if model == "anisotropic_linear_elastic_3d":
+        _require_positive(record, material_name, model, "density")
+        C = np.asarray(record.get("stiffness_voigt"), dtype=float)
+        if C.shape != (6, 6):
+            raise ValueError(
+                f"material {material_name!r} model {model!r} stiffness_voigt must be 6x6."
+            )
+        if not np.all(np.isfinite(C)) or not np.allclose(C, C.T, rtol=1.0e-10, atol=1.0e-12):
+            raise ValueError(
+                f"material {material_name!r} model {model!r} stiffness_voigt must be finite and symmetric."
+            )
+        if np.min(np.linalg.eigvalsh(C)) <= 0.0:
+            raise ValueError(
+                f"material {material_name!r} model {model!r} stiffness_voigt must be positive definite."
+            )
+        return
     if model == "orthotropic_plane_stress_2d":
         for key in ("ex", "ey", "gxy", "density"):
             _require_positive(record, material_name, model, key)
@@ -85,6 +103,15 @@ def validate_material_model(material_name: str, model: str, record: dict) -> Non
             raise ValueError(
                 f"material {material_name!r} model {model!r} has invalid nuxy={nuxy}."
             )
+        return
+    if model == "orthotropic_linear_elastic_3d":
+        for key in ("ex", "ey", "ez", "gxy", "gxz", "gyz", "density"):
+            _require_positive(record, material_name, model, key)
+        for key in ("nuxy", "nuxz", "nuyz"):
+            if key not in record or not np.isfinite(float(record[key])):
+                raise ValueError(
+                    f"material {material_name!r} model {model!r} requires finite {key}."
+                )
 
 
 def _require_positive(record: dict, material_name: str, model: str, key: str) -> None:

@@ -297,6 +297,43 @@ A typed parameter object created directly by a user or loaded from a material
 record. For example, isotropic elastic properties store `young`, `poisson`, and
 `density`; the constitutive relation uses those properties to compute stress.
 
+## Material Frame and Fiber Frame
+
+A material frame is a right-handed orthonormal basis attached to a material
+assignment, not a duplicate set of constitutive constants. The same
+orthotropic behavior may be assigned to different regions with different
+frames. Constant 2D and 3D frames are lowered by the standard small-strain
+elastic operator; spatial fields and finite-strain frame evolution require
+their own explicit providers.
+
+A fiber frame contains two independent structural directions. It is distinct
+because textile warp and weft may become non-orthogonal during trellising.
+Treating those directions as an ordinary orthonormal coordinate system would
+erase the in-plane shear measure that a forming model needs.
+
+## Ply and Laminate Section
+
+A ply binds a plane-stress material behavior to a thickness, section angle,
+integration-point count, and stable name. A laminate section owns the ordered
+through-thickness placement, reference-surface offset, classical `A/B/D`
+operators, and per-ply recovery. It does not choose a shell element or a
+Solution Procedure.
+
+The first laminate implementation is a locally verified classical-laminate
+section asset. A shell Step may consume it in the future, but its presence does
+not imply finite-rotation shell, contact, or forming capability.
+
+## Surface Constitutive Law
+
+A surface constitutive law maps surface kinematics to membrane, transverse-
+shear, or bending resultants and a consistent local tangent. It is an extension
+boundary between reusable material physics and a membrane/shell provider.
+
+The initial woven-fabric law keeps yarn tension, trellising shear, and bending
+independent and reports convected fiber directions and stored energy. It is a
+material-point capability until a global finite-element provider supplies
+shell kinematics, assembly, state, solver, output, and benchmark evidence.
+
 ## Constraint
 
 An essential or algebraic restriction on degrees of freedom. Dirichlet data,
