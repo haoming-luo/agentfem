@@ -1363,6 +1363,15 @@ This package exposes its public objects through focused submodules.
 | function | `explicit_dynamics(*, state, integrator, residual, stiffness = None, dt: float, steps: int, study = None, prescribed = (), constraints = (), update_load = None, save_every: int \| None = None, print_every: int \| None = None, history_every: int = 1, progress = True, status_file = None, checkpoint_policy = None, history_monitor = None, stability = None, name: str = 'explicit_dynamics') -> ExplicitDynamicsStep` | Create a second-order explicit dynamics step. |
 | function | `modal_analysis(*, target, mass, stiffness, modes: int, study = None, constraints = (), bcs = None, target_frequency: float \| None = None, tolerance: float = 1e-09, maximum_iterations: int = 1000, rigid_mode_tolerance: float = 1e-10, name: str = 'modal_analysis') -> ModalAnalysisStep` | Create an undamped linear structural modal analysis. |
 | function | `implicit_dynamics(*, state, mass, stiffness, force, damping = None, dt: float, steps: int, parameters = None, study = None, constraints = (), bcs = None, solver_options: LinearSolverOptions \| None = None, update_load = None, progress = True, status_file = None, checkpoint_policy = None, save_every: int \| None = None, print_every: int \| None = None, name: str = 'implicit_dynamics') -> ImplicitDynamicsStep` | Create a linear Newmark or generalized-alpha dynamics step. |
+| class | `PreparedSolve` | One reusable numerical allocation with an explicit terminal lifetime. |
+| class | `AffineNonlinearVariationalProblem` | Nonlinear equilibrium under an exact affine dof reduction. |
+| class | `IncrementalNonlinearVariationalProblem` | Ordinary nonlinear equilibrium with automatic load incrementation. |
+| class | `LoadIncrementSnapshot` | A copied solution state at one nonlinear load factor. |
+| class | `NonlinearLoadIncrementInfo` | Convergence evidence for one ordinary nonlinear load increment. |
+| class | `NonlinearLoadPathInfo` | Accepted and attempted increments for an ordinary nonlinear step. |
+| class | `ExplicitDynamicsStep` | Inspectable second-order explicit dynamics step. |
+| class | `FirstOrderTransientStep` | Reusable implicit-Euler step loop for heat/diffusion problems. |
+| class | `ImplicitDynamicsStep` | Linear Newmark/generalized-alpha structural-dynamics step. |
 
 ## `agentfem.provenance`
 

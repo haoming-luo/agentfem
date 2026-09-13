@@ -47,9 +47,7 @@ def test_documentation_machine_entrypoints_are_current():
 def test_cli_and_documentation_share_one_product_contract():
     parser = build_parser()
     subparsers = next(
-        action
-        for action in parser._actions
-        if getattr(action, "choices", None)
+        action for action in parser._actions if getattr(action, "choices", None)
     )
     assert tuple(subparsers.choices) == CLI_COMMANDS
 
@@ -96,12 +94,15 @@ def test_knowledge_import_check_uses_the_current_checkout():
 
 
 def test_scientific_equation_linter_rejects_ascii_pseudocode():
-    assert build_knowledge._equation_notation_errors(
-        "dD_f/dN=C<Delta G_bar>^m"
-    ) == ["Delta"]
-    assert build_knowledge._equation_notation_errors(
-        r"\frac{\mathrm{d}D_f}{\mathrm{d}N}=C\langle\Delta G\rangle_+^m"
-    ) == []
+    assert build_knowledge._equation_notation_errors("dD_f/dN=C<Delta G_bar>^m") == [
+        "Delta"
+    ]
+    assert (
+        build_knowledge._equation_notation_errors(
+            r"\frac{\mathrm{d}D_f}{\mathrm{d}N}=C\langle\Delta G\rangle_+^m"
+        )
+        == []
+    )
 
 
 def test_all_documentation_math_uses_tex_not_ascii_pseudocode():
@@ -137,6 +138,18 @@ def test_generated_api_covers_public_workflow_objects():
     assert "FiniteStrainPlasticityPathInfo" in reference
     assert "FiniteStrainJ2AffineTransaction" in reference
     assert "ExperimentalFiniteStrainPlasticityStep" in reference
+    for reexported_problem_type in (
+        "PreparedSolve",
+        "AffineNonlinearVariationalProblem",
+        "IncrementalNonlinearVariationalProblem",
+        "LoadIncrementSnapshot",
+        "NonlinearLoadIncrementInfo",
+        "NonlinearLoadPathInfo",
+        "ExplicitDynamicsStep",
+        "FirstOrderTransientStep",
+        "ImplicitDynamicsStep",
+    ):
+        assert reexported_problem_type in reference
 
 
 def test_machine_entrypoints_link_the_packaged_knowledge_catalog():
@@ -144,9 +157,12 @@ def test_machine_entrypoints_link_the_packaged_knowledge_catalog():
         "https://raw.githubusercontent.com/haoming-luo/agentfem/main/"
         "src/agentfem/knowledge/catalog.json"
     )
-    assert json.loads(build_docs.render_agent_manifest())["agent_entrypoints"][
-        "knowledge_catalog"
-    ] == expected
+    assert (
+        json.loads(build_docs.render_agent_manifest())["agent_entrypoints"][
+            "knowledge_catalog"
+        ]
+        == expected
+    )
     assert expected in build_docs.render_llms_entry()
 
 
@@ -175,9 +191,9 @@ def test_site_navigation_uses_scientific_manual_structure():
     assert "search.suggest" in config
     assert "pymdownx.arithmatex" in config
     assert "      - examples/index.md" in config
-    assert config.index("Mesh Interoperability: mesh_interoperability.md") < config.index(
-        "Results and Data:"
-    )
+    assert config.index(
+        "Mesh Interoperability: mesh_interoperability.md"
+    ) < config.index("Results and Data:")
 
 
 def test_math_rendering_survives_instant_navigation_and_late_startup():
@@ -259,9 +275,7 @@ def test_manual_layout_keeps_navigation_and_footer_visually_separate():
 
 def test_primary_navigation_preserves_its_scroll_position_between_pages():
     config = (ROOT / "mkdocs.yml").read_text()
-    script = (
-        ROOT / "docs" / "javascripts" / "navigation-state.js"
-    ).read_text()
+    script = (ROOT / "docs" / "javascripts" / "navigation-state.js").read_text()
     assert "javascripts/navigation-state.js" in config
     assert ".md-sidebar--primary .md-sidebar__scrollwrap" in script
     assert "sessionStorage" in script

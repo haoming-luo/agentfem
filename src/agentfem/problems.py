@@ -44,6 +44,22 @@ from .state import (
 )
 
 
+# Public compatibility types implemented by their current ownership modules.
+# The documentation generator follows this explicit map; ordinary private
+# imports remain private and are not inferred as API merely because imported.
+_DOCUMENTED_REEXPORTS = {
+    "PreparedSolve": "_solver_lifecycle",
+    "AffineNonlinearVariationalProblem": "_nonlinear_problems",
+    "IncrementalNonlinearVariationalProblem": "_nonlinear_problems",
+    "LoadIncrementSnapshot": "_nonlinear_problems",
+    "NonlinearLoadIncrementInfo": "_nonlinear_problems",
+    "NonlinearLoadPathInfo": "_nonlinear_problems",
+    "ExplicitDynamicsStep": "_transient_problems",
+    "FirstOrderTransientStep": "_transient_problems",
+    "ImplicitDynamicsStep": "_transient_problems",
+}
+
+
 @dataclass
 class FEMProblem:
     """Lightweight finite-element problem description.

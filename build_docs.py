@@ -68,9 +68,7 @@ def public_api_levels() -> dict[str, tuple[str, ...]]:
         target.id: node.value
         for node in tree.body
         if isinstance(node, (ast.Assign, ast.AnnAssign))
-        for target in (
-            node.targets if isinstance(node, ast.Assign) else (node.target,)
-        )
+        for target in (node.targets if isinstance(node, ast.Assign) else (node.target,))
         if isinstance(target, ast.Name)
     }
     levels = {}
@@ -94,9 +92,7 @@ def public_modules() -> tuple[str, ...]:
 
     return tuple(
         dict.fromkeys(
-            module
-            for modules in public_api_levels().values()
-            for module in modules
+            module for modules in public_api_levels().values() for module in modules
         )
     )
 
@@ -109,9 +105,7 @@ def public_model_api_levels() -> dict[str, tuple[str, ...]]:
         target.id: node.value
         for node in tree.body
         if isinstance(node, (ast.Assign, ast.AnnAssign))
-        for target in (
-            node.targets if isinstance(node, ast.Assign) else (node.target,)
-        )
+        for target in (node.targets if isinstance(node, ast.Assign) else (node.target,))
         if isinstance(target, ast.Name)
     }
     levels = {}
@@ -270,6 +264,56 @@ def module_api(module: str) -> tuple[ApiObject, ...]:
     for node in tree.body:
         append_node(node)
 
+    documented_assignment = next(
+        (
+            node
+            for node in tree.body
+            if isinstance(node, ast.Assign)
+            and any(
+                isinstance(target, ast.Name) and target.id == "_DOCUMENTED_REEXPORTS"
+                for target in node.targets
+            )
+        ),
+        None,
+    )
+    if documented_assignment is not None:
+        try:
+            documented_reexports = ast.literal_eval(documented_assignment.value)
+        except (ValueError, TypeError) as exc:
+            raise RuntimeError(
+                f"_DOCUMENTED_REEXPORTS in {path} must be a literal mapping."
+            ) from exc
+        for public_name, relative_module in documented_reexports.items():
+            imported_path = path.parent.joinpath(
+                *str(relative_module).split(".")
+            ).with_suffix(".py")
+            if not imported_path.exists():
+                raise RuntimeError(
+                    f"Documented API source {relative_module!r} does not exist "
+                    f"beside {path}."
+                )
+            imported_tree = ast.parse(
+                imported_path.read_text(), filename=str(imported_path)
+            )
+            selected = next(
+                (
+                    node
+                    for node in imported_tree.body
+                    if isinstance(
+                        node,
+                        (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef),
+                    )
+                    and node.name == public_name
+                ),
+                None,
+            )
+            if selected is None:
+                raise RuntimeError(
+                    f"Documented API object {public_name!r} was not found in "
+                    f"{imported_path}."
+                )
+            append_node(selected, public_name=public_name)
+
     if path.name == "__init__.py":
         for statement in tree.body:
             if not isinstance(statement, ast.ImportFrom) or statement.level != 1:
@@ -300,8 +344,7 @@ def module_api(module: str) -> tuple[ApiObject, ...]:
                 for node in tree.body
                 if isinstance(node, ast.Assign)
                 and any(
-                    isinstance(target, ast.Name)
-                    and target.id == "_LAZY_EXPORTS"
+                    isinstance(target, ast.Name) and target.id == "_LAZY_EXPORTS"
                     for target in node.targets
                 )
             ),
@@ -361,7 +404,7 @@ def render_api_reference() -> str:
         "AgentFEM. It is a discovery surface: detailed scientific meaning, maturity,",
         "and evidence remain in the linked guides and scientific function reference.",
         "",
-        "!!! info \"Generated reference\"",
+        '!!! info "Generated reference"',
         "    Run `python build_docs.py` to refresh this page after public API changes.",
         "",
     ]
@@ -421,9 +464,7 @@ def render_agent_manifest() -> str:
         },
         "commands": contract["MACHINE_COMMANDS"],
         "public_workflow_modules": list(public_modules()),
-        "public_api": {
-            level: list(modules) for level, modules in api_levels.items()
-        },
+        "public_api": {level: list(modules) for level, modules in api_levels.items()},
         "model_api": {
             level: list(methods) for level, methods in model_api_levels.items()
         },
@@ -440,9 +481,7 @@ def _literal_contract_values(*names: str) -> dict[str, object]:
         target.id: node.value
         for node in tree.body
         if isinstance(node, (ast.Assign, ast.AnnAssign))
-        for target in (
-            node.targets if isinstance(node, ast.Assign) else (node.target,)
-        )
+        for target in (node.targets if isinstance(node, ast.Assign) else (node.target,))
         if isinstance(target, ast.Name)
     }
     values = {}
@@ -496,10 +535,16 @@ def write_generated_sources(*, check: bool) -> None:
         LLMS_ENTRY: render_llms_entry(),
     }
     if check:
-        stale = [path for path, expected in generated.items() if not path.exists() or path.read_text() != expected]
+        stale = [
+            path
+            for path, expected in generated.items()
+            if not path.exists() or path.read_text() != expected
+        ]
         if stale:
             joined = ", ".join(str(path.relative_to(ROOT)) for path in stale)
-            raise SystemExit(f"Generated documentation is stale: {joined}. Run `python build_docs.py`.")
+            raise SystemExit(
+                f"Generated documentation is stale: {joined}. Run `python build_docs.py`."
+            )
     else:
         for path, expected in generated.items():
             path.parent.mkdir(parents=True, exist_ok=True)
@@ -516,7 +561,9 @@ def build_site(*, strict: bool) -> None:
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Build the AgentFEM documentation site")
+    parser = argparse.ArgumentParser(
+        description="Build the AgentFEM documentation site"
+    )
     parser.add_argument(
         "--check",
         action="store_true",

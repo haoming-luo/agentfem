@@ -15,9 +15,6 @@ from ._model_support import describe as _describe
 from ._model_support import domain as _domain
 from .materials.definitions import MaterialDefinition
 from ._api_contract import (
-    ADVANCED_MODEL_API,
-    COMPATIBILITY_MODEL_API,
-    CORE_MODEL_API,
     model_method_contract as _model_method_contract,
     model_methods as _model_methods,
 )
