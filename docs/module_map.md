@@ -17,7 +17,9 @@ otherwise; runnable examples remain in the repository-level `examples/`.
 | Shared axisymmetric (r,z) kinematics and full-revolution lowering | `_axisymmetric.py` |
 | Standard/Explicit family, equation order, algorithm, and state policy | `procedures.py` |
 | Model registry/facade, amplitudes, material assignments, checks, summaries, and model-first operator delegates | `models.py` |
-| Built-in scientific Step construction behind the facade | `_step_builders.py` |
+| Stable private facade for built-in scientific Step construction | `_step_builders.py` |
+| Linear-static and steady/transient thermal Step construction | `_step_builders_thermal.py` |
+| Finite-kinematics hyperelastic, mixed, and fabric-membrane Step construction | `_step_builders_finite_strain.py` |
 | Extensible analysis/material lowering and execution-policy normalization behind `model.step()` | `step_providers.py` |
 | Deterministic provider storage and selection, independent of scientific lowering | `_step_provider_registry.py` |
 | Function spaces and Lagrange defaults | `spaces.py` |
@@ -47,7 +49,7 @@ otherwise; runnable examples remain in the repository-level `examples/`.
 | Automatic/fixed incrementation and cutback policy | `steps.py` |
 | Linear/nonlinear solvers, prepared-solve lifecycle, and convergence evidence | `_solver_lifecycle.py`, `solvers.py` |
 | Scientific results, MPI-safe point/path/integral QoIs, histories, artifacts, and dataset bridge | `results/` |
-| Private static, nonlinear, transient, and modal result assembly | `results/_analysis_step.py`, `results/_nonlinear_step.py`, `results/_transient_step.py`, `results/_modal.py` |
+| Private direct-problem, static, nonlinear, transient, and modal result assembly | `results/_problem.py`, `results/_analysis_step.py`, `results/_nonlinear_step.py`, `results/_transient_step.py`, `results/_modal.py` |
 | Shared field location and processing semantics | `results/_field_metadata.py` |
 | Finite-strain fields and periodic-cell homogenization | `results/finite_strain.py` |
 | Global and regional L2 projection; engineering-default `S`/`E`/`MISES`, opt-in `SENER`, and explicit processing metadata | `results/projection.py`, `results/core.py` |

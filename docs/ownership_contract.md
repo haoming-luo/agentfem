@@ -48,6 +48,15 @@ builders or executing them. A selected provider then performs scientific
 lowering, after which the dispatch boundary binds the common execution
 context. This keeps extension discovery independent of built-in physics.
 
+Built-in builders are divided by scientific family when their dependencies
+and validation rules form a genuine independent unit. Linear and thermal
+lowering live in `_step_builders_thermal.py`; finite-kinematics hyperelastic,
+mixed, and fabric-membrane lowering live in
+`_step_builders_finite_strain.py`. `_step_builders.py` remains the stable
+private facade consumed by providers and 0.2.x compatibility methods. Further
+families should move only when the same ownership test is met, not to satisfy
+a line-count target.
+
 The same ownership rule applies after a procedure finishes. Discrete problem
 objects may advance state and expose the solution they computed, but private
 factories in `agentfem.results` assemble fields, histories, checkpoints,

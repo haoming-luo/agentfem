@@ -203,6 +203,30 @@ def test_transient_problems_delegate_result_assembly_to_result_owner():
     assert "problems" not in _agentfem_imports(result_factory)
 
 
+def test_direct_problems_delegate_result_assembly_to_result_owner():
+    tree = ast.parse((PACKAGE / "problems.py").read_text(encoding="utf-8"))
+    classes = {node.name: node for node in tree.body if isinstance(node, ast.ClassDef)}
+    expected = {
+        "LinearVariationalProblem": "from_linear_variational_problem",
+        "LinearSystemProblem": "from_linear_system_problem",
+        "NonlinearVariationalProblem": "from_nonlinear_variational_problem",
+    }
+    for class_name, delegate in expected.items():
+        method = next(
+            node
+            for node in classes[class_name].body
+            if isinstance(node, ast.FunctionDef) and node.name == "solve_result"
+        )
+        source = ast.unparse(method)
+        assert delegate in source
+        assert "from_solution" not in source
+        assert "metadata=" not in source
+
+    result_factory = PACKAGE / "results" / "_problem.py"
+    assert result_factory.exists()
+    assert "problems" not in _agentfem_imports(result_factory)
+
+
 def test_step_provider_registry_owns_selection_not_scientific_lowering():
     provider_source = (PACKAGE / "step_providers.py").read_text(encoding="utf-8")
     registry_path = PACKAGE / "_step_provider_registry.py"
@@ -216,6 +240,35 @@ def test_step_provider_registry_owns_selection_not_scientific_lowering():
     assert "_step_builders" not in registry_source
     assert "StepExecutionContext" not in registry_source
     assert "provider.lower" in provider_source
+
+
+def test_thermal_step_builders_have_a_separate_physics_owner():
+    facade_source = (PACKAGE / "_step_builders.py").read_text(encoding="utf-8")
+    family_path = PACKAGE / "_step_builders_thermal.py"
+    family_source = family_path.read_text(encoding="utf-8")
+
+    assert "from ._step_builders_thermal import" in facade_source
+    assert "def heat_transfer" not in facade_source
+    assert "def _nonlinear_heat_transfer" not in facade_source
+    assert "def linear_static" not in facade_source
+    assert "def heat_transfer" in family_source
+    assert "def _nonlinear_heat_transfer" in family_source
+    assert "def linear_static" in family_source
+    assert "step_providers" not in _agentfem_imports(family_path)
+    assert "models" not in _agentfem_imports(family_path)
+
+
+def test_finite_strain_step_builders_have_a_separate_physics_owner():
+    facade_source = (PACKAGE / "_step_builders.py").read_text(encoding="utf-8")
+    family_path = PACKAGE / "_step_builders_finite_strain.py"
+    family_source = family_path.read_text(encoding="utf-8")
+
+    assert "from ._step_builders_finite_strain import" in facade_source
+    for name in ("fabric_membrane", "hyperelastic", "mixed_hyperelastic"):
+        assert f"def {name}" not in facade_source
+        assert f"def {name}" in family_source
+    assert "step_providers" not in _agentfem_imports(family_path)
+    assert "models" not in _agentfem_imports(family_path)
 
 
 def test_harmonic_step_delegates_petsc_problem_to_backend_owner():

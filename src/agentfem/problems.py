@@ -110,13 +110,13 @@ class LinearVariationalProblem:
     def solve_result(self, *, name: str = "linear_variational_result"):
         """Solve and wrap the solution in a scientific result object."""
 
-        from .results import from_solution
+        from .results._problem import from_linear_variational_problem
 
         solution = self.solve()
-        return from_solution(
+        return from_linear_variational_problem(
+            self,
             solution,
             name=name,
-            metadata={"solve": self.last_solve_info.as_dict()},
         )
 
 
@@ -207,13 +207,13 @@ class LinearSystemProblem:
     def solve_result(self, *, name: str | None = None):
         """Solve and return a :class:`SimulationResult`."""
 
-        from .results import from_solution
+        from .results._problem import from_linear_system_problem
 
         solution = self.solve()
-        return from_solution(
+        return from_linear_system_problem(
+            self,
             solution,
             name=name or getattr(self.system, "name", "linear_system_result"),
-            metadata={"problem": self.summary()},
         )
 
     def summary(self) -> dict[str, object]:
@@ -314,16 +314,12 @@ class NonlinearVariationalProblem:
     def solve_result(self):
         """Solve and return a result with SNES convergence evidence."""
 
-        from .results import from_solution
+        from .results._problem import from_nonlinear_variational_problem
 
         solution = self.solve()
-        return from_solution(
+        return from_nonlinear_variational_problem(
+            self,
             solution,
-            name=self.name,
-            metadata={
-                "problem": self.summary(),
-                "solve": self.last_solve_info.as_dict(),
-            },
         )
 
     def summary(self) -> dict[str, object]:
