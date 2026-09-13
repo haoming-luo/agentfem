@@ -158,6 +158,51 @@ def test_analysis_step_delegates_result_assembly_to_result_owner():
     assert not hasattr(results, "from_analysis_step")
 
 
+def test_nonlinear_problems_delegate_result_assembly_to_result_owner():
+    tree = ast.parse((PACKAGE / "problems.py").read_text(encoding="utf-8"))
+    classes = {node.name: node for node in tree.body if isinstance(node, ast.ClassDef)}
+    expected = {
+        "IncrementalNonlinearVariationalProblem": ("from_incremental_nonlinear_step"),
+        "AffineNonlinearVariationalProblem": "from_affine_nonlinear_step",
+    }
+    for class_name, delegate in expected.items():
+        method = next(
+            node
+            for node in classes[class_name].body
+            if isinstance(node, ast.FunctionDef) and node.name == "solve_result"
+        )
+        source = ast.unparse(method)
+        assert delegate in source
+        assert "from_solution" not in source
+        assert "add_field" not in source
+        assert "add_history" not in source
+        assert "constraint_balance_contract" not in source
+
+    result_factory = PACKAGE / "results" / "_nonlinear_step.py"
+    assert result_factory.exists()
+    assert "problems" not in _agentfem_imports(result_factory)
+
+
+def test_transient_problems_delegate_result_assembly_to_result_owner():
+    tree = ast.parse((PACKAGE / "problems.py").read_text(encoding="utf-8"))
+    method = next(
+        node
+        for node in tree.body
+        if isinstance(node, ast.FunctionDef) and node.name == "_solve_transient_result"
+    )
+    source = ast.unparse(method)
+
+    assert "from_transient_step" in source
+    assert "from_solution" not in source
+    assert "add_field" not in source
+    assert "add_history" not in source
+    assert "add_artifact" not in source
+
+    result_factory = PACKAGE / "results" / "_transient_step.py"
+    assert result_factory.exists()
+    assert "problems" not in _agentfem_imports(result_factory)
+
+
 def test_harmonic_step_delegates_petsc_problem_to_backend_owner():
     tree = ast.parse(
         (PACKAGE / "mechanics" / "viscoelasticity.py").read_text(encoding="utf-8")

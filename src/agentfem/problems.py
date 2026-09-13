@@ -438,6 +438,7 @@ class IncrementalNonlinearVariationalProblem:
     procedure: object | None = None
     result_field_factory: object | None = None
     result_field_recovery: object | None = None
+    result_field_role: str = "primary_subfield"
     snapshot_field_factory: object | None = None
     last_solve_info: NonlinearLoadPathInfo | None = field(default=None, init=False)
     snapshots: list = field(default_factory=list, init=False)
@@ -729,41 +730,12 @@ class IncrementalNonlinearVariationalProblem:
     ):
         """Solve and complete one model-owned nonlinear result lifecycle."""
 
-        from .results import add_execution_trace, complete_result, from_solution
+        from .results._nonlinear_step import from_incremental_nonlinear_step
 
         solution = self.solve()
-        generated = (
-            ()
-            if self.result_field_factory is None
-            else tuple(self.result_field_factory())
-        )
-        primary = solution if not generated else generated[0]
-        result = from_solution(
-            primary,
-            name=self.name,
-            metadata={
-                "problem": self.summary(),
-                "solve": self.last_solve_info.as_dict(),
-            },
-        )
-        for field in generated[1:]:
-            result.add_field(
-                getattr(field, "name", type(field).__name__),
-                field,
-                location=_field_location(field),
-                processing=_mixed_subfield_processing(field),
-            )
-        for selected in fields:
-            function = _unwrap_result_field(selected)
-            result.add_field(
-                getattr(function, "name", type(function).__name__),
-                function,
-                location=_field_location(function),
-            )
-        add_execution_trace(result, self.execution_events)
-        return complete_result(
+        return from_incremental_nonlinear_step(
             self,
-            result,
+            solution,
             output=output,
             fields=fields,
             strict_output=strict_output,
@@ -792,6 +764,7 @@ class IncrementalNonlinearVariationalProblem:
             "result_field_recovery": (
                 "provider" if self.result_field_recovery is not None else "default"
             ),
+            "result_field_role": self.result_field_role,
             "last_solve": (
                 None if self.last_solve_info is None else self.last_solve_info.as_dict()
             ),
@@ -819,6 +792,7 @@ class AffineNonlinearVariationalProblem:
     procedure: object | None = None
     result_field_factory: object | None = None
     result_field_recovery: object | None = None
+    result_field_role: str = "primary_subfield"
     snapshot_field_factory: object | None = None
     state_transaction: object | None = None
     checkpoint_policy: object | None = None
@@ -1111,8 +1085,7 @@ class AffineNonlinearVariationalProblem:
         )
         portable_nodal_state = (
             None
-            if transaction is None
-            or not hasattr(transaction, "portable_nodal_state")
+            if transaction is None or not hasattr(transaction, "portable_nodal_state")
             else transaction.portable_nodal_state()
         )
         solution_identity = (
@@ -1533,140 +1506,14 @@ class AffineNonlinearVariationalProblem:
     ):
         """Solve and complete one affine nonlinear result lifecycle."""
 
-        from .results import add_execution_trace, complete_result, from_solution
-        from . import constraints as constraint_api
+        from .results._nonlinear_step import from_affine_nonlinear_step
 
         solution = self.solve()
-        generated = (
-            ()
-            if self.result_field_factory is None
-            else tuple(self.result_field_factory())
-        )
-        primary = solution if not generated else generated[0]
-        result = from_solution(
-            primary,
-            name=self.name,
-            metadata={
-                "problem": self.summary(),
-                "solve": self.last_solve_info.as_dict(),
-                "state": (
-                    None
-                    if self.state_transaction is None
-                    else (
-                        self.state_transaction.summary()
-                        if hasattr(self.state_transaction, "summary")
-                        else {"kind": type(self.state_transaction).__name__}
-                    )
-                ),
-            },
-        )
-        for field in generated[1:]:
-            result.add_field(
-                getattr(field, "name", type(field).__name__),
-                field,
-                location=_field_location(field),
-                processing=_mixed_subfield_processing(field),
-            )
-        for selected in fields:
-            function = _unwrap_result_field(selected)
-            result.add_field(
-                getattr(function, "name", type(function).__name__),
-                function,
-                location=_field_location(function),
-            )
-        if self.state_transaction is not None and hasattr(
-            self.state_transaction, "populate_result"
-        ):
-            self.state_transaction.populate_result(result)
-        for checkpoint in self.checkpoints:
-            result.add_checkpoint(checkpoint)
-        provider_duals = constraint_api.collect_provider_duals(
-            (self.constraint,),
+        return from_affine_nonlinear_step(
             self,
-        )
-        balance_contract = constraint_api.constraint_balance_contract(
-            (self.constraint,),
-            provider_duals=provider_duals,
-        )
-        result.metadata["constraint_balance_contract"] = balance_contract
-        result.metadata["constraint_duals"] = tuple(
-            item.summary() for item in provider_duals
-        )
-        if len(provider_duals) == 1:
-            dual = provider_duals[0]
-            result.add_quantities(
-                {
-                    "affine_path_generalized_reaction": float(dual.force[0]),
-                    "affine_constraint_force_resultant": dual.resultant,
-                },
-                kind="diagnostic",
-                descriptions={
-                    "affine_path_generalized_reaction": (
-                        "Virtual work of the converged full residual against a "
-                        "unit increment of the prescribed affine path."
-                    ),
-                    "affine_constraint_force_resultant": (
-                        "Physical-space resultant of the converged displacement "
-                        "residual owned by the affine constraint provider."
-                    ),
-                },
-            )
-        dual_history = tuple(self.constraint_dual_history.records)
-        complete_dual_path = bool(
-            len(dual_history) >= 2
-            and abs(float(dual_history[0]["load_factor"])) <= 1.0e-12
-            and abs(float(dual_history[-1]["load_factor"]) - self.accepted_load_factor)
-            <= 1.0e-12
-        )
-        result.metadata["affine_constraint_path_work"] = {
-            "status": "complete" if complete_dual_path else "unavailable",
-            "sample_count": len(dual_history),
-            "integration": "accepted_path_trapezoidal",
-            "reason": (
-                None
-                if complete_dual_path
-                else "Accepted generalized-force history does not start at zero."
-            ),
-        }
-        if complete_dual_path:
-            factors = self.constraint_dual_history.factors
-            forces = self.constraint_dual_history.forces
-            path_work = self.constraint_dual_history.work()
-            result.add_history(
-                "affine_path_generalized_reaction",
-                factors,
-                forces,
-                abscissa_name="load_factor",
-                description=(
-                    "Full-residual generalized reaction conjugate to the "
-                    "accepted affine path coordinate."
-                ),
-            )
-            result.add_history(
-                "affine_path_outgoing_generalized_reaction",
-                factors,
-                self.constraint_dual_history.outgoing_forces,
-                abscissa_name="load_factor",
-                description=(
-                    "Right-sided generalized reaction at affine path knots; "
-                    "equal to the incoming value on a smooth path."
-                ),
-            )
-            result.add_quantity(
-                "affine_constraint_path_work",
-                path_work,
-                kind="diagnostic",
-                description=(
-                    "Trapezoidal work of the affine generalized reaction over "
-                    "all accepted load-path increments."
-                ),
-            )
-            result.metadata["affine_constraint_path_work"]["value"] = path_work
-        add_execution_trace(result, self.execution_events)
-        return complete_result(
-            self,
-            result,
+            solution,
             output=output,
+            fields=fields,
             strict_output=strict_output,
             metadata=metadata,
         )
@@ -1721,6 +1568,7 @@ class AffineNonlinearVariationalProblem:
             "result_field_recovery": (
                 "provider" if self.result_field_recovery is not None else "default"
             ),
+            "result_field_role": self.result_field_role,
         }
         if hasattr(self, "mixed_formulation"):
             summary["numerical_formulation"] = dict(self.mixed_formulation)
@@ -2672,8 +2520,6 @@ def _solve_transient_result(
 ):
     """Shared transient solve/output/result lifecycle for all equation orders."""
 
-    from .results import add_execution_trace, from_solution
-
     context = getattr(step, "execution_context", None)
     selected_output = output
     if selected_output is None and context is not None:
@@ -2703,167 +2549,16 @@ def _solve_transient_result(
             progress=progress,
             comm=comm,
         )
-    result = from_solution(
-        solution,
-        name=step.name,
-        metadata={"step": step.summary()},
-    )
-    if metadata:
-        result.metadata.update(dict(metadata))
-    if context is not None:
-        result.metadata.setdefault("execution_context", context.summary())
-    add_execution_trace(result, step.execution_events)
-    _attach_transient_output(
-        result,
+    from .results._transient_step import from_transient_step
+
+    return from_transient_step(
         step,
-        tuple(fields) or step.last_output_fields or tuple(default_fields),
+        solution,
+        output_fields=(
+            tuple(fields) or step.last_output_fields or tuple(default_fields)
+        ),
+        metadata=metadata,
     )
-    return result
-
-
-def _attach_transient_output(result, step, output_fields) -> None:
-    """Attach the accepted time axis and one single-geometry field dataset."""
-
-    result.metadata["accepted_times"] = tuple(
-        float(item) for item in step.accepted_times
-    )
-    output_start = step.last_output_start_time
-    result.metadata["transient"] = {
-        "completed_steps": int(step.completed_steps),
-        "total_steps": int(step.steps),
-        "output_start_time": output_start,
-        "output_scope": (
-            None
-            if step.last_output is None
-            else "complete"
-            if output_start == 0.0
-            else "continuation_segment"
-        ),
-    }
-    if step.history_requests:
-        result.metadata["transient"]["history_requests"] = [
-            request.summary() for request in step.history_requests
-        ]
-    if step.history_records:
-        coordinates = [item["time"] for item in step.history_records]
-        names = tuple(name for name in step.history_records[0] if name != "time")
-        requests = {
-            request.name: request for request in getattr(step, "history_requests", ())
-        }
-        result.add_histories(
-            coordinates,
-            {name: [item[name] for item in step.history_records] for name in names},
-            abscissa_name="time",
-            abscissa_unit="s",
-            units={name: getattr(requests.get(name), "unit", None) for name in names},
-            descriptions={
-                name: (
-                    getattr(requests.get(name), "description", "")
-                    or _TRANSIENT_HISTORY_DESCRIPTIONS.get(name, "")
-                )
-                for name in names
-            },
-        )
-    for checkpoint in step.checkpoints:
-        result.add_checkpoint(checkpoint)
-    path = step.last_output
-    if path is None:
-        return
-    primary = None if not output_fields else _unwrap_result_field(output_fields[0])
-    primary_shape = () if primary is None else tuple(getattr(primary, "ufl_shape", ()))
-    vector_primary = len(primary_shape) == 1
-    domain = None if primary is None else primary.function_space.mesh
-    backend = getattr(step, "last_output_backend", None)
-    storage_name = (
-        None
-        if not vector_primary
-        else (
-            "U"
-            if backend == "agentfem_unified_xdmf"
-            else str(getattr(primary, "name", "Displacement"))
-        )
-    )
-    semantic_name = "Displacement" if vector_primary else None
-    is_paraview = path.suffix.lower() == ".pvd"
-    result.metadata["field_output"] = {
-        "status": "completed",
-        "backend": backend,
-        "layout": getattr(step, "last_output_layout", None),
-        "geometry": "reference",
-        "scientific_artifact": None if is_paraview else str(path),
-        "scientific_xdmf_layout": (
-            "not_emitted" if is_paraview else "single_uniform_grid"
-        ),
-        "recommended_visualization_artifact": str(path),
-        "visualization_geometry_datasets_per_time": 1,
-        "visualization_requires_extract_block": False,
-        "warp_field": storage_name,
-        "warp_field_semantic": semantic_name,
-        "physical_components": (int(primary_shape[0]) if vector_primary else None),
-        "stored_components": (
-            None
-            if not vector_primary or domain is None
-            else int(domain.geometry.x.shape[1])
-        ),
-        "geometry_dimension": (
-            None if domain is None else int(domain.geometry.x.shape[1])
-        ),
-        "physical_model_dimension": (
-            None if domain is None else int(domain.geometry.dim)
-        ),
-        "warp_compatible": bool(vector_primary),
-        "field_aliases": (
-            {}
-            if storage_name is None or semantic_name is None
-            else {semantic_name: storage_name}
-        ),
-    }
-    if path.suffix.lower() == ".pvd":
-        result.add_artifact("fields_paraview", path)
-    else:
-        result.add_artifact("fields_xdmf", path)
-        heavy_data = path.with_suffix(".h5")
-        if heavy_data.is_file():
-            result.add_artifact("fields_hdf5", heavy_data)
-    for item in output_fields:
-        function = getattr(item, "value", item)
-        name = getattr(function, "name", type(function).__name__)
-        result.add_field(
-            name,
-            function,
-            artifact=path,
-            description=(
-                "Transient field in the shared single-geometry series; "
-                f"this output segment starts at time {output_start:g}."
-            ),
-        )
-
-
-_TRANSIENT_HISTORY_DESCRIPTIONS = {
-    "kinetic_energy": "Discrete kinetic energy, one half v-transpose M v.",
-    "strain_energy": "Recoverable linear strain energy, one half u-transpose K u.",
-    "total_mechanical_energy": "Sum of discrete kinetic and recoverable strain energy.",
-    "bulk_strain_energy": "Finite-strain constitutive energy integrated in the reference body.",
-    "cohesive_stored_energy": "Recoverable energy currently stored by the cohesive interface.",
-    "cohesive_fracture_dissipation": "Irreversible cohesive dissipation relative to the initial interface state.",
-    "numerical_damping_dissipation": "Accepted nonnegative work dissipated by the declared viscous damping model.",
-    "natural_load_work": "Accepted-path trapezoidal work of weak natural loads.",
-    "prescribed_motion_work": "Accepted-path trapezoidal work of strong prescribed-motion reactions.",
-    "external_work": "Sum of natural-load and prescribed-motion work.",
-    "energy_balance_error": "Initial accounted energy plus external work minus current accounted energy.",
-    "relative_energy_balance_error": "Absolute energy-balance error normalized by the largest energy scale.",
-    "thermal_content": (
-        "Discrete thermal content, one-transpose C T, relative to the model's "
-        "temperature zero."
-    ),
-    "applied_heat_rate": "Applied volumetric, flux, and Robin-source heat rate, one-transpose Q.",
-    "outward_heat_rate": "Net discrete conduction/Robin rate, one-transpose K T.",
-    "heat_balance_residual": (
-        "Implicit-Euler energy residual: delta thermal content plus dt times "
-        "outward rate minus applied rate. Strong-temperature reactions appear "
-        "in this residual until reported separately."
-    ),
-}
 
 
 def _transient_reporter(progress, comm, events, status_file=None):
@@ -4216,75 +3911,6 @@ def _as_list(value) -> list:
     if isinstance(value, tuple):
         return list(value)
     return [value]
-
-
-def _unwrap_result_field(field):
-    return fields.unwrap(field)
-
-
-def _field_location(field) -> str:
-    element = getattr(field.function_space, "element", None)
-    basix_element = getattr(element, "basix_element", None)
-    discontinuous = bool(
-        getattr(element, "discontinuous", False)
-        or getattr(basix_element, "discontinuous", False)
-    )
-    return "cells" if discontinuous else "nodes"
-
-
-def _projected_field_processing(field) -> dict[str, object]:
-    """Describe the post-processing contract of a projected result field."""
-
-    element = getattr(field.function_space, "element", None)
-    basix_element = getattr(element, "basix_element", None)
-    degree = getattr(basix_element, "degree", None)
-    family = getattr(basix_element, "family", None)
-    selected_degree = None if degree is None else int(degree)
-    return {
-        "source_position": "constitutive_expression",
-        "method": "global_l2_projection",
-        "representation": (
-            "cell_average" if selected_degree == 0 else "discontinuous_field"
-        ),
-        "space_family": (
-            None if family is None else str(getattr(family, "name", family))
-        ),
-        "space_degree": selected_degree,
-        "nodal_extrapolation": False,
-        "interelement_smoothing": False,
-        "material_boundary_averaging": False,
-    }
-
-
-def _mixed_subfield_processing(field) -> dict[str, object]:
-    """Describe one exact field collapsed from a monolithic mixed unknown."""
-
-    element = getattr(field.function_space, "element", None)
-    basix_element = getattr(element, "basix_element", None)
-    degree = getattr(basix_element, "degree", None)
-    family = getattr(basix_element, "family", None)
-    selected_degree = None if degree is None else int(degree)
-    discontinuous = _field_location(field) == "cells"
-    if discontinuous and selected_degree == 0:
-        representation = "cellwise_constant"
-    elif discontinuous:
-        representation = "discontinuous_cell_moments"
-    else:
-        representation = "finite_element_dofs"
-    return {
-        "method": "primary_mixed_finite_element_subfield",
-        "representation": representation,
-        "space_family": (
-            None if family is None else str(getattr(family, "name", family))
-        ),
-        "space_degree": selected_degree,
-        "postprocessed": False,
-        "visualization_requires_cell_recovery": bool(
-            discontinuous
-            and selected_degree is not None
-            and selected_degree > 0
-        ),
-    }
 
 
 def _describe_asset(asset) -> object:

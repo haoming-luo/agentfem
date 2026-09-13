@@ -1230,6 +1230,7 @@ def fabric_membrane(
         "FABRIC_WEFT_DIRECTION": "cell",
         "SENER": "cell",
     }
+    problem.result_field_role = "constitutive_projection"
     if output is not None and hasattr(output, "finalize"):
         # The declarative output plan recovers its requested fields for every
         # saved frame and registers the final frame in SimulationResult. Do not

@@ -42,6 +42,14 @@ Study -> Model -> scientific assets -> model.step(...)
 that path. Historical material-specific `*_step()` methods remain thin 0.2.x
 compatibility delegates; new workflows use `model.step(...)`.
 
+The same ownership rule applies after a procedure finishes. Discrete problem
+objects may advance state and expose the solution they computed, but private
+factories in `agentfem.results` assemble fields, histories, checkpoints,
+artifacts, processing metadata, and verification evidence. Static,
+incremental nonlinear, affine nonlinear, modal, and transient procedures all
+use this boundary. This prevents `problems.py` from becoming a second result
+system as new solver families are added.
+
 The same rule applies before a Step is built. Model-first conveniences such as
 `model.stiffness(...)`, `model.mass(...)`, `model.conduction(...)`, and
 `model.heat_capacity(...)` remain the stable public language, but they pass

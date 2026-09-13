@@ -55,15 +55,10 @@ class SolverHistoryRequest:
         context.result.add_histories(
             factors,
             {
-                "newton_residual": [
-                    item.residual_norm for item in increments
-                ],
-                "newton_iterations": [
-                    item.iterations for item in increments
-                ],
+                "newton_residual": [item.residual_norm for item in increments],
+                "newton_iterations": [item.iterations for item in increments],
                 "increment_size": [
-                    item.load_factor - item.start_load_factor
-                    for item in increments
+                    item.load_factor - item.start_load_factor for item in increments
                 ],
             },
             abscissa_name="load_factor",
@@ -111,9 +106,7 @@ class HistoryRequest:
                 f"History request {self.name!r} requires accepted snapshots."
             )
         if self.coordinate is None:
-            coordinate_name, coordinate_unit, abscissa = _snapshot_abscissa(
-                snapshots
-            )
+            coordinate_name, coordinate_unit, abscissa = _snapshot_abscissa(snapshots)
         else:
             abscissa = [self.coordinate(snapshot, context) for snapshot in snapshots]
             coordinate_name = self.abscissa_name or "coordinate"
@@ -213,9 +206,7 @@ class ProbeHistoryRequest:
             )
         selected_value = float(value.reshape(-1)[0])
         if not np.isfinite(selected_value):
-            raise ValueError(
-                f"Transient probe history {self.name!r} is not finite."
-            )
+            raise ValueError(f"Transient probe history {self.name!r} is not finite.")
         return selected_value
 
     def summary(self) -> dict[str, object]:
@@ -377,12 +368,8 @@ class PeriodicCellHistoryRequest:
                 "homogenized_first_piola_stress": [
                     frame.first_piola_stress for frame in frames
                 ],
-                "homogenized_cauchy_stress": [
-                    frame.cauchy_stress for frame in frames
-                ],
-                "homogenized_J": [
-                    frame.deformation_jacobian for frame in frames
-                ],
+                "homogenized_cauchy_stress": [frame.cauchy_stress for frame in frames],
+                "homogenized_J": [frame.deformation_jacobian for frame in frames],
                 "homogenized_strain_energy_density": [
                     frame.strain_energy_density for frame in frames
                 ],
@@ -406,8 +393,7 @@ class PeriodicCellHistoryRequest:
                     for state in stress_states
                 ],
                 "homogenized_stress_state_defined": [
-                    float(state.deviatoric_state_defined)
-                    for state in stress_states
+                    float(state.deviatoric_state_defined) for state in stress_states
                 ],
                 "hill_mandel_microscopic_work_density": [
                     item[0] for item in aligned_hill
@@ -416,31 +402,24 @@ class PeriodicCellHistoryRequest:
                     item[1] for item in aligned_hill
                 ],
                 "hill_mandel_residual": [item[2] for item in aligned_hill],
-                "hill_mandel_relative_error": [
-                    item[3] for item in aligned_hill
-                ],
+                "hill_mandel_relative_error": [item[3] for item in aligned_hill],
                 "accepted_increment_defined": [
                     float(item[0]) for item in aligned_convergence
                 ],
                 "accepted_increment_size": [
-                    0.0 if not item[0] else item[1]
-                    for item in aligned_convergence
+                    0.0 if not item[0] else item[1] for item in aligned_convergence
                 ],
                 "accepted_newton_iterations": [
-                    0.0 if not item[0] else item[2]
-                    for item in aligned_convergence
+                    0.0 if not item[0] else item[2] for item in aligned_convergence
                 ],
                 "accepted_residual_norm": [
-                    0.0 if not item[0] else item[3]
-                    for item in aligned_convergence
+                    0.0 if not item[0] else item[3] for item in aligned_convergence
                 ],
                 "accepted_periodic_equation_mismatch": [
-                    0.0 if not item[0] else item[4]
-                    for item in aligned_convergence
+                    0.0 if not item[0] else item[4] for item in aligned_convergence
                 ],
                 "accepted_attempt": [
-                    0.0 if not item[0] else item[5]
-                    for item in aligned_convergence
+                    0.0 if not item[0] else item[5] for item in aligned_convergence
                 ],
             },
             abscissa_name="load_factor",
@@ -511,9 +490,7 @@ class PeriodicCellHistoryRequest:
             {
                 "homogenized_first_piola_stress": final.first_piola_stress,
                 "homogenized_cauchy_stress": final.cauchy_stress,
-                "homogenized_strain_energy_density": (
-                    final.strain_energy_density
-                ),
+                "homogenized_strain_energy_density": (final.strain_energy_density),
                 "homogenized_stress_consistency_error": (
                     final.stress_consistency_error
                 ),
@@ -594,7 +571,9 @@ class PeriodicCellHistoryRequest:
     def summary(self) -> dict[str, object]:
         return {
             "kind": "periodic_cell_history",
-            "constraint": getattr(self.constraint, "name", type(self.constraint).__name__),
+            "constraint": getattr(
+                self.constraint, "name", type(self.constraint).__name__
+            ),
             "basename": self.basename,
         }
 
@@ -617,9 +596,7 @@ class SourceNodeHistoryRequest:
         ]
         for point_name, node_label in self.points:
             source_index = self.nodes.index(node_label)
-            values = np.asarray(
-                [frame[source_index] for frame in displacements]
-            )
+            values = np.asarray([frame[source_index] for frame in displacements])
             coordinate = self.nodes.coordinate(node_label)
             key = point_name.lower()
             context.result.add_history(
@@ -686,14 +663,10 @@ class PresentationOutput:
 
     def __post_init__(self) -> None:
         animation = (
-            None
-            if self.animation is None
-            else str(self.animation).lower().lstrip(".")
+            None if self.animation is None else str(self.animation).lower().lstrip(".")
         )
         if animation not in {None, "gif", "mp4"}:
-            raise ValueError(
-                "Presentation animation must be 'gif', 'mp4', or None."
-            )
+            raise ValueError("Presentation animation must be 'gif', 'mp4', or None.")
         if int(self.fps) <= 0:
             raise ValueError("Presentation fps must be positive.")
         object.__setattr__(self, "animation", animation)
@@ -723,8 +696,7 @@ class PresentationOutput:
         if self.animation is not None:
             path = render_unified_xdmf_animation(
                 xdmf,
-                context.directory
-                / f"{context.basename}_deformation.{self.animation}",
+                context.directory / f"{context.basename}_deformation.{self.animation}",
                 scalar=self.scalar,
                 fps=int(self.fps),
             )
@@ -832,11 +804,21 @@ class OutputPlan:
                     # replace the raw scientific field's location semantics.
                     continue
                 selected_name = recovered_name
+            field_recovery = getattr(step, "result_field_recovery", None)
+            if field_recovery is None:
+                processing = None
+                description = "P0 finite-strain visualization field."
+            else:
+                from ._field_metadata import generated_field_processing
+
+                processing = generated_field_processing(step, field)
+                description = "Provider-owned constitutive result field."
             result.add_field(
                 selected_name,
                 field,
                 location="cells",
-                description="P0 finite-strain visualization field.",
+                description=description,
+                processing=processing,
             )
         _register_field_artifacts(result, artifacts)
         context = OutputContext(
@@ -891,9 +873,7 @@ class OutputPlan:
             "kind": "output_plan",
             "basename": self.basename,
             "field": self.field.summary(),
-            "requests": [
-                request.summary() for request in self.requests
-            ],
+            "requests": [request.summary() for request in self.requests],
             "presentation": (
                 None if self.presentation is None else self.presentation.summary()
             ),
@@ -904,8 +884,7 @@ class OutputPlan:
                 None
                 if step is None
                 else [
-                    snapshot.load_factor
-                    for snapshot in getattr(step, "snapshots", ())
+                    snapshot.load_factor for snapshot in getattr(step, "snapshots", ())
                 ]
             ),
             "parallel_scientific_output": (

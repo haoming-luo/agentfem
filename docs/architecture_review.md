@@ -116,6 +116,9 @@ decision or when a lower layer imports an orchestration layer.
   and solver controls are advanced; raw `io`, discrete `problems`, and time
   kernels are expert. This changes presentation, not runtime availability.
 - `results` owns scientific result semantics and the common completion path.
+  Static, nonlinear, transient, and modal problems now delegate result
+  assembly to private result factories; problem objects no longer duplicate
+  field, history, artifact, checkpoint, or processing-metadata policy.
   Low-level `io.XDMFTimeSeries` remains an expert DOLFINx-compatible writer;
   ordinary workflows use the single-grid result writers and `SimulationResult`.
 - Constitutive modules own material-point laws, while `mechanics` belongs to

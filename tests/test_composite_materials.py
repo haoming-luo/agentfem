@@ -169,7 +169,9 @@ def test_symmetric_cross_ply_has_zero_membrane_bending_coupling():
     assert len({point.id for point in section.section_points()}) == 12
 
     response = section.evaluate([1.0e-3, 0.0, 0.0], [0.0, 0.0, 2.0])
-    np.testing.assert_allclose(response.membrane_force, A @ np.array([1.0e-3, 0.0, 0.0]))
+    np.testing.assert_allclose(
+        response.membrane_force, A @ np.array([1.0e-3, 0.0, 0.0])
+    )
     np.testing.assert_allclose(response.bending_moment, D @ np.array([0.0, 0.0, 2.0]))
     assert response.as_dict()["section_points"][0]["id"].startswith("bottom_0:")
 
@@ -209,10 +211,16 @@ def test_angle_ply_transform_preserves_elastic_energy():
     transformed = materials.transformed_reduced_stiffness(stiffness, 37.0)
     strain = np.array([0.002, -0.0003, 0.001])
     angle = np.deg2rad(37.0)
-    rotation = np.array([[np.cos(angle), -np.sin(angle)], [np.sin(angle), np.cos(angle)]])
-    global_tensor = np.array([[strain[0], 0.5 * strain[2]], [0.5 * strain[2], strain[1]]])
+    rotation = np.array(
+        [[np.cos(angle), -np.sin(angle)], [np.sin(angle), np.cos(angle)]]
+    )
+    global_tensor = np.array(
+        [[strain[0], 0.5 * strain[2]], [0.5 * strain[2], strain[1]]]
+    )
     local_tensor = rotation.T @ global_tensor @ rotation
-    local_strain = np.array([local_tensor[0, 0], local_tensor[1, 1], 2.0 * local_tensor[0, 1]])
+    local_strain = np.array(
+        [local_tensor[0, 0], local_tensor[1, 1], 2.0 * local_tensor[0, 1]]
+    )
 
     global_energy = 0.5 * strain @ transformed @ strain
     local_energy = 0.5 * local_strain @ stiffness @ local_strain
@@ -419,6 +427,9 @@ def test_fabric_membrane_enters_standard_step_and_solves_a_loaded_patch(tmp_path
         "FABRIC_WEFT_DIRECTION",
         "SENER",
     }.issubset(simulation.fields)
+    assert simulation.fields["FABRIC_GENERALIZED_STRAIN"].processing["method"] == (
+        "global_l2_projection"
+    )
     assert simulation.artifacts["field_history"].is_file()
     assert simulation.artifacts["result_manifest"].is_file()
 

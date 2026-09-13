@@ -40,12 +40,14 @@ otherwise; runnable examples remain in the repository-level `examples/`.
 | Assembly | `assembly.py` |
 | Engineering-level K/M/C/F, registered-assignment lowering, transport, SUPG, and reaction operators | `operators/` |
 | Central difference, Newmark, generalized-alpha, and runtime cadence | `time/` |
-| Common analysis steps, discrete system problems, and compatibility delegates | `problems.py` |
+| Common analysis steps, discrete system problems, transient advancement, and compatibility delegates | `problems.py` |
 | Structural modal procedure, distributed eigensolver execution, and result assembly | `mechanics/modal.py`, `backends/_modal.py`, `results/_modal.py` |
 | Shared transient checkpoint envelope, integrity, accepted-increment cadence, and partition identity | `checkpointing.py` |
 | Automatic/fixed incrementation and cutback policy | `steps.py` |
 | Linear/nonlinear solvers, prepared-solve lifecycle, and convergence evidence | `_solver_lifecycle.py`, `solvers.py` |
 | Scientific results, MPI-safe point/path/integral QoIs, histories, artifacts, and dataset bridge | `results/` |
+| Private static, nonlinear, transient, and modal result assembly | `results/_analysis_step.py`, `results/_nonlinear_step.py`, `results/_transient_step.py`, `results/_modal.py` |
+| Shared field location and processing semantics | `results/_field_metadata.py` |
 | Finite-strain fields and periodic-cell homogenization | `results/finite_strain.py` |
 | Global and regional L2 projection; engineering-default `S`/`E`/`MISES`, opt-in `SENER`, and explicit processing metadata | `results/projection.py`, `results/core.py` |
 | Standard result variables and context-aware aliases | `results/field_catalog.py` |

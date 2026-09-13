@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from .. import constraints as constraint_api
 from .. import fields as field_api
+from ._field_metadata import field_location, projected_field_processing
 from .core import from_solution
 from .lifecycle import complete_result
 from .quantities import static_force_balance, static_work_balance
@@ -44,9 +45,7 @@ def from_analysis_step(
         name=step.name,
         metadata={
             "step": step.summary(),
-            "study": (
-                _describe_asset(step.study) if step.study is not None else None
-            ),
+            "study": (_describe_asset(step.study) if step.study is not None else None),
         },
     )
     for item in selected_fields:
@@ -56,7 +55,7 @@ def from_analysis_step(
         result.add_field(
             getattr(function, "name", type(function).__name__),
             function,
-            location=_field_location(function),
+            location=field_location(function),
             description=(
                 "Constitutive result projected to a discontinuous finite-"
                 "element space; no nodal extrapolation or interelement "
@@ -65,7 +64,7 @@ def from_analysis_step(
                 else ""
             ),
             processing=(
-                _projected_field_processing(function)
+                projected_field_processing(function)
                 if id(item) in generated_ids
                 else None
             ),
@@ -169,9 +168,7 @@ def _add_static_balance_evidence(step, result) -> None:
                     "Physical-space resultant supplied by MPC, weak, or "
                     "contact providers."
                 ),
-                "force_balance_residual": (
-                    "Reaction plus external-force resultant."
-                ),
+                "force_balance_residual": ("Reaction plus external-force resultant."),
                 "relative_force_balance_error": (
                     "Norm of the force-balance residual divided by the larger "
                     "external or reaction resultant norm."
@@ -192,40 +189,6 @@ def _add_static_balance_evidence(step, result) -> None:
             kind="diagnostic",
         )
         result.metadata["static_work"] = work.as_dict()
-
-
-def _field_location(field) -> str:
-    element = getattr(field.function_space, "element", None)
-    basix_element = getattr(element, "basix_element", None)
-    discontinuous = bool(
-        getattr(element, "discontinuous", False)
-        or getattr(basix_element, "discontinuous", False)
-    )
-    return "cells" if discontinuous else "nodes"
-
-
-def _projected_field_processing(field) -> dict[str, object]:
-    """Describe the post-processing contract of a projected result field."""
-
-    element = getattr(field.function_space, "element", None)
-    basix_element = getattr(element, "basix_element", None)
-    degree = getattr(basix_element, "degree", None)
-    family = getattr(basix_element, "family", None)
-    selected_degree = None if degree is None else int(degree)
-    return {
-        "source_position": "constitutive_expression",
-        "method": "global_l2_projection",
-        "representation": (
-            "cell_average" if selected_degree == 0 else "discontinuous_field"
-        ),
-        "space_family": (
-            None if family is None else str(getattr(family, "name", family))
-        ),
-        "space_degree": selected_degree,
-        "nodal_extrapolation": False,
-        "interelement_smoothing": False,
-        "material_boundary_averaging": False,
-    }
 
 
 def _describe_asset(asset) -> object:
