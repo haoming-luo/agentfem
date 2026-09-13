@@ -203,6 +203,21 @@ def test_transient_problems_delegate_result_assembly_to_result_owner():
     assert "problems" not in _agentfem_imports(result_factory)
 
 
+def test_step_provider_registry_owns_selection_not_scientific_lowering():
+    provider_source = (PACKAGE / "step_providers.py").read_text(encoding="utf-8")
+    registry_path = PACKAGE / "_step_provider_registry.py"
+    registry_source = registry_path.read_text(encoding="utf-8")
+
+    assert "class StepProviderRegistry" not in provider_source
+    assert "class StepProviderRegistry" in registry_source
+    assert "def candidates" in registry_source
+    assert "def resolve" in registry_source
+    assert "provider.lower" not in registry_source
+    assert "_step_builders" not in registry_source
+    assert "StepExecutionContext" not in registry_source
+    assert "provider.lower" in provider_source
+
+
 def test_harmonic_step_delegates_petsc_problem_to_backend_owner():
     tree = ast.parse(
         (PACKAGE / "mechanics" / "viscoelasticity.py").read_text(encoding="utf-8")

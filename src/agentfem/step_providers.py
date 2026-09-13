@@ -13,6 +13,8 @@ from os import PathLike
 from types import MappingProxyType
 from typing import Callable, Mapping
 
+from ._step_provider_registry import StepProviderRegistry
+
 
 @dataclass(frozen=True)
 class StepExecutionPolicy:
@@ -70,8 +72,7 @@ class StepOptionContract:
         unknown_required = tuple(item for item in required if item not in accepted)
         if unknown_required:
             raise ValueError(
-                "Required Step options must also be accepted: "
-                f"{unknown_required!r}."
+                f"Required Step options must also be accepted: {unknown_required!r}."
             )
         invalid_groups = tuple(
             group
@@ -103,7 +104,9 @@ class StepOptionContract:
         accepted = set(self.accepted)
         issues = []
         for name in sorted(set(options).difference(accepted)):
-            suggestions = tuple(get_close_matches(name, self.accepted, n=3, cutoff=0.58))
+            suggestions = tuple(
+                get_close_matches(name, self.accepted, n=3, cutoff=0.58)
+            )
             issues.append(
                 {
                     "code": "AFM-STEP-OPTION-001",
@@ -152,7 +155,11 @@ class StepOptionContract:
             message = str(issue["message"])
             suggestions = tuple(issue["suggestions"])
             if suggestions:
-                message += " Did you mean " + ", ".join(repr(item) for item in suggestions) + "?"
+                message += (
+                    " Did you mean "
+                    + ", ".join(repr(item) for item in suggestions)
+                    + "?"
+                )
             details.append(message)
         raise TypeError(
             f"model.step request for provider {provider!r} is invalid: "
@@ -232,16 +239,10 @@ class StepRequest:
         return {
             "analysis": self.analysis,
             "target": _target_summary(self.target),
-            "procedure": (
-                None
-                if self.procedure is None
-                else self.procedure.summary()
-            ),
+            "procedure": (None if self.procedure is None else self.procedure.summary()),
             "option_names": tuple(sorted(self.options)),
             "material": (
-                None
-                if self.material is None
-                else type(self.material).__name__
+                None if self.material is None else type(self.material).__name__
             ),
             "execution_policy": self.execution_policy.summary(),
         }
@@ -333,9 +334,7 @@ class StepProvider:
             "description": self.description,
             "procedure": self.procedure,
             "options": (
-                None
-                if self.option_contract is None
-                else self.option_contract.summary()
+                None if self.option_contract is None else self.option_contract.summary()
             ),
         }
 
@@ -349,89 +348,6 @@ class StepProvider:
     def validate_options(self, request: StepRequest) -> None:
         if self.option_contract is not None:
             self.option_contract.validate(request.options, provider=self.name)
-
-
-class StepProviderRegistry:
-    """Ordered, inspectable collection of step-lowering providers."""
-
-    def __init__(self):
-        self._providers: dict[str, StepProvider] = {}
-
-    def register(self, provider: StepProvider, *, replace: bool = False):
-        if provider.name in self._providers and not replace:
-            raise ValueError(
-                f"Step provider {provider.name!r} is already registered."
-            )
-        self._providers[provider.name] = provider
-        return provider
-
-    def providers(self) -> tuple[StepProvider, ...]:
-        return tuple(
-            sorted(
-                self._providers.values(),
-                key=lambda item: (-item.priority, item.name),
-            )
-        )
-
-    def resolve(self, model, request: StepRequest) -> StepProvider:
-        analysis_candidates = [
-            provider
-            for provider in self.providers()
-            if request.analysis in provider.analyses
-        ]
-        option_rejections = []
-        for provider in analysis_candidates:
-            if provider.accepts(model, request):
-                issues = provider.option_issues(request)
-                if not issues:
-                    return provider
-                option_rejections.append(provider)
-        if option_rejections:
-            # A lower-priority provider may legitimately own a distinct option
-            # vocabulary for the same analysis. Only fail after every
-            # scientifically compatible candidate has rejected the request.
-            option_rejections[0].validate_options(request)
-        registered_materials = [
-            type(record.item).__name__
-            for record in getattr(model, "materials", ())
-        ]
-        raise NotImplementedError(
-            "No step provider accepted "
-            f"analysis={request.analysis!r}, material="
-            f"{type(request.material).__name__ if request.material is not None else None!r}, "
-            f"registered_materials={registered_materials!r}. "
-            f"Candidate providers={[item.name for item in analysis_candidates]!r}."
-        )
-
-    def lower(self, model, request: StepRequest):
-        provider = self.resolve(model, request)
-        created = provider.lower(model, request)
-        if request.procedure is not None and hasattr(created, "procedure"):
-            actual = getattr(created, "procedure", None)
-            if actual is not None and not _same_procedure(actual, request.procedure):
-                raise RuntimeError(
-                    f"Step provider {provider.name!r} lowered procedure "
-                    f"{actual.summary()!r}, which does not match the requested "
-                    f"procedure {request.procedure.summary()!r}."
-                )
-            created.procedure = request.procedure
-        context_material = _selected_material(model, request)
-        if context_material is None:
-            context_material = getattr(created, "material", None)
-        context = StepExecutionContext(
-            model=model,
-            target=request.target,
-            material=context_material,
-            policy=request.execution_policy,
-        )
-        try:
-            created.execution_context = context
-        except (AttributeError, TypeError):
-            # Third-party providers may return frozen/slotted executables.
-            # They remain valid; only the optional model-owned completion
-            # context is unavailable until that provider exposes a binding.
-            pass
-        return created
 
 
 _DEFAULT_REGISTRY = StepProviderRegistry()
@@ -482,11 +398,7 @@ def step_capability(
         if target is not None
         else tuple(getattr(model, "fields", ())) or (None,)
     )
-    candidates = tuple(
-        provider
-        for provider in _DEFAULT_REGISTRY.providers()
-        if selected_analysis in provider.analyses
-    )
+    candidates = _DEFAULT_REGISTRY.candidates(selected_analysis)
     provider = None
     option_issues = ()
     readiness_issues = ()
@@ -498,9 +410,7 @@ def step_capability(
             options=selected_options,
             procedure=selected_procedure,
         )
-        accepted = tuple(
-            item for item in candidates if item.accepts(model, request)
-        )
+        accepted = tuple(item for item in candidates if item.accepts(model, request))
         if accepted:
             rejected = []
             for candidate in accepted:
@@ -536,9 +446,7 @@ def step_capability(
         "ready": provider is not None and not readiness_issues,
         "target": _target_summary(selected_target),
         "procedure": (
-            None
-            if selected_procedure is None
-            else selected_procedure.summary()
+            None if selected_procedure is None else selected_procedure.summary()
         ),
         "provider": None if provider is None else provider.summary(),
         "candidate_providers": tuple(item.name for item in candidates),
@@ -564,7 +472,39 @@ def lower_step(model, *, analysis: str, target, options, procedure=None):
         options=selected_options,
         procedure=selected_procedure,
     )
-    return _DEFAULT_REGISTRY.lower(model, request)
+    provider = _DEFAULT_REGISTRY.resolve(model, request)
+    created = provider.lower(model, request)
+    return _bind_execution_context(model, request, provider, created)
+
+
+def _bind_execution_context(model, request, provider, created):
+    """Bind common workflow context after provider-owned scientific lowering."""
+
+    if request.procedure is not None and hasattr(created, "procedure"):
+        actual = getattr(created, "procedure", None)
+        if actual is not None and not _same_procedure(actual, request.procedure):
+            raise RuntimeError(
+                f"Step provider {provider.name!r} lowered procedure "
+                f"{actual.summary()!r}, which does not match the requested "
+                f"procedure {request.procedure.summary()!r}."
+            )
+        created.procedure = request.procedure
+    context_material = _selected_material(model, request)
+    if context_material is None:
+        context_material = getattr(created, "material", None)
+    context = StepExecutionContext(
+        model=model,
+        target=request.target,
+        material=context_material,
+        policy=request.execution_policy,
+    )
+    try:
+        created.execution_context = context
+    except (AttributeError, TypeError):
+        # Third-party providers may return frozen/slotted executables. They
+        # remain valid; only optional model-owned completion context is absent.
+        pass
+    return created
 
 
 def _resolve_procedure(model, *, analysis: str, options, requested):
@@ -586,16 +526,17 @@ def _resolve_procedure(model, *, analysis: str, options, requested):
         if requested is not None and not isinstance(
             requested, procedures.SolutionProcedure
         ):
-            raise TypeError(
-                "Custom Step procedures must be SolutionProcedure objects."
-            )
+            raise TypeError("Custom Step procedures must be SolutionProcedure objects.")
         return requested
     method = options.get("method")
     if (
         analysis == "frequency_domain"
         and requested is None
         and method is None
-        and any(options.get(name) is not None for name in ("frequencies", "angular_frequencies"))
+        and any(
+            options.get(name) is not None
+            for name in ("frequencies", "angular_frequencies")
+        )
     ):
         method = "direct_harmonic_sweep"
     if requested is not None and method is not None:
@@ -636,7 +577,9 @@ def _same_procedure(left, right) -> bool:
         "requires_global_solve",
         "stateful",
     )
-    return all(getattr(left, name, None) == getattr(right, name, None) for name in names)
+    return all(
+        getattr(left, name, None) == getattr(right, name, None) for name in names
+    )
 
 
 def _selected_material(model, request: StepRequest):
@@ -726,16 +669,12 @@ def _is_vector_target(target) -> bool:
 
 
 def _has_complete_linear_system(request: StepRequest) -> bool:
-    return (
-        request.options.get("K") is not None
-        and request.options.get("F") is not None
-    )
+    return request.options.get("K") is not None and request.options.get("F") is not None
 
 
 def _supports_elasticity(material) -> bool:
-    return (
-        hasattr(material, "stiffness_voigt")
-        or (hasattr(material, "young") and hasattr(material, "poisson"))
+    return hasattr(material, "stiffness_voigt") or (
+        hasattr(material, "young") and hasattr(material, "poisson")
     )
 
 
@@ -782,9 +721,7 @@ def _supports_stateful_constitutive(material) -> bool:
     if regional is None:
         return False
     values = (
-        tuple(regional.values())
-        if hasattr(regional, "values")
-        else tuple(regional)
+        tuple(regional.values()) if hasattr(regional, "values") else tuple(regional)
     )
     return bool(values) and all(
         bool(getattr(item, "stateful_constitutive", False)) for item in values
@@ -807,12 +744,9 @@ def _accept_linear_static(model, request: StepRequest) -> bool:
             if getattr(study, "assumption", None) == "axisymmetric"
             else _supports_elasticity
         )
-        return (
-            _is_vector_target(request.target)
-            and (
-                _has_complete_linear_system(request)
-                or _all_materials_support(model, request, material_predicate)
-            )
+        return _is_vector_target(request.target) and (
+            _has_complete_linear_system(request)
+            or _all_materials_support(model, request, material_predicate)
         )
     if physics == "heat_transfer":
         return _is_scalar_target(request.target) and (
@@ -843,8 +777,7 @@ def _accept_transient_heat(model, request: StepRequest) -> bool:
     return (
         request.target is not None
         and _is_scalar_target(request.target)
-        and getattr(getattr(model, "study", None), "physics", None)
-        == "heat_transfer"
+        and getattr(getattr(model, "study", None), "physics", None) == "heat_transfer"
         and _all_materials_support(model, request, _supports_conduction)
         and _all_materials_support(model, request, _supports_heat_capacity)
     )
@@ -909,12 +842,9 @@ def _accept_mixed_neo_hookean(model, request: StepRequest) -> bool:
     from .constitutive.hyperelasticity import MixedNeoHookeanProperties
 
     study = getattr(model, "study", None)
-    supported_kinematics = (
-        getattr(study, "dimension", None) == 3
-        or (
-            getattr(study, "dimension", None) == 2
-            and getattr(study, "assumption", None) == "plane_strain"
-        )
+    supported_kinematics = getattr(study, "dimension", None) == 3 or (
+        getattr(study, "dimension", None) == 2
+        and getattr(study, "assumption", None) == "plane_strain"
     )
     return (
         getattr(study, "physics", None) == "solid_mechanics"
@@ -1003,13 +933,9 @@ def _accept_finite_strain_j2_mixed_affine(
         unwrap_amplitudes=True,
     )
     dimension = getattr(study, "dimension", None)
-    pressure_family = str(
-        getattr(request.target, "pressure_family", "DG")
-    ).upper()
+    pressure_family = str(getattr(request.target, "pressure_family", "DG")).upper()
     domain = getattr(getattr(request.target, "space", None), "mesh", None)
-    cell_name = (
-        None if domain is None else str(domain.topology.cell_name())
-    )
+    cell_name = None if domain is None else str(domain.topology.cell_name())
     interpolation_supported = (
         dimension == 3
         and cell_name == "tetrahedron"
@@ -1393,8 +1319,7 @@ def _accept_explicit_dynamics(model, request: StepRequest) -> bool:
     return (
         request.target is not None
         and _is_vector_target(request.target)
-        and getattr(getattr(model, "study", None), "physics", None)
-        == "solid_mechanics"
+        and getattr(getattr(model, "study", None), "physics", None) == "solid_mechanics"
         and (
             (
                 request.options.get("mass") is not None
@@ -1489,8 +1414,7 @@ def _accept_implicit_dynamics(model, request: StepRequest) -> bool:
     return (
         request.target is not None
         and _is_vector_target(request.target)
-        and getattr(getattr(model, "study", None), "physics", None)
-        == "solid_mechanics"
+        and getattr(getattr(model, "study", None), "physics", None) == "solid_mechanics"
         and (
             complete_system
             or _all_materials_support(model, request, _supports_dynamics)
@@ -1523,14 +1447,11 @@ def _lower_implicit_dynamics(model, request: StepRequest):
 
 
 def _accept_modal(model, request: StepRequest) -> bool:
-    complete_system = all(
-        request.options.get(item) is not None for item in ("M", "K")
-    )
+    complete_system = all(request.options.get(item) is not None for item in ("M", "K"))
     return (
         request.target is not None
         and _is_vector_target(request.target)
-        and getattr(getattr(model, "study", None), "physics", None)
-        == "solid_mechanics"
+        and getattr(getattr(model, "study", None), "physics", None) == "solid_mechanics"
         and getattr(getattr(model, "study", None), "analysis", None) == "modal"
         and (
             complete_system
@@ -1880,9 +1801,7 @@ register_step_provider(
             "Lower logarithmic finite-strain J2 to P2/DG0 3D or Q2/DPC1 "
             "plane-strain mixed equilibrium under exact affine kinematics."
         ),
-        procedure=(
-            "standard/newton/stateful/mixed_mean_kirchhoff_stress/affine_mpc"
-        ),
+        procedure=("standard/newton/stateful/mixed_mean_kirchhoff_stress/affine_mpc"),
         option_contract=_option_contract(
             "incrementation",
             "quadrature_degree",

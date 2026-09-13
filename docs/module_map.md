@@ -19,6 +19,7 @@ otherwise; runnable examples remain in the repository-level `examples/`.
 | Model registry/facade, amplitudes, material assignments, checks, summaries, and model-first operator delegates | `models.py` |
 | Built-in scientific Step construction behind the facade | `_step_builders.py` |
 | Extensible analysis/material lowering and execution-policy normalization behind `model.step()` | `step_providers.py` |
+| Deterministic provider storage and selection, independent of scientific lowering | `_step_provider_registry.py` |
 | Function spaces and Lagrange defaults | `spaces.py` |
 | Application-level unknown fields | `fields.py` |
 | Time histories and scale factors for prescribed data | `amplitudes.py` |

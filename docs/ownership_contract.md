@@ -42,6 +42,12 @@ Study -> Model -> scientific assets -> model.step(...)
 that path. Historical material-specific `*_step()` methods remain thin 0.2.x
 compatibility delegates; new workflows use `model.step(...)`.
 
+Provider selection is intentionally narrower than lowering. The private
+registry stores, orders, and resolves declared providers without importing
+builders or executing them. A selected provider then performs scientific
+lowering, after which the dispatch boundary binds the common execution
+context. This keeps extension discovery independent of built-in physics.
+
 The same ownership rule applies after a procedure finishes. Discrete problem
 objects may advance state and expose the solution they computed, but private
 factories in `agentfem.results` assemble fields, histories, checkpoints,
