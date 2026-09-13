@@ -9,10 +9,10 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from numbers import Integral
 
-import numpy as np
-
 from . import constraints as constraint_api
 from . import loads as load_api
+from ._model_support import describe as _describe
+from ._model_support import domain as _domain
 from .materials.definitions import MaterialDefinition
 from ._api_contract import (
     ADVANCED_MODEL_API,
@@ -164,12 +164,12 @@ class Model:
 
         if component is not None:
             if components is not None:
-                raise ValueError("Pass either component=... or components=..., not both.")
+                raise ValueError(
+                    "Pass either component=... or components=..., not both."
+                )
             components = component
         selected_value = (
-            self._amplitude_by_name(value)
-            if isinstance(value, str)
-            else value
+            self._amplitude_by_name(value) if isinstance(value, str) else value
         )
         if _is_amplitude_like(selected_value):
             created = _time_dependent_fix(
@@ -359,9 +359,7 @@ class Model:
         load = load_api.traction(
             value, on=on, location=location, system=system, name=name
         )
-        return self.add_load(
-            self._with_amplitude(load, amplitude)
-        )
+        return self.add_load(self._with_amplitude(load, amplitude))
 
     def surface_force(
         self,
@@ -552,9 +550,7 @@ class Model:
                     else f"{name}_{getattr(record.region, 'name', index)}"
                 ),
             )
-            created.append(
-                self.add_load(self._with_amplitude(load, amplitude))
-            )
+            created.append(self.add_load(self._with_amplitude(load, amplitude)))
         return created[0] if len(created) == 1 else load_api.LoadSet.create(*created)
 
     def centrifugal(
@@ -831,16 +827,15 @@ class Model:
     def damping(self, target, coefficient, *, measure=None, name: str = "C"):
         """Create a viscous damping operator."""
 
-        import ufl
+        from .operators import _model_lowering
 
-        from . import _axisymmetric
-        from . import operators
-
-        return operators.damping_operator(
+        return _model_lowering.lower_damping(
             target,
-            coefficient * _axisymmetric.integration_weight(target, self.study),
-            measure=ufl.dx if measure is None else measure,
-        ).renamed(name)
+            coefficient,
+            study=self.study,
+            measure=measure,
+            name=name,
+        )
 
     def conduction(self, temperature, material=None, *, measure=None, name: str = "K"):
         """Create a region-aware heat-conduction operator.
@@ -890,26 +885,20 @@ class Model:
     ):
         """Create the equivalent force from a solved temperature field."""
 
-        import ufl
-
-        from . import operators
-
         record = (
             self._material_record(material)
             if material is not None
             else _single_material(self, "model.thermal_expansion")
         )
-        selected_measure = (
-            measure
-            if measure is not None
-            else (record.region.measure if record.region is not None else ufl.dx)
-        )
-        return operators.thermal_expansion_vector(
+
+        from .operators import _model_lowering
+
+        return _model_lowering.lower_thermal_expansion(
             target,
             temperature,
-            record.item,
+            selected=record,
             study=self.study,
-            measure=selected_measure,
+            measure=measure,
             name=name,
         )
 
@@ -928,82 +917,28 @@ class Model:
         whole domain, while multiple materials must each have a cell region.
         """
 
-        if method.lower().replace("-", "_") not in {"row_sum", "diagonal", "lumped"}:
-            raise ValueError("model.lumped_mass currently supports method='row_sum'.")
+        from .operators import _model_lowering
 
-        from . import assembly
-        from . import _axisymmetric
-        from .operators import LumpedMassOperator
-
-        V = _space(target)
-        weight = _axisymmetric.integration_weight(target, self.study)
-        if material is not None:
-            record = self._material_record(material)
-            selected_measure = measure if measure is not None else _record_measure(record)
-            mass = _assemble_lumped_mass(
-                assembly,
-                V,
-                _density(record.item) * weight,
-                selected_measure,
-            )
-            return LumpedMassOperator(
-                mass=mass,
-                inv_mass=assembly.inverse_diagonal(mass),
-            )
-
-        if not self.materials:
-            raise ValueError("model.lumped_mass requires at least one registered material.")
-        if measure is not None and len(self.materials) > 1:
-            raise ValueError(
-                "model.lumped_mass with multiple materials cannot use one explicit measure. "
-                "Pass material=... or let each material use its registered region."
-            )
-        if len(self.materials) == 1:
-            record = self.materials[0]
-            selected_measure = measure if measure is not None else _record_measure(record)
-            mass = _assemble_lumped_mass(
-                assembly,
-                V,
-                _density(record.item) * weight,
-                selected_measure,
-            )
-            return LumpedMassOperator(
-                mass=mass,
-                inv_mass=assembly.inverse_diagonal(mass),
-            )
-
-        mass = None
-        missing = []
-        for record in self.materials:
-            if record.region is None:
-                missing.append(_describe(record.item))
-                continue
-            part = _assemble_lumped_mass(
-                assembly,
-                V,
-                _density(record.item) * weight,
-                record.region.measure,
-            )
-            mass = part if mass is None else mass + part
-        if missing:
-            raise ValueError(
-                "Multiple-material lumped mass requires every material to have a region. "
-                f"Materials without regions: {missing}."
-            )
-        return LumpedMassOperator(
-            mass=mass,
-            inv_mass=assembly.inverse_diagonal(mass),
+        return _model_lowering.lower_lumped_mass(
+            target,
+            assignments=tuple(self.materials),
+            selected=(
+                self._material_record(material) if material is not None else None
+            ),
+            study=self.study,
+            measure=measure,
+            method=method,
         )
 
     def load_vector(self, target, loads=None, *, load=None):
         """Create a total load vector from registered or explicit loads."""
 
-        from . import operators
+        from .operators import _model_lowering
 
         selected_loads = self.loads if loads is None and load is None else loads
-        return operators.load_vector(
+        return _model_lowering.lower_load_vector(
             target,
-            selected_loads,
+            loads=selected_loads,
             load=load,
             study=self.study,
         )
@@ -1025,64 +960,19 @@ class Model:
     ):
         """Create elastic internal-force vector contributions from materials."""
 
-        from . import operators
+        from .operators import _model_lowering
 
-        selected_study = study or self.study
-        if material is not None:
-            record = self._material_record(material)
-            return _internal_force_from_record(
-                displacement,
-                test_function,
-                record,
-                operators=operators,
-                study=selected_study,
-                measure=measure,
-                name=name,
-            )
-
-        if not self.materials:
-            raise ValueError(
-                "model.internal_force_vector requires at least one registered material."
-            )
-        if measure is not None and len(self.materials) > 1:
-            raise ValueError(
-                "model.internal_force_vector with multiple materials cannot use one explicit "
-                "measure. Pass material=... or let each material use its registered region."
-            )
-        if len(self.materials) == 1:
-            return _internal_force_from_record(
-                displacement,
-                test_function,
-                self.materials[0],
-                operators=operators,
-                study=selected_study,
-                measure=measure,
-                name=name,
-            )
-
-        parts = []
-        missing = []
-        for record in self.materials:
-            if record.region is None:
-                missing.append(_describe(record.item))
-                continue
-            parts.append(
-                _internal_force_from_record(
-                    displacement,
-                    test_function,
-                    record,
-                    operators=operators,
-                    study=selected_study,
-                    measure=record.region.measure,
-                    name=f"F_internal_{getattr(record.region, 'name', len(parts))}",
-                )
-            )
-        if missing:
-            raise ValueError(
-                "Multiple-material internal force requires every material to have a region. "
-                f"Materials without regions: {missing}."
-            )
-        return operators.combine(*parts, name=name, kind="partitioned_internal_force")
+        return _model_lowering.lower_internal_force(
+            displacement,
+            test_function,
+            assignments=tuple(self.materials),
+            selected=(
+                self._material_record(material) if material is not None else None
+            ),
+            study=study or self.study,
+            measure=measure,
+            name=name,
+        )
 
     def internal_force(
         self,
@@ -1113,9 +1003,9 @@ class Model:
     def boundary_force(self, boundary_model, field, test_function=None):
         """Create a weak boundary-model force contribution."""
 
-        from . import operators
+        from .operators import _model_lowering
 
-        return operators.boundary_model_vector(
+        return _model_lowering.lower_boundary_force(
             boundary_model,
             field,
             self._test_function_for(field, test_function),
@@ -1140,32 +1030,17 @@ class Model:
         ``a = -M^{-1} R``.
         """
 
-        from . import operators
+        from .operators import _model_lowering
 
-        positive = []
-        negative = []
-        if convention == "internal_minus_external":
-            positive.extend(_as_tuple(internal))
-            positive.extend(_as_tuple(damping))
-            positive.extend(_as_tuple(absorbing))
-            positive.extend(_as_tuple(boundary))
-            negative.extend(_as_tuple(external))
-        elif convention == "external_minus_internal":
-            positive.extend(_as_tuple(external))
-            negative.extend(_as_tuple(internal))
-            negative.extend(_as_tuple(damping))
-            negative.extend(_as_tuple(absorbing))
-            negative.extend(_as_tuple(boundary))
-        else:
-            raise ValueError(
-                "force_balance convention must be 'internal_minus_external' "
-                "or 'external_minus_internal'."
-            )
-
-        terms = [*positive, *(operators.scale(item, -1.0) for item in negative)]
-        if not terms:
-            raise ValueError("force_balance requires at least one force contribution.")
-        return operators.combine(*terms, name=name, kind="force_balance")
+        return _model_lowering.lower_force_balance(
+            internal=internal,
+            external=external,
+            damping=damping,
+            absorbing=absorbing,
+            boundary=boundary,
+            name=name,
+            convention=convention,
+        )
 
     def add_step(self, step):
         """Register an analysis step and return it."""
@@ -1240,7 +1115,9 @@ class Model:
 
         selected_kind = kind or getattr(self.study, "analysis", None)
         if selected_kind is None:
-            raise ValueError("model.step requires kind=... or a study with an analysis.")
+            raise ValueError(
+                "model.step requires kind=... or a study with an analysis."
+            )
         from .step_providers import lower_step
 
         options = {
@@ -1709,263 +1586,9 @@ class Model:
         agents, and future validation tools.
         """
 
-        from .validation import ValidationReport, issue
+        from ._model_validation import validate_model
 
-        issues = []
-        study = self.study
-        domain = _domain(self.mesh)
-
-        if study is None:
-            issues.append(
-                issue(
-                    "AFM-MODEL-001",
-                    "model.study",
-                    "A finite-element model requires a Study.",
-                    hint="Create a study with agentfem.studies before the model.",
-                )
-            )
-        elif hasattr(study, "validate"):
-            try:
-                study.validate()
-            except (TypeError, ValueError) as exc:
-                issues.append(
-                    issue(
-                        "AFM-STUDY-001",
-                        "model.study",
-                        str(exc),
-                        hint="Revise the analysis, physics, dimension, or assumption.",
-                    )
-                )
-
-        if study is not None and self.fields:
-            from .step_providers import step_capability
-
-            capability = step_capability(
-                self,
-                target=target,
-                options=step_options,
-            )
-            if not capability["supported"]:
-                issues.append(
-                    issue(
-                        "AFM-STUDY-002",
-                        "model.study",
-                        (
-                            "No executable step provider supports this Study, "
-                            "field, material, and procedure combination."
-                        ),
-                        hint=(
-                            "Choose a supported Study/material combination or "
-                            "register a StepProvider before solving."
-                        ),
-                        capability=capability,
-                    )
-                )
-        if domain is None:
-            issues.append(
-                issue(
-                    "AFM-MODEL-002",
-                    "model.mesh",
-                    "A finite-element model requires a mesh.",
-                    hint="Create or import the mesh before defining regions and fields.",
-                )
-            )
-        elif study is not None:
-            geometry = getattr(domain, "geometry", None)
-            mesh_dimension = getattr(geometry, "dim", None)
-            if mesh_dimension is None:
-                issues.append(
-                    issue(
-                        "AFM-MESH-001",
-                        "model.mesh",
-                        "The registered mesh does not expose a geometric dimension.",
-                        hint="Register a DOLFINx mesh or an AgentFEM FEMMesh.",
-                    )
-                )
-            elif int(mesh_dimension) != int(study.dimension):
-                issues.append(
-                    issue(
-                        "AFM-MODEL-003",
-                        "model.mesh.geometry.dim",
-                        (
-                            f"Study dimension {study.dimension} does not match "
-                            f"mesh geometric dimension {mesh_dimension}."
-                        ),
-                        hint="Revise the Study dimension or use the intended mesh.",
-                        study_dimension=int(study.dimension),
-                        mesh_dimension=int(mesh_dimension),
-                    )
-                )
-            elif (
-                getattr(study, "assumption", None) == "axisymmetric"
-                and int(mesh_dimension) == 2
-            ):
-                from mpi4py import MPI
-
-                coordinates = np.asarray(domain.geometry.x[:, 0], dtype=float)
-                local_min = float(np.min(coordinates)) if coordinates.size else np.inf
-                local_max = float(np.max(np.abs(coordinates))) if coordinates.size else 0.0
-                minimum_radius = float(
-                    domain.comm.allreduce(local_min, op=MPI.MIN)
-                )
-                radius_scale = float(
-                    domain.comm.allreduce(local_max, op=MPI.MAX)
-                )
-                tolerance = 1.0e-12 * max(1.0, radius_scale)
-                if minimum_radius < -tolerance:
-                    issues.append(
-                        issue(
-                            "AFM-AXISYM-001",
-                            "model.mesh.geometry.x[:,0]",
-                            "An axisymmetric meridian cannot contain negative radius.",
-                            hint="Define the meridian in coordinates (r,z) with r >= 0.",
-                            minimum_radius=minimum_radius,
-                        )
-                    )
-                elif minimum_radius <= tolerance:
-                    names = {
-                        str(getattr(item, "name", "")).strip().lower()
-                        for item in constraint_api.dirichlet_constraints(
-                            self.constraints
-                        )
-                    }
-                    has_axis_regularity = any(
-                        name == "axisymmetric_axis" or name.startswith("symmetry_x")
-                        for name in names
-                    )
-                    if not has_axis_regularity:
-                        issues.append(
-                            issue(
-                                "AFM-AXISYM-002",
-                                "model.constraints",
-                                "The meridian reaches r=0 without a declared radial regularity constraint.",
-                                severity="warning",
-                                hint=(
-                                    "Register constraints.axisymmetric_axis(u, on=axis) "
-                                    "or an equivalent named x-normal symmetry constraint."
-                                ),
-                            )
-                        )
-
-        if not self.fields:
-            issues.append(
-                issue(
-                    "AFM-MODEL-004",
-                    "model.fields",
-                    "A finite-element model requires at least one field.",
-                    hint="Register an unknown with model.field(...).",
-                )
-            )
-        elif domain is not None:
-            for index, field_object in enumerate(self.fields):
-                field_domain = _field_domain(field_object)
-                if field_domain is not None and field_domain is not domain:
-                    issues.append(
-                        issue(
-                            "AFM-FIELD-001",
-                            f"model.fields[{index}]",
-                            "The field is defined on a different mesh from the model.",
-                            hint="Create the field on model.mesh or register the intended mesh.",
-                        )
-                    )
-
-        selected_material = (
-            None if step_options is None else step_options.get("material")
-        )
-        analysis = None if study is None else getattr(study, "analysis", None)
-        required_operators = {
-            "modal": ("K", "M"),
-            "second_order_dynamics": ("K", "M", "F"),
-        }.get(analysis, ("K", "F"))
-        complete_operator_system = bool(
-            step_options
-            and all(step_options.get(name) is not None for name in required_operators)
-        )
-        if (
-            study is not None
-            and (
-                getattr(study, "is_solid_mechanics", False)
-                or getattr(study, "is_heat_transfer", False)
-            )
-            and not self.materials
-            and selected_material is None
-            and not complete_operator_system
-        ):
-            physics = getattr(study, "physics", "finite-element")
-            issues.append(
-                issue(
-                    "AFM-MATERIAL-001",
-                    "model.materials",
-                    (
-                        f"{physics.replace('_', ' ').title()} models require "
-                        "at least one material."
-                    ),
-                    hint="Register material properties with model.material(...).",
-                )
-            )
-
-        if len(self.materials) > 1:
-            for index, record in enumerate(self.materials):
-                if getattr(record, "region", None) is None:
-                    issues.append(
-                        issue(
-                            "AFM-MATERIAL-002",
-                            f"model.materials[{index}].region",
-                            "Every material in a multi-material model needs a region.",
-                            hint="Pass region=... when registering each material.",
-                        )
-                    )
-
-        if study is not None:
-            selected_options = {} if step_options is None else dict(step_options)
-            communicator = None if domain is None else getattr(domain, "comm", None)
-            compatibility = constraint_api.validate_solver_compatibility(
-                constraints=selected_options.get("constraints", self.constraints),
-                analysis=getattr(study, "analysis", ""),
-                procedure=(
-                    selected_options.get("method")
-                    or getattr(study, "preferred_procedure", None)
-                ),
-                comm_size=int(getattr(communicator, "size", 1)),
-            )
-            issues.extend(compatibility.issues)
-
-        for collection_name in (
-            "fields",
-            "amplitudes",
-            "constraints",
-            "loads",
-            "boundary_models",
-            "regions",
-            "steps",
-        ):
-            duplicates = _duplicate_names(getattr(self, collection_name))
-            for name in duplicates:
-                issues.append(
-                    issue(
-                        "AFM-NAME-001",
-                        f"model.{collection_name}",
-                        f"Name {name!r} is used more than once.",
-                        severity="warning",
-                        hint="Use unique names when objects must be addressed for repair or reuse.",
-                        duplicate_name=name,
-                    )
-                )
-
-        if domain is not None:
-            for index, region in enumerate(self.regions):
-                region_domain = getattr(region, "domain", None)
-                if region_domain is not None and region_domain is not domain:
-                    issues.append(
-                        issue(
-                            "AFM-REGION-001",
-                            f"model.regions[{index}]",
-                            "The region belongs to a different mesh from the model.",
-                            hint="Recreate the region on model.mesh.",
-                        )
-                    )
-
-        return ValidationReport.from_issues(issues, scope=f"model:{self.name}")
+        return validate_model(self, target=target, step_options=step_options)
 
     def check(self, *, target=None, step_options=None) -> None:
         """Raise one structured error report if model validation fails."""
@@ -2077,47 +1700,16 @@ class Model:
     def summary(self) -> dict[str, object]:
         """Return an agent-readable model summary."""
 
-        return {
-            "name": self.name,
-            "study": _describe(self.study),
-            "unit_system": _describe(self.unit_system),
-            "mesh": _mesh_summary(self.mesh),
-            "fields": tuple(_describe(item) for item in self.fields),
-            "amplitudes": tuple(_describe(item) for item in self.amplitudes),
-            "materials": tuple(_describe(item) for item in self.materials),
-            "constraints": tuple(_describe(item) for item in self.constraints),
-            "loads": tuple(_describe(item) for item in self.loads),
-            "boundary_models": tuple(_describe(item) for item in self.boundary_models),
-            "regions": tuple(_describe(item) for item in self.regions),
-            "engineering_steps": tuple(
-                _describe(item) for item in self.engineering_steps
-            ),
-            "steps": tuple(_describe(item) for item in self.steps),
-        }
+        from ._model_inspection import model_summary
+
+        return model_summary(self)
 
     def manifest(self) -> dict[str, object]:
         """Return a stable machine-readable model manifest."""
 
-        return {
-            "kind": "agentfem_model_manifest",
-            "version": 1,
-            "schema": "agentfem.af-ir",
-            "schema_version": "0.1.0",
-            "status": "experimental",
-            "model": self.summary(),
-            "workflow_order": (
-                "study",
-                "mesh",
-                "regions",
-                "fields",
-                "materials",
-                "constraints",
-                "loads",
-                "boundary_models",
-                "engineering_steps",
-                "steps",
-            ),
-        }
+        from ._model_inspection import model_manifest
+
+        return model_manifest(self)
 
     def to_ir(
         self,
@@ -2133,18 +1725,13 @@ class Model:
         through unstable representations.
         """
 
-        from . import __version__
-        from .backends import get_backend
-        from .ir import model_document
+        from ._model_inspection import model_to_ir
 
-        document = model_document(
+        return model_to_ir(
             self,
-            agentfem_version=__version__,
-            backend=get_backend().descriptor.as_dict(),
             include_validation=include_validation,
             metadata=metadata,
         )
-        return document.as_dict()
 
     def write_ir(
         self,
@@ -2159,48 +1746,21 @@ class Model:
         all ranks synchronize before returning.
         """
 
-        from pathlib import Path
-        from .ir import write_document
+        from ._model_inspection import write_model_ir
 
-        output = Path(path)
-        domain = _domain(self.mesh)
-        comm = getattr(domain, "comm", None)
-        rank = getattr(comm, "rank", 0)
-        if rank == 0:
-            write_document(
-                self.to_ir(
-                    include_validation=include_validation,
-                    metadata=metadata,
-                ),
-                output,
-            )
-        if comm is not None and hasattr(comm, "barrier"):
-            comm.barrier()
-        return output
+        return write_model_ir(
+            self,
+            path,
+            include_validation=include_validation,
+            metadata=metadata,
+        )
 
     def tree(self) -> str:
         """Return a compact text model tree for logs, notebooks, and agents."""
 
-        sections = [
-            ("study", (self.study,)),
-            ("mesh", (self.mesh,) if self.mesh is not None else ()),
-            ("regions", self.regions),
-            ("fields", self.fields),
-            ("materials", self.materials),
-            ("constraints", self.constraints),
-            ("loads", self.loads),
-            ("boundary_models", self.boundary_models),
-            ("steps", self.steps),
-        ]
-        lines = [f"Model: {self.name}"]
-        for title, items in sections:
-            lines.append(f"  {title}:")
-            if not items:
-                lines.append("    - <empty>")
-                continue
-            for item in items:
-                lines.append(f"    - {_short_description(item)}")
-        return "\n".join(lines)
+        from ._model_inspection import model_tree
+
+        return model_tree(self)
 
 
 @dataclass(frozen=True)
@@ -2225,177 +1785,10 @@ def create(*, study, mesh=None, name: str = "model", units=None) -> Model:
     return Model(study=study, mesh=mesh, name=name, unit_system=units)
 
 
-def _internal_force_from_record(
-    displacement,
-    test_function,
-    record: _WithRegion,
-    *,
-    operators,
-    study,
-    measure=None,
-    name: str = "F_internal",
-):
-    import ufl
-
-    from .constitutive import hyperelasticity
-
-    selected_measure = measure
-    if selected_measure is None and record.region is not None:
-        selected_measure = record.region.measure
-    if hyperelasticity.is_finite_strain_hyperelastic(record.item):
-        from . import fracture
-
-        operator = fracture.finite_strain_internal_force(
-            displacement,
-            test_function,
-            record.item,
-            measure=(ufl.dx if selected_measure is None else selected_measure),
-            name=name,
-        )
-        if record.region is not None:
-            return operator.renamed(
-                name,
-                kind="regional_finite_strain_internal_force",
-            )
-        return operator
-    kwargs = {"study": study}
-    if selected_measure is not None:
-        kwargs["measure"] = selected_measure
-    operator = operators.internal_force_vector(
-        displacement,
-        test_function,
-        record.item,
-        **kwargs,
-    )
-    if record.region is not None:
-        return operator.renamed(name, kind="regional_internal_force")
-    return operator.renamed(name)
-
-
-def _space(target):
-    if hasattr(target, "space"):
-        return target.space
-    if hasattr(target, "function_space"):
-        return target.function_space
-    if hasattr(target, "value") and hasattr(target.value, "function_space"):
-        return target.value.function_space
-    return target
-
-
-def _record_measure(record: _WithRegion):
-    return record.region.measure if record.region is not None else None
-
-
-def _assemble_lumped_mass(assembly, V, density: float, measure):
-    if measure is None:
-        return assembly.assemble_lumped_mass(V, density=density)
-    return assembly.assemble_lumped_mass(V, density=density, measure=measure)
-
-
-def _density(material) -> float:
-    from .operators._model_lowering import material_density
-
-    return material_density(material)
-
-
 def _single_material(model: Model, caller: str) -> "_WithRegion":
     if len(model.materials) != 1:
         raise ValueError(f"{caller} requires material=... or exactly one material.")
     return model.materials[0]
-
-
-def _describe(item):
-    if item is None:
-        return None
-    if hasattr(item, "summary"):
-        return item.summary()
-    if hasattr(item, "as_dict"):
-        return item.as_dict()
-    return getattr(item, "name", repr(item))
-
-
-def _short_description(item) -> str:
-    if item is None:
-        return "<none>"
-    if hasattr(item, "topology") and hasattr(item, "geometry"):
-        return (
-            f"mesh: tdim={item.topology.dim}, "
-            f"gdim={item.geometry.dim}, cells={item.topology.index_map(item.topology.dim).size_global}"
-        )
-    name = getattr(item, "name", None)
-    kind = getattr(item, "kind", None)
-    if name is not None and kind is not None:
-        return f"{kind}: {name}"
-    if name is not None:
-        return str(name)
-    if hasattr(item, "summary"):
-        summary = item.summary()
-        if isinstance(summary, dict):
-            if "item" in summary and "region" in summary:
-                region = summary["region"] or "whole domain"
-                return f"material: {summary['item']} on {region}"
-            if "dirichlet" in summary:
-                count = len(summary.get("dirichlet", ()))
-                return f"constraint set: {count} dirichlet"
-            summary_name = summary.get("name")
-            summary_kind = summary.get("kind") or summary.get("analysis")
-            if summary_name is not None and summary_kind is not None:
-                return f"{summary_kind}: {summary_name}"
-            if summary_name is not None:
-                return str(summary_name)
-            return repr(summary)
-    return repr(item)
-
-
-def _as_tuple(item) -> tuple:
-    if item is None:
-        return ()
-    if isinstance(item, tuple):
-        return item
-    if isinstance(item, list):
-        return tuple(item)
-    return (item,)
-
-
-def _mesh_summary(mesh):
-    if mesh is None:
-        return None
-    mesh = _domain(mesh)
-    return {
-        "topological_dim": mesh.topology.dim,
-        "geometric_dim": mesh.geometry.dim,
-    }
-
-
-def _domain(mesh):
-    """Return the DOLFINx domain stored directly or inside ``FEMMesh``."""
-
-    if mesh is None:
-        return None
-    return getattr(mesh, "domain", mesh)
-
-
-def _field_domain(field_object):
-    """Return a field mesh when it can be determined without assembly."""
-
-    space = getattr(field_object, "space", None)
-    if space is None:
-        value = getattr(field_object, "value", field_object)
-        space = getattr(value, "function_space", None)
-    return getattr(space, "mesh", None)
-
-
-def _duplicate_names(items) -> tuple[str, ...]:
-    counts: dict[str, int] = {}
-    for item in items:
-        name = getattr(item, "name", None)
-        if name is None and hasattr(item, "summary"):
-            summary = item.summary()
-            if isinstance(summary, dict):
-                name = summary.get("name")
-        if isinstance(name, str) and name:
-            counts[name] = counts.get(name, 0) + 1
-    return tuple(sorted(name for name, count in counts.items() if count > 1))
 
 
 def _regions_from_asset(asset) -> tuple[object, ...]:
@@ -2426,9 +1819,13 @@ def _regions_from_asset(asset) -> tuple[object, ...]:
     return () if region is None else (region,)
 
 
-def _time_dependent_fix(target, *, on=None, location=None, value, components=None, name=None):
+def _time_dependent_fix(
+    target, *, on=None, location=None, value, components=None, name=None
+):
     selected_location = location if location is not None else on
-    label = name or f"time_dependent_fixed_{getattr(selected_location, 'name', 'location')}"
+    label = (
+        name or f"time_dependent_fixed_{getattr(selected_location, 'name', 'location')}"
+    )
     if components is None:
         components = _all_components_or_none(target)
     if components is None:
@@ -2438,7 +1835,9 @@ def _time_dependent_fix(target, *, on=None, location=None, value, components=Non
             value=value,
             name=label,
         )
-    component_ids = (int(components),) if isinstance(components, Integral) else tuple(components)
+    component_ids = (
+        (int(components),) if isinstance(components, Integral) else tuple(components)
+    )
     items = [
         constraint_api.time_dependent_component_dirichlet(
             target,

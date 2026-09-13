@@ -1164,8 +1164,12 @@ otherwise; runnable examples remain in the repository-level <code>examples/</cod
 <td><code>procedures.py</code></td>
 </tr>
 <tr>
-<td>Model registry/facade, amplitudes, material assignments, checks, summaries, and model-first operator delegates</td>
+<td>Model registry/facade, amplitudes, material assignments, and readable engineering verbs</td>
 <td><code>models.py</code></td>
+</tr>
+<tr>
+<td>Side-effect-free Model validation, inspection/AF-IR views, and shared inspection helpers</td>
+<td><code>_model_validation.py</code>, <code>_model_inspection.py</code>, <code>_model_support.py</code></td>
 </tr>
 <tr>
 <td>Stable private facade for built-in scientific Step construction</td>
@@ -1280,8 +1284,8 @@ otherwise; runnable examples remain in the repository-level <code>examples/</cod
 <td><code>assembly.py</code></td>
 </tr>
 <tr>
-<td>Engineering-level K/M/C/F, registered-assignment lowering, transport, SUPG, and reaction operators</td>
-<td><code>operators/</code></td>
+<td>Engineering-level K/M/C/F, registered-assignment and model-first operator lowering, transport, SUPG, and reaction operators</td>
+<td><code>operators/</code>, <code>operators/_model_lowering.py</code></td>
 </tr>
 <tr>
 <td>Central difference, Newmark, generalized-alpha, and runtime cadence</td>

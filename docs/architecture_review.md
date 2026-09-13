@@ -109,6 +109,15 @@ decision or when a lower layer imports an orchestration layer.
   not own built-in solution construction. Transient heat lowering now follows
   the same `StepRequest -> provider -> _step_builders -> problem` route as the
   structural, nonlinear-material, and dynamics providers.
+- Model-facing validation and inspection retain their public methods but now
+  delegate to private, side-effect-free owners. The validation owner may read
+  provider capability declarations but cannot construct a problem; the
+  inspection owner may serialize supported semantics but cannot solve or
+  accept a result.
+- Model-first operator verbs are selection facades, not form builders.
+  Regional measure resolution, coefficient checks, lumped assembly,
+  finite-strain/linear internal-force dispatch, and force-balance composition
+  share the private operator lowering boundary.
 - A release regression test requires every historical `*_step()` method to
   remain a thin delegate and prevents providers from calling those
   compatibility methods.

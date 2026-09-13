@@ -22,6 +22,7 @@ from .. import _axisymmetric
 from ..constitutive import hyperelasticity
 from ..materials.properties import constant_volumetric_heat_capacity
 from . import core
+from . import elasticity as elasticity_operators
 
 
 class _MaterialAssignment(Protocol):
@@ -211,6 +212,201 @@ def lower_heat_capacity(
     )
 
 
+def lower_damping(
+    target,
+    coefficient,
+    *,
+    study=None,
+    measure=None,
+    name: str = "C",
+):
+    """Lower one viscous damping contribution with study integration weight."""
+
+    weight = _axisymmetric.integration_weight(target, study)
+    return core.damping_operator(
+        target,
+        coefficient * weight,
+        measure=ufl.dx if measure is None else measure,
+    ).renamed(name)
+
+
+def lower_thermal_expansion(
+    target,
+    temperature,
+    *,
+    selected: _MaterialAssignment,
+    study=None,
+    measure=None,
+    name: str = "F_thermal",
+):
+    """Lower one material assignment into an equivalent thermal force."""
+
+    return elasticity_operators.thermal_expansion_vector(
+        target,
+        temperature,
+        selected.item,
+        study=study,
+        measure=_measure(selected, explicit=measure),
+        name=name,
+    )
+
+
+def lower_lumped_mass(
+    target,
+    *,
+    assignments: Sequence[_MaterialAssignment],
+    selected: _MaterialAssignment | None = None,
+    study=None,
+    measure=None,
+    method: str = "row_sum",
+):
+    """Lower registered densities into a row-sum lumped mass operator."""
+
+    normalized_method = method.lower().replace("-", "_")
+    if normalized_method not in {"row_sum", "diagonal", "lumped"}:
+        raise ValueError("model.lumped_mass currently supports method='row_sum'.")
+
+    from .. import assembly
+
+    records = _records(assignments, selected)
+    if not records:
+        raise ValueError("model.lumped_mass requires at least one registered material.")
+    if measure is not None and len(records) > 1:
+        raise ValueError(
+            "model.lumped_mass with multiple materials cannot use one explicit measure. "
+            "Pass material=... or let each material use its registered region."
+        )
+
+    function_space = _space(target)
+    weight = _axisymmetric.integration_weight(target, study)
+    mass = None
+    missing = []
+    for record in records:
+        if len(records) > 1 and record.region is None:
+            missing.append(_describe(record.item))
+            continue
+        selected_measure = _measure(record, explicit=measure)
+        part = assembly.assemble_lumped_mass(
+            function_space,
+            density=material_density(record.item) * weight,
+            measure=selected_measure,
+        )
+        mass = part if mass is None else mass + part
+    if missing:
+        raise ValueError(
+            "Multiple-material lumped mass requires every material to have a region. "
+            f"Materials without regions: {missing}."
+        )
+    return core.LumpedMassOperator(
+        mass=mass,
+        inv_mass=assembly.inverse_diagonal(mass),
+    )
+
+
+def lower_load_vector(target, *, loads=(), load=None, study=None):
+    """Lower registered or explicit loads into one external-force operator."""
+
+    return core.load_vector(target, loads, load=load, study=study)
+
+
+def lower_internal_force(
+    displacement,
+    test_function,
+    *,
+    assignments: Sequence[_MaterialAssignment],
+    selected: _MaterialAssignment | None = None,
+    study=None,
+    measure=None,
+    name: str = "F_internal",
+):
+    """Lower registered material assignments into an internal-force operator."""
+
+    records = _records(assignments, selected)
+    if not records:
+        raise ValueError(
+            "model.internal_force_vector requires at least one registered material."
+        )
+    if measure is not None and len(records) > 1:
+        raise ValueError(
+            "model.internal_force_vector with multiple materials cannot use one explicit "
+            "measure. Pass material=... or let each material use its registered region."
+        )
+    if len(records) == 1:
+        return _internal_force_contribution(
+            displacement,
+            test_function,
+            records[0],
+            study=study,
+            measure=measure,
+            name=name,
+        )
+
+    missing = tuple(
+        _describe(record.item) for record in records if record.region is None
+    )
+    if missing:
+        raise ValueError(
+            "Multiple-material internal force requires every material to have a region. "
+            f"Materials without regions: {list(missing)}."
+        )
+    parts = tuple(
+        _internal_force_contribution(
+            displacement,
+            test_function,
+            record,
+            study=study,
+            measure=record.region.measure,
+            name=f"F_internal_{getattr(record.region, 'name', index)}",
+        )
+        for index, record in enumerate(records)
+    )
+    return core.combine(*parts, name=name, kind="partitioned_internal_force")
+
+
+def lower_boundary_force(boundary_model, field, test_function):
+    """Lower weak boundary physics into its force contribution."""
+
+    return core.boundary_model_vector(boundary_model, field, test_function)
+
+
+def lower_force_balance(
+    *,
+    internal=None,
+    external=None,
+    damping=None,
+    absorbing=None,
+    boundary=None,
+    name: str = "R",
+    convention: str = "internal_minus_external",
+):
+    """Compose force contributions into one explicitly signed residual."""
+
+    positive = []
+    negative = []
+    if convention == "internal_minus_external":
+        positive.extend(_as_tuple(internal))
+        positive.extend(_as_tuple(damping))
+        positive.extend(_as_tuple(absorbing))
+        positive.extend(_as_tuple(boundary))
+        negative.extend(_as_tuple(external))
+    elif convention == "external_minus_internal":
+        positive.extend(_as_tuple(external))
+        negative.extend(_as_tuple(internal))
+        negative.extend(_as_tuple(damping))
+        negative.extend(_as_tuple(absorbing))
+        negative.extend(_as_tuple(boundary))
+    else:
+        raise ValueError(
+            "force_balance convention must be 'internal_minus_external' "
+            "or 'external_minus_internal'."
+        )
+
+    terms = [*positive, *(core.scale(item, -1.0) for item in negative)]
+    if not terms:
+        raise ValueError("force_balance requires at least one force contribution.")
+    return core.combine(*terms, name=name, kind="force_balance")
+
+
 def material_density(material) -> float:
     """Resolve one positive constant density for mass-like lowering."""
 
@@ -269,6 +465,64 @@ def _stiffness_contribution(
     if record.region is not None:
         return operator.renamed(name, kind="regional_stiffness")
     return operator.renamed(name)
+
+
+def _internal_force_contribution(
+    displacement,
+    test_function,
+    record: _MaterialAssignment,
+    *,
+    study,
+    measure=None,
+    name: str,
+):
+    selected_measure = _measure(record, explicit=measure)
+    if hyperelasticity.is_finite_strain_hyperelastic(record.item):
+        from .. import fracture
+
+        operator = fracture.finite_strain_internal_force(
+            displacement,
+            test_function,
+            record.item,
+            measure=selected_measure,
+            name=name,
+        )
+        if record.region is not None:
+            return operator.renamed(
+                name,
+                kind="regional_finite_strain_internal_force",
+            )
+        return operator
+    operator = elasticity_operators.internal_force_vector(
+        displacement,
+        test_function,
+        record.item,
+        study=study,
+        measure=selected_measure,
+    )
+    if record.region is not None:
+        return operator.renamed(name, kind="regional_internal_force")
+    return operator.renamed(name)
+
+
+def _space(target):
+    if hasattr(target, "space"):
+        return target.space
+    if hasattr(target, "function_space"):
+        return target.function_space
+    if hasattr(target, "value") and hasattr(target.value, "function_space"):
+        return target.value.function_space
+    return target
+
+
+def _as_tuple(item) -> tuple:
+    if item is None:
+        return ()
+    if isinstance(item, tuple):
+        return item
+    if isinstance(item, list):
+        return tuple(item)
+    return (item,)
 
 
 def _describe(item):

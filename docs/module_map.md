@@ -16,7 +16,8 @@ otherwise; runnable examples remain in the repository-level `examples/`.
 | Study context: analysis type, physics, dimension, and assumptions | `studies.py` |
 | Shared axisymmetric (r,z) kinematics and full-revolution lowering | `_axisymmetric.py` |
 | Standard/Explicit family, equation order, algorithm, and state policy | `procedures.py` |
-| Model registry/facade, amplitudes, material assignments, checks, summaries, and model-first operator delegates | `models.py` |
+| Model registry/facade, amplitudes, material assignments, and readable engineering verbs | `models.py` |
+| Side-effect-free Model validation, inspection/AF-IR views, and shared inspection helpers | `_model_validation.py`, `_model_inspection.py`, `_model_support.py` |
 | Stable private facade for built-in scientific Step construction | `_step_builders.py` |
 | Linear-static and steady/transient thermal Step construction | `_step_builders_thermal.py` |
 | Finite-kinematics hyperelastic, mixed, and fabric-membrane Step construction | `_step_builders_finite_strain.py` |
@@ -45,7 +46,7 @@ otherwise; runnable examples remain in the repository-level `examples/`.
 | Boundary models | `boundary_models/` |
 | UFL weak-form blocks, including stiffness, mass, diffusion, and loads | `forms.py` |
 | Assembly | `assembly.py` |
-| Engineering-level K/M/C/F, registered-assignment lowering, transport, SUPG, and reaction operators | `operators/` |
+| Engineering-level K/M/C/F, registered-assignment and model-first operator lowering, transport, SUPG, and reaction operators | `operators/`, `operators/_model_lowering.py` |
 | Central difference, Newmark, generalized-alpha, and runtime cadence | `time/` |
 | Common analysis steps, discrete system problems, factories, and compatibility delegates | `problems.py` |
 | Incremental/affine nonlinear procedures, state transactions, cutback, and nonlinear checkpointing | `_nonlinear_problems.py` |

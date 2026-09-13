@@ -42,6 +42,14 @@ Study -> Model -> scientific assets -> model.step(...)
 that path. Historical material-specific `*_step()` methods remain thin 0.2.x
 compatibility delegates; new workflows use `model.step(...)`.
 
+Model validation and model inspection are separate views over the same
+engineering registry. `_model_validation.py` owns addressable preflight issues
+and compatibility checks; `_model_inspection.py` owns summaries, manifests,
+AF-IR export, and the compact human-readable tree. Their shared
+`_model_support.py` helpers are side-effect free and do not import `Model`.
+The public methods remain on `Model`, so this ownership split adds no new user
+vocabulary and does not turn the facade into a mixin hierarchy.
+
 Provider selection is intentionally narrower than lowering. The private
 registry stores, orders, and resolves declared providers without importing
 builders or executing them. A selected provider then performs scientific
@@ -78,6 +86,12 @@ That boundary resolves regional measures, validates physical coefficients,
 builds each contribution, and composes partitioned operators. It consumes an
 immutable assignment sequence rather than importing `Model`, so the readable
 facade does not become the owner of finite-element forms.
+
+The same lowering boundary covers damping, thermal expansion, lumped mass,
+external and internal force vectors, weak-boundary forces, and explicit
+force-balance composition. `Model` selects registered assets and preserves the
+human-facing verb; `operators/_model_lowering.py` owns measure selection,
+assembly, sign convention, and regional operator composition.
 
 ## State is a boundary, not one universal algorithm
 

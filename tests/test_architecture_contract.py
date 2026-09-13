@@ -266,6 +266,56 @@ def test_direct_problems_delegate_result_assembly_to_result_owner():
     assert "problems" not in _agentfem_imports(result_factory)
 
 
+def test_model_delegates_validation_and_inspection_to_dedicated_owners():
+    model_source = (PACKAGE / "models.py").read_text(encoding="utf-8")
+    validation_path = PACKAGE / "_model_validation.py"
+    inspection_path = PACKAGE / "_model_inspection.py"
+    support_path = PACKAGE / "_model_support.py"
+
+    assert "return validate_model(self" in model_source
+    assert "return model_summary(self)" in model_source
+    assert "return model_manifest(self)" in model_source
+    assert "return model_tree(self)" in model_source
+    assert "AFM-MODEL-001" not in model_source
+    assert "agentfem_model_manifest" not in model_source
+
+    for path in (validation_path, inspection_path, support_path):
+        assert path.exists()
+        assert "models" not in _agentfem_imports(path)
+
+    validation_source = validation_path.read_text(encoding="utf-8")
+    inspection_source = inspection_path.read_text(encoding="utf-8")
+    assert "def validate_model" in validation_source
+    assert "def model_summary" in inspection_source
+    assert "def model_to_ir" in inspection_source
+
+
+def test_model_first_operator_methods_delegate_numerical_lowering():
+    model_source = (PACKAGE / "models.py").read_text(encoding="utf-8")
+    lowering_path = PACKAGE / "operators" / "_model_lowering.py"
+    lowering_source = lowering_path.read_text(encoding="utf-8")
+
+    for name in (
+        "lower_stiffness",
+        "lower_mass",
+        "lower_damping",
+        "lower_conduction",
+        "lower_heat_capacity",
+        "lower_thermal_expansion",
+        "lower_lumped_mass",
+        "lower_load_vector",
+        "lower_internal_force",
+        "lower_boundary_force",
+        "lower_force_balance",
+    ):
+        assert f"def {name}" in lowering_source
+        assert name in model_source
+
+    assert "assemble_lumped_mass" not in model_source
+    assert "finite_strain_internal_force(" not in model_source
+    assert "models" not in _agentfem_imports(lowering_path)
+
+
 def test_step_provider_registry_owns_selection_not_scientific_lowering():
     provider_source = (PACKAGE / "step_providers.py").read_text(encoding="utf-8")
     registry_path = PACKAGE / "_step_provider_registry.py"

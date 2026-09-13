@@ -51,6 +51,9 @@ OWNERSHIP_BOUNDARIES = (
         modules=(
             "studies",
             "models",
+            "_model_support",
+            "_model_validation",
+            "_model_inspection",
             "mesh",
             "fields",
             "materials",
@@ -194,6 +197,16 @@ _BUILDER_MODULES = (
 
 FORBIDDEN_IMPORTS = {
     "models": ("problems", "results", "solvers", "time", "kernel"),
+    "_model_support": (
+        "models",
+        "problems",
+        "step_providers",
+        *_BUILDER_MODULES,
+        "results",
+        "solvers",
+    ),
+    "_model_validation": ("models", "problems", "results", "solvers", "time"),
+    "_model_inspection": ("models", "problems", "results", "solvers", "time"),
     "state": (
         "models",
         "problems",
