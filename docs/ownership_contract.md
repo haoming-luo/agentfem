@@ -52,10 +52,12 @@ Built-in builders are divided by scientific family when their dependencies
 and validation rules form a genuine independent unit. Linear and thermal
 lowering live in `_step_builders_thermal.py`; finite-kinematics hyperelastic,
 mixed, and fabric-membrane lowering live in
-`_step_builders_finite_strain.py`. `_step_builders.py` remains the stable
-private facade consumed by providers and 0.2.x compatibility methods. Further
-families should move only when the same ownership test is met, not to satisfy
-a line-count target.
+`_step_builders_finite_strain.py`; stateful inelastic and hereditary lowering
+live in `_step_builders_inelastic.py`; frequency- and time-domain dynamics
+have their corresponding family modules. `_step_builders.py` is now only the
+stable private facade consumed by providers and 0.2.x compatibility methods.
+Further splitting inside a family should occur only when ownership evidence
+requires it, not to satisfy a line-count target.
 
 The same ownership rule applies after a procedure finishes. Discrete problem
 objects may advance state and expose the solution they computed, but private

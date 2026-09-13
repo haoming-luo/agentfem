@@ -20,6 +20,9 @@ otherwise; runnable examples remain in the repository-level `examples/`.
 | Stable private facade for built-in scientific Step construction | `_step_builders.py` |
 | Linear-static and steady/transient thermal Step construction | `_step_builders_thermal.py` |
 | Finite-kinematics hyperelastic, mixed, and fabric-membrane Step construction | `_step_builders_finite_strain.py` |
+| Stateful J2, creep, and quasistatic viscoelastic Step construction | `_step_builders_inelastic.py` |
+| Direct-harmonic and harmonic-viscoelastic Step construction | `_step_builders_frequency.py` |
+| Explicit, implicit, finite-strain dynamic, and modal Step construction | `_step_builders_dynamics.py` |
 | Extensible analysis/material lowering and execution-policy normalization behind `model.step()` | `step_providers.py` |
 | Deterministic provider storage and selection, independent of scientific lowering | `_step_provider_registry.py` |
 | Function spaces and Lagrange defaults | `spaces.py` |

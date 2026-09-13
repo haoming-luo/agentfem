@@ -271,6 +271,40 @@ def test_finite_strain_step_builders_have_a_separate_physics_owner():
     assert "models" not in _agentfem_imports(family_path)
 
 
+def test_step_builder_facade_contains_no_scientific_construction():
+    facade_path = PACKAGE / "_step_builders.py"
+    tree = ast.parse(facade_path.read_text(encoding="utf-8"))
+    functions = [node.name for node in tree.body if isinstance(node, ast.FunctionDef)]
+    families = {
+        "_step_builders_thermal.py": ("linear_static", "heat_transfer"),
+        "_step_builders_inelastic.py": (
+            "j2_plasticity",
+            "finite_strain_j2",
+            "creep",
+            "viscoelastic",
+        ),
+        "_step_builders_frequency.py": (
+            "direct_harmonic",
+            "harmonic_viscoelastic",
+        ),
+        "_step_builders_dynamics.py": (
+            "explicit_dynamics",
+            "finite_strain_explicit_dynamics",
+            "modal",
+            "implicit_dynamics",
+        ),
+    }
+
+    assert not functions
+    for filename, names in families.items():
+        path = PACKAGE / filename
+        source = path.read_text(encoding="utf-8")
+        for name in names:
+            assert f"def {name}" in source
+        assert "step_providers" not in _agentfem_imports(path)
+        assert "models" not in _agentfem_imports(path)
+
+
 def test_harmonic_step_delegates_petsc_problem_to_backend_owner():
     tree = ast.parse(
         (PACKAGE / "mechanics" / "viscoelasticity.py").read_text(encoding="utf-8")
