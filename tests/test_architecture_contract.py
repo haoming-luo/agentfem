@@ -271,8 +271,8 @@ def test_step_provider_registry_owns_selection_not_scientific_lowering():
     registry_path = PACKAGE / "_step_provider_registry.py"
     registry_source = registry_path.read_text(encoding="utf-8")
 
-    assert "class StepProviderRegistry" not in provider_source
-    assert "class StepProviderRegistry" in registry_source
+    assert "class StepProviderRegistry(ProviderSelectionRegistry)" in provider_source
+    assert "class ProviderSelectionRegistry" in registry_source
     assert "def candidates" in registry_source
     assert "def resolve" in registry_source
     assert "provider.lower" not in registry_source

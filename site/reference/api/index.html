@@ -8412,43 +8412,8 @@ and evidence remain in the linked guides and scientific function reference.</p>
 </tr>
 <tr>
 <td>class</td>
-<td><code>NonlinearLoadIncrementInfo</code></td>
-<td>Convergence evidence for one ordinary nonlinear load increment.</td>
-</tr>
-<tr>
-<td>class</td>
-<td><code>NonlinearLoadPathInfo</code></td>
-<td>Accepted and attempted increments for an ordinary nonlinear step.</td>
-</tr>
-<tr>
-<td>class</td>
-<td><code>IncrementalNonlinearVariationalProblem</code></td>
-<td>Ordinary nonlinear equilibrium with automatic load incrementation.</td>
-</tr>
-<tr>
-<td>class</td>
-<td><code>AffineNonlinearVariationalProblem</code></td>
-<td>Nonlinear equilibrium under an exact affine dof reduction.</td>
-</tr>
-<tr>
-<td>class</td>
 <td><code>AnalysisStep</code></td>
 <td>Inspectable analysis step that owns one algebraic solve.</td>
-</tr>
-<tr>
-<td>class</td>
-<td><code>ExplicitDynamicsStep</code></td>
-<td>Inspectable second-order explicit dynamics step.</td>
-</tr>
-<tr>
-<td>class</td>
-<td><code>ImplicitDynamicsStep</code></td>
-<td>Linear Newmark/generalized-alpha structural-dynamics step.</td>
-</tr>
-<tr>
-<td>class</td>
-<td><code>FirstOrderTransientStep</code></td>
-<td>Reusable implicit-Euler step loop for heat/diffusion problems.</td>
 </tr>
 <tr>
 <td>function</td>
@@ -8474,11 +8439,6 @@ and evidence remain in the linked guides and scientific function reference.</p>
 <td>function</td>
 <td><code>affine_nonlinear(residual, solution, *, jacobian, constraint, load_factors = None, incrementation = None, solver_options: AffineNewtonOptions \| NewtonSolverOptions \| None = None, output_every: int \| None = 1, output_factors = (), state_transaction = None, checkpoint_policy = None, acceptance_check = None, progress = True, status_file = None, name: str = 'affine_nonlinear', procedure = None) -&gt; AffineNonlinearVariationalProblem</code></td>
 <td>Create a nonlinear problem reduced by an affine constraint map.</td>
-</tr>
-<tr>
-<td>class</td>
-<td><code>LoadIncrementSnapshot</code></td>
-<td>A copied solution state at one nonlinear load factor.</td>
 </tr>
 <tr>
 <td>function</td>

@@ -13,7 +13,7 @@ from os import PathLike
 from types import MappingProxyType
 from typing import Callable, Mapping
 
-from ._step_provider_registry import StepProviderRegistry
+from ._step_provider_registry import ProviderSelectionRegistry
 
 
 @dataclass(frozen=True)
@@ -350,6 +350,15 @@ class StepProvider:
             self.option_contract.validate(request.options, provider=self.name)
 
 
+class StepProviderRegistry(ProviderSelectionRegistry):
+    """Compatibility facade adding lowering to the selection-only registry."""
+
+    def lower(self, model, request: StepRequest):
+        provider = self.resolve(model, request)
+        created = provider.lower(model, request)
+        return _bind_execution_context(model, request, provider, created)
+
+
 _DEFAULT_REGISTRY = StepProviderRegistry()
 
 
@@ -472,9 +481,7 @@ def lower_step(model, *, analysis: str, target, options, procedure=None):
         options=selected_options,
         procedure=selected_procedure,
     )
-    provider = _DEFAULT_REGISTRY.resolve(model, request)
-    created = provider.lower(model, request)
-    return _bind_execution_context(model, request, provider, created)
+    return _DEFAULT_REGISTRY.lower(model, request)
 
 
 def _bind_execution_context(model, request, provider, created):

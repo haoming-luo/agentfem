@@ -1168,12 +1168,40 @@ otherwise; runnable examples remain in the repository-level <code>examples/</cod
 <td><code>models.py</code></td>
 </tr>
 <tr>
-<td>Built-in scientific Step construction behind the facade</td>
+<td>Stable private facade for built-in scientific Step construction</td>
 <td><code>_step_builders.py</code></td>
+</tr>
+<tr>
+<td>Linear-static and steady/transient thermal Step construction</td>
+<td><code>_step_builders_thermal.py</code></td>
+</tr>
+<tr>
+<td>Finite-kinematics hyperelastic, mixed, and fabric-membrane Step construction</td>
+<td><code>_step_builders_finite_strain.py</code></td>
+</tr>
+<tr>
+<td>Stateful J2, creep, and quasistatic viscoelastic Step construction</td>
+<td><code>_step_builders_inelastic.py</code></td>
+</tr>
+<tr>
+<td>Direct-harmonic and harmonic-viscoelastic Step construction</td>
+<td><code>_step_builders_frequency.py</code></td>
+</tr>
+<tr>
+<td>Explicit, implicit, finite-strain dynamic, and modal Step construction</td>
+<td><code>_step_builders_dynamics.py</code></td>
 </tr>
 <tr>
 <td>Extensible analysis/material lowering and execution-policy normalization behind <code>model.step()</code></td>
 <td><code>step_providers.py</code></td>
+</tr>
+<tr>
+<td>Deterministic provider storage and selection, independent of scientific lowering</td>
+<td><code>_step_provider_registry.py</code></td>
+</tr>
+<tr>
+<td>Built-in provider predicates, lowerers, and declarations</td>
+<td><code>_builtin_step_providers.py</code></td>
 </tr>
 <tr>
 <td>Function spaces and Lagrange defaults</td>
@@ -1260,8 +1288,20 @@ otherwise; runnable examples remain in the repository-level <code>examples/</cod
 <td><code>time/</code></td>
 </tr>
 <tr>
-<td>Common analysis steps, discrete system problems, and compatibility delegates</td>
+<td>Common analysis steps, discrete system problems, factories, and compatibility delegates</td>
 <td><code>problems.py</code></td>
+</tr>
+<tr>
+<td>Incremental/affine nonlinear procedures, state transactions, cutback, and nonlinear checkpointing</td>
+<td><code>_nonlinear_problems.py</code></td>
+</tr>
+<tr>
+<td>First-/second-order transient and explicit-dynamics procedure implementations</td>
+<td><code>_transient_problems.py</code></td>
+</tr>
+<tr>
+<td>Shared residual-to-reaction diagnostic-field recovery</td>
+<td><code>_problem_fields.py</code></td>
 </tr>
 <tr>
 <td>Structural modal procedure, distributed eigensolver execution, and result assembly</td>
@@ -1282,6 +1322,14 @@ otherwise; runnable examples remain in the repository-level <code>examples/</cod
 <tr>
 <td>Scientific results, MPI-safe point/path/integral QoIs, histories, artifacts, and dataset bridge</td>
 <td><code>results/</code></td>
+</tr>
+<tr>
+<td>Private direct-problem, static, nonlinear, transient, and modal result assembly</td>
+<td><code>results/_problem.py</code>, <code>results/_analysis_step.py</code>, <code>results/_nonlinear_step.py</code>, <code>results/_transient_step.py</code>, <code>results/_modal.py</code></td>
+</tr>
+<tr>
+<td>Shared field location and processing semantics</td>
+<td><code>results/_field_metadata.py</code></td>
 </tr>
 <tr>
 <td>Finite-strain fields and periodic-cell homogenization</td>

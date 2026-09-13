@@ -917,9 +917,11 @@ the private engineering record.</p>
 <li>
 <p>Keep study, model, and problem responsibilities separate:
    <code>studies.py</code> declares context, <code>models.py</code> registers assets and checks the
-   model, <code>_step_builders.py</code> constructs built-in scientific procedures,
-   <code>step_providers.py</code> selects and lowers supported analysis/material
-   protocols, and <code>problems.py</code> represents discrete systems to solve.
+   model, the <code>_step_builders_*</code> family modules construct built-in scientific
+   procedures behind a thin <code>_step_builders.py</code> facade, <code>step_providers.py</code>
+   owns the public extension protocol and dispatch, the private registry owns
+   deterministic selection, the built-in catalog owns AgentFEM predicates and
+   lowerers, and <code>problems.py</code> represents discrete systems to solve.
    <code>Model.step</code> remains the stable public entry point; adding a material family
    does not justify adding a case-specific method to every model. Historical
    builder methods remain thin 0.2.x compatibility delegates rather than
@@ -978,6 +980,9 @@ decision or when a lower layer imports an orchestration layer.</p>
   and solver controls are advanced; raw <code>io</code>, discrete <code>problems</code>, and time
   kernels are expert. This changes presentation, not runtime availability.</li>
 <li><code>results</code> owns scientific result semantics and the common completion path.
+  Static, nonlinear, transient, and modal problems now delegate result
+  assembly to private result factories; problem objects no longer duplicate
+  field, history, artifact, checkpoint, or processing-metadata policy.
   Low-level <code>io.XDMFTimeSeries</code> remains an expert DOLFINx-compatible writer;
   ordinary workflows use the single-grid result writers and <code>SimulationResult</code>.</li>
 <li>Constitutive modules own material-point laws, while <code>mechanics</code> belongs to
@@ -1010,12 +1015,15 @@ decision or when a lower layer imports an orchestration layer.</p>
   idempotent <code>close()</code>. Execution scopes—not Model—own these resources, and
   summaries plus borrowed public fields remain readable after teardown.</li>
 </ul>
-<p>The next structural split should be evidence-driven: <code>_step_builders.py</code> may
-become a private builder package when independent provider families need
-separate ownership. Splitting it before then would move code without changing
-the architecture. WSL2 remains a supported Windows route and an independently
-tracked acceptance item; lack of local WSL2 evidence does not block 0.3 after
-Linux and macOS installed-wheel acceptance passes.</p>
+<p>The evidence-driven split is now complete at the first stable boundary:
+<code>_step_builders.py</code> is a thin facade over five scientific-family modules;
+provider protocol, deterministic selection, and the built-in catalog are
+separate; nonlinear and transient evolution are no longer embedded in the
+discrete-problem facade; result assembly is owned by <code>results</code>. Further splits
+must demonstrate a new owner or dependency boundary rather than only a smaller
+file. WSL2 remains a supported Windows route and an independently tracked
+acceptance item; lack of local WSL2 evidence does not block 0.3 after Linux and
+macOS installed-wheel acceptance passes.</p>
 <h2 id="agent-oriented-refinements">Agent-Oriented Refinements<a class="headerlink" href="#agent-oriented-refinements" title="Permanent link">&para;</a></h2>
 <ul>
 <li>Every public helper should say what FEM concept it belongs to.</li>

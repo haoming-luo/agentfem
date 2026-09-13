@@ -5,6 +5,7 @@ import pytest
 from mpi4py import MPI
 
 from agentfem import (
+    _nonlinear_problems,
     amplitudes,
     benchmarks,
     constitutive,
@@ -263,9 +264,7 @@ def test_neo_hookean_nominal_stress_is_energy_derivative():
         0.0,
         atol=1.0e-12,
     )
-    golden = benchmarks.golden_benchmark(
-        "agentfem.benchmark.neo_hookean_release"
-    )
+    golden = benchmarks.golden_benchmark("agentfem.benchmark.neo_hookean_release")
     actual = {
         "principal_nominal_stress": analytical,
         "strain_energy_density": hyperelasticity.principal_energy_density(
@@ -293,9 +292,7 @@ def test_neo_hookean_model_step_solves_a_displacement_controlled_patch():
     )
     model = models.create(study=study, mesh=domain, name="hyperelastic_patch")
     displacement = model.field(fields.displacement(domain, degree=1))
-    model.material(
-        hyperelasticity.neo_hookean(young=2.0e6, poisson=0.3)
-    )
+    model.material(hyperelasticity.neo_hookean(young=2.0e6, poisson=0.3))
     left = mesh.boundary(
         domain,
         lambda x: np.isclose(x[0], 0.0),
@@ -352,9 +349,7 @@ def test_hyperelastic_provider_bypasses_compatibility_builder():
         mesh=domain,
     )
     displacement = model.field(fields.displacement(domain))
-    material = model.material(
-        hyperelasticity.neo_hookean(young=2.0e6, poisson=0.3)
-    )
+    material = model.material(hyperelasticity.neo_hookean(young=2.0e6, poisson=0.3))
     model.hyperelastic_step = lambda **kwargs: pytest.fail(
         "provider called the compatibility facade"
     )
@@ -402,10 +397,13 @@ def test_plane_stress_neo_hookean_standard_step_uses_condensed_membrane_energy()
     step.solve()
 
     assert step.last_solve_info.converged
-    assert min(
-        item.checks["minimum_quadrature_J"]
-        for item in step.last_solve_info.increments
-    ) > 0.0
+    assert (
+        min(
+            item.checks["minimum_quadrature_J"]
+            for item in step.last_solve_info.increments
+        )
+        > 0.0
+    )
     assert float(np.max(displacement.value.x.array)) == pytest.approx(0.02)
 
 
@@ -427,9 +425,7 @@ def test_neo_hookean_standard_path_rolls_back_and_cuts_back_failed_attempt(monke
         name="hyperelastic_forced_cutback",
     )
     displacement = model.field(fields.displacement(domain, degree=1))
-    material = model.material(
-        hyperelasticity.neo_hookean(young=2.0e6, poisson=0.3)
-    )
+    material = model.material(hyperelasticity.neo_hookean(young=2.0e6, poisson=0.3))
     model.clamp(
         displacement,
         on=mesh.boundary(domain, lambda x: np.isclose(x[0], 0.0), name="left"),
@@ -440,7 +436,7 @@ def test_neo_hookean_standard_path_rolls_back_and_cuts_back_failed_attempt(monke
         component=0,
         on=mesh.boundary(domain, lambda x: np.isclose(x[0], 1.0), name="right"),
     )
-    original_solve = problems.solve_nonlinear_problem
+    original_solve = _nonlinear_problems.solve_nonlinear_problem
     calls = 0
 
     def fail_first_attempt(*args, **kwargs):
@@ -453,7 +449,11 @@ def test_neo_hookean_standard_path_rolls_back_and_cuts_back_failed_attempt(monke
             raise RuntimeError("forced first-attempt failure")
         return original_solve(*args, **kwargs)
 
-    monkeypatch.setattr(problems, "solve_nonlinear_problem", fail_first_attempt)
+    monkeypatch.setattr(
+        _nonlinear_problems,
+        "solve_nonlinear_problem",
+        fail_first_attempt,
+    )
     step = model.step(target=displacement, material=material, progress=False)
     step.solve()
 
@@ -481,9 +481,7 @@ def test_neo_hookean_standard_path_scales_natural_loads_by_increment():
         name="hyperelastic_traction_path",
     )
     displacement = model.field(fields.displacement(domain, degree=1))
-    material = model.material(
-        hyperelasticity.neo_hookean(young=2.0e6, poisson=0.3)
-    )
+    material = model.material(hyperelasticity.neo_hookean(young=2.0e6, poisson=0.3))
     model.clamp(
         displacement,
         on=mesh.boundary(domain, lambda x: np.isclose(x[0], 0.0), name="left"),
@@ -533,9 +531,7 @@ def test_neo_hookean_natural_load_amplitude_follows_normalized_step_time():
         name="hyperelastic_amplitude_path",
     )
     displacement = model.field(fields.displacement(domain, degree=1))
-    material = model.material(
-        hyperelasticity.neo_hookean(young=2.0e6, poisson=0.3)
-    )
+    material = model.material(hyperelasticity.neo_hookean(young=2.0e6, poisson=0.3))
     model.clamp(
         displacement,
         on=mesh.boundary(domain, lambda x: np.isclose(x[0], 0.0), name="left"),
@@ -641,9 +637,7 @@ def test_step_option_contract_exposes_exactly_one_scientific_coordinate():
     )
 
     missing = contract.issues({"output": "fields.xdmf"})
-    ambiguous = contract.issues(
-        {"frequency": 1.0, "angular_frequency": 2.0 * np.pi}
-    )
+    ambiguous = contract.issues({"frequency": 1.0, "angular_frequency": 2.0 * np.pi})
 
     assert missing[0]["code"] == "AFM-STEP-OPTION-003"
     assert missing[0]["selected"] == ()
@@ -778,14 +772,10 @@ def test_chaboche_return_map_tracks_backstress_and_discrete_tangent():
     assert update.state.backstresses.shape == (2, 3, 3)
     assert np.linalg.norm(update.state.total_backstress) > 0.0
     assert plasticity.von_mises(shifted) == pytest.approx(
-        material.current_yield_stress(
-            update.state.equivalent_plastic_strain
-        ),
+        material.current_yield_stress(update.state.equivalent_plastic_strain),
         rel=2.0e-9,
     )
-    analytical = np.einsum(
-        "ijkl,kl->ij", update.algorithmic_tangent, direction
-    )
+    analytical = np.einsum("ijkl,kl->ij", update.algorithmic_tangent, direction)
     perturbation = 2.0e-7
     numerical = (
         material.update(strain + perturbation * direction).stress
@@ -804,16 +794,12 @@ def test_chaboche_reversal_exhibits_kinematic_bauschinger_response():
         isotropic_rate=0.25,
     )
     forward = material.update(np.diag((0.006, -0.003, -0.003)))
-    reverse = material.update(
-        np.diag((-0.002, 0.001, 0.001)), forward.state
-    )
+    reverse = material.update(np.diag((-0.002, 0.001, 0.001)), forward.state)
 
     assert reverse.state.equivalent_plastic_strain > (
         forward.state.equivalent_plastic_strain
     )
-    assert reverse.state.total_backstress[0, 0] < (
-        forward.state.total_backstress[0, 0]
-    )
+    assert reverse.state.total_backstress[0, 0] < (forward.state.total_backstress[0, 0])
     assert reverse.stress[0, 0] < 0.0
 
 
@@ -826,10 +812,12 @@ def test_uniaxial_plasticity_matches_bilinear_closed_form():
     )
     total_strain = 0.005
     stress, state = plasticity.update_uniaxial(total_strain, material)
-    expected_increment = (
-        material.young * total_strain - material.yield_stress
-    ) / (material.young + material.hardening_modulus)
-    expected_stress = material.yield_stress + material.hardening_modulus * expected_increment
+    expected_increment = (material.young * total_strain - material.yield_stress) / (
+        material.young + material.hardening_modulus
+    )
+    expected_stress = (
+        material.yield_stress + material.hardening_modulus * expected_increment
+    )
 
     np.testing.assert_allclose(state.equivalent_plastic_strain, expected_increment)
     np.testing.assert_allclose(stress, expected_stress)
@@ -873,10 +861,16 @@ def test_arrhenius_material_update_accelerates_with_temperature():
     strain = np.diag((0.002, -0.001, -0.001))
 
     reference = material.update(
-        strain, time_start=0.0, time_end=1.0, temperature=800.0,
+        strain,
+        time_start=0.0,
+        time_end=1.0,
+        temperature=800.0,
     )
     hot = material.update(
-        strain, time_start=0.0, time_end=1.0, temperature=900.0,
+        strain,
+        time_start=0.0,
+        time_end=1.0,
+        temperature=900.0,
     )
 
     assert hot.equivalent_increment > reference.equivalent_increment > 0.0
@@ -985,9 +979,7 @@ def test_temperature_dependent_arrhenius_creep_tangent_is_consistent():
     strain = np.asarray(
         ((0.003, 0.0002, 0.0), (0.0002, -0.0015, 0.0), (0.0, 0.0, -0.0015))
     )
-    direction = np.asarray(
-        ((0.3, 0.2, 0.0), (0.2, -0.1, 0.0), (0.0, 0.0, -0.2))
-    )
+    direction = np.asarray(((0.3, 0.2, 0.0), (0.2, -0.1, 0.0), (0.0, 0.0, -0.2)))
     step = 1.0e-7
     update = material.update(
         strain,
@@ -1047,10 +1039,9 @@ def test_creep_history_driver_uses_exact_interval_integrals():
         times=(0.0, 2.0, 5.0),
         interval_stresses=(100.0, 50.0),
     )
-    expected = (
-        law.constant_stress_increment(100.0, 0.0, 2.0)
-        + law.constant_stress_increment(50.0, 2.0, 5.0)
-    )
+    expected = law.constant_stress_increment(
+        100.0, 0.0, 2.0
+    ) + law.constant_stress_increment(50.0, 2.0, 5.0)
 
     assert history.final_equivalent_strain == pytest.approx(expected)
     assert history.creep_strain is None
@@ -1117,7 +1108,9 @@ def test_modified_theta_projection_recovers_synthetic_creep_curve():
         candidates=401,
     )
 
-    np.testing.assert_allclose(fitted.strain(times), reference.strain(times), rtol=2.0e-4)
+    np.testing.assert_allclose(
+        fitted.strain(times), reference.strain(times), rtol=2.0e-4
+    )
     assert fitted.fit_rmse < 1.0e-6
     target = float(reference.strain(70.0))
     assert reference.time_to_strain(target, maximum_time=100.0) == pytest.approx(70.0)
@@ -1184,7 +1177,9 @@ def test_tabulated_sn_curve_uses_log_log_interpolation_and_explicit_bounds():
         cycles=(1.0e4, 1.0e5, 1.0e6),
     )
     midpoint = np.sqrt(300.0 * 200.0)
-    np.testing.assert_allclose(curve.cycles_to_failure(midpoint), np.sqrt(1.0e5 * 1.0e6))
+    np.testing.assert_allclose(
+        curve.cycles_to_failure(midpoint), np.sqrt(1.0e5 * 1.0e6)
+    )
     with pytest.raises(ValueError, match="outside"):
         curve.cycles_to_failure(100.0)
 
@@ -1229,17 +1224,12 @@ def test_fatigue_assessment_consumes_named_simulation_history():
             curve,
         )
     )
-    assert assessment.repeated_history_life == pytest.approx(
-        1.0 / assessment.damage
-    )
+    assert assessment.repeated_history_life == pytest.approx(1.0 / assessment.damage)
 
 
 def test_capability_and_benchmark_catalogs_state_the_actual_maturity():
     assert constitutive.capability("neo_hookean").maturity == "fem_integrated"
-    assert (
-        constitutive.capability("j2_plasticity").maturity
-        == "fem_integrated"
-    )
+    assert constitutive.capability("j2_plasticity").maturity == "fem_integrated"
     assert constitutive.capability("stress_life_fatigue").maturity == "postprocessor"
     assert benchmarks.list_benchmarks(capability="j2_plasticity")[0].level == (
         "material_point"
@@ -1248,20 +1238,11 @@ def test_capability_and_benchmark_catalogs_state_the_actual_maturity():
         item.level == "finite_element"
         for item in benchmarks.list_benchmarks(capability="j2_plasticity")
     )
-    audit = {
-        item.capability: item
-        for item in benchmarks.audit_capability_evidence()
-    }
-    assert set(audit) == {
-        item.name for item in constitutive.capabilities()
-    }
+    audit = {item.capability: item for item in benchmarks.audit_capability_evidence()}
+    assert set(audit) == {item.name for item in constitutive.capabilities()}
     assert all(item.meets_declared_maturity for item in audit.values())
     assert "external" in audit["j2_plasticity"].demonstrated
-    assert "external_gate_defined" in audit[
-        "finite_strain_j2_plasticity"
-    ].demonstrated
+    assert "external_gate_defined" in audit["finite_strain_j2_plasticity"].demonstrated
     assert "external" not in audit["finite_strain_j2_plasticity"].demonstrated
     assert "mpi" in audit["mixed_mode_cohesive_interface"].demonstrated
-    assert audit["mixed_mode_cohesive_interface"].maturity.startswith(
-        "experimental_"
-    )
+    assert audit["mixed_mode_cohesive_interface"].maturity.startswith("experimental_")

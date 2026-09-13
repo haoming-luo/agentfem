@@ -8,7 +8,7 @@ binding remains with the public Step dispatch boundary.
 from __future__ import annotations
 
 
-class StepProviderRegistry:
+class ProviderSelectionRegistry:
     """Ordered, inspectable collection of Step-lowering providers."""
 
     def __init__(self):
