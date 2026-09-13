@@ -159,7 +159,8 @@ def test_analysis_step_delegates_result_assembly_to_result_owner():
 
 
 def test_nonlinear_problems_delegate_result_assembly_to_result_owner():
-    tree = ast.parse((PACKAGE / "problems.py").read_text(encoding="utf-8"))
+    procedure_path = PACKAGE / "_nonlinear_problems.py"
+    tree = ast.parse(procedure_path.read_text(encoding="utf-8"))
     classes = {node.name: node for node in tree.body if isinstance(node, ast.ClassDef)}
     expected = {
         "IncrementalNonlinearVariationalProblem": ("from_incremental_nonlinear_step"),
@@ -183,8 +184,30 @@ def test_nonlinear_problems_delegate_result_assembly_to_result_owner():
     assert "problems" not in _agentfem_imports(result_factory)
 
 
+def test_nonlinear_procedures_are_separate_from_discrete_problem_facade():
+    problem_source = (PACKAGE / "problems.py").read_text(encoding="utf-8")
+    procedure_path = PACKAGE / "_nonlinear_problems.py"
+    procedure_source = procedure_path.read_text(encoding="utf-8")
+
+    for name in (
+        "AffineNonlinearVariationalProblem",
+        "IncrementalNonlinearVariationalProblem",
+        "NonlinearLoadIncrementInfo",
+        "NonlinearLoadPathInfo",
+    ):
+        assert f"class {name}" not in problem_source
+        assert f"class {name}" in procedure_source
+    assert "from ._nonlinear_problems import" in problem_source
+    assert "problems" not in _agentfem_imports(procedure_path)
+
+    field_owner = PACKAGE / "_problem_fields.py"
+    assert "def reaction_field" in field_owner.read_text(encoding="utf-8")
+    assert "problems" not in _agentfem_imports(field_owner)
+
+
 def test_transient_problems_delegate_result_assembly_to_result_owner():
-    tree = ast.parse((PACKAGE / "problems.py").read_text(encoding="utf-8"))
+    procedure_path = PACKAGE / "_transient_problems.py"
+    tree = ast.parse(procedure_path.read_text(encoding="utf-8"))
     method = next(
         node
         for node in tree.body
@@ -201,6 +224,22 @@ def test_transient_problems_delegate_result_assembly_to_result_owner():
     result_factory = PACKAGE / "results" / "_transient_step.py"
     assert result_factory.exists()
     assert "problems" not in _agentfem_imports(result_factory)
+
+
+def test_transient_procedures_are_separate_from_discrete_problem_facade():
+    problem_source = (PACKAGE / "problems.py").read_text(encoding="utf-8")
+    procedure_path = PACKAGE / "_transient_problems.py"
+    procedure_source = procedure_path.read_text(encoding="utf-8")
+
+    for name in (
+        "ExplicitDynamicsStep",
+        "FirstOrderTransientStep",
+        "ImplicitDynamicsStep",
+    ):
+        assert f"class {name}" not in problem_source
+        assert f"class {name}" in procedure_source
+    assert "from ._transient_problems import" in problem_source
+    assert "problems" not in _agentfem_imports(procedure_path)
 
 
 def test_direct_problems_delegate_result_assembly_to_result_owner():

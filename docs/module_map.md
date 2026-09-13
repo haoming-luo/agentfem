@@ -47,7 +47,10 @@ otherwise; runnable examples remain in the repository-level `examples/`.
 | Assembly | `assembly.py` |
 | Engineering-level K/M/C/F, registered-assignment lowering, transport, SUPG, and reaction operators | `operators/` |
 | Central difference, Newmark, generalized-alpha, and runtime cadence | `time/` |
-| Common analysis steps, discrete system problems, transient advancement, and compatibility delegates | `problems.py` |
+| Common analysis steps, discrete system problems, factories, and compatibility delegates | `problems.py` |
+| Incremental/affine nonlinear procedures, state transactions, cutback, and nonlinear checkpointing | `_nonlinear_problems.py` |
+| First-/second-order transient and explicit-dynamics procedure implementations | `_transient_problems.py` |
+| Shared residual-to-reaction diagnostic-field recovery | `_problem_fields.py` |
 | Structural modal procedure, distributed eigensolver execution, and result assembly | `mechanics/modal.py`, `backends/_modal.py`, `results/_modal.py` |
 | Shared transient checkpoint envelope, integrity, accepted-increment cadence, and partition identity | `checkpointing.py` |
 | Automatic/fixed incrementation and cutback policy | `steps.py` |

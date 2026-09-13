@@ -121,7 +121,17 @@ OWNERSHIP_BOUNDARIES = (
         modules=(
             "procedures",
             "step_providers",
+            "_step_provider_registry",
+            "_builtin_step_providers",
             "_step_builders",
+            "_step_builders_thermal",
+            "_step_builders_finite_strain",
+            "_step_builders_inelastic",
+            "_step_builders_frequency",
+            "_step_builders_dynamics",
+            "_nonlinear_problems",
+            "_transient_problems",
+            "_problem_fields",
             "_material_history",
             "_modal",
             "_modal_fem",
@@ -172,10 +182,32 @@ OWNERSHIP_BOUNDARIES = (
 # These are architectural impossibilities, not a complete import allow-list.
 # The rules remain deliberately small so a useful implementation detail does
 # not become an artificial abstraction layer.
+_BUILDER_MODULES = (
+    "_step_builders",
+    "_step_builders_thermal",
+    "_step_builders_finite_strain",
+    "_step_builders_inelastic",
+    "_step_builders_frequency",
+    "_step_builders_dynamics",
+)
+
+
 FORBIDDEN_IMPORTS = {
     "models": ("problems", "results", "solvers", "time", "kernel"),
-    "state": ("models", "problems", "step_providers", "_step_builders", "results"),
-    "operators": ("models", "problems", "step_providers", "_step_builders", "results"),
+    "state": (
+        "models",
+        "problems",
+        "step_providers",
+        *_BUILDER_MODULES,
+        "results",
+    ),
+    "operators": (
+        "models",
+        "problems",
+        "step_providers",
+        *_BUILDER_MODULES,
+        "results",
+    ),
     "procedures": ("models", "problems", "backends", "results"),
     "backends": (
         "models",
@@ -186,7 +218,7 @@ FORBIDDEN_IMPORTS = {
         "problems",
         "results",
         "step_providers",
-        "_step_builders",
+        *_BUILDER_MODULES,
     ),
 }
 

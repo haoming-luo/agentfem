@@ -153,12 +153,15 @@ decision or when a lower layer imports an orchestration layer.
   idempotent `close()`. Execution scopes—not Model—own these resources, and
   summaries plus borrowed public fields remain readable after teardown.
 
-The next structural split should be evidence-driven: `_step_builders.py` may
-become a private builder package when independent provider families need
-separate ownership. Splitting it before then would move code without changing
-the architecture. WSL2 remains a supported Windows route and an independently
-tracked acceptance item; lack of local WSL2 evidence does not block 0.3 after
-Linux and macOS installed-wheel acceptance passes.
+The evidence-driven split is now complete at the first stable boundary:
+`_step_builders.py` is a thin facade over five scientific-family modules;
+provider protocol, deterministic selection, and the built-in catalog are
+separate; nonlinear and transient evolution are no longer embedded in the
+discrete-problem facade; result assembly is owned by `results`. Further splits
+must demonstrate a new owner or dependency boundary rather than only a smaller
+file. WSL2 remains a supported Windows route and an independently tracked
+acceptance item; lack of local WSL2 evidence does not block 0.3 after Linux and
+macOS installed-wheel acceptance passes.
 
 ## Agent-Oriented Refinements
 

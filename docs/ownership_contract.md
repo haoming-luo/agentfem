@@ -96,6 +96,20 @@ First- and second-order transient states are owned by `agentfem.state`.
 need a mechanical migration. The lumped mass operator is similarly owned by
 `agentfem.operators` and re-exported from `problems` for compatibility.
 
+Transient procedure implementations are owned by
+`_transient_problems.py`: they advance time, enforce accepted-step cadence,
+report progress, and coordinate checkpoint/restart. `problems.py` retains the
+stable factory functions and compatibility exports, while transient result
+assembly remains in `results/_transient_step.py`. This separates discrete
+problem descriptions from time-evolution policy without changing user code.
+
+Incremental and affine nonlinear procedures follow the same rule.
+`_nonlinear_problems.py` owns load-path advancement, cutback, trial/accepted
+state transactions, nonlinear checkpointing, and accepted-increment
+snapshots. Shared residual-to-reaction recovery lives in
+`_problem_fields.py`. The `problems.py` facade retains direct linear/nonlinear
+problem descriptions and stable factory functions.
+
 ## FEniCSx-first kernel boundary
 
 DOLFINx owns finite-element spaces, form assembly, degree-of-freedom handling,

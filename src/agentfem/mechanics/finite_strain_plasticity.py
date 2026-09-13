@@ -41,8 +41,7 @@ def _mixed_j2_conditioning(material) -> dict[str, float]:
         else (material,)
     )
     ratios = tuple(
-        float(item.bulk_modulus / item.shear_modulus)
-        for item in selected_materials
+        float(item.bulk_modulus / item.shear_modulus) for item in selected_materials
     )
     maximum = max(ratios)
     if maximum > _MIXED_J2_MAXIMUM_BULK_TO_SHEAR_RATIO * (
@@ -156,8 +155,7 @@ def _mixed_hencky_j2_response(
         )
     if algorithmic.shape != expected_tangent:
         raise ValueError(
-            "Mixed finite-strain J2 tangent requires shape "
-            f"{expected_tangent}."
+            f"Mixed finite-strain J2 tangent requires shape {expected_tangent}."
         )
     if any(
         len(values) != point_count
@@ -192,9 +190,9 @@ def _mixed_hencky_j2_response(
 
     mean_cauchy = np.trace(cauchy, axis1=1, axis2=2) / 3.0
     deviatoric_cauchy = cauchy - mean_cauchy[:, None, None] * np.eye(3)
-    mixed_cauchy = deviatoric_cauchy + (
-        pressures / jacobians
-    )[:, None, None] * np.eye(3)
+    mixed_cauchy = deviatoric_cauchy + (pressures / jacobians)[:, None, None] * np.eye(
+        3
+    )
     mixed_piola = np.einsum(
         "p,pij,pjk->pik",
         jacobians,
@@ -223,8 +221,7 @@ def _mixed_hencky_j2_response(
 
     old_volumetric_energy = 0.5 * bulk * logarithmic_volume**2
     mixed_potential_density = (
-        pressures * logarithmic_volume
-        - 0.5 * pressures**2 * inverse_bulk
+        pressures * logarithmic_volume - 0.5 * pressures**2 * inverse_bulk
     )
     # The saddle potential above owns the variational pressure equation, but
     # it is not a pointwise stored-energy density away from exact local
@@ -258,14 +255,10 @@ def _mixed_hencky_j2_response(
         "strain_energy_density": mixed_total_energy,
         "elastic_energy_density": mixed_elastic_energy,
         "mixed_potential_density": (
-            mixed_potential_density
-            + total_energy
-            - old_volumetric_energy
+            mixed_potential_density + total_energy - old_volumetric_energy
         ),
         "logarithmic_volume": logarithmic_volume,
-        "pressure_constraint_residual": (
-            logarithmic_volume - pressures * inverse_bulk
-        ),
+        "pressure_constraint_residual": (logarithmic_volume - pressures * inverse_bulk),
     }
 
 
@@ -284,9 +277,7 @@ class FiniteStrainPlasticityIncrementInfo:
     rejection_reason: str | None = None
 
     def as_dict(self) -> dict[str, object]:
-        return {
-            name: getattr(self, name) for name in self.__dataclass_fields__
-        }
+        return {name: getattr(self, name) for name in self.__dataclass_fields__}
 
     @classmethod
     def from_dict(cls, record) -> "FiniteStrainPlasticityIncrementInfo":
@@ -478,9 +469,7 @@ class FiniteStrainJ2StateTransaction:
         try:
             old_gradient, new_gradient = self._evaluate_gradients()
             committed_peeq = np.asarray(
-                self.response.state.committed[
-                    "equivalent_plastic_strain"
-                ].values,
+                self.response.state.committed["equivalent_plastic_strain"].values,
                 dtype=float,
             ).reshape(-1)
         except Exception as exc:
@@ -515,53 +504,37 @@ class FiniteStrainJ2StateTransaction:
                     first_piola=self.response.first_piola_stress.values,
                     cauchy_stress=self.response.cauchy_stress.values,
                     tangent=self.response.tangent.values,
-                    strain_energy_density=(
-                        self.response.strain_energy_density.values
-                    ),
+                    strain_energy_density=(self.response.strain_energy_density.values),
                     elastic_energy_density=(
-                        self.response.stored_energy_density_components[
-                            "ELENER"
-                        ].values
+                        self.response.stored_energy_density_components["ELENER"].values
                     ),
                 )
-                self.response.first_piola_stress.assign(
-                    transformed["first_piola"]
-                )
-                self.response.cauchy_stress.assign(
-                    transformed["cauchy_stress"]
-                )
+                self.response.first_piola_stress.assign(transformed["first_piola"])
+                self.response.cauchy_stress.assign(transformed["cauchy_stress"])
                 self.response.tangent.assign(transformed["tangent"])
                 self.response.strain_energy_density.assign(
                     transformed["strain_energy_density"]
                 )
-                self.response.stored_energy_density_components[
-                    "ELENER"
-                ].assign(transformed["elastic_energy_density"])
-                self.mixed_pressure.assign(pressure)
-                self.logarithmic_volume.assign(
-                    transformed["logarithmic_volume"]
+                self.response.stored_energy_density_components["ELENER"].assign(
+                    transformed["elastic_energy_density"]
                 )
+                self.mixed_pressure.assign(pressure)
+                self.logarithmic_volume.assign(transformed["logarithmic_volume"])
                 self.mixed_potential_density.assign(
                     transformed["mixed_potential_density"]
                 )
                 mixed_components = dict(result.stored_energy_density_components)
-                mixed_components["ELENER"] = transformed[
-                    "elastic_energy_density"
-                ]
+                mixed_components["ELENER"] = transformed["elastic_energy_density"]
                 result = replace(
                     result,
                     cauchy_stress=transformed["cauchy_stress"],
                     consistent_tangent=transformed["tangent"].reshape((-1, 9, 9)),
-                    strain_energy_density=transformed[
-                        "strain_energy_density"
-                    ],
+                    strain_energy_density=transformed["strain_energy_density"],
                     stored_energy_density_components=mixed_components,
                 )
                 local_pressure_residual = float(
                     np.max(
-                        np.abs(
-                            transformed["pressure_constraint_residual"]
-                        ),
+                        np.abs(transformed["pressure_constraint_residual"]),
                         initial=0.0,
                     )
                 )
@@ -598,9 +571,7 @@ class FiniteStrainJ2StateTransaction:
                 )
             )
             trial_peeq = np.asarray(
-                self.response.state.trial[
-                    "equivalent_plastic_strain"
-                ].values,
+                self.response.state.trial["equivalent_plastic_strain"].values,
                 dtype=float,
             ).reshape(-1)
             increments = trial_peeq - committed_peeq
@@ -609,12 +580,8 @@ class FiniteStrainJ2StateTransaction:
                 self.response.domain.topology.dim
             )
             owned_points = int(cell_map.size_local) * point_count
-            local_count = int(
-                np.count_nonzero(increments[:owned_points] > 1.0e-14)
-            )
-            local_maximum = float(
-                np.max(increments[:owned_points], initial=0.0)
-            )
+            local_count = int(np.count_nonzero(increments[:owned_points] > 1.0e-14))
+            local_maximum = float(np.max(increments[:owned_points], initial=0.0))
         except Exception as exc:
             diagnostics_problem = f"{type(exc).__name__}: {exc}"
         _raise_collective_transaction_problem(
@@ -624,9 +591,7 @@ class FiniteStrainJ2StateTransaction:
         )
         self.deformation_gradient.assign(new_gradient)
         self.equivalent_stress.assign(equivalent_stress)
-        self.last_plastic_points = int(
-            comm.allreduce(local_count, op=MPI.SUM)
-        )
+        self.last_plastic_points = int(comm.allreduce(local_count, op=MPI.SUM))
         self.last_maximum_plastic_increment = float(
             comm.allreduce(local_maximum, op=MPI.MAX)
         )
@@ -771,14 +736,10 @@ class FiniteStrainJ2StateTransaction:
         self.response.restore(snapshot["committed_state"])
         for name, selected in self.response.state.trial.items():
             selected.assign(snapshot["trial_state"][name])
-        self.response.first_piola_stress.assign(
-            snapshot["first_piola_stress"]
-        )
+        self.response.first_piola_stress.assign(snapshot["first_piola_stress"])
         self.response.cauchy_stress.assign(snapshot["cauchy_stress"])
         self.response.tangent.assign(snapshot["tangent"])
-        self.response.strain_energy_density.assign(
-            snapshot["strain_energy_density"]
-        )
+        self.response.strain_energy_density.assign(snapshot["strain_energy_density"])
         for name, field in self.response.stored_energy_density_components.items():
             field.assign(snapshot["stored_energy_density_components"][name])
         self.deformation_gradient.assign(snapshot["deformation_gradient"])
@@ -786,9 +747,7 @@ class FiniteStrainJ2StateTransaction:
         if self.mixed_pressure is not None:
             self.mixed_pressure.assign(snapshot["mixed_pressure"])
             self.logarithmic_volume.assign(snapshot["logarithmic_volume"])
-            self.mixed_potential_density.assign(
-                snapshot["mixed_potential_density"]
-            )
+            self.mixed_potential_density.assign(snapshot["mixed_potential_density"])
         self.accepted_factor = float(snapshot["accepted_factor"])
         self.last_plastic_points = int(snapshot["last_plastic_points"])
         self.last_maximum_plastic_increment = float(
@@ -846,9 +805,7 @@ class FiniteStrainJ2StateTransaction:
         """Reassemble a portable mixed checkpoint into both live states."""
 
         if self.pressure_evaluator is None:
-            raise TypeError(
-                "Split nodal-state restoration belongs only to mixed J2."
-            )
+            raise TypeError("Split nodal-state restoration belongs only to mixed J2.")
         expected = {
             "U",
             "MEAN_KIRCHHOFF_STRESS",
@@ -861,9 +818,9 @@ class FiniteStrainJ2StateTransaction:
                 "declared U/mean-Kirchhoff-stress state."
             )
 
-        displacement_space, displacement_map = (
-            self.solution.function_space.sub(0).collapse()
-        )
+        displacement_space, displacement_map = self.solution.function_space.sub(
+            0
+        ).collapse()
         pressure_space, pressure_map = self.solution.function_space.sub(1).collapse()
         del displacement_space, pressure_space
         displacement_map = np.asarray(
@@ -974,7 +931,8 @@ class FiniteStrainJ2StateTransaction:
                 processing={
                     "source_position": "quadrature_points",
                     "method": (
-                        "constitutive_state" if name in {"FP", "PEEQ", "PDENER"}
+                        "constitutive_state"
+                        if name in {"FP", "PEEQ", "PDENER"}
                         else "accepted_constitutive_response"
                     ),
                     "representation": "quadrature_values",
@@ -1027,9 +985,7 @@ class FiniteStrainJ2StateTransaction:
             "material": self.material.summary(),
             "response": self.response.summary(),
             "last_plastic_points": self.last_plastic_points,
-            "last_maximum_plastic_increment": (
-                self.last_maximum_plastic_increment
-            ),
+            "last_maximum_plastic_increment": (self.last_maximum_plastic_increment),
             "formulation": (
                 "mixed_u_p_quadratic_hencky"
                 if self.pressure_evaluator is not None
@@ -1223,9 +1179,7 @@ class FiniteStrainJ2StandardProblem:
             )
             del result
             plastic_points = self.state_transaction.last_plastic_points
-            maximum_increment = (
-                self.state_transaction.last_maximum_plastic_increment
-            )
+            maximum_increment = self.state_transaction.last_maximum_plastic_increment
             rhs, norm = self._correction_rhs()
             if initial_norm is None:
                 initial_norm = norm
@@ -1331,9 +1285,7 @@ class FiniteStrainJ2StandardProblem:
         """Emit one terminal event without weakening rollback semantics."""
 
         selected_target = (
-            self.accepted_load_factor
-            if target_factor is None
-            else float(target_factor)
+            self.accepted_load_factor if target_factor is None else float(target_factor)
         )
         emit(
             SolveEvent(
@@ -1346,9 +1298,7 @@ class FiniteStrainJ2StandardProblem:
                     else info.increment
                 ),
                 attempt=(
-                    len(self.attempted_increments)
-                    if info is None
-                    else info.attempt
+                    len(self.attempted_increments) if info is None else info.attempt
                 ),
                 start_factor=(
                     self.accepted_load_factor
@@ -1383,7 +1333,7 @@ class FiniteStrainJ2StandardProblem:
             StandardRunReporter,
             compose_reporters,
         )
-        from ..problems import _load_snapshot
+        from .._nonlinear_problems import _load_snapshot
 
         recorder = SolveEventRecorder(self.execution_events)
         if self.progress is True:
@@ -1415,10 +1365,7 @@ class FiniteStrainJ2StandardProblem:
                 self.execution_events.clear()
                 self.state_transaction.initialize()
             else:
-                if (
-                    abs(self.state_transaction.accepted_factor - accepted)
-                    > 1.0e-12
-                ):
+                if abs(self.state_transaction.accepted_factor - accepted) > 1.0e-12:
                     raise RuntimeError(
                         "Finite-strain J2 problem and material transaction "
                         "accepted factors differ; restore both through the "
@@ -1487,9 +1434,7 @@ class FiniteStrainJ2StandardProblem:
                     raise RuntimeError(message + ".")
                 target = min(selected_until, accepted + proposed)
                 later_output = tuple(
-                    value
-                    for value in self.output_factors
-                    if value > accepted + 1.0e-12
+                    value for value in self.output_factors if value > accepted + 1.0e-12
                 )
                 if later_output:
                     target = min(target, min(later_output))
@@ -1598,8 +1543,7 @@ class FiniteStrainJ2StandardProblem:
                         and len(self.accepted_increments) % int(self.output_every) == 0
                     )
                     save_by_factor = any(
-                        abs(target - value) <= 1.0e-12
-                        for value in self.output_factors
+                        abs(target - value) <= 1.0e-12 for value in self.output_factors
                     )
                     if (
                         save_by_increment
@@ -1685,9 +1629,7 @@ class FiniteStrainJ2StandardProblem:
                 self.incrementation, step_controls.AutomaticIncrementation
             ):
                 message = f"fixed increment failed at load factor {target}"
-                self._record_failure(
-                    emit, message, info=info, target_factor=target
-                )
+                self._record_failure(emit, message, info=info, target_factor=target)
                 raise RuntimeError(f"{self.name}: {message}.")
             cutbacks += 1
             proposed = self.incrementation.after_failure(target - accepted)
@@ -1697,9 +1639,7 @@ class FiniteStrainJ2StandardProblem:
                 or proposed < self.incrementation.minimum
             ):
                 message = "automatic incrementation exhausted cutbacks"
-                self._record_failure(
-                    emit, message, info=info, target_factor=target
-                )
+                self._record_failure(emit, message, info=info, target_factor=target)
                 raise RuntimeError(f"{self.name}: {message}.")
             emit(
                 SolveEvent(
@@ -1743,9 +1683,7 @@ class FiniteStrainJ2StandardProblem:
             return
         increment = len(self.accepted_increments)
         due = increment % int(policy.every) == 0
-        due = due or (
-            bool(policy.final) and self.accepted_load_factor >= 1.0 - 1.0e-12
-        )
+        due = due or (bool(policy.final) and self.accepted_load_factor >= 1.0 - 1.0e-12)
         if not due:
             return
         path = self.save_checkpoint(
@@ -1754,7 +1692,9 @@ class FiniteStrainJ2StandardProblem:
         )
         from ..results import CheckpointRecord
 
-        portable = bool(policy.portable) or self.solution.function_space.mesh.comm.size > 1
+        portable = (
+            bool(policy.portable) or self.solution.function_space.mesh.comm.size > 1
+        )
         self.checkpoints.append(
             CheckpointRecord(
                 name=f"{self.name}_checkpoint_{increment}",
@@ -1771,7 +1711,7 @@ class FiniteStrainJ2StandardProblem:
                 metadata={"role": "scheduled_checkpoint"},
             )
         )
-        from ..problems import _prune_affine_checkpoints
+        from .._nonlinear_problems import _prune_affine_checkpoints
 
         _prune_affine_checkpoints(self)
 
@@ -1780,9 +1720,7 @@ class FiniteStrainJ2StandardProblem:
 
         return {
             "step_name": self.name,
-            "procedure": (
-                None if self.procedure is None else self.procedure.summary()
-            ),
+            "procedure": (None if self.procedure is None else self.procedure.summary()),
             "material": self.material.summary(),
             "state_schema": self.response.state.state_schema.summary(),
             "incrementation": self.incrementation.summary(),
@@ -1839,13 +1777,15 @@ class FiniteStrainJ2StandardProblem:
 
         comm = self.solution.function_space.mesh.comm
         local_problem = None
-        if abs(
-            float(self.state_transaction.accepted_factor)
-            - self.accepted_load_factor
-        ) > 1.0e-12:
+        if (
+            abs(
+                float(self.state_transaction.accepted_factor)
+                - self.accepted_load_factor
+            )
+            > 1.0e-12
+        ):
             local_problem = (
-                "Checkpointing is permitted only at a fully accepted "
-                "material state."
+                "Checkpointing is permitted only at a fully accepted material state."
             )
         elif not np.allclose(
             self.solution.x.array,
@@ -1853,9 +1793,7 @@ class FiniteStrainJ2StandardProblem:
             rtol=0.0,
             atol=1.0e-12,
         ):
-            local_problem = (
-                "Checkpointing is permitted only when U equals U_ACCEPTED."
-            )
+            local_problem = "Checkpointing is permitted only when U equals U_ACCEPTED."
         _raise_collective_transaction_problem(
             comm,
             local_problem,
@@ -1891,9 +1829,7 @@ class FiniteStrainJ2StandardProblem:
                 [item.as_dict() for item in self.execution_events]
             ),
             next_increment_size=(
-                np.nan
-                if self.next_increment_size is None
-                else self.next_increment_size
+                np.nan if self.next_increment_size is None else self.next_increment_size
             ),
         )
         return selected
@@ -1970,9 +1906,7 @@ class FiniteStrainJ2StandardProblem:
             state_names = tuple(json.loads(str(data["state_names"])))
             if state_names != tuple(self.response.state.transaction.names):
                 raise ValueError("Finite-strain J2 checkpoint state names differ.")
-            state = {
-                name: np.asarray(data[name]).copy() for name in state_names
-            }
+            state = {name: np.asarray(data[name]).copy() for name in state_names}
             coordinate = float(data["accepted_load_factor"])
             accepted = [
                 FiniteStrainPlasticityIncrementInfo.from_dict(item)
@@ -2042,9 +1976,7 @@ class FiniteStrainJ2StandardProblem:
 
         return {
             "step_name": self.name,
-            "procedure": (
-                None if self.procedure is None else self.procedure.summary()
-            ),
+            "procedure": (None if self.procedure is None else self.procedure.summary()),
             "material": self.material.summary(),
             "state_schema": self.response.state.state_schema.summary(),
             "incrementation": self.incrementation.summary(),
@@ -2073,9 +2005,7 @@ class FiniteStrainJ2StandardProblem:
             state={"U": self.solution, "U_ACCEPTED": self.accepted_solution},
         )
         quadrature = self.response.state.save(
-            manifest.with_name(
-                f"{selected.name}.{bundle['generation']}.quadrature"
-            ),
+            manifest.with_name(f"{selected.name}.{bundle['generation']}.quadrature"),
             material=self.material,
         )
         comm = self.solution.function_space.mesh.comm
@@ -2092,9 +2022,7 @@ class FiniteStrainJ2StandardProblem:
             "attempted_increments": [
                 item.as_dict() for item in self.attempted_increments
             ],
-            "execution_events": [
-                item.as_dict() for item in self.execution_events
-            ],
+            "execution_events": [item.as_dict() for item in self.execution_events],
             "next_increment_size": self.next_increment_size,
             "writer_rank_count": int(comm.size),
         }
@@ -2170,8 +2098,7 @@ class FiniteStrainJ2StandardProblem:
                 for item in payload["attempted_increments"]
             ]
             events = [
-                SolveEvent.from_dict(item)
-                for item in payload["execution_events"]
+                SolveEvent.from_dict(item) for item in payload["execution_events"]
             ]
             if accepted:
                 if abs(accepted[-1].load_factor - coordinate) > 1.0e-12:
@@ -2179,9 +2106,7 @@ class FiniteStrainJ2StandardProblem:
                         "checkpoint coordinate and accepted history disagree"
                     )
             elif abs(coordinate) > 1.0e-12:
-                raise ValueError(
-                    "a nonzero checkpoint requires accepted history"
-                )
+                raise ValueError("a nonzero checkpoint requires accepted history")
         except Exception as exc:
             parsed_problem = f"{type(exc).__name__}: {exc}"
         _raise_collective_transaction_problem(
@@ -2221,9 +2146,7 @@ class FiniteStrainJ2StandardProblem:
                 atol=1.0e-12,
             )
             if not comm.allreduce(bool(local_equal), op=MPI.LAND):
-                raise ValueError(
-                    "Finite-strain J2 checkpoint U and U_ACCEPTED differ."
-                )
+                raise ValueError("Finite-strain J2 checkpoint U and U_ACCEPTED differ.")
             self.accepted_load_factor = coordinate
             self.state_transaction.accepted_factor = coordinate
             self.accepted_increments[:] = accepted
@@ -2303,9 +2226,7 @@ class FiniteStrainJ2StandardProblem:
                 "state": self.state_transaction.summary(),
             },
         )
-        transaction_fields = tuple(
-            self.state_transaction.populate_result(result) or ()
-        )
+        transaction_fields = tuple(self.state_transaction.populate_result(result) or ())
         reaction = self.reaction_field()
         result.add_field(
             "RF",
@@ -2412,16 +2333,12 @@ class FiniteStrainJ2StandardProblem:
                 else self.checkpoint_policy.summary()
             ),
             "checkpoint_count": len(self.checkpoints),
-            "procedure": (
-                None if self.procedure is None else self.procedure.summary()
-            ),
+            "procedure": (None if self.procedure is None else self.procedure.summary()),
             "quadrature_degree": self.quadrature_degree,
             "constraints": self.constraint_identity,
             "external_load": self.load_identity,
             "last_solve": (
-                None
-                if self.last_solve_info is None
-                else self.last_solve_info.as_dict()
+                None if self.last_solve_info is None else self.last_solve_info.as_dict()
             ),
         }
 
@@ -2539,9 +2456,7 @@ def _finite_strain_j2_transaction(
     mixed_potential_density = None
     if pressure_expression is not None:
         if "ELENER" not in response.stored_energy_density_components:
-            raise ValueError(
-                "Mixed finite-strain J2 requires the ELENER component."
-            )
+            raise ValueError("Mixed finite-strain J2 requires the ELENER component.")
         pressure_evaluator = response.state.compile_expression(
             pressure_expression,
             value_shape=(),
@@ -2637,9 +2552,7 @@ def finite_strain_j2_standard_problem(
     first_piola = response.first_piola_stress.function
     tangent = response.tangent.function
     i, j, k, l = ufl.indices(4)
-    tangent_action = ufl.as_tensor(
-        tangent[i, j, k, l] * gradient_trial[k, l], (i, j)
-    )
+    tangent_action = ufl.as_tensor(tangent[i, j, k, l] * gradient_trial[k, l], (i, j))
     load_factor = fem.Constant(domain, PETSc.ScalarType(0.0))
     residual = ufl.inner(first_piola, gradient_test) * response.measure
     if external_force is not None:
@@ -2684,8 +2597,7 @@ def finite_strain_j2_standard_problem(
     selected_options = newton() if solver_options is None else solver_options
     if not bool(getattr(selected_options, "error_if_not_converged", True)):
         raise ValueError(
-            "Public stateful finite-strain J2 requires "
-            "error_if_not_converged=True."
+            "Public stateful finite-strain J2 requires error_if_not_converged=True."
         )
     from .. import procedures
 
@@ -2838,16 +2750,13 @@ def finite_strain_j2_affine_problem(
             "maximum_inelastic_increment",
             None,
         )
-        accepted = (
-            limit is None
-            or transaction.last_maximum_plastic_increment <= float(limit)
+        accepted = limit is None or transaction.last_maximum_plastic_increment <= float(
+            limit
         )
         return {
             "accepted": accepted,
             "plastic_points": transaction.last_plastic_points,
-            "maximum_plastic_increment": (
-                transaction.last_maximum_plastic_increment
-            ),
+            "maximum_plastic_increment": (transaction.last_maximum_plastic_increment),
             "message": (
                 ""
                 if accepted
@@ -2882,6 +2791,7 @@ def finite_strain_j2_affine_problem(
         status_file=status_file,
         name=name,
     )
+
     def snapshot_fields():
         return solution, transaction.snapshot_fields()
 
@@ -2951,8 +2861,7 @@ def finite_strain_j2_mixed_affine_problem(
     if interpolation != required_interpolation:
         label = "P2/DG0" if dimension == 3 else "Q2/DPC1"
         raise ValueError(
-            f"Mixed finite-strain J2 currently requires {label} in "
-            f"{dimension}D."
+            f"Mixed finite-strain J2 currently requires {label} in {dimension}D."
         )
     required_cell = "tetrahedron" if dimension == 3 else "quadrilateral"
     actual_cell = str(domain.topology.cell_name())
@@ -3008,9 +2917,7 @@ def finite_strain_j2_mixed_affine_problem(
         tangent[i, j, k, l] * gradient_trial[k, l],
         (i, j),
     )
-    displacement_residual = (
-        ufl.inner(first_piola, gradient_test) * response.measure
-    )
+    displacement_residual = ufl.inner(first_piola, gradient_test) * response.measure
     pressure_residual = (
         pressure_test
         * (ufl.ln(ufl.det(deformation_gradient)) - pressure * inverse_bulk)
@@ -3037,16 +2944,13 @@ def finite_strain_j2_mixed_affine_problem(
             pressure_block_residual_norm = float(pressure_vector.norm())
         finally:
             pressure_vector.destroy()
-        accepted = (
-            limit is None
-            or transaction.last_maximum_plastic_increment <= float(limit)
+        accepted = limit is None or transaction.last_maximum_plastic_increment <= float(
+            limit
         )
         return {
             "accepted": accepted,
             "plastic_points": transaction.last_plastic_points,
-            "maximum_plastic_increment": (
-                transaction.last_maximum_plastic_increment
-            ),
+            "maximum_plastic_increment": (transaction.last_maximum_plastic_increment),
             "maximum_quadrature_pressure_projection_defect": (
                 transaction.last_maximum_pressure_projection_defect
             ),
@@ -3065,8 +2969,7 @@ def finite_strain_j2_mixed_affine_problem(
     selected_solver_options = newton() if solver_options is None else solver_options
     if not bool(getattr(selected_solver_options, "error_if_not_converged", True)):
         raise ValueError(
-            "Public stateful finite-strain J2 requires "
-            "error_if_not_converged=True."
+            "Public stateful finite-strain J2 requires error_if_not_converged=True."
         )
     problem = problems.affine_nonlinear(
         residual,
