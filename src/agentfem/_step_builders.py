@@ -1167,35 +1167,14 @@ def fabric_membrane(
             "Affine-periodic fabric membranes require a dedicated homogenization "
             "provider; ordinary strong constraints are supported here."
         )
-    if output is not None and output_every is not None:
-        raise ValueError("Pass output=... or output_every=..., not both.")
-    selected_output_every = (
-        getattr(output, "every", None)
-        if output is not None
-        else (1 if output_every is None else int(output_every))
-    )
-    from . import steps as step_api
-
-    selected_incrementation = step_api.normalize(
+    selected_output_every = _output_interval(output, output_every, default=1)
+    selected_incrementation = _normalize_load_path(
         incrementation,
         increments=increments,
         load_factors=load_factors,
     )
     load_factor = fem.Constant(_domain(model.mesh), PETSc.ScalarType(0.0))
-    residual = internal_residual
-    if model.loads:
-        proportional_loads = tuple(
-            item for item in model.loads if not isinstance(item, load_api.AmplitudeLoad)
-        )
-        amplitude_loads = tuple(
-            item for item in model.loads if isinstance(item, load_api.AmplitudeLoad)
-        )
-        if proportional_loads:
-            residual -= load_factor * model.external_force(
-                target, loads=proportional_loads
-            ).expression
-        if amplitude_loads:
-            residual -= model.external_force(target, loads=amplitude_loads).expression
+    residual = _load_path_residual(model, target, internal_residual, load_factor)
     jacobian = ufl.derivative(residual, target.value, target.trial)
 
     def membrane_acceptance():
@@ -1245,15 +1224,28 @@ def fabric_membrane(
     problem.material = properties
     problem.primary_fields = {
         "U": target,
-        "FABRIC_STRAIN": "cell",
-        "FABRIC_N": "cell",
-        "FABRIC_WARP": "cell",
-        "FABRIC_WEFT": "cell",
+        "FABRIC_GENERALIZED_STRAIN": "cell",
+        "FABRIC_GENERALIZED_RESULTANT": "cell",
+        "FABRIC_WARP_DIRECTION": "cell",
+        "FABRIC_WEFT_DIRECTION": "cell",
         "SENER": "cell",
     }
-    problem.result_field_factory = lambda: (
-        target.value,
-        *results.fabric_membrane_cell_fields(target, properties),
+    if output is not None and hasattr(output, "finalize"):
+        # The declarative output plan recovers its requested fields for every
+        # saved frame and registers the final frame in SimulationResult. Do not
+        # project the same final fabric fields once before finalization.
+        problem.result_field_factory = lambda: (target.value,)
+    else:
+        problem.result_field_factory = lambda: (
+            target.value,
+            *results.fabric_membrane_cell_fields(target, properties),
+        )
+    problem.result_field_recovery = lambda snapshot, *, variables: (
+        results.fabric_membrane_cell_fields(
+            snapshot.solution,
+            properties,
+            variables=variables,
+        )
     )
     if output is not None and hasattr(output, "bind"):
         output.bind(problem, properties, has_external_power=bool(model.loads))
@@ -1329,16 +1321,8 @@ def hyperelastic(
         for item in selected_constraints
         if isinstance(item, constraint_api.AbaqusPeriodicConstraint)
     ]
-    if output is not None and output_every is not None:
-        raise ValueError("Pass output=... or output_every=..., not both.")
-    selected_output_every = (
-        getattr(output, "every", None)
-        if output is not None
-        else (1 if output_every is None else int(output_every))
-    )
-    from . import steps as step_api
-
-    selected_incrementation = step_api.normalize(
+    selected_output_every = _output_interval(output, output_every, default=1)
+    selected_incrementation = _normalize_load_path(
         incrementation,
         increments=increments,
         load_factors=load_factors,
@@ -1389,28 +1373,7 @@ def hyperelastic(
         )
     else:
         load_factor = fem.Constant(_domain(model.mesh), PETSc.ScalarType(0.0))
-        residual = internal_residual
-        if model.loads:
-            proportional_loads = tuple(
-                item
-                for item in model.loads
-                if not isinstance(item, load_api.AmplitudeLoad)
-            )
-            amplitude_loads = tuple(
-                item
-                for item in model.loads
-                if isinstance(item, load_api.AmplitudeLoad)
-            )
-            if proportional_loads:
-                residual -= load_factor * model.external_force(
-                    target,
-                    loads=proportional_loads,
-                ).expression
-            if amplitude_loads:
-                residual -= model.external_force(
-                    target,
-                    loads=amplitude_loads,
-                ).expression
+        residual = _load_path_residual(model, target, internal_residual, load_factor)
         jacobian = hyperelasticity.tangent(residual, target.value, target.trial)
 
         def finite_strain_acceptance():
@@ -1515,8 +1478,12 @@ def mixed_hyperelastic(
     ) * selected_measure
     residual = ufl.derivative(internal_energy, w, test)
     load_factor = fem.Constant(_domain(model.mesh), PETSc.ScalarType(0.0))
-    if model.loads:
-        residual -= load_factor * model.external_force(target.displacement).expression
+    residual = _load_path_residual(
+        model,
+        target.displacement,
+        residual,
+        load_factor,
+    )
     jacobian = ufl.derivative(residual, w, trial)
     selected_constraints = _as_tuple(
         model.constraints if constraints is None else constraints
@@ -1526,16 +1493,8 @@ def mixed_hyperelastic(
         for item in selected_constraints
         if isinstance(item, constraint_api.AbaqusPeriodicConstraint)
     ]
-    if output is not None and output_every is not None:
-        raise ValueError("Pass output=... or output_every=..., not both.")
-    selected_output_every = (
-        getattr(output, "every", None)
-        if output is not None
-        else (1 if output_every is None else int(output_every))
-    )
-    from . import steps as step_api
-
-    selected_incrementation = step_api.normalize(
+    selected_output_every = _output_interval(output, output_every, default=1)
+    selected_incrementation = _normalize_load_path(
         incrementation,
         increments=increments,
         load_factors=load_factors,
@@ -2081,6 +2040,59 @@ def _finite_strain_acceptance(
             "deformation Jacobian became non-positive" if minimum_j <= 0.0 else ""
         ),
     }
+
+
+def _output_interval(output, output_every, *, default: int | None) -> int | None:
+    """Resolve one nonlinear output cadence without duplicating API policy."""
+
+    if output is not None and output_every is not None:
+        raise ValueError("Pass output=... or output_every=..., not both.")
+    selected = getattr(output, "every", None) if output is not None else output_every
+    if selected is None:
+        return default
+    selected = int(selected)
+    if selected <= 0:
+        raise ValueError("Nonlinear output cadence must be a positive integer.")
+    return selected
+
+
+def _normalize_load_path(incrementation, *, increments=None, load_factors=None):
+    """Normalize the shared nonlinear-static load-path contract."""
+
+    from . import steps as step_api
+
+    return step_api.normalize(
+        incrementation,
+        increments=increments,
+        load_factors=load_factors,
+    )
+
+
+def _load_path_residual(model, target, internal_residual, load_factor):
+    """Add proportional and explicitly amplitude-driven natural loads.
+
+    Ordinary loads follow the accepted nonlinear load factor. Loads carrying
+    their own amplitude are updated by the model callback and must not be
+    multiplied by the same factor a second time.
+    """
+
+    if not model.loads:
+        return internal_residual
+    proportional = tuple(
+        item for item in model.loads if not isinstance(item, load_api.AmplitudeLoad)
+    )
+    driven = tuple(
+        item for item in model.loads if isinstance(item, load_api.AmplitudeLoad)
+    )
+    residual = internal_residual
+    if proportional:
+        residual -= load_factor * model.external_force(
+            target,
+            loads=proportional,
+        ).expression
+    if driven:
+        residual -= model.external_force(target, loads=driven).expression
+    return residual
 
 
 def _quadrature_material(model, target, material, *, material_type, label: str):

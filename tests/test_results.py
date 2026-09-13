@@ -866,6 +866,25 @@ def test_standard_field_catalog_resolves_finite_strain_e_to_le():
     assert results.field_output().variables == ("U", "S", "E", "MISES")
 
 
+def test_fabric_result_aliases_lower_to_explicit_catalog_keys():
+    assert results.field_variable("FABRIC_STRAIN").key == (
+        "FABRIC_GENERALIZED_STRAIN"
+    )
+    assert results.field_variable("FABRIC_N").key == (
+        "FABRIC_GENERALIZED_RESULTANT"
+    )
+    assert results.field_variable("FabricWarpDirection").key == (
+        "FABRIC_WARP_DIRECTION"
+    )
+    selected = results.resolve_field_variables(
+        ("FABRIC_STRAIN", "FABRIC_GENERALIZED_STRAIN", "FABRIC_WEFT")
+    )
+    assert tuple(item.key for item in selected) == (
+        "FABRIC_GENERALIZED_STRAIN",
+        "FABRIC_WEFT_DIRECTION",
+    )
+
+
 def test_small_strain_standard_fields_are_cell_average_projections():
     domain = mesh.rectangle(
         (0.0, 0.0),

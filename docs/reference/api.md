@@ -460,7 +460,7 @@ and evidence remain in the linked guides and scientific function reference.
 | function | `static_force_balance(problem, *, constraints = (), provider_duals = ()) -> StaticForceBalance` | Evaluate ``R + F = 0`` for a converged linear static solid. |
 | function | `static_work_balance(problem, *, constraints = (), provider_duals = ()) -> StaticWorkBalance` | Evaluate linear-static work including nonzero strong Dirichlet data. |
 | class | `PreparedProjection(problem, output) -> None` | A reusable L2 projection with one assembled mass matrix. |
-| function | `fabric_membrane_cell_fields(displacement, material, *, degree: int = 0) -> tuple[object, ...]` | Project standard woven-membrane observables for inspection and export. |
+| function | `fabric_membrane_cell_fields(displacement, material, *, variables = ('FABRIC_GENERALIZED_STRAIN', 'FABRIC_GENERALIZED_RESULTANT', 'FABRIC_WARP_DIRECTION', 'FABRIC_WEFT_DIRECTION', 'SENER'), degree: int = 0) -> tuple[object, ...]` | Project standard woven-membrane observables for inspection and export. |
 | function | `prepare_projection(expression, *, domain = None, family: str = 'DG', degree: int = 0, name: str = 'ProjectedField', weight = 1.0) -> PreparedProjection` | Prepare a reusable global L2 projection with a static mass operator. |
 | function | `project(expression, *, domain = None, family: str = 'DG', degree: int = 0, name: str = 'ProjectedField', weight = 1.0)` | Return the global L2 projection of a UFL expression. |
 | function | `project_piecewise(terms, *, domain = None, family: str = 'DG', degree: int = 0, name: str = 'ProjectedField', weight = 1.0)` | Project region-dependent expressions into one finite-element field. |

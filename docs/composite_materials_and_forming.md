@@ -148,10 +148,13 @@ cannot raise an extrapolation error only at selected quadrature points, so
 every globally used response curve must choose `extrapolation="constant"` or
 `"linear"` explicitly.
 
-`solve_result()` adds cell fields `FABRIC_STRAIN` (warp strain, weft strain,
-trellising angle), `FABRIC_N` (the conjugate generalized resultants), current
-`FABRIC_WARP`/`FABRIC_WEFT` directions, and `SENER`. Their component order is
-fixed in the capability card rather than inferred by a plotting script.
+`solve_result()` adds catalogued cell fields `FABRIC_GENERALIZED_STRAIN`
+(warp strain, weft strain, trellising angle),
+`FABRIC_GENERALIZED_RESULTANT` (the conjugate generalized resultants), current
+`FABRIC_WARP_DIRECTION`/`FABRIC_WEFT_DIRECTION`, and `SENER`. Their component
+order is fixed in the capability card rather than inferred by a plotting
+script. The earlier concise names remain accepted only as input aliases, so
+saved results stay explicit.
 
 This is an **experimental FEM-integrated membrane**, not a shell. It consumes
 yarn tension and trellising shear and deliberately refuses a nonzero bending

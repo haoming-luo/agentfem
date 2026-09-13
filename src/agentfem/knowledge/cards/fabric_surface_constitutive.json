@@ -55,9 +55,9 @@
       },
       {
         "name": "global membrane result fields",
-        "type": "Displacement plus DG cell fields FABRIC_STRAIN, FABRIC_N, FABRIC_WARP, FABRIC_WEFT, and SENER",
+        "type": "Displacement plus DG cell fields FABRIC_GENERALIZED_STRAIN, FABRIC_GENERALIZED_RESULTANT, FABRIC_WARP_DIRECTION, FABRIC_WEFT_DIRECTION, and SENER",
         "unit_role": "length, dimensionless/radians, force per reference length, unit directions, and energy per reference area",
-        "description": "FABRIC_STRAIN and FABRIC_N use the fixed warp, weft, trellising component order."
+        "description": "The generalized strain and resultant vectors use the fixed warp, weft, trellising component order."
       }
     ],
     "assumptions": [

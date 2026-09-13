@@ -1497,6 +1497,12 @@ amplitude receives the nonlinear Step's proportional load factor. A load with
 an amplitude evaluates that history at normalized step time and is not scaled
 again. Linear static evaluates model histories at step end, while heat and
 dynamics evaluate them at physical time.</p>
+<p>The output lifecycle owns cadence, files and result registration; the selected
+provider owns constitutive field recovery. Continuum finite-strain materials
+use the standard stress/strain recovery, while surfaces such as a woven fabric
+register their own catalogued generalized strains, resultants and directions.
+This keeps one <code>OutputPlan</code> without pretending that every formulation has a
+Cauchy-stress field.</p>
 <h2 id="standard-run-feedback">Standard run feedback<a class="headerlink" href="#standard-run-feedback" title="Permanent link">&para;</a></h2>
 <p>Nonlinear steps report a concise rank-zero lifecycle without requiring routine
 CLI flags. The default stream keeps step boundaries, cutbacks, failures and a

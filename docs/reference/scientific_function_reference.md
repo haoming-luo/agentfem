@@ -870,7 +870,7 @@ Independent tension, in-plane shear, and bending data remain independently ident
 | Name | Type | Unit role | Meaning |
 | --- | --- | --- | --- |
 | surface constitutive response | fiber kinematics, membrane resultants, bending moments, 6x6 local tangent, and stored energy | dimensionless, force per length, moment per length, and energy per area in a consistent unit system | The local response includes bending; the current global membrane Step consumes only tension and trellising shear. |
-| global membrane result fields | Displacement plus DG cell fields FABRIC_STRAIN, FABRIC_N, FABRIC_WARP, FABRIC_WEFT, and SENER | length, dimensionless/radians, force per reference length, unit directions, and energy per reference area | FABRIC_STRAIN and FABRIC_N use the fixed warp, weft, trellising component order. |
+| global membrane result fields | Displacement plus DG cell fields FABRIC_GENERALIZED_STRAIN, FABRIC_GENERALIZED_RESULTANT, FABRIC_WARP_DIRECTION, FABRIC_WEFT_DIRECTION, and SENER | length, dimensionless/radians, force per reference length, unit directions, and energy per reference area | The generalized strain and resultant vectors use the fixed warp, weft, trellising component order. |
 
 #### Assumptions
 

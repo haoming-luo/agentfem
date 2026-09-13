@@ -285,37 +285,57 @@ def fabric_membrane_cell_fields(
     displacement,
     material,
     *,
+    variables=(
+        "FABRIC_GENERALIZED_STRAIN",
+        "FABRIC_GENERALIZED_RESULTANT",
+        "FABRIC_WARP_DIRECTION",
+        "FABRIC_WEFT_DIRECTION",
+        "SENER",
+    ),
     degree: int = 0,
 ) -> tuple[object, ...]:
     """Project standard woven-membrane observables for inspection and export.
 
-    The fields preserve material-resultant semantics: ``FABRIC_STRAIN`` is
-    ``(warp, weft, trellising-angle)`` and ``FABRIC_N`` uses the matching
-    generalized resultant order. Directions are current unit vectors.
+    The fields preserve material-resultant semantics. Generalized strain and
+    resultant vectors use ``(warp, weft, trellising)`` component order;
+    direction fields are current unit vectors. ``variables`` uses the common
+    result-field catalog, including its compatibility aliases.
     """
 
     function = field_api.unwrap(displacement)
     domain = function.function_space.mesh
     expressions = material.membrane_expressions_ufl(function)
-    selected = (
-        (
-            "FABRIC_STRAIN",
-            ufl.as_vector(
-                (
-                    expressions.warp_strain,
-                    expressions.weft_strain,
-                    expressions.shear_angle,
-                )
-            ),
+    expressions_by_key = {
+        "FABRIC_GENERALIZED_STRAIN": ufl.as_vector(
+            (
+                expressions.warp_strain,
+                expressions.weft_strain,
+                expressions.shear_angle,
+            )
         ),
-        ("FABRIC_N", expressions.membrane_resultants),
-        ("FABRIC_WARP", expressions.warp_direction),
-        ("FABRIC_WEFT", expressions.weft_direction),
-        ("SENER", expressions.stored_energy),
+        "FABRIC_GENERALIZED_RESULTANT": expressions.membrane_resultants,
+        "FABRIC_WARP_DIRECTION": expressions.warp_direction,
+        "FABRIC_WEFT_DIRECTION": expressions.weft_direction,
+        "SENER": expressions.stored_energy,
+    }
+    selected = resolve_field_variables(variables, finite_strain=True)
+    unsupported = tuple(
+        variable.key for variable in selected if variable.key not in expressions_by_key
     )
+    if unsupported:
+        raise ValueError(
+            "Fabric membrane recovery does not provide variables "
+            f"{unsupported!r}."
+        )
     return tuple(
-        project(expression, domain=domain, family="DG", degree=degree, name=name)
-        for name, expression in selected
+        project(
+            expressions_by_key[variable.key],
+            domain=domain,
+            family="DG",
+            degree=degree,
+            name=variable.key,
+        )
+        for variable in selected
     )
 
 

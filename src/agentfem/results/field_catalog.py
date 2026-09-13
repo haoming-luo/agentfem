@@ -120,6 +120,40 @@ _VARIABLES = {
         aliases=("EMATERIAL",),
         derived_from=("E",),
     ),
+    "FABRIC_GENERALIZED_STRAIN": FieldVariable(
+        "FABRIC_GENERALIZED_STRAIN",
+        "FabricGeneralizedStrain",
+        "cells",
+        "vector",
+        "Warp strain, weft strain, and trellising angle in that order",
+        aliases=("FABRIC_STRAIN",),
+    ),
+    "FABRIC_GENERALIZED_RESULTANT": FieldVariable(
+        "FABRIC_GENERALIZED_RESULTANT",
+        "FabricGeneralizedResultant",
+        "cells",
+        "vector",
+        "Membrane resultants conjugate to warp strain, weft strain, and "
+        "trellising angle",
+        aliases=("FABRIC_N",),
+        derived_from=("FABRIC_GENERALIZED_STRAIN",),
+    ),
+    "FABRIC_WARP_DIRECTION": FieldVariable(
+        "FABRIC_WARP_DIRECTION",
+        "FabricWarpDirection",
+        "cells",
+        "vector",
+        "Current unit direction of the warp yarn family",
+        aliases=("FABRIC_WARP",),
+    ),
+    "FABRIC_WEFT_DIRECTION": FieldVariable(
+        "FABRIC_WEFT_DIRECTION",
+        "FabricWeftDirection",
+        "cells",
+        "vector",
+        "Current unit direction of the weft yarn family",
+        aliases=("FABRIC_WEFT",),
+    ),
 }
 
 

@@ -814,6 +814,7 @@ class OutputPlan:
             domain=domain,
             snapshots=step.snapshots,
             material=material,
+            field_recovery=getattr(step, "result_field_recovery", None),
             basename=self.basename,
         )
         for field in artifacts.final_fields:

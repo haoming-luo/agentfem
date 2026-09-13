@@ -383,15 +383,29 @@ def test_fabric_membrane_enters_standard_step_and_solves_a_loaded_patch(tmp_path
         options={"material": material},
     )
     assert capability["provider"]["name"] == "decoupled_fabric_membrane_static"
+    output = results.output_plan(
+        tmp_path / "fabric_membrane",
+        field=results.field_output(
+            "U",
+            "FABRIC_STRAIN",
+            "FABRIC_N",
+            "FABRIC_WARP",
+            "FABRIC_WEFT",
+            "SENER",
+            configuration="reference",
+        ),
+    )
     step = model.step(
         target=displacement,
         material=material,
         increments=2,
+        output=output,
         progress=False,
     )
-    simulation = step.solve_result(output=tmp_path / "fabric_membrane.xdmf")
+    simulation = step.solve_result()
 
     assert step.last_solve_info.converged
+    assert step.summary()["result_field_recovery"] == "provider"
     assert np.max(displacement.value.x.array[::2]) > 0.0
     checks = step.last_solve_info.increments[-1].checks
     assert checks["minimum_quadrature_J"] > 0.0
@@ -399,14 +413,14 @@ def test_fabric_membrane_enters_standard_step_and_solves_a_loaded_patch(tmp_path
     assert simulation.status == "completed"
     assert {
         "Displacement",
-        "FABRIC_STRAIN",
-        "FABRIC_N",
-        "FABRIC_WARP",
-        "FABRIC_WEFT",
+        "FABRIC_GENERALIZED_STRAIN",
+        "FABRIC_GENERALIZED_RESULTANT",
+        "FABRIC_WARP_DIRECTION",
+        "FABRIC_WEFT_DIRECTION",
         "SENER",
     }.issubset(simulation.fields)
-    assert simulation.artifacts["fields_xdmf"].is_file()
-    assert simulation.artifacts["fields_hdf5"].is_file()
+    assert simulation.artifacts["field_history"].is_file()
+    assert simulation.artifacts["result_manifest"].is_file()
 
 
 def test_membrane_provider_refuses_to_hide_shell_bending():

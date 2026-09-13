@@ -437,6 +437,7 @@ class IncrementalNonlinearVariationalProblem:
     petsc_options_prefix: str = "agentfem_incremental_nonlinear_"
     procedure: object | None = None
     result_field_factory: object | None = None
+    result_field_recovery: object | None = None
     snapshot_field_factory: object | None = None
     last_solve_info: NonlinearLoadPathInfo | None = field(default=None, init=False)
     snapshots: list = field(default_factory=list, init=False)
@@ -788,6 +789,9 @@ class IncrementalNonlinearVariationalProblem:
                 if hasattr(self, "primary_fields")
                 else "generated"
             ),
+            "result_field_recovery": (
+                "provider" if self.result_field_recovery is not None else "default"
+            ),
             "last_solve": (
                 None if self.last_solve_info is None else self.last_solve_info.as_dict()
             ),
@@ -814,6 +818,7 @@ class AffineNonlinearVariationalProblem:
     name: str = "affine_nonlinear_problem"
     procedure: object | None = None
     result_field_factory: object | None = None
+    result_field_recovery: object | None = None
     snapshot_field_factory: object | None = None
     state_transaction: object | None = None
     checkpoint_policy: object | None = None
@@ -1713,6 +1718,9 @@ class AffineNonlinearVariationalProblem:
                 None if self.last_solve_info is None else self.last_solve_info.as_dict()
             ),
             "procedure": (None if self.procedure is None else self.procedure.summary()),
+            "result_field_recovery": (
+                "provider" if self.result_field_recovery is not None else "default"
+            ),
         }
         if hasattr(self, "mixed_formulation"):
             summary["numerical_formulation"] = dict(self.mixed_formulation)

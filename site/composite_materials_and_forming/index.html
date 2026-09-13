@@ -1576,10 +1576,13 @@ lifecycle, and rejects non-positive deformation Jacobians. A symbolic field
 cannot raise an extrapolation error only at selected quadrature points, so
 every globally used response curve must choose <code>extrapolation="constant"</code> or
 <code>"linear"</code> explicitly.</p>
-<p><code>solve_result()</code> adds cell fields <code>FABRIC_STRAIN</code> (warp strain, weft strain,
-trellising angle), <code>FABRIC_N</code> (the conjugate generalized resultants), current
-<code>FABRIC_WARP</code>/<code>FABRIC_WEFT</code> directions, and <code>SENER</code>. Their component order is
-fixed in the capability card rather than inferred by a plotting script.</p>
+<p><code>solve_result()</code> adds catalogued cell fields <code>FABRIC_GENERALIZED_STRAIN</code>
+(warp strain, weft strain, trellising angle),
+<code>FABRIC_GENERALIZED_RESULTANT</code> (the conjugate generalized resultants), current
+<code>FABRIC_WARP_DIRECTION</code>/<code>FABRIC_WEFT_DIRECTION</code>, and <code>SENER</code>. Their component
+order is fixed in the capability card rather than inferred by a plotting
+script. The earlier concise names remain accepted only as input aliases, so
+saved results stay explicit.</p>
 <p>This is an <strong>experimental FEM-integrated membrane</strong>, not a shell. It consumes
 yarn tension and trellising shear and deliberately refuses a nonzero bending
 matrix instead of discarding it. <code>mechanics.director_shell_kinematics(...)</code>

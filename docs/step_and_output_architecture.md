@@ -175,6 +175,13 @@ an amplitude evaluates that history at normalized step time and is not scaled
 again. Linear static evaluates model histories at step end, while heat and
 dynamics evaluate them at physical time.
 
+The output lifecycle owns cadence, files and result registration; the selected
+provider owns constitutive field recovery. Continuum finite-strain materials
+use the standard stress/strain recovery, while surfaces such as a woven fabric
+register their own catalogued generalized strains, resultants and directions.
+This keeps one `OutputPlan` without pretending that every formulation has a
+Cauchy-stress field.
+
 ## Standard run feedback
 
 Nonlinear steps report a concise rank-zero lifecycle without requiring routine

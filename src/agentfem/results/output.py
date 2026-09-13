@@ -151,9 +151,16 @@ class FieldOutput:
         domain,
         snapshots,
         material,
+        field_recovery=None,
         basename: str = "results",
     ) -> FieldOutputArtifacts:
-        """Write a unified XDMF/HDF5 series and/or a legacy PVD series."""
+        """Write a unified XDMF/HDF5 series and/or a legacy PVD series.
+
+        A nonlinear provider may supply ``field_recovery`` when its physical
+        result variables are not continuum stress/strain fields. The output
+        lifecycle remains shared; only the provider-owned constitutive
+        recovery changes.
+        """
 
         selected = tuple(snapshots)
         if not selected:
@@ -166,16 +173,21 @@ class FieldOutput:
         )
         per_frame_fields = []
         for snapshot in selected:
-            fields = accepted_finite_strain_cell_fields(
-                snapshot,
-                variables=cell_variables,
-            )
-            if fields is None:
-                fields = finite_strain_cell_fields(
-                    snapshot.solution,
-                    material,
+            if field_recovery is None:
+                fields = accepted_finite_strain_cell_fields(
+                    snapshot,
                     variables=cell_variables,
-                    pressure=getattr(snapshot, "fields", {}).get("PRESSURE"),
+                )
+                if fields is None:
+                    fields = finite_strain_cell_fields(
+                        snapshot.solution,
+                        material,
+                        variables=cell_variables,
+                        pressure=getattr(snapshot, "fields", {}).get("PRESSURE"),
+                    )
+            else:
+                fields = tuple(
+                    field_recovery(snapshot, variables=cell_variables)
                 )
             per_frame_fields.append(fields)
 
