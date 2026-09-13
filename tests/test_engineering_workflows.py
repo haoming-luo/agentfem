@@ -26,8 +26,11 @@ from agentfem.mesh import abaqus
 
 def test_mixed_hybrid_unknown_has_one_constant_pressure_value_per_cell():
     domain = mesh.cuboid(
-        (0.0, 0.0, 0.0), (1.0, 1.0, 1.0), (1, 1, 1),
-        comm=MPI.COMM_SELF, cell_type="tetrahedron",
+        (0.0, 0.0, 0.0),
+        (1.0, 1.0, 1.0),
+        (1, 1, 1),
+        comm=MPI.COMM_SELF,
+        cell_type="tetrahedron",
     )
     unknown = fields.displacement_pressure(domain)
 
@@ -58,9 +61,7 @@ def test_quadrilateral_q2_dpc1_has_nine_three_mixed_interpolation():
         pressure_family="DPC",
         pressure_degree=1,
     )
-    displacement_element, pressure_element = (
-        unknown.space.ufl_element().sub_elements
-    )
+    displacement_element, pressure_element = unknown.space.ufl_element().sub_elements
 
     assert displacement_element.dim == 18
     assert pressure_element.dim == 3
@@ -91,11 +92,15 @@ def test_dpc_pressure_rejects_non_tensor_product_cells_clearly():
 
 def test_mixed_material_is_selected_by_the_unified_step_provider():
     domain = mesh.cuboid(
-        (0.0, 0.0, 0.0), (1.0, 1.0, 1.0), (1, 1, 1),
-        comm=MPI.COMM_SELF, cell_type="tetrahedron",
+        (0.0, 0.0, 0.0),
+        (1.0, 1.0, 1.0),
+        (1, 1, 1),
+        comm=MPI.COMM_SELF,
+        cell_type="tetrahedron",
     )
     model = models.create(
-        study=studies.static_solid(dimension=3, nonlinear=True), mesh=domain,
+        study=studies.static_solid(dimension=3, nonlinear=True),
+        mesh=domain,
     )
     unknown = model.field(fields.displacement_pressure(domain))
     material = model.material(
@@ -103,7 +108,9 @@ def test_mixed_material_is_selected_by_the_unified_step_provider():
     )
 
     capability = step_capability(
-        model, target=unknown, options={"material": material},
+        model,
+        target=unknown,
+        options={"material": material},
     )
 
     assert capability["supported"]
@@ -119,8 +126,7 @@ def test_mixed_neo_hookean_direct_moduli_match_quadratic_volumetric_energy():
     J = float(np.linalg.det(F))
     invariant = float(np.trace(F.T @ F))
     expected = (
-        0.5 * 2.5 * (J ** (-2.0 / 3.0) * invariant - 3.0)
-        + 0.5 * 2.5e4 * (J - 1.0) ** 2
+        0.5 * 2.5 * (J ** (-2.0 / 3.0) * invariant - 3.0) + 0.5 * 2.5e4 * (J - 1.0) ** 2
     )
 
     assert material.mu == pytest.approx(2.5)
@@ -147,14 +153,22 @@ def test_mixed_neo_hookean_rejects_ambiguous_parameterization():
 
 
 def test_mixed_hybrid_zero_state_solves_with_subspace_constraints():
-    domain = mesh.cuboid((0, 0, 0), (1, 1, 1), (1, 1, 1), comm=MPI.COMM_SELF, cell_type="tetrahedron")
-    model = models.create(study=studies.static_solid(dimension=3, nonlinear=True), mesh=domain)
+    domain = mesh.cuboid(
+        (0, 0, 0), (1, 1, 1), (1, 1, 1), comm=MPI.COMM_SELF, cell_type="tetrahedron"
+    )
+    model = models.create(
+        study=studies.static_solid(dimension=3, nonlinear=True), mesh=domain
+    )
     unknown = model.field(fields.displacement_pressure(domain))
-    material = model.material(constitutive.mixed_neo_hookean(young=1.0e6, poisson=0.499))
+    material = model.material(
+        constitutive.mixed_neo_hookean(young=1.0e6, poisson=0.499)
+    )
     exterior = mesh.boundary(domain, lambda x: np.full(x.shape[1], True), name="all")
     model.fix(unknown.displacement, on=exterior)
 
-    problem = model.step(target=unknown, material=material, increments=1, progress=False)
+    problem = model.step(
+        target=unknown, material=material, increments=1, progress=False
+    )
     result = problem.solve_result()
 
     assert problem.last_solve_info.converged
@@ -164,11 +178,15 @@ def test_mixed_hybrid_zero_state_solves_with_subspace_constraints():
 
 def test_mixed_hybrid_affine_periodic_reduction_keeps_pressure_independent(tmp_path):
     domain = mesh.cuboid(
-        (0, 0, 0), (1, 1, 1), (1, 1, 1),
-        comm=MPI.COMM_SELF, cell_type="tetrahedron",
+        (0, 0, 0),
+        (1, 1, 1),
+        (1, 1, 1),
+        comm=MPI.COMM_SELF,
+        cell_type="tetrahedron",
     )
     model = models.create(
-        study=studies.static_solid(dimension=3, nonlinear=True), mesh=domain,
+        study=studies.static_solid(dimension=3, nonlinear=True),
+        mesh=domain,
     )
     unknown = model.field(fields.displacement_pressure(domain))
     material = model.material(
@@ -177,8 +195,7 @@ def test_mixed_hybrid_affine_periodic_reduction_keeps_pressure_independent(tmp_p
     nodes = abaqus.AbaqusNodeTable(
         labels=np.asarray((1, 2, 3, 4)),
         coordinates=np.asarray(
-            ((0.0, 0.0, 0.0), (1.0, 0.0, 0.0),
-             (0.0, 1.0, 0.0), (0.0, 0.0, 1.0))
+            ((0.0, 0.0, 0.0), (1.0, 0.0, 0.0), (0.0, 1.0, 0.0), (0.0, 0.0, 1.0))
         ),
     )
     periodicity = constraints.abaqus_periodic_cell(
@@ -192,7 +209,11 @@ def test_mixed_hybrid_affine_periodic_reduction_keeps_pressure_independent(tmp_p
     output = results.output_plan(
         tmp_path,
         field=results.field_output(
-            "U", "P", "PRESSURE", "S", "J",
+            "U",
+            "P",
+            "PRESSURE",
+            "S",
+            "J",
             every=2,
             configuration="reference",
             backend="xdmf",
@@ -204,9 +225,7 @@ def test_mixed_hybrid_affine_periodic_reduction_keeps_pressure_independent(tmp_p
 
     reduction = periodicity.reduction()
     _, pressure_maps = unknown.space.sub(1).collapse()
-    pressure_parent_dofs = set(
-        np.asarray(pressure_maps[0], dtype=int).tolist()
-    )
+    pressure_parent_dofs = set(np.asarray(pressure_maps[0], dtype=int).tolist())
     assert pressure_parent_dofs <= set(
         reduction.independent_full_dofs.astype(int).tolist()
     )
@@ -248,9 +267,9 @@ def test_mixed_hybrid_affine_periodic_reduction_keeps_pressure_independent(tmp_p
         result.histories["accepted_residual_norm"].values[1:],
         [item.residual_norm for item in problem.last_solve_info.increments],
     )
-    assert result.quantities["maximum_hill_mandel_relative_error"].value == pytest.approx(
-        0.0
-    )
+    assert result.quantities[
+        "maximum_hill_mandel_relative_error"
+    ].value == pytest.approx(0.0)
     assert result.metadata["homogenized_history"] == {
         "source": "every_accepted_increment",
         "frame_count": 3,
@@ -267,19 +286,25 @@ def test_mixed_hybrid_affine_periodic_reduction_keeps_pressure_independent(tmp_p
         ),
     }
     assert result.metadata["output_plan"]["status"] == "completed"
-    assert output.finalize(
-        model=model,
-        step=problem,
-        result=result,
-        target=unknown.collapsed_displacement(name="U"),
-        material=material,
-    ) is result
+    assert (
+        output.finalize(
+            model=model,
+            step=problem,
+            result=result,
+            target=unknown.collapsed_displacement(name="U"),
+            material=material,
+        )
+        is result
+    )
 
 
 def test_abaqus_reference_controls_can_leave_both_transverse_components_free():
     domain = mesh.cuboid(
-        (0.0, 0.0, 0.0), (1.0, 1.0, 1.0), (1, 1, 1),
-        comm=MPI.COMM_SELF, cell_type="tetrahedron",
+        (0.0, 0.0, 0.0),
+        (1.0, 1.0, 1.0),
+        (1, 1, 1),
+        comm=MPI.COMM_SELF,
+        cell_type="tetrahedron",
     )
     displacement = fields.displacement(domain)
     nodes = abaqus.AbaqusNodeTable(
@@ -344,17 +369,24 @@ def test_abaqus_reference_controls_can_leave_both_transverse_components_free():
 
 def test_distributing_coupling_preserves_force_and_moment_resultants():
     domain = mesh.rectangle(
-        (0.0, 0.0), (2.0, 1.0), (2, 2),
-        comm=MPI.COMM_SELF, cell_type="triangle",
+        (0.0, 0.0),
+        (2.0, 1.0),
+        (2, 2),
+        comm=MPI.COMM_SELF,
+        cell_type="triangle",
     )
     right = mesh.boundary(domain, lambda x: np.isclose(x[0], 2.0), name="right")
     load = loads.distributing_coupling(
-        (3.0, 4.0), moment=2.0, reference_point=(2.0, 0.5), on=right,
+        (3.0, 4.0),
+        moment=2.0,
+        reference_point=(2.0, 0.5),
+        on=right,
     )
 
     integrated = results.boundary_resultant(load.traction, on=right)
     check = results.free_body_resultant(
-        boundary_tractions=((load.traction, right),), about=(2.0, 0.5),
+        boundary_tractions=((load.traction, right),),
+        about=(2.0, 0.5),
     )
 
     np.testing.assert_allclose(integrated, [3.0, 4.0], atol=1.0e-11)
@@ -363,16 +395,22 @@ def test_distributing_coupling_preserves_force_and_moment_resultants():
 
 def test_remote_force_consumes_local_components_and_named_reference_point():
     domain = mesh.rectangle(
-        (0.0, 0.0), (2.0, 1.0), (2, 2),
-        comm=MPI.COMM_SELF, cell_type="triangle",
+        (0.0, 0.0),
+        (2.0, 1.0),
+        (2, 2),
+        comm=MPI.COMM_SELF,
+        cell_type="triangle",
     )
     right = mesh.boundary(domain, lambda x: np.isclose(x[0], 2.0), name="right")
     local = coordinates.cartesian(x=(0.0, 1.0), y=(-1.0, 0.0), name="fixture")
     point = coordinates.reference_point((2.0, 0.5), name="RP-1")
 
     load = loads.remote_force(
-        (3.0, 4.0), moment=2.0, reference_point=point,
-        system=local, on=right,
+        (3.0, 4.0),
+        moment=2.0,
+        reference_point=point,
+        system=local,
+        on=right,
     )
     integrated = results.boundary_resultant(load.traction, on=right)
 
@@ -384,8 +422,11 @@ def test_remote_force_consumes_local_components_and_named_reference_point():
 
 def test_remote_displacement_is_a_ramped_rigid_boundary_motion():
     domain = mesh.rectangle(
-        (0.0, 0.0), (2.0, 1.0), (2, 2),
-        comm=MPI.COMM_SELF, cell_type="triangle",
+        (0.0, 0.0),
+        (2.0, 1.0),
+        (2, 2),
+        comm=MPI.COMM_SELF,
+        cell_type="triangle",
     )
     displacement = fields.displacement(domain)
     right = mesh.boundary(domain, lambda x: np.isclose(x[0], 2.0), name="right")
@@ -409,13 +450,18 @@ def test_remote_displacement_is_a_ramped_rigid_boundary_motion():
 
 def test_elastic_foundation_is_a_mechanical_boundary_matrix():
     domain = mesh.rectangle(
-        (0.0, 0.0), (1.0, 1.0), (1, 1),
-        comm=MPI.COMM_SELF, cell_type="triangle",
+        (0.0, 0.0),
+        (1.0, 1.0),
+        (1, 1),
+        comm=MPI.COMM_SELF,
+        cell_type="triangle",
     )
     bottom = mesh.boundary(domain, lambda x: np.isclose(x[1], 0.0), name="bottom")
     displacement = fields.displacement(domain)
     foundation = boundary_models.elastic_foundation(
-        on=bottom, stiffness=10.0, mode="normal",
+        on=bottom,
+        stiffness=10.0,
+        mode="normal",
     )
 
     operator = foundation.operator(displacement)
@@ -426,8 +472,11 @@ def test_elastic_foundation_is_a_mechanical_boundary_matrix():
 
 def test_elastic_foundation_matrix_requires_conservative_matching_stiffness():
     domain = mesh.rectangle(
-        (0.0, 0.0), (1.0, 1.0), (1, 1),
-        comm=MPI.COMM_SELF, cell_type="triangle",
+        (0.0, 0.0),
+        (1.0, 1.0),
+        (1, 1),
+        comm=MPI.COMM_SELF,
+        cell_type="triangle",
     )
     bottom = mesh.boundary(domain, lambda x: np.isclose(x[1], 0.0), name="bottom")
     displacement = fields.displacement(domain)
@@ -461,28 +510,43 @@ def test_elastic_foundation_matrix_requires_conservative_matching_stiffness():
 
 def test_centrifugal_and_hydrostatic_loads_have_physical_resultants():
     rotating = mesh.rectangle(
-        (0.0, 0.0), (1.0, 1.0), (2, 2),
-        comm=MPI.COMM_SELF, cell_type="triangle",
+        (0.0, 0.0),
+        (1.0, 1.0),
+        (2, 2),
+        comm=MPI.COMM_SELF,
+        cell_type="triangle",
     )
     centrifugal = loads.centrifugal(
-        3.0, density=2.0, center=(0.0, 0.0), domain=rotating,
+        3.0,
+        density=2.0,
+        center=(0.0, 0.0),
+        domain=rotating,
     )
     resultant = results.integral(
-        centrifugal.value, measure=ufl.dx, comm=MPI.COMM_SELF,
+        centrifugal.value,
+        measure=ufl.dx,
+        comm=MPI.COMM_SELF,
     )
     np.testing.assert_allclose(resultant, [9.0, 9.0], atol=1.0e-12)
 
     tank = mesh.rectangle(
-        (0.0, -1.0), (1.0, 0.0), (2, 2),
-        comm=MPI.COMM_SELF, cell_type="triangle",
+        (0.0, -1.0),
+        (1.0, 0.0),
+        (2, 2),
+        comm=MPI.COMM_SELF,
+        cell_type="triangle",
     )
     wall = mesh.boundary(tank, lambda x: np.isclose(x[0], 0.0), name="wall")
     hydrostatic = loads.hydrostatic_pressure(
-        density=2.0, gravity=(0.0, -10.0), reference_point=(0.0, 0.0), on=wall,
+        density=2.0,
+        gravity=(0.0, -10.0),
+        reference_point=(0.0, 0.0),
+        on=wall,
     )
     np.testing.assert_allclose(
         results.boundary_resultant(hydrostatic.traction, on=wall),
-        [10.0, 0.0], atol=1.0e-12,
+        [10.0, 0.0],
+        atol=1.0e-12,
     )
 
 
@@ -500,10 +564,52 @@ def test_engineering_steps_inherit_and_deactivate_named_assets():
     assert second.summary()["previous"] == "preload"
 
 
+def test_model_step_uses_an_immutable_engineering_configuration_view(monkeypatch):
+    study = studies.static_solid(dimension=2, assumption="plane_strain")
+    model = models.create(study=study, mesh=object(), name="configured")
+    base_load = SimpleNamespace(name="base")
+    service_load = SimpleNamespace(name="service")
+    base_constraint = SimpleNamespace(name="fixture")
+    model.loads.append(base_load)
+    model.constraints.append(base_constraint)
+    configuration = model.stage(
+        "service",
+        inherit_model_loads=True,
+        inherit_model_constraints=True,
+    )
+    configuration.deactivate_load("base")
+    configuration.activate_load(service_load)
+
+    captured = {}
+
+    def fake_lower(selected_model, **kwargs):
+        captured["model"] = selected_model
+        return SimpleNamespace()
+
+    monkeypatch.setattr("agentfem.step_providers.lower_step", fake_lower)
+    original_loads = model.loads
+    original_constraints = model.constraints
+
+    created = model.step(target=object(), configuration=configuration)
+
+    assert model.loads is original_loads
+    assert model.constraints is original_constraints
+    assert model.loads == [base_load]
+    assert model.constraints == [base_constraint]
+    assert captured["model"] is not model
+    assert captured["model"].loads == [service_load]
+    assert captured["model"].constraints == [base_constraint]
+    assert captured["model"].steps is model.steps
+    assert created.engineering_step is configuration
+
+
 def test_section_resultant_returns_force_and_moment():
     domain = mesh.rectangle(
-        (0.0, 0.0), (2.0, 1.0), (2, 2),
-        comm=MPI.COMM_SELF, cell_type="triangle",
+        (0.0, 0.0),
+        (2.0, 1.0),
+        (2, 2),
+        comm=MPI.COMM_SELF,
+        cell_type="triangle",
     )
     right = mesh.boundary(domain, lambda x: np.isclose(x[0], 2.0), name="right")
     stress = ufl.as_matrix(((2.0, 0.0), (0.0, 1.0)))

@@ -6,7 +6,7 @@ loads, and boundary models. It is an audit and validation object, not a solver.
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from numbers import Integral
 
 from . import constraints as constraint_api
@@ -1151,24 +1151,23 @@ class Model:
                 options=options,
                 procedure=procedure,
             )
-        original_loads, original_constraints = self.loads, self.constraints
         configuration.apply_predefined_fields()
-        self.loads = list(configuration.resolve_loads(original_loads))
-        self.constraints = list(configuration.resolve_constraints(original_constraints))
+        configured_model = replace(
+            self,
+            loads=list(configuration.resolve_loads(self.loads)),
+            constraints=list(configuration.resolve_constraints(self.constraints)),
+        )
         if constraints is not None:
             options["constraints"] = constraints
-        try:
-            created = lower_step(
-                self,
-                analysis=selected_kind,
-                target=target,
-                options=options,
-                procedure=procedure,
-            )
-            created.engineering_step = configuration
-            return created
-        finally:
-            self.loads, self.constraints = original_loads, original_constraints
+        created = lower_step(
+            configured_model,
+            analysis=selected_kind,
+            target=target,
+            options=options,
+            procedure=procedure,
+        )
+        created.engineering_step = configuration
+        return created
 
     def linear_static_step(
         self,

@@ -1286,6 +1286,11 @@ Architecture tests also reject selected cross-layer imports, including a
 <p><code>Model</code> is a readable engineering facade, not the owner of every object on
 that path. Historical material-specific <code>*_step()</code> methods remain thin 0.2.x
 compatibility delegates; new workflows use <code>model.step(...)</code>.</p>
+<p>An <code>EngineeringStep</code> is lowered through a shallow configured Model view rather
+than by temporarily mutating the source Model registries. The source remains
+the user's durable engineering definition; the configured view retained by
+the executable records the loads and constraints actually active for that
+Step.</p>
 <p>Model validation and model inspection are separate views over the same
 engineering registry. <code>_model_validation.py</code> owns addressable preflight issues
 and compatibility checks; <code>_model_inspection.py</code> owns summaries, manifests,

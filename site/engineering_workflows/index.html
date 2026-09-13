@@ -1552,6 +1552,12 @@ reference-point degree of freedom or a general kinematic MPC.</p>
 separate from <code>steps.automatic(...)</code>, which controls increments, and from
 <code>solvers.newton(...)</code>, which controls algebraic convergence. Only explicit
 changes are recorded; other assets inherit from the preceding Step.</p>
+<p>Lowering uses a shallow configured Model view. The source Model's load and
+constraint registries are never temporarily replaced, while the executable
+Step retains the exact active view used to produce its result. This makes
+exception handling, concurrent campaign preparation, and provenance
+inspection deterministic. Applying an explicitly declared predefined field
+remains an intentional field-state operation.</p>
 <h2 id="engineering-resultants">Engineering resultants<a class="headerlink" href="#engineering-resultants" title="Permanent link">&para;</a></h2>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="n">section</span> <span class="o">=</span> <span class="n">results</span><span class="o">.</span><span class="n">section_resultant</span><span class="p">(</span><span class="n">S</span><span class="p">,</span> <span class="n">on</span><span class="o">=</span><span class="n">cut</span><span class="p">,</span> <span class="n">about</span><span class="o">=</span><span class="n">reference_point</span><span class="p">)</span>
 <a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="n">free_body</span> <span class="o">=</span> <span class="n">results</span><span class="o">.</span><span class="n">free_body_resultant</span><span class="p">(</span>

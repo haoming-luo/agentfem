@@ -42,6 +42,12 @@ Study -> Model -> scientific assets -> model.step(...)
 that path. Historical material-specific `*_step()` methods remain thin 0.2.x
 compatibility delegates; new workflows use `model.step(...)`.
 
+An `EngineeringStep` is lowered through a shallow configured Model view rather
+than by temporarily mutating the source Model registries. The source remains
+the user's durable engineering definition; the configured view retained by
+the executable records the loads and constraints actually active for that
+Step.
+
 Model validation and model inspection are separate views over the same
 engineering registry. `_model_validation.py` owns addressable preflight issues
 and compatibility checks; `_model_inspection.py` owns summaries, manifests,

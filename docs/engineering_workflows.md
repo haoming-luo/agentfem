@@ -129,6 +129,13 @@ separate from `steps.automatic(...)`, which controls increments, and from
 `solvers.newton(...)`, which controls algebraic convergence. Only explicit
 changes are recorded; other assets inherit from the preceding Step.
 
+Lowering uses a shallow configured Model view. The source Model's load and
+constraint registries are never temporarily replaced, while the executable
+Step retains the exact active view used to produce its result. This makes
+exception handling, concurrent campaign preparation, and provenance
+inspection deterministic. Applying an explicitly declared predefined field
+remains an intentional field-state operation.
+
 ## Engineering resultants
 
 ```python
