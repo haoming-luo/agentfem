@@ -16,10 +16,20 @@ import json
 import os
 from pathlib import Path
 import subprocess
+import sys
 from typing import Callable, Iterable
 
 
 TARGET = "0.3"
+REPOSITORY_ROOT = Path(__file__).resolve().parent
+SOURCE_ROOT = REPOSITORY_ROOT / "src"
+
+# ``promotion_gate.py`` audits a source checkout, not whichever AgentFEM wheel
+# happens to be installed in the invoking environment.  A src-layout project
+# is otherwise invisible when this script is run directly from the repository
+# root, which can silently bind the current Git commit to an older wheel.
+if SOURCE_ROOT.is_dir() and str(SOURCE_ROOT) not in sys.path:
+    sys.path.insert(0, str(SOURCE_ROOT))
 
 
 def _is_sha256(value: object) -> bool:
@@ -66,20 +76,28 @@ def _valid_agent_trial(record: dict[str, object]) -> bool:
 def _candidate_identity() -> tuple[str, str | None]:
     """Return the core version and exact checkout commit under audit."""
 
-    from agentfem import __version__
+    import agentfem
+
+    package_path = Path(agentfem.__file__).resolve()
+    expected_package = (SOURCE_ROOT / "agentfem").resolve()
+    if SOURCE_ROOT.is_dir() and not package_path.is_relative_to(expected_package):
+        raise RuntimeError(
+            "Promotion audit imported AgentFEM from outside the current checkout: "
+            f"{package_path}. Expected a package below {expected_package}."
+        )
 
     commit = os.environ.get("GITHUB_SHA")
     if not commit:
         completed = subprocess.run(
             ["git", "rev-parse", "HEAD"],
-            cwd=Path(__file__).resolve().parent,
+            cwd=REPOSITORY_ROOT,
             check=False,
             capture_output=True,
             text=True,
         )
         if completed.returncode == 0:
             commit = completed.stdout.strip() or None
-    return str(__version__), commit
+    return str(agentfem.__version__), commit
 
 
 def _matches_candidate(

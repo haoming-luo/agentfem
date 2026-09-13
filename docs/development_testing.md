@@ -51,6 +51,12 @@ The printed path must point to the current checkout. Release CI instead builds
 and force-installs the candidate wheel before testing, intentionally verifying
 the artifact users receive.
 
+`promotion_gate.py` is a source-checkout audit and therefore inserts the local
+`src/` directory itself. It also rejects an AgentFEM import from outside that
+checkout. This prevents an installed older wheel from being paired with the
+current Git commit in a promotion report. Installed-wheel acceptance remains a
+separate G5 record rather than being inferred by the source audit.
+
 Direct MPI driver scripts do not pass through pytest's `pythonpath` setting.
 When they are used against an uninstalled checkout, prefix both serial and MPI
 commands with the checkout parent explicitly, for example:

@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 import json
+from pathlib import Path
 
+import agentfem
 import promotion_gate
 
 
@@ -9,6 +11,15 @@ def _write(tmp_path, name, record):
     path = tmp_path / name
     path.write_text(json.dumps(record), encoding="utf-8")
     return path
+
+
+def test_candidate_identity_is_bound_to_the_current_checkout():
+    version, commit = promotion_gate._candidate_identity()
+
+    expected_package = (promotion_gate.SOURCE_ROOT / "agentfem").resolve()
+    assert Path(agentfem.__file__).resolve().is_relative_to(expected_package)
+    assert version == agentfem.__version__
+    assert commit is None or len(commit) == 40
 
 
 def test_core_promotion_gates_are_executable_and_external_gaps_stay_visible():
