@@ -55,9 +55,11 @@ the private engineering record.
 
 3. Keep study, model, and problem responsibilities separate:
    `studies.py` declares context, `models.py` registers assets and checks the
-   model, `_step_builders.py` constructs built-in scientific procedures,
-   `step_providers.py` selects and lowers supported analysis/material
-   protocols, and `problems.py` represents discrete systems to solve.
+   model, the `_step_builders_*` family modules construct built-in scientific
+   procedures behind a thin `_step_builders.py` facade, `step_providers.py`
+   owns the public extension protocol and dispatch, the private registry owns
+   deterministic selection, the built-in catalog owns AgentFEM predicates and
+   lowerers, and `problems.py` represents discrete systems to solve.
    `Model.step` remains the stable public entry point; adding a material family
    does not justify adding a case-specific method to every model. Historical
    builder methods remain thin 0.2.x compatibility delegates rather than

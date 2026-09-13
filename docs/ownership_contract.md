@@ -46,7 +46,10 @@ Provider selection is intentionally narrower than lowering. The private
 registry stores, orders, and resolves declared providers without importing
 builders or executing them. A selected provider then performs scientific
 lowering, after which the dispatch boundary binds the common execution
-context. This keeps extension discovery independent of built-in physics.
+context. Public provider contracts and dispatch remain in
+`step_providers.py`; built-in predicates, lowerers, and declarations live in
+`_builtin_step_providers.py`. This keeps extension discovery independent of
+built-in physics without inventing a second plugin API.
 
 Built-in builders are divided by scientific family when their dependencies
 and validation rules form a genuine independent unit. Linear and thermal

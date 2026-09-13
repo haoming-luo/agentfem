@@ -242,6 +242,23 @@ def test_step_provider_registry_owns_selection_not_scientific_lowering():
     assert "provider.lower" in provider_source
 
 
+def test_public_step_provider_protocol_is_separate_from_builtin_catalog():
+    public_path = PACKAGE / "step_providers.py"
+    catalog_path = PACKAGE / "_builtin_step_providers.py"
+    public_source = public_path.read_text(encoding="utf-8")
+    catalog_source = catalog_path.read_text(encoding="utf-8")
+
+    assert "class StepProvider" in public_source
+    assert "class StepOptionContract" in public_source
+    assert "def lower_step" in public_source
+    assert "def _accept_linear_static" not in public_source
+    assert "def _lower_linear_static" not in public_source
+    assert "register_step_provider(" in catalog_source
+    assert "def _accept_linear_static" in catalog_source
+    assert "def _lower_linear_static" in catalog_source
+    assert "models" not in _agentfem_imports(catalog_path)
+
+
 def test_thermal_step_builders_have_a_separate_physics_owner():
     facade_source = (PACKAGE / "_step_builders.py").read_text(encoding="utf-8")
     family_path = PACKAGE / "_step_builders_thermal.py"
