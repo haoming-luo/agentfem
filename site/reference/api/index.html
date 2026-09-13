@@ -2419,6 +2419,11 @@ and evidence remain in the linked guides and scientific function reference.</p>
 </tr>
 <tr>
 <td>function</td>
+<td><code>static_membrane(*, name: str \| None = None) -&gt; Study</code></td>
+<td>Define a two-dimensional finite-kinematics membrane study.</td>
+</tr>
+<tr>
+<td>function</td>
 <td><code>steady_heat_transfer(*, dimension: int, name: str \| None = None) -&gt; Study</code></td>
 <td>Define steady heat conduction, including source, flux, and convection.</td>
 </tr>
@@ -3047,6 +3052,11 @@ and evidence remain in the linked guides and scientific function reference.</p>
 </tr>
 <tr>
 <td>class</td>
+<td><code>ElasticAnisotropic3DProperties</code></td>
+<td>3D linear elasticity in engineering-strain Voigt notation.</td>
+</tr>
+<tr>
+<td>class</td>
 <td><code>ElasticIsotropicProperties</code></td>
 <td>Isotropic linear-elastic material properties.</td>
 </tr>
@@ -3069,6 +3079,81 @@ and evidence remain in the linked guides and scientific function reference.</p>
 <td>function</td>
 <td><code>temperature_property(temperatures, values, **kwargs) -&gt; TemperaturePropertyTable</code></td>
 <td>Create an inspectable temperature-dependent material property.</td>
+</tr>
+<tr>
+<td>class</td>
+<td><code>FiberFrame</code></td>
+<td>Two independent structural directions for a woven reinforcement.</td>
+</tr>
+<tr>
+<td>class</td>
+<td><code>MaterialFrame</code></td>
+<td>Right-handed orthonormal material frame in the reference configuration.</td>
+</tr>
+<tr>
+<td>class</td>
+<td><code>OrientedMaterial</code></td>
+<td>One constitutive behavior combined with a separate material frame.</td>
+</tr>
+<tr>
+<td>function</td>
+<td><code>fiber_frame(warp, weft, *, name: str = 'fiber_frame') -&gt; FiberFrame</code></td>
+<td>Build two independent reference yarn directions.</td>
+</tr>
+<tr>
+<td>function</td>
+<td><code>material_frame(primary, secondary = None, *, normal = None, name: str = 'material_frame', evolution: str = 'fixed') -&gt; MaterialFrame</code></td>
+<td>Build a checked right-handed orthonormal material frame from axes.</td>
+</tr>
+<tr>
+<td>function</td>
+<td><code>oriented(material, orientation: MaterialFrame, *, name: str \| None = None) -&gt; OrientedMaterial</code></td>
+<td>Assign an elastic material to a reusable material frame.</td>
+</tr>
+<tr>
+<td>class</td>
+<td><code>LaminateResponse</code></td>
+<td>Classical-laminate generalized forces plus recoverable ply fields.</td>
+</tr>
+<tr>
+<td>class</td>
+<td><code>LaminateSection</code></td>
+<td>Ordered composite plies evaluated by classical laminate theory.</td>
+</tr>
+<tr>
+<td>class</td>
+<td><code>Ply</code></td>
+<td>One named lamina with a material, thickness, and section orientation.</td>
+</tr>
+<tr>
+<td>class</td>
+<td><code>PlyPointResult</code></td>
+<td>Strain and stress at one stable laminate section point.</td>
+</tr>
+<tr>
+<td>class</td>
+<td><code>SectionPoint</code></td>
+<td>Stable through-thickness integration-point identity.</td>
+</tr>
+<tr>
+<td>function</td>
+<td><code>laminate(plies: Sequence[Ply], *, name: str = 'laminate', reference_surface_offset: float = 0.0, source: str = 'user_defined', metadata: Mapping[str, object] \| None = None) -&gt; LaminateSection</code></td>
+<td>Create an ordered laminate section without coupling it to an element.</td>
+</tr>
+<tr>
+<td>function</td>
+<td><code>laminate_from_abaqus_section(section, materials_by_name: Mapping[str, object], *, reviewed_by: str, name: str \| None = None) -&gt; LaminateSection</code></td>
+<td>Lower one reviewed Abaqus composite-section inventory.</td>
+</tr>
+<tr>
+<td>function</td>
+<td><code>ply(material, thickness: float, *, angle: float = 0.0, name: str = 'ply', integration_points: int = 3) -&gt; Ply</code></td>
+<td>Create one ply; <code>angle</code> follows the industry-standard degree convention.</td>
+</tr>
+<tr>
+<td>function</td>
+<td><code>transformed_reduced_stiffness(stiffness_voigt, angle_degrees: float) -&gt; np.ndarray</code></td>
+<td>Rotate one planar engineering-Voigt stiffness into section axes.</td>
 </tr>
 <tr>
 <td>function</td>
@@ -3179,13 +3264,23 @@ and evidence remain in the linked guides and scientific function reference.</p>
 </tr>
 <tr>
 <td>function</td>
-<td><code>anisotropic_stress_2d(displacement, properties: ElasticAnisotropic2DProperties, *, study = None)</code></td>
+<td><code>anisotropic_stress_2d(displacement, properties: ElasticAnisotropic2DProperties, *, study = None, orientation = None)</code></td>
 <td>2D anisotropic stress from engineering-strain Voigt stiffness.</td>
+</tr>
+<tr>
+<td>function</td>
+<td><code>anisotropic_stress_3d(displacement, properties: ElasticAnisotropic3DProperties, *, study = None, orientation = None)</code></td>
+<td>3D anisotropic stress with an optional independent material frame.</td>
 </tr>
 <tr>
 <td>function</td>
 <td><code>anisotropic_elastic_2d(*, stiffness_voigt, density: float, name: str = 'anisotropic elastic 2D') -&gt; ElasticAnisotropic2DProperties</code></td>
 <td>Create 2D anisotropic linear-elastic properties.</td>
+</tr>
+<tr>
+<td>function</td>
+<td><code>anisotropic_elastic_3d(*, stiffness_voigt, density: float, name: str = 'anisotropic elastic 3D') -&gt; ElasticAnisotropic3DProperties</code></td>
+<td>Create 3D anisotropic elasticity in engineering Voigt notation.</td>
 </tr>
 <tr>
 <td>function</td>
@@ -3234,8 +3329,58 @@ and evidence remain in the linked guides and scientific function reference.</p>
 </tr>
 <tr>
 <td>function</td>
+<td><code>orthotropic_elastic_3d(*, ex: float, ey: float, ez: float, nuxy: float, nuxz: float, nuyz: float, gxy: float, gxz: float, gyz: float, density: float, name: str = 'orthotropic elastic 3D') -&gt; ElasticAnisotropic3DProperties</code></td>
+<td>Create a reciprocal, positive-definite 3D orthotropic material.</td>
+</tr>
+<tr>
+<td>function</td>
 <td><code>stress(displacement, properties, *, study = None, temperature = None)</code></td>
 <td>Dispatch to the matching elastic stress relation.</td>
+</tr>
+<tr>
+<td>class</td>
+<td><code>DecoupledFabricSurface</code></td>
+<td>Independent yarn tension, trellising shear, and bending channels.</td>
+</tr>
+<tr>
+<td>class</td>
+<td><code>FabricKinematics</code></td>
+<td>Non-orthogonal warp/weft surface deformation measures.</td>
+</tr>
+<tr>
+<td>class</td>
+<td><code>FabricMembraneExpressions</code></td>
+<td>Symbolic observables used by the global woven-membrane provider.</td>
+</tr>
+<tr>
+<td>class</td>
+<td><code>FabricSurfaceResponse</code></td>
+<td>Local generalized resultants, tangent, energy, and physical measures.</td>
+</tr>
+<tr>
+<td>class</td>
+<td><code>SurfaceConstitutive</code></td>
+<td>Extension contract for a local surface constitutive response.</td>
+</tr>
+<tr>
+<td>class</td>
+<td><code>TabulatedResponse</code></td>
+<td>Piecewise-linear scalar constitutive channel with an energy primitive.</td>
+</tr>
+<tr>
+<td>function</td>
+<td><code>decoupled_fabric_surface(*, frame: FiberFrame, warp_tension: TabulatedResponse, weft_tension: TabulatedResponse, shear: TabulatedResponse, bending_stiffness, tension_only: bool = True, name: str = 'fabric_surface') -&gt; DecoupledFabricSurface</code></td>
+<td>Public AgentFEM object.</td>
+</tr>
+<tr>
+<td>function</td>
+<td><code>fabric_membrane_internal_virtual_work(displacement, test, material: DecoupledFabricSurface, *, measure = None)</code></td>
+<td>Return the in-plane fabric membrane residual from stored energy.</td>
+</tr>
+<tr>
+<td>function</td>
+<td><code>tabulated_response(abscissa, ordinate, *, name: str = 'response', symmetry: str = 'none', extrapolation: str = 'error') -&gt; TabulatedResponse</code></td>
+<td>Public AgentFEM object.</td>
 </tr>
 <tr>
 <td>class</td>
@@ -4326,6 +4471,11 @@ and evidence remain in the linked guides and scientific function reference.</p>
 <td>class</td>
 <td><code>PreparedProjection(problem, output) -&gt; None</code></td>
 <td>A reusable L2 projection with one assembled mass matrix.</td>
+</tr>
+<tr>
+<td>function</td>
+<td><code>fabric_membrane_cell_fields(displacement, material, *, degree: int = 0) -&gt; tuple[object, ...]</code></td>
+<td>Project standard woven-membrane observables for inspection and export.</td>
 </tr>
 <tr>
 <td>function</td>
@@ -6359,6 +6509,16 @@ and evidence remain in the linked guides and scientific function reference.</p>
 <td>function</td>
 <td><code>j2_plasticity_step(*, displacement, material, external_force, constraints = (), study = None, incrementation = None, solver_options = None, quadrature_degree: int = 2, progress = True, status_file = None, amplitude = None, name: str = 'j2_plasticity', _experimental_distributed: bool = False) -&gt; J2PlasticityStep</code></td>
 <td>Build a global 3D or axisymmetric J2 step.</td>
+</tr>
+<tr>
+<td>class</td>
+<td><code>DirectorShellKinematics</code></td>
+<td>Finite-rotation surface measures at one material point.</td>
+</tr>
+<tr>
+<td>function</td>
+<td><code>director_shell_kinematics(reference_tangents, current_tangents, director, *, director_gradient = None, reference_director = None, reference_director_gradient = None) -&gt; DirectorShellKinematics</code></td>
+<td>Evaluate objective membrane, shear, and curvature measures.</td>
 </tr>
 <tr>
 <td>class</td>

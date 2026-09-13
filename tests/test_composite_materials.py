@@ -6,7 +6,17 @@ import ufl
 from dolfinx import fem
 from mpi4py import MPI
 
-from agentfem import constitutive, fields, materials, mesh, models, results, studies
+from agentfem import (
+    constitutive,
+    fields,
+    materials,
+    mechanics,
+    mesh,
+    models,
+    results,
+    studies,
+)
+from agentfem.step_providers import step_capability
 from agentfem.mesh import abaqus_migration
 
 
@@ -237,7 +247,7 @@ def test_fabric_surface_keeps_tension_shear_and_bending_independent():
     np.testing.assert_allclose(response.bending_moments, [0.2, 0.0, -0.2])
     assert response.tangent.shape == (6, 6)
     assert response.stored_energy > 0.0
-    assert surface.as_dict()["fem_integration"] == "not_yet_available"
+    assert surface.as_dict()["fem_integration"] == "finite_kinematics_in_plane_membrane"
 
 
 def test_fabric_tension_only_does_not_create_compressive_yarn_force():
@@ -272,3 +282,152 @@ def test_tabulated_energy_handles_negative_domains_and_odd_channels():
     assert signed.energy(0.5) == pytest.approx(0.25)
     assert odd.energy(-0.5) == pytest.approx(0.25)
     assert odd.energy(0.5) == pytest.approx(0.25)
+
+
+def test_director_shell_kinematics_are_objective_and_detect_curvature():
+    reference = np.array([[1.0, 0.0], [0.0, 1.0], [0.0, 0.0]])
+    angle = np.deg2rad(41.0)
+    rotation = np.array(
+        [
+            [np.cos(angle), -np.sin(angle), 0.0],
+            [np.sin(angle), np.cos(angle), 0.0],
+            [0.0, 0.0, 1.0],
+        ]
+    )
+    rigid = mechanics.director_shell_kinematics(
+        reference,
+        rotation @ reference,
+        rotation @ np.array([0.0, 0.0, 1.0]),
+    )
+    np.testing.assert_allclose(rigid.membrane_strain, 0.0, atol=1.0e-14)
+    np.testing.assert_allclose(rigid.transverse_shear, 0.0, atol=1.0e-14)
+    np.testing.assert_allclose(rigid.curvature_change, 0.0, atol=1.0e-14)
+    assert rigid.area_ratio == pytest.approx(1.0)
+
+    bent = mechanics.director_shell_kinematics(
+        reference,
+        reference,
+        [0.0, 0.0, 1.0],
+        director_gradient=np.array([[-2.0, 0.0], [0.0, 0.0], [0.0, 0.0]]),
+    )
+    assert bent.curvature_change[0, 0] == pytest.approx(2.0)
+    np.testing.assert_allclose(bent.membrane_strain, 0.0)
+
+    current = np.array([[1.2, 0.1], [0.2, 0.9], [0.1, -0.2]])
+    director = np.array([-0.1, 0.2, 0.97])
+    director /= np.linalg.norm(director)
+    gradient = np.array([[0.1, -0.2], [0.05, 0.08], [0.0, 0.03]])
+    before = mechanics.director_shell_kinematics(
+        reference,
+        current,
+        director,
+        director_gradient=gradient,
+    )
+    after = mechanics.director_shell_kinematics(
+        reference,
+        rotation @ current,
+        rotation @ director,
+        director_gradient=rotation @ gradient,
+    )
+    np.testing.assert_allclose(after.membrane_strain, before.membrane_strain)
+    np.testing.assert_allclose(after.transverse_shear, before.transverse_shear)
+    np.testing.assert_allclose(after.curvature_change, before.curvature_change)
+    np.testing.assert_allclose(after.current_normal, rotation @ before.current_normal)
+
+
+def _fabric_membrane(*, bending=0.0):
+    tension = constitutive.tabulated_response(
+        [0.0, 0.05, 0.10],
+        [0.0, 50.0, 120.0],
+        extrapolation="linear",
+    )
+    shear = constitutive.tabulated_response(
+        [0.0, 0.2, 0.5],
+        [0.0, 10.0, 80.0],
+        symmetry="odd",
+        extrapolation="linear",
+    )
+    return constitutive.decoupled_fabric_surface(
+        frame=materials.fiber_frame([1.0, 0.0], [0.0, 1.0]),
+        warp_tension=tension,
+        weft_tension=tension,
+        shear=shear,
+        bending_stiffness=np.eye(3) * float(bending),
+    )
+
+
+def test_fabric_membrane_enters_standard_step_and_solves_a_loaded_patch(tmp_path):
+    domain = mesh.rectangle(
+        (0.0, 0.0),
+        (1.0, 0.2),
+        (4, 2),
+        comm=MPI.COMM_SELF,
+        cell_type="triangle",
+    )
+    model = models.create(study=studies.static_membrane(), mesh=domain)
+    displacement = model.field(fields.displacement(domain, degree=1))
+    material = model.material(_fabric_membrane())
+    left = mesh.boundary(domain, lambda x: np.isclose(x[0], 0.0), name="left")
+    right = mesh.boundary(
+        domain,
+        lambda x: np.isclose(x[0], 1.0),
+        name="right",
+        tag=2,
+    )
+    model.fix(displacement, on=left)
+    model.traction((1.0, 0.0), on=right)
+
+    capability = step_capability(
+        model,
+        target=displacement,
+        options={"material": material},
+    )
+    assert capability["provider"]["name"] == "decoupled_fabric_membrane_static"
+    step = model.step(
+        target=displacement,
+        material=material,
+        increments=2,
+        progress=False,
+    )
+    simulation = step.solve_result(output=tmp_path / "fabric_membrane.xdmf")
+
+    assert step.last_solve_info.converged
+    assert np.max(displacement.value.x.array[::2]) > 0.0
+    checks = step.last_solve_info.increments[-1].checks
+    assert checks["minimum_quadrature_J"] > 0.0
+    assert checks["membrane_energy"] > 0.0
+    assert simulation.status == "completed"
+    assert {
+        "Displacement",
+        "FABRIC_STRAIN",
+        "FABRIC_N",
+        "FABRIC_WARP",
+        "FABRIC_WEFT",
+        "SENER",
+    }.issubset(simulation.fields)
+    assert simulation.artifacts["fields_xdmf"].is_file()
+    assert simulation.artifacts["fields_hdf5"].is_file()
+
+
+def test_membrane_provider_refuses_to_hide_shell_bending():
+    domain = mesh.rectangle(
+        (0.0, 0.0),
+        (1.0, 1.0),
+        (1, 1),
+        comm=MPI.COMM_SELF,
+        cell_type="triangle",
+    )
+    model = models.create(study=studies.static_membrane(), mesh=domain)
+    displacement = model.field(fields.displacement(domain))
+    material = model.material(_fabric_membrane(bending=1.0))
+
+    with pytest.raises(NotImplementedError, match="cannot consume bending stiffness"):
+        model.step(target=displacement, material=material, progress=False)
+
+
+def test_fabric_capability_declares_membrane_without_claiming_a_shell():
+    capability = constitutive.capability("fabric_surface")
+
+    assert capability.maturity == "experimental_fem_integrated"
+    assert "in-plane membrane" in capability.available_scope
+    assert any("not yet a shell" in item for item in capability.limitations)

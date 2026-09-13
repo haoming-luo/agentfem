@@ -39,6 +39,7 @@ from .quantities import (
 )
 from .projection import (
     PreparedProjection,
+    fabric_membrane_cell_fields,
     prepare_projection,
     project,
     project_piecewise,
@@ -181,6 +182,7 @@ __all__ = [
     "boundary_resultant",
     "cell_average_recovery",
     "field_extrema",
+    "fabric_membrane_cell_fields",
     "free_body_resultant",
     "external_force_resultant",
     "integral",

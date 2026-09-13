@@ -57,10 +57,12 @@ from .elasticity import (
 from .fabric import (
     DecoupledFabricSurface,
     FabricKinematics,
+    FabricMembraneExpressions,
     FabricSurfaceResponse,
     SurfaceConstitutive,
     TabulatedResponse,
     decoupled_fabric_surface,
+    fabric_membrane_internal_virtual_work,
     tabulated_response,
 )
 from .fatigue import (
@@ -246,10 +248,12 @@ __all__ = [
     "orthotropic_elastic_3d",
     "DecoupledFabricSurface",
     "FabricKinematics",
+    "FabricMembraneExpressions",
     "FabricSurfaceResponse",
     "SurfaceConstitutive",
     "TabulatedResponse",
     "decoupled_fabric_surface",
+    "fabric_membrane_internal_virtual_work",
     "tabulated_response",
     "assess_history",
     "assess_result_history",

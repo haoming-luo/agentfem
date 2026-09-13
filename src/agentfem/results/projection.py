@@ -281,6 +281,44 @@ def small_strain_cell_fields(
     return tuple(fields)
 
 
+def fabric_membrane_cell_fields(
+    displacement,
+    material,
+    *,
+    degree: int = 0,
+) -> tuple[object, ...]:
+    """Project standard woven-membrane observables for inspection and export.
+
+    The fields preserve material-resultant semantics: ``FABRIC_STRAIN`` is
+    ``(warp, weft, trellising-angle)`` and ``FABRIC_N`` uses the matching
+    generalized resultant order. Directions are current unit vectors.
+    """
+
+    function = field_api.unwrap(displacement)
+    domain = function.function_space.mesh
+    expressions = material.membrane_expressions_ufl(function)
+    selected = (
+        (
+            "FABRIC_STRAIN",
+            ufl.as_vector(
+                (
+                    expressions.warp_strain,
+                    expressions.weft_strain,
+                    expressions.shear_angle,
+                )
+            ),
+        ),
+        ("FABRIC_N", expressions.membrane_resultants),
+        ("FABRIC_WARP", expressions.warp_direction),
+        ("FABRIC_WEFT", expressions.weft_direction),
+        ("SENER", expressions.stored_energy),
+    )
+    return tuple(
+        project(expression, domain=domain, family="DG", degree=degree, name=name)
+        for name, expression in selected
+    )
+
+
 def small_strain_partition_fields(
     displacement,
     assignments,
@@ -432,5 +470,6 @@ __all__ = [
     "project",
     "project_piecewise",
     "small_strain_cell_fields",
+    "fabric_membrane_cell_fields",
     "small_strain_partition_fields",
 ]

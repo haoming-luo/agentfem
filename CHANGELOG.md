@@ -6,6 +6,23 @@ experimental formulation to a validated one.
 
 ## [Unreleased]
 
+### Added
+
+- Add an experimental finite-kinematics woven-membrane provider through
+  `studies.static_membrane()` and the standard `model.step(...)` lifecycle.
+  Independent tabulated warp/weft tension and trellising shear determine the
+  residual and Jacobian from one stored-energy definition; accepted increments
+  report deformation-Jacobian and membrane-energy checks.
+- Add provider-neutral finite-rotation director-surface kinematics with
+  objective membrane, transverse-shear, and curvature measures as the tested
+  geometry boundary for a future fibrous-shell element.
+
+### Changed
+
+- Reject nonzero fabric bending stiffness in the in-plane membrane provider
+  instead of silently discarding it. Shell bending, locking control, tool
+  contact, friction, and inter-ply slip remain explicit promotion gates.
+
 ## [0.3.4] - 2026-09-11
 
 ### Added

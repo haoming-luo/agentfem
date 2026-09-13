@@ -118,9 +118,48 @@ local = fabric.evaluate(((1.05, 0.20), (0.0, 1.0)))
 
 The result retains current fiber directions, both yarn strains, current and
 shear angles, generalized resultants, tangent, bending moments, and stored
-energy. This is **material-point verified**, not FEM-integrated. Finite-rotation
-shell kinematics, locking control, tool contact, friction, inter-ply slip,
-explicit quasi-static controls, and forming observables remain separate
+energy.
+
+For a finite-kinematics **in-plane membrane** solve, use the same public
+workflow and a zero bending matrix:
+
+```python
+from agentfem import fields, models, studies
+
+study = studies.static_membrane()
+model = models.create(study=study, mesh=domain)
+u = model.field(fields.displacement(domain))
+fabric = constitutive.decoupled_fabric_surface(
+    frame=frame,
+    warp_tension=tension,
+    weft_tension=tension,
+    shear=shear,
+    bending_stiffness=((0, 0, 0), (0, 0, 0), (0, 0, 0)),
+)
+model.material(fabric)
+# Add ordinary strong displacement constraints and/or natural loads.
+result = model.step(target=u, increments=10).solve_result()
+```
+
+The provider derives both residual and Jacobian from the tabulated stored
+energy, drives accepted load increments through the standard nonlinear
+lifecycle, and rejects non-positive deformation Jacobians. A symbolic field
+cannot raise an extrapolation error only at selected quadrature points, so
+every globally used response curve must choose `extrapolation="constant"` or
+`"linear"` explicitly.
+
+`solve_result()` adds cell fields `FABRIC_STRAIN` (warp strain, weft strain,
+trellising angle), `FABRIC_N` (the conjugate generalized resultants), current
+`FABRIC_WARP`/`FABRIC_WEFT` directions, and `SENER`. Their component order is
+fixed in the capability card rather than inferred by a plotting script.
+
+This is an **experimental FEM-integrated membrane**, not a shell. It consumes
+yarn tension and trellising shear and deliberately refuses a nonzero bending
+matrix instead of discarding it. `mechanics.director_shell_kinematics(...)`
+provides objective local membrane, transverse-shear, and curvature measures
+for the next provider, but it does not claim an element interpolation,
+locking treatment, or global shell solve. Tool contact, friction, inter-ply
+slip, explicit quasi-static controls, and forming observables remain separate
 promotion gates.
 
 That boundary reflects the literature. Boisse and co-workers identify yarn
@@ -143,10 +182,15 @@ The automated local evidence currently checks:
 - section-point identities and per-ply recovery are stable;
 - identity deformation has zero fabric response;
 - tension-only yarns do not generate artificial compressive force;
-- tension, trellising shear, and bending remain independent energy channels.
+- tension, trellising shear, and bending remain independent energy channels;
+- director-shell measures vanish under a superposed rigid rotation and detect
+  a constant-curvature patch;
+- the woven membrane is selected by the standard Step provider, solves a
+  nonzero traction patch, and reports positive Jacobian and stored energy;
+- membrane lowering rejects a nonzero bending law rather than hiding it.
 
-No forming benchmark, shell patch test, contact benchmark, or drape experiment
-has yet promoted the fabric surface law to FEM-integrated maturity.
+No shell element patch test, contact benchmark, or drape experiment has yet
+promoted this membrane foundation to a forming-capable fibrous shell.
 
 ## References
 
@@ -157,13 +201,15 @@ has yet promoted the fabric surface law to FEM-integrated maturity.
 - B. Liang, F. Colmars, and P. Boisse, “A shell formulation for fibrous
   reinforcement forming simulations,” *Composites Part A* 100 (2017),
   <https://doi.org/10.1016/j.compositesa.2017.04.024>.
+- X. Peng and J. Cao, “A continuum mechanics-based non-orthogonal constitutive
+  model for woven composite fabrics,” *Composites Part A* 36 (2005),
+  <https://doi.org/10.1016/j.compositesa.2004.08.008>.
 - “A Shell Formulation for Textile Composite Forming Simulations,”
   *Procedia Manufacturing* 47 (2020),
   <https://doi.org/10.1016/j.promfg.2020.04.125>.
-- R. Bai et al., “High-fidelity fibrous shell model based on a new
-  kinematic assumption for multi-layer woven fabric forming simulation,”
-  journal article and author summary,
-  <https://fhclxb.buaa.edu.cn/en/article/id/236271a2-01d7-4910-b99c-79ccc4cb21f6>.
+- R. Bai et al., “A specific 3D shell approach for textile composite
+  reinforcements under large deformation,” *Composites Part A* 139 (2020),
+  <https://doi.org/10.1016/j.compositesa.2020.106135>.
 - Dassault Systèmes, “Defining composite plies,” Abaqus 2025 documentation,
   <https://docs.software.vt.edu/abaqusv2025/English/SIMACAECAERefMap/simacae-t-prpcompositesshellcontinuumplies.htm>.
 - Dassault Systèmes, “Fabric material,” Abaqus 2025 documentation,

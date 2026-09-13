@@ -145,7 +145,7 @@ _BENCHMARKS = (
     BenchmarkSpec(
         identifier="composite_orientation_laminate_and_fabric_foundation",
         capability="fabric_surface",
-        level="material_point",
+        level="finite_element",
         reference=(
             "docs/composite_materials_and_forming.md; classical laminate theory; "
             "Liang-Colmars-Boisse fibrous-shell kinematic separation"
@@ -154,11 +154,18 @@ _BENCHMARKS = (
             "material-frame rotation preserves elastic energy, a symmetric "
             "cross-ply has B=0, section-point identities remain stable, and "
             "woven yarn tension, trellising shear, and bending retain "
-            "independent zero-state and energy responses"
+            "independent zero-state and energy responses; the membrane Step "
+            "solves a loaded patch with positive Jacobian and energy while "
+            "objective director measures pass rigid-rotation checks"
         ),
         automated_test="tests/test_composite_materials.py",
-        status="automated_material_point_foundation",
-        evidence=("material_point", "analytical_invariants", "failure_behavior"),
+        status="automated_experimental_global_patch",
+        evidence=(
+            "material_point",
+            "finite_element",
+            "analytical_invariants",
+            "failure_behavior",
+        ),
     ),
     BenchmarkSpec(
         identifier="nafems_le10_3d_elasticity",

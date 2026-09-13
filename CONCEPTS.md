@@ -330,9 +330,12 @@ shear, or bending resultants and a consistent local tangent. It is an extension
 boundary between reusable material physics and a membrane/shell provider.
 
 The initial woven-fabric law keeps yarn tension, trellising shear, and bending
-independent and reports convected fiber directions and stored energy. It is a
-material-point capability until a global finite-element provider supplies
-shell kinematics, assembly, state, solver, output, and benchmark evidence.
+independent and reports convected fiber directions and stored energy. Its
+tension and trellising channels now enter an experimental finite-kinematics
+in-plane membrane Step. The membrane provider rejects nonzero bending rather
+than silently ignoring it. Objective director-shell measures are a separate
+local kinematic foundation; a global shell still requires interpolation,
+locking control, assembly, output, and independent benchmark evidence.
 
 ## Constraint
 

@@ -825,7 +825,7 @@ cycle = fatigue_fracture.force_cycle(fmin=226, fmax=2262); law = fatigue_fractur
 **Status:** `experimental`<br>
 **Source card:** `src/agentfem/knowledge/cards/fabric_surface_constitutive.json`
 
-Defines a provider-neutral material-point surface law with independent convected warp/weft directions, tabulated yarn tension, trellising shear, bending moments, tangent, and stored energy without claiming an integrated forming shell.
+Defines independent woven-surface tension, trellising-shear, and bending channels; lowers the in-plane channels to an experimental finite-kinematics membrane Step while keeping shell bending and forming as explicit later gates.
 
 ### Public API
 
@@ -834,6 +834,10 @@ Defines a provider-neutral material-point surface law with independent convected
 - `agentfem.constitutive.TabulatedResponse`
 - `agentfem.constitutive.DecoupledFabricSurface`
 - `agentfem.constitutive.decoupled_fabric_surface`
+- `agentfem.studies.static_membrane`
+- `agentfem.mechanics.director_shell_kinematics`
+- `agentfem.results.fabric_membrane_cell_fields`
+- `agentfem.models.Model.step`
 
 ### Scientific contract
 
@@ -865,7 +869,8 @@ Independent tension, in-plane shear, and bending data remain independently ident
 
 | Name | Type | Unit role | Meaning |
 | --- | --- | --- | --- |
-| surface constitutive response | fiber kinematics, membrane resultants, bending moments, 6x6 local tangent, and stored energy | dimensionless, force per length, moment per length, and energy per area in a consistent unit system | The response is suitable for consumption by a future finite-rotation shell provider. |
+| surface constitutive response | fiber kinematics, membrane resultants, bending moments, 6x6 local tangent, and stored energy | dimensionless, force per length, moment per length, and energy per area in a consistent unit system | The local response includes bending; the current global membrane Step consumes only tension and trellising shear. |
+| global membrane result fields | Displacement plus DG cell fields FABRIC_STRAIN, FABRIC_N, FABRIC_WARP, FABRIC_WEFT, and SENER | length, dimensionless/radians, force per reference length, unit directions, and energy per reference area | FABRIC_STRAIN and FABRIC_N use the fixed warp, weft, trellising component order. |
 
 #### Assumptions
 
@@ -880,18 +885,19 @@ Independent tension, in-plane shear, and bending data remain independently ident
 
 #### Applicability
 
-- Material calibration, constitutive screening, and future woven-reinforcement forming providers.
+- Material calibration, constitutive screening, and finite-kinematics in-plane woven-membrane equilibrium.
 
 #### Limitations
 
-- No shell element, global residual/Jacobian, contact, friction, inter-ply slip, or forming Step currently consumes this response.
+- The global membrane Step rejects nonzero bending because no shell element consumes that channel yet.
+- Contact, friction, inter-ply slip, locking control, and forming procedures are not implemented.
 - Rate effects, hysteresis, irreversible locking, yarn slippage, and damage need additional stateful laws.
 - Material-point tests do not establish a forming simulation or wrinkle prediction capability.
 
 ### Minimal example
 
 ```python
-frame = materials.fiber_frame((1, 0), (0, 1)); tension = constitutive.tabulated_response((0, 0.1), (0, 100), extrapolation='linear'); shear = constitutive.tabulated_response((0, 0.5), (0, 20), symmetry='odd', extrapolation='linear'); fabric = constitutive.decoupled_fabric_surface(frame=frame, warp_tension=tension, weft_tension=tension, shear=shear, bending_stiffness=((1,0,0),(0,1,0),(0,0,0.5)))
+study = studies.static_membrane(); model = models.create(study=study, mesh=domain); u = model.field(fields.displacement(domain)); fabric = constitutive.decoupled_fabric_surface(frame=materials.fiber_frame((1,0),(0,1)), warp_tension=tension, weft_tension=tension, shear=shear, bending_stiffness=((0,0,0),(0,0,0),(0,0,0))); model.material(fabric); result = model.step(target=u).solve_result()
 ```
 
 ### Verification
@@ -909,13 +915,15 @@ frame = materials.fiber_frame((1, 0), (0, 1)); tension = constitutive.tabulated_
 - Require independent non-collinear reference fiber directions and non-collapsed convected directions.
 - Require an odd trellising response and a symmetric positive-semidefinite bending stiffness.
 - Verify zero reference response, tension-only compression behavior, stored-energy consistency, and separation of tension, shear, and bending channels.
-- Keep FEM integration unavailable until shell patch, objectivity, contact, and forming benchmarks pass.
+- Verify objective director kinematics and a nonzero global membrane patch with positive deformation Jacobian and energy.
+- Keep shell, contact, and forming claims unavailable until their independent patch tests and benchmarks pass.
 
 ### References
 
 - Boisse et al. (2022), bias-extension characterization review: `https://doi.org/10.1007/s12289-022-01682-8`
 - Liang, Colmars, and Boisse (2017), fibrous-reinforcement shell formulation: `https://doi.org/10.1016/j.compositesa.2017.04.024`
-- Bai et al., high-fidelity fibrous shell model for multilayer woven forming: `https://fhclxb.buaa.edu.cn/en/article/id/236271a2-01d7-4910-b99c-79ccc4cb21f6`
+- Peng and Cao (2005), non-orthogonal woven-fabric constitutive model: `https://doi.org/10.1016/j.compositesa.2004.08.008`
+- Bai et al. (2020), specific 3D shell for textile reinforcement: `https://doi.org/10.1016/j.compositesa.2020.106135`
 
 <a id="agentfem-material-finite_strain_j2_logarithmic"></a>
 

@@ -525,14 +525,18 @@
         "agentfem.constitutive.SurfaceConstitutive",
         "agentfem.constitutive.TabulatedResponse",
         "agentfem.constitutive.DecoupledFabricSurface",
-        "agentfem.constitutive.decoupled_fabric_surface"
+        "agentfem.constitutive.decoupled_fabric_surface",
+        "agentfem.studies.static_membrane",
+        "agentfem.mechanics.director_shell_kinematics",
+        "agentfem.results.fabric_membrane_cell_fields",
+        "agentfem.models.Model.step"
       ],
       "related_cards": [
         "agentfem.workflow.composite_orientation_and_laminate"
       ],
       "source": "src/agentfem/knowledge/cards/fabric_surface_constitutive.json",
       "status": "experimental",
-      "summary": "Defines a provider-neutral material-point surface law with independent convected warp/weft directions, tabulated yarn tension, trellising shear, bending moments, tangent, and stored energy without claiming an integrated forming shell.",
+      "summary": "Defines independent woven-surface tension, trellising-shear, and bending channels; lowers the in-plane channels to an experimental finite-kinematics membrane Step while keeping shell bending and forming as explicit later gates.",
       "title": "Non-orthogonal woven-fabric surface response"
     },
     {

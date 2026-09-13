@@ -144,7 +144,10 @@ Package paths below are relative to `src/agentfem/`.
 - Constraints: `constraints/`
 - Loads and natural boundary data: `loads.py`
 - Constitutive laws and their queryable maturity catalog: `constitutive/`;
-  provider-neutral woven-fabric surface response: `constitutive/fabric.py`
+  woven-fabric surface response and in-plane energy: `constitutive/fabric.py`
+- Provider-neutral director-shell local geometry: `mechanics/shell.py`; the
+  experimental global woven membrane remains a Step provider, not a Model
+  special case
 - Engineering damage and life-assessment consumers: `assessments.py`
 - Material library, assignment frames, plies, and laminate sections:
   `materials/`

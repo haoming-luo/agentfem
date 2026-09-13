@@ -23,6 +23,7 @@ and evidence remain in the linked guides and scientific function reference.
 | function | `linear_static(*, physics: str, dimension: int, assumption: str \| None = None, name: str \| None = None) -> Study` | Define a linear static study. |
 | function | `nonlinear_static(*, physics: str, dimension: int, assumption: str \| None = None, name: str \| None = None) -> Study` | Define a nonlinear static study. |
 | function | `static_solid(*, dimension: int, assumption: str \| None = None, nonlinear: bool = False, name: str \| None = None) -> Study` | Define a static solid-mechanics study with concise engineering syntax. |
+| function | `static_membrane(*, name: str \| None = None) -> Study` | Define a two-dimensional finite-kinematics membrane study. |
 | function | `steady_heat_transfer(*, dimension: int, name: str \| None = None) -> Study` | Define steady heat conduction, including source, flux, and convection. |
 | function | `first_order_transient(*, physics: str, dimension: int, assumption: str \| None = None, name: str \| None = None, procedure: str \| None = None) -> Study` | Define a first-order transient study. |
 | function | `transient(*, physics: str, dimension: int, assumption: str \| None = None, name: str \| None = None, procedure: str \| None = None) -> Study` | Compatibility alias for ``first_order_transient``. |
@@ -159,11 +160,27 @@ and evidence remain in the linked guides and scientific function reference.
 | function | `material_record(name: str) -> MaterialRecord` | Return a validated material record without constructing a model object. |
 | function | `register_material(name: str, data: dict, *, overwrite: bool = False) -> None` | Register or override a material record in memory. |
 | class | `ElasticAnisotropic2DProperties` | 2D linear-elastic properties using engineering-strain Voigt notation. |
+| class | `ElasticAnisotropic3DProperties` | 3D linear elasticity in engineering-strain Voigt notation. |
 | class | `ElasticIsotropicProperties` | Isotropic linear-elastic material properties. |
 | class | `ThermoElasticIsotropicProperties` | Isotropic thermoelastic and heat-conduction properties. |
 | class | `TemperatureDependentThermoElasticProperties` | Isotropic thermoelastic properties containing constants or tables. |
 | class | `TemperaturePropertyTable` | One material property tabulated against absolute temperature. |
 | function | `temperature_property(temperatures, values, **kwargs) -> TemperaturePropertyTable` | Create an inspectable temperature-dependent material property. |
+| class | `FiberFrame` | Two independent structural directions for a woven reinforcement. |
+| class | `MaterialFrame` | Right-handed orthonormal material frame in the reference configuration. |
+| class | `OrientedMaterial` | One constitutive behavior combined with a separate material frame. |
+| function | `fiber_frame(warp, weft, *, name: str = 'fiber_frame') -> FiberFrame` | Build two independent reference yarn directions. |
+| function | `material_frame(primary, secondary = None, *, normal = None, name: str = 'material_frame', evolution: str = 'fixed') -> MaterialFrame` | Build a checked right-handed orthonormal material frame from axes. |
+| function | `oriented(material, orientation: MaterialFrame, *, name: str \| None = None) -> OrientedMaterial` | Assign an elastic material to a reusable material frame. |
+| class | `LaminateResponse` | Classical-laminate generalized forces plus recoverable ply fields. |
+| class | `LaminateSection` | Ordered composite plies evaluated by classical laminate theory. |
+| class | `Ply` | One named lamina with a material, thickness, and section orientation. |
+| class | `PlyPointResult` | Strain and stress at one stable laminate section point. |
+| class | `SectionPoint` | Stable through-thickness integration-point identity. |
+| function | `laminate(plies: Sequence[Ply], *, name: str = 'laminate', reference_surface_offset: float = 0.0, source: str = 'user_defined', metadata: Mapping[str, object] \| None = None) -> LaminateSection` | Create an ordered laminate section without coupling it to an element. |
+| function | `laminate_from_abaqus_section(section, materials_by_name: Mapping[str, object], *, reviewed_by: str, name: str \| None = None) -> LaminateSection` | Lower one reviewed Abaqus composite-section inventory. |
+| function | `ply(material, thickness: float, *, angle: float = 0.0, name: str = 'ply', integration_points: int = 3) -> Ply` | Create one ply; ``angle`` follows the industry-standard degree convention. |
+| function | `transformed_reduced_stiffness(stiffness_voigt, angle_degrees: float) -> np.ndarray` | Rotate one planar engineering-Voigt stiffness into section axes. |
 | function | `validate_material_record(name: str, record: dict) -> None` | Validate one material-centered library record. |
 
 ## `agentfem.constitutive`
@@ -188,8 +205,10 @@ and evidence remain in the linked guides and scientific function reference.
 | function | `integrate_stress_history(law: PowerLawCreep, times, interval_stresses) -> CreepHistory` | Integrate a piecewise-constant scalar or tensor stress history. |
 | function | `isotropic_power_law(*, young: float \| None = None, poisson: float \| None = None, density: float \| None = None, elastic: ElasticIsotropicProperties \| ThermoElasticIsotropicProperties \| TemperatureDependentThermoElasticProperties \| None = None, coefficient: float, stress_exponent: float, time_exponent: float = 0.0, reference_stress: float = 1.0, reference_time: float = 1.0, name: str = 'isotropic power-law creep') -> IsotropicPowerLawCreepMaterial` | Create one Abaqus-style material record with elastic and creep data. |
 | function | `isotropic_arrhenius_power_law(*, young: float \| None = None, poisson: float \| None = None, density: float \| None = None, elastic: ElasticIsotropicProperties \| ThermoElasticIsotropicProperties \| TemperatureDependentThermoElasticProperties \| None = None, coefficient: float, stress_exponent: float, activation_energy: float, reference_temperature: float, time_exponent: float = 0.0, reference_stress: float = 1.0, reference_time: float = 1.0, gas_constant: float = 8.31446261815324, name: str = 'isotropic Arrhenius power-law creep') -> IsotropicPowerLawCreepMaterial` | Create elasticity plus a globally consumable Arrhenius creep law. |
-| function | `anisotropic_stress_2d(displacement, properties: ElasticAnisotropic2DProperties, *, study = None)` | 2D anisotropic stress from engineering-strain Voigt stiffness. |
+| function | `anisotropic_stress_2d(displacement, properties: ElasticAnisotropic2DProperties, *, study = None, orientation = None)` | 2D anisotropic stress from engineering-strain Voigt stiffness. |
+| function | `anisotropic_stress_3d(displacement, properties: ElasticAnisotropic3DProperties, *, study = None, orientation = None)` | 3D anisotropic stress with an optional independent material frame. |
 | function | `anisotropic_elastic_2d(*, stiffness_voigt, density: float, name: str = 'anisotropic elastic 2D') -> ElasticAnisotropic2DProperties` | Create 2D anisotropic linear-elastic properties. |
+| function | `anisotropic_elastic_3d(*, stiffness_voigt, density: float, name: str = 'anisotropic elastic 3D') -> ElasticAnisotropic3DProperties` | Create 3D anisotropic elasticity in engineering Voigt notation. |
 | function | `estimate_elastic_wave_speeds(material) -> tuple[float, float]` | Return approximate ``(pressure_speed, shear_speed)`` for a material. |
 | function | `isotropic_stress(displacement, properties: ElasticIsotropicProperties, *, study = None, temperature = None)` | Small-strain isotropic stress, ``sigma(u)``. |
 | function | `isotropic_elastic(*, young: float, density: float, poisson: float, name: str = 'isotropic elastic') -> ElasticIsotropicProperties` | Create isotropic linear-elastic properties. |
@@ -199,7 +218,17 @@ and evidence remain in the linked guides and scientific function reference.
 | function | `temperature_dependent_thermoelastic(*, young, density: float, poisson, thermal_expansion, conductivity, specific_heat, reference_temperature: float = 293.15, name: str = 'temperature-dependent isotropic thermoelastic') -> TemperatureDependentThermoElasticProperties` | Create tabulated properties for sequential thermo-mechanics. |
 | function | `thermoelastic_stress(displacement, temperature, properties, *, study = None)` | Small-strain isotropic stress including thermal eigenstrain. |
 | function | `orthotropic_plane_stress_2d(*, ex: float, ey: float, nuxy: float, gxy: float, density: float, name: str = 'orthotropic plane-stress elastic 2D') -> ElasticAnisotropic2DProperties` | Create 2D orthotropic plane-stress elastic properties. |
+| function | `orthotropic_elastic_3d(*, ex: float, ey: float, ez: float, nuxy: float, nuxz: float, nuyz: float, gxy: float, gxz: float, gyz: float, density: float, name: str = 'orthotropic elastic 3D') -> ElasticAnisotropic3DProperties` | Create a reciprocal, positive-definite 3D orthotropic material. |
 | function | `stress(displacement, properties, *, study = None, temperature = None)` | Dispatch to the matching elastic stress relation. |
+| class | `DecoupledFabricSurface` | Independent yarn tension, trellising shear, and bending channels. |
+| class | `FabricKinematics` | Non-orthogonal warp/weft surface deformation measures. |
+| class | `FabricMembraneExpressions` | Symbolic observables used by the global woven-membrane provider. |
+| class | `FabricSurfaceResponse` | Local generalized resultants, tangent, energy, and physical measures. |
+| class | `SurfaceConstitutive` | Extension contract for a local surface constitutive response. |
+| class | `TabulatedResponse` | Piecewise-linear scalar constitutive channel with an energy primitive. |
+| function | `decoupled_fabric_surface(*, frame: FiberFrame, warp_tension: TabulatedResponse, weft_tension: TabulatedResponse, shear: TabulatedResponse, bending_stiffness, tension_only: bool = True, name: str = 'fabric_surface') -> DecoupledFabricSurface` | Public AgentFEM object. |
+| function | `fabric_membrane_internal_virtual_work(displacement, test, material: DecoupledFabricSurface, *, measure = None)` | Return the in-plane fabric membrane residual from stored energy. |
+| function | `tabulated_response(abscissa, ordinate, *, name: str = 'response', symmetry: str = 'none', extrapolation: str = 'error') -> TabulatedResponse` | Public AgentFEM object. |
 | class | `BasquinCurve` | Fully reversed stress-life curve ``sigma_a = sigma_f' (2N)^b``. |
 | class | `FatigueAssessment` | Auditable stress-life assessment derived from one scalar history. |
 | class | `FatigueBlock` | One constant-amplitude block for cumulative-damage assessment. |
@@ -431,6 +460,7 @@ and evidence remain in the linked guides and scientific function reference.
 | function | `static_force_balance(problem, *, constraints = (), provider_duals = ()) -> StaticForceBalance` | Evaluate ``R + F = 0`` for a converged linear static solid. |
 | function | `static_work_balance(problem, *, constraints = (), provider_duals = ()) -> StaticWorkBalance` | Evaluate linear-static work including nonzero strong Dirichlet data. |
 | class | `PreparedProjection(problem, output) -> None` | A reusable L2 projection with one assembled mass matrix. |
+| function | `fabric_membrane_cell_fields(displacement, material, *, degree: int = 0) -> tuple[object, ...]` | Project standard woven-membrane observables for inspection and export. |
 | function | `prepare_projection(expression, *, domain = None, family: str = 'DG', degree: int = 0, name: str = 'ProjectedField', weight = 1.0) -> PreparedProjection` | Prepare a reusable global L2 projection with a static mass operator. |
 | function | `project(expression, *, domain = None, family: str = 'DG', degree: int = 0, name: str = 'ProjectedField', weight = 1.0)` | Return the global L2 projection of a UFL expression. |
 | function | `project_piecewise(terms, *, domain = None, family: str = 'DG', degree: int = 0, name: str = 'ProjectedField', weight = 1.0)` | Project region-dependent expressions into one finite-element field. |
@@ -887,6 +917,8 @@ and evidence remain in the linked guides and scientific function reference.
 | class | `J2LoadPathInfo` | Public AgentFEM object. |
 | class | `J2PlasticityStep` | Incremental global equilibrium for 3D small-strain J2 plasticity. |
 | function | `j2_plasticity_step(*, displacement, material, external_force, constraints = (), study = None, incrementation = None, solver_options = None, quadrature_degree: int = 2, progress = True, status_file = None, amplitude = None, name: str = 'j2_plasticity', _experimental_distributed: bool = False) -> J2PlasticityStep` | Build a global 3D or axisymmetric J2 step. |
+| class | `DirectorShellKinematics` | Finite-rotation surface measures at one material point. |
+| function | `director_shell_kinematics(reference_tangents, current_tangents, director, *, director_gradient = None, reference_director = None, reference_director_gradient = None) -> DirectorShellKinematics` | Evaluate objective membrane, shear, and curvature measures. |
 | class | `HarmonicViscoelasticStep` | Direct harmonic generalized-Maxwell equilibrium in a real PETSc build. |
 | class | `QuasistaticViscoelasticStep` | Incremental equilibrium for a small-strain generalized-Maxwell solid. |
 | class | `ViscoelasticEnergyFrame` | Exact constitutive work--storage--dissipation ledger. |

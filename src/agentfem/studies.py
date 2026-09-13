@@ -33,6 +33,7 @@ SOLID_2D_ASSUMPTIONS = {
     "plane_strain",
     "axisymmetric",
 }
+SURFACE_2D_ASSUMPTIONS = {"membrane"}
 
 
 @dataclass(frozen=True)
@@ -113,10 +114,10 @@ class Study:
         if self.dimension not in (1, 2, 3):
             raise ValueError("Study dimension must be 1, 2, or 3.")
         if self.physics == "solid_mechanics" and self.dimension == 2:
-            if self.assumption not in SOLID_2D_ASSUMPTIONS:
+            if self.assumption not in SOLID_2D_ASSUMPTIONS | SURFACE_2D_ASSUMPTIONS:
                 raise ValueError(
                     "2D solid mechanics requires assumption='plane_stress', "
-                    "'plane_strain', or 'axisymmetric'."
+                    "'plane_strain', 'axisymmetric', or 'membrane'."
                 )
         if self.dimension == 3 and self.assumption in SOLID_2D_ASSUMPTIONS:
             raise ValueError("plane_stress, plane_strain, and axisymmetric are 2D assumptions.")
@@ -216,6 +217,21 @@ def static_solid(
         dimension=dimension,
         assumption=assumption,
         name=name,
+    )
+
+
+def static_membrane(*, name: str | None = None) -> Study:
+    """Define a two-dimensional finite-kinematics membrane study.
+
+    The first provider is an in-plane finite-kinematics woven membrane. It is
+    deliberately distinct from plane stress and does not imply shell bending.
+    """
+
+    return nonlinear_static(
+        physics="solid_mechanics",
+        dimension=2,
+        assumption="membrane",
+        name=name or "static_membrane",
     )
 
 

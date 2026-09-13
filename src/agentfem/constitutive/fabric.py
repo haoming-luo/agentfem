@@ -113,6 +113,140 @@ class TabulatedResponse:
         y0, y1 = self.ordinate[index], self.ordinate[index + 1]
         return float(y0 + (y1 - y0) * (coordinate - x0) / (x1 - x0))
 
+    def ufl_value(self, coordinate):
+        """Return the piecewise-linear response as a differentiable UFL value.
+
+        Symbolic finite-element fields cannot raise only at quadrature points
+        after compilation. Global use therefore requires an explicit constant
+        or linear extrapolation policy.
+        """
+
+        import ufl
+
+        if self.extrapolation == "error":
+            raise ValueError(
+                f"Constitutive channel {self.name!r} needs explicit extrapolation "
+                "for a global finite-element field."
+            )
+        selected = abs(coordinate) if self.symmetry == "odd" else coordinate
+        value = self._ufl_interpolant(selected)
+        if self.symmetry == "odd":
+            return ufl.conditional(ufl.lt(coordinate, 0.0), -value, value)
+        return value
+
+    def ufl_energy(self, coordinate):
+        """Return the UFL primitive consistent with the symbolic response."""
+
+        if self.extrapolation == "error":
+            raise ValueError(
+                f"Constitutive channel {self.name!r} needs explicit extrapolation "
+                "for a global finite-element field."
+            )
+        selected = abs(coordinate) if self.symmetry == "odd" else coordinate
+        primitive = self._ufl_primitive(selected)
+        zero = self._primitive_value(0.0)
+        return primitive - zero
+
+    def _ufl_interpolant(self, coordinate):
+        import ufl
+
+        slopes = np.diff(self.ordinate) / np.diff(self.abscissa)
+        if self.extrapolation == "constant":
+            below = float(self.ordinate[0])
+            above = float(self.ordinate[-1])
+        else:
+            below = float(self.ordinate[0]) + float(slopes[0]) * (
+                coordinate - float(self.abscissa[0])
+            )
+            above = float(self.ordinate[-1]) + float(slopes[-1]) * (
+                coordinate - float(self.abscissa[-1])
+            )
+        expression = above
+        for index in range(self.abscissa.size - 2, -1, -1):
+            segment = float(self.ordinate[index]) + float(slopes[index]) * (
+                coordinate - float(self.abscissa[index])
+            )
+            expression = ufl.conditional(
+                ufl.le(coordinate, float(self.abscissa[index + 1])),
+                segment,
+                expression,
+            )
+        return ufl.conditional(
+            ufl.lt(coordinate, float(self.abscissa[0])),
+            below,
+            expression,
+        )
+
+    def _primitive_value(self, coordinate: float) -> float:
+        value = float(coordinate)
+        cumulative = np.zeros(self.abscissa.size)
+        cumulative[1:] = np.cumsum(
+            0.5 * (self.ordinate[:-1] + self.ordinate[1:]) * np.diff(self.abscissa)
+        )
+        slopes = np.diff(self.ordinate) / np.diff(self.abscissa)
+        if value < self.abscissa[0]:
+            delta = value - float(self.abscissa[0])
+            slope = 0.0 if self.extrapolation == "constant" else float(slopes[0])
+            return float(self.ordinate[0] * delta + 0.5 * slope * delta**2)
+        if value > self.abscissa[-1]:
+            delta = value - float(self.abscissa[-1])
+            slope = 0.0 if self.extrapolation == "constant" else float(slopes[-1])
+            return float(
+                cumulative[-1] + self.ordinate[-1] * delta + 0.5 * slope * delta**2
+            )
+        index = min(
+            max(int(np.searchsorted(self.abscissa, value, side="right") - 1), 0),
+            self.abscissa.size - 2,
+        )
+        delta = value - float(self.abscissa[index])
+        return float(
+            cumulative[index]
+            + self.ordinate[index] * delta
+            + 0.5 * slopes[index] * delta**2
+        )
+
+    def _ufl_primitive(self, coordinate):
+        import ufl
+
+        slopes = np.diff(self.ordinate) / np.diff(self.abscissa)
+        cumulative = np.zeros(self.abscissa.size)
+        cumulative[1:] = np.cumsum(
+            0.5 * (self.ordinate[:-1] + self.ordinate[1:]) * np.diff(self.abscissa)
+        )
+
+        def segment(index: int):
+            delta = coordinate - float(self.abscissa[index])
+            return (
+                float(cumulative[index])
+                + float(self.ordinate[index]) * delta
+                + 0.5 * float(slopes[index]) * delta**2
+            )
+
+        delta_below = coordinate - float(self.abscissa[0])
+        below_slope = 0.0 if self.extrapolation == "constant" else float(slopes[0])
+        below = (
+            float(self.ordinate[0]) * delta_below
+            + 0.5 * below_slope * delta_below**2
+        )
+        delta_above = coordinate - float(self.abscissa[-1])
+        above_slope = 0.0 if self.extrapolation == "constant" else float(slopes[-1])
+        expression = (
+            float(cumulative[-1])
+            + float(self.ordinate[-1]) * delta_above
+            + 0.5 * above_slope * delta_above**2
+        )
+        for index in range(self.abscissa.size - 2, -1, -1):
+            expression = ufl.conditional(
+                ufl.le(coordinate, float(self.abscissa[index + 1])),
+                segment(index),
+                expression,
+            )
+        return ufl.conditional(
+            ufl.lt(coordinate, float(self.abscissa[0])),
+            below,
+            expression,
+        )
+
     def as_dict(self) -> dict[str, object]:
         return {
             "kind": "tabulated_constitutive_response",
@@ -166,6 +300,19 @@ class FabricSurfaceResponse:
             "tangent": self.tangent.tolist(),
             "stored_energy": self.stored_energy,
         }
+
+
+@dataclass(frozen=True)
+class FabricMembraneExpressions:
+    """Symbolic observables used by the global woven-membrane provider."""
+
+    warp_direction: object
+    weft_direction: object
+    warp_strain: object
+    weft_strain: object
+    shear_angle: object
+    membrane_resultants: object
+    stored_energy: object
 
 
 @dataclass(frozen=True)
@@ -237,6 +384,76 @@ class DecoupledFabricSurface:
             stored_energy=stored_energy,
         )
 
+    def membrane_expressions_ufl(self, displacement) -> FabricMembraneExpressions:
+        """Return finite-kinematics membrane measures and resultants in UFL."""
+
+        import ufl
+
+        if self.frame.dimension != 2:
+            raise ValueError(
+                "The in-plane fabric membrane provider requires a 2D FiberFrame."
+            )
+        if tuple(getattr(displacement, "ufl_shape", ())) != (2,):
+            raise ValueError(
+                "The in-plane fabric membrane provider requires a 2D displacement."
+            )
+        F = ufl.Identity(2) + ufl.grad(displacement)
+        warp0 = ufl.as_vector(self.frame.warp.tolist())
+        weft0 = ufl.as_vector(self.frame.weft.tolist())
+        warp = ufl.dot(F, warp0)
+        weft = ufl.dot(F, weft0)
+        stretch_warp = ufl.sqrt(ufl.inner(warp, warp))
+        stretch_weft = ufl.sqrt(ufl.inner(weft, weft))
+        cosine = ufl.inner(warp, weft) / (stretch_warp * stretch_weft)
+        bounded_cosine = ufl.max_value(-1.0, ufl.min_value(1.0, cosine))
+        shear_angle = self.frame.reference_angle - ufl.acos(bounded_cosine)
+        warp_strain = stretch_warp - 1.0
+        weft_strain = stretch_weft - 1.0
+
+        def yarn_value(curve, strain):
+            if not self.tension_only:
+                return curve.ufl_value(strain)
+            return ufl.conditional(
+                ufl.ge(strain, 0.0),
+                curve.ufl_value(strain),
+                0.0,
+            )
+
+        def yarn_energy(curve, strain):
+            if not self.tension_only:
+                return curve.ufl_energy(strain)
+            return ufl.conditional(
+                ufl.ge(strain, 0.0),
+                curve.ufl_energy(strain),
+                0.0,
+            )
+
+        energy = (
+            yarn_energy(self.warp_tension, warp_strain)
+            + yarn_energy(self.weft_tension, weft_strain)
+            + self.shear.ufl_energy(shear_angle)
+        )
+        return FabricMembraneExpressions(
+            warp_direction=warp / stretch_warp,
+            weft_direction=weft / stretch_weft,
+            warp_strain=warp_strain,
+            weft_strain=weft_strain,
+            shear_angle=shear_angle,
+            membrane_resultants=ufl.as_vector(
+                (
+                    yarn_value(self.warp_tension, warp_strain),
+                    yarn_value(self.weft_tension, weft_strain),
+                    self.shear.ufl_value(shear_angle),
+                )
+            ),
+            stored_energy=energy,
+        )
+
+    def membrane_energy_ufl(self, displacement):
+        """Finite-kinematics membrane energy for a two-dimensional UFL field."""
+
+        return self.membrane_expressions_ufl(displacement).stored_energy
+
     def as_dict(self) -> dict[str, object]:
         return {
             "kind": "decoupled_fabric_surface",
@@ -247,8 +464,9 @@ class DecoupledFabricSurface:
             "shear": self.shear.as_dict(),
             "bending_stiffness": self.bending_stiffness.tolist(),
             "tension_only": bool(self.tension_only),
-            "maturity": "material_point_verified",
-            "fem_integration": "not_yet_available",
+            "maturity": "experimental_fem_integrated",
+            "fem_integration": "finite_kinematics_in_plane_membrane",
+            "bending_integration": "local_kinematics_only",
         }
 
 
@@ -290,12 +508,30 @@ def decoupled_fabric_surface(
     )
 
 
+def fabric_membrane_internal_virtual_work(
+    displacement,
+    test,
+    material: DecoupledFabricSurface,
+    *,
+    measure=None,
+):
+    """Return the in-plane fabric membrane residual from stored energy."""
+
+    import ufl
+
+    selected_measure = ufl.dx if measure is None else measure
+    potential = material.membrane_energy_ufl(displacement) * selected_measure
+    return ufl.derivative(potential, displacement, test)
+
+
 __all__ = [
     "DecoupledFabricSurface",
     "FabricKinematics",
+    "FabricMembraneExpressions",
     "FabricSurfaceResponse",
     "SurfaceConstitutive",
     "TabulatedResponse",
     "decoupled_fabric_surface",
+    "fabric_membrane_internal_virtual_work",
     "tabulated_response",
 ]

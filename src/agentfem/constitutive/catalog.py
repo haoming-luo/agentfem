@@ -47,13 +47,15 @@ _CAPABILITIES = {
             "non-orthogonal warp/weft kinematics with independent tabulated yarn "
             "tension, trellising shear, and bending channels"
         ),
-        maturity="material_point_verified",
+        maturity="experimental_fem_integrated",
         available_scope=(
-            "provider-neutral local surface response, convected fiber directions, "
-            "tension-only yarns, tangent, stored energy, and machine-readable output"
+            "finite-kinematics 2D in-plane membrane equilibrium through model.step; "
+            "provider-neutral local tension/shear/bending response; objective local "
+            "finite-rotation director kinematics for a future shell provider"
         ),
         limitations=(
-            "not yet integrated into a finite-rotation shell or membrane Step",
+            "the global membrane consumes tension and trellising shear but rejects bending",
+            "director kinematics are local and are not yet a shell finite element",
             "tool contact, friction, inter-ply slip, locking, and forming controls are not implemented",
             "tabulated curves require user-owned experimental calibration",
         ),

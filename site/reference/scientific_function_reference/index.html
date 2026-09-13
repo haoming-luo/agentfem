@@ -15915,7 +15915,7 @@ D=1-(1-D_m)(1-D_f)
 <strong>Kind:</strong> <code>material</code><br>
 <strong>Status:</strong> <code>experimental</code><br>
 <strong>Source card:</strong> <code>src/agentfem/knowledge/cards/fabric_surface_constitutive.json</code></p>
-<p>Defines a provider-neutral material-point surface law with independent convected warp/weft directions, tabulated yarn tension, trellising shear, bending moments, tangent, and stored energy without claiming an integrated forming shell.</p>
+<p>Defines independent woven-surface tension, trellising-shear, and bending channels; lowers the in-plane channels to an experimental finite-kinematics membrane Step while keeping shell bending and forming as explicit later gates.</p>
 <h3 id="public-api_6">Public API<a class="headerlink" href="#public-api_6" title="Permanent link">&para;</a></h3>
 <ul>
 <li><code>agentfem.materials.FiberFrame</code></li>
@@ -15923,6 +15923,10 @@ D=1-(1-D_m)(1-D_f)
 <li><code>agentfem.constitutive.TabulatedResponse</code></li>
 <li><code>agentfem.constitutive.DecoupledFabricSurface</code></li>
 <li><code>agentfem.constitutive.decoupled_fabric_surface</code></li>
+<li><code>agentfem.studies.static_membrane</code></li>
+<li><code>agentfem.mechanics.director_shell_kinematics</code></li>
+<li><code>agentfem.results.fabric_membrane_cell_fields</code></li>
+<li><code>agentfem.models.Model.step</code></li>
 </ul>
 <h3 id="scientific-contract_6">Scientific contract<a class="headerlink" href="#scientific-contract_6" title="Permanent link">&para;</a></h3>
 <p>Warp and weft are independent structural directions that convect with the surface deformation, while yarn tension, trellising shear, and bending are calibrated and accumulated as distinct constitutive energy channels.</p>
@@ -15970,7 +15974,13 @@ D=1-(1-D_m)(1-D_f)
 <td>surface constitutive response</td>
 <td>fiber kinematics, membrane resultants, bending moments, 6x6 local tangent, and stored energy</td>
 <td>dimensionless, force per length, moment per length, and energy per area in a consistent unit system</td>
-<td>The response is suitable for consumption by a future finite-rotation shell provider.</td>
+<td>The local response includes bending; the current global membrane Step consumes only tension and trellising shear.</td>
+</tr>
+<tr>
+<td>global membrane result fields</td>
+<td>Displacement plus DG cell fields FABRIC_STRAIN, FABRIC_N, FABRIC_WARP, FABRIC_WEFT, and SENER</td>
+<td>length, dimensionless/radians, force per reference length, unit directions, and energy per reference area</td>
+<td>FABRIC_STRAIN and FABRIC_N use the fixed warp, weft, trellising component order.</td>
 </tr>
 </tbody>
 </table>
@@ -15987,16 +15997,17 @@ D=1-(1-D_m)(1-D_f)
 </ul>
 <h4 id="applicability_6">Applicability<a class="headerlink" href="#applicability_6" title="Permanent link">&para;</a></h4>
 <ul>
-<li>Material calibration, constitutive screening, and future woven-reinforcement forming providers.</li>
+<li>Material calibration, constitutive screening, and finite-kinematics in-plane woven-membrane equilibrium.</li>
 </ul>
 <h4 id="limitations_6">Limitations<a class="headerlink" href="#limitations_6" title="Permanent link">&para;</a></h4>
 <ul>
-<li>No shell element, global residual/Jacobian, contact, friction, inter-ply slip, or forming Step currently consumes this response.</li>
+<li>The global membrane Step rejects nonzero bending because no shell element consumes that channel yet.</li>
+<li>Contact, friction, inter-ply slip, locking control, and forming procedures are not implemented.</li>
 <li>Rate effects, hysteresis, irreversible locking, yarn slippage, and damage need additional stateful laws.</li>
 <li>Material-point tests do not establish a forming simulation or wrinkle prediction capability.</li>
 </ul>
 <h3 id="minimal-example_6">Minimal example<a class="headerlink" href="#minimal-example_6" title="Permanent link">&para;</a></h3>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="n">frame</span> <span class="o">=</span> <span class="n">materials</span><span class="o">.</span><span class="n">fiber_frame</span><span class="p">((</span><span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">),</span> <span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">));</span> <span class="n">tension</span> <span class="o">=</span> <span class="n">constitutive</span><span class="o">.</span><span class="n">tabulated_response</span><span class="p">((</span><span class="mi">0</span><span class="p">,</span> <span class="mf">0.1</span><span class="p">),</span> <span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">100</span><span class="p">),</span> <span class="n">extrapolation</span><span class="o">=</span><span class="s1">&#39;linear&#39;</span><span class="p">);</span> <span class="n">shear</span> <span class="o">=</span> <span class="n">constitutive</span><span class="o">.</span><span class="n">tabulated_response</span><span class="p">((</span><span class="mi">0</span><span class="p">,</span> <span class="mf">0.5</span><span class="p">),</span> <span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">20</span><span class="p">),</span> <span class="n">symmetry</span><span class="o">=</span><span class="s1">&#39;odd&#39;</span><span class="p">,</span> <span class="n">extrapolation</span><span class="o">=</span><span class="s1">&#39;linear&#39;</span><span class="p">);</span> <span class="n">fabric</span> <span class="o">=</span> <span class="n">constitutive</span><span class="o">.</span><span class="n">decoupled_fabric_surface</span><span class="p">(</span><span class="n">frame</span><span class="o">=</span><span class="n">frame</span><span class="p">,</span> <span class="n">warp_tension</span><span class="o">=</span><span class="n">tension</span><span class="p">,</span> <span class="n">weft_tension</span><span class="o">=</span><span class="n">tension</span><span class="p">,</span> <span class="n">shear</span><span class="o">=</span><span class="n">shear</span><span class="p">,</span> <span class="n">bending_stiffness</span><span class="o">=</span><span class="p">((</span><span class="mi">1</span><span class="p">,</span><span class="mi">0</span><span class="p">,</span><span class="mi">0</span><span class="p">),(</span><span class="mi">0</span><span class="p">,</span><span class="mi">1</span><span class="p">,</span><span class="mi">0</span><span class="p">),(</span><span class="mi">0</span><span class="p">,</span><span class="mi">0</span><span class="p">,</span><span class="mf">0.5</span><span class="p">)))</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="n">study</span> <span class="o">=</span> <span class="n">studies</span><span class="o">.</span><span class="n">static_membrane</span><span class="p">();</span> <span class="n">model</span> <span class="o">=</span> <span class="n">models</span><span class="o">.</span><span class="n">create</span><span class="p">(</span><span class="n">study</span><span class="o">=</span><span class="n">study</span><span class="p">,</span> <span class="n">mesh</span><span class="o">=</span><span class="n">domain</span><span class="p">);</span> <span class="n">u</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">field</span><span class="p">(</span><span class="n">fields</span><span class="o">.</span><span class="n">displacement</span><span class="p">(</span><span class="n">domain</span><span class="p">));</span> <span class="n">fabric</span> <span class="o">=</span> <span class="n">constitutive</span><span class="o">.</span><span class="n">decoupled_fabric_surface</span><span class="p">(</span><span class="n">frame</span><span class="o">=</span><span class="n">materials</span><span class="o">.</span><span class="n">fiber_frame</span><span class="p">((</span><span class="mi">1</span><span class="p">,</span><span class="mi">0</span><span class="p">),(</span><span class="mi">0</span><span class="p">,</span><span class="mi">1</span><span class="p">)),</span> <span class="n">warp_tension</span><span class="o">=</span><span class="n">tension</span><span class="p">,</span> <span class="n">weft_tension</span><span class="o">=</span><span class="n">tension</span><span class="p">,</span> <span class="n">shear</span><span class="o">=</span><span class="n">shear</span><span class="p">,</span> <span class="n">bending_stiffness</span><span class="o">=</span><span class="p">((</span><span class="mi">0</span><span class="p">,</span><span class="mi">0</span><span class="p">,</span><span class="mi">0</span><span class="p">),(</span><span class="mi">0</span><span class="p">,</span><span class="mi">0</span><span class="p">,</span><span class="mi">0</span><span class="p">),(</span><span class="mi">0</span><span class="p">,</span><span class="mi">0</span><span class="p">,</span><span class="mi">0</span><span class="p">)));</span> <span class="n">model</span><span class="o">.</span><span class="n">material</span><span class="p">(</span><span class="n">fabric</span><span class="p">);</span> <span class="n">result</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">step</span><span class="p">(</span><span class="n">target</span><span class="o">=</span><span class="n">u</span><span class="p">)</span><span class="o">.</span><span class="n">solve_result</span><span class="p">()</span>
 </code></pre></div>
 <h3 id="verification_6">Verification<a class="headerlink" href="#verification_6" title="Permanent link">&para;</a></h3>
 <p><strong>Tests</strong></p>
@@ -16012,13 +16023,15 @@ D=1-(1-D_m)(1-D_f)
 <li>Require independent non-collinear reference fiber directions and non-collapsed convected directions.</li>
 <li>Require an odd trellising response and a symmetric positive-semidefinite bending stiffness.</li>
 <li>Verify zero reference response, tension-only compression behavior, stored-energy consistency, and separation of tension, shear, and bending channels.</li>
-<li>Keep FEM integration unavailable until shell patch, objectivity, contact, and forming benchmarks pass.</li>
+<li>Verify objective director kinematics and a nonzero global membrane patch with positive deformation Jacobian and energy.</li>
+<li>Keep shell, contact, and forming claims unavailable until their independent patch tests and benchmarks pass.</li>
 </ul>
 <h3 id="references_6">References<a class="headerlink" href="#references_6" title="Permanent link">&para;</a></h3>
 <ul>
 <li>Boisse et al. (2022), bias-extension characterization review: <code>https://doi.org/10.1007/s12289-022-01682-8</code></li>
 <li>Liang, Colmars, and Boisse (2017), fibrous-reinforcement shell formulation: <code>https://doi.org/10.1016/j.compositesa.2017.04.024</code></li>
-<li>Bai et al., high-fidelity fibrous shell model for multilayer woven forming: <code>https://fhclxb.buaa.edu.cn/en/article/id/236271a2-01d7-4910-b99c-79ccc4cb21f6</code></li>
+<li>Peng and Cao (2005), non-orthogonal woven-fabric constitutive model: <code>https://doi.org/10.1016/j.compositesa.2004.08.008</code></li>
+<li>Bai et al. (2020), specific 3D shell for textile reinforcement: <code>https://doi.org/10.1016/j.compositesa.2020.106135</code></li>
 </ul>
 <p><a id="agentfem-material-finite_strain_j2_logarithmic"></a></p>
 <h2 id="finite-strain-logarithmic-j2-plasticity">Finite-strain logarithmic J2 plasticity<a class="headerlink" href="#finite-strain-logarithmic-j2-plasticity" title="Permanent link">&para;</a></h2>

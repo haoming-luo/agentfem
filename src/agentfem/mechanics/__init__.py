@@ -32,6 +32,7 @@ from .plasticity import (
     J2PlasticityStep,
     j2_plasticity_step,
 )
+from .shell import DirectorShellKinematics, director_shell_kinematics
 from .viscoelasticity import (
     HarmonicViscoelasticStep,
     QuasistaticViscoelasticStep,
@@ -49,6 +50,7 @@ __all__ = [
     "CreepPathInfo",
     "DirectHarmonicStep",
     "DirectHarmonicSweepStep",
+    "DirectorShellKinematics",
     "ImplicitCreepStep",
     "ExperimentalFiniteStrainPlasticityStep",
     "FiniteStrainJ2AffineTransaction",
@@ -75,5 +77,6 @@ __all__ = [
     "harmonic_frequency_sweep_step",
     "harmonic_viscoelastic_step",
     "j2_plasticity_step",
+    "director_shell_kinematics",
     "quasistatic_viscoelastic_step",
 ]

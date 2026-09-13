@@ -1075,6 +1075,191 @@ def harmonic_viscoelastic(
     return model.add_step(step)
 
 
+def fabric_membrane(
+    model,
+    *,
+    target,
+    material=None,
+    constraints=None,
+    solver_options=None,
+    measure=None,
+    name: str = "fabric_membrane",
+    petsc_options_prefix: str = "agentfem_fabric_membrane_",
+    incrementation=None,
+    increments: int | None = None,
+    load_factors=None,
+    output=None,
+    output_every: int | None = None,
+    progress=True,
+    status_file=None,
+):
+    """Build finite-kinematics in-plane equilibrium for woven membranes.
+
+    This provider consumes only the tension and trellising channels. A
+    nonzero bending law is rejected rather than silently discarded; bending
+    belongs to a future director-shell discretization.
+    """
+
+    import ufl
+    from dolfinx import fem
+    from petsc4py import PETSc
+
+    from . import problems, results
+    from .constitutive.fabric import (
+        DecoupledFabricSurface,
+        fabric_membrane_internal_virtual_work,
+    )
+
+    if hasattr(model.mesh, "require_formulation"):
+        model.mesh.require_formulation(
+            "displacement",
+            operation="model.step with finite-kinematics fabric membrane",
+        )
+    model.check(target=target, step_options={"material": material})
+    if hasattr(model.study, "require"):
+        model.study.require(analysis="nonlinear_static", physics="solid_mechanics")
+    if getattr(model.study, "dimension", None) != 2 or getattr(
+        model.study, "assumption", None
+    ) != "membrane":
+        raise ValueError(
+            "The fabric membrane provider requires studies.static_membrane()."
+        )
+    if tuple(getattr(target.value, "ufl_shape", ())) != (2,):
+        raise ValueError(
+            "The fabric membrane provider requires a 2D displacement field."
+        )
+    record = (
+        _single_material(model, "model.step with a fabric membrane")
+        if material is None
+        else model._material_record(material)
+    )
+    properties = record.item
+    if not isinstance(properties, DecoupledFabricSurface):
+        raise TypeError(
+            "The fabric membrane provider requires DecoupledFabricSurface."
+        )
+    if np.any(np.abs(properties.bending_stiffness) > 1.0e-14):
+        raise NotImplementedError(
+            "The in-plane membrane provider cannot consume bending stiffness. "
+            "Use a zero bending matrix; finite-rotation shell bending remains "
+            "experimental."
+        )
+
+    selected_measure = measure
+    if selected_measure is None:
+        selected_measure = (
+            record.region.measure if record.region is not None else ufl.dx
+        )
+    internal_residual = fabric_membrane_internal_virtual_work(
+        target.value,
+        target.test,
+        properties,
+        measure=selected_measure,
+    )
+    selected_constraints = _as_tuple(
+        model.constraints if constraints is None else constraints
+    )
+    if any(
+        isinstance(item, constraint_api.AbaqusPeriodicConstraint)
+        for item in selected_constraints
+    ):
+        raise NotImplementedError(
+            "Affine-periodic fabric membranes require a dedicated homogenization "
+            "provider; ordinary strong constraints are supported here."
+        )
+    if output is not None and output_every is not None:
+        raise ValueError("Pass output=... or output_every=..., not both.")
+    selected_output_every = (
+        getattr(output, "every", None)
+        if output is not None
+        else (1 if output_every is None else int(output_every))
+    )
+    from . import steps as step_api
+
+    selected_incrementation = step_api.normalize(
+        incrementation,
+        increments=increments,
+        load_factors=load_factors,
+    )
+    load_factor = fem.Constant(_domain(model.mesh), PETSc.ScalarType(0.0))
+    residual = internal_residual
+    if model.loads:
+        proportional_loads = tuple(
+            item for item in model.loads if not isinstance(item, load_api.AmplitudeLoad)
+        )
+        amplitude_loads = tuple(
+            item for item in model.loads if isinstance(item, load_api.AmplitudeLoad)
+        )
+        if proportional_loads:
+            residual -= load_factor * model.external_force(
+                target, loads=proportional_loads
+            ).expression
+        if amplitude_loads:
+            residual -= model.external_force(target, loads=amplitude_loads).expression
+    jacobian = ufl.derivative(residual, target.value, target.trial)
+
+    def membrane_acceptance():
+        diagnostics = results.finite_strain_diagnostics(
+            target,
+            quadrature_degree=3,
+        )
+        minimum_j = float(diagnostics["minimum_quadrature_J"])
+        energy = float(
+            results.integral(
+                properties.membrane_energy_ufl(target.value),
+                measure=selected_measure,
+                comm=_domain(model.mesh).comm,
+            )
+        )
+        accepted = minimum_j > 0.0 and energy >= -1.0e-12
+        return {
+            "accepted": bool(accepted),
+            "minimum_quadrature_J": minimum_j,
+            "maximum_quadrature_J": float(diagnostics["maximum_quadrature_J"]),
+            "maximum_displacement": float(diagnostics["maximum_displacement"]),
+            "membrane_energy": energy,
+            "message": (
+                "fabric membrane deformation or stored energy is non-physical"
+                if not accepted
+                else ""
+            ),
+        }
+
+    problem = problems.incremental_nonlinear(
+        residual,
+        target.value,
+        factor=load_factor,
+        value_path=constraint_api.prescribed_value_path(selected_constraints),
+        update_load=model._time_update_callback(include_constraints=False),
+        acceptance_check=membrane_acceptance,
+        jacobian=jacobian,
+        incrementation=selected_incrementation,
+        constraints=selected_constraints,
+        solver_options=solver_options,
+        output_every=selected_output_every,
+        progress=progress,
+        status_file=status_file,
+        name=name,
+        petsc_options_prefix=petsc_options_prefix,
+    )
+    problem.material = properties
+    problem.primary_fields = {
+        "U": target,
+        "FABRIC_STRAIN": "cell",
+        "FABRIC_N": "cell",
+        "FABRIC_WARP": "cell",
+        "FABRIC_WEFT": "cell",
+        "SENER": "cell",
+    }
+    problem.result_field_factory = lambda: (
+        target.value,
+        *results.fabric_membrane_cell_fields(target, properties),
+    )
+    if output is not None and hasattr(output, "bind"):
+        output.bind(problem, properties, has_external_power=bool(model.loads))
+    return model.add_step(problem)
+
+
 def hyperelastic(
     model,
     *,

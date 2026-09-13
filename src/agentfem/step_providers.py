@@ -887,6 +887,24 @@ def _accept_neo_hookean(model, request: StepRequest) -> bool:
     )
 
 
+def _accept_fabric_membrane(model, request: StepRequest) -> bool:
+    from .constitutive.fabric import DecoupledFabricSurface
+
+    study = getattr(model, "study", None)
+    return (
+        getattr(study, "analysis", None) == "nonlinear_static"
+        and getattr(study, "physics", None) == "solid_mechanics"
+        and getattr(study, "dimension", None) == 2
+        and getattr(study, "assumption", None) == "membrane"
+        and _target_shape(request.target) == (2,)
+        and _all_materials_support(
+            model,
+            request,
+            lambda item: isinstance(item, DecoupledFabricSurface),
+        )
+    )
+
+
 def _accept_mixed_neo_hookean(model, request: StepRequest) -> bool:
     from .constitutive.hyperelasticity import MixedNeoHookeanProperties
 
@@ -1322,6 +1340,24 @@ def _lower_neo_hookean(model, request: StepRequest):
     options.pop("K", None)
     options.pop("F", None)
     return _step_builders.hyperelastic(
+        model,
+        target=request.target,
+        material=material,
+        name=name,
+        **options,
+    )
+
+
+def _lower_fabric_membrane(model, request: StepRequest):
+    from . import _step_builders
+
+    options = dict(request.options)
+    material = _selected_material(model, request)
+    options.pop("material", None)
+    options.pop("K", None)
+    options.pop("F", None)
+    name = options.pop("name", None) or "fabric_membrane"
+    return _step_builders.fabric_membrane(
         model,
         target=request.target,
         material=material,
@@ -1935,6 +1971,30 @@ register_step_provider(
             "hyperelastic equilibrium."
         ),
         procedure="standard/newton/mixed_constant_pressure",
+        option_contract=_option_contract(
+            "measure",
+            "petsc_options_prefix",
+            "incrementation",
+            "increments",
+            "load_factors",
+            "output_every",
+            "progress",
+            "status_file",
+        ),
+    )
+)
+register_step_provider(
+    StepProvider(
+        name="decoupled_fabric_membrane_static",
+        analyses=("nonlinear_static",),
+        accepts=_accept_fabric_membrane,
+        lower=_lower_fabric_membrane,
+        priority=130,
+        description=(
+            "Lower independent yarn-tension and trellising-shear channels to "
+            "finite-kinematics in-plane membrane equilibrium."
+        ),
+        procedure="standard/newton/fabric_membrane",
         option_contract=_option_contract(
             "measure",
             "petsc_options_prefix",

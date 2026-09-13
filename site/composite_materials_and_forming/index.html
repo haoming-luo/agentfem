@@ -1551,9 +1551,42 @@ tension, odd trellising shear, and bending channels:</p>
 </code></pre></div>
 <p>The result retains current fiber directions, both yarn strains, current and
 shear angles, generalized resultants, tangent, bending moments, and stored
-energy. This is <strong>material-point verified</strong>, not FEM-integrated. Finite-rotation
-shell kinematics, locking control, tool contact, friction, inter-ply slip,
-explicit quasi-static controls, and forming observables remain separate
+energy.</p>
+<p>For a finite-kinematics <strong>in-plane membrane</strong> solve, use the same public
+workflow and a zero bending matrix:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">agentfem</span><span class="w"> </span><span class="kn">import</span> <span class="n">fields</span><span class="p">,</span> <span class="n">models</span><span class="p">,</span> <span class="n">studies</span>
+<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>
+<a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="n">study</span> <span class="o">=</span> <span class="n">studies</span><span class="o">.</span><span class="n">static_membrane</span><span class="p">()</span>
+<a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a><span class="n">model</span> <span class="o">=</span> <span class="n">models</span><span class="o">.</span><span class="n">create</span><span class="p">(</span><span class="n">study</span><span class="o">=</span><span class="n">study</span><span class="p">,</span> <span class="n">mesh</span><span class="o">=</span><span class="n">domain</span><span class="p">)</span>
+<a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a><span class="n">u</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">field</span><span class="p">(</span><span class="n">fields</span><span class="o">.</span><span class="n">displacement</span><span class="p">(</span><span class="n">domain</span><span class="p">))</span>
+<a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a><span class="n">fabric</span> <span class="o">=</span> <span class="n">constitutive</span><span class="o">.</span><span class="n">decoupled_fabric_surface</span><span class="p">(</span>
+<a id="__codelineno-4-7" name="__codelineno-4-7" href="#__codelineno-4-7"></a>    <span class="n">frame</span><span class="o">=</span><span class="n">frame</span><span class="p">,</span>
+<a id="__codelineno-4-8" name="__codelineno-4-8" href="#__codelineno-4-8"></a>    <span class="n">warp_tension</span><span class="o">=</span><span class="n">tension</span><span class="p">,</span>
+<a id="__codelineno-4-9" name="__codelineno-4-9" href="#__codelineno-4-9"></a>    <span class="n">weft_tension</span><span class="o">=</span><span class="n">tension</span><span class="p">,</span>
+<a id="__codelineno-4-10" name="__codelineno-4-10" href="#__codelineno-4-10"></a>    <span class="n">shear</span><span class="o">=</span><span class="n">shear</span><span class="p">,</span>
+<a id="__codelineno-4-11" name="__codelineno-4-11" href="#__codelineno-4-11"></a>    <span class="n">bending_stiffness</span><span class="o">=</span><span class="p">((</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">),</span> <span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">),</span> <span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">)),</span>
+<a id="__codelineno-4-12" name="__codelineno-4-12" href="#__codelineno-4-12"></a><span class="p">)</span>
+<a id="__codelineno-4-13" name="__codelineno-4-13" href="#__codelineno-4-13"></a><span class="n">model</span><span class="o">.</span><span class="n">material</span><span class="p">(</span><span class="n">fabric</span><span class="p">)</span>
+<a id="__codelineno-4-14" name="__codelineno-4-14" href="#__codelineno-4-14"></a><span class="c1"># Add ordinary strong displacement constraints and/or natural loads.</span>
+<a id="__codelineno-4-15" name="__codelineno-4-15" href="#__codelineno-4-15"></a><span class="n">result</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">step</span><span class="p">(</span><span class="n">target</span><span class="o">=</span><span class="n">u</span><span class="p">,</span> <span class="n">increments</span><span class="o">=</span><span class="mi">10</span><span class="p">)</span><span class="o">.</span><span class="n">solve_result</span><span class="p">()</span>
+</code></pre></div>
+<p>The provider derives both residual and Jacobian from the tabulated stored
+energy, drives accepted load increments through the standard nonlinear
+lifecycle, and rejects non-positive deformation Jacobians. A symbolic field
+cannot raise an extrapolation error only at selected quadrature points, so
+every globally used response curve must choose <code>extrapolation="constant"</code> or
+<code>"linear"</code> explicitly.</p>
+<p><code>solve_result()</code> adds cell fields <code>FABRIC_STRAIN</code> (warp strain, weft strain,
+trellising angle), <code>FABRIC_N</code> (the conjugate generalized resultants), current
+<code>FABRIC_WARP</code>/<code>FABRIC_WEFT</code> directions, and <code>SENER</code>. Their component order is
+fixed in the capability card rather than inferred by a plotting script.</p>
+<p>This is an <strong>experimental FEM-integrated membrane</strong>, not a shell. It consumes
+yarn tension and trellising shear and deliberately refuses a nonzero bending
+matrix instead of discarding it. <code>mechanics.director_shell_kinematics(...)</code>
+provides objective local membrane, transverse-shear, and curvature measures
+for the next provider, but it does not claim an element interpolation,
+locking treatment, or global shell solve. Tool contact, friction, inter-ply
+slip, explicit quasi-static controls, and forming observables remain separate
 promotion gates.</p>
 <p>That boundary reflects the literature. Boisse and co-workers identify yarn
 tension, in-plane shear, and bending as separate contributors to deformation
@@ -1573,10 +1606,15 @@ than treating the reinforcement as a conventional shell.</p>
 <li>section-point identities and per-ply recovery are stable;</li>
 <li>identity deformation has zero fabric response;</li>
 <li>tension-only yarns do not generate artificial compressive force;</li>
-<li>tension, trellising shear, and bending remain independent energy channels.</li>
+<li>tension, trellising shear, and bending remain independent energy channels;</li>
+<li>director-shell measures vanish under a superposed rigid rotation and detect
+  a constant-curvature patch;</li>
+<li>the woven membrane is selected by the standard Step provider, solves a
+  nonzero traction patch, and reports positive Jacobian and stored energy;</li>
+<li>membrane lowering rejects a nonzero bending law rather than hiding it.</li>
 </ul>
-<p>No forming benchmark, shell patch test, contact benchmark, or drape experiment
-has yet promoted the fabric surface law to FEM-integrated maturity.</p>
+<p>No shell element patch test, contact benchmark, or drape experiment has yet
+promoted this membrane foundation to a forming-capable fibrous shell.</p>
 <h2 id="references">References<a class="headerlink" href="#references" title="Permanent link">&para;</a></h2>
 <ul>
 <li>P. Boisse et al., “The bias-extension test for the analysis of in-plane
@@ -1586,13 +1624,15 @@ has yet promoted the fabric surface law to FEM-integrated maturity.</p>
 <li>B. Liang, F. Colmars, and P. Boisse, “A shell formulation for fibrous
   reinforcement forming simulations,” <em>Composites Part A</em> 100 (2017),
   <a href="https://doi.org/10.1016/j.compositesa.2017.04.024">https://doi.org/10.1016/j.compositesa.2017.04.024</a>.</li>
+<li>X. Peng and J. Cao, “A continuum mechanics-based non-orthogonal constitutive
+  model for woven composite fabrics,” <em>Composites Part A</em> 36 (2005),
+  <a href="https://doi.org/10.1016/j.compositesa.2004.08.008">https://doi.org/10.1016/j.compositesa.2004.08.008</a>.</li>
 <li>“A Shell Formulation for Textile Composite Forming Simulations,”
   <em>Procedia Manufacturing</em> 47 (2020),
   <a href="https://doi.org/10.1016/j.promfg.2020.04.125">https://doi.org/10.1016/j.promfg.2020.04.125</a>.</li>
-<li>R. Bai et al., “High-fidelity fibrous shell model based on a new
-  kinematic assumption for multi-layer woven fabric forming simulation,”
-  journal article and author summary,
-  <a href="https://fhclxb.buaa.edu.cn/en/article/id/236271a2-01d7-4910-b99c-79ccc4cb21f6">https://fhclxb.buaa.edu.cn/en/article/id/236271a2-01d7-4910-b99c-79ccc4cb21f6</a>.</li>
+<li>R. Bai et al., “A specific 3D shell approach for textile composite
+  reinforcements under large deformation,” <em>Composites Part A</em> 139 (2020),
+  <a href="https://doi.org/10.1016/j.compositesa.2020.106135">https://doi.org/10.1016/j.compositesa.2020.106135</a>.</li>
 <li>Dassault Systèmes, “Defining composite plies,” Abaqus 2025 documentation,
   <a href="https://docs.software.vt.edu/abaqusv2025/English/SIMACAECAERefMap/simacae-t-prpcompositesshellcontinuumplies.htm">https://docs.software.vt.edu/abaqusv2025/English/SIMACAECAERefMap/simacae-t-prpcompositesshellcontinuumplies.htm</a>.</li>
 <li>Dassault Systèmes, “Fabric material,” Abaqus 2025 documentation,

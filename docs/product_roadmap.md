@@ -135,12 +135,14 @@ Deepen the finite-element core before broadening the catalog:
   route. General weak and contact providers remain separate promotion gates;
 - selected cyclic plasticity, creep--fatigue, and fracture extensions.
 - deepen composite mechanics through the FEM-integrated constant-frame 2D/3D
-  orthotropic-solid route and locally verified ply/laminate section assets.
-  The next promotion sequence is spatial material orientations, shell patch
-  tests, then a finite-rotation fibrous-shell provider consuming the existing
-  non-orthogonal yarn tension/trellising/bending surface law. Tool contact,
-  friction, inter-ply slip, quasi-static explicit controls, and forming
-  experiments remain separate gates rather than implied features;
+  orthotropic-solid route, locally verified ply/laminate sections, and the
+  experimental finite-kinematics woven-membrane Step. Objective local director
+  measures now establish the kinematic boundary for a future fibrous shell.
+  The next promotion sequence is a mixed displacement/director shell with
+  locking control and membrane/bending patch tests, followed by tool contact,
+  friction, inter-ply slip, quasi-static explicit controls, and independent
+  forming experiments. Each remains a separate gate rather than an implied
+  consequence of the membrane provider;
 - promote the 3D generalized-Maxwell family beyond its analytical ramp--hold
   patch and independent Abaqus rod benchmark. Adaptive physical time, atomic
   cutback, portable MPI restart and accepted-boundary checkpoints are
