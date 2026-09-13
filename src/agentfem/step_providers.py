@@ -14,6 +14,26 @@ from types import MappingProxyType
 from typing import Callable, Mapping
 
 from ._step_provider_registry import ProviderSelectionRegistry
+from ._step_provider_support import (
+    COMMON_STEP_OPTIONS as _COMMON_STEP_OPTIONS,
+    all_materials_support as _all_materials_support,
+    has_complete_linear_system as _has_complete_linear_system,
+    is_scalar_target as _is_scalar_target,
+    is_vector_target as _is_vector_target,
+    normalize as _normalize,
+    procedure_method as _procedure_method,
+    registered_materials as _registered_materials,
+    same_procedure as _same_procedure,
+    selected_material as _selected_material,
+    supports_axisymmetric_elasticity as _supports_axisymmetric_elasticity,
+    supports_conduction as _supports_conduction,
+    supports_dynamics as _supports_dynamics,
+    supports_elasticity as _supports_elasticity,
+    supports_heat_capacity as _supports_heat_capacity,
+    supports_stateful_constitutive as _supports_stateful_constitutive,
+    target_shape as _target_shape,
+    target_summary as _target_summary,
+)
 
 
 @dataclass(frozen=True)
@@ -574,54 +594,6 @@ def _resolve_procedure(model, *, analysis: str, options, requested):
     )
 
 
-def _same_procedure(left, right) -> bool:
-    names = (
-        "family",
-        "equation_order",
-        "control",
-        "algorithm",
-        "nonlinear",
-        "requires_global_solve",
-        "stateful",
-    )
-    return all(
-        getattr(left, name, None) == getattr(right, name, None) for name in names
-    )
-
-
-def _selected_material(model, request: StepRequest):
-    selected = request.material
-    if selected is None and len(getattr(model, "materials", ())) == 1:
-        return model.materials[0].item
-    return selected
-
-
-def _registered_materials(model, request: StepRequest) -> tuple[object, ...]:
-    selected = request.material
-    if selected is not None:
-        return (selected,)
-    return tuple(record.item for record in getattr(model, "materials", ()))
-
-
-def _procedure_method(model, request: StepRequest) -> str | None:
-    if request.procedure is not None:
-        return _normalize(request.procedure.algorithm)
-    if request.method is not None:
-        return _normalize(request.method)
-    return getattr(getattr(model, "study", None), "preferred_procedure", None)
-
-
-def _target_summary(target) -> dict[str, object] | None:
-    if target is None:
-        return None
-    shape = _target_shape(target)
-    return {
-        "name": getattr(target, "name", type(target).__name__),
-        "kind": getattr(target, "kind", None),
-        "shape": shape,
-    }
-
-
 def _policy_value_summary(value):
     """Describe one execution control without retaining live solver objects."""
 
@@ -643,123 +615,6 @@ def _policy_value_summary(value):
             "value": _policy_value_summary(summary()),
         }
     return {"type": type(value).__name__}
-
-
-def _target_shape(target) -> tuple[int, ...] | None:
-    shape = getattr(target, "ufl_shape", None)
-    if shape is None:
-        value = getattr(target, "value", None)
-        shape = getattr(value, "ufl_shape", None)
-    if shape is None:
-        return None
-    return tuple(int(item) for item in shape)
-
-
-def _is_scalar_target(target) -> bool:
-    kind = getattr(target, "kind", None)
-    if kind in {"temperature", "scalar_unknown"}:
-        return True
-    if kind in {"displacement", "vector_unknown"}:
-        return False
-    shape = _target_shape(target)
-    return shape in {None, ()}
-
-
-def _is_vector_target(target) -> bool:
-    kind = getattr(target, "kind", None)
-    if kind in {"displacement", "vector_unknown"}:
-        return True
-    if kind in {"temperature", "scalar_unknown"}:
-        return False
-    shape = _target_shape(target)
-    return shape is None or len(shape) == 1
-
-
-def _has_complete_linear_system(request: StepRequest) -> bool:
-    return request.options.get("K") is not None and request.options.get("F") is not None
-
-
-def _supports_elasticity(material) -> bool:
-    return hasattr(material, "stiffness_voigt") or (
-        hasattr(material, "young") and hasattr(material, "poisson")
-    )
-
-
-def _supports_axisymmetric_elasticity(material) -> bool:
-    """Require a constitutive record that defines the full isotropic hoop response."""
-
-    return (
-        hasattr(material, "young")
-        and hasattr(material, "poisson")
-        and not hasattr(material, "stiffness_voigt")
-    )
-
-
-def _supports_dynamics(material) -> bool:
-    return (
-        _supports_elasticity(material)
-        and getattr(material, "density", None) is not None
-    )
-
-
-def _supports_conduction(material) -> bool:
-    return hasattr(material, "conductivity")
-
-
-def _supports_heat_capacity(material) -> bool:
-    return hasattr(material, "volumetric_heat_capacity") or (
-        getattr(material, "density", None) is not None
-        and hasattr(material, "specific_heat")
-    )
-
-
-def _supports_stateful_constitutive(material) -> bool:
-    """Return whether a material declares committed constitutive history.
-
-    The protocol is intentionally structural so installed extensions can join
-    procedure dispatch without teaching AgentFEM their concrete class names.
-    Regional quadrature maps are stateful when every contained material makes
-    the same declaration.
-    """
-
-    if bool(getattr(material, "stateful_constitutive", False)):
-        return True
-    regional = getattr(material, "materials", None)
-    if regional is None:
-        return False
-    values = (
-        tuple(regional.values()) if hasattr(regional, "values") else tuple(regional)
-    )
-    return bool(values) and all(
-        bool(getattr(item, "stateful_constitutive", False)) for item in values
-    )
-
-
-def _all_materials_support(model, request: StepRequest, predicate) -> bool:
-    materials = _registered_materials(model, request)
-    return bool(materials) and all(predicate(item) for item in materials)
-
-
-def _normalize(value: str) -> str:
-    normalized = str(value).lower().replace("-", "_").strip()
-    aliases = {
-        "static": "linear_static",
-        "hyperelastic": "nonlinear_static",
-        "neo_hookean": "nonlinear_static",
-        "explicit": "explicit_dynamics",
-    }
-    return aliases.get(normalized, normalized)
-
-
-_COMMON_STEP_OPTIONS = (
-    "K",
-    "F",
-    "constraints",
-    "solver_options",
-    "name",
-    "material",
-    "output",
-)
 
 
 from . import _builtin_step_providers as _builtin_step_provider_catalog

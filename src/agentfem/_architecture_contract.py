@@ -125,6 +125,7 @@ OWNERSHIP_BOUNDARIES = (
             "procedures",
             "step_providers",
             "_step_provider_registry",
+            "_step_provider_support",
             "_builtin_step_providers",
             "_step_builders",
             "_step_builders_thermal",

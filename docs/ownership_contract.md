@@ -59,6 +59,12 @@ context. Public provider contracts and dispatch remain in
 `_builtin_step_providers.py`. This keeps extension discovery independent of
 built-in physics without inventing a second plugin API.
 
+Target-shape checks, material capability predicates, normalization, and other
+dependency-light dispatch helpers live in `_step_provider_support.py`. Both
+the public dispatcher and built-in catalog consume that private vocabulary;
+the public protocol no longer doubles as a storage location for built-in
+material heuristics.
+
 Built-in builders are divided by scientific family when their dependencies
 and validation rules form a genuine independent unit. Linear and thermal
 lowering live in `_step_builders_thermal.py`; finite-kinematics hyperelastic,

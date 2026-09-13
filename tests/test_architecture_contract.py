@@ -334,8 +334,10 @@ def test_step_provider_registry_owns_selection_not_scientific_lowering():
 def test_public_step_provider_protocol_is_separate_from_builtin_catalog():
     public_path = PACKAGE / "step_providers.py"
     catalog_path = PACKAGE / "_builtin_step_providers.py"
+    support_path = PACKAGE / "_step_provider_support.py"
     public_source = public_path.read_text(encoding="utf-8")
     catalog_source = catalog_path.read_text(encoding="utf-8")
+    support_source = support_path.read_text(encoding="utf-8")
 
     assert "class StepProvider" in public_source
     assert "class StepOptionContract" in public_source
@@ -345,6 +347,10 @@ def test_public_step_provider_protocol_is_separate_from_builtin_catalog():
     assert "register_step_provider(" in catalog_source
     assert "def _accept_linear_static" in catalog_source
     assert "def _lower_linear_static" in catalog_source
+    assert "def supports_elasticity" not in public_source
+    assert "def supports_elasticity" in support_source
+    assert "def target_shape" in support_source
+    assert "step_providers" not in _agentfem_imports(support_path)
     assert "models" not in _agentfem_imports(catalog_path)
 
 

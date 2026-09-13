@@ -8,25 +8,27 @@ from __future__ import annotations
 
 from typing import Mapping
 
+from ._step_provider_support import (
+    COMMON_STEP_OPTIONS as _COMMON_STEP_OPTIONS,
+    all_materials_support as _all_materials_support,
+    has_complete_linear_system as _has_complete_linear_system,
+    is_scalar_target as _is_scalar_target,
+    is_vector_target as _is_vector_target,
+    normalize as _normalize,
+    procedure_method as _procedure_method,
+    registered_materials as _registered_materials,
+    selected_material as _selected_material,
+    supports_axisymmetric_elasticity as _supports_axisymmetric_elasticity,
+    supports_conduction as _supports_conduction,
+    supports_dynamics as _supports_dynamics,
+    supports_elasticity as _supports_elasticity,
+    supports_heat_capacity as _supports_heat_capacity,
+    target_shape as _target_shape,
+)
 from .step_providers import (
-    StepRequest,
     StepOptionContract,
     StepProvider,
-    _COMMON_STEP_OPTIONS,
-    _all_materials_support,
-    _has_complete_linear_system,
-    _is_scalar_target,
-    _is_vector_target,
-    _normalize,
-    _procedure_method,
-    _registered_materials,
-    _selected_material,
-    _supports_axisymmetric_elasticity,
-    _supports_conduction,
-    _supports_dynamics,
-    _supports_elasticity,
-    _supports_heat_capacity,
-    _target_shape,
+    StepRequest,
     register_step_provider,
 )
 
