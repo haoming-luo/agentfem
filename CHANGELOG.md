@@ -6,6 +6,25 @@ experimental formulation to a validated one.
 
 ## [Unreleased]
 
+## [0.3.6] - 2026-09-14
+
+### Changed
+
+- Let people and AI agents explicitly request the single verified mirror
+  channel without inferring location from an IP address or VPN.
+- Make the Windows Complete Runtime installer prepare or update WSL through
+  Microsoft's no-distribution route, with direct-web and Store source choices,
+  restart-safe continuation, and an official offline-MSI path.
+
+### Fixed
+
+- Prevent the shortest Windows installation path from downloading an
+  unnecessary Ubuntu distribution before importing the bundled AgentFEM
+  runtime.
+- Fail early with distinct diagnostics for unsupported Windows architecture,
+  obsolete Windows/WSL, and a required restart instead of reporting a generic
+  import failure.
+
 ## [0.3.5] - 2026-09-14
 
 ### Added
@@ -835,7 +854,8 @@ because the package version is stable.
   platform with readable study, model, step, result, campaign, and evidence
   contracts.
 
-[Unreleased]: https://github.com/haoming-luo/agentfem/compare/v0.3.5...HEAD
+[Unreleased]: https://github.com/haoming-luo/agentfem/compare/v0.3.6...HEAD
+[0.3.6]: https://github.com/haoming-luo/agentfem/compare/v0.3.5...v0.3.6
 [0.3.5]: https://github.com/haoming-luo/agentfem/compare/v0.3.4...v0.3.5
 [0.3.4]: https://github.com/haoming-luo/agentfem/compare/v0.3.3...v0.3.4
 [0.3.3]: https://github.com/haoming-luo/agentfem/compare/v0.3.2...v0.3.3

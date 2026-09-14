@@ -19,7 +19,7 @@
 [Installation](getting_started.md) ·
 [Examples](examples/index.md) ·
 [Python API](reference/api.md) ·
-[Release 0.3.5](release_0.3.5.md) ·
+[Release 0.3.6](release_0.3.6.md) ·
 [Apache-2.0 license](licensing.md)
 
 </div>
@@ -55,9 +55,10 @@ agentfem doctor
 
 Windows users should currently use WSL2. Optional mesh, visualization, and
 machine-learning integrations are described in the
-[installation and platform guide](getting_started.md). Users in mainland
-China can use the documented TUNA mirror without changing their global conda
-configuration. On WSL, run `agentfem workspace --protect` once; the same safe project layout
+[installation and platform guide](getting_started.md). When the canonical
+source is slow, ask an agent to **"use the mirror channel"**; the documented
+route does not change global conda configuration. On WSL, run
+`agentfem workspace --protect` once; the same safe project layout
 is used by both Mamba installations and the Complete Runtime.
 
 ## First finite-element model

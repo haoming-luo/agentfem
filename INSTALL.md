@@ -27,11 +27,12 @@ The explicit Python and DOLFINx versions are the current release-tested
 runtime contract. They also prevent an older solver stack from being selected
 from a stale package index.
 
-## Mainland China Mirrors / 中国大陆镜像
+## Mirror Channel / 镜像通道
 
-For a new environment in mainland China, use one conda-forge mirror for the
-entire compiled numerical stack. This one-shot command uses TUNA and leaves
-the user's global conda configuration unchanged:
+When the user explicitly asks to "use the mirror channel", or the canonical
+source is unreachable, use one conda-forge mirror for the entire compiled
+numerical stack. Do not infer the route from an IP address or VPN. This one-shot
+command uses TUNA and leaves the user's global conda configuration unchanged:
 
 ```bash
 mamba create -n agentfem-env --no-rc --override-channels \
@@ -123,9 +124,11 @@ MPI libraries.
 
 ## Windows
 
-The recommended first-release route is WSL2 with Ubuntu, Miniforge/Mambaforge,
-and the Linux environment above. This uses the same package family exercised
-by AgentFEM's Linux CI.
+The simplest new-user route is the Windows Complete Runtime. Its installer
+prepares WSL without downloading Ubuntu and then imports the bundled AgentFEM
+image. Existing WSL users may instead use Ubuntu, Miniforge/Mambaforge, and the
+Linux environment above; this uses the same package family exercised by
+AgentFEM's Linux CI.
 
 Do not run `wsl --unregister` until `agentfem workspace --json` reports
 `protected_from_distribution_removal: true`. For the Complete Runtime, use its

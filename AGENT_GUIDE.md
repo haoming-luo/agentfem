@@ -7,8 +7,13 @@ finite-element simulation with AgentFEM.
 
 1. If AgentFEM is not installed, use the repository's `INSTALL.md` rather than
    guessing a pip-only numerical environment. The release-tested environment
-   is Python 3.11 with DOLFINx 0.11. In mainland China, use the documented
-   single-mirror command; do not combine conda channels for PETSc/MPI/DOLFINx.
+   is Python 3.11 with DOLFINx 0.11. If the user says "走镜像通道 / use the
+   mirror channel" or the canonical source is unreachable, use the documented
+   single-mirror command; do not infer location from an IP address or VPN, and
+   do not combine conda channels for PETSc/MPI/DOLFINx. On a new Windows
+   machine, prefer the Complete Runtime installer: it owns WSL preparation and
+   deliberately avoids bare `wsl --install`, which downloads an unrelated
+   default distribution.
 2. For an installed case, run `agentfem doctor --json`. On WSL, also run
    `agentfem workspace --json`; before any runtime replacement or removal it
    must report `protected_from_distribution_removal: true`. If it does not,

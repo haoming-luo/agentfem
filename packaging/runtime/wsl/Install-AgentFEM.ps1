@@ -7,12 +7,146 @@ param(
     [string]$ProjectDirectory = "",
     [switch]$Upgrade,
     [string]$BackupDirectory = "",
-    [switch]$RemoveBackupAfterSuccess
+    [switch]$RemoveBackupAfterSuccess,
+    [ValidateSet("Auto", "Web", "Store", "None")]
+    [string]$WslBootstrapSource = "Auto"
 )
 
 $ErrorActionPreference = "Stop"
 $RuntimeVersion = "@VERSION@"
 Write-Host "AgentFEM Runtime for WSL2" -ForegroundColor Blue
+
+function Get-InstalledWslVersion {
+    $versionText = (& wsl.exe --version 2>&1 | Out-String)
+    $versionMatch = [regex]::Match($versionText, '(\d+\.\d+\.\d+)')
+    if ($LASTEXITCODE -ne 0 -or -not $versionMatch.Success) {
+        return $null
+    }
+    return [version]$versionMatch.Groups[1].Value
+}
+
+function Invoke-ElevatedWslCommand {
+    param(
+        [Parameter(Mandatory = $true)][string[]]$Arguments,
+        [Parameter(Mandatory = $true)][string]$Action
+    )
+
+    Write-Host "$Action requires Windows administrator approval." -ForegroundColor Yellow
+    $process = Start-Process -FilePath "wsl.exe" -ArgumentList $Arguments `
+        -Verb RunAs -Wait -PassThru
+    if ($process.ExitCode -ne 0) {
+        throw "[AFM-WIN-WSL-SETUP] $Action failed with exit code $($process.ExitCode)."
+    }
+}
+
+function Install-WslPlatform {
+    param([Parameter(Mandatory = $true)][string]$Source)
+
+    if ($Source -eq "None") {
+        throw (
+            "[AFM-WIN-WSL-NOT-READY] WSL is not ready and automatic platform " +
+            "preparation was disabled. Install or update WSL, restart Windows, " +
+            "then run this same installer again."
+        )
+    }
+
+    $arguments = @("--install", "--no-distribution")
+    if ($Source -in @("Auto", "Web")) {
+        $arguments += "--web-download"
+    }
+    try {
+        Invoke-ElevatedWslCommand -Arguments $arguments -Action (
+            "Preparing WSL without downloading an unnecessary Linux distribution"
+        )
+    } catch {
+        if ($Source -ne "Auto") {
+            throw
+        }
+        Write-Warning "The direct web route failed; trying the Microsoft Store route once."
+        Invoke-ElevatedWslCommand -Arguments @(
+            "--install", "--no-distribution"
+        ) -Action "Preparing WSL through the Microsoft Store route"
+    }
+}
+
+function Update-WslPlatform {
+    param([Parameter(Mandatory = $true)][string]$Source)
+
+    if ($Source -eq "None") {
+        throw (
+            "[AFM-WIN-WSL-TOO-OLD] WSL must be updated to 2.4.4 or newer. " +
+            "Automatic platform preparation was disabled."
+        )
+    }
+    $arguments = @("--update")
+    if ($Source -in @("Auto", "Web")) {
+        $arguments += "--web-download"
+    }
+    try {
+        Invoke-ElevatedWslCommand -Arguments $arguments -Action "Updating WSL"
+    } catch {
+        if ($Source -ne "Auto") {
+            throw
+        }
+        Write-Warning "The direct web update failed; trying the Microsoft Store route once."
+        Invoke-ElevatedWslCommand -Arguments @("--update") -Action (
+            "Updating WSL through the Microsoft Store route"
+        )
+    }
+}
+
+function Require-WslPlatform {
+    param([Parameter(Mandatory = $true)][string]$Source)
+
+    $nativeArchitecture = $env:PROCESSOR_ARCHITEW6432
+    if (-not $nativeArchitecture) {
+        $nativeArchitecture = $env:PROCESSOR_ARCHITECTURE
+    }
+    if ($nativeArchitecture -ne "AMD64") {
+        throw (
+            "[AFM-WIN-ARCH-UNSUPPORTED] This AgentFEM WSL image is x86-64, " +
+            "but Windows reports '$nativeArchitecture'. Download a runtime " +
+            "matching the host architecture."
+        )
+    }
+
+    $wslCommand = Get-Command wsl.exe -ErrorAction SilentlyContinue
+    if (-not $wslCommand) {
+        throw (
+            "[AFM-WIN-WINDOWS-TOO-OLD] Windows does not provide wsl.exe. " +
+            "AgentFEM requires Windows 10 version 2004 (build 19041) or newer, " +
+            "or Windows 11. Update Windows, then run this installer again."
+        )
+    }
+
+    $installedVersion = Get-InstalledWslVersion
+    if ($null -eq $installedVersion) {
+        Write-Host "WSL is not ready; preparing the Windows platform first." -ForegroundColor Yellow
+        Install-WslPlatform -Source $Source
+        $installedVersion = Get-InstalledWslVersion
+        if ($null -eq $installedVersion) {
+            throw (
+                "[AFM-WIN-RESTART-REQUIRED] Windows has prepared WSL but has not " +
+                "activated it yet. Restart Windows, then run this same " +
+                "Install-AgentFEM.ps1 command again."
+            )
+        }
+    }
+
+    if ($installedVersion -lt [version]'2.4.4') {
+        Write-Host "WSL $installedVersion must be updated for .wsl packages." -ForegroundColor Yellow
+        Update-WslPlatform -Source $Source
+        $installedVersion = Get-InstalledWslVersion
+        if ($null -eq $installedVersion -or $installedVersion -lt [version]'2.4.4') {
+            throw (
+                "[AFM-WIN-RESTART-OR-UPDATE] WSL 2.4.4 or newer is required. " +
+                "Restart Windows after the update and run this same installer again."
+            )
+        }
+    }
+    Write-Host "WSL $installedVersion is ready." -ForegroundColor Green
+    return $installedVersion
+}
 
 function Invoke-WslChecked {
     param(
@@ -444,20 +578,7 @@ if (-not (Test-Path $Image)) {
     throw "Runtime image not found: $Image"
 }
 
-if (-not (Get-Command wsl.exe -ErrorAction SilentlyContinue)) {
-    throw "WSL is not installed. In Administrator PowerShell run 'wsl --install --no-distribution --web-download', restart Windows, then run this installer again."
-}
-
-$versionText = (& wsl.exe --version 2>&1 | Out-String)
-$versionMatch = [regex]::Match($versionText, '(\d+\.\d+\.\d+)')
-if ($LASTEXITCODE -ne 0 -or -not $versionMatch.Success) {
-    throw "A current Store-delivered WSL is required. Run 'wsl --update --web-download', restart Windows if requested, and retry. Use 'wsl --status' to diagnose an incomplete Windows feature installation."
-}
-$installedWslVersion = [version]$versionMatch.Groups[1].Value
-if ($installedWslVersion -lt [version]'2.4.4') {
-    throw "WSL $installedWslVersion is too old for .wsl runtime packages. Run 'wsl --update --web-download' and retry; AgentFEM requires WSL 2.4.4 or newer."
-}
-Write-Host "WSL $installedWslVersion is ready." -ForegroundColor Green
+$installedWslVersion = Require-WslPlatform -Source $WslBootstrapSource
 
 if ($ExpectedSha256) {
     $actual = (Get-FileHash -Algorithm SHA256 $Image).Hash.ToLowerInvariant()

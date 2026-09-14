@@ -60,7 +60,16 @@ def test_windows_installer_defaults_to_side_by_side_without_overwrite():
     assert '"--from-file"' in installer
     assert '"--name", $Name' in installer
     assert '"--no-launch"' in installer
-    assert "wsl --update --web-download" in installer
+    assert '$arguments = @("--update")' in installer
+    assert '$arguments += "--web-download"' in installer
+    assert '[string]$WslBootstrapSource = "Auto"' in installer
+    assert 'ValidateSet("Auto", "Web", "Store", "None")' in installer
+    assert '"--install", "--no-distribution"' in installer
+    assert "Invoke-ElevatedWslCommand" in installer
+    assert "AFM-WIN-RESTART-REQUIRED" in installer
+    assert "AFM-WIN-WINDOWS-TOO-OLD" in installer
+    assert "AFM-WIN-ARCH-UNSUPPORTED" in installer
+    assert 'nativeArchitecture -ne "AMD64"' in installer
     assert "@IMAGE_FILENAME@" in installer
     assert "@IMAGE_SHA256@" in installer
     assert "@VERSION@" in installer
@@ -108,6 +117,12 @@ def test_windows_bundle_contains_human_and_agent_start_here_contract():
     assert "wsl --install --no-distribution --web-download" in guide
     assert "wsl --status" in guide
     assert "wsl --version" in guide
+    assert "-WslBootstrapSource Web" in guide
+    assert "-WslBootstrapSource Store" in guide
+    assert "github.com/microsoft/WSL/releases/latest" in guide
+    assert "VirtualMachinePlatform" in guide
+    assert "0x80370102" in guide
+    assert "bare `wsl --install`" in guide
     assert "AgentFEM-@VERSION@" in guide
     assert ".\\Install-AgentFEM.ps1 -Upgrade" in guide
     assert "-RemoveBackupAfterSuccess" in guide

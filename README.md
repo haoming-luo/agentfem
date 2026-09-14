@@ -35,9 +35,9 @@ computation, data, and AI.
 ```text
 Bring AgentFEM to life.
 
-Use https://github.com/haoming-luo/agentfem as the guide. Follow the
-tested route in INSTALL.md, read AGENT_GUIDE.md, and run
-`agentfem doctor`.
+Use https://github.com/haoming-luo/agentfem as the guide. Follow the tested
+route in INSTALL.md; if I say "走镜像通道 / use the mirror channel", use its
+single verified mirror route. Read AGENT_GUIDE.md and run `agentfem doctor`.
 
 When it is ready, reply briefly with the environment, AgentFEM
 version, and health-check result.
@@ -101,8 +101,10 @@ agentfem workspace --protect
 <details>
 <summary><strong>镜像通道</strong></summary>
 
-Use the TUNA conda-forge mirror without changing your global conda
-configuration:
+If you tell an agent **"use the mirror channel"**, or the canonical package
+source is unreachable, use the TUNA conda-forge mirror without changing your
+global conda configuration. AgentFEM does not infer this choice from IP or VPN
+location:
 
 ```bash
 mamba create -n agentfem-env --no-rc --override-channels \
@@ -135,7 +137,9 @@ powershell -ExecutionPolicy Bypass -File .\Install-AgentFEM.ps1
 ```
 
 The included `START-HERE.txt` gives the same short contract to people and AI
-agents. If WSL is absent, the installer explains how to enable it first. A new
+agents. If WSL is absent or outdated, the installer prepares it without
+downloading an unnecessary Ubuntu distribution; a Windows restart may be
+required, after which the same command is run again. A new
 bundle can be tested beside the old runtime, or safely replace it with a
 validated backup-and-rollback transaction:
 
@@ -331,7 +335,7 @@ workflows, and author's vision. [Read the PDF](https://haoming-luo.github.io/age
 
 ```yaml
 title: "AgentFEM: An AI-native open-source platform for finite-element computing"
-version: "0.3.5"
+version: "0.3.6"
 authors:
   - family-names: Luo
     given-names: Haoming

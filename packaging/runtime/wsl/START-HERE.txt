@@ -9,9 +9,11 @@ Runtime version: @VERSION@
 
    powershell -ExecutionPolicy Bypass -File .\Install-AgentFEM.ps1
 
-The installer checks WSL, verifies the bundled image, creates an AgentFEM WSL2
-distribution, and opens its first-time setup. Choose a Linux username and
-password when prompted. Password characters are intentionally not displayed.
+The installer prepares or updates WSL when needed, verifies the bundled image,
+creates an AgentFEM WSL2 distribution, and opens its first-time setup. Windows
+may show one administrator approval prompt. If it asks for a restart, restart
+Windows and run the exact same installer command again. Choose a Linux username
+and password when prompted. Password characters are intentionally not displayed.
 
 When setup finishes, run:
 
@@ -29,16 +31,22 @@ Later, start AgentFEM from the Start menu or run this in PowerShell:
 
    wsl -d AgentFEM
 
-If WSL is not installed
------------------------
+How AgentFEM prepares WSL
+-------------------------
 
-Open PowerShell as Administrator and run:
+Do not begin with bare `wsl --install`: that command also downloads Ubuntu,
+which the AgentFEM Complete Runtime does not need. The bundled installer uses
+Microsoft's supported no-distribution route and tries the direct web source,
+then the Microsoft Store source if the first command fails.
 
-   wsl --install --no-distribution --web-download
+To require one source explicitly, use one of:
 
-Restart Windows, extract this ZIP again if necessary, and repeat the three
-installation steps above. Windows may need internet access to enable WSL;
-the AgentFEM runtime itself is installed from this offline package.
+   powershell -ExecutionPolicy Bypass -File .\Install-AgentFEM.ps1 -WslBootstrapSource Web
+   powershell -ExecutionPolicy Bypass -File .\Install-AgentFEM.ps1 -WslBootstrapSource Store
+
+Windows may need internet access once to install the WSL platform. The
+AgentFEM Linux runtime itself is installed from this offline package; no Ubuntu
+distribution is downloaded.
 
 If WSL installation stops making progress
 -----------------------------------------
@@ -49,14 +57,35 @@ PowerShell and inspect the installation first:
    wsl --status
    wsl --version
 
-After a pending Windows restart, restart the computer. If WSL is installed but
-out of date, run:
+If Windows has a pending restart, restart the computer and run the AgentFEM
+installer again. If the direct web route is slow or unavailable, stop it and
+rerun the installer with `-WslBootstrapSource Store`; if the Store route is
+unavailable, use `-WslBootstrapSource Web`.
+
+For an x64 machine that must bootstrap WSL offline, install Microsoft's current
+x64 WSL MSI from its official release page. Then open Administrator PowerShell,
+enable the required Windows virtualization component, and restart:
+
+   https://github.com/microsoft/WSL/releases/latest
+
+   dism.exe /online /enable-feature /featurename:VirtualMachinePlatform /all /norestart
+
+After restarting, rerun:
+
+   powershell -ExecutionPolicy Bypass -File .\Install-AgentFEM.ps1 -WslBootstrapSource None
+
+If WSL is installed but out of date, its equivalent direct command is:
 
    wsl --update --web-download
 
-If the optional Windows feature was not completed, retry:
+If the optional Windows feature was not completed, its equivalent direct
+command is:
 
    wsl --install --no-distribution --web-download
+
+Error `0x80370102` means the Virtual Machine Platform or firmware virtualization
+is unavailable. Enable CPU virtualization in the PC firmware/BIOS, confirm the
+Windows Virtual Machine Platform feature, restart, and rerun the installer.
 
 Installing a newer AgentFEM runtime
 -----------------------------------
@@ -120,4 +149,6 @@ the installer-managed backup and replacement transaction only. Do not run
 `agentfem workspace --json` to report
 `protected_from_distribution_removal: true`. After installation, report the
 distribution name, AgentFEM version, health-check result, persistent project
-directory, and retained backup path, if any.
+directory, and retained backup path, if any. Never replace the bundled WSL
+bootstrap with bare `wsl --install`, because that downloads an unrelated default
+Linux distribution.

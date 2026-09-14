@@ -448,6 +448,11 @@ def render_agent_manifest() -> str:
             "tested_dolfinx": TESTED_DOLFINX,
             "recommended": CONDAFORGE_INSTALL,
             "mainland_china": TUNA_INSTALL,
+            "mirror_triggers": ["Use the mirror channel", "走镜像通道"],
+            "mirror_policy": (
+                "explicit-or-canonical-unreachable; single-source; "
+                "no-location-inference"
+            ),
             "health_check": "agentfem doctor --json",
         },
         "human_entrypoints": {

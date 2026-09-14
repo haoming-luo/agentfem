@@ -2,7 +2,7 @@
   "schema": "agentfem.documentation-entry",
   "schema_version": "1.0",
   "project": "AgentFEM",
-  "version": "0.3.5",
+  "version": "0.3.6",
   "maturity": "early-release",
   "description": "AI-native finite-element computing for humans and agents.",
   "documentation": "https://haoming-luo.github.io/agentfem/",
@@ -18,6 +18,11 @@
     "tested_dolfinx": "0.11",
     "recommended": "mamba create -n agentfem-env --override-channels -c conda-forge python=3.11 fenics-dolfinx=0.11 agentfem",
     "mainland_china": "mamba create -n agentfem-env --no-rc --override-channels -c https://mirrors.tuna.tsinghua.edu.cn/anaconda/cloud/conda-forge python=3.11 fenics-dolfinx=0.11 agentfem",
+    "mirror_triggers": [
+      "Use the mirror channel",
+      "\u8d70\u955c\u50cf\u901a\u9053"
+    ],
+    "mirror_policy": "explicit-or-canonical-unreachable; single-source; no-location-inference",
     "health_check": "agentfem doctor --json"
   },
   "human_entrypoints": {

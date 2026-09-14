@@ -18,10 +18,12 @@ agentfem doctor
 agentfem doctor --json
 ```
 
-### Mainland China mirror / 中国大陆镜像
+### Mirror channel / 镜像通道
 
-Use a single mirror for the complete conda-forge stack. The command below is
-temporary: it does not rewrite `.condarc` or affect other environments.
+If you ask an agent to **"use the mirror channel"**, or the canonical source is
+unreachable, use one mirror for the complete conda-forge stack. AgentFEM does
+not infer the route from IP or VPN location. The command below is temporary: it
+does not rewrite `.condarc` or affect other environments.
 
 ```bash
 mamba create -n agentfem-env --no-rc --override-channels \

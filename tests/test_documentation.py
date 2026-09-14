@@ -41,6 +41,8 @@ def test_documentation_machine_entrypoints_are_current():
     assert installation["tested_dolfinx"] == "0.11"
     assert "fenics-dolfinx=0.11" in installation["recommended"]
     assert "mirrors.tuna.tsinghua.edu.cn" in installation["mainland_china"]
+    assert installation["mirror_triggers"] == ["Use the mirror channel", "走镜像通道"]
+    assert "no-location-inference" in installation["mirror_policy"]
     assert installation["health_check"] == "agentfem doctor --json"
 
 
@@ -332,3 +334,5 @@ def test_public_installation_routes_pin_the_tested_solver_stack():
 
     assert "pypi.tuna.tsinghua.edu.cn/simple" in install
     assert "bare pip install is" in install
+    assert "use the mirror channel" in readme.lower()
+    assert "do not infer" in install.lower()

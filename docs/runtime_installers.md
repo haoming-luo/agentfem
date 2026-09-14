@@ -71,10 +71,31 @@ directly:
 wsl --install --from-file .\AgentFEM-Complete-<version>-WSL2-x86_64.wsl
 ```
 
-`Install-AgentFEM.ps1` checks that WSL 2.4.4 or newer is available, verifies
-the image, imports it, and starts the first-use account setup. If an existing
-`AgentFEM` distribution is present, the default remains a non-destructive
-side-by-side installation named `AgentFEM-<version>`.
+`Install-AgentFEM.ps1` requires WSL 2.4.4 or newer. If WSL is missing or old,
+the same script requests Windows administrator approval and uses Microsoft's
+no-distribution bootstrap/update route before verifying and importing the
+AgentFEM image. A restart is a normal Windows platform boundary: after the
+restart, rerun the exact same installer command. Bare `wsl --install` is not
+used because it also downloads Ubuntu, which this complete runtime does not
+need. If an existing `AgentFEM` distribution is present, the default remains a
+non-destructive side-by-side installation named `AgentFEM-<version>`.
+
+The default source policy first tries Microsoft's direct web route and, when
+that command fails, tries the Store route once. A user or agent can make the
+choice explicit when one path is slow or blocked:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\Install-AgentFEM.ps1 -WslBootstrapSource Web
+powershell -ExecutionPolicy Bypass -File .\Install-AgentFEM.ps1 -WslBootstrapSource Store
+```
+
+For a fully offline Windows bootstrap, Microsoft documents installation of the
+latest official x64 WSL MSI followed by Virtual Machine Platform enablement and
+a restart. The current AgentFEM Windows image is x86-64 and the installer
+rejects a mismatched host architecture before importing it. The installer can
+then be rerun with `-WslBootstrapSource None`. Error `0x80370102` is treated as
+a host capability problem—Virtual Machine Platform or firmware
+virtualization—not an AgentFEM solver failure.
 
 Users who want the normal stable name to move to the new runtime can request a
 transactional replacement:
@@ -103,8 +124,8 @@ distribution permanently removes its data.
 
 If WSL itself is absent, Windows must first enable that operating-system
 feature; this may require administrator access, a reboot, and Microsoft network
-access. The bundled `START-HERE.txt` includes the `--web-download` recovery
-path for a stalled Store download and the exact `wsl --status` / `wsl
+access. The installer and bundled `START-HERE.txt` own that transition and
+include the alternate source, official MSI, and exact `wsl --status` / `wsl
 --version` diagnostics.
 
 The imported distribution creates a Start-menu entry and Windows Terminal
