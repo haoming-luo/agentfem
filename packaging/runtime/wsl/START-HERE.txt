@@ -15,6 +15,10 @@ may show one administrator approval prompt. If it asks for a restart, restart
 Windows and run the exact same installer command again. Choose a Linux username
 and password when prompted. Password characters are intentionally not displayed.
 
+The Complete Runtime already includes the C/C++ compiler required by FEniCSx
+to compile a new finite-element form. You should not need to install gcc
+separately before running your first model.
+
 When setup finishes, run:
 
    agentfem doctor

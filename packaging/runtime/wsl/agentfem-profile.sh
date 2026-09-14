@@ -1,4 +1,5 @@
 export PATH="/opt/conda/bin:${PATH}"
 export CONDA_PREFIX="/opt/conda"
 export AGENTFEM_RUNTIME="wsl2"
-
+export CC="${CC:-/usr/bin/gcc}"
+export CXX="${CXX:-/usr/bin/g++}"

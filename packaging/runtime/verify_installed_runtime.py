@@ -10,6 +10,7 @@ import json
 import os
 from pathlib import Path
 import platform
+import shutil
 import subprocess
 import tempfile
 import time
@@ -74,6 +75,38 @@ def main() -> int:
         root = Path(raw)
         environment["XDG_CACHE_HOME"] = str(root / "cache")
         checks: list[dict[str, Any]] = []
+        c_compiler = shutil.which("gcc", path=environment["PATH"])
+        cxx_compiler = shutil.which("g++", path=environment["PATH"])
+        checks.append(
+            execute(
+                [c_compiler or "gcc", "--version"],
+                env=environment,
+            )
+            if c_compiler
+            else {
+                "command": ["gcc", "--version"],
+                "returncode": 127,
+                "elapsed_seconds": 0.0,
+                "stdout": "",
+                "stderr": "A C compiler required by the FEniCSx JIT is missing.\n",
+                "passed": False,
+            }
+        )
+        checks.append(
+            execute(
+                [cxx_compiler or "g++", "--version"],
+                env=environment,
+            )
+            if cxx_compiler
+            else {
+                "command": ["g++", "--version"],
+                "returncode": 127,
+                "elapsed_seconds": 0.0,
+                "stdout": "",
+                "stderr": "A C++ compiler required by native extensions is missing.\n",
+                "passed": False,
+            }
+        )
         checks.append(execute([str(executable), "doctor", "--json"], env=environment))
         checks.append(execute([str(executable), "--version"], env=environment))
         if args.profile == "complete":
@@ -173,6 +206,11 @@ def main() -> int:
         },
         "prefix": str(prefix),
         "profile": args.profile,
+        "toolchain": {
+            "c_compiler": c_compiler,
+            "cxx_compiler": cxx_compiler,
+            "fresh_jit_exercised": True,
+        },
         "runtime_record": (
             {"path": str(runtime_record), "sha256": digest(runtime_record)}
             if runtime_record.is_file()

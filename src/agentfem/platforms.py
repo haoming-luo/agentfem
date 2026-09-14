@@ -6,8 +6,10 @@ from dataclasses import dataclass
 from hashlib import sha256
 from importlib import metadata
 import json
+import os
 import platform as _platform
 from pathlib import Path
+import shutil
 import subprocess
 import sys
 
@@ -60,14 +62,23 @@ class RuntimeReport:
     packages: dict[str, str | None]
     mpi: dict[str, object]
     numerics: dict[str, object]
+    toolchain: dict[str, object]
     optional: tuple[dependencies.DependencyStatus, ...]
     execution: dict[str, object]
     workspace: dict[str, object]
+
+    @property
+    def solver_ready(self) -> bool:
+        """Whether this runtime can compile the forms needed by a new solve."""
+
+        dolfinx_available = bool(self.packages.get("fenics-dolfinx"))
+        return bool(self.toolchain["jit_ready"] or not dolfinx_available)
 
     def summary(self) -> dict[str, object]:
         return {
             "schema": "agentfem.runtime-report",
             "schema_version": "0.1.0",
+            "solver_ready": self.solver_ready,
             "platform": self.platform.summary(),
             "python": self.python,
             "machine": self.machine,
@@ -75,6 +86,7 @@ class RuntimeReport:
             "packages": dict(self.packages),
             "mpi": dict(self.mpi),
             "numerics": dict(self.numerics),
+            "toolchain": dict(self.toolchain),
             "optional": tuple(item.summary() for item in self.optional),
             "execution": dict(self.execution),
             "workspace": dict(self.workspace),
@@ -82,6 +94,9 @@ class RuntimeReport:
 
     def format(self) -> str:
         lines = [self.platform.format(), f"  Python: {self.python}", f"  machine: {self.machine}"]
+        lines.append(
+            f"  Solver readiness: {'ready' if self.solver_ready else 'not ready'}"
+        )
         lines.append(
             "  OS: "
             f"{self.operating_system['system']} {self.operating_system['release']}"
@@ -93,6 +108,17 @@ class RuntimeReport:
         lines.append(f"  MPI vendor: {self.mpi['vendor']}")
         lines.append(f"  MPI ranks: {self.mpi['rank_count']}")
         lines.append(f"  PETSc scalar: {self.numerics['petsc_scalar_type']}")
+        lines.append(
+            "  FEniCSx JIT toolchain: "
+            f"{'ready' if self.toolchain['jit_ready'] else 'not ready'}"
+        )
+        lines.append(
+            f"  C compiler: {self.toolchain['c_compiler'] or 'not found'}"
+        )
+        if not self.toolchain["jit_ready"] and self.packages.get("fenics-dolfinx"):
+            lines.append(
+                "  error: a C compiler is required to JIT-compile new UFL forms"
+            )
         lines.append(f"  MPI launcher: {self.mpi['recommended_launcher']}")
         lines.append(f"  MPI launcher status: {self.mpi['code']}")
         lines.append(f"  Python executable: {self.execution['python_executable']}")
@@ -254,6 +280,7 @@ def runtime_report() -> RuntimeReport:
         },
         mpi=_mpi_runtime(),
         numerics=_numeric_runtime(),
+        toolchain=_compiler_runtime(),
         optional=(
             dependencies.status(
                 "meshio",
@@ -363,6 +390,38 @@ def _numeric_runtime() -> dict[str, object]:
         "petsc_complex": bool(np.issubdtype(np.dtype(petsc_scalar), np.complexfloating))
         if petsc_scalar != "unavailable"
         else None,
+    }
+
+
+def _compiler_runtime() -> dict[str, object]:
+    """Describe the native toolchain available to FFCx/CFFI JIT compilation."""
+
+    def locate(variable: str, candidates: tuple[str, ...]) -> str | None:
+        configured = os.environ.get(variable)
+        if configured:
+            executable = configured.split()[0]
+            located = shutil.which(executable)
+            if located:
+                return str(Path(located).resolve())
+        for candidate in candidates:
+            located = shutil.which(candidate)
+            if located:
+                return str(Path(located).resolve())
+        return None
+
+    c_compiler = locate(
+        "CC",
+        ("gcc", "cc", "clang", "x86_64-conda-linux-gnu-cc"),
+    )
+    cxx_compiler = locate(
+        "CXX",
+        ("g++", "c++", "clang++", "x86_64-conda-linux-gnu-c++"),
+    )
+    return {
+        "c_compiler": c_compiler,
+        "cxx_compiler": cxx_compiler,
+        "jit_ready": c_compiler is not None,
+        "purpose": "compile uncached FFCx/CFFI forms",
     }
 
 

@@ -65,6 +65,7 @@ def test_mesh_namespace_keeps_external_gmsh_import_lazy():
 def test_runtime_report_is_serializable_and_names_optional_integrations():
     report = platforms.runtime_report().summary()
     assert report["schema"] == "agentfem.runtime-report"
+    assert isinstance(report["solver_ready"], bool)
 
     assert report["python"]
     assert report["platform"]["level"]
@@ -81,6 +82,9 @@ def test_runtime_report_is_serializable_and_names_optional_integrations():
     assert report["mpi"]["rank_count"] >= 1
     assert report["numerics"]["numpy_default_float"] == "float64"
     assert report["numerics"]["petsc_scalar_type"]
+    assert isinstance(report["toolchain"]["jit_ready"], bool)
+    assert "c_compiler" in report["toolchain"]
+    assert report["toolchain"]["purpose"] == "compile uncached FFCx/CFFI forms"
     assert "path_mismatch" in report["mpi"]
     assert report["mpi"]["code"].startswith("AFM-MPI-LAUNCHER-")
     assert isinstance(report["mpi"]["compatible"], bool)
@@ -110,6 +114,26 @@ def test_runtime_report_is_serializable_and_names_optional_integrations():
         "meshio",
         "torch",
     }
+
+
+def test_runtime_report_fails_closed_when_dolfinx_has_no_jit_compiler(monkeypatch):
+    monkeypatch.setattr(
+        platforms,
+        "_compiler_runtime",
+        lambda: {
+            "c_compiler": None,
+            "cxx_compiler": None,
+            "jit_ready": False,
+            "purpose": "compile uncached FFCx/CFFI forms",
+        },
+    )
+
+    report = platforms.runtime_report()
+
+    assert report.packages["fenics-dolfinx"]
+    assert report.solver_ready is False
+    assert report.summary()["solver_ready"] is False
+    assert "Solver readiness: not ready" in report.format()
 
 
 def test_runtime_identity_detects_stale_distribution_version(monkeypatch):

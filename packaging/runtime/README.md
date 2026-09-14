@@ -4,6 +4,11 @@ This directory defines the self-contained desktop runtimes distributed beside
 the ordinary PyPI and conda-forge packages. The installers are a delivery
 surface, not a second implementation of AgentFEM.
 
+Complete desktop runtimes are milestone artifacts, not automatic companions
+to every Python patch release. A maintainer explicitly dispatches this build
+for a released tag when the solver stack, installer, or first-use experience
+has changed enough to justify the large immutable artifacts.
+
 The first supported artifacts are offered in two profiles:
 
 - `AgentFEM-Complete-<version>-macOS-arm64.pkg` and the corresponding WSL2
@@ -11,10 +16,12 @@ The first supported artifacts are offered in two profiles:
 - `AgentFEM-Core-<version>-...` is the lean solver runtime without Gmsh.
 
 Both profiles contain a pinned FEniCSx/PETSc/MPI runtime and the exact
-published AgentFEM wheel. Neither contains PyTorch, PyVista, or development
-tools. Gmsh remains an independent GPL-2.0-or-later component even when it is
-aggregated in the Complete installer; the release must carry its license and
-make the corresponding source and build recipe available beside the binary.
+published AgentFEM wheel. Both include the minimal native C/C++ toolchain
+required for cold-cache FEniCSx form compilation; neither contains PyTorch,
+PyVista, or a general development SDK. Gmsh remains an independent
+GPL-2.0-or-later component even when it is aggregated in the Complete
+installer; the release must carry its license and make the corresponding
+source and build recipe available beside the binary.
 
 ## Build contracts
 

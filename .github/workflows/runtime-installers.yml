@@ -4,9 +4,6 @@ permissions:
   contents: read
 
 on:
-  workflow_run:
-    workflows: ["Publish to PyPI"]
-    types: [completed]
   workflow_dispatch:
     inputs:
       profile:
@@ -28,16 +25,12 @@ on:
         default: false
 
 env:
-  RUNTIME_PROFILE: ${{ github.event_name == 'workflow_run' && 'complete' || inputs.profile }}
-  RUNTIME_REF: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || inputs.release_tag || github.ref }}
+  RUNTIME_PROFILE: ${{ inputs.profile }}
+  RUNTIME_REF: ${{ inputs.release_tag || github.ref }}
 
 jobs:
   macos-arm64:
     name: macOS ARM64 PKG
-    if: >-
-      ${{ github.event_name != 'workflow_run' ||
-          (github.event.workflow_run.conclusion == 'success' &&
-           github.event.workflow_run.event == 'push') }}
     runs-on: macos-14
     steps:
       - name: Check out repository
@@ -106,10 +99,6 @@ jobs:
 
   wsl2-x86-64:
     name: WSL2 x86-64 image
-    if: >-
-      ${{ github.event_name != 'workflow_run' ||
-          (github.event.workflow_run.conclusion == 'success' &&
-           github.event.workflow_run.event == 'push') }}
     runs-on: ubuntu-latest
     steps:
       - name: Check out repository
@@ -156,10 +145,16 @@ jobs:
         shell: bash -el {0}
         run: |
           VERSION="$(python -c 'import tomllib; print(tomllib.load(open("pyproject.toml", "rb"))["project"]["version"])')"
+          WSL_IMAGE="$(find dist/runtime -maxdepth 1 -name '*.wsl' -print -quit)"
+          test -n "${WSL_IMAGE}"
+          gunzip -c "${WSL_IMAGE}" | docker import - "agentfem-wsl-rootfs:${VERSION}-${RUNTIME_PROFILE}"
           docker run --rm \
             --volume "$PWD/packaging/runtime/verify_installed_runtime.py:/tmp/verify_installed_runtime.py:ro" \
             --volume "$PWD/dist/runtime:/evidence" \
-            "agentfem-runtime:$VERSION-${RUNTIME_PROFILE}-wsl2-amd64" \
+            "agentfem-wsl-rootfs:${VERSION}-${RUNTIME_PROFILE}" \
+            /usr/bin/env -i \
+            HOME=/root \
+            PATH=/opt/conda/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin \
             /opt/conda/bin/python /tmp/verify_installed_runtime.py \
               --prefix /opt/conda \
               --profile "${RUNTIME_PROFILE}" \
@@ -179,7 +174,7 @@ jobs:
     if: >-
       ${{ always() && needs.macos-arm64.result == 'success' &&
           needs.wsl2-x86-64.result == 'success' &&
-          (github.event_name == 'workflow_run' || inputs.publish_release) }}
+          inputs.publish_release }}
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -200,7 +195,7 @@ jobs:
 
       - name: Prepare compact preview assets
         env:
-          REQUESTED_TAG: ${{ github.event_name == 'workflow_dispatch' && inputs.release_tag || '' }}
+          REQUESTED_TAG: ${{ inputs.release_tag }}
           CHINA_MIRROR_BASE_URL: ${{ vars.AGENTFEM_CHINA_MIRROR_BASE_URL }}
           CHINA_MIRROR_S3_URI: ${{ vars.AGENTFEM_CHINA_MIRROR_S3_URI }}
         run: |

@@ -946,7 +946,7 @@ def _dispatch(argv: list[str] | None = None) -> int:
         if args.command == "doctor":
             report = platforms.runtime_report()
             _emit(report.summary(), as_json=args.json, human=report.format())
-            return 0
+            return 0 if report.solver_ready else 2
         if args.command == "workspace":
             return _command_workspace(args)
         if args.command == "templates":

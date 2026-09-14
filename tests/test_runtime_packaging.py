@@ -48,6 +48,29 @@ def test_wsl_distribution_has_oobe_and_stable_default_name():
     assert "windowsterminal" in configuration
 
 
+def test_wsl_rootfs_owns_a_jit_toolchain_independent_of_docker_environment():
+    dockerfile = (RUNTIME / "wsl" / "Dockerfile").read_text(encoding="utf-8")
+    profile = (RUNTIME / "wsl" / "agentfem-profile.sh").read_text(
+        encoding="utf-8"
+    )
+    verifier = (RUNTIME / "verify_installed_runtime.py").read_text(
+        encoding="utf-8"
+    )
+    workflow = (ROOT / ".github" / "workflows" / "runtime-installers.yml").read_text(
+        encoding="utf-8"
+    )
+
+    assert "gcc g++" in dockerfile
+    assert 'export CC="${CC:-/usr/bin/gcc}"' in profile
+    assert 'export CXX="${CXX:-/usr/bin/g++}"' in profile
+    assert 'shutil.which("gcc"' in verifier
+    assert 'shutil.which("g++"' in verifier
+    assert '"fresh_jit_exercised": True' in verifier
+    assert "docker import" in workflow
+    assert "/usr/bin/env -i" in workflow
+    assert "agentfem-wsl-rootfs:" in workflow
+
+
 def test_windows_installer_defaults_to_side_by_side_without_overwrite():
     installer = (RUNTIME / "wsl" / "Install-AgentFEM.ps1").read_text(
         encoding="utf-8"
@@ -206,6 +229,16 @@ def test_runtime_release_tolerates_pypi_index_propagation_delay():
     assert workflow.count("for delay in 0 15 30 60 120") == 2
     assert workflow.count('test "$downloaded" = true') == 2
     assert "PyPI has not exposed AgentFEM" in workflow
+
+
+def test_large_runtime_installers_require_an_explicit_milestone_dispatch():
+    workflow = (ROOT / ".github" / "workflows" / "runtime-installers.yml").read_text(
+        encoding="utf-8"
+    )
+    assert "workflow_dispatch:" in workflow
+    assert "workflow_run:" not in workflow
+    assert "inputs.publish_release" in workflow
+    assert "inputs.release_tag" in workflow
 
 
 def test_complete_profile_pins_redistributed_gmsh_source_contract():

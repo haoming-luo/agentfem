@@ -6,6 +6,19 @@ experimental formulation to a validated one.
 
 ## [Unreleased]
 
+### Changed
+
+- Build the large macOS and Windows/WSL Complete Runtimes only after an
+  explicit milestone dispatch instead of attaching gigabyte-scale artifacts
+  to every Python package release.
+
+### Fixed
+
+- Make the exported WSL root filesystem own `gcc` and `g++`, expose the JIT
+  toolchain in `agentfem doctor`, and accept the exported `.wsl` image in a
+  clean environment so Docker-only environment variables cannot hide a broken
+  first solve.
+
 ## [0.3.6] - 2026-09-14
 
 ### Changed
