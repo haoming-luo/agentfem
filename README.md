@@ -153,6 +153,12 @@ Use the bundled `Remove-AgentFEM.ps1` instead of manually unregistering the
 distribution; the safe remover verifies project custody and retains a recovery
 snapshot first.
 
+> **Windows v0.3.6 Preview:** if the first solve reports that `gcc` or a C
+> compiler is missing, open the AgentFEM WSL terminal and run
+> `sudo apt-get update && sudo apt-get install -y gcc g++`, then rerun
+> `agentfem doctor`. This repairs the runtime without changing projects or
+> results. Future Complete Runtime milestones include this toolchain directly.
+
 ### Existing FEniCSx environment: PyPI
 
 If you already maintain a compatible FEniCSx environment:

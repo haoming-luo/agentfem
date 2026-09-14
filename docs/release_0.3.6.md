@@ -39,3 +39,18 @@ The Windows artifact remains a Preview until its exact released bundle is
 accepted on a real Windows/WSL2 host. Package tests, PowerShell parsing,
 runtime-image acceptance, checksums, and release provenance remain mandatory
 before publication.
+
+## Known issue: first-solve C compiler
+
+The published v0.3.6 Windows Preview may not expose a C compiler when FEniCSx
+JIT-compiles the first new form. Existing installations can be repaired in
+place, without changing project data:
+
+```bash
+sudo apt-get update
+sudo apt-get install -y gcc g++
+agentfem doctor
+```
+
+The corrected milestone build contract installs the compiler in the exported
+root filesystem and accepts the final `.wsl` artifact after a clean re-import.

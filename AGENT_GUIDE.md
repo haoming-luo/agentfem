@@ -27,6 +27,10 @@ finite-element simulation with AgentFEM.
    Use `agentfem run --mpi N` for projects and
    `agentfem mpi-run -n N -- ...` for MPI tests or external commands; never
    guess a bare `mpiexec` because it may belong to another MPI implementation.
+   If the v0.3.6 Windows Preview reports a missing C compiler on its first
+   solve, repair that existing runtime with
+   `sudo apt-get update && sudo apt-get install -y gcc g++`, rerun
+   `agentfem doctor`, and preserve the user's project workspace.
 3. Read `WORKFLOW.md` to identify the standard finite-element sequence.
 4. Read `CONCEPTS.md` to align terminology before changing code.
 5. Identify or create the `studies.Study` before choosing constitutive laws or

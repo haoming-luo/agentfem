@@ -130,6 +130,20 @@ image. Existing WSL users may instead use Ubuntu, Miniforge/Mambaforge, and the
 Linux environment above; this uses the same package family exercised by
 AgentFEM's Linux CI.
 
+The published v0.3.6 Windows Preview has one known first-solve issue: its
+exported WSL image may not expose a C compiler to FEniCSx. Repair that existing
+runtime in place, without touching project data, from its WSL terminal:
+
+```bash
+sudo apt-get update
+sudo apt-get install -y gcc g++
+agentfem doctor
+```
+
+The corrected runtime contract installs the toolchain in the exported root
+filesystem and verifies a cold-cache finite-element solve after re-importing
+the final `.wsl` artifact.
+
 Do not run `wsl --unregister` until `agentfem workspace --json` reports
 `protected_from_distribution_removal: true`. For the Complete Runtime, use its
 bundled `Remove-AgentFEM.ps1`; an ordinary Mamba environment may be removed

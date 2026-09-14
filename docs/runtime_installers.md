@@ -97,6 +97,24 @@ then be rerun with `-WslBootstrapSource None`. Error `0x80370102` is treated as
 a host capability problem—Virtual Machine Platform or firmware
 virtualization—not an AgentFEM solver failure.
 
+### Repairing the v0.3.6 first-solve toolchain
+
+The published v0.3.6 Windows Preview may report that `gcc` or a C compiler is
+missing when FEniCSx JIT-compiles the first new form. This is an installer
+defect, not a model failure. Repair the existing runtime from its WSL terminal:
+
+```bash
+sudo apt-get update
+sudo apt-get install -y gcc g++
+agentfem doctor
+```
+
+This does not replace the WSL distribution or alter
+`Documents\AgentFEMProjects`. The corrected build contract places `gcc` and
+`g++` in the exported root filesystem, reports solver readiness in `doctor`,
+then re-imports the final `.wsl` artifact into a clean environment and performs
+a cold-cache solve before acceptance.
+
 Users who want the normal stable name to move to the new runtime can request a
 transactional replacement:
 
