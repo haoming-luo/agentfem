@@ -49,7 +49,7 @@ Prefer manual setup? Continue to [Install](#install).
 ### Connect AgentFEM to your agent
 
 The official [AgentFEM MCP](https://github.com/haoming-luo/agentfem-mcp)
-companion gives Codex, Claude, and other compatible agents the same seven
+interface gives Codex, Claude, and other compatible agents the same seven
 typed operations for discovery, project creation, preflight, background
 execution, progress, and evidence:
 
@@ -58,6 +58,10 @@ codex mcp add agentfem \
   --env AGENTFEM_MCP_ROOTS=/absolute/path/to/AgentFEMProjects \
   -- uvx --from agentfem-mcp agentfem-mcp
 ```
+
+The interface is available from
+[PyPI](https://pypi.org/project/agentfem-mcp/) and the
+[official MCP Registry](https://registry.modelcontextprotocol.io/?q=io.github.haoming-luo%2Fagentfem).
 
 It is a thin process boundary, not a second solver: AgentFEM still performs the
 deterministic finite-element computation and preserves the distinction between

@@ -1,8 +1,8 @@
 # Connect AgentFEM with MCP
 
-AgentFEM MCP is the official, lightweight connection between AgentFEM and
+AgentFEM MCP is AgentFEM's official, lightweight connection to
 Codex, Claude, or another Model Context Protocol host. It is not an AI model
-and it does not replace the finite-element engine.
+or a separate simulation product; AgentFEM remains the finite-element engine.
 
 ```text
 AI agent → seven typed MCP tools → AgentFEM CLI
@@ -21,6 +21,11 @@ codex mcp add agentfem \
   -- uvx --from agentfem-mcp agentfem-mcp
 codex mcp list
 ```
+
+The adapter is published on
+[PyPI](https://pypi.org/project/agentfem-mcp/) and discoverable through the
+[official MCP Registry](https://registry.modelcontextprotocol.io/?q=io.github.haoming-luo%2Fagentfem)
+under `io.github.haoming-luo/agentfem`.
 
 Begin with a concrete request:
 
@@ -45,6 +50,6 @@ is accepted, and the server cannot access the network. A successful process is
 reported as `completed`; it becomes `verified` or `validated` only when the
 AgentFEM result contains the corresponding evidence.
 
-See the [public companion repository](https://github.com/haoming-luo/agentfem-mcp)
+See the [public interface repository](https://github.com/haoming-luo/agentfem-mcp)
 for Claude-compatible configuration, security boundaries, release evidence,
 and the portable AgentFEM workflow Skill.

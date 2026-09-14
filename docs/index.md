@@ -15,7 +15,7 @@
 <div class="af-project-meta" markdown>
 
 [GitHub](https://github.com/haoming-luo/agentfem) ·
-[AgentFEM MCP](https://github.com/haoming-luo/agentfem-mcp) ·
+[AgentFEM MCP](agents/mcp.md) ·
 [PyPI](https://pypi.org/project/agentfem/) ·
 [Installation](getting_started.md) ·
 [Examples](examples/index.md) ·
