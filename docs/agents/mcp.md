@@ -27,6 +27,19 @@ The adapter is published on
 [official MCP Registry](https://registry.modelcontextprotocol.io/?q=io.github.haoming-luo%2Fagentfem)
 under `io.github.haoming-luo/agentfem`.
 
+## Open in a desktop client
+
+On macOS or Linux, a supporting desktop client can open the tiny
+[AgentFEM 0.1.0 MCPB bundle](https://github.com/haoming-luo/agentfem-mcp/releases/download/v0.1.0/AgentFEM-0.1.0.mcpb)
+and ask for the single project folder AgentFEM may use. The bundle installs
+only the official connection from PyPI; it does not duplicate or replace the
+AgentFEM scientific runtime. Windows currently uses the explicit WSL2 setup
+rather than an unverified native bridge.
+
+The companion
+[SHA-256 file](https://github.com/haoming-luo/agentfem-mcp/releases/download/v0.1.0/AgentFEM-0.1.0.mcpb.sha256)
+lets an agent verify the download before opening it.
+
 Begin with a concrete request:
 
 > Use AgentFEM to create, validate, run, verify, and briefly explain a 2D

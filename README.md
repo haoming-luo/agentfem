@@ -62,6 +62,10 @@ codex mcp add agentfem \
 The interface is available from
 [PyPI](https://pypi.org/project/agentfem-mcp/) and the
 [official MCP Registry](https://registry.modelcontextprotocol.io/?q=io.github.haoming-luo%2Fagentfem).
+Supporting desktop clients on macOS or Linux can instead open the tiny
+[AgentFEM MCPB bundle](https://github.com/haoming-luo/agentfem-mcp/releases/download/v0.1.0/AgentFEM-0.1.0.mcpb);
+it connects to the installed AgentFEM runtime rather than shipping another
+solver.
 
 It is a thin process boundary, not a second solver: AgentFEM still performs the
 deterministic finite-element computation and preserves the distinction between
