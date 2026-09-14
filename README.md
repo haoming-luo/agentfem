@@ -46,6 +46,23 @@ version, and health-check result.
 AgentFEM includes the guidance and machine-readable interfaces an agent needs.
 Prefer manual setup? Continue to [Install](#install).
 
+### Connect AgentFEM to your agent
+
+The official [AgentFEM MCP](https://github.com/haoming-luo/agentfem-mcp)
+companion gives Codex, Claude, and other compatible agents the same seven
+typed operations for discovery, project creation, preflight, background
+execution, progress, and evidence:
+
+```bash
+codex mcp add agentfem \
+  --env AGENTFEM_MCP_ROOTS=/absolute/path/to/AgentFEMProjects \
+  -- uvx --from agentfem-mcp agentfem-mcp
+```
+
+It is a thin process boundary, not a second solver: AgentFEM still performs the
+deterministic finite-element computation and preserves the distinction between
+`completed`, `computed`, `verified`, and `validated`.
+
 ## Why AgentFEM
 
 - **AI-Native FEM** — finite-element software designed from the start for

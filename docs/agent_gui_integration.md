@@ -83,10 +83,18 @@ The contracts are versioned independently:
 GUI code should switch on `schema` and `schema_version`, not on prose printed by
 an example.
 
-## Process and service evolution
+## MCP today; services tomorrow
 
-The local CLI is the MVP boundary. A future asynchronous service can wrap the
-same contracts with:
+The official [AgentFEM MCP](https://github.com/haoming-luo/agentfem-mcp)
+companion now wraps the local process contracts with a compact seven-tool
+interface. It provides capability discovery, version-matched project creation,
+preflight, detached execution, durable job status, and structured result
+retrieval. It accepts neither arbitrary shell commands nor user-supplied Python
+strings, and confines projects to explicitly approved roots.
+
+This local stdio route is useful now because it gives compatible agents one
+stable interface without moving models or results to a hosted service. A future
+asynchronous service can extend the same contracts with:
 
 - `submit_run` returning a run ID;
 - `get_run_status` and structured event streaming;
@@ -95,11 +103,10 @@ same contracts with:
 - campaign submission and dataset status;
 - scheduler adapters for workstations, clusters, and cloud jobs.
 
-An MCP adapter becomes useful after that job service exists, especially for
-remote or protected compute. It should expose a small tool set such as
-`list_capabilities`, `validate_case`, `submit_run`, `get_run_status`, and
-`get_result_summary`. It should not expose one tool per material or arbitrary
-shell execution.
+Remote MCP should follow only when that service boundary exists. It must not
+turn the local adapter into an implicit upload path or expose one tool per
+material. The local process adapter and any future remote service should share
+the same AgentFEM project, run, result, and trust contracts.
 
 ## Security and control
 

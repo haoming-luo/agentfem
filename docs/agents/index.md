@@ -5,6 +5,11 @@ agents. An agent should construct or revise the readable `case.py`, use the
 structured CLI for operations, and accept results only through their explicit
 status and scientific evidence.
 
+For a direct tool connection, install the official
+[AgentFEM MCP companion](mcp.md). It exposes seven typed lifecycle operations
+to Codex, Claude, and other compatible hosts while leaving the model source,
+solver, and evidence in normal AgentFEM projects.
+
 ## Machine-readable entrypoints
 
 | Resource | Purpose |
@@ -60,6 +65,7 @@ never interpret an `adapter_candidate` report as executable compatibility.
 ## Start here
 
 - [Installed project workflow](../getting_started.md)
+- [Connect with AgentFEM MCP](mcp.md)
 - [Agent and GUI integration](../agent_gui_integration.md)
 - [Scientific trust and verification](../scientific_verification.md)
 - [Project upgrades](../project_upgrades.md)

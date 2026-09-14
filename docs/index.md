@@ -15,6 +15,7 @@
 <div class="af-project-meta" markdown>
 
 [GitHub](https://github.com/haoming-luo/agentfem) ·
+[AgentFEM MCP](https://github.com/haoming-luo/agentfem-mcp) ·
 [PyPI](https://pypi.org/project/agentfem/) ·
 [Installation](getting_started.md) ·
 [Examples](examples/index.md) ·
@@ -31,7 +32,7 @@
 | Install AgentFEM and run one model | [Getting started](get_started/index.md) |
 | Build a solid, thermal, dynamic, or creep analysis | [User guide](guide/index.md) |
 | Reproduce an executable capability | [Examples](examples/index.md) |
-| Operate AgentFEM with a coding agent | [For AI agents](agents/index.md) |
+| Connect Codex or another compatible agent | [AgentFEM MCP](agents/mcp.md) |
 | Look up an equation, output variable, or function | [Theory and reference](reference/index.md) |
 
 The public workflow follows the concepts used in an engineering analysis:

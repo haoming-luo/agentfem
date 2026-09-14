@@ -125,6 +125,7 @@ nav:
       - Install and First Project: getting_started.md
       - Offline Runtime Installers: runtime_installers.md
       - For AI Agents: agents/index.md
+      - Connect with MCP: agents/mcp.md
       - Agent Acceptance: agents/acceptance.md
 
   - User Guide:
