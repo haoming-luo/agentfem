@@ -54,3 +54,6 @@ agentfem doctor
 
 The corrected milestone build contract installs the compiler in the exported
 root filesystem and accepts the final `.wsl` artifact after a clean re-import.
+The [first successful Windows field report](https://github.com/haoming-luo/agentfem/discussions/3)
+records the clean-host WSL2 + TUNA route through a completed solve; TUNA has
+since synchronized AgentFEM 0.3.6.

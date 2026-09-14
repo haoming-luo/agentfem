@@ -9,7 +9,7 @@ cloning a repository.
 
 | Host | Artifact | Status |
 | --- | --- | --- |
-| Windows 10/11 with WSL2 | `AgentFEM-Complete-<version>-WSL2-x86_64-preview-offline.zip` | Primary public Preview; accepted in the Linux image, pending real WSL2 evidence |
+| Windows 10/11 with WSL2 | `AgentFEM-Complete-<version>-WSL2-x86_64-preview-offline.zip` | Primary public Preview; image accepted and first real-host installation/solve completed; formal exact-artifact WSL2 release gate pending |
 | Apple Silicon macOS | `AgentFEM-Complete-<version>-macOS-arm64-unsigned-preview.pkg` | Public Preview; installed and exercised on a clean Apple Silicon runner, explicitly not signed or notarized |
 | Intel macOS | `.pkg` | Demand-driven follow-up |
 | Native Windows | `.exe` | Experimental until the complete PETSc/MPI/MPC gate passes |
@@ -114,6 +114,18 @@ This does not replace the WSL distribution or alter
 `g++` in the exported root filesystem, reports solver readiness in `doctor`,
 then re-imports the final `.wsl` artifact into a clean environment and performs
 a cold-cache solve before acceptance.
+
+### First real Windows field report
+
+On 14 September 2026, a clean Windows host with no existing WSL or conda
+completed the WSL2 + TUNA installation route, protected its Windows-side
+workspace, repaired the v0.3.6 compiler omission, and completed a finite-element
+solve. The sanitized commands and observations are preserved in
+[Discussion #3](https://github.com/haoming-luo/agentfem/discussions/3).
+
+This establishes real-host first-use feasibility. It does not replace the
+formal exact-artifact WSL2 acceptance gate, which additionally requires its
+machine-readable release report and two-rank MPI evidence.
 
 Users who want the normal stable name to move to the new runtime can request a
 transactional replacement:

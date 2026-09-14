@@ -50,10 +50,12 @@ The platform report records the route, exact wheel hash, Python/FEniCSx/PETSc/
 MPI identity, clean source commit and verified installed templates. GitHub's
 platform-acceptance workflow produces Linux and macOS artifacts, including a
 two-rank installed-wheel smoke, and aggregates them into a promotion snapshot.
-These are the required 0.3 platform gates. WSL2 acceptance still requires the
-same command inside a real WSL2 environment; it is tracked as additional
-Windows-route evidence and is never inferred from native Linux or an ordinary
-Windows runner.
+These are the required 0.3 platform gates. A first clean-host WSL2 installation
+and finite-element solve is recorded in
+[Discussion #3](https://github.com/haoming-luo/agentfem/discussions/3). Formal
+WSL2 release acceptance still requires the command below, its machine-readable
+record, and two-rank MPI evidence; it is never inferred from native Linux or an
+ordinary Windows runner.
 
 Promotion evidence is candidate-specific. The audit rejects a passed record
 whose AgentFEM version or source commit differs from the checkout being

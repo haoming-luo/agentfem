@@ -142,7 +142,10 @@ agentfem doctor
 
 The corrected runtime contract installs the toolchain in the exported root
 filesystem and verifies a cold-cache finite-element solve after re-importing
-the final `.wsl` artifact.
+the final `.wsl` artifact. The
+[first successful Windows field report](https://github.com/haoming-luo/agentfem/discussions/3)
+records a clean-host WSL2 + TUNA installation through a completed solve. TUNA
+briefly lagged the release during that run and now carries AgentFEM 0.3.6.
 
 Do not run `wsl --unregister` until `agentfem workspace --json` reports
 `protected_from_distribution_removal: true`. For the Complete Runtime, use its

@@ -158,6 +158,8 @@ snapshot first.
 > `sudo apt-get update && sudo apt-get install -y gcc g++`, then rerun
 > `agentfem doctor`. This repairs the runtime without changing projects or
 > results. Future Complete Runtime milestones include this toolchain directly.
+> See the [first successful Windows field report](https://github.com/haoming-luo/agentfem/discussions/3)
+> for the WSL2 + TUNA route from a clean host through a completed solve.
 
 ### Existing FEniCSx environment: PyPI
 
