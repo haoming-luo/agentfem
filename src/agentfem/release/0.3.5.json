@@ -1,9 +1,9 @@
 {
   "schema": "agentfem.release-contract",
   "schema_version": "0.2.0",
-  "target_version": "0.3.5.dev0",
-  "channel": "development",
-  "status": "draft",
+  "target_version": "0.3.5",
+  "channel": "stable",
+  "status": "candidate",
   "supported_python": "3.11",
   "platform_evidence": {
     "continuous_integration": ["Linux", "macOS"],
@@ -99,6 +99,12 @@
       "maturity": "engineering",
       "example": "examples/static_elasticity_surrogate_campaign.py",
       "evidence": ["accepted-dataset-policy", "framework-neutral-provider-contract", "framework-neutral-neural-field-contract", "surrogate-validation", "fem-fallback"]
+    },
+    {
+      "id": "composite-material-and-fabric-foundation",
+      "maturity": "experimental",
+      "example": "tests/test_composite_materials.py",
+      "evidence": ["orthotropic-solid-orientation", "laminate-abd-and-section-points", "objective-director-surface-kinematics", "finite-kinematics-fabric-membrane-step", "explicit-shell-and-contact-promotion-boundary"]
     }
   ],
   "required_gates": [
@@ -151,6 +157,7 @@
     "external generalized-Maxwell harmonic validation from the elastic Rayleigh-damped Test 5H benchmark",
     "full-field harmonic checkpoint recovery",
     "complex modes, prestressed small-on-large response or nonlinear harmonic balance",
-    "externally validated finite-strain J2 homogenized tangent for arbitrary microstructures"
+    "externally validated finite-strain J2 homogenized tangent for arbitrary microstructures",
+    "forming-capable composite shell, tool contact, friction or inter-ply slip"
   ]
 }

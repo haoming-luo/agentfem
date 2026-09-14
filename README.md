@@ -331,12 +331,12 @@ workflows, and author's vision. [Read the PDF](https://haoming-luo.github.io/age
 
 ```yaml
 title: "AgentFEM: An AI-native open-source platform for finite-element computing"
-version: "0.3.4"
+version: "0.3.5"
 authors:
   - family-names: Luo
     given-names: Haoming
     affiliation: "Materials Department, Xi'an Thermal Power Research Institute (TPRI)"
-date-released: 2026-09-11
+date-released: 2026-09-14
 ```
 
 ## Author

@@ -6,6 +6,8 @@ experimental formulation to a validated one.
 
 ## [Unreleased]
 
+## [0.3.5] - 2026-09-14
+
 ### Added
 
 - Add an experimental finite-kinematics woven-membrane provider through
@@ -22,6 +24,26 @@ experimental formulation to a validated one.
 - Reject nonzero fabric bending stiffness in the in-plane membrane provider
   instead of silently discarding it. Shell bending, locking control, tool
   contact, friction, and inter-ply slip remain explicit promotion gates.
+- Establish executable ownership boundaries for Model, Constitutive, State,
+  Operator, Procedure, Backend, and Result/Verification. Built-in provider
+  selection, scientific-family builders, nonlinear/transient evolution,
+  operator lowering, model inspection, and result assembly now have separate
+  internal owners without adding a second public workflow.
+- Lower configured engineering Steps through a shallow immutable Model view.
+  The source Model's load and constraint registries remain stable while the
+  executable retains the exact active configuration used for its result.
+- Scale hosted validation to the evidence affected by a change: targeted
+  checks remain the development loop, while complete numerical, MPI, platform,
+  installer, and scientific gates protect coherent pushes and releases.
+
+### Fixed
+
+- Keep compatibility Problem and Step types discoverable in generated API
+  documentation after their implementations move to their owning modules.
+- Bind source promotion audits to the current checkout instead of silently
+  importing an older AgentFEM wheel from the invoking environment.
+- Make the long nonlinear heartbeat concise and bounded so progress remains
+  visible without accumulating unbounded terminal or in-memory history.
 
 ## [0.3.4] - 2026-09-11
 
@@ -813,7 +835,9 @@ because the package version is stable.
   platform with readable study, model, step, result, campaign, and evidence
   contracts.
 
-[Unreleased]: https://github.com/haoming-luo/agentfem/compare/v0.3.3...HEAD
+[Unreleased]: https://github.com/haoming-luo/agentfem/compare/v0.3.5...HEAD
+[0.3.5]: https://github.com/haoming-luo/agentfem/compare/v0.3.4...v0.3.5
+[0.3.4]: https://github.com/haoming-luo/agentfem/compare/v0.3.3...v0.3.4
 [0.3.3]: https://github.com/haoming-luo/agentfem/compare/v0.3.2...v0.3.3
 [0.3.2]: https://github.com/haoming-luo/agentfem/compare/v0.3.1...v0.3.2
 [0.3.1]: https://github.com/haoming-luo/agentfem/compare/v0.3.0...v0.3.1
