@@ -342,21 +342,26 @@ account or acting for the user.
 
 ## Citation
 
-If AgentFEM helps your research or engineering work, please cite the project
-metadata in [`CITATION.cff`](CITATION.cff). The
+If AgentFEM helps your research or engineering work, please cite the canonical
+technical report below. Record the exact AgentFEM version, release tag, or
+commit separately in the reproducibility statement; software releases do not
+create separate scholarly works. [`CITATION.cff`](CITATION.cff) exposes the
+same report as its stable preferred citation. The
 [AgentFEM Technical Report](https://haoming-luo.github.io/agentfem/publications/agentfem-platform/),
 *AgentFEM: An AI-Native Open-Source Platform for Finite-Element Computing*,
 presents the platform's architecture, founding principles, representative
 workflows, and author's vision. [Read the PDF](https://haoming-luo.github.io/agentfem/assets/papers/agentfem_platform.pdf).
 
-```yaml
-title: "AgentFEM: An AI-native open-source platform for finite-element computing"
-version: "0.3.6"
-authors:
-  - family-names: Luo
-    given-names: Haoming
-    affiliation: "Materials Department, Xi'an Thermal Power Research Institute (TPRI)"
-date-released: 2026-09-14
+```bibtex
+@techreport{luo2026agentfem,
+  author      = {Luo, Haoming},
+  title       = {AgentFEM: An AI-Native Open-Source Platform for
+                 Finite-Element Computing},
+  institution = {Xi'an Thermal Power Research Institute},
+  year        = {2026},
+  month       = {August},
+  url         = {https://haoming-luo.github.io/agentfem/publications/agentfem-platform/}
+}
 ```
 
 ## Author

@@ -1,6 +1,6 @@
 cff-version: 1.2.0
-message: "If AgentFEM helps your research or engineering work, please cite it using this metadata."
-title: "AgentFEM: An AI-native open-source platform for finite-element computing"
+message: "Please cite the preferred technical report, and record the exact AgentFEM version separately for reproducibility."
+title: "AgentFEM"
 type: software
 version: "0.3.6"
 authors:
@@ -11,3 +11,15 @@ date-released: 2026-09-14
 repository-code: "https://github.com/haoming-luo/agentfem"
 url: "https://github.com/haoming-luo/agentfem"
 license: "Apache-2.0"
+preferred-citation:
+  type: report
+  title: "AgentFEM: An AI-Native Open-Source Platform for Finite-Element Computing"
+  authors:
+    - family-names: Luo
+      given-names: Haoming
+      affiliation: "Materials Department, Xi'an Thermal Power Research Institute (TPRI)"
+  year: 2026
+  month: 8
+  institution:
+    name: "Xi'an Thermal Power Research Institute"
+  url: "https://haoming-luo.github.io/agentfem/publications/agentfem-platform/"

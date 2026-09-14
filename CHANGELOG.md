@@ -14,6 +14,8 @@ experimental formulation to a validated one.
 
 ### Changed
 
+- Make the founding technical report the stable preferred citation while
+  retaining the exact software release separately for reproducibility.
 - Build the large macOS and Windows/WSL Complete Runtimes only after an
   explicit milestone dispatch instead of attaching gigabyte-scale artifacts
   to every Python package release.
