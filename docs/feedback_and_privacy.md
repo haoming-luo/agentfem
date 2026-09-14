@@ -5,6 +5,54 @@ open-source software. It learns which platforms and workflows succeed or fail
 in real use while remaining independent of the finite-element model and
 numerical result lifecycle.
 
+## Voluntary community support
+
+Community support is not telemetry. After a healthy first installation or an
+important upgrade, AgentFEM may show one short invitation per major/minor
+release series:
+
+```bash
+agentfem support
+agentfem support --after-upgrade --json
+```
+
+The default command performs no network request and no account action. It can
+remember locally that the invitation was shown, or that the user has already
+supported the project; that record contains no account identity or token. An
+AI agent must ask before checking or changing a user's GitHub account.
+
+With explicit consent, an existing authenticated GitHub CLI can be used for a
+read-only status check:
+
+```bash
+agentfem support --check-github --json
+```
+
+The user or their authorized agent may then Star the repository separately and
+record that choice locally with:
+
+```bash
+agentfem support --acknowledge github_star
+```
+
+AgentFEM never stars, follows, posts, or uploads anything automatically. A
+Star, Discussion, citation, or installation report never changes software
+access, numerical behavior, verification, support priority, or update
+availability.
+
+### Distribution signals are different
+
+[PyPI](https://docs.pypi.org/api/bigquery/) and conda-forge accumulate package
+availability and aggregate download signals as people install normal releases;
+`pip` and `mamba` are installers, not social networks.
+[TUNA](https://mirrors.tuna.tsinghua.edu.cn/help/anaconda/) is a synchronized
+access route, not a per-project rating system, and mirror traffic should not be
+presented as an upstream download count. AgentFEM therefore never asks an
+installer to manufacture engagement. Public trust should come from maintained
+releases, [reviewed conda-forge recipes](https://conda-forge.org/docs/maintainer/understanding_conda_forge/feedstocks/),
+reproducible reports, independent use, citations, and voluntary GitHub
+participation.
+
 ## What basic reporting contains
 
 Basic reporting is on by default and can be disabled at any time:

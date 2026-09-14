@@ -332,6 +332,14 @@ analysis available in mature general-purpose CAE systems. Current maturity and
 known boundaries are documented per capability so users can decide what is
 appropriate for exploration, research, or engineering use.
 
+## Support the Project
+
+If AgentFEM helps, the most useful public signals are a GitHub
+[Star](https://github.com/haoming-luo/agentfem), a real-use note in
+[Discussions](https://github.com/haoming-luo/agentfem/discussions), or a
+research citation. `agentfem support` shows these routes without contacting an
+account or acting for the user.
+
 ## Citation
 
 If AgentFEM helps your research or engineering work, please cite the project

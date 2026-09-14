@@ -193,6 +193,7 @@ CLI_COMMANDS = (
     "diagnose",
     "assist",
     "feedback",
+    "support",
 )
 
 MACHINE_COMMANDS = {
@@ -218,6 +219,7 @@ MACHINE_COMMANDS = {
     "telemetry_status": "agentfem telemetry status --json",
     "telemetry_route": "agentfem telemetry route auto --json",
     "diagnose": "agentfem diagnose --json",
+    "community_support": "agentfem support --json",
     "assist": "agentfem assist --json",
     "feedback_archive": "agentfem feedback --json",
 }

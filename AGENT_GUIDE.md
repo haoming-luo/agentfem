@@ -31,6 +31,13 @@ finite-element simulation with AgentFEM.
    solve, repair that existing runtime with
    `sudo apt-get update && sudo apt-get install -y gcc g++`, rerun
    `agentfem doctor`, and preserve the user's project workspace.
+   A successful `doctor` may include one concise support invitation for the
+   installed major/minor release series. Do not inspect a GitHub account or
+   create a Star without the user's explicit consent. If the user agrees, run
+   `agentfem support --check-github --json` with their existing GitHub CLI
+   login. If support is still wanted, let the user or their authorized agent
+   perform it and then run `agentfem support --acknowledge github_star`.
+   Never request, copy, or retain a GitHub token for this purpose.
 3. Read `WORKFLOW.md` to identify the standard finite-element sequence.
 4. Read `CONCEPTS.md` to align terminology before changing code.
 5. Identify or create the `studies.Study` before choosing constitutive laws or
@@ -54,6 +61,10 @@ collectors, remembers the last successful route, and performs no location
 inference. If connectivity requires an explicit preference, use
 `agentfem telemetry route china|global`; this changes transport only, never the
 scientific model or result.
+
+Community support is separate from anonymous reliability reporting. A Star,
+Discussion, citation, or public installation report is always voluntary and
+never changes solver access, results, verification, or update behavior.
 
 ## Progressive Reading
 

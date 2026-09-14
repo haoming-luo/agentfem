@@ -735,6 +735,20 @@ def _command_feedback(args) -> int:
     return 0
 
 
+def _command_support(args) -> int:
+    from . import community
+
+    if args.acknowledge:
+        community.acknowledge(kind=args.acknowledge)
+    record = community.status(
+        version=__version__,
+        after_upgrade=args.after_upgrade,
+        check_github=args.check_github,
+    )
+    _emit(record, as_json=args.json, human=community.format_status(record))
+    return 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="agentfem", description=__doc__)
     parser.add_argument("--version", action="version", version=f"AgentFEM {__version__}")
@@ -936,6 +950,23 @@ def build_parser() -> argparse.ArgumentParser:
     feedback_command.add_argument("--output")
     feedback_command.add_argument("--github", action="store_true")
     feedback_command.add_argument("--json", action="store_true")
+
+    support = sub.add_parser(
+        "support",
+        help="Show consent-first ways to support the AgentFEM community.",
+    )
+    support.add_argument("--after-upgrade", action="store_true")
+    support.add_argument(
+        "--check-github",
+        action="store_true",
+        help="Explicitly use an existing GitHub CLI login to check Star status.",
+    )
+    support.add_argument(
+        "--acknowledge",
+        choices=("github_star", "supported_elsewhere"),
+        help="Remember support locally without storing an account identity.",
+    )
+    support.add_argument("--json", action="store_true")
     return parser
 
 
@@ -944,8 +975,19 @@ def _dispatch(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
     try:
         if args.command == "doctor":
+            from . import community
+
             report = platforms.runtime_report()
-            _emit(report.summary(), as_json=args.json, human=report.format())
+            record = report.summary()
+            support = community.status(
+                version=__version__,
+                after_upgrade=report.solver_ready,
+            )
+            record["community_support"] = support
+            human = report.format()
+            if support["invitation_due"]:
+                human = f"{human}\n\n{community.format_status(support)}"
+            _emit(record, as_json=args.json, human=human)
             return 0 if report.solver_ready else 2
         if args.command == "workspace":
             return _command_workspace(args)
@@ -1001,6 +1043,8 @@ def _dispatch(argv: list[str] | None = None) -> int:
             return _command_assist(args)
         if args.command == "feedback":
             return _command_feedback(args)
+        if args.command == "support":
+            return _command_support(args)
         if args.command == "extensions":
             extensions.load_extensions(args.load)
             record = extensions.extension_status()
@@ -1085,7 +1129,13 @@ def main(argv: list[str] | None = None) -> int:
     selected_argv = list(sys.argv[1:] if argv is None else argv)
     parsed = build_parser().parse_args(selected_argv)
     as_json = bool(getattr(parsed, "json", False))
-    if parsed.command not in {"telemetry", "diagnose", "assist", "feedback"}:
+    if parsed.command not in {
+        "telemetry",
+        "diagnose",
+        "assist",
+        "feedback",
+        "support",
+    }:
         reliability.show_notice_once(as_json=as_json)
     started = time.monotonic()
     exit_code = _dispatch(selected_argv)

@@ -2,7 +2,7 @@
   "schema": "agentfem.documentation-entry",
   "schema_version": "1.0",
   "project": "AgentFEM",
-  "version": "0.3.6",
+  "version": "0.3.7.dev0",
   "maturity": "early-release",
   "description": "AI-native finite-element computing for humans and agents.",
   "documentation": "https://haoming-luo.github.io/agentfem/",
@@ -55,6 +55,7 @@
     "telemetry_status": "agentfem telemetry status --json",
     "telemetry_route": "agentfem telemetry route auto --json",
     "diagnose": "agentfem diagnose --json",
+    "community_support": "agentfem support --json",
     "assist": "agentfem assist --json",
     "feedback_archive": "agentfem feedback --json"
   },

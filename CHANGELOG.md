@@ -6,6 +6,12 @@ experimental formulation to a validated one.
 
 ## [Unreleased]
 
+### Added
+
+- Add `agentfem support`, a consent-first community invitation that performs no
+  account action, checks an existing GitHub login only when explicitly asked,
+  and remembers support locally without storing identity or credentials.
+
 ### Changed
 
 - Build the large macOS and Windows/WSL Complete Runtimes only after an
