@@ -738,6 +738,9 @@ def _command_feedback(args) -> int:
 def _command_support(args) -> int:
     from . import community
 
+    action = None
+    if args.star:
+        action = community.star()
     if args.acknowledge:
         community.acknowledge(kind=args.acknowledge)
     record = community.status(
@@ -745,6 +748,8 @@ def _command_support(args) -> int:
         after_upgrade=args.after_upgrade,
         check_github=args.check_github,
     )
+    if action is not None:
+        record["action"] = action
     _emit(record, as_json=args.json, human=community.format_status(record))
     return 0
 
@@ -960,6 +965,11 @@ def build_parser() -> argparse.ArgumentParser:
         "--check-github",
         action="store_true",
         help="Explicitly use an existing GitHub CLI login to check Star status.",
+    )
+    support.add_argument(
+        "--star",
+        action="store_true",
+        help="Explicitly Star AgentFEM using an existing GitHub CLI login.",
     )
     support.add_argument(
         "--acknowledge",

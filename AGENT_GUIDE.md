@@ -34,9 +34,10 @@ finite-element simulation with AgentFEM.
    A successful `doctor` may include one concise support invitation for the
    installed major/minor release series. Do not inspect a GitHub account or
    create a Star without the user's explicit consent. If the user agrees, run
-   `agentfem support --check-github --json` with their existing GitHub CLI
-   login. If support is still wanted, let the user or their authorized agent
-   perform it and then run `agentfem support --acknowledge github_star`.
+   `agentfem support --star --json` with their existing GitHub CLI login. This
+   is the single explicit account-changing command and records the completed
+   choice locally. Use `agentfem support --check-github --json` only when the
+   user asks for a read-only status check.
    Never request, copy, or retain a GitHub token for this purpose.
 3. Read `WORKFLOW.md` to identify the standard finite-element sequence.
 4. Read `CONCEPTS.md` to align terminology before changing code.

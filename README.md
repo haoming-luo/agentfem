@@ -359,11 +359,15 @@ appropriate for exploration, research, or engineering use.
 
 ## Support the Project
 
-If AgentFEM helps, the most useful public signals are a GitHub
-[Star](https://github.com/haoming-luo/agentfem), a real-use note in
-[Discussions](https://github.com/haoming-luo/agentfem/discussions), or a
-research citation. `agentfem support` shows these routes without contacting an
-account or acting for the user.
+If AgentFEM helps, one explicit command can Star the project through an
+existing GitHub CLI login:
+
+```bash
+agentfem support --star
+```
+
+It never runs automatically. You can also visit
+[GitHub](https://github.com/haoming-luo/agentfem) directly.
 
 ## Citation
 

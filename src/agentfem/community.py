@@ -165,6 +165,65 @@ def _github_status() -> dict[str, Any]:
     }
 
 
+def star(*, path: Path | None = None) -> dict[str, Any]:
+    """Star AgentFEM through an existing GitHub CLI login.
+
+    Calling this function is the explicit account-changing action.  It never
+    starts from :func:`status`, ``doctor``, installation, or upgrade flows.
+    """
+
+    executable = shutil.which("gh")
+    if not executable:
+        raise RuntimeError(
+            f"GitHub CLI is not available. Open {REPOSITORY_URL} and choose Star."
+        )
+    try:
+        authentication = subprocess.run(
+            [executable, "auth", "status", "--hostname", "github.com"],
+            check=False,
+            capture_output=True,
+            text=True,
+            timeout=15,
+        )
+    except (OSError, subprocess.TimeoutExpired) as exc:
+        raise RuntimeError(
+            "Could not check the existing GitHub CLI login. No account action was taken."
+        ) from exc
+    if authentication.returncode != 0:
+        raise RuntimeError(
+            f"GitHub CLI is not signed in. Open {REPOSITORY_URL} and choose Star."
+        )
+    try:
+        action = subprocess.run(
+            [
+                executable,
+                "api",
+                "--method",
+                "PUT",
+                f"/user/starred/{REPOSITORY}",
+            ],
+            check=False,
+            capture_output=True,
+            text=True,
+            timeout=15,
+        )
+    except (OSError, subprocess.TimeoutExpired) as exc:
+        raise RuntimeError(
+            "GitHub did not confirm the Star. No local acknowledgement was saved."
+        ) from exc
+    if action.returncode != 0:
+        raise RuntimeError(
+            f"GitHub did not confirm the Star. Open {REPOSITORY_URL} and choose Star."
+        )
+    acknowledgement = acknowledge(kind="github_star_verified", path=path)
+    return {
+        "requested_explicitly": True,
+        "performed": True,
+        "repository": REPOSITORY_URL,
+        "acknowledgement": acknowledgement,
+    }
+
+
 def status(
     *,
     version: str,
@@ -258,6 +317,7 @@ __all__ = (
     "REPOSITORY_URL",
     "acknowledge",
     "format_status",
+    "star",
     "state_path",
     "status",
 )

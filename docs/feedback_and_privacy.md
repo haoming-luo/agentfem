@@ -22,20 +22,30 @@ supported the project; that record contains no account identity or token. An
 AI agent must ask before checking or changing a user's GitHub account.
 
 With explicit consent, an existing authenticated GitHub CLI can be used for a
-read-only status check:
+one-command Star:
+
+```bash
+agentfem support --star
+```
+
+This command is never called by installation, upgrade, `doctor`, or ordinary
+simulation. It uses the GitHub CLI's existing login, saves no token or account
+identity, and records the completed choice locally so later releases do not
+ask again. A read-only status check remains available separately:
 
 ```bash
 agentfem support --check-github --json
 ```
 
-The user or their authorized agent may then Star the repository separately and
-record that choice locally with:
+If the user supported the project through another route, the choice can be
+recorded locally without contacting an account:
 
 ```bash
-agentfem support --acknowledge github_star
+agentfem support --acknowledge supported_elsewhere
 ```
 
-AgentFEM never stars, follows, posts, or uploads anything automatically. A
+AgentFEM never stars, follows, posts, or uploads anything automatically. The
+`--star` flag itself is the explicit instruction to perform that one action. A
 Star, Discussion, citation, or installation report never changes software
 access, numerical behavior, verification, support priority, or update
 availability.
