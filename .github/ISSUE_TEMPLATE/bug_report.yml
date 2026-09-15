@@ -1,11 +1,13 @@
-name: Bug report
-description: Report a reproducible software, solver, or scientific-validity defect
+name: Bug report / 问题报告
+description: Tell us what went wrong; an AI agent may prepare this form for you
 title: "[Bug]: "
 labels: ["bug", "needs-triage"]
 body:
   - type: markdown
     attributes:
-      value: Remove confidential data and reduce the issue to a synthetic reproducer when possible.
+      value: |
+        Thank you for helping improve AgentFEM. English and Chinese are both welcome.
+        Please remove confidential models, paths, results, credentials, and licensed files.
   - type: dropdown
     id: defect_kind
     attributes:
@@ -22,45 +24,46 @@ body:
     validations:
       required: true
   - type: textarea
-    id: engineering_problem
+    id: expected
     attributes:
-      label: Engineering problem and expected behavior
-      description: State the governing problem, assumptions, units, and expected physical or numerical behavior.
+      label: What were you trying to do? / 你想完成什么？
+      description: A short description is enough.
     validations:
       required: true
   - type: textarea
     id: observed
     attributes:
-      label: Observed behavior
-      description: Include the complete exception or smallest relevant progress and solver log.
+      label: What happened? / 实际发生了什么？
+      description: Include the shortest useful error message or screenshot.
     validations:
       required: true
   - type: textarea
     id: reproducer
     attributes:
-      label: Minimal reproducer
-      render: python
+      label: How can we reproduce it? / 如何复现？
+      description: List the steps, or attach a small public project with private data removed.
     validations:
       required: true
   - type: textarea
     id: runtime
     attributes:
-      label: Runtime report
-      description: Paste `agentfem.platforms.runtime_report().format()` and state MPI rank count and installation method.
-      render: text
+      label: AgentFEM health check / 环境检查
+      description: Ask your agent to run `agentfem doctor --json` and paste the result. It contains no model or result data.
+      render: json
     validations:
       required: true
   - type: textarea
-    id: evidence
+    id: diagnosis
     attributes:
-      label: Validation evidence
-      description: For a scientific defect, provide an analytical result, benchmark, mesh-convergence result, or comparison source.
+      label: Optional diagnosis / 可选诊断
+      description: For a failed project, paste the sanitized summary from `agentfem diagnose --json` if available.
+      render: json
   - type: checkboxes
     id: checklist
     attributes:
       label: Checklist
       options:
-        - label: I searched existing issues and the roadmap.
+        - label: I searched existing Issues or Q&A.
           required: true
-        - label: I removed secrets, licenses, and confidential engineering data.
+        - label: I removed secrets, licensed files, and confidential engineering data.
           required: true

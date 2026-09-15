@@ -1,5 +1,11 @@
 blank_issues_enabled: false
 contact_links:
+  - name: Help and Q&A / 使用问答
+    url: https://github.com/haoming-luo/agentfem/discussions/categories/q-a
+    about: Ask how to install, model, run, or understand a result. English and Chinese are welcome.
+  - name: Share your first simulation / 分享第一次仿真
+    url: https://github.com/haoming-luo/agentfem/discussions/categories/show-and-tell
+    about: Show a result, screenshot, workflow, or experiment made with AgentFEM.
   - name: AgentFEM documentation
     url: https://haoming-luo.github.io/agentfem/
     about: Check installation, examples, capability maturity, and the roadmap first.

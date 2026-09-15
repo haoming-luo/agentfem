@@ -367,7 +367,9 @@ agentfem support --star
 ```
 
 It never runs automatically. You can also visit
-[GitHub](https://github.com/haoming-luo/agentfem) directly.
+[GitHub](https://github.com/haoming-luo/agentfem) directly. Have a question or
+a result to show? Visit [Q&A](https://github.com/haoming-luo/agentfem/discussions/categories/q-a)
+or [Show and tell](https://github.com/haoming-luo/agentfem/discussions/categories/show-and-tell).
 
 ## Citation
 
