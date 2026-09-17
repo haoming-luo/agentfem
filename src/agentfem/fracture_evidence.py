@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Haoming Luo and AgentFEM contributors
+# SPDX-License-Identifier: Apache-2.0
+
 """Self-contained evidence packages for dynamic-fracture research."""
 
 from __future__ import annotations

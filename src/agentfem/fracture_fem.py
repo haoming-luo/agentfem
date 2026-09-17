@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Haoming Luo and AgentFEM contributors
+# SPDX-License-Identifier: Apache-2.0
+
 """DOLFINx lowering for the solver-neutral two-dimensional LEFM integrals."""
 
 from __future__ import annotations

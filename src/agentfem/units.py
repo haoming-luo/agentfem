@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Haoming Luo and AgentFEM contributors
+# SPDX-License-Identifier: Apache-2.0
+
 """Explicit consistent-unit metadata for engineering models.
 
 Finite-element kernels operate on numbers.  This module records the unit

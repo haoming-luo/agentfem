@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Haoming Luo and AgentFEM contributors
+# SPDX-License-Identifier: Apache-2.0
+
 """Optional-dependency boundaries with actionable, agent-readable errors.
 
 AgentFEM deliberately keeps format converters, visualisation, and learning

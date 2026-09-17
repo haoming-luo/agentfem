@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Haoming Luo and AgentFEM contributors
+# SPDX-License-Identifier: Apache-2.0
+
 """Lightweight model registries for AgentFEM workflows.
 
 The model layer records mesh, fields, amplitudes, materials, constraints,

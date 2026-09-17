@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Haoming Luo and AgentFEM contributors
+# SPDX-License-Identifier: Apache-2.0
+
 """Backend capability and lowering interfaces.
 
 AgentFEM remains FEniCSx-first.  This module exposes a narrow, honest seam for

@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Haoming Luo and AgentFEM contributors
+# SPDX-License-Identifier: Apache-2.0
+
 """Internal scientific builders used by public Step providers.
 
 The stable user entry point is :meth:`agentfem.models.Model.step`.  Builders

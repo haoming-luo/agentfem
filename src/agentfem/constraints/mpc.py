@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Haoming Luo and AgentFEM contributors
+# SPDX-License-Identifier: Apache-2.0
+
 """Optional exact multi-point-constraint construction backends.
 
 This module owns reusable geometric MPC construction.  Scientific adapters

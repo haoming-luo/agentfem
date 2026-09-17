@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Haoming Luo and AgentFEM contributors
+# SPDX-License-Identifier: Apache-2.0
+
 """Shared axisymmetric kinematics and physical integration weights.
 
 The public modeling declaration remains ``Study(assumption="axisymmetric")``.

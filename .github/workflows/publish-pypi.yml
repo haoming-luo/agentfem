@@ -46,7 +46,10 @@ jobs:
           python-version: "3.11"
 
       - name: Install build tools
-        run: python -m pip install --upgrade build twine
+        run: python -m pip install --upgrade build "reuse>=5,<6" twine
+
+      - name: Validate machine-readable source licensing
+        run: reuse lint
 
       - name: Build source and wheel distributions once
         if: github.event_name != 'workflow_dispatch'
@@ -91,6 +94,20 @@ jobs:
         with:
           name: python-package-distributions
           path: dist/
+          if-no-files-found: error
+
+      - name: Generate the SPDX source-licensing record
+        run: |
+          mkdir -p provenance
+          reuse spdx \
+            --creator-person "Haoming Luo" \
+            --output provenance/agentfem-source.spdx
+
+      - name: Upload source-licensing evidence
+        uses: actions/upload-artifact@v7
+        with:
+          name: source-licensing-evidence
+          path: provenance/agentfem-source.spdx
           if-no-files-found: error
 
   verify:
@@ -306,11 +323,23 @@ jobs:
           name: python-package-distributions
           path: dist/
 
+      - name: Download source-licensing evidence
+        uses: actions/download-artifact@v8
+        with:
+          name: source-licensing-evidence
+          path: provenance/
+
       - name: Attest official distribution provenance
         if: github.event.repository.visibility == 'public'
         uses: actions/attest-build-provenance@v3
         with:
           subject-path: "dist/*"
+
+      - name: Attest the SPDX source-licensing record
+        if: github.event.repository.visibility == 'public'
+        uses: actions/attest-build-provenance@v3
+        with:
+          subject-path: "provenance/agentfem-source.spdx"
 
       - name: Record private-repository attestation boundary
         if: github.event.repository.visibility != 'public'

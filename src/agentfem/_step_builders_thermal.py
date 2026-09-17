@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Haoming Luo and AgentFEM contributors
+# SPDX-License-Identifier: Apache-2.0
+
 """Linear and thermal scientific Step builders.\n\nThis private family module keeps steady and transient heat-transfer lowering\nindependent from nonlinear solid, inelastic, modal, and dynamics builders.\n"""
 
 from __future__ import annotations

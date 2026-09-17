@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Haoming Luo and AgentFEM contributors
+# SPDX-License-Identifier: Apache-2.0
+
 """Reviewed native lowering for a deliberately narrow Abaqus project subset.
 
 Migration preserves source intent first.  This module is the second gate: it

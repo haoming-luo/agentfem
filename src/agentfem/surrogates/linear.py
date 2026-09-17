@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Haoming Luo and AgentFEM contributors
+# SPDX-License-Identifier: Apache-2.0
+
 """Deterministic NumPy baselines for scalar and field surrogates."""
 
 from __future__ import annotations

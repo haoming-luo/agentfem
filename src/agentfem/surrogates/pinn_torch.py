@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Haoming Luo and AgentFEM contributors
+# SPDX-License-Identifier: Apache-2.0
+
 """Optional PyTorch execution adapter for explicit AgentFEM PINN contracts."""
 
 from __future__ import annotations

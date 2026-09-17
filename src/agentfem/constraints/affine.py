@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Haoming Luo and AgentFEM contributors
+# SPDX-License-Identifier: Apache-2.0
+
 """Inspectable affine elimination for Abaqus-style nodal equations.
 
 For a displacement vector ``u`` the reduction stores

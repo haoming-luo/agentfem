@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Haoming Luo and AgentFEM contributors
+# SPDX-License-Identifier: Apache-2.0
+
 """Structural modal solution procedure over assembled stiffness and mass."""
 
 from __future__ import annotations

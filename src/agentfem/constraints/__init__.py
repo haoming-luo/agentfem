@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Haoming Luo and AgentFEM contributors
+# SPDX-License-Identifier: Apache-2.0
+
 """Constraint containers for standard finite-element workflows.
 
 Strong constraints such as Dirichlet data and periodic/MPC relations belong

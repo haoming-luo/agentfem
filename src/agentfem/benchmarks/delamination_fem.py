@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Haoming Luo and AgentFEM contributors
+# SPDX-License-Identifier: Apache-2.0
+
 """Executable finite-element delamination benchmark providers.
 
 These providers are deliberately separate from the analytical oracles in

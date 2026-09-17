@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Haoming Luo and AgentFEM contributors
+# SPDX-License-Identifier: Apache-2.0
+
 """Shared, side-effect-free helpers for the engineering Model boundary.
 
 The helpers in this module inspect registered assets without assembling forms,

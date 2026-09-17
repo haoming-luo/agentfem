@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Haoming Luo and AgentFEM contributors
+# SPDX-License-Identifier: Apache-2.0
+
 """Explicit, inspectable extension packages for the AgentFEM open core.
 
 Extensions are discovered through the standard ``agentfem.extensions`` Python

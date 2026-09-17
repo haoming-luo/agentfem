@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Haoming Luo and AgentFEM contributors
+# SPDX-License-Identifier: Apache-2.0
+
 """Framework-neutral execution boundary for user-owned neural-field solvers.
 
 The core deliberately does not define a training framework or neural-network

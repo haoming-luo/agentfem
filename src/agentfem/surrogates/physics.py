@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Haoming Luo and AgentFEM contributors
+# SPDX-License-Identifier: Apache-2.0
+
 """Explicit contracts for neural operators and physics-informed learning.
 
 These records are design and validation contracts, not claims that arbitrary

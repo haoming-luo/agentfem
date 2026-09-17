@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Haoming Luo and AgentFEM contributors
+# SPDX-License-Identifier: Apache-2.0
+
 """Simulation results, quantities of interest, and dataset bridges."""
 
 from importlib import import_module as _import_module

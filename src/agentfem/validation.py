@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Haoming Luo and AgentFEM contributors
+# SPDX-License-Identifier: Apache-2.0
+
 """Structured validation results for human and agent repair workflows.
 
 Validation is intentionally separate from numerical execution.  A report can

@@ -30,6 +30,7 @@ without storing a long-lived PyPI API token in repository secrets.
 
    ```bash
    python -m pip install -e ".[dev]"
+   reuse lint
    python -m build
    python -m twine check dist/*
    python release_gate.py --dist dist --smoke
@@ -47,8 +48,9 @@ The GitHub Actions workflow `.github/workflows/publish-pypi.yml` builds the
 wheel and source distribution exactly once. It then installs and verifies that
 immutable wheel through the complete serial, MPI, checkpoint, project-template,
 and release-workflow gates. Only those same artifacts are published to PyPI;
-GitHub provenance attestation is added when repository visibility supports it,
-and the workflow never rebuilds after verification.
+GitHub provenance attestation is added when repository visibility supports it.
+The workflow also generates a REUSE-derived SPDX source record and attests it
+beside the immutable distributions; it never rebuilds after verification.
 
 ## Install Command for Users
 

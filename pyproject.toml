@@ -70,7 +70,7 @@ docs = [
 ]
 notebooks = ["jupyterlab", "ipykernel", "nbformat", "nbclient"]
 ml = ["torch"]
-dev = ["build", "pytest", "ruff>=0.16,<0.17", "twine"]
+dev = ["build", "pytest", "reuse>=5,<6", "ruff>=0.16,<0.17", "twine"]
 
 [tool.setuptools]
 package-dir = { "" = "src" }
@@ -120,7 +120,12 @@ packages = [
   "external_data/*.json",
   "research_tasks/*.json",
 ]
-"agentfem" = ["py.typed", "release/*.json", "feedback-endpoint.json"]
+"agentfem" = [
+  "py.typed",
+  "origin.json",
+  "release/*.json",
+  "feedback-endpoint.json",
+]
 "agentfem.templates" = ["*/case.py", "*/agentfem.toml", "*/README.md", "*/AGENTS.md"]
 
 [tool.setuptools.exclude-package-data]

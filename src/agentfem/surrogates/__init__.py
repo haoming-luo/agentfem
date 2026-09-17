@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Haoming Luo and AgentFEM contributors
+# SPDX-License-Identifier: Apache-2.0
+
 """Surrogate, reduced-order, and physics-learning contracts.
 
 AgentFEM owns scientific inputs, outputs, provenance, validation, and

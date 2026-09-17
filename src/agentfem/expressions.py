@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Haoming Luo and AgentFEM contributors
+# SPDX-License-Identifier: Apache-2.0
+
 """Safe mathematical expressions for scientific model inputs.
 
 The public API deliberately accepts a small mathematical language rather than

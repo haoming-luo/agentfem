@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Haoming Luo and AgentFEM contributors
+# SPDX-License-Identifier: Apache-2.0
+
 """Reusable time-history and scale-factor assets.
 
 Amplitudes describe how a prescribed value changes with time. They are model

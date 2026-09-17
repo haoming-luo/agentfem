@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Haoming Luo and AgentFEM contributors
+# SPDX-License-Identifier: Apache-2.0
+
 """Contracts for future Abaqus UMAT/UHYPER interoperability.
 
 This module deliberately defines and validates the material-point boundary;

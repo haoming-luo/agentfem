@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Haoming Luo and AgentFEM contributors
+# SPDX-License-Identifier: Apache-2.0
+
 """Executable end-notched-flexure finite-element benchmark provider.
 
 The provider owns the assembled Mode-II structural problem.  Analytical beam

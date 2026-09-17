@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Haoming Luo and AgentFEM contributors
+# SPDX-License-Identifier: Apache-2.0
+
 """External structural benchmarks for stateful inelastic solids.
 
 The benchmark geometry is generated with NumPy/DOLFINx so the verification

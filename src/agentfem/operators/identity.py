@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Haoming Luo and AgentFEM contributors
+# SPDX-License-Identifier: Apache-2.0
+
 """Executable identities for operator-owned finite-element systems.
 
 Scientific summaries explain an operator, but restart safety must bind the

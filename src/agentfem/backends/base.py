@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Haoming Luo and AgentFEM contributors
+# SPDX-License-Identifier: Apache-2.0
+
 """Backend contracts for progressive AgentFEM lowering.
 
 The contract is intentionally small.  It creates a real compilation seam

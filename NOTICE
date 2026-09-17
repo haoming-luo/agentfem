@@ -1,7 +1,12 @@
 AgentFEM
-Copyright 2026 Haoming Luo
+Copyright 2026 Haoming Luo and AgentFEM contributors
 
 AgentFEM is an agent-oriented finite-element workflow platform.
+
+The canonical source repository is https://github.com/haoming-luo/agentfem.
+Machine-readable source licensing is recorded in REUSE.toml and SPDX headers;
+preferred academic credit is recorded in CITATION.cff. Redistribution must
+retain the notices required by Section 4 of the Apache License 2.0.
 
 The documentation distribution includes MathJax 3.2.2, Copyright 2009-2022
 The MathJax Consortium, licensed under the Apache License 2.0. Its license is

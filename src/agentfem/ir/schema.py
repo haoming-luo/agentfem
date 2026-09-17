@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Haoming Luo and AgentFEM contributors
+# SPDX-License-Identifier: Apache-2.0
+
 """Versioned AF-IR document primitives.
 
 The first AF-IR release is deliberately a faithful record of the public

@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Haoming Luo and AgentFEM contributors
+# SPDX-License-Identifier: Apache-2.0
+
 """Engineering assessments that consume, but do not alter, FEM solutions.
 
 The module deliberately separates solver-integrated constitutive evolution

@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Haoming Luo and AgentFEM contributors
+# SPDX-License-Identifier: Apache-2.0
+
 """Version-aware project inspection for humans and AI agents.
 
 The upgrade layer deliberately separates deterministic metadata migrations

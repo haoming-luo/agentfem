@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Haoming Luo and AgentFEM contributors
+# SPDX-License-Identifier: Apache-2.0
+
 """Material directions independent of constitutive parameters and Studies.
 
 The objects in this module describe how a material basis is embedded in the

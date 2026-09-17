@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Haoming Luo and AgentFEM contributors
+# SPDX-License-Identifier: Apache-2.0
+
 """Method-neutral two-dimensional crack geometry and tip evidence.
 
 The records in this module are deliberately independent of FEM, cohesive,

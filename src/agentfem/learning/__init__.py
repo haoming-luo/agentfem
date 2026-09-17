@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Haoming Luo and AgentFEM contributors
+# SPDX-License-Identifier: Apache-2.0
+
 """Scientific-learning contracts and compatibility entry points.
 
 ``learning`` is the public umbrella for simulation-to-learning workflows.

@@ -3,6 +3,8 @@ include CHANGELOG.md
 include LICENSE
 include NOTICE
 include CITATION.cff
+include REUSE.toml
+recursive-include LICENSES *.txt
 include CONTRIBUTING.md
 include INSTALL.md
 include WORKFLOW.md
@@ -15,6 +17,7 @@ include promotion_gate.py
 include build_docs.py
 include build_knowledge.py
 include src/agentfem/py.typed
+include src/agentfem/origin.json
 include logo/AgentFEM_logo.png
 include logo/AgentFEM_logo_transparent.png
 include logo/README.md

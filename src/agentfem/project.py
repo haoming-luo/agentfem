@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Haoming Luo and AgentFEM contributors
+# SPDX-License-Identifier: Apache-2.0
+
 """Installed-project and run-context support for AgentFEM applications.
 
 The project layer is deliberately thinner than the scientific model layer.  A

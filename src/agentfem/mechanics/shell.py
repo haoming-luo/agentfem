@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Haoming Luo and AgentFEM contributors
+# SPDX-License-Identifier: Apache-2.0
+
 """Objective local kinematics for future finite-rotation surface providers.
 
 This module owns geometry, not a shell finite element.  It deliberately keeps

@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Haoming Luo and AgentFEM contributors
+# SPDX-License-Identifier: Apache-2.0
+
 """Solution procedures: how an analysis is advanced and solved.
 
 ``Study`` describes the physical problem.  ``SolutionProcedure`` describes

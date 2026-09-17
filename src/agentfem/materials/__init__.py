@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Haoming Luo and AgentFEM contributors
+# SPDX-License-Identifier: Apache-2.0
+
 """Material-library helpers for AgentFEM."""
 
 from .assets import MaterialAssetError, load, load_python

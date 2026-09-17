@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Haoming Luo and AgentFEM contributors
+# SPDX-License-Identifier: Apache-2.0
+
 """Parameter studies and traceable batch execution for AgentFEM.
 
 The campaign layer owns scientific case identity and execution evidence. It

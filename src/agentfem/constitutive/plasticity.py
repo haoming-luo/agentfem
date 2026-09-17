@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Haoming Luo and AgentFEM contributors
+# SPDX-License-Identifier: Apache-2.0
+
 """Small-strain J2 plasticity material-point integration.
 
 The local radial-return mapping and analytical algorithmic tangent are kept

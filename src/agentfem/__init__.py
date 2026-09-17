@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Haoming Luo and AgentFEM contributors
+# SPDX-License-Identifier: Apache-2.0
+
 """Reusable finite-element workflow tools built on DOLFINx/PETSc."""
 
 from importlib import import_module as _import_module

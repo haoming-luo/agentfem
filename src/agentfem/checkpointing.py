@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Haoming Luo and AgentFEM contributors
+# SPDX-License-Identifier: Apache-2.0
+
 """Restart envelopes shared by transient finite-element procedures.
 
 Fast rank-local shards remain the default.  Schema v3 can additionally store

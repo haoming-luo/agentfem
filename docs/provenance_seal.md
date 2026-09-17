@@ -7,10 +7,11 @@ seal automatically. The seal binds three things:
 2. the AgentFEM version that produced it;
 3. the byte content and size of every registered artifact.
 
-The seal also carries a compact origin block naming AgentFEM, Haoming Luo, the
-canonical repository, the open-source date, the Apache-2.0 license, and the
-project citation file. Thus attribution travels with ordinary result bundles
-rather than living only on the GitHub home page.
+The seal also carries the packaged `agentfem/origin.json` record naming
+AgentFEM, Haoming Luo, the canonical repository, the open-source date, the
+Apache-2.0 license, and the project citation file. Thus one machine-readable
+source of truth travels with installed software, ordinary result bundles, and
+scientific datasets rather than living only on the GitHub home page.
 
 Scientific input identity is a separate part of the result manifest. Use
 `SimulationResult.add_scientific_inputs(...)` for an individual analysis, or
@@ -106,10 +107,12 @@ fields with hidden numerical watermarks.
 
 Official tagged wheel and source distributions add the next level of this
 chain: when repository visibility supports GitHub artifact attestations, the
-release workflow publishes one before the same files are sent to PyPI. Those
-distributions can be checked against the canonical repository with GitHub's
+release workflow publishes one before the same files are sent to PyPI. It also
+generates and attests an SPDX source-licensing record from the REUSE metadata.
+Those artifacts can be checked against the canonical repository with GitHub's
 attestation verifier. The attestation proves the official build origin; the
-result seal proves the later integrity of a particular simulation bundle.
+SPDX record describes source licensing; the result seal proves the later
+integrity of a particular simulation bundle.
 
 ## Artifact discipline
 

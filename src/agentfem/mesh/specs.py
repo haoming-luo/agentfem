@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Haoming Luo and AgentFEM contributors
+# SPDX-License-Identifier: Apache-2.0
+
 """Versioned geometry specifications lowered to AgentFEM meshes.
 
 The contract is intentionally small: a geometry is a mapping with ``type``

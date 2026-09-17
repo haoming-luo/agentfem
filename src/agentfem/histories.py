@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Haoming Luo and AgentFEM contributors
+# SPDX-License-Identifier: Apache-2.0
+
 """Time-coordinate histories for scientific fields and scalar inputs.
 
 The history object is deliberately independent of a solver.  A transient

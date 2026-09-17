@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Haoming Luo and AgentFEM contributors
+# SPDX-License-Identifier: Apache-2.0
+
 """Provider-neutral scientific contracts for neural field computation.
 
 The records in this module describe what a physics-informed or variational

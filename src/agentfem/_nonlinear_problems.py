@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Haoming Luo and AgentFEM contributors
+# SPDX-License-Identifier: Apache-2.0
+
 """Incremental and affine nonlinear procedure implementations.
 
 The stable factories remain in `agentfem.problems`. This module owns

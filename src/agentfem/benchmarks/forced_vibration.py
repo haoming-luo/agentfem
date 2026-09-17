@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Haoming Luo and AgentFEM contributors
+# SPDX-License-Identifier: Apache-2.0
+
 """Public direct steady-state harmonic-response benchmarks.
 
 The NAFEMS R0016 Test 5H beam is a three-dimensional bending problem with

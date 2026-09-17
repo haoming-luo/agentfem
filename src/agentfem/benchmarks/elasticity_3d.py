@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Haoming Luo and AgentFEM contributors
+# SPDX-License-Identifier: Apache-2.0
+
 """Public three-dimensional linear-elasticity benchmarks.
 
 The NAFEMS LE10 thick elliptical plate is a deliberately demanding solid-

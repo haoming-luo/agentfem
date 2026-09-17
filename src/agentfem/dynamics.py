@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Haoming Luo and AgentFEM contributors
+# SPDX-License-Identifier: Apache-2.0
+
 """Reusable modal, frequency-response, and vibration-signal tools.
 
 The functions in this module operate on arrays and on the structured result

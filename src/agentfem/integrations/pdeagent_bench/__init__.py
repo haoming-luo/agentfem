@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Haoming Luo and AgentFEM contributors
+# SPDX-License-Identifier: Apache-2.0
+
 """PDEAgent-Bench adapter pinned to one audited public dataset revision."""
 
 from .adapter import BenchmarkPolicy, BenchmarkSolveResult, solve, solve_case

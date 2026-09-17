@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Haoming Luo and AgentFEM contributors
+# SPDX-License-Identifier: Apache-2.0
+
 """Shared state ownership and transaction contracts.
 
 State is neither a constitutive law nor a solver.  It owns accepted/trial

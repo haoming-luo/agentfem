@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Haoming Luo and AgentFEM contributors
+# SPDX-License-Identifier: Apache-2.0
+
 """Named material definitions assembled from independent scientific behaviors.
 
 The Study chooses the governing problem, not the material.  A material keeps

@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Haoming Luo and AgentFEM contributors
+# SPDX-License-Identifier: Apache-2.0
+
 """Scientific verification claims and convergence evidence.
 
 Numerical execution and scientific trust are deliberately separate.  A

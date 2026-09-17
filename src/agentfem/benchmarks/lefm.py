@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Haoming Luo and AgentFEM contributors
+# SPDX-License-Identifier: Apache-2.0
+
 """Executable linear-elastic fracture-mechanics reference problems."""
 
 from __future__ import annotations

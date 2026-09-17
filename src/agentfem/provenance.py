@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Haoming Luo and AgentFEM contributors
+# SPDX-License-Identifier: Apache-2.0
+
 """Lightweight provenance seals for AgentFEM result manifests.
 
 The seal is an integrity record, not a DRM device and not a scientific
@@ -28,14 +31,9 @@ ALGORITHM = "sha256"
 RUNTIME_SCHEMA = "agentfem.runtime-lock"
 RUNTIME_SCHEMA_VERSION = "0.1.0"
 _CHUNK_SIZE = 1024 * 1024
-ORIGIN = {
-    "project": "AgentFEM",
-    "initiated_by": "Haoming Luo",
-    "open_sourced": "2026-07",
-    "repository": "https://github.com/haoming-luo/agentfem",
-    "license": "Apache-2.0",
-    "citation_file": "CITATION.cff",
-}
+ORIGIN = json.loads(
+    Path(__file__).with_name("origin.json").read_text(encoding="utf-8")
+)
 
 
 def _canonical_bytes(record: object) -> bytes:

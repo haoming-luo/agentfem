@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Haoming Luo and AgentFEM contributors
+# SPDX-License-Identifier: Apache-2.0
+
 """Explicit loaders for project-owned material assets.
 
 TOML can select an asset, but executable constitutive equations remain Python

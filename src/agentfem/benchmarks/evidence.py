@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Haoming Luo and AgentFEM contributors
+# SPDX-License-Identifier: Apache-2.0
+
 """Join scientific capability claims to executable benchmark evidence.
 
 The audit deliberately answers a narrow question: does the benchmark registry

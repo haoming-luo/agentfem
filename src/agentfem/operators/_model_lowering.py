@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Haoming Luo and AgentFEM contributors
+# SPDX-License-Identifier: Apache-2.0
+
 """Lower model-registered material assignments into operator contributions.
 
 This private module is the ownership boundary behind the model-first

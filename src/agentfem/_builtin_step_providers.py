@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Haoming Luo and AgentFEM contributors
+# SPDX-License-Identifier: Apache-2.0
+
 """Built-in Step provider predicates, lowerers, and declarations.
 
 The public provider protocol and deterministic registry live in

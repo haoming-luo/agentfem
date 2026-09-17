@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Haoming Luo and AgentFEM contributors
+# SPDX-License-Identifier: Apache-2.0
+
 """Study contexts for finite-element analyses.
 
 A study is the early modeling context: analysis type, physics, dimension, and

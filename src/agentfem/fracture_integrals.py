@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Haoming Luo and AgentFEM contributors
+# SPDX-License-Identifier: Apache-2.0
+
 """Solver-neutral interaction-integral reduction for two-dimensional LEFM.
 
 The numerical solver owns field evaluation and quadrature. AgentFEM core owns

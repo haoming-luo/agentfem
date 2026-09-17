@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Haoming Luo and AgentFEM contributors
+# SPDX-License-Identifier: Apache-2.0
+
 """Scientific coefficient summaries shared by AF-IR-aware public objects."""
 
 from __future__ import annotations

@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Haoming Luo and AgentFEM contributors
+# SPDX-License-Identifier: Apache-2.0
+
 """Composite ply and laminate-section mechanics.
 
 Sections own through-thickness placement and recovery.  Constitutive material

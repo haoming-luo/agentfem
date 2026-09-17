@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Haoming Luo and AgentFEM contributors
+# SPDX-License-Identifier: Apache-2.0
+
 """Focused Abaqus keyword readers used by AgentFEM interoperability.
 
 The mesh topology is delegated to :mod:`meshio`.  This module retains the

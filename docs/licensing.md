@@ -7,6 +7,32 @@ commercially, provided the license conditions are followed. The license also
 defines explicit patent terms and requires preservation of copyright,
 attribution, license, and notice information.
 
+## Source attribution and official origin
+
+AgentFEM uses public, inspectable protection rather than hidden numerical or
+source-code watermarks:
+
+- packaged Python source carries `SPDX-FileCopyrightText` and
+  `SPDX-License-Identifier` headers, so ordinary copies retain their license
+  identity;
+- `REUSE.toml` and `LICENSES/` provide repository-wide machine-readable
+  licensing using the REUSE specification;
+- `agentfem/origin.json` is the single packaged origin record copied into
+  result and dataset provenance;
+- official wheel, source, and SPDX records are covered by GitHub artifact
+  attestations and can be checked against the canonical repository.
+
+For example, an online release artifact can be checked with:
+
+```bash
+gh attestation verify path/to/artifact -R haoming-luo/agentfem
+```
+
+These records make accidental stripping, unattributed copying, and ordinary
+source reuse substantially easier to detect and repair. They do not make open
+source impossible to edit, do not claim ownership of user models or results,
+and cannot guarantee recognition after a complete independent rewrite.
+
 ## Why Apache-2.0
 
 AgentFEM aims to be useful in research, education, industrial prototyping, and

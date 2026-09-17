@@ -1,0 +1,58 @@
+version = 1
+
+# AgentFEM-authored source, documentation, tests, workflows, and generated
+# project evidence use the public Apache-2.0 project license.  Python source
+# additionally carries an embedded SPDX header so its identity travels when a
+# file or snippet is copied away from this repository.
+[[annotations]]
+path = [
+  ".dockerignore",
+  ".gitattributes",
+  ".github/**",
+  ".gitignore",
+  "*.cff",
+  "*.in",
+  "*.json",
+  "*.md",
+  "*.py",
+  "*.toml",
+  "*.txt",
+  "*.yml",
+  "NOTICE",
+  "docs/**",
+  "environment.yml",
+  "evidence/**",
+  "examples/**",
+  "logo/**",
+  "mkdocs.yml",
+  "overrides/**",
+  "packaging/**",
+  "services/**",
+  "skills/**",
+  "site/**",
+  "src/**",
+  "tests/**",
+  "tools/**",
+]
+precedence = "closest"
+SPDX-FileCopyrightText = "2026 Haoming Luo and AgentFEM contributors"
+SPDX-License-Identifier = "Apache-2.0"
+
+# These are preserved external Abaqus comparison inputs, not AgentFEM source.
+# The project deliberately does not present them as Apache-licensed work.
+[[annotations]]
+path = "examples/abaqus_c3d10h_periodic_cell/abaqus_reference/**"
+precedence = "override"
+SPDX-FileCopyrightText = "Abaqus reference-file authors (copyright not asserted by AgentFEM)"
+SPDX-License-Identifier = "LicenseRef-Abaqus-Reference"
+
+# MathJax is redistributed unchanged for offline equation rendering and keeps
+# its own upstream copyright identity.
+[[annotations]]
+path = [
+  "docs/vendor/mathjax/3.2.2/**",
+  "site/vendor/mathjax/3.2.2/**",
+]
+precedence = "override"
+SPDX-FileCopyrightText = "2009-2022 The MathJax Consortium"
+SPDX-License-Identifier = "Apache-2.0"

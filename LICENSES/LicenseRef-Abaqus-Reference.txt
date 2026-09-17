@@ -1,0 +1,7 @@
+The files covered by LicenseRef-Abaqus-Reference are retained as external
+comparison provenance for the documented Abaqus C3D10H periodic-cell example.
+
+AgentFEM does not assert copyright ownership of those reference files and does
+not grant additional rights in them. Their use remains subject to the terms of
+their original source. This notice exists to prevent the repository-wide
+Apache-2.0 declaration from being incorrectly applied to external material.

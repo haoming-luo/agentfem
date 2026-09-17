@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Haoming Luo and AgentFEM contributors
+# SPDX-License-Identifier: Apache-2.0
+
 """Thin, optional bridges from scientific FEM data to PyTorch tensors.
 
 AgentFEM keeps units, field roles, case provenance, and mesh policy. PyTorch

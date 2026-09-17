@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Haoming Luo and AgentFEM contributors
+# SPDX-License-Identifier: Apache-2.0
+
 """Finite-strain J2 material-point integration.
 
 The first provider in this module uses a multiplicative decomposition

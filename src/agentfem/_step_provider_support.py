@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Haoming Luo and AgentFEM contributors
+# SPDX-License-Identifier: Apache-2.0
+
 """Dependency-light predicates shared by Step dispatch and built-in providers."""
 
 from __future__ import annotations

@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Haoming Luo and AgentFEM contributors
+# SPDX-License-Identifier: Apache-2.0
+
 """Dependency-free ownership contract for AgentFEM's stable middle layer.
 
 The contract says who owns a scientific decision.  It is intentionally

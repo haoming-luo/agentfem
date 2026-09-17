@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Haoming Luo and AgentFEM contributors
+# SPDX-License-Identifier: Apache-2.0
+
 """External CAE mesh-format conversion helpers.
 
 These helpers use ``meshio`` as an optional dependency. AgentFEM core mesh

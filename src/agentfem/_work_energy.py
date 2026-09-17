@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Haoming Luo and AgentFEM contributors
+# SPDX-License-Identifier: Apache-2.0
+
 """Solver-neutral generalized work and transactional energy accounting.
 
 This module owns the work-conjugate boundary shared by static, transient,

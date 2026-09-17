@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Haoming Luo and AgentFEM contributors
+# SPDX-License-Identifier: Apache-2.0
+
 """Extensible lowering providers behind the stable :meth:`Model.step` API.
 
 A provider decides whether it understands one analysis/material combination

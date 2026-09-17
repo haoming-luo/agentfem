@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Haoming Luo and AgentFEM contributors
+# SPDX-License-Identifier: Apache-2.0
+
 """FEniCSx/SLEPc execution backend for structural modal analysis.
 
 This module owns distributed matrix reduction, eigensolver configuration, and

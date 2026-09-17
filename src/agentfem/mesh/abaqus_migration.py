@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Haoming Luo and AgentFEM contributors
+# SPDX-License-Identifier: Apache-2.0
+
 """Scope-aware, fail-closed planning for migration from Abaqus input decks.
 
 This module does not execute an Abaqus deck and does not claim numerical

@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Haoming Luo and AgentFEM contributors
+# SPDX-License-Identifier: Apache-2.0
+
 """Source-aware weighted statistics for cell and integration-point fields.
 
 Finite-element field summaries are meaningful only together with their

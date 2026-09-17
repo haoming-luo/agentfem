@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Haoming Luo and AgentFEM contributors
+# SPDX-License-Identifier: Apache-2.0
+
 """Private FEniCSx/PETSc execution for real-block harmonic systems.
 
 The scientific operator and procedure layers decide what is assembled and

@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Haoming Luo and AgentFEM contributors
+# SPDX-License-Identifier: Apache-2.0
+
 """Single source of truth for AgentFEM's discoverable product language.
 
 This module deliberately imports no numerical dependency.  Package discovery,

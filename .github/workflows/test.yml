@@ -71,9 +71,10 @@ jobs:
         with:
           python-version: "3.11"
 
-      - name: Run the critical Ruff gate
+      - name: Run source attribution and critical Ruff gates
         run: |
-          python -m pip install "ruff>=0.16,<0.17"
+          python -m pip install "reuse>=5,<6" "ruff>=0.16,<0.17"
+          reuse lint
           ruff check . --no-cache
 
       - name: Verify reliability collector schema boundary

@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Haoming Luo and AgentFEM contributors
+# SPDX-License-Identifier: Apache-2.0
+
 """Engineering-level finite-element operators.
 
 This package gives users K/M/C/F language while keeping weak forms available in

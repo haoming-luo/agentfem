@@ -1,0 +1,18 @@
+{
+  "schema": "agentfem.software-origin",
+  "schema_version": "1.0.0",
+  "project": "AgentFEM",
+  "initiated_by": "Haoming Luo",
+  "copyright": "Copyright 2026 Haoming Luo and AgentFEM contributors",
+  "open_sourced": "2026-07",
+  "repository": "https://github.com/haoming-luo/agentfem",
+  "documentation": "https://haoming-luo.github.io/agentfem/",
+  "package": "https://pypi.org/project/agentfem/",
+  "license": "Apache-2.0",
+  "license_file": "LICENSE",
+  "notice_file": "NOTICE",
+  "citation_file": "CITATION.cff",
+  "source_licensing": "REUSE.toml",
+  "release_verification": "gh attestation verify <artifact> -R haoming-luo/agentfem",
+  "integrity_scope": "Origin metadata and release attestations identify official AgentFEM artifacts; they do not assert ownership of user models or simulation data."
+}

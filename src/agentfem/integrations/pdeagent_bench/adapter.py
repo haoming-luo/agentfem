@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Haoming Luo and AgentFEM contributors
+# SPDX-License-Identifier: Apache-2.0
+
 """Lower PDEAgent-Bench's public case view to AgentFEM operations."""
 
 from __future__ import annotations

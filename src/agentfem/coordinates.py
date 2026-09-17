@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Haoming Luo and AgentFEM contributors
+# SPDX-License-Identifier: Apache-2.0
+
 """Engineering coordinate systems and reference points.
 
 The public objects in this module keep local component conventions explicit.

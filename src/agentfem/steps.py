@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Haoming Luo and AgentFEM contributors
+# SPDX-License-Identifier: Apache-2.0
+
 """Analysis-step controls expressed in finite-element language.
 
 Incrementation belongs to an analysis step, not to a Newton or linear solver.

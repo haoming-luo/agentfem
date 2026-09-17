@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Haoming Luo and AgentFEM contributors
+# SPDX-License-Identifier: Apache-2.0
+
 """Failure-aware summaries for official PDEAgent-Bench output."""
 
 from __future__ import annotations

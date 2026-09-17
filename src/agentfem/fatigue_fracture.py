@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Haoming Luo and AgentFEM contributors
+# SPDX-License-Identifier: Apache-2.0
+
 """Cycle-coordinate and cohesive-fatigue building blocks.
 
 Fatigue cycles are a physical coordinate in their own right.  They are not

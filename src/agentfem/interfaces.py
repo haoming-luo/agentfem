@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Haoming Luo and AgentFEM contributors
+# SPDX-License-Identifier: Apache-2.0
+
 """Experimental constitutive contracts for material interfaces.
 
 The first public slice is deliberately independent of DOLFINx assembly.  It
