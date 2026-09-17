@@ -2369,6 +2369,284 @@ class FiniteStrainCohesiveEquilibrium:
         }
 
 
+class FiniteStrainCohesiveKinematicEquilibrium:
+    """Cohesive Newton solve under one exact generalized displacement.
+
+    The scalar control is ``q = g.T @ u``.  Its conjugate applied force ``P``
+    enters equilibrium as ``R(u) - P g = 0`` and is solved together with the
+    displacement correction through a one-constraint Schur complement.  This
+    keeps fixture kinematics, reaction and external work mathematically
+    conjugate instead of prescribing two guessed point motions.
+    """
+
+    def __init__(
+        self,
+        residual: FiniteStrainCohesiveResidual,
+        tangent,
+        displacement,
+        *,
+        control,
+        bcs=(),
+        solver_options=None,
+        control_absolute_tolerance: float = 1.0e-10,
+        bulk_strain_energy=None,
+    ):
+        from . import solvers
+        from .constraints.kinematic import LinearKinematicControl
+
+        if not isinstance(residual, FiniteStrainCohesiveResidual):
+            raise TypeError("Kinematic cohesive equilibrium requires its residual type.")
+        if not isinstance(control, LinearKinematicControl):
+            raise TypeError("control must be a LinearKinematicControl.")
+        self.displacement = field_api.unwrap(displacement)
+        if self.displacement is not residual.displacement:
+            raise ValueError("Residual and equilibrium must share one displacement field.")
+        if field_api.unwrap(control.target) is not self.displacement:
+            raise ValueError("Kinematic control must target the equilibrium displacement.")
+        if self.displacement.function_space.mesh.comm.size != 1:
+            raise NotImplementedError(
+                "The initial generalized kinematic cohesive solve is serial."
+            )
+        self.residual = residual
+        self.tangent = tangent
+        self.control = control
+        self.bcs = tuple(bcs)
+        self.coefficients = np.asarray(control.coefficients(), dtype=float)
+        constrained = _owned_bc_local_dofs(self.bcs)
+        active = np.flatnonzero(np.abs(self.coefficients) > np.finfo(float).eps)
+        overlap = np.intersect1d(constrained, active)
+        if overlap.size:
+            raise ValueError(
+                "Generalized kinematic-control dofs cannot also be strongly "
+                f"prescribed: {overlap[:8].tolist()}."
+            )
+        selected_options = solver_options or solvers.newton()
+        if not isinstance(selected_options, solvers.NewtonSolverOptions):
+            raise TypeError("Kinematic cohesive equilibrium requires NewtonSolverOptions.")
+        tolerance = float(control_absolute_tolerance)
+        if not isfinite(tolerance) or tolerance <= 0.0:
+            raise ValueError("control_absolute_tolerance must be finite and positive.")
+        if bulk_strain_energy is not None and not callable(bulk_strain_energy):
+            raise TypeError("bulk_strain_energy must be callable when supplied.")
+        self.solver_options = selected_options
+        self.control_absolute_tolerance = tolerance
+        self.bulk_strain_energy = bulk_strain_energy
+        self.generalized_reaction = 0.0
+        self.last_info: CohesiveNewtonSolveInfo | None = None
+
+    def _residual_vector(self, reaction: float):
+        vector = self.residual.assemble_vector(bcs=self.bcs)
+        vector.array_w[:] -= float(reaction) * self.coefficients
+        return vector
+
+    def _solve_linear(self, matrix, right_hand_side):
+        from . import solvers
+
+        solution = self.displacement.x.petsc_vec.duplicate()
+        solution.set(0.0)
+        info = solvers.solve_matrix_system(
+            matrix,
+            right_hand_side,
+            solution,
+            self.solver_options.linear_solver,
+            raise_on_failure=False,
+        )
+        if not info.converged:
+            solution.destroy()
+            raise RuntimeError(
+                "Kinematic-control linear solve failed with PETSc reason "
+                f"{info.converged_reason}."
+            )
+        solution.ghostUpdate(
+            addv=PETSc.InsertMode.INSERT,
+            mode=PETSc.ScatterMode.FORWARD,
+        )
+        return solution, int(info.converged_reason)
+
+    def solve(self, coordinate: float) -> CohesiveNewtonSolveInfo:
+        from dolfinx.fem import petsc as fem_petsc
+
+        target = float(coordinate)
+        if not isfinite(target):
+            raise ValueError("Generalized control coordinate must be finite.")
+        function = self.displacement
+        rollback = function.x.array.copy()
+        rollback_reaction = float(self.generalized_reaction)
+        options = self.solver_options
+        accepted_steps = []
+        linear_reasons = []
+        # Start every increment exactly on the scalar constraint manifold.  A
+        # Newton correction then restores equilibrium and redistributes that
+        # predictor over all controlled points.
+        pivot = int(np.argmax(np.abs(self.coefficients)))
+        mismatch = target - float(np.dot(self.coefficients, function.x.array))
+        function.x.array[pivot] += mismatch / self.coefficients[pivot]
+        fem_petsc.set_bc(function.x.petsc_vec, list(self.bcs))
+        function.x.scatter_forward()
+        reaction = rollback_reaction
+
+        residual_vector = self._residual_vector(reaction)
+        initial_norm = float(residual_vector.norm())
+        current_norm = initial_norm
+        residual_vector.destroy()
+        control_residual = float(np.dot(self.coefficients, function.x.array) - target)
+        threshold = options.absolute_tolerance + options.relative_tolerance * initial_norm
+        converged = (
+            np.isfinite(current_norm)
+            and current_norm <= threshold
+            and abs(control_residual) <= self.control_absolute_tolerance
+        )
+        iteration = 0
+        message = "converged at initial state" if converged else ""
+        try:
+            while not converged and iteration < options.maximum_iterations:
+                iteration += 1
+                residual_vector = self._residual_vector(reaction)
+                matrix = self.residual.assemble_matrix(self.tangent, bcs=self.bcs)
+                right_hand_side = residual_vector.copy()
+                right_hand_side.scale(-1.0)
+                force_direction = residual_vector.duplicate()
+                force_direction.set(0.0)
+                force_direction.array_w[:] = self.coefficients
+                correction, reason_a = self._solve_linear(matrix, right_hand_side)
+                compliance, reason_b = self._solve_linear(matrix, force_direction)
+                linear_reasons.extend((reason_a, reason_b))
+                denominator = float(np.dot(self.coefficients, compliance.array))
+                if not isfinite(denominator) or abs(denominator) <= np.finfo(float).eps:
+                    correction.destroy()
+                    compliance.destroy()
+                    residual_vector.destroy()
+                    right_hand_side.destroy()
+                    force_direction.destroy()
+                    matrix.destroy()
+                    message = "generalized control has zero tangent compliance"
+                    break
+                control_residual = float(
+                    np.dot(self.coefficients, function.x.array) - target
+                )
+                reaction_increment = (
+                    -control_residual
+                    - float(np.dot(self.coefficients, correction.array))
+                ) / denominator
+                direction = correction.array.copy()
+                direction += reaction_increment * compliance.array
+                correction.destroy()
+                compliance.destroy()
+                residual_vector.destroy()
+                right_hand_side.destroy()
+                force_direction.destroy()
+                matrix.destroy()
+
+                base = function.x.array.copy()
+                base_reaction = reaction
+                alpha = 1.0
+                accepted = False
+                minimum = (
+                    options.minimum_step_length
+                    if options.line_search == "backtracking"
+                    else 1.0
+                )
+                while alpha + 1.0e-15 >= minimum:
+                    function.x.array[:] = base + alpha * direction
+                    reaction = base_reaction + alpha * reaction_increment
+                    fem_petsc.set_bc(function.x.petsc_vec, list(self.bcs))
+                    function.x.scatter_forward()
+                    trial = self._residual_vector(reaction)
+                    trial_norm = float(trial.norm())
+                    trial.destroy()
+                    trial_control = float(
+                        np.dot(self.coefficients, function.x.array) - target
+                    )
+                    decreases = trial_norm < current_norm or trial_norm <= (
+                        current_norm * (1.0 - 1.0e-4 * alpha)
+                    )
+                    if np.isfinite(trial_norm) and (
+                        options.line_search != "backtracking" or decreases
+                    ):
+                        current_norm = trial_norm
+                        control_residual = trial_control
+                        accepted_steps.append(alpha)
+                        accepted = True
+                        break
+                    self.residual.rollback()
+                    alpha *= options.line_search_reduction
+                if not accepted:
+                    function.x.array[:] = base
+                    function.x.scatter_forward()
+                    reaction = base_reaction
+                    message = "line search did not reduce the residual"
+                    break
+                converged = (
+                    current_norm <= threshold
+                    and abs(control_residual) <= self.control_absolute_tolerance
+                )
+                if converged:
+                    message = "converged"
+            if not converged and not message:
+                message = "maximum Newton iterations reached"
+            info = CohesiveNewtonSolveInfo(
+                converged=converged,
+                iterations=iteration,
+                initial_residual_norm=initial_norm,
+                residual_norm=current_norm,
+                accepted_step_lengths=tuple(accepted_steps),
+                linear_converged_reasons=tuple(linear_reasons),
+                message=message,
+            )
+            self.last_info = info
+            if not converged:
+                function.x.array[:] = rollback
+                function.x.scatter_forward()
+                self.generalized_reaction = rollback_reaction
+                self.residual.rollback()
+                if options.error_if_not_converged:
+                    raise RuntimeError(
+                        "Kinematic cohesive Newton solve failed: " + message
+                    )
+            else:
+                self.generalized_reaction = float(reaction)
+            return info
+        except Exception:
+            function.x.array[:] = rollback
+            function.x.scatter_forward()
+            self.generalized_reaction = rollback_reaction
+            self.residual.rollback()
+            raise
+
+    def __call__(self, *, load: float, branch: str, cycle: int):
+        info = self.solve(load)
+        evidence = {
+            "branch": branch,
+            "load": float(load),
+            "cycle": int(cycle),
+            "converged": info.converged,
+            "iterations": info.iterations,
+            "control_displacement": self.control.coordinate(self.displacement),
+            "reaction": float(self.generalized_reaction),
+            "metadata": {
+                "newton": info.summary(),
+                "control": self.control.summary(),
+            },
+        }
+        if self.bulk_strain_energy is not None:
+            evidence["bulk_strain_energy"] = float(
+                self.bulk_strain_energy(self.displacement)
+            )
+        return evidence
+
+    def summary(self) -> dict[str, object]:
+        return {
+            "kind": "finite_strain_cohesive_kinematic_equilibrium",
+            "procedure": "quasi_static_newton_with_scalar_constraint",
+            "residual": self.residual.summary(),
+            "solver": self.solver_options.summary(),
+            "control": self.control.summary(),
+            "reaction": "exact_work_conjugate_lagrange_multiplier",
+            "cohesive_state_commit": "owned_by_step_lifecycle",
+            "maturity": "experimental_serial_global_consumer",
+        }
+
+
 class FiniteStrainCohesiveArcLength:
     """Spherical arc-length continuation for cohesive equilibrium paths.
 

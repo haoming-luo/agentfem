@@ -91,8 +91,12 @@ Deepen the finite-element core before broadening the catalog:
   ledger; this is an internal mechanism regression, not external material
   validation. The Reeder--Crews MMB simple-beam compliance and mode-partition
   oracle is now a source-identified analytical rung with an explicit
-  contact-regime boundary. Source-identified DCB/ENF curves and an assembled
-  rigid-lever MMB execution remain the next promotion gates. ENF must use
+  contact-regime boundary. The assembled MMB rung now owns exact rigid-lever
+  kinematics, its work-conjugate scalar reaction, irreversible mixed-mode
+  propagation, cutbacks and a closed work--energy ledger. Its local cohesive
+  separation mix is deliberately not relabelled as the global beam mode
+  partition. Source-identified DCB/ENF/MMB curves and an independent global
+  MMB mode-partition check remain the next external promotion gates. ENF must use
   arc-length or energy control
   when ordinary displacement control skips an unstable branch;
 - promote finite-strain J2 beyond its first experimental tetrahedral 3D P2/DG0

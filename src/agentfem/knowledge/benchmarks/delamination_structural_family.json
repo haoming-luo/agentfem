@@ -3,13 +3,13 @@
   "schema_version": "0.1.0",
   "id": "agentfem.benchmark.delamination_structural_family",
   "title": "DCB, ENF and MMB structural cohesive verification family",
-  "status": "assembled_dcb_and_enf_propagation_regressions_passed",
+  "status": "assembled_dcb_enf_mmb_mechanism_regressions_passed",
   "purpose": "Provide one software-neutral promotion ladder from local cohesive-law tests to structure-level Mode-I, Mode-II and mixed-mode delamination evidence.",
   "physics": "Fixed-path delamination under DCB Mode I, ENF Mode II and MMB mixed-mode loading",
   "execution": {
     "example": "tests/test_delamination_fem_benchmark.py",
     "command": "python -m pytest -q tests/test_mixed_mode_benchmark.py tests/test_delamination_fem_benchmark.py tests/test_enf_fem_benchmark.py",
-    "evidence": "The suite separates analytical oracles from assembled Q1 bulk plus paired-facet providers. The DCB route has distinct compliance and irreversible-propagation certificates with converged-state commit, reusable requested-target cutback control, reaction, crack-front, nonlinear-iteration, bulk/interface energy and external-work evidence. The ENF route independently assembles three-point bending, a split mid-plane and a full vector cohesive tie, checks three refined compliance curves against its declared beam oracle, and exercises irreversible shear-driven growth with reaction, energy, crack-front, cutback and damage-weighted Mode-II evidence. These nondimensional regressions exercise the solver architecture; source-identified material-curve promotion remains separate."
+    "evidence": "The suite separates analytical oracles from assembled Q1 bulk plus paired-facet providers. The DCB route has distinct compliance and irreversible-propagation certificates with converged-state commit, reusable requested-target cutback control, reaction, crack-front, nonlinear-iteration, bulk/interface energy and external-work evidence. The ENF route independently assembles three-point bending, a split mid-plane and a full vector cohesive tie, checks three refined compliance curves against its declared beam oracle, and exercises irreversible shear-driven growth with reaction, energy, crack-front, cutback and damage-weighted Mode-II evidence. The MMB route independently assembles the split specimen and exact rigid lever, solves its conjugate scalar force as a Lagrange multiplier, and exercises irreversible mixed-mode growth with the same transactional and energy evidence. These nondimensional regressions exercise the solver architecture; source-identified material-curve promotion remains separate."
   },
   "observables": [
     "Load and load-point displacement versus crack length.",
@@ -17,6 +17,7 @@
     "Cohesive process-zone resolution in elements.",
     "Cohesive and artificial dissipation fractions.",
     "External work, bulk strain energy, cohesive stored energy and irreversible cohesive dissipation at every accepted opening.",
+    "Exact MMB generalized displacement, conjugate lever force, control residual and local cohesive mode diagnostic.",
     "Source identity, curve coverage and convergence evidence.",
     "Deterministic SHA-256 identities for the reference and every structural refinement curve."
   ],
@@ -30,7 +31,8 @@
     "Precracked elastic ENF compliance promotion independently requires a three-point-bending solve, three successively refined meshes, bounded beam-oracle and inter-level errors, equilibrium residuals, and a zero Mode-I energy channel.",
     "Cohesive propagation promotion separately requires observed growth beyond the initialized precrack, process-zone resolution, bounded work-energy error and mesh-stable peak reaction and damage-front position.",
     "ENF propagation additionally requires a damage-weighted Mode-II fraction above the declared threshold; a mixed-mode-polluted path fails closed.",
-    "The MMB analytical rung derives compliance and GI/GII from one Reeder--Crews lever geometry and rejects c<L/3; it does not count as assembled fixture evidence.",
+    "The MMB analytical rung derives compliance and GI/GII from one Reeder--Crews lever geometry and rejects c<L/3; the assembled rung independently enforces that lever and solves its conjugate force.",
+    "MMB propagation promotion requires actual growth, bounded equilibrium and control residuals, process-zone resolution and work--energy closure.",
     "External promotion additionally pins geometry, material, loading, contact, mesh and the exact source trace."
   ],
   "limitations": [
@@ -38,7 +40,8 @@
     "The elastic DCB compliance certificate and the irreversible propagation certificate remain distinct evidence objects; passing one cannot promote the other.",
     "The assembled compliance study and a three-level nondimensional propagation certificate pass in the automated scientific suite. The latter is an internal nonlinear solver regression, not acceptance against an external material curve.",
     "ENF now has distinct assembled elastic-compliance and Mode-II cohesive-propagation contracts. The propagation path is an internal nondimensional regression, not an external material-curve comparison. Ordinary displacement control may still jump across an unstable post-peak branch; such a branch requires arc-length or energy control, not a relaxed acceptance threshold.",
-    "MMB assembled execution, external DCB/ENF/MMB curve comparison and independent cohesive finite-element comparison remain pending and are not labelled validated."
+    "MMB assembled elastic and propagation mechanism regressions pass, but local cohesive separation mix is not treated as the global Reeder--Crews energy partition.",
+    "External DCB/ENF/MMB curve comparison and an independent finite-element global mode partition remain pending and are not labelled validated."
   ],
   "references": [
     "J. R. Reeder and J. H. Crews Jr., Mixed-Mode Bending Method for Delamination Testing, AIAA Journal 28(7), 1990, https://ntrs.nasa.gov/citations/20040161459",

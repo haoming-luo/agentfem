@@ -1,7 +1,7 @@
 import numpy as np
 import pytest
 
-from agentfem import benchmarks
+from agentfem import benchmarks, constitutive
 
 
 def _curve(*, scale=1.0, source="synthetic contract fixture"):
@@ -230,6 +230,86 @@ def test_reeder_crews_mmb_oracle_recovers_partition_and_compliance_derivative():
             load=load,
             lever_length=0.0,
         )
+
+
+def test_assembled_mmb_rigid_lever_recovers_beam_compliance_and_dual():
+    spec = benchmarks.delamination_benchmark_spec(
+        "mmb",
+        width=1.0,
+        arm_thickness=0.25,
+        elastic_modulus=1000.0,
+        half_span=3.0,
+        source="Reeder and Crews, AIAA Journal 28(7), 1990",
+    )
+    material = constitutive.orthotropic_plane_stress_2d(
+        ex=1000.0,
+        ey=1000.0,
+        nuxy=0.3,
+        gxy=1000.0 / 2.6,
+        density=1.0,
+        name="isotropic-equivalent orthotropic MMB fixture",
+    )
+    curve = benchmarks.mmb_finite_element_curve(
+        spec,
+        crack_length=(1.0, 1.5, 2.0),
+        control_displacement=1.0e-4,
+        lever_length=3.0,
+        elements_along=48,
+        elements_per_arm=4,
+        interface_stiffness=1.0e8,
+        bulk_material=material,
+    )
+    certificate = benchmarks.certify_mmb_compliance(
+        curve,
+        compliance_relative_tolerance=0.03,
+    )
+
+    assert certificate.accepted
+    assert certificate.compliance_relative_l2_error < 0.03
+    assert certificate.maximum_control_residual < 1.0e-12
+    assert certificate.maximum_newton_residual < 1.0e-8
+    assert all(point.load > 0.0 for point in curve.points)
+    assert curve.summary()["discretization"]["fixture"].startswith("exact")
+    assert curve.summary()["mode_partition"].startswith("Reeder--Crews")
+    assert curve.bulk_material["model"] == "orthotropic_plane_stress_2d"
+
+
+def test_mmb_cohesive_path_reports_growth_energy_and_local_mode_evidence():
+    spec = benchmarks.delamination_benchmark_spec(
+        "mmb",
+        width=1.0,
+        arm_thickness=0.25,
+        elastic_modulus=1000.0,
+        half_span=3.0,
+        source="Reeder and Crews, AIAA Journal 28(7), 1990",
+    )
+    curve = benchmarks.mmb_cohesive_propagation_curve(
+        spec,
+        precrack_length=1.5,
+        displacement=np.linspace(0.0, 0.60, 16),
+        lever_length=3.0,
+        normal_strength=5.0,
+        shear_strength=2.0,
+        normal_fracture_energy=0.5,
+        shear_fracture_energy=0.5,
+        normal_stiffness=5000.0,
+        tangential_stiffness=5000.0,
+        elements_along=24,
+        elements_per_arm=2,
+    )
+    certificate = benchmarks.certify_mmb_cohesive_propagation(curve)
+    final = curve.points[-1]
+
+    assert certificate.accepted
+    assert certificate.propagation_observed
+    assert final.damaged_length > 1.5
+    assert final.maximum_damage > 0.95
+    assert max(point.relative_energy_balance_error for point in curve.points) < 0.002
+    assert max(abs(point.control_residual) for point in curve.points) < 1.0e-12
+    assert certificate.maximum_newton_residual < 1.0e-7
+    assert 0.0 < final.damage_weighted_mode_i_fraction < 1.0
+    assert final.beam_mode_i_fraction == pytest.approx(4.0 / 7.0)
+    assert "diagnostic only" in certificate.summary()["mode_partition_status"]
 
 
 def test_delamination_energy_curve_rejects_malformed_or_inconsistent_channels():

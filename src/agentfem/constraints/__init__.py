@@ -33,6 +33,12 @@ from .affine import (
     deformation_gradient_path,
 )
 from .mpc import RectangularPeriodicMPC, rectangular_periodic_mpc
+from .kinematic import (
+    LinearKinematicControl,
+    PointKinematicTerm,
+    linear_kinematic_control,
+    point_kinematic_term,
+)
 
 
 @dataclass(frozen=True)

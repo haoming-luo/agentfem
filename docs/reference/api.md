@@ -355,6 +355,10 @@ and evidence remain in the linked guides and scientific function reference.
 | function | `deformation_gradient_path(coordinates: Iterable[float], gradients: Iterable[Iterable[Iterable[float]]], *, name: str = 'deformation_gradient_path') -> DeformationGradientPath` | Create an inspectable unload/reload or non-proportional macro path. |
 | class | `RectangularPeriodicMPC` | Exact rectangular periodic relation and construction diagnostics. |
 | function | `rectangular_periodic_mpc(target, *, axes = None, bcs = (), tolerance: float \| None = None, name: str = 'rectangular_periodic_mpc') -> RectangularPeriodicMPC` | Constrain maximum faces of a rectangular mesh to minimum faces. |
+| class | `LinearKinematicControl` | One scalar generalized coordinate ``q = sum(a_i u_i)``. |
+| class | `PointKinematicTerm` | One coefficient multiplying one displacement component at a point. |
+| function | `linear_kinematic_control(target, terms, *, name: str = 'linear_kinematic_control', unit: str \| None = None, tolerance: float = 1e-10) -> LinearKinematicControl` | Create a scalar control with a provider-owned conjugate reaction. |
+| function | `point_kinematic_term(point, *, component: int, coefficient: float, name: str = 'point_displacement') -> PointKinematicTerm` | Create one readable term of a generalized displacement coordinate. |
 
 ## `agentfem.amplitudes`
 
@@ -798,6 +802,7 @@ and evidence remain in the linked guides and scientific function reference.
 | class | `ArcLengthOptions` | Crisfield-style spherical continuation controls. |
 | class | `ArcLengthSolveInfo` | Public AgentFEM object. |
 | class | `FiniteStrainCohesiveEquilibrium(residual: FiniteStrainCohesiveResidual, tangent, displacement, *, set_load = None, load_parameter = None, reference_load: float = 1.0, bcs = (), solver_options = None, control_displacement = None, reaction = None, bulk_strain_energy = None)` | Native Newton consumer for UFL bulk and zero-thickness interfaces. |
+| class | `FiniteStrainCohesiveKinematicEquilibrium(residual: FiniteStrainCohesiveResidual, tangent, displacement, *, control, bcs = (), solver_options = None, control_absolute_tolerance: float = 1e-10, bulk_strain_energy = None)` | Cohesive Newton solve under one exact generalized displacement. |
 | class | `FiniteStrainCohesiveArcLength(equilibrium: FiniteStrainCohesiveEquilibrium, options: ArcLengthOptions, *, initial_load: float = 0.0)` | Spherical arc-length continuation for cohesive equilibrium paths. |
 | class | `MassProportionalDampingResidual(base, *, mass, velocity, coefficient: float, dt: float)` | Add ``alpha M v_mid`` with transactional dissipation accounting. |
 | class | `DampingEnergyMonitor` | Add accepted viscous dissipation to an existing mechanical monitor. |
@@ -1181,6 +1186,16 @@ and evidence remain in the linked guides and scientific function reference.
 | function | `delamination_benchmark_spec(kind, **geometry) -> DelaminationBenchmarkSpec` | Create a DCB, ENF or MMB numerical-verification specification. |
 | function | `enf_beam_compliance(spec, crack_length)` | Classical simple-beam ENF compliance with support half-span ``L``. |
 | function | `mmb_beam_energy_release_curve(spec: DelaminationBenchmarkSpec, *, crack_length, load, lever_length: float) -> DelaminationEnergyReleaseCurve` | Return the classical Reeder--Crews MMB simple-beam oracle. |
+| class | `MMBComplianceCertificate` | Assembled MMB compliance comparison with a Reeder--Crews oracle. |
+| class | `MMBCohesivePropagationCertificate` | Fail-closed certificate for one assembled mixed-mode propagation path. |
+| class | `MMBCohesivePropagationCurve` | Accepted mixed-mode cohesive path and work--energy evidence. |
+| class | `MMBCohesivePropagationPoint` | One accepted rigid-lever MMB cohesive increment. |
+| class | `MMBFiniteElementCurve` | Rigid-lever MMB compliance and energy-release evidence. |
+| class | `MMBFiniteElementPoint` | One rigid-lever controlled solution of a discretized MMB specimen. |
+| function | `certify_mmb_cohesive_propagation(curve: MMBCohesivePropagationCurve, *, energy_relative_tolerance: float = 0.03, required_process_zone_elements: float = 3.0, control_residual_tolerance: float = 1e-10, newton_residual_tolerance: float = 1e-07) -> MMBCohesivePropagationCertificate` | Certify mechanism evidence without calling it external validation. |
+| function | `certify_mmb_compliance(curve: MMBFiniteElementCurve, *, compliance_relative_tolerance: float, control_residual_tolerance: float = 1e-10, newton_residual_tolerance: float = 1e-08) -> MMBComplianceCertificate` | Compare one assembled fixture curve with its declared beam oracle. |
+| function | `mmb_cohesive_propagation_curve(spec: DelaminationBenchmarkSpec, *, precrack_length: float, displacement, lever_length: float, normal_strength: float, shear_strength: float, normal_fracture_energy: float, shear_fracture_energy: float, normal_stiffness: float, tangential_stiffness: float, elements_along: int, elements_per_arm: int, poisson: float = 0.3, assumption: str = 'plane_stress', bulk_material = None, interaction: str = 'bk', interaction_exponent: float = 1.45, solver_options = None, minimum_displacement_increment: float \| None = None, maximum_cutbacks: int = 12) -> MMBCohesivePropagationCurve` | Run an irreversible MMB path with exact work-conjugate control. |
+| function | `mmb_finite_element_curve(spec: DelaminationBenchmarkSpec, *, crack_length, control_displacement: float, lever_length: float, elements_along: int, elements_per_arm: int, poisson: float = 0.3, assumption: str = 'plane_stress', interface_stiffness: float \| None = None, bulk_material = None, solver_options = None) -> MMBFiniteElementCurve` | Solve elastic precracked MMB points with an exact rigid-lever control. |
 | class | `CohesiveEnergyBenchmark` | Energy closure for one uniformly separating cohesive interface. |
 | class | `ClassicalCrackBenchmark` | Fixed-path Mode-I crack propagation evidence for the V3 guardrail. |
 | class | `ThinThreeDimensionalCrossCheck` | Plane-stress condensation versus an affine thin-3D FEM patch. |

@@ -216,20 +216,33 @@ energy release and its Mode-I/Mode-II partition are produced from the same
 lever geometry rather than reconstructed from a scalar load trace. The
 contract rejects lever lengths below \(c=L/3\), where contact suppresses the
 nominal opening mode and the squared closed form would otherwise hide an
-invalid assumption. This analytical rung does not replace an assembled MMB
-fixture: that next rung must own the rigid-lever kinematics, conjugate
-generalized reaction, cohesive propagation, and comparison with a digitized
-source curve. Acceptance also checks cohesive-zone resolution
-and artificial dissipation. `certify_delamination_convergence(...)` requires
+invalid assumption. `mmb_finite_element_curve(...)` is now the distinct
+assembled elastic rung. It uses the reusable `LinearKinematicControl` contract
+to enforce the rigid loading lever exactly and obtains its work-conjugate
+generalized force from a scalar Lagrange multiplier; no guessed pair of point
+motions is substituted for the fixture. `mmb_cohesive_propagation_curve(...)`
+adds transactional mixed-mode damage evolution, cutbacks, crack-front
+measures and the complete bulk/interface/work ledger. Its certificate requires
+actual growth, equilibrium, exact control, energy closure and process-zone
+resolution. Both assembled MMB providers accept an explicit registered 2D
+bulk material: the isotropic default supports compact solver regressions,
+while an orthotropic plane-stress material can be injected for composite
+benchmarks without creating a paper-specific solver. The damage-weighted
+local cohesive separation mix and the
+Reeder--Crews global beam energy partition are both reported but are not
+declared equivalent: an independent domain-integral partition and a digitized
+source curve remain external-promotion gates. Acceptance also checks
+cohesive-zone resolution and artificial dissipation.
+`certify_delamination_convergence(...)` requires
 at least three successively refined structural curves and additionally checks
 the last-refinement change, Mode-I partition, and an improving asymptotic
 trend. `MixedModeBendingCurve` separately reads a source-
 identified external trace and compares load, displacement and Mode-I fraction
-under required tolerances. The assembled DCB compliance/propagation and ENF
-compliance/propagation regressions now pass in the automated scientific suite. External
-promotion remains closed until
-source-identified DCB and ENF propagation curves and an assembled MMB curve
-satisfy their declared comparison contracts. The separation is intentional:
+under required tolerances. The assembled DCB, ENF and rigid-lever MMB
+compliance/propagation mechanism regressions now pass in the automated
+scientific suite. External promotion remains closed until source-identified
+DCB, ENF and MMB propagation curves and an independent MMB global mode
+partition satisfy their declared comparison contracts. The separation is intentional:
 a stable internal structural regression is not an external material
 calibration.
 
