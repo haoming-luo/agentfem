@@ -85,11 +85,12 @@ AgentFEM supports **Linux**, **macOS**, and **Windows through WSL2**.
 Install AgentFEM and its compatible FEniCSx/PETSc/MPI foundation together:
 
 ```bash
-mamba create -n agentfem-env --override-channels -c conda-forge \
-  python=3.11 fenics-dolfinx=0.11 agentfem
+mamba create -n agentfem-env -c conda-forge agentfem
 mamba activate agentfem-env
 agentfem doctor
 ```
+
+Already in a conda-forge environment? Run `mamba install agentfem`.
 
 On Windows, run these commands inside an Ubuntu WSL2 terminal, then protect
 projects and results from distribution removal:

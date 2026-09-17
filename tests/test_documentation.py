@@ -305,8 +305,7 @@ def test_homepage_starts_with_the_project_logo():
 
 
 def test_public_installation_routes_pin_the_tested_solver_stack():
-    required = (
-        ROOT / "README.md",
+    detailed_guides = (
         ROOT / "INSTALL.md",
         ROOT / "docs" / "index.md",
         ROOT / "docs" / "getting_started.md",
@@ -320,11 +319,15 @@ def test_public_installation_routes_pin_the_tested_solver_stack():
         "-c https://mirrors.tuna.tsinghua.edu.cn/anaconda/cloud/conda-forge "
         "python=3.11 fenics-dolfinx=0.11 agentfem"
     )
-    for path in required:
+    for path in detailed_guides:
         source = " ".join(path.read_text().replace("\\", "").split())
         assert official in source, path
 
     readme = (ROOT / "README.md").read_text()
+    normalized_readme = " ".join(readme.replace("\\", "").split())
+    assert "mamba create -n agentfem-env -c conda-forge agentfem" in normalized_readme
+    assert "mamba install agentfem" in normalized_readme
+
     install = (ROOT / "INSTALL.md").read_text()
     getting_started = (ROOT / "docs" / "getting_started.md").read_text()
     for source in (readme, install, getting_started):
