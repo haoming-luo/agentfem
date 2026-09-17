@@ -1,0 +1,82 @@
+{
+  "schema": "agentfem.external-scientific-dataset",
+  "schema_version": "0.1.0",
+  "dataset_id": "nasa-cr-2012-217562-mmb-80-mode-ii",
+  "title": "MMB 80% Mode-II quasi-static delamination benchmark",
+  "authors": ["Ronald Krueger"],
+  "report": "NASA/CR-2012-217562",
+  "publication_date": "2012-04",
+  "license": "NASA NTRS: Public Use Permitted",
+  "landing_page": "https://ntrs.nasa.gov/citations/20120007197",
+  "download_url": "https://ntrs.nasa.gov/api/citations/20120007197/downloads/20120007197.pdf",
+  "source_pdf_sha256": "dc18f18d44f862916af1b21e67a303dd03e9c335dc162e9316a6803a97ad6d27",
+  "curve_file": "nasa_cr_2012_217562_mmb_80.csv",
+  "curve_file_sha256": "beede58c580a29bcc156b2f97c67ebb65b052012a40603fec029405d90380d2b",
+  "curve": {
+    "points": 30,
+    "columns": ["crack_length", "load", "displacement", "mode_i_fraction"],
+    "units": {
+      "crack_length": "mm",
+      "load": "N",
+      "displacement": "mm",
+      "mode_i_fraction": "1"
+    },
+    "scope": "critical propagation path from Figures 20 and 21",
+    "initial_delamination_length_mm": 25.4,
+    "target_mode_ii_fraction": 0.8,
+    "critical_load_n": 751.0,
+    "critical_displacement_mm": 1.65,
+    "graphical_extraction_uncertainty": {
+      "load_n": 2.0,
+      "displacement_mm": 0.01,
+      "basis": "vector marker centers and vector plot axes in the source PDF"
+    }
+  },
+  "extraction": {
+    "method": "direct extraction of vector marker centers from the source PDF; no raster tracing",
+    "printed_pages": [35, 36],
+    "pdf_pages": [39, 40],
+    "figures": [20, 21],
+    "x_axis": {
+      "pdf_coordinate_min": 175.078,
+      "pdf_coordinate_max": 534.129,
+      "physical_min_mm": 0.0,
+      "physical_max_mm": 55.0,
+      "reported_column": "initial_delamination_length_mm + increase_in_delamination_length"
+    },
+    "displacement_axis": {
+      "pdf_coordinate_min": 130.9,
+      "pdf_coordinate_max": 382.907,
+      "physical_min_mm": 0.0,
+      "physical_max_mm": 8.0
+    },
+    "load_axis": {
+      "pdf_coordinate_min": 460.91,
+      "pdf_coordinate_max": 712.916,
+      "physical_min_n": 0.0,
+      "physical_max_n": 1000.0
+    },
+    "notes": [
+      "The plot-origin construction point is omitted; the curve begins at the critical state.",
+      "The last displacement point near 50 mm crack extension has no in-range load point in Figure 21 and is omitted.",
+      "Mode-I fraction is the declared nominal complement of the 80% Mode-II case; the report notes that computed ratios vary slightly from the target."
+    ]
+  },
+  "model_context": {
+    "material": "IM7/8552 unidirectional [0]24 graphite/epoxy",
+    "two_dimensional_element": "ABAQUS CPE4I plane strain",
+    "elements_through_total_thickness": 6,
+    "crack_tip_element_length_mm": 0.5,
+    "fracture_criterion": "Benzeggagh-Kenane",
+    "GIc_kJ_per_m2": 0.212,
+    "GIIc_kJ_per_m2": 0.774,
+    "bk_exponent": 2.1
+  },
+  "claim_scope": "external curve data for software-independent MMB propagation comparison; not a claim that AgentFEM has reproduced the curve",
+  "promotion_requirements": [
+    "Run the source-declared geometry, material and fixture rather than fitting the digitized curve.",
+    "Compare the complete overlapping load and displacement curves under declared tolerances.",
+    "Report the computed global GI/GII partition independently of the nominal target fraction.",
+    "Provide mesh, increment, process-zone and energy-balance evidence."
+  ]
+}

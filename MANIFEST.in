@@ -28,11 +28,11 @@ recursive-include skills *.md *.yaml
 recursive-include src/agentfem/templates *.py *.toml *.md
 recursive-include examples *.py *.md *.json *.inp *.dat *.mpc
 recursive-include src/agentfem/benchmarks *.py *.md
-recursive-include src/agentfem/knowledge *.json *.md
+recursive-include src/agentfem/knowledge *.json *.md *.csv
 recursive-include src/agentfem/elements *.md
 recursive-include src/agentfem/operators *.md
 recursive-include tests *.py
-recursive-include tools *.py *.sh
+recursive-include tools *.py *.sh *.md Dockerfile
 recursive-include services *.js *.cjs *.mjs *.json *.jsonc *.sql *.md *.example
 prune site
 prune examples_output

@@ -93,14 +93,20 @@ Deepen the finite-element core before broadening the catalog:
   oracle is now a source-identified analytical rung with an explicit
   contact-regime boundary. The assembled MMB rung now owns exact rigid-lever
   kinematics, its work-conjugate scalar reaction, irreversible mixed-mode
-  propagation, cutbacks and a closed work--energy ledger. Its local cohesive
-  separation mix is deliberately not relabelled as the global beam mode
-  partition. Source-identified DCB/ENF/MMB curves and an independent global
-  MMB mode-partition check remain the next external promotion gates. ENF must use
+  propagation, cutbacks and a closed work--energy ledger. Its elastic rung now
+  recovers global \(G_I/G_{II}\) independently by two-dimensional VCCT, closes
+  total \(G\) against the assembled compliance derivative, and compares rather
+  than copies the Reeder--Crews partition. The vector data behind Figures 20
+  and 21 of NASA/CR-2012-217562 are pinned as a 30-point external curve with
+  source-PDF and extraction hashes. Reproduction of that IM7/8552 propagation
+  curve, plus source-identified DCB and ENF curves, remains the promotion gate.
+  The local cohesive separation mix is deliberately not relabelled as the
+  global mode partition. ENF must use
   arc-length or energy control
   when ordinary displacement control skips an unstable branch;
 - promote finite-strain J2 beyond its first experimental tetrahedral 3D P2/DG0
-  and quadrilateral 2D plane-strain Q2/DPC1 mixed affine-periodic lowerings,
+  global path and quadrilateral 2D plane-strain Q2/DPC1 mixed affine-periodic
+  lowerings,
   which are intended to mitigate volumetric locking but do not yet establish a
   locking-convergence claim. They own an independent tension-positive mean
   Kirchhoff stress, all four Newton blocks, a condensed mixed-energy channel
@@ -120,7 +126,13 @@ Deepen the finite-element core before broadening the catalog:
   temporary \(\kappa/\mu=10^4\) implementation ceiling, follower-load tangent,
   and complete prescribed-work balance. Cumulative material plastic dissipation
   remains a committed quadrature channel rather than being inferred in
-  postprocessing;
+  post-processing. The public Lewandowski et al. MGIS/FEniCS self-weight beam
+  has now been independently reexecuted in a pinned legacy container,
+  producing a SHA-bound 31-point external curve. A first full-size four-rank
+  development candidate passed the fixed 3% RMS / 5% maximum curve contract
+  with errors of (7.71\times10^{-6}) and (2.58\times10^{-5}), respectively.
+  It remains unpromoted because the run used a dirty checkout and mesh,
+  increment, serial/MPI and restart-equivalence gates remain open;
 - richer thermal--mechanical and high-temperature histories;
 - native MPC/weak/contact extraction through the provider-owned
   `dual_evidence(problem)` protocol. The shared collector, force/work ledger,

@@ -2,6 +2,10 @@
 
 from __future__ import annotations
 
+import hashlib
+import json
+from pathlib import Path
+
 import numpy as np
 import pytest
 
@@ -13,20 +17,61 @@ from lewandowski_2023_self_weight_beam_fixture import (
     UPSTREAM_COMMIT,
     UPSTREAM_SOLVER_SHA256,
     assess_external_curve,
+    bundled_reference_curve,
 )
 
 
-@pytest.mark.skip(
-    reason=(
-        "External promotion gate: the pinned legacy FEniCS/MGIS/MFront source "
-        "has not been independently re-executed in the current environment, "
-        "and the publication provides no tabulated load-deflection oracle."
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
+
+
+def test_lewandowski_2023_external_reference_is_reexecuted_and_pinned():
+    load, displacement, metadata = bundled_reference_curve()
+
+    assert load.size == displacement.size == 31
+    assert load[0] == pytest.approx(0.0)
+    assert load[-1] == pytest.approx(1.0)
+    assert np.all(np.diff(load) > 0.0)
+    assert displacement[-1] == pytest.approx(0.10979636395992733)
+    assert metadata["source"]["upstream_commit"] == UPSTREAM_COMMIT
+    assert metadata["source"]["solver_sha256"] == UPSTREAM_SOLVER_SHA256
+    assert metadata["source"]["behaviour_sha256"] == UPSTREAM_BEHAVIOUR_SHA256
+    assert metadata["claim_scope"].startswith("Independently reexecuted")
+
+
+def test_full_size_mpi_candidate_evidence_is_content_bound_and_fail_closed():
+    root = (
+        PROJECT_ROOT
+        / "evidence"
+        / "finite_strain_j2"
+        / "lewandowski_2023_mpi4_candidate"
     )
-)
-def test_lewandowski_2023_external_numerical_promotion_gate():
-    """Remove this skip only with archived independent execution evidence."""
+    manifest = json.loads((root / "manifest.json").read_text(encoding="utf-8"))
+    curve_bytes = (root / "candidate_curve.csv").read_bytes()
+    curve = np.genfromtxt(root / "candidate_curve.csv", names=True, delimiter=",")
+    reference_load, reference_displacement, _metadata = bundled_reference_curve()
+    reference = np.interp(curve["load_factor"], reference_load, reference_displacement)
+    candidate = np.asarray(curve["downward_displacement_m"], dtype=float)
+    scale = float(np.max(np.abs(reference)))
+    rms = float(np.sqrt(np.mean((candidate - reference) ** 2)) / scale)
+    maximum = float(np.max(np.abs(candidate - reference)) / scale)
 
-    pytest.fail("Lewandowski 2023 external curve has not been promoted.")
+    assert hashlib.sha256(curve_bytes).hexdigest() == manifest["candidate"][
+        "curve_sha256"
+    ]
+    assert manifest["status"] == "incomplete"
+    assert manifest["runtime"]["source_tracked_dirty"] is True
+    assert manifest["comparison"]["curve_contract_passed"] is True
+    assert rms == pytest.approx(manifest["comparison"]["normalized_rms_error"])
+    assert maximum == pytest.approx(
+        manifest["comparison"]["normalized_maximum_error"]
+    )
+    assert set(manifest["open_promotion_gates"]) >= {
+        "clean committed candidate identity",
+        "candidate mesh convergence",
+        "candidate increment convergence",
+        "serial/MPI equivalence",
+        "checkpoint/restart equivalence",
+    }
 
 
 def test_lewandowski_source_and_scientific_inputs_are_frozen():

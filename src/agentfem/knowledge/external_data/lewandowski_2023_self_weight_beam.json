@@ -1,0 +1,44 @@
+{
+  "schema": "agentfem.external-scientific-dataset",
+  "schema_version": "0.1.0",
+  "dataset_id": "lewandowski-2023-self-weight-beam-mgis-fenics",
+  "title": "Finite-strain J2 self-weight beam reference curve",
+  "source": {
+    "paper_doi": "https://doi.org/10.1016/j.cma.2023.116101",
+    "official_demo": "https://thelfer.github.io/mgis/web/mgis_fenics_finite_strain_elastoplasticity.html",
+    "upstream_commit": "cb43561d5e36a9ef691ad2c308261448cef44e29",
+    "solver_sha256": "b2fdebe7edf9e10617f9cd4f350bfab119db9ca9441242959e5bf366a105e0d5",
+    "behaviour_sha256": "17456bf1b593eec205f7cc7fb06483fdaf67ec7415713aeb27f33db57bef1393"
+  },
+  "curve_file": "lewandowski_2023_self_weight_beam.csv",
+  "curve_file_sha256": "c26ac9a056db5c83371b0920d6a78a982871e5f3fd6ba32990b0facb9b2f1b5d",
+  "curve": {
+    "points": 31,
+    "columns": ["load_factor", "downward_displacement_m"],
+    "observer_m": [1.0, 0.0, 0.0],
+    "final_downward_displacement_m": 0.10979636395992733
+  },
+  "execution": {
+    "date": "2026-09-17",
+    "platform": "linux/amd64 container executed on Apple arm64",
+    "image_id": "sha256:79d3b295cc3d7997f75da47338fad92f9aa0848c8a3e5ed6fced2c37196e8bb5",
+    "base_image_digest": "sha256:e0a99b0f17a759e14c2f967dc0ca2d3a3c1ca3c62955f4d20bba770eaaf0184d",
+    "mpi_mode": "single rank with OMPI_MCA_plm=isolated and OMPI_MCA_btl=self,vader",
+    "packages": {
+      "python": "3.10.14 hd12c33a_0_cpython",
+      "fenics-dolfin": "2019.1.0 py310h8432f29_42",
+      "mgis": "2.1 py310hd7f71e6_2",
+      "mfront": "4.1.0 py310hb8c7b27_3",
+      "petsc": "3.20.2 real_hda1ae68_100",
+      "openmpi": "4.1.6 hc5af2df_101",
+      "mumps-mpi": "5.2.1 hfb3545b_11",
+      "numpy": "1.26.4 py310hb13e2d6_0"
+    }
+  },
+  "claim_scope": "Independently reexecuted upstream reference curve; it is not an AgentFEM validation result by itself.",
+  "promotion_requirements": [
+    "Reconcile the executable observer with the paper's point-A description.",
+    "Compare a converged AgentFEM structural curve under the fixed error contract.",
+    "Provide mesh, increment, serial/MPI and checkpoint/restart evidence."
+  ]
+}

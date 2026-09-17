@@ -228,10 +228,16 @@ resolution. Both assembled MMB providers accept an explicit registered 2D
 bulk material: the isotropic default supports compact solver regressions,
 while an orthotropic plane-stress material can be injected for composite
 benchmarks without creating a paper-specific solver. The damage-weighted
-local cohesive separation mix and the
-Reeder--Crews global beam energy partition are both reported but are not
-declared equivalent: an independent domain-integral partition and a digitized
-source curve remain external-promotion gates. Acceptance also checks
+local cohesive separation mix is not treated as a structural mode partition.
+For the elastic fixture, a separate two-dimensional VCCT recovery uses the
+crack-tip nodal force and the paired displacement one element behind the tip
+to compute \(G_I\) and \(G_{II}\). `certify_mmb_mode_partition(...)` closes the
+VCCT total against the assembled compliance derivative and uses the
+Reeder--Crews fraction only as a comparison. The vector markers in Figures 20
+and 21 of NASA/CR-2012-217562 are bundled as a SHA-pinned 30-point 80%-Mode-II
+critical propagation path. This makes the external curve reproducible, but
+does not claim that the IM7/8552 cohesive propagation model has already
+matched it. Acceptance also checks
 cohesive-zone resolution and artificial dissipation.
 `certify_delamination_convergence(...)` requires
 at least three successively refined structural curves and additionally checks
@@ -239,10 +245,11 @@ the last-refinement change, Mode-I partition, and an improving asymptotic
 trend. `MixedModeBendingCurve` separately reads a source-
 identified external trace and compares load, displacement and Mode-I fraction
 under required tolerances. The assembled DCB, ENF and rigid-lever MMB
-compliance/propagation mechanism regressions now pass in the automated
-scientific suite. External promotion remains closed until source-identified
-DCB, ENF and MMB propagation curves and an independent MMB global mode
-partition satisfy their declared comparison contracts. The separation is intentional:
+compliance/propagation mechanism regressions and the independent elastic MMB
+VCCT partition now pass in the automated scientific suite. External promotion
+remains closed until the source-declared NASA MMB propagation curve and
+source-identified DCB/ENF curves satisfy their declared comparison contracts.
+The separation is intentional:
 a stable internal structural regression is not an external material
 calibration.
 

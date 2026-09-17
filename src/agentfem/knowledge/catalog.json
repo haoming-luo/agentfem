@@ -137,7 +137,7 @@
       "id": "agentfem.benchmark.finite_strain_j2_lewandowski_2023_beam",
       "physics": "Three-dimensional slender beam under a ramped gravity-like body force, with a left clamp, right-end axial symmetry constraint, finite rotations, isotropic J2 plasticity and linear isotropic hardening.",
       "source": "src/agentfem/knowledge/benchmarks/finite_strain_j2_lewandowski_2023_beam.json",
-      "status": "experimental_external_promotion_gate_not_run",
+      "status": "external_reference_reexecuted_candidate_promotion_pending",
       "title": "Lewandowski et al. finite-strain J2 self-weight beam"
     },
     {
@@ -270,7 +270,7 @@
       "id": "agentfem.benchmark.mixed_mode_bending_external_contract",
       "physics": "Mixed-mode bending delamination or a mechanically equivalent fixed-path cohesive structure with measured load, displacement, crack length, and Mode-I fraction",
       "source": "src/agentfem/knowledge/benchmarks/mixed_mode_bending_external_contract.json",
-      "status": "contract_ready_external_data_pending",
+      "status": "external_curve_pinned_solver_reproduction_pending",
       "title": "Source-identified mixed-mode bending curve comparison"
     },
     {

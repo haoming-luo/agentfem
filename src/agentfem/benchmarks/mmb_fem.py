@@ -14,7 +14,6 @@ import numpy as np
 from .mixed_mode import (
     DelaminationBenchmarkSpec,
     DelaminationEnergyReleaseCurve,
-    compliance_energy_release_curve,
     mmb_beam_energy_release_curve,
 )
 
@@ -33,6 +32,10 @@ class MMBFiniteElementPoint:
     elements_per_arm: int
     newton_iterations: int
     residual_norm: float
+    vcct_mode_i_energy_release_rate: float
+    vcct_mode_ii_energy_release_rate: float
+    vcct_total_energy_release_rate: float
+    vcct_mode_i_fraction: float
     bulk_material: dict[str, object] | None = None
 
     def summary(self) -> dict[str, object]:
@@ -87,7 +90,7 @@ class MMBFiniteElementCurve:
                 "precrack": "fully failed interface facets",
             },
             "mode_partition": (
-                "Reeder--Crews beam partition applied to FE compliance-derived total G"
+                "independent two-dimensional VCCT; Reeder--Crews is comparison only"
             ),
         }
 
@@ -115,6 +118,34 @@ class MMBComplianceCertificate:
                 "cohesive propagation",
                 "external experimental curve agreement",
                 "independent finite-element mode partition",
+            ),
+        }
+
+
+@dataclass(frozen=True)
+class MMBModePartitionCertificate:
+    """Independent VCCT comparison with the Reeder--Crews beam partition."""
+
+    curve_identity_sha256: str
+    reference_identity_sha256: str
+    vcct_compliance_energy_relative_l2_error: float
+    energy_closure_relative_tolerance: float
+    mode_i_fraction_maximum_error: float
+    mode_i_fraction_absolute_tolerance: float
+    accepted: bool
+
+    def summary(self) -> dict[str, object]:
+        return {
+            "schema": "agentfem.mmb-mode-partition-certificate.v1",
+            **self.__dict__,
+            "computed_method": "two-dimensional virtual crack closure technique",
+            "energy_closure": "VCCT total G versus assembled compliance derivative",
+            "reference_method": "Reeder--Crews classical simple-beam partition",
+            "scope": "elastic, straight, equal-arm MMB specimen",
+            "excludes": (
+                "cohesive propagation mode partition",
+                "dissimilar-arm interface oscillation",
+                "three-dimensional free-edge effects",
             ),
         }
 
@@ -286,6 +317,73 @@ def certify_mmb_compliance(
     )
 
 
+def certify_mmb_mode_partition(
+    curve: MMBFiniteElementCurve,
+    *,
+    energy_closure_relative_tolerance: float = 0.08,
+    mode_i_fraction_absolute_tolerance: float = 0.08,
+) -> MMBModePartitionCertificate:
+    """Compare independently recovered VCCT channels with beam theory.
+
+    The assembled result is obtained from crack-tip nodal forces and the
+    relative displacement one element behind the tip.  Reeder--Crews is used
+    only after the solve as an external analytical comparison; it is not used
+    to populate the computed ``G_I`` or ``G_II`` channels.
+    """
+
+    if not isinstance(curve, MMBFiniteElementCurve):
+        raise TypeError("MMB mode-partition certification requires an assembled curve.")
+    limits = (
+        float(energy_closure_relative_tolerance),
+        float(mode_i_fraction_absolute_tolerance),
+    )
+    if any(not np.isfinite(value) or value < 0.0 for value in limits):
+        raise ValueError("MMB mode-partition tolerances must be finite and nonnegative.")
+    reference = mmb_beam_energy_release_curve(
+        curve.specification,
+        crack_length=[point.effective_crack_length for point in curve.points],
+        load=[point.load for point in curve.points],
+        lever_length=curve.lever_length,
+    )
+    predicted = curve.energy_release
+    crack = np.asarray(
+        [point.effective_crack_length for point in curve.points], dtype=float
+    )
+    loads = np.asarray([point.load for point in curve.points], dtype=float)
+    compliance = np.asarray([point.compliance for point in curve.points], dtype=float)
+    compliance_energy = (
+        loads**2
+        * np.gradient(compliance, crack, edge_order=2)
+        / (2.0 * curve.specification.width)
+    )
+    total_scale = float(np.linalg.norm(compliance_energy))
+    total_error = float(
+        np.linalg.norm(
+            predicted.total_energy_release_rate
+            - compliance_energy
+        )
+        / max(total_scale, np.finfo(float).eps)
+    )
+    reference_fraction = (
+        reference.mode_i_energy_release_rate
+        / reference.total_energy_release_rate
+    )
+    predicted_fraction = (
+        predicted.mode_i_energy_release_rate
+        / predicted.total_energy_release_rate
+    )
+    fraction_error = float(np.max(np.abs(predicted_fraction - reference_fraction)))
+    return MMBModePartitionCertificate(
+        curve_identity_sha256=curve.identity_sha256,
+        reference_identity_sha256=reference.identity_sha256,
+        vcct_compliance_energy_relative_l2_error=total_error,
+        energy_closure_relative_tolerance=limits[0],
+        mode_i_fraction_maximum_error=fraction_error,
+        mode_i_fraction_absolute_tolerance=limits[1],
+        accepted=bool(total_error <= limits[0] and fraction_error <= limits[1]),
+    )
+
+
 def mmb_finite_element_curve(
     spec: DelaminationBenchmarkSpec,
     *,
@@ -359,22 +457,21 @@ def mmb_finite_element_curve(
         "AgentFEM assembled rigid-lever MMB Q1/cohesive curve; "
         f"{nx}x{2 * ny} bulk cells"
     )
-    oracle = mmb_beam_energy_release_curve(
-        spec,
-        crack_length=[point.effective_crack_length for point in points],
-        load=[point.load for point in points],
-        lever_length=lever,
-    )
-    fraction = (
-        oracle.mode_i_energy_release_rate / oracle.total_energy_release_rate
-    )
-    energy = compliance_energy_release_curve(
-        spec,
-        crack_length=[point.effective_crack_length for point in points],
-        load=[point.load for point in points],
-        compliance=[point.compliance for point in points],
-        mode_i_fraction=fraction,
-        source=(source + "; Reeder--Crews analytical mode partition"),
+    energy = DelaminationEnergyReleaseCurve(
+        crack_length=np.asarray(
+            [point.effective_crack_length for point in points], dtype=float
+        ),
+        compliance=np.asarray([point.compliance for point in points], dtype=float),
+        total_energy_release_rate=np.asarray(
+            [point.vcct_total_energy_release_rate for point in points], dtype=float
+        ),
+        mode_i_energy_release_rate=np.asarray(
+            [point.vcct_mode_i_energy_release_rate for point in points], dtype=float
+        ),
+        mode_ii_energy_release_rate=np.asarray(
+            [point.vcct_mode_ii_energy_release_rate for point in points], dtype=float
+        ),
+        source=(source + "; independent two-dimensional VCCT mode partition"),
     )
     return MMBFiniteElementCurve(
         specification=spec,
@@ -748,6 +845,7 @@ def _mmb_point(
     load = abs(float(solved["reaction"]))
     if not np.isfinite(load) or load <= np.finfo(float).eps:
         raise RuntimeError("MMB generalized reaction is not positive and finite.")
+    vcct = _mmb_virtual_crack_closure(fixture)
     fixture["cohesive"].commit()
     return MMBFiniteElementPoint(
         crack_length=fixture["represented_crack"],
@@ -763,8 +861,86 @@ def _mmb_point(
         elements_per_arm=int(elements_per_arm),
         newton_iterations=int(solved["iterations"]),
         residual_norm=float(fixture["equilibrium"].last_info.residual_norm),
+        vcct_mode_i_energy_release_rate=vcct["mode_i"],
+        vcct_mode_ii_energy_release_rate=vcct["mode_ii"],
+        vcct_total_energy_release_rate=vcct["total"],
+        vcct_mode_i_fraction=vcct["mode_i_fraction"],
         bulk_material=fixture["material_summary"],
     )
+
+
+def _mmb_virtual_crack_closure(fixture) -> dict[str, float]:
+    """Recover crack-tip ``G_I`` and ``G_II`` without a beam partition.
+
+    The implementation follows the standard one-element virtual crack closure
+    construction: the interface force at the crack-tip node is paired with
+    the relative displacement of the duplicated nodes one element behind the
+    tip.  The paired-facet topology, rather than coordinate coincidence, owns
+    side identity throughout the calculation.
+    """
+
+    cohesive = fixture["cohesive"]
+    response = cohesive.begin()
+    topology = cohesive.assembler.topology
+    mask = np.asarray(fixture["initial_mask"], dtype=bool)
+    midpoints = np.mean(
+        fixture["split"].coordinates[topology.negative_nodes], axis=1
+    )
+    cracked = np.flatnonzero(mask)
+    intact = np.flatnonzero(~mask)
+    if cracked.size == 0 or intact.size == 0:
+        raise RuntimeError("VCCT requires both a precrack and an intact ligament.")
+    cracked_facet = int(cracked[np.argmax(midpoints[cracked, 0])])
+    intact_facet = int(intact[np.argmin(midpoints[intact, 0])])
+    negative_common = np.intersect1d(
+        topology.negative_nodes[cracked_facet],
+        topology.negative_nodes[intact_facet],
+    )
+    positive_common = np.intersect1d(
+        topology.positive_nodes[cracked_facet],
+        topology.positive_nodes[intact_facet],
+    )
+    if negative_common.size != 1 or positive_common.size != 1:
+        raise RuntimeError("VCCT could not identify the paired crack-tip nodes.")
+    negative_tip = int(negative_common[0])
+    positive_tip = int(positive_common[0])
+    negative_behind = int(
+        next(
+            node
+            for node in topology.negative_nodes[cracked_facet]
+            if int(node) != negative_tip
+        )
+    )
+    positive_behind = int(
+        next(
+            node
+            for node in topology.positive_nodes[cracked_facet]
+            if int(node) != positive_tip
+        )
+    )
+    values = cohesive.displacement.x.array.reshape((-1, cohesive.block_size))
+    nodal = values[cohesive.node_to_block_dof]
+    jump = nodal[positive_behind] - nodal[negative_behind]
+    force = 0.5 * (
+        response.internal_force[positive_tip]
+        - response.internal_force[negative_tip]
+    )
+    normal = np.asarray(topology.normals[intact_facet], dtype=float)
+    tangent = np.asarray((normal[1], -normal[0]), dtype=float)
+    normal_work = float(np.dot(force, normal) * np.dot(jump, normal))
+    tangential_work = float(np.dot(force, tangent) * np.dot(jump, tangent))
+    denominator = float(2.0 * fixture["width"] * fixture["dx"])
+    mode_i = abs(normal_work) / denominator
+    mode_ii = abs(tangential_work) / denominator
+    total = mode_i + mode_ii
+    if not np.isfinite(total) or total <= np.finfo(float).eps:
+        raise RuntimeError("VCCT recovered a nonpositive or nonfinite total G.")
+    return {
+        "mode_i": float(mode_i),
+        "mode_ii": float(mode_ii),
+        "total": float(total),
+        "mode_i_fraction": float(mode_i / total),
+    }
 
 
 def _build_mmb_fixture(
@@ -913,6 +1089,8 @@ def _build_mmb_fixture(
         "material_summary": _material_manifest(material),
         "represented_crack": represented_crack,
         "residual": residual,
+        "split": split,
+        "width": float(spec.width),
         "dx": length / nx,
     }
 
@@ -939,8 +1117,10 @@ __all__ = (
     "MMBCohesivePropagationPoint",
     "MMBFiniteElementCurve",
     "MMBFiniteElementPoint",
+    "MMBModePartitionCertificate",
     "certify_mmb_compliance",
     "certify_mmb_cohesive_propagation",
+    "certify_mmb_mode_partition",
     "mmb_cohesive_propagation_curve",
     "mmb_finite_element_curve",
 )

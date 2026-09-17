@@ -54,6 +54,7 @@ from .mixed_mode import (
     delamination_benchmark_spec,
     enf_beam_compliance,
     mmb_beam_energy_release_curve,
+    nasa_cr_2012_mmb_80_reference,
 )
 from .mmb_fem import (
     MMBComplianceCertificate,
@@ -62,8 +63,10 @@ from .mmb_fem import (
     MMBCohesivePropagationPoint,
     MMBFiniteElementCurve,
     MMBFiniteElementPoint,
+    MMBModePartitionCertificate,
     certify_mmb_cohesive_propagation,
     certify_mmb_compliance,
+    certify_mmb_mode_partition,
     mmb_cohesive_propagation_curve,
     mmb_finite_element_curve,
 )
@@ -142,6 +145,7 @@ __all__ = [
     "MMBCohesivePropagationPoint",
     "MMBFiniteElementCurve",
     "MMBFiniteElementPoint",
+    "MMBModePartitionCertificate",
     "benchmark",
     "audit_capability_evidence",
     "capability_evidence",
@@ -181,8 +185,10 @@ __all__ = [
     "delamination_benchmark_spec",
     "enf_beam_compliance",
     "mmb_beam_energy_release_curve",
+    "nasa_cr_2012_mmb_80_reference",
     "certify_mmb_compliance",
     "certify_mmb_cohesive_propagation",
+    "certify_mmb_mode_partition",
     "mmb_cohesive_propagation_curve",
     "mmb_finite_element_curve",
     "enf_cohesive_propagation_convergence",

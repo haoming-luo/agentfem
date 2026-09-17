@@ -1,3 +1,7 @@
+from hashlib import sha256
+from importlib.resources import files
+import json
+
 import numpy as np
 import pytest
 
@@ -39,6 +43,24 @@ def test_external_mixed_mode_curve_contract_reads_and_compares(tmp_path):
     assert report.accepted
     assert len(reference.identity_sha256) == 64
     assert report.summary()["schema"] == ("agentfem.mixed-mode-bending-comparison.v1")
+
+
+def test_nasa_mmb_80_reference_is_pinned_and_physically_identified():
+    reference = benchmarks.nasa_cr_2012_mmb_80_reference()
+    root = files("agentfem.knowledge.external_data")
+    metadata = json.loads(
+        root.joinpath("nasa_cr_2012_217562_mmb_80.json").read_text(encoding="utf-8")
+    )
+    csv_bytes = root.joinpath("nasa_cr_2012_217562_mmb_80.csv").read_bytes()
+
+    assert sha256(csv_bytes).hexdigest() == metadata["curve_file_sha256"]
+    assert reference.units_complete
+    assert reference.crack_length.size == 30
+    assert reference.crack_length[0] == pytest.approx(25.4)
+    assert reference.load[0] == pytest.approx(751.0, abs=2.0)
+    assert reference.displacement[0] == pytest.approx(1.65, abs=0.01)
+    np.testing.assert_allclose(reference.mode_i_fraction, 0.2)
+    assert np.all(np.diff(reference.crack_length) > 0.0)
 
 
 def test_external_mixed_mode_comparison_rejects_bad_curve_and_range():
@@ -263,6 +285,7 @@ def test_assembled_mmb_rigid_lever_recovers_beam_compliance_and_dual():
         curve,
         compliance_relative_tolerance=0.03,
     )
+    partition = benchmarks.certify_mmb_mode_partition(curve)
 
     assert certificate.accepted
     assert certificate.compliance_relative_l2_error < 0.03
@@ -270,8 +293,12 @@ def test_assembled_mmb_rigid_lever_recovers_beam_compliance_and_dual():
     assert certificate.maximum_newton_residual < 1.0e-8
     assert all(point.load > 0.0 for point in curve.points)
     assert curve.summary()["discretization"]["fixture"].startswith("exact")
-    assert curve.summary()["mode_partition"].startswith("Reeder--Crews")
+    assert curve.summary()["mode_partition"].startswith("independent")
     assert curve.bulk_material["model"] == "orthotropic_plane_stress_2d"
+    assert partition.accepted
+    assert partition.vcct_compliance_energy_relative_l2_error < 0.08
+    assert partition.mode_i_fraction_maximum_error < 0.08
+    assert all(point.vcct_total_energy_release_rate > 0.0 for point in curve.points)
 
 
 def test_mmb_cohesive_path_reports_growth_energy_and_local_mode_evidence():

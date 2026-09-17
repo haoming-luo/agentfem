@@ -481,9 +481,12 @@ _BENCHMARKS = (
             "tests/test_lewandowski_2023_self_weight_beam.py; "
             "tests/lewandowski_2023_self_weight_beam_driver.py"
         ),
-        status="external_promotion_gate_incomplete",
+        status="external_reference_reexecuted_candidate_promotion_pending",
         evidence=(
             "external_gate_defined",
+            "external_reference_execution",
+            "content_bound_reference_curve",
+            "development_candidate_curve_contract",
             "public_strong_provider",
             "provenance",
             "failure_behavior",
@@ -676,14 +679,21 @@ _BENCHMARKS = (
             "knowledge/benchmarks/mixed_mode_bending_external_contract.json"
         ),
         criterion=(
-            "the Reeder--Crews simple-beam compliance and GI/GII partition "
-            "are recovered from one declared lever geometry, while a "
-            "source-identified mixed-mode bending curve is compared on common "
-            "crack-length coordinates using explicitly declared load, "
-            "displacement, and mode-mix tolerances"
+            "the assembled elastic fixture recovers GI/GII independently by "
+            "two-dimensional VCCT, closes total G against its compliance "
+            "derivative, and compares its partition with Reeder--Crews; the "
+            "SHA-pinned NASA/CR-2012-217562 80%-Mode-II curve is available for "
+            "a source-declared cohesive propagation comparison"
         ),
         automated_test="tests/test_mixed_mode_benchmark.py",
-        status="contract_ready_external_data_pending",
+        status="external_curve_pinned_solver_reproduction_pending",
+        evidence=(
+            "finite_element",
+            "independent_mode_partition",
+            "compliance_energy_closure",
+            "external_curve_identity",
+            "failure_behavior",
+        ),
     ),
     BenchmarkSpec(
         identifier="delamination_structural_family",

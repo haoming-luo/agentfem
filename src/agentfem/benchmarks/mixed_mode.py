@@ -7,6 +7,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from hashlib import sha256
+from importlib.resources import files
 from pathlib import Path
 
 import numpy as np
@@ -402,6 +403,45 @@ def delamination_benchmark_spec(kind, **geometry) -> DelaminationBenchmarkSpec:
     """Create a DCB, ENF or MMB numerical-verification specification."""
 
     return DelaminationBenchmarkSpec(kind=kind, **geometry)
+
+
+def nasa_cr_2012_mmb_80_reference() -> MixedModeBendingCurve:
+    """Load the vector-extracted NASA 80%-Mode-II MMB reference curve.
+
+    The bundled CSV contains the critical propagation path from Figures 20
+    and 21 of NASA/CR-2012-217562.  Its companion JSON pins the source PDF,
+    extraction transform, uncertainty and claim boundary.  The nominal
+    Mode-I fraction is 0.2; a solver comparison must still report its own
+    independently computed mode partition.
+    """
+
+    resource = files("agentfem.knowledge.external_data").joinpath(
+        "nasa_cr_2012_217562_mmb_80.csv"
+    )
+    with resource.open("r", encoding="utf-8") as stream:
+        records = np.genfromtxt(
+            stream,
+            delimiter=",",
+            names=True,
+            dtype=float,
+            encoding="utf-8",
+        )
+    return MixedModeBendingCurve.create(
+        crack_length=records["crack_length"],
+        load=records["load"],
+        displacement=records["displacement"],
+        mode_i_fraction=records["mode_i_fraction"],
+        source=(
+            "NASA/CR-2012-217562 Figures 20 and 21; vector-extracted "
+            "critical path; 80% Mode II nominal"
+        ),
+        units={
+            "crack_length": "mm",
+            "load": "N",
+            "displacement": "mm",
+            "mode_i_fraction": "1",
+        },
+    )
 
 
 def dcb_beam_compliance(spec, crack_length):

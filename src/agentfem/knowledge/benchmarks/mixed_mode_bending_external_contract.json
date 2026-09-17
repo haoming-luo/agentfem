@@ -3,13 +3,13 @@
   "schema_version": "0.1.0",
   "id": "agentfem.benchmark.mixed_mode_bending_external_contract",
   "title": "Source-identified mixed-mode bending curve comparison",
-  "status": "contract_ready_external_data_pending",
+  "status": "external_curve_pinned_solver_reproduction_pending",
   "purpose": "Provide a reusable and auditable external structural promotion gate for the first mixed-mode cohesive law without claiming that a published curve has already been reproduced.",
   "physics": "Mixed-mode bending delamination or a mechanically equivalent fixed-path cohesive structure with measured load, displacement, crack length, and Mode-I fraction",
   "execution": {
     "example": "tests/test_mixed_mode_benchmark.py",
     "command": "python -m pytest tests/test_mixed_mode_benchmark.py",
-    "evidence": "The dependency-free data contract validates source identity, explicit physical units, strictly increasing crack coordinates, interpolation coverage, explicit tolerances, deterministic SHA-256 identity, internally consistent GI/GII/G channels, and accepted/rejected curve comparisons. A separate Reeder--Crews simple-beam oracle generates compliance and the GI/GII partition from one declared lever geometry."
+    "evidence": "The dependency-free data contract validates source identity, explicit physical units, strictly increasing crack coordinates, interpolation coverage, explicit tolerances, deterministic SHA-256 identity, internally consistent GI/GII/G channels, and accepted/rejected curve comparisons. NASA/CR-2012-217562 Figures 20 and 21 are bundled as a vector-extracted, SHA-pinned 30-point 80%-Mode-II critical path. The assembled elastic fixture now computes GI/GII independently by VCCT and compares that partition with the Reeder--Crews beam oracle."
   },
   "observables": [
     "Applied load versus crack length.",
@@ -25,12 +25,13 @@
     "Every scientific tolerance is supplied by the benchmark owner rather than hidden in the comparison API.",
     "Numerically similar curves with inconsistent declared units cannot pass comparison.",
     "The classical beam oracle rejects lever positions below c=L/3 rather than extending the nominal opening formula into a contact-dominated regime.",
+    "The assembled elastic fixture must close VCCT total G against its finite-element compliance derivative and compare its independent VCCT partition with Reeder--Crews.",
     "A future external promotion must pin the exact public data extraction, units, geometry, material, boundary conditions, and source revision before accepted=True is cited as external verification."
   ],
   "limitations": [
-    "The repository does not currently bundle digitized NASA load-displacement curves or assert numerical agreement with them.",
+    "The repository bundles the NASA 80%-Mode-II curve, but the source-declared IM7/8552 propagation model has not yet reproduced it.",
     "The Reeder--Crews beam oracle is an analytical verification rung, not an assembled rigid-lever model or a material calibration.",
-    "The synthetic automated fixture verifies the comparison machinery, not the mixed-mode finite-element solution.",
+    "The assembled VCCT check verifies the elastic fixture and mode separation; it does not by itself validate cohesive propagation parameters.",
     "Non-proportional cyclic mixed mode, free-path delamination, and experimental uncertainty remain outside this contract."
   ],
   "references": [

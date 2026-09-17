@@ -2,14 +2,18 @@
 
 The source problem is the finite-strain elastoplastic self-weight beam from
 Lewandowski et al. (2023), Section 6.1, and its public MGIS/FEniCS
-implementation.  This module deliberately contains no digitised answer.  A
-promotion run must provide a curve produced independently from the pinned
-upstream implementation; otherwise the assessment remains ``incomplete``.
+implementation. This module does not fabricate or hand-digitise an answer: it
+authenticates a curve produced by independently executing the pinned upstream
+implementation. A promotion run must explicitly supply that curve and all
+candidate evidence; otherwise the assessment remains ``incomplete``.
 """
 
 from __future__ import annotations
 
 from dataclasses import dataclass
+import hashlib
+from importlib.resources import files
+import json
 
 import numpy as np
 
@@ -124,6 +128,29 @@ REQUIRED_PROMOTION_EVIDENCE = (
     "serial_mpi_equivalent",
     "restart_equivalent",
 )
+
+
+def bundled_reference_curve() -> tuple[np.ndarray, np.ndarray, dict[str, object]]:
+    """Load and authenticate the independently reexecuted upstream curve."""
+
+    root = files("agentfem.knowledge.external_data")
+    curve = root.joinpath("lewandowski_2023_self_weight_beam.csv")
+    metadata = json.loads(
+        root.joinpath("lewandowski_2023_self_weight_beam.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    content = curve.read_bytes()
+    actual = hashlib.sha256(content).hexdigest()
+    if actual != metadata["curve_file_sha256"]:
+        raise RuntimeError("Bundled Lewandowski reference curve identity mismatch.")
+    with curve.open("r", encoding="utf-8") as stream:
+        table = np.genfromtxt(stream, names=True, delimiter=",")
+    return (
+        np.atleast_1d(table["load_factor"]).astype(float),
+        np.atleast_1d(table["downward_displacement_m"]).astype(float),
+        metadata,
+    )
 
 
 def _curve(load_factors, displacements, *, label: str) -> tuple[np.ndarray, np.ndarray]:

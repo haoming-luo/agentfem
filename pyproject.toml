@@ -118,6 +118,7 @@ packages = [
   "schema/*.json",
   "decisions/*.md",
   "external_data/*.json",
+  "external_data/*.csv",
   "research_tasks/*.json",
 ]
 "agentfem" = [

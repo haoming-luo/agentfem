@@ -1,0 +1,58 @@
+{
+  "schema": "agentfem.external-benchmark-candidate-evidence.v1",
+  "benchmark": "lewandowski_2023_self_weight_beam",
+  "date": "2026-09-17",
+  "status": "incomplete",
+  "claim_scope": "A development candidate curve that passes the fixed curve-error contract. It is not promoted because the candidate checkout was dirty and mesh, increment, serial/MPI, and restart equivalence gates remain open.",
+  "candidate": {
+    "curve_file": "candidate_curve.csv",
+    "curve_sha256": "12a0aeafb17a469ff8c0386ae6ad18546a95c9f56bc707567b97894a8324ec68",
+    "points": 31,
+    "final_downward_displacement_m": 0.10979353423698388,
+    "subdivisions": [30, 5, 8],
+    "cell": "tetrahedron",
+    "displacement_degree": 2,
+    "increments": 30,
+    "line_search": "basic_full_newton",
+    "accepted_increments": 30,
+    "attempts": 30,
+    "maximum_newton_iterations": 12,
+    "maximum_final_residual_norm": 7.155560442313956e-06,
+    "final_plastic_points": 15649
+  },
+  "reference": {
+    "curve_sha256": "c26ac9a056db5c83371b0920d6a78a982871e5f3fd6ba32990b0facb9b2f1b5d",
+    "final_downward_displacement_m": 0.10979636395992733,
+    "upstream_commit": "cb43561d5e36a9ef691ad2c308261448cef44e29",
+    "solver_sha256": "b2fdebe7edf9e10617f9cd4f350bfab119db9ca9441242959e5bf366a105e0d5",
+    "behaviour_sha256": "17456bf1b593eec205f7cc7fb06483fdaf67ec7415713aeb27f33db57bef1393"
+  },
+  "comparison": {
+    "normalized_rms_error": 7.710336652942406e-06,
+    "normalized_maximum_error": 2.5772464965085134e-05,
+    "maximum_normalized_rms_contract": 0.03,
+    "maximum_normalized_maximum_contract": 0.05,
+    "curve_contract_passed": true
+  },
+  "runtime": {
+    "agentfem_version": "0.3.7.dev0",
+    "source_commit": "882f75a668e91b04e5728592118c193e7ddd12a8",
+    "source_tracked_dirty": true,
+    "package_tree_sha256": "6f43580d600a3aaba02a9505808145d38533be0979d21b81ba776a195498c6f1",
+    "runtime_fingerprint": "sha256:397a803b8daadfe789a8cc76fe7a96010229799d242e991a6911fc959e624291",
+    "platform": "native macOS arm64",
+    "python": "3.11.15",
+    "fenics_dolfinx": "0.11.0",
+    "petsc4py": "3.25.2",
+    "mpi": "MPICH 5.0.1",
+    "mpi_ranks": 4,
+    "float_precision": "float64"
+  },
+  "open_promotion_gates": [
+    "clean committed candidate identity",
+    "candidate mesh convergence",
+    "candidate increment convergence",
+    "serial/MPI equivalence",
+    "checkpoint/restart equivalence"
+  ]
+}

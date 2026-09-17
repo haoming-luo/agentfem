@@ -15,6 +15,7 @@ from pathlib import Path
 import numpy as np
 from mpi4py import MPI
 
+import agentfem
 from agentfem import (
     constitutive,
     fields,
@@ -25,6 +26,7 @@ from agentfem import (
     steps,
     studies,
 )
+from agentfem.provenance import runtime_manifest
 
 from lewandowski_2023_self_weight_beam_fixture import (
     DEFINITION,
@@ -35,7 +37,15 @@ from lewandowski_2023_self_weight_beam_fixture import (
 )
 
 
-def _candidate_step(comm, *, subdivisions, increments):
+def _candidate_step(
+    comm,
+    *,
+    subdivisions,
+    increments,
+    adaptive=False,
+    progress=False,
+    line_search="basic",
+):
     definition = DEFINITION
     domain = mesh.cuboid(
         (0.0, -0.5 * definition.width, -0.5 * definition.height),
@@ -79,17 +89,31 @@ def _candidate_step(comm, *, subdivisions, increments):
         target=displacement,
         name="self_weight_body_force",
     )
+    if adaptive:
+        incrementation = steps.automatic(
+            initial=1.0 / increments,
+            minimum=1.0 / (64.0 * increments),
+            maximum=1.0 / increments,
+            max_increments=16 * increments,
+            max_cutbacks=8,
+            cutback_factor=0.5,
+            growth_factor=1.5,
+            fast_iterations=4,
+            slow_iterations=10,
+        )
+    else:
+        incrementation = steps.fixed(increments)
     step = model.step(
         target=displacement,
         material=material,
-        incrementation=steps.fixed(increments),
+        incrementation=incrementation,
         solver_options=solvers.newton(
             relative_tolerance=1.0e-7,
             absolute_tolerance=1.0e-8,
             maximum_iterations=30,
-            line_search="backtracking",
+            line_search=line_search,
         ),
-        progress=False,
+        progress=progress,
         name="lewandowski_2023_self_weight_beam_candidate",
     )
     return step, displacement
@@ -107,11 +131,46 @@ def _read_reference(path: Path) -> tuple[np.ndarray, np.ndarray]:
     )
 
 
+def _write_candidate_curve(
+    output: Path,
+    load_factors: list[float],
+    downward_displacements: list[float],
+) -> None:
+    """Atomically publish the accepted prefix of a long candidate run."""
+
+    output.mkdir(parents=True, exist_ok=True)
+    destination = output / "candidate_curve.csv"
+    temporary = output / ".candidate_curve.csv.tmp"
+    np.savetxt(
+        temporary,
+        np.column_stack((load_factors, downward_displacements)),
+        delimiter=",",
+        header="load_factor,downward_displacement_m",
+        comments="",
+    )
+    temporary.replace(destination)
+
+
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("output", type=Path)
     parser.add_argument("--subdivisions", type=int, nargs=3, default=DEFINITION.subdivisions)
     parser.add_argument("--increments", type=int, default=DEFINITION.increments)
+    parser.add_argument(
+        "--adaptive",
+        action="store_true",
+        help="Allow fail-closed cutbacks from a maximum 1/increments load step.",
+    )
+    parser.add_argument("--progress", action="store_true")
+    parser.add_argument(
+        "--line-search",
+        choices=("backtracking", "basic"),
+        default="basic",
+        help=(
+            "Newton globalization policy. The pinned upstream beam uses full "
+            "Newton, so 'basic' is the benchmark default."
+        ),
+    )
     parser.add_argument("--reference-csv", type=Path)
     parser.add_argument("--promotion-evidence-json", type=Path)
     arguments = parser.parse_args()
@@ -125,13 +184,22 @@ def main() -> None:
         comm,
         subdivisions=tuple(arguments.subdivisions),
         increments=arguments.increments,
+        adaptive=arguments.adaptive,
+        progress=arguments.progress,
+        line_search=arguments.line_search,
     )
     factors = np.linspace(0.0, 1.0, arguments.increments + 1)
     downward = [0.0]
+    accepted_factors = [0.0]
+    if comm.rank == 0:
+        _write_candidate_curve(arguments.output, accepted_factors, downward)
     for factor in factors[1:]:
         step.solve(until=float(factor))
         value = results.probe(displacement, at=DEFINITION.observer)
         downward.append(-float(value[2]))
+        accepted_factors.append(float(factor))
+        if comm.rank == 0:
+            _write_candidate_curve(arguments.output, accepted_factors, downward)
 
     reference_load = None
     reference_displacement = None
@@ -167,6 +235,11 @@ def main() -> None:
         "schema": "agentfem.external-benchmark-candidate.v1",
         "benchmark": "lewandowski_2023_self_weight_beam",
         "status": assessment["status"],
+        "runtime": {
+            "agentfem_version": agentfem.__version__,
+            "agentfem_import_path": str(Path(agentfem.__file__).resolve()),
+            "manifest": runtime_manifest(),
+        },
         "scientific_definition": DEFINITION.summary(),
         "candidate": {
             "formulation": (
@@ -175,6 +248,8 @@ def main() -> None:
             ),
             "subdivisions": tuple(arguments.subdivisions),
             "increments": arguments.increments,
+            "incrementation": "automatic_cutback" if arguments.adaptive else "fixed",
+            "line_search": arguments.line_search,
             "mpi_ranks": comm.size,
             "step": step.summary(),
         },
@@ -192,17 +267,14 @@ def main() -> None:
         "assessment": assessment,
     }
     if comm.rank == 0:
-        arguments.output.mkdir(parents=True, exist_ok=True)
-        np.savetxt(
-            arguments.output / "candidate_curve.csv",
-            np.column_stack((factors, np.asarray(downward))),
-            delimiter=",",
-            header="load_factor,downward_displacement_m",
-            comments="",
+        _write_candidate_curve(arguments.output, accepted_factors, downward)
+        assessment_path = arguments.output / "assessment.json"
+        assessment_temporary = arguments.output / ".assessment.json.tmp"
+        assessment_temporary.write_text(
+            json.dumps(manifest, indent=2, sort_keys=True, default=str) + "\n",
+            encoding="utf-8",
         )
-        (arguments.output / "assessment.json").write_text(
-            json.dumps(manifest, indent=2, sort_keys=True, default=str) + "\n"
-        )
+        assessment_temporary.replace(assessment_path)
 
 
 if __name__ == "__main__":

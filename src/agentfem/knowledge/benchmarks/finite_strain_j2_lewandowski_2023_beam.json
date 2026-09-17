@@ -3,7 +3,7 @@
   "schema_version": "0.1.0",
   "id": "agentfem.benchmark.finite_strain_j2_lewandowski_2023_beam",
   "title": "Lewandowski et al. finite-strain J2 self-weight beam",
-  "status": "experimental_external_promotion_gate_not_run",
+  "status": "external_reference_reexecuted_candidate_promotion_pending",
   "purpose": "Provide an independent, fail-closed structure-level promotion gate for finite-strain J2 plasticity with finite rotation, distributed loading, membrane stiffening, MPI and restart evidence.",
   "physics": "Three-dimensional slender beam under a ramped gravity-like body force, with a left clamp, right-end axial symmetry constraint, finite rotations, isotropic J2 plasticity and linear isotropic hardening.",
   "source": {
@@ -30,8 +30,10 @@
     "public_demo_observer_m": [1.0, 0.0, 0.0]
   },
   "oracle": {
-    "kind": "independently_reexecuted_curve_required",
-    "bundled": false,
+    "kind": "independently_reexecuted_curve",
+    "bundled": true,
+    "file": "agentfem.knowledge.external_data/lewandowski_2023_self_weight_beam.csv",
+    "sha256": "c26ac9a056db5c83371b0920d6a78a982871e5f3fd6ba32990b0facb9b2f1b5d",
     "required_columns": [
       "load_factor",
       "downward_displacement_m"
@@ -39,7 +41,7 @@
     "identity": "The promotion manifest must bind the exact CSV bytes by SHA-256 and attest the pinned upstream commit and both source-artifact digests."
   },
   "execution": {
-    "command": "python tests/lewandowski_2023_self_weight_beam_driver.py evidence/lewandowski-beam",
+    "command": "PYTHONPATH=src python tests/lewandowski_2023_self_weight_beam_driver.py evidence/lewandowski-beam --line-search basic --reference-csv src/agentfem/knowledge/external_data/lewandowski_2023_self_weight_beam.csv --promotion-evidence-json /path/to/promotion-evidence.json",
     "example": "docs/reference/finite_strain_j2_external_beam.md",
     "fixture": "tests/lewandowski_2023_self_weight_beam_fixture.py",
     "driver": "tests/lewandowski_2023_self_weight_beam_driver.py",
@@ -59,8 +61,8 @@
     "Missing provenance or verification evidence produces incomplete; an available curve outside tolerance produces failed."
   ],
   "limitations": [
-    "The publication provides a plotted response but no tabulated numerical oracle, and no independently reexecuted curve is bundled; the benchmark is not promoted.",
-    "The current environment lacks the legacy FEniCS, MGIS and MFront stack needed to execute the upstream implementation.",
+    "A full-size four-rank development candidate passed the curve-error contract (normalized RMS 7.71e-6; maximum 2.58e-5), but its checkout was dirty and mesh, increment, serial/MPI and checkpoint/restart promotion gates remain open.",
+    "The legacy FEniCS, MGIS and MFront stack is isolated in a digest-pinned reference container with its resolved package manifest recorded; it is not a runtime dependency of AgentFEM.",
     "AgentFEM uses multiplicative plastic kinematics with quadratic Hencky elasticity and a Kirchhoff-stress J2 return, whereas the public MFront demo uses a total-Hencky formulation; this is a cross-formulation structural comparison rather than bitwise reproduction.",
     "The paper and public script identify different right-end observation locations, so observer reconciliation is a required gate.",
     "The candidate now lowers model.body_force through the public ordinary strong-boundary model.step provider; independent upstream curve, convergence, MPI and restart gates remain incomplete."
