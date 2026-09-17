@@ -46,31 +46,6 @@ version, and health-check result.
 AgentFEM includes the guidance and machine-readable interfaces an agent needs.
 Prefer manual setup? Continue to [Install](#install).
 
-### Connect AgentFEM to your agent
-
-The official [AgentFEM MCP](https://github.com/haoming-luo/agentfem-mcp)
-interface gives Codex, Claude, and other compatible agents the same seven
-typed operations for discovery, project creation, preflight, background
-execution, progress, and evidence:
-
-```bash
-codex mcp add agentfem \
-  --env AGENTFEM_MCP_ROOTS=/absolute/path/to/AgentFEMProjects \
-  -- uvx --from agentfem-mcp agentfem-mcp
-```
-
-The interface is available from
-[PyPI](https://pypi.org/project/agentfem-mcp/) and the
-[official MCP Registry](https://registry.modelcontextprotocol.io/?q=io.github.haoming-luo%2Fagentfem).
-Supporting desktop clients on macOS or Linux can instead open the tiny
-[AgentFEM MCPB bundle](https://github.com/haoming-luo/agentfem-mcp/releases/download/v0.1.0/AgentFEM-0.1.0.mcpb);
-it connects to the installed AgentFEM runtime rather than shipping another
-solver.
-
-It is a thin process boundary, not a second solver: AgentFEM still performs the
-deterministic finite-element computation and preserves the distinction between
-`completed`, `computed`, `verified`, and `validated`.
-
 ## Why AgentFEM
 
 - **AI-Native FEM** — finite-element software designed from the start for
@@ -319,6 +294,7 @@ model.
 - [Results, campaigns, and learning](docs/results_and_campaigns.md)
 - [AI-native learning contracts](docs/ai_native_learning.md)
 - [AI-agent guide](AGENT_GUIDE.md)
+- [MCP connection for compatible agents](docs/agents/mcp.md)
 - [Roadmap and release gates](docs/product_roadmap.md)
 
 The complete user and scientific reference is available at
