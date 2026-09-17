@@ -349,14 +349,6 @@ model.
 The complete user and scientific reference is available at
 [haoming-luo.github.io/agentfem](https://haoming-luo.github.io/agentfem/).
 
-## Scope
-
-AgentFEM is an early-stage research and engineering platform. It prioritizes
-depth, transparent evidence, and a coherent user workflow over claiming every
-analysis available in mature general-purpose CAE systems. Current maturity and
-known boundaries are documented per capability so users can decide what is
-appropriate for exploration, research, or engineering use.
-
 ## Support the Project
 
 If AgentFEM helps, one explicit command can Star the project through an
