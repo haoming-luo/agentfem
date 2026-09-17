@@ -145,46 +145,21 @@ for verification, fallback, and cache-refresh commands.
 
 </details>
 
-### No environment setup: Complete Runtime
+### Optional: Complete Runtime Preview
 
-The **Complete Runtime** is the easiest route for a new or offline user. It
-bundles AgentFEM, FEniCSx, PETSc, MPI, HDF5, and Gmsh in one verified download:
-
-- **Apple Silicon macOS:** unsigned `.pkg` Preview
-- **Windows 10/11:** offline WSL2 Preview
+For offline setup without managing an environment, preview bundles are
+available for Apple Silicon macOS and Windows 10/11 through WSL2.
 
 [**Download the latest Complete Runtime →**](https://github.com/haoming-luo/agentfem/releases/latest)
 
-For Windows, extract the complete ZIP, open PowerShell in that folder, and run:
+On Windows, extract the ZIP and run in PowerShell:
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File .\Install-AgentFEM.ps1
 ```
 
-The included `START-HERE.txt` gives the same short contract to people and AI
-agents. If WSL is absent or outdated, the installer prepares it without
-downloading an unnecessary Ubuntu distribution; a Windows restart may be
-required, after which the same command is run again. A new
-bundle can be tested beside the old runtime, or safely replace it with a
-validated backup-and-rollback transaction:
-
-```powershell
-powershell -ExecutionPolicy Bypass -File .\Install-AgentFEM.ps1 -Upgrade
-```
-
-The installer keeps projects and results in Windows
-`Documents\AgentFEMProjects`, visible inside WSL as `~/AgentFEMProjects`.
-Use the bundled `Remove-AgentFEM.ps1` instead of manually unregistering the
-distribution; the safe remover verifies project custody and retains a recovery
-snapshot first.
-
-> **Windows v0.3.6 Preview:** if the first solve reports that `gcc` or a C
-> compiler is missing, open the AgentFEM WSL terminal and run
-> `sudo apt-get update && sudo apt-get install -y gcc g++`, then rerun
-> `agentfem doctor`. This repairs the runtime without changing projects or
-> results. Future Complete Runtime milestones include this toolchain directly.
-> See the [first successful Windows field report](https://github.com/haoming-luo/agentfem/discussions/3)
-> for the WSL2 + TUNA route from a clean host through a completed solve.
+See the [runtime guide](docs/runtime_installers.md) for upgrades, durable
+project storage, removal, and Preview-specific troubleshooting.
 
 ### Existing FEniCSx environment: PyPI
 
