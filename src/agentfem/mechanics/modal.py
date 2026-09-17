@@ -7,6 +7,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from operator import index as integer_index
+from time import perf_counter
 
 from dolfinx import fem
 import dolfinx.fem.petsc as fem_petsc
@@ -376,12 +377,26 @@ class ModalAnalysisStep:
         """Solve and publish the modal fields and verification evidence."""
 
         from ..results._modal import from_modal_step
+        from ..results.performance import attach_performance
 
+        started = perf_counter()
         self.solve()
-        return from_modal_step(
+        solve_seconds = perf_counter() - started
+        result_started = perf_counter()
+        result = from_modal_step(
             self,
             output=output,
             strict_output=strict_output,
+        )
+        return attach_performance(
+            result,
+            stages={
+                "solve": solve_seconds,
+                "result_assembly_and_output": perf_counter() - result_started,
+                "total": perf_counter() - started,
+            },
+            solution=getattr(self.target, "value", self.target),
+            source=self,
         )
 
     def summary(self) -> dict[str, object]:

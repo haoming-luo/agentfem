@@ -424,6 +424,74 @@ def enf_beam_compliance(spec, crack_length):
     )
 
 
+def mmb_beam_energy_release_curve(
+    spec: DelaminationBenchmarkSpec,
+    *,
+    crack_length,
+    load,
+    lever_length: float,
+) -> DelaminationEnergyReleaseCurve:
+    """Return the classical Reeder--Crews MMB simple-beam oracle.
+
+    ``lever_length`` is the standard MMB distance ``c`` and ``half_span`` is
+    ``L``. This uncorrected small-deflection contract is restricted to
+    ``c >= L/3``; below that limit contact suppresses the nominal opening term
+    and the squared closed-form expression must not be used blindly.
+    """
+
+    if not isinstance(spec, DelaminationBenchmarkSpec) or spec.kind != "mmb":
+        raise ValueError(
+            "mmb_beam_energy_release_curve requires an MMB specification."
+        )
+    a = _curve_values(crack_length, name="crack_length")
+    p = _curve_values(load, name="load")
+    if (
+        a.size < 3
+        or p.size != a.size
+        or np.any(a <= 0.0)
+        or np.any(np.diff(a) <= 0.0)
+    ):
+        raise ValueError(
+            "MMB beam theory needs matching loads and three increasing cracks."
+        )
+    c = float(lever_length)
+    span = float(spec.half_span)
+    if not np.isfinite(c) or c < span / 3.0:
+        raise ValueError(
+            "MMB lever_length must be finite and at least half_span/3."
+        )
+    common = p**2 * a**2 / (
+        16.0
+        * spec.width**2
+        * spec.elastic_modulus
+        * spec.arm_thickness**3
+        * span**2
+    )
+    mode_i = 12.0 * common * (3.0 * c - span) ** 2
+    mode_ii = 9.0 * common * (c + span) ** 2
+    compliance = (
+        a**3 * (39.0 * c**2 - 18.0 * c * span + 7.0 * span**2)
+        + 2.0 * span**3 * (c + span) ** 2
+    ) / (
+        8.0
+        * spec.elastic_modulus
+        * spec.width
+        * spec.arm_thickness**3
+        * span**2
+    )
+    return DelaminationEnergyReleaseCurve(
+        crack_length=a.copy(),
+        compliance=compliance,
+        total_energy_release_rate=mode_i + mode_ii,
+        mode_i_energy_release_rate=mode_i,
+        mode_ii_energy_release_rate=mode_ii,
+        source=(
+            f"{spec.source}; Reeder--Crews classical MMB simple-beam oracle; "
+            f"c={c:.16g}"
+        ),
+    )
+
+
 def compliance_energy_release_curve(
     spec: DelaminationBenchmarkSpec,
     *,
@@ -802,4 +870,5 @@ __all__ = [
     "dcb_beam_compliance",
     "delamination_benchmark_spec",
     "enf_beam_compliance",
+    "mmb_beam_energy_release_curve",
 ]

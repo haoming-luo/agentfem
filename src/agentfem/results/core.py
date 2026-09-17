@@ -259,6 +259,9 @@ class SimulationResult:
     metadata: dict[str, object] = field(default_factory=dict)
     verification: object | None = None
     scientific_inputs: dict[str, object] = field(default_factory=dict)
+    # Append new public fields so existing positional construction remains
+    # backward compatible.  New code should still prefer keyword arguments.
+    performance: dict[str, object] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
         self.name = _name(self.name)
@@ -436,6 +439,27 @@ class SimulationResult:
         self.verification = report
         return report
 
+    def add_performance(self, evidence):
+        """Attach portable execution-cost evidence without changing trust."""
+
+        from .performance import PerformanceEvidence
+
+        if isinstance(evidence, PerformanceEvidence):
+            record = evidence.as_dict()
+        elif isinstance(evidence, Mapping):
+            record = dict(evidence)
+        else:
+            raise TypeError(
+                "add_performance requires PerformanceEvidence or a mapping."
+            )
+        if record.get("schema") != "agentfem.performance-evidence":
+            raise ValueError(
+                "Performance evidence must use schema "
+                "'agentfem.performance-evidence'."
+            )
+        self.performance = _json_value(record)
+        return self.performance
+
     def verify(
         self,
         quality="engineering",
@@ -560,6 +584,7 @@ class SimulationResult:
             "artifacts": {key: str(value) for key, value in self.artifacts.items()},
             "checkpoints": tuple(self.checkpoints),
             "metadata": _json_value(self.metadata),
+            "performance": _json_value(self.performance),
             "scientific_inputs": self.scientific_input_manifest(),
             "verification": (
                 None
@@ -590,6 +615,9 @@ class SimulationResult:
                 f"  quality: {self.verification.quality_policy} "
                 f"({'accepted' if self.verification.acceptable else 'not accepted'})",
             )
+        wall_seconds = self.performance.get("wall_seconds")
+        if wall_seconds is not None:
+            lines.insert(3, f"  wall time: {float(wall_seconds):.6g} s")
         if self.artifacts:
             lines.append(
                 "  files: " + ", ".join(sorted(self.artifacts))

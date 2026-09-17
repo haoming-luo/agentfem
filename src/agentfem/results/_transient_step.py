@@ -5,10 +5,13 @@
 
 from __future__ import annotations
 
+from time import perf_counter
+
 from .. import fields as field_api
 from .core import from_solution
 from .execution import add_execution_trace
 from .lifecycle import execution_context
+from .performance import attach_performance
 
 
 def from_transient_step(
@@ -20,6 +23,7 @@ def from_transient_step(
 ):
     """Build a result after a transient procedure has advanced its state."""
 
+    result_started = perf_counter()
     result = from_solution(
         solution,
         name=step.name,
@@ -32,7 +36,20 @@ def from_transient_step(
         result.metadata.setdefault("execution_context", context.summary())
     add_execution_trace(result, step.execution_events)
     _attach_transient_output(result, step, tuple(output_fields))
-    return result
+    ledger_stages = dict(step.performance.summary()["stages"])
+    result_seconds = perf_counter() - result_started
+    ledger_stages["result_assembly"] = result_seconds
+    ledger_stages["total"] = (
+        float(step.performance.summary()["run_wall_seconds"])
+        + result_seconds
+    )
+    return attach_performance(
+        result,
+        stages=ledger_stages,
+        solution=solution,
+        source=step,
+        scope="transient_run_and_result_call",
+    )
 
 
 def _attach_transient_output(result, step, output_fields) -> None:

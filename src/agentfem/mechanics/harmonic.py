@@ -7,6 +7,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from hashlib import sha256
+from time import perf_counter
 
 from dolfinx import fem
 import dolfinx.fem.petsc as fem_petsc
@@ -422,9 +423,27 @@ class DirectHarmonicStep:
         """Solve and delegate result assembly to the Result owner."""
 
         from ..results._harmonic import from_harmonic_step
+        from ..results.performance import attach_performance
 
+        started = perf_counter()
         self.solve()
-        return from_harmonic_step(self, output=output, strict_output=strict_output)
+        solve_seconds = perf_counter() - started
+        result_started = perf_counter()
+        result = from_harmonic_step(
+            self,
+            output=output,
+            strict_output=strict_output,
+        )
+        return attach_performance(
+            result,
+            stages={
+                "solve": solve_seconds,
+                "result_assembly_and_output": perf_counter() - result_started,
+                "total": perf_counter() - started,
+            },
+            solution=self.solution_real,
+            source=self,
+        )
 
     def executable_identity(self) -> dict[str, object]:
         """Return the portable identity of the operators actually solved."""
@@ -1185,9 +1204,24 @@ class DirectHarmonicSweepStep:
                 "the sweep currently publishes bounded-memory scalar histories."
             )
         from ..results._harmonic import from_harmonic_sweep
+        from ..results.performance import attach_performance
 
+        started = perf_counter()
         self.solve()
-        return from_harmonic_sweep(self, strict_output=strict_output)
+        solve_seconds = perf_counter() - started
+        result_started = perf_counter()
+        result = from_harmonic_sweep(self, strict_output=strict_output)
+        return attach_performance(
+            result,
+            stages={
+                "sweep": solve_seconds,
+                "result_assembly": perf_counter() - result_started,
+                "total": perf_counter() - started,
+            },
+            solution=self.solution_real,
+            source=self,
+            scope="harmonic_sweep_and_result_call",
+        )
 
     @property
     def closed(self) -> bool:

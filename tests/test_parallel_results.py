@@ -22,6 +22,55 @@ from agentfem import (
 )
 
 
+def test_performance_evidence_reduces_rank_local_timings_to_one_result():
+    if MPI.COMM_WORLD.size < 2:
+        pytest.skip("distributed performance evidence requires at least two ranks")
+
+    domain = mesh.rectangle(
+        (0.0, 0.0),
+        (1.0, 0.25),
+        (4, 1),
+        comm=MPI.COMM_WORLD,
+        cell_type="triangle",
+    )
+    displacement = fields.displacement(domain).value
+    stages = {
+        "solve": float(MPI.COMM_WORLD.rank + 1),
+        "assembly": {
+                "seconds": 0.25 * (MPI.COMM_WORLD.rank + 1),
+                "calls": MPI.COMM_WORLD.rank + 1,
+            },
+    }
+    if MPI.COMM_WORLD.rank == 0:
+        stages["root_only_output"] = 0.125
+    evidence = results.performance_evidence(
+        stages=stages,
+        solution=displacement,
+    )
+    simulation = results.SimulationResult("parallel_timing")
+    simulation.add_performance(evidence)
+
+    stage = simulation.performance["stages"]["solve"]
+    assert stage["seconds"] == pytest.approx(float(MPI.COMM_WORLD.size))
+    assert stage["seconds_min"] == pytest.approx(1.0)
+    assert stage["seconds_mean"] == pytest.approx(
+        0.5 * (MPI.COMM_WORLD.size + 1)
+    )
+    assembly = simulation.performance["stages"]["assembly"]
+    assert assembly["calls"] is None
+    assert assembly["calls_min"] == 1
+    assert assembly["calls_max"] == MPI.COMM_WORLD.size
+    root_only = simulation.performance["stages"]["root_only_output"]
+    assert root_only["participating_ranks"] == 1
+    assert root_only["calls_min"] == 0
+    assert root_only["calls_max"] == 1
+    assert simulation.performance["parallel"]["rank_count"] == MPI.COMM_WORLD.size
+    manifests = MPI.COMM_WORLD.allgather(
+        simulation.collective_manifest(MPI.COMM_WORLD)
+    )
+    assert all(record == manifests[0] for record in manifests)
+
+
 def test_abaqus_element_sets_remain_complete_across_partitions(tmp_path):
     if MPI.COMM_WORLD.size < 2:
         pytest.skip("distributed Abaqus ELSET recovery requires at least two ranks")

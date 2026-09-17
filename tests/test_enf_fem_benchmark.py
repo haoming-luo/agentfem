@@ -107,3 +107,84 @@ def test_assembled_enf_compliance_converges_toward_mode_ii_beam_oracle():
         assert "discrete model contract" in str(exc)
     else:  # pragma: no cover
         raise AssertionError("Mixed ENF discretization contracts must be rejected.")
+
+
+def test_enf_cohesive_path_reports_growth_energy_and_mode_ii_evidence():
+    curve = benchmarks.enf_cohesive_propagation_curve(
+        _specification(),
+        precrack_length=1.5,
+        displacement=np.linspace(0.0, 0.30, 16),
+        normal_strength=5.0,
+        shear_strength=2.0,
+        normal_fracture_energy=0.5,
+        shear_fracture_energy=0.5,
+        normal_stiffness=5000.0,
+        tangential_stiffness=5000.0,
+        elements_along=24,
+        elements_per_arm=2,
+    )
+
+    final = curve.points[-1]
+    assert final.damaged_length > 1.5
+    assert final.maximum_damage > 0.95
+    assert final.damage_weighted_mode_ii_fraction > 0.99
+    assert max(point.relative_energy_balance_error for point in curve.points) < 1.0e-3
+    assert max(point.residual_norm for point in curve.points) < 1.0e-8
+    assert curve.summary()["evidence_scope"].startswith(
+        "displacement-controlled monotonic Mode-II"
+    )
+
+
+def test_enf_propagation_certificate_fails_closed_on_mode_mixity():
+    specification = _specification()
+
+    def point(displacement, reaction, damaged, failed, mode_ii, damage):
+        return benchmarks.ENFCohesivePropagationPoint(
+            increment=int(displacement > 0.0),
+            displacement=displacement,
+            reaction=reaction,
+            bulk_strain_energy=0.4,
+            cohesive_stored_energy=0.1,
+            cohesive_dissipation=0.1,
+            external_work=0.606,
+            energy_balance_error=0.006,
+            relative_energy_balance_error=0.01,
+            maximum_damage=damage,
+            damaged_length=damaged,
+            failed_length=failed,
+            process_zone_length=max(damaged - failed, 0.0),
+            damage_weighted_mode_ii_fraction=mode_ii,
+            newton_iterations=3,
+            residual_norm=1.0e-10,
+        )
+
+    law = {"family": "cohesive_traction_separation", "mode": "mixed"}
+    curves = tuple(
+        benchmarks.ENFCohesivePropagationCurve(
+            specification=specification,
+            points=(
+                point(0.0, 0.0, 1.5, 1.5, 0.0, 0.0),
+                point(0.3, peak, 2.0, 1.75, 0.99, 0.99),
+            ),
+            element_size=size,
+            process_zone_elements=4.0,
+            law=law,
+            source="synthetic certificate fixture",
+            poisson=0.3,
+            assumption="plane_stress",
+        )
+        for size, peak in ((0.5, 1.0), (0.25, 1.02), (0.125, 1.03))
+    )
+    accepted = benchmarks.certify_enf_cohesive_propagation(specification, curves)
+    assert accepted.accepted
+    assert accepted.propagation_observed
+
+    impure = (*curves[:-1], replace(
+        curves[-1],
+        points=(curves[-1].points[0], replace(
+            curves[-1].points[-1], damage_weighted_mode_ii_fraction=0.5
+        )),
+    ))
+    rejected = benchmarks.certify_enf_cohesive_propagation(specification, impure)
+    assert not rejected.accepted
+    assert rejected.propagation_observed

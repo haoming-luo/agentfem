@@ -197,18 +197,36 @@ mid-span motion as a declared control coordinate, and obtains load from the
 conjugate reaction. `enf_finite_element_convergence(...)` checks at least three
 meshes against the separately declared ENF beam-compliance oracle while
 retaining residual, evidence identity and pure Mode-II energy-partition
-semantics. This closes ENF elastic compliance only; it does not promote Mode-II
-cohesive propagation or an external material curve.
+semantics. `enf_cohesive_propagation_curve(...)` is the separate irreversible
+shear-growth gate. It reuses transactional target cutback and records the
+conjugate reaction, all physical energy channels, process-zone and failed
+lengths, nonlinear evidence, and a damage-weighted Mode-II fraction at every
+requested displacement. `certify_enf_cohesive_propagation(...)` additionally
+fails closed when the finest meshes do not agree, the process zone is
+under-resolved, energy does not close, growth is absent, or the declared
+Mode-II purity is lost. The automated nondimensional path is a solver
+regression, not an external AS4/PEEK material reproduction. An unstable branch
+that ordinary displacement control skips remains outside this certificate and
+requires arc-length or energy control rather than looser tolerances.
 `compliance_energy_release_curve(...)` recovers structure-level
 \(G=P^2(\mathrm dC/\mathrm da)/(2b)\), and MMB requires an independently
-declared Mode-I partition. Acceptance also checks cohesive-zone resolution
+declared Mode-I partition. `mmb_beam_energy_release_curve(...)` now provides
+the source-identified Reeder--Crews simple-beam oracle: compliance, total
+energy release and its Mode-I/Mode-II partition are produced from the same
+lever geometry rather than reconstructed from a scalar load trace. The
+contract rejects lever lengths below \(c=L/3\), where contact suppresses the
+nominal opening mode and the squared closed form would otherwise hide an
+invalid assumption. This analytical rung does not replace an assembled MMB
+fixture: that next rung must own the rigid-lever kinematics, conjugate
+generalized reaction, cohesive propagation, and comparison with a digitized
+source curve. Acceptance also checks cohesive-zone resolution
 and artificial dissipation. `certify_delamination_convergence(...)` requires
 at least three successively refined structural curves and additionally checks
 the last-refinement change, Mode-I partition, and an improving asymptotic
 trend. `MixedModeBendingCurve` separately reads a source-
 identified external trace and compares load, displacement and Mode-I fraction
 under required tolerances. The assembled DCB compliance/propagation and ENF
-compliance studies now pass in the automated scientific suite. External
+compliance/propagation regressions now pass in the automated scientific suite. External
 promotion remains closed until
 source-identified DCB and ENF propagation curves and an assembled MMB curve
 satisfy their declared comparison contracts. The separation is intentional:

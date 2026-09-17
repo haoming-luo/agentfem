@@ -13,6 +13,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field, replace
 import json
 from pathlib import Path
+from time import perf_counter
 
 import numpy as np
 from dolfinx import fem
@@ -413,15 +414,29 @@ class IncrementalNonlinearVariationalProblem:
         """Solve and complete one model-owned nonlinear result lifecycle."""
 
         from .results._nonlinear_step import from_incremental_nonlinear_step
+        from .results.performance import attach_performance
 
+        started = perf_counter()
         solution = self.solve()
-        return from_incremental_nonlinear_step(
+        solve_seconds = perf_counter() - started
+        result_started = perf_counter()
+        result = from_incremental_nonlinear_step(
             self,
             solution,
             output=output,
             fields=fields,
             strict_output=strict_output,
             metadata=metadata,
+        )
+        return attach_performance(
+            result,
+            stages={
+                "solve": solve_seconds,
+                "result_assembly_and_output": perf_counter() - result_started,
+                "total": perf_counter() - started,
+            },
+            solution=solution,
+            source=self,
         )
 
     def reaction_field(self, *, name: str = "RF"):
@@ -1189,15 +1204,29 @@ class AffineNonlinearVariationalProblem:
         """Solve and complete one affine nonlinear result lifecycle."""
 
         from .results._nonlinear_step import from_affine_nonlinear_step
+        from .results.performance import attach_performance
 
+        started = perf_counter()
         solution = self.solve()
-        return from_affine_nonlinear_step(
+        solve_seconds = perf_counter() - started
+        result_started = perf_counter()
+        result = from_affine_nonlinear_step(
             self,
             solution,
             output=output,
             fields=fields,
             strict_output=strict_output,
             metadata=metadata,
+        )
+        return attach_performance(
+            result,
+            stages={
+                "solve": solve_seconds,
+                "result_assembly_and_output": perf_counter() - result_started,
+                "total": perf_counter() - started,
+            },
+            solution=solution,
+            source=self,
         )
 
     def summary(self) -> dict[str, object]:

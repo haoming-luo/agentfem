@@ -131,6 +131,11 @@ def test_generic_direct_harmonic_rayleigh_bar_matches_complex_wave_solution():
     assert result.quantity("viscous_dissipated_energy_per_cycle") > 0.0
     assert result.quantity("relative_cycle_energy_balance_error") < 1.0e-9
     assert result.quantity("relative_residual_norm") < 1.0e-9
+    assert result.performance["scope"] == "solve_result_call"
+    assert result.performance["wall_seconds"] >= 0.0
+    assert {"solve", "result_assembly_and_output", "total"} == set(
+        result.performance["stages"]
+    )
     assert result.metadata["step"]["system"]["damping"]["family"] == (
         "rayleigh_damping"
     )
@@ -618,6 +623,10 @@ def test_direct_harmonic_sweep_is_canonical_bounded_and_matches_reference():
     )
     assert np.max(result.histories["relative_residual_norm"].values) < 1.0e-9
     assert np.all(result.histories["linear_converged"].values == 1.0)
+    assert result.performance["scope"] == "harmonic_sweep_and_result_call"
+    assert {"sweep", "result_assembly", "total"} == set(
+        result.performance["stages"]
+    )
     assert result.quantity("peak_tip_x_frequency") in axis
     assert "maximum_displacement_vector_amplitude" in result.histories
     execution = step.point_step.summary()["backend_execution"]

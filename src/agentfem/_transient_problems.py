@@ -381,6 +381,10 @@ class ImplicitDynamicsStep:
     completed_steps: int = field(default=0, init=False)
     history_records: list[dict[str, float]] = field(default_factory=list, init=False)
     checkpoints: list[object] = field(default_factory=list, init=False)
+    performance: PerformanceLedger = field(
+        default_factory=PerformanceLedger,
+        init=False,
+    )
 
     def run(
         self,
@@ -402,7 +406,9 @@ class ImplicitDynamicsStep:
         selected_progress = self.progress if progress is None else progress
         if self.completed_steps >= self.steps:
             return self
+        run_started = perf_counter()
         if self.completed_steps == 0:
+            self.performance.reset()
             self.execution_events.clear()
             self.accepted_times.clear()
             self.history_records.clear()
@@ -447,6 +453,7 @@ class ImplicitDynamicsStep:
                     selected_comm,
                 )
             _emit_transient_completed(reporter, self)
+            self.performance.add("run_wall", perf_counter() - run_started)
             return self
         domain = self.state.u.function_space.mesh
         series, actual_output, backend, layout = _transient_result_series(
@@ -471,6 +478,7 @@ class ImplicitDynamicsStep:
                 if info.should_save:
                     xdmf.write_fields(info.time, *output_fields)
         _emit_transient_completed(reporter, self)
+        self.performance.add("run_wall", perf_counter() - run_started)
         return self
 
     def solve(self):
@@ -633,6 +641,10 @@ class FirstOrderTransientStep:
     history_records: list[dict[str, float]] = field(default_factory=list, init=False)
     checkpoints: list[object] = field(default_factory=list, init=False)
     captured_histories: list[object] = field(default_factory=list, init=False)
+    performance: PerformanceLedger = field(
+        default_factory=PerformanceLedger,
+        init=False,
+    )
 
     def capture_history(
         self,
@@ -695,7 +707,9 @@ class FirstOrderTransientStep:
         selected_progress = self.progress if progress is None else progress
         if self.completed_steps >= self.steps:
             return self
+        run_started = perf_counter()
         if self.completed_steps == 0:
+            self.performance.reset()
             self.execution_events.clear()
             self.accepted_times.clear()
             self.history_records.clear()
@@ -783,6 +797,7 @@ class FirstOrderTransientStep:
             _emit_transient_completed(reporter, self)
             return self
         finally:
+            self.performance.add("run_wall", perf_counter() - run_started)
             close = getattr(prepared, "close", None)
             if callable(close):
                 close()

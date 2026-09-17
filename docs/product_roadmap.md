@@ -52,6 +52,9 @@ AgentFEM currently provides executable foundations for:
 - common fields, histories, energy records, checkpoint/restart, provenance,
   convergence evidence, and ParaView-oriented output with one recommended
   visualization dataset per saved time in serial and MPI;
+- first-class result performance evidence with global workload, solver
+  convergence, and MPI min/mean/max stage timing; it remains separate from
+  scientific trust and benchmark acceptance;
 - human-readable numbered run folders, concise result summaries, recent-run
   discovery, progressive capability views, and a separate complete JSON
   contract for agents and GUIs;
@@ -83,9 +86,14 @@ Deepen the finite-element core before broadening the catalog:
   source-identified DCB material-curve comparison remains open. An independent
   three-point-bending ENF provider
   now passes three-level elastic compliance, residual and pure Mode-II
-  partition checks; Mode-II cohesive propagation, its source-identified curve,
-  and assembled MMB execution remain the next external promotion gates. ENF
-  propagation must use a verified post-peak continuation/energy-control route
+  partition checks. Its separate irreversible cohesive path records shear-mode
+  purity, reaction, cutbacks, crack-front measures and the complete work--energy
+  ledger; this is an internal mechanism regression, not external material
+  validation. The Reeder--Crews MMB simple-beam compliance and mode-partition
+  oracle is now a source-identified analytical rung with an explicit
+  contact-regime boundary. Source-identified DCB/ENF curves and an assembled
+  rigid-lever MMB execution remain the next promotion gates. ENF must use
+  arc-length or energy control
   when ordinary displacement control skips an unstable branch;
 - promote finite-strain J2 beyond its first experimental tetrahedral 3D P2/DG0
   and quadrilateral 2D plane-strain Q2/DPC1 mixed affine-periodic lowerings,

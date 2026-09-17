@@ -91,6 +91,11 @@ from .field_catalog import (
     resolve_field_variables,
 )
 from .statistics import WeightedFieldStatistics, weighted_field_statistics
+from .performance import (
+    PerformanceEvidence,
+    attach_performance,
+    performance_evidence,
+)
 
 _LAZY_EXPORTS = {
     "FiniteStrainDiagnosticRequest": "plan",
@@ -157,6 +162,7 @@ __all__ = [
     "LiveFiniteStrainCellFields",
     "MixedJ2ElasticEnergyDiagnostics",
     "OutputPlan",
+    "PerformanceEvidence",
     "PathSample",
     "RectilinearGridSample",
     "StaticForceBalance",
@@ -173,6 +179,7 @@ __all__ = [
     "SourceNodeHistoryRequest",
     "dof_statistics",
     "add_execution_trace",
+    "attach_performance",
     "execution_records",
     "complete_result",
     "execution_context",
@@ -218,6 +225,7 @@ __all__ = [
     "static_work_balance",
     "project",
     "prepare_projection",
+    "performance_evidence",
     "project_piecewise",
     "small_strain_cell_fields",
     "small_strain_partition_fields",

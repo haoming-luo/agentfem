@@ -9,7 +9,7 @@
   "execution": {
     "example": "tests/test_mixed_mode_benchmark.py",
     "command": "python -m pytest tests/test_mixed_mode_benchmark.py",
-    "evidence": "The dependency-free data contract validates source identity, explicit physical units, strictly increasing crack coordinates, interpolation coverage, explicit tolerances, deterministic SHA-256 identity, internally consistent GI/GII/G channels, and accepted/rejected curve comparisons."
+    "evidence": "The dependency-free data contract validates source identity, explicit physical units, strictly increasing crack coordinates, interpolation coverage, explicit tolerances, deterministic SHA-256 identity, internally consistent GI/GII/G channels, and accepted/rejected curve comparisons. A separate Reeder--Crews simple-beam oracle generates compliance and the GI/GII partition from one declared lever geometry."
   },
   "observables": [
     "Applied load versus crack length.",
@@ -24,14 +24,18 @@
     "The computed crack-length interval covers the complete external reference interval.",
     "Every scientific tolerance is supplied by the benchmark owner rather than hidden in the comparison API.",
     "Numerically similar curves with inconsistent declared units cannot pass comparison.",
+    "The classical beam oracle rejects lever positions below c=L/3 rather than extending the nominal opening formula into a contact-dominated regime.",
     "A future external promotion must pin the exact public data extraction, units, geometry, material, boundary conditions, and source revision before accepted=True is cited as external verification."
   ],
   "limitations": [
     "The repository does not currently bundle digitized NASA load-displacement curves or assert numerical agreement with them.",
+    "The Reeder--Crews beam oracle is an analytical verification rung, not an assembled rigid-lever model or a material calibration.",
     "The synthetic automated fixture verifies the comparison machinery, not the mixed-mode finite-element solution.",
     "Non-proportional cyclic mixed mode, free-path delamination, and experimental uncertainty remain outside this contract."
   ],
   "references": [
+    "J. R. Reeder and J. H. Crews Jr., Mixed-Mode Bending Method for Delamination Testing, AIAA Journal 28(7), 1990, https://ntrs.nasa.gov/citations/20040161459",
+    "NASA/TP-2007-214869: Example and Verification Problems for Delamination Growth Prediction, https://ntrs.nasa.gov/citations/20070018344",
     "NASA/CR-2012-217562: Development and Application of Benchmark Examples for Mixed-Mode I/II Quasi-Static Delamination Propagation Predictions, https://ntrs.nasa.gov/citations/20120007197",
     "NASA report 20080020385: Guidelines and Parameter Selection for the Simulation of Progressive Delamination, https://ntrs.nasa.gov/citations/20080020385"
   ]

@@ -143,6 +143,7 @@ nav:
           - Engineering Workflow: engineering_workflows.md
       - Results and Data:
           - Results and Post-processing: guide/results.md
+          - Performance Evidence: performance_evidence.md
           - Results and Campaigns: results_and_campaigns.md
           - Scientific Experiments: scientific_experiments.md
           - Simulation to Learning: guide/simulation_to_learning.md

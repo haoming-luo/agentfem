@@ -131,12 +131,26 @@ class LinearVariationalProblem:
         """Solve and wrap the solution in a scientific result object."""
 
         from .results._problem import from_linear_variational_problem
+        from .results.performance import attach_performance
 
+        started = perf_counter()
         solution = self.solve()
-        return from_linear_variational_problem(
+        solve_seconds = perf_counter() - started
+        result_started = perf_counter()
+        result = from_linear_variational_problem(
             self,
             solution,
             name=name,
+        )
+        return attach_performance(
+            result,
+            stages={
+                "solve": solve_seconds,
+                "result_assembly": perf_counter() - result_started,
+                "total": perf_counter() - started,
+            },
+            solution=solution,
+            source=self,
         )
 
 
@@ -228,12 +242,26 @@ class LinearSystemProblem:
         """Solve and return a :class:`SimulationResult`."""
 
         from .results._problem import from_linear_system_problem
+        from .results.performance import attach_performance
 
+        started = perf_counter()
         solution = self.solve()
-        return from_linear_system_problem(
+        solve_seconds = perf_counter() - started
+        result_started = perf_counter()
+        result = from_linear_system_problem(
             self,
             solution,
             name=name or getattr(self.system, "name", "linear_system_result"),
+        )
+        return attach_performance(
+            result,
+            stages={
+                "solve": solve_seconds,
+                "result_assembly": perf_counter() - result_started,
+                "total": perf_counter() - started,
+            },
+            solution=solution,
+            source=self,
         )
 
     def summary(self) -> dict[str, object]:
@@ -335,11 +363,25 @@ class NonlinearVariationalProblem:
         """Solve and return a result with SNES convergence evidence."""
 
         from .results._problem import from_nonlinear_variational_problem
+        from .results.performance import attach_performance
 
+        started = perf_counter()
         solution = self.solve()
-        return from_nonlinear_variational_problem(
+        solve_seconds = perf_counter() - started
+        result_started = perf_counter()
+        result = from_nonlinear_variational_problem(
             self,
             solution,
+        )
+        return attach_performance(
+            result,
+            stages={
+                "solve": solve_seconds,
+                "result_assembly": perf_counter() - result_started,
+                "total": perf_counter() - started,
+            },
+            solution=solution,
+            source=self,
         )
 
     def summary(self) -> dict[str, object]:
@@ -433,9 +475,13 @@ class AnalysisStep:
         """
 
         from .results._analysis_step import from_analysis_step
+        from .results.performance import attach_performance
 
+        started = perf_counter()
         solution = self.problem.solve()
-        return from_analysis_step(
+        solve_seconds = perf_counter() - started
+        result_started = perf_counter()
+        result = from_analysis_step(
             self,
             solution,
             output=output,
@@ -443,6 +489,16 @@ class AnalysisStep:
             field_variables=field_variables,
             strict_output=strict_output,
             metadata=metadata,
+        )
+        return attach_performance(
+            result,
+            stages={
+                "solve": solve_seconds,
+                "result_assembly_and_output": perf_counter() - result_started,
+                "total": perf_counter() - started,
+            },
+            solution=solution,
+            source=self,
         )
 
     def summary(self) -> dict[str, object]:

@@ -61,6 +61,11 @@ def test_structural_modes_use_one_distributed_reduced_eigenproblem():
     assert solve["stiffness_diagonalization_error"] < 1.0e-10
     assert solve["selected_clusters_complete"]
     assert solve["repeated_modes_compare_as"] == "invariant_subspace"
+    assert result.performance["scope"] == "solve_result_call"
+    assert result.performance["parallel"]["rank_count"] == MPI.COMM_WORLD.size
+    assert {"solve", "result_assembly_and_output", "total"} == set(
+        result.performance["stages"]
+    )
     assert sum(
         cluster["multiplicity"] for cluster in solve["eigenvalue_clusters"]
     ) == 3

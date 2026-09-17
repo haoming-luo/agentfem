@@ -54,6 +54,7 @@ def fabric_membrane(
     model.check(target=target, step_options={"material": material})
     if hasattr(model.study, "require"):
         model.study.require(analysis="nonlinear_static", physics="solid_mechanics")
+    _reject_unconsumed_boundary_models(model, provider="fabric membrane")
     if (
         getattr(model.study, "dimension", None) != 2
         or getattr(model.study, "assumption", None) != "membrane"
@@ -221,6 +222,7 @@ def hyperelastic(
             operation="model.step with finite-strain hyperelasticity",
         )
     model.check(target=target, step_options={"material": material})
+    _reject_unconsumed_boundary_models(model, provider="hyperelastic")
     if hasattr(model.study, "require"):
         model.study.require(analysis="nonlinear_static", physics="solid_mechanics")
     record = (
@@ -389,6 +391,7 @@ def mixed_hyperelastic(
         )
     if hasattr(model.study, "require"):
         model.study.require(analysis="nonlinear_static", physics="solid_mechanics")
+    _reject_unconsumed_boundary_models(model, provider="mixed hyperelastic")
     if (
         getattr(model.study, "dimension", None) == 2
         and getattr(model.study, "assumption", None) != "plane_strain"
@@ -622,6 +625,20 @@ def _single_material(model, caller: str):
     if len(model.materials) != 1:
         raise ValueError(f"{caller} requires material=... or exactly one material.")
     return model.materials[0]
+
+
+def _reject_unconsumed_boundary_models(model, *, provider: str) -> None:
+    """Prevent a nonlinear provider from silently dropping weak physics."""
+
+    selected = tuple(getattr(model, "boundary_models", ()))
+    if not selected:
+        return
+    names = tuple(getattr(item, "name", type(item).__name__) for item in selected)
+    raise ValueError(
+        f"The {provider} provider cannot consume boundary models {names}. "
+        "Use a provider that explicitly owns their residual, tangent, dual "
+        "reaction, work and energy semantics."
+    )
 
 
 def _as_tuple(item) -> tuple:

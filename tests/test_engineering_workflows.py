@@ -508,6 +508,49 @@ def test_elastic_foundation_matrix_requires_conservative_matching_stiffness():
         )
 
 
+def test_solid_steps_fail_closed_instead_of_dropping_unknown_boundary_physics():
+    domain = mesh.rectangle(
+        (0.0, 0.0),
+        (1.0, 1.0),
+        (1, 1),
+        comm=MPI.COMM_SELF,
+        cell_type="triangle",
+    )
+    unknown_boundary = SimpleNamespace(name="unowned_contact")
+
+    linear = models.create(
+        study=studies.static_solid(dimension=2, assumption="plane_stress"),
+        mesh=domain,
+    )
+    linear_displacement = linear.field(fields.displacement(domain))
+    linear.material(
+        constitutive.elasticity.isotropic_elastic(
+            young=1.0e3,
+            poisson=0.25,
+            density=1.0,
+        )
+    )
+    linear.add_boundary_model(unknown_boundary)
+    with pytest.raises(ValueError, match="cannot consume these boundary models"):
+        linear.step(target=linear_displacement)
+
+    nonlinear = models.create(
+        study=studies.static_solid(
+            dimension=2,
+            assumption="plane_strain",
+            nonlinear=True,
+        ),
+        mesh=domain,
+    )
+    nonlinear_displacement = nonlinear.field(fields.displacement(domain))
+    nonlinear.material(
+        constitutive.neo_hookean(young=1.0e3, poisson=0.25, density=1.0)
+    )
+    nonlinear.add_boundary_model(unknown_boundary)
+    with pytest.raises(ValueError, match="cannot consume boundary models"):
+        nonlinear.step(target=nonlinear_displacement)
+
+
 def test_centrifugal_and_hydrostatic_loads_have_physical_resultants():
     rotating = mesh.rectangle(
         (0.0, 0.0),

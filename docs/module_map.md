@@ -58,6 +58,7 @@ otherwise; runnable examples remain in the repository-level `examples/`.
 | Automatic/fixed incrementation and cutback policy | `steps.py` |
 | Linear/nonlinear solvers, prepared-solve lifecycle, and convergence evidence | `_solver_lifecycle.py`, `solvers.py` |
 | Scientific results, MPI-safe point/path/integral QoIs, histories, artifacts, and dataset bridge | `results/` |
+| Rank-reduced timing, workload, solver, and parallel performance evidence | `results/performance.py`, `diagnostics.py` |
 | Private direct-problem, static, nonlinear, transient, and modal result assembly | `results/_problem.py`, `results/_analysis_step.py`, `results/_nonlinear_step.py`, `results/_transient_step.py`, `results/_modal.py` |
 | Shared field location and processing semantics | `results/_field_metadata.py` |
 | Finite-strain fields and periodic-cell homogenization | `results/finite_strain.py` |

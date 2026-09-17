@@ -68,6 +68,67 @@ def test_result_collects_qois_histories_artifacts_and_dataset_sample(tmp_path):
     assert saved["field_records"][0]["live"] is False
 
 
+def test_performance_evidence_is_first_class_and_does_not_inflate_trust():
+    domain = dolfinx_mesh.create_unit_square(MPI.COMM_SELF, 2, 1)
+    displacement = fields.displacement(domain).value
+    evidence = results.performance_evidence(
+        stages={"solve": 0.25, "result_assembly": 0.01},
+        solution=displacement,
+        scope="test_result_lifecycle",
+    )
+    simulation = results.SimulationResult("timed")
+    simulation.add_performance(evidence)
+
+    assert simulation.trust_level == "computed"
+    assert simulation.performance["schema"] == "agentfem.performance-evidence"
+    assert simulation.performance["wall_seconds"] == pytest.approx(0.25)
+    assert simulation.performance["parallel"] == {
+        "rank_count": 1,
+        "timing_aggregation": "min_mean_max_across_ranks",
+        "critical_path": "maximum_rank_wall_time",
+    }
+    assert simulation.performance["workload"]["global_cells"] == 4
+    assert simulation.performance["workload"]["global_dofs"] > 0
+    assert simulation.performance["stages"]["solve"] == {
+        "seconds": pytest.approx(0.25),
+        "seconds_min": pytest.approx(0.25),
+        "seconds_mean": pytest.approx(0.25),
+        "seconds_max": pytest.approx(0.25),
+        "calls": 1,
+        "calls_min": 1,
+        "calls_max": 1,
+        "participating_ranks": 1,
+        "seconds_per_call": pytest.approx(0.25),
+    }
+    assert "wall time: 0.25 s" in simulation.format()
+
+
+def test_performance_mapping_requires_the_stable_schema():
+    simulation = results.SimulationResult("invalid_performance")
+    with pytest.raises(ValueError, match="agentfem.performance-evidence"):
+        simulation.add_performance({"wall_seconds": 1.0})
+
+
+def test_performance_field_preserves_legacy_positional_result_construction():
+    verification_record = object()
+    simulation = results.SimulationResult(
+        "legacy_positional",
+        "completed",
+        {},
+        {},
+        {},
+        {},
+        {},
+        {"origin": "legacy"},
+        verification_record,
+        {"young": 210.0e9},
+    )
+
+    assert simulation.verification is verification_record
+    assert simulation.scientific_inputs == {"young": 210.0e9}
+    assert simulation.performance == {}
+
+
 def test_result_manifest_keeps_execution_status_separate_from_scientific_trust(
     tmp_path,
 ):
@@ -151,9 +212,24 @@ def test_linear_step_result_carries_ksp_evidence_consumed_by_engineering_quality
     assert simulation.metadata["static_equilibrium"]["definition"] == (
         "reaction + assembled external force"
     )
+    assert simulation.performance["schema"] == "agentfem.performance-evidence"
+    assert simulation.performance["wall_seconds"] >= 0.0
+    assert simulation.performance["workload"]["global_cells"] == 2
+    assert simulation.performance["workload"]["global_dofs"] > 0
+    assert simulation.performance["solver"]["convergence"]["converged"] is True
+    assert {"solve", "result_assembly_and_output", "total"} == set(
+        simulation.performance["stages"]
+    )
+    assert simulation.performance["wall_seconds"] >= (
+        simulation.performance["stages"]["solve"]["seconds"]
+    )
+    assert simulation.performance["measurement_boundary"]["preexisting_work"] == (
+        "excluded"
+    )
     manifest = simulation.manifest()
     assert manifest["schema"] == "agentfem.simulation-result"
     assert manifest["schema_version"] == "0.1.0"
+    assert manifest["performance"] == simulation.performance
     assert tuple(item["name"] for item in manifest["quantity_records"]) == (
         "external_force_resultant",
         "reaction_force_resultant",

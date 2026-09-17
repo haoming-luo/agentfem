@@ -676,9 +676,11 @@ _BENCHMARKS = (
             "knowledge/benchmarks/mixed_mode_bending_external_contract.json"
         ),
         criterion=(
-            "a source-identified mixed-mode bending curve is compared on common "
-            "crack-length coordinates using explicitly declared load, displacement, "
-            "and mode-mix tolerances"
+            "the Reeder--Crews simple-beam compliance and GI/GII partition "
+            "are recovered from one declared lever geometry, while a "
+            "source-identified mixed-mode bending curve is compared on common "
+            "crack-length coordinates using explicitly declared load, "
+            "displacement, and mode-mix tolerances"
         ),
         automated_test="tests/test_mixed_mode_benchmark.py",
         status="contract_ready_external_data_pending",
@@ -686,7 +688,7 @@ _BENCHMARKS = (
     BenchmarkSpec(
         identifier="delamination_structural_family",
         capability="mixed_mode_cohesive_fracture",
-        level="assembled_dcb_propagation_and_enf_compliance_foundation",
+        level="assembled_dcb_and_enf_propagation_foundation",
         reference="knowledge/benchmarks/delamination_structural_family.json",
         criterion=(
             "an assembled Q1 bulk and paired-facet DCB model produces an "
@@ -694,15 +696,17 @@ _BENCHMARKS = (
             "geometries; a separate displacement-controlled path must commit "
             "irreversible cohesive state and retain reaction, crack-front and "
             "work-energy evidence; an independent assembled ENF provider must "
-            "recover Mode-II compliance and refinement evidence; promotion still "
-            "requires source-identified DCB/ENF propagation and MMB execution"
+            "recover Mode-II compliance and refinement evidence, then exercise "
+            "irreversible shear-driven growth with Mode-II and work-energy "
+            "evidence; promotion still requires source-identified DCB/ENF "
+            "propagation and MMB execution"
         ),
         automated_test=(
             "tests/test_delamination_fem_benchmark.py; "
             "tests/test_enf_fem_benchmark.py; "
             "tests/test_mixed_mode_benchmark.py"
         ),
-        status="assembled_dcb_propagation_and_enf_compliance_suite_passed",
+        status="assembled_dcb_and_enf_propagation_regressions_passed",
         evidence=(
             "finite_element",
             "cohesive_interface",
@@ -711,6 +715,7 @@ _BENCHMARKS = (
             "convergence_contract",
             "cohesive_propagation",
             "mode_ii_compliance",
+            "mode_ii_cohesive_propagation",
             "work_energy_balance",
             "failure_behavior",
         ),

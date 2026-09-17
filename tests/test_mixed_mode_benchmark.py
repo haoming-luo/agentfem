@@ -190,6 +190,48 @@ def test_mmb_requires_declared_partition_and_assessment_checks_guardrails():
     assert not rejected.accepted
 
 
+def test_reeder_crews_mmb_oracle_recovers_partition_and_compliance_derivative():
+    spec = benchmarks.delamination_benchmark_spec(
+        "mmb",
+        width=20.0,
+        arm_thickness=2.0,
+        elastic_modulus=70_000.0,
+        half_span=50.0,
+        source="Reeder and Crews, AIAA Journal 28(7), 1990",
+    )
+    crack = np.linspace(10.0, 30.0, 101)
+    load = np.full_like(crack, 100.0)
+    pure_mode_ii = benchmarks.mmb_beam_energy_release_curve(
+        spec,
+        crack_length=crack,
+        load=load,
+        lever_length=spec.half_span / 3.0,
+    )
+    np.testing.assert_allclose(pure_mode_ii.mode_i_energy_release_rate, 0.0)
+
+    mixed = benchmarks.mmb_beam_energy_release_curve(
+        spec,
+        crack_length=crack,
+        load=load,
+        lever_length=spec.half_span,
+    )
+    fraction = mixed.mode_i_energy_release_rate / mixed.total_energy_release_rate
+    np.testing.assert_allclose(fraction, 4.0 / 7.0)
+    recovered = load**2 * np.gradient(mixed.compliance, crack, edge_order=2) / (
+        2.0 * spec.width
+    )
+    np.testing.assert_allclose(
+        recovered[1:-1], mixed.total_energy_release_rate[1:-1], rtol=3.0e-4
+    )
+    with pytest.raises(ValueError, match="half_span/3"):
+        benchmarks.mmb_beam_energy_release_curve(
+            spec,
+            crack_length=crack,
+            load=load,
+            lever_length=0.0,
+        )
+
+
 def test_delamination_energy_curve_rejects_malformed_or_inconsistent_channels():
     common = {
         "crack_length": (10.0, 20.0, 30.0),

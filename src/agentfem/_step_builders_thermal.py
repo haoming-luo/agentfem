@@ -62,11 +62,24 @@ def linear_static(
             )
     else:
         K = K if K is not None else model.stiffness(target)
+        from .boundary_models import ElasticFoundation
+
         foundation_models = tuple(
             item
             for item in model.boundary_models
-            if item.__class__.__name__ == "ElasticFoundation"
+            if isinstance(item, ElasticFoundation)
         )
+        unsupported_boundary_models = tuple(
+            getattr(item, "name", type(item).__name__)
+            for item in model.boundary_models
+            if not isinstance(item, ElasticFoundation)
+        )
+        if unsupported_boundary_models:
+            raise ValueError(
+                "Linear static solids cannot consume these boundary models: "
+                f"{unsupported_boundary_models}. Select a provider that owns "
+                "their residual, tangent, reaction, work and energy semantics."
+            )
         foundation_terms = tuple(item.operator(target) for item in foundation_models)
         if foundation_terms:
             K = operators.combine(

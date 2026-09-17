@@ -239,6 +239,13 @@ def test_transient_result_accepts_shared_history_and_probe_requests():
     assert simulation.metadata["step"]["history_requests"] == [
         request.summary() for request in requests
     ]
+    assert simulation.performance["scope"] == "transient_run_and_result_call"
+    assert simulation.performance["measurement_boundary"]["start"] == (
+        "entry to the first recorded transient run call"
+    )
+    assert {"run_wall", "result_assembly", "total"} <= set(
+        simulation.performance["stages"]
+    )
     assert np.all(
         np.diff(simulation.histories["center_temperature"].values) <= 0.0
     )
