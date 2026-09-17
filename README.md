@@ -373,15 +373,28 @@ or [Show and tell](https://github.com/haoming-luo/agentfem/discussions/categorie
 
 ## Citation
 
-If AgentFEM helps your research or engineering work, please cite the canonical
-technical report below. Record the exact AgentFEM version, release tag, or
-commit separately in the reproducibility statement; software releases do not
-create separate scholarly works. [`CITATION.cff`](CITATION.cff) exposes the
-same report as its stable preferred citation. The
+If AgentFEM contributes to your research or engineering work, cite the exact
+software version that produced the results. This is the default AgentFEM
+citation because it preserves both attribution and reproducibility. GitHub's
+**Cite this repository** control reads [`CITATION.cff`](CITATION.cff); replace
+the version and release URL below when you use a different release. If an
+archived release provides a DOI, prefer that DOI to the release URL.
+
+```bibtex
+@software{luo2026agentfem036,
+  author  = {Luo, Haoming},
+  title   = {AgentFEM},
+  year    = {2026},
+  version = {0.3.6},
+  url     = {https://github.com/haoming-luo/agentfem/releases/tag/v0.3.6}
+}
+```
+
+When discussing AgentFEM's architecture, methods, verification philosophy, or
+design rationale, also cite the
 [AgentFEM Technical Report](https://haoming-luo.github.io/agentfem/publications/agentfem-platform/),
-*AgentFEM: An AI-Native Open-Source Platform for Finite-Element Computing*,
-presents the platform's architecture, founding principles, representative
-workflows, and author's vision. [Read the PDF](https://haoming-luo.github.io/agentfem/assets/papers/agentfem_platform.pdf).
+*AgentFEM: An AI-Native Open-Source Platform for Finite-Element Computing*.
+[Read the PDF](https://haoming-luo.github.io/agentfem/assets/papers/agentfem_platform.pdf).
 
 ```bibtex
 @techreport{luo2026agentfem,
