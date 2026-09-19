@@ -363,6 +363,15 @@ scatters ghost contributions to owners, and then refreshes ghost entries. A
 two-rank test now closes global bending-energy directional change against the
 assembled PETSc residual work; the operator is no longer limited to a
 rank-local diagnostic array.
+`operators.cell_average_gradient(...)` establishes the complementary FEM
+transfer needed by a displacement formulation. A reusable sparse UFL
+coupling maps a scalar or vector continuous field to its physical DG0
+cell-average gradient; its mass-inverse-weighted transpose maps arbitrary
+local-plus-ghost cell-gradient duals back to a source-space PETSc residual.
+Affine scalar and three-component fields are exact, and the global
+forward/adjoint work identity closes under two MPI ranks even when each rank
+contributes different ghost-cell duals. This is the first tested bridge from
+the neighbouring-element chain back to displacement degrees of freedom.
 Naive mixed P1/DG0 and P2/DG1 compatibility pairs were rejected after losing
 rank under refinement; full-rank P2/CG1 and P2/DG0 candidates still showed a
 decaying normalized inf-sup value in the tested H1/L2 norms. Those negative
@@ -448,7 +457,10 @@ The automated local evidence currently checks:
   invariance, Hessian symmetry and three-dimensional rotation objectivity in
   serial and two-rank tests;
 - DG0 scalar/vector residual assembly reverse-scatters ghost-cell
-  contributions and closes the global two-rank energy--virtual-work identity.
+  contributions and closes the global two-rank energy--virtual-work identity;
+- continuous scalar/vector fields transfer exactly to DG0 cell-average
+  gradients, whose transpose closes global work back to source FEM dofs under
+  two MPI ranks.
 
 No shell element patch test, contact benchmark, or drape experiment has yet
 promoted this membrane foundation to a forming-capable fibrous shell.

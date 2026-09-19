@@ -52,6 +52,7 @@ from .core import (
     xtmy,
 )
 from .cell_gradient import CellGradientEnergyOperator, cell_gradient_energy
+from .cell_transfer import CellAverageGradientOperator, cell_average_gradient
 from .fiber_bending import (
     FiberDirectionBendingOperator,
     FiberDirectionBendingResponse,
@@ -94,6 +95,7 @@ assemble_lumped_operator = lumped_operator
 __all__ = [
     "LumpedMassOperator",
     "CellGradientEnergyOperator",
+    "CellAverageGradientOperator",
     "FiberDirectionBendingOperator",
     "FiberDirectionBendingResponse",
     "LinearSystem",
@@ -117,6 +119,7 @@ __all__ = [
     "boundary_model_vector",
     "capacity_operator",
     "cell_gradient_energy",
+    "cell_average_gradient",
     "combine",
     "compile_form",
     "conduction_operator",

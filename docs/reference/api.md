@@ -1034,6 +1034,8 @@ and evidence remain in the linked guides and scientific function reference.
 | function | `xtmy(left, operator, right) -> float` | Cast3M-style alias for ``left^T operator right``. |
 | class | `CellGradientEnergyOperator` | Quadratic energy and exact first/second actions for a cell field. |
 | function | `cell_gradient_energy(gradient: CellGradientOperator, *, cell_weights, stiffness = 1.0) -> CellGradientEnergyOperator` | Create one quadratic matrix-free energy from a cached gradient. |
+| class | `CellAverageGradientOperator` | Map a FEM field to DG0 cell-average gradients and apply its transpose. |
+| function | `cell_average_gradient(source_space) -> CellAverageGradientOperator` | Assemble a reusable FEM-to-DG0 cell-average gradient transfer. |
 | class | `FiberDirectionBendingOperator` | Exact first variation of a two-channel fibre-curvature energy. |
 | class | `FiberDirectionBendingResponse` | Owned-cell curvature energy and local-plus-ghost direction residual. |
 | function | `fiber_direction_bending(gradient: CellGradientOperator, *, current_tangents, cell_weights, in_plane_stiffness = 0.0, normal_stiffness = 0.0, reference_in_plane_curvature = 0.0, reference_normal_curvature = 0.0) -> FiberDirectionBendingOperator` | Create an independent-direction fibre-bending energy operator. |

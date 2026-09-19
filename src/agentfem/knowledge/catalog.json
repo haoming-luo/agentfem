@@ -998,7 +998,9 @@
         "agentfem.mesh.owned_cell_measures",
         "agentfem.mesh.reconstruct_cell_gradient",
         "agentfem.operators.CellGradientEnergyOperator",
-        "agentfem.operators.cell_gradient_energy"
+        "agentfem.operators.cell_gradient_energy",
+        "agentfem.operators.CellAverageGradientOperator",
+        "agentfem.operators.cell_average_gradient"
       ],
       "related_cards": [
         "agentfem.material.fabric_surface_constitutive",

@@ -25,7 +25,9 @@
     "agentfem.mesh.owned_cell_measures",
     "agentfem.mesh.reconstruct_cell_gradient",
     "agentfem.operators.CellGradientEnergyOperator",
-    "agentfem.operators.cell_gradient_energy"
+    "agentfem.operators.cell_gradient_energy",
+    "agentfem.operators.CellAverageGradientOperator",
+    "agentfem.operators.cell_average_gradient"
   ],
   "implementation": [
     "mesh/neighborhood.py",
@@ -84,6 +86,12 @@
         "type": "ghosted PETSc vector on a scalar or blocked DG0 space",
         "unit_role": "the supplied cell virtual-work contribution",
         "description": "Local and ghost cell contributions are mapped by explicit cell identity, reverse-scattered with addition to owners, and forward-scattered for a consistent distributed vector."
+      },
+      {
+        "name": "FEM-to-cell average gradient transfer",
+        "type": "reusable sparse forward matrix and exact mass-inverse-weighted transpose",
+        "unit_role": "source field per length and its work-conjugate dual",
+        "description": "A UFL gradient coupling maps scalar or vector FEM fields to physical DG0 cell averages; local-plus-ghost gradient duals reverse-scatter before the exact transpose returns a source-space PETSc residual."
       }
     ],
     "assumptions": [
@@ -128,6 +136,7 @@
       "Match finite-difference energy derivatives with the exact residual, retain a symmetric positive-semidefinite tangent, and preserve constant fields as an exact zero-energy mode.",
       "Recover the exact rectangle area on triangular and quadrilateral meshes and count the unit-square area exactly once across two MPI ranks.",
       "Assemble scalar and vector DG0 cell contributions by cell identity and recover global energy-directional-derivative work after ghost reverse scatter under two MPI ranks.",
+      "Recover affine-exact scalar and three-component FEM gradients and satisfy the global forward/adjoint work identity with rank-dependent ghost contributions under two MPI ranks.",
       "Under two MPI ranks, count every global interior facet exactly once and retain a ghost adjacent cell across partition interfaces."
     ]
   },

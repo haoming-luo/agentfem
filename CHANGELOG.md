@@ -65,6 +65,10 @@ experimental formulation to a validated one.
   identity and MPI reverse/forward ghost scatter. The two-rank fibrous-bending
   test now closes the global energy-directional-derivative identity against an
   assembled PETSc residual vector.
+- Add a reusable FEM-to-DG0 cell-average gradient transfer with an exact
+  mass-inverse-weighted transpose. Scalar and three-component affine fields
+  are exact, and rank-dependent ghost duals satisfy the global two-rank
+  forward/adjoint work identity back to source FEM dofs.
 - Add `agentfem support`, a consent-first community invitation that performs no
   account action, checks an existing GitHub login only when explicitly asked,
   and remembers support locally without storing identity or credentials.

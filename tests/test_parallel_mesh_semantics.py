@@ -180,6 +180,50 @@ def test_cell_neighborhood_keeps_partition_interface_pairs_complete():
     assert global_assembled_work == pytest.approx(
         global_energy_difference, rel=2.0e-7, abs=2.0e-9
     )
+    displacement_space = fem.functionspace(domain, ("Lagrange", 1, (3,)))
+    displacement = fem.Function(displacement_space, name="U")
+    exact_displacement_gradient = np.array(
+        ((2.0, -3.0), (0.5, 1.25), (-1.0, 4.0))
+    )
+    displacement.interpolate(
+        lambda x: exact_displacement_gradient @ x[:2]
+        + np.array((4.0, -2.0, 1.0))[:, None]
+    )
+    transfer = operators.cell_average_gradient(displacement_space)
+    transferred = transfer.apply(displacement)
+    transfer_block_size = int(transfer.target_space.dofmap.index_map_bs)
+    transferred_values = np.empty(
+        (operator.total_cells, *transfer.value_shape), dtype=float
+    )
+    for cell in range(operator.total_cells):
+        dof = int(transfer.target_space.dofmap.cell_dofs(cell)[0])
+        transferred_values[cell] = transferred.x.array[
+            dof * transfer_block_size : (dof + 1) * transfer_block_size
+        ].reshape(transfer.value_shape)
+    np.testing.assert_allclose(
+        transferred_values,
+        np.broadcast_to(exact_displacement_gradient, transferred_values.shape),
+        atol=2.0e-13,
+    )
+    transfer_duals = np.empty_like(transferred_values)
+    for component in range(3):
+        transfer_duals[:, component, 0] = (
+            (comm.rank + 1.0) * (component + 1.0) * (0.5 + centroids[:, 0])
+        )
+        transfer_duals[:, component, 1] = (
+            (comm.rank + 1.0) * (component + 1.0) * (-0.25 + centroids[:, 1])
+        )
+    transfer_adjoint = transfer.apply_adjoint(transfer_duals)
+    local_transfer_work = float(np.vdot(transferred_values, transfer_duals))
+    local_source_work = float(
+        np.vdot(displacement.x.petsc_vec.array_r, transfer_adjoint.array_r)
+    )
+    transfer_adjoint.destroy()
+    assert comm.allreduce(local_transfer_work, op=MPI.SUM) == pytest.approx(
+        comm.allreduce(local_source_work, op=MPI.SUM),
+        rel=2.0e-13,
+        abs=2.0e-13,
+    )
 
 
 def test_distributed_abaqus_regions_quality_and_remote_resultant():
