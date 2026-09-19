@@ -3262,10 +3262,12 @@ Enumerates each owned interior facet with both adjacent cells and both cell-loca
 
 - `agentfem.mesh.CellNeighborhood`
 - `agentfem.mesh.CellNeighborhoodGeometry`
+- `agentfem.mesh.CellPairDifference`
 - `agentfem.mesh.InteriorFacetGeometry`
 - `agentfem.mesh.InteriorFacetPair`
 - `agentfem.mesh.cell_neighborhood`
 - `agentfem.mesh.cell_neighborhood_geometry`
+- `agentfem.mesh.cell_pair_directional_difference`
 
 ### Scientific contract
 
@@ -3290,6 +3292,7 @@ The two-cell stencil must remain complete when one adjacent cell is a ghost on t
 | Name | Type | Unit role | Meaning |
 | --- | --- | --- | --- |
 | cell neighborhood | owned interior-facet pairs and partition evidence | runtime topology | Each pair records runtime local/global facet and cell indices plus the local facet number in both adjacent cells; optional geometry adds centroids, facet midpoint, center vector, distance and direction in embedding coordinates. |
+| pair directional difference | scalar or vector cell-value differences per center distance | input value per length | The discrete operator is exact for affine cell-center data and remains explicitly distinct from a reconstructed full gradient or shell curvature. |
 
 #### Assumptions
 
@@ -3308,12 +3311,13 @@ The two-cell stencil must remain complete when one adjacent cell is a ghost on t
 #### Limitations
 
 - Runtime global indices depend on the mesh partition and are not scientific model identity or restart identity.
-- The contract exposes topology and geometric scale only; it does not reconstruct gradients, define a shell curvature, or promote a forming solver.
+- The contract exposes topology, geometric scale, and one-direction cell-pair differences only; it does not reconstruct a full gradient, define a shell curvature, or promote a forming solver.
+- Callers must synchronize ghost cell values before evaluating a distributed pair difference.
 
 ### Minimal example
 
 ```python
-neighborhood = mesh.cell_neighborhood(domain); geometry = mesh.cell_neighborhood_geometry(domain, neighborhood)
+neighborhood = mesh.cell_neighborhood(domain); geometry = mesh.cell_neighborhood_geometry(domain, neighborhood); difference = mesh.cell_pair_directional_difference(geometry, cell_values)
 ```
 
 ### Verification
@@ -3332,6 +3336,7 @@ neighborhood = mesh.cell_neighborhood(domain); geometry = mesh.cell_neighborhood
 - Recover exact interior and exterior facet counts on triangle and quadrilateral meshes.
 - Retain both local-facet positions and deterministic cell ordering.
 - Recover translation-invariant center vectors, distances and directions from embedding coordinates.
+- Recover the exact directional derivative of affine scalar and vector cell-center fields.
 - Under two MPI ranks, count every global interior facet exactly once and retain a ghost adjacent cell across partition interfaces.
 
 ### References

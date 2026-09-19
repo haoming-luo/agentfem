@@ -39,8 +39,9 @@ experimental formulation to a validated one.
   decay evidence and caller-declared acceptance thresholds.
 - Add partition-aware interior-facet cell neighbourhoods with both cell-local
   facet positions, verified ghost adjacency, and translation-invariant
-  centroid/facet geometry, establishing the shared topology and length-scale
-  foundation for rotation-free neighbouring-element shells and DG.
+  centroid/facet geometry. An affine-exact scalar/vector center-line
+  difference now establishes the first auditable discrete operator for future
+  rotation-free neighbouring-element shells and DG.
 - Add `agentfem support`, a consent-first community invitation that performs no
   account action, checks an existing GitHub login only when explicitly asked,
   and remembers support locally without storing identity or credentials.

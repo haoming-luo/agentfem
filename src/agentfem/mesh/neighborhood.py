@@ -107,6 +107,48 @@ class CellNeighborhoodGeometry:
         }
 
 
+@dataclass(frozen=True)
+class CellPairDifference:
+    """Directional cell-value difference on every interior-facet pair."""
+
+    values: np.ndarray
+    directions: np.ndarray
+    distances: np.ndarray
+    facet_globals: tuple[int, ...]
+
+    def __post_init__(self) -> None:
+        values = np.asarray(self.values, dtype=float)
+        directions = np.asarray(self.directions, dtype=float)
+        distances = np.asarray(self.distances, dtype=float)
+        facet_globals = tuple(int(value) for value in self.facet_globals)
+        count = len(facet_globals)
+        if values.ndim < 1 or values.shape[0] != count:
+            raise ValueError("CellPairDifference values require one row per facet.")
+        if directions.ndim != 2 or directions.shape[0] != count:
+            raise ValueError("CellPairDifference directions require one row per facet.")
+        if distances.shape != (count,) or np.any(distances <= 0.0):
+            raise ValueError("CellPairDifference distances must be positive.")
+        if not all(
+            np.all(np.isfinite(item)) for item in (values, directions, distances)
+        ):
+            raise ValueError("CellPairDifference arrays must be finite.")
+        object.__setattr__(self, "values", values.copy())
+        object.__setattr__(self, "directions", directions.copy())
+        object.__setattr__(self, "distances", distances.copy())
+        object.__setattr__(self, "facet_globals", facet_globals)
+
+    def as_dict(self) -> dict[str, object]:
+        return {
+            "kind": "cell_pair_directional_difference",
+            "values": self.values.tolist(),
+            "directions": self.directions.tolist(),
+            "distances": self.distances.tolist(),
+            "facet_globals": list(self.facet_globals),
+            "definition": "(right_cell_value-left_cell_value)/center_distance",
+            "identity_scope": "runtime_partition",
+        }
+
+
 def _local_facet_number(cell_to_facets, cell: int, facet: int) -> int:
     facets = np.asarray(cell_to_facets.links(cell), dtype=np.int64)
     locations = np.flatnonzero(facets == facet)
@@ -254,11 +296,63 @@ def cell_neighborhood_geometry(
     )
 
 
+def cell_pair_directional_difference(
+    geometry: CellNeighborhoodGeometry,
+    cell_values,
+) -> CellPairDifference:
+    """Difference local/ghost cell values along each center-to-center line.
+
+    ``cell_values`` follows current local cell numbering and must include ghost
+    entries referenced by ``geometry``.  The caller owns ghost synchronization.
+    The result is a directional difference, not a full gradient or a shell
+    curvature; combining several directions is a separate reconstruction.
+    """
+
+    if not isinstance(geometry, CellNeighborhoodGeometry):
+        raise TypeError("geometry must be CellNeighborhoodGeometry.")
+    values = np.asarray(cell_values, dtype=float)
+    if values.ndim < 1 or not np.all(np.isfinite(values)):
+        raise ValueError("cell_values must be a finite array with a cell axis.")
+    if not geometry.facets:
+        return CellPairDifference(
+            values=np.empty((0, *values.shape[1:]), dtype=float),
+            directions=np.empty((0, geometry.geometric_dimension), dtype=float),
+            distances=np.empty(0, dtype=float),
+            facet_globals=(),
+        )
+    largest_cell = max(
+        max(item.pair.cell_locals) for item in geometry.facets
+    )
+    if values.shape[0] <= largest_cell:
+        raise ValueError(
+            "cell_values does not include every local or ghost cell referenced "
+            f"by the neighborhood; need index {largest_cell}."
+        )
+    differences = []
+    directions = []
+    distances = []
+    facet_globals = []
+    for item in geometry.facets:
+        left, right = item.pair.cell_locals
+        differences.append((values[right] - values[left]) / item.center_distance)
+        directions.append(item.center_direction)
+        distances.append(item.center_distance)
+        facet_globals.append(item.pair.facet_global)
+    return CellPairDifference(
+        values=np.asarray(differences, dtype=float),
+        directions=np.asarray(directions, dtype=float),
+        distances=np.asarray(distances, dtype=float),
+        facet_globals=tuple(facet_globals),
+    )
+
+
 __all__ = [
+    "CellPairDifference",
     "CellNeighborhood",
     "CellNeighborhoodGeometry",
     "InteriorFacetGeometry",
     "InteriorFacetPair",
     "cell_neighborhood",
     "cell_neighborhood_geometry",
+    "cell_pair_directional_difference",
 ]

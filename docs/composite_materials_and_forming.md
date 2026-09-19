@@ -303,8 +303,11 @@ fracture algorithms. `mesh.cell_neighborhood_geometry(...)` adds the two cell
 centroids, facet midpoint, center vector, distance and direction in embedding
 coordinates without choosing a finite-difference rule. These quantities are
 translation invariant and give a future curvature reconstruction an explicit,
-auditable length scale. They are not yet a curvature reconstruction or shell
-Step.
+auditable length scale. `mesh.cell_pair_directional_difference(...)` adds the
+corresponding two-cell value difference per center distance and exactly
+recovers affine scalar/vector cell-center fields, including across a verified
+MPI partition. It remains one directional difference, not a reconstructed
+gradient, fibre curvature, or shell Step.
 Naive mixed P1/DG0 and P2/DG1 compatibility pairs were rejected after losing
 rank under refinement; full-rank P2/CG1 and P2/DG0 candidates still showed a
 decaying normalized inf-sup value in the tested H1/L2 norms. Those negative

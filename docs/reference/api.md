@@ -101,10 +101,12 @@ and evidence remain in the linked guides and scientific function reference.
 | class | `RegionSet` | Named collection of regions sharing one mesh tag object. |
 | class | `CellNeighborhood` | Owned interior-facet adjacency plus explicit partition evidence. |
 | class | `CellNeighborhoodGeometry` | Geometric evidence for every pair in a :class:`CellNeighborhood`. |
+| class | `CellPairDifference` | Directional cell-value difference on every interior-facet pair. |
 | class | `InteriorFacetGeometry` | Geometric scale and direction for one interior-facet cell pair. |
 | class | `InteriorFacetPair` | Two cells adjacent to one owned interior facet on the current partition. |
 | function | `cell_neighborhood(domain) -> CellNeighborhood` | Return every owned interior facet and its two adjacent cells. |
 | function | `cell_neighborhood_geometry(domain, neighborhood: CellNeighborhood \| None = None) -> CellNeighborhoodGeometry` | Attach centroids, facet midpoints, and pair distances to a neighborhood. |
+| function | `cell_pair_directional_difference(geometry: CellNeighborhoodGeometry, cell_values) -> CellPairDifference` | Difference local/ghost cell values along each center-to-center line. |
 | class | `Selector` | Boolean selector evaluated on coordinate arrays. |
 | function | `ball(center, radius: float) -> Selector` | Select points inside a 3D ball. |
 | function | `box(lower, upper) -> Selector` | Select points inside an axis-aligned box. |

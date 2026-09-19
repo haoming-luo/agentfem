@@ -3,6 +3,8 @@
 
 from __future__ import annotations
 
+import numpy as np
+import pytest
 from dolfinx import mesh as dolfinx_mesh
 from mpi4py import MPI
 
@@ -74,6 +76,48 @@ def test_neighborhood_geometry_is_translation_invariant():
     assert translated.center_vector == original.center_vector
     assert translated.center_distance == original.center_distance
     assert translated.center_direction == original.center_direction
+
+
+def test_pair_difference_is_exact_for_affine_scalar_and_vector_cell_fields():
+    domain = dolfinx_mesh.create_unit_square(
+        MPI.COMM_SELF,
+        3,
+        2,
+        cell_type=dolfinx_mesh.CellType.quadrilateral,
+    )
+    geometry = mesh.cell_neighborhood_geometry(domain)
+    cell_count = domain.topology.index_map(domain.topology.dim).size_local
+    cells = np.arange(cell_count, dtype=np.int32)
+    centroids = dolfinx_mesh.compute_midpoints(
+        domain,
+        domain.topology.dim,
+        cells,
+    )[:, :2]
+    scalar_gradient = np.array((2.0, -3.0))
+    scalar = centroids @ scalar_gradient + 4.0
+    scalar_result = mesh.cell_pair_directional_difference(geometry, scalar)
+    np.testing.assert_allclose(
+        scalar_result.values,
+        scalar_result.directions @ scalar_gradient,
+        atol=1.0e-14,
+    )
+
+    vector_gradient = np.array(((2.0, -3.0), (0.5, 1.25), (-1.0, 4.0)))
+    vector = centroids @ vector_gradient.T + np.array((4.0, -2.0, 1.0))
+    vector_result = mesh.cell_pair_directional_difference(geometry, vector)
+    np.testing.assert_allclose(
+        vector_result.values,
+        vector_result.directions @ vector_gradient.T,
+        atol=1.0e-14,
+    )
+    assert vector_result.as_dict()["definition"].startswith("(right_cell_value")
+
+
+def test_pair_difference_rejects_missing_ghost_or_local_values():
+    domain = dolfinx_mesh.create_unit_square(MPI.COMM_SELF, 2, 1)
+    geometry = mesh.cell_neighborhood_geometry(domain)
+    with pytest.raises(ValueError, match="does not include"):
+        mesh.cell_pair_directional_difference(geometry, np.zeros(1))
 
 
 def test_fem_mesh_facade_is_accepted():

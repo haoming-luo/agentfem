@@ -27,10 +27,12 @@ from .regions import RegionSet
 from .neighborhood import (
     CellNeighborhood,
     CellNeighborhoodGeometry,
+    CellPairDifference,
     InteriorFacetGeometry,
     InteriorFacetPair,
     cell_neighborhood,
     cell_neighborhood_geometry,
+    cell_pair_directional_difference,
 )
 from .selectors import Selector, ball, box, disk, layer, plane, where
 

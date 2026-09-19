@@ -48,6 +48,24 @@ def test_cell_neighborhood_keeps_partition_interface_pairs_complete():
     geometry = mesh.cell_neighborhood_geometry(domain, neighborhood)
     assert len(geometry.facets) == neighborhood.owned_interior_facets
     assert all(item.center_distance > 0.0 for item in geometry.facets)
+    cell_map = domain.topology.index_map(domain.topology.dim)
+    local_and_ghost = np.arange(
+        cell_map.size_local + cell_map.num_ghosts,
+        dtype=np.int32,
+    )
+    centroids = dolfinx_mesh.compute_midpoints(
+        domain,
+        domain.topology.dim,
+        local_and_ghost,
+    )[:, :2]
+    gradient = np.array((2.0, -3.0))
+    values = centroids @ gradient + 7.0
+    difference = mesh.cell_pair_directional_difference(geometry, values)
+    np.testing.assert_allclose(
+        difference.values,
+        difference.directions @ gradient,
+        atol=1.0e-13,
+    )
 
 
 def test_distributed_abaqus_regions_quality_and_remote_resultant():
