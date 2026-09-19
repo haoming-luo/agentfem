@@ -29,6 +29,7 @@
 
 | I want to... | Go to... |
 | --- | --- |
+| See what I can build or try a browser demo | [Explore AgentFEM](examples/explore.md) |
 | Install AgentFEM and run one model | [Getting started](get_started/index.md) |
 | Build a solid, thermal, dynamic, or creep analysis | [User guide](guide/index.md) |
 | Reproduce an executable capability | [Examples](examples/index.md) |

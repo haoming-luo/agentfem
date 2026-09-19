@@ -156,6 +156,10 @@ nav:
           - Nonlinear Architecture: nonlinear_solid_architecture.md
 
   - Examples:
+      - Explore AgentFEM: examples/explore.md
+      - AI-assisted Finite Elements: examples/ai_assisted_fem.md
+      - Simulation to Surrogate: examples/simulation_to_surrogate.md
+      - Interactive Structural Design: examples/structural_design_lab.md
       - examples/index.md
       - Wave Packet with an Inclusion: examples/wave_packet_inclusion.md
       - C3D10H Periodic Cell: abaqus_c3d10h_periodic_cell.md

@@ -1,5 +1,9 @@
 # Examples
 
+New to AgentFEM? [Explore three practical starting points](explore.md):
+AI-assisted simulation, learning from finite-element data, and an interactive
+structural-design demonstration.
+
 Examples are executable parts of the software, not screenshots of possible
 features. Each example identifies the physical problem, numerical route,
 important output, and present maturity. Release examples carry numerical
