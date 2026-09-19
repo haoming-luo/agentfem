@@ -188,6 +188,87 @@ class ConvectedCellFiberOperator:
             )
         return self.transfer.apply_adjoint(gradient_duals)
 
+    def apply_adjoint_derivative(
+        self,
+        displacement,
+        increment,
+        *,
+        direction_duals,
+        direction_dual_increments=None,
+        tangent_duals=None,
+        tangent_dual_increments=None,
+        stretch_duals=None,
+        stretch_dual_increments=None,
+    ):
+        """Differentiate the exact kinematic pullback along one increment."""
+
+        state = self.apply(displacement)
+        state_increment = self.directional_derivative(displacement, increment)
+
+        def _values(value, shape, *, name, default=0.0):
+            if value is None:
+                return np.full(shape, default, dtype=float)
+            selected = np.asarray(value, dtype=float)
+            if selected.shape != shape or not np.all(np.isfinite(selected)):
+                raise ValueError(f"{name} must have finite shape {shape}.")
+            return selected
+
+        direction_duals = _values(
+            direction_duals,
+            (self.total_cells, 3),
+            name="direction_duals",
+        )
+        direction_dual_increments = _values(
+            direction_dual_increments,
+            (self.total_cells, 3),
+            name="direction_dual_increments",
+        )
+        tangent_duals = _values(
+            tangent_duals,
+            (self.total_cells, 3, 2),
+            name="tangent_duals",
+        )
+        tangent_dual_increments = _values(
+            tangent_dual_increments,
+            (self.total_cells, 3, 2),
+            name="tangent_dual_increments",
+        )
+        stretch_duals = _values(
+            stretch_duals,
+            (self.total_cells,),
+            name="stretch_duals",
+        )
+        stretch_dual_increments = _values(
+            stretch_dual_increments,
+            (self.total_cells,),
+            name="stretch_dual_increments",
+        )
+        gradient_dual_increments = tangent_dual_increments.copy()
+        for cell, direction in enumerate(state.direction):
+            direction_increment = state_increment.direction_increment[cell]
+            projector = np.eye(3) - np.outer(direction, direction)
+            projector_increment = -(
+                np.outer(direction_increment, direction)
+                + np.outer(direction, direction_increment)
+            )
+            stretch = state.stretch[cell]
+            stretch_increment = state_increment.stretch_increment[cell]
+            vector_dual_increment = (
+                projector_increment @ direction_duals[cell] / stretch
+                + projector @ direction_dual_increments[cell] / stretch
+                - projector
+                @ direction_duals[cell]
+                * stretch_increment
+                / stretch**2
+                + stretch_dual_increments[cell] * direction
+                + stretch_duals[cell] * direction_increment
+            )
+            gradient_dual_increments[cell] += np.outer(
+                vector_dual_increment,
+                self.reference_tangent_coordinates[cell],
+            )
+        return self.transfer.apply_adjoint(gradient_dual_increments)
+
     def as_dict(self) -> dict[str, object]:
         return {
             "kind": "convected_cell_fiber_operator",
@@ -195,6 +276,7 @@ class ConvectedCellFiberOperator:
             "outputs": ("current_tangents", "fiber_stretch", "fiber_direction"),
             "linearization": "exact_directional_derivative",
             "adjoint": "exact_to_source_displacement_space",
+            "adjoint_linearization": "exact_matrix_free_directional_derivative",
             "scope": "kinematic_transfer_not_shell_equilibrium",
             "gradient_transfer": self.transfer.as_dict(),
         }

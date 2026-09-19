@@ -141,6 +141,76 @@ def test_convected_cell_fiber_derivative_and_adjoint_are_exact():
     adjoint.destroy()
 
 
+def test_convected_cell_fiber_adjoint_derivative_is_exact():
+    _, space, operator, _, _ = _case()
+    displacement = fem.Function(space, name="U")
+    displacement.interpolate(
+        lambda x: np.vstack(
+            (
+                0.2 * x[0] + 0.1 * x[1],
+                -0.1 * x[0] + 0.3 * x[1],
+                0.15 * x[0],
+            )
+        )
+    )
+    increment = fem.Function(space, name="DU")
+    increment.interpolate(
+        lambda x: np.vstack(
+            (-0.3 * x[0] + 0.2 * x[1], 0.25 * x[0], -0.1 * x[1])
+        )
+    )
+    state = operator.apply(displacement)
+    rng = np.random.default_rng(20260921)
+    direction_duals = rng.normal(size=state.direction.shape)
+    direction_dual_increments = rng.normal(size=state.direction.shape)
+    tangent_duals = rng.normal(size=state.current_tangents.shape)
+    tangent_dual_increments = rng.normal(size=state.current_tangents.shape)
+    stretch_duals = rng.normal(size=state.stretch.shape)
+    stretch_dual_increments = rng.normal(size=state.stretch.shape)
+    derivative = operator.apply_adjoint_derivative(
+        displacement,
+        increment,
+        direction_duals=direction_duals,
+        direction_dual_increments=direction_dual_increments,
+        tangent_duals=tangent_duals,
+        tangent_dual_increments=tangent_dual_increments,
+        stretch_duals=stretch_duals,
+        stretch_dual_increments=stretch_dual_increments,
+    )
+    epsilon = 1.0e-6
+    plus = fem.Function(space)
+    minus = fem.Function(space)
+    plus.x.array[:] = displacement.x.array + epsilon * increment.x.array
+    minus.x.array[:] = displacement.x.array - epsilon * increment.x.array
+    plus.x.scatter_forward()
+    minus.x.scatter_forward()
+    plus_adjoint = operator.apply_adjoint(
+        plus,
+        direction_duals=direction_duals + epsilon * direction_dual_increments,
+        tangent_duals=tangent_duals + epsilon * tangent_dual_increments,
+        stretch_duals=stretch_duals + epsilon * stretch_dual_increments,
+    )
+    minus_adjoint = operator.apply_adjoint(
+        minus,
+        direction_duals=direction_duals - epsilon * direction_dual_increments,
+        tangent_duals=tangent_duals - epsilon * tangent_dual_increments,
+        stretch_duals=stretch_duals - epsilon * stretch_dual_increments,
+    )
+    finite_difference = (plus_adjoint.array_r - minus_adjoint.array_r) / (
+        2.0 * epsilon
+    )
+
+    np.testing.assert_allclose(
+        derivative.array_r,
+        finite_difference,
+        rtol=2.0e-9,
+        atol=2.0e-9,
+    )
+    derivative.destroy()
+    plus_adjoint.destroy()
+    minus_adjoint.destroy()
+
+
 def test_displacement_derived_bending_energy_has_exact_fem_residual():
     domain, space, kinematics, _, _ = _case()
     displacement = fem.Function(space, name="U")
@@ -177,9 +247,9 @@ def test_displacement_derived_bending_energy_has_exact_fem_residual():
             in_plane_stiffness=2.5,
             normal_stiffness=4.0,
         )
-        return state, bending.evaluate(state.direction)
+        return state, bending, bending.evaluate(state.direction)
 
-    state, response = bending_response(displacement)
+    state, bending, response = bending_response(displacement)
     tangent_duals = np.zeros_like(state.current_tangents)
     tangent_duals[: neighborhood_gradient.owned_cells] = (
         response.surface_tangent_residual
@@ -197,10 +267,62 @@ def test_displacement_derived_bending_energy_has_exact_fem_residual():
     plus.x.scatter_forward()
     minus.x.scatter_forward()
     finite_difference = (
-        bending_response(plus)[1].energy - bending_response(minus)[1].energy
+        bending_response(plus)[2].energy - bending_response(minus)[2].energy
     ) / (2.0 * epsilon)
     exact = np.vdot(increment.x.petsc_vec.array_r, residual.array_r)
 
     assert response.energy > 0.0
     assert finite_difference == pytest.approx(exact, rel=3.0e-7, abs=3.0e-9)
     residual.destroy()
+
+    kinematic_increment = kinematics.directional_derivative(
+        displacement, increment
+    )
+    response_increment = bending.linearized_response(
+        state.direction,
+        kinematic_increment.direction_increment,
+        surface_tangent_increment=kinematic_increment.tangent_increment[
+            : neighborhood_gradient.owned_cells
+        ],
+    )
+    tangent_dual_increments = np.zeros_like(state.current_tangents)
+    tangent_dual_increments[: neighborhood_gradient.owned_cells] = (
+        response_increment.surface_tangent_residual_increment
+    )
+    tangent = kinematics.apply_adjoint_derivative(
+        displacement,
+        increment,
+        direction_duals=response.residual,
+        direction_dual_increments=(
+            response_increment.direction_residual_increment
+        ),
+        tangent_duals=tangent_duals,
+        tangent_dual_increments=tangent_dual_increments,
+    )
+
+    def displacement_residual(field):
+        trial_state, _, trial_response = bending_response(field)
+        trial_tangent_duals = np.zeros_like(trial_state.current_tangents)
+        trial_tangent_duals[: neighborhood_gradient.owned_cells] = (
+            trial_response.surface_tangent_residual
+        )
+        return kinematics.apply_adjoint(
+            field,
+            direction_duals=trial_response.residual,
+            tangent_duals=trial_tangent_duals,
+        )
+
+    plus_residual = displacement_residual(plus)
+    minus_residual = displacement_residual(minus)
+    residual_difference = (
+        plus_residual.array_r - minus_residual.array_r
+    ) / (2.0 * epsilon)
+    np.testing.assert_allclose(
+        tangent.array_r,
+        residual_difference,
+        rtol=8.0e-7,
+        atol=5.0e-8,
+    )
+    tangent.destroy()
+    plus_residual.destroy()
+    minus_residual.destroy()

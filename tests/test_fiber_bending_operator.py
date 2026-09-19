@@ -102,6 +102,117 @@ def test_fiber_bending_tangent_matches_residual_derivative_and_is_symmetric():
     )
 
 
+def test_fiber_bending_linearizes_direction_and_surface_tangent_duals():
+    domain = dolfinx_mesh.create_unit_square(
+        MPI.COMM_SELF,
+        5,
+        4,
+        cell_type=dolfinx_mesh.CellType.quadrilateral,
+    )
+    gradient = mesh.cell_gradient_operator(domain, rings=2)
+    cells = np.arange(gradient.total_cells, dtype=np.int32)
+    points = dolfinx_mesh.compute_midpoints(
+        domain, domain.topology.dim, cells
+    )[:, :2]
+    tangents = np.empty((gradient.total_cells, 3, 2), dtype=float)
+    tangents[:, :, 0] = np.column_stack(
+        (np.ones(len(points)), np.zeros(len(points)), 0.2 * points[:, 0])
+    )
+    tangents[:, :, 1] = np.column_stack(
+        (np.zeros(len(points)), np.ones(len(points)), -0.15 * points[:, 1])
+    )
+    tangent_increment = np.empty_like(tangents)
+    tangent_increment[:, :, 0] = np.column_stack(
+        (
+            0.03 * points[:, 0],
+            -0.02 * points[:, 1],
+            0.04 + 0.01 * points[:, 1],
+        )
+    )
+    tangent_increment[:, :, 1] = np.column_stack(
+        (
+            0.02 * points[:, 1],
+            0.01 * points[:, 0],
+            -0.03 * points[:, 0],
+        )
+    )
+    coordinates = np.column_stack(
+        (np.cos(0.4 + 0.2 * points[:, 0]), np.sin(0.4 + 0.2 * points[:, 0]))
+    )
+
+    def normalized_directions(surface):
+        vectors = np.einsum("cij,cj->ci", surface, coordinates)
+        return vectors / np.linalg.norm(vectors, axis=1)[:, None]
+
+    directions = normalized_directions(tangents)
+    vector_increment = np.einsum(
+        "cij,cj->ci", tangent_increment, coordinates
+    )
+    stretches = np.linalg.norm(
+        np.einsum("cij,cj->ci", tangents, coordinates), axis=1
+    )
+    direction_increment = (
+        vector_increment
+        - directions * np.sum(directions * vector_increment, axis=1)[:, None]
+    ) / stretches[:, None]
+    weights = mesh.owned_cell_measures(domain)
+
+    def bending(surface):
+        return operators.fiber_direction_bending(
+            gradient,
+            current_tangents=surface,
+            cell_weights=weights,
+            in_plane_stiffness=2.5,
+            normal_stiffness=4.0,
+        )
+
+    response = bending(tangents).evaluate(directions)
+    derivative = bending(tangents).linearized_response(
+        directions,
+        direction_increment,
+        surface_tangent_increment=tangent_increment,
+    )
+    epsilon = 1.0e-6
+    plus_tangents = tangents + epsilon * tangent_increment
+    minus_tangents = tangents - epsilon * tangent_increment
+    plus = bending(plus_tangents).evaluate(
+        normalized_directions(plus_tangents)
+    )
+    minus = bending(minus_tangents).evaluate(
+        normalized_directions(minus_tangents)
+    )
+
+    np.testing.assert_allclose(
+        derivative.in_plane_curvature_increment,
+        (plus.in_plane_curvature - minus.in_plane_curvature) / (2.0 * epsilon),
+        rtol=2.0e-8,
+        atol=2.0e-9,
+    )
+    np.testing.assert_allclose(
+        derivative.normal_curvature_increment,
+        (plus.normal_curvature - minus.normal_curvature) / (2.0 * epsilon),
+        rtol=2.0e-8,
+        atol=2.0e-9,
+    )
+    np.testing.assert_allclose(
+        derivative.direction_residual_increment,
+        (plus.residual - minus.residual) / (2.0 * epsilon),
+        rtol=4.0e-7,
+        atol=3.0e-8,
+    )
+    np.testing.assert_allclose(
+        derivative.surface_tangent_residual_increment,
+        (
+            plus.surface_tangent_residual
+            - minus.surface_tangent_residual
+        )
+        / (2.0 * epsilon),
+        rtol=5.0e-7,
+        atol=3.0e-8,
+    )
+    assert response.energy > 0.0
+
+
 def test_fiber_bending_is_scale_invariant_and_residual_is_radially_orthogonal():
     operator, directions, points = _case()
     scale = 0.7 + points[:, 0] + 0.4 * points[:, 1]

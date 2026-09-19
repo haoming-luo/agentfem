@@ -575,6 +575,7 @@
         "agentfem.mechanics.surface_deformation_gradient",
         "agentfem.operators.FiberDirectionBendingOperator",
         "agentfem.operators.FiberDirectionBendingResponse",
+        "agentfem.operators.FiberDirectionBendingIncrement",
         "agentfem.operators.fiber_direction_bending",
         "agentfem.operators.ConvectedCellFiberOperator",
         "agentfem.operators.ConvectedCellFiberKinematics",

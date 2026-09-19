@@ -84,6 +84,16 @@ class FiberDirectionBendingResponse:
 
 
 @dataclass(frozen=True)
+class FiberDirectionBendingIncrement:
+    """Directional derivative of a complete bending response."""
+
+    in_plane_curvature_increment: np.ndarray
+    normal_curvature_increment: np.ndarray
+    direction_residual_increment: np.ndarray
+    surface_tangent_residual_increment: np.ndarray
+
+
+@dataclass(frozen=True)
 class FiberDirectionBendingOperator:
     r"""Exact first variation of a two-channel fibre-curvature energy.
 
@@ -154,9 +164,31 @@ class FiberDirectionBendingOperator:
         """Apply the exact nonlinear direction-field tangent to an increment."""
 
         _, action = self._evaluate_state(directions, increment=increment)
+        return action.direction_residual_increment
+
+    def linearized_response(
+        self,
+        directions,
+        direction_increment,
+        *,
+        surface_tangent_increment=None,
+    ) -> FiberDirectionBendingIncrement:
+        """Differentiate both residual paths along declared increments."""
+
+        _, action = self._evaluate_state(
+            directions,
+            increment=direction_increment,
+            surface_tangent_increment=surface_tangent_increment,
+        )
         return action
 
-    def _evaluate_state(self, directions, *, increment=None):
+    def _evaluate_state(
+        self,
+        directions,
+        *,
+        increment=None,
+        surface_tangent_increment=None,
+    ):
         """Evaluate the common first- and optional second-variation kernel."""
 
         raw = np.asarray(directions, dtype=float)
@@ -170,11 +202,27 @@ class FiberDirectionBendingOperator:
         if np.any(norms <= np.finfo(float).eps):
             raise ValueError("directions must have nonzero length on every cell.")
         unit = raw / norms[:, None]
-        linearized = increment is not None
+        linearized = increment is not None or surface_tangent_increment is not None
         if linearized:
-            increment = np.asarray(increment, dtype=float)
+            if increment is None:
+                increment = np.zeros_like(raw)
+            else:
+                increment = np.asarray(increment, dtype=float)
             if increment.shape != raw.shape or not np.all(np.isfinite(increment)):
                 raise ValueError("increment must be finite with the direction shape.")
+            if surface_tangent_increment is None:
+                surface_tangent_increment = np.zeros_like(self.current_tangents)
+            else:
+                surface_tangent_increment = np.asarray(
+                    surface_tangent_increment, dtype=float
+                )
+            if surface_tangent_increment.shape != self.current_tangents.shape or not (
+                np.all(np.isfinite(surface_tangent_increment))
+            ):
+                raise ValueError(
+                    "surface_tangent_increment must be finite with the "
+                    "current_tangents shape."
+                )
             norm_increments = np.sum(unit * increment, axis=1)
             unit_increments = (
                 increment - unit * norm_increments[:, None]
@@ -196,19 +244,48 @@ class FiberDirectionBendingOperator:
         if linearized:
             gradient_dual_increments = np.empty_like(gradients)
             explicit_increments = np.zeros_like(explicit)
+            in_plane_increments = np.empty(owned, dtype=float)
+            normal_curvature_increments = np.empty(owned, dtype=float)
+            surface_tangent_residual_increments = np.empty_like(
+                surface_tangent_residual
+            )
         energy = 0.0
 
         for output_cell, stencil in enumerate(self.gradient.stencils):
             surface = self.current_tangents[output_cell]
+            surface_increment = (
+                surface_tangent_increment[output_cell] if linearized else None
+            )
             direction = unit[stencil.cell]
-            surface_normal = np.cross(surface[:, 0], surface[:, 1])
-            surface_normal /= np.linalg.norm(surface_normal)
+            surface_normal_raw = np.cross(surface[:, 0], surface[:, 1])
+            surface_jacobian = np.linalg.norm(surface_normal_raw)
+            surface_normal = surface_normal_raw / surface_jacobian
+            if linearized:
+                surface_normal_raw_increment = np.cross(
+                    surface_increment[:, 0], surface[:, 1]
+                ) + np.cross(surface[:, 0], surface_increment[:, 1])
+                surface_jacobian_increment = float(
+                    np.dot(surface_normal, surface_normal_raw_increment)
+                )
+                surface_normal_increment = (
+                    surface_normal_raw_increment
+                    - surface_normal * surface_jacobian_increment
+                ) / surface_jacobian
             if abs(float(np.dot(direction, surface_normal))) > 1.0e-9:
                 raise ValueError(
                     f"directions[{stencil.cell}] must be tangent to the surface."
                 )
             metric = surface.T @ surface
             dual_tangents = np.linalg.solve(metric, surface.T)
+            if linearized:
+                metric_increment = (
+                    surface_increment.T @ surface
+                    + surface.T @ surface_increment
+                )
+                dual_tangent_increment = np.linalg.solve(
+                    metric,
+                    surface_increment.T - metric_increment @ dual_tangents,
+                )
             coordinates = dual_tangents @ direction
             if not np.allclose(
                 surface @ coordinates, direction, atol=1.0e-9, rtol=1.0e-9
@@ -218,11 +295,10 @@ class FiberDirectionBendingOperator:
                 )
             if linearized:
                 direction_increment = unit_increments[stencil.cell]
-                if abs(float(np.dot(direction_increment, surface_normal))) > 1.0e-9:
-                    raise ValueError(
-                        f"increment[{stencil.cell}] must be tangent to the surface."
-                    )
-                coordinate_increment = dual_tangents @ direction_increment
+                coordinate_increment = (
+                    dual_tangent_increment @ direction
+                    + dual_tangents @ direction_increment
+                )
             directional_derivative = gradients[output_cell] @ coordinates
             in_plane_normal = np.cross(surface_normal, direction)
             k_in_plane = float(np.dot(directional_derivative, in_plane_normal))
@@ -259,15 +335,16 @@ class FiberDirectionBendingOperator:
                 dual_tangents.T @ coordinate_dual,
                 coordinates,
             )
-            surface_normal_dual = (
+            unprojected_surface_normal_dual = (
                 weighted_in_plane * np.cross(direction, directional_derivative)
                 + weighted_normal * directional_derivative
             )
-            surface_normal_dual -= (
-                np.dot(surface_normal_dual, surface_normal) * surface_normal
+            surface_normal_component = float(
+                np.dot(unprojected_surface_normal_dual, surface_normal)
             )
-            surface_jacobian = np.linalg.norm(
-                np.cross(surface[:, 0], surface[:, 1])
+            surface_normal_dual = (
+                unprojected_surface_normal_dual
+                - surface_normal_component * surface_normal
             )
             normal_dual = surface_normal_dual / surface_jacobian
             normal_tangent_residual = np.column_stack(
@@ -296,6 +373,8 @@ class FiberDirectionBendingOperator:
                     + gradients[output_cell] @ coordinate_increment
                 )
                 in_plane_normal_increment = np.cross(
+                    surface_normal_increment, direction
+                ) + np.cross(
                     surface_normal, direction_increment
                 )
                 in_plane_curvature_increment = float(
@@ -306,6 +385,11 @@ class FiberDirectionBendingOperator:
                 )
                 normal_curvature_increment = float(
                     np.dot(directional_derivative_increment, surface_normal)
+                    + np.dot(directional_derivative, surface_normal_increment)
+                )
+                in_plane_increments[output_cell] = in_plane_curvature_increment
+                normal_curvature_increments[output_cell] = (
+                    normal_curvature_increment
                 )
                 weighted_in_plane_increment = (
                     self.cell_weights[output_cell]
@@ -321,19 +405,92 @@ class FiberDirectionBendingOperator:
                     weighted_in_plane_increment * in_plane_normal
                     + weighted_in_plane * in_plane_normal_increment
                     + weighted_normal_increment * surface_normal
+                    + weighted_normal * surface_normal_increment
                 )
                 gradient_dual_increments[output_cell] = (
                     np.outer(curvature_dual_increment, coordinates)
                     + np.outer(curvature_dual, coordinate_increment)
                 )
+                coordinate_dual_increment = (
+                    gradient_increment.T @ curvature_dual
+                    + gradients[output_cell].T @ curvature_dual_increment
+                )
+                coordinate_tangent_residual_increment = -(
+                    np.outer(
+                        dual_tangent_increment.T @ coordinate_dual
+                        + dual_tangents.T @ coordinate_dual_increment,
+                        coordinates,
+                    )
+                    + np.outer(
+                        dual_tangents.T @ coordinate_dual,
+                        coordinate_increment,
+                    )
+                )
+                unprojected_surface_normal_dual_increment = (
+                    weighted_in_plane_increment
+                    * np.cross(direction, directional_derivative)
+                    + weighted_in_plane
+                    * (
+                        np.cross(direction_increment, directional_derivative)
+                        + np.cross(
+                            direction, directional_derivative_increment
+                        )
+                    )
+                    + weighted_normal_increment * directional_derivative
+                    + weighted_normal * directional_derivative_increment
+                )
+                normal_component_increment = float(
+                    np.dot(
+                        unprojected_surface_normal_dual_increment,
+                        surface_normal,
+                    )
+                    + np.dot(
+                        unprojected_surface_normal_dual,
+                        surface_normal_increment,
+                    )
+                )
+                projected_normal_dual_increment = (
+                    unprojected_surface_normal_dual_increment
+                    - normal_component_increment * surface_normal
+                    - surface_normal_component * surface_normal_increment
+                )
+                normal_dual_increment = (
+                    projected_normal_dual_increment / surface_jacobian
+                    - normal_dual
+                    * surface_jacobian_increment
+                    / surface_jacobian
+                )
+                normal_tangent_residual_increment = np.column_stack(
+                    (
+                        np.cross(surface_increment[:, 1], normal_dual)
+                        + np.cross(surface[:, 1], normal_dual_increment),
+                        np.cross(normal_dual_increment, surface[:, 0])
+                        + np.cross(normal_dual, surface_increment[:, 0]),
+                    )
+                )
+                surface_tangent_residual_increments[output_cell] = (
+                    coordinate_tangent_residual_increment
+                    + normal_tangent_residual_increment
+                )
                 local_in_plane_gradient_increment = np.cross(
                     directional_derivative_increment, surface_normal
+                ) + np.cross(
+                    directional_derivative, surface_normal_increment
+                ) + dual_tangent_increment.T @ (
+                    gradients[output_cell].T @ in_plane_normal
                 ) + dual_tangents.T @ (
                     gradient_increment.T @ in_plane_normal
                     + gradients[output_cell].T @ in_plane_normal_increment
                 )
                 local_normal_gradient_increment = (
-                    dual_tangents.T @ gradient_increment.T @ surface_normal
+                    dual_tangent_increment.T
+                    @ gradients[output_cell].T
+                    @ surface_normal
+                    + dual_tangents.T
+                    @ (
+                        gradient_increment.T @ surface_normal
+                        + gradients[output_cell].T @ surface_normal_increment
+                    )
                 )
                 explicit_increments[stencil.cell] += (
                     weighted_in_plane_increment * local_in_plane_gradient
@@ -374,7 +531,16 @@ class FiberDirectionBendingOperator:
             residual=residual,
             surface_tangent_residual=surface_tangent_residual,
         )
-        return response, tangent_action if linearized else None
+        if not linearized:
+            return response, None
+        return response, FiberDirectionBendingIncrement(
+            in_plane_curvature_increment=in_plane_increments,
+            normal_curvature_increment=normal_curvature_increments,
+            direction_residual_increment=tangent_action,
+            surface_tangent_residual_increment=(
+                surface_tangent_residual_increments
+            ),
+        )
 
     def as_dict(self) -> dict[str, object]:
         return {
@@ -384,7 +550,9 @@ class FiberDirectionBendingOperator:
             "energy_channels": ("in_plane_curvature", "normal_curvature"),
             "first_variation": "exact_direction_and_surface_tangent_duals",
             "surface_tangent_dual": "exact_direct_energy_derivative",
+            "direction_tangent": "exact_matrix_free_action_for_fixed_surface_tangents",
             "nonlinear_tangent": "exact_matrix_free_action_for_fixed_surface_tangents",
+            "response_linearization": "exact_direction_and_surface_tangent_paths",
             "mpi_requirement": "reverse_scatter_ghost_residual_to_owners",
             "scope": "bending_contribution_not_complete_shell_equilibrium",
             "gradient_operator": self.gradient.as_dict(),
@@ -415,6 +583,7 @@ def fiber_direction_bending(
 
 
 __all__ = [
+    "FiberDirectionBendingIncrement",
     "FiberDirectionBendingOperator",
     "FiberDirectionBendingResponse",
     "fiber_direction_bending",

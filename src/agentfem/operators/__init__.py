@@ -61,6 +61,7 @@ from .cell_transfer import (
     convected_cell_fiber,
 )
 from .fiber_bending import (
+    FiberDirectionBendingIncrement,
     FiberDirectionBendingOperator,
     FiberDirectionBendingResponse,
     fiber_direction_bending,
@@ -143,6 +144,7 @@ __all__ = [
     "elasticity",
     "force_vector",
     "fiber_direction_bending",
+    "FiberDirectionBendingIncrement",
     "form_arity",
     "flux_vector",
     "heat_capacity_operator",

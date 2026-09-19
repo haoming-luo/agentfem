@@ -970,6 +970,7 @@ Defines independent woven-surface tension, trellising-shear, and bending channel
 - `agentfem.mechanics.surface_deformation_gradient`
 - `agentfem.operators.FiberDirectionBendingOperator`
 - `agentfem.operators.FiberDirectionBendingResponse`
+- `agentfem.operators.FiberDirectionBendingIncrement`
 - `agentfem.operators.fiber_direction_bending`
 - `agentfem.operators.ConvectedCellFiberOperator`
 - `agentfem.operators.ConvectedCellFiberKinematics`
@@ -1025,8 +1026,8 @@ In-plane/geodesic and normal bending are separate objective measures and require
 | multilayer membrane result fields | stable per-layer DG fields expanded from generic fabric requests plus aggregate SENER and a layer-to-field manifest | the same per-layer units as the single-surface fields | Layer order and a readable slug form collision-free field prefixes; same-orientation groups aggregate only their explicitly listed physical layers, and unlike generalized resultants are never silently summed. |
 | local fibrous-shell response | independent membrane, transverse-shear, in-plane-bending, and normal-bending resultants, energy channels, and a 9x9 block tangent | generalized shell forces, moments, energy per reference area, and their conjugate tangents | The constitutive contract is element-neutral and rejects overlapping legacy bending ownership. |
 | symbolic fibrous-shell constitutive potential | nine generalized UFL measures, one stored-energy expression, four named energy channels, and nine conjugate resultants | the same generalized shell units as the local response | A future operator constructs compatible measures; UFL differentiates this single potential into a consistent residual and Jacobian. |
-| independent-direction bending response | owned-cell in-plane/normal curvature, energy, exact local-plus-ghost direction residual, exact direct surface-tangent dual, and matrix-free fixed-tangent direction action | curvature, energy, and virtual work in a consistent unit system | The direction is normalized before one cached neighbor reconstruction; the response differentiates both direction and current-tangent inputs, while the matrix-free second action currently covers the direction path at fixed tangents. |
-| displacement-derived cell-fibre kinematics | current 3x2 tangents, fibre stretch, unit direction, exact directional derivative, and exact displacement-space adjoint | surface deformation and work-conjugate virtual quantities | Reference tangent coordinates are convected by the cell-average gradient of a three-component displacement on a two-dimensional parameter mesh; no independent physical direction field is exposed to the user. |
+| independent-direction bending response | owned-cell in-plane/normal curvature, energy, exact local-plus-ghost direction residual, exact direct surface-tangent dual, and exact matrix-free response linearization | curvature, energy, and virtual work in a consistent unit system | The direction is normalized before one cached neighbor reconstruction; the response and its linearization differentiate both direction and current-tangent paths, while tangent_action remains the fixed-tangent direction-only convenience. |
+| displacement-derived cell-fibre kinematics | current 3x2 tangents, fibre stretch, unit direction, exact directional derivative, exact displacement-space adjoint, and exact adjoint linearization | surface deformation and work-conjugate virtual quantities | Reference tangent coordinates are convected by the cell-average gradient of a three-component displacement on a two-dimensional parameter mesh; no independent physical direction field is exposed to the user. |
 
 #### Assumptions
 
@@ -1046,8 +1047,8 @@ In-plane/geodesic and normal bending are separate objective measures and require
 #### Limitations
 
 - The global membrane Step rejects nonzero bending because no shell element consumes that channel yet.
-- The independent-direction bending operator supplies exact direction and direct surface-tangent first derivatives, but its matrix-free second action still freezes surface tangents and does not include compatibility-constraint blocks.
-- The displacement-derived fibre transfer and bending response compose into the complete first variation of the bending energy, but a consistent full displacement tangent, boundary moments, and a public shell Step remain promotion gates.
+- The independent-direction bending operator supplies exact direction and direct surface-tangent first derivatives plus their exact admissible response linearization, but it does not include compatibility-constraint blocks.
+- The displacement-derived fibre transfer and bending response compose into the complete first variation and matrix-free consistent tangent of the bending energy, but boundary moments, complete shell assembly, and a public shell Step remain promotion gates.
 - FabricStack membrane lowering shares one surface displacement across layers; transverse slippage, independent material normals, and shell equilibrium remain promotion gates.
 - Contact, friction, inter-ply slip, locking control, and forming procedures are not implemented.
 - Rate effects, hysteresis, irreversible locking, yarn slippage, and damage need additional stateful laws.
@@ -1088,6 +1089,7 @@ study = studies.static_membrane(); model = models.create(study=study, mesh=domai
 - Verify that neighbour-reconstructed fibre bending matches finite-difference energy and residual derivatives, has a symmetric Hessian action, is invariant to pointwise direction scaling, and transforms objectively under a superposed three-dimensional rotation in serial and two-rank execution.
 - Verify that displacement-derived current tangents, fibre stretch, and unit direction reproduce a rigid rotation, match finite-difference directional derivatives, and satisfy the global derivative/adjoint work identity in serial and under two MPI ranks.
 - Verify that the composed displacement-derived bending residual includes both direction and direct surface-tangent paths and closes the global energy--virtual-work identity in serial and under two MPI ranks.
+- Verify that exact response and kinematic-adjoint linearizations compose into a displacement-space tangent that matches residual differences in serial and under two MPI ranks.
 - Keep shell, contact, and forming claims unavailable until their independent patch tests and benchmarks pass.
 
 ### References

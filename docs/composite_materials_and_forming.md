@@ -355,9 +355,11 @@ local-plus-ghost MPI semantics. The response also returns the exact direct
 energy derivative with respect to its current surface tangents. Its
 analytical matrix-free direction tangent matches residual
 differences, satisfies Hessian symmetry, and transforms covariantly under a
-three-dimensional rigid rotation in serial and two-rank tests. The complete
-second variation with moving surface tangents, compatibility-force blocks,
-boundary moments and complete shell equilibrium remain promotion gates.
+three-dimensional rigid rotation in serial and two-rank tests. Its full
+response linearization additionally differentiates the direction and
+surface-tangent duals along an admissible moving-surface path.
+Compatibility-force blocks, boundary moments and complete shell equilibrium
+remain promotion gates.
 For distributed use, `assembly.assemble_cell_residual(...)` maps scalar or
 blocked-vector DG0 cell contributions to their explicit cell dofs, reverse-
 scatters ghost contributions to owners, and then refreshes ghost entries. A
@@ -384,9 +386,12 @@ space with global work closure in serial and two-rank tests. Combining that
 adjoint with the bending law's direction and direct surface-tangent duals now
 assembles the complete displacement-level first variation of this bending
 energy. Centered finite differences close the energy--virtual-work identity
-in serial and over a two-rank partition. The next gate is therefore the
-consistent displacement-level second variation, followed by boundary moments
-and shell patch tests; this evidence still does not constitute a shell Step.
+in serial and over a two-rank partition. Matching exact linearizations of the
+kinematic adjoint and bending response now compose into a matrix-free
+displacement-level consistent tangent, which matches residual differences in
+serial and over two ranks. The next gates are therefore boundary moments,
+complete shell assembly, locking control and shell patch tests; this evidence
+still does not constitute a shell Step.
 Naive mixed P1/DG0 and P2/DG1 compatibility pairs were rejected after losing
 rank under refinement; full-rank P2/CG1 and P2/DG0 candidates still showed a
 decaying normalized inf-sup value in the tested H1/L2 norms. Those negative
@@ -481,15 +486,17 @@ The automated local evidence currently checks:
   identity in serial and under two MPI ranks;
 - the displacement-derived bending energy closes its complete first-variation
   identity, including both direction and surface-tangent paths, in serial and
-  under two MPI ranks.
+  under two MPI ranks;
+- its matrix-free displacement tangent matches residual differences in serial
+  and under two MPI ranks.
 
 No shell element patch test, contact benchmark, or drape experiment has yet
 promoted this membrane foundation to a forming-capable fibrous shell.
 
 ## Promotion roadmap
 
-1. **Fibrous shell kernel:** complete displacement-level consistent tangent,
-   boundary moments, neighbouring-element rotation-free interpolation;
+1. **Fibrous shell kernel:** boundary moments and complete neighbouring-
+   element rotation-free interpolation;
    membrane, transverse-shear,
    in-plane-bending and normal-bending patch tests; documented locking control.
 2. **Forming procedure:** tool geometry, unilateral contact, friction,

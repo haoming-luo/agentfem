@@ -79,6 +79,12 @@ experimental formulation to a validated one.
   exposes its exact direct surface-tangent dual; composing that dual and the
   direction residual with the convected-fibre adjoint matches finite-
   difference energy changes in serial and across a two-rank partition.
+- Add exact directional linearization of the convected-fibre adjoint and of
+  both bending-response dual paths. Their composition supplies a matrix-free
+  displacement-level consistent tangent; residual differences agree in
+  serial and across a two-rank partition. An independent PyTorch autograd
+  audit used during development agreed at floating-point precision without
+  becoming a runtime dependency.
 - Add `agentfem support`, a consent-first community invitation that performs no
   account action, checks an existing GitHub login only when explicitly asked,
   and remembers support locally without storing identity or credentials.

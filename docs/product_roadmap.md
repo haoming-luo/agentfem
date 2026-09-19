@@ -186,11 +186,13 @@ Deepen the finite-element core before broadening the catalog:
   reusable nonlocal operator foundation in serial and two-rank tests. The
   convected-fibre chain now also combines exact direction and surface-tangent
   duals into a displacement-space first variation whose energy--virtual-work
-  identity closes in serial and over two ranks. The
+  identity closes in serial and over two ranks. Exact linearizations of the
+  response and kinematic pullback provide the matching displacement-level
+  matrix-free tangent, which closes against residual differences over the same
+  serial and distributed paths. The
   naive mixed interpolation pairs that lost rank or exhibited a decaying
   normalized inf-sup value remain rejected evidence. The next promotion
-  sequence is the complete displacement-level consistent tangent of the
-  convected-fibre bending energy, boundary moments, locking
+  sequence is boundary moments and complete shell assembly, locking
   control and membrane/
   transverse-shear/in-plane-bending/normal-bending patch tests,
   followed by tool contact, friction, inter-ply slip, quasi-static explicit

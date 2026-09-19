@@ -29,6 +29,7 @@
     "agentfem.mechanics.surface_deformation_gradient",
     "agentfem.operators.FiberDirectionBendingOperator",
     "agentfem.operators.FiberDirectionBendingResponse",
+    "agentfem.operators.FiberDirectionBendingIncrement",
     "agentfem.operators.fiber_direction_bending",
     "agentfem.operators.ConvectedCellFiberOperator",
     "agentfem.operators.ConvectedCellFiberKinematics",
@@ -120,13 +121,13 @@
       },
       {
         "name": "independent-direction bending response",
-        "type": "owned-cell in-plane/normal curvature, energy, exact local-plus-ghost direction residual, exact direct surface-tangent dual, and matrix-free fixed-tangent direction action",
+        "type": "owned-cell in-plane/normal curvature, energy, exact local-plus-ghost direction residual, exact direct surface-tangent dual, and exact matrix-free response linearization",
         "unit_role": "curvature, energy, and virtual work in a consistent unit system",
-        "description": "The direction is normalized before one cached neighbor reconstruction; the response differentiates both direction and current-tangent inputs, while the matrix-free second action currently covers the direction path at fixed tangents."
+        "description": "The direction is normalized before one cached neighbor reconstruction; the response and its linearization differentiate both direction and current-tangent paths, while tangent_action remains the fixed-tangent direction-only convenience."
       },
       {
         "name": "displacement-derived cell-fibre kinematics",
-        "type": "current 3x2 tangents, fibre stretch, unit direction, exact directional derivative, and exact displacement-space adjoint",
+        "type": "current 3x2 tangents, fibre stretch, unit direction, exact directional derivative, exact displacement-space adjoint, and exact adjoint linearization",
         "unit_role": "surface deformation and work-conjugate virtual quantities",
         "description": "Reference tangent coordinates are convected by the cell-average gradient of a three-component displacement on a two-dimensional parameter mesh; no independent physical direction field is exposed to the user."
       }
@@ -145,8 +146,8 @@
     ],
     "limitations": [
       "The global membrane Step rejects nonzero bending because no shell element consumes that channel yet.",
-      "The independent-direction bending operator supplies exact direction and direct surface-tangent first derivatives, but its matrix-free second action still freezes surface tangents and does not include compatibility-constraint blocks.",
-      "The displacement-derived fibre transfer and bending response compose into the complete first variation of the bending energy, but a consistent full displacement tangent, boundary moments, and a public shell Step remain promotion gates.",
+      "The independent-direction bending operator supplies exact direction and direct surface-tangent first derivatives plus their exact admissible response linearization, but it does not include compatibility-constraint blocks.",
+      "The displacement-derived fibre transfer and bending response compose into the complete first variation and matrix-free consistent tangent of the bending energy, but boundary moments, complete shell assembly, and a public shell Step remain promotion gates.",
       "FabricStack membrane lowering shares one surface displacement across layers; transverse slippage, independent material normals, and shell equilibrium remain promotion gates.",
       "Contact, friction, inter-ply slip, locking control, and forming procedures are not implemented.",
       "Rate effects, hysteresis, irreversible locking, yarn slippage, and damage need additional stateful laws.",
@@ -186,6 +187,7 @@
       "Verify that neighbour-reconstructed fibre bending matches finite-difference energy and residual derivatives, has a symmetric Hessian action, is invariant to pointwise direction scaling, and transforms objectively under a superposed three-dimensional rotation in serial and two-rank execution.",
       "Verify that displacement-derived current tangents, fibre stretch, and unit direction reproduce a rigid rotation, match finite-difference directional derivatives, and satisfy the global derivative/adjoint work identity in serial and under two MPI ranks.",
       "Verify that the composed displacement-derived bending residual includes both direction and direct surface-tangent paths and closes the global energy--virtual-work identity in serial and under two MPI ranks.",
+      "Verify that exact response and kinematic-adjoint linearizations compose into a displacement-space tangent that matches residual differences in serial and under two MPI ranks.",
       "Keep shell, contact, and forming claims unavailable until their independent patch tests and benchmarks pass."
     ]
   },

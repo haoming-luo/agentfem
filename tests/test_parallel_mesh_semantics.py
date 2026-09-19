@@ -305,9 +305,11 @@ def test_cell_neighborhood_keeps_partition_interface_pairs_complete():
             in_plane_stiffness=2.5,
             normal_stiffness=4.0,
         )
-        return state, model.evaluate(state.direction)
+        return state, model, model.evaluate(state.direction)
 
-    bend_state, bend_response = displacement_bending_response(bend_displacement)
+    bend_state, bend_model, bend_response = displacement_bending_response(
+        bend_displacement
+    )
     bend_tangent_duals = np.zeros_like(bend_state.current_tangents)
     bend_tangent_duals[: operator.owned_cells] = (
         bend_response.surface_tangent_residual
@@ -324,8 +326,8 @@ def test_cell_neighborhood_keeps_partition_interface_pairs_complete():
     plus.x.scatter_forward()
     minus.x.scatter_forward()
     local_energy_difference = (
-        displacement_bending_response(plus)[1].energy
-        - displacement_bending_response(minus)[1].energy
+        displacement_bending_response(plus)[2].energy
+        - displacement_bending_response(minus)[2].energy
     ) / (2.0 * epsilon)
     local_residual_work = float(
         np.vdot(bend_increment.x.petsc_vec.array_r, bend_residual.array_r)
@@ -336,6 +338,64 @@ def test_cell_neighborhood_keeps_partition_interface_pairs_complete():
         rel=5.0e-7,
         abs=5.0e-9,
     )
+    bend_kinematic_increment = fiber_transfer.directional_derivative(
+        bend_displacement,
+        bend_increment,
+    )
+    bend_response_increment = bend_model.linearized_response(
+        bend_state.direction,
+        bend_kinematic_increment.direction_increment,
+        surface_tangent_increment=bend_kinematic_increment.tangent_increment[
+            : operator.owned_cells
+        ],
+    )
+    bend_tangent_dual_increments = np.zeros_like(
+        bend_state.current_tangents
+    )
+    bend_tangent_dual_increments[: operator.owned_cells] = (
+        bend_response_increment.surface_tangent_residual_increment
+    )
+    bend_tangent = fiber_transfer.apply_adjoint_derivative(
+        bend_displacement,
+        bend_increment,
+        direction_duals=bend_response.residual,
+        direction_dual_increments=(
+            bend_response_increment.direction_residual_increment
+        ),
+        tangent_duals=bend_tangent_duals,
+        tangent_dual_increments=bend_tangent_dual_increments,
+    )
+
+    def displacement_bending_residual(field):
+        trial_state, _, trial_response = displacement_bending_response(field)
+        trial_tangent_duals = np.zeros_like(trial_state.current_tangents)
+        trial_tangent_duals[: operator.owned_cells] = (
+            trial_response.surface_tangent_residual
+        )
+        return fiber_transfer.apply_adjoint(
+            field,
+            direction_duals=trial_response.residual,
+            tangent_duals=trial_tangent_duals,
+        )
+
+    plus_bend_residual = displacement_bending_residual(plus)
+    minus_bend_residual = displacement_bending_residual(minus)
+    local_tangent_error = float(
+        np.max(
+            np.abs(
+                bend_tangent.array_r
+                - (
+                    plus_bend_residual.array_r
+                    - minus_bend_residual.array_r
+                )
+                / (2.0 * epsilon)
+            )
+        )
+    )
+    bend_tangent.destroy()
+    plus_bend_residual.destroy()
+    minus_bend_residual.destroy()
+    assert comm.allreduce(local_tangent_error, op=MPI.MAX) < 8.0e-8
 
 
 def test_distributed_abaqus_regions_quality_and_remote_resultant():
