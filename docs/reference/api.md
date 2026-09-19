@@ -1167,6 +1167,7 @@ and evidence remain in the linked guides and scientific function reference.
 | --- | --- | --- |
 | function | `make_form(ufl_form)` | Compile a UFL form for assembly. |
 | function | `assemble_vector(form)` | Assemble a vector and accumulate ghost contributions to owned entries. |
+| function | `assemble_cell_residual(space, cell_contributions)` | Accumulate local-and-ghost cell contributions into a DG0 PETSc vector. |
 | function | `assemble_matrix(form, bcs = None)` | Assemble a matrix and apply optional strong Dirichlet BC structure. |
 | function | `assemble_lumped_operator(V, coefficient = 1.0, measure = ufl.dx) -> np.ndarray` | Assemble a diagonal/lumped operator vector on ``V``. |
 | function | `assemble_lumped_mass(V, density = 1.0, measure = ufl.dx) -> np.ndarray` | Assemble a lumped mass vector for a scalar or vector space. |

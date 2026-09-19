@@ -357,6 +357,12 @@ differences, satisfies Hessian symmetry, and transforms covariantly under a
 three-dimensional rigid rotation in serial and two-rank tests. Surface-tangent
 variation, compatibility-force blocks, boundary moments and complete
 displacement equilibrium remain promotion gates.
+For distributed use, `assembly.assemble_cell_residual(...)` maps scalar or
+blocked-vector DG0 cell contributions to their explicit cell dofs, reverse-
+scatters ghost contributions to owners, and then refreshes ghost entries. A
+two-rank test now closes global bending-energy directional change against the
+assembled PETSc residual work; the operator is no longer limited to a
+rank-local diagnostic array.
 Naive mixed P1/DG0 and P2/DG1 compatibility pairs were rejected after losing
 rank under refinement; full-rank P2/CG1 and P2/DG0 candidates still showed a
 decaying normalized inf-sup value in the tested H1/L2 norms. Those negative
@@ -440,7 +446,9 @@ The automated local evidence currently checks:
 - the neighbour-reconstructed independent-direction bending energy has an
   exact first variation and consistent matrix-free tangent, pointwise scale
   invariance, Hessian symmetry and three-dimensional rotation objectivity in
-  serial and two-rank tests.
+  serial and two-rank tests;
+- DG0 scalar/vector residual assembly reverse-scatters ghost-cell
+  contributions and closes the global two-rank energy--virtual-work identity.
 
 No shell element patch test, contact benchmark, or drape experiment has yet
 promoted this membrane foundation to a forming-capable fibrous shell.

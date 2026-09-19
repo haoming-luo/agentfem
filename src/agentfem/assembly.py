@@ -27,6 +27,60 @@ def assemble_vector(form):
     return vector
 
 
+def assemble_cell_residual(space, cell_contributions):
+    """Accumulate local-and-ghost cell contributions into a DG0 PETSc vector.
+
+    ``cell_contributions`` must provide one scalar or value-shaped entry for
+    every local and ghost cell. Contributions at ghost cells are reverse-
+    scattered with addition to their owner, then forward-scattered so the
+    returned ghosted vector has consistent owned and ghost entries.
+
+    This adapter is intentionally restricted to discontinuous degree-zero
+    spaces: their one block dof per cell makes the cell identity explicit.
+    """
+
+    element = space.element
+    basix_element = element.basix_element
+    if int(basix_element.degree) != 0 or not bool(basix_element.discontinuous):
+        raise ValueError("assemble_cell_residual requires a discontinuous DG0 space.")
+    value_shape = tuple(int(value) for value in element.value_shape)
+    block_size = int(space.dofmap.index_map_bs)
+    expected_block_size = int(np.prod(value_shape, dtype=int)) if value_shape else 1
+    if block_size != expected_block_size:
+        raise ValueError("DG0 space block size does not match its value shape.")
+    domain = space.mesh
+    cell_map = domain.topology.index_map(domain.topology.dim)
+    total_cells = int(cell_map.size_local + cell_map.num_ghosts)
+    contributions = np.asarray(cell_contributions, dtype=float)
+    expected_shape = (total_cells, *value_shape)
+    if contributions.shape != expected_shape or not np.all(np.isfinite(contributions)):
+        raise ValueError(
+            f"cell_contributions must be finite with shape {expected_shape}."
+        )
+    flattened = contributions.reshape((total_cells, block_size))
+    holder = fem.Function(space)
+    vector = holder.x.petsc_vec.duplicate()
+    with vector.localForm() as local:
+        local.set(0.0)
+        local_values = local.array
+        for cell in range(total_cells):
+            dofs = np.asarray(space.dofmap.cell_dofs(cell), dtype=np.int32)
+            if dofs.shape != (1,):
+                vector.destroy()
+                raise RuntimeError("DG0 cell residual requires one block dof per cell.")
+            start = int(dofs[0]) * block_size
+            local_values[start : start + block_size] += flattened[cell]
+    vector.ghostUpdate(
+        addv=PETSc.InsertMode.ADD_VALUES,
+        mode=PETSc.ScatterMode.REVERSE,
+    )
+    vector.ghostUpdate(
+        addv=PETSc.InsertMode.INSERT_VALUES,
+        mode=PETSc.ScatterMode.FORWARD,
+    )
+    return vector
+
+
 def assemble_matrix(form, bcs=None):
     """Assemble a matrix and apply optional strong Dirichlet BC structure."""
 

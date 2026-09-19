@@ -3,10 +3,11 @@
 
 import numpy as np
 import pytest
+from dolfinx import fem
 from dolfinx import mesh as dolfinx_mesh
 from mpi4py import MPI
 
-from agentfem import mesh, operators
+from agentfem import assembly, mesh, operators
 
 
 def _operator(*, components=()):
@@ -99,6 +100,33 @@ def test_cell_gradient_energy_uses_physical_cell_measures():
 
     assert np.sum(weights) == pytest.approx(1.0, rel=1.0e-13)
     assert energy.energy(values) == pytest.approx(0.5 * 4.0 * (2.0**2 + 3.0**2))
+
+
+def test_cell_residual_assembly_preserves_scalar_and_vector_cell_identity():
+    domain = dolfinx_mesh.create_unit_square(MPI.COMM_SELF, 2, 2)
+    cell_count = domain.topology.index_map(domain.topology.dim).size_local
+    for shape in ((), (3,)):
+        space = fem.functionspace(domain, ("DG", 0, shape)) if shape else fem.functionspace(domain, ("DG", 0))
+        contributions = np.arange(
+            cell_count * (shape[0] if shape else 1), dtype=float
+        ).reshape((cell_count, *shape))
+        vector = assembly.assemble_cell_residual(space, contributions)
+        expected = np.empty_like(vector.array_r)
+        for cell in range(cell_count):
+            dof = int(space.dofmap.cell_dofs(cell)[0])
+            block_size = int(space.dofmap.index_map_bs)
+            expected[dof * block_size : (dof + 1) * block_size] = np.asarray(
+                contributions[cell]
+            ).reshape(-1)
+        np.testing.assert_allclose(vector.array_r, expected)
+        vector.destroy()
+
+
+def test_cell_residual_assembly_rejects_non_dg0_space():
+    domain = dolfinx_mesh.create_unit_square(MPI.COMM_SELF, 1, 1)
+    space = fem.functionspace(domain, ("Lagrange", 1, (3,)))
+    with pytest.raises(ValueError, match="DG0"):
+        assembly.assemble_cell_residual(space, np.zeros((2, 3)))
 
 
 @pytest.mark.parametrize(

@@ -3360,6 +3360,7 @@ Builds owned-facet evidence and ghost-complete local stencils, then supplies aff
 
 ### Public API
 
+- `agentfem.assembly.assemble_cell_residual`
 - `agentfem.mesh.CellNeighborhood`
 - `agentfem.mesh.CellNeighborhoodGeometry`
 - `agentfem.mesh.CellPairDifference`
@@ -3406,6 +3407,7 @@ The two-cell stencil must remain complete when one adjacent cell is a ghost on t
 | cell gradient reconstruction | owned-cell scalar or vector gradient plus stencil evidence | input value per length | Weighted least squares uses a local SVD tangent basis and reports neighbor count, rank and condition number for every owned cell; compact neighbor weights can be cached and reapplied to many fields, and the same operator exposes its exact transpose for residual and energy-gradient construction. |
 | cell gradient energy operator | matrix-free energy, residual and tangent action | declared cell weight and stiffness contract | One cached G evaluates 0.5 sum(w k \|Gv\|^2), its exact residual G^T w k Gv and the matching tangent action for scalar or vector cell fields without forming a dense global matrix. |
 | owned cell measures | one positive physical integration measure per owned cell | length to the mesh topological dimension | A DG0 test integral provides cell-aligned weights and excludes ghost cells so rank-local energies count every global cell once. |
+| assembled DG0 cell residual | ghosted PETSc vector on a scalar or blocked DG0 space | the supplied cell virtual-work contribution | Local and ghost cell contributions are mapped by explicit cell identity, reverse-scattered with addition to owners, and forward-scattered for a consistent distributed vector. |
 
 #### Assumptions
 
@@ -3456,6 +3458,7 @@ gradient = mesh.cell_gradient_operator(domain, rings=2); energy = operators.cell
 - Satisfy the scalar and vector inner-product identity between the cached gradient action and its exact transpose, including rank-local ghost contributions under two MPI ranks.
 - Match finite-difference energy derivatives with the exact residual, retain a symmetric positive-semidefinite tangent, and preserve constant fields as an exact zero-energy mode.
 - Recover the exact rectangle area on triangular and quadrilateral meshes and count the unit-square area exactly once across two MPI ranks.
+- Assemble scalar and vector DG0 cell contributions by cell identity and recover global energy-directional-derivative work after ghost reverse scatter under two MPI ranks.
 - Under two MPI ranks, count every global interior facet exactly once and retain a ghost adjacent cell across partition interfaces.
 
 ### References

@@ -6,10 +6,11 @@ import uuid
 
 import numpy as np
 import pytest
+from dolfinx import fem
 from dolfinx import mesh as dolfinx_mesh
 from mpi4py import MPI
 
-from agentfem import constraints, fields, loads, mechanics, mesh, operators, results
+from agentfem import assembly, constraints, fields, loads, mechanics, mesh, operators, results
 
 
 def test_cell_neighborhood_keeps_partition_interface_pairs_complete():
@@ -156,6 +157,28 @@ def test_cell_neighborhood_keeps_partition_interface_pairs_complete():
         bending_residual_difference,
         rtol=2.0e-6,
         atol=2.0e-8,
+    )
+    direction_space = fem.functionspace(domain, ("DG", 0, (3,)))
+    assembled = assembly.assemble_cell_residual(
+        direction_space,
+        bending_response.residual,
+    )
+    owned_increment = np.empty_like(assembled.array_r)
+    block_size = int(direction_space.dofmap.index_map_bs)
+    for cell in range(cell_map.size_local):
+        dof = int(direction_space.dofmap.cell_dofs(cell)[0])
+        owned_increment[dof * block_size : (dof + 1) * block_size] = (
+            direction_increment[cell]
+        )
+    global_assembled_work = comm.allreduce(
+        float(np.vdot(assembled.array_r, owned_increment)), op=MPI.SUM
+    )
+    global_energy_difference = comm.allreduce(
+        float(bending_finite_difference), op=MPI.SUM
+    )
+    assembled.destroy()
+    assert global_assembled_work == pytest.approx(
+        global_energy_difference, rel=2.0e-7, abs=2.0e-9
     )
 
 

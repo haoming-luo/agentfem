@@ -980,6 +980,7 @@
       "id": "agentfem.workflow.cell_neighborhood_topology",
       "kind": "workflow",
       "public_api": [
+        "agentfem.assembly.assemble_cell_residual",
         "agentfem.mesh.CellNeighborhood",
         "agentfem.mesh.CellNeighborhoodGeometry",
         "agentfem.mesh.CellPairDifference",

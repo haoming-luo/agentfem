@@ -61,6 +61,10 @@ experimental formulation to a validated one.
   three-dimensional rigid rotation, and explicit about ghost residual
   assembly; its matrix-free tangent matches residual differences and Hessian
   symmetry, while complete shell coupling remains gated.
+- Add DG0 scalar/vector cell-residual assembly with explicit cell-to-block-dof
+  identity and MPI reverse/forward ghost scatter. The two-rank fibrous-bending
+  test now closes the global energy-directional-derivative identity against an
+  assembled PETSc residual vector.
 - Add `agentfem support`, a consent-first community invitation that performs no
   account action, checks an existing GitHub login only when explicitly asked,
   and remembers support locally without storing identity or credentials.

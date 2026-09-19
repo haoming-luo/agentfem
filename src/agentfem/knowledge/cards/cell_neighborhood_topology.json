@@ -7,6 +7,7 @@
   "status": "experimental",
   "summary": "Builds owned-facet evidence and ghost-complete local stencils, then supplies affine-exact pair differences plus rank-audited least-squares gradients and their exact transpose action for neighboring-element, DG, estimator and fracture algorithms.",
   "public_api": [
+    "agentfem.assembly.assemble_cell_residual",
     "agentfem.mesh.CellNeighborhood",
     "agentfem.mesh.CellNeighborhoodGeometry",
     "agentfem.mesh.CellPairDifference",
@@ -77,6 +78,12 @@
         "type": "one positive physical integration measure per owned cell",
         "unit_role": "length to the mesh topological dimension",
         "description": "A DG0 test integral provides cell-aligned weights and excludes ghost cells so rank-local energies count every global cell once."
+      },
+      {
+        "name": "assembled DG0 cell residual",
+        "type": "ghosted PETSc vector on a scalar or blocked DG0 space",
+        "unit_role": "the supplied cell virtual-work contribution",
+        "description": "Local and ghost cell contributions are mapped by explicit cell identity, reverse-scattered with addition to owners, and forward-scattered for a consistent distributed vector."
       }
     ],
     "assumptions": [
@@ -120,6 +127,7 @@
       "Satisfy the scalar and vector inner-product identity between the cached gradient action and its exact transpose, including rank-local ghost contributions under two MPI ranks.",
       "Match finite-difference energy derivatives with the exact residual, retain a symmetric positive-semidefinite tangent, and preserve constant fields as an exact zero-energy mode.",
       "Recover the exact rectangle area on triangular and quadrilateral meshes and count the unit-square area exactly once across two MPI ranks.",
+      "Assemble scalar and vector DG0 cell contributions by cell identity and recover global energy-directional-derivative work after ghost reverse scatter under two MPI ranks.",
       "Under two MPI ranks, count every global interior facet exactly once and retain a ghost adjacent cell across partition interfaces."
     ]
   },
