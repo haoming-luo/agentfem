@@ -51,6 +51,7 @@ from .core import (
     xtmx,
     xtmy,
 )
+from .cell_gradient import CellGradientEnergyOperator, cell_gradient_energy
 from .elasticity import (
     elastic_stiffness,
     internal_force_vector,
@@ -87,6 +88,7 @@ assemble_lumped_operator = lumped_operator
 
 __all__ = [
     "LumpedMassOperator",
+    "CellGradientEnergyOperator",
     "LinearSystem",
     "FirstOrderSystem",
     "OperatorForm",
@@ -107,6 +109,7 @@ __all__ = [
     "boundary_force_vector",
     "boundary_model_vector",
     "capacity_operator",
+    "cell_gradient_energy",
     "combine",
     "compile_form",
     "conduction_operator",

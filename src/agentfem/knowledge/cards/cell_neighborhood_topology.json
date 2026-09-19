@@ -21,7 +21,9 @@
     "agentfem.mesh.cell_gradient_operator",
     "agentfem.mesh.cell_pair_directional_difference",
     "agentfem.mesh.cell_stencil_neighborhood",
-    "agentfem.mesh.reconstruct_cell_gradient"
+    "agentfem.mesh.reconstruct_cell_gradient",
+    "agentfem.operators.CellGradientEnergyOperator",
+    "agentfem.operators.cell_gradient_energy"
   ],
   "implementation": [
     "mesh/neighborhood.py",
@@ -62,6 +64,12 @@
         "type": "owned-cell scalar or vector gradient plus stencil evidence",
         "unit_role": "input value per length",
         "description": "Weighted least squares uses a local SVD tangent basis and reports neighbor count, rank and condition number for every owned cell; compact neighbor weights can be cached and reapplied to many fields, and the same operator exposes its exact transpose for residual and energy-gradient construction."
+      },
+      {
+        "name": "cell gradient energy operator",
+        "type": "matrix-free energy, residual and tangent action",
+        "unit_role": "declared cell weight and stiffness contract",
+        "description": "One cached G evaluates 0.5 sum(w k |Gv|^2), its exact residual G^T w k Gv and the matching tangent action for scalar or vector cell fields without forming a dense global matrix."
       }
     ],
     "assumptions": [
@@ -83,7 +91,7 @@
     ]
   },
   "usage": {
-    "minimal_example": "operator = mesh.cell_gradient_operator(domain, rings=2); gradient = operator.apply(cell_values)",
+    "minimal_example": "gradient = mesh.cell_gradient_operator(domain, rings=2); energy = operators.cell_gradient_energy(gradient, cell_weights=weights, stiffness=k); residual = energy.residual(cell_values)",
     "examples": [
       "tests/test_mesh_neighborhood.py",
       "tests/test_parallel_mesh_semantics.py"
@@ -103,6 +111,7 @@
       "Recover affine-exact scalar and vector full gradients on triangle and quadrilateral meshes while rejecting rank-deficient or ill-conditioned stencils.",
       "Reuse one geometry-cached compact operator across fields and annihilate arbitrary constant offsets exactly.",
       "Satisfy the scalar and vector inner-product identity between the cached gradient action and its exact transpose, including rank-local ghost contributions under two MPI ranks.",
+      "Match finite-difference energy derivatives with the exact residual, retain a symmetric positive-semidefinite tangent, and preserve constant fields as an exact zero-energy mode.",
       "Under two MPI ranks, count every global interior facet exactly once and retain a ghost adjacent cell across partition interfaces."
     ]
   },

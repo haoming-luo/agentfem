@@ -323,6 +323,14 @@ future bending energy can map gradient duals back to cell residuals without
 inventing a second discretization. On a distributed mesh the transpose
 deliberately returns local and ghost-cell contributions; reverse scattering
 to the owning ranks remains an explicit backend assembly responsibility.
+`operators.cell_gradient_energy(...)` closes the corresponding linear
+operator identity for scalar or vector cell fields: one cached `G` evaluates
+`0.5 sum(w k |Gv|^2)`, the exact residual `G.T w k Gv`, and the matching
+matrix-free tangent action. Finite-difference derivatives, tangent symmetry,
+positive semidefiniteness, and the constant-field nullspace are verified;
+rank-local energy and ghost residual contributions retain explicit MPI
+assembly semantics. This is a reusable nonlocal operator foundation, not yet
+the nonlinear fibre-bending virtual work of a forming shell.
 `mechanics.reconstruct_fiber_curvature(...)` consumes that gradient
 with three-dimensional fibre directions and 3x2 current tangents, then returns
 the signed in-plane and normal curvature channels already used by the local
@@ -406,7 +414,10 @@ The automated local evidence currently checks:
   can be reused across fields without storing a dense global matrix;
 - the cached gradient and transpose satisfy scalar/vector inner-product
   identities in serial and across a two-rank computation stencil, with MPI
-  reverse-scatter ownership kept explicit.
+  reverse-scatter ownership kept explicit;
+- the first matrix-free cell-gradient energy has an exact residual and
+  symmetric positive-semidefinite tangent action, matches finite-difference
+  energy derivatives, and annihilates constant fields.
 
 No shell element patch test, contact benchmark, or drape experiment has yet
 promoted this membrane foundation to a forming-capable fibrous shell.

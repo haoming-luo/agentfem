@@ -46,7 +46,9 @@ experimental formulation to a validated one.
   sparse neighbor weights can be cached once and reapplied across fields; the
   same operator now exposes an exact transpose action for future energy
   gradients and residuals while keeping MPI reverse-scatter ownership
-  explicit.
+  explicit. A public matrix-free quadratic cell-gradient energy now derives
+  its residual and tangent from that same cached operator, with scalar/vector
+  finite-difference, symmetry, semidefiniteness, nullspace and two-rank tests.
 - Add objective neighbour-reconstructed in-plane/normal fibre curvature on a
   2D parameter mesh, including rank/conditioning provenance and a smooth-field
   sequence with near-second-order error reduction; shell equilibrium remains

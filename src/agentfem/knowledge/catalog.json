@@ -991,7 +991,9 @@
         "agentfem.mesh.cell_gradient_operator",
         "agentfem.mesh.cell_pair_directional_difference",
         "agentfem.mesh.cell_stencil_neighborhood",
-        "agentfem.mesh.reconstruct_cell_gradient"
+        "agentfem.mesh.reconstruct_cell_gradient",
+        "agentfem.operators.CellGradientEnergyOperator",
+        "agentfem.operators.cell_gradient_energy"
       ],
       "related_cards": [
         "agentfem.material.fabric_surface_constitutive",

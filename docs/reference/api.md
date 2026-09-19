@@ -1031,6 +1031,8 @@ and evidence remain in the linked guides and scientific function reference.
 | function | `quadratic_form(operator, field) -> float` | Return the algebraic scalar ``field^T operator field``. |
 | function | `xtmx(field, operator) -> float` | Cast3M-style alias for ``field^T operator field``. |
 | function | `xtmy(left, operator, right) -> float` | Cast3M-style alias for ``left^T operator right``. |
+| class | `CellGradientEnergyOperator` | Quadratic energy and exact first/second actions for a cell field. |
+| function | `cell_gradient_energy(gradient: CellGradientOperator, *, cell_weights, stiffness = 1.0) -> CellGradientEnergyOperator` | Create one quadratic matrix-free energy from a cached gradient. |
 | function | `elastic_stiffness(displacement, properties, *, study = None, temperature = None, measure = ufl.dx) -> OperatorForm` | Create an elastic stiffness operator ``K`` from a displacement unknown. |
 | function | `internal_force_vector(displacement, test_function = None, properties = None, *, study = None, measure = ufl.dx) -> OperatorForm` | Create an elastic internal-force vector contribution. |
 | function | `stiffness_operator(displacement, test_function = None, properties = None, *, study = None, temperature = None, measure = ufl.dx) -> OperatorForm` | Create an elastic stiffness/internal virtual-work operator ``K``. |

@@ -9,7 +9,7 @@ import pytest
 from dolfinx import mesh as dolfinx_mesh
 from mpi4py import MPI
 
-from agentfem import constraints, fields, loads, mechanics, mesh, results
+from agentfem import constraints, fields, loads, mechanics, mesh, operators, results
 
 
 def test_cell_neighborhood_keeps_partition_interface_pairs_complete():
@@ -105,6 +105,21 @@ def test_cell_neighborhood_keeps_partition_interface_pairs_complete():
     local_lhs = np.vdot(operator.apply(values).gradients, duals)
     local_rhs = np.vdot(values, operator.apply_adjoint(duals))
     assert local_lhs == pytest.approx(local_rhs, rel=1.0e-13, abs=1.0e-13)
+    gradient_energy = operators.cell_gradient_energy(
+        operator,
+        cell_weights=np.linspace(0.75, 1.25, operator.owned_cells),
+        stiffness=2.5,
+    )
+    direction = centroids[:, 0] ** 2 - 0.3 * centroids[:, 1]
+    epsilon = 1.0e-5
+    finite_difference = (
+        gradient_energy.energy(values + epsilon * direction)
+        - gradient_energy.energy(values - epsilon * direction)
+    ) / (2.0 * epsilon)
+    exact_derivative = np.vdot(gradient_energy.residual(values), direction)
+    assert finite_difference == pytest.approx(
+        exact_derivative, rel=2.0e-9, abs=2.0e-9
+    )
 
 
 def test_distributed_abaqus_regions_quality_and_remote_resultant():
