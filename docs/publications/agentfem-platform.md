@@ -4,7 +4,7 @@ description: "The AgentFEM technical report: architecture, founding principles, 
 citation_title: "AgentFEM: An AI-Native Open-Source Platform for Finite-Element Computing"
 citation_author: "Haoming Luo"
 citation_publication_date: "2026/08/21"
-citation_institution: "Xi'an Thermal Power Research Institute"
+citation_institution: "AgentFEM"
 citation_pdf_url: "https://haoming-luo.github.io/agentfem/assets/papers/agentfem_platform.pdf"
 ---
 
@@ -17,6 +17,7 @@ Technical Report · August 2026
 <div class="publication-actions" markdown>
 
 [Read the technical report (PDF)](../assets/papers/agentfem_platform.pdf){ .md-button .md-button--primary }
+[Archived record and citation](https://doi.org/10.5281/zenodo.22847132){ .md-button }
 [View AgentFEM on GitHub](https://github.com/haoming-luo/agentfem){ .md-button }
 
 </div>
@@ -63,11 +64,12 @@ CAE for a future in which people and AI advance science together.
   author      = {Luo, Haoming},
   title       = {AgentFEM: An AI-Native Open-Source Platform for
                  Finite-Element Computing},
-  institution = {Xi'an Thermal Power Research Institute},
+  institution = {AgentFEM},
   year        = {2026},
   month       = {August},
   type        = {Technical Report},
-  url         = {https://haoming-luo.github.io/agentfem/publications/agentfem-platform/}
+  doi         = {10.5281/zenodo.22847132},
+  url         = {https://doi.org/10.5281/zenodo.22847132}
 }
 ```
 

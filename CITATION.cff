@@ -3,11 +3,12 @@ message: "Please cite the exact AgentFEM version used. Cite the technical report
 title: "AgentFEM"
 type: software
 version: "0.3.6"
+doi: "10.5281/zenodo.22847104"
 authors:
   - family-names: Luo
     given-names: Haoming
     affiliation: "Materials Department, Xi'an Thermal Power Research Institute (TPRI)"
 date-released: 2026-09-14
 repository-code: "https://github.com/haoming-luo/agentfem"
-url: "https://github.com/haoming-luo/agentfem"
+url: "https://doi.org/10.5281/zenodo.22847104"
 license: "Apache-2.0"

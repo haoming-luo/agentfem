@@ -326,7 +326,8 @@ Please cite the AgentFEM version used. GitHub's **Cite this repository** uses
   title   = {AgentFEM},
   year    = {2026},
   version = {0.3.6},
-  url     = {https://github.com/haoming-luo/agentfem/releases/tag/v0.3.6}
+  doi     = {10.5281/zenodo.22847104},
+  url     = {https://doi.org/10.5281/zenodo.22847104}
 }
 ```
 
@@ -339,10 +340,11 @@ For architecture and methodology, also cite the
   author      = {Luo, Haoming},
   title       = {AgentFEM: An AI-Native Open-Source Platform for
                  Finite-Element Computing},
-  institution = {Xi'an Thermal Power Research Institute},
+  institution = {AgentFEM},
   year        = {2026},
   month       = {August},
-  url         = {https://haoming-luo.github.io/agentfem/publications/agentfem-platform/}
+  doi         = {10.5281/zenodo.22847132},
+  url         = {https://doi.org/10.5281/zenodo.22847132}
 }
 ```
 
