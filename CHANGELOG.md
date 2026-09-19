@@ -55,6 +55,11 @@ experimental formulation to a validated one.
   2D parameter mesh, including rank/conditioning provenance and a smooth-field
   sequence with near-second-order error reduction; shell equilibrium remains
   unavailable pending virtual-work and patch-test gates.
+- Add the exact first variation of a two-channel neighbour-reconstructed
+  bending energy for an independent fibre-direction field with fixed surface
+  tangents. The operator is pointwise scale invariant, objective under a
+  three-dimensional rigid rotation, and explicit about ghost residual
+  assembly; complete shell coupling and its nonlinear tangent remain gated.
 - Add `agentfem support`, a consent-first community invitation that performs no
   account action, checks an existing GitHub login only when explicitly asked,
   and remembers support locally without storing identity or credentials.

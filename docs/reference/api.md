@@ -1034,6 +1034,9 @@ and evidence remain in the linked guides and scientific function reference.
 | function | `xtmy(left, operator, right) -> float` | Cast3M-style alias for ``left^T operator right``. |
 | class | `CellGradientEnergyOperator` | Quadratic energy and exact first/second actions for a cell field. |
 | function | `cell_gradient_energy(gradient: CellGradientOperator, *, cell_weights, stiffness = 1.0) -> CellGradientEnergyOperator` | Create one quadratic matrix-free energy from a cached gradient. |
+| class | `FiberDirectionBendingOperator` | Exact first variation of a two-channel fibre-curvature energy. |
+| class | `FiberDirectionBendingResponse` | Owned-cell curvature energy and local-plus-ghost direction residual. |
+| function | `fiber_direction_bending(gradient: CellGradientOperator, *, current_tangents, cell_weights, in_plane_stiffness = 0.0, normal_stiffness = 0.0, reference_in_plane_curvature = 0.0, reference_normal_curvature = 0.0) -> FiberDirectionBendingOperator` | Create an independent-direction fibre-bending energy operator. |
 | function | `elastic_stiffness(displacement, properties, *, study = None, temperature = None, measure = ufl.dx) -> OperatorForm` | Create an elastic stiffness operator ``K`` from a displacement unknown. |
 | function | `internal_force_vector(displacement, test_function = None, properties = None, *, study = None, measure = ufl.dx) -> OperatorForm` | Create an elastic internal-force vector contribution. |
 | function | `stiffness_operator(displacement, test_function = None, properties = None, *, study = None, temperature = None, measure = ufl.dx) -> OperatorForm` | Create an elastic stiffness/internal virtual-work operator ``K``. |

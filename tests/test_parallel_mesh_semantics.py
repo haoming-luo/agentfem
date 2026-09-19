@@ -123,6 +123,30 @@ def test_cell_neighborhood_keeps_partition_interface_pairs_complete():
     assert finite_difference == pytest.approx(
         exact_derivative, rel=2.0e-9, abs=2.0e-9
     )
+    bending = operators.fiber_direction_bending(
+        operator,
+        current_tangents=tangents[: operator.owned_cells],
+        cell_weights=owned_measures,
+        in_plane_stiffness=1.75,
+        normal_stiffness=2.0,
+    )
+    direction_increment = np.column_stack(
+        (
+            0.1 + centroids[:, 0],
+            -0.2 + centroids[:, 1] ** 2,
+            np.zeros(len(centroids)),
+        )
+    )
+    bending_response = bending.evaluate(directions)
+    bending_finite_difference = (
+        bending.evaluate(directions + epsilon * direction_increment).energy
+        - bending.evaluate(directions - epsilon * direction_increment).energy
+    ) / (2.0 * epsilon)
+    assert bending_finite_difference == pytest.approx(
+        np.vdot(bending_response.residual, direction_increment),
+        rel=2.0e-7,
+        abs=2.0e-9,
+    )
 
 
 def test_distributed_abaqus_regions_quality_and_remote_resultant():

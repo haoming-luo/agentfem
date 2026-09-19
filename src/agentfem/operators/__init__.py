@@ -52,6 +52,11 @@ from .core import (
     xtmy,
 )
 from .cell_gradient import CellGradientEnergyOperator, cell_gradient_energy
+from .fiber_bending import (
+    FiberDirectionBendingOperator,
+    FiberDirectionBendingResponse,
+    fiber_direction_bending,
+)
 from .elasticity import (
     elastic_stiffness,
     internal_force_vector,
@@ -89,6 +94,8 @@ assemble_lumped_operator = lumped_operator
 __all__ = [
     "LumpedMassOperator",
     "CellGradientEnergyOperator",
+    "FiberDirectionBendingOperator",
+    "FiberDirectionBendingResponse",
     "LinearSystem",
     "FirstOrderSystem",
     "OperatorForm",
@@ -121,6 +128,7 @@ __all__ = [
     "elastic_stiffness",
     "elasticity",
     "force_vector",
+    "fiber_direction_bending",
     "form_arity",
     "flux_vector",
     "heat_capacity_operator",

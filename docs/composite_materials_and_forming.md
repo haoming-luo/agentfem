@@ -341,8 +341,20 @@ constitutive law. For the smooth field
 `a=(cos(0.8x), sin(0.8x), 0)`, relative in-plane-curvature errors on 4x4, 8x8,
 16x16 and 32x32 quadrilateral meshes are approximately 1.50e-2, 3.86e-3,
 9.75e-4 and 2.45e-4. A superposed three-dimensional rigid rotation leaves both
-channels invariant. Bending virtual work, boundary moments and equilibrium
-remain separate promotion gates.
+channels invariant. Complete displacement-level bending virtual work,
+boundary moments and equilibrium remain separate promotion gates.
+`operators.fiber_direction_bending(...)` now takes the next, deliberately
+bounded step for a mixed independent-direction formulation. It normalizes the
+cell directions before the same cached reconstruction and evaluates separate
+in-plane and normal curvature energies. Its analytical first variation
+contains both the reconstructed-gradient transpose and the local changes of
+the fibre coordinate/projection frame. The residual matches finite-difference
+energy derivatives, is insensitive to positive pointwise rescaling, transforms
+covariantly under a three-dimensional rigid rotation, and retains explicit
+local-plus-ghost MPI semantics. Current surface tangents are fixed data in
+this operator: their variation, compatibility forces, nonlinear second
+variation, boundary moments and complete displacement equilibrium remain
+promotion gates.
 Naive mixed P1/DG0 and P2/DG1 compatibility pairs were rejected after losing
 rank under refinement; full-rank P2/CG1 and P2/DG0 candidates still showed a
 decaying normalized inf-sup value in the tested H1/L2 norms. Those negative
@@ -422,7 +434,10 @@ The automated local evidence currently checks:
   symmetric positive-semidefinite tangent action, matches finite-difference
   energy derivatives, and annihilates constant fields;
 - physical cell weights recover triangle/quadrilateral domain area and count
-  the unit-square measure once under two MPI ranks.
+  the unit-square measure once under two MPI ranks;
+- the neighbour-reconstructed independent-direction bending energy has an
+  exact first variation, pointwise scale invariance and three-dimensional
+  rotation objectivity in serial and two-rank tests.
 
 No shell element patch test, contact benchmark, or drape experiment has yet
 promoted this membrane foundation to a forming-capable fibrous shell.
