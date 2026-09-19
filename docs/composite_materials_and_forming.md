@@ -176,20 +176,28 @@ layer while sharing the same surface deformation:
 stack = constitutive.fabric_stack(
     [
         constitutive.fabric_layer(woven_0, name="ply_0"),
-        constitutive.fabric_layer(woven_45, name="ply_45"),
+        constitutive.fabric_layer(
+            woven_45,
+            name="family_45",
+            physical_layer_ids=("ply_45_bottom", "ply_45_top"),
+        ),
     ],
     name="forming_stack",
 )
 local = stack.evaluate(F_surface)
-ply_45 = local.by_name("ply_45")
+family_45 = local.by_name("family_45")
 ```
 
 Only stored energy is safely additive without choosing a common generalized
 frame. Warp/weft/trellising resultants remain attached to their own layers.
 This avoids a plausible-looking but physically ambiguous aggregate vector and
 provides the constitutive object needed by a later multilayer shell provider.
-Each physical layer is explicit; repeated layers receive distinct names
-rather than being hidden behind a multiplicity factor.
+One computational layer normally represents one physical layer. Identical
+layers with the same material and orientation may instead be grouped by
+listing every `physical_layer_id`. Energy, generalized resultants and tangent
+then scale by the explicit number of listed layers. The identity list and
+aggregation semantics enter the result manifest; AgentFEM never infers a
+hidden multiplicity from one scalar.
 The same stack can enter the current in-plane membrane Step when every layer
 has zero bending stiffness. Generic fabric output requests then expand into
 stable per-layer names such as

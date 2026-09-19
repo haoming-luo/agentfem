@@ -165,7 +165,9 @@ Deepen the finite-element core before broadening the catalog:
   A multilayer stack now enters the finite-kinematics membrane Step while
   retaining varying layer frames, stable layer identities, an explicit result
   manifest, and separate per-layer fields instead of adding incompatible local
-  resultants. Objective
+  resultants. Identically oriented physical layers can be represented by one
+  computational orientation group only when every physical layer ID is
+  declared and retained in evidence. Objective
   fibre-curve measures separate in-plane from normal bending. A local
   fibrous-shell law now owns independent membrane, transverse-shear,
   in-plane-bending and normal-bending energy/tangent blocks, while explicit

@@ -298,15 +298,21 @@ def fabric_membrane_cell_fields(
         "SENER",
     ),
     degree: int = 0,
+    scale: float = 1.0,
 ) -> tuple[object, ...]:
     """Project standard woven-membrane observables for inspection and export.
 
     The fields preserve material-resultant semantics. Generalized strain and
     resultant vectors use ``(warp, weft, trellising)`` component order;
     direction fields are current unit vectors. ``variables`` uses the common
-    result-field catalog, including its compatibility aliases.
+    result-field catalog, including its compatibility aliases. ``scale`` is
+    reserved for an explicitly identified same-orientation physical-layer
+    group; it scales conjugate resultants and energy, not kinematics.
     """
 
+    selected_scale = float(scale)
+    if not np.isfinite(selected_scale) or selected_scale <= 0.0:
+        raise ValueError("Fabric result scale must be positive and finite.")
     function = field_api.unwrap(displacement)
     domain = function.function_space.mesh
     expressions = material.membrane_expressions_ufl(function)
@@ -318,10 +324,12 @@ def fabric_membrane_cell_fields(
                 expressions.shear_angle,
             )
         ),
-        "FABRIC_GENERALIZED_RESULTANT": expressions.membrane_resultants,
+        "FABRIC_GENERALIZED_RESULTANT": (
+            selected_scale * expressions.membrane_resultants
+        ),
         "FABRIC_WARP_DIRECTION": expressions.warp_direction,
         "FABRIC_WEFT_DIRECTION": expressions.weft_direction,
-        "SENER": expressions.stored_energy,
+        "SENER": selected_scale * expressions.stored_energy,
     }
     selected = resolve_field_variables(variables, finite_strain=True)
     unsupported = tuple(
@@ -359,10 +367,12 @@ def fabric_stack_membrane_cell_fields(
 ) -> tuple[object, ...]:
     """Project unambiguous per-layer observables for a fabric stack.
 
-    A generic fabric request expands into one field per named physical layer.
-    The prefix includes the stable stack order and a readable layer slug, so
-    equal-looking local vectors are never silently summed across unlike fibre
-    frames. ``SENER`` additionally produces one aggregate stack-energy field.
+    A generic fabric request expands into one field per named computational
+    layer. The prefix includes the stable stack order and a readable layer
+    slug, while the manifest retains every physical layer represented by that
+    group. Equal-looking local vectors are never silently summed across unlike
+    fibre frames. ``SENER`` additionally produces one aggregate stack-energy
+    field.
     """
 
     from ..constitutive.fabric import FabricStack
@@ -392,6 +402,7 @@ def fabric_stack_membrane_cell_fields(
             layer.material,
             variables=requested,
             degree=degree,
+            scale=layer.multiplicity,
         )
         prefix = _fabric_layer_field_prefix(index, layer.name)
         for field in layer_fields:
@@ -422,8 +433,11 @@ def fabric_stack_result_manifest(material) -> tuple[dict[str, object], ...]:
         {
             "layer_index": index,
             "layer_name": layer.name,
+            "physical_layer_ids": list(layer.physical_layer_ids),
+            "multiplicity": layer.multiplicity,
             "field_prefix": _fabric_layer_field_prefix(index, layer.name),
             "fiber_frame": layer.material.frame.as_dict(),
+            "field_semantics": "aggregate_over_listed_identical_physical_layers",
         }
         for index, layer in enumerate(material.layers)
     )

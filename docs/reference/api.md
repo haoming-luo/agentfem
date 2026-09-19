@@ -225,7 +225,7 @@ and evidence remain in the linked guides and scientific function reference.
 | class | `FabricFormingAssessment` | Dimensionless utilization report for declared forming limits. |
 | class | `FabricFormingLimits` | User-declared forming limits, separate from constitutive calibration. |
 | class | `FabricKinematics` | Non-orthogonal warp/weft surface deformation measures. |
-| class | `FabricLayer` | One named reinforcement layer in a shared-kinematics stack. |
+| class | `FabricLayer` | One named computational layer in a shared-kinematics stack. |
 | class | `FabricLayerResponse` | Stable identity and local response of one stack layer. |
 | class | `FabricMembraneExpressions` | Symbolic observables used by the global woven-membrane provider. |
 | class | `FabricStack` | Named layers sharing one surface deformation. |
@@ -237,7 +237,7 @@ and evidence remain in the linked guides and scientific function reference.
 | function | `decoupled_fabric_surface(*, frame: FiberFrame, warp_tension: TabulatedResponse, weft_tension: TabulatedResponse, shear: TabulatedResponse, bending_stiffness, tension_only: bool = True, name: str = 'fabric_surface') -> DecoupledFabricSurface` | Public AgentFEM object. |
 | function | `decoupled_fibrous_shell(membrane: DecoupledFabricSurface, *, transverse_shear_stiffness, in_plane_bending_stiffness, normal_bending_stiffness, name: str = 'fibrous_shell') -> DecoupledFibrousShell` | Create a local fibrous-shell law with four independent energy channels. |
 | function | `fabric_forming_limits(*, warp_tensile_strain: float \| None = None, weft_tensile_strain: float \| None = None, trellising_angle: float \| None = None, angle_unit: str = 'degree', in_plane_curvature: float \| None = None, normal_curvature: float \| None = None) -> FabricFormingLimits` | Create forming-screening limits with an explicit angle unit. |
-| function | `fabric_layer(material: DecoupledFabricSurface, *, name: str) -> FabricLayer` | Create one named layer for a shared-kinematics fabric stack. |
+| function | `fabric_layer(material: DecoupledFabricSurface, *, name: str, physical_layer_ids = ()) -> FabricLayer` | Create one named layer for a shared-kinematics fabric stack. |
 | function | `fabric_membrane_internal_virtual_work(displacement, test, material: DecoupledFabricSurface, *, measure = None)` | Return the in-plane fabric membrane residual from stored energy. |
 | function | `fabric_stack(layers, *, name: str = 'fabric_stack') -> FabricStack` | Create a checked multilayer fabric asset with stable layer identities. |
 | function | `tabulated_response(abscissa, ordinate, *, name: str = 'response', symmetry: str = 'none', extrapolation: str = 'error') -> TabulatedResponse` | Public AgentFEM object. |
@@ -476,7 +476,7 @@ and evidence remain in the linked guides and scientific function reference.
 | function | `static_force_balance(problem, *, constraints = (), provider_duals = ()) -> StaticForceBalance` | Evaluate ``R + F = 0`` for a converged linear static solid. |
 | function | `static_work_balance(problem, *, constraints = (), provider_duals = ()) -> StaticWorkBalance` | Evaluate linear-static work including nonzero strong Dirichlet data. |
 | class | `PreparedProjection(problem, output) -> None` | A reusable L2 projection with one assembled mass matrix. |
-| function | `fabric_membrane_cell_fields(displacement, material, *, variables = ('FABRIC_GENERALIZED_STRAIN', 'FABRIC_GENERALIZED_RESULTANT', 'FABRIC_WARP_DIRECTION', 'FABRIC_WEFT_DIRECTION', 'SENER'), degree: int = 0) -> tuple[object, ...]` | Project standard woven-membrane observables for inspection and export. |
+| function | `fabric_membrane_cell_fields(displacement, material, *, variables = ('FABRIC_GENERALIZED_STRAIN', 'FABRIC_GENERALIZED_RESULTANT', 'FABRIC_WARP_DIRECTION', 'FABRIC_WEFT_DIRECTION', 'SENER'), degree: int = 0, scale: float = 1.0) -> tuple[object, ...]` | Project standard woven-membrane observables for inspection and export. |
 | function | `fabric_stack_membrane_cell_fields(displacement, material, *, variables = ('FABRIC_GENERALIZED_STRAIN', 'FABRIC_GENERALIZED_RESULTANT', 'FABRIC_WARP_DIRECTION', 'FABRIC_WEFT_DIRECTION', 'SENER'), degree: int = 0) -> tuple[object, ...]` | Project unambiguous per-layer observables for a fabric stack. |
 | function | `fabric_stack_result_manifest(material) -> tuple[dict[str, object], ...]` | Return the stable public mapping between layers and field prefixes. |
 | function | `prepare_projection(expression, *, domain = None, family: str = 'DG', degree: int = 0, name: str = 'ProjectedField', weight = 1.0) -> PreparedProjection` | Prepare a reusable global L2 projection with a static mass operator. |

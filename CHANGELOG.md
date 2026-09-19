@@ -10,7 +10,8 @@ experimental formulation to a validated one.
 
 - Add multilayer woven-reinforcement assets with stable layer identities and
   varying fibre frames, standard in-plane membrane lowering, unambiguous
-  per-layer result fields, objective separation of in-plane and normal fibre
+  per-layer result fields, explicit same-orientation physical-layer grouping,
+  objective separation of in-plane and normal fibre
   curvature, a local four-channel fibrous-shell energy/tangent contract, and
   an objective three-dimensional surface-deformation lift for embedded fibre
   frames, plus explicit forming-limit screening. Global fibrous-shell,

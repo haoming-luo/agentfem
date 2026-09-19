@@ -476,15 +476,17 @@ class DecoupledFibrousShell:
 
 @dataclass(frozen=True)
 class FabricLayer:
-    """One named reinforcement layer in a shared-kinematics stack.
+    """One named computational layer in a shared-kinematics stack.
 
-    Layer orientation remains owned by the law's ``FiberFrame``. Repeated
-    physical layers are represented by repeated, distinctly named layers;
-    AgentFEM does not hide thickness or multiplicity in an ambiguous scalar.
+    Layer orientation remains owned by the law's ``FiberFrame``. By default a
+    computational layer represents one physical layer with the same name.
+    ``physical_layer_ids`` may explicitly group otherwise identical physical
+    layers; the complete identity list replaces an ambiguous scalar weight.
     """
 
     name: str
     material: "DecoupledFabricSurface"
+    physical_layer_ids: tuple[str, ...] = ()
 
     def __post_init__(self) -> None:
         name = str(self.name).strip()
@@ -492,12 +494,27 @@ class FabricLayer:
             raise ValueError("FabricLayer.name must be non-empty.")
         if not isinstance(self.material, DecoupledFabricSurface):
             raise TypeError("FabricLayer.material must be DecoupledFabricSurface.")
+        physical = tuple(str(item).strip() for item in self.physical_layer_ids)
+        if not physical:
+            physical = (name,)
+        if any(not item for item in physical):
+            raise ValueError("FabricLayer physical-layer IDs must be non-empty.")
+        if len(physical) != len(set(physical)):
+            raise ValueError("FabricLayer physical-layer IDs must be unique.")
         object.__setattr__(self, "name", name)
+        object.__setattr__(self, "physical_layer_ids", physical)
+
+    @property
+    def multiplicity(self) -> int:
+        return len(self.physical_layer_ids)
 
     def as_dict(self) -> dict[str, object]:
         return {
             "kind": "fabric_layer",
             "name": self.name,
+            "physical_layer_ids": list(self.physical_layer_ids),
+            "multiplicity": self.multiplicity,
+            "aggregation": "identical_orientation_physical_layers",
             "material": self.material.as_dict(),
         }
 
@@ -507,17 +524,39 @@ class FabricLayerResponse:
     """Stable identity and local response of one stack layer."""
 
     layer_name: str
+    physical_layer_ids: tuple[str, ...]
     response: FabricSurfaceResponse
 
     @property
+    def multiplicity(self) -> int:
+        return len(self.physical_layer_ids)
+
+    @property
     def stored_energy(self) -> float:
-        return float(self.response.stored_energy)
+        return float(self.multiplicity * self.response.stored_energy)
+
+    @property
+    def membrane_resultants(self) -> np.ndarray:
+        return self.multiplicity * self.response.membrane_resultants
+
+    @property
+    def bending_moments(self) -> np.ndarray:
+        return self.multiplicity * self.response.bending_moments
+
+    @property
+    def tangent(self) -> np.ndarray:
+        return self.multiplicity * self.response.tangent
 
     def as_dict(self) -> dict[str, object]:
         return {
             "kind": "fabric_layer_response",
             "layer_name": self.layer_name,
+            "physical_layer_ids": list(self.physical_layer_ids),
+            "multiplicity": self.multiplicity,
             "stored_energy": self.stored_energy,
+            "aggregate_membrane_resultants": self.membrane_resultants.tolist(),
+            "aggregate_bending_moments": self.bending_moments.tolist(),
+            "aggregate_tangent": self.tangent.tolist(),
             "response": self.response.as_dict(),
         }
 
@@ -570,6 +609,11 @@ class FabricStack:
         names = [layer.name for layer in layers]
         if len(names) != len(set(names)):
             raise ValueError("Fabric layer names must be unique within a stack.")
+        physical = [item for layer in layers for item in layer.physical_layer_ids]
+        if len(physical) != len(set(physical)):
+            raise ValueError(
+                "Physical layer IDs must be unique across a fabric stack."
+            )
         object.__setattr__(self, "name", name)
         object.__setattr__(self, "layers", layers)
 
@@ -593,6 +637,7 @@ class FabricStack:
         responses = tuple(
             FabricLayerResponse(
                 layer_name=layer.name,
+                physical_layer_ids=layer.physical_layer_ids,
                 response=layer.material.evaluate(
                     deformation_gradient,
                     curvature=curvatures.get(layer.name),
@@ -607,7 +652,7 @@ class FabricStack:
 
     def membrane_energy_ufl(self, displacement):
         energies = [
-            layer.material.membrane_energy_ufl(displacement)
+            layer.multiplicity * layer.material.membrane_energy_ufl(displacement)
             for layer in self.layers
         ]
         total = energies[0]
@@ -620,6 +665,8 @@ class FabricStack:
             "kind": "fabric_stack",
             "name": self.name,
             "layers": [layer.as_dict() for layer in self.layers],
+            "computational_layer_count": len(self.layers),
+            "physical_layer_count": sum(layer.multiplicity for layer in self.layers),
             "kinematics": "shared_surface_deformation",
             "resultant_policy": "retain_per_layer_frames",
             "maturity": "local_constitutive_foundation",
@@ -963,12 +1010,14 @@ def fabric_layer(
     material: DecoupledFabricSurface,
     *,
     name: str,
+    physical_layer_ids=(),
 ) -> FabricLayer:
     """Create one named layer for a shared-kinematics fabric stack."""
 
     return FabricLayer(
         name=name,
         material=material,
+        physical_layer_ids=tuple(physical_layer_ids),
     )
 
 

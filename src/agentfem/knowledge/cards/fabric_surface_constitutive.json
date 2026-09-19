@@ -61,6 +61,12 @@
         "type": "2D surface deformation gradient, two independent reference directions, piecewise-linear channels, and three generalized curvatures",
         "unit_role": "dimensionless, radians, force per reference length, inverse length, and bending stiffness",
         "description": "Curve extrapolation and yarn compression behavior are explicit choices."
+      },
+      {
+        "name": "named computational layers and physical-layer identities",
+        "type": "ordered FabricLayer entries with explicit physical_layer_ids for any same-orientation grouping",
+        "unit_role": "identity and integer multiplicity",
+        "description": "No scalar weight silently represents omitted plies; every grouped physical layer remains addressable evidence."
       }
     ],
     "outputs": [
@@ -86,7 +92,7 @@
         "name": "multilayer membrane result fields",
         "type": "stable per-layer DG fields expanded from generic fabric requests plus aggregate SENER and a layer-to-field manifest",
         "unit_role": "the same per-layer units as the single-surface fields",
-        "description": "Layer order and a readable slug form collision-free field prefixes; unlike generalized resultants are never silently summed."
+        "description": "Layer order and a readable slug form collision-free field prefixes; same-orientation groups aggregate only their explicitly listed physical layers, and unlike generalized resultants are never silently summed."
       },
       {
         "name": "local fibrous-shell response",
@@ -132,6 +138,7 @@
       "Verify zero reference response, tension-only compression behavior, stored-energy consistency, and separation of tension, shear, and bending channels.",
       "Verify objective director kinematics and a nonzero global membrane patch with positive deformation Jacobian and energy.",
       "Verify objective fibre-curve in-plane/normal curvature separation, stable multilayer identity, energy-only stack aggregation, fail-closed curvature assessment, and global per-layer field preservation.",
+      "Verify that same-orientation grouping scales energy, resultants and tangents by the explicit physical-layer ID count and rejects duplicate IDs across groups.",
       "Verify that the three-dimensional surface deformation lift maps both reference tangents and the reference normal and is objective under superposed rotation.",
       "Verify pure local fibrous-shell modes, block-tangent symmetry, energy-channel additivity, and rejection of double-counted bending stiffness.",
       "Keep shell, contact, and forming claims unavailable until their independent patch tests and benchmarks pass."

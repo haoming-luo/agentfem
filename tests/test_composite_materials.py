@@ -438,7 +438,11 @@ def test_multilayer_fabric_stack_retains_varying_layer_frames_and_energy():
 
     stack = constitutive.fabric_stack(
         [
-            constitutive.fabric_layer(surface(0.0, "zero"), name="ply_0"),
+            constitutive.fabric_layer(
+                surface(0.0, "zero"),
+                name="family_0",
+                physical_layer_ids=("ply_0_bottom", "ply_0_top"),
+            ),
             constitutive.fabric_layer(surface(45.0, "bias"), name="ply_45"),
         ],
         name="forming_stack",
@@ -446,15 +450,37 @@ def test_multilayer_fabric_stack_retains_varying_layer_frames_and_energy():
     deformation = np.array([[1.1, 0.2], [0.0, 1.0]])
     response = stack.evaluate(deformation)
 
-    assert tuple(item.layer_name for item in response.layers) == ("ply_0", "ply_45")
-    assert response.by_name("ply_0").response.kinematics.warp_strain != pytest.approx(
+    assert tuple(item.layer_name for item in response.layers) == ("family_0", "ply_45")
+    assert response.by_name("family_0").multiplicity == 2
+    assert response.by_name("family_0").response.kinematics.warp_strain != pytest.approx(
         response.by_name("ply_45").response.kinematics.warp_strain
     )
     assert response.stored_energy == pytest.approx(
-        response.by_name("ply_0").stored_energy
+        response.by_name("family_0").stored_energy
         + response.by_name("ply_45").stored_energy
     )
+    np.testing.assert_allclose(
+        response.by_name("family_0").membrane_resultants,
+        2.0 * response.by_name("family_0").response.membrane_resultants,
+    )
+    assert stack.as_dict()["physical_layer_count"] == 3
     assert stack.as_dict()["resultant_policy"] == "retain_per_layer_frames"
+
+    with pytest.raises(ValueError, match="Physical layer IDs must be unique"):
+        constitutive.fabric_stack(
+            [
+                constitutive.fabric_layer(
+                    surface(0.0, "first"),
+                    name="first",
+                    physical_layer_ids=("duplicate",),
+                ),
+                constitutive.fabric_layer(
+                    surface(45.0, "second"),
+                    name="second",
+                    physical_layer_ids=("duplicate",),
+                ),
+            ]
+        )
 
 
 def test_multilayer_fabric_stack_builds_one_additive_symbolic_energy():
@@ -483,7 +509,11 @@ def test_multilayer_fabric_stack_builds_one_additive_symbolic_energy():
     )
     stack = constitutive.fabric_stack(
         [
-            constitutive.fabric_layer(first, name="ply_0"),
+            constitutive.fabric_layer(
+                first,
+                name="family_0",
+                physical_layer_ids=("ply_0_bottom", "ply_0_top"),
+            ),
             constitutive.fabric_layer(second, name="ply_45"),
         ]
     )
@@ -494,7 +524,7 @@ def test_multilayer_fabric_stack_builds_one_additive_symbolic_energy():
     separate = fem.assemble_scalar(
         fem.form(
             (
-                first.membrane_energy_ufl(displacement.value)
+                2.0 * first.membrane_energy_ufl(displacement.value)
                 + second.membrane_energy_ufl(displacement.value)
             )
             * ufl.dx
@@ -736,7 +766,11 @@ def test_multilayer_fabric_membrane_preserves_per_layer_result_identity(tmp_path
     )
     stack = constitutive.fabric_stack(
         [
-            constitutive.fabric_layer(first, name="ply 0"),
+            constitutive.fabric_layer(
+                first,
+                name="ply 0",
+                physical_layer_ids=("ply 0 bottom", "ply 0 top"),
+            ),
             constitutive.fabric_layer(second, name="ply +45"),
         ],
         name="forming_stack",
@@ -775,6 +809,8 @@ def test_multilayer_fabric_membrane_preserves_per_layer_result_identity(tmp_path
 
     manifest = step.summary()["result_field_manifest"]
     assert tuple(item["layer_name"] for item in manifest) == ("ply 0", "ply +45")
+    assert manifest[0]["physical_layer_ids"] == ["ply 0 bottom", "ply 0 top"]
+    assert manifest[0]["multiplicity"] == 2
     assert tuple(item["field_prefix"] for item in manifest) == (
         "FABRIC_LAYER_000_PLY_0",
         "FABRIC_LAYER_001_PLY_45",
