@@ -671,6 +671,70 @@ def _fabric_membrane(*, bending=0.0):
     )
 
 
+def test_fibrous_shell_symbolic_energy_generates_consistent_resultants():
+    domain = mesh.rectangle(
+        (0.0, 0.0),
+        (1.0, 1.0),
+        (1, 1),
+        comm=MPI.COMM_SELF,
+        cell_type="triangle",
+    )
+    membrane_2d = _fabric_membrane()
+    membrane_3d = constitutive.decoupled_fabric_surface(
+        frame=materials.fiber_frame(
+            [1.0, 0.0, 0.0],
+            [0.0, 1.0, 0.0],
+        ),
+        warp_tension=membrane_2d.warp_tension,
+        weft_tension=membrane_2d.weft_tension,
+        shear=membrane_2d.shear,
+        bending_stiffness=np.zeros((3, 3)),
+    )
+    law = constitutive.decoupled_fibrous_shell(
+        membrane_3d,
+        transverse_shear_stiffness=np.diag([10.0, 20.0]),
+        in_plane_bending_stiffness=np.diag([2.0, 3.0]),
+        normal_bending_stiffness=np.diag([4.0, 5.0]),
+    )
+    values = np.array([0.02, 0.03, 0.10, 0.1, -0.2, 2.0, -4.0, 3.0, 5.0])
+    generalized = ufl.variable(fem.Constant(domain, values))
+    expressions = law.generalized_expressions_ufl(generalized)
+    differentiated = ufl.diff(expressions.stored_energy, generalized)
+
+    assembled_resultants = np.array(
+        [
+            fem.assemble_scalar(fem.form(expressions.generalized_resultants[i] * ufl.dx))
+            for i in range(9)
+        ]
+    )
+    assembled_derivative = np.array(
+        [
+            fem.assemble_scalar(fem.form(differentiated[i] * ufl.dx))
+            for i in range(9)
+        ]
+    )
+    expected = np.array(
+        [
+            membrane_3d.warp_tension.value(values[0]),
+            membrane_3d.weft_tension.value(values[1]),
+            membrane_3d.shear.value(values[2]),
+            1.0,
+            -4.0,
+            4.0,
+            -12.0,
+            12.0,
+            25.0,
+        ]
+    )
+    np.testing.assert_allclose(assembled_resultants, expected)
+    np.testing.assert_allclose(assembled_derivative, expected)
+    assert expressions.generalized_order[0] == "warp_strain"
+    assert expressions.generalized_order[-1] == "weft_normal_curvature"
+
+    with pytest.raises(ValueError, match="9-component"):
+        law.generalized_expressions_ufl(fem.Constant(domain, np.zeros(8)))
+
+
 def test_fabric_membrane_enters_standard_step_and_solves_a_loaded_patch(tmp_path):
     domain = mesh.rectangle(
         (0.0, 0.0),

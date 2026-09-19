@@ -20,6 +20,9 @@ experimental formulation to a validated one.
   objective kinematics, four local constitutive channels, explicit physical-
   layer grouping, standard membrane solve, and per-layer result identity to
   executable acceptance criteria without promoting an unavailable shell.
+- Lower the nine operator-owned fibrous-shell measures to one UFL potential
+  and its conjugate resultants so a future mixed element can obtain a
+  consistent residual and Jacobian without duplicating constitutive logic.
 - Add `agentfem support`, a consent-first community invitation that performs no
   account action, checks an existing GitHub login only when explicitly asked,
   and remembers support locally without storing identity or credentials.

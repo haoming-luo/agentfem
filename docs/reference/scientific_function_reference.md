@@ -836,6 +836,7 @@ Defines independent woven-surface tension, trellising-shear, and bending channel
 - `agentfem.constitutive.DecoupledFabricSurface`
 - `agentfem.constitutive.decoupled_fabric_surface`
 - `agentfem.constitutive.DecoupledFibrousShell`
+- `agentfem.constitutive.FibrousShellExpressions`
 - `agentfem.constitutive.decoupled_fibrous_shell`
 - `agentfem.constitutive.FabricLayer`
 - `agentfem.constitutive.FabricStack`
@@ -896,6 +897,7 @@ In-plane/geodesic and normal bending are separate objective measures and require
 | multilayer local response and forming assessment | stable per-layer kinematics/resultants/energy plus dimensionless utilization against declared strain, trellising, and curvature limits | per-layer constitutive units and dimensionless utilization | Only compatible energy scalars are aggregated; resultants retain their layer frames, and limit assessment is screening rather than a wrinkle prediction. |
 | multilayer membrane result fields | stable per-layer DG fields expanded from generic fabric requests plus aggregate SENER and a layer-to-field manifest | the same per-layer units as the single-surface fields | Layer order and a readable slug form collision-free field prefixes; same-orientation groups aggregate only their explicitly listed physical layers, and unlike generalized resultants are never silently summed. |
 | local fibrous-shell response | independent membrane, transverse-shear, in-plane-bending, and normal-bending resultants, energy channels, and a 9x9 block tangent | generalized shell forces, moments, energy per reference area, and their conjugate tangents | The constitutive contract is element-neutral and rejects overlapping legacy bending ownership. |
+| symbolic fibrous-shell constitutive potential | nine generalized UFL measures, one stored-energy expression, four named energy channels, and nine conjugate resultants | the same generalized shell units as the local response | A future operator constructs compatible measures; UFL differentiates this single potential into a consistent residual and Jacobian. |
 
 #### Assumptions
 
@@ -946,6 +948,7 @@ study = studies.static_membrane(); model = models.create(study=study, mesh=domai
 - Verify that same-orientation grouping scales energy, resultants and tangents by the explicit physical-layer ID count and rejects duplicate IDs across groups.
 - Verify that the three-dimensional surface deformation lift maps both reference tangents and the reference normal and is objective under superposed rotation.
 - Verify pure local fibrous-shell modes, block-tangent symmetry, energy-channel additivity, and rejection of double-counted bending stiffness.
+- Verify that UFL differentiation of the nine-component symbolic shell potential exactly recovers every declared generalized resultant.
 - Keep shell, contact, and forming claims unavailable until their independent patch tests and benchmarks pass.
 
 ### References

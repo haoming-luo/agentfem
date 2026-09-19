@@ -13,6 +13,7 @@
     "agentfem.constitutive.DecoupledFabricSurface",
     "agentfem.constitutive.decoupled_fabric_surface",
     "agentfem.constitutive.DecoupledFibrousShell",
+    "agentfem.constitutive.FibrousShellExpressions",
     "agentfem.constitutive.decoupled_fibrous_shell",
     "agentfem.constitutive.FabricLayer",
     "agentfem.constitutive.FabricStack",
@@ -99,6 +100,12 @@
         "type": "independent membrane, transverse-shear, in-plane-bending, and normal-bending resultants, energy channels, and a 9x9 block tangent",
         "unit_role": "generalized shell forces, moments, energy per reference area, and their conjugate tangents",
         "description": "The constitutive contract is element-neutral and rejects overlapping legacy bending ownership."
+      },
+      {
+        "name": "symbolic fibrous-shell constitutive potential",
+        "type": "nine generalized UFL measures, one stored-energy expression, four named energy channels, and nine conjugate resultants",
+        "unit_role": "the same generalized shell units as the local response",
+        "description": "A future operator constructs compatible measures; UFL differentiates this single potential into a consistent residual and Jacobian."
       }
     ],
     "assumptions": [
@@ -143,6 +150,7 @@
       "Verify that same-orientation grouping scales energy, resultants and tangents by the explicit physical-layer ID count and rejects duplicate IDs across groups.",
       "Verify that the three-dimensional surface deformation lift maps both reference tangents and the reference normal and is objective under superposed rotation.",
       "Verify pure local fibrous-shell modes, block-tangent symmetry, energy-channel additivity, and rejection of double-counted bending stiffness.",
+      "Verify that UFL differentiation of the nine-component symbolic shell potential exactly recovers every declared generalized resultant.",
       "Keep shell, contact, and forming claims unavailable until their independent patch tests and benchmarks pass."
     ]
   },

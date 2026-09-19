@@ -534,6 +534,7 @@
         "agentfem.constitutive.DecoupledFabricSurface",
         "agentfem.constitutive.decoupled_fabric_surface",
         "agentfem.constitutive.DecoupledFibrousShell",
+        "agentfem.constitutive.FibrousShellExpressions",
         "agentfem.constitutive.decoupled_fibrous_shell",
         "agentfem.constitutive.FabricLayer",
         "agentfem.constitutive.FabricStack",

@@ -357,6 +357,37 @@ class FibrousShellResponse:
 
 
 @dataclass(frozen=True)
+class FibrousShellExpressions:
+    """Symbolic generalized shell energy and conjugate resultants.
+
+    The nine-component ordering is identical to :class:`FibrousShellResponse`.
+    A shell operator owns how these measures are interpolated; this object
+    only lowers an already constructed generalized strain to UFL.  Keeping
+    that boundary explicit lets UFL differentiate one stored-energy
+    expression into a consistent residual and Jacobian.
+    """
+
+    generalized_strain: object
+    generalized_resultants: object
+    energy_channels: Mapping[str, object]
+    stored_energy: object
+
+    @property
+    def generalized_order(self) -> tuple[str, ...]:
+        return (
+            "warp_strain",
+            "weft_strain",
+            "trellising_angle",
+            "director_shear_1",
+            "director_shear_2",
+            "warp_in_plane_curvature",
+            "weft_in_plane_curvature",
+            "warp_normal_curvature",
+            "weft_normal_curvature",
+        )
+
+
+@dataclass(frozen=True)
 class DecoupledFibrousShell:
     """Provider-neutral local law for a fibre-specific shell layer.
 
@@ -459,6 +490,77 @@ class DecoupledFibrousShell:
             normal_bending_moments=normal_moments,
             tangent=tangent,
             energy_channels=energy_channels,
+        )
+
+    def generalized_expressions_ufl(self, generalized_strain) -> FibrousShellExpressions:
+        """Lower nine operator-owned shell measures to one UFL potential.
+
+        This is deliberately not an element formulation.  The future shell
+        operator must construct objective compatible measures, constraints,
+        quadrature, and stabilization before calling this constitutive map.
+        """
+
+        import ufl
+
+        if tuple(getattr(generalized_strain, "ufl_shape", ())) != (9,):
+            raise ValueError(
+                "Fibrous-shell generalized strain must be one 9-component "
+                "UFL vector in the documented generalized order."
+            )
+        q = generalized_strain
+
+        def yarn_value(curve, strain):
+            if not self.membrane.tension_only:
+                return curve.ufl_value(strain)
+            return ufl.conditional(ufl.ge(strain, 0.0), curve.ufl_value(strain), 0.0)
+
+        def yarn_energy(curve, strain):
+            if not self.membrane.tension_only:
+                return curve.ufl_energy(strain)
+            return ufl.conditional(ufl.ge(strain, 0.0), curve.ufl_energy(strain), 0.0)
+
+        membrane_resultants = (
+            yarn_value(self.membrane.warp_tension, q[0]),
+            yarn_value(self.membrane.weft_tension, q[1]),
+            self.membrane.shear.ufl_value(q[2]),
+        )
+        membrane_energy = (
+            yarn_energy(self.membrane.warp_tension, q[0])
+            + yarn_energy(self.membrane.weft_tension, q[1])
+            + self.membrane.shear.ufl_energy(q[2])
+        )
+        transverse_shear = ufl.as_vector((q[3], q[4]))
+        in_plane_curvature = ufl.as_vector((q[5], q[6]))
+        normal_curvature = ufl.as_vector((q[7], q[8]))
+        transverse_resultants = ufl.dot(
+            ufl.as_matrix(self.transverse_shear_stiffness.tolist()),
+            transverse_shear,
+        )
+        in_plane_moments = ufl.dot(
+            ufl.as_matrix(self.in_plane_bending_stiffness.tolist()),
+            in_plane_curvature,
+        )
+        normal_moments = ufl.dot(
+            ufl.as_matrix(self.normal_bending_stiffness.tolist()),
+            normal_curvature,
+        )
+        energy_channels = {
+            "membrane": membrane_energy,
+            "transverse_shear": 0.5
+            * ufl.inner(transverse_shear, transverse_resultants),
+            "in_plane_bending": 0.5
+            * ufl.inner(in_plane_curvature, in_plane_moments),
+            "normal_bending": 0.5 * ufl.inner(normal_curvature, normal_moments),
+        }
+        stored_energy = sum(energy_channels.values())
+        resultants = ufl.as_vector(
+            (*membrane_resultants, *transverse_resultants, *in_plane_moments, *normal_moments)
+        )
+        return FibrousShellExpressions(
+            generalized_strain=q,
+            generalized_resultants=resultants,
+            energy_channels=energy_channels,
+            stored_energy=stored_energy,
         )
 
     def as_dict(self) -> dict[str, object]:
@@ -1104,6 +1206,7 @@ __all__ = [
     "FabricStackResponse",
     "FabricSurfaceResponse",
     "FibrousShellResponse",
+    "FibrousShellExpressions",
     "SurfaceConstitutive",
     "TabulatedResponse",
     "decoupled_fabric_surface",

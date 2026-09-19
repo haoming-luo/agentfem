@@ -235,6 +235,14 @@ local law, not a shell element: interpolation, neighbouring-element curvature,
 locking control, boundary moments, contact and nonlinear evolution still
 belong to the future provider and procedure.
 
+`law.generalized_expressions_ufl(q)` is the narrow bridge from that local law
+to a future global operator. It accepts the documented nine objective measures
+and returns one symbolic stored energy plus the nine conjugate resultants.
+UFL differentiation of that same potential supplies the residual and
+consistent Jacobian. The method deliberately does not construct `q`: choosing
+mixed fields, interpolation, compatibility constraints, quadrature and
+stabilization remains the shell operator's responsibility.
+
 For an embedded three-dimensional surface,
 `mechanics.surface_deformation_gradient(...)` supplies the objective lift used
 to convect the reference fibre frame. It maps the two reference tangents to
