@@ -73,3 +73,91 @@ def test_discrete_inf_sup_fails_closed_on_rank_and_norm_defects():
             multiplier_norm=[[1.0]],
             rank_tolerance=-1.0,
         )
+
+
+def _sample(size, beta, *, label=""):
+    evidence = diagnostics.discrete_inf_sup(
+        np.diag([2.0, beta]),
+        primal_norm=np.eye(2),
+        multiplier_norm=np.eye(2),
+    )
+    return diagnostics.DiscreteInfSupSample(size, evidence, label=label)
+
+
+def test_discrete_inf_sup_study_records_a_nondecaying_refinement_family():
+    study = diagnostics.DiscreteInfSupStudy(
+        "mixed shell family stability",
+        (
+            _sample(0.4, 0.50, label="coarse"),
+            _sample(0.2, 0.48, label="medium"),
+            _sample(0.1, 0.47, label="fine"),
+        ),
+    )
+
+    assert study.minimum_beta == pytest.approx(0.47)
+    assert study.finest_beta == pytest.approx(0.47)
+    assert study.beta_range_ratio == pytest.approx(0.94)
+    assert study.endpoint_decay_order == pytest.approx(
+        np.log(0.47 / 0.50) / np.log(0.1 / 0.4)
+    )
+    claim = study.verify(minimum_beta=0.4, maximum_decay_order=0.1)
+    assert claim.status == "passed"
+    assert claim.evidence["sample_count"] == 3
+
+
+def test_discrete_inf_sup_study_rejects_decay_and_rank_loss():
+    decaying = diagnostics.DiscreteInfSupStudy(
+        "decaying family",
+        (
+            _sample(0.4, 0.4),
+            _sample(0.2, 0.2),
+            _sample(0.1, 0.1),
+        ),
+    )
+    assert decaying.endpoint_decay_order == pytest.approx(1.0)
+    assert decaying.verify(
+        minimum_beta=0.05,
+        maximum_decay_order=0.2,
+    ).status == "failed"
+
+    deficient = diagnostics.discrete_inf_sup(
+        [[1.0, 0.0], [2.0, 0.0]],
+        primal_norm=np.eye(2),
+        multiplier_norm=np.eye(2),
+    )
+    rank_loss = diagnostics.DiscreteInfSupStudy(
+        "rank loss",
+        (
+            _sample(0.4, 0.5),
+            _sample(0.2, 0.5),
+            diagnostics.DiscreteInfSupSample(0.1, deficient),
+        ),
+    )
+    assert rank_loss.minimum_beta == 0.0
+    assert rank_loss.endpoint_decay_order is None
+    assert rank_loss.verify(minimum_beta=0.0).status == "failed"
+    assert rank_loss.verify(
+        minimum_beta=0.0,
+        maximum_decay_order=0.1,
+    ).status == "inconclusive"
+
+
+def test_discrete_inf_sup_study_validates_sequence_and_thresholds():
+    with pytest.raises(ValueError, match="at least three"):
+        diagnostics.DiscreteInfSupStudy(
+            "too short",
+            (_sample(0.2, 0.5), _sample(0.1, 0.5)),
+        )
+    with pytest.raises(ValueError, match="coarse-to-fine"):
+        diagnostics.DiscreteInfSupStudy(
+            "unordered",
+            (_sample(0.2, 0.5), _sample(0.1, 0.5), _sample(0.15, 0.5)),
+        )
+    study = diagnostics.DiscreteInfSupStudy(
+        "valid",
+        (_sample(0.4, 0.5), _sample(0.2, 0.5), _sample(0.1, 0.5)),
+    )
+    with pytest.raises(ValueError, match="minimum_beta"):
+        study.verify(minimum_beta=-1.0)
+    with pytest.raises(ValueError, match="maximum_decay_order"):
+        study.verify(minimum_beta=0.1, maximum_decay_order=-1.0)

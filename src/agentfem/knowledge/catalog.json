@@ -887,6 +887,8 @@
       "kind": "operator",
       "public_api": [
         "agentfem.diagnostics.DiscreteInfSupEvidence",
+        "agentfem.diagnostics.DiscreteInfSupSample",
+        "agentfem.diagnostics.DiscreteInfSupStudy",
         "agentfem.diagnostics.discrete_inf_sup"
       ],
       "related_cards": [
@@ -896,7 +898,7 @@
       ],
       "source": "src/agentfem/knowledge/cards/discrete_inf_sup_evidence.json",
       "status": "experimental",
-      "summary": "Computes a basis-invariant normalized singular spectrum, discrete beta value, rank and condition number for one mixed constraint operator while refusing to relabel one full-rank mesh as mesh-independent stability.",
+      "summary": "Computes a basis-invariant normalized singular spectrum for one mixed constraint operator and audits a declared coarse-to-fine sequence without relabeling isolated full-rank matrices as mesh-independent stability.",
       "title": "Norm-aware discrete inf-sup evidence"
     },
     {

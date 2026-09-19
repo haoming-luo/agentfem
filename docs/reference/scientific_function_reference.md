@@ -2871,11 +2871,13 @@ Create C = operators.capacity_operator(T, rho_c), K = operators.conduction_opera
 **Status:** `experimental`<br>
 **Source card:** `src/agentfem/knowledge/cards/discrete_inf_sup_evidence.json`
 
-Computes a basis-invariant normalized singular spectrum, discrete beta value, rank and condition number for one mixed constraint operator while refusing to relabel one full-rank mesh as mesh-independent stability.
+Computes a basis-invariant normalized singular spectrum for one mixed constraint operator and audits a declared coarse-to-fine sequence without relabeling isolated full-rank matrices as mesh-independent stability.
 
 ### Public API
 
 - `agentfem.diagnostics.DiscreteInfSupEvidence`
+- `agentfem.diagnostics.DiscreteInfSupSample`
+- `agentfem.diagnostics.DiscreteInfSupStudy`
 - `agentfem.diagnostics.discrete_inf_sup`
 
 ### Scientific contract
@@ -2900,7 +2902,7 @@ The Cholesky factors encode the declared discrete norms and make the spectrum in
 
 | Name | Type | Unit role | Meaning |
 | --- | --- | --- | --- |
-| discrete inf-sup evidence | normalized singular values, beta, numerical rank, full-row-rank flag and condition number | dimensionless when compatible norms are supplied | The interpretation explicitly requires a refinement sequence before a stability claim. |
+| discrete inf-sup evidence | normalized singular values, beta, numerical rank, full-row-rank flag and condition number | dimensionless when compatible norms are supplied | A study additionally records at least three coarse-to-fine samples, minimum beta, beta range ratio, endpoint decay order and a caller-declared verification claim. |
 
 #### Assumptions
 
@@ -2919,13 +2921,13 @@ The Cholesky factors encode the declared discrete norms and make the spectrum in
 #### Limitations
 
 - The first implementation consumes dense serial arrays; PETSc/MPI extraction and scalable extremal singular solvers are future adapters.
-- One nonzero beta and full row rank do not establish mesh-independent inf-sup stability or absence of locking.
+- A finite sequence satisfying a declared lower bound is evidence for that tested family and range; it is not a universal proof or evidence of absence of locking.
 - An inappropriate norm or untreated nullspace can make a numerically correct spectrum scientifically irrelevant.
 
 ### Minimal example
 
 ```python
-evidence = diagnostics.discrete_inf_sup(B, primal_norm=M_u, multiplier_norm=M_lambda)
+sample = diagnostics.DiscreteInfSupSample(h, diagnostics.discrete_inf_sup(B, primal_norm=M_u, multiplier_norm=M_lambda)); study = diagnostics.DiscreteInfSupStudy('mixed family', (coarse, medium, fine))
 ```
 
 ### Verification
@@ -2943,6 +2945,7 @@ evidence = diagnostics.discrete_inf_sup(B, primal_norm=M_u, multiplier_norm=M_la
 - Verify the reported beta, rank and condition number against a diagonal analytical spectrum.
 - Verify spectrum invariance under arbitrary nonsingular primal and multiplier basis transformations with consistently transformed norms.
 - Return beta zero for a rank-deficient multiplier space and reject non-SPD norm matrices.
+- Require at least three strictly coarse-to-fine samples and distinguish a bounded sequence from a beta value that decays as a positive power of mesh size.
 
 ### References
 

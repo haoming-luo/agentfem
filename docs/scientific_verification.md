@@ -159,11 +159,14 @@ evidence = diagnostics.discrete_inf_sup(
 The calculation is invariant under consistent nonsingular basis changes and
 fails closed for a rank-deficient multiplier space. Its interpretation is
 deliberately narrow: one full-rank matrix and one nonzero `beta` are evidence
-for one discretization only. An inf-sup claim requires a non-decaying sequence
-under mesh refinement, with essential constraints, physical nullspaces and
-norms held scientifically consistent. The current dense-array interface is
-suited to element/patch studies; scalable PETSc spectral extraction remains a
-future adapter.
+for one discretization only. `DiscreteInfSupStudy` therefore requires at least
+three strictly coarse-to-fine samples and reports the minimum beta, its range
+ratio, and an endpoint decay order. Its `verify()` method accepts only
+caller-declared lower-bound and decay criteria: AgentFEM does not invent one
+universal threshold for all formulations and norms. Essential constraints,
+physical nullspaces and norms must remain scientifically consistent. The
+current dense-array interface is suited to element/patch studies; scalable
+PETSc spectral extraction remains a future adapter.
 
 ## Reliability-cliff suite
 

@@ -5,9 +5,11 @@
   "title": "Norm-aware discrete inf-sup evidence",
   "kind": "operator",
   "status": "experimental",
-  "summary": "Computes a basis-invariant normalized singular spectrum, discrete beta value, rank and condition number for one mixed constraint operator while refusing to relabel one full-rank mesh as mesh-independent stability.",
+  "summary": "Computes a basis-invariant normalized singular spectrum for one mixed constraint operator and audits a declared coarse-to-fine sequence without relabeling isolated full-rank matrices as mesh-independent stability.",
   "public_api": [
     "agentfem.diagnostics.DiscreteInfSupEvidence",
+    "agentfem.diagnostics.DiscreteInfSupSample",
+    "agentfem.diagnostics.DiscreteInfSupStudy",
     "agentfem.diagnostics.discrete_inf_sup"
   ],
   "implementation": [
@@ -35,7 +37,7 @@
         "name": "discrete inf-sup evidence",
         "type": "normalized singular values, beta, numerical rank, full-row-rank flag and condition number",
         "unit_role": "dimensionless when compatible norms are supplied",
-        "description": "The interpretation explicitly requires a refinement sequence before a stability claim."
+        "description": "A study additionally records at least three coarse-to-fine samples, minimum beta, beta range ratio, endpoint decay order and a caller-declared verification claim."
       }
     ],
     "assumptions": [
@@ -51,12 +53,12 @@
     ],
     "limitations": [
       "The first implementation consumes dense serial arrays; PETSc/MPI extraction and scalable extremal singular solvers are future adapters.",
-      "One nonzero beta and full row rank do not establish mesh-independent inf-sup stability or absence of locking.",
+      "A finite sequence satisfying a declared lower bound is evidence for that tested family and range; it is not a universal proof or evidence of absence of locking.",
       "An inappropriate norm or untreated nullspace can make a numerically correct spectrum scientifically irrelevant."
     ]
   },
   "usage": {
-    "minimal_example": "evidence = diagnostics.discrete_inf_sup(B, primal_norm=M_u, multiplier_norm=M_lambda)",
+    "minimal_example": "sample = diagnostics.DiscreteInfSupSample(h, diagnostics.discrete_inf_sup(B, primal_norm=M_u, multiplier_norm=M_lambda)); study = diagnostics.DiscreteInfSupStudy('mixed family', (coarse, medium, fine))",
     "examples": [
       "tests/test_mixed_stability.py"
     ]
@@ -69,7 +71,8 @@
     "validation_rules": [
       "Verify the reported beta, rank and condition number against a diagonal analytical spectrum.",
       "Verify spectrum invariance under arbitrary nonsingular primal and multiplier basis transformations with consistently transformed norms.",
-      "Return beta zero for a rank-deficient multiplier space and reject non-SPD norm matrices."
+      "Return beta zero for a rank-deficient multiplier space and reject non-SPD norm matrices.",
+      "Require at least three strictly coarse-to-fine samples and distinguish a bounded sequence from a beta value that decays as a positive power of mesh size."
     ]
   },
   "references": [

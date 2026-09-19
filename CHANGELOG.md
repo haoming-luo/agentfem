@@ -35,7 +35,8 @@ experimental formulation to a validated one.
   at every stable laminate section point.
 - Add a norm-aware, basis-invariant discrete inf-sup diagnostic that reports
   the normalized constraint spectrum and rank for one mixed discretization
-  while requiring a refinement sequence for any stability claim.
+  plus a three-or-more-level study contract with minimum-beta and endpoint-
+  decay evidence and caller-declared acceptance thresholds.
 - Add `agentfem support`, a consent-first community invitation that performs no
   account action, checks an existing GitHub login only when explicitly asked,
   and remembers support locally without storing identity or credentials.

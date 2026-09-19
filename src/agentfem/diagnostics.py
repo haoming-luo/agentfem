@@ -94,6 +94,171 @@ class DiscreteInfSupEvidence:
         }
 
 
+@dataclass(frozen=True)
+class DiscreteInfSupSample:
+    """One normalized mixed-stability measurement on a declared mesh."""
+
+    characteristic_size: float
+    evidence: DiscreteInfSupEvidence
+    label: str = ""
+
+    def __post_init__(self) -> None:
+        size = float(self.characteristic_size)
+        if not np.isfinite(size) or size <= 0.0:
+            raise ValueError(
+                "Inf-sup sample characteristic_size must be finite and positive."
+            )
+        if not isinstance(self.evidence, DiscreteInfSupEvidence):
+            raise TypeError("Inf-sup sample evidence must be DiscreteInfSupEvidence.")
+        object.__setattr__(self, "characteristic_size", size)
+        object.__setattr__(self, "label", str(self.label))
+
+
+@dataclass(frozen=True)
+class DiscreteInfSupStudy:
+    """Coarse-to-fine evidence for one family of mixed discretizations.
+
+    Three levels are required deliberately: two full-rank matrices only show
+    two isolated algebraic facts.  They do not reveal whether ``beta_h`` is
+    tending to zero under refinement.  Acceptance thresholds remain explicit
+    properties of the benchmark or element-family contract, not global
+    AgentFEM defaults.
+    """
+
+    name: str
+    samples: tuple[DiscreteInfSupSample, ...]
+
+    def __post_init__(self) -> None:
+        name = str(self.name).strip()
+        samples = tuple(self.samples)
+        if not name:
+            raise ValueError("DiscreteInfSupStudy.name must not be empty.")
+        if len(samples) < 3:
+            raise ValueError("DiscreteInfSupStudy requires at least three samples.")
+        if not all(isinstance(item, DiscreteInfSupSample) for item in samples):
+            raise TypeError("Inf-sup study samples must be DiscreteInfSupSample objects.")
+        sizes = tuple(item.characteristic_size for item in samples)
+        if any(fine >= coarse for coarse, fine in zip(sizes, sizes[1:])):
+            raise ValueError(
+                "Inf-sup samples must be ordered coarse-to-fine with strictly "
+                "decreasing characteristic_size."
+            )
+        object.__setattr__(self, "name", name)
+        object.__setattr__(self, "samples", samples)
+
+    @property
+    def minimum_beta(self) -> float:
+        return min(item.evidence.beta for item in self.samples)
+
+    @property
+    def finest_beta(self) -> float:
+        return self.samples[-1].evidence.beta
+
+    @property
+    def beta_range_ratio(self) -> float:
+        largest = max(item.evidence.beta for item in self.samples)
+        return 0.0 if largest <= 0.0 else self.minimum_beta / largest
+
+    @property
+    def endpoint_decay_order(self) -> float | None:
+        """Return ``p`` from endpoint scaling ``beta_h ~ h**p`` when defined."""
+
+        coarse = self.samples[0]
+        fine = self.samples[-1]
+        if coarse.evidence.beta <= 0.0 or fine.evidence.beta <= 0.0:
+            return None
+        return float(
+            np.log(fine.evidence.beta / coarse.evidence.beta)
+            / np.log(fine.characteristic_size / coarse.characteristic_size)
+        )
+
+    def verify(
+        self,
+        *,
+        minimum_beta: float,
+        maximum_decay_order: float | None = None,
+        reference: str = "declared mixed-discretization stability contract",
+    ):
+        """Return a scientific claim using caller-declared family thresholds."""
+
+        lower_bound = float(minimum_beta)
+        if not np.isfinite(lower_bound) or lower_bound < 0.0:
+            raise ValueError("minimum_beta must be finite and nonnegative.")
+        decay_limit = None
+        if maximum_decay_order is not None:
+            decay_limit = float(maximum_decay_order)
+            if not np.isfinite(decay_limit) or decay_limit < 0.0:
+                raise ValueError(
+                    "maximum_decay_order must be finite and nonnegative."
+                )
+        order = self.endpoint_decay_order
+        rank_passes = all(item.evidence.full_row_rank for item in self.samples)
+        beta_passes = self.minimum_beta >= lower_bound
+        order_available = decay_limit is None or order is not None
+        order_passes = decay_limit is None or (order is not None and order <= decay_limit)
+        if not order_available:
+            status = "inconclusive"
+        else:
+            status = "passed" if rank_passes and beta_passes and order_passes else "failed"
+        criterion = f"full row rank and minimum beta >= {lower_bound:g}"
+        if decay_limit is not None:
+            criterion += f" and endpoint beta decay order <= {decay_limit:g}"
+        from .verification import VerificationClaim
+
+        return VerificationClaim(
+            name=self.name,
+            observable="normalized discrete inf-sup sequence",
+            reference=reference,
+            status=status,
+            criterion=criterion,
+            actual={
+                "minimum_beta": self.minimum_beta,
+                "endpoint_decay_order": order,
+                "all_full_row_rank": rank_passes,
+            },
+            expected={
+                "minimum_beta": lower_bound,
+                "maximum_decay_order": decay_limit,
+                "all_full_row_rank": True,
+            },
+            evidence=self.as_dict(),
+            message=(
+                "The refinement sequence satisfies the declared mixed-stability contract."
+                if status == "passed"
+                else "The refinement sequence does not establish the declared mixed-stability contract."
+            ),
+        )
+
+    def as_dict(self) -> dict[str, object]:
+        return {
+            "kind": "discrete_inf_sup_study",
+            "name": self.name,
+            "sample_count": len(self.samples),
+            "characteristic_sizes": [
+                item.characteristic_size for item in self.samples
+            ],
+            "betas": [item.evidence.beta for item in self.samples],
+            "minimum_beta": self.minimum_beta,
+            "finest_beta": self.finest_beta,
+            "beta_range_ratio": self.beta_range_ratio,
+            "endpoint_decay_order": self.endpoint_decay_order,
+            "all_full_row_rank": all(
+                item.evidence.full_row_rank for item in self.samples
+            ),
+            "samples": [
+                {
+                    "label": item.label,
+                    "evidence": item.evidence.as_dict(),
+                }
+                for item in self.samples
+            ],
+            "interpretation": (
+                "finite refinement evidence; acceptance requires a declared "
+                "element-family or benchmark contract"
+            ),
+        }
+
+
 def _symmetric_positive_definite_matrix(value, *, name: str, size: int) -> np.ndarray:
     selected = np.asarray(value, dtype=float)
     if selected.shape != (size, size) or not np.all(np.isfinite(selected)):

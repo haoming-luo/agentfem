@@ -1279,6 +1279,8 @@ and evidence remain in the linked guides and scientific function reference.
 | --- | --- | --- |
 | class | `PerformanceLedger` | Low-overhead, rank-local timing evidence for one solver lifecycle. |
 | class | `DiscreteInfSupEvidence` | Basis-normalized singular evidence for one mixed discretization. |
+| class | `DiscreteInfSupSample` | One normalized mixed-stability measurement on a declared mesh. |
+| class | `DiscreteInfSupStudy` | Coarse-to-fine evidence for one family of mixed discretizations. |
 | function | `discrete_inf_sup(constraint_matrix, *, primal_norm, multiplier_norm, rank_tolerance: float \| None = None) -> DiscreteInfSupEvidence` | Compute one norm-aware discrete inf-sup spectrum. |
 | function | `comm_of(obj = None, default = MPI.COMM_WORLD)` | Return the MPI communicator associated with an object when possible. |
 | function | `is_root(obj = None, *, root: int = 0) -> bool` | Return whether the current MPI rank is the selected reporting rank. |
