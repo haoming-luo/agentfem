@@ -162,8 +162,10 @@ Deepen the finite-element core before broadening the catalog:
   orthotropic-solid route, locally verified ply/laminate sections, and the
   experimental finite-kinematics woven-membrane Step. Objective local director
   measures now establish the kinematic boundary for a future fibrous shell.
-  A provider-neutral multilayer stack retains varying layer frames and stable
-  layer identities without adding incompatible local resultants. Objective
+  A multilayer stack now enters the finite-kinematics membrane Step while
+  retaining varying layer frames, stable layer identities, an explicit result
+  manifest, and separate per-layer fields instead of adding incompatible local
+  resultants. Objective
   fibre-curve measures separate in-plane from normal bending, and explicit
   forming-limit assessments report utilization without claiming to predict
   wrinkles. The next promotion sequence is a mixed displacement/director or

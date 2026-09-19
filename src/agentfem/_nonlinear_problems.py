@@ -443,7 +443,7 @@ class IncrementalNonlinearVariationalProblem:
         return _reaction_field(self.residual_form, self.solution, name=name)
 
     def summary(self) -> dict[str, object]:
-        return {
+        summary = {
             "kind": "incremental_nonlinear_variational_problem",
             "name": self.name,
             "num_bcs": len(self.bcs),
@@ -467,6 +467,9 @@ class IncrementalNonlinearVariationalProblem:
             ),
             "procedure": (None if self.procedure is None else self.procedure.summary()),
         }
+        if hasattr(self, "result_field_manifest"):
+            summary["result_field_manifest"] = tuple(self.result_field_manifest)
+        return summary
 
 
 @dataclass

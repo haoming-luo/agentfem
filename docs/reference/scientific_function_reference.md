@@ -825,7 +825,7 @@ cycle = fatigue_fracture.force_cycle(fmin=226, fmax=2262); law = fatigue_fractur
 **Status:** `experimental`<br>
 **Source card:** `src/agentfem/knowledge/cards/fabric_surface_constitutive.json`
 
-Defines independent woven-surface tension, trellising-shear, and bending channels; retains varying orientations in named multilayer stacks; separates objective in-plane and normal fibre curvature; and lowers one surface's in-plane channels to an experimental finite-kinematics membrane Step while keeping shell bending and forming as explicit later gates.
+Defines independent woven-surface tension, trellising-shear, and bending channels; retains varying orientations in named multilayer stacks; separates objective in-plane and normal fibre curvature; and lowers one surface or a shared-kinematics stack to an experimental finite-kinematics membrane Step while keeping shell bending and forming as explicit later gates.
 
 ### Public API
 
@@ -844,6 +844,8 @@ Defines independent woven-surface tension, trellising-shear, and bending channel
 - `agentfem.mechanics.director_shell_kinematics`
 - `agentfem.mechanics.fiber_curve_kinematics`
 - `agentfem.results.fabric_membrane_cell_fields`
+- `agentfem.results.fabric_stack_membrane_cell_fields`
+- `agentfem.results.fabric_stack_result_manifest`
 - `agentfem.models.Model.step`
 
 ### Scientific contract
@@ -887,6 +889,7 @@ In-plane/geodesic and normal bending are separate objective measures and require
 | surface constitutive response | fiber kinematics, membrane resultants, bending moments, 6x6 local tangent, and stored energy | dimensionless, force per length, moment per length, and energy per area in a consistent unit system | The local response includes bending; the current global membrane Step consumes only tension and trellising shear. |
 | global membrane result fields | Displacement plus DG cell fields FABRIC_GENERALIZED_STRAIN, FABRIC_GENERALIZED_RESULTANT, FABRIC_WARP_DIRECTION, FABRIC_WEFT_DIRECTION, and SENER | length, dimensionless/radians, force per reference length, unit directions, and energy per reference area | The generalized strain and resultant vectors use the fixed warp, weft, trellising component order. |
 | multilayer local response and forming assessment | stable per-layer kinematics/resultants/energy plus dimensionless utilization against declared strain, trellising, and curvature limits | per-layer constitutive units and dimensionless utilization | Only compatible energy scalars are aggregated; resultants retain their layer frames, and limit assessment is screening rather than a wrinkle prediction. |
+| multilayer membrane result fields | stable per-layer DG fields expanded from generic fabric requests plus aggregate SENER and a layer-to-field manifest | the same per-layer units as the single-surface fields | Layer order and a readable slug form collision-free field prefixes; unlike generalized resultants are never silently summed. |
 
 #### Assumptions
 
@@ -901,12 +904,12 @@ In-plane/geodesic and normal bending are separate objective measures and require
 
 #### Applicability
 
-- Material calibration, constitutive screening, local varying-orientation multilayer response, and finite-kinematics in-plane single-surface woven-membrane equilibrium.
+- Material calibration, constitutive screening, local varying-orientation multilayer response, and finite-kinematics in-plane single-surface or shared-kinematics multilayer woven-membrane equilibrium.
 
 #### Limitations
 
 - The global membrane Step rejects nonzero bending because no shell element consumes that channel yet.
-- FabricStack is a local shared-kinematics constitutive asset; global per-layer output and shell equilibrium remain promotion gates.
+- FabricStack membrane lowering shares one surface displacement across layers; transverse slippage, independent material normals, and shell equilibrium remain promotion gates.
 - Contact, friction, inter-ply slip, locking control, and forming procedures are not implemented.
 - Rate effects, hysteresis, irreversible locking, yarn slippage, and damage need additional stateful laws.
 - Material-point tests do not establish a forming simulation or wrinkle prediction capability.
@@ -933,7 +936,7 @@ study = studies.static_membrane(); model = models.create(study=study, mesh=domai
 - Require an odd trellising response and a symmetric positive-semidefinite bending stiffness.
 - Verify zero reference response, tension-only compression behavior, stored-energy consistency, and separation of tension, shear, and bending channels.
 - Verify objective director kinematics and a nonzero global membrane patch with positive deformation Jacobian and energy.
-- Verify objective fibre-curve in-plane/normal curvature separation, stable multilayer identity, energy-only stack aggregation, and fail-closed curvature assessment.
+- Verify objective fibre-curve in-plane/normal curvature separation, stable multilayer identity, energy-only stack aggregation, fail-closed curvature assessment, and global per-layer field preservation.
 - Keep shell, contact, and forming claims unavailable until their independent patch tests and benchmarks pass.
 
 ### References

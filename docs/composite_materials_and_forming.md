@@ -190,8 +190,14 @@ This avoids a plausible-looking but physically ambiguous aggregate vector and
 provides the constitutive object needed by a later multilayer shell provider.
 Each physical layer is explicit; repeated layers receive distinct names
 rather than being hidden behind a multiplicity factor.
-The present stack is a local foundation; the global membrane Step still
-accepts one fabric surface.
+The same stack can enter the current in-plane membrane Step when every layer
+has zero bending stiffness. Generic fabric output requests then expand into
+stable per-layer names such as
+`FABRIC_LAYER_000_PLY_0__FABRIC_GENERALIZED_STRAIN`; aggregate `SENER` remains
+available and the exact layer-name/prefix/frame mapping is recorded in the
+result's field manifest. This is shared-kinematics membrane equilibrium, not a
+multilayer shell: transverse slip, independent material normals, and layer
+contact remain later gates.
 
 Fibre bending also has two meanings that must not be conflated.
 `mechanics.fiber_curve_kinematics(...)` evaluates the directional derivative
@@ -240,6 +246,9 @@ The automated local evidence currently checks:
   objective under a superposed rigid rotation;
 - multilayer stacks retain varying layer frames and stable layer identities
   while adding only compatible energy scalars;
+- a multilayer membrane patch enters the standard Step, preserves its exact
+  layer-field manifest, and writes per-layer result fields without combining
+  incompatible local vectors;
 - forming limits report explicit utilization and refuse curvature assessment
   when curvature kinematics are absent;
 - the woven membrane is selected by the standard Step provider, solves a

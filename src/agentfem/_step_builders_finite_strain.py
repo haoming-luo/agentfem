@@ -43,6 +43,7 @@ def fabric_membrane(
     from . import problems, results
     from .constitutive.fabric import (
         DecoupledFabricSurface,
+        FabricStack,
         fabric_membrane_internal_virtual_work,
     )
 
@@ -72,9 +73,16 @@ def fabric_membrane(
         else model._material_record(material)
     )
     properties = record.item
-    if not isinstance(properties, DecoupledFabricSurface):
-        raise TypeError("The fabric membrane provider requires DecoupledFabricSurface.")
-    if np.any(np.abs(properties.bending_stiffness) > 1.0e-14):
+    if not isinstance(properties, (DecoupledFabricSurface, FabricStack)):
+        raise TypeError(
+            "The fabric membrane provider requires DecoupledFabricSurface "
+            "or FabricStack."
+        )
+    if isinstance(properties, DecoupledFabricSurface):
+        has_bending = np.any(np.abs(properties.bending_stiffness) > 1.0e-14)
+    else:
+        has_bending = properties.has_bending
+    if has_bending:
         raise NotImplementedError(
             "The in-plane membrane provider cannot consume bending stiffness. "
             "Use a zero bending matrix; finite-rotation shell bending remains "
@@ -158,15 +166,39 @@ def fabric_membrane(
         petsc_options_prefix=petsc_options_prefix,
     )
     problem.material = properties
-    problem.primary_fields = {
-        "U": target,
-        "FABRIC_GENERALIZED_STRAIN": "cell",
-        "FABRIC_GENERALIZED_RESULTANT": "cell",
-        "FABRIC_WARP_DIRECTION": "cell",
-        "FABRIC_WEFT_DIRECTION": "cell",
-        "SENER": "cell",
-    }
+    stack_manifest = (
+        results.fabric_stack_result_manifest(properties)
+        if isinstance(properties, FabricStack)
+        else ()
+    )
+    if stack_manifest:
+        primary_fields = {"U": target, "SENER": "cell"}
+        for layer in stack_manifest:
+            for variable in (
+                "FABRIC_GENERALIZED_STRAIN",
+                "FABRIC_GENERALIZED_RESULTANT",
+                "FABRIC_WARP_DIRECTION",
+                "FABRIC_WEFT_DIRECTION",
+                "SENER",
+            ):
+                primary_fields[f"{layer['field_prefix']}__{variable}"] = "cell"
+        problem.primary_fields = primary_fields
+        problem.result_field_manifest = stack_manifest
+    else:
+        problem.primary_fields = {
+            "U": target,
+            "FABRIC_GENERALIZED_STRAIN": "cell",
+            "FABRIC_GENERALIZED_RESULTANT": "cell",
+            "FABRIC_WARP_DIRECTION": "cell",
+            "FABRIC_WEFT_DIRECTION": "cell",
+            "SENER": "cell",
+        }
     problem.result_field_role = "constitutive_projection"
+    recovery = (
+        results.fabric_stack_membrane_cell_fields
+        if stack_manifest
+        else results.fabric_membrane_cell_fields
+    )
     if output is not None and hasattr(output, "finalize"):
         # The declarative output plan recovers its requested fields for every
         # saved frame and registers the final frame in SimulationResult. Do not
@@ -175,10 +207,10 @@ def fabric_membrane(
     else:
         problem.result_field_factory = lambda: (
             target.value,
-            *results.fabric_membrane_cell_fields(target, properties),
+            *recovery(target, properties),
         )
     problem.result_field_recovery = lambda snapshot, *, variables: (
-        results.fabric_membrane_cell_fields(
+        recovery(
             snapshot.solution,
             properties,
             variables=variables,

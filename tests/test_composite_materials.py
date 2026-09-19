@@ -602,6 +602,88 @@ def test_fabric_membrane_enters_standard_step_and_solves_a_loaded_patch(tmp_path
     assert simulation.artifacts["result_manifest"].is_file()
 
 
+def test_multilayer_fabric_membrane_preserves_per_layer_result_identity(tmp_path):
+    domain = mesh.rectangle(
+        (0.0, 0.0),
+        (1.0, 0.2),
+        (4, 2),
+        comm=MPI.COMM_SELF,
+        cell_type="triangle",
+    )
+    model = models.create(study=studies.static_membrane(), mesh=domain)
+    displacement = model.field(fields.displacement(domain, degree=1))
+    first = _fabric_membrane()
+    angle = np.deg2rad(45.0)
+    second = constitutive.decoupled_fabric_surface(
+        name="bias_surface",
+        frame=materials.fiber_frame(
+            [np.cos(angle), np.sin(angle)],
+            [-np.sin(angle), np.cos(angle)],
+        ),
+        warp_tension=first.warp_tension,
+        weft_tension=first.weft_tension,
+        shear=first.shear,
+        bending_stiffness=np.zeros((3, 3)),
+    )
+    stack = constitutive.fabric_stack(
+        [
+            constitutive.fabric_layer(first, name="ply 0"),
+            constitutive.fabric_layer(second, name="ply +45"),
+        ],
+        name="forming_stack",
+    )
+    material = model.material(stack)
+    left = mesh.boundary(domain, lambda x: np.isclose(x[0], 0.0), name="left")
+    right = mesh.boundary(
+        domain,
+        lambda x: np.isclose(x[0], 1.0),
+        name="right",
+        tag=2,
+    )
+    model.fix(displacement, on=left)
+    model.traction((1.0, 0.0), on=right)
+    output = results.output_plan(
+        tmp_path / "fabric_stack",
+        field=results.field_output(
+            "U",
+            "FABRIC_STRAIN",
+            "FABRIC_N",
+            "FABRIC_WARP",
+            "FABRIC_WEFT",
+            "SENER",
+            configuration="reference",
+        ),
+    )
+
+    step = model.step(
+        target=displacement,
+        material=material,
+        increments=2,
+        output=output,
+        progress=False,
+    )
+    simulation = step.solve_result()
+
+    manifest = step.summary()["result_field_manifest"]
+    assert tuple(item["layer_name"] for item in manifest) == ("ply 0", "ply +45")
+    assert tuple(item["field_prefix"] for item in manifest) == (
+        "FABRIC_LAYER_000_PLY_0",
+        "FABRIC_LAYER_001_PLY_45",
+    )
+    expected = {
+        "SENER",
+        "FABRIC_LAYER_000_PLY_0__FABRIC_GENERALIZED_STRAIN",
+        "FABRIC_LAYER_000_PLY_0__FABRIC_GENERALIZED_RESULTANT",
+        "FABRIC_LAYER_001_PLY_45__FABRIC_GENERALIZED_STRAIN",
+        "FABRIC_LAYER_001_PLY_45__FABRIC_GENERALIZED_RESULTANT",
+        "FABRIC_LAYER_000_PLY_0__SENER",
+        "FABRIC_LAYER_001_PLY_45__SENER",
+    }
+    assert expected.issubset(simulation.fields)
+    assert simulation.metadata["problem"]["result_field_manifest"] == manifest
+    assert simulation.artifacts["field_history"].is_file()
+
+
 def test_membrane_provider_refuses_to_hide_shell_bending():
     domain = mesh.rectangle(
         (0.0, 0.0),
@@ -616,6 +698,28 @@ def test_membrane_provider_refuses_to_hide_shell_bending():
 
     with pytest.raises(NotImplementedError, match="cannot consume bending stiffness"):
         model.step(target=displacement, material=material, progress=False)
+
+    stacked_model = models.create(study=studies.static_membrane(), mesh=domain)
+    stacked_displacement = stacked_model.field(fields.displacement(domain))
+    stack = constitutive.fabric_stack(
+        [
+            constitutive.fabric_layer(
+                _fabric_membrane(),
+                name="membrane_layer",
+            ),
+            constitutive.fabric_layer(
+                _fabric_membrane(bending=1.0),
+                name="bending_layer",
+            ),
+        ]
+    )
+    stacked_material = stacked_model.material(stack)
+    with pytest.raises(NotImplementedError, match="cannot consume bending stiffness"):
+        stacked_model.step(
+            target=stacked_displacement,
+            material=stacked_material,
+            progress=False,
+        )
 
 
 def test_fabric_capability_declares_membrane_without_claiming_a_shell():

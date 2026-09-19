@@ -124,7 +124,7 @@ def _accept_neo_hookean(model, request: StepRequest) -> bool:
 
 
 def _accept_fabric_membrane(model, request: StepRequest) -> bool:
-    from .constitutive.fabric import DecoupledFabricSurface
+    from .constitutive.fabric import DecoupledFabricSurface, FabricStack
 
     study = getattr(model, "study", None)
     return (
@@ -136,7 +136,7 @@ def _accept_fabric_membrane(model, request: StepRequest) -> bool:
         and _all_materials_support(
             model,
             request,
-            lambda item: isinstance(item, DecoupledFabricSurface),
+            lambda item: isinstance(item, (DecoupledFabricSurface, FabricStack)),
         )
     )
 
@@ -1191,8 +1191,9 @@ register_step_provider(
         lower=_lower_fabric_membrane,
         priority=130,
         description=(
-            "Lower independent yarn-tension and trellising-shear channels to "
-            "finite-kinematics in-plane membrane equilibrium."
+            "Lower one or more named woven layers with independent yarn-tension "
+            "and trellising-shear channels to finite-kinematics in-plane "
+            "membrane equilibrium."
         ),
         procedure="standard/newton/fabric_membrane",
         option_contract=_option_contract(

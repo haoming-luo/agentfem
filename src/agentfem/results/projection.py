@@ -5,6 +5,8 @@
 
 from __future__ import annotations
 
+import re
+
 import numpy as np
 import ufl
 from dolfinx import fem
@@ -342,6 +344,96 @@ def fabric_membrane_cell_fields(
     )
 
 
+def fabric_stack_membrane_cell_fields(
+    displacement,
+    material,
+    *,
+    variables=(
+        "FABRIC_GENERALIZED_STRAIN",
+        "FABRIC_GENERALIZED_RESULTANT",
+        "FABRIC_WARP_DIRECTION",
+        "FABRIC_WEFT_DIRECTION",
+        "SENER",
+    ),
+    degree: int = 0,
+) -> tuple[object, ...]:
+    """Project unambiguous per-layer observables for a fabric stack.
+
+    A generic fabric request expands into one field per named physical layer.
+    The prefix includes the stable stack order and a readable layer slug, so
+    equal-looking local vectors are never silently summed across unlike fibre
+    frames. ``SENER`` additionally produces one aggregate stack-energy field.
+    """
+
+    from ..constitutive.fabric import FabricStack
+
+    if not isinstance(material, FabricStack):
+        raise TypeError("fabric_stack_membrane_cell_fields requires FabricStack.")
+    selected = resolve_field_variables(variables, finite_strain=True)
+    allowed = {
+        "FABRIC_GENERALIZED_STRAIN",
+        "FABRIC_GENERALIZED_RESULTANT",
+        "FABRIC_WARP_DIRECTION",
+        "FABRIC_WEFT_DIRECTION",
+        "SENER",
+    }
+    unsupported = tuple(item.key for item in selected if item.key not in allowed)
+    if unsupported:
+        raise ValueError(
+            "Fabric-stack membrane recovery does not provide variables "
+            f"{unsupported!r}."
+        )
+
+    requested = tuple(item.key for item in selected)
+    fields = []
+    for index, layer in enumerate(material.layers):
+        layer_fields = fabric_membrane_cell_fields(
+            displacement,
+            layer.material,
+            variables=requested,
+            degree=degree,
+        )
+        prefix = _fabric_layer_field_prefix(index, layer.name)
+        for field in layer_fields:
+            field.name = f"{prefix}__{field.name}"
+            fields.append(field)
+    if "SENER" in requested:
+        function = field_api.unwrap(displacement)
+        fields.append(
+            project(
+                material.membrane_energy_ufl(function),
+                domain=function.function_space.mesh,
+                family="DG",
+                degree=degree,
+                name="SENER",
+            )
+        )
+    return tuple(fields)
+
+
+def fabric_stack_result_manifest(material) -> tuple[dict[str, object], ...]:
+    """Return the stable public mapping between layers and field prefixes."""
+
+    from ..constitutive.fabric import FabricStack
+
+    if not isinstance(material, FabricStack):
+        raise TypeError("fabric_stack_result_manifest requires FabricStack.")
+    return tuple(
+        {
+            "layer_index": index,
+            "layer_name": layer.name,
+            "field_prefix": _fabric_layer_field_prefix(index, layer.name),
+            "fiber_frame": layer.material.frame.as_dict(),
+        }
+        for index, layer in enumerate(material.layers)
+    )
+
+
+def _fabric_layer_field_prefix(index: int, name: str) -> str:
+    slug = re.sub(r"[^A-Za-z0-9]+", "_", str(name)).strip("_").upper()
+    return f"FABRIC_LAYER_{int(index):03d}_{slug or 'LAYER'}"
+
+
 def small_strain_partition_fields(
     displacement,
     assignments,
@@ -494,5 +586,7 @@ __all__ = [
     "project_piecewise",
     "small_strain_cell_fields",
     "fabric_membrane_cell_fields",
+    "fabric_stack_membrane_cell_fields",
+    "fabric_stack_result_manifest",
     "small_strain_partition_fields",
 ]
