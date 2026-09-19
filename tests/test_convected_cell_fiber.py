@@ -242,6 +242,7 @@ def test_displacement_derived_bending_energy_has_exact_fem_residual():
         in_plane_stiffness=2.5,
         normal_stiffness=4.0,
     )
+    assert isinstance(composed, operators.NonlinearOperatorContribution)
 
     def bending_response(field):
         state = kinematics.apply(field)

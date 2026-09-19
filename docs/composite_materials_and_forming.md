@@ -400,6 +400,11 @@ their separate ownership and inspectable metadata. The composed energy is
 objective, its residual and tangent action transform covariantly under a
 superposed three-dimensional rigid rotation, and its displacement Hessian
 action is symmetric.
+The object satisfies the generic
+`operators.NonlinearOperatorContribution` protocol. A future hybrid Newton
+Procedure can therefore add it to local UFL membrane contributions without
+teaching the solver about fibre-specific classes or lowering the neighbour
+stencil into a fictitious local material law.
 Naive mixed P1/DG0 and P2/DG1 compatibility pairs were rejected after losing
 rank under refinement; full-rank P2/CG1 and P2/DG0 candidates still showed a
 decaying normalized inf-sup value in the tested H1/L2 norms. Those negative

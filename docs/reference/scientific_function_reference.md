@@ -978,6 +978,7 @@ Defines independent woven-surface tension, trellising-shear, and bending channel
 - `agentfem.operators.convected_cell_fiber`
 - `agentfem.operators.DisplacementFiberBendingOperator`
 - `agentfem.operators.displacement_fiber_bending`
+- `agentfem.operators.NonlinearOperatorContribution`
 - `agentfem.results.fabric_membrane_cell_fields`
 - `agentfem.results.fabric_stack_membrane_cell_fields`
 - `agentfem.results.fabric_stack_result_manifest`

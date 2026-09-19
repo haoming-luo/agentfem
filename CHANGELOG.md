@@ -89,6 +89,10 @@ experimental formulation to a validated one.
   as one `energy / residual / tangent_action` contract. The composed residual
   and tangent are covariant under a superposed three-dimensional rigid
   rotation and the displacement Hessian action is symmetric.
+- Define the runtime-checkable `NonlinearOperatorContribution` protocol for
+  exact additive energy/residual/tangent contributions. It is the narrow
+  Operator boundary for a future hybrid assembled/matrix-free Procedure, not
+  a second solver or a shell-specific workflow.
 - Add `agentfem support`, a consent-first community invitation that performs no
   account action, checks an existing GitHub login only when explicitly asked,
   and remembers support locally without storing identity or credentials.

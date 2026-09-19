@@ -10,6 +10,7 @@ This package gives users K/M/C/F language while keeping weak forms available in
 from . import elasticity
 from .core import (
     LumpedMassOperator,
+    NonlinearOperatorContribution,
     OperatorForm,
     action,
     assemble_matrix,
@@ -170,6 +171,7 @@ __all__ = [
     "lumped_operator",
     "mass_action_vector",
     "mass_operator",
+    "NonlinearOperatorContribution",
     "pressure_coupling_operator",
     "residual_operator",
     "rayleigh_damping",

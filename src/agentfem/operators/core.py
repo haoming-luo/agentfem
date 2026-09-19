@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from typing import Protocol, runtime_checkable
 
 import numpy as np
 import ufl
@@ -20,6 +21,23 @@ from agentfem.kernel import dofs
 _OPERATOR_ROLES = {"matrix", "vector", "residual", "scalar", "operator"}
 _OPERATOR_OPERATIONS = {"primitive", "sum", "scale", "linearize"}
 _ROLE_ARITY = {"matrix": 2, "vector": 1, "residual": 1, "scalar": 0}
+
+
+@runtime_checkable
+class NonlinearOperatorContribution(Protocol):
+    """Additive nonlinear contribution consumed by a numerical Procedure."""
+
+    def energy(self, state) -> float:
+        """Return this rank's owned contribution to stored energy."""
+
+    def residual(self, state):
+        """Return an assembled residual in the primary field's dual space."""
+
+    def tangent_action(self, state, increment):
+        """Apply the exact consistent tangent to one primary-field increment."""
+
+    def as_dict(self) -> dict[str, object]:
+        """Return inspectable identity, scope, and numerical semantics."""
 
 
 @dataclass
