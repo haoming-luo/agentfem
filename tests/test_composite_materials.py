@@ -836,4 +836,6 @@ def test_fabric_capability_declares_membrane_without_claiming_a_shell():
 
     assert capability.maturity == "experimental_fem_integrated"
     assert "in-plane membrane" in capability.available_scope
+    assert "multilayer stack" in capability.available_scope
+    assert "four-channel" in capability.available_scope
     assert any("not yet a shell" in item for item in capability.limitations)

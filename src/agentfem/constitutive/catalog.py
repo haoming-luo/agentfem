@@ -52,13 +52,14 @@ _CAPABILITIES = {
         ),
         maturity="experimental_fem_integrated",
         available_scope=(
-            "finite-kinematics 2D in-plane membrane equilibrium through model.step; "
-            "provider-neutral local tension/shear/bending response; objective local "
-            "finite-rotation director kinematics for a future shell provider"
+            "finite-kinematics 2D in-plane membrane equilibrium for one surface or "
+            "a named shared-kinematics multilayer stack through model.step; stable "
+            "per-layer result fields; provider-neutral four-channel local fibrous-"
+            "shell response and objective three-dimensional surface kinematics"
         ),
         limitations=(
             "the global membrane consumes tension and trellising shear but rejects bending",
-            "director kinematics are local and are not yet a shell finite element",
+            "fibrous-shell kinematics and constitutive blocks are local and are not yet a shell finite element",
             "tool contact, friction, inter-ply slip, locking, and forming controls are not implemented",
             "tabulated curves require user-owned experimental calibration",
         ),
