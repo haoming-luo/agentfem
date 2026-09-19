@@ -243,6 +243,15 @@ consistent Jacobian. The method deliberately does not construct `q`: choosing
 mixed fields, interpolation, compatibility constraints, quadrature and
 stabilization remains the shell operator's responsibility.
 
+`mechanics.fibrous_shell_kinematics_ufl(...)` defines the matching operator
+side of that hand-off. Surface deformation supplies yarn stretches and
+trellising, an independent material director supplies transverse shear, and
+independent unit-fibre fields supply in-plane and normal curvature. The
+function is objective and exposes one fixed nine-component order. It still
+does not enforce unit length, surface tangency or convection: those are the
+mixed operator's constraint equations and must pass their own patch and
+locking tests before a global shell Step is made public.
+
 For an embedded three-dimensional surface,
 `mechanics.surface_deformation_gradient(...)` supplies the objective lift used
 to convect the reference fibre frame. It maps the two reference tangents to

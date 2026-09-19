@@ -23,6 +23,9 @@ experimental formulation to a validated one.
 - Lower the nine operator-owned fibrous-shell measures to one UFL potential
   and its conjugate resultants so a future mixed element can obtain a
   consistent residual and Jacobian without duplicating constitutive logic.
+- Add the matching objective UFL kinematic hand-off: surface displacement,
+  material director, and independent warp/weft fields produce the fixed nine
+  generalized measures while compatibility remains owned by the operator.
 - Add `agentfem support`, a consent-first community invitation that performs no
   account action, checks an existing GitHub login only when explicitly asked,
   and remembers support locally without storing identity or credentials.

@@ -545,6 +545,7 @@
         "agentfem.studies.static_membrane",
         "agentfem.mechanics.director_shell_kinematics",
         "agentfem.mechanics.fiber_curve_kinematics",
+        "agentfem.mechanics.fibrous_shell_kinematics_ufl",
         "agentfem.mechanics.surface_deformation_gradient",
         "agentfem.results.fabric_membrane_cell_fields",
         "agentfem.results.fabric_stack_membrane_cell_fields",

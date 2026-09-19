@@ -115,6 +115,212 @@ class FiberCurveKinematics:
         }
 
 
+@dataclass(frozen=True)
+class FibrousShellKinematicsExpressions:
+    """Symbolic operator-owned measures consumed by a fibrous-shell law.
+
+    Membrane measures come from the surface deformation, director shear from
+    an independent material normal, and the two bending pairs from independent
+    unit-fibre fields.  Compatibility between those fields remains an operator
+    constraint rather than a constitutive assumption.
+    """
+
+    generalized_strain: object
+    convected_warp: object
+    convected_weft: object
+    current_normal: object
+    area_ratio: object
+
+    @property
+    def generalized_order(self) -> tuple[str, ...]:
+        return (
+            "warp_strain",
+            "weft_strain",
+            "trellising_angle",
+            "director_shear_1",
+            "director_shear_2",
+            "warp_in_plane_curvature",
+            "weft_in_plane_curvature",
+            "warp_normal_curvature",
+            "weft_normal_curvature",
+        )
+
+
+def _ufl_matrix(value, *, name: str, shape: tuple[int, int]):
+    import ufl
+
+    selected_shape = tuple(getattr(value, "ufl_shape", ()))
+    if selected_shape:
+        if selected_shape != shape:
+            raise ValueError(f"{name} must have UFL shape {shape}.")
+        return value
+    selected = np.asarray(value, dtype=float)
+    if selected.shape != shape or not np.all(np.isfinite(selected)):
+        raise ValueError(f"{name} must be one finite {shape[0]}x{shape[1]} matrix.")
+    return ufl.as_matrix(selected.tolist())
+
+
+def _ufl_vector(value, *, name: str, size: int):
+    import ufl
+
+    selected_shape = tuple(getattr(value, "ufl_shape", ()))
+    if selected_shape:
+        if selected_shape != (size,):
+            raise ValueError(f"{name} must have UFL shape ({size},).")
+        return value
+    selected = np.asarray(value, dtype=float)
+    if selected.shape != (size,) or not np.all(np.isfinite(selected)):
+        raise ValueError(f"{name} must be one finite {size}-component vector.")
+    return ufl.as_vector(selected.tolist())
+
+
+def _ufl_unit(vector):
+    import ufl
+
+    return vector / ufl.sqrt(ufl.inner(vector, vector))
+
+
+def _ufl_surface_normal(tangents):
+    import ufl
+
+    return _ufl_unit(ufl.cross(tangents[:, 0], tangents[:, 1]))
+
+
+def _ufl_fibre_curvature(tangents, direction, gradient):
+    import ufl
+
+    normal = _ufl_surface_normal(tangents)
+    unit_direction = _ufl_unit(direction)
+    metric = ufl.dot(ufl.transpose(tangents), tangents)
+    coordinates = ufl.dot(
+        ufl.inv(metric),
+        ufl.dot(ufl.transpose(tangents), unit_direction),
+    )
+    derivative = ufl.dot(gradient, coordinates)
+    derivative -= ufl.inner(derivative, unit_direction) * unit_direction
+    return (
+        ufl.inner(derivative, ufl.cross(normal, unit_direction)),
+        ufl.inner(derivative, normal),
+    )
+
+
+def fibrous_shell_kinematics_ufl(
+    reference_tangents,
+    current_tangents,
+    director,
+    *,
+    reference_fibers,
+    current_fibers,
+    current_fiber_gradients,
+    reference_director=None,
+    reference_fiber_gradients=None,
+) -> FibrousShellKinematicsExpressions:
+    """Build the nine objective fibrous-shell measures as UFL expressions.
+
+    This function defines the kinematic hand-off between a future mixed shell
+    operator and :meth:`DecoupledFibrousShell.generalized_expressions_ufl`.
+    It does not choose finite-element spaces or enforce the unit, tangency, and
+    convection constraints required by independent director/fibre fields.
+    """
+
+    import ufl
+
+    A = _ufl_matrix(reference_tangents, name="reference_tangents", shape=(3, 2))
+    a = _ufl_matrix(current_tangents, name="current_tangents", shape=(3, 2))
+    d = _ufl_unit(_ufl_vector(director, name="director", size=3))
+    D = (
+        _ufl_surface_normal(A)
+        if reference_director is None
+        else _ufl_unit(_ufl_vector(reference_director, name="reference_director", size=3))
+    )
+    if len(reference_fibers) != 2 or len(current_fibers) != 2:
+        raise ValueError("reference_fibers and current_fibers must contain warp and weft.")
+    if len(current_fiber_gradients) != 2:
+        raise ValueError("current_fiber_gradients must contain warp and weft gradients.")
+    reference_gradients = (
+        (np.zeros((3, 2)), np.zeros((3, 2)))
+        if reference_fiber_gradients is None
+        else reference_fiber_gradients
+    )
+    if len(reference_gradients) != 2:
+        raise ValueError("reference_fiber_gradients must contain warp and weft gradients.")
+    reference = tuple(
+        _ufl_unit(_ufl_vector(item, name=f"reference_fibers[{index}]", size=3))
+        for index, item in enumerate(reference_fibers)
+    )
+    current = tuple(
+        _ufl_unit(_ufl_vector(item, name=f"current_fibers[{index}]", size=3))
+        for index, item in enumerate(current_fibers)
+    )
+    current_gradients = tuple(
+        _ufl_matrix(item, name=f"current_fiber_gradients[{index}]", shape=(3, 2))
+        for index, item in enumerate(current_fiber_gradients)
+    )
+    reference_gradients = tuple(
+        _ufl_matrix(item, name=f"reference_fiber_gradients[{index}]", shape=(3, 2))
+        for index, item in enumerate(reference_gradients)
+    )
+
+    reference_normal = _ufl_surface_normal(A)
+    current_normal = _ufl_surface_normal(a)
+    reference_dual = ufl.dot(A, ufl.inv(ufl.dot(ufl.transpose(A), A)))
+    surface_deformation = ufl.dot(a, ufl.transpose(reference_dual)) + ufl.outer(
+        current_normal,
+        reference_normal,
+    )
+    convected = tuple(surface_deformation * item for item in reference)
+    stretches = tuple(ufl.sqrt(ufl.inner(item, item)) for item in convected)
+    convected_units = tuple(item / stretch for item, stretch in zip(convected, stretches))
+    reference_angle = ufl.acos(ufl.inner(reference[0], reference[1]))
+    current_cosine = ufl.inner(convected_units[0], convected_units[1])
+    current_cosine = ufl.max_value(-1.0, ufl.min_value(1.0, current_cosine))
+    trellising = reference_angle - ufl.acos(current_cosine)
+    transverse_shear = ufl.dot(ufl.transpose(a), d) - ufl.dot(ufl.transpose(A), D)
+
+    reference_curvatures = tuple(
+        _ufl_fibre_curvature(A, direction, gradient)
+        for direction, gradient in zip(reference, reference_gradients)
+    )
+    current_curvatures = tuple(
+        _ufl_fibre_curvature(a, direction, gradient)
+        for direction, gradient in zip(current, current_gradients)
+    )
+    in_plane = tuple(
+        current_curvatures[index][0] - reference_curvatures[index][0]
+        for index in range(2)
+    )
+    normal = tuple(
+        current_curvatures[index][1] - reference_curvatures[index][1]
+        for index in range(2)
+    )
+    generalized = ufl.as_vector(
+        (
+            stretches[0] - 1.0,
+            stretches[1] - 1.0,
+            trellising,
+            transverse_shear[0],
+            transverse_shear[1],
+            in_plane[0],
+            in_plane[1],
+            normal[0],
+            normal[1],
+        )
+    )
+    reference_area = ufl.sqrt(
+        ufl.inner(ufl.cross(A[:, 0], A[:, 1]), ufl.cross(A[:, 0], A[:, 1]))
+    )
+    current_area = ufl.sqrt(
+        ufl.inner(ufl.cross(a[:, 0], a[:, 1]), ufl.cross(a[:, 0], a[:, 1]))
+    )
+    return FibrousShellKinematicsExpressions(
+        generalized_strain=generalized,
+        convected_warp=convected_units[0],
+        convected_weft=convected_units[1],
+        current_normal=current_normal,
+        area_ratio=current_area / reference_area,
+    )
+
+
 def _fiber_curve_components(tangents, direction, gradient, *, name: str):
     surface = _columns(tangents, name=f"{name}_tangents")
     fiber = _director(direction, name=f"{name}_direction")
@@ -267,7 +473,9 @@ def director_shell_kinematics(
 __all__ = [
     "DirectorShellKinematics",
     "FiberCurveKinematics",
+    "FibrousShellKinematicsExpressions",
     "director_shell_kinematics",
     "fiber_curve_kinematics",
+    "fibrous_shell_kinematics_ufl",
     "surface_deformation_gradient",
 ]

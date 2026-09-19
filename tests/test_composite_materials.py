@@ -414,6 +414,110 @@ def test_surface_deformation_gradient_maps_tangent_plane_and_is_objective():
     np.testing.assert_allclose(rotated, rotation @ deformation)
 
 
+def test_symbolic_fibrous_shell_kinematics_match_local_objective_measures():
+    domain = mesh.rectangle(
+        (0.0, 0.0),
+        (1.0, 1.0),
+        (1, 1),
+        comm=MPI.COMM_SELF,
+        cell_type="triangle",
+    )
+    reference = np.array([[1.0, 0.0], [0.0, 1.0], [0.0, 0.0]])
+    current = np.array([[1.1, 0.2], [0.1, 0.9], [0.2, -0.1]])
+    deformation = mechanics.surface_deformation_gradient(reference, current)
+    reference_fibers = (np.array([1.0, 0.0, 0.0]), np.array([0.0, 1.0, 0.0]))
+    current_fibers = tuple(
+        deformation @ direction / np.linalg.norm(deformation @ direction)
+        for direction in reference_fibers
+    )
+    gradients = (
+        np.array([[0.0, 0.0], [0.3, -0.1], [0.2, 0.4]]),
+        np.array([[0.2, -0.3], [0.0, 0.0], [-0.1, 0.5]]),
+    )
+    director = np.array([-0.1, 0.2, 0.97])
+    director /= np.linalg.norm(director)
+    membrane_2d = _fabric_membrane()
+    membrane_3d = constitutive.decoupled_fabric_surface(
+        frame=materials.fiber_frame(*reference_fibers),
+        warp_tension=membrane_2d.warp_tension,
+        weft_tension=membrane_2d.weft_tension,
+        shear=membrane_2d.shear,
+        bending_stiffness=np.zeros((3, 3)),
+    )
+    membrane = membrane_3d.evaluate(deformation).kinematics
+    shell = mechanics.director_shell_kinematics(reference, current, director)
+    fibre_curvatures = tuple(
+        mechanics.fiber_curve_kinematics(
+            reference,
+            current,
+            reference_fibers[index],
+            current_fibers[index],
+            current_direction_gradient=gradients[index],
+        )
+        for index in range(2)
+    )
+    expected = np.array(
+        [
+            membrane.warp_strain,
+            membrane.weft_strain,
+            membrane.shear_angle,
+            *shell.transverse_shear,
+            *(item.in_plane_curvature_change for item in fibre_curvatures),
+            *(item.normal_curvature_change for item in fibre_curvatures),
+        ]
+    )
+    symbolic = mechanics.fibrous_shell_kinematics_ufl(
+        reference,
+        current,
+        director,
+        reference_fibers=reference_fibers,
+        current_fibers=current_fibers,
+        current_fiber_gradients=gradients,
+    )
+    measure = ufl.dx(domain=domain)
+    assembled = np.array(
+        [
+            fem.assemble_scalar(fem.form(symbolic.generalized_strain[i] * measure))
+            for i in range(9)
+        ]
+    )
+    np.testing.assert_allclose(assembled, expected, atol=1.0e-13)
+    np.testing.assert_allclose(
+        [
+            fem.assemble_scalar(fem.form(symbolic.current_normal[i] * measure))
+            for i in range(3)
+        ],
+        shell.current_normal,
+        atol=1.0e-13,
+    )
+    assert fem.assemble_scalar(fem.form(symbolic.area_ratio * measure)) == pytest.approx(
+        shell.area_ratio
+    )
+    angle = np.deg2rad(23.0)
+    rotation = np.array(
+        [
+            [np.cos(angle), -np.sin(angle), 0.0],
+            [np.sin(angle), np.cos(angle), 0.0],
+            [0.0, 0.0, 1.0],
+        ]
+    )
+    rotated = mechanics.fibrous_shell_kinematics_ufl(
+        reference,
+        rotation @ current,
+        rotation @ director,
+        reference_fibers=reference_fibers,
+        current_fibers=tuple(rotation @ item for item in current_fibers),
+        current_fiber_gradients=tuple(rotation @ item for item in gradients),
+    )
+    rotated_measures = np.array(
+        [
+            fem.assemble_scalar(fem.form(rotated.generalized_strain[i] * measure))
+            for i in range(9)
+        ]
+    )
+    np.testing.assert_allclose(rotated_measures, assembled, atol=1.0e-13)
+
+
 def test_multilayer_fabric_stack_retains_varying_layer_frames_and_energy():
     tension = constitutive.tabulated_response(
         [0.0, 0.1], [0.0, 100.0], extrapolation="linear"

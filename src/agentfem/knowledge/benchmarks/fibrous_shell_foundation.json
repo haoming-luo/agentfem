@@ -22,6 +22,7 @@
     "Objective director-shell and fibre-curve measures under superposed rigid rotation.",
     "Independent membrane, transverse-shear, in-plane-bending, and normal-bending energies, resultants, and tangent blocks.",
     "Nine-component UFL stored energy and its automatically differentiated generalized resultants.",
+    "Operator-side symbolic membrane, director-shear, and fibre-curvature measures before compatibility constraints are introduced.",
     "Stable computational-layer and physical-layer identities for varying-orientation stacks.",
     "Per-layer DG result fields, aggregate stored energy, and the exact layer-to-field manifest from a completed model.step result."
   ],
@@ -29,6 +30,7 @@
     "The three-dimensional surface deformation lift maps both reference tangents and the reference normal and transforms objectively.",
     "Pure local shell channels remain independent, carry symmetric positive-semidefinite tangents, and sum to total stored energy.",
     "UFL differentiation of the symbolic generalized stored energy recovers the nine explicit conjugate resultants component by component.",
+    "The symbolic mixed-field kinematic hand-off reproduces the local reference implementation and is invariant under superposed rigid rotation.",
     "A membrane stack adds only compatible energy scalars and never combines generalized resultants expressed in unlike fibre frames.",
     "Same-orientation grouping scales energy, conjugate resultants, and tangent by the number of explicitly listed physical layer IDs and rejects duplicate IDs.",
     "A loaded multilayer membrane converges through the standard Step and writes collision-free per-layer strain, resultant, direction, and energy fields.",
