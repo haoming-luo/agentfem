@@ -317,12 +317,8 @@ or [Show and tell](https://github.com/haoming-luo/agentfem/discussions/categorie
 
 ## Citation
 
-If AgentFEM contributes to your research or engineering work, cite the exact
-software version that produced the results. This is the default AgentFEM
-citation because it preserves both attribution and reproducibility. GitHub's
-**Cite this repository** control reads [`CITATION.cff`](CITATION.cff); replace
-the version and release URL below when you use a different release. If an
-archived release provides a DOI, prefer that DOI to the release URL.
+Please cite the AgentFEM version used. GitHub's **Cite this repository** uses
+[`CITATION.cff`](CITATION.cff).
 
 ```bibtex
 @software{luo2026agentfem036,
@@ -334,11 +330,9 @@ archived release provides a DOI, prefer that DOI to the release URL.
 }
 ```
 
-When discussing AgentFEM's architecture, methods, verification philosophy, or
-design rationale, also cite the
-[AgentFEM Technical Report](https://haoming-luo.github.io/agentfem/publications/agentfem-platform/),
-*AgentFEM: An AI-Native Open-Source Platform for Finite-Element Computing*.
-[Read the PDF](https://haoming-luo.github.io/agentfem/assets/papers/agentfem_platform.pdf).
+For architecture and methodology, also cite the
+[AgentFEM Technical Report](https://haoming-luo.github.io/agentfem/publications/agentfem-platform/)
+([PDF](https://haoming-luo.github.io/agentfem/assets/papers/agentfem_platform.pdf)).
 
 ```bibtex
 @techreport{luo2026agentfem,
