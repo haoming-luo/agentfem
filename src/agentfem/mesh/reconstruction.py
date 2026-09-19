@@ -64,6 +64,126 @@ class CellGradientReconstruction:
         }
 
 
+@dataclass(frozen=True)
+class CellGradientStencil:
+    """One owned cell's compact linear gradient stencil."""
+
+    cell: int
+    neighbors: tuple[int, ...]
+    neighbor_weights: np.ndarray
+    center_weight: np.ndarray
+    tangent_basis: np.ndarray
+    rank: int
+    condition_number: float
+
+    def __post_init__(self) -> None:
+        neighbors = tuple(int(value) for value in self.neighbors)
+        weights = np.asarray(self.neighbor_weights, dtype=float)
+        center = np.asarray(self.center_weight, dtype=float)
+        basis = np.asarray(self.tangent_basis, dtype=float)
+        if weights.ndim != 2 or weights.shape[0] != len(neighbors):
+            raise ValueError("neighbor_weights require one row per neighbor.")
+        if center.shape != (weights.shape[1],):
+            raise ValueError("center_weight shape must match gradient dimension.")
+        if basis.ndim != 2 or basis.shape[0] != weights.shape[1]:
+            raise ValueError("tangent_basis has incompatible geometric dimension.")
+        if not all(np.all(np.isfinite(item)) for item in (weights, center, basis)):
+            raise ValueError("Cell gradient stencil coefficients must be finite.")
+        if not np.allclose(center + np.sum(weights, axis=0), 0.0, atol=1.0e-13):
+            raise ValueError("Cell gradient stencil must annihilate constant fields.")
+        object.__setattr__(self, "cell", int(self.cell))
+        object.__setattr__(self, "neighbors", neighbors)
+        object.__setattr__(self, "neighbor_weights", weights.copy())
+        object.__setattr__(self, "center_weight", center.copy())
+        object.__setattr__(self, "tangent_basis", basis.copy())
+        object.__setattr__(self, "rank", int(self.rank))
+        object.__setattr__(self, "condition_number", float(self.condition_number))
+
+
+@dataclass(frozen=True)
+class CellGradientOperator:
+    """Reusable local sparse operator from cell values to owned-cell gradients."""
+
+    stencils: tuple[CellGradientStencil, ...]
+    total_cells: int
+    geometric_dimension: int
+    topological_dimension: int
+    rings: int
+    weight_power: float
+    condition_limit: float
+
+    @property
+    def owned_cells(self) -> int:
+        return len(self.stencils)
+
+    @property
+    def nonzero_blocks(self) -> int:
+        return sum(len(item.neighbors) + 1 for item in self.stencils)
+
+    def apply(self, cell_values) -> CellGradientReconstruction:
+        """Apply cached geometry weights to scalar or vector cell data."""
+
+        values = np.asarray(cell_values, dtype=float)
+        if (
+            values.ndim < 1
+            or values.shape[0] != self.total_cells
+            or not np.all(np.isfinite(values))
+        ):
+            raise ValueError(
+                "cell_values must be finite with one leading entry for every "
+                "local and ghost cell."
+            )
+        flattened = values.reshape((self.total_cells, -1))
+        gradients = np.empty(
+            (self.owned_cells, flattened.shape[1], self.geometric_dimension),
+            dtype=float,
+        )
+        for index, stencil in enumerate(self.stencils):
+            neighbors = np.asarray(stencil.neighbors, dtype=np.int32)
+            gradients[index] = (
+                flattened[neighbors].T @ stencil.neighbor_weights
+                + flattened[stencil.cell][:, None] * stencil.center_weight
+            )
+        return CellGradientReconstruction(
+            gradients=gradients.reshape(
+                (self.owned_cells, *values.shape[1:], self.geometric_dimension)
+            ),
+            tangent_bases=np.asarray(
+                [item.tangent_basis for item in self.stencils],
+                dtype=float,
+            ),
+            neighbor_counts=np.asarray(
+                [len(item.neighbors) for item in self.stencils],
+                dtype=np.int32,
+            ),
+            ranks=np.asarray([item.rank for item in self.stencils], dtype=np.int32),
+            condition_numbers=np.asarray(
+                [item.condition_number for item in self.stencils],
+                dtype=float,
+            ),
+            rings=self.rings,
+            weight_power=self.weight_power,
+        )
+
+    def as_dict(self) -> dict[str, object]:
+        return {
+            "kind": "cell_gradient_operator",
+            "owned_cells": self.owned_cells,
+            "total_local_and_ghost_cells": self.total_cells,
+            "geometric_dimension": self.geometric_dimension,
+            "topological_dimension": self.topological_dimension,
+            "rings": self.rings,
+            "weight_power": self.weight_power,
+            "condition_limit": self.condition_limit,
+            "nonzero_blocks": self.nonzero_blocks,
+            "maximum_condition_number": max(
+                item.condition_number for item in self.stencils
+            ),
+            "linearity": "geometry_cached_linear_action_on_cell_values",
+            "identity_scope": "runtime_partition",
+        }
+
+
 def _neighbor_graph(pairs, size: int) -> tuple[set[int], ...]:
     graph = tuple(set() for _ in range(size))
     for pair in pairs:
@@ -89,15 +209,14 @@ def _ring_neighbors(graph, cell: int, rings: int) -> tuple[int, ...]:
     return tuple(sorted(visited))
 
 
-def reconstruct_cell_gradient(
+def cell_gradient_operator(
     domain,
-    cell_values,
     *,
     rings: int = 2,
     weight_power: float = 1.0,
     condition_limit: float = 1.0e10,
-) -> CellGradientReconstruction:
-    """Reconstruct owned-cell gradients from local/ghost cell-center values.
+) -> CellGradientOperator:
+    """Precompute a reusable, compact cell-gradient operator from geometry.
 
     A local SVD supplies the best-fit tangent basis, so surfaces embedded in a
     higher-dimensional coordinate space do not require an arbitrary global
@@ -124,13 +243,6 @@ def reconstruct_cell_gradient(
     cell_map = topology.index_map(tdim)
     owned = int(cell_map.size_local)
     total = owned + int(cell_map.num_ghosts)
-    values = np.asarray(cell_values, dtype=float)
-    if values.ndim < 1 or values.shape[0] != total or not np.all(np.isfinite(values)):
-        raise ValueError(
-            "cell_values must be finite with one leading entry for every local "
-            "and ghost cell."
-        )
-    flattened = values.reshape((total, -1))
     cells = np.arange(total, dtype=np.int32)
     centroids = np.asarray(
         dolfinx_mesh.compute_midpoints(domain, tdim, cells),
@@ -139,11 +251,7 @@ def reconstruct_cell_gradient(
     stencil = cell_stencil_neighborhood(domain)
     graph = _neighbor_graph(stencil.pairs, total)
 
-    gradients = np.empty((owned, flattened.shape[1], gdim), dtype=float)
-    bases = np.empty((owned, gdim, tdim), dtype=float)
-    counts = np.empty(owned, dtype=np.int32)
-    ranks = np.empty(owned, dtype=np.int32)
-    conditions = np.empty(owned, dtype=float)
+    stencils = []
     for cell in range(owned):
         neighbors = _ring_neighbors(graph, cell, rings)
         if len(neighbors) < tdim:
@@ -166,13 +274,14 @@ def reconstruct_cell_gradient(
             raise RuntimeError(f"Cell {cell} has coincident reconstruction centroids.")
         weights = distances ** (-weight_power)
         weighted_coordinates = projected * np.sqrt(weights)[:, None]
-        delta = flattened[np.asarray(neighbors)] - flattened[cell]
-        weighted_delta = delta * np.sqrt(weights)[:, None]
-        coefficients, _, local_rank, local_singular = np.linalg.lstsq(
-            weighted_coordinates,
-            weighted_delta,
-            rcond=None,
+        pseudo_inverse = np.linalg.pinv(weighted_coordinates)
+        local_singular = np.linalg.svd(weighted_coordinates, compute_uv=False)
+        local_tolerance = (
+            max(weighted_coordinates.shape)
+            * np.finfo(float).eps
+            * local_singular[0]
         )
+        local_rank = int(np.count_nonzero(local_singular > local_tolerance))
         if int(local_rank) < tdim:
             raise RuntimeError(
                 f"Cell {cell} weighted reconstruction has rank {local_rank}; need {tdim}."
@@ -183,21 +292,54 @@ def reconstruct_cell_gradient(
                 f"Cell {cell} reconstruction condition number {condition:g} exceeds "
                 f"the declared limit {condition_limit:g}."
             )
-        gradients[cell] = coefficients.T @ basis.T
-        bases[cell] = basis
-        counts[cell] = len(neighbors)
-        ranks[cell] = int(local_rank)
-        conditions[cell] = condition
+        neighbor_weights = (
+            basis @ pseudo_inverse @ np.diag(np.sqrt(weights))
+        ).T
+        stencils.append(
+            CellGradientStencil(
+                cell=cell,
+                neighbors=neighbors,
+                neighbor_weights=neighbor_weights,
+                center_weight=-np.sum(neighbor_weights, axis=0),
+                tangent_basis=basis,
+                rank=local_rank,
+                condition_number=condition,
+            )
+        )
 
-    return CellGradientReconstruction(
-        gradients=gradients.reshape((owned, *values.shape[1:], gdim)),
-        tangent_bases=bases,
-        neighbor_counts=counts,
-        ranks=ranks,
-        condition_numbers=conditions,
+    return CellGradientOperator(
+        stencils=tuple(stencils),
+        total_cells=total,
+        geometric_dimension=gdim,
+        topological_dimension=tdim,
         rings=rings,
         weight_power=weight_power,
+        condition_limit=condition_limit,
     )
 
 
-__all__ = ["CellGradientReconstruction", "reconstruct_cell_gradient"]
+def reconstruct_cell_gradient(
+    domain,
+    cell_values,
+    *,
+    rings: int = 2,
+    weight_power: float = 1.0,
+    condition_limit: float = 1.0e10,
+) -> CellGradientReconstruction:
+    """Build and apply a cell-gradient operator in one convenience call."""
+
+    return cell_gradient_operator(
+        domain,
+        rings=rings,
+        weight_power=weight_power,
+        condition_limit=condition_limit,
+    ).apply(cell_values)
+
+
+__all__ = [
+    "CellGradientOperator",
+    "CellGradientReconstruction",
+    "CellGradientStencil",
+    "cell_gradient_operator",
+    "reconstruct_cell_gradient",
+]

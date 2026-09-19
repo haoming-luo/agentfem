@@ -24,7 +24,13 @@ from . import abaqus
 from . import selectors as select
 from .specs import SUPPORTED_GEOMETRIES, from_geometry_spec
 from .regions import RegionSet
-from .reconstruction import CellGradientReconstruction, reconstruct_cell_gradient
+from .reconstruction import (
+    CellGradientOperator,
+    CellGradientReconstruction,
+    CellGradientStencil,
+    cell_gradient_operator,
+    reconstruct_cell_gradient,
+)
 from .neighborhood import (
     CellNeighborhood,
     CellNeighborhoodGeometry,

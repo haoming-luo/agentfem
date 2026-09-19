@@ -99,8 +99,11 @@ and evidence remain in the linked guides and scientific function reference.
 | function | `tagged_boundary_measure(domain, marker, tag: int)` | Locate/tag exterior facets and return ``(ds, facet_tags)``. |
 | function | `from_geometry_spec(specification: Mapping[str, object], *, resolution: int = 32, comm: MPI.Comm = MPI.COMM_WORLD)` | Create an :class:`agentfem.mesh.FEMMesh` from a public geometry spec. |
 | class | `RegionSet` | Named collection of regions sharing one mesh tag object. |
+| class | `CellGradientOperator` | Reusable local sparse operator from cell values to owned-cell gradients. |
 | class | `CellGradientReconstruction` | Owned-cell gradients and conditioning evidence for one reconstruction. |
-| function | `reconstruct_cell_gradient(domain, cell_values, *, rings: int = 2, weight_power: float = 1.0, condition_limit: float = 10000000000.0) -> CellGradientReconstruction` | Reconstruct owned-cell gradients from local/ghost cell-center values. |
+| class | `CellGradientStencil` | One owned cell's compact linear gradient stencil. |
+| function | `cell_gradient_operator(domain, *, rings: int = 2, weight_power: float = 1.0, condition_limit: float = 10000000000.0) -> CellGradientOperator` | Precompute a reusable, compact cell-gradient operator from geometry. |
+| function | `reconstruct_cell_gradient(domain, cell_values, *, rings: int = 2, weight_power: float = 1.0, condition_limit: float = 10000000000.0) -> CellGradientReconstruction` | Build and apply a cell-gradient operator in one convenience call. |
 | class | `CellNeighborhood` | Owned interior-facet adjacency plus explicit partition evidence. |
 | class | `CellNeighborhoodGeometry` | Geometric evidence for every pair in a :class:`CellNeighborhood`. |
 | class | `CellPairDifference` | Directional cell-value difference on every interior-facet pair. |

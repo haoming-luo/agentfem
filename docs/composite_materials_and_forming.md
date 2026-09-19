@@ -314,7 +314,10 @@ It exactly recovers affine scalar and vector fields on triangle and
 quadrilateral meshes in serial and two-rank tests, while recording neighbor
 counts, rank, and condition number for every owned cell. Rank-deficient or
 ill-conditioned boundary stencils fail instead of returning artificial zero
-curvature. `mechanics.reconstruct_fiber_curvature(...)` consumes that gradient
+curvature. The geometry decomposition and compact neighbor weights live in a
+reusable `CellGradientOperator`; repeated fields or nonlinear iterations do
+not repeat the SVD, and arbitrary constant offsets are annihilated exactly.
+`mechanics.reconstruct_fiber_curvature(...)` consumes that gradient
 with three-dimensional fibre directions and 3x2 current tangents, then returns
 the signed in-plane and normal curvature channels already used by the local
 constitutive law. For the smooth field
@@ -393,6 +396,8 @@ The automated local evidence currently checks:
   facet neighbourhoods without mistaking a partition interface for a boundary.
 - neighbour-reconstructed in-plane fibre curvature is objective and shows
   near-second-order error reduction on a smooth rotating-direction field.
+- geometry-cached reconstruction weights reproduce the one-shot result and
+  can be reused across fields without storing a dense global matrix.
 
 No shell element patch test, contact benchmark, or drape experiment has yet
 promoted this membrane foundation to a forming-capable fibrous shell.

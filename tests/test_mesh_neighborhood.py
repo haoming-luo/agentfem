@@ -173,6 +173,13 @@ def test_cell_gradient_reconstruction_is_affine_exact(cell_type):
     assert np.all(reconstructed.ranks == 2)
     assert reconstructed.as_dict()["method"].startswith("weighted_least_squares")
 
+    operator = mesh.cell_gradient_operator(domain, rings=2)
+    shifted_values = values + np.array((10.0, -3.0, 7.0))
+    reused = operator.apply(shifted_values)
+    np.testing.assert_allclose(reused.gradients, reconstructed.gradients, atol=5.0e-14)
+    assert operator.nonzero_blocks > operator.owned_cells
+    assert operator.as_dict()["linearity"].startswith("geometry_cached")
+
 
 def test_cell_gradient_reconstruction_fails_closed_on_insufficient_stencil():
     domain = dolfinx_mesh.create_unit_interval(MPI.COMM_SELF, 1)

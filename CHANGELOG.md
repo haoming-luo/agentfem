@@ -42,7 +42,8 @@ experimental formulation to a validated one.
   centroid/facet geometry. An affine-exact scalar/vector center-line
   difference and rank/condition-audited local-tangent least-squares gradient
   now establish the first discrete reconstruction operators for future
-  rotation-free neighbouring-element shells and DG.
+  rotation-free neighbouring-element shells and DG. Geometry SVD and compact
+  sparse neighbor weights can be cached once and reapplied across fields.
 - Add objective neighbour-reconstructed in-plane/normal fibre curvature on a
   2D parameter mesh, including rank/conditioning provenance and a smooth-field
   sequence with near-second-order error reduction; shell equilibrium remains
