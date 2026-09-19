@@ -26,6 +26,8 @@ class InteriorFacetPair:
     cell_locals: tuple[int, int]
     cell_globals: tuple[int, int]
     cell_local_facets: tuple[int, int]
+    facet_owned: bool = True
+    cell_owned: tuple[bool, bool] = (True, True)
 
     def as_dict(self) -> dict[str, object]:
         return {
@@ -35,6 +37,8 @@ class InteriorFacetPair:
             "cell_locals": list(self.cell_locals),
             "cell_globals": list(self.cell_globals),
             "cell_local_facets": list(self.cell_local_facets),
+            "facet_owned": self.facet_owned,
+            "cell_owned": list(self.cell_owned),
             "identity_scope": "runtime_partition",
         }
 
@@ -63,6 +67,32 @@ class CellNeighborhood:
             "ghost_cells": self.ghost_cells,
             "pairs": [item.as_dict() for item in self.pairs],
             "identity_scope": "runtime_partition",
+        }
+
+
+@dataclass(frozen=True)
+class CellStencilNeighborhood:
+    """All locally visible interior pairs touching an owned cell.
+
+    Unlike :class:`CellNeighborhood`, this computation stencil includes ghost
+    facets owned by another rank.  It may therefore duplicate a global facet
+    across ranks and must not be used as collective output evidence.
+    """
+
+    topological_dimension: int
+    pairs: tuple[InteriorFacetPair, ...]
+    owned_cells: int
+    ghost_cells: int
+
+    def as_dict(self) -> dict[str, object]:
+        return {
+            "kind": "cell_stencil_neighborhood",
+            "topological_dimension": self.topological_dimension,
+            "local_interior_pairs": len(self.pairs),
+            "owned_cells": self.owned_cells,
+            "ghost_cells": self.ghost_cells,
+            "pairs": [item.as_dict() for item in self.pairs],
+            "identity_scope": "local_computation_stencil",
         }
 
 
@@ -160,6 +190,62 @@ def _local_facet_number(cell_to_facets, cell: int, facet: int) -> int:
     return int(locations[0])
 
 
+def _topology_data(domain):
+    domain = getattr(domain, "domain", domain)
+    topology = domain.topology
+    tdim = int(topology.dim)
+    if tdim < 1:
+        raise ValueError("Cell neighborhoods require a mesh of dimension at least one.")
+    fdim = tdim - 1
+    topology.create_entities(fdim)
+    topology.create_connectivity(fdim, tdim)
+    topology.create_connectivity(tdim, fdim)
+    facet_to_cells = topology.connectivity(fdim, tdim)
+    cell_to_facets = topology.connectivity(tdim, fdim)
+    if facet_to_cells is None or cell_to_facets is None:
+        raise RuntimeError("Required cell/facet mesh connectivity is unavailable.")
+    facet_map = topology.index_map(fdim)
+    cell_map = topology.index_map(tdim)
+    return domain, tdim, facet_to_cells, cell_to_facets, facet_map, cell_map
+
+
+def _interior_pair(
+    facet,
+    *,
+    facet_owned,
+    owned_cells,
+    facet_globals,
+    cell_globals,
+    facet_to_cells,
+    cell_to_facets,
+):
+    cells = np.asarray(facet_to_cells.links(facet), dtype=np.int32)
+    if cells.size == 1:
+        return None
+    if cells.size != 2:
+        raise RuntimeError(
+            "Neighbour operators require a manifold mesh with one or two "
+            f"cells per facet; local facet {facet} has {cells.size}."
+        )
+    global_ids = tuple(int(cell_globals[int(cell)]) for cell in cells)
+    order = np.argsort(global_ids)
+    ordered_cells = tuple(int(cells[index]) for index in order)
+    ordered_globals = tuple(global_ids[index] for index in order)
+    local_facets = tuple(
+        _local_facet_number(cell_to_facets, cell, facet)
+        for cell in ordered_cells
+    )
+    return InteriorFacetPair(
+        facet_local=int(facet),
+        facet_global=int(facet_globals[int(facet)]),
+        cell_locals=ordered_cells,
+        cell_globals=ordered_globals,
+        cell_local_facets=local_facets,
+        facet_owned=bool(facet_owned),
+        cell_owned=tuple(cell < owned_cells for cell in ordered_cells),
+    )
+
+
 def cell_neighborhood(domain) -> CellNeighborhood:
     """Return every owned interior facet and its two adjacent cells.
 
@@ -169,22 +255,14 @@ def cell_neighborhood(domain) -> CellNeighborhood:
     neighbouring-element and DG operators partition dependent.
     """
 
-    domain = getattr(domain, "domain", domain)
-    topology = domain.topology
-    tdim = int(topology.dim)
-    if tdim < 1:
-        raise ValueError("cell_neighborhood requires a mesh of dimension at least one.")
-    fdim = tdim - 1
-    topology.create_entities(fdim)
-    topology.create_connectivity(fdim, tdim)
-    topology.create_connectivity(tdim, fdim)
-    facet_to_cells = topology.connectivity(fdim, tdim)
-    cell_to_facets = topology.connectivity(tdim, fdim)
-    if facet_to_cells is None or cell_to_facets is None:
-        raise RuntimeError("Required cell/facet mesh connectivity is unavailable.")
-
-    facet_map = topology.index_map(fdim)
-    cell_map = topology.index_map(tdim)
+    (
+        domain,
+        tdim,
+        facet_to_cells,
+        cell_to_facets,
+        facet_map,
+        cell_map,
+    ) = _topology_data(domain)
     owned_facets = int(facet_map.size_local)
     owned_cells = int(cell_map.size_local)
     ghost_cells = int(cell_map.num_ghosts)
@@ -198,32 +276,19 @@ def cell_neighborhood(domain) -> CellNeighborhood:
     pairs = []
     exterior = 0
     for facet in range(owned_facets):
-        cells = np.asarray(facet_to_cells.links(facet), dtype=np.int32)
-        if cells.size == 1:
+        pair = _interior_pair(
+            facet,
+            facet_owned=True,
+            owned_cells=owned_cells,
+            facet_globals=facet_globals,
+            cell_globals=cell_globals,
+            facet_to_cells=facet_to_cells,
+            cell_to_facets=cell_to_facets,
+        )
+        if pair is None:
             exterior += 1
             continue
-        if cells.size != 2:
-            raise RuntimeError(
-                "Neighbour operators require a manifold mesh with one or two "
-                f"cells per facet; owned facet {facet} has {cells.size}."
-            )
-        global_ids = tuple(int(cell_globals[int(cell)]) for cell in cells)
-        order = np.argsort(global_ids)
-        ordered_cells = tuple(int(cells[index]) for index in order)
-        ordered_globals = tuple(global_ids[index] for index in order)
-        local_facets = tuple(
-            _local_facet_number(cell_to_facets, cell, facet)
-            for cell in ordered_cells
-        )
-        pairs.append(
-            InteriorFacetPair(
-                facet_local=facet,
-                facet_global=int(facet_globals[facet]),
-                cell_locals=ordered_cells,
-                cell_globals=ordered_globals,
-                cell_local_facets=local_facets,
-            )
-        )
+        pairs.append(pair)
     pairs.sort(key=lambda item: item.facet_global)
     return CellNeighborhood(
         topological_dimension=tdim,
@@ -234,9 +299,52 @@ def cell_neighborhood(domain) -> CellNeighborhood:
     )
 
 
+def cell_stencil_neighborhood(domain) -> CellStencilNeighborhood:
+    """Return all local interior pairs needed by owned-cell reconstruction."""
+
+    (
+        domain,
+        tdim,
+        facet_to_cells,
+        cell_to_facets,
+        facet_map,
+        cell_map,
+    ) = _topology_data(domain)
+    owned_facets = int(facet_map.size_local)
+    ghost_facets = int(facet_map.num_ghosts)
+    owned_cells = int(cell_map.size_local)
+    ghost_cells = int(cell_map.num_ghosts)
+    facet_globals = facet_map.local_to_global(
+        np.arange(owned_facets + ghost_facets, dtype=np.int32)
+    )
+    cell_globals = cell_map.local_to_global(
+        np.arange(owned_cells + ghost_cells, dtype=np.int32)
+    )
+    pairs = []
+    for facet in range(owned_facets + ghost_facets):
+        pair = _interior_pair(
+            facet,
+            facet_owned=facet < owned_facets,
+            owned_cells=owned_cells,
+            facet_globals=facet_globals,
+            cell_globals=cell_globals,
+            facet_to_cells=facet_to_cells,
+            cell_to_facets=cell_to_facets,
+        )
+        if pair is not None and any(pair.cell_owned):
+            pairs.append(pair)
+    pairs.sort(key=lambda item: item.facet_global)
+    return CellStencilNeighborhood(
+        topological_dimension=tdim,
+        pairs=tuple(pairs),
+        owned_cells=owned_cells,
+        ghost_cells=ghost_cells,
+    )
+
+
 def cell_neighborhood_geometry(
     domain,
-    neighborhood: CellNeighborhood | None = None,
+    neighborhood: CellNeighborhood | CellStencilNeighborhood | None = None,
 ) -> CellNeighborhoodGeometry:
     """Attach centroids, facet midpoints, and pair distances to a neighborhood.
 
@@ -249,8 +357,8 @@ def cell_neighborhood_geometry(
 
     domain = getattr(domain, "domain", domain)
     selected = cell_neighborhood(domain) if neighborhood is None else neighborhood
-    if not isinstance(selected, CellNeighborhood):
-        raise TypeError("neighborhood must be a CellNeighborhood.")
+    if not isinstance(selected, (CellNeighborhood, CellStencilNeighborhood)):
+        raise TypeError("neighborhood must be a cell neighborhood contract.")
     if selected.topological_dimension != int(domain.topology.dim):
         raise ValueError("Neighborhood topological dimension does not match domain.")
     gdim = int(domain.geometry.dim)
@@ -350,9 +458,11 @@ __all__ = [
     "CellPairDifference",
     "CellNeighborhood",
     "CellNeighborhoodGeometry",
+    "CellStencilNeighborhood",
     "InteriorFacetGeometry",
     "InteriorFacetPair",
     "cell_neighborhood",
     "cell_neighborhood_geometry",
     "cell_pair_directional_difference",
+    "cell_stencil_neighborhood",
 ]

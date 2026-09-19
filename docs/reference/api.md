@@ -99,14 +99,18 @@ and evidence remain in the linked guides and scientific function reference.
 | function | `tagged_boundary_measure(domain, marker, tag: int)` | Locate/tag exterior facets and return ``(ds, facet_tags)``. |
 | function | `from_geometry_spec(specification: Mapping[str, object], *, resolution: int = 32, comm: MPI.Comm = MPI.COMM_WORLD)` | Create an :class:`agentfem.mesh.FEMMesh` from a public geometry spec. |
 | class | `RegionSet` | Named collection of regions sharing one mesh tag object. |
+| class | `CellGradientReconstruction` | Owned-cell gradients and conditioning evidence for one reconstruction. |
+| function | `reconstruct_cell_gradient(domain, cell_values, *, rings: int = 2, weight_power: float = 1.0, condition_limit: float = 10000000000.0) -> CellGradientReconstruction` | Reconstruct owned-cell gradients from local/ghost cell-center values. |
 | class | `CellNeighborhood` | Owned interior-facet adjacency plus explicit partition evidence. |
 | class | `CellNeighborhoodGeometry` | Geometric evidence for every pair in a :class:`CellNeighborhood`. |
 | class | `CellPairDifference` | Directional cell-value difference on every interior-facet pair. |
+| class | `CellStencilNeighborhood` | All locally visible interior pairs touching an owned cell. |
 | class | `InteriorFacetGeometry` | Geometric scale and direction for one interior-facet cell pair. |
 | class | `InteriorFacetPair` | Two cells adjacent to one owned interior facet on the current partition. |
 | function | `cell_neighborhood(domain) -> CellNeighborhood` | Return every owned interior facet and its two adjacent cells. |
-| function | `cell_neighborhood_geometry(domain, neighborhood: CellNeighborhood \| None = None) -> CellNeighborhoodGeometry` | Attach centroids, facet midpoints, and pair distances to a neighborhood. |
+| function | `cell_neighborhood_geometry(domain, neighborhood: CellNeighborhood \| CellStencilNeighborhood \| None = None) -> CellNeighborhoodGeometry` | Attach centroids, facet midpoints, and pair distances to a neighborhood. |
 | function | `cell_pair_directional_difference(geometry: CellNeighborhoodGeometry, cell_values) -> CellPairDifference` | Difference local/ghost cell values along each center-to-center line. |
+| function | `cell_stencil_neighborhood(domain) -> CellStencilNeighborhood` | Return all local interior pairs needed by owned-cell reconstruction. |
 | class | `Selector` | Boolean selector evaluated on coordinate arrays. |
 | function | `ball(center, radius: float) -> Selector` | Select points inside a 3D ball. |
 | function | `box(lower, upper) -> Selector` | Select points inside an axis-aligned box. |

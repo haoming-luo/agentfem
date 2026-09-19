@@ -3256,18 +3256,22 @@ dataset = report.require_dataset(quality='engineering'); training = surrogates.t
 **Status:** `experimental`<br>
 **Source card:** `src/agentfem/knowledge/cards/cell_neighborhood_topology.json`
 
-Enumerates each owned interior facet with both adjacent cells and both cell-local facet positions, including ghost-cell evidence at MPI partition interfaces, for neighboring-element, DG, estimator and fracture algorithms.
+Builds owned-facet evidence and ghost-complete local stencils, then supplies affine-exact pair differences and rank-audited least-squares gradients for neighboring-element, DG, estimator and fracture algorithms.
 
 ### Public API
 
 - `agentfem.mesh.CellNeighborhood`
 - `agentfem.mesh.CellNeighborhoodGeometry`
 - `agentfem.mesh.CellPairDifference`
+- `agentfem.mesh.CellGradientReconstruction`
+- `agentfem.mesh.CellStencilNeighborhood`
 - `agentfem.mesh.InteriorFacetGeometry`
 - `agentfem.mesh.InteriorFacetPair`
 - `agentfem.mesh.cell_neighborhood`
 - `agentfem.mesh.cell_neighborhood_geometry`
 - `agentfem.mesh.cell_pair_directional_difference`
+- `agentfem.mesh.cell_stencil_neighborhood`
+- `agentfem.mesh.reconstruct_cell_gradient`
 
 ### Scientific contract
 
@@ -3293,6 +3297,7 @@ The two-cell stencil must remain complete when one adjacent cell is a ghost on t
 | --- | --- | --- | --- |
 | cell neighborhood | owned interior-facet pairs and partition evidence | runtime topology | Each pair records runtime local/global facet and cell indices plus the local facet number in both adjacent cells; optional geometry adds centroids, facet midpoint, center vector, distance and direction in embedding coordinates. |
 | pair directional difference | scalar or vector cell-value differences per center distance | input value per length | The discrete operator is exact for affine cell-center data and remains explicitly distinct from a reconstructed full gradient or shell curvature. |
+| cell gradient reconstruction | owned-cell scalar or vector gradient plus stencil evidence | input value per length | Weighted least squares uses a local SVD tangent basis and reports neighbor count, rank and condition number for every owned cell. |
 
 #### Assumptions
 
@@ -3311,13 +3316,13 @@ The two-cell stencil must remain complete when one adjacent cell is a ghost on t
 #### Limitations
 
 - Runtime global indices depend on the mesh partition and are not scientific model identity or restart identity.
-- The contract exposes topology, geometric scale, and one-direction cell-pair differences only; it does not reconstruct a full gradient, define a shell curvature, or promote a forming solver.
-- Callers must synchronize ghost cell values before evaluating a distributed pair difference.
+- The contract does not define a shell curvature, bending virtual work, or forming solver; reconstructed gradients must still pass field-specific patch and convergence tests.
+- Callers must synchronize ghost cell values before evaluating a distributed pair difference or gradient reconstruction.
 
 ### Minimal example
 
 ```python
-neighborhood = mesh.cell_neighborhood(domain); geometry = mesh.cell_neighborhood_geometry(domain, neighborhood); difference = mesh.cell_pair_directional_difference(geometry, cell_values)
+gradient = mesh.reconstruct_cell_gradient(domain, cell_values, rings=2)
 ```
 
 ### Verification
@@ -3337,6 +3342,7 @@ neighborhood = mesh.cell_neighborhood(domain); geometry = mesh.cell_neighborhood
 - Retain both local-facet positions and deterministic cell ordering.
 - Recover translation-invariant center vectors, distances and directions from embedding coordinates.
 - Recover the exact directional derivative of affine scalar and vector cell-center fields.
+- Recover affine-exact scalar and vector full gradients on triangle and quadrilateral meshes while rejecting rank-deficient or ill-conditioned stencils.
 - Under two MPI ranks, count every global interior facet exactly once and retain a ghost adjacent cell across partition interfaces.
 
 ### References

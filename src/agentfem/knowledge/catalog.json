@@ -963,11 +963,15 @@
         "agentfem.mesh.CellNeighborhood",
         "agentfem.mesh.CellNeighborhoodGeometry",
         "agentfem.mesh.CellPairDifference",
+        "agentfem.mesh.CellGradientReconstruction",
+        "agentfem.mesh.CellStencilNeighborhood",
         "agentfem.mesh.InteriorFacetGeometry",
         "agentfem.mesh.InteriorFacetPair",
         "agentfem.mesh.cell_neighborhood",
         "agentfem.mesh.cell_neighborhood_geometry",
-        "agentfem.mesh.cell_pair_directional_difference"
+        "agentfem.mesh.cell_pair_directional_difference",
+        "agentfem.mesh.cell_stencil_neighborhood",
+        "agentfem.mesh.reconstruct_cell_gradient"
       ],
       "related_cards": [
         "agentfem.material.fabric_surface_constitutive",
@@ -975,7 +979,7 @@
       ],
       "source": "src/agentfem/knowledge/cards/cell_neighborhood_topology.json",
       "status": "experimental",
-      "summary": "Enumerates each owned interior facet with both adjacent cells and both cell-local facet positions, including ghost-cell evidence at MPI partition interfaces, for neighboring-element, DG, estimator and fracture algorithms.",
+      "summary": "Builds owned-facet evidence and ghost-complete local stencils, then supplies affine-exact pair differences and rank-audited least-squares gradients for neighboring-element, DG, estimator and fracture algorithms.",
       "title": "Partition-aware cell neighborhood topology"
     },
     {

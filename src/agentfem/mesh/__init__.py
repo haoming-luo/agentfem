@@ -24,15 +24,18 @@ from . import abaqus
 from . import selectors as select
 from .specs import SUPPORTED_GEOMETRIES, from_geometry_spec
 from .regions import RegionSet
+from .reconstruction import CellGradientReconstruction, reconstruct_cell_gradient
 from .neighborhood import (
     CellNeighborhood,
     CellNeighborhoodGeometry,
     CellPairDifference,
+    CellStencilNeighborhood,
     InteriorFacetGeometry,
     InteriorFacetPair,
     cell_neighborhood,
     cell_neighborhood_geometry,
     cell_pair_directional_difference,
+    cell_stencil_neighborhood,
 )
 from .selectors import Selector, ball, box, disk, layer, plane, where
 

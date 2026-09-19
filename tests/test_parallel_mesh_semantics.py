@@ -66,6 +66,17 @@ def test_cell_neighborhood_keeps_partition_interface_pairs_complete():
         difference.directions @ gradient,
         atol=1.0e-13,
     )
+    stencil = mesh.cell_stencil_neighborhood(domain)
+    remote_owned_pairs = sum(not pair.facet_owned for pair in stencil.pairs)
+    global_remote_owned_pairs = comm.allreduce(remote_owned_pairs, op=MPI.SUM)
+    assert global_remote_owned_pairs > 0
+    assert all(any(pair.cell_owned) for pair in stencil.pairs)
+    reconstructed = mesh.reconstruct_cell_gradient(domain, values, rings=2)
+    np.testing.assert_allclose(
+        reconstructed.gradients,
+        np.broadcast_to(gradient, reconstructed.gradients.shape),
+        atol=1.0e-12,
+    )
 
 
 def test_distributed_abaqus_regions_quality_and_remote_resultant():

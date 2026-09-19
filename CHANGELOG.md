@@ -40,7 +40,8 @@ experimental formulation to a validated one.
 - Add partition-aware interior-facet cell neighbourhoods with both cell-local
   facet positions, verified ghost adjacency, and translation-invariant
   centroid/facet geometry. An affine-exact scalar/vector center-line
-  difference now establishes the first auditable discrete operator for future
+  difference and rank/condition-audited local-tangent least-squares gradient
+  now establish the first discrete reconstruction operators for future
   rotation-free neighbouring-element shells and DG.
 - Add `agentfem support`, a consent-first community invitation that performs no
   account action, checks an existing GitHub login only when explicitly asked,

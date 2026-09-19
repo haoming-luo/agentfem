@@ -127,3 +127,55 @@ def test_fem_mesh_facade_is_accepted():
     assert evidence.topological_dimension == 1
     assert evidence.owned_interior_facets == 2
     assert evidence.owned_exterior_facets == 2
+
+
+def test_serial_stencil_matches_unique_owned_interior_pairs():
+    domain = dolfinx_mesh.create_unit_square(MPI.COMM_SELF, 3, 2)
+    unique = mesh.cell_neighborhood(domain)
+    stencil = mesh.cell_stencil_neighborhood(domain)
+
+    assert stencil.ghost_cells == 0
+    assert stencil.owned_cells == 12
+    assert tuple(item.facet_global for item in stencil.pairs) == tuple(
+        item.facet_global for item in unique.pairs
+    )
+    assert all(item.facet_owned for item in stencil.pairs)
+    assert all(all(item.cell_owned) for item in stencil.pairs)
+    assert stencil.as_dict()["identity_scope"] == "local_computation_stencil"
+
+
+@pytest.mark.parametrize("cell_type", ["triangle", "quadrilateral"])
+def test_cell_gradient_reconstruction_is_affine_exact(cell_type):
+    kind = getattr(dolfinx_mesh.CellType, cell_type)
+    domain = dolfinx_mesh.create_unit_square(
+        MPI.COMM_SELF,
+        4,
+        3,
+        cell_type=kind,
+    )
+    cell_map = domain.topology.index_map(domain.topology.dim)
+    cells = np.arange(cell_map.size_local, dtype=np.int32)
+    centroids = dolfinx_mesh.compute_midpoints(
+        domain,
+        domain.topology.dim,
+        cells,
+    )[:, :2]
+    gradient = np.array(((2.0, -3.0), (0.5, 1.25), (-1.0, 4.0)))
+    values = centroids @ gradient.T + np.array((4.0, -2.0, 1.0))
+
+    reconstructed = mesh.reconstruct_cell_gradient(domain, values, rings=2)
+
+    np.testing.assert_allclose(
+        reconstructed.gradients,
+        np.broadcast_to(gradient, reconstructed.gradients.shape),
+        atol=5.0e-14,
+    )
+    assert np.all(reconstructed.ranks == 2)
+    assert reconstructed.as_dict()["method"].startswith("weighted_least_squares")
+
+
+def test_cell_gradient_reconstruction_fails_closed_on_insufficient_stencil():
+    domain = dolfinx_mesh.create_unit_interval(MPI.COMM_SELF, 1)
+    values = np.array((0.5,))
+    with pytest.raises(RuntimeError, match="only 0 reconstruction neighbors"):
+        mesh.reconstruct_cell_gradient(domain, values, rings=1)

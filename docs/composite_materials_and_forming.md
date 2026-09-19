@@ -308,6 +308,14 @@ corresponding two-cell value difference per center distance and exactly
 recovers affine scalar/vector cell-center fields, including across a verified
 MPI partition. It remains one directional difference, not a reconstructed
 gradient, fibre curvature, or shell Step.
+`mesh.reconstruct_cell_gradient(...)` then combines the locally visible
+owned/ghost stencil by weighted least squares in an SVD-derived tangent basis.
+It exactly recovers affine scalar and vector fields on triangle and
+quadrilateral meshes in serial and two-rank tests, while recording neighbor
+counts, rank, and condition number for every owned cell. Rank-deficient or
+ill-conditioned boundary stencils fail instead of returning artificial zero
+curvature. Fibre-direction curvature and bending virtual work remain the next
+separate promotion gates.
 Naive mixed P1/DG0 and P2/DG1 compatibility pairs were rejected after losing
 rank under refinement; full-rank P2/CG1 and P2/DG0 candidates still showed a
 decaying normalized inf-sup value in the tested H1/L2 norms. Those negative
