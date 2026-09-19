@@ -8,6 +8,11 @@ experimental formulation to a validated one.
 
 ### Added
 
+- Add provider-neutral multilayer woven-reinforcement assets with stable layer
+  identities and varying fibre frames, objective separation of in-plane and
+  normal fibre curvature, and explicit forming-limit screening. These are
+  local constitutive and kinematic foundations; global fibrous-shell,
+  contact, and wrinkle-validation gates remain explicit.
 - Add `agentfem support`, a consent-first community invitation that performs no
   account action, checks an existing GitHub login only when explicitly asked,
   and remembers support locally without storing identity or credentials.

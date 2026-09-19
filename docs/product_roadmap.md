@@ -162,11 +162,18 @@ Deepen the finite-element core before broadening the catalog:
   orthotropic-solid route, locally verified ply/laminate sections, and the
   experimental finite-kinematics woven-membrane Step. Objective local director
   measures now establish the kinematic boundary for a future fibrous shell.
-  The next promotion sequence is a mixed displacement/director shell with
-  locking control and membrane/bending patch tests, followed by tool contact,
-  friction, inter-ply slip, quasi-static explicit controls, and independent
-  forming experiments. Each remains a separate gate rather than an implied
-  consequence of the membrane provider;
+  A provider-neutral multilayer stack retains varying layer frames and stable
+  layer identities without adding incompatible local resultants. Objective
+  fibre-curve measures separate in-plane from normal bending, and explicit
+  forming-limit assessments report utilization without claiming to predict
+  wrinkles. The next promotion sequence is a mixed displacement/director or
+  independently justified rotation-free shell with locking control and
+  membrane/transverse-shear/in-plane-bending/normal-bending patch tests,
+  followed by tool contact, friction, inter-ply slip, quasi-static explicit
+  controls, per-layer output, and independent forming experiments. A verified
+  manufacturing-to-structure mapping of orientation, thickness and defect
+  state follows the forming solve. Each remains a separate gate rather than
+  an implied consequence of the membrane provider;
 - promote the 3D generalized-Maxwell family beyond its analytical ramp--hold
   patch and independent Abaqus rod benchmark. Adaptive physical time, atomic
   cutback, portable MPI restart and accepted-boundary checkpoints are

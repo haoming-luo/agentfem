@@ -13,7 +13,7 @@ been FEM-integrated.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Protocol, runtime_checkable
+from typing import Mapping, Protocol, runtime_checkable
 
 import numpy as np
 
@@ -306,6 +306,264 @@ class FabricSurfaceResponse:
 
 
 @dataclass(frozen=True)
+class FabricLayer:
+    """One named reinforcement layer in a shared-kinematics stack.
+
+    Layer orientation remains owned by the law's ``FiberFrame``. Repeated
+    physical layers are represented by repeated, distinctly named layers;
+    AgentFEM does not hide thickness or multiplicity in an ambiguous scalar.
+    """
+
+    name: str
+    material: "DecoupledFabricSurface"
+
+    def __post_init__(self) -> None:
+        name = str(self.name).strip()
+        if not name:
+            raise ValueError("FabricLayer.name must be non-empty.")
+        if not isinstance(self.material, DecoupledFabricSurface):
+            raise TypeError("FabricLayer.material must be DecoupledFabricSurface.")
+        object.__setattr__(self, "name", name)
+
+    def as_dict(self) -> dict[str, object]:
+        return {
+            "kind": "fabric_layer",
+            "name": self.name,
+            "material": self.material.as_dict(),
+        }
+
+
+@dataclass(frozen=True)
+class FabricLayerResponse:
+    """Stable identity and local response of one stack layer."""
+
+    layer_name: str
+    response: FabricSurfaceResponse
+
+    @property
+    def stored_energy(self) -> float:
+        return float(self.response.stored_energy)
+
+    def as_dict(self) -> dict[str, object]:
+        return {
+            "kind": "fabric_layer_response",
+            "layer_name": self.layer_name,
+            "stored_energy": self.stored_energy,
+            "response": self.response.as_dict(),
+        }
+
+
+@dataclass(frozen=True)
+class FabricStackResponse:
+    """Per-layer response without inventing one ambiguous aggregate frame."""
+
+    layers: tuple[FabricLayerResponse, ...]
+    stored_energy: float
+
+    def by_name(self, name: str) -> FabricLayerResponse:
+        selected = str(name)
+        for layer in self.layers:
+            if layer.layer_name == selected:
+                return layer
+        raise KeyError(f"Unknown fabric layer {selected!r}.")
+
+    def as_dict(self) -> dict[str, object]:
+        return {
+            "kind": "fabric_stack_response",
+            "stored_energy": self.stored_energy,
+            "layers": [layer.as_dict() for layer in self.layers],
+            "aggregation": "energy_only; resultants retain layer frames",
+        }
+
+
+@dataclass(frozen=True)
+class FabricStack:
+    """Named layers sharing one surface deformation.
+
+    This is the provider-neutral constitutive asset needed by multilayer
+    forming.  It intentionally retains each layer's non-orthogonal frame and
+    response instead of summing unlike ``(warp, weft, trellising)`` vectors.
+    A future shell provider may consume ``membrane_energy_ufl`` directly.
+    """
+
+    name: str
+    layers: tuple[FabricLayer, ...]
+
+    def __post_init__(self) -> None:
+        name = str(self.name).strip()
+        layers = tuple(self.layers)
+        if not name:
+            raise ValueError("FabricStack.name must be non-empty.")
+        if not layers:
+            raise ValueError("FabricStack requires at least one layer.")
+        if not all(isinstance(layer, FabricLayer) for layer in layers):
+            raise TypeError("FabricStack.layers must contain only FabricLayer objects.")
+        names = [layer.name for layer in layers]
+        if len(names) != len(set(names)):
+            raise ValueError("Fabric layer names must be unique within a stack.")
+        object.__setattr__(self, "name", name)
+        object.__setattr__(self, "layers", layers)
+
+    @property
+    def has_bending(self) -> bool:
+        return any(
+            np.any(np.abs(layer.material.bending_stiffness) > 1.0e-14)
+            for layer in self.layers
+        )
+
+    def evaluate(
+        self,
+        deformation_gradient,
+        *,
+        curvature_by_layer: Mapping[str, object] | None = None,
+    ) -> FabricStackResponse:
+        curvatures = {} if curvature_by_layer is None else dict(curvature_by_layer)
+        unknown = set(curvatures).difference(layer.name for layer in self.layers)
+        if unknown:
+            raise KeyError(f"Unknown curvature layer names: {sorted(unknown)!r}.")
+        responses = tuple(
+            FabricLayerResponse(
+                layer_name=layer.name,
+                response=layer.material.evaluate(
+                    deformation_gradient,
+                    curvature=curvatures.get(layer.name),
+                ),
+            )
+            for layer in self.layers
+        )
+        return FabricStackResponse(
+            layers=responses,
+            stored_energy=float(sum(item.stored_energy for item in responses)),
+        )
+
+    def membrane_energy_ufl(self, displacement):
+        energies = [
+            layer.material.membrane_energy_ufl(displacement)
+            for layer in self.layers
+        ]
+        total = energies[0]
+        for energy in energies[1:]:
+            total += energy
+        return total
+
+    def as_dict(self) -> dict[str, object]:
+        return {
+            "kind": "fabric_stack",
+            "name": self.name,
+            "layers": [layer.as_dict() for layer in self.layers],
+            "kinematics": "shared_surface_deformation",
+            "resultant_policy": "retain_per_layer_frames",
+            "maturity": "local_constitutive_foundation",
+        }
+
+
+@dataclass(frozen=True)
+class FabricFormingAssessment:
+    """Dimensionless utilization report for declared forming limits."""
+
+    utilization: Mapping[str, float]
+    governing_mode: str
+    maximum_utilization: float
+    accepted: bool
+
+    def as_dict(self) -> dict[str, object]:
+        return {
+            "kind": "fabric_forming_assessment",
+            "utilization": dict(self.utilization),
+            "governing_mode": self.governing_mode,
+            "maximum_utilization": self.maximum_utilization,
+            "accepted": self.accepted,
+            "interpretation": "screening_against_user_declared_limits",
+        }
+
+
+@dataclass(frozen=True)
+class FabricFormingLimits:
+    """User-declared forming limits, separate from constitutive calibration.
+
+    These limits screen a computed state.  They do not by themselves predict
+    wrinkling, locking, contact, or manufacturing defects.
+    """
+
+    warp_tensile_strain: float | None = None
+    weft_tensile_strain: float | None = None
+    trellising_angle_radians: float | None = None
+    in_plane_curvature: float | None = None
+    normal_curvature: float | None = None
+
+    def __post_init__(self) -> None:
+        names = (
+            "warp_tensile_strain",
+            "weft_tensile_strain",
+            "trellising_angle_radians",
+            "in_plane_curvature",
+            "normal_curvature",
+        )
+        selected = 0
+        for name in names:
+            value = getattr(self, name)
+            if value is None:
+                continue
+            selected += 1
+            if not np.isfinite(value) or float(value) <= 0.0:
+                raise ValueError(f"{name} must be positive and finite when supplied.")
+            object.__setattr__(self, name, float(value))
+        if not selected:
+            raise ValueError("FabricFormingLimits requires at least one limit.")
+
+    def assess(
+        self,
+        response: FabricSurfaceResponse,
+        *,
+        warp_bending=None,
+        weft_bending=None,
+    ) -> FabricFormingAssessment:
+        values: dict[str, float] = {}
+        kin = response.kinematics
+        if self.warp_tensile_strain is not None:
+            values["warp_tension"] = max(0.0, kin.warp_strain) / self.warp_tensile_strain
+        if self.weft_tensile_strain is not None:
+            values["weft_tension"] = max(0.0, kin.weft_strain) / self.weft_tensile_strain
+        if self.trellising_angle_radians is not None:
+            values["trellising"] = abs(kin.shear_angle) / self.trellising_angle_radians
+        bending = tuple(item for item in (warp_bending, weft_bending) if item is not None)
+        if (
+            self.in_plane_curvature is not None
+            or self.normal_curvature is not None
+        ) and not bending:
+            raise ValueError(
+                "Curvature limits require warp_bending and/or weft_bending kinematics."
+            )
+        if self.in_plane_curvature is not None and bending:
+            values["in_plane_bending"] = max(
+                abs(float(item.in_plane_curvature_change)) for item in bending
+            ) / self.in_plane_curvature
+        if self.normal_curvature is not None and bending:
+            values["normal_bending"] = max(
+                abs(float(item.normal_curvature_change)) for item in bending
+            ) / self.normal_curvature
+        governing = max(values, key=values.get)
+        maximum = float(values[governing])
+        return FabricFormingAssessment(
+            utilization=values,
+            governing_mode=governing,
+            maximum_utilization=maximum,
+            accepted=maximum <= 1.0,
+        )
+
+    def as_dict(self) -> dict[str, object]:
+        return {
+            "kind": "fabric_forming_limits",
+            "warp_tensile_strain": self.warp_tensile_strain,
+            "weft_tensile_strain": self.weft_tensile_strain,
+            "trellising_angle_radians": self.trellising_angle_radians,
+            "in_plane_curvature": self.in_plane_curvature,
+            "normal_curvature": self.normal_curvature,
+            "curvature_unit": "inverse_length",
+        }
+
+
+@dataclass(frozen=True)
 class FabricMembraneExpressions:
     """Symbolic observables used by the global woven-membrane provider."""
 
@@ -511,6 +769,55 @@ def decoupled_fabric_surface(
     )
 
 
+def fabric_layer(
+    material: DecoupledFabricSurface,
+    *,
+    name: str,
+) -> FabricLayer:
+    """Create one named layer for a shared-kinematics fabric stack."""
+
+    return FabricLayer(
+        name=name,
+        material=material,
+    )
+
+
+def fabric_stack(
+    layers,
+    *,
+    name: str = "fabric_stack",
+) -> FabricStack:
+    """Create a checked multilayer fabric asset with stable layer identities."""
+
+    return FabricStack(name=name, layers=tuple(layers))
+
+
+def fabric_forming_limits(
+    *,
+    warp_tensile_strain: float | None = None,
+    weft_tensile_strain: float | None = None,
+    trellising_angle: float | None = None,
+    angle_unit: str = "degree",
+    in_plane_curvature: float | None = None,
+    normal_curvature: float | None = None,
+) -> FabricFormingLimits:
+    """Create forming-screening limits with an explicit angle unit."""
+
+    selected_unit = str(angle_unit).strip().lower()
+    if selected_unit not in {"degree", "degrees", "deg", "radian", "radians", "rad"}:
+        raise ValueError("angle_unit must be degree or radian.")
+    angle = trellising_angle
+    if angle is not None and selected_unit in {"degree", "degrees", "deg"}:
+        angle = float(np.deg2rad(angle))
+    return FabricFormingLimits(
+        warp_tensile_strain=warp_tensile_strain,
+        weft_tensile_strain=weft_tensile_strain,
+        trellising_angle_radians=angle,
+        in_plane_curvature=in_plane_curvature,
+        normal_curvature=normal_curvature,
+    )
+
+
 def fabric_membrane_internal_virtual_work(
     displacement,
     test,
@@ -529,12 +836,21 @@ def fabric_membrane_internal_virtual_work(
 
 __all__ = [
     "DecoupledFabricSurface",
+    "FabricFormingAssessment",
+    "FabricFormingLimits",
     "FabricKinematics",
+    "FabricLayer",
+    "FabricLayerResponse",
     "FabricMembraneExpressions",
+    "FabricStack",
+    "FabricStackResponse",
     "FabricSurfaceResponse",
     "SurfaceConstitutive",
     "TabulatedResponse",
     "decoupled_fabric_surface",
+    "fabric_forming_limits",
+    "fabric_layer",
     "fabric_membrane_internal_virtual_work",
+    "fabric_stack",
     "tabulated_response",
 ]

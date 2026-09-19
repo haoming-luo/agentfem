@@ -343,6 +343,174 @@ def test_director_shell_kinematics_are_objective_and_detect_curvature():
     np.testing.assert_allclose(after.current_normal, rotation @ before.current_normal)
 
 
+def test_fiber_curve_kinematics_separate_in_plane_and_normal_bending():
+    tangents = np.array([[1.0, 0.0], [0.0, 1.0], [0.0, 0.0]])
+    reference_direction = np.array([1.0, 0.0, 0.0])
+    in_plane = mechanics.fiber_curve_kinematics(
+        tangents,
+        tangents,
+        reference_direction,
+        reference_direction,
+        current_direction_gradient=np.array(
+            [[0.0, 0.0], [2.0, 0.0], [0.0, 0.0]]
+        ),
+    )
+    assert in_plane.in_plane_curvature_change == pytest.approx(2.0)
+    assert in_plane.normal_curvature_change == pytest.approx(0.0)
+
+    normal = mechanics.fiber_curve_kinematics(
+        tangents,
+        tangents,
+        reference_direction,
+        reference_direction,
+        current_direction_gradient=np.array(
+            [[0.0, 0.0], [0.0, 0.0], [3.0, 0.0]]
+        ),
+    )
+    assert normal.in_plane_curvature_change == pytest.approx(0.0)
+    assert normal.normal_curvature_change == pytest.approx(3.0)
+
+    angle = np.deg2rad(31.0)
+    rotation = np.array(
+        [
+            [np.cos(angle), -np.sin(angle), 0.0],
+            [np.sin(angle), np.cos(angle), 0.0],
+            [0.0, 0.0, 1.0],
+        ]
+    )
+    rotated = mechanics.fiber_curve_kinematics(
+        rotation @ tangents,
+        rotation @ tangents,
+        rotation @ reference_direction,
+        rotation @ reference_direction,
+        current_direction_gradient=rotation
+        @ np.array([[0.0, 0.0], [2.0, 0.0], [0.0, 0.0]]),
+    )
+    assert rotated.in_plane_curvature_change == pytest.approx(2.0)
+    assert rotated.normal_curvature_change == pytest.approx(0.0)
+
+
+def test_multilayer_fabric_stack_retains_varying_layer_frames_and_energy():
+    tension = constitutive.tabulated_response(
+        [0.0, 0.1], [0.0, 100.0], extrapolation="linear"
+    )
+    shear = constitutive.tabulated_response(
+        [0.0, 0.5], [0.0, 20.0], symmetry="odd", extrapolation="linear"
+    )
+
+    def surface(angle, name):
+        radians = np.deg2rad(angle)
+        c, s = np.cos(radians), np.sin(radians)
+        return constitutive.decoupled_fabric_surface(
+            name=name,
+            frame=materials.fiber_frame(
+                [c, s], [-s, c], name=f"{name}_frame"
+            ),
+            warp_tension=tension,
+            weft_tension=tension,
+            shear=shear,
+            bending_stiffness=np.zeros((3, 3)),
+        )
+
+    stack = constitutive.fabric_stack(
+        [
+            constitutive.fabric_layer(surface(0.0, "zero"), name="ply_0"),
+            constitutive.fabric_layer(surface(45.0, "bias"), name="ply_45"),
+        ],
+        name="forming_stack",
+    )
+    deformation = np.array([[1.1, 0.2], [0.0, 1.0]])
+    response = stack.evaluate(deformation)
+
+    assert tuple(item.layer_name for item in response.layers) == ("ply_0", "ply_45")
+    assert response.by_name("ply_0").response.kinematics.warp_strain != pytest.approx(
+        response.by_name("ply_45").response.kinematics.warp_strain
+    )
+    assert response.stored_energy == pytest.approx(
+        response.by_name("ply_0").stored_energy
+        + response.by_name("ply_45").stored_energy
+    )
+    assert stack.as_dict()["resultant_policy"] == "retain_per_layer_frames"
+
+
+def test_multilayer_fabric_stack_builds_one_additive_symbolic_energy():
+    domain = mesh.rectangle(
+        (0.0, 0.0),
+        (1.0, 1.0),
+        (1, 1),
+        comm=MPI.COMM_SELF,
+        cell_type="triangle",
+    )
+    displacement = fields.displacement(domain, degree=1)
+    displacement.value.interpolate(
+        lambda x: np.vstack((0.05 * x[0] + 0.02 * x[1], np.zeros_like(x[0])))
+    )
+    first = _fabric_membrane()
+    angle = np.deg2rad(45.0)
+    second = constitutive.decoupled_fabric_surface(
+        frame=materials.fiber_frame(
+            [np.cos(angle), np.sin(angle)],
+            [-np.sin(angle), np.cos(angle)],
+        ),
+        warp_tension=first.warp_tension,
+        weft_tension=first.weft_tension,
+        shear=first.shear,
+        bending_stiffness=np.zeros((3, 3)),
+    )
+    stack = constitutive.fabric_stack(
+        [
+            constitutive.fabric_layer(first, name="ply_0"),
+            constitutive.fabric_layer(second, name="ply_45"),
+        ]
+    )
+
+    stacked = fem.assemble_scalar(
+        fem.form(stack.membrane_energy_ufl(displacement.value) * ufl.dx)
+    )
+    separate = fem.assemble_scalar(
+        fem.form(
+            (
+                first.membrane_energy_ufl(displacement.value)
+                + second.membrane_energy_ufl(displacement.value)
+            )
+            * ufl.dx
+        )
+    )
+    assert stacked == pytest.approx(separate, rel=1.0e-13)
+
+
+def test_forming_limits_are_explicit_screening_not_a_wrinkle_claim():
+    surface = _fabric_membrane()
+    response = surface.evaluate([[1.05, 0.2], [0.0, 1.0]])
+    tangents = np.array([[1.0, 0.0], [0.0, 1.0], [0.0, 0.0]])
+    warp_bending = mechanics.fiber_curve_kinematics(
+        tangents,
+        tangents,
+        [1.0, 0.0, 0.0],
+        [1.0, 0.0, 0.0],
+        current_direction_gradient=np.array(
+            [[0.0, 0.0], [1.5, 0.0], [0.0, 0.0]]
+        ),
+    )
+    limits = constitutive.fabric_forming_limits(
+        warp_tensile_strain=0.1,
+        weft_tensile_strain=0.1,
+        trellising_angle=20.0,
+        in_plane_curvature=1.0,
+    )
+    assessment = limits.assess(response, warp_bending=warp_bending)
+
+    assert assessment.governing_mode == "in_plane_bending"
+    assert assessment.maximum_utilization == pytest.approx(1.5)
+    assert assessment.accepted is False
+    assert assessment.as_dict()["interpretation"] == (
+        "screening_against_user_declared_limits"
+    )
+
+    with pytest.raises(ValueError, match="Curvature limits require"):
+        limits.assess(response)
+
+
 def _fabric_membrane(*, bending=0.0):
     tension = constitutive.tabulated_response(
         [0.0, 0.05, 0.10],

@@ -221,13 +221,22 @@ and evidence remain in the linked guides and scientific function reference.
 | function | `orthotropic_elastic_3d(*, ex: float, ey: float, ez: float, nuxy: float, nuxz: float, nuyz: float, gxy: float, gxz: float, gyz: float, density: float, name: str = 'orthotropic elastic 3D') -> ElasticAnisotropic3DProperties` | Create a reciprocal, positive-definite 3D orthotropic material. |
 | function | `stress(displacement, properties, *, study = None, temperature = None)` | Dispatch to the matching elastic stress relation. |
 | class | `DecoupledFabricSurface` | Independent yarn tension, trellising shear, and bending channels. |
+| class | `FabricFormingAssessment` | Dimensionless utilization report for declared forming limits. |
+| class | `FabricFormingLimits` | User-declared forming limits, separate from constitutive calibration. |
 | class | `FabricKinematics` | Non-orthogonal warp/weft surface deformation measures. |
+| class | `FabricLayer` | One named reinforcement layer in a shared-kinematics stack. |
+| class | `FabricLayerResponse` | Stable identity and local response of one stack layer. |
 | class | `FabricMembraneExpressions` | Symbolic observables used by the global woven-membrane provider. |
+| class | `FabricStack` | Named layers sharing one surface deformation. |
+| class | `FabricStackResponse` | Per-layer response without inventing one ambiguous aggregate frame. |
 | class | `FabricSurfaceResponse` | Local generalized resultants, tangent, energy, and physical measures. |
 | class | `SurfaceConstitutive` | Extension contract for a local surface constitutive response. |
 | class | `TabulatedResponse` | Piecewise-linear scalar constitutive channel with an energy primitive. |
 | function | `decoupled_fabric_surface(*, frame: FiberFrame, warp_tension: TabulatedResponse, weft_tension: TabulatedResponse, shear: TabulatedResponse, bending_stiffness, tension_only: bool = True, name: str = 'fabric_surface') -> DecoupledFabricSurface` | Public AgentFEM object. |
+| function | `fabric_forming_limits(*, warp_tensile_strain: float \| None = None, weft_tensile_strain: float \| None = None, trellising_angle: float \| None = None, angle_unit: str = 'degree', in_plane_curvature: float \| None = None, normal_curvature: float \| None = None) -> FabricFormingLimits` | Create forming-screening limits with an explicit angle unit. |
+| function | `fabric_layer(material: DecoupledFabricSurface, *, name: str) -> FabricLayer` | Create one named layer for a shared-kinematics fabric stack. |
 | function | `fabric_membrane_internal_virtual_work(displacement, test, material: DecoupledFabricSurface, *, measure = None)` | Return the in-plane fabric membrane residual from stored energy. |
+| function | `fabric_stack(layers, *, name: str = 'fabric_stack') -> FabricStack` | Create a checked multilayer fabric asset with stable layer identities. |
 | function | `tabulated_response(abscissa, ordinate, *, name: str = 'response', symmetry: str = 'none', extrapolation: str = 'error') -> TabulatedResponse` | Public AgentFEM object. |
 | class | `BasquinCurve` | Fully reversed stress-life curve ``sigma_a = sigma_f' (2N)^b``. |
 | class | `FatigueAssessment` | Auditable stress-life assessment derived from one scalar history. |
@@ -926,7 +935,9 @@ and evidence remain in the linked guides and scientific function reference.
 | class | `J2PlasticityStep` | Incremental global equilibrium for 3D small-strain J2 plasticity. |
 | function | `j2_plasticity_step(*, displacement, material, external_force, constraints = (), study = None, incrementation = None, solver_options = None, quadrature_degree: int = 2, progress = True, status_file = None, amplitude = None, name: str = 'j2_plasticity', _experimental_distributed: bool = False) -> J2PlasticityStep` | Build a global 3D or axisymmetric J2 step. |
 | class | `DirectorShellKinematics` | Finite-rotation surface measures at one material point. |
+| class | `FiberCurveKinematics` | Objective bending measures for one material fibre curve. |
 | function | `director_shell_kinematics(reference_tangents, current_tangents, director, *, director_gradient = None, reference_director = None, reference_director_gradient = None) -> DirectorShellKinematics` | Evaluate objective membrane, shear, and curvature measures. |
+| function | `fiber_curve_kinematics(reference_tangents, current_tangents, reference_direction, current_direction, *, current_direction_gradient, reference_direction_gradient = None) -> FiberCurveKinematics` | Evaluate in-plane and normal curvature changes of one fibre family. |
 | class | `HarmonicViscoelasticStep` | Direct harmonic generalized-Maxwell equilibrium in a real PETSc build. |
 | class | `QuasistaticViscoelasticStep` | Incremental equilibrium for a small-strain generalized-Maxwell solid. |
 | class | `ViscoelasticEnergyFrame` | Exact constitutive work--storage--dissipation ledger. |

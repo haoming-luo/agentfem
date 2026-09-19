@@ -165,6 +165,54 @@ locking treatment, or global shell solve. Tool contact, friction, inter-ply
 slip, explicit quasi-static controls, and forming observables remain separate
 promotion gates.
 
+## Multilayer and fibre-curve foundations
+
+Stacks with different reinforcement directions must not be collapsed into one
+fictitious orthotropic frame. `fabric_layer(...)` and `fabric_stack(...)`
+therefore retain a stable identity, frame, and response for every
+layer while sharing the same surface deformation:
+
+```python
+stack = constitutive.fabric_stack(
+    [
+        constitutive.fabric_layer(woven_0, name="ply_0"),
+        constitutive.fabric_layer(woven_45, name="ply_45"),
+    ],
+    name="forming_stack",
+)
+local = stack.evaluate(F_surface)
+ply_45 = local.by_name("ply_45")
+```
+
+Only stored energy is safely additive without choosing a common generalized
+frame. Warp/weft/trellising resultants remain attached to their own layers.
+This avoids a plausible-looking but physically ambiguous aggregate vector and
+provides the constitutive object needed by a later multilayer shell provider.
+Each physical layer is explicit; repeated layers receive distinct names
+rather than being hidden behind a multiplicity factor.
+The present stack is a local foundation; the global membrane Step still
+accepts one fabric surface.
+
+Fibre bending also has two meanings that must not be conflated.
+`mechanics.fiber_curve_kinematics(...)` evaluates the directional derivative
+of a unit fibre curve and separates:
+
+- in-plane curvature, along the tangent direction normal to the fibre; and
+- normal curvature, along the surface normal.
+
+Both are objective under a superposed rigid rotation and are reported as
+changes from the reference surface. The required unit-direction gradients are
+explicit inputs. A future global implementation must obtain them from a
+verified second-gradient, rotation-free, or mixed-director discretization; a
+standard displacement membrane cannot manufacture them after the fact.
+
+Finally, `fabric_forming_limits(...)` provides a small fail-closed screening
+contract for user-declared yarn strain, trellising angle, and curvature
+limits. The result reports dimensionless utilization and the governing mode.
+It is deliberately called an *assessment*, not a wrinkle or defect predictor:
+contact, boundary forces, bending equilibrium, and geometric instability must
+come from the forming solve and its validation evidence.
+
 That boundary reflects the literature. Boisse and co-workers identify yarn
 tension, in-plane shear, and bending as separate contributors to deformation
 and wrinkling, with bending mechanics not safely inferred from membrane
@@ -188,12 +236,36 @@ The automated local evidence currently checks:
 - tension, trellising shear, and bending remain independent energy channels;
 - director-shell measures vanish under a superposed rigid rotation and detect
   a constant-curvature patch;
+- fibre-curve measures distinguish in-plane and normal bending and remain
+  objective under a superposed rigid rotation;
+- multilayer stacks retain varying layer frames and stable layer identities
+  while adding only compatible energy scalars;
+- forming limits report explicit utilization and refuse curvature assessment
+  when curvature kinematics are absent;
 - the woven membrane is selected by the standard Step provider, solves a
   nonzero traction patch, and reports positive Jacobian and stored energy;
 - membrane lowering rejects a nonzero bending law rather than hiding it.
 
 No shell element patch test, contact benchmark, or drape experiment has yet
 promoted this membrane foundation to a forming-capable fibrous shell.
+
+## Promotion roadmap
+
+1. **Fibrous shell kernel:** mixed displacement/director or independently
+   justified rotation-free interpolation; membrane, transverse-shear,
+   in-plane-bending and normal-bending patch tests; documented locking control.
+2. **Forming procedure:** tool geometry, unilateral contact, friction,
+   blank-holder loads, inter-ply slip, quasi-static explicit energy controls,
+   checkpoint/restart, and per-layer result fields.
+3. **Verification ladder:** bias-extension and picture-frame shear, cantilever
+   bending, in-plane bending/virtual-fibre calibration, hemisphere or double-
+   dome draping, and multilayer varying-orientation cases. Mesh, time-step,
+   penalty/contact, and imperfection sensitivity remain separate axes.
+4. **Manufacturing-to-structure handoff:** transfer fibre directions,
+   thickness, shear history and declared defects into a cured laminate or
+   solid model with a conservative mapping audit.
+5. **Later research:** irreversible shear/bending, compaction and permeability,
+   mesoscopic yarn/contact models, data-assisted calibration, and uncertainty.
 
 ## References
 
@@ -213,6 +285,16 @@ promoted this membrane foundation to a forming-capable fibrous shell.
 - R. Bai et al., “A specific 3D shell approach for textile composite
   reinforcements under large deformation,” *Composites Part A* 139 (2020),
   <https://doi.org/10.1016/j.compositesa.2020.106135>.
+- R. Bai et al., “A multilayer shell approach for simulating composite
+  preforming with varying fibre orientations,” *Composite Structures* 372
+  (2025), <https://doi.org/10.1016/j.compstruct.2025.119593>.
+- R. Zheng et al., “Numerical prediction of the in-plane bending properties of
+  fibrous reinforcements using a mesoscopic virtual fiber finite element
+  approach,” *Composites Part B* 322 (2026),
+  <https://doi.org/10.1016/j.compositesb.2026.113771>.
+- P. Boisse et al., “Bending and wrinkling of composite fiber preforms and
+  prepregs,” *Composites Part B* 141 (2018),
+  <https://doi.org/10.1016/j.compositesb.2017.12.061>.
 - Dassault Systèmes, “Defining composite plies,” Abaqus 2025 documentation,
   <https://docs.software.vt.edu/abaqusv2025/English/SIMACAECAERefMap/simacae-t-prpcompositesshellcontinuumplies.htm>.
 - Dassault Systèmes, “Fabric material,” Abaqus 2025 documentation,

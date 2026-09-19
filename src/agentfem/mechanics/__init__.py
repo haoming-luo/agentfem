@@ -35,7 +35,12 @@ from .plasticity import (
     J2PlasticityStep,
     j2_plasticity_step,
 )
-from .shell import DirectorShellKinematics, director_shell_kinematics
+from .shell import (
+    DirectorShellKinematics,
+    FiberCurveKinematics,
+    director_shell_kinematics,
+    fiber_curve_kinematics,
+)
 from .viscoelasticity import (
     HarmonicViscoelasticStep,
     QuasistaticViscoelasticStep,
@@ -54,6 +59,7 @@ __all__ = [
     "DirectHarmonicStep",
     "DirectHarmonicSweepStep",
     "DirectorShellKinematics",
+    "FiberCurveKinematics",
     "ImplicitCreepStep",
     "ExperimentalFiniteStrainPlasticityStep",
     "FiniteStrainJ2AffineTransaction",
@@ -81,5 +87,6 @@ __all__ = [
     "harmonic_viscoelastic_step",
     "j2_plasticity_step",
     "director_shell_kinematics",
+    "fiber_curve_kinematics",
     "quasistatic_viscoelastic_step",
 ]

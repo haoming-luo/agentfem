@@ -76,6 +76,113 @@ class DirectorShellKinematics:
         }
 
 
+@dataclass(frozen=True)
+class FiberCurveKinematics:
+    """Objective bending measures for one material fibre curve.
+
+    The signed in-plane component is measured along ``normal x direction``;
+    the signed normal component is measured along the surface normal.  Their
+    changes are the quantities required by fibrous-surface bending laws.  This
+    local contract deliberately does not prescribe a shell interpolation or a
+    second-gradient discretization.
+    """
+
+    reference_direction: np.ndarray
+    current_direction: np.ndarray
+    reference_in_plane_curvature: float
+    current_in_plane_curvature: float
+    in_plane_curvature_change: float
+    reference_normal_curvature: float
+    current_normal_curvature: float
+    normal_curvature_change: float
+
+    def as_dict(self) -> dict[str, object]:
+        return {
+            "kind": "fiber_curve_kinematics",
+            "reference_direction": self.reference_direction.tolist(),
+            "current_direction": self.current_direction.tolist(),
+            "reference_in_plane_curvature": self.reference_in_plane_curvature,
+            "current_in_plane_curvature": self.current_in_plane_curvature,
+            "in_plane_curvature_change": self.in_plane_curvature_change,
+            "reference_normal_curvature": self.reference_normal_curvature,
+            "current_normal_curvature": self.current_normal_curvature,
+            "normal_curvature_change": self.normal_curvature_change,
+            "sign_convention": {
+                "in_plane": "positive_along_surface_normal_cross_fiber",
+                "normal": "positive_along_surface_normal",
+            },
+            "objectivity": "invariant_under_superposed_rigid_rotation",
+        }
+
+
+def _fiber_curve_components(tangents, direction, gradient, *, name: str):
+    surface = _columns(tangents, name=f"{name}_tangents")
+    fiber = _director(direction, name=f"{name}_direction")
+    derivative = _director_gradient(gradient, name=f"{name}_direction_gradient")
+    normal = np.cross(surface[:, 0], surface[:, 1])
+    normal /= np.linalg.norm(normal)
+    if abs(float(np.dot(fiber, normal))) > 1.0e-9:
+        raise ValueError(f"{name}_direction must be tangent to the surface.")
+    metric = surface.T @ surface
+    coordinates = np.linalg.solve(metric, surface.T @ fiber)
+    reconstructed = surface @ coordinates
+    if not np.allclose(reconstructed, fiber, atol=1.0e-9, rtol=1.0e-9):
+        raise ValueError(f"{name}_direction must lie in the surface tangent span.")
+    directional_derivative = derivative @ coordinates
+    # A unit-vector derivative is orthogonal to the vector. Remove only roundoff
+    # drift so curvature components remain insensitive to numerical normalization.
+    directional_derivative -= (
+        float(np.dot(directional_derivative, fiber)) * fiber
+    )
+    in_plane_normal = np.cross(normal, fiber)
+    return (
+        fiber,
+        float(np.dot(directional_derivative, in_plane_normal)),
+        float(np.dot(directional_derivative, normal)),
+    )
+
+
+def fiber_curve_kinematics(
+    reference_tangents,
+    current_tangents,
+    reference_direction,
+    current_direction,
+    *,
+    current_direction_gradient,
+    reference_direction_gradient=None,
+) -> FiberCurveKinematics:
+    """Evaluate in-plane and normal curvature changes of one fibre family.
+
+    Direction gradients are derivatives of the *unit* fibre direction with
+    respect to the two surface coordinates.  This makes the required
+    second-gradient information explicit instead of hiding it in a fitted
+    conventional-shell stiffness.
+    """
+
+    reference = _fiber_curve_components(
+        reference_tangents,
+        reference_direction,
+        reference_direction_gradient,
+        name="reference",
+    )
+    current = _fiber_curve_components(
+        current_tangents,
+        current_direction,
+        current_direction_gradient,
+        name="current",
+    )
+    return FiberCurveKinematics(
+        reference_direction=reference[0],
+        current_direction=current[0],
+        reference_in_plane_curvature=reference[1],
+        current_in_plane_curvature=current[1],
+        in_plane_curvature_change=current[1] - reference[1],
+        reference_normal_curvature=reference[2],
+        current_normal_curvature=current[2],
+        normal_curvature_change=current[2] - reference[2],
+    )
+
+
 def director_shell_kinematics(
     reference_tangents,
     current_tangents,
@@ -134,4 +241,9 @@ def director_shell_kinematics(
     )
 
 
-__all__ = ["DirectorShellKinematics", "director_shell_kinematics"]
+__all__ = [
+    "DirectorShellKinematics",
+    "FiberCurveKinematics",
+    "director_shell_kinematics",
+    "fiber_curve_kinematics",
+]
