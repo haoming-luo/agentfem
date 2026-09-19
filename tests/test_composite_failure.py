@@ -80,6 +80,37 @@ def test_hashin_matrix_compression_uses_nonlinear_proportional_root():
     assert assessment.load_factor_to_first_failure != pytest.approx(np.sqrt(2.0))
 
 
+def test_tsai_wu_requires_explicit_convex_interaction_and_exact_root():
+    strengths = _strengths()
+    criterion = constitutive.TsaiWu2D(interaction=-0.35)
+
+    assert constitutive.assess_ply_failure(
+        [strengths.longitudinal_tension, 0.0, 0.0],
+        strengths,
+        criterion=criterion,
+    ).maximum_index == pytest.approx(1.0)
+    assert constitutive.assess_ply_failure(
+        [-strengths.longitudinal_compression, 0.0, 0.0],
+        strengths,
+        criterion=criterion,
+    ).maximum_index == pytest.approx(1.0)
+    stress = np.array([300.0, -40.0, 30.0])
+    assessment = constitutive.assess_ply_failure(
+        stress,
+        strengths,
+        criterion=criterion,
+    )
+    at_failure = constitutive.assess_ply_failure(
+        assessment.load_factor_to_first_failure * stress,
+        strengths,
+        criterion=criterion,
+    )
+    assert at_failure.maximum_index == pytest.approx(1.0, rel=1.0e-12)
+
+    with pytest.raises(ValueError, match="strictly between"):
+        constitutive.TsaiWu2D(interaction=-1.0)
+
+
 def test_ply_failure_assessment_is_extensible_and_fail_closed():
     class UserCriterion:
         name = "user_linear_interaction"

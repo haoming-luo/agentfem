@@ -88,8 +88,8 @@ guessing.
 Elastic constants, strength allowables, and the chosen failure surface are not
 the same object. `CompositeStrengths2D` therefore stores the five common
 plane-stress allowables independently from the lamina material. Built-in
-maximum-stress and Hashin criteria consume an explicit material-axis stress
-order `(sigma_11, sigma_22, tau_12)`:
+maximum-stress, Hashin, and Tsai--Wu criteria consume an explicit material-axis
+stress order `(sigma_11, sigma_22, tau_12)`:
 
 ```python
 strengths = constitutive.composite_strengths_2d(
@@ -105,6 +105,10 @@ load factor at which the first index reaches one. The load factor is solved on
 the actual criterion, not approximated as `1/sqrt(index)` for the nonhomogeneous
 Hashin matrix-compression branch. A user criterion can implement the small
 `PlyFailureCriterion` protocol without modifying AgentFEM.
+Tsai--Wu is created as `TsaiWu2D(interaction=...)`: the normalized interaction
+coefficient is mandatory and must preserve a convex quadratic surface.
+AgentFEM does not silently substitute the common empirical approximation when
+biaxial strength data are unavailable.
 
 For a `LaminateSection`, `assess_laminate_failure(section, response, ...)`
 rotates every recovered section-axis stress into its named ply material axes

@@ -142,6 +142,45 @@ class Hashin2D:
 
 
 @dataclass(frozen=True)
+class TsaiWu2D:
+    """Plane-stress Tsai--Wu surface with explicit normalized interaction."""
+
+    interaction: float
+    name: str = "tsai_wu_2d"
+
+    def __post_init__(self) -> None:
+        selected = float(self.interaction)
+        if not isfinite(selected) or abs(selected) >= 1.0:
+            raise ValueError(
+                "TsaiWu2D.interaction must be finite and lie strictly between -1 and 1."
+            )
+        object.__setattr__(self, "interaction", selected)
+
+    def evaluate(self, material_stress, strengths) -> Mapping[str, float]:
+        sigma_1, sigma_2, tau_12 = _material_stress(material_stress)
+        f1 = 1.0 / strengths.longitudinal_tension - 1.0 / strengths.longitudinal_compression
+        f2 = 1.0 / strengths.transverse_tension - 1.0 / strengths.transverse_compression
+        f11 = 1.0 / (
+            strengths.longitudinal_tension * strengths.longitudinal_compression
+        )
+        f22 = 1.0 / (
+            strengths.transverse_tension * strengths.transverse_compression
+        )
+        f66 = 1.0 / strengths.in_plane_shear**2
+        f12 = self.interaction * np.sqrt(f11 * f22)
+        return {
+            "combined": float(
+                f1 * sigma_1
+                + f2 * sigma_2
+                + f11 * sigma_1**2
+                + f22 * sigma_2**2
+                + 2.0 * f12 * sigma_1 * sigma_2
+                + f66 * tau_12**2
+            )
+        }
+
+
+@dataclass(frozen=True)
 class PlyFailureAssessment:
     """Per-mode initiation indices and proportional first-failure factor."""
 
@@ -253,9 +292,9 @@ def _maximum_index(
     if not indices:
         raise ValueError("PlyFailureCriterion.evaluate must return at least one mode.")
     values = np.asarray(tuple(indices.values()), dtype=float)
-    if not np.all(np.isfinite(values)) or np.any(values < -1.0e-12):
-        raise ValueError("Ply failure indices must be finite and nonnegative.")
-    return float(np.max(np.maximum(values, 0.0)))
+    if not np.all(np.isfinite(values)):
+        raise ValueError("Ply failure indices must be finite.")
+    return float(max(0.0, np.max(values)))
 
 
 def _first_failure_factor(
@@ -314,7 +353,7 @@ def assess_ply_failure(
     stress = _material_stress(material_stress)
     selected = _criterion(criterion)
     raw = selected.evaluate(stress, strengths)
-    indices = {name: max(0.0, float(value)) for name, value in raw.items()}
+    indices = {name: float(value) for name, value in raw.items()}
     maximum = _maximum_index(selected, stress, strengths)
     governing = max(indices, key=indices.get)
     return PlyFailureAssessment(
@@ -416,6 +455,7 @@ __all__ = [
     "PlyFailureAssessment",
     "PlyFailureCriterion",
     "PlyPointFailureAssessment",
+    "TsaiWu2D",
     "assess_laminate_failure",
     "assess_ply_failure",
     "composite_strengths_2d",

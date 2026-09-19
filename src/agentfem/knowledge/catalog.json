@@ -477,6 +477,7 @@
         "agentfem.constitutive.PlyFailureCriterion",
         "agentfem.constitutive.MaximumStress2D",
         "agentfem.constitutive.Hashin2D",
+        "agentfem.constitutive.TsaiWu2D",
         "agentfem.constitutive.PlyFailureAssessment",
         "agentfem.constitutive.LaminateFailureAssessment",
         "agentfem.constitutive.composite_strengths_2d",
@@ -490,7 +491,7 @@
       ],
       "source": "src/agentfem/knowledge/cards/composite_ply_failure.json",
       "status": "experimental",
-      "summary": "Evaluates sign-aware maximum-stress or plane-stress Hashin initiation indices in ply material axes, computes the proportional first-failure load factor, and applies the same replaceable assessment to every stable laminate section point without evolving damage.",
+      "summary": "Evaluates sign-aware maximum-stress, plane-stress Hashin, or explicitly parameterized Tsai--Wu initiation indices in ply material axes, computes the proportional first-failure load factor, and applies the same replaceable assessment to every stable laminate section point without evolving damage.",
       "title": "Material-axis composite ply failure assessment"
     },
     {

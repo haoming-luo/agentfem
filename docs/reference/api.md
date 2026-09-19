@@ -249,6 +249,7 @@ and evidence remain in the linked guides and scientific function reference.
 | class | `PlyFailureAssessment` | Per-mode initiation indices and proportional first-failure factor. |
 | class | `PlyFailureCriterion` | Extension contract for one material-axis ply failure surface. |
 | class | `PlyPointFailureAssessment` | One laminate section point assessed in its ply material frame. |
+| class | `TsaiWu2D` | Plane-stress Tsai--Wu surface with explicit normalized interaction. |
 | function | `assess_laminate_failure(section, response, strengths: CompositeStrengths2D \| Mapping[str, CompositeStrengths2D], *, criterion: str \| PlyFailureCriterion = 'hashin_2d') -> LaminateFailureAssessment` | Assess all recovered section points in their named ply material axes. |
 | function | `assess_ply_failure(material_stress, strengths: CompositeStrengths2D, *, criterion: str \| PlyFailureCriterion = 'hashin_2d') -> PlyFailureAssessment` | Assess one plane-stress material-axis state without evolving damage. |
 | function | `composite_strengths_2d(*, xt: float, xc: float, yt: float, yc: float, s12: float, name: str = 'composite_strengths_2d') -> CompositeStrengths2D` | Create the common five-strength plane-stress ply contract. |

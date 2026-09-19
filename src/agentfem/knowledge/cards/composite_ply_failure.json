@@ -5,12 +5,13 @@
   "title": "Material-axis composite ply failure assessment",
   "kind": "material",
   "status": "experimental",
-  "summary": "Evaluates sign-aware maximum-stress or plane-stress Hashin initiation indices in ply material axes, computes the proportional first-failure load factor, and applies the same replaceable assessment to every stable laminate section point without evolving damage.",
+  "summary": "Evaluates sign-aware maximum-stress, plane-stress Hashin, or explicitly parameterized Tsai--Wu initiation indices in ply material axes, computes the proportional first-failure load factor, and applies the same replaceable assessment to every stable laminate section point without evolving damage.",
   "public_api": [
     "agentfem.constitutive.CompositeStrengths2D",
     "agentfem.constitutive.PlyFailureCriterion",
     "agentfem.constitutive.MaximumStress2D",
     "agentfem.constitutive.Hashin2D",
+    "agentfem.constitutive.TsaiWu2D",
     "agentfem.constitutive.PlyFailureAssessment",
     "agentfem.constitutive.LaminateFailureAssessment",
     "agentfem.constitutive.composite_strengths_2d",
@@ -33,6 +34,11 @@
         "label": "Hashin matrix modes",
         "expression": "F_{mt}=(\\sigma_{22}/Y_t)^2+(\\tau_{12}/S_{12})^2,\\qquad F_{mc}=(\\sigma_{22}/(2S_{12}))^2+[(Y_c/(2S_{12}))^2-1](\\sigma_{22}/Y_c)+(\\tau_{12}/S_{12})^2",
         "description": "The tensile or compressive matrix branch is selected by the sign of sigma_22."
+      },
+      {
+        "label": "Tsai--Wu interaction",
+        "expression": "F=F_1\\sigma_{11}+F_2\\sigma_{22}+F_{11}\\sigma_{11}^2+F_{22}\\sigma_{22}^2+2F_{12}\\sigma_{11}\\sigma_{22}+F_{66}\\tau_{12}^2",
+        "description": "F12 is supplied through an explicit normalized interaction coefficient; no empirical default is inferred."
       }
     ],
     "inputs": [
@@ -70,7 +76,7 @@
     ],
     "limitations": [
       "The assessment does not degrade stiffness, redistribute stress, advance damage, or predict final laminate failure.",
-      "Interlaminar normal/shear failure, three-dimensional Hashin variants, Puck, LaRC and fracture-energy regularization are separate capabilities.",
+      "Interlaminar normal/shear failure, three-dimensional criteria, Puck, LaRC and fracture-energy regularization are separate capabilities.",
       "Cell- or section-point averaging must not be interpreted as an unresolved local maximum."
     ]
   },
@@ -88,6 +94,7 @@
     "validation_rules": [
       "Reject nonpositive strengths, malformed stresses, unknown built-in criteria and incomplete laminate strength mappings.",
       "Verify distinct tension/compression branches, pure and combined Hashin modes, and the nonlinear matrix-compression proportional root.",
+      "Verify Tsai--Wu tensile/compressive intercepts, convex interaction bounds, and its proportional first-failure root without assuming an interaction coefficient.",
       "Verify that every laminate section point is rotated from section axes into its named ply material axes before assessment.",
       "Keep initiation screening distinct from progressive damage and structural failure prediction."
     ]
@@ -96,6 +103,10 @@
     {
       "title": "Hashin (1980), Failure Criteria for Unidirectional Fiber Composites",
       "locator": "https://doi.org/10.1115/1.3153664"
+    },
+    {
+      "title": "Tsai and Wu (1971), A General Theory of Strength for Anisotropic Materials",
+      "locator": "https://doi.org/10.1177/002199837100500106"
     }
   ],
   "related_cards": [
