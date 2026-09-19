@@ -231,6 +231,7 @@ and evidence remain in the linked guides and scientific function reference.
 | class | `FabricStack` | Named layers sharing one surface deformation. |
 | class | `FabricStackResponse` | Per-layer response without inventing one ambiguous aggregate frame. |
 | class | `FabricSurfaceResponse` | Local generalized resultants, tangent, energy, and physical measures. |
+| class | `FibrousShellExpressions` | Symbolic generalized shell energy and conjugate resultants. |
 | class | `FibrousShellResponse` | Local shell channels without prescribing an element technology. |
 | class | `SurfaceConstitutive` | Extension contract for a local surface constitutive response. |
 | class | `TabulatedResponse` | Piecewise-linear scalar constitutive channel with an energy primitive. |
@@ -241,6 +242,16 @@ and evidence remain in the linked guides and scientific function reference.
 | function | `fabric_membrane_internal_virtual_work(displacement, test, material: DecoupledFabricSurface, *, measure = None)` | Return the in-plane fabric membrane residual from stored energy. |
 | function | `fabric_stack(layers, *, name: str = 'fabric_stack') -> FabricStack` | Create a checked multilayer fabric asset with stable layer identities. |
 | function | `tabulated_response(abscissa, ordinate, *, name: str = 'response', symmetry: str = 'none', extrapolation: str = 'error') -> TabulatedResponse` | Public AgentFEM object. |
+| class | `CompositeStrengths2D` | Plane-stress unidirectional-ply strengths in material axes. |
+| class | `Hashin2D` | Plane-stress Hashin fibre/matrix initiation indices. |
+| class | `LaminateFailureAssessment` | Stable section-point assessments and the governing laminate location. |
+| class | `MaximumStress2D` | Sign-aware maximum-stress screening for a plane-stress ply. |
+| class | `PlyFailureAssessment` | Per-mode initiation indices and proportional first-failure factor. |
+| class | `PlyFailureCriterion` | Extension contract for one material-axis ply failure surface. |
+| class | `PlyPointFailureAssessment` | One laminate section point assessed in its ply material frame. |
+| function | `assess_laminate_failure(section, response, strengths: CompositeStrengths2D \| Mapping[str, CompositeStrengths2D], *, criterion: str \| PlyFailureCriterion = 'hashin_2d') -> LaminateFailureAssessment` | Assess all recovered section points in their named ply material axes. |
+| function | `assess_ply_failure(material_stress, strengths: CompositeStrengths2D, *, criterion: str \| PlyFailureCriterion = 'hashin_2d') -> PlyFailureAssessment` | Assess one plane-stress material-axis state without evolving damage. |
+| function | `composite_strengths_2d(*, xt: float, xc: float, yt: float, yc: float, s12: float, name: str = 'composite_strengths_2d') -> CompositeStrengths2D` | Create the common five-strength plane-stress ply contract. |
 | class | `BasquinCurve` | Fully reversed stress-life curve ``sigma_a = sigma_f' (2N)^b``. |
 | class | `FatigueAssessment` | Auditable stress-life assessment derived from one scalar history. |
 | class | `FatigueBlock` | One constant-amplitude block for cumulative-damage assessment. |
@@ -941,8 +952,12 @@ and evidence remain in the linked guides and scientific function reference.
 | function | `j2_plasticity_step(*, displacement, material, external_force, constraints = (), study = None, incrementation = None, solver_options = None, quadrature_degree: int = 2, progress = True, status_file = None, amplitude = None, name: str = 'j2_plasticity', _experimental_distributed: bool = False) -> J2PlasticityStep` | Build a global 3D or axisymmetric J2 step. |
 | class | `DirectorShellKinematics` | Finite-rotation surface measures at one material point. |
 | class | `FiberCurveKinematics` | Objective bending measures for one material fibre curve. |
+| class | `FibrousShellCompatibilityExpressions` | Minimal mixed-field compatibility residuals for a no-slip layer. |
+| class | `FibrousShellKinematicsExpressions` | Symbolic operator-owned measures consumed by a fibrous-shell law. |
 | function | `director_shell_kinematics(reference_tangents, current_tangents, director, *, director_gradient = None, reference_director = None, reference_director_gradient = None) -> DirectorShellKinematics` | Evaluate objective membrane, shear, and curvature measures. |
 | function | `fiber_curve_kinematics(reference_tangents, current_tangents, reference_direction, current_direction, *, current_direction_gradient, reference_direction_gradient = None) -> FiberCurveKinematics` | Evaluate in-plane and normal curvature changes of one fibre family. |
+| function | `fibrous_shell_compatibility_ufl(reference_tangents, current_tangents, director, *, reference_fibers, current_fibers) -> FibrousShellCompatibilityExpressions` | Return the minimal exact-constraint residual for mixed shell fields. |
+| function | `fibrous_shell_kinematics_ufl(reference_tangents, current_tangents, director, *, reference_fibers, current_fibers, current_fiber_gradients, reference_director = None, reference_fiber_gradients = None) -> FibrousShellKinematicsExpressions` | Build the nine objective fibrous-shell measures as UFL expressions. |
 | function | `surface_deformation_gradient(reference_tangents, current_tangents) -> np.ndarray` | Return the three-dimensional tangential deformation lift. |
 | class | `HarmonicViscoelasticStep` | Direct harmonic generalized-Maxwell equilibrium in a real PETSc build. |
 | class | `QuasistaticViscoelasticStep` | Incremental equilibrium for a small-strain generalized-Maxwell solid. |
