@@ -944,7 +944,7 @@ cycle = fatigue_fracture.force_cycle(fmin=226, fmax=2262); law = fatigue_fractur
 **Status:** `experimental`<br>
 **Source card:** `src/agentfem/knowledge/cards/fabric_surface_constitutive.json`
 
-Defines independent woven-surface tension, trellising-shear, and bending channels; retains varying orientations in named multilayer stacks; separates objective in-plane and normal fibre curvature; supplies the exact first variation of a neighbour-reconstructed independent-direction bending energy; and lowers one surface or a shared-kinematics stack to an experimental finite-kinematics membrane Step while keeping complete shell equilibrium and forming as explicit later gates.
+Defines independent woven-surface tension, trellising-shear, and bending channels; retains varying orientations in named multilayer stacks; separates objective in-plane and normal fibre curvature; supplies exact first- and second-variation actions for a neighbour-reconstructed independent-direction bending energy; and lowers one surface or a shared-kinematics stack to an experimental finite-kinematics membrane Step while keeping complete shell equilibrium and forming as explicit later gates.
 
 ### Public API
 
@@ -1021,7 +1021,7 @@ In-plane/geodesic and normal bending are separate objective measures and require
 | multilayer membrane result fields | stable per-layer DG fields expanded from generic fabric requests plus aggregate SENER and a layer-to-field manifest | the same per-layer units as the single-surface fields | Layer order and a readable slug form collision-free field prefixes; same-orientation groups aggregate only their explicitly listed physical layers, and unlike generalized resultants are never silently summed. |
 | local fibrous-shell response | independent membrane, transverse-shear, in-plane-bending, and normal-bending resultants, energy channels, and a 9x9 block tangent | generalized shell forces, moments, energy per reference area, and their conjugate tangents | The constitutive contract is element-neutral and rejects overlapping legacy bending ownership. |
 | symbolic fibrous-shell constitutive potential | nine generalized UFL measures, one stored-energy expression, four named energy channels, and nine conjugate resultants | the same generalized shell units as the local response | A future operator constructs compatible measures; UFL differentiates this single potential into a consistent residual and Jacobian. |
-| independent-direction bending response | owned-cell in-plane/normal curvature, energy, and exact local-plus-ghost direction residual | curvature, energy, and virtual work in a consistent unit system | The direction is normalized before one cached neighbor reconstruction; the exact first variation includes both gradient and local projection terms for fixed current tangents. |
+| independent-direction bending response | owned-cell in-plane/normal curvature, energy, exact local-plus-ghost direction residual, and matrix-free consistent tangent action | curvature, energy, and virtual work in a consistent unit system | The direction is normalized before one cached neighbor reconstruction; exact first and second actions include gradient, local projection, and normalization terms for fixed current tangents. |
 
 #### Assumptions
 
@@ -1041,7 +1041,7 @@ In-plane/geodesic and normal bending are separate objective measures and require
 #### Limitations
 
 - The global membrane Step rejects nonzero bending because no shell element consumes that channel yet.
-- The independent-direction bending operator has an exact first variation for fixed surface tangents, but does not yet expose the consistent nonlinear second variation or displacement/tangent coupling.
+- The independent-direction bending operator has exact first and second actions for fixed surface tangents, but does not yet include displacement/tangent coupling or compatibility-constraint blocks.
 - FabricStack membrane lowering shares one surface displacement across layers; transverse slippage, independent material normals, and shell equilibrium remain promotion gates.
 - Contact, friction, inter-ply slip, locking control, and forming procedures are not implemented.
 - Rate effects, hysteresis, irreversible locking, yarn slippage, and damage need additional stateful laws.
@@ -1078,7 +1078,7 @@ study = studies.static_membrane(); model = models.create(study=study, mesh=domai
 - Verify that UFL differentiation of the nine-component symbolic shell potential exactly recovers every declared generalized resultant.
 - Verify that operator-side symbolic shell measures reproduce the local objective measures and remain invariant under a superposed rigid rotation.
 - Verify that the no-slip mixed-field contract vanishes for an exactly convected layer and detects director normalization and fibre-convection violations without redundant multiplier equations.
-- Verify that neighbour-reconstructed fibre bending matches finite-difference energy derivatives, is invariant to pointwise direction scaling, and transforms objectively under a superposed three-dimensional rotation in serial and two-rank execution.
+- Verify that neighbour-reconstructed fibre bending matches finite-difference energy and residual derivatives, has a symmetric Hessian action, is invariant to pointwise direction scaling, and transforms objectively under a superposed three-dimensional rotation in serial and two-rank execution.
 - Keep shell, contact, and forming claims unavailable until their independent patch tests and benchmarks pass.
 
 ### References

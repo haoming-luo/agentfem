@@ -352,9 +352,11 @@ the fibre coordinate/projection frame. The residual matches finite-difference
 energy derivatives, is insensitive to positive pointwise rescaling, transforms
 covariantly under a three-dimensional rigid rotation, and retains explicit
 local-plus-ghost MPI semantics. Current surface tangents are fixed data in
-this operator: their variation, compatibility forces, nonlinear second
-variation, boundary moments and complete displacement equilibrium remain
-promotion gates.
+this operator. Its analytical matrix-free tangent matches residual
+differences, satisfies Hessian symmetry, and transforms covariantly under a
+three-dimensional rigid rotation in serial and two-rank tests. Surface-tangent
+variation, compatibility-force blocks, boundary moments and complete
+displacement equilibrium remain promotion gates.
 Naive mixed P1/DG0 and P2/DG1 compatibility pairs were rejected after losing
 rank under refinement; full-rank P2/CG1 and P2/DG0 candidates still showed a
 decaying normalized inf-sup value in the tested H1/L2 norms. Those negative
@@ -436,8 +438,9 @@ The automated local evidence currently checks:
 - physical cell weights recover triangle/quadrilateral domain area and count
   the unit-square measure once under two MPI ranks;
 - the neighbour-reconstructed independent-direction bending energy has an
-  exact first variation, pointwise scale invariance and three-dimensional
-  rotation objectivity in serial and two-rank tests.
+  exact first variation and consistent matrix-free tangent, pointwise scale
+  invariance, Hessian symmetry and three-dimensional rotation objectivity in
+  serial and two-rank tests.
 
 No shell element patch test, contact benchmark, or drape experiment has yet
 promoted this membrane foundation to a forming-capable fibrous shell.

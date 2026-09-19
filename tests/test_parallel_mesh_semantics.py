@@ -147,6 +147,16 @@ def test_cell_neighborhood_keeps_partition_interface_pairs_complete():
         rel=2.0e-7,
         abs=2.0e-9,
     )
+    bending_residual_difference = (
+        bending.evaluate(directions + epsilon * direction_increment).residual
+        - bending.evaluate(directions - epsilon * direction_increment).residual
+    ) / (2.0 * epsilon)
+    np.testing.assert_allclose(
+        bending.tangent_action(directions, direction_increment),
+        bending_residual_difference,
+        rtol=2.0e-6,
+        atol=2.0e-8,
+    )
 
 
 def test_distributed_abaqus_regions_quality_and_remote_resultant():

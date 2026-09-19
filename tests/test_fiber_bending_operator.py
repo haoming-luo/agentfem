@@ -69,7 +69,37 @@ def test_fiber_bending_residual_is_exact_energy_directional_derivative():
 
     assert finite_difference == pytest.approx(exact, rel=2.0e-7, abs=2.0e-9)
     assert response.energy > 0.0
-    assert operator.as_dict()["nonlinear_tangent"] == "not_yet_exposed"
+    assert operator.as_dict()["nonlinear_tangent"].startswith("exact_matrix_free")
+
+
+def test_fiber_bending_tangent_matches_residual_derivative_and_is_symmetric():
+    operator, directions, points = _case()
+    first = np.column_stack(
+        (
+            0.2 + points[:, 0],
+            -0.3 + points[:, 1] ** 2,
+            np.zeros(len(points)),
+        )
+    )
+    second = np.column_stack(
+        (
+            -0.4 + points[:, 0] ** 2,
+            0.1 + points[:, 1],
+            np.zeros(len(points)),
+        )
+    )
+    epsilon = 2.0e-6
+    finite_difference = (
+        operator.evaluate(directions + epsilon * first).residual
+        - operator.evaluate(directions - epsilon * first).residual
+    ) / (2.0 * epsilon)
+    first_action = operator.tangent_action(directions, first)
+    second_action = operator.tangent_action(directions, second)
+
+    np.testing.assert_allclose(first_action, finite_difference, rtol=2.0e-7, atol=2.0e-8)
+    assert np.vdot(first, second_action) == pytest.approx(
+        np.vdot(first_action, second), rel=2.0e-12, abs=2.0e-12
+    )
 
 
 def test_fiber_bending_is_scale_invariant_and_residual_is_radially_orthogonal():
@@ -102,6 +132,18 @@ def test_fiber_bending_is_objective_and_residual_is_covariant():
     )
     np.testing.assert_allclose(second.normal_curvature, first.normal_curvature, atol=2.0e-13)
     np.testing.assert_allclose(second.residual, first.residual @ rotation.T, atol=3.0e-13)
+    increment = np.column_stack(
+        (
+            np.linspace(-0.2, 0.4, len(directions)),
+            np.linspace(0.1, -0.3, len(directions)),
+            np.zeros(len(directions)),
+        )
+    )
+    np.testing.assert_allclose(
+        rotated.tangent_action(rotated_directions, increment @ rotation.T),
+        baseline.tangent_action(directions, increment) @ rotation.T,
+        atol=8.0e-13,
+    )
 
 
 def test_fiber_bending_constant_direction_has_zero_energy_and_residual():

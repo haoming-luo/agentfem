@@ -109,6 +109,18 @@ class FiberDirectionBendingOperator:
     def evaluate(self, directions) -> FiberDirectionBendingResponse:
         """Evaluate energy, curvature and its exact direction-field residual."""
 
+        response, _ = self._evaluate_state(directions)
+        return response
+
+    def tangent_action(self, directions, increment) -> np.ndarray:
+        """Apply the exact nonlinear direction-field tangent to an increment."""
+
+        _, action = self._evaluate_state(directions, increment=increment)
+        return action
+
+    def _evaluate_state(self, directions, *, increment=None):
+        """Evaluate the common first- and optional second-variation kernel."""
+
         raw = np.asarray(directions, dtype=float)
         if raw.shape != (self.gradient.total_cells, 3) or not np.all(
             np.isfinite(raw)
@@ -120,13 +132,31 @@ class FiberDirectionBendingOperator:
         if np.any(norms <= np.finfo(float).eps):
             raise ValueError("directions must have nonzero length on every cell.")
         unit = raw / norms[:, None]
+        linearized = increment is not None
+        if linearized:
+            increment = np.asarray(increment, dtype=float)
+            if increment.shape != raw.shape or not np.all(np.isfinite(increment)):
+                raise ValueError("increment must be finite with the direction shape.")
+            norm_increments = np.sum(unit * increment, axis=1)
+            unit_increments = (
+                increment - unit * norm_increments[:, None]
+            ) / norms[:, None]
+        else:
+            norm_increments = None
+            unit_increments = None
         reconstructed = self.gradient.apply(unit)
         gradients = reconstructed.gradients
+        gradient_increments = (
+            self.gradient.apply(unit_increments).gradients if linearized else None
+        )
         owned = self.gradient.owned_cells
         in_plane = np.empty(owned, dtype=float)
         normal_curvature = np.empty(owned, dtype=float)
         gradient_duals = np.empty_like(gradients)
         explicit = np.zeros((self.gradient.total_cells, 3), dtype=float)
+        if linearized:
+            gradient_dual_increments = np.empty_like(gradients)
+            explicit_increments = np.zeros_like(explicit)
         energy = 0.0
 
         for output_cell, stencil in enumerate(self.gradient.stencils):
@@ -147,6 +177,13 @@ class FiberDirectionBendingOperator:
                 raise ValueError(
                     f"directions[{stencil.cell}] must lie in the tangent span."
                 )
+            if linearized:
+                direction_increment = unit_increments[stencil.cell]
+                if abs(float(np.dot(direction_increment, surface_normal))) > 1.0e-9:
+                    raise ValueError(
+                        f"increment[{stencil.cell}] must be tangent to the surface."
+                    )
+                coordinate_increment = dual_tangents @ direction_increment
             directional_derivative = gradients[output_cell] @ coordinates
             in_plane_normal = np.cross(surface_normal, direction)
             k_in_plane = float(np.dot(directional_derivative, in_plane_normal))
@@ -188,18 +225,91 @@ class FiberDirectionBendingOperator:
                 weighted_in_plane * local_in_plane_gradient
                 + weighted_normal * local_normal_gradient
             )
+            if linearized:
+                gradient_increment = gradient_increments[output_cell]
+                directional_derivative_increment = (
+                    gradient_increment @ coordinates
+                    + gradients[output_cell] @ coordinate_increment
+                )
+                in_plane_normal_increment = np.cross(
+                    surface_normal, direction_increment
+                )
+                in_plane_curvature_increment = float(
+                    np.dot(directional_derivative_increment, in_plane_normal)
+                    + np.dot(
+                        directional_derivative, in_plane_normal_increment
+                    )
+                )
+                normal_curvature_increment = float(
+                    np.dot(directional_derivative_increment, surface_normal)
+                )
+                weighted_in_plane_increment = (
+                    self.cell_weights[output_cell]
+                    * self.in_plane_stiffness[output_cell]
+                    * in_plane_curvature_increment
+                )
+                weighted_normal_increment = (
+                    self.cell_weights[output_cell]
+                    * self.normal_stiffness[output_cell]
+                    * normal_curvature_increment
+                )
+                curvature_dual_increment = (
+                    weighted_in_plane_increment * in_plane_normal
+                    + weighted_in_plane * in_plane_normal_increment
+                    + weighted_normal_increment * surface_normal
+                )
+                gradient_dual_increments[output_cell] = (
+                    np.outer(curvature_dual_increment, coordinates)
+                    + np.outer(curvature_dual, coordinate_increment)
+                )
+                local_in_plane_gradient_increment = np.cross(
+                    directional_derivative_increment, surface_normal
+                ) + dual_tangents.T @ (
+                    gradient_increment.T @ in_plane_normal
+                    + gradients[output_cell].T @ in_plane_normal_increment
+                )
+                local_normal_gradient_increment = (
+                    dual_tangents.T @ gradient_increment.T @ surface_normal
+                )
+                explicit_increments[stencil.cell] += (
+                    weighted_in_plane_increment * local_in_plane_gradient
+                    + weighted_in_plane * local_in_plane_gradient_increment
+                    + weighted_normal_increment * local_normal_gradient
+                    + weighted_normal * local_normal_gradient_increment
+                )
 
         unit_residual = self.gradient.apply_adjoint(gradient_duals) + explicit
         residual = np.empty_like(unit_residual)
+        if linearized:
+            unit_residual_increment = (
+                self.gradient.apply_adjoint(gradient_dual_increments)
+                + explicit_increments
+            )
+            tangent_action = np.empty_like(unit_residual)
         for cell, direction in enumerate(unit):
             projector = np.eye(3) - np.outer(direction, direction)
             residual[cell] = projector @ unit_residual[cell] / norms[cell]
-        return FiberDirectionBendingResponse(
+            if linearized:
+                direction_increment = unit_increments[cell]
+                projector_increment = -(
+                    np.outer(direction_increment, direction)
+                    + np.outer(direction, direction_increment)
+                )
+                normalization_increment = (
+                    projector_increment / norms[cell]
+                    - projector * norm_increments[cell] / norms[cell] ** 2
+                )
+                tangent_action[cell] = (
+                    normalization_increment @ unit_residual[cell]
+                    + projector @ unit_residual_increment[cell] / norms[cell]
+                )
+        response = FiberDirectionBendingResponse(
             energy=float(energy),
             in_plane_curvature=in_plane,
             normal_curvature=normal_curvature,
             residual=residual,
         )
+        return response, tangent_action if linearized else None
 
     def as_dict(self) -> dict[str, object]:
         return {
@@ -208,7 +318,7 @@ class FiberDirectionBendingOperator:
             "normalization": "pointwise_before_gradient_reconstruction",
             "energy_channels": ("in_plane_curvature", "normal_curvature"),
             "first_variation": "exact_for_fixed_surface_tangents",
-            "nonlinear_tangent": "not_yet_exposed",
+            "nonlinear_tangent": "exact_matrix_free_action_for_fixed_surface_tangents",
             "mpi_requirement": "reverse_scatter_ghost_residual_to_owners",
             "scope": "bending_contribution_not_complete_shell_equilibrium",
             "gradient_operator": self.gradient.as_dict(),
