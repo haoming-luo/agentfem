@@ -3348,7 +3348,7 @@ dataset = report.require_dataset(quality='engineering'); training = surrogates.t
 **Status:** `experimental`<br>
 **Source card:** `src/agentfem/knowledge/cards/cell_neighborhood_topology.json`
 
-Builds owned-facet evidence and ghost-complete local stencils, then supplies affine-exact pair differences and rank-audited least-squares gradients for neighboring-element, DG, estimator and fracture algorithms.
+Builds owned-facet evidence and ghost-complete local stencils, then supplies affine-exact pair differences plus rank-audited least-squares gradients and their exact transpose action for neighboring-element, DG, estimator and fracture algorithms.
 
 ### Public API
 
@@ -3392,7 +3392,7 @@ The two-cell stencil must remain complete when one adjacent cell is a ghost on t
 | --- | --- | --- | --- |
 | cell neighborhood | owned interior-facet pairs and partition evidence | runtime topology | Each pair records runtime local/global facet and cell indices plus the local facet number in both adjacent cells; optional geometry adds centroids, facet midpoint, center vector, distance and direction in embedding coordinates. |
 | pair directional difference | scalar or vector cell-value differences per center distance | input value per length | The discrete operator is exact for affine cell-center data and remains explicitly distinct from a reconstructed full gradient or shell curvature. |
-| cell gradient reconstruction | owned-cell scalar or vector gradient plus stencil evidence | input value per length | Weighted least squares uses a local SVD tangent basis and reports neighbor count, rank and condition number for every owned cell; compact neighbor weights can be cached and reapplied to many fields. |
+| cell gradient reconstruction | owned-cell scalar or vector gradient plus stencil evidence | input value per length | Weighted least squares uses a local SVD tangent basis and reports neighbor count, rank and condition number for every owned cell; compact neighbor weights can be cached and reapplied to many fields, and the same operator exposes its exact transpose for residual and energy-gradient construction. |
 
 #### Assumptions
 
@@ -3413,6 +3413,7 @@ The two-cell stencil must remain complete when one adjacent cell is a ghost on t
 - Runtime global indices depend on the mesh partition and are not scientific model identity or restart identity.
 - The contract does not define a shell curvature, bending virtual work, or forming solver; reconstructed gradients must still pass field-specific patch and convergence tests.
 - Callers must synchronize ghost cell values before evaluating a distributed pair difference or gradient reconstruction.
+- The transpose returns local and ghost-cell contributions; distributed residual assembly must reverse-scatter ghost contributions to their owning ranks.
 
 ### Minimal example
 
@@ -3439,6 +3440,7 @@ operator = mesh.cell_gradient_operator(domain, rings=2); gradient = operator.app
 - Recover the exact directional derivative of affine scalar and vector cell-center fields.
 - Recover affine-exact scalar and vector full gradients on triangle and quadrilateral meshes while rejecting rank-deficient or ill-conditioned stencils.
 - Reuse one geometry-cached compact operator across fields and annihilate arbitrary constant offsets exactly.
+- Satisfy the scalar and vector inner-product identity between the cached gradient action and its exact transpose, including rank-local ghost contributions under two MPI ranks.
 - Under two MPI ranks, count every global interior facet exactly once and retain a ghost adjacent cell across partition interfaces.
 
 ### References

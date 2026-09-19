@@ -95,6 +95,16 @@ def test_cell_neighborhood_keeps_partition_interface_pairs_complete():
     local_error = float(np.max(np.abs(curvature.in_plane_curvature - exact)))
     global_error = comm.allreduce(local_error, op=MPI.MAX)
     assert global_error < 2.0e-2
+    operator = mesh.cell_gradient_operator(domain, rings=2)
+    duals = np.column_stack(
+        (
+            np.linspace(0.5, 1.5, operator.owned_cells),
+            np.linspace(-0.25, 0.75, operator.owned_cells),
+        )
+    )
+    local_lhs = np.vdot(operator.apply(values).gradients, duals)
+    local_rhs = np.vdot(values, operator.apply_adjoint(duals))
+    assert local_lhs == pytest.approx(local_rhs, rel=1.0e-13, abs=1.0e-13)
 
 
 def test_distributed_abaqus_regions_quality_and_remote_resultant():

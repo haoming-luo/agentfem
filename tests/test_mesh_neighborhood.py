@@ -186,3 +186,35 @@ def test_cell_gradient_reconstruction_fails_closed_on_insufficient_stencil():
     values = np.array((0.5,))
     with pytest.raises(RuntimeError, match="only 0 reconstruction neighbors"):
         mesh.reconstruct_cell_gradient(domain, values, rings=1)
+
+
+@pytest.mark.parametrize("components", [(), (3,)])
+def test_cell_gradient_operator_adjoint_satisfies_inner_product_identity(components):
+    domain = dolfinx_mesh.create_unit_square(
+        MPI.COMM_SELF,
+        4,
+        3,
+        cell_type=dolfinx_mesh.CellType.quadrilateral,
+    )
+    operator = mesh.cell_gradient_operator(domain, rings=2)
+    rng = np.random.default_rng(20260920)
+    values = rng.normal(size=(operator.total_cells, *components))
+    duals = rng.normal(
+        size=(operator.owned_cells, *components, operator.geometric_dimension)
+    )
+
+    gradients = operator.apply(values).gradients
+    transpose = operator.apply_adjoint(duals)
+
+    assert np.vdot(gradients, duals) == pytest.approx(
+        np.vdot(values, transpose),
+        rel=1.0e-13,
+        abs=1.0e-13,
+    )
+
+
+def test_cell_gradient_operator_adjoint_validates_dual_shape():
+    domain = dolfinx_mesh.create_unit_square(MPI.COMM_SELF, 2, 2)
+    operator = mesh.cell_gradient_operator(domain)
+    with pytest.raises(ValueError, match="gradient_duals"):
+        operator.apply_adjoint(np.zeros((operator.owned_cells, 3)))

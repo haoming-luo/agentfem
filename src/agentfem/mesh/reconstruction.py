@@ -165,6 +165,39 @@ class CellGradientOperator:
             weight_power=self.weight_power,
         )
 
+    def apply_adjoint(self, gradient_duals) -> np.ndarray:
+        """Apply the exact transpose to owned-cell gradient dual values.
+
+        The returned leading axis contains local and ghost cells.  On MPI,
+        ghost contributions are intentionally *not* communicated here; a
+        backend assembly adapter must reverse-scatter them to cell owners.
+        Keeping that distinction visible prevents a rank-local transpose from
+        being mistaken for a globally assembled residual.
+        """
+
+        duals = np.asarray(gradient_duals, dtype=float)
+        if (
+            duals.ndim < 2
+            or duals.shape[0] != self.owned_cells
+            or duals.shape[-1] != self.geometric_dimension
+            or not np.all(np.isfinite(duals))
+        ):
+            raise ValueError(
+                "gradient_duals must be finite with shape "
+                "(owned_cells, ..., geometric_dimension)."
+            )
+        value_shape = duals.shape[1:-1]
+        flattened = duals.reshape(
+            (self.owned_cells, -1, self.geometric_dimension)
+        )
+        result = np.zeros((self.total_cells, flattened.shape[1]), dtype=float)
+        for index, stencil in enumerate(self.stencils):
+            neighbor_contributions = flattened[index] @ stencil.neighbor_weights.T
+            for neighbor_index, neighbor in enumerate(stencil.neighbors):
+                result[neighbor] += neighbor_contributions[:, neighbor_index]
+            result[stencil.cell] += flattened[index] @ stencil.center_weight
+        return result.reshape((self.total_cells, *value_shape))
+
     def as_dict(self) -> dict[str, object]:
         return {
             "kind": "cell_gradient_operator",
@@ -180,6 +213,7 @@ class CellGradientOperator:
                 item.condition_number for item in self.stencils
             ),
             "linearity": "geometry_cached_linear_action_on_cell_values",
+            "adjoint": "local_and_ghost_contributions_require_mpi_reverse_scatter",
             "identity_scope": "runtime_partition",
         }
 

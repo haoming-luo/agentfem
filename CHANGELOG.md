@@ -43,7 +43,10 @@ experimental formulation to a validated one.
   difference and rank/condition-audited local-tangent least-squares gradient
   now establish the first discrete reconstruction operators for future
   rotation-free neighbouring-element shells and DG. Geometry SVD and compact
-  sparse neighbor weights can be cached once and reapplied across fields.
+  sparse neighbor weights can be cached once and reapplied across fields; the
+  same operator now exposes an exact transpose action for future energy
+  gradients and residuals while keeping MPI reverse-scatter ownership
+  explicit.
 - Add objective neighbour-reconstructed in-plane/normal fibre curvature on a
   2D parameter mesh, including rank/conditioning provenance and a smooth-field
   sequence with near-second-order error reduction; shell equilibrium remains

@@ -317,6 +317,12 @@ ill-conditioned boundary stencils fail instead of returning artificial zero
 curvature. The geometry decomposition and compact neighbor weights live in a
 reusable `CellGradientOperator`; repeated fields or nonlinear iterations do
 not repeat the SVD, and arbitrary constant offsets are annihilated exactly.
+The cached operator also exposes its exact transpose. Scalar and vector
+inner-product identities are verified in serial and under two MPI ranks, so a
+future bending energy can map gradient duals back to cell residuals without
+inventing a second discretization. On a distributed mesh the transpose
+deliberately returns local and ghost-cell contributions; reverse scattering
+to the owning ranks remains an explicit backend assembly responsibility.
 `mechanics.reconstruct_fiber_curvature(...)` consumes that gradient
 with three-dimensional fibre directions and 3x2 current tangents, then returns
 the signed in-plane and normal curvature channels already used by the local
@@ -397,7 +403,10 @@ The automated local evidence currently checks:
 - neighbour-reconstructed in-plane fibre curvature is objective and shows
   near-second-order error reduction on a smooth rotating-direction field.
 - geometry-cached reconstruction weights reproduce the one-shot result and
-  can be reused across fields without storing a dense global matrix.
+  can be reused across fields without storing a dense global matrix;
+- the cached gradient and transpose satisfy scalar/vector inner-product
+  identities in serial and across a two-rank computation stencil, with MPI
+  reverse-scatter ownership kept explicit.
 
 No shell element patch test, contact benchmark, or drape experiment has yet
 promoted this membrane foundation to a forming-capable fibrous shell.
