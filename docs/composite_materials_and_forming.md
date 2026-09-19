@@ -413,15 +413,29 @@ teaching the solver about fibre-specific classes or lowering the neighbour
 stencil into a fictitious local material law.
 The corresponding internal promotion runtime now demonstrates that
 composition. PETSc receives the assembled local Jacobian plus the exact
-matrix-free bending action as its true operator, while the assembled local
-matrix remains the independent preconditioner. Essential-boundary increments
-and rows are handled once at this boundary. A loaded, constrained
+matrix-free bending action as its true operator. Its assembled preconditioner
+is a separate numerical object: it defaults to the local Jacobian, while an
+explicit assembled approximation may cover directions whose stiffness exists
+only in the nonlocal operator without changing the true tangent.
+Essential-boundary increments and rows are handled once at this boundary. A
+loaded, constrained
 displacement/bending problem converges through Newton and reproduces its
 serial displacement integral, bending energy, maximum displacement, and
-iteration count with two ranks. The runtime remains internal until standard
-load incrementation, progress, checkpoint, result evidence, boundary moments,
-locking control, and shell patch tests all use the ordinary Procedure
-lifecycle.
+iteration count with two ranks. Its physical residual is also retained before
+strong boundary rows, so constrained reactions remain visible while the free-
+dof residual closes in serial and MPI. A failed solve restores the field at
+the start of the attempt. The same runtime now passes through the ordinary
+nonlinear Procedure's fixed and automatic load incrementation, cutback,
+progress-event, snapshot, and `SimulationResult` lifecycle. It remains
+internal until checkpoint/restart, boundary moments, locking control, and
+shell patch tests pass through that lifecycle as well.
+An embedded three-component fabric membrane and the nonlocal warp-bending
+operator now build through this algebra with a separate approximate
+preconditioner. The attempted transverse strip solve remains negative
+promotion evidence: prescribing displacement on one edge is not a complete
+clamp for a rotation-free curvature model because the boundary slope remains
+free. A public shell boundary must distinguish displacement, rotation/slope,
+and their conjugate force/moment data before this is called a shell patch test.
 Naive mixed P1/DG0 and P2/DG1 compatibility pairs were rejected after losing
 rank under refinement; full-rank P2/CG1 and P2/DG0 candidates still showed a
 decaying normalized inf-sup value in the tested H1/L2 norms. Those negative
@@ -523,7 +537,13 @@ The automated local evidence currently checks:
   an independent preconditioner, preserves strong constraints, and solves a
   nonzero displacement/bending problem;
 - the same solve has matching displacement, bending energy, maximum response,
-  and Newton count in serial and with two MPI ranks;
+  reaction, free-residual norm, and Newton count in serial and with two MPI
+  ranks;
+- the total local-plus-bending residual is the derivative of total energy and
+  the additive tangent is the derivative of that total residual;
+- a failed nonlinear attempt restores the pre-attempt primary field;
+- the hybrid solver reuses the standard nonlinear load path, including fixed
+  increments, automatic cutback, progress evidence and `SimulationResult`;
 - MPI energy operators reject a wider stencil when the available cell halo
   cannot make it partition complete.
 

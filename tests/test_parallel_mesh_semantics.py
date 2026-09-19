@@ -147,11 +147,23 @@ def _hybrid_bending_observables(comm):
             float(np.max(np.abs(solved.x.petsc_vec.array_r))),
             op=MPI.MAX,
         )
+        physical_residual = problem.assemble_physical_residual()
+        fixed_dofs, fixed_owned = fixed.dof_indices()
+        fixed_dofs = fixed_dofs[:fixed_owned]
+        vertical_dofs = fixed_dofs[fixed_dofs % 3 == 2]
+        vertical_reaction = comm.allreduce(
+            float(np.sum(physical_residual.array_r[vertical_dofs])),
+            op=MPI.SUM,
+        )
+        physical_residual.destroy()
+        free_residual_norm = problem.free_residual_norm()
         return np.array(
             (
                 displacement_integral,
                 bending_energy,
                 maximum,
+                vertical_reaction,
+                free_residual_norm,
                 float(info.iterations),
             )
         )
@@ -164,8 +176,10 @@ def test_distributed_hybrid_bending_matches_serial_observables():
     distributed = _hybrid_bending_observables(comm)
     serial = _hybrid_bending_observables(MPI.COMM_SELF)
 
-    np.testing.assert_allclose(distributed[:3], serial[:3], rtol=2.0e-9, atol=2.0e-12)
-    assert distributed[3] == serial[3]
+    np.testing.assert_allclose(distributed[:4], serial[:4], rtol=2.0e-9, atol=2.0e-12)
+    assert distributed[4] < 2.0e-10
+    assert serial[4] < 2.0e-10
+    assert distributed[5] == serial[5]
 
 
 def test_cell_neighborhood_keeps_partition_interface_pairs_complete():

@@ -80,18 +80,35 @@ The hybrid Procedure is not public until:
 
 The first internal promotion runtime now implements the additive PETSc
 operator. The true matrix action is the assembled local Jacobian plus every
-exact matrix-free contribution; PETSc receives the assembled local matrix
-separately as its preconditioning matrix. A FEniCSx adapter scatters each
+exact matrix-free contribution; PETSc receives a separately owned assembled
+preconditioning matrix. It defaults to the local Jacobian, but may be an
+independent approximation when the local physics is singular in directions
+stabilized by the nonlocal contribution. This approximation never replaces
+the true operator. A FEniCSx adapter scatters each
 increment before applying a nonlocal contribution. Essential increments and
 residual rows are projected once at the composition boundary.
 
 A constrained local-spring plus displacement-derived fibre-bending problem
 converges through this runtime. The same mesh gives matching displacement
-integral, bending energy, maximum displacement and Newton iteration count in
-serial and with two ranks. This closes the algebra and partition portions of
-the decision, but the runtime remains internal: standard increment control,
-progress, checkpoint/restart, `SimulationResult`, shell boundary moments,
-locking evidence and patch tests are still required before a public Procedure.
+integral, bending energy, maximum displacement, constrained reaction, free-
+residual norm and Newton iteration count in serial and with two ranks. The
+total energy/residual and residual/tangent derivative identities are tested as
+composed quantities rather than inferred only from component tests. Rejected
+attempts restore the primary field to its pre-attempt state. This closes the
+algebra, reaction and partition portions of the decision. An internal
+attempt-solver seam also routes the hybrid solve through the existing ordinary
+nonlinear load controller, proving fixed increments, automatic cutback,
+progress events, snapshots and `SimulationResult` without duplicating a shell-
+specific state machine. The runtime remains internal: checkpoint/restart,
+shell boundary moments, locking evidence and patch tests are still required
+before a public Procedure.
+
+The first embedded fabric-membrane plus nonlocal warp-bending composition
+builds with this split. Its attempted transverse strip solve is negative
+evidence rather than a claimed patch test: a displacement-only edge condition
+leaves slope free for a rotation-free curvature operator. Boundary
+slope/rotation and conjugate moment ownership must be explicit before the
+shell Procedure is promoted.
 
 The exercise also exposed a partition condition hidden by affine tests. One
 shared-facet ghost layer makes a one-ring cell stencil complete, but does not

@@ -1241,6 +1241,7 @@ def _prepare_hybrid_nonlinear_problem(
     *,
     bcs=None,
     jacobian_form=None,
+    preconditioner_form=None,
     options=None,
     petsc_options_prefix: str = "agentfem_hybrid_nonlinear_",
 ):
@@ -1254,6 +1255,7 @@ def _prepare_hybrid_nonlinear_problem(
         contributions,
         bcs=bcs,
         jacobian_form=jacobian_form,
+        preconditioner_form=preconditioner_form,
         options=options,
         petsc_options_prefix=petsc_options_prefix,
     )

@@ -68,8 +68,9 @@ class _AdditiveTangentContext:
 class AdditiveTangentMatrix:
     """Owned shell operator paired with its assembled preconditioner matrix.
 
-    The supplied local matrix remains caller-owned.  ``close()`` destroys only
-    the shell matrix and temporary vectors created by this object.
+    The supplied local and preconditioner matrices remain caller-owned.
+    ``close()`` destroys only the shell matrix and temporary vectors created
+    by this object.
     """
 
     operator: PETSc.Mat
@@ -89,7 +90,11 @@ class AdditiveTangentMatrix:
         return {
             "kind": "additive_tangent_matrix",
             "operator": "assembled_local_plus_matrix_free_actions",
-            "preconditioner": "assembled_local_matrix",
+            "preconditioner": (
+                "assembled_local_matrix"
+                if self.preconditioner is self._context.local_matrix
+                else "independent_assembled_approximation"
+            ),
             "matrix_free_action_count": int(self.action_count),
             "constrained_local_dofs": list(self.constrained_local_dofs),
             "closed": bool(self._closed),
@@ -129,15 +134,19 @@ def create_additive_tangent_matrix(
     local_matrix: PETSc.Mat,
     actions: Iterable[TangentAction] = (),
     *,
+    preconditioner_matrix: PETSc.Mat | None = None,
     constrained_local_dofs: Iterable[int] = (),
 ) -> AdditiveTangentMatrix:
-    """Create ``A = A_local + sum(A_nonlocal)`` with ``A_local`` as ``P``.
+    """Create ``A = A_local + sum(A_nonlocal)`` with an assembled ``P``.
 
     Each action receives a projected input vector and a zeroed output vector.
     It must overwrite the output and return ``None``.  Constrained local input
     entries are zeroed for matrix-free actions, and their output rows are
     suppressed.  The assembled local matrix therefore remains the sole owner
-    of essential-boundary identity rows.
+    of essential-boundary identity rows.  By default ``P`` is ``A_local``.
+    A distinct assembled approximation may be supplied when the local physics
+    alone is singular in directions stabilized by a nonlocal contribution.
+    It changes preconditioning only, never the true operator action.
     """
 
     if not isinstance(local_matrix, PETSc.Mat):
@@ -145,6 +154,17 @@ def create_additive_tangent_matrix(
     row_sizes, column_sizes = local_matrix.getSizes()
     if row_sizes != column_sizes:
         raise ValueError("Additive tangent matrices must be square.")
+    selected_preconditioner = (
+        local_matrix
+        if preconditioner_matrix is None
+        else preconditioner_matrix
+    )
+    if not isinstance(selected_preconditioner, PETSc.Mat):
+        raise TypeError("preconditioner_matrix must be a petsc4py.PETSc.Mat.")
+    if selected_preconditioner.getSizes() != local_matrix.getSizes():
+        raise ValueError(
+            "preconditioner_matrix must match the additive operator sizes."
+        )
     selected_actions = tuple(actions)
     if any(not callable(action) for action in selected_actions):
         raise TypeError("Every matrix-free tangent action must be callable.")
@@ -171,7 +191,7 @@ def create_additive_tangent_matrix(
     operator.setUp()
     return AdditiveTangentMatrix(
         operator=operator,
-        preconditioner=local_matrix,
+        preconditioner=selected_preconditioner,
         _context=context,
         action_count=len(selected_actions),
         constrained_local_dofs=tuple(int(value) for value in constrained),

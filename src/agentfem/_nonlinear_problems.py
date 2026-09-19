@@ -123,6 +123,8 @@ class IncrementalNonlinearVariationalProblem:
     result_field_recovery: object | None = None
     result_field_role: str = "primary_subfield"
     snapshot_field_factory: object | None = None
+    _attempt_solver: object | None = field(default=None, repr=False)
+    _attempt_backend: str = field(default="assembled_ufl", repr=False)
     last_solve_info: NonlinearLoadPathInfo | None = field(default=None, init=False)
     snapshots: list = field(default_factory=list, init=False)
     execution_events: list = field(default_factory=list, init=False)
@@ -138,6 +140,8 @@ class IncrementalNonlinearVariationalProblem:
 
         if self.output_every is not None and self.output_every <= 0:
             raise ValueError("Incremental nonlinear output_every must be positive.")
+        if self._attempt_solver is not None and not callable(self._attempt_solver):
+            raise TypeError("_attempt_solver must be callable when provided.")
         control = step_controls.normalize(self.incrementation)
         selected_options = self.solver_options or NewtonSolverOptions()
         snes_options = (
@@ -228,20 +232,24 @@ class IncrementalNonlinearVariationalProblem:
             solve_info = None
             message = ""
             try:
-                _, solve_info = solve_nonlinear_problem(
-                    self.residual_form,
-                    self.solution,
-                    bcs=self.bcs,
-                    jacobian_form=self.jacobian_form,
-                    options=attempt_options,
-                    petsc_options_prefix=(
-                        f"{self.petsc_options_prefix}{increment_number}_{attempt_number}_"
-                    ),
-                )
+                if self._attempt_solver is None:
+                    _, solve_info = solve_nonlinear_problem(
+                        self.residual_form,
+                        self.solution,
+                        bcs=self.bcs,
+                        jacobian_form=self.jacobian_form,
+                        options=attempt_options,
+                        petsc_options_prefix=(
+                            f"{self.petsc_options_prefix}{increment_number}_"
+                            f"{attempt_number}_"
+                        ),
+                    )
+                else:
+                    _, solve_info = self._attempt_solver()
                 converged = solve_info.converged and bool(
                     np.all(np.isfinite(self.solution.x.array))
                 )
-            except (RuntimeError, ValueError) as exc:
+            except (RuntimeError, ValueError, PETSc.Error) as exc:
                 converged = False
                 message = f"{type(exc).__name__}: {exc}"
             checks = {}
@@ -462,6 +470,7 @@ class IncrementalNonlinearVariationalProblem:
                 "provider" if self.result_field_recovery is not None else "default"
             ),
             "result_field_role": self.result_field_role,
+            "attempt_backend": self._attempt_backend,
             "last_solve": (
                 None if self.last_solve_info is None else self.last_solve_info.as_dict()
             ),

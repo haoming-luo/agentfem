@@ -87,3 +87,27 @@ def test_additive_tangent_rejects_invalid_contracts():
     with pytest.raises(ValueError, match="locally owned"):
         create_additive_tangent_matrix(local, constrained_local_dofs=(2,))
     local.destroy()
+
+
+def test_additive_tangent_keeps_true_operator_separate_from_preconditioner():
+    local_values = np.diag((2.0, 3.0))
+    preconditioner_values = np.diag((5.0, 7.0))
+    local = _dense_matrix(local_values)
+    preconditioner = _dense_matrix(preconditioner_values)
+
+    with create_additive_tangent_matrix(
+        local,
+        preconditioner_matrix=preconditioner,
+    ) as additive:
+        source = local.createVecRight()
+        target = local.createVecLeft()
+        source.array[:] = (0.25, -0.5)
+        additive.operator.mult(source, target)
+        np.testing.assert_allclose(target.array_r, local_values @ source.array_r)
+        assert additive.preconditioner is preconditioner
+        assert additive.summary()["preconditioner"].startswith("independent")
+        source.destroy()
+        target.destroy()
+
+    local.destroy()
+    preconditioner.destroy()

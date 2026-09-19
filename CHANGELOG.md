@@ -95,11 +95,18 @@ experimental formulation to a validated one.
   a second solver or a shell-specific workflow.
 - Add the internal hybrid-Newton promotion runtime: PETSc applies the assembled
   local Jacobian plus exact matrix-free contributions as the true operator and
-  uses the assembled local Jacobian as its independent preconditioner. Strong
+  uses a separately owned assembled preconditioner. It defaults to the local
+  Jacobian, but may be an independent approximation when stiffness exists only
+  in a nonlocal contribution; the true operator is unchanged. Strong
   constraints are projected once at the composition boundary. A constrained
   displacement/fibre-bending solve converges in serial and gives the same
-  displacement, bending energy, maximum response, and Newton count with two
-  MPI ranks.
+  displacement, bending energy, maximum response, retained reaction, free-
+  residual norm, and Newton count with two MPI ranks. Failed attempts restore
+  the pre-attempt field rather than exposing a rejected iterate as accepted
+  state. An internal attempt-solver seam now lets this hybrid Newton runtime
+  reuse the ordinary nonlinear Procedure's fixed/automatic load increments,
+  cutback, progress events, snapshots, and `SimulationResult` evidence instead
+  of introducing a second shell-specific load controller.
 - Make neighbour-energy partition completeness explicit. One-ring stencils
   backed by shared-facet ghosts are accepted under MPI; wider stencils without
   an expanded halo are rejected before an energy or bending operator can

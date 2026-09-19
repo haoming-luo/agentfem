@@ -43,6 +43,7 @@ class PreparedHybridNonlinearProblem:
         *,
         bcs=None,
         jacobian_form=None,
+        preconditioner_form=None,
         options=None,
         petsc_options_prefix: str = "agentfem_hybrid_nonlinear_",
     ) -> None:
@@ -89,8 +90,20 @@ class PreparedHybridNonlinearProblem:
             if hasattr(jacobian_form, "_cpp_object")
             else fem.form(jacobian_form)
         )
+        self.preconditioner_form = (
+            self.jacobian_form
+            if preconditioner_form is None
+            else preconditioner_form
+            if hasattr(preconditioner_form, "_cpp_object")
+            else fem.form(preconditioner_form)
+        )
         self.local_matrix = fem_petsc.create_matrix(self.jacobian_form)
-        self._assemble_local_matrix(solution.x.petsc_vec)
+        self.preconditioner_matrix = (
+            self.local_matrix
+            if self.preconditioner_form is self.jacobian_form
+            else fem_petsc.create_matrix(self.preconditioner_form)
+        )
+        self._assemble_matrices(solution.x.petsc_vec)
         self.constrained_local_dofs = _owned_constrained_dofs(self.bcs)
         self.actions = tuple(
             fenicsx_tangent_action(contribution, solution)
@@ -99,6 +112,7 @@ class PreparedHybridNonlinearProblem:
         self.additive = create_additive_tangent_matrix(
             self.local_matrix,
             self.actions,
+            preconditioner_matrix=self.preconditioner_matrix,
             constrained_local_dofs=self.constrained_local_dofs,
         )
         self.residual_vector = fem_petsc.create_vector(solution.function_space)
@@ -107,7 +121,7 @@ class PreparedHybridNonlinearProblem:
         self.solver.setJacobian(
             self._assemble_jacobian,
             self.additive.operator,
-            self.local_matrix,
+            self.preconditioner_matrix,
         )
         self.solver.setOptionsPrefix(petsc_options_prefix)
         selected_options = self.options.petsc_options()
@@ -121,6 +135,9 @@ class PreparedHybridNonlinearProblem:
             for key in selected_options:
                 del option_database[key]
             option_database.prefixPop()
+        self.attempt_count = 0
+        self.accepted_solve_count = 0
+        self.last_solve_info = None
         self._closed = False
 
     def _assign_state(self, source: PETSc.Vec) -> None:
@@ -131,16 +148,24 @@ class PreparedHybridNonlinearProblem:
         source.copy(self.solution.x.petsc_vec)
         self.solution.x.scatter_forward()
 
-    def _assemble_local_matrix(self, source: PETSc.Vec) -> None:
+    def _assemble_matrices(self, source: PETSc.Vec) -> None:
         self._assign_state(source)
-        self.local_matrix.zeroEntries()
+        self._assemble_matrix(self.local_matrix, self.jacobian_form)
+        if self.preconditioner_matrix is not self.local_matrix:
+            self._assemble_matrix(
+                self.preconditioner_matrix,
+                self.preconditioner_form,
+            )
+
+    def _assemble_matrix(self, matrix: PETSc.Mat, form) -> None:
+        matrix.zeroEntries()
         fem_petsc.assemble_matrix(
-            self.local_matrix,
-            self.jacobian_form,
+            matrix,
+            form,
             bcs=self.bcs,
             diag=1.0,
         )
-        self.local_matrix.assemble()
+        matrix.assemble()
 
     def _assemble_residual(
         self,
@@ -180,7 +205,7 @@ class PreparedHybridNonlinearProblem:
         preconditioner: PETSc.Mat,
     ) -> None:
         del snes, operator, preconditioner
-        self._assemble_local_matrix(source)
+        self._assemble_matrices(source)
 
     def solve(self):
         """Solve in place and return the field plus structured convergence."""
@@ -189,30 +214,102 @@ class PreparedHybridNonlinearProblem:
 
         if self._closed:
             raise RuntimeError("PreparedHybridNonlinearProblem is closed.")
-        self.solver.solve(None, self.solution.x.petsc_vec)
+        accepted = self.solution.x.array.copy()
+        self.attempt_count += 1
+        try:
+            self.solver.solve(None, self.solution.x.petsc_vec)
+        except Exception:
+            self.solution.x.array[:] = accepted
+            self.solution.x.scatter_forward()
+            raise
         self.solution.x.scatter_forward()
         info = NonlinearSolveInfo(
             converged_reason=int(self.solver.getConvergedReason()),
             iterations=int(self.solver.getIterationNumber()),
             function_norm=float(self.solver.getFunctionNorm()),
         )
+        self.last_solve_info = info
         if not info.converged and self.options.error_if_not_converged:
+            self.solution.x.array[:] = accepted
+            self.solution.x.scatter_forward()
             raise RuntimeError(
                 "PETSc SNES did not converge for the hybrid nonlinear problem: "
                 f"reason={info.converged_reason}, iterations={info.iterations}, "
                 f"function_norm={info.function_norm:.6g}."
             )
+        if info.converged:
+            self.accepted_solve_count += 1
         return self.solution, info
+
+    def assemble_physical_residual(self) -> PETSc.Vec:
+        """Return internal-minus-external residual before strong BC rows.
+
+        The caller owns the returned vector.  Constrained entries are retained
+        so a future Procedure can extract reactions without reconstructing or
+        double-counting nonlocal contributions.
+        """
+
+        if self._closed:
+            raise RuntimeError("PreparedHybridNonlinearProblem is closed.")
+        target = fem_petsc.create_vector(self.solution.function_space)
+        target.set(0.0)
+        fem_petsc.assemble_vector(target, self.residual_form)
+        target.ghostUpdate(
+            addv=PETSc.InsertMode.ADD,
+            mode=PETSc.ScatterMode.REVERSE,
+        )
+        target.ghostUpdate(
+            addv=PETSc.InsertMode.INSERT,
+            mode=PETSc.ScatterMode.FORWARD,
+        )
+        for contribution in self.contributions:
+            residual = contribution.residual(self.solution)
+            if not isinstance(residual, PETSc.Vec):
+                target.destroy()
+                raise TypeError("contribution.residual() must return a PETSc Vec.")
+            try:
+                if residual.getSizes() != target.getSizes():
+                    raise ValueError(
+                        "contribution residual does not match the solution space."
+                    )
+                target.axpy(1.0, residual)
+            except Exception:
+                target.destroy()
+                raise
+            finally:
+                residual.destroy()
+        return target
+
+    def free_residual_norm(self) -> float:
+        """Return the norm after suppressing retained constrained reactions."""
+
+        residual = self.assemble_physical_residual()
+        try:
+            if self.constrained_local_dofs:
+                residual.array[np.asarray(self.constrained_local_dofs)] = 0.0
+            return float(residual.norm())
+        finally:
+            residual.destroy()
 
     def summary(self) -> dict[str, object]:
         return {
             "kind": "prepared_hybrid_nonlinear_problem",
             "status": "internal_promotion_gate",
             "local_operator": "assembled_ufl_jacobian",
+            "preconditioner": self.additive.summary()["preconditioner"],
             "nonlocal_contributions": len(self.contributions),
             "constraints": len(self.constrained_local_dofs),
-            "tangent": self.additive.summary(),
+            "tangent": None if self._closed else self.additive.summary(),
             "solver": self.options.summary(),
+            "attempt_count": int(self.attempt_count),
+            "accepted_solve_count": int(self.accepted_solve_count),
+            "last_solve": (
+                None
+                if self.last_solve_info is None
+                else self.last_solve_info.as_dict()
+            ),
+            "failure_state": "restored_to_pre_attempt_solution",
+            "physical_residual": "retained_before_strong_boundary_rows",
         }
 
     @property
@@ -227,14 +324,19 @@ class PreparedHybridNonlinearProblem:
         solver = self.solver
         residual = self.residual_vector
         local_matrix = self.local_matrix
+        preconditioner_matrix = self.preconditioner_matrix
         additive = self.additive
         self.solver = None
         self.residual_vector = None
         self.local_matrix = None
+        self.preconditioner_matrix = None
         self.additive = None
         self._closed = True
         first_error = None
-        for resource in (solver, residual, additive, local_matrix):
+        resources = [solver, residual, additive, local_matrix]
+        if preconditioner_matrix is not local_matrix:
+            resources.append(preconditioner_matrix)
+        for resource in resources:
             try:
                 resource.close() if resource is additive else resource.destroy()
             except Exception as exc:  # pragma: no cover - PETSc failure path

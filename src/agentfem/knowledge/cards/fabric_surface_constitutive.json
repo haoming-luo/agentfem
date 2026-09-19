@@ -161,7 +161,8 @@
       "The global membrane Step rejects nonzero bending because no shell element consumes that channel yet.",
       "The independent-direction bending operator supplies exact direction and direct surface-tangent first derivatives plus their exact admissible response linearization, but it does not include compatibility-constraint blocks.",
       "The displacement-derived fibre transfer and bending response compose into the complete first variation and matrix-free consistent tangent of the bending energy, but boundary moments, complete shell assembly, and a public shell Step remain promotion gates.",
-      "The internal hybrid Newton runtime verifies algebra, strong constraints, and serial/two-rank equivalence, but does not yet expose a public Procedure or standard result lifecycle.",
+      "The internal hybrid Newton runtime verifies total derivatives, strong constraints, retained reactions, rollback, serial/two-rank equivalence, the ordinary nonlinear load/result lifecycle, and separate true-operator/preconditioner ownership, but does not yet expose a public shell Procedure.",
+      "A displacement-only boundary is not a complete clamp for the rotation-free curvature operator; boundary slope/rotation and conjugate moment semantics remain unavailable.",
       "Under MPI, conservative neighbour energies require a partition-complete stencil; wider-than-halo reconstructions are rejected.",
       "FabricStack membrane lowering shares one surface displacement across layers; transverse slippage, independent material normals, and shell equilibrium remain promotion gates.",
       "Contact, friction, inter-ply slip, locking control, and forming procedures are not implemented.",
@@ -209,7 +210,11 @@
       "Verify that exact response and kinematic-adjoint linearizations compose into a displacement-space tangent that matches residual differences in serial and under two MPI ranks.",
       "Verify that the composed displacement bending energy is objective, its residual and tangent are covariant under three-dimensional rigid rotation, and its Hessian action is symmetric.",
       "Verify that the assembled-local plus matrix-free PETSc operator converges with a separate local preconditioner and handles strong constraints once.",
-      "Verify matching displacement, bending-energy, maximum-response, and Newton-iteration observables in serial and under two MPI ranks.",
+      "Verify that the total residual is the total-energy derivative and the additive tangent is the total-residual derivative.",
+      "Verify matching displacement, bending-energy, maximum-response, constrained-reaction, free-residual, and Newton-iteration observables in serial and under two MPI ranks.",
+      "Verify that a failed nonlinear attempt restores the pre-attempt primary field.",
+      "Verify fixed increments, automatic cutback, progress events, snapshots, and SimulationResult through the shared nonlinear Procedure lifecycle.",
+      "Verify that an independent assembled preconditioner does not alter the true local-plus-nonlocal tangent action.",
       "Reject conservative MPI neighbour energies when the requested reconstruction rings exceed the available cell halo.",
       "Keep shell, contact, and forming claims unavailable until their independent patch tests and benchmarks pass."
     ]

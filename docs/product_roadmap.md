@@ -193,10 +193,19 @@ Deepen the finite-element core before broadening the catalog:
   that exact action with a locally assembled UFL Jacobian, uses the latter as
   PETSc's independent preconditioner, and applies essential constraints once.
   Its first constrained displacement/bending solve matches serial and two-rank
-  observables. Partition completeness is now fail-closed: one-ring shared-
+  observables, including retained reactions and free-residual balance; failed
+  attempts restore their pre-attempt field. Partition completeness is now
+  fail-closed: one-ring shared-
   facet stencils are accepted under MPI, while wider stencils require a future
-  expanded halo. This runtime is evidence for the future Procedure, not yet a
-  public shell Step. The
+  expanded halo. An internal solver seam now routes the same operator through
+  standard load incrementation, automatic cutback, progress events and
+  `SimulationResult`; checkpoint/restart, boundary moments, locking evidence
+  and shell patch tests remain before a public shell Step. True-operator and
+  preconditioner ownership are now separate, so an assembled approximation
+  can cover nonlocal-only directions without changing the physical tangent.
+  An embedded fabric-membrane/nonlocal-bending composition builds on that
+  path, while a displacement-only edge has been rejected as a rotation-free
+  clamp because it does not constrain boundary slope. The
   naive mixed interpolation pairs that lost rank or exhibited a decaying
   normalized inf-sup value remain rejected evidence. The next promotion
   sequence is boundary moments and complete shell assembly, locking
