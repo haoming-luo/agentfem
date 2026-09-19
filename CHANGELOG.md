@@ -29,6 +29,9 @@ experimental formulation to a validated one.
 - Define the no-slip mixed-field compatibility residual without a hidden
   penalty: one unit-director equation and exact warp/weft convection, with
   implied fibre unit length and tangency retained only as diagnostics.
+- Add replaceable plane-stress ply-strength assessment with sign-aware maximum
+  stress and Hashin modes, exact proportional first-failure factors, and
+  automatic material-axis evaluation at every stable laminate section point.
 - Add `agentfem support`, a consent-first community invitation that performs no
   account action, checks an existing GitHub login only when explicitly asked,
   and remembers support locally without storing identity or credentials.

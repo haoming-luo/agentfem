@@ -19,6 +19,7 @@ the compact machine-readable `agentfem/knowledge/catalog.json`.
 | [`agentfem.formulation.axisymmetric_solid`](#agentfem-formulation-axisymmetric_solid) | Axisymmetric solid formulation | workflow | supported |
 | [`agentfem.load.surface_resultant`](#agentfem-load-surface_resultant) | Uniform boundary traction from a requested resultant force | workflow | supported |
 | [`agentfem.material.chaboche_global_plasticity`](#agentfem-material-chaboche_global_plasticity) | Global Chaboche combined-hardening plasticity | material | experimental |
+| [`agentfem.material.composite_ply_failure`](#agentfem-material-composite_ply_failure) | Material-axis composite ply failure assessment | material | experimental |
 | [`agentfem.material.creep_damage_assessment`](#agentfem-material-creep_damage_assessment) | Creep damage and modified-theta assessment | material | supported |
 | [`agentfem.material.cyclic_cohesive_fatigue`](#agentfem-material-cyclic_cohesive_fatigue) | Cyclic cohesive damage with an independent cycle coordinate | material | experimental |
 | [`agentfem.material.fabric_surface_constitutive`](#agentfem-material-fabric_surface_constitutive) | Non-orthogonal woven-fabric surface response | material | experimental |
@@ -563,6 +564,109 @@ Create constitutive.chaboche(...), register it in studies.static_solid(dimension
 
 - Abaqus theory: models for metals subjected to cyclic loading: `https://docs.software.vt.edu/abaqusv2024/English/SIMACAETHERefMap/simathe-c-combinedhardening.htm`
 - Abaqus verification: import of combined-hardening material state: `https://docs.software.vt.edu/abaqusv2024/English/SIMACAEVERRefMap/simaver-c-import-plast.htm`
+
+<a id="agentfem-material-composite_ply_failure"></a>
+
+## Material-axis composite ply failure assessment
+
+**Stable ID:** `agentfem.material.composite_ply_failure`<br>
+**Kind:** `material`<br>
+**Status:** `experimental`<br>
+**Source card:** `src/agentfem/knowledge/cards/composite_ply_failure.json`
+
+Evaluates sign-aware maximum-stress or plane-stress Hashin initiation indices in ply material axes, computes the proportional first-failure load factor, and applies the same replaceable assessment to every stable laminate section point without evolving damage.
+
+### Public API
+
+- `agentfem.constitutive.CompositeStrengths2D`
+- `agentfem.constitutive.PlyFailureCriterion`
+- `agentfem.constitutive.MaximumStress2D`
+- `agentfem.constitutive.Hashin2D`
+- `agentfem.constitutive.PlyFailureAssessment`
+- `agentfem.constitutive.LaminateFailureAssessment`
+- `agentfem.constitutive.composite_strengths_2d`
+- `agentfem.constitutive.assess_ply_failure`
+- `agentfem.constitutive.assess_laminate_failure`
+
+### Scientific contract
+
+Strength allowables and initiation criteria are independent assessment assets that consume material-axis ply stress; they do not alter elastic stiffness or constitute a progressive-damage law.
+
+**Hashin fibre modes**
+
+$$
+F_{ft}=(\sigma_{11}/X_t)^2+(\tau_{12}/S_{12})^2,\qquad F_{fc}=(\sigma_{11}/X_c)^2
+$$
+
+The tensile or compressive fibre branch is selected by the sign of sigma_11.
+
+**Hashin matrix modes**
+
+$$
+F_{mt}=(\sigma_{22}/Y_t)^2+(\tau_{12}/S_{12})^2,\qquad F_{mc}=(\sigma_{22}/(2S_{12}))^2+[(Y_c/(2S_{12}))^2-1](\sigma_{22}/Y_c)+(\tau_{12}/S_{12})^2
+$$
+
+The tensile or compressive matrix branch is selected by the sign of sigma_22.
+
+#### Inputs
+
+| Name | Type | Unit role | Meaning |
+| --- | --- | --- | --- |
+| material-axis ply stress | (sigma_11, sigma_22, tau_12) | stress | Global or section-axis stress is rotated before assessment; the function never guesses a coordinate frame. |
+| five plane-stress strengths | positive Xt, Xc, Yt, Yc and S12 | stress | Tension and compression allowables remain distinct. |
+
+#### Outputs
+
+| Name | Type | Unit role | Meaning |
+| --- | --- | --- | --- |
+| ply or laminate failure assessment | per-mode indices, governing mode/location, accepted flag and proportional first-failure factor | dimensionless | Laminate output retains every stable ply section-point identity and its material-axis stress. |
+
+#### Assumptions
+
+- The built-in criteria use a plane-stress unidirectional-ply idealization.
+- The reported load factor assumes proportional scaling of the supplied stress state.
+
+#### Conventions
+
+- Material direction 1 is longitudinal/fibre, direction 2 is transverse, and tau_12 is tensor shear stress.
+- Initiation occurs when the governing index reaches one.
+
+#### Applicability
+
+- First-ply screening of recovered lamina or classical-laminate section-point stresses.
+
+#### Limitations
+
+- The assessment does not degrade stiffness, redistribute stress, advance damage, or predict final laminate failure.
+- Interlaminar normal/shear failure, three-dimensional Hashin variants, Puck, LaRC and fracture-energy regularization are separate capabilities.
+- Cell- or section-point averaging must not be interpreted as an unresolved local maximum.
+
+### Minimal example
+
+```python
+strengths = constitutive.composite_strengths_2d(xt=1500e6, xc=1000e6, yt=50e6, yc=200e6, s12=100e6); assessment = constitutive.assess_ply_failure((750e6, 25e6, 50e6), strengths, criterion='hashin_2d')
+```
+
+### Verification
+
+**Tests**
+
+- `tests/test_composite_failure.py`
+
+**Benchmarks**
+
+- None declared.
+
+**Validation rules**
+
+- Reject nonpositive strengths, malformed stresses, unknown built-in criteria and incomplete laminate strength mappings.
+- Verify distinct tension/compression branches, pure and combined Hashin modes, and the nonlinear matrix-compression proportional root.
+- Verify that every laminate section point is rotated from section axes into its named ply material axes before assessment.
+- Keep initiation screening distinct from progressive damage and structural failure prediction.
+
+### References
+
+- Hashin (1980), Failure Criteria for Unidirectional Fiber Composites: `https://doi.org/10.1115/1.3153664`
 
 <a id="agentfem-material-creep_damage_assessment"></a>
 

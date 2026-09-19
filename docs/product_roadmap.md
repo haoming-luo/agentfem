@@ -162,6 +162,12 @@ Deepen the finite-element core before broadening the catalog:
   orthotropic-solid route, locally verified ply/laminate sections, and the
   experimental finite-kinematics woven-membrane Step. Objective local director
   measures now establish the kinematic boundary for a future fibrous shell.
+  Plane-stress maximum-stress and Hashin initiation assessments now consume
+  explicit material-axis ply stress and strength assets, including automatic
+  assessment of every stable laminate section point. Progressive stiffness
+  degradation, fracture-energy regularization and final-failure prediction
+  remain separate constitutive/procedure gates rather than hidden side effects
+  of this screening layer.
   A multilayer stack now enters the finite-kinematics membrane Step while
   retaining varying layer frames, stable layer identities, an explicit result
   manifest, and separate per-layer fields instead of adding incompatible local

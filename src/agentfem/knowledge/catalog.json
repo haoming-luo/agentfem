@@ -470,6 +470,30 @@
       "title": "Global Chaboche combined-hardening plasticity"
     },
     {
+      "id": "agentfem.material.composite_ply_failure",
+      "kind": "material",
+      "public_api": [
+        "agentfem.constitutive.CompositeStrengths2D",
+        "agentfem.constitutive.PlyFailureCriterion",
+        "agentfem.constitutive.MaximumStress2D",
+        "agentfem.constitutive.Hashin2D",
+        "agentfem.constitutive.PlyFailureAssessment",
+        "agentfem.constitutive.LaminateFailureAssessment",
+        "agentfem.constitutive.composite_strengths_2d",
+        "agentfem.constitutive.assess_ply_failure",
+        "agentfem.constitutive.assess_laminate_failure"
+      ],
+      "related_cards": [
+        "agentfem.workflow.composite_orientation_and_laminate",
+        "agentfem.material.fabric_surface_constitutive",
+        "agentfem.workflow.vector_cohesive_interface"
+      ],
+      "source": "src/agentfem/knowledge/cards/composite_ply_failure.json",
+      "status": "experimental",
+      "summary": "Evaluates sign-aware maximum-stress or plane-stress Hashin initiation indices in ply material axes, computes the proportional first-failure load factor, and applies the same replaceable assessment to every stable laminate section point without evolving damage.",
+      "title": "Material-axis composite ply failure assessment"
+    },
+    {
       "id": "agentfem.material.creep_damage_assessment",
       "kind": "material",
       "public_api": [

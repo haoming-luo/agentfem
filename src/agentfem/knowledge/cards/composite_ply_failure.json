@@ -1,0 +1,106 @@
+{
+  "schema": "agentfem.scientific-function-card",
+  "schema_version": "0.1.0",
+  "id": "agentfem.material.composite_ply_failure",
+  "title": "Material-axis composite ply failure assessment",
+  "kind": "material",
+  "status": "experimental",
+  "summary": "Evaluates sign-aware maximum-stress or plane-stress Hashin initiation indices in ply material axes, computes the proportional first-failure load factor, and applies the same replaceable assessment to every stable laminate section point without evolving damage.",
+  "public_api": [
+    "agentfem.constitutive.CompositeStrengths2D",
+    "agentfem.constitutive.PlyFailureCriterion",
+    "agentfem.constitutive.MaximumStress2D",
+    "agentfem.constitutive.Hashin2D",
+    "agentfem.constitutive.PlyFailureAssessment",
+    "agentfem.constitutive.LaminateFailureAssessment",
+    "agentfem.constitutive.composite_strengths_2d",
+    "agentfem.constitutive.assess_ply_failure",
+    "agentfem.constitutive.assess_laminate_failure"
+  ],
+  "implementation": [
+    "constitutive/composite_failure.py",
+    "materials/sections.py"
+  ],
+  "science": {
+    "statement": "Strength allowables and initiation criteria are independent assessment assets that consume material-axis ply stress; they do not alter elastic stiffness or constitute a progressive-damage law.",
+    "equations": [
+      {
+        "label": "Hashin fibre modes",
+        "expression": "F_{ft}=(\\sigma_{11}/X_t)^2+(\\tau_{12}/S_{12})^2,\\qquad F_{fc}=(\\sigma_{11}/X_c)^2",
+        "description": "The tensile or compressive fibre branch is selected by the sign of sigma_11."
+      },
+      {
+        "label": "Hashin matrix modes",
+        "expression": "F_{mt}=(\\sigma_{22}/Y_t)^2+(\\tau_{12}/S_{12})^2,\\qquad F_{mc}=(\\sigma_{22}/(2S_{12}))^2+[(Y_c/(2S_{12}))^2-1](\\sigma_{22}/Y_c)+(\\tau_{12}/S_{12})^2",
+        "description": "The tensile or compressive matrix branch is selected by the sign of sigma_22."
+      }
+    ],
+    "inputs": [
+      {
+        "name": "material-axis ply stress",
+        "type": "(sigma_11, sigma_22, tau_12)",
+        "unit_role": "stress",
+        "description": "Global or section-axis stress is rotated before assessment; the function never guesses a coordinate frame."
+      },
+      {
+        "name": "five plane-stress strengths",
+        "type": "positive Xt, Xc, Yt, Yc and S12",
+        "unit_role": "stress",
+        "description": "Tension and compression allowables remain distinct."
+      }
+    ],
+    "outputs": [
+      {
+        "name": "ply or laminate failure assessment",
+        "type": "per-mode indices, governing mode/location, accepted flag and proportional first-failure factor",
+        "unit_role": "dimensionless",
+        "description": "Laminate output retains every stable ply section-point identity and its material-axis stress."
+      }
+    ],
+    "assumptions": [
+      "The built-in criteria use a plane-stress unidirectional-ply idealization.",
+      "The reported load factor assumes proportional scaling of the supplied stress state."
+    ],
+    "conventions": [
+      "Material direction 1 is longitudinal/fibre, direction 2 is transverse, and tau_12 is tensor shear stress.",
+      "Initiation occurs when the governing index reaches one."
+    ],
+    "applicability": [
+      "First-ply screening of recovered lamina or classical-laminate section-point stresses."
+    ],
+    "limitations": [
+      "The assessment does not degrade stiffness, redistribute stress, advance damage, or predict final laminate failure.",
+      "Interlaminar normal/shear failure, three-dimensional Hashin variants, Puck, LaRC and fracture-energy regularization are separate capabilities.",
+      "Cell- or section-point averaging must not be interpreted as an unresolved local maximum."
+    ]
+  },
+  "usage": {
+    "minimal_example": "strengths = constitutive.composite_strengths_2d(xt=1500e6, xc=1000e6, yt=50e6, yc=200e6, s12=100e6); assessment = constitutive.assess_ply_failure((750e6, 25e6, 50e6), strengths, criterion='hashin_2d')",
+    "examples": [
+      "tests/test_composite_failure.py"
+    ]
+  },
+  "verification": {
+    "tests": [
+      "tests/test_composite_failure.py"
+    ],
+    "benchmarks": [],
+    "validation_rules": [
+      "Reject nonpositive strengths, malformed stresses, unknown built-in criteria and incomplete laminate strength mappings.",
+      "Verify distinct tension/compression branches, pure and combined Hashin modes, and the nonlinear matrix-compression proportional root.",
+      "Verify that every laminate section point is rotated from section axes into its named ply material axes before assessment.",
+      "Keep initiation screening distinct from progressive damage and structural failure prediction."
+    ]
+  },
+  "references": [
+    {
+      "title": "Hashin (1980), Failure Criteria for Unidirectional Fiber Composites",
+      "locator": "https://doi.org/10.1115/1.3153664"
+    }
+  ],
+  "related_cards": [
+    "agentfem.workflow.composite_orientation_and_laminate",
+    "agentfem.material.fabric_surface_constitutive",
+    "agentfem.workflow.vector_cohesive_interface"
+  ]
+}

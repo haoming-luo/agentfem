@@ -1,9 +1,9 @@
 # Composite materials and forming
 
-AgentFEM treats composite mechanics as three independent assets:
+AgentFEM treats composite mechanics as independent assets:
 
 ```text
-constitutive material + assignment orientation + section/ply placement
+material + orientation + section/ply placement + strength assessment
 ```
 
 The Study still declares the physical analysis and `model.step(...)` remains
@@ -82,6 +82,36 @@ After `inspect-abaqus` has resolved a composite section's references,
 solid/continuum and shell row layouts. It requires `reviewed_by`, retains the
 source location, and rejects unknown materials or ambiguous rows instead of
 guessing.
+
+## Ply-strength assessment
+
+Elastic constants, strength allowables, and the chosen failure surface are not
+the same object. `CompositeStrengths2D` therefore stores the five common
+plane-stress allowables independently from the lamina material. Built-in
+maximum-stress and Hashin criteria consume an explicit material-axis stress
+order `(sigma_11, sigma_22, tau_12)`:
+
+```python
+strengths = constitutive.composite_strengths_2d(
+    xt=1500e6, xc=1000e6, yt=50e6, yc=200e6, s12=100e6,
+)
+failure = constitutive.assess_ply_failure(
+    (750e6, 25e6, 50e6), strengths, criterion="hashin_2d",
+)
+```
+
+The result contains every mode index, the governing mode, and the proportional
+load factor at which the first index reaches one. The load factor is solved on
+the actual criterion, not approximated as `1/sqrt(index)` for the nonhomogeneous
+Hashin matrix-compression branch. A user criterion can implement the small
+`PlyFailureCriterion` protocol without modifying AgentFEM.
+
+For a `LaminateSection`, `assess_laminate_failure(section, response, ...)`
+rotates every recovered section-axis stress into its named ply material axes
+and retains the stable section-point identity. This is first-ply initiation
+screening only. It does not reduce stiffness, redistribute load, evolve
+fracture energy, or claim final laminate failure; those belong to a separately
+verified progressive-damage procedure.
 
 ## Woven reinforcement surface response
 
