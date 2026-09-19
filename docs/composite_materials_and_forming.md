@@ -392,6 +392,14 @@ displacement-level consistent tangent, which matches residual differences in
 serial and over two ranks. The next gates are therefore boundary moments,
 complete shell assembly, locking control and shell patch tests; this evidence
 still does not constitute a shell Step.
+`operators.displacement_fiber_bending(...)` is the public composition of this
+chain. It owns no new mechanics: it gives one convected fibre family a compact
+`energy(...)`, `residual(...)`, and `tangent_action(...)` interface while the
+kinematic transfer, neighbour reconstruction, and bending response retain
+their separate ownership and inspectable metadata. The composed energy is
+objective, its residual and tangent action transform covariantly under a
+superposed three-dimensional rigid rotation, and its displacement Hessian
+action is symmetric.
 Naive mixed P1/DG0 and P2/DG1 compatibility pairs were rejected after losing
 rank under refinement; full-rank P2/CG1 and P2/DG0 candidates still showed a
 decaying normalized inf-sup value in the tested H1/L2 norms. Those negative

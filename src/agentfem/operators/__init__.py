@@ -60,6 +60,10 @@ from .cell_transfer import (
     cell_average_gradient,
     convected_cell_fiber,
 )
+from .displacement_fiber_bending import (
+    DisplacementFiberBendingOperator,
+    displacement_fiber_bending,
+)
 from .fiber_bending import (
     FiberDirectionBendingIncrement,
     FiberDirectionBendingOperator,
@@ -132,6 +136,8 @@ __all__ = [
     "cell_gradient_energy",
     "cell_average_gradient",
     "convected_cell_fiber",
+    "DisplacementFiberBendingOperator",
+    "displacement_fiber_bending",
     "combine",
     "compile_form",
     "conduction_operator",

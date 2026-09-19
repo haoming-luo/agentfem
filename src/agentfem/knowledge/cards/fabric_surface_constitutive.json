@@ -35,6 +35,8 @@
     "agentfem.operators.ConvectedCellFiberKinematics",
     "agentfem.operators.ConvectedCellFiberIncrement",
     "agentfem.operators.convected_cell_fiber",
+    "agentfem.operators.DisplacementFiberBendingOperator",
+    "agentfem.operators.displacement_fiber_bending",
     "agentfem.results.fabric_membrane_cell_fields",
     "agentfem.results.fabric_stack_membrane_cell_fields",
     "agentfem.results.fabric_stack_result_manifest",
@@ -45,6 +47,7 @@
     "constitutive/fabric.py",
     "mechanics/shell.py",
     "operators/cell_transfer.py",
+    "operators/displacement_fiber_bending.py",
     "operators/fiber_bending.py",
     "step_providers.py",
     "_step_builders.py"
@@ -130,6 +133,12 @@
         "type": "current 3x2 tangents, fibre stretch, unit direction, exact directional derivative, exact displacement-space adjoint, and exact adjoint linearization",
         "unit_role": "surface deformation and work-conjugate virtual quantities",
         "description": "Reference tangent coordinates are convected by the cell-average gradient of a three-component displacement on a two-dimensional parameter mesh; no independent physical direction field is exposed to the user."
+      },
+      {
+        "name": "displacement-derived fibre-bending contribution",
+        "type": "one inspectable energy, exact displacement residual, and matrix-free consistent tangent action",
+        "unit_role": "energy and virtual work in the declared consistent unit system",
+        "description": "The composition reuses the convected-fibre kinematics and neighbour-bending response without merging their ownership or claiming a complete shell element."
       }
     ],
     "assumptions": [
@@ -188,6 +197,7 @@
       "Verify that displacement-derived current tangents, fibre stretch, and unit direction reproduce a rigid rotation, match finite-difference directional derivatives, and satisfy the global derivative/adjoint work identity in serial and under two MPI ranks.",
       "Verify that the composed displacement-derived bending residual includes both direction and direct surface-tangent paths and closes the global energy--virtual-work identity in serial and under two MPI ranks.",
       "Verify that exact response and kinematic-adjoint linearizations compose into a displacement-space tangent that matches residual differences in serial and under two MPI ranks.",
+      "Verify that the composed displacement bending energy is objective, its residual and tangent are covariant under three-dimensional rigid rotation, and its Hessian action is symmetric.",
       "Keep shell, contact, and forming claims unavailable until their independent patch tests and benchmarks pass."
     ]
   },

@@ -235,6 +235,13 @@ def test_displacement_derived_bending_energy_has_exact_fem_residual():
     )
     neighborhood_gradient = mesh.cell_gradient_operator(domain, rings=2)
     weights = mesh.owned_cell_measures(domain)
+    composed = operators.displacement_fiber_bending(
+        kinematics,
+        neighborhood_gradient,
+        cell_weights=weights,
+        in_plane_stiffness=2.5,
+        normal_stiffness=4.0,
+    )
 
     def bending_response(field):
         state = kinematics.apply(field)
@@ -323,6 +330,123 @@ def test_displacement_derived_bending_energy_has_exact_fem_residual():
         rtol=8.0e-7,
         atol=5.0e-8,
     )
+    composed_residual = composed.residual(displacement)
+    composed_tangent = composed.tangent_action(displacement, increment)
+    manual_residual = displacement_residual(displacement)
+    assert composed.energy(displacement) == pytest.approx(response.energy)
+    np.testing.assert_allclose(
+        composed_residual.array_r,
+        manual_residual.array_r,
+        rtol=2.0e-13,
+        atol=2.0e-13,
+    )
+    np.testing.assert_allclose(
+        composed_tangent.array_r,
+        residual_difference,
+        rtol=8.0e-7,
+        atol=5.0e-8,
+    )
+    assert composed.as_dict()["tangent"].startswith("exact_matrix_free")
     tangent.destroy()
     plus_residual.destroy()
     minus_residual.destroy()
+    composed_residual.destroy()
+    composed_tangent.destroy()
+    manual_residual.destroy()
+
+
+def test_displacement_fiber_bending_is_objective_and_hessian_is_symmetric():
+    domain, space, kinematics, _, _ = _case()
+    gradient = mesh.cell_gradient_operator(domain, rings=2)
+    bending = operators.displacement_fiber_bending(
+        kinematics,
+        gradient,
+        cell_weights=mesh.owned_cell_measures(domain),
+        in_plane_stiffness=2.5,
+        normal_stiffness=4.0,
+    )
+    displacement = fem.Function(space, name="U")
+
+    def base_values(x):
+        return np.vstack(
+            (
+                0.08 * x[0] ** 2 + 0.03 * x[1],
+                0.06 * x[0] * x[1] - 0.02 * x[0],
+                0.05 * x[0] ** 2 + 0.04 * x[1] ** 2,
+            )
+        )
+
+    displacement.interpolate(base_values)
+    first = fem.Function(space, name="DU1")
+    first.interpolate(
+        lambda x: np.vstack(
+            (
+                -0.03 * x[0] + 0.02 * x[1],
+                0.04 * x[0] ** 2,
+                -0.02 * x[0] * x[1] + 0.01 * x[1],
+            )
+        )
+    )
+    second = fem.Function(space, name="DU2")
+    second.interpolate(
+        lambda x: np.vstack(
+            (
+                0.02 * x[1] ** 2,
+                -0.03 * x[0] * x[1],
+                0.015 * x[0] + 0.025 * x[1],
+            )
+        )
+    )
+    first_action = bending.tangent_action(displacement, first)
+    second_action = bending.tangent_action(displacement, second)
+    assert np.vdot(first.x.petsc_vec.array_r, second_action.array_r) == (
+        pytest.approx(
+            np.vdot(second.x.petsc_vec.array_r, first_action.array_r),
+            rel=2.0e-11,
+            abs=2.0e-11,
+        )
+    )
+
+    rotation = _rotation()
+    rotated = fem.Function(space, name="U_rotated")
+
+    def rotated_values(x):
+        reference = np.vstack((x[:2], np.zeros(x.shape[1])))
+        return rotation @ (reference + base_values(x)) - reference
+
+    rotated.interpolate(rotated_values)
+    rotated_first = fem.Function(space, name="DU1_rotated")
+    rotated_first.interpolate(
+        lambda x: rotation
+        @ np.vstack(
+            (
+                -0.03 * x[0] + 0.02 * x[1],
+                0.04 * x[0] ** 2,
+                -0.02 * x[0] * x[1] + 0.01 * x[1],
+            )
+        )
+    )
+    residual = bending.residual(displacement)
+    rotated_residual = bending.residual(rotated)
+    rotated_action = bending.tangent_action(rotated, rotated_first)
+
+    assert bending.energy(rotated) == pytest.approx(
+        bending.energy(displacement), rel=2.0e-13, abs=2.0e-13
+    )
+    np.testing.assert_allclose(
+        rotated_residual.array_r.reshape((-1, 3)),
+        residual.array_r.reshape((-1, 3)) @ rotation.T,
+        rtol=2.0e-11,
+        atol=2.0e-11,
+    )
+    np.testing.assert_allclose(
+        rotated_action.array_r.reshape((-1, 3)),
+        first_action.array_r.reshape((-1, 3)) @ rotation.T,
+        rtol=2.0e-10,
+        atol=2.0e-10,
+    )
+    first_action.destroy()
+    second_action.destroy()
+    residual.destroy()
+    rotated_residual.destroy()
+    rotated_action.destroy()

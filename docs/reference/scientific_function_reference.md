@@ -976,6 +976,8 @@ Defines independent woven-surface tension, trellising-shear, and bending channel
 - `agentfem.operators.ConvectedCellFiberKinematics`
 - `agentfem.operators.ConvectedCellFiberIncrement`
 - `agentfem.operators.convected_cell_fiber`
+- `agentfem.operators.DisplacementFiberBendingOperator`
+- `agentfem.operators.displacement_fiber_bending`
 - `agentfem.results.fabric_membrane_cell_fields`
 - `agentfem.results.fabric_stack_membrane_cell_fields`
 - `agentfem.results.fabric_stack_result_manifest`
@@ -1028,6 +1030,7 @@ In-plane/geodesic and normal bending are separate objective measures and require
 | symbolic fibrous-shell constitutive potential | nine generalized UFL measures, one stored-energy expression, four named energy channels, and nine conjugate resultants | the same generalized shell units as the local response | A future operator constructs compatible measures; UFL differentiates this single potential into a consistent residual and Jacobian. |
 | independent-direction bending response | owned-cell in-plane/normal curvature, energy, exact local-plus-ghost direction residual, exact direct surface-tangent dual, and exact matrix-free response linearization | curvature, energy, and virtual work in a consistent unit system | The direction is normalized before one cached neighbor reconstruction; the response and its linearization differentiate both direction and current-tangent paths, while tangent_action remains the fixed-tangent direction-only convenience. |
 | displacement-derived cell-fibre kinematics | current 3x2 tangents, fibre stretch, unit direction, exact directional derivative, exact displacement-space adjoint, and exact adjoint linearization | surface deformation and work-conjugate virtual quantities | Reference tangent coordinates are convected by the cell-average gradient of a three-component displacement on a two-dimensional parameter mesh; no independent physical direction field is exposed to the user. |
+| displacement-derived fibre-bending contribution | one inspectable energy, exact displacement residual, and matrix-free consistent tangent action | energy and virtual work in the declared consistent unit system | The composition reuses the convected-fibre kinematics and neighbour-bending response without merging their ownership or claiming a complete shell element. |
 
 #### Assumptions
 
@@ -1090,6 +1093,7 @@ study = studies.static_membrane(); model = models.create(study=study, mesh=domai
 - Verify that displacement-derived current tangents, fibre stretch, and unit direction reproduce a rigid rotation, match finite-difference directional derivatives, and satisfy the global derivative/adjoint work identity in serial and under two MPI ranks.
 - Verify that the composed displacement-derived bending residual includes both direction and direct surface-tangent paths and closes the global energy--virtual-work identity in serial and under two MPI ranks.
 - Verify that exact response and kinematic-adjoint linearizations compose into a displacement-space tangent that matches residual differences in serial and under two MPI ranks.
+- Verify that the composed displacement bending energy is objective, its residual and tangent are covariant under three-dimensional rigid rotation, and its Hessian action is symmetric.
 - Keep shell, contact, and forming claims unavailable until their independent patch tests and benchmarks pass.
 
 ### References

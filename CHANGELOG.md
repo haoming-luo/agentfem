@@ -84,7 +84,11 @@ experimental formulation to a validated one.
   displacement-level consistent tangent; residual differences agree in
   serial and across a two-rank partition. An independent PyTorch autograd
   audit used during development agreed at floating-point precision without
-  becoming a runtime dependency.
+  becoming a runtime dependency. The public
+  `operators.displacement_fiber_bending(...)` composition presents the result
+  as one `energy / residual / tangent_action` contract. The composed residual
+  and tangent are covariant under a superposed three-dimensional rigid
+  rotation and the displacement Hessian action is symmetric.
 - Add `agentfem support`, a consent-first community invitation that performs no
   account action, checks an existing GitHub login only when explicitly asked,
   and remembers support locally without storing identity or credentials.

@@ -1040,6 +1040,8 @@ and evidence remain in the linked guides and scientific function reference.
 | class | `ConvectedCellFiberOperator` | Displacement-derived surface tangents and one convected fibre family. |
 | function | `cell_average_gradient(source_space) -> CellAverageGradientOperator` | Assemble a reusable FEM-to-DG0 cell-average gradient transfer. |
 | function | `convected_cell_fiber(transfer: CellAverageGradientOperator, *, reference_tangents, reference_tangent_coordinates) -> ConvectedCellFiberOperator` | Create a displacement-derived cell-fibre kinematic transfer. |
+| class | `DisplacementFiberBendingOperator` | Exact energy, residual, and tangent for one convected fibre family. |
+| function | `displacement_fiber_bending(kinematics: ConvectedCellFiberOperator, gradient: CellGradientOperator, *, cell_weights, in_plane_stiffness = 0.0, normal_stiffness = 0.0, reference_in_plane_curvature = 0.0, reference_normal_curvature = 0.0) -> DisplacementFiberBendingOperator` | Compose one displacement-derived neighbour-bending contribution. |
 | class | `FiberDirectionBendingIncrement` | Directional derivative of a complete bending response. |
 | class | `FiberDirectionBendingOperator` | Exact first variation of a two-channel fibre-curvature energy. |
 | class | `FiberDirectionBendingResponse` | Curvature energy and exact direction/surface-tangent duals. |
