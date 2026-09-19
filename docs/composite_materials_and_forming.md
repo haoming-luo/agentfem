@@ -329,8 +329,11 @@ operator identity for scalar or vector cell fields: one cached `G` evaluates
 matrix-free tangent action. Finite-difference derivatives, tangent symmetry,
 positive semidefiniteness, and the constant-field nullspace are verified;
 rank-local energy and ghost residual contributions retain explicit MPI
-assembly semantics. This is a reusable nonlocal operator foundation, not yet
-the nonlinear fibre-bending virtual work of a forming shell.
+assembly semantics. `mesh.owned_cell_measures(...)` supplies physical DG0
+integration weights aligned with owned cells and excludes ghosts, so global
+energy counts every cell once in serial or MPI. This is a reusable nonlocal
+operator foundation, not yet the nonlinear fibre-bending virtual work of a
+forming shell.
 `mechanics.reconstruct_fiber_curvature(...)` consumes that gradient
 with three-dimensional fibre directions and 3x2 current tangents, then returns
 the signed in-plane and normal curvature channels already used by the local
@@ -417,7 +420,9 @@ The automated local evidence currently checks:
   reverse-scatter ownership kept explicit;
 - the first matrix-free cell-gradient energy has an exact residual and
   symmetric positive-semidefinite tangent action, matches finite-difference
-  energy derivatives, and annihilates constant fields.
+  energy derivatives, and annihilates constant fields;
+- physical cell weights recover triangle/quadrilateral domain area and count
+  the unit-square measure once under two MPI ranks.
 
 No shell element patch test, contact benchmark, or drape experiment has yet
 promoted this membrane foundation to a forming-capable fibrous shell.

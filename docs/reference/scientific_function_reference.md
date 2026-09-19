@@ -3366,6 +3366,7 @@ Builds owned-facet evidence and ghost-complete local stencils, then supplies aff
 - `agentfem.mesh.cell_gradient_operator`
 - `agentfem.mesh.cell_pair_directional_difference`
 - `agentfem.mesh.cell_stencil_neighborhood`
+- `agentfem.mesh.owned_cell_measures`
 - `agentfem.mesh.reconstruct_cell_gradient`
 - `agentfem.operators.CellGradientEnergyOperator`
 - `agentfem.operators.cell_gradient_energy`
@@ -3396,6 +3397,7 @@ The two-cell stencil must remain complete when one adjacent cell is a ghost on t
 | pair directional difference | scalar or vector cell-value differences per center distance | input value per length | The discrete operator is exact for affine cell-center data and remains explicitly distinct from a reconstructed full gradient or shell curvature. |
 | cell gradient reconstruction | owned-cell scalar or vector gradient plus stencil evidence | input value per length | Weighted least squares uses a local SVD tangent basis and reports neighbor count, rank and condition number for every owned cell; compact neighbor weights can be cached and reapplied to many fields, and the same operator exposes its exact transpose for residual and energy-gradient construction. |
 | cell gradient energy operator | matrix-free energy, residual and tangent action | declared cell weight and stiffness contract | One cached G evaluates 0.5 sum(w k \|Gv\|^2), its exact residual G^T w k Gv and the matching tangent action for scalar or vector cell fields without forming a dense global matrix. |
+| owned cell measures | one positive physical integration measure per owned cell | length to the mesh topological dimension | A DG0 test integral provides cell-aligned weights and excludes ghost cells so rank-local energies count every global cell once. |
 
 #### Assumptions
 
@@ -3445,6 +3447,7 @@ gradient = mesh.cell_gradient_operator(domain, rings=2); energy = operators.cell
 - Reuse one geometry-cached compact operator across fields and annihilate arbitrary constant offsets exactly.
 - Satisfy the scalar and vector inner-product identity between the cached gradient action and its exact transpose, including rank-local ghost contributions under two MPI ranks.
 - Match finite-difference energy derivatives with the exact residual, retain a symmetric positive-semidefinite tangent, and preserve constant fields as an exact zero-energy mode.
+- Recover the exact rectangle area on triangular and quadrilateral meshes and count the unit-square area exactly once across two MPI ranks.
 - Under two MPI ranks, count every global interior facet exactly once and retain a ghost adjacent cell across partition interfaces.
 
 ### References

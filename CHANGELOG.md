@@ -49,6 +49,8 @@ experimental formulation to a validated one.
   explicit. A public matrix-free quadratic cell-gradient energy now derives
   its residual and tangent from that same cached operator, with scalar/vector
   finite-difference, symmetry, semidefiniteness, nullspace and two-rank tests.
+  Owned-cell DG0 integration weights provide physical measures without
+  double-counting ghost cells.
 - Add objective neighbour-reconstructed in-plane/normal fibre curvature on a
   2D parameter mesh, including rank/conditioning provenance and a smooth-field
   sequence with near-second-order error reduction; shell equilibrium remains

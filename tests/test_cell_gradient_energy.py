@@ -79,6 +79,28 @@ def test_cell_gradient_energy_annihilates_constant_field():
     assert energy.as_dict()["mpi_requirement"].startswith("reverse_scatter")
 
 
+def test_cell_gradient_energy_uses_physical_cell_measures():
+    domain = dolfinx_mesh.create_unit_square(
+        MPI.COMM_SELF,
+        4,
+        3,
+        cell_type=dolfinx_mesh.CellType.quadrilateral,
+    )
+    gradient = mesh.cell_gradient_operator(domain, rings=2)
+    weights = mesh.owned_cell_measures(domain)
+    cells = np.arange(gradient.total_cells, dtype=np.int32)
+    points = dolfinx_mesh.compute_midpoints(domain, domain.topology.dim, cells)[:, :2]
+    values = 2.0 * points[:, 0] - 3.0 * points[:, 1]
+    energy = operators.cell_gradient_energy(
+        gradient,
+        cell_weights=weights,
+        stiffness=4.0,
+    )
+
+    assert np.sum(weights) == pytest.approx(1.0, rel=1.0e-13)
+    assert energy.energy(values) == pytest.approx(0.5 * 4.0 * (2.0**2 + 3.0**2))
+
+
 @pytest.mark.parametrize(
     ("weights", "stiffness", "message"),
     [

@@ -8,9 +8,38 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 import numpy as np
+import ufl
+from dolfinx import fem
 from dolfinx import mesh as dolfinx_mesh
+from dolfinx.fem import petsc as fem_petsc
 
 from .neighborhood import cell_stencil_neighborhood
+
+
+def owned_cell_measures(domain) -> np.ndarray:
+    """Integrate one physical measure for every owned mesh cell.
+
+    A discontinuous piecewise-constant test function makes the mapping from
+    integral to cell explicit.  Ghost cells are intentionally omitted because
+    rank-local energies must count every global cell exactly once.
+    """
+
+    domain = getattr(domain, "domain", domain)
+    space = fem.functionspace(domain, ("DG", 0))
+    test = ufl.TestFunction(space)
+    vector = fem_petsc.assemble_vector(fem.form(test * ufl.dx(domain=domain)))
+    cell_map = domain.topology.index_map(domain.topology.dim)
+    values = np.empty(int(cell_map.size_local), dtype=float)
+    for cell in range(values.size):
+        dofs = np.asarray(space.dofmap.cell_dofs(cell), dtype=np.int32)
+        if dofs.shape != (1,):
+            vector.destroy()
+            raise RuntimeError("DG0 cell measure requires exactly one dof per cell.")
+        values[cell] = vector.array_r[int(dofs[0])]
+    vector.destroy()
+    if not np.all(np.isfinite(values)) or np.any(values <= 0.0):
+        raise RuntimeError("Owned cell measures must be finite and strictly positive.")
+    return values
 
 
 @dataclass(frozen=True)
@@ -375,5 +404,6 @@ __all__ = [
     "CellGradientReconstruction",
     "CellGradientStencil",
     "cell_gradient_operator",
+    "owned_cell_measures",
     "reconstruct_cell_gradient",
 ]

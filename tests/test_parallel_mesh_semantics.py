@@ -49,6 +49,9 @@ def test_cell_neighborhood_keeps_partition_interface_pairs_complete():
     assert len(geometry.facets) == neighborhood.owned_interior_facets
     assert all(item.center_distance > 0.0 for item in geometry.facets)
     cell_map = domain.topology.index_map(domain.topology.dim)
+    owned_measures = mesh.owned_cell_measures(domain)
+    global_measure = comm.allreduce(float(np.sum(owned_measures)), op=MPI.SUM)
+    assert global_measure == pytest.approx(1.0, rel=1.0e-13)
     local_and_ghost = np.arange(
         cell_map.size_local + cell_map.num_ghosts,
         dtype=np.int32,
@@ -107,7 +110,7 @@ def test_cell_neighborhood_keeps_partition_interface_pairs_complete():
     assert local_lhs == pytest.approx(local_rhs, rel=1.0e-13, abs=1.0e-13)
     gradient_energy = operators.cell_gradient_energy(
         operator,
-        cell_weights=np.linspace(0.75, 1.25, operator.owned_cells),
+        cell_weights=owned_measures,
         stiffness=2.5,
     )
     direction = centroids[:, 0] ** 2 - 0.3 * centroids[:, 1]

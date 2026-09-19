@@ -991,6 +991,7 @@
         "agentfem.mesh.cell_gradient_operator",
         "agentfem.mesh.cell_pair_directional_difference",
         "agentfem.mesh.cell_stencil_neighborhood",
+        "agentfem.mesh.owned_cell_measures",
         "agentfem.mesh.reconstruct_cell_gradient",
         "agentfem.operators.CellGradientEnergyOperator",
         "agentfem.operators.cell_gradient_energy"

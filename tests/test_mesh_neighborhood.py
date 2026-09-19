@@ -218,3 +218,21 @@ def test_cell_gradient_operator_adjoint_validates_dual_shape():
     operator = mesh.cell_gradient_operator(domain)
     with pytest.raises(ValueError, match="gradient_duals"):
         operator.apply_adjoint(np.zeros((operator.owned_cells, 3)))
+
+
+@pytest.mark.parametrize("cell_type", ["triangle", "quadrilateral"])
+def test_owned_cell_measures_count_physical_domain_once(cell_type):
+    domain = dolfinx_mesh.create_rectangle(
+        MPI.COMM_SELF,
+        (np.array((0.0, 0.0)), np.array((2.0, 3.0))),
+        (4, 3),
+        cell_type=getattr(dolfinx_mesh.CellType, cell_type),
+    )
+
+    measures = mesh.owned_cell_measures(domain)
+
+    assert measures.shape == (
+        domain.topology.index_map(domain.topology.dim).size_local,
+    )
+    assert np.all(measures > 0.0)
+    assert np.sum(measures) == pytest.approx(6.0, rel=1.0e-13)

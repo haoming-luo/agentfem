@@ -21,6 +21,7 @@
     "agentfem.mesh.cell_gradient_operator",
     "agentfem.mesh.cell_pair_directional_difference",
     "agentfem.mesh.cell_stencil_neighborhood",
+    "agentfem.mesh.owned_cell_measures",
     "agentfem.mesh.reconstruct_cell_gradient",
     "agentfem.operators.CellGradientEnergyOperator",
     "agentfem.operators.cell_gradient_energy"
@@ -70,6 +71,12 @@
         "type": "matrix-free energy, residual and tangent action",
         "unit_role": "declared cell weight and stiffness contract",
         "description": "One cached G evaluates 0.5 sum(w k |Gv|^2), its exact residual G^T w k Gv and the matching tangent action for scalar or vector cell fields without forming a dense global matrix."
+      },
+      {
+        "name": "owned cell measures",
+        "type": "one positive physical integration measure per owned cell",
+        "unit_role": "length to the mesh topological dimension",
+        "description": "A DG0 test integral provides cell-aligned weights and excludes ghost cells so rank-local energies count every global cell once."
       }
     ],
     "assumptions": [
@@ -112,6 +119,7 @@
       "Reuse one geometry-cached compact operator across fields and annihilate arbitrary constant offsets exactly.",
       "Satisfy the scalar and vector inner-product identity between the cached gradient action and its exact transpose, including rank-local ghost contributions under two MPI ranks.",
       "Match finite-difference energy derivatives with the exact residual, retain a symmetric positive-semidefinite tangent, and preserve constant fields as an exact zero-energy mode.",
+      "Recover the exact rectangle area on triangular and quadrilateral meshes and count the unit-square area exactly once across two MPI ranks.",
       "Under two MPI ranks, count every global interior facet exactly once and retain a ghost adjacent cell across partition interfaces."
     ]
   },

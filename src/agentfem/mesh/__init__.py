@@ -29,6 +29,7 @@ from .reconstruction import (
     CellGradientReconstruction,
     CellGradientStencil,
     cell_gradient_operator,
+    owned_cell_measures,
     reconstruct_cell_gradient,
 )
 from .neighborhood import (
