@@ -50,6 +50,9 @@ geometry variation, field prediction, or neural operators.
   scientific-learning providers and their current evidence.
 - [Source and community](https://github.com/haoming-luo/agentfem): code, issues,
   releases, and discussions.
+- [Preserved source snapshot](https://archive.softwareheritage.org/swh:1:snp:87b610526e0adb72206661e34ae28c8440693a3c/):
+  Software Heritage's completed archive of the repository, captured on
+  19 September 2026 (UTC). Use the source link above for current development.
 
 AgentFEM is Apache-2.0 licensed and builds on FEniCSx/DOLFINx, PETSc, and MPI.
 The examples show concrete workflows, not a claim that every engineering

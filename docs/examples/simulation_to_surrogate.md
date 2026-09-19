@@ -37,6 +37,14 @@ includes the ten FEM outputs, fitting code, units, and provenance. The
 [community discussion](https://github.com/haoming-luo/agentfem/discussions/10)
 suggests a small physics-based feature experiment.
 
+[Open the interactive notebook](https://colab.research.google.com/gist/haoming-luo/727a217b5b2161a4e81f4ec65aacfc56/agentfem_surrogate_minilab.ipynb){ .md-button .md-button--primary }
+
+The notebook compares two simple feature choices and lets you change the
+material stiffness. It uses the published FEM data, NumPy, and Matplotlib;
+no finite-element installation is needed for this learning step. Colab may
+request sign-in to start its runtime. You can also download the notebook from
+the mini-lab and run it locally in Jupyter.
+
 Use an installed, compatible AgentFEM environment and a matching source
 checkout; the repository [example](https://github.com/haoming-luo/agentfem/blob/main/examples/static_elasticity_surrogate_campaign.py)
 is not bundled as an executable script in every package installation.
