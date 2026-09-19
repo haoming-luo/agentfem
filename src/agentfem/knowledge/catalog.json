@@ -127,6 +127,13 @@
       "title": "Foundational small-strain elasticity verification"
     },
     {
+      "id": "agentfem.benchmark.fibrous_shell_foundation",
+      "physics": "finite-kinematics woven-reinforcement membrane and local fibre-specific shell response",
+      "source": "src/agentfem/knowledge/benchmarks/fibrous_shell_foundation.json",
+      "status": "automated",
+      "title": "Multilayer membrane and local fibrous-shell foundation"
+    },
+    {
       "id": "agentfem.benchmark.finite_strain_incremental_waves_v1",
       "physics": "compressible Neo-Hookean small-on-large elastodynamics",
       "source": "src/agentfem/knowledge/benchmarks/finite_strain_incremental_waves_v1.json",

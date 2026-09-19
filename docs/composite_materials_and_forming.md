@@ -258,6 +258,12 @@ than treating the reinforcement as a conventional shell.
 
 ## Evidence and limits
 
+The machine-readable benchmark
+`agentfem.benchmark.fibrous_shell_foundation` binds the following checks to
+their references, execution command, acceptance criteria, and explicit
+limitations. It verifies the reusable foundation; it does not certify a global
+shell or forming procedure.
+
 The automated local evidence currently checks:
 
 - 3D orthotropic elasticity recovers the isotropic limit;

@@ -131,7 +131,9 @@
     "tests": [
       "tests/test_composite_materials.py"
     ],
-    "benchmarks": [],
+    "benchmarks": [
+      "agentfem.benchmark.fibrous_shell_foundation"
+    ],
     "validation_rules": [
       "Require independent non-collinear reference fiber directions and non-collapsed convected directions.",
       "Require an odd trellising response and a symmetric positive-semidefinite bending stiffness.",

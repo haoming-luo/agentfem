@@ -84,6 +84,7 @@ the compact machine-readable `agentfem/knowledge/catalog.json`.
 | `agentfem.benchmark.distributed_cohesive_force` | Two-rank sparse fixed-path cohesive force and portable restart | Two-dimensional normal and mixed-mode bilinear cohesive interfaces in finite-strain assembly and Explicit dynamics | experimental_mpi_sparse_automated |
 | `agentfem.benchmark.dynamic_fracture_energy_v2` | Finite-strain and cohesive dynamic energy closure | Total-Lagrangian Neo-Hookean dynamics with optional Mode-I cohesive separation | experimental_v2_automated |
 | `agentfem.benchmark.elasticity_foundation` | Foundational small-strain elasticity verification | two- and three-dimensional small-strain linear elasticity | automated |
+| `agentfem.benchmark.fibrous_shell_foundation` | Multilayer membrane and local fibrous-shell foundation | finite-kinematics woven-reinforcement membrane and local fibre-specific shell response | automated |
 | `agentfem.benchmark.finite_strain_incremental_waves_v1` | Neo-Hookean small-on-large wave oracle | compressible Neo-Hookean small-on-large elastodynamics | experimental_v1_automated |
 | `agentfem.benchmark.finite_strain_j2_lewandowski_2023_beam` | Lewandowski et al. finite-strain J2 self-weight beam | Three-dimensional slender beam under a ramped gravity-like body force, with a left clamp, right-end axial symmetry constraint, finite rotations, isotropic J2 plasticity and linear isotropic hardening. | external_reference_reexecuted_candidate_promotion_pending |
 | `agentfem.benchmark.finite_strain_j2_material_paths` | Finite-strain logarithmic J2 material and global paths | three-dimensional rate-independent finite-strain J2 plasticity with quadratic Hencky elasticity and linear isotropic hardening | experimental_automated_global_mpi_restart |
@@ -933,7 +934,7 @@ study = studies.static_membrane(); model = models.create(study=study, mesh=domai
 
 **Benchmarks**
 
-- None declared.
+- `agentfem.benchmark.fibrous_shell_foundation`
 
 **Validation rules**
 

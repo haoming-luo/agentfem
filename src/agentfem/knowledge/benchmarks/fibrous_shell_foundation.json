@@ -1,0 +1,40 @@
+{
+  "schema": "agentfem.benchmark-card",
+  "schema_version": "0.1.0",
+  "id": "agentfem.benchmark.fibrous_shell_foundation",
+  "title": "Multilayer membrane and local fibrous-shell foundation",
+  "status": "automated",
+  "purpose": "Verify the reusable kinematic, constitutive, multilayer-lowering, and result-identity foundation required before a global fibrous-shell element or forming procedure can be promoted.",
+  "physics": "finite-kinematics woven-reinforcement membrane and local fibre-specific shell response",
+  "references": [
+    "Liang, Colmars, and Boisse (2017), doi:10.1016/j.compositesa.2017.04.024",
+    "Steer et al. (2021), doi:10.1016/j.ijsolstr.2021.03.001",
+    "Duong, Itskov, and Sauer (2022), doi:10.1002/nme.6937",
+    "Bai et al. (2025), doi:10.1016/j.compstruct.2025.119593"
+  ],
+  "execution": {
+    "command": "python -m pytest -q tests/test_composite_materials.py",
+    "example": "docs/composite_materials_and_forming.md",
+    "evidence": "Analytical local channel checks plus a loaded finite-kinematics membrane solve and unified result-output check run in serial.",
+    "serial": "python -m pytest -q tests/test_composite_materials.py"
+  },
+  "observables": [
+    "Objective director-shell and fibre-curve measures under superposed rigid rotation.",
+    "Independent membrane, transverse-shear, in-plane-bending, and normal-bending energies, resultants, and tangent blocks.",
+    "Stable computational-layer and physical-layer identities for varying-orientation stacks.",
+    "Per-layer DG result fields, aggregate stored energy, and the exact layer-to-field manifest from a completed model.step result."
+  ],
+  "acceptance": [
+    "The three-dimensional surface deformation lift maps both reference tangents and the reference normal and transforms objectively.",
+    "Pure local shell channels remain independent, carry symmetric positive-semidefinite tangents, and sum to total stored energy.",
+    "A membrane stack adds only compatible energy scalars and never combines generalized resultants expressed in unlike fibre frames.",
+    "Same-orientation grouping scales energy, conjugate resultants, and tangent by the number of explicitly listed physical layer IDs and rejects duplicate IDs.",
+    "A loaded multilayer membrane converges through the standard Step and writes collision-free per-layer strain, resultant, direction, and energy fields.",
+    "The in-plane membrane provider refuses every nonzero bending block rather than silently discarding shell mechanics."
+  ],
+  "limitations": [
+    "This benchmark does not contain a global shell element, boundary moment, or transverse-slip solve.",
+    "It does not validate tool contact, friction, inter-ply slip, wrinkling, explicit quasi-static controls, or a physical drape experiment.",
+    "MPI field identity and public shell benchmarks remain promotion gates for the future global provider."
+  ]
+}

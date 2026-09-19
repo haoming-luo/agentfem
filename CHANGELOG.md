@@ -16,6 +16,10 @@ experimental formulation to a validated one.
   an objective three-dimensional surface-deformation lift for embedded fibre
   frames, plus explicit forming-limit screening. Global fibrous-shell,
   contact, and wrinkle-validation gates remain explicit.
+- Add a machine-readable fibrous-shell-foundation benchmark that binds the
+  objective kinematics, four local constitutive channels, explicit physical-
+  layer grouping, standard membrane solve, and per-layer result identity to
+  executable acceptance criteria without promoting an unavailable shell.
 - Add `agentfem support`, a consent-first community invitation that performs no
   account action, checks an existing GitHub login only when explicitly asked,
   and remembers support locally without storing identity or credentials.
