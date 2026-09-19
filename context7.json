@@ -1,0 +1,22 @@
+{
+  "$schema": "https://context7.com/schema/context7.json",
+  "projectTitle": "AgentFEM",
+  "description": "Python finite-element workflows built on FEniCSx for humans and AI agents: structural mechanics, heat transfer, simulation campaigns, and simulation-to-learning workflows.",
+  "folders": [
+    "docs/get_started",
+    "docs/guide",
+    "docs/agents",
+    "docs/examples",
+    "docs/reference",
+    "docs/trust",
+    "docs/extend"
+  ],
+  "excludeFiles": ["CHANGELOG.md", "CONTRIBUTING.md", "AGENTS.md"],
+  "rules": [
+    "Use the documented public Python API and structured CLI; do not invent methods or rely on private DOLFINx objects.",
+    "Use a compatible FEniCSx/DOLFINx environment as documented in INSTALL.md; installing a Python package alone does not install the complete numerical runtime.",
+    "Start with physical Study factories, named regions, and model.step(target=...). Keep material, load, constraint, and output declarations distinct.",
+    "Distinguish an executed simulation from a verified or experimentally validated result. Inspect convergence, applicability, and benchmark evidence.",
+    "Keep surrogates, neural operators, and neural-field solvers distinct. Check the installed version and optional dependencies against the current reference."
+  ]
+}
