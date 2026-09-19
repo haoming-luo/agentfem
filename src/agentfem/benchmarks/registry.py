@@ -159,15 +159,25 @@ _BENCHMARKS = (
             "woven yarn tension, trellising shear, and bending retain "
             "independent zero-state and energy responses; the membrane Step "
             "solves a loaded patch with positive Jacobian and energy while "
-            "objective director measures pass rigid-rotation checks"
+            "objective director measures pass rigid-rotation checks; the "
+            "neighbor-reconstructed bending chain has exact first/second "
+            "actions and closes global virtual work under two MPI ranks"
         ),
-        automated_test="tests/test_composite_materials.py",
+        automated_test=(
+            "tests/test_composite_materials.py; tests/test_mesh_neighborhood.py; "
+            "tests/test_fibrous_shell_reconstruction.py; "
+            "tests/test_fiber_bending_operator.py; "
+            "tests/test_cell_average_gradient.py; "
+            "tests/test_parallel_mesh_semantics.py -k neighborhood"
+        ),
         status="automated_experimental_global_patch",
         evidence=(
             "material_point",
             "finite_element",
             "analytical_invariants",
             "failure_behavior",
+            "consistent_tangent",
+            "mpi_virtual_work",
         ),
     ),
     BenchmarkSpec(

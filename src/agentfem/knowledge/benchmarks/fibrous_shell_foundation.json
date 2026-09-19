@@ -4,7 +4,7 @@
   "id": "agentfem.benchmark.fibrous_shell_foundation",
   "title": "Multilayer membrane and local fibrous-shell foundation",
   "status": "automated",
-  "purpose": "Verify the reusable kinematic, constitutive, multilayer-lowering, and result-identity foundation required before a global fibrous-shell element or forming procedure can be promoted.",
+  "purpose": "Verify the reusable kinematic, constitutive, neighboring-element, consistent-variation, MPI-assembly, multilayer-lowering, and result-identity foundation required before a global fibrous-shell element or forming procedure can be promoted.",
   "physics": "finite-kinematics woven-reinforcement membrane and local fibre-specific shell response",
   "references": [
     "Liang, Colmars, and Boisse (2017), doi:10.1016/j.compositesa.2017.04.024",
@@ -13,10 +13,11 @@
     "Bai et al. (2025), doi:10.1016/j.compstruct.2025.119593"
   ],
   "execution": {
-    "command": "python -m pytest -q tests/test_composite_materials.py",
+    "command": "python -m pytest -q tests/test_composite_materials.py tests/test_mesh_neighborhood.py tests/test_fibrous_shell_reconstruction.py tests/test_fiber_bending_operator.py tests/test_cell_average_gradient.py",
     "example": "docs/composite_materials_and_forming.md",
-    "evidence": "Analytical local channel checks plus a loaded finite-kinematics membrane solve and unified result-output check run in serial.",
-    "serial": "python -m pytest -q tests/test_composite_materials.py"
+    "evidence": "Analytical local channels, a loaded finite-kinematics membrane solve, neighbor reconstruction, exact bending variations, FEM/cell transfers, and unified result identity run in serial; the partition stencil, global virtual work, and transfer adjoint run under two MPI ranks.",
+    "serial": "python -m pytest -q tests/test_composite_materials.py tests/test_mesh_neighborhood.py tests/test_fibrous_shell_reconstruction.py tests/test_fiber_bending_operator.py tests/test_cell_average_gradient.py",
+    "mpi": "mpiexec -n 2 python -m pytest -q tests/test_parallel_mesh_semantics.py -k neighborhood"
   },
   "observables": [
     "Objective director-shell and fibre-curve measures under superposed rigid rotation.",
@@ -24,6 +25,9 @@
     "Nine-component UFL stored energy and its automatically differentiated generalized resultants.",
     "Operator-side symbolic membrane, director-shear, and fibre-curvature measures before compatibility constraints are introduced.",
     "Minimal no-slip compatibility residual and its derived fibre unit/tangency diagnostics.",
+    "Ghost-complete neighboring-cell geometry, affine-exact gradients, objective reconstructed fibre curvature, and physical owned-cell measures.",
+    "Independent-direction bending energy, exact residual, consistent matrix-free tangent, and globally assembled DG0 virtual work.",
+    "Continuous scalar/vector FEM fields transferred to DG0 cell-average gradients and their exact transpose back to source dofs.",
     "Stable computational-layer and physical-layer identities for varying-orientation stacks.",
     "Per-layer DG result fields, aggregate stored energy, and the exact layer-to-field manifest from a completed model.step result."
   ],
@@ -33,14 +37,17 @@
     "UFL differentiation of the symbolic generalized stored energy recovers the nine explicit conjugate resultants component by component.",
     "The symbolic mixed-field kinematic hand-off reproduces the local reference implementation and is invariant under superposed rigid rotation.",
     "Exactly convected fibres and a unit director make all seven independent compatibility equations vanish; incompatible fields produce nonzero residuals and diagnostics.",
+    "A smooth rotating fibre field converges near second order, remains objective under a three-dimensional rigid rotation, and never mistakes an MPI partition interface for a physical boundary.",
+    "Bending energy derivatives match residual work, residual derivatives match the consistent tangent, the Hessian action is symmetric, and assembled two-rank residual work closes the global energy derivative.",
+    "Affine continuous scalar and three-component fields transfer exactly to cell-average gradients and satisfy the global two-rank forward/adjoint work identity.",
     "A membrane stack adds only compatible energy scalars and never combines generalized resultants expressed in unlike fibre frames.",
     "Same-orientation grouping scales energy, conjugate resultants, and tangent by the number of explicitly listed physical layer IDs and rejects duplicate IDs.",
     "A loaded multilayer membrane converges through the standard Step and writes collision-free per-layer strain, resultant, direction, and energy fields.",
     "The in-plane membrane provider refuses every nonzero bending block rather than silently discarding shell mechanics."
   ],
   "limitations": [
-    "This benchmark does not contain a global shell element, boundary moment, or transverse-slip solve.",
+    "This benchmark does not contain a complete displacement-coupled shell element, boundary moment, or transverse-slip solve.",
     "It does not validate tool contact, friction, inter-ply slip, wrinkling, explicit quasi-static controls, or a physical drape experiment.",
-    "MPI field identity and public shell benchmarks remain promotion gates for the future global provider."
+    "MPI result-field identity, displacement/tangent coupling of the nonlinear bending energy, and public shell/forming benchmarks remain promotion gates for the future global provider."
   ]
 }
