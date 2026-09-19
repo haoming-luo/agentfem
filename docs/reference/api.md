@@ -992,6 +992,7 @@ and evidence remain in the linked guides and scientific function reference.
 | Kind | Public object | Purpose |
 | --- | --- | --- |
 | class | `LumpedMassOperator` | Diagonal mass operator owned by the mathematical operator layer. |
+| class | `NonlinearOperatorContribution` | Additive nonlinear contribution consumed by a numerical Procedure. |
 | class | `OperatorForm` | Named scientific operator with a current backend expression. |
 | function | `action(operator, field)` | Return the algebraic action of a matrix-like operator on a field. |
 | function | `assemble_matrix(operator, *, bcs = None, backend = None)` | Assemble an operator-level matrix from an ``OperatorForm`` or UFL form. |
