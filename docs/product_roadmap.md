@@ -186,8 +186,9 @@ Deepen the finite-element core before broadening the catalog:
   reusable nonlocal operator foundation in serial and two-rank tests. The
   naive mixed interpolation pairs that lost rank or exhibited a decaying
   normalized inf-sup value remain rejected evidence. The next promotion
-  sequence is the complete displacement-derived convected-fibre chain,
-  surface-tangent variation, boundary moments, locking control and membrane/
+  sequence is the direct surface-tangent dual and complete displacement
+  coupling of the convected-fibre bending energy, boundary moments, locking
+  control and membrane/
   transverse-shear/in-plane-bending/normal-bending patch tests,
   followed by tool contact, friction, inter-ply slip, quasi-static explicit
   controls, per-layer output, and independent forming experiments. A verified

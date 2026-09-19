@@ -168,6 +168,7 @@ _BENCHMARKS = (
             "tests/test_fibrous_shell_reconstruction.py; "
             "tests/test_fiber_bending_operator.py; "
             "tests/test_cell_average_gradient.py; "
+            "tests/test_convected_cell_fiber.py; "
             "tests/test_parallel_mesh_semantics.py -k neighborhood"
         ),
         status="automated_experimental_global_patch",

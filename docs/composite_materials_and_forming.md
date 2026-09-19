@@ -372,6 +372,17 @@ Affine scalar and three-component fields are exact, and the global
 forward/adjoint work identity closes under two MPI ranks even when each rank
 contributes different ghost-cell duals. This is the first tested bridge from
 the neighbouring-element chain back to displacement degrees of freedom.
+`operators.convected_cell_fiber(...)` then consumes this transfer with
+reference surface tangents and one fibre's reference tangent coordinates.
+The public primary field remains the three-component surface displacement;
+the operator derives current tangents, fibre stretch and unit direction on
+local and ghost cells. Its exact directional derivative matches finite
+differences, rigid-body rotation is reproduced, and its transpose maps
+arbitrary tangent/stretch/direction duals back to the displacement PETSc
+space with global work closure in serial and two-rank tests. The remaining
+coupling gate is narrow and explicit: the bending law must provide its direct
+surface-tangent dual in addition to its direction dual before the complete
+displacement residual can be assembled.
 Naive mixed P1/DG0 and P2/DG1 compatibility pairs were rejected after losing
 rank under refinement; full-rank P2/CG1 and P2/DG0 candidates still showed a
 decaying normalized inf-sup value in the tested H1/L2 norms. Those negative
@@ -460,7 +471,10 @@ The automated local evidence currently checks:
   contributions and closes the global two-rank energy--virtual-work identity;
 - continuous scalar/vector fields transfer exactly to DG0 cell-average
   gradients, whose transpose closes global work back to source FEM dofs under
-  two MPI ranks.
+  two MPI ranks;
+- displacement-derived current surface tangents, fibre stretch and direction
+  reproduce a rigid rotation and close their exact derivative/adjoint work
+  identity in serial and under two MPI ranks.
 
 No shell element patch test, contact benchmark, or drape experiment has yet
 promoted this membrane foundation to a forming-capable fibrous shell.

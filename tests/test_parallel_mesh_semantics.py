@@ -224,6 +224,57 @@ def test_cell_neighborhood_keeps_partition_interface_pairs_complete():
         rel=2.0e-13,
         abs=2.0e-13,
     )
+    fiber_transfer = operators.convected_cell_fiber(
+        transfer,
+        reference_tangents=np.array(
+            ((1.0, 0.0), (0.0, 1.0), (0.0, 0.0))
+        ),
+        reference_tangent_coordinates=np.array((np.cos(0.35), np.sin(0.35))),
+    )
+    displacement_increment = fem.Function(displacement_space, name="DU")
+    displacement_increment.interpolate(
+        lambda x: np.vstack(
+            (-0.2 * x[0] + 0.1 * x[1], 0.3 * x[0], -0.15 * x[1])
+        )
+    )
+    fiber_increment = fiber_transfer.directional_derivative(
+        displacement,
+        displacement_increment,
+    )
+    fiber_state = fiber_transfer.apply(displacement)
+    direction_duals = np.empty_like(fiber_state.direction)
+    tangent_duals = np.empty_like(fiber_state.current_tangents)
+    stretch_duals = np.empty_like(fiber_state.stretch)
+    direction_duals[:, 0] = (comm.rank + 1.0) * (0.5 + centroids[:, 0])
+    direction_duals[:, 1] = (comm.rank + 1.0) * (-0.3 + centroids[:, 1])
+    direction_duals[:, 2] = (comm.rank + 1.0) * 0.2
+    tangent_duals[:] = (comm.rank + 1.0) * np.array(
+        ((0.2, -0.1), (0.3, 0.4), (-0.25, 0.15))
+    )
+    stretch_duals[:] = (comm.rank + 1.0) * (0.7 + centroids[:, 0])
+    fiber_adjoint = fiber_transfer.apply_adjoint(
+        displacement,
+        direction_duals=direction_duals,
+        tangent_duals=tangent_duals,
+        stretch_duals=stretch_duals,
+    )
+    local_fiber_work = float(
+        np.vdot(fiber_increment.direction_increment, direction_duals)
+        + np.vdot(fiber_increment.tangent_increment, tangent_duals)
+        + np.vdot(fiber_increment.stretch_increment, stretch_duals)
+    )
+    local_displacement_work = float(
+        np.vdot(
+            displacement_increment.x.petsc_vec.array_r,
+            fiber_adjoint.array_r,
+        )
+    )
+    fiber_adjoint.destroy()
+    assert comm.allreduce(local_fiber_work, op=MPI.SUM) == pytest.approx(
+        comm.allreduce(local_displacement_work, op=MPI.SUM),
+        rel=3.0e-13,
+        abs=3.0e-13,
+    )
 
 
 def test_distributed_abaqus_regions_quality_and_remote_resultant():

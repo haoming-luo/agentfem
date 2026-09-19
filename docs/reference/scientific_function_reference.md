@@ -971,6 +971,10 @@ Defines independent woven-surface tension, trellising-shear, and bending channel
 - `agentfem.operators.FiberDirectionBendingOperator`
 - `agentfem.operators.FiberDirectionBendingResponse`
 - `agentfem.operators.fiber_direction_bending`
+- `agentfem.operators.ConvectedCellFiberOperator`
+- `agentfem.operators.ConvectedCellFiberKinematics`
+- `agentfem.operators.ConvectedCellFiberIncrement`
+- `agentfem.operators.convected_cell_fiber`
 - `agentfem.results.fabric_membrane_cell_fields`
 - `agentfem.results.fabric_stack_membrane_cell_fields`
 - `agentfem.results.fabric_stack_result_manifest`
@@ -1022,6 +1026,7 @@ In-plane/geodesic and normal bending are separate objective measures and require
 | local fibrous-shell response | independent membrane, transverse-shear, in-plane-bending, and normal-bending resultants, energy channels, and a 9x9 block tangent | generalized shell forces, moments, energy per reference area, and their conjugate tangents | The constitutive contract is element-neutral and rejects overlapping legacy bending ownership. |
 | symbolic fibrous-shell constitutive potential | nine generalized UFL measures, one stored-energy expression, four named energy channels, and nine conjugate resultants | the same generalized shell units as the local response | A future operator constructs compatible measures; UFL differentiates this single potential into a consistent residual and Jacobian. |
 | independent-direction bending response | owned-cell in-plane/normal curvature, energy, exact local-plus-ghost direction residual, and matrix-free consistent tangent action | curvature, energy, and virtual work in a consistent unit system | The direction is normalized before one cached neighbor reconstruction; exact first and second actions include gradient, local projection, and normalization terms for fixed current tangents. |
+| displacement-derived cell-fibre kinematics | current 3x2 tangents, fibre stretch, unit direction, exact directional derivative, and exact displacement-space adjoint | surface deformation and work-conjugate virtual quantities | Reference tangent coordinates are convected by the cell-average gradient of a three-component displacement on a two-dimensional parameter mesh; no independent physical direction field is exposed to the user. |
 
 #### Assumptions
 
@@ -1042,6 +1047,7 @@ In-plane/geodesic and normal bending are separate objective measures and require
 
 - The global membrane Step rejects nonzero bending because no shell element consumes that channel yet.
 - The independent-direction bending operator has exact first and second actions for fixed surface tangents, but does not yet include displacement/tangent coupling or compatibility-constraint blocks.
+- The displacement-derived fibre transfer closes its own kinematic derivative/adjoint, but the bending operator has not yet supplied the surface-tangent dual required for the complete displacement residual.
 - FabricStack membrane lowering shares one surface displacement across layers; transverse slippage, independent material normals, and shell equilibrium remain promotion gates.
 - Contact, friction, inter-ply slip, locking control, and forming procedures are not implemented.
 - Rate effects, hysteresis, irreversible locking, yarn slippage, and damage need additional stateful laws.
@@ -1079,6 +1085,7 @@ study = studies.static_membrane(); model = models.create(study=study, mesh=domai
 - Verify that operator-side symbolic shell measures reproduce the local objective measures and remain invariant under a superposed rigid rotation.
 - Verify that the no-slip mixed-field contract vanishes for an exactly convected layer and detects director normalization and fibre-convection violations without redundant multiplier equations.
 - Verify that neighbour-reconstructed fibre bending matches finite-difference energy and residual derivatives, has a symmetric Hessian action, is invariant to pointwise direction scaling, and transforms objectively under a superposed three-dimensional rotation in serial and two-rank execution.
+- Verify that displacement-derived current tangents, fibre stretch, and unit direction reproduce a rigid rotation, match finite-difference directional derivatives, and satisfy the global derivative/adjoint work identity in serial and under two MPI ranks.
 - Keep shell, contact, and forming claims unavailable until their independent patch tests and benchmarks pass.
 
 ### References

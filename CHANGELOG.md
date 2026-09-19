@@ -69,6 +69,11 @@ experimental formulation to a validated one.
   mass-inverse-weighted transpose. Scalar and three-component affine fields
   are exact, and rank-dependent ghost duals satisfy the global two-rank
   forward/adjoint work identity back to source FEM dofs.
+- Add displacement-derived cell-fibre kinematics on a two-dimensional
+  parameter mesh: reference tangent coordinates produce current 3x2 tangents,
+  stretch and unit direction from a three-component FEM displacement. Exact
+  directional derivative and adjoint actions reproduce rigid rotation and
+  close global work in serial and under two MPI ranks.
 - Add `agentfem support`, a consent-first community invitation that performs no
   account action, checks an existing GitHub login only when explicitly asked,
   and remembers support locally without storing identity or credentials.

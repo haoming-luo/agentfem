@@ -13,10 +13,10 @@
     "Bai et al. (2025), doi:10.1016/j.compstruct.2025.119593"
   ],
   "execution": {
-    "command": "python -m pytest -q tests/test_composite_materials.py tests/test_mesh_neighborhood.py tests/test_fibrous_shell_reconstruction.py tests/test_fiber_bending_operator.py tests/test_cell_average_gradient.py",
+    "command": "python -m pytest -q tests/test_composite_materials.py tests/test_mesh_neighborhood.py tests/test_fibrous_shell_reconstruction.py tests/test_fiber_bending_operator.py tests/test_cell_average_gradient.py tests/test_convected_cell_fiber.py",
     "example": "docs/composite_materials_and_forming.md",
     "evidence": "Analytical local channels, a loaded finite-kinematics membrane solve, neighbor reconstruction, exact bending variations, FEM/cell transfers, and unified result identity run in serial; the partition stencil, global virtual work, and transfer adjoint run under two MPI ranks.",
-    "serial": "python -m pytest -q tests/test_composite_materials.py tests/test_mesh_neighborhood.py tests/test_fibrous_shell_reconstruction.py tests/test_fiber_bending_operator.py tests/test_cell_average_gradient.py",
+    "serial": "python -m pytest -q tests/test_composite_materials.py tests/test_mesh_neighborhood.py tests/test_fibrous_shell_reconstruction.py tests/test_fiber_bending_operator.py tests/test_cell_average_gradient.py tests/test_convected_cell_fiber.py",
     "mpi": "mpiexec -n 2 python -m pytest -q tests/test_parallel_mesh_semantics.py -k neighborhood"
   },
   "observables": [
@@ -28,6 +28,7 @@
     "Ghost-complete neighboring-cell geometry, affine-exact gradients, objective reconstructed fibre curvature, and physical owned-cell measures.",
     "Independent-direction bending energy, exact residual, consistent matrix-free tangent, and globally assembled DG0 virtual work.",
     "Continuous scalar/vector FEM fields transferred to DG0 cell-average gradients and their exact transpose back to source dofs.",
+    "Displacement-derived current surface tangents, fibre stretch and unit direction plus their exact directional derivative and source-space adjoint.",
     "Stable computational-layer and physical-layer identities for varying-orientation stacks.",
     "Per-layer DG result fields, aggregate stored energy, and the exact layer-to-field manifest from a completed model.step result."
   ],
@@ -40,6 +41,7 @@
     "A smooth rotating fibre field converges near second order, remains objective under a three-dimensional rigid rotation, and never mistakes an MPI partition interface for a physical boundary.",
     "Bending energy derivatives match residual work, residual derivatives match the consistent tangent, the Hessian action is symmetric, and assembled two-rank residual work closes the global energy derivative.",
     "Affine continuous scalar and three-component fields transfer exactly to cell-average gradients and satisfy the global two-rank forward/adjoint work identity.",
+    "A superposed rigid rotation convects the reference tangents and fibre exactly; displacement-derived tangent/stretch/direction increments match finite differences and close their global two-rank adjoint work identity.",
     "A membrane stack adds only compatible energy scalars and never combines generalized resultants expressed in unlike fibre frames.",
     "Same-orientation grouping scales energy, conjugate resultants, and tangent by the number of explicitly listed physical layer IDs and rejects duplicate IDs.",
     "A loaded multilayer membrane converges through the standard Step and writes collision-free per-layer strain, resultant, direction, and energy fields.",
@@ -48,6 +50,6 @@
   "limitations": [
     "This benchmark does not contain a complete displacement-coupled shell element, boundary moment, or transverse-slip solve.",
     "It does not validate tool contact, friction, inter-ply slip, wrinkling, explicit quasi-static controls, or a physical drape experiment.",
-    "MPI result-field identity, displacement/tangent coupling of the nonlinear bending energy, and public shell/forming benchmarks remain promotion gates for the future global provider."
+    "MPI result-field identity, the direct surface-tangent dual and full displacement coupling of the nonlinear bending energy, and public shell/forming benchmarks remain promotion gates for the future global provider."
   ]
 }

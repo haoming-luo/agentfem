@@ -52,7 +52,14 @@ from .core import (
     xtmy,
 )
 from .cell_gradient import CellGradientEnergyOperator, cell_gradient_energy
-from .cell_transfer import CellAverageGradientOperator, cell_average_gradient
+from .cell_transfer import (
+    CellAverageGradientOperator,
+    ConvectedCellFiberIncrement,
+    ConvectedCellFiberKinematics,
+    ConvectedCellFiberOperator,
+    cell_average_gradient,
+    convected_cell_fiber,
+)
 from .fiber_bending import (
     FiberDirectionBendingOperator,
     FiberDirectionBendingResponse,
@@ -96,6 +103,9 @@ __all__ = [
     "LumpedMassOperator",
     "CellGradientEnergyOperator",
     "CellAverageGradientOperator",
+    "ConvectedCellFiberIncrement",
+    "ConvectedCellFiberKinematics",
+    "ConvectedCellFiberOperator",
     "FiberDirectionBendingOperator",
     "FiberDirectionBendingResponse",
     "LinearSystem",
@@ -120,6 +130,7 @@ __all__ = [
     "capacity_operator",
     "cell_gradient_energy",
     "cell_average_gradient",
+    "convected_cell_fiber",
     "combine",
     "compile_form",
     "conduction_operator",
