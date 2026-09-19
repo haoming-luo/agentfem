@@ -180,9 +180,14 @@ Deepen the finite-element core before broadening the catalog:
   forming-limit assessments report utilization without claiming to predict
   wrinkles. A partition-aware cell-neighbourhood contract now provides the
   MPI-safe topology for the first rotation-free neighbouring-element route;
+  rank-audited gradients, physical cell weights, objective fibre curvature,
+  exact independent-direction bending residual/tangent actions, distributed
+  DG0 residual assembly, and an exact FEM/cell-gradient transfer now close the
+  reusable nonlocal operator foundation in serial and two-rank tests. The
   naive mixed interpolation pairs that lost rank or exhibited a decaying
   normalized inf-sup value remain rejected evidence. The next promotion
-  sequence is curvature reconstruction, locking control and membrane/
+  sequence is the complete displacement-derived convected-fibre chain,
+  surface-tangent variation, boundary moments, locking control and membrane/
   transverse-shear/in-plane-bending/normal-bending patch tests,
   followed by tool contact, friction, inter-ply slip, quasi-static explicit
   controls, per-layer output, and independent forming experiments. A verified
