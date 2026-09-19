@@ -37,6 +37,7 @@ the compact machine-readable `agentfem/knowledge/catalog.json`.
 | [`agentfem.operator.incompressible_flow`](#agentfem-operator-incompressible_flow) | Mixed incompressible-flow fields and operators | operator | supported |
 | [`agentfem.operator.scalar_transport_reaction`](#agentfem-operator-scalar_transport_reaction) | Scalar transport and reaction operators | operator | supported |
 | [`agentfem.operator.system_contracts`](#agentfem-operator-system_contracts) | Finite-element operator and system contracts | operator | supported |
+| [`agentfem.verification.discrete_inf_sup_evidence`](#agentfem-verification-discrete_inf_sup_evidence) | Norm-aware discrete inf-sup evidence | operator | experimental |
 | [`agentfem.workflow.abaqus_engineering_regions`](#agentfem-workflow-abaqus_engineering_regions) | Abaqus node, element, and element-face sets as FEM regions | workflow | supported |
 | [`agentfem.workflow.abaqus_reviewed_migration`](#agentfem-workflow-abaqus_reviewed_migration) | Reviewed Abaqus model and user-material migration | workflow | experimental |
 | [`agentfem.workflow.campaign_learning_pipeline`](#agentfem-workflow-campaign_learning_pipeline) | Simulation campaign to guarded learning workflow | workflow | supported |
@@ -2860,6 +2861,93 @@ Create C = operators.capacity_operator(T, rho_c), K = operators.conduction_opera
 
 - Cast3M presentation and principles of development: `https://www-cast3m.cea.fr/html/ManuelCastemEnsta/ManuelCastemEnsta.html`
 - UFL automatic differentiation manual: `https://docs.fenicsproject.org/ufl/2026.1.0/manual/form_language.html`
+
+<a id="agentfem-verification-discrete_inf_sup_evidence"></a>
+
+## Norm-aware discrete inf-sup evidence
+
+**Stable ID:** `agentfem.verification.discrete_inf_sup_evidence`<br>
+**Kind:** `operator`<br>
+**Status:** `experimental`<br>
+**Source card:** `src/agentfem/knowledge/cards/discrete_inf_sup_evidence.json`
+
+Computes a basis-invariant normalized singular spectrum, discrete beta value, rank and condition number for one mixed constraint operator while refusing to relabel one full-rank mesh as mesh-independent stability.
+
+### Public API
+
+- `agentfem.diagnostics.DiscreteInfSupEvidence`
+- `agentfem.diagnostics.discrete_inf_sup`
+
+### Scientific contract
+
+A mixed coupling matrix must be measured in declared primal and multiplier norms; raw singular values depend on bases and units and cannot establish the discrete Babuška--Brezzi condition.
+
+**normalized discrete inf-sup value**
+
+$$
+\beta_h=\sigma_{min}(\mathbf{L}_{\lambda}^{-1}\mathbf{B}\mathbf{L}_{u}^{-T}),\qquad \mathbf{M}_{u}=\mathbf{L}_{u}\mathbf{L}_{u}^{T},\quad \mathbf{M}_{\lambda}=\mathbf{L}_{\lambda}\mathbf{L}_{\lambda}^{T}
+$$
+
+The Cholesky factors encode the declared discrete norms and make the spectrum invariant to consistent nonsingular basis changes.
+
+#### Inputs
+
+| Name | Type | Unit role | Meaning |
+| --- | --- | --- | --- |
+| coupling and norm matrices | finite B, symmetric positive-definite M_u and M_lambda | operator and matching primal/multiplier norms | Rows are multiplier equations and columns are primal unknowns after the caller's essential-boundary and nullspace policy. |
+
+#### Outputs
+
+| Name | Type | Unit role | Meaning |
+| --- | --- | --- | --- |
+| discrete inf-sup evidence | normalized singular values, beta, numerical rank, full-row-rank flag and condition number | dimensionless when compatible norms are supplied | The interpretation explicitly requires a refinement sequence before a stability claim. |
+
+#### Assumptions
+
+- The supplied norm matrices are symmetric positive definite on the tested discrete spaces.
+- Essential constraints and physical nullspaces have been treated consistently before matrix extraction.
+
+#### Conventions
+
+- constraint_matrix has multiplier equations by primal unknowns.
+- Rank tolerance defaults to the standard matrix-size-scaled floating-point SVD threshold.
+
+#### Applicability
+
+- Mixed shell, hybrid solid, incompressible flow, multiplier constraint and other saddle-point discretization studies.
+
+#### Limitations
+
+- The first implementation consumes dense serial arrays; PETSc/MPI extraction and scalable extremal singular solvers are future adapters.
+- One nonzero beta and full row rank do not establish mesh-independent inf-sup stability or absence of locking.
+- An inappropriate norm or untreated nullspace can make a numerically correct spectrum scientifically irrelevant.
+
+### Minimal example
+
+```python
+evidence = diagnostics.discrete_inf_sup(B, primal_norm=M_u, multiplier_norm=M_lambda)
+```
+
+### Verification
+
+**Tests**
+
+- `tests/test_mixed_stability.py`
+
+**Benchmarks**
+
+- None declared.
+
+**Validation rules**
+
+- Verify the reported beta, rank and condition number against a diagonal analytical spectrum.
+- Verify spectrum invariance under arbitrary nonsingular primal and multiplier basis transformations with consistently transformed norms.
+- Return beta zero for a rank-deficient multiplier space and reject non-SPD norm matrices.
+
+### References
+
+- Bathe et al. (2000), An inf-sup test for shell finite elements: `https://doi.org/10.1016/S0045-7949(99)00213-8`
+- Pinsky and Jasti (1991), Lagrange multiplier compatible modes for mixed shell finite elements: `https://doi.org/10.1016/0045-7825(91)90131-O`
 
 <a id="agentfem-workflow-abaqus_engineering_regions"></a>
 

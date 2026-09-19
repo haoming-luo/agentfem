@@ -1,0 +1,90 @@
+{
+  "schema": "agentfem.scientific-function-card",
+  "schema_version": "0.1.0",
+  "id": "agentfem.verification.discrete_inf_sup_evidence",
+  "title": "Norm-aware discrete inf-sup evidence",
+  "kind": "operator",
+  "status": "experimental",
+  "summary": "Computes a basis-invariant normalized singular spectrum, discrete beta value, rank and condition number for one mixed constraint operator while refusing to relabel one full-rank mesh as mesh-independent stability.",
+  "public_api": [
+    "agentfem.diagnostics.DiscreteInfSupEvidence",
+    "agentfem.diagnostics.discrete_inf_sup"
+  ],
+  "implementation": [
+    "diagnostics.py"
+  ],
+  "science": {
+    "statement": "A mixed coupling matrix must be measured in declared primal and multiplier norms; raw singular values depend on bases and units and cannot establish the discrete Babuška--Brezzi condition.",
+    "equations": [
+      {
+        "label": "normalized discrete inf-sup value",
+        "expression": "\\beta_h=\\sigma_{min}(\\mathbf{L}_{\\lambda}^{-1}\\mathbf{B}\\mathbf{L}_{u}^{-T}),\\qquad \\mathbf{M}_{u}=\\mathbf{L}_{u}\\mathbf{L}_{u}^{T},\\quad \\mathbf{M}_{\\lambda}=\\mathbf{L}_{\\lambda}\\mathbf{L}_{\\lambda}^{T}",
+        "description": "The Cholesky factors encode the declared discrete norms and make the spectrum invariant to consistent nonsingular basis changes."
+      }
+    ],
+    "inputs": [
+      {
+        "name": "coupling and norm matrices",
+        "type": "finite B, symmetric positive-definite M_u and M_lambda",
+        "unit_role": "operator and matching primal/multiplier norms",
+        "description": "Rows are multiplier equations and columns are primal unknowns after the caller's essential-boundary and nullspace policy."
+      }
+    ],
+    "outputs": [
+      {
+        "name": "discrete inf-sup evidence",
+        "type": "normalized singular values, beta, numerical rank, full-row-rank flag and condition number",
+        "unit_role": "dimensionless when compatible norms are supplied",
+        "description": "The interpretation explicitly requires a refinement sequence before a stability claim."
+      }
+    ],
+    "assumptions": [
+      "The supplied norm matrices are symmetric positive definite on the tested discrete spaces.",
+      "Essential constraints and physical nullspaces have been treated consistently before matrix extraction."
+    ],
+    "conventions": [
+      "constraint_matrix has multiplier equations by primal unknowns.",
+      "Rank tolerance defaults to the standard matrix-size-scaled floating-point SVD threshold."
+    ],
+    "applicability": [
+      "Mixed shell, hybrid solid, incompressible flow, multiplier constraint and other saddle-point discretization studies."
+    ],
+    "limitations": [
+      "The first implementation consumes dense serial arrays; PETSc/MPI extraction and scalable extremal singular solvers are future adapters.",
+      "One nonzero beta and full row rank do not establish mesh-independent inf-sup stability or absence of locking.",
+      "An inappropriate norm or untreated nullspace can make a numerically correct spectrum scientifically irrelevant."
+    ]
+  },
+  "usage": {
+    "minimal_example": "evidence = diagnostics.discrete_inf_sup(B, primal_norm=M_u, multiplier_norm=M_lambda)",
+    "examples": [
+      "tests/test_mixed_stability.py"
+    ]
+  },
+  "verification": {
+    "tests": [
+      "tests/test_mixed_stability.py"
+    ],
+    "benchmarks": [],
+    "validation_rules": [
+      "Verify the reported beta, rank and condition number against a diagonal analytical spectrum.",
+      "Verify spectrum invariance under arbitrary nonsingular primal and multiplier basis transformations with consistently transformed norms.",
+      "Return beta zero for a rank-deficient multiplier space and reject non-SPD norm matrices."
+    ]
+  },
+  "references": [
+    {
+      "title": "Bathe et al. (2000), An inf-sup test for shell finite elements",
+      "locator": "https://doi.org/10.1016/S0045-7949(99)00213-8"
+    },
+    {
+      "title": "Pinsky and Jasti (1991), Lagrange multiplier compatible modes for mixed shell finite elements",
+      "locator": "https://doi.org/10.1016/0045-7825(91)90131-O"
+    }
+  ],
+  "related_cards": [
+    "agentfem.material.mixed_hybrid_hyperelasticity",
+    "agentfem.material.fabric_surface_constitutive",
+    "agentfem.operator.system_contracts"
+  ]
+}

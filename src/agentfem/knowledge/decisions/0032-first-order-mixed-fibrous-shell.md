@@ -53,6 +53,7 @@ The provider stays unavailable to ordinary projects until all of these pass:
 2. constant membrane, transverse-shear, in-plane-bending, and normal-bending
    patches isolate the intended channel;
 3. constraint residuals and every mixed-field norm converge under refinement;
+   the normalized discrete inf-sup spectrum is tracked on the same sequence;
 4. membrane/shear locking is measured in thin limits and controlled without a
    mesh-dependent user constant;
 5. Newton uses a consistent full block Jacobian and reports every block;

@@ -883,6 +883,23 @@
       "title": "Finite-element operator and system contracts"
     },
     {
+      "id": "agentfem.verification.discrete_inf_sup_evidence",
+      "kind": "operator",
+      "public_api": [
+        "agentfem.diagnostics.DiscreteInfSupEvidence",
+        "agentfem.diagnostics.discrete_inf_sup"
+      ],
+      "related_cards": [
+        "agentfem.material.mixed_hybrid_hyperelasticity",
+        "agentfem.material.fabric_surface_constitutive",
+        "agentfem.operator.system_contracts"
+      ],
+      "source": "src/agentfem/knowledge/cards/discrete_inf_sup_evidence.json",
+      "status": "experimental",
+      "summary": "Computes a basis-invariant normalized singular spectrum, discrete beta value, rank and condition number for one mixed constraint operator while refusing to relabel one full-rank mesh as mesh-independent stability.",
+      "title": "Norm-aware discrete inf-sup evidence"
+    },
+    {
       "id": "agentfem.workflow.abaqus_engineering_regions",
       "kind": "workflow",
       "public_api": [

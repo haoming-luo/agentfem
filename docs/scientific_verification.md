@@ -140,6 +140,31 @@ Successive relative change is an initial engineering contract, not a complete
 uncertainty estimate. Richardson extrapolation, GCI, singular-field handling,
 and goal-oriented error estimators remain separate future consumers.
 
+### Mixed-discretization stability
+
+Raw singular values of a constraint matrix change with the chosen bases and
+units. `diagnostics.discrete_inf_sup(...)` therefore requires the coupling
+matrix together with symmetric positive-definite primal and multiplier norm
+matrices. It reports the spectrum of the norm-whitened operator, its numerical
+rank, condition number and discrete `beta`:
+
+```python
+evidence = diagnostics.discrete_inf_sup(
+    B,
+    primal_norm=M_u,
+    multiplier_norm=M_lambda,
+)
+```
+
+The calculation is invariant under consistent nonsingular basis changes and
+fails closed for a rank-deficient multiplier space. Its interpretation is
+deliberately narrow: one full-rank matrix and one nonzero `beta` are evidence
+for one discretization only. An inf-sup claim requires a non-decaying sequence
+under mesh refinement, with essential constraints, physical nullspaces and
+norms held scientifically consistent. The current dense-array interface is
+suited to element/patch studies; scalable PETSc spectral extraction remains a
+future adapter.
+
 ## Reliability-cliff suite
 
 The first `CAE Reliability Cliff` contract targets silent AI-to-CAE failures:

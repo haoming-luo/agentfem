@@ -62,6 +62,110 @@ class PerformanceLedger:
         }
 
 
+@dataclass(frozen=True)
+class DiscreteInfSupEvidence:
+    """Basis-normalized singular evidence for one mixed discretization."""
+
+    beta: float
+    singular_values: tuple[float, ...]
+    rank: int
+    primal_size: int
+    multiplier_size: int
+    full_row_rank: bool
+    rank_tolerance: float
+    condition_number: float
+
+    def as_dict(self) -> dict[str, object]:
+        return {
+            "kind": "discrete_inf_sup_evidence",
+            "beta": self.beta,
+            "singular_values": list(self.singular_values),
+            "rank": self.rank,
+            "primal_size": self.primal_size,
+            "multiplier_size": self.multiplier_size,
+            "full_row_rank": self.full_row_rank,
+            "rank_tolerance": self.rank_tolerance,
+            "condition_number": self.condition_number,
+            "normalization": "primal_and_multiplier_norm_matrices",
+            "interpretation": (
+                "one_mesh_rank_and_beta; mesh-independent stability requires "
+                "a refinement sequence"
+            ),
+        }
+
+
+def _symmetric_positive_definite_matrix(value, *, name: str, size: int) -> np.ndarray:
+    selected = np.asarray(value, dtype=float)
+    if selected.shape != (size, size) or not np.all(np.isfinite(selected)):
+        raise ValueError(f"{name} must be one finite {size}x{size} matrix.")
+    if not np.allclose(selected, selected.T, atol=1.0e-12, rtol=1.0e-12):
+        raise ValueError(f"{name} must be symmetric.")
+    try:
+        np.linalg.cholesky(selected)
+    except np.linalg.LinAlgError as exc:
+        raise ValueError(f"{name} must be positive definite.") from exc
+    return selected
+
+
+def discrete_inf_sup(
+    constraint_matrix,
+    *,
+    primal_norm,
+    multiplier_norm,
+    rank_tolerance: float | None = None,
+) -> DiscreteInfSupEvidence:
+    """Compute one norm-aware discrete inf-sup spectrum.
+
+    For a coupling matrix ``B`` and symmetric positive-definite norm matrices
+    ``M_u`` and ``M_lambda``, the reported singular values belong to
+    ``L_lambda^-1 B L_u^-T``.  The value is invariant to nonsingular changes of
+    basis when the norm matrices are transformed consistently.  It is evidence
+    for one discretization only; a non-decaying refinement sequence is needed
+    before claiming inf-sup stability.
+    """
+
+    coupling = np.asarray(constraint_matrix, dtype=float)
+    if coupling.ndim != 2 or min(coupling.shape) < 1 or not np.all(np.isfinite(coupling)):
+        raise ValueError("constraint_matrix must be one non-empty finite matrix.")
+    multiplier_size, primal_size = coupling.shape
+    primal = _symmetric_positive_definite_matrix(
+        primal_norm,
+        name="primal_norm",
+        size=primal_size,
+    )
+    multiplier = _symmetric_positive_definite_matrix(
+        multiplier_norm,
+        name="multiplier_norm",
+        size=multiplier_size,
+    )
+    primal_factor = np.linalg.cholesky(primal)
+    multiplier_factor = np.linalg.cholesky(multiplier)
+    right_normalized = np.linalg.solve(primal_factor, coupling.T).T
+    normalized = np.linalg.solve(multiplier_factor, right_normalized)
+    singular = np.linalg.svd(normalized, compute_uv=False)
+    largest = float(singular[0]) if singular.size else 0.0
+    if rank_tolerance is None:
+        tolerance = max(normalized.shape) * np.finfo(float).eps * largest
+    else:
+        tolerance = float(rank_tolerance)
+        if not np.isfinite(tolerance) or tolerance < 0.0:
+            raise ValueError("rank_tolerance must be finite and nonnegative.")
+    rank = int(np.count_nonzero(singular > tolerance))
+    full_row_rank = rank == multiplier_size
+    beta = float(singular[-1]) if full_row_rank else 0.0
+    condition = float(largest / beta) if beta > 0.0 else float("inf")
+    return DiscreteInfSupEvidence(
+        beta=beta,
+        singular_values=tuple(float(value) for value in singular),
+        rank=rank,
+        primal_size=primal_size,
+        multiplier_size=multiplier_size,
+        full_row_rank=full_row_rank,
+        rank_tolerance=tolerance,
+        condition_number=condition,
+    )
+
+
 def comm_of(obj=None, default=MPI.COMM_WORLD):
     """Return the MPI communicator associated with an object when possible."""
 
