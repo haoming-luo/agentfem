@@ -31,6 +31,12 @@ magnitude or a selected tip displacement.
 
 ## Run the existing example
 
+Want to try the learning step first, without installing a FEM runtime?
+The [standalone NumPy mini-lab](https://gist.github.com/haoming-luo/727a217b5b2161a4e81f4ec65aacfc56)
+includes the ten FEM outputs, fitting code, units, and provenance. The
+[community discussion](https://github.com/haoming-luo/agentfem/discussions/10)
+suggests a small physics-based feature experiment.
+
 Use an installed, compatible AgentFEM environment and a matching source
 checkout; the repository [example](https://github.com/haoming-luo/agentfem/blob/main/examples/static_elasticity_surrogate_campaign.py)
 is not bundled as an executable script in every package installation.
