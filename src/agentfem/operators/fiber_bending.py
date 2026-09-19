@@ -120,6 +120,11 @@ class FiberDirectionBendingOperator:
     reference_normal_curvature: np.ndarray
 
     def __post_init__(self) -> None:
+        if not self.gradient.partition_complete:
+            raise ValueError(
+                "Fibre-bending energies require a partition-complete stencil; "
+                "use rings=1 under MPI until expanded cell halos are supported."
+            )
         owned = self.gradient.owned_cells
         tangents = np.asarray(self.current_tangents, dtype=float)
         if tangents.shape != (owned, 3, 2) or not np.all(np.isfinite(tangents)):

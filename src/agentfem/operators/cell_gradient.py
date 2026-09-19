@@ -36,6 +36,11 @@ class CellGradientEnergyOperator:
     stiffness: np.ndarray
 
     def __post_init__(self) -> None:
+        if not self.gradient.partition_complete:
+            raise ValueError(
+                "Cell-gradient energies require a partition-complete stencil; "
+                "use rings=1 under MPI until expanded cell halos are supported."
+            )
         weights = np.asarray(self.cell_weights, dtype=float)
         stiffness = np.asarray(self.stiffness, dtype=float)
         if weights.shape != (self.gradient.owned_cells,) or not np.all(

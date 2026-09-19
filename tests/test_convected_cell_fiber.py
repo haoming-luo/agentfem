@@ -6,10 +6,12 @@ from __future__ import annotations
 import numpy as np
 import pytest
 from dolfinx import fem
+from dolfinx.fem import petsc as fem_petsc
 from dolfinx import mesh as dolfinx_mesh
 from mpi4py import MPI
+import ufl
 
-from agentfem import mesh, operators
+from agentfem import backends, mesh, operators
 
 
 def _rotation():
@@ -354,6 +356,58 @@ def test_displacement_derived_bending_energy_has_exact_fem_residual():
     composed_residual.destroy()
     composed_tangent.destroy()
     manual_residual.destroy()
+
+
+def test_displacement_bending_binds_to_additive_petsc_tangent():
+    domain, space, kinematics, _, _ = _case()
+    displacement = fem.Function(space, name="U")
+    displacement.interpolate(
+        lambda x: np.vstack(
+            (
+                0.08 * x[0] ** 2 + 0.03 * x[1],
+                0.06 * x[0] * x[1] - 0.02 * x[0],
+                0.05 * x[0] ** 2 + 0.04 * x[1] ** 2,
+            )
+        )
+    )
+    increment = fem.Function(space, name="DU")
+    increment.interpolate(
+        lambda x: np.vstack(
+            (
+                -0.03 * x[0] + 0.02 * x[1],
+                0.04 * x[0] ** 2,
+                -0.02 * x[0] * x[1] + 0.01 * x[1],
+            )
+        )
+    )
+    contribution = operators.displacement_fiber_bending(
+        kinematics,
+        mesh.cell_gradient_operator(domain, rings=2),
+        cell_weights=mesh.owned_cell_measures(domain),
+        in_plane_stiffness=2.5,
+        normal_stiffness=4.0,
+    )
+    trial = ufl.TrialFunction(space)
+    test = ufl.TestFunction(space)
+    local_form = fem.form(ufl.inner(trial, test) * ufl.dx)
+    local = fem_petsc.assemble_matrix(local_form)
+    local.assemble()
+    action = backends.fenicsx_tangent_action(contribution, displacement)
+    additive = backends.create_additive_tangent_matrix(local, (action,))
+    actual = local.createVecLeft()
+    additive.operator.mult(increment.x.petsc_vec, actual)
+    expected = local.createVecLeft()
+    local.mult(increment.x.petsc_vec, expected)
+    bending = contribution.tangent_action(displacement, increment)
+    expected.axpy(1.0, bending)
+
+    np.testing.assert_allclose(actual.array_r, expected.array_r, atol=2.0e-13)
+    assert action.summary()["ghost_update"].startswith("scatter_forward")
+    bending.destroy()
+    actual.destroy()
+    expected.destroy()
+    additive.close()
+    local.destroy()
 
 
 def test_displacement_fiber_bending_is_objective_and_hessian_is_symmetric():

@@ -93,6 +93,17 @@ experimental formulation to a validated one.
   exact additive energy/residual/tangent contributions. It is the narrow
   Operator boundary for a future hybrid assembled/matrix-free Procedure, not
   a second solver or a shell-specific workflow.
+- Add the internal hybrid-Newton promotion runtime: PETSc applies the assembled
+  local Jacobian plus exact matrix-free contributions as the true operator and
+  uses the assembled local Jacobian as its independent preconditioner. Strong
+  constraints are projected once at the composition boundary. A constrained
+  displacement/fibre-bending solve converges in serial and gives the same
+  displacement, bending energy, maximum response, and Newton count with two
+  MPI ranks.
+- Make neighbour-energy partition completeness explicit. One-ring stencils
+  backed by shared-facet ghosts are accepted under MPI; wider stencils without
+  an expanded halo are rejected before an energy or bending operator can
+  produce partition-dependent scientific results.
 - Add `agentfem support`, a consent-first community invitation that performs no
   account action, checks an existing GitHub login only when explicitly asked,
   and remembers support locally without storing identity or credentials.

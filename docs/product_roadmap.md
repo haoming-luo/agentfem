@@ -189,7 +189,14 @@ Deepen the finite-element core before broadening the catalog:
   identity closes in serial and over two ranks. Exact linearizations of the
   response and kinematic pullback provide the matching displacement-level
   matrix-free tangent, which closes against residual differences over the same
-  serial and distributed paths. The
+  serial and distributed paths. An internal hybrid Newton runtime now combines
+  that exact action with a locally assembled UFL Jacobian, uses the latter as
+  PETSc's independent preconditioner, and applies essential constraints once.
+  Its first constrained displacement/bending solve matches serial and two-rank
+  observables. Partition completeness is now fail-closed: one-ring shared-
+  facet stencils are accepted under MPI, while wider stencils require a future
+  expanded halo. This runtime is evidence for the future Procedure, not yet a
+  public shell Step. The
   naive mixed interpolation pairs that lost rank or exhibited a decaying
   normalized inf-sup value remain rejected evidence. The next promotion
   sequence is boundary moments and complete shell assembly, locking

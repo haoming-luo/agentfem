@@ -88,7 +88,7 @@ the compact machine-readable `agentfem/knowledge/catalog.json`.
 | `agentfem.benchmark.distributed_cohesive_force` | Two-rank sparse fixed-path cohesive force and portable restart | Two-dimensional normal and mixed-mode bilinear cohesive interfaces in finite-strain assembly and Explicit dynamics | experimental_mpi_sparse_automated |
 | `agentfem.benchmark.dynamic_fracture_energy_v2` | Finite-strain and cohesive dynamic energy closure | Total-Lagrangian Neo-Hookean dynamics with optional Mode-I cohesive separation | experimental_v2_automated |
 | `agentfem.benchmark.elasticity_foundation` | Foundational small-strain elasticity verification | two- and three-dimensional small-strain linear elasticity | automated |
-| `agentfem.benchmark.fibrous_shell_foundation` | Multilayer membrane and local fibrous-shell foundation | finite-kinematics woven-reinforcement membrane and local fibre-specific shell response | automated |
+| `agentfem.benchmark.fibrous_shell_foundation` | Multilayer membrane and hybrid fibrous-shell foundation | finite-kinematics woven-reinforcement membrane and local fibre-specific shell response | automated |
 | `agentfem.benchmark.finite_strain_incremental_waves_v1` | Neo-Hookean small-on-large wave oracle | compressible Neo-Hookean small-on-large elastodynamics | experimental_v1_automated |
 | `agentfem.benchmark.finite_strain_j2_lewandowski_2023_beam` | Lewandowski et al. finite-strain J2 self-weight beam | Three-dimensional slender beam under a ramped gravity-like body force, with a left clamp, right-end axial symmetry constraint, finite rotations, isotropic J2 plasticity and linear isotropic hardening. | external_reference_reexecuted_candidate_promotion_pending |
 | `agentfem.benchmark.finite_strain_j2_material_paths` | Finite-strain logarithmic J2 material and global paths | three-dimensional rate-independent finite-strain J2 plasticity with quadratic Hencky elasticity and linear isotropic hardening | experimental_automated_global_mpi_restart |
@@ -944,7 +944,7 @@ cycle = fatigue_fracture.force_cycle(fmin=226, fmax=2262); law = fatigue_fractur
 **Status:** `experimental`<br>
 **Source card:** `src/agentfem/knowledge/cards/fabric_surface_constitutive.json`
 
-Defines independent woven-surface tension, trellising-shear, and bending channels; retains varying orientations in named multilayer stacks; separates objective in-plane and normal fibre curvature; supplies exact first- and second-variation actions for a neighbour-reconstructed independent-direction bending energy; and lowers one surface or a shared-kinematics stack to an experimental finite-kinematics membrane Step while keeping complete shell equilibrium and forming as explicit later gates.
+Defines independent woven-surface tension, trellising-shear, and bending channels; retains varying orientations in named multilayer stacks; separates objective in-plane and normal fibre curvature; supplies exact first- and second-variation actions for a neighbour-reconstructed displacement bending energy; and verifies an internal assembled-local plus matrix-free Newton composition while keeping a public shell Step and forming as explicit later gates.
 
 ### Public API
 
@@ -1053,6 +1053,8 @@ In-plane/geodesic and normal bending are separate objective measures and require
 - The global membrane Step rejects nonzero bending because no shell element consumes that channel yet.
 - The independent-direction bending operator supplies exact direction and direct surface-tangent first derivatives plus their exact admissible response linearization, but it does not include compatibility-constraint blocks.
 - The displacement-derived fibre transfer and bending response compose into the complete first variation and matrix-free consistent tangent of the bending energy, but boundary moments, complete shell assembly, and a public shell Step remain promotion gates.
+- The internal hybrid Newton runtime verifies algebra, strong constraints, and serial/two-rank equivalence, but does not yet expose a public Procedure or standard result lifecycle.
+- Under MPI, conservative neighbour energies require a partition-complete stencil; wider-than-halo reconstructions are rejected.
 - FabricStack membrane lowering shares one surface displacement across layers; transverse slippage, independent material normals, and shell equilibrium remain promotion gates.
 - Contact, friction, inter-ply slip, locking control, and forming procedures are not implemented.
 - Rate effects, hysteresis, irreversible locking, yarn slippage, and damage need additional stateful laws.
@@ -1071,6 +1073,8 @@ study = studies.static_membrane(); model = models.create(study=study, mesh=domai
 - `tests/test_composite_materials.py`
 - `tests/test_fiber_bending_operator.py`
 - `tests/test_convected_cell_fiber.py`
+- `tests/test_additive_tangent_matrix.py`
+- `tests/test_hybrid_nonlinear.py`
 - `tests/test_parallel_mesh_semantics.py`
 
 **Benchmarks**
@@ -1095,6 +1099,9 @@ study = studies.static_membrane(); model = models.create(study=study, mesh=domai
 - Verify that the composed displacement-derived bending residual includes both direction and direct surface-tangent paths and closes the global energy--virtual-work identity in serial and under two MPI ranks.
 - Verify that exact response and kinematic-adjoint linearizations compose into a displacement-space tangent that matches residual differences in serial and under two MPI ranks.
 - Verify that the composed displacement bending energy is objective, its residual and tangent are covariant under three-dimensional rigid rotation, and its Hessian action is symmetric.
+- Verify that the assembled-local plus matrix-free PETSc operator converges with a separate local preconditioner and handles strong constraints once.
+- Verify matching displacement, bending-energy, maximum-response, and Newton-iteration observables in serial and under two MPI ranks.
+- Reject conservative MPI neighbour energies when the requested reconstruction rings exceed the available cell halo.
 - Keep shell, contact, and forming claims unavailable until their independent patch tests and benchmarks pass.
 
 ### References

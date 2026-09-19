@@ -9,15 +9,175 @@ import pytest
 from dolfinx import fem
 from dolfinx import mesh as dolfinx_mesh
 from mpi4py import MPI
+from petsc4py import PETSc
+import ufl
 
-from agentfem import assembly, constraints, fields, loads, mechanics, mesh, operators, results
+from agentfem import (
+    assembly,
+    backends,
+    constraints,
+    fields,
+    loads,
+    mechanics,
+    mesh,
+    operators,
+    results,
+    solvers,
+)
+
+
+def test_distributed_additive_tangent_uses_local_preconditioner():
+    comm = MPI.COMM_WORLD
+    if comm.size < 2:
+        pytest.skip("distributed additive tangent evidence requires two ranks")
+    local = PETSc.Mat().createAIJ(
+        size=((2, None), (2, None)),
+        nnz=1,
+        comm=comm,
+    )
+    start, end = local.getOwnershipRange()
+    diagonal = 3.0 + np.arange(start, end, dtype=float)
+    for row, value in zip(range(start, end), diagonal, strict=True):
+        local.setValue(row, row, value)
+    local.assemble()
+    scale = 0.5 + 0.25 * comm.rank
+
+    def nonlocal_action(source, target):
+        target.array[:] = scale * source.array_r
+
+    constrained = (0,) if comm.rank == 0 else ()
+    additive = backends.create_additive_tangent_matrix(
+        local,
+        (nonlocal_action,),
+        constrained_local_dofs=constrained,
+    )
+    exact = local.createVecRight()
+    exact.array[:] = np.linspace(
+        0.25 + comm.rank,
+        0.75 + comm.rank,
+        exact.getLocalSize(),
+    )
+    right = local.createVecLeft()
+    additive.operator.mult(exact, right)
+    solved = local.createVecRight()
+    ksp = PETSc.KSP().create(comm)
+    ksp.setType("gmres")
+    ksp.getPC().setType("jacobi")
+    ksp.setTolerances(rtol=1.0e-12, atol=1.0e-14, max_it=20)
+    ksp.setOperators(additive.operator, additive.preconditioner)
+    ksp.solve(right, solved)
+
+    local_error = float(np.max(np.abs(solved.array_r - exact.array_r)))
+    assert comm.allreduce(local_error, op=MPI.MAX) < 2.0e-12
+    assert ksp.getConvergedReason() > 0
+    assert additive.summary()["preconditioner"] == "assembled_local_matrix"
+    ksp.destroy()
+    exact.destroy()
+    right.destroy()
+    solved.destroy()
+    additive.close()
+    local.destroy()
+
+
+def _hybrid_bending_observables(comm):
+    domain = dolfinx_mesh.create_unit_square(
+        comm,
+        4,
+        3,
+        cell_type=dolfinx_mesh.CellType.quadrilateral,
+    )
+    space = fem.functionspace(domain, ("Lagrange", 1, (3,)))
+    displacement = fem.Function(space, name="U")
+    transfer = operators.cell_average_gradient(space)
+    angle = 0.35
+    kinematics = operators.convected_cell_fiber(
+        transfer,
+        reference_tangents=np.array(
+            ((1.0, 0.0), (0.0, 1.0), (0.0, 0.0))
+        ),
+        reference_tangent_coordinates=np.array(
+            (np.cos(angle), np.sin(angle))
+        ),
+    )
+    bending = operators.displacement_fiber_bending(
+        kinematics,
+        mesh.cell_gradient_operator(domain, rings=1),
+        cell_weights=mesh.owned_cell_measures(domain),
+        in_plane_stiffness=0.03,
+        normal_stiffness=0.05,
+    )
+    test = ufl.TestFunction(space)
+    trial = ufl.TrialFunction(space)
+    load = fem.Constant(domain, np.array((0.0, 0.0, 2.0e-3)))
+    residual = (
+        ufl.inner(displacement, test) * ufl.dx
+        - ufl.inner(load, test) * ufl.dx
+    )
+    jacobian = ufl.inner(trial, test) * ufl.dx
+    left_facets = dolfinx_mesh.locate_entities_boundary(
+        domain,
+        1,
+        lambda x: np.isclose(x[0], 0.0),
+    )
+    left_dofs = fem.locate_dofs_topological(space, 1, left_facets)
+    fixed = fem.dirichletbc(np.zeros(3), left_dofs, space)
+    options = solvers.NonlinearSolverOptions(
+        ksp_type="gmres",
+        pc_type="lu",
+        rtol=1.0e-10,
+        atol=1.0e-12,
+        max_it=30,
+    )
+    with solvers._prepare_hybrid_nonlinear_problem(
+        residual,
+        displacement,
+        (bending,),
+        bcs=(fixed,),
+        jacobian_form=jacobian,
+        options=options,
+        petsc_options_prefix="agentfem_test_parallel_hybrid_",
+    ) as problem:
+        solved, info = problem.solve()
+        displacement_integral = comm.allreduce(
+            fem.assemble_scalar(fem.form(solved[2] * ufl.dx)),
+            op=MPI.SUM,
+        )
+        bending_energy = comm.allreduce(bending.energy(solved), op=MPI.SUM)
+        maximum = comm.allreduce(
+            float(np.max(np.abs(solved.x.petsc_vec.array_r))),
+            op=MPI.MAX,
+        )
+        return np.array(
+            (
+                displacement_integral,
+                bending_energy,
+                maximum,
+                float(info.iterations),
+            )
+        )
+
+
+def test_distributed_hybrid_bending_matches_serial_observables():
+    comm = MPI.COMM_WORLD
+    if comm.size != 2:
+        pytest.skip("hybrid partition evidence is frozen for two ranks")
+    distributed = _hybrid_bending_observables(comm)
+    serial = _hybrid_bending_observables(MPI.COMM_SELF)
+
+    np.testing.assert_allclose(distributed[:3], serial[:3], rtol=2.0e-9, atol=2.0e-12)
+    assert distributed[3] == serial[3]
 
 
 def test_cell_neighborhood_keeps_partition_interface_pairs_complete():
     comm = MPI.COMM_WORLD
     if comm.size < 2:
         pytest.skip("partition-neighborhood evidence requires at least two ranks")
-    domain = dolfinx_mesh.create_unit_square(comm, 4, 2)
+    domain = dolfinx_mesh.create_unit_square(
+        comm,
+        4,
+        2,
+        cell_type=dolfinx_mesh.CellType.quadrilateral,
+    )
     neighborhood = mesh.cell_neighborhood(domain)
     owned_cells = int(domain.topology.index_map(domain.topology.dim).size_local)
 
@@ -41,7 +201,7 @@ def test_cell_neighborhood_keeps_partition_interface_pairs_complete():
     )
     flattened = tuple(value for rank_ids in facet_ids for value in rank_ids)
 
-    assert global_interior == 18
+    assert global_interior == 10
     assert global_exterior == 12
     assert cross_partition > 0
     assert len(flattened) == len(set(flattened))
@@ -99,7 +259,16 @@ def test_cell_neighborhood_keeps_partition_interface_pairs_complete():
     local_error = float(np.max(np.abs(curvature.in_plane_curvature - exact)))
     global_error = comm.allreduce(local_error, op=MPI.MAX)
     assert global_error < 2.0e-2
-    operator = mesh.cell_gradient_operator(domain, rings=2)
+    incomplete_operator = mesh.cell_gradient_operator(domain, rings=2)
+    assert not incomplete_operator.partition_complete
+    with pytest.raises(ValueError, match="partition-complete"):
+        operators.cell_gradient_energy(
+            incomplete_operator,
+            cell_weights=owned_measures,
+            stiffness=2.5,
+        )
+    operator = mesh.cell_gradient_operator(domain, rings=1)
+    assert operator.partition_complete
     duals = np.column_stack(
         (
             np.linspace(0.5, 1.5, operator.owned_cells),

@@ -140,6 +140,8 @@ class CellGradientOperator:
     rings: int
     weight_power: float
     condition_limit: float
+    mpi_size: int = 1
+    partition_complete: bool = True
 
     @property
     def owned_cells(self) -> int:
@@ -237,6 +239,8 @@ class CellGradientOperator:
             "rings": self.rings,
             "weight_power": self.weight_power,
             "condition_limit": self.condition_limit,
+            "mpi_size": self.mpi_size,
+            "partition_complete": self.partition_complete,
             "nonzero_blocks": self.nonzero_blocks,
             "maximum_condition_number": max(
                 item.condition_number for item in self.stencils
@@ -378,6 +382,11 @@ def cell_gradient_operator(
         rings=rings,
         weight_power=weight_power,
         condition_limit=condition_limit,
+        mpi_size=int(domain.comm.size),
+        partition_complete=(
+            int(domain.comm.size) == 1
+            or (rings == 1 and int(cell_map.num_ghosts) > 0)
+        ),
     )
 
 

@@ -334,6 +334,12 @@ integration weights aligned with owned cells and excludes ghosts, so global
 energy counts every cell once in serial or MPI. This is a reusable nonlocal
 operator foundation, not yet the nonlinear fibre-bending virtual work of a
 forming shell.
+An energy operator additionally requires a partition-complete stencil. With
+the current shared-facet ghost layer this means a one-ring reconstruction
+under MPI. A wider stencil remains useful for serial reconstruction studies,
+but AgentFEM refuses to use it as distributed stored energy until an expanded
+cell halo is available; a locally visible but incomplete two-ring graph is not
+silently treated as partition independent.
 `mechanics.reconstruct_fiber_curvature(...)` consumes that gradient
 with three-dimensional fibre directions and 3x2 current tangents, then returns
 the signed in-plane and normal curvature channels already used by the local
@@ -405,6 +411,17 @@ The object satisfies the generic
 Procedure can therefore add it to local UFL membrane contributions without
 teaching the solver about fibre-specific classes or lowering the neighbour
 stencil into a fictitious local material law.
+The corresponding internal promotion runtime now demonstrates that
+composition. PETSc receives the assembled local Jacobian plus the exact
+matrix-free bending action as its true operator, while the assembled local
+matrix remains the independent preconditioner. Essential-boundary increments
+and rows are handled once at this boundary. A loaded, constrained
+displacement/bending problem converges through Newton and reproduces its
+serial displacement integral, bending energy, maximum displacement, and
+iteration count with two ranks. The runtime remains internal until standard
+load incrementation, progress, checkpoint, result evidence, boundary moments,
+locking control, and shell patch tests all use the ordinary Procedure
+lifecycle.
 Naive mixed P1/DG0 and P2/DG1 compatibility pairs were rejected after losing
 rank under refinement; full-rank P2/CG1 and P2/DG0 candidates still showed a
 decaying normalized inf-sup value in the tested H1/L2 norms. Those negative
@@ -502,6 +519,13 @@ The automated local evidence currently checks:
   under two MPI ranks;
 - its matrix-free displacement tangent matches residual differences in serial
   and under two MPI ranks.
+- the assembled-local plus matrix-free PETSc tangent uses the local matrix as
+  an independent preconditioner, preserves strong constraints, and solves a
+  nonzero displacement/bending problem;
+- the same solve has matching displacement, bending energy, maximum response,
+  and Newton count in serial and with two MPI ranks;
+- MPI energy operators reject a wider stencil when the available cell halo
+  cannot make it partition complete.
 
 No shell element patch test, contact benchmark, or drape experiment has yet
 promoted this membrane foundation to a forming-capable fibrous shell.

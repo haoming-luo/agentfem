@@ -76,6 +76,29 @@ The hybrid Procedure is not public until:
 - The same algebra boundary can support future nonlocal physics without a
   second public workflow.
 
+## Current implementation evidence
+
+The first internal promotion runtime now implements the additive PETSc
+operator. The true matrix action is the assembled local Jacobian plus every
+exact matrix-free contribution; PETSc receives the assembled local matrix
+separately as its preconditioning matrix. A FEniCSx adapter scatters each
+increment before applying a nonlocal contribution. Essential increments and
+residual rows are projected once at the composition boundary.
+
+A constrained local-spring plus displacement-derived fibre-bending problem
+converges through this runtime. The same mesh gives matching displacement
+integral, bending energy, maximum displacement and Newton iteration count in
+serial and with two ranks. This closes the algebra and partition portions of
+the decision, but the runtime remains internal: standard increment control,
+progress, checkpoint/restart, `SimulationResult`, shell boundary moments,
+locking evidence and patch tests are still required before a public Procedure.
+
+The exercise also exposed a partition condition hidden by affine tests. One
+shared-facet ghost layer makes a one-ring cell stencil complete, but does not
+make an arbitrary two-ring stencil complete. Conservative neighbor energies
+therefore fail closed when their stencil exceeds the available halo rather
+than accepting a partition-dependent result.
+
 ## Primary references
 
 - Steer et al. (2021),

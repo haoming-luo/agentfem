@@ -1119,6 +1119,31 @@ def solve_nonlinear_problem(
     return solved, info
 
 
+def _prepare_hybrid_nonlinear_problem(
+    residual_form,
+    solution,
+    contributions,
+    *,
+    bcs=None,
+    jacobian_form=None,
+    options=None,
+    petsc_options_prefix: str = "agentfem_hybrid_nonlinear_",
+):
+    """Build the internal local-plus-nonlocal Newton promotion runtime."""
+
+    from agentfem._hybrid_nonlinear import PreparedHybridNonlinearProblem
+
+    return PreparedHybridNonlinearProblem(
+        residual_form,
+        solution,
+        contributions,
+        bcs=bcs,
+        jacobian_form=jacobian_form,
+        options=options,
+        petsc_options_prefix=petsc_options_prefix,
+    )
+
+
 def _validate_affine_state_transaction(transaction) -> None:
     if transaction is None:
         return

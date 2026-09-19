@@ -2,7 +2,7 @@
   "schema": "agentfem.benchmark-card",
   "schema_version": "0.1.0",
   "id": "agentfem.benchmark.fibrous_shell_foundation",
-  "title": "Multilayer membrane and local fibrous-shell foundation",
+  "title": "Multilayer membrane and hybrid fibrous-shell foundation",
   "status": "automated",
   "purpose": "Verify the reusable kinematic, constitutive, neighboring-element, consistent-variation, MPI-assembly, multilayer-lowering, and result-identity foundation required before a global fibrous-shell element or forming procedure can be promoted.",
   "physics": "finite-kinematics woven-reinforcement membrane and local fibre-specific shell response",
@@ -13,10 +13,10 @@
     "Bai et al. (2025), doi:10.1016/j.compstruct.2025.119593"
   ],
   "execution": {
-    "command": "python -m pytest -q tests/test_composite_materials.py tests/test_mesh_neighborhood.py tests/test_fibrous_shell_reconstruction.py tests/test_fiber_bending_operator.py tests/test_cell_average_gradient.py tests/test_convected_cell_fiber.py",
+    "command": "python -m pytest -q tests/test_composite_materials.py tests/test_mesh_neighborhood.py tests/test_fibrous_shell_reconstruction.py tests/test_fiber_bending_operator.py tests/test_cell_average_gradient.py tests/test_convected_cell_fiber.py tests/test_additive_tangent_matrix.py tests/test_hybrid_nonlinear.py",
     "example": "docs/composite_materials_and_forming.md",
-    "evidence": "Analytical local channels, a loaded finite-kinematics membrane solve, neighbor reconstruction, exact bending variations, FEM/cell transfers, and unified result identity run in serial; the partition stencil, global virtual work, and transfer adjoint run under two MPI ranks.",
-    "serial": "python -m pytest -q tests/test_composite_materials.py tests/test_mesh_neighborhood.py tests/test_fibrous_shell_reconstruction.py tests/test_fiber_bending_operator.py tests/test_cell_average_gradient.py tests/test_convected_cell_fiber.py",
+    "evidence": "Analytical local channels, a loaded finite-kinematics membrane solve, neighbor reconstruction, exact bending variations, FEM/cell transfers, additive PETSc algebra, an internal constrained hybrid Newton solve, and unified result identity run in serial; partition completeness, global virtual work, transfer adjoint, and serial/distributed hybrid observables run under two MPI ranks.",
+    "serial": "python -m pytest -q tests/test_composite_materials.py tests/test_mesh_neighborhood.py tests/test_fibrous_shell_reconstruction.py tests/test_fiber_bending_operator.py tests/test_cell_average_gradient.py tests/test_convected_cell_fiber.py tests/test_additive_tangent_matrix.py tests/test_hybrid_nonlinear.py",
     "mpi": "mpiexec -n 2 python -m pytest -q tests/test_parallel_mesh_semantics.py -k neighborhood"
   },
   "observables": [
@@ -32,6 +32,8 @@
     "Complete displacement-derived bending first variation through the direction and direct surface-tangent paths.",
     "Matrix-free displacement-level consistent tangent from exact bending-response and kinematic-adjoint linearizations.",
     "One public displacement-fibre-bending composition exposing energy, residual, tangent action, and ownership metadata.",
+    "An internal assembled-local plus matrix-free PETSc tangent with a separate assembled preconditioner and single constraint boundary.",
+    "A constrained hybrid Newton displacement/bending solve with serial and two-rank observables.",
     "Stable computational-layer and physical-layer identities for varying-orientation stacks.",
     "Per-layer DG result fields, aggregate stored energy, and the exact layer-to-field manifest from a completed model.step result."
   ],
@@ -48,6 +50,9 @@
     "The composed displacement-space bending residual matches finite-difference energy changes in serial and across a two-rank partition, including both direction and surface-tangent contributions.",
     "The composed displacement-space tangent matches bending-residual differences in serial and across a two-rank partition.",
     "The composed displacement energy is objective, its residual and tangent are rotation-covariant, and its Hessian action is symmetric.",
+    "The hybrid Newton solve converges with a nonzero local load and nonlocal bending response while preserving constrained dofs exactly.",
+    "Its displacement integral, bending energy, maximum response, and iteration count agree between serial and two-rank execution.",
+    "A conservative MPI neighbor energy rejects a stencil wider than the available shared-facet halo.",
     "A membrane stack adds only compatible energy scalars and never combines generalized resultants expressed in unlike fibre frames.",
     "Same-orientation grouping scales energy, conjugate resultants, and tangent by the number of explicitly listed physical layer IDs and rejects duplicate IDs.",
     "A loaded multilayer membrane converges through the standard Step and writes collision-free per-layer strain, resultant, direction, and energy fields.",
@@ -56,6 +61,6 @@
   "limitations": [
     "This benchmark does not contain a complete displacement-coupled shell element, boundary moment, or transverse-slip solve.",
     "It does not validate tool contact, friction, inter-ply slip, wrinkling, explicit quasi-static controls, or a physical drape experiment.",
-    "MPI result-field identity, boundary moments, complete shell assembly, and public shell/forming benchmarks remain promotion gates for the future global provider."
+    "Standard increment, progress, checkpoint, SimulationResult, MPI result-field identity, boundary moments, complete shell assembly, and public shell/forming benchmarks remain promotion gates for the future global provider."
   ]
 }

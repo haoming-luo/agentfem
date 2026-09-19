@@ -1189,6 +1189,10 @@ and evidence remain in the linked guides and scientific function reference.
 | --- | --- | --- |
 | class | `BackendAdapter` | Minimal interface used by operator compilation and assembly. |
 | class | `BackendDescriptor` | Inspectable backend identity and capability statement. |
+| class | `AdditiveTangentMatrix` | Owned shell operator paired with its assembled preconditioner matrix. |
+| function | `create_additive_tangent_matrix(local_matrix: PETSc.Mat, actions: Iterable[TangentAction] = (), *, constrained_local_dofs: Iterable[int] = ()) -> AdditiveTangentMatrix` | Create ``A = A_local + sum(A_nonlocal)`` with ``A_local`` as ``P``. |
+| class | `FEniCSxTangentAction` | Bind a nonlinear contribution and state to a PETSc tangent callback. |
+| function | `fenicsx_tangent_action(contribution, state) -> FEniCSxTangentAction` | Create a reusable PETSc callback for one FEniCSx primary field. |
 | class | `FEniCSxBackend` | Current production backend for AgentFEM operator forms. |
 | function | `available_backends() -> tuple[str, ...]` | Return registered backend names without importing their dependencies. |
 | function | `backend_descriptors() -> tuple[BackendDescriptor, ...]` | Return descriptors for all registered backends. |
