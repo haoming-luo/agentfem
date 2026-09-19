@@ -34,6 +34,13 @@ it must not select a large penalty merely because it converges on one mesh.
 The existing `DecoupledFibrousShell` remains element-neutral and receives only
 objective point kinematics.
 
+For the initial no-slip layer, the exact constraint set is minimal: one scalar
+unit-director equation and two three-component equations equating the
+independent warp/weft fields to their convected reference directions. Fibre
+unit length and tangency are consequences and remain diagnostics, not extra
+multiplier equations. A future slip-enabled layer must declare a different
+constraint contract rather than weakening this one implicitly.
+
 A rotation-free neighbouring-element or C1/isogeometric provider may be added
 later behind the same constitutive and result contracts. It is an independent
 provider, not a second public modeling language.

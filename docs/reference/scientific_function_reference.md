@@ -848,6 +848,7 @@ Defines independent woven-surface tension, trellising-shear, and bending channel
 - `agentfem.mechanics.director_shell_kinematics`
 - `agentfem.mechanics.fiber_curve_kinematics`
 - `agentfem.mechanics.fibrous_shell_kinematics_ufl`
+- `agentfem.mechanics.fibrous_shell_compatibility_ufl`
 - `agentfem.mechanics.surface_deformation_gradient`
 - `agentfem.results.fabric_membrane_cell_fields`
 - `agentfem.results.fabric_stack_membrane_cell_fields`
@@ -951,6 +952,7 @@ study = studies.static_membrane(); model = models.create(study=study, mesh=domai
 - Verify pure local fibrous-shell modes, block-tangent symmetry, energy-channel additivity, and rejection of double-counted bending stiffness.
 - Verify that UFL differentiation of the nine-component symbolic shell potential exactly recovers every declared generalized resultant.
 - Verify that operator-side symbolic shell measures reproduce the local objective measures and remain invariant under a superposed rigid rotation.
+- Verify that the no-slip mixed-field contract vanishes for an exactly convected layer and detects director normalization and fibre-convection violations without redundant multiplier equations.
 - Keep shell, contact, and forming claims unavailable until their independent patch tests and benchmarks pass.
 
 ### References

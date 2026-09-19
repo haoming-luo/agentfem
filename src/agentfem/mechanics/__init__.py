@@ -38,9 +38,11 @@ from .plasticity import (
 from .shell import (
     DirectorShellKinematics,
     FiberCurveKinematics,
+    FibrousShellCompatibilityExpressions,
     FibrousShellKinematicsExpressions,
     director_shell_kinematics,
     fiber_curve_kinematics,
+    fibrous_shell_compatibility_ufl,
     fibrous_shell_kinematics_ufl,
     surface_deformation_gradient,
 )
@@ -63,6 +65,7 @@ __all__ = [
     "DirectHarmonicSweepStep",
     "DirectorShellKinematics",
     "FiberCurveKinematics",
+    "FibrousShellCompatibilityExpressions",
     "FibrousShellKinematicsExpressions",
     "ImplicitCreepStep",
     "ExperimentalFiniteStrainPlasticityStep",
@@ -92,6 +95,7 @@ __all__ = [
     "j2_plasticity_step",
     "director_shell_kinematics",
     "fiber_curve_kinematics",
+    "fibrous_shell_compatibility_ufl",
     "fibrous_shell_kinematics_ufl",
     "surface_deformation_gradient",
     "quasistatic_viscoelastic_step",

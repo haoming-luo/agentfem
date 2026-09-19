@@ -146,6 +146,38 @@ class FibrousShellKinematicsExpressions:
         )
 
 
+@dataclass(frozen=True)
+class FibrousShellCompatibilityExpressions:
+    """Minimal mixed-field compatibility residuals for a no-slip layer.
+
+    The residual contains one director-unit equation followed by the three
+    Cartesian convection equations for warp and weft.  Fibre unit length and
+    surface tangency are consequences of the vector convection equations and
+    are therefore diagnostics, not redundant multiplier constraints.
+    """
+
+    residual: object
+    director_unit: object
+    warp_convection: object
+    weft_convection: object
+    warp_unit_error: object
+    weft_unit_error: object
+    warp_tangency: object
+    weft_tangency: object
+
+    @property
+    def residual_order(self) -> tuple[str, ...]:
+        return (
+            "director_unit",
+            "warp_convection_x",
+            "warp_convection_y",
+            "warp_convection_z",
+            "weft_convection_x",
+            "weft_convection_y",
+            "weft_convection_z",
+        )
+
+
 def _ufl_matrix(value, *, name: str, shape: tuple[int, int]):
     import ufl
 
@@ -184,6 +216,22 @@ def _ufl_surface_normal(tangents):
     import ufl
 
     return _ufl_unit(ufl.cross(tangents[:, 0], tangents[:, 1]))
+
+
+def _ufl_surface_deformation(reference_tangents, current_tangents):
+    import ufl
+
+    reference_normal = _ufl_surface_normal(reference_tangents)
+    current_normal = _ufl_surface_normal(current_tangents)
+    reference_dual = ufl.dot(
+        reference_tangents,
+        ufl.inv(ufl.dot(ufl.transpose(reference_tangents), reference_tangents)),
+    )
+    deformation = ufl.dot(
+        current_tangents,
+        ufl.transpose(reference_dual),
+    ) + ufl.outer(current_normal, reference_normal)
+    return deformation, reference_normal, current_normal
 
 
 def _ufl_fibre_curvature(tangents, direction, gradient):
@@ -261,13 +309,7 @@ def fibrous_shell_kinematics_ufl(
         for index, item in enumerate(reference_gradients)
     )
 
-    reference_normal = _ufl_surface_normal(A)
-    current_normal = _ufl_surface_normal(a)
-    reference_dual = ufl.dot(A, ufl.inv(ufl.dot(ufl.transpose(A), A)))
-    surface_deformation = ufl.dot(a, ufl.transpose(reference_dual)) + ufl.outer(
-        current_normal,
-        reference_normal,
-    )
+    surface_deformation, _, current_normal = _ufl_surface_deformation(A, a)
     convected = tuple(surface_deformation * item for item in reference)
     stretches = tuple(ufl.sqrt(ufl.inner(item, item)) for item in convected)
     convected_units = tuple(item / stretch for item, stretch in zip(convected, stretches))
@@ -318,6 +360,61 @@ def fibrous_shell_kinematics_ufl(
         convected_weft=convected_units[1],
         current_normal=current_normal,
         area_ratio=current_area / reference_area,
+    )
+
+
+def fibrous_shell_compatibility_ufl(
+    reference_tangents,
+    current_tangents,
+    director,
+    *,
+    reference_fibers,
+    current_fibers,
+) -> FibrousShellCompatibilityExpressions:
+    """Return the minimal exact-constraint residual for mixed shell fields.
+
+    A future operator may pair this residual with Lagrange multipliers,
+    augmented multipliers, or a justified local condensation.  This function
+    intentionally chooses no enforcement strategy and introduces no penalty
+    scale.  Slip-enabled layers require a different explicit contract.
+    """
+
+    import ufl
+
+    A = _ufl_matrix(reference_tangents, name="reference_tangents", shape=(3, 2))
+    a = _ufl_matrix(current_tangents, name="current_tangents", shape=(3, 2))
+    d = _ufl_vector(director, name="director", size=3)
+    if len(reference_fibers) != 2 or len(current_fibers) != 2:
+        raise ValueError("reference_fibers and current_fibers must contain warp and weft.")
+    reference = tuple(
+        _ufl_unit(_ufl_vector(item, name=f"reference_fibers[{index}]", size=3))
+        for index, item in enumerate(reference_fibers)
+    )
+    current = tuple(
+        _ufl_vector(item, name=f"current_fibers[{index}]", size=3)
+        for index, item in enumerate(current_fibers)
+    )
+    surface_deformation, _, current_normal = _ufl_surface_deformation(A, a)
+    convected = tuple(_ufl_unit(surface_deformation * item) for item in reference)
+    warp_convection = current[0] - convected[0]
+    weft_convection = current[1] - convected[1]
+    director_unit = ufl.inner(d, d) - 1.0
+    residual = ufl.as_vector(
+        (
+            director_unit,
+            *warp_convection,
+            *weft_convection,
+        )
+    )
+    return FibrousShellCompatibilityExpressions(
+        residual=residual,
+        director_unit=director_unit,
+        warp_convection=warp_convection,
+        weft_convection=weft_convection,
+        warp_unit_error=ufl.inner(current[0], current[0]) - 1.0,
+        weft_unit_error=ufl.inner(current[1], current[1]) - 1.0,
+        warp_tangency=ufl.inner(current_normal, current[0]),
+        weft_tangency=ufl.inner(current_normal, current[1]),
     )
 
 
@@ -473,9 +570,11 @@ def director_shell_kinematics(
 __all__ = [
     "DirectorShellKinematics",
     "FiberCurveKinematics",
+    "FibrousShellCompatibilityExpressions",
     "FibrousShellKinematicsExpressions",
     "director_shell_kinematics",
     "fiber_curve_kinematics",
+    "fibrous_shell_compatibility_ufl",
     "fibrous_shell_kinematics_ufl",
     "surface_deformation_gradient",
 ]

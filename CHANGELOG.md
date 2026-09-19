@@ -26,6 +26,9 @@ experimental formulation to a validated one.
 - Add the matching objective UFL kinematic hand-off: surface displacement,
   material director, and independent warp/weft fields produce the fixed nine
   generalized measures while compatibility remains owned by the operator.
+- Define the no-slip mixed-field compatibility residual without a hidden
+  penalty: one unit-director equation and exact warp/weft convection, with
+  implied fibre unit length and tangency retained only as diagnostics.
 - Add `agentfem support`, a consent-first community invitation that performs no
   account action, checks an existing GitHub login only when explicitly asked,
   and remembers support locally without storing identity or credentials.

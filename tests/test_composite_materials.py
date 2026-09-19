@@ -518,6 +518,69 @@ def test_symbolic_fibrous_shell_kinematics_match_local_objective_measures():
     np.testing.assert_allclose(rotated_measures, assembled, atol=1.0e-13)
 
 
+def test_fibrous_shell_compatibility_uses_minimal_exact_residual():
+    domain = mesh.rectangle(
+        (0.0, 0.0),
+        (1.0, 1.0),
+        (1, 1),
+        comm=MPI.COMM_SELF,
+        cell_type="triangle",
+    )
+    measure = ufl.dx(domain=domain)
+    reference = np.array([[1.0, 0.0], [0.0, 1.0], [0.0, 0.0]])
+    current = np.array([[1.1, 0.2], [0.1, 0.9], [0.2, -0.1]])
+    reference_fibers = (np.array([1.0, 0.0, 0.0]), np.array([0.0, 1.0, 0.0]))
+    deformation = mechanics.surface_deformation_gradient(reference, current)
+    convected = tuple(
+        deformation @ direction / np.linalg.norm(deformation @ direction)
+        for direction in reference_fibers
+    )
+    director = np.array([-0.1, 0.2, 0.97])
+    director /= np.linalg.norm(director)
+    compatible = mechanics.fibrous_shell_compatibility_ufl(
+        reference,
+        current,
+        director,
+        reference_fibers=reference_fibers,
+        current_fibers=convected,
+    )
+    compatible_residual = np.array(
+        [
+            fem.assemble_scalar(fem.form(compatible.residual[i] * measure))
+            for i in range(7)
+        ]
+    )
+    np.testing.assert_allclose(compatible_residual, 0.0, atol=1.0e-13)
+    assert compatible.residual_order == (
+        "director_unit",
+        "warp_convection_x",
+        "warp_convection_y",
+        "warp_convection_z",
+        "weft_convection_x",
+        "weft_convection_y",
+        "weft_convection_z",
+    )
+
+    incompatible = mechanics.fibrous_shell_compatibility_ufl(
+        reference,
+        current,
+        1.1 * director,
+        reference_fibers=reference_fibers,
+        current_fibers=(1.2 * convected[0], convected[1]),
+    )
+    incompatible_residual = np.array(
+        [
+            fem.assemble_scalar(fem.form(incompatible.residual[i] * measure))
+            for i in range(7)
+        ]
+    )
+    assert incompatible_residual[0] == pytest.approx(0.21)
+    assert np.linalg.norm(incompatible_residual[1:4]) == pytest.approx(0.2)
+    assert fem.assemble_scalar(
+        fem.form(incompatible.warp_unit_error * measure)
+    ) == pytest.approx(0.44)
+
+
 def test_multilayer_fabric_stack_retains_varying_layer_frames_and_energy():
     tension = constitutive.tabulated_response(
         [0.0, 0.1], [0.0, 100.0], extrapolation="linear"

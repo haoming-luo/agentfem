@@ -252,6 +252,14 @@ does not enforce unit length, surface tangency or convection: those are the
 mixed operator's constraint equations and must pass their own patch and
 locking tests before a global shell Step is made public.
 
+For the first no-slip layer,
+`mechanics.fibrous_shell_compatibility_ufl(...)` exposes the minimal exact
+residual: one unit-director equation and two three-component fibre-convection
+equations. Unit length and surface tangency of each fibre are reported as
+diagnostics because they already follow from exact convection; adding them as
+extra multipliers would make the system redundantly constrained. The contract
+chooses no multiplier, augmentation, condensation or penalty strategy.
+
 For an embedded three-dimensional surface,
 `mechanics.surface_deformation_gradient(...)` supplies the objective lift used
 to convect the reference fibre frame. It maps the two reference tangents to
