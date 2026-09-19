@@ -66,6 +66,47 @@ class CellNeighborhood:
         }
 
 
+@dataclass(frozen=True)
+class InteriorFacetGeometry:
+    """Geometric scale and direction for one interior-facet cell pair."""
+
+    pair: InteriorFacetPair
+    facet_midpoint: tuple[float, ...]
+    cell_centroids: tuple[tuple[float, ...], tuple[float, ...]]
+    center_vector: tuple[float, ...]
+    center_distance: float
+    center_direction: tuple[float, ...]
+
+    def as_dict(self) -> dict[str, object]:
+        return {
+            "kind": "interior_facet_geometry",
+            "pair": self.pair.as_dict(),
+            "facet_midpoint": list(self.facet_midpoint),
+            "cell_centroids": [list(value) for value in self.cell_centroids],
+            "center_vector": list(self.center_vector),
+            "center_distance": self.center_distance,
+            "center_direction": list(self.center_direction),
+            "identity_scope": "runtime_partition",
+        }
+
+
+@dataclass(frozen=True)
+class CellNeighborhoodGeometry:
+    """Geometric evidence for every pair in a :class:`CellNeighborhood`."""
+
+    geometric_dimension: int
+    facets: tuple[InteriorFacetGeometry, ...]
+
+    def as_dict(self) -> dict[str, object]:
+        return {
+            "kind": "cell_neighborhood_geometry",
+            "geometric_dimension": self.geometric_dimension,
+            "interior_facet_count": len(self.facets),
+            "facets": [item.as_dict() for item in self.facets],
+            "identity_scope": "runtime_partition",
+        }
+
+
 def _local_facet_number(cell_to_facets, cell: int, facet: int) -> int:
     facets = np.asarray(cell_to_facets.links(cell), dtype=np.int64)
     locations = np.flatnonzero(facets == facet)
@@ -151,4 +192,73 @@ def cell_neighborhood(domain) -> CellNeighborhood:
     )
 
 
-__all__ = ["CellNeighborhood", "InteriorFacetPair", "cell_neighborhood"]
+def cell_neighborhood_geometry(
+    domain,
+    neighborhood: CellNeighborhood | None = None,
+) -> CellNeighborhoodGeometry:
+    """Attach centroids, facet midpoints, and pair distances to a neighborhood.
+
+    Distances are computed in the mesh embedding coordinates, so the same
+    contract works for planar meshes and two-dimensional surfaces embedded in
+    three dimensions.  No curvature or finite-difference rule is inferred.
+    """
+
+    from dolfinx import mesh as dolfinx_mesh
+
+    domain = getattr(domain, "domain", domain)
+    selected = cell_neighborhood(domain) if neighborhood is None else neighborhood
+    if not isinstance(selected, CellNeighborhood):
+        raise TypeError("neighborhood must be a CellNeighborhood.")
+    if selected.topological_dimension != int(domain.topology.dim):
+        raise ValueError("Neighborhood topological dimension does not match domain.")
+    gdim = int(domain.geometry.dim)
+    facets = []
+    for pair in selected.pairs:
+        cells = np.asarray(pair.cell_locals, dtype=np.int32)
+        facet = np.asarray((pair.facet_local,), dtype=np.int32)
+        centroids = np.asarray(
+            dolfinx_mesh.compute_midpoints(domain, domain.topology.dim, cells),
+            dtype=float,
+        )[:, :gdim]
+        midpoint = np.asarray(
+            dolfinx_mesh.compute_midpoints(
+                domain,
+                domain.topology.dim - 1,
+                facet,
+            ),
+            dtype=float,
+        )[0, :gdim]
+        vector = centroids[1] - centroids[0]
+        distance = float(np.linalg.norm(vector))
+        if not np.isfinite(distance) or distance <= np.finfo(float).eps:
+            raise RuntimeError(
+                "Adjacent cells must have distinct finite centroids for "
+                f"facet {pair.facet_local}."
+            )
+        facets.append(
+            InteriorFacetGeometry(
+                pair=pair,
+                facet_midpoint=tuple(float(value) for value in midpoint),
+                cell_centroids=tuple(
+                    tuple(float(value) for value in centroid)
+                    for centroid in centroids
+                ),
+                center_vector=tuple(float(value) for value in vector),
+                center_distance=distance,
+                center_direction=tuple(float(value / distance) for value in vector),
+            )
+        )
+    return CellNeighborhoodGeometry(
+        geometric_dimension=gdim,
+        facets=tuple(facets),
+    )
+
+
+__all__ = [
+    "CellNeighborhood",
+    "CellNeighborhoodGeometry",
+    "InteriorFacetGeometry",
+    "InteriorFacetPair",
+    "cell_neighborhood",
+    "cell_neighborhood_geometry",
+]

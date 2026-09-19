@@ -44,6 +44,37 @@ def test_quadrilateral_cell_neighborhood_has_one_shared_edge():
     assert all(0 <= value <= 3 for value in pair.cell_local_facets)
     assert pair.as_dict()["identity_scope"] == "runtime_partition"
 
+    geometry = mesh.cell_neighborhood_geometry(domain, evidence)
+    assert geometry.geometric_dimension == 2
+    assert len(geometry.facets) == 1
+    shared = geometry.facets[0]
+    assert shared.facet_midpoint == (0.5, 0.5)
+    assert shared.cell_centroids == ((0.25, 0.5), (0.75, 0.5))
+    assert shared.center_vector == (0.5, 0.0)
+    assert shared.center_distance == 0.5
+    assert shared.center_direction == (1.0, 0.0)
+
+
+def test_neighborhood_geometry_is_translation_invariant():
+    first = dolfinx_mesh.create_rectangle(
+        MPI.COMM_SELF,
+        ((0.0, 0.0), (2.0, 1.0)),
+        (2, 1),
+        cell_type=dolfinx_mesh.CellType.quadrilateral,
+    )
+    shifted = dolfinx_mesh.create_rectangle(
+        MPI.COMM_SELF,
+        ((3.0, -4.0), (5.0, -3.0)),
+        (2, 1),
+        cell_type=dolfinx_mesh.CellType.quadrilateral,
+    )
+    original = mesh.cell_neighborhood_geometry(first).facets[0]
+    translated = mesh.cell_neighborhood_geometry(shifted).facets[0]
+
+    assert translated.center_vector == original.center_vector
+    assert translated.center_distance == original.center_distance
+    assert translated.center_direction == original.center_direction
+
 
 def test_fem_mesh_facade_is_accepted():
     domain = dolfinx_mesh.create_unit_interval(MPI.COMM_SELF, 3)

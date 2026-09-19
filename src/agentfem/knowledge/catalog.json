@@ -961,8 +961,11 @@
       "kind": "workflow",
       "public_api": [
         "agentfem.mesh.CellNeighborhood",
+        "agentfem.mesh.CellNeighborhoodGeometry",
+        "agentfem.mesh.InteriorFacetGeometry",
         "agentfem.mesh.InteriorFacetPair",
-        "agentfem.mesh.cell_neighborhood"
+        "agentfem.mesh.cell_neighborhood",
+        "agentfem.mesh.cell_neighborhood_geometry"
       ],
       "related_cards": [
         "agentfem.material.fabric_surface_constitutive",

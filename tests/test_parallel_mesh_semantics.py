@@ -45,6 +45,9 @@ def test_cell_neighborhood_keeps_partition_interface_pairs_complete():
     assert cross_partition > 0
     assert len(flattened) == len(set(flattened))
     assert all(len(pair.cell_globals) == 2 for pair in neighborhood.pairs)
+    geometry = mesh.cell_neighborhood_geometry(domain, neighborhood)
+    assert len(geometry.facets) == neighborhood.owned_interior_facets
+    assert all(item.center_distance > 0.0 for item in geometry.facets)
 
 
 def test_distributed_abaqus_regions_quality_and_remote_resultant():

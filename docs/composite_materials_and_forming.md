@@ -299,7 +299,12 @@ neighbouring-element based. `mesh.cell_neighborhood(...)` supplies its first
 shared primitive: every owned interior facet is paired with both adjacent
 cells and both cell-local facet positions, including ghost-cell adjacency at
 MPI partition interfaces. This topology is also reusable by DG, estimator and
-fracture algorithms. It is not yet a curvature reconstruction or shell Step.
+fracture algorithms. `mesh.cell_neighborhood_geometry(...)` adds the two cell
+centroids, facet midpoint, center vector, distance and direction in embedding
+coordinates without choosing a finite-difference rule. These quantities are
+translation invariant and give a future curvature reconstruction an explicit,
+auditable length scale. They are not yet a curvature reconstruction or shell
+Step.
 Naive mixed P1/DG0 and P2/DG1 compatibility pairs were rejected after losing
 rank under refinement; full-rank P2/CG1 and P2/DG0 candidates still showed a
 decaying normalized inf-sup value in the tested H1/L2 norms. Those negative

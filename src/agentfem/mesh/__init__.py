@@ -24,7 +24,14 @@ from . import abaqus
 from . import selectors as select
 from .specs import SUPPORTED_GEOMETRIES, from_geometry_spec
 from .regions import RegionSet
-from .neighborhood import CellNeighborhood, InteriorFacetPair, cell_neighborhood
+from .neighborhood import (
+    CellNeighborhood,
+    CellNeighborhoodGeometry,
+    InteriorFacetGeometry,
+    InteriorFacetPair,
+    cell_neighborhood,
+    cell_neighborhood_geometry,
+)
 from .selectors import Selector, ball, box, disk, layer, plane, where
 
 if TYPE_CHECKING:
