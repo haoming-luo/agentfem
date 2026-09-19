@@ -37,6 +37,9 @@ experimental formulation to a validated one.
   the normalized constraint spectrum and rank for one mixed discretization
   plus a three-or-more-level study contract with minimum-beta and endpoint-
   decay evidence and caller-declared acceptance thresholds.
+- Add partition-aware interior-facet cell neighbourhoods with both cell-local
+  facet positions and verified ghost adjacency, establishing the shared
+  topology foundation for rotation-free neighbouring-element shells and DG.
 - Add `agentfem support`, a consent-first community invitation that performs no
   account action, checks an existing GitHub login only when explicitly asked,
   and remembers support locally without storing identity or credentials.

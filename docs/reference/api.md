@@ -99,6 +99,9 @@ and evidence remain in the linked guides and scientific function reference.
 | function | `tagged_boundary_measure(domain, marker, tag: int)` | Locate/tag exterior facets and return ``(ds, facet_tags)``. |
 | function | `from_geometry_spec(specification: Mapping[str, object], *, resolution: int = 32, comm: MPI.Comm = MPI.COMM_WORLD)` | Create an :class:`agentfem.mesh.FEMMesh` from a public geometry spec. |
 | class | `RegionSet` | Named collection of regions sharing one mesh tag object. |
+| class | `CellNeighborhood` | Owned interior-facet adjacency plus explicit partition evidence. |
+| class | `InteriorFacetPair` | Two cells adjacent to one owned interior facet on the current partition. |
+| function | `cell_neighborhood(domain) -> CellNeighborhood` | Return every owned interior facet and its two adjacent cells. |
 | class | `Selector` | Boolean selector evaluated on coordinate arrays. |
 | function | `ball(center, radius: float) -> Selector` | Select points inside a 3D ball. |
 | function | `box(lower, upper) -> Selector` | Select points inside an axis-aligned box. |

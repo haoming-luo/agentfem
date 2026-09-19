@@ -41,6 +41,7 @@ the compact machine-readable `agentfem/knowledge/catalog.json`.
 | [`agentfem.workflow.abaqus_engineering_regions`](#agentfem-workflow-abaqus_engineering_regions) | Abaqus node, element, and element-face sets as FEM regions | workflow | supported |
 | [`agentfem.workflow.abaqus_reviewed_migration`](#agentfem-workflow-abaqus_reviewed_migration) | Reviewed Abaqus model and user-material migration | workflow | experimental |
 | [`agentfem.workflow.campaign_learning_pipeline`](#agentfem-workflow-campaign_learning_pipeline) | Simulation campaign to guarded learning workflow | workflow | supported |
+| [`agentfem.workflow.cell_neighborhood_topology`](#agentfem-workflow-cell_neighborhood_topology) | Partition-aware cell neighborhood topology | workflow | experimental |
 | [`agentfem.workflow.cohesive_state_portability`](#agentfem-workflow-cohesive_state_portability) | Physical-keyed cohesive state across MPI partitions | workflow | experimental |
 | [`agentfem.workflow.composite_orientation_and_laminate`](#agentfem-workflow-composite_orientation_and_laminate) | Composite material frames and laminate sections | workflow | experimental |
 | [`agentfem.workflow.coordinate_reference_coupling`](#agentfem-workflow-coordinate_reference_coupling) | Local coordinates and reference-point continuum coupling | workflow | supported |
@@ -3245,6 +3246,94 @@ dataset = report.require_dataset(quality='engineering'); training = surrogates.t
 ### References
 
 - AgentFEM results and campaigns contract: `docs/results_and_campaigns.md`
+
+<a id="agentfem-workflow-cell_neighborhood_topology"></a>
+
+## Partition-aware cell neighborhood topology
+
+**Stable ID:** `agentfem.workflow.cell_neighborhood_topology`<br>
+**Kind:** `workflow`<br>
+**Status:** `experimental`<br>
+**Source card:** `src/agentfem/knowledge/cards/cell_neighborhood_topology.json`
+
+Enumerates each owned interior facet with both adjacent cells and both cell-local facet positions, including ghost-cell evidence at MPI partition interfaces, for neighboring-element, DG, estimator and fracture algorithms.
+
+### Public API
+
+- `agentfem.mesh.CellNeighborhood`
+- `agentfem.mesh.InteriorFacetPair`
+- `agentfem.mesh.cell_neighborhood`
+
+### Scientific contract
+
+An interior facet is an operator stencil joining exactly two manifold cells; a partition interface must retain that two-cell meaning through ghost adjacency and must never be silently reclassified as an exterior boundary.
+
+**manifold interior-facet adjacency**
+
+$$
+|\mathcal{C}(f)|=2\quad\text{for every interior facet }f
+$$
+
+The two-cell stencil must remain complete when one adjacent cell is a ghost on the current MPI rank.
+
+#### Inputs
+
+| Name | Type | Unit role | Meaning |
+| --- | --- | --- | --- |
+| domain | DOLFINx mesh or AgentFEM FEMMesh | topology | The mesh supplies facet-to-cell and cell-to-facet connectivity, including ghost cells at partition interfaces. |
+
+#### Outputs
+
+| Name | Type | Unit role | Meaning |
+| --- | --- | --- | --- |
+| cell neighborhood | owned interior-facet pairs and partition evidence | runtime topology | Each pair records runtime local/global facet and cell indices plus the local facet number in both adjacent cells. |
+
+#### Assumptions
+
+- The domain is a manifold mesh with one cell at an exterior facet and two cells at an interior facet.
+- Distributed meshes include the ghost-cell adjacency required by the consuming operator.
+
+#### Conventions
+
+- Only owned facets are emitted, so each global interior facet is represented once across MPI ranks.
+- Cell pairs are ordered by runtime global cell index for deterministic local execution.
+
+#### Applicability
+
+- Rotation-free neighboring-element shells, discontinuous Galerkin operators, local error estimation and crack-neighborhood algorithms.
+
+#### Limitations
+
+- Runtime global indices depend on the mesh partition and are not scientific model identity or restart identity.
+- The contract exposes topology only; it does not reconstruct gradients, define a shell curvature, or promote a forming solver.
+
+### Minimal example
+
+```python
+neighborhood = mesh.cell_neighborhood(domain)
+```
+
+### Verification
+
+**Tests**
+
+- `tests/test_mesh_neighborhood.py`
+- `tests/test_parallel_mesh_semantics.py`
+
+**Benchmarks**
+
+- None declared.
+
+**Validation rules**
+
+- Recover exact interior and exterior facet counts on triangle and quadrilateral meshes.
+- Retain both local-facet positions and deterministic cell ordering.
+- Under two MPI ranks, count every global interior facet exactly once and retain a ghost adjacent cell across partition interfaces.
+
+### References
+
+- Bai et al. (2024), Influence of in-plane bending behaviour on textile composite reinforcement forming: `https://doi.org/10.1016/j.ijmecsci.2024.109206`
+- Steer et al. (2021), rotation-free in-plane bending of fibrous reinforcements: `https://doi.org/10.1016/j.ijsolstr.2021.03.001`
 
 <a id="agentfem-workflow-cohesive_state_portability"></a>
 

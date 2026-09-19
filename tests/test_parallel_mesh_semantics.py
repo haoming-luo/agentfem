@@ -6,9 +6,45 @@ import uuid
 
 import numpy as np
 import pytest
+from dolfinx import mesh as dolfinx_mesh
 from mpi4py import MPI
 
 from agentfem import constraints, fields, loads, mesh, results
+
+
+def test_cell_neighborhood_keeps_partition_interface_pairs_complete():
+    comm = MPI.COMM_WORLD
+    if comm.size < 2:
+        pytest.skip("partition-neighborhood evidence requires at least two ranks")
+    domain = dolfinx_mesh.create_unit_square(comm, 4, 2)
+    neighborhood = mesh.cell_neighborhood(domain)
+    owned_cells = int(domain.topology.index_map(domain.topology.dim).size_local)
+
+    global_interior = comm.allreduce(
+        neighborhood.owned_interior_facets,
+        op=MPI.SUM,
+    )
+    global_exterior = comm.allreduce(
+        neighborhood.owned_exterior_facets,
+        op=MPI.SUM,
+    )
+    cross_partition = comm.allreduce(
+        sum(
+            any(cell >= owned_cells for cell in pair.cell_locals)
+            for pair in neighborhood.pairs
+        ),
+        op=MPI.SUM,
+    )
+    facet_ids = comm.allgather(
+        tuple(pair.facet_global for pair in neighborhood.pairs)
+    )
+    flattened = tuple(value for rank_ids in facet_ids for value in rank_ids)
+
+    assert global_interior == 18
+    assert global_exterior == 12
+    assert cross_partition > 0
+    assert len(flattened) == len(set(flattened))
+    assert all(len(pair.cell_globals) == 2 for pair in neighborhood.pairs)
 
 
 def test_distributed_abaqus_regions_quality_and_remote_resultant():

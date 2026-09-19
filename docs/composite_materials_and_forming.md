@@ -294,6 +294,18 @@ diagnostics because they already follow from exact convection; adding them as
 extra multipliers would make the system redundantly constrained. The contract
 chooses no multiplier, augmentation, condensation or penalty strategy.
 
+The first global discretization track is now explicitly rotation-free and
+neighbouring-element based. `mesh.cell_neighborhood(...)` supplies its first
+shared primitive: every owned interior facet is paired with both adjacent
+cells and both cell-local facet positions, including ghost-cell adjacency at
+MPI partition interfaces. This topology is also reusable by DG, estimator and
+fracture algorithms. It is not yet a curvature reconstruction or shell Step.
+Naive mixed P1/DG0 and P2/DG1 compatibility pairs were rejected after losing
+rank under refinement; full-rank P2/CG1 and P2/DG0 candidates still showed a
+decaying normalized inf-sup value in the tested H1/L2 norms. Those negative
+results are retained in the architecture decision rather than hidden behind a
+penalty constant.
+
 For an embedded three-dimensional surface,
 `mechanics.surface_deformation_gradient(...)` supplies the objective lift used
 to convect the reference fibre frame. It maps the two reference tangents to
@@ -354,14 +366,16 @@ The automated local evidence currently checks:
 - the woven membrane is selected by the standard Step provider, solves a
   nonzero traction patch, and reports positive Jacobian and stored energy;
 - membrane lowering rejects a nonzero bending law rather than hiding it.
+- serial triangle/quadrilateral and two-rank meshes preserve exact interior-
+  facet neighbourhoods without mistaking a partition interface for a boundary.
 
 No shell element patch test, contact benchmark, or drape experiment has yet
 promoted this membrane foundation to a forming-capable fibrous shell.
 
 ## Promotion roadmap
 
-1. **Fibrous shell kernel:** mixed displacement/director or independently
-   justified rotation-free interpolation; membrane, transverse-shear,
+1. **Fibrous shell kernel:** neighbouring-element rotation-free interpolation;
+   membrane, transverse-shear,
    in-plane-bending and normal-bending patch tests; documented locking control.
 2. **Forming procedure:** tool geometry, unilateral contact, friction,
    blank-holder loads, inter-ply slip, quasi-static explicit energy controls,

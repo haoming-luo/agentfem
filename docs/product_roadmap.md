@@ -178,9 +178,12 @@ Deepen the finite-element core before broadening the catalog:
   fibrous-shell law now owns independent membrane, transverse-shear,
   in-plane-bending and normal-bending energy/tangent blocks, while explicit
   forming-limit assessments report utilization without claiming to predict
-  wrinkles. The next promotion sequence is a mixed displacement/director or
-  independently justified rotation-free shell with locking control and
-  membrane/transverse-shear/in-plane-bending/normal-bending patch tests,
+  wrinkles. A partition-aware cell-neighbourhood contract now provides the
+  MPI-safe topology for the first rotation-free neighbouring-element route;
+  naive mixed interpolation pairs that lost rank or exhibited a decaying
+  normalized inf-sup value remain rejected evidence. The next promotion
+  sequence is curvature reconstruction, locking control and membrane/
+  transverse-shear/in-plane-bending/normal-bending patch tests,
   followed by tool contact, friction, inter-ply slip, quasi-static explicit
   controls, per-layer output, and independent forming experiments. A verified
   manufacturing-to-structure mapping of orientation, thickness and defect

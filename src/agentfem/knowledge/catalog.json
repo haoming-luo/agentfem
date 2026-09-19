@@ -957,6 +957,23 @@
       "title": "Simulation campaign to guarded learning workflow"
     },
     {
+      "id": "agentfem.workflow.cell_neighborhood_topology",
+      "kind": "workflow",
+      "public_api": [
+        "agentfem.mesh.CellNeighborhood",
+        "agentfem.mesh.InteriorFacetPair",
+        "agentfem.mesh.cell_neighborhood"
+      ],
+      "related_cards": [
+        "agentfem.material.fabric_surface_constitutive",
+        "agentfem.verification.discrete_inf_sup_evidence"
+      ],
+      "source": "src/agentfem/knowledge/cards/cell_neighborhood_topology.json",
+      "status": "experimental",
+      "summary": "Enumerates each owned interior facet with both adjacent cells and both cell-local facet positions, including ghost-cell evidence at MPI partition interfaces, for neighboring-element, DG, estimator and fracture algorithms.",
+      "title": "Partition-aware cell neighborhood topology"
+    },
+    {
       "id": "agentfem.workflow.cohesive_state_portability",
       "kind": "workflow",
       "public_api": [
