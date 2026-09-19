@@ -1,0 +1,95 @@
+{
+  "schema": "agentfem.scientific-function-card",
+  "schema_version": "0.1.0",
+  "id": "agentfem.operator.fibrous_shell_curvature_reconstruction",
+  "title": "Neighbor-reconstructed fibre curvature",
+  "kind": "operator",
+  "status": "experimental",
+  "summary": "Reconstructs a three-dimensional unit-fibre direction gradient on a two-dimensional parameter mesh, then separates signed in-plane and normal fibre curvature with rank, conditioning, objectivity and mesh-convergence evidence.",
+  "public_api": [
+    "agentfem.mechanics.ReconstructedFiberCurvature",
+    "agentfem.mechanics.reconstruct_fiber_curvature"
+  ],
+  "implementation": [
+    "mechanics/shell.py",
+    "mesh/reconstruction.py"
+  ],
+  "science": {
+    "statement": "The material directional derivative of a unit fibre is reconstructed from a ghost-complete cell neighborhood and decomposed along the in-surface normal-to-fibre direction and the surface normal; it is a discrete kinematic input, not yet shell equilibrium.",
+    "equations": [
+      {
+        "label": "fibre curvature components",
+        "expression": "\\kappa_g=(\\nabla_s\\mathbf{a})\\mathbf{a}\\cdot(\\mathbf{n}\\times\\mathbf{a}),\\qquad \\kappa_n=(\\nabla_s\\mathbf{a})\\mathbf{a}\\cdot\\mathbf{n}",
+        "description": "The derivative component parallel to the unit fibre is removed before the signed decomposition."
+      }
+    ],
+    "inputs": [
+      {
+        "name": "cell fibre directions and surface tangents",
+        "type": "one 3-vector and one 3x2 tangent matrix per local/ghost cell",
+        "unit_role": "dimensionless direction and current surface geometry",
+        "description": "The first adapter consumes a two-dimensional parameter mesh and requires synchronized ghost values."
+      }
+    ],
+    "outputs": [
+      {
+        "name": "reconstructed fibre curvature",
+        "type": "owned-cell direction gradients, in-plane curvature, normal curvature and reconstruction evidence",
+        "unit_role": "inverse length",
+        "description": "Neighbor count, rank and condition number remain attached to the reported kinematics."
+      }
+    ],
+    "assumptions": [
+      "The current fibre direction is nonzero, unit-normalizable and tangent to the supplied current surface.",
+      "The local cell-neighbor stencil spans the two-dimensional parameter domain with acceptable conditioning."
+    ],
+    "conventions": [
+      "Positive in-plane curvature is along surface-normal cross fibre; positive normal curvature is along the surface normal.",
+      "The first adapter is defined on a 2D parameter mesh with 3D physical fibre and tangent data."
+    ],
+    "applicability": [
+      "Rotation-free fibrous-shell patch studies and future neighboring-element forming operators."
+    ],
+    "limitations": [
+      "No bending energy, virtual work, boundary moment, nonlinear equilibrium or shell Step is provided yet.",
+      "Direct reconstruction on arbitrary two-manifolds embedded as three-dimensional mesh coordinates remains a separate gate.",
+      "Cell-center reconstruction must be converged for the field and mesh family used by a scientific claim."
+    ]
+  },
+  "usage": {
+    "minimal_example": "curvature = mechanics.reconstruct_fiber_curvature(domain, cell_directions, cell_tangents)",
+    "examples": [
+      "tests/test_fibrous_shell_reconstruction.py"
+    ]
+  },
+  "verification": {
+    "tests": [
+      "tests/test_fibrous_shell_reconstruction.py",
+      "tests/test_mesh_neighborhood.py",
+      "tests/test_parallel_mesh_semantics.py"
+    ],
+    "benchmarks": [],
+    "validation_rules": [
+      "Preserve in-plane and normal curvature under an arbitrary superposed three-dimensional rigid rotation.",
+      "Keep normal curvature at zero for an in-plane rotating fibre field.",
+      "For the smooth field a=(cos(0.8x), sin(0.8x), 0), reduce relative in-plane-curvature error from approximately 1.50e-2 to 3.86e-3 to 9.75e-4 on 4x4, 8x8 and 16x16 quadrilateral meshes.",
+      "On two MPI ranks, retain ghost-complete reconstruction of a nonlinear rotating fibre field across the partition interface.",
+      "Reject unsupported mesh-coordinate contracts and rank-deficient or ill-conditioned reconstruction stencils."
+    ]
+  },
+  "references": [
+    {
+      "title": "Bai et al. (2024), Influence of in-plane bending behaviour on textile composite reinforcement forming",
+      "locator": "https://doi.org/10.1016/j.ijmecsci.2024.109206"
+    },
+    {
+      "title": "Steer et al. (2021), Modeling and analysis of in-plane bending in fibrous reinforcements with rotation-free shell finite elements",
+      "locator": "https://doi.org/10.1016/j.ijsolstr.2021.03.001"
+    }
+  ],
+  "related_cards": [
+    "agentfem.material.fabric_surface_constitutive",
+    "agentfem.workflow.cell_neighborhood_topology",
+    "agentfem.verification.discrete_inf_sup_evidence"
+  ]
+}

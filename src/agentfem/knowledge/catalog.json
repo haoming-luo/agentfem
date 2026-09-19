@@ -822,6 +822,23 @@
       "title": "Linear elastic foundation reaction and energy ownership"
     },
     {
+      "id": "agentfem.operator.fibrous_shell_curvature_reconstruction",
+      "kind": "operator",
+      "public_api": [
+        "agentfem.mechanics.ReconstructedFiberCurvature",
+        "agentfem.mechanics.reconstruct_fiber_curvature"
+      ],
+      "related_cards": [
+        "agentfem.material.fabric_surface_constitutive",
+        "agentfem.workflow.cell_neighborhood_topology",
+        "agentfem.verification.discrete_inf_sup_evidence"
+      ],
+      "source": "src/agentfem/knowledge/cards/fibrous_shell_curvature_reconstruction.json",
+      "status": "experimental",
+      "summary": "Reconstructs a three-dimensional unit-fibre direction gradient on a two-dimensional parameter mesh, then separates signed in-plane and normal fibre curvature with rank, conditioning, objectivity and mesh-convergence evidence.",
+      "title": "Neighbor-reconstructed fibre curvature"
+    },
+    {
       "id": "agentfem.operator.incompressible_flow",
       "kind": "operator",
       "public_api": [

@@ -34,6 +34,7 @@ the compact machine-readable `agentfem/knowledge/catalog.json`.
 | [`agentfem.material.solver_neutral_user_material_contract`](#agentfem-material-solver_neutral_user_material_contract) | Solver-neutral finite-strain user-material contract | material | contract_only |
 | [`agentfem.operator.biharmonic_split`](#agentfem-operator-biharmonic_split) | Biharmonic split operators and boundary closure | operator | supported |
 | [`agentfem.operator.elastic_foundation_reaction`](#agentfem-operator-elastic_foundation_reaction) | Linear elastic foundation reaction and energy ownership | operator | supported |
+| [`agentfem.operator.fibrous_shell_curvature_reconstruction`](#agentfem-operator-fibrous_shell_curvature_reconstruction) | Neighbor-reconstructed fibre curvature | operator | experimental |
 | [`agentfem.operator.incompressible_flow`](#agentfem-operator-incompressible_flow) | Mixed incompressible-flow fields and operators | operator | supported |
 | [`agentfem.operator.scalar_transport_reaction`](#agentfem-operator-scalar_transport_reaction) | Scalar transport and reaction operators | operator | supported |
 | [`agentfem.operator.system_contracts`](#agentfem-operator-system_contracts) | Finite-element operator and system contracts | operator | supported |
@@ -2518,6 +2519,97 @@ result = model.step(target=displacement).solve_result(output='foundation.xdmf')
 - Abaqus Element Foundations: `https://docs.software.vt.edu/abaqusv2025/English/SIMACAEMODRefMap/simamod-c-foundation.htm`
 - COMSOL Elastic Energy: `https://doc.comsol.com/6.4/doc/com.comsol.help.sme/sme_ug_theory.06.125.html`
 - COMSOL Spring Foundation and Thin Elastic Layer: `https://doc.comsol.com/6.4/doc/com.comsol.help.sme/sme_ug_theory.06.068.html`
+
+<a id="agentfem-operator-fibrous_shell_curvature_reconstruction"></a>
+
+## Neighbor-reconstructed fibre curvature
+
+**Stable ID:** `agentfem.operator.fibrous_shell_curvature_reconstruction`<br>
+**Kind:** `operator`<br>
+**Status:** `experimental`<br>
+**Source card:** `src/agentfem/knowledge/cards/fibrous_shell_curvature_reconstruction.json`
+
+Reconstructs a three-dimensional unit-fibre direction gradient on a two-dimensional parameter mesh, then separates signed in-plane and normal fibre curvature with rank, conditioning, objectivity and mesh-convergence evidence.
+
+### Public API
+
+- `agentfem.mechanics.ReconstructedFiberCurvature`
+- `agentfem.mechanics.reconstruct_fiber_curvature`
+
+### Scientific contract
+
+The material directional derivative of a unit fibre is reconstructed from a ghost-complete cell neighborhood and decomposed along the in-surface normal-to-fibre direction and the surface normal; it is a discrete kinematic input, not yet shell equilibrium.
+
+**fibre curvature components**
+
+$$
+\kappa_g=(\nabla_s\mathbf{a})\mathbf{a}\cdot(\mathbf{n}\times\mathbf{a}),\qquad \kappa_n=(\nabla_s\mathbf{a})\mathbf{a}\cdot\mathbf{n}
+$$
+
+The derivative component parallel to the unit fibre is removed before the signed decomposition.
+
+#### Inputs
+
+| Name | Type | Unit role | Meaning |
+| --- | --- | --- | --- |
+| cell fibre directions and surface tangents | one 3-vector and one 3x2 tangent matrix per local/ghost cell | dimensionless direction and current surface geometry | The first adapter consumes a two-dimensional parameter mesh and requires synchronized ghost values. |
+
+#### Outputs
+
+| Name | Type | Unit role | Meaning |
+| --- | --- | --- | --- |
+| reconstructed fibre curvature | owned-cell direction gradients, in-plane curvature, normal curvature and reconstruction evidence | inverse length | Neighbor count, rank and condition number remain attached to the reported kinematics. |
+
+#### Assumptions
+
+- The current fibre direction is nonzero, unit-normalizable and tangent to the supplied current surface.
+- The local cell-neighbor stencil spans the two-dimensional parameter domain with acceptable conditioning.
+
+#### Conventions
+
+- Positive in-plane curvature is along surface-normal cross fibre; positive normal curvature is along the surface normal.
+- The first adapter is defined on a 2D parameter mesh with 3D physical fibre and tangent data.
+
+#### Applicability
+
+- Rotation-free fibrous-shell patch studies and future neighboring-element forming operators.
+
+#### Limitations
+
+- No bending energy, virtual work, boundary moment, nonlinear equilibrium or shell Step is provided yet.
+- Direct reconstruction on arbitrary two-manifolds embedded as three-dimensional mesh coordinates remains a separate gate.
+- Cell-center reconstruction must be converged for the field and mesh family used by a scientific claim.
+
+### Minimal example
+
+```python
+curvature = mechanics.reconstruct_fiber_curvature(domain, cell_directions, cell_tangents)
+```
+
+### Verification
+
+**Tests**
+
+- `tests/test_fibrous_shell_reconstruction.py`
+- `tests/test_mesh_neighborhood.py`
+- `tests/test_parallel_mesh_semantics.py`
+
+**Benchmarks**
+
+- None declared.
+
+**Validation rules**
+
+- Preserve in-plane and normal curvature under an arbitrary superposed three-dimensional rigid rotation.
+- Keep normal curvature at zero for an in-plane rotating fibre field.
+- For the smooth field a=(cos(0.8x), sin(0.8x), 0), reduce relative in-plane-curvature error from approximately 1.50e-2 to 3.86e-3 to 9.75e-4 on 4x4, 8x8 and 16x16 quadrilateral meshes.
+- On two MPI ranks, retain ghost-complete reconstruction of a nonlinear rotating fibre field across the partition interface.
+- Reject unsupported mesh-coordinate contracts and rank-deficient or ill-conditioned reconstruction stencils.
+
+### References
+
+- Bai et al. (2024), Influence of in-plane bending behaviour on textile composite reinforcement forming: `https://doi.org/10.1016/j.ijmecsci.2024.109206`
+- Steer et al. (2021), Modeling and analysis of in-plane bending in fibrous reinforcements with rotation-free shell finite elements: `https://doi.org/10.1016/j.ijsolstr.2021.03.001`
 
 <a id="agentfem-operator-incompressible_flow"></a>
 

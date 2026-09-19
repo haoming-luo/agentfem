@@ -965,10 +965,12 @@ and evidence remain in the linked guides and scientific function reference.
 | function | `j2_plasticity_step(*, displacement, material, external_force, constraints = (), study = None, incrementation = None, solver_options = None, quadrature_degree: int = 2, progress = True, status_file = None, amplitude = None, name: str = 'j2_plasticity', _experimental_distributed: bool = False) -> J2PlasticityStep` | Build a global 3D or axisymmetric J2 step. |
 | class | `DirectorShellKinematics` | Finite-rotation surface measures at one material point. |
 | class | `FiberCurveKinematics` | Objective bending measures for one material fibre curve. |
+| class | `ReconstructedFiberCurvature` | Owned-cell fibre curvatures plus neighbour reconstruction evidence. |
 | class | `FibrousShellCompatibilityExpressions` | Minimal mixed-field compatibility residuals for a no-slip layer. |
 | class | `FibrousShellKinematicsExpressions` | Symbolic operator-owned measures consumed by a fibrous-shell law. |
 | function | `director_shell_kinematics(reference_tangents, current_tangents, director, *, director_gradient = None, reference_director = None, reference_director_gradient = None) -> DirectorShellKinematics` | Evaluate objective membrane, shear, and curvature measures. |
 | function | `fiber_curve_kinematics(reference_tangents, current_tangents, reference_direction, current_direction, *, current_direction_gradient, reference_direction_gradient = None) -> FiberCurveKinematics` | Evaluate in-plane and normal curvature changes of one fibre family. |
+| function | `reconstruct_fiber_curvature(domain, current_directions, current_tangents, *, rings: int = 2, weight_power: float = 1.0, condition_limit: float = 10000000000.0) -> ReconstructedFiberCurvature` | Reconstruct in-plane and normal fibre curvature on owned cells. |
 | function | `fibrous_shell_compatibility_ufl(reference_tangents, current_tangents, director, *, reference_fibers, current_fibers) -> FibrousShellCompatibilityExpressions` | Return the minimal exact-constraint residual for mixed shell fields. |
 | function | `fibrous_shell_kinematics_ufl(reference_tangents, current_tangents, director, *, reference_fibers, current_fibers, current_fiber_gradients, reference_director = None, reference_fiber_gradients = None) -> FibrousShellKinematicsExpressions` | Build the nine objective fibrous-shell measures as UFL expressions. |
 | function | `surface_deformation_gradient(reference_tangents, current_tangents) -> np.ndarray` | Return the three-dimensional tangential deformation lift. |

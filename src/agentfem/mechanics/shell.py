@@ -116,6 +116,44 @@ class FiberCurveKinematics:
 
 
 @dataclass(frozen=True)
+class ReconstructedFiberCurvature:
+    """Owned-cell fibre curvatures plus neighbour reconstruction evidence."""
+
+    direction_gradients: np.ndarray
+    in_plane_curvature: np.ndarray
+    normal_curvature: np.ndarray
+    reconstruction: object
+
+    def __post_init__(self) -> None:
+        gradients = np.asarray(self.direction_gradients, dtype=float)
+        in_plane = np.asarray(self.in_plane_curvature, dtype=float)
+        normal = np.asarray(self.normal_curvature, dtype=float)
+        if gradients.ndim != 3 or gradients.shape[1:] != (3, 2):
+            raise ValueError("direction_gradients must have shape (cells, 3, 2).")
+        if in_plane.shape != (gradients.shape[0],) or normal.shape != in_plane.shape:
+            raise ValueError("Curvature arrays require one scalar per owned cell.")
+        if not all(np.all(np.isfinite(value)) for value in (gradients, in_plane, normal)):
+            raise ValueError("Reconstructed fibre curvature must be finite.")
+        object.__setattr__(self, "direction_gradients", gradients.copy())
+        object.__setattr__(self, "in_plane_curvature", in_plane.copy())
+        object.__setattr__(self, "normal_curvature", normal.copy())
+
+    def as_dict(self) -> dict[str, object]:
+        return {
+            "kind": "reconstructed_fiber_curvature",
+            "owned_cells": int(self.in_plane_curvature.size),
+            "in_plane_curvature": self.in_plane_curvature.tolist(),
+            "normal_curvature": self.normal_curvature.tolist(),
+            "sign_convention": {
+                "in_plane": "positive_along_surface_normal_cross_fiber",
+                "normal": "positive_along_surface_normal",
+            },
+            "reconstruction": self.reconstruction.as_dict(),
+            "maturity": "discrete_kinematic_foundation_not_shell_equilibrium",
+        }
+
+
+@dataclass(frozen=True)
 class FibrousShellKinematicsExpressions:
     """Symbolic operator-owned measures consumed by a fibrous-shell law.
 
@@ -486,6 +524,69 @@ def fiber_curve_kinematics(
     )
 
 
+def reconstruct_fiber_curvature(
+    domain,
+    current_directions,
+    current_tangents,
+    *,
+    rings: int = 2,
+    weight_power: float = 1.0,
+    condition_limit: float = 1.0e10,
+) -> ReconstructedFiberCurvature:
+    """Reconstruct in-plane and normal fibre curvature on owned cells.
+
+    This first neighbour-element adapter uses a two-dimensional parameter mesh
+    with three-dimensional unit-fibre directions and 3x2 current tangents.
+    It consumes the generic rank-audited cell-gradient reconstruction and does
+    not define bending energy, virtual work, boundary moments, or a shell Step.
+    """
+
+    from agentfem.mesh import reconstruct_cell_gradient
+
+    domain = getattr(domain, "domain", domain)
+    if int(domain.topology.dim) != 2 or int(domain.geometry.dim) != 2:
+        raise ValueError(
+            "The first reconstructed fibre-curvature adapter requires a "
+            "two-dimensional parameter mesh; embedded-surface coordinate "
+            "reconstruction is a separate promotion gate."
+        )
+    cell_map = domain.topology.index_map(domain.topology.dim)
+    total = int(cell_map.size_local + cell_map.num_ghosts)
+    directions = np.asarray(current_directions, dtype=float)
+    tangents = np.asarray(current_tangents, dtype=float)
+    if directions.shape != (total, 3) or not np.all(np.isfinite(directions)):
+        raise ValueError(
+            "current_directions must have shape (local_and_ghost_cells, 3)."
+        )
+    if tangents.shape != (total, 3, 2) or not np.all(np.isfinite(tangents)):
+        raise ValueError(
+            "current_tangents must have shape (local_and_ghost_cells, 3, 2)."
+        )
+    reconstruction = reconstruct_cell_gradient(
+        domain,
+        directions,
+        rings=rings,
+        weight_power=weight_power,
+        condition_limit=condition_limit,
+    )
+    owned = int(cell_map.size_local)
+    in_plane = np.empty(owned, dtype=float)
+    normal = np.empty(owned, dtype=float)
+    for cell in range(owned):
+        _, in_plane[cell], normal[cell] = _fiber_curve_components(
+            tangents[cell],
+            directions[cell],
+            reconstruction.gradients[cell],
+            name=f"cell_{cell}_current",
+        )
+    return ReconstructedFiberCurvature(
+        direction_gradients=reconstruction.gradients,
+        in_plane_curvature=in_plane,
+        normal_curvature=normal,
+        reconstruction=reconstruction,
+    )
+
+
 def surface_deformation_gradient(
     reference_tangents,
     current_tangents,
@@ -570,10 +671,12 @@ def director_shell_kinematics(
 __all__ = [
     "DirectorShellKinematics",
     "FiberCurveKinematics",
+    "ReconstructedFiberCurvature",
     "FibrousShellCompatibilityExpressions",
     "FibrousShellKinematicsExpressions",
     "director_shell_kinematics",
     "fiber_curve_kinematics",
+    "reconstruct_fiber_curvature",
     "fibrous_shell_compatibility_ufl",
     "fibrous_shell_kinematics_ufl",
     "surface_deformation_gradient",

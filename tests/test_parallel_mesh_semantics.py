@@ -9,7 +9,7 @@ import pytest
 from dolfinx import mesh as dolfinx_mesh
 from mpi4py import MPI
 
-from agentfem import constraints, fields, loads, mesh, results
+from agentfem import constraints, fields, loads, mechanics, mesh, results
 
 
 def test_cell_neighborhood_keeps_partition_interface_pairs_complete():
@@ -77,6 +77,24 @@ def test_cell_neighborhood_keeps_partition_interface_pairs_complete():
         np.broadcast_to(gradient, reconstructed.gradients.shape),
         atol=1.0e-12,
     )
+    angle = 0.4 * centroids[:, 0]
+    directions = np.column_stack(
+        (np.cos(angle), np.sin(angle), np.zeros_like(angle))
+    )
+    tangents = np.broadcast_to(
+        np.array(((1.0, 0.0), (0.0, 1.0), (0.0, 0.0))),
+        (len(centroids), 3, 2),
+    ).copy()
+    curvature = mechanics.reconstruct_fiber_curvature(
+        domain,
+        directions,
+        tangents,
+        rings=2,
+    )
+    exact = 0.4 * np.cos(angle[: cell_map.size_local])
+    local_error = float(np.max(np.abs(curvature.in_plane_curvature - exact)))
+    global_error = comm.allreduce(local_error, op=MPI.MAX)
+    assert global_error < 2.0e-2
 
 
 def test_distributed_abaqus_regions_quality_and_remote_resultant():

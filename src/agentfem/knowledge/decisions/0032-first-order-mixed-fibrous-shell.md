@@ -93,6 +93,9 @@ tests does not imply a validated forming process.
   future isogeometric providers.
 - The neighbouring-element route reuses C0 meshes but adds a topology and
   reconstruction stencil that must be MPI- and orientation-safe.
+- The first cell-centre fibre-direction reconstruction is objective and
+  exhibits near-second-order convergence on a smooth planar field; it remains
+  foundation evidence until bending virtual work and shell patch tests pass.
 - Failure to satisfy mixed compatibility or locking gates is reported as an
   unavailable capability rather than hidden behind a nominal shell result.
 

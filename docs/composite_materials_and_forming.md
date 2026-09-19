@@ -314,8 +314,15 @@ It exactly recovers affine scalar and vector fields on triangle and
 quadrilateral meshes in serial and two-rank tests, while recording neighbor
 counts, rank, and condition number for every owned cell. Rank-deficient or
 ill-conditioned boundary stencils fail instead of returning artificial zero
-curvature. Fibre-direction curvature and bending virtual work remain the next
-separate promotion gates.
+curvature. `mechanics.reconstruct_fiber_curvature(...)` consumes that gradient
+with three-dimensional fibre directions and 3x2 current tangents, then returns
+the signed in-plane and normal curvature channels already used by the local
+constitutive law. For the smooth field
+`a=(cos(0.8x), sin(0.8x), 0)`, relative in-plane-curvature errors on 4x4, 8x8,
+16x16 and 32x32 quadrilateral meshes are approximately 1.50e-2, 3.86e-3,
+9.75e-4 and 2.45e-4. A superposed three-dimensional rigid rotation leaves both
+channels invariant. Bending virtual work, boundary moments and equilibrium
+remain separate promotion gates.
 Naive mixed P1/DG0 and P2/DG1 compatibility pairs were rejected after losing
 rank under refinement; full-rank P2/CG1 and P2/DG0 candidates still showed a
 decaying normalized inf-sup value in the tested H1/L2 norms. Those negative
@@ -384,6 +391,8 @@ The automated local evidence currently checks:
 - membrane lowering rejects a nonzero bending law rather than hiding it.
 - serial triangle/quadrilateral and two-rank meshes preserve exact interior-
   facet neighbourhoods without mistaking a partition interface for a boundary.
+- neighbour-reconstructed in-plane fibre curvature is objective and shows
+  near-second-order error reduction on a smooth rotating-direction field.
 
 No shell element patch test, contact benchmark, or drape experiment has yet
 promoted this membrane foundation to a forming-capable fibrous shell.

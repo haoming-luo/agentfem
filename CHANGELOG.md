@@ -43,6 +43,10 @@ experimental formulation to a validated one.
   difference and rank/condition-audited local-tangent least-squares gradient
   now establish the first discrete reconstruction operators for future
   rotation-free neighbouring-element shells and DG.
+- Add objective neighbour-reconstructed in-plane/normal fibre curvature on a
+  2D parameter mesh, including rank/conditioning provenance and a smooth-field
+  sequence with near-second-order error reduction; shell equilibrium remains
+  unavailable pending virtual-work and patch-test gates.
 - Add `agentfem support`, a consent-first community invitation that performs no
   account action, checks an existing GitHub login only when explicitly asked,
   and remembers support locally without storing identity or credentials.
