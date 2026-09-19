@@ -25,12 +25,45 @@ def _owned_parameter(value, owned: int, *, name: str, nonnegative: bool) -> np.n
 
 @dataclass(frozen=True)
 class FiberDirectionBendingResponse:
-    """Owned-cell curvature energy and local-plus-ghost direction residual."""
+    """Curvature energy and exact direction/surface-tangent duals."""
 
     energy: float
     in_plane_curvature: np.ndarray
     normal_curvature: np.ndarray
     residual: np.ndarray
+    surface_tangent_residual: np.ndarray
+
+    def __post_init__(self) -> None:
+        in_plane = np.asarray(self.in_plane_curvature, dtype=float)
+        normal = np.asarray(self.normal_curvature, dtype=float)
+        residual = np.asarray(self.residual, dtype=float)
+        tangent_residual = np.asarray(self.surface_tangent_residual, dtype=float)
+        owned = in_plane.size
+        if not np.isfinite(self.energy):
+            raise ValueError("energy must be finite.")
+        if in_plane.shape != (owned,) or not np.all(np.isfinite(in_plane)):
+            raise ValueError("in_plane_curvature must be a finite owned-cell array.")
+        if normal.shape != (owned,) or not np.all(np.isfinite(normal)):
+            raise ValueError("normal_curvature must match in_plane_curvature.")
+        if residual.ndim != 2 or residual.shape[1:] != (3,) or not np.all(
+            np.isfinite(residual)
+        ):
+            raise ValueError("residual must have finite shape (cells, 3).")
+        if residual.shape[0] < owned:
+            raise ValueError("residual must include every owned cell.")
+        if tangent_residual.shape != (owned, 3, 2) or not np.all(
+            np.isfinite(tangent_residual)
+        ):
+            raise ValueError(
+                "surface_tangent_residual must have finite shape "
+                "(owned_cells, 3, 2)."
+            )
+        object.__setattr__(self, "in_plane_curvature", in_plane.copy())
+        object.__setattr__(self, "normal_curvature", normal.copy())
+        object.__setattr__(self, "residual", residual.copy())
+        object.__setattr__(
+            self, "surface_tangent_residual", tangent_residual.copy()
+        )
 
     def as_dict(self) -> dict[str, object]:
         return {
@@ -44,6 +77,9 @@ class FiberDirectionBendingResponse:
                 np.max(np.abs(self.normal_curvature))
             ),
             "residual_shape": list(self.residual.shape),
+            "surface_tangent_residual_shape": list(
+                self.surface_tangent_residual.shape
+            ),
         }
 
 
@@ -54,13 +90,15 @@ class FiberDirectionBendingOperator:
     The primary values are nonzero three-component fibre directions on local
     and ghost cells.  They are normalized before reconstruction, making the
     energy invariant to positive pointwise rescaling.  Current surface
-    tangents are frozen data for this operator and the directions must lie in
-    their span on owned cells.
+    tangents are explicit inputs and the directions must lie in their span on
+    owned cells.  The response differentiates the energy with respect to both
+    inputs; the matrix-free second action currently differentiates only the
+    direction path while holding tangents fixed.
 
     This is the bending contribution for an *independent direction field*.
     It is not yet a displacement shell operator: compatibility forces,
-    tangent variations, boundary moments, MPI reverse scatter and the
-    consistent nonlinear second variation remain separate owners.
+    boundary moments, MPI reverse scatter and the complete displacement-level
+    nonlinear second variation remain separate owners.
     """
 
     gradient: CellGradientOperator
@@ -107,7 +145,7 @@ class FiberDirectionBendingOperator:
             )
 
     def evaluate(self, directions) -> FiberDirectionBendingResponse:
-        """Evaluate energy, curvature and its exact direction-field residual."""
+        """Evaluate energy, curvature, and exact direction/tangent duals."""
 
         response, _ = self._evaluate_state(directions)
         return response
@@ -154,6 +192,7 @@ class FiberDirectionBendingOperator:
         normal_curvature = np.empty(owned, dtype=float)
         gradient_duals = np.empty_like(gradients)
         explicit = np.zeros((self.gradient.total_cells, 3), dtype=float)
+        surface_tangent_residual = np.empty((owned, 3, 2), dtype=float)
         if linearized:
             gradient_dual_increments = np.empty_like(gradients)
             explicit_increments = np.zeros_like(explicit)
@@ -215,6 +254,31 @@ class FiberDirectionBendingOperator:
                 + weighted_normal * surface_normal
             )
             gradient_duals[output_cell] = np.outer(curvature_dual, coordinates)
+            coordinate_dual = gradients[output_cell].T @ curvature_dual
+            coordinate_tangent_residual = -np.outer(
+                dual_tangents.T @ coordinate_dual,
+                coordinates,
+            )
+            surface_normal_dual = (
+                weighted_in_plane * np.cross(direction, directional_derivative)
+                + weighted_normal * directional_derivative
+            )
+            surface_normal_dual -= (
+                np.dot(surface_normal_dual, surface_normal) * surface_normal
+            )
+            surface_jacobian = np.linalg.norm(
+                np.cross(surface[:, 0], surface[:, 1])
+            )
+            normal_dual = surface_normal_dual / surface_jacobian
+            normal_tangent_residual = np.column_stack(
+                (
+                    np.cross(surface[:, 1], normal_dual),
+                    np.cross(normal_dual, surface[:, 0]),
+                )
+            )
+            surface_tangent_residual[output_cell] = (
+                coordinate_tangent_residual + normal_tangent_residual
+            )
             local_in_plane_gradient = np.cross(
                 directional_derivative, surface_normal
             ) + dual_tangents.T @ gradients[output_cell].T @ in_plane_normal
@@ -308,6 +372,7 @@ class FiberDirectionBendingOperator:
             in_plane_curvature=in_plane,
             normal_curvature=normal_curvature,
             residual=residual,
+            surface_tangent_residual=surface_tangent_residual,
         )
         return response, tangent_action if linearized else None
 
@@ -317,7 +382,8 @@ class FiberDirectionBendingOperator:
             "primary_field": "independent_nonzero_cell_fiber_directions",
             "normalization": "pointwise_before_gradient_reconstruction",
             "energy_channels": ("in_plane_curvature", "normal_curvature"),
-            "first_variation": "exact_for_fixed_surface_tangents",
+            "first_variation": "exact_direction_and_surface_tangent_duals",
+            "surface_tangent_dual": "exact_direct_energy_derivative",
             "nonlinear_tangent": "exact_matrix_free_action_for_fixed_surface_tangents",
             "mpi_requirement": "reverse_scatter_ghost_residual_to_owners",
             "scope": "bending_contribution_not_complete_shell_equilibrium",

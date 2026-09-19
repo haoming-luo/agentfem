@@ -275,6 +275,67 @@ def test_cell_neighborhood_keeps_partition_interface_pairs_complete():
         rel=3.0e-13,
         abs=3.0e-13,
     )
+    bend_displacement = fem.Function(displacement_space, name="U_bend")
+    bend_displacement.interpolate(
+        lambda x: np.vstack(
+            (
+                0.08 * x[0] ** 2 + 0.03 * x[1],
+                0.06 * x[0] * x[1] - 0.02 * x[0],
+                0.05 * x[0] ** 2 + 0.04 * x[1] ** 2,
+            )
+        )
+    )
+    bend_increment = fem.Function(displacement_space, name="DU_bend")
+    bend_increment.interpolate(
+        lambda x: np.vstack(
+            (
+                -0.03 * x[0] + 0.02 * x[1],
+                0.04 * x[0] ** 2,
+                -0.02 * x[0] * x[1] + 0.01 * x[1],
+            )
+        )
+    )
+
+    def displacement_bending_response(field):
+        state = fiber_transfer.apply(field)
+        model = operators.fiber_direction_bending(
+            operator,
+            current_tangents=state.current_tangents[: operator.owned_cells],
+            cell_weights=owned_measures,
+            in_plane_stiffness=2.5,
+            normal_stiffness=4.0,
+        )
+        return state, model.evaluate(state.direction)
+
+    bend_state, bend_response = displacement_bending_response(bend_displacement)
+    bend_tangent_duals = np.zeros_like(bend_state.current_tangents)
+    bend_tangent_duals[: operator.owned_cells] = (
+        bend_response.surface_tangent_residual
+    )
+    bend_residual = fiber_transfer.apply_adjoint(
+        bend_displacement,
+        direction_duals=bend_response.residual,
+        tangent_duals=bend_tangent_duals,
+    )
+    plus = fem.Function(displacement_space)
+    minus = fem.Function(displacement_space)
+    plus.x.array[:] = bend_displacement.x.array + epsilon * bend_increment.x.array
+    minus.x.array[:] = bend_displacement.x.array - epsilon * bend_increment.x.array
+    plus.x.scatter_forward()
+    minus.x.scatter_forward()
+    local_energy_difference = (
+        displacement_bending_response(plus)[1].energy
+        - displacement_bending_response(minus)[1].energy
+    ) / (2.0 * epsilon)
+    local_residual_work = float(
+        np.vdot(bend_increment.x.petsc_vec.array_r, bend_residual.array_r)
+    )
+    bend_residual.destroy()
+    assert comm.allreduce(local_energy_difference, op=MPI.SUM) == pytest.approx(
+        comm.allreduce(local_residual_work, op=MPI.SUM),
+        rel=5.0e-7,
+        abs=5.0e-9,
+    )
 
 
 def test_distributed_abaqus_regions_quality_and_remote_resultant():

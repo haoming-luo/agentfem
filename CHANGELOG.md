@@ -74,6 +74,11 @@ experimental formulation to a validated one.
   stretch and unit direction from a three-component FEM displacement. Exact
   directional derivative and adjoint actions reproduce rigid rotation and
   close global work in serial and under two MPI ranks.
+- Close the corresponding displacement-level first variation of the
+  neighbour-reconstructed fibre-bending energy. The bending response now
+  exposes its exact direct surface-tangent dual; composing that dual and the
+  direction residual with the convected-fibre adjoint matches finite-
+  difference energy changes in serial and across a two-rank partition.
 - Add `agentfem support`, a consent-first community invitation that performs no
   account action, checks an existing GitHub login only when explicitly asked,
   and remembers support locally without storing identity or credentials.

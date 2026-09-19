@@ -29,6 +29,7 @@
     "Independent-direction bending energy, exact residual, consistent matrix-free tangent, and globally assembled DG0 virtual work.",
     "Continuous scalar/vector FEM fields transferred to DG0 cell-average gradients and their exact transpose back to source dofs.",
     "Displacement-derived current surface tangents, fibre stretch and unit direction plus their exact directional derivative and source-space adjoint.",
+    "Complete displacement-derived bending first variation through the direction and direct surface-tangent paths.",
     "Stable computational-layer and physical-layer identities for varying-orientation stacks.",
     "Per-layer DG result fields, aggregate stored energy, and the exact layer-to-field manifest from a completed model.step result."
   ],
@@ -42,6 +43,7 @@
     "Bending energy derivatives match residual work, residual derivatives match the consistent tangent, the Hessian action is symmetric, and assembled two-rank residual work closes the global energy derivative.",
     "Affine continuous scalar and three-component fields transfer exactly to cell-average gradients and satisfy the global two-rank forward/adjoint work identity.",
     "A superposed rigid rotation convects the reference tangents and fibre exactly; displacement-derived tangent/stretch/direction increments match finite differences and close their global two-rank adjoint work identity.",
+    "The composed displacement-space bending residual matches finite-difference energy changes in serial and across a two-rank partition, including both direction and surface-tangent contributions.",
     "A membrane stack adds only compatible energy scalars and never combines generalized resultants expressed in unlike fibre frames.",
     "Same-orientation grouping scales energy, conjugate resultants, and tangent by the number of explicitly listed physical layer IDs and rejects duplicate IDs.",
     "A loaded multilayer membrane converges through the standard Step and writes collision-free per-layer strain, resultant, direction, and energy fields.",
@@ -50,6 +52,6 @@
   "limitations": [
     "This benchmark does not contain a complete displacement-coupled shell element, boundary moment, or transverse-slip solve.",
     "It does not validate tool contact, friction, inter-ply slip, wrinkling, explicit quasi-static controls, or a physical drape experiment.",
-    "MPI result-field identity, the direct surface-tangent dual and full displacement coupling of the nonlinear bending energy, and public shell/forming benchmarks remain promotion gates for the future global provider."
+    "MPI result-field identity, the complete displacement-level consistent bending tangent, and public shell/forming benchmarks remain promotion gates for the future global provider."
   ]
 }

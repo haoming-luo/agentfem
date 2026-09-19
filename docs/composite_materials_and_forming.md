@@ -341,8 +341,8 @@ constitutive law. For the smooth field
 `a=(cos(0.8x), sin(0.8x), 0)`, relative in-plane-curvature errors on 4x4, 8x8,
 16x16 and 32x32 quadrilateral meshes are approximately 1.50e-2, 3.86e-3,
 9.75e-4 and 2.45e-4. A superposed three-dimensional rigid rotation leaves both
-channels invariant. Complete displacement-level bending virtual work,
-boundary moments and equilibrium remain separate promotion gates.
+channels invariant. Boundary moments and complete shell equilibrium remain
+separate promotion gates.
 `operators.fiber_direction_bending(...)` now takes the next, deliberately
 bounded step for a mixed independent-direction formulation. It normalizes the
 cell directions before the same cached reconstruction and evaluates separate
@@ -351,12 +351,13 @@ contains both the reconstructed-gradient transpose and the local changes of
 the fibre coordinate/projection frame. The residual matches finite-difference
 energy derivatives, is insensitive to positive pointwise rescaling, transforms
 covariantly under a three-dimensional rigid rotation, and retains explicit
-local-plus-ghost MPI semantics. Current surface tangents are fixed data in
-this operator. Its analytical matrix-free tangent matches residual
+local-plus-ghost MPI semantics. The response also returns the exact direct
+energy derivative with respect to its current surface tangents. Its
+analytical matrix-free direction tangent matches residual
 differences, satisfies Hessian symmetry, and transforms covariantly under a
-three-dimensional rigid rotation in serial and two-rank tests. Surface-tangent
-variation, compatibility-force blocks, boundary moments and complete
-displacement equilibrium remain promotion gates.
+three-dimensional rigid rotation in serial and two-rank tests. The complete
+second variation with moving surface tangents, compatibility-force blocks,
+boundary moments and complete shell equilibrium remain promotion gates.
 For distributed use, `assembly.assemble_cell_residual(...)` maps scalar or
 blocked-vector DG0 cell contributions to their explicit cell dofs, reverse-
 scatters ghost contributions to owners, and then refreshes ghost entries. A
@@ -379,10 +380,13 @@ the operator derives current tangents, fibre stretch and unit direction on
 local and ghost cells. Its exact directional derivative matches finite
 differences, rigid-body rotation is reproduced, and its transpose maps
 arbitrary tangent/stretch/direction duals back to the displacement PETSc
-space with global work closure in serial and two-rank tests. The remaining
-coupling gate is narrow and explicit: the bending law must provide its direct
-surface-tangent dual in addition to its direction dual before the complete
-displacement residual can be assembled.
+space with global work closure in serial and two-rank tests. Combining that
+adjoint with the bending law's direction and direct surface-tangent duals now
+assembles the complete displacement-level first variation of this bending
+energy. Centered finite differences close the energy--virtual-work identity
+in serial and over a two-rank partition. The next gate is therefore the
+consistent displacement-level second variation, followed by boundary moments
+and shell patch tests; this evidence still does not constitute a shell Step.
 Naive mixed P1/DG0 and P2/DG1 compatibility pairs were rejected after losing
 rank under refinement; full-rank P2/CG1 and P2/DG0 candidates still showed a
 decaying normalized inf-sup value in the tested H1/L2 norms. Those negative
@@ -474,14 +478,18 @@ The automated local evidence currently checks:
   two MPI ranks;
 - displacement-derived current surface tangents, fibre stretch and direction
   reproduce a rigid rotation and close their exact derivative/adjoint work
-  identity in serial and under two MPI ranks.
+  identity in serial and under two MPI ranks;
+- the displacement-derived bending energy closes its complete first-variation
+  identity, including both direction and surface-tangent paths, in serial and
+  under two MPI ranks.
 
 No shell element patch test, contact benchmark, or drape experiment has yet
 promoted this membrane foundation to a forming-capable fibrous shell.
 
 ## Promotion roadmap
 
-1. **Fibrous shell kernel:** neighbouring-element rotation-free interpolation;
+1. **Fibrous shell kernel:** complete displacement-level consistent tangent,
+   boundary moments, neighbouring-element rotation-free interpolation;
    membrane, transverse-shear,
    in-plane-bending and normal-bending patch tests; documented locking control.
 2. **Forming procedure:** tool geometry, unilateral contact, friction,

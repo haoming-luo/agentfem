@@ -184,10 +184,13 @@ Deepen the finite-element core before broadening the catalog:
   exact independent-direction bending residual/tangent actions, distributed
   DG0 residual assembly, and an exact FEM/cell-gradient transfer now close the
   reusable nonlocal operator foundation in serial and two-rank tests. The
+  convected-fibre chain now also combines exact direction and surface-tangent
+  duals into a displacement-space first variation whose energy--virtual-work
+  identity closes in serial and over two ranks. The
   naive mixed interpolation pairs that lost rank or exhibited a decaying
   normalized inf-sup value remain rejected evidence. The next promotion
-  sequence is the direct surface-tangent dual and complete displacement
-  coupling of the convected-fibre bending energy, boundary moments, locking
+  sequence is the complete displacement-level consistent tangent of the
+  convected-fibre bending energy, boundary moments, locking
   control and membrane/
   transverse-shear/in-plane-bending/normal-bending patch tests,
   followed by tool contact, friction, inter-ply slip, quasi-static explicit
