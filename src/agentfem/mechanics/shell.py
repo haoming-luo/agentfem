@@ -183,6 +183,29 @@ def fiber_curve_kinematics(
     )
 
 
+def surface_deformation_gradient(
+    reference_tangents,
+    current_tangents,
+) -> np.ndarray:
+    """Return the three-dimensional tangential deformation lift.
+
+    The map sends each reference tangent to its current counterpart and the
+    reference unit normal to the current unit normal. Its action on an
+    embedded reference fibre is therefore unique, while the unit normal lift
+    merely completes the rank-two surface map for convenient constitutive use.
+    No physical thickness stretch is implied.
+    """
+
+    reference = _columns(reference_tangents, name="reference_tangents")
+    current = _columns(current_tangents, name="current_tangents")
+    reference_normal = np.cross(reference[:, 0], reference[:, 1])
+    reference_normal /= np.linalg.norm(reference_normal)
+    current_normal = np.cross(current[:, 0], current[:, 1])
+    current_normal /= np.linalg.norm(current_normal)
+    reference_dual = reference @ np.linalg.inv(reference.T @ reference)
+    return current @ reference_dual.T + np.outer(current_normal, reference_normal)
+
+
 def director_shell_kinematics(
     reference_tangents,
     current_tangents,
@@ -246,4 +269,5 @@ __all__ = [
     "FiberCurveKinematics",
     "director_shell_kinematics",
     "fiber_curve_kinematics",
+    "surface_deformation_gradient",
 ]

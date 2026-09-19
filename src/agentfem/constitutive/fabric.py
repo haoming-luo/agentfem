@@ -306,6 +306,175 @@ class FabricSurfaceResponse:
 
 
 @dataclass(frozen=True)
+class FibrousShellResponse:
+    """Local shell channels without prescribing an element technology.
+
+    The generalized order is membrane ``(warp, weft, trellising)``, two
+    director-shear components, in-plane bending of the warp/weft curves, and
+    normal bending of the warp/weft curves. The block structure is explicit so
+    no classical thickness relation silently couples extension and bending.
+    """
+
+    membrane: FabricSurfaceResponse
+    transverse_shear: np.ndarray
+    transverse_shear_resultants: np.ndarray
+    in_plane_curvature: np.ndarray
+    in_plane_bending_moments: np.ndarray
+    normal_curvature: np.ndarray
+    normal_bending_moments: np.ndarray
+    tangent: np.ndarray
+    energy_channels: Mapping[str, float]
+
+    @property
+    def stored_energy(self) -> float:
+        return float(sum(self.energy_channels.values()))
+
+    def as_dict(self) -> dict[str, object]:
+        return {
+            "kind": "fibrous_shell_response",
+            "generalized_order": [
+                "warp_strain",
+                "weft_strain",
+                "trellising_angle",
+                "director_shear_1",
+                "director_shear_2",
+                "warp_in_plane_curvature",
+                "weft_in_plane_curvature",
+                "warp_normal_curvature",
+                "weft_normal_curvature",
+            ],
+            "membrane": self.membrane.as_dict(),
+            "transverse_shear": self.transverse_shear.tolist(),
+            "transverse_shear_resultants": self.transverse_shear_resultants.tolist(),
+            "in_plane_curvature": self.in_plane_curvature.tolist(),
+            "in_plane_bending_moments": self.in_plane_bending_moments.tolist(),
+            "normal_curvature": self.normal_curvature.tolist(),
+            "normal_bending_moments": self.normal_bending_moments.tolist(),
+            "tangent": self.tangent.tolist(),
+            "energy_channels": dict(self.energy_channels),
+            "stored_energy": self.stored_energy,
+        }
+
+
+@dataclass(frozen=True)
+class DecoupledFibrousShell:
+    """Provider-neutral local law for a fibre-specific shell layer.
+
+    A future finite element must supply objective director-shell and two
+    fibre-curve kinematics. This law owns only constitutive energy and tangent
+    blocks; interpolation, neighboring-element curvature, contact, and the
+    nonlinear procedure remain outside the material.
+    """
+
+    name: str
+    membrane: "DecoupledFabricSurface"
+    transverse_shear_stiffness: np.ndarray
+    in_plane_bending_stiffness: np.ndarray
+    normal_bending_stiffness: np.ndarray
+
+    def __post_init__(self) -> None:
+        name = str(self.name).strip()
+        if not name:
+            raise ValueError("DecoupledFibrousShell.name must be non-empty.")
+        if not isinstance(self.membrane, DecoupledFabricSurface):
+            raise TypeError(
+                "DecoupledFibrousShell.membrane must be DecoupledFabricSurface."
+            )
+        if np.any(np.abs(self.membrane.bending_stiffness) > 1.0e-14):
+            raise ValueError(
+                "The membrane surface must have zero bending stiffness; fibrous "
+                "shell bending is owned by the explicit in-plane and normal blocks."
+            )
+        object.__setattr__(self, "name", name)
+        for field_name in (
+            "transverse_shear_stiffness",
+            "in_plane_bending_stiffness",
+            "normal_bending_stiffness",
+        ):
+            object.__setattr__(
+                self,
+                field_name,
+                _positive_semidefinite_matrix(
+                    getattr(self, field_name),
+                    name=field_name,
+                    shape=(2, 2),
+                ),
+            )
+
+    def evaluate(
+        self,
+        deformation_gradient,
+        *,
+        shell_kinematics,
+        warp_bending,
+        weft_bending,
+    ) -> FibrousShellResponse:
+        membrane = self.membrane.evaluate(deformation_gradient)
+        transverse_shear = _finite_vector(
+            shell_kinematics.transverse_shear,
+            name="shell_kinematics.transverse_shear",
+            size=2,
+        )
+        in_plane_curvature = np.array(
+            [
+                warp_bending.in_plane_curvature_change,
+                weft_bending.in_plane_curvature_change,
+            ],
+            dtype=float,
+        )
+        normal_curvature = np.array(
+            [
+                warp_bending.normal_curvature_change,
+                weft_bending.normal_curvature_change,
+            ],
+            dtype=float,
+        )
+        if not np.all(np.isfinite(in_plane_curvature)) or not np.all(
+            np.isfinite(normal_curvature)
+        ):
+            raise ValueError("Fibre-curve curvature changes must be finite.")
+        shear_resultants = self.transverse_shear_stiffness @ transverse_shear
+        in_plane_moments = self.in_plane_bending_stiffness @ in_plane_curvature
+        normal_moments = self.normal_bending_stiffness @ normal_curvature
+        tangent = np.zeros((9, 9))
+        tangent[:3, :3] = membrane.tangent[:3, :3]
+        tangent[3:5, 3:5] = self.transverse_shear_stiffness
+        tangent[5:7, 5:7] = self.in_plane_bending_stiffness
+        tangent[7:9, 7:9] = self.normal_bending_stiffness
+        energy_channels = {
+            "membrane": float(membrane.stored_energy),
+            "transverse_shear": 0.5
+            * float(transverse_shear @ shear_resultants),
+            "in_plane_bending": 0.5
+            * float(in_plane_curvature @ in_plane_moments),
+            "normal_bending": 0.5 * float(normal_curvature @ normal_moments),
+        }
+        return FibrousShellResponse(
+            membrane=membrane,
+            transverse_shear=transverse_shear,
+            transverse_shear_resultants=shear_resultants,
+            in_plane_curvature=in_plane_curvature,
+            in_plane_bending_moments=in_plane_moments,
+            normal_curvature=normal_curvature,
+            normal_bending_moments=normal_moments,
+            tangent=tangent,
+            energy_channels=energy_channels,
+        )
+
+    def as_dict(self) -> dict[str, object]:
+        return {
+            "kind": "decoupled_fibrous_shell",
+            "name": self.name,
+            "membrane": self.membrane.as_dict(),
+            "transverse_shear_stiffness": self.transverse_shear_stiffness.tolist(),
+            "in_plane_bending_stiffness": self.in_plane_bending_stiffness.tolist(),
+            "normal_bending_stiffness": self.normal_bending_stiffness.tolist(),
+            "maturity": "local_constitutive_foundation",
+            "element_provider": None,
+        }
+
+
+@dataclass(frozen=True)
 class FabricLayer:
     """One named reinforcement layer in a shared-kinematics stack.
 
@@ -594,13 +763,11 @@ class DecoupledFabricSurface:
     tension_only: bool = True
 
     def __post_init__(self) -> None:
-        bending = np.asarray(self.bending_stiffness, dtype=float)
-        if bending.shape != (3, 3) or not np.all(np.isfinite(bending)):
-            raise ValueError("bending_stiffness must be one finite 3x3 matrix.")
-        if not np.allclose(bending, bending.T, atol=1.0e-12):
-            raise ValueError("bending_stiffness must be symmetric.")
-        if np.min(np.linalg.eigvalsh(bending)) < -1.0e-12:
-            raise ValueError("bending_stiffness must be positive semidefinite.")
+        bending = _positive_semidefinite_matrix(
+            self.bending_stiffness,
+            name="bending_stiffness",
+            shape=(3, 3),
+        )
         if self.shear.symmetry != "odd":
             raise ValueError("Fabric trellising shear requires an odd response curve.")
         object.__setattr__(self, "bending_stiffness", bending)
@@ -769,6 +936,29 @@ def decoupled_fabric_surface(
     )
 
 
+def decoupled_fibrous_shell(
+    membrane: DecoupledFabricSurface,
+    *,
+    transverse_shear_stiffness,
+    in_plane_bending_stiffness,
+    normal_bending_stiffness,
+    name: str = "fibrous_shell",
+) -> DecoupledFibrousShell:
+    """Create a local fibrous-shell law with four independent energy channels."""
+
+    return DecoupledFibrousShell(
+        name=name,
+        membrane=membrane,
+        transverse_shear_stiffness=np.asarray(
+            transverse_shear_stiffness, dtype=float
+        ),
+        in_plane_bending_stiffness=np.asarray(
+            in_plane_bending_stiffness, dtype=float
+        ),
+        normal_bending_stiffness=np.asarray(normal_bending_stiffness, dtype=float),
+    )
+
+
 def fabric_layer(
     material: DecoupledFabricSurface,
     *,
@@ -834,7 +1024,26 @@ def fabric_membrane_internal_virtual_work(
     return ufl.derivative(potential, displacement, test)
 
 
+def _positive_semidefinite_matrix(value, *, name: str, shape) -> np.ndarray:
+    selected = np.asarray(value, dtype=float)
+    if selected.shape != tuple(shape) or not np.all(np.isfinite(selected)):
+        raise ValueError(f"{name} must be one finite {shape[0]}x{shape[1]} matrix.")
+    if not np.allclose(selected, selected.T, atol=1.0e-12):
+        raise ValueError(f"{name} must be symmetric.")
+    if np.min(np.linalg.eigvalsh(selected)) < -1.0e-12:
+        raise ValueError(f"{name} must be positive semidefinite.")
+    return selected
+
+
+def _finite_vector(value, *, name: str, size: int) -> np.ndarray:
+    selected = np.asarray(value, dtype=float)
+    if selected.shape != (int(size),) or not np.all(np.isfinite(selected)):
+        raise ValueError(f"{name} must be one finite {size}-component vector.")
+    return selected
+
+
 __all__ = [
+    "DecoupledFibrousShell",
     "DecoupledFabricSurface",
     "FabricFormingAssessment",
     "FabricFormingLimits",
@@ -845,9 +1054,11 @@ __all__ = [
     "FabricStack",
     "FabricStackResponse",
     "FabricSurfaceResponse",
+    "FibrousShellResponse",
     "SurfaceConstitutive",
     "TabulatedResponse",
     "decoupled_fabric_surface",
+    "decoupled_fibrous_shell",
     "fabric_forming_limits",
     "fabric_layer",
     "fabric_membrane_internal_virtual_work",

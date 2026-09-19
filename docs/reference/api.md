@@ -221,6 +221,7 @@ and evidence remain in the linked guides and scientific function reference.
 | function | `orthotropic_elastic_3d(*, ex: float, ey: float, ez: float, nuxy: float, nuxz: float, nuyz: float, gxy: float, gxz: float, gyz: float, density: float, name: str = 'orthotropic elastic 3D') -> ElasticAnisotropic3DProperties` | Create a reciprocal, positive-definite 3D orthotropic material. |
 | function | `stress(displacement, properties, *, study = None, temperature = None)` | Dispatch to the matching elastic stress relation. |
 | class | `DecoupledFabricSurface` | Independent yarn tension, trellising shear, and bending channels. |
+| class | `DecoupledFibrousShell` | Provider-neutral local law for a fibre-specific shell layer. |
 | class | `FabricFormingAssessment` | Dimensionless utilization report for declared forming limits. |
 | class | `FabricFormingLimits` | User-declared forming limits, separate from constitutive calibration. |
 | class | `FabricKinematics` | Non-orthogonal warp/weft surface deformation measures. |
@@ -230,9 +231,11 @@ and evidence remain in the linked guides and scientific function reference.
 | class | `FabricStack` | Named layers sharing one surface deformation. |
 | class | `FabricStackResponse` | Per-layer response without inventing one ambiguous aggregate frame. |
 | class | `FabricSurfaceResponse` | Local generalized resultants, tangent, energy, and physical measures. |
+| class | `FibrousShellResponse` | Local shell channels without prescribing an element technology. |
 | class | `SurfaceConstitutive` | Extension contract for a local surface constitutive response. |
 | class | `TabulatedResponse` | Piecewise-linear scalar constitutive channel with an energy primitive. |
 | function | `decoupled_fabric_surface(*, frame: FiberFrame, warp_tension: TabulatedResponse, weft_tension: TabulatedResponse, shear: TabulatedResponse, bending_stiffness, tension_only: bool = True, name: str = 'fabric_surface') -> DecoupledFabricSurface` | Public AgentFEM object. |
+| function | `decoupled_fibrous_shell(membrane: DecoupledFabricSurface, *, transverse_shear_stiffness, in_plane_bending_stiffness, normal_bending_stiffness, name: str = 'fibrous_shell') -> DecoupledFibrousShell` | Create a local fibrous-shell law with four independent energy channels. |
 | function | `fabric_forming_limits(*, warp_tensile_strain: float \| None = None, weft_tensile_strain: float \| None = None, trellising_angle: float \| None = None, angle_unit: str = 'degree', in_plane_curvature: float \| None = None, normal_curvature: float \| None = None) -> FabricFormingLimits` | Create forming-screening limits with an explicit angle unit. |
 | function | `fabric_layer(material: DecoupledFabricSurface, *, name: str) -> FabricLayer` | Create one named layer for a shared-kinematics fabric stack. |
 | function | `fabric_membrane_internal_virtual_work(displacement, test, material: DecoupledFabricSurface, *, measure = None)` | Return the in-plane fabric membrane residual from stored energy. |
@@ -940,6 +943,7 @@ and evidence remain in the linked guides and scientific function reference.
 | class | `FiberCurveKinematics` | Objective bending measures for one material fibre curve. |
 | function | `director_shell_kinematics(reference_tangents, current_tangents, director, *, director_gradient = None, reference_director = None, reference_director_gradient = None) -> DirectorShellKinematics` | Evaluate objective membrane, shear, and curvature measures. |
 | function | `fiber_curve_kinematics(reference_tangents, current_tangents, reference_direction, current_direction, *, current_direction_gradient, reference_direction_gradient = None) -> FiberCurveKinematics` | Evaluate in-plane and normal curvature changes of one fibre family. |
+| function | `surface_deformation_gradient(reference_tangents, current_tangents) -> np.ndarray` | Return the three-dimensional tangential deformation lift. |
 | class | `HarmonicViscoelasticStep` | Direct harmonic generalized-Maxwell equilibrium in a real PETSc build. |
 | class | `QuasistaticViscoelasticStep` | Incremental equilibrium for a small-strain generalized-Maxwell solid. |
 | class | `ViscoelasticEnergyFrame` | Exact constitutive work--storage--dissipation ledger. |

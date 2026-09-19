@@ -40,6 +40,7 @@ from .shell import (
     FiberCurveKinematics,
     director_shell_kinematics,
     fiber_curve_kinematics,
+    surface_deformation_gradient,
 )
 from .viscoelasticity import (
     HarmonicViscoelasticStep,
@@ -88,5 +89,6 @@ __all__ = [
     "j2_plasticity_step",
     "director_shell_kinematics",
     "fiber_curve_kinematics",
+    "surface_deformation_gradient",
     "quasistatic_viscoelastic_step",
 ]

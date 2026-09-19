@@ -166,7 +166,9 @@ Deepen the finite-element core before broadening the catalog:
   retaining varying layer frames, stable layer identities, an explicit result
   manifest, and separate per-layer fields instead of adding incompatible local
   resultants. Objective
-  fibre-curve measures separate in-plane from normal bending, and explicit
+  fibre-curve measures separate in-plane from normal bending. A local
+  fibrous-shell law now owns independent membrane, transverse-shear,
+  in-plane-bending and normal-bending energy/tangent blocks, while explicit
   forming-limit assessments report utilization without claiming to predict
   wrinkles. The next promotion sequence is a mixed displacement/director or
   independently justified rotation-free shell with locking control and

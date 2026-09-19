@@ -12,6 +12,8 @@
     "agentfem.constitutive.TabulatedResponse",
     "agentfem.constitutive.DecoupledFabricSurface",
     "agentfem.constitutive.decoupled_fabric_surface",
+    "agentfem.constitutive.DecoupledFibrousShell",
+    "agentfem.constitutive.decoupled_fibrous_shell",
     "agentfem.constitutive.FabricLayer",
     "agentfem.constitutive.FabricStack",
     "agentfem.constitutive.fabric_layer",
@@ -21,6 +23,7 @@
     "agentfem.studies.static_membrane",
     "agentfem.mechanics.director_shell_kinematics",
     "agentfem.mechanics.fiber_curve_kinematics",
+    "agentfem.mechanics.surface_deformation_gradient",
     "agentfem.results.fabric_membrane_cell_fields",
     "agentfem.results.fabric_stack_membrane_cell_fields",
     "agentfem.results.fabric_stack_result_manifest",
@@ -84,6 +87,12 @@
         "type": "stable per-layer DG fields expanded from generic fabric requests plus aggregate SENER and a layer-to-field manifest",
         "unit_role": "the same per-layer units as the single-surface fields",
         "description": "Layer order and a readable slug form collision-free field prefixes; unlike generalized resultants are never silently summed."
+      },
+      {
+        "name": "local fibrous-shell response",
+        "type": "independent membrane, transverse-shear, in-plane-bending, and normal-bending resultants, energy channels, and a 9x9 block tangent",
+        "unit_role": "generalized shell forces, moments, energy per reference area, and their conjugate tangents",
+        "description": "The constitutive contract is element-neutral and rejects overlapping legacy bending ownership."
       }
     ],
     "assumptions": [
@@ -123,6 +132,8 @@
       "Verify zero reference response, tension-only compression behavior, stored-energy consistency, and separation of tension, shear, and bending channels.",
       "Verify objective director kinematics and a nonzero global membrane patch with positive deformation Jacobian and energy.",
       "Verify objective fibre-curve in-plane/normal curvature separation, stable multilayer identity, energy-only stack aggregation, fail-closed curvature assessment, and global per-layer field preservation.",
+      "Verify that the three-dimensional surface deformation lift maps both reference tangents and the reference normal and is objective under superposed rotation.",
+      "Verify pure local fibrous-shell modes, block-tangent symmetry, energy-channel additivity, and rejection of double-counted bending stiffness.",
       "Keep shell, contact, and forming claims unavailable until their independent patch tests and benchmarks pass."
     ]
   },
@@ -154,6 +165,14 @@
     {
       "title": "Boisse et al. (2018), bending and wrinkling review",
       "locator": "https://doi.org/10.1016/j.compositesb.2017.12.061"
+    },
+    {
+      "title": "Duong, Itskov, and Sauer (2022), rotation-free shells with in-plane fibre bending",
+      "locator": "https://doi.org/10.1002/nme.6937"
+    },
+    {
+      "title": "Steer et al. (2021), rotation-free in-plane bending of fibrous reinforcements",
+      "locator": "https://doi.org/10.1016/j.ijsolstr.2021.03.001"
     }
   ],
   "related_cards": [

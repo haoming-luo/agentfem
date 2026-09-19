@@ -390,6 +390,30 @@ def test_fiber_curve_kinematics_separate_in_plane_and_normal_bending():
     assert rotated.normal_curvature_change == pytest.approx(0.0)
 
 
+def test_surface_deformation_gradient_maps_tangent_plane_and_is_objective():
+    reference = np.array([[1.0, 0.2], [0.0, 1.1], [0.1, -0.1]])
+    current = np.array([[1.2, 0.1], [0.3, 0.9], [0.2, -0.3]])
+    deformation = mechanics.surface_deformation_gradient(reference, current)
+    reference_normal = np.cross(reference[:, 0], reference[:, 1])
+    reference_normal /= np.linalg.norm(reference_normal)
+    current_normal = np.cross(current[:, 0], current[:, 1])
+    current_normal /= np.linalg.norm(current_normal)
+
+    np.testing.assert_allclose(deformation @ reference, current)
+    np.testing.assert_allclose(deformation @ reference_normal, current_normal)
+
+    angle = np.deg2rad(28.0)
+    rotation = np.array(
+        [
+            [np.cos(angle), -np.sin(angle), 0.0],
+            [np.sin(angle), np.cos(angle), 0.0],
+            [0.0, 0.0, 1.0],
+        ]
+    )
+    rotated = mechanics.surface_deformation_gradient(reference, rotation @ current)
+    np.testing.assert_allclose(rotated, rotation @ deformation)
+
+
 def test_multilayer_fabric_stack_retains_varying_layer_frames_and_energy():
     tension = constitutive.tabulated_response(
         [0.0, 0.1], [0.0, 100.0], extrapolation="linear"
@@ -509,6 +533,91 @@ def test_forming_limits_are_explicit_screening_not_a_wrinkle_claim():
 
     with pytest.raises(ValueError, match="Curvature limits require"):
         limits.assess(response)
+
+
+def test_fibrous_shell_local_law_keeps_four_energy_channels_independent():
+    tangents = np.array([[1.0, 0.0], [0.0, 1.0], [0.0, 0.0]])
+    director = np.array([0.1, -0.2, 1.0])
+    director /= np.linalg.norm(director)
+    shell_kinematics = mechanics.director_shell_kinematics(
+        tangents,
+        tangents,
+        director,
+    )
+    warp_bending = mechanics.fiber_curve_kinematics(
+        tangents,
+        tangents,
+        [1.0, 0.0, 0.0],
+        [1.0, 0.0, 0.0],
+        current_direction_gradient=np.array(
+            [[0.0, 0.0], [2.0, 0.0], [3.0, 0.0]]
+        ),
+    )
+    weft_bending = mechanics.fiber_curve_kinematics(
+        tangents,
+        tangents,
+        [0.0, 1.0, 0.0],
+        [0.0, 1.0, 0.0],
+        current_direction_gradient=np.array(
+            [[0.0, -4.0], [0.0, 0.0], [0.0, 5.0]]
+        ),
+    )
+    membrane_2d = _fabric_membrane()
+    membrane_3d = constitutive.decoupled_fabric_surface(
+        frame=materials.fiber_frame(
+            [1.0, 0.0, 0.0],
+            [0.0, 1.0, 0.0],
+        ),
+        warp_tension=membrane_2d.warp_tension,
+        weft_tension=membrane_2d.weft_tension,
+        shear=membrane_2d.shear,
+        bending_stiffness=np.zeros((3, 3)),
+    )
+    law = constitutive.decoupled_fibrous_shell(
+        membrane_3d,
+        transverse_shear_stiffness=np.diag([10.0, 20.0]),
+        in_plane_bending_stiffness=np.diag([2.0, 3.0]),
+        normal_bending_stiffness=np.diag([4.0, 5.0]),
+    )
+
+    response = law.evaluate(
+        mechanics.surface_deformation_gradient(tangents, tangents),
+        shell_kinematics=shell_kinematics,
+        warp_bending=warp_bending,
+        weft_bending=weft_bending,
+    )
+
+    np.testing.assert_allclose(response.membrane.membrane_resultants, 0.0)
+    np.testing.assert_allclose(response.in_plane_curvature, [2.0, 4.0])
+    np.testing.assert_allclose(response.normal_curvature, [3.0, 5.0])
+    np.testing.assert_allclose(response.in_plane_bending_moments, [4.0, 12.0])
+    np.testing.assert_allclose(response.normal_bending_moments, [12.0, 25.0])
+    np.testing.assert_allclose(
+        response.transverse_shear_resultants,
+        np.diag([10.0, 20.0]) @ shell_kinematics.transverse_shear,
+    )
+    assert response.tangent.shape == (9, 9)
+    np.testing.assert_allclose(response.tangent, response.tangent.T)
+    assert set(response.energy_channels) == {
+        "membrane",
+        "transverse_shear",
+        "in_plane_bending",
+        "normal_bending",
+    }
+    assert response.energy_channels["membrane"] == pytest.approx(0.0)
+    assert response.stored_energy == pytest.approx(
+        sum(response.energy_channels.values())
+    )
+
+
+def test_fibrous_shell_refuses_overlapping_legacy_bending_ownership():
+    with pytest.raises(ValueError, match="zero bending stiffness"):
+        constitutive.decoupled_fibrous_shell(
+            _fabric_membrane(bending=1.0),
+            transverse_shear_stiffness=np.eye(2),
+            in_plane_bending_stiffness=np.eye(2),
+            normal_bending_stiffness=np.eye(2),
+        )
 
 
 def _fabric_membrane(*, bending=0.0):

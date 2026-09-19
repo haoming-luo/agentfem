@@ -212,6 +212,28 @@ explicit inputs. A future global implementation must obtain them from a
 verified second-gradient, rotation-free, or mixed-director discretization; a
 standard displacement membrane cannot manufacture them after the fact.
 
+`decoupled_fibrous_shell(...)` now defines the constitutive contract that such
+an element must consume. It keeps four independently calibrated energy blocks:
+
+- warp/weft tension and trellising shear;
+- transverse director shear;
+- warp/weft in-plane fibre bending;
+- warp/weft normal fibre bending.
+
+Its response exposes each generalized resultant, each energy channel, and one
+consistent block tangent in a documented order. The membrane law must carry a
+zero legacy bending matrix so bending cannot be counted twice. This remains a
+local law, not a shell element: interpolation, neighbouring-element curvature,
+locking control, boundary moments, contact and nonlinear evolution still
+belong to the future provider and procedure.
+
+For an embedded three-dimensional surface,
+`mechanics.surface_deformation_gradient(...)` supplies the objective lift used
+to convect the reference fibre frame. It maps the two reference tangents to
+their current counterparts and completes the surface map by sending reference
+normal to current normal. The completion is a constitutive convenience and
+does not claim a physical thickness stretch.
+
 Finally, `fabric_forming_limits(...)` provides a small fail-closed screening
 contract for user-declared yarn strain, trellising angle, and curvature
 limits. The result reports dimensionless utilization and the governing mode.
@@ -244,6 +266,11 @@ The automated local evidence currently checks:
   a constant-curvature patch;
 - fibre-curve measures distinguish in-plane and normal bending and remain
   objective under a superposed rigid rotation;
+- the three-dimensional surface-deformation lift reproduces both current
+  tangents and the current normal and transforms objectively;
+- the local fibrous-shell law keeps membrane, transverse shear, in-plane
+  bending and normal bending as independent positive-semidefinite energy and
+  tangent blocks, and rejects overlapping bending ownership;
 - multilayer stacks retain varying layer frames and stable layer identities
   while adding only compatible energy scalars;
 - a multilayer membrane patch enters the standard Step, preserves its exact
@@ -304,6 +331,14 @@ promoted this membrane foundation to a forming-capable fibrous shell.
 - P. Boisse et al., “Bending and wrinkling of composite fiber preforms and
   prepregs,” *Composites Part B* 141 (2018),
   <https://doi.org/10.1016/j.compositesb.2017.12.061>.
+- T. X. Duong, M. Itskov, and R. A. Sauer, “A general isogeometric finite
+  element formulation for rotation-free shells with in-plane bending of
+  embedded fibers,” *International Journal for Numerical Methods in
+  Engineering* 123 (2022), <https://doi.org/10.1002/nme.6937>.
+- Q. Steer et al., “Modeling and analysis of in-plane bending in fibrous
+  reinforcements with rotation-free shell finite elements,” *International
+  Journal of Solids and Structures* 222–223 (2021),
+  <https://doi.org/10.1016/j.ijsolstr.2021.03.001>.
 - Dassault Systèmes, “Defining composite plies,” Abaqus 2025 documentation,
   <https://docs.software.vt.edu/abaqusv2025/English/SIMACAECAERefMap/simacae-t-prpcompositesshellcontinuumplies.htm>.
 - Dassault Systèmes, “Fabric material,” Abaqus 2025 documentation,

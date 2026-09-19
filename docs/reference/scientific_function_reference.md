@@ -834,6 +834,8 @@ Defines independent woven-surface tension, trellising-shear, and bending channel
 - `agentfem.constitutive.TabulatedResponse`
 - `agentfem.constitutive.DecoupledFabricSurface`
 - `agentfem.constitutive.decoupled_fabric_surface`
+- `agentfem.constitutive.DecoupledFibrousShell`
+- `agentfem.constitutive.decoupled_fibrous_shell`
 - `agentfem.constitutive.FabricLayer`
 - `agentfem.constitutive.FabricStack`
 - `agentfem.constitutive.fabric_layer`
@@ -843,6 +845,7 @@ Defines independent woven-surface tension, trellising-shear, and bending channel
 - `agentfem.studies.static_membrane`
 - `agentfem.mechanics.director_shell_kinematics`
 - `agentfem.mechanics.fiber_curve_kinematics`
+- `agentfem.mechanics.surface_deformation_gradient`
 - `agentfem.results.fabric_membrane_cell_fields`
 - `agentfem.results.fabric_stack_membrane_cell_fields`
 - `agentfem.results.fabric_stack_result_manifest`
@@ -890,6 +893,7 @@ In-plane/geodesic and normal bending are separate objective measures and require
 | global membrane result fields | Displacement plus DG cell fields FABRIC_GENERALIZED_STRAIN, FABRIC_GENERALIZED_RESULTANT, FABRIC_WARP_DIRECTION, FABRIC_WEFT_DIRECTION, and SENER | length, dimensionless/radians, force per reference length, unit directions, and energy per reference area | The generalized strain and resultant vectors use the fixed warp, weft, trellising component order. |
 | multilayer local response and forming assessment | stable per-layer kinematics/resultants/energy plus dimensionless utilization against declared strain, trellising, and curvature limits | per-layer constitutive units and dimensionless utilization | Only compatible energy scalars are aggregated; resultants retain their layer frames, and limit assessment is screening rather than a wrinkle prediction. |
 | multilayer membrane result fields | stable per-layer DG fields expanded from generic fabric requests plus aggregate SENER and a layer-to-field manifest | the same per-layer units as the single-surface fields | Layer order and a readable slug form collision-free field prefixes; unlike generalized resultants are never silently summed. |
+| local fibrous-shell response | independent membrane, transverse-shear, in-plane-bending, and normal-bending resultants, energy channels, and a 9x9 block tangent | generalized shell forces, moments, energy per reference area, and their conjugate tangents | The constitutive contract is element-neutral and rejects overlapping legacy bending ownership. |
 
 #### Assumptions
 
@@ -937,6 +941,8 @@ study = studies.static_membrane(); model = models.create(study=study, mesh=domai
 - Verify zero reference response, tension-only compression behavior, stored-energy consistency, and separation of tension, shear, and bending channels.
 - Verify objective director kinematics and a nonzero global membrane patch with positive deformation Jacobian and energy.
 - Verify objective fibre-curve in-plane/normal curvature separation, stable multilayer identity, energy-only stack aggregation, fail-closed curvature assessment, and global per-layer field preservation.
+- Verify that the three-dimensional surface deformation lift maps both reference tangents and the reference normal and is objective under superposed rotation.
+- Verify pure local fibrous-shell modes, block-tangent symmetry, energy-channel additivity, and rejection of double-counted bending stiffness.
 - Keep shell, contact, and forming claims unavailable until their independent patch tests and benchmarks pass.
 
 ### References
@@ -948,6 +954,8 @@ study = studies.static_membrane(); model = models.create(study=study, mesh=domai
 - Bai et al. (2025), multilayer shell with varying fibre orientations: `https://doi.org/10.1016/j.compstruct.2025.119593`
 - Zheng et al. (2026), virtual-fibre prediction of in-plane bending: `https://doi.org/10.1016/j.compositesb.2026.113771`
 - Boisse et al. (2018), bending and wrinkling review: `https://doi.org/10.1016/j.compositesb.2017.12.061`
+- Duong, Itskov, and Sauer (2022), rotation-free shells with in-plane fibre bending: `https://doi.org/10.1002/nme.6937`
+- Steer et al. (2021), rotation-free in-plane bending of fibrous reinforcements: `https://doi.org/10.1016/j.ijsolstr.2021.03.001`
 
 <a id="agentfem-material-finite_strain_j2_logarithmic"></a>
 
