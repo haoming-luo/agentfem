@@ -4,6 +4,7 @@
 """Scientific datasets linking learned samples to simulation evidence."""
 
 from .core import DatasetSplit, ScientificDataset
+from .campaign_fields import FieldCaseData, FieldDatasetAssembler
 from .external import (
     ExternalDatasetAudit,
     ExternalDatasetManifest,
@@ -31,6 +32,8 @@ __all__ = [
     "ExternalDatasetManifest",
     "ExternalFile",
     "FEMFieldSample",
+    "FieldCaseData",
+    "FieldDatasetAssembler",
     "FieldDatasetSplit",
     "Quantity",
     "RectilinearObservation",

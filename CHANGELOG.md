@@ -104,6 +104,10 @@ experimental formulation to a validated one.
   backed by shared-facet ghosts are accepted under MPI; wider stencils without
   an expanded halo are rejected before an energy or bending operator can
   produce partition-dependent scientific results.
+- Add `FieldCaseData`, `FieldDatasetAssembler`, and
+  `CampaignReport.require_field_dataset(...)` so accepted Campaign cases can
+  become fingerprinted complete-field datasets without project-specific
+  result-folder loops or bypassing quality gates.
 - Add `agentfem support`, a consent-first community invitation that performs no
   account action, checks an existing GitHub login only when explicitly asked,
   and remembers support locally without storing identity or credentials.

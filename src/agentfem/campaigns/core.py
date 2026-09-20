@@ -413,6 +413,29 @@ class CampaignReport:
             },
         )
 
+    def require_field_dataset(
+        self,
+        assembler,
+        *,
+        allow_partial: bool = False,
+        minimum_cases: int = 1,
+        minimum_trust_level: str | None = None,
+        quality: str | None = None,
+    ):
+        """Assemble accepted case fields through one explicit field contract."""
+
+        from ..datasets import FieldDatasetAssembler
+
+        if not isinstance(assembler, FieldDatasetAssembler):
+            raise TypeError("assembler must be a datasets.FieldDatasetAssembler.")
+        return assembler.assemble(
+            self,
+            allow_partial=allow_partial,
+            minimum_cases=minimum_cases,
+            minimum_trust_level=minimum_trust_level,
+            quality=quality,
+        )
+
 
 class Campaign:
     """Build and evaluate a collection of immutable scientific cases.

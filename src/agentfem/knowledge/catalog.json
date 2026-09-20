@@ -971,6 +971,8 @@
       "kind": "workflow",
       "public_api": [
         "agentfem.campaigns.CampaignReport.require_dataset",
+        "agentfem.campaigns.CampaignReport.require_field_dataset",
+        "agentfem.datasets.FieldDatasetAssembler",
         "agentfem.datasets.ScientificDataset.to_torch",
         "agentfem.surrogates.train",
         "agentfem.surrogates.GuardedSurrogate"

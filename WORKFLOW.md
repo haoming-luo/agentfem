@@ -200,6 +200,8 @@ Package paths below are relative to `src/agentfem/`.
 - Multi-axis, observable-aware convergence certificates: `convergence.py`
 - Campaign-backed finite-difference response experiments: `responses.py`
 - Unit/shape-aware learning data and simulation provenance: `datasets/`
+- Quality-gated Campaign-to-field assembly for neural operators and other
+  complete-field workflows: `datasets.FieldDatasetAssembler`
 - Unified scientific-learning entry, including surrogate compatibility,
   neural-operator contracts, provider-neutral neural-field objectives, and the
   user-owned executor boundary. Neural energy providers may additionally
