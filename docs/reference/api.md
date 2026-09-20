@@ -727,6 +727,8 @@ and evidence remain in the linked guides and scientific function reference.
 | --- | --- | --- |
 | class | `DatasetSplit` | Reproducible train/validation partition. |
 | class | `ScientificDataset` | A numeric dataset whose columns retain scientific meaning. |
+| class | `FieldCaseData` | Physical fields extracted from one successful campaign case. |
+| class | `FieldDatasetAssembler` | Declarative bridge from accepted Campaign records to complete fields. |
 | class | `ExternalDatasetAudit` | Local evidence that downloaded public data matches its manifest. |
 | class | `ExternalDatasetManifest` | Versioned public dataset identity, scope, and local audit policy. |
 | class | `ExternalFile` | One immutable file identity in a public scientific dataset. |
@@ -736,8 +738,6 @@ and evidence remain in the linked guides and scientific function reference.
 | function | `science_supershear_dryad_manifest() -> ExternalDatasetManifest` | Return the pinned CC0 Dryad v7 manifest for Science 2023. |
 | function | `science_supershear_v5_research_task() -> dict[str, object]` | Return the installed machine-readable V5 research handoff. |
 | class | `FieldDatasetSplit` | Reproducible train/validation/test partition of field cases. |
-| class | `FieldCaseData` | Physical fields, coordinates, masks, and metadata extracted from one accepted campaign case. |
-| class | `FieldDatasetAssembler` | Quality-gated bridge from Campaign records to a complete scientific field dataset. |
 | class | `ScientificFieldDataset` | A scientific collection whose samples are complete physical fields. |
 | class | `Quantity` | One scalar, curve, vector, or sampled-field output contract. |
 | class | `Sample` | One successful simulation sample and its scientific lineage. |
