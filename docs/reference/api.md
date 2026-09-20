@@ -736,6 +736,8 @@ and evidence remain in the linked guides and scientific function reference.
 | function | `science_supershear_dryad_manifest() -> ExternalDatasetManifest` | Return the pinned CC0 Dryad v7 manifest for Science 2023. |
 | function | `science_supershear_v5_research_task() -> dict[str, object]` | Return the installed machine-readable V5 research handoff. |
 | class | `FieldDatasetSplit` | Reproducible train/validation/test partition of field cases. |
+| class | `FieldCaseData` | Physical fields, coordinates, masks, and metadata extracted from one accepted campaign case. |
+| class | `FieldDatasetAssembler` | Quality-gated bridge from Campaign records to a complete scientific field dataset. |
 | class | `ScientificFieldDataset` | A scientific collection whose samples are complete physical fields. |
 | class | `Quantity` | One scalar, curve, vector, or sampled-field output contract. |
 | class | `Sample` | One successful simulation sample and its scientific lineage. |

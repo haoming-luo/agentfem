@@ -3280,6 +3280,8 @@ Turns quality-gated deterministic simulations into scientific datasets, independ
 ### Public API
 
 - `agentfem.campaigns.CampaignReport.require_dataset`
+- `agentfem.campaigns.CampaignReport.require_field_dataset`
+- `agentfem.datasets.FieldDatasetAssembler`
 - `agentfem.datasets.ScientificDataset.to_torch`
 - `agentfem.surrogates.train`
 - `agentfem.surrogates.GuardedSurrogate`
@@ -3316,6 +3318,7 @@ A learned model never silently extrapolates beyond its declared domain.
 | Name | Type | Unit role | Meaning |
 | --- | --- | --- | --- |
 | ScientificDataset | manifest plus numeric arrays | preserved per quantity | Successful reviewed cases linked to artifacts and provenance. |
+| ScientificFieldDataset | field manifest plus numeric arrays | preserved per declared field encoding | Accepted complete fields, coordinates, parameters, case evidence, and artifact links assembled through an explicit extractor. |
 | SurrogateTrainingRun | model, split, validation report | preserved by named decoding | Keeps training and independent validation evidence together. |
 
 #### Assumptions
@@ -3339,7 +3342,8 @@ A learned model never silently extrapolates beyond its declared domain.
 
 - Case-level scheduler execution uses deterministic plan shards rather than Python threads.
 - Residual-scale uncertainty is not calibrated epistemic uncertainty.
-- Automatic arbitrary-mesh neural-operator training is not implemented.
+- Field extraction remains problem-owned; AgentFEM does not guess scientific fields from result filenames.
+- Automatic arbitrary-mesh neural-operator training is not implemented in core.
 
 ### Minimal example
 
@@ -3352,6 +3356,7 @@ dataset = report.require_dataset(quality='engineering'); training = surrogates.t
 **Tests**
 
 - `tests/test_campaigns.py`
+- `tests/test_campaign_field_datasets.py`
 - `tests/test_datasets.py`
 - `tests/test_surrogates.py`
 

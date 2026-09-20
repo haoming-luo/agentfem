@@ -8,6 +8,8 @@
   "summary": "Turns quality-gated deterministic simulations into scientific datasets, independent surrogate validation, optional PyTorch tensors, applicability decisions, and explicit high-fidelity fallback.",
   "public_api": [
     "agentfem.campaigns.CampaignReport.require_dataset",
+    "agentfem.campaigns.CampaignReport.require_field_dataset",
+    "agentfem.datasets.FieldDatasetAssembler",
     "agentfem.datasets.ScientificDataset.to_torch",
     "agentfem.surrogates.train",
     "agentfem.surrogates.GuardedSurrogate"
@@ -15,6 +17,7 @@
   "implementation": [
     "campaigns/core.py",
     "datasets/core.py",
+    "datasets/campaign_fields.py",
     "datasets/torch.py",
     "surrogates/training.py",
     "surrogates/domain.py"
@@ -55,6 +58,12 @@
         "description": "Successful reviewed cases linked to artifacts and provenance."
       },
       {
+        "name": "ScientificFieldDataset",
+        "type": "field manifest plus numeric arrays",
+        "unit_role": "preserved per declared field encoding",
+        "description": "Accepted complete fields, coordinates, parameters, case evidence, and artifact links assembled through an explicit extractor."
+      },
+      {
         "name": "SurrogateTrainingRun",
         "type": "model, split, validation report",
         "unit_role": "preserved by named decoding",
@@ -78,7 +87,8 @@
     "limitations": [
       "Case-level scheduler execution uses deterministic plan shards rather than Python threads.",
       "Residual-scale uncertainty is not calibrated epistemic uncertainty.",
-      "Automatic arbitrary-mesh neural-operator training is not implemented."
+      "Field extraction remains problem-owned; AgentFEM does not guess scientific fields from result filenames.",
+      "Automatic arbitrary-mesh neural-operator training is not implemented in core."
     ]
   },
   "usage": {
@@ -91,6 +101,7 @@
   "verification": {
     "tests": [
       "tests/test_campaigns.py",
+      "tests/test_campaign_field_datasets.py",
       "tests/test_datasets.py",
       "tests/test_surrogates.py"
     ],

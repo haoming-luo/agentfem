@@ -540,6 +540,32 @@ The built-in compressed NPZ storage is deliberately a small, portable
 reference backend. Large chunked storage can implement the same contract
 without changing a trainer or the scientific specification.
 
+Campaign fields enter the same contract through one explicit extractor rather
+than a project-owned loop over result folders:
+
+```python
+assembler = datasets.FieldDatasetAssembler(
+    encodings=(load_encoding, displacement_encoding),
+    parameter_names=("hole_radius", "load"),
+    extract=lambda case, outcome: datasets.FieldCaseData(
+        fields=read_case_fields(outcome.artifacts),
+        coordinates=read_case_coordinates(outcome.artifacts),
+        metadata={"mesh_family": "registered_plate"},
+    ),
+)
+
+field_dataset = report.require_field_dataset(
+    assembler,
+    quality="engineering",
+)
+```
+
+The extractor owns the scientific mapping from one solver result to declared
+fields. AgentFEM owns accepted case identity, partial-failure policy, quality
+gates, parameter values, field-shape consistency, provenance and artifact
+links. It never guesses a field from a filename or silently promotes a failed
+case into training data.
+
 ## Campaign to Dataset
 
 A campaign evaluator may return:
