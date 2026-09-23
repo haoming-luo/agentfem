@@ -1174,3 +1174,43 @@ def _coordinate_tolerance(domain) -> float:
         return 1.0e-12
     span = global_max - global_min
     return max(1.0, span) * 1.0e-12
+
+
+def from_arrays(*, cells, coordinates, coordinate_element, comm=None,
+                partitioner=None):
+    """Create a DOLFINx mesh through explicit topology/geometry keywords.
+
+    Coordinates and cell connectivity follow DOLFINx conventions, including
+    global geometry indices in distributed input. The caller supplies the
+    coordinate element (and ordering), so high-order geometry is preserved.
+    Return the ordinary DOLFINx mesh used by AgentFEM's field/region workflow.
+    """
+    selected_comm = MPI.COMM_WORLD if comm is None else comm
+    error = None
+    try:
+        topology = np.asarray(cells)
+        points = np.asarray(coordinates)
+        if topology.ndim != 2 or topology.dtype.kind not in "iu":
+            raise ValueError("cells must be a two-dimensional integer connectivity array.")
+        if topology.size and (np.any(topology < 0) or np.any(topology > np.iinfo(np.int64).max)):
+            raise ValueError("cells contains negative or out-of-range global vertex indices.")
+        if points.ndim != 2 or not 1 <= points.shape[1] <= 3:
+            raise ValueError("coordinates must have shape (number_of_points, dimension), dimension 1 to 3.")
+        if points.dtype.kind not in "iuf" or not np.all(np.isfinite(points)):
+            raise ValueError("coordinates must contain finite real numeric values.")
+        if points.dtype.kind in "iu":
+            points = points.astype(np.float64)
+        if points.dtype not in (np.dtype(np.float32), np.dtype(np.float64)):
+            raise ValueError("coordinates must use float32 or float64 precision.")
+    except (TypeError, ValueError) as exc:
+        error = str(exc)
+    # Fail collectively before entering collective DOLFINx mesh construction.
+    errors = selected_comm.allgather(error)
+    if any(message is not None for message in errors):
+        detail = "; ".join(f"rank {rank}: {message}" for rank, message in enumerate(errors) if message is not None)
+        raise ValueError(f"mesh.from_arrays: {detail}")
+    return mesh.create_mesh(comm=selected_comm,
+                            cells=np.ascontiguousarray(topology, dtype=np.int64),
+                            e=coordinate_element,
+                            x=np.ascontiguousarray(points),
+                            partitioner=partitioner)

@@ -123,3 +123,30 @@ def test_rectilinear_grid_sampling_marks_irregular_bbox_points_as_missing():
     assert sampled.values[2, 2] == pytest.approx(2.0)
     assert sampled.inside[2, 2]
     assert not sampled.inside[0, 0]
+
+
+@pytest.mark.parametrize("dimension", [2, 3])
+def test_numpy_components_and_time_update(dimension):
+    factory = mesh.rectangle if dimension == 2 else mesh.cuboid
+    domain = factory((0.,)*dimension, (1.,)*dimension, (2,)*dimension,
+                     comm=MPI.COMM_SELF)
+    field = fields.vector_unknown(domain, dim=dimension)
+    source = np.array(["x+t", "2.0", "z-t"][:dimension])
+    for t in (0., 0.4):
+        expressions.interpolate(field, source, parameters={"t": t})
+        expected = [0.25+t, 2.0, 0.25-t][:dimension]
+        np.testing.assert_allclose(results.probe(field, at=(0.25,)*dimension), expected)
+    before = field.value.x.array.copy()
+    with pytest.raises(expressions.ExpressionError, match="shape"):
+        expressions.interpolate(field, np.zeros((dimension, 1)))
+    np.testing.assert_array_equal(field.value.x.array, before)
+
+
+def test_tensor_expression_components():
+    from dolfinx import fem
+    domain = mesh.rectangle((0.,0.), (1.,1.), (2,2), comm=MPI.COMM_SELF)
+    V = fem.functionspace(domain, ("Lagrange", 1, (2,2)))
+    tensor = fem.Function(V)
+    expressions.interpolate(tensor, [["x", 2.0], ["y+t", -1.0]], parameters={"t":0.5})
+    np.testing.assert_allclose(np.asarray(results.probe(tensor, at=(0.25,0.25))).reshape(2,2),
+                               [[0.25,2.0],[0.75,-1.0]])

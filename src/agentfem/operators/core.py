@@ -242,6 +242,29 @@ class OperatorForm:
         )
 
 
+
+def from_ufl(expression, *, name: str, kind: str = "custom_operator",
+             family: str = "custom", role: str | None = None) -> OperatorForm:
+    """Adopt an integrated UFL form without changing its numerical expression.
+
+    Infer scalar/vector/matrix from form arity. Use role="residual" explicitly
+    for a nonlinear residual: arity alone cannot distinguish it from a load.
+    This is an incremental migration seam, not a translator for Python solvers.
+    """
+    if not isinstance(expression, ufl.Form):
+        raise TypeError("from_ufl requires an integrated UFL Form, not an integrand or compiled form.")
+    arity = form_arity(expression)
+    if role is None:
+        try:
+            role = {0: "scalar", 1: "vector", 2: "matrix"}[arity]
+        except KeyError:
+            raise ValueError("Specify role='operator' for a form with more than two arguments.") from None
+    result = OperatorForm(name=name, expression=expression, kind=kind,
+                          family=family, role=role)
+    result.check()
+    return result
+
+
 def combine(*operators, name: str = "combined_operator", kind: str = "combined_operator") -> OperatorForm:
     """Combine operator forms or raw UFL expressions into one operator form."""
 

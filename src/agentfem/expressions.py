@@ -179,33 +179,71 @@ def interpolate(
     *,
     parameters: Mapping[str, object] | None = None,
 ) -> object:
-    """Interpolate a validated scalar or vector expression into ``target``."""
+    """Interpolate scalar, vector or tensor expressions into ``target``."""
 
     function = getattr(target, "value", target)
     if not hasattr(function, "function_space"):
         raise TypeError("expressions.interpolate target must be a finite-element field.")
-    shape = tuple(getattr(function, "ufl_shape", ()))
-    if shape:
-        if not isinstance(source, Sequence) or isinstance(source, (str, bytes)):
-            raise ExpressionError("A vector field requires one expression per component.")
-        selected = tuple(expression(value) for value in source)
-        if len(selected) != int(shape[0]):
-            raise ExpressionError(
-                f"Vector expression has {len(selected)} components; expected {shape[0]}."
-            )
+    # Validate expression structure collectively before any rank interpolates.
+    try:
+        shape = tuple(getattr(function, "ufl_shape", ()))
+        if shape:
+            if isinstance(source, (str, bytes)):
+                raise ExpressionError(
+                    f"A field with value shape {shape} requires one expression per component."
+                )
+            try:
+                components = np.asarray(source, dtype=object)
+            except (TypeError, ValueError) as exc:
+                raise ExpressionError(f"Expected expression array with shape {shape}.") from exc
+            if components.shape != shape:
+                raise ExpressionError(
+                    f"Expression array has shape {components.shape}; expected {shape}."
+                )
+            selected = tuple(expression(value) for value in components.flat)
 
-        def evaluate_points(points):
-            return np.vstack(
-                [item.evaluate(points, parameters=parameters) for item in selected]
-            )
+            def evaluate_points(points):
+                # DOLFINx interpolation expects flattened value components followed
+                # by the point axis, including for tensor-valued function spaces.
+                return np.vstack(
+                    [item.evaluate(points, parameters=parameters) for item in selected]
+                )
 
+        else:
+            selected = expression(source)
+
+            def evaluate_points(points):
+                return selected.evaluate(points, parameters=parameters)
+
+        preparation_failure = None
+    except Exception as exc:
+        preparation_failure = exc
+    preparation_errors = function.function_space.mesh.comm.allgather(
+        None if preparation_failure is None else str(preparation_failure))
+    if any(error is not None for error in preparation_errors):
+        if preparation_failure is not None:
+            raise preparation_failure
+        raise ExpressionError("Invalid interpolation input on another MPI rank: " +
+                              "; ".join(error for error in preparation_errors if error is not None))
+
+    previous_values = function.x.array.copy()
+    try:
+        function.interpolate(evaluate_points)
+        if not np.all(np.isfinite(function.x.array)):
+            raise ExpressionError("Interpolated field contains non-finite values; check expression domain and parameters.")
+    except Exception as exc:
+        failure = exc
     else:
-        selected = expression(source)
-
-        def evaluate_points(points):
-            return selected.evaluate(points, parameters=parameters)
-
-    function.interpolate(evaluate_points)
+        failure = None
+    errors = function.function_space.mesh.comm.allgather(
+        None if failure is None else str(failure))
+    if any(error is not None for error in errors):
+        function.x.array[:] = previous_values
+        function.x.scatter_forward()
+        if failure is not None:
+            raise failure
+        raise ExpressionError("Interpolation failed on another MPI rank: " +
+                              "; ".join(error for error in errors if error is not None))
     function.x.scatter_forward()
     return target
 

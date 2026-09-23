@@ -759,3 +759,14 @@ A local, sanitized and integrity-sealed diagnostic task for a human or AI
 agent. It contains structural failure and runtime evidence but no scientific
 model or result. Creating a bundle is local; transmitting it is a separate
 user-authorized action.
+
+## Incremental UFL adoption
+
+`operators.from_ufl(form, name=...)` retains an integrated UFL form unchanged
+while giving it an AgentFEM name and role. It does not infer the physics or
+rewrite a solver. Arity distinguishes scalar, vector, and matrix forms; a
+nonlinear residual must be identified explicitly with `role="residual"`.
+
+A standalone mixed component retains its finite-element meaning, but need not
+retain the parent coefficient numbering. `spaces.independent_subspace` creates
+an independent space; field interpolation is the transfer contract.

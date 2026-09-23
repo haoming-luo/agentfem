@@ -485,3 +485,27 @@ restart route. The generalized-Maxwell material-specific harmonic provider is
 separate and remains experimental; do not infer its maturity from the
 engineering generic harmonic procedure or the elastic NAFEMS Test 5H
 comparison. Neither route implies finite strain or physical aging.
+
+## Learn from existing FEniCSx cases
+
+Preserve the PDE, discretization, boundaries and solver when migrating working
+code. Use `operators.from_ufl` to adopt integrated weak forms, then substitute
+named operators when their semantics match. Do not invent a new wrapper for
+every case or force unsupported physics into the closest named operator.
+Use `(M / dt).expression` or `(1.0 / dt) * M.expression`; UFL Forms and UFL
+integrands have different arithmetic. A history/load form has one argument,
+not a matrix role; use `from_ufl(..., role="vector")` when needed. For a
+nonlinear residual use `role="residual"`, followed by `operators.linearize`.
+Use `mesh.from_arrays(cells=..., coordinates=..., coordinate_element=...,
+comm=...)` instead of guessing positional DOLFINx mesh arguments.
+
+For constant, coordinate-dependent or explicitly updated time-dependent fields,
+use `expressions.interpolate(target, source, parameters=...)`; a bare constant
+need not be wrapped in a DOLFINx Expression. Vector/tensor inputs accept lists
+or NumPy arrays matching the target value shape. Interpolation is an assignment,
+not a persistent time binding. See `docs/guide/field_expression_inputs.md`.
+
+For high-order mixed-field boundary data, use `spaces.independent_subspace(W, i)`
+and paired parent/independent dof location. Transfer output by interpolation;
+never copy coefficient arrays between different numberings. See
+`docs/guide/high_order_mixed_fields.md`.

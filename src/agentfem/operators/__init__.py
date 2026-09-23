@@ -29,6 +29,7 @@ from .core import (
     diffusion_operator,
     force_vector,
     form_arity,
+    from_ufl,
     flux_vector,
     heat_capacity_operator,
     heat_capacity_vector,
@@ -100,6 +101,7 @@ from .transport import (
     intrinsic_time_scale,
     reaction_expression,
     streamline_upwind_operator,
+    transient_transport_forms,
 )
 
 assemble_lumped_mass = lumped_mass
@@ -153,6 +155,7 @@ __all__ = [
     "fiber_direction_bending",
     "FiberDirectionBendingIncrement",
     "form_arity",
+    "from_ufl",
     "flux_vector",
     "heat_capacity_operator",
     "heat_capacity_vector",
@@ -183,6 +186,7 @@ __all__ = [
     "stiffness",
     "stiffness_operator",
     "streamline_upwind_operator",
+    "transient_transport_forms",
     "split_laplacian_operator",
     "thermal_expansion_vector",
     "viscous_flow_operator",

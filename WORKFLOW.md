@@ -268,3 +268,18 @@ whitelist and must never serialize scientific inputs or outputs. Local
 diagnosis reads the structured execution record. Rich support evidence is
 sanitized, integrity-sealed, and remains local unless the user explicitly
 submits it. A failed collector must never fail or materially delay a solve.
+
+## Reusing a working FEniCSx implementation
+
+Keep its mesh, spaces, boundary data and time/solver choices initially. Adopt
+one integrated form at a time with `operators.from_ufl`, compare assembled
+operators and solutions, then replace recurring terms with named operators.
+Compose `OperatorForm` objects before taking `.expression`; `(M / dt + K).expression`
+is valid, whereas a raw UFL Form does not support `M.expression / dt`.
+For external cell/coordinate arrays use keyword-only `mesh.from_arrays`; retain
+the original coordinate element and node ordering. This is a low-level reuse
+route within the public workflow, not a competing physical Study language.
+
+High-order mixed-component boundary and output fields may use
+`spaces.independent_subspace(W, i)`; preserve their physical field by explicit
+interpolation, not by assuming identical coefficient order.
