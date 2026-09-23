@@ -224,16 +224,12 @@ class DisplacementPressureUnknown:
     def collapsed_displacement(self, *, name: str = "U"):
         """Return a standalone displacement field copied from the mixed state."""
 
-        result = self.value.sub(0).collapse()
-        result.name = name
-        return result
+        return _standalone_component(self.value, 0, name=name)
 
     def collapsed_pressure(self, *, name: str = "P"):
         """Return a standalone pressure field copied from the mixed state."""
 
-        result = self.value.sub(1).collapse()
-        result.name = name
-        return result
+        return _standalone_component(self.value, 1, name=name)
 
 
 @dataclass(frozen=True)
@@ -268,16 +264,21 @@ class VelocityPressureUnknown:
     def collapsed_velocity(self, *, name: str = "V"):
         """Return a standalone velocity field copied from the mixed state."""
 
-        result = self.value.sub(0).collapse()
-        result.name = name
-        return result
+        return _standalone_component(self.value, 0, name=name)
 
     def collapsed_pressure(self, *, name: str = "P"):
         """Return a standalone pressure field copied from the mixed state."""
 
-        result = self.value.sub(1).collapse()
-        result.name = name
-        return result
+        return _standalone_component(self.value, 1, name=name)
+
+
+def _standalone_component(function, component, *, name):
+    space = spaces.independent_subspace(function.function_space, component)
+    result = fem.Function(space, name=name)
+    function.x.scatter_forward()
+    result.interpolate(function.sub(component))
+    result.x.scatter_forward()
+    return result
 
 
 def scalar_unknown(domain, *, name: str = "Unknown", degree: int = 1, value=0.0) -> UnknownField:

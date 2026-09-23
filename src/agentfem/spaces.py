@@ -78,6 +78,18 @@ def velocity_pressure_space(
     )
 
 
+def independent_subspace(space, component: int):
+    """Build an independently numbered space for one mixed-field component.
+
+    Use it for boundary interpolation or standalone output. Its coefficient
+    numbering is not the parent numbering: transfer Functions by interpolation,
+    and locate boundary dofs with ``(space.sub(component), independent)``.
+    The finite element (including degree and variant) is preserved.
+    """
+    selected = space.sub(component)
+    return fem.functionspace(space.mesh, selected.ufl_element())
+
+
 def displacement_pressure_space(
     domain,
     *,
