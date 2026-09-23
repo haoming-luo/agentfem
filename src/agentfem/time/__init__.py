@@ -25,6 +25,7 @@ __all__ = [
     "generalized_alpha",
     "newmark",
     "format_duration",
+    "error_step_factor",
 ]
 
 
@@ -77,3 +78,24 @@ def central_difference_update_velocity(
 from . import explicit
 from . import implicit
 from .implicit import GeneralizedAlphaParameters, generalized_alpha, newmark
+
+
+def error_step_factor(error, tolerance, *, order=1, safety=0.9,
+                      minimum=0.5, maximum=2.0):
+    """Bounded proportional step-size factor for a local error estimate.
+
+    For an order-p integrator use h_new/h = safety*(tol/error)**(1/(p+1)).
+    The caller owns acceptance, rollback and physical step bounds.
+    """
+    import math
+    values = (error, tolerance, safety, minimum, maximum)
+    if not all(math.isfinite(float(value)) for value in values):
+        raise ValueError("Step controller inputs must be finite.")
+    if error < 0 or tolerance <= 0 or not 0 < safety <= 1:
+        raise ValueError("Require error >= 0, tolerance > 0 and 0 < safety <= 1.")
+    if not isinstance(order, int) or isinstance(order, bool) or order < 1:
+        raise ValueError("Integrator order must be a positive integer.")
+    if not 0 < minimum <= 1 <= maximum:
+        raise ValueError("Require 0 < minimum <= 1 <= maximum.")
+    factor = maximum if error == 0 else safety * (tolerance / error)**(1.0/(order+1))
+    return min(maximum, max(minimum, factor))

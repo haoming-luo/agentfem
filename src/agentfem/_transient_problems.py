@@ -747,16 +747,22 @@ class FirstOrderTransientStep:
         prepared = prepare() if callable(prepare) else None
 
         def advance(info):
-            if self.update_load is not None:
-                self.update_load(info.time)
             current_rollback = self.current.x.array.copy()
             previous_rollback = self.previous.x.array.copy()
+            accepted_time = self.completed_steps * self.dt
             try:
+                if self.update_load is not None:
+                    self.update_load(info.time)
                 if prepared is None:
                     self.problem.solve()
                 else:
                     self.problem.solve(prepared=prepared)
-            except Exception:
+            except Exception as failure:
+                if self.update_load is not None:
+                    try:
+                        self.update_load(accepted_time)
+                    except Exception as restore_failure:
+                        failure.add_note(f"Could not restore load at accepted time {accepted_time}: {restore_failure}")
                 self.current.x.array[:] = current_rollback
                 self.current.x.scatter_forward()
                 self.previous.x.array[:] = previous_rollback

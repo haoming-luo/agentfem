@@ -17,6 +17,7 @@ from .core import (
 from .quantities import (
     ForceMomentResultant,
     PathSample,
+    PointSample,
     RectilinearGridSample,
     StaticForceBalance,
     StaticWorkBalance,
@@ -223,6 +224,7 @@ __all__ = [
     "region_measure",
     "sample_path",
     "sample_points",
+    "PointSample",
     "sample_rectilinear_grid",
     "section_resultant",
     "static_force_balance",

@@ -1181,3 +1181,36 @@ def _field_magnitudes_on_marker(function, marker) -> np.ndarray:
     if not components or any(len(component) == 0 for component in components):
         return np.zeros(0, dtype=float)
     return np.sqrt(sum(component**2 for component in components))
+
+
+class ComputationalFailure(RuntimeError):
+    """Runtime failure with a stable machine-readable diagnosis and next checks."""
+
+    def __init__(self, diagnostic, message):
+        self.diagnostic = dict(diagnostic)
+        super().__init__(message + " " + " ".join(self.diagnostic["suggestions"]))
+
+    def as_dict(self):
+        return dict(self.diagnostic)
+
+
+def linear_failure_diagnostic(reason, iterations, residual_norm):
+    """Describe solver evidence without claiming an unobserved root cause."""
+    from petsc4py import PETSc
+    reasons = PETSc.KSP.ConvergedReason
+    reason = int(reason)
+    if reason == int(getattr(reasons, "DIVERGED_MAX_IT", getattr(reasons, "DIVERGED_ITS", -3))):
+        code = "AF-LINEAR-ITERATION-LIMIT"
+        suggestions = ["Check residual history, scaling and preconditioner before increasing the iteration budget."]
+    elif reason == int(reasons.DIVERGED_NANORINF):
+        code = "AF-LINEAR-NONFINITE"
+        suggestions = ["Check material coefficients, expressions and assembled matrix/RHS for NaN or infinity."]
+    elif reason == int(getattr(reasons, "DIVERGED_PCSETUP_FAILED", getattr(reasons, "DIVERGED_PC_FAILED", -11))):
+        code = "AF-LINEAR-PRECONDITIONER"
+        suggestions = ["Inspect the factorization/preconditioner error; check missing constraints or pressure reference and solver availability."]
+    else:
+        code = "AF-LINEAR-DIVERGENCE"
+        suggestions = ["Inspect the reported PETSc reason, matrix conditioning, boundary constraints and solver configuration."]
+    return {"code": code, "stage": "linear_solve", "reason": reason,
+            "iterations": int(iterations), "residual_norm": (float(residual_norm) if np.isfinite(residual_norm) else None),
+            "suggestions": suggestions, "diagnosis": "solver evidence; root cause not yet established"}

@@ -22,6 +22,25 @@ from ..kernel import dofs
 
 
 @dataclass(frozen=True)
+class PointSample:
+    """Point values with distinct mesh coverage and numerical validity masks."""
+    coordinates: np.ndarray
+    values: np.ndarray
+    located: np.ndarray
+    finite: np.ndarray
+
+    def summary(self):
+        count = len(self.located)
+        valid = self.located & self.finite
+        return {"point_count": count, "located_count": int(np.sum(self.located)),
+                "finite_count": int(np.sum(valid)),
+                "mesh_coverage": float(np.mean(self.located)) if count else None,
+                "valid_coverage": float(np.mean(valid)) if count else None,
+                "missing_indices": np.flatnonzero(~self.located).tolist(),
+                "nonfinite_inside_indices": np.flatnonzero(self.located & ~self.finite).tolist()}
+
+
+@dataclass(frozen=True)
 class PathSample:
     """Values sampled along one straight physical-space path."""
 
@@ -800,7 +819,8 @@ def sample_points(
     *,
     padding: float = 1.0e-10,
     missing: str = "raise",
-) -> np.ndarray:
+    return_info: bool = False,
+) -> np.ndarray | PointSample:
     """Evaluate a finite-element field at common physical points under MPI.
 
     Every rank must call this function with identical point coordinates.  One
@@ -813,18 +833,28 @@ def sample_points(
     function = field_api.unwrap(field)
     domain = function.function_space.mesh
     comm = domain.comm
-    selected_padding = float(padding)
-    if selected_padding < 0.0:
-        raise ValueError("sample_points padding must be non-negative.")
-    selected_missing = str(missing).lower()
-    if selected_missing not in {"raise", "nan"}:
-        raise ValueError("sample_points missing must be 'raise' or 'nan'.")
-    coordinates = _point_array(points, domain)
+    try:
+        selected_padding = float(padding)
+        if not np.isfinite(selected_padding) or selected_padding < 0.0:
+            raise ValueError("sample_points padding must be finite and non-negative.")
+        selected_missing = str(missing).lower()
+        if selected_missing not in {"raise", "nan"}:
+            raise ValueError("sample_points missing must be 'raise' or 'nan'.")
+        coordinates = _point_array(points, domain)
+        coordinate_error = None
+    except (TypeError, ValueError) as exc:
+        coordinate_error = str(exc)
+    coordinate_errors = comm.allgather(coordinate_error)
+    if any(error is not None for error in coordinate_errors):
+        raise ValueError("sample_points: " + "; ".join(
+            f"rank {rank}: {error}" for rank, error in enumerate(coordinate_errors)
+            if error is not None))
     _require_collective_points(coordinates, comm)
     point_count = int(coordinates.shape[0])
     if point_count == 0:
         shape = tuple(getattr(function, "ufl_shape", ()))
-        return np.empty((0, *shape), dtype=function.x.array.dtype)
+        empty = np.empty((0, *shape), dtype=function.x.array.dtype)
+        return PointSample(coordinates, empty, np.empty(0, dtype=bool), np.empty(0, dtype=bool)) if return_info else empty
 
     topology = domain.topology
     owned_count = int(topology.index_map(topology.dim).size_local)
@@ -876,9 +906,11 @@ def sample_points(
     comm.Allreduce(local_values, values, op=MPI.SUM)
     if missing_indices.size:
         values[missing_indices] = np.nan
-    if value_shape:
-        return values.reshape((point_count, *value_shape))
-    return values[:, 0]
+    shaped = values.reshape((point_count, *value_shape)) if value_shape else values[:, 0]
+    if return_info:
+        return PointSample(coordinates, shaped, owner < comm.size,
+                           np.all(np.isfinite(values), axis=1))
+    return shaped
 
 
 def sample_path(
@@ -1005,6 +1037,8 @@ def _point_array(points, domain) -> np.ndarray:
         selected = selected.reshape(-1, 1)
     if selected.ndim != 2:
         raise ValueError("Point coordinates must have shape (number, dimension).")
+    if not np.all(np.isfinite(selected)):
+        raise ValueError("Point coordinates must be finite; NaN/Inf cannot be located in a mesh.")
     geometric_dimension = int(domain.geometry.dim)
     storage_dimension = int(domain.geometry.x.shape[1])
     if selected.shape[1] == storage_dimension:

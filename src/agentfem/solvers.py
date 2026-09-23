@@ -209,9 +209,7 @@ class NewtonSolverOptions:
             max_it=self.maximum_iterations,
             line_search_reduction=self.line_search_reduction,
             line_search_minimum=(
-                self.minimum_step_length
-                if self.line_search == "backtracking"
-                else 1.0
+                self.minimum_step_length if self.line_search == "backtracking" else 1.0
             ),
             ksp_type=linear.ksp_type,
             pc_type=linear.pc_type,
@@ -251,9 +249,7 @@ def newton(
         absolute_tolerance=absolute_tolerance,
         maximum_iterations=maximum_iterations,
         line_search=line_search,
-        linear_solver=(
-            direct_solver() if linear_solver is None else linear_solver
-        ),
+        linear_solver=(direct_solver() if linear_solver is None else linear_solver),
         error_if_not_converged=error_if_not_converged,
     )
 
@@ -427,9 +423,7 @@ class AffineLoadPathInfo:
             "accepted_increment_count": len(self.increments),
             "attempt_count": len(self.attempts),
             "incrementation": (
-                None
-                if self.incrementation is None
-                else self.incrementation.summary()
+                None if self.incrementation is None else self.incrementation.summary()
             ),
             "increments": [step.as_dict() for step in self.increments],
             "attempts": [step.as_dict() for step in self.attempts],
@@ -495,8 +489,7 @@ class SolveEvent:
             "coordinate_value": finite_or_none(self.coordinate_value),
             "coordinate_unit": self.coordinate_unit,
             "metrics": {
-                str(name): finite_or_none(value)
-                for name, value in self.metrics.items()
+                str(name): finite_or_none(value) for name, value in self.metrics.items()
             },
             "display": bool(self.display),
         }
@@ -543,7 +536,11 @@ def create_ksp(comm, options: LinearSolverOptions | None = None):
     pc.setType(options.pc_type)
     if options.factor_solver_type is not None:
         pc.setFactorSolverType(options.factor_solver_type)
-    if options.rtol is not None or options.atol is not None or options.max_it is not None:
+    if (
+        options.rtol is not None
+        or options.atol is not None
+        or options.max_it is not None
+    ):
         ksp.setTolerances(
             rtol=options.rtol,
             atol=options.atol,
@@ -581,6 +578,11 @@ class PreparedLinearProblem:
     loops where the bilinear form, constrained dof set, and solver policy stay
     fixed while coefficients in the right-hand side change. Boundary values
     may change, but their constrained dof locations must remain unchanged.
+
+    ``bc_assembly="matrix_elimination"`` caches an unconstrained matrix for
+    boundary lifting via sparse matrix-vector products. It trades an extra
+    matrix allocation for avoiding repeated element integration, and requires
+    full-space boundary conditions. The default ``lifting`` is unchanged.
     """
 
     def __init__(
@@ -590,25 +592,58 @@ class PreparedLinearProblem:
         solution,
         *,
         bcs=None,
+        bc_assembly: str = "lifting",
         options: LinearSolverOptions | None = None,
     ):
+        if bc_assembly not in {"lifting", "matrix_elimination"}:
+            raise ValueError("bc_assembly must be lifting or matrix_elimination")
+        self.bc_assembly = bc_assembly
+        self._lifting_matrix = None
+        self._prescribed = None
+        self._boundary_action = None
         self.bilinear_form = (
             bilinear_form
             if hasattr(bilinear_form, "_cpp_object")
             else fem.form(bilinear_form)
         )
         self.linear_form = (
-            linear_form if hasattr(linear_form, "_cpp_object") else fem.form(linear_form)
+            linear_form
+            if hasattr(linear_form, "_cpp_object")
+            else fem.form(linear_form)
         )
         self.solution = solution
         self.bcs = [] if bcs is None else list(bcs)
         self.options = options or LinearSolverOptions()
-        self.matrix = fem_petsc.assemble_matrix(self.bilinear_form, bcs=self.bcs)
-        self.matrix.assemble()
+        if bc_assembly == "matrix_elimination":
+            V = solution.function_space
+            if any(bc.function_space != V._cpp_object for bc in self.bcs):
+                raise ValueError(
+                    "Matrix elimination requires full-space boundary conditions"
+                )
+            raw = fem_petsc.assemble_matrix(self.bilinear_form)
+            raw.assemble()
+            self._lifting_matrix = raw
+            self.matrix = raw.copy()
+            bs = int(V.dofmap.index_map_bs)
+            start = int(V.dofmap.index_map.local_range[0]) * bs
+            owned = [bc.dof_indices()[0][: bc.dof_indices()[1]] for bc in self.bcs]
+            rows = (
+                np.unique(np.concatenate(owned)).astype(PETSc.IntType) + start
+                if owned
+                else np.empty(0, dtype=PETSc.IntType)
+            )
+            self.matrix.zeroRowsColumns(rows, diag=1.0)
+            self._prescribed = solution.x.petsc_vec.duplicate()
+            self._boundary_action = solution.x.petsc_vec.duplicate()
+        else:
+            self.matrix = fem_petsc.assemble_matrix(self.bilinear_form, bcs=self.bcs)
+            self.matrix.assemble()
         self.ksp = create_ksp(self.matrix.comm, self.options)
         self.ksp.setOperators(self.matrix)
         self.last_solve_info: LinearSolveInfo | None = None
         self.solve_count = 0
+        self.matrix_assembly_count = 1
+        self.rhs_assembly_count = 0
         self._closed = False
 
     @property
@@ -626,11 +661,23 @@ class PreparedLinearProblem:
 
         self._require_open()
         vector = fem_petsc.assemble_vector(self.linear_form)
-        fem_petsc.apply_lifting(vector, [self.bilinear_form], [self.bcs])
-        vector.ghostUpdate(
-            addv=PETSc.InsertMode.ADD,
-            mode=PETSc.ScatterMode.REVERSE,
-        )
+        self.rhs_assembly_count += 1
+        if self.bc_assembly == "matrix_elimination":
+            vector.ghostUpdate(
+                addv=PETSc.InsertMode.ADD, mode=PETSc.ScatterMode.REVERSE
+            )
+            self._prescribed.set(0.0)
+            fem_petsc.set_bc(self._prescribed, self.bcs)
+            # Cached A*g replaces repeated cell integration. Global norm makes
+            # the homogeneous-boundary shortcut collective and MPI-safe.
+            if self._prescribed.norm() != 0.0:
+                self._lifting_matrix.mult(self._prescribed, self._boundary_action)
+                vector.axpy(-1.0, self._boundary_action)
+        else:
+            fem_petsc.apply_lifting(vector, [self.bilinear_form], [self.bcs])
+            vector.ghostUpdate(
+                addv=PETSc.InsertMode.ADD, mode=PETSc.ScatterMode.REVERSE
+            )
         fem_petsc.set_bc(vector, self.bcs)
         self.ksp.solve(vector, self.solution.x.petsc_vec)
         self.solution.x.scatter_forward()
@@ -646,10 +693,38 @@ class PreparedLinearProblem:
             _raise_linear_failure(info)
         return self.solution
 
+    def refresh_matrix(self) -> None:
+        """Reassemble after bilinear coefficients change; keep topology and BC dofs fixed.
+
+        RHS-only or prescribed-value changes need no refresh. Mesh, space or
+        constrained-dof changes require a new prepared problem.
+        """
+        self._require_open()
+        if self.bc_assembly == "matrix_elimination":
+            self._lifting_matrix.zeroEntries()
+            fem_petsc.assemble_matrix(self._lifting_matrix, self.bilinear_form)
+            self._lifting_matrix.assemble()
+            self.matrix.zeroEntries()
+            self.matrix.axpy(1.0, self._lifting_matrix)
+            start, _ = self.matrix.getOwnershipRange()
+            owned = [bc.dof_indices()[0][:bc.dof_indices()[1]] for bc in self.bcs]
+            rows = (np.unique(np.concatenate(owned)).astype(PETSc.IntType) + start
+                    if owned else np.empty(0, dtype=PETSc.IntType))
+            self.matrix.zeroRowsColumns(rows, diag=1.0)
+        else:
+            self.matrix.zeroEntries()
+            fem_petsc.assemble_matrix(self.matrix, self.bilinear_form, bcs=self.bcs)
+            self.matrix.assemble()
+        self.ksp.setOperators(self.matrix)
+        self.matrix_assembly_count += 1
+
     def summary(self) -> dict[str, object]:
         return {
             "kind": "prepared_linear_problem",
             "matrix_reused": True,
+            "matrix_assembly_count": self.matrix_assembly_count,
+            "rhs_assembly_count": self.rhs_assembly_count,
+            "bc_assembly": self.bc_assembly,
             "solve_count": int(self.solve_count),
             "solver": self.options.summary(),
             "last_solve": (
@@ -668,7 +743,17 @@ class PreparedLinearProblem:
         self.matrix = None
         self._closed = True
         first_error = None
-        for resource in (ksp, matrix):
+        resources = (
+            ksp,
+            matrix,
+            self._lifting_matrix,
+            self._prescribed,
+            self._boundary_action,
+        )
+        self._lifting_matrix = self._prescribed = self._boundary_action = None
+        for resource in resources:
+            if resource is None:
+                continue
             try:
                 resource.destroy()
             except Exception as exc:  # pragma: no cover - PETSc failure path
@@ -692,6 +777,7 @@ def prepare_linear_problem(
     solution,
     *,
     bcs=None,
+    bc_assembly: str = "lifting",
     options: LinearSolverOptions | None = None,
 ) -> PreparedLinearProblem:
     """Prepare one constant linear operator for repeated right-hand sides."""
@@ -701,6 +787,7 @@ def prepare_linear_problem(
         linear_form,
         solution,
         bcs=bcs,
+        bc_assembly=bc_assembly,
         options=options,
     )
 
@@ -751,11 +838,7 @@ class PreparedMPCLinearProblem:
                 "MPC solution and constraint must use compatible FunctionSpace "
                 "layouts. Construct the constraint from the target field or space."
             )
-        self.bcs = (
-            []
-            if bcs is None
-            else [getattr(item, "bc", item) for item in bcs]
-        )
+        self.bcs = [] if bcs is None else [getattr(item, "bc", item) for item in bcs]
         _validate_mpc_bc_overlap(self.backend, self.bcs)
         self.options = options or LinearSolverOptions()
         self.petsc_options_prefix = prefix
@@ -971,9 +1054,7 @@ def _validate_mpc_bc_overlap(backend, bcs) -> None:
     """Reject strong conditions added after MPC slave selection."""
 
     num_owned_slaves = int(getattr(backend, "num_local_slaves", 0))
-    slaves = np.asarray(backend.slaves, dtype=np.int64).reshape(-1)[
-        :num_owned_slaves
-    ]
+    slaves = np.asarray(backend.slaves, dtype=np.int64).reshape(-1)[:num_owned_slaves]
     local_overlap = 0
     for bc in bcs:
         provider = getattr(bc, "dof_indices", None)
@@ -1032,6 +1113,7 @@ def solve_linear_problem(
     solution,
     *,
     bcs=None,
+    bc_assembly: str = "lifting",
     options: LinearSolverOptions | None = None,
     return_info: bool = False,
 ):
@@ -1047,17 +1129,48 @@ def solve_linear_problem(
         DOLFINx function storing the solution.
     bcs:
         Optional list of strong Dirichlet boundary conditions.
+    bc_assembly:
+        ``lifting`` uses the usual element lifting. ``matrix_elimination``
+        applies the identical Dirichlet elimination to the assembled matrix,
+        avoiding a second element-kernel pass. Requires boundary conditions
+        in the solution's full, non-mixed function space.
     options:
         PETSc KSP configuration.
     """
 
+    if bc_assembly not in {"lifting", "matrix_elimination"}:
+        raise ValueError("bc_assembly must be lifting or matrix_elimination")
     bcs = [] if bcs is None else list(bcs)
-    A = fem_petsc.assemble_matrix(bilinear_form, bcs=bcs)
-    A.assemble()
-    b = fem_petsc.assemble_vector(linear_form)
-    fem_petsc.apply_lifting(b, [bilinear_form], [bcs])
-    b.ghostUpdate(addv=PETSc.InsertMode.ADD, mode=PETSc.ScatterMode.REVERSE)
-    fem_petsc.set_bc(b, bcs)
+    if bc_assembly == "matrix_elimination":
+        V = solution.function_space
+        if any(bc.function_space != V._cpp_object for bc in bcs):
+            raise ValueError(
+                "Matrix elimination requires full-space boundary conditions"
+            )
+        A = fem_petsc.assemble_matrix(bilinear_form)
+        A.assemble()
+        b = fem_petsc.assemble_vector(linear_form)
+        b.ghostUpdate(addv=PETSc.InsertMode.ADD, mode=PETSc.ScatterMode.REVERSE)
+        prescribed = solution.x.petsc_vec.duplicate()
+        prescribed.set(0.0)
+        fem_petsc.set_bc(prescribed, bcs)
+        bs = int(V.dofmap.index_map_bs)
+        start = int(V.dofmap.index_map.local_range[0]) * bs
+        owned = [bc.dof_indices()[0][: bc.dof_indices()[1]] for bc in bcs]
+        rows = (
+            np.unique(np.concatenate(owned)).astype(PETSc.IntType) + start
+            if owned
+            else np.empty(0, dtype=PETSc.IntType)
+        )
+        A.zeroRowsColumns(rows, diag=1.0, x=prescribed, b=b)
+        prescribed.destroy()
+    else:
+        A = fem_petsc.assemble_matrix(bilinear_form, bcs=bcs)
+        A.assemble()
+        b = fem_petsc.assemble_vector(linear_form)
+        fem_petsc.apply_lifting(b, [bilinear_form], [bcs])
+        b.ghostUpdate(addv=PETSc.InsertMode.ADD, mode=PETSc.ScatterMode.REVERSE)
+        fem_petsc.set_bc(b, bcs)
 
     selected = options or LinearSolverOptions()
     info = solve_matrix_system(
@@ -1077,7 +1190,9 @@ def solve_linear_problem(
 
 
 def _raise_linear_failure(info: LinearSolveInfo) -> None:
-    raise RuntimeError(
+    from .diagnostics import ComputationalFailure, linear_failure_diagnostic
+    raise ComputationalFailure(
+        linear_failure_diagnostic(info.converged_reason, info.iterations, info.residual_norm),
         "PETSc KSP did not converge: "
         f"reason={info.converged_reason}, iterations={info.iterations}, "
         f"residual_norm={info.residual_norm:.6g}."
@@ -1154,7 +1269,9 @@ def _validate_affine_state_transaction(transaction) -> None:
         "snapshot_accepted_boundary",
         "restore_accepted_boundary",
     )
-    missing = [name for name in required if not callable(getattr(transaction, name, None))]
+    missing = [
+        name for name in required if not callable(getattr(transaction, name, None))
+    ]
     if missing:
         raise TypeError(
             "Affine state_transaction must provide callable "
@@ -1196,8 +1313,7 @@ def _try_refresh_affine_trial_state(
     except Exception as exc:
         return (
             False,
-            "constitutive update failed: "
-            f"{type(exc).__name__}: {exc}",
+            f"constitutive update failed: {type(exc).__name__}: {exc}",
         )
     return True, ""
 
@@ -1299,8 +1415,7 @@ def _run_affine_acceptance_stage(
     if any(error is not None for error in errors):
         rank = next(index for index, error in enumerate(errors) if error is not None)
         raise RuntimeError(
-            f"Rank {rank}: affine accepted-boundary {stage} failed: "
-            f"{errors[rank]}"
+            f"Rank {rank}: affine accepted-boundary {stage} failed: {errors[rank]}"
         )
 
 
@@ -1425,11 +1540,7 @@ def solve_affine_nonlinear_path(
     total_attempts = len(attempt_history)
     cutbacks = 0
     proposed_size = (
-        (
-            control.initial
-            if next_increment_size is None
-            else float(next_increment_size)
-        )
+        (control.initial if next_increment_size is None else float(next_increment_size))
         if isinstance(control, step_controls.AutomaticIncrementation)
         else _next_fixed_affine_factor(control, accepted_factor)
     )
@@ -1507,9 +1618,7 @@ def solve_affine_nonlinear_path(
             ),
         )
         rollback = function.x.array.copy()
-        accepted_transaction_state = _snapshot_affine_accepted_state(
-            state_transaction
-        )
+        accepted_transaction_state = _snapshot_affine_accepted_state(state_transaction)
         accepted_history_state = list(history)
         attempted_history_state = list(attempt_history)
         reduction = constraint.reduction(factor)
@@ -1530,7 +1639,9 @@ def solve_affine_nonlinear_path(
             reduced_values = current_affine.copy()
         else:
             if previous_reduced.size != reduction.reduced_size:
-                raise RuntimeError("Affine reduction topology changed between load increments.")
+                raise RuntimeError(
+                    "Affine reduction topology changed between load increments."
+                )
             reduced_values = previous_reduced + current_affine - previous_affine
         _assign_reconstructed(function, reduction, reduced_values)
         trial_valid, constitutive_message = _try_refresh_affine_trial_state(
@@ -1624,7 +1735,7 @@ def solve_affine_nonlinear_path(
                     trial_norm = float("inf")
                     trial_failure_message = trial_message
                 if np.isfinite(trial_norm) and (
-                    trial_norm < current_norm
+                    trial_norm <= selected.atol
                     or trial_norm <= current_norm * (1.0 - 1.0e-4 * alpha)
                 ):
                     reduced_values = trial
@@ -1733,9 +1844,7 @@ def solve_affine_nonlinear_path(
                         function,
                         stage="output/observer callback",
                         callback=on_increment,
-                        args=(
-                            len(history), factor, function, increment_info
-                        ),
+                        args=(len(history), factor, function, increment_info),
                     )
                 converged_event = SolveEvent(
                     "increment_converged",
@@ -1823,8 +1932,7 @@ def solve_affine_nonlinear_path(
                 else f"required increment {next_size:.3g} is below minimum {control.minimum:.3g}"
             )
             message = (
-                f"automatic increment failed near load factor {factor:.6g}: "
-                f"{reason}"
+                f"automatic increment failed near load factor {factor:.6g}: {reason}"
             )
             return _failed_affine_path(
                 function,
@@ -1958,11 +2066,7 @@ def _solve_distributed_affine_nonlinear_path(
     total_attempts = len(attempt_history)
     cutbacks = 0
     proposed_size = (
-        (
-            control.initial
-            if next_increment_size is None
-            else float(next_increment_size)
-        )
+        (control.initial if next_increment_size is None else float(next_increment_size))
         if isinstance(control, step_controls.AutomaticIncrementation)
         else _next_fixed_affine_factor(control, accepted_factor)
     )
@@ -2031,9 +2135,7 @@ def _solve_distributed_affine_nonlinear_path(
             ),
         )
         rollback = function.x.array.copy()
-        accepted_transaction_state = _snapshot_affine_accepted_state(
-            state_transaction
-        )
+        accepted_transaction_state = _snapshot_affine_accepted_state(state_transaction)
         accepted_history_state = list(history)
         attempted_history_state = list(attempt_history)
         constraint.apply_affine_increment(accepted_factor, factor)
@@ -2116,7 +2218,7 @@ def _solve_distributed_affine_nonlinear_path(
                     trial_norm = float("inf")
                     trial_failure_message = trial_message
                 if np.isfinite(trial_norm) and (
-                    trial_norm < current_norm
+                    trial_norm <= options.atol
                     or trial_norm <= current_norm * (1.0 - 1.0e-4 * alpha)
                 ):
                     current_norm = trial_norm
@@ -2220,9 +2322,7 @@ def _solve_distributed_affine_nonlinear_path(
                         function,
                         stage="output/observer callback",
                         callback=on_increment,
-                        args=(
-                            len(history), factor, function, increment_info
-                        ),
+                        args=(len(history), factor, function, increment_info),
                     )
                 converged_event = SolveEvent(
                     "increment_converged",
@@ -2310,8 +2410,7 @@ def _solve_distributed_affine_nonlinear_path(
                 else f"required increment {next_size:.3g} is below minimum {control.minimum:.3g}"
             )
             message = (
-                f"automatic increment failed near load factor {factor:.6g}: "
-                f"{reason}"
+                f"automatic increment failed near load factor {factor:.6g}: {reason}"
             )
             return _failed_affine_path(
                 function,
@@ -2495,7 +2594,9 @@ def _normalized_output_factors(values) -> tuple[float, ...]:
     return selected
 
 
-def _validate_fixed_affine_resume(control, accepted_factor: float, stop_factor: float) -> None:
+def _validate_fixed_affine_resume(
+    control, accepted_factor: float, stop_factor: float
+) -> None:
     nodes = (0.0, *tuple(float(value) for value in control.load_factors))
     tolerance = 1.0e-12
     if not any(abs(accepted_factor - value) <= tolerance for value in nodes):
@@ -2548,7 +2649,9 @@ def _residual_text(value) -> str:
 def _assign_reconstructed(function, reduction, reduced_values) -> None:
     values = reduction.reconstruct(reduced_values)
     if values.size != function.x.array.size:
-        raise RuntimeError("Affine reconstruction size does not match the solution vector.")
+        raise RuntimeError(
+            "Affine reconstruction size does not match the solution vector."
+        )
     function.x.array[:] = values
     function.x.scatter_forward()
 
@@ -2565,3 +2668,47 @@ def _reduced_residual_norm(residual_form, transformation) -> float:
     full.destroy()
     reduced.destroy()
     return value
+
+
+def attach_nullspace(matrix, modes, *, rhs=None):
+    """Attach explicit orthonormalized null modes (e.g. constant pressure).
+
+    Modes use the assembled matrix layout; callers construct the physical
+    modes after boundary elimination. No pressure dof is silently pinned.
+    An optional RHS is checked for compatibility, not silently projected.
+    The caller owns/destroys the returned PETSc NullSpace.
+    """
+    basis = []
+    space = None
+    try:
+        for mode in modes:
+            vector = mode.copy()
+            for previous in basis:
+                vector.axpy(-previous.dot(vector), previous)
+            norm = vector.norm()
+            if not np.isfinite(norm) or norm <= 1e-14:
+                vector.destroy()
+                raise ValueError("Nullspace modes must be finite and linearly independent.")
+            vector.scale(1.0/norm)
+            basis.append(vector)
+        if not basis:
+            raise ValueError("Provide at least one nullspace mode.")
+        space = PETSc.NullSpace().create(vectors=basis, comm=matrix.comm)
+        if not space.test(matrix):
+            raise ValueError("Declared nullspace is not a nullspace of the assembled constrained matrix.")
+        if rhs is not None:
+            # For the symmetric systems targeted here left and right modes coincide.
+            if not matrix.isSymmetric(tol=1e-10):
+                raise ValueError("RHS compatibility checking requires a symmetric matrix.")
+            residual = max(abs(v.dot(rhs)) for v in basis)
+            if residual > 1e-10 * max(rhs.norm(), 1.0):
+                raise ValueError("RHS is incompatible with the nullspace; check boundary flux/load balance.")
+        matrix.setNullSpace(space)
+        return space
+    except Exception:
+        if space is not None:
+            space.destroy()
+        raise
+    finally:
+        for vector in basis:
+            vector.destroy()

@@ -1391,16 +1391,13 @@ class QuasistaticViscoelasticStep:
                     accepted_size,
                     info.iterations,
                 )
-                if (
-                    self.time_error_tolerance is not None
-                    and info.time_error_estimate is not None
-                    and info.time_error_estimate < 0.125 * self.time_error_tolerance
-                    and info.iterations < control.slow_iterations
-                ):
-                    proposed_size = min(
-                        control.maximum,
-                        max(proposed_size, accepted_size * control.growth_factor),
-                    )
+                if self.time_error_tolerance is not None and info.time_error_estimate is not None:
+                    from ..time import error_step_factor
+                    factor = error_step_factor(info.time_error_estimate,
+                                               self.time_error_tolerance,
+                                               maximum=control.growth_factor)
+                    proposed_size = min(proposed_size, accepted_size * factor)
+                    proposed_size = min(control.maximum, max(control.minimum, proposed_size))
                 self.next_increment_size = proposed_size
                 consecutive_cutbacks = 0
                 self._emit(
