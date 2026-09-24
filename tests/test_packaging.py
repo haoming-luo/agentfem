@@ -90,6 +90,21 @@ def test_release_contract_is_complete_and_references_real_workflows():
     assert workflow_maturity["structural-direct-harmonic"] == "engineering"
     assert workflow_maturity["generalized-maxwell-harmonic"] == "experimental"
     assert {
+        "partitioned-finite-strain-explicit",
+        "multi-material-thermoelastic-static",
+        "composite-material-and-fabric-foundation",
+    } <= workflow_ids
+    assert (
+        workflow_maturity["partitioned-finite-strain-explicit"] == "experimental"
+    )
+    assert (
+        workflow_maturity["multi-material-thermoelastic-static"] == "engineering"
+    )
+    assert (
+        workflow_maturity["composite-material-and-fabric-foundation"]
+        == "experimental"
+    )
+    assert {
         "nafems-r0016-test5h-external-comparison",
         "harmonic-three-level-observable-stability",
         "harmonic-two-rank-complete-sweep-equivalence",
@@ -104,6 +119,17 @@ def test_release_contract_is_complete_and_references_real_workflows():
             "Rayleigh-damped Test 5H benchmark"
         ),
         "full-field harmonic checkpoint recovery",
+    } <= set(contract["not_release_claims"])
+    assert {
+        "thermoelastic-free-expansion-and-region-partition",
+        "finite-strain-explicit-material-load-partition",
+        "fibrous-shell-hybrid-serial-and-two-rank",
+        "rotation-free-edge-ownership",
+    } <= set(contract["required_gates"])
+    assert {
+        "forming-capable composite shell, tool contact, friction or inter-ply slip",
+        "executable rotation-free shell edge constraints or boundary moments",
+        "universal multi-material support across every analysis provider",
     } <= set(contract["not_release_claims"])
 
 
