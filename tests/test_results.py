@@ -326,7 +326,7 @@ def test_displacement_controlled_3d_elastic_patch_writes_standard_fields(tmp_pat
     ) == pytest.approx(expected_stress[0, 0], rel=2.0e-11, abs=2.0e-9)
     assert {"Displacement", "S", "E", "MISES"} <= set(simulation.fields)
     assert "SENER" not in simulation.fields
-    assert simulation.fields["S"].processing == {
+    expected_processing = {
         "source_position": "constitutive_expression",
         "method": "global_l2_projection",
         "representation": "cell_average",
@@ -336,6 +336,13 @@ def test_displacement_controlled_3d_elastic_patch_writes_standard_fields(tmp_pat
         "interelement_smoothing": False,
         "material_boundary_averaging": False,
     }
+    assert expected_processing.items() <= simulation.fields["S"].processing.items()
+    assert simulation.fields["S"].processing["expression_source"] == (
+        "constitutive_expression"
+    )
+    assert simulation.fields["S"].processing["material_partition"][0][
+        "material"
+    ] == material.name
     assert simulation.fields["Displacement"].processing == {
         "method": "primary_finite_element_solution",
         "representation": "finite_element_dofs",

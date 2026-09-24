@@ -56,6 +56,7 @@ from .elasticity import (
     orthotropic_plane_stress_2d,
     orthotropic_elastic_3d,
     stress,
+    stress_from_strain,
 )
 from .fabric import (
     DecoupledFabricSurface,
@@ -314,6 +315,7 @@ __all__ = [
     "capabilities",
     "capability",
     "isotropic_stress",
+    "stress_from_strain",
     "isotropic_elastic",
     "thermal_expansion_stress",
     "thermal_strain",

@@ -67,6 +67,9 @@ class Model:
     steps: list[object] = field(default_factory=list)
     engineering_steps: list[object] = field(default_factory=list)
     unit_system: object | None = None
+    # Append new registries so historical positional construction is not
+    # silently reinterpreted. New code should use keyword construction.
+    eigenstrains: list[object] = field(default_factory=list)
 
     @property
     def domain(self):
@@ -136,6 +139,27 @@ class Model:
         """Register material data with an optional independent material frame."""
 
         return self.add_material(material, region=region, orientation=orientation)
+
+    def eigenstrain(self, source):
+        """Register one explicit stress-free strain source.
+
+        The source remains independent of material assignment.  Operator
+        lowering combines it with the model's material--region partition.
+        """
+
+        required = ("strain", "equivalent_stress", "summary")
+        missing = tuple(
+            name for name in required if not callable(getattr(source, name, None))
+        )
+        if missing:
+            raise TypeError(
+                "model.eigenstrain requires an eigenstrain source exposing "
+                f"{required}; missing={missing}."
+            )
+        if any(existing is source for existing in self.eigenstrains):
+            return source
+        self.eigenstrains.append(source)
+        return source
 
     def add_constraint(self, constraint):
         """Register a strong constraint and return it."""
@@ -691,6 +715,38 @@ class Model:
             )
         )
 
+    def pin(
+        self,
+        target,
+        *,
+        at,
+        components=None,
+        value=0.0,
+        tolerance: float = 1.0e-10,
+        name: str = "pin",
+    ):
+        """Create and register an explicit point support."""
+
+        return self.add_constraint(
+            constraint_api.pin(
+                target,
+                at=at,
+                components=components,
+                value=value,
+                tolerance=tolerance,
+                name=name,
+            )
+        )
+
+    def rigid_mode_audit(self, target, *, tolerance: float = 1.0e-10):
+        """Report remaining rigid modes without changing the model."""
+
+        return constraint_api.rigid_mode_audit(
+            target,
+            self.constraints,
+            tolerance=tolerance,
+        )
+
     def absorbing_boundary(
         self,
         *,
@@ -883,20 +939,39 @@ class Model:
         measure=None,
         name: str = "F_thermal",
     ):
-        """Create the equivalent force from a solved temperature field."""
+        """Create a region-aware equivalent force from a temperature field.
 
-        record = (
-            self._material_record(material)
-            if material is not None
-            else _single_material(self, "model.thermal_expansion")
+        With ``material=None`` every registered material is lowered on its own
+        cell region.  The thermal source is retained as a model asset so the
+        result layer can recover physical stress and the total/eigen/mechanical
+        strain decomposition after the solve.
+        """
+
+        from . import eigenstrains
+
+        source = next(
+            (
+                existing
+                for existing in self.eigenstrains
+                if getattr(existing, "kind", None) == "thermal"
+                and getattr(existing, "temperature", None) is temperature
+            ),
+            None,
         )
+        if source is None:
+            source = self.eigenstrain(
+                eigenstrains.thermal(temperature, name=f"{name}_eigenstrain")
+            )
 
         from .operators import _model_lowering
 
         return _model_lowering.lower_thermal_expansion(
             target,
-            temperature,
-            selected=record,
+            source,
+            assignments=tuple(self.materials),
+            selected=(
+                self._material_record(material) if material is not None else None
+            ),
             study=self.study,
             measure=measure,
             name=name,

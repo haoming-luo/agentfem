@@ -144,6 +144,25 @@ def validate_model(model, *, target=None, step_options=None):
                         hint="Pass region=... when registering each material.",
                     )
                 )
+        _validate_material_partition(
+            issues,
+            model=model,
+            mesh_domain=mesh_domain,
+            issue=issue,
+        )
+
+    for index, source in enumerate(getattr(model, "eigenstrains", ())):
+        if not callable(getattr(source, "strain", None)) or not callable(
+            getattr(source, "equivalent_stress", None)
+        ):
+            issues.append(
+                issue(
+                    "AFM-EIGENSTRAIN-001",
+                    f"model.eigenstrains[{index}]",
+                    "An eigenstrain source must expose strain and equivalent_stress.",
+                    hint="Create the source with agentfem.eigenstrains.",
+                )
+            )
 
     if study is not None:
         selected_options = {} if step_options is None else dict(step_options)
@@ -164,6 +183,7 @@ def validate_model(model, *, target=None, step_options=None):
     for collection_name in (
         "fields",
         "amplitudes",
+        "eigenstrains",
         "constraints",
         "loads",
         "boundary_models",
@@ -196,6 +216,73 @@ def validate_model(model, *, target=None, step_options=None):
                 )
 
     return ValidationReport.from_issues(issues, scope=f"model:{model.name}")
+
+
+def _validate_material_partition(issues, *, model, mesh_domain, issue) -> None:
+    """Require an exact owned-cell partition for multi-material models."""
+
+    if mesh_domain is None:
+        return
+    topology = getattr(mesh_domain, "topology", None)
+    if topology is None:
+        return
+    tdim = int(topology.dim)
+    cell_map = topology.index_map(tdim)
+    local_cells = int(cell_map.size_local)
+    membership = np.zeros(local_cells, dtype=np.int16)
+    unsupported = []
+    for index, record in enumerate(model.materials):
+        region = getattr(record, "region", None)
+        tags = getattr(region, "cell_tags", None)
+        tag = getattr(region, "tag", None)
+        if tags is None or tag is None or int(getattr(tags, "dim", -1)) != tdim:
+            unsupported.append(index)
+            continue
+        entities = np.asarray(tags.find(int(tag)), dtype=np.int64)
+        owned = entities[(entities >= 0) & (entities < local_cells)]
+        membership[owned] += 1
+    if unsupported:
+        issues.append(
+            issue(
+                "AFM-MATERIAL-003",
+                "model.materials",
+                "Multi-material coverage cannot be audited because one or more "
+                "regions do not expose cell tags.",
+                hint="Use named CellRegion assets for every material assignment.",
+                material_indices=tuple(unsupported),
+            )
+        )
+        return
+    communicator = getattr(mesh_domain, "comm", None)
+    local_missing = int(np.count_nonzero(membership == 0))
+    local_overlap = int(np.count_nonzero(membership > 1))
+    if communicator is not None:
+        from mpi4py import MPI
+
+        missing = int(communicator.allreduce(local_missing, op=MPI.SUM))
+        overlap = int(communicator.allreduce(local_overlap, op=MPI.SUM))
+    else:
+        missing, overlap = local_missing, local_overlap
+    if missing:
+        issues.append(
+            issue(
+                "AFM-MATERIAL-004",
+                "model.materials",
+                f"Material regions leave {missing} owned cells uncovered.",
+                hint="Partition every cell exactly once before solving.",
+                uncovered_owned_cells=missing,
+            )
+        )
+    if overlap:
+        issues.append(
+            issue(
+                "AFM-MATERIAL-005",
+                "model.materials",
+                f"Material regions overlap on {overlap} owned cells.",
+                hint="Use disjoint CellRegion assets for constitutive assignments.",
+                overlapping_owned_cells=overlap,
+            )
+        )
 
 
 def _validate_mesh_study(issues, *, model, study, mesh_domain, issue) -> None:

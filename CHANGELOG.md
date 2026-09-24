@@ -8,6 +8,12 @@ experimental formulation to a validated one.
 
 ### Added
 
+- Add explicit thermal/prescribed eigenstrain assets, region-aware
+  multi-material lowering, physical thermoelastic stress recovery with
+  `E_TOTAL`/`E_EIGEN`/`E_MECH`, exact material-partition validation, point
+  supports and rigid-mode audits, portable manifest readers, and Campaign
+  artifact-hash audits that invalidate corrupted resume records. Declared
+  consistent units now propagate into ordinary static result-field manifests.
 - Add multilayer woven-reinforcement assets with stable layer identities and
   varying fibre frames, standard in-plane membrane lowering, unambiguous
   per-layer result fields, explicit same-orientation physical-layer grouping,

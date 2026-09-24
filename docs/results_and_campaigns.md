@@ -643,6 +643,12 @@ optimizers, and training loops.
 
 ## Next Result Priorities
 
+Campaign output directories include `audit.json`. The audit compares the
+immutable plan, case records, successful dataset identities, and declared file
+artifact hashes. A missing or modified artifact invalidates resume instead of
+being silently accepted. `CampaignReport.audit()` and `write_audit()` expose
+the same contract without rerunning a case.
+
 1. physical dual extraction for rectangular MPC, weak, and contact providers;
 2. nodal smoothing and higher-order stress recovery beyond implemented DG
    projection;

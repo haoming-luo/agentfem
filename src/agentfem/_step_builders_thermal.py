@@ -61,7 +61,13 @@ def linear_static(
                 else operators.heat_source_vector(0.0, target)
             )
     else:
-        K = K if K is not None else model.stiffness(target)
+        eigenstrain_sources = tuple(model.eigenstrains)
+        constitutive_temperature = _eigenstrain_temperature(eigenstrain_sources)
+        K = (
+            K
+            if K is not None
+            else model.stiffness(target, temperature=constitutive_temperature)
+        )
         from .boundary_models import ElasticFoundation
 
         foundation_models = tuple(
@@ -89,8 +95,32 @@ def linear_static(
                 kind="solid_and_foundation_stiffness",
             )
         if F is None:
+            sources = []
             if model.loads:
-                F = model.external_force(target)
+                sources.append(model.external_force(target))
+            if eigenstrain_sources:
+                from .operators import _model_lowering
+
+                sources.extend(
+                    _model_lowering.lower_thermal_expansion(
+                        target,
+                        source,
+                        assignments=tuple(model.materials),
+                        study=model.study,
+                        name=f"F_{source.name}",
+                    )
+                    for source in eigenstrain_sources
+                )
+            if sources:
+                F = (
+                    sources[0]
+                    if len(sources) == 1
+                    else operators.combine(
+                        *sources,
+                        name="F",
+                        kind="external_and_eigenstrain_load",
+                    )
+                )
             else:
                 value_shape = tuple(getattr(target.value, "ufl_shape", ()))
                 zero = (
@@ -108,10 +138,16 @@ def linear_static(
                 )
 
     result_field_factory = None
+    result_sources = tuple(model.eigenstrains)
     if (
         getattr(model.study, "is_solid_mechanics", False)
         and model.materials
-        and all(_thermal_expansion_is_zero(record.item) for record in model.materials)
+        and (
+            result_sources
+            or all(
+                _thermal_expansion_is_zero(record.item) for record in model.materials
+            )
+        )
     ):
         assignments = tuple(model.materials)
 
@@ -126,6 +162,8 @@ def linear_static(
                 physics="solid_mechanics",
                 finite_strain=False,
             )[1:]
+            if result_sources:
+                defaults = ("S", "E_TOTAL", "E_EIGEN", "E_MECH", "MISES")
             variables = tuple(defaults if requested is None else requested)
             if (
                 not isotropic
@@ -138,6 +176,7 @@ def linear_static(
                 assignments,
                 study=model.study,
                 variables=variables,
+                eigenstrains=result_sources,
             )
 
     step = problems.linear_static(
@@ -148,6 +187,7 @@ def linear_static(
         constraints=selected_constraints,
         solver_options=solver_options,
         result_field_factory=result_field_factory,
+        result_units=_linear_static_result_units(model),
         name=name,
     )
     if not getattr(model.study, "is_heat_transfer", False):
@@ -454,6 +494,52 @@ def _thermal_expansion_is_zero(material) -> bool:
     if hasattr(selected, "values"):
         return bool(np.all(np.asarray(selected.values, dtype=float) == 0.0))
     return float(selected or 0.0) == 0.0
+
+
+def _eigenstrain_temperature(sources):
+    temperatures = tuple(
+        value
+        for value in (
+            source.constitutive_temperature()
+            for source in sources
+            if callable(getattr(source, "constitutive_temperature", None))
+        )
+        if value is not None
+    )
+    if not temperatures:
+        return None
+    selected = temperatures[0]
+    if any(value is not selected for value in temperatures[1:]):
+        raise ValueError(
+            "Automatic thermoelastic stiffness requires one shared temperature "
+            "field. Build K explicitly when independent temperature sources are needed."
+        )
+    return selected
+
+
+def _linear_static_result_units(model) -> dict[str, str | None]:
+    """Lower a declared consistent unit system into result-field units."""
+
+    unit_system = model.unit_system
+    if unit_system is None:
+        return {}
+    if getattr(model.study, "is_heat_transfer", False):
+        return {"primary": getattr(unit_system, "temperature", None)}
+    if not getattr(model.study, "is_solid_mechanics", False):
+        return {}
+    stress = getattr(unit_system, "stress", None)
+    return {
+        "primary": getattr(unit_system, "length", None),
+        "S": stress,
+        "S_MATERIAL": stress,
+        "MISES": stress,
+        "SENER": stress,
+        "E": "1",
+        "E_TOTAL": "1",
+        "E_EIGEN": "1",
+        "E_MECH": "1",
+        "E_MATERIAL": "1",
+    }
 
 
 def _describe(item):

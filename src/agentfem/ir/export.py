@@ -17,6 +17,7 @@ WORKFLOW_ORDER = (
     "regions",
     "fields",
     "materials",
+    "eigenstrains",
     "amplitudes",
     "constraints",
     "loads",
@@ -49,12 +50,11 @@ def model_document(
         "regions": describe_many(getattr(model, "regions", ())),
         "fields": describe_many(getattr(model, "fields", ())),
         "materials": describe_many(getattr(model, "materials", ())),
+        "eigenstrains": describe_many(getattr(model, "eigenstrains", ())),
         "amplitudes": describe_many(getattr(model, "amplitudes", ())),
         "constraints": describe_many(getattr(model, "constraints", ())),
         "loads": describe_many(getattr(model, "loads", ())),
-        "boundary_models": describe_many(
-            getattr(model, "boundary_models", ())
-        ),
+        "boundary_models": describe_many(getattr(model, "boundary_models", ())),
         "steps": describe_many(getattr(model, "steps", ())),
     }
     if include_validation and hasattr(model, "validate"):

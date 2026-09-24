@@ -25,7 +25,34 @@ _VARIABLES = {
     "U": FieldVariable("U", "Displacement", "nodes", "vector", "Displacement"),
     "V": FieldVariable("V", "Velocity", "nodes", "vector", "Velocity"),
     "A": FieldVariable("A", "Acceleration", "nodes", "vector", "Acceleration"),
-    "S": FieldVariable("S", "CauchyStress", "cells", "symmetric_tensor", "Cauchy stress"),
+    "S": FieldVariable(
+        "S", "CauchyStress", "cells", "symmetric_tensor", "Cauchy stress"
+    ),
+    "E_TOTAL": FieldVariable(
+        "E_TOTAL",
+        "TotalInfinitesimalStrain",
+        "cells",
+        "symmetric_tensor",
+        "Total infinitesimal strain",
+        aliases=("ETOTAL",),
+    ),
+    "E_EIGEN": FieldVariable(
+        "E_EIGEN",
+        "Eigenstrain",
+        "cells",
+        "symmetric_tensor",
+        "Stress-free strain from explicitly declared eigenstrain sources",
+        aliases=("EEIGEN", "INITIAL_STRAIN"),
+    ),
+    "E_MECH": FieldVariable(
+        "E_MECH",
+        "MechanicalInfinitesimalStrain",
+        "cells",
+        "symmetric_tensor",
+        "Mechanical strain E_TOTAL - E_EIGEN",
+        aliases=("EMECH",),
+        derived_from=("E_TOTAL", "E_EIGEN"),
+    ),
     "S_MATERIAL": FieldVariable(
         "S_MATERIAL",
         "MaterialFrameStress",
@@ -35,7 +62,9 @@ _VARIABLES = {
         aliases=("SMATERIAL",),
         derived_from=("S",),
     ),
-    "P": FieldVariable("P", "FirstPiolaStress", "cells", "tensor", "First Piola stress"),
+    "P": FieldVariable(
+        "P", "FirstPiolaStress", "cells", "tensor", "First Piola stress"
+    ),
     "PRESSURE": FieldVariable(
         "PRESSURE",
         "Pressure",
@@ -43,7 +72,9 @@ _VARIABLES = {
         "scalar",
         "Independent mixed pressure; positive in compression",
     ),
-    "F": FieldVariable("F", "DeformationGradient", "cells", "tensor", "Deformation gradient"),
+    "F": FieldVariable(
+        "F", "DeformationGradient", "cells", "tensor", "Deformation gradient"
+    ),
     "FP": FieldVariable(
         "FP",
         "PlasticDeformationGradient",
@@ -51,8 +82,20 @@ _VARIABLES = {
         "tensor",
         "Plastic deformation gradient",
     ),
-    "LE": FieldVariable("LE", "LogarithmicStrain", "cells", "symmetric_tensor", "Spatial logarithmic strain"),
-    "GREEN": FieldVariable("GREEN", "GreenLagrangeStrain", "cells", "symmetric_tensor", "Green--Lagrange strain"),
+    "LE": FieldVariable(
+        "LE",
+        "LogarithmicStrain",
+        "cells",
+        "symmetric_tensor",
+        "Spatial logarithmic strain",
+    ),
+    "GREEN": FieldVariable(
+        "GREEN",
+        "GreenLagrangeStrain",
+        "cells",
+        "symmetric_tensor",
+        "Green--Lagrange strain",
+    ),
     "PE": FieldVariable(
         "PE", "PlasticStrain", "cells", "symmetric_tensor", "Plastic strain"
     ),
@@ -111,8 +154,12 @@ _VARIABLES = {
         "Kinetic-energy density per reference volume",
         derived_from=("V",),
     ),
-    "EVOL": FieldVariable("EVOL", "CurrentElementVolume", "cells", "scalar", "Current element volume"),
-    "TEMP": FieldVariable("TEMP", "Temperature", "nodes", "scalar", "Temperature", ("NT",)),
+    "EVOL": FieldVariable(
+        "EVOL", "CurrentElementVolume", "cells", "scalar", "Current element volume"
+    ),
+    "TEMP": FieldVariable(
+        "TEMP", "Temperature", "nodes", "scalar", "Temperature", ("NT",)
+    ),
     "RF": FieldVariable("RF", "ReactionForce", "nodes", "vector", "Reaction force"),
     "E_MATERIAL": FieldVariable(
         "E_MATERIAL",
@@ -172,7 +219,9 @@ def field_variable(name: str, *, finite_strain: bool = False) -> FieldVariable:
             "InfinitesimalStrain",
             "cells",
             "symmetric_tensor",
-            "Infinitesimal strain",
+            "Total infinitesimal strain; use E_MECH for constitutive strain "
+            "when eigenstrain sources are active",
+            aliases=("E_TOTAL", "ETOTAL"),
         )
     if key in _VARIABLES:
         return _VARIABLES[key]
@@ -184,7 +233,9 @@ def field_variable(name: str, *, finite_strain: bool = False) -> FieldVariable:
     )
 
 
-def resolve_field_variables(names, *, finite_strain: bool = False) -> tuple[FieldVariable, ...]:
+def resolve_field_variables(
+    names, *, finite_strain: bool = False
+) -> tuple[FieldVariable, ...]:
     """Resolve aliases, preserve request order, and remove duplicates."""
 
     selected = []

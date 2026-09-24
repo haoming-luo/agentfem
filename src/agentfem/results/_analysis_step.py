@@ -46,6 +46,7 @@ def from_analysis_step(
     result = from_solution(
         solution,
         name=step.name,
+        unit=step.result_units.get("primary"),
         metadata={
             "step": step.summary(),
             "study": (_describe_asset(step.study) if step.study is not None else None),
@@ -58,6 +59,7 @@ def from_analysis_step(
         result.add_field(
             getattr(function, "name", type(function).__name__),
             function,
+            unit=step.result_units.get(getattr(function, "name", "")),
             location=field_location(function),
             description=(
                 "Constitutive result projected to a discontinuous finite-"
@@ -67,7 +69,10 @@ def from_analysis_step(
                 else ""
             ),
             processing=(
-                projected_field_processing(function)
+                {
+                    **projected_field_processing(function),
+                    **dict(getattr(function, "_agentfem_processing", {})),
+                }
                 if id(item) in generated_ids
                 else None
             ),

@@ -235,22 +235,51 @@ def lower_damping(
 
 def lower_thermal_expansion(
     target,
-    temperature,
+    source,
     *,
-    selected: _MaterialAssignment,
+    assignments: Sequence[_MaterialAssignment],
+    selected: _MaterialAssignment | None = None,
     study=None,
     measure=None,
     name: str = "F_thermal",
 ):
-    """Lower one material assignment into an equivalent thermal force."""
+    """Lower an eigenstrain source over a complete material partition."""
 
-    return elasticity_operators.thermal_expansion_vector(
-        target,
-        temperature,
-        selected.item,
-        study=study,
-        measure=_measure(selected, explicit=measure),
-        name=name,
+    records = _records(assignments, selected)
+    if not records:
+        raise ValueError("model.thermal_expansion requires a registered material.")
+    if measure is not None and len(records) > 1:
+        raise ValueError(
+            "Multi-material eigenstrain cannot use one explicit measure. "
+            "Pass material=... or use registered material regions."
+        )
+    missing = tuple(
+        _describe(record.item) for record in records if record.region is None
+    )
+    if len(records) > 1 and missing:
+        raise ValueError(
+            "Multi-material eigenstrain requires a region for every material. "
+            f"Materials without regions: {list(missing)}."
+        )
+    parts = tuple(
+        elasticity_operators.eigenstrain_vector(
+            target,
+            source,
+            record.item,
+            study=study,
+            measure=_measure(record, explicit=measure),
+            name=(
+                name
+                if len(records) == 1
+                else f"{name}_{getattr(record.region, 'name', index)}"
+            ),
+        )
+        for index, record in enumerate(records)
+    )
+    return (
+        parts[0]
+        if len(parts) == 1
+        else core.combine(*parts, name=name, kind="partitioned_eigenstrain")
     )
 
 

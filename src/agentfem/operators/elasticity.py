@@ -12,7 +12,15 @@ from agentfem.constitutive import elasticity
 from agentfem.operators.core import OperatorForm
 
 
-def stiffness_operator(displacement, test_function=None, properties=None, *, study=None, temperature=None, measure=ufl.dx) -> OperatorForm:
+def stiffness_operator(
+    displacement,
+    test_function=None,
+    properties=None,
+    *,
+    study=None,
+    temperature=None,
+    measure=ufl.dx,
+) -> OperatorForm:
     """Create an elastic stiffness/internal virtual-work operator ``K``."""
 
     if study is not None and hasattr(study, "require"):
@@ -33,13 +41,19 @@ def stiffness_operator(displacement, test_function=None, properties=None, *, stu
     )
 
 
-def elastic_stiffness(displacement, properties, *, study=None, temperature=None, measure=ufl.dx) -> OperatorForm:
+def elastic_stiffness(
+    displacement, properties, *, study=None, temperature=None, measure=ufl.dx
+) -> OperatorForm:
     """Create an elastic stiffness operator ``K`` from a displacement unknown."""
 
-    return stiffness_operator(displacement, properties, study=study, temperature=temperature, measure=measure)
+    return stiffness_operator(
+        displacement, properties, study=study, temperature=temperature, measure=measure
+    )
 
 
-def internal_force_vector(displacement, test_function=None, properties=None, *, study=None, measure=ufl.dx) -> OperatorForm:
+def internal_force_vector(
+    displacement, test_function=None, properties=None, *, study=None, measure=ufl.dx
+) -> OperatorForm:
     """Create an elastic internal-force vector contribution."""
 
     if study is not None and hasattr(study, "require"):
@@ -71,35 +85,64 @@ def thermal_expansion_vector(
 ) -> OperatorForm:
     """Equivalent nodal load produced by isotropic thermal expansion."""
 
+    from agentfem import eigenstrains
+
+    return eigenstrain_vector(
+        target,
+        eigenstrains.thermal(temperature),
+        properties,
+        study=study,
+        measure=measure,
+        name=name,
+    )
+
+
+def eigenstrain_vector(
+    target,
+    source,
+    properties,
+    *,
+    study=None,
+    measure=ufl.dx,
+    name: str = "F_eigenstrain",
+) -> OperatorForm:
+    """Equivalent nodal load produced by one explicit eigenstrain source."""
+
     if hasattr(target, "test"):
         test = target.test
         dimension = len(target.value)
     else:
         test = target
         dimension = len(test)
-    stress = elasticity.thermal_expansion_stress(
-        temperature,
+    stress = source.equivalent_stress(
         properties,
         study=study,
         dimension=dimension,
     )
     weight = _axisymmetric.integration_weight(test, study)
+    base_properties = getattr(properties, "material", properties)
+    metadata = {
+        "eigenstrain": source.summary(),
+        "material": getattr(properties, "name", type(properties).__name__),
+    }
+    if hasattr(base_properties, "reference_temperature"):
+        metadata["reference_temperature"] = base_properties.reference_temperature
+    if hasattr(base_properties, "thermal_expansion"):
+        coefficient = base_properties.thermal_expansion
+        metadata["thermal_expansion"] = (
+            coefficient.as_dict()
+            if hasattr(coefficient, "as_dict")
+            else coefficient
+        )
     return OperatorForm(
         name=name,
-        kind="thermal_expansion_vector",
+        kind="eigenstrain_vector",
         role="vector",
-        family="thermoelasticity",
+        family="eigenstrain",
         expression=ufl.inner(stress, elasticity.strain(test, study=study))
         * weight
         * measure,
-        metadata={
-            "reference_temperature": properties.reference_temperature,
-            "thermal_expansion": (
-                properties.thermal_expansion.as_dict()
-                if hasattr(properties.thermal_expansion, "as_dict")
-                else properties.thermal_expansion
-            ),
-        },
+        metadata=metadata,
     )
 
 

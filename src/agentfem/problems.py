@@ -434,6 +434,9 @@ class AnalysisStep:
     result_field_factory: object | None = None
     constraint_assets: tuple[object, ...] = ()
     constraint_dual_provider: object | None = None
+    # Result semantics belong to the public Step contract, not to projection
+    # helpers. Keep this append-only for positional compatibility.
+    result_units: dict[str, str | None] = field(default_factory=dict)
 
     @property
     def system(self):
@@ -470,8 +473,10 @@ class AnalysisStep:
         container used by post-processing, campaigns, and datasets.  Model-
         generated static-solid steps add their standard derived fields after
         convergence; ``output=...`` writes the final field set in one call.
-        ``field_variables`` overrides the engineering default without exposing
-        solver or projection plumbing in the top-level model.
+        ``field_variables=None`` requests the engineering defaults;
+        ``field_variables=()`` deliberately suppresses all derived fields and
+        returns only the primary solution.  A non-empty tuple overrides the
+        default without exposing solver or projection plumbing in the model.
         """
 
         from .results._analysis_step import from_analysis_step
@@ -512,6 +517,7 @@ class AnalysisStep:
             "dt": self.dt,
             "problem": self.problem.summary(),
             "procedure": (None if self.procedure is None else self.procedure.summary()),
+            "result_units": dict(self.result_units),
             "constraint_dual_provider": (
                 None
                 if self.constraint_dual_provider is None
@@ -567,6 +573,7 @@ def linear_static(
     bcs=None,
     solver_options: LinearSolverOptions | None = None,
     result_field_factory=None,
+    result_units=None,
     name: str = "linear_static",
 ) -> AnalysisStep:
     """Create a linear static analysis step in ``K x = F`` notation."""
@@ -592,6 +599,7 @@ def linear_static(
         procedure=procedures.linear_static(),
         result_field_factory=result_field_factory,
         constraint_assets=tuple(_as_list(constraints)),
+        result_units={} if result_units is None else dict(result_units),
     )
 
 

@@ -18,6 +18,7 @@ CORE_WORKFLOW_MODULES = (
     "fields",
     "materials",
     "constitutive",
+    "eigenstrains",
     "constraints",
     "amplitudes",
     "loads",
@@ -43,6 +44,7 @@ ADVANCED_WORKFLOW_MODULES = (
     "fracture",
     "histories",
     "interfaces",
+    "manifests",
     "learning",
     "mechanics",
     "operators",
@@ -95,6 +97,7 @@ CORE_MODEL_API = (
     "pressure",
     "symmetry",
     "roller",
+    "pin",
     "convection",
     "stage",
     "step",
@@ -105,6 +108,8 @@ CORE_MODEL_API = (
 )
 
 ADVANCED_MODEL_API = (
+    "eigenstrain",
+    "rigid_mode_audit",
     "remote_displacement",
     "distributing_coupling",
     "remote_force",
@@ -215,8 +220,7 @@ MACHINE_COMMANDS = {
     ),
     "abaqus_migrate": "agentfem migrate-abaqus model.inp ./project --json",
     "abaqus_lower": (
-        "agentfem lower-abaqus ./project --reviewed-by REVIEWER "
-        "--unit-system SI --json"
+        "agentfem lower-abaqus ./project --reviewed-by REVIEWER --unit-system SI --json"
     ),
     "verify": "agentfem verify --json",
     "telemetry_status": "agentfem telemetry status --json",

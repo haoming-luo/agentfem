@@ -40,9 +40,7 @@ def test_sampling_is_reproducible_valid_and_case_ids_are_stable():
 
 
 def test_plan_shards_are_disjoint_and_complete():
-    space = campaigns.ParameterSpace.create(
-        campaigns.RealParameter("x", 0.0, 1.0)
-    )
+    space = campaigns.ParameterSpace.create(campaigns.RealParameter("x", 0.0, 1.0))
     campaign = campaigns.create(
         name="shards",
         parameter_space=space,
@@ -50,7 +48,10 @@ def test_plan_shards_are_disjoint_and_complete():
         evaluate=lambda values: {"y": values["x"]},
     )
     plan = campaign.plan(campaigns.random(space, 9, seed=7))
-    shards = [campaign.plan(campaigns.explicit(space, [case.parameters])) for case in plan.cases]
+    shards = [
+        campaign.plan(campaigns.explicit(space, [case.parameters]))
+        for case in plan.cases
+    ]
 
     assert len({shard.cases[0].case_id for shard in shards}) == len(plan.cases)
     shard0 = plan.shard(0, 2)
@@ -62,9 +63,7 @@ def test_plan_shards_are_disjoint_and_complete():
 
 
 def test_campaign_records_failures_and_resumes_completed_cases(tmp_path):
-    space = campaigns.ParameterSpace.create(
-        campaigns.RealParameter("x", 0.0, 1.0)
-    )
+    space = campaigns.ParameterSpace.create(campaigns.RealParameter("x", 0.0, 1.0))
     calls = {"count": 0}
 
     def evaluate(values):
@@ -110,6 +109,40 @@ def test_campaign_records_failures_and_resumes_completed_cases(tmp_path):
     assert len(decision["failed_case_ids"]) == 1
 
 
+def test_campaign_audit_hashes_artifacts_and_corruption_invalidates_resume(tmp_path):
+    space = campaigns.ParameterSpace.create(campaigns.RealParameter("x", 0.0, 1.0))
+    artifact = tmp_path / "field-data.bin"
+    calls = {"count": 0}
+
+    def evaluate(values):
+        calls["count"] += 1
+        artifact.write_bytes(f"case-{calls['count']}".encode("utf-8"))
+        return campaigns.CaseOutcome(
+            outputs={"response": values["x"]},
+            artifacts={"field_data": str(artifact)},
+        )
+
+    campaign = campaigns.create(
+        name="artifact_audit",
+        parameter_space=space,
+        outputs=(datasets.Quantity("response"),),
+        evaluate=evaluate,
+    )
+    sampling = campaigns.explicit(space, ({"x": 0.25},))
+    first = campaign.run(sampling, output_directory=tmp_path / "campaign")
+
+    assert first.audit()["acceptable"] is True
+    assert (tmp_path / "campaign" / "audit.json").is_file()
+
+    artifact.write_bytes(b"tampered")
+    assert first.audit()["acceptable"] is False
+    second = campaign.run(sampling, output_directory=tmp_path / "campaign")
+
+    assert calls["count"] == 2
+    assert second.records[0].reused is False
+    assert second.audit()["acceptable"] is True
+
+
 def test_campaign_captures_model_ir_from_built_case():
     class Case:
         def __init__(self, parameters):
@@ -118,9 +151,7 @@ def test_campaign_captures_model_ir_from_built_case():
         def to_ir(self, metadata=None):
             return {"kind": "test_model", "metadata": metadata}
 
-    space = campaigns.ParameterSpace.create(
-        campaigns.RealParameter("x", 0.0, 1.0)
-    )
+    space = campaigns.ParameterSpace.create(campaigns.RealParameter("x", 0.0, 1.0))
     campaign = campaigns.create(
         name="provenance",
         parameter_space=space,
@@ -139,9 +170,7 @@ def test_campaign_captures_model_ir_from_built_case():
 def test_campaign_hashes_declared_scientific_assets(tmp_path):
     mesh = tmp_path / "mesh.inp"
     mesh.write_text("*NODE\n1, 0, 0, 0\n", encoding="utf-8")
-    space = campaigns.ParameterSpace.create(
-        campaigns.RealParameter("load", 0.0, 1.0)
-    )
+    space = campaigns.ParameterSpace.create(campaigns.RealParameter("load", 0.0, 1.0))
     campaign = campaigns.create(
         name="declared_inputs",
         parameter_space=space,
@@ -158,10 +187,7 @@ def test_campaign_hashes_declared_scientific_assets(tmp_path):
     )
 
     assert report.scientific_inputs["complete"] is True
-    assert (
-        report.scientific_inputs["record"]["declared"]["mesh"]["status"]
-        == "hashed"
-    )
+    assert report.scientific_inputs["record"]["declared"]["mesh"]["status"] == "hashed"
     sample = report.dataset.samples[0]
     assert sample.provenance["scientific_inputs"]["complete"] is True
     assert (
@@ -192,9 +218,7 @@ def test_campaign_does_not_hide_a_nonroot_mpi_failure():
                 },
             )
 
-    space = campaigns.ParameterSpace.create(
-        campaigns.RealParameter("x", 0.0, 1.0)
-    )
+    space = campaigns.ParameterSpace.create(campaigns.RealParameter("x", 0.0, 1.0))
     campaign = campaigns.create(
         name="mpi_failure",
         parameter_space=space,
@@ -293,9 +317,7 @@ def test_campaign_accepts_simulation_result_without_serializing_live_fields(tmp_
 
 
 def test_learning_dataset_can_require_verified_simulation_evidence():
-    space = campaigns.ParameterSpace.create(
-        campaigns.RealParameter("load", 1.0, 2.0)
-    )
+    space = campaigns.ParameterSpace.create(campaigns.RealParameter("load", 1.0, 2.0))
 
     def evaluate(values):
         result = results.SimulationResult("beam")
@@ -317,9 +339,7 @@ def test_learning_dataset_can_require_verified_simulation_evidence():
         outputs=(datasets.Quantity("response"),),
         evaluate=evaluate,
     )
-    report = campaign.run(
-        campaigns.explicit(space, ({"load": 1.25}, {"load": 1.75}))
-    )
+    report = campaign.run(campaigns.explicit(space, ({"load": 1.25}, {"load": 1.75})))
 
     with pytest.raises(RuntimeError, match="below required trust level"):
         report.require_dataset(minimum_trust_level="verified")
@@ -327,9 +347,7 @@ def test_learning_dataset_can_require_verified_simulation_evidence():
 
 
 def test_campaign_quality_preset_requires_assessment_and_records_the_decision():
-    space = campaigns.ParameterSpace.create(
-        campaigns.RealParameter("load", 1.0, 2.0)
-    )
+    space = campaigns.ParameterSpace.create(campaigns.RealParameter("load", 1.0, 2.0))
 
     def evaluated(values):
         result = results.SimulationResult(
@@ -369,17 +387,13 @@ def test_campaign_quality_preset_requires_assessment_and_records_the_decision():
         outputs=(datasets.Quantity("response"),),
         evaluate=lambda values: {"response": values["load"]},
     )
-    unassessed = unassessed_campaign.run(
-        campaigns.explicit(space, ({"load": 1.5},))
-    )
+    unassessed = unassessed_campaign.run(campaigns.explicit(space, ({"load": 1.5},)))
     with pytest.raises(RuntimeError, match="did not pass quality policy"):
         unassessed.require_dataset(quality="exploratory")
 
 
 def test_local_process_campaign_is_spawned_ordered_and_resumable(tmp_path):
-    space = campaigns.ParameterSpace.create(
-        campaigns.RealParameter("x", 0.0, 3.0)
-    )
+    space = campaigns.ParameterSpace.create(campaigns.RealParameter("x", 0.0, 3.0))
     campaign = campaigns.create(
         name="spawned",
         parameter_space=space,
@@ -406,9 +420,7 @@ def test_local_process_campaign_is_spawned_ordered_and_resumable(tmp_path):
 
 
 def test_local_process_campaign_preserves_case_failure():
-    space = campaigns.ParameterSpace.create(
-        campaigns.RealParameter("x", 0.0, 3.0)
-    )
+    space = campaigns.ParameterSpace.create(campaigns.RealParameter("x", 0.0, 3.0))
     campaign = campaigns.create(
         name="spawned_failure",
         parameter_space=space,

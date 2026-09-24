@@ -139,7 +139,8 @@ class CampaignPlan:
         if selected_count <= 0 or not 0 <= selected_index < selected_count:
             raise ValueError("Shard requires count > 0 and 0 <= index < count.")
         selected = tuple(
-            case for position, case in enumerate(self.cases)
+            case
+            for position, case in enumerate(self.cases)
             if position % selected_count == selected_index
         )
         if not selected:
@@ -274,6 +275,77 @@ class CampaignReport:
             "records": [record.summary() for record in self.records],
         }
 
+    def audit(self) -> dict[str, object]:
+        """Return a fail-closed publication audit without rerunning cases."""
+
+        issues = []
+        planned_ids = tuple(case.case_id for case in self.plan.cases)
+        record_ids = tuple(record.case.case_id for record in self.records)
+        if len(set(record_ids)) != len(record_ids):
+            issues.append("duplicate_case_id")
+        missing = tuple(sorted(set(planned_ids).difference(record_ids)))
+        unexpected = tuple(sorted(set(record_ids).difference(planned_ids)))
+        if missing:
+            issues.append("missing_case_records")
+        if unexpected:
+            issues.append("unexpected_case_records")
+        corrupt_artifacts = []
+        for record in self.records:
+            if not record.successful or record.outcome is None:
+                continue
+            declared = record.outcome.provenance.get("artifact_integrity", {})
+            for name, evidence in declared.items():
+                if evidence.get("kind") == "external_uri":
+                    continue
+                path = Path(str(evidence.get("path", "")))
+                if not path.is_absolute() and self.output_directory is not None:
+                    path = self.output_directory / path
+                if (
+                    evidence.get("status") != "hashed"
+                    or not path.is_file()
+                    or _file_sha256(path) != evidence.get("sha256")
+                ):
+                    corrupt_artifacts.append((record.case.case_id, name))
+        if corrupt_artifacts:
+            issues.append("missing_or_corrupt_artifacts")
+        dataset_ids = (
+            ()
+            if self.dataset is None
+            else tuple(sample.case_id for sample in self.dataset.samples)
+        )
+        successful_ids = tuple(
+            record.case.case_id for record in self.records if record.successful
+        )
+        if set(dataset_ids) != set(successful_ids):
+            issues.append("dataset_case_mismatch")
+        return {
+            "schema": "agentfem.campaign-audit",
+            "schema_version": "0.1.0",
+            "campaign": self.name,
+            "acceptable": not issues and self.valid,
+            "complete": self.valid,
+            "issues": tuple(issues),
+            "planned_cases": len(planned_ids),
+            "recorded_cases": len(record_ids),
+            "dataset_cases": len(dataset_ids),
+            "missing_case_ids": missing,
+            "unexpected_case_ids": unexpected,
+            "corrupt_artifacts": tuple(corrupt_artifacts),
+        }
+
+    def write_audit(self, path: str | Path | None = None) -> Path:
+        """Write publication-audit evidence as stable JSON."""
+
+        if path is None:
+            if self.output_directory is None:
+                raise ValueError(
+                    "write_audit requires path= without an output directory."
+                )
+            path = self.output_directory / "audit.json"
+        output = Path(path)
+        _write_json(output, self.audit())
+        return output
+
     def require_dataset(
         self,
         *,
@@ -340,8 +412,7 @@ class CampaignReport:
                     else None
                 )
                 acceptable = bool(
-                    isinstance(evidence, Mapping)
-                    and evidence.get("acceptable")
+                    isinstance(evidence, Mapping) and evidence.get("acceptable")
                 )
                 if assessed_policy is None:
                     unassessed.append((sample.case_id, None))
@@ -521,10 +592,7 @@ class Campaign:
         selected_plan = self.plan(plan) if isinstance(plan, SamplingPlan) else plan
         if selected_plan.name != self.name:
             raise ValueError("CampaignPlan belongs to a different campaign.")
-        if (
-            selected_plan.parameter_space.summary()
-            != self.parameter_space.summary()
-        ):
+        if selected_plan.parameter_space.summary() != self.parameter_space.summary():
             raise ValueError("CampaignPlan parameter space differs from the campaign.")
         selected_policy = policy or self.execution
         output = None if output_directory is None else Path(output_directory)
@@ -558,7 +626,9 @@ class Campaign:
         assert runtime is not None
         assert campaign_inputs is not None
         for case in selected_plan.cases:
-            record_path = None if output is None else output / "cases" / f"{case.case_id}.json"
+            record_path = (
+                None if output is None else output / "cases" / f"{case.case_id}.json"
+            )
             reused = (
                 _load_completed_record(record_path, case)
                 if selected_policy.resume and record_path is not None and rank == 0
@@ -679,6 +749,7 @@ class Campaign:
             if dataset is not None:
                 dataset.write(output / "dataset")
             _write_json(output / "report.json", report.summary())
+            _write_json(output / "audit.json", report.audit())
         if comm is not None and hasattr(comm, "barrier"):
             comm.barrier()
         return report
@@ -723,6 +794,7 @@ class Campaign:
                     declared=self.scientific_inputs,
                 ),
             }
+            provenance["artifact_integrity"] = _artifact_integrity(outcome.artifacts)
             selected_outcome = CaseOutcome(
                 outputs=validated_outputs,
                 provenance=provenance,
@@ -805,15 +877,12 @@ def _as_case_outcome(
                 "software_origin": dict(ORIGIN),
                 "simulation_result": raw.summary(),
             },
-            artifacts={
-                name: str(path) for name, path in raw.artifacts.items()
-            },
+            artifacts={name: str(path) for name, path in raw.artifacts.items()},
         )
     if isinstance(raw, Mapping):
         return CaseOutcome(outputs=raw)
     raise TypeError(
-        "Campaign.evaluate must return a mapping, CaseOutcome, or "
-        "SimulationResult."
+        "Campaign.evaluate must return a mapping, CaseOutcome, or SimulationResult."
     )
 
 
@@ -842,9 +911,7 @@ def _case_provenance(
     to_ir = getattr(model, "to_ir", None)
     if callable(to_ir):
         try:
-            model_ir = to_ir(
-                metadata={"purpose": "campaign_case_provenance"}
-            )
+            model_ir = to_ir(metadata={"purpose": "campaign_case_provenance"})
             provenance["model_ir"] = model_ir
             provenance["model_fingerprint"] = content_fingerprint(model_ir)
         except (TypeError, ValueError):
@@ -899,7 +966,9 @@ def _callable_identity(function) -> dict[str, object] | None:
         return None
     result = {
         "module": getattr(function, "__module__", None),
-        "qualname": getattr(function, "__qualname__", getattr(function, "__name__", None)),
+        "qualname": getattr(
+            function, "__qualname__", getattr(function, "__name__", None)
+        ),
     }
     try:
         source = inspect.getsource(function).encode("utf-8")
@@ -940,6 +1009,19 @@ def _load_completed_record(path: Path, case: CampaignCase) -> CaseRunRecord | No
         ):
             return None
         outcome = record["outcome"]
+        integrity = outcome.get("provenance", {}).get("artifact_integrity", {})
+        for evidence in integrity.values():
+            if evidence.get("kind") == "external_uri":
+                continue
+            artifact = Path(str(evidence.get("path", "")))
+            if not artifact.is_absolute():
+                artifact = path.parent.parent / artifact
+            if (
+                evidence.get("status") != "hashed"
+                or not artifact.is_file()
+                or _file_sha256(artifact) != evidence.get("sha256")
+            ):
+                return None
         return CaseRunRecord(
             case=case,
             status="completed",
@@ -956,6 +1038,40 @@ def _load_completed_record(path: Path, case: CampaignCase) -> CaseRunRecord | No
         )
     except (KeyError, TypeError, ValueError, json.JSONDecodeError):
         return None
+
+
+def _artifact_integrity(artifacts: Mapping[str, str]) -> dict[str, object]:
+    evidence = {}
+    for name, raw_path in artifacts.items():
+        text = str(raw_path)
+        if "://" in text:
+            evidence[str(name)] = {"path": text, "kind": "external_uri"}
+            continue
+        path = Path(text)
+        if not path.is_file():
+            evidence[str(name)] = {
+                "path": str(path),
+                "kind": "file",
+                "status": "missing",
+            }
+            continue
+        path = path.resolve()
+        evidence[str(name)] = {
+            "path": str(path),
+            "kind": "file",
+            "status": "hashed",
+            "size_bytes": int(path.stat().st_size),
+            "sha256": _file_sha256(path),
+        }
+    return evidence
+
+
+def _file_sha256(path: Path) -> str:
+    digest = sha256()
+    with path.open("rb") as stream:
+        for chunk in iter(lambda: stream.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
 
 
 def _worker_identity(mode: str) -> dict[str, object]:

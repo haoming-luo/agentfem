@@ -178,9 +178,7 @@ class ConstraintDualEvidence:
             "coordinate": (
                 None if self.coordinate is None else self.coordinate.tolist()
             ),
-            "resultant": (
-                None if self.resultant is None else self.resultant.tolist()
-            ),
+            "resultant": (None if self.resultant is None else self.resultant.tolist()),
             "distribution": (
                 None
                 if distribution is None
@@ -225,7 +223,9 @@ def constraint_dual(
     )
 
 
-def collect_provider_duals(constraints, problem, *, extra=()) -> tuple[ConstraintDualEvidence, ...]:
+def collect_provider_duals(
+    constraints, problem, *, extra=()
+) -> tuple[ConstraintDualEvidence, ...]:
     """Collect converged dual evidence from active constraint providers.
 
     A constraint that owns reactions outside the strong-Dirichlet residual may
@@ -241,9 +241,7 @@ def collect_provider_duals(constraints, problem, *, extra=()) -> tuple[Constrain
 
     records: list[ConstraintDualEvidence] = []
     assets = _flatten_constraint_assets(constraints)
-    declared = {
-        str(getattr(item, "name", type(item).__name__)) for item in assets
-    }
+    declared = {str(getattr(item, "name", type(item).__name__)) for item in assets}
     for item in assets:
         provider = getattr(item, "dual_evidence", None)
         if provider is None:
@@ -343,10 +341,14 @@ class DirichletConstraint:
         return cls(bc=bc, value=constant, name=name, location=selected_location)
 
     @classmethod
-    def scalar(cls, V, marker=None, value=0.0, *, location=None, name: str = "dirichlet"):
+    def scalar(
+        cls, V, marker=None, value=0.0, *, location=None, name: str = "dirichlet"
+    ):
         """Create a scalar Dirichlet constraint."""
 
-        constant, bc = boundary.scalar_dirichlet_bc(V, marker, value=value, location=location)
+        constant, bc = boundary.scalar_dirichlet_bc(
+            V, marker, value=value, location=location
+        )
         return cls(bc=bc, value=constant, name=name, location=location)
 
     def summary(self) -> dict[str, object]:
@@ -358,6 +360,131 @@ class DirichletConstraint:
             "location": getattr(self.location, "name", None),
             "value": describe_value(self.value),
         }
+
+
+@dataclass(frozen=True)
+class RigidModeAudit:
+    """Rank test of strong constraints against analytical rigid modes."""
+
+    dimension: int
+    total_modes: int
+    constrained_modes: int
+    remaining_modes: int
+    singular_values: tuple[float, ...]
+    constrained_dofs: int
+    tolerance: float
+
+    @property
+    def stable(self) -> bool:
+        return self.remaining_modes == 0
+
+    def summary(self) -> dict[str, object]:
+        return {
+            "kind": "rigid_mode_audit",
+            "dimension": self.dimension,
+            "total_modes": self.total_modes,
+            "constrained_modes": self.constrained_modes,
+            "remaining_modes": self.remaining_modes,
+            "stable": self.stable,
+            "singular_values": self.singular_values,
+            "constrained_dofs": self.constrained_dofs,
+            "tolerance": self.tolerance,
+        }
+
+
+def rigid_mode_audit(
+    target,
+    constraints,
+    *,
+    tolerance: float = 1.0e-10,
+) -> RigidModeAudit:
+    """Report rigid translations/rotations removed by strong constraints.
+
+    No support is added.  The audit is intentionally diagnostic and does not
+    claim to detect every elastic over-constraint.
+    """
+
+    value = getattr(target, "value", target)
+    V = getattr(target, "space", getattr(value, "function_space", None))
+    shape = tuple(getattr(value, "ufl_shape", ()))
+    if V is None or len(shape) != 1 or int(shape[0]) not in {2, 3}:
+        raise ValueError("rigid_mode_audit requires a 2D or 3D displacement field.")
+    selected_tolerance = float(tolerance)
+    if not np.isfinite(selected_tolerance) or selected_tolerance <= 0.0:
+        raise ValueError("rigid_mode_audit tolerance must be positive and finite.")
+    dimension = int(shape[0])
+    modes = _rigid_mode_functions(V, dimension)
+    dof_sets = []
+    for item in dirichlet_constraints(constraints):
+        bc = getattr(item, "bc", item)
+        if not hasattr(bc, "dof_indices"):
+            continue
+        indices, owned_count = bc.dof_indices()
+        selected = np.asarray(indices[:owned_count], dtype=np.int64)
+        if selected.size:
+            dof_sets.append(selected)
+    constrained = (
+        np.unique(np.concatenate(dof_sets)) if dof_sets else np.empty(0, dtype=np.int64)
+    )
+    columns = []
+    for mode in modes:
+        valid = constrained[constrained < mode.x.array.size]
+        columns.append(np.asarray(mode.x.array[valid], dtype=float))
+    matrix = (
+        np.column_stack(columns)
+        if constrained.size and columns
+        else np.zeros((0, len(modes)), dtype=float)
+    )
+    gram = matrix.T @ matrix
+    communicator = getattr(V.mesh, "comm", None)
+    if communicator is not None:
+        global_gram = np.zeros_like(gram)
+        communicator.Allreduce(gram, global_gram, op=MPI.SUM)
+        gram = global_gram
+        constrained_count = int(
+            communicator.allreduce(int(constrained.size), op=MPI.SUM)
+        )
+    else:
+        constrained_count = int(constrained.size)
+    singular_values = np.sqrt(np.maximum(np.linalg.eigvalsh(gram), 0.0))[::-1]
+    scale = float(singular_values[0]) if singular_values.size else 0.0
+    rank = int(np.count_nonzero(singular_values > selected_tolerance * max(1.0, scale)))
+    return RigidModeAudit(
+        dimension=dimension,
+        total_modes=len(modes),
+        constrained_modes=rank,
+        remaining_modes=len(modes) - rank,
+        singular_values=tuple(float(item) for item in singular_values),
+        constrained_dofs=constrained_count,
+        tolerance=selected_tolerance,
+    )
+
+
+def _rigid_mode_functions(V, dimension: int):
+    modes = []
+    for component in range(dimension):
+        function = fem.Function(V)
+
+        def translation(x, component=component):
+            values = np.zeros((dimension, x.shape[1]), dtype=float)
+            values[component, :] = 1.0
+            return values
+
+        function.interpolate(translation)
+        modes.append(function)
+    rotations = (
+        (lambda x: np.vstack((-x[1], x[0]))),
+        (
+            lambda x: np.vstack((np.zeros(x.shape[1]), -x[2], x[1])),
+            lambda x: np.vstack((x[2], np.zeros(x.shape[1]), -x[0])),
+            lambda x: np.vstack((-x[1], x[0], np.zeros(x.shape[1]))),
+        ),
+    )[dimension - 2]
+    for expression in (rotations,) if dimension == 2 else rotations:
+        function = fem.Function(V)
+        function.interpolate(expression)
+        modes.append(function)
+    return tuple(modes)
 
 
 @dataclass(frozen=True)
@@ -407,9 +534,7 @@ class RemoteDisplacementConstraint:
             "name": self.name,
             "kind": "remote_displacement_constraint",
             "location": getattr(self.location, "name", None),
-            "reference_point": getattr(
-                self.reference_point, "name", "reference_point"
-            ),
+            "reference_point": getattr(self.reference_point, "name", "reference_point"),
             "translation": self.translation,
             "rotation": self.rotation,
             "coordinate_system": self.coordinate_system,
@@ -564,7 +689,9 @@ def scalar_dirichlet(
     """Semantic wrapper for scalar essential boundary data."""
 
     selected_location = _select_location(location=location, on=on)
-    return DirichletConstraint.scalar(V, marker, value=value, location=selected_location, name=name)
+    return DirichletConstraint.scalar(
+        V, marker, value=value, location=selected_location, name=name
+    )
 
 
 def component_dirichlet(
@@ -648,7 +775,9 @@ def dirichlet(
 
     selected_location = _select_location(location=location, on=on)
     if component is None:
-        return scalar_dirichlet(V, marker, value=value, location=selected_location, name=name)
+        return scalar_dirichlet(
+            V, marker, value=value, location=selected_location, name=name
+        )
     return component_dirichlet(
         V,
         component,
@@ -675,7 +804,9 @@ def time_dependent_component_dirichlet(
     selected_location = _select_location(location=location, on=on)
     selected_amplitude = amplitude if amplitude is not None else value
     if selected_amplitude is None:
-        raise ValueError("time_dependent_component_dirichlet requires value= or amplitude=.")
+        raise ValueError(
+            "time_dependent_component_dirichlet requires value= or amplitude=."
+        )
     history = amplitudes.as_amplitude(selected_amplitude, name=name)
     constant, bc = boundary.component_dirichlet_bc(
         target,
@@ -708,7 +839,9 @@ def time_dependent_scalar_dirichlet(
     selected_location = _select_location(location=location, on=on)
     selected_amplitude = amplitude if amplitude is not None else value
     if selected_amplitude is None:
-        raise ValueError("time_dependent_scalar_dirichlet requires value= or amplitude=.")
+        raise ValueError(
+            "time_dependent_scalar_dirichlet requires value= or amplitude=."
+        )
     history = amplitudes.as_amplitude(selected_amplitude, name=name)
     constant, bc = boundary.scalar_dirichlet_bc(
         target,
@@ -750,7 +883,9 @@ def fixed(
 
     selected_location = _select_location(location=location, on=on)
     if selected_location is None:
-        raise ValueError("fixed requires a geometric location. Pass on=... or location=....")
+        raise ValueError(
+            "fixed requires a geometric location. Pass on=... or location=...."
+        )
     label = name or f"fixed_{getattr(selected_location, 'name', 'location')}"
     if components is None:
         components = _all_components_or_none(target)
@@ -758,7 +893,9 @@ def fixed(
     if components is None:
         return ConstraintSet(
             dirichlet=[
-                scalar_dirichlet(target, location=selected_location, value=value, name=label),
+                scalar_dirichlet(
+                    target, location=selected_location, value=value, name=label
+                ),
             ]
         )
 
@@ -789,7 +926,9 @@ def fixed_component(
 ):
     """Create a fixed-value constraint for one vector component."""
 
-    return fixed(target, location=location, on=on, value=value, components=component, name=name)
+    return fixed(
+        target, location=location, on=on, value=value, components=component, name=name
+    )
 
 
 def symmetry(
@@ -847,10 +986,53 @@ def roller(
     )
 
 
+def pin(
+    target,
+    *,
+    at,
+    components=None,
+    value=0.0,
+    tolerance: float = 1.0e-10,
+    name: str = "pin",
+):
+    """Create an explicit point support at one physical coordinate."""
+
+    coordinate = np.asarray(at, dtype=float).reshape(-1)
+    shape = tuple(getattr(getattr(target, "value", target), "ufl_shape", ()))
+    if len(shape) != 1 or coordinate.size != int(shape[0]):
+        raise ValueError("pin coordinate must match the displacement dimension.")
+    selected_tolerance = float(tolerance)
+    if (
+        not np.all(np.isfinite(coordinate))
+        or not np.isfinite(selected_tolerance)
+        or selected_tolerance <= 0.0
+    ):
+        raise ValueError("pin requires a finite coordinate and positive tolerance.")
+
+    def marker(x):
+        return (
+            np.linalg.norm(
+                x[: coordinate.size, :].T - coordinate,
+                axis=1,
+            )
+            <= selected_tolerance
+        )
+
+    return fixed(
+        target,
+        location=marker,
+        value=value,
+        components=components,
+        name=name,
+    )
+
+
 def fixed_all(target, *, location=None, on=None, value=0.0, name: str | None = None):
     """Create a scalar/all-dof fixed-value constraint."""
 
-    return fixed(target, location=location, on=on, value=value, components=None, name=name)
+    return fixed(
+        target, location=location, on=on, value=value, components=None, name=name
+    )
 
 
 def prescribed(
@@ -953,19 +1135,31 @@ def remote_displacement(
     ).reshape(-1)
     if point.size != dimension or not np.all(np.isfinite(point)):
         raise ValueError(f"reference_point must have {dimension} finite components.")
-    translation_values = np.zeros(dimension) if translation is None else np.asarray(
-        system.vector_to_global(translation) if system is not None else translation,
-        dtype=float,
-    ).reshape(-1)
-    if translation_values.size != dimension or not np.all(np.isfinite(translation_values)):
-        raise ValueError(f"translation must have {dimension} finite components.")
-    if dimension == 2:
-        rotation_value = float(0.0 if rotation is None else np.asarray(rotation).reshape(-1)[0])
-    else:
-        rotation_value = np.zeros(3) if rotation is None else np.asarray(
-            system.vector_to_global(rotation) if system is not None else rotation,
+    translation_values = (
+        np.zeros(dimension)
+        if translation is None
+        else np.asarray(
+            system.vector_to_global(translation) if system is not None else translation,
             dtype=float,
         ).reshape(-1)
+    )
+    if translation_values.size != dimension or not np.all(
+        np.isfinite(translation_values)
+    ):
+        raise ValueError(f"translation must have {dimension} finite components.")
+    if dimension == 2:
+        rotation_value = float(
+            0.0 if rotation is None else np.asarray(rotation).reshape(-1)[0]
+        )
+    else:
+        rotation_value = (
+            np.zeros(3)
+            if rotation is None
+            else np.asarray(
+                system.vector_to_global(rotation) if system is not None else rotation,
+                dtype=float,
+            ).reshape(-1)
+        )
         if rotation_value.size != 3 or not np.all(np.isfinite(rotation_value)):
             raise ValueError("3D rotation must have three finite components.")
 
@@ -1023,9 +1217,7 @@ def _component_ids(components, *, target) -> tuple[int, ...]:
     """Normalize integer or x/y/z component names for a vector target."""
 
     selected = (
-        (components,)
-        if isinstance(components, (Integral, str))
-        else tuple(components)
+        (components,) if isinstance(components, (Integral, str)) else tuple(components)
     )
     normalized = tuple(
         _axis_component(item) if isinstance(item, str) else int(item)
@@ -1097,7 +1289,9 @@ def _space(target):
 def _region_marker(location):
     marker = getattr(location, "marker", location)
     if marker is None:
-        raise ValueError("Periodic constraints require master/slave markers or regions.")
+        raise ValueError(
+            "Periodic constraints require master/slave markers or regions."
+        )
     return marker
 
 
@@ -1175,7 +1369,10 @@ class PeriodicProjectionConstraint:
         local = 0.0
         for slave_dofs, master_dofs in self.pairs:
             if len(slave_dofs) > 0:
-                local = max(local, float(np.max(np.abs(values[slave_dofs] - values[master_dofs]))))
+                local = max(
+                    local,
+                    float(np.max(np.abs(values[slave_dofs] - values[master_dofs]))),
+                )
         return function.function_space.mesh.comm.allreduce(local, op=MPI.MAX)
 
     def summary(self) -> dict[str, object]:
@@ -1475,9 +1672,7 @@ def validate_solver_compatibility(
 
     normalized_analysis = str(analysis).lower().replace("-", "_").strip()
     normalized_procedure = (
-        None
-        if procedure is None
-        else str(procedure).lower().replace("-", "_").strip()
+        None if procedure is None else str(procedure).lower().replace("-", "_").strip()
     )
     aliases = {
         "explicit": "central_difference",
@@ -1560,9 +1755,7 @@ def _flatten_constraint_assets(items) -> tuple[object, ...]:
         return ()
     if isinstance(items, (list, tuple)):
         return tuple(
-            selected
-            for item in items
-            for selected in _flatten_constraint_assets(item)
+            selected for item in items for selected in _flatten_constraint_assets(item)
         )
     if isinstance(items, ConstraintSet):
         return _flatten_constraint_assets((*items.dirichlet, *items.periodic))

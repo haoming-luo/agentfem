@@ -119,8 +119,40 @@ power-component thermal-to-creep benchmark, adaptive nonlinear thermal
 increments, and monolithic coupling where two-way feedback is physically
 necessary.
 
+## Sequential thermoelasticity and eigenstrain
+
+Temperature does not become stress because of a field name. Declare the
+stress-free strain source explicitly, then let the ordinary static-solid Step
+lower it over the registered material regions:
+
+```python
+from agentfem import eigenstrains
+
+model.eigenstrain(eigenstrains.thermal(temperature))
+result = model.step(target=displacement).solve_result()
+```
+
+For several materials, every material owns a disjoint `CellRegion` and the
+regions cover the mesh exactly once. AgentFEM assembles regional stiffness and
+thermal virtual work without user-written UFL measure concatenation.
+
+The scientific result contains one physical stress `S` and the strain
+decomposition `E_TOTAL`, `E_EIGEN`, `E_MECH`. `E` remains the compatibility
+spelling of total infinitesimal strain. These are discontinuous projections
+and are not averaged across material interfaces.
+
+When the model declares a consistent unit system, the result manifest records
+displacement, stress/energy-density, temperature and dimensionless-strain
+units explicitly. AgentFEM never infers a unit system from coefficient
+magnitudes.
+
 ## Go deeper
 
 - [Thermal stress and creep procedures](../solution_procedures_and_thermal_creep.md)
 - [Results and post-processing](results.md)
 - [Transient-heat example](../examples/index.md#transient-heat-transfer)
+
+## Reference
+
+- [Abaqus thermal expansion: reference temperature, total thermal strain and
+  constrained thermal stress](https://docs.software.vt.edu/abaqusv2025/English/SIMACAEMATRefMap/simamat-c-thermalexpan.htm)

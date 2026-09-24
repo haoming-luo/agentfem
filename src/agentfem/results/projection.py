@@ -194,11 +194,7 @@ def _prepare_projection_terms(
     require_static_lhs: bool = False,
 ):
     shape = tuple(getattr(terms[0][0], "ufl_shape", ()))
-    element = (
-        (str(family), degree)
-        if not shape
-        else (str(family), degree, shape)
-    )
+    element = (str(family), degree) if not shape else (str(family), degree, shape)
     space = fem.functionspace(domain, element)
     trial = ufl.TrialFunction(space)
     test = ufl.TestFunction(space)
@@ -212,9 +208,13 @@ def _prepare_projection_terms(
         elif len(term) == 3:
             expression, measure, term_weight = term
         else:
-            raise ValueError("Projection terms must be (expression, measure[, weight]).")
+            raise ValueError(
+                "Projection terms must be (expression, measure[, weight])."
+            )
         if tuple(getattr(expression, "ufl_shape", ())) != shape:
-            raise ValueError("All piecewise projection expressions need one value shape.")
+            raise ValueError(
+                "All piecewise projection expressions need one value shape."
+            )
         lhs_term = term_weight * ufl.inner(trial, test) * measure
         rhs_term = term_weight * ufl.inner(expression, test) * measure
         lhs = lhs_term if lhs is None else lhs + lhs_term
@@ -337,8 +337,7 @@ def fabric_membrane_cell_fields(
     )
     if unsupported:
         raise ValueError(
-            "Fabric membrane recovery does not provide variables "
-            f"{unsupported!r}."
+            f"Fabric membrane recovery does not provide variables {unsupported!r}."
         )
     return tuple(
         project(
@@ -455,6 +454,7 @@ def small_strain_partition_fields(
     study=None,
     variables=("S", "E", "MISES", "SENER"),
     degree: int = 0,
+    eigenstrains=(),
 ) -> tuple[object, ...]:
     """Create standard fields for a complete regional material partition.
 
@@ -465,7 +465,9 @@ def small_strain_partition_fields(
 
     function = field_api.unwrap(displacement)
     domain = function.function_space.mesh
+    assignments = tuple(assignments)
     normalized = tuple(_material_assignment(item) for item in assignments)
+    partition_identity = tuple(_material_assignment_identity(item) for item in assignments)
     if not normalized:
         raise ValueError("small_strain_partition_fields requires material assignments.")
     if len(normalized) > 1 and any(measure is None for _, measure in normalized):
@@ -473,6 +475,7 @@ def small_strain_partition_fields(
             "Every material in a multi-material result needs a cell region."
         )
     requested = resolve_field_variables(variables, finite_strain=False)
+    sources = tuple(eigenstrains)
     weight = _axisymmetric.integration_weight(function, study)
     regional = []
     for properties, measure in normalized:
@@ -483,6 +486,7 @@ def small_strain_partition_fields(
                     properties,
                     study=study,
                     variables=tuple(item.key for item in requested),
+                    eigenstrains=sources,
                 ),
                 ufl.dx(domain=domain) if measure is None else measure,
             )
@@ -498,15 +502,26 @@ def small_strain_partition_fields(
                     f"Small-strain output does not provide {variable.key!r}."
                 )
             terms.append((expressions[variable.key], measure, weight))
-        fields.append(
-            project_piecewise(
-                terms,
-                domain=domain,
-                family="DG",
-                degree=degree,
-                name=variable.key,
-            )
+        projected = project_piecewise(
+            terms,
+            domain=domain,
+            family="DG",
+            degree=degree,
+            name=variable.key,
         )
+        projected._agentfem_processing = {
+            "quantity": variable.name,
+            "expression_source": (
+                "constitutive_stress_with_eigenstrain"
+                if variable.key == "S" and sources
+                else "kinematic_strain_decomposition"
+                if variable.key in {"E_TOTAL", "E_EIGEN", "E_MECH"}
+                else "constitutive_expression"
+            ),
+            "material_partition": partition_identity,
+            "eigenstrain_sources": tuple(source.summary() for source in sources),
+        }
+        fields.append(projected)
     return tuple(fields)
 
 
@@ -516,13 +531,51 @@ def _small_strain_expressions(
     *,
     study=None,
     variables=("S", "E", "MISES", "SENER"),
+    eigenstrains=(),
 ):
-    strain = elasticity.strain(function, study=study)
-    stress = elasticity.stress(function, properties, study=study)
+    total_strain = elasticity.strain(function, study=study)
+    dimension = int(total_strain.ufl_shape[0])
+    sources = tuple(eigenstrains)
+    source_strains = tuple(
+        source.strain(properties, dimension=dimension, study=study)
+        for source in sources
+    )
+    eigenstrain = _sum_tensors(source_strains, total_strain)
+    mechanical_strain = total_strain - eigenstrain
+    temperatures = tuple(
+        item
+        for item in (source.constitutive_temperature() for source in sources)
+        if item is not None
+    )
+    temperature = temperatures[0] if temperatures else None
+    if any(item is not temperature for item in temperatures[1:]):
+        raise ValueError(
+            "One material result cannot use several independent constitutive "
+            "temperature fields. Combine the physical sources before projection."
+        )
+    stress = elasticity.stress(
+        function,
+        properties,
+        study=study,
+        temperature=temperature,
+    ) - _sum_tensors(
+        tuple(
+            source.equivalent_stress(
+                properties,
+                dimension=dimension,
+                study=study,
+            )
+            for source in sources
+        ),
+        total_strain,
+    )
     expressions = {
         "S": stress,
-        "E": strain,
-        "SENER": 0.5 * ufl.inner(stress, strain),
+        "E": total_strain,
+        "E_TOTAL": total_strain,
+        "E_EIGEN": eigenstrain,
+        "E_MECH": mechanical_strain,
+        "SENER": 0.5 * ufl.inner(stress, mechanical_strain),
     }
     if "S_MATERIAL" in variables or "E_MATERIAL" in variables:
         orientation = getattr(properties, "orientation", None)
@@ -535,14 +588,16 @@ def _small_strain_expressions(
             ufl.transpose(basis), ufl.dot(stress, basis)
         )
         expressions["E_MATERIAL"] = ufl.dot(
-            ufl.transpose(basis), ufl.dot(strain, basis)
+            ufl.transpose(basis), ufl.dot(total_strain, basis)
         )
     if "MISES" in variables:
         expressions["MISES"] = _von_mises(
             stress,
-            strain,
+            mechanical_strain,
             properties,
             study=study,
+            eigenstrains=sources,
+            temperature=temperature,
         )
     return expressions
 
@@ -561,7 +616,40 @@ def _material_assignment(assignment):
     return properties, getattr(location, "measure", location)
 
 
-def _von_mises(stress, strain, properties, *, study=None):
+def _material_assignment_identity(assignment) -> dict[str, object]:
+    if hasattr(assignment, "item") and hasattr(assignment, "region"):
+        properties = assignment.item
+        region = assignment.region
+    else:
+        properties, region = assignment
+    base_properties = getattr(properties, "material", properties)
+    coefficient = getattr(base_properties, "thermal_expansion", None)
+    return {
+        "material": getattr(properties, "name", type(properties).__name__),
+        "region": getattr(region, "name", None),
+        "region_tag": getattr(region, "tag", None),
+        "thermal_expansion": (
+            coefficient.as_dict()
+            if hasattr(coefficient, "as_dict")
+            else coefficient
+        ),
+        "reference_temperature": getattr(
+            base_properties,
+            "reference_temperature",
+            None,
+        ),
+    }
+
+
+def _von_mises(
+    stress,
+    mechanical_strain,
+    properties,
+    *,
+    study=None,
+    eigenstrains=(),
+    temperature=None,
+):
     shape = tuple(stress.ufl_shape)
     if shape == (3, 3):
         deviator = stress - ufl.tr(stress) / 3.0 * ufl.Identity(3)
@@ -570,26 +658,64 @@ def _von_mises(stress, strain, properties, *, study=None):
         raise ValueError("von Mises output requires a 2D or 3D stress tensor.")
     assumption = getattr(study, "assumption", None)
     if assumption == "plane_strain":
-        if not hasattr(properties, "lambda_"):
+        material = getattr(properties, "material", properties)
+        if not hasattr(material, "young") or not hasattr(material, "poisson"):
             raise NotImplementedError(
                 "Plane-strain von Mises output requires an isotropic material "
                 "with an out-of-plane stress relation."
             )
-        stress_zz = properties.lambda_ * ufl.tr(strain)
+        eigen_zz = _sum_scalars(
+            tuple(
+                source.strain(material, dimension=3, study=None)[2, 2]
+                for source in eigenstrains
+            )
+        )
+        full_mechanical = ufl.as_tensor(
+            (
+                (mechanical_strain[0, 0], mechanical_strain[0, 1], 0.0),
+                (mechanical_strain[1, 0], mechanical_strain[1, 1], 0.0),
+                (0.0, 0.0, -eigen_zz),
+            )
+        )
+        stress_zz = elasticity.stress_from_strain(
+            full_mechanical,
+            material,
+            temperature=temperature,
+        )[2, 2]
     else:
         stress_zz = 0.0
     xx = stress[0, 0]
     yy = stress[1, 1]
     xy = stress[0, 1]
     return ufl.sqrt(
-        0.5
-        * ((xx - yy) ** 2 + (yy - stress_zz) ** 2 + (stress_zz - xx) ** 2)
+        0.5 * ((xx - yy) ** 2 + (yy - stress_zz) ** 2 + (stress_zz - xx) ** 2)
         + 3.0 * xy**2
     )
 
 
+def _sum_tensors(values, reference):
+    shape = tuple(reference.ufl_shape)
+    total = ufl.zero(shape)
+    for value in values:
+        if tuple(value.ufl_shape) != shape:
+            raise ValueError(
+                f"Eigenstrain shape {tuple(value.ufl_shape)} does not match {shape}."
+            )
+        total = total + value
+    return total
+
+
+def _sum_scalars(values):
+    total = 0.0
+    for value in values:
+        total = total + value
+    return total
+
+
 def _expression_domain(expression):
-    domains = tuple(expression.ufl_domains()) if hasattr(expression, "ufl_domains") else ()
+    domains = (
+        tuple(expression.ufl_domains()) if hasattr(expression, "ufl_domains") else ()
+    )
     if len(domains) != 1:
         return None
     return domains[0].ufl_cargo()

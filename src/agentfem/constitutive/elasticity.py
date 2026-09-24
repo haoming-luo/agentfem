@@ -74,7 +74,9 @@ def stress_voigt_to_tensor_3d(stress_voigt):
     )
 
 
-def isotropic_pressure_wave_speed(young: float, poisson: float, density: float) -> float:
+def isotropic_pressure_wave_speed(
+    young: float, poisson: float, density: float
+) -> float:
     """Longitudinal wave speed for a 3D isotropic elastic solid."""
 
     numerator = (1.0 - poisson) * young
@@ -98,16 +100,26 @@ def estimate_elastic_wave_speeds(material) -> tuple[float, float]:
 
     if isinstance(material, ElasticIsotropicProperties):
         return material.pressure_wave_speed, material.shear_wave_speed
-    if isinstance(material, (ElasticAnisotropic2DProperties, ElasticAnisotropic3DProperties)):
+    if isinstance(
+        material, (ElasticAnisotropic2DProperties, ElasticAnisotropic3DProperties)
+    ):
         return material.pressure_wave_speed, material.shear_wave_speed
     if hasattr(material, "pressure_wave_speed"):
         pressure = float(material.pressure_wave_speed)
         shear = float(getattr(material, "shear_wave_speed", pressure / np.sqrt(3.0)))
         return pressure, shear
-    raise TypeError("material does not provide enough elastic data to estimate wave speeds.")
+    raise TypeError(
+        "material does not provide enough elastic data to estimate wave speeds."
+    )
 
 
-def isotropic_stress(displacement, properties: ElasticIsotropicProperties, *, study=None, temperature=None):
+def isotropic_stress(
+    displacement,
+    properties: ElasticIsotropicProperties,
+    *,
+    study=None,
+    temperature=None,
+):
     """Small-strain isotropic stress, ``sigma(u)``.
 
     Without a study, this uses the classical isotropic relation in the
@@ -125,18 +137,19 @@ def isotropic_stress(displacement, properties: ElasticIsotropicProperties, *, st
             mu = young / (2.0 * (1.0 + poisson))
             return lambda_ * ufl.tr(eps) * ufl.Identity(3) + 2.0 * mu * eps
         if study.dimension == 2 and study.assumption == "plane_stress":
-            return isotropic_plane_stress_2d(displacement, properties, temperature=temperature)
+            return isotropic_plane_stress_2d(
+                displacement, properties, temperature=temperature
+            )
         if study.dimension == 2 and study.assumption == "plane_strain":
-            return isotropic_plane_strain_2d(displacement, properties, temperature=temperature)
+            return isotropic_plane_strain_2d(
+                displacement, properties, temperature=temperature
+            )
 
     eps = strain(displacement)
     young, poisson = _elastic_coefficients(properties, temperature)
     lambda_ = young * poisson / ((1.0 + poisson) * (1.0 - 2.0 * poisson))
     mu = young / (2.0 * (1.0 + poisson))
-    return (
-        lambda_ * ufl.tr(eps) * ufl.Identity(len(displacement))
-        + 2.0 * mu * eps
-    )
+    return lambda_ * ufl.tr(eps) * ufl.Identity(len(displacement)) + 2.0 * mu * eps
 
 
 def thermal_strain(temperature, properties, *, dimension: int):
@@ -152,44 +165,71 @@ def thermoelastic_stress(displacement, temperature, properties, *, study=None):
     """Small-strain isotropic stress including thermal eigenstrain.
 
     Plane strain retains the constrained out-of-plane thermal strain in the
-    three-dimensional trace. Plane stress uses the reduced in-plane law.
+    three-dimensional trace. Plane stress uses the reduced in-plane law. This
+    compatibility entry point composes the same elastic and eigenstress
+    mappings used by Model/Operator lowering, so there is only one numerical
+    definition of thermoelastic stress.
     """
 
     displacement = field_api.unwrap(displacement)
     selected_temperature = field_api.unwrap(temperature)
     if study is not None:
         _require_elastic_study_supported(study)
-    dimension = len(displacement)
-    delta_temperature = selected_temperature - properties.reference_temperature
-    young, poisson = _elastic_coefficients(properties, selected_temperature)
-    lambda_ = young * poisson / ((1.0 + poisson) * (1.0 - 2.0 * poisson))
-    mu = young / (2.0 * (1.0 + poisson))
-    alpha_delta = _coefficient(properties, "thermal_expansion", selected_temperature) * delta_temperature
-    eps = strain(displacement, study=study)
-    if _axisymmetric.is_axisymmetric(study):
-        mechanical = eps - alpha_delta * ufl.Identity(3)
-        return lambda_ * ufl.tr(mechanical) * ufl.Identity(3) + 2.0 * mu * mechanical
-    if dimension == 2 and getattr(study, "assumption", None) == "plane_stress":
-        mechanical = eps - alpha_delta * ufl.Identity(2)
-        plane_stress_lambda = young * poisson / (
-            1.0 - poisson**2
-        )
-        return (
-            plane_stress_lambda * ufl.tr(mechanical) * ufl.Identity(2)
-            + 2.0 * mu * mechanical
-        )
-    if dimension == 2 and getattr(study, "assumption", None) == "plane_strain":
-        return (
-            lambda_
-            * (ufl.tr(eps) - 3.0 * alpha_delta)
-            * ufl.Identity(2)
-            + 2.0 * mu * (eps - alpha_delta * ufl.Identity(2))
-        )
-    mechanical = eps - alpha_delta * ufl.Identity(dimension)
-    return (
-        lambda_ * ufl.tr(mechanical) * ufl.Identity(dimension)
-        + 2.0 * mu * mechanical
+    dimension = int(len(displacement))
+    return isotropic_stress(
+        displacement,
+        properties,
+        study=study,
+        temperature=selected_temperature,
+    ) - thermal_expansion_stress(
+        selected_temperature,
+        properties,
+        study=study,
+        dimension=dimension,
     )
+
+
+def stress_from_strain(strain_tensor, properties, *, study=None, temperature=None):
+    """Return elastic stress from an explicit strain tensor.
+
+    Unlike :func:`stress`, this function does not infer strain from a
+    displacement.  It is the constitutive boundary used by eigenstrain
+    lowering and other expert kinematic offsets.
+    """
+
+    orientation = getattr(properties, "orientation", None)
+    properties = getattr(properties, "material", properties)
+    eps = strain_tensor
+    shape = tuple(getattr(eps, "ufl_shape", ()))
+    if len(shape) != 2 or shape[0] != shape[1]:
+        raise ValueError("stress_from_strain requires one square strain tensor.")
+    dimension = int(shape[0])
+    if isinstance(properties, ElasticIsotropicProperties) or (
+        hasattr(properties, "young") and hasattr(properties, "poisson")
+    ):
+        young, poisson = _elastic_coefficients(properties, temperature)
+        mu = young / (2.0 * (1.0 + poisson))
+        if dimension == 2 and getattr(study, "assumption", None) == "plane_stress":
+            lambda_ = young * poisson / (1.0 - poisson**2)
+        else:
+            lambda_ = young * poisson / ((1.0 + poisson) * (1.0 - 2.0 * poisson))
+        return lambda_ * ufl.tr(eps) * ufl.Identity(dimension) + 2.0 * mu * eps
+    basis = _orientation_basis(orientation, dimension)
+    local = eps if basis is None else ufl.dot(ufl.transpose(basis), ufl.dot(eps, basis))
+    stiffness = ufl.as_matrix(np.asarray(properties.stiffness_voigt).tolist())
+    if dimension == 2:
+        vector = ufl.as_vector([local[0, 0], local[1, 1], 2.0 * local[0, 1]])
+        local_stress = stress_voigt_to_tensor_2d(ufl.dot(stiffness, vector))
+    elif dimension == 3:
+        vector = engineering_strain_voigt_3d_from_tensor(local)
+        local_stress = stress_voigt_to_tensor_3d(ufl.dot(stiffness, vector))
+    else:
+        raise ValueError(
+            "stress_from_strain supports two- and three-dimensional tensors."
+        )
+    if basis is None:
+        return local_stress
+    return ufl.dot(basis, ufl.dot(local_stress, ufl.transpose(basis)))
 
 
 def thermal_expansion_stress(temperature, properties, *, study=None, dimension=None):
@@ -208,18 +248,20 @@ def thermal_expansion_stress(temperature, properties, *, study=None, dimension=N
     if _axisymmetric.is_axisymmetric(study):
         return (2.0 * mu + 3.0 * lambda_) * alpha_delta * ufl.Identity(3)
     if selected_dimension == 2 and getattr(study, "assumption", None) == "plane_stress":
-        plane_stress_lambda = young * poisson / (
-            1.0 - poisson**2
-        )
+        plane_stress_lambda = young * poisson / (1.0 - poisson**2)
         factor = 2.0 * (mu + plane_stress_lambda)
-    elif selected_dimension == 2 and getattr(study, "assumption", None) == "plane_strain":
+    elif (
+        selected_dimension == 2 and getattr(study, "assumption", None) == "plane_strain"
+    ):
         factor = 2.0 * mu + 3.0 * lambda_
     else:
         factor = 2.0 * mu + selected_dimension * lambda_
     return factor * alpha_delta * ufl.Identity(selected_dimension)
 
 
-def isotropic_plane_strain_2d(displacement, properties: ElasticIsotropicProperties, *, temperature=None):
+def isotropic_plane_strain_2d(
+    displacement, properties: ElasticIsotropicProperties, *, temperature=None
+):
     """2D isotropic plane-strain stress."""
 
     displacement = field_api.unwrap(displacement)
@@ -230,20 +272,17 @@ def isotropic_plane_strain_2d(displacement, properties: ElasticIsotropicProperti
     return lambda_ * ufl.tr(eps) * ufl.Identity(2) + 2.0 * mu * eps
 
 
-def isotropic_plane_stress_2d(displacement, properties: ElasticIsotropicProperties, *, temperature=None):
+def isotropic_plane_stress_2d(
+    displacement, properties: ElasticIsotropicProperties, *, temperature=None
+):
     """2D isotropic plane-stress stress."""
 
     displacement = field_api.unwrap(displacement)
     eps = strain(displacement)
     young, poisson = _elastic_coefficients(properties, temperature)
     mu = young / (2.0 * (1.0 + poisson))
-    plane_stress_lambda = young * poisson / (
-        1.0 - poisson**2
-    )
-    return (
-        plane_stress_lambda * ufl.tr(eps) * ufl.Identity(2)
-        + 2.0 * mu * eps
-    )
+    plane_stress_lambda = young * poisson / (1.0 - poisson**2)
+    return plane_stress_lambda * ufl.tr(eps) * ufl.Identity(2) + 2.0 * mu * eps
 
 
 def anisotropic_stress_2d(
@@ -268,7 +307,9 @@ def anisotropic_stress_2d(
     if basis is not None:
         eps = ufl.dot(ufl.transpose(basis), ufl.dot(eps, basis))
     strain_voigt = ufl.as_vector([eps[0, 0], eps[1, 1], 2.0 * eps[0, 1]])
-    stress_voigt = ufl.dot(ufl.as_matrix(properties.stiffness_voigt.tolist()), strain_voigt)
+    stress_voigt = ufl.dot(
+        ufl.as_matrix(properties.stiffness_voigt.tolist()), strain_voigt
+    )
     local_stress = stress_voigt_to_tensor_2d(stress_voigt)
     if basis is None:
         return local_stress
@@ -294,7 +335,9 @@ def anisotropic_stress_3d(
     if basis is not None:
         eps = ufl.dot(ufl.transpose(basis), ufl.dot(eps, basis))
     strain_voigt = engineering_strain_voigt_3d_from_tensor(eps)
-    stress_voigt = ufl.dot(ufl.as_matrix(properties.stiffness_voigt.tolist()), strain_voigt)
+    stress_voigt = ufl.dot(
+        ufl.as_matrix(properties.stiffness_voigt.tolist()), strain_voigt
+    )
     local_stress = stress_voigt_to_tensor_3d(stress_voigt)
     if basis is None:
         return local_stress
@@ -308,7 +351,9 @@ def stress(displacement, properties, *, study=None, temperature=None):
     properties = getattr(properties, "material", properties)
 
     if isinstance(properties, ElasticIsotropicProperties):
-        return isotropic_stress(displacement, properties, study=study, temperature=temperature)
+        return isotropic_stress(
+            displacement, properties, study=study, temperature=temperature
+        )
     if isinstance(properties, ElasticAnisotropic2DProperties):
         return anisotropic_stress_2d(
             displacement, properties, study=study, orientation=orientation
@@ -328,7 +373,9 @@ def stress(displacement, properties, *, study=None, temperature=None):
                 displacement, properties, study=study, orientation=orientation
             )
     if hasattr(properties, "young") and hasattr(properties, "poisson"):
-        return isotropic_stress(displacement, properties, study=study, temperature=temperature)
+        return isotropic_stress(
+            displacement, properties, study=study, temperature=temperature
+        )
     raise TypeError(f"unsupported elastic properties object: {type(properties)!r}")
 
 
@@ -385,7 +432,9 @@ def isotropic_elastic(
 ) -> ElasticIsotropicProperties:
     """Create isotropic linear-elastic properties."""
 
-    return ElasticIsotropicProperties(name=name, young=young, density=density, poisson=poisson)
+    return ElasticIsotropicProperties(
+        name=name, young=young, density=density, poisson=poisson
+    )
 
 
 def thermoelastic(
@@ -530,7 +579,9 @@ def orthotropic_elastic_3d(
         dtype=float,
     )
     if np.min(np.linalg.eigvalsh(compliance)) <= 0.0:
-        raise ValueError("Orthotropic engineering constants do not define stable elasticity.")
+        raise ValueError(
+            "Orthotropic engineering constants do not define stable elasticity."
+        )
     return ElasticAnisotropic3DProperties(
         name=name,
         stiffness_voigt=np.linalg.inv(compliance),

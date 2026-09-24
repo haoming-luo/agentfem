@@ -77,6 +77,7 @@ from .elasticity import (
     internal_force_vector,
     stiffness_operator,
     thermal_expansion_vector,
+    eigenstrain_vector,
 )
 from .flow import (
     convective_momentum_operator,
@@ -189,6 +190,7 @@ __all__ = [
     "transient_transport_forms",
     "split_laplacian_operator",
     "thermal_expansion_vector",
+    "eigenstrain_vector",
     "viscous_flow_operator",
     "quadratic_form",
     "xtmx",

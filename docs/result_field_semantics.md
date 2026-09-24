@@ -7,6 +7,24 @@ the label `S` while having different numerical values. AgentFEM therefore
 treats result processing as scientific metadata rather than a hidden viewer
 setting.
 
+## Thermoelastic strain decomposition
+
+AgentFEM reports one physical stress field:
+
+\[
+E_\mathrm{MECH}=E_\mathrm{TOTAL}-E_\mathrm{EIGEN},\qquad
+S=\mathbb C:E_\mathrm{MECH}.
+\]
+
+`E_TOTAL`, `E_EIGEN`, and `E_MECH` are separate fields when an eigenstrain
+source is active. `E` is the compatibility alias for `E_TOTAL`. Positive
+`C:E_EIGEN`, used to assemble an equivalent load, is operator evidence rather
+than another physical stress.
+
+Projected fields record the material partition, eigenstrain sources, space,
+location, method, and smoothing flags. The default is DG0 cell averaging with
+no nodal extrapolation, interelement smoothing, or material-boundary averaging.
+
 ## What established CAE systems display
 
 Abaqus commonly stores element variables such as stress at integration points.
