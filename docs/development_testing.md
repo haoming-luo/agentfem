@@ -12,8 +12,9 @@ the most expensive command after every keystroke.
 | Before committing | Related workflow tests, critical static analysis, misuse tests, and generated-asset checks | `ruff check . --no-cache`; `python build_knowledge.py --check --check-imports`; `python build_docs.py --check` |
 | Before pushing a coherent code change | Related suites; complete serial for cross-cutting numerical changes | `python -m pytest -q` when the change can cross ownership boundaries |
 | MPI-sensitive change | Relevant two-rank modules using the verified launcher | `agentfem mpi-run -n 2 -- python -m pytest ...` |
-| Numerical pull request and `main` | Wheel installation, full serial, MPI, checkpoint portability, examples, documentation, and optional PyTorch bridge | GitHub Actions `Test` workflow |
-| Documentation-only pull request and `main` | Static correctness plus strict documentation build; no FEniCSx or PyTorch environment rebuild | GitHub Actions `Test` and `Documentation` workflows |
+| Test-only or orchestration pull request and `main` | Changed test modules, a built-wheel solve, and serial/two-rank smoke | GitHub Actions `targeted` tier |
+| Core numerical pull request and `main` | Wheel installation, full serial, MPI, checkpoint portability, examples, and documentation | GitHub Actions `core` tier |
+| Documentation-only pull request and `main` | Strict generated-document and site build; no FEniCSx or PyTorch environment rebuild | GitHub Actions `docs` tier |
 | Release candidate/tag | All preceding checks plus distribution inspection and installed-wheel release smoke | `python release_gate.py --dist dist --smoke` |
 
 ## Source and installed-wheel evidence are separate
@@ -69,14 +70,29 @@ PYTHONPATH="$(pwd)/src" agentfem mpi-run -n 2 -- \
 Release CI deliberately omits this prefix after force-installing the candidate
 wheel; those same drivers then provide installed-artifact evidence.
 
-## Why AgentFEM still runs full CI frequently
+## Change-aware CI tiers
 
 Cross-module coupling is high—changes to `Model`, providers, output, mesh
-identity, or checkpointing can affect many workflows. A coherent numerical
-push or pull request therefore earns the full remote gate. Documentation-only
-changes retain static and strict documentation checks without rebuilding the
-FEniCSx or PyTorch environments. New commits cancel superseded development
-runs; immutable tag and release evidence is never replaced this way.
+identity, or checkpointing can affect many workflows. Those changes earn the
+complete core gate. Test corrections and product orchestration changes instead
+run the affected test files against a freshly built wheel, followed by serial
+and two-rank solver smoke tests. Documentation changes build the strict site
+without creating a FEniCSx environment. PyTorch is installed only for learning
+changes or a release gate.
+
+The always-running classifier reports one explicit tier:
+
+| Tier | Automatic scope | Evidence |
+| --- | --- | --- |
+| `docs` | Documentation and generated site inputs only | Generated entrypoints and strict site build |
+| `targeted` | Tests, examples, integrations, CI, CLI, campaign, dataset, or surrogate orchestration | Built wheel, affected tests, serial and two-rank smoke |
+| `core` | FEM formulation, operator, constitutive, state, result, solver, MPI, or unknown build changes | Full serial and distributed scientific regression |
+| `release` | Release identity/runtime inputs or explicit dispatch | Core gate plus release smoke, promotion audit, and retained artifacts |
+
+Unknown paths fail safe to `core`. A manual dispatch selects the requested
+minimum tier and defaults to `release`. New commits cancel superseded
+development runs; immutable tag and release evidence is never replaced this
+way.
 
 Developers should still begin with the smallest relevant tests. Re-running the
 entire environment and MPI matrix after every one-line edit wastes time and
@@ -90,7 +106,8 @@ Validation depth follows the evidence claim, not the number of edited files:
 
 1. use targeted local tests while developing;
 2. push coherent changes rather than each intermediate edit;
-3. keep pull-request and `main` numerical gates complete;
+3. choose the remote tier from scientific impact, with unknown changes failing
+   safe to the core gate;
 4. reserve hosted platform matrices, installers, and expensive scientific
    benchmarks for tags, explicit dispatch, or scheduled evidence;
 5. let a newer development commit cancel an obsolete run;
@@ -114,8 +131,9 @@ A mature schedule is:
 
 1. targeted tests on every edit;
 2. fast deterministic gate on every commit;
-3. full serial and affected MPI tests on every pull request;
-4. complete platform/MPI/optional-dependency matrix on `main` and nightly;
+3. full serial and affected MPI tests for core numerical pull requests;
+4. complete platform/MPI/optional-dependency evidence for releases and
+   scheduled audits;
 5. external-code and large-mesh benchmarks on a scheduled or release gate.
 
 If a check is required by branch protection, prefer a workflow that always

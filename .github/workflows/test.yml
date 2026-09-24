@@ -5,6 +5,17 @@ permissions:
 
 on:
   workflow_dispatch:
+    inputs:
+      validation_level:
+        description: Minimum validation tier to run
+        required: true
+        default: release
+        type: choice
+        options:
+          - docs
+          - targeted
+          - core
+          - release
   push:
     branches: ["main"]
   pull_request:
@@ -22,45 +33,47 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       numerical: ${{ steps.scope.outputs.numerical }}
+      level: ${{ steps.scope.outputs.level }}
+      ml: ${{ steps.scope.outputs.ml }}
+      tests: ${{ steps.scope.outputs.tests }}
     steps:
       - name: Check out enough history to classify the change
         uses: actions/checkout@v6
         with:
           fetch-depth: 0
 
-      - name: Distinguish documentation-only changes
+      - name: Select the minimum trustworthy validation tier
         id: scope
         env:
           EVENT_NAME: ${{ github.event_name }}
           BEFORE_SHA: ${{ github.event.before }}
           PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          REQUESTED_LEVEL: ${{ inputs.validation_level }}
         run: |
           if [[ "${EVENT_NAME}" == "workflow_dispatch" ]]; then
-            echo "numerical=true" >> "${GITHUB_OUTPUT}"
+            python ci_validation_scope.py \
+              --requested "${REQUESTED_LEVEL:-release}" \
+              --github-output "${GITHUB_OUTPUT}"
             exit 0
           fi
 
           BASE_SHA="${PR_BASE_SHA:-${BEFORE_SHA}}"
           if [[ -z "${BASE_SHA}" || "${BASE_SHA}" =~ ^0+$ ]]; then
-            echo "numerical=true" >> "${GITHUB_OUTPUT}"
+            python ci_validation_scope.py \
+              --requested core \
+              --github-output "${GITHUB_OUTPUT}"
             exit 0
           fi
 
-          NUMERICAL=false
-          while IFS= read -r path; do
-            case "${path}" in
-              README.md|CONTRIBUTING.md|AGENT_GUIDE.md|WORKFLOW.md|CONCEPTS.md|CITATION.cff|docs/*|site/*|mkdocs.yml)
-                ;;
-              *)
-                NUMERICAL=true
-                break
-                ;;
-            esac
-          done < <(git diff --name-only "${BASE_SHA}" "${GITHUB_SHA}")
-          echo "numerical=${NUMERICAL}" >> "${GITHUB_OUTPUT}"
+          python ci_validation_scope.py \
+            --base "${BASE_SHA}" \
+            --head "${GITHUB_SHA}" \
+            --github-output "${GITHUB_OUTPUT}"
 
   static-analysis:
     name: Python correctness lint
+    needs: change-scope
+    if: needs.change-scope.outputs.level != 'docs'
     runs-on: ubuntu-latest
     steps:
       - name: Check out repository
@@ -78,11 +91,13 @@ jobs:
           ruff check . --no-cache
 
       - name: Verify reliability collector schema boundary
+        if: needs.change-scope.outputs.level != 'docs'
         run: |
           node --test services/reliability-collector/worker.test.mjs
           node --test services/reliability-relay-tencent/index.test.cjs
 
       - name: Parse the Windows runtime lifecycle scripts
+        if: needs.change-scope.outputs.level != 'docs'
         shell: pwsh
         run: |
           foreach ($path in @(
@@ -105,7 +120,6 @@ jobs:
   documentation:
     name: Documentation and machine entrypoints
     needs: change-scope
-    if: needs.change-scope.outputs.numerical == 'true'
     runs-on: ubuntu-latest
     steps:
       - name: Check out repository
@@ -124,9 +138,60 @@ jobs:
           python build_docs.py --check
           python -m mkdocs build --strict
 
+  fenicsx-targeted:
+    name: Targeted FEniCSx regression
+    needs: change-scope
+    if: needs.change-scope.outputs.level == 'targeted'
+    runs-on: ubuntu-latest
+    env:
+      UCX_TLS: tcp,sm,self
+      CHANGED_TESTS: ${{ needs.change-scope.outputs.tests }}
+    defaults:
+      run:
+        shell: bash -el {0}
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+
+      - name: Create FEniCSx environment
+        uses: conda-incubator/setup-miniconda@v4
+        with:
+          activate-environment: agentfem-targeted
+          environment-file: environment.yml
+          miniforge-version: latest
+          use-mamba: true
+          channels: conda-forge
+          channel-priority: strict
+
+      - name: Build and install the wheel under test
+        run: |
+          python -m pip install --upgrade build
+          python -m build --wheel
+          python -m pip install meshio
+          python -m pip install --no-deps --force-reinstall dist/*.whl
+
+      - name: Validate scientific knowledge inputs
+        run: python build_knowledge.py --check --check-imports
+
+      - name: Run affected tests or the stable workflow sentinel
+        run: |
+          if [[ -n "${CHANGED_TESTS}" ]]; then
+            read -r -a selected <<< "${CHANGED_TESTS}"
+          else
+            selected=(tests/test_common_workflows.py tests/test_project_cli.py)
+          fi
+          python -m pytest -q "${selected[@]}"
+
+      - name: Run serial and two-rank solver smoke tests
+        run: |
+          python examples/static_elasticity_2d.py
+          mpirun -n 2 python examples/static_elasticity_2d.py
+
   fenicsx:
     needs: change-scope
-    if: needs.change-scope.outputs.numerical == 'true'
+    if: >-
+      needs.change-scope.outputs.level == 'core' ||
+      needs.change-scope.outputs.level == 'release'
     runs-on: ubuntu-latest
     # Azure-hosted runners may expose a MANA verbs device that UCX discovers
     # but cannot initialize. The release path needs only local/shared-memory
@@ -271,6 +336,7 @@ jobs:
         run: AGENTFEM_CAMPAIGN_SAMPLES=4 AGENTFEM_CAMPAIGN_RUN_ID=ci-mpi mpirun -n 2 python examples/static_elasticity_surrogate_campaign.py
 
       - name: Run release demo smoke suite
+        if: needs.change-scope.outputs.level == 'release'
         run: |
           python release_gate.py --dist dist --smoke \
             --report /tmp/agentfem-agent-acceptance.json \
@@ -278,6 +344,7 @@ jobs:
             --require-platform linux
 
       - name: Audit the 0.3 platform-promotion contract
+        if: needs.change-scope.outputs.level == 'release'
         run: |
           python promotion_gate.py \
             --evidence /tmp/agentfem-agent-acceptance.json \
@@ -285,7 +352,9 @@ jobs:
             --report /tmp/agentfem-platform-promotion.json
 
       - name: Upload agent acceptance evidence
-        if: always()
+        if: >-
+          always() &&
+          needs.change-scope.outputs.level == 'release'
         uses: actions/upload-artifact@v7
         with:
           name: agent-acceptance-evidence
@@ -296,7 +365,9 @@ jobs:
           if-no-files-found: warn
 
       - name: Upload tested distributions
-        if: always()
+        if: >-
+          always() &&
+          needs.change-scope.outputs.level == 'release'
         uses: actions/upload-artifact@v7
         with:
           name: tested-python-package-distributions
@@ -305,7 +376,9 @@ jobs:
   ml-optional:
     name: Optional PyTorch bridge
     needs: change-scope
-    if: needs.change-scope.outputs.numerical == 'true'
+    if: >-
+      needs.change-scope.outputs.ml == 'true' ||
+      needs.change-scope.outputs.level == 'release'
     runs-on: ubuntu-latest
     # Azure-hosted runners expose a MANA verbs device that UCX can select even
     # though it cannot create the required UD queue pair.  The ML bridge only
