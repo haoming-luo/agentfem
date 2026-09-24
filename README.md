@@ -350,7 +350,7 @@ For architecture and methodology, also cite the
 
 ## Author
 
-Haoming Luo (Xi’an TPRI) is the initiator and maintainer of AgentFEM. His interests include computational mechanics, materials engineering, finite-element simulation, and AI-assisted scientific computing, with education and research experience associated with NWPU, INSA Lyon and Ecole Polytechnique.
+Haoming Luo is the initiator of AgentFEM. His interests include computational mechanics, materials engineering, finite-element simulation, and AI-assisted scientific computing. He is currently with Xi’an TPRI, with education and research experience at NWPU, INSA Lyon, and École Polytechnique.
 
 The project is also motivated by engineering needs in materials evaluation,
 defect inspection, and simulation analysis for power-generation equipment.
