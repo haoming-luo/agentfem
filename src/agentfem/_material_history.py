@@ -244,6 +244,11 @@ class PlasticMaterialHistoryResponse:
     kinematic_hardening_stored_energy: np.ndarray
     plastic_work: np.ndarray
     reference_yield_dissipation: np.ndarray
+    dynamic_recovery_dissipation: np.ndarray
+    backward_euler_dissipation: np.ndarray
+    modeled_irreversible_dissipation: np.ndarray
+    discrete_dissipation: np.ndarray
+    plastic_energy_balance_residual: np.ndarray
     final_state: J2PlasticState | ChabocheState
     material: J2LinearIsotropicHardening | ChabocheCombinedHardening
     linearization: str
@@ -271,6 +276,17 @@ class PlasticMaterialHistoryResponse:
             ),
             "plastic_work": self.plastic_work,
             "reference_yield_dissipation": self.reference_yield_dissipation,
+            "dynamic_recovery_dissipation": (
+                self.dynamic_recovery_dissipation
+            ),
+            "backward_euler_dissipation": self.backward_euler_dissipation,
+            "modeled_irreversible_dissipation": (
+                self.modeled_irreversible_dissipation
+            ),
+            "discrete_dissipation": self.discrete_dissipation,
+            "plastic_energy_balance_residual": (
+                self.plastic_energy_balance_residual
+            ),
         }
         if self.algorithmic_tangent is not None:
             histories["algorithmic_tangent"] = self.algorithmic_tangent
@@ -288,8 +304,25 @@ class PlasticMaterialHistoryResponse:
                     "plastic-strain increments; it is not a dissipation claim."
                 ),
                 "reference_yield_dissipation": (
-                    "Cumulative sigma_y0 times PEEQ component. Chaboche "
-                    "dynamic-recovery dissipation is not included."
+                    "Cumulative initial-yield contribution."
+                ),
+                "dynamic_recovery_dissipation": (
+                    "Cumulative nonnegative Armstrong-Frederick dynamic-"
+                    "recovery contribution in the accepted discrete update."
+                ),
+                "backward_euler_dissipation": (
+                    "Cumulative nonnegative time-discretization contribution; "
+                    "reported separately from modeled material dissipation."
+                ),
+                "modeled_irreversible_dissipation": (
+                    "Reference-yield plus dynamic-recovery dissipation."
+                ),
+                "discrete_dissipation": (
+                    "Modeled irreversible plus backward-Euler dissipation."
+                ),
+                "plastic_energy_balance_residual": (
+                    "Cumulative residual of plastic work minus hardening-"
+                    "storage change and discrete dissipation."
                 ),
                 "elastic_state": "One for an elastic update and zero for a plastic update.",
             },
@@ -327,14 +360,12 @@ class PlasticMaterialHistoryResponse:
             "plastic_work": "signed_work_not_dissipation",
             "reference_yield_dissipation": "available",
             "dynamic_recovery_dissipation": (
-                "unavailable" if chaboche else "not_applicable"
+                "available" if chaboche else "not_applicable"
             ),
-            "irreversible_dissipation": (
-                "unavailable_dynamic_recovery_not_closed"
-                if chaboche
-                else "reference_yield_dissipation"
-            ),
-            "complete_discrete_energy_balance": False,
+            "modeled_irreversible_dissipation": "available",
+            "backward_euler_dissipation": "available_separate_numerical_channel",
+            "complete_discrete_plastic_energy_balance": True,
+            "complete_mechanical_energy_balance": False,
         }
         result.metadata["scope"] = {
             "level": "material_point",
@@ -438,14 +469,32 @@ class PlasticMaterialHistoryStep:
                 for index, item in enumerate(updates)
             ]
         )
-        plastic_work = np.zeros(path.point_count)
-        for index in range(1, path.point_count):
-            plastic_work[index] = plastic_work[index - 1] + float(
-                np.tensordot(
-                    stress[index],
-                    plastic_strain[index] - plastic_strain[index - 1],
-                )
-            )
+        plastic_work = np.cumsum(
+            [item.energy_increment.plastic_work for item in updates]
+        )
+        reference_yield = np.cumsum(
+            [
+                item.energy_increment.reference_yield_dissipation
+                for item in updates
+            ]
+        )
+        dynamic_recovery = np.cumsum(
+            [
+                item.energy_increment.dynamic_recovery_dissipation
+                for item in updates
+            ]
+        )
+        backward_euler = np.cumsum(
+            [
+                item.energy_increment.backward_euler_dissipation
+                for item in updates
+            ]
+        )
+        modeled_irreversible = reference_yield + dynamic_recovery
+        discrete_dissipation = modeled_irreversible + backward_euler
+        energy_residual = np.cumsum(
+            [item.energy_increment.balance_residual for item in updates]
+        )
         response = PlasticMaterialHistoryResponse(
             path=path,
             stress=stress,
@@ -460,9 +509,12 @@ class PlasticMaterialHistoryStep:
             isotropic_hardening_stored_energy=stored[:, 1],
             kinematic_hardening_stored_energy=stored[:, 2],
             plastic_work=plastic_work,
-            reference_yield_dissipation=(
-                self.material.yield_stress * equivalent
-            ),
+            reference_yield_dissipation=reference_yield,
+            dynamic_recovery_dissipation=dynamic_recovery,
+            backward_euler_dissipation=backward_euler,
+            modeled_irreversible_dissipation=modeled_irreversible,
+            discrete_dissipation=discrete_dissipation,
+            plastic_energy_balance_residual=energy_residual,
             final_state=state,
             material=self.material,
             linearization=linearization,

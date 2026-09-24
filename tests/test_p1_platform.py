@@ -863,18 +863,23 @@ def test_global_chaboche_cycle_uses_quadrature_state_and_restart(tmp_path):
     assert isinstance(reference.state, constitutive.ChabocheQuadratureState)
     assert np.max(np.abs(reference.state.backstresses.values)) > 0.0
     assert {"S", "PE", "PEEQ", "ALPHA", "MISES", "RF"} <= set(result.fields)
-    assert "energy_balance_error" not in result.histories
+    assert "energy_balance_error" in result.histories
     assert result.histories["kinematic_hardening_energy"].latest > 0.0
     assert "reference_yield_dissipation" in result.histories
-    assert "known_internal_work" in result.histories
+    assert "dynamic_recovery_dissipation" in result.histories
+    assert "backward_euler_dissipation" in result.histories
+    assert "modeled_irreversible_dissipation" in result.histories
+    assert "discrete_dissipation" in result.histories
+    assert "internal_energy" in result.histories
     assert "plastic_dissipation" not in result.histories
-    assert "internal_energy" not in result.histories
     assert result.metadata["energy"]["dynamic_recovery_dissipation"] == (
-        "unavailable"
+        "available"
     )
-    assert result.metadata["energy"]["internal_work"] == (
-        "known_components_only"
-    )
+    assert result.metadata["energy"]["complete_discrete_plastic_energy_balance"]
+    assert result.histories["dynamic_recovery_dissipation"].latest > 0.0
+    assert result.histories["backward_euler_dissipation"].latest >= 0.0
+    assert np.max(reference.state.dynamic_recovery_dissipation.values) > 0.0
+    assert np.min(reference.state.backward_euler_dissipation.values) >= 0.0
 
     partial, _ = _j2_uniaxial_patch(
         material_law=material,
@@ -883,7 +888,7 @@ def test_global_chaboche_cycle_uses_quadrature_state_and_restart(tmp_path):
     )
     partial.solve(until=0.5)
     checkpoint = partial.save_checkpoint(tmp_path / "chaboche_restart.npz")
-    assert partial.checkpoints[-1].schema == "agentfem.j2-step-checkpoint.v6"
+    assert partial.checkpoints[-1].schema == "agentfem.j2-step-checkpoint.v7"
     restarted, _ = _j2_uniaxial_patch(
         material_law=material,
         amplitude=history,
@@ -902,6 +907,26 @@ def test_global_chaboche_cycle_uses_quadrature_state_and_restart(tmp_path):
         reference.state.backstresses.values,
         rtol=2.0e-7,
         atol=2.0e-9,
+    )
+    np.testing.assert_allclose(
+        restarted.state.dynamic_recovery_dissipation.values,
+        reference.state.dynamic_recovery_dissipation.values,
+        rtol=2.0e-7,
+        atol=2.0e-9,
+    )
+    np.testing.assert_allclose(
+        restarted.state.backward_euler_dissipation.values,
+        reference.state.backward_euler_dissipation.values,
+        rtol=2.0e-7,
+        atol=2.0e-9,
+    )
+    np.testing.assert_allclose(
+        [item.dynamic_recovery_dissipation for item in restarted.energy_history],
+        [item.dynamic_recovery_dissipation for item in reference.energy_history],
+    )
+    np.testing.assert_allclose(
+        [item.backward_euler_dissipation for item in restarted.energy_history],
+        [item.backward_euler_dissipation for item in reference.energy_history],
     )
 
 

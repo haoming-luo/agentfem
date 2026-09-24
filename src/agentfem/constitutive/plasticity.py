@@ -65,6 +65,62 @@ class J2PlasticState:
 
 
 @dataclass(frozen=True)
+class PlasticEnergyIncrement:
+    """One accepted plastic substep written as an explicit energy ledger."""
+
+    plastic_work: float = 0.0
+    isotropic_stored_energy_change: float = 0.0
+    kinematic_stored_energy_change: float = 0.0
+    reference_yield_dissipation: float = 0.0
+    dynamic_recovery_dissipation: float = 0.0
+    backward_euler_dissipation: float = 0.0
+    balance_residual: float = 0.0
+
+    @property
+    def recoverable_storage_change(self) -> float:
+        return (
+            self.isotropic_stored_energy_change
+            + self.kinematic_stored_energy_change
+        )
+
+    @property
+    def modeled_irreversible_dissipation(self) -> float:
+        return (
+            self.reference_yield_dissipation
+            + self.dynamic_recovery_dissipation
+        )
+
+    @property
+    def discrete_dissipation(self) -> float:
+        return (
+            self.modeled_irreversible_dissipation
+            + self.backward_euler_dissipation
+        )
+
+    def as_dict(self) -> dict[str, float]:
+        return {
+            "plastic_work": self.plastic_work,
+            "isotropic_stored_energy_change": (
+                self.isotropic_stored_energy_change
+            ),
+            "kinematic_stored_energy_change": (
+                self.kinematic_stored_energy_change
+            ),
+            "recoverable_storage_change": self.recoverable_storage_change,
+            "reference_yield_dissipation": self.reference_yield_dissipation,
+            "dynamic_recovery_dissipation": (
+                self.dynamic_recovery_dissipation
+            ),
+            "modeled_irreversible_dissipation": (
+                self.modeled_irreversible_dissipation
+            ),
+            "backward_euler_dissipation": self.backward_euler_dissipation,
+            "discrete_dissipation": self.discrete_dissipation,
+            "balance_residual": self.balance_residual,
+        }
+
+
+@dataclass(frozen=True)
 class J2Update:
     """Result of one radial-return material-point update.
 
@@ -79,6 +135,7 @@ class J2Update:
     yield_function_trial: float
     plastic_multiplier_increment: float
     algorithmic_tangent: np.ndarray | None
+    energy_increment: PlasticEnergyIncrement = PlasticEnergyIncrement()
 
 
 Linearization = Literal["none", "consistent"]
@@ -255,6 +312,12 @@ class ChabocheCombinedHardening:
             yield_function_trial=trial_value,
             plastic_multiplier_increment=increment,
             algorithmic_tangent=tangent,
+            energy_increment=_plastic_energy_increment(
+                self,
+                old,
+                new_state,
+                stress,
+            ),
         )
 
     def _integrate(self, strain, old, *, tolerance=None):
@@ -564,6 +627,7 @@ class J2LinearIsotropicHardening:
                     if selected_linearization == "consistent"
                     else None
                 ),
+                energy_increment=PlasticEnergyIncrement(),
             )
         if q_trial <= 0.0:
             raise RuntimeError("Positive J2 yield function requires q_trial > 0.")
@@ -606,13 +670,21 @@ class J2LinearIsotropicHardening:
                 * radial_coefficient
                 * np.einsum("ij,kl->ijkl", trial_deviator, flow_direction)
             )
+        new_stress = pressure_part + new_deviator
+        new_state = J2PlasticState(plastic_strain, equivalent)
         return J2Update(
-            stress=pressure_part + new_deviator,
-            state=J2PlasticState(plastic_strain, equivalent),
+            stress=new_stress,
+            state=new_state,
             elastic=False,
             yield_function_trial=float(f_trial),
             plastic_multiplier_increment=float(increment),
             algorithmic_tangent=tangent,
+            energy_increment=_plastic_energy_increment(
+                self,
+                old,
+                new_state,
+                new_stress,
+            ),
         )
 
     def as_dict(self) -> dict[str, object]:
@@ -649,6 +721,113 @@ class J2LinearIsotropicHardening:
             linearization=linearization,
             name=name,
         )
+
+
+def _isotropic_hardening_storage(material, equivalent: float) -> float:
+    selected = float(equivalent)
+    if isinstance(material, J2LinearIsotropicHardening):
+        return 0.5 * material.hardening_modulus * selected**2
+    if material.isotropic_rate == 0.0:
+        return 0.0
+    return float(
+        material.isotropic_saturation
+        * (
+            selected
+            + (np.exp(-material.isotropic_rate * selected) - 1.0)
+            / material.isotropic_rate
+        )
+    )
+
+
+def _kinematic_hardening_storage(material, state) -> float:
+    if not isinstance(material, ChabocheCombinedHardening):
+        return 0.0
+    return float(
+        sum(
+            3.0 * np.tensordot(alpha, alpha) / (4.0 * modulus)
+            for alpha, modulus in zip(
+                state.backstresses,
+                material.backstress_moduli,
+                strict=True,
+            )
+        )
+    )
+
+
+def _plastic_energy_increment(material, old, new, stress) -> PlasticEnergyIncrement:
+    """Close the accepted backward-Euler plastic-work identity."""
+
+    increment = float(
+        new.equivalent_plastic_strain - old.equivalent_plastic_strain
+    )
+    if increment <= 0.0:
+        return PlasticEnergyIncrement()
+    plastic_strain_increment = new.plastic_strain - old.plastic_strain
+    plastic_work = float(np.tensordot(stress, plastic_strain_increment))
+    isotropic_change = _isotropic_hardening_storage(
+        material,
+        new.equivalent_plastic_strain,
+    ) - _isotropic_hardening_storage(
+        material,
+        old.equivalent_plastic_strain,
+    )
+    kinematic_change = _kinematic_hardening_storage(
+        material,
+        new,
+    ) - _kinematic_hardening_storage(
+        material,
+        old,
+    )
+    reference = float(material.yield_stress * increment)
+    dynamic_recovery = 0.0
+    backward_euler = 0.0
+    if isinstance(material, ChabocheCombinedHardening):
+        for alpha_old, alpha_new, modulus, recovery in zip(
+            old.backstresses,
+            new.backstresses,
+            material.backstress_moduli,
+            material.dynamic_recovery,
+            strict=True,
+        ):
+            dynamic_recovery += (
+                3.0
+                * recovery
+                * float(np.tensordot(alpha_new, alpha_new))
+                * increment
+                / (2.0 * modulus)
+            )
+            delta_alpha = alpha_new - alpha_old
+            backward_euler += (
+                3.0
+                * float(np.tensordot(delta_alpha, delta_alpha))
+                / (4.0 * modulus)
+            )
+        radius_new = material.current_yield_stress(
+            new.equivalent_plastic_strain
+        ) - material.yield_stress
+        backward_euler += radius_new * increment - isotropic_change
+    else:
+        radius_new = (
+            material.hardening_modulus * new.equivalent_plastic_strain
+        )
+        backward_euler = radius_new * increment - isotropic_change
+    residual = (
+        plastic_work
+        - isotropic_change
+        - kinematic_change
+        - reference
+        - dynamic_recovery
+        - backward_euler
+    )
+    return PlasticEnergyIncrement(
+        plastic_work=plastic_work,
+        isotropic_stored_energy_change=float(isotropic_change),
+        kinematic_stored_energy_change=float(kinematic_change),
+        reference_yield_dissipation=reference,
+        dynamic_recovery_dissipation=float(dynamic_recovery),
+        backward_euler_dissipation=float(backward_euler),
+        balance_residual=float(residual),
+    )
 
 
 @dataclass(frozen=True)

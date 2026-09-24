@@ -518,7 +518,7 @@ Q and b are both zero or both positive in the public material contract.
 | S, PE and PEEQ | quadrature fields | stress and strain | Accepted Cauchy stress, plastic strain and accumulated equivalent plastic strain. |
 | ALPHA | quadrature tensor field | stress | Sum of all committed backstress components. |
 | DDSDDE | fourth-order quadrature tensor field | stress per strain | Central directional derivative of the fully discrete return map consumed by global Newton. |
-| material history result | SimulationResult histories | declared material unit system | Stress, strain, PE, PEEQ, individual and total backstress, yield residual, path identity and explicitly incomplete energy evidence; response-only histories omit DDSDDE. |
+| material history result | SimulationResult histories | declared material unit system | Stress, strain, PE, PEEQ, individual and total backstress, yield residual, path identity, recoverable hardening storage, reference-yield dissipation, dynamic-recovery dissipation and a separately identified backward-Euler contribution; response-only histories omit DDSDDE. |
 
 #### Assumptions
 
@@ -531,7 +531,8 @@ Q and b are both zero or both positive in the public material contract.
 - Every rejected increment rolls back PE, PEEQ and every backstress component atomically.
 - The normalized Step coordinate stays monotone while the declared amplitude may reverse.
 - ALPHA is the total backstress; individual components remain in the restartable constitutive state.
-- Signed plastic work, recoverable hardening storage and the reference-yield contribution remain separately named; no complete dynamic-recovery dissipation is inferred.
+- Signed plastic work, recoverable hardening storage, reference-yield dissipation, dynamic-recovery dissipation and backward-Euler numerical dissipation remain separately named.
+- The accepted discrete plastic-work ledger closes without presenting the backward-Euler contribution as material heat.
 
 #### Applicability
 
@@ -542,7 +543,7 @@ Q and b are both zero or both positive in the public material contract.
 
 - Plane stress, finite-strain plasticity and temperature-dependent cyclic plasticity are not implemented.
 - No external structure-level stabilized hysteresis benchmark has promoted this route beyond experimental maturity.
-- The current energy result does not claim complete dynamic-recovery dissipation closure.
+- The discrete constitutive ledger is closed, but a calibrated thermomechanical heat-conversion model is not inferred from it.
 
 ### Minimal example
 
@@ -568,11 +569,13 @@ Create constitutive.chaboche(...). For a material test, pass a tensor-valued con
 - Commit all hardening variables only after global increment acceptance.
 - Require response-only and consistent-linearization material histories to produce identical accepted stresses and states.
 - Preserve every declared reversal and hold knot under nested path refinement.
+- Require accepted plastic work to equal hardening-storage change plus reference-yield, dynamic-recovery and separately identified backward-Euler dissipation.
 
 ### References
 
 - Abaqus theory: models for metals subjected to cyclic loading: `https://docs.software.vt.edu/abaqusv2024/English/SIMACAETHERefMap/simathe-c-combinedhardening.htm`
 - Abaqus verification: import of combined-hardening material state: `https://docs.software.vt.edu/abaqusv2024/English/SIMACAEVERRefMap/simaver-c-import-plast.htm`
+- NEML documentation: Chaboche nonassociative hardening: `https://neml.readthedocs.io/en/stable/hardening/non/chaboche.html`
 
 <a id="agentfem-material-composite_ply_failure"></a>
 

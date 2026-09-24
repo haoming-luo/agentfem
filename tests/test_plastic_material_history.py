@@ -99,6 +99,14 @@ def test_chaboche_response_only_does_not_evaluate_numerical_tangent(monkeypatch)
 
     assert not update.elastic
     assert update.algorithmic_tangent is None
+    energy = update.energy_increment
+    assert energy.reference_yield_dissipation > 0.0
+    assert energy.dynamic_recovery_dissipation > 0.0
+    assert energy.backward_euler_dissipation >= 0.0
+    assert energy.modeled_irreversible_dissipation > (
+        energy.reference_yield_dissipation
+    )
+    assert abs(energy.balance_residual) < 1.0e-10 * energy.plastic_work
     with pytest.raises(AssertionError, match="requested a tangent"):
         material.update(strain, linearization="consistent")
 
@@ -115,8 +123,8 @@ def test_j2_history_uses_common_result_and_unambiguous_energy_names():
     assert result.metadata["energy"]["plastic_work"] == (
         "signed_work_not_dissipation"
     )
-    assert result.metadata["energy"]["irreversible_dissipation"] == (
-        "reference_yield_dissipation"
+    assert result.metadata["energy"]["modeled_irreversible_dissipation"] == (
+        "available"
     )
     assert "reference_yield_dissipation" in result.histories
     assert "plastic_dissipation" not in result.histories
@@ -135,12 +143,18 @@ def test_chaboche_history_exposes_state_but_fails_closed_on_full_dissipation():
     assert "backstress_components" in result.histories
     assert "total_backstress" in result.histories
     assert result.metadata["energy"]["dynamic_recovery_dissipation"] == (
-        "unavailable"
+        "available"
     )
-    assert result.metadata["energy"]["irreversible_dissipation"] == (
-        "unavailable_dynamic_recovery_not_closed"
+    assert result.metadata["energy"]["modeled_irreversible_dissipation"] == (
+        "available"
     )
-    assert result.metadata["energy"]["complete_discrete_energy_balance"] is False
+    assert (
+        result.metadata["energy"]["complete_discrete_plastic_energy_balance"]
+        is True
+    )
+    assert result.histories["dynamic_recovery_dissipation"].latest > 0.0
+    assert result.histories["backward_euler_dissipation"].latest >= 0.0
+    assert abs(result.histories["plastic_energy_balance_residual"].latest) < 1.0e-9
     assert "plastic_dissipation" not in result.histories
 
 

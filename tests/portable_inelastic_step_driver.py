@@ -99,8 +99,19 @@ def _state(step, kind: str):
     values = selected.values.reshape(-1)[: owned * points].reshape((owned, points))
     if kind == "chaboche":
         backstresses = step.state.backstresses.values[: owned * points]
+        dynamic_recovery = step.state.dynamic_recovery_dissipation.values[
+            : owned * points
+        ].reshape((owned, points, 1))
+        backward_euler = step.state.backward_euler_dissipation.values[
+            : owned * points
+        ].reshape((owned, points, 1))
         values = np.concatenate(
-            (values[..., None], backstresses.reshape((owned, points, -1))),
+            (
+                values[..., None],
+                backstresses.reshape((owned, points, -1)),
+                dynamic_recovery,
+                backward_euler,
+            ),
             axis=-1,
         )
     return dict(zip(keys.tolist(), values.tolist(), strict=True))

@@ -1313,9 +1313,13 @@ class ChabocheQuadratureState:
     plastic_strain: QuadratureField
     equivalent_plastic_strain: QuadratureField
     backstresses: QuadratureField
+    dynamic_recovery_dissipation: QuadratureField
+    backward_euler_dissipation: QuadratureField
     trial_plastic_strain: QuadratureField
     trial_equivalent_plastic_strain: QuadratureField
     trial_backstresses: QuadratureField
+    trial_dynamic_recovery_dissipation: QuadratureField
+    trial_backward_euler_dissipation: QuadratureField
     stress: QuadratureField
     tangent: QuadratureField
     degree: int
@@ -1329,11 +1333,23 @@ class ChabocheQuadratureState:
                 "plastic_strain": self.plastic_strain,
                 "equivalent_plastic_strain": self.equivalent_plastic_strain,
                 "backstresses": self.backstresses,
+                "dynamic_recovery_dissipation": (
+                    self.dynamic_recovery_dissipation
+                ),
+                "backward_euler_dissipation": (
+                    self.backward_euler_dissipation
+                ),
             },
             trial={
                 "plastic_strain": self.trial_plastic_strain,
                 "equivalent_plastic_strain": self.trial_equivalent_plastic_strain,
                 "backstresses": self.trial_backstresses,
+                "dynamic_recovery_dissipation": (
+                    self.trial_dynamic_recovery_dissipation
+                ),
+                "backward_euler_dissipation": (
+                    self.trial_backward_euler_dissipation
+                ),
             },
             schema="agentfem.chaboche-small-strain-state",
             metadata={
@@ -1369,6 +1385,16 @@ class ChabocheQuadratureState:
                 value_shape=(count, 3, 3),
                 **common,
             ),
+            dynamic_recovery_dissipation=QuadratureField.create(
+                domain,
+                name="DYNAMIC_RECOVERY_DISSIPATION",
+                **common,
+            ),
+            backward_euler_dissipation=QuadratureField.create(
+                domain,
+                name="BACKWARD_EULER_DISSIPATION",
+                **common,
+            ),
             trial_plastic_strain=QuadratureField.create(
                 domain, name="PE_trial", value_shape=(3, 3), **common
             ),
@@ -1379,6 +1405,16 @@ class ChabocheQuadratureState:
                 domain,
                 name="BACKSTRESSES_trial",
                 value_shape=(count, 3, 3),
+                **common,
+            ),
+            trial_dynamic_recovery_dissipation=QuadratureField.create(
+                domain,
+                name="DYNAMIC_RECOVERY_DISSIPATION_trial",
+                **common,
+            ),
+            trial_backward_euler_dissipation=QuadratureField.create(
+                domain,
+                name="BACKWARD_EULER_DISSIPATION_trial",
                 **common,
             ),
             stress=QuadratureField.create(
@@ -1426,6 +1462,12 @@ class ChabocheQuadratureState:
         committed_pe = self.plastic_strain.values
         committed_peeq = self.equivalent_plastic_strain.values.reshape(-1)
         committed_backstress = self.backstresses.values
+        committed_dynamic_recovery = (
+            self.dynamic_recovery_dissipation.values.reshape(-1)
+        )
+        committed_backward_euler = (
+            self.backward_euler_dissipation.values.reshape(-1)
+        )
         if len(strains) != len(committed_pe):
             raise ValueError(
                 "Strain evaluation and quadrature-state layouts do not match."
@@ -1437,6 +1479,8 @@ class ChabocheQuadratureState:
             self.trial_equivalent_plastic_strain.values.reshape(-1)
         )
         trial_backstress = np.empty_like(self.trial_backstresses.values)
+        trial_dynamic_recovery = np.empty_like(committed_dynamic_recovery)
+        trial_backward_euler = np.empty_like(committed_backward_euler)
         plastic_points = 0
         maximum_increment = 0.0
         local_problem = None
@@ -1479,6 +1523,14 @@ class ChabocheQuadratureState:
             trial_pe[index] = update.state.plastic_strain
             trial_peeq[index] = update.state.equivalent_plastic_strain
             trial_backstress[index] = update.state.backstresses
+            trial_dynamic_recovery[index] = (
+                committed_dynamic_recovery[index]
+                + update.energy_increment.dynamic_recovery_dissipation
+            )
+            trial_backward_euler[index] = (
+                committed_backward_euler[index]
+                + update.energy_increment.backward_euler_dissipation
+            )
             if index < owned_points:
                 plastic_points += int(not update.elastic)
                 maximum_increment = max(
@@ -1496,6 +1548,10 @@ class ChabocheQuadratureState:
         self.trial_plastic_strain.assign(trial_pe)
         self.trial_equivalent_plastic_strain.assign(trial_peeq)
         self.trial_backstresses.assign(trial_backstress)
+        self.trial_dynamic_recovery_dissipation.assign(
+            trial_dynamic_recovery
+        )
+        self.trial_backward_euler_dissipation.assign(trial_backward_euler)
         return {
             "points": int(self.domain.comm.allreduce(owned_points, op=MPI.SUM)),
             "plastic_points": int(
@@ -1532,6 +1588,8 @@ class ChabocheQuadratureState:
                 "plastic_strain",
                 "equivalent_plastic_strain",
                 "backstresses",
+                "dynamic_recovery_dissipation",
+                "backward_euler_dissipation",
             ),
             "backstress_count": self.backstress_count,
             "trial_fields": ("stress", "algorithmic_tangent"),

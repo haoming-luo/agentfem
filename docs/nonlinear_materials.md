@@ -132,9 +132,21 @@ history when it is actually required.
 Energy names are deliberately narrow. `plastic_work` is signed work and is not
 renamed as dissipation. For linear-isotropic J2, the initial-yield component is
 a complete rate-independent plastic-dissipation channel. For Chaboche it is
-reported only as `reference_yield_dissipation`; dynamic-recovery dissipation
-and a complete energy balance remain unavailable rather than being silently
-set to zero.
+split into reference-yield and Armstrong--Frederick dynamic-recovery
+dissipation. The accepted backward-Euler update also reports its nonnegative
+time-discretization contribution separately, so numerical dissipation is not
+presented as material heat. Each accepted plastic increment satisfies
+
+$$
+\Delta W^p
+=\Delta\Psi_{\mathrm{iso}}+\Delta\Psi_{\mathrm{kin}}
++\Delta D_{y}+\Delta D_{\mathrm{rec}}+\Delta D_{\mathrm{BE}}.
+$$
+
+All cumulative channels participate in quadrature commit/rollback and
+checkpoint/restart. This closes the implemented discrete constitutive ledger;
+it does not by itself validate a particular parameter calibration or promote
+Chaboche beyond its experimental maturity.
 
 For a three-dimensional `nonlinear_static` study, `model.step(...)` now lowers
 this material to a global DOLFINx path. `PE` and `PEEQ` are committed at Basix

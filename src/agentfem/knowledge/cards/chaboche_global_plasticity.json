@@ -76,7 +76,7 @@
         "name": "material history result",
         "type": "SimulationResult histories",
         "unit_role": "declared material unit system",
-        "description": "Stress, strain, PE, PEEQ, individual and total backstress, yield residual, path identity and explicitly incomplete energy evidence; response-only histories omit DDSDDE."
+        "description": "Stress, strain, PE, PEEQ, individual and total backstress, yield residual, path identity, recoverable hardening storage, reference-yield dissipation, dynamic-recovery dissipation and a separately identified backward-Euler contribution; response-only histories omit DDSDDE."
       }
     ],
     "assumptions": [
@@ -88,7 +88,8 @@
       "Every rejected increment rolls back PE, PEEQ and every backstress component atomically.",
       "The normalized Step coordinate stays monotone while the declared amplitude may reverse.",
       "ALPHA is the total backstress; individual components remain in the restartable constitutive state.",
-      "Signed plastic work, recoverable hardening storage and the reference-yield contribution remain separately named; no complete dynamic-recovery dissipation is inferred."
+      "Signed plastic work, recoverable hardening storage, reference-yield dissipation, dynamic-recovery dissipation and backward-Euler numerical dissipation remain separately named.",
+      "The accepted discrete plastic-work ledger closes without presenting the backward-Euler contribution as material heat."
     ],
     "applicability": [
       "Research and laboratory-scale three-dimensional cyclic plasticity with reviewed Chaboche calibration.",
@@ -97,7 +98,7 @@
     "limitations": [
       "Plane stress, finite-strain plasticity and temperature-dependent cyclic plasticity are not implemented.",
       "No external structure-level stabilized hysteresis benchmark has promoted this route beyond experimental maturity.",
-      "The current energy result does not claim complete dynamic-recovery dissipation closure."
+      "The discrete constitutive ledger is closed, but a calibrated thermomechanical heat-conversion model is not inferred from it."
     ]
   },
   "usage": {
@@ -119,7 +120,8 @@
       "Reject a restart whose material, mesh, quadrature state or amplitude identity differs.",
       "Commit all hardening variables only after global increment acceptance.",
       "Require response-only and consistent-linearization material histories to produce identical accepted stresses and states.",
-      "Preserve every declared reversal and hold knot under nested path refinement."
+      "Preserve every declared reversal and hold knot under nested path refinement.",
+      "Require accepted plastic work to equal hardening-storage change plus reference-yield, dynamic-recovery and separately identified backward-Euler dissipation."
     ]
   },
   "references": [
@@ -130,6 +132,10 @@
     {
       "title": "Abaqus verification: import of combined-hardening material state",
       "locator": "https://docs.software.vt.edu/abaqusv2024/English/SIMACAEVERRefMap/simaver-c-import-plast.htm"
+    },
+    {
+      "title": "NEML documentation: Chaboche nonassociative hardening",
+      "locator": "https://neml.readthedocs.io/en/stable/hardening/non/chaboche.html"
     }
   ],
   "related_cards": [

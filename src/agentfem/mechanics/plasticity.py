@@ -165,6 +165,8 @@ class J2EnergyFrame:
     external_work: float | None
     energy_balance_error: float | None
     kinematic_hardening_energy: float = 0.0
+    dynamic_recovery_dissipation: float = 0.0
+    backward_euler_dissipation: float = 0.0
 
     def as_dict(self) -> dict[str, object]:
         return {
@@ -443,18 +445,18 @@ class J2PlasticityStep:
         from ..checkpointing import atomic_savez
 
         schema = (
-            "agentfem.j2-step-checkpoint.v6"
+            "agentfem.j2-step-checkpoint.v7"
             if isinstance(self.state, ChabocheQuadratureState)
             else "agentfem.j2-step-checkpoint.v4"
         )
         identity = (
             self._checkpoint_identity()
-            if schema.endswith(".v6")
+            if schema.endswith(".v7")
             else self._legacy_checkpoint_identity()
         )
         state_payload = (
             {"state_names": json.dumps(tuple(state)), **state}
-            if schema.endswith(".v6")
+            if schema.endswith(".v7")
             else {
                 "plastic_strain": state["plastic_strain"],
                 "equivalent_plastic_strain": state[
@@ -538,12 +540,19 @@ class J2PlasticityStep:
                 "agentfem.j2-step-checkpoint.v3",
                 "agentfem.j2-step-checkpoint.v4",
                 "agentfem.j2-step-checkpoint.v6",
+                "agentfem.j2-step-checkpoint.v7",
             }:
                 raise ValueError("Unsupported J2 step checkpoint schema.")
+            if schema == "agentfem.j2-step-checkpoint.v6":
+                raise ValueError(
+                    "Chaboche checkpoint v6 predates the accepted-increment "
+                    "dissipation state and cannot be promoted silently; rerun "
+                    "the source history or use a v7 checkpoint."
+                )
             displacement = np.asarray(data["displacement"])
             if schema in {
                 "agentfem.j2-step-checkpoint.v4",
-                "agentfem.j2-step-checkpoint.v6",
+                "agentfem.j2-step-checkpoint.v7",
             }:
                 stored_identity = json.loads(str(data["step_identity"]))
                 current_identity = json.loads(
@@ -566,7 +575,7 @@ class J2PlasticityStep:
             self.solution.x.scatter_forward()
             state_names = (
                 tuple(json.loads(str(data["state_names"])))
-                if schema == "agentfem.j2-step-checkpoint.v6"
+                if schema == "agentfem.j2-step-checkpoint.v7"
                 else ("plastic_strain", "equivalent_plastic_strain")
             )
             if state_names != tuple(self.state.transaction.names):
@@ -591,7 +600,7 @@ class J2PlasticityStep:
                 "agentfem.j2-step-checkpoint.v2",
                 "agentfem.j2-step-checkpoint.v3",
                 "agentfem.j2-step-checkpoint.v4",
-                "agentfem.j2-step-checkpoint.v6",
+                "agentfem.j2-step-checkpoint.v7",
             }:
                 self.accepted_increments.extend(
                     J2IncrementInfo.from_dict(item)
@@ -961,20 +970,21 @@ class J2PlasticityStep:
         result.metadata["energy"] = {
             "reference_yield_dissipation": "available",
             "dynamic_recovery_dissipation": (
-                "unavailable" if chaboche_energy else "not_applicable"
+                "available" if chaboche_energy else "not_applicable"
             ),
-            "irreversible_dissipation": (
-                "unavailable_dynamic_recovery_not_closed"
+            "modeled_irreversible_dissipation": (
+                "reference_yield_plus_dynamic_recovery"
                 if chaboche_energy
                 else "plastic_dissipation"
             ),
-            "internal_work": (
-                "known_components_only" if chaboche_energy else "complete"
-            ),
-            "external_work_balance": (
-                "unavailable_dynamic_recovery_not_closed"
+            "backward_euler_dissipation": (
+                "available_separate_numerical_channel"
                 if chaboche_energy
-                else "available_when_generalized_reaction_is_defined"
+                else "not_recorded"
+            ),
+            "complete_discrete_plastic_energy_balance": chaboche_energy,
+            "external_work_balance": (
+                "available_when_generalized_reaction_is_defined"
             ),
         }
         accepted = self.last_solve_info.increments
@@ -1019,7 +1029,26 @@ class J2PlasticityStep:
             ]
             if chaboche_energy:
                 energy_histories["reference_yield_dissipation"] = reference_yield
-                energy_histories["known_internal_work"] = known_internal_work
+                energy_histories["dynamic_recovery_dissipation"] = [
+                    item.dynamic_recovery_dissipation
+                    for item in self.energy_history
+                ]
+                energy_histories["backward_euler_dissipation"] = [
+                    item.backward_euler_dissipation
+                    for item in self.energy_history
+                ]
+                energy_histories["modeled_irreversible_dissipation"] = [
+                    item.plastic_dissipation
+                    + item.dynamic_recovery_dissipation
+                    for item in self.energy_history
+                ]
+                energy_histories["discrete_dissipation"] = [
+                    item.plastic_dissipation
+                    + item.dynamic_recovery_dissipation
+                    + item.backward_euler_dissipation
+                    for item in self.energy_history
+                ]
+                energy_histories["internal_energy"] = known_internal_work
             else:
                 energy_histories["plastic_dissipation"] = reference_yield
                 energy_histories["internal_energy"] = known_internal_work
@@ -1033,10 +1062,13 @@ class J2PlasticityStep:
                         "Reference-yield contribution only; Chaboche dynamic "
                         "recovery dissipation is not included."
                     ),
-                    "known_internal_work": (
-                        "Sum of represented stored-energy channels and the "
-                        "reference-yield contribution; not a complete "
-                        "Chaboche energy balance."
+                    "dynamic_recovery_dissipation": (
+                        "Nonnegative Armstrong-Frederick dynamic-recovery "
+                        "contribution accumulated by accepted increments."
+                    ),
+                    "backward_euler_dissipation": (
+                        "Nonnegative time-discretization contribution kept "
+                        "separate from modeled material dissipation."
                     ),
                 },
             )
@@ -1082,11 +1114,12 @@ class J2PlasticityStep:
 
         For linear isotropic hardening the hardening contribution is treated
         as stored energy and ``yield_stress * PEEQ`` as rate-independent
-        plastic dissipation.  For Chaboche, the same last term is only a
-        reference-yield contribution: dynamic-recovery dissipation is not yet
-        closed, so neither total dissipation nor complete internal energy is
-        claimed.  This is a state diagnostic, not an external-work balance for
-        a non-proportional loading history.
+        plastic dissipation.  For Chaboche, reference-yield and dynamic-
+        recovery dissipation are separate physical channels.  The nonnegative
+        backward-Euler contribution is recorded separately so the accepted
+        discrete plastic-work identity closes without presenting numerical
+        dissipation as material heat.  This remains a state diagnostic; the
+        external-work balance additionally depends on supported load work.
         """
 
         values = self._energy_components()
@@ -1098,15 +1131,28 @@ class J2PlasticityStep:
         if isinstance(self.state, ChabocheQuadratureState):
             return {
                 **common,
+                "recoverable_stored_energy": values[
+                    "recoverable_stored_energy"
+                ],
                 "reference_yield_dissipation": values[
                     "reference_yield_dissipation"
                 ],
-                "known_internal_work": values["known_internal_work"],
+                "dynamic_recovery_dissipation": values[
+                    "dynamic_recovery_dissipation"
+                ],
+                "modeled_irreversible_dissipation": values[
+                    "modeled_irreversible_dissipation"
+                ],
+                "backward_euler_dissipation": values[
+                    "backward_euler_dissipation"
+                ],
+                "discrete_dissipation": values["discrete_dissipation"],
+                "internal_energy": values["internal_energy"],
             }
         return {
             **common,
             "plastic_dissipation": values["reference_yield_dissipation"],
-            "internal_energy": values["known_internal_work"],
+            "internal_energy": values["internal_energy"],
         }
 
     def _energy_components(self) -> dict[str, float]:
@@ -1204,12 +1250,41 @@ class J2PlasticityStep:
             )
             values.append(float(self.state.domain.comm.allreduce(local)))
         elastic, isotropic, kinematic, dissipation = values
+        dynamic_recovery = 0.0
+        backward_euler = 0.0
+        if isinstance(self.state, ChabocheQuadratureState):
+            for name, source in (
+                (
+                    "dynamic_recovery",
+                    self.state.dynamic_recovery_dissipation.function,
+                ),
+                (
+                    "backward_euler",
+                    self.state.backward_euler_dissipation.function,
+                ),
+            ):
+                local = fem.assemble_scalar(
+                    fem.form(weight * source * self.state.measure)
+                )
+                selected = float(self.state.domain.comm.allreduce(local))
+                if name == "dynamic_recovery":
+                    dynamic_recovery = selected
+                else:
+                    backward_euler = selected
+        recoverable = elastic + isotropic + kinematic
+        modeled_irreversible = dissipation + dynamic_recovery
+        discrete_dissipation = modeled_irreversible + backward_euler
         return {
             "elastic_strain_energy": elastic,
             "isotropic_hardening_energy": isotropic,
             "kinematic_hardening_energy": kinematic,
+            "recoverable_stored_energy": recoverable,
             "reference_yield_dissipation": dissipation,
-            "known_internal_work": elastic + isotropic + kinematic + dissipation,
+            "dynamic_recovery_dissipation": dynamic_recovery,
+            "modeled_irreversible_dissipation": modeled_irreversible,
+            "backward_euler_dissipation": backward_euler,
+            "discrete_dissipation": discrete_dissipation,
+            "internal_energy": recoverable + discrete_dissipation,
         }
 
     def reaction_field(self, *, name: str = "RF"):
@@ -1470,11 +1545,7 @@ class J2PlasticityStep:
             external_work = previous_work + 0.5 * (
                 previous_generalized + generalized
             ) * (load_amplitude - previous_amplitude)
-            balance = (
-                None
-                if isinstance(self.state, ChabocheQuadratureState)
-                else external_work - energies["known_internal_work"]
-            )
+            balance = external_work - energies["internal_energy"]
         self.energy_history.append(
             J2EnergyFrame(
                 step_coordinate=float(step_coordinate),
@@ -1490,7 +1561,13 @@ class J2PlasticityStep:
                     "kinematic_hardening_energy"
                 ],
                 plastic_dissipation=energies["reference_yield_dissipation"],
-                internal_energy=energies["known_internal_work"],
+                dynamic_recovery_dissipation=energies[
+                    "dynamic_recovery_dissipation"
+                ],
+                backward_euler_dissipation=energies[
+                    "backward_euler_dissipation"
+                ],
+                internal_energy=energies["internal_energy"],
             )
         )
 
