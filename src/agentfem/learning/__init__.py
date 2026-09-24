@@ -51,6 +51,9 @@ from .core import (
 )
 from .execution import NeuralFieldExecutionRequest
 from .constitutive import (
+    LEARNED_CONSTITUTIVE_SCHEMA,
+    LEARNED_CONSTITUTIVE_SCHEMA_VERSION,
+    LearnedConstitutiveMaterial,
     LearnedConstitutiveProvider,
     LearnedConstitutiveProviderError,
     LearnedConstitutiveMaterialBinding,
@@ -74,6 +77,9 @@ __all__ = [
     "IntegrationEvidence",
     "IntegrationPlan",
     "IntegrationRule",
+    "LEARNED_CONSTITUTIVE_SCHEMA",
+    "LEARNED_CONSTITUTIVE_SCHEMA_VERSION",
+    "LearnedConstitutiveMaterial",
     "LearnedConstitutiveProvider",
     "LearnedConstitutiveProviderError",
     "LearnedConstitutiveMaterialBinding",

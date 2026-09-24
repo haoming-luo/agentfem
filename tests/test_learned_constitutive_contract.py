@@ -76,9 +76,7 @@ class NumPyElasticMaterial:
             tangent_convention=self.tangent_convention,
             state_schema=self.state_schema,
             stored_energy_density=0.5
-            * np.einsum(
-                "ni,ij,nj->n", request.strain_new, tangent, request.strain_new
-            ),
+            * np.einsum("ni,ij,nj->n", request.strain_new, tangent, request.strain_new),
             dissipated_energy_density=np.zeros(request.point_count),
             suggested_time_scale=np.ones(request.point_count),
             applicability_status=("in_domain",) * request.point_count,
@@ -125,9 +123,7 @@ def _point(strain=None):
     return constitutive.SmallStrainMaterialPointInput(
         strain_old=np.zeros(6),
         strain_new=np.asarray(
-            [1.0e-4, -2.0e-5, 0.0, 3.0e-5, 0.0, 0.0]
-            if strain is None
-            else strain
+            [1.0e-4, -2.0e-5, 0.0, 3.0e-5, 0.0, 0.0] if strain is None else strain
         ),
         time=0.0,
         time_increment=1.0,
@@ -141,12 +137,25 @@ def test_spec_roundtrip_and_fingerprint():
     spec = _spec()
     restored = learning.LearnedConstitutiveSpec.from_dict(spec.to_dict())
     assert restored.to_dict() == spec.to_dict()
+    assert spec.to_dict()["schema_version"] == "1.0.0"
     assert restored.fingerprint == spec.fingerprint
     assert restored.parameters == {"young": 190.0e9, "poisson": 0.3}
 
 
+def test_spec_nested_metadata_is_immutable_and_serializable():
+    record = _spec().to_dict()
+    record["metadata"] = {"training": {"seeds": [2, 3, 5]}}
+    specification = learning.LearnedConstitutiveSpec.from_dict(record)
+    with pytest.raises(TypeError):
+        specification.metadata["training"]["seeds"] = (7,)
+    assert specification.to_dict()["metadata"] == {"training": {"seeds": [2, 3, 5]}}
+
+
 def test_missing_provider_fails_closed():
-    with pytest.raises(learning.LearnedConstitutiveProviderError, match="not active"):
+    with pytest.raises(
+        learning.LearnedConstitutiveProviderError,
+        match="AFM-LEARNED-PROVIDER-001.*not active",
+    ):
         materials.learned(_spec("test.provider-that-does-not-exist"))
 
 
@@ -154,6 +163,7 @@ def test_provider_loading_batch_update_and_tangent_check():
     provider = NumPyProvider("test.numpy-learned-material")
     learning.register_learned_constitutive_provider(provider, replace=True)
     material = materials.learned(_spec())
+    assert isinstance(material, learning.LearnedConstitutiveMaterial)
     point = _point()
     tangent = constitutive.check_small_strain_material_tangent(
         material, point, tolerance=1.0e-8
@@ -162,7 +172,9 @@ def test_provider_loading_batch_update_and_tangent_check():
 
     request = constitutive.SmallStrainMaterialBatchInput(
         strain_old=np.zeros((3, 6)),
-        strain_new=np.stack((point.strain_new, 2 * point.strain_new, -point.strain_new)),
+        strain_new=np.stack(
+            (point.strain_new, 2 * point.strain_new, -point.strain_new)
+        ),
         time=0.0,
         time_increment=1.0,
         parameters=point.parameters,
@@ -290,9 +302,15 @@ def test_learned_material_runs_through_standard_global_step():
     result = step.solve_result()
     assert result.status == "completed"
     assert step.last_solve_info.converged
+    assert step.last_solve_info.as_dict()["kind"] == "small_strain_material_load_path"
     assert np.max(np.abs(displacement.value.x.array)) > 0.0
-    assert result.metadata["material"]["specification_fingerprint"] == _spec().fingerprint
-    assert result.scientific_inputs["learned_constitutive"].fingerprint == _spec().fingerprint
+    assert (
+        result.metadata["material"]["specification_fingerprint"] == _spec().fingerprint
+    )
+    assert (
+        result.scientific_inputs["learned_constitutive"].fingerprint
+        == _spec().fingerprint
+    )
 
 
 def test_learned_material_checkpoint_restart_is_trajectory_equivalent(tmp_path):

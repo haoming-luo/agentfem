@@ -108,7 +108,7 @@ def learned_constitutive(
     """Build one ordinary nonlinear Step from the generic material contract."""
 
     from . import mechanics
-    from .learning import LearnedConstitutiveMaterialBinding
+    from .learning import LearnedConstitutiveMaterial
 
     model.check(target=target, step_options={"material": material})
     if hasattr(model.study, "require"):
@@ -122,8 +122,8 @@ def learned_constitutive(
             "The first generic small-strain material Step requires one global "
             "material. Regional learned-material dispatch is a separate batch map."
         )
-    if not isinstance(selected, LearnedConstitutiveMaterialBinding):
-        raise TypeError("This Step requires a LearnedConstitutiveMaterialBinding.")
+    if not isinstance(selected, LearnedConstitutiveMaterial):
+        raise TypeError("This Step requires a LearnedConstitutiveMaterial.")
     required = set(selected.specification.required_inputs)
     available = {"strain_old", "strain_new", "state_old", "parameters"}
     unavailable = sorted(required - available)

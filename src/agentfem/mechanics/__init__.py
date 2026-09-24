@@ -37,6 +37,7 @@ from .plasticity import (
 )
 from .small_strain_material import (
     SmallStrainMaterialEnergyFrame,
+    SmallStrainMaterialLoadPathInfo,
     SmallStrainMaterialStep,
     small_strain_material_step,
 )
@@ -92,6 +93,7 @@ __all__ = [
     "ModalAnalysisStep",
     "QuasistaticViscoelasticStep",
     "SmallStrainMaterialEnergyFrame",
+    "SmallStrainMaterialLoadPathInfo",
     "SmallStrainMaterialStep",
     "ViscoelasticEnergyFrame",
     "ViscoelasticIncrementInfo",

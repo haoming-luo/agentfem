@@ -12,6 +12,7 @@ choices enter this module.
 from __future__ import annotations
 
 from dataclasses import dataclass, field, replace
+import re
 from types import MappingProxyType
 from typing import Mapping, Protocol, runtime_checkable
 
@@ -25,6 +26,7 @@ from .user_material import (
 
 _VOIGT_ORDER = ("xx", "yy", "zz", "xy", "yz", "xz")
 _DOMAIN_STATUSES = {"in_domain", "warning", "out_of_domain", "invalid_state"}
+_CHANNEL_NAME = re.compile(r"^[A-Za-z][A-Za-z0-9_]*$")
 
 
 def _finite_vector(value, *, size: int, label: str) -> np.ndarray:
@@ -47,12 +49,16 @@ def _finite_parameters(values: Mapping[str, float]) -> Mapping[str, float]:
     return MappingProxyType(selected)
 
 
-def _finite_metadata(values: Mapping[str, object], *, label: str) -> Mapping[str, object]:
+def _finite_metadata(
+    values: Mapping[str, object], *, label: str
+) -> Mapping[str, object]:
     selected: dict[str, object] = {}
     for name, value in dict(values).items():
         key = str(name).strip()
-        if not key:
-            raise ValueError(f"{label} names must be non-empty strings.")
+        if not _CHANNEL_NAME.fullmatch(key):
+            raise ValueError(
+                f"{label} names must be stable identifiers; received {key!r}."
+            )
         if isinstance(value, (np.floating, np.integer, np.bool_)):
             value = value.item()
         if isinstance(value, float) and not np.isfinite(value):
@@ -155,8 +161,11 @@ class SmallStrainMaterialPointOutput:
         for name, value in dict(self.energy_density_components).items():
             key = str(name).strip()
             number = float(value)
-            if not key or not np.isfinite(number):
-                raise ValueError("Energy component names and values must be finite.")
+            if not _CHANNEL_NAME.fullmatch(key) or not np.isfinite(number):
+                raise ValueError(
+                    "Energy component names must be stable identifiers and values "
+                    "must be finite."
+                )
             components[key] = number
         if not np.isfinite(self.suggested_time_scale) or self.suggested_time_scale <= 0:
             raise ValueError("suggested_time_scale must be finite and positive.")
@@ -168,7 +177,9 @@ class SmallStrainMaterialPointOutput:
         object.__setattr__(self, "cauchy_stress", stress)
         object.__setattr__(self, "consistent_tangent", tangent)
         object.__setattr__(self, "state_new", state)
-        object.__setattr__(self, "energy_density_components", MappingProxyType(components))
+        object.__setattr__(
+            self, "energy_density_components", MappingProxyType(components)
+        )
         object.__setattr__(
             self,
             "diagnostics",
@@ -220,9 +231,7 @@ class SmallStrainMaterialBatchInput:
         if not isinstance(self.state_schema, MaterialStateSchema):
             raise TypeError("state_schema must be a MaterialStateSchema.")
         if state.shape != (len(old), self.state_schema.size):
-            raise ValueError(
-                "state_old must have shape (points, state_schema.size)."
-            )
+            raise ValueError("state_old must have shape (points, state_schema.size).")
         if not np.all(np.isfinite(state)):
             raise ValueError("state_old must be finite.")
         if not np.isfinite(self.time) or not np.isfinite(self.time_increment):
@@ -243,7 +252,11 @@ class SmallStrainMaterialBatchInput:
             object.__setattr__(self, name, selected.copy())
         if self.field_variables is not None:
             fields = np.asarray(self.field_variables, dtype=float)
-            if fields.ndim != 2 or len(fields) != len(old) or not np.all(np.isfinite(fields)):
+            if (
+                fields.ndim != 2
+                or len(fields) != len(old)
+                or not np.all(np.isfinite(fields))
+            ):
                 raise ValueError(
                     "field_variables must have shape (points, variables) and be finite."
                 )
@@ -262,7 +275,9 @@ class SmallStrainMaterialBatchInput:
             parameters=self.parameters,
             state_old=self.state_old[index],
             state_schema=self.state_schema,
-            temperature=None if self.temperature is None else float(self.temperature[index]),
+            temperature=None
+            if self.temperature is None
+            else float(self.temperature[index]),
             temperature_increment=(
                 None
                 if self.temperature_increment is None
@@ -309,36 +324,56 @@ class SmallStrainMaterialBatchOutput:
             raise ValueError("Batch output requires a Cauchy/small-strain 6x6 tangent.")
         if not isinstance(self.state_schema, MaterialStateSchema):
             raise TypeError("state_schema must be a MaterialStateSchema.")
-        if state.shape != (count, self.state_schema.size) or not np.all(np.isfinite(state)):
+        if state.shape != (count, self.state_schema.size) or not np.all(
+            np.isfinite(state)
+        ):
             raise ValueError("Batch state must have shape (points, state_schema.size).")
         stored = np.asarray(self.stored_energy_density, dtype=float).reshape(-1)
         dissipated = np.asarray(self.dissipated_energy_density, dtype=float).reshape(-1)
         scales = np.asarray(self.suggested_time_scale, dtype=float).reshape(-1)
         if any(len(values) != count for values in (stored, dissipated, scales)):
-            raise ValueError("Batch energy and time-scale arrays require one value per point.")
-        if not all(np.all(np.isfinite(values)) for values in (stored, dissipated, scales)):
+            raise ValueError(
+                "Batch energy and time-scale arrays require one value per point."
+            )
+        if not all(
+            np.all(np.isfinite(values)) for values in (stored, dissipated, scales)
+        ):
             raise ValueError("Batch energy and time-scale arrays must be finite.")
         if np.any(scales <= 0):
             raise ValueError("Batch suggested_time_scale values must be positive.")
-        statuses = tuple(str(value).strip().lower() for value in self.applicability_status)
-        if len(statuses) != count or any(value not in _DOMAIN_STATUSES for value in statuses):
+        statuses = tuple(
+            str(value).strip().lower() for value in self.applicability_status
+        )
+        if len(statuses) != count or any(
+            value not in _DOMAIN_STATUSES for value in statuses
+        ):
             raise ValueError("Batch applicability status is incomplete or invalid.")
         components: dict[str, np.ndarray] = {}
         for name, values in dict(self.energy_density_components).items():
             key = str(name).strip()
             selected = np.asarray(values, dtype=float).reshape(-1)
-            if not key or len(selected) != count or not np.all(np.isfinite(selected)):
+            if (
+                not _CHANNEL_NAME.fullmatch(key)
+                or len(selected) != count
+                or not np.all(np.isfinite(selected))
+            ):
                 raise ValueError(
-                    "Batch energy components require one finite value per point."
+                    "Batch energy component names must be stable identifiers and "
+                    "provide one finite value per point."
                 )
             components[key] = selected.copy()
         diagnostics: dict[str, np.ndarray] = {}
         for name, values in dict(self.diagnostics).items():
             key = str(name).strip()
             selected = np.asarray(values)
-            if not key or selected.shape != (count,):
-                raise ValueError("Batch diagnostics require one scalar value per point.")
-            if np.issubdtype(selected.dtype, np.number) and not np.all(np.isfinite(selected)):
+            if not _CHANNEL_NAME.fullmatch(key) or selected.shape != (count,):
+                raise ValueError(
+                    "Batch diagnostic names must be stable identifiers and provide "
+                    "one scalar value per point."
+                )
+            if np.issubdtype(selected.dtype, np.number) and not np.all(
+                np.isfinite(selected)
+            ):
                 raise ValueError(f"Batch diagnostic {key!r} must be finite.")
             diagnostics[key] = selected.copy()
         object.__setattr__(self, "cauchy_stress", stress.copy())
@@ -371,7 +406,9 @@ class SmallStrainMaterialBatchOutput:
             name: np.asarray([item.diagnostics.get(name, np.nan) for item in outputs])
             for name in names
         }
-        if any(np.any(~np.isfinite(value.astype(float))) for value in diagnostics.values()):
+        if any(
+            np.any(~np.isfinite(value.astype(float))) for value in diagnostics.values()
+        ):
             diagnostics = {}
         component_names = sorted(
             set().union(*(item.energy_density_components for item in outputs))
@@ -389,12 +426,24 @@ class SmallStrainMaterialBatchOutput:
             tangent_convention=convention,
             state_schema=schema,
             stored_energy_density=np.asarray(
-                [0.0 if item.stored_energy_density is None else item.stored_energy_density for item in outputs]
+                [
+                    0.0
+                    if item.stored_energy_density is None
+                    else item.stored_energy_density
+                    for item in outputs
+                ]
             ),
             dissipated_energy_density=np.asarray(
-                [0.0 if item.dissipated_energy_density is None else item.dissipated_energy_density for item in outputs]
+                [
+                    0.0
+                    if item.dissipated_energy_density is None
+                    else item.dissipated_energy_density
+                    for item in outputs
+                ]
             ),
-            suggested_time_scale=np.asarray([item.suggested_time_scale for item in outputs]),
+            suggested_time_scale=np.asarray(
+                [item.suggested_time_scale for item in outputs]
+            ),
             applicability_status=tuple(item.applicability_status for item in outputs),
             energy_density_components=energy_components,
             diagnostics=diagnostics,
@@ -416,8 +465,7 @@ class SmallStrainUserMaterial(Protocol):
     def update(
         self,
         point: SmallStrainMaterialPointInput,
-    ) -> SmallStrainMaterialPointOutput:
-        ...
+    ) -> SmallStrainMaterialPointOutput: ...
 
 
 @runtime_checkable
@@ -427,8 +475,7 @@ class BatchedSmallStrainUserMaterial(SmallStrainUserMaterial, Protocol):
     def update_batch(
         self,
         request: SmallStrainMaterialBatchInput,
-    ) -> SmallStrainMaterialBatchOutput:
-        ...
+    ) -> SmallStrainMaterialBatchOutput: ...
 
 
 def validated_small_strain_update(
@@ -473,7 +520,10 @@ def update_small_strain_material_batch(
             raise ValueError("Batch material response changed the tangent convention.")
         return response
     return SmallStrainMaterialBatchOutput.from_points(
-        tuple(validated_small_strain_update(material, request.point(i)) for i in range(request.point_count))
+        tuple(
+            validated_small_strain_update(material, request.point(i))
+            for i in range(request.point_count)
+        )
     )
 
 
@@ -545,9 +595,7 @@ def check_small_strain_material_tangent(
 
 
 def voigt_stress_to_tensor(values) -> np.ndarray:
-    xx, yy, zz, xy, yz, xz = _finite_vector(
-        values, size=6, label="stress"
-    )
+    xx, yy, zz, xy, yz, xz = _finite_vector(values, size=6, label="stress")
     return np.asarray(((xx, xy, xz), (xy, yy, yz), (xz, yz, zz)))
 
 

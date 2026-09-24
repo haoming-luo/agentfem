@@ -18,7 +18,7 @@ from petsc4py import PETSc
 from .. import amplitudes
 from .. import steps as step_controls
 from ..constitutive import SmallStrainMaterialQuadratureResponse
-from ..learning import LearnedConstitutiveMaterialBinding
+from ..learning import LearnedConstitutiveMaterial
 from ..solvers import newton
 from .plasticity import J2PlasticityStep
 
@@ -28,13 +28,20 @@ def _strain_voigt(displacement):
     strain = ufl.sym(ufl.grad(displacement))
     if dimension == 3:
         return ufl.as_vector(
-            (strain[0, 0], strain[1, 1], strain[2, 2], strain[0, 1], strain[1, 2], strain[0, 2])
+            (
+                strain[0, 0],
+                strain[1, 1],
+                strain[2, 2],
+                strain[0, 1],
+                strain[1, 2],
+                strain[0, 2],
+            )
         )
     if dimension == 2:
-        return ufl.as_vector(
-            (strain[0, 0], strain[1, 1], 0.0, strain[0, 1], 0.0, 0.0)
-        )
-    raise NotImplementedError("Generic small-strain materials require 2D plane strain or 3D.")
+        return ufl.as_vector((strain[0, 0], strain[1, 1], 0.0, strain[0, 1], 0.0, 0.0))
+    raise NotImplementedError(
+        "Generic small-strain materials require 2D plane strain or 3D."
+    )
 
 
 @dataclass(frozen=True)
@@ -49,39 +56,76 @@ class SmallStrainMaterialEnergyFrame:
     energy_balance_error: float | None
 
     def as_dict(self) -> dict[str, object]:
-        return {
-            name: getattr(self, name)
-            for name in self.__dataclass_fields__
-        }
+        return {name: getattr(self, name) for name in self.__dataclass_fields__}
 
     @classmethod
     def from_dict(cls, record) -> "SmallStrainMaterialEnergyFrame":
         return cls(
             **{
-                name: (
-                    None
-                    if record.get(name) is None
-                    else float(record[name])
-                )
+                name: (None if record.get(name) is None else float(record[name]))
                 for name in cls.__dataclass_fields__
             }
         )
 
 
+@dataclass(frozen=True)
+class SmallStrainMaterialLoadPathInfo:
+    """Provider-neutral nonlinear load-path evidence."""
+
+    increments: tuple[object, ...]
+    attempts: tuple[object, ...]
+    incrementation: object
+
+    @property
+    def converged(self) -> bool:
+        return (
+            bool(self.increments)
+            and all(item.converged for item in self.increments)
+            and bool(self.attempts)
+            and self.attempts[-1].converged
+        )
+
+    @property
+    def completed_step(self) -> bool:
+        return self.converged and abs(self.increments[-1].load_factor - 1.0) <= 1.0e-12
+
+    def as_dict(self) -> dict[str, object]:
+        return {
+            "kind": "small_strain_material_load_path",
+            "converged": self.converged,
+            "completed_step": self.completed_step,
+            "accepted_increment_count": len(self.increments),
+            "attempt_count": len(self.attempts),
+            "incrementation": self.incrementation.summary(),
+            "increments": [item.as_dict() for item in self.increments],
+            "attempts": [item.as_dict() for item in self.attempts],
+        }
+
+
 @dataclass
 class SmallStrainMaterialStep(J2PlasticityStep):
-    """Ordinary nonlinear Step shared by native and provider materials."""
+    """Ordinary nonlinear Step for provider-backed small-strain materials."""
 
-    material: LearnedConstitutiveMaterialBinding
+    material: LearnedConstitutiveMaterial
     state: SmallStrainMaterialQuadratureResponse
 
     def __post_init__(self) -> None:
         # The inherited Newton lifecycle expects a constitutive-specific
         # evaluator. Native J2 stores a symmetric tensor, whereas this public
         # protocol stores the declared six-component tensor-shear vector.
-        self._strain_evaluator = self.state.compile_strain(
-            _strain_voigt(self.solution)
+        self._strain_evaluator = self.state.compile_strain(_strain_voigt(self.solution))
+
+    def solve(self, *, until: float = 1.0):
+        """Advance the shared nonlinear path without leaking J2 result language."""
+
+        solution = super().solve(until=until)
+        info = self.last_solve_info
+        self.last_solve_info = SmallStrainMaterialLoadPathInfo(
+            tuple(info.increments),
+            tuple(info.attempts),
+            info.incrementation,
         )
+        return solution
 
     def _integral(self, field) -> float:
         local = fem.assemble_scalar(fem.form(field.function * self.state.measure))
@@ -89,9 +133,7 @@ class SmallStrainMaterialStep(J2PlasticityStep):
 
     def _record_energy(self, step_coordinate: float) -> None:
         stored = self._integral(self.state.stored_energy_density)
-        increment_dissipation = self._integral(
-            self.state.dissipated_energy_density
-        )
+        increment_dissipation = self._integral(self.state.dissipated_energy_density)
         dissipated = max(0.0, increment_dissipation)
         if self.energy_history:
             dissipated += self.energy_history[-1].dissipated_energy
@@ -139,13 +181,17 @@ class SmallStrainMaterialStep(J2PlasticityStep):
             "solver": self.solver_options.summary(),
             "num_bcs": len(self.bcs),
             "accepted_load_factor": self.accepted_load_factor,
-            "last_solve": None if self.last_solve_info is None else self.last_solve_info.as_dict(),
+            "last_solve": None
+            if self.last_solve_info is None
+            else self.last_solve_info.as_dict(),
         }
 
     def solve_result(self, *, output=None, strict_output: bool = False, metadata=None):
         from ..results import add_execution_trace, complete_result, from_solution
 
-        solution = self.solve() if self.accepted_load_factor < 1.0 - 1.0e-12 else self.solution
+        solution = (
+            self.solve() if self.accepted_load_factor < 1.0 - 1.0e-12 else self.solution
+        )
         result = from_solution(
             solution,
             name=self.name,
@@ -219,8 +265,7 @@ class SmallStrainMaterialStep(J2PlasticityStep):
                     "latest_batch_inference_seconds": float(np.sum(inference)),
                     "cutback_or_retry_attempts": max(
                         0,
-                        len(self.attempted_increments)
-                        - len(self.accepted_increments),
+                        len(self.attempted_increments) - len(self.accepted_increments),
                     ),
                 },
                 kind="diagnostic",
@@ -230,9 +275,15 @@ class SmallStrainMaterialStep(J2PlasticityStep):
             result.add_histories(
                 coordinate,
                 {
-                    "stored_energy": [item.stored_energy for item in self.energy_history],
-                    "dissipated_energy": [item.dissipated_energy for item in self.energy_history],
-                    "internal_energy": [item.internal_energy for item in self.energy_history],
+                    "stored_energy": [
+                        item.stored_energy for item in self.energy_history
+                    ],
+                    "dissipated_energy": [
+                        item.dissipated_energy for item in self.energy_history
+                    ],
+                    "internal_energy": [
+                        item.internal_energy for item in self.energy_history
+                    ],
                 },
                 abscissa_name="step_coordinate",
                 abscissa_unit=None,
@@ -265,9 +316,7 @@ class SmallStrainMaterialStep(J2PlasticityStep):
         manifest = selected.with_name(selected.name + ".checkpoint.json")
         bundle = save_portable_state_bundle(manifest, state={"U": self.solution})
         quadrature = self.state.state.save(
-            manifest.with_name(
-                f"{selected.name}.{bundle['generation']}.quadrature"
-            ),
+            manifest.with_name(f"{selected.name}.{bundle['generation']}.quadrature"),
             material=self.material,
         )
         payload = {
@@ -283,9 +332,7 @@ class SmallStrainMaterialStep(J2PlasticityStep):
             "attempted_increments": [
                 item.as_dict() for item in self.attempted_increments
             ],
-            "execution_events": [
-                item.as_dict() for item in self.execution_events
-            ],
+            "execution_events": [item.as_dict() for item in self.execution_events],
             "energy_history": [item.as_dict() for item in self.energy_history],
             "next_increment_size": self.next_increment_size,
         }
@@ -318,9 +365,7 @@ class SmallStrainMaterialStep(J2PlasticityStep):
                     *tuple(self.state.transaction.names),
                 ),
                 "provider": self.material.specification.provider,
-                "specification_fingerprint": (
-                    self.material.specification.fingerprint
-                ),
+                "specification_fingerprint": (self.material.specification.fingerprint),
             },
         )
         self.checkpoints.append(record)
@@ -333,7 +378,7 @@ class SmallStrainMaterialStep(J2PlasticityStep):
             load_portable_state_bundle,
             validate_checkpoint_record,
         )
-        from ..mechanics.plasticity import J2IncrementInfo, J2LoadPathInfo
+        from ..mechanics.plasticity import J2IncrementInfo
         from ..solvers import SolveEvent
 
         manifest = Path(path)
@@ -359,19 +404,15 @@ class SmallStrainMaterialStep(J2PlasticityStep):
             identities=payload["nodal_identity"],
         )
         self.state.state.load(
-            validate_checkpoint_record(
-                manifest.parent, payload["quadrature_state"]
-            ),
+            validate_checkpoint_record(manifest.parent, payload["quadrature_state"]),
             material=self.material,
         )
         self.accepted_load_factor = float(payload["coordinate"])
         self.accepted_increments[:] = [
-            J2IncrementInfo.from_dict(item)
-            for item in payload["accepted_increments"]
+            J2IncrementInfo.from_dict(item) for item in payload["accepted_increments"]
         ]
         self.attempted_increments[:] = [
-            J2IncrementInfo.from_dict(item)
-            for item in payload["attempted_increments"]
+            J2IncrementInfo.from_dict(item) for item in payload["attempted_increments"]
         ]
         self.execution_events[:] = [
             SolveEvent.from_dict(item) for item in payload["execution_events"]
@@ -382,7 +423,7 @@ class SmallStrainMaterialStep(J2PlasticityStep):
         ]
         self.next_increment_size = payload.get("next_increment_size")
         self._apply_loading(self.accepted_load_factor)
-        self.last_solve_info = J2LoadPathInfo(
+        self.last_solve_info = SmallStrainMaterialLoadPathInfo(
             tuple(self.accepted_increments),
             tuple(self.attempted_increments),
             self.incrementation,
@@ -421,17 +462,19 @@ def small_strain_material_step(
     amplitude=None,
     name: str = "small_strain_material",
 ) -> SmallStrainMaterialStep:
-    """Build a nonlinear 2D-plane-strain or 3D learned/native material Step."""
+    """Build a nonlinear 2D-plane-strain or 3D provider-material Step."""
 
-    if not isinstance(material, LearnedConstitutiveMaterialBinding):
+    if not isinstance(material, LearnedConstitutiveMaterial):
         raise TypeError(
             "small_strain_material_step currently requires a "
-            "LearnedConstitutiveMaterialBinding. Native adapters follow the same contract."
+            "LearnedConstitutiveMaterial."
         )
     domain = displacement.value.function_space.mesh
     dimension = int(domain.geometry.dim)
     if dimension not in {2, 3}:
-        raise NotImplementedError("Small-strain material equilibrium requires 2D or 3D.")
+        raise NotImplementedError(
+            "Small-strain material equilibrium requires 2D or 3D."
+        )
     if dimension == 2 and getattr(study, "assumption", None) != "plane_strain":
         raise NotImplementedError("The first 2D generic material Step is plane strain.")
     response = SmallStrainMaterialQuadratureResponse.create(
@@ -439,9 +482,13 @@ def small_strain_material_step(
         material.state_schema,
         degree=quadrature_degree,
     )
-    selected_amplitude = amplitudes.ramp() if amplitude is None else amplitudes.as_amplitude(
-        amplitude,
-        name="small_strain_material_amplitude",
+    selected_amplitude = (
+        amplitudes.ramp()
+        if amplitude is None
+        else amplitudes.as_amplitude(
+            amplitude,
+            name="small_strain_material_amplitude",
+        )
     )
     if not np.isclose(selected_amplitude(0.0), 0.0):
         raise ValueError("A small-strain material amplitude must start at zero.")
@@ -481,7 +528,9 @@ def small_strain_material_step(
                     (value, np.asarray(value.value, dtype=float).copy(), constraint.bc)
                 )
     if not selected_bcs:
-        raise ValueError("Small-strain material equilibrium requires strong constraints.")
+        raise ValueError(
+            "Small-strain material equilibrium requires strong constraints."
+        )
     return SmallStrainMaterialStep(
         name=name,
         solution=displacement.value,
@@ -503,6 +552,7 @@ def small_strain_material_step(
 
 __all__ = [
     "SmallStrainMaterialEnergyFrame",
+    "SmallStrainMaterialLoadPathInfo",
     "SmallStrainMaterialStep",
     "small_strain_material_step",
 ]

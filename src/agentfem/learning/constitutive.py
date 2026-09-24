@@ -29,6 +29,8 @@ from ..constitutive.user_material import (
 
 _NAME = re.compile(r"^[A-Za-z][A-Za-z0-9_.-]*$")
 _SHA256 = re.compile(r"^[0-9a-f]{64}$")
+LEARNED_CONSTITUTIVE_SCHEMA = "agentfem.learned_constitutive"
+LEARNED_CONSTITUTIVE_SCHEMA_VERSION = "1.0.0"
 
 
 def _required_text(value, label: str) -> str:
@@ -57,6 +59,28 @@ def _json_value(value, *, label: str):
     if isinstance(value, (str, int, float, bool, type(None))):
         return value
     raise TypeError(f"{label} must be JSON-compatible, got {type(value).__name__}.")
+
+
+def _freeze_json(value):
+    """Make validated JSON data recursively immutable."""
+
+    if isinstance(value, Mapping):
+        return MappingProxyType(
+            {str(key): _freeze_json(item) for key, item in value.items()}
+        )
+    if isinstance(value, list):
+        return tuple(_freeze_json(item) for item in value)
+    return value
+
+
+def _plain_json(value):
+    """Return ordinary JSON containers from a frozen declaration."""
+
+    if isinstance(value, Mapping):
+        return {str(key): _plain_json(item) for key, item in value.items()}
+    if isinstance(value, (tuple, list)):
+        return [_plain_json(item) for item in value]
+    return value
 
 
 @dataclass(frozen=True)
@@ -118,6 +142,8 @@ class MaterialParameterSpec:
             "description": self.description,
         }
 
+    as_dict = summary
+
     @classmethod
     def from_dict(cls, record: Mapping[str, object]) -> "MaterialParameterSpec":
         return cls(**dict(record))
@@ -130,12 +156,12 @@ class LearnedConstitutiveSpec:
     provider: str
     architecture_id: str
     artifact: str
+    model_name: str
+    model_version: str
     tangent_convention: MaterialTangentConvention
     parameter_schema: tuple[MaterialParameterSpec, ...]
     state_schema: MaterialStateSchema
     parameters: Mapping[str, float]
-    model_name: str = "learned_constitutive"
-    model_version: str = "0.1.0"
     revision: str | None = None
     artifact_sha256: str | None = None
     required_inputs: tuple[str, ...] = ()
@@ -153,6 +179,8 @@ class LearnedConstitutiveSpec:
             self.architecture_id, "LearnedConstitutiveSpec.architecture_id"
         )
         artifact = _required_text(self.artifact, "LearnedConstitutiveSpec.artifact")
+        if not _NAME.fullmatch(provider):
+            raise ValueError("provider must use stable identifier syntax.")
         if not _NAME.fullmatch(architecture):
             raise ValueError("architecture_id must use stable identifier syntax.")
         if not isinstance(self.tangent_convention, MaterialTangentConvention):
@@ -168,7 +196,9 @@ class LearnedConstitutiveSpec:
         supplied = dict(self.parameters)
         unknown = set(supplied) - set(names)
         if unknown:
-            raise ValueError(f"Unknown learned-material parameters: {sorted(unknown)!r}.")
+            raise ValueError(
+                f"Unknown learned-material parameters: {sorted(unknown)!r}."
+            )
         normalized: dict[str, float] = {}
         for item in schema:
             if item.name in supplied:
@@ -191,6 +221,10 @@ class LearnedConstitutiveSpec:
         capabilities = tuple(
             _required_text(item, "capabilities") for item in self.capabilities
         )
+        if any(not _NAME.fullmatch(item) for item in (*required_inputs, *capabilities)):
+            raise ValueError(
+                "required_inputs and capabilities must use stable identifier syntax."
+            )
         if len(set(required_inputs)) != len(required_inputs):
             raise ValueError("required_inputs must be unique.")
         if len(set(capabilities)) != len(capabilities):
@@ -200,7 +234,9 @@ class LearnedConstitutiveSpec:
         object.__setattr__(self, "artifact", artifact)
         object.__setattr__(self, "parameter_schema", schema)
         object.__setattr__(self, "parameters", MappingProxyType(normalized))
-        object.__setattr__(self, "model_name", _required_text(self.model_name, "model_name"))
+        object.__setattr__(
+            self, "model_name", _required_text(self.model_name, "model_name")
+        )
         object.__setattr__(
             self, "model_version", _required_text(self.model_version, "model_version")
         )
@@ -208,13 +244,24 @@ class LearnedConstitutiveSpec:
         object.__setattr__(self, "artifact_sha256", checksum)
         object.__setattr__(self, "required_inputs", required_inputs)
         object.__setattr__(self, "capabilities", capabilities)
-        object.__setattr__(self, "dtype_policy", _required_text(self.dtype_policy, "dtype_policy"))
+        object.__setattr__(
+            self, "dtype_policy", _required_text(self.dtype_policy, "dtype_policy")
+        )
+        if not isinstance(self.batch_capable, bool):
+            raise TypeError("batch_capable must be a bool.")
         object.__setattr__(
             self,
             "applicability_domain",
-            MappingProxyType(_json_value(self.applicability_domain, label="applicability_domain")),
+            _freeze_json(
+                _json_value(
+                    self.applicability_domain,
+                    label="applicability_domain",
+                )
+            ),
         )
-        object.__setattr__(self, "dataset_id", _optional_text(self.dataset_id, "dataset_id"))
+        object.__setattr__(
+            self, "dataset_id", _optional_text(self.dataset_id, "dataset_id")
+        )
         object.__setattr__(
             self,
             "dataset_revision",
@@ -223,13 +270,13 @@ class LearnedConstitutiveSpec:
         object.__setattr__(
             self,
             "metadata",
-            MappingProxyType(_json_value(self.metadata, label="metadata")),
+            _freeze_json(_json_value(self.metadata, label="metadata")),
         )
 
     def to_dict(self) -> dict[str, object]:
         return {
-            "schema": "agentfem.learned_constitutive",
-            "schema_version": "0.1.0",
+            "schema": LEARNED_CONSTITUTIVE_SCHEMA,
+            "schema_version": LEARNED_CONSTITUTIVE_SCHEMA_VERSION,
             "provider": self.provider,
             "architecture_id": self.architecture_id,
             "artifact": self.artifact,
@@ -245,13 +292,14 @@ class LearnedConstitutiveSpec:
             "capabilities": self.capabilities,
             "dtype_policy": self.dtype_policy,
             "batch_capable": self.batch_capable,
-            "applicability_domain": dict(self.applicability_domain),
+            "applicability_domain": _plain_json(self.applicability_domain),
             "dataset_id": self.dataset_id,
             "dataset_revision": self.dataset_revision,
-            "metadata": dict(self.metadata),
+            "metadata": _plain_json(self.metadata),
         }
 
     summary = to_dict
+    as_dict = to_dict
 
     @property
     def fingerprint(self) -> str:
@@ -263,8 +311,13 @@ class LearnedConstitutiveSpec:
     @classmethod
     def from_dict(cls, record: Mapping[str, object]) -> "LearnedConstitutiveSpec":
         selected = dict(record)
-        if selected.get("schema") not in {None, "agentfem.learned_constitutive"}:
+        if selected.get("schema") not in {None, LEARNED_CONSTITUTIVE_SCHEMA}:
             raise ValueError("Unsupported learned constitutive schema.")
+        version = selected.get("schema_version")
+        if version not in {None, "0.1.0", LEARNED_CONSTITUTIVE_SCHEMA_VERSION}:
+            raise ValueError(
+                f"Unsupported learned constitutive schema version {version!r}."
+            )
         tangent_record = dict(selected.pop("tangent_convention"))
         tangent_record.pop("kind", None)
         tangent_record.pop("array_shape", None)
@@ -301,10 +354,12 @@ class LearnedConstitutiveSpec:
 class LearnedConstitutiveProviderError(RuntimeError):
     """A learned material provider is missing or incompatible."""
 
+    code = "AFM-LEARNED-PROVIDER-001"
+
 
 @dataclass(frozen=True)
-class LearnedConstitutiveMaterialBinding:
-    """Framework-neutral binding of immutable science to one implementation."""
+class LearnedConstitutiveMaterial:
+    """Loaded learned material with immutable science and runtime evidence."""
 
     # The binding owns committed integration-point history even when the
     # provider happens to expose an elastic reference model. Declaring this
@@ -326,7 +381,7 @@ class LearnedConstitutiveMaterialBinding:
         object.__setattr__(
             self,
             "runtime_evidence",
-            MappingProxyType(_json_value(self.runtime_evidence, label="runtime_evidence")),
+            _freeze_json(_json_value(self.runtime_evidence, label="runtime_evidence")),
         )
 
     @property
@@ -379,10 +434,15 @@ class LearnedConstitutiveMaterialBinding:
             "kind": "learned_constitutive_material",
             "specification_fingerprint": self.specification.fingerprint,
             "specification": self.specification.to_dict(),
-            "runtime": dict(self.runtime_evidence),
+            "runtime": _plain_json(self.runtime_evidence),
         }
 
     as_dict = summary
+
+
+# Compatibility name retained for the first development revision. Public
+# documentation and new code use the shorter product-facing class name.
+LearnedConstitutiveMaterialBinding = LearnedConstitutiveMaterial
 
 
 @runtime_checkable
@@ -391,11 +451,13 @@ class LearnedConstitutiveProvider(Protocol):
 
     name: str
 
-    def create(self, specification: LearnedConstitutiveSpec) -> SmallStrainUserMaterial:
-        ...
+    def create(
+        self, specification: LearnedConstitutiveSpec
+    ) -> SmallStrainUserMaterial: ...
 
-    def evidence(self, specification: LearnedConstitutiveSpec) -> Mapping[str, object]:
-        ...
+    def evidence(
+        self, specification: LearnedConstitutiveSpec
+    ) -> Mapping[str, object]: ...
 
 
 _PROVIDERS: dict[str, LearnedConstitutiveProvider] = {}
@@ -410,7 +472,9 @@ def register_learned_constitutive_provider(
         raise TypeError("Learned constitutive provider must expose name and create().")
     name = _required_text(provider.name, "provider.name")
     if name in _PROVIDERS and not replace:
-        raise ValueError(f"Learned constitutive provider {name!r} is already registered.")
+        raise ValueError(
+            f"Learned constitutive provider {name!r} is already registered."
+        )
     _PROVIDERS[name] = provider
     return provider
 
@@ -425,7 +489,8 @@ def resolve_learned_constitutive_provider(name: str) -> LearnedConstitutiveProvi
         return _PROVIDERS[selected]
     except KeyError as exc:
         raise LearnedConstitutiveProviderError(
-            f"Learned constitutive provider {selected!r} is not active. "
+            f"{LearnedConstitutiveProviderError.code}: learned constitutive "
+            f"provider {selected!r} is not active. "
             f"Available providers={learned_constitutive_providers()!r}. "
             "Install and explicitly load the extension that owns this runtime."
         ) from exc
@@ -433,7 +498,7 @@ def resolve_learned_constitutive_provider(name: str) -> LearnedConstitutiveProvi
 
 def load_learned_constitutive(
     specification: LearnedConstitutiveSpec,
-) -> LearnedConstitutiveMaterialBinding:
+) -> LearnedConstitutiveMaterial:
     if not isinstance(specification, LearnedConstitutiveSpec):
         raise TypeError("specification must be a LearnedConstitutiveSpec.")
     provider = resolve_learned_constitutive_provider(specification.provider)
@@ -443,11 +508,13 @@ def load_learned_constitutive(
             f"Provider {provider.name!r} did not return a SmallStrainUserMaterial."
         )
     if material.state_schema.summary() != specification.state_schema.summary():
-        raise ValueError("Provider material state schema differs from its specification.")
+        raise ValueError(
+            "Provider material state schema differs from its specification."
+        )
     if material.tangent_convention != specification.tangent_convention:
         raise ValueError("Provider material tangent differs from its specification.")
     evidence = provider.evidence(specification)
-    return LearnedConstitutiveMaterialBinding(specification, material, evidence)
+    return LearnedConstitutiveMaterial(specification, material, evidence)
 
 
 def learned_constitutive_evidence(
@@ -476,6 +543,9 @@ def learned_constitutive(**kwargs) -> LearnedConstitutiveSpec:
 
 
 __all__ = [
+    "LEARNED_CONSTITUTIVE_SCHEMA",
+    "LEARNED_CONSTITUTIVE_SCHEMA_VERSION",
+    "LearnedConstitutiveMaterial",
     "LearnedConstitutiveProvider",
     "LearnedConstitutiveProviderError",
     "LearnedConstitutiveMaterialBinding",

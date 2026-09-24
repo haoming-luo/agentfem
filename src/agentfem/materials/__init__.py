@@ -59,6 +59,7 @@ def learned(specification):
 
     return load_learned_constitutive(specification)
 
+
 __all__ = [
     "ElasticAnisotropic2DProperties",
     "ElasticAnisotropic3DProperties",

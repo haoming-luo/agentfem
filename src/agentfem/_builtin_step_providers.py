@@ -189,7 +189,7 @@ def _accept_j2(model, request: StepRequest) -> bool:
 
 
 def _accept_learned_constitutive(model, request: StepRequest) -> bool:
-    from .learning import LearnedConstitutiveMaterialBinding
+    from .learning import LearnedConstitutiveMaterial
 
     study = getattr(model, "study", None)
     return (
@@ -206,7 +206,7 @@ def _accept_learned_constitutive(model, request: StepRequest) -> bool:
         and _all_materials_support(
             model,
             request,
-            lambda item: isinstance(item, LearnedConstitutiveMaterialBinding),
+            lambda item: isinstance(item, LearnedConstitutiveMaterial),
         )
     )
 
@@ -227,6 +227,7 @@ def _lower_learned_constitutive(model, request: StepRequest):
         name=name,
         **options,
     )
+
 
 def _accept_finite_strain_j2_affine(model, request: StepRequest) -> bool:
     from . import loads as load_api

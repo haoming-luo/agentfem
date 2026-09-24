@@ -24,6 +24,8 @@ from .small_strain_material import (
 class SmallStrainMaterialBatchError(RuntimeError):
     """A rank-local material update failed before any trial state was accepted."""
 
+    code = "AFM-MATERIAL-BATCH-001"
+
 
 @dataclass(frozen=True)
 class SmallStrainQuadratureBatchResult:
@@ -64,9 +66,7 @@ class SmallStrainMaterialQuadratureResponse:
     tangent: QuadratureField
     stored_energy_density: QuadratureField
     dissipated_energy_density: QuadratureField
-    energy_density_components: dict[str, QuadratureField] = field(
-        default_factory=dict
-    )
+    energy_density_components: dict[str, QuadratureField] = field(default_factory=dict)
     last_response: SmallStrainMaterialBatchOutput | None = None
 
     @classmethod
@@ -84,9 +84,7 @@ class SmallStrainMaterialQuadratureResponse:
             trial_strain=QuadratureField.create(
                 domain, name="E_TRIAL", value_shape=(6,), **common
             ),
-            stress=QuadratureField.create(
-                domain, name="S", value_shape=(6,), **common
-            ),
+            stress=QuadratureField.create(domain, name="S", value_shape=(6,), **common),
             tangent=QuadratureField.create(
                 domain, name="DDSDDE", value_shape=(6, 6), **common
             ),
@@ -217,7 +215,11 @@ class SmallStrainMaterialQuadratureResponse:
         return output
 
     def summary(self) -> dict[str, object]:
-        statuses = () if self.last_response is None else self.last_response.applicability_status
+        statuses = (
+            ()
+            if self.last_response is None
+            else self.last_response.applicability_status
+        )
         return {
             "kind": "small_strain_material_quadrature_response",
             "degree": self.degree,
@@ -228,9 +230,7 @@ class SmallStrainMaterialQuadratureResponse:
                 for name in ("in_domain", "warning", "out_of_domain", "invalid_state")
                 if name in statuses
             },
-            "energy_density_components": tuple(
-                sorted(self.energy_density_components)
-            ),
+            "energy_density_components": tuple(sorted(self.energy_density_components)),
         }
 
 
@@ -282,14 +282,12 @@ def update_small_strain_quadrature_state(
     problem = None
     try:
         response = update_small_strain_material_batch(material, request)
-        if any(
-            status == "invalid_state"
-            for status in response.applicability_status
-        ):
-            raise ValueError("Material returned invalid_state for an integration point.")
+        if any(status == "invalid_state" for status in response.applicability_status):
+            raise ValueError(
+                "Material returned invalid_state for an integration point."
+            )
         if not allow_out_of_domain and any(
-            status == "out_of_domain"
-            for status in response.applicability_status
+            status == "out_of_domain" for status in response.applicability_status
         ):
             raise ValueError(
                 "Material reported out_of_domain. Explicitly configure a reviewed "
@@ -306,7 +304,8 @@ def update_small_strain_quadrature_state(
             if item is not None
         )
         raise SmallStrainMaterialBatchError(
-            f"Atomic small-strain material update failed ({details})."
+            f"{SmallStrainMaterialBatchError.code}: atomic small-strain material "
+            f"update failed ({details})."
         )
     state.assign_trial_state_vectors(response.state_new)
     if commit:

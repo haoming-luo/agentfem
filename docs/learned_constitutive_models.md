@@ -27,6 +27,8 @@ spec = learning.learned_constitutive(
     provider="agentfem-learning.torch-constitutive",
     architecture_id="laboratory_model.v1",
     artifact="materials/laboratory_model",
+    model_name="laboratory_model",
+    model_version="1.0.0",
     revision="fixed-model-revision",
     artifact_sha256="...",
     tangent_convention=constitutive.MaterialTangentConvention.cauchy_small_strain(),
@@ -44,7 +46,7 @@ The material then enters the same nonlinear solid workflow as a native
 stateful material:
 
 ```python
-model.material(material)
+material = model.material(material)
 step = model.step(target=displacement, material=material)
 result = step.solve_result()
 ```
