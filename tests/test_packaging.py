@@ -272,7 +272,8 @@ def test_publish_workflow_verifies_the_same_artifacts_it_builds_once():
     assert "--jq .head_sha" in workflow
     assert "--site-dir /tmp/agentfem-release-site" in workflow
     assert "python release_gate.py --dist dist --tag \"${RELEASE_TAG}\" --smoke" in workflow
-    assert "needs: [verify, ml-verify]" in workflow
+    assert "needs: [verify, ml-verify, chaboche-release-verify]" in workflow
+    assert "Verify every published ratcheting cycle" in workflow
     assert "needs: attest" in workflow
 
 
