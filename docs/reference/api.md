@@ -311,8 +311,10 @@ and evidence remain in the linked guides and scientific function reference.
 | class | `J2LinearIsotropicHardening` | Rate-independent von Mises plasticity with linear isotropic hardening. |
 | class | `J2PlasticState` | History variables for small-strain isotropic J2 plasticity. |
 | class | `J2Update` | Result of one radial-return material-point update. |
+| class | `PlasticEnergyIncrement` | One accepted plastic substep written as an explicit energy ledger. |
+| class | `TabulatedIsotropicHardening` | Piecewise-linear yield radius as a function of equivalent plastic strain. |
 | class | `UniaxialPlasticState` | History variables for the exact one-dimensional counterpart. |
-| function | `chaboche(*, young: float, poisson: float, yield_stress: float, backstresses: Iterable[tuple[float, float]], isotropic_saturation: float = 0.0, isotropic_rate: float = 0.0, name: str = 'Chaboche combined hardening') -> ChabocheCombinedHardening` | Create a combined-hardening material from ``(C, gamma)`` pairs. |
+| function | `chaboche(*, young: float, poisson: float, yield_stress: float, backstresses: Iterable[tuple[float, float]], isotropic_saturation: float = 0.0, isotropic_rate: float = 0.0, isotropic_hardening: TabulatedIsotropicHardening \| None = None, name: str = 'Chaboche combined hardening') -> ChabocheCombinedHardening` | Create a combined-hardening material from ``(C, gamma)`` pairs. |
 | function | `update_uniaxial(total_strain: float, material: J2LinearIsotropicHardening, state: UniaxialPlasticState \| None = None) -> tuple[float, UniaxialPlasticState]` | Return stress and state for a one-dimensional bilinear material test. |
 | function | `von_mises(stress) -> float` | Return ``sqrt(3/2 s:s)`` for a symmetric Cauchy stress. |
 | class | `ChabocheQuadratureState` | Committed/trial integration-point state for combined-hardening J2. |
@@ -1117,6 +1119,7 @@ and evidence remain in the linked guides and scientific function reference.
 | function | `direct_harmonic_sweep() -> SolutionProcedure` | Ordered independent solves over one canonical frequency axis. |
 | function | `implicit_creep() -> SolutionProcedure` | Quasi-static backward-Euler creep with global Newton equilibrium. |
 | function | `viscoelastic_history() -> SolutionProcedure` | Exact increment-wise generalized-Maxwell material history. |
+| function | `material_history() -> SolutionProcedure` | Increment-wise material-point response without a global FEM solve. |
 | function | `newmark() -> SolutionProcedure` | Public AgentFEM object. |
 | function | `generalized_alpha() -> SolutionProcedure` | Public AgentFEM object. |
 | function | `central_difference() -> SolutionProcedure` | Public AgentFEM object. |
@@ -1246,6 +1249,20 @@ and evidence remain in the linked guides and scientific function reference.
 | class | `GoldenBenchmark` | A named collection of numerical observables from a benchmark card. |
 | class | `GoldenQuantity` | One expected physical observable with explicit numerical tolerances. |
 | function | `golden_benchmark(identifier: str) -> GoldenBenchmark` | Load a numerical contract by stable benchmark-card identifier. |
+| class | `AxisymmetricRatchetingCrosscheck` | Global axisymmetric equilibrium checked against the same local path. |
+| class | `CyclicPlasticityBenchmark` | Compact acceptance evidence against two published cyclic observables. |
+| class | `RatchetingPathComparison` | Published-path conformance without inventing a numerical Golden. |
+| function | `abaqus_316_steel_ratcheting_path_comparison(*, cycle_count: int = 50, refinement: int = 2, residual_tolerance: float = 1e-07)` | Exercise the published 316-steel asymmetric stress path. |
+| function | `abaqus_ofhc_copper_cyclic_benchmark(*, substeps_per_half_cycle: int = 10, points_per_cycle: int = 20, relative_tolerance: float = 0.01, saturation_tolerance: float = 0.01)` | Run the published symmetric and nonproportional OFHC copper tests. |
+| function | `axisymmetric_chaboche_ratcheting_crosscheck(*, cycle_count: int = 3, refinement: int = 2, radial_cells: int = 1, axial_cells: int = 2, relative_tolerance: float = 0.002, residual_tolerance: float = 1e-07)` | Cross-check a global axisymmetric tube against one material point. |
+| class | `DigitizedRatchetingCurve` | Traceable points read from a published raster figure. |
+| class | `ShoulderedRatchetingAssessment` | Structure-level comparison without overstating plotted evidence. |
+| class | `ShoulderedRatchetingConvergence` | Independent spatial and path-integration convergence certificate. |
+| function | `certify_simulia_316_shouldered_ratcheting_convergence(*, cycle_count: int = 5, mesh_sizes: tuple[float, ...] = (3.5, 2.5), refinements: tuple[int, ...] = (8, 16, 32), relative_tolerance: float = 0.01, progress: bool = False)` | Certify spatial and material-path refinement independently. |
+| function | `simulia_316_experimental_ratcheting_curve() -> DigitizedRatchetingCurve` | Return auditable experimental points digitized from public Figure 4. |
+| function | `simulia_316_shouldered_ratcheting_benchmark(*, cycle_count: int = 5, refinement: int = 4, mesh_size: float = 3.5, backstress_count: int = 2, allowed_absolute_curve_error: float = 0.00125, residual_tolerance: float = 1e-07, source_input: str \| Path \| None = None, progress: bool = False)` | Run the public shouldered-specimen ratcheting comparison. |
+| function | `simulia_316_shouldered_specimen_mesh(*, mesh_size: float = 1.25, comm = None)` | Mesh the published meridian without redistributing a vendor input deck. |
+| function | `verify_simulia_ratcheting_input(path: str \| Path) -> bool` | Verify the exact public two-backstress Abaqus input deck by SHA-256. |
 | class | `DCBCohesivePropagationCertificate` | Three-level DCB propagation, energy and process-zone certificate. |
 | class | `DCBCohesivePropagationCurve` | Accepted DCB cohesive evolution and its work--energy evidence. |
 | class | `DCBCohesivePropagationPoint` | One accepted displacement-controlled DCB propagation increment. |
