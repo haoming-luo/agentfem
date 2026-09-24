@@ -1529,7 +1529,7 @@ class Model:
         mass_damping: float = 0.0,
         name: str = "finite_strain_explicit_dynamics",
     ):
-        """Compatibility builder; ``material=None`` lowers the full partition."""
+        """Compatibility builder; prefer the stable model.step entry point."""
 
         from . import _step_builders
 
