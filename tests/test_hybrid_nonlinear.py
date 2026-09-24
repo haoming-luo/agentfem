@@ -611,10 +611,15 @@ def test_embedded_fabric_membrane_and_bending_build_separate_preconditioner():
     )
     load = fem.Constant(domain, PETSc.ScalarType(-2.0e-3))
     foundation = fem.Constant(domain, PETSc.ScalarType(0.1))
+    # The tabulated fabric law contains nested conditional expressions.  Leave
+    # production quadrature policy to the caller, but keep this structural
+    # preconditioner test bounded and deterministic: its contract is matrix
+    # ownership, not high-order constitutive integration.
+    dx = ufl.Measure("dx", domain=domain, metadata={"quadrature_degree": 2})
     potential = (
-        local_response.energy_channels["membrane"] * ufl.dx
-        + 0.5 * foundation * displacement[2] ** 2 * ufl.dx
-        - factor * load * displacement[2] * ufl.dx
+        local_response.energy_channels["membrane"] * dx
+        + 0.5 * foundation * displacement[2] ** 2 * dx
+        - factor * load * displacement[2] * dx
     )
     residual = ufl.derivative(potential, displacement, test)
     jacobian = ufl.derivative(residual, displacement, trial)
@@ -666,7 +671,7 @@ def test_embedded_fabric_membrane_and_bending_build_separate_preconditioner():
             jacobian
             + 0.02
             * ufl.inner(ufl.grad(trial[2]), ufl.grad(test[2]))
-            * ufl.dx
+            * dx
         ),
         options=options,
         petsc_options_prefix="agentfem_test_fabric_strip_",

@@ -237,6 +237,7 @@ and evidence remain in the linked guides and scientific function reference.
 | function | `orthotropic_plane_stress_2d(*, ex: float, ey: float, nuxy: float, gxy: float, density: float, name: str = 'orthotropic plane-stress elastic 2D') -> ElasticAnisotropic2DProperties` | Create 2D orthotropic plane-stress elastic properties. |
 | function | `orthotropic_elastic_3d(*, ex: float, ey: float, ez: float, nuxy: float, nuxz: float, nuyz: float, gxy: float, gxz: float, gyz: float, density: float, name: str = 'orthotropic elastic 3D') -> ElasticAnisotropic3DProperties` | Create a reciprocal, positive-definite 3D orthotropic material. |
 | function | `stress(displacement, properties, *, study = None, temperature = None)` | Dispatch to the matching elastic stress relation. |
+| function | `stress_from_strain(strain_tensor, properties, *, study = None, temperature = None)` | Return elastic stress from an explicit strain tensor. |
 | class | `DecoupledFabricSurface` | Independent yarn tension, trellising shear, and bending channels. |
 | class | `DecoupledFibrousShell` | Provider-neutral local law for a fibre-specific shell layer. |
 | class | `FabricFormingAssessment` | Dimensionless utilization report for declared forming limits. |
@@ -347,6 +348,15 @@ and evidence remain in the linked guides and scientific function reference.
 | function | `isotropic_generalized_maxwell(**kwargs) -> IsotropicGeneralizedMaxwell` | Create an isotropic tensor Prony solid from instantaneous properties. |
 | function | `standard_linear_solid(*, equilibrium_modulus: float, relaxing_modulus: float, relaxation_time: float, shift: WLFShift \| ArrheniusShift \| None = None, name: str = 'standard_linear_solid') -> GeneralizedMaxwell` | Create a standard linear solid as one Maxwell branch in parallel. |
 
+## `agentfem.eigenstrains`
+
+| Kind | Public object | Purpose |
+| --- | --- | --- |
+| class | `ThermalEigenstrain` | Isotropic free strain driven by an explicit temperature field. |
+| class | `PrescribedEigenstrain` | Explicit stress-free strain tensor supplied by an expert workflow. |
+| function | `thermal(temperature, *, name: str = 'thermal_eigenstrain') -> ThermalEigenstrain` | Create an explicit thermal eigenstrain source. |
+| function | `prescribed(value, *, name: str = 'prescribed_eigenstrain', source: str = 'prescribed') -> PrescribedEigenstrain` | Create a checked expert-defined eigenstrain source. |
+
 ## `agentfem.constraints`
 
 | Kind | Public object | Purpose |
@@ -356,6 +366,8 @@ and evidence remain in the linked guides and scientific function reference.
 | function | `constraint_dual(constraint, *, force, coordinate = None, resultant = None, distribution = None, diagnostics = None, role = 'mpc_constraint', source = 'provider_dual', complete = True) -> ConstraintDualEvidence` | Create provider evidence tied to one named constraint asset. |
 | function | `collect_provider_duals(constraints, problem, *, extra = ()) -> tuple[ConstraintDualEvidence, ...]` | Collect converged dual evidence from active constraint providers. |
 | class | `DirichletConstraint` | Strong Dirichlet constraint and its optional mutable value object. |
+| class | `RigidModeAudit` | Rank test of strong constraints against analytical rigid modes. |
+| function | `rigid_mode_audit(target, constraints, *, tolerance: float = 1e-10) -> RigidModeAudit` | Report rigid translations/rotations removed by strong constraints. |
 | class | `TimeDependentDirichlet` | Dirichlet constraint driven by an amplitude. |
 | class | `RemoteDisplacementConstraint` | Rigid boundary motion prescribed about a named reference point. |
 | class | `PrescribedValuePath` | Update ordinary strong boundary values along a normalized step path. |
@@ -374,6 +386,7 @@ and evidence remain in the linked guides and scientific function reference.
 | function | `fixed_component(target, component: int, *, location = None, on = None, value = 0.0, name: str \| None = None)` | Create a fixed-value constraint for one vector component. |
 | function | `symmetry(target, *, on = None, location = None, normal_axis: int \| str, value = 0.0, name: str \| None = None) -> 'ConstraintSet'` | Apply an axis-aligned solid-mechanics symmetry condition. |
 | function | `roller(target, *, on = None, location = None, normal_axis: int \| str, value = 0.0, name: str \| None = None) -> 'ConstraintSet'` | Alias for an axis-aligned frictionless roller/support condition. |
+| function | `pin(target, *, at, components = None, value = 0.0, tolerance: float = 1e-10, name: str = 'pin')` | Create an explicit point support at one physical coordinate. |
 | function | `fixed_all(target, *, location = None, on = None, value = 0.0, name: str \| None = None)` | Create a scalar/all-dof fixed-value constraint. |
 | function | `prescribed(target, *, on = None, location = None, value = 0.0, component = None, components = None, name: str \| None = None)` | Create prescribed scalar or vector-component values. |
 | function | `clamped(target, *, on = None, location = None, value = 0.0, name: str \| None = None)` | Fix every displacement component on a support boundary. |
@@ -513,7 +526,7 @@ and evidence remain in the linked guides and scientific function reference.
 | function | `project(expression, *, domain = None, family: str = 'DG', degree: int = 0, name: str = 'ProjectedField', weight = 1.0)` | Return the global L2 projection of a UFL expression. |
 | function | `project_piecewise(terms, *, domain = None, family: str = 'DG', degree: int = 0, name: str = 'ProjectedField', weight = 1.0)` | Project region-dependent expressions into one finite-element field. |
 | function | `small_strain_cell_fields(displacement, properties, *, study = None, variables = ('S', 'E', 'MISES', 'SENER'), degree: int = 0) -> tuple[object, ...]` | Create standard projected fields for linear small-strain elasticity. |
-| function | `small_strain_partition_fields(displacement, assignments, *, study = None, variables = ('S', 'E', 'MISES', 'SENER'), degree: int = 0) -> tuple[object, ...]` | Create standard fields for a complete regional material partition. |
+| function | `small_strain_partition_fields(displacement, assignments, *, study = None, variables = ('S', 'E', 'MISES', 'SENER'), degree: int = 0, eigenstrains = ()) -> tuple[object, ...]` | Create standard fields for a complete regional material partition. |
 | class | `FieldRecovery` | A reviewable conversion from constitutive evidence to a field. |
 | function | `cell_average_recovery() -> FieldRecovery` | Return the standard scientific integration-point recovery policy. |
 | function | `recover_integration_point_field(source, *, name: str \| None = None, policy: FieldRecovery \| None = None, unit: str \| None = None, description: str = '') -> FieldResult` | Recover one ``QuadratureField`` without hiding its processing history. |
@@ -927,6 +940,14 @@ and evidence remain in the linked guides and scientific function reference.
 | function | `cohesive_surface(*, law, mode: str = 'normal', name: str = 'cohesive surface') -> CohesiveSurface` | Declare a fixed-path zero-thickness cohesive interface. |
 | function | `cohesive_characteristic_length(*, young: float, fracture_energy: float, strength: float) -> float` | Return the declared scale ``E * Gamma / strength**2``. |
 
+## `agentfem.manifests`
+
+| Kind | Public object | Purpose |
+| --- | --- | --- |
+| function | `read(path: str \| Path, *, schema: str \| None = None) -> dict[str, object]` | Read and validate one versioned JSON manifest. |
+| function | `result(path: str \| Path) -> dict[str, object]` | Read a SimulationResult manifest and reject duplicate field names. |
+| function | `campaign(path: str \| Path) -> dict[str, object]` | Read a campaign report and reject duplicate case identities. |
+
 ## `agentfem.learning`
 
 | Kind | Public object | Purpose |
@@ -1056,6 +1077,7 @@ and evidence remain in the linked guides and scientific function reference.
 | function | `internal_force_vector(displacement, test_function = None, properties = None, *, study = None, measure = ufl.dx) -> OperatorForm` | Create an elastic internal-force vector contribution. |
 | function | `stiffness_operator(displacement, test_function = None, properties = None, *, study = None, temperature = None, measure = ufl.dx) -> OperatorForm` | Create an elastic stiffness/internal virtual-work operator ``K``. |
 | function | `thermal_expansion_vector(target, temperature, properties, *, study = None, measure = ufl.dx, name: str = 'F_thermal') -> OperatorForm` | Equivalent nodal load produced by isotropic thermal expansion. |
+| function | `eigenstrain_vector(target, source, properties, *, study = None, measure = ufl.dx, name: str = 'F_eigenstrain') -> OperatorForm` | Equivalent nodal load produced by one explicit eigenstrain source. |
 | function | `convective_momentum_operator(advecting_velocity, transported_velocity, test_velocity, *, measure = ufl.dx, name: str = 'N_convection') -> OperatorForm` | Return ``((w . grad) u, v)`` for vector momentum transport. |
 | function | `incompressibility_operator(velocity, test_pressure, *, measure = ufl.dx, name: str = 'D_incompressibility') -> OperatorForm` | Return the symmetric saddle-point term ``-(q, div(u))``. |
 | function | `pressure_coupling_operator(pressure, test_velocity, *, measure = ufl.dx, name: str = 'G_pressure') -> OperatorForm` | Return the pressure contribution ``-(p, div(v))``. |
@@ -1466,7 +1488,7 @@ This package exposes its public objects through focused submodules.
 | class | `NonlinearVariationalProblem` | Nonlinear residual problem ``R(u; v) = 0`` solved by PETSc SNES. |
 | class | `AnalysisStep` | Inspectable analysis step that owns one algebraic solve. |
 | function | `linear_system(K, F, *, unknown = None, solution = None, constraints = None, bcs = None, solver_options: LinearSolverOptions \| None = None, name: str = 'Kx_eq_F') -> LinearSystemProblem` | Create a ``K x = F`` problem without exposing variational boilerplate. |
-| function | `linear_static(K, F, *, study = None, unknown = None, solution = None, constraints = None, bcs = None, solver_options: LinearSolverOptions \| None = None, result_field_factory = None, name: str = 'linear_static') -> AnalysisStep` | Create a linear static analysis step in ``K x = F`` notation. |
+| function | `linear_static(K, F, *, study = None, unknown = None, solution = None, constraints = None, bcs = None, solver_options: LinearSolverOptions \| None = None, result_field_factory = None, result_units = None, name: str = 'linear_static') -> AnalysisStep` | Create a linear static analysis step in ``K x = F`` notation. |
 | function | `nonlinear(residual, solution, *, jacobian = None, constraints = None, bcs = None, solver_options: NonlinearSolverOptions \| NewtonSolverOptions \| None = None, name: str = 'nonlinear', petsc_options_prefix: str = 'agentfem_nonlinear_') -> NonlinearVariationalProblem` | Create a general nonlinear residual problem. |
 | function | `incremental_nonlinear(residual, solution, *, factor, value_path, update_load = None, acceptance_check = None, jacobian = None, incrementation = None, constraints = None, bcs = None, solver_options: NonlinearSolverOptions \| NewtonSolverOptions \| None = None, output_every: int \| None = 1, progress = True, status_file = None, name: str = 'incremental_nonlinear', petsc_options_prefix: str = 'agentfem_incremental_nonlinear_') -> IncrementalNonlinearVariationalProblem` | Create standard-BC nonlinear equilibrium over a normalized load path. |
 | function | `affine_nonlinear(residual, solution, *, jacobian, constraint, load_factors = None, incrementation = None, solver_options: AffineNewtonOptions \| NewtonSolverOptions \| None = None, output_every: int \| None = 1, output_factors = (), state_transaction = None, checkpoint_policy = None, acceptance_check = None, progress = True, status_file = None, name: str = 'affine_nonlinear', procedure = None) -> AffineNonlinearVariationalProblem` | Create a nonlinear problem reduced by an affine constraint map. |

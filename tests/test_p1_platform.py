@@ -1018,7 +1018,10 @@ def test_thermoelastic_material_arrhenius_creep_and_free_expansion():
         F=thermal_force,
     )
     thermoelastic_result = thermoelastic_step.solve_result()
-    assert "S" not in thermoelastic_result.fields
+    assert {"S", "E_TOTAL", "E_EIGEN", "E_MECH"}.issubset(
+        thermoelastic_result.fields
+    )
+    assert np.max(np.abs(thermoelastic_result.fields["S"].field.x.array)) < 1.0e-5
 
     coordinates = displacement.space.tabulate_dof_coordinates()
     values = displacement.value.x.array.reshape((-1, 2))
