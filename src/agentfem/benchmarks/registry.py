@@ -800,18 +800,27 @@ _BENCHMARKS = (
     BenchmarkSpec(
         identifier="chaboche_combined_hardening",
         capability="chaboche_plasticity",
-        level="material_point_and_global_lifecycle",
+        level="external_material_point_and_global_lifecycle",
         reference="knowledge/benchmarks/chaboche_combined_hardening.json",
         criterion=(
-            "published-style combined-hardening parameters satisfy the "
-            "shifted yield surface, discrete tangent, Bauschinger reversal, "
-            "global cyclic quadrature transaction, and restart equivalence"
+            "the official OFHC copper symmetric and tension--torsion paths "
+            "recover published PEEQ and saturated normal stress within the "
+            "AgentFEM 1% gates; energy, global transaction and restart "
+            "contracts remain closed"
         ),
         automated_test=(
-            "tests/test_constitutive_models.py -k chaboche and "
+            "tests/test_external_cyclic_plasticity.py; "
+            "tests/test_plastic_material_history.py; "
             "tests/test_p1_platform.py -k global_chaboche_cycle"
         ),
-        status="external_definition_and_automated_lifecycle",
+        status="automated_external_material_point_comparison",
+        evidence=(
+            "external_reference",
+            "material_point",
+            "mixed_control",
+            "energy_balance",
+            "checkpoint_restart",
+        ),
     ),
     BenchmarkSpec(
         identifier="implicit_creep_relaxation",

@@ -145,6 +145,7 @@ from .plasticity import (
     J2PlasticState,
     J2Update,
     PlasticEnergyIncrement,
+    TabulatedIsotropicHardening,
     UniaxialPlasticState,
     chaboche,
     update_uniaxial,
@@ -192,6 +193,7 @@ from .._material_history import (
     MaterialLoadingPath,
     PlasticMaterialHistoryResponse,
     PlasticMaterialHistoryStep,
+    material_mixed_path,
     material_strain_path,
 )
 
@@ -239,6 +241,7 @@ __all__ = [
     "J2PlasticState",
     "J2Update",
     "PlasticEnergyIncrement",
+    "TabulatedIsotropicHardening",
     "J2QuadratureState",
     "FiniteStrainKinematics",
     "FiniteStrainJ2Logarithmic",
@@ -344,6 +347,7 @@ __all__ = [
     "isotropic_generalized_maxwell",
     "miner_damage",
     "material_strain_path",
+    "material_mixed_path",
     "rainflow_cycles",
     "neo_hookean",
     "neo_hookean_plane_stress",

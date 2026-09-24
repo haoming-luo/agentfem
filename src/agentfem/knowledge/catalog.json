@@ -44,10 +44,10 @@
     },
     {
       "id": "agentfem.benchmark.chaboche_combined_hardening",
-      "physics": "three-dimensional small-strain J2 plasticity with exponential isotropic and multi-component Armstrong--Frederick kinematic hardening",
+      "physics": "three-dimensional small-strain J2 plasticity with tabulated isotropic hardening and one Armstrong--Frederick backstress under mixed stress--strain control",
       "source": "src/agentfem/knowledge/benchmarks/chaboche_combined_hardening.json",
-      "status": "external_definition_and_automated_lifecycle",
-      "title": "Combined-hardening material path and global cyclic lifecycle"
+      "status": "automated_external_material_point_comparison",
+      "title": "Abaqus OFHC copper proportional and nonproportional cyclic tests"
     },
     {
       "id": "agentfem.benchmark.classical_sub_rayleigh_crack_v3",

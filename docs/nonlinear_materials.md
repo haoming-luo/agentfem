@@ -124,6 +124,30 @@ path = constitutive.material_strain_path(
 result = steel.history(path).solve_result()
 ```
 
+The same path contract supports explicit mixed control.  A symmetric Boolean
+mask selects strain-controlled tensor components; every remaining component
+uses the supplied stress target.  AgentFEM solves the unconstrained strains
+with the constitutive algorithmic tangent.  This represents ordinary uniaxial
+stress, stress control, and tension--torsion tests without silently fixing the
+transverse strains:
+
+```python
+strain_control = np.zeros((3, 3), dtype=bool)
+strain_control[0, 0] = True
+path = constitutive.material_mixed_path(
+    time,
+    strain=axial_strain_targets,
+    stress=np.zeros_like(axial_strain_targets),
+    strain_control=strain_control,
+)
+result = steel.history(path).solve_result()
+```
+
+`TabulatedIsotropicHardening` is the corresponding piecewise-linear scientific
+asset for cyclic-hardening tables.  It records its interpolation and
+extrapolation rule and supplies the exact hardening-storage integral consumed
+by the energy ledger.
+
 Material-data generation defaults to `linearization="none"`: it returns the
 same accepted stress and state without constructing a tangent that no global
 Newton iteration will consume. `linearization="consistent"` adds the tangent
@@ -145,8 +169,15 @@ $$
 
 All cumulative channels participate in quadrature commit/rollback and
 checkpoint/restart. This closes the implemented discrete constitutive ledger;
-it does not by itself validate a particular parameter calibration or promote
-Chaboche beyond its experimental maturity.
+it does not by itself validate a particular parameter calibration.
+
+The public SIMULIA OFHC-copper comparison now supplies that independent
+material-point check.  Using the published table, calibrated $C=33.55$ GPa and
+$\gamma=701.3$, and stress-free transverse components, AgentFEM recovers the
+published symmetric-cycle final PEEQ of 23.67% and the nonproportional
+tension--torsion saturated normal stress of 143.1 MPa within a separately
+declared 1% AgentFEM gate.  A structure-level ratcheting comparison remains a
+distinct promotion requirement.
 
 For a three-dimensional `nonlinear_static` study, `model.step(...)` now lowers
 this material to a global DOLFINx path. `PE` and `PEEQ` are committed at Basix

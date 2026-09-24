@@ -149,6 +149,107 @@ def _linearization(value: str) -> Linearization:
 
 
 @dataclass(frozen=True)
+class TabulatedIsotropicHardening:
+    """Piecewise-linear yield radius as a function of equivalent plastic strain.
+
+    The table is an explicit scientific asset rather than an interpolation
+    hidden inside a material driver.  Constant extrapolation matches the
+    default used by Abaqus ``*CYCLIC HARDENING`` tables.
+    """
+
+    equivalent_plastic_strain: tuple[float, ...]
+    yield_stress: tuple[float, ...]
+    extrapolation: Literal["constant", "linear"] = "constant"
+
+    def __post_init__(self) -> None:
+        equivalent = tuple(float(value) for value in self.equivalent_plastic_strain)
+        stress = tuple(float(value) for value in self.yield_stress)
+        if len(equivalent) < 2 or len(equivalent) != len(stress):
+            raise ValueError(
+                "Tabulated isotropic hardening requires equally sized tables "
+                "with at least two points."
+            )
+        if not all(isfinite(value) for value in (*equivalent, *stress)):
+            raise ValueError("Tabulated isotropic hardening must be finite.")
+        if equivalent[0] != 0.0 or any(
+            right <= left for left, right in zip(equivalent, equivalent[1:])
+        ):
+            raise ValueError(
+                "Equivalent plastic strain must start at zero and increase strictly."
+            )
+        if any(value <= 0.0 for value in stress):
+            raise ValueError("Every tabulated yield stress must be positive.")
+        if any(right < left for left, right in zip(stress, stress[1:])):
+            raise ValueError(
+                "TabulatedIsotropicHardening currently accepts hardening, not softening."
+            )
+        extrapolation = str(self.extrapolation).strip().lower()
+        if extrapolation not in {"constant", "linear"}:
+            raise ValueError("extrapolation must be 'constant' or 'linear'.")
+        object.__setattr__(self, "equivalent_plastic_strain", equivalent)
+        object.__setattr__(self, "yield_stress", stress)
+        object.__setattr__(self, "extrapolation", extrapolation)
+
+    @property
+    def initial_yield_stress(self) -> float:
+        return self.yield_stress[0]
+
+    @property
+    def maximum_slope(self) -> float:
+        equivalent = np.asarray(self.equivalent_plastic_strain)
+        stress = np.asarray(self.yield_stress)
+        return float(np.max(np.diff(stress) / np.diff(equivalent), initial=0.0))
+
+    def value(self, equivalent_plastic_strain: float) -> float:
+        equivalent = float(equivalent_plastic_strain)
+        if not isfinite(equivalent) or equivalent < 0.0:
+            raise ValueError("equivalent_plastic_strain must be finite and nonnegative.")
+        points = np.asarray(self.equivalent_plastic_strain)
+        values = np.asarray(self.yield_stress)
+        if equivalent <= points[-1] or self.extrapolation == "constant":
+            return float(np.interp(equivalent, points, values))
+        slope = (values[-1] - values[-2]) / (points[-1] - points[-2])
+        return float(values[-1] + slope * (equivalent - points[-1]))
+
+    def hardening_storage(self, equivalent_plastic_strain: float) -> float:
+        """Return the integral of yield-radius growth above its initial value."""
+
+        equivalent = float(equivalent_plastic_strain)
+        if not isfinite(equivalent) or equivalent < 0.0:
+            raise ValueError("equivalent_plastic_strain must be finite and nonnegative.")
+        points = np.asarray(self.equivalent_plastic_strain)
+        radius = np.asarray(self.yield_stress) - self.initial_yield_stress
+        upper = min(equivalent, float(points[-1]))
+        storage = 0.0
+        for index in range(points.size - 1):
+            left = float(points[index])
+            if upper <= left:
+                break
+            right = min(upper, float(points[index + 1]))
+            fraction = (right - left) / (points[index + 1] - points[index])
+            radius_right = radius[index] + fraction * (
+                radius[index + 1] - radius[index]
+            )
+            storage += 0.5 * (radius[index] + radius_right) * (right - left)
+        if equivalent > points[-1]:
+            delta = equivalent - points[-1]
+            if self.extrapolation == "constant":
+                storage += radius[-1] * delta
+            else:
+                slope = (radius[-1] - radius[-2]) / (points[-1] - points[-2])
+                storage += radius[-1] * delta + 0.5 * slope * delta**2
+        return float(storage)
+
+    def as_dict(self) -> dict[str, object]:
+        return {
+            "model": "tabulated_isotropic_hardening",
+            "equivalent_plastic_strain": list(self.equivalent_plastic_strain),
+            "yield_stress": list(self.yield_stress),
+            "extrapolation": self.extrapolation,
+        }
+
+
+@dataclass(frozen=True)
 class ChabocheState:
     """History for small-strain combined isotropic/kinematic hardening."""
 
@@ -204,6 +305,7 @@ class ChabocheCombinedHardening:
     dynamic_recovery: tuple[float, ...]
     isotropic_saturation: float = 0.0
     isotropic_rate: float = 0.0
+    isotropic_hardening: TabulatedIsotropicHardening | None = None
     name: str = "Chaboche combined hardening"
     local_tolerance: float = 1.0e-11
     local_maximum_iterations: int = 80
@@ -242,6 +344,27 @@ class ChabocheCombinedHardening:
                 "isotropic_saturation and isotropic_rate must both be zero "
                 "or both be positive."
             )
+        if self.isotropic_hardening is not None:
+            if not isinstance(
+                self.isotropic_hardening,
+                TabulatedIsotropicHardening,
+            ):
+                raise TypeError(
+                    "isotropic_hardening must be TabulatedIsotropicHardening."
+                )
+            if self.isotropic_saturation != 0.0 or self.isotropic_rate != 0.0:
+                raise ValueError(
+                    "Choose either exponential or tabulated isotropic hardening."
+                )
+            if not np.isclose(
+                self.yield_stress,
+                self.isotropic_hardening.initial_yield_stress,
+                rtol=1.0e-12,
+                atol=0.0,
+            ):
+                raise ValueError(
+                    "yield_stress must equal the first tabulated yield stress."
+                )
         if self.local_tolerance <= 0.0 or int(self.local_maximum_iterations) < 8:
             raise ValueError("Local tolerance must be positive and iterations >= 8.")
         object.__setattr__(self, "backstress_moduli", moduli)
@@ -262,6 +385,8 @@ class ChabocheCombinedHardening:
 
     def current_yield_stress(self, equivalent_plastic_strain: float) -> float:
         equivalent = float(equivalent_plastic_strain)
+        if self.isotropic_hardening is not None:
+            return self.isotropic_hardening.value(equivalent)
         return float(
             self.yield_stress
             + self.isotropic_saturation
@@ -367,6 +492,11 @@ class ChabocheCombinedHardening:
                 3.0 * self.shear_modulus
                 + sum(self.backstress_moduli)
                 + self.isotropic_saturation * self.isotropic_rate
+                + (
+                    0.0
+                    if self.isotropic_hardening is None
+                    else self.isotropic_hardening.maximum_slope
+                )
             ),
             np.finfo(float).eps,
         )
@@ -456,6 +586,11 @@ class ChabocheCombinedHardening:
             "yield_stress": float(self.yield_stress),
             "isotropic_saturation": float(self.isotropic_saturation),
             "isotropic_rate": float(self.isotropic_rate),
+            "isotropic_hardening": (
+                None
+                if self.isotropic_hardening is None
+                else self.isotropic_hardening.as_dict()
+            ),
             "backstress_moduli": list(self.backstress_moduli),
             "dynamic_recovery": list(self.dynamic_recovery),
             "maturity": "fem_integrated_experimental",
@@ -471,6 +606,8 @@ class ChabocheCombinedHardening:
         *,
         initial_state: ChabocheState | None = None,
         linearization: Linearization = "none",
+        control_tolerance: float = 1.0e-10,
+        control_maximum_iterations: int = 30,
         name: str = "chaboche_material_history",
     ):
         """Create an inspectable strain-controlled material-point procedure."""
@@ -482,6 +619,8 @@ class ChabocheCombinedHardening:
             path=path,
             initial_state=initial_state,
             linearization=linearization,
+            control_tolerance=control_tolerance,
+            control_maximum_iterations=control_maximum_iterations,
             name=name,
         )
 
@@ -509,6 +648,7 @@ def chaboche(
     backstresses: Iterable[tuple[float, float]],
     isotropic_saturation: float = 0.0,
     isotropic_rate: float = 0.0,
+    isotropic_hardening: TabulatedIsotropicHardening | None = None,
     name: str = "Chaboche combined hardening",
 ) -> ChabocheCombinedHardening:
     """Create a combined-hardening material from ``(C, gamma)`` pairs."""
@@ -522,6 +662,7 @@ def chaboche(
         dynamic_recovery=tuple(item[1] for item in selected),
         isotropic_saturation=isotropic_saturation,
         isotropic_rate=isotropic_rate,
+        isotropic_hardening=isotropic_hardening,
         name=name,
     )
 
@@ -708,6 +849,8 @@ class J2LinearIsotropicHardening:
         *,
         initial_state: J2PlasticState | None = None,
         linearization: Linearization = "none",
+        control_tolerance: float = 1.0e-10,
+        control_maximum_iterations: int = 30,
         name: str = "j2_material_history",
     ):
         """Create an inspectable strain-controlled material-point procedure."""
@@ -719,6 +862,8 @@ class J2LinearIsotropicHardening:
             path=path,
             initial_state=initial_state,
             linearization=linearization,
+            control_tolerance=control_tolerance,
+            control_maximum_iterations=control_maximum_iterations,
             name=name,
         )
 
@@ -727,6 +872,8 @@ def _isotropic_hardening_storage(material, equivalent: float) -> float:
     selected = float(equivalent)
     if isinstance(material, J2LinearIsotropicHardening):
         return 0.5 * material.hardening_modulus * selected**2
+    if material.isotropic_hardening is not None:
+        return material.isotropic_hardening.hardening_storage(selected)
     if material.isotropic_rate == 0.0:
         return 0.0
     return float(

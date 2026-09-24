@@ -62,6 +62,72 @@ def test_material_loading_path_refinement_preserves_every_physical_knot():
         path.strain[0, 0, 0] = 1.0
 
 
+def test_tabulated_isotropic_hardening_integrates_piecewise_linear_storage():
+    hardening = constitutive.TabulatedIsotropicHardening(
+        equivalent_plastic_strain=(0.0, 0.1, 0.2),
+        yield_stress=(100.0, 120.0, 130.0),
+    )
+
+    assert hardening.value(0.05) == pytest.approx(110.0)
+    assert hardening.value(0.3) == pytest.approx(130.0)
+    assert hardening.hardening_storage(0.15) == pytest.approx(2.125)
+    with pytest.raises(ValueError, match="hardening, not softening"):
+        constitutive.TabulatedIsotropicHardening(
+            equivalent_plastic_strain=(0.0, 0.1),
+            yield_stress=(100.0, 90.0),
+        )
+
+
+def test_mixed_material_control_recovers_uniaxial_stress_state():
+    material = constitutive.J2LinearIsotropicHardening(
+        young=210_000.0,
+        poisson=0.3,
+        yield_stress=1.0e9,
+    )
+    strain = np.zeros((2, 3, 3))
+    strain[1, 0, 0] = 1.0e-3
+    stress = np.zeros_like(strain)
+    strain_control = np.zeros((3, 3), dtype=bool)
+    strain_control[0, 0] = True
+    path = constitutive.material_mixed_path(
+        (0.0, 1.0),
+        strain=strain,
+        stress=stress,
+        strain_control=strain_control,
+    )
+
+    response = material.history(path).solve()
+
+    assert response.stress[-1, 0, 0] == pytest.approx(210.0)
+    assert response.stress[-1, 1, 1] == pytest.approx(0.0, abs=1.0e-10)
+    assert response.stress[-1, 2, 2] == pytest.approx(0.0, abs=1.0e-10)
+    assert response.strain[-1, 1, 1] == pytest.approx(-0.3e-3)
+    assert response.strain[-1, 2, 2] == pytest.approx(-0.3e-3)
+    assert response.to_result().metadata["material_history"]["control"] == "mixed"
+
+
+def test_material_path_never_guesses_how_stress_targets_are_controlled():
+    strain = np.zeros((2, 3, 3))
+    stress = np.zeros_like(strain)
+    with pytest.raises(ValueError, match="explicit strain_control"):
+        constitutive.MaterialLoadingPath(
+            (0.0, 1.0),
+            strain,
+            stress=stress,
+        )
+
+    stress[0, 0, 0] = 1.0
+    strain_control = np.zeros((3, 3), dtype=bool)
+    path = constitutive.material_mixed_path(
+        (0.0, 1.0),
+        strain=strain,
+        stress=stress,
+        strain_control=strain_control,
+    )
+    with pytest.raises(ValueError, match="start at zero stress"):
+        _j2().history(path).solve()
+
+
 def test_j2_response_only_matches_consistent_update_without_a_tangent():
     material = _j2()
     strain = np.diag((0.004, 0.0, 0.0))

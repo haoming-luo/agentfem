@@ -2,36 +2,37 @@
   "schema": "agentfem.benchmark-card",
   "schema_version": "0.1.0",
   "id": "agentfem.benchmark.chaboche_combined_hardening",
-  "title": "Combined-hardening material path and global cyclic lifecycle",
-  "status": "external_definition_and_automated_lifecycle",
-  "purpose": "Verify AgentFEM's small-strain combined-hardening implementation against the published Abaqus model definition and parameter style, then exercise its native global quadrature, reversal, result, rollback and restart lifecycle.",
-  "physics": "three-dimensional small-strain J2 plasticity with exponential isotropic and multi-component Armstrong--Frederick kinematic hardening",
+  "title": "Abaqus OFHC copper proportional and nonproportional cyclic tests",
+  "status": "automated_external_material_point_comparison",
+  "purpose": "Verify AgentFEM's small-strain combined-hardening response against two numerical observables published by SIMULIA, then exercise the native energy, result and restart lifecycle.",
+  "physics": "three-dimensional small-strain J2 plasticity with tabulated isotropic hardening and one Armstrong--Frederick backstress under mixed stress--strain control",
   "source": {
     "organization": "Dassault Systemes SIMULIA",
-    "title": "Models for metals subjected to cyclic loading",
-    "url": "https://docs.software.vt.edu/abaqusv2024/English/SIMACAETHERefMap/simathe-c-combinedhardening.htm",
-    "retrieved": "2026-08-24",
-    "case": "Combined nonlinear isotropic/kinematic hardening equations and published-style parameterization"
+    "title": "Simple proportional and nonproportional cyclic tests",
+    "url": "https://docs.software.vt.edu/abaqusv2025/English/SIMACAEBMKRefMap/simabmk-c-cyclictests.htm",
+    "retrieved": "2026-09-24",
+    "case": "OFHC copper symmetric uniaxial and nonproportional tension--torsion tests"
   },
   "execution": {
-    "command": "python -m pytest -q tests/test_constitutive_models.py -k chaboche && python -m pytest -q tests/test_p1_platform.py -k global_chaboche_cycle",
+    "command": "python -m pytest -q tests/test_external_cyclic_plasticity.py tests/test_plastic_material_history.py",
     "example": "examples/chaboche_cyclic_3d.py",
-    "evidence": "Material-point tests enforce the shifted yield surface, discrete tangent and reversal; the global unit-cube cycle enforces quadrature-state use, standard fields and checkpoint/restart equivalence."
+    "evidence": "The public benchmark reconstructs the published E, nu, calibrated C and gamma, tabulated cyclic hardening, exact reversal knots and stress-free transverse components."
   },
   "observables": [
-    "Shifted Mises stress and current isotropic yield radius after return mapping.",
-    "Multi-component backstress and Bauschinger reversal response.",
-    "Directional derivative of the fully discrete stress update.",
-    "Global S, PE, PEEQ, ALPHA and MISES fields plus restarted final state."
+    "Equivalent plastic strain after the published symmetric cyclic path.",
+    "Maximum normal stress during the saturated nonproportional tension--torsion cycle.",
+    "Change in cycle maximum from the fourth to final simulated cycle.",
+    "Discrete plastic-work, hardening-storage, recovery and numerical-dissipation ledger."
   ],
   "acceptance": [
-    "The converged material point lies on the current shifted yield surface.",
-    "The algorithmic tensor reproduces an independent directional finite difference of the discrete map.",
-    "A reversed path advances PEEQ and reverses the axial backstress direction.",
-    "Interrupted and uninterrupted global paths recover the same displacement and backstress fields."
+    "Final PEEQ is within AgentFEM's 1% gate of the published Abaqus value 23.67%.",
+    "Saturated maximum normal stress is within AgentFEM's 1% gate of the published Abaqus value 143.1 MPa.",
+    "The fourth-to-final cycle maximum changes by less than AgentFEM's 1% saturation gate.",
+    "Every stress-controlled tensor component closes the local mixed-control residual."
   ],
   "limitations": [
-    "This evidence checks the published constitutive definition and AgentFEM lifecycle; it does not reproduce a proprietary or experimental stabilized hysteresis curve.",
-    "Structure-level cyclic calibration and complete recovery-dissipation energy closure remain promotion gates."
+    "The 1% acceptance limits are AgentFEM contracts, not SIMULIA-prescribed tolerances.",
+    "This benchmark validates the calibrated material-point response; a structure-level ratcheting benchmark remains a separate promotion gate.",
+    "Temperature dependence, static recovery and cyclic softening remain outside this material implementation."
   ]
 }

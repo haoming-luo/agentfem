@@ -6,6 +6,10 @@
 from .registry import BenchmarkSpec, benchmark, list_benchmarks
 from .evidence import CapabilityEvidence, audit_capability_evidence, capability_evidence
 from .golden import GoldenBenchmark, GoldenQuantity, golden_benchmark
+from .cyclic_plasticity import (
+    CyclicPlasticityBenchmark,
+    abaqus_ofhc_copper_cyclic_benchmark,
+)
 from .delamination_fem import (
     DCBCohesivePropagationCertificate,
     DCBCohesivePropagationCurve,
@@ -117,6 +121,7 @@ __all__ = [
     "CapabilityEvidence",
     "GoldenBenchmark",
     "GoldenQuantity",
+    "CyclicPlasticityBenchmark",
     "DCBCohesivePropagationCertificate",
     "DCBCohesivePropagationCurve",
     "DCBCohesivePropagationPoint",
@@ -147,6 +152,7 @@ __all__ = [
     "MMBFiniteElementPoint",
     "MMBModePartitionCertificate",
     "benchmark",
+    "abaqus_ofhc_copper_cyclic_benchmark",
     "audit_capability_evidence",
     "capability_evidence",
     "golden_benchmark",

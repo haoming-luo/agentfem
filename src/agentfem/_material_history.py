@@ -16,6 +16,7 @@ from .constitutive.plasticity import (
     ChabocheState,
     J2LinearIsotropicHardening,
     J2PlasticState,
+    _isotropic_hardening_storage,
     _linearization,
     von_mises,
 )
@@ -46,11 +47,19 @@ def _history_temperature(value, *, count: int) -> np.ndarray | None:
 
 @dataclass(frozen=True)
 class MaterialLoadingPath:
-    """Tensor-valued material loading with exact, refinable physical knots."""
+    """Tensor-valued material loading with exact, refinable physical knots.
+
+    A path is strain controlled by default.  For mixed control, ``strain`` and
+    ``stress`` contain the respective targets and the symmetric
+    ``strain_control`` mask selects which independent tensor components use
+    strain targets; all remaining components use stress targets.
+    """
 
     coordinate: object
     strain: object
     temperature: object | None = None
+    stress: object | None = None
+    strain_control: object | None = None
     name: str = "material_loading_path"
     coordinate_name: str = "time"
     coordinate_unit: str | None = None
@@ -68,6 +77,37 @@ class MaterialLoadingPath:
             self.temperature,
             count=coordinate.size,
         )
+        stress = None
+        strain_control = np.ones((3, 3), dtype=bool)
+        if self.stress is not None and self.strain_control is None:
+            raise ValueError(
+                "Stress targets require an explicit strain_control mask."
+            )
+        if self.strain_control is not None:
+            strain_control = np.asarray(self.strain_control, dtype=bool)
+            if strain_control.shape != (3, 3) or not np.array_equal(
+                strain_control,
+                strain_control.T,
+            ):
+                raise ValueError("strain_control must be a symmetric 3x3 mask.")
+            if self.stress is None and not np.all(strain_control):
+                raise ValueError(
+                    "Mixed material control requires explicit stress targets."
+                )
+        if self.stress is not None:
+            stress = np.asarray(self.stress, dtype=float)
+            if stress.shape != strain.shape or not np.all(np.isfinite(stress)):
+                raise ValueError(
+                    "stress must be finite and have shape (path points, 3, 3)."
+                )
+            if not np.allclose(
+                stress,
+                np.swapaxes(stress, 1, 2),
+                rtol=0.0,
+                atol=1.0e-12,
+            ):
+                raise ValueError("Every material-path stress tensor must be symmetric.")
+            stress = stress.copy()
         name = str(self.name).strip()
         coordinate_name = str(self.coordinate_name).strip()
         if not name or not coordinate_name:
@@ -77,9 +117,15 @@ class MaterialLoadingPath:
         strain.setflags(write=False)
         if temperature is not None:
             temperature.setflags(write=False)
+        if stress is not None:
+            stress.setflags(write=False)
+        strain_control = strain_control.copy()
+        strain_control.setflags(write=False)
         object.__setattr__(self, "coordinate", coordinate)
         object.__setattr__(self, "strain", strain)
         object.__setattr__(self, "temperature", temperature)
+        object.__setattr__(self, "stress", stress)
+        object.__setattr__(self, "strain_control", strain_control)
         object.__setattr__(self, "name", name)
         object.__setattr__(self, "coordinate_name", coordinate_name)
 
@@ -95,7 +141,7 @@ class MaterialLoadingPath:
     def fingerprint(self) -> str:
         record = {
             "schema": "agentfem.material-loading-path",
-            "schema_version": "0.1.0",
+            "schema_version": "0.2.0",
             "coordinate_name": self.coordinate_name,
             "coordinate_unit": self.coordinate_unit,
             "coordinate": self.coordinate.tolist(),
@@ -103,6 +149,8 @@ class MaterialLoadingPath:
             "temperature": (
                 None if self.temperature is None else self.temperature.tolist()
             ),
+            "stress": None if self.stress is None else self.stress.tolist(),
+            "strain_control": self.strain_control.tolist(),
         }
         encoded = json.dumps(
             record,
@@ -123,6 +171,7 @@ class MaterialLoadingPath:
         coordinates = []
         strains = []
         temperatures = [] if self.temperature is not None else None
+        stresses = [] if self.stress is not None else None
         for index in range(self.segment_count):
             fractions = np.arange(substeps, dtype=float) / substeps
             start = self.coordinate[index]
@@ -139,16 +188,25 @@ class MaterialLoadingPath:
                         + fraction
                         * (self.temperature[index + 1] - self.temperature[index])
                     )
+                if stresses is not None:
+                    stresses.append(
+                        self.stress[index]
+                        + fraction * (self.stress[index + 1] - self.stress[index])
+                    )
         coordinates.append(self.coordinate[-1])
         strains.append(self.strain[-1])
         if temperatures is not None:
             temperatures.append(self.temperature[-1])
+        if stresses is not None:
+            stresses.append(self.stress[-1])
         return MaterialLoadingPath(
             coordinate=np.asarray(coordinates),
             strain=np.asarray(strains),
             temperature=(
                 None if temperatures is None else np.asarray(temperatures)
             ),
+            stress=None if stresses is None else np.asarray(stresses),
+            strain_control=self.strain_control,
             name=f"{self.name}_refined",
             coordinate_name=self.coordinate_name,
             coordinate_unit=self.coordinate_unit,
@@ -157,7 +215,7 @@ class MaterialLoadingPath:
     def summary(self) -> dict[str, object]:
         return {
             "schema": "agentfem.material-loading-path",
-            "schema_version": "0.1.0",
+            "schema_version": "0.2.0",
             "name": self.name,
             "coordinate_name": self.coordinate_name,
             "coordinate_unit": self.coordinate_unit,
@@ -165,9 +223,19 @@ class MaterialLoadingPath:
             "segment_count": self.segment_count,
             "strain_shape": (3, 3),
             "temperature": self.temperature is not None,
+            "control": self.control,
             "interpolation": "piecewise_linear_exact_knots",
             "fingerprint": self.fingerprint,
         }
+
+    @property
+    def control(self) -> str:
+        independent = self.strain_control[np.triu_indices(3)]
+        if np.all(independent):
+            return "strain"
+        if not np.any(independent):
+            return "stress"
+        return "mixed"
 
 
 def material_strain_path(
@@ -191,20 +259,37 @@ def material_strain_path(
     )
 
 
+def material_mixed_path(
+    coordinate,
+    *,
+    strain,
+    stress,
+    strain_control,
+    temperature=None,
+    name: str = "material_mixed_path",
+    coordinate_name: str = "time",
+    coordinate_unit: str | None = None,
+) -> MaterialLoadingPath:
+    """Create a mixed stress/strain path without implicit component guessing."""
+
+    return MaterialLoadingPath(
+        coordinate=coordinate,
+        strain=strain,
+        stress=stress,
+        strain_control=strain_control,
+        temperature=temperature,
+        name=name,
+        coordinate_name=coordinate_name,
+        coordinate_unit=coordinate_unit,
+    )
+
+
 def _plastic_stored_energy(material, strain, stress, state):
     elastic = 0.5 * float(np.tensordot(stress, strain - state.plastic_strain))
     equivalent = float(state.equivalent_plastic_strain)
-    isotropic = 0.0
+    isotropic = _isotropic_hardening_storage(material, equivalent)
     kinematic = 0.0
-    if isinstance(material, J2LinearIsotropicHardening):
-        isotropic = 0.5 * material.hardening_modulus * equivalent**2
-    else:
-        if material.isotropic_rate > 0.0:
-            isotropic = material.isotropic_saturation * (
-                equivalent
-                + (np.exp(-material.isotropic_rate * equivalent) - 1.0)
-                / material.isotropic_rate
-            )
+    if isinstance(material, ChabocheCombinedHardening):
         kinematic = sum(
             3.0 * float(np.tensordot(alpha, alpha)) / (4.0 * modulus)
             for alpha, modulus in zip(
@@ -228,9 +313,10 @@ def _plastic_yield_function(material, stress, state) -> float:
 
 @dataclass(frozen=True)
 class PlasticMaterialHistoryResponse:
-    """Accepted J2/Chaboche path with typed state and partial energy evidence."""
+    """Accepted J2/Chaboche path with typed state and discrete energy evidence."""
 
     path: MaterialLoadingPath
+    strain: np.ndarray
     stress: np.ndarray
     plastic_strain: np.ndarray
     equivalent_plastic_strain: np.ndarray
@@ -260,7 +346,7 @@ class PlasticMaterialHistoryResponse:
 
         result = SimulationResult(name=self.name)
         histories = {
-            "strain": self.path.strain,
+            "strain": self.strain,
             "stress": self.stress,
             "plastic_strain": self.plastic_strain,
             "equivalent_plastic_strain": self.equivalent_plastic_strain,
@@ -343,11 +429,22 @@ class PlasticMaterialHistoryResponse:
             },
             kind="constitutive_history",
         )
+        if self.path.stress is not None:
+            stress_control = ~self.path.strain_control
+            control_residual = self.stress[:, stress_control] - self.path.stress[
+                :, stress_control
+            ]
+            result.add_quantity(
+                "maximum_stress_control_residual",
+                float(np.max(np.abs(control_residual), initial=0.0)),
+                kind="constitutive_history",
+            )
         chaboche = isinstance(self.material, ChabocheCombinedHardening)
         result.metadata["procedure"] = procedures.material_history().summary()
         result.metadata["material_history"] = {
             "schema": "agentfem.plastic-material-history.v1",
-            "control": "strain",
+            "control": self.path.control,
+            "strain_control": self.path.strain_control.tolist(),
             "linearization": self.linearization,
             "path_fingerprint": self.path.fingerprint,
             "state_commit": "accepted_increment",
@@ -381,12 +478,14 @@ class PlasticMaterialHistoryResponse:
 
 @dataclass
 class PlasticMaterialHistoryStep:
-    """Atomic strain-controlled material history for J2-family materials."""
+    """Atomic strain, stress, or mixed-control history for J2 materials."""
 
     material: J2LinearIsotropicHardening | ChabocheCombinedHardening
     path: MaterialLoadingPath
     initial_state: J2PlasticState | ChabocheState | None = None
     linearization: str = "none"
+    control_tolerance: float = 1.0e-10
+    control_maximum_iterations: int = 30
     name: str = "plastic_material_history"
     last_response: PlasticMaterialHistoryResponse | None = None
 
@@ -401,6 +500,12 @@ class PlasticMaterialHistoryStep:
         if not isinstance(path, MaterialLoadingPath):
             raise TypeError("Plastic material history requires MaterialLoadingPath.")
         linearization = _linearization(self.linearization)
+        control_tolerance = float(self.control_tolerance)
+        control_maximum_iterations = int(self.control_maximum_iterations)
+        if not np.isfinite(control_tolerance) or control_tolerance <= 0.0:
+            raise ValueError("control_tolerance must be finite and positive.")
+        if control_maximum_iterations < 1:
+            raise ValueError("control_maximum_iterations must be positive.")
         if path.temperature is not None:
             raise ValueError(
                 "Small-strain J2/Chaboche history does not yet accept temperature."
@@ -409,6 +514,15 @@ class PlasticMaterialHistoryStep:
             if not np.allclose(path.strain[0], 0.0, rtol=0.0, atol=1.0e-14):
                 raise ValueError(
                     "A history without initial_state must start at zero strain."
+                )
+            if path.stress is not None and not np.allclose(
+                path.stress[0],
+                0.0,
+                rtol=0.0,
+                atol=1.0e-14,
+            ):
+                raise ValueError(
+                    "A history without initial_state must start at zero stress."
                 )
             state = self.material.initial_state() if isinstance(
                 self.material, ChabocheCombinedHardening
@@ -422,14 +536,34 @@ class PlasticMaterialHistoryStep:
             raise TypeError("J2 history requires J2PlasticState.")
 
         updates = []
-        for strain in path.strain:
-            update = self.material.update(
-                strain,
-                state,
-                linearization=linearization,
-            )
+        accepted_strain = []
+        strain_guess = np.zeros((3, 3), dtype=float)
+        for index, strain in enumerate(path.strain):
+            if path.control == "strain":
+                accepted = strain
+                update = self.material.update(
+                    accepted,
+                    state,
+                    linearization=linearization,
+                )
+            else:
+                accepted, update = _mixed_control_update(
+                    self.material,
+                    state,
+                    prescribed_strain=strain,
+                    target_stress=path.stress[index],
+                    strain_control=path.strain_control,
+                    initial_guess=strain_guess,
+                    output_linearization=linearization,
+                    tolerance=control_tolerance,
+                    maximum_iterations=control_maximum_iterations,
+                )
             updates.append(update)
+            accepted_strain.append(accepted)
+            strain_guess = accepted
             state = update.state
+
+        accepted_strain = np.asarray(accepted_strain)
 
         stress = np.asarray([item.stress for item in updates])
         plastic_strain = np.asarray(
@@ -462,7 +596,7 @@ class PlasticMaterialHistoryStep:
             [
                 _plastic_stored_energy(
                     self.material,
-                    path.strain[index],
+                    accepted_strain[index],
                     item.stress,
                     item.state,
                 )
@@ -497,6 +631,7 @@ class PlasticMaterialHistoryStep:
         )
         response = PlasticMaterialHistoryResponse(
             path=path,
+            strain=accepted_strain,
             stress=stress,
             plastic_strain=plastic_strain,
             equivalent_plastic_strain=equivalent,
@@ -525,6 +660,108 @@ class PlasticMaterialHistoryStep:
 
     def solve_result(self):
         return self.solve().to_result()
+
+
+_SYMMETRIC_COMPONENTS = (
+    (0, 0),
+    (1, 1),
+    (2, 2),
+    (0, 1),
+    (0, 2),
+    (1, 2),
+)
+
+
+def _set_engineering_strain_component(tensor, component, value) -> None:
+    row, column = component
+    if row == column:
+        tensor[row, column] = value
+    else:
+        tensor[row, column] = tensor[column, row] = 0.5 * value
+
+
+def _engineering_strain_component(tensor, component) -> float:
+    row, column = component
+    return float(tensor[row, column] if row == column else 2.0 * tensor[row, column])
+
+
+def _mixed_control_update(
+    material,
+    state,
+    *,
+    prescribed_strain,
+    target_stress,
+    strain_control,
+    initial_guess,
+    output_linearization,
+    tolerance,
+    maximum_iterations,
+):
+    """Solve unconstrained strain components against explicit stress targets."""
+
+    controlled = [
+        bool(strain_control[row, column])
+        for row, column in _SYMMETRIC_COMPONENTS
+    ]
+    unknown = [
+        component
+        for component, is_controlled in zip(
+            _SYMMETRIC_COMPONENTS,
+            controlled,
+            strict=True,
+        )
+        if not is_controlled
+    ]
+    candidate = np.asarray(initial_guess, dtype=float).copy()
+    for component, is_controlled in zip(
+        _SYMMETRIC_COMPONENTS,
+        controlled,
+        strict=True,
+    ):
+        if is_controlled:
+            _set_engineering_strain_component(
+                candidate,
+                component,
+                _engineering_strain_component(prescribed_strain, component),
+            )
+    scale = max(
+        1.0,
+        float(material.yield_stress),
+        float(np.max(np.abs(target_stress))),
+    )
+    for _ in range(maximum_iterations):
+        update = material.update(candidate, state, linearization="consistent")
+        residual = np.asarray(
+            [update.stress[row, column] - target_stress[row, column] for row, column in unknown]
+        )
+        if float(np.max(np.abs(residual), initial=0.0)) <= tolerance * scale:
+            if output_linearization == "consistent":
+                return candidate.copy(), update
+            return candidate.copy(), material.update(
+                candidate,
+                state,
+                linearization="none",
+            )
+        tangent = update.algorithmic_tangent
+        jacobian = np.asarray(
+            [
+                [tangent[row, column, k, l] for k, l in unknown]
+                for row, column in unknown
+            ]
+        )
+        try:
+            correction = np.linalg.solve(jacobian, -residual)
+        except np.linalg.LinAlgError as error:
+            raise RuntimeError(
+                "Mixed material control produced a singular local Jacobian."
+            ) from error
+        for component, increment in zip(unknown, correction, strict=True):
+            current = _engineering_strain_component(candidate, component)
+            _set_engineering_strain_component(candidate, component, current + increment)
+    raise RuntimeError(
+        "Mixed material control did not converge within "
+        f"{maximum_iterations} iterations."
+    )
 
 
 def _stored_energy(material: GeneralizedMaxwell, state: MaxwellState) -> float:
@@ -749,4 +986,5 @@ __all__ = [
     "PlasticMaterialHistoryResponse",
     "PlasticMaterialHistoryStep",
     "material_strain_path",
+    "material_mixed_path",
 ]
