@@ -35,6 +35,18 @@
       "evidence": ["stability-estimate", "absorbing-boundary-tests", "release-smoke"]
     },
     {
+      "id": "partitioned-finite-strain-explicit",
+      "maturity": "experimental",
+      "example": "tests/test_dynamic_fracture.py",
+      "evidence": ["complete-material-partition", "regional-mass-and-internal-force", "regional-wave-speed-and-energy", "multi-region-loads", "cohesive-interface-composition", "serial-regression-golden"]
+    },
+    {
+      "id": "multi-material-thermoelastic-static",
+      "maturity": "engineering",
+      "example": "tests/test_thermoelastic_semantics.py",
+      "evidence": ["explicit-eigenstrain-assets", "complete-material-partition", "free-expansion-zero-stress", "constrained-heating", "unsmoothed-material-aware-fields", "rigid-mode-preflight"]
+    },
+    {
       "id": "abaqus-reviewed-migration",
       "maturity": "engineering",
       "example": "tests/fixtures/abaqus_native_lowering/static.inp",
@@ -104,7 +116,7 @@
       "id": "composite-material-and-fabric-foundation",
       "maturity": "experimental",
       "example": "tests/test_composite_materials.py",
-      "evidence": ["orthotropic-solid-orientation", "laminate-abd-and-section-points", "objective-director-surface-kinematics", "finite-kinematics-fabric-membrane-step", "explicit-shell-and-contact-promotion-boundary"]
+      "evidence": ["orthotropic-solid-orientation", "laminate-abd-and-section-points", "objective-director-surface-kinematics", "finite-kinematics-fabric-membrane-step", "exact-neighbor-bending-variations", "hybrid-newton-serial-and-two-rank", "rotation-free-edge-ownership", "explicit-shell-and-contact-promotion-boundary"]
     }
   ],
   "required_gates": [
@@ -141,7 +153,11 @@
     "provider-reaction-single-dataset-output",
     "finite-strain-rve-load-path-stability",
     "shared-monotonic-target-cutback",
-    "consent-first-community-support"
+    "consent-first-community-support",
+    "thermoelastic-free-expansion-and-region-partition",
+    "finite-strain-explicit-material-load-partition",
+    "fibrous-shell-hybrid-serial-and-two-rank",
+    "rotation-free-edge-ownership"
   ],
   "not_release_claims": [
     "universal finite-element coverage",
@@ -160,6 +176,8 @@
     "full-field harmonic checkpoint recovery",
     "complex modes, prestressed small-on-large response or nonlinear harmonic balance",
     "externally validated finite-strain J2 homogenized tangent for arbitrary microstructures",
-    "forming-capable composite shell, tool contact, friction or inter-ply slip"
+    "forming-capable composite shell, tool contact, friction or inter-ply slip",
+    "executable rotation-free shell edge constraints or boundary moments",
+    "universal multi-material support across every analysis provider"
   ]
 }
