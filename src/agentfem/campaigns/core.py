@@ -731,6 +731,7 @@ class Campaign:
                         "complete": campaign_inputs["complete"],
                         "missing": campaign_inputs["missing"],
                     },
+                    "history_axes": _shared_history_axes(records, self.outputs),
                     "execution": execution_evidence,
                 },
             )
@@ -770,7 +771,7 @@ class Campaign:
             raw = self.evaluate(built)
             outcome = _as_case_outcome(
                 raw,
-                expected_names=tuple(quantity.name for quantity in self.outputs),
+                expected_quantities=self.outputs,
             )
             expected = {quantity.name for quantity in self.outputs}
             actual = set(outcome.outputs)
@@ -864,18 +865,52 @@ def local_processes(
 def _as_case_outcome(
     raw: Mapping[str, object] | CaseOutcome | SimulationResult,
     *,
-    expected_names: tuple[str, ...],
+    expected_quantities: tuple[Quantity, ...],
 ) -> CaseOutcome:
     """Normalize a campaign evaluator result without serializing live fields."""
 
     if isinstance(raw, CaseOutcome):
         return raw
     if isinstance(raw, SimulationResult):
+        outputs: dict[str, object] = {}
+        history_outputs: dict[str, object] = {}
+        for quantity in expected_quantities:
+            if quantity.kind != "history":
+                outputs[quantity.name] = raw.quantity(quantity.name)
+                continue
+            try:
+                history = raw.histories[quantity.name]
+            except KeyError as exc:
+                raise KeyError(
+                    f"Campaign output {quantity.name!r} declares kind='history', "
+                    "but the SimulationResult has no history with that name. "
+                    f"Available histories: {tuple(raw.histories)}."
+                ) from exc
+            if quantity.unit is not None and history.unit != quantity.unit:
+                raise ValueError(
+                    f"Campaign history {quantity.name!r} declares unit "
+                    f"{quantity.unit!r}, but the SimulationResult reports "
+                    f"{history.unit!r}."
+                )
+            outputs[quantity.name] = history.values
+            axis = {
+                "name": history.abscissa_name,
+                "unit": history.abscissa_unit,
+                "values": history.abscissa.tolist(),
+            }
+            history_outputs[quantity.name] = {
+                "unit": history.unit,
+                "value_shape": history.value_shape,
+                "sample_count": int(history.abscissa.size),
+                "axis": axis,
+                "axis_fingerprint": content_fingerprint(axis),
+            }
         return CaseOutcome(
-            outputs=raw.outputs(expected_names),
+            outputs=outputs,
             provenance={
                 "software_origin": dict(ORIGIN),
                 "simulation_result": raw.summary(),
+                **({} if not history_outputs else {"history_outputs": history_outputs}),
             },
             artifacts={name: str(path) for name, path in raw.artifacts.items()},
         )
@@ -884,6 +919,57 @@ def _as_case_outcome(
     raise TypeError(
         "Campaign.evaluate must return a mapping, CaseOutcome, or SimulationResult."
     )
+
+
+def _shared_history_axes(
+    records: tuple[CaseRunRecord, ...],
+    quantities: tuple[Quantity, ...],
+) -> dict[str, object]:
+    """Return one shared coordinate per declared history or fail closed.
+
+    A dense dataset column has one scientific meaning. Two histories with the
+    same array shape but different coordinates therefore cannot silently share
+    one :class:`Quantity`. Users can resample explicitly or split the campaign
+    when loading paths use different axes.
+    """
+
+    names = tuple(
+        quantity.name for quantity in quantities if quantity.kind == "history"
+    )
+    if not names:
+        return {}
+    shared: dict[str, object] = {}
+    for name in names:
+        contracts = []
+        for record in records:
+            if not record.successful or record.outcome is None:
+                continue
+            declared = record.outcome.provenance.get("history_outputs", {})
+            contract = declared.get(name) if isinstance(declared, Mapping) else None
+            if not isinstance(contract, Mapping):
+                raise ValueError(
+                    f"Successful case {record.case.case_id!r} did not preserve "
+                    f"the history-axis contract for {name!r}."
+                )
+            contracts.append(contract)
+        if not contracts:
+            continue
+        fingerprints = {str(contract.get("axis_fingerprint")) for contract in contracts}
+        if len(fingerprints) != 1:
+            raise ValueError(
+                f"Campaign history {name!r} uses different coordinates across "
+                "successful cases. Resample onto one declared axis or split the "
+                "campaign before assembling a ScientificDataset."
+            )
+        first = contracts[0]
+        shared[name] = {
+            "unit": first.get("unit"),
+            "value_shape": first.get("value_shape"),
+            "sample_count": first.get("sample_count"),
+            "axis": first.get("axis"),
+            "axis_fingerprint": first.get("axis_fingerprint"),
+        }
+    return shared
 
 
 def _case_provenance(

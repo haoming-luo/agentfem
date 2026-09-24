@@ -84,6 +84,11 @@ def test_field_quantity_requires_an_explicit_encoding():
         )
 
 
+def test_history_quantity_requires_an_explicit_sample_shape():
+    with pytest.raises(ValueError, match="explicit non-scalar shape"):
+        datasets.Quantity("stress", kind="history")
+
+
 def test_dataset_rejects_wrong_output_shape():
     dataset = _dataset()
     with pytest.raises(ValueError, match="requires shape"):

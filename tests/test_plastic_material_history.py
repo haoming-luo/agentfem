@@ -3,7 +3,7 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
-from agentfem import constitutive
+from agentfem import campaigns, constitutive, datasets
 
 
 def _uniaxial_path(values, *, name="cyclic_strain"):
@@ -175,6 +175,61 @@ def test_chaboche_response_only_does_not_evaluate_numerical_tangent(monkeypatch)
     assert abs(energy.balance_residual) < 1.0e-10 * energy.plastic_work
     with pytest.raises(AssertionError, match="requested a tangent"):
         material.update(strain, linearization="consistent")
+
+
+def test_material_histories_enter_campaign_and_scientific_dataset_directly(tmp_path):
+    space = campaigns.ParameterSpace.create(
+        campaigns.RealParameter("hardening_modulus", 500.0, 1_000.0, unit="MPa")
+    )
+    path = _uniaxial_path((0.0, 0.004, -0.002, 0.003))
+
+    def evaluate(parameters):
+        material = constitutive.J2LinearIsotropicHardening(
+            young=210_000.0,
+            poisson=0.3,
+            yield_stress=250.0,
+            hardening_modulus=parameters["hardening_modulus"],
+        )
+        return material.history(path).solve_result()
+
+    campaign = campaigns.create(
+        name="j2_material_trajectories",
+        parameter_space=space,
+        outputs=(
+            datasets.Quantity(
+                "stress",
+                shape=(4, 3, 3),
+                kind="history",
+            ),
+            datasets.Quantity(
+                "equivalent_plastic_strain",
+                shape=(4,),
+                kind="history",
+            ),
+        ),
+        evaluate=evaluate,
+        scientific_inputs={"loading_path": path},
+    )
+    sampling = campaigns.explicit(
+        space,
+        ({"hardening_modulus": 500.0}, {"hardening_modulus": 1_000.0}),
+    )
+
+    report = campaign.run(sampling, output_directory=tmp_path)
+    accepted = report.require_dataset(minimum_samples=2)
+
+    assert accepted.y_matrix().shape == (2, 40)
+    assert set(accepted.metadata["history_axes"]) == {
+        "stress",
+        "equivalent_plastic_strain",
+    }
+    assert report.scientific_inputs["complete"] is True
+    for sample in accepted.samples:
+        summary = sample.provenance["simulation_result"]
+        assert summary["metadata"]["material_history"]["path_fingerprint"] == (
+            path.fingerprint
+        )
+        assert summary["metadata"]["scope"]["level"] == "material_point"
 
 
 def test_j2_history_uses_common_result_and_unambiguous_energy_names():

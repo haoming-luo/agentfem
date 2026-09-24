@@ -167,6 +167,88 @@ def test_campaign_captures_model_ir_from_built_case():
     assert provenance["scientific_input_fingerprint"].startswith("sha256:")
 
 
+def test_campaign_extracts_declared_result_history_and_shared_axis(tmp_path):
+    space = campaigns.ParameterSpace.create(campaigns.RealParameter("scale", 1.0, 2.0))
+
+    def evaluate(values):
+        result = results.SimulationResult("history_case")
+        result.add_history(
+            "response_history",
+            (0.0, 0.5, 1.0),
+            np.asarray((0.0, 0.5, 1.0)) * values["scale"],
+            unit="MPa",
+            abscissa_name="load_coordinate",
+            abscissa_unit=None,
+        )
+        return result
+
+    campaign = campaigns.create(
+        name="history_dataset",
+        parameter_space=space,
+        outputs=(
+            datasets.Quantity(
+                "response_history",
+                shape=(3,),
+                unit="MPa",
+                kind="history",
+            ),
+        ),
+        evaluate=evaluate,
+    )
+    sampling = campaigns.explicit(space, ({"scale": 1.0}, {"scale": 2.0}))
+    report = campaign.run(sampling, output_directory=tmp_path)
+
+    assert report.valid
+    np.testing.assert_allclose(
+        report.dataset.y_matrix(),
+        ((0.0, 0.5, 1.0), (0.0, 1.0, 2.0)),
+    )
+    axis = report.dataset.metadata["history_axes"]["response_history"]
+    assert axis["axis"] == {
+        "name": "load_coordinate",
+        "unit": None,
+        "values": [0.0, 0.5, 1.0],
+    }
+    assert axis["axis_fingerprint"].startswith("sha256:")
+    assert report.audit()["acceptable"] is True
+
+
+def test_campaign_rejects_history_cases_with_different_axes():
+    space = campaigns.ParameterSpace.create(
+        campaigns.RealParameter("endpoint", 1.0, 2.0)
+    )
+
+    def evaluate(values):
+        result = results.SimulationResult("incompatible_history_case")
+        result.add_history(
+            "response_history",
+            (0.0, 0.5, values["endpoint"]),
+            (0.0, 0.5, 1.0),
+        )
+        return result
+
+    campaign = campaigns.create(
+        name="incompatible_history_axes",
+        parameter_space=space,
+        outputs=(
+            datasets.Quantity(
+                "response_history",
+                shape=(3,),
+                kind="history",
+            ),
+        ),
+        evaluate=evaluate,
+    )
+
+    with pytest.raises(ValueError, match="different coordinates"):
+        campaign.run(
+            campaigns.explicit(
+                space,
+                ({"endpoint": 1.0}, {"endpoint": 2.0}),
+            )
+        )
+
+
 def test_campaign_hashes_declared_scientific_assets(tmp_path):
     mesh = tmp_path / "mesh.inp"
     mesh.write_text("*NODE\n1, 0, 0, 0\n", encoding="utf-8")

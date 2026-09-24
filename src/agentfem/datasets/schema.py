@@ -38,6 +38,11 @@ class Quantity:
             "field_encoding",
             None if self.field_encoding is None else dict(self.field_encoding),
         )
+        if self.kind == "history" and not self.shape:
+            raise ValueError(
+                f"History quantity {self.name!r} requires an explicit non-scalar "
+                "shape whose first dimension is the sample count."
+            )
         if self.kind in {"field", "sampled_field"} and self.field_encoding is None:
             raise ValueError(
                 f"Field quantity {self.name!r} requires field_encoding metadata."

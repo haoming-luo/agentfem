@@ -575,8 +575,34 @@ A campaign evaluator may return:
 - or a `SimulationResult`.
 
 In the last case AgentFEM extracts only the declared QoIs into the scientific
-dataset. Live DOLFINx fields are not serialized into table columns; their
-artifacts remain linked.
+dataset. A fixed-length result history is also an ordinary dataset output when
+the output contract explicitly declares `kind="history"` and its complete
+shape. AgentFEM records the shared coordinate, coordinate unit, and content
+fingerprint in dataset metadata. It rejects successful cases whose arrays have
+the same shape but different coordinates: resampling is a scientific decision,
+not an implicit storage operation. Live DOLFINx fields are not serialized into
+table columns; their artifacts remain linked.
+
+```python
+campaign = campaigns.create(
+    name="material_trajectories",
+    parameter_space=space,
+    outputs=(
+        datasets.Quantity("stress", shape=(n, 3, 3), kind="history"),
+        datasets.Quantity(
+            "equivalent_plastic_strain", shape=(n,), kind="history"
+        ),
+    ),
+    evaluate=lambda parameters: build_material(parameters)
+        .history(shared_path)
+        .solve_result(),
+    scientific_inputs={"loading_path": shared_path},
+)
+```
+
+This is the same Campaign path used by finite-element simulations. There is no
+second material-data runner, and the campaign never changes the loading path or
+constitutive update.
 
 Campaign configuration can be written as safe JSON for parameter definitions,
 sampling, output contracts, and execution policy. Python still supplies the

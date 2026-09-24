@@ -124,6 +124,15 @@ path = constitutive.material_strain_path(
 result = steel.history(path).solve_result()
 ```
 
+Material histories use the ordinary Campaign and ScientificDataset contracts;
+there is no constitutive-model-specific batch runner. Declare fixed-length
+trajectory outputs with `datasets.Quantity(..., kind="history")`. Campaign
+then extracts the matching `SimulationResult` histories, preserves their shared
+coordinate and fingerprint, and refuses to combine cases whose history axes
+differ. This makes parameter sweeps, resume, failure isolation, provenance and
+dataset packaging identical for J2, Chaboche, creep, viscoelasticity and future
+history-producing procedures.
+
 The same path contract supports explicit mixed control.  A symmetric Boolean
 mask selects strain-controlled tensor components; every remaining component
 uses the supplied stress target.  AgentFEM solves the unconstrained strains
