@@ -185,8 +185,12 @@ material-point check.  Using the published table, calibrated $C=33.55$ GPa and
 $\gamma=701.3$, and stress-free transverse components, AgentFEM recovers the
 published symmetric-cycle final PEEQ of 23.67% and the nonproportional
 tension--torsion saturated normal stress of 143.1 MPa within a separately
-declared 1% AgentFEM gate.  A structure-level ratcheting comparison remains a
-distinct promotion requirement.
+declared 1% AgentFEM gate. The published SIMULIA 316-steel asymmetric stress
+path is also automated for the stated one- versus two-backstress ratcheting
+trend and a stress-control residual below $10^{-7}$ MPa. Its reference response is
+published only as a graph, so AgentFEM labels this as path/control/trend
+evidence rather than inventing a numerical Golden. A structure-level
+ratcheting comparison remains a distinct promotion requirement.
 
 For a three-dimensional `nonlinear_static` study, `model.step(...)` now lowers
 this material to a global DOLFINx path. `PE` and `PEEQ` are committed at Basix

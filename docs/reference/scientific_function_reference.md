@@ -465,7 +465,7 @@ model.surface_force((0.0, -50000.0), on=loaded)
 **Status:** `experimental`<br>
 **Source card:** `src/agentfem/knowledge/cards/chaboche_global_plasticity.json`
 
-A three-dimensional small-strain J2 route with exponential isotropic hardening, multiple Armstrong--Frederick backstresses, committed quadrature state, a fully discrete tangent, cyclic amplitudes, cutback, standard fields and restart through the ordinary model.step workflow.
+A three-dimensional or axisymmetric small-strain J2 route with exponential isotropic hardening, multiple Armstrong--Frederick backstresses, committed quadrature state, a fully discrete tangent, cyclic amplitudes, cutback, standard fields and restart through the ordinary model.step workflow.
 
 ### Public API
 
@@ -522,7 +522,7 @@ Q and b are both zero or both positive in the public material contract.
 
 #### Assumptions
 
-- Small strain and associative three-dimensional Mises plasticity.
+- Small strain and associative three-dimensional Mises plasticity in a 3D solid or axisymmetric meridian.
 - Material parameters are calibrated in one consistent unit system.
 - The public cyclic path is a sequence of equilibrium states, not an implicit dynamic history.
 
@@ -536,8 +536,8 @@ Q and b are both zero or both positive in the public material contract.
 
 #### Applicability
 
-- Research and laboratory-scale three-dimensional cyclic plasticity with reviewed Chaboche calibration.
-- Displacement-controlled monotone or reversed paths requiring inspectable quadrature state.
+- Research and laboratory-scale three-dimensional or axisymmetric cyclic plasticity with reviewed Chaboche calibration.
+- Traction- or displacement-controlled monotone or reversed paths requiring inspectable quadrature state.
 
 #### Limitations
 
@@ -548,7 +548,7 @@ Q and b are both zero or both positive in the public material contract.
 ### Minimal example
 
 ```python
-Create constitutive.chaboche(...). For a material test, pass a tensor-valued constitutive.material_strain_path(...) to material.history(path).solve_result(). For a global model, register it in studies.static_solid(dimension=3, nonlinear=True), declare a tabular cyclic amplitude, and call model.step(target=u, material=steel, amplitude=history).
+Create constitutive.chaboche(...). For a material test, pass a tensor-valued constitutive.material_strain_path(...) to material.history(path).solve_result(). For a global model, register it in studies.static_solid(dimension=3, nonlinear=True) or an axisymmetric nonlinear-static Study, declare a tabular cyclic amplitude, and call model.step(target=u, material=steel, amplitude=history).
 ```
 
 ### Verification
@@ -569,12 +569,14 @@ Create constitutive.chaboche(...). For a material test, pass a tensor-valued con
 - Commit all hardening variables only after global increment acceptance.
 - Require response-only and consistent-linearization material histories to produce identical accepted stresses and states.
 - Preserve every declared reversal and hold knot under nested path refinement.
+- Close every stress-controlled component of the published 316-steel asymmetric path and preserve its one-versus-two-backstress ratcheting trend without treating the plotted response as a numerical table.
 - Require accepted plastic work to equal hardening-storage change plus reference-yield, dynamic-recovery and separately identified backward-Euler dissipation.
 
 ### References
 
 - Abaqus theory: models for metals subjected to cyclic loading: `https://docs.software.vt.edu/abaqusv2024/English/SIMACAETHERefMap/simathe-c-combinedhardening.htm`
 - Abaqus verification: import of combined-hardening material state: `https://docs.software.vt.edu/abaqusv2024/English/SIMACAEVERRefMap/simaver-c-import-plast.htm`
+- Abaqus example: uniaxial ratcheting under tension and compression: `https://docs.software.vt.edu/abaqusv2025/English/SIMACAEEXARefMap/simaexa-c-ratchetting.htm`
 - NEML documentation: Chaboche nonassociative hardening: `https://neml.readthedocs.io/en/stable/hardening/non/chaboche.html`
 
 <a id="agentfem-material-composite_ply_failure"></a>

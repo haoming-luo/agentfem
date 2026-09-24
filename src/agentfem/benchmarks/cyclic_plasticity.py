@@ -22,6 +22,10 @@ _ABAQUS_CYCLIC_URL = (
     "https://docs.software.vt.edu/abaqusv2025/English/"
     "SIMACAEBMKRefMap/simabmk-c-cyclictests.htm"
 )
+_ABAQUS_RATCHETING_URL = (
+    "https://docs.software.vt.edu/abaqusv2025/English/"
+    "SIMACAEEXARefMap/simaexa-c-ratchetting.htm"
+)
 
 
 @dataclass(frozen=True)
@@ -48,12 +52,8 @@ class CyclicPlasticityBenchmark:
             "tension_torsion_maximum_normal_stress": (
                 self.tension_torsion_maximum_normal_stress
             ),
-            "tension_torsion_reference_stress": (
-                self.tension_torsion_reference_stress
-            ),
-            "tension_torsion_relative_error": (
-                self.tension_torsion_relative_error
-            ),
+            "tension_torsion_reference_stress": (self.tension_torsion_reference_stress),
+            "tension_torsion_relative_error": (self.tension_torsion_relative_error),
             "fourth_to_final_cycle_change": self.fourth_to_final_cycle_change,
             "relative_tolerance": self.relative_tolerance,
             "saturation_tolerance": self.saturation_tolerance,
@@ -72,6 +72,47 @@ class CyclicPlasticityBenchmark:
             self.tension_torsion_maximum_normal_stress
             - self.tension_torsion_reference_stress
         ) / abs(self.tension_torsion_reference_stress)
+
+
+@dataclass(frozen=True)
+class RatchetingPathComparison:
+    """Published-path conformance without inventing a numerical Golden."""
+
+    cycle_count: int
+    one_backstress_accumulation: float
+    two_backstress_accumulation: float
+    two_to_one_accumulation_ratio: float
+    one_backstress_last_cycle_increment: float
+    two_backstress_last_cycle_increment: float
+    maximum_stress_control_residual: float
+    residual_tolerance: float
+    accepted: bool
+
+    def as_dict(self) -> dict[str, object]:
+        return {
+            "schema": "agentfem.ratcheting-path-comparison.v1",
+            "benchmark": "abaqus_316_steel_unsymmetric_stress_path",
+            "source": _ABAQUS_RATCHETING_URL,
+            "evidence_level": "published_path_and_qualitative_trend",
+            "reference_curve": "figure_only_no_numerical_table",
+            "cycle_count": self.cycle_count,
+            "one_backstress_accumulation": self.one_backstress_accumulation,
+            "two_backstress_accumulation": self.two_backstress_accumulation,
+            "two_to_one_accumulation_ratio": self.two_to_one_accumulation_ratio,
+            "one_backstress_last_cycle_increment": (
+                self.one_backstress_last_cycle_increment
+            ),
+            "two_backstress_last_cycle_increment": (
+                self.two_backstress_last_cycle_increment
+            ),
+            "maximum_stress_control_residual": (self.maximum_stress_control_residual),
+            "residual_tolerance": self.residual_tolerance,
+            "accepted": self.accepted,
+            "claim_boundary": (
+                "Path/control/trend conformance only; not a numerical "
+                "reproduction of the published structure curve."
+            ),
+        }
 
 
 def _abaqus_ofhc_copper():
@@ -182,9 +223,10 @@ def abaqus_ofhc_copper_cyclic_benchmark(
     tolerances claimed by SIMULIA.
     """
 
-    if int(substeps_per_half_cycle) != substeps_per_half_cycle or int(
-        substeps_per_half_cycle
-    ) < 1:
+    if (
+        int(substeps_per_half_cycle) != substeps_per_half_cycle
+        or int(substeps_per_half_cycle) < 1
+    ):
         raise ValueError("substeps_per_half_cycle must be a positive integer.")
     if int(points_per_cycle) != points_per_cycle or int(points_per_cycle) < 8:
         raise ValueError("points_per_cycle must be an integer of at least 8.")
@@ -209,8 +251,7 @@ def abaqus_ofhc_copper_cyclic_benchmark(
     cycle_four = float(
         np.max(
             axial[
-                ramp_points + 3 * points_per_cycle :
-                ramp_points + 4 * points_per_cycle
+                ramp_points + 3 * points_per_cycle : ramp_points + 4 * points_per_cycle
             ]
         )
     )
@@ -247,7 +288,130 @@ def abaqus_ofhc_copper_cyclic_benchmark(
     return assessment, results
 
 
+def _abaqus_316_ratcheting_material(*, backstress_count: int):
+    if backstress_count == 1:
+        backstresses = ((218_500.0, 1956.6),)
+    elif backstress_count == 2:
+        backstresses = ((2_067.0, 44.7), (246_200.0, 2551.4))
+    else:
+        raise ValueError("The published comparison declares one or two backstresses.")
+    return constitutive.chaboche(
+        young=192_000.0,
+        poisson=0.3,
+        yield_stress=120.0,
+        backstresses=backstresses,
+        isotropic_saturation=120.0,
+        isotropic_rate=13.2,
+        name=f"Abaqus 316 steel {backstress_count}-backstress calibration",
+    )
+
+
+def _abaqus_316_unsymmetric_stress_path(*, cycle_count: int, refinement: int):
+    if int(cycle_count) != cycle_count or int(cycle_count) < 2:
+        raise ValueError("cycle_count must be an integer of at least two.")
+    if int(refinement) != refinement or int(refinement) < 1:
+        raise ValueError("refinement must be a positive integer.")
+    coordinate = [0.0, 0.7143, 1.7143]
+    axial_stress = [0.0, 100.0, 240.0]
+    for cycle in range(int(cycle_count)):
+        minimum_coordinate = 3.7143 + 4.0 * cycle
+        coordinate.extend((minimum_coordinate, minimum_coordinate + 1.0))
+        axial_stress.extend((-40.0, 100.0))
+        if cycle < int(cycle_count) - 1:
+            coordinate.append(minimum_coordinate + 2.0)
+            axial_stress.append(240.0)
+    stress = np.zeros((len(coordinate), 3, 3))
+    strain = np.zeros_like(stress)
+    stress[:, 0, 0] = axial_stress
+    strain_control = np.zeros((3, 3), dtype=bool)
+    path = constitutive.material_mixed_path(
+        coordinate,
+        strain=strain,
+        stress=stress,
+        strain_control=strain_control,
+        name="abaqus_316_unsymmetric_stress_cycle",
+        coordinate_name="load_time",
+    )
+    return path.refine(int(refinement))
+
+
+def abaqus_316_steel_ratcheting_path_comparison(
+    *,
+    cycle_count: int = 50,
+    refinement: int = 2,
+    residual_tolerance: float = 1.0e-7,
+):
+    """Exercise the published 316-steel asymmetric stress path.
+
+    SIMULIA publishes the specimen result as a graph rather than a numerical
+    table.  This function therefore verifies the exact material parameters,
+    local stress path and stated one-versus-two-backstress trend, while keeping
+    the numerical structure-level comparison as a separate promotion gate.
+    """
+
+    if residual_tolerance <= 0.0:
+        raise ValueError("residual_tolerance must be positive.")
+    path = _abaqus_316_unsymmetric_stress_path(
+        cycle_count=cycle_count,
+        refinement=refinement,
+    )
+    responses = {
+        count: _abaqus_316_ratcheting_material(backstress_count=count)
+        .history(path, name=f"abaqus_316_ratcheting_{count}_backstress")
+        .solve()
+        for count in (1, 2)
+    }
+    maximum_indices = np.flatnonzero(np.isclose(path.stress[:, 0, 0], 240.0))
+    if maximum_indices.size < 2:
+        raise RuntimeError("Ratcheting path did not preserve repeated maxima.")
+    maxima = {
+        count: response.strain[maximum_indices, 0, 0]
+        for count, response in responses.items()
+    }
+    accumulation = {
+        count: float(values[-1] - values[0]) for count, values in maxima.items()
+    }
+    last_cycle = {
+        count: float(values[-1] - values[-2]) for count, values in maxima.items()
+    }
+    maximum_residual = max(
+        float(
+            np.max(
+                np.abs(response.stress - path.stress),
+                initial=0.0,
+            )
+        )
+        for response in responses.values()
+    )
+    ratio = accumulation[2] / accumulation[1]
+    accepted = bool(
+        maximum_residual <= residual_tolerance
+        and accumulation[1] > 0.0
+        and accumulation[2] > 0.0
+        and accumulation[2] < accumulation[1]
+        and last_cycle[1] > 0.0
+        and last_cycle[2] > 0.0
+    )
+    assessment = RatchetingPathComparison(
+        cycle_count=int(cycle_count),
+        one_backstress_accumulation=accumulation[1],
+        two_backstress_accumulation=accumulation[2],
+        two_to_one_accumulation_ratio=float(ratio),
+        one_backstress_last_cycle_increment=last_cycle[1],
+        two_backstress_last_cycle_increment=last_cycle[2],
+        maximum_stress_control_residual=maximum_residual,
+        residual_tolerance=float(residual_tolerance),
+        accepted=accepted,
+    )
+    results = {count: response.to_result() for count, response in responses.items()}
+    for result in results.values():
+        result.metadata["external_benchmark"] = assessment.as_dict()
+    return assessment, results
+
+
 __all__ = [
     "CyclicPlasticityBenchmark",
+    "RatchetingPathComparison",
+    "abaqus_316_steel_ratcheting_path_comparison",
     "abaqus_ofhc_copper_cyclic_benchmark",
 ]

@@ -800,12 +800,14 @@ _BENCHMARKS = (
     BenchmarkSpec(
         identifier="chaboche_combined_hardening",
         capability="chaboche_plasticity",
-        level="external_material_point_and_global_lifecycle",
+        level="external_material_point_paths_and_global_lifecycle",
         reference="knowledge/benchmarks/chaboche_combined_hardening.json",
         criterion=(
             "the official OFHC copper symmetric and tension--torsion paths "
             "recover published PEEQ and saturated normal stress within the "
-            "AgentFEM 1% gates; energy, global transaction and restart "
+            "AgentFEM 1% gates; the official 316-steel asymmetric path closes "
+            "stress control and reproduces the published one-versus-two-"
+            "backstress trend; energy, global transaction and restart "
             "contracts remain closed"
         ),
         automated_test=(
@@ -818,6 +820,8 @@ _BENCHMARKS = (
             "external_reference",
             "material_point",
             "mixed_control",
+            "asymmetric_stress_control",
+            "ratcheting_trend",
             "energy_balance",
             "checkpoint_restart",
         ),

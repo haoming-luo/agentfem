@@ -2,9 +2,9 @@
   "schema": "agentfem.benchmark-card",
   "schema_version": "0.1.0",
   "id": "agentfem.benchmark.chaboche_combined_hardening",
-  "title": "Abaqus OFHC copper proportional and nonproportional cyclic tests",
+  "title": "Abaqus OFHC copper and 316-steel cyclic material paths",
   "status": "automated_external_material_point_comparison",
-  "purpose": "Verify AgentFEM's small-strain combined-hardening response against two numerical observables published by SIMULIA, then exercise the native energy, result and restart lifecycle.",
+  "purpose": "Verify AgentFEM's small-strain combined-hardening response against two numerical OFHC-copper observables published by SIMULIA, exercise the published 316-steel asymmetric stress path and one-versus-two-backstress ratcheting trend, then retain the native energy, result and restart lifecycle.",
   "physics": "three-dimensional small-strain J2 plasticity with tabulated isotropic hardening and one Armstrong--Frederick backstress under mixed stress--strain control",
   "source": {
     "organization": "Dassault Systemes SIMULIA",
@@ -13,6 +13,16 @@
     "retrieved": "2026-09-24",
     "case": "OFHC copper symmetric uniaxial and nonproportional tension--torsion tests"
   },
+  "related_sources": [
+    {
+      "organization": "Dassault Systemes SIMULIA",
+      "title": "Uniaxial ratcheting under tension and compression",
+      "url": "https://docs.software.vt.edu/abaqusv2025/English/SIMACAEEXARefMap/simaexa-c-ratchetting.htm",
+      "retrieved": "2026-09-24",
+      "case": "316 steel asymmetric stress cycle with one and two backstresses",
+      "claim_boundary": "The published maximum-strain response is graphical; current automation checks the exact path, control residual and published qualitative trend, not a digitized numerical Golden."
+    }
+  ],
   "execution": {
     "command": "python -m pytest -q tests/test_external_cyclic_plasticity.py tests/test_plastic_material_history.py",
     "example": "examples/chaboche_cyclic_3d.py",
@@ -22,16 +32,19 @@
     "Equivalent plastic strain after the published symmetric cyclic path.",
     "Maximum normal stress during the saturated nonproportional tension--torsion cycle.",
     "Change in cycle maximum from the fourth to final simulated cycle.",
+    "Progressive maximum strain under the published 316-steel asymmetric stress path and the reduction obtained with two backstresses.",
     "Discrete plastic-work, hardening-storage, recovery and numerical-dissipation ledger."
   ],
   "acceptance": [
     "Final PEEQ is within AgentFEM's 1% gate of the published Abaqus value 23.67%.",
     "Saturated maximum normal stress is within AgentFEM's 1% gate of the published Abaqus value 143.1 MPa.",
     "The fourth-to-final cycle maximum changes by less than AgentFEM's 1% saturation gate.",
+    "Both 316-steel calibrations accumulate positive ratchet strain and the published two-backstress calibration accumulates less than the one-backstress calibration.",
     "Every stress-controlled tensor component closes the local mixed-control residual."
   ],
   "limitations": [
     "The 1% acceptance limits are AgentFEM contracts, not SIMULIA-prescribed tolerances.",
+    "The 316-steel comparison is path/control/trend evidence because SIMULIA provides its maximum-strain response as a plot rather than a numerical table.",
     "This benchmark validates the calibrated material-point response; a structure-level ratcheting benchmark remains a separate promotion gate.",
     "Temperature dependence, static recovery and cyclic softening remain outside this material implementation."
   ]
