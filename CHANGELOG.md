@@ -136,6 +136,10 @@ experimental formulation to a validated one.
 
 ### Changed
 
+- Cache each quadrature field's distributed cell-point/dof permutation and
+  use vectorized gather/scatter for constitutive state. This preserves the
+  DOLFINx dofmap and MPI ghost semantics while removing repeated Python
+  cell-point loops from nonlinear material updates and energy histories.
 - Make the founding technical report the stable preferred citation while
   retaining the exact software release separately for reproducibility.
 - Build the large macOS and Windows/WSL Complete Runtimes only after an

@@ -221,6 +221,9 @@ be published.
 Accepted-step energy operators are compiled once per Step and reused with
 updated quadrature coefficients. This removes repeated JIT work without
 thinning the energy history or changing its physical channels.
+Quadrature fields likewise cache their DOLFINx cell-point/dof permutation and
+reuse vectorized gather/scatter. The optimization retains explicit dofmap and
+ghost-cell ordering rather than assuming that a raw array reshape is portable.
 Failed attempts restore displacement and committed material state before
 automatic cutback. Complete named `CellRegion` assignments may dispatch
 different J2 parameter sets without changing the Step API. An otherwise

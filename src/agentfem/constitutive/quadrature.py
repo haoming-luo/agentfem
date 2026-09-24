@@ -620,6 +620,16 @@ class QuadratureField:
     points: np.ndarray
     weights: np.ndarray
     value_shape: tuple[int, ...]
+    _array_indices_cache: np.ndarray | None = field(
+        init=False,
+        default=None,
+        repr=False,
+    )
+    _identity_layout_cache: bool | None = field(
+        init=False,
+        default=None,
+        repr=False,
+    )
 
     @classmethod
     def create(
@@ -665,22 +675,12 @@ class QuadratureField:
         many serial meshes.
         """
 
-        V = self.function.function_space
-        cell_count = self._cell_count()
-        points_per_cell = len(self.points)
-        block_size = int(V.dofmap.bs)
-        flat = np.empty((cell_count * points_per_cell, block_size))
-        for cell in range(cell_count):
-            dofs = V.dofmap.cell_dofs(cell)
-            if len(dofs) != points_per_cell:
-                raise RuntimeError(
-                    "Quadrature dof count does not match the selected rule."
-                )
-            for point, dof in enumerate(dofs):
-                start = int(dof) * block_size
-                flat[cell * points_per_cell + point] = (
-                    self.function.x.array[start : start + block_size]
-                )
+        indices = self._array_indices()
+        source = self.function.x.array
+        if self._identity_layout_cache:
+            flat = source[: indices.size].copy()
+        else:
+            flat = np.take(source, indices)
         trailing = self.value_shape if self.value_shape else ()
         return flat.reshape((-1, *trailing))
 
@@ -781,18 +781,50 @@ class QuadratureField:
                 f"{self.function.name} requires {expected} cell-point values, "
                 f"got {selected.size}."
             )
-        V = self.function.function_space
-        block_size = int(V.dofmap.bs)
-        flat = selected.reshape((-1, block_size))
-        points_per_cell = len(self.points)
-        for cell in range(self._cell_count()):
-            dofs = V.dofmap.cell_dofs(cell)
-            for point, dof in enumerate(dofs):
-                start = int(dof) * block_size
-                self.function.x.array[start : start + block_size] = flat[
-                    cell * points_per_cell + point
-                ]
+        indices = self._array_indices()
+        flat = selected.reshape(-1)
+        if self._identity_layout_cache:
+            self.function.x.array[: indices.size] = flat
+        else:
+            self.function.x.array[indices] = flat
         self.function.x.scatter_forward()
+
+    def _array_indices(self) -> np.ndarray:
+        """Return the cached cell-point-to-local-array permutation.
+
+        DOLFINx does not promise that quadrature dofs follow cell order, so a
+        plain reshape is not a portable contract.  The ordering is fixed for
+        the lifetime of a function space, however.  Building the permutation
+        once preserves the distributed-mesh semantics while removing Python
+        loops from every constitutive update and energy evaluation.
+        """
+
+        if self._array_indices_cache is not None:
+            return self._array_indices_cache
+        V = self.function.function_space
+        points_per_cell = len(self.points)
+        block_size = int(V.dofmap.bs)
+        cell_dofs = np.empty(
+            (self._cell_count(), points_per_cell),
+            dtype=np.int64,
+        )
+        for cell in range(self._cell_count()):
+            dofs = np.asarray(V.dofmap.cell_dofs(cell), dtype=np.int64)
+            if dofs.size != points_per_cell:
+                raise RuntimeError(
+                    "Quadrature dof count does not match the selected rule."
+                )
+            cell_dofs[cell] = dofs
+        indices = (
+            cell_dofs[..., None] * block_size
+            + np.arange(block_size, dtype=np.int64)
+        ).reshape(-1)
+        indices.setflags(write=False)
+        self._array_indices_cache = indices
+        self._identity_layout_cache = bool(
+            np.array_equal(indices, np.arange(indices.size, dtype=np.int64))
+        )
+        return indices
 
     def cell_average(self, *, name: str | None = None):
         """Recover quadrature values as weighted DG0 cell averages.

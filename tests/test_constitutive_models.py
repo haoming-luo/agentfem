@@ -192,6 +192,35 @@ def test_integration_point_recovery_is_weighted_and_traceable():
     assert recovered.processing["material_boundary_averaging"] is False
 
 
+def test_quadrature_field_reuses_stable_dof_layout_for_tensor_round_trips():
+    domain = mesh.rectangle(
+        (0.0, 0.0),
+        (1.0, 1.0),
+        (2, 2),
+        comm=MPI.COMM_SELF,
+        cell_type="triangle",
+    )
+    source = constitutive.QuadratureField.create(
+        domain,
+        name="STRESS",
+        degree=2,
+        value_shape=(3, 3),
+    )
+    first_layout = source._array_indices()
+    expected = np.arange(source.values.size, dtype=float).reshape(
+        source.values.shape
+    )
+
+    source.assign(expected)
+    np.testing.assert_array_equal(source.values, expected)
+    assert source._array_indices() is first_layout
+    assert not first_layout.flags.writeable
+
+    reversed_values = expected[::-1].copy()
+    source.assign(reversed_values)
+    np.testing.assert_array_equal(source.values, reversed_values)
+
+
 def test_quadrature_field_statistics_use_physical_cell_measure():
     domain = mesh.rectangle(
         (0.0, 0.0),
