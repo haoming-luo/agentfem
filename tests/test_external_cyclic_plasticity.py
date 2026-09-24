@@ -67,3 +67,18 @@ def test_abaqus_316_unsymmetric_path_reproduces_published_ratcheting_trend():
 def test_abaqus_316_ratcheting_path_rejects_one_cycle():
     with pytest.raises(ValueError, match="at least two"):
         benchmarks.abaqus_316_steel_ratcheting_path_comparison(cycle_count=1)
+
+
+def test_axisymmetric_chaboche_global_path_matches_material_point():
+    assessment, result = benchmarks.axisymmetric_chaboche_ratcheting_crosscheck(
+        cycle_count=2,
+        refinement=1,
+    )
+
+    assert assessment.accepted
+    assert assessment.maximum_relative_peak_strain_error < 2.0e-3
+    assert assessment.final_residual_norm < 1.0e-7
+    assert assessment.as_dict()["external_specimen_golden"] is False
+    assert "global_peak_axial_strain" in result.histories
+    assert "material_point_peak_axial_strain" in result.histories
+    assert result.metadata["structural_crosscheck"]["accepted"] is True

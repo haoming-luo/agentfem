@@ -7,10 +7,12 @@ from .registry import BenchmarkSpec, benchmark, list_benchmarks
 from .evidence import CapabilityEvidence, audit_capability_evidence, capability_evidence
 from .golden import GoldenBenchmark, GoldenQuantity, golden_benchmark
 from .cyclic_plasticity import (
+    AxisymmetricRatchetingCrosscheck,
     CyclicPlasticityBenchmark,
     RatchetingPathComparison,
     abaqus_316_steel_ratcheting_path_comparison,
     abaqus_ofhc_copper_cyclic_benchmark,
+    axisymmetric_chaboche_ratcheting_crosscheck,
 )
 from .delamination_fem import (
     DCBCohesivePropagationCertificate,
@@ -123,9 +125,11 @@ __all__ = [
     "CapabilityEvidence",
     "GoldenBenchmark",
     "GoldenQuantity",
+    "AxisymmetricRatchetingCrosscheck",
     "CyclicPlasticityBenchmark",
     "RatchetingPathComparison",
     "abaqus_316_steel_ratcheting_path_comparison",
+    "axisymmetric_chaboche_ratcheting_crosscheck",
     "DCBCohesivePropagationCertificate",
     "DCBCohesivePropagationCurve",
     "DCBCohesivePropagationPoint",

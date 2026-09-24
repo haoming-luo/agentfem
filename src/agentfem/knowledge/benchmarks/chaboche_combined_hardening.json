@@ -33,6 +33,7 @@
     "Maximum normal stress during the saturated nonproportional tension--torsion cycle.",
     "Change in cycle maximum from the fourth to final simulated cycle.",
     "Progressive maximum strain under the published 316-steel asymmetric stress path and the reduction obtained with two backstresses.",
+    "Axisymmetric global finite-element peak gauge strain versus the independent stress-controlled material-point path.",
     "Discrete plastic-work, hardening-storage, recovery and numerical-dissipation ledger."
   ],
   "acceptance": [
@@ -40,11 +41,13 @@
     "Saturated maximum normal stress is within AgentFEM's 1% gate of the published Abaqus value 143.1 MPa.",
     "The fourth-to-final cycle maximum changes by less than AgentFEM's 1% saturation gate.",
     "Both 316-steel calibrations accumulate positive ratchet strain and the published two-backstress calibration accumulates less than the one-backstress calibration.",
+    "A uniformly loaded axisymmetric tube matches the independent material-point peak strain within the declared AgentFEM cross-check tolerance and closes global equilibrium.",
     "Every stress-controlled tensor component closes the local mixed-control residual."
   ],
   "limitations": [
     "The 1% acceptance limits are AgentFEM contracts, not SIMULIA-prescribed tolerances.",
     "The 316-steel comparison is path/control/trend evidence because SIMULIA provides its maximum-strain response as a plot rather than a numerical table.",
+    "The uniform-tube finite-element case verifies global lowering but is not the published shouldered-specimen Golden.",
     "This benchmark validates the calibrated material-point response; a structure-level ratcheting benchmark remains a separate promotion gate.",
     "Temperature dependence, static recovery and cyclic softening remain outside this material implementation."
   ]

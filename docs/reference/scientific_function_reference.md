@@ -561,6 +561,7 @@ Create constitutive.chaboche(...). For a material test, pass a tensor-valued con
 **Benchmarks**
 
 - `agentfem.benchmark.chaboche_combined_hardening`
+- `agentfem.benchmarks.axisymmetric_chaboche_ratcheting_crosscheck`
 
 **Validation rules**
 
@@ -570,6 +571,7 @@ Create constitutive.chaboche(...). For a material test, pass a tensor-valued con
 - Require response-only and consistent-linearization material histories to produce identical accepted stresses and states.
 - Preserve every declared reversal and hold knot under nested path refinement.
 - Close every stress-controlled component of the published 316-steel asymmetric path and preserve its one-versus-two-backstress ratcheting trend without treating the plotted response as a numerical table.
+- Require a uniformly loaded axisymmetric tube to reproduce the independent material-point cycle-peak strain and close global Newton equilibrium; do not label that cross-check as the published shouldered-specimen Golden.
 - Require accepted plastic work to equal hardening-storage change plus reference-yield, dynamic-recovery and separately identified backward-Euler dissipation.
 
 ### References

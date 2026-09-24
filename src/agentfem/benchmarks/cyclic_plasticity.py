@@ -115,6 +115,36 @@ class RatchetingPathComparison:
         }
 
 
+@dataclass(frozen=True)
+class AxisymmetricRatchetingCrosscheck:
+    """Global axisymmetric equilibrium checked against the same local path."""
+
+    cycle_count: int
+    maximum_relative_peak_strain_error: float
+    final_relative_peak_strain_error: float
+    final_residual_norm: float
+    relative_tolerance: float
+    residual_tolerance: float
+    accepted: bool
+
+    def as_dict(self) -> dict[str, object]:
+        return {
+            "schema": "agentfem.axisymmetric-ratcheting-crosscheck.v1",
+            "benchmark": "axisymmetric_uniform_tube_chaboche_ratcheting",
+            "evidence_level": "global_fem_material_point_crosscheck",
+            "external_specimen_golden": False,
+            "cycle_count": self.cycle_count,
+            "maximum_relative_peak_strain_error": (
+                self.maximum_relative_peak_strain_error
+            ),
+            "final_relative_peak_strain_error": (self.final_relative_peak_strain_error),
+            "final_residual_norm": self.final_residual_norm,
+            "relative_tolerance": self.relative_tolerance,
+            "residual_tolerance": self.residual_tolerance,
+            "accepted": self.accepted,
+        }
+
+
 def _abaqus_ofhc_copper():
     equivalent_plastic_strain = (
         0.0,
@@ -409,9 +439,145 @@ def abaqus_316_steel_ratcheting_path_comparison(
     return assessment, results
 
 
+def axisymmetric_chaboche_ratcheting_crosscheck(
+    *,
+    cycle_count: int = 3,
+    refinement: int = 2,
+    radial_cells: int = 1,
+    axial_cells: int = 2,
+    relative_tolerance: float = 2.0e-3,
+    residual_tolerance: float = 1.0e-7,
+):
+    """Cross-check a global axisymmetric tube against one material point.
+
+    The annular tube carries uniform axial traction, so its gauge strain should
+    reproduce the independent stress-controlled constitutive history. This is
+    a structural-path regression for lowering, load measure, Newton state and
+    result ownership. It is not the shouldered specimen Golden published only
+    as a graph in the SIMULIA ratcheting example.
+    """
+
+    from mpi4py import MPI
+
+    from .. import fields, mesh, models, results, solvers, steps, studies
+
+    if int(radial_cells) != radial_cells or int(radial_cells) < 1:
+        raise ValueError("radial_cells must be a positive integer.")
+    if int(axial_cells) != axial_cells or int(axial_cells) < 1:
+        raise ValueError("axial_cells must be a positive integer.")
+    if relative_tolerance <= 0.0 or residual_tolerance <= 0.0:
+        raise ValueError("Cross-check tolerances must be positive.")
+
+    path = _abaqus_316_unsymmetric_stress_path(
+        cycle_count=cycle_count,
+        refinement=refinement,
+    )
+    material = _abaqus_316_ratcheting_material(backstress_count=2)
+    local = material.history(path, name="axisymmetric_ratcheting_reference").solve()
+    maximum_indices = np.flatnonzero(np.isclose(path.stress[:, 0, 0], 240.0))
+
+    inner_radius, outer_radius, height = 1.0, 2.0, 1.0
+    domain = mesh.rectangle(
+        (inner_radius, 0.0),
+        (outer_radius, height),
+        (int(radial_cells), int(axial_cells)),
+        comm=MPI.COMM_WORLD,
+        cell_type="quadrilateral",
+    )
+    study = studies.nonlinear_static(
+        physics="solid_mechanics",
+        dimension=2,
+        assumption="axisymmetric",
+    )
+    model = models.create(
+        study=study,
+        mesh=domain,
+        name="axisymmetric_uniform_tube_chaboche_ratcheting",
+    )
+    displacement = model.field(fields.displacement(domain, degree=1))
+    bottom = mesh.face(domain, axis="y", value=0.0, name="bottom", tag=1)
+    top = mesh.face(domain, axis="y", value=height, name="top", tag=2)
+    model.fix(displacement, on=bottom, component=1, value=0.0)
+    selected_material = model.material(material)
+
+    area = np.pi * (outer_radius**2 - inner_radius**2)
+    model.surface_force((0.0, 240.0 * area), on=top)
+    normalized_coordinate = path.coordinate / path.coordinate[-1]
+    load_amplitude = path.stress[:, 0, 0] / 240.0
+    from .. import amplitudes
+
+    amplitude = amplitudes.tabular(
+        normalized_coordinate,
+        load_amplitude,
+        name="abaqus_316_unsymmetric_stress_amplitude",
+    )
+    step = model.step(
+        target=displacement,
+        material=selected_material,
+        constraints=model.constraints,
+        amplitude=amplitude,
+        incrementation=steps.at(*normalized_coordinate[1:]),
+        solver_options=solvers.newton(
+            relative_tolerance=1.0e-9,
+            absolute_tolerance=1.0e-10,
+            maximum_iterations=30,
+            line_search="backtracking",
+        ),
+        progress=False,
+        name="axisymmetric_uniform_tube_chaboche_ratcheting",
+    )
+
+    peak_set = set(int(index) for index in maximum_indices)
+    global_peak_strain = []
+    for index, target in enumerate(normalized_coordinate[1:], start=1):
+        step.solve(until=float(target))
+        if index in peak_set:
+            average_top_displacement = results.region_average(
+                displacement.value[1],
+                on=top,
+                study=study,
+            )
+            global_peak_strain.append(float(average_top_displacement) / height)
+
+    local_peak_strain = local.strain[maximum_indices, 0, 0]
+    global_peak_strain = np.asarray(global_peak_strain, dtype=float)
+    if global_peak_strain.shape != local_peak_strain.shape:
+        raise RuntimeError("Global and local ratcheting peak counts differ.")
+    scale = np.maximum(np.abs(local_peak_strain), 1.0e-12)
+    relative_errors = np.abs(global_peak_strain - local_peak_strain) / scale
+    final_residual = float(step.accepted_increments[-1].residual_norm)
+    assessment = AxisymmetricRatchetingCrosscheck(
+        cycle_count=int(cycle_count),
+        maximum_relative_peak_strain_error=float(np.max(relative_errors)),
+        final_relative_peak_strain_error=float(relative_errors[-1]),
+        final_residual_norm=final_residual,
+        relative_tolerance=float(relative_tolerance),
+        residual_tolerance=float(residual_tolerance),
+        accepted=bool(
+            np.max(relative_errors) <= relative_tolerance
+            and final_residual <= residual_tolerance
+        ),
+    )
+    result = step.solve_result()
+    result.add_histories(
+        np.arange(global_peak_strain.size, dtype=float) + 1.0,
+        {
+            "global_peak_axial_strain": global_peak_strain,
+            "material_point_peak_axial_strain": local_peak_strain,
+            "relative_peak_axial_strain_error": relative_errors,
+        },
+        abscissa_name="cycle",
+        abscissa_unit=None,
+    )
+    result.metadata["structural_crosscheck"] = assessment.as_dict()
+    return assessment, result
+
+
 __all__ = [
     "CyclicPlasticityBenchmark",
+    "AxisymmetricRatchetingCrosscheck",
     "RatchetingPathComparison",
     "abaqus_316_steel_ratcheting_path_comparison",
     "abaqus_ofhc_copper_cyclic_benchmark",
+    "axisymmetric_chaboche_ratcheting_crosscheck",
 ]

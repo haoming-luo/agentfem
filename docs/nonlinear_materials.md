@@ -190,7 +190,11 @@ path is also automated for the stated one- versus two-backstress ratcheting
 trend and a stress-control residual below $10^{-7}$ MPa. Its reference response is
 published only as a graph, so AgentFEM labels this as path/control/trend
 evidence rather than inventing a numerical Golden. A structure-level
-ratcheting comparison remains a distinct promotion requirement.
+ratcheting comparison remains a distinct promotion requirement. The global
+axisymmetric chain is nevertheless regression-tested on a uniformly loaded
+annular tube: its cycle-peak gauge strain must match the independent material
+point while global Newton equilibrium closes. That test proves lowering and
+state transfer, not agreement with the published shouldered specimen.
 
 For a three-dimensional `nonlinear_static` study, `model.step(...)` now lowers
 this material to a global DOLFINx path. `PE` and `PEEQ` are committed at Basix
