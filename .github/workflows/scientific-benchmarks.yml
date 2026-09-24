@@ -28,6 +28,11 @@ on:
         required: true
         type: boolean
         default: false
+      run_chaboche_ratcheting:
+        description: Run the shouldered 316-steel ratcheting convergence certificate
+        required: true
+        type: boolean
+        default: false
 
 jobs:
   nafems-creep:
@@ -132,4 +137,50 @@ jobs:
             /tmp/agentfem-multi-void-n4.json
             /tmp/agentfem-multi-void-n8.json
             /tmp/agentfem-multi-void-load-path-certificate.json
+          if-no-files-found: warn
+
+  chaboche-ratcheting:
+    if: ${{ inputs.run_chaboche_ratcheting }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    env:
+      UCX_TLS: tcp,sm,self
+    defaults:
+      run:
+        shell: bash -el {0}
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Create FEniCSx environment
+        uses: conda-incubator/setup-miniconda@v4
+        with:
+          activate-environment: agentfem-benchmark
+          environment-file: environment.yml
+          miniforge-version: latest
+          use-mamba: true
+          channels: conda-forge
+          channel-priority: strict
+
+      - name: Install the exact candidate wheel
+        run: |
+          python -m pip install --upgrade build
+          python -m build --wheel
+          python -m pip install --no-deps --force-reinstall dist/*.whl
+
+      - name: Run independent mesh and load-path refinement
+        run: |
+          cd /tmp
+          python "$GITHUB_WORKSPACE/tools/run_chaboche_ratcheting_benchmark.py" \
+            --cycles 5 \
+            --mesh-sizes 3.5 2.5 \
+            --refinements 8 16 32 \
+            --relative-tolerance 0.01 \
+            --report /tmp/agentfem-chaboche-ratcheting.json
+
+      - name: Upload shouldered-specimen evidence
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: chaboche-ratcheting-convergence
+          path: /tmp/agentfem-chaboche-ratcheting.json
           if-no-files-found: warn

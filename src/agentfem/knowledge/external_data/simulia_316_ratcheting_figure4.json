@@ -1,0 +1,55 @@
+{
+  "schema": "agentfem.external-scientific-dataset",
+  "schema_version": "0.1.0",
+  "dataset_id": "simulia-316-ratcheting-figure4",
+  "title": "316-steel shouldered-specimen maximum axial strain",
+  "source": {
+    "organization": "Dassault Systemes SIMULIA",
+    "landing_page": "https://docs.software.vt.edu/abaqusv2025/English/SIMACAEEXARefMap/simaexa-c-ratchetting.htm",
+    "figure": "Figure 4: Maximum axial strain versus number of cycles",
+    "figure_url": "https://docs.software.vt.edu/abaqusv2025/English/SIMA3DXRefImages/ratchetting-cyclic-nls.png",
+    "figure_sha256": "29522b8a2b5e53e4b4e17c805aeb146105388dd835206961cf436673b689e98f",
+    "input_url": "https://docs.software.vt.edu/abaqusv2025/English/SIMAINPRefResources/ratch_axi_unsymcyclic_2.inp",
+    "input_sha256": "a0d5ed2a64bbc9062887faa2d80f3a2c8f2c1737f37bddcf2da5fccda328be8b",
+    "retrieved": "2026-09-24"
+  },
+  "curve_file": "simulia_316_ratcheting_figure4.csv",
+  "curve_file_sha256": "a9fea36ac392a51bf6b18f11d95238f53667ce7b7ddaec354bad4b8d8a106fb1",
+  "curve": {
+    "points": 7,
+    "columns": [
+      "cycle",
+      "maximum_axial_strain",
+      "absolute_uncertainty"
+    ],
+    "units": {
+      "cycle": "1",
+      "maximum_axial_strain": "1",
+      "absolute_uncertainty": "1"
+    },
+    "curve_identity": "experiment",
+    "absolute_uncertainty": 0.00025
+  },
+  "extraction": {
+    "method": "raster-axis calibration with exact-color curve inspection and manual review",
+    "image_size_pixels": [500, 326],
+    "plot_bounds_pixels": {
+      "x_cycle_0": 42,
+      "x_cycle_100": 478,
+      "y_strain_0": 295,
+      "y_strain_0_02": 15
+    },
+    "notes": [
+      "The source publishes no numerical response table.",
+      "Curve thickness, antialiasing and overlapping simulation markers are covered by a conservative 0.025 percentage-point uncertainty.",
+      "The source image and Abaqus input deck are identified by hash and URL but are not redistributed."
+    ]
+  },
+  "claim_scope": "Digitized experimental comparison points with explicit raster uncertainty; not an exact SIMULIA numerical table and not an AgentFEM-generated Golden.",
+  "promotion_requirements": [
+    "Reproduce the public specimen geometry, material calibration, nominal pressure history and central averaging region.",
+    "Report the digitization uncertainty separately from AgentFEM's acceptance tolerance.",
+    "Pass independent spatial-mesh and load-path refinement gates.",
+    "Exercise the full 100-cycle saturation response before engineering-maturity promotion."
+  ]
+}

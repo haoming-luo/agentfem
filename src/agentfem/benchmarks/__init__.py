@@ -14,6 +14,16 @@ from .cyclic_plasticity import (
     abaqus_ofhc_copper_cyclic_benchmark,
     axisymmetric_chaboche_ratcheting_crosscheck,
 )
+from .ratcheting_structure import (
+    DigitizedRatchetingCurve,
+    ShoulderedRatchetingAssessment,
+    ShoulderedRatchetingConvergence,
+    certify_simulia_316_shouldered_ratcheting_convergence,
+    simulia_316_experimental_ratcheting_curve,
+    simulia_316_shouldered_ratcheting_benchmark,
+    simulia_316_shouldered_specimen_mesh,
+    verify_simulia_ratcheting_input,
+)
 from .delamination_fem import (
     DCBCohesivePropagationCertificate,
     DCBCohesivePropagationCurve,
@@ -128,8 +138,16 @@ __all__ = [
     "AxisymmetricRatchetingCrosscheck",
     "CyclicPlasticityBenchmark",
     "RatchetingPathComparison",
+    "DigitizedRatchetingCurve",
+    "ShoulderedRatchetingAssessment",
+    "ShoulderedRatchetingConvergence",
     "abaqus_316_steel_ratcheting_path_comparison",
     "axisymmetric_chaboche_ratcheting_crosscheck",
+    "simulia_316_experimental_ratcheting_curve",
+    "certify_simulia_316_shouldered_ratcheting_convergence",
+    "simulia_316_shouldered_ratcheting_benchmark",
+    "simulia_316_shouldered_specimen_mesh",
+    "verify_simulia_ratcheting_input",
     "DCBCohesivePropagationCertificate",
     "DCBCohesivePropagationCurve",
     "DCBCohesivePropagationPoint",

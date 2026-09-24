@@ -12,7 +12,9 @@
     "agentfem.constitutive.ChabocheQuadratureState",
     "agentfem.constitutive.material_strain_path",
     "agentfem.constitutive.PlasticMaterialHistoryStep",
-    "agentfem.models.Model.step"
+    "agentfem.models.Model.step",
+    "agentfem.benchmarks.simulia_316_shouldered_ratcheting_benchmark",
+    "agentfem.benchmarks.certify_simulia_316_shouldered_ratcheting_convergence"
   ],
   "implementation": [
     "constitutive/plasticity.py",
@@ -80,7 +82,7 @@
       }
     ],
     "assumptions": [
-      "Small strain and associative three-dimensional Mises plasticity.",
+      "Small strain and associative three-dimensional or axisymmetric Mises plasticity.",
       "Material parameters are calibrated in one consistent unit system.",
       "The public cyclic path is a sequence of equilibrium states, not an implicit dynamic history."
     ],
@@ -92,17 +94,18 @@
       "The accepted discrete plastic-work ledger closes without presenting the backward-Euler contribution as material heat."
     ],
     "applicability": [
-      "Research and laboratory-scale three-dimensional cyclic plasticity with reviewed Chaboche calibration.",
-      "Displacement-controlled monotone or reversed paths requiring inspectable quadrature state."
+      "Research and laboratory-scale three-dimensional or axisymmetric cyclic plasticity with reviewed Chaboche calibration.",
+      "Stress-, strain-, or mixed-control monotone and reversed paths requiring inspectable quadrature state."
     ],
     "limitations": [
       "Plane stress, finite-strain plasticity and temperature-dependent cyclic plasticity are not implemented.",
-      "No external structure-level stabilized hysteresis benchmark has promoted this route beyond experimental maturity.",
+      "The external shouldered-specimen comparison is digitized from a public raster figure and retains an explicit uncertainty and convergence obligation.",
+      "The current automated structure evidence covers the first five cycles; the full published 100-cycle saturation response is not yet a routine gate.",
       "The discrete constitutive ledger is closed, but a calibrated thermomechanical heat-conversion model is not inferred from it."
     ]
   },
   "usage": {
-    "minimal_example": "Create constitutive.chaboche(...). For a material test, pass a tensor-valued constitutive.material_strain_path(...) to material.history(path).solve_result(). For a global model, register it in studies.static_solid(dimension=3, nonlinear=True), declare a tabular cyclic amplitude, and call model.step(target=u, material=steel, amplitude=history).",
+    "minimal_example": "Create constitutive.chaboche(...). For a material test, pass a tensor-valued constitutive.material_strain_path(...) to material.history(path).solve_result(). For a global model, register it in studies.static_solid(dimension=3, nonlinear=True) or an axisymmetric nonlinear-static Study, declare a tabular cyclic amplitude, and call model.step(target=u, material=steel, amplitude=history).",
     "examples": [
       "examples/chaboche_cyclic_3d.py"
     ]
@@ -110,10 +113,12 @@
   "verification": {
     "tests": [
       "tests/test_constitutive_models.py",
-      "tests/test_p1_platform.py"
+      "tests/test_p1_platform.py",
+      "tests/test_ratcheting_structure.py"
     ],
     "benchmarks": [
-      "agentfem.benchmark.chaboche_combined_hardening"
+      "agentfem.benchmark.chaboche_combined_hardening",
+      "agentfem.benchmark.simulia_316_ratcheting_structure"
     ],
     "validation_rules": [
       "Reject missing or mismatched backstress parameter pairs.",
@@ -121,6 +126,8 @@
       "Commit all hardening variables only after global increment acceptance.",
       "Require response-only and consistent-linearization material histories to produce identical accepted stresses and states.",
       "Preserve every declared reversal and hold knot under nested path refinement.",
+      "Keep digitized experimental values, raster uncertainty, AgentFEM acceptance tolerance and official-input SHA-256 distinct in structure evidence.",
+      "Require independent mesh and load-path convergence before promoting the shouldered specimen result.",
       "Require accepted plastic work to equal hardening-storage change plus reference-yield, dynamic-recovery and separately identified backward-Euler dissipation."
     ]
   },
@@ -132,6 +139,10 @@
     {
       "title": "Abaqus verification: import of combined-hardening material state",
       "locator": "https://docs.software.vt.edu/abaqusv2024/English/SIMACAEVERRefMap/simaver-c-import-plast.htm"
+    },
+    {
+      "title": "SIMULIA example: uniaxial ratcheting under tension and compression",
+      "locator": "https://docs.software.vt.edu/abaqusv2025/English/SIMACAEEXARefMap/simaexa-c-ratchetting.htm"
     },
     {
       "title": "NEML documentation: Chaboche nonassociative hardening",

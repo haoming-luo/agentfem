@@ -76,7 +76,7 @@ the compact machine-readable `agentfem/knowledge/catalog.json`.
 | `agentfem.benchmark.c3d10h_periodic_cell` | Imported C3D10H near-incompressible periodic cell | three-dimensional near-incompressible mixed Neo-Hookean periodic homogenization | manual_release_regression |
 | `agentfem.benchmark.cae_reliability_cliffs` | CAE reliability cliffs: orientation, discretization, and reference applicability | cross-cutting finite-element verification | partial_automated_suite |
 | `agentfem.benchmark.campaign_surrogate_pipeline` | Static-elasticity campaign to guarded surrogate pipeline | parameterized small-strain isotropic linear elasticity | executable_integration |
-| `agentfem.benchmark.chaboche_combined_hardening` | Abaqus OFHC copper proportional and nonproportional cyclic tests | three-dimensional small-strain J2 plasticity with tabulated isotropic hardening and one Armstrong--Frederick backstress under mixed stress--strain control | automated_external_material_point_comparison |
+| `agentfem.benchmark.chaboche_combined_hardening` | Abaqus OFHC copper and 316-steel cyclic material paths | three-dimensional and axisymmetric small-strain J2 plasticity with isotropic and Armstrong--Frederick kinematic hardening under strain, stress, or mixed control | automated_external_material_point_comparison |
 | `agentfem.benchmark.classical_sub_rayleigh_crack_v3` | Classical sub-Rayleigh cohesive crack guardrail | precracked compressible Neo-Hookean strip with a fixed-path bilinear Mode-I cohesive interface | experimental_v3_guardrail_automated |
 | `agentfem.benchmark.creep_abaqus_constant_stress` | Official Abaqus time-hardening constant-stress creep case | three-dimensional small-strain Mises time-hardening power-law creep | automated_external_verification |
 | `agentfem.benchmark.creep_damage_material_paths` | Creep-damage material paths and curve projection | Mises Kachanov-Rabotnov creep damage, hyperbolic-sine creep, and modified-theta curve projection | automated_regression |
@@ -120,6 +120,7 @@ the compact machine-readable `agentfem/knowledge/catalog.json`.
 | `agentfem.benchmark.pdeagent_bench_eleven_family` | PDEAgent-Bench eleven-family fixed-adapter milestone | Poisson, heat, linear elasticity, Helmholtz, convection--diffusion, reaction--diffusion, scalar wave, Burgers, Stokes, Navier--Stokes, and biharmonic equations | external_runner_development_snapshot |
 | `agentfem.benchmark.pdeagent_bench_scalar_seven_family` | PDEAgent-Bench seven-family fixed-adapter snapshot | Poisson, heat, linear elasticity, Helmholtz, convection--diffusion, reaction--diffusion, and scalar wave equations | external_runner_development_snapshot |
 | `agentfem.benchmark.plane_stress_thin_3d_crosscheck` | Finite-strain plane-stress and thin-three-dimensional patch cross-check | compressible Neo-Hookean finite strain under homogeneous uniaxial stretch with traction-free lateral and thickness directions | experimental_geometry_crosscheck_automated |
+| `agentfem.benchmark.simulia_316_ratcheting_structure` | SIMULIA 316-steel shouldered axisymmetric ratcheting specimen | axisymmetric small-strain 316-steel combined-hardening plasticity under asymmetric cyclic end pressure | external_structure_comparison_not_yet_promoted |
 | `agentfem.benchmark.thermo_creep_shared_material` | Shared temperature-dependent heat-to-creep material contract | Sequential three-dimensional transient heat transfer and small-strain thermoelastic Arrhenius power-law creep | automated_integration |
 | `agentfem.benchmark.thermoelastic_free_expansion` | Plane-stress isotropic free thermal expansion | small-strain isotropic plane-stress thermoelasticity under uniform temperature change | automated_regression |
 | `agentfem.benchmark.transient_heat_release` | Implicit-Euler transient heat release regression | two-dimensional transient heat conduction with constant isotropic properties | numerical_regression |
@@ -465,7 +466,7 @@ model.surface_force((0.0, -50000.0), on=loaded)
 **Status:** `experimental`<br>
 **Source card:** `src/agentfem/knowledge/cards/chaboche_global_plasticity.json`
 
-A three-dimensional or axisymmetric small-strain J2 route with exponential isotropic hardening, multiple Armstrong--Frederick backstresses, committed quadrature state, a fully discrete tangent, cyclic amplitudes, cutback, standard fields and restart through the ordinary model.step workflow.
+A three-dimensional small-strain J2 route with exponential isotropic hardening, multiple Armstrong--Frederick backstresses, committed quadrature state, a fully discrete tangent, cyclic amplitudes, cutback, standard fields and restart through the ordinary model.step workflow.
 
 ### Public API
 
@@ -475,6 +476,8 @@ A three-dimensional or axisymmetric small-strain J2 route with exponential isotr
 - `agentfem.constitutive.material_strain_path`
 - `agentfem.constitutive.PlasticMaterialHistoryStep`
 - `agentfem.models.Model.step`
+- `agentfem.benchmarks.simulia_316_shouldered_ratcheting_benchmark`
+- `agentfem.benchmarks.certify_simulia_316_shouldered_ratcheting_convergence`
 
 ### Scientific contract
 
@@ -522,7 +525,7 @@ Q and b are both zero or both positive in the public material contract.
 
 #### Assumptions
 
-- Small strain and associative three-dimensional Mises plasticity in a 3D solid or axisymmetric meridian.
+- Small strain and associative three-dimensional or axisymmetric Mises plasticity.
 - Material parameters are calibrated in one consistent unit system.
 - The public cyclic path is a sequence of equilibrium states, not an implicit dynamic history.
 
@@ -537,12 +540,13 @@ Q and b are both zero or both positive in the public material contract.
 #### Applicability
 
 - Research and laboratory-scale three-dimensional or axisymmetric cyclic plasticity with reviewed Chaboche calibration.
-- Traction- or displacement-controlled monotone or reversed paths requiring inspectable quadrature state.
+- Stress-, strain-, or mixed-control monotone and reversed paths requiring inspectable quadrature state.
 
 #### Limitations
 
 - Plane stress, finite-strain plasticity and temperature-dependent cyclic plasticity are not implemented.
-- No external structure-level stabilized hysteresis benchmark has promoted this route beyond experimental maturity.
+- The external shouldered-specimen comparison is digitized from a public raster figure and retains an explicit uncertainty and convergence obligation.
+- The current automated structure evidence covers the first five cycles; the full published 100-cycle saturation response is not yet a routine gate.
 - The discrete constitutive ledger is closed, but a calibrated thermomechanical heat-conversion model is not inferred from it.
 
 ### Minimal example
@@ -557,11 +561,12 @@ Create constitutive.chaboche(...). For a material test, pass a tensor-valued con
 
 - `tests/test_constitutive_models.py`
 - `tests/test_p1_platform.py`
+- `tests/test_ratcheting_structure.py`
 
 **Benchmarks**
 
 - `agentfem.benchmark.chaboche_combined_hardening`
-- `agentfem.benchmarks.axisymmetric_chaboche_ratcheting_crosscheck`
+- `agentfem.benchmark.simulia_316_ratcheting_structure`
 
 **Validation rules**
 
@@ -570,15 +575,15 @@ Create constitutive.chaboche(...). For a material test, pass a tensor-valued con
 - Commit all hardening variables only after global increment acceptance.
 - Require response-only and consistent-linearization material histories to produce identical accepted stresses and states.
 - Preserve every declared reversal and hold knot under nested path refinement.
-- Close every stress-controlled component of the published 316-steel asymmetric path and preserve its one-versus-two-backstress ratcheting trend without treating the plotted response as a numerical table.
-- Require a uniformly loaded axisymmetric tube to reproduce the independent material-point cycle-peak strain and close global Newton equilibrium; do not label that cross-check as the published shouldered-specimen Golden.
+- Keep digitized experimental values, raster uncertainty, AgentFEM acceptance tolerance and official-input SHA-256 distinct in structure evidence.
+- Require independent mesh and load-path convergence before promoting the shouldered specimen result.
 - Require accepted plastic work to equal hardening-storage change plus reference-yield, dynamic-recovery and separately identified backward-Euler dissipation.
 
 ### References
 
 - Abaqus theory: models for metals subjected to cyclic loading: `https://docs.software.vt.edu/abaqusv2024/English/SIMACAETHERefMap/simathe-c-combinedhardening.htm`
 - Abaqus verification: import of combined-hardening material state: `https://docs.software.vt.edu/abaqusv2024/English/SIMACAEVERRefMap/simaver-c-import-plast.htm`
-- Abaqus example: uniaxial ratcheting under tension and compression: `https://docs.software.vt.edu/abaqusv2025/English/SIMACAEEXARefMap/simaexa-c-ratchetting.htm`
+- SIMULIA example: uniaxial ratcheting under tension and compression: `https://docs.software.vt.edu/abaqusv2025/English/SIMACAEEXARefMap/simaexa-c-ratchetting.htm`
 - NEML documentation: Chaboche nonassociative hardening: `https://neml.readthedocs.io/en/stable/hardening/non/chaboche.html`
 
 <a id="agentfem-material-composite_ply_failure"></a>

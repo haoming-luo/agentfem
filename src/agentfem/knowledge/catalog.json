@@ -44,10 +44,10 @@
     },
     {
       "id": "agentfem.benchmark.chaboche_combined_hardening",
-      "physics": "three-dimensional small-strain J2 plasticity with tabulated isotropic hardening and one Armstrong--Frederick backstress under mixed stress--strain control",
+      "physics": "three-dimensional and axisymmetric small-strain J2 plasticity with isotropic and Armstrong--Frederick kinematic hardening under strain, stress, or mixed control",
       "source": "src/agentfem/knowledge/benchmarks/chaboche_combined_hardening.json",
       "status": "automated_external_material_point_comparison",
-      "title": "Abaqus OFHC copper proportional and nonproportional cyclic tests"
+      "title": "Abaqus OFHC copper and 316-steel cyclic material paths"
     },
     {
       "id": "agentfem.benchmark.classical_sub_rayleigh_crack_v3",
@@ -351,6 +351,13 @@
       "title": "Finite-strain plane-stress and thin-three-dimensional patch cross-check"
     },
     {
+      "id": "agentfem.benchmark.simulia_316_ratcheting_structure",
+      "physics": "axisymmetric small-strain 316-steel combined-hardening plasticity under asymmetric cyclic end pressure",
+      "source": "src/agentfem/knowledge/benchmarks/simulia_316_ratcheting_structure.json",
+      "status": "external_structure_comparison_not_yet_promoted",
+      "title": "SIMULIA 316-steel shouldered axisymmetric ratcheting specimen"
+    },
+    {
       "id": "agentfem.benchmark.thermo_creep_shared_material",
       "physics": "Sequential three-dimensional transient heat transfer and small-strain thermoelastic Arrhenius power-law creep",
       "source": "src/agentfem/knowledge/benchmarks/thermo_creep_shared_material.json",
@@ -460,7 +467,9 @@
         "agentfem.constitutive.ChabocheQuadratureState",
         "agentfem.constitutive.material_strain_path",
         "agentfem.constitutive.PlasticMaterialHistoryStep",
-        "agentfem.models.Model.step"
+        "agentfem.models.Model.step",
+        "agentfem.benchmarks.simulia_316_shouldered_ratcheting_benchmark",
+        "agentfem.benchmarks.certify_simulia_316_shouldered_ratcheting_convergence"
       ],
       "related_cards": [
         "agentfem.material.j2_global_plasticity",
