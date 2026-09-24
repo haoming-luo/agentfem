@@ -263,6 +263,53 @@ def test_chaboche_homogeneous_batch_matches_scalar_discrete_updates(material):
     )
 
 
+@pytest.mark.parametrize(
+    "material",
+    (_chaboche(), _tabulated_chaboche()),
+    ids=("exponential_isotropic", "tabulated_isotropic"),
+)
+def test_chaboche_safeguarded_batch_root_matches_random_scalar_paths(material):
+    rng = np.random.default_rng(20260925)
+    previous_strains = rng.normal(scale=2.5e-3, size=(64, 3, 3))
+    previous_strains = 0.5 * (
+        previous_strains + np.swapaxes(previous_strains, -1, -2)
+    )
+    increments = rng.normal(scale=1.5e-3, size=(64, 3, 3))
+    increments = 0.5 * (increments + np.swapaxes(increments, -1, -2))
+    states = tuple(
+        material.update(strain, linearization="none").state
+        for strain in previous_strains
+    )
+    strains = previous_strains + increments
+
+    batch = material._update_batch(
+        strains,
+        np.asarray([state.plastic_strain for state in states]),
+        np.asarray([state.equivalent_plastic_strain for state in states]),
+        np.asarray([state.backstresses for state in states]),
+    )
+    scalar = tuple(
+        material.update(strain, state)
+        for strain, state in zip(strains, states, strict=True)
+    )
+
+    np.testing.assert_allclose(batch.stress, [item.stress for item in scalar])
+    np.testing.assert_allclose(
+        batch.equivalent_plastic_strain,
+        [item.state.equivalent_plastic_strain for item in scalar],
+    )
+    np.testing.assert_allclose(
+        batch.plastic_multiplier_increment,
+        [item.plastic_multiplier_increment for item in scalar],
+    )
+    np.testing.assert_allclose(
+        batch.algorithmic_tangent,
+        [item.algorithmic_tangent for item in scalar],
+        rtol=1.0e-10,
+        atol=1.0e-7,
+    )
+
+
 def test_material_histories_enter_campaign_and_scientific_dataset_directly(tmp_path):
     space = campaigns.ParameterSpace.create(
         campaigns.RealParameter("hardening_modulus", 500.0, 1_000.0, unit="MPa")

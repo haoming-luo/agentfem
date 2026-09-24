@@ -218,6 +218,14 @@ state, tangent and both discrete dissipation channels. The complete 100-cycle
 response is reserved for weekly and release-candidate evidence rather than
 every development push; a release gate runs it from the exact wheel that will
 be published.
+The batch consistency equation uses its analytical derivative inside the
+existing root bracket. Newton candidates are accepted only while finite and
+strictly inside that bracket; all other candidates revert to bisection. The
+local root is resolved more tightly than its public material tolerance before
+the consistent tangent is handed to global Newton.
+An accepted backtracking trial also carries its already evaluated constitutive
+state and assembled residual into the next Newton iteration. This removes an
+identical repeated evaluation without omitting a residual or convergence test.
 Accepted-step energy operators are compiled once per Step and reused with
 updated quadrature coefficients. This removes repeated JIT work without
 thinning the energy history or changing its physical channels.

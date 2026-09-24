@@ -611,7 +611,7 @@ class ChabocheCombinedHardening:
         recovery = np.asarray(self.dynamic_recovery, dtype=float)
         moduli = np.asarray(self.backstress_moduli, dtype=float)
 
-        def consistency(delta):
+        def consistency(delta, *, with_modulus=False):
             theta = 1.0 / (1.0 + delta[:, None] * recovery[None, :])
             base = trial_dev - np.einsum("ma,maij->mij", theta, old_bs)
             q_base = mises_many(base)
@@ -621,7 +621,40 @@ class ChabocheCombinedHardening:
                 - delta * np.einsum("ma,a->m", theta, moduli)
                 - yield_many(old_peeq + delta)
             )
-            return value, theta, base, q_base
+            if not with_modulus:
+                return value, theta, base, q_base, None, None
+            direction = np.divide(
+                1.5 * base,
+                q_base[:, None, None],
+                out=np.zeros_like(base),
+                where=q_base[:, None, None] > 0.0,
+            )
+            backstress_direction = np.einsum(
+                "ma,maij->mij",
+                recovery[None, :] * theta**2,
+                old_bs,
+            )
+            weighted_modulus = np.einsum("ma,a->m", theta, moduli)
+            weighted_modulus_derivative = -np.einsum(
+                "ma,a->m",
+                recovery[None, :] * theta**2,
+                moduli,
+            )
+            consistency_modulus = (
+                3.0 * self.shear_modulus
+                + weighted_modulus
+                + delta * weighted_modulus_derivative
+                + isotropic_slope_many(old_peeq + delta)
+                - np.sum(direction * backstress_direction, axis=(-2, -1))
+            )
+            return (
+                value,
+                theta,
+                base,
+                q_base,
+                backstress_direction,
+                consistency_modulus,
+            )
 
         maximum_isotropic_slope = (
             self.isotropic_saturation * self.isotropic_rate
@@ -649,28 +682,58 @@ class ChabocheCombinedHardening:
             raise RuntimeError("Could not bracket the Chaboche batch consistency root.")
 
         scale = np.maximum.reduce((np.ones_like(yield_radius), yield_radius, q_trial[selected]))
+        # The analytical tangent is more sensitive to the local root than the
+        # stress update itself.  Resolve the batched root two decimal orders
+        # beyond the public material tolerance, with a floating-point floor,
+        # so the global Newton path retains the scalar algorithm's robustness.
+        root_tolerance = np.maximum(
+            32.0 * np.finfo(float).eps,
+            0.01 * self.local_tolerance,
+        ) * scale
         converged = np.zeros_like(trial_f, dtype=bool)
         delta = upper.copy()
         for _ in range(self.local_maximum_iterations):
-            trial_delta = 0.5 * (lower + upper)
-            value = consistency(trial_delta)[0]
+            value, _, _, _, _, modulus = consistency(delta, with_modulus=True)
             newly_converged = (~converged) & (
-                np.abs(value) <= self.local_tolerance * scale
+                np.abs(value) <= root_tolerance
             )
-            delta[newly_converged] = trial_delta[newly_converged]
             active = ~converged & ~newly_converged
             if not np.any(active):
                 converged |= newly_converged
                 break
             positive = active & (value > 0.0)
             negative = active & ~positive
-            lower[positive] = trial_delta[positive]
-            upper[negative] = trial_delta[negative]
+            lower[positive] = delta[positive]
+            upper[negative] = delta[negative]
             converged |= newly_converged
+            candidate = delta + np.divide(
+                value,
+                modulus,
+                out=np.full_like(value, np.nan),
+                where=np.isfinite(modulus) & (modulus > 0.0),
+            )
+            safeguarded = (
+                np.isfinite(candidate)
+                & (candidate > lower)
+                & (candidate < upper)
+            )
+            midpoint = 0.5 * (lower + upper)
+            delta[active] = np.where(
+                safeguarded[active],
+                candidate[active],
+                midpoint[active],
+            )
         else:
             raise RuntimeError("Chaboche batch local return did not converge.")
 
-        _, theta, base, q_base = consistency(delta)
+        (
+            _,
+            theta,
+            base,
+            q_base,
+            backstress_direction,
+            denominator,
+        ) = consistency(delta, with_modulus=True)
         if np.any(q_base <= 0.0):
             raise RuntimeError(
                 "Plastic Chaboche batch return requires positive direction norms."
@@ -691,24 +754,6 @@ class ChabocheCombinedHardening:
         )
         equivalent = old_peeq + delta
 
-        backstress_direction = np.einsum(
-            "ma,maij->mij",
-            recovery[None, :] * theta**2,
-            old_bs,
-        )
-        weighted_modulus = np.einsum("ma,a->m", theta, moduli)
-        weighted_modulus_derivative = -np.einsum(
-            "ma,a->m",
-            recovery[None, :] * theta**2,
-            moduli,
-        )
-        denominator = (
-            3.0 * self.shear_modulus
-            + weighted_modulus
-            + delta * weighted_modulus_derivative
-            + isotropic_slope_many(equivalent)
-            - np.sum(direction * backstress_direction, axis=(-2, -1))
-        )
         if np.any(~np.isfinite(denominator)) or np.any(denominator <= 0.0):
             raise RuntimeError(
                 "Chaboche batch tangent has a nonpositive consistency modulus."

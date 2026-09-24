@@ -667,6 +667,31 @@ def test_global_j2_uniaxial_path_matches_versioned_analytical_golden():
     assert simulation.metadata["execution"]["event_count"] > 4
 
 
+def test_global_j2_reuses_an_accepted_line_search_evaluation(monkeypatch):
+    step, _ = _j2_uniaxial_patch()
+    original_update = step.state.update
+    calls = 0
+
+    def counted_update(*args, **kwargs):
+        nonlocal calls
+        calls += 1
+        return original_update(*args, **kwargs)
+
+    monkeypatch.setattr(step.state, "update", counted_update)
+    step.solve()
+
+    assert calls == sum(
+        increment.iterations + 1 for increment in step.attempted_increments
+    )
+    accepted_steps = tuple(
+        event.step_length
+        for event in step.execution_events
+        if event.kind == "iteration" and event.step_length is not None
+    )
+    assert accepted_steps
+    assert set(accepted_steps) == {1.0}
+
+
 def test_j2_solve_result_writes_recovered_state_in_common_dataset(tmp_path):
     step, _ = _j2_uniaxial_patch()
 

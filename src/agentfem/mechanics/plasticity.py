@@ -1418,12 +1418,17 @@ class J2PlasticityStep:
         }
         converged = False
         iteration = 0
+        accepted_trial: tuple[dict[str, float | int], object, float] | None = None
         for iteration in range(self.solver_options.maximum_iterations + 1):
-            update_info = self.state.update(
-                self.state.evaluate_strain(self._strain_evaluator),
-                self.material,
-            )
-            rhs, norm = self._correction_rhs()
+            if accepted_trial is None:
+                update_info = self.state.update(
+                    self.state.evaluate_strain(self._strain_evaluator),
+                    self.material,
+                )
+                rhs, norm = self._correction_rhs()
+            else:
+                update_info, rhs, norm = accepted_trial
+                accepted_trial = None
             if initial_norm is None:
                 initial_norm = norm
             threshold = (
@@ -1475,7 +1480,7 @@ class J2PlasticityStep:
             base = self.solution.x.array.copy()
             direction = correction.array_r.copy()
             correction.destroy()
-            alpha = self._line_search(base, direction, norm)
+            alpha, accepted_trial = self._line_search(base, direction, norm)
             self._emit(
                 reporter,
                 SolveEvent(
@@ -1508,27 +1513,32 @@ class J2PlasticityStep:
             ),
         )
 
-    def _line_search(self, base, direction, base_norm: float) -> float:
+    def _line_search(
+        self,
+        base,
+        direction,
+        base_norm: float,
+    ) -> tuple[float, tuple[dict[str, float | int], object, float] | None]:
         options = self.solver_options
         alpha = 1.0
         if options.line_search in {None, "basic"}:
             self._assign_trial(base, direction, alpha)
-            return alpha
+            return alpha, None
         while alpha + 1.0e-15 >= options.minimum_step_length:
             self._assign_trial(base, direction, alpha)
-            self.state.update(
+            update_info = self.state.update(
                 self.state.evaluate_strain(self._strain_evaluator),
                 self.material,
             )
             rhs, trial_norm = self._correction_rhs()
-            rhs.destroy()
             if np.isfinite(trial_norm) and trial_norm < base_norm:
-                return alpha
+                return alpha, (update_info, rhs, trial_norm)
+            rhs.destroy()
             alpha *= options.line_search_reduction
         self.solution.x.array[:] = base
         self.solution.x.scatter_forward()
         self.state.rollback()
-        return 0.0
+        return 0.0, None
 
     def _assign_trial(self, base, direction, alpha: float) -> None:
         self.solution.x.array[:] = base

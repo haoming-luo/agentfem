@@ -140,6 +140,14 @@ experimental formulation to a validated one.
   use vectorized gather/scatter for constitutive state. This preserves the
   DOLFINx dofmap and MPI ghost semantics while removing repeated Python
   cell-point loops from nonlinear material updates and energy histories.
+- Accelerate homogeneous Chaboche return mapping with an analytically
+  differentiated Newton step protected by the existing root bracket. Invalid
+  or out-of-bracket candidates fall back to bisection, and the local root is
+  tightened before its consistent tangent enters global Newton.
+- Reuse the constitutive state and assembled residual already accepted by J2
+  backtracking line search in the next Newton iteration, instead of evaluating
+  the identical trial point twice. Convergence tests and residual history are
+  unchanged.
 - Make the founding technical report the stable preferred citation while
   retaining the exact software release separately for reproducibility.
 - Build the large macOS and Windows/WSL Complete Runtimes only after an
