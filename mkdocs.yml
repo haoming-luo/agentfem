@@ -189,6 +189,7 @@ nav:
       - API Style: api_style.md
       - Agent and GUI Integration: agent_gui_integration.md
       - Abaqus User Materials: abaqus_user_material_bridge.md
+      - Learned Constitutive Models: learned_constitutive_models.md
       - Private Extension Packages: extensions_and_private_products.md
       - AgentFEM Skill: agents/skill.md
 

@@ -14,6 +14,8 @@ from . import material_driver
 from . import plasticity
 from . import quadrature
 from . import user_material
+from . import small_strain_material
+from . import small_strain_driver
 from . import viscoelasticity
 from .catalog import ConstitutiveCapability, capabilities, capability
 from .creep import (
@@ -175,6 +177,25 @@ from .user_material import (
     check_material_tangent,
     validated_material_update,
 )
+from .small_strain_material import (
+    BatchedSmallStrainUserMaterial,
+    SmallStrainMaterialBatchInput,
+    SmallStrainMaterialBatchOutput,
+    SmallStrainMaterialPointInput,
+    SmallStrainMaterialPointOutput,
+    SmallStrainMaterialTangentCheck,
+    SmallStrainUserMaterial,
+    check_small_strain_material_tangent,
+    update_small_strain_material_batch,
+    validated_small_strain_update,
+    voigt_stress_to_tensor,
+)
+from .small_strain_driver import (
+    SmallStrainMaterialBatchError,
+    SmallStrainMaterialQuadratureResponse,
+    SmallStrainQuadratureBatchResult,
+    update_small_strain_quadrature_state,
+)
 from .viscoelasticity import (
     ArrheniusShift,
     GeneralizedMaxwell,
@@ -209,8 +230,11 @@ __all__ = [
     "plasticity",
     "quadrature",
     "user_material",
+    "small_strain_material",
+    "small_strain_driver",
     "viscoelasticity",
     "AbaqusUserMaterialBridge",
+    "BatchedSmallStrainUserMaterial",
     "ArrheniusPowerLawCreep",
     "ArrheniusShift",
     "AnisotropicElasticMaterial2D",
@@ -261,6 +285,15 @@ __all__ = [
     "MaterialStateVariable",
     "MaterialTangentCheck",
     "MaterialTangentConvention",
+    "SmallStrainMaterialBatchInput",
+    "SmallStrainMaterialBatchOutput",
+    "SmallStrainMaterialBatchError",
+    "SmallStrainMaterialQuadratureResponse",
+    "SmallStrainMaterialPointInput",
+    "SmallStrainMaterialPointOutput",
+    "SmallStrainMaterialTangentCheck",
+    "SmallStrainUserMaterial",
+    "SmallStrainQuadratureBatchResult",
     "MaxwellState",
     "KachanovRabotnovCreep",
     "ModifiedThetaProjection",
@@ -285,6 +318,11 @@ __all__ = [
     "validated_material_update",
     "update_material_points",
     "check_material_tangent",
+    "check_small_strain_material_tangent",
+    "update_small_strain_material_batch",
+    "update_small_strain_quadrature_state",
+    "validated_small_strain_update",
+    "voigt_stress_to_tensor",
     "anisotropic_stress_2d",
     "anisotropic_stress_3d",
     "anisotropic_elastic_2d",

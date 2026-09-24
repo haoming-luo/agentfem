@@ -202,6 +202,7 @@ class MaterialTangentConvention:
         allowed_pairs = {
             ("first_piola", "deformation_gradient", "reference"),
             ("second_piola", "green_lagrange_strain", "reference"),
+            ("cauchy", "small_strain", "reference"),
             ("cauchy", "rate_of_deformation", "current"),
             ("kirchhoff", "rate_of_deformation", "current"),
         }
@@ -279,6 +280,27 @@ class MaterialTangentConvention:
             component_order=tuple(f"{i}{j}" for i in range(1, 4) for j in range(1, 4)),
             shear_convention="not_applicable",
             symmetric=False,
+        )
+
+    @classmethod
+    def cauchy_small_strain(
+        cls,
+        *,
+        component_order: tuple[str, ...] = ("xx", "yy", "zz", "xy", "yz", "xz"),
+        shear_convention: str = "tensor",
+        symmetric: bool = False,
+    ) -> "MaterialTangentConvention":
+        """Return the canonical small-strain Cauchy tangent declaration."""
+
+        return cls(
+            stress_measure="cauchy",
+            kinematic_measure="small_strain",
+            configuration="reference",
+            storage="matrix_6x6",
+            component_order=component_order,
+            shear_convention=shear_convention,
+            objective_rate="not_applicable",
+            symmetric=symmetric,
         )
 
     def summary(self) -> dict[str, object]:

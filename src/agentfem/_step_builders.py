@@ -25,6 +25,7 @@ from ._step_builders_inelastic import (
     creep,
     finite_strain_j2,
     j2_plasticity,
+    learned_constitutive,
     viscoelastic,
 )
 from ._step_builders_thermal import heat_transfer, linear_static
@@ -41,6 +42,7 @@ __all__ = (
     "hyperelastic",
     "implicit_dynamics",
     "j2_plasticity",
+    "learned_constitutive",
     "linear_static",
     "mixed_hyperelastic",
     "modal",

@@ -51,6 +51,14 @@ from .sections import (
 )
 from .schemas import validate_material_record
 
+
+def learned(specification):
+    """Load a learned material through its explicitly activated provider."""
+
+    from ..learning import load_learned_constitutive
+
+    return load_learned_constitutive(specification)
+
 __all__ = [
     "ElasticAnisotropic2DProperties",
     "ElasticAnisotropic3DProperties",
@@ -89,4 +97,5 @@ __all__ = [
     "material_record",
     "register_material",
     "validate_material_record",
+    "learned",
 ]

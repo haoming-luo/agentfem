@@ -63,6 +63,7 @@ def test_discovery_is_lazy_and_activation_is_explicit(monkeypatch):
         "step_providers": (),
         "backends": (),
         "materials": (),
+        "learned_constitutive_providers": (),
     }
     assert entry_point.loads == 1
     assert calls == ["company-solids"]

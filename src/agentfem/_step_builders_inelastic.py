@@ -91,6 +91,93 @@ def j2_plasticity(
     return model.add_step(step)
 
 
+def learned_constitutive(
+    model,
+    *,
+    target,
+    material=None,
+    constraints=None,
+    incrementation=None,
+    solver_options=None,
+    quadrature_degree: int = 2,
+    progress=True,
+    status_file=None,
+    amplitude=None,
+    name: str = "learned_constitutive",
+):
+    """Build one ordinary nonlinear Step from the generic material contract."""
+
+    from . import mechanics
+    from .learning import LearnedConstitutiveMaterialBinding
+
+    model.check(target=target, step_options={"material": material})
+    if hasattr(model.study, "require"):
+        model.study.require(analysis="nonlinear_static", physics="solid_mechanics")
+    if material is not None:
+        selected = model._material_record(material).item
+    elif len(model.materials) == 1 and model.materials[0].region is None:
+        selected = model.materials[0].item
+    else:
+        raise NotImplementedError(
+            "The first generic small-strain material Step requires one global "
+            "material. Regional learned-material dispatch is a separate batch map."
+        )
+    if not isinstance(selected, LearnedConstitutiveMaterialBinding):
+        raise TypeError("This Step requires a LearnedConstitutiveMaterialBinding.")
+    required = set(selected.specification.required_inputs)
+    available = {"strain_old", "strain_new", "state_old", "parameters"}
+    unavailable = sorted(required - available)
+    if unavailable:
+        raise NotImplementedError(
+            "This quasistatic Step does not yet provide learned-material inputs "
+            f"{unavailable!r}. Use a compatible provider model or a future "
+            "temperature/rate-aware procedure; inputs are never synthesized."
+        )
+    if "consistent_tangent" not in selected.specification.capabilities:
+        raise ValueError(
+            "Implicit global equilibrium requires a provider-verified "
+            "consistent_tangent capability. Material-point-only models may not "
+            "be lowered to this Step."
+        )
+    time_dependent_constraints = tuple(
+        item
+        for item in constraint_api.dirichlet_constraints(
+            model.constraints if constraints is None else constraints
+        )
+        if isinstance(item, constraint_api.TimeDependentDirichlet)
+    )
+    if time_dependent_constraints:
+        raise NotImplementedError(
+            "Use one normalized Step amplitude rather than independent absolute "
+            "Dirichlet histories for a stateful learned material."
+        )
+    selected_loads, amplitude = _single_shared_amplitude_loads(
+        model.loads,
+        amplitude,
+        label="learned constitutive",
+        physical_time=False,
+    )
+    step = mechanics.small_strain_material_step(
+        displacement=target,
+        material=selected,
+        external_force=(
+            model.external_force(target, loads=selected_loads)
+            if selected_loads
+            else None
+        ),
+        constraints=model.constraints if constraints is None else constraints,
+        study=model.study,
+        incrementation=incrementation,
+        solver_options=solver_options,
+        quadrature_degree=quadrature_degree,
+        progress=progress,
+        status_file=status_file,
+        amplitude=amplitude,
+        name=name,
+    )
+    return model.add_step(step)
+
+
 def finite_strain_j2(
     model,
     *,

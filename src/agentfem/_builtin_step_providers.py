@@ -188,6 +188,46 @@ def _accept_j2(model, request: StepRequest) -> bool:
     )
 
 
+def _accept_learned_constitutive(model, request: StepRequest) -> bool:
+    from .learning import LearnedConstitutiveMaterialBinding
+
+    study = getattr(model, "study", None)
+    return (
+        getattr(study, "physics", None) == "solid_mechanics"
+        and getattr(study, "analysis", None) == "nonlinear_static"
+        and _is_vector_target(request.target)
+        and (
+            getattr(study, "dimension", None) == 3
+            or (
+                getattr(study, "dimension", None) == 2
+                and getattr(study, "assumption", None) == "plane_strain"
+            )
+        )
+        and _all_materials_support(
+            model,
+            request,
+            lambda item: isinstance(item, LearnedConstitutiveMaterialBinding),
+        )
+    )
+
+
+def _lower_learned_constitutive(model, request: StepRequest):
+    from . import _step_builders
+
+    options = dict(request.options)
+    material = options.pop("material", None)
+    options.pop("K", None)
+    options.pop("F", None)
+    options.pop("output", None)
+    name = options.pop("name", None) or "learned_constitutive"
+    return _step_builders.learned_constitutive(
+        model,
+        target=request.target,
+        material=material,
+        name=name,
+        **options,
+    )
+
 def _accept_finite_strain_j2_affine(model, request: StepRequest) -> bool:
     from . import loads as load_api
     from .constitutive import FiniteStrainJ2Logarithmic
@@ -1141,6 +1181,27 @@ register_step_provider(
             "progress",
             "status_file",
             "checkpoint",
+        ),
+    )
+)
+register_step_provider(
+    StepProvider(
+        name="learned_constitutive_small_strain_static",
+        analyses=("nonlinear_static",),
+        accepts=_accept_learned_constitutive,
+        lower=_lower_learned_constitutive,
+        priority=130,
+        description=(
+            "Lower a provider-neutral small-strain material to batched "
+            "quadrature-state Newton equilibrium with fail-closed domain checks."
+        ),
+        procedure="standard/newton/learned_constitutive/stateful",
+        option_contract=_option_contract(
+            "incrementation",
+            "quadrature_degree",
+            "progress",
+            "status_file",
+            "amplitude",
         ),
     )
 )

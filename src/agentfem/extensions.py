@@ -100,6 +100,9 @@ class ExtensionContext:
     _step_providers: list[tuple[object, bool]] = field(default_factory=list)
     _backends: list[tuple[str, object, bool]] = field(default_factory=list)
     _materials: list[tuple[str, dict[str, object], bool]] = field(default_factory=list)
+    _learned_constitutive_providers: list[tuple[object, bool]] = field(
+        default_factory=list
+    )
 
     def add_step_provider(self, provider, *, replace: bool = False) -> None:
         """Stage a ``StepProvider`` for model validation and lowering."""
@@ -122,6 +125,16 @@ class ExtensionContext:
 
         self._materials.append((str(name), dict(record), bool(replace)))
 
+    def add_learned_constitutive_provider(
+        self,
+        provider,
+        *,
+        replace: bool = False,
+    ) -> None:
+        """Stage a framework-owned learned-material runtime provider."""
+
+        self._learned_constitutive_providers.append((provider, bool(replace)))
+
     def summary(self) -> dict[str, object]:
         return {
             "step_providers": tuple(
@@ -130,20 +143,31 @@ class ExtensionContext:
             ),
             "backends": tuple(name for name, _, _ in self._backends),
             "materials": tuple(name for name, _, _ in self._materials),
+            "learned_constitutive_providers": tuple(
+                getattr(provider, "name", type(provider).__name__)
+                for provider, _ in self._learned_constitutive_providers
+            ),
         }
 
     def commit(self) -> None:
         """Validate the complete registration plan, then publish it."""
 
         from . import backends, materials
+        from .learning import (
+            LearnedConstitutiveProvider,
+            learned_constitutive_providers,
+            register_learned_constitutive_provider,
+        )
         from .step_providers import StepProvider, register_step_provider, step_providers
 
         provider_names = {item.name for item in step_providers()}
         backend_names = set(backends.available_backends())
         material_names = set(materials.list_materials())
+        learned_provider_names = set(learned_constitutive_providers())
         staged_provider_names: set[str] = set()
         staged_backend_names: set[str] = set()
         staged_material_names: set[str] = set()
+        staged_learned_provider_names: set[str] = set()
 
         for provider, replace in self._step_providers:
             if not isinstance(provider, StepProvider):
@@ -184,12 +208,28 @@ class ExtensionContext:
             )
             staged_material_names.add(name)
 
+        for provider, replace in self._learned_constitutive_providers:
+            if not isinstance(provider, LearnedConstitutiveProvider):
+                raise TypeError(
+                    "Learned constitutive providers must expose name and create()."
+                )
+            _check_conflict(
+                "learned constitutive provider",
+                provider.name,
+                learned_provider_names,
+                staged_learned_provider_names,
+                replace=replace,
+            )
+            staged_learned_provider_names.add(provider.name)
+
         for provider, replace in self._step_providers:
             register_step_provider(provider, replace=replace)
         for name, factory, replace in self._backends:
             backends.register_backend(name, factory, overwrite=replace)
         for name, record, replace in self._materials:
             materials.register_material(name, record, overwrite=replace)
+        for provider, replace in self._learned_constitutive_providers:
+            register_learned_constitutive_provider(provider, replace=replace)
 
 
 @dataclass(frozen=True)
