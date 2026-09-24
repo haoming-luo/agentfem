@@ -458,6 +458,8 @@
         "agentfem.constitutive.chaboche",
         "agentfem.constitutive.ChabocheCombinedHardening",
         "agentfem.constitutive.ChabocheQuadratureState",
+        "agentfem.constitutive.material_strain_path",
+        "agentfem.constitutive.PlasticMaterialHistoryStep",
         "agentfem.models.Model.step"
       ],
       "related_cards": [

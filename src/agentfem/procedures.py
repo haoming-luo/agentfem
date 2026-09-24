@@ -199,6 +199,20 @@ def viscoelastic_history() -> SolutionProcedure:
     )
 
 
+def material_history() -> SolutionProcedure:
+    """Increment-wise material-point response without a global FEM solve."""
+
+    return SolutionProcedure(
+        name="material-point constitutive history",
+        family="standard",
+        equation_order="first_order",
+        control="time_increments",
+        algorithm="incremental_constitutive_update",
+        requires_global_solve=False,
+        stateful=True,
+    )
+
+
 def newmark() -> SolutionProcedure:
     return SolutionProcedure(
         name="Newmark",

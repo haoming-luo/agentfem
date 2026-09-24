@@ -472,6 +472,8 @@ A three-dimensional small-strain J2 route with exponential isotropic hardening, 
 - `agentfem.constitutive.chaboche`
 - `agentfem.constitutive.ChabocheCombinedHardening`
 - `agentfem.constitutive.ChabocheQuadratureState`
+- `agentfem.constitutive.material_strain_path`
+- `agentfem.constitutive.PlasticMaterialHistoryStep`
 - `agentfem.models.Model.step`
 
 ### Scientific contract
@@ -516,6 +518,7 @@ Q and b are both zero or both positive in the public material contract.
 | S, PE and PEEQ | quadrature fields | stress and strain | Accepted Cauchy stress, plastic strain and accumulated equivalent plastic strain. |
 | ALPHA | quadrature tensor field | stress | Sum of all committed backstress components. |
 | DDSDDE | fourth-order quadrature tensor field | stress per strain | Central directional derivative of the fully discrete return map consumed by global Newton. |
+| material history result | SimulationResult histories | declared material unit system | Stress, strain, PE, PEEQ, individual and total backstress, yield residual, path identity and explicitly incomplete energy evidence; response-only histories omit DDSDDE. |
 
 #### Assumptions
 
@@ -528,6 +531,7 @@ Q and b are both zero or both positive in the public material contract.
 - Every rejected increment rolls back PE, PEEQ and every backstress component atomically.
 - The normalized Step coordinate stays monotone while the declared amplitude may reverse.
 - ALPHA is the total backstress; individual components remain in the restartable constitutive state.
+- Signed plastic work, recoverable hardening storage and the reference-yield contribution remain separately named; no complete dynamic-recovery dissipation is inferred.
 
 #### Applicability
 
@@ -543,7 +547,7 @@ Q and b are both zero or both positive in the public material contract.
 ### Minimal example
 
 ```python
-Create constitutive.chaboche(...), register it in studies.static_solid(dimension=3, nonlinear=True), declare a tabular cyclic amplitude, and call model.step(target=u, material=steel, amplitude=history).
+Create constitutive.chaboche(...). For a material test, pass a tensor-valued constitutive.material_strain_path(...) to material.history(path).solve_result(). For a global model, register it in studies.static_solid(dimension=3, nonlinear=True), declare a tabular cyclic amplitude, and call model.step(target=u, material=steel, amplitude=history).
 ```
 
 ### Verification
@@ -562,6 +566,8 @@ Create constitutive.chaboche(...), register it in studies.static_solid(dimension
 - Reject missing or mismatched backstress parameter pairs.
 - Reject a restart whose material, mesh, quadrature state or amplitude identity differs.
 - Commit all hardening variables only after global increment acceptance.
+- Require response-only and consistent-linearization material histories to produce identical accepted stresses and states.
+- Preserve every declared reversal and hold knot under nested path refinement.
 
 ### References
 

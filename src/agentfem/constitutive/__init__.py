@@ -187,6 +187,12 @@ from .viscoelasticity import (
     isotropic_generalized_maxwell,
     standard_linear_solid,
 )
+from .._material_history import (
+    MaterialLoadingPath,
+    PlasticMaterialHistoryResponse,
+    PlasticMaterialHistoryStep,
+    material_strain_path,
+)
 
 __all__ = [
     "catalog",
@@ -241,6 +247,9 @@ __all__ = [
     "MaterialPointInput",
     "MaterialPointBatchResult",
     "MaterialPointOutput",
+    "MaterialLoadingPath",
+    "PlasticMaterialHistoryResponse",
+    "PlasticMaterialHistoryStep",
     "MaterialQuadratureState",
     "MaterialQuadratureResponse",
     "MaterialStateSchema",
@@ -332,6 +341,7 @@ __all__ = [
     "fit_relaxation_prony",
     "isotropic_generalized_maxwell",
     "miner_damage",
+    "material_strain_path",
     "rainflow_cycles",
     "neo_hookean",
     "neo_hookean_plane_stress",

@@ -1,0 +1,196 @@
+from __future__ import annotations
+
+import numpy as np
+import pytest
+
+from agentfem import constitutive
+
+
+def _uniaxial_path(values, *, name="cyclic_strain"):
+    strains = np.zeros((len(values), 3, 3), dtype=float)
+    strains[:, 0, 0] = values
+    return constitutive.material_strain_path(
+        np.arange(len(values), dtype=float),
+        strains,
+        name=name,
+        coordinate_name="load_coordinate",
+    )
+
+
+def _j2():
+    return constitutive.J2LinearIsotropicHardening(
+        young=210_000.0,
+        poisson=0.3,
+        yield_stress=250.0,
+        hardening_modulus=1_000.0,
+    )
+
+
+def _chaboche():
+    return constitutive.chaboche(
+        young=210_000.0,
+        poisson=0.3,
+        yield_stress=220.0,
+        backstresses=((25_000.0, 120.0), (8_000.0, 20.0)),
+        isotropic_saturation=80.0,
+        isotropic_rate=12.0,
+    )
+
+
+def test_material_loading_path_refinement_preserves_every_physical_knot():
+    path = _uniaxial_path((0.0, 0.004, -0.002, 0.003))
+    refined = path.refine(3)
+    nested = refined.refine(2)
+
+    for coordinate, strain in zip(path.coordinate, path.strain, strict=True):
+        selected = np.flatnonzero(refined.coordinate == coordinate)
+        assert selected.size == 1
+        np.testing.assert_array_equal(refined.strain[selected[0]], strain)
+    for coordinate in refined.coordinate:
+        assert np.count_nonzero(nested.coordinate == coordinate) == 1
+    assert path.fingerprint.startswith("sha256:")
+    assert path.fingerprint != refined.fingerprint
+    assert path.summary()["interpolation"] == "piecewise_linear_exact_knots"
+    renamed = constitutive.material_strain_path(
+        path.coordinate,
+        path.strain,
+        name="cosmetic_name_does_not_change_science",
+        coordinate_name=path.coordinate_name,
+    )
+    assert renamed.fingerprint == path.fingerprint
+    with pytest.raises(ValueError, match="read-only"):
+        path.strain[0, 0, 0] = 1.0
+
+
+def test_j2_response_only_matches_consistent_update_without_a_tangent():
+    material = _j2()
+    strain = np.diag((0.004, 0.0, 0.0))
+
+    response_only = material.update(strain, linearization="none")
+    consistent = material.update(strain, linearization="consistent")
+
+    np.testing.assert_allclose(response_only.stress, consistent.stress)
+    np.testing.assert_allclose(
+        response_only.state.plastic_strain,
+        consistent.state.plastic_strain,
+    )
+    assert response_only.state.equivalent_plastic_strain == pytest.approx(
+        consistent.state.equivalent_plastic_strain
+    )
+    assert response_only.algorithmic_tangent is None
+    assert consistent.algorithmic_tangent.shape == (3, 3, 3, 3)
+    with pytest.raises(ValueError, match="linearization"):
+        material.update(strain, linearization="elastic")
+
+
+def test_chaboche_response_only_does_not_evaluate_numerical_tangent(monkeypatch):
+    material = _chaboche()
+    strain = np.diag((0.006, 0.0, 0.0))
+
+    def fail_if_called(*_args, **_kwargs):
+        raise AssertionError("response-only integration requested a tangent")
+
+    monkeypatch.setattr(
+        constitutive.ChabocheCombinedHardening,
+        "_algorithmic_tangent",
+        fail_if_called,
+    )
+    update = material.update(strain, linearization="none")
+
+    assert not update.elastic
+    assert update.algorithmic_tangent is None
+    with pytest.raises(AssertionError, match="requested a tangent"):
+        material.update(strain, linearization="consistent")
+
+
+def test_j2_history_uses_common_result_and_unambiguous_energy_names():
+    material = _j2()
+    path = _uniaxial_path((0.0, 0.004, -0.001, 0.002))
+
+    step = material.history(path)
+    result = step.solve_result()
+
+    assert step.procedure.requires_global_solve is False
+    assert result.metadata["material_history"]["linearization"] == "none"
+    assert result.metadata["energy"]["plastic_work"] == (
+        "signed_work_not_dissipation"
+    )
+    assert result.metadata["energy"]["irreversible_dissipation"] == (
+        "reference_yield_dissipation"
+    )
+    assert "reference_yield_dissipation" in result.histories
+    assert "plastic_dissipation" not in result.histories
+    assert "algorithmic_tangent" not in result.histories
+    assert result.histories["stress"].value_shape == (3, 3)
+    assert result.quantity("accepted_increment_count") == path.segment_count
+    assert result.scientific_input_manifest()["complete"] is True
+
+
+def test_chaboche_history_exposes_state_but_fails_closed_on_full_dissipation():
+    material = _chaboche()
+    path = _uniaxial_path((0.0, 0.006, -0.004, 0.005))
+
+    result = material.history(path).solve_result()
+
+    assert "backstress_components" in result.histories
+    assert "total_backstress" in result.histories
+    assert result.metadata["energy"]["dynamic_recovery_dissipation"] == (
+        "unavailable"
+    )
+    assert result.metadata["energy"]["irreversible_dissipation"] == (
+        "unavailable_dynamic_recovery_not_closed"
+    )
+    assert result.metadata["energy"]["complete_discrete_energy_balance"] is False
+    assert "plastic_dissipation" not in result.histories
+
+
+def test_chaboche_history_restart_and_linearization_preserve_accepted_state():
+    material = _chaboche()
+    path = _uniaxial_path((0.0, 0.006, -0.004, 0.005, -0.002))
+    response_only = material.history(path).solve()
+    consistent = material.history(path, linearization="consistent").solve()
+
+    np.testing.assert_allclose(response_only.stress, consistent.stress)
+    np.testing.assert_allclose(
+        response_only.final_state.plastic_strain,
+        consistent.final_state.plastic_strain,
+    )
+    np.testing.assert_allclose(
+        response_only.final_state.backstresses,
+        consistent.final_state.backstresses,
+    )
+    first = material.history(
+        constitutive.material_strain_path(
+            path.coordinate[:3],
+            path.strain[:3],
+            coordinate_name=path.coordinate_name,
+        )
+    ).solve()
+    second = material.history(
+        constitutive.material_strain_path(
+            path.coordinate[2:],
+            path.strain[2:],
+            coordinate_name=path.coordinate_name,
+        ),
+        initial_state=first.final_state,
+    ).solve()
+    np.testing.assert_allclose(second.stress, response_only.stress[2:])
+    np.testing.assert_allclose(
+        second.final_state.backstresses,
+        response_only.final_state.backstresses,
+    )
+
+
+def test_material_history_rejects_ambiguous_initial_and_temperature_states():
+    material = _j2()
+    nonzero_start = _uniaxial_path((0.001, 0.002))
+    with pytest.raises(ValueError, match="start at zero strain"):
+        material.history(nonzero_start).solve()
+
+    temperature_path = constitutive.material_strain_path(
+        (0.0, 1.0),
+        np.zeros((2, 3, 3)),
+        temperature=(293.15, 300.0),
+    )
+    with pytest.raises(ValueError, match="does not yet accept temperature"):
+        material.history(temperature_path).solve()

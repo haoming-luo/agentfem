@@ -13,7 +13,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from math import isfinite, sqrt
-from typing import ClassVar, Iterable
+from typing import ClassVar, Iterable, Literal
 
 import numpy as np
 
@@ -66,14 +66,29 @@ class J2PlasticState:
 
 @dataclass(frozen=True)
 class J2Update:
-    """Result of one radial-return material-point update."""
+    """Result of one radial-return material-point update.
+
+    ``algorithmic_tangent`` is absent only when the caller explicitly requests
+    a response-only update.  Global Newton providers always request the
+    consistent linearization.
+    """
 
     stress: np.ndarray
     state: J2PlasticState | ChabocheState
     elastic: bool
     yield_function_trial: float
     plastic_multiplier_increment: float
-    algorithmic_tangent: np.ndarray
+    algorithmic_tangent: np.ndarray | None
+
+
+Linearization = Literal["none", "consistent"]
+
+
+def _linearization(value: str) -> Linearization:
+    selected = str(value).strip().lower()
+    if selected not in {"none", "consistent"}:
+        raise ValueError("linearization must be 'none' or 'consistent'.")
+    return selected
 
 
 @dataclass(frozen=True)
@@ -210,10 +225,12 @@ class ChabocheCombinedHardening:
         state: ChabocheState | None = None,
         *,
         tolerance: float | None = None,
+        linearization: Linearization = "consistent",
     ) -> J2Update:
-        """Integrate one point and return its fully discrete tangent."""
+        """Integrate one point and optionally return its discrete tangent."""
 
         strain = _symmetric_tensor(total_strain, label="total_strain")
+        selected_linearization = _linearization(linearization)
         old = self.initial_state() if state is None else state
         if not isinstance(old, ChabocheState):
             raise TypeError("ChabocheCombinedHardening requires ChabocheState.")
@@ -224,11 +241,13 @@ class ChabocheCombinedHardening:
             old,
             tolerance=tolerance,
         )
-        tangent = (
-            self.elastic_tangent()
-            if elastic
-            else self._algorithmic_tangent(strain, old)
-        )
+        tangent = None
+        if selected_linearization == "consistent":
+            tangent = (
+                self.elastic_tangent()
+                if elastic
+                else self._algorithmic_tangent(strain, old)
+            )
         return J2Update(
             stress=stress,
             state=new_state,
@@ -380,7 +399,28 @@ class ChabocheCombinedHardening:
             "fem_quadrature_driver": True,
             "local_integration": "backward_euler_scalar_consistency",
             "algorithmic_tangent": "discrete_central_difference",
+            "response_only": True,
         }
+
+    def history(
+        self,
+        path,
+        *,
+        initial_state: ChabocheState | None = None,
+        linearization: Linearization = "none",
+        name: str = "chaboche_material_history",
+    ):
+        """Create an inspectable strain-controlled material-point procedure."""
+
+        from .._material_history import PlasticMaterialHistoryStep
+
+        return PlasticMaterialHistoryStep(
+            material=self,
+            path=path,
+            initial_state=initial_state,
+            linearization=linearization,
+            name=name,
+        )
 
 
 def _isotropic_elastic_tangent(bulk: float, shear: float) -> np.ndarray:
@@ -489,10 +529,12 @@ class J2LinearIsotropicHardening:
         state: J2PlasticState | None = None,
         *,
         tolerance: float | None = None,
+        linearization: Linearization = "consistent",
     ) -> J2Update:
         """Integrate one material point by closest-point radial return."""
 
         strain = _symmetric_tensor(total_strain, label="total_strain")
+        selected_linearization = _linearization(linearization)
         old = J2PlasticState() if state is None else state
         elastic_strain_trial = strain - old.plastic_strain
         trial_stress = (
@@ -517,7 +559,11 @@ class J2LinearIsotropicHardening:
                 elastic=True,
                 yield_function_trial=float(f_trial),
                 plastic_multiplier_increment=0.0,
-                algorithmic_tangent=self.elastic_tangent(),
+                algorithmic_tangent=(
+                    self.elastic_tangent()
+                    if selected_linearization == "consistent"
+                    else None
+                ),
             )
         if q_trial <= 0.0:
             raise RuntimeError("Positive J2 yield function requires q_trial > 0.")
@@ -531,33 +577,35 @@ class J2LinearIsotropicHardening:
             1.0 - 3.0 * self.shear_modulus * increment / q_trial
         ) * trial_deviator
         pressure_part = np.trace(trial_stress) / 3.0 * np.eye(3)
-        reduction = 1.0 - 3.0 * self.shear_modulus * increment / q_trial
-        identity = np.eye(3)
-        symmetric_identity = 0.5 * (
-            np.einsum("ik,jl->ijkl", identity, identity)
-            + np.einsum("il,jk->ijkl", identity, identity)
-        )
-        deviatoric_identity = symmetric_identity - (
-            np.einsum("ij,kl->ijkl", identity, identity) / 3.0
-        )
-        flow_direction = 1.5 * trial_deviator / q_trial
-        radial_coefficient = (
-            1.0
-            / (
-                q_trial
-                * (3.0 * self.shear_modulus + self.hardening_modulus)
+        tangent = None
+        if selected_linearization == "consistent":
+            reduction = 1.0 - 3.0 * self.shear_modulus * increment / q_trial
+            identity = np.eye(3)
+            symmetric_identity = 0.5 * (
+                np.einsum("ik,jl->ijkl", identity, identity)
+                + np.einsum("il,jk->ijkl", identity, identity)
             )
-            - increment / q_trial**2
-        )
-        tangent = (
-            self.bulk_modulus
-            * np.einsum("ij,kl->ijkl", identity, identity)
-            + 2.0 * self.shear_modulus * reduction * deviatoric_identity
-            - 6.0
-            * self.shear_modulus**2
-            * radial_coefficient
-            * np.einsum("ij,kl->ijkl", trial_deviator, flow_direction)
-        )
+            deviatoric_identity = symmetric_identity - (
+                np.einsum("ij,kl->ijkl", identity, identity) / 3.0
+            )
+            flow_direction = 1.5 * trial_deviator / q_trial
+            radial_coefficient = (
+                1.0
+                / (
+                    q_trial
+                    * (3.0 * self.shear_modulus + self.hardening_modulus)
+                )
+                - increment / q_trial**2
+            )
+            tangent = (
+                self.bulk_modulus
+                * np.einsum("ij,kl->ijkl", identity, identity)
+                + 2.0 * self.shear_modulus * reduction * deviatoric_identity
+                - 6.0
+                * self.shear_modulus**2
+                * radial_coefficient
+                * np.einsum("ij,kl->ijkl", trial_deviator, flow_direction)
+            )
         return J2Update(
             stress=pressure_part + new_deviator,
             state=J2PlasticState(plastic_strain, equivalent),
@@ -579,7 +627,28 @@ class J2LinearIsotropicHardening:
             "maturity": "fem_integrated_3d",
             "fem_quadrature_driver": True,
             "algorithmic_tangent": "analytical_consistent",
+            "response_only": True,
         }
+
+    def history(
+        self,
+        path,
+        *,
+        initial_state: J2PlasticState | None = None,
+        linearization: Linearization = "none",
+        name: str = "j2_material_history",
+    ):
+        """Create an inspectable strain-controlled material-point procedure."""
+
+        from .._material_history import PlasticMaterialHistoryStep
+
+        return PlasticMaterialHistoryStep(
+            material=self,
+            path=path,
+            initial_state=initial_state,
+            linearization=linearization,
+            name=name,
+        )
 
 
 @dataclass(frozen=True)

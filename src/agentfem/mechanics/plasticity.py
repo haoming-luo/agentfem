@@ -148,7 +148,12 @@ class J2LoadPathInfo:
 
 @dataclass(frozen=True)
 class J2EnergyFrame:
-    """Accepted energy/work evidence for one path coordinate."""
+    """Accepted energy/work evidence for one path coordinate.
+
+    ``plastic_dissipation`` is the historical checkpoint field name.  For a
+    Chaboche state it stores only the reference-yield contribution and is
+    exposed to users under that narrower name.
+    """
 
     step_coordinate: float
     load_amplitude: float
@@ -952,6 +957,26 @@ class J2PlasticityStep:
             },
             kind="diagnostic",
         )
+        chaboche_energy = isinstance(self.state, ChabocheQuadratureState)
+        result.metadata["energy"] = {
+            "reference_yield_dissipation": "available",
+            "dynamic_recovery_dissipation": (
+                "unavailable" if chaboche_energy else "not_applicable"
+            ),
+            "irreversible_dissipation": (
+                "unavailable_dynamic_recovery_not_closed"
+                if chaboche_energy
+                else "plastic_dissipation"
+            ),
+            "internal_work": (
+                "known_components_only" if chaboche_energy else "complete"
+            ),
+            "external_work_balance": (
+                "unavailable_dynamic_recovery_not_closed"
+                if chaboche_energy
+                else "available_when_generalized_reaction_is_defined"
+            ),
+        }
         accepted = self.last_solve_info.increments
         if accepted:
             coordinates = np.asarray(
@@ -973,29 +998,47 @@ class J2PlasticityStep:
                 [item.step_coordinate for item in self.energy_history],
                 dtype=float,
             )
+            energy_histories = {
+                "elastic_strain_energy": [
+                    item.elastic_strain_energy for item in self.energy_history
+                ],
+                "isotropic_hardening_energy": [
+                    item.isotropic_hardening_energy
+                    for item in self.energy_history
+                ],
+                "kinematic_hardening_energy": [
+                    item.kinematic_hardening_energy
+                    for item in self.energy_history
+                ],
+            }
+            reference_yield = [
+                item.plastic_dissipation for item in self.energy_history
+            ]
+            known_internal_work = [
+                item.internal_energy for item in self.energy_history
+            ]
+            if chaboche_energy:
+                energy_histories["reference_yield_dissipation"] = reference_yield
+                energy_histories["known_internal_work"] = known_internal_work
+            else:
+                energy_histories["plastic_dissipation"] = reference_yield
+                energy_histories["internal_energy"] = known_internal_work
             result.add_histories(
                 coordinates,
-                {
-                    "elastic_strain_energy": [
-                        item.elastic_strain_energy for item in self.energy_history
-                    ],
-                    "isotropic_hardening_energy": [
-                        item.isotropic_hardening_energy
-                        for item in self.energy_history
-                    ],
-                    "kinematic_hardening_energy": [
-                        item.kinematic_hardening_energy
-                        for item in self.energy_history
-                    ],
-                    "plastic_dissipation": [
-                        item.plastic_dissipation for item in self.energy_history
-                    ],
-                    "internal_energy": [
-                        item.internal_energy for item in self.energy_history
-                    ],
-                },
+                energy_histories,
                 abscissa_name="step_coordinate",
                 abscissa_unit=None,
+                descriptions={
+                    "reference_yield_dissipation": (
+                        "Reference-yield contribution only; Chaboche dynamic "
+                        "recovery dissipation is not included."
+                    ),
+                    "known_internal_work": (
+                        "Sum of represented stored-energy channels and the "
+                        "reference-yield contribution; not a complete "
+                        "Chaboche energy balance."
+                    ),
+                },
             )
             if all(item.external_work is not None for item in self.energy_history):
                 result.add_histories(
@@ -1035,13 +1078,39 @@ class J2PlasticityStep:
         )
 
     def internal_energy(self) -> dict[str, float]:
-        """Return elastic, hardening, dissipated, and total internal energy.
+        """Return the energy channels whose physical meaning is established.
 
         For linear isotropic hardening the hardening contribution is treated
         as stored energy and ``yield_stress * PEEQ`` as rate-independent
-        plastic dissipation.  This is a state diagnostic, not an external-work
-        balance for a non-proportional loading history.
+        plastic dissipation.  For Chaboche, the same last term is only a
+        reference-yield contribution: dynamic-recovery dissipation is not yet
+        closed, so neither total dissipation nor complete internal energy is
+        claimed.  This is a state diagnostic, not an external-work balance for
+        a non-proportional loading history.
         """
+
+        values = self._energy_components()
+        common = {
+            "elastic_strain_energy": values["elastic_strain_energy"],
+            "isotropic_hardening_energy": values["isotropic_hardening_energy"],
+            "kinematic_hardening_energy": values["kinematic_hardening_energy"],
+        }
+        if isinstance(self.state, ChabocheQuadratureState):
+            return {
+                **common,
+                "reference_yield_dissipation": values[
+                    "reference_yield_dissipation"
+                ],
+                "known_internal_work": values["known_internal_work"],
+            }
+        return {
+            **common,
+            "plastic_dissipation": values["reference_yield_dissipation"],
+            "internal_energy": values["known_internal_work"],
+        }
+
+    def _energy_components(self) -> dict[str, float]:
+        """Assemble canonical components without assigning broad semantics."""
 
         strain = elasticity.strain(self.solution, study=self.study)
         weight = _axisymmetric.integration_weight(self.solution, self.study)
@@ -1139,8 +1208,8 @@ class J2PlasticityStep:
             "elastic_strain_energy": elastic,
             "isotropic_hardening_energy": isotropic,
             "kinematic_hardening_energy": kinematic,
-            "plastic_dissipation": dissipation,
-            "internal_energy": elastic + isotropic + kinematic + dissipation,
+            "reference_yield_dissipation": dissipation,
+            "known_internal_work": elastic + isotropic + kinematic + dissipation,
         }
 
     def reaction_field(self, *, name: str = "RF"):
@@ -1383,7 +1452,7 @@ class J2PlasticityStep:
         self._set_prescribed_factor(value)
 
     def _record_energy(self, step_coordinate: float) -> None:
-        energies = self.internal_energy()
+        energies = self._energy_components()
         load_amplitude = self.amplitude(step_coordinate)
         generalized = self._generalized_reaction()
         if generalized is None:
@@ -1404,7 +1473,7 @@ class J2PlasticityStep:
             balance = (
                 None
                 if isinstance(self.state, ChabocheQuadratureState)
-                else external_work - energies["internal_energy"]
+                else external_work - energies["known_internal_work"]
             )
         self.energy_history.append(
             J2EnergyFrame(
@@ -1413,7 +1482,15 @@ class J2PlasticityStep:
                 generalized_reaction=generalized,
                 external_work=external_work,
                 energy_balance_error=balance,
-                **energies,
+                elastic_strain_energy=energies["elastic_strain_energy"],
+                isotropic_hardening_energy=energies[
+                    "isotropic_hardening_energy"
+                ],
+                kinematic_hardening_energy=energies[
+                    "kinematic_hardening_energy"
+                ],
+                plastic_dissipation=energies["reference_yield_dissipation"],
+                internal_energy=energies["known_internal_work"],
             )
         )
 

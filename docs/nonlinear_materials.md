@@ -99,6 +99,43 @@ family is the standard closest-point radial return described in the
 [MOOSE radial-return documentation](https://mooseframework.inl.gov/moose/source/materials/RadialReturnStressUpdate.html)
 and [Abaqus isotropic elastoplasticity theory](https://docs.software.vt.edu/abaqusv2024/English/SIMACAETHERefMap/simathe-c-isoelastoplast.htm).
 
+The same material can run an inspectable material-point history without a
+global finite-element solve. The loading path is a tensor-valued scientific
+input: its reversal and hold knots are exact, refinements subdivide rather than
+move those knots, and its content fingerprint travels with the result.
+
+```python
+import numpy as np
+from agentfem import constitutive
+
+steel = constitutive.J2LinearIsotropicHardening(
+    young=210_000.0,
+    poisson=0.3,
+    yield_stress=250.0,
+    hardening_modulus=1_000.0,
+)
+strain = np.zeros((4, 3, 3))
+strain[:, 0, 0] = (0.0, 0.004, -0.002, 0.003)
+path = constitutive.material_strain_path(
+    (0.0, 1.0, 2.0, 3.0),
+    strain,
+    coordinate_name="load_coordinate",
+)
+result = steel.history(path).solve_result()
+```
+
+Material-data generation defaults to `linearization="none"`: it returns the
+same accepted stress and state without constructing a tangent that no global
+Newton iteration will consume. `linearization="consistent"` adds the tangent
+history when it is actually required.
+
+Energy names are deliberately narrow. `plastic_work` is signed work and is not
+renamed as dissipation. For linear-isotropic J2, the initial-yield component is
+a complete rate-independent plastic-dissipation channel. For Chaboche it is
+reported only as `reference_yield_dissipation`; dynamic-recovery dissipation
+and a complete energy balance remain unavailable rather than being silently
+set to zero.
+
 For a three-dimensional `nonlinear_static` study, `model.step(...)` now lowers
 this material to a global DOLFINx path. `PE` and `PEEQ` are committed at Basix
 quadrature points; `S` and `DDSDDE` are trial fields updated during Newton.

@@ -865,6 +865,16 @@ def test_global_chaboche_cycle_uses_quadrature_state_and_restart(tmp_path):
     assert {"S", "PE", "PEEQ", "ALPHA", "MISES", "RF"} <= set(result.fields)
     assert "energy_balance_error" not in result.histories
     assert result.histories["kinematic_hardening_energy"].latest > 0.0
+    assert "reference_yield_dissipation" in result.histories
+    assert "known_internal_work" in result.histories
+    assert "plastic_dissipation" not in result.histories
+    assert "internal_energy" not in result.histories
+    assert result.metadata["energy"]["dynamic_recovery_dissipation"] == (
+        "unavailable"
+    )
+    assert result.metadata["energy"]["internal_work"] == (
+        "known_components_only"
+    )
 
     partial, _ = _j2_uniaxial_patch(
         material_law=material,

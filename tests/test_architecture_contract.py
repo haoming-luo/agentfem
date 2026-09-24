@@ -3,6 +3,8 @@ from __future__ import annotations
 import ast
 from pathlib import Path
 
+import numpy as np
+
 from agentfem import _architecture_contract
 
 
@@ -482,6 +484,19 @@ def test_material_history_orchestration_has_a_procedure_owner():
     assert "class GeneralizedMaxwellHistoryStep" not in (
         PACKAGE / "constitutive" / "viscoelasticity.py"
     ).read_text(encoding="utf-8")
+
+    plastic = constitutive.J2LinearIsotropicHardening(
+        young=210_000.0,
+        poisson=0.3,
+        yield_stress=250.0,
+    )
+    path = constitutive.material_strain_path(
+        (0.0, 1.0),
+        np.zeros((2, 3, 3)),
+    )
+    plastic_step = plastic.history(path)
+    assert plastic_step.__class__.__module__ == "agentfem._material_history"
+    assert plastic_step.procedure.requires_global_solve is False
 
 
 def test_fatigue_work_contract_is_owned_by_shared_internal_layer():
