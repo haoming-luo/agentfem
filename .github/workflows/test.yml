@@ -20,12 +20,9 @@ on:
     branches: ["main"]
   pull_request:
 
-# A newer commit on the same branch or pull request supersedes an unfinished
-# development run. Release-tag evidence is produced by the immutable wheel,
-# platform-acceptance, and runtime-installer workflows instead of this one.
-concurrency:
-  group: test-${{ github.event.pull_request.number || github.ref }}
-  cancel-in-progress: true
+# Cancellation belongs to evidence-equivalent jobs below, not to the whole
+# workflow. A documentation-only follow-up must never cancel an in-flight core
+# numerical gate that the follow-up itself will not rerun.
 
 jobs:
   change-scope:
@@ -75,6 +72,9 @@ jobs:
     needs: change-scope
     if: needs.change-scope.outputs.level != 'docs'
     runs-on: ubuntu-latest
+    concurrency:
+      group: test-static-${{ github.event.pull_request.number || github.ref }}
+      cancel-in-progress: true
     steps:
       - name: Check out repository
         uses: actions/checkout@v6
@@ -121,6 +121,9 @@ jobs:
     name: Documentation and machine entrypoints
     needs: change-scope
     runs-on: ubuntu-latest
+    concurrency:
+      group: test-docs-${{ github.event.pull_request.number || github.ref }}
+      cancel-in-progress: true
     steps:
       - name: Check out repository
         uses: actions/checkout@v6
@@ -143,6 +146,9 @@ jobs:
     needs: change-scope
     if: needs.change-scope.outputs.level == 'targeted'
     runs-on: ubuntu-latest
+    concurrency:
+      group: test-targeted-${{ github.event.pull_request.number || github.ref }}
+      cancel-in-progress: true
     env:
       UCX_TLS: tcp,sm,self
       CHANGED_TESTS: ${{ needs.change-scope.outputs.tests }}
@@ -193,6 +199,9 @@ jobs:
       needs.change-scope.outputs.level == 'core' ||
       needs.change-scope.outputs.level == 'release'
     runs-on: ubuntu-latest
+    concurrency:
+      group: test-core-${{ github.event.pull_request.number || github.ref }}
+      cancel-in-progress: true
     # Azure-hosted runners may expose a MANA verbs device that UCX discovers
     # but cannot initialize. The release path needs only local/shared-memory
     # and TCP transports, including the two-rank regression jobs below.
@@ -380,6 +389,9 @@ jobs:
       needs.change-scope.outputs.ml == 'true' ||
       needs.change-scope.outputs.level == 'release'
     runs-on: ubuntu-latest
+    concurrency:
+      group: test-ml-${{ github.event.pull_request.number || github.ref }}
+      cancel-in-progress: true
     # Azure-hosted runners expose a MANA verbs device that UCX can select even
     # though it cannot create the required UD queue pair.  The ML bridge only
     # needs local/TCP MPI transports; pinning them also makes both library
