@@ -477,6 +477,7 @@ A three-dimensional small-strain J2 route with exponential isotropic hardening, 
 - `agentfem.constitutive.PlasticMaterialHistoryStep`
 - `agentfem.models.Model.step`
 - `agentfem.benchmarks.simulia_316_shouldered_ratcheting_benchmark`
+- `agentfem.benchmarks.certify_simulia_316_shouldered_ratcheting_accuracy`
 - `agentfem.benchmarks.certify_simulia_316_shouldered_ratcheting_convergence`
 
 ### Scientific contract
@@ -520,7 +521,7 @@ Q and b are both zero or both positive in the public material contract.
 | --- | --- | --- | --- |
 | S, PE and PEEQ | quadrature fields | stress and strain | Accepted Cauchy stress, plastic strain and accumulated equivalent plastic strain. |
 | ALPHA | quadrature tensor field | stress | Sum of all committed backstress components. |
-| DDSDDE | fourth-order quadrature tensor field | stress per strain | Central directional derivative of the fully discrete return map consumed by global Newton. |
+| DDSDDE | fourth-order quadrature tensor field | stress per strain | Analytical consistent linearization of the fully discrete backward-Euler return map consumed by global Newton. |
 | material history result | SimulationResult histories | declared material unit system | Stress, strain, PE, PEEQ, individual and total backstress, yield residual, path identity, recoverable hardening storage, reference-yield dissipation, dynamic-recovery dissipation and a separately identified backward-Euler contribution; response-only histories omit DDSDDE. |
 
 #### Assumptions
@@ -546,7 +547,7 @@ Q and b are both zero or both positive in the public material contract.
 
 - Plane stress, finite-strain plasticity and temperature-dependent cyclic plasticity are not implemented.
 - The external shouldered-specimen comparison is digitized from a public raster figure and retains an explicit uncertainty and convergence obligation.
-- The current automated structure evidence covers the first five cycles; the full published 100-cycle saturation response is not yet a routine gate.
+- The five-cycle structure evidence has passed independent adaptive-path and spatial-mesh gates, and one complete 100-cycle response passes the predeclared raster-data error and equilibrium gates; a clean release rerun remains required before maturity promotion.
 - The discrete constitutive ledger is closed, but a calibrated thermomechanical heat-conversion model is not inferred from it.
 
 ### Minimal example
@@ -574,9 +575,9 @@ Create constitutive.chaboche(...). For a material test, pass a tensor-valued con
 - Reject a restart whose material, mesh, quadrature state or amplitude identity differs.
 - Commit all hardening variables only after global increment acceptance.
 - Require response-only and consistent-linearization material histories to produce identical accepted stresses and states.
-- Preserve every declared reversal and hold knot under nested path refinement.
+- Preserve every declared reversal and hold knot while automatic cutback limits the maximum accepted equivalent-plastic-strain increment.
 - Keep digitized experimental values, raster uncertainty, AgentFEM acceptance tolerance and official-input SHA-256 distinct in structure evidence.
-- Require independent mesh and load-path convergence before promoting the shouldered specimen result.
+- Require independent mesh and adaptive path-integration convergence before promoting the shouldered specimen result.
 - Require accepted plastic work to equal hardening-storage change plus reference-yield, dynamic-recovery and separately identified backward-Euler dissipation.
 
 ### References
@@ -585,6 +586,9 @@ Create constitutive.chaboche(...). For a material test, pass a tensor-valued con
 - Abaqus verification: import of combined-hardening material state: `https://docs.software.vt.edu/abaqusv2024/English/SIMACAEVERRefMap/simaver-c-import-plast.htm`
 - SIMULIA example: uniaxial ratcheting under tension and compression: `https://docs.software.vt.edu/abaqusv2025/English/SIMACAEEXARefMap/simaexa-c-ratchetting.htm`
 - NEML documentation: Chaboche nonassociative hardening: `https://neml.readthedocs.io/en/stable/hardening/non/chaboche.html`
+- Chaboche and Cailletaud: Integration methods for complex plastic constitutive equations: `https://doi.org/10.1016/0045-7825(95)00957-4`
+- Doghri and Ouaar: tangent operators, cyclic plasticity and numerical algorithms: `https://doi.org/10.1016/S0020-7683(03)00013-1`
+- MOOSE radial-return material substepping: `https://mooseframework.inl.gov/source/materials/RadialReturnStressUpdate.html`
 
 <a id="agentfem-material-composite_ply_failure"></a>
 

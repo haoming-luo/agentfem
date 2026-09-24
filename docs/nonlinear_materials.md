@@ -190,15 +190,26 @@ path is also automated for the stated one- versus two-backstress ratcheting
 trend and a stress-control residual below $10^{-7}$ MPa. Its reference response is
 published only as a graph, so AgentFEM labels this as path/control/trend
 evidence rather than inventing a numerical Golden. A structure-level
-ratcheting comparison remains a distinct promotion requirement. The global
-axisymmetric chain is nevertheless regression-tested on a uniformly loaded
-annular tube: its cycle-peak gauge strain must match the independent material
-point while global Newton equilibrium closes. That test proves lowering and
-state transfer, not agreement with the published shouldered specimen.
+ratcheting comparison now reconstructs the public shouldered specimen and
+keeps every peak and reversal as a mandatory target. Between those targets,
+automatic cutback limits the maximum accepted PEEQ increment. Its five-cycle
+certificate passes independent path-integration and spatial-mesh changes of
+0.290% and 0.192%, respectively. A 245-cell full 100-cycle run also reaches
+all 302 physical knots and passes the predeclared raster-curve error gate with
+a final equilibrium residual below $10^{-9}$. Because the reference is a
+digitized plot and the error lies close to the declared limit, this remains
+external comparison evidence rather than an exact Golden or automatic
+maturity promotion. The global axisymmetric chain is also regression-tested
+on a uniformly loaded annular tube: its cycle-peak gauge strain must match the
+independent material point while global Newton equilibrium closes.
 
 For a three-dimensional `nonlinear_static` study, `model.step(...)` now lowers
 this material to a global DOLFINx path. `PE` and `PEEQ` are committed at Basix
 quadrature points; `S` and `DDSDDE` are trial fields updated during Newton.
+`DDSDDE` is the analytical consistent linearization of the accepted discrete
+backward-Euler return map, including isotropic hardening and dynamic recovery;
+mixed stress control globalizes that tangent with residual-reducing line
+search at reversals.
 Failed attempts restore displacement and committed material state before
 automatic cutback. Complete named `CellRegion` assignments may dispatch
 different J2 parameter sets without changing the Step API. An otherwise

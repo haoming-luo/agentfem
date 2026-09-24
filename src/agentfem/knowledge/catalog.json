@@ -469,6 +469,7 @@
         "agentfem.constitutive.PlasticMaterialHistoryStep",
         "agentfem.models.Model.step",
         "agentfem.benchmarks.simulia_316_shouldered_ratcheting_benchmark",
+        "agentfem.benchmarks.certify_simulia_316_shouldered_ratcheting_accuracy",
         "agentfem.benchmarks.certify_simulia_316_shouldered_ratcheting_convergence"
       ],
       "related_cards": [

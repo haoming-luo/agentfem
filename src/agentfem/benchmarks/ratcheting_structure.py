@@ -133,6 +133,46 @@ class ShoulderedRatchetingConvergence:
         }
 
 
+@dataclass(frozen=True)
+class ShoulderedRatchetingAccuracy:
+    """Spatial and accuracy-driven path-integration certificate."""
+
+    cycle_count: int
+    full_reference_curve_covered: bool
+    mesh_sizes: tuple[float, ...]
+    mesh_final_strains: tuple[float, ...]
+    maximum_inelastic_increments: tuple[float, ...]
+    adaptive_final_strains: tuple[float, ...]
+    accepted_increment_counts: tuple[int, ...]
+    rejected_attempt_counts: tuple[int, ...]
+    spatial_relative_change: float
+    path_relative_change: float
+    relative_tolerance: float
+    terminal_cases_accepted: bool
+    accepted: bool
+
+    def as_dict(self) -> dict[str, object]:
+        return {
+            "schema": "agentfem.shouldered-ratcheting-accuracy.v1",
+            "benchmark": "simulia_316_shouldered_axisymmetric_ratcheting",
+            "path_control": "maximum_equivalent_plastic_strain_increment",
+            "mandatory_points": "every_published_load_peak_and_reversal",
+            "cycle_count": self.cycle_count,
+            "full_reference_curve_covered": self.full_reference_curve_covered,
+            "mesh_sizes": list(self.mesh_sizes),
+            "mesh_final_strains": list(self.mesh_final_strains),
+            "maximum_inelastic_increments": list(self.maximum_inelastic_increments),
+            "adaptive_final_strains": list(self.adaptive_final_strains),
+            "accepted_increment_counts": list(self.accepted_increment_counts),
+            "rejected_attempt_counts": list(self.rejected_attempt_counts),
+            "spatial_relative_change": self.spatial_relative_change,
+            "path_relative_change": self.path_relative_change,
+            "relative_tolerance": self.relative_tolerance,
+            "terminal_cases_accepted": self.terminal_cases_accepted,
+            "accepted": self.accepted,
+        }
+
+
 def simulia_316_experimental_ratcheting_curve() -> DigitizedRatchetingCurve:
     """Return auditable experimental points digitized from public Figure 4.
 
@@ -151,9 +191,7 @@ def simulia_316_experimental_ratcheting_curve() -> DigitizedRatchetingCurve:
         raise ValueError("Digitized ratcheting data require one shared uncertainty.")
     return DigitizedRatchetingCurve(
         cycle=tuple(int(row["cycle"]) for row in rows),
-        maximum_axial_strain=tuple(
-            float(row["maximum_axial_strain"]) for row in rows
-        ),
+        maximum_axial_strain=tuple(float(row["maximum_axial_strain"]) for row in rows),
         absolute_uncertainty=uncertainty[0],
     )
 
@@ -268,6 +306,7 @@ def simulia_316_shouldered_ratcheting_benchmark(
     backstress_count: int = 2,
     allowed_absolute_curve_error: float = 1.25e-3,
     residual_tolerance: float = 1.0e-7,
+    maximum_inelastic_increment: float | None = None,
     source_input: str | Path | None = None,
     progress: bool = False,
 ):
@@ -291,6 +330,11 @@ def simulia_316_shouldered_ratcheting_benchmark(
         raise ValueError("backstress_count must be one or two.")
     if allowed_absolute_curve_error <= 0.0 or residual_tolerance <= 0.0:
         raise ValueError("Benchmark tolerances must be positive.")
+    if maximum_inelastic_increment is not None and (
+        not np.isfinite(maximum_inelastic_increment)
+        or maximum_inelastic_increment <= 0.0
+    ):
+        raise ValueError("maximum_inelastic_increment must be finite and positive.")
 
     source_verified = False
     if source_input is not None:
@@ -372,12 +416,30 @@ def simulia_316_shouldered_ratcheting_benchmark(
         path.stress[:, 0, 0] / 100.0,
         name="simulia_nominal_pressure_amplitude",
     )
+    if maximum_inelastic_increment is None:
+        increment_control = steps.at(*normalized_coordinate[1:])
+    else:
+        segment_sizes = np.diff(normalized_coordinate)
+        smallest_segment = float(np.min(segment_sizes))
+        largest_segment = float(np.max(segment_sizes))
+        increment_control = steps.automatic(
+            initial=smallest_segment,
+            minimum=max(smallest_segment / 65_536.0, 1.0e-10),
+            maximum=largest_segment,
+            max_increments=max(10_000, len(normalized_coordinate) * 128),
+            max_cutbacks=20,
+            cutback_factor=0.5,
+            growth_factor=1.25,
+            fast_iterations=4,
+            slow_iterations=10,
+            maximum_inelastic_increment=float(maximum_inelastic_increment),
+        )
     step = model.step(
         target=displacement,
         material=material,
         constraints=model.constraints,
         amplitude=amplitude,
-        incrementation=steps.at(*normalized_coordinate[1:]),
+        incrementation=increment_control,
         solver_options=solvers.newton(
             relative_tolerance=1.0e-8,
             absolute_tolerance=1.0e-9,
@@ -467,7 +529,164 @@ def simulia_316_shouldered_ratcheting_benchmark(
     result.metadata["external_benchmark"]["source_input_sha256"] = (
         _ABAQUS_RATCHETING_INPUT_SHA256
     )
+    rejected_attempts = tuple(
+        item for item in step.attempted_increments if not item.converged
+    )
+    result.metadata["external_benchmark"]["path_control"] = {
+        "kind": (
+            "fixed_nested_refinement"
+            if maximum_inelastic_increment is None
+            else "automatic_maximum_inelastic_increment"
+        ),
+        "mandatory_coordinates": normalized_coordinate.tolist(),
+        "mandatory_coordinate_count": int(len(normalized_coordinate)),
+        "maximum_inelastic_increment": maximum_inelastic_increment,
+        "accepted_increment_count": len(step.accepted_increments),
+        "rejected_attempt_count": len(rejected_attempts),
+        "maximum_accepted_plastic_increment": max(
+            (item.maximum_plastic_increment for item in step.accepted_increments),
+            default=0.0,
+        ),
+        "all_mandatory_coordinates_reached": bool(
+            abs(step.accepted_load_factor - 1.0) <= 1.0e-12
+        ),
+    }
     return assessment, result
+
+
+def certify_simulia_316_shouldered_ratcheting_accuracy(
+    *,
+    cycle_count: int = 5,
+    mesh_sizes: tuple[float, ...] = (3.5, 2.5),
+    maximum_inelastic_increments: tuple[float, ...] = (
+        4.0e-3,
+        2.0e-3,
+        1.0e-3,
+    ),
+    relative_tolerance: float = 0.01,
+    progress: bool = False,
+):
+    """Certify mesh and adaptive constitutive-path accuracy independently.
+
+    Every published load peak and reversal remains a mandatory global target.
+    Between those targets the standard J2 procedure rejects and rolls back an
+    otherwise converged increment when its largest equivalent-plastic-strain
+    increment exceeds the selected limit. Successive limits must be strictly
+    decreasing so a non-nested study cannot masquerade as refinement.
+    """
+
+    if len(mesh_sizes) < 2 or any(value <= 0.0 for value in mesh_sizes):
+        raise ValueError("mesh_sizes must contain at least two positive values.")
+    if len(maximum_inelastic_increments) < 2 or any(
+        not np.isfinite(value) or value <= 0.0 for value in maximum_inelastic_increments
+    ):
+        raise ValueError(
+            "maximum_inelastic_increments must contain at least two positive values."
+        )
+    if any(
+        right >= left
+        for left, right in zip(
+            maximum_inelastic_increments,
+            maximum_inelastic_increments[1:],
+        )
+    ):
+        raise ValueError("maximum_inelastic_increments must be strictly decreasing.")
+    if relative_tolerance <= 0.0:
+        raise ValueError("relative_tolerance must be positive.")
+
+    selected_mesh_sizes = tuple(float(value) for value in mesh_sizes)
+    selected_limits = tuple(float(value) for value in maximum_inelastic_increments)
+    cache = {}
+
+    def run(mesh_size, limit):
+        key = (float(mesh_size), float(limit))
+        if key not in cache:
+            cache[key] = simulia_316_shouldered_ratcheting_benchmark(
+                cycle_count=cycle_count,
+                mesh_size=key[0],
+                refinement=1,
+                maximum_inelastic_increment=key[1],
+                progress=progress,
+            )
+        return cache[key]
+
+    tightest_limit = selected_limits[-1]
+    coarsest_mesh = selected_mesh_sizes[0]
+    mesh_final_strains = tuple(
+        float(
+            run(mesh_size, tightest_limit)[1]
+            .histories["maximum_center_axial_strain"]
+            .values[-1]
+        )
+        for mesh_size in selected_mesh_sizes
+    )
+    adaptive_final_strains = tuple(
+        float(
+            run(coarsest_mesh, limit)[1]
+            .histories["maximum_center_axial_strain"]
+            .values[-1]
+        )
+        for limit in selected_limits
+    )
+    path_controls = tuple(
+        run(coarsest_mesh, limit)[1].metadata["external_benchmark"]["path_control"]
+        for limit in selected_limits
+    )
+    accepted_counts = tuple(
+        int(control["accepted_increment_count"]) for control in path_controls
+    )
+    rejected_counts = tuple(
+        int(control["rejected_attempt_count"]) for control in path_controls
+    )
+    spatial_change = abs(mesh_final_strains[-1] - mesh_final_strains[-2]) / max(
+        abs(mesh_final_strains[-1]),
+        1.0e-15,
+    )
+    path_change = abs(adaptive_final_strains[-1] - adaptive_final_strains[-2]) / max(
+        abs(adaptive_final_strains[-1]), 1.0e-15
+    )
+    terminal_keys = {
+        *((mesh_size, tightest_limit) for mesh_size in selected_mesh_sizes[-2:]),
+        *((coarsest_mesh, limit) for limit in selected_limits[-2:]),
+    }
+    terminal_cases_accepted = all(
+        run(mesh_size, limit)[0].accepted
+        and run(mesh_size, limit)[1].metadata["external_benchmark"]["path_control"][
+            "all_mandatory_coordinates_reached"
+        ]
+        for mesh_size, limit in terminal_keys
+    )
+    certificate = ShoulderedRatchetingAccuracy(
+        cycle_count=int(cycle_count),
+        full_reference_curve_covered=bool(
+            int(cycle_count) >= max(simulia_316_experimental_ratcheting_curve().cycle)
+        ),
+        mesh_sizes=selected_mesh_sizes,
+        mesh_final_strains=mesh_final_strains,
+        maximum_inelastic_increments=selected_limits,
+        adaptive_final_strains=adaptive_final_strains,
+        accepted_increment_counts=accepted_counts,
+        rejected_attempt_counts=rejected_counts,
+        spatial_relative_change=float(spatial_change),
+        path_relative_change=float(path_change),
+        relative_tolerance=float(relative_tolerance),
+        terminal_cases_accepted=bool(terminal_cases_accepted),
+        accepted=bool(
+            terminal_cases_accepted
+            and spatial_change <= relative_tolerance
+            and path_change <= relative_tolerance
+        ),
+    )
+    for assessment, result in cache.values():
+        result.metadata["accuracy_certificate"] = certificate.as_dict()
+        result.metadata["external_benchmark"]["convergence_required"] = True
+        result.metadata["external_benchmark"]["convergence_accepted"] = (
+            certificate.accepted
+        )
+        result.metadata["external_benchmark"]["promotion_eligible"] = bool(
+            certificate.accepted and certificate.full_reference_curve_covered
+        )
+    return certificate, cache
 
 
 def certify_simulia_316_shouldered_ratcheting_convergence(
@@ -554,8 +773,10 @@ def certify_simulia_316_shouldered_ratcheting_convergence(
         result.metadata["external_benchmark"]["convergence_accepted"] = (
             certificate.accepted
         )
-        result.metadata["external_benchmark"]["promotion_eligible"] = (
+        result.metadata["external_benchmark"]["promotion_eligible"] = bool(
             certificate.accepted
+            and int(cycle_count)
+            >= max(simulia_316_experimental_ratcheting_curve().cycle)
         )
     return certificate, cache
 
@@ -563,7 +784,9 @@ def certify_simulia_316_shouldered_ratcheting_convergence(
 __all__ = [
     "DigitizedRatchetingCurve",
     "ShoulderedRatchetingAssessment",
+    "ShoulderedRatchetingAccuracy",
     "ShoulderedRatchetingConvergence",
+    "certify_simulia_316_shouldered_ratcheting_accuracy",
     "certify_simulia_316_shouldered_ratcheting_convergence",
     "simulia_316_experimental_ratcheting_curve",
     "simulia_316_shouldered_ratcheting_benchmark",

@@ -80,9 +80,7 @@ class MaterialLoadingPath:
         stress = None
         strain_control = np.ones((3, 3), dtype=bool)
         if self.stress is not None and self.strain_control is None:
-            raise ValueError(
-                "Stress targets require an explicit strain_control mask."
-            )
+            raise ValueError("Stress targets require an explicit strain_control mask.")
         if self.strain_control is not None:
             strain_control = np.asarray(self.strain_control, dtype=bool)
             if strain_control.shape != (3, 3) or not np.array_equal(
@@ -202,9 +200,7 @@ class MaterialLoadingPath:
         return MaterialLoadingPath(
             coordinate=np.asarray(coordinates),
             strain=np.asarray(strains),
-            temperature=(
-                None if temperatures is None else np.asarray(temperatures)
-            ),
+            temperature=(None if temperatures is None else np.asarray(temperatures)),
             stress=None if stresses is None else np.asarray(stresses),
             strain_control=self.strain_control,
             name=f"{self.name}_refined",
@@ -362,17 +358,11 @@ class PlasticMaterialHistoryResponse:
             ),
             "plastic_work": self.plastic_work,
             "reference_yield_dissipation": self.reference_yield_dissipation,
-            "dynamic_recovery_dissipation": (
-                self.dynamic_recovery_dissipation
-            ),
+            "dynamic_recovery_dissipation": (self.dynamic_recovery_dissipation),
             "backward_euler_dissipation": self.backward_euler_dissipation,
-            "modeled_irreversible_dissipation": (
-                self.modeled_irreversible_dissipation
-            ),
+            "modeled_irreversible_dissipation": (self.modeled_irreversible_dissipation),
             "discrete_dissipation": self.discrete_dissipation,
-            "plastic_energy_balance_residual": (
-                self.plastic_energy_balance_residual
-            ),
+            "plastic_energy_balance_residual": (self.plastic_energy_balance_residual),
         }
         if self.algorithmic_tangent is not None:
             histories["algorithmic_tangent"] = self.algorithmic_tangent
@@ -421,9 +411,7 @@ class PlasticMaterialHistoryResponse:
         )
         result.add_quantities(
             {
-                "final_equivalent_plastic_strain": (
-                    self.equivalent_plastic_strain[-1]
-                ),
+                "final_equivalent_plastic_strain": (self.equivalent_plastic_strain[-1]),
                 "maximum_plastic_consistency_residual": active_residual,
                 "accepted_increment_count": self.path.segment_count,
             },
@@ -431,9 +419,9 @@ class PlasticMaterialHistoryResponse:
         )
         if self.path.stress is not None:
             stress_control = ~self.path.strain_control
-            control_residual = self.stress[:, stress_control] - self.path.stress[
-                :, stress_control
-            ]
+            control_residual = (
+                self.stress[:, stress_control] - self.path.stress[:, stress_control]
+            )
             result.add_quantity(
                 "maximum_stress_control_residual",
                 float(np.max(np.abs(control_residual), initial=0.0)),
@@ -524,9 +512,11 @@ class PlasticMaterialHistoryStep:
                 raise ValueError(
                     "A history without initial_state must start at zero stress."
                 )
-            state = self.material.initial_state() if isinstance(
-                self.material, ChabocheCombinedHardening
-            ) else J2PlasticState()
+            state = (
+                self.material.initial_state()
+                if isinstance(self.material, ChabocheCombinedHardening)
+                else J2PlasticState()
+            )
         else:
             state = self.initial_state
         if isinstance(self.material, ChabocheCombinedHardening):
@@ -566,9 +556,7 @@ class PlasticMaterialHistoryStep:
         accepted_strain = np.asarray(accepted_strain)
 
         stress = np.asarray([item.stress for item in updates])
-        plastic_strain = np.asarray(
-            [item.state.plastic_strain for item in updates]
-        )
+        plastic_strain = np.asarray([item.state.plastic_strain for item in updates])
         equivalent = np.asarray(
             [item.state.equivalent_plastic_strain for item in updates]
         )
@@ -579,9 +567,7 @@ class PlasticMaterialHistoryStep:
             ]
         )
         elastic = np.asarray([item.elastic for item in updates], dtype=bool)
-        increments = np.asarray(
-            [item.plastic_multiplier_increment for item in updates]
-        )
+        increments = np.asarray([item.plastic_multiplier_increment for item in updates])
         tangent = (
             None
             if linearization == "none"
@@ -607,22 +593,13 @@ class PlasticMaterialHistoryStep:
             [item.energy_increment.plastic_work for item in updates]
         )
         reference_yield = np.cumsum(
-            [
-                item.energy_increment.reference_yield_dissipation
-                for item in updates
-            ]
+            [item.energy_increment.reference_yield_dissipation for item in updates]
         )
         dynamic_recovery = np.cumsum(
-            [
-                item.energy_increment.dynamic_recovery_dissipation
-                for item in updates
-            ]
+            [item.energy_increment.dynamic_recovery_dissipation for item in updates]
         )
         backward_euler = np.cumsum(
-            [
-                item.energy_increment.backward_euler_dissipation
-                for item in updates
-            ]
+            [item.energy_increment.backward_euler_dissipation for item in updates]
         )
         modeled_irreversible = reference_yield + dynamic_recovery
         discrete_dissipation = modeled_irreversible + backward_euler
@@ -700,8 +677,7 @@ def _mixed_control_update(
     """Solve unconstrained strain components against explicit stress targets."""
 
     controlled = [
-        bool(strain_control[row, column])
-        for row, column in _SYMMETRIC_COMPONENTS
+        bool(strain_control[row, column]) for row, column in _SYMMETRIC_COMPONENTS
     ]
     unknown = [
         component
@@ -732,7 +708,10 @@ def _mixed_control_update(
     for _ in range(maximum_iterations):
         update = material.update(candidate, state, linearization="consistent")
         residual = np.asarray(
-            [update.stress[row, column] - target_stress[row, column] for row, column in unknown]
+            [
+                update.stress[row, column] - target_stress[row, column]
+                for row, column in unknown
+            ]
         )
         if float(np.max(np.abs(residual), initial=0.0)) <= tolerance * scale:
             if output_linearization == "consistent":
@@ -755,9 +734,39 @@ def _mixed_control_update(
             raise RuntimeError(
                 "Mixed material control produced a singular local Jacobian."
             ) from error
-        for component, increment in zip(unknown, correction, strict=True):
-            current = _engineering_strain_component(candidate, component)
-            _set_engineering_strain_component(candidate, component, current + increment)
+        # A consistent plastic tangent may become very soft near a reversed
+        # stress target.  The full Newton correction can then cross several
+        # yield-surface branches even though the exact local Jacobian is
+        # correct.  Globalize the mixed-control solve against the actual
+        # stress residual; constitutive state remains transactional because
+        # every trial starts from the same accepted ``state``.
+        residual_norm = float(np.max(np.abs(residual), initial=0.0))
+        for backtrack in range(36):
+            factor = 0.5**backtrack
+            trial = candidate.copy()
+            for component, increment in zip(unknown, correction, strict=True):
+                current = _engineering_strain_component(trial, component)
+                _set_engineering_strain_component(
+                    trial,
+                    component,
+                    current + factor * increment,
+                )
+            trial_update = material.update(trial, state, linearization="none")
+            trial_residual = np.asarray(
+                [
+                    trial_update.stress[row, column] - target_stress[row, column]
+                    for row, column in unknown
+                ]
+            )
+            if float(np.max(np.abs(trial_residual), initial=0.0)) < residual_norm:
+                candidate = trial
+                break
+        else:
+            raise RuntimeError(
+                "Mixed material control line search could not reduce the "
+                "stress residual. Refine the loading path or review the "
+                "constitutive parameters."
+            )
     raise RuntimeError(
         "Mixed material control did not converge within "
         f"{maximum_iterations} iterations."
@@ -765,9 +774,7 @@ def _mixed_control_update(
 
 
 def _stored_energy(material: GeneralizedMaxwell, state: MaxwellState) -> float:
-    equilibrium = 0.5 * material.equilibrium_modulus * float(
-        np.sum(state.strain**2)
-    )
+    equilibrium = 0.5 * material.equilibrium_modulus * float(np.sum(state.strain**2))
     reshape = (material.branch_moduli.size,) + (1,) * state.strain.ndim
     branches = 0.5 * float(
         np.sum(state.overstress**2 / material.branch_moduli.reshape(reshape))

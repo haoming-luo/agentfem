@@ -784,6 +784,38 @@ def test_chaboche_return_map_tracks_backstress_and_discrete_tangent():
     np.testing.assert_allclose(analytical, numerical, rtol=5.0e-5, atol=2.0e-3)
 
 
+def test_chaboche_discrete_tangent_remains_consistent_after_reversal():
+    material = plasticity.chaboche(
+        young=200.0e3,
+        poisson=0.3,
+        yield_stress=200.0,
+        backstresses=((22.22e3, 34.65), (8.0e3, 5.0)),
+        isotropic_saturation=2000.0,
+        isotropic_rate=0.25,
+    )
+    preload = material.update(np.diag((0.006, -0.003, -0.003)))
+    reversed_strain = np.diag((-0.002, 0.001, 0.001))
+    direction = np.asarray(((0.4, -0.15, 0.0), (-0.15, -0.1, 0.05), (0.0, 0.05, -0.3)))
+    update = material.update(reversed_strain, preload.state)
+    analytical = np.einsum("ijkl,kl->ij", update.algorithmic_tangent, direction)
+    perturbation = 2.0e-7
+    numerical = (
+        material.update(
+            reversed_strain + perturbation * direction,
+            preload.state,
+            linearization="none",
+        ).stress
+        - material.update(
+            reversed_strain - perturbation * direction,
+            preload.state,
+            linearization="none",
+        ).stress
+    ) / (2.0 * perturbation)
+
+    assert not update.elastic
+    np.testing.assert_allclose(analytical, numerical, rtol=8.0e-5, atol=2.0e-2)
+
+
 def test_chaboche_reversal_exhibits_kinematic_bauschinger_response():
     material = plasticity.chaboche(
         young=200.0e3,

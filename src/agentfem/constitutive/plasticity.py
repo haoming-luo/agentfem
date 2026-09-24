@@ -59,7 +59,9 @@ class J2PlasticState:
             raise ValueError("J2 plastic strain must be deviatoric.")
         equivalent = float(self.equivalent_plastic_strain)
         if not isfinite(equivalent) or equivalent < 0.0:
-            raise ValueError("equivalent_plastic_strain must be finite and nonnegative.")
+            raise ValueError(
+                "equivalent_plastic_strain must be finite and nonnegative."
+            )
         object.__setattr__(self, "plastic_strain", plastic_strain)
         object.__setattr__(self, "equivalent_plastic_strain", equivalent)
 
@@ -78,42 +80,25 @@ class PlasticEnergyIncrement:
 
     @property
     def recoverable_storage_change(self) -> float:
-        return (
-            self.isotropic_stored_energy_change
-            + self.kinematic_stored_energy_change
-        )
+        return self.isotropic_stored_energy_change + self.kinematic_stored_energy_change
 
     @property
     def modeled_irreversible_dissipation(self) -> float:
-        return (
-            self.reference_yield_dissipation
-            + self.dynamic_recovery_dissipation
-        )
+        return self.reference_yield_dissipation + self.dynamic_recovery_dissipation
 
     @property
     def discrete_dissipation(self) -> float:
-        return (
-            self.modeled_irreversible_dissipation
-            + self.backward_euler_dissipation
-        )
+        return self.modeled_irreversible_dissipation + self.backward_euler_dissipation
 
     def as_dict(self) -> dict[str, float]:
         return {
             "plastic_work": self.plastic_work,
-            "isotropic_stored_energy_change": (
-                self.isotropic_stored_energy_change
-            ),
-            "kinematic_stored_energy_change": (
-                self.kinematic_stored_energy_change
-            ),
+            "isotropic_stored_energy_change": (self.isotropic_stored_energy_change),
+            "kinematic_stored_energy_change": (self.kinematic_stored_energy_change),
             "recoverable_storage_change": self.recoverable_storage_change,
             "reference_yield_dissipation": self.reference_yield_dissipation,
-            "dynamic_recovery_dissipation": (
-                self.dynamic_recovery_dissipation
-            ),
-            "modeled_irreversible_dissipation": (
-                self.modeled_irreversible_dissipation
-            ),
+            "dynamic_recovery_dissipation": (self.dynamic_recovery_dissipation),
+            "modeled_irreversible_dissipation": (self.modeled_irreversible_dissipation),
             "backward_euler_dissipation": self.backward_euler_dissipation,
             "discrete_dissipation": self.discrete_dissipation,
             "balance_residual": self.balance_residual,
@@ -203,7 +188,9 @@ class TabulatedIsotropicHardening:
     def value(self, equivalent_plastic_strain: float) -> float:
         equivalent = float(equivalent_plastic_strain)
         if not isfinite(equivalent) or equivalent < 0.0:
-            raise ValueError("equivalent_plastic_strain must be finite and nonnegative.")
+            raise ValueError(
+                "equivalent_plastic_strain must be finite and nonnegative."
+            )
         points = np.asarray(self.equivalent_plastic_strain)
         values = np.asarray(self.yield_stress)
         if equivalent <= points[-1] or self.extrapolation == "constant":
@@ -211,12 +198,37 @@ class TabulatedIsotropicHardening:
         slope = (values[-1] - values[-2]) / (points[-1] - points[-2])
         return float(values[-1] + slope * (equivalent - points[-1]))
 
+    def slope(self, equivalent_plastic_strain: float) -> float:
+        """Return the active piecewise-linear hardening modulus."""
+
+        equivalent = float(equivalent_plastic_strain)
+        if not isfinite(equivalent) or equivalent < 0.0:
+            raise ValueError(
+                "equivalent_plastic_strain must be finite and nonnegative."
+            )
+        points = np.asarray(self.equivalent_plastic_strain)
+        values = np.asarray(self.yield_stress)
+        if equivalent >= points[-1]:
+            if self.extrapolation == "constant":
+                return 0.0
+            index = points.size - 2
+        else:
+            index = max(
+                int(np.searchsorted(points, equivalent, side="right")) - 1,
+                0,
+            )
+        return float(
+            (values[index + 1] - values[index]) / (points[index + 1] - points[index])
+        )
+
     def hardening_storage(self, equivalent_plastic_strain: float) -> float:
         """Return the integral of yield-radius growth above its initial value."""
 
         equivalent = float(equivalent_plastic_strain)
         if not isfinite(equivalent) or equivalent < 0.0:
-            raise ValueError("equivalent_plastic_strain must be finite and nonnegative.")
+            raise ValueError(
+                "equivalent_plastic_strain must be finite and nonnegative."
+            )
         points = np.asarray(self.equivalent_plastic_strain)
         radius = np.asarray(self.yield_stress) - self.initial_yield_stress
         upper = min(equivalent, float(points[-1]))
@@ -255,9 +267,7 @@ class ChabocheState:
 
     plastic_strain: np.ndarray = field(default_factory=lambda: np.zeros((3, 3)))
     equivalent_plastic_strain: float = 0.0
-    backstresses: np.ndarray = field(
-        default_factory=lambda: np.zeros((1, 3, 3))
-    )
+    backstresses: np.ndarray = field(default_factory=lambda: np.zeros((1, 3, 3)))
 
     def __post_init__(self) -> None:
         plastic = _symmetric_tensor(self.plastic_strain, label="plastic_strain")
@@ -369,7 +379,9 @@ class ChabocheCombinedHardening:
             raise ValueError("Local tolerance must be positive and iterations >= 8.")
         object.__setattr__(self, "backstress_moduli", moduli)
         object.__setattr__(self, "dynamic_recovery", recovery)
-        object.__setattr__(self, "local_maximum_iterations", int(self.local_maximum_iterations))
+        object.__setattr__(
+            self, "local_maximum_iterations", int(self.local_maximum_iterations)
+        )
 
     @property
     def backstress_count(self) -> int:
@@ -397,9 +409,7 @@ class ChabocheCombinedHardening:
         return _isotropic_elastic_tangent(self.bulk_modulus, self.shear_modulus)
 
     def initial_state(self) -> ChabocheState:
-        return ChabocheState(
-            backstresses=np.zeros((self.backstress_count, 3, 3))
-        )
+        return ChabocheState(backstresses=np.zeros((self.backstress_count, 3, 3)))
 
     def update(
         self,
@@ -428,7 +438,7 @@ class ChabocheCombinedHardening:
             tangent = (
                 self.elastic_tangent()
                 if elastic
-                else self._algorithmic_tangent(strain, old)
+                else self._algorithmic_tangent(strain, old, increment)
             )
         return J2Update(
             stress=stress,
@@ -447,19 +457,16 @@ class ChabocheCombinedHardening:
 
     def _integrate(self, strain, old, *, tolerance=None):
         elastic_trial = strain - old.plastic_strain
-        trial_stress = (
-            2.0 * self.shear_modulus * deviatoric(elastic_trial)
-            + self.bulk_modulus * np.trace(elastic_trial) * np.eye(3)
-        )
+        trial_stress = 2.0 * self.shear_modulus * deviatoric(
+            elastic_trial
+        ) + self.bulk_modulus * np.trace(elastic_trial) * np.eye(3)
         trial_deviator = deviatoric(trial_stress)
         shifted_trial = trial_deviator - old.total_backstress
         q_trial = von_mises(shifted_trial)
         yield_old = self.current_yield_stress(old.equivalent_plastic_strain)
         trial_value = q_trial - yield_old
         selected_tolerance = (
-            max(1.0, yield_old) * 1.0e-12
-            if tolerance is None
-            else float(tolerance)
+            max(1.0, yield_old) * 1.0e-12 if tolerance is None else float(tolerance)
         )
         if selected_tolerance < 0.0:
             raise ValueError("tolerance must be nonnegative.")
@@ -467,21 +474,14 @@ class ChabocheCombinedHardening:
             return trial_stress, old, True, float(trial_value), 0.0
 
         def consistency(increment: float):
-            theta = 1.0 / (
-                1.0 + np.asarray(self.dynamic_recovery) * increment
-            )
-            base = trial_deviator - np.einsum(
-                "a,aij->ij", theta, old.backstresses
-            )
+            theta = 1.0 / (1.0 + np.asarray(self.dynamic_recovery) * increment)
+            base = trial_deviator - np.einsum("a,aij->ij", theta, old.backstresses)
             q_base = von_mises(base)
             value = (
                 q_base
                 - 3.0 * self.shear_modulus * increment
-                - increment
-                * float(np.dot(theta, np.asarray(self.backstress_moduli)))
-                - self.current_yield_stress(
-                    old.equivalent_plastic_strain + increment
-                )
+                - increment * float(np.dot(theta, np.asarray(self.backstress_moduli)))
+                - self.current_yield_stress(old.equivalent_plastic_strain + increment)
             )
             return float(value), theta, base, q_base
 
@@ -525,7 +525,9 @@ class ChabocheCombinedHardening:
 
         _, theta, base, q_base = consistency(increment)
         if q_base <= 0.0:
-            raise RuntimeError("Plastic Chaboche return requires a positive direction norm.")
+            raise RuntimeError(
+                "Plastic Chaboche return requires a positive direction norm."
+            )
         direction = 1.5 * base / q_base
         plastic = old.plastic_strain + increment * direction
         backstresses = np.empty_like(old.backstresses)
@@ -533,18 +535,17 @@ class ChabocheCombinedHardening:
             zip(self.backstress_moduli, theta, strict=True)
         ):
             backstresses[index] = factor * (
-                old.backstresses[index]
-                + (2.0 / 3.0) * modulus * increment * direction
+                old.backstresses[index] + (2.0 / 3.0) * modulus * increment * direction
             )
         pressure = np.trace(trial_stress) / 3.0 * np.eye(3)
-        stress = pressure + trial_deviator - 2.0 * self.shear_modulus * increment * direction
+        stress = (
+            pressure + trial_deviator - 2.0 * self.shear_modulus * increment * direction
+        )
         return (
             stress,
             ChabocheState(
                 plastic_strain=plastic,
-                equivalent_plastic_strain=(
-                    old.equivalent_plastic_strain + increment
-                ),
+                equivalent_plastic_strain=(old.equivalent_plastic_strain + increment),
                 backstresses=backstresses,
             ),
             False,
@@ -552,26 +553,88 @@ class ChabocheCombinedHardening:
             float(increment),
         )
 
-    def _algorithmic_tangent(self, strain, old) -> np.ndarray:
-        """Differentiate the complete discrete return map in symmetric strain."""
+    def _algorithmic_tangent(self, strain, old, increment) -> np.ndarray:
+        """Linearize the fully discrete backward-Euler return map.
 
-        scale = max(
-            1.0e-5,
-            float(np.linalg.norm(strain)),
-            self.yield_stress / self.young,
+        The local solve has one scalar unknown, the equivalent-plastic-strain
+        increment. Differentiating that same consistency equation gives the
+        algorithmic tangent consumed by global Newton without repeating the
+        return map for twelve finite-difference perturbations.
+        """
+
+        elastic_trial = strain - old.plastic_strain
+        trial_stress = 2.0 * self.shear_modulus * deviatoric(
+            elastic_trial
+        ) + self.bulk_modulus * np.trace(elastic_trial) * np.eye(3)
+        trial_deviator = deviatoric(trial_stress)
+        recovery = np.asarray(self.dynamic_recovery)
+        moduli = np.asarray(self.backstress_moduli)
+        theta = 1.0 / (1.0 + recovery * increment)
+        base = trial_deviator - np.einsum(
+            "a,aij->ij",
+            theta,
+            old.backstresses,
         )
-        step = np.cbrt(np.finfo(float).eps) * scale
+        q_base = von_mises(base)
+        if q_base <= 0.0:
+            raise RuntimeError(
+                "Plastic Chaboche tangent requires a positive return direction."
+            )
+        direction = 1.5 * base / q_base
+        backstress_direction = np.einsum(
+            "a,aij->ij",
+            recovery * theta**2,
+            old.backstresses,
+        )
+        weighted_modulus = float(np.dot(theta, moduli))
+        weighted_modulus_derivative = -float(np.dot(recovery * theta**2, moduli))
+        equivalent = old.equivalent_plastic_strain + increment
+        if self.isotropic_hardening is None:
+            isotropic_modulus = (
+                self.isotropic_saturation
+                * self.isotropic_rate
+                * np.exp(-self.isotropic_rate * equivalent)
+            )
+        else:
+            isotropic_modulus = self.isotropic_hardening.slope(equivalent)
+        denominator = (
+            3.0 * self.shear_modulus
+            + weighted_modulus
+            + increment * weighted_modulus_derivative
+            + isotropic_modulus
+            - float(np.sum(direction * backstress_direction))
+        )
+        if not np.isfinite(denominator) or denominator <= 0.0:
+            raise RuntimeError(
+                "Chaboche discrete tangent has a nonpositive consistency modulus."
+            )
+
         tangent = np.zeros((3, 3, 3, 3), dtype=float)
         for k in range(3):
             for l in range(k, 3):
-                direction = np.zeros((3, 3), dtype=float)
+                perturbation = np.zeros((3, 3), dtype=float)
                 if k == l:
-                    direction[k, l] = 1.0
+                    perturbation[k, l] = 1.0
                 else:
-                    direction[k, l] = direction[l, k] = 0.5
-                plus = self._integrate(strain + step * direction, old)[0]
-                minus = self._integrate(strain - step * direction, old)[0]
-                derivative = (plus - minus) / (2.0 * step)
+                    perturbation[k, l] = perturbation[l, k] = 0.5
+                trial_increment = 2.0 * self.shear_modulus * deviatoric(perturbation)
+                plastic_increment = float(
+                    np.sum(direction * trial_increment) / denominator
+                )
+                base_increment = (
+                    trial_increment + backstress_direction * plastic_increment
+                )
+                direction_increment = (
+                    1.5 * base_increment
+                    - direction * np.sum(direction * base_increment)
+                ) / q_base
+                derivative = (
+                    self.bulk_modulus * np.trace(perturbation) * np.eye(3)
+                    + trial_increment
+                    - 2.0
+                    * self.shear_modulus
+                    * (direction * plastic_increment + increment * direction_increment)
+                )
                 tangent[:, :, k, l] = derivative
                 tangent[:, :, l, k] = derivative
         return 0.5 * (tangent + np.swapaxes(tangent, 0, 1))
@@ -596,7 +659,7 @@ class ChabocheCombinedHardening:
             "maturity": "fem_integrated_experimental",
             "fem_quadrature_driver": True,
             "local_integration": "backward_euler_scalar_consistency",
-            "algorithmic_tangent": "discrete_central_difference",
+            "algorithmic_tangent": "analytical_discrete_consistent",
             "response_only": True,
         }
 
@@ -741,18 +804,15 @@ class J2LinearIsotropicHardening:
         selected_linearization = _linearization(linearization)
         old = J2PlasticState() if state is None else state
         elastic_strain_trial = strain - old.plastic_strain
-        trial_stress = (
-            2.0 * self.shear_modulus * deviatoric(elastic_strain_trial)
-            + self.bulk_modulus * np.trace(elastic_strain_trial) * np.eye(3)
-        )
+        trial_stress = 2.0 * self.shear_modulus * deviatoric(
+            elastic_strain_trial
+        ) + self.bulk_modulus * np.trace(elastic_strain_trial) * np.eye(3)
         trial_deviator = deviatoric(trial_stress)
         q_trial = von_mises(trial_stress)
         yield_old = self.current_yield_stress(old.equivalent_plastic_strain)
         f_trial = q_trial - yield_old
         selected_tolerance = (
-            max(1.0, yield_old) * 1.0e-12
-            if tolerance is None
-            else float(tolerance)
+            max(1.0, yield_old) * 1.0e-12 if tolerance is None else float(tolerance)
         )
         if selected_tolerance < 0.0:
             raise ValueError("tolerance must be nonnegative.")
@@ -772,9 +832,7 @@ class J2LinearIsotropicHardening:
             )
         if q_trial <= 0.0:
             raise RuntimeError("Positive J2 yield function requires q_trial > 0.")
-        increment = f_trial / (
-            3.0 * self.shear_modulus + self.hardening_modulus
-        )
+        increment = f_trial / (3.0 * self.shear_modulus + self.hardening_modulus)
         direction = 1.5 * trial_deviator / q_trial
         plastic_strain = old.plastic_strain + increment * direction
         equivalent = old.equivalent_plastic_strain + increment
@@ -795,16 +853,11 @@ class J2LinearIsotropicHardening:
             )
             flow_direction = 1.5 * trial_deviator / q_trial
             radial_coefficient = (
-                1.0
-                / (
-                    q_trial
-                    * (3.0 * self.shear_modulus + self.hardening_modulus)
-                )
+                1.0 / (q_trial * (3.0 * self.shear_modulus + self.hardening_modulus))
                 - increment / q_trial**2
             )
             tangent = (
-                self.bulk_modulus
-                * np.einsum("ij,kl->ijkl", identity, identity)
+                self.bulk_modulus * np.einsum("ij,kl->ijkl", identity, identity)
                 + 2.0 * self.shear_modulus * reduction * deviatoric_identity
                 - 6.0
                 * self.shear_modulus**2
@@ -904,9 +957,7 @@ def _kinematic_hardening_storage(material, state) -> float:
 def _plastic_energy_increment(material, old, new, stress) -> PlasticEnergyIncrement:
     """Close the accepted backward-Euler plastic-work identity."""
 
-    increment = float(
-        new.equivalent_plastic_strain - old.equivalent_plastic_strain
-    )
+    increment = float(new.equivalent_plastic_strain - old.equivalent_plastic_strain)
     if increment <= 0.0:
         return PlasticEnergyIncrement()
     plastic_strain_increment = new.plastic_strain - old.plastic_strain
@@ -945,18 +996,15 @@ def _plastic_energy_increment(material, old, new, stress) -> PlasticEnergyIncrem
             )
             delta_alpha = alpha_new - alpha_old
             backward_euler += (
-                3.0
-                * float(np.tensordot(delta_alpha, delta_alpha))
-                / (4.0 * modulus)
+                3.0 * float(np.tensordot(delta_alpha, delta_alpha)) / (4.0 * modulus)
             )
-        radius_new = material.current_yield_stress(
-            new.equivalent_plastic_strain
-        ) - material.yield_stress
+        radius_new = (
+            material.current_yield_stress(new.equivalent_plastic_strain)
+            - material.yield_stress
+        )
         backward_euler += radius_new * increment - isotropic_change
     else:
-        radius_new = (
-            material.hardening_modulus * new.equivalent_plastic_strain
-        )
+        radius_new = material.hardening_modulus * new.equivalent_plastic_strain
         backward_euler = radius_new * increment - isotropic_change
     residual = (
         plastic_work
@@ -994,9 +1042,7 @@ def update_uniaxial(
 
     selected = UniaxialPlasticState() if state is None else state
     trial = material.young * (float(total_strain) - selected.plastic_strain)
-    yield_value = material.current_yield_stress(
-        selected.equivalent_plastic_strain
-    )
+    yield_value = material.current_yield_stress(selected.equivalent_plastic_strain)
     function = abs(trial) - yield_value
     if function <= max(1.0, yield_value) * 1.0e-12:
         return float(trial), selected

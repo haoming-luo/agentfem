@@ -14,7 +14,13 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--cycles", type=int, default=5)
     parser.add_argument("--mesh-sizes", type=float, nargs="+", default=(3.5, 2.5))
-    parser.add_argument("--refinements", type=int, nargs="+", default=(8, 16, 32))
+    parser.add_argument("--refinements", type=int, nargs="+")
+    parser.add_argument(
+        "--maximum-inelastic-increments",
+        type=float,
+        nargs="+",
+        default=(4.0e-3, 2.0e-3, 1.0e-3),
+    )
     parser.add_argument("--relative-tolerance", type=float, default=0.01)
     parser.add_argument("--report", type=Path, required=True)
     parser.add_argument("--progress", action="store_true")
@@ -22,22 +28,41 @@ def main() -> None:
     options = parser.parse_args()
 
     started = perf_counter()
-    certificate, cases = (
-        benchmarks.certify_simulia_316_shouldered_ratcheting_convergence(
-            cycle_count=options.cycles,
-            mesh_sizes=tuple(options.mesh_sizes),
-            refinements=tuple(options.refinements),
-            relative_tolerance=options.relative_tolerance,
-            progress=options.progress,
+    if options.refinements is None:
+        path_control = "maximum_inelastic_increment"
+        certificate, cases = (
+            benchmarks.certify_simulia_316_shouldered_ratcheting_accuracy(
+                cycle_count=options.cycles,
+                mesh_sizes=tuple(options.mesh_sizes),
+                maximum_inelastic_increments=tuple(
+                    options.maximum_inelastic_increments
+                ),
+                relative_tolerance=options.relative_tolerance,
+                progress=options.progress,
+            )
         )
-    )
+    else:
+        path_control = "fixed_refinement"
+        certificate, cases = (
+            benchmarks.certify_simulia_316_shouldered_ratcheting_convergence(
+                cycle_count=options.cycles,
+                mesh_sizes=tuple(options.mesh_sizes),
+                refinements=tuple(options.refinements),
+                relative_tolerance=options.relative_tolerance,
+                progress=options.progress,
+            )
+        )
     case_records = []
-    for (mesh_size, refinement), (assessment, result) in sorted(cases.items()):
+    for (mesh_size, control_value), (assessment, result) in sorted(cases.items()):
         case_records.append(
             {
                 "mesh_size": mesh_size,
-                "refinement": refinement,
+                "path_control": path_control,
+                "path_control_value": control_value,
                 "assessment": assessment.as_dict(),
+                "path_control_evidence": result.metadata["external_benchmark"][
+                    "path_control"
+                ],
                 "cycle": result.histories[
                     "maximum_center_axial_strain"
                 ].abscissa.tolist(),
@@ -56,6 +81,8 @@ def main() -> None:
             "cycles": options.cycles,
             "mesh_sizes": options.mesh_sizes,
             "refinements": options.refinements,
+            "maximum_inelastic_increments": (options.maximum_inelastic_increments),
+            "path_control": path_control,
             "relative_tolerance": options.relative_tolerance,
         },
         "certificate": certificate.as_dict(),

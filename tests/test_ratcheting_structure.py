@@ -25,9 +25,7 @@ def test_digitized_curve_keeps_figure_uncertainty_explicit():
 def test_digitized_curve_asset_matches_its_public_manifest():
     root = resources.files("agentfem.knowledge.external_data")
     manifest = json.loads(
-        root.joinpath("simulia_316_ratcheting_figure4.json").read_text(
-            encoding="utf-8"
-        )
+        root.joinpath("simulia_316_ratcheting_figure4.json").read_text(encoding="utf-8")
     )
     payload = root.joinpath(manifest["curve_file"]).read_bytes()
 
@@ -57,6 +55,14 @@ def test_convergence_contract_rejects_single_level_axes():
         benchmarks.certify_simulia_316_shouldered_ratcheting_convergence(
             refinements=(8,),
         )
+    with pytest.raises(ValueError, match="at least two"):
+        benchmarks.certify_simulia_316_shouldered_ratcheting_accuracy(
+            maximum_inelastic_increments=(2.5e-4,),
+        )
+    with pytest.raises(ValueError, match="strictly decreasing"):
+        benchmarks.certify_simulia_316_shouldered_ratcheting_accuracy(
+            maximum_inelastic_increments=(2.5e-4, 5.0e-4),
+        )
 
 
 @pytest.mark.skipif(
@@ -79,3 +85,26 @@ def test_shouldered_specimen_runs_as_a_real_axisymmetric_structure():
         "digitized_experimental_figure_with_uncertainty"
     )
     assert "maximum_center_axial_strain" in result.histories
+
+
+@pytest.mark.skipif(
+    os.environ.get("AGENTFEM_RUN_EXTERNAL_STRUCTURE") != "1",
+    reason="release/nightly external structure obligation",
+)
+def test_shouldered_specimen_adaptive_path_hits_every_physical_knot():
+    pytest.importorskip("gmsh")
+    assessment, result = benchmarks.simulia_316_shouldered_ratcheting_benchmark(
+        cycle_count=5,
+        refinement=1,
+        mesh_size=3.5,
+        maximum_inelastic_increment=2.0e-3,
+    )
+
+    control = result.metadata["external_benchmark"]["path_control"]
+    assert assessment.accepted
+    assert control["kind"] == "automatic_maximum_inelastic_increment"
+    assert control["all_mandatory_coordinates_reached"]
+    assert control["accepted_increment_count"] >= (
+        control["mandatory_coordinate_count"] - 1
+    )
+    assert control["maximum_accepted_plastic_increment"] <= 2.0e-3 * (1.0 + 1.0e-10)

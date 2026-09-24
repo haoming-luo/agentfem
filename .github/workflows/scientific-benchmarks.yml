@@ -167,20 +167,21 @@ jobs:
           python -m build --wheel
           python -m pip install --no-deps --force-reinstall dist/*.whl
 
-      - name: Run independent mesh and load-path refinement
+      - name: Run independent mesh and adaptive-path accuracy certificate
         run: |
           cd /tmp
           python "$GITHUB_WORKSPACE/tools/run_chaboche_ratcheting_benchmark.py" \
             --cycles 5 \
             --mesh-sizes 3.5 2.5 \
-            --refinements 8 16 32 \
+            --maximum-inelastic-increments 0.004 0.002 0.001 \
             --relative-tolerance 0.01 \
-            --report /tmp/agentfem-chaboche-ratcheting.json
+            --report /tmp/agentfem-chaboche-ratcheting.json \
+            --require-acceptable
 
       - name: Upload shouldered-specimen evidence
         if: always()
         uses: actions/upload-artifact@v7
         with:
-          name: chaboche-ratcheting-convergence
+          name: chaboche-ratcheting-accuracy
           path: /tmp/agentfem-chaboche-ratcheting.json
           if-no-files-found: warn

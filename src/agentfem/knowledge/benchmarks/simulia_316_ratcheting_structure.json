@@ -13,8 +13,35 @@
     "retrieved": "2026-09-24",
     "case": "two-backstress axisymmetric cyclic specimen"
   },
+  "method_sources": [
+    {
+      "organization": "Dassault Systemes SIMULIA",
+      "title": "Direct cyclic analysis: automatic incrementation and mandatory time points",
+      "url": "https://docs.software.vt.edu/abaqusv2025/English/SIMACAEANLRefMap/simaanl-c-directcyclic.htm"
+    },
+    {
+      "organization": "Idaho National Laboratory",
+      "title": "MOOSE RadialReturnStressUpdate substepping",
+      "url": "https://mooseframework.inl.gov/source/materials/RadialReturnStressUpdate.html"
+    },
+    {
+      "organization": "CEA and EDF",
+      "title": "MFront mechanical behaviours and implicit integration",
+      "url": "https://thelfer.github.io/tfel/web/behaviours.html"
+    },
+    {
+      "authors": "J. L. Chaboche and G. Cailletaud",
+      "title": "Integration methods for complex plastic constitutive equations",
+      "doi": "10.1016/0045-7825(95)00957-4"
+    },
+    {
+      "authors": "I. Doghri and A. Ouaar",
+      "title": "Homogenization of two-phase elasto-plastic composite materials and structures: study of tangent operators, cyclic plasticity and numerical algorithms",
+      "doi": "10.1016/S0020-7683(03)00013-1"
+    }
+  ],
   "execution": {
-    "command": "python tools/run_chaboche_ratcheting_benchmark.py --cycles 5 --mesh-sizes 3.5 2.5 --refinements 8 16 32 --relative-tolerance 0.01 --report ratcheting.json",
+    "command": "python tools/run_chaboche_ratcheting_benchmark.py --cycles 5 --mesh-sizes 3.5 2.5 --maximum-inelastic-increments 0.004 0.002 0.001 --relative-tolerance 0.01 --report ratcheting.json",
     "example": "tools/run_chaboche_ratcheting_benchmark.py",
     "evidence": "The self-contained mesh reconstructs the public dimensions; the optional official input deck is accepted only when its SHA-256 matches the recorded identity."
   },
@@ -22,17 +49,18 @@
     "Cycle-peak center-gauge axial strain.",
     "Absolute and root-mean-square difference from digitized experimental Figure 4 points.",
     "Final global Newton residual.",
-    "Independent spatial-mesh and load-path refinement changes."
+    "Independent spatial-mesh and accuracy-driven path-integration changes."
   ],
   "acceptance": [
     "The structure result remains inside the AgentFEM-defined absolute curve-error band after including raster uncertainty.",
     "The final Newton residual is below the declared equilibrium tolerance.",
-    "The final two spatial and load-path refinements each change the cycle-peak strain by no more than the declared release tolerance."
+    "The final two spatial meshes and maximum-plastic-increment limits each change the cycle-peak strain by no more than the declared release tolerance."
   ],
   "limitations": [
     "SIMULIA publishes Figure 4 as a raster plot rather than a numerical table; AgentFEM records a conservative digitization uncertainty.",
     "The public Abaqus input uses CAX4R/CAX3 and geometric nonlinearity; AgentFEM uses an independently generated triangular meridian mesh and the current small-strain Chaboche formulation.",
-    "Five-cycle development runs have passed curve and equilibrium checks, but 8-to-16 path refinement still changes the fifth-cycle strain by about 3.75%, above the 1% promotion gate.",
-    "The full published 100-cycle saturation response remains a release-candidate obligation."
+    "Fixed-step development runs exposed load-path sensitivity. The five-cycle adaptive gate now passes with all 17 physical knots reached, 0.290% change between the final two maximum-plastic-increment limits, 0.192% spatial-mesh change, and an equilibrium residual below 1e-9.",
+    "The 245-cell, 100-cycle response reaches all 302 mandatory physical coordinates with 533 accepted increments and 8 transactional cutbacks; its maximum PEEQ increment is 9.54e-4, final equilibrium residual is 9.23e-10, and maximum absolute difference from the digitized curve is 1.205e-3 against the predeclared 1.25e-3 gate.",
+    "The 100-cycle curve passes the AgentFEM-defined raster-data gate narrowly; absent a vendor numerical table and like-for-like element/kinematic formulation, this remains external comparison evidence rather than an exact Golden or automatic material-maturity promotion."
   ]
 }

@@ -149,7 +149,7 @@ def test_j2_response_only_matches_consistent_update_without_a_tangent():
         material.update(strain, linearization="elastic")
 
 
-def test_chaboche_response_only_does_not_evaluate_numerical_tangent(monkeypatch):
+def test_chaboche_response_only_does_not_evaluate_algorithmic_tangent(monkeypatch):
     material = _chaboche()
     strain = np.diag((0.006, 0.0, 0.0))
 
@@ -241,9 +241,7 @@ def test_j2_history_uses_common_result_and_unambiguous_energy_names():
 
     assert step.procedure.requires_global_solve is False
     assert result.metadata["material_history"]["linearization"] == "none"
-    assert result.metadata["energy"]["plastic_work"] == (
-        "signed_work_not_dissipation"
-    )
+    assert result.metadata["energy"]["plastic_work"] == ("signed_work_not_dissipation")
     assert result.metadata["energy"]["modeled_irreversible_dissipation"] == (
         "available"
     )
@@ -263,16 +261,11 @@ def test_chaboche_history_exposes_state_but_fails_closed_on_full_dissipation():
 
     assert "backstress_components" in result.histories
     assert "total_backstress" in result.histories
-    assert result.metadata["energy"]["dynamic_recovery_dissipation"] == (
-        "available"
-    )
+    assert result.metadata["energy"]["dynamic_recovery_dissipation"] == ("available")
     assert result.metadata["energy"]["modeled_irreversible_dissipation"] == (
         "available"
     )
-    assert (
-        result.metadata["energy"]["complete_discrete_plastic_energy_balance"]
-        is True
-    )
+    assert result.metadata["energy"]["complete_discrete_plastic_energy_balance"] is True
     assert result.histories["dynamic_recovery_dissipation"].latest > 0.0
     assert result.histories["backward_euler_dissipation"].latest >= 0.0
     assert abs(result.histories["plastic_energy_balance_residual"].latest) < 1.0e-9

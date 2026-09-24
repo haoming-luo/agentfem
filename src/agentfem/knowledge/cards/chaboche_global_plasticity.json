@@ -14,6 +14,7 @@
     "agentfem.constitutive.PlasticMaterialHistoryStep",
     "agentfem.models.Model.step",
     "agentfem.benchmarks.simulia_316_shouldered_ratcheting_benchmark",
+    "agentfem.benchmarks.certify_simulia_316_shouldered_ratcheting_accuracy",
     "agentfem.benchmarks.certify_simulia_316_shouldered_ratcheting_convergence"
   ],
   "implementation": [
@@ -72,7 +73,7 @@
         "name": "DDSDDE",
         "type": "fourth-order quadrature tensor field",
         "unit_role": "stress per strain",
-        "description": "Central directional derivative of the fully discrete return map consumed by global Newton."
+        "description": "Analytical consistent linearization of the fully discrete backward-Euler return map consumed by global Newton."
       },
       {
         "name": "material history result",
@@ -100,7 +101,7 @@
     "limitations": [
       "Plane stress, finite-strain plasticity and temperature-dependent cyclic plasticity are not implemented.",
       "The external shouldered-specimen comparison is digitized from a public raster figure and retains an explicit uncertainty and convergence obligation.",
-      "The current automated structure evidence covers the first five cycles; the full published 100-cycle saturation response is not yet a routine gate.",
+      "The five-cycle structure evidence has passed independent adaptive-path and spatial-mesh gates, and one complete 100-cycle response passes the predeclared raster-data error and equilibrium gates; a clean release rerun remains required before maturity promotion.",
       "The discrete constitutive ledger is closed, but a calibrated thermomechanical heat-conversion model is not inferred from it."
     ]
   },
@@ -125,9 +126,9 @@
       "Reject a restart whose material, mesh, quadrature state or amplitude identity differs.",
       "Commit all hardening variables only after global increment acceptance.",
       "Require response-only and consistent-linearization material histories to produce identical accepted stresses and states.",
-      "Preserve every declared reversal and hold knot under nested path refinement.",
+      "Preserve every declared reversal and hold knot while automatic cutback limits the maximum accepted equivalent-plastic-strain increment.",
       "Keep digitized experimental values, raster uncertainty, AgentFEM acceptance tolerance and official-input SHA-256 distinct in structure evidence.",
-      "Require independent mesh and load-path convergence before promoting the shouldered specimen result.",
+      "Require independent mesh and adaptive path-integration convergence before promoting the shouldered specimen result.",
       "Require accepted plastic work to equal hardening-storage change plus reference-yield, dynamic-recovery and separately identified backward-Euler dissipation."
     ]
   },
@@ -147,6 +148,18 @@
     {
       "title": "NEML documentation: Chaboche nonassociative hardening",
       "locator": "https://neml.readthedocs.io/en/stable/hardening/non/chaboche.html"
+    },
+    {
+      "title": "Chaboche and Cailletaud: Integration methods for complex plastic constitutive equations",
+      "locator": "https://doi.org/10.1016/0045-7825(95)00957-4"
+    },
+    {
+      "title": "Doghri and Ouaar: tangent operators, cyclic plasticity and numerical algorithms",
+      "locator": "https://doi.org/10.1016/S0020-7683(03)00013-1"
+    },
+    {
+      "title": "MOOSE radial-return material substepping",
+      "locator": "https://mooseframework.inl.gov/source/materials/RadialReturnStressUpdate.html"
     }
   ],
   "related_cards": [
