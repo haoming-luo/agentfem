@@ -133,11 +133,14 @@ nav:
       - Core Analyses:
           - Solid Mechanics: guide/solid_mechanics.md
           - Heat Transfer: guide/heat_transfer.md
+          - Transient Heat Example: guide/transient_heat_workflow.md
           - Dynamics and Waves: guide/dynamics.md
           - Creep and Inelasticity: guide/creep_and_inelasticity.md
       - Build a Model:
           - Meshes, Loads and Constraints: guide/model_setup.md
           - Materials and Behaviors: guide/materials.md
+          - Field Expression Inputs: guide/field_expression_inputs.md
+          - High-order Mixed Fields: guide/high_order_mixed_fields.md
           - Mesh Interoperability: mesh_interoperability.md
           - Migrating Abaqus Projects: abaqus_migration.md
           - Engineering Workflow: engineering_workflows.md
@@ -148,6 +151,8 @@ nav:
           - Scientific Experiments: scientific_experiments.md
           - Simulation to Learning: guide/simulation_to_learning.md
       - Advanced Workflows:
+          - UFL Integration: guide/ufl_adoption.md
+          - Numerical Controls: guide/incremental_numerical_controls.md
           - Nonlinear Materials: nonlinear_materials.md
           - Composite Materials and Forming: composite_materials_and_forming.md
           - Thermal Stress and Creep: solution_procedures_and_thermal_creep.md

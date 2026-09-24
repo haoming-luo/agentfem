@@ -97,6 +97,7 @@ and evidence remain in the linked guides and scientific function reference.
 | function | `cell_measure(domain, cell_tags = None)` | Create a domain integration measure. |
 | function | `facet_normal(domain)` | Return the outward facet normal for boundary models. |
 | function | `tagged_boundary_measure(domain, marker, tag: int)` | Locate/tag exterior facets and return ``(ds, facet_tags)``. |
+| function | `from_arrays(*, cells, coordinates, coordinate_element, comm = None, partitioner = None)` | Create a DOLFINx mesh through explicit topology/geometry keywords. |
 | function | `from_geometry_spec(specification: Mapping[str, object], *, resolution: int = 32, comm: MPI.Comm = MPI.COMM_WORLD)` | Create an :class:`agentfem.mesh.FEMMesh` from a public geometry spec. |
 | class | `RegionSet` | Named collection of regions sharing one mesh tag object. |
 | class | `CellGradientOperator` | Reusable local sparse operator from cell values to owned-cell gradients. |
@@ -481,6 +482,7 @@ and evidence remain in the linked guides and scientific function reference.
 | function | `from_solution(solution, *, name: str = 'result', field_name: str \| None = None, unit: str \| None = None, metadata: Mapping[str, object] \| None = None, scientific_inputs: Mapping[str, object] \| None = None) -> SimulationResult` | Wrap one solved field in a :class:`SimulationResult`. |
 | class | `ForceMomentResultant` | Integrated force and moment about an explicit physical point. |
 | class | `PathSample` | Values sampled along one straight physical-space path. |
+| class | `PointSample` | Point values with distinct mesh coverage and numerical validity masks. |
 | class | `RectilinearGridSample` | A finite-element field sampled on a Cartesian observation grid. |
 | class | `StaticForceBalance` | Global algebraic force equilibrium for one linear static solid. |
 | class | `StaticWorkBalance` | Energy closure including proportional prescribed boundary motion. |
@@ -498,7 +500,7 @@ and evidence remain in the linked guides and scientific function reference.
 | function | `region_integral(expression, *, on, study = None)` | Integrate over a named region using its declared physical measure. |
 | function | `region_measure(*, on, study = None) -> float` | Return the global length, area, or volume of a named region. |
 | function | `sample_path(field, *, start, end, count: int = 101, padding: float = 1e-10, missing: str = 'raise') -> PathSample` | Sample a field along the straight segment from ``start`` to ``end``. |
-| function | `sample_points(field, points, *, padding: float = 1e-10, missing: str = 'raise') -> np.ndarray` | Evaluate a finite-element field at common physical points under MPI. |
+| function | `sample_points(field, points, *, padding: float = 1e-10, missing: str = 'raise', return_info: bool = False) -> np.ndarray \| PointSample` | Evaluate a finite-element field at common physical points under MPI. |
 | function | `sample_rectilinear_grid(field, *, bbox, shape, reduction: str \| None = None, component: int \| None = None, padding: float = 1e-10) -> RectilinearGridSample` | Sample a scalar or vector field on a 2D/3D rectilinear grid. |
 | function | `section_resultant(stress, *, on, normal = None, about = None) -> ForceMomentResultant` | Integrate section force and moment from a Cauchy/nominal stress field. |
 | function | `static_force_balance(problem, *, constraints = (), provider_duals = ()) -> StaticForceBalance` | Evaluate ``R + F = 0`` for a converged linear static solid. |
@@ -780,7 +782,7 @@ and evidence remain in the linked guides and scientific function reference.
 | function | `expression(source: str \| Real \| ScientificExpression) -> ScientificExpression` | Return a validated :class:`ScientificExpression`. |
 | function | `as_ufl(source, domain, *, parameters: Mapping[str, object] \| None = None)` | Validate and lower one scalar expression to UFL. |
 | function | `vector_as_ufl(sources: Sequence[str \| Real \| ScientificExpression], domain, *, parameters: Mapping[str, object] \| None = None)` | Validate and lower a vector of scalar expressions to UFL. |
-| function | `interpolate(target, source, *, parameters: Mapping[str, object] \| None = None) -> object` | Interpolate a validated scalar or vector expression into ``target``. |
+| function | `interpolate(target, source, *, parameters: Mapping[str, object] \| None = None) -> object` | Interpolate scalar, vector or tensor expressions into ``target``. |
 
 ## `agentfem.fatigue_fracture`
 
@@ -1013,6 +1015,7 @@ and evidence remain in the linked guides and scientific function reference.
 | function | `diffusion_operator(trial_function, test_function = None, conductivity = None, *, measure = ufl.dx) -> OperatorForm` | Create a scalar diffusion/conduction operator. |
 | function | `force_vector(target, loads = None, *, load = None, study = None) -> OperatorForm` | Create a total force/source vector from one or more load objects. |
 | function | `form_arity(expression) -> int \| None` | Return the number of UFL arguments, or ``None`` for opaque backends. |
+| function | `from_ufl(expression, *, name: str, kind: str = 'custom_operator', family: str = 'custom', role: str \| None = None) -> OperatorForm` | Adopt an integrated UFL form without changing its numerical expression. |
 | function | `flux_vector(flux, target, *, measure = None, location = None) -> OperatorForm` | Create a prescribed scalar boundary-flux vector. |
 | function | `heat_capacity_operator(temperature, capacity, *, measure = ufl.dx) -> OperatorForm` | Create a heat-capacity operator ``C`` for transient heat problems. |
 | function | `heat_capacity_vector(previous_temperature, temperature, capacity, *, measure = ufl.dx) -> OperatorForm` | Create the known heat-capacity vector ``C * T_previous``. |
@@ -1070,9 +1073,10 @@ and evidence remain in the linked guides and scientific function reference.
 | function | `advection_operator(trial, test, velocity, *, measure = ufl.dx, name: str = 'A_advection') -> OperatorForm` | Return the Galerkin advection operator ``(v . grad(u), w)``. |
 | function | `as_velocity(velocity)` | Normalize a public velocity sequence without hiding UFL expressions. |
 | function | `burgers_convection_operator(advecting_scalar, transported_scalar, test, *, direction = None, measure = ufl.dx, name: str = 'N_burgers') -> OperatorForm` | Return scalar Burgers transport ``u_adv (d . grad(u))``. |
-| function | `intrinsic_time_scale(domain, velocity)` | Return the standard cellwise advective SUPG scale ``h/(2 \|v\|)``. |
+| function | `intrinsic_time_scale(domain, velocity, *, diffusivity = None, degree: int = 1, directional: bool = False, time_step: float \| None = None)` | Return a cellwise SUPG scale. |
 | function | `reaction_expression(value, law: str \| Mapping[str, object], **parameters)` | Lower a named scalar reaction law to a UFL expression. |
 | function | `streamline_upwind_operator(strong_residual, test, velocity, *, tau = None, domain = None, measure = ufl.dx, name: str = 'A_supg') -> OperatorForm` | Return a SUPG contribution ``tau R(u) (v . grad(w))``. |
+| function | `transient_transport_forms(trial, test, previous, source, previous_source, velocity, diffusivity, *, dt: float, theta: float = 0.5, tau = None, measure = ufl.dx)` | Return ``(a, L)`` for a constant-coefficient transport theta step. |
 
 ## `agentfem.procedures`
 
@@ -1119,15 +1123,16 @@ and evidence remain in the linked guides and scientific function reference.
 | class | `SolveEvent` | One structured event emitted by an analysis procedure. |
 | function | `create_ksp(comm, options: LinearSolverOptions \| None = None)` | Create and configure a PETSc KSP object. |
 | class | `LinearSolveInfo` | PETSc KSP convergence evidence for one linear system solve. |
-| class | `PreparedLinearProblem(bilinear_form, linear_form, solution, *, bcs = None, options: LinearSolverOptions \| None = None)` | A linear problem whose constant matrix and KSP are assembled once. |
-| function | `prepare_linear_problem(bilinear_form, linear_form, solution, *, bcs = None, options: LinearSolverOptions \| None = None) -> PreparedLinearProblem` | Prepare one constant linear operator for repeated right-hand sides. |
+| class | `PreparedLinearProblem(bilinear_form, linear_form, solution, *, bcs = None, bc_assembly: str = 'lifting', options: LinearSolverOptions \| None = None)` | A linear problem whose constant matrix and KSP are assembled once. |
+| function | `prepare_linear_problem(bilinear_form, linear_form, solution, *, bcs = None, bc_assembly: str = 'lifting', options: LinearSolverOptions \| None = None) -> PreparedLinearProblem` | Prepare one constant linear operator for repeated right-hand sides. |
 | class | `PreparedMPCLinearProblem(bilinear_form, linear_form, solution, constraint, *, bcs = None, options: LinearSolverOptions \| None = None, petsc_options_prefix: str = 'agentfem_mpc_linear_')` | Reusable linear solve lowered through one exact MPC provider. |
 | function | `prepare_mpc_linear_problem(bilinear_form, linear_form, solution, constraint, *, bcs = None, options: LinearSolverOptions \| None = None, petsc_options_prefix: str = 'agentfem_mpc_linear_') -> PreparedMPCLinearProblem` | Prepare one exact-MPC operator for repeated right-hand sides. |
 | function | `solve_mpc_linear_problem(bilinear_form, linear_form, solution, constraint, *, bcs = None, options: LinearSolverOptions \| None = None, petsc_options_prefix: str = 'agentfem_mpc_linear_', return_info: bool = False)` | Solve one linear variational problem with an exact MPC backend. |
 | function | `solve_matrix_system(A, b, x, options: LinearSolverOptions \| None = None, *, raise_on_failure: bool \| None = None) -> LinearSolveInfo` | Solve ``A x = b`` and return explicit PETSc convergence evidence. |
-| function | `solve_linear_problem(bilinear_form, linear_form, solution, *, bcs = None, options: LinearSolverOptions \| None = None, return_info: bool = False)` | Assemble and solve a standard linear variational problem. |
+| function | `solve_linear_problem(bilinear_form, linear_form, solution, *, bcs = None, bc_assembly: str = 'lifting', options: LinearSolverOptions \| None = None, return_info: bool = False)` | Assemble and solve a standard linear variational problem. |
 | function | `solve_nonlinear_problem(residual_form, solution, *, bcs = None, jacobian_form = None, options: NonlinearSolverOptions \| NewtonSolverOptions \| None = None, petsc_options_prefix: str = 'agentfem_nonlinear_') -> tuple[object, NonlinearSolveInfo]` | Solve ``R(u; v) = 0`` with the current DOLFINx PETSc/SNES interface. |
 | function | `solve_affine_nonlinear_path(residual_form, jacobian_form, solution, constraint, *, load_factors = None, incrementation = None, output_factors = (), options: AffineNewtonOptions \| NewtonSolverOptions \| None = None, on_increment = None, on_accepted_boundary = None, on_acceptance_failure = None, acceptance_check = None, state_transaction = None, stop_factor: float = 1.0, accepted_history = (), attempted_history = (), next_increment_size: float \| None = None, reporter = None, step_name: str = 'affine_nonlinear', step_number: int = 1) -> tuple[object, AffineLoadPathInfo]` | Solve a nonlinear path under ``u = T q + u_bar`` constraints. |
+| function | `attach_nullspace(matrix, modes, *, rhs = None)` | Attach explicit orthonormalized null modes (e.g. constant pressure). |
 
 ## `agentfem.state`
 
@@ -1345,6 +1350,8 @@ and evidence remain in the linked guides and scientific function reference.
 | class | `DiagnosticSet` | Ordered collection of scalar diagnostics. |
 | function | `magnitude_stats(function, *, on = None, name: str \| None = None) -> FieldStats` | Return distributed magnitude statistics for a scalar or vector field. |
 | function | `field_stats(function, *, on = None, name: str \| None = None) -> FieldStats` | Alias for ``magnitude_stats`` for application-level diagnostics. |
+| class | `ComputationalFailure(diagnostic, message)` | Runtime failure with a stable machine-readable diagnosis and next checks. |
+| function | `linear_failure_diagnostic(reason, iterations, residual_norm)` | Describe solver evidence without claiming an unobserved root cause. |
 
 ## `agentfem.elements`
 
@@ -1506,6 +1513,7 @@ This package exposes its public objects through focused submodules.
 | function | `vector_lagrange_space(domain, degree: int = 1, dim: int \| None = None)` | Create a vector Lagrange function space. |
 | function | `vector_space(domain, degree: int = 1, dim: int \| None = None)` | Create a vector Lagrange function space. |
 | function | `velocity_pressure_space(domain, *, velocity_degree: int = 2, pressure_degree: int = 1)` | Create a Taylor--Hood velocity/pressure mixed space. |
+| function | `independent_subspace(space, component: int)` | Build an independently numbered space for one mixed-field component. |
 | function | `displacement_pressure_space(domain, *, displacement_degree: int = 2, pressure_degree: int = 0, pressure_family: str = 'DG')` | Create the mixed ``H1`` displacement / discontinuous-pressure space. |
 | function | `test_function(V)` | Create a UFL test function for a function space. |
 | function | `trial_function(V)` | Create a UFL trial function for a function space. |
@@ -1520,6 +1528,7 @@ This package exposes its public objects through focused submodules.
 | function | `central_difference_update_midstep_velocity(velocity_mid, velocity, acceleration, dt: float) -> None` | Update the central-difference mid-step velocity. |
 | function | `central_difference_correct_velocity(velocity_next, velocity, acceleration, acceleration_next, dt: float) -> None` | Correct velocity with the explicit central-difference/Newmark formula. |
 | function | `central_difference_update_velocity(velocity_next, velocity_mid, acceleration_next, dt: float) -> None` | Update whole-step velocity from mid-step velocity and new acceleration. |
+| function | `error_step_factor(error, tolerance, *, order = 1, safety = 0.9, minimum = 0.5, maximum = 2.0)` | Bounded proportional step-size factor for a local error estimate. |
 | class | `ProgressPrinter` | Rank-zero progress printer controlled by a fixed step interval. |
 | class | `TimeStep` | Metadata for one transient-solve step. |
 | class | `TimeStepper` | Iterate over transient-solve step metadata. |
