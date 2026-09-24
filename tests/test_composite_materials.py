@@ -31,6 +31,42 @@ def _lamina():
     )
 
 
+def test_rotation_free_shell_boundary_semantics_keep_both_dual_pairs_visible():
+    clamped = mechanics.rotation_free_edge_boundary(
+        translation="essential",
+        bending="essential",
+        name="left_clamp",
+    )
+    assert clamped.shell_support == "clamped"
+    contract = clamped.as_dict()
+    assert contract["lowering"] == "unavailable_until_provider_verified"
+    assert contract["work_conjugate_pairs"][0] == {
+        "kinematic": "boundary_displacement",
+        "dynamic": "effective_boundary_force",
+        "control": "essential",
+    }
+    assert contract["work_conjugate_pairs"][1] == {
+        "kinematic": "boundary_normal_rotation",
+        "dynamic": "bending_moment",
+        "control": "essential",
+    }
+
+    simply_supported = mechanics.rotation_free_edge_boundary(
+        translation="essential",
+        bending="natural",
+    )
+    assert simply_supported.shell_support == "simply_supported"
+    assert mechanics.rotation_free_edge_boundary(
+        translation="natural",
+        bending="natural",
+    ).shell_support == "free"
+    with pytest.raises(ValueError, match="translation_control"):
+        mechanics.rotation_free_edge_boundary(
+            translation="fixed",
+            bending="natural",
+        )
+
+
 def test_material_frames_are_right_handed_and_separate_from_material():
     frame = materials.MaterialFrame.from_angle(90.0, name="transverse")
     np.testing.assert_allclose(frame.basis, [[0.0, -1.0], [1.0, 0.0]], atol=1.0e-14)

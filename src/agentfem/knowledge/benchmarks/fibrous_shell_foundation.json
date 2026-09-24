@@ -57,7 +57,7 @@
     "A failed nonlinear attempt restores the pre-attempt displacement field.",
     "The hybrid attempt solver reuses fixed and automatic standard load incrementation, cutback, progress events, snapshots, and SimulationResult evidence.",
     "A separate assembled preconditioner leaves the true additive tangent action unchanged.",
-    "A displacement-only shell edge is not accepted as a rotation-free clamp; slope/rotation and conjugate moment semantics remain an explicit promotion gate.",
+    "A displacement-only shell edge is not accepted as a rotation-free clamp; an inspectable contract classifies both kinematic/dynamic edge pairs while executable slope/rotation and moment lowering remains a promotion gate.",
     "A conservative MPI neighbor energy rejects a stencil wider than the available shared-facet halo.",
     "A membrane stack adds only compatible energy scalars and never combines generalized resultants expressed in unlike fibre frames.",
     "Same-orientation grouping scales energy, conjugate resultants, and tangent by the number of explicitly listed physical layer IDs and rejects duplicate IDs.",
@@ -67,6 +67,6 @@
   "limitations": [
     "This benchmark does not contain a complete displacement-coupled shell element, boundary moment, or transverse-slip solve.",
     "It does not validate tool contact, friction, inter-ply slip, wrinkling, explicit quasi-static controls, or a physical drape experiment.",
-    "Standard increment, progress, checkpoint, SimulationResult, MPI result-field identity, boundary moments, complete shell assembly, and public shell/forming benchmarks remain promotion gates for the future global provider."
+    "Checkpoint/restart, MPI result-field identity, executable boundary moments, complete shell assembly, and public shell/forming benchmarks remain promotion gates for the future global provider."
   ]
 }

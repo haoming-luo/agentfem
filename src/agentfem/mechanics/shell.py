@@ -116,6 +116,96 @@ class FiberCurveKinematics:
 
 
 @dataclass(frozen=True)
+class RotationFreeEdgeBoundarySemantics:
+    """Declare the two work-conjugate boundary pairs of a thin shell.
+
+    This object is a provider-neutral scientific contract, not an executable
+    boundary condition.  A rotation-free shell provider must lower the
+    translational pair ``displacement/effective_force`` and the bending pair
+    ``normal_rotation/bending_moment`` consistently with its own discrete
+    surface gradient.  Keeping this distinction explicit prevents an ordinary
+    displacement constraint from being mislabeled as a shell clamp.
+    """
+
+    translation_control: str
+    bending_control: str
+    name: str = "rotation_free_edge"
+
+    def __post_init__(self) -> None:
+        choices = {"essential", "natural"}
+        translation = str(self.translation_control).strip().lower()
+        bending = str(self.bending_control).strip().lower()
+        if translation not in choices:
+            raise ValueError(
+                "translation_control must be 'essential' or 'natural'."
+            )
+        if bending not in choices:
+            raise ValueError("bending_control must be 'essential' or 'natural'.")
+        name = str(self.name).strip()
+        if not name:
+            raise ValueError("Rotation-free edge boundary name must not be empty.")
+        object.__setattr__(self, "translation_control", translation)
+        object.__setattr__(self, "bending_control", bending)
+        object.__setattr__(self, "name", name)
+
+    @property
+    def shell_support(self) -> str:
+        if self.translation_control == "essential" and self.bending_control == "essential":
+            return "clamped"
+        if self.translation_control == "essential":
+            return "simply_supported"
+        if self.bending_control == "essential":
+            return "rotation_guided"
+        return "free"
+
+    def as_dict(self) -> dict[str, object]:
+        return {
+            "kind": "rotation_free_edge_boundary_semantics",
+            "name": self.name,
+            "shell_support": self.shell_support,
+            "translation_control": self.translation_control,
+            "bending_control": self.bending_control,
+            "work_conjugate_pairs": (
+                {
+                    "kinematic": "boundary_displacement",
+                    "dynamic": "effective_boundary_force",
+                    "control": self.translation_control,
+                },
+                {
+                    "kinematic": "boundary_normal_rotation",
+                    "dynamic": "bending_moment",
+                    "control": self.bending_control,
+                },
+            ),
+            "effective_force_note": (
+                "provider must include higher-order boundary terms; it is not "
+                "assumed equal to a raw section-force resultant"
+            ),
+            "lowering": "unavailable_until_provider_verified",
+        }
+
+
+def rotation_free_edge_boundary(
+    *,
+    translation: str,
+    bending: str,
+    name: str = "rotation_free_edge",
+) -> RotationFreeEdgeBoundarySemantics:
+    """Create an inspectable rotation-free shell edge contract.
+
+    ``essential`` selects the kinematic member of a conjugate pair;
+    ``natural`` selects its force or moment member.  The contract deliberately
+    has no backend object until a shell provider supplies verified lowering.
+    """
+
+    return RotationFreeEdgeBoundarySemantics(
+        translation_control=translation,
+        bending_control=bending,
+        name=name,
+    )
+
+
+@dataclass(frozen=True)
 class ReconstructedFiberCurvature:
     """Owned-cell fibre curvatures plus neighbour reconstruction evidence."""
 
@@ -674,9 +764,11 @@ __all__ = [
     "ReconstructedFiberCurvature",
     "FibrousShellCompatibilityExpressions",
     "FibrousShellKinematicsExpressions",
+    "RotationFreeEdgeBoundarySemantics",
     "director_shell_kinematics",
     "fiber_curve_kinematics",
     "reconstruct_fiber_curvature",
+    "rotation_free_edge_boundary",
     "fibrous_shell_compatibility_ufl",
     "fibrous_shell_kinematics_ufl",
     "surface_deformation_gradient",

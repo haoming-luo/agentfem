@@ -162,7 +162,7 @@
       "The independent-direction bending operator supplies exact direction and direct surface-tangent first derivatives plus their exact admissible response linearization, but it does not include compatibility-constraint blocks.",
       "The displacement-derived fibre transfer and bending response compose into the complete first variation and matrix-free consistent tangent of the bending energy, but boundary moments, complete shell assembly, and a public shell Step remain promotion gates.",
       "The internal hybrid Newton runtime verifies total derivatives, strong constraints, retained reactions, rollback, serial/two-rank equivalence, the ordinary nonlinear load/result lifecycle, and separate true-operator/preconditioner ownership, but does not yet expose a public shell Procedure.",
-      "A displacement-only boundary is not a complete clamp for the rotation-free curvature operator; boundary slope/rotation and conjugate moment semantics remain unavailable.",
+      "A displacement-only boundary is not a complete clamp for the rotation-free curvature operator; an inspectable edge contract now distinguishes displacement/effective-force and normal-rotation/bending-moment pairs, but provider lowering remains unavailable.",
       "Under MPI, conservative neighbour energies require a partition-complete stencil; wider-than-halo reconstructions are rejected.",
       "FabricStack membrane lowering shares one surface displacement across layers; transverse slippage, independent material normals, and shell equilibrium remain promotion gates.",
       "Contact, friction, inter-ply slip, locking control, and forming procedures are not implemented.",

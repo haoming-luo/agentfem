@@ -112,7 +112,16 @@ experimental formulation to a validated one.
   state. An internal attempt-solver seam now lets this hybrid Newton runtime
   reuse the ordinary nonlinear Procedure's fixed/automatic load increments,
   cutback, progress events, snapshots, and `SimulationResult` evidence instead
-  of introducing a second shell-specific load controller.
+  of introducing a second shell-specific load controller. The runtime also
+  records the final Krylov reason, iterations, residual norm, and nonlinear-
+  attempt linear-iteration total, so a failed experiment distinguishes
+  nonlinear failure from a deficient linear preconditioner.
+- Add a provider-neutral rotation-free edge contract that keeps the two work-
+  conjugate pairs visible: displacement/effective boundary force and boundary
+  normal rotation/bending moment. It classifies clamped, simply supported,
+  guided, and free semantics while explicitly withholding executable lowering
+  until a shell provider verifies its derived rotation and higher-order edge
+  terms.
 - Make neighbour-energy partition completeness explicit. One-ring stencils
   backed by shared-facet ghosts are accepted under MPI; wider stencils without
   an expanded halo are rejected before an energy or bending operator can

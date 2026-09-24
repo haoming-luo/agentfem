@@ -208,7 +208,8 @@ Deepen the finite-element core before broadening the catalog:
   clamp because it does not constrain boundary slope. The
   naive mixed interpolation pairs that lost rank or exhibited a decaying
   normalized inf-sup value remain rejected evidence. The next promotion
-  sequence is boundary moments and complete shell assembly, locking
+  sequence is verified lowering of the now-explicit displacement/effective-
+  force and normal-rotation/bending-moment pairs, complete shell assembly, locking
   control and membrane/
   transverse-shear/in-plane-bending/normal-bending patch tests,
   followed by tool contact, friction, inter-ply slip, quasi-static explicit

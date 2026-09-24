@@ -436,6 +436,27 @@ promotion evidence: prescribing displacement on one edge is not a complete
 clamp for a rotation-free curvature model because the boundary slope remains
 free. A public shell boundary must distinguish displacement, rotation/slope,
 and their conjugate force/moment data before this is called a shell patch test.
+
+That distinction is now machine-readable without pretending the boundary is
+already executable:
+
+```python
+edge = mechanics.rotation_free_edge_boundary(
+    translation="essential",
+    bending="essential",
+    name="left_clamp",
+)
+assert edge.shell_support == "clamped"
+```
+
+The two controls select the kinematic or dynamic member of the pairs
+`boundary_displacement/effective_boundary_force` and
+`boundary_normal_rotation/bending_moment`. A displacement-only edge is instead
+classified as simply supported. The object is deliberately a scientific
+semantic contract: `as_dict()` reports that provider lowering is unavailable.
+The first executable provider must derive normal rotation from its own
+surface-gradient discretization and must include higher-order edge terms in
+the effective force rather than equating it to a raw section force.
 Naive mixed P1/DG0 and P2/DG1 compatibility pairs were rejected after losing
 rank under refinement; full-rank P2/CG1 and P2/DG0 candidates still showed a
 decaying normalized inf-sup value in the tested H1/L2 norms. Those negative
@@ -552,8 +573,9 @@ promoted this membrane foundation to a forming-capable fibrous shell.
 
 ## Promotion roadmap
 
-1. **Fibrous shell kernel:** boundary moments and complete neighbouring-
-   element rotation-free interpolation;
+1. **Fibrous shell kernel:** lower the declared displacement/effective-force
+   and normal-rotation/bending-moment pairs through the neighbouring-element
+   rotation-free interpolation;
    membrane, transverse-shear,
    in-plane-bending and normal-bending patch tests; documented locking control.
 2. **Forming procedure:** tool geometry, unilateral contact, friction,

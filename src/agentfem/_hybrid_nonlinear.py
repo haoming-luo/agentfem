@@ -138,7 +138,26 @@ class PreparedHybridNonlinearProblem:
         self.attempt_count = 0
         self.accepted_solve_count = 0
         self.last_solve_info = None
+        self.last_linear_solve = None
         self._closed = False
+
+    def _capture_linear_solve(self) -> dict[str, object]:
+        """Capture the final Krylov state without owning another PETSc object."""
+
+        ksp = self.solver.getKSP()
+        reason = int(ksp.getConvergedReason())
+        evidence = {
+            "kind": "linear_solve_info",
+            "converged": reason > 0,
+            "converged_reason": reason,
+            "iterations": int(ksp.getIterationNumber()),
+            "residual_norm": float(ksp.getResidualNorm()),
+        }
+        total = getattr(self.solver, "getLinearSolveIterations", None)
+        if callable(total):
+            evidence["nonlinear_attempt_total_iterations"] = int(total())
+        self.last_linear_solve = evidence
+        return evidence
 
     def _assign_state(self, source: PETSc.Vec) -> None:
         source.ghostUpdate(
@@ -219,9 +238,11 @@ class PreparedHybridNonlinearProblem:
         try:
             self.solver.solve(None, self.solution.x.petsc_vec)
         except Exception:
+            self._capture_linear_solve()
             self.solution.x.array[:] = accepted
             self.solution.x.scatter_forward()
             raise
+        linear_info = self._capture_linear_solve()
         self.solution.x.scatter_forward()
         info = NonlinearSolveInfo(
             converged_reason=int(self.solver.getConvergedReason()),
@@ -235,7 +256,10 @@ class PreparedHybridNonlinearProblem:
             raise RuntimeError(
                 "PETSc SNES did not converge for the hybrid nonlinear problem: "
                 f"reason={info.converged_reason}, iterations={info.iterations}, "
-                f"function_norm={info.function_norm:.6g}."
+                f"function_norm={info.function_norm:.6g}; "
+                f"linear_reason={linear_info['converged_reason']}, "
+                f"linear_iterations={linear_info['iterations']}, "
+                f"linear_residual_norm={linear_info['residual_norm']:.6g}."
             )
         if info.converged:
             self.accepted_solve_count += 1
@@ -307,6 +331,11 @@ class PreparedHybridNonlinearProblem:
                 None
                 if self.last_solve_info is None
                 else self.last_solve_info.as_dict()
+            ),
+            "last_linear_solve": (
+                None
+                if self.last_linear_solve is None
+                else dict(self.last_linear_solve)
             ),
             "failure_state": "restored_to_pre_attempt_solution",
             "physical_residual": "retained_before_strong_boundary_rows",

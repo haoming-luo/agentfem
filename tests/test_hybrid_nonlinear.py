@@ -101,6 +101,12 @@ def test_hybrid_newton_solves_local_form_plus_matrix_free_energy():
         assert np.all(solved.x.array > 0.0)
         assert np.all(solved.x.array < 0.15)
         assert problem.summary()["status"] == "internal_promotion_gate"
+        linear = problem.summary()["last_linear_solve"]
+        assert linear["kind"] == "linear_solve_info"
+        assert linear["converged"] is True
+        assert linear["iterations"] >= 0
+        assert np.isfinite(linear["residual_norm"])
+        assert linear["nonlinear_attempt_total_iterations"] >= linear["iterations"]
 
 
 def test_hybrid_newton_applies_essential_boundary_once():
@@ -196,6 +202,9 @@ def test_hybrid_newton_restores_solution_after_failed_attempt():
         assert problem.attempt_count == 1
         assert problem.accepted_solve_count == 0
         assert problem.summary()["failure_state"].startswith("restored")
+        linear = problem.summary()["last_linear_solve"]
+        assert linear is not None
+        assert isinstance(linear["converged_reason"], int)
 
 
 def test_hybrid_newton_converges_with_displacement_fiber_bending():
