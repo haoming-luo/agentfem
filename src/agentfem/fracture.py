@@ -202,6 +202,36 @@ class FiniteStrainEnergyMonitor:
         }
 
 
+@dataclass
+class FiniteStrainRegionalEnergyMonitor:
+    """Accepted-frame energy for a partitioned hyperelastic solid."""
+
+    mass: object
+    material_measures: tuple[tuple[object, object], ...]
+
+    def __post_init__(self) -> None:
+        if not self.material_measures:
+            raise ValueError(
+                "FiniteStrainRegionalEnergyMonitor requires at least one region."
+            )
+
+    def evaluate(self, *, displacement, velocity) -> dict[str, float]:
+        from . import operators
+
+        selected = field_api.unwrap(displacement)
+        kinetic = 0.5 * operators.quadratic_form(self.mass, velocity)
+        local_bulk = 0.0
+        for material, measure in self.material_measures:
+            density = hyperelasticity.strain_energy_density(selected, material)
+            local_bulk += fem.assemble_scalar(fem.form(density * measure))
+        bulk = selected.function_space.mesh.comm.allreduce(local_bulk, op=MPI.SUM)
+        return {
+            "kinetic_energy": float(kinetic),
+            "bulk_strain_energy": float(bulk),
+            "total_mechanical_energy": float(kinetic + bulk),
+        }
+
+
 class DofMappedCohesiveForce:
     """Map a serial cohesive facet kernel to vector finite-element dofs."""
 
@@ -3101,7 +3131,7 @@ class DampingEnergyMonitor:
 class FiniteStrainCohesiveEnergyMonitor:
     """Typed accepted-frame energy for bulk plus cohesive dynamics."""
 
-    bulk: FiniteStrainEnergyMonitor
+    bulk: object
     cohesive: object
     _initial_dissipation: float | None = None
 

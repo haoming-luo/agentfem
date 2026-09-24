@@ -617,7 +617,7 @@ def _accept_explicit_dynamics(model, request: StepRequest) -> bool:
     from .constitutive import hyperelasticity
 
     method = _procedure_method(model, request)
-    selected_material = _selected_material(model, request)
+    materials = _registered_materials(model, request)
     explicit_residual = request.options.get("residual") is not None
     return (
         request.target is not None
@@ -632,7 +632,10 @@ def _accept_explicit_dynamics(model, request: StepRequest) -> bool:
         )
         and (
             explicit_residual
-            or not hyperelasticity.is_finite_strain_hyperelastic(selected_material)
+            or not any(
+                hyperelasticity.is_finite_strain_hyperelastic(item)
+                for item in materials
+            )
         )
         and (
             method is None
@@ -646,20 +649,23 @@ def _accept_finite_strain_explicit_dynamics(model, request: StepRequest) -> bool
 
     study = getattr(model, "study", None)
     method = _procedure_method(model, request)
-    material = _selected_material(model, request)
-    supported_kinematics = hyperelasticity.supports_hyperelastic_study(
-        material,
-        dimension=getattr(study, "dimension", 0),
-        assumption=getattr(study, "assumption", None),
-    )
+    materials = _registered_materials(model, request)
     return (
         request.target is not None
         and _is_vector_target(request.target)
         and getattr(study, "physics", None) == "solid_mechanics"
         and getattr(study, "analysis", None) == "second_order_dynamics"
-        and supported_kinematics
-        and hyperelasticity.is_finite_strain_hyperelastic(material)
-        and material.density is not None
+        and bool(materials)
+        and all(
+            hyperelasticity.is_finite_strain_hyperelastic(material)
+            and hyperelasticity.supports_hyperelastic_study(
+                material,
+                dimension=getattr(study, "dimension", 0),
+                assumption=getattr(study, "assumption", None),
+            )
+            and material.density is not None
+            for material in materials
+        )
         and _normalize(method or "central_difference")
         in {"explicit_dynamics", "central_difference"}
         and request.options.get("residual") is None
@@ -886,7 +892,7 @@ register_step_provider(
         lower=_lower_finite_strain_explicit_dynamics,
         priority=120,
         description=(
-            "Lower a supported finite-strain hyperelastic material to a "
+            "Lower a complete finite-strain hyperelastic material partition to a "
             "current-state Total-Lagrangian residual and explicit central "
             "difference."
         ),

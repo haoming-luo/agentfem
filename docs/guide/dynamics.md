@@ -15,6 +15,36 @@ loads, fields, and results.
 | Central difference | Explicit | Wave propagation and short transient events |
 | Direct harmonic | Real-block complex | Steady-state response of linear solids and generalized-Maxwell materials |
 
+## Heterogeneous explicit solids
+
+Both small-strain and Total-Lagrangian hyperelastic central difference lower a
+complete material partition. Register every material on one region partition
+and omit `material=` from the Step so mass, internal force, bulk energy, and
+the conservative wave-speed screen consume every region:
+
+```python
+regions = mesh.partition_cells(
+    domain,
+    matrix=~inclusion_selector,
+    inclusion=inclusion_selector,
+)
+model.material(matrix_material, region=regions.matrix)
+model.material(inclusion_material, region=regions.inclusion)
+
+model.body_force(force_a, measure=regions.matrix.measure)
+model.body_force(force_b, measure=regions.inclusion.measure)
+result = model.step(target=u, dt=dt, steps=steps).solve_result()
+```
+
+The regions must form one complete, nonoverlapping cell partition. Selecting a
+single `material=` from a multi-material model is rejected because it would
+leave the other cells without mass and internal force. Small-strain and
+finite-strain constitutive laws also cannot be mixed inside one automatic
+residual; an expert residual and mass must state the intended linearization
+explicitly. Cohesive forces remain an additional interface contribution and
+use the same global partitioned mass for stability screening and energy
+accounting.
+
 ## Modal analysis
 
 Modal analysis uses the same material, region, field, and constraint language

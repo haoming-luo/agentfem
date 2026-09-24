@@ -799,6 +799,85 @@ def test_model_finite_strain_explicit_consumes_cohesive_force_and_energy():
     assert assembler.state.committed_maximum.max() > 0.0
 
 
+def test_partitioned_finite_strain_explicit_consumes_cohesive_interface():
+    coordinates = np.array(
+        [
+            [0.0, 0.0],
+            [1.0, 0.0],
+            [1.0, 0.5],
+            [0.0, 0.5],
+            [1.0, 1.0],
+            [0.0, 1.0],
+        ],
+        dtype=float,
+    )
+    split = interfaces.split_conforming_cell_interface(
+        coordinates,
+        np.array([[0, 1, 2, 3], [3, 2, 4, 5]], dtype=int),
+        positive_cells=[1],
+    )
+    domain = interfaces.create_dolfinx_split_mesh(split)
+    model = models.create(
+        study=studies.dynamic_solid(
+            dimension=2,
+            assumption="plane_strain",
+            method="explicit",
+        ),
+        mesh=domain,
+    )
+    displacement = model.field(fields.displacement(domain))
+    regions = mesh.partition_cells(
+        domain,
+        lower=mesh.layer("y", upper=0.5),
+        upper=mesh.layer("y", lower=0.5),
+    )
+    model.material(
+        constitutive.neo_hookean(
+            young=1000.0,
+            poisson=0.25,
+            density=1.0,
+            name="lower_bulk",
+        ),
+        region=regions.lower,
+    )
+    model.material(
+        constitutive.neo_hookean(
+            young=500.0,
+            poisson=0.30,
+            density=0.8,
+            name="upper_bulk",
+        ),
+        region=regions.upper,
+    )
+    cohesive = fracture.mode_i_cohesive_force(
+        split,
+        displacement,
+        interfaces.bilinear_cohesive(
+            strength=10.0,
+            fracture_energy=0.2,
+            initial_stiffness=10_000.0,
+        ),
+        normal_hint=(0.0, 1.0),
+    )
+
+    step = model.step(
+        target=displacement,
+        cohesive_force=cohesive,
+        dt=1.0e-4,
+        steps=1,
+        progress=False,
+    )
+    step.run()
+
+    assert isinstance(step.residual, fracture.FiniteStrainCohesiveResidual)
+    assert isinstance(
+        step.history_monitor.energy.bulk,
+        fracture.FiniteStrainRegionalEnergyMonitor,
+    )
+    assert len(step.history_monitor.energy.bulk.material_measures) == 2
+    assert "cohesive_stored_energy" in step.history_records[0]
+
+
 def test_cohesive_residual_snapshot_restores_state_and_rejects_other_topology():
     domain = mesh.rectangle(
         (0.0, 0.0), (1.0, 1.0), (1, 1),

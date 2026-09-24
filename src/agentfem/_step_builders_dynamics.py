@@ -10,7 +10,6 @@ import numpy as np
 from . import constraints as constraint_api
 from . import loads as load_api
 from . import state as state_api
-from .operators.core import LumpedMassOperator
 
 
 def explicit_dynamics(
@@ -39,11 +38,18 @@ def explicit_dynamics(
     from . import time as time_api
     from .constitutive import hyperelasticity
 
-    if (
-        residual is None
-        and len(model.materials) == 1
-        and hyperelasticity.is_finite_strain_hyperelastic(model.materials[0].item)
-    ):
+    finite_strain_materials = tuple(
+        record.item
+        for record in model.materials
+        if hyperelasticity.is_finite_strain_hyperelastic(record.item)
+    )
+    if residual is None and finite_strain_materials:
+        if len(finite_strain_materials) != len(model.materials):
+            raise TypeError(
+                "Automatic Explicit cannot mix small-strain and finite-strain "
+                "materials in one model. Use one compatible kinematic family or "
+                "pass an expert residual and mass explicitly."
+            )
         if prescribed:
             raise ValueError(
                 "Use registered constraints for automatic finite-strain "
@@ -54,7 +60,6 @@ def explicit_dynamics(
             target=target,
             dt=dt,
             steps=steps,
-            material=model.materials[0].item,
             state=state,
             mass=mass,
             cohesive_force=cohesive_force,
@@ -164,29 +169,34 @@ def finite_strain_explicit_dynamics(
     )
     if hasattr(model.study, "require"):
         model.study.require(analysis="second_order_dynamics", physics="solid_mechanics")
-    record = (
-        _single_material(model, "model.step with finite-strain Explicit")
-        if material is None
-        else model._material_record(material)
+    records = _finite_strain_material_records(model, material)
+    for record in records:
+        properties = record.item
+        if not hyperelasticity.is_finite_strain_hyperelastic(properties):
+            raise TypeError(
+                "model.step with finite-strain Explicit requires every active "
+                "material to use a supported hyperelastic law; "
+                f"{getattr(properties, 'name', type(properties).__name__)!r} does not."
+            )
+        if not hyperelasticity.supports_hyperelastic_study(
+            properties,
+            dimension=getattr(model.study, "dimension", 0),
+            assumption=getattr(model.study, "assumption", None),
+        ):
+            raise ValueError(
+                "The Study dimension/assumption has no formulation for the "
+                "hyperelastic material "
+                f"{getattr(properties, 'name', type(properties).__name__)!r}."
+            )
+        if properties.density is None:
+            raise ValueError(
+                "Finite-strain Explicit requires density for every active material; "
+                f"{getattr(properties, 'name', type(properties).__name__)!r} has none."
+            )
+    material_measures = tuple(
+        (record.item, record.region.measure if record.region is not None else ufl.dx)
+        for record in records
     )
-    properties = record.item
-    if not hyperelasticity.is_finite_strain_hyperelastic(properties):
-        raise TypeError(
-            "model.step with finite-strain Explicit requires a supported "
-            "hyperelastic material."
-        )
-    if not hyperelasticity.supports_hyperelastic_study(
-        properties,
-        dimension=getattr(model.study, "dimension", 0),
-        assumption=getattr(model.study, "assumption", None),
-    ):
-        raise ValueError(
-            "The Study dimension/assumption has no formulation for the "
-            f"selected hyperelastic material {properties.name!r}."
-        )
-    if properties.density is None:
-        raise ValueError("Finite-strain Explicit requires material density.")
-    selected_measure = record.region.measure if record.region is not None else ufl.dx
     selected_state = (
         state if state is not None else state_api.second_order_state(target)
     )
@@ -195,30 +205,11 @@ def finite_strain_explicit_dynamics(
     selected_mass = (
         mass
         if mass is not None
-        else LumpedMassOperator.assemble(
-            _space(target),
-            density=properties.density,
-            measure=selected_measure,
-        )
+        else model.lumped_mass(target, material=material)
     )
-    if hyperelasticity.is_plane_stress_hyperelastic(properties):
-        reference_gradient = np.eye(2)
-        membrane_modes = (
-            fracture.incremental_wave_speeds(
-                reference_gradient,
-                direction,
-                properties,
-                direction_configuration="reference",
-            )
-            for direction in ((1.0, 0.0), (0.0, 1.0))
-        )
-        body_screening_speed = max(
-            float(mode.reference_speeds[-1]) for mode in membrane_modes
-        )
-    else:
-        body_screening_speed = fracture.isotropic_reference_wave_speeds(
-            properties
-        ).pressure
+    body_screening_speed = max(
+        _finite_strain_reference_speed(record.item, fracture) for record in records
+    )
     interface_stability = (
         {} if cohesive_force is None else cohesive_force.stability_inputs(selected_mass)
     )
@@ -240,12 +231,17 @@ def finite_strain_explicit_dynamics(
                 f"({selected_dt:.6g} > {stability.selected:.6g}; "
                 f"controller={stability.controller})."
             )
-    internal = fracture.finite_strain_internal_force(
-        selected_state.u,
-        target.test,
-        properties,
-        measure=selected_measure,
+    internal_parts = tuple(
+        fracture.finite_strain_internal_force(
+            selected_state.u,
+            target.test,
+            properties,
+            measure=measure,
+            name=f"F_internal_finite_strain_{index}",
+        )
+        for index, (properties, measure) in enumerate(material_measures)
     )
+    internal = internal_parts[0] if len(internal_parts) == 1 else internal_parts
     external = model.external_force(target) if model.loads else None
     residual = model.force_balance(internal=internal, external=external)
     if cohesive_force is not None:
@@ -261,19 +257,23 @@ def finite_strain_explicit_dynamics(
         )
         residual = damping_residual
     selected_prescribed = constraint_api.dirichlet_constraints(selected_constraints)
-    base_energy = (
+    bulk_energy = (
         fracture.FiniteStrainEnergyMonitor(
             mass=selected_mass,
-            material=properties,
-            measure=selected_measure,
+            material=material_measures[0][0],
+            measure=material_measures[0][1],
         )
+        if len(material_measures) == 1
+        else fracture.FiniteStrainRegionalEnergyMonitor(
+            mass=selected_mass,
+            material_measures=material_measures,
+        )
+    )
+    base_energy = (
+        bulk_energy
         if cohesive_force is None
         else fracture.FiniteStrainCohesiveEnergyMonitor(
-            bulk=fracture.FiniteStrainEnergyMonitor(
-                mass=selected_mass,
-                material=properties,
-                measure=selected_measure,
-            ),
+            bulk=bulk_energy,
             cohesive=cohesive_force,
         )
     )
@@ -440,10 +440,43 @@ def implicit_dynamics(
     return model.add_step(step)
 
 
-def _single_material(model, caller: str):
-    if len(model.materials) != 1:
-        raise ValueError(f"{caller} requires material=... or exactly one material.")
-    return model.materials[0]
+def _finite_strain_material_records(model, material) -> tuple:
+    """Resolve one complete hyperelastic material partition for Explicit."""
+
+    if material is None:
+        records = tuple(model.materials)
+        if not records:
+            raise ValueError(
+                "Finite-strain Explicit requires at least one registered material."
+            )
+        return records
+    if len(model.materials) > 1:
+        raise ValueError(
+            "Selecting material=... from a multi-material model would leave the "
+            "other material regions without mass and internal force. Omit material= "
+            "to lower the complete registered partition."
+        )
+    return (model._material_record(material),)
+
+
+def _finite_strain_reference_speed(properties, fracture) -> float:
+    """Return a conservative undeformed screening speed for one material."""
+
+    from .constitutive import hyperelasticity
+
+    if hyperelasticity.is_plane_stress_hyperelastic(properties):
+        reference_gradient = np.eye(2)
+        membrane_modes = (
+            fracture.incremental_wave_speeds(
+                reference_gradient,
+                direction,
+                properties,
+                direction_configuration="reference",
+            )
+            for direction in ((1.0, 0.0), (0.0, 1.0))
+        )
+        return max(float(mode.reference_speeds[-1]) for mode in membrane_modes)
+    return float(fracture.isotropic_reference_wave_speeds(properties).pressure)
 
 
 def _as_tuple(item) -> tuple:

@@ -49,6 +49,49 @@ def _dynamic_neo_hookean_model():
     return model, displacement, material
 
 
+def _dynamic_partitioned_neo_hookean_model():
+    domain = mesh.rectangle(
+        (0.0, 0.0),
+        (1.0, 0.2),
+        (4, 1),
+        comm=MPI.COMM_SELF,
+        cell_type="quadrilateral",
+    )
+    model = models.create(
+        study=studies.dynamic_solid(
+            dimension=2,
+            assumption="plane_strain",
+            method="explicit",
+        ),
+        mesh=domain,
+    )
+    displacement = model.field(fields.displacement(domain))
+    regions = mesh.partition_cells(
+        domain,
+        matrix=mesh.layer("x", upper=0.5),
+        inclusion=mesh.layer("x", lower=0.5),
+    )
+    matrix = model.material(
+        constitutive.neo_hookean(
+            young=1.0e6,
+            poisson=0.30,
+            density=1000.0,
+            name="matrix",
+        ),
+        region=regions.matrix,
+    )
+    inclusion = model.material(
+        constitutive.neo_hookean(
+            young=2.0e5,
+            poisson=0.35,
+            density=500.0,
+            name="soft_inclusion",
+        ),
+        region=regions.inclusion,
+    )
+    return model, displacement, regions, matrix, inclusion
+
+
 def test_neo_hookean_explicit_selects_finite_strain_provider_not_linear_elasticity():
     model, displacement, material = _dynamic_neo_hookean_model()
     capability = step_capability(
@@ -60,6 +103,70 @@ def test_neo_hookean_explicit_selects_finite_strain_provider_not_linear_elastici
     assert capability["provider"]["name"] == (
         "neo_hookean_finite_strain_explicit_dynamics"
     )
+
+
+def test_partitioned_neo_hookean_explicit_selects_finite_strain_provider():
+    model, displacement, _regions, _matrix, _inclusion = (
+        _dynamic_partitioned_neo_hookean_model()
+    )
+    capability = step_capability(
+        model,
+        target=displacement,
+        options={"dt": 1.0e-5, "steps": 1},
+    )
+    assert capability["supported"]
+    assert capability["provider"]["name"] == (
+        "neo_hookean_finite_strain_explicit_dynamics"
+    )
+
+
+def test_partitioned_finite_strain_explicit_combines_materials_and_region_loads():
+    model, displacement, regions, _matrix, _inclusion = (
+        _dynamic_partitioned_neo_hookean_model()
+    )
+    model.body_force(
+        (1.0, 0.0),
+        measure=regions.matrix.measure,
+        name="matrix_body_force",
+    )
+    model.body_force(
+        (0.0, 1.0),
+        measure=regions.inclusion.measure,
+        name="inclusion_body_force",
+    )
+    displacement.value.interpolate(
+        lambda x: np.vstack((1.0e-4 * x[0], np.zeros_like(x[1])))
+    )
+
+    step = model.step(
+        target=displacement,
+        dt=1.0e-7,
+        steps=1,
+        progress=False,
+    )
+    step.run()
+
+    assert isinstance(
+        step.history_monitor.energy,
+        fracture.FiniteStrainRegionalEnergyMonitor,
+    )
+    assert len(step.history_monitor.energy.material_measures) == 2
+    assert step.history_records[0]["bulk_strain_energy"] > 0.0
+    assert np.isfinite(step.history_records[-1]["energy_balance_error"])
+
+
+def test_partitioned_finite_strain_explicit_rejects_partial_material_selection():
+    model, displacement, _regions, matrix, _inclusion = (
+        _dynamic_partitioned_neo_hookean_model()
+    )
+    with pytest.raises(ValueError, match="complete registered partition"):
+        model.finite_strain_explicit_dynamics_step(
+            target=displacement,
+            material=matrix,
+            dt=1.0e-7,
+            steps=1,
+            progress=False,
+        )
 
 
 def test_finite_strain_explicit_provider_bypasses_compatibility_builder():
