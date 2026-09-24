@@ -123,6 +123,21 @@ class J2Update:
     energy_increment: PlasticEnergyIncrement = PlasticEnergyIncrement()
 
 
+@dataclass(frozen=True)
+class _ChabocheBatchUpdate:
+    """Vectorized internal response for one homogeneous quadrature batch."""
+
+    stress: np.ndarray
+    plastic_strain: np.ndarray
+    equivalent_plastic_strain: np.ndarray
+    backstresses: np.ndarray
+    elastic: np.ndarray
+    plastic_multiplier_increment: np.ndarray
+    algorithmic_tangent: np.ndarray
+    dynamic_recovery_dissipation: np.ndarray
+    backward_euler_dissipation: np.ndarray
+
+
 Linearization = Literal["none", "consistent"]
 
 
@@ -453,6 +468,341 @@ class ChabocheCombinedHardening:
                 new_state,
                 stress,
             ),
+        )
+
+    def _update_batch(
+        self,
+        total_strain,
+        plastic_strain,
+        equivalent_plastic_strain,
+        backstresses,
+    ) -> _ChabocheBatchUpdate:
+        """Integrate a homogeneous batch without changing the material law.
+
+        This is an internal execution kernel for quadrature-point state.  It
+        vectorizes the same safeguarded backward-Euler consistency solve and
+        analytical tangent used by :meth:`update`; heterogeneous regional
+        material maps deliberately retain explicit material dispatch.
+        """
+
+        strains = np.asarray(total_strain, dtype=float)
+        old_plastic = np.asarray(plastic_strain, dtype=float)
+        old_equivalent = np.asarray(equivalent_plastic_strain, dtype=float)
+        old_backstresses = np.asarray(backstresses, dtype=float)
+        count = len(strains)
+        if strains.shape != (count, 3, 3):
+            raise ValueError("total_strain batch must have shape (points, 3, 3).")
+        if old_plastic.shape != strains.shape:
+            raise ValueError("plastic_strain batch must match total_strain.")
+        if old_equivalent.shape != (count,):
+            raise ValueError("equivalent_plastic_strain must have shape (points,).")
+        if old_backstresses.shape != (count, self.backstress_count, 3, 3):
+            raise ValueError(
+                "backstresses batch must have shape (points, components, 3, 3)."
+            )
+        if not all(
+            np.all(np.isfinite(value))
+            for value in (strains, old_plastic, old_equivalent, old_backstresses)
+        ):
+            raise ValueError("Chaboche batch inputs must contain only finite values.")
+        if np.any(old_equivalent < 0.0):
+            raise ValueError("Equivalent plastic strain must be nonnegative.")
+
+        identity = np.eye(3)
+
+        def deviatoric_many(value):
+            trace = np.trace(value, axis1=-2, axis2=-1)
+            return value - trace[..., None, None] * identity / 3.0
+
+        def mises_many(value):
+            selected = deviatoric_many(value)
+            return np.sqrt(1.5 * np.sum(selected * selected, axis=(-2, -1)))
+
+        def yield_many(equivalent):
+            selected = np.asarray(equivalent, dtype=float)
+            if self.isotropic_hardening is None:
+                return self.yield_stress + self.isotropic_saturation * (
+                    1.0 - np.exp(-self.isotropic_rate * selected)
+                )
+            return np.fromiter(
+                (self.isotropic_hardening.value(value) for value in selected),
+                dtype=float,
+                count=len(selected),
+            )
+
+        def isotropic_slope_many(equivalent):
+            selected = np.asarray(equivalent, dtype=float)
+            if self.isotropic_hardening is None:
+                return (
+                    self.isotropic_saturation
+                    * self.isotropic_rate
+                    * np.exp(-self.isotropic_rate * selected)
+                )
+            return np.fromiter(
+                (self.isotropic_hardening.slope(value) for value in selected),
+                dtype=float,
+                count=len(selected),
+            )
+
+        def isotropic_storage_many(equivalent):
+            selected = np.asarray(equivalent, dtype=float)
+            if self.isotropic_hardening is None:
+                if self.isotropic_rate == 0.0:
+                    return np.zeros_like(selected)
+                return self.isotropic_saturation * (
+                    selected
+                    + (np.exp(-self.isotropic_rate * selected) - 1.0)
+                    / self.isotropic_rate
+                )
+            return np.fromiter(
+                (
+                    self.isotropic_hardening.hardening_storage(value)
+                    for value in selected
+                ),
+                dtype=float,
+                count=len(selected),
+            )
+
+        elastic_trial = strains - old_plastic
+        trial_deviator = 2.0 * self.shear_modulus * deviatoric_many(elastic_trial)
+        pressure = (
+            self.bulk_modulus
+            * np.trace(elastic_trial, axis1=-2, axis2=-1)[:, None, None]
+            * identity
+        )
+        trial_stress = pressure + trial_deviator
+        shifted_trial = trial_deviator - np.sum(old_backstresses, axis=1)
+        q_trial = mises_many(shifted_trial)
+        yield_old = yield_many(old_equivalent)
+        trial_value = q_trial - yield_old
+        tolerance = np.maximum(1.0, yield_old) * 1.0e-12
+        plastic_mask = trial_value > tolerance
+
+        stresses = trial_stress.copy()
+        new_plastic = old_plastic.copy()
+        new_equivalent = old_equivalent.copy()
+        new_backstresses = old_backstresses.copy()
+        increments = np.zeros(count, dtype=float)
+        tangents = np.broadcast_to(
+            self.elastic_tangent(),
+            (count, 3, 3, 3, 3),
+        ).copy()
+        dynamic_dissipation = np.zeros(count, dtype=float)
+        backward_euler_dissipation = np.zeros(count, dtype=float)
+        if not np.any(plastic_mask):
+            return _ChabocheBatchUpdate(
+                stress=stresses,
+                plastic_strain=new_plastic,
+                equivalent_plastic_strain=new_equivalent,
+                backstresses=new_backstresses,
+                elastic=~plastic_mask,
+                plastic_multiplier_increment=increments,
+                algorithmic_tangent=tangents,
+                dynamic_recovery_dissipation=dynamic_dissipation,
+                backward_euler_dissipation=backward_euler_dissipation,
+            )
+
+        selected = np.flatnonzero(plastic_mask)
+        trial_dev = trial_deviator[selected]
+        old_bs = old_backstresses[selected]
+        old_peeq = old_equivalent[selected]
+        trial_f = trial_value[selected]
+        yield_radius = yield_old[selected]
+        recovery = np.asarray(self.dynamic_recovery, dtype=float)
+        moduli = np.asarray(self.backstress_moduli, dtype=float)
+
+        def consistency(delta):
+            theta = 1.0 / (1.0 + delta[:, None] * recovery[None, :])
+            base = trial_dev - np.einsum("ma,maij->mij", theta, old_bs)
+            q_base = mises_many(base)
+            value = (
+                q_base
+                - 3.0 * self.shear_modulus * delta
+                - delta * np.einsum("ma,a->m", theta, moduli)
+                - yield_many(old_peeq + delta)
+            )
+            return value, theta, base, q_base
+
+        maximum_isotropic_slope = (
+            self.isotropic_saturation * self.isotropic_rate
+            if self.isotropic_hardening is None
+            else self.isotropic_hardening.maximum_slope
+        )
+        lower = np.zeros_like(trial_f)
+        upper = np.maximum(
+            trial_f
+            / (
+                3.0 * self.shear_modulus
+                + np.sum(moduli)
+                + maximum_isotropic_slope
+            ),
+            np.finfo(float).eps,
+        )
+        bracketed = np.zeros_like(trial_f, dtype=bool)
+        for _ in range(self.local_maximum_iterations):
+            upper_value = consistency(upper)[0]
+            bracketed |= upper_value <= 0.0
+            if np.all(bracketed):
+                break
+            upper[~bracketed] *= 2.0
+        else:
+            raise RuntimeError("Could not bracket the Chaboche batch consistency root.")
+
+        scale = np.maximum.reduce((np.ones_like(yield_radius), yield_radius, q_trial[selected]))
+        converged = np.zeros_like(trial_f, dtype=bool)
+        delta = upper.copy()
+        for _ in range(self.local_maximum_iterations):
+            trial_delta = 0.5 * (lower + upper)
+            value = consistency(trial_delta)[0]
+            newly_converged = (~converged) & (
+                np.abs(value) <= self.local_tolerance * scale
+            )
+            delta[newly_converged] = trial_delta[newly_converged]
+            active = ~converged & ~newly_converged
+            if not np.any(active):
+                converged |= newly_converged
+                break
+            positive = active & (value > 0.0)
+            negative = active & ~positive
+            lower[positive] = trial_delta[positive]
+            upper[negative] = trial_delta[negative]
+            converged |= newly_converged
+        else:
+            raise RuntimeError("Chaboche batch local return did not converge.")
+
+        _, theta, base, q_base = consistency(delta)
+        if np.any(q_base <= 0.0):
+            raise RuntimeError(
+                "Plastic Chaboche batch return requires positive direction norms."
+            )
+        direction = 1.5 * base / q_base[:, None, None]
+        plastic = old_plastic[selected] + delta[:, None, None] * direction
+        backstress = theta[:, :, None, None] * (
+            old_bs
+            + (2.0 / 3.0)
+            * moduli[None, :, None, None]
+            * delta[:, None, None, None]
+            * direction[:, None, :, :]
+        )
+        stress = (
+            pressure[selected]
+            + trial_dev
+            - 2.0 * self.shear_modulus * delta[:, None, None] * direction
+        )
+        equivalent = old_peeq + delta
+
+        backstress_direction = np.einsum(
+            "ma,maij->mij",
+            recovery[None, :] * theta**2,
+            old_bs,
+        )
+        weighted_modulus = np.einsum("ma,a->m", theta, moduli)
+        weighted_modulus_derivative = -np.einsum(
+            "ma,a->m",
+            recovery[None, :] * theta**2,
+            moduli,
+        )
+        denominator = (
+            3.0 * self.shear_modulus
+            + weighted_modulus
+            + delta * weighted_modulus_derivative
+            + isotropic_slope_many(equivalent)
+            - np.sum(direction * backstress_direction, axis=(-2, -1))
+        )
+        if np.any(~np.isfinite(denominator)) or np.any(denominator <= 0.0):
+            raise RuntimeError(
+                "Chaboche batch tangent has a nonpositive consistency modulus."
+            )
+        batch_tangent = np.zeros((len(selected), 3, 3, 3, 3), dtype=float)
+        for k in range(3):
+            for l in range(k, 3):
+                perturbation = np.zeros((3, 3), dtype=float)
+                if k == l:
+                    perturbation[k, l] = 1.0
+                else:
+                    perturbation[k, l] = perturbation[l, k] = 0.5
+                trial_increment = 2.0 * self.shear_modulus * deviatoric_many(
+                    perturbation[None, :, :]
+                )[0]
+                plastic_increment = (
+                    np.sum(direction * trial_increment, axis=(-2, -1)) / denominator
+                )
+                base_increment = (
+                    trial_increment[None, :, :]
+                    + backstress_direction * plastic_increment[:, None, None]
+                )
+                direction_increment = (
+                    1.5 * base_increment
+                    - direction
+                    * np.sum(direction * base_increment, axis=(-2, -1))[:, None, None]
+                ) / q_base[:, None, None]
+                derivative = (
+                    self.bulk_modulus * np.trace(perturbation) * identity
+                    + trial_increment
+                    - 2.0
+                    * self.shear_modulus
+                    * (
+                        direction * plastic_increment[:, None, None]
+                        + delta[:, None, None] * direction_increment
+                    )
+                )
+                batch_tangent[:, :, :, k, l] = derivative
+                batch_tangent[:, :, :, l, k] = derivative
+        batch_tangent = 0.5 * (
+            batch_tangent + np.swapaxes(batch_tangent, 1, 2)
+        )
+
+        old_kinematic = np.sum(
+            3.0
+            * np.sum(old_bs * old_bs, axis=(-2, -1))
+            / (4.0 * moduli[None, :]),
+            axis=1,
+        )
+        new_kinematic = np.sum(
+            3.0
+            * np.sum(backstress * backstress, axis=(-2, -1))
+            / (4.0 * moduli[None, :]),
+            axis=1,
+        )
+        dynamic = np.sum(
+            3.0
+            * recovery[None, :]
+            * np.sum(backstress * backstress, axis=(-2, -1))
+            * delta[:, None]
+            / (2.0 * moduli[None, :]),
+            axis=1,
+        )
+        delta_backstress = backstress - old_bs
+        backward = np.sum(
+            3.0
+            * np.sum(delta_backstress * delta_backstress, axis=(-2, -1))
+            / (4.0 * moduli[None, :]),
+            axis=1,
+        )
+        isotropic_change = isotropic_storage_many(equivalent) - isotropic_storage_many(
+            old_peeq
+        )
+        radius_new = yield_many(equivalent) - self.yield_stress
+        backward += radius_new * delta - isotropic_change
+
+        stresses[selected] = stress
+        new_plastic[selected] = plastic
+        new_equivalent[selected] = equivalent
+        new_backstresses[selected] = backstress
+        increments[selected] = delta
+        tangents[selected] = batch_tangent
+        dynamic_dissipation[selected] = dynamic
+        backward_euler_dissipation[selected] = backward
+        return _ChabocheBatchUpdate(
+            stress=stresses,
+            plastic_strain=new_plastic,
+            equivalent_plastic_strain=new_equivalent,
+            backstresses=new_backstresses,
+            elastic=~plastic_mask,
+            plastic_multiplier_increment=increments,
+            algorithmic_tangent=tangents,
+            dynamic_recovery_dissipation=dynamic_dissipation,
+            backward_euler_dissipation=backward_euler_dissipation,
         )
 
     def _integrate(self, strain, old, *, tolerance=None):

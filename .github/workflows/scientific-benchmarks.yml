@@ -4,6 +4,9 @@ permissions:
   contents: read
 
 on:
+  schedule:
+    # One expensive full-range external obligation per week, not on every push.
+    - cron: "23 18 * * 6"
   workflow_dispatch:
     inputs:
       run_nafems_creep:
@@ -30,6 +33,11 @@ on:
         default: false
       run_chaboche_ratcheting:
         description: Run the shouldered 316-steel ratcheting convergence certificate
+        required: true
+        type: boolean
+        default: false
+      run_chaboche_full_reference:
+        description: Run the complete 100-cycle shouldered-specimen evidence
         required: true
         type: boolean
         default: false
@@ -176,6 +184,7 @@ jobs:
             --maximum-inelastic-increments 0.004 0.002 0.001 \
             --relative-tolerance 0.01 \
             --report /tmp/agentfem-chaboche-ratcheting.json \
+            --summary-only \
             --require-acceptable
 
       - name: Upload shouldered-specimen evidence
@@ -184,4 +193,52 @@ jobs:
         with:
           name: chaboche-ratcheting-accuracy
           path: /tmp/agentfem-chaboche-ratcheting.json
+          if-no-files-found: warn
+
+  chaboche-ratcheting-full-reference:
+    if: ${{ github.event_name == 'schedule' || inputs.run_chaboche_full_reference }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    env:
+      UCX_TLS: tcp,sm,self
+    defaults:
+      run:
+        shell: bash -el {0}
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Create FEniCSx environment
+        uses: conda-incubator/setup-miniconda@v4
+        with:
+          activate-environment: agentfem-benchmark
+          environment-file: environment.yml
+          miniforge-version: latest
+          use-mamba: true
+          channels: conda-forge
+          channel-priority: strict
+
+      - name: Install the exact candidate wheel
+        run: |
+          python -m pip install --upgrade build
+          python -m build --wheel
+          python -m pip install --no-deps --force-reinstall dist/*.whl
+
+      - name: Run the complete public 100-cycle response
+        run: |
+          cd /tmp
+          python "$GITHUB_WORKSPACE/tools/run_chaboche_ratcheting_benchmark.py" \
+            --full-reference \
+            --cycles 100 \
+            --mesh-sizes 2.5 \
+            --maximum-inelastic-increments 0.001 \
+            --report /tmp/agentfem-chaboche-ratcheting-full-reference.json \
+            --summary-only \
+            --require-acceptable
+
+      - name: Upload complete shouldered-specimen evidence
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: chaboche-ratcheting-full-reference
+          path: /tmp/agentfem-chaboche-ratcheting-full-reference.json
           if-no-files-found: warn

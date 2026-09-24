@@ -218,6 +218,16 @@ class J2PlasticityStep:
     energy_history: list[J2EnergyFrame] = field(default_factory=list, init=False)
     next_increment_size: float | None = field(default=None, init=False)
     _strain_evaluator: object = field(init=False, repr=False)
+    _energy_density_fields: dict[str, QuadratureField] = field(
+        default_factory=dict,
+        init=False,
+        repr=False,
+    )
+    _energy_forms: dict[str, object] = field(
+        default_factory=dict,
+        init=False,
+        repr=False,
+    )
 
     def __post_init__(self) -> None:
         self._strain_evaluator = self.state.compile_strain(
@@ -1155,67 +1165,147 @@ class J2PlasticityStep:
             "internal_energy": values["internal_energy"],
         }
 
-    def _energy_components(self) -> dict[str, float]:
-        """Assemble canonical components without assigning broad semantics."""
+    def _prepare_energy_assembly(self) -> None:
+        """Compile live energy operators once and reuse their coefficients."""
 
+        if self._energy_forms:
+            return
         strain = elasticity.strain(self.solution, study=self.study)
         weight = _axisymmetric.integration_weight(self.solution, self.study)
         plastic_strain = self.state.plastic_strain.function
-        peeq = self.state.equivalent_plastic_strain.function
         stress = self.state.stress.function
-        elastic_density = 0.5 * ufl.inner(
-            stress,
-            strain - plastic_strain,
+        common = {
+            "degree": self.state.degree,
+            "scheme": self.state.scheme,
+        }
+        self._energy_density_fields = {
+            "isotropic_hardening_energy": QuadratureField.create(
+                self.state.domain,
+                name="ISOTROPIC_HARDENING_ENERGY_DENSITY",
+                **common,
+            ),
+            "kinematic_hardening_energy": QuadratureField.create(
+                self.state.domain,
+                name="KINEMATIC_HARDENING_ENERGY_DENSITY",
+                **common,
+            ),
+            "reference_yield_dissipation": QuadratureField.create(
+                self.state.domain,
+                name="REFERENCE_PLASTIC_DISSIPATION_DENSITY",
+                **common,
+            ),
+        }
+        densities = {
+            "elastic_strain_energy": 0.5
+            * ufl.inner(stress, strain - plastic_strain),
+            **{
+                name: selected.function
+                for name, selected in self._energy_density_fields.items()
+            },
+        }
+        if isinstance(self.state, ChabocheQuadratureState):
+            densities.update(
+                {
+                    "dynamic_recovery_dissipation": (
+                        self.state.dynamic_recovery_dissipation.function
+                    ),
+                    "backward_euler_dissipation": (
+                        self.state.backward_euler_dissipation.function
+                    ),
+                }
+            )
+        self._energy_forms = {
+            name: fem.form(weight * density * self.state.measure)
+            for name, density in densities.items()
+        }
+
+    @staticmethod
+    def _chaboche_isotropic_energy(material, equivalent: float) -> float:
+        if material.isotropic_hardening is not None:
+            return float(
+                material.isotropic_hardening.hardening_storage(equivalent)
+            )
+        if material.isotropic_rate <= 0.0:
+            return 0.0
+        return float(
+            material.isotropic_saturation
+            * (
+                equivalent
+                + (np.exp(-material.isotropic_rate * equivalent) - 1.0)
+                / material.isotropic_rate
+            )
         )
+
+    def _energy_components(self) -> dict[str, float]:
+        """Assemble canonical components without rebuilding live forms."""
+
+        self._prepare_energy_assembly()
         points_per_cell = len(self.state.stress.points)
+        peeq_values = self.state.equivalent_plastic_strain.values.reshape(-1)
         if isinstance(self.material, QuadratureMaterialMap):
             regions = np.repeat(self.material.cell_regions, points_per_cell)
             point_materials = tuple(
                 self.material.materials[int(region)] for region in regions
             )
         else:
-            point_materials = (self.material,) * len(self.state.stress.values)
+            point_materials = ()
 
-        def scalar_density(name: str, values):
-            field = QuadratureField.create(
-                self.state.domain,
-                name=name,
-                degree=self.state.degree,
-                scheme=self.state.scheme,
-            )
-            field.assign(values)
-            return field.function
-
-        peeq_values = self.state.equivalent_plastic_strain.values.reshape(-1)
         isotropic_values = np.zeros_like(peeq_values)
         kinematic_values = np.zeros_like(peeq_values)
         yield_values = np.empty_like(peeq_values)
         if isinstance(self.state, ChabocheQuadratureState):
             backstresses = self.state.backstresses.values
-            for index, (equivalent, material) in enumerate(
-                zip(peeq_values, point_materials, strict=True)
-            ):
-                if not isinstance(material, ChabocheCombinedHardening):
-                    raise TypeError(
-                        "Chaboche state requires Chaboche material at every point."
+            if isinstance(self.material, ChabocheCombinedHardening):
+                material = self.material
+                yield_values.fill(material.yield_stress)
+                if material.isotropic_hardening is not None:
+                    isotropic_values[:] = np.fromiter(
+                        (
+                            material.isotropic_hardening.hardening_storage(value)
+                            for value in peeq_values
+                        ),
+                        dtype=float,
+                        count=len(peeq_values),
                     )
-                yield_values[index] = material.yield_stress
-                if material.isotropic_rate > 0.0:
-                    isotropic_values[index] = material.isotropic_saturation * (
-                        equivalent
-                        + (
-                            np.exp(-material.isotropic_rate * equivalent) - 1.0
-                        )
+                elif material.isotropic_rate > 0.0:
+                    isotropic_values[:] = material.isotropic_saturation * (
+                        peeq_values
+                        + (np.exp(-material.isotropic_rate * peeq_values) - 1.0)
                         / material.isotropic_rate
                     )
-                kinematic_values[index] = sum(
-                    3.0 * np.tensordot(alpha, alpha) / (4.0 * modulus)
-                    for alpha, modulus in zip(
-                        backstresses[index],
-                        material.backstress_moduli,
-                        strict=True,
-                    )
+                moduli = np.asarray(material.backstress_moduli, dtype=float)
+                kinematic_values[:] = np.sum(
+                    3.0
+                    * np.sum(backstresses * backstresses, axis=(-2, -1))
+                    / (4.0 * moduli[None, :]),
+                    axis=1,
                 )
+            else:
+                for index, (equivalent, material) in enumerate(
+                    zip(peeq_values, point_materials, strict=True)
+                ):
+                    if not isinstance(material, ChabocheCombinedHardening):
+                        raise TypeError(
+                            "Chaboche state requires Chaboche material at every point."
+                        )
+                    yield_values[index] = material.yield_stress
+                    isotropic_values[index] = self._chaboche_isotropic_energy(
+                        material,
+                        equivalent,
+                    )
+                    kinematic_values[index] = sum(
+                        3.0 * np.tensordot(alpha, alpha) / (4.0 * modulus)
+                        for alpha, modulus in zip(
+                            backstresses[index],
+                            material.backstress_moduli,
+                            strict=True,
+                        )
+                    )
+        elif isinstance(self.material, J2LinearIsotropicHardening):
+            yield_values.fill(self.material.yield_stress)
+            isotropic_values[:] = (
+                0.5 * self.material.hardening_modulus * peeq_values**2
+            )
         else:
             for index, (equivalent, material) in enumerate(
                 zip(peeq_values, point_materials, strict=True)
@@ -1228,49 +1318,27 @@ class J2PlasticityStep:
                 isotropic_values[index] = (
                     0.5 * material.hardening_modulus * equivalent**2
                 )
-        isotropic_density = scalar_density(
-            "ISOTROPIC_HARDENING_ENERGY_DENSITY", isotropic_values
+        self._energy_density_fields["isotropic_hardening_energy"].assign(
+            isotropic_values
         )
-        kinematic_density = scalar_density(
-            "KINEMATIC_HARDENING_ENERGY_DENSITY", kinematic_values
+        self._energy_density_fields["kinematic_hardening_energy"].assign(
+            kinematic_values
         )
-        dissipation_density = scalar_density(
-            "REFERENCE_PLASTIC_DISSIPATION_DENSITY",
-            yield_values * peeq_values,
+        self._energy_density_fields["reference_yield_dissipation"].assign(
+            yield_values * peeq_values
         )
-        values = []
-        for density in (
-            elastic_density,
-            isotropic_density,
-            kinematic_density,
-            dissipation_density,
-        ):
-            local = fem.assemble_scalar(
-                fem.form(weight * density * self.state.measure)
+        assembled = {
+            name: float(
+                self.state.domain.comm.allreduce(fem.assemble_scalar(form))
             )
-            values.append(float(self.state.domain.comm.allreduce(local)))
-        elastic, isotropic, kinematic, dissipation = values
-        dynamic_recovery = 0.0
-        backward_euler = 0.0
-        if isinstance(self.state, ChabocheQuadratureState):
-            for name, source in (
-                (
-                    "dynamic_recovery",
-                    self.state.dynamic_recovery_dissipation.function,
-                ),
-                (
-                    "backward_euler",
-                    self.state.backward_euler_dissipation.function,
-                ),
-            ):
-                local = fem.assemble_scalar(
-                    fem.form(weight * source * self.state.measure)
-                )
-                selected = float(self.state.domain.comm.allreduce(local))
-                if name == "dynamic_recovery":
-                    dynamic_recovery = selected
-                else:
-                    backward_euler = selected
+            for name, form in self._energy_forms.items()
+        }
+        elastic = assembled["elastic_strain_energy"]
+        isotropic = assembled["isotropic_hardening_energy"]
+        kinematic = assembled["kinematic_hardening_energy"]
+        dissipation = assembled["reference_yield_dissipation"]
+        dynamic_recovery = assembled.get("dynamic_recovery_dissipation", 0.0)
+        backward_euler = assembled.get("backward_euler_dissipation", 0.0)
         recoverable = elastic + isotropic + kinematic
         modeled_irreversible = dissipation + dynamic_recovery
         discrete_dissipation = modeled_irreversible + backward_euler

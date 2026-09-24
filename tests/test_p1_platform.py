@@ -858,8 +858,16 @@ def test_global_chaboche_cycle_uses_quadrature_state_and_restart(tmp_path):
         incrementation=steps.fixed(4),
     )
     result = reference.solve_result()
+    energy_form_ids = {
+        name: id(form) for name, form in reference._energy_forms.items()
+    }
+    reference.internal_energy()
 
     assert reference.last_solve_info.completed_step
+    assert energy_form_ids
+    assert {
+        name: id(form) for name, form in reference._energy_forms.items()
+    } == energy_form_ids
     assert isinstance(reference.state, constitutive.ChabocheQuadratureState)
     assert np.max(np.abs(reference.state.backstresses.values)) > 0.0
     assert {"S", "PE", "PEEQ", "ALPHA", "MISES", "RF"} <= set(result.fields)

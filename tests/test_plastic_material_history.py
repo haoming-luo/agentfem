@@ -37,6 +37,19 @@ def _chaboche():
     )
 
 
+def _tabulated_chaboche():
+    return constitutive.chaboche(
+        young=210_000.0,
+        poisson=0.3,
+        yield_stress=220.0,
+        backstresses=((25_000.0, 120.0), (8_000.0, 20.0)),
+        isotropic_hardening=constitutive.TabulatedIsotropicHardening(
+            equivalent_plastic_strain=(0.0, 0.02, 0.1),
+            yield_stress=(220.0, 280.0, 300.0),
+        ),
+    )
+
+
 def test_material_loading_path_refinement_preserves_every_physical_knot():
     path = _uniaxial_path((0.0, 0.004, -0.002, 0.003))
     refined = path.refine(3)
@@ -175,6 +188,79 @@ def test_chaboche_response_only_does_not_evaluate_algorithmic_tangent(monkeypatc
     assert abs(energy.balance_residual) < 1.0e-10 * energy.plastic_work
     with pytest.raises(AssertionError, match="requested a tangent"):
         material.update(strain, linearization="consistent")
+
+
+@pytest.mark.parametrize(
+    "material",
+    (_chaboche(), _tabulated_chaboche()),
+    ids=("exponential_isotropic", "tabulated_isotropic"),
+)
+def test_chaboche_homogeneous_batch_matches_scalar_discrete_updates(material):
+    initial = material.initial_state()
+    loaded = material.update(np.diag((0.004, 0.0, 0.0)), initial).state
+    reversed_state = material.update(
+        np.diag((-0.0015, 0.0, 0.0)),
+        loaded,
+    ).state
+    states = (initial, loaded, reversed_state, loaded)
+    strains = np.asarray(
+        (
+            np.diag((5.0e-5, 0.0, 0.0)),
+            np.diag((0.006, 0.0, 0.0)),
+            np.diag((-0.003, 0.0, 0.0)),
+            np.array(
+                (
+                    (0.0045, 0.0004, 0.0),
+                    (0.0004, -0.0005, 0.0),
+                    (0.0, 0.0, 0.0002),
+                )
+            ),
+        )
+    )
+
+    batch = material._update_batch(
+        strains,
+        np.asarray([state.plastic_strain for state in states]),
+        np.asarray([state.equivalent_plastic_strain for state in states]),
+        np.asarray([state.backstresses for state in states]),
+    )
+    scalar = tuple(
+        material.update(strain, state)
+        for strain, state in zip(strains, states, strict=True)
+    )
+
+    np.testing.assert_allclose(batch.stress, [item.stress for item in scalar])
+    np.testing.assert_allclose(
+        batch.plastic_strain,
+        [item.state.plastic_strain for item in scalar],
+    )
+    np.testing.assert_allclose(
+        batch.equivalent_plastic_strain,
+        [item.state.equivalent_plastic_strain for item in scalar],
+    )
+    np.testing.assert_allclose(
+        batch.backstresses,
+        [item.state.backstresses for item in scalar],
+    )
+    np.testing.assert_array_equal(batch.elastic, [item.elastic for item in scalar])
+    np.testing.assert_allclose(
+        batch.plastic_multiplier_increment,
+        [item.plastic_multiplier_increment for item in scalar],
+    )
+    np.testing.assert_allclose(
+        batch.algorithmic_tangent,
+        [item.algorithmic_tangent for item in scalar],
+        rtol=2.0e-11,
+        atol=1.0e-8,
+    )
+    np.testing.assert_allclose(
+        batch.dynamic_recovery_dissipation,
+        [item.energy_increment.dynamic_recovery_dissipation for item in scalar],
+    )
+    np.testing.assert_allclose(
+        batch.backward_euler_dissipation,
+        [item.energy_increment.backward_euler_dissipation for item in scalar],
+    )
 
 
 def test_material_histories_enter_campaign_and_scientific_dataset_directly(tmp_path):

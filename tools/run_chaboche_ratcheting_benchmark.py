@@ -24,11 +24,42 @@ def main() -> None:
     parser.add_argument("--relative-tolerance", type=float, default=0.01)
     parser.add_argument("--report", type=Path, required=True)
     parser.add_argument("--progress", action="store_true")
+    parser.add_argument(
+        "--full-reference",
+        action="store_true",
+        help=(
+            "Run one fine-path case through every published cycle instead of "
+            "the independent mesh/path accuracy certificate."
+        ),
+    )
     parser.add_argument("--require-acceptable", action="store_true")
+    parser.add_argument(
+        "--summary-only",
+        action="store_true",
+        help=(
+            "Print a compact status summary; the report still stores full evidence."
+        ),
+    )
     options = parser.parse_args()
 
     started = perf_counter()
-    if options.refinements is None:
+    if options.full_reference:
+        if options.refinements is not None:
+            parser.error("--full-reference does not accept --refinements")
+        if not options.mesh_sizes or not options.maximum_inelastic_increments:
+            parser.error("--full-reference requires one mesh and path limit")
+        path_control = "maximum_inelastic_increment"
+        certificate, cases = (
+            benchmarks.certify_simulia_316_shouldered_ratcheting_full_reference(
+                cycle_count=options.cycles,
+                mesh_size=float(options.mesh_sizes[-1]),
+                maximum_inelastic_increment=float(
+                    options.maximum_inelastic_increments[-1]
+                ),
+                progress=options.progress,
+            )
+        )
+    elif options.refinements is None:
         path_control = "maximum_inelastic_increment"
         certificate, cases = (
             benchmarks.certify_simulia_316_shouldered_ratcheting_accuracy(
@@ -78,6 +109,9 @@ def main() -> None:
         "status": "passed" if certificate.accepted else "not_promoted",
         "agentfem_version": __version__,
         "configuration": {
+            "mode": (
+                "full_reference" if options.full_reference else "convergence"
+            ),
             "cycles": options.cycles,
             "mesh_sizes": options.mesh_sizes,
             "refinements": options.refinements,
@@ -97,7 +131,18 @@ def main() -> None:
         encoding="utf-8",
     )
     temporary.replace(options.report)
-    print(json.dumps(record, indent=2, sort_keys=True))
+    console_record = record
+    if options.summary_only:
+        console_record = {
+            "benchmark": record["benchmark"],
+            "status": record["status"],
+            "agentfem_version": record["agentfem_version"],
+            "configuration": record["configuration"],
+            "certificate": record["certificate"],
+            "runtime_seconds": record["runtime_seconds"],
+            "report": str(options.report),
+        }
+    print(json.dumps(console_record, indent=2, sort_keys=True))
     if options.require_acceptable and not certificate.accepted:
         raise SystemExit(1)
 

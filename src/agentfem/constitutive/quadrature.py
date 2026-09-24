@@ -1487,6 +1487,56 @@ class ChabocheQuadratureState:
         points_per_cell = len(self.stress.points)
         cell_map = self.domain.topology.index_map(self.domain.topology.dim)
         owned_points = int(cell_map.size_local) * points_per_cell
+        if isinstance(material, ChabocheCombinedHardening):
+            try:
+                batch = material._update_batch(
+                    strains,
+                    committed_pe,
+                    committed_peeq,
+                    committed_backstress,
+                )
+            except Exception as exc:
+                local_problem = (
+                    "Chaboche batch update failed: "
+                    f"{type(exc).__name__}: {exc}"
+                )
+            problems = self.domain.comm.allgather(local_problem)
+            if any(problem is not None for problem in problems):
+                rank = next(
+                    index
+                    for index, problem in enumerate(problems)
+                    if problem is not None
+                )
+                raise RuntimeError(f"Rank {rank}: {problems[rank]}")
+            self.stress.assign(batch.stress)
+            self.tangent.assign(batch.algorithmic_tangent)
+            self.trial_plastic_strain.assign(batch.plastic_strain)
+            self.trial_equivalent_plastic_strain.assign(
+                batch.equivalent_plastic_strain
+            )
+            self.trial_backstresses.assign(batch.backstresses)
+            self.trial_dynamic_recovery_dissipation.assign(
+                committed_dynamic_recovery + batch.dynamic_recovery_dissipation
+            )
+            self.trial_backward_euler_dissipation.assign(
+                committed_backward_euler + batch.backward_euler_dissipation
+            )
+            owned_increments = batch.plastic_multiplier_increment[:owned_points]
+            return {
+                "points": int(self.domain.comm.allreduce(owned_points, op=MPI.SUM)),
+                "plastic_points": int(
+                    self.domain.comm.allreduce(
+                        int(np.count_nonzero(owned_increments > 0.0)),
+                        op=MPI.SUM,
+                    )
+                ),
+                "maximum_plastic_increment": float(
+                    self.domain.comm.allreduce(
+                        float(np.max(owned_increments, initial=0.0)),
+                        op=MPI.MAX,
+                    )
+                ),
+            }
         for index, strain in enumerate(strains):
             selected_material = (
                 material.material_for_point(index, points_per_cell=points_per_cell)

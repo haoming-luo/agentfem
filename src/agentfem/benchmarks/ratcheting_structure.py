@@ -173,6 +173,48 @@ class ShoulderedRatchetingAccuracy:
         }
 
 
+@dataclass(frozen=True)
+class ShoulderedRatchetingFullReference:
+    """One fine-path run covering every point on the public 100-cycle curve."""
+
+    cycle_count: int
+    mesh_size: float
+    maximum_inelastic_increment: float
+    accepted_increment_count: int
+    rejected_attempt_count: int
+    mandatory_coordinate_count: int
+    all_mandatory_coordinates_reached: bool
+    maximum_absolute_curve_error: float
+    final_residual_norm: float
+    accepted: bool
+
+    def as_dict(self) -> dict[str, object]:
+        return {
+            "schema": "agentfem.shouldered-ratcheting-full-reference.v1",
+            "benchmark": "simulia_316_shouldered_axisymmetric_ratcheting",
+            "reference": "digitized_public_figure_with_uncertainty",
+            "claim_boundary": (
+                "Full published cycle range from a digitized raster curve; "
+                "not an exact vendor response table or an automatic maturity promotion."
+            ),
+            "cycle_count": self.cycle_count,
+            "full_reference_curve_covered": self.cycle_count >= 100,
+            "mesh_size": self.mesh_size,
+            "path_control": "maximum_equivalent_plastic_strain_increment",
+            "maximum_inelastic_increment": self.maximum_inelastic_increment,
+            "accepted_increment_count": self.accepted_increment_count,
+            "rejected_attempt_count": self.rejected_attempt_count,
+            "mandatory_coordinate_count": self.mandatory_coordinate_count,
+            "all_mandatory_coordinates_reached": (
+                self.all_mandatory_coordinates_reached
+            ),
+            "maximum_absolute_curve_error": self.maximum_absolute_curve_error,
+            "final_residual_norm": self.final_residual_norm,
+            "accepted": self.accepted,
+            "promotion_eligible": False,
+        }
+
+
 def simulia_316_experimental_ratcheting_curve() -> DigitizedRatchetingCurve:
     """Return auditable experimental points digitized from public Figure 4.
 
@@ -687,6 +729,68 @@ def certify_simulia_316_shouldered_ratcheting_accuracy(
             certificate.accepted and certificate.full_reference_curve_covered
         )
     return certificate, cache
+
+
+def certify_simulia_316_shouldered_ratcheting_full_reference(
+    *,
+    cycle_count: int = 100,
+    mesh_size: float = 2.5,
+    maximum_inelastic_increment: float = 1.0e-3,
+    progress: bool = False,
+):
+    """Run the fine-path case over the complete published cycle range.
+
+    Spatial and path convergence remain the responsibility of the independent
+    accuracy certificate.  This gate answers a different question: whether an
+    exact candidate distribution reaches every physical reversal through the
+    last digitized cycle and stays inside its declared response and equilibrium
+    contracts.
+    """
+
+    reference = simulia_316_experimental_ratcheting_curve()
+    published_cycle_count = int(max(reference.cycle))
+    if int(cycle_count) != cycle_count or int(cycle_count) != published_cycle_count:
+        raise ValueError(
+            "Full-reference ratcheting evidence requires exactly every published "
+            f"cycle ({published_cycle_count})."
+        )
+    assessment, result = simulia_316_shouldered_ratcheting_benchmark(
+        cycle_count=int(cycle_count),
+        mesh_size=float(mesh_size),
+        refinement=1,
+        maximum_inelastic_increment=float(maximum_inelastic_increment),
+        progress=progress,
+    )
+    control = result.metadata["external_benchmark"]["path_control"]
+    covered = (
+        len(result.histories["maximum_center_axial_strain"].values)
+        == published_cycle_count
+    )
+    accepted = bool(
+        covered
+        and assessment.accepted
+        and control["all_mandatory_coordinates_reached"]
+    )
+    certificate = ShoulderedRatchetingFullReference(
+        cycle_count=int(cycle_count),
+        mesh_size=float(mesh_size),
+        maximum_inelastic_increment=float(maximum_inelastic_increment),
+        accepted_increment_count=int(control["accepted_increment_count"]),
+        rejected_attempt_count=int(control["rejected_attempt_count"]),
+        mandatory_coordinate_count=int(control["mandatory_coordinate_count"]),
+        all_mandatory_coordinates_reached=bool(
+            control["all_mandatory_coordinates_reached"]
+        ),
+        maximum_absolute_curve_error=assessment.maximum_absolute_curve_error,
+        final_residual_norm=assessment.final_residual_norm,
+        accepted=accepted,
+    )
+    result.metadata["full_reference_certificate"] = certificate.as_dict()
+    result.metadata["external_benchmark"]["promotion_eligible"] = False
+    return certificate, {(float(mesh_size), float(maximum_inelastic_increment)): (
+        assessment,
+        result,
+    )}
 
 
 def certify_simulia_316_shouldered_ratcheting_convergence(

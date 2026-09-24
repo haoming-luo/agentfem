@@ -210,6 +210,17 @@ quadrature points; `S` and `DDSDDE` are trial fields updated during Newton.
 backward-Euler return map, including isotropic hardening and dynamic recovery;
 mixed stress control globalizes that tangent with residual-reducing line
 search at reversals.
+Homogeneous Chaboche regions execute the identical local return and tangent as
+one vectorized integration-point batch; regional material maps retain explicit
+per-material dispatch. This is an execution optimization, not a second
+constitutive formulation. Scalar-versus-batch regression compares stress,
+state, tangent and both discrete dissipation channels. The complete 100-cycle
+response is reserved for weekly and release-candidate evidence rather than
+every development push; a release gate runs it from the exact wheel that will
+be published.
+Accepted-step energy operators are compiled once per Step and reused with
+updated quadrature coefficients. This removes repeated JIT work without
+thinning the energy history or changing its physical channels.
 Failed attempts restore displacement and committed material state before
 automatic cutback. Complete named `CellRegion` assignments may dispatch
 different J2 parameter sets without changing the Step API. An otherwise

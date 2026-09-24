@@ -65,6 +65,13 @@ def test_convergence_contract_rejects_single_level_axes():
         )
 
 
+def test_full_reference_contract_requires_every_published_cycle():
+    with pytest.raises(ValueError, match="every published cycle"):
+        benchmarks.certify_simulia_316_shouldered_ratcheting_full_reference(
+            cycle_count=99,
+        )
+
+
 @pytest.mark.skipif(
     os.environ.get("AGENTFEM_RUN_EXTERNAL_STRUCTURE") != "1",
     reason="release/nightly external structure obligation",

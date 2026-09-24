@@ -308,9 +308,64 @@ jobs:
           python -c "import agentfem, torch; print(agentfem.__version__, torch.__version__)"
           python -m pytest tests/test_datasets.py tests/test_surrogates.py
 
+  chaboche-release-verify:
+    name: Verify the full Chaboche response from the candidate wheel
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    env:
+      UCX_TLS: tcp,sm,self
+    defaults:
+      run:
+        shell: bash -el {0}
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ env.RELEASE_TAG }}
+
+      - name: Download immutable candidate distributions
+        uses: actions/download-artifact@v8
+        with:
+          name: python-package-distributions
+          path: dist/
+
+      - name: Create FEniCSx environment
+        uses: conda-incubator/setup-miniconda@v4
+        with:
+          activate-environment: agentfem-release-chaboche
+          environment-file: environment.yml
+          miniforge-version: latest
+          use-mamba: true
+          channels: conda-forge
+          channel-priority: strict
+
+      - name: Install the exact candidate wheel
+        run: python -m pip install --no-deps --force-reinstall dist/*.whl
+
+      - name: Verify every published ratcheting cycle
+        run: |
+          cd /tmp
+          python "$GITHUB_WORKSPACE/tools/run_chaboche_ratcheting_benchmark.py" \
+            --full-reference \
+            --cycles 100 \
+            --mesh-sizes 2.5 \
+            --maximum-inelastic-increments 0.001 \
+            --report /tmp/agentfem-chaboche-release-evidence.json \
+            --summary-only \
+            --require-acceptable
+
+      - name: Upload release scientific evidence
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: chaboche-release-evidence
+          path: /tmp/agentfem-chaboche-release-evidence.json
+          if-no-files-found: error
+
   attest:
     name: Attest the verified distributions
-    needs: [verify, ml-verify]
+    needs: [verify, ml-verify, chaboche-release-verify]
     runs-on: ubuntu-latest
     permissions:
       contents: read
