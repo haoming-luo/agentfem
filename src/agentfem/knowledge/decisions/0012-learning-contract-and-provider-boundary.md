@@ -18,6 +18,14 @@ framework-neutral user-executor boundary or an installed Step provider and
 returns `SimulationResult`. It is not registered as an operator-assembly
 backend and is not treated as a surrogate.
 
+Learned constitutive models use the same ownership rule at a material-point
+boundary. AgentFEM owns named material parameters, state identity, Cauchy-
+stress/small-strain tangent conventions, scalar and batch requests, atomic
+trial/commit/rollback, applicability, artifact identity, and result evidence.
+An activated extension owns executable model loading, tensor frameworks,
+devices, automatic differentiation, and architecture-specific state codecs.
+The core never names one learned architecture or assumes a fixed state size.
+
 ## Why
 
 The stable asset is the scientific problem and its evidence, not PyTorch,
@@ -50,3 +58,7 @@ enrichments remain visible rather than hidden in provider code.
 - Confidential materials, calibration assets, workflow policy, and customer
   services remain in separate packages and repositories using the public
   extension protocol.
+- A learned material is not promoted to implicit global execution merely
+  because its material-point inference succeeds. Its fixed-old-state tangent,
+  rollback, checkpoint/restart, MPI behavior, and structure-level response must
+  pass joint provider/core evidence first.

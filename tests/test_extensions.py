@@ -5,7 +5,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from agentfem import cli, extensions, project
+from agentfem import cli, extensions, learning, project
 
 
 class _EntryPoints(tuple):
@@ -14,7 +14,9 @@ class _EntryPoints(tuple):
 
 
 class _EntryPoint:
-    def __init__(self, name, value, payload, *, distribution="private-pack", version="1.2.3"):
+    def __init__(
+        self, name, value, payload, *, distribution="private-pack", version="1.2.3"
+    ):
         self.name = name
         self.value = value
         self._payload = payload
@@ -29,9 +31,11 @@ class _EntryPoint:
 @pytest.fixture(autouse=True)
 def _isolated_extensions(monkeypatch):
     extensions._LOADED.clear()
+    learning.constitutive._PROVIDERS.clear()
     monkeypatch.setattr(extensions.metadata, "entry_points", lambda: _EntryPoints())
     yield
     extensions._LOADED.clear()
+    learning.constitutive._PROVIDERS.clear()
 
 
 def test_discovery_is_lazy_and_activation_is_explicit(monkeypatch):
@@ -63,6 +67,7 @@ def test_discovery_is_lazy_and_activation_is_explicit(monkeypatch):
         "step_providers": (),
         "backends": (),
         "materials": (),
+        "learned_constitutive_providers": (),
     }
     assert entry_point.loads == 1
     assert calls == ["company-solids"]
@@ -83,7 +88,9 @@ def test_incompatible_extension_api_fails_before_registration(monkeypatch):
     monkeypatch.setattr(
         extensions.metadata,
         "entry_points",
-        lambda: _EntryPoints((_EntryPoint("future-extension", "future:extension", extension),)),
+        lambda: _EntryPoints(
+            (_EntryPoint("future-extension", "future:extension", extension),)
+        ),
     )
     with pytest.raises(extensions.ExtensionError, match="supports 1"):
         extensions.load_extension("future-extension")
@@ -100,7 +107,49 @@ def test_registration_plan_rejects_duplicate_staged_names():
         context.commit()
 
 
-def test_project_declares_required_extension_without_importing_it(tmp_path, monkeypatch):
+def test_extension_registers_learned_constitutive_provider_atomically():
+    provider = learning.LearnedConstitutiveProvider(
+        name="laboratory.constitutive",
+        version="1.0",
+        architectures=("laboratory.model.v1",),
+        capabilities=("stress", "consistent_tangent", "batch"),
+        factory=lambda specification: object(),
+    )
+    context = extensions.ExtensionContext(
+        extensions.ExtensionSpec(name="learned-materials", version="1.0")
+    )
+    context.add_learned_constitutive_provider(provider)
+    context.commit()
+
+    assert context.summary()["learned_constitutive_providers"] == (
+        "laboratory.constitutive",
+    )
+    assert learning.learned_constitutive_providers() == (provider,)
+
+
+def test_extension_rejects_duplicate_learned_provider_before_commit():
+    provider = learning.LearnedConstitutiveProvider(
+        name="laboratory.constitutive",
+        version="1.0",
+        factory=lambda specification: object(),
+    )
+    context = extensions.ExtensionContext(
+        extensions.ExtensionSpec(name="learned-materials", version="1.0")
+    )
+    context.add_learned_constitutive_provider(provider)
+    context.add_learned_constitutive_provider(provider)
+
+    with pytest.raises(
+        extensions.ExtensionError,
+        match="duplicate learned constitutive provider",
+    ):
+        context.commit()
+    assert learning.learned_constitutive_providers() == ()
+
+
+def test_project_declares_required_extension_without_importing_it(
+    tmp_path, monkeypatch
+):
     (tmp_path / "case.py").write_text("print('private workflow')\n", encoding="utf-8")
     (tmp_path / "agentfem.toml").write_text(
         """[project]
@@ -142,7 +191,9 @@ def test_execution_record_captures_activated_extension_identity(tmp_path, monkey
     monkeypatch.setattr(
         extensions.metadata,
         "entry_points",
-        lambda: _EntryPoints((_EntryPoint("traceable-extension", "traceable:extension", extension),)),
+        lambda: _EntryPoints(
+            (_EntryPoint("traceable-extension", "traceable:extension", extension),)
+        ),
     )
     extensions.load_extension("traceable-extension")
     config = project.ProjectConfig(
@@ -177,25 +228,26 @@ required = ["company-solids"]
         extensions.ExtensionSpec(name="company-solids", version="3.0"),
         lambda context: None,
     )
-    entry_point = _EntryPoint(
-        "company-solids", "company_agentfem:extension", extension
-    )
+    entry_point = _EntryPoint("company-solids", "company_agentfem:extension", extension)
     monkeypatch.setattr(
         extensions.metadata,
         "entry_points",
         lambda: _EntryPoints((entry_point,)),
     )
 
-    assert cli.main(
-        [
-            "run",
-            "--project",
-            str(tmp_path),
-            "--run-id",
-            "extension-cli",
-            "--json",
-        ]
-    ) == 0
+    assert (
+        cli.main(
+            [
+                "run",
+                "--project",
+                str(tmp_path),
+                "--run-id",
+                "extension-cli",
+                "--json",
+            ]
+        )
+        == 0
+    )
     record = json.loads(capsys.readouterr().out)
     execution = json.loads(
         (tmp_path / record["execution_record"]).read_text(encoding="utf-8")

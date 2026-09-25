@@ -50,6 +50,18 @@ from .core import (
     integration_consistency_check,
 )
 from .execution import NeuralFieldExecutionRequest
+from .constitutive import (
+    LearnedConstitutiveMaterial,
+    LearnedConstitutiveProvider,
+    LearnedConstitutiveProviderError,
+    LearnedConstitutiveSpec,
+    learned_constitutive,
+    learned_constitutive_providers,
+    material as learned_material,
+    record_learned_constitutive_evidence,
+    register_learned_constitutive_provider,
+    resolve_learned_constitutive_provider,
+)
 
 
 __all__ = [
@@ -61,6 +73,10 @@ __all__ = [
     "IntegrationEvidence",
     "IntegrationPlan",
     "IntegrationRule",
+    "LearnedConstitutiveMaterial",
+    "LearnedConstitutiveProvider",
+    "LearnedConstitutiveProviderError",
+    "LearnedConstitutiveSpec",
     "NeuralFieldSpec",
     "NeuralFieldExecutionRequest",
     "NeuralRepresentation",
@@ -89,4 +105,10 @@ __all__ = [
     "train",
     "validate_predictions",
     "integration_consistency_check",
+    "learned_constitutive",
+    "learned_constitutive_providers",
+    "learned_material",
+    "record_learned_constitutive_evidence",
+    "register_learned_constitutive_provider",
+    "resolve_learned_constitutive_provider",
 ]

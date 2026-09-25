@@ -42,7 +42,7 @@ otherwise; runnable examples remain in the repository-level `examples/`.
 | Independent cycle coordinate, cyclic cohesive damage, cycle jumps, and 3D fatigue-crack observations | `fatigue_fracture.py` |
 | Finite-strain cohesive forces, named interface composition, energy, wave speeds, and dynamic crack evidence | `fracture.py` |
 | Global stateful and modal solid-mechanics procedures | `mechanics/` |
-| Material-point contracts, UMAT/UHYPER source inspection, and bridge specifications | `constitutive/user_material.py` |
+| Finite- and small-strain material-point contracts, named parameters, batch response validation, UMAT/UHYPER source inspection, and bridge specifications | `constitutive/user_material.py`, `constitutive/small_strain_user_material.py`, `constitutive/material_driver.py` |
 | Named material definitions, project Python assets, physics-role compatibility, reference records, and property containers | `materials/` |
 | Boundary models | `boundary_models/` |
 | UFL weak-form blocks, including stiffness, mass, diffusion, and loads | `forms.py` |
@@ -79,7 +79,7 @@ otherwise; runnable examples remain in the repository-level `examples/`.
 | Explicit installed/private package discovery and staged registration | `extensions.py` |
 | Typed/JSON parameters, sampling, campaign plans, resumable case execution | `campaigns/` |
 | Scientific dataset schemas, arrays, provenance, splits, and FEM-field export | `datasets/` |
-| Unified learning entry; neural-field objectives, conditions, sampling, inferred parameters, and compatibility access | `learning/` |
+| Unified learning entry; neural-field objectives, conditions, sampling, inferred parameters, learned-constitutive specifications/provider discovery, and compatibility access | `learning/` |
 | Surrogate/ROM models, validation, applicability, observation grids, neural-operator/PINN contracts | `surrogates/` |
 
 Application geometry, case inputs, and problem-specific sources should stay in

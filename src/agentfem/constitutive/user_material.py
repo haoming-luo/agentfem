@@ -202,6 +202,7 @@ class MaterialTangentConvention:
         allowed_pairs = {
             ("first_piola", "deformation_gradient", "reference"),
             ("second_piola", "green_lagrange_strain", "reference"),
+            ("cauchy", "small_strain", "reference"),
             ("cauchy", "rate_of_deformation", "current"),
             ("kirchhoff", "rate_of_deformation", "current"),
         }

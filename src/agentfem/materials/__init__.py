@@ -51,6 +51,15 @@ from .sections import (
 )
 from .schemas import validate_material_record
 
+
+def learned(specification):
+    """Bind a learned-constitutive specification to an active provider."""
+
+    from ..learning import learned_material
+
+    return learned_material(specification)
+
+
 __all__ = [
     "ElasticAnisotropic2DProperties",
     "ElasticAnisotropic3DProperties",
@@ -82,6 +91,7 @@ __all__ = [
     "define",
     "list_material_models",
     "list_materials",
+    "learned",
     "load",
     "load_python",
     "load_material",

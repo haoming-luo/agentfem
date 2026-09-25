@@ -13,6 +13,7 @@ from . import hyperelasticity
 from . import material_driver
 from . import plasticity
 from . import quadrature
+from . import small_strain_user_material
 from . import user_material
 from . import viscoelasticity
 from .catalog import ConstitutiveCapability, capabilities, capability
@@ -136,6 +137,7 @@ from .hyperelasticity import (
 from .material_driver import (
     MaterialPointBatchResult,
     MaterialQuadratureResponse,
+    SmallStrainMaterialQuadratureResponse,
     update_material_points,
 )
 from .plasticity import (
@@ -175,6 +177,22 @@ from .user_material import (
     check_material_tangent,
     validated_material_update,
 )
+from .small_strain_user_material import (
+    MaterialApplicabilityError,
+    MaterialParameter,
+    MaterialParameterSchema,
+    SmallStrainMaterialPointBatchInput,
+    SmallStrainMaterialPointBatchOutput,
+    SmallStrainMaterialPointInput,
+    SmallStrainMaterialPointOutput,
+    SmallStrainMaterialTangentCheck,
+    SmallStrainUserMaterial,
+    check_small_strain_material_tangent,
+    small_strain_matrix_to_tensor,
+    small_strain_tangent_convention,
+    validated_small_strain_batch_update,
+    validated_small_strain_update,
+)
 from .viscoelasticity import (
     ArrheniusShift,
     GeneralizedMaxwell,
@@ -208,6 +226,7 @@ __all__ = [
     "material_driver",
     "plasticity",
     "quadrature",
+    "small_strain_user_material",
     "user_material",
     "viscoelasticity",
     "AbaqusUserMaterialBridge",
@@ -252,15 +271,25 @@ __all__ = [
     "MaterialPointInput",
     "MaterialPointBatchResult",
     "MaterialPointOutput",
+    "MaterialApplicabilityError",
+    "MaterialParameter",
+    "MaterialParameterSchema",
     "MaterialLoadingPath",
     "PlasticMaterialHistoryResponse",
     "PlasticMaterialHistoryStep",
     "MaterialQuadratureState",
     "MaterialQuadratureResponse",
+    "SmallStrainMaterialQuadratureResponse",
     "MaterialStateSchema",
     "MaterialStateVariable",
     "MaterialTangentCheck",
     "MaterialTangentConvention",
+    "SmallStrainMaterialPointBatchInput",
+    "SmallStrainMaterialPointBatchOutput",
+    "SmallStrainMaterialPointInput",
+    "SmallStrainMaterialPointOutput",
+    "SmallStrainMaterialTangentCheck",
+    "SmallStrainUserMaterial",
     "MaxwellState",
     "KachanovRabotnovCreep",
     "ModifiedThetaProjection",
@@ -285,11 +314,16 @@ __all__ = [
     "validated_material_update",
     "update_material_points",
     "check_material_tangent",
+    "check_small_strain_material_tangent",
     "anisotropic_stress_2d",
     "anisotropic_stress_3d",
     "anisotropic_elastic_2d",
     "anisotropic_elastic_3d",
     "orthotropic_elastic_3d",
+    "small_strain_matrix_to_tensor",
+    "small_strain_tangent_convention",
+    "validated_small_strain_batch_update",
+    "validated_small_strain_update",
     "DecoupledFabricSurface",
     "DecoupledFibrousShell",
     "FabricFormingAssessment",

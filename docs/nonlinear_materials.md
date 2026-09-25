@@ -261,6 +261,29 @@ provides ordinary strong-boundary and affine/MPC global equilibrium. Its mixed
 lowerings are intended to mitigate volumetric locking, but locking-convergence
 evidence and external promotion evidence are not yet complete.
 
+## Provider-neutral small-strain materials
+
+`constitutive.SmallStrainUserMaterial` is the common local contract for native
+or externally executed small-strain models. It accepts old/new symmetric strain,
+named parameters, committed state, time, temperature, and named field variables;
+it returns Cauchy stress, a declared consistent tangent, trial state, optional
+energy channels, applicability, and diagnostics. The state and parameter schemas
+are checked on every boundary, and the tangent convention explicitly states
+component order and tensor or engineering shear.
+
+`SmallStrainMaterialQuadratureResponse` evaluates one batch for all locally
+owned integration points and updates stress, tangent, state, stored energy, and
+dissipation as one MPI-aware transaction. Any failed point or rank rolls trial
+state back. This is the shared constitutive-to-quadrature bridge; it does not
+pretend that material-point inference alone is a global nonlinear solver.
+
+`learning.LearnedConstitutiveSpec` binds an immutable scientific description to
+an explicitly activated provider through `materials.learned(...)`. The core
+stores no executable network and imports no learning runtime. The first implicit
+global learned-material Step remains gated on a real provider passing consistent-
+tangent, global equilibrium, checkpoint/restart, MPI, and independent structural
+validation.
+
 ## Power-Law Creep
 
 `constitutive.PowerLawCreep` provides a normalized Mises time-hardening law,

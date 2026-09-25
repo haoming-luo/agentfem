@@ -14,6 +14,13 @@ from .quadrature import MaterialQuadratureState
 from .quadrature import QuadratureField
 from .quadrature import QuadratureMaterialMap
 from .user_material import MaterialPointInput, UserMaterial, validated_material_update
+from .small_strain_user_material import (
+    SmallStrainMaterialPointBatchInput,
+    SmallStrainMaterialPointBatchOutput,
+    SmallStrainUserMaterial,
+    small_strain_matrix_to_tensor,
+    validated_small_strain_batch_update,
+)
 
 
 @dataclass(frozen=True)
@@ -44,7 +51,9 @@ class MaterialPointBatchResult:
         if state.ndim != 2 or len(state) != count:
             raise ValueError("Batch state must have shape (points, state_size).")
         if len(energy) != count or len(scale) != count:
-            raise ValueError("Batch energy and time scale must have one value per point.")
+            raise ValueError(
+                "Batch energy and time scale must have one value per point."
+            )
         for label, value in (
             ("stress", stress),
             ("tangent", tangent),
@@ -142,7 +151,9 @@ class MaterialQuadratureResponse:
         )
         common = {"degree": int(degree), "scheme": str(scheme)}
         component_names = tuple(
-            dict.fromkeys(str(name).strip().upper() for name in stored_energy_component_names)
+            dict.fromkeys(
+                str(name).strip().upper() for name in stored_energy_component_names
+            )
         )
         if any(not name for name in component_names):
             raise ValueError("Stored-energy component names must be nonempty.")
@@ -200,9 +211,7 @@ class MaterialQuadratureResponse:
                     )
                 )
             )
-            if set(declared_components) != set(
-                self.stored_energy_density_components
-            ):
+            if set(declared_components) != set(self.stored_energy_density_components):
                 raise ValueError(
                     "Material stored-energy declaration differs from the "
                     "quadrature response contract."
@@ -237,9 +246,7 @@ class MaterialQuadratureResponse:
             )
             first_piola = np.asarray(
                 [
-                    np.linalg.det(gradient)
-                    * stress
-                    @ np.linalg.inv(gradient).T
+                    np.linalg.det(gradient) * stress @ np.linalg.inv(gradient).T
                     for gradient, stress in zip(
                         new_gradients, result.cauchy_stress, strict=True
                     )
@@ -309,8 +316,7 @@ class MaterialQuadratureResponse:
                 index for index, problem in enumerate(problems) if problem is not None
             )
             raise RuntimeError(
-                f"Rank {rank}: quadrature response assignment failed: "
-                f"{problems[rank]}"
+                f"Rank {rank}: quadrature response assignment failed: {problems[rank]}"
             )
         if commit:
             self.state.commit()
@@ -345,6 +351,289 @@ class MaterialQuadratureResponse:
         }
 
 
+@dataclass
+class SmallStrainMaterialQuadratureResponse:
+    """Rollback-safe local state and fields for a generic small-strain material.
+
+    The response stores the provider's native state schema and its unambiguous
+    Cauchy/small-strain tangent.  A global Newton procedure may consume these
+    fields without treating the model as finite strain or knowing which
+    framework executed the local update.
+    """
+
+    state: MaterialQuadratureState
+    cauchy_stress: QuadratureField
+    tangent: QuadratureField
+    stored_energy_density: QuadratureField | None = None
+    dissipation_density_increment: QuadratureField | None = None
+    stored_energy_density_components: dict[str, QuadratureField] = field(
+        default_factory=dict
+    )
+    last_diagnostics: tuple[Mapping[str, object], ...] = field(
+        default_factory=tuple,
+        init=False,
+    )
+    last_applicability: tuple[str, ...] = field(default_factory=tuple, init=False)
+
+    @classmethod
+    def create(
+        cls,
+        domain,
+        state_schema,
+        *,
+        degree: int = 2,
+        scheme: str = "default",
+        stored_energy: bool = False,
+        dissipation: bool = False,
+        stored_energy_component_names=(),
+    ):
+        state = MaterialQuadratureState.create(
+            domain, state_schema, degree=degree, scheme=scheme
+        )
+        common = {"degree": int(degree), "scheme": str(scheme)}
+        component_names = tuple(
+            dict.fromkeys(
+                str(name).strip().upper() for name in stored_energy_component_names
+            )
+        )
+        if any(not name for name in component_names):
+            raise ValueError("Stored-energy component names must be nonempty.")
+        if component_names and not stored_energy:
+            raise ValueError("Stored-energy components require stored_energy=True.")
+        return cls(
+            state=state,
+            cauchy_stress=QuadratureField.create(
+                domain, name="S", value_shape=(3, 3), **common
+            ),
+            tangent=QuadratureField.create(
+                domain, name="DDSDDE", value_shape=(3, 3, 3, 3), **common
+            ),
+            stored_energy_density=(
+                QuadratureField.create(domain, name="SENER", **common)
+                if stored_energy
+                else None
+            ),
+            dissipation_density_increment=(
+                QuadratureField.create(domain, name="DENER_INC", **common)
+                if dissipation
+                else None
+            ),
+            stored_energy_density_components={
+                name: QuadratureField.create(domain, name=name, **common)
+                for name in component_names
+            },
+        )
+
+    @property
+    def domain(self):
+        return self.state.domain
+
+    @property
+    def measure(self):
+        return self.state.measure
+
+    def update(
+        self,
+        material: SmallStrainUserMaterial,
+        *,
+        strain_old,
+        strain_new,
+        time: float,
+        time_increment: float,
+        parameters=None,
+        temperature=None,
+        temperature_increment=None,
+        field_variables=None,
+        commit: bool = False,
+    ) -> SmallStrainMaterialPointBatchOutput:
+        """Update all local integration points as one collective transaction."""
+
+        comm = self.domain.comm
+        result = None
+        local_problem = None
+        self.state.begin()
+        try:
+            committed = self.state.committed_state_vectors()
+            count = len(committed)
+            selected_parameters = (
+                getattr(material, "parameters", {})
+                if parameters is None
+                else parameters
+            )
+            request = SmallStrainMaterialPointBatchInput(
+                strain_old=_small_strain_point_array(
+                    strain_old, point_count=count, label="strain_old"
+                ),
+                strain_new=_small_strain_point_array(
+                    strain_new, point_count=count, label="strain_new"
+                ),
+                time=time,
+                time_increment=time_increment,
+                parameters=selected_parameters,
+                state_old=committed,
+                state_schema=self.state.state_schema,
+                parameter_schema=material.parameter_schema,
+                temperature=_optional_point_scalars(
+                    temperature, point_count=count, label="temperature"
+                ),
+                temperature_increment=_optional_point_scalars(
+                    temperature_increment,
+                    point_count=count,
+                    label="temperature_increment",
+                ),
+                field_variables=(
+                    {}
+                    if field_variables is None
+                    else {
+                        str(name): _optional_point_scalars(
+                            value,
+                            point_count=count,
+                            label=f"field variable {name!r}",
+                        )
+                        for name, value in field_variables.items()
+                    }
+                ),
+            )
+            result = validated_small_strain_batch_update(material, request)
+            expected_components = set(self.stored_energy_density_components)
+            if set(result.stored_energy_density_components) != expected_components:
+                raise ValueError(
+                    "Material response stored-energy components differ from the "
+                    "quadrature response contract."
+                )
+            if (result.stored_energy_density is not None) != (
+                self.stored_energy_density is not None
+            ):
+                raise ValueError(
+                    "Material stored-energy response differs from the quadrature "
+                    "response contract."
+                )
+            if (result.dissipation_density_increment is not None) != (
+                self.dissipation_density_increment is not None
+            ):
+                raise ValueError(
+                    "Material dissipation response differs from the quadrature "
+                    "response contract."
+                )
+        except Exception as exc:
+            local_problem = f"{type(exc).__name__}: {exc}"
+        problems = comm.allgather(local_problem)
+        if any(problem is not None for problem in problems):
+            self.state.rollback()
+            rank = next(index for index, problem in enumerate(problems) if problem)
+            raise RuntimeError(
+                f"Rank {rank}: small-strain material batch update failed: "
+                f"{problems[rank]}"
+            )
+
+        assignments = [
+            (self.cauchy_stress, result.cauchy_stress),
+            (
+                self.tangent,
+                np.asarray(
+                    [
+                        small_strain_matrix_to_tensor(
+                            tangent, result.tangent_convention
+                        )
+                        for tangent in result.consistent_tangent
+                    ]
+                ),
+            ),
+            *(
+                ((self.stored_energy_density, result.stored_energy_density),)
+                if self.stored_energy_density is not None
+                else ()
+            ),
+            *(
+                (
+                    (
+                        self.dissipation_density_increment,
+                        result.dissipation_density_increment,
+                    ),
+                )
+                if self.dissipation_density_increment is not None
+                else ()
+            ),
+            *(
+                (
+                    field,
+                    result.stored_energy_density_components[name],
+                )
+                for name, field in self.stored_energy_density_components.items()
+            ),
+        ]
+        local_problem = None
+        field_backups = {
+            id(selected_field): selected_field.function.x.array.copy()
+            for selected_field, _ in assignments
+        }
+        try:
+            self.state.assign_trial_state_vectors(result.state_new)
+            for selected_field, values in assignments:
+                expected = int(selected_field.function.x.array.size)
+                supplied = np.asarray(values, dtype=float)
+                if supplied.size != expected or not np.all(np.isfinite(supplied)):
+                    raise ValueError(
+                        f"{selected_field.function.name} requires {expected} finite "
+                        f"values, got {supplied.size}."
+                    )
+            for selected_field, values in assignments:
+                selected_field.assign(values)
+        except Exception as exc:
+            local_problem = f"{type(exc).__name__}: {exc}"
+        problems = comm.allgather(local_problem)
+        if any(problem is not None for problem in problems):
+            self.state.rollback()
+            for selected_field, _ in assignments:
+                selected_field.function.x.array[:] = field_backups[id(selected_field)]
+                selected_field.function.x.scatter_forward()
+            rank = next(index for index, problem in enumerate(problems) if problem)
+            raise RuntimeError(
+                f"Rank {rank}: small-strain quadrature assignment failed: "
+                f"{problems[rank]}"
+            )
+        self.last_diagnostics = result.diagnostics
+        self.last_applicability = result.applicability
+        if commit:
+            self.state.commit()
+        return result
+
+    def commit(self) -> None:
+        self.state.commit()
+
+    def rollback(self) -> None:
+        self.state.rollback()
+
+    def snapshot(self) -> dict[str, np.ndarray]:
+        return self.state.snapshot()
+
+    def restore(self, snapshot) -> None:
+        self.state.restore(snapshot)
+
+    def summary(self) -> dict[str, object]:
+        return {
+            "kind": "small_strain_material_quadrature_response",
+            "state": self.state.summary(),
+            "fields": {
+                "cauchy_stress": "S",
+                "consistent_tangent": "DDSDDE",
+                "stored_energy_density": (
+                    None if self.stored_energy_density is None else "SENER"
+                ),
+                "dissipation_density_increment": (
+                    None if self.dissipation_density_increment is None else "DENER_INC"
+                ),
+                "stored_energy_density_components": {
+                    name: name for name in self.stored_energy_density_components
+                },
+            },
+            "applicability_counts": {
+                status: self.last_applicability.count(status)
+                for status in sorted(set(self.last_applicability))
+            },
+        }
+
+
 def _raise_collective_material_problem(comm, local_problem, *, context: str) -> None:
     """Raise the first rank-local setup error before constitutive collectives."""
 
@@ -365,6 +654,19 @@ def _point_array(value, *, point_count: int, label: str) -> np.ndarray:
     if np.any(determinants <= 0.0):
         raise ValueError(f"Every {label} must have positive determinant.")
     return selected
+
+
+def _small_strain_point_array(value, *, point_count: int, label: str) -> np.ndarray:
+    selected = np.asarray(value, dtype=float)
+    if selected.shape == (3, 3):
+        selected = np.broadcast_to(selected, (point_count, 3, 3)).copy()
+    if selected.shape != (point_count, 3, 3) or not np.all(np.isfinite(selected)):
+        raise ValueError(f"{label} must have shape (3, 3) or (points, 3, 3).")
+    skew = np.max(np.abs(selected - np.swapaxes(selected, 1, 2)), axis=(1, 2))
+    scale = np.maximum(np.linalg.norm(selected, axis=(1, 2)), np.finfo(float).tiny)
+    if np.any(skew > 1.0e-10 * scale):
+        raise ValueError(f"Every {label} tensor must be symmetric.")
+    return 0.5 * (selected + np.swapaxes(selected, 1, 2))
 
 
 def _optional_point_scalars(value, *, point_count: int, label: str):
@@ -479,13 +781,10 @@ def update_material_points(
     input_problems = state.domain.comm.allgather(input_problem)
     if any(problem is not None for problem in input_problems):
         rank = next(
-            index
-            for index, problem in enumerate(input_problems)
-            if problem is not None
+            index for index, problem in enumerate(input_problems) if problem is not None
         )
         raise RuntimeError(
-            f"Rank {rank}: invalid material-point batch input: "
-            f"{input_problems[rank]}"
+            f"Rank {rank}: invalid material-point batch input: {input_problems[rank]}"
         )
 
     stress = np.empty((point_count, 3, 3), dtype=float)
@@ -518,9 +817,7 @@ def update_material_points(
                         state_old=committed_state[index],
                         state_schema=state.state_schema,
                         temperature=(
-                            None
-                            if temperatures is None
-                            else float(temperatures[index])
+                            None if temperatures is None else float(temperatures[index])
                         ),
                         temperature_increment=(
                             None
@@ -554,13 +851,11 @@ def update_material_points(
                 None
                 if declared_component_names is None
                 else tuple(
-                    str(name).strip().upper()
-                    for name in declared_component_names
+                    str(name).strip().upper() for name in declared_component_names
                 )
             )
-            if (
-                declared_components is not None
-                and set(point_components) != set(declared_components)
+            if declared_components is not None and set(point_components) != set(
+                declared_components
             ):
                 local_problem = (
                     "material update returned stored-energy components that "
@@ -610,8 +905,7 @@ def update_material_points(
                 index for index, problem in enumerate(problems) if problem is not None
             )
             raise RuntimeError(
-                f"Rank {rank}: material-point batch validation failed: "
-                f"{problems[rank]}"
+                f"Rank {rank}: material-point batch validation failed: {problems[rank]}"
             )
         state.assign_trial_state_vectors(state_new)
         if commit:

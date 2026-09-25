@@ -445,6 +445,100 @@ special case in the open core. Its discontinuity and Williams crack-tip terms
 belong to `NeuralRepresentation`; its energy, work, phase-field, and
 irreversibility contributions use the shared objective contract.
 
+## Learned constitutive materials
+
+Learned constitutive models cross a narrower and more demanding boundary than
+ordinary surrogates: they execute at material points inside a nonlinear finite-
+element procedure. AgentFEM therefore owns the mechanics contract while an
+explicitly activated extension owns the executable runtime.
+
+The core contract is deliberately framework-neutral:
+
+```text
+strain_old, strain_new, state_old, named parameters
+                         |
+                         v
+              provider batch update
+                         |
+                         v
+Cauchy stress, consistent tangent, state_new, energy, diagnostics
+```
+
+`MaterialParameterSchema` gives every parameter a stable name, unit, bounds,
+and optional default. `MaterialStateSchema` identifies the provider-owned
+history. `LearnedConstitutiveSpec` records the provider and architecture,
+artifact revision and SHA-256, parameter and state schemas, tensor convention,
+required inputs, capabilities, applicability domain, and dataset provenance.
+It contains no live executable object.
+`spec.write("model-spec.json")` and `LearnedConstitutiveSpec.read(...)`
+round-trip that contract without a learning runtime and reject a manifest whose
+stored fingerprint no longer matches its content.
+
+```python
+from agentfem import constitutive, learning, materials
+
+parameters = constitutive.MaterialParameterSchema(
+    "laboratory.material_parameters",
+    (
+        constitutive.MaterialParameter("young", unit="Pa", lower=0.0),
+        constitutive.MaterialParameter(
+            "poisson", unit="1", lower=-0.999, upper=0.499
+        ),
+    ),
+    version="1.0",
+)
+
+spec = learning.learned_constitutive(
+    provider="laboratory.constitutive",
+    architecture="laboratory.model.v1",
+    artifact="local-cache://laboratory.model.v1",
+    revision="fixed-revision",
+    artifact_sha256="0" * 64,  # Replace with the prepared artifact digest.
+    parameter_schema=parameters,
+    parameters={"young": 190e9, "poisson": 0.30},
+    state_schema=my_state_schema,
+    tangent_convention=constitutive.small_strain_tangent_convention(),
+)
+
+# The provider is discovered only after its extension is explicitly activated.
+material = materials.learned(spec)
+```
+
+The first protocol is explicitly three-dimensional small strain with Cauchy
+stress and a declared 6-by-6 tangent using `xx, yy, zz, xy, yz, xz` order. The
+tensor-versus-engineering shear convention is mandatory. This avoids disguising
+a small-strain model as a finite-deformation update.
+
+Batch update is the formal integration-point path. A scalar update remains a
+compatibility and testing fallback, but a specification that declares batch
+execution must receive a real provider batch kernel. The core validates the
+complete response before trial state is exposed; a rejected point, non-finite
+value, schema drift, or rank-local failure rolls the whole local transaction
+back. State is committed only after the enclosing structural increment
+converges.
+
+Applicability is part of the result rather than an informal warning. Providers
+return `in_domain`, `warning`, `out_of_domain`, or `invalid_state` per point.
+The latter two fail closed. A provider may suggest a smaller increment, but it
+cannot silently extrapolate or substitute a different material.
+
+The open core never imports a machine-learning framework, downloads weights
+during a solve, or deserializes an executable model. Providers own weight
+loading, device and precision, automatic differentiation, and runtime caches.
+Prepared artifacts may be verified by streaming SHA-256 before provider
+execution. `SimulationResult` evidence retains the specification fingerprint,
+provider/runtime identity, tangent-generation method, applicability counts,
+diagnostics, cutbacks, and timing without serializing the live model.
+
+Current maturity is intentionally precise: the material-point protocol,
+validated scalar/batch execution, atomic DOLFINx quadrature state, portable
+state schema, extension discovery, artifact identity, and result-evidence
+boundary are implemented. Promotion to an implicit global structural Step
+requires a real external provider whose fixed-old-state consistent tangent,
+rollback, checkpoint/restart, MPI behavior, and structure-level benchmark all
+pass jointly. Until that gate is met, successful material-point execution is
+not presented as a verified global solver capability.
+
 ### Bring your own model
 
 No official learning package is required to execute a user-owned neural model.
@@ -510,6 +604,8 @@ The first phase does not claim:
 - automatic active-learning approval;
 - arbitrary model mutation or AF-IR round-trip reconstruction;
 - surrogate validity outside independent tests and declared domains.
+- an implicitly verified global learned-material Step before external-provider
+  tangent and structure-level evidence pass.
 
 These omissions are public boundaries, not hidden placeholders.
 
@@ -532,6 +628,8 @@ These omissions are public boundaries, not hidden placeholders.
    PyTorch binding adapter.
 9. Expose campaign planning, status, diagnostics, comparison, and artifact
    retrieval through tool-service/MCP operations.
+10. Jointly qualify the first external learned-constitutive provider through
+    material-point, tangent, rollback, restart, MPI, and global-structure gates.
 
 ## Reference Example
 
