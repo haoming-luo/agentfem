@@ -162,6 +162,7 @@ and evidence remain in the linked guides and scientific function reference.
 
 | Kind | Public object | Purpose |
 | --- | --- | --- |
+| function | `learned(specification)` | Bind a learned-constitutive specification to an active provider. |
 | class | `MaterialAssetError` | A project material asset could not be loaded unambiguously. |
 | function | `load(source: str \| Path, *, model: str \| None = None, symbol: str \| None = None, role: str = 'mechanical') -> MaterialDefinition` | Load a packaged card by name or an explicitly selected Python asset. |
 | function | `load_python(path: str \| Path, *, symbol: str \| None = None, role: str = 'mechanical') -> MaterialDefinition` | Load one trusted project-owned Python material with source provenance. |
@@ -305,6 +306,7 @@ and evidence remain in the linked guides and scientific function reference.
 | function | `supports_hyperelastic_study(properties, *, dimension: int, assumption) -> bool` | Return whether one material has a formulation for the declared Study. |
 | class | `MaterialPointBatchResult` | Responses from one atomic integration-point constitutive update. |
 | class | `MaterialQuadratureResponse` | Quadrature stress/tangent fields sharing one typed state transaction. |
+| class | `SmallStrainMaterialQuadratureResponse` | Rollback-safe local state and fields for a generic small-strain material. |
 | function | `update_material_points(material: UserMaterial \| QuadratureMaterialMap, state: MaterialQuadratureState, *, deformation_gradient_old, deformation_gradient_new, time: float, time_increment: float, properties = (), temperature = None, temperature_increment = None, field_variables = None, commit: bool = False) -> MaterialPointBatchResult` | Update every local quadrature point as one rollback-safe transaction. |
 | class | `ChabocheCombinedHardening` | Small-strain J2 plasticity with nonlinear combined hardening. |
 | class | `ChabocheState` | History for small-strain combined isotropic/kinematic hardening. |
@@ -337,6 +339,20 @@ and evidence remain in the linked guides and scientific function reference.
 | class | `UserMaterial` | Protocol implemented by native or adapted material-point models. |
 | function | `check_material_tangent(material: UserMaterial, point: MaterialPointInput, *, relative_step: float = 1e-07, tolerance: float = 1e-05) -> MaterialTangentCheck` | Compare a declared ``dP/dF`` against fixed-state finite differences. |
 | function | `validated_material_update(material: UserMaterial, point: MaterialPointInput) -> MaterialPointOutput` | Run one material update and verify the complete solver contract. |
+| class | `MaterialApplicabilityError(status: str, message: str) -> None` | A material refused to extrapolate or accepted state was invalid. |
+| class | `MaterialParameter` | One named, unit-aware constitutive parameter. |
+| class | `MaterialParameterSchema` | Stable named parameter layout for native and external materials. |
+| class | `SmallStrainMaterialPointBatchInput` | Vectorized request for all local points owned by one provider call. |
+| class | `SmallStrainMaterialPointBatchOutput` | Validated vectorized constitutive response. |
+| class | `SmallStrainMaterialPointInput` | One three-dimensional small-strain constitutive update request. |
+| class | `SmallStrainMaterialPointOutput` | Stress, consistent tangent, state, energy and diagnostics for one point. |
+| class | `SmallStrainMaterialTangentCheck` | Public AgentFEM object. |
+| class | `SmallStrainUserMaterial` | Scalar update protocol implemented by native or external providers. |
+| function | `check_small_strain_material_tangent(material: SmallStrainUserMaterial, point: SmallStrainMaterialPointInput, *, relative_step: float = 1e-07, tolerance: float = 1e-05) -> SmallStrainMaterialTangentCheck` | Check the discrete ``d sigma / d epsilon`` at fixed old state. |
+| function | `small_strain_matrix_to_tensor(matrix, convention: MaterialTangentConvention) -> np.ndarray` | Expand a declared 6x6 small-strain tangent to a minor-symmetric tensor. |
+| function | `small_strain_tangent_convention(*, shear_convention: str = 'tensor') -> MaterialTangentConvention` | Return the canonical 3D Cauchy/small-strain matrix convention. |
+| function | `validated_small_strain_batch_update(material: SmallStrainUserMaterial, request: SmallStrainMaterialPointBatchInput, *, require_usable: bool = True) -> SmallStrainMaterialPointBatchOutput` | Use a provider batch kernel when available, otherwise a scalar fallback. |
+| function | `validated_small_strain_update(material: SmallStrainUserMaterial, point: SmallStrainMaterialPointInput, *, require_usable: bool = True) -> SmallStrainMaterialPointOutput` | Run one update and fail closed on schema or convention drift. |
 | class | `ArrheniusShift` | Arrhenius time-temperature shift factor. |
 | class | `GeneralizedMaxwell` | Small-strain generalized-Maxwell relaxation spectrum. |
 | class | `IsotropicGeneralizedMaxwell` | Small-strain isotropic generalized-Maxwell solid for global FEM. |
@@ -966,6 +982,16 @@ and evidence remain in the linked guides and scientific function reference.
 | class | `TrainableParameter` | A physical parameter inferred jointly with one or more fields. |
 | function | `integration_consistency_check(plan: IntegrationPlan, *, training_value: float, validation_value: float, refinement_values = (), balance_error: float \| None = None, relative_tolerance: float = 0.05) -> IntegrationEvidence` | Compare optimized and held-out integration without trusting loss alone. |
 | class | `NeuralFieldExecutionRequest` | Immutable input supplied to a user- or package-owned executor. |
+| class | `LearnedConstitutiveMaterial(specification: LearnedConstitutiveSpec) -> None` | Ordinary small-strain material delegating execution to one provider. |
+| class | `LearnedConstitutiveProvider` | Registered factory owned by an activated extension package. |
+| class | `LearnedConstitutiveProviderError(code: str, message: str) -> None` | Addressable provider, artifact, or compatibility failure. |
+| class | `LearnedConstitutiveSpec` | Immutable scientific identity for an externally executed local model. |
+| function | `learned_constitutive(*, provider: str, architecture: str, artifact: str, revision: str, artifact_sha256: str, parameter_schema: MaterialParameterSchema, parameters: Mapping[str, float], state_schema: MaterialStateSchema, tangent_convention: MaterialTangentConvention, **options) -> LearnedConstitutiveSpec` | Construct a descriptive specification without loading executable code. |
+| function | `learned_constitutive_providers() -> tuple[LearnedConstitutiveProvider, ...]` | Public AgentFEM object. |
+| function | `learned_material(specification: LearnedConstitutiveSpec) -> LearnedConstitutiveMaterial` | Bind one immutable specification to an explicitly active provider. |
+| function | `record_learned_constitutive_evidence(result, selected_material: LearnedConstitutiveMaterial, *, runtime: Mapping[str, object], diagnostics: Mapping[str, object])` | Attach reserved, portable provider evidence to a SimulationResult. |
+| function | `register_learned_constitutive_provider(provider: LearnedConstitutiveProvider, *, replace: bool = False) -> None` | Register one already-activated framework provider. |
+| function | `resolve_learned_constitutive_provider(specification: LearnedConstitutiveSpec) -> LearnedConstitutiveProvider` | Public AgentFEM object. |
 
 ## `agentfem.mechanics`
 
