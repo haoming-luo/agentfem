@@ -188,6 +188,20 @@ def _accept_j2(model, request: StepRequest) -> bool:
     )
 
 
+def _accept_small_strain_material(model, request: StepRequest) -> bool:
+    from .constitutive.small_strain_user_material import SmallStrainUserMaterial
+
+    study = getattr(model, "study", None)
+    material = _selected_material(model, request)
+    return (
+        getattr(study, "analysis", None) == "nonlinear_static"
+        and getattr(study, "physics", None) == "solid_mechanics"
+        and getattr(study, "dimension", None) == 3
+        and _is_vector_target(request.target)
+        and isinstance(material, SmallStrainUserMaterial)
+    )
+
+
 def _accept_finite_strain_j2_affine(model, request: StepRequest) -> bool:
     from . import loads as load_api
     from .constitutive import FiniteStrainJ2Logarithmic
@@ -346,6 +360,24 @@ def _lower_j2(model, request: StepRequest):
     options.pop("output", None)
     name = options.pop("name", None) or "j2_plasticity"
     return _step_builders.j2_plasticity(
+        model,
+        target=request.target,
+        material=material,
+        name=name,
+        **options,
+    )
+
+
+def _lower_small_strain_material(model, request: StepRequest):
+    from . import _step_builders
+
+    options = dict(request.options)
+    material = _selected_material(model, request)
+    options.pop("material", None)
+    for legacy_name in ("K", "F", "output"):
+        options.pop(legacy_name, None)
+    name = options.pop("name", None) or "small_strain_material"
+    return _step_builders.small_strain_material(
         model,
         target=request.target,
         material=material,
@@ -853,6 +885,27 @@ def _lower_callable_neural_field(model, request):
     return model.add_step(step)
 
 
+register_step_provider(
+    StepProvider(
+        name="small_strain_user_material_static",
+        analyses=("nonlinear_static",),
+        accepts=_accept_small_strain_material,
+        lower=_lower_small_strain_material,
+        priority=115,
+        description=(
+            "Lower a provider-neutral small-strain material to batched "
+            "quadrature state and implicit Newton equilibrium."
+        ),
+        procedure="standard/newton/stateful",
+        option_contract=_option_contract(
+            "incrementation",
+            "quadrature_degree",
+            "progress",
+            "status_file",
+            "amplitude",
+        ),
+    )
+)
 register_step_provider(
     StepProvider(
         name="callable_neural_field",

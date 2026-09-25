@@ -35,6 +35,12 @@ from .plasticity import (
     J2PlasticityStep,
     j2_plasticity_step,
 )
+from .small_strain_material import (
+    SmallStrainMaterialIncrementInfo,
+    SmallStrainMaterialPathInfo,
+    SmallStrainMaterialStep,
+    small_strain_material_step,
+)
 from .shell import (
     DirectorShellKinematics,
     FiberCurveKinematics,
@@ -83,6 +89,9 @@ __all__ = [
     "J2IncrementInfo",
     "J2LoadPathInfo",
     "J2PlasticityStep",
+    "SmallStrainMaterialIncrementInfo",
+    "SmallStrainMaterialPathInfo",
+    "SmallStrainMaterialStep",
     "HarmonicViscoelasticStep",
     "ModalAnalysisStep",
     "QuasistaticViscoelasticStep",
@@ -99,6 +108,7 @@ __all__ = [
     "harmonic_frequency_sweep_step",
     "harmonic_viscoelastic_step",
     "j2_plasticity_step",
+    "small_strain_material_step",
     "director_shell_kinematics",
     "fiber_curve_kinematics",
     "reconstruct_fiber_curvature",

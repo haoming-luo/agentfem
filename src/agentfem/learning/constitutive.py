@@ -359,6 +359,8 @@ def resolve_learned_constitutive_provider(
 class LearnedConstitutiveMaterial:
     """Ordinary small-strain material delegating execution to one provider."""
 
+    stateful_constitutive = True
+
     def __init__(self, specification: LearnedConstitutiveSpec) -> None:
         if not isinstance(specification, LearnedConstitutiveSpec):
             raise TypeError("specification must be a LearnedConstitutiveSpec.")
@@ -406,6 +408,21 @@ class LearnedConstitutiveMaterial:
         self.parameter_schema = specification.parameter_schema
         self.parameters = specification.parameters
         self.tangent_convention = specification.tangent_convention
+        self.stored_energy_component_names = tuple(
+            str(name).strip().upper()
+            for name in getattr(implementation, "stored_energy_component_names", ())
+        )
+        self.provides_stored_energy_density = bool(
+            getattr(implementation, "provides_stored_energy_density", False)
+        )
+        self.provides_dissipation_density_increment = bool(
+            getattr(
+                implementation,
+                "provides_dissipation_density_increment",
+                False,
+            )
+        )
+        self.rate_independent = bool(getattr(implementation, "rate_independent", False))
         if not specification.batch_update:
             # Shadow the optional class method so the core batch driver uses
             # its validated scalar fallback rather than inventing provider
@@ -454,6 +471,16 @@ class LearnedConstitutiveMaterial:
 
     def as_dict(self) -> dict[str, object]:
         return self.summary()
+
+    def runtime_evidence(self) -> dict[str, object]:
+        """Return provider-owned runtime identity without exposing execution state."""
+
+        selected = getattr(self.implementation, "runtime_evidence", None)
+        return (
+            dict(selected())
+            if callable(selected)
+            else {"implementation": type(self.implementation).__name__}
+        )
 
 
 def learned_constitutive(

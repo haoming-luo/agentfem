@@ -475,7 +475,7 @@ round-trip that contract without a learning runtime and reject a manifest whose
 stored fingerprint no longer matches its content.
 
 ```python
-from agentfem import constitutive, learning, materials
+from agentfem import constitutive, learning, materials, steps
 
 parameters = constitutive.MaterialParameterSchema(
     "laboratory.material_parameters",
@@ -503,6 +503,24 @@ spec = learning.learned_constitutive(
 # The provider is discovered only after its extension is explicitly activated.
 material = materials.learned(spec)
 ```
+
+For a rate-independent three-dimensional nonlinear-static solid, that material
+uses the same public Step entry point as a native constitutive law:
+
+```python
+step = model.step(
+    target=displacement,
+    material=material,
+    incrementation=steps.automatic(initial=0.1),
+)
+result = step.solve_result()
+```
+
+The extension performs one batched update for the integration points local to
+each MPI process. AgentFEM owns global Newton equilibrium, increment cutback,
+trial/commit/rollback, portable restart and result evidence. A provider request
+for a smaller increment is fail-closed and becomes a solver cutback; an
+out-of-domain or invalid point is never silently extrapolated or replaced.
 
 The first protocol is explicitly three-dimensional small strain with Cauchy
 stress and a declared 6-by-6 tangent using `xx, yy, zz, xy, yz, xz` order. The

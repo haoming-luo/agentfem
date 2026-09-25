@@ -279,10 +279,19 @@ pretend that material-point inference alone is a global nonlinear solver.
 
 `learning.LearnedConstitutiveSpec` binds an immutable scientific description to
 an explicitly activated provider through `materials.learned(...)`. The core
-stores no executable network and imports no learning runtime. The first implicit
-global learned-material Step remains gated on a real provider passing consistent-
-tangent, global equilibrium, checkpoint/restart, MPI, and independent structural
-validation.
+stores no executable network and imports no learning runtime. A compatible
+rate-independent three-dimensional material now enters the ordinary
+`model.step(...)` lifecycle:
+batched integration-point updates supply the global Newton residual and tangent,
+accepted increments commit state atomically, failed increments roll back, and
+portable checkpoints retain nodal and constitutive state across MPI partitions.
+`SimulationResult` records raw quadrature state, discontinuity-preserving cell
+recovery, applicability counts, provider identity, model checksum, runtime and
+increment evidence. This establishes software integration, not independent
+validation of any particular learned law; every provider/model pair still needs
+its own material-path, tangent and structural validation evidence.
+Physical-time, temperature-driven and regional provider dispatch remain
+separate procedures rather than being guessed by this load-coordinate Step.
 
 ## Power-Law Creep
 

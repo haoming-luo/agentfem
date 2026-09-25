@@ -1021,6 +1021,10 @@ and evidence remain in the linked guides and scientific function reference.
 | class | `J2LoadPathInfo` | Public AgentFEM object. |
 | class | `J2PlasticityStep` | Incremental global equilibrium for 3D small-strain J2 plasticity. |
 | function | `j2_plasticity_step(*, displacement, material, external_force, constraints = (), study = None, incrementation = None, solver_options = None, quadrature_degree: int = 2, progress = True, status_file = None, amplitude = None, name: str = 'j2_plasticity', _experimental_distributed: bool = False) -> J2PlasticityStep` | Build a global 3D or axisymmetric J2 step. |
+| class | `SmallStrainMaterialIncrementInfo` | Evidence for one attempted equilibrium increment. |
+| class | `SmallStrainMaterialPathInfo` | Public AgentFEM object. |
+| class | `SmallStrainMaterialStep` | Implicit Newton Step driven by an ordinary small-strain material. |
+| function | `small_strain_material_step(*, displacement, material, external_force, constraints = (), study = None, incrementation = None, solver_options = None, quadrature_degree = 2, progress = True, status_file = None, amplitude = None, name = 'small_strain_material') -> SmallStrainMaterialStep` | Public AgentFEM object. |
 | class | `DirectorShellKinematics` | Finite-rotation surface measures at one material point. |
 | class | `FiberCurveKinematics` | Objective bending measures for one material fibre curve. |
 | class | `ReconstructedFiberCurvature` | Owned-cell fibre curvatures plus neighbour reconstruction evidence. |

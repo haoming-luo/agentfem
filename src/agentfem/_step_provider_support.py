@@ -136,6 +136,13 @@ def supports_stateful_constitutive(material) -> bool:
 
     if bool(getattr(material, "stateful_constitutive", False)):
         return True
+    try:
+        from .constitutive.small_strain_user_material import SmallStrainUserMaterial
+
+        if isinstance(material, SmallStrainUserMaterial):
+            return True
+    except (ImportError, TypeError):
+        pass
     regional = getattr(material, "materials", None)
     if regional is None:
         return False

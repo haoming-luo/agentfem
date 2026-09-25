@@ -11,6 +11,106 @@ from . import constraints as constraint_api
 from . import loads as load_api
 
 
+def small_strain_material(
+    model,
+    *,
+    target,
+    material=None,
+    constraints=None,
+    incrementation=None,
+    solver_options=None,
+    quadrature_degree: int = 2,
+    progress=True,
+    status_file=None,
+    amplitude=None,
+    name: str = "small_strain_material",
+):
+    """Build a generic 3D implicit Step for a small-strain material provider."""
+
+    from . import mechanics
+    from .constitutive.small_strain_user_material import SmallStrainUserMaterial
+
+    model.check(target=target, step_options={"material": material})
+    if hasattr(model.study, "require"):
+        model.study.require(analysis="nonlinear_static", physics="solid_mechanics")
+    registrations = tuple(getattr(model, "materials", ()))
+    if len(registrations) > 1 or any(
+        getattr(record, "region", None) is not None for record in registrations
+    ):
+        raise NotImplementedError(
+            "The first provider-neutral small-strain material Step accepts one "
+            "global material. Regional learned/native material dispatch requires "
+            "a shared state/tangent schema and is not lowered silently."
+        )
+    selected_material = material
+    if selected_material is None:
+        selected_material = model.material_for(target)
+    if not isinstance(selected_material, SmallStrainUserMaterial):
+        raise TypeError(
+            "model.step requires a provider-neutral SmallStrainUserMaterial."
+        )
+    selected_constraints = model.constraints if constraints is None else constraints
+    concrete_constraints = constraint_api.constraint_assets(selected_constraints)
+    unsupported_constraints = tuple(
+        item
+        for item in concrete_constraints
+        if not isinstance(
+            item,
+            (
+                constraint_api.DirichletConstraint,
+                constraint_api.RemoteDisplacementConstraint,
+            ),
+        )
+    )
+    if unsupported_constraints:
+        raise NotImplementedError(
+            "The first provider-neutral small-strain material Step accepts "
+            "ordinary strong displacement constraints; unsupported="
+            f"{tuple(type(item).__name__ for item in unsupported_constraints)!r}."
+        )
+    if tuple(getattr(model, "boundary_models", ())):
+        raise NotImplementedError(
+            "Weak/contact boundary models require their residual, tangent and "
+            "dual work to be lowered with the material Step."
+        )
+    time_dependent_constraints = tuple(
+        item
+        for item in constraint_api.dirichlet_constraints(selected_constraints)
+        if isinstance(item, constraint_api.TimeDependentDirichlet)
+    )
+    if time_dependent_constraints:
+        raise NotImplementedError(
+            "The small-strain material Step uses a dimensionless load path; "
+            "prescribe end values and use amplitude= instead of absolute-time "
+            "Dirichlet histories."
+        )
+    selected_loads, selected_amplitude = _single_shared_amplitude_loads(
+        model.loads,
+        amplitude,
+        label="small-strain material",
+        physical_time=False,
+    )
+    step = mechanics.small_strain_material_step(
+        displacement=target,
+        material=selected_material,
+        external_force=(
+            model.external_force(target, loads=selected_loads)
+            if selected_loads
+            else None
+        ),
+        constraints=selected_constraints,
+        study=model.study,
+        incrementation=incrementation,
+        solver_options=solver_options,
+        quadrature_degree=quadrature_degree,
+        progress=progress,
+        status_file=status_file,
+        amplitude=selected_amplitude,
+        name=name,
+    )
+    return model.add_step(step)
+
+
 def j2_plasticity(
     model,
     *,
