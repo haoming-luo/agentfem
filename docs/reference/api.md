@@ -162,6 +162,7 @@ and evidence remain in the linked guides and scientific function reference.
 
 | Kind | Public object | Purpose |
 | --- | --- | --- |
+| function | `learned(specification)` | Load a learned material through its explicitly activated provider. |
 | class | `MaterialAssetError` | A project material asset could not be loaded unambiguously. |
 | function | `load(source: str \| Path, *, model: str \| None = None, symbol: str \| None = None, role: str = 'mechanical') -> MaterialDefinition` | Load a packaged card by name or an explicitly selected Python asset. |
 | function | `load_python(path: str \| Path, *, symbol: str \| None = None, role: str = 'mechanical') -> MaterialDefinition` | Load one trusted project-owned Python material with source provenance. |
@@ -337,6 +338,21 @@ and evidence remain in the linked guides and scientific function reference.
 | class | `UserMaterial` | Protocol implemented by native or adapted material-point models. |
 | function | `check_material_tangent(material: UserMaterial, point: MaterialPointInput, *, relative_step: float = 1e-07, tolerance: float = 1e-05) -> MaterialTangentCheck` | Compare a declared ``dP/dF`` against fixed-state finite differences. |
 | function | `validated_material_update(material: UserMaterial, point: MaterialPointInput) -> MaterialPointOutput` | Run one material update and verify the complete solver contract. |
+| class | `BatchedSmallStrainUserMaterial` | Optional vectorized material interface used by production FE paths. |
+| class | `SmallStrainMaterialBatchInput` | Vectorized input for all local integration points on one MPI rank. |
+| class | `SmallStrainMaterialBatchOutput` | Validated vectorized constitutive response with no partial acceptance. |
+| class | `SmallStrainMaterialPointInput` | One small-strain constitutive increment with named parameters. |
+| class | `SmallStrainMaterialPointOutput` | Stress, discrete tangent, state and trust diagnostics for one point. |
+| class | `SmallStrainMaterialTangentCheck` | Public AgentFEM object. |
+| class | `SmallStrainUserMaterial` | Protocol for a pure small-strain discrete material update. |
+| function | `check_small_strain_material_tangent(material: SmallStrainUserMaterial, point: SmallStrainMaterialPointInput, *, relative_step: float = 1e-07, tolerance: float = 1e-05) -> SmallStrainMaterialTangentCheck` | Check ``d sigma / d epsilon`` while holding old state fixed. |
+| function | `update_small_strain_material_batch(material: SmallStrainUserMaterial, request: SmallStrainMaterialBatchInput) -> SmallStrainMaterialBatchOutput` | Execute one atomic rank-local batch, with a scalar compatibility fallback. |
+| function | `validated_small_strain_update(material: SmallStrainUserMaterial, point: SmallStrainMaterialPointInput) -> SmallStrainMaterialPointOutput` | Public AgentFEM object. |
+| function | `voigt_stress_to_tensor(values) -> np.ndarray` | Public AgentFEM object. |
+| class | `SmallStrainMaterialBatchError` | A rank-local material update failed before any trial state was accepted. |
+| class | `SmallStrainMaterialQuadratureResponse` | Live stress, tangent, energy and state fields for global Newton. |
+| class | `SmallStrainQuadratureBatchResult` | Validated rank-local response and transaction status. |
+| function | `update_small_strain_quadrature_state(material: SmallStrainUserMaterial, state: MaterialQuadratureState, *, strain_old, strain_new, time: float, time_increment: float, parameters, temperature = None, temperature_increment = None, field_variables = None, commit: bool = False, allow_out_of_domain: bool = False) -> SmallStrainQuadratureBatchResult` | Update every visible integration point as one MPI-atomic transaction. |
 | class | `ArrheniusShift` | Arrhenius time-temperature shift factor. |
 | class | `GeneralizedMaxwell` | Small-strain generalized-Maxwell relaxation spectrum. |
 | class | `IsotropicGeneralizedMaxwell` | Small-strain isotropic generalized-Maxwell solid for global FEM. |
@@ -966,6 +982,18 @@ and evidence remain in the linked guides and scientific function reference.
 | class | `TrainableParameter` | A physical parameter inferred jointly with one or more fields. |
 | function | `integration_consistency_check(plan: IntegrationPlan, *, training_value: float, validation_value: float, refinement_values = (), balance_error: float \| None = None, relative_tolerance: float = 0.05) -> IntegrationEvidence` | Compare optimized and held-out integration without trusting loss alone. |
 | class | `NeuralFieldExecutionRequest` | Immutable input supplied to a user- or package-owned executor. |
+| class | `LearnedConstitutiveMaterial` | Loaded learned material with immutable science and runtime evidence. |
+| class | `LearnedConstitutiveProvider` | Runtime provider that lowers one immutable spec to a material. |
+| class | `LearnedConstitutiveProviderError` | A learned material provider is missing or incompatible. |
+| class | `LearnedConstitutiveMaterialBinding` | Loaded learned material with immutable science and runtime evidence. |
+| class | `LearnedConstitutiveSpec` | Immutable scientific identity for one learned material artifact. |
+| class | `MaterialParameterSpec` | Named, unit-bearing parameter accepted by one material artifact. |
+| function | `learned_constitutive(**kwargs) -> LearnedConstitutiveSpec` | Create a framework-neutral learned-material declaration. |
+| function | `learned_constitutive_evidence(specification: LearnedConstitutiveSpec) -> dict[str, object]` | Return portable scientific identity plus provider runtime evidence. |
+| function | `learned_constitutive_providers() -> tuple[str, ...]` | Public AgentFEM object. |
+| function | `load_learned_constitutive(specification: LearnedConstitutiveSpec) -> LearnedConstitutiveMaterial` | Public AgentFEM object. |
+| function | `register_learned_constitutive_provider(provider: LearnedConstitutiveProvider, *, replace: bool = False) -> LearnedConstitutiveProvider` | Public AgentFEM object. |
+| function | `resolve_learned_constitutive_provider(name: str) -> LearnedConstitutiveProvider` | Public AgentFEM object. |
 
 ## `agentfem.mechanics`
 
@@ -995,6 +1023,10 @@ and evidence remain in the linked guides and scientific function reference.
 | class | `J2LoadPathInfo` | Public AgentFEM object. |
 | class | `J2PlasticityStep` | Incremental global equilibrium for 3D small-strain J2 plasticity. |
 | function | `j2_plasticity_step(*, displacement, material, external_force, constraints = (), study = None, incrementation = None, solver_options = None, quadrature_degree: int = 2, progress = True, status_file = None, amplitude = None, name: str = 'j2_plasticity', _experimental_distributed: bool = False) -> J2PlasticityStep` | Build a global 3D or axisymmetric J2 step. |
+| class | `SmallStrainMaterialEnergyFrame` | Public AgentFEM object. |
+| class | `SmallStrainMaterialLoadPathInfo` | Provider-neutral nonlinear load-path evidence. |
+| class | `SmallStrainMaterialStep` | Ordinary nonlinear Step for provider-backed small-strain materials. |
+| function | `small_strain_material_step(*, displacement, material, external_force = None, constraints = (), study = None, incrementation = None, solver_options = None, quadrature_degree: int = 2, progress = True, status_file = None, amplitude = None, name: str = 'small_strain_material') -> SmallStrainMaterialStep` | Build a nonlinear 2D-plane-strain or 3D provider-material Step. |
 | class | `DirectorShellKinematics` | Finite-rotation surface measures at one material point. |
 | class | `FiberCurveKinematics` | Objective bending measures for one material fibre curve. |
 | class | `ReconstructedFiberCurvature` | Owned-cell fibre curvatures plus neighbour reconstruction evidence. |
