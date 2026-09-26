@@ -11,6 +11,7 @@ import argparse
 import hashlib
 import json
 from pathlib import Path
+import time
 
 import numpy as np
 from mpi4py import MPI
@@ -180,6 +181,7 @@ def main() -> None:
         raise ValueError("At least five load increments are required.")
 
     comm = MPI.COMM_WORLD
+    started = time.perf_counter()
     step, displacement = _candidate_step(
         comm,
         subdivisions=tuple(arguments.subdivisions),
@@ -219,8 +221,15 @@ def main() -> None:
         declared_reference_curve_sha256 = promotion.get(
             "reference_curve_sha256"
         )
+    if comm.rank == 0:
+        candidate_path = arguments.output / "candidate_curve.csv"
+        candidate_curve_sha256 = hashlib.sha256(candidate_path.read_bytes()).hexdigest()
+    else:
+        candidate_curve_sha256 = None
+    candidate_curve_sha256 = comm.bcast(candidate_curve_sha256, root=0)
+    elapsed_seconds = float(comm.allreduce(time.perf_counter() - started, op=MPI.MAX))
     assessment = assess_external_curve(
-        candidate_load_factors=factors,
+        candidate_load_factors=accepted_factors,
         candidate_displacements=downward,
         reference_load_factors=reference_load,
         reference_displacements=reference_displacement,
@@ -251,6 +260,18 @@ def main() -> None:
             "incrementation": "automatic_cutback" if arguments.adaptive else "fixed",
             "line_search": arguments.line_search,
             "mpi_ranks": comm.size,
+            "curve_file": "candidate_curve.csv",
+            "curve_sha256": candidate_curve_sha256,
+            "points": len(accepted_factors),
+            "final_downward_displacement_m": float(downward[-1]),
+            "elapsed_seconds_max_rank": elapsed_seconds,
+            "accepted_increments": len(step.accepted_increments),
+            "attempted_increments": len(step.attempted_increments),
+            "maximum_newton_iterations": max(
+                (record.iterations for record in step.accepted_increments),
+                default=0,
+            ),
+            "final_plastic_points": int(step.state_transaction.last_plastic_points),
             "step": step.summary(),
         },
         "reference": {

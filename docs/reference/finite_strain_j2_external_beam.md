@@ -66,9 +66,16 @@ increment, serial/MPI and restart equivalence gates remain open. The compact
 development evidence is under
 `evidence/finite_strain_j2/lewandowski_2023_mpi4_candidate`.
 
-Promotion still requires observer reconciliation, candidate mesh and
-increment convergence, serial/MPI equivalence, and checkpoint/restart
-equivalence. The promotion manifest binds the independently generated CSV by
+The observer discrepancy is now explicit rather than silently blurred: the
+paper describes point A at the top of the right edge, whereas the pinned
+public FEniCS executable samples the middle of the right extremity at
+`(1, 0, 0)`. The bundled oracle and AgentFEM candidate both use the executable
+observer, so this gate is strictly a comparison with the pinned executable
+curve and does not claim to reproduce the plotted paper point A.
+
+Promotion still requires candidate mesh and increment convergence, serial/MPI
+equivalence, and checkpoint/restart equivalence. The promotion manifest binds
+the independently generated CSV by
 its SHA-256 digest; the candidate driver never fills source identity from its
 own constants merely because a CSV was supplied. The fixture then applies fixed
 AgentFEM comparison contracts of
@@ -100,8 +107,39 @@ The candidate curve is replaced atomically after every accepted load point,
 so a long interrupted run still leaves a readable accepted prefix; only a
 completed run writes the final assessment.
 Candidate output must never be recycled as its own reference. The assessment
-records the actual AgentFEM import path and runtime fingerprint so an installed
-older version cannot silently stand in for the checkout under test.
+records the candidate-curve digest, actual accepted load path, elapsed time,
+Newton statistics, AgentFEM import path and runtime fingerprint so an installed
+older version or changed output cannot silently stand in for the checkout under
+test.
+
+The same-rank restart driver compares the complete displacement curve, nodal
+solution, accepted solution, every committed constitutive state, first-Piola
+and Cauchy stress, deformation gradient, equivalent stress, stored energy and
+algorithmic tangent:
+
+```bash
+PYTHONPATH=src python \
+  tests/lewandowski_2023_self_weight_beam_restart_driver.py \
+  evidence/lewandowski-beam-restart/checkpoint \
+  --output evidence/lewandowski-beam-restart/report.json
+```
+
+After producing three mesh runs, three increment runs, one serial run, one MPI
+run and the restart report from the same clean commit, the promotion assessor
+derives every Boolean from those content-bound artifacts. It requires
+decreasing three-level curve differences and fixed project tolerances; callers
+cannot pass `mesh_converged=true` to bypass the calculation:
+
+```bash
+PYTHONPATH=src python \
+  tests/lewandowski_2023_self_weight_beam_promotion.py \
+  --mesh-run /path/coarse --mesh-run /path/medium --mesh-run /path/fine \
+  --increment-run /path/i15 --increment-run /path/i30 \
+  --increment-run /path/i60 \
+  --rank-run /path/serial --rank-run /path/mpi \
+  --restart-report /path/restart.json \
+  --output /path/promotion.json
+```
 
 Primary sources:
 
