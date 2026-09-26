@@ -297,9 +297,10 @@ selected Step provider remains the owner of those numerical claims.
 
 Runtime topology summaries also expose narrow evidence-bearing capabilities,
 such as topology inspection, geometry-quality auditing, a conforming P1 patch,
-and quadratic-geometry preflight. Prism and pyramid patch tests establish
-basic H1 assembly and affine-gradient reproduction; they do not silently
-promote those topologies to every solid, mixed, shell, or nonlinear procedure.
+and quadratic-geometry preflight. The linear prism route additionally has a
+real neutral-file import, unified result output, and two-rank partition test.
+These contracts do not silently promote the topology to every solid, mixed,
+shell, or nonlinear procedure.
 
 ## Cell compatibility contract
 
@@ -315,7 +316,9 @@ The current release-level neutral-geometry matrix is deliberately explicit:
 | `tetra10` | tetrahedron P2 | verified | real import plus simplex mean ratio and curved-map checks |
 | `hexahedron20`, `hexahedron27` | high-order 3D | verified | real meshio/XDMF/DOLFINx read, serendipity/tensor coordinate identity, sampled quality and P2 affine patch |
 | `quad8` | serendipity quadrilateral | conditional | current DOLFINx XDMF reader rejects the eight-node layout; conversion remains inspectable |
-| `wedge`, `wedge15`, `pyramid` | prism/pyramid | conditional | sampled scaled Jacobian; release solver evidence pending |
+| `wedge` | prism P1 | verified | real import, quality, affine patch, unified output and two-rank partition evidence |
+| `wedge15` | serendipity prism P2 | conditional | source ordering and import corpus pending |
+| `pyramid` | pyramid P1 | conditional | runtime patch and quality pass, but the current DOLFINx XDMF reader rejects this external topology |
 | `line`, `line3` | interval | conditional | topology alone is not a beam, truss, or cable |
 
 Use `agentfem capabilities meshes` for the installed machine-readable matrix.

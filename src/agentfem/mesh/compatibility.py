@@ -178,15 +178,14 @@ _CELLS = (
           "sampled_scaled_jacobian"),
     _cell("hexahedron27", "hexahedron", 3, 2, "tensor_lagrange", 27, "verified",
           "sampled_scaled_jacobian"),
-    _cell("wedge", "prism", 3, 1, "complete_lagrange", 6, "conditional",
-          "sampled_scaled_jacobian",
-          "Prism topology is available in DOLFINx/Basix but is not yet a release-level AgentFEM import route."),
+    _cell("wedge", "prism", 3, 1, "complete_lagrange", 6, "verified",
+          "sampled_scaled_jacobian"),
     _cell("wedge15", "prism", 3, 2, "serendipity", 15, "conditional",
           "sampled_scaled_jacobian",
           "Quadratic prism import and geometry ordering require a format-specific acceptance corpus."),
     _cell("pyramid", "pyramid", 3, 1, "complete_lagrange", 5, "conditional",
           "sampled_scaled_jacobian",
-          "Pyramid topology is available in DOLFINx/Basix but is not yet a release-level AgentFEM import route."),
+          "The current DOLFINx XDMF reader does not recognise the pyramid topology."),
 )
 _BY_SOURCE = {item.source_cell_type: item for item in _CELLS}
 
@@ -210,6 +209,7 @@ _VERIFIED_RUNTIME_TOPOLOGIES = {
     "quadrilateral",
     "tetrahedron",
     "hexahedron",
+    "prism",
 }
 
 

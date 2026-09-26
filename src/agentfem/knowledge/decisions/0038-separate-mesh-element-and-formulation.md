@@ -50,9 +50,11 @@ metric and threshold.
   field name.
 - Future shell, beam, cohesive, mixed, and user-defined elements have one
   compatibility boundary without growing `Model` into an element registry.
-- Conditional prism, pyramid, and interval topology remains visible and
-  inspectable, but cannot become release evidence without provider and
-  benchmark promotion.
+- Linear prism topology is release-ready only for the declared neutral
+  geometry, quality, conforming-P1 and result-output boundary. Pyramid and
+  interval topology remains visible and inspectable, but cannot become
+  release evidence without a supported external I/O route or a dedicated
+  formulation.
 - Narrow topology capabilities carry their own evidence. A verified P1 prism
   patch does not imply a verified mixed, nonlinear, shell, or source-vendor
   formulation.
@@ -63,3 +65,10 @@ metric and threshold.
   DOLFINx XDMF reader rejects its eight-node coordinate layout; AgentFEM
   reports that boundary explicitly instead of treating conversion as solve
   readiness.
+- The six-node wedge route passes a real meshio/XDMF/DOLFINx read, sampled
+  quality audit, affine patch, unified output and two-rank partition contract.
+  This verifies the neutral linear-prism route, not an Abaqus C3D6, cohesive
+  wedge, hybrid, reduced-integration, shell, or nonlinear formulation.
+  Pyramid remains conditional because DOLFINx can create and assemble the
+  runtime topology but its current XDMF reader rejects an external pyramid
+  grid.

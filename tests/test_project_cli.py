@@ -422,6 +422,9 @@ def test_capability_command_is_json_serializable(capsys):
     assert mesh_cells["hexahedron20"]["solver_ready"] is True
     assert mesh_cells["quad8"]["import_maturity"] == "conditional"
     assert mesh_cells["quad8"]["solver_ready"] is False
+    assert mesh_cells["wedge"]["import_maturity"] == "verified"
+    assert mesh_cells["wedge"]["solver_ready"] is True
+    assert mesh_cells["pyramid"]["import_maturity"] == "conditional"
     linear = next(
         item
         for item in record["step_providers"]
