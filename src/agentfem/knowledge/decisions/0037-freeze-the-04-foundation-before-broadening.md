@@ -58,6 +58,14 @@ also retain the structured solution-element identity. Historical manifest
 field names remain readable, but a changed identity schema produces a changed
 fingerprint and cannot silently authorize checkpoint or allocation reuse.
 
+Portable and partition-local checkpoint identities follow the same element
+semantics without collapsing their different purposes. Portable identity
+removes rank-local numbering and uses tolerant physical keys; partition
+identity deliberately binds the local distributed layout. Both record the
+structured coordinate and solution elements. Transient schema v4 rejects
+older incomplete identities before mutating state rather than guessing that a
+matching element string and coordinate array imply the same discretization.
+
 ## Verification ladder
 
 Development uses the smallest owner suite first.  A stabilized architectural

@@ -6012,7 +6012,7 @@ Physical coordinates and block component define the usual deterministic key. Whe
 
 #### Assumptions
 
-- The restart mesh represents the same physical nodal discretization within the recorded coordinate tolerance.
+- The restart mesh represents the same physical nodal discretization within the recorded coordinate tolerance and uses the same coordinate and solution finite elements.
 - Every participating rank calls checkpoint save and load collectively in the same field order.
 
 #### Conventions
@@ -6020,6 +6020,7 @@ Physical coordinates and block component define the usual deterministic key. Whe
 - Portable state is opt-in through checkpointing.every(..., portable=True) or save_checkpoint(..., portable=True).
 - File size and SHA-256 are checked before state restoration.
 - The manifest records both rank-local and partition-independent identities.
+- Structured coordinate- and solution-element identities bind family, degree, mapping and value semantics; identity schema changes fail closed before state mutation.
 - Coincident split-interface nodes are keyed by durable source input-node identity rather than being merged by coordinate.
 
 #### Applicability

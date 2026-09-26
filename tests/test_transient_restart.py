@@ -5,6 +5,7 @@ import json
 import basix.ufl
 import numpy as np
 import pytest
+import ufl
 from dolfinx import fem
 from mpi4py import MPI
 
@@ -483,7 +484,7 @@ def test_transient_checkpoint_detects_silent_shard_corruption(tmp_path):
         restarted.load_checkpoint(checkpoint)
 
 
-def test_transient_checkpoint_v1_remains_loadable(tmp_path):
+def test_transient_checkpoint_v1_fails_closed_before_state_mutation(tmp_path):
     partial = _heat_step()
     partial.run(until_step=1)
     checkpoint = partial.save_checkpoint(tmp_path / "legacy")
@@ -506,9 +507,88 @@ def test_transient_checkpoint_v1_remains_loadable(tmp_path):
     )
 
     restarted = _heat_step()
-    restarted.load_checkpoint(checkpoint)
-    assert restarted.completed_steps == 1
-    np.testing.assert_allclose(restarted.current.x.array, partial.current.x.array)
+    before = restarted.current.x.array.copy()
+    with pytest.raises(ValueError, match="does not bind the coordinate"):
+        restarted.load_checkpoint(checkpoint)
+    np.testing.assert_array_equal(restarted.current.x.array, before)
+
+
+def test_portable_identity_binds_mesh_and_solution_elements():
+    domain = mesh.rectangle(
+        (0.0, 0.0),
+        (1.0, 1.0),
+        (2, 2),
+        comm=MPI.COMM_SELF,
+        cell_type="triangle",
+    )
+    linear = fields.temperature(domain, degree=1)
+    quadratic = fields.temperature(domain, degree=2)
+
+    mesh_identity = checkpointing.mesh_portable_identity(domain)
+    linear_identity = checkpointing.function_portable_identity(linear)
+    quadratic_identity = checkpointing.function_portable_identity(quadratic)
+    partition_identity = checkpointing.function_partition_identity(linear)
+
+    assert mesh_identity["schema"] == "agentfem.mesh-portable-identity.v2"
+    assert mesh_identity["coordinate_element"]["degree"] == 1
+    assert len(mesh_identity["mesh_sha256"]) == 64
+    assert linear_identity["schema"] == (
+        "agentfem.function-portable-identity.v2"
+    )
+    assert linear_identity["element_identity"]["degree"] == 1
+    assert quadratic_identity["element_identity"]["degree"] == 2
+    assert linear_identity != quadratic_identity
+    assert partition_identity["schema"] == (
+        "agentfem.function-partition-identity.v2"
+    )
+    assert partition_identity["coordinate_element"] == (
+        mesh_identity["coordinate_element"]
+    )
+    assert len(partition_identity["partition_sha256"]) == 64
+
+
+def test_portable_mesh_identity_distinguishes_coordinate_basis_semantics():
+    reference = basix.create_element(
+        basix.ElementFamily.P,
+        basix.CellType.triangle,
+        3,
+        lagrange_variant=basix.LagrangeVariant.gll_warped,
+    )
+    coordinates = np.asarray(reference.points, dtype=float)
+    cells = [list(range(len(coordinates)))]
+
+    def domain(variant):
+        coordinate_element = ufl.Mesh(
+            basix.ufl.element(
+                "Lagrange",
+                "triangle",
+                3,
+                shape=(2,),
+                lagrange_variant=variant,
+            )
+        )
+        return mesh.from_arrays(
+            cells=cells,
+            coordinates=coordinates,
+            coordinate_element=coordinate_element,
+            comm=MPI.COMM_SELF,
+        )
+
+    warped = checkpointing.mesh_portable_identity(
+        domain(basix.LagrangeVariant.gll_warped)
+    )
+    equispaced = checkpointing.mesh_portable_identity(
+        domain(basix.LagrangeVariant.equispaced)
+    )
+
+    # The historical digest sees the same coordinate set. The v2 scientific
+    # digest also sees the active basis and must reject reuse.
+    assert warped["geometry_connectivity_hash"] == (
+        equispaced["geometry_connectivity_hash"]
+    )
+    assert warped["coordinate_element"]["variant"] == "gll_warped"
+    assert equispaced["coordinate_element"]["variant"] == "equispaced"
+    assert warped["mesh_sha256"] != equispaced["mesh_sha256"]
 
 
 def test_transient_checkpoint_rejects_a_different_time_contract(tmp_path):

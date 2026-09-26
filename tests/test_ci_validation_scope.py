@@ -164,5 +164,13 @@ def test_executable_identity_owner_selects_serial_and_mpi_evidence():
     assert scope.mpi_tests == ("tests/test_parallel_operator_identity.py",)
 
 
+def test_checkpoint_owner_selects_restart_and_portability_evidence():
+    scope = classify_changes(["src/agentfem/checkpointing.py"])
+
+    assert scope.level == "core"
+    assert scope.tests == ("tests/test_transient_restart.py",)
+    assert scope.mpi_tests == ("tests/test_parallel_transient.py",)
+
+
 def test_empty_automatic_diff_fails_safe_to_core():
     assert classify_changes([]) == ValidationScope("core")

@@ -94,6 +94,9 @@ _CORE_SOURCE_TEST_MAP = {
         "tests/test_transient_heat_decay_workflow.py",
         "tests/test_transient_restart.py",
     ),
+    "src/agentfem/checkpointing.py": (
+        "tests/test_transient_restart.py",
+    ),
     "src/agentfem/constitutive/user_material.py": (
         "tests/test_user_material.py",
     ),
@@ -193,6 +196,9 @@ _CORE_SOURCE_MPI_TEST_MAP = {
         "tests/test_parallel_inelastic.py",
     ),
     "src/agentfem/_transient_problems.py": (
+        "tests/test_parallel_transient.py",
+    ),
+    "src/agentfem/checkpointing.py": (
         "tests/test_parallel_transient.py",
     ),
     "src/agentfem/constitutive/material_driver.py": (
