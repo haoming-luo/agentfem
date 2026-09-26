@@ -86,6 +86,29 @@ def test_known_core_change_selects_serial_and_distributed_owner_suites():
     )
 
 
+def test_discretization_owners_select_focused_serial_and_mpi_evidence():
+    scope = classify_changes(
+        [
+            "src/agentfem/_api_contract.py",
+            "src/agentfem/_model_validation.py",
+            "src/agentfem/elements/__init__.py",
+            "src/agentfem/mesh/compatibility.py",
+        ]
+    )
+
+    assert scope.level == "core"
+    assert scope.tests == (
+        "tests/test_documentation.py",
+        "tests/test_element_contracts.py",
+        "tests/test_mesh_formats.py",
+        "tests/test_mesh_quality.py",
+        "tests/test_project_cli.py",
+        "tests/test_validation.py",
+    )
+    assert scope.mpi_tests == ("tests/test_element_contracts.py",)
+    assert not scope.ml
+
+
 def test_unknown_core_change_fails_safe_to_complete_release_validation():
     scope = classify_changes(["src/agentfem/unmapped_core.py"])
 

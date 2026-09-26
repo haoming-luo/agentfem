@@ -215,6 +215,14 @@ def validate_model(model, *, target=None, step_options=None):
                     )
                 )
 
+        # Element/runtime-topology compatibility belongs to the discretization
+        # boundary, not to Model or any one Step provider. Keep the common
+        # validation path metadata-only; elements.audit(check_quality=True)
+        # performs collective cell-quality work before trusted long runs.
+        from .elements import _lightweight_issues
+
+        issues.extend(_lightweight_issues(model))
+
     return ValidationReport.from_issues(issues, scope=f"model:{model.name}")
 
 

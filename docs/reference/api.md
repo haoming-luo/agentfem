@@ -99,8 +99,10 @@ and evidence remain in the linked guides and scientific function reference.
 | function | `tagged_boundary_measure(domain, marker, tag: int)` | Locate/tag exterior facets and return ``(ds, facet_tags)``. |
 | function | `from_arrays(*, cells, coordinates, coordinate_element, comm = None, partitioner = None)` | Create a DOLFINx mesh through explicit topology/geometry keywords. |
 | class | `CellCompatibility` | One meshio-style source cell mapped to an AgentFEM solver topology. |
+| class | `TopologyCompatibility` | Runtime solver-topology support independent of source element names. |
 | function | `compatibility_matrix() -> tuple[CellCompatibility, ...]` | Return the complete, deterministic neutral-geometry matrix. |
 | function | `describe_cell(source_cell_type: str) -> CellCompatibility` | Describe a meshio-style cell name without guessing equivalence. |
+| function | `describe_topology(topology: str) -> TopologyCompatibility` | Describe one runtime cell topology without inferring formulation. |
 | function | `from_geometry_spec(specification: Mapping[str, object], *, resolution: int = 32, comm: MPI.Comm = MPI.COMM_WORLD)` | Create an :class:`agentfem.mesh.FEMMesh` from a public geometry spec. |
 | class | `RegionSet` | Named collection of regions sharing one mesh tag object. |
 | class | `CellGradientOperator` | Reusable local sparse operator from cell values to owned-cell gradients. |
@@ -812,6 +814,17 @@ and evidence remain in the linked guides and scientific function reference.
 | class | `FirstPassageEvent` | One threshold event with explicit localization and censoring evidence. |
 | function | `first_passage(abscissa, values = None, *, threshold: float, direction: EventDirection = 'rising', localization: str = 'linear', component: int \| tuple[int, ...] \| None = None, name: str = 'first_passage', coordinate_name: str \| None = None, coordinate_unit: str \| None = None, value_name: str \| None = None, value_unit: str \| None = None) -> FirstPassageEvent` | Locate the first threshold crossing in a history or numeric arrays. |
 
+## `agentfem.elements`
+
+| Kind | Public object | Purpose |
+| --- | --- | --- |
+| class | `ElementIdentity` | Backend-readable identity of one scalar, vector, tensor, or mixed element. |
+| class | `FieldDiscretization` | One model field bound to its actual finite-element space. |
+| class | `DiscretizationAudit` | Inspectable mesh/element/Study preflight with optional quality evidence. |
+| function | `describe_element(element_or_space) -> ElementIdentity` | Describe a UFL element or a function space without constructing forms. |
+| function | `describe_field(field, *, registered_mesh = None) -> FieldDiscretization` | Describe the runtime discretization of one AgentFEM or DOLFINx field. |
+| function | `audit(model, *, check_quality: bool = False, quality_threshold: float = 0.1, reject_poor_quality: bool = False) -> DiscretizationAudit` | Audit mesh topology, field elements, Study shapes, and mesh quality. |
+
 ## `agentfem.expressions`
 
 | Kind | Public object | Purpose |
@@ -1436,10 +1449,6 @@ and evidence remain in the linked guides and scientific function reference.
 | function | `field_stats(function, *, on = None, name: str \| None = None) -> FieldStats` | Alias for ``magnitude_stats`` for application-level diagnostics. |
 | class | `ComputationalFailure(diagnostic, message)` | Runtime failure with a stable machine-readable diagnosis and next checks. |
 | function | `linear_failure_diagnostic(reason, iterations, residual_norm)` | Describe solver evidence without claiming an unobserved root cause. |
-
-## `agentfem.elements`
-
-This package exposes its public objects through focused submodules.
 
 ## `agentfem.extensions`
 

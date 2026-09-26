@@ -50,6 +50,45 @@ class CellCompatibility:
         }
 
 
+@dataclass(frozen=True)
+class TopologyCompatibility:
+    """Runtime solver-topology support independent of source element names.
+
+    A DOLFINx topology says how cells are connected.  It does not select a
+    beam, shell, reduced-integration, hybrid, cohesive, or other source
+    formulation.  This record therefore answers only whether AgentFEM can
+    inspect and quality-audit the runtime topology before a Step provider
+    makes the formulation decision.
+    """
+
+    topology: str
+    dimension: int | None
+    runtime_maturity: str
+    quality_metric: str | None
+    source_cell_types: tuple[str, ...]
+    limitations: tuple[str, ...] = ()
+
+    @property
+    def inspectable(self) -> bool:
+        return self.runtime_maturity in {"verified", "conditional"}
+
+    @property
+    def release_ready(self) -> bool:
+        return self.runtime_maturity == "verified"
+
+    def summary(self) -> dict[str, object]:
+        return {
+            "topology": self.topology,
+            "dimension": self.dimension,
+            "runtime_maturity": self.runtime_maturity,
+            "inspectable": self.inspectable,
+            "release_ready": self.release_ready,
+            "quality_metric": self.quality_metric,
+            "source_cell_types": self.source_cell_types,
+            "limitations": self.limitations,
+        }
+
+
 _NEUTRAL_SCOPE = (
     "neutral_geometry_and_named_sets; physical finite-element formulation "
     "must be selected independently"
@@ -129,6 +168,28 @@ _CELLS = (
 )
 _BY_SOURCE = {item.source_cell_type: item for item in _CELLS}
 
+_TOPOLOGY_DIMENSIONS = {
+    "interval": 1,
+    "triangle": 2,
+    "quadrilateral": 2,
+    "tetrahedron": 3,
+    "hexahedron": 3,
+    "prism": 3,
+    "pyramid": 3,
+}
+_TOPOLOGY_ALIASES = {
+    "line": "interval",
+    "quad": "quadrilateral",
+    "tetra": "tetrahedron",
+    "wedge": "prism",
+}
+_VERIFIED_RUNTIME_TOPOLOGIES = {
+    "triangle",
+    "quadrilateral",
+    "tetrahedron",
+    "hexahedron",
+}
+
 
 def describe_cell(source_cell_type: str) -> CellCompatibility:
     """Describe a meshio-style cell name without guessing equivalence."""
@@ -159,4 +220,63 @@ def compatibility_matrix() -> tuple[CellCompatibility, ...]:
     return _CELLS
 
 
-__all__ = ["CellCompatibility", "compatibility_matrix", "describe_cell"]
+def describe_topology(topology: str) -> TopologyCompatibility:
+    """Describe one runtime cell topology without inferring formulation.
+
+    ``topology`` accepts DOLFINx/Basix names and the common neutral aliases
+    used by meshio.  Prism, pyramid, and interval cells are inspectable but
+    remain conditional until analysis-specific providers and release
+    benchmarks establish their intended numerical formulation.
+    """
+
+    selected = str(topology).strip().lower()
+    selected = _TOPOLOGY_ALIASES.get(selected, selected)
+    dimension = _TOPOLOGY_DIMENSIONS.get(selected)
+    sources = tuple(
+        item.source_cell_type for item in _CELLS if item.topology == selected
+    )
+    if dimension is None:
+        return TopologyCompatibility(
+            topology=selected,
+            dimension=None,
+            runtime_maturity="blocked",
+            quality_metric=None,
+            source_cell_types=(),
+            limitations=(
+                "No AgentFEM runtime topology and quality contract is declared.",
+            ),
+        )
+    representative = next(
+        (item for item in _CELLS if item.topology == selected),
+        None,
+    )
+    metric = None if representative is None else representative.quality_metric
+    maturity = (
+        "verified" if selected in _VERIFIED_RUNTIME_TOPOLOGIES else "conditional"
+    )
+    limitations = (
+        "Runtime topology does not select or reproduce a source finite-element formulation.",
+        _SOURCE_FORMULATION_LIMIT,
+    )
+    if maturity == "conditional":
+        limitations += (
+            "Runtime inspection is available, but release-level provider and "
+            "benchmark coverage is incomplete for this topology.",
+        )
+    return TopologyCompatibility(
+        topology=selected,
+        dimension=dimension,
+        runtime_maturity=maturity,
+        quality_metric=metric,
+        source_cell_types=sources,
+        limitations=limitations,
+    )
+
+
+__all__ = [
+    "CellCompatibility",
+    "TopologyCompatibility",
+    "compatibility_matrix",
+    "describe_cell",
+    "describe_topology",
+]

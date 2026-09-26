@@ -122,6 +122,19 @@ def test_cell_compatibility_separates_geometry_from_source_formulation():
     assert unknown.topology is None
 
 
+def test_runtime_topology_compatibility_does_not_claim_source_formulation():
+    topology = mesh_api.describe_topology_compatibility("hexahedron")
+
+    assert topology.release_ready
+    assert topology.quality_metric == "sampled_scaled_jacobian"
+    assert set(topology.source_cell_types) >= {
+        "hexahedron",
+        "hexahedron20",
+        "hexahedron27",
+    }
+    assert any("formulation" in item for item in topology.limitations)
+
+
 def test_cli_inspect_mesh_reports_blocks_without_converting(
     tmp_path, monkeypatch, capsys
 ):

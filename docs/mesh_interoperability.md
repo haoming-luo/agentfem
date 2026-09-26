@@ -246,6 +246,42 @@ limit. AgentFEM rejects non-positive or folded geometry in strict mode but does
 not pretend that one quality threshold is correct for every formulation or
 physics.
 
+## Unified discretization preflight
+
+Mesh connectivity, coordinate geometry, a finite-element space, and a
+numerical formulation are different objects. AgentFEM keeps them separate but
+now reports them together before a trusted run:
+
+```python
+from agentfem import elements
+
+audit = elements.audit(
+    model,
+    check_quality=True,
+    quality_threshold=0.1,
+    reject_poor_quality=False,
+)
+print(audit.summary())
+audit.validation.raise_if_errors()
+```
+
+The report records the runtime topology and its maturity, the actual UFL/Basix
+family, degree, value shape, Sobolev space and mixed sub-elements of every
+registered field, mesh ownership, Study/field shape compatibility, and the
+optional collective quality result. `Model.validate()` consumes only the
+metadata-level part, so ordinary validation does not silently traverse every
+cell. Long runs and release evidence should request the explicit quality path.
+
+`acceptable=False` does not by itself claim that one universal quality limit
+exists. Invalid or folded cells are errors. Cells below a positive project
+threshold are warnings unless `reject_poor_quality=True`; the chosen threshold
+therefore remains visible scientific policy instead of hidden solver logic.
+
+This preflight still does not infer formulation from topology. A hexahedron is
+not automatically C3D8R, a line is not automatically a beam, and a quadratic
+tetrahedral mesh is not automatically a constant-pressure hybrid element. The
+selected Step provider remains the owner of those numerical claims.
+
 ## Cell compatibility contract
 
 The current release-level neutral-geometry matrix is deliberately explicit:
