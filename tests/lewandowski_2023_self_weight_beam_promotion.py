@@ -152,6 +152,20 @@ def assess_promotion(
             }
         )
         == 1
+        and len(
+            {
+                float(run["candidate"].get("absolute_residual_tolerance", 1.0e-8))
+                for run in mesh_runs
+            }
+        )
+        == 1
+        and len(
+            {
+                float(run["candidate"].get("relative_residual_tolerance", 1.0e-7))
+                for run in mesh_runs
+            }
+        )
+        == 1
     )
     mesh_assessment = _convergence(
         mesh_runs,
@@ -184,6 +198,20 @@ def assess_promotion(
             }
         )
         == 1
+        and len(
+            {
+                float(run["candidate"].get("absolute_residual_tolerance", 1.0e-8))
+                for run in increment_runs
+            }
+        )
+        == 1
+        and len(
+            {
+                float(run["candidate"].get("relative_residual_tolerance", 1.0e-7))
+                for run in increment_runs
+            }
+        )
+        == 1
     )
     increment_assessment = _convergence(
         increment_runs,
@@ -212,6 +240,18 @@ def assess_promotion(
         == rank_runs[1]["candidate"].get("line_search")
         and int(rank_runs[0]["candidate"].get("maximum_iterations_limit", 30))
         == int(rank_runs[1]["candidate"].get("maximum_iterations_limit", 30))
+        and float(
+            rank_runs[0]["candidate"].get("absolute_residual_tolerance", 1.0e-8)
+        )
+        == float(
+            rank_runs[1]["candidate"].get("absolute_residual_tolerance", 1.0e-8)
+        )
+        and float(
+            rank_runs[0]["candidate"].get("relative_residual_tolerance", 1.0e-7)
+        )
+        == float(
+            rank_runs[1]["candidate"].get("relative_residual_tolerance", 1.0e-7)
+        )
     )
     rank_error = _curve_error(rank_runs[0], rank_runs[1])
     rank_assessment = {

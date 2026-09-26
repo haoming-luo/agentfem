@@ -47,6 +47,8 @@ def _candidate_step(
     progress=False,
     line_search="basic",
     maximum_iterations=30,
+    absolute_tolerance=1.0e-8,
+    relative_tolerance=1.0e-7,
 ):
     definition = DEFINITION
     domain = mesh.cuboid(
@@ -110,8 +112,8 @@ def _candidate_step(
         material=material,
         incrementation=incrementation,
         solver_options=solvers.newton(
-            relative_tolerance=1.0e-7,
-            absolute_tolerance=1.0e-8,
+            relative_tolerance=float(relative_tolerance),
+            absolute_tolerance=float(absolute_tolerance),
             maximum_iterations=int(maximum_iterations),
             line_search=line_search,
         ),
@@ -171,6 +173,18 @@ def main() -> None:
         help="Maximum Newton corrections allowed for each fixed increment.",
     )
     parser.add_argument(
+        "--absolute-tolerance",
+        type=float,
+        default=1.0e-8,
+        help="Absolute global force-residual tolerance for Newton convergence.",
+    )
+    parser.add_argument(
+        "--relative-tolerance",
+        type=float,
+        default=1.0e-7,
+        help="Relative global force-residual tolerance for Newton convergence.",
+    )
+    parser.add_argument(
         "--line-search",
         choices=("backtracking", "basic"),
         default="basic",
@@ -188,6 +202,10 @@ def main() -> None:
         raise ValueError("At least five load increments are required.")
     if arguments.maximum_iterations <= 0:
         raise ValueError("maximum-iterations must be positive.")
+    if arguments.absolute_tolerance <= 0.0:
+        raise ValueError("absolute-tolerance must be positive.")
+    if arguments.relative_tolerance <= 0.0:
+        raise ValueError("relative-tolerance must be positive.")
 
     comm = MPI.COMM_WORLD
     started = time.perf_counter()
@@ -199,6 +217,8 @@ def main() -> None:
         progress=arguments.progress,
         line_search=arguments.line_search,
         maximum_iterations=arguments.maximum_iterations,
+        absolute_tolerance=arguments.absolute_tolerance,
+        relative_tolerance=arguments.relative_tolerance,
     )
     factors = np.linspace(0.0, 1.0, arguments.increments + 1)
     downward = [0.0]
@@ -284,6 +304,8 @@ def main() -> None:
             "incrementation": "automatic_cutback" if arguments.adaptive else "fixed",
             "line_search": arguments.line_search,
             "maximum_iterations_limit": arguments.maximum_iterations,
+            "absolute_residual_tolerance": arguments.absolute_tolerance,
+            "relative_residual_tolerance": arguments.relative_tolerance,
             "mpi_ranks": comm.size,
             "curve_file": "candidate_curve.csv",
             "curve_sha256": candidate_curve_sha256,
