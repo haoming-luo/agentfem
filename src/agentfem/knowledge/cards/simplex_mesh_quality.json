@@ -2,14 +2,14 @@
   "schema": "agentfem.scientific-function-card",
   "schema_version": "0.1.0",
   "id": "agentfem.workflow.simplex_mesh_quality",
-  "title": "Collective simplex mesh-quality preflight",
+  "title": "Collective mesh-quality preflight",
   "kind": "workflow",
   "status": "supported",
-  "summary": "Computes normalized triangle/tetrahedron mean-ratio quality and turns a declared threshold into MPI-global preflight evidence.",
+  "summary": "Computes topology-appropriate simplex mean ratio or sampled coordinate-map scaled Jacobians and turns a declared threshold into MPI-global preflight evidence.",
   "public_api": ["agentfem.mesh.cell_quality", "agentfem.mesh.audit_quality"],
   "implementation": ["mesh/quality.py", "mesh/__init__.py"],
   "science": {
-    "statement": "Simplex mean ratio compares physical area or volume with squared edge lengths and equals one for an equilateral element and zero for a degenerate element.",
+    "statement": "Simplex mean ratio measures triangle/tetrahedron shape while sampled scaled Jacobians inspect the active coordinate map of tensor, prism, pyramid, and high-order simplex geometry.",
     "equations": [
       {
         "label": "triangle mean ratio",
@@ -20,12 +20,17 @@
         "label": "tetrahedron mean ratio",
         "expression": "q=\\frac{12(3V)^{2/3}}{\\sum_e l_e^2}",
         "description": "Six edge lengths and absolute tetrahedron volume define the metric."
+      },
+      {
+        "label": "sampled scaled Jacobian",
+        "expression": "q_J=\\min_{\\xi\\in\\mathcal S}\\frac{\\sqrt{\\det(J(\\xi)^T J(\\xi))}}{\\prod_i\\lVert J_i(\\xi)\\rVert}",
+        "description": "Quadrature points and reference vertices sample the actual coordinate element; singular points or a sign change are invalid."
       }
     ],
     "inputs": [
       {
-        "name": "simplex mesh and threshold",
-        "type": "DOLFINx triangle/tetrahedron domain and q_min in [0,1]",
+        "name": "solver mesh and threshold",
+        "type": "supported DOLFINx domain and q_min in [0,1]",
         "unit_role": "dimensionless quality; coordinates share any consistent length unit",
         "description": "Only owned cells contribute to collective counts and statistics."
       }
@@ -38,12 +43,15 @@
         "description": "Strict mode rejects the mesh when the declared acceptance rule fails."
       }
     ],
-    "assumptions": ["The selected topology is a triangle or tetrahedron solver domain."],
-    "conventions": ["Cells below threshold are poor; zero or non-finite cells are invalid."],
-    "applicability": ["Generated or imported simplex meshes, including C3D10 geometric topology preflight."],
+    "assumptions": ["The domain owns one reconstructible Basix coordinate element."],
+    "conventions": [
+      "Cells below threshold are poor; zero or non-finite cells are invalid.",
+      "Pyramid sampling uses interior quadrature and base vertices; the collapsed-coordinate apex has no unique in-plane derivative and is not sampled as an ordinary vertex."
+    ],
+    "applicability": ["Generated or imported triangle, quadrilateral, tetrahedron, hexahedron, prism, and pyramid solver domains."],
     "limitations": [
-      "Mean ratio does not replace curved high-order Jacobian sampling or analysis-specific distortion checks.",
-      "Quadrilateral/hexahedron quality requires a different Jacobian-based contract and is rejected for now."
+      "Finite sampling is evidence, not a mathematical proof that the Jacobian is positive at every reference point.",
+      "A universal threshold is not implied; analysis-specific distortion, integration, and formulation checks remain separate."
     ]
   },
   "usage": {
@@ -55,15 +63,21 @@
     "benchmarks": [],
     "validation_rules": [
       "Recover sqrt(3)/2 for a right isosceles triangle.",
+      "Recover one for unit quadrilateral and hexahedral coordinate maps.",
+      "Reduce sampled quality under a known shear distortion.",
       "Return values within [0,1].",
       "Reduce counts and statistics collectively over owned MPI cells.",
-      "Reject unsupported cell types instead of reusing the simplex metric."
+      "Reject unsupported cell types instead of guessing a metric."
     ]
   },
   "references": [
     {
       "title": "Algebraic mesh quality metrics for unstructured initial meshes",
       "locator": "https://doi.org/10.1002/nme.1429"
+    },
+    {
+      "title": "DOLFINx CoordinateElement Jacobian interface",
+      "locator": "https://docs.fenicsproject.org/dolfinx/main/cpp/doxygen/d9/d35/classdolfinx_1_1fem_1_1CoordinateElement.html"
     }
   ],
   "related_cards": ["agentfem.workflow.abaqus_engineering_regions", "agentfem.workflow.scientific_verification"]

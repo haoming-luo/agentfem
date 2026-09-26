@@ -191,6 +191,7 @@ CLI_COMMANDS = (
     "show",
     "runs",
     "inspect-abaqus",
+    "inspect-mesh",
     "inspect-user-material",
     "migrate-abaqus",
     "lower-abaqus",
@@ -214,6 +215,7 @@ MACHINE_COMMANDS = {
     "inspect": "agentfem inspect --json",
     "show_latest": "agentfem show latest --json",
     "runs": "agentfem runs --json",
+    "mesh_inspect": "agentfem inspect-mesh model.msh --json",
     "abaqus_inspect": "agentfem inspect-abaqus model.inp --json",
     "abaqus_user_material_inspect": (
         "agentfem inspect-user-material material.for --json"
@@ -243,7 +245,7 @@ WORKFLOW_STAGES = (
     "result_and_verification",
 )
 
-CAPABILITIES_SCHEMA_VERSION = "0.2.3"
+CAPABILITIES_SCHEMA_VERSION = "0.2.4"
 
 
 def _all(*groups: tuple[str, ...]) -> tuple[str, ...]:

@@ -6,6 +6,7 @@ from types import SimpleNamespace
 import numpy as np
 import pytest
 
+from agentfem import cli
 from agentfem import mesh as mesh_api
 from agentfem.mesh import abaqus
 from agentfem.mesh import formats
@@ -101,6 +102,37 @@ def test_external_mesh_inventory_exposes_blocks_and_named_sets():
     assert summary.cell_sets["matrix"] == {"triangle": 1}
     assert summary.cell_sets["loaded_nodes_as_elements"] == {"line": 1}
     assert summary.point_sets == {"fixed": 2}
+    assert summary.as_dict()["cell_blocks"][1]["compatibility"] == {
+        **mesh_api.describe_cell_compatibility("triangle").summary()
+    }
+
+
+def test_cell_compatibility_separates_geometry_from_source_formulation():
+    verified = mesh_api.describe_cell_compatibility("hexahedron")
+    conditional = mesh_api.describe_cell_compatibility("hexahedron20")
+    unknown = mesh_api.describe_cell_compatibility("polyhedron42")
+
+    assert verified.solver_ready
+    assert verified.topology == "hexahedron"
+    assert verified.quality_metric == "sampled_scaled_jacobian"
+    assert conditional.import_maturity == "conditional"
+    assert conditional.geometry_basis == "serendipity"
+    assert not conditional.solver_ready
+    assert unknown.import_maturity == "blocked"
+    assert unknown.topology is None
+
+
+def test_cli_inspect_mesh_reports_blocks_without_converting(
+    tmp_path, monkeypatch, capsys
+):
+    monkeypatch.setattr(formats, "require_meshio", lambda: _MeshIO(_source_mesh()))
+
+    assert cli.main(["inspect-mesh", str(tmp_path / "model.inp"), "--json"]) == 0
+
+    record = json.loads(capsys.readouterr().out)
+    assert record["schema"] == "agentfem.external-mesh-inspection"
+    assert record["cell_blocks"][1]["cell_type"] == "triangle"
+    assert record["cell_blocks"][1]["compatibility"]["solver_ready"] is True
 
 
 def test_conversion_preserves_selected_cell_sets_and_writes_a_manifest(
@@ -306,6 +338,68 @@ def test_real_abaqus_mesh_conversion_is_readable_by_dolfinx(tmp_path):
     assert converted_mesh.facet_tags.values.tolist() == [
         conversion.boundary_tags["outer"]
     ] * 4
+
+
+@pytest.mark.parametrize(
+    ("cell_type", "points", "cells", "prune_z"),
+    (
+        (
+            "quad",
+            [[0, 0, 0], [1, 0, 0], [1, 1, 0], [0, 1, 0]],
+            [[0, 1, 2, 3]],
+            True,
+        ),
+        (
+            "hexahedron",
+            [
+                [0, 0, 0], [1, 0, 0], [1, 1, 0], [0, 1, 0],
+                [0, 0, 1], [1, 0, 1], [1, 1, 1], [0, 1, 1],
+            ],
+            [[0, 1, 2, 3, 4, 5, 6, 7]],
+            False,
+        ),
+    ),
+)
+def test_verified_tensor_product_import_is_readable_and_quality_audited(
+    tmp_path, cell_type, points, cells, prune_z
+):
+    meshio = pytest.importorskip("meshio")
+    from mpi4py import MPI
+
+    source = tmp_path / f"{cell_type}.vtu"
+    meshio.write(
+        source,
+        meshio.Mesh(
+            points=np.asarray(points, dtype=float),
+            cells=[(cell_type, np.asarray(cells, dtype=int))],
+        ),
+    )
+    conversion = formats.convert_to_xdmf(
+        source,
+        tmp_path / f"{cell_type}.xdmf",
+        cell_type=cell_type,
+        prune_z=prune_z,
+    )
+    imported = mesh_api.read_converted_xdmf(conversion, comm=MPI.COMM_SELF)
+
+    assert mesh_api.audit_quality(imported.domain, strict=True).acceptable
+    manifest = json.loads(conversion.manifest_path.read_text(encoding="utf-8"))
+    assert manifest["output"]["compatibility"]["solver_ready"] is True
+
+
+def test_unknown_external_cell_type_is_not_silently_converted(tmp_path, monkeypatch):
+    source = _Mesh(
+        points=np.zeros((42, 3)),
+        cells=[("polyhedron42", [list(range(42))])],
+    )
+    monkeypatch.setattr(formats, "require_meshio", lambda: _MeshIO(source))
+
+    with pytest.raises(ValueError, match="no declared AgentFEM"):
+        formats.convert_to_xdmf(
+            tmp_path / "unknown.mesh",
+            tmp_path / "unknown.xdmf",
+            cell_type="polyhedron42",
+        )
 
 
 def test_c3d10h_conversion_keeps_hybrid_identity_beside_tetra10(tmp_path):

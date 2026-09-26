@@ -37,6 +37,20 @@ the runtime and the separately licensed Gmsh package outside the AgentFEM core.
 
 ## Inspect Before Converting
 
+Start with the CLI when the file comes from another mesher or solver:
+
+```bash
+agentfem inspect-mesh model.msh
+agentfem inspect-mesh model.inp --json
+```
+
+The report lists every cell block, named set, and its declared compatibility.
+`verified` means that the neutral geometry route has executable import and
+solver evidence. `conditional` means that topology exists but an order,
+format, or formulation acceptance gap remains. Unknown cells are `blocked`.
+None of these states silently equates an Abaqus, ANSYS, or COMSOL element
+formulation with a DOLFINx cell topology.
+
 ```python
 from agentfem import mesh
 
@@ -58,8 +72,9 @@ bundle = mesh.convert_external_mesh_bundle(
 ```
 
 Each topology receives its own XDMF/HDF5 domain and manifest, plus one bundle
-manifest. AgentFEM does not merge unlike cells into an opaque solve mesh while
-mixed-topology support in DOLFINx remains incomplete.
+manifest. AgentFEM does not merge unlike cells into an opaque solve mesh until
+its own mixed-topology assembly, regions, output, checkpoint, and MPI lifecycle
+has release-level evidence.
 
 ## Source mesh, converted artifact, and runtime mesh
 
@@ -208,18 +223,49 @@ matching quadratic-face cohesive kernel and verification suite exist.
 
 ## Mesh-quality preflight
 
-Imported and generated triangle/tetrahedron domains can be audited before a
-solve with a normalized simplex mean-ratio metric:
+Imported and generated domains can be audited before a solve:
 
 ```python
 quality = mesh.audit_quality(cell.domain, threshold=0.1, strict=True)
 print(quality.summary())
 ```
 
-One denotes an equilateral simplex and zero a degenerate cell. The first
-implementation is intentionally topology-specific; quadrilateral and
-hexahedral quality need Jacobian-based metrics and are not assigned the same
-number under a misleading common name.
+Triangles and tetrahedra use normalized simplex mean ratio, where one is an
+equilateral simplex. High-order simplex geometry additionally receives a
+sampled coordinate-map validity check. Quadrilaterals, hexahedra, prisms, and
+pyramids use the minimum sampled scaled Jacobian of the *active coordinate
+map*. Samples include quadrature points and reference vertices, so high-order
+curvature is not silently reduced to corner connectivity. For the scaled-
+Jacobian metric, one is locally orthogonal and zero is singular or folded. The
+report records the metric,
+coordinate-element degree, samples per cell, global minimum/mean/maximum, poor
+cell count, and invalid cell count.
+
+The threshold is a project acceptance choice, not a universal engineering
+limit. AgentFEM rejects non-positive or folded geometry in strict mode but does
+not pretend that one quality threshold is correct for every formulation or
+physics.
+
+## Cell compatibility contract
+
+The current release-level neutral-geometry matrix is deliberately explicit:
+
+| Source cell | Solver topology | Status | Quality evidence |
+| --- | --- | --- | --- |
+| `triangle` | triangle P1 | verified | simplex mean ratio |
+| `quad` | quadrilateral Q1 | verified | sampled scaled Jacobian |
+| `tetra` | tetrahedron P1 | verified | simplex mean ratio |
+| `tetra10` | tetrahedron P2 | verified | simplex mean ratio plus curved-map checks where applicable |
+| `hexahedron` | hexahedron Q1 | verified | sampled scaled Jacobian |
+| `triangle6`, `quad8`, `quad9` | high-order 2D | conditional | metric exists; import corpus is incomplete |
+| `hexahedron20`, `hexahedron27` | high-order 3D | conditional | metric exists; import corpus is incomplete |
+| `wedge`, `wedge15`, `pyramid` | prism/pyramid | conditional | sampled scaled Jacobian; release solver evidence pending |
+| `line`, `line3` | interval | conditional | topology alone is not a beam, truss, or cable |
+
+Use `agentfem capabilities meshes` for the installed machine-readable matrix.
+Reduced integration, hybrid pressure, incompatible modes, hourglass control,
+shell directors, beam sections, and cohesive kinematics require dedicated
+AgentFEM formulations; importing the connectivity does not reproduce them.
 
 ### C3D10 and C3D10H are not the same solver formulation
 

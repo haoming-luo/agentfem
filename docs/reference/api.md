@@ -58,7 +58,7 @@ and evidence remain in the linked guides and scientific function reference.
 | function | `write_xdmf_mesh(path: str \| Path, domain, comm: MPI.Comm \| None = None, *, mode: str = 'w') -> None` | Write a DOLFINx mesh to XDMF. |
 | function | `convert_external_mesh_to_xdmf(*args, **kwargs)` | Convert Abaqus/NASTRAN/COMSOL-like external meshes to XDMF. |
 | function | `convert_external_mesh_bundle(*args, **kwargs)` | Convert selected source topologies into explicit solver-domain files. |
-| function | `inspect_external_mesh(path)` | Inventory external element blocks and named sets before conversion. |
+| function | `inspect_external_mesh(path, *, input_format: str \| None = None)` | Inventory external element blocks and named sets before conversion. |
 | function | `inspect_abaqus_input(path: str \| Path) -> abaqus.AbaqusMigrationReport` | Inventory Abaqus engineering semantics before conversion or solving. |
 | function | `inspect_abaqus_source_graph(path: str \| Path) -> abaqus.AbaqusSourceGraph` | Resolve and fingerprint nested Abaqus input sources without flattening. |
 | function | `plan_abaqus_migration(path: str \| Path) -> 'AbaqusMigrationPlan'` | Build a scope-aware Abaqus migration plan without solving. |
@@ -98,6 +98,9 @@ and evidence remain in the linked guides and scientific function reference.
 | function | `facet_normal(domain)` | Return the outward facet normal for boundary models. |
 | function | `tagged_boundary_measure(domain, marker, tag: int)` | Locate/tag exterior facets and return ``(ds, facet_tags)``. |
 | function | `from_arrays(*, cells, coordinates, coordinate_element, comm = None, partitioner = None)` | Create a DOLFINx mesh through explicit topology/geometry keywords. |
+| class | `CellCompatibility` | One meshio-style source cell mapped to an AgentFEM solver topology. |
+| function | `compatibility_matrix() -> tuple[CellCompatibility, ...]` | Return the complete, deterministic neutral-geometry matrix. |
+| function | `describe_cell(source_cell_type: str) -> CellCompatibility` | Describe a meshio-style cell name without guessing equivalence. |
 | function | `from_geometry_spec(specification: Mapping[str, object], *, resolution: int = 32, comm: MPI.Comm = MPI.COMM_WORLD)` | Create an :class:`agentfem.mesh.FEMMesh` from a public geometry spec. |
 | class | `RegionSet` | Named collection of regions sharing one mesh tag object. |
 | class | `CellGradientOperator` | Reusable local sparse operator from cell values to owned-cell gradients. |

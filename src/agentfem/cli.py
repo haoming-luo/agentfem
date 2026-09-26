@@ -532,6 +532,44 @@ def _command_inspect_abaqus(args) -> int:
     return 0
 
 
+def _command_inspect_mesh(args) -> int:
+    """Inventory external topology and expose reviewed compatibility."""
+
+    from .mesh import inspect_external_mesh
+
+    report = inspect_external_mesh(
+        Path(args.path).expanduser().resolve(),
+        input_format=args.input_format,
+    )
+    record = {
+        "schema": "agentfem.external-mesh-inspection",
+        "schema_version": "0.1.0",
+        **report.as_dict(),
+    }
+    lines = [
+        f"External mesh · {record['source_path']}",
+        f"  points: {record['point_count']} · geometric dimension: {record['geometric_dimension']}",
+        "  cell blocks:",
+    ]
+    for block in record["cell_blocks"]:
+        compatibility = block["compatibility"]
+        lines.append(
+            f"    {block['cell_type']}: {block['count']} · "
+            f"{compatibility['import_maturity']} · "
+            f"{compatibility['topology'] or 'no solver topology'}"
+        )
+    if record["cell_sets"]:
+        lines.append("  cell sets: " + ", ".join(record["cell_sets"]))
+    if record["point_sets"]:
+        lines.append("  point sets: " + ", ".join(record["point_sets"]))
+    lines.append(
+        "  quality: convert the selected solver domain, then run "
+        "mesh.audit_quality(..., strict=True)"
+    )
+    _emit(record, as_json=args.json, human="\n".join(lines))
+    return 0
+
+
 def _command_inspect_user_material(args) -> int:
     from .constitutive.user_material import inspect_abaqus_user_material
 
@@ -846,6 +884,17 @@ def build_parser() -> argparse.ArgumentParser:
     inspect_abaqus.add_argument("--write")
     inspect_abaqus.add_argument("--json", action="store_true")
 
+    inspect_mesh = sub.add_parser(
+        "inspect-mesh",
+        help="Inventory external mesh blocks and AgentFEM compatibility before conversion.",
+    )
+    inspect_mesh.add_argument("path")
+    inspect_mesh.add_argument(
+        "--input-format",
+        help="Explicit meshio reader name when a file extension is ambiguous.",
+    )
+    inspect_mesh.add_argument("--json", action="store_true")
+
     inspect_user_material = sub.add_parser(
         "inspect-user-material",
         help="Classify an Abaqus UMAT/UHYPER source before adapter development.",
@@ -1040,6 +1089,8 @@ def _dispatch(argv: list[str] | None = None) -> int:
             return _command_runs(args)
         if args.command == "inspect-abaqus":
             return _command_inspect_abaqus(args)
+        if args.command == "inspect-mesh":
+            return _command_inspect_mesh(args)
         if args.command == "inspect-user-material":
             return _command_inspect_user_material(args)
         if args.command == "migrate-abaqus":
@@ -1074,7 +1125,7 @@ def _dispatch(argv: list[str] | None = None) -> int:
             _emit(record, as_json=args.json, human=human)
             return 0
         if args.command == "capabilities":
-            from . import benchmarks, constitutive, models, public_api
+            from . import benchmarks, constitutive, mesh, models, public_api
             from ._architecture_contract import ownership_contract
             public_modules = {
                 level: public_api(level)
@@ -1103,6 +1154,9 @@ def _dispatch(argv: list[str] | None = None) -> int:
                 "constitutive_evidence": tuple(
                     item.as_dict()
                     for item in benchmarks.audit_capability_evidence()
+                ),
+                "mesh_cells": tuple(
+                    item.summary() for item in mesh.compatibility_matrix()
                 ),
                 "step_providers": tuple(
                     item.summary() for item in models.step_providers()

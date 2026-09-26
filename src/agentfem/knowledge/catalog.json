@@ -1387,8 +1387,8 @@
       ],
       "source": "src/agentfem/knowledge/cards/simplex_mesh_quality.json",
       "status": "supported",
-      "summary": "Computes normalized triangle/tetrahedron mean-ratio quality and turns a declared threshold into MPI-global preflight evidence.",
-      "title": "Collective simplex mesh-quality preflight"
+      "summary": "Computes topology-appropriate simplex mean ratio or sampled coordinate-map scaled Jacobians and turns a declared threshold into MPI-global preflight evidence.",
+      "title": "Collective mesh-quality preflight"
     },
     {
       "id": "agentfem.workflow.solution_procedures",
