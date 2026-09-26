@@ -672,7 +672,31 @@ def read_converted_xdmf(
     """
 
     with io.XDMFFile(comm, str(conversion.mesh_path), "r") as xdmf:
-        domain = xdmf.read_mesh(name=mesh_name)
+        try:
+            domain = xdmf.read_mesh(name=mesh_name)
+        except RuntimeError as exc:
+            compatibility = describe_cell_compatibility(conversion.cell_type)
+            maturity = compatibility.import_maturity
+            if compatibility.solver_ready:
+                interpretation = (
+                    "This is a verified route, so the failure indicates an "
+                    "I/O runtime or file regression."
+                )
+            elif maturity == "conditional":
+                interpretation = (
+                    "This is a conditional geometry route and is not yet a "
+                    "supported DOLFINx solver import."
+                )
+            else:
+                interpretation = (
+                    "This cell layout is blocked because AgentFEM has no "
+                    "declared DOLFINx solver route for it."
+                )
+            raise RuntimeError(
+                "DOLFINx could not read converted cell type "
+                f"{conversion.cell_type!r} (AgentFEM maturity={maturity!r}). "
+                f"{interpretation} Underlying reader error: {exc}"
+            ) from exc
         cell_tags = None
         if conversion.region_tags:
             tdim = domain.topology.dim

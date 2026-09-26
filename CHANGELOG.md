@@ -6,6 +6,14 @@ experimental formulation to a validated one.
 
 ## [Unreleased]
 
+### Changed
+
+- Promote the `triangle6`, `quad9`, `tetra10`, `hexahedron20`, and
+  `hexahedron27` neutral-geometry import routes after real meshio/XDMF/DOLFINx
+  reads, coordinate-element identity checks, quality audits, and P2 affine
+  patch tests. Keep `quad8` conditional and replace its low-level DOLFINx read
+  failure with a maturity-aware diagnostic.
+
 ## [0.3.7] - 2026-09-26
 
 ### Added

@@ -310,10 +310,11 @@ The current release-level neutral-geometry matrix is deliberately explicit:
 | `triangle` | triangle P1 | verified | simplex mean ratio |
 | `quad` | quadrilateral Q1 | verified | sampled scaled Jacobian |
 | `tetra` | tetrahedron P1 | verified | simplex mean ratio |
-| `tetra10` | tetrahedron P2 | verified | simplex mean ratio plus curved-map checks where applicable |
 | `hexahedron` | hexahedron Q1 | verified | sampled scaled Jacobian |
-| `triangle6`, `quad8`, `quad9` | high-order 2D | conditional | metric exists; import corpus is incomplete |
-| `hexahedron20`, `hexahedron27` | high-order 3D | conditional | metric exists; import corpus is incomplete |
+| `triangle6`, `quad9` | high-order 2D | verified | real meshio/XDMF/DOLFINx read, coordinate identity, sampled quality and P2 affine patch |
+| `tetra10` | tetrahedron P2 | verified | real import plus simplex mean ratio and curved-map checks |
+| `hexahedron20`, `hexahedron27` | high-order 3D | verified | real meshio/XDMF/DOLFINx read, serendipity/tensor coordinate identity, sampled quality and P2 affine patch |
+| `quad8` | serendipity quadrilateral | conditional | current DOLFINx XDMF reader rejects the eight-node layout; conversion remains inspectable |
 | `wedge`, `wedge15`, `pyramid` | prism/pyramid | conditional | sampled scaled Jacobian; release solver evidence pending |
 | `line`, `line3` | interval | conditional | topology alone is not a beam, truss, or cable |
 
