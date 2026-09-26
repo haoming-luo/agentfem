@@ -56,3 +56,10 @@ metric and threshold.
 - Narrow topology capabilities carry their own evidence. A verified P1 prism
   patch does not imply a verified mixed, nonlinear, shell, or source-vendor
   formulation.
+- High-order neutral import maturity is earned per source cell layout. The
+  triangle6, quad9, tetra10, hexahedron20, and hexahedron27 routes pass a real
+  meshio/XDMF/DOLFINx read, coordinate-element identity, sampled-quality, and
+  P2 affine-patch contract. Quad8 remains conditional because the current
+  DOLFINx XDMF reader rejects its eight-node coordinate layout; AgentFEM
+  reports that boundary explicitly instead of treating conversion as solve
+  readiness.

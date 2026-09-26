@@ -5,6 +5,9 @@ from types import SimpleNamespace
 
 import numpy as np
 import pytest
+import ufl
+from dolfinx import fem
+from mpi4py import MPI
 
 from agentfem import cli
 from agentfem import mesh as mesh_api
@@ -71,6 +74,101 @@ def _source_mesh():
     )
 
 
+def _high_order_external_case(cell_type):
+    if cell_type == "triangle6":
+        return (
+            np.asarray(
+                (
+                    (0.0, 0.0, 0.0),
+                    (1.0, 0.0, 0.0),
+                    (0.0, 1.0, 0.0),
+                    (0.5, 0.0, 0.0),
+                    (0.5, 0.5, 0.0),
+                    (0.0, 0.5, 0.0),
+                )
+            ),
+            True,
+            2,
+            "P",
+        )
+    if cell_type in {"quad8", "quad9"}:
+        points = [
+            (-1.0, -1.0, 0.0),
+            (1.0, -1.0, 0.0),
+            (1.0, 1.0, 0.0),
+            (-1.0, 1.0, 0.0),
+            (0.0, -1.0, 0.0),
+            (1.0, 0.0, 0.0),
+            (0.0, 1.0, 0.0),
+            (-1.0, 0.0, 0.0),
+        ]
+        if cell_type == "quad9":
+            points.append((0.0, 0.0, 0.0))
+        return np.asarray(points), True, 2, (
+            "serendipity" if cell_type == "quad8" else "P"
+        )
+    if cell_type == "tetra10":
+        return (
+            np.asarray(
+                (
+                    (0.0, 0.0, 0.0),
+                    (1.0, 0.0, 0.0),
+                    (0.0, 1.0, 0.0),
+                    (0.0, 0.0, 1.0),
+                    (0.5, 0.0, 0.0),
+                    (0.5, 0.5, 0.0),
+                    (0.0, 0.5, 0.0),
+                    (0.0, 0.0, 0.5),
+                    (0.5, 0.0, 0.5),
+                    (0.0, 0.5, 0.5),
+                )
+            ),
+            False,
+            3,
+            "P",
+        )
+    if cell_type in {"hexahedron20", "hexahedron27"}:
+        points = [
+            (-1.0, -1.0, -1.0),
+            (1.0, -1.0, -1.0),
+            (1.0, 1.0, -1.0),
+            (-1.0, 1.0, -1.0),
+            (-1.0, -1.0, 1.0),
+            (1.0, -1.0, 1.0),
+            (1.0, 1.0, 1.0),
+            (-1.0, 1.0, 1.0),
+            (0.0, -1.0, -1.0),
+            (1.0, 0.0, -1.0),
+            (0.0, 1.0, -1.0),
+            (-1.0, 0.0, -1.0),
+            (0.0, -1.0, 1.0),
+            (1.0, 0.0, 1.0),
+            (0.0, 1.0, 1.0),
+            (-1.0, 0.0, 1.0),
+            (-1.0, -1.0, 0.0),
+            (1.0, -1.0, 0.0),
+            (1.0, 1.0, 0.0),
+            (-1.0, 1.0, 0.0),
+        ]
+        if cell_type == "hexahedron27":
+            # meshio/VTK face order: x-, x+, y-, y+, z-, z+, center.
+            points.extend(
+                (
+                    (-1.0, 0.0, 0.0),
+                    (1.0, 0.0, 0.0),
+                    (0.0, -1.0, 0.0),
+                    (0.0, 1.0, 0.0),
+                    (0.0, 0.0, -1.0),
+                    (0.0, 0.0, 1.0),
+                    (0.0, 0.0, 0.0),
+                )
+            )
+        return np.asarray(points), False, 3, (
+            "serendipity" if cell_type == "hexahedron20" else "P"
+        )
+    raise AssertionError(f"missing high-order fixture for {cell_type}")
+
+
 def test_periodic_square_uses_native_mesh_without_gmsh(monkeypatch):
     from mpi4py import MPI
 
@@ -109,12 +207,16 @@ def test_external_mesh_inventory_exposes_blocks_and_named_sets():
 
 def test_cell_compatibility_separates_geometry_from_source_formulation():
     verified = mesh_api.describe_cell_compatibility("hexahedron")
-    conditional = mesh_api.describe_cell_compatibility("hexahedron20")
+    high_order = mesh_api.describe_cell_compatibility("hexahedron20")
+    conditional = mesh_api.describe_cell_compatibility("quad8")
     unknown = mesh_api.describe_cell_compatibility("polyhedron42")
 
     assert verified.solver_ready
     assert verified.topology == "hexahedron"
     assert verified.quality_metric == "sampled_scaled_jacobian"
+    assert high_order.solver_ready
+    assert high_order.import_maturity == "verified"
+    assert high_order.geometry_basis == "serendipity"
     assert conditional.import_maturity == "conditional"
     assert conditional.geometry_basis == "serendipity"
     assert not conditional.solver_ready
@@ -398,6 +500,110 @@ def test_verified_tensor_product_import_is_readable_and_quality_audited(
     assert mesh_api.audit_quality(imported.domain, strict=True).acceptable
     manifest = json.loads(conversion.manifest_path.read_text(encoding="utf-8"))
     assert manifest["output"]["compatibility"]["solver_ready"] is True
+
+
+@pytest.mark.parametrize(
+    "cell_type",
+    ("triangle6", "quad9", "tetra10", "hexahedron20", "hexahedron27"),
+)
+def test_verified_high_order_import_preserves_geometry_quality_and_p2_patch(
+    tmp_path, cell_type
+):
+    meshio = pytest.importorskip("meshio")
+    points, prune_z, dimension, expected_basis = _high_order_external_case(
+        cell_type
+    )
+    source = tmp_path / f"{cell_type}.vtu"
+    meshio.write(
+        source,
+        meshio.Mesh(
+            points=points,
+            cells=[
+                (
+                    cell_type,
+                    np.arange(len(points), dtype=int).reshape(1, -1),
+                )
+            ],
+        ),
+    )
+    conversion = formats.convert_to_xdmf(
+        source,
+        tmp_path / f"{cell_type}.xdmf",
+        cell_type=cell_type,
+        prune_z=prune_z,
+    )
+    imported = mesh_api.read_converted_xdmf(conversion, comm=MPI.COMM_SELF)
+
+    geometry = mesh_api.describe_geometry(imported.domain)
+    quality = mesh_api.audit_quality(
+        imported.domain,
+        threshold=0.8,
+        strict=True,
+    )
+    assert geometry.degree == 2
+    assert geometry.basis_family == expected_basis
+    assert geometry.nodes_per_cell == len(points)
+    assert quality.acceptable
+    assert quality.minimum > 0.8
+
+    space = fem.functionspace(imported.domain, ("Lagrange", 2))
+    field = fem.Function(space)
+    if dimension == 2:
+        field.interpolate(lambda x: x[0] + 2.0 * x[1] + 0.25)
+        exact_gradient = ufl.as_vector((1.0, 2.0))
+    else:
+        field.interpolate(
+            lambda x: x[0] + 2.0 * x[1] - 0.5 * x[2] + 0.25
+        )
+        exact_gradient = ufl.as_vector((1.0, 2.0, -0.5))
+    gradient_error = ufl.grad(field) - exact_gradient
+    error = fem.assemble_scalar(
+        fem.form(ufl.inner(gradient_error, gradient_error) * ufl.dx)
+    )
+    assert error == pytest.approx(0.0, abs=5.0e-13)
+
+    manifest = json.loads(conversion.manifest_path.read_text(encoding="utf-8"))
+    assert manifest["output"]["compatibility"]["solver_ready"] is True
+    assert not any(
+        "conditional neutral-geometry" in warning
+        for warning in conversion.warnings
+    )
+
+
+def test_quad8_conversion_is_inspectable_but_solver_read_fails_with_context(
+    tmp_path,
+):
+    meshio = pytest.importorskip("meshio")
+    points, prune_z, _dimension, _basis = _high_order_external_case("quad8")
+    source = tmp_path / "quad8.vtu"
+    meshio.write(
+        source,
+        meshio.Mesh(
+            points=points,
+            cells=[
+                (
+                    "quad8",
+                    np.arange(len(points), dtype=int).reshape(1, -1),
+                )
+            ],
+        ),
+    )
+    conversion = formats.convert_to_xdmf(
+        source,
+        tmp_path / "quad8.xdmf",
+        cell_type="quad8",
+        prune_z=prune_z,
+    )
+
+    assert any(
+        "conditional neutral-geometry" in warning
+        for warning in conversion.warnings
+    )
+    with pytest.raises(
+        RuntimeError,
+        match="quad8.*conditional geometry route",
+    ):
+        mesh_api.read_converted_xdmf(conversion, comm=MPI.COMM_SELF)
 
 
 def test_unknown_external_cell_type_is_not_silently_converted(tmp_path, monkeypatch):
