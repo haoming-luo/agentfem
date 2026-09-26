@@ -51,6 +51,29 @@ class CellCompatibility:
 
 
 @dataclass(frozen=True)
+class TopologyCapability:
+    """One narrowly scoped, evidence-bearing runtime topology capability."""
+
+    name: str
+    status: str
+    scope: str
+    evidence: tuple[str, ...] = ()
+
+    @property
+    def verified(self) -> bool:
+        return self.status == "verified"
+
+    def summary(self) -> dict[str, object]:
+        return {
+            "name": self.name,
+            "status": self.status,
+            "verified": self.verified,
+            "scope": self.scope,
+            "evidence": self.evidence,
+        }
+
+
+@dataclass(frozen=True)
 class TopologyCompatibility:
     """Runtime solver-topology support independent of source element names.
 
@@ -66,6 +89,7 @@ class TopologyCompatibility:
     runtime_maturity: str
     quality_metric: str | None
     source_cell_types: tuple[str, ...]
+    capabilities: tuple[TopologyCapability, ...] = ()
     limitations: tuple[str, ...] = ()
 
     @property
@@ -85,6 +109,7 @@ class TopologyCompatibility:
             "release_ready": self.release_ready,
             "quality_metric": self.quality_metric,
             "source_cell_types": self.source_cell_types,
+            "capabilities": tuple(item.summary() for item in self.capabilities),
             "limitations": self.limitations,
         }
 
@@ -133,7 +158,7 @@ _CELLS = (
     _cell("triangle", "triangle", 2, 1, "complete_lagrange", 3, "verified",
           "simplex_mean_ratio"),
     _cell("triangle6", "triangle", 2, 2, "complete_lagrange", 6, "conditional",
-          "simplex_mean_ratio_with_sampled_map_validity",
+          "simplex_mean_ratio_with_sampled_scaled_jacobian",
           "Curved geometry still requires positive coordinate-map Jacobians."),
     _cell("quad", "quadrilateral", 2, 1, "tensor_lagrange", 4, "verified",
           "sampled_scaled_jacobian"),
@@ -146,7 +171,7 @@ _CELLS = (
     _cell("tetra", "tetrahedron", 3, 1, "complete_lagrange", 4, "verified",
           "simplex_mean_ratio"),
     _cell("tetra10", "tetrahedron", 3, 2, "complete_lagrange", 10, "verified",
-          "simplex_mean_ratio_with_sampled_map_validity",
+          "simplex_mean_ratio_with_sampled_scaled_jacobian",
           "C3D10H and similar source names additionally require an explicit mixed formulation."),
     _cell("hexahedron", "hexahedron", 3, 1, "tensor_lagrange", 8, "verified",
           "sampled_scaled_jacobian"),
@@ -189,6 +214,41 @@ _VERIFIED_RUNTIME_TOPOLOGIES = {
     "tetrahedron",
     "hexahedron",
 }
+
+
+def _runtime_capabilities(topology: str) -> tuple[TopologyCapability, ...]:
+    inspection = TopologyCapability(
+        name="topology_inspection",
+        status="verified",
+        scope="DOLFINx runtime cell identity and dimension inspection",
+        evidence=("tests/test_element_contracts.py",),
+    )
+    quality_status = "conditional" if topology == "interval" else "verified"
+    quality = TopologyCapability(
+        name="geometry_quality",
+        status=quality_status,
+        scope=(
+            "MPI-global coordinate-map quality using the declared metric"
+            if quality_status == "verified"
+            else "no released interval quality metric"
+        ),
+        evidence=("tests/test_mesh_quality.py",),
+    )
+    conforming_status = "conditional" if topology == "interval" else "verified"
+    conforming = TopologyCapability(
+        name="conforming_p1_patch",
+        status=conforming_status,
+        scope="scalar H1 Lagrange P1 affine-gradient reproduction and assembly",
+        evidence=("tests/test_mixed_cell_topologies.py",),
+    )
+    high_order_status = "conditional" if topology == "interval" else "verified"
+    high_order = TopologyCapability(
+        name="quadratic_geometry_preflight",
+        status=high_order_status,
+        scope="degree-two coordinate-basis identity and sampled Jacobian quality",
+        evidence=("tests/test_mesh_quality.py",),
+    )
+    return inspection, quality, conforming, high_order
 
 
 def describe_cell(source_cell_type: str) -> CellCompatibility:
@@ -242,6 +302,7 @@ def describe_topology(topology: str) -> TopologyCompatibility:
             runtime_maturity="blocked",
             quality_metric=None,
             source_cell_types=(),
+            capabilities=(),
             limitations=(
                 "No AgentFEM runtime topology and quality contract is declared.",
             ),
@@ -269,12 +330,14 @@ def describe_topology(topology: str) -> TopologyCompatibility:
         runtime_maturity=maturity,
         quality_metric=metric,
         source_cell_types=sources,
+        capabilities=_runtime_capabilities(selected),
         limitations=limitations,
     )
 
 
 __all__ = [
     "CellCompatibility",
+    "TopologyCapability",
     "TopologyCompatibility",
     "compatibility_matrix",
     "describe_cell",

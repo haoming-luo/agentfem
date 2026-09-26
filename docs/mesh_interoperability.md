@@ -272,6 +272,19 @@ optional collective quality result. `Model.validate()` consumes only the
 metadata-level part, so ordinary validation does not silently traverse every
 cell. Long runs and release evidence should request the explicit quality path.
 
+The geometry identity is reported separately from solution fields. It records
+the coordinate-basis family and variant, degree, nodes per cell, mapping,
+topological and geometric dimensions, and whether the mesh is high order or
+embedded. This prevents a quadratic field on a linear mesh, a quadratic
+coordinate map, and a vendor's quadratic formulation from being described as
+the same thing.
+
+For high-order simplex geometry, quality combines the corner mean-ratio with
+the minimum sampled scaled Jacobian of the real coordinate map. A curved cell
+that remains positive but approaches singularity therefore degrades
+continuously; it is no longer reported as healthy merely because its corner
+triangle or tetrahedron looks regular.
+
 `acceptable=False` does not by itself claim that one universal quality limit
 exists. Invalid or folded cells are errors. Cells below a positive project
 threshold are warnings unless `reject_poor_quality=True`; the chosen threshold
@@ -281,6 +294,12 @@ This preflight still does not infer formulation from topology. A hexahedron is
 not automatically C3D8R, a line is not automatically a beam, and a quadratic
 tetrahedral mesh is not automatically a constant-pressure hybrid element. The
 selected Step provider remains the owner of those numerical claims.
+
+Runtime topology summaries also expose narrow evidence-bearing capabilities,
+such as topology inspection, geometry-quality auditing, a conforming P1 patch,
+and quadratic-geometry preflight. Prism and pyramid patch tests establish
+basic H1 assembly and affine-gradient reproduction; they do not silently
+promote those topologies to every solid, mixed, shell, or nonlinear procedure.
 
 ## Cell compatibility contract
 

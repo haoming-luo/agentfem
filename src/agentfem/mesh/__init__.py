@@ -23,6 +23,7 @@ from . import quality
 from . import abaqus
 from .compatibility import (
     CellCompatibility,
+    TopologyCapability,
     TopologyCompatibility,
     compatibility_matrix,
     describe_cell,
@@ -58,6 +59,8 @@ if TYPE_CHECKING:
 
 audit_quality = quality.audit
 cell_quality = quality.cell_quality
+describe_geometry = quality.describe_geometry
+GeometryIdentity = quality.GeometryIdentity
 describe_cell_compatibility = describe_cell
 describe_topology_compatibility = describe_topology
 
@@ -109,6 +112,7 @@ class MeshSummary:
     global_vertices: int
     cell_type: str | None = None
     geometry_degree: int | None = None
+    geometry: GeometryIdentity | None = None
     cell_tags: TagSummary | None = None
     facet_tags: TagSummary | None = None
 
@@ -124,6 +128,9 @@ class MeshSummary:
             "global_vertices": self.global_vertices,
             "cell_type": self.cell_type,
             "geometry_degree": self.geometry_degree,
+            "geometry": (
+                None if self.geometry is None else self.geometry.summary()
+            ),
             "cell_tags": None if self.cell_tags is None else self.cell_tags.counts,
             "facet_tags": None if self.facet_tags is None else self.facet_tags.counts,
         }
@@ -724,6 +731,7 @@ def summarize_mesh(domain, cell_tags=None, facet_tags=None) -> MeshSummary:
         global_vertices=global_vertices,
         cell_type=str(domain.topology.cell_name()),
         geometry_degree=int(domain.geometry.cmaps[0].degree),
+        geometry=describe_geometry(domain),
         cell_tags=summarize_tags(cell_tags),
         facet_tags=summarize_tags(facet_tags),
     )

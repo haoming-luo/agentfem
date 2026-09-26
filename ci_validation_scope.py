@@ -150,6 +150,7 @@ _CORE_SOURCE_TEST_MAP = {
         "tests/test_element_contracts.py",
         "tests/test_mesh_formats.py",
         "tests/test_mesh_quality.py",
+        "tests/test_mixed_cell_topologies.py",
     ),
     "src/agentfem/operators/": (
         "tests/test_operators.py",
