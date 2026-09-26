@@ -87,7 +87,8 @@ The promotion sequence is:
    patch, orientation, tag, output, and MPI evidence;
 2. promote complete and serendipity high-order tensor cells only after real
    Gmsh/Abaqus/XDMF ordering and curved-geometry corpora pass;
-3. promote linear prism and pyramid routes with solver and partition evidence;
+3. extend the verified linear-prism route to a pyramid external-file route
+   only when the active DOLFINx I/O stack can read that topology;
 4. keep beam, shell, cohesive, reduced-integration, hybrid, and stabilized
    elements behind dedicated formulations rather than topology aliases;
 5. admit mixed-topology solve domains only when assembly, regions, results,

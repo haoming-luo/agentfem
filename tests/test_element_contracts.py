@@ -35,7 +35,8 @@ def _solid_model(*, cell_type="triangle", dim=2, field_dim=None):
 
 def test_runtime_topology_contract_separates_inspection_from_formulation():
     verified = mesh.describe_topology_compatibility("tetrahedron")
-    conditional = mesh.describe_topology_compatibility("wedge")
+    verified_prism = mesh.describe_topology_compatibility("wedge")
+    conditional = mesh.describe_topology_compatibility("pyramid")
     blocked = mesh.describe_topology_compatibility("polyhedron42")
 
     assert verified.release_ready
@@ -49,9 +50,11 @@ def test_runtime_topology_contract_separates_inspection_from_formulation():
         "conforming_p1_patch",
         "quadratic_geometry_preflight",
     }
+    assert verified_prism.release_ready
+    assert verified_prism.topology == "prism"
     assert conditional.inspectable
     assert not conditional.release_ready
-    assert conditional.topology == "prism"
+    assert conditional.topology == "pyramid"
     assert not blocked.inspectable
 
 

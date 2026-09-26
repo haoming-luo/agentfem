@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import xml.etree.ElementTree as ET
 from types import SimpleNamespace
 
 import numpy as np
@@ -11,6 +12,7 @@ from mpi4py import MPI
 
 from agentfem import cli
 from agentfem import mesh as mesh_api
+from agentfem import results
 from agentfem.mesh import abaqus
 from agentfem.mesh import formats
 
@@ -604,6 +606,92 @@ def test_quad8_conversion_is_inspectable_but_solver_read_fails_with_context(
         match="quad8.*conditional geometry route",
     ):
         mesh_api.read_converted_xdmf(conversion, comm=MPI.COMM_SELF)
+
+
+def test_verified_linear_prism_import_preserves_patch_quality_and_output(
+    tmp_path,
+):
+    meshio = pytest.importorskip("meshio")
+    points = np.asarray(
+        (
+            (0.0, 0.0, 0.0),
+            (1.0, 0.0, 0.0),
+            (0.0, 1.0, 0.0),
+            (0.0, 0.0, 1.0),
+            (1.0, 0.0, 1.0),
+            (0.0, 1.0, 1.0),
+        )
+    )
+    source = tmp_path / "wedge.vtu"
+    meshio.write(
+        source,
+        meshio.Mesh(
+            points=points,
+            cells=[("wedge", np.arange(6, dtype=int).reshape(1, -1))],
+        ),
+    )
+    conversion = formats.convert_to_xdmf(
+        source,
+        tmp_path / "wedge.xdmf",
+        cell_type="wedge",
+    )
+    imported = mesh_api.read_converted_xdmf(conversion, comm=MPI.COMM_SELF)
+
+    geometry = mesh_api.describe_geometry(imported.domain)
+    quality = mesh_api.audit_quality(
+        imported.domain,
+        threshold=0.9,
+        strict=True,
+    )
+    assert geometry.cell_type == "prism"
+    assert geometry.degree == 1
+    assert geometry.nodes_per_cell == 6
+    assert quality.minimum == pytest.approx(1.0)
+
+    scalar_space = fem.functionspace(imported.domain, ("Lagrange", 1))
+    scalar = fem.Function(scalar_space)
+    scalar.interpolate(lambda x: x[0] + 2.0 * x[1] - 0.5 * x[2] + 0.25)
+    gradient_error = ufl.grad(scalar) - ufl.as_vector((1.0, 2.0, -0.5))
+    error = fem.assemble_scalar(
+        fem.form(ufl.inner(gradient_error, gradient_error) * ufl.dx)
+    )
+    assert error == pytest.approx(0.0, abs=2.0e-14)
+
+    displacement_space = fem.functionspace(
+        imported.domain,
+        ("Lagrange", 1, (3,)),
+    )
+    displacement = fem.Function(displacement_space, name="U")
+    displacement.interpolate(
+        lambda x: np.vstack((0.01 * x[0], 0.02 * x[1], -0.01 * x[2]))
+    )
+    output = results.write_unified_xdmf_series(
+        tmp_path / "wedge_fields.xdmf",
+        (SimpleNamespace(solution=displacement, load_factor=1.0),),
+        ((),),
+        deformation_scale=0.0,
+    )
+    topology = ET.parse(output).find(
+        ".//Grid[@GridType='Uniform']/Topology"
+    )
+    assert topology is not None
+    assert topology.attrib["TopologyType"] == "Wedge"
+    assert topology.find("DataItem").attrib["Dimensions"] == "1 6"
+
+    manifest = json.loads(conversion.manifest_path.read_text(encoding="utf-8"))
+    assert manifest["output"]["compatibility"]["solver_ready"] is True
+    assert not conversion.warnings
+
+    quadratic = fem.Function(
+        fem.functionspace(imported.domain, ("Lagrange", 2, (3,))),
+        name="U",
+    )
+    with pytest.raises(NotImplementedError, match="prism.*18 nodes"):
+        results.write_unified_xdmf_series(
+            tmp_path / "unsupported_wedge_p2_fields.xdmf",
+            (SimpleNamespace(solution=quadratic, load_factor=1.0),),
+            ((),),
+        )
 
 
 def test_unknown_external_cell_type_is_not_silently_converted(tmp_path, monkeypatch):

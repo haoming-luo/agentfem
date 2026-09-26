@@ -13,6 +13,11 @@ experimental formulation to a validated one.
   reads, coordinate-element identity checks, quality audits, and P2 affine
   patch tests. Keep `quad8` conditional and replace its low-level DOLFINx read
   failure with a maturity-aware diagnostic.
+- Promote the six-node `wedge` neutral-geometry route after real external-file
+  import, coordinate-map quality, affine-patch, unified-output, and two-rank
+  partition evidence. Keep `wedge15` and `pyramid` conditional; the latter is
+  available as a DOLFINx runtime topology but is rejected by the current XDMF
+  reader.
 
 ## [0.3.7] - 2026-09-26
 

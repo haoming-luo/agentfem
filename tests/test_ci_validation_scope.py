@@ -106,7 +106,10 @@ def test_discretization_owners_select_focused_serial_and_mpi_evidence():
         "tests/test_project_cli.py",
         "tests/test_validation.py",
     )
-    assert scope.mpi_tests == ("tests/test_element_contracts.py",)
+    assert scope.mpi_tests == (
+        "tests/test_element_contracts.py",
+        "tests/test_mixed_cell_topologies.py",
+    )
     assert not scope.ml
 
 

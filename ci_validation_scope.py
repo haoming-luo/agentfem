@@ -230,7 +230,10 @@ _CORE_SOURCE_MPI_TEST_MAP = {
     ),
     "src/agentfem/elements/": ("tests/test_element_contracts.py",),
     "src/agentfem/fracture": ("tests/test_parallel_cohesive.py",),
-    "src/agentfem/mesh/": ("tests/test_element_contracts.py",),
+    "src/agentfem/mesh/": (
+        "tests/test_element_contracts.py",
+        "tests/test_mixed_cell_topologies.py",
+    ),
     "src/agentfem/operators/identity.py": (
         "tests/test_parallel_operator_identity.py",
     ),

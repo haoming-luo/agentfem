@@ -343,6 +343,64 @@ def write_parallel_xdmf_series(
     return xdmf
 
 
+def _unified_vtk_mesh(primary):
+    """Return point topology, including cells omitted by DOLFINx plotting.
+
+    DOLFINx 0.11 can read, partition and assemble a linear prism, but its
+    ``plot.vtk_mesh`` lookup does not include that VTK cell code.  The unified
+    XDMF writer does not need VTK interpolation in the special case where the
+    primary Lagrange dofs coincide one-for-one with the coordinate nodes.  Use
+    the geometry connectivity only under that explicit contract; higher-order
+    or otherwise nonmatching spaces continue to fail rather than being
+    silently sampled incorrectly.
+    """
+
+    try:
+        return plot.vtk_mesh(primary.function_space)
+    except KeyError as exc:
+        domain = primary.function_space.mesh
+        cell_name = domain.topology.cell_type.name
+        if cell_name != "prism":
+            raise
+        vtk_code = 13
+        coordinates = np.asarray(domain.geometry.x)
+        dof_coordinates = np.asarray(
+            primary.function_space.tabulate_dof_coordinates()
+        )
+        scale = max(1.0, float(np.max(np.abs(coordinates), initial=0.0)))
+        if (
+            dof_coordinates.shape != coordinates.shape
+            or not np.allclose(
+                dof_coordinates,
+                coordinates,
+                rtol=0.0,
+                atol=1.0e-12 * scale,
+            )
+        ):
+            raise RuntimeError(
+                "Unified XDMF cannot derive point topology for "
+                f"{cell_name!r}: the primary field dofs do not coincide "
+                "with the geometry nodes."
+            ) from exc
+        geometry_dofmaps = getattr(domain.geometry, "dofmaps", None)
+        geometry_dofmap = (
+            geometry_dofmaps[0]
+            if geometry_dofmaps is not None
+            else domain.geometry.dofmap
+        )
+        owned_cells = domain.topology.index_map(domain.topology.dim).size_local
+        connectivity = np.asarray(geometry_dofmap[:owned_cells], dtype=np.int64)
+        nodes_per_cell = int(connectivity.shape[1])
+        topology = np.column_stack(
+            (
+                np.full(owned_cells, nodes_per_cell, dtype=np.int64),
+                connectivity,
+            )
+        ).reshape(-1)
+        cell_types = np.full(owned_cells, vtk_code, dtype=np.uint8)
+        return topology, cell_types, coordinates
+
+
 class UnifiedXDMFTimeSeries:
     """Incremental single-grid XDMF/HDF5 writer for serial result histories.
 
@@ -398,7 +456,7 @@ class UnifiedXDMFTimeSeries:
                 "Unified compressed XDMF is a serial writer. Under MPI use "
                 "ParaViewTimeSeries, which keeps one dataset per saved time."
             )
-        topology, cell_types, coordinates = plot.vtk_mesh(primary.function_space)
+        topology, cell_types, coordinates = _unified_vtk_mesh(primary)
         nodes_per_cell = int(topology[0])
         connectivity = np.asarray(topology).reshape(-1, nodes_per_cell + 1)[:, 1:]
         unique_cell_types = np.unique(cell_types)
