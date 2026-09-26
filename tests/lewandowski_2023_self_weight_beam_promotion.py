@@ -129,12 +129,9 @@ def assess_promotion(
     rank_runs = [load_candidate(Path(root)) for root in rank_roots]
     all_runs = mesh_runs + increment_runs + rank_runs
 
+    source_commits = {run["source"].get("commit") for run in all_runs}
     source_identities = {
-        (
-            run["source"].get("commit"),
-            run["source"].get("package_tree_sha256"),
-        )
-        for run in all_runs
+        run["source"].get("package_tree_sha256") for run in all_runs
     }
     clean_source = all(not run["source"].get("tracked_dirty", True) for run in all_runs)
     common_source = len(source_identities) == 1
@@ -147,6 +144,14 @@ def assess_promotion(
         len(set(mesh_levels)) == 3
         and len({int(run["candidate"]["increments"]) for run in mesh_runs}) == 1
         and len({int(run["candidate"]["mpi_ranks"]) for run in mesh_runs}) == 1
+        and len({run["candidate"].get("line_search") for run in mesh_runs}) == 1
+        and len(
+            {
+                int(run["candidate"].get("maximum_iterations_limit", 30))
+                for run in mesh_runs
+            }
+        )
+        == 1
     )
     mesh_assessment = _convergence(
         mesh_runs,
@@ -167,6 +172,17 @@ def assess_promotion(
         )
         == 1
         and len({int(run["candidate"]["mpi_ranks"]) for run in increment_runs})
+        == 1
+        and len(
+            {run["candidate"].get("line_search") for run in increment_runs}
+        )
+        == 1
+        and len(
+            {
+                int(run["candidate"].get("maximum_iterations_limit", 30))
+                for run in increment_runs
+            }
+        )
         == 1
     )
     increment_assessment = _convergence(
@@ -192,6 +208,10 @@ def assess_promotion(
         == tuple(rank_runs[1]["candidate"]["subdivisions"])
         and int(rank_runs[0]["candidate"]["increments"])
         == int(rank_runs[1]["candidate"]["increments"])
+        and rank_runs[0]["candidate"].get("line_search")
+        == rank_runs[1]["candidate"].get("line_search")
+        and int(rank_runs[0]["candidate"].get("maximum_iterations_limit", 30))
+        == int(rank_runs[1]["candidate"].get("maximum_iterations_limit", 30))
     )
     rank_error = _curve_error(rank_runs[0], rank_runs[1])
     rank_assessment = {
@@ -276,7 +296,11 @@ def assess_promotion(
         "source": {
             "clean": clean_source,
             "common_identity": common_source,
-            "identities": tuple(sorted(source_identities)),
+            "package_tree_sha256": tuple(sorted(source_identities)),
+            "commits": tuple(sorted(source_commits)),
+            "identity_semantics": (
+                "executable_agentfem_package_tree; harness-only commits may differ"
+            ),
         },
         "observer_reconciliation": {
             "paper": "top_of_right_edge_point_A",

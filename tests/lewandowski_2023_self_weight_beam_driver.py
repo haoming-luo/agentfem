@@ -46,6 +46,7 @@ def _candidate_step(
     adaptive=False,
     progress=False,
     line_search="basic",
+    maximum_iterations=30,
 ):
     definition = DEFINITION
     domain = mesh.cuboid(
@@ -111,7 +112,7 @@ def _candidate_step(
         solver_options=solvers.newton(
             relative_tolerance=1.0e-7,
             absolute_tolerance=1.0e-8,
-            maximum_iterations=30,
+            maximum_iterations=int(maximum_iterations),
             line_search=line_search,
         ),
         progress=progress,
@@ -164,6 +165,12 @@ def main() -> None:
     )
     parser.add_argument("--progress", action="store_true")
     parser.add_argument(
+        "--maximum-iterations",
+        type=int,
+        default=30,
+        help="Maximum Newton corrections allowed for each fixed increment.",
+    )
+    parser.add_argument(
         "--line-search",
         choices=("backtracking", "basic"),
         default="basic",
@@ -179,6 +186,8 @@ def main() -> None:
         raise ValueError("All subdivisions must be positive.")
     if arguments.increments < 5:
         raise ValueError("At least five load increments are required.")
+    if arguments.maximum_iterations <= 0:
+        raise ValueError("maximum-iterations must be positive.")
 
     comm = MPI.COMM_WORLD
     started = time.perf_counter()
@@ -189,19 +198,24 @@ def main() -> None:
         adaptive=arguments.adaptive,
         progress=arguments.progress,
         line_search=arguments.line_search,
+        maximum_iterations=arguments.maximum_iterations,
     )
     factors = np.linspace(0.0, 1.0, arguments.increments + 1)
     downward = [0.0]
     accepted_factors = [0.0]
     if comm.rank == 0:
         _write_candidate_curve(arguments.output, accepted_factors, downward)
-    for factor in factors[1:]:
-        step.solve(until=float(factor))
-        value = results.probe(displacement, at=DEFINITION.observer)
-        downward.append(-float(value[2]))
-        accepted_factors.append(float(factor))
-        if comm.rank == 0:
-            _write_candidate_curve(arguments.output, accepted_factors, downward)
+    failure = None
+    try:
+        for factor in factors[1:]:
+            step.solve(until=float(factor))
+            value = results.probe(displacement, at=DEFINITION.observer)
+            downward.append(-float(value[2]))
+            accepted_factors.append(float(factor))
+            if comm.rank == 0:
+                _write_candidate_curve(arguments.output, accepted_factors, downward)
+    except Exception as exc:
+        failure = f"{type(exc).__name__}: {exc}"
 
     reference_load = None
     reference_displacement = None
@@ -243,7 +257,7 @@ def main() -> None:
     manifest = {
         "schema": "agentfem.external-benchmark-candidate.v1",
         "benchmark": "lewandowski_2023_self_weight_beam",
-        "status": assessment["status"],
+        "status": "failed" if failure is not None else assessment["status"],
         "runtime": {
             "agentfem_version": agentfem.__version__,
             "agentfem_import_path": str(Path(agentfem.__file__).resolve()),
@@ -259,6 +273,7 @@ def main() -> None:
             "increments": arguments.increments,
             "incrementation": "automatic_cutback" if arguments.adaptive else "fixed",
             "line_search": arguments.line_search,
+            "maximum_iterations_limit": arguments.maximum_iterations,
             "mpi_ranks": comm.size,
             "curve_file": "candidate_curve.csv",
             "curve_sha256": candidate_curve_sha256,
@@ -286,6 +301,19 @@ def main() -> None:
             "declared_curve_sha256": declared_reference_curve_sha256,
         },
         "assessment": assessment,
+        "failure": (
+            {
+                "message": failure,
+                "last_attempt": (
+                    step.attempted_increments[-1].as_dict()
+                    if step.attempted_increments
+                    else None
+                ),
+                "accepted_load_factor": float(step.accepted_load_factor),
+            }
+            if failure is not None
+            else None
+        ),
     }
     if comm.rank == 0:
         _write_candidate_curve(arguments.output, accepted_factors, downward)
@@ -296,6 +324,9 @@ def main() -> None:
             encoding="utf-8",
         )
         assessment_temporary.replace(assessment_path)
+    comm.barrier()
+    if failure is not None:
+        raise RuntimeError(failure)
 
 
 if __name__ == "__main__":
