@@ -440,6 +440,97 @@ def test_finite_strain_j2_update_integrates_nineteen_times(monkeypatch):
     assert call_count == 19
 
 
+def test_finite_strain_j2_vectorized_batch_matches_scalar_updates():
+    material = constitutive.finite_strain_j2_logarithmic(
+        young=210_000.0,
+        poisson=0.3,
+        yield_stress=250.0,
+        hardening_modulus=1_000.0,
+    )
+    first_gradient = _isochoric_extension(1.08)
+    first = material.update(_point(material, first_gradient))
+    gradients = (
+        _isochoric_extension(1.0005),
+        _isochoric_extension(1.12),
+        np.asarray(((1.04, 0.02, 0.0), (0.0, 0.99, 0.0), (0.0, 0.0, 0.98))),
+    )
+    points = (
+        _point(material, gradients[0]),
+        _point(material, gradients[1]),
+        _point(
+            material,
+            gradients[2],
+            state=first.state_new,
+            old=first_gradient,
+        ),
+    )
+    scalar = tuple(material.update(point) for point in points)
+    batched = material.update_batch(
+        constitutive.MaterialPointBatchInput(points)
+    ).responses
+
+    for expected, actual in zip(scalar, batched, strict=True):
+        np.testing.assert_allclose(
+            actual.cauchy_stress,
+            expected.cauchy_stress,
+            rtol=2.0e-12,
+            atol=2.0e-10,
+        )
+        np.testing.assert_allclose(
+            actual.consistent_tangent,
+            expected.consistent_tangent,
+            rtol=2.0e-10,
+            atol=2.0e-7,
+        )
+        np.testing.assert_allclose(
+            actual.state_new,
+            expected.state_new,
+            rtol=2.0e-12,
+            atol=2.0e-12,
+        )
+        assert actual.strain_energy_density == pytest.approx(
+            expected.strain_energy_density,
+            rel=2.0e-12,
+            abs=2.0e-12,
+        )
+        assert actual.stored_energy_density_components == pytest.approx(
+            expected.stored_energy_density_components,
+            rel=2.0e-12,
+            abs=2.0e-12,
+        )
+
+
+def test_finite_strain_j2_batch_uses_nineteen_vectorized_integrations(monkeypatch):
+    material = constitutive.finite_strain_j2_logarithmic(
+        young=210_000.0,
+        poisson=0.3,
+        yield_stress=250.0,
+        hardening_modulus=1_000.0,
+    )
+    points = tuple(
+        _point(material, _isochoric_extension(stretch))
+        for stretch in np.linspace(1.01, 1.12, 8)
+    )
+    original = constitutive.FiniteStrainJ2Logarithmic._integrate_batch
+    call_count = 0
+
+    def counted_integrate(self, deformation_gradients, states_old):
+        nonlocal call_count
+        call_count += 1
+        return original(self, deformation_gradients, states_old)
+
+    monkeypatch.setattr(
+        constitutive.FiniteStrainJ2Logarithmic,
+        "_integrate_batch",
+        counted_integrate,
+    )
+    material.update_batch(constitutive.MaterialPointBatchInput(points))
+
+    # The work count is independent of the number of points: one vectorized
+    # baseline plus two vectorized perturbations for each F component.
+    assert call_count == 19
+
+
 def test_finite_strain_j2_rejects_nonisochoric_committed_plastic_state():
     material = constitutive.finite_strain_j2_logarithmic(
         young=210_000.0,
