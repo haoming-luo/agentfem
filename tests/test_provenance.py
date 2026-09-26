@@ -5,11 +5,14 @@ from copy import deepcopy
 from functools import partial
 from types import SimpleNamespace
 
+import basix
 from mpi4py import MPI
 import numpy as np
 import pytest
+import ufl
+from basix.ufl import element
 
-from agentfem import cli, provenance, results
+from agentfem import cli, mesh, provenance, results
 from agentfem.operators.identity import mesh_executable_identity
 
 
@@ -284,6 +287,9 @@ def test_mesh_executable_identity_preserves_reference_cell_node_order():
     reversed_cell = mesh_executable_identity(domain((0, 3, 2, 1)))
 
     assert forward["cell_node_order"] == "dolfinx_geometry_dofmap"
+    assert forward["schema"] == "agentfem.mesh-executable-identity.v2"
+    assert forward["coordinate_element"] is None
+    assert forward["mesh_sha256"] == forward["connectivity_sha256"]
     assert forward["connectivity_sha256"] != reversed_cell["connectivity_sha256"]
 
 
@@ -314,6 +320,45 @@ def test_mesh_executable_identity_binds_absolute_coordinates_losslessly():
     assert origin["coordinate_key"] == "exact_ieee754_hex_with_input_node_id"
     assert origin["connectivity_sha256"] != translated["connectivity_sha256"]
     assert translated["connectivity_sha256"] != shortened["connectivity_sha256"]
+
+
+def test_mesh_executable_identity_binds_coordinate_element_semantics():
+    def domain(degree):
+        geometry_element = basix.create_element(
+            basix.ElementFamily.P,
+            basix.CellType.triangle,
+            degree,
+            lagrange_variant=basix.LagrangeVariant.gll_warped,
+        )
+        coordinates = np.asarray(geometry_element.points, dtype=float)
+        coordinate_element = ufl.Mesh(
+            element("Lagrange", "triangle", degree, shape=(2,))
+        )
+        return mesh.from_arrays(
+            cells=[list(range(len(coordinates)))],
+            coordinates=coordinates,
+            coordinate_element=coordinate_element,
+            comm=MPI.COMM_SELF,
+        )
+
+    linear = mesh_executable_identity(domain(1))
+    quadratic = mesh_executable_identity(domain(2))
+
+    assert linear["coordinate_element"]["degree"] == 1
+    assert quadratic["coordinate_element"] == {
+        "kind": "geometry_identity",
+        "cell_type": "triangle",
+        "topological_dimension": 2,
+        "geometric_dimension": 2,
+        "basis_family": "P",
+        "degree": 2,
+        "variant": "gll_warped",
+        "mapping": "identity",
+        "nodes_per_cell": 6,
+        "high_order": True,
+        "embedded": False,
+    }
+    assert linear["mesh_sha256"] != quadratic["mesh_sha256"]
 
 
 def test_empty_result_does_not_claim_complete_input_coverage():

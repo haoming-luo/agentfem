@@ -143,7 +143,12 @@ def test_generic_direct_harmonic_rayleigh_bar_matches_complex_wave_solution():
     assert manifest["complete"] is True
     identity = result.scientific_inputs["executable_identity"]
     assert identity["complete"] is True
+    assert identity["record"]["schema"] == (
+        "agentfem.harmonic-executable-identity.v2"
+    )
     assert identity["record"]["mesh"]["global_cells"] == 12
+    assert identity["record"]["mesh"]["coordinate_element"]["degree"] == 1
+    assert identity["record"]["target_element_identity"]["value_shape"] == [3]
     assert identity["record"]["homogeneous_dirichlet"]["global_scalar_dofs"] > 0
 
 

@@ -150,5 +150,19 @@ def test_ml_bridge_runs_only_for_related_or_release_changes():
     assert not classify_changes(["src/agentfem/operators/identity.py"]).ml
 
 
+def test_executable_identity_owner_selects_serial_and_mpi_evidence():
+    scope = classify_changes(["src/agentfem/operators/identity.py"])
+
+    assert scope.level == "core"
+    assert scope.tests == (
+        "tests/test_common_workflows.py",
+        "tests/test_dynamics.py",
+        "tests/test_harmonic.py",
+        "tests/test_operators.py",
+        "tests/test_provenance.py",
+    )
+    assert scope.mpi_tests == ("tests/test_parallel_operator_identity.py",)
+
+
 def test_empty_automatic_diff_fails_safe_to_core():
     assert classify_changes([]) == ValidationScope("core")

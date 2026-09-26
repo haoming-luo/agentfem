@@ -105,6 +105,14 @@ force-balance composition. `Model` selects registered assets and preserves the
 human-facing verb; `operators/_model_lowering.py` owns measure selection,
 assembly, sign convention, and regional operator composition.
 
+Operator-owned executable identities bind the numerical object that is
+actually solved, not merely the public Model name. Their mesh record includes
+ordered connectivity, lossless coordinates, and the active coordinate basis;
+modal and harmonic records additionally include the structured solution
+element, live coefficients, and constrained DOF set. This gives prepared
+allocations and checkpoints a durable invalidation boundary without moving
+element tabulation or assembly out of Basix/DOLFINx.
+
 ## State is a boundary, not one universal algorithm
 
 `agentfem.state` provides two minimal structural protocols:
