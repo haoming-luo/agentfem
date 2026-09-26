@@ -8,6 +8,7 @@ from pathlib import Path
 
 import numpy as np
 import pytest
+from mpi4py import MPI
 
 from lewandowski_2023_self_weight_beam_fixture import (
     DEFINITION,
@@ -20,9 +21,37 @@ from lewandowski_2023_self_weight_beam_fixture import (
     bundled_reference_curve,
 )
 from lewandowski_2023_self_weight_beam_promotion import assess_promotion
+from lewandowski_2023_self_weight_beam_restart_driver import (
+    PRIMARY_NORMALIZED_TOLERANCE,
+    RESPONSE_NORMALIZED_TOLERANCE,
+    _global_array_error,
+)
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
+
+
+def test_restart_error_contract_respects_physical_channel_scale():
+    stress = np.array([250.0e6, -125.0e6, 0.0])
+    roundoff_shift = np.array([4.0e-3, -2.0e-3, 0.0])
+
+    response = _global_array_error(
+        stress,
+        stress + roundoff_shift,
+        comm=MPI.COMM_SELF,
+        normalized_tolerance=RESPONSE_NORMALIZED_TOLERANCE,
+    )
+    primary = _global_array_error(
+        np.array([1.0, 0.5]),
+        np.array([1.0, 0.5 + 1.0e-8]),
+        comm=MPI.COMM_SELF,
+        normalized_tolerance=PRIMARY_NORMALIZED_TOLERANCE,
+    )
+
+    assert response["passed"]
+    assert response["reference_scale"] == pytest.approx(250.0e6)
+    assert response["maximum_normalized"] == pytest.approx(1.6e-11)
+    assert not primary["passed"]
 
 
 def test_lewandowski_2023_external_reference_is_reexecuted_and_pinned():

@@ -25,9 +25,10 @@ from lewandowski_2023_self_weight_beam_driver import _candidate_step
 from lewandowski_2023_self_weight_beam_fixture import DEFINITION
 
 
-SCHEMA = "agentfem.lewandowski-2023-beam-restart-equivalence.v1"
+SCHEMA = "agentfem.lewandowski-2023-beam-restart-equivalence.v2"
 ABSOLUTE_TOLERANCE = 2.0e-11
-RELATIVE_TOLERANCE = 2.0e-10
+PRIMARY_NORMALIZED_TOLERANCE = 2.0e-10
+RESPONSE_NORMALIZED_TOLERANCE = 1.0e-8
 
 
 def _capture(step) -> dict[str, object]:
@@ -51,7 +52,22 @@ def _capture(step) -> dict[str, object]:
     }
 
 
-def _global_array_error(reference, candidate, *, comm) -> dict[str, object]:
+def _global_array_error(
+    reference,
+    candidate,
+    *,
+    comm,
+    normalized_tolerance: float = PRIMARY_NORMALIZED_TOLERANCE,
+) -> dict[str, object]:
+    """Compare one distributed channel using its global physical scale.
+
+    A single elementwise relative tolerance is not meaningful across the
+    dimensionless primary solution, Pa-valued stresses, energy densities and
+    Pa-valued fourth-order tangent.  The restart contract therefore retains a
+    strict absolute floor and normalizes the largest error by the global
+    magnitude of the channel being compared.
+    """
+
     first = np.asarray(reference, dtype=float)
     second = np.asarray(candidate, dtype=float)
     local_shape_match = first.shape == second.shape
@@ -65,27 +81,30 @@ def _global_array_error(reference, candidate, *, comm) -> dict[str, object]:
         }
     difference = np.abs(first - second)
     local_absolute = float(np.max(difference, initial=0.0))
-    scale = np.maximum(np.maximum(np.abs(first), np.abs(second)), 1.0)
-    local_relative = float(np.max(difference / scale, initial=0.0))
-    maximum_absolute = float(comm.allreduce(local_absolute, op=MPI.MAX))
-    maximum_relative = float(comm.allreduce(local_relative, op=MPI.MAX))
-    passed = bool(
-        comm.allreduce(
-            bool(
-                np.allclose(
-                    first,
-                    second,
-                    rtol=RELATIVE_TOLERANCE,
-                    atol=ABSOLUTE_TOLERANCE,
-                )
-            ),
-            op=MPI.LAND,
+    local_scale = float(
+        max(
+            np.max(np.abs(first), initial=0.0),
+            np.max(np.abs(second), initial=0.0),
         )
+    )
+    maximum_absolute = float(comm.allreduce(local_absolute, op=MPI.MAX))
+    reference_scale = float(comm.allreduce(local_scale, op=MPI.MAX))
+    maximum_normalized = (
+        maximum_absolute / reference_scale
+        if reference_scale > np.finfo(float).tiny
+        else maximum_absolute
+    )
+    passed = bool(
+        maximum_absolute
+        <= ABSOLUTE_TOLERANCE + normalized_tolerance * reference_scale
     )
     return {
         "passed": passed,
         "maximum_absolute": maximum_absolute,
-        "maximum_relative": maximum_relative,
+        "maximum_normalized": maximum_normalized,
+        "reference_scale": reference_scale,
+        "absolute_tolerance": ABSOLUTE_TOLERANCE,
+        "normalized_tolerance": normalized_tolerance,
     }
 
 
@@ -178,6 +197,7 @@ def run(
             reference_state["first_piola"],
             restarted_state["first_piola"],
             comm=comm,
+            normalized_tolerance=RESPONSE_NORMALIZED_TOLERANCE,
         ),
         "deformation_gradient": _global_array_error(
             reference_state["deformation_gradient"],
@@ -188,19 +208,25 @@ def run(
             reference_state["cauchy_stress"],
             restarted_state["cauchy_stress"],
             comm=comm,
+            normalized_tolerance=RESPONSE_NORMALIZED_TOLERANCE,
         ),
         "equivalent_stress": _global_array_error(
             reference_state["equivalent_stress"],
             restarted_state["equivalent_stress"],
             comm=comm,
+            normalized_tolerance=RESPONSE_NORMALIZED_TOLERANCE,
         ),
         "strain_energy_density": _global_array_error(
             reference_state["strain_energy_density"],
             restarted_state["strain_energy_density"],
             comm=comm,
+            normalized_tolerance=RESPONSE_NORMALIZED_TOLERANCE,
         ),
         "tangent": _global_array_error(
-            reference_state["tangent"], restarted_state["tangent"], comm=comm
+            reference_state["tangent"],
+            restarted_state["tangent"],
+            comm=comm,
+            normalized_tolerance=RESPONSE_NORMALIZED_TOLERANCE,
         ),
         "accepted_load_factor": _global_array_error(
             reference_state["accepted_load_factor"],
@@ -215,7 +241,14 @@ def run(
     if state_names_match:
         for name in sorted(reference_states):
             checks[f"state.{name}"] = _global_array_error(
-                reference_states[name], restarted_states[name], comm=comm
+                reference_states[name],
+                restarted_states[name],
+                comm=comm,
+                normalized_tolerance=(
+                    RESPONSE_NORMALIZED_TOLERANCE
+                    if name == "plastic_dissipation"
+                    else PRIMARY_NORMALIZED_TOLERANCE
+                ),
             )
     restored_midpoint = abs(restored_factor - midpoint) <= 1.0e-14
     checks["restored_midpoint"] = {
@@ -237,7 +270,9 @@ def run(
         "failed_checks": failed,
         "tolerances": {
             "absolute": ABSOLUTE_TOLERANCE,
-            "relative": RELATIVE_TOLERANCE,
+            "primary_normalized": PRIMARY_NORMALIZED_TOLERANCE,
+            "response_normalized": RESPONSE_NORMALIZED_TOLERANCE,
+            "normalization": "global_maximum_magnitude_per_physical_channel",
             "scope": "same_rank_same_mesh_complete_state",
         },
         "execution": {

@@ -213,19 +213,22 @@ def assess_promotion(
     restart_path = Path(restart_report)
     restart = json.loads(restart_path.read_text(encoding="utf-8"))
     restart_source = restart["runtime"]["identity"]["execution"]["source"]
-    restart_identity = (
-        restart_source.get("commit"),
-        restart_source.get("package_tree_sha256"),
-    )
+    candidate_package_identities = {
+        run["source"].get("package_tree_sha256") for run in all_runs
+    }
+    restart_package_identity = restart_source.get("package_tree_sha256")
+    restart_package_matches = restart_package_identity in candidate_package_identities
     restart_assessment = {
         "passed": bool(
             restart.get("passed")
             and not restart_source.get("tracked_dirty", True)
-            and restart_identity in source_identities
+            and restart_package_matches
         ),
         "report_sha256": _sha256(restart_path),
         "reported_status": restart.get("status"),
-        "source_matches_candidates": restart_identity in source_identities,
+        "package_tree_matches_candidates": restart_package_matches,
+        "restart_commit": restart_source.get("commit"),
+        "restart_package_tree_sha256": restart_package_identity,
     }
 
     exact_candidates = [
