@@ -27,11 +27,81 @@ def test_core_promotion_gates_are_executable_and_external_gaps_stay_visible():
 
     assert report["schema"] == "agentfem.platform-promotion"
     assert [item["gate"] for item in report["gates"]] == [
-        "G1", "G2", "G3", "G4", "G5", "G6", "G7"
+        "G1",
+        "G2",
+        "G3",
+        "G4",
+        "G5",
+        "G6",
+        "G7",
     ]
     assert all(item["passed"] for item in report["gates"][:4])
     assert all(not item["passed"] for item in report["gates"][4:])
     assert report["status"] == "incomplete"
+
+
+def test_04_foundation_gate_separates_internal_readiness_from_release_evidence():
+    report = promotion_gate.evaluate(target="0.4-foundation")
+
+    assert report["target"] == "0.4-foundation"
+    assert [item["gate"] for item in report["gates"]] == [
+        "F1",
+        "F2",
+        "F3",
+        "F4",
+        "F5",
+        "F6",
+        "F7",
+    ]
+    assert all(item["passed"] for item in report["gates"][:5])
+    assert all(not item["passed"] for item in report["gates"][5:])
+    assert report["status"] == "incomplete"
+
+
+def test_04_foundation_acceptance_is_candidate_bound_and_fail_closed(tmp_path):
+    version = "0.4.0"
+    commit = "a" * 40
+    record = {
+        "schema": "agentfem.foundation-acceptance",
+        "schema_version": "0.1.0",
+        "status": "passed",
+        "agentfem_version": version,
+        "source_commit": commit,
+        "source_dirty": False,
+        "complete_serial": "passed",
+        "mpi_rank_count": 2,
+        "representative_mpi": {
+            "state": "passed",
+            "nonlinear": "passed",
+            "output": "passed",
+            "checkpoint": "passed",
+        },
+        "installed_wheel": "passed",
+        "public_examples": "passed",
+        "compatibility_imports": "passed",
+        "wheel_sha256": "1" * 64,
+    }
+    evidence = _write(tmp_path, "foundation.json", record)
+
+    report = promotion_gate.evaluate(
+        target="0.4-foundation",
+        evidence=(evidence,),
+        candidate_version=version,
+        candidate_commit=commit,
+    )
+    gate = next(item for item in report["gates"] if item["gate"] == "F6")
+    assert gate["passed"] is True
+
+    record["representative_mpi"]["checkpoint"] = "missing"
+    incomplete = _write(tmp_path, "incomplete-foundation.json", record)
+    report = promotion_gate.evaluate(
+        target="0.4-foundation",
+        evidence=(incomplete,),
+        candidate_version=version,
+        candidate_commit=commit,
+    )
+    gate = next(item for item in report["gates"] if item["gate"] == "F6")
+    assert gate["passed"] is False
 
 
 def test_external_evidence_can_complete_platform_extension_and_agent_gates(tmp_path):

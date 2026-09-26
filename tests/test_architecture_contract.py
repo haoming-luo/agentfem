@@ -146,9 +146,7 @@ def test_ownership_contract_is_small_stable_and_machine_readable():
     assert "solvers" in by_name["backend"]["modules"]
     assert "events" in by_name["result_verification"]["modules"]
 
-    declared_modules = [
-        module for item in records for module in item["modules"]
-    ]
+    declared_modules = [module for item in records for module in item["modules"]]
     assert len(declared_modules) == len(set(declared_modules))
     assert _architecture_contract.ownership_of("agentfem.models") == "model"
     assert _architecture_contract.ownership_of("agentfem.operators.core") == (
@@ -177,6 +175,16 @@ def test_internal_implementation_imports_form_an_acyclic_eager_graph():
     }
 
     assert _dependency_cycles(graph) == ()
+
+
+def test_runtime_architecture_audit_matches_the_ci_contract():
+    report = _architecture_contract.audit_source_architecture(PACKAGE)
+
+    assert report["schema"] == "agentfem.architecture-audit"
+    assert report["status"] == "passed"
+    assert report["module_count"] > 0
+    assert report["cycles"] == ()
+    assert report["violations"] == ()
 
 
 def test_operator_core_does_not_select_concrete_physics():

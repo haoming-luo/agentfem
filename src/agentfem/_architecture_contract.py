@@ -11,7 +11,9 @@ class into a numerical god object.
 
 from __future__ import annotations
 
+import ast
 from dataclasses import dataclass
+from pathlib import Path
 
 
 @dataclass(frozen=True)
@@ -266,9 +268,7 @@ def ownership_of(module: str) -> str | None:
     selected = str(module).strip().removeprefix("agentfem.")
     root = selected.split(".", 1)[0]
     matches = tuple(
-        boundary.name
-        for boundary in OWNERSHIP_BOUNDARIES
-        if root in boundary.modules
+        boundary.name for boundary in OWNERSHIP_BOUNDARIES if root in boundary.modules
     )
     if len(matches) > 1:
         raise RuntimeError(
@@ -277,10 +277,134 @@ def ownership_of(module: str) -> str | None:
     return None if not matches else matches[0]
 
 
+def _module_name(path: Path, package_root: Path) -> str:
+    relative = path.relative_to(package_root).with_suffix("")
+    parts = relative.parts
+    if parts[-1] == "__init__":
+        parts = parts[:-1]
+    return ".".join(("agentfem", *parts))
+
+
+def _resolved_imports(path: Path, package_root: Path) -> set[str]:
+    """Return eager AgentFEM imports for one implementation module."""
+
+    module = _module_name(path, package_root)
+    package = (
+        module.split(".") if path.name == "__init__.py" else module.split(".")[:-1]
+    )
+    selected: set[str] = set()
+    for node in ast.parse(path.read_text(encoding="utf-8")).body:
+        names: list[str] = []
+        if isinstance(node, ast.Import):
+            names = [item.name for item in node.names]
+        elif isinstance(node, ast.ImportFrom):
+            if node.level:
+                base = package[: len(package) - node.level + 1]
+                if node.module:
+                    names = [".".join((*base, node.module))]
+                else:
+                    names = [".".join((*base, item.name)) for item in node.names]
+            elif node.module:
+                names = [node.module]
+        selected.update(name for name in names if name.startswith("agentfem."))
+    return selected
+
+
+def _dependency_cycles(graph: dict[str, set[str]]) -> tuple[tuple[str, ...], ...]:
+    """Return strongly connected eager-import components."""
+
+    index = 0
+    indices: dict[str, int] = {}
+    lowlinks: dict[str, int] = {}
+    stack: list[str] = []
+    active: set[str] = set()
+    cycles: list[tuple[str, ...]] = []
+
+    def visit(module: str) -> None:
+        nonlocal index
+        indices[module] = index
+        lowlinks[module] = index
+        index += 1
+        stack.append(module)
+        active.add(module)
+        for dependency in graph[module]:
+            if dependency not in indices:
+                visit(dependency)
+                lowlinks[module] = min(lowlinks[module], lowlinks[dependency])
+            elif dependency in active:
+                lowlinks[module] = min(lowlinks[module], indices[dependency])
+        if lowlinks[module] != indices[module]:
+            return
+        component = []
+        while True:
+            selected = stack.pop()
+            active.remove(selected)
+            component.append(selected)
+            if selected == module:
+                break
+        if len(component) > 1:
+            cycles.append(tuple(sorted(component)))
+
+    for module in graph:
+        if module not in indices:
+            visit(module)
+    return tuple(sorted(cycles))
+
+
+def audit_source_architecture(
+    package_root: Path | None = None,
+) -> dict[str, object]:
+    """Audit the executable ownership boundary of a source or installed tree.
+
+    The result is deliberately JSON-safe so release tooling can consume the
+    same contract as CI.  Only eager top-level imports are considered; lazy
+    provider imports remain an intentional extension seam.
+    """
+
+    root = (
+        Path(__file__).resolve().parent if package_root is None else Path(package_root)
+    )
+    paths = tuple(sorted(root.rglob("*.py")))
+    modules = {_module_name(path, root): path for path in paths}
+    known = set(modules)
+    graph = {
+        module: {name for name in _resolved_imports(path, root) if name in known}
+        for module, path in modules.items()
+    }
+    cycles = _dependency_cycles(graph)
+    violations: list[str] = []
+    for source, forbidden in FORBIDDEN_IMPORTS.items():
+        candidates = [root / f"{source}.py"]
+        package = root / source
+        if package.is_dir():
+            candidates.extend(sorted(package.rglob("*.py")))
+        for path in candidates:
+            if not path.is_file():
+                continue
+            imported_roots = {
+                name.removeprefix("agentfem.").split(".", 1)[0]
+                for name in _resolved_imports(path, root)
+            }
+            leaked = tuple(sorted(set(forbidden) & imported_roots))
+            if leaked:
+                violations.append(
+                    f"{path.relative_to(root)} imports forbidden layer(s) {leaked}"
+                )
+    return {
+        "schema": "agentfem.architecture-audit",
+        "schema_version": "0.1.0",
+        "status": "passed" if not cycles and not violations else "failed",
+        "module_count": len(modules),
+        "cycles": cycles,
+        "violations": tuple(violations),
+    }
+
+
 __all__ = (
     "FORBIDDEN_IMPORTS",
     "OWNERSHIP_BOUNDARIES",
     "OwnershipBoundary",
+    "audit_source_architecture",
     "ownership_contract",
     "ownership_of",
 )
