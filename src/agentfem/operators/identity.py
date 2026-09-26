@@ -57,7 +57,7 @@ def harmonic_executable_identity(system, *, solution, bcs=()) -> dict[str, objec
             missing=missing,
         )
     record = {
-        "schema": "agentfem.harmonic-executable-identity.v1",
+        "schema": "agentfem.harmonic-executable-identity.v2",
         "equation": system.equation,
         "phasor_convention": system.phasor_convention,
         "mesh": mesh_executable_identity(domain),
@@ -65,6 +65,10 @@ def harmonic_executable_identity(system, *, solution, bcs=()) -> dict[str, objec
         # UFL's element description is deterministic for equivalent spaces and
         # therefore belongs in a portable executable identity.
         "target_element": str(function.ufl_element()),
+        "target_element_identity": _element_identity(
+            function.function_space,
+            comm=domain.comm,
+        ),
         "operators": operators,
         "homogeneous_dirichlet": _homogeneous_dirichlet_identity(
             function,
@@ -102,10 +106,14 @@ def modal_executable_identity(
             missing=missing,
         )
     record = {
-        "schema": "agentfem.modal-executable-identity.v1",
+        "schema": "agentfem.modal-executable-identity.v2",
         "equation": "K phi = lambda M phi",
         "mesh": mesh_executable_identity(domain),
         "target_element": str(function.ufl_element()),
+        "target_element_identity": _element_identity(
+            function.function_space,
+            comm=domain.comm,
+        ),
         "operators": operators,
         "homogeneous_dirichlet": _homogeneous_dirichlet_identity(
             function,
@@ -123,7 +131,7 @@ def modal_executable_identity(
 
 
 def mesh_executable_identity(domain) -> dict[str, object]:
-    """Hash source-node connectivity and geometry independent of partition."""
+    """Hash connectivity, physical geometry and coordinate basis by science."""
 
     comm = domain.comm
     local_error = None
@@ -172,18 +180,80 @@ def mesh_executable_identity(domain) -> dict[str, object]:
     )
     cells = [item for rank_items in comm.allgather(local) for item in rank_items]
     cells.sort()
+    coordinate_element = _coordinate_element_identity(domain, comm=comm)
     record = {
+        "schema": "agentfem.mesh-executable-identity.v2",
         "cell_type": str(topology.cell_name()),
         "topology_dimension": int(topology.dim),
         "geometry_dimension": int(domain.geometry.dim),
+        "coordinate_element": coordinate_element,
         "global_cells": len(cells),
         "cells": cells,
         "coordinate_key": "exact_ieee754_hex_with_input_node_id",
         "cell_node_order": "dolfinx_geometry_dofmap",
     }
+    fingerprint = content_fingerprint(record)
     return {
         key: value for key, value in record.items() if key != "cells"
-    } | {"connectivity_sha256": content_fingerprint(record)}
+    } | {
+        # Keep the historical name for readers of v1 result manifests.  The
+        # v2 digest binds topology, physical coordinates, node order, and the
+        # active coordinate-element semantics.
+        "connectivity_sha256": fingerprint,
+        "mesh_sha256": fingerprint,
+    }
+
+
+def _coordinate_element_identity(domain, *, comm) -> dict[str, object] | None:
+    """Return the structured coordinate basis when the runtime exposes it."""
+
+    local_error = None
+    identity = None
+    try:
+        if hasattr(getattr(domain, "geometry", None), "cmaps"):
+            from ..mesh.quality import describe_geometry
+
+            identity = describe_geometry(domain).summary()
+        # Lightweight test doubles and external inventory objects may expose
+        # connectivity without a live DOLFINx coordinate element.  Preserve
+        # that distinction explicitly rather than guessing a basis.
+    except Exception as exc:  # pragma: no cover - malformed distributed mesh
+        local_error = f"{type(exc).__name__}: {exc}"
+    _raise_collective_identity_error(
+        comm,
+        local_error,
+        context="identify the coordinate element",
+    )
+    identities = tuple(comm.allgather(identity))
+    if any(item != identities[0] for item in identities[1:]):
+        raise RuntimeError(
+            "Executable identity found rank-inconsistent coordinate elements."
+        )
+    return identities[0]
+
+
+def _element_identity(element_or_space, *, comm) -> dict[str, object]:
+    """Return the structured UFL/Basix identity of one executable field."""
+
+    local_error = None
+    identity = None
+    try:
+        from ..elements import describe_element
+
+        identity = describe_element(element_or_space).summary()
+    except Exception as exc:  # pragma: no cover - malformed distributed space
+        local_error = f"{type(exc).__name__}: {exc}"
+    _raise_collective_identity_error(
+        comm,
+        local_error,
+        context="identify the solution element",
+    )
+    identities = tuple(comm.allgather(identity))
+    if any(item != identities[0] for item in identities[1:]):
+        raise RuntimeError(
+            "Executable identity found rank-inconsistent solution elements."
+        )
+    return identities[0]
 
 
 def _form_identity(form, *, domain, path: str, missing) -> dict[str, object]:

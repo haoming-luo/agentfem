@@ -285,7 +285,12 @@ def test_modal_step_uses_public_model_language_and_removes_fixed_dofs(tmp_path):
     assert manifest["complete"] is True
     identity = result.scientific_inputs["modal_executable_identity"]
     assert identity["complete"] is True
+    assert identity["record"]["schema"] == (
+        "agentfem.modal-executable-identity.v2"
+    )
     assert identity["record"]["mesh"]["global_cells"] == 16
+    assert identity["record"]["mesh"]["coordinate_element"]["degree"] == 1
+    assert identity["record"]["target_element_identity"]["value_shape"] == [2]
     assert identity["record"]["homogeneous_dirichlet"]["global_scalar_dofs"] > 0
     with h5py.File(result.artifacts["fields_hdf5"], "r") as h5:
         assert h5.attrs["primary_field"] == "Mode_1"

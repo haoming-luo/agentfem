@@ -152,6 +152,11 @@ _CORE_SOURCE_TEST_MAP = {
         "tests/test_mesh_quality.py",
         "tests/test_mixed_cell_topologies.py",
     ),
+    "src/agentfem/operators/identity.py": (
+        "tests/test_dynamics.py",
+        "tests/test_harmonic.py",
+        "tests/test_provenance.py",
+    ),
     "src/agentfem/operators/": (
         "tests/test_operators.py",
         "tests/test_common_workflows.py",
@@ -220,6 +225,9 @@ _CORE_SOURCE_MPI_TEST_MAP = {
     "src/agentfem/elements/": ("tests/test_element_contracts.py",),
     "src/agentfem/fracture": ("tests/test_parallel_cohesive.py",),
     "src/agentfem/mesh/": ("tests/test_element_contracts.py",),
+    "src/agentfem/operators/identity.py": (
+        "tests/test_parallel_operator_identity.py",
+    ),
     "src/agentfem/solvers.py": (
         "tests/test_parallel_affine.py",
         "tests/test_parallel_results.py",

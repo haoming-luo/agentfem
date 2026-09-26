@@ -104,8 +104,11 @@ The compact result writer preserves the field name (for example `Mode_1`) and
 labels it as a mode shape rather than silently advertising it as displacement
 `U`.
 Every published modal result also binds a partition-neutral executable identity
-of the mesh, live stiffness and mass coefficients, and exact constrained-DOF
-set. Missing identity or operator/constraint drift after the solve fails closed.
+of the mesh topology, lossless physical coordinates, active coordinate basis,
+solution element, live stiffness and mass coefficients, and exact constrained-
+DOF set. Missing identity or geometry/operator/constraint drift after the solve
+fails closed. Identity schema changes are explicit; an older checkpoint is not
+silently reinterpreted under a newer geometry or element contract.
 Under MPI, rank-local identity, boundary-reduction and backend candidate errors
 are exchanged before the next collective operation. Every rank therefore
 reports the same failed stage instead of leaving healthy ranks waiting inside

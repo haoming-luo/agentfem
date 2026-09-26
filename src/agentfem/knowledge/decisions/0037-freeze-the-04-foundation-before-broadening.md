@@ -51,6 +51,13 @@ solver policy as applicable.  Reuse must be observable in performance evidence
 and invalidation must fail closed.  Performance evidence never upgrades a
 scientific trust state.
 
+The v2 executable mesh identity therefore binds the active coordinate-element
+family, variant, degree, mapping, and dimensions in addition to lossless
+physical coordinates and ordered connectivity. Modal and harmonic identities
+also retain the structured solution-element identity. Historical manifest
+field names remain readable, but a changed identity schema produces a changed
+fingerprint and cannot silently authorize checkpoint or allocation reuse.
+
 ## Verification ladder
 
 Development uses the smallest owner suite first.  A stabilized architectural
