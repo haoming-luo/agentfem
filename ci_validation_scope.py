@@ -25,7 +25,6 @@ _RELEASE_FILES = {
     "pyproject.toml",
     "environment.yml",
     "release_gate.py",
-    "promotion_gate.py",
 }
 _RELEASE_PREFIXES = (
     "packaging/runtime/",
@@ -35,6 +34,7 @@ _RELEASE_PREFIXES = (
     ".github/workflows/platform-acceptance",
 )
 _TARGETED_SOURCE_FILES = {
+    "promotion_gate.py",
     "src/agentfem/campaigns.py",
     "src/agentfem/cli.py",
     "src/agentfem/datasets.py",
@@ -55,6 +55,7 @@ _TARGETED_PREFIXES = (
     "src/agentfem/surrogates/",
 )
 _SOURCE_TEST_MAP = {
+    "promotion_gate.py": ("tests/test_promotion_gate.py",),
     "src/agentfem/campaigns/": ("tests/test_campaigns.py",),
     "src/agentfem/datasets/": (
         "tests/test_datasets.py",
@@ -82,9 +83,7 @@ _CORE_SOURCE_TEST_MAP = {
         "tests/test_prepared_linear_problem.py",
         "tests/test_harmonic.py",
     ),
-    "src/agentfem/_hybrid_nonlinear.py": (
-        "tests/test_hybrid_nonlinear.py",
-    ),
+    "src/agentfem/_hybrid_nonlinear.py": ("tests/test_hybrid_nonlinear.py",),
     "src/agentfem/_nonlinear_problems.py": (
         "tests/test_common_workflows.py",
         "tests/test_p1_platform.py",
@@ -94,12 +93,8 @@ _CORE_SOURCE_TEST_MAP = {
         "tests/test_transient_heat_decay_workflow.py",
         "tests/test_transient_restart.py",
     ),
-    "src/agentfem/checkpointing.py": (
-        "tests/test_transient_restart.py",
-    ),
-    "src/agentfem/constitutive/user_material.py": (
-        "tests/test_user_material.py",
-    ),
+    "src/agentfem/checkpointing.py": ("tests/test_transient_restart.py",),
+    "src/agentfem/constitutive/user_material.py": ("tests/test_user_material.py",),
     "src/agentfem/constitutive/__init__.py": (
         "tests/test_constitutive_models.py",
         "tests/test_user_material.py",
@@ -127,9 +122,7 @@ _CORE_SOURCE_TEST_MAP = {
         "tests/test_external_inelastic_benchmark.py",
         "tests/test_p1_platform.py",
     ),
-    "src/agentfem/mechanics/viscoelasticity.py": (
-        "tests/test_viscoelasticity.py",
-    ),
+    "src/agentfem/mechanics/viscoelasticity.py": ("tests/test_viscoelasticity.py",),
     "src/agentfem/mechanics/finite_strain_plasticity.py": (
         "tests/test_finite_strain_j2_mixed.py",
         "tests/test_finite_strain_j2_periodic.py",
@@ -168,9 +161,7 @@ _CORE_SOURCE_TEST_MAP = {
         "tests/test_common_workflows.py",
         "tests/test_results.py",
     ),
-    "src/agentfem/results": (
-        "tests/test_results.py",
-    ),
+    "src/agentfem/results": ("tests/test_results.py",),
     "src/agentfem/solvers.py": (
         "tests/test_solvers.py",
         "tests/test_prepared_linear_problem.py",
@@ -180,27 +171,17 @@ _CORE_SOURCE_TEST_MAP = {
         "tests/test_common_workflows.py",
         "tests/test_validation.py",
     ),
-    "src/agentfem/_architecture_contract.py": (
-        "tests/test_architecture_contract.py",
-    ),
+    "src/agentfem/_architecture_contract.py": ("tests/test_architecture_contract.py",),
 }
 _CORE_SOURCE_MPI_TEST_MAP = {
-    "src/agentfem/_model_validation.py": (
-        "tests/test_element_contracts.py",
-    ),
-    "src/agentfem/_hybrid_nonlinear.py": (
-        "tests/test_parallel_mixed.py",
-    ),
+    "src/agentfem/_model_validation.py": ("tests/test_element_contracts.py",),
+    "src/agentfem/_hybrid_nonlinear.py": ("tests/test_parallel_mixed.py",),
     "src/agentfem/_nonlinear_problems.py": (
         "tests/test_parallel_affine.py",
         "tests/test_parallel_inelastic.py",
     ),
-    "src/agentfem/_transient_problems.py": (
-        "tests/test_parallel_transient.py",
-    ),
-    "src/agentfem/checkpointing.py": (
-        "tests/test_parallel_transient.py",
-    ),
+    "src/agentfem/_transient_problems.py": ("tests/test_parallel_transient.py",),
+    "src/agentfem/checkpointing.py": ("tests/test_parallel_transient.py",),
     "src/agentfem/constitutive/material_driver.py": (
         "tests/test_parallel_inelastic.py",
     ),
@@ -212,12 +193,8 @@ _CORE_SOURCE_MPI_TEST_MAP = {
         "tests/test_parallel_learning.py",
         "tests/test_parallel_inelastic.py",
     ),
-    "src/agentfem/mechanics/plasticity.py": (
-        "tests/test_parallel_inelastic.py",
-    ),
-    "src/agentfem/mechanics/creep.py": (
-        "tests/test_parallel_inelastic.py",
-    ),
+    "src/agentfem/mechanics/plasticity.py": ("tests/test_parallel_inelastic.py",),
+    "src/agentfem/mechanics/creep.py": ("tests/test_parallel_inelastic.py",),
     "src/agentfem/mechanics/viscoelasticity.py": (
         "tests/test_parallel_viscoelasticity.py",
     ),
@@ -225,18 +202,14 @@ _CORE_SOURCE_MPI_TEST_MAP = {
         "tests/test_parallel_inelastic.py",
         "tests/test_parallel_mixed.py",
     ),
-    "src/agentfem/mechanics/harmonic.py": (
-        "tests/test_parallel_viscoelasticity.py",
-    ),
+    "src/agentfem/mechanics/harmonic.py": ("tests/test_parallel_viscoelasticity.py",),
     "src/agentfem/elements/": ("tests/test_element_contracts.py",),
     "src/agentfem/fracture": ("tests/test_parallel_cohesive.py",),
     "src/agentfem/mesh/": (
         "tests/test_element_contracts.py",
         "tests/test_mixed_cell_topologies.py",
     ),
-    "src/agentfem/operators/identity.py": (
-        "tests/test_parallel_operator_identity.py",
-    ),
+    "src/agentfem/operators/identity.py": ("tests/test_parallel_operator_identity.py",),
     "src/agentfem/solvers.py": (
         "tests/test_parallel_affine.py",
         "tests/test_parallel_results.py",

@@ -1,4 +1,4 @@
-"""Executable platform-promotion audit for the AgentFEM 0.3 contract.
+"""Executable promotion audit for AgentFEM product and foundation contracts.
 
 The ordinary release gate proves that one package artifact is internally
 consistent.  This audit answers the broader question needed before 0.3:
@@ -21,6 +21,7 @@ from typing import Callable, Iterable
 
 
 TARGET = "0.3"
+SUPPORTED_TARGETS = (TARGET, "0.4-foundation")
 REPOSITORY_ROOT = Path(__file__).resolve().parent
 SOURCE_ROOT = REPOSITORY_ROOT / "src"
 
@@ -234,7 +235,9 @@ def _gate_result_lifecycle() -> GateResult:
     expected = {"solver", "output", "history", "progress", "checkpoint"}
     gaps = []
     if set(policy) != expected:
-        gaps.append(f"execution policy keys are {tuple(policy)}, expected {tuple(sorted(expected))}")
+        gaps.append(
+            f"execution policy keys are {tuple(policy)}, expected {tuple(sorted(expected))}"
+        )
     for name in ("verify", "write_manifest", "add_checkpoint", "add_history"):
         if not callable(getattr(SimulationResult, name, None)):
             gaps.append(f"SimulationResult omits {name}()")
@@ -245,7 +248,9 @@ def _gate_result_lifecycle() -> GateResult:
             if not callable(getattr(state_class, name, None))
         )
         if missing:
-            gaps.append(f"{state_class.__name__} omits state transaction methods {missing}")
+            gaps.append(
+                f"{state_class.__name__} omits state transaction methods {missing}"
+            )
     return GateResult(
         "G3",
         "one execution and evidence lifecycle",
@@ -276,6 +281,82 @@ def _gate_scientific_evidence() -> GateResult:
         tuple(
             f"{item.capability}:{item.maturity}:{len(item.benchmark_ids)} benchmark(s)"
             for item in reports
+        ),
+        gaps,
+    )
+
+
+def _gate_architecture() -> GateResult:
+    from agentfem._architecture_contract import audit_source_architecture
+
+    report = audit_source_architecture(SOURCE_ROOT / "agentfem")
+    gaps = tuple(
+        [f"eager import cycle: {cycle}" for cycle in report["cycles"]]
+        + list(report["violations"])
+    )
+    return GateResult(
+        "F2",
+        "acyclic ownership boundaries",
+        "passed" if not gaps else "blocked",
+        (
+            f"{report['module_count']} implementation modules audited",
+            "forbidden cross-layer imports fail closed",
+            "lazy provider seams are excluded from the eager graph",
+        ),
+        gaps,
+    )
+
+
+def _gate_foundation_acceptance(
+    records: tuple[dict[str, object], ...],
+    *,
+    version: str,
+    commit: str | None,
+) -> GateResult:
+    """Require release-boundary evidence rather than inferring it from unit tests."""
+
+    required_mpi = {"state", "nonlinear", "output", "checkpoint"}
+    accepted = []
+    for record in records:
+        mpi = record.get("representative_mpi")
+        if not isinstance(mpi, dict):
+            continue
+        if not (
+            record.get("schema") == "agentfem.foundation-acceptance"
+            and record.get("status") == "passed"
+            and record.get("source_dirty") is False
+            and record.get("complete_serial") == "passed"
+            and record.get("installed_wheel") == "passed"
+            and record.get("public_examples") == "passed"
+            and record.get("compatibility_imports") == "passed"
+            and int(record.get("mpi_rank_count", 0)) >= 2
+            and all(mpi.get(name) == "passed" for name in required_mpi)
+            and _is_sha256(record.get("wheel_sha256"))
+            and _matches_candidate(
+                record,
+                version=version,
+                commit_field="source_commit",
+                commit=commit,
+            )
+        ):
+            continue
+        accepted.append(record)
+    gaps = (
+        ()
+        if accepted
+        else (
+            "missing candidate-bound 0.4 foundation acceptance: complete serial, "
+            "representative two-rank state/nonlinear/output/checkpoint, installed "
+            "wheel, public examples, and compatibility imports",
+        )
+    )
+    return GateResult(
+        "F6",
+        "release-boundary verification ladder",
+        "passed" if accepted else "external_evidence_required",
+        tuple(
+            f"foundation:{item.get('agentfem_version')}:{item.get('source_commit')}"
+            for item in accepted
         ),
         gaps,
     )
@@ -338,8 +419,10 @@ def _gate_extension(
             commit=commit,
         )
     ]
-    gaps = () if accepted else (
-        "missing installed companion/third-party provider acceptance",
+    gaps = (
+        ()
+        if accepted
+        else ("missing installed companion/third-party provider acceptance",)
     )
     return GateResult(
         "G6",
@@ -389,25 +472,24 @@ def _gate_agent(
             (
                 trial
                 for trial in source_trials
-                if _record_sha256(trial)
-                == bridge.get("source_acceptance_sha256")
+                if _record_sha256(trial) == bridge.get("source_acceptance_sha256")
                 and trial.get("agentfem_version")
                 == bridge.get("source_agentfem_version")
                 and trial.get("source_commit") == bridge.get("source_commit")
-                and trial.get("wheel_sha256")
-                == bridge.get("source_wheel_sha256")
+                and trial.get("wheel_sha256") == bridge.get("source_wheel_sha256")
             ),
             None,
         )
         if source is not None:
             promoted.append((bridge, source))
 
-    gaps = () if accepted or promoted else (
-        "missing zero-intervention fresh-agent trial from an installed wheel",
+    gaps = (
+        ()
+        if accepted or promoted
+        else ("missing zero-intervention fresh-agent trial from an installed wheel",)
     )
     evidence = [
-        f"{item.get('agent')}:{item.get('agentfem_version')}"
-        for item in accepted
+        f"{item.get('agent')}:{item.get('agentfem_version')}" for item in accepted
     ]
     evidence.extend(
         f"{source.get('agent')}:{bridge.get('source_agentfem_version')}"
@@ -428,26 +510,76 @@ def evaluate(
     evidence: Iterable[Path] = (),
     candidate_version: str | None = None,
     candidate_commit: str | None = None,
+    target: str = TARGET,
 ) -> dict[str, object]:
-    """Evaluate G1--G7 and return a stable JSON-safe report."""
+    """Evaluate one promotion target and return a stable JSON-safe report."""
+
+    selected_target = str(target)
+    if selected_target not in SUPPORTED_TARGETS:
+        raise ValueError(
+            f"Unsupported promotion target {selected_target!r}; "
+            f"expected one of {SUPPORTED_TARGETS}."
+        )
 
     records = _read_evidence(tuple(Path(item) for item in evidence))
     detected_version, detected_commit = _candidate_identity()
     version = detected_version if candidate_version is None else str(candidate_version)
     commit = detected_commit if candidate_commit is None else str(candidate_commit)
-    gates = (
-        _gate_public_language(),
-        _gate_lowering(),
-        _gate_result_lifecycle(),
-        _gate_scientific_evidence(),
-        _gate_platforms(records, version=version, commit=commit),
-        _gate_extension(records, version=version, commit=commit),
-        _gate_agent(records, version=version, commit=commit),
-    )
+    if selected_target == TARGET:
+        gates = (
+            _gate_public_language(),
+            _gate_lowering(),
+            _gate_result_lifecycle(),
+            _gate_scientific_evidence(),
+            _gate_platforms(records, version=version, commit=commit),
+            _gate_extension(records, version=version, commit=commit),
+            _gate_agent(records, version=version, commit=commit),
+        )
+    else:
+        public_language = _gate_public_language()
+        lowering = _gate_lowering()
+        lifecycle = _gate_result_lifecycle()
+        scientific = _gate_scientific_evidence()
+        platforms = _gate_platforms(records, version=version, commit=commit)
+        gates = (
+            GateResult(
+                "F1",
+                public_language.title,
+                public_language.status,
+                public_language.evidence,
+                public_language.gaps,
+            ),
+            _gate_architecture(),
+            GateResult(
+                "F3", lowering.title, lowering.status, lowering.evidence, lowering.gaps
+            ),
+            GateResult(
+                "F4",
+                lifecycle.title,
+                lifecycle.status,
+                lifecycle.evidence,
+                lifecycle.gaps,
+            ),
+            GateResult(
+                "F5",
+                scientific.title,
+                scientific.status,
+                scientific.evidence,
+                scientific.gaps,
+            ),
+            _gate_foundation_acceptance(records, version=version, commit=commit),
+            GateResult(
+                "F7",
+                platforms.title,
+                platforms.status,
+                platforms.evidence,
+                platforms.gaps,
+            ),
+        )
     return {
         "schema": "agentfem.platform-promotion",
         "schema_version": "0.1.0",
-        "target": TARGET,
+        "target": selected_target,
         "candidate_version": version,
         "candidate_commit": commit,
         "status": "passed" if all(item.passed for item in gates) else "incomplete",
@@ -470,6 +602,7 @@ def _write(path: Path, record: dict[str, object]) -> None:
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--evidence", type=Path, action="append", default=[])
+    parser.add_argument("--target", choices=SUPPORTED_TARGETS, default=TARGET)
     parser.add_argument(
         "--evidence-directory",
         type=Path,
@@ -488,7 +621,7 @@ def main() -> None:
     # Artifact downloads can contain the same record more than once. Preserve
     # stable order while preventing duplicate evidence from inflating a gate.
     evidence = list(dict.fromkeys(Path(item).resolve() for item in evidence))
-    report = evaluate(evidence=evidence)
+    report = evaluate(evidence=evidence, target=options.target)
     report["evidence_files"] = [str(item) for item in evidence]
     if options.report is not None:
         _write(options.report, report)

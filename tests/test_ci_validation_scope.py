@@ -65,6 +65,24 @@ def test_targeted_source_change_selects_stable_owner_tests():
     )
 
 
+def test_promotion_contract_change_tests_the_gate_without_replaying_release():
+    scope = classify_changes(
+        [
+            "promotion_gate.py",
+            "src/agentfem/_architecture_contract.py",
+            "docs/product_roadmap.md",
+        ]
+    )
+
+    assert scope == ValidationScope(
+        "core",
+        tests=(
+            "tests/test_architecture_contract.py",
+            "tests/test_promotion_gate.py",
+        ),
+    )
+
+
 def test_known_core_change_selects_serial_and_distributed_owner_suites():
     scope = classify_changes(
         [
@@ -128,10 +146,7 @@ def test_every_declared_owner_test_exists_in_the_repository():
         _CORE_SOURCE_MPI_TEST_MAP,
     )
     selected = {
-        path
-        for mapping in mappings
-        for paths in mapping.values()
-        for path in paths
+        path for mapping in mappings for paths in mapping.values() for path in paths
     }
 
     missing = tuple(path for path in sorted(selected) if not Path(path).is_file())
