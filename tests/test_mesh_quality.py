@@ -10,6 +10,28 @@ from mpi4py import MPI
 from agentfem import mesh
 
 
+def _quadratic_reference_domain(cell_name, *, coordinates=None):
+    cell_type = getattr(basix.CellType, cell_name)
+    geometry_element = basix.create_element(
+        basix.ElementFamily.P,
+        cell_type,
+        2,
+        lagrange_variant=basix.LagrangeVariant.gll_warped,
+    )
+    points = np.asarray(geometry_element.points, dtype=float)
+    if coordinates is not None:
+        points = np.asarray(coordinates, dtype=float)
+    coordinate_element = ufl.Mesh(
+        element("Lagrange", cell_name, 2, shape=(points.shape[1],))
+    )
+    return mesh.from_arrays(
+        cells=[list(range(points.shape[0]))],
+        coordinates=points,
+        coordinate_element=coordinate_element,
+        comm=MPI.COMM_SELF,
+    )
+
+
 def test_triangle_mesh_quality_is_collective_and_normalized():
     domain = mesh.rectangle(
         (0.0, 0.0), (1.0, 1.0), (1, 1),
@@ -94,3 +116,52 @@ def test_mesh_quality_rejects_a_topology_without_a_declared_metric():
 
     with pytest.raises(NotImplementedError, match="supports triangle"):
         mesh.audit_quality(domain)
+
+
+@pytest.mark.parametrize(
+    "cell_name",
+    (
+        "triangle",
+        "tetrahedron",
+        "quadrilateral",
+        "hexahedron",
+        "prism",
+        "pyramid",
+    ),
+)
+def test_quadratic_geometry_identity_and_quality_cover_runtime_topologies(
+    cell_name,
+):
+    domain = _quadratic_reference_domain(cell_name)
+
+    identity = mesh.describe_geometry(domain)
+    report = mesh.audit_quality(domain, threshold=0.5, strict=True)
+
+    assert identity.cell_type == cell_name
+    assert identity.basis_family == "P"
+    assert identity.degree == 2
+    assert identity.high_order
+    assert not identity.embedded
+    assert identity.nodes_per_cell == domain.geometry.cmaps[0].dim
+    assert report.geometry == identity
+    assert report.minimum > 0.5
+    assert report.samples_per_cell > 1
+
+
+def test_curved_simplex_quality_uses_positive_jacobian_degradation():
+    reference = basix.create_element(
+        basix.ElementFamily.P,
+        basix.CellType.triangle,
+        2,
+        lagrange_variant=basix.LagrangeVariant.gll_warped,
+    )
+    coordinates = np.array(reference.points, dtype=float, copy=True)
+    coordinates[3] = (0.35, 0.35)
+    domain = _quadratic_reference_domain("triangle", coordinates=coordinates)
+
+    report = mesh.audit_quality(domain, threshold=0.6)
+
+    assert report.valid
+    assert report.minimum == pytest.approx(1.0 / np.sqrt(3.25))
+    assert report.minimum < np.sqrt(3.0) / 2.0
+    assert report.poor_cells == 1

@@ -24,6 +24,12 @@ mesh and Study. Step providers own analysis-specific stability and formulation
 acceptance. Basix and DOLFINx continue to own tabulation, dof maps, quadrature,
 and assembly.
 
+The coordinate finite element is a separate first-class identity. Its basis
+family, variant, degree, map, node count, topological dimension, and geometric
+dimension must not be inferred from the solution field. High-order coordinate
+maps are assessed from their sampled Jacobian, including positive near-singular
+degradation, rather than only from corner-cell shape or fold detection.
+
 ## Validation policy
 
 Ordinary `Model.validate()` performs metadata-only topology and element checks.
@@ -47,3 +53,6 @@ metric and threshold.
 - Conditional prism, pyramid, and interval topology remains visible and
   inspectable, but cannot become release evidence without provider and
   benchmark promotion.
+- Narrow topology capabilities carry their own evidence. A verified P1 prism
+  patch does not imply a verified mixed, nonlinear, shell, or source-vendor
+  formulation.

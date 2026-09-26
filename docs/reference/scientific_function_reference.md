@@ -4068,6 +4068,7 @@ Reports runtime mesh topology, actual UFL/Basix element identities, Study value-
 - `agentfem.elements.describe_element`
 - `agentfem.elements.describe_field`
 - `agentfem.elements.audit`
+- `agentfem.mesh.describe_geometry`
 - `agentfem.mesh.describe_topology_compatibility`
 
 ### Scientific contract
@@ -4082,6 +4083,14 @@ $$
 
 Each identity is recorded independently; equality is established only by an explicit adapter or provider contract.
 
+**high-order simplex quality**
+
+$$
+q = \min(q_{corner}, \min_{\xi \in S} J_s(\xi))
+$$
+
+Corner mean-ratio quality is limited by the minimum sampled scaled Jacobian of the real coordinate map.
+
 #### Inputs
 
 | Name | Type | Unit role | Meaning |
@@ -4092,7 +4101,7 @@ Each identity is recorded independently; equality is established only by an expl
 
 | Name | Type | Unit role | Meaning |
 | --- | --- | --- | --- |
-| DiscretizationAudit | topology, field elements, structured validation, optional MeshQualityReport | mixed metadata and dimensionless quality | Stable issue codes identify repairable mesh, element, shape, and quality failures. |
+| DiscretizationAudit | topology capabilities, coordinate element, field elements, structured validation, optional MeshQualityReport | mixed metadata and dimensionless quality | Stable issue codes identify repairable mesh, element, shape, and quality failures. |
 
 #### Assumptions
 
@@ -4101,6 +4110,7 @@ Each identity is recorded independently; equality is established only by an expl
 #### Conventions
 
 - Runtime topology maturity is independent of source-element formulation.
+- Coordinate-element identity is independent of solution-field interpolation.
 - Invalid cells are errors; a positive poor-cell threshold is explicit project policy.
 - Ordinary Model validation does not perform a cell-level quality traversal.
 
@@ -4125,6 +4135,7 @@ report = elements.audit(model, check_quality=True, quality_threshold=0.1)
 
 - `tests/test_element_contracts.py`
 - `tests/test_mesh_quality.py`
+- `tests/test_mixed_cell_topologies.py`
 - `tests/test_validation.py`
 
 **Benchmarks**
@@ -4136,6 +4147,8 @@ report = elements.audit(model, check_quality=True, quality_threshold=0.1)
 - Preserve scalar, vector, blocked, and mixed element identities.
 - Reject a solid displacement whose value shape differs from the Study dimension.
 - Separate verified runtime topology from conditional source import maturity.
+- Identify quadratic coordinate bases and continuously detect positive near-singular curved simplex maps.
+- Reproduce affine gradients and assemble conforming P1 forms on prism and pyramid cells.
 - Warn or fail on poor cells according to the explicit policy while always rejecting invalid cells.
 
 ### References

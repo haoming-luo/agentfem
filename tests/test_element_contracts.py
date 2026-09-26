@@ -41,6 +41,14 @@ def test_runtime_topology_contract_separates_inspection_from_formulation():
     assert verified.release_ready
     assert verified.quality_metric == "simplex_mean_ratio"
     assert "tetra10" in verified.source_cell_types
+    assert {
+        item.name for item in verified.capabilities if item.verified
+    } >= {
+        "topology_inspection",
+        "geometry_quality",
+        "conforming_p1_patch",
+        "quadratic_geometry_preflight",
+    }
     assert conditional.inspectable
     assert not conditional.release_ready
     assert conditional.topology == "prism"
@@ -70,10 +78,16 @@ def test_element_identity_preserves_vector_and_mixed_subelements():
     assert displacement_identity.value_shape == (2,)
     assert displacement_identity.degree == 2
     assert not displacement_identity.mixed
+    assert displacement_identity.embedded_subdegree == 2
+    assert displacement_identity.embedded_superdegree == 2
+    assert displacement_identity.mapping == "identity"
     assert mixed_identity.mixed
+    assert mixed_identity.embedded_subdegree is None
+    assert mixed_identity.embedded_superdegree == 2
     assert len(mixed_identity.subelements) == 2
     assert mixed_identity.subelements[0].value_shape == (2,)
     assert mixed_identity.subelements[1].discontinuous
+    assert mixed_identity.subelements[1].polyset_type == "standard"
 
 
 def test_discretization_audit_combines_topology_element_and_quality():
@@ -88,6 +102,8 @@ def test_discretization_audit_combines_topology_element_and_quality():
     assert report.acceptable
     assert report.topology is not None
     assert report.topology.release_ready
+    assert report.geometry.cell_type == "triangle"
+    assert report.geometry.degree == 1
     assert report.quality.acceptable
     assert report.fields[0].element.value_shape == (2,)
     assert report.summary()["quality"]["metric"] == "simplex_mean_ratio"
@@ -166,3 +182,5 @@ def test_mesh_summary_exposes_runtime_cell_and_coordinate_degree():
 
     assert summary["cell_type"] == "triangle"
     assert summary["geometry_degree"] == 1
+    assert summary["geometry"]["basis_family"] == "P"
+    assert summary["geometry"]["nodes_per_cell"] == 3

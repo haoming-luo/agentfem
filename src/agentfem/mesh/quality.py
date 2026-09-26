@@ -20,6 +20,37 @@ from mpi4py import MPI
 
 
 @dataclass(frozen=True)
+class GeometryIdentity:
+    """Inspectable identity of the coordinate finite element on one domain."""
+
+    cell_type: str
+    topological_dimension: int
+    geometric_dimension: int
+    basis_family: str
+    degree: int
+    variant: str | None
+    mapping: str
+    nodes_per_cell: int
+    high_order: bool
+    embedded: bool
+
+    def summary(self) -> dict[str, object]:
+        return {
+            "kind": "geometry_identity",
+            "cell_type": self.cell_type,
+            "topological_dimension": self.topological_dimension,
+            "geometric_dimension": self.geometric_dimension,
+            "basis_family": self.basis_family,
+            "degree": self.degree,
+            "variant": self.variant,
+            "mapping": self.mapping,
+            "nodes_per_cell": self.nodes_per_cell,
+            "high_order": self.high_order,
+            "embedded": self.embedded,
+        }
+
+
+@dataclass(frozen=True)
 class MeshQualityReport:
     """MPI-global quality summary for owned cells."""
 
@@ -35,6 +66,7 @@ class MeshQualityReport:
     geometry_degree: int
     samples_per_cell: int
     interpretation: str
+    geometry: GeometryIdentity | None = None
 
     @property
     def valid(self) -> bool:
@@ -60,7 +92,37 @@ class MeshQualityReport:
             "geometry_degree": self.geometry_degree,
             "samples_per_cell": self.samples_per_cell,
             "interpretation": self.interpretation,
+            "geometry": (
+                None if self.geometry is None else self.geometry.summary()
+            ),
         }
+
+
+def describe_geometry(domain) -> GeometryIdentity:
+    """Describe the real Basix coordinate basis used by a DOLFINx mesh."""
+
+    element = _basix_coordinate_element(domain)
+    family = _enum_name(element.family)
+    variant = None
+    if family == "P":
+        variant = _enum_name(element.lagrange_variant)
+    elif family == "serendipity":
+        variant = "serendipity"
+    topological_dimension = int(domain.topology.dim)
+    geometric_dimension = int(domain.geometry.dim)
+    degree = int(element.degree)
+    return GeometryIdentity(
+        cell_type=_enum_name(element.cell_type),
+        topological_dimension=topological_dimension,
+        geometric_dimension=geometric_dimension,
+        basis_family=family,
+        degree=degree,
+        variant=variant,
+        mapping=_enum_name(element.map_type),
+        nodes_per_cell=int(element.dim),
+        high_order=degree > 1,
+        embedded=geometric_dimension != topological_dimension,
+    )
 
 
 def cell_quality(domain) -> np.ndarray:
@@ -112,7 +174,11 @@ def cell_quality(domain) -> np.ndarray:
         values[cell] = evaluator(points)
     if int(_coordinate_element(domain).degree) > 1:
         sampled, _degree, _sample_count = _sampled_scaled_jacobian_quality(domain)
-        values[sampled <= 0.0] = 0.0
+        # Corner shape alone can look excellent while a curved coordinate map
+        # is close to singular between vertices.  Retain the simplex shape
+        # metric, but let the sampled high-order map lower it continuously
+        # instead of noticing only an already-folded map.
+        values = np.minimum(values, sampled)
     return values
 
 
@@ -130,9 +196,10 @@ def audit(domain, *, threshold: float = 0.1, strict: bool = False) -> MeshQualit
             _sampled, _degree, samples_per_cell = (
                 _sampled_scaled_jacobian_quality(domain)
             )
-            metric = "simplex_mean_ratio_with_sampled_map_validity"
+            metric = "simplex_mean_ratio_with_sampled_scaled_jacobian"
             interpretation = (
-                "1 is equilateral; 0 is degenerate or sampled as folded"
+                "minimum of corner mean ratio and sampled coordinate-map "
+                "scaled Jacobian; 0 is singular or folded"
             )
         else:
             metric = "simplex_mean_ratio"
@@ -180,6 +247,7 @@ def audit(domain, *, threshold: float = 0.1, strict: bool = False) -> MeshQualit
         geometry_degree=geometry_degree,
         samples_per_cell=samples_per_cell,
         interpretation=interpretation,
+        geometry=describe_geometry(domain),
     )
     if strict and not report.acceptable:
         raise ValueError(
@@ -284,6 +352,13 @@ def _sampled_scaled_jacobian_quality(domain) -> tuple[np.ndarray, int, int]:
     return values, degree, int(points.shape[0])
 
 
+def _enum_name(value) -> str:
+    """Return a stable enum label without exposing implementation reprs."""
+
+    name = getattr(value, "name", None)
+    return str(name if name is not None else value).split(".")[-1]
+
+
 def _triangle_quality(points: np.ndarray) -> float:
     edges = (points[1] - points[0], points[2] - points[1], points[0] - points[2])
     squared = sum(float(np.dot(edge, edge)) for edge in edges)
@@ -313,4 +388,10 @@ def _tetrahedron_quality(points: np.ndarray) -> float:
     return min(1.0, 12.0 * (3.0 * volume) ** (2.0 / 3.0) / squared)
 
 
-__all__ = ["MeshQualityReport", "audit", "cell_quality"]
+__all__ = [
+    "GeometryIdentity",
+    "MeshQualityReport",
+    "audit",
+    "cell_quality",
+    "describe_geometry",
+]

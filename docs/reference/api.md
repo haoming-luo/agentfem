@@ -99,6 +99,7 @@ and evidence remain in the linked guides and scientific function reference.
 | function | `tagged_boundary_measure(domain, marker, tag: int)` | Locate/tag exterior facets and return ``(ds, facet_tags)``. |
 | function | `from_arrays(*, cells, coordinates, coordinate_element, comm = None, partitioner = None)` | Create a DOLFINx mesh through explicit topology/geometry keywords. |
 | class | `CellCompatibility` | One meshio-style source cell mapped to an AgentFEM solver topology. |
+| class | `TopologyCapability` | One narrowly scoped, evidence-bearing runtime topology capability. |
 | class | `TopologyCompatibility` | Runtime solver-topology support independent of source element names. |
 | function | `compatibility_matrix() -> tuple[CellCompatibility, ...]` | Return the complete, deterministic neutral-geometry matrix. |
 | function | `describe_cell(source_cell_type: str) -> CellCompatibility` | Describe a meshio-style cell name without guessing equivalence. |

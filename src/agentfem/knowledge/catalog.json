@@ -1146,6 +1146,7 @@
         "agentfem.elements.describe_element",
         "agentfem.elements.describe_field",
         "agentfem.elements.audit",
+        "agentfem.mesh.describe_geometry",
         "agentfem.mesh.describe_topology_compatibility"
       ],
       "related_cards": [

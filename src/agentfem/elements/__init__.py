@@ -17,11 +17,14 @@ specialized source element still needs an explicit Step provider.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Iterable
+from typing import TYPE_CHECKING, Iterable
 
 from agentfem._model_support import domain as model_domain
 from agentfem.mesh.compatibility import TopologyCompatibility, describe_topology
 from agentfem.validation import ValidationIssue, ValidationReport, issue
+
+if TYPE_CHECKING:
+    from agentfem.mesh.quality import GeometryIdentity, MeshQualityReport
 
 
 @dataclass(frozen=True)
@@ -35,6 +38,10 @@ class ElementIdentity:
     sobolev_space: str | None
     discontinuous: bool
     mixed: bool
+    embedded_subdegree: int | None = None
+    embedded_superdegree: int | None = None
+    mapping: str | None = None
+    polyset_type: str | None = None
     subelements: tuple["ElementIdentity", ...] = ()
     signature: str = ""
 
@@ -47,6 +54,10 @@ class ElementIdentity:
             "sobolev_space": self.sobolev_space,
             "discontinuous": self.discontinuous,
             "mixed": self.mixed,
+            "embedded_subdegree": self.embedded_subdegree,
+            "embedded_superdegree": self.embedded_superdegree,
+            "mapping": self.mapping,
+            "polyset_type": self.polyset_type,
             "subelements": tuple(item.summary() for item in self.subelements),
             "signature": self.signature,
         }
@@ -77,9 +88,10 @@ class DiscretizationAudit:
     """Inspectable mesh/element/Study preflight with optional quality evidence."""
 
     topology: TopologyCompatibility | None
+    geometry: GeometryIdentity | None
     fields: tuple[FieldDiscretization, ...]
     validation: ValidationReport
-    quality: object | None = None
+    quality: MeshQualityReport | None = None
 
     @property
     def acceptable(self) -> bool:
@@ -93,6 +105,11 @@ class DiscretizationAudit:
             "kind": "discretization_audit",
             "acceptable": self.acceptable,
             "topology": None if self.topology is None else self.topology.summary(),
+            "geometry": (
+                None
+                if self.geometry is None
+                else getattr(self.geometry, "summary", lambda: self.geometry)()
+            ),
             "fields": tuple(item.summary() for item in self.fields),
             "validation": self.validation.as_dict(),
             "quality": (
@@ -127,6 +144,12 @@ def describe_element(element_or_space) -> ElementIdentity:
         or (sobolev_name is not None and "l2" in sobolev_name.lower())
     )
     mixed = "mixed" in normalized_family
+    embedded_subdegree = _normal_degree(
+        _safe_value(element, "embedded_subdegree")
+    )
+    embedded_superdegree = _normal_degree(
+        _safe_value(element, "embedded_superdegree")
+    )
     return ElementIdentity(
         family=family,
         cell=_element_cell(element),
@@ -137,6 +160,10 @@ def describe_element(element_or_space) -> ElementIdentity:
         # UFL blocked vector/tensor elements also expose scalar sub-elements.
         # Only the explicit mixed family owns independent field blocks.
         mixed=mixed,
+        embedded_subdegree=embedded_subdegree,
+        embedded_superdegree=embedded_superdegree,
+        mapping=_normal_label(_safe_value(element, "map_type")),
+        polyset_type=_normal_label(_safe_value(element, "polyset_type")),
         subelements=subelements,
         signature=str(element),
     )
@@ -183,10 +210,13 @@ def audit(
     domain = model_domain(getattr(model, "mesh", None))
     issues: list[ValidationIssue] = []
     topology = None
+    geometry = None
     field_records: list[FieldDiscretization] = []
     quality_report = None
 
     if domain is not None:
+        from agentfem.mesh.quality import describe_geometry
+
         topology_object = getattr(domain, "topology", None)
         cell_name = _mesh_cell(topology_object)
         if cell_name:
@@ -213,6 +243,26 @@ def audit(
                             "treating this route as release evidence."
                         ),
                         topology=topology.summary(),
+                    )
+                )
+
+        # Lightweight stand-ins are deliberately valid inputs to the common
+        # metadata validator.  Inspect the coordinate basis only when the
+        # domain actually exposes the DOLFINx coordinate-element contract.
+        if hasattr(getattr(domain, "geometry", None), "cmaps"):
+            try:
+                geometry = describe_geometry(domain)
+            except (NotImplementedError, RuntimeError, ValueError) as exc:
+                issues.append(
+                    issue(
+                        "AFM-DISCRETIZATION-008",
+                        "model.mesh.geometry",
+                        f"The coordinate element cannot be identified: {exc}",
+                        severity="warning",
+                        hint=(
+                            "Register a supported Basix coordinate basis before "
+                            "using this mesh as release evidence."
+                        ),
                     )
                 )
 
@@ -296,6 +346,7 @@ def audit(
     )
     return DiscretizationAudit(
         topology=topology,
+        geometry=geometry,
         fields=tuple(field_records),
         validation=report,
         quality=quality_report,
@@ -439,6 +490,20 @@ def _normal_degree(value):
 
 def _value(value):
     return value() if callable(value) else value
+
+
+def _safe_value(owner, name: str):
+    try:
+        return _value(getattr(owner, name, None))
+    except NotImplementedError:
+        return None
+
+
+def _normal_label(value) -> str | None:
+    if value is None:
+        return None
+    name = getattr(value, "name", None)
+    return str(name if name is not None else value).split(".")[-1]
 
 
 __all__ = [
