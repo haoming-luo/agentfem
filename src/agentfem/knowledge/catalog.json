@@ -1140,6 +1140,24 @@
       "title": "Transactional generalized work and cycle-block energy ledger"
     },
     {
+      "id": "agentfem.workflow.discretization_preflight",
+      "kind": "workflow",
+      "public_api": [
+        "agentfem.elements.describe_element",
+        "agentfem.elements.describe_field",
+        "agentfem.elements.audit",
+        "agentfem.mesh.describe_topology_compatibility"
+      ],
+      "related_cards": [
+        "agentfem.workflow.simplex_mesh_quality",
+        "agentfem.workflow.scientific_verification"
+      ],
+      "source": "src/agentfem/knowledge/cards/discretization_preflight.json",
+      "status": "supported",
+      "summary": "Reports runtime mesh topology, actual UFL/Basix element identities, Study value-shape compatibility, and optional MPI-global mesh-quality evidence without inferring formulation from connectivity.",
+      "title": "Mesh, element, and Study discretization preflight"
+    },
+    {
       "id": "agentfem.workflow.distributed_cohesive_force",
       "kind": "workflow",
       "public_api": [

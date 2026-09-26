@@ -1,0 +1,98 @@
+{
+  "schema": "agentfem.scientific-function-card",
+  "schema_version": "0.1.0",
+  "id": "agentfem.workflow.discretization_preflight",
+  "title": "Mesh, element, and Study discretization preflight",
+  "kind": "workflow",
+  "status": "supported",
+  "summary": "Reports runtime mesh topology, actual UFL/Basix element identities, Study value-shape compatibility, and optional MPI-global mesh-quality evidence without inferring formulation from connectivity.",
+  "public_api": [
+    "agentfem.elements.describe_element",
+    "agentfem.elements.describe_field",
+    "agentfem.elements.audit",
+    "agentfem.mesh.describe_topology_compatibility"
+  ],
+  "implementation": [
+    "elements/__init__.py",
+    "mesh/compatibility.py",
+    "mesh/quality.py",
+    "_model_validation.py"
+  ],
+  "science": {
+    "statement": "Mesh connectivity, coordinate geometry, finite-element interpolation, and numerical formulation are separate identities and must be checked without silently substituting one for another.",
+    "equations": [
+      {
+        "label": "discretization identity separation",
+        "expression": "I_{source} \\neq I_{topology} \\neq I_{space} \\neq I_{formulation}",
+        "description": "Each identity is recorded independently; equality is established only by an explicit adapter or provider contract."
+      }
+    ],
+    "inputs": [
+      {
+        "name": "Model and quality policy",
+        "type": "registered mesh, fields, Study, optional q_min",
+        "unit_role": "element identity plus dimensionless quality",
+        "description": "Metadata inspection is cheap; cell-quality evaluation is an explicit collective option."
+      }
+    ],
+    "outputs": [
+      {
+        "name": "DiscretizationAudit",
+        "type": "topology, field elements, structured validation, optional MeshQualityReport",
+        "unit_role": "mixed metadata and dimensionless quality",
+        "description": "Stable issue codes identify repairable mesh, element, shape, and quality failures."
+      }
+    ],
+    "assumptions": [
+      "Registered finite-element fields expose a DOLFINx function space and UFL element."
+    ],
+    "conventions": [
+      "Runtime topology maturity is independent of source-element formulation.",
+      "Invalid cells are errors; a positive poor-cell threshold is explicit project policy.",
+      "Ordinary Model validation does not perform a cell-level quality traversal."
+    ],
+    "applicability": [
+      "Generated and imported AgentFEM meshes with scalar, vector, tensor, blocked, or mixed finite-element fields."
+    ],
+    "limitations": [
+      "The preflight does not prove inf-sup stability, locking freedom, reduced-integration equivalence, or vendor element equivalence.",
+      "Analysis-specific formulation maturity remains the Step provider's responsibility."
+    ]
+  },
+  "usage": {
+    "minimal_example": "report = elements.audit(model, check_quality=True, quality_threshold=0.1)",
+    "examples": ["tests/test_element_contracts.py"]
+  },
+  "verification": {
+    "tests": [
+      "tests/test_element_contracts.py",
+      "tests/test_mesh_quality.py",
+      "tests/test_validation.py"
+    ],
+    "benchmarks": [],
+    "validation_rules": [
+      "Preserve scalar, vector, blocked, and mixed element identities.",
+      "Reject a solid displacement whose value shape differs from the Study dimension.",
+      "Separate verified runtime topology from conditional source import maturity.",
+      "Warn or fail on poor cells according to the explicit policy while always rejecting invalid cells."
+    ]
+  },
+  "references": [
+    {
+      "title": "UFL finite-element language",
+      "locator": "https://docs.fenicsproject.org/ufl/main/"
+    },
+    {
+      "title": "Basix finite-element definitions",
+      "locator": "https://docs.fenicsproject.org/basix/main/"
+    },
+    {
+      "title": "DOLFINx finite-element functionality",
+      "locator": "https://docs.fenicsproject.org/dolfinx/main/python/generated/dolfinx.fem.html"
+    }
+  ],
+  "related_cards": [
+    "agentfem.workflow.simplex_mesh_quality",
+    "agentfem.workflow.scientific_verification"
+  ]
+}

@@ -21,7 +21,13 @@ from agentfem import dependencies
 from . import formats
 from . import quality
 from . import abaqus
-from .compatibility import CellCompatibility, compatibility_matrix, describe_cell
+from .compatibility import (
+    CellCompatibility,
+    TopologyCompatibility,
+    compatibility_matrix,
+    describe_cell,
+    describe_topology,
+)
 from . import selectors as select
 from .specs import SUPPORTED_GEOMETRIES, from_geometry_spec
 from .regions import RegionSet
@@ -53,6 +59,7 @@ if TYPE_CHECKING:
 audit_quality = quality.audit
 cell_quality = quality.cell_quality
 describe_cell_compatibility = describe_cell
+describe_topology_compatibility = describe_topology
 
 # A short public alias for configuration, GUI, and agent-authored models.
 from_spec = from_geometry_spec
@@ -100,6 +107,8 @@ class MeshSummary:
     global_cells: int
     local_vertices: int
     global_vertices: int
+    cell_type: str | None = None
+    geometry_degree: int | None = None
     cell_tags: TagSummary | None = None
     facet_tags: TagSummary | None = None
 
@@ -113,6 +122,8 @@ class MeshSummary:
             "global_cells": self.global_cells,
             "local_vertices": self.local_vertices,
             "global_vertices": self.global_vertices,
+            "cell_type": self.cell_type,
+            "geometry_degree": self.geometry_degree,
             "cell_tags": None if self.cell_tags is None else self.cell_tags.counts,
             "facet_tags": None if self.facet_tags is None else self.facet_tags.counts,
         }
@@ -711,6 +722,8 @@ def summarize_mesh(domain, cell_tags=None, facet_tags=None) -> MeshSummary:
         global_cells=global_cells,
         local_vertices=local_vertices,
         global_vertices=global_vertices,
+        cell_type=str(domain.topology.cell_name()),
+        geometry_degree=int(domain.geometry.cmaps[0].degree),
         cell_tags=summarize_tags(cell_tags),
         facet_tags=summarize_tags(facet_tags),
     )

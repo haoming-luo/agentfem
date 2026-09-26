@@ -48,6 +48,7 @@ the compact machine-readable `agentfem/knowledge/catalog.json`.
 | [`agentfem.workflow.coordinate_reference_coupling`](#agentfem-workflow-coordinate_reference_coupling) | Local coordinates and reference-point continuum coupling | workflow | supported |
 | [`agentfem.workflow.creep_fatigue_assessment`](#agentfem-workflow-creep_fatigue_assessment) | Engineering creep-fatigue assessment | workflow | supported |
 | [`agentfem.workflow.cyclic_work_energy_ledger`](#agentfem-workflow-cyclic_work_energy_ledger) | Transactional generalized work and cycle-block energy ledger | workflow | experimental |
+| [`agentfem.workflow.discretization_preflight`](#agentfem-workflow-discretization_preflight) | Mesh, element, and Study discretization preflight | workflow | supported |
 | [`agentfem.workflow.distributed_cohesive_force`](#agentfem-workflow-distributed_cohesive_force) | Sparse physical-keyed cohesive force assembly across MPI ranks | workflow | experimental |
 | [`agentfem.workflow.dynamic_fracture_v5_evidence`](#agentfem-workflow-dynamic_fracture_v5_evidence) | Publication-data evidence for dynamic cohesive fracture | workflow | experimental |
 | [`agentfem.workflow.integration_point_recovery`](#agentfem-workflow-integration_point_recovery) | Traceable integration-point field recovery | workflow | supported |
@@ -4050,6 +4051,98 @@ ledger = fatigue_fracture.cyclic_work_energy_ledger(); point = fatigue_fracture.
 
 - Abaqus total energy output and energy balance definitions: `https://docs.software.vt.edu/abaqusv2024/English/SIMACAEOUTRefMap/simaout-c-exp-totalenergyoutput.htm`
 - AgentFEM cyclic cohesive fatigue architecture: `docs/cyclic_cohesive_fatigue_architecture.md`
+
+<a id="agentfem-workflow-discretization_preflight"></a>
+
+## Mesh, element, and Study discretization preflight
+
+**Stable ID:** `agentfem.workflow.discretization_preflight`<br>
+**Kind:** `workflow`<br>
+**Status:** `supported`<br>
+**Source card:** `src/agentfem/knowledge/cards/discretization_preflight.json`
+
+Reports runtime mesh topology, actual UFL/Basix element identities, Study value-shape compatibility, and optional MPI-global mesh-quality evidence without inferring formulation from connectivity.
+
+### Public API
+
+- `agentfem.elements.describe_element`
+- `agentfem.elements.describe_field`
+- `agentfem.elements.audit`
+- `agentfem.mesh.describe_topology_compatibility`
+
+### Scientific contract
+
+Mesh connectivity, coordinate geometry, finite-element interpolation, and numerical formulation are separate identities and must be checked without silently substituting one for another.
+
+**discretization identity separation**
+
+$$
+I_{source} \neq I_{topology} \neq I_{space} \neq I_{formulation}
+$$
+
+Each identity is recorded independently; equality is established only by an explicit adapter or provider contract.
+
+#### Inputs
+
+| Name | Type | Unit role | Meaning |
+| --- | --- | --- | --- |
+| Model and quality policy | registered mesh, fields, Study, optional q_min | element identity plus dimensionless quality | Metadata inspection is cheap; cell-quality evaluation is an explicit collective option. |
+
+#### Outputs
+
+| Name | Type | Unit role | Meaning |
+| --- | --- | --- | --- |
+| DiscretizationAudit | topology, field elements, structured validation, optional MeshQualityReport | mixed metadata and dimensionless quality | Stable issue codes identify repairable mesh, element, shape, and quality failures. |
+
+#### Assumptions
+
+- Registered finite-element fields expose a DOLFINx function space and UFL element.
+
+#### Conventions
+
+- Runtime topology maturity is independent of source-element formulation.
+- Invalid cells are errors; a positive poor-cell threshold is explicit project policy.
+- Ordinary Model validation does not perform a cell-level quality traversal.
+
+#### Applicability
+
+- Generated and imported AgentFEM meshes with scalar, vector, tensor, blocked, or mixed finite-element fields.
+
+#### Limitations
+
+- The preflight does not prove inf-sup stability, locking freedom, reduced-integration equivalence, or vendor element equivalence.
+- Analysis-specific formulation maturity remains the Step provider's responsibility.
+
+### Minimal example
+
+```python
+report = elements.audit(model, check_quality=True, quality_threshold=0.1)
+```
+
+### Verification
+
+**Tests**
+
+- `tests/test_element_contracts.py`
+- `tests/test_mesh_quality.py`
+- `tests/test_validation.py`
+
+**Benchmarks**
+
+- None declared.
+
+**Validation rules**
+
+- Preserve scalar, vector, blocked, and mixed element identities.
+- Reject a solid displacement whose value shape differs from the Study dimension.
+- Separate verified runtime topology from conditional source import maturity.
+- Warn or fail on poor cells according to the explicit policy while always rejecting invalid cells.
+
+### References
+
+- UFL finite-element language: `https://docs.fenicsproject.org/ufl/main/`
+- Basix finite-element definitions: `https://docs.fenicsproject.org/basix/main/`
+- DOLFINx finite-element functionality: `https://docs.fenicsproject.org/dolfinx/main/python/generated/dolfinx.fem.html`
 
 <a id="agentfem-workflow-distributed_cohesive_force"></a>
 
