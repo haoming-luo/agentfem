@@ -242,18 +242,28 @@ def main() -> None:
         candidate_curve_sha256 = None
     candidate_curve_sha256 = comm.bcast(candidate_curve_sha256, root=0)
     elapsed_seconds = float(comm.allreduce(time.perf_counter() - started, op=MPI.MAX))
-    assessment = assess_external_curve(
-        candidate_load_factors=accepted_factors,
-        candidate_displacements=downward,
-        reference_load_factors=reference_load,
-        reference_displacements=reference_displacement,
-        reference_source_commit=source.get("commit"),
-        reference_solver_sha256=source.get("solver_sha256"),
-        reference_behaviour_sha256=source.get("behaviour_sha256"),
-        reference_curve_sha256=actual_reference_curve_sha256,
-        declared_reference_curve_sha256=declared_reference_curve_sha256,
-        convergence_evidence=evidence,
-    )
+    if failure is None:
+        assessment = assess_external_curve(
+            candidate_load_factors=accepted_factors,
+            candidate_displacements=downward,
+            reference_load_factors=reference_load,
+            reference_displacements=reference_displacement,
+            reference_source_commit=source.get("commit"),
+            reference_solver_sha256=source.get("solver_sha256"),
+            reference_behaviour_sha256=source.get("behaviour_sha256"),
+            reference_curve_sha256=actual_reference_curve_sha256,
+            declared_reference_curve_sha256=declared_reference_curve_sha256,
+            convergence_evidence=evidence,
+        )
+    else:
+        assessment = {
+            "status": "failed",
+            "accepted": False,
+            "reason": "candidate_solve_failed_before_complete_curve",
+            "accepted_prefix_points": len(accepted_factors),
+            "last_accepted_load_factor": float(accepted_factors[-1]),
+            "complete_curve_comparison_performed": False,
+        }
     manifest = {
         "schema": "agentfem.external-benchmark-candidate.v1",
         "benchmark": "lewandowski_2023_self_weight_beam",
