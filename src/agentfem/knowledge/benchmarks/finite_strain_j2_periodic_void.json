@@ -72,12 +72,28 @@
       }
     },
     "mesh_identity": {
+      "schema": "agentfem.mesh-portable-identity.v2",
       "topology_dimension": 3,
       "geometry_dimension": 3,
       "cell_type": "tetrahedron",
+      "coordinate_element": {
+        "kind": "geometry_identity",
+        "cell_type": "tetrahedron",
+        "topological_dimension": 3,
+        "geometric_dimension": 3,
+        "basis_family": "P",
+        "degree": 1,
+        "variant": "equispaced",
+        "mapping": "identity",
+        "nodes_per_cell": 4,
+        "high_order": false,
+        "embedded": false
+      },
       "global_cells": 493,
       "geometry_connectivity_hash": "f202c0239e46361d15b3e9f3d10df01b22f3eeae0fae4bf8d15e87131fc054aa",
-      "coordinate_key": "relative_bounds_scaled_int64"
+      "coordinate_key": "relative_bounds_scaled_int64",
+      "cell_node_order": "coordinate_sorted_partition_neutral",
+      "mesh_sha256": "933aba4985e3c67b4b486777411ec28c4bf9ad2d2e46b886ac5bbfeca2aef5db"
     },
     "scientific_input_fingerprint": "sha256:61755320e2b473318c040395f8744a3cef4464abccd715b9bc02b04406fe8725",
     "scientific_input": {

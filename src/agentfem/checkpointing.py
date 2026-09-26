@@ -3,10 +3,11 @@
 
 """Restart envelopes shared by transient finite-element procedures.
 
-Fast rank-local shards remain the default.  Schema v3 can additionally store
+Fast rank-local shards remain the default. Schema v4 can additionally store
 an explicit coordinate-keyed nodal state for restart across MPI partitions and
-rank counts; constitutive integration-point state is not implied by that
-portable nodal contract.
+rank counts, and binds both coordinate- and solution-element semantics;
+constitutive integration-point state is not implied by that portable nodal
+contract.
 """
 
 from __future__ import annotations
@@ -26,12 +27,12 @@ from mpi4py import MPI
 from . import fields
 
 
-TRANSIENT_CHECKPOINT_SCHEMA = "agentfem.transient-checkpoint.v3"
+TRANSIENT_CHECKPOINT_SCHEMA = "agentfem.transient-checkpoint.v4"
 HARMONIC_SWEEP_CHECKPOINT_SCHEMA = "agentfem.harmonic-sweep-checkpoint.v2"
 _LEGACY_TRANSIENT_CHECKPOINT_SCHEMAS = {
     "agentfem.transient-checkpoint.v1",
     "agentfem.transient-checkpoint.v2",
-    TRANSIENT_CHECKPOINT_SCHEMA,
+    "agentfem.transient-checkpoint.v3",
 }
 
 
@@ -598,7 +599,14 @@ def load_transient_checkpoint(
         )
     metadata = payload["metadata"]
     stored_schema = metadata.get("schema")
-    if stored_schema not in _LEGACY_TRANSIENT_CHECKPOINT_SCHEMAS:
+    if stored_schema in _LEGACY_TRANSIENT_CHECKPOINT_SCHEMAS:
+        raise ValueError(
+            "Legacy transient checkpoint identity does not bind the coordinate "
+            "and solution element semantics required by schema v4. Resume it "
+            "with the AgentFEM version that created it, then write a new "
+            "checkpoint; AgentFEM will not silently authorize that migration."
+        )
+    if stored_schema != TRANSIENT_CHECKPOINT_SCHEMA:
         raise ValueError("Unsupported transient checkpoint schema.")
     expected_procedure = (
         procedure.summary() if hasattr(procedure, "summary") else procedure
@@ -624,11 +632,7 @@ def load_transient_checkpoint(
         try:
             stored_identity = metadata["state_identity_by_rank"][comm.rank]
             for name, function in functions.items():
-                current_identity = (
-                    _legacy_function_partition_identity(function)
-                    if stored_schema == "agentfem.transient-checkpoint.v1"
-                    else function_partition_identity(function)
-                )
+                current_identity = function_partition_identity(function)
                 if stored_identity[name] != current_identity:
                     partition_compatible = False
         except (KeyError, IndexError, TypeError):
@@ -1113,7 +1117,11 @@ def function_portable_identity(function) -> dict[str, object]:
     local = _portable_local_field(function)
     counts = V.mesh.comm.allgather(int(len(local["coordinates"])))
     identity = {
+        "schema": "agentfem.function-portable-identity.v2",
+        # Keep the readable historical field while the structured identity
+        # owns compatibility decisions.
         "element": str(V.ufl_element()),
+        "element_identity": _function_element_identity(V),
         "value_shape": list(function.ufl_shape),
         "block_size": int(V.dofmap.index_map_bs),
         "global_block_dofs": int(sum(counts)),
@@ -1172,7 +1180,12 @@ def _owned_p1_input_node_ids(function) -> np.ndarray:
 
 
 def mesh_portable_identity(domain) -> dict[str, object]:
-    """Hash cell geometry independently of local numbering and partition."""
+    """Hash cell geometry independently of local numbering and partition.
+
+    The legacy connectivity digest is retained for human comparison with
+    historical benchmark records. Compatibility is owned by ``mesh_sha256``,
+    which additionally binds the active coordinate finite element.
+    """
 
     topology = domain.topology
     cell_map = topology.index_map(topology.dim)
@@ -1199,14 +1212,19 @@ def mesh_portable_identity(domain) -> dict[str, object]:
     digest.update(str(topology.cell_name()).encode("utf-8"))
     for signature in signatures:
         digest.update(signature.encode("ascii"))
-    return {
+    identity = {
+        "schema": "agentfem.mesh-portable-identity.v2",
         "topology_dimension": int(topology.dim),
         "geometry_dimension": int(domain.geometry.dim),
         "cell_type": str(topology.cell_name()),
+        "coordinate_element": _coordinate_element_identity(domain),
         "global_cells": int(len(signatures)),
         "geometry_connectivity_hash": digest.hexdigest(),
         "coordinate_key": "relative_bounds_scaled_int64",
+        "cell_node_order": "coordinate_sorted_partition_neutral",
     }
+    identity["mesh_sha256"] = _json_fingerprint(identity)
+    return identity
 
 
 def _coordinate_key_policy(domain) -> tuple[np.ndarray, float]:
@@ -1378,8 +1396,10 @@ def function_partition_identity(function) -> dict[str, object]:
     digest.update(np.asarray(cell_vertices.offsets).tobytes())
     cell_type = str(topology.cell_name())
     digest.update(cell_type.encode("utf-8"))
-    return {
+    identity = {
+        "schema": "agentfem.function-partition-identity.v2",
         "element": str(V.ufl_element()),
+        "element_identity": _function_element_identity(V),
         "value_shape": list(function.ufl_shape),
         "block_size": int(V.dofmap.index_map_bs),
         "owned_dofs": int(index_map.size_local),
@@ -1389,8 +1409,62 @@ def function_partition_identity(function) -> dict[str, object]:
         "mesh_topology_dimension": int(domain.topology.dim),
         "mesh_geometry_dimension": int(domain.geometry.dim),
         "mesh_cell_type": cell_type,
+        "coordinate_element": _coordinate_element_identity(domain),
         "mesh_partition_hash": digest.hexdigest(),
     }
+    identity["partition_sha256"] = _json_fingerprint(identity)
+    return identity
+
+
+def _function_element_identity(space) -> dict[str, object]:
+    """Return one JSON-stable, collective solution-element identity."""
+
+    from .elements import describe_element
+
+    return _collective_identity(
+        space.mesh.comm,
+        lambda: describe_element(space).summary(),
+        label="solution element",
+    )
+
+
+def _coordinate_element_identity(domain) -> dict[str, object]:
+    """Return one JSON-stable, collective coordinate-element identity."""
+
+    from .mesh.quality import describe_geometry
+
+    return _collective_identity(
+        domain.comm,
+        lambda: describe_geometry(domain).summary(),
+        label="coordinate element",
+    )
+
+
+def _collective_identity(comm, factory, *, label: str) -> dict[str, object]:
+    local = None
+    error = None
+    try:
+        local = json.loads(json.dumps(factory(), sort_keys=True))
+    except Exception as exc:  # pragma: no cover - malformed distributed input
+        error = f"{type(exc).__name__}: {exc}"
+    errors = tuple(comm.allgather(error))
+    if any(item is not None for item in errors):
+        reason = next(item for item in errors if item is not None)
+        raise RuntimeError(f"Cannot identify checkpoint {label}: {reason}")
+    identities = tuple(comm.allgather(local))
+    if any(item != identities[0] for item in identities[1:]):
+        raise RuntimeError(f"Checkpoint {label} differs across MPI ranks.")
+    return identities[0]
+
+
+def _json_fingerprint(value) -> str:
+    payload = json.dumps(
+        value,
+        allow_nan=False,
+        separators=(",", ":"),
+        sort_keys=True,
+    ).encode("utf-8")
+    return sha256(payload).hexdigest()
 
 
 def _legacy_function_partition_identity(function) -> dict[str, object]:
