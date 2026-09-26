@@ -70,6 +70,14 @@ _SOURCE_TEST_MAP = {
     ),
 }
 _CORE_SOURCE_TEST_MAP = {
+    "src/agentfem/_api_contract.py": (
+        "tests/test_documentation.py",
+        "tests/test_project_cli.py",
+    ),
+    "src/agentfem/_model_validation.py": (
+        "tests/test_element_contracts.py",
+        "tests/test_validation.py",
+    ),
     "src/agentfem/_solver_lifecycle.py": (
         "tests/test_prepared_linear_problem.py",
         "tests/test_harmonic.py",
@@ -133,7 +141,16 @@ _CORE_SOURCE_TEST_MAP = {
         "tests/test_results.py",
         "tests/test_harmonic.py",
     ),
+    "src/agentfem/elements/": (
+        "tests/test_element_contracts.py",
+        "tests/test_validation.py",
+    ),
     "src/agentfem/fracture": ("tests/test_fracture_v5.py",),
+    "src/agentfem/mesh/": (
+        "tests/test_element_contracts.py",
+        "tests/test_mesh_formats.py",
+        "tests/test_mesh_quality.py",
+    ),
     "src/agentfem/operators/": (
         "tests/test_operators.py",
         "tests/test_common_workflows.py",
@@ -159,6 +176,9 @@ _CORE_SOURCE_TEST_MAP = {
     ),
 }
 _CORE_SOURCE_MPI_TEST_MAP = {
+    "src/agentfem/_model_validation.py": (
+        "tests/test_element_contracts.py",
+    ),
     "src/agentfem/_hybrid_nonlinear.py": (
         "tests/test_parallel_mixed.py",
     ),
@@ -196,7 +216,9 @@ _CORE_SOURCE_MPI_TEST_MAP = {
     "src/agentfem/mechanics/harmonic.py": (
         "tests/test_parallel_viscoelasticity.py",
     ),
+    "src/agentfem/elements/": ("tests/test_element_contracts.py",),
     "src/agentfem/fracture": ("tests/test_parallel_cohesive.py",),
+    "src/agentfem/mesh/": ("tests/test_element_contracts.py",),
     "src/agentfem/solvers.py": (
         "tests/test_parallel_affine.py",
         "tests/test_parallel_results.py",
