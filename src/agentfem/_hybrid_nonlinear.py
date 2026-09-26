@@ -44,11 +44,10 @@ class PreparedHybridNonlinearProblem:
         bcs=None,
         jacobian_form=None,
         preconditioner_form=None,
-        options=None,
+        options,
+        solve_info_factory,
         petsc_options_prefix: str = "agentfem_hybrid_nonlinear_",
     ) -> None:
-        from agentfem.solvers import NonlinearSolverOptions, NewtonSolverOptions
-
         if not isinstance(solution, fem.Function):
             raise TypeError("solution must be a dolfinx.fem.Function.")
         if not petsc_options_prefix:
@@ -62,12 +61,15 @@ class PreparedHybridNonlinearProblem:
                         f"Every contribution must provide callable {method}()."
                     )
         self.bcs = [] if bcs is None else list(bcs)
-        self.options = options or NonlinearSolverOptions(
-            ksp_type="gmres",
-            pc_type="lu",
-        )
-        if isinstance(self.options, NewtonSolverOptions):
-            self.options = self.options.for_snes()
+        if options is None or not callable(getattr(options, "petsc_options", None)):
+            raise TypeError(
+                "PreparedHybridNonlinearProblem requires a normalized nonlinear "
+                "solver policy exposing petsc_options()."
+            )
+        if not callable(solve_info_factory):
+            raise TypeError("solve_info_factory must be callable.")
+        self.options = options
+        self._solve_info_factory = solve_info_factory
         if self.contributions and self.options.ksp_type.lower() == "preonly":
             raise ValueError(
                 "A hybrid matrix-free Jacobian requires an iterative KSP; "
@@ -229,8 +231,6 @@ class PreparedHybridNonlinearProblem:
     def solve(self):
         """Solve in place and return the field plus structured convergence."""
 
-        from agentfem.solvers import NonlinearSolveInfo
-
         if self._closed:
             raise RuntimeError("PreparedHybridNonlinearProblem is closed.")
         accepted = self.solution.x.array.copy()
@@ -244,7 +244,7 @@ class PreparedHybridNonlinearProblem:
             raise
         linear_info = self._capture_linear_solve()
         self.solution.x.scatter_forward()
-        info = NonlinearSolveInfo(
+        info = self._solve_info_factory(
             converged_reason=int(self.solver.getConvergedReason()),
             iterations=int(self.solver.getIterationNumber()),
             function_norm=float(self.solver.getFunctionNorm()),

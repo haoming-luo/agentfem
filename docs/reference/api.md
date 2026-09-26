@@ -333,6 +333,9 @@ and evidence remain in the linked guides and scientific function reference.
 | function | `load_portable_quadrature_state(path, state, *, material = None) -> None` | Collectively restore committed state under a changed MPI partition. |
 | function | `save_portable_quadrature_state(path, state, *, material = None) -> Path` | Collectively save committed state by physical cell and point identity. |
 | class | `AbaqusUserMaterialBridge` | Truthful capability description for an intended UMAT/UHYPER adapter. |
+| class | `BatchedUserMaterial` | Optional vectorized extension of the scalar finite-strain contract. |
+| class | `MaterialPointBatchInput` | Ordered finite-strain material-point updates for one atomic call. |
+| class | `MaterialPointBatchOutput` | Ordered responses from one finite-strain provider batch call. |
 | class | `MaterialPointInput` | Solver-neutral finite-strain input for one material-point update. |
 | class | `MaterialPointOutput` | Constitutive response returned to a nonlinear finite-element driver. |
 | class | `MaterialStateSchema` | Named layout for portable, auditable material internal variables. |
@@ -341,6 +344,7 @@ and evidence remain in the linked guides and scientific function reference.
 | class | `MaterialTangentConvention` | Declared stress/kinematic pair represented by a material Jacobian. |
 | class | `UserMaterial` | Protocol implemented by native or adapted material-point models. |
 | function | `check_material_tangent(material: UserMaterial, point: MaterialPointInput, *, relative_step: float = 1e-07, tolerance: float = 1e-05) -> MaterialTangentCheck` | Compare a declared ``dP/dF`` against fixed-state finite differences. |
+| function | `validated_material_batch_update(material: UserMaterial, request: MaterialPointBatchInput) -> MaterialPointBatchOutput` | Evaluate a provider batch, falling back to the scalar contract. |
 | function | `validated_material_update(material: UserMaterial, point: MaterialPointInput) -> MaterialPointOutput` | Run one material update and verify the complete solver contract. |
 | class | `MaterialApplicabilityError(status: str, message: str) -> None` | A material refused to extrapolate or accepted state was invalid. |
 | class | `MaterialParameter` | One named, unit-aware constitutive parameter. |
@@ -804,6 +808,7 @@ and evidence remain in the linked guides and scientific function reference.
 
 | Kind | Public object | Purpose |
 | --- | --- | --- |
+| class | `SolveEvent` | One backend-neutral observation from an analysis procedure. |
 | class | `FirstPassageEvent` | One threshold event with explicit localization and censoring evidence. |
 | function | `first_passage(abscissa, values = None, *, threshold: float, direction: EventDirection = 'rising', localization: str = 'linear', component: int \| tuple[int, ...] \| None = None, name: str = 'first_passage', coordinate_name: str \| None = None, coordinate_unit: str \| None = None, value_name: str \| None = None, value_unit: str \| None = None) -> FirstPassageEvent` | Locate the first threshold crossing in a history or numeric arrays. |
 
@@ -901,8 +906,6 @@ and evidence remain in the linked guides and scientific function reference.
 | class | `CrackPropagationFit` | Representative crack speed fitted across a declared path interval. |
 | class | `InterfaceFrontHistory` | Front position and fitted speed for one declared interface signal. |
 | class | `CohesiveFrontEnsemble` | Crack-front evidence from multiple thresholds and physical signals. |
-| class | `CohesiveInterfaceTrace` | Portable accepted-frame record on one fixed cohesive interface. |
-| class | `ScientificComparison` | Common scalar evidence for a simulation-to-observation comparison. |
 | class | `PreloadTransferReport` | Evidence for a quasi-static displacement to Explicit state transfer. |
 | function | `transfer_preload_to_explicit(preload_displacement, *, state, mass, residual, initial_velocity = None, mode: str = 'equilibrium', force_tolerance: float = 1e-08, acceleration_projection = None, energy_monitor = None, source_energy: float \| None = None, source_step: str \| None = None, destination_step: str \| None = None) -> PreloadTransferReport` | Initialize ``u/v/a`` consistently from a quasi-static preload state. |
 | function | `cohesive_crack_tip(path_coordinate, damage, *, threshold: float = 0.95, direction: str = 'increasing') -> float` | Locate the contiguous crack front by interpolating a damage threshold. |
@@ -918,6 +921,9 @@ and evidence remain in the linked guides and scientific function reference.
 | function | `separation_regime(*, crack_speed: float, rayleigh_wave_speed: float, shear_wave_speed: float, failed_fraction: float, simultaneous_failed_fraction: float, spall_fraction: float = 0.8, rapid_failed_fraction: float \| None = None, ligament_traction_ratio: float \| None = None, pressure_wave_speed: float \| None = None) -> str` | Classify one frame with explicit crack-speed and spall evidence. |
 | function | `estimate_stable_time_increment(*, characteristic_length, dilatational_speed: float, safety_factor: float = 0.8, interface_stiffness: float \| None = None, interface_area: float \| None = None, negative_mass: float \| None = None, positive_mass: float \| None = None) -> StableTimeIncrement` | Estimate explicit stability from body transit and interface oscillator. |
 | function | `minimum_cell_nodal_spacing(domain) -> float` | Return an MPI-global conservative spacing from cell geometry nodes. |
+| class | `CohesiveInterfaceTrace` | Portable accepted-frame record on one fixed cohesive interface. |
+| class | `DynamicFractureEvidenceBundle` | Trace, fields, energies, comparisons, and provenance for one condition. |
+| class | `ScientificComparison` | Common scalar evidence for a simulation-to-observation comparison. |
 
 ## `agentfem.histories`
 
@@ -1093,10 +1099,10 @@ and evidence remain in the linked guides and scientific function reference.
 | function | `robin_source_vector(target, coefficient, reference_value, *, measure = None, location = None) -> OperatorForm` | Create the Robin environment vector ``F_R = integral(h x_ref test)``. |
 | function | `scale(operator, factor, *, name: str \| None = None, kind: str \| None = None) -> OperatorForm` | Scale an operator or vector form while preserving its engineering role. |
 | function | `source_vector(source, target, *, measure = ufl.dx) -> OperatorForm` | Create a scalar or vector source/load vector for a target unknown. |
-| function | `stiffness(field, properties = None, *, law = None, study = None, temperature = None, measure = ufl.dx) -> OperatorForm` | Create the primary stiffness-like operator ``K`` for an unknown field. |
 | function | `quadratic_form(operator, field) -> float` | Return the algebraic scalar ``field^T operator field``. |
 | function | `xtmx(field, operator) -> float` | Cast3M-style alias for ``field^T operator field``. |
 | function | `xtmy(left, operator, right) -> float` | Cast3M-style alias for ``left^T operator right``. |
+| function | `stiffness(field, properties = None, *, law = None, study = None, temperature = None, measure = ufl.dx) -> OperatorForm` | Create the primary stiffness-like operator ``K`` for an unknown field. |
 | class | `CellGradientEnergyOperator` | Quadratic energy and exact first/second actions for a cell field. |
 | function | `cell_gradient_energy(gradient: CellGradientOperator, *, cell_weights, stiffness = 1.0) -> CellGradientEnergyOperator` | Create one quadratic matrix-free energy from a cached gradient. |
 | class | `CellAverageGradientOperator` | Map a FEM field to DG0 cell-average gradients and apply its transpose. |
@@ -1181,7 +1187,6 @@ and evidence remain in the linked guides and scientific function reference.
 | class | `AffineNewtonOptions` | Newton policy for an affine-reduced nonlinear equilibrium path. |
 | class | `AffineLoadIncrementInfo` | Convergence evidence for one macroscopic load increment. |
 | class | `AffineLoadPathInfo` | Convergence evidence for an incrementally applied affine constraint. |
-| class | `SolveEvent` | One structured event emitted by an analysis procedure. |
 | function | `create_ksp(comm, options: LinearSolverOptions \| None = None)` | Create and configure a PETSc KSP object. |
 | class | `LinearSolveInfo` | PETSc KSP convergence evidence for one linear system solve. |
 | class | `PreparedLinearProblem(bilinear_form, linear_form, solution, *, bcs = None, bc_assembly: str = 'lifting', options: LinearSolverOptions \| None = None)` | A linear problem whose constant matrix and KSP are assembled once. |

@@ -36,5 +36,15 @@ class PreparedSolve(Protocol[SolveValue]):
 
         ...
 
+    def __enter__(self) -> "PreparedSolve[SolveValue]":
+        """Enter the explicit ownership scope while the allocation is open."""
+
+        ...
+
+    def __exit__(self, exc_type, exc, traceback) -> bool:
+        """Close the allocation on every terminal path."""
+
+        ...
+
 
 __all__ = ["PreparedSolve"]

@@ -48,9 +48,165 @@ _TARGETED_PREFIXES = (
     ".github/",
     "examples/",
     "services/",
+    "src/agentfem/campaigns/",
+    "src/agentfem/datasets/",
     "src/agentfem/integrations/",
     "src/agentfem/knowledge/",
+    "src/agentfem/surrogates/",
 )
+_SOURCE_TEST_MAP = {
+    "src/agentfem/campaigns/": ("tests/test_campaigns.py",),
+    "src/agentfem/datasets/": (
+        "tests/test_datasets.py",
+        "tests/test_field_datasets.py",
+    ),
+    "src/agentfem/surrogates/": ("tests/test_surrogates.py",),
+    "src/agentfem/feedback.py": ("tests/test_feedback.py",),
+    "src/agentfem/community.py": ("tests/test_community.py",),
+    "src/agentfem/project.py": ("tests/test_project_cli.py",),
+    "src/agentfem/cli.py": (
+        "tests/test_project_cli.py",
+        "tests/test_common_workflows.py",
+    ),
+}
+_CORE_SOURCE_TEST_MAP = {
+    "src/agentfem/_solver_lifecycle.py": (
+        "tests/test_prepared_linear_problem.py",
+        "tests/test_harmonic.py",
+    ),
+    "src/agentfem/_hybrid_nonlinear.py": (
+        "tests/test_hybrid_nonlinear.py",
+    ),
+    "src/agentfem/_nonlinear_problems.py": (
+        "tests/test_common_workflows.py",
+        "tests/test_p1_platform.py",
+    ),
+    "src/agentfem/_transient_problems.py": (
+        "tests/test_common_workflows.py",
+        "tests/test_transient_heat_decay_workflow.py",
+        "tests/test_transient_restart.py",
+    ),
+    "src/agentfem/constitutive/user_material.py": (
+        "tests/test_user_material.py",
+    ),
+    "src/agentfem/constitutive/__init__.py": (
+        "tests/test_constitutive_models.py",
+        "tests/test_user_material.py",
+    ),
+    "src/agentfem/constitutive/material_driver.py": (
+        "tests/test_user_material.py",
+        "tests/test_finite_strain_plasticity.py",
+        "tests/test_finite_strain_j2_material_map.py",
+    ),
+    "src/agentfem/mechanics/_incremental_runtime.py": (
+        "tests/test_incremental_runtime.py",
+        "tests/test_small_strain_material_step.py",
+        "tests/test_p1_platform.py",
+        "tests/test_viscoelasticity.py",
+    ),
+    "src/agentfem/mechanics/small_strain_material.py": (
+        "tests/test_small_strain_material_step.py",
+        "tests/test_learned_constitutive.py",
+    ),
+    "src/agentfem/mechanics/plasticity.py": (
+        "tests/test_external_inelastic_benchmark.py",
+        "tests/test_p1_platform.py",
+    ),
+    "src/agentfem/mechanics/creep.py": (
+        "tests/test_external_inelastic_benchmark.py",
+        "tests/test_p1_platform.py",
+    ),
+    "src/agentfem/mechanics/viscoelasticity.py": (
+        "tests/test_viscoelasticity.py",
+    ),
+    "src/agentfem/mechanics/finite_strain_plasticity.py": (
+        "tests/test_finite_strain_j2_mixed.py",
+        "tests/test_finite_strain_j2_periodic.py",
+        "tests/test_finite_strain_j2_standard.py",
+    ),
+    "src/agentfem/mechanics/harmonic.py": (
+        "tests/test_harmonic.py",
+        "tests/test_harmonic_backend_evidence.py",
+    ),
+    "src/agentfem/events.py": (
+        "tests/test_solvers.py",
+        "tests/test_results.py",
+        "tests/test_harmonic.py",
+    ),
+    "src/agentfem/fracture": ("tests/test_fracture_v5.py",),
+    "src/agentfem/operators/": (
+        "tests/test_operators.py",
+        "tests/test_common_workflows.py",
+    ),
+    "src/agentfem/problems.py": (
+        "tests/test_common_workflows.py",
+        "tests/test_results.py",
+    ),
+    "src/agentfem/results": (
+        "tests/test_results.py",
+    ),
+    "src/agentfem/solvers.py": (
+        "tests/test_solvers.py",
+        "tests/test_prepared_linear_problem.py",
+        "tests/test_common_workflows.py",
+    ),
+    "src/agentfem/step_providers.py": (
+        "tests/test_common_workflows.py",
+        "tests/test_validation.py",
+    ),
+    "src/agentfem/_architecture_contract.py": (
+        "tests/test_architecture_contract.py",
+    ),
+}
+_CORE_SOURCE_MPI_TEST_MAP = {
+    "src/agentfem/_hybrid_nonlinear.py": (
+        "tests/test_parallel_mixed.py",
+    ),
+    "src/agentfem/_nonlinear_problems.py": (
+        "tests/test_parallel_affine.py",
+        "tests/test_parallel_inelastic.py",
+    ),
+    "src/agentfem/_transient_problems.py": (
+        "tests/test_parallel_transient.py",
+    ),
+    "src/agentfem/constitutive/material_driver.py": (
+        "tests/test_parallel_inelastic.py",
+    ),
+    "src/agentfem/mechanics/_incremental_runtime.py": (
+        "tests/test_parallel_inelastic.py",
+        "tests/test_parallel_viscoelasticity.py",
+    ),
+    "src/agentfem/mechanics/small_strain_material.py": (
+        "tests/test_parallel_learning.py",
+        "tests/test_parallel_inelastic.py",
+    ),
+    "src/agentfem/mechanics/plasticity.py": (
+        "tests/test_parallel_inelastic.py",
+    ),
+    "src/agentfem/mechanics/creep.py": (
+        "tests/test_parallel_inelastic.py",
+    ),
+    "src/agentfem/mechanics/viscoelasticity.py": (
+        "tests/test_parallel_viscoelasticity.py",
+    ),
+    "src/agentfem/mechanics/finite_strain_plasticity.py": (
+        "tests/test_parallel_inelastic.py",
+        "tests/test_parallel_mixed.py",
+    ),
+    "src/agentfem/mechanics/harmonic.py": (
+        "tests/test_parallel_viscoelasticity.py",
+    ),
+    "src/agentfem/fracture": ("tests/test_parallel_cohesive.py",),
+    "src/agentfem/solvers.py": (
+        "tests/test_parallel_affine.py",
+        "tests/test_parallel_results.py",
+    ),
+    "src/agentfem/problems.py": (
+        "tests/test_parallel_results.py",
+        "tests/test_parallel_transient.py",
+    ),
+    "src/agentfem/results": ("tests/test_parallel_results.py",),
+}
 _ML_PREFIXES = (
     "src/agentfem/learning",
     "src/agentfem/datasets",
@@ -64,6 +220,7 @@ _ML_PREFIXES = (
 class ValidationScope:
     level: str
     tests: tuple[str, ...] = ()
+    mpi_tests: tuple[str, ...] = ()
     ml: bool = False
 
     @property
@@ -76,6 +233,7 @@ class ValidationScope:
             "numerical": str(self.numerical).lower(),
             "ml": str(self.ml).lower(),
             "tests": " ".join(self.tests),
+            "mpi_tests": " ".join(self.mpi_tests),
         }
 
 
@@ -140,15 +298,48 @@ def classify_changes(
     level = "docs"
     for path in normalized:
         level = _at_least(level, _path_level(path))
-    tests = tuple(
-        sorted(
-            path
-            for path in normalized
-            if path.startswith("tests/test_") and path.endswith(".py")
-        )
-    )
+    selected_tests = {
+        path
+        for path in normalized
+        if path.startswith("tests/test_") and path.endswith(".py")
+    }
+    mpi_tests: set[str] = set()
+    unmapped_core_source = False
+    if level in {"targeted", "core"}:
+        for path in normalized:
+            for prefix, mapped_tests in _SOURCE_TEST_MAP.items():
+                if path == prefix or path.startswith(prefix):
+                    selected_tests.update(mapped_tests)
+            for prefix, mapped_tests in _CORE_SOURCE_TEST_MAP.items():
+                if path == prefix or path.startswith(prefix):
+                    selected_tests.update(mapped_tests)
+            for prefix, mapped_tests in _CORE_SOURCE_MPI_TEST_MAP.items():
+                if path == prefix or path.startswith(prefix):
+                    mpi_tests.update(mapped_tests)
+            if (
+                level == "core"
+                and path.startswith("src/agentfem/")
+                and _path_level(path) == "core"
+                and not any(
+                    path == prefix or path.startswith(prefix)
+                    for prefix in _CORE_SOURCE_TEST_MAP
+                )
+            ):
+                unmapped_core_source = True
+    if unmapped_core_source:
+        # An unknown core owner cannot be covered by an invented partial set;
+        # fail safe to the complete release evidence ladder.
+        level = "release"
+        selected_tests.clear()
+        mpi_tests.clear()
+    tests = tuple(sorted(selected_tests))
     ml = level == "release" or any(path.startswith(_ML_PREFIXES) for path in normalized)
-    return ValidationScope(level, tests=tests, ml=ml)
+    return ValidationScope(
+        level,
+        tests=tests,
+        mpi_tests=tuple(sorted(mpi_tests)),
+        ml=ml,
+    )
 
 
 def changed_paths(base: str, head: str) -> list[str]:

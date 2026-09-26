@@ -26,6 +26,7 @@ from agentfem import (
     verification,
 )
 from agentfem.constitutive import elasticity
+from agentfem._solver_lifecycle import PreparedSolve
 from agentfem.kernel import dofs as dof_api
 from agentfem.solvers import SolveEvent
 from agentfem.results.finite_strain import HomogenizedFrame
@@ -1045,6 +1046,8 @@ def test_prepared_projection_reuses_one_mass_operator_for_live_fields():
         degree=0,
         name="LIVE_RECOVERY",
     ) as prepared:
+        assert isinstance(prepared, PreparedSolve)
+        assert not prepared.closed
         output = prepared.solve()
         first = output.x.array.copy()
         source.x.array[:] *= 2.0
@@ -1057,6 +1060,18 @@ def test_prepared_projection_reuses_one_mass_operator_for_live_fields():
             "solve_count": 2,
             "field_name": "LIVE_RECOVERY",
         }
+
+    assert prepared.closed
+    assert prepared.summary() == {
+        "kind": "prepared_l2_projection",
+        "matrix_reused": True,
+        "solve_count": 2,
+        "field_name": "LIVE_RECOVERY",
+    }
+    with pytest.raises(RuntimeError, match="PreparedProjection is closed"):
+        prepared.solve()
+    with pytest.raises(RuntimeError, match="PreparedProjection is closed"):
+        prepared.__enter__()
 
 
 def test_prepared_projection_rejects_mutable_weight_but_one_shot_reassembles():

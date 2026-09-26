@@ -476,6 +476,54 @@ class MaterialPointOutput:
         }
 
 
+@dataclass(frozen=True)
+class MaterialPointBatchInput:
+    """Ordered finite-strain material-point updates for one atomic call.
+
+    Providers may implement ``update_batch`` to evaluate all local integration
+    points together.  The scalar ``update`` protocol remains the compatibility
+    floor, so native, compiled, and learned materials share one public
+    transaction without making batching mandatory.
+    """
+
+    points: tuple[MaterialPointInput, ...]
+
+    def __post_init__(self) -> None:
+        points = tuple(self.points)
+        if not points:
+            raise ValueError("A material-point batch must contain at least one point.")
+        if any(not isinstance(point, MaterialPointInput) for point in points):
+            raise TypeError(
+                "Every material-point batch entry must be a MaterialPointInput."
+            )
+        object.__setattr__(self, "points", points)
+
+    @property
+    def point_count(self) -> int:
+        return len(self.points)
+
+
+@dataclass(frozen=True)
+class MaterialPointBatchOutput:
+    """Ordered responses from one finite-strain provider batch call."""
+
+    responses: tuple[MaterialPointOutput, ...]
+
+    def __post_init__(self) -> None:
+        responses = tuple(self.responses)
+        if not responses:
+            raise ValueError("A material-point batch response must not be empty.")
+        if any(not isinstance(item, MaterialPointOutput) for item in responses):
+            raise TypeError(
+                "Every material-point batch response must be a MaterialPointOutput."
+            )
+        object.__setattr__(self, "responses", responses)
+
+    @property
+    def point_count(self) -> int:
+        return len(self.responses)
+
+
 @runtime_checkable
 class UserMaterial(Protocol):
     """Protocol implemented by native or adapted material-point models."""
@@ -486,6 +534,37 @@ class UserMaterial(Protocol):
 
     def update(self, point: MaterialPointInput) -> MaterialPointOutput:
         """Advance one integration point and return stress, state, and tangent."""
+
+
+@runtime_checkable
+class BatchedUserMaterial(UserMaterial, Protocol):
+    """Optional vectorized extension of the scalar finite-strain contract."""
+
+    def update_batch(
+        self,
+        request: MaterialPointBatchInput,
+    ) -> MaterialPointBatchOutput:
+        """Advance one ordered local batch without committing global state."""
+
+
+def _validated_material_response(
+    material: UserMaterial,
+    point: MaterialPointInput,
+    response: MaterialPointOutput,
+) -> MaterialPointOutput:
+    """Validate one already-computed response without evaluating it again."""
+
+    if not isinstance(response, MaterialPointOutput):
+        raise TypeError(
+            "User material update methods must return MaterialPointOutput values."
+        )
+    response.require_global_newton_contract()
+    if response.state_schema.identity != material.state_schema.identity:
+        raise ValueError("Material response changed the declared state schema.")
+    if response.tangent_convention != material.tangent_convention:
+        raise ValueError("Material response changed the declared tangent convention.")
+    material.state_schema.validate(response.state_new, label="state_new")
+    return response
 
 
 def validated_material_update(
@@ -506,16 +585,68 @@ def validated_material_update(
             "Material-point input state schema does not match the material."
         )
     material.state_schema.validate(point.state_old, label="state_old")
-    response = material.update(point)
-    if not isinstance(response, MaterialPointOutput):
-        raise TypeError("User material update() must return MaterialPointOutput.")
-    response.require_global_newton_contract()
-    if response.state_schema.identity != material.state_schema.identity:
-        raise ValueError("Material response changed the declared state schema.")
-    if response.tangent_convention != material.tangent_convention:
-        raise ValueError("Material response changed the declared tangent convention.")
-    material.state_schema.validate(response.state_new, label="state_new")
-    return response
+    return _validated_material_response(material, point, material.update(point))
+
+
+def validated_material_batch_update(
+    material: UserMaterial,
+    request: MaterialPointBatchInput,
+) -> MaterialPointBatchOutput:
+    """Evaluate a provider batch, falling back to the scalar contract.
+
+    The function validates all inputs before entering provider code and all
+    outputs before returning any response.  It therefore composes with the
+    quadrature driver's trial/commit/rollback transaction and never exposes a
+    partially accepted batch.
+    """
+
+    if not isinstance(material, UserMaterial):
+        raise TypeError(
+            "User material must declare name, state_schema, tangent_convention, "
+            "and update()."
+        )
+    if not isinstance(request, MaterialPointBatchInput):
+        raise TypeError("request must be a MaterialPointBatchInput.")
+    for point in request.points:
+        if point.state_schema is not None and (
+            point.state_schema.identity != material.state_schema.identity
+        ):
+            raise ValueError(
+                "Material-point input state schema does not match the material."
+            )
+        material.state_schema.validate(point.state_old, label="state_old")
+
+    if isinstance(material, BatchedUserMaterial):
+        returned = material.update_batch(request)
+        if isinstance(returned, MaterialPointBatchOutput):
+            candidate = returned
+        else:
+            try:
+                candidate = MaterialPointBatchOutput(tuple(returned))
+            except TypeError as exc:
+                raise TypeError(
+                    "User material update_batch() must return "
+                    "MaterialPointBatchOutput or an iterable of "
+                    "MaterialPointOutput values."
+                ) from exc
+    else:
+        candidate = MaterialPointBatchOutput(
+            tuple(material.update(point) for point in request.points)
+        )
+    if candidate.point_count != request.point_count:
+        raise ValueError(
+            "Material batch response count does not match the request count."
+        )
+    return MaterialPointBatchOutput(
+        tuple(
+            _validated_material_response(material, point, response)
+            for point, response in zip(
+                request.points,
+                candidate.responses,
+                strict=True,
+            )
+        )
+    )
 
 
 @dataclass(frozen=True)

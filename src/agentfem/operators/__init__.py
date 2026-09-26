@@ -48,11 +48,11 @@ from .core import (
     robin_source_vector,
     scale,
     source_vector,
-    stiffness,
     quadratic_form,
     xtmx,
     xtmy,
 )
+from .dispatch import stiffness
 from .cell_gradient import CellGradientEnergyOperator, cell_gradient_energy
 from .cell_transfer import (
     CellAverageGradientOperator,

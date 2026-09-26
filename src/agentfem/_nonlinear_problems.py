@@ -22,11 +22,11 @@ from petsc4py import PETSc
 
 from ._problem_fields import reaction_field as _reaction_field
 from .constraints.affine import AffineConstraintDualHistory
+from .events import SolveEvent
 from .solvers import (
     AffineNewtonOptions,
     NewtonSolverOptions,
     NonlinearSolverOptions,
-    SolveEvent,
     solve_affine_nonlinear_path,
     solve_nonlinear_problem,
 )

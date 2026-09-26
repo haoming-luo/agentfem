@@ -5,12 +5,15 @@ import pytest
 
 from agentfem.constitutive.user_material import (
     AbaqusUserMaterialBridge,
+    MaterialPointBatchInput,
+    MaterialPointBatchOutput,
     MaterialPointInput,
     MaterialPointOutput,
     MaterialStateSchema,
     MaterialStateVariable,
     MaterialTangentConvention,
     check_material_tangent,
+    validated_material_batch_update,
     validated_material_update,
 )
 
@@ -172,6 +175,116 @@ def test_validated_material_update_fails_closed_on_contract_drift():
 
     with pytest.raises(ValueError, match="changed the declared state schema"):
         validated_material_update(DriftingMaterial(), point)
+
+
+def test_finite_strain_batch_contract_prefers_provider_batch_and_validates_all():
+    schema = MaterialStateSchema(
+        "batch_state",
+        (MaterialStateVariable("history"),),
+    )
+    convention = MaterialTangentConvention.first_piola_deformation_gradient()
+
+    class BatchMaterial:
+        name = "vectorized finite-strain material"
+        state_schema = schema
+        tangent_convention = convention
+
+        def __init__(self):
+            self.batch_calls = 0
+            self.scalar_calls = 0
+
+        def update(self, point):
+            self.scalar_calls += 1
+            return self._response(point)
+
+        def update_batch(self, request):
+            self.batch_calls += 1
+            return MaterialPointBatchOutput(
+                tuple(self._response(point) for point in request.points)
+            )
+
+        def _response(self, point):
+            return MaterialPointOutput(
+                cauchy_stress=np.eye(3) * point.deformation_gradient_new[0, 0],
+                consistent_tangent=np.eye(9),
+                state_new=point.state_old + 1.0,
+                tangent_convention=self.tangent_convention,
+                state_schema=self.state_schema,
+            )
+
+    points = tuple(
+        MaterialPointInput(
+            deformation_gradient_old=np.eye(3),
+            deformation_gradient_new=np.diag([stretch, 1.0, 1.0]),
+            time=0.0,
+            time_increment=0.1,
+            properties=(),
+            state_old=[0.0],
+            state_schema=schema,
+        )
+        for stretch in (1.01, 1.02, 1.03)
+    )
+    material = BatchMaterial()
+    response = validated_material_batch_update(
+        material,
+        MaterialPointBatchInput(points),
+    )
+
+    assert material.batch_calls == 1
+    assert material.scalar_calls == 0
+    assert response.point_count == 3
+    assert [item.state_new[0] for item in response.responses] == [1.0, 1.0, 1.0]
+
+    class WrongCount(BatchMaterial):
+        def update_batch(self, request):
+            return MaterialPointBatchOutput((self._response(request.points[0]),))
+
+    with pytest.raises(ValueError, match="count does not match"):
+        validated_material_batch_update(
+            WrongCount(),
+            MaterialPointBatchInput(points),
+        )
+
+
+def test_finite_strain_batch_contract_preserves_scalar_provider_compatibility():
+    schema = MaterialStateSchema("empty_batch_state")
+    convention = MaterialTangentConvention.first_piola_deformation_gradient()
+
+    class ScalarMaterial:
+        name = "scalar finite-strain material"
+        state_schema = schema
+        tangent_convention = convention
+
+        def __init__(self):
+            self.calls = 0
+
+        def update(self, point):
+            self.calls += 1
+            return MaterialPointOutput(
+                cauchy_stress=np.zeros((3, 3)),
+                consistent_tangent=np.eye(9),
+                state_new=(),
+                tangent_convention=self.tangent_convention,
+                state_schema=self.state_schema,
+            )
+
+    point = MaterialPointInput(
+        deformation_gradient_old=np.eye(3),
+        deformation_gradient_new=np.eye(3),
+        time=0.0,
+        time_increment=0.1,
+        properties=(),
+        state_old=(),
+        state_schema=schema,
+    )
+    material = ScalarMaterial()
+    response = validated_material_batch_update(
+        material,
+        MaterialPointBatchInput((point, point)),
+    )
+
+    assert material.calls == 2
+    assert response.point_count == 2
 
 
 def test_first_piola_material_tangent_check_matches_discrete_update():

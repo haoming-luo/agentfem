@@ -22,6 +22,171 @@ from .provenance import seal_manifest, verify_manifest
 _SCHEMA = "agentfem.dynamic-fracture-evidence.v1"
 
 
+@dataclass(frozen=True)
+class CohesiveInterfaceTrace:
+    """Portable accepted-frame record on one fixed cohesive interface."""
+
+    time: np.ndarray
+    path_coordinate: np.ndarray
+    opening: np.ndarray
+    traction: np.ndarray
+    damage: np.ndarray
+    dissipated_energy_density: np.ndarray
+    tangential_jump: np.ndarray | None = None
+    tangential_traction: np.ndarray | None = None
+    mode_mixity: np.ndarray | None = None
+    metadata: dict[str, object] | None = None
+
+    def __post_init__(self) -> None:
+        time = np.asarray(self.time, dtype=float)
+        coordinate = np.asarray(self.path_coordinate, dtype=float)
+        if time.ndim != 1 or time.size < 1 or np.any(~np.isfinite(time)):
+            raise ValueError("Cohesive trace time must be a finite 1D array.")
+        if time.size > 1 and np.any(np.diff(time) <= 0.0):
+            raise ValueError("Cohesive trace time must be strictly increasing.")
+        if (
+            coordinate.ndim != 1
+            or coordinate.size < 1
+            or np.any(~np.isfinite(coordinate))
+        ):
+            raise ValueError("Cohesive trace coordinates must be a finite 1D array.")
+        shape = (time.size, coordinate.size)
+        arrays = {}
+        for name in ("opening", "traction", "damage", "dissipated_energy_density"):
+            values = np.asarray(getattr(self, name), dtype=float)
+            if values.shape != shape or np.any(~np.isfinite(values)):
+                raise ValueError(
+                    f"Cohesive trace {name} must have shape {shape} and be finite."
+                )
+            arrays[name] = values.copy()
+        vector_arrays = {}
+        for name in ("tangential_jump", "tangential_traction"):
+            declared = getattr(self, name)
+            if declared is None:
+                continue
+            values = np.asarray(declared, dtype=float)
+            if (
+                values.ndim != 3
+                or values.shape[:2] != shape
+                or np.any(~np.isfinite(values))
+            ):
+                raise ValueError(
+                    f"Cohesive trace {name} must have shape "
+                    f"{shape}+(components,) and be finite."
+                )
+            vector_arrays[name] = values.copy()
+        scalar_optional = None
+        if self.mode_mixity is not None:
+            scalar_optional = np.asarray(self.mode_mixity, dtype=float)
+            if scalar_optional.shape != shape or np.any(~np.isfinite(scalar_optional)):
+                raise ValueError(
+                    f"Cohesive trace mode_mixity must have shape {shape} and be finite."
+                )
+        object.__setattr__(self, "time", time.copy())
+        object.__setattr__(self, "path_coordinate", coordinate.copy())
+        for name, values in arrays.items():
+            object.__setattr__(self, name, values)
+        for name in ("tangential_jump", "tangential_traction"):
+            object.__setattr__(self, name, vector_arrays.get(name))
+        object.__setattr__(
+            self,
+            "mode_mixity",
+            None if scalar_optional is None else scalar_optional.copy(),
+        )
+        object.__setattr__(self, "metadata", dict(self.metadata or {}))
+
+    def write(self, path: str | Path) -> Path:
+        """Write a compact, dependency-free NPZ research artifact."""
+
+        location = Path(path)
+        if location.suffix.lower() != ".npz":
+            location = location.with_suffix(".npz")
+        location.parent.mkdir(parents=True, exist_ok=True)
+        payload = {
+            "schema": np.asarray("agentfem.cohesive-interface-trace.v2"),
+            "time": self.time,
+            "path_coordinate": self.path_coordinate,
+            "opening": self.opening,
+            "traction": self.traction,
+            "damage": self.damage,
+            "dissipated_energy_density": self.dissipated_energy_density,
+            "metadata_json": np.asarray(json.dumps(self.metadata, sort_keys=True)),
+        }
+        for name in ("tangential_jump", "tangential_traction", "mode_mixity"):
+            value = getattr(self, name)
+            if value is not None:
+                payload[name] = value
+        np.savez_compressed(location, **payload)
+        return location
+
+    @classmethod
+    def read(cls, path: str | Path) -> "CohesiveInterfaceTrace":
+        location = Path(path)
+        with np.load(location, allow_pickle=False) as archive:
+            schema = str(archive["schema"])
+            if schema not in {
+                "agentfem.cohesive-interface-trace.v1",
+                "agentfem.cohesive-interface-trace.v2",
+            }:
+                raise ValueError(f"Unsupported cohesive trace schema {schema!r}.")
+            return cls(
+                time=archive["time"],
+                path_coordinate=archive["path_coordinate"],
+                opening=archive["opening"],
+                traction=archive["traction"],
+                damage=archive["damage"],
+                dissipated_energy_density=archive["dissipated_energy_density"],
+                tangential_jump=(
+                    archive["tangential_jump"]
+                    if "tangential_jump" in archive.files
+                    else None
+                ),
+                tangential_traction=(
+                    archive["tangential_traction"]
+                    if "tangential_traction" in archive.files
+                    else None
+                ),
+                mode_mixity=(
+                    archive["mode_mixity"] if "mode_mixity" in archive.files else None
+                ),
+                metadata=json.loads(str(archive["metadata_json"])),
+            )
+
+    def summary(self) -> dict[str, object]:
+        return {
+            "kind": "cohesive_interface_trace",
+            "frames": int(self.time.size),
+            "interface_points": int(self.path_coordinate.size),
+            "time_interval": [float(self.time[0]), float(self.time[-1])],
+            "maximum_opening": float(np.max(self.opening)),
+            "maximum_damage": float(np.max(self.damage)),
+            "vector_kinematics": self.tangential_jump is not None,
+            "metadata": dict(self.metadata or {}),
+        }
+
+
+@dataclass(frozen=True)
+class ScientificComparison:
+    """Common scalar evidence for a simulation-to-observation comparison."""
+
+    kind: str
+    samples: int
+    root_mean_square_error: float
+    normalized_root_mean_square_error: float
+    correlation: float | None
+    metadata: dict[str, object] | None = None
+
+    def summary(self) -> dict[str, object]:
+        return {
+            "kind": self.kind,
+            "samples": self.samples,
+            "root_mean_square_error": self.root_mean_square_error,
+            "normalized_root_mean_square_error": self.normalized_root_mean_square_error,
+            "correlation": self.correlation,
+            "metadata": dict(self.metadata or {}),
+        }
+
+
 def _producer_version() -> str:
     try:
         return version("agentfem")
@@ -161,8 +326,6 @@ class DynamicFractureEvidenceBundle:
         if record.get("schema") != _SCHEMA:
             raise ValueError("Unsupported dynamic-fracture evidence schema.")
         root = selected.parent
-        from .fracture import CohesiveInterfaceTrace, ScientificComparison
-
         trace = CohesiveInterfaceTrace.read(
             root / record["artifacts"]["cohesive_interface_trace"]
         )
@@ -215,4 +378,8 @@ class DynamicFractureEvidenceBundle:
         }
 
 
-__all__ = ["DynamicFractureEvidenceBundle"]
+__all__ = [
+    "CohesiveInterfaceTrace",
+    "DynamicFractureEvidenceBundle",
+    "ScientificComparison",
+]

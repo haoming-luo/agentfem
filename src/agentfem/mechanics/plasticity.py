@@ -37,11 +37,16 @@ from ..diagnostics import (
     comm_of,
     compose_reporters,
 )
+from ..events import SolveEvent
 from ..solvers import (
     NewtonSolverOptions,
-    SolveEvent,
     newton,
     solve_matrix_system,
+)
+from ._incremental_runtime import (
+    NewtonCorrection,
+    NewtonEvaluation,
+    run_newton_attempt,
 )
 
 
@@ -1410,77 +1415,63 @@ class J2PlasticityStep:
         target_factor: float,
         reporter,
     ) -> J2IncrementInfo:
-        initial_norm = None
-        norm = float("inf")
-        update_info = {
-            "plastic_points": 0,
-            "maximum_plastic_increment": 0.0,
-        }
-        converged = False
-        iteration = 0
-        accepted_trial: tuple[dict[str, float | int], object, float] | None = None
-        for iteration in range(self.solver_options.maximum_iterations + 1):
-            if accepted_trial is None:
-                update_info = self.state.update(
-                    self.state.evaluate_strain(self._strain_evaluator),
-                    self.material,
-                )
-                rhs, norm = self._correction_rhs()
-            else:
-                update_info, rhs, norm = accepted_trial
-                accepted_trial = None
-            if initial_norm is None:
-                initial_norm = norm
-            threshold = (
-                self.solver_options.absolute_tolerance
-                + self.solver_options.relative_tolerance * initial_norm
+        def evaluate():
+            update_info = self.state.update(
+                self.state.evaluate_strain(self._strain_evaluator),
+                self.material,
             )
-            if np.isfinite(norm) and norm <= threshold:
-                rhs.destroy()
-                converged = True
-                break
-            if iteration == self.solver_options.maximum_iterations:
-                rhs.destroy()
-                break
+            rhs, norm = self._correction_rhs()
+            return NewtonEvaluation(update_info, rhs, norm)
+
+        linear_failure = {"message": None}
+
+        def correct(evaluation, _iteration):
             tangent = fem_petsc.assemble_matrix(self.tangent_form, bcs=self.bcs)
             tangent.assemble()
-            correction = rhs.duplicate()
+            correction = evaluation.residual.duplicate()
             correction.set(0.0)
             linear_info = solve_matrix_system(
                 tangent,
-                rhs,
+                evaluation.residual,
                 correction,
                 self.solver_options.linear_solver,
                 raise_on_failure=False,
             )
             tangent.destroy()
-            rhs.destroy()
             if not linear_info.converged:
                 correction.destroy()
-                self._emit(
-                    reporter,
-                    SolveEvent(
-                        "iteration",
-                        self.name,
-                        step_number=self.step_number,
-                        increment=increment,
-                        attempt=attempt,
-                        start_factor=start_factor,
-                        target_factor=target_factor,
-                        iteration=iteration + 1,
-                        residual_norm=norm,
-                        step_length=0.0,
-                        message=(
-                            "linear correction failed: "
-                            f"KSP reason {linear_info.converged_reason}"
-                        ),
-                    ),
+                message = (
+                    "linear correction failed: "
+                    f"KSP reason {linear_info.converged_reason}"
                 )
-                break
+                linear_failure["message"] = message
+                return NewtonCorrection(
+                    False,
+                    step_length=0.0,
+                    rejection_reason=message,
+                )
             base = self.solution.x.array.copy()
             direction = correction.array_r.copy()
             correction.destroy()
-            alpha, accepted_trial = self._line_search(base, direction, norm)
+            alpha, accepted_trial = self._line_search(
+                base,
+                direction,
+                evaluation.residual_norm,
+            )
+            return NewtonCorrection(
+                alpha > 0.0,
+                step_length=alpha,
+                next_evaluation=(
+                    None
+                    if accepted_trial is None
+                    else NewtonEvaluation(*accepted_trial)
+                ),
+                rejection_reason=(
+                    None if alpha > 0.0 else "line search could not reduce residual"
+                ),
+            )
+
+        def report_iteration(iteration_number, residual_norm, step_length):
             self._emit(
                 reporter,
                 SolveEvent(
@@ -1491,26 +1482,38 @@ class J2PlasticityStep:
                     attempt=attempt,
                     start_factor=start_factor,
                     target_factor=target_factor,
-                    iteration=iteration + 1,
-                    residual_norm=norm,
-                    step_length=alpha,
+                    iteration=iteration_number,
+                    residual_norm=residual_norm,
+                    step_length=step_length,
+                    message=linear_failure["message"],
                 ),
             )
-            if alpha == 0.0:
-                break
+
+        outcome = run_newton_attempt(
+            self.solver_options,
+            evaluate=evaluate,
+            correct=correct,
+            release=lambda residual: residual.destroy(),
+            on_iteration=report_iteration,
+        )
+        update_info = outcome.payload or {
+            "plastic_points": 0,
+            "maximum_plastic_increment": 0.0,
+        }
         return J2IncrementInfo(
             increment=increment,
             attempt=attempt,
             start_load_factor=start_factor,
             load_factor=target_factor,
-            converged=converged,
-            iterations=iteration,
-            initial_residual_norm=float(initial_norm or 0.0),
-            residual_norm=float(norm),
+            converged=outcome.converged,
+            iterations=outcome.iterations,
+            initial_residual_norm=outcome.initial_residual_norm,
+            residual_norm=outcome.residual_norm,
             plastic_points=int(update_info["plastic_points"]),
             maximum_plastic_increment=float(
                 update_info["maximum_plastic_increment"]
             ),
+            rejection_reason=outcome.rejection_reason,
         )
 
     def _line_search(

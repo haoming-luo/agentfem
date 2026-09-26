@@ -160,7 +160,7 @@ OWNERSHIP_BOUNDARIES = (
             "material selection",
             "verification policy",
         ),
-        modules=("backends", "kernel", "_solver_lifecycle"),
+        modules=("backends", "kernel", "solvers", "_solver_lifecycle"),
     ),
     OwnershipBoundary(
         name="result_verification",
@@ -176,6 +176,7 @@ OWNERSHIP_BOUNDARIES = (
             "model construction",
         ),
         modules=(
+            "events",
             "results",
             "verification",
             "provenance",
@@ -226,6 +227,14 @@ FORBIDDEN_IMPORTS = {
         "results",
     ),
     "procedures": ("models", "problems", "backends", "results"),
+    "events": (
+        "models",
+        "problems",
+        "solvers",
+        "backends",
+        "constitutive",
+        "mechanics",
+    ),
     "backends": (
         "models",
         "constitutive",
@@ -246,9 +255,32 @@ def ownership_contract() -> tuple[dict[str, object], ...]:
     return tuple(item.as_dict() for item in OWNERSHIP_BOUNDARIES)
 
 
+def ownership_of(module: str) -> str | None:
+    """Return the declared owner of one package-relative module.
+
+    The inventory intentionally covers stable architectural seams rather than
+    every utility file.  ``None`` means the module has not yet earned a stable
+    ownership declaration; it must not be guessed into a layer by callers.
+    """
+
+    selected = str(module).strip().removeprefix("agentfem.")
+    root = selected.split(".", 1)[0]
+    matches = tuple(
+        boundary.name
+        for boundary in OWNERSHIP_BOUNDARIES
+        if root in boundary.modules
+    )
+    if len(matches) > 1:
+        raise RuntimeError(
+            f"Architecture module {root!r} has multiple owners: {matches}."
+        )
+    return None if not matches else matches[0]
+
+
 __all__ = (
     "FORBIDDEN_IMPORTS",
     "OWNERSHIP_BOUNDARIES",
     "OwnershipBoundary",
     "ownership_contract",
+    "ownership_of",
 )

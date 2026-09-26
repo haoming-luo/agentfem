@@ -554,6 +554,60 @@ def test_finite_strain_j2_quadrature_batch_respects_trial_commit_and_rollback():
     )
 
 
+def test_quadrature_driver_uses_one_provider_batch_per_local_material():
+    reference = constitutive.finite_strain_j2_logarithmic(
+        young=210_000.0,
+        poisson=0.3,
+        yield_stress=250.0,
+        hardening_modulus=1_000.0,
+    )
+
+    class BatchProvider:
+        name = "batched finite-strain J2 wrapper"
+        state_schema = reference.state_schema
+        tangent_convention = reference.tangent_convention
+        stored_energy_component_names = reference.stored_energy_component_names
+
+        def __init__(self):
+            self.batch_calls = 0
+            self.scalar_calls = 0
+
+        def update(self, point):
+            self.scalar_calls += 1
+            return reference.update(point)
+
+        def update_batch(self, request):
+            self.batch_calls += 1
+            return constitutive.MaterialPointBatchOutput(
+                tuple(reference.update(point) for point in request.points)
+            )
+
+    domain = mesh.create_unit_square(MPI.COMM_SELF, 1, 1)
+    state = constitutive.MaterialQuadratureState.create(
+        domain,
+        reference.state_schema,
+        degree=2,
+    )
+    provider = BatchProvider()
+    response = constitutive.update_material_points(
+        provider,
+        state,
+        deformation_gradient_old=np.eye(3),
+        deformation_gradient_new=_isochoric_extension(1.08),
+        time=0.0,
+        time_increment=0.1,
+    )
+
+    assert provider.batch_calls == 1
+    assert provider.scalar_calls == 0
+    assert response.point_count == len(state.reference_field.values)
+    assert response.summary()["evaluation"] == {
+        "material_groups": 1,
+        "provider_batch_calls": 1,
+        "scalar_fallback_points": 0,
+    }
+
+
 def test_quadrature_response_postprocessing_failure_does_not_commit(monkeypatch):
     material = constitutive.finite_strain_j2_logarithmic(
         young=210_000.0,

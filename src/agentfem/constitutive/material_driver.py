@@ -13,7 +13,13 @@ import numpy as np
 from .quadrature import MaterialQuadratureState
 from .quadrature import QuadratureField
 from .quadrature import QuadratureMaterialMap
-from .user_material import MaterialPointInput, UserMaterial, validated_material_update
+from .user_material import (
+    BatchedUserMaterial,
+    MaterialPointBatchInput,
+    MaterialPointInput,
+    UserMaterial,
+    validated_material_batch_update,
+)
 from .small_strain_user_material import (
     SmallStrainMaterialPointBatchInput,
     SmallStrainMaterialPointBatchOutput,
@@ -33,6 +39,9 @@ class MaterialPointBatchResult:
     strain_energy_density: np.ndarray
     suggested_time_scale: np.ndarray
     committed: bool
+    material_group_count: int = 1
+    provider_batch_calls: int = 0
+    scalar_fallback_points: int = 0
     stored_energy_density_components: Mapping[str, np.ndarray] = field(
         default_factory=dict
     )
@@ -65,6 +74,15 @@ class MaterialPointBatchResult:
                 raise ValueError(f"Batch material {label} must be finite.")
         if np.any(scale <= 0.0):
             raise ValueError("Batch material time scales must be positive.")
+        group_count = int(self.material_group_count)
+        batch_calls = int(self.provider_batch_calls)
+        scalar_points = int(self.scalar_fallback_points)
+        if group_count < 1:
+            raise ValueError("material_group_count must be positive.")
+        if batch_calls < 0 or scalar_points < 0:
+            raise ValueError("Batch evaluation counters must be nonnegative.")
+        if scalar_points > count:
+            raise ValueError("scalar_fallback_points cannot exceed point_count.")
         components = {}
         for name, value in self.stored_energy_density_components.items():
             key = str(name).strip().upper()
@@ -91,6 +109,9 @@ class MaterialPointBatchResult:
         object.__setattr__(self, "state_new", state.copy())
         object.__setattr__(self, "strain_energy_density", energy.copy())
         object.__setattr__(self, "suggested_time_scale", scale.copy())
+        object.__setattr__(self, "material_group_count", group_count)
+        object.__setattr__(self, "provider_batch_calls", batch_calls)
+        object.__setattr__(self, "scalar_fallback_points", scalar_points)
         object.__setattr__(
             self,
             "stored_energy_density_components",
@@ -114,6 +135,11 @@ class MaterialPointBatchResult:
             "state_size": self.state_new.shape[1],
             "stress_measure": "cauchy",
             "tangent_measure": "first_piola_deformation_gradient",
+            "evaluation": {
+                "material_groups": self.material_group_count,
+                "provider_batch_calls": self.provider_batch_calls,
+                "scalar_fallback_points": self.scalar_fallback_points,
+            },
             "stored_energy_density_components": tuple(
                 self.stored_energy_density_components
             ),
@@ -793,9 +819,14 @@ def update_material_points(
     energy = np.empty(point_count, dtype=float)
     energy_components: dict[str, np.ndarray] | None = None
     scales = np.empty(point_count, dtype=float)
+    material_group_count = 0
+    provider_batch_calls = 0
+    scalar_fallback_points = 0
     state.begin()
     local_problem = None
     try:
+        point_materials = []
+        point_inputs = []
         for index in range(point_count):
             try:
                 selected_material = (
@@ -806,8 +837,8 @@ def update_material_points(
                     if regional
                     else material
                 )
-                response = validated_material_update(
-                    selected_material,
+                point_materials.append(selected_material)
+                point_inputs.append(
                     MaterialPointInput(
                         deformation_gradient_old=old_gradients[index],
                         deformation_gradient_new=new_gradients[index],
@@ -825,58 +856,103 @@ def update_material_points(
                             else float(temperature_increments[index])
                         ),
                         field_variables=None if fields is None else fields[index],
-                    ),
+                    )
                 )
             except Exception as exc:
                 local_problem = (
-                    f"material update failed at local quadrature point {index}: "
+                    f"material input failed at local quadrature point {index}: "
                     f"{type(exc).__name__}: {exc}"
                 )
                 break
-            stress[index] = response.cauchy_stress
-            tangent[index] = response.consistent_tangent
-            state_new[index] = response.state_new
-            energy[index] = (
-                0.0
-                if response.strain_energy_density is None
-                else response.strain_energy_density
-            )
-            point_components = dict(response.stored_energy_density_components)
-            declared_component_names = getattr(
-                selected_material,
-                "stored_energy_component_names",
-                None,
-            )
-            declared_components = (
-                None
-                if declared_component_names is None
-                else tuple(
-                    str(name).strip().upper() for name in declared_component_names
+        responses = [None] * point_count
+        if local_problem is None:
+            groups: dict[int, tuple[UserMaterial, list[int]]] = {}
+            for index, selected_material in enumerate(point_materials):
+                identity = id(selected_material)
+                if identity not in groups:
+                    groups[identity] = (selected_material, [])
+                groups[identity][1].append(index)
+            for selected_material, indices in groups.values():
+                material_group_count += 1
+                if isinstance(selected_material, BatchedUserMaterial):
+                    provider_batch_calls += 1
+                else:
+                    scalar_fallback_points += len(indices)
+                try:
+                    batch_response = validated_material_batch_update(
+                        selected_material,
+                        MaterialPointBatchInput(
+                            tuple(point_inputs[index] for index in indices)
+                        ),
+                    )
+                    for index, response in zip(
+                        indices,
+                        batch_response.responses,
+                        strict=True,
+                    ):
+                        responses[index] = response
+                except Exception as exc:
+                    local_problem = (
+                        "material batch update failed for local quadrature "
+                        f"points {indices[0]}..{indices[-1]}: "
+                        f"{type(exc).__name__}: {exc}"
+                    )
+                    break
+        if local_problem is None:
+            for index, response in enumerate(responses):
+                selected_material = point_materials[index]
+                if response is None:
+                    local_problem = (
+                        "material batch provider omitted local quadrature "
+                        f"point {index}"
+                    )
+                    break
+                stress[index] = response.cauchy_stress
+                tangent[index] = response.consistent_tangent
+                state_new[index] = response.state_new
+                energy[index] = (
+                    0.0
+                    if response.strain_energy_density is None
+                    else response.strain_energy_density
                 )
-            )
-            if declared_components is not None and set(point_components) != set(
-                declared_components
-            ):
-                local_problem = (
-                    "material update returned stored-energy components that "
-                    "differ from its declared contract at local quadrature "
-                    f"point {index}"
+                point_components = dict(response.stored_energy_density_components)
+                declared_component_names = getattr(
+                    selected_material,
+                    "stored_energy_component_names",
+                    None,
                 )
-                break
-            if energy_components is None:
-                energy_components = {
-                    name: np.empty(point_count, dtype=float)
-                    for name in point_components
-                }
-            if set(point_components) != set(energy_components):
-                local_problem = (
-                    "material update changed the stored-energy component contract "
-                    f"at local quadrature point {index}"
+                declared_components = (
+                    None
+                    if declared_component_names is None
+                    else tuple(
+                        str(name).strip().upper()
+                        for name in declared_component_names
+                    )
                 )
-                break
-            for name, values in energy_components.items():
-                values[index] = point_components[name]
-            scales[index] = response.suggested_time_scale
+                if declared_components is not None and set(point_components) != set(
+                    declared_components
+                ):
+                    local_problem = (
+                        "material update returned stored-energy components that "
+                        "differ from its declared contract at local quadrature "
+                        f"point {index}"
+                    )
+                    break
+                if energy_components is None:
+                    energy_components = {
+                        name: np.empty(point_count, dtype=float)
+                        for name in point_components
+                    }
+                if set(point_components) != set(energy_components):
+                    local_problem = (
+                        "material update changed the stored-energy component "
+                        "contract at local quadrature point "
+                        f"{index}"
+                    )
+                    break
+                for name, values in energy_components.items():
+                    values[index] = point_components[name]
+                scales[index] = response.suggested_time_scale
         problems = state.domain.comm.allgather(local_problem)
         if any(problem is not None for problem in problems):
             rank = next(
@@ -893,6 +969,9 @@ def update_material_points(
                 strain_energy_density=energy,
                 suggested_time_scale=scales,
                 committed=bool(commit),
+                material_group_count=material_group_count,
+                provider_batch_calls=provider_batch_calls,
+                scalar_fallback_points=scalar_fallback_points,
                 stored_energy_density_components=(
                     {} if energy_components is None else energy_components
                 ),
