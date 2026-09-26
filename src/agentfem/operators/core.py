@@ -906,44 +906,6 @@ def load_vector(target, loads=None, *, load=None, study=None) -> OperatorForm:
     return force_vector(target=target, loads=loads, load=load, study=study)
 
 
-def stiffness(field, properties=None, *, law=None, study=None, temperature=None, measure=ufl.dx) -> OperatorForm:
-    """Create the primary stiffness-like operator ``K`` for an unknown field.
-
-    This is the beginner-facing K entry point. When a constitutive ``law`` is
-    supplied, the law owns the dispatch. Without a law, AgentFEM currently
-    supports displacement fields by creating an elastic stiffness operator.
-    """
-
-    if law is not None:
-        if hasattr(law, "stiffness_operator"):
-            return law.stiffness_operator(field, properties, study=study, measure=measure)
-        if callable(law):
-            return law(field, properties, study=study, measure=measure)
-        raise ValueError("law must be callable or provide stiffness_operator(...).")
-    if getattr(field, "kind", None) == "displacement":
-        from agentfem.operators.elasticity import elastic_stiffness
-
-        if properties is None:
-            raise ValueError("operators.stiffness(displacement, ...) requires material properties.")
-        _require_study_physics(study, "solid_mechanics")
-        return elastic_stiffness(
-            field,
-            properties,
-            study=study,
-            temperature=temperature,
-            measure=measure,
-        )
-    raise ValueError(
-        "operators.stiffness currently dispatches displacement fields to elastic stiffness. "
-        "Use operators.conduction_operator(...) for scalar diffusion/conduction, or pass law=..."
-    )
-
-
-def _require_study_physics(study, physics: str) -> None:
-    if study is not None and hasattr(study, "require"):
-        study.require(physics=physics)
-
-
 def lumped_mass(V, density=1.0, *, measure=ufl.dx):
     """Assemble a lumped mass vector for explicit dynamics."""
 

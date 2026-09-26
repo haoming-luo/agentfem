@@ -26,7 +26,13 @@ from ..diagnostics import (
     comm_of,
     compose_reporters,
 )
-from ..solvers import NewtonSolverOptions, SolveEvent, newton, solve_matrix_system
+from ..events import SolveEvent
+from ..solvers import NewtonSolverOptions, newton, solve_matrix_system
+from ._incremental_runtime import (
+    NewtonCorrection,
+    NewtonEvaluation,
+    run_newton_attempt,
+)
 
 
 @dataclass(frozen=True)
@@ -387,56 +393,58 @@ class SmallStrainMaterialStep:
     def _solve_increment(
         self, *, increment, attempt, start_factor, target_factor, reporter
     ):
-        initial_norm = None
-        norm = float("inf")
-        result = None
-        accepted_trial = None
-        converged = False
-        iteration = 0
-        for iteration in range(self.solver_options.maximum_iterations + 1):
-            if accepted_trial is None:
-                result = self._update_material(
-                    time=target_factor, time_increment=target_factor - start_factor
-                )
-                rhs, norm = self._correction_rhs()
-            else:
-                result, rhs, norm = accepted_trial
-                accepted_trial = None
-            if initial_norm is None:
-                initial_norm = norm
-            threshold = (
-                self.solver_options.absolute_tolerance
-                + self.solver_options.relative_tolerance * initial_norm
+        def evaluate():
+            result = self._update_material(
+                time=target_factor,
+                time_increment=target_factor - start_factor,
             )
-            if np.isfinite(norm) and norm <= threshold:
-                rhs.destroy()
-                converged = True
-                break
-            if iteration == self.solver_options.maximum_iterations:
-                rhs.destroy()
-                break
+            rhs, norm = self._correction_rhs()
+            return NewtonEvaluation(result, rhs, norm)
+
+        def correct(evaluation, _iteration):
             tangent = fem_petsc.assemble_matrix(self.tangent_form, bcs=self.bcs)
             tangent.assemble()
-            correction = rhs.duplicate()
+            correction = evaluation.residual.duplicate()
             correction.set(0.0)
             linear = solve_matrix_system(
                 tangent,
-                rhs,
+                evaluation.residual,
                 correction,
                 self.solver_options.linear_solver,
                 raise_on_failure=False,
             )
             tangent.destroy()
-            rhs.destroy()
             if not linear.converged:
                 correction.destroy()
-                break
+                return NewtonCorrection(
+                    False,
+                    rejection_reason="linear correction solve did not converge",
+                )
             base = self.solution.x.array.copy()
             direction = correction.array_r.copy()
             correction.destroy()
             alpha, accepted_trial = self._line_search(
-                base, direction, norm, target_factor, target_factor - start_factor
+                base,
+                direction,
+                evaluation.residual_norm,
+                target_factor,
+                target_factor - start_factor,
             )
+            next_evaluation = (
+                None
+                if accepted_trial is None
+                else NewtonEvaluation(*accepted_trial)
+            )
+            return NewtonCorrection(
+                alpha > 0.0,
+                step_length=alpha,
+                next_evaluation=next_evaluation,
+                rejection_reason=(
+                    None if alpha > 0.0 else "line search rejected every trial"
+                ),
+            )
+
+        def report_iteration(iteration_number, residual_norm, step_length):
             self._emit(
                 reporter,
                 SolveEvent(
@@ -447,27 +455,34 @@ class SmallStrainMaterialStep:
                     attempt=attempt,
                     start_factor=start_factor,
                     target_factor=target_factor,
-                    iteration=iteration + 1,
-                    residual_norm=norm,
-                    step_length=alpha,
+                    iteration=iteration_number,
+                    residual_norm=residual_norm,
+                    step_length=step_length,
                 ),
             )
-            if alpha == 0.0:
-                break
-        summary = result.summary() if result is not None else {}
+
+        outcome = run_newton_attempt(
+            self.solver_options,
+            evaluate=evaluate,
+            correct=correct,
+            release=lambda residual: residual.destroy(),
+            on_iteration=report_iteration,
+        )
+        summary = outcome.payload.summary() if outcome.payload is not None else {}
         return SmallStrainMaterialIncrementInfo(
             increment=increment,
             attempt=attempt,
             start_load_factor=start_factor,
             load_factor=target_factor,
-            converged=converged,
-            iterations=iteration,
-            initial_residual_norm=float(initial_norm or 0.0),
-            residual_norm=float(norm),
+            converged=outcome.converged,
+            iterations=outcome.iterations,
+            initial_residual_norm=outcome.initial_residual_norm,
+            residual_norm=outcome.residual_norm,
             minimum_suggested_time_scale=float(
                 summary.get("minimum_suggested_time_scale", 1.0)
             ),
             applicability_counts=dict(summary.get("applicability_counts", {})),
+            rejection_reason=outcome.rejection_reason,
         )
 
     def _line_search(self, base, direction, base_norm, time, time_increment):

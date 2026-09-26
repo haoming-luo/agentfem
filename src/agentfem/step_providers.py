@@ -383,6 +383,18 @@ class StepProviderRegistry(ProviderSelectionRegistry):
 
 
 _DEFAULT_REGISTRY = StepProviderRegistry()
+_BUILTIN_PROVIDERS_LOADED = False
+
+
+def _ensure_builtin_providers() -> None:
+    """Load the built-in catalog once, without an eager module cycle."""
+
+    global _BUILTIN_PROVIDERS_LOADED
+    if _BUILTIN_PROVIDERS_LOADED:
+        return
+    from . import _builtin_step_providers  # noqa: F401
+
+    _BUILTIN_PROVIDERS_LOADED = True
 
 
 def register_step_provider(provider: StepProvider, *, replace: bool = False):
@@ -394,6 +406,7 @@ def register_step_provider(provider: StepProvider, *, replace: bool = False):
 def step_providers() -> tuple[StepProvider, ...]:
     """Return the installed providers in deterministic selection order."""
 
+    _ensure_builtin_providers()
     return _DEFAULT_REGISTRY.providers()
 
 
@@ -415,6 +428,7 @@ def step_capability(
     scientific inputs have been supplied.
     """
 
+    _ensure_builtin_providers()
     selected_analysis = _normalize(
         analysis or getattr(getattr(model, "study", None), "analysis", "")
     )
@@ -490,6 +504,7 @@ def step_capability(
 def lower_step(model, *, analysis: str, target, options, procedure=None):
     """Normalize and lower one high-level step request."""
 
+    _ensure_builtin_providers()
     selected_analysis = _normalize(analysis)
     selected_options = dict(options)
     selected_procedure = _resolve_procedure(
@@ -618,6 +633,3 @@ def _policy_value_summary(value):
             "value": _policy_value_summary(summary()),
         }
     return {"type": type(value).__name__}
-
-
-from . import _builtin_step_providers as _builtin_step_provider_catalog

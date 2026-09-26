@@ -21,6 +21,7 @@ from agentfem import dependencies
 from . import formats
 from . import quality
 from . import abaqus
+from .compatibility import CellCompatibility, compatibility_matrix, describe_cell
 from . import selectors as select
 from .specs import SUPPORTED_GEOMETRIES, from_geometry_spec
 from .regions import RegionSet
@@ -51,6 +52,7 @@ if TYPE_CHECKING:
 
 audit_quality = quality.audit
 cell_quality = quality.cell_quality
+describe_cell_compatibility = describe_cell
 
 # A short public alias for configuration, GUI, and agent-authored models.
 from_spec = from_geometry_spec
@@ -484,10 +486,10 @@ def convert_external_mesh_bundle(*args, **kwargs):
     return formats.convert_topology_bundle(*args, **kwargs)
 
 
-def inspect_external_mesh(path):
+def inspect_external_mesh(path, *, input_format: str | None = None):
     """Inventory external element blocks and named sets before conversion."""
 
-    return formats.inspect_external_mesh(path)
+    return formats.inspect_external_mesh(path, input_format=input_format)
 
 
 def inspect_abaqus_input(path: str | Path) -> abaqus.AbaqusMigrationReport:

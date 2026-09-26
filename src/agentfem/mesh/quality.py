@@ -1,12 +1,19 @@
 # SPDX-FileCopyrightText: 2026 Haoming Luo and AgentFEM contributors
 # SPDX-License-Identifier: Apache-2.0
 
-"""Mesh-quality evidence for supported simplex solver domains."""
+"""Collective mesh-quality evidence for supported solver domains.
+
+Simplex cells use a normalized mean-ratio metric. Tensor-product and mixed-
+facet cells use a sampled scaled Jacobian computed from the actual coordinate
+element, so curved high-order geometry is inspected rather than reduced to its
+corner topology.
+"""
 
 from __future__ import annotations
 
 from dataclasses import dataclass
 
+import basix
 import numpy as np
 from dolfinx.cpp.mesh import entities_to_geometry
 from mpi4py import MPI
@@ -14,7 +21,7 @@ from mpi4py import MPI
 
 @dataclass(frozen=True)
 class MeshQualityReport:
-    """MPI-global mean-ratio quality summary for owned cells."""
+    """MPI-global quality summary for owned cells."""
 
     cell_type: str
     metric: str
@@ -25,6 +32,9 @@ class MeshQualityReport:
     poor_cells: int
     invalid_cells: int
     global_cells: int
+    geometry_degree: int
+    samples_per_cell: int
+    interpretation: str
 
     @property
     def valid(self) -> bool:
@@ -47,12 +57,20 @@ class MeshQualityReport:
             "global_cells": self.global_cells,
             "valid": self.valid,
             "acceptable": self.acceptable,
-            "interpretation": "1 is equilateral; 0 is degenerate",
+            "geometry_degree": self.geometry_degree,
+            "samples_per_cell": self.samples_per_cell,
+            "interpretation": self.interpretation,
         }
 
 
 def cell_quality(domain) -> np.ndarray:
-    """Return owned-cell simplex mean-ratio values in ``[0, 1]``."""
+    """Return one normalized quality value per owned cell in ``[0, 1]``.
+
+    Triangles and tetrahedra use the simplex mean ratio. Quadrilaterals,
+    hexahedra, prisms, and pyramids use the minimum sampled scaled Jacobian of
+    the coordinate map. The latter samples the real geometry element and
+    therefore includes high-order curvature when present.
+    """
 
     tdim = int(domain.topology.dim)
     cell_type = str(domain.topology.cell_type).lower()
@@ -62,10 +80,16 @@ def cell_quality(domain) -> np.ndarray:
     elif "tetra" in cell_type:
         corner_count = 4
         evaluator = _tetrahedron_quality
+    elif any(
+        value in cell_type
+        for value in ("quadrilateral", "hexahedron", "prism", "pyramid")
+    ):
+        return _sampled_scaled_jacobian_quality(domain)[0]
     else:
         raise NotImplementedError(
-            "Mesh-quality mean ratio currently supports triangle and "
-            f"tetrahedron domains, not {domain.topology.cell_type}."
+            "Mesh-quality preflight supports triangle, tetrahedron, "
+            "quadrilateral, hexahedron, prism, and pyramid domains, not "
+            f"{domain.topology.cell_type}."
         )
 
     domain.topology.create_connectivity(tdim, 0)
@@ -86,6 +110,9 @@ def cell_quality(domain) -> np.ndarray:
         ).reshape(-1)
         points = np.asarray(domain.geometry.x[geometry_nodes], dtype=float)
         values[cell] = evaluator(points)
+    if int(_coordinate_element(domain).degree) > 1:
+        sampled, _degree, _sample_count = _sampled_scaled_jacobian_quality(domain)
+        values[sampled <= 0.0] = 0.0
     return values
 
 
@@ -95,7 +122,35 @@ def audit(domain, *, threshold: float = 0.1, strict: bool = False) -> MeshQualit
     selected_threshold = float(threshold)
     if not 0.0 <= selected_threshold <= 1.0 or not np.isfinite(selected_threshold):
         raise ValueError("mesh-quality threshold must lie in [0, 1].")
-    values = cell_quality(domain)
+    cell_type = str(domain.topology.cell_type).lower()
+    if "triangle" in cell_type or "tetra" in cell_type:
+        values = cell_quality(domain)
+        geometry_degree = int(_coordinate_element(domain).degree)
+        if geometry_degree > 1:
+            _sampled, _degree, samples_per_cell = (
+                _sampled_scaled_jacobian_quality(domain)
+            )
+            metric = "simplex_mean_ratio_with_sampled_map_validity"
+            interpretation = (
+                "1 is equilateral; 0 is degenerate or sampled as folded"
+            )
+        else:
+            metric = "simplex_mean_ratio"
+            samples_per_cell = 1
+            interpretation = "1 is equilateral; 0 is degenerate"
+    elif any(
+        value in cell_type
+        for value in ("quadrilateral", "hexahedron", "prism", "pyramid")
+    ):
+        values, geometry_degree, samples_per_cell = (
+            _sampled_scaled_jacobian_quality(domain)
+        )
+        metric = "sampled_scaled_jacobian"
+        interpretation = "1 is locally orthogonal; 0 is singular or folded"
+    else:
+        # Keep the public supported-cell diagnostic in one place.
+        values = cell_quality(domain)
+        raise AssertionError("unreachable after cell_quality validation")
     comm = domain.comm
     local_count = int(values.size)
     global_count = int(comm.allreduce(local_count, op=MPI.SUM))
@@ -114,7 +169,7 @@ def audit(domain, *, threshold: float = 0.1, strict: bool = False) -> MeshQualit
     )
     report = MeshQualityReport(
         cell_type=str(domain.topology.cell_type),
-        metric="simplex_mean_ratio",
+        metric=metric,
         minimum=minimum,
         mean=total / global_count,
         maximum=maximum,
@@ -122,6 +177,9 @@ def audit(domain, *, threshold: float = 0.1, strict: bool = False) -> MeshQualit
         poor_cells=poor,
         invalid_cells=invalid,
         global_cells=global_count,
+        geometry_degree=geometry_degree,
+        samples_per_cell=samples_per_cell,
+        interpretation=interpretation,
     )
     if strict and not report.acceptable:
         raise ValueError(
@@ -129,6 +187,101 @@ def audit(domain, *, threshold: float = 0.1, strict: bool = False) -> MeshQualit
             f"minimum={minimum:.6g}, poor_cells={poor}, invalid_cells={invalid}."
         )
     return report
+
+
+def _coordinate_element(domain):
+    cmaps = getattr(domain.geometry, "cmaps", ())
+    if len(cmaps) != 1:
+        raise NotImplementedError(
+            "Mesh-quality preflight requires one coordinate element per domain; "
+            "mixed-topology geometry must be split into explicit solver domains."
+        )
+    return cmaps[0]
+
+
+def _basix_coordinate_element(domain):
+    """Reconstruct the Basix geometry basis owned by one DOLFINx mesh."""
+
+    cmap = _coordinate_element(domain)
+    cell = domain.basix_cell()
+    degree = int(cmap.degree)
+    candidates = (
+        (
+            basix.ElementFamily.P,
+            {"lagrange_variant": basix.LagrangeVariant(int(cmap.variant))},
+        ),
+        (basix.ElementFamily.serendipity, {}),
+    )
+    errors = []
+    for family, options in candidates:
+        try:
+            element = basix.create_element(family, cell, degree, **options)
+        except RuntimeError as exc:
+            errors.append(str(exc))
+            continue
+        if int(element.dim) == int(cmap.dim):
+            return element
+    raise NotImplementedError(
+        "The active coordinate element cannot yet be reconstructed for "
+        f"quality sampling: cell={cell.name}, degree={degree}, dofs={cmap.dim}. "
+        f"Basix attempts: {tuple(errors)}"
+    )
+
+
+def _sampled_scaled_jacobian_quality(domain) -> tuple[np.ndarray, int, int]:
+    """Sample coordinate-map scaled Jacobians on every owned cell."""
+
+    element = _basix_coordinate_element(domain)
+    cell = element.cell_type
+    tdim = int(domain.topology.dim)
+    gdim = int(domain.geometry.dim)
+    degree = int(_coordinate_element(domain).degree)
+    quadrature_points, _ = basix.make_quadrature(cell, max(2, 2 * degree))
+    reference_vertices = np.asarray(basix.cell.geometry(cell), dtype=float)
+    if cell == basix.CellType.pyramid:
+        # The collapsed-coordinate pyramid basis has no unique in-plane
+        # derivative at its apex. Interior quadrature plus all base vertices
+        # inspect the map without labelling the valid reference pyramid
+        # singular solely because of that coordinate representation.
+        apex = int(np.argmax(reference_vertices[:, -1]))
+        reference_vertices = np.delete(reference_vertices, apex, axis=0)
+    points = np.unique(
+        np.vstack((quadrature_points, reference_vertices)), axis=0
+    )
+    table = element.tabulate(1, points)
+    derivatives = np.asarray(table[1 : 1 + tdim, :, :, 0], dtype=float)
+    dofmap = domain.geometry.dofmaps[0]
+    owned_cells = int(domain.topology.index_map(tdim).size_local)
+    values = np.empty(owned_cells, dtype=float)
+    tolerance = 64.0 * np.finfo(float).eps
+
+    for cell_index in range(owned_cells):
+        geometry_nodes = np.asarray(dofmap[cell_index], dtype=np.int32)
+        coordinates = np.asarray(
+            domain.geometry.x[geometry_nodes, :gdim], dtype=float
+        )
+        minimum = 1.0
+        signs: set[int] = set()
+        for point_index in range(points.shape[0]):
+            gradient = derivatives[:, point_index, :].T
+            jacobian = coordinates.T @ gradient
+            column_norms = np.linalg.norm(jacobian, axis=0)
+            scale = float(np.prod(column_norms))
+            gram = jacobian.T @ jacobian
+            determinant = float(np.linalg.det(gram))
+            if scale <= tolerance or determinant <= tolerance * scale * scale:
+                minimum = 0.0
+                continue
+            measure = float(np.sqrt(max(0.0, determinant)))
+            minimum = min(minimum, measure / scale)
+            if gdim == tdim:
+                signed = float(np.linalg.det(jacobian))
+                if abs(signed) > tolerance * scale:
+                    signs.add(1 if signed > 0.0 else -1)
+        if len(signs) > 1:
+            minimum = 0.0
+        values[cell_index] = min(1.0, max(0.0, minimum))
+    return values, degree, int(points.shape[0])
 
 
 def _triangle_quality(points: np.ndarray) -> float:

@@ -35,7 +35,14 @@ from ..diagnostics import (
     comm_of,
     compose_reporters,
 )
-from ..solvers import NewtonSolverOptions, SolveEvent, newton, solve_matrix_system
+from ..events import SolveEvent
+from ..solvers import NewtonSolverOptions, newton, solve_matrix_system
+from ._incremental_runtime import (
+    NewtonCorrection,
+    NewtonEvaluation,
+    NewtonEvaluationRejection,
+    run_newton_attempt,
+)
 
 
 @dataclass(frozen=True)
@@ -629,21 +636,19 @@ class ImplicitCreepStep:
         end_time: float,
         reporter,
     ) -> CreepIncrementInfo:
-        initial_norm = None
-        norm = float("inf")
-        update_info = {
+        default_update_info = {
             "creeping_points": 0,
             "maximum_creep_increment": 0.0,
             "maximum_local_iterations": 0,
             "minimum_temperature": None,
             "maximum_temperature": None,
         }
-        converged = False
-        rejection_reason = None
-        iteration = 0
-        for iteration in range(self.solver_options.maximum_iterations + 1):
+        latest_update = dict(default_update_info)
+
+        def evaluate():
+            nonlocal latest_update
             try:
-                update_info = self.state.update(
+                latest_update = self.state.update(
                     self.state.evaluate_strain(self._strain_evaluator),
                     self.material,
                     time_start=start_time,
@@ -651,52 +656,54 @@ class ImplicitCreepStep:
                     temperature_values=self._temperature_values(),
                 )
             except RuntimeError as exc:
-                rejection_reason = str(exc)
-                break
+                return NewtonEvaluationRejection(latest_update, str(exc))
             rhs, norm = self._correction_rhs()
-            if initial_norm is None:
-                initial_norm = norm
-            threshold = self.solver_options.absolute_tolerance + (
-                self.solver_options.relative_tolerance * initial_norm
-            )
-            if np.isfinite(norm) and norm <= threshold:
-                rhs.destroy()
-                converged = True
-                break
-            if iteration == self.solver_options.maximum_iterations:
-                rhs.destroy()
-                rejection_reason = "global Newton iteration limit reached"
-                break
+            return NewtonEvaluation(latest_update, rhs, norm)
+
+        def correct(evaluation, _iteration):
             tangent = fem_petsc.assemble_matrix(self.tangent_form, bcs=self.bcs)
             tangent.assemble()
-            correction = rhs.duplicate()
+            correction = evaluation.residual.duplicate()
             correction.set(0.0)
             linear_info = solve_matrix_system(
                 tangent,
-                rhs,
+                evaluation.residual,
                 correction,
                 self.solver_options.linear_solver,
                 raise_on_failure=False,
             )
             tangent.destroy()
-            rhs.destroy()
             if not linear_info.converged:
                 correction.destroy()
-                rejection_reason = (
-                    "linear correction failed: KSP reason "
-                    f"{linear_info.converged_reason}"
+                return NewtonCorrection(
+                    False,
+                    step_length=0.0,
+                    rejection_reason=(
+                        "linear correction failed: KSP reason "
+                        f"{linear_info.converged_reason}"
+                    ),
                 )
-                break
             base = self.solution.x.array.copy()
             direction = correction.array_r.copy()
             correction.destroy()
             alpha = self._line_search(
                 base,
                 direction,
-                norm,
+                evaluation.residual_norm,
                 time_start=start_time,
                 time_end=end_time,
             )
+            return NewtonCorrection(
+                alpha > 0.0,
+                step_length=alpha,
+                rejection_reason=(
+                    None
+                    if alpha > 0.0
+                    else "line search could not reduce the residual"
+                ),
+            )
+
+        def report_iteration(iteration_number, residual_norm, step_length):
             self._emit(
                 reporter,
                 SolveEvent(
@@ -707,15 +714,24 @@ class ImplicitCreepStep:
                     attempt=attempt,
                     start_factor=start_factor,
                     target_factor=target_factor,
-                    iteration=iteration + 1,
-                    residual_norm=norm,
-                    step_length=alpha,
+                    iteration=iteration_number,
+                    residual_norm=residual_norm,
+                    step_length=step_length,
                     time=end_time,
                 ),
             )
-            if alpha == 0.0:
-                rejection_reason = "line search could not reduce the residual"
-                break
+
+        outcome = run_newton_attempt(
+            self.solver_options,
+            evaluate=evaluate,
+            correct=correct,
+            release=lambda residual: residual.destroy(),
+            on_iteration=report_iteration,
+        )
+        update_info = outcome.payload or default_update_info
+        rejection_reason = outcome.rejection_reason
+        if rejection_reason == "maximum nonlinear iterations reached":
+            rejection_reason = "global Newton iteration limit reached"
         return CreepIncrementInfo(
             increment=increment,
             attempt=attempt,
@@ -723,10 +739,10 @@ class ImplicitCreepStep:
             end_factor=target_factor,
             start_time=start_time,
             end_time=end_time,
-            converged=converged,
-            iterations=iteration,
-            initial_residual_norm=float(initial_norm or 0.0),
-            residual_norm=float(norm),
+            converged=outcome.converged,
+            iterations=outcome.iterations,
+            initial_residual_norm=outcome.initial_residual_norm,
+            residual_norm=outcome.residual_norm,
             creeping_points=int(update_info["creeping_points"]),
             maximum_creep_increment=float(update_info["maximum_creep_increment"]),
             creep_strain_error_estimate=0.0,

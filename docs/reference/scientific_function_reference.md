@@ -59,7 +59,7 @@ the compact machine-readable `agentfem/knowledge/catalog.json`.
 | [`agentfem.workflow.scalable_campaign_evidence`](#agentfem-workflow-scalable_campaign_evidence) | Spawned campaign ensembles and convergence certificates | workflow | supported |
 | [`agentfem.workflow.scientific_response_experiments`](#agentfem-workflow-scientific_response_experiments) | Campaign-backed scientific response experiments | workflow | supported |
 | [`agentfem.workflow.scientific_verification`](#agentfem-workflow-scientific_verification) | Scientific trust and verification workflow | workflow | supported |
-| [`agentfem.workflow.simplex_mesh_quality`](#agentfem-workflow-simplex_mesh_quality) | Collective simplex mesh-quality preflight | workflow | supported |
+| [`agentfem.workflow.simplex_mesh_quality`](#agentfem-workflow-simplex_mesh_quality) | Collective mesh-quality preflight | workflow | supported |
 | [`agentfem.workflow.solution_procedures`](#agentfem-workflow-solution_procedures) | Solution procedure vocabulary | analysis_step | supported |
 | [`agentfem.workflow.standard_result_projection`](#agentfem-workflow-standard_result_projection) | Projected small-strain fields, reactions, and static equilibrium | workflow | supported |
 | [`agentfem.workflow.thermoelastic_analysis`](#agentfem-workflow-thermoelastic_analysis) | Sequential thermoelastic analysis | workflow | supported |
@@ -5285,14 +5285,14 @@ result.verify('engineering', required_quantities=('response',)).require(); datas
 
 <a id="agentfem-workflow-simplex_mesh_quality"></a>
 
-## Collective simplex mesh-quality preflight
+## Collective mesh-quality preflight
 
 **Stable ID:** `agentfem.workflow.simplex_mesh_quality`<br>
 **Kind:** `workflow`<br>
 **Status:** `supported`<br>
 **Source card:** `src/agentfem/knowledge/cards/simplex_mesh_quality.json`
 
-Computes normalized triangle/tetrahedron mean-ratio quality and turns a declared threshold into MPI-global preflight evidence.
+Computes topology-appropriate simplex mean ratio or sampled coordinate-map scaled Jacobians and turns a declared threshold into MPI-global preflight evidence.
 
 ### Public API
 
@@ -5301,7 +5301,7 @@ Computes normalized triangle/tetrahedron mean-ratio quality and turns a declared
 
 ### Scientific contract
 
-Simplex mean ratio compares physical area or volume with squared edge lengths and equals one for an equilateral element and zero for a degenerate element.
+Simplex mean ratio measures triangle/tetrahedron shape while sampled scaled Jacobians inspect the active coordinate map of tensor, prism, pyramid, and high-order simplex geometry.
 
 **triangle mean ratio**
 
@@ -5319,11 +5319,19 @@ $$
 
 Six edge lengths and absolute tetrahedron volume define the metric.
 
+**sampled scaled Jacobian**
+
+$$
+q_J=\min_{\xi\in\mathcal S}\frac{\sqrt{\det(J(\xi)^T J(\xi))}}{\prod_i\lVert J_i(\xi)\rVert}
+$$
+
+Quadrature points and reference vertices sample the actual coordinate element; singular points or a sign change are invalid.
+
 #### Inputs
 
 | Name | Type | Unit role | Meaning |
 | --- | --- | --- | --- |
-| simplex mesh and threshold | DOLFINx triangle/tetrahedron domain and q_min in [0,1] | dimensionless quality; coordinates share any consistent length unit | Only owned cells contribute to collective counts and statistics. |
+| solver mesh and threshold | supported DOLFINx domain and q_min in [0,1] | dimensionless quality; coordinates share any consistent length unit | Only owned cells contribute to collective counts and statistics. |
 
 #### Outputs
 
@@ -5333,20 +5341,21 @@ Six edge lengths and absolute tetrahedron volume define the metric.
 
 #### Assumptions
 
-- The selected topology is a triangle or tetrahedron solver domain.
+- The domain owns one reconstructible Basix coordinate element.
 
 #### Conventions
 
 - Cells below threshold are poor; zero or non-finite cells are invalid.
+- Pyramid sampling uses interior quadrature and base vertices; the collapsed-coordinate apex has no unique in-plane derivative and is not sampled as an ordinary vertex.
 
 #### Applicability
 
-- Generated or imported simplex meshes, including C3D10 geometric topology preflight.
+- Generated or imported triangle, quadrilateral, tetrahedron, hexahedron, prism, and pyramid solver domains.
 
 #### Limitations
 
-- Mean ratio does not replace curved high-order Jacobian sampling or analysis-specific distortion checks.
-- Quadrilateral/hexahedron quality requires a different Jacobian-based contract and is rejected for now.
+- Finite sampling is evidence, not a mathematical proof that the Jacobian is positive at every reference point.
+- A universal threshold is not implied; analysis-specific distortion, integration, and formulation checks remain separate.
 
 ### Minimal example
 
@@ -5367,13 +5376,16 @@ quality = mesh.audit_quality(domain, threshold=0.1, strict=True)
 **Validation rules**
 
 - Recover sqrt(3)/2 for a right isosceles triangle.
+- Recover one for unit quadrilateral and hexahedral coordinate maps.
+- Reduce sampled quality under a known shear distortion.
 - Return values within [0,1].
 - Reduce counts and statistics collectively over owned MPI cells.
-- Reject unsupported cell types instead of reusing the simplex metric.
+- Reject unsupported cell types instead of guessing a metric.
 
 ### References
 
 - Algebraic mesh quality metrics for unstructured initial meshes: `https://doi.org/10.1002/nme.1429`
+- DOLFINx CoordinateElement Jacobian interface: `https://docs.fenicsproject.org/dolfinx/main/cpp/doxygen/d9/d35/classdolfinx_1_1fem_1_1CoordinateElement.html`
 
 <a id="agentfem-workflow-solution_procedures"></a>
 

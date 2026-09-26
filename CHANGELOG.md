@@ -6,6 +6,8 @@ experimental formulation to a validated one.
 
 ## [Unreleased]
 
+## [0.3.7] - 2026-09-26
+
 ### Added
 
 - Add explicit thermal/prescribed eigenstrain assets, region-aware
@@ -133,6 +135,15 @@ experimental formulation to a validated one.
 - Add `agentfem support`, a consent-first community invitation that performs no
   account action, checks an existing GitHub login only when explicitly asked,
   and remembers support locally without storing identity or credentials.
+- Add inspect-before-convert mesh compatibility through
+  `agentfem inspect-mesh` and `agentfem capabilities meshes`. The public matrix
+  separates neutral connectivity from solver formulation, fails closed on
+  unknown cells, and identifies high-order tensor, prism, and pyramid routes
+  as conditional until their acceptance corpora are complete.
+- Extend mesh-quality evidence from triangle/tetrahedron mean ratio to sampled
+  coordinate-map scaled Jacobians for quadrilateral, hexahedron, prism, and
+  pyramid cells. High-order simplex geometry now also receives sampled map-
+  validity checks.
 
 ### Changed
 
@@ -1009,7 +1020,8 @@ because the package version is stable.
   platform with readable study, model, step, result, campaign, and evidence
   contracts.
 
-[Unreleased]: https://github.com/haoming-luo/agentfem/compare/v0.3.6...HEAD
+[Unreleased]: https://github.com/haoming-luo/agentfem/compare/v0.3.7...HEAD
+[0.3.7]: https://github.com/haoming-luo/agentfem/compare/v0.3.6...v0.3.7
 [0.3.6]: https://github.com/haoming-luo/agentfem/compare/v0.3.5...v0.3.6
 [0.3.5]: https://github.com/haoming-luo/agentfem/compare/v0.3.4...v0.3.5
 [0.3.4]: https://github.com/haoming-luo/agentfem/compare/v0.3.3...v0.3.4

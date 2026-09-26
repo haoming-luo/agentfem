@@ -25,6 +25,7 @@ from .. import _axisymmetric
 from ..constitutive import hyperelasticity
 from ..materials.properties import constant_volumetric_heat_capacity
 from . import core
+from . import dispatch
 from . import elasticity as elasticity_operators
 
 
@@ -493,7 +494,7 @@ def _stiffness_contribution(
         kwargs["temperature"] = getattr(temperature, "value", temperature)
     if selected_measure is not None:
         kwargs["measure"] = selected_measure
-    operator = core.stiffness(target, record.item, **kwargs)
+    operator = dispatch.stiffness(target, record.item, **kwargs)
     if record.region is not None:
         return operator.renamed(name, kind="regional_stiffness")
     return operator.renamed(name)

@@ -36,12 +36,23 @@ class PreparedProjection:
         self.output = output
 
     @property
+    def closed(self) -> bool:
+        """Whether the retained projection allocation has been released."""
+
+        return bool(self._problem.closed)
+
+    def _require_open(self) -> None:
+        if self.closed:
+            raise RuntimeError("PreparedProjection is closed.")
+
+    @property
     def solve_count(self) -> int:
         return int(self._problem.solve_count)
 
     def solve(self):
         """Project the current expression into the retained output field."""
 
+        self._require_open()
         self._problem.solve()
         return self.output
 
@@ -59,6 +70,7 @@ class PreparedProjection:
         self._problem.close()
 
     def __enter__(self):
+        self._require_open()
         return self
 
     def __exit__(self, exc_type, exc, traceback):

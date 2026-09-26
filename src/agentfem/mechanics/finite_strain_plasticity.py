@@ -21,7 +21,8 @@ from .. import steps as step_controls
 from ..constitutive import FiniteStrainJ2Logarithmic
 from ..constitutive import MaterialQuadratureResponse
 from ..constitutive.quadrature import QuadratureField, QuadratureMaterialMap
-from ..solvers import NewtonSolverOptions, SolveEvent, newton, solve_matrix_system
+from ..events import SolveEvent
+from ..solvers import NewtonSolverOptions, newton, solve_matrix_system
 
 
 _MIXED_J2_MAXIMUM_BULK_TO_SHEAR_RATIO = 1.0e4

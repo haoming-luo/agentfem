@@ -1,0 +1,162 @@
+# SPDX-FileCopyrightText: 2026 Haoming Luo and AgentFEM contributors
+# SPDX-License-Identifier: Apache-2.0
+
+"""Explicit source-cell, solver-topology, and quality compatibility.
+
+Reading connectivity is not equivalent to reproducing a source finite-element
+formulation. This module describes only the neutral geometry route. Reduced
+integration, hybrid variables, incompatible modes, shell directors, beam
+sections, cohesive kinematics, and other formulation semantics remain the
+responsibility of their dedicated adapters and providers.
+"""
+
+from __future__ import annotations
+
+from dataclasses import dataclass
+
+
+@dataclass(frozen=True)
+class CellCompatibility:
+    """One meshio-style source cell mapped to an AgentFEM solver topology."""
+
+    source_cell_type: str
+    topology: str | None
+    dimension: int | None
+    geometry_degree: int | None
+    geometry_basis: str | None
+    node_count: int | None
+    import_maturity: str
+    solver_scope: str
+    quality_metric: str | None
+    limitations: tuple[str, ...] = ()
+
+    @property
+    def solver_ready(self) -> bool:
+        return self.import_maturity == "verified"
+
+    def summary(self) -> dict[str, object]:
+        return {
+            "source_cell_type": self.source_cell_type,
+            "topology": self.topology,
+            "dimension": self.dimension,
+            "geometry_degree": self.geometry_degree,
+            "geometry_basis": self.geometry_basis,
+            "node_count": self.node_count,
+            "import_maturity": self.import_maturity,
+            "solver_ready": self.solver_ready,
+            "solver_scope": self.solver_scope,
+            "quality_metric": self.quality_metric,
+            "limitations": self.limitations,
+        }
+
+
+_NEUTRAL_SCOPE = (
+    "neutral_geometry_and_named_sets; physical finite-element formulation "
+    "must be selected independently"
+)
+_SOURCE_FORMULATION_LIMIT = (
+    "Connectivity does not reproduce source reduced integration, hybrid "
+    "variables, hourglass control, incompatible modes, or dedicated "
+    "structural/interface kinematics."
+)
+
+
+def _cell(
+    source: str,
+    topology: str,
+    dimension: int,
+    degree: int,
+    basis: str,
+    nodes: int,
+    maturity: str,
+    metric: str | None,
+    *limitations: str,
+) -> CellCompatibility:
+    return CellCompatibility(
+        source_cell_type=source,
+        topology=topology,
+        dimension=dimension,
+        geometry_degree=degree,
+        geometry_basis=basis,
+        node_count=nodes,
+        import_maturity=maturity,
+        solver_scope=_NEUTRAL_SCOPE,
+        quality_metric=metric,
+        limitations=(_SOURCE_FORMULATION_LIMIT, *limitations),
+    )
+
+
+_CELLS = (
+    _cell("line", "interval", 1, 1, "complete_lagrange", 2, "conditional", None,
+          "Line topology is not by itself a truss, beam, or cable formulation."),
+    _cell("line3", "interval", 1, 2, "complete_lagrange", 3, "conditional", None,
+          "Quadratic line topology requires an analysis-specific line formulation."),
+    _cell("triangle", "triangle", 2, 1, "complete_lagrange", 3, "verified",
+          "simplex_mean_ratio"),
+    _cell("triangle6", "triangle", 2, 2, "complete_lagrange", 6, "conditional",
+          "simplex_mean_ratio_with_sampled_map_validity",
+          "Curved geometry still requires positive coordinate-map Jacobians."),
+    _cell("quad", "quadrilateral", 2, 1, "tensor_lagrange", 4, "verified",
+          "sampled_scaled_jacobian"),
+    _cell("quad8", "quadrilateral", 2, 2, "serendipity", 8, "conditional",
+          "sampled_scaled_jacobian",
+          "Serendipity geometry is retained only when the active I/O stack preserves it."),
+    _cell("quad9", "quadrilateral", 2, 2, "tensor_lagrange", 9, "conditional",
+          "sampled_scaled_jacobian",
+          "Complete quadratic import still requires a source-format corpus check."),
+    _cell("tetra", "tetrahedron", 3, 1, "complete_lagrange", 4, "verified",
+          "simplex_mean_ratio"),
+    _cell("tetra10", "tetrahedron", 3, 2, "complete_lagrange", 10, "verified",
+          "simplex_mean_ratio_with_sampled_map_validity",
+          "C3D10H and similar source names additionally require an explicit mixed formulation."),
+    _cell("hexahedron", "hexahedron", 3, 1, "tensor_lagrange", 8, "verified",
+          "sampled_scaled_jacobian"),
+    _cell("hexahedron20", "hexahedron", 3, 2, "serendipity", 20, "conditional",
+          "sampled_scaled_jacobian",
+          "Serendipity geometry is retained only when the active I/O stack preserves it."),
+    _cell("hexahedron27", "hexahedron", 3, 2, "tensor_lagrange", 27, "conditional",
+          "sampled_scaled_jacobian",
+          "Complete quadratic import still requires a source-format corpus check."),
+    _cell("wedge", "prism", 3, 1, "complete_lagrange", 6, "conditional",
+          "sampled_scaled_jacobian",
+          "Prism topology is available in DOLFINx/Basix but is not yet a release-level AgentFEM import route."),
+    _cell("wedge15", "prism", 3, 2, "serendipity", 15, "conditional",
+          "sampled_scaled_jacobian",
+          "Quadratic prism import and geometry ordering require a format-specific acceptance corpus."),
+    _cell("pyramid", "pyramid", 3, 1, "complete_lagrange", 5, "conditional",
+          "sampled_scaled_jacobian",
+          "Pyramid topology is available in DOLFINx/Basix but is not yet a release-level AgentFEM import route."),
+)
+_BY_SOURCE = {item.source_cell_type: item for item in _CELLS}
+
+
+def describe_cell(source_cell_type: str) -> CellCompatibility:
+    """Describe a meshio-style cell name without guessing equivalence."""
+
+    selected = str(source_cell_type).strip().lower()
+    result = _BY_SOURCE.get(selected)
+    if result is not None:
+        return result
+    return CellCompatibility(
+        source_cell_type=selected,
+        topology=None,
+        dimension=None,
+        geometry_degree=None,
+        geometry_basis=None,
+        node_count=None,
+        import_maturity="blocked",
+        solver_scope="no declared AgentFEM solver-domain lowering",
+        quality_metric=None,
+        limitations=(
+            "The source cell type is not in the reviewed AgentFEM neutral-geometry matrix.",
+        ),
+    )
+
+
+def compatibility_matrix() -> tuple[CellCompatibility, ...]:
+    """Return the complete, deterministic neutral-geometry matrix."""
+
+    return _CELLS
+
+
+__all__ = ["CellCompatibility", "compatibility_matrix", "describe_cell"]

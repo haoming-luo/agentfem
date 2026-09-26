@@ -24,7 +24,8 @@ from . import assembly
 from . import fields
 from . import time
 from .diagnostics import PerformanceLedger
-from .solvers import LinearSolverOptions, SolveEvent
+from .events import SolveEvent
+from .solvers import LinearSolverOptions
 
 
 @dataclass

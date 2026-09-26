@@ -1,6 +1,14 @@
+from pathlib import Path
+
 import pytest
 
-from ci_validation_scope import ValidationScope, classify_changes
+from ci_validation_scope import (
+    _CORE_SOURCE_MPI_TEST_MAP,
+    _CORE_SOURCE_TEST_MAP,
+    _SOURCE_TEST_MAP,
+    ValidationScope,
+    classify_changes,
+)
 
 
 @pytest.mark.parametrize(
@@ -39,6 +47,69 @@ def test_test_only_fix_returns_stable_target_list_without_requesting_full_ci():
             "tests/test_p1_platform.py",
         ),
     )
+
+
+def test_targeted_source_change_selects_stable_owner_tests():
+    scope = classify_changes(
+        [
+            "src/agentfem/campaigns/core.py",
+            "src/agentfem/cli.py",
+        ]
+    )
+
+    assert scope.level == "targeted"
+    assert scope.tests == (
+        "tests/test_campaigns.py",
+        "tests/test_common_workflows.py",
+        "tests/test_project_cli.py",
+    )
+
+
+def test_known_core_change_selects_serial_and_distributed_owner_suites():
+    scope = classify_changes(
+        [
+            "src/agentfem/constitutive/material_driver.py",
+            "src/agentfem/mechanics/viscoelasticity.py",
+        ]
+    )
+
+    assert scope.level == "core"
+    assert scope.tests == (
+        "tests/test_finite_strain_j2_material_map.py",
+        "tests/test_finite_strain_plasticity.py",
+        "tests/test_user_material.py",
+        "tests/test_viscoelasticity.py",
+    )
+    assert scope.mpi_tests == (
+        "tests/test_parallel_inelastic.py",
+        "tests/test_parallel_viscoelasticity.py",
+    )
+
+
+def test_unknown_core_change_fails_safe_to_complete_release_validation():
+    scope = classify_changes(["src/agentfem/unmapped_core.py"])
+
+    assert scope.level == "release"
+    assert scope.tests == ()
+    assert scope.mpi_tests == ()
+
+
+def test_every_declared_owner_test_exists_in_the_repository():
+    mappings = (
+        _SOURCE_TEST_MAP,
+        _CORE_SOURCE_TEST_MAP,
+        _CORE_SOURCE_MPI_TEST_MAP,
+    )
+    selected = {
+        path
+        for mapping in mappings
+        for paths in mapping.values()
+        for path in paths
+    }
+
+    missing = tuple(path for path in sorted(selected) if not Path(path).is_file())
+
+    assert missing == ()
 
 
 @pytest.mark.parametrize("level", ("docs", "targeted", "core", "release"))

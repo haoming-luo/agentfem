@@ -18,6 +18,7 @@ import textwrap
 
 _CAPABILITY_TOPICS = {
     "materials": "Constitutive models and material-point capabilities",
+    "meshes": "Mesh-cell import, solver, and quality compatibility",
     "procedures": "Analysis procedures and finite-element step providers",
     "workflow": "Public workflow and project commands",
     "runtime": "Current numerical runtime",
@@ -52,6 +53,7 @@ def format_capabilities(record: Mapping[str, object], topic: str | None = None) 
     selected = None if topic is None else str(topic).strip().lower().replace("-", "_")
     materials = tuple(record.get("constitutive", ()))
     providers = tuple(record.get("step_providers", ()))
+    mesh_cells = tuple(record.get("mesh_cells", ()))
     if selected is None:
         maturity = {}
         for item in materials:
@@ -72,13 +74,15 @@ def format_capabilities(record: Mapping[str, object], topic: str | None = None) 
                 f"  workflow    {len(record.get('templates', ()))} project templates · "
                 f"{len(record.get('commands', ()))} CLI commands",
                 f"  materials   {len(materials)} declared capabilities · {stable} beyond experimental maturity",
+                f"  meshes      {sum(bool(item.get('solver_ready')) for item in mesh_cells)} verified · "
+                f"{sum(item.get('import_maturity') == 'conditional' for item in mesh_cells)} conditional cell routes",
                 f"  procedures  {len(providers)} finite-element step providers",
                 f"  runtime     DOLFINx {packages.get('fenics-dolfinx') or 'not found'} · "
                 f"PETSc {packages.get('petsc4py') or 'not found'}",
                 f"  extensions  {len(installed)} installed",
                 "",
                 "Explore one area:",
-                "  agentfem capabilities materials|procedures|workflow|runtime|extensions",
+                "  agentfem capabilities materials|meshes|procedures|workflow|runtime|extensions",
                 "  agentfem capabilities <material-name>",
                 "Full machine record: agentfem capabilities --json",
             )
@@ -92,6 +96,20 @@ def format_capabilities(record: Mapping[str, object], topic: str | None = None) 
                     f"  {str(item.get('name', '')):<28} {item.get('maturity', 'unspecified')}"
                 )
             lines.append("\nDetails: agentfem capabilities <material-name>")
+            return "\n".join(lines)
+        if selected == "meshes":
+            lines = ["Mesh and cell compatibility", "  CELL           TOPOLOGY       STATUS       QUALITY"]
+            for item in mesh_cells:
+                lines.append(
+                    f"  {str(item.get('source_cell_type', '')):<14} "
+                    f"{str(item.get('topology') or '-'):<14} "
+                    f"{str(item.get('import_maturity', 'blocked')):<12} "
+                    f"{item.get('quality_metric') or '-'}"
+                )
+            lines.append(
+                "\nVerified means neutral geometry plus named sets, not source-element formulation equivalence."
+            )
+            lines.append("Inspect a file: agentfem inspect-mesh PATH")
             return "\n".join(lines)
         if selected == "procedures":
             lines = ["Analysis procedures"]

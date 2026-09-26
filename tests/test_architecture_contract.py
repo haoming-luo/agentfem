@@ -46,6 +46,78 @@ def _agentfem_imports(path: Path) -> set[str]:
     return imported
 
 
+def _implementation_modules() -> dict[str, Path]:
+    return {
+        _module_name(path): path
+        for path in PACKAGE.rglob("*.py")
+        if path.name != "__init__.py"
+    }
+
+
+def _top_level_module_imports(path: Path, known: set[str]) -> set[str]:
+    """Return eager internal dependencies, excluding deliberate lazy seams."""
+
+    module = _module_name(path)
+    package = module.split(".")[:-1]
+    selected = set()
+    for node in ast.parse(path.read_text(encoding="utf-8")).body:
+        names: list[str] = []
+        if isinstance(node, ast.Import):
+            names = [item.name for item in node.names]
+        elif isinstance(node, ast.ImportFrom):
+            if node.level:
+                base = package[: len(package) - node.level + 1]
+                if node.module:
+                    names = [".".join((*base, node.module))]
+                else:
+                    names = [".".join((*base, item.name)) for item in node.names]
+            elif node.module:
+                names = [node.module]
+        selected.update(name for name in names if name in known and name != module)
+    return selected
+
+
+def _dependency_cycles(graph: dict[str, set[str]]) -> tuple[tuple[str, ...], ...]:
+    """Return strongly connected eager-import components without dependencies."""
+
+    index = 0
+    indices: dict[str, int] = {}
+    lowlinks: dict[str, int] = {}
+    stack: list[str] = []
+    active: set[str] = set()
+    cycles: list[tuple[str, ...]] = []
+
+    def visit(module: str) -> None:
+        nonlocal index
+        indices[module] = index
+        lowlinks[module] = index
+        index += 1
+        stack.append(module)
+        active.add(module)
+        for dependency in graph[module]:
+            if dependency not in indices:
+                visit(dependency)
+                lowlinks[module] = min(lowlinks[module], lowlinks[dependency])
+            elif dependency in active:
+                lowlinks[module] = min(lowlinks[module], indices[dependency])
+        if lowlinks[module] != indices[module]:
+            return
+        component = []
+        while True:
+            selected = stack.pop()
+            active.remove(selected)
+            component.append(selected)
+            if selected == module:
+                break
+        if len(component) > 1:
+            cycles.append(tuple(sorted(component)))
+
+    for module in graph:
+        if module not in indices:
+            visit(module)
+    return tuple(sorted(cycles))
+
+
 def _owned_files(prefix: str) -> tuple[Path, ...]:
     direct = PACKAGE / f"{prefix}.py"
     if direct.exists():
@@ -71,6 +143,49 @@ def test_ownership_contract_is_small_stable_and_machine_readable():
     by_name = {item["name"]: item for item in records}
     assert by_name["constitutive"]["modules"] == ("constitutive",)
     assert "mechanics" in by_name["procedure"]["modules"]
+    assert "solvers" in by_name["backend"]["modules"]
+    assert "events" in by_name["result_verification"]["modules"]
+
+    declared_modules = [
+        module for item in records for module in item["modules"]
+    ]
+    assert len(declared_modules) == len(set(declared_modules))
+    assert _architecture_contract.ownership_of("agentfem.models") == "model"
+    assert _architecture_contract.ownership_of("agentfem.operators.core") == (
+        "operator"
+    )
+    assert _architecture_contract.ownership_of("agentfem.solvers") == "backend"
+    assert _architecture_contract.ownership_of("agentfem.events") == (
+        "result_verification"
+    )
+    assert _architecture_contract.ownership_of("agentfem._private_utility") is None
+
+
+def test_solve_event_contract_is_backend_neutral_but_compatibly_reexported():
+    from agentfem.events import SolveEvent as OwnedSolveEvent
+    from agentfem.solvers import SolveEvent as CompatibilitySolveEvent
+
+    assert OwnedSolveEvent is CompatibilitySolveEvent
+
+
+def test_internal_implementation_imports_form_an_acyclic_eager_graph():
+    modules = _implementation_modules()
+    known = set(modules)
+    graph = {
+        module: _top_level_module_imports(path, known)
+        for module, path in modules.items()
+    }
+
+    assert _dependency_cycles(graph) == ()
+
+
+def test_operator_core_does_not_select_concrete_physics():
+    imports = _agentfem_imports(PACKAGE / "operators" / "core.py")
+    source = (PACKAGE / "operators" / "core.py").read_text(encoding="utf-8")
+
+    assert "operators.elasticity" not in source
+    assert "constitutive" not in imports
+    assert (PACKAGE / "operators" / "dispatch.py").exists()
 
 
 def test_forbidden_cross_layer_imports_do_not_regrow():

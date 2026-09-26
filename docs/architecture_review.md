@@ -172,6 +172,31 @@ file. WSL2 remains a supported Windows route and an independently tracked
 acceptance item; lack of local WSL2 evidence does not block 0.3 after Linux and
 macOS installed-wheel acceptance passes.
 
+## 0.4 foundation
+
+The 0.4 line consolidates the middle layer before the public capability
+catalog grows again.
+
+- Primitive operators no longer choose a concrete physical formulation;
+  dispatch and model lowering own that decision.
+- Built-in Step providers are discovered lazily, keeping the eager internal
+  import graph acyclic.
+- Execution events and reusable fracture evidence are backend-neutral records;
+  compatibility imports remain available from their historical locations.
+- J2 plasticity, creep, generalized-Maxwell, and provider-neutral small-strain
+  materials share one internal Newton lifecycle for convergence, residual
+  ownership, accepted line-search evaluations, and structured rejection.
+  Constitutive updates and state commit/rollback remain formulation-owned.
+- Finite-strain materials have one optional atomic batch contract. Existing
+  scalar providers continue to work; vectorized native, compiled, and learned
+  providers can update MPI-local integration points without Python point loops.
+- CI maps focused source changes to stable owner suites. Complete serial/MPI
+  and installed-wheel validation remains a release gate rather than a tax on
+  every documentation or local implementation edit.
+
+The detailed decision, non-goals, and release ladder are recorded in
+`knowledge/decisions/0037-freeze-the-04-foundation-before-broadening.md`.
+
 ## Agent-Oriented Refinements
 
 - Every public helper should say what FEM concept it belongs to.

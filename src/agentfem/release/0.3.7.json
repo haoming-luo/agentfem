@@ -1,9 +1,9 @@
 {
   "schema": "agentfem.release-contract",
   "schema_version": "0.2.0",
-  "target_version": "0.3.7.dev0",
-  "channel": "development",
-  "status": "draft",
+  "target_version": "0.3.7",
+  "channel": "stable",
+  "status": "candidate",
   "supported_python": "3.11",
   "platform_evidence": {
     "continuous_integration": ["Linux", "macOS"],
@@ -45,6 +45,12 @@
       "maturity": "engineering",
       "example": "tests/test_thermoelastic_semantics.py",
       "evidence": ["explicit-eigenstrain-assets", "complete-material-partition", "free-expansion-zero-stress", "constrained-heating", "unsmoothed-material-aware-fields", "rigid-mode-preflight"]
+    },
+    {
+      "id": "mesh-cell-compatibility-and-quality",
+      "maturity": "engineering",
+      "example": "tests/test_mesh_formats.py",
+      "evidence": ["machine-readable-cell-matrix", "inspect-before-convert-cli", "triangle-quad-tetra-hex-neutral-import", "simplex-mean-ratio", "coordinate-map-sampled-scaled-jacobian", "source-formulation-non-equivalence", "unknown-cell-fail-closed"]
     },
     {
       "id": "abaqus-reviewed-migration",
@@ -157,7 +163,10 @@
     "thermoelastic-free-expansion-and-region-partition",
     "finite-strain-explicit-material-load-partition",
     "fibrous-shell-hybrid-serial-and-two-rank",
-    "rotation-free-edge-ownership"
+    "rotation-free-edge-ownership",
+    "mesh-cell-compatibility-contract",
+    "quad-hex-real-import-and-quality",
+    "unknown-cell-fail-closed"
   ],
   "not_release_claims": [
     "universal finite-element coverage",

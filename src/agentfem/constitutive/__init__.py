@@ -167,6 +167,9 @@ from .quadrature import (
 )
 from .user_material import (
     AbaqusUserMaterialBridge,
+    BatchedUserMaterial,
+    MaterialPointBatchInput,
+    MaterialPointBatchOutput,
     MaterialPointInput,
     MaterialPointOutput,
     MaterialStateSchema,
@@ -175,6 +178,7 @@ from .user_material import (
     MaterialTangentConvention,
     UserMaterial,
     check_material_tangent,
+    validated_material_batch_update,
     validated_material_update,
 )
 from .small_strain_user_material import (
@@ -230,6 +234,7 @@ __all__ = [
     "user_material",
     "viscoelasticity",
     "AbaqusUserMaterialBridge",
+    "BatchedUserMaterial",
     "ArrheniusPowerLawCreep",
     "ArrheniusShift",
     "AnisotropicElasticMaterial2D",
@@ -269,6 +274,8 @@ __all__ = [
     "NeoHookeanProperties",
     "PlaneStressNeoHookeanProperties",
     "MaterialPointInput",
+    "MaterialPointBatchInput",
+    "MaterialPointBatchOutput",
     "MaterialPointBatchResult",
     "MaterialPointOutput",
     "MaterialApplicabilityError",
@@ -312,6 +319,7 @@ __all__ = [
     "ViscoelasticUpdate",
     "WLFShift",
     "validated_material_update",
+    "validated_material_batch_update",
     "update_material_points",
     "check_material_tangent",
     "check_small_strain_material_tangent",

@@ -5,7 +5,7 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from math import isfinite
 from typing import Literal
 
@@ -14,6 +14,106 @@ import numpy as np
 
 EventDirection = Literal["rising", "falling", "either"]
 EventStatus = Literal["observed", "left_censored", "right_censored"]
+
+
+@dataclass(frozen=True)
+class SolveEvent:
+    """One backend-neutral observation from an analysis procedure.
+
+    This is the shared evidence stream for progress views, status files,
+    result manifests, and agent monitoring.  It lives outside the PETSc solver
+    implementation so procedures and result readers can consume events without
+    importing a numerical backend.
+    """
+
+    kind: str
+    step_name: str
+    step_number: int = 1
+    increment: int = 0
+    attempt: int = 0
+    start_factor: float = 0.0
+    target_factor: float = 0.0
+    iteration: int = 0
+    residual_norm: float | None = None
+    step_length: float | None = None
+    next_increment: float | None = None
+    incrementation: str = ""
+    message: str = ""
+    time: float | None = None
+    total_increments: int = 0
+    coordinate_name: str | None = None
+    coordinate_value: float | None = None
+    coordinate_unit: str | None = None
+    metrics: dict[str, float] = field(default_factory=dict)
+    display: bool = True
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "metrics", dict(self.metrics))
+
+    def as_dict(self) -> dict[str, object]:
+        """Return a JSON-safe, stable execution-event record."""
+
+        def finite_or_none(value):
+            if value is None:
+                return None
+            selected = float(value)
+            return selected if isfinite(selected) else None
+
+        return {
+            "kind": self.kind,
+            "step_name": self.step_name,
+            "step_number": int(self.step_number),
+            "increment": int(self.increment),
+            "attempt": int(self.attempt),
+            "start_factor": float(self.start_factor),
+            "target_factor": float(self.target_factor),
+            "iteration": int(self.iteration),
+            "residual_norm": finite_or_none(self.residual_norm),
+            "step_length": finite_or_none(self.step_length),
+            "next_increment": finite_or_none(self.next_increment),
+            "incrementation": self.incrementation,
+            "message": self.message,
+            "time": finite_or_none(self.time),
+            "total_increments": int(self.total_increments),
+            "coordinate_name": self.coordinate_name,
+            "coordinate_value": finite_or_none(self.coordinate_value),
+            "coordinate_unit": self.coordinate_unit,
+            "metrics": {
+                str(name): finite_or_none(value) for name, value in self.metrics.items()
+            },
+            "display": bool(self.display),
+        }
+
+    @classmethod
+    def from_dict(cls, record: dict[str, object]) -> "SolveEvent":
+        """Restore a recorded event from a result or checkpoint manifest."""
+
+        return cls(
+            kind=str(record["kind"]),
+            step_name=str(record["step_name"]),
+            step_number=int(record.get("step_number", 1)),
+            increment=int(record.get("increment", 0)),
+            attempt=int(record.get("attempt", 0)),
+            start_factor=float(record.get("start_factor", 0.0)),
+            target_factor=float(record.get("target_factor", 0.0)),
+            iteration=int(record.get("iteration", 0)),
+            residual_norm=record.get("residual_norm"),
+            step_length=record.get("step_length"),
+            next_increment=record.get("next_increment"),
+            incrementation=str(record.get("incrementation", "")),
+            message=str(record.get("message", "")),
+            time=record.get("time"),
+            total_increments=int(record.get("total_increments", 0)),
+            coordinate_name=record.get("coordinate_name"),
+            coordinate_value=record.get("coordinate_value"),
+            coordinate_unit=record.get("coordinate_unit"),
+            metrics={
+                str(name): float(value)
+                for name, value in dict(record.get("metrics", {})).items()
+                if value is not None
+            },
+            display=bool(record.get("display", True)),
+        )
 
 
 @dataclass(frozen=True)
@@ -213,4 +313,10 @@ def _crossed(before: float, after: float, threshold: float, direction: str) -> b
     return (before - threshold) * (after - threshold) <= 0.0 and before != after
 
 
-__all__ = ["EventDirection", "EventStatus", "FirstPassageEvent", "first_passage"]
+__all__ = [
+    "EventDirection",
+    "EventStatus",
+    "FirstPassageEvent",
+    "SolveEvent",
+    "first_passage",
+]

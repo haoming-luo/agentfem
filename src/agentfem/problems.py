@@ -22,6 +22,7 @@ from . import time
 from ._solver_lifecycle import PreparedSolve
 from .dynamics import ModalSolveInfo
 from .diagnostics import PerformanceLedger
+from .events import SolveEvent
 from .constraints.affine import AffineConstraintDualHistory
 from .kernel import dofs
 from .mechanics.modal import ModalAnalysisStep
@@ -32,7 +33,6 @@ from .solvers import (
     LinearSolverOptions,
     NewtonSolverOptions,
     NonlinearSolverOptions,
-    SolveEvent,
     prepare_linear_problem,
     prepare_mpc_linear_problem,
     solve_affine_nonlinear_path,

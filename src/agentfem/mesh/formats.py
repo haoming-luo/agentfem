@@ -20,6 +20,8 @@ import numpy as np
 
 from agentfem import dependencies
 
+from .compatibility import describe_cell
+
 
 SUPPORTED_EXTERNAL_FORMATS = {
     ".inp": "Abaqus input",
@@ -60,6 +62,11 @@ class CellBlockSummary:
     cell_type: str
     count: int
 
+    def compatibility(self) -> dict[str, object]:
+        """Return the reviewed AgentFEM route for this source block."""
+
+        return describe_cell(self.cell_type).summary()
+
 
 @dataclass(frozen=True)
 class ExternalMeshSummary:
@@ -84,7 +91,11 @@ class ExternalMeshSummary:
             "point_count": self.point_count,
             "geometric_dimension": self.geometric_dimension,
             "cell_blocks": [
-                {"cell_type": block.cell_type, "count": block.count}
+                {
+                    "cell_type": block.cell_type,
+                    "count": block.count,
+                    "compatibility": block.compatibility(),
+                }
                 for block in self.cell_blocks
             ],
             "cell_sets": self.cell_sets,
@@ -371,6 +382,13 @@ def convert_to_xdmf(
     source_mesh = meshio.read(input_path, file_format=input_format)
     inspection = summarize_external_mesh(input_path, source_mesh)
     selected_type = cell_type or _first_supported_cell_type(source_mesh.cells)
+    compatibility = describe_cell(selected_type)
+    if compatibility.import_maturity == "blocked":
+        raise ValueError(
+            f"Cell type {selected_type!r} has no declared AgentFEM "
+            "solver-domain lowering. Inspect the mesh and select a reviewed "
+            "topology or provide an explicit extension."
+        )
     cells = _cells_of_type(source_mesh.cells, selected_type)
     points = np.asarray(source_mesh.points)
     if prune_z:
@@ -447,6 +465,13 @@ def convert_to_xdmf(
         if block.cell_type not in {selected_type, facet_type}
     )
     warnings = list(conversion_warnings)
+    if compatibility.import_maturity == "conditional":
+        warnings.append(
+            f"Cell type {selected_type!r} is a conditional neutral-geometry "
+            "route, not release-level solver compatibility. Run a real "
+            "DOLFINx read, mesh-quality audit, patch test, and formulation "
+            "verification before engineering use."
+        )
     if ignored_types:
         warnings.append(
             "Only the selected topological cell type was written; omitted "
@@ -488,6 +513,7 @@ def convert_to_xdmf(
         "output": {
             "mesh_path": str(output_path),
             "selected_cell_type": selected_type,
+            "compatibility": compatibility.summary(),
             "cell_count": int(len(cells)),
             "region_data_name": "agentfem_region" if region_tags else None,
             "region_tags": region_tags,

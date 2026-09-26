@@ -690,7 +690,7 @@ class DirectHarmonicSweepStep:
         if not pending and self.completed:
             return self
         reporter = self._reporter()
-        from ..solvers import SolveEvent
+        from ..events import SolveEvent
 
         reporter.emit(
             SolveEvent(
@@ -841,7 +841,7 @@ class DirectHarmonicSweepStep:
 
         from .. import checkpointing
         from ..results import CheckpointRecord
-        from ..solvers import SolveEvent
+        from ..events import SolveEvent
 
         comm = self.solution_real.function_space.mesh.comm
         frozen_before = self._frozen_executable_identity

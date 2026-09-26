@@ -414,6 +414,11 @@ def test_capability_command_is_json_serializable(capsys):
     assert evidence["mixed_mode_cohesive_interface"]["maturity"].startswith(
         "experimental_"
     )
+    mesh_cells = {
+        item["source_cell_type"]: item for item in record["mesh_cells"]
+    }
+    assert mesh_cells["quad"]["solver_ready"] is True
+    assert mesh_cells["hexahedron20"]["import_maturity"] == "conditional"
     linear = next(
         item
         for item in record["step_providers"]
@@ -431,6 +436,11 @@ def test_capability_command_is_progressively_human_readable(capsys):
     assert "Full machine record" in summary
     assert '"constitutive"' not in summary
     assert len(summary.splitlines()) <= 15
+
+    assert cli.main(["capabilities", "meshes"]) == 0
+    mesh_detail = capsys.readouterr().out
+    assert "quadrilateral" in mesh_detail
+    assert "source-element formulation equivalence" in mesh_detail
 
     assert cli.main(["capabilities", "linear_elasticity"]) == 0
     detail = capsys.readouterr().out

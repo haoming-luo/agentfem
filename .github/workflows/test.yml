@@ -33,6 +33,7 @@ jobs:
       level: ${{ steps.scope.outputs.level }}
       ml: ${{ steps.scope.outputs.ml }}
       tests: ${{ steps.scope.outputs.tests }}
+      mpi_tests: ${{ steps.scope.outputs.mpi_tests }}
     steps:
       - name: Check out enough history to classify the change
         uses: actions/checkout@v6
@@ -207,6 +208,9 @@ jobs:
     # and TCP transports, including the two-rank regression jobs below.
     env:
       UCX_TLS: tcp,sm,self
+      VALIDATION_LEVEL: ${{ needs.change-scope.outputs.level }}
+      CHANGED_TESTS: ${{ needs.change-scope.outputs.tests }}
+      CHANGED_MPI_TESTS: ${{ needs.change-scope.outputs.mpi_tests }}
     defaults:
       run:
         shell: bash -el {0}
@@ -237,9 +241,24 @@ jobs:
         run: python build_knowledge.py --check --check-imports
 
       - name: Run unit and interface tests
-        run: python -m pytest
+        run: |
+          if [[ "${VALIDATION_LEVEL}" == "core" && -n "${CHANGED_TESTS}" ]]; then
+            read -r -a selected <<< "${CHANGED_TESTS}"
+            python -m pytest -q "${selected[@]}"
+          else
+            python -m pytest
+          fi
+
+      - name: Run affected distributed owner tests
+        if: >-
+          needs.change-scope.outputs.level == 'core' &&
+          needs.change-scope.outputs.mpi_tests != ''
+        run: |
+          read -r -a selected <<< "${CHANGED_MPI_TESTS}"
+          mpirun -n 2 python -m pytest -q "${selected[@]}"
 
       - name: Run distributed constraint and result tests
+        if: needs.change-scope.outputs.level == 'release'
         run: >-
           mpirun -n 2 python -m pytest
           tests/test_parallel_affine.py
@@ -254,12 +273,15 @@ jobs:
           tests/test_parallel_viscoelasticity.py
 
       - name: Verify three-dimensional block Stokes with two MPI ranks
+        if: needs.change-scope.outputs.level == 'release'
         run: mpirun -n 2 python -m pytest tests/test_pdeagent_bench.py -k three_dimensional_stokes
 
       - name: Verify three-owner sparse cohesive exchange
+        if: needs.change-scope.outputs.level == 'release'
         run: mpirun -n 3 python -m pytest tests/test_parallel_cohesive.py -k "interface_sparse or serial_nonuniform"
 
       - name: Verify checkpoint portability across MPI rank counts
+        if: needs.change-scope.outputs.level == 'release'
         run: |
           mpirun -n 2 python tests/portable_checkpoint_driver.py write /tmp/agentfem-portable-heat
           python tests/portable_checkpoint_driver.py read /tmp/agentfem-portable-heat
@@ -306,28 +328,35 @@ jobs:
           mpirun -n 2 python tests/portable_affine_j2_periodic_driver.py read /tmp/agentfem-portable-affine-j2-regional-reverse --two-phase
 
       - name: Verify distributed inelastic equilibrium and transactions
+        if: needs.change-scope.outputs.level == 'release'
         run: mpirun -n 2 python -m pytest tests/test_parallel_inelastic.py -k distributed
 
       - name: Verify native axisymmetric J2 path with two MPI ranks
+        if: needs.change-scope.outputs.level == 'release'
         run: mpirun -n 2 python tests/axisymmetric_mpi_driver.py
 
       - name: Verify finite-strain J2 global path with two MPI ranks
+        if: needs.change-scope.outputs.level == 'release'
         run: mpirun -n 2 python tests/finite_strain_j2_mpi_driver.py
 
       - name: Verify finite-strain J2 non-proportional path with two MPI ranks
+        if: needs.change-scope.outputs.level == 'release'
         run: mpirun -n 2 python tests/finite_strain_j2_path_mpi_driver.py
 
       - name: Verify true-void finite-strain J2 MPI invariants
+        if: needs.change-scope.outputs.level == 'release'
         run: >-
           mpirun -n 2 python tests/parallel_periodic_void_j2_driver.py
           --invariants-only
 
       - name: Verify external J2 structure across MPI rank counts
+        if: needs.change-scope.outputs.level == 'release'
         run: |
           python tests/external_inelastic_benchmark_driver.py write /tmp/agentfem-j2-cylinder.json
           mpirun -n 2 python tests/external_inelastic_benchmark_driver.py compare /tmp/agentfem-j2-cylinder.json
 
       - name: Verify NAFEMS LE10 3D elasticity across MPI rank counts
+        if: needs.change-scope.outputs.level == 'release'
         run: |
           python tests/external_elasticity_3d_benchmark_driver.py write /tmp/agentfem-nafems-le10.json
           mpirun -n 2 python tests/external_elasticity_3d_benchmark_driver.py compare /tmp/agentfem-nafems-le10.json
@@ -342,6 +371,7 @@ jobs:
         run: AGENTFEM_CAMPAIGN_SAMPLES=4 AGENTFEM_CAMPAIGN_RUN_ID=ci-serial python examples/static_elasticity_surrogate_campaign.py
 
       - name: Run campaign persistence with two MPI ranks
+        if: needs.change-scope.outputs.level == 'release'
         run: AGENTFEM_CAMPAIGN_SAMPLES=4 AGENTFEM_CAMPAIGN_RUN_ID=ci-mpi mpirun -n 2 python examples/static_elasticity_surrogate_campaign.py
 
       - name: Run release demo smoke suite

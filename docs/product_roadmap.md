@@ -74,6 +74,29 @@ the roadmap does not turn an experimental formula into a validated solver.
 
 ## Public development tracks
 
+### Mesh and element foundation
+
+Mesh breadth advances by evidence, not by accepting more connectivity names.
+The 0.3.7 foundation separates source cells, solver formulations, and geometry
+quality; exposes a machine-readable compatibility matrix; and adds coordinate-
+map quality checks for simplex, tensor-product, prism, and pyramid domains.
+
+The promotion sequence is:
+
+1. complete P1/P2 triangle, quadrilateral, tetrahedron, and hexahedron import,
+   patch, orientation, tag, output, and MPI evidence;
+2. promote complete and serendipity high-order tensor cells only after real
+   Gmsh/Abaqus/XDMF ordering and curved-geometry corpora pass;
+3. promote linear prism and pyramid routes with solver and partition evidence;
+4. keep beam, shell, cohesive, reduced-integration, hybrid, and stabilized
+   elements behind dedicated formulations rather than topology aliases;
+5. admit mixed-topology solve domains only when assembly, regions, results,
+   checkpointing, and MPI preserve every block explicitly.
+
+Mesh repair and adaptation follow later. Quality diagnostics may recommend a
+decision, but AgentFEM will not silently move nodes or remesh an engineering
+model because that changes the scientific input.
+
 ### 1. Trusted mechanics
 
 Deepen the finite-element core before broadening the catalog:

@@ -93,6 +93,7 @@ def test_release_contract_is_complete_and_references_real_workflows():
         "partitioned-finite-strain-explicit",
         "multi-material-thermoelastic-static",
         "composite-material-and-fabric-foundation",
+        "mesh-cell-compatibility-and-quality",
     } <= workflow_ids
     assert (
         workflow_maturity["partitioned-finite-strain-explicit"] == "experimental"
@@ -125,6 +126,9 @@ def test_release_contract_is_complete_and_references_real_workflows():
         "finite-strain-explicit-material-load-partition",
         "fibrous-shell-hybrid-serial-and-two-rank",
         "rotation-free-edge-ownership",
+        "mesh-cell-compatibility-contract",
+        "quad-hex-real-import-and-quality",
+        "unknown-cell-fail-closed",
     } <= set(contract["required_gates"])
     assert {
         "forming-capable composite shell, tool contact, friction or inter-ply slip",
