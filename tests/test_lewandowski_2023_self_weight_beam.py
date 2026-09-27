@@ -12,6 +12,7 @@ import pytest
 from mpi4py import MPI
 
 from lewandowski_2023_self_weight_beam_fixture import (
+    CANDIDATE_ABSOLUTE_RESIDUAL_TOLERANCE,
     DEFINITION,
     REQUIRED_PROMOTION_EVIDENCE,
     UPSTREAM_ARTIFACTS,
@@ -374,6 +375,29 @@ def test_content_bound_promotion_derives_evidence_from_artifacts(tmp_path):
     assert report["restart_equivalence"]["passed"]
     assert report["observer_reconciliation"]["claim_scope"] == (
         "pinned_public_executable_curve_not_paper_point_A"
+    )
+
+    changed_solver = json.loads(
+        (mesh[0] / "assessment.json").read_text(encoding="utf-8")
+    )
+    changed_solver["candidate"]["absolute_residual_tolerance"] = 1.0e-8
+    (mesh[0] / "assessment.json").write_text(
+        json.dumps(changed_solver),
+        encoding="utf-8",
+    )
+    rejected_solver = assess_promotion(
+        mesh_roots=mesh,
+        increment_roots=increments,
+        rank_roots=ranks,
+        restart_report=restart,
+    )
+    assert CANDIDATE_ABSOLUTE_RESIDUAL_TOLERANCE == 5.0e-6
+    assert rejected_solver["status"] == "incomplete"
+    assert not rejected_solver["mesh_convergence"]["setup_consistent"]
+    del changed_solver["candidate"]["absolute_residual_tolerance"]
+    (mesh[0] / "assessment.json").write_text(
+        json.dumps(changed_solver),
+        encoding="utf-8",
     )
 
     dirty = json.loads((mesh[0] / "assessment.json").read_text(encoding="utf-8"))

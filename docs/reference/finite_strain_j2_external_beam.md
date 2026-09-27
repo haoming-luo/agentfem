@@ -114,6 +114,11 @@ promotion-evidence JSON; missing candidate convergence, MPI or restart gates
 keep the status incomplete. Use `--line-search basic` for the public beam:
 its valid full-Newton path is non-monotone near plastic onset, so a strictly
 decreasing-residual backtracking policy can reject a convergent direction.
+The evidence fixture, driver defaults, and promotion assessor share one frozen
+solver contract: `basic` line search, 30 maximum Newton corrections,
+`5e-6` absolute residual tolerance, and `1e-7` relative tolerance. A run that
+changes these controls is retained as a diagnostic but cannot enter the
+promotion set.
 The candidate curve is replaced atomically after every accepted load point,
 so a long interrupted run still leaves a readable accepted prefix; only a
 completed run writes the final assessment.

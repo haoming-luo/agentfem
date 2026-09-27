@@ -30,6 +30,10 @@ from agentfem import (
 from agentfem.provenance import runtime_manifest
 
 from lewandowski_2023_self_weight_beam_fixture import (
+    CANDIDATE_ABSOLUTE_RESIDUAL_TOLERANCE,
+    CANDIDATE_LINE_SEARCH,
+    CANDIDATE_MAXIMUM_ITERATIONS,
+    CANDIDATE_RELATIVE_RESIDUAL_TOLERANCE,
     DEFINITION,
     UPSTREAM_BEHAVIOUR_SHA256,
     UPSTREAM_COMMIT,
@@ -45,10 +49,10 @@ def _candidate_step(
     increments,
     adaptive=False,
     progress=False,
-    line_search="basic",
-    maximum_iterations=30,
-    absolute_tolerance=1.0e-8,
-    relative_tolerance=1.0e-7,
+    line_search=CANDIDATE_LINE_SEARCH,
+    maximum_iterations=CANDIDATE_MAXIMUM_ITERATIONS,
+    absolute_tolerance=CANDIDATE_ABSOLUTE_RESIDUAL_TOLERANCE,
+    relative_tolerance=CANDIDATE_RELATIVE_RESIDUAL_TOLERANCE,
     tangent_evaluation="analytic_spectral",
 ):
     definition = DEFINITION
@@ -217,25 +221,25 @@ def main() -> None:
     parser.add_argument(
         "--maximum-iterations",
         type=int,
-        default=30,
+        default=CANDIDATE_MAXIMUM_ITERATIONS,
         help="Maximum Newton corrections allowed for each fixed increment.",
     )
     parser.add_argument(
         "--absolute-tolerance",
         type=float,
-        default=1.0e-8,
+        default=CANDIDATE_ABSOLUTE_RESIDUAL_TOLERANCE,
         help="Absolute global force-residual tolerance for Newton convergence.",
     )
     parser.add_argument(
         "--relative-tolerance",
         type=float,
-        default=1.0e-7,
+        default=CANDIDATE_RELATIVE_RESIDUAL_TOLERANCE,
         help="Relative global force-residual tolerance for Newton convergence.",
     )
     parser.add_argument(
         "--line-search",
         choices=("backtracking", "basic"),
-        default="basic",
+        default=CANDIDATE_LINE_SEARCH,
         help=(
             "Newton globalization policy. The pinned upstream beam uses full "
             "Newton, so 'basic' is the benchmark default."
