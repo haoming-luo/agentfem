@@ -31,6 +31,14 @@ UPSTREAM_BEHAVIOUR_SHA256 = (
 MAXIMUM_NORMALIZED_RMS_ERROR = 0.03
 MAXIMUM_NORMALIZED_MAX_ERROR = 0.05
 
+# Candidate solver controls are part of the predeclared benchmark contract.
+# They reproduce the archived clean-commit evidence and must not depend on
+# command-line defaults that can drift as AgentFEM's general solver evolves.
+CANDIDATE_LINE_SEARCH = "basic"
+CANDIDATE_MAXIMUM_ITERATIONS = 30
+CANDIDATE_ABSOLUTE_RESIDUAL_TOLERANCE = 5.0e-6
+CANDIDATE_RELATIVE_RESIDUAL_TOLERANCE = 1.0e-7
+
 
 @dataclass(frozen=True)
 class SourceArtifact:

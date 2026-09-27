@@ -15,6 +15,10 @@ from pathlib import Path
 import numpy as np
 
 from lewandowski_2023_self_weight_beam_fixture import (
+    CANDIDATE_ABSOLUTE_RESIDUAL_TOLERANCE,
+    CANDIDATE_LINE_SEARCH,
+    CANDIDATE_MAXIMUM_ITERATIONS,
+    CANDIDATE_RELATIVE_RESIDUAL_TOLERANCE,
     DEFINITION,
     UPSTREAM_BEHAVIOUR_SHA256,
     UPSTREAM_COMMIT,
@@ -31,6 +35,42 @@ INCREMENT_RMS_TOLERANCE = 0.002
 INCREMENT_MAXIMUM_TOLERANCE = 0.005
 RANK_RMS_TOLERANCE = 1.0e-9
 RANK_MAXIMUM_TOLERANCE = 1.0e-8
+
+
+def _candidate_solver_controls(run) -> tuple[object, ...]:
+    candidate = run["candidate"]
+    return (
+        candidate.get("line_search", CANDIDATE_LINE_SEARCH),
+        int(
+            candidate.get(
+                "maximum_iterations_limit",
+                CANDIDATE_MAXIMUM_ITERATIONS,
+            )
+        ),
+        float(
+            candidate.get(
+                "absolute_residual_tolerance",
+                CANDIDATE_ABSOLUTE_RESIDUAL_TOLERANCE,
+            )
+        ),
+        float(
+            candidate.get(
+                "relative_residual_tolerance",
+                CANDIDATE_RELATIVE_RESIDUAL_TOLERANCE,
+            )
+        ),
+        candidate.get("tangent_evaluation", "central_difference"),
+    )
+
+
+def _uses_frozen_solver_contract(run) -> bool:
+    controls = _candidate_solver_controls(run)
+    return controls[:4] == (
+        CANDIDATE_LINE_SEARCH,
+        CANDIDATE_MAXIMUM_ITERATIONS,
+        CANDIDATE_ABSOLUTE_RESIDUAL_TOLERANCE,
+        CANDIDATE_RELATIVE_RESIDUAL_TOLERANCE,
+    )
 
 
 def _sha256(path: Path) -> str:
@@ -144,28 +184,8 @@ def assess_promotion(
         len(set(mesh_levels)) == 3
         and len({int(run["candidate"]["increments"]) for run in mesh_runs}) == 1
         and len({int(run["candidate"]["mpi_ranks"]) for run in mesh_runs}) == 1
-        and len({run["candidate"].get("line_search") for run in mesh_runs}) == 1
-        and len(
-            {
-                int(run["candidate"].get("maximum_iterations_limit", 30))
-                for run in mesh_runs
-            }
-        )
-        == 1
-        and len(
-            {
-                float(run["candidate"].get("absolute_residual_tolerance", 1.0e-8))
-                for run in mesh_runs
-            }
-        )
-        == 1
-        and len(
-            {
-                float(run["candidate"].get("relative_residual_tolerance", 1.0e-7))
-                for run in mesh_runs
-            }
-        )
-        == 1
+        and len({_candidate_solver_controls(run) for run in mesh_runs}) == 1
+        and all(_uses_frozen_solver_contract(run) for run in mesh_runs)
     )
     mesh_assessment = _convergence(
         mesh_runs,
@@ -187,31 +207,8 @@ def assess_promotion(
         == 1
         and len({int(run["candidate"]["mpi_ranks"]) for run in increment_runs})
         == 1
-        and len(
-            {run["candidate"].get("line_search") for run in increment_runs}
-        )
-        == 1
-        and len(
-            {
-                int(run["candidate"].get("maximum_iterations_limit", 30))
-                for run in increment_runs
-            }
-        )
-        == 1
-        and len(
-            {
-                float(run["candidate"].get("absolute_residual_tolerance", 1.0e-8))
-                for run in increment_runs
-            }
-        )
-        == 1
-        and len(
-            {
-                float(run["candidate"].get("relative_residual_tolerance", 1.0e-7))
-                for run in increment_runs
-            }
-        )
-        == 1
+        and len({_candidate_solver_controls(run) for run in increment_runs}) == 1
+        and all(_uses_frozen_solver_contract(run) for run in increment_runs)
     )
     increment_assessment = _convergence(
         increment_runs,
@@ -236,22 +233,9 @@ def assess_promotion(
         == tuple(rank_runs[1]["candidate"]["subdivisions"])
         and int(rank_runs[0]["candidate"]["increments"])
         == int(rank_runs[1]["candidate"]["increments"])
-        and rank_runs[0]["candidate"].get("line_search")
-        == rank_runs[1]["candidate"].get("line_search")
-        and int(rank_runs[0]["candidate"].get("maximum_iterations_limit", 30))
-        == int(rank_runs[1]["candidate"].get("maximum_iterations_limit", 30))
-        and float(
-            rank_runs[0]["candidate"].get("absolute_residual_tolerance", 1.0e-8)
-        )
-        == float(
-            rank_runs[1]["candidate"].get("absolute_residual_tolerance", 1.0e-8)
-        )
-        and float(
-            rank_runs[0]["candidate"].get("relative_residual_tolerance", 1.0e-7)
-        )
-        == float(
-            rank_runs[1]["candidate"].get("relative_residual_tolerance", 1.0e-7)
-        )
+        and _candidate_solver_controls(rank_runs[0])
+        == _candidate_solver_controls(rank_runs[1])
+        and all(_uses_frozen_solver_contract(run) for run in rank_runs)
     )
     rank_error = _curve_error(rank_runs[0], rank_runs[1])
     rank_assessment = {
