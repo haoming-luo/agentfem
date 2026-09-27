@@ -1,0 +1,2280 @@
+{
+  "assessment": {
+    "accepted": false,
+    "benchmark": "lewandowski_2023_self_weight_beam",
+    "candidate_points": 31,
+    "comparison_class": "cross_formulation_structure_level",
+    "errors": null,
+    "missing_evidence": [
+      "independent_reference_execution",
+      "observer_reconciled",
+      "candidate_mesh_converged",
+      "candidate_increment_converged",
+      "serial_mpi_equivalent",
+      "restart_equivalent",
+      "pinned_reference_source_identity",
+      "reference_curve_content_identity",
+      "independent_reference_curve"
+    ],
+    "reference_curve_sha256": null,
+    "schema": "agentfem.external-curve-assessment.v1",
+    "status": "incomplete"
+  },
+  "benchmark": "lewandowski_2023_self_weight_beam",
+  "candidate": {
+    "accepted_increments": 30,
+    "attempted_increments": 30,
+    "curve_file": "candidate_curve.csv",
+    "curve_sha256": "d97468613624fd84390a7d35cdbbf0bb5b0647211984dfe634084684d9b423ad",
+    "elapsed_seconds_max_rank": 2445.35799508309,
+    "final_downward_displacement_m": 0.11058759485236087,
+    "final_plastic_points": 28032,
+    "formulation": "multiplicative_Fp_quadratic_Hencky_Kirchhoff_J2_linear_isotropic_hardening",
+    "incrementation": "fixed",
+    "increments": 30,
+    "line_search": "basic",
+    "maximum_newton_iterations": 14,
+    "mpi_ranks": 4,
+    "points": 31,
+    "step": {
+      "accepted_increments": [
+        {
+          "attempt": 1,
+          "converged": true,
+          "increment": 1,
+          "initial_residual_norm": 69.19426050966865,
+          "iterations": 3,
+          "load_factor": 0.03333333333333333,
+          "maximum_plastic_increment": 0.0,
+          "plastic_points": 0,
+          "rejection_reason": null,
+          "residual_norm": 1.363977690846056e-06,
+          "start_load_factor": 0.0
+        },
+        {
+          "attempt": 1,
+          "converged": true,
+          "increment": 2,
+          "initial_residual_norm": 69.19426051619654,
+          "iterations": 3,
+          "load_factor": 0.06666666666666667,
+          "maximum_plastic_increment": 0.0,
+          "plastic_points": 0,
+          "rejection_reason": null,
+          "residual_norm": 1.3750758806699943e-06,
+          "start_load_factor": 0.03333333333333333
+        },
+        {
+          "attempt": 1,
+          "converged": true,
+          "increment": 3,
+          "initial_residual_norm": 69.194260509713,
+          "iterations": 3,
+          "load_factor": 0.1,
+          "maximum_plastic_increment": 0.0,
+          "plastic_points": 0,
+          "rejection_reason": null,
+          "residual_norm": 1.3652943658568599e-06,
+          "start_load_factor": 0.06666666666666667
+        },
+        {
+          "attempt": 1,
+          "converged": true,
+          "increment": 4,
+          "initial_residual_norm": 69.19426049750845,
+          "iterations": 3,
+          "load_factor": 0.13333333333333333,
+          "maximum_plastic_increment": 0.0,
+          "plastic_points": 0,
+          "rejection_reason": null,
+          "residual_norm": 1.372282827209857e-06,
+          "start_load_factor": 0.1
+        },
+        {
+          "attempt": 1,
+          "converged": true,
+          "increment": 5,
+          "initial_residual_norm": 69.1942605075268,
+          "iterations": 3,
+          "load_factor": 0.16666666666666666,
+          "maximum_plastic_increment": 0.0,
+          "plastic_points": 0,
+          "rejection_reason": null,
+          "residual_norm": 1.3780100136684282e-06,
+          "start_load_factor": 0.13333333333333333
+        },
+        {
+          "attempt": 1,
+          "converged": true,
+          "increment": 6,
+          "initial_residual_norm": 69.19426051156081,
+          "iterations": 3,
+          "load_factor": 0.2,
+          "maximum_plastic_increment": 0.0,
+          "plastic_points": 0,
+          "rejection_reason": null,
+          "residual_norm": 1.3518378941747774e-06,
+          "start_load_factor": 0.16666666666666666
+        },
+        {
+          "attempt": 1,
+          "converged": true,
+          "increment": 7,
+          "initial_residual_norm": 69.19426050140527,
+          "iterations": 3,
+          "load_factor": 0.23333333333333334,
+          "maximum_plastic_increment": 0.0,
+          "plastic_points": 0,
+          "rejection_reason": null,
+          "residual_norm": 1.3771631989354819e-06,
+          "start_load_factor": 0.2
+        },
+        {
+          "attempt": 1,
+          "converged": true,
+          "increment": 8,
+          "initial_residual_norm": 69.19426050462522,
+          "iterations": 5,
+          "load_factor": 0.26666666666666666,
+          "maximum_plastic_increment": 7.658273865226486e-05,
+          "plastic_points": 24,
+          "rejection_reason": null,
+          "residual_norm": 1.3937634189744904e-06,
+          "start_load_factor": 0.23333333333333334
+        },
+        {
+          "attempt": 1,
+          "converged": true,
+          "increment": 9,
+          "initial_residual_norm": 69.19426050054263,
+          "iterations": 7,
+          "load_factor": 0.3,
+          "maximum_plastic_increment": 0.00025651417995471503,
+          "plastic_points": 223,
+          "rejection_reason": null,
+          "residual_norm": 1.980109314813754e-06,
+          "start_load_factor": 0.26666666666666666
+        },
+        {
+          "attempt": 1,
+          "converged": true,
+          "increment": 10,
+          "initial_residual_norm": 69.19426051393735,
+          "iterations": 7,
+          "load_factor": 0.3333333333333333,
+          "maximum_plastic_increment": 0.0003797440521948819,
+          "plastic_points": 642,
+          "rejection_reason": null,
+          "residual_norm": 4.311788552510627e-06,
+          "start_load_factor": 0.3
+        },
+        {
+          "attempt": 1,
+          "converged": true,
+          "increment": 11,
+          "initial_residual_norm": 69.19426052830242,
+          "iterations": 8,
+          "load_factor": 0.36666666666666664,
+          "maximum_plastic_increment": 0.0005809138499944406,
+          "plastic_points": 1212,
+          "rejection_reason": null,
+          "residual_norm": 1.7208168032938067e-06,
+          "start_load_factor": 0.3333333333333333
+        },
+        {
+          "attempt": 1,
+          "converged": true,
+          "increment": 12,
+          "initial_residual_norm": 69.19426051361111,
+          "iterations": 7,
+          "load_factor": 0.4,
+          "maximum_plastic_increment": 0.0009199987462639315,
+          "plastic_points": 1893,
+          "rejection_reason": null,
+          "residual_norm": 4.763646238461239e-06,
+          "start_load_factor": 0.36666666666666664
+        },
+        {
+          "attempt": 1,
+          "converged": true,
+          "increment": 13,
+          "initial_residual_norm": 69.19426049946229,
+          "iterations": 7,
+          "load_factor": 0.43333333333333335,
+          "maximum_plastic_increment": 0.001444544719397456,
+          "plastic_points": 2499,
+          "rejection_reason": null,
+          "residual_norm": 4.374289806817308e-06,
+          "start_load_factor": 0.4
+        },
+        {
+          "attempt": 1,
+          "converged": true,
+          "increment": 14,
+          "initial_residual_norm": 69.19426050710788,
+          "iterations": 9,
+          "load_factor": 0.4666666666666667,
+          "maximum_plastic_increment": 0.0021228447728152766,
+          "plastic_points": 3687,
+          "rejection_reason": null,
+          "residual_norm": 3.990016585468018e-06,
+          "start_load_factor": 0.43333333333333335
+        },
+        {
+          "attempt": 1,
+          "converged": true,
+          "increment": 15,
+          "initial_residual_norm": 69.19426051078933,
+          "iterations": 10,
+          "load_factor": 0.5,
+          "maximum_plastic_increment": 0.0032709595562804873,
+          "plastic_points": 6222,
+          "rejection_reason": null,
+          "residual_norm": 2.6309007147293986e-06,
+          "start_load_factor": 0.4666666666666667
+        },
+        {
+          "attempt": 1,
+          "converged": true,
+          "increment": 16,
+          "initial_residual_norm": 69.19426051872156,
+          "iterations": 10,
+          "load_factor": 0.5333333333333333,
+          "maximum_plastic_increment": 0.006252445259753013,
+          "plastic_points": 10210,
+          "rejection_reason": null,
+          "residual_norm": 1.7289868009236376e-06,
+          "start_load_factor": 0.5
+        },
+        {
+          "attempt": 1,
+          "converged": true,
+          "increment": 17,
+          "initial_residual_norm": 69.19426051543725,
+          "iterations": 11,
+          "load_factor": 0.5666666666666667,
+          "maximum_plastic_increment": 0.01942573412263761,
+          "plastic_points": 14313,
+          "rejection_reason": null,
+          "residual_norm": 2.3233227747593024e-06,
+          "start_load_factor": 0.5333333333333333
+        },
+        {
+          "attempt": 1,
+          "converged": true,
+          "increment": 18,
+          "initial_residual_norm": 69.19426052126879,
+          "iterations": 11,
+          "load_factor": 0.6,
+          "maximum_plastic_increment": 0.021902936882149684,
+          "plastic_points": 15040,
+          "rejection_reason": null,
+          "residual_norm": 3.0530972968579076e-06,
+          "start_load_factor": 0.5666666666666667
+        },
+        {
+          "attempt": 1,
+          "converged": true,
+          "increment": 19,
+          "initial_residual_norm": 69.19426054902836,
+          "iterations": 11,
+          "load_factor": 0.6333333333333333,
+          "maximum_plastic_increment": 0.016188063126125668,
+          "plastic_points": 16191,
+          "rejection_reason": null,
+          "residual_norm": 3.3911412678333325e-06,
+          "start_load_factor": 0.6
+        },
+        {
+          "attempt": 1,
+          "converged": true,
+          "increment": 20,
+          "initial_residual_norm": 69.1942604948759,
+          "iterations": 9,
+          "load_factor": 0.6666666666666666,
+          "maximum_plastic_increment": 0.013829564666897678,
+          "plastic_points": 17678,
+          "rejection_reason": null,
+          "residual_norm": 3.617050781731179e-06,
+          "start_load_factor": 0.6333333333333333
+        },
+        {
+          "attempt": 1,
+          "converged": true,
+          "increment": 21,
+          "initial_residual_norm": 69.19426050217388,
+          "iterations": 9,
+          "load_factor": 0.7,
+          "maximum_plastic_increment": 0.012841447654408658,
+          "plastic_points": 19167,
+          "rejection_reason": null,
+          "residual_norm": 4.682333935253159e-06,
+          "start_load_factor": 0.6666666666666666
+        },
+        {
+          "attempt": 1,
+          "converged": true,
+          "increment": 22,
+          "initial_residual_norm": 69.19426047199617,
+          "iterations": 9,
+          "load_factor": 0.7333333333333333,
+          "maximum_plastic_increment": 0.01233912913240788,
+          "plastic_points": 20502,
+          "rejection_reason": null,
+          "residual_norm": 4.7848427453562645e-06,
+          "start_load_factor": 0.7
+        },
+        {
+          "attempt": 1,
+          "converged": true,
+          "increment": 23,
+          "initial_residual_norm": 69.19426049520752,
+          "iterations": 9,
+          "load_factor": 0.7666666666666666,
+          "maximum_plastic_increment": 0.0123085670687329,
+          "plastic_points": 21514,
+          "rejection_reason": null,
+          "residual_norm": 5.399667049100355e-06,
+          "start_load_factor": 0.7333333333333333
+        },
+        {
+          "attempt": 1,
+          "converged": true,
+          "increment": 24,
+          "initial_residual_norm": 69.19426053751336,
+          "iterations": 9,
+          "load_factor": 0.8,
+          "maximum_plastic_increment": 0.01243749748090324,
+          "plastic_points": 22387,
+          "rejection_reason": null,
+          "residual_norm": 5.249408956870539e-06,
+          "start_load_factor": 0.7666666666666666
+        },
+        {
+          "attempt": 1,
+          "converged": true,
+          "increment": 25,
+          "initial_residual_norm": 69.19426054038995,
+          "iterations": 9,
+          "load_factor": 0.8333333333333334,
+          "maximum_plastic_increment": 0.012680486278081105,
+          "plastic_points": 23560,
+          "rejection_reason": null,
+          "residual_norm": 5.581442319542066e-06,
+          "start_load_factor": 0.8
+        },
+        {
+          "attempt": 1,
+          "converged": true,
+          "increment": 26,
+          "initial_residual_norm": 69.1942605730633,
+          "iterations": 14,
+          "load_factor": 0.8666666666666667,
+          "maximum_plastic_increment": 0.013001281507596496,
+          "plastic_points": 24667,
+          "rejection_reason": null,
+          "residual_norm": 5.9309445747607385e-06,
+          "start_load_factor": 0.8333333333333334
+        },
+        {
+          "attempt": 1,
+          "converged": true,
+          "increment": 27,
+          "initial_residual_norm": 69.19426056582903,
+          "iterations": 12,
+          "load_factor": 0.9,
+          "maximum_plastic_increment": 0.013111968254795409,
+          "plastic_points": 25453,
+          "rejection_reason": null,
+          "residual_norm": 6.1782995985349905e-06,
+          "start_load_factor": 0.8666666666666667
+        },
+        {
+          "attempt": 1,
+          "converged": true,
+          "increment": 28,
+          "initial_residual_norm": 69.19426044412683,
+          "iterations": 11,
+          "load_factor": 0.9333333333333333,
+          "maximum_plastic_increment": 0.013216520389437686,
+          "plastic_points": 26081,
+          "rejection_reason": null,
+          "residual_norm": 6.460401820391421e-06,
+          "start_load_factor": 0.9
+        },
+        {
+          "attempt": 1,
+          "converged": true,
+          "increment": 29,
+          "initial_residual_norm": 69.19426044566131,
+          "iterations": 11,
+          "load_factor": 0.9666666666666667,
+          "maximum_plastic_increment": 0.013516395986776009,
+          "plastic_points": 26983,
+          "rejection_reason": null,
+          "residual_norm": 6.730183055641523e-06,
+          "start_load_factor": 0.9333333333333333
+        },
+        {
+          "attempt": 1,
+          "converged": true,
+          "increment": 30,
+          "initial_residual_norm": 69.19426044805272,
+          "iterations": 13,
+          "load_factor": 1.0,
+          "maximum_plastic_increment": 0.013861103021556437,
+          "plastic_points": 28032,
+          "rejection_reason": null,
+          "residual_norm": 6.7787148258547374e-06,
+          "start_load_factor": 0.9666666666666667
+        }
+      ],
+      "accepted_load_factor": 1.0,
+      "attempted_increments": [
+        {
+          "attempt": 1,
+          "converged": true,
+          "increment": 1,
+          "initial_residual_norm": 69.19426050966865,
+          "iterations": 3,
+          "load_factor": 0.03333333333333333,
+          "maximum_plastic_increment": 0.0,
+          "plastic_points": 0,
+          "rejection_reason": null,
+          "residual_norm": 1.363977690846056e-06,
+          "start_load_factor": 0.0
+        },
+        {
+          "attempt": 1,
+          "converged": true,
+          "increment": 2,
+          "initial_residual_norm": 69.19426051619654,
+          "iterations": 3,
+          "load_factor": 0.06666666666666667,
+          "maximum_plastic_increment": 0.0,
+          "plastic_points": 0,
+          "rejection_reason": null,
+          "residual_norm": 1.3750758806699943e-06,
+          "start_load_factor": 0.03333333333333333
+        },
+        {
+          "attempt": 1,
+          "converged": true,
+          "increment": 3,
+          "initial_residual_norm": 69.194260509713,
+          "iterations": 3,
+          "load_factor": 0.1,
+          "maximum_plastic_increment": 0.0,
+          "plastic_points": 0,
+          "rejection_reason": null,
+          "residual_norm": 1.3652943658568599e-06,
+          "start_load_factor": 0.06666666666666667
+        },
+        {
+          "attempt": 1,
+          "converged": true,
+          "increment": 4,
+          "initial_residual_norm": 69.19426049750845,
+          "iterations": 3,
+          "load_factor": 0.13333333333333333,
+          "maximum_plastic_increment": 0.0,
+          "plastic_points": 0,
+          "rejection_reason": null,
+          "residual_norm": 1.372282827209857e-06,
+          "start_load_factor": 0.1
+        },
+        {
+          "attempt": 1,
+          "converged": true,
+          "increment": 5,
+          "initial_residual_norm": 69.1942605075268,
+          "iterations": 3,
+          "load_factor": 0.16666666666666666,
+          "maximum_plastic_increment": 0.0,
+          "plastic_points": 0,
+          "rejection_reason": null,
+          "residual_norm": 1.3780100136684282e-06,
+          "start_load_factor": 0.13333333333333333
+        },
+        {
+          "attempt": 1,
+          "converged": true,
+          "increment": 6,
+          "initial_residual_norm": 69.19426051156081,
+          "iterations": 3,
+          "load_factor": 0.2,
+          "maximum_plastic_increment": 0.0,
+          "plastic_points": 0,
+          "rejection_reason": null,
+          "residual_norm": 1.3518378941747774e-06,
+          "start_load_factor": 0.16666666666666666
+        },
+        {
+          "attempt": 1,
+          "converged": true,
+          "increment": 7,
+          "initial_residual_norm": 69.19426050140527,
+          "iterations": 3,
+          "load_factor": 0.23333333333333334,
+          "maximum_plastic_increment": 0.0,
+          "plastic_points": 0,
+          "rejection_reason": null,
+          "residual_norm": 1.3771631989354819e-06,
+          "start_load_factor": 0.2
+        },
+        {
+          "attempt": 1,
+          "converged": true,
+          "increment": 8,
+          "initial_residual_norm": 69.19426050462522,
+          "iterations": 5,
+          "load_factor": 0.26666666666666666,
+          "maximum_plastic_increment": 7.658273865226486e-05,
+          "plastic_points": 24,
+          "rejection_reason": null,
+          "residual_norm": 1.3937634189744904e-06,
+          "start_load_factor": 0.23333333333333334
+        },
+        {
+          "attempt": 1,
+          "converged": true,
+          "increment": 9,
+          "initial_residual_norm": 69.19426050054263,
+          "iterations": 7,
+          "load_factor": 0.3,
+          "maximum_plastic_increment": 0.00025651417995471503,
+          "plastic_points": 223,
+          "rejection_reason": null,
+          "residual_norm": 1.980109314813754e-06,
+          "start_load_factor": 0.26666666666666666
+        },
+        {
+          "attempt": 1,
+          "converged": true,
+          "increment": 10,
+          "initial_residual_norm": 69.19426051393735,
+          "iterations": 7,
+          "load_factor": 0.3333333333333333,
+          "maximum_plastic_increment": 0.0003797440521948819,
+          "plastic_points": 642,
+          "rejection_reason": null,
+          "residual_norm": 4.311788552510627e-06,
+          "start_load_factor": 0.3
+        },
+        {
+          "attempt": 1,
+          "converged": true,
+          "increment": 11,
+          "initial_residual_norm": 69.19426052830242,
+          "iterations": 8,
+          "load_factor": 0.36666666666666664,
+          "maximum_plastic_increment": 0.0005809138499944406,
+          "plastic_points": 1212,
+          "rejection_reason": null,
+          "residual_norm": 1.7208168032938067e-06,
+          "start_load_factor": 0.3333333333333333
+        },
+        {
+          "attempt": 1,
+          "converged": true,
+          "increment": 12,
+          "initial_residual_norm": 69.19426051361111,
+          "iterations": 7,
+          "load_factor": 0.4,
+          "maximum_plastic_increment": 0.0009199987462639315,
+          "plastic_points": 1893,
+          "rejection_reason": null,
+          "residual_norm": 4.763646238461239e-06,
+          "start_load_factor": 0.36666666666666664
+        },
+        {
+          "attempt": 1,
+          "converged": true,
+          "increment": 13,
+          "initial_residual_norm": 69.19426049946229,
+          "iterations": 7,
+          "load_factor": 0.43333333333333335,
+          "maximum_plastic_increment": 0.001444544719397456,
+          "plastic_points": 2499,
+          "rejection_reason": null,
+          "residual_norm": 4.374289806817308e-06,
+          "start_load_factor": 0.4
+        },
+        {
+          "attempt": 1,
+          "converged": true,
+          "increment": 14,
+          "initial_residual_norm": 69.19426050710788,
+          "iterations": 9,
+          "load_factor": 0.4666666666666667,
+          "maximum_plastic_increment": 0.0021228447728152766,
+          "plastic_points": 3687,
+          "rejection_reason": null,
+          "residual_norm": 3.990016585468018e-06,
+          "start_load_factor": 0.43333333333333335
+        },
+        {
+          "attempt": 1,
+          "converged": true,
+          "increment": 15,
+          "initial_residual_norm": 69.19426051078933,
+          "iterations": 10,
+          "load_factor": 0.5,
+          "maximum_plastic_increment": 0.0032709595562804873,
+          "plastic_points": 6222,
+          "rejection_reason": null,
+          "residual_norm": 2.6309007147293986e-06,
+          "start_load_factor": 0.4666666666666667
+        },
+        {
+          "attempt": 1,
+          "converged": true,
+          "increment": 16,
+          "initial_residual_norm": 69.19426051872156,
+          "iterations": 10,
+          "load_factor": 0.5333333333333333,
+          "maximum_plastic_increment": 0.006252445259753013,
+          "plastic_points": 10210,
+          "rejection_reason": null,
+          "residual_norm": 1.7289868009236376e-06,
+          "start_load_factor": 0.5
+        },
+        {
+          "attempt": 1,
+          "converged": true,
+          "increment": 17,
+          "initial_residual_norm": 69.19426051543725,
+          "iterations": 11,
+          "load_factor": 0.5666666666666667,
+          "maximum_plastic_increment": 0.01942573412263761,
+          "plastic_points": 14313,
+          "rejection_reason": null,
+          "residual_norm": 2.3233227747593024e-06,
+          "start_load_factor": 0.5333333333333333
+        },
+        {
+          "attempt": 1,
+          "converged": true,
+          "increment": 18,
+          "initial_residual_norm": 69.19426052126879,
+          "iterations": 11,
+          "load_factor": 0.6,
+          "maximum_plastic_increment": 0.021902936882149684,
+          "plastic_points": 15040,
+          "rejection_reason": null,
+          "residual_norm": 3.0530972968579076e-06,
+          "start_load_factor": 0.5666666666666667
+        },
+        {
+          "attempt": 1,
+          "converged": true,
+          "increment": 19,
+          "initial_residual_norm": 69.19426054902836,
+          "iterations": 11,
+          "load_factor": 0.6333333333333333,
+          "maximum_plastic_increment": 0.016188063126125668,
+          "plastic_points": 16191,
+          "rejection_reason": null,
+          "residual_norm": 3.3911412678333325e-06,
+          "start_load_factor": 0.6
+        },
+        {
+          "attempt": 1,
+          "converged": true,
+          "increment": 20,
+          "initial_residual_norm": 69.1942604948759,
+          "iterations": 9,
+          "load_factor": 0.6666666666666666,
+          "maximum_plastic_increment": 0.013829564666897678,
+          "plastic_points": 17678,
+          "rejection_reason": null,
+          "residual_norm": 3.617050781731179e-06,
+          "start_load_factor": 0.6333333333333333
+        },
+        {
+          "attempt": 1,
+          "converged": true,
+          "increment": 21,
+          "initial_residual_norm": 69.19426050217388,
+          "iterations": 9,
+          "load_factor": 0.7,
+          "maximum_plastic_increment": 0.012841447654408658,
+          "plastic_points": 19167,
+          "rejection_reason": null,
+          "residual_norm": 4.682333935253159e-06,
+          "start_load_factor": 0.6666666666666666
+        },
+        {
+          "attempt": 1,
+          "converged": true,
+          "increment": 22,
+          "initial_residual_norm": 69.19426047199617,
+          "iterations": 9,
+          "load_factor": 0.7333333333333333,
+          "maximum_plastic_increment": 0.01233912913240788,
+          "plastic_points": 20502,
+          "rejection_reason": null,
+          "residual_norm": 4.7848427453562645e-06,
+          "start_load_factor": 0.7
+        },
+        {
+          "attempt": 1,
+          "converged": true,
+          "increment": 23,
+          "initial_residual_norm": 69.19426049520752,
+          "iterations": 9,
+          "load_factor": 0.7666666666666666,
+          "maximum_plastic_increment": 0.0123085670687329,
+          "plastic_points": 21514,
+          "rejection_reason": null,
+          "residual_norm": 5.399667049100355e-06,
+          "start_load_factor": 0.7333333333333333
+        },
+        {
+          "attempt": 1,
+          "converged": true,
+          "increment": 24,
+          "initial_residual_norm": 69.19426053751336,
+          "iterations": 9,
+          "load_factor": 0.8,
+          "maximum_plastic_increment": 0.01243749748090324,
+          "plastic_points": 22387,
+          "rejection_reason": null,
+          "residual_norm": 5.249408956870539e-06,
+          "start_load_factor": 0.7666666666666666
+        },
+        {
+          "attempt": 1,
+          "converged": true,
+          "increment": 25,
+          "initial_residual_norm": 69.19426054038995,
+          "iterations": 9,
+          "load_factor": 0.8333333333333334,
+          "maximum_plastic_increment": 0.012680486278081105,
+          "plastic_points": 23560,
+          "rejection_reason": null,
+          "residual_norm": 5.581442319542066e-06,
+          "start_load_factor": 0.8
+        },
+        {
+          "attempt": 1,
+          "converged": true,
+          "increment": 26,
+          "initial_residual_norm": 69.1942605730633,
+          "iterations": 14,
+          "load_factor": 0.8666666666666667,
+          "maximum_plastic_increment": 0.013001281507596496,
+          "plastic_points": 24667,
+          "rejection_reason": null,
+          "residual_norm": 5.9309445747607385e-06,
+          "start_load_factor": 0.8333333333333334
+        },
+        {
+          "attempt": 1,
+          "converged": true,
+          "increment": 27,
+          "initial_residual_norm": 69.19426056582903,
+          "iterations": 12,
+          "load_factor": 0.9,
+          "maximum_plastic_increment": 0.013111968254795409,
+          "plastic_points": 25453,
+          "rejection_reason": null,
+          "residual_norm": 6.1782995985349905e-06,
+          "start_load_factor": 0.8666666666666667
+        },
+        {
+          "attempt": 1,
+          "converged": true,
+          "increment": 28,
+          "initial_residual_norm": 69.19426044412683,
+          "iterations": 11,
+          "load_factor": 0.9333333333333333,
+          "maximum_plastic_increment": 0.013216520389437686,
+          "plastic_points": 26081,
+          "rejection_reason": null,
+          "residual_norm": 6.460401820391421e-06,
+          "start_load_factor": 0.9
+        },
+        {
+          "attempt": 1,
+          "converged": true,
+          "increment": 29,
+          "initial_residual_norm": 69.19426044566131,
+          "iterations": 11,
+          "load_factor": 0.9666666666666667,
+          "maximum_plastic_increment": 0.013516395986776009,
+          "plastic_points": 26983,
+          "rejection_reason": null,
+          "residual_norm": 6.730183055641523e-06,
+          "start_load_factor": 0.9333333333333333
+        },
+        {
+          "attempt": 1,
+          "converged": true,
+          "increment": 30,
+          "initial_residual_norm": 69.19426044805272,
+          "iterations": 13,
+          "load_factor": 1.0,
+          "maximum_plastic_increment": 0.013861103021556437,
+          "plastic_points": 28032,
+          "rejection_reason": null,
+          "residual_norm": 6.7787148258547374e-06,
+          "start_load_factor": 0.9666666666666667
+        }
+      ],
+      "checkpoint_count": 0,
+      "checkpoint_policy": null,
+      "constraints": [
+        {
+          "kind": "dirichlet_constraint",
+          "location": "left_clamp",
+          "name": "fixed_left_clamp_component_0",
+          "value": 0.0
+        },
+        {
+          "kind": "dirichlet_constraint",
+          "location": "left_clamp",
+          "name": "fixed_left_clamp_component_1",
+          "value": 0.0
+        },
+        {
+          "kind": "dirichlet_constraint",
+          "location": "left_clamp",
+          "name": "fixed_left_clamp_component_2",
+          "value": 0.0
+        },
+        {
+          "kind": "dirichlet_constraint",
+          "location": "right_symmetry",
+          "name": "fixed_right_symmetry_component_0",
+          "value": 0.0
+        }
+      ],
+      "evidence_level": "internal_serial_mpi_restart_verified",
+      "external_load": [
+        {
+          "kind": "body_load",
+          "name": "self_weight_body_force",
+          "value": [
+            0.0,
+            0.0,
+            -50000000.0
+          ]
+        }
+      ],
+      "incrementation": {
+        "increments": 30,
+        "kind": "fixed_incrementation",
+        "load_factors": [
+          0.03333333333333333,
+          0.06666666666666667,
+          0.1,
+          0.13333333333333333,
+          0.16666666666666666,
+          0.2,
+          0.23333333333333334,
+          0.26666666666666666,
+          0.3,
+          0.3333333333333333,
+          0.36666666666666664,
+          0.4,
+          0.43333333333333335,
+          0.4666666666666667,
+          0.5,
+          0.5333333333333333,
+          0.5666666666666667,
+          0.6,
+          0.6333333333333333,
+          0.6666666666666666,
+          0.7,
+          0.7333333333333333,
+          0.7666666666666667,
+          0.8,
+          0.8333333333333334,
+          0.8666666666666667,
+          0.9,
+          0.9333333333333333,
+          0.9666666666666667,
+          1.0
+        ]
+      },
+      "kind": "finite_strain_j2_standard_problem",
+      "last_solve": {
+        "accepted_increment_count": 30,
+        "attempt_count": 30,
+        "attempts": [
+          {
+            "attempt": 1,
+            "converged": true,
+            "increment": 1,
+            "initial_residual_norm": 69.19426050966865,
+            "iterations": 3,
+            "load_factor": 0.03333333333333333,
+            "maximum_plastic_increment": 0.0,
+            "plastic_points": 0,
+            "rejection_reason": null,
+            "residual_norm": 1.363977690846056e-06,
+            "start_load_factor": 0.0
+          },
+          {
+            "attempt": 1,
+            "converged": true,
+            "increment": 2,
+            "initial_residual_norm": 69.19426051619654,
+            "iterations": 3,
+            "load_factor": 0.06666666666666667,
+            "maximum_plastic_increment": 0.0,
+            "plastic_points": 0,
+            "rejection_reason": null,
+            "residual_norm": 1.3750758806699943e-06,
+            "start_load_factor": 0.03333333333333333
+          },
+          {
+            "attempt": 1,
+            "converged": true,
+            "increment": 3,
+            "initial_residual_norm": 69.194260509713,
+            "iterations": 3,
+            "load_factor": 0.1,
+            "maximum_plastic_increment": 0.0,
+            "plastic_points": 0,
+            "rejection_reason": null,
+            "residual_norm": 1.3652943658568599e-06,
+            "start_load_factor": 0.06666666666666667
+          },
+          {
+            "attempt": 1,
+            "converged": true,
+            "increment": 4,
+            "initial_residual_norm": 69.19426049750845,
+            "iterations": 3,
+            "load_factor": 0.13333333333333333,
+            "maximum_plastic_increment": 0.0,
+            "plastic_points": 0,
+            "rejection_reason": null,
+            "residual_norm": 1.372282827209857e-06,
+            "start_load_factor": 0.1
+          },
+          {
+            "attempt": 1,
+            "converged": true,
+            "increment": 5,
+            "initial_residual_norm": 69.1942605075268,
+            "iterations": 3,
+            "load_factor": 0.16666666666666666,
+            "maximum_plastic_increment": 0.0,
+            "plastic_points": 0,
+            "rejection_reason": null,
+            "residual_norm": 1.3780100136684282e-06,
+            "start_load_factor": 0.13333333333333333
+          },
+          {
+            "attempt": 1,
+            "converged": true,
+            "increment": 6,
+            "initial_residual_norm": 69.19426051156081,
+            "iterations": 3,
+            "load_factor": 0.2,
+            "maximum_plastic_increment": 0.0,
+            "plastic_points": 0,
+            "rejection_reason": null,
+            "residual_norm": 1.3518378941747774e-06,
+            "start_load_factor": 0.16666666666666666
+          },
+          {
+            "attempt": 1,
+            "converged": true,
+            "increment": 7,
+            "initial_residual_norm": 69.19426050140527,
+            "iterations": 3,
+            "load_factor": 0.23333333333333334,
+            "maximum_plastic_increment": 0.0,
+            "plastic_points": 0,
+            "rejection_reason": null,
+            "residual_norm": 1.3771631989354819e-06,
+            "start_load_factor": 0.2
+          },
+          {
+            "attempt": 1,
+            "converged": true,
+            "increment": 8,
+            "initial_residual_norm": 69.19426050462522,
+            "iterations": 5,
+            "load_factor": 0.26666666666666666,
+            "maximum_plastic_increment": 7.658273865226486e-05,
+            "plastic_points": 24,
+            "rejection_reason": null,
+            "residual_norm": 1.3937634189744904e-06,
+            "start_load_factor": 0.23333333333333334
+          },
+          {
+            "attempt": 1,
+            "converged": true,
+            "increment": 9,
+            "initial_residual_norm": 69.19426050054263,
+            "iterations": 7,
+            "load_factor": 0.3,
+            "maximum_plastic_increment": 0.00025651417995471503,
+            "plastic_points": 223,
+            "rejection_reason": null,
+            "residual_norm": 1.980109314813754e-06,
+            "start_load_factor": 0.26666666666666666
+          },
+          {
+            "attempt": 1,
+            "converged": true,
+            "increment": 10,
+            "initial_residual_norm": 69.19426051393735,
+            "iterations": 7,
+            "load_factor": 0.3333333333333333,
+            "maximum_plastic_increment": 0.0003797440521948819,
+            "plastic_points": 642,
+            "rejection_reason": null,
+            "residual_norm": 4.311788552510627e-06,
+            "start_load_factor": 0.3
+          },
+          {
+            "attempt": 1,
+            "converged": true,
+            "increment": 11,
+            "initial_residual_norm": 69.19426052830242,
+            "iterations": 8,
+            "load_factor": 0.36666666666666664,
+            "maximum_plastic_increment": 0.0005809138499944406,
+            "plastic_points": 1212,
+            "rejection_reason": null,
+            "residual_norm": 1.7208168032938067e-06,
+            "start_load_factor": 0.3333333333333333
+          },
+          {
+            "attempt": 1,
+            "converged": true,
+            "increment": 12,
+            "initial_residual_norm": 69.19426051361111,
+            "iterations": 7,
+            "load_factor": 0.4,
+            "maximum_plastic_increment": 0.0009199987462639315,
+            "plastic_points": 1893,
+            "rejection_reason": null,
+            "residual_norm": 4.763646238461239e-06,
+            "start_load_factor": 0.36666666666666664
+          },
+          {
+            "attempt": 1,
+            "converged": true,
+            "increment": 13,
+            "initial_residual_norm": 69.19426049946229,
+            "iterations": 7,
+            "load_factor": 0.43333333333333335,
+            "maximum_plastic_increment": 0.001444544719397456,
+            "plastic_points": 2499,
+            "rejection_reason": null,
+            "residual_norm": 4.374289806817308e-06,
+            "start_load_factor": 0.4
+          },
+          {
+            "attempt": 1,
+            "converged": true,
+            "increment": 14,
+            "initial_residual_norm": 69.19426050710788,
+            "iterations": 9,
+            "load_factor": 0.4666666666666667,
+            "maximum_plastic_increment": 0.0021228447728152766,
+            "plastic_points": 3687,
+            "rejection_reason": null,
+            "residual_norm": 3.990016585468018e-06,
+            "start_load_factor": 0.43333333333333335
+          },
+          {
+            "attempt": 1,
+            "converged": true,
+            "increment": 15,
+            "initial_residual_norm": 69.19426051078933,
+            "iterations": 10,
+            "load_factor": 0.5,
+            "maximum_plastic_increment": 0.0032709595562804873,
+            "plastic_points": 6222,
+            "rejection_reason": null,
+            "residual_norm": 2.6309007147293986e-06,
+            "start_load_factor": 0.4666666666666667
+          },
+          {
+            "attempt": 1,
+            "converged": true,
+            "increment": 16,
+            "initial_residual_norm": 69.19426051872156,
+            "iterations": 10,
+            "load_factor": 0.5333333333333333,
+            "maximum_plastic_increment": 0.006252445259753013,
+            "plastic_points": 10210,
+            "rejection_reason": null,
+            "residual_norm": 1.7289868009236376e-06,
+            "start_load_factor": 0.5
+          },
+          {
+            "attempt": 1,
+            "converged": true,
+            "increment": 17,
+            "initial_residual_norm": 69.19426051543725,
+            "iterations": 11,
+            "load_factor": 0.5666666666666667,
+            "maximum_plastic_increment": 0.01942573412263761,
+            "plastic_points": 14313,
+            "rejection_reason": null,
+            "residual_norm": 2.3233227747593024e-06,
+            "start_load_factor": 0.5333333333333333
+          },
+          {
+            "attempt": 1,
+            "converged": true,
+            "increment": 18,
+            "initial_residual_norm": 69.19426052126879,
+            "iterations": 11,
+            "load_factor": 0.6,
+            "maximum_plastic_increment": 0.021902936882149684,
+            "plastic_points": 15040,
+            "rejection_reason": null,
+            "residual_norm": 3.0530972968579076e-06,
+            "start_load_factor": 0.5666666666666667
+          },
+          {
+            "attempt": 1,
+            "converged": true,
+            "increment": 19,
+            "initial_residual_norm": 69.19426054902836,
+            "iterations": 11,
+            "load_factor": 0.6333333333333333,
+            "maximum_plastic_increment": 0.016188063126125668,
+            "plastic_points": 16191,
+            "rejection_reason": null,
+            "residual_norm": 3.3911412678333325e-06,
+            "start_load_factor": 0.6
+          },
+          {
+            "attempt": 1,
+            "converged": true,
+            "increment": 20,
+            "initial_residual_norm": 69.1942604948759,
+            "iterations": 9,
+            "load_factor": 0.6666666666666666,
+            "maximum_plastic_increment": 0.013829564666897678,
+            "plastic_points": 17678,
+            "rejection_reason": null,
+            "residual_norm": 3.617050781731179e-06,
+            "start_load_factor": 0.6333333333333333
+          },
+          {
+            "attempt": 1,
+            "converged": true,
+            "increment": 21,
+            "initial_residual_norm": 69.19426050217388,
+            "iterations": 9,
+            "load_factor": 0.7,
+            "maximum_plastic_increment": 0.012841447654408658,
+            "plastic_points": 19167,
+            "rejection_reason": null,
+            "residual_norm": 4.682333935253159e-06,
+            "start_load_factor": 0.6666666666666666
+          },
+          {
+            "attempt": 1,
+            "converged": true,
+            "increment": 22,
+            "initial_residual_norm": 69.19426047199617,
+            "iterations": 9,
+            "load_factor": 0.7333333333333333,
+            "maximum_plastic_increment": 0.01233912913240788,
+            "plastic_points": 20502,
+            "rejection_reason": null,
+            "residual_norm": 4.7848427453562645e-06,
+            "start_load_factor": 0.7
+          },
+          {
+            "attempt": 1,
+            "converged": true,
+            "increment": 23,
+            "initial_residual_norm": 69.19426049520752,
+            "iterations": 9,
+            "load_factor": 0.7666666666666666,
+            "maximum_plastic_increment": 0.0123085670687329,
+            "plastic_points": 21514,
+            "rejection_reason": null,
+            "residual_norm": 5.399667049100355e-06,
+            "start_load_factor": 0.7333333333333333
+          },
+          {
+            "attempt": 1,
+            "converged": true,
+            "increment": 24,
+            "initial_residual_norm": 69.19426053751336,
+            "iterations": 9,
+            "load_factor": 0.8,
+            "maximum_plastic_increment": 0.01243749748090324,
+            "plastic_points": 22387,
+            "rejection_reason": null,
+            "residual_norm": 5.249408956870539e-06,
+            "start_load_factor": 0.7666666666666666
+          },
+          {
+            "attempt": 1,
+            "converged": true,
+            "increment": 25,
+            "initial_residual_norm": 69.19426054038995,
+            "iterations": 9,
+            "load_factor": 0.8333333333333334,
+            "maximum_plastic_increment": 0.012680486278081105,
+            "plastic_points": 23560,
+            "rejection_reason": null,
+            "residual_norm": 5.581442319542066e-06,
+            "start_load_factor": 0.8
+          },
+          {
+            "attempt": 1,
+            "converged": true,
+            "increment": 26,
+            "initial_residual_norm": 69.1942605730633,
+            "iterations": 14,
+            "load_factor": 0.8666666666666667,
+            "maximum_plastic_increment": 0.013001281507596496,
+            "plastic_points": 24667,
+            "rejection_reason": null,
+            "residual_norm": 5.9309445747607385e-06,
+            "start_load_factor": 0.8333333333333334
+          },
+          {
+            "attempt": 1,
+            "converged": true,
+            "increment": 27,
+            "initial_residual_norm": 69.19426056582903,
+            "iterations": 12,
+            "load_factor": 0.9,
+            "maximum_plastic_increment": 0.013111968254795409,
+            "plastic_points": 25453,
+            "rejection_reason": null,
+            "residual_norm": 6.1782995985349905e-06,
+            "start_load_factor": 0.8666666666666667
+          },
+          {
+            "attempt": 1,
+            "converged": true,
+            "increment": 28,
+            "initial_residual_norm": 69.19426044412683,
+            "iterations": 11,
+            "load_factor": 0.9333333333333333,
+            "maximum_plastic_increment": 0.013216520389437686,
+            "plastic_points": 26081,
+            "rejection_reason": null,
+            "residual_norm": 6.460401820391421e-06,
+            "start_load_factor": 0.9
+          },
+          {
+            "attempt": 1,
+            "converged": true,
+            "increment": 29,
+            "initial_residual_norm": 69.19426044566131,
+            "iterations": 11,
+            "load_factor": 0.9666666666666667,
+            "maximum_plastic_increment": 0.013516395986776009,
+            "plastic_points": 26983,
+            "rejection_reason": null,
+            "residual_norm": 6.730183055641523e-06,
+            "start_load_factor": 0.9333333333333333
+          },
+          {
+            "attempt": 1,
+            "converged": true,
+            "increment": 30,
+            "initial_residual_norm": 69.19426044805272,
+            "iterations": 13,
+            "load_factor": 1.0,
+            "maximum_plastic_increment": 0.013861103021556437,
+            "plastic_points": 28032,
+            "rejection_reason": null,
+            "residual_norm": 6.7787148258547374e-06,
+            "start_load_factor": 0.9666666666666667
+          }
+        ],
+        "converged": true,
+        "incrementation": {
+          "increments": 30,
+          "kind": "fixed_incrementation",
+          "load_factors": [
+            0.03333333333333333,
+            0.06666666666666667,
+            0.1,
+            0.13333333333333333,
+            0.16666666666666666,
+            0.2,
+            0.23333333333333334,
+            0.26666666666666666,
+            0.3,
+            0.3333333333333333,
+            0.36666666666666664,
+            0.4,
+            0.43333333333333335,
+            0.4666666666666667,
+            0.5,
+            0.5333333333333333,
+            0.5666666666666667,
+            0.6,
+            0.6333333333333333,
+            0.6666666666666666,
+            0.7,
+            0.7333333333333333,
+            0.7666666666666667,
+            0.8,
+            0.8333333333333334,
+            0.8666666666666667,
+            0.9,
+            0.9333333333333333,
+            0.9666666666666667,
+            1.0
+          ]
+        },
+        "increments": [
+          {
+            "attempt": 1,
+            "converged": true,
+            "increment": 1,
+            "initial_residual_norm": 69.19426050966865,
+            "iterations": 3,
+            "load_factor": 0.03333333333333333,
+            "maximum_plastic_increment": 0.0,
+            "plastic_points": 0,
+            "rejection_reason": null,
+            "residual_norm": 1.363977690846056e-06,
+            "start_load_factor": 0.0
+          },
+          {
+            "attempt": 1,
+            "converged": true,
+            "increment": 2,
+            "initial_residual_norm": 69.19426051619654,
+            "iterations": 3,
+            "load_factor": 0.06666666666666667,
+            "maximum_plastic_increment": 0.0,
+            "plastic_points": 0,
+            "rejection_reason": null,
+            "residual_norm": 1.3750758806699943e-06,
+            "start_load_factor": 0.03333333333333333
+          },
+          {
+            "attempt": 1,
+            "converged": true,
+            "increment": 3,
+            "initial_residual_norm": 69.194260509713,
+            "iterations": 3,
+            "load_factor": 0.1,
+            "maximum_plastic_increment": 0.0,
+            "plastic_points": 0,
+            "rejection_reason": null,
+            "residual_norm": 1.3652943658568599e-06,
+            "start_load_factor": 0.06666666666666667
+          },
+          {
+            "attempt": 1,
+            "converged": true,
+            "increment": 4,
+            "initial_residual_norm": 69.19426049750845,
+            "iterations": 3,
+            "load_factor": 0.13333333333333333,
+            "maximum_plastic_increment": 0.0,
+            "plastic_points": 0,
+            "rejection_reason": null,
+            "residual_norm": 1.372282827209857e-06,
+            "start_load_factor": 0.1
+          },
+          {
+            "attempt": 1,
+            "converged": true,
+            "increment": 5,
+            "initial_residual_norm": 69.1942605075268,
+            "iterations": 3,
+            "load_factor": 0.16666666666666666,
+            "maximum_plastic_increment": 0.0,
+            "plastic_points": 0,
+            "rejection_reason": null,
+            "residual_norm": 1.3780100136684282e-06,
+            "start_load_factor": 0.13333333333333333
+          },
+          {
+            "attempt": 1,
+            "converged": true,
+            "increment": 6,
+            "initial_residual_norm": 69.19426051156081,
+            "iterations": 3,
+            "load_factor": 0.2,
+            "maximum_plastic_increment": 0.0,
+            "plastic_points": 0,
+            "rejection_reason": null,
+            "residual_norm": 1.3518378941747774e-06,
+            "start_load_factor": 0.16666666666666666
+          },
+          {
+            "attempt": 1,
+            "converged": true,
+            "increment": 7,
+            "initial_residual_norm": 69.19426050140527,
+            "iterations": 3,
+            "load_factor": 0.23333333333333334,
+            "maximum_plastic_increment": 0.0,
+            "plastic_points": 0,
+            "rejection_reason": null,
+            "residual_norm": 1.3771631989354819e-06,
+            "start_load_factor": 0.2
+          },
+          {
+            "attempt": 1,
+            "converged": true,
+            "increment": 8,
+            "initial_residual_norm": 69.19426050462522,
+            "iterations": 5,
+            "load_factor": 0.26666666666666666,
+            "maximum_plastic_increment": 7.658273865226486e-05,
+            "plastic_points": 24,
+            "rejection_reason": null,
+            "residual_norm": 1.3937634189744904e-06,
+            "start_load_factor": 0.23333333333333334
+          },
+          {
+            "attempt": 1,
+            "converged": true,
+            "increment": 9,
+            "initial_residual_norm": 69.19426050054263,
+            "iterations": 7,
+            "load_factor": 0.3,
+            "maximum_plastic_increment": 0.00025651417995471503,
+            "plastic_points": 223,
+            "rejection_reason": null,
+            "residual_norm": 1.980109314813754e-06,
+            "start_load_factor": 0.26666666666666666
+          },
+          {
+            "attempt": 1,
+            "converged": true,
+            "increment": 10,
+            "initial_residual_norm": 69.19426051393735,
+            "iterations": 7,
+            "load_factor": 0.3333333333333333,
+            "maximum_plastic_increment": 0.0003797440521948819,
+            "plastic_points": 642,
+            "rejection_reason": null,
+            "residual_norm": 4.311788552510627e-06,
+            "start_load_factor": 0.3
+          },
+          {
+            "attempt": 1,
+            "converged": true,
+            "increment": 11,
+            "initial_residual_norm": 69.19426052830242,
+            "iterations": 8,
+            "load_factor": 0.36666666666666664,
+            "maximum_plastic_increment": 0.0005809138499944406,
+            "plastic_points": 1212,
+            "rejection_reason": null,
+            "residual_norm": 1.7208168032938067e-06,
+            "start_load_factor": 0.3333333333333333
+          },
+          {
+            "attempt": 1,
+            "converged": true,
+            "increment": 12,
+            "initial_residual_norm": 69.19426051361111,
+            "iterations": 7,
+            "load_factor": 0.4,
+            "maximum_plastic_increment": 0.0009199987462639315,
+            "plastic_points": 1893,
+            "rejection_reason": null,
+            "residual_norm": 4.763646238461239e-06,
+            "start_load_factor": 0.36666666666666664
+          },
+          {
+            "attempt": 1,
+            "converged": true,
+            "increment": 13,
+            "initial_residual_norm": 69.19426049946229,
+            "iterations": 7,
+            "load_factor": 0.43333333333333335,
+            "maximum_plastic_increment": 0.001444544719397456,
+            "plastic_points": 2499,
+            "rejection_reason": null,
+            "residual_norm": 4.374289806817308e-06,
+            "start_load_factor": 0.4
+          },
+          {
+            "attempt": 1,
+            "converged": true,
+            "increment": 14,
+            "initial_residual_norm": 69.19426050710788,
+            "iterations": 9,
+            "load_factor": 0.4666666666666667,
+            "maximum_plastic_increment": 0.0021228447728152766,
+            "plastic_points": 3687,
+            "rejection_reason": null,
+            "residual_norm": 3.990016585468018e-06,
+            "start_load_factor": 0.43333333333333335
+          },
+          {
+            "attempt": 1,
+            "converged": true,
+            "increment": 15,
+            "initial_residual_norm": 69.19426051078933,
+            "iterations": 10,
+            "load_factor": 0.5,
+            "maximum_plastic_increment": 0.0032709595562804873,
+            "plastic_points": 6222,
+            "rejection_reason": null,
+            "residual_norm": 2.6309007147293986e-06,
+            "start_load_factor": 0.4666666666666667
+          },
+          {
+            "attempt": 1,
+            "converged": true,
+            "increment": 16,
+            "initial_residual_norm": 69.19426051872156,
+            "iterations": 10,
+            "load_factor": 0.5333333333333333,
+            "maximum_plastic_increment": 0.006252445259753013,
+            "plastic_points": 10210,
+            "rejection_reason": null,
+            "residual_norm": 1.7289868009236376e-06,
+            "start_load_factor": 0.5
+          },
+          {
+            "attempt": 1,
+            "converged": true,
+            "increment": 17,
+            "initial_residual_norm": 69.19426051543725,
+            "iterations": 11,
+            "load_factor": 0.5666666666666667,
+            "maximum_plastic_increment": 0.01942573412263761,
+            "plastic_points": 14313,
+            "rejection_reason": null,
+            "residual_norm": 2.3233227747593024e-06,
+            "start_load_factor": 0.5333333333333333
+          },
+          {
+            "attempt": 1,
+            "converged": true,
+            "increment": 18,
+            "initial_residual_norm": 69.19426052126879,
+            "iterations": 11,
+            "load_factor": 0.6,
+            "maximum_plastic_increment": 0.021902936882149684,
+            "plastic_points": 15040,
+            "rejection_reason": null,
+            "residual_norm": 3.0530972968579076e-06,
+            "start_load_factor": 0.5666666666666667
+          },
+          {
+            "attempt": 1,
+            "converged": true,
+            "increment": 19,
+            "initial_residual_norm": 69.19426054902836,
+            "iterations": 11,
+            "load_factor": 0.6333333333333333,
+            "maximum_plastic_increment": 0.016188063126125668,
+            "plastic_points": 16191,
+            "rejection_reason": null,
+            "residual_norm": 3.3911412678333325e-06,
+            "start_load_factor": 0.6
+          },
+          {
+            "attempt": 1,
+            "converged": true,
+            "increment": 20,
+            "initial_residual_norm": 69.1942604948759,
+            "iterations": 9,
+            "load_factor": 0.6666666666666666,
+            "maximum_plastic_increment": 0.013829564666897678,
+            "plastic_points": 17678,
+            "rejection_reason": null,
+            "residual_norm": 3.617050781731179e-06,
+            "start_load_factor": 0.6333333333333333
+          },
+          {
+            "attempt": 1,
+            "converged": true,
+            "increment": 21,
+            "initial_residual_norm": 69.19426050217388,
+            "iterations": 9,
+            "load_factor": 0.7,
+            "maximum_plastic_increment": 0.012841447654408658,
+            "plastic_points": 19167,
+            "rejection_reason": null,
+            "residual_norm": 4.682333935253159e-06,
+            "start_load_factor": 0.6666666666666666
+          },
+          {
+            "attempt": 1,
+            "converged": true,
+            "increment": 22,
+            "initial_residual_norm": 69.19426047199617,
+            "iterations": 9,
+            "load_factor": 0.7333333333333333,
+            "maximum_plastic_increment": 0.01233912913240788,
+            "plastic_points": 20502,
+            "rejection_reason": null,
+            "residual_norm": 4.7848427453562645e-06,
+            "start_load_factor": 0.7
+          },
+          {
+            "attempt": 1,
+            "converged": true,
+            "increment": 23,
+            "initial_residual_norm": 69.19426049520752,
+            "iterations": 9,
+            "load_factor": 0.7666666666666666,
+            "maximum_plastic_increment": 0.0123085670687329,
+            "plastic_points": 21514,
+            "rejection_reason": null,
+            "residual_norm": 5.399667049100355e-06,
+            "start_load_factor": 0.7333333333333333
+          },
+          {
+            "attempt": 1,
+            "converged": true,
+            "increment": 24,
+            "initial_residual_norm": 69.19426053751336,
+            "iterations": 9,
+            "load_factor": 0.8,
+            "maximum_plastic_increment": 0.01243749748090324,
+            "plastic_points": 22387,
+            "rejection_reason": null,
+            "residual_norm": 5.249408956870539e-06,
+            "start_load_factor": 0.7666666666666666
+          },
+          {
+            "attempt": 1,
+            "converged": true,
+            "increment": 25,
+            "initial_residual_norm": 69.19426054038995,
+            "iterations": 9,
+            "load_factor": 0.8333333333333334,
+            "maximum_plastic_increment": 0.012680486278081105,
+            "plastic_points": 23560,
+            "rejection_reason": null,
+            "residual_norm": 5.581442319542066e-06,
+            "start_load_factor": 0.8
+          },
+          {
+            "attempt": 1,
+            "converged": true,
+            "increment": 26,
+            "initial_residual_norm": 69.1942605730633,
+            "iterations": 14,
+            "load_factor": 0.8666666666666667,
+            "maximum_plastic_increment": 0.013001281507596496,
+            "plastic_points": 24667,
+            "rejection_reason": null,
+            "residual_norm": 5.9309445747607385e-06,
+            "start_load_factor": 0.8333333333333334
+          },
+          {
+            "attempt": 1,
+            "converged": true,
+            "increment": 27,
+            "initial_residual_norm": 69.19426056582903,
+            "iterations": 12,
+            "load_factor": 0.9,
+            "maximum_plastic_increment": 0.013111968254795409,
+            "plastic_points": 25453,
+            "rejection_reason": null,
+            "residual_norm": 6.1782995985349905e-06,
+            "start_load_factor": 0.8666666666666667
+          },
+          {
+            "attempt": 1,
+            "converged": true,
+            "increment": 28,
+            "initial_residual_norm": 69.19426044412683,
+            "iterations": 11,
+            "load_factor": 0.9333333333333333,
+            "maximum_plastic_increment": 0.013216520389437686,
+            "plastic_points": 26081,
+            "rejection_reason": null,
+            "residual_norm": 6.460401820391421e-06,
+            "start_load_factor": 0.9
+          },
+          {
+            "attempt": 1,
+            "converged": true,
+            "increment": 29,
+            "initial_residual_norm": 69.19426044566131,
+            "iterations": 11,
+            "load_factor": 0.9666666666666667,
+            "maximum_plastic_increment": 0.013516395986776009,
+            "plastic_points": 26983,
+            "rejection_reason": null,
+            "residual_norm": 6.730183055641523e-06,
+            "start_load_factor": 0.9333333333333333
+          },
+          {
+            "attempt": 1,
+            "converged": true,
+            "increment": 30,
+            "initial_residual_norm": 69.19426044805272,
+            "iterations": 13,
+            "load_factor": 1.0,
+            "maximum_plastic_increment": 0.013861103021556437,
+            "plastic_points": 28032,
+            "rejection_reason": null,
+            "residual_norm": 6.7787148258547374e-06,
+            "start_load_factor": 0.9666666666666667
+          }
+        ],
+        "kind": "finite_strain_j2_standard_load_path"
+      },
+      "material": {
+        "batch_update": "numpy_vectorized_rank_local_points",
+        "elastic_potential": "quadratic_Hencky",
+        "hardening": "linear_isotropic",
+        "kind": "finite_strain_j2_logarithmic",
+        "kinematics": "multiplicative_F_equals_Fe_Fp",
+        "name": "finite-strain logarithmic J2 plasticity",
+        "numerical_parameters": {
+          "tangent_relative_step": 2e-06
+        },
+        "parameters": {
+          "hardening_modulus": 1000000.0,
+          "poisson": 0.3,
+          "yield_stress": 250000000.0,
+          "young": 210000000000.0
+        },
+        "plastic_flow": "associated_isochoric_J2",
+        "state_schema": {
+          "identity": "agentfem.finite_strain_j2_logarithmic_state@0.2.0",
+          "kind": "material_state_schema",
+          "size": 11,
+          "variables": [
+            {
+              "description": "Plastic part Fp of the multiplicative deformation gradient, initialized to the identity.",
+              "initial_value": [
+                [
+                  1.0,
+                  0.0,
+                  0.0
+                ],
+                [
+                  0.0,
+                  1.0,
+                  0.0
+                ],
+                [
+                  0.0,
+                  0.0,
+                  1.0
+                ]
+              ],
+              "name": "plastic_deformation_gradient",
+              "output_name": "FP",
+              "shape": [
+                3,
+                3
+              ],
+              "size": 9,
+              "unit": "1"
+            },
+            {
+              "description": "Accumulated equivalent plastic strain.",
+              "initial_value": 0.0,
+              "name": "equivalent_plastic_strain",
+              "output_name": "PEEQ",
+              "shape": [],
+              "size": 1,
+              "unit": "1"
+            },
+            {
+              "description": "Cumulative irrecoverable plastic dissipation per reference volume.",
+              "initial_value": 0.0,
+              "name": "plastic_dissipation",
+              "output_name": "PDENER",
+              "shape": [],
+              "size": 1,
+              "unit": "consistent stress unit"
+            }
+          ]
+        },
+        "status": "experimental_material_point",
+        "stored_energy_density": {
+          "ELENER": "quadratic_Hencky_elastic_free_energy",
+          "HARDENER": "linear_isotropic_hardening_free_energy",
+          "PDENER": "cumulative_rate_independent_plastic_dissipation_yield_stress_times_equivalent_plastic_strain",
+          "SENER": "ELENER + HARDENER"
+        },
+        "tangent": {
+          "array_shape": [
+            9,
+            9
+          ],
+          "component_order": [
+            "11",
+            "12",
+            "13",
+            "21",
+            "22",
+            "23",
+            "31",
+            "32",
+            "33"
+          ],
+          "configuration": "reference",
+          "kind": "material_tangent_convention",
+          "kinematic_measure": "deformation_gradient",
+          "objective_rate": "not_applicable",
+          "shear_convention": "not_applicable",
+          "storage": "matrix_9x9",
+          "stress_measure": "first_piola",
+          "symmetric": false
+        },
+        "tangent_evaluation": "central_difference_of_discrete_return"
+      },
+      "maturity": "experimental_global_mpi_restart",
+      "name": "lewandowski_2023_self_weight_beam_candidate",
+      "output_every": null,
+      "output_factors": [],
+      "procedure": {
+        "algorithm": "newton",
+        "control": "load_increments",
+        "equation_order": "static",
+        "family": "standard",
+        "name": "nonlinear static",
+        "nonlinear": true,
+        "numerical_dissipation": "none",
+        "requires_global_solve": true,
+        "stateful": true
+      },
+      "quadrature_degree": 2,
+      "response": {
+        "fields": {
+          "cauchy_stress": "S",
+          "first_piola_stress": "P",
+          "stored_energy_density_components": {
+            "ELENER": "ELENER",
+            "HARDENER": "HARDENER"
+          },
+          "strain_energy_density": "SENER",
+          "tangent": "DPDF"
+        },
+        "kind": "material_quadrature_response",
+        "state": {
+          "degree": 2,
+          "kind": "material_quadrature_state",
+          "scheme": "default",
+          "state_schema": {
+            "identity": "agentfem.finite_strain_j2_logarithmic_state@0.2.0",
+            "kind": "material_state_schema",
+            "size": 11,
+            "variables": [
+              {
+                "description": "Plastic part Fp of the multiplicative deformation gradient, initialized to the identity.",
+                "initial_value": [
+                  [
+                    1.0,
+                    0.0,
+                    0.0
+                  ],
+                  [
+                    0.0,
+                    1.0,
+                    0.0
+                  ],
+                  [
+                    0.0,
+                    0.0,
+                    1.0
+                  ]
+                ],
+                "name": "plastic_deformation_gradient",
+                "output_name": "FP",
+                "shape": [
+                  3,
+                  3
+                ],
+                "size": 9,
+                "unit": "1"
+              },
+              {
+                "description": "Accumulated equivalent plastic strain.",
+                "initial_value": 0.0,
+                "name": "equivalent_plastic_strain",
+                "output_name": "PEEQ",
+                "shape": [],
+                "size": 1,
+                "unit": "1"
+              },
+              {
+                "description": "Cumulative irrecoverable plastic dissipation per reference volume.",
+                "initial_value": 0.0,
+                "name": "plastic_dissipation",
+                "output_name": "PDENER",
+                "shape": [],
+                "size": 1,
+                "unit": "consistent stress unit"
+              }
+            ]
+          },
+          "transaction": {
+            "kind": "quadrature_transaction",
+            "metadata": {
+              "material_state_schema": {
+                "identity": "agentfem.finite_strain_j2_logarithmic_state@0.2.0",
+                "kind": "material_state_schema",
+                "size": 11,
+                "variables": [
+                  {
+                    "description": "Plastic part Fp of the multiplicative deformation gradient, initialized to the identity.",
+                    "initial_value": [
+                      [
+                        1.0,
+                        0.0,
+                        0.0
+                      ],
+                      [
+                        0.0,
+                        1.0,
+                        0.0
+                      ],
+                      [
+                        0.0,
+                        0.0,
+                        1.0
+                      ]
+                    ],
+                    "name": "plastic_deformation_gradient",
+                    "output_name": "FP",
+                    "shape": [
+                      3,
+                      3
+                    ],
+                    "size": 9,
+                    "unit": "1"
+                  },
+                  {
+                    "description": "Accumulated equivalent plastic strain.",
+                    "initial_value": 0.0,
+                    "name": "equivalent_plastic_strain",
+                    "output_name": "PEEQ",
+                    "shape": [],
+                    "size": 1,
+                    "unit": "1"
+                  },
+                  {
+                    "description": "Cumulative irrecoverable plastic dissipation per reference volume.",
+                    "initial_value": 0.0,
+                    "name": "plastic_dissipation",
+                    "output_name": "PDENER",
+                    "shape": [],
+                    "size": 1,
+                    "unit": "consistent stress unit"
+                  }
+                ]
+              }
+            },
+            "schema": "agentfem.finite_strain_j2_logarithmic_state",
+            "schema_version": "0.2.0",
+            "state_variables": [
+              "plastic_deformation_gradient",
+              "equivalent_plastic_strain",
+              "plastic_dissipation"
+            ]
+          }
+        }
+      },
+      "snapshot_count": 2,
+      "solver": {
+        "absolute_tolerance": 1e-08,
+        "error_if_not_converged": true,
+        "kind": "newton_solver",
+        "line_search": "basic",
+        "line_search_reduction": 0.5,
+        "linear_solver": {
+          "atol": null,
+          "error_if_not_converged": true,
+          "factor_solver_type": null,
+          "kind": "linear_solver_options",
+          "ksp_type": "preonly",
+          "max_it": null,
+          "pc_type": "lu",
+          "rtol": null
+        },
+        "maximum_iterations": 30,
+        "minimum_step_length": 0.0078125,
+        "relative_tolerance": 1e-07
+      }
+    },
+    "subdivisions": [
+      36,
+      6,
+      10
+    ]
+  },
+  "reference": {
+    "behaviour_sha256": "17456bf1b593eec205f7cc7fb06483fdaf67ec7415713aeb27f33db57bef1393",
+    "commit": "cb43561d5e36a9ef691ad2c308261448cef44e29",
+    "curve_sha256": null,
+    "curve_supplied": false,
+    "declared_curve_sha256": null,
+    "formulation": "MFront_total_Hencky_Hooke_Mises_linear_isotropic_hardening",
+    "solver_sha256": "b2fdebe7edf9e10617f9cd4f350bfab119db9ca9441242959e5bf366a105e0d5"
+  },
+  "runtime": {
+    "agentfem_import_path": "/private/tmp/agentfem-j2-rve/src/agentfem/__init__.py",
+    "agentfem_version": "0.3.7",
+    "manifest": {
+      "fingerprint": "sha256:f38906dc8ea96839f2de22bd7e5ab4bb2582a2e674dbb40013952b36ee9326c7",
+      "identity": {
+        "execution": {
+          "distribution": null,
+          "mode": "source_checkout",
+          "source": {
+            "commit": "33e705f3f03a20d6b4d25d8ada433596adb55626",
+            "package_tree_sha256": "3f8208f8c269463ddb8d6112fdd415bae184536ff9a962bb70cdcba9849bb428",
+            "tracked_dirty": false
+          }
+        },
+        "machine": "arm64",
+        "mpi": {
+          "rank_count": 4,
+          "vendor": "MPICH 5.0.1"
+        },
+        "numerics": {
+          "numpy_default_float": "float64",
+          "petsc_complex": false,
+          "petsc_real_type": "float64",
+          "petsc_scalar_type": "float64",
+          "python_float_mantissa_bits": 53
+        },
+        "operating_system": {
+          "release": "25.6.0",
+          "system": "Darwin",
+          "version": "Darwin Kernel Version 25.6.0: Fri Jul 31 19:16:20 PDT 2026; root:xnu-12377.161.14~5/RELEASE_ARM64_T8142"
+        },
+        "packages": {
+          "agentfem": "0.3.7",
+          "fenics-basix": "0.11.0",
+          "fenics-dolfinx": "0.11.0",
+          "fenics-ffcx": "0.11.0",
+          "fenics-ufl": "2026.1.0",
+          "h5py": "3.16.0",
+          "mpi4py": "4.1.2",
+          "numpy": "2.4.6",
+          "petsc4py": "3.25.2"
+        },
+        "platform": {
+          "route": "native macOS with conda-forge/Homebrew-compatible FEniCSx stack",
+          "system": "macOS"
+        },
+        "python": "3.11.15"
+      },
+      "report": {
+        "execution": {
+          "distribution": {
+            "direct_url": {
+              "dir_info": {
+                "editable": true
+              },
+              "url": "file:///Users/luo/Desktop/%E5%BC%80%E5%8F%91%E7%8E%AF%E5%A2%83/fenicsx-code/agentfem"
+            },
+            "installer": "pip\n",
+            "record_sha256": "1a58fa9b3685c93b398b2a66c27e5a787675085ab95305d62909145cf0bbc297",
+            "version": "0.3.7.dev0"
+          },
+          "distribution_mismatch": true,
+          "distribution_version": "0.3.7.dev0",
+          "environment_consistent": false,
+          "imported_package": "/private/tmp/agentfem-j2-rve/src/agentfem",
+          "installed_distribution": null,
+          "mode": "source_checkout",
+          "path_mismatch": false,
+          "python_executable": "/opt/homebrew/Caskroom/miniforge/base/envs/fenicsx-env/bin/python",
+          "runtime_version": "0.3.7",
+          "source": {
+            "commit": "33e705f3f03a20d6b4d25d8ada433596adb55626",
+            "package_tree_sha256": "3f8208f8c269463ddb8d6112fdd415bae184536ff9a962bb70cdcba9849bb428",
+            "tracked_dirty": false
+          },
+          "source_root": "/private/tmp/agentfem-j2-rve",
+          "version_mismatch": true,
+          "working_directory": "/private/tmp/agentfem-j2-rve"
+        },
+        "machine": "arm64",
+        "mpi": {
+          "code": "AFM-MPI-LAUNCHER-RECOVERED",
+          "compatible": true,
+          "environment_launcher": "/opt/homebrew/Caskroom/miniforge/base/envs/fenicsx-env/bin/mpiexec.hydra",
+          "family": "mpich",
+          "launchers": [
+            {
+              "compatible": true,
+              "family": "mpich",
+              "path": "/opt/homebrew/Caskroom/miniforge/base/envs/fenicsx-env/bin/mpiexec.hydra",
+              "source": "python_environment",
+              "version_line": "HYDRA build details:"
+            },
+            {
+              "compatible": false,
+              "family": "openmpi",
+              "path": "/opt/homebrew/Cellar/open-mpi/5.0.9/bin/mpirun",
+              "source": "PATH",
+              "version_line": "mpirun (Open MPI) 5.0.9"
+            }
+          ],
+          "message": "PATH selects /opt/homebrew/bin/mpiexec, but AgentFEM selected the compatible mpich launcher /opt/homebrew/Caskroom/miniforge/base/envs/fenicsx-env/bin/mpiexec.hydra.",
+          "path_launcher": "/opt/homebrew/bin/mpiexec",
+          "path_mismatch": true,
+          "rank_count": 4,
+          "recommended_launcher": "/opt/homebrew/Caskroom/miniforge/base/envs/fenicsx-env/bin/mpiexec.hydra",
+          "selected_launcher": "/opt/homebrew/Caskroom/miniforge/base/envs/fenicsx-env/bin/mpiexec.hydra",
+          "vendor": "MPICH 5.0.1",
+          "vendor_name": "MPICH",
+          "vendor_version": [
+            5,
+            0,
+            1
+          ]
+        },
+        "numerics": {
+          "numpy_default_float": "float64",
+          "petsc_complex": false,
+          "petsc_real_type": "float64",
+          "petsc_scalar_type": "float64",
+          "python_float_mantissa_bits": 53
+        },
+        "operating_system": {
+          "release": "25.6.0",
+          "system": "Darwin",
+          "version": "Darwin Kernel Version 25.6.0: Fri Jul 31 19:16:20 PDT 2026; root:xnu-12377.161.14~5/RELEASE_ARM64_T8142"
+        },
+        "optional": [
+          {
+            "available": true,
+            "capability": "External CAE mesh conversion",
+            "extra": "mesh-formats",
+            "package": "meshio",
+            "version": "5.3.5"
+          },
+          {
+            "available": true,
+            "capability": "Gmsh model and .msh import",
+            "extra": "gmsh",
+            "package": "gmsh",
+            "version": "4.15.2"
+          },
+          {
+            "available": true,
+            "capability": "In-process visualisation",
+            "extra": "visualization",
+            "package": "pyvista",
+            "version": "0.48.4"
+          },
+          {
+            "available": true,
+            "capability": "PyTorch dataset and learning adapters",
+            "extra": "ml",
+            "package": "torch",
+            "version": "2.13.0"
+          },
+          {
+            "available": true,
+            "capability": "Distributed multi-point constraints",
+            "extra": "parallel-mpc",
+            "package": "dolfinx_mpc",
+            "version": "0.11.0"
+          }
+        ],
+        "packages": {
+          "agentfem": "0.3.7",
+          "fenics-basix": "0.11.0",
+          "fenics-dolfinx": "0.11.0",
+          "fenics-ffcx": "0.11.0",
+          "fenics-ufl": "2026.1.0",
+          "h5py": "3.16.0",
+          "mpi4py": "4.1.2",
+          "numpy": "2.4.6",
+          "petsc4py": "3.25.2"
+        },
+        "platform": {
+          "evidence": [
+            "maintainer development and release verification run on Apple Silicon"
+          ],
+          "level": "developer_verified",
+          "limitations": [
+            "MPI launcher must match the mpi4py implementation"
+          ],
+          "recommended": true,
+          "route": "native macOS with conda-forge/Homebrew-compatible FEniCSx stack",
+          "system": "macOS"
+        },
+        "python": "3.11.15",
+        "schema": "agentfem.runtime-report",
+        "schema_version": "0.1.0",
+        "solver_ready": true,
+        "toolchain": {
+          "c_compiler": "/usr/bin/gcc",
+          "cxx_compiler": "/usr/bin/g++",
+          "jit_ready": true,
+          "purpose": "compile uncached FFCx/CFFI forms"
+        },
+        "workspace": {
+          "exists": true,
+          "link": "/Users/luo/AgentFEMProjects",
+          "protected_from_distribution_removal": true,
+          "retained_source": null,
+          "schema": "agentfem.workspace",
+          "schema_version": "0.1.0",
+          "source": "detected",
+          "storage": "native_user_home",
+          "target": "/Users/luo/AgentFEMProjects",
+          "under_wsl": false,
+          "warning": null
+        }
+      },
+      "schema": "agentfem.runtime-lock",
+      "schema_version": "0.1.0"
+    }
+  },
+  "schema": "agentfem.external-benchmark-candidate.v1",
+  "scientific_definition": {
+    "discretization": {
+      "box_subdivisions": [
+        30,
+        5,
+        8
+      ],
+      "cell": "tetrahedron",
+      "displacement_degree": 2,
+      "increments": 30
+    },
+    "geometry_m": {
+      "height": 0.1,
+      "length": 1.0,
+      "width": 0.04
+    },
+    "loading": {
+      "body_force_at_unit_factor_n_per_m3": [
+        0.0,
+        0.0,
+        -50000000.0
+      ],
+      "left_face": "fully_fixed",
+      "right_face": "ux_zero_symmetry"
+    },
+    "material_pa": {
+      "hardening_modulus": 1000000.0,
+      "poisson": 0.3,
+      "yield_stress": 250000000.0,
+      "young": 210000000000.0
+    },
+    "observer": {
+      "point_m": [
+        1.0,
+        0.0,
+        0.0
+      ],
+      "quantity": "downward_displacement",
+      "source": "public_MGIS_FEniCS_script"
+    }
+  },
+  "status": "incomplete"
+}

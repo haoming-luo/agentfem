@@ -254,12 +254,14 @@ The result retains `S/PE/PEEQ/MISES` at constitutive integration points and
 adds separately named `*_CELL` weighted DG0 recovery fields. The recovered
 fields preserve element and material boundaries and are never labeled as raw
 integration-point values or smoothed nodal contours.
-Plane stress, finite-strain kinematic hardening, external distributed
-finite-strain structural validation, and a general UMAT path remain future
-work. A separate experimental logarithmic finite-strain J2 route already
-provides ordinary strong-boundary and affine/MPC global equilibrium. Its mixed
-lowerings are intended to mitigate volumetric locking, but locking-convergence
-evidence and external promotion evidence are not yet complete.
+Plane stress, finite-strain kinematic hardening, and a general UMAT path remain
+future work. A separate experimental logarithmic finite-strain J2 route already
+provides ordinary strong-boundary and affine/MPC global equilibrium. Its clean,
+content-bound Lewandowski beam candidate passes the independent external curve,
+spatial mesh, serial/MPI, and full-state restart gates. The final increment-pair
+RMS passes and decreases, but its `0.6784%` local maximum remains above the
+fixed `0.5%` contract, so structure promotion stays fail-closed. Mixed-locking
+convergence and a production analytical deviatoric tangent also remain open.
 
 ## Provider-neutral small-strain materials
 

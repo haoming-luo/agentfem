@@ -144,7 +144,7 @@
       "id": "agentfem.benchmark.finite_strain_j2_lewandowski_2023_beam",
       "physics": "Three-dimensional slender beam under a ramped gravity-like body force, with a left clamp, right-end axial symmetry constraint, finite rotations, isotropic J2 plasticity and linear isotropic hardening.",
       "source": "src/agentfem/knowledge/benchmarks/finite_strain_j2_lewandowski_2023_beam.json",
-      "status": "external_reference_reexecuted_candidate_promotion_pending",
+      "status": "external_reference_reexecuted_candidate_promotion_incomplete",
       "title": "Lewandowski et al. finite-strain J2 self-weight beam"
     },
     {
