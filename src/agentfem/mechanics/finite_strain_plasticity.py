@@ -8,6 +8,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field, replace
 import json
 from pathlib import Path
+import time
 
 import numpy as np
 import ufl
@@ -22,7 +23,7 @@ from ..constitutive import FiniteStrainJ2Logarithmic
 from ..constitutive import MaterialQuadratureResponse
 from ..constitutive.quadrature import QuadratureField, QuadratureMaterialMap
 from ..events import SolveEvent
-from ..solvers import NewtonSolverOptions, newton, solve_matrix_system
+from ..solvers import NewtonSolverOptions, create_ksp, newton, solve_matrix_system
 
 
 _MIXED_J2_MAXIMUM_BULK_TO_SHEAR_RATIO = 1.0e4
@@ -279,6 +280,15 @@ class FiniteStrainPlasticityIncrementInfo:
     plastic_points: int
     maximum_plastic_increment: float
     rejection_reason: str | None = None
+    total_seconds: float = 0.0
+    material_update_seconds: float = 0.0
+    residual_assembly_seconds: float = 0.0
+    tangent_assembly_seconds: float = 0.0
+    linear_solve_seconds: float = 0.0
+    line_search_seconds: float = 0.0
+    linear_solve_calls: int = 0
+    linear_iterations: int = 0
+    linear_converged_reasons: tuple[int, ...] = ()
 
     def as_dict(self) -> dict[str, object]:
         return {name: getattr(self, name) for name in self.__dataclass_fields__}
@@ -297,6 +307,23 @@ class FiniteStrainPlasticityIncrementInfo:
             plastic_points=int(record["plastic_points"]),
             maximum_plastic_increment=float(record["maximum_plastic_increment"]),
             rejection_reason=record.get("rejection_reason"),
+            total_seconds=float(record.get("total_seconds", 0.0)),
+            material_update_seconds=float(
+                record.get("material_update_seconds", 0.0)
+            ),
+            residual_assembly_seconds=float(
+                record.get("residual_assembly_seconds", 0.0)
+            ),
+            tangent_assembly_seconds=float(
+                record.get("tangent_assembly_seconds", 0.0)
+            ),
+            linear_solve_seconds=float(record.get("linear_solve_seconds", 0.0)),
+            line_search_seconds=float(record.get("line_search_seconds", 0.0)),
+            linear_solve_calls=int(record.get("linear_solve_calls", 0)),
+            linear_iterations=int(record.get("linear_iterations", 0)),
+            linear_converged_reasons=tuple(
+                int(value) for value in record.get("linear_converged_reasons", ())
+            ),
         )
 
 
@@ -1065,6 +1092,8 @@ class FiniteStrainJ2StandardProblem:
         default=None,
         init=False,
     )
+    _tangent_matrix: object | None = field(default=None, init=False, repr=False)
+    _linear_ksp: object | None = field(default=None, init=False, repr=False)
 
     def _apply_loading(self, coordinate: float) -> None:
         factor = self.amplitude(coordinate)
@@ -1127,6 +1156,28 @@ class FiniteStrainJ2StandardProblem:
         )
         return residual, float(residual.norm())
 
+    def _assemble_tangent(self):
+        """Assemble into one persistent matrix and reuse one configured KSP."""
+
+        if self._tangent_matrix is None:
+            self._tangent_matrix = fem_petsc.assemble_matrix(
+                self.tangent_form,
+                bcs=self.bcs,
+            )
+            self._linear_ksp = create_ksp(
+                self._tangent_matrix.comm,
+                self.solver_options.linear_solver,
+            )
+        else:
+            self._tangent_matrix.zeroEntries()
+            fem_petsc.assemble_matrix(
+                self._tangent_matrix,
+                self.tangent_form,
+                bcs=self.bcs,
+            )
+        self._tangent_matrix.assemble()
+        return self._tangent_matrix
+
     def _assign_trial(self, base, direction, alpha: float) -> None:
         self.solution.x.array[:] = base
         self.solution.x.array[: len(direction)] += alpha * direction
@@ -1170,6 +1221,15 @@ class FiniteStrainJ2StandardProblem:
         start_factor: float,
         target_factor: float,
     ) -> FiniteStrainPlasticityIncrementInfo:
+        started = time.perf_counter()
+        material_update_seconds = 0.0
+        residual_assembly_seconds = 0.0
+        tangent_assembly_seconds = 0.0
+        linear_solve_seconds = 0.0
+        line_search_seconds = 0.0
+        linear_solve_calls = 0
+        linear_iterations = 0
+        linear_reasons: list[int] = []
         initial_norm = None
         norm = float("inf")
         maximum_increment = 0.0
@@ -1177,14 +1237,18 @@ class FiniteStrainJ2StandardProblem:
         converged = False
         iteration = 0
         for iteration in range(self.solver_options.maximum_iterations + 1):
+            stage_started = time.perf_counter()
             result, maximum_increment = self._update_response(
                 start_factor=start_factor,
                 target_factor=target_factor,
             )
+            material_update_seconds += time.perf_counter() - stage_started
             del result
             plastic_points = self.state_transaction.last_plastic_points
             maximum_increment = self.state_transaction.last_maximum_plastic_increment
+            stage_started = time.perf_counter()
             rhs, norm = self._correction_rhs()
+            residual_assembly_seconds += time.perf_counter() - stage_started
             if initial_norm is None:
                 initial_norm = norm
             threshold = (
@@ -1198,18 +1262,24 @@ class FiniteStrainJ2StandardProblem:
             if iteration == self.solver_options.maximum_iterations:
                 rhs.destroy()
                 break
-            tangent = fem_petsc.assemble_matrix(self.tangent_form, bcs=self.bcs)
-            tangent.assemble()
+            stage_started = time.perf_counter()
+            tangent = self._assemble_tangent()
+            tangent_assembly_seconds += time.perf_counter() - stage_started
             correction = rhs.duplicate()
             correction.set(0.0)
+            stage_started = time.perf_counter()
             linear = solve_matrix_system(
                 tangent,
                 rhs,
                 correction,
                 self.solver_options.linear_solver,
+                ksp=self._linear_ksp,
                 raise_on_failure=False,
             )
-            tangent.destroy()
+            linear_solve_seconds += time.perf_counter() - stage_started
+            linear_solve_calls += 1
+            linear_iterations += linear.iterations
+            linear_reasons.append(linear.converged_reason)
             rhs.destroy()
             if not linear.converged:
                 correction.destroy()
@@ -1217,6 +1287,7 @@ class FiniteStrainJ2StandardProblem:
             base = self.solution.x.array.copy()
             direction = correction.array_r.copy()
             correction.destroy()
+            stage_started = time.perf_counter()
             alpha = self._line_search(
                 base,
                 direction,
@@ -1224,8 +1295,14 @@ class FiniteStrainJ2StandardProblem:
                 start_factor=start_factor,
                 target_factor=target_factor,
             )
+            line_search_seconds += time.perf_counter() - stage_started
             if alpha == 0.0:
                 break
+        comm = self.solution.function_space.mesh.comm
+
+        def collective_max(value: float) -> float:
+            return float(comm.allreduce(float(value), op=MPI.MAX))
+
         return FiniteStrainPlasticityIncrementInfo(
             increment=increment,
             attempt=attempt,
@@ -1237,6 +1314,15 @@ class FiniteStrainJ2StandardProblem:
             residual_norm=float(norm),
             plastic_points=plastic_points,
             maximum_plastic_increment=maximum_increment,
+            total_seconds=collective_max(time.perf_counter() - started),
+            material_update_seconds=collective_max(material_update_seconds),
+            residual_assembly_seconds=collective_max(residual_assembly_seconds),
+            tangent_assembly_seconds=collective_max(tangent_assembly_seconds),
+            linear_solve_seconds=collective_max(linear_solve_seconds),
+            line_search_seconds=collective_max(line_search_seconds),
+            linear_solve_calls=int(comm.allreduce(linear_solve_calls, op=MPI.MAX)),
+            linear_iterations=int(comm.allreduce(linear_iterations, op=MPI.MAX)),
+            linear_converged_reasons=tuple(linear_reasons),
         )
 
     def _restore_accepted(self) -> None:
@@ -1577,6 +1663,24 @@ class FiniteStrainJ2StandardProblem:
                             target_factor=target,
                             iteration=info.iterations,
                             residual_norm=info.residual_norm,
+                            metrics={
+                                "total_seconds": info.total_seconds,
+                                "material_update_seconds": (
+                                    info.material_update_seconds
+                                ),
+                                "residual_assembly_seconds": (
+                                    info.residual_assembly_seconds
+                                ),
+                                "tangent_assembly_seconds": (
+                                    info.tangent_assembly_seconds
+                                ),
+                                "linear_solve_seconds": info.linear_solve_seconds,
+                                "line_search_seconds": info.line_search_seconds,
+                                "linear_solve_calls": float(
+                                    info.linear_solve_calls
+                                ),
+                                "linear_iterations": float(info.linear_iterations),
+                            },
                         )
                     )
                 except BaseException as exc:

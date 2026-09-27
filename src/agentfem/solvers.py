@@ -988,20 +988,28 @@ def solve_matrix_system(
     x,
     options: LinearSolverOptions | None = None,
     *,
+    ksp=None,
     raise_on_failure: bool | None = None,
 ) -> LinearSolveInfo:
-    """Solve ``A x = b`` and return explicit PETSc convergence evidence."""
+    """Solve ``A x = b`` and return explicit PETSc convergence evidence.
+
+    A caller that repeatedly solves matrices with the same sparsity pattern
+    may provide a configured ``ksp``.  AgentFEM then updates its operator but
+    leaves the KSP/PC lifecycle with the caller.  The ordinary one-shot path
+    remains unchanged and destroys the temporary KSP before returning.
+    """
 
     selected = options or LinearSolverOptions()
-    ksp = create_ksp(A.comm, selected)
-    ksp.setOperators(A)
-    ksp.solve(b, x)
+    selected_ksp = create_ksp(A.comm, selected) if ksp is None else ksp
+    selected_ksp.setOperators(A)
+    selected_ksp.solve(b, x)
     info = LinearSolveInfo(
-        converged_reason=int(ksp.getConvergedReason()),
-        iterations=int(ksp.getIterationNumber()),
-        residual_norm=float(ksp.getResidualNorm()),
+        converged_reason=int(selected_ksp.getConvergedReason()),
+        iterations=int(selected_ksp.getIterationNumber()),
+        residual_norm=float(selected_ksp.getResidualNorm()),
     )
-    ksp.destroy()
+    if ksp is None:
+        selected_ksp.destroy()
     should_raise = (
         selected.error_if_not_converged
         if raise_on_failure is None

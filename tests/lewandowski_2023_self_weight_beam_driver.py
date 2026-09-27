@@ -49,6 +49,7 @@ def _candidate_step(
     maximum_iterations=30,
     absolute_tolerance=1.0e-8,
     relative_tolerance=1.0e-7,
+    tangent_evaluation="analytic_spectral",
 ):
     definition = DEFINITION
     domain = mesh.cuboid(
@@ -86,6 +87,7 @@ def _candidate_step(
         poisson=definition.poisson,
         yield_stress=definition.yield_stress,
         hardening_modulus=definition.hardening_modulus,
+        tangent_evaluation=tangent_evaluation,
     )
     model.material(material)
     model.body_force(
@@ -155,6 +157,52 @@ def _write_candidate_curve(
     temporary.replace(destination)
 
 
+def _increment_performance(records) -> dict[str, object]:
+    """Summarize rank-reduced nonlinear stage timings without hiding detail."""
+
+    selected = tuple(records)
+    names = (
+        "total_seconds",
+        "material_update_seconds",
+        "residual_assembly_seconds",
+        "tangent_assembly_seconds",
+        "linear_solve_seconds",
+        "line_search_seconds",
+    )
+    return {
+        "schema": "agentfem.finite-strain-j2-increment-performance.v1",
+        "timing_basis": "maximum_rank_wall_clock_perf_counter",
+        "accepted_increment_count": len(selected),
+        "totals": {
+            name: float(sum(getattr(record, name, 0.0) for record in selected))
+            for name in names
+        },
+        "linear_solve_calls": int(
+            sum(getattr(record, "linear_solve_calls", 0) for record in selected)
+        ),
+        "linear_iterations": int(
+            sum(getattr(record, "linear_iterations", 0) for record in selected)
+        ),
+        "increments": [
+            {
+                "increment": int(record.increment),
+                "load_factor": float(record.load_factor),
+                **{name: float(getattr(record, name, 0.0)) for name in names},
+                "linear_solve_calls": int(
+                    getattr(record, "linear_solve_calls", 0)
+                ),
+                "linear_iterations": int(
+                    getattr(record, "linear_iterations", 0)
+                ),
+                "linear_converged_reasons": list(
+                    getattr(record, "linear_converged_reasons", ())
+                ),
+            }
+            for record in selected
+        ],
+    }
+
+
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("output", type=Path)
@@ -193,6 +241,12 @@ def main() -> None:
             "Newton, so 'basic' is the benchmark default."
         ),
     )
+    parser.add_argument(
+        "--tangent-evaluation",
+        choices=("analytic_spectral", "central_difference"),
+        default="analytic_spectral",
+        help="Algorithmic dP/dF implementation used by the candidate material.",
+    )
     parser.add_argument("--reference-csv", type=Path)
     parser.add_argument("--promotion-evidence-json", type=Path)
     arguments = parser.parse_args()
@@ -219,6 +273,7 @@ def main() -> None:
         maximum_iterations=arguments.maximum_iterations,
         absolute_tolerance=arguments.absolute_tolerance,
         relative_tolerance=arguments.relative_tolerance,
+        tangent_evaluation=arguments.tangent_evaluation,
     )
     factors = np.linspace(0.0, 1.0, arguments.increments + 1)
     downward = [0.0]
@@ -306,6 +361,7 @@ def main() -> None:
             "maximum_iterations_limit": arguments.maximum_iterations,
             "absolute_residual_tolerance": arguments.absolute_tolerance,
             "relative_residual_tolerance": arguments.relative_tolerance,
+            "tangent_evaluation": arguments.tangent_evaluation,
             "mpi_ranks": comm.size,
             "curve_file": "candidate_curve.csv",
             "curve_sha256": candidate_curve_sha256,
@@ -318,6 +374,7 @@ def main() -> None:
                 (record.iterations for record in step.accepted_increments),
                 default=0,
             ),
+            "performance": _increment_performance(step.accepted_increments),
             "final_plastic_points": int(step.state_transaction.last_plastic_points),
             "step": step.summary(),
         },

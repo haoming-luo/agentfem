@@ -365,6 +365,64 @@ def test_finite_strain_j2_discrete_tangent_matches_independent_check(stretch):
     assert evidence.relative_error < 2.0e-5
 
 
+def test_finite_strain_j2_analytic_tangent_matches_numerical_oracle_after_history():
+    parameters = {
+        "young": 210_000.0,
+        "poisson": 0.3,
+        "yield_stress": 250.0,
+        "hardening_modulus": 1_000.0,
+        "tangent_relative_step": 2.0e-6,
+    }
+    analytic = constitutive.finite_strain_j2_logarithmic(**parameters)
+    numerical = constitutive.finite_strain_j2_logarithmic(
+        **parameters,
+        tangent_evaluation="central_difference",
+    )
+    first_gradient = np.asarray(
+        ((1.10, 0.05, 0.0), (0.01, 0.96, 0.03), (0.0, -0.01, 0.95))
+    )
+    first = analytic.update(_point(analytic, first_gradient))
+    second_gradient = np.asarray(
+        ((1.08, 0.08, 0.02), (-0.01, 0.98, 0.04), (0.01, -0.02, 0.95))
+    )
+    analytic_response = analytic.update(
+        _point(
+            analytic,
+            second_gradient,
+            state=first.state_new,
+            old=first_gradient,
+        )
+    )
+    numerical_response = numerical.update(
+        _point(
+            numerical,
+            second_gradient,
+            state=first.state_new,
+            old=first_gradient,
+        )
+    )
+
+    np.testing.assert_allclose(
+        analytic_response.cauchy_stress,
+        numerical_response.cauchy_stress,
+        rtol=0.0,
+        atol=0.0,
+    )
+    np.testing.assert_allclose(
+        analytic_response.state_new,
+        numerical_response.state_new,
+        rtol=0.0,
+        atol=0.0,
+    )
+    relative_error = np.linalg.norm(
+        analytic_response.consistent_tangent
+        - numerical_response.consistent_tangent
+    ) / np.linalg.norm(numerical_response.consistent_tangent)
+    assert relative_error < 2.0e-5
+    assert analytic.summary()["tangent_evaluation"] == "analytic_spectral"
+    assert numerical.summary()["tangent_evaluation"] == "central_difference"
+
+
 @pytest.mark.parametrize("stretch", (1.0005, 1.12))
 def test_finite_strain_j2_reused_baseline_is_strictly_equivalent(stretch):
     material = constitutive.finite_strain_j2_logarithmic(
@@ -419,6 +477,7 @@ def test_finite_strain_j2_update_integrates_nineteen_times(monkeypatch):
         yield_stress=250.0,
         hardening_modulus=1_000.0,
         tangent_relative_step=2.0e-6,
+        tangent_evaluation="central_difference",
     )
     original = constitutive.FiniteStrainJ2Logarithmic._integrate
     call_count = 0
@@ -438,6 +497,32 @@ def test_finite_strain_j2_update_integrates_nineteen_times(monkeypatch):
 
     # One baseline response plus two perturbations for each of nine F entries.
     assert call_count == 19
+
+
+def test_finite_strain_j2_analytic_update_integrates_once(monkeypatch):
+    material = constitutive.finite_strain_j2_logarithmic(
+        young=210_000.0,
+        poisson=0.3,
+        yield_stress=250.0,
+        hardening_modulus=1_000.0,
+    )
+    original = constitutive.FiniteStrainJ2Logarithmic._integrate
+    call_count = 0
+
+    def counted_integrate(self, deformation_gradient, state_old):
+        nonlocal call_count
+        call_count += 1
+        return original(self, deformation_gradient, state_old)
+
+    monkeypatch.setattr(
+        constitutive.FiniteStrainJ2Logarithmic,
+        "_integrate",
+        counted_integrate,
+    )
+
+    material.update(_point(material, _isochoric_extension(1.12)))
+
+    assert call_count == 1
 
 
 def test_finite_strain_j2_vectorized_batch_matches_scalar_updates():
@@ -506,6 +591,7 @@ def test_finite_strain_j2_batch_uses_nineteen_vectorized_integrations(monkeypatc
         poisson=0.3,
         yield_stress=250.0,
         hardening_modulus=1_000.0,
+        tangent_evaluation="central_difference",
     )
     points = tuple(
         _point(material, _isochoric_extension(stretch))
@@ -842,6 +928,33 @@ def test_global_finite_strain_j2_patch_consumes_neutral_tangent_and_state():
     assert np.max(solution.x.array) == pytest.approx(0.02)
     assert step.summary()["maturity"] == "experimental_global_mpi_restart"
     assert step.summary()["evidence_level"] == "internal_serial_mpi_restart_verified"
+    assert step._tangent_matrix is not None
+    assert step._linear_ksp is not None
+    assert all(item.total_seconds > 0.0 for item in step.accepted_increments)
+    assert all(item.material_update_seconds > 0.0 for item in step.accepted_increments)
+    assert all(item.residual_assembly_seconds > 0.0 for item in step.accepted_increments)
+    assert all(item.tangent_assembly_seconds > 0.0 for item in step.accepted_increments)
+    assert all(item.linear_solve_seconds > 0.0 for item in step.accepted_increments)
+    assert all(item.linear_solve_calls > 0 for item in step.accepted_increments)
+    assert all(
+        all(reason > 0 for reason in item.linear_converged_reasons)
+        for item in step.accepted_increments
+    )
+
+
+def test_global_finite_strain_j2_reuses_matrix_and_ksp_across_solve_calls():
+    step = _global_finite_strain_j2_patch(incrementation=steps.fixed(4))
+    step.solve(until=0.5)
+    matrix = step._tangent_matrix
+    ksp = step._linear_ksp
+
+    step.solve()
+
+    assert step._tangent_matrix is matrix
+    assert step._linear_ksp is ksp
+    assert [item.load_factor for item in step.accepted_increments] == pytest.approx(
+        [0.25, 0.5, 0.75, 1.0]
+    )
 
 
 def test_global_finite_strain_j2_inelastic_limit_forces_real_cutback():

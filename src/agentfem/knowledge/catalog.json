@@ -636,7 +636,7 @@
       ],
       "source": "src/agentfem/knowledge/cards/finite_strain_j2_logarithmic.json",
       "status": "experimental",
-      "summary": "Multiplicative finite-strain J2 plasticity with quadratic Hencky elasticity, associated isochoric flow, linear isotropic hardening, and public strong-boundary, displacement-only affine/MPC, 3D P2/DG0 mixed affine, and 2D plane-strain Q2/DPC1 mixed affine model.step routes sharing provider-owned quadrature evidence.",
+      "summary": "Multiplicative finite-strain J2 plasticity with quadratic Hencky elasticity, associated isochoric flow, linear isotropic hardening, a spectral analytical algorithmic tangent with an independent numerical oracle, and public strong-boundary, displacement-only affine/MPC, 3D P2/DG0 mixed affine, and 2D plane-strain Q2/DPC1 mixed affine model.step routes sharing provider-owned quadrature evidence.",
       "title": "Finite-strain logarithmic J2 plasticity"
     },
     {

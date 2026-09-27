@@ -1153,7 +1153,7 @@ study = studies.static_membrane(); model = models.create(study=study, mesh=domai
 **Status:** `experimental`<br>
 **Source card:** `src/agentfem/knowledge/cards/finite_strain_j2_logarithmic.json`
 
-Multiplicative finite-strain J2 plasticity with quadratic Hencky elasticity, associated isochoric flow, linear isotropic hardening, and public strong-boundary, displacement-only affine/MPC, 3D P2/DG0 mixed affine, and 2D plane-strain Q2/DPC1 mixed affine model.step routes sharing provider-owned quadrature evidence.
+Multiplicative finite-strain J2 plasticity with quadratic Hencky elasticity, associated isochoric flow, linear isotropic hardening, a spectral analytical algorithmic tangent with an independent numerical oracle, and public strong-boundary, displacement-only affine/MPC, 3D P2/DG0 mixed affine, and 2D plane-strain Q2/DPC1 mixed affine model.step routes sharing provider-owned quadrature evidence.
 
 ### Public API
 
@@ -1209,6 +1209,14 @@ $$
 $$
 
 A positive trial yield value produces the associated principal logarithmic-strain corrector.
+
+**algorithmic first-Piola tangent**
+
+$$
+\mathbb A=\frac{\partial \mathbf P_{n+1}}{\partial \mathbf F_{n+1}}\bigg|_{\mathbf F_{p,n},\bar\varepsilon_{p,n}}
+$$
+
+The production tangent differentiates the complete elastic or plastic spectral return at fixed committed state, including the first-Piola geometric term. A centered derivative of the same discrete return remains an explicit verification oracle.
 
 **displacement-only recoverable stored energy**
 
@@ -1267,7 +1275,7 @@ The nonnegative condensed mixed-energy channel is distinct from MIXED_POTENTIAL,
 | PDENER | committed/trial cumulative quadrature state and accepted response | energy per reference volume | Cumulative irrecoverable plastic dissipation is nonnegative, is committed only with an accepted increment, and is neither a dimensionless history variable nor part of recoverable SENER. |
 | F, P, S, MISES, SENER, ELENER, HARDENER and PDENER | accepted provider-owned quadrature response | F is dimensionless; P, S and MISES are stress; SENER, ELENER, HARDENER and PDENER are energy per reference volume | All public equilibrium lowerings retain accepted constitutive fields without reconstructing them from a history-free material law; explicitly named DG0 cell averages are separate visualization products. |
 | mixed J2 elastic-energy diagnostics | volume-normalized primal and condensed energies with decomposition evidence | energy per complete reference-cell volume | Aligned accepted F, mean-Kirchhoff-stress, inverse-bulk-modulus and condensed ELENER fields produce the primal energy, condensed energy, signed primal-minus-condensed gap, signed pressure-orthogonality term, nonnegative pressure-constraint-defect term, decomposition residual, and pressure-residual extrema. Decomposition verification is not solver convergence or benchmark promotion. |
-| consistent tangent | 9 by 9 derivative of first Piola stress with respect to deformation gradient | stress | The initial implementation differentiates the complete discrete return with fixed old state and is independently checked with a different perturbation. |
+| consistent tangent | 9 by 9 derivative of first Piola stress with respect to deformation gradient | stress | The default implementation uses the spectral analytical derivative of the complete discrete radial return with fixed old state. The selectable central-difference implementation remains an independent oracle and is not required by the production global solve. |
 | homogenized current-state algorithmic tangent | 4 by 4 or 9 by 9 derivative of homogenized first-Piola stress with respect to the prescribed macroscopic deformation gradient | stress | The serial affine-periodic recovery condenses the converged full Jacobian through the exact provider-owned macro-gradient lift. It uses the final accepted increment only while a state-owned linearization token proves the tangent came from that increment, and records one PETSc solve plus reduced-equilibrium evidence per column; it does not rerun or finite-difference the load path. A checkpoint restoration that did not persist the macro tangent fails closed. |
 | MEAN_KIRCHHOFF_STRESS, MEAN_KIRCHHOFF_STRESS_CELL and MIXED_POTENTIAL | exact mixed primary field, recovered visualization field, and provider-owned quadrature diagnostic | stress, stress, and energy per reference volume | MEAN_KIRCHHOFF_STRESS is the exact DG0 or DPC primary field, positive in tension, retained in SimulationResult and the transaction-owned portable checkpoint. For DPC1, XDMF writes the explicitly recovered DG0 cell-average MEAN_KIRCHHOFF_STRESS_CELL and does not silently serialize multiple DPC moments as one cell value. MIXED_POTENTIAL is a saddle variational density and cannot replace condensed ELENER, SENER, or the explicit primal-energy diagnostic. |
 
@@ -1299,7 +1307,7 @@ The nonnegative condensed mixed-energy channel is distinct from MIXED_POTENTIAL,
 - The ordinary provider accepts strong Dirichlet or remote-displacement constraints, a shared normalized amplitude, and reference-configuration dead loads; absolute TimeDependentDirichlet histories, follower loads, weak boundary models, contact and MPC constraints require separate consistent lowering.
 - The affine provider requires exactly one AbaqusPeriodicConstraint and no body-force or natural-load power; all regional materials must share one declared state schema, tangent convention, and stored-energy component contract.
 - The mixed provider requires 3D tetrahedral P2/DG0 or 2D plane-strain quadrilateral Q2/DPC1, one exact affine-periodic constraint, serial sparse reduction, and bulk/shear no greater than the temporary 1e4 implementation ceiling; a plastic simple-shear direction test guards tangent accuracy at that ceiling, but the value is not a material-model validity range, a general accuracy range, or evidence of locking-free response. Distributed mixed MPC, ordinary strong-boundary mixed lowering, and body/natural-load power are not implemented.
-- The numerical tangent prioritizes a verifiable discrete derivative. Native finite-strain J2 now evaluates complete rank-local point batches through vectorized NumPy SVD, return mapping and finite differences instead of one Python material call per integration point; a production analytical deviatoric tangent is still not implemented. Its subtractive volumetric cancellation becomes ill-conditioned as K/mu grows, so results within the admitted K/mu range still require residual, pressure-defect, energy, and mesh/formulation-convergence evidence.
+- The default tangent is the spectral analytical derivative of the elastic/plastic discrete return and first-Piola transformation; a selectable centered-difference path remains the independent oracle. Rank-local point updates remain vectorized. The mixed transformation still obtains its fixed-pressure deviatoric block by subtracting the analytical Hencky volumetric contribution, which becomes ill-conditioned as K/mu grows, so the explicit 1e4 guard and residual, pressure-defect, energy, and mesh/formulation-convergence evidence remain necessary.
 - The homogenized current-state algorithmic tangent is presently a serial exact-affine recovery for providers declaring purely kinematic macro-gradient dependence. Its analytical homogeneous Q2/DPC1 and P2/DG0 checks establish the Schur-condensation convention, not Zhang benchmark agreement or distributed mixed-MPC support. A restart that reconstructs point response without persisting the accepted-increment macro tangent intentionally makes that tangent unavailable.
 - No independent external finite-strain plasticity structure benchmark has yet passed.
 - The exact Zhang--Feng--Khandelwal two-inclusion/one-void geometry now has a 2D Q2/DPC1 diagnostic execution with explicit primal/condensed energy decomposition, but no complete or content-bound Table 5 evidence has passed; the thin-3D P2/DG0 diagnostic remains a distinct formulation.
@@ -1353,6 +1361,7 @@ material = constitutive.finite_strain_j2_logarithmic(young=210e3, poisson=0.3, y
 - Plastic paths preserve det(Fp)=1 and satisfy the updated yield surface.
 - Elastic unloading preserves history while a sufficiently large reverse path accumulates additional equivalent plastic strain.
 - Independent fixed-old-state perturbations accept the discrete tangent in elastic and plastic regimes.
+- The analytical spectral tangent and central-difference oracle agree after non-proportional plastic history; repeated principal stretches use the invariant spectral limit rather than an eigenvector-dependent quotient.
 - Batch failure restores every trial quadrature field and accepted batches commit atomically; scalar and vectorized native J2 updates agree in elastic, plastic and path-dependent states.
 - Serial one- and multi-element total-Lagrangian patches assemble P and dP/dF, reach a prescribed finite deformation, and reject/cut back an excessive PEEQ increment.
 - A two-rank global patch preserves shared assembly and uniform quadrature state.
