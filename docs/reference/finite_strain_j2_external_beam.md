@@ -55,20 +55,38 @@ package versions and image identity are bundled under
 oracle availability gap; it does **not** by itself promote the AgentFEM
 candidate.
 
-The first full-size AgentFEM development candidate used the source-declared
+The clean, content-bound AgentFEM candidate uses the source-declared
 `30 x 5 x 8` P2 tetrahedral mesh, 30 fixed increments and four MPICH ranks.
 All 30 increments converged without cutback. Its final displacement was
 `0.109793534 m` versus `0.109796364 m` for the independent reference;
 normalized RMS and maximum curve errors were `7.71e-6` and `2.58e-5`.
-This passes the curve-error contract by a wide margin, but the archived run is
-deliberately labelled `incomplete`: its checkout was dirty and mesh,
-increment, serial/MPI and restart equivalence gates remain open. The compact
-development evidence is under
-`evidence/finite_strain_j2/lewandowski_2023_mpi4_candidate`.
+Serial and four-rank curves agree to `1.28e-15` normalized RMS, and the
+four-rank run was `2.99x` faster than serial. A scale-aware restart comparison
+accepts the displacement, complete constitutive state, stresses, energies and
+algorithmic tangent.
 
-Promotion still requires observer reconciliation, candidate mesh and
-increment convergence, serial/MPI equivalence, and checkpoint/restart
-equivalence. The promotion manifest binds the independently generated CSV by
+Three spatial levels pass the fixed mesh contract: the `30 x 5 x 8` to
+`36 x 6 x 10` differences are `0.7054%` normalized RMS and `1.7861%` maximum.
+The `15 -> 45 -> 90` increment sequence is decreasing and its final-pair RMS
+is `0.1101%`, within the `0.2%` contract. Its maximum is `0.6784%`, however,
+slightly above the predeclared `0.5%` contract at the sharply curved yield
+transition. Promotion therefore remains **incomplete**; no tolerance was
+changed after seeing the result. A diagnostic 180-increment prefix reduced the
+local difference through load factor `0.5444` to about `0.1204%`, but a partial
+curve is not promotion evidence. The compact formal archive and its
+machine-derived `promotion.json` are under
+`evidence/finite_strain_j2/lewandowski_2023_promotion_candidate`.
+
+The observer discrepancy is now explicit rather than silently blurred: the
+paper describes point A at the top of the right edge, whereas the pinned
+public FEniCS executable samples the middle of the right extremity at
+`(1, 0, 0)`. The bundled oracle and AgentFEM candidate both use the executable
+observer, so this gate is strictly a comparison with the pinned executable
+curve and does not claim to reproduce the plotted paper point A.
+
+Promotion now requires only completion of the increment-convergence gate; the
+mesh, serial/MPI and checkpoint/restart gates pass. The promotion manifest binds
+the independently generated CSV by
 its SHA-256 digest; the candidate driver never fills source identity from its
 own constants merely because a CSV was supplied. The fixture then applies fixed
 AgentFEM comparison contracts of
@@ -100,8 +118,39 @@ The candidate curve is replaced atomically after every accepted load point,
 so a long interrupted run still leaves a readable accepted prefix; only a
 completed run writes the final assessment.
 Candidate output must never be recycled as its own reference. The assessment
-records the actual AgentFEM import path and runtime fingerprint so an installed
-older version cannot silently stand in for the checkout under test.
+records the candidate-curve digest, actual accepted load path, elapsed time,
+Newton statistics, AgentFEM import path and runtime fingerprint so an installed
+older version or changed output cannot silently stand in for the checkout under
+test.
+
+The same-rank restart driver compares the complete displacement curve, nodal
+solution, accepted solution, every committed constitutive state, first-Piola
+and Cauchy stress, deformation gradient, equivalent stress, stored energy and
+algorithmic tangent:
+
+```bash
+PYTHONPATH=src python \
+  tests/lewandowski_2023_self_weight_beam_restart_driver.py \
+  evidence/lewandowski-beam-restart/checkpoint \
+  --output evidence/lewandowski-beam-restart/report.json
+```
+
+After producing three mesh runs, three increment runs, one serial run, one MPI
+run and the restart report from the same clean commit, the promotion assessor
+derives every Boolean from those content-bound artifacts. It requires
+decreasing three-level curve differences and fixed project tolerances; callers
+cannot pass `mesh_converged=true` to bypass the calculation:
+
+```bash
+PYTHONPATH=src python \
+  tests/lewandowski_2023_self_weight_beam_promotion.py \
+  --mesh-run /path/coarse --mesh-run /path/medium --mesh-run /path/fine \
+  --increment-run /path/i15 --increment-run /path/i45 \
+  --increment-run /path/i90 \
+  --rank-run /path/serial --rank-run /path/mpi \
+  --restart-report /path/restart.json \
+  --output /path/promotion.json
+```
 
 Primary sources:
 

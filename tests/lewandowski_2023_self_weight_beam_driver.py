@@ -11,6 +11,7 @@ import argparse
 import hashlib
 import json
 from pathlib import Path
+import time
 
 import numpy as np
 from mpi4py import MPI
@@ -45,6 +46,9 @@ def _candidate_step(
     adaptive=False,
     progress=False,
     line_search="basic",
+    maximum_iterations=30,
+    absolute_tolerance=1.0e-8,
+    relative_tolerance=1.0e-7,
 ):
     definition = DEFINITION
     domain = mesh.cuboid(
@@ -108,9 +112,9 @@ def _candidate_step(
         material=material,
         incrementation=incrementation,
         solver_options=solvers.newton(
-            relative_tolerance=1.0e-7,
-            absolute_tolerance=1.0e-8,
-            maximum_iterations=30,
+            relative_tolerance=float(relative_tolerance),
+            absolute_tolerance=float(absolute_tolerance),
+            maximum_iterations=int(maximum_iterations),
             line_search=line_search,
         ),
         progress=progress,
@@ -163,6 +167,24 @@ def main() -> None:
     )
     parser.add_argument("--progress", action="store_true")
     parser.add_argument(
+        "--maximum-iterations",
+        type=int,
+        default=30,
+        help="Maximum Newton corrections allowed for each fixed increment.",
+    )
+    parser.add_argument(
+        "--absolute-tolerance",
+        type=float,
+        default=1.0e-8,
+        help="Absolute global force-residual tolerance for Newton convergence.",
+    )
+    parser.add_argument(
+        "--relative-tolerance",
+        type=float,
+        default=1.0e-7,
+        help="Relative global force-residual tolerance for Newton convergence.",
+    )
+    parser.add_argument(
         "--line-search",
         choices=("backtracking", "basic"),
         default="basic",
@@ -178,8 +200,15 @@ def main() -> None:
         raise ValueError("All subdivisions must be positive.")
     if arguments.increments < 5:
         raise ValueError("At least five load increments are required.")
+    if arguments.maximum_iterations <= 0:
+        raise ValueError("maximum-iterations must be positive.")
+    if arguments.absolute_tolerance <= 0.0:
+        raise ValueError("absolute-tolerance must be positive.")
+    if arguments.relative_tolerance <= 0.0:
+        raise ValueError("relative-tolerance must be positive.")
 
     comm = MPI.COMM_WORLD
+    started = time.perf_counter()
     step, displacement = _candidate_step(
         comm,
         subdivisions=tuple(arguments.subdivisions),
@@ -187,19 +216,26 @@ def main() -> None:
         adaptive=arguments.adaptive,
         progress=arguments.progress,
         line_search=arguments.line_search,
+        maximum_iterations=arguments.maximum_iterations,
+        absolute_tolerance=arguments.absolute_tolerance,
+        relative_tolerance=arguments.relative_tolerance,
     )
     factors = np.linspace(0.0, 1.0, arguments.increments + 1)
     downward = [0.0]
     accepted_factors = [0.0]
     if comm.rank == 0:
         _write_candidate_curve(arguments.output, accepted_factors, downward)
-    for factor in factors[1:]:
-        step.solve(until=float(factor))
-        value = results.probe(displacement, at=DEFINITION.observer)
-        downward.append(-float(value[2]))
-        accepted_factors.append(float(factor))
-        if comm.rank == 0:
-            _write_candidate_curve(arguments.output, accepted_factors, downward)
+    failure = None
+    try:
+        for factor in factors[1:]:
+            step.solve(until=float(factor))
+            value = results.probe(displacement, at=DEFINITION.observer)
+            downward.append(-float(value[2]))
+            accepted_factors.append(float(factor))
+            if comm.rank == 0:
+                _write_candidate_curve(arguments.output, accepted_factors, downward)
+    except Exception as exc:
+        failure = f"{type(exc).__name__}: {exc}"
 
     reference_load = None
     reference_displacement = None
@@ -219,22 +255,39 @@ def main() -> None:
         declared_reference_curve_sha256 = promotion.get(
             "reference_curve_sha256"
         )
-    assessment = assess_external_curve(
-        candidate_load_factors=factors,
-        candidate_displacements=downward,
-        reference_load_factors=reference_load,
-        reference_displacements=reference_displacement,
-        reference_source_commit=source.get("commit"),
-        reference_solver_sha256=source.get("solver_sha256"),
-        reference_behaviour_sha256=source.get("behaviour_sha256"),
-        reference_curve_sha256=actual_reference_curve_sha256,
-        declared_reference_curve_sha256=declared_reference_curve_sha256,
-        convergence_evidence=evidence,
-    )
+    if comm.rank == 0:
+        candidate_path = arguments.output / "candidate_curve.csv"
+        candidate_curve_sha256 = hashlib.sha256(candidate_path.read_bytes()).hexdigest()
+    else:
+        candidate_curve_sha256 = None
+    candidate_curve_sha256 = comm.bcast(candidate_curve_sha256, root=0)
+    elapsed_seconds = float(comm.allreduce(time.perf_counter() - started, op=MPI.MAX))
+    if failure is None:
+        assessment = assess_external_curve(
+            candidate_load_factors=accepted_factors,
+            candidate_displacements=downward,
+            reference_load_factors=reference_load,
+            reference_displacements=reference_displacement,
+            reference_source_commit=source.get("commit"),
+            reference_solver_sha256=source.get("solver_sha256"),
+            reference_behaviour_sha256=source.get("behaviour_sha256"),
+            reference_curve_sha256=actual_reference_curve_sha256,
+            declared_reference_curve_sha256=declared_reference_curve_sha256,
+            convergence_evidence=evidence,
+        )
+    else:
+        assessment = {
+            "status": "failed",
+            "accepted": False,
+            "reason": "candidate_solve_failed_before_complete_curve",
+            "accepted_prefix_points": len(accepted_factors),
+            "last_accepted_load_factor": float(accepted_factors[-1]),
+            "complete_curve_comparison_performed": False,
+        }
     manifest = {
         "schema": "agentfem.external-benchmark-candidate.v1",
         "benchmark": "lewandowski_2023_self_weight_beam",
-        "status": assessment["status"],
+        "status": "failed" if failure is not None else assessment["status"],
         "runtime": {
             "agentfem_version": agentfem.__version__,
             "agentfem_import_path": str(Path(agentfem.__file__).resolve()),
@@ -250,7 +303,22 @@ def main() -> None:
             "increments": arguments.increments,
             "incrementation": "automatic_cutback" if arguments.adaptive else "fixed",
             "line_search": arguments.line_search,
+            "maximum_iterations_limit": arguments.maximum_iterations,
+            "absolute_residual_tolerance": arguments.absolute_tolerance,
+            "relative_residual_tolerance": arguments.relative_tolerance,
             "mpi_ranks": comm.size,
+            "curve_file": "candidate_curve.csv",
+            "curve_sha256": candidate_curve_sha256,
+            "points": len(accepted_factors),
+            "final_downward_displacement_m": float(downward[-1]),
+            "elapsed_seconds_max_rank": elapsed_seconds,
+            "accepted_increments": len(step.accepted_increments),
+            "attempted_increments": len(step.attempted_increments),
+            "maximum_newton_iterations": max(
+                (record.iterations for record in step.accepted_increments),
+                default=0,
+            ),
+            "final_plastic_points": int(step.state_transaction.last_plastic_points),
             "step": step.summary(),
         },
         "reference": {
@@ -265,6 +333,19 @@ def main() -> None:
             "declared_curve_sha256": declared_reference_curve_sha256,
         },
         "assessment": assessment,
+        "failure": (
+            {
+                "message": failure,
+                "last_attempt": (
+                    step.attempted_increments[-1].as_dict()
+                    if step.attempted_increments
+                    else None
+                ),
+                "accepted_load_factor": float(step.accepted_load_factor),
+            }
+            if failure is not None
+            else None
+        ),
     }
     if comm.rank == 0:
         _write_candidate_curve(arguments.output, accepted_factors, downward)
@@ -275,6 +356,9 @@ def main() -> None:
             encoding="utf-8",
         )
         assessment_temporary.replace(assessment_path)
+    comm.barrier()
+    if failure is not None:
+        raise RuntimeError(failure)
 
 
 if __name__ == "__main__":

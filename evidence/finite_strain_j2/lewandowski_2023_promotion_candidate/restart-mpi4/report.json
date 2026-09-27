@@ -1,0 +1,360 @@
+{
+  "checks": {
+    "accepted_load_factor": {
+      "absolute_tolerance": 2e-11,
+      "maximum_absolute": 0.0,
+      "maximum_normalized": 0.0,
+      "normalized_tolerance": 2e-10,
+      "passed": true,
+      "reference_scale": 1.0
+    },
+    "accepted_solution": {
+      "absolute_tolerance": 2e-11,
+      "maximum_absolute": 3.37403716077489e-16,
+      "maximum_normalized": 3.0685083829526008e-15,
+      "normalized_tolerance": 2e-10,
+      "passed": true,
+      "reference_scale": 0.10995691520739145
+    },
+    "cauchy_stress": {
+      "absolute_tolerance": 2e-11,
+      "maximum_absolute": 0.004928898997604847,
+      "maximum_normalized": 3.248104607759067e-12,
+      "normalized_tolerance": 1e-08,
+      "passed": true,
+      "reference_scale": 1517469291.4232814
+    },
+    "deformation_gradient": {
+      "absolute_tolerance": 2e-11,
+      "maximum_absolute": 6.483008574420523e-14,
+      "maximum_normalized": 5.3659035195481776e-14,
+      "normalized_tolerance": 2e-10,
+      "passed": true,
+      "reference_scale": 1.2081858257053435
+    },
+    "displacement_curve": {
+      "absolute_tolerance": 2e-11,
+      "maximum_absolute": 2.636779683484747e-16,
+      "maximum_normalized": 2.401580112899356e-15,
+      "normalized_tolerance": 2e-10,
+      "passed": true,
+      "reference_scale": 0.10979353423698372
+    },
+    "equivalent_stress": {
+      "absolute_tolerance": 2e-11,
+      "maximum_absolute": 0.001812988892197609,
+      "maximum_normalized": 7.193745047109756e-12,
+      "normalized_tolerance": 1e-08,
+      "passed": true,
+      "reference_scale": 252022956.09934312
+    },
+    "first_piola": {
+      "absolute_tolerance": 2e-11,
+      "maximum_absolute": 0.004907144233584404,
+      "maximum_normalized": 3.1953427558692285e-12,
+      "normalized_tolerance": 1e-08,
+      "passed": true,
+      "reference_scale": 1535717639.2332015
+    },
+    "load_path": {
+      "absolute_tolerance": 2e-11,
+      "maximum_absolute": 0.0,
+      "maximum_normalized": 0.0,
+      "normalized_tolerance": 2e-10,
+      "passed": true,
+      "reference_scale": 1.0
+    },
+    "restored_midpoint": {
+      "actual": 0.5,
+      "expected": 0.5,
+      "passed": true
+    },
+    "solution": {
+      "absolute_tolerance": 2e-11,
+      "maximum_absolute": 3.37403716077489e-16,
+      "maximum_normalized": 3.0685083829526008e-15,
+      "normalized_tolerance": 2e-10,
+      "passed": true,
+      "reference_scale": 0.10995691520739145
+    },
+    "state.equivalent_plastic_strain": {
+      "absolute_tolerance": 2e-11,
+      "maximum_absolute": 2.4730217873525362e-14,
+      "maximum_normalized": 1.281233388406371e-13,
+      "normalized_tolerance": 2e-10,
+      "passed": true,
+      "reference_scale": 0.1930188371400889
+    },
+    "state.plastic_deformation_gradient": {
+      "absolute_tolerance": 2e-11,
+      "maximum_absolute": 3.516284485804988e-14,
+      "maximum_normalized": 2.9110171414012766e-14,
+      "normalized_tolerance": 2e-10,
+      "passed": true,
+      "reference_scale": 1.2079229750300795
+    },
+    "state.plastic_dissipation": {
+      "absolute_tolerance": 2e-11,
+      "maximum_absolute": 6.191432476043701e-06,
+      "maximum_normalized": 1.2830732104245542e-13,
+      "normalized_tolerance": 1e-08,
+      "passed": true,
+      "reference_scale": 48254709.28502223
+    },
+    "state_schema": {
+      "passed": true
+    },
+    "strain_energy_density": {
+      "absolute_tolerance": 2e-11,
+      "maximum_absolute": 2.4549663066864014e-05,
+      "maximum_normalized": 4.3133535152043596e-12,
+      "normalized_tolerance": 1e-08,
+      "passed": true,
+      "reference_scale": 5691549.041906177
+    },
+    "tangent": {
+      "absolute_tolerance": 2e-11,
+      "maximum_absolute": 510.42784252762794,
+      "maximum_normalized": 1.62070071013054e-09,
+      "normalized_tolerance": 1e-08,
+      "passed": true,
+      "reference_scale": 314942690736.84515
+    }
+  },
+  "execution": {
+    "checkpoint_manifest": "/tmp/agentfem-beam-promotion-7a13c3b/restart-mpi4-v2/checkpoint.checkpoint.json",
+    "checkpoint_manifest_sha256": "a2dd367072ac70da814975718ed4fe2a7ccd52505a37c52a2d84f0798708e811",
+    "increments": 30,
+    "midpoint": 0.5,
+    "mpi_ranks": 4,
+    "restored_factor": 0.5,
+    "subdivisions": [
+      30,
+      5,
+      8
+    ]
+  },
+  "failed_checks": [],
+  "passed": true,
+  "runtime": {
+    "fingerprint": "sha256:f38906dc8ea96839f2de22bd7e5ab4bb2582a2e674dbb40013952b36ee9326c7",
+    "identity": {
+      "execution": {
+        "distribution": null,
+        "mode": "source_checkout",
+        "source": {
+          "commit": "33e705f3f03a20d6b4d25d8ada433596adb55626",
+          "package_tree_sha256": "3f8208f8c269463ddb8d6112fdd415bae184536ff9a962bb70cdcba9849bb428",
+          "tracked_dirty": false
+        }
+      },
+      "machine": "arm64",
+      "mpi": {
+        "rank_count": 4,
+        "vendor": "MPICH 5.0.1"
+      },
+      "numerics": {
+        "numpy_default_float": "float64",
+        "petsc_complex": false,
+        "petsc_real_type": "float64",
+        "petsc_scalar_type": "float64",
+        "python_float_mantissa_bits": 53
+      },
+      "operating_system": {
+        "release": "25.6.0",
+        "system": "Darwin",
+        "version": "Darwin Kernel Version 25.6.0: Fri Jul 31 19:16:20 PDT 2026; root:xnu-12377.161.14~5/RELEASE_ARM64_T8142"
+      },
+      "packages": {
+        "agentfem": "0.3.7",
+        "fenics-basix": "0.11.0",
+        "fenics-dolfinx": "0.11.0",
+        "fenics-ffcx": "0.11.0",
+        "fenics-ufl": "2026.1.0",
+        "h5py": "3.16.0",
+        "mpi4py": "4.1.2",
+        "numpy": "2.4.6",
+        "petsc4py": "3.25.2"
+      },
+      "platform": {
+        "route": "native macOS with conda-forge/Homebrew-compatible FEniCSx stack",
+        "system": "macOS"
+      },
+      "python": "3.11.15"
+    },
+    "report": {
+      "execution": {
+        "distribution": {
+          "direct_url": {
+            "dir_info": {
+              "editable": true
+            },
+            "url": "file:///Users/luo/Desktop/%E5%BC%80%E5%8F%91%E7%8E%AF%E5%A2%83/fenicsx-code/agentfem"
+          },
+          "installer": "pip\n",
+          "record_sha256": "1a58fa9b3685c93b398b2a66c27e5a787675085ab95305d62909145cf0bbc297",
+          "version": "0.3.7.dev0"
+        },
+        "distribution_mismatch": true,
+        "distribution_version": "0.3.7.dev0",
+        "environment_consistent": false,
+        "imported_package": "/private/tmp/agentfem-j2-rve/src/agentfem",
+        "installed_distribution": null,
+        "mode": "source_checkout",
+        "path_mismatch": false,
+        "python_executable": "/opt/homebrew/Caskroom/miniforge/base/envs/fenicsx-env/bin/python",
+        "runtime_version": "0.3.7",
+        "source": {
+          "commit": "33e705f3f03a20d6b4d25d8ada433596adb55626",
+          "package_tree_sha256": "3f8208f8c269463ddb8d6112fdd415bae184536ff9a962bb70cdcba9849bb428",
+          "tracked_dirty": false
+        },
+        "source_root": "/private/tmp/agentfem-j2-rve",
+        "version_mismatch": true,
+        "working_directory": "/private/tmp/agentfem-j2-rve"
+      },
+      "machine": "arm64",
+      "mpi": {
+        "code": "AFM-MPI-LAUNCHER-RECOVERED",
+        "compatible": true,
+        "environment_launcher": "/opt/homebrew/Caskroom/miniforge/base/envs/fenicsx-env/bin/mpiexec.hydra",
+        "family": "mpich",
+        "launchers": [
+          {
+            "compatible": true,
+            "family": "mpich",
+            "path": "/opt/homebrew/Caskroom/miniforge/base/envs/fenicsx-env/bin/mpiexec.hydra",
+            "source": "python_environment",
+            "version_line": "HYDRA build details:"
+          },
+          {
+            "compatible": false,
+            "family": "openmpi",
+            "path": "/opt/homebrew/Cellar/open-mpi/5.0.9/bin/mpirun",
+            "source": "PATH",
+            "version_line": "mpirun (Open MPI) 5.0.9"
+          }
+        ],
+        "message": "PATH selects /opt/homebrew/bin/mpiexec, but AgentFEM selected the compatible mpich launcher /opt/homebrew/Caskroom/miniforge/base/envs/fenicsx-env/bin/mpiexec.hydra.",
+        "path_launcher": "/opt/homebrew/bin/mpiexec",
+        "path_mismatch": true,
+        "rank_count": 4,
+        "recommended_launcher": "/opt/homebrew/Caskroom/miniforge/base/envs/fenicsx-env/bin/mpiexec.hydra",
+        "selected_launcher": "/opt/homebrew/Caskroom/miniforge/base/envs/fenicsx-env/bin/mpiexec.hydra",
+        "vendor": "MPICH 5.0.1",
+        "vendor_name": "MPICH",
+        "vendor_version": [
+          5,
+          0,
+          1
+        ]
+      },
+      "numerics": {
+        "numpy_default_float": "float64",
+        "petsc_complex": false,
+        "petsc_real_type": "float64",
+        "petsc_scalar_type": "float64",
+        "python_float_mantissa_bits": 53
+      },
+      "operating_system": {
+        "release": "25.6.0",
+        "system": "Darwin",
+        "version": "Darwin Kernel Version 25.6.0: Fri Jul 31 19:16:20 PDT 2026; root:xnu-12377.161.14~5/RELEASE_ARM64_T8142"
+      },
+      "optional": [
+        {
+          "available": true,
+          "capability": "External CAE mesh conversion",
+          "extra": "mesh-formats",
+          "package": "meshio",
+          "version": "5.3.5"
+        },
+        {
+          "available": true,
+          "capability": "Gmsh model and .msh import",
+          "extra": "gmsh",
+          "package": "gmsh",
+          "version": "4.15.2"
+        },
+        {
+          "available": true,
+          "capability": "In-process visualisation",
+          "extra": "visualization",
+          "package": "pyvista",
+          "version": "0.48.4"
+        },
+        {
+          "available": true,
+          "capability": "PyTorch dataset and learning adapters",
+          "extra": "ml",
+          "package": "torch",
+          "version": "2.13.0"
+        },
+        {
+          "available": true,
+          "capability": "Distributed multi-point constraints",
+          "extra": "parallel-mpc",
+          "package": "dolfinx_mpc",
+          "version": "0.11.0"
+        }
+      ],
+      "packages": {
+        "agentfem": "0.3.7",
+        "fenics-basix": "0.11.0",
+        "fenics-dolfinx": "0.11.0",
+        "fenics-ffcx": "0.11.0",
+        "fenics-ufl": "2026.1.0",
+        "h5py": "3.16.0",
+        "mpi4py": "4.1.2",
+        "numpy": "2.4.6",
+        "petsc4py": "3.25.2"
+      },
+      "platform": {
+        "evidence": [
+          "maintainer development and release verification run on Apple Silicon"
+        ],
+        "level": "developer_verified",
+        "limitations": [
+          "MPI launcher must match the mpi4py implementation"
+        ],
+        "recommended": true,
+        "route": "native macOS with conda-forge/Homebrew-compatible FEniCSx stack",
+        "system": "macOS"
+      },
+      "python": "3.11.15",
+      "schema": "agentfem.runtime-report",
+      "schema_version": "0.1.0",
+      "solver_ready": true,
+      "toolchain": {
+        "c_compiler": "/usr/bin/gcc",
+        "cxx_compiler": "/usr/bin/g++",
+        "jit_ready": true,
+        "purpose": "compile uncached FFCx/CFFI forms"
+      },
+      "workspace": {
+        "exists": true,
+        "link": "/Users/luo/AgentFEMProjects",
+        "protected_from_distribution_removal": true,
+        "retained_source": null,
+        "schema": "agentfem.workspace",
+        "schema_version": "0.1.0",
+        "source": "detected",
+        "storage": "native_user_home",
+        "target": "/Users/luo/AgentFEMProjects",
+        "under_wsl": false,
+        "warning": null
+      }
+    },
+    "schema": "agentfem.runtime-lock",
+    "schema_version": "0.1.0"
+  },
+  "schema": "agentfem.lewandowski-2023-beam-restart-equivalence.v2",
+  "status": "accepted",
+  "tolerances": {
+    "absolute": 2e-11,
+    "normalization": "global_maximum_magnitude_per_physical_channel",
+    "primary_normalized": 2e-10,
+    "response_normalized": 1e-08,
+    "scope": "same_rank_same_mesh_complete_state"
+  }
+}

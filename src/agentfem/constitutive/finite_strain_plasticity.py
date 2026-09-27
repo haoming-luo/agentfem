@@ -20,6 +20,8 @@ from typing import ClassVar
 import numpy as np
 
 from .user_material import (
+    MaterialPointBatchInput,
+    MaterialPointBatchOutput,
     MaterialPointInput,
     MaterialPointOutput,
     MaterialStateSchema,
@@ -376,6 +378,210 @@ class FiniteStrainJ2Logarithmic:
             tangent[:, column] = derivative.reshape(-1)
         return tangent
 
+    def _integrate_batch(self, deformation_gradients, states_old):
+        """Vectorize the discrete return over one rank-local point batch."""
+
+        gradients = np.asarray(deformation_gradients, dtype=float)
+        states = np.asarray(states_old, dtype=float)
+        if gradients.ndim != 3 or gradients.shape[1:] != (3, 3):
+            raise ValueError("deformation_gradients must have shape (n, 3, 3).")
+        if states.shape != (len(gradients), self.state_schema.size):
+            raise ValueError(
+                "states_old must provide one complete state vector per point."
+            )
+        if not np.all(np.isfinite(gradients)) or not np.all(np.isfinite(states)):
+            raise ValueError("Finite-strain J2 batch inputs must be finite.")
+        jacobians = np.linalg.det(gradients)
+        if np.any(jacobians <= 0.0):
+            raise ValueError("Every deformation gradient must have positive J.")
+
+        plastic_gradients = states[:, :9].reshape((-1, 3, 3))
+        equivalent_plastic_strain = states[:, 9]
+        plastic_dissipation = states[:, 10]
+        if np.any(equivalent_plastic_strain < 0.0) or np.any(
+            plastic_dissipation < 0.0
+        ):
+            raise ValueError(
+                "Committed equivalent plastic strain and plastic dissipation "
+                "must be nonnegative."
+            )
+        expected_dissipation = self.yield_stress * equivalent_plastic_strain
+        dissipation_tolerance = (
+            256.0
+            * np.finfo(float).eps
+            * np.maximum(1.0, np.abs(expected_dissipation))
+        )
+        if np.any(
+            np.abs(plastic_dissipation - expected_dissipation)
+            > 1.0e-10 * np.abs(expected_dissipation) + dissipation_tolerance
+        ):
+            raise ValueError(
+                "Committed PDENER is inconsistent with the declared "
+                "rate-independent linear-hardening J2 history."
+            )
+        plastic_jacobians = np.linalg.det(plastic_gradients)
+        if np.any(plastic_jacobians <= 0.0):
+            raise ValueError("A committed plastic deformation gradient is inverted.")
+        if np.any(np.abs(plastic_jacobians - 1.0) > 1.0e-8):
+            raise ValueError(
+                "Finite-strain J2 requires isochoric committed plastic states."
+            )
+
+        elastic_trial = gradients @ np.linalg.inv(plastic_gradients)
+        left_vectors, stretches, right_vectors_transpose = np.linalg.svd(
+            elastic_trial
+        )
+        if np.any(stretches <= 0.0):
+            raise ValueError("Elastic principal stretches must be positive.")
+        elastic_rotation = left_vectors @ right_vectors_transpose
+        if np.any(np.linalg.det(elastic_rotation) <= 0.0):
+            raise RuntimeError("Elastic polar decomposition produced a reflection.")
+
+        logarithmic_trial = np.log(stretches)
+        volumetric_logarithmic_strain = np.sum(logarithmic_trial, axis=1)
+        deviatoric_logarithmic_trial = (
+            logarithmic_trial - volumetric_logarithmic_strain[:, None] / 3.0
+        )
+        deviatoric_kirchhoff_trial = (
+            2.0 * self.shear_modulus * deviatoric_logarithmic_trial
+        )
+        equivalent_trial = np.sqrt(
+            1.5 * np.sum(deviatoric_kirchhoff_trial**2, axis=1)
+        )
+        trial_yield = equivalent_trial - (
+            self.yield_stress
+            + self.hardening_modulus * equivalent_plastic_strain
+        )
+        tolerance = 64.0 * np.finfo(float).eps * np.maximum.reduce(
+            (
+                np.full_like(equivalent_trial, self.young),
+                np.full_like(equivalent_trial, self.yield_stress),
+                equivalent_trial,
+            )
+        )
+        plastic = trial_yield > tolerance
+        plastic_increment = np.zeros_like(equivalent_trial)
+        plastic_increment[plastic] = trial_yield[plastic] / (
+            3.0 * self.shear_modulus + self.hardening_modulus
+        )
+        radial_scale = np.ones_like(equivalent_trial)
+        radial_scale[plastic] = np.maximum(
+            0.0,
+            1.0
+            - 3.0
+            * self.shear_modulus
+            * plastic_increment[plastic]
+            / equivalent_trial[plastic],
+        )
+        deviatoric_kirchhoff = (
+            radial_scale[:, None] * deviatoric_kirchhoff_trial
+        )
+        logarithmic_strain = (
+            volumetric_logarithmic_strain[:, None] / 3.0
+            + deviatoric_kirchhoff / (2.0 * self.shear_modulus)
+        )
+
+        states_new = states.copy()
+        if np.any(plastic):
+            selected_vectors = left_vectors[plastic]
+            elastic_left_stretch = np.einsum(
+                "nia,na,nja->nij",
+                selected_vectors,
+                np.exp(logarithmic_strain[plastic]),
+                selected_vectors,
+            )
+            elastic_new = elastic_left_stretch @ elastic_rotation[plastic]
+            plastic_new = np.linalg.solve(elastic_new, gradients[plastic])
+            if np.any(np.abs(np.linalg.det(plastic_new) - 1.0) > 2.0e-10):
+                raise RuntimeError(
+                    "Isochoric finite-strain J2 batch update drifted from det(Fp)=1."
+                )
+            states_new[plastic, :9] = plastic_new.reshape((-1, 9))
+            states_new[plastic, 9] += plastic_increment[plastic]
+            states_new[plastic, 10] += (
+                self.yield_stress * plastic_increment[plastic]
+            )
+
+        principal_kirchhoff = (
+            self.bulk_modulus * volumetric_logarithmic_strain[:, None]
+            + deviatoric_kirchhoff
+        )
+        kirchhoff_stress = np.einsum(
+            "nia,na,nja->nij",
+            left_vectors,
+            principal_kirchhoff,
+            left_vectors,
+        )
+        kirchhoff_stress = 0.5 * (
+            kirchhoff_stress + np.swapaxes(kirchhoff_stress, 1, 2)
+        )
+        inverse_transpose = np.swapaxes(np.linalg.inv(gradients), 1, 2)
+        cauchy_stress = kirchhoff_stress / jacobians[:, None, None]
+        first_piola_stress = kirchhoff_stress @ inverse_transpose
+        deviatoric_logarithmic = (
+            logarithmic_strain - np.mean(logarithmic_strain, axis=1)[:, None]
+        )
+        elastic_energy = (
+            self.shear_modulus * np.sum(deviatoric_logarithmic**2, axis=1)
+            + 0.5
+            * self.bulk_modulus
+            * volumetric_logarithmic_strain**2
+        )
+        hardening_energy = 0.5 * self.hardening_modulus * (
+            equivalent_plastic_strain + plastic_increment
+        ) ** 2
+        return {
+            "cauchy_stress": cauchy_stress,
+            "first_piola_stress": first_piola_stress,
+            "state": states_new,
+            "strain_energy_density": elastic_energy + hardening_energy,
+            "elastic_energy_density": elastic_energy,
+            "hardening_energy_density": hardening_energy,
+            "plastic_dissipation_density": (
+                plastic_dissipation + self.yield_stress * plastic_increment
+            ),
+            "trial_yield_function": trial_yield,
+            "plastic_multiplier_increment": plastic_increment,
+        }
+
+    def _algorithmic_tangent_batch(
+        self,
+        deformation_gradients,
+        states_old,
+        *,
+        baseline,
+    ) -> np.ndarray:
+        gradients = np.asarray(deformation_gradients, dtype=float)
+        states = np.asarray(states_old, dtype=float)
+        tangent = np.empty((len(gradients), 9, 9), dtype=float)
+        for column in range(9):
+            row, component = divmod(column, 3)
+            increments = self.tangent_relative_step * np.maximum(
+                1.0,
+                np.abs(gradients[:, row, component]),
+            )
+            plus = gradients.copy()
+            minus = gradients.copy()
+            plus[:, row, component] += increments
+            minus[:, row, component] -= increments
+            plus_piola = self._integrate_batch(plus, states)[
+                "first_piola_stress"
+            ]
+            central = np.linalg.det(minus) > 0.0
+            derivative = (
+                plus_piola - baseline["first_piola_stress"]
+            ) / increments[:, None, None]
+            if np.any(central):
+                minus_piola = self._integrate_batch(
+                    minus[central],
+                    states[central],
+                )["first_piola_stress"]
+                derivative[central] = (
+                    plus_piola[central] - minus_piola
+                ) / (2.0 * increments[central, None, None])
+            tangent[:, :, column] = derivative.reshape((-1, 9))
+        return tangent
+
     def update(self, point: MaterialPointInput) -> MaterialPointOutput:
         """Advance one point and return Cauchy stress, state and ``dP/dF``."""
 
@@ -399,6 +605,50 @@ class FiniteStrainJ2Logarithmic:
             },
             tangent_convention=self.tangent_convention,
             state_schema=self.state_schema,
+        )
+
+    def update_batch(
+        self,
+        request: MaterialPointBatchInput,
+    ) -> MaterialPointBatchOutput:
+        """Advance all rank-local points through one vectorized NumPy path."""
+
+        if not isinstance(request, MaterialPointBatchInput):
+            raise TypeError("request must be a MaterialPointBatchInput.")
+        for point in request.points:
+            self._validate_point(point)
+        gradients = np.asarray(
+            [point.deformation_gradient_new for point in request.points],
+            dtype=float,
+        )
+        states = np.asarray(
+            [point.state_old for point in request.points],
+            dtype=float,
+        )
+        integrated = self._integrate_batch(gradients, states)
+        tangents = self._algorithmic_tangent_batch(
+            gradients,
+            states,
+            baseline=integrated,
+        )
+        return MaterialPointBatchOutput(
+            tuple(
+                MaterialPointOutput(
+                    cauchy_stress=integrated["cauchy_stress"][index],
+                    consistent_tangent=tangents[index],
+                    state_new=integrated["state"][index],
+                    strain_energy_density=integrated[
+                        "strain_energy_density"
+                    ][index],
+                    stored_energy_density_components={
+                        "ELENER": integrated["elastic_energy_density"][index],
+                        "HARDENER": integrated["hardening_energy_density"][index],
+                    },
+                    tangent_convention=self.tangent_convention,
+                    state_schema=self.state_schema,
+                )
+                for index in range(request.point_count)
+            )
         )
 
     def summary(self) -> dict[str, object]:
@@ -430,6 +680,7 @@ class FiniteStrainJ2Logarithmic:
             },
             "tangent": self.tangent_convention.summary(),
             "tangent_evaluation": "central_difference_of_discrete_return",
+            "batch_update": "numpy_vectorized_rank_local_points",
             "state_schema": self.state_schema.summary(),
         }
 

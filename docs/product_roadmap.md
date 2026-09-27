@@ -81,8 +81,10 @@ The next scientific promotions focus on depth rather than catalog size:
 
 1. complete external DCB, ENF, and MMB cohesive validation, including unstable
    propagation control and closed force--work--energy evidence;
-2. promote finite-strain J2/RVE through tangent, mesh, load-path, mixed-MPI,
-   restart, follower-load, and prescribed-work verification;
+2. close the remaining finite-strain J2 increment-maximum gate, then replace
+   the production numerical deviatoric tangent and profile the PETSc nonlinear
+   solve before advancing RVE mixed-MPI, follower-load, and prescribed-work
+   promotion;
 3. complete provider-owned dual force, reaction, work, and energy evidence for
    MPC, weak constraints, and contact;
 4. finish portable integration-point output and checkpoint identity across MPI

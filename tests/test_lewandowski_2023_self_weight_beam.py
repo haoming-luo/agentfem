@@ -8,6 +8,7 @@ from pathlib import Path
 
 import numpy as np
 import pytest
+from mpi4py import MPI
 
 from lewandowski_2023_self_weight_beam_fixture import (
     DEFINITION,
@@ -19,9 +20,38 @@ from lewandowski_2023_self_weight_beam_fixture import (
     assess_external_curve,
     bundled_reference_curve,
 )
+from lewandowski_2023_self_weight_beam_promotion import assess_promotion
+from lewandowski_2023_self_weight_beam_restart_driver import (
+    PRIMARY_NORMALIZED_TOLERANCE,
+    RESPONSE_NORMALIZED_TOLERANCE,
+    _global_array_error,
+)
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
+
+
+def test_restart_error_contract_respects_physical_channel_scale():
+    stress = np.array([250.0e6, -125.0e6, 0.0])
+    roundoff_shift = np.array([4.0e-3, -2.0e-3, 0.0])
+
+    response = _global_array_error(
+        stress,
+        stress + roundoff_shift,
+        comm=MPI.COMM_SELF,
+        normalized_tolerance=RESPONSE_NORMALIZED_TOLERANCE,
+    )
+    primary = _global_array_error(
+        np.array([1.0, 0.5]),
+        np.array([1.0, 0.5 + 1.0e-8]),
+        comm=MPI.COMM_SELF,
+        normalized_tolerance=PRIMARY_NORMALIZED_TOLERANCE,
+    )
+
+    assert response["passed"]
+    assert response["reference_scale"] == pytest.approx(250.0e6)
+    assert response["maximum_normalized"] == pytest.approx(1.6e-11)
+    assert not primary["passed"]
 
 
 def test_lewandowski_2023_external_reference_is_reexecuted_and_pinned():
@@ -163,3 +193,158 @@ def test_external_curve_comparator_requires_identity_and_all_evidence():
             candidate_displacements=reference,
             maximum_normalized_rms_error=0.031,
         )
+
+
+def test_content_bound_promotion_derives_evidence_from_artifacts(tmp_path):
+    reference_load, reference_u, _metadata = bundled_reference_curve()
+    source = {
+        "commit": "1" * 40,
+        "tracked_dirty": False,
+        "package_tree_sha256": "2" * 64,
+    }
+
+    def candidate(name, *, subdivisions, increments, ranks, scale):
+        root = tmp_path / name
+        root.mkdir()
+        curve = root / "candidate_curve.csv"
+        np.savetxt(
+            curve,
+            np.column_stack((reference_load, scale * reference_u)),
+            delimiter=",",
+            header="load_factor,downward_displacement_m",
+            comments="",
+        )
+        digest = hashlib.sha256(curve.read_bytes()).hexdigest()
+        manifest = {
+            "candidate": {
+                "curve_file": curve.name,
+                "curve_sha256": digest,
+                "points": int(reference_load.size),
+                "subdivisions": subdivisions,
+                "increments": increments,
+                "mpi_ranks": ranks,
+            },
+            "runtime": {
+                "manifest": {
+                    "identity": {
+                        "execution": {"source": source},
+                    }
+                }
+            },
+        }
+        (root / "assessment.json").write_text(
+            json.dumps(manifest),
+            encoding="utf-8",
+        )
+        return root
+
+    mesh = (
+        candidate(
+            "mesh-coarse",
+            subdivisions=(18, 3, 5),
+            increments=30,
+            ranks=2,
+            scale=1.008,
+        ),
+        candidate(
+            "mesh-medium",
+            subdivisions=(24, 4, 6),
+            increments=30,
+            ranks=2,
+            scale=1.003,
+        ),
+        candidate(
+            "mesh-fine",
+            subdivisions=(30, 5, 8),
+            increments=30,
+            ranks=2,
+            scale=1.001,
+        ),
+    )
+    increments = (
+        candidate(
+            "increment-coarse",
+            subdivisions=(30, 5, 8),
+            increments=10,
+            ranks=2,
+            scale=1.0015,
+        ),
+        candidate(
+            "increment-medium",
+            subdivisions=(30, 5, 8),
+            increments=20,
+            ranks=2,
+            scale=1.0005,
+        ),
+        candidate(
+            "increment-fine",
+            subdivisions=(30, 5, 8),
+            increments=30,
+            ranks=2,
+            scale=1.0001,
+        ),
+    )
+    ranks = (
+        candidate(
+            "rank-serial",
+            subdivisions=(30, 5, 8),
+            increments=30,
+            ranks=1,
+            scale=1.0,
+        ),
+        candidate(
+            "rank-mpi",
+            subdivisions=(30, 5, 8),
+            increments=30,
+            ranks=2,
+            scale=1.0,
+        ),
+    )
+    restart = tmp_path / "restart.json"
+    restart.write_text(
+        json.dumps(
+            {
+                "passed": True,
+                "status": "accepted",
+                "runtime": {
+                    "identity": {
+                        "execution": {"source": source},
+                    }
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    report = assess_promotion(
+        mesh_roots=mesh,
+        increment_roots=increments,
+        rank_roots=ranks,
+        restart_report=restart,
+    )
+
+    assert report["status"] == "accepted"
+    assert report["content_bound"]
+    assert report["benchmark_promotion_authorized"]
+    assert report["mesh_convergence"]["passed"]
+    assert report["increment_convergence"]["passed"]
+    assert report["rank_equivalence"]["passed"]
+    assert report["restart_equivalence"]["passed"]
+    assert report["observer_reconciliation"]["claim_scope"] == (
+        "pinned_public_executable_curve_not_paper_point_A"
+    )
+
+    dirty = json.loads((mesh[0] / "assessment.json").read_text(encoding="utf-8"))
+    dirty["runtime"]["manifest"]["identity"]["execution"]["source"][
+        "tracked_dirty"
+    ] = True
+    (mesh[0] / "assessment.json").write_text(json.dumps(dirty), encoding="utf-8")
+    rejected = assess_promotion(
+        mesh_roots=mesh,
+        increment_roots=increments,
+        rank_roots=ranks,
+        restart_report=restart,
+    )
+    assert rejected["status"] == "incomplete"
+    assert not rejected["content_bound"]
+    assert not rejected["benchmark_promotion_authorized"]
