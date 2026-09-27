@@ -475,9 +475,10 @@ path, mesh, formulation, tangent, replication, MPI, and restart evidence.
 
 A separate [finite-strain J2 self-weight beam gate](finite_strain_j2_external_beam.md)
 tests finite rotation and distributed body-force loading through the ordinary
-strong-boundary provider outside the periodic RVE setting. It likewise remains
-fail-closed until an independently executed,
-content-addressed reference curve and all declared convergence gates exist.
+strong-boundary provider outside the periodic RVE setting. That content-bound
+gate now passes its independently executed reference curve, mesh and increment
+convergence, serial/MPI equivalence, and full-state restart contracts. It does
+not promote the separate affine-periodic or mixed RVE routes.
 
 ## Verification and present boundary
 

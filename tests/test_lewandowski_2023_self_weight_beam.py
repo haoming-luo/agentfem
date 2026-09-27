@@ -147,6 +147,39 @@ def test_full_size_mpi_candidate_evidence_is_content_bound_and_fail_closed():
     }
 
 
+def test_archived_promotion_evidence_recomputes_as_accepted():
+    root = (
+        PROJECT_ROOT
+        / "evidence"
+        / "finite_strain_j2"
+        / "lewandowski_2023_promotion_evidence"
+    )
+    archived = json.loads((root / "promotion.json").read_text(encoding="utf-8"))
+
+    recomputed = assess_promotion(
+        mesh_roots=tuple(root / f"mesh-{level}" for level in (24, 30, 36)),
+        increment_roots=tuple(
+            root / f"increment-{level}" for level in (45, 90, 180)
+        ),
+        rank_roots=(root / "rank-serial", root / "rank-mpi4"),
+        restart_report=root / "restart-mpi4" / "report.json",
+    )
+
+    assert archived["benchmark_promotion_authorized"]
+    assert recomputed["status"] == "accepted"
+    assert recomputed["benchmark_promotion_authorized"]
+    serialized = json.loads(json.dumps(recomputed))
+    assert serialized["source"] == archived["source"]
+    assert serialized["mesh_convergence"] == archived["mesh_convergence"]
+    assert serialized["increment_convergence"] == archived[
+        "increment_convergence"
+    ]
+    assert serialized["rank_equivalence"] == archived["rank_equivalence"]
+    assert serialized["restart_equivalence"] == archived[
+        "restart_equivalence"
+    ]
+
+
 def test_lewandowski_source_and_scientific_inputs_are_frozen():
     assert UPSTREAM_COMMIT == "cb43561d5e36a9ef691ad2c308261448cef44e29"
     assert tuple(item.size_bytes for item in UPSTREAM_ARTIFACTS) == (7905, 577)

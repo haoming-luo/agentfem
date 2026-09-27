@@ -10,51 +10,51 @@
     },
     "accepted_solution": {
       "absolute_tolerance": 2e-11,
-      "maximum_absolute": 3.37403716077489e-16,
-      "maximum_normalized": 3.0685083829526008e-15,
+      "maximum_absolute": 4.0245584642661925e-16,
+      "maximum_normalized": 3.660123109742992e-15,
       "normalized_tolerance": 2e-10,
       "passed": true,
-      "reference_scale": 0.10995691520739145
+      "reference_scale": 0.10995691520739014
     },
     "cauchy_stress": {
       "absolute_tolerance": 2e-11,
-      "maximum_absolute": 0.004928898997604847,
-      "maximum_normalized": 3.248104607759067e-12,
+      "maximum_absolute": 0.006020009517669678,
+      "maximum_normalized": 3.967137622942532e-12,
       "normalized_tolerance": 1e-08,
       "passed": true,
-      "reference_scale": 1517469291.4232814
+      "reference_scale": 1517469291.424399
     },
     "deformation_gradient": {
       "absolute_tolerance": 2e-11,
-      "maximum_absolute": 6.483008574420523e-14,
-      "maximum_normalized": 5.3659035195481776e-14,
+      "maximum_absolute": 9.942220657865875e-14,
+      "maximum_normalized": 8.229049245848768e-14,
       "normalized_tolerance": 2e-10,
       "passed": true,
-      "reference_scale": 1.2081858257053435
+      "reference_scale": 1.2081858257053613
     },
     "displacement_curve": {
       "absolute_tolerance": 2e-11,
-      "maximum_absolute": 2.636779683484747e-16,
-      "maximum_normalized": 2.401580112899356e-15,
+      "maximum_absolute": 4.579669976578771e-16,
+      "maximum_normalized": 4.171165459246313e-15,
       "normalized_tolerance": 2e-10,
       "passed": true,
-      "reference_scale": 0.10979353423698372
+      "reference_scale": 0.10979353423698206
     },
     "equivalent_stress": {
       "absolute_tolerance": 2e-11,
-      "maximum_absolute": 0.001812988892197609,
-      "maximum_normalized": 7.193745047109756e-12,
+      "maximum_absolute": 0.0015614144504070282,
+      "maximum_normalized": 6.195524703676421e-12,
       "normalized_tolerance": 1e-08,
       "passed": true,
-      "reference_scale": 252022956.09934312
+      "reference_scale": 252022956.09934145
     },
     "first_piola": {
       "absolute_tolerance": 2e-11,
-      "maximum_absolute": 0.004907144233584404,
-      "maximum_normalized": 3.1953427558692285e-12,
+      "maximum_absolute": 0.006140660494565964,
+      "maximum_normalized": 3.9985608927612144e-12,
       "normalized_tolerance": 1e-08,
       "passed": true,
-      "reference_scale": 1535717639.2332015
+      "reference_scale": 1535717639.2343292
     },
     "load_path": {
       "absolute_tolerance": 2e-11,
@@ -71,59 +71,59 @@
     },
     "solution": {
       "absolute_tolerance": 2e-11,
-      "maximum_absolute": 3.37403716077489e-16,
-      "maximum_normalized": 3.0685083829526008e-15,
+      "maximum_absolute": 4.0245584642661925e-16,
+      "maximum_normalized": 3.660123109742992e-15,
       "normalized_tolerance": 2e-10,
       "passed": true,
-      "reference_scale": 0.10995691520739145
+      "reference_scale": 0.10995691520739014
     },
     "state.equivalent_plastic_strain": {
       "absolute_tolerance": 2e-11,
-      "maximum_absolute": 2.4730217873525362e-14,
-      "maximum_normalized": 1.281233388406371e-13,
+      "maximum_absolute": 2.606248550307555e-14,
+      "maximum_normalized": 1.3502560625292143e-13,
       "normalized_tolerance": 2e-10,
       "passed": true,
-      "reference_scale": 0.1930188371400889
+      "reference_scale": 0.19301883714009732
     },
     "state.plastic_deformation_gradient": {
       "absolute_tolerance": 2e-11,
-      "maximum_absolute": 3.516284485804988e-14,
-      "maximum_normalized": 2.9110171414012766e-14,
+      "maximum_absolute": 5.5381914332297555e-14,
+      "maximum_normalized": 4.5848879007303907e-14,
       "normalized_tolerance": 2e-10,
       "passed": true,
-      "reference_scale": 1.2079229750300795
+      "reference_scale": 1.2079229750300984
     },
     "state.plastic_dissipation": {
       "absolute_tolerance": 2e-11,
-      "maximum_absolute": 6.191432476043701e-06,
-      "maximum_normalized": 1.2830732104245542e-13,
+      "maximum_absolute": 6.489455699920654e-06,
+      "maximum_normalized": 1.344833653766231e-13,
       "normalized_tolerance": 1e-08,
       "passed": true,
-      "reference_scale": 48254709.28502223
+      "reference_scale": 48254709.28502434
     },
     "state_schema": {
       "passed": true
     },
     "strain_energy_density": {
       "absolute_tolerance": 2e-11,
-      "maximum_absolute": 2.4549663066864014e-05,
-      "maximum_normalized": 4.3133535152043596e-12,
+      "maximum_absolute": 1.8170103430747986e-05,
+      "maximum_normalized": 3.1924706783571537e-12,
       "normalized_tolerance": 1e-08,
       "passed": true,
-      "reference_scale": 5691549.041906177
+      "reference_scale": 5691549.041915813
     },
     "tangent": {
       "absolute_tolerance": 2e-11,
-      "maximum_absolute": 510.42784252762794,
-      "maximum_normalized": 1.62070071013054e-09,
+      "maximum_absolute": 25.7991943359375,
+      "maximum_normalized": 8.19171077661944e-11,
       "normalized_tolerance": 1e-08,
       "passed": true,
-      "reference_scale": 314942690736.84515
+      "reference_scale": 314942690720.63513
     }
   },
   "execution": {
-    "checkpoint_manifest": "/tmp/agentfem-beam-promotion-7a13c3b/restart-mpi4-v2/checkpoint.checkpoint.json",
-    "checkpoint_manifest_sha256": "a2dd367072ac70da814975718ed4fe2a7ccd52505a37c52a2d84f0798708e811",
+    "checkpoint_manifest": "/tmp/agentfem-j2-promotion-b7df691/restart-mpi4/checkpoint.checkpoint.json",
+    "checkpoint_manifest_sha256": "c7e6169b5eb687141f7796222354bed275bf9d45af335ffa76c00606f640eecc",
     "increments": 30,
     "midpoint": 0.5,
     "mpi_ranks": 4,
@@ -137,14 +137,14 @@
   "failed_checks": [],
   "passed": true,
   "runtime": {
-    "fingerprint": "sha256:f38906dc8ea96839f2de22bd7e5ab4bb2582a2e674dbb40013952b36ee9326c7",
+    "fingerprint": "sha256:6c06f0ff1580b1a4095872a5434f74d6efa3d0e62d5dfe9dfd065a9901bb94f3",
     "identity": {
       "execution": {
         "distribution": null,
         "mode": "source_checkout",
         "source": {
-          "commit": "33e705f3f03a20d6b4d25d8ada433596adb55626",
-          "package_tree_sha256": "3f8208f8c269463ddb8d6112fdd415bae184536ff9a962bb70cdcba9849bb428",
+          "commit": "b7df69189ceeed66ac73cd165f7617d19eec46a5",
+          "package_tree_sha256": "bffffa355021a8e4bd0ef5f09ad7f7ebb5cdcfbd2ec1e55dfdb6fa5697f3910a",
           "tracked_dirty": false
         }
       },
@@ -205,8 +205,8 @@
         "python_executable": "/opt/homebrew/Caskroom/miniforge/base/envs/fenicsx-env/bin/python",
         "runtime_version": "0.3.7",
         "source": {
-          "commit": "33e705f3f03a20d6b4d25d8ada433596adb55626",
-          "package_tree_sha256": "3f8208f8c269463ddb8d6112fdd415bae184536ff9a962bb70cdcba9849bb428",
+          "commit": "b7df69189ceeed66ac73cd165f7617d19eec46a5",
+          "package_tree_sha256": "bffffa355021a8e4bd0ef5f09ad7f7ebb5cdcfbd2ec1e55dfdb6fa5697f3910a",
           "tracked_dirty": false
         },
         "source_root": "/private/tmp/agentfem-j2-rve",

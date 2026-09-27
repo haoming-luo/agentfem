@@ -255,13 +255,13 @@ adds separately named `*_CELL` weighted DG0 recovery fields. The recovered
 fields preserve element and material boundaries and are never labeled as raw
 integration-point values or smoothed nodal contours.
 Plane stress, finite-strain kinematic hardening, and a general UMAT path remain
-future work. A separate experimental logarithmic finite-strain J2 route already
-provides ordinary strong-boundary and affine/MPC global equilibrium. Its clean,
-content-bound Lewandowski beam candidate passes the independent external curve,
-spatial mesh, serial/MPI, and full-state restart gates. The final increment-pair
-RMS passes and decreases, but its `0.6784%` local maximum remains above the
-fixed `0.5%` contract, so structure promotion stays fail-closed. Mixed-locking
-convergence remains open. The complete local return now supplies the production
+future work. A separate logarithmic finite-strain J2 route provides ordinary
+strong-boundary and experimental affine/MPC global equilibrium. Its clean,
+content-bound Lewandowski beam evidence passes the independent external curve,
+spatial mesh, 45/90/180-increment, serial/MPI, and full-state restart gates.
+The ordinary strong-boundary route is therefore structurally verified for that
+declared problem; affine-periodic and mixed-locking promotion remain open. The
+complete local return supplies the production
 spectral analytical `dP/dF`; an independent central-difference tangent remains
 available as a verification oracle rather than the default solver path.
 

@@ -1,0 +1,170 @@
+{
+  "accepted": true,
+  "benchmark_promotion_authorized": true,
+  "candidate_artifacts": [
+    {
+      "curve_sha256": "c441c2f4c0f25f73aeeb24e24e7ecc1308c34dfdedd02183f50f1620bd86a223",
+      "manifest_sha256": "a146287541cd546b3277ee4f6eef0a8ca89993265679cdd8ed8ba49f62bf4134",
+      "root": "evidence/finite_strain_j2/lewandowski_2023_promotion_evidence/mesh-24"
+    },
+    {
+      "curve_sha256": "c71f3de3d63d0c8a5c1da313dc1dcf6bde4964e72421bd11635183c0297a6f8e",
+      "manifest_sha256": "3383ed46c3661e3a893b5c2f4b64cb02e801bdc345803c1184f71be47c6fb8ba",
+      "root": "evidence/finite_strain_j2/lewandowski_2023_promotion_evidence/mesh-30"
+    },
+    {
+      "curve_sha256": "5b2b95aec34b15f927534aaeac2d65899aba214d6fe45cc98f84100bc5b04d8e",
+      "manifest_sha256": "ee471b4ea771d8d577f67a9b5e93142c88b8802314db68e15f058c13a1a151bc",
+      "root": "evidence/finite_strain_j2/lewandowski_2023_promotion_evidence/mesh-36"
+    },
+    {
+      "curve_sha256": "f63c6c8c0ad080f863fa6e208bd99ec6a29f740de3a68dd21b9500b520b9f479",
+      "manifest_sha256": "020d62442c81968eeaeb4c3c21c6c4e87c80570bc024fd605d1c63435d58b4b8",
+      "root": "evidence/finite_strain_j2/lewandowski_2023_promotion_evidence/increment-45"
+    },
+    {
+      "curve_sha256": "dad9e0e9d7b4768ce28f8434d64b76b916b5507ffa8fc9c6b7fcf3cf5de5e0cf",
+      "manifest_sha256": "a830810a0dac091a9f74571b994d96bd2009c3951105e658a35a3079fb097b8f",
+      "root": "evidence/finite_strain_j2/lewandowski_2023_promotion_evidence/increment-90"
+    },
+    {
+      "curve_sha256": "1591c34f70007bc5767eb8df6b235e41b14d80e9ecc8caaaba4a17b5cd660550",
+      "manifest_sha256": "24a4079be7637090d235812ac2c00b68089a162218572a789e74367df1f4abc5",
+      "root": "evidence/finite_strain_j2/lewandowski_2023_promotion_evidence/increment-180"
+    },
+    {
+      "curve_sha256": "91599ddbe2562e445aff3e90bbba9fdad2eb1ae1ed686376465bc50d93c2b8e6",
+      "manifest_sha256": "6acc07555b38b772916ea01b8cd701c6f183515271ce4aa4c4930e108abb4026",
+      "root": "evidence/finite_strain_j2/lewandowski_2023_promotion_evidence/rank-serial"
+    },
+    {
+      "curve_sha256": "c71f3de3d63d0c8a5c1da313dc1dcf6bde4964e72421bd11635183c0297a6f8e",
+      "manifest_sha256": "3383ed46c3661e3a893b5c2f4b64cb02e801bdc345803c1184f71be47c6fb8ba",
+      "root": "evidence/finite_strain_j2/lewandowski_2023_promotion_evidence/rank-mpi4"
+    }
+  ],
+  "content_bound": true,
+  "external_comparison": {
+    "accepted": true,
+    "benchmark": "lewandowski_2023_self_weight_beam",
+    "candidate_points": 31,
+    "comparison_class": "cross_formulation_structure_level",
+    "contracts": {
+      "maximum_normalized_maximum": 0.05,
+      "maximum_normalized_rms": 0.03,
+      "origin": "AgentFEM_project_promotion_contract_not_author_tolerance"
+    },
+    "errors": {
+      "normalized_maximum": 2.5772464983159716e-05,
+      "normalized_rms": 7.710336656653905e-06
+    },
+    "missing_evidence": [],
+    "reference_curve_sha256": "c26ac9a056db5c83371b0920d6a78a982871e5f3fd6ba32990b0facb9b2f1b5d",
+    "reference_points": 31,
+    "schema": "agentfem.external-curve-assessment.v1",
+    "status": "accepted"
+  },
+  "increment_convergence": {
+    "coarse_to_medium": {
+      "normalized_maximum": 0.0067839810590373155,
+      "normalized_rms": 0.001101387967424293
+    },
+    "contracts": {
+      "medium_to_fine_normalized_maximum": 0.005,
+      "medium_to_fine_normalized_rms": 0.002,
+      "origin": "AgentFEM_project_promotion_contract_not_author_tolerance"
+    },
+    "decreasing": true,
+    "levels": [
+      45,
+      90,
+      180
+    ],
+    "medium_to_fine": {
+      "normalized_maximum": 0.0021498074671838633,
+      "normalized_rms": 0.00044598691565699196
+    },
+    "passed": true,
+    "setup_consistent": true
+  },
+  "mesh_convergence": {
+    "coarse_to_medium": {
+      "normalized_maximum": 0.034280368724747864,
+      "normalized_rms": 0.012526803537671627
+    },
+    "contracts": {
+      "medium_to_fine_normalized_maximum": 0.02,
+      "medium_to_fine_normalized_rms": 0.01,
+      "origin": "AgentFEM_project_promotion_contract_not_author_tolerance"
+    },
+    "decreasing": true,
+    "levels": [
+      [
+        24,
+        4,
+        6
+      ],
+      [
+        30,
+        5,
+        8
+      ],
+      [
+        36,
+        6,
+        10
+      ]
+    ],
+    "medium_to_fine": {
+      "normalized_maximum": 0.017860742144181235,
+      "normalized_rms": 0.007054023369931481
+    },
+    "passed": true,
+    "setup_consistent": true
+  },
+  "observer_reconciliation": {
+    "candidate": "middle_of_right_extremity_(1,0,0)",
+    "claim_scope": "pinned_public_executable_curve_not_paper_point_A",
+    "paper": "top_of_right_edge_point_A",
+    "pinned_executable": "middle_of_right_extremity_(1,0,0)"
+  },
+  "rank_equivalence": {
+    "contracts": {
+      "normalized_maximum": 1e-08,
+      "normalized_rms": 1e-09,
+      "origin": "AgentFEM_project_promotion_contract_not_author_tolerance"
+    },
+    "errors": {
+      "normalized_maximum": 2.1487822062784092e-15,
+      "normalized_rms": 7.527004993145162e-16
+    },
+    "passed": true,
+    "ranks": [
+      1,
+      4
+    ],
+    "setup_consistent": true
+  },
+  "restart_equivalence": {
+    "package_tree_matches_candidates": true,
+    "passed": true,
+    "report_sha256": "65b8354c396466bc2c8e2c89eceefb018886052295fb4df16d21ce2541ca2356",
+    "reported_status": "accepted",
+    "restart_commit": "b7df69189ceeed66ac73cd165f7617d19eec46a5",
+    "restart_package_tree_sha256": "bffffa355021a8e4bd0ef5f09ad7f7ebb5cdcfbd2ec1e55dfdb6fa5697f3910a"
+  },
+  "schema": "agentfem.lewandowski-2023-beam-promotion.v1",
+  "source": {
+    "clean": true,
+    "commits": [
+      "329692eceef2a63205e57ef6638dd32452a08942",
+      "b7df69189ceeed66ac73cd165f7617d19eec46a5"
+    ],
+    "common_identity": true,
+    "identity_semantics": "executable_agentfem_package_tree; harness-only commits may differ",
+    "package_tree_sha256": [
+      "bffffa355021a8e4bd0ef5f09ad7f7ebb5cdcfbd2ec1e55dfdb6fa5697f3910a"
+    ]
+  },
+  "status": "accepted"
+}

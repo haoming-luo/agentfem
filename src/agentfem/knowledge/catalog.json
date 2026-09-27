@@ -144,7 +144,7 @@
       "id": "agentfem.benchmark.finite_strain_j2_lewandowski_2023_beam",
       "physics": "Three-dimensional slender beam under a ramped gravity-like body force, with a left clamp, right-end axial symmetry constraint, finite rotations, isotropic J2 plasticity and linear isotropic hardening.",
       "source": "src/agentfem/knowledge/benchmarks/finite_strain_j2_lewandowski_2023_beam.json",
-      "status": "external_reference_reexecuted_candidate_promotion_incomplete",
+      "status": "verified_external_reference_mesh_increment_mpi_restart",
       "title": "Lewandowski et al. finite-strain J2 self-weight beam"
     },
     {
@@ -636,7 +636,7 @@
       ],
       "source": "src/agentfem/knowledge/cards/finite_strain_j2_logarithmic.json",
       "status": "experimental",
-      "summary": "Multiplicative finite-strain J2 plasticity with quadratic Hencky elasticity, associated isochoric flow, linear isotropic hardening, a spectral analytical algorithmic tangent with an independent numerical oracle, and public strong-boundary, displacement-only affine/MPC, 3D P2/DG0 mixed affine, and 2D plane-strain Q2/DPC1 mixed affine model.step routes sharing provider-owned quadrature evidence.",
+      "summary": "Multiplicative finite-strain J2 plasticity with quadratic Hencky elasticity, associated isochoric flow, linear isotropic hardening, a spectral analytical algorithmic tangent with an independent numerical oracle, an externally verified ordinary strong-boundary route, and experimental affine/MPC and mixed model.step routes sharing provider-owned quadrature evidence.",
       "title": "Finite-strain logarithmic J2 plasticity"
     },
     {
