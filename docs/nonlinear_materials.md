@@ -261,7 +261,9 @@ content-bound Lewandowski beam candidate passes the independent external curve,
 spatial mesh, serial/MPI, and full-state restart gates. The final increment-pair
 RMS passes and decreases, but its `0.6784%` local maximum remains above the
 fixed `0.5%` contract, so structure promotion stays fail-closed. Mixed-locking
-convergence and a production analytical deviatoric tangent also remain open.
+convergence remains open. The complete local return now supplies the production
+spectral analytical `dP/dF`; an independent central-difference tangent remains
+available as a verification oracle rather than the default solver path.
 
 ## Provider-neutral small-strain materials
 

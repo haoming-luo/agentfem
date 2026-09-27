@@ -59,11 +59,10 @@ class FiniteStrainJ2Logarithmic:
     space.  The plastic flow is isochoric, so ``det(Fp)`` remains one from the
     declared identity initial state.
 
-    The first implementation returns the numerical derivative of the complete
-    discrete material update, ``dP/dF``, with the old state held fixed.  This is
-    a correctness-first algorithmic tangent for verification and initial
-    global integration.  An analytically linearized production tangent is a
-    separate performance milestone.
+    The provider returns the derivative of the complete discrete material
+    update, ``dP/dF``, with the old state held fixed.  The production path uses
+    the spectral derivative of the radial return.  A central-difference path
+    remains available as an independent implementation oracle.
     """
 
     stateful_constitutive: ClassVar[bool] = True
@@ -77,6 +76,7 @@ class FiniteStrainJ2Logarithmic:
     yield_stress: float
     hardening_modulus: float = 0.0
     tangent_relative_step: float = 2.0e-6
+    tangent_evaluation: str = "analytic_spectral"
     name: str = "finite-strain logarithmic J2 plasticity"
     state_schema: MaterialStateSchema = field(init=False, repr=False)
     tangent_convention: MaterialTangentConvention = field(init=False, repr=False)
@@ -99,6 +99,12 @@ class FiniteStrainJ2Logarithmic:
             raise ValueError("hardening_modulus must be nonnegative.")
         if self.tangent_relative_step <= 0.0:
             raise ValueError("tangent_relative_step must be positive.")
+        tangent_evaluation = str(self.tangent_evaluation).strip().lower()
+        if tangent_evaluation not in {"analytic_spectral", "central_difference"}:
+            raise ValueError(
+                "tangent_evaluation must be analytic_spectral or central_difference."
+            )
+        object.__setattr__(self, "tangent_evaluation", tangent_evaluation)
         object.__setattr__(
             self,
             "state_schema",
@@ -378,6 +384,190 @@ class FiniteStrainJ2Logarithmic:
             tangent[:, column] = derivative.reshape(-1)
         return tangent
 
+    def _analytic_algorithmic_tangent_batch(
+        self,
+        deformation_gradients,
+        states_old,
+        *,
+        baseline,
+    ) -> np.ndarray:
+        """Return the spectral derivative of the complete ``P(F)`` update."""
+
+        gradients = np.asarray(deformation_gradients, dtype=float)
+        states = np.asarray(states_old, dtype=float)
+        point_count = len(gradients)
+        plastic_gradients = states[:, :9].reshape((-1, 3, 3))
+        inverse_plastic = np.linalg.inv(plastic_gradients)
+        elastic_trial = gradients @ inverse_plastic
+        left_vectors, stretches, _right_vectors_transpose = np.linalg.svd(
+            elastic_trial
+        )
+        eigenvalues = stretches**2
+        logarithmic_trial = np.log(stretches)
+        volumetric = np.sum(logarithmic_trial, axis=1)
+        deviatoric_logarithmic = logarithmic_trial - volumetric[:, None] / 3.0
+        deviatoric_trial = 2.0 * self.shear_modulus * deviatoric_logarithmic
+        equivalent_trial = np.sqrt(
+            1.5 * np.sum(deviatoric_trial**2, axis=1)
+        )
+        equivalent_plastic_strain = states[:, 9]
+        yield_level = (
+            self.yield_stress
+            + self.hardening_modulus * equivalent_plastic_strain
+        )
+        trial_yield = equivalent_trial - yield_level
+        tolerance = 64.0 * np.finfo(float).eps * np.maximum.reduce(
+            (
+                np.full(point_count, self.young),
+                np.full(point_count, self.yield_stress),
+                equivalent_trial,
+            )
+        )
+        plastic = trial_yield > tolerance
+
+        deviatoric_projector = np.eye(3) - np.ones((3, 3)) / 3.0
+        elastic_principal_moduli = (
+            self.bulk_modulus * np.ones((3, 3))
+            + 2.0 * self.shear_modulus * deviatoric_projector
+        )
+        principal_moduli = np.broadcast_to(
+            elastic_principal_moduli,
+            (point_count, 3, 3),
+        ).copy()
+        radial_scale = np.ones(point_count, dtype=float)
+        if np.any(plastic):
+            denominator = 3.0 * self.shear_modulus + self.hardening_modulus
+            radial_scale[plastic] = (
+                1.0
+                - 3.0
+                * self.shear_modulus
+                * trial_yield[plastic]
+                / (denominator * equivalent_trial[plastic])
+            )
+            dyadic_coefficient = (
+                9.0
+                * self.shear_modulus**2
+                * yield_level[plastic]
+                / (denominator * equivalent_trial[plastic] ** 3)
+            )
+            principal_moduli[plastic] = (
+                self.bulk_modulus * np.ones((3, 3))
+                + 2.0
+                * self.shear_modulus
+                * radial_scale[plastic, None, None]
+                * deviatoric_projector
+                - dyadic_coefficient[:, None, None]
+                * np.einsum(
+                    "pi,pj->pij",
+                    deviatoric_trial[plastic],
+                    deviatoric_trial[plastic],
+                )
+            )
+
+        principal_stress = (
+            self.bulk_modulus * volumetric[:, None]
+            + radial_scale[:, None] * deviatoric_trial
+        )
+        kirchhoff_stress = np.einsum(
+            "pia,pa,pja->pij",
+            left_vectors,
+            principal_stress,
+            left_vectors,
+        )
+        inverse_transpose = np.swapaxes(np.linalg.inv(gradients), 1, 2)
+        first_piola = kirchhoff_stress @ inverse_transpose
+        baseline_piola = np.asarray(baseline["first_piola_stress"], dtype=float)
+        scale = np.maximum(
+            1.0,
+            np.max(np.abs(baseline_piola), axis=(1, 2)),
+        )
+        mismatch = np.max(np.abs(first_piola - baseline_piola), axis=(1, 2))
+        if np.any(mismatch > 2.0e-11 * scale):
+            raise RuntimeError(
+                "Analytic finite-strain J2 tangent reconstructed a response "
+                "that differs from the discrete return."
+            )
+
+        principal_derivative = principal_moduli / (
+            2.0 * eigenvalues[:, None, :]
+        )
+        divided_difference = np.zeros((point_count, 3, 3), dtype=float)
+        for first in range(3):
+            for second in range(3):
+                if first == second:
+                    continue
+                difference = eigenvalues[:, first] - eigenvalues[:, second]
+                repeated = np.abs(difference) <= (
+                    1.0e-10
+                    * np.maximum.reduce(
+                        (
+                            np.ones(point_count),
+                            np.abs(eigenvalues[:, first]),
+                            np.abs(eigenvalues[:, second]),
+                        )
+                    )
+                )
+                distinct = ~repeated
+                divided_difference[distinct, first, second] = (
+                    principal_stress[distinct, first]
+                    - principal_stress[distinct, second]
+                ) / difference[distinct]
+                divided_difference[repeated, first, second] = (
+                    principal_moduli[repeated, first, first]
+                    - principal_moduli[repeated, first, second]
+                ) / (2.0 * eigenvalues[repeated, first])
+
+        tangent = np.empty((point_count, 9, 9), dtype=float)
+        for column in range(9):
+            row, component = divmod(column, 3)
+            variation_elastic = np.zeros_like(elastic_trial)
+            variation_elastic[:, row, :] = inverse_plastic[:, component, :]
+            variation_left = (
+                variation_elastic @ np.swapaxes(elastic_trial, 1, 2)
+                + elastic_trial @ np.swapaxes(variation_elastic, 1, 2)
+            )
+            principal_variation = np.einsum(
+                "pia,pij,pjb->pab",
+                left_vectors,
+                variation_left,
+                left_vectors,
+            )
+            variation_stress_principal = (
+                divided_difference * principal_variation
+            )
+            diagonal_variation = np.diagonal(
+                principal_variation,
+                axis1=1,
+                axis2=2,
+            )
+            diagonal_stress = np.einsum(
+                "pij,pj->pi",
+                principal_derivative,
+                diagonal_variation,
+            )
+            indices = np.arange(3)
+            variation_stress_principal[:, indices, indices] = diagonal_stress
+            variation_kirchhoff = np.einsum(
+                "pia,pab,pjb->pij",
+                left_vectors,
+                variation_stress_principal,
+                left_vectors,
+            )
+            variation_gradient = np.zeros((3, 3), dtype=float)
+            variation_gradient[row, component] = 1.0
+            variation_inverse_transpose = -np.einsum(
+                "pij,jk,pkl->pil",
+                inverse_transpose,
+                variation_gradient.T,
+                inverse_transpose,
+            )
+            variation_piola = (
+                variation_kirchhoff @ inverse_transpose
+                + kirchhoff_stress @ variation_inverse_transpose
+            )
+            tangent[:, :, column] = variation_piola.reshape((-1, 9))
+        return tangent
+
     def _integrate_batch(self, deformation_gradients, states_old):
         """Vectorize the discrete return over one rank-local point batch."""
 
@@ -544,7 +734,7 @@ class FiniteStrainJ2Logarithmic:
             "plastic_multiplier_increment": plastic_increment,
         }
 
-    def _algorithmic_tangent_batch(
+    def _numerical_algorithmic_tangent_batch(
         self,
         deformation_gradients,
         states_old,
@@ -582,6 +772,25 @@ class FiniteStrainJ2Logarithmic:
             tangent[:, :, column] = derivative.reshape((-1, 9))
         return tangent
 
+    def _selected_algorithmic_tangent_batch(
+        self,
+        deformation_gradients,
+        states_old,
+        *,
+        baseline,
+    ) -> np.ndarray:
+        if self.tangent_evaluation == "analytic_spectral":
+            return self._analytic_algorithmic_tangent_batch(
+                deformation_gradients,
+                states_old,
+                baseline=baseline,
+            )
+        return self._numerical_algorithmic_tangent_batch(
+            deformation_gradients,
+            states_old,
+            baseline=baseline,
+        )
+
     def update(self, point: MaterialPointInput) -> MaterialPointOutput:
         """Advance one point and return Cauchy stress, state and ``dP/dF``."""
 
@@ -592,10 +801,22 @@ class FiniteStrainJ2Logarithmic:
         )
         return MaterialPointOutput(
             cauchy_stress=integrated.cauchy_stress,
-            consistent_tangent=self._algorithmic_tangent(
-                point.deformation_gradient_new,
-                point.state_old,
-                baseline=integrated,
+            consistent_tangent=(
+                self._analytic_algorithmic_tangent_batch(
+                    np.asarray(point.deformation_gradient_new)[None, ...],
+                    np.asarray(point.state_old)[None, ...],
+                    baseline={
+                        "first_piola_stress": integrated.first_piola_stress[
+                            None, ...
+                        ]
+                    },
+                )[0]
+                if self.tangent_evaluation == "analytic_spectral"
+                else self._algorithmic_tangent(
+                    point.deformation_gradient_new,
+                    point.state_old,
+                    baseline=integrated,
+                )
             ),
             state_new=integrated.state,
             strain_energy_density=integrated.strain_energy_density,
@@ -626,7 +847,7 @@ class FiniteStrainJ2Logarithmic:
             dtype=float,
         )
         integrated = self._integrate_batch(gradients, states)
-        tangents = self._algorithmic_tangent_batch(
+        tangents = self._selected_algorithmic_tangent_batch(
             gradients,
             states,
             baseline=integrated,
@@ -679,7 +900,7 @@ class FiniteStrainJ2Logarithmic:
                 ),
             },
             "tangent": self.tangent_convention.summary(),
-            "tangent_evaluation": "central_difference_of_discrete_return",
+            "tangent_evaluation": self.tangent_evaluation,
             "batch_update": "numpy_vectorized_rank_local_points",
             "state_schema": self.state_schema.summary(),
         }
@@ -695,6 +916,7 @@ def finite_strain_j2_logarithmic(
     yield_stress: float,
     hardening_modulus: float = 0.0,
     tangent_relative_step: float = 2.0e-6,
+    tangent_evaluation: str = "analytic_spectral",
 ) -> FiniteStrainJ2Logarithmic:
     """Create the logarithmic finite-strain J2 material provider."""
 
@@ -704,4 +926,5 @@ def finite_strain_j2_logarithmic(
         yield_stress=yield_stress,
         hardening_modulus=hardening_modulus,
         tangent_relative_step=tangent_relative_step,
+        tangent_evaluation=tangent_evaluation,
     )

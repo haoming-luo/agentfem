@@ -524,8 +524,10 @@ experimental public affine routes. The Zhang fixture makes the independent
 external comparison executable, but it has not yet passed its loading-path,
 formulation, replication, effective-tangent, or distributed-execution gates.
 Stress-state-controlled macro loading, full Zhang evidence through the direct
-2D Q2/DPC1 route, and a production analytical deviatoric tangent remain
-separate promotion gates.
+2D Q2/DPC1 route, and the mixed-route conditioning study remain separate
+promotion gates. The underlying local J2 return already uses the analytical
+spectral `dP/dF`; what remains is the mixed-formulation and external-evidence
+closure, not another local material tangent.
 
 ## References
 

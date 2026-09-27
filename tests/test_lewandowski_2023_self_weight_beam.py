@@ -5,6 +5,7 @@ from __future__ import annotations
 import hashlib
 import json
 from pathlib import Path
+from types import SimpleNamespace
 
 import numpy as np
 import pytest
@@ -20,6 +21,7 @@ from lewandowski_2023_self_weight_beam_fixture import (
     assess_external_curve,
     bundled_reference_curve,
 )
+from lewandowski_2023_self_weight_beam_driver import _increment_performance
 from lewandowski_2023_self_weight_beam_promotion import assess_promotion
 from lewandowski_2023_self_weight_beam_restart_driver import (
     PRIMARY_NORMALIZED_TOLERANCE,
@@ -29,6 +31,46 @@ from lewandowski_2023_self_weight_beam_restart_driver import (
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
+
+
+def test_increment_performance_preserves_stage_totals_and_ksp_evidence():
+    records = (
+        SimpleNamespace(
+            increment=1,
+            load_factor=0.5,
+            total_seconds=2.0,
+            material_update_seconds=0.4,
+            residual_assembly_seconds=0.2,
+            tangent_assembly_seconds=0.5,
+            linear_solve_seconds=0.7,
+            line_search_seconds=0.1,
+            linear_solve_calls=3,
+            linear_iterations=3,
+            linear_converged_reasons=(4, 4, 4),
+        ),
+        SimpleNamespace(
+            increment=2,
+            load_factor=1.0,
+            total_seconds=3.0,
+            material_update_seconds=0.6,
+            residual_assembly_seconds=0.3,
+            tangent_assembly_seconds=0.8,
+            linear_solve_seconds=1.0,
+            line_search_seconds=0.2,
+            linear_solve_calls=4,
+            linear_iterations=4,
+            linear_converged_reasons=(4, 4, 4, 4),
+        ),
+    )
+
+    evidence = _increment_performance(records)
+
+    assert evidence["accepted_increment_count"] == 2
+    assert evidence["totals"]["total_seconds"] == pytest.approx(5.0)
+    assert evidence["totals"]["linear_solve_seconds"] == pytest.approx(1.7)
+    assert evidence["linear_solve_calls"] == 7
+    assert evidence["linear_iterations"] == 7
+    assert evidence["increments"][1]["linear_converged_reasons"] == [4, 4, 4, 4]
 
 
 def test_restart_error_contract_respects_physical_channel_scale():

@@ -121,7 +121,19 @@ Candidate output must never be recycled as its own reference. The assessment
 records the candidate-curve digest, actual accepted load path, elapsed time,
 Newton statistics, AgentFEM import path and runtime fingerprint so an installed
 older version or changed output cannot silently stand in for the checkout under
-test.
+test. It also records per-increment material-update, residual-assembly,
+tangent-assembly, linear-solve and line-search timings together with PETSc
+linear iteration counts and convergence reasons. The driver accepts
+`--tangent-evaluation analytic_spectral` (the default) or
+`--tangent-evaluation central_difference` for an explicit oracle comparison.
+
+A local diagnostic on the same three-dimensional problem family, using a
+`12 x 3 x 4` P2 tetrahedral mesh and 15 increments, produced indistinguishable
+final displacement (`2.2e-14 m` absolute difference) while reducing the
+maximum Newton count from 11 to 7 and wall time from about `43.0 s` to
+`26.6 s` (`1.62x`). This workload-specific measurement explains the production
+choice; it is not a portable speed guarantee and is not promotion evidence for
+the external beam gate.
 
 The same-rank restart driver compares the complete displacement curve, nodal
 solution, accepted solution, every committed constitutive state, first-Piola

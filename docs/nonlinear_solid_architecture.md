@@ -411,10 +411,11 @@ scientific promotion gate. Promotion still requires load-increment/path and
 spatial convergence, Table 5 stress, primal Hencky elastic energy and
 current-state effective tangent, 1x1/1x2/2x1/2x2 replication invariance, and
 serial/MPI plus restart evidence. An analytically linearized production
-deviatoric tangent also remains a performance and conditioning gate: the
-current mixed transformation removes the numerical volumetric tangent from the
-complete discrete `dP/dF`, which is correctness-first rather than a
-production extreme-bulk-modulus route.
+`dP/dF` is now the default local Jacobian, with the central-difference path
+retained as an independent oracle. The mixed transformation still removes an
+analytical volumetric block from that complete discrete tangent. This remains
+a correctness-first route, and the declared `K/mu <= 1e4` conditioning ceiling
+is unchanged rather than being relabelled as an extreme-bulk-modulus result.
 
 ## Nonlinear control layers
 

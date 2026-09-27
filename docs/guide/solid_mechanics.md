@@ -179,7 +179,9 @@ stress, primal/condensed energy channels and a Schur-condensed current-state
 effective tangent. Its homogeneous analytical tangent check has passed, but
 the published Table 5 comparison, load-path and formulation convergence,
 cell-replication checks, distributed mixed MPC/restart, and a production
-analytical deviatoric tangent remain promotion gates.
+mixed-formulation conditioning study remain promotion gates. The local
+finite-strain J2 return now uses an analytical spectral `dP/dF` by default and
+retains a central-difference oracle for verification.
 
 ## Go deeper
 

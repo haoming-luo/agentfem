@@ -47,13 +47,14 @@
     "driver": "tests/lewandowski_2023_self_weight_beam_driver.py",
     "restart_driver": "tests/lewandowski_2023_self_weight_beam_restart_driver.py",
     "promotion_assessor": "tests/lewandowski_2023_self_weight_beam_promotion.py",
-    "evidence": "The candidate driver binds the accepted curve, runtime, timing and Newton statistics. The restart driver compares the full provider state. The promotion assessor derives convergence and equivalence from clean-commit content-bound artifacts rather than accepting caller-supplied Boolean claims. The compact current candidate is archived at evidence/finite_strain_j2/lewandowski_2023_promotion_candidate and remains incomplete because its increment maximum misses the fixed gate."
+    "evidence": "The candidate driver binds the accepted curve, runtime, per-increment material/residual/tangent/linear-solve/line-search timings, KSP statistics and Newton history. It can explicitly compare the production analytical spectral tangent with the central-difference oracle. The restart driver compares the full provider state. The promotion assessor derives convergence and equivalence from clean-commit content-bound artifacts rather than accepting caller-supplied Boolean claims. The compact current candidate is archived at evidence/finite_strain_j2/lewandowski_2023_promotion_candidate and remains incomplete because its increment maximum misses the fixed gate."
   },
   "observables": [
     "Downward displacement versus load factor at the reconciled right-end observer.",
     "Normalized RMS and maximum curve errors against an independently executed reference curve.",
     "Mesh and load-increment convergence evidence.",
-    "Serial/MPI and uninterrupted/checkpoint-restart equivalence."
+    "Serial/MPI and uninterrupted/checkpoint-restart equivalence.",
+    "Per-increment critical-path stage timings, linear-solve calls and PETSc convergence reasons."
   ],
   "acceptance": [
     "The reference source commit, solver digest, behaviour digest and CSV content digest must all match their independently archived declarations.",
