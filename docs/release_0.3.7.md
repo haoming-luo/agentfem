@@ -47,6 +47,12 @@ matrix, quality semantics, and promotion roadmap.
 
 ## Release boundary
 
+Ordinary nonlinear Procedures retain accepted provider-dual force and
+coordinate histories. The bounded fixed-plane contact route consequently
+reports zero obstacle path work separately from its conservative internal
+contact energy, and failed cutback attempts do not contaminate that ledger.
+Complete nonlinear external-work and energy closure remains a later gate.
+
 0.3.7 does not claim universal element coverage, general contact, a production
 composite shell, or automatic repair of poor meshes. Unknown cell types fail
 closed, conditional routes remain labelled, and mesh-quality thresholds remain

@@ -38,9 +38,10 @@ algorithm in Model or Result.
 
 The contact potential is system internal energy. Its endpoint value must not
 be added again as prescribed-motion or external work. Conversely, a nonlinear
-work integral cannot be reconstructed from one endpoint force. Until a
-Procedure preserves accepted-station forces and conjugate coordinates,
-nonlinear contact work remains explicitly unavailable.
+work integral cannot be reconstructed from one endpoint force. The ordinary
+nonlinear Procedure therefore preserves provider duals only at accepted
+stations. A fixed obstacle publishes a zero translation coordinate, proving
+zero obstacle work while retaining nonzero contact energy as internal energy.
 
 ## Consequences
 
@@ -51,10 +52,11 @@ nonlinear contact work remains explicitly unavailable.
 - a unit normal is mandatory so gap and penalty units remain unambiguous;
 - penalty sensitivity and penetration are visible verification evidence;
 - serial and MPI results use the same provider-owned reaction path;
+- failed Newton attempts never enter the accepted constraint-work ledger;
 - general contact remains unsupported until a dedicated backend earns its own
   capability and verification evidence;
-- nonlinear path-work promotion remains blocked until accepted-station dual
-  histories survive checkpoint/restart.
+- restart promotion remains blocked until ordinary nonlinear checkpoints carry
+  the accepted dual history atomically with the solution state.
 
 ## Verification
 
@@ -62,6 +64,7 @@ nonlinear contact work remains explicitly unavailable.
   contact penalty;
 - contact reaction plus natural load closes global force balance;
 - an open gap has zero contact force, energy, penetration, and active measure;
+- accepted fixed-obstacle path work is exactly zero and excludes cutback trials;
 - invalid penalty and non-unit normals fail before lowering;
 - nodal reaction, resultant, energy, and diagnostics agree in serial and under
   two MPI ranks.

@@ -108,12 +108,78 @@ def _add_nonlinear_constraint_evidence(step, result) -> None:
             kind="diagnostic",
         )
         result.metadata["static_equilibrium"] = equilibrium.as_dict()
+    _add_nonlinear_constraint_path_work(step, result)
     result.metadata["static_work"] = {
         "status": "unavailable",
         "reason": (
-            "Nonlinear prescribed/load-path work requires accepted-station "
-            "dual histories; endpoint contact energy is reported separately."
+            "Overall nonlinear work balance additionally requires accepted "
+            "natural-load work and internal-energy histories; constraint path "
+            "work is reported separately without double-counting internal "
+            "contact potential."
         ),
+    }
+
+
+def _add_nonlinear_constraint_path_work(step, result) -> None:
+    history = step.constraint_dual_history
+    complete = history.complete(accepted_factor=step.accepted_load_factor)
+    channels = {}
+    total = 0.0
+    for name in history.constraint_names:
+        channel = history.channel(name)
+        prefix = name.lower().replace(" ", "_")
+        coordinate = channel["coordinate"]
+        if coordinate is None:
+            channels[name] = {
+                "status": "unavailable",
+                "reason": "provider did not publish a work-conjugate coordinate",
+            }
+            complete = False
+            continue
+        work = history.work(name)
+        total += work
+        channels[name] = {
+            "status": "complete",
+            "value": work,
+            "role": channel["role"],
+            "source": channel["source"],
+        }
+        result.add_history(
+            f"{prefix}_generalized_force",
+            history.factors,
+            channel["force"],
+            abscissa_name="load_factor",
+            abscissa_unit=None,
+            description=(
+                "Provider-owned generalized constraint force at accepted "
+                "nonlinear stations."
+            ),
+        )
+        result.add_history(
+            f"{prefix}_generalized_coordinate",
+            history.factors,
+            coordinate,
+            abscissa_name="load_factor",
+            abscissa_unit=None,
+            description=(
+                "Work-conjugate constraint coordinate at accepted nonlinear "
+                "stations."
+            ),
+        )
+        result.add_quantity(
+            f"{prefix}_path_work",
+            work,
+            kind="diagnostic",
+            description=(
+                "Trapezoidal provider-dual work over accepted nonlinear states."
+            ),
+        )
+    result.metadata["constraint_path_work"] = {
+        "status": "complete" if complete else "unavailable",
+        "sample_count": len(history.records),
+        "integration": "accepted_force_coordinate_trapezoidal",
+        "channels": channels,
+        "total": total if complete else None,
     }
 
 

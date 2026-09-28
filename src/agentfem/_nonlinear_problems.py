@@ -22,6 +22,7 @@ from petsc4py import PETSc
 
 from ._problem_fields import reaction_field as _reaction_field
 from .constraints.affine import AffineConstraintDualHistory
+from .constraints.history import ConstraintDualHistory
 from .events import SolveEvent
 from .solvers import (
     AffineNewtonOptions,
@@ -129,6 +130,30 @@ class IncrementalNonlinearVariationalProblem:
     last_solve_info: NonlinearLoadPathInfo | None = field(default=None, init=False)
     snapshots: list = field(default_factory=list, init=False)
     execution_events: list = field(default_factory=list, init=False)
+    accepted_load_factor: float = field(default=0.0, init=False)
+    accepted_increments: list[NonlinearLoadIncrementInfo] = field(
+        default_factory=list, init=False
+    )
+    attempted_increments: list[NonlinearLoadIncrementInfo] = field(
+        default_factory=list, init=False
+    )
+    constraint_dual_history: ConstraintDualHistory = field(
+        default_factory=ConstraintDualHistory, init=False
+    )
+    _constraint_dual_state: str | None = field(default=None, init=False, repr=False)
+
+    def _capture_constraint_duals(self, load_factor: float) -> None:
+        if not self.constraint_assets:
+            return
+        from .constraints import collect_provider_duals
+
+        self._constraint_dual_state = "accepted"
+        try:
+            evidence = collect_provider_duals(self.constraint_assets, self)
+        finally:
+            self._constraint_dual_state = None
+        if evidence:
+            self.constraint_dual_history.append(load_factor, evidence)
 
     def solve(self):
         from . import steps as step_controls
@@ -172,6 +197,10 @@ class IncrementalNonlinearVariationalProblem:
                 reporter.emit(event)
 
         self.snapshots.clear()
+        self.accepted_load_factor = 0.0
+        self.accepted_increments.clear()
+        self.attempted_increments.clear()
+        self.constraint_dual_history.clear()
         self.snapshots.append(
             _load_snapshot(
                 0,
@@ -191,6 +220,7 @@ class IncrementalNonlinearVariationalProblem:
             else control.load_factors[0]
         )
         self._update_factor(0.0)
+        self._capture_constraint_duals(0.0)
         emit(
             SolveEvent(
                 "step_started",
@@ -264,6 +294,15 @@ class IncrementalNonlinearVariationalProblem:
                             "increment failed its physical acceptance check",
                         )
                     )
+            if converged:
+                try:
+                    self._capture_constraint_duals(factor)
+                except (RuntimeError, TypeError, ValueError) as exc:
+                    converged = False
+                    message = (
+                        "accepted constraint dual capture failed: "
+                        f"{type(exc).__name__}: {exc}"
+                    )
             info = NonlinearLoadIncrementInfo(
                 increment=increment_number,
                 attempt=attempt_number,
@@ -281,10 +320,13 @@ class IncrementalNonlinearVariationalProblem:
                 checks=checks,
             )
             attempts.append(info)
+            self.attempted_increments[:] = attempts
             if converged:
                 history.append(info)
                 accepted_size = factor - accepted_factor
                 accepted_factor = factor
+                self.accepted_load_factor = factor
+                self.accepted_increments[:] = history
                 cutbacks = 0
                 if self.output_every is not None and (
                     len(history) % self.output_every == 0
@@ -321,6 +363,12 @@ class IncrementalNonlinearVariationalProblem:
             self.solution.x.array[:] = rollback
             self.solution.x.scatter_forward()
             self._update_factor(accepted_factor)
+            if (
+                self.constraint_dual_history.records
+                and self.constraint_dual_history.records[-1]["load_factor"]
+                > accepted_factor + 1.0e-12
+            ):
+                self.constraint_dual_history.records.pop()
             if isinstance(control, step_controls.FixedIncrementation):
                 self._fail(
                     history,
@@ -463,6 +511,12 @@ class IncrementalNonlinearVariationalProblem:
                 None if self.incrementation is None else self.incrementation.summary()
             ),
             "snapshot_count": len(self.snapshots),
+            "accepted_load_factor": self.accepted_load_factor,
+            "accepted_increment_count": len(self.accepted_increments),
+            "attempted_increment_count": len(self.attempted_increments),
+            "constraint_dual_sample_count": len(
+                self.constraint_dual_history.records
+            ),
             "primary_result_fields": (
                 None
                 if self.result_field_factory is None

@@ -39,6 +39,7 @@ from .kinematic import (
     linear_kinematic_control,
     point_kinematic_term,
 )
+from .history import ConstraintDualHistory
 
 
 @dataclass(frozen=True)
