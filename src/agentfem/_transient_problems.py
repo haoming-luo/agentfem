@@ -371,6 +371,7 @@ class ImplicitDynamicsStep:
     progress: object = True
     status_file: object | None = None
     checkpoint_policy: object | None = None
+    operator_policy: str = "auto"
     history_requests: tuple[object, ...] = field(default_factory=tuple, init=False)
     accepted_times: list[float] = field(default_factory=list, init=False)
     execution_events: list[object] = field(default_factory=list, init=False)
@@ -386,6 +387,37 @@ class ImplicitDynamicsStep:
         default_factory=PerformanceLedger,
         init=False,
     )
+    _selected_operator_policy: str = field(default="", init=False, repr=False)
+    _operator_policy_reason: str = field(default="", init=False, repr=False)
+    _prepared_problem: object | None = field(default=None, init=False, repr=False)
+    _operator_fingerprint_value: object | None = field(
+        default=None,
+        init=False,
+        repr=False,
+    )
+    _matrix_assembly_count: int = field(default=0, init=False, repr=False)
+    _rhs_assembly_count: int = field(default=0, init=False, repr=False)
+    _solve_count: int = field(default=0, init=False, repr=False)
+    _ksp_iterations_total: int = field(default=0, init=False, repr=False)
+    _ksp_iterations_maximum: int = field(default=0, init=False, repr=False)
+
+    def __post_init__(self) -> None:
+        selected = str(self.operator_policy).strip().lower().replace("-", "_")
+        allowed = {"auto", "reuse", "refresh_each_step"}
+        if selected not in allowed:
+            raise ValueError(
+                "operator_policy must be 'auto', 'reuse', or "
+                "'refresh_each_step'."
+            )
+        self.operator_policy = selected
+        if selected == "auto":
+            self._selected_operator_policy = "reuse"
+            self._operator_policy_reason = (
+                "linear fixed-step Newmark/generalized-alpha effective operator"
+            )
+        else:
+            self._selected_operator_policy = selected
+            self._operator_policy_reason = "explicit user policy"
 
     def run(
         self,
@@ -443,18 +475,24 @@ class ImplicitDynamicsStep:
         _emit_transient_started(reporter, self)
         _record_transient_history(self, self.completed_steps * self.dt)
         if output is None:
-            for info in stepper:
-                self._advance_one(info.time)
-                _accept_transient_increment(
-                    self,
-                    info,
-                    reporter,
-                    selected_progress,
-                    self.state,
-                    selected_comm,
-                )
+            try:
+                for info in stepper:
+                    self._advance_one(info.time)
+                    _accept_transient_increment(
+                        self,
+                        info,
+                        reporter,
+                        selected_progress,
+                        self.state,
+                        selected_comm,
+                    )
+            except BaseException:
+                self.close()
+                raise
             _emit_transient_completed(reporter, self)
             self.performance.add("run_wall", perf_counter() - run_started)
+            if self.completed_steps >= self.steps:
+                self.close()
             return self
         domain = self.state.u.function_space.mesh
         series, actual_output, backend, layout = _transient_result_series(
@@ -464,22 +502,28 @@ class ImplicitDynamicsStep:
         self.last_output = actual_output
         self.last_output_backend = backend
         self.last_output_layout = layout
-        with series as xdmf:
-            xdmf.write_fields(self.completed_steps * self.dt, *output_fields)
-            for info in stepper:
-                self._advance_one(info.time)
-                _accept_transient_increment(
-                    self,
-                    info,
-                    reporter,
-                    selected_progress,
-                    self.state,
-                    selected_comm,
-                )
-                if info.should_save:
-                    xdmf.write_fields(info.time, *output_fields)
+        try:
+            with series as xdmf:
+                xdmf.write_fields(self.completed_steps * self.dt, *output_fields)
+                for info in stepper:
+                    self._advance_one(info.time)
+                    _accept_transient_increment(
+                        self,
+                        info,
+                        reporter,
+                        selected_progress,
+                        self.state,
+                        selected_comm,
+                    )
+                    if info.should_save:
+                        xdmf.write_fields(info.time, *output_fields)
+        except BaseException:
+            self.close()
+            raise
         _emit_transient_completed(reporter, self)
         self.performance.add("run_wall", perf_counter() - run_started)
+        if self.completed_steps >= self.steps:
+            self.close()
         return self
 
     def solve(self):
@@ -569,7 +613,7 @@ class ImplicitDynamicsStep:
                 time_value - dt
             )
             self.update_load(evaluation_time)
-        self.problem.solve()
+        self._solve_problem()
         self.state.u_next.value.x.array[:] = (
             u_predictor.x.array + p.beta * dt**2 * self.state.a_next.value.x.array
         )
@@ -579,6 +623,117 @@ class ImplicitDynamicsStep:
         self.state.u_next.value.x.scatter_forward()
         self.state.v_next.value.x.scatter_forward()
         self.state.advance_state()
+
+    def _solve_problem(self) -> None:
+        """Solve one effective system under the declared operator policy."""
+
+        if self._selected_operator_policy == "refresh_each_step":
+            started = perf_counter()
+            self.problem.solve()
+            self.performance.add("linear_system_solve", perf_counter() - started)
+            self._record_lifecycle(
+                self.problem.last_lifecycle_summary,
+                accumulate=True,
+            )
+            return
+
+        fingerprint = self._operator_fingerprint()
+        if self._operator_fingerprint_value is None:
+            self._operator_fingerprint_value = fingerprint
+        elif fingerprint != self._operator_fingerprint_value:
+            self.close()
+            raise RuntimeError(
+                "AFM-DYNAMICS-OPERATOR-001: the effective operator identity "
+                "changed during a reuse lifecycle. Build a new Step or use "
+                "operator_policy='refresh_each_step'."
+            )
+        if self._prepared_problem is None:
+            started = perf_counter()
+            self._prepared_problem = self.problem.prepare()
+            self.performance.add("matrix_preparation", perf_counter() - started)
+        try:
+            started = perf_counter()
+            self.problem.solve_prepared(self._prepared_problem)
+            self.performance.add("linear_system_solve", perf_counter() - started)
+        except Exception:
+            self.close()
+            raise
+        self._record_lifecycle(
+            self.problem.last_lifecycle_summary,
+            accumulate=False,
+        )
+
+    def _operator_fingerprint(self) -> tuple[object, ...]:
+        """Return the runtime invariants required by fixed-operator reuse."""
+
+        V = self.problem.solution.function_space
+        index_map = V.dofmap.index_map
+        bcs = []
+        for bc in self.problem.bcs:
+            dofs, owned = bc.dof_indices()
+            bcs.append((tuple(int(item) for item in dofs), int(owned)))
+        parameters = (
+            self.parameters.summary()
+            if hasattr(self.parameters, "summary")
+            else repr(self.parameters)
+        )
+        return (
+            float(self.dt),
+            json.dumps(parameters, sort_keys=True, default=str),
+            int(index_map.size_global),
+            int(V.dofmap.index_map_bs),
+            tuple(bcs),
+        )
+
+    def _record_lifecycle(self, summary, *, accumulate: bool) -> None:
+        if summary is None:
+            return
+        values = {
+            "matrix": int(summary.get("matrix_assembly_count", 0)),
+            "rhs": int(summary.get("rhs_assembly_count", 0)),
+            "solve": int(summary.get("solve_count", 0)),
+        }
+        if accumulate:
+            self._matrix_assembly_count += values["matrix"]
+            self._rhs_assembly_count += values["rhs"]
+            self._solve_count += values["solve"]
+        else:
+            self._matrix_assembly_count = values["matrix"]
+            self._rhs_assembly_count = values["rhs"]
+            self._solve_count = values["solve"]
+        info = self.problem.last_solve_info
+        if info is not None:
+            iterations = int(info.iterations)
+            self._ksp_iterations_total += iterations
+            self._ksp_iterations_maximum = max(
+                self._ksp_iterations_maximum,
+                iterations,
+            )
+
+    def operator_lifecycle_summary(self) -> dict[str, object]:
+        """Return inspectable evidence for operator reuse or refresh."""
+
+        return {
+            "kind": "transient_linear_operator_lifecycle",
+            "requested_policy": self.operator_policy,
+            "selected_policy": self._selected_operator_policy,
+            "selection_reason": self._operator_policy_reason,
+            "matrix_reused": self._selected_operator_policy == "reuse",
+            "matrix_assembly_count": self._matrix_assembly_count,
+            "matrix_refresh_count": max(0, self._matrix_assembly_count - 1),
+            "rhs_assembly_count": self._rhs_assembly_count,
+            "solve_count": self._solve_count,
+            "ksp_iterations_total": self._ksp_iterations_total,
+            "ksp_iterations_maximum": self._ksp_iterations_maximum,
+        }
+
+    def close(self) -> None:
+        """Release a live prepared operator without discarding its evidence."""
+
+        prepared = self._prepared_problem
+        self._prepared_problem = None
+        if prepared is not None:
+            prepared.close()
 
     def summary(self) -> dict[str, object]:
         return {
@@ -600,6 +755,7 @@ class ImplicitDynamicsStep:
             "history_requests": [
                 request.summary() for request in self.history_requests
             ],
+            "operator_lifecycle": self.operator_lifecycle_summary(),
             "problem": {
                 "num_bcs": len(self.problem.bcs),
                 "solver": (

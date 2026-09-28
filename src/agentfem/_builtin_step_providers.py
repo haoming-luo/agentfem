@@ -1335,6 +1335,7 @@ register_step_provider(
             "history",
             "save_every",
             "print_every",
+            "operator_policy",
             required=("dt", "steps"),
         ),
     )

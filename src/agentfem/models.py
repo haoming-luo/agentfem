@@ -1576,6 +1576,7 @@ class Model:
         checkpoint=None,
         save_every: int | None = None,
         print_every: int | None = None,
+        operator_policy: str = "auto",
         name: str = "implicit_dynamics",
     ):
         """Compatibility builder; prefer the stable model.step entry point."""
@@ -1602,6 +1603,7 @@ class Model:
             checkpoint=checkpoint,
             save_every=save_every,
             print_every=print_every,
+            operator_policy=operator_policy,
             name=name,
         )
 
