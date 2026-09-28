@@ -112,19 +112,34 @@ class LinearVariationalProblem:
     bcs: list = field(default_factory=list)
     solver_options: LinearSolverOptions | None = None
     last_solve_info: object | None = field(default=None, init=False)
+    last_lifecycle_summary: dict[str, object] | None = field(default=None, init=False)
 
     def solve(self):
         """Assemble and solve the problem into ``solution``."""
 
-        solution, info = solve_linear_problem(
+        prepared = self.prepare()
+        try:
+            return self.solve_prepared(prepared)
+        finally:
+            prepared.close()
+
+    def prepare(self) -> PreparedSolve:
+        """Prepare the linear operator for one or more right-hand sides."""
+
+        return prepare_linear_problem(
             self.bilinear_form,
             self.linear_form,
             self.solution,
             bcs=self.bcs,
             options=self.solver_options,
-            return_info=True,
         )
-        self.last_solve_info = info
+
+    def solve_prepared(self, prepared: PreparedSolve):
+        """Solve through a procedure-owned prepared numerical lifecycle."""
+
+        solution = prepared.solve()
+        self.last_solve_info = prepared.last_solve_info
+        self.last_lifecycle_summary = dict(prepared.summary())
         return solution
 
     def solve_result(self, *, name: str = "linear_variational_result"):
@@ -1060,6 +1075,7 @@ def implicit_dynamics(
     checkpoint_policy=None,
     save_every: int | None = None,
     print_every: int | None = None,
+    operator_policy: str = "auto",
     name: str = "implicit_dynamics",
 ) -> ImplicitDynamicsStep:
     """Create a linear Newmark or generalized-alpha dynamics step.
@@ -1100,7 +1116,7 @@ def implicit_dynamics(
         rhs -= ufl.action(damping.expression, v_alpha_predictor)
     rhs -= ufl.action(stiffness.expression, u_alpha_predictor)
     source_bcs = _collect_bcs(constraints=constraints, bcs=bcs)
-    acceleration_bcs = _zero_kinematic_bcs(source_bcs, V)
+    acceleration_bcs = _zero_kinematic_bcs(source_bcs)
     problem = LinearVariationalProblem(
         bilinear_form=fem.form(effective_expression),
         linear_form=fem.form(rhs),
@@ -1126,6 +1142,7 @@ def implicit_dynamics(
         progress=progress,
         status_file=status_file,
         checkpoint_policy=checkpoint_policy,
+        operator_policy=operator_policy,
         history_monitor=MechanicalEnergyMonitor(
             mass=mass,
             stiffness=stiffness,
@@ -1138,18 +1155,49 @@ def implicit_dynamics(
     )
 
 
-def _zero_kinematic_bcs(source_bcs, V) -> list:
+def _zero_kinematic_bcs(source_bcs) -> list:
+    """Return homogeneous kinematic derivatives without changing BC identity.
+
+    A component Dirichlet condition belongs to a scalar subspace even though
+    its dof indices address the parent vector.  Rebuilding it on the parent
+    space expands every stored scalar index across the vector block and
+    over-constrains the dynamics problem.  The DOLFINx boundary condition is
+    therefore the source of truth for both its constrained space and its
+    owned/ghost dof partition.
+    """
+
     result = []
-    shape = V.element.value_shape
-    value = (
-        PETSc.ScalarType(0.0)
-        if len(shape) == 0
-        else np.zeros(shape, dtype=PETSc.ScalarType)
-    )
-    for bc in source_bcs:
-        dof_indices = bc.dof_indices()
-        dofs = dof_indices[0] if isinstance(dof_indices, tuple) else dof_indices
-        result.append(fem.dirichletbc(value, dofs, V))
+    for source in source_bcs:
+        source_dofs, source_owned = source.dof_indices()
+        constrained_space = source.function_space
+        source_value = source.g
+        if hasattr(source_value, "value"):
+            value = np.zeros_like(np.asarray(source_value.value))
+            zero = fem.dirichletbc(value, source_dofs, constrained_space)
+        elif hasattr(source_value, "x"):
+            # Function-valued data are used by spatially varying prescribed
+            # motion.  Construct the matching C++ Function directly because
+            # ``DirichletBC.function_space`` is the wrapped DOLFINx space.
+            value = type(source_value)(constrained_space)
+            block_size = int(constrained_space.dofmap.bs)
+            blocked_dofs = np.unique(source_dofs // block_size).astype(
+                source_dofs.dtype,
+                copy=False,
+            )
+            zero_cpp = type(source._cpp_object)(value, blocked_dofs)
+            zero = fem.DirichletBC(zero_cpp)
+        else:  # pragma: no cover - unsupported third-party DOLFINx value
+            raise TypeError(
+                "AFM-DYNAMICS-BC-001: cannot construct a zero kinematic "
+                f"condition from {type(source_value).__name__}."
+            )
+        zero_dofs, zero_owned = zero.dof_indices()
+        if source_owned != zero_owned or not np.array_equal(source_dofs, zero_dofs):
+            raise RuntimeError(
+                "AFM-DYNAMICS-BC-002: zero kinematic reconstruction changed "
+                "the constrained dof identity."
+            )
+        result.append(zero)
     return result
 
 

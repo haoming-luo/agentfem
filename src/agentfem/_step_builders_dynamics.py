@@ -385,6 +385,7 @@ def implicit_dynamics(
     checkpoint=None,
     save_every: int | None = None,
     print_every: int | None = None,
+    operator_policy: str = "auto",
     name: str = "implicit_dynamics",
 ):
     """Build Newmark or generalized-alpha structural dynamics."""
@@ -435,6 +436,7 @@ def implicit_dynamics(
         checkpoint_policy=checkpoint,
         save_every=save_every,
         print_every=print_every,
+        operator_policy=operator_policy,
         name=name,
     )
     return model.add_step(step)

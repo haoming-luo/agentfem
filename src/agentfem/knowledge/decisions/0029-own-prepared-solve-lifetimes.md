@@ -29,6 +29,11 @@ one generic solver abstraction over incompatible formulations.
   close;
 - context managers remain the preferred scope for repeated solves and
   one-shot owners close in `finally`;
+- a linear transient Procedure may retain one prepared solve across partial
+  `run()` calls, but closes it on terminal completion or any failed advance;
+- checkpoint archives preserve scientific state rather than PETSc handles;
+  restoration prepares fresh backend resources under the receiving Step's
+  declared policy;
 - the protocol stays private until more than lifetime semantics are genuinely
   common.
 
@@ -36,6 +41,9 @@ one generic solver abstraction over incompatible formulations.
 
 - ordinary prepared linear solves retain one matrix across changing right-hand
   sides, then expose a preserved summary and reject reuse after close;
+- linear implicit dynamics reports one matrix assembly and one right-hand-side
+  assembly per accepted step under the fixed-operator contract, while the
+  refresh policy remains numerically equivalent and assembles every step;
 - exact-MPC and direct-harmonic prepared solves retain their existing
   idempotent close and borrowed-object tests;
 - the complete two-rank modal, harmonic, MPC, and result sequence terminates

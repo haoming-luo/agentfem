@@ -27,6 +27,21 @@ frequency and provides controllable high-frequency damping. Nonlinear
 implicit dynamics and moving supports require additional residual,
 linearization, and prescribed-kinematics work.
 
+For linear implicit dynamics, the effective operator is fixed when the mesh,
+spaces, mass, damping, stiffness, time step, integration parameters, and
+constrained dof set remain unchanged. AgentFEM therefore uses
+`operator_policy="auto"` by default: it prepares the matrix and PETSc solver
+once, then assembles only the evolving right-hand side. `"reuse"` makes that
+contract explicit, while `"refresh_each_step"` retains conservative repeated
+assembly for externally mutated operators. A change to a guarded runtime
+invariant fails closed rather than continuing with a stale matrix. Step and
+result summaries record the selected policy, matrix and right-hand-side
+assembly counts, solve counts, KSP iterations, and the reason for the
+selection. Partial `run(until_step=...)` calls retain the prepared allocation;
+terminal completion or failure closes it deterministically. Checkpoints store
+scientific state rather than backend handles, so the receiving Step prepares
+one new operator safely under its declared policy.
+
 ## The useful first thermal-mechanical route
 
 Many component analyses do not need a monolithic temperature-displacement
