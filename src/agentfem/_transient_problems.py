@@ -407,8 +407,7 @@ class ImplicitDynamicsStep:
         allowed = {"auto", "reuse", "refresh_each_step"}
         if selected not in allowed:
             raise ValueError(
-                "operator_policy must be 'auto', 'reuse', or "
-                "'refresh_each_step'."
+                "operator_policy must be 'auto', 'reuse', or 'refresh_each_step'."
             )
         self.operator_policy = selected
         time_effects = time.input_effects(self.update_load)
@@ -810,6 +809,7 @@ class FirstOrderTransientStep:
     history_monitor: object | None = None
     status_file: object | None = None
     checkpoint_policy: object | None = None
+    operator_policy: str = "auto"
     history_requests: tuple[object, ...] = field(default_factory=tuple, init=False)
     accepted_times: list[float] = field(default_factory=list, init=False)
     execution_events: list[object] = field(default_factory=list, init=False)
@@ -826,6 +826,70 @@ class FirstOrderTransientStep:
         default_factory=PerformanceLedger,
         init=False,
     )
+    _selected_operator_policy: str = field(default="", init=False, repr=False)
+    _operator_policy_reason: str = field(default="", init=False, repr=False)
+    _prepared_problem: object | None = field(default=None, init=False, repr=False)
+    _operator_fingerprint_value: object | None = field(
+        default=None,
+        init=False,
+        repr=False,
+    )
+    _matrix_assembly_count: int = field(default=0, init=False, repr=False)
+    _rhs_assembly_count: int = field(default=0, init=False, repr=False)
+    _solve_count: int = field(default=0, init=False, repr=False)
+    _ksp_iterations_total: int = field(default=0, init=False, repr=False)
+    _ksp_iterations_maximum: int = field(default=0, init=False, repr=False)
+
+    def __post_init__(self) -> None:
+        selected = str(self.operator_policy).strip().lower().replace("-", "_")
+        allowed = {"auto", "reuse", "refresh_each_step"}
+        if selected not in allowed:
+            raise ValueError(
+                "operator_policy must be 'auto', 'reuse', or 'refresh_each_step'."
+            )
+        self.operator_policy = selected
+        linear_problem = getattr(self.problem, "problem", None)
+        supports_reuse = callable(getattr(linear_problem, "prepare", None))
+        input_effects = time.input_effects(self.update_load)
+        changes_operator = bool(
+            input_effects
+            & {
+                time.TimeInputEffect.OPERATOR,
+                time.TimeInputEffect.STATE,
+            }
+        )
+        if selected == "reuse" and not supports_reuse:
+            raise ValueError(
+                "AFM-TRANSIENT-OPERATOR-003: operator_policy='reuse' is not "
+                "available for a nonlinear first-order residual. Use 'auto' "
+                "or 'refresh_each_step'."
+            )
+        if selected == "reuse" and changes_operator:
+            effects = ", ".join(sorted(item.value for item in input_effects))
+            raise ValueError(
+                "AFM-TRANSIENT-OPERATOR-002: operator_policy='reuse' conflicts "
+                f"with time-input effects [{effects}]. Use 'auto' or "
+                "'refresh_each_step', or narrow a custom callback with "
+                "agentfem.time.input_update(..., effects=...)."
+            )
+        if selected == "auto" and not supports_reuse:
+            self._selected_operator_policy = "refresh_each_step"
+            self._operator_policy_reason = (
+                "nonlinear residual requires per-step assembly"
+            )
+        elif selected == "auto" and changes_operator:
+            self._selected_operator_policy = "refresh_each_step"
+            self._operator_policy_reason = (
+                "time-input contract changes operator or state"
+            )
+        elif selected == "auto":
+            self._selected_operator_policy = "reuse"
+            self._operator_policy_reason = (
+                "fixed effective operator with RHS/output-only time inputs"
+            )
+        else:
+            self._selected_operator_policy = selected
+            self._operator_policy_reason = "explicit user policy"
 
     def capture_history(
         self,
@@ -923,9 +987,6 @@ class FirstOrderTransientStep:
         _emit_transient_started(reporter, self)
         _record_transient_history(self, self.completed_steps * self.dt)
         self._record_captured_histories(force=True)
-        linear_problem = getattr(self.problem, "problem", None)
-        prepare = getattr(linear_problem, "prepare", None)
-        prepared = prepare() if callable(prepare) else None
 
         def advance(info):
             current_rollback = self.current.x.array.copy()
@@ -934,16 +995,15 @@ class FirstOrderTransientStep:
             try:
                 if self.update_load is not None:
                     self.update_load(info.time)
-                if prepared is None:
-                    self.problem.solve()
-                else:
-                    self.problem.solve(prepared=prepared)
+                self._solve_problem()
             except Exception as failure:
                 if self.update_load is not None:
                     try:
                         self.update_load(accepted_time)
                     except Exception as restore_failure:
-                        failure.add_note(f"Could not restore load at accepted time {accepted_time}: {restore_failure}")
+                        failure.add_note(
+                            f"Could not restore load at accepted time {accepted_time}: {restore_failure}"
+                        )
                 self.current.x.array[:] = current_rollback
                 self.current.x.scatter_forward()
                 self.previous.x.array[:] = previous_rollback
@@ -983,11 +1043,129 @@ class FirstOrderTransientStep:
                         xdmf.write_fields(info.time, *selected_fields)
             _emit_transient_completed(reporter, self)
             return self
+        except BaseException:
+            self.close()
+            raise
         finally:
             self.performance.add("run_wall", perf_counter() - run_started)
-            close = getattr(prepared, "close", None)
-            if callable(close):
-                close()
+            if self.completed_steps >= self.steps:
+                self.close()
+
+    def _solve_problem(self) -> None:
+        """Solve one first-order increment under the declared lifecycle."""
+
+        linear_problem = getattr(self.problem, "problem", None)
+        if self._selected_operator_policy == "refresh_each_step":
+            started = perf_counter()
+            self.problem.solve()
+            stage = (
+                "linear_system_solve"
+                if linear_problem is not None
+                else "nonlinear_system_solve"
+            )
+            self.performance.add(stage, perf_counter() - started)
+            if linear_problem is not None:
+                self._record_lifecycle(
+                    linear_problem.last_lifecycle_summary,
+                    accumulate=True,
+                )
+            return
+
+        fingerprint = self._operator_fingerprint()
+        if self._operator_fingerprint_value is None:
+            self._operator_fingerprint_value = fingerprint
+        elif fingerprint != self._operator_fingerprint_value:
+            self.close()
+            raise RuntimeError(
+                "AFM-TRANSIENT-OPERATOR-001: the effective first-order "
+                "operator identity changed during a reuse lifecycle. Build a "
+                "new Step or use operator_policy='refresh_each_step'."
+            )
+        if self._prepared_problem is None:
+            started = perf_counter()
+            self._prepared_problem = linear_problem.prepare()
+            self.performance.add("matrix_preparation", perf_counter() - started)
+        try:
+            started = perf_counter()
+            self.problem.solve(prepared=self._prepared_problem)
+            self.performance.add("linear_system_solve", perf_counter() - started)
+        except Exception:
+            self.close()
+            raise
+        self._record_lifecycle(
+            linear_problem.last_lifecycle_summary,
+            accumulate=False,
+        )
+
+    def _operator_fingerprint(self) -> tuple[object, ...]:
+        """Return runtime invariants required by fixed-operator reuse."""
+
+        linear_problem = getattr(self.problem, "problem", None)
+        solution = linear_problem._solution()
+        V = solution.function_space
+        index_map = V.dofmap.index_map
+        bcs = []
+        for bc in linear_problem.bcs:
+            dofs, owned = bc.dof_indices()
+            bcs.append((tuple(int(item) for item in dofs), int(owned)))
+        return (
+            float(self.dt),
+            int(index_map.size_global),
+            int(V.dofmap.index_map_bs),
+            tuple(bcs),
+        )
+
+    def _record_lifecycle(self, summary, *, accumulate: bool) -> None:
+        if summary is None:
+            return
+        values = {
+            "matrix": int(summary.get("matrix_assembly_count", 0)),
+            "rhs": int(summary.get("rhs_assembly_count", 0)),
+            "solve": int(summary.get("solve_count", 0)),
+        }
+        if accumulate:
+            self._matrix_assembly_count += values["matrix"]
+            self._rhs_assembly_count += values["rhs"]
+            self._solve_count += values["solve"]
+        else:
+            self._matrix_assembly_count = values["matrix"]
+            self._rhs_assembly_count = values["rhs"]
+            self._solve_count = values["solve"]
+        linear_problem = getattr(self.problem, "problem", None)
+        info = getattr(linear_problem, "last_solve_info", None)
+        if info is not None:
+            iterations = int(info.iterations)
+            self._ksp_iterations_total += iterations
+            self._ksp_iterations_maximum = max(
+                self._ksp_iterations_maximum,
+                iterations,
+            )
+
+    def operator_lifecycle_summary(self) -> dict[str, object]:
+        """Return evidence for first-order operator reuse or refresh."""
+
+        return {
+            "kind": "first_order_operator_lifecycle",
+            "requested_policy": self.operator_policy,
+            "selected_policy": self._selected_operator_policy,
+            "selection_reason": self._operator_policy_reason,
+            "time_inputs": time.input_summary(self.update_load),
+            "matrix_reused": self._selected_operator_policy == "reuse",
+            "matrix_assembly_count": self._matrix_assembly_count,
+            "matrix_refresh_count": max(0, self._matrix_assembly_count - 1),
+            "rhs_assembly_count": self._rhs_assembly_count,
+            "solve_count": self._solve_count,
+            "ksp_iterations_total": self._ksp_iterations_total,
+            "ksp_iterations_maximum": self._ksp_iterations_maximum,
+        }
+
+    def close(self) -> None:
+        """Release a live prepared operator without discarding evidence."""
+
+        prepared = self._prepared_problem
+        self._prepared_problem = None
+        if prepared is not None:
+            prepared.close()
 
     def _record_captured_histories(self, *, force: bool = False) -> None:
         selected_time = self.completed_steps * self.dt
@@ -1063,6 +1241,7 @@ class FirstOrderTransientStep:
                 recorder.summary() for recorder in self.captured_histories
             ],
             "time_inputs": time.input_summary(self.update_load),
+            "operator_lifecycle": self.operator_lifecycle_summary(),
             "problem": self.problem.summary(),
         }
 

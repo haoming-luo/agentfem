@@ -59,7 +59,7 @@
       "id": "transient-heat",
       "maturity": "release",
       "example": "examples/transient_heat_2d.py",
-      "evidence": ["golden-observable", "checkpoint-tests", "installed-wheel-smoke"]
+      "evidence": ["golden-observable", "typed-time-input-operator-lifecycle", "serial-and-two-rank-operator-reuse", "checkpoint-v5-time-input-identity", "installed-wheel-smoke"]
     },
     {
       "id": "explicit-wave-inclusion",

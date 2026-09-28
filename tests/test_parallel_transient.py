@@ -20,7 +20,7 @@ from agentfem import (
 )
 
 
-def _distributed_state_dependent_heat_step():
+def _distributed_state_dependent_heat_step(*, operator_policy="auto"):
     domain = mesh.rectangle(
         (0.0, 0.0),
         (1.0, 0.25),
@@ -54,6 +54,7 @@ def _distributed_state_dependent_heat_step():
         dt=1.0,
         steps=1,
         progress=False,
+        operator_policy=operator_policy,
     )
 
 
@@ -140,10 +141,24 @@ def test_state_dependent_heat_conserves_enthalpy_across_two_ranks():
     expected = 300.0 + (-1.0 + np.sqrt(7.0)) / 0.02
     np.testing.assert_allclose(step.current.x.array, expected, rtol=2.0e-8)
     assert step.problem.last_solve_info.converged
+    lifecycle = step.operator_lifecycle_summary()
+    assert lifecycle["selected_policy"] == "refresh_each_step"
+    assert lifecycle["selection_reason"] == (
+        "nonlinear residual requires per-step assembly"
+    )
+    assert lifecycle["matrix_reused"] is False
     assert step.history_records[-1]["thermal_content"] == pytest.approx(37.5)
     assert step.history_records[-1]["heat_balance_residual"] == pytest.approx(
         0.0, abs=2.0e-8
     )
+
+
+def test_state_dependent_heat_rejects_linear_operator_reuse():
+    if MPI.COMM_WORLD.size < 2:
+        pytest.skip("distributed nonlinear heat transfer requires two MPI ranks")
+
+    with pytest.raises(ValueError, match="AFM-TRANSIENT-OPERATOR-003"):
+        _distributed_state_dependent_heat_step(operator_policy="reuse")
 
 
 def test_distributed_temperature_history_has_portable_archive(tmp_path):

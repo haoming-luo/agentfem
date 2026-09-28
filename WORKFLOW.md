@@ -51,7 +51,10 @@ record.
     `steps.fixed(...)` only for an intentionally fixed path.
 15. Run `model.validate()` or `model.check()` before execution. When the case
     is an auditable artifact, write `model.write_ir(...)`.
-16. Compile, assemble, and solve the step, or advance in time.
+16. Compile, assemble, and solve the step, or advance in time. For transient
+    inputs, preserve the declared right-hand-side, operator, state, or output
+    effect. The Procedure—not the Model—uses this declaration to decide
+    whether a prepared operator remains valid.
 17. Solve to a `results.SimulationResult` as the standard completion path.
     Output may be declared while constructing the step and consumed without
     repeating it: `model.step(target=u, output="results.xdmf").solve_result()`.
