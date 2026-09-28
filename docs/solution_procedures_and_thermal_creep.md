@@ -42,6 +42,38 @@ terminal completion or failure closes it deterministically. Checkpoints store
 scientific state rather than backend handles, so the receiving Step prepares
 one new operator safely under its declared policy.
 
+Time-dependent inputs carry an explicit invalidation contract. Built-in load
+amplitudes and supported ambient-temperature histories declare that they
+change only the right-hand side. A custom callback is conservative by default,
+so `operator_policy="auto"` refreshes the effective matrix rather than risking
+a stale solve. When the callback is known to update forcing only, declare it:
+
+```python
+from agentfem import time
+
+update_force = time.input_update(
+    update_my_constant,
+    effects="right_hand_side",  # `"rhs"` is accepted as a short alias
+    name="pulse_force",
+    identity={"kind": "pulse_force", "revision": 1},
+)
+
+step = model.step(
+    target=u,
+    dt=dt,
+    steps=steps,
+    update_load=update_force,
+)
+```
+
+Use `effects="operator"` when stiffness, mass, damping, or another bilinear
+coefficient changes; use `"state"` for accepted history that can alter a
+residual or tangent, and `"output"` for observation-only changes. Forcing
+`operator_policy="reuse"` against an operator/state declaration is rejected
+before the first solve. Step and result evidence record every declaration and
+whether the plan has a restart identity; the present checkpoint format does
+not yet bind that identity, which remains a 0.3.8 lifecycle gate.
+
 ## The useful first thermal-mechanical route
 
 Many component analyses do not need a monolithic temperature-displacement

@@ -497,6 +497,12 @@ class TimeDependentDirichlet:
     name: str = "time_dependent_dirichlet"
     location: object | None = None
 
+    @property
+    def time_effects(self) -> tuple[str, ...]:
+        """A fixed DOF set with changing values modifies lifting and the RHS."""
+
+        return ("right_hand_side",)
+
     def update(self, time: float) -> float:
         """Evaluate the amplitude and update the backing constant."""
 
@@ -512,6 +518,7 @@ class TimeDependentDirichlet:
             "kind": "time_dependent_dirichlet",
             "location": getattr(self.location, "name", None),
             "amplitude": self.amplitude.summary(),
+            "time_effects": self.time_effects,
         }
 
 

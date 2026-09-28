@@ -8,6 +8,10 @@ experimental formulation to a validated one.
 
 ### Changed
 
+- Type time-dependent inputs by their right-hand-side, operator, state, or
+  output effect. Linear implicit dynamics now reuses a prepared matrix only
+  for compatible effects, refreshes automatically for operator/state changes,
+  rejects explicitly unsafe reuse, and records the decision in result evidence.
 - Start the 0.3.8 architectural-foundation cycle with six explicit promotion
   gates: mesh--element--space compatibility, fail-closed mesh quality,
   typed time-input effects, complete constraint force--work--energy duals,

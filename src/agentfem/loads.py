@@ -303,6 +303,12 @@ class AmplitudeLoad:
     name: str = "amplitude_load"
 
     @property
+    def time_effects(self) -> tuple[str, ...]:
+        """Changing load amplitude only invalidates the assembled RHS."""
+
+        return ("right_hand_side",)
+
+    @property
     def location(self):
         return getattr(self.load, "location", None)
 
@@ -328,6 +334,7 @@ class AmplitudeLoad:
                 else type(self.load).__name__
             ),
             "amplitude": self.amplitude.summary(),
+            "time_effects": self.time_effects,
         }
 
 

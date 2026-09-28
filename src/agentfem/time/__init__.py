@@ -8,12 +8,24 @@ from __future__ import annotations
 import numpy as np
 
 from ..kernel import dofs
+from ..input_effects import (
+    TimeInputEffect,
+    TimeInputPlan,
+    TimeInputUpdate,
+    compose as compose_inputs,
+    effects_of as input_effects,
+    summary_of as input_summary,
+    update as input_update,
+)
 from .runtime import ProgressPrinter, TimeStep, TimeStepper, format_duration
 
 __all__ = [
     "ProgressPrinter",
     "TimeStep",
     "TimeStepper",
+    "TimeInputEffect",
+    "TimeInputPlan",
+    "TimeInputUpdate",
     "acceleration_from_residual",
     "central_difference_update_midstep_velocity",
     "central_difference_correct_velocity",
@@ -26,6 +38,10 @@ __all__ = [
     "newmark",
     "format_duration",
     "error_step_factor",
+    "compose_inputs",
+    "input_effects",
+    "input_summary",
+    "input_update",
 ]
 
 

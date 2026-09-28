@@ -77,7 +77,7 @@
       "id": "linear-implicit-structural-dynamics",
       "maturity": "engineering",
       "example": "tests/test_implicit_dynamics_lifecycle.py",
-      "evidence": ["component-constraint-dof-identity", "fixed-effective-operator-reuse", "right-hand-side-per-step-assembly", "refresh-policy-equivalence", "runtime-identity-fail-closed", "partial-run-resource-lifetime", "serial-and-two-rank-collective-reuse"]
+      "evidence": ["component-constraint-dof-identity", "fixed-effective-operator-reuse", "right-hand-side-per-step-assembly", "typed-time-input-policy", "conservative-untyped-callback-refresh", "refresh-policy-equivalence", "runtime-identity-fail-closed", "partial-run-resource-lifetime", "serial-and-two-rank-collective-reuse"]
     },
     {
       "id": "multi-material-thermoelastic-static",

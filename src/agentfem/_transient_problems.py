@@ -314,6 +314,7 @@ class ExplicitDynamicsStep:
             "print_every": _print_interval(self.print_every, self.steps),
             "history_every": self.history_every,
             "history_evaluation_every": 1,
+            "time_inputs": time.input_summary(self.update_load),
             "performance": self.performance.summary(),
             "checkpoint_policy": (
                 None
@@ -410,10 +411,32 @@ class ImplicitDynamicsStep:
                 "'refresh_each_step'."
             )
         self.operator_policy = selected
+        time_effects = time.input_effects(self.update_load)
+        changes_operator = bool(
+            time_effects
+            & {
+                time.TimeInputEffect.OPERATOR,
+                time.TimeInputEffect.STATE,
+            }
+        )
         if selected == "auto":
-            self._selected_operator_policy = "reuse"
-            self._operator_policy_reason = (
-                "linear fixed-step Newmark/generalized-alpha effective operator"
+            if changes_operator:
+                self._selected_operator_policy = "refresh_each_step"
+                self._operator_policy_reason = (
+                    "time-input contract changes operator or state"
+                )
+            else:
+                self._selected_operator_policy = "reuse"
+                self._operator_policy_reason = (
+                    "fixed effective operator with RHS/output-only time inputs"
+                )
+        elif selected == "reuse" and changes_operator:
+            effects = ", ".join(sorted(item.value for item in time_effects))
+            raise ValueError(
+                "AFM-DYNAMICS-OPERATOR-002: operator_policy='reuse' conflicts "
+                f"with time-input effects [{effects}]. Use 'auto' or "
+                "'refresh_each_step', or narrow a custom callback with "
+                "agentfem.time.input_update(..., effects=...)."
             )
         else:
             self._selected_operator_policy = selected
@@ -718,6 +741,7 @@ class ImplicitDynamicsStep:
             "requested_policy": self.operator_policy,
             "selected_policy": self._selected_operator_policy,
             "selection_reason": self._operator_policy_reason,
+            "time_inputs": time.input_summary(self.update_load),
             "matrix_reused": self._selected_operator_policy == "reuse",
             "matrix_assembly_count": self._matrix_assembly_count,
             "matrix_refresh_count": max(0, self._matrix_assembly_count - 1),
@@ -1038,6 +1062,7 @@ class FirstOrderTransientStep:
             "captured_histories": [
                 recorder.summary() for recorder in self.captured_histories
             ],
+            "time_inputs": time.input_summary(self.update_load),
             "problem": self.problem.summary(),
         }
 
