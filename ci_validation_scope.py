@@ -71,6 +71,9 @@ _SOURCE_TEST_MAP = {
     ),
 }
 _CORE_SOURCE_TEST_MAP = {
+    "src/agentfem/_step_builders_contact.py": (
+        "tests/test_rigid_obstacle_contact.py",
+    ),
     "src/agentfem/_api_contract.py": (
         "tests/test_documentation.py",
         "tests/test_project_cli.py",
@@ -97,6 +100,10 @@ _CORE_SOURCE_TEST_MAP = {
         "tests/test_transient_restart.py",
     ),
     "src/agentfem/checkpointing.py": ("tests/test_transient_restart.py",),
+    "src/agentfem/boundary_models/mechanical.py": (
+        "tests/test_parallel_affine.py",
+        "tests/test_rigid_obstacle_contact.py",
+    ),
     "src/agentfem/input_effects.py": (
         "tests/test_implicit_dynamics_lifecycle.py",
         "tests/test_time_inputs.py",
@@ -192,6 +199,9 @@ _CORE_SOURCE_TEST_MAP = {
     "src/agentfem/_architecture_contract.py": ("tests/test_architecture_contract.py",),
 }
 _CORE_SOURCE_MPI_TEST_MAP = {
+    "src/agentfem/_step_builders_contact.py": (
+        "tests/test_rigid_obstacle_contact.py",
+    ),
     "src/agentfem/_model_validation.py": ("tests/test_element_contracts.py",),
     "src/agentfem/_hybrid_nonlinear.py": ("tests/test_parallel_mixed.py",),
     "src/agentfem/_nonlinear_problems.py": (
@@ -203,6 +213,9 @@ _CORE_SOURCE_MPI_TEST_MAP = {
         "tests/test_parallel_transient.py",
     ),
     "src/agentfem/checkpointing.py": ("tests/test_parallel_transient.py",),
+    "src/agentfem/boundary_models/mechanical.py": (
+        "tests/test_rigid_obstacle_contact.py",
+    ),
     "src/agentfem/input_effects.py": ("tests/test_parallel_transient.py",),
     "src/agentfem/time/": ("tests/test_parallel_transient.py",),
     "src/agentfem/constitutive/material_driver.py": (

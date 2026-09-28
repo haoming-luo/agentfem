@@ -6,10 +6,22 @@
 from . import absorbing
 from . import mechanical
 from . import thermal
-from .mechanical import ElasticFoundation, elastic_foundation
+from .mechanical import (
+    ElasticFoundation,
+    RigidObstaclePenaltyContact,
+    elastic_foundation,
+    rigid_obstacle_contact,
+)
 from .thermal import ConvectionBoundary, convection
 
 __all__ = [
-    "ConvectionBoundary", "ElasticFoundation", "absorbing", "convection",
-    "elastic_foundation", "mechanical", "thermal",
+    "ConvectionBoundary",
+    "ElasticFoundation",
+    "RigidObstaclePenaltyContact",
+    "absorbing",
+    "convection",
+    "elastic_foundation",
+    "mechanical",
+    "rigid_obstacle_contact",
+    "thermal",
 ]

@@ -83,6 +83,15 @@ transient checkpoint schema v5 binds the complete time-input identity before
 authorizing restart. Promotion still requires the same invalidation contract
 across the remaining transient and nonlinear Procedures.
 
+Gate 4 now has three executable bounded slices: exact rectangular affine MPC,
+scalar/normal/matrix elastic foundations, and frictionless contact with one
+fixed rigid plane. The contact provider owns its potential, residual, tangent,
+nodal dual distribution, resultant, penetration diagnostics, and contact
+energy in serial and under two MPI ranks. This is not general contact, and the
+gate remains open until nonlinear Procedures preserve accepted-station dual
+histories for path work and the declared weak/contact routes close their full
+force--work--energy contracts.
+
 ## What is usable today
 
 The installed capability catalog is authoritative. It covers the supported and

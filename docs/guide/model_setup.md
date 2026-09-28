@@ -55,6 +55,37 @@ indefinite numerical matrix is rejected before assembly. General
 nonlinear, moving-normal, damping, and contact foundations remain separate
 future providers.
 
+## Add bounded contact with a fixed rigid plane
+
+The first contact provider is deliberately narrow and inspectable: a
+small-strain solid, one fixed plane, frictionless one-sided contact, and a
+penalty selected by the user. The normal points from the obstacle into the
+admissible half-space, while a positive `initial_gap` means that the reference
+boundary is open:
+
+```python
+model.rigid_obstacle_contact(
+    on=possible_contact,
+    normal=(-1.0, 0.0),
+    initial_gap=0.0,
+    penalty=1.0e10,
+)
+result = model.step(target=displacement).solve_result()
+```
+
+AgentFEM lowers the contact potential, residual, and consistent tangent into
+the ordinary incremental Newton Procedure. After convergence, the same
+provider reports the nodal reaction distribution, MPI-global resultant,
+penetration norm, active contact measure, and conservative contact energy.
+The contact energy belongs to the system internal energy and is not counted a
+second time as external work.
+
+This route has no surface search, friction, moving obstacle, or
+deformable-to-deformable coupling. It rejects incompatible boundary providers
+and constraint types before assembly. The penalty has units of traction per
+length and must therefore be selected and checked by mesh refinement for the
+problem at hand. General contact remains a separate future provider.
+
 ## Declare the numerical unit contract
 
 Finite-element kernels operate on consistent numbers. Record the convention

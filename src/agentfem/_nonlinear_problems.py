@@ -110,6 +110,7 @@ class IncrementalNonlinearVariationalProblem:
     update_load: object | None = None
     acceptance_check: object | None = None
     bcs: list = field(default_factory=list)
+    constraint_assets: tuple[object, ...] = ()
     jacobian_form: object | None = None
     incrementation: object | None = None
     solver_options: NonlinearSolverOptions | NewtonSolverOptions | None = None
@@ -455,6 +456,9 @@ class IncrementalNonlinearVariationalProblem:
             "kind": "incremental_nonlinear_variational_problem",
             "name": self.name,
             "num_bcs": len(self.bcs),
+            "constraints": tuple(
+                _describe_asset(item) for item in self.constraint_assets
+            ),
             "incrementation": (
                 None if self.incrementation is None else self.incrementation.summary()
             ),
@@ -1438,6 +1442,14 @@ def _load_snapshot(
         solve_info=solve_info,
         fields=copied_fields,
     )
+
+
+def _describe_asset(asset) -> object:
+    if hasattr(asset, "summary"):
+        return asset.summary()
+    if hasattr(asset, "as_dict"):
+        return asset.as_dict()
+    return getattr(asset, "name", type(asset).__name__)
 
 
 __all__ = (
