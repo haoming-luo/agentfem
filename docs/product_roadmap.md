@@ -76,11 +76,12 @@ Every gate must preserve the stable Model, Operator, Procedure, State, Backend,
 and Result/Verification ownership inventory. Passing only unit tests or adding
 new public names is not sufficient evidence for promotion.
 
-The first executable slice of gate 3 is now present: built-in and custom time
-inputs retain typed RHS/operator/state/output effects, and linear implicit
-dynamics uses those effects to select safe operator reuse or refresh. Promotion
-still requires the same contract across the remaining transient/nonlinear
-Procedures and binding its stable identity into checkpoint compatibility.
+The first two executable slices of gate 3 are now present: built-in and custom
+time inputs retain typed RHS/operator/state/output effects, linear implicit
+dynamics uses those effects to select safe operator reuse or refresh, and
+transient checkpoint schema v5 binds the complete time-input identity before
+authorizing restart. Promotion still requires the same invalidation contract
+across the remaining transient and nonlinear Procedures.
 
 ## What is usable today
 

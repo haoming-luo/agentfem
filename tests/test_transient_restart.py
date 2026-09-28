@@ -17,6 +17,7 @@ from agentfem import (
     models,
     results,
     studies,
+    time,
 )
 
 
@@ -28,7 +29,7 @@ def _right(x):
     return np.isclose(x[0], 1.0)
 
 
-def _dynamic_step(*, implicit: bool, checkpoint=None):
+def _dynamic_step(*, implicit: bool, checkpoint=None, update_load=None):
     domain = mesh.rectangle(
         (0.0, 0.0),
         (1.0, 0.2),
@@ -66,6 +67,7 @@ def _dynamic_step(*, implicit: bool, checkpoint=None):
         steps=4,
         progress=False,
         checkpoint=checkpoint,
+        update_load=update_load,
     )
 
 
@@ -482,6 +484,68 @@ def test_transient_checkpoint_detects_silent_shard_corruption(tmp_path):
     restarted = _heat_step()
     with pytest.raises(RuntimeError, match="shard size does not match"):
         restarted.load_checkpoint(checkpoint)
+
+
+def test_transient_checkpoint_binds_time_input_identity(tmp_path):
+    source_update = time.input_update(
+        lambda _time: None,
+        effects="rhs",
+        name="pulse_force",
+        identity={"kind": "pulse_force", "revision": 1},
+    )
+    partial = _dynamic_step(implicit=True, update_load=source_update)
+    partial.run(until_step=1)
+    checkpoint = partial.save_checkpoint(tmp_path / "time-input")
+    metadata = json.loads(checkpoint.read_text(encoding="utf-8"))
+
+    assert metadata["schema"] == "agentfem.transient-checkpoint.v5"
+    assert metadata["time_inputs"]["updates"][0]["identity"]["revision"] == 1
+
+    incompatible_update = time.input_update(
+        lambda _time: None,
+        effects="rhs",
+        name="pulse_force",
+        identity={"kind": "pulse_force", "revision": 2},
+    )
+    incompatible = _dynamic_step(implicit=True, update_load=incompatible_update)
+    before = incompatible.state.u.value.x.array.copy()
+    with pytest.raises(ValueError, match="time inputs differs"):
+        incompatible.load_checkpoint(checkpoint)
+    np.testing.assert_array_equal(incompatible.state.u.value.x.array, before)
+
+
+def test_transient_checkpoint_rejects_an_unbound_time_callback(tmp_path):
+    partial = _dynamic_step(
+        implicit=True,
+        update_load=time.input_update(
+            lambda _time: None,
+            effects="rhs",
+            name="anonymous_force",
+        ),
+    )
+    partial.run(until_step=1)
+
+    with pytest.raises(ValueError, match="AFM-CHECKPOINT-TIME-001"):
+        partial.save_checkpoint(tmp_path / "unbound-time-input")
+
+
+def test_transient_checkpoint_v4_fails_closed_before_state_mutation(tmp_path):
+    partial = _heat_step()
+    partial.run(until_step=1)
+    checkpoint = partial.save_checkpoint(tmp_path / "v4")
+    metadata = json.loads(checkpoint.read_text(encoding="utf-8"))
+    metadata["schema"] = "agentfem.transient-checkpoint.v4"
+    metadata.pop("time_inputs")
+    checkpoint.write_text(
+        json.dumps(metadata, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+
+    restarted = _heat_step()
+    before = restarted.current.x.array.copy()
+    with pytest.raises(ValueError, match="does not bind the time-input"):
+        restarted.load_checkpoint(checkpoint)
+    np.testing.assert_array_equal(restarted.current.x.array, before)
 
 
 def test_transient_checkpoint_v1_fails_closed_before_state_mutation(tmp_path):

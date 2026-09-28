@@ -1455,6 +1455,7 @@ def _save_transient_checkpoint(step, path, state, *, portable: bool = False) -> 
         total_steps=step.steps,
         completed_steps=step.completed_steps,
         state=state,
+        time_inputs=time.input_summary(step.update_load),
         accepted_times=step.accepted_times,
         execution_events=step.execution_events,
         history_records=step.history_records,
@@ -1499,6 +1500,7 @@ def _load_transient_checkpoint(step, path, state) -> None:
         dt=step.dt,
         total_steps=step.steps,
         state=state,
+        time_inputs=time.input_summary(step.update_load),
     )
     auxiliary = metadata.get("auxiliary_state")
     residual = getattr(step, "residual", None)

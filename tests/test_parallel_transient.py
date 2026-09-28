@@ -16,6 +16,7 @@ from agentfem import (
     mesh,
     models,
     studies,
+    time,
 )
 
 
@@ -56,7 +57,7 @@ def _distributed_state_dependent_heat_step():
     )
 
 
-def _distributed_heat_step(*, checkpoint=None):
+def _distributed_heat_step(*, checkpoint=None, update_load=None):
     domain = mesh.rectangle(
         (0.0, 0.0),
         (1.0, 0.25),
@@ -91,6 +92,7 @@ def _distributed_heat_step(*, checkpoint=None):
         steps=3,
         progress=False,
         checkpoint=checkpoint,
+        update_load=update_load,
     )
 
 
@@ -216,6 +218,26 @@ def test_partition_bound_transient_checkpoint_restarts_collectively(tmp_path):
         assert len(manifest["shards"]) == 2
         assert all(item["sha256"] for item in manifest["shards"])
         assert len(tuple(Path(root).glob("distributed_heat.*.rank-*.npz"))) == 2
+
+
+def test_transient_checkpoint_rejects_rank_divergent_time_identity(tmp_path):
+    if MPI.COMM_WORLD.size < 2:
+        pytest.skip("distributed time-input identity requires at least two ranks")
+
+    root = str(tmp_path) if MPI.COMM_WORLD.rank == 0 else None
+    root = MPI.COMM_WORLD.bcast(root, root=0)
+    update = time.input_update(
+        lambda _time: None,
+        effects="rhs",
+        name="rank_dependent_force",
+        identity={"rank": MPI.COMM_WORLD.rank},
+    )
+    partial = _distributed_heat_step(update_load=update)
+    partial.run(until_step=1)
+
+    with pytest.raises(RuntimeError, match="differs across MPI ranks"):
+        partial.save_checkpoint(Path(root) / "divergent-time-input")
+    assert not (Path(root) / "divergent-time-input.checkpoint.json").exists()
 
 
 def test_transient_checkpoint_reports_one_missing_rank_shard_collectively(tmp_path):

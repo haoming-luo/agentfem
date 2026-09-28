@@ -20,7 +20,7 @@
     {
       "id": "typed-time-input-effects",
       "owner": "Operator/Procedure",
-      "contract": "Time-varying inputs declare right-hand-side, operator, state, or output-only effects before reuse is selected."
+      "contract": "Time-varying inputs declare right-hand-side, operator, state, or output-only effects before reuse is selected, and checkpoint schema v5 binds the complete input identity before restart."
     },
     {
       "id": "constraint-force-work-energy-closure",

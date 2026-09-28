@@ -90,10 +90,27 @@ _CORE_SOURCE_TEST_MAP = {
     ),
     "src/agentfem/_transient_problems.py": (
         "tests/test_common_workflows.py",
+        "tests/test_implicit_dynamics_lifecycle.py",
+        "tests/test_time_inputs.py",
         "tests/test_transient_heat_decay_workflow.py",
         "tests/test_transient_restart.py",
     ),
     "src/agentfem/checkpointing.py": ("tests/test_transient_restart.py",),
+    "src/agentfem/input_effects.py": (
+        "tests/test_implicit_dynamics_lifecycle.py",
+        "tests/test_time_inputs.py",
+        "tests/test_transient_restart.py",
+    ),
+    "src/agentfem/release/": (
+        "tests/test_packaging.py",
+        "tests/test_release_goldens.py",
+    ),
+    "src/agentfem/time/": (
+        "tests/test_dynamics.py",
+        "tests/test_sprint_numerics.py",
+        "tests/test_time_inputs.py",
+        "tests/test_transient_restart.py",
+    ),
     "src/agentfem/constitutive/user_material.py": ("tests/test_user_material.py",),
     "src/agentfem/constitutive/__init__.py": (
         "tests/test_constitutive_models.py",
@@ -182,6 +199,8 @@ _CORE_SOURCE_MPI_TEST_MAP = {
     ),
     "src/agentfem/_transient_problems.py": ("tests/test_parallel_transient.py",),
     "src/agentfem/checkpointing.py": ("tests/test_parallel_transient.py",),
+    "src/agentfem/input_effects.py": ("tests/test_parallel_transient.py",),
+    "src/agentfem/time/": ("tests/test_parallel_transient.py",),
     "src/agentfem/constitutive/material_driver.py": (
         "tests/test_parallel_inelastic.py",
     ),
@@ -257,6 +276,12 @@ def _at_least(current: str, candidate: str) -> str:
 def _path_level(path: str) -> str:
     if path in _DOCUMENTATION_FILES or path.startswith(_DOCUMENTATION_PREFIXES):
         return "docs"
+    if (
+        path.startswith("src/agentfem/release/")
+        and ".dev" in Path(path).name
+        and path.endswith(".json")
+    ):
+        return "core"
     if path in _RELEASE_FILES or path.startswith(_RELEASE_PREFIXES):
         return "release"
     if path.startswith("tests/"):
