@@ -76,6 +76,7 @@ _CORE_SOURCE_TEST_MAP = {
     ),
     "src/agentfem/_api_contract.py": (
         "tests/test_documentation.py",
+        "tests/test_ir.py",
         "tests/test_project_cli.py",
     ),
     "src/agentfem/_model_validation.py": (
