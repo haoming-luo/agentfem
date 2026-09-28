@@ -413,6 +413,13 @@ has been accepted, then follows the same checkpoint/restart and result
 contract as built-in energy or conservation histories. Requests must remain
 unchanged across continuation because missing past states are not fabricated.
 
+A time input also declares what it can invalidate: right-hand side, operator,
+accepted state, or output only. The owning Procedure uses that declaration to
+select matrix reuse or refresh. Linear implicit dynamics and linear
+implicit-Euler heat transfer may reuse one prepared operator for RHS/output-
+only changes; nonlinear first-order residuals remain per-step assembled.
+Untyped callbacks take the conservative refresh path.
+
 The step should not hide the finite-element meaning. It is the place where
 visible operators become a solveable algebraic problem.
 

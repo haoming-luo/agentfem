@@ -1114,6 +1114,7 @@ register_step_provider(
             "status_file",
             "checkpoint",
             "history",
+            "operator_policy",
             required=("dt", "steps"),
         ),
     )

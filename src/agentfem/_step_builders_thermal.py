@@ -216,6 +216,7 @@ def heat_transfer(
     progress=True,
     status_file=None,
     checkpoint=None,
+    operator_policy: str = "auto",
     name: str = "transient_heat",
 ):
     """Build and register one implicit-Euler heat-transfer Step."""
@@ -278,6 +279,7 @@ def heat_transfer(
                 progress=progress,
                 status_file=status_file,
                 checkpoint=checkpoint,
+                operator_policy=operator_policy,
                 name=name,
             )
         )
@@ -346,6 +348,7 @@ def heat_transfer(
             progress=progress,
             status_file=status_file,
             checkpoint_policy=checkpoint,
+            operator_policy=operator_policy,
             name=name,
         )
     )
@@ -368,6 +371,7 @@ def _nonlinear_heat_transfer(
     progress,
     status_file,
     checkpoint,
+    operator_policy,
     name,
 ):
     """Build conservative ``k(T), c_p(T)`` implicit heat transfer."""
@@ -462,6 +466,7 @@ def _nonlinear_heat_transfer(
         progress=progress,
         status_file=status_file,
         checkpoint_policy=checkpoint,
+        operator_policy=operator_policy,
         history_monitor=StateDependentThermalBalanceMonitor(
             content_form=content_form,
             source=monitor_source,

@@ -1289,6 +1289,7 @@ class Model:
         progress=True,
         status_file=None,
         checkpoint=None,
+        operator_policy: str = "auto",
         name: str = "transient_heat",
     ):
         """Compatibility builder; prefer the stable :meth:`step` entry point."""
@@ -1312,6 +1313,7 @@ class Model:
             progress=progress,
             status_file=status_file,
             checkpoint=checkpoint,
+            operator_policy=operator_policy,
             name=name,
         )
 

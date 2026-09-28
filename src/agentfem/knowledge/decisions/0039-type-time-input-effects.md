@@ -37,8 +37,10 @@ assumption.
 
 - amplitude-scaled natural loads, fixed-DOF prescribed values, and supported
   ambient-temperature histories declare `right_hand_side`;
-- linear implicit dynamics automatically reuses its prepared operator only for
-  RHS/output-only plans;
+- linear implicit dynamics and linear implicit-Euler heat transfer
+  automatically reuse their prepared operator only for RHS/output-only plans;
+- nonlinear first-order residuals remain per-step assembled and reject an
+  explicitly requested reuse policy;
 - operator- or state-changing plans select per-step refresh under `auto`;
 - forcing `operator_policy="reuse"` against such a plan fails before solving;
 - explicitly typed custom callbacks remain possible through
@@ -58,7 +60,8 @@ already implements every possible optimized refresh strategy.
 
 - ordered composition retains all declared effects;
 - invalid or empty declarations fail early;
-- a bare callback makes implicit dynamics refresh its matrix every step;
+- a bare callback makes implicit dynamics and linear heat transfer refresh
+  their matrix every step;
 - a declared RHS callback retains one effective matrix and reassembles one RHS
   per step;
 - operator and state declarations either refresh automatically or reject an
@@ -66,6 +69,8 @@ already implements every possible optimized refresh strategy.
 - the selected policy and declarations survive into lifecycle evidence.
 - restart rejects a changed load identity before mutating any field, while an
   unbound callback cannot publish a misleading checkpoint.
+- serial and two-rank first-order runs retain the same selected policy and
+  assembly evidence.
 
 ## References
 

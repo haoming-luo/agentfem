@@ -9,9 +9,11 @@ experimental formulation to a validated one.
 ### Changed
 
 - Type time-dependent inputs by their right-hand-side, operator, state, or
-  output effect. Linear implicit dynamics now reuses a prepared matrix only
-  for compatible effects, refreshes automatically for operator/state changes,
-  rejects explicitly unsafe reuse, and records the decision in result evidence.
+  output effect. Linear implicit dynamics and implicit-Euler heat transfer now
+  reuse a prepared matrix only for compatible effects, refresh automatically
+  for operator/state changes, reject explicitly unsafe reuse, and record the
+  decision in result evidence. Nonlinear heat transfer remains explicitly
+  per-step assembled rather than entering a misleading reuse path.
 - Bind the complete time-input plan in transient checkpoint schema v5. Restart
   now rejects changed input identities before field mutation, and callbacks
   without a stable identity cannot publish a misleading restart archive.

@@ -77,6 +77,15 @@ any field. A v4 archive remains readable by the AgentFEM version that created
 it, but current AgentFEM does not guess whether its omitted load history is
 compatible.
 
+The same policy now governs linear implicit-Euler heat transfer. A fixed
+capacity/conduction operator is prepared once while the history and source
+vectors are assembled at every accepted physical time. Operator- or
+state-changing inputs select per-step matrix refresh, and a bare callback takes
+that conservative path. Temperature-dependent conductivity or heat capacity
+uses a nonlinear residual and therefore remains per-step assembled; requesting
+`operator_policy="reuse"` for that route is rejected rather than interpreted
+as nonlinear Jacobian reuse.
+
 ## The useful first thermal-mechanical route
 
 Many component analyses do not need a monolithic temperature-displacement

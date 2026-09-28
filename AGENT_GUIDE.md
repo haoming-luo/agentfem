@@ -165,7 +165,11 @@ never changes solver access, results, verification, or update behavior.
   step time, and transient physical time have distinct documented coordinates.
   Attach histories to model loads, prescribed values, or supported boundary
   models. Transient procedures update registered histories automatically; use
-  callbacks only for genuinely application-specific state.
+  callbacks only for genuinely application-specific state. Type a custom
+  callback with `time.input_update(...)`: RHS/output-only inputs may retain a
+  prepared linear operator, while operator/state inputs require refresh.
+  Linear heat and implicit dynamics enforce this distinction; nonlinear heat
+  remains per-step assembled.
   For many related loading modes, use `amplitudes.basis(...)` and
   `basis.combine(...)`; preserve coefficient order, derivatives, endpoint
   audit, and the amplitude fingerprint. Do not represent a frozen campaign

@@ -90,6 +90,7 @@ _CORE_SOURCE_TEST_MAP = {
     ),
     "src/agentfem/_transient_problems.py": (
         "tests/test_common_workflows.py",
+        "tests/test_first_order_operator_lifecycle.py",
         "tests/test_implicit_dynamics_lifecycle.py",
         "tests/test_time_inputs.py",
         "tests/test_transient_heat_decay_workflow.py",
@@ -197,7 +198,10 @@ _CORE_SOURCE_MPI_TEST_MAP = {
         "tests/test_parallel_affine.py",
         "tests/test_parallel_inelastic.py",
     ),
-    "src/agentfem/_transient_problems.py": ("tests/test_parallel_transient.py",),
+    "src/agentfem/_transient_problems.py": (
+        "tests/test_first_order_operator_lifecycle.py",
+        "tests/test_parallel_transient.py",
+    ),
     "src/agentfem/checkpointing.py": ("tests/test_parallel_transient.py",),
     "src/agentfem/input_effects.py": ("tests/test_parallel_transient.py",),
     "src/agentfem/time/": ("tests/test_parallel_transient.py",),

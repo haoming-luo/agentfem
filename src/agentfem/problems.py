@@ -848,6 +848,7 @@ def first_order_transient_run(
     progress=True,
     status_file=None,
     checkpoint_policy=None,
+    operator_policy: str = "auto",
     name: str = "first_order_transient",
 ) -> FirstOrderTransientStep:
     """Create an executable implicit-Euler time step and loop."""
@@ -884,6 +885,7 @@ def first_order_transient_run(
         progress=progress,
         status_file=status_file,
         checkpoint_policy=checkpoint_policy,
+        operator_policy=operator_policy,
         procedure=procedures.implicit_euler(),
         history_monitor=ThermalBalanceMonitor(
             capacity=capacity,
@@ -912,6 +914,7 @@ def nonlinear_first_order_transient_run(
     progress=True,
     status_file=None,
     checkpoint_policy=None,
+    operator_policy: str = "auto",
     history_monitor=None,
     name: str = "nonlinear_first_order_transient",
     petsc_options_prefix: str = "agentfem_nonlinear_transient_",
@@ -949,6 +952,7 @@ def nonlinear_first_order_transient_run(
         progress=progress,
         status_file=status_file,
         checkpoint_policy=checkpoint_policy,
+        operator_policy=operator_policy,
         procedure=procedure,
         history_monitor=history_monitor,
     )
