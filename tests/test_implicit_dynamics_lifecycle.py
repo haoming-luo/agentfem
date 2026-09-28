@@ -11,6 +11,7 @@ from dolfinx import fem, mesh
 from mpi4py import MPI
 
 from agentfem import constitutive, fields, models, problems, studies
+from agentfem import time as time_api
 from agentfem import mesh as agentfem_mesh
 from agentfem.constraints import boundary
 
@@ -70,6 +71,7 @@ def _implicit_cantilever(
     *,
     steps: int = 4,
     comm=MPI.COMM_SELF,
+    update_load=None,
 ):
     domain = agentfem_mesh.rectangle(
         (0.0, 0.0),
@@ -112,6 +114,7 @@ def _implicit_cantilever(
         dt=1.0e-3,
         steps=steps,
         operator_policy=operator_policy,
+        update_load=update_load,
         progress=False,
     )
     return step
@@ -178,6 +181,70 @@ def test_implicit_dynamics_rejects_unknown_operator_policy():
         _implicit_cantilever("sometimes")
 
 
+def test_auto_refreshes_for_an_untyped_callback():
+    evaluations = []
+
+    def update(time_value):
+        evaluations.append(time_value)
+
+    step = _implicit_cantilever("auto", steps=3, update_load=update)
+
+    step.solve()
+
+    lifecycle = step.operator_lifecycle_summary()
+    assert lifecycle["selected_policy"] == "refresh_each_step"
+    assert lifecycle["matrix_assembly_count"] == 3
+    assert lifecycle["time_inputs"]["changes_operator"] is True
+    assert lifecycle["time_inputs"]["updates"][0]["declaration"] == "conservative"
+    assert len(evaluations) == 3
+
+
+def test_declared_rhs_callback_keeps_fixed_operator_reuse():
+    update = time_api.input_update(
+        lambda _time: None,
+        effects="rhs",
+        name="prescribed_force_history",
+    )
+    step = _implicit_cantilever("auto", steps=3, update_load=update)
+
+    result = step.solve_result()
+
+    lifecycle = step.operator_lifecycle_summary()
+    assert lifecycle["selected_policy"] == "reuse"
+    assert lifecycle["matrix_assembly_count"] == 1
+    assert lifecycle["rhs_assembly_count"] == 3
+    assert lifecycle["time_inputs"]["effects"] == ("right_hand_side",)
+    assert result.metadata["step"]["operator_lifecycle"]["time_inputs"] == (
+        lifecycle["time_inputs"]
+    )
+
+
+def test_declared_operator_callback_selects_refresh_each_step():
+    update = time_api.input_update(
+        lambda _time: None,
+        effects="operator",
+        name="temperature_dependent_stiffness",
+    )
+    step = _implicit_cantilever("auto", steps=2, update_load=update)
+
+    step.solve()
+
+    lifecycle = step.operator_lifecycle_summary()
+    assert lifecycle["selected_policy"] == "refresh_each_step"
+    assert lifecycle["matrix_assembly_count"] == 2
+
+
+def test_explicit_reuse_rejects_operator_changing_time_input():
+    update = time_api.input_update(
+        lambda _time: None,
+        effects="state",
+        name="history_update",
+    )
+
+    with pytest.raises(ValueError, match="AFM-DYNAMICS-OPERATOR-002"):
+        _implicit_cantilever("reuse", update_load=update)
+
+
 def test_fixed_operator_reuse_is_collective_under_mpi():
     step = _implicit_cantilever("auto", steps=3, comm=MPI.COMM_WORLD)
 
@@ -189,3 +256,25 @@ def test_fixed_operator_reuse_is_collective_under_mpi():
     assert lifecycle["matrix_assembly_count"] == 1
     assert lifecycle["rhs_assembly_count"] == 3
     assert lifecycle["solve_count"] == 3
+
+
+def test_typed_time_input_refresh_selection_is_collective_under_mpi():
+    update = time_api.input_update(
+        lambda _time: None,
+        effects="operator",
+        name="distributed_operator_update",
+    )
+    step = _implicit_cantilever(
+        "auto",
+        steps=2,
+        comm=MPI.COMM_WORLD,
+        update_load=update,
+    )
+
+    step.solve()
+
+    lifecycle = step.operator_lifecycle_summary()
+    records = MPI.COMM_WORLD.allgather(lifecycle)
+    assert all(item == records[0] for item in records)
+    assert lifecycle["selected_policy"] == "refresh_each_step"
+    assert lifecycle["matrix_assembly_count"] == 2

@@ -76,6 +76,12 @@ Every gate must preserve the stable Model, Operator, Procedure, State, Backend,
 and Result/Verification ownership inventory. Passing only unit tests or adding
 new public names is not sufficient evidence for promotion.
 
+The first executable slice of gate 3 is now present: built-in and custom time
+inputs retain typed RHS/operator/state/output effects, and linear implicit
+dynamics uses those effects to select safe operator reuse or refresh. Promotion
+still requires the same contract across the remaining transient/nonlinear
+Procedures and binding its stable identity into checkpoint compatibility.
+
 ## What is usable today
 
 The installed capability catalog is authoritative. It covers the supported and

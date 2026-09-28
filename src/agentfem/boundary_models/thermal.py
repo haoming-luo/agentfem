@@ -23,6 +23,12 @@ class ConvectionBoundary:
     name: str = "convection"
     ambient_amplitude: amplitudes.Amplitude | None = None
 
+    @property
+    def time_effects(self) -> tuple[str, ...]:
+        """The supported time variation changes ambient forcing, not ``h``."""
+
+        return ("right_hand_side",)
+
     def __post_init__(self) -> None:
         if isinstance(self.coefficient, Real) and self.coefficient < 0.0:
             raise ValueError("Convection coefficient must be non-negative.")
@@ -92,6 +98,7 @@ class ConvectionBoundary:
                 if self.ambient_amplitude is None
                 else self.ambient_amplitude.summary()
             ),
+            "time_effects": self.time_effects,
             "sign_convention": "positive heat transfer leaves the body when T > T_inf",
         }
 

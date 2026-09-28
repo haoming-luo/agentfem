@@ -1749,7 +1749,9 @@ class Model:
         raise KeyError(f"Unknown amplitude {name!r}.")
 
     def _time_update_callback(self, callback=None, *, include_constraints=True):
-        """Compose registered amplitude assets with an optional user callback."""
+        """Compose time inputs while retaining their numerical effects."""
+
+        from . import input_effects as time_inputs
 
         assets = list(self.loads) + list(self.boundary_models)
         if include_constraints:
@@ -1761,17 +1763,10 @@ class Model:
             if update is None or id(asset) in seen:
                 continue
             seen.add(id(asset))
-            updates.append(update)
+            updates.append(time_inputs.from_asset(asset))
         if callback is None and not updates:
             return None
-
-        def update_all(time_value):
-            for update in updates:
-                update(time_value)
-            if callback is not None:
-                callback(time_value)
-
-        return update_all
+        return time_inputs.compose(*updates, callback)
 
     def summary(self) -> dict[str, object]:
         """Return an agent-readable model summary."""
