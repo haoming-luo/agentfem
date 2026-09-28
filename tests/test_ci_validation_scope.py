@@ -190,5 +190,30 @@ def test_checkpoint_owner_selects_restart_and_portability_evidence():
     assert scope.mpi_tests == ("tests/test_parallel_transient.py",)
 
 
+def test_development_release_manifest_keeps_checkpoint_change_incremental():
+    scope = classify_changes(
+        [
+            "src/agentfem/checkpointing.py",
+            "src/agentfem/release/0.3.8.dev0.json",
+            "docs/product_roadmap.md",
+        ]
+    )
+
+    assert scope.level == "core"
+    assert scope.tests == (
+        "tests/test_packaging.py",
+        "tests/test_release_goldens.py",
+        "tests/test_transient_restart.py",
+    )
+    assert scope.mpi_tests == ("tests/test_parallel_transient.py",)
+    assert not scope.ml
+
+
+def test_stable_release_manifest_still_requires_complete_release_validation():
+    scope = classify_changes(["src/agentfem/release/0.3.8.json"])
+
+    assert scope == ValidationScope("release", ml=True)
+
+
 def test_empty_automatic_diff_fails_safe_to_core():
     assert classify_changes([]) == ValidationScope("core")
