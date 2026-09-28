@@ -41,6 +41,12 @@
       "evidence": ["complete-material-partition", "regional-mass-and-internal-force", "regional-wave-speed-and-energy", "multi-region-loads", "cohesive-interface-composition", "serial-regression-golden"]
     },
     {
+      "id": "linear-implicit-structural-dynamics",
+      "maturity": "engineering",
+      "example": "tests/test_implicit_dynamics_lifecycle.py",
+      "evidence": ["component-constraint-dof-identity", "fixed-effective-operator-reuse", "right-hand-side-per-step-assembly", "refresh-policy-equivalence", "runtime-identity-fail-closed", "partial-run-resource-lifetime", "serial-and-two-rank-collective-reuse"]
+    },
+    {
       "id": "multi-material-thermoelastic-static",
       "maturity": "engineering",
       "example": "tests/test_thermoelastic_semantics.py",
@@ -162,6 +168,7 @@
     "consent-first-community-support",
     "thermoelastic-free-expansion-and-region-partition",
     "finite-strain-explicit-material-load-partition",
+    "implicit-dynamics-constraint-and-operator-lifecycle",
     "fibrous-shell-hybrid-serial-and-two-rank",
     "rotation-free-edge-ownership",
     "mesh-cell-compatibility-contract",

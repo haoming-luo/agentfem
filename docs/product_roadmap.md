@@ -51,6 +51,31 @@ wheel acceptance, unchanged public examples and compatibility imports, Linux
 and macOS acceptance, and benchmark evidence for every maturity change.
 Windows runtime acceptance remains a separate product gate.
 
+### 0.3.8: the 0.4 foundation candidate
+
+0.3.8 is the deliberate consolidation release before 0.4.0. It is promoted by
+stable ownership and executable contracts, not by adding another material or
+solver family. Its six product gates are:
+
+1. one mesh--element--function-space compatibility matrix shared by inspection,
+   validation, lowering, result identity, and checkpoint identity;
+2. mesh-quality evidence and early, addressable rejection of unsupported
+   topology or formulation combinations;
+3. typed time inputs that distinguish right-hand-side changes, operator
+   changes, state changes, and output-only observations before a Procedure
+   chooses reuse or rebuild;
+4. provider-owned reaction, force, work, and energy closure for exact MPC,
+   weak constraints, and the first bounded contact route;
+5. one MPI result, state-identity, and checkpoint lifecycle across supported
+   procedures, including deterministic cross-rank-count restoration where the
+   capability declares portability;
+6. one independently installed extension that adds a material or Procedure
+   through the public provider boundary without modifying AgentFEM core.
+
+Every gate must preserve the stable Model, Operator, Procedure, State, Backend,
+and Result/Verification ownership inventory. Passing only unit tests or adding
+new public names is not sufficient evidence for promotion.
+
 ## What is usable today
 
 The installed capability catalog is authoritative. It covers the supported and

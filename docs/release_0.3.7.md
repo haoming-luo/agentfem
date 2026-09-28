@@ -15,6 +15,11 @@ first-class product contract.
   rigid-mode and material-partition preflight.
 - Partitioned finite-strain explicit dynamics accepts compatible regional
   materials and loads instead of imposing an artificial one-material form.
+- Linear implicit dynamics preserves the exact component-constraint degree-of-
+  freedom set and reuses a fixed Newmark/generalized-alpha effective operator
+  across changing right-hand sides. Runtime identity drift fails closed, and
+  matrix, right-hand-side, solve, and Krylov-iteration counts remain visible in
+  result evidence.
 - Composite foundations now include multilayer fabric semantics, ply failure
   assessments, and a bounded rotation-free fibrous-shell development path.
 - Mesh inspection now reports a machine-readable cell compatibility matrix.
