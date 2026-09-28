@@ -8,6 +8,11 @@ experimental formulation to a validated one.
 
 ### Changed
 
+- Start the 0.3.8 architectural-foundation cycle with six explicit promotion
+  gates: mesh--element--space compatibility, fail-closed mesh quality,
+  typed time-input effects, complete constraint force--work--energy duals,
+  unified MPI result/state/checkpoint identity, and an independently installed
+  provider that extends AgentFEM without modifying core.
 - Promote the `triangle6`, `quad9`, `tetra10`, `hexahedron20`, and
   `hexahedron27` neutral-geometry import routes after real meshio/XDMF/DOLFINx
   reads, coordinate-element identity checks, quality audits, and P2 affine

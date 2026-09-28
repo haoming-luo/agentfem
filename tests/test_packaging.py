@@ -130,6 +130,20 @@ def test_release_contract_is_complete_and_references_real_workflows():
         "quad-hex-real-import-and-quality",
         "unknown-cell-fail-closed",
     } <= set(contract["required_gates"])
+    if contract["target_version"].startswith("0.3.8"):
+        foundation_gate_ids = {
+            item["id"] for item in contract.get("foundation_gates", ())
+        }
+        assert contract.get("promotion_target") == "0.4-foundation"
+        assert foundation_gate_ids == {
+            "mesh-element-function-space-compatibility",
+            "mesh-quality-and-unsupported-topology-fail-closed",
+            "typed-time-input-effects",
+            "constraint-force-work-energy-closure",
+            "mpi-result-state-checkpoint-lifecycle",
+            "external-provider-without-core-modification",
+        }
+        assert foundation_gate_ids <= set(contract["required_gates"])
     assert {
         "forming-capable composite shell, tool contact, friction or inter-ply slip",
         "executable rotation-free shell edge constraints or boundary moments",
