@@ -576,22 +576,36 @@ def reaction_resultant(
 
 
 def external_force_resultant(problem):
-    """Return the MPI-global resultant of a linear problem's assembled RHS.
+    """Return the MPI-global resultant of a static problem's assembled load.
 
-    The result includes every body, boundary, and other contribution contained
-    in the system force operator. It is algebraic evidence for the solved
-    system, not an attempt to infer the provenance of individual load terms.
+    Linear systems expose ``rhs_form()``; bounded nonlinear procedures may
+    expose the exact external-force operator they consumed.  The result
+    includes every body, boundary, and other contribution in that operator.
+    It is algebraic evidence, not inferred load provenance.
     """
 
-    if not hasattr(problem, "system") or not hasattr(problem.system, "rhs_form"):
+    if hasattr(problem, "system") and hasattr(problem.system, "rhs_form"):
+        expression = problem.system.rhs_form()
+    else:
+        operator = getattr(problem, "external_force_operator", None)
+        expression = getattr(operator, "expression", None)
+    if expression is None:
         raise TypeError(
-            "external_force_resultant requires a linear system problem with rhs_form()."
+            "external_force_resultant requires a system rhs_form() or an "
+            "explicit external_force_operator."
         )
     import dolfinx.fem.petsc as fem_petsc
     from petsc4py import PETSc
 
-    solution = problem._solution()
-    vector = fem_petsc.assemble_vector(fem.form(problem.system.rhs_form()))
+    solution_getter = getattr(problem, "_solution", None)
+    solution = (
+        solution_getter()
+        if callable(solution_getter)
+        else getattr(problem, "solution", None)
+    )
+    if solution is None:
+        raise TypeError("external_force_resultant requires a solved field.")
+    vector = fem_petsc.assemble_vector(fem.form(expression))
     try:
         vector.ghostUpdate(
             addv=PETSc.InsertMode.ADD,
@@ -629,7 +643,7 @@ def static_force_balance(
     constraints=(),
     provider_duals=(),
 ) -> StaticForceBalance:
-    """Evaluate ``R + F = 0`` for a converged linear static solid.
+    """Evaluate ``R + F = 0`` for a converged static solid.
 
     Strong-Dirichlet reactions come from the unconstrained residual. Affine
     MPC, weak, contact, and multiplier providers must supply both their

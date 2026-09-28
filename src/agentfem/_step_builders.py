@@ -15,6 +15,7 @@ from ._step_builders_dynamics import (
     implicit_dynamics,
     modal,
 )
+from ._step_builders_contact import rigid_obstacle_contact
 from ._step_builders_finite_strain import (
     fabric_membrane,
     hyperelastic,
@@ -46,5 +47,6 @@ __all__ = (
     "linear_static",
     "mixed_hyperelastic",
     "modal",
+    "rigid_obstacle_contact",
     "viscoelastic",
 )

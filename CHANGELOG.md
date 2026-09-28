@@ -6,6 +6,16 @@ experimental formulation to a validated one.
 
 ## [Unreleased]
 
+### Added
+
+- Add the first bounded contact route: frictionless small-strain contact with
+  one fixed rigid plane, a conservative one-sided penalty potential, exact
+  residual/Jacobian ownership, provider-owned nodal reaction and global
+  resultant, penetration/contact-energy diagnostics, and serial/two-rank
+  force-balance evidence. Surface search, friction, moving obstacles,
+  deformable-to-deformable contact, and nonlinear path-work closure remain
+  explicit promotion gates rather than hidden approximations.
+
 ### Changed
 
 - Type time-dependent inputs by their right-hand-side, operator, state, or

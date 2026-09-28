@@ -117,6 +117,7 @@ ADVANCED_MODEL_API = (
     "hydrostatic_pressure",
     "absorbing_boundary",
     "elastic_foundation",
+    "rigid_obstacle_contact",
     "stiffness",
     "mass",
     "damping",

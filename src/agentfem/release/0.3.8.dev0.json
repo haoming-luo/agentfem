@@ -122,6 +122,12 @@
       "evidence": ["exact-rectangular-mpc-dual", "serial-and-two-rank-resultant", "scalar-normal-and-matrix-elastic-foundation", "reaction-work-and-stored-energy-closure", "single-grid-provider-reaction-output"]
     },
     {
+      "id": "rigid-obstacle-penalty-contact",
+      "maturity": "experimental",
+      "example": "tests/test_rigid_obstacle_contact.py",
+      "evidence": ["bounded-fixed-plane-frictionless-scope", "potential-derived-residual-and-tangent", "analytical-series-stiffness", "provider-owned-reaction-distribution-and-resultant", "contact-energy-and-penetration-diagnostics", "serial-and-two-rank-force-balance", "open-gap-zero-contact", "nonlinear-path-work-fail-closed"]
+    },
+    {
       "id": "dynamic-cohesive-fracture",
       "maturity": "experimental",
       "example": "examples/science_supershear_v5_protocol.py",

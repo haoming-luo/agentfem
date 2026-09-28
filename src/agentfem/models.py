@@ -825,6 +825,31 @@ class Model:
             )
         )
 
+    def rigid_obstacle_contact(
+        self,
+        *,
+        on=None,
+        location=None,
+        penalty,
+        normal,
+        initial_gap=0.0,
+        name: str = "rigid_obstacle_contact",
+    ):
+        """Register frictionless one-sided contact with a fixed rigid plane."""
+
+        from .boundary_models import mechanical
+
+        return self.add_boundary_model(
+            mechanical.rigid_obstacle_contact(
+                on=on,
+                location=location,
+                penalty=penalty,
+                normal=normal,
+                initial_gap=initial_gap,
+                name=name,
+            )
+        )
+
     def stiffness(
         self,
         target,

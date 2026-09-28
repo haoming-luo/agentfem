@@ -59,6 +59,40 @@ def _accept_linear_static(model, request: StepRequest) -> bool:
     return False
 
 
+def _accept_rigid_obstacle_contact(model, request: StepRequest) -> bool:
+    from .boundary_models import RigidObstaclePenaltyContact
+
+    study = getattr(model, "study", None)
+    contacts = tuple(
+        item
+        for item in getattr(model, "boundary_models", ())
+        if isinstance(item, RigidObstaclePenaltyContact)
+    )
+    return (
+        getattr(study, "analysis", None) == "nonlinear_static"
+        and getattr(study, "physics", None) == "solid_mechanics"
+        and _is_vector_target(request.target)
+        and len(contacts) == 1
+        and len(tuple(getattr(model, "boundary_models", ()))) == 1
+        and _all_materials_support(model, request, _supports_elasticity)
+    )
+
+
+def _lower_rigid_obstacle_contact(model, request: StepRequest):
+    from . import _step_builders
+
+    options = dict(request.options)
+    for key in ("K", "F", "material", "method", "output", "history", "checkpoint"):
+        options.pop(key, None)
+    name = options.pop("name", None) or "rigid_obstacle_contact"
+    return _step_builders.rigid_obstacle_contact(
+        model,
+        target=request.target,
+        name=name,
+        **options,
+    )
+
+
 def _lower_linear_static(model, request: StepRequest):
     from . import _step_builders
 
@@ -885,6 +919,25 @@ def _lower_callable_neural_field(model, request):
     return model.add_step(step)
 
 
+register_step_provider(
+    StepProvider(
+        name="rigid_obstacle_penalty_contact_static",
+        analyses=("nonlinear_static",),
+        accepts=_accept_rigid_obstacle_contact,
+        lower=_lower_rigid_obstacle_contact,
+        priority=140,
+        description=(
+            "Lower a small-strain elastic solid with one frictionless rigid-"
+            "plane penalty contact boundary to incremental Newton equilibrium."
+        ),
+        procedure="standard/newton/rigid_obstacle_penalty_contact",
+        option_contract=_option_contract(
+            "incrementation",
+            "progress",
+            "status_file",
+        ),
+    )
+)
 register_step_provider(
     StepProvider(
         name="small_strain_user_material_static",

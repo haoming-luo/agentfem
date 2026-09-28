@@ -216,6 +216,16 @@ At a kink in a non-proportional deformation history, the result retains both
 `affine_path_outgoing_generalized_reaction` (right-sided). The work on each
 increment therefore uses that increment's own deformation-gradient tangent.
 
+The first bounded contact implementation applies the same ownership rule. A
+fixed-rigid-plane penalty provider assembles its own conservative potential,
+residual, and consistent tangent, then reconstructs the converged nodal
+reaction and MPI-global resultant from that exact operator. Results also
+record contact energy, penetration norm, and active contact measure. Contact
+energy is internal system energy; it is not added again as prescribed-motion
+work. Ordinary nonlinear results keep `static_work.status = unavailable`
+until the Procedure owns accepted-station load and dual histories. This avoids
+turning one endpoint force into a false nonlinear work integral.
+
 Exact rectangular periodic MPC construction has a separate, narrower
 diagnostic contract. `periodicity.diagnostics()` reports globally owned slave
 DOFs, ghost copies, master relations, unmatched or multiply matched slaves,
@@ -457,8 +467,9 @@ result.quantities["relative_force_balance_error"]
 The external resultant is assembled from the same complete right-hand side
 used by the solver; it therefore includes all body and boundary contributions
 in `F`. The reaction is the unconstrained residual at strong Dirichlet dofs.
-The metadata states this scope explicitly rather than implying support for MPC,
-contact, weak-constraint, or multiplier reactions.
+The metadata states this scope explicitly. Provider-owned result paths may add
+MPC, weak-constraint, or bounded-contact reactions only when the assembling
+provider supplies the matching physical-space resultant.
 
 ## Structured observation grids
 

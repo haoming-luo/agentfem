@@ -11,6 +11,7 @@ from ._field_metadata import field_location, generated_field_processing
 from .core import from_solution
 from .execution import add_execution_trace
 from .lifecycle import complete_result
+from .quantities import static_force_balance
 
 
 def from_incremental_nonlinear_step(
@@ -25,6 +26,7 @@ def from_incremental_nonlinear_step(
     """Build a result after an ordinary nonlinear load path has converged."""
 
     result = _base_nonlinear_result(step, solution, fields=fields)
+    _add_nonlinear_constraint_evidence(step, result)
     add_execution_trace(result, step.execution_events)
     return complete_result(
         step,
@@ -34,6 +36,85 @@ def from_incremental_nonlinear_step(
         strict_output=strict_output,
         metadata=metadata,
     )
+
+
+def _add_nonlinear_constraint_evidence(step, result) -> None:
+    assets = tuple(getattr(step, "constraint_assets", ()))
+    if not assets:
+        return
+    provider_duals = constraint_api.collect_provider_duals(assets, step)
+    contract = constraint_api.constraint_balance_contract(
+        assets,
+        provider_duals=provider_duals,
+    )
+    result.metadata["constraint_balance_contract"] = contract
+    result.metadata["constraint_duals"] = tuple(
+        item.summary() for item in provider_duals
+    )
+    for item in provider_duals:
+        distribution = item.distribution
+        if distribution is not None:
+            result.add_field(
+                getattr(distribution, "name", f"{item.constraint_name}_reaction"),
+                distribution,
+                location="nodes",
+                description=(
+                    "Provider-owned reaction distribution reconstructed from "
+                    "the converged nonlinear constraint contribution."
+                ),
+                processing={
+                    "source": item.source,
+                    "constraint": item.constraint_name,
+                    "role": item.role,
+                    "method": "provider_dual_reaction_distribution",
+                },
+            )
+        prefix = item.constraint_name.lower().replace(" ", "_")
+        if item.resultant is not None:
+            result.add_quantity(
+                f"{prefix}_reaction_resultant",
+                item.resultant,
+                kind="diagnostic",
+            )
+        for key, value in item.diagnostics.items():
+            if key in {
+                "contact_energy",
+                "penetration_l2_norm",
+                "active_contact_measure",
+            }:
+                result.add_quantity(f"{prefix}_{key}", value, kind="diagnostic")
+
+    try:
+        equilibrium = static_force_balance(
+            step,
+            constraints=assets,
+            provider_duals=provider_duals,
+        )
+    except (NotImplementedError, TypeError) as exc:
+        result.metadata["static_equilibrium"] = {
+            "status": "unavailable",
+            "reason": str(exc),
+            "reaction_scope": contract["reaction_scope"],
+        }
+    else:
+        result.add_quantities(
+            {
+                "external_force_resultant": equilibrium.external,
+                "reaction_force_resultant": equilibrium.reaction,
+                "provider_reaction_force_resultant": equilibrium.provider_reaction,
+                "force_balance_residual": equilibrium.residual,
+                "relative_force_balance_error": equilibrium.relative_error,
+            },
+            kind="diagnostic",
+        )
+        result.metadata["static_equilibrium"] = equilibrium.as_dict()
+    result.metadata["static_work"] = {
+        "status": "unavailable",
+        "reason": (
+            "Nonlinear prescribed/load-path work requires accepted-station "
+            "dual histories; endpoint contact energy is reported separately."
+        ),
+    }
 
 
 def from_affine_nonlinear_step(
