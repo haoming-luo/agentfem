@@ -3,9 +3,10 @@
 
 """Restart envelopes shared by transient finite-element procedures.
 
-Fast rank-local shards remain the default. Schema v4 can additionally store
+Fast rank-local shards remain the default. Schema v5 can additionally store
 an explicit coordinate-keyed nodal state for restart across MPI partitions and
-rank counts, and binds both coordinate- and solution-element semantics;
+rank counts, binds coordinate- and solution-element semantics, and requires an
+explicit identity for every time-dependent input;
 constitutive integration-point state is not implied by that portable nodal
 contract.
 """
@@ -27,13 +28,14 @@ from mpi4py import MPI
 from . import fields
 
 
-TRANSIENT_CHECKPOINT_SCHEMA = "agentfem.transient-checkpoint.v4"
+TRANSIENT_CHECKPOINT_SCHEMA = "agentfem.transient-checkpoint.v5"
 HARMONIC_SWEEP_CHECKPOINT_SCHEMA = "agentfem.harmonic-sweep-checkpoint.v2"
 _LEGACY_TRANSIENT_CHECKPOINT_SCHEMAS = {
     "agentfem.transient-checkpoint.v1",
     "agentfem.transient-checkpoint.v2",
     "agentfem.transient-checkpoint.v3",
 }
+_ELEMENT_BOUND_TRANSIENT_CHECKPOINT_SCHEMA = "agentfem.transient-checkpoint.v4"
 
 
 @dataclass(frozen=True)
@@ -460,6 +462,7 @@ def save_transient_checkpoint(
     total_steps: int,
     completed_steps: int,
     state: dict[str, object],
+    time_inputs: dict[str, object],
     accepted_times=(),
     execution_events=(),
     history_records=(),
@@ -472,6 +475,18 @@ def save_transient_checkpoint(
     if not functions:
         raise ValueError("A transient checkpoint requires at least one state field.")
     comm = next(iter(functions.values())).function_space.mesh.comm
+    from .provenance import collective_call, collective_canonical_record
+
+    selected_time_inputs = collective_call(
+        lambda: _checkpoint_time_inputs(time_inputs),
+        comm=comm,
+        label="validate transient time-input identity",
+    )
+    selected_time_inputs = collective_canonical_record(
+        selected_time_inputs,
+        comm=comm,
+        label="transient time-input identity",
+    )
     manifest = _manifest_path(path)
     manifest.parent.mkdir(parents=True, exist_ok=True)
     generation = comm.bcast(uuid4().hex[:16] if comm.rank == 0 else None, root=0)
@@ -525,6 +540,7 @@ def save_transient_checkpoint(
         "procedure": (
             procedure.summary() if hasattr(procedure, "summary") else procedure
         ),
+        "time_inputs": selected_time_inputs,
         "dt": float(dt),
         "total_steps": int(total_steps),
         "completed_steps": int(completed_steps),
@@ -574,11 +590,24 @@ def load_transient_checkpoint(
     dt: float,
     total_steps: int,
     state: dict[str, object],
+    time_inputs: dict[str, object],
 ) -> dict[str, object]:
     """Restore a transient state after validating its scientific identity."""
 
     functions = {name: fields.unwrap(value) for name, value in state.items()}
     comm = next(iter(functions.values())).function_space.mesh.comm
+    from .provenance import collective_call, collective_canonical_record
+
+    expected_time_inputs = collective_call(
+        lambda: _checkpoint_time_inputs(time_inputs),
+        comm=comm,
+        label="validate current transient time-input identity",
+    )
+    expected_time_inputs = collective_canonical_record(
+        expected_time_inputs,
+        comm=comm,
+        label="current transient time-input identity",
+    )
     manifest = _manifest_path(path)
     payload = None
     if comm.rank == 0:
@@ -606,6 +635,13 @@ def load_transient_checkpoint(
             "with the AgentFEM version that created it, then write a new "
             "checkpoint; AgentFEM will not silently authorize that migration."
         )
+    if stored_schema == _ELEMENT_BOUND_TRANSIENT_CHECKPOINT_SCHEMA:
+        raise ValueError(
+            "Transient checkpoint schema v4 does not bind the time-input "
+            "identity required by schema v5. Resume it with the AgentFEM "
+            "version that created it, then write a new checkpoint; AgentFEM "
+            "will not guess whether its load or operator history matches."
+        )
     if stored_schema != TRANSIENT_CHECKPOINT_SCHEMA:
         raise ValueError("Unsupported transient checkpoint schema.")
     expected_procedure = (
@@ -616,6 +652,7 @@ def load_transient_checkpoint(
         "step kind": (metadata.get("step_kind"), str(step_kind)),
         "step name": (metadata.get("step_name"), str(step_name)),
         "procedure": (metadata.get("procedure"), expected_procedure),
+        "time inputs": (metadata.get("time_inputs"), expected_time_inputs),
         "time increment": (float(metadata.get("dt")), float(dt)),
         "total steps": (int(metadata.get("total_steps")), int(total_steps)),
         "state names": (tuple(metadata.get("state_names", ())), tuple(functions)),
@@ -664,6 +701,42 @@ def load_transient_checkpoint(
         )
     metadata["manifest_path"] = str(manifest)
     return metadata
+
+
+def _checkpoint_time_inputs(record: dict[str, object]) -> dict[str, object]:
+    """Require one archive-safe, restart-bound time-input declaration."""
+
+    try:
+        selected = json.loads(
+            json.dumps(
+                record,
+                sort_keys=True,
+                ensure_ascii=False,
+                allow_nan=False,
+            )
+        )
+    except (TypeError, ValueError) as error:
+        raise ValueError(
+            "AFM-CHECKPOINT-TIME-001: time-input evidence must be finite JSON "
+            "data before a transient checkpoint can be written or restored."
+        ) from error
+    if selected.get("kind") != "time_input_plan":
+        raise ValueError(
+            "AFM-CHECKPOINT-TIME-001: transient checkpoints require a "
+            "time_input_plan identity."
+        )
+    if not bool(selected.get("restart_identity_bound")):
+        missing = [
+            str(item.get("name", "time_input"))
+            for item in selected.get("updates", ())
+            if item.get("identity") is None
+        ]
+        raise ValueError(
+            "AFM-CHECKPOINT-TIME-001: every time-dependent input requires a "
+            "stable identity before restart can be trusted; missing identity "
+            f"for {missing or ['unknown time input']}."
+        )
+    return selected
 
 
 def save_portable_state_bundle(path, *, state: dict[str, object]) -> dict[str, object]:

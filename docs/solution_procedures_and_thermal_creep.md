@@ -71,8 +71,11 @@ coefficient changes; use `"state"` for accepted history that can alter a
 residual or tangent, and `"output"` for observation-only changes. Forcing
 `operator_policy="reuse"` against an operator/state declaration is rejected
 before the first solve. Step and result evidence record every declaration and
-whether the plan has a restart identity; the present checkpoint format does
-not yet bind that identity, which remains a 0.3.8 lifecycle gate.
+whether the plan has a restart identity. Transient checkpoint schema v5 binds
+the complete plan and rejects a changed or anonymous callback before restoring
+any field. A v4 archive remains readable by the AgentFEM version that created
+it, but current AgentFEM does not guess whether its omitted load history is
+compatible.
 
 ## The useful first thermal-mechanical route
 

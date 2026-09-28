@@ -12,6 +12,9 @@ experimental formulation to a validated one.
   output effect. Linear implicit dynamics now reuses a prepared matrix only
   for compatible effects, refreshes automatically for operator/state changes,
   rejects explicitly unsafe reuse, and records the decision in result evidence.
+- Bind the complete time-input plan in transient checkpoint schema v5. Restart
+  now rejects changed input identities before field mutation, and callbacks
+  without a stable identity cannot publish a misleading restart archive.
 - Start the 0.3.8 architectural-foundation cycle with six explicit promotion
   gates: mesh--element--space compatibility, fail-closed mesh quality,
   typed time-input effects, complete constraint force--work--energy duals,

@@ -45,6 +45,8 @@ assumption.
   `agentfem.time.input_update`;
 - callback identities are normalized as finite JSON data before entering
   result evidence, so an opaque Python object cannot break an archive;
+- transient checkpoint schema v5 stores the complete plan and refuses both a
+  changed identity and a callback whose restart identity is absent;
 - existing bare callbacks remain callable but take the conservative path;
 - the same plan is included in transient Step summaries and therefore in
   `SimulationResult` evidence.
@@ -62,6 +64,8 @@ already implements every possible optimized refresh strategy.
 - operator and state declarations either refresh automatically or reject an
   explicitly unsafe reuse policy;
 - the selected policy and declarations survive into lifecycle evidence.
+- restart rejects a changed load identity before mutating any field, while an
+  unbound callback cannot publish a misleading checkpoint.
 
 ## References
 
