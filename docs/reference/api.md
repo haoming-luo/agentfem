@@ -441,6 +441,7 @@ and evidence remain in the linked guides and scientific function reference.
 | class | `PointKinematicTerm` | One coefficient multiplying one displacement component at a point. |
 | function | `linear_kinematic_control(target, terms, *, name: str = 'linear_kinematic_control', unit: str \| None = None, tolerance: float = 1e-10) -> LinearKinematicControl` | Create a scalar control with a provider-owned conjugate reaction. |
 | function | `point_kinematic_term(point, *, component: int, coefficient: float, name: str = 'point_displacement') -> PointKinematicTerm` | Create one readable term of a generalized displacement coordinate. |
+| class | `ConstraintDualHistory` | Restartable force--coordinate evidence from accepted nonlinear states. |
 
 ## `agentfem.amplitudes`
 
