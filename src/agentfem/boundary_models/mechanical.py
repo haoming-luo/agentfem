@@ -326,7 +326,14 @@ class RigidObstaclePenaltyContact:
         """Recover the converged contact force, distribution, and energy."""
 
         solution = getattr(problem, "solution", None)
-        if solution is None or getattr(problem, "last_solve_info", None) is None:
+        dual_state = getattr(problem, "_constraint_dual_state", None)
+        if (
+            solution is None
+            or (
+                getattr(problem, "last_solve_info", None) is None
+                and dual_state != "accepted"
+            )
+        ):
             raise RuntimeError(
                 "Rigid obstacle contact evidence requires its converged "
                 "incremental nonlinear problem."
@@ -410,7 +417,10 @@ class RigidObstaclePenaltyContact:
         return constraint_dual(
             self,
             force=resultant,
-            coordinate=None,
+            # A fixed obstacle has zero generalized translation at every
+            # station.  Its external work is therefore zero; the penalty
+            # potential remains a separate internal-energy contribution.
+            coordinate=np.zeros_like(resultant),
             resultant=resultant,
             distribution=distribution,
             diagnostics=diagnostics,

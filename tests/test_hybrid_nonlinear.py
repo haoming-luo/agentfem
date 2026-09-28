@@ -552,6 +552,87 @@ def test_injected_nonlinear_attempt_uses_standard_cutback_and_rollback():
     assert 99.0 not in solution.x.array
 
 
+def test_constraint_dual_history_excludes_failed_nonlinear_attempts():
+    from agentfem import constraints
+
+    domain = dolfinx_mesh.create_unit_interval(MPI.COMM_SELF, 1)
+    space = fem.functionspace(domain, ("Lagrange", 1))
+    solution = fem.Function(space, name="U")
+    factor = fem.Constant(domain, PETSc.ScalarType(0.0))
+    value_path = _NoOpValuePath()
+    calls = 0
+
+    class MovingWeakConstraint:
+        name = "moving_support"
+
+        @staticmethod
+        def capabilities():
+            return constraints.ConstraintCapabilities(
+                kind="weak_constraint",
+                enforcement="test_provider",
+                reaction_evidence="provider_dual_required",
+                work_evidence="provider_dual_path_required",
+            )
+
+        def dual_evidence(self, problem):
+            selected = float(problem.factor.value)
+            return constraints.constraint_dual(
+                self,
+                role="weak_constraint",
+                force=(2.0 * selected,),
+                coordinate=(selected,),
+                resultant=(-2.0 * selected,),
+                source="test_moving_support",
+            )
+
+    provider = MovingWeakConstraint()
+
+    def solve_attempt():
+        nonlocal calls
+        calls += 1
+        solution.x.array[:] = float(factor.value)
+        if calls == 1:
+            return solution, solvers.NonlinearSolveInfo(-3, 2, 1.0)
+        return solution, solvers.NonlinearSolveInfo(2, 1, 0.0)
+
+    problem = IncrementalNonlinearVariationalProblem(
+        residual_form=None,
+        solution=solution,
+        factor=factor,
+        value_path=value_path,
+        constraint_assets=(provider,),
+        incrementation=steps.automatic(
+            initial=0.5,
+            minimum=0.125,
+            maximum=0.5,
+            max_cutbacks=3,
+            cutback_factor=0.5,
+        ),
+        progress=False,
+        _attempt_solver=solve_attempt,
+        _attempt_backend="test_injected",
+    )
+    result = problem.solve_result()
+
+    factors = problem.constraint_dual_history.factors
+    assert factors[0] == pytest.approx(0.0)
+    assert 0.5 not in factors
+    assert factors[-1] == pytest.approx(1.0)
+    assert result.metadata["constraint_path_work"]["status"] == "complete"
+    assert result.metadata["constraint_path_work"]["total"] == pytest.approx(1.0)
+
+    checkpoint = problem.constraint_dual_history.checkpoint_state()
+    restored = constraints.ConstraintDualHistory()
+    restored.restore_checkpoint_state(checkpoint, accepted_factor=1.0)
+    assert restored.records == problem.constraint_dual_history.records
+    assert restored.work("moving_support") == pytest.approx(1.0)
+
+    checkpoint["records"][-1]["duals"][0]["force"] = [float("nan")]
+    with pytest.raises(ValueError, match="Invalid constraint dual"):
+        restored.restore_checkpoint_state(checkpoint, accepted_factor=1.0)
+    assert restored.records == problem.constraint_dual_history.records
+
+
 def test_embedded_fabric_membrane_and_bending_build_separate_preconditioner():
     domain = dolfinx_mesh.create_unit_square(
         MPI.COMM_SELF,

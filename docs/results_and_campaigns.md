@@ -222,9 +222,13 @@ residual, and consistent tangent, then reconstructs the converged nodal
 reaction and MPI-global resultant from that exact operator. Results also
 record contact energy, penetration norm, and active contact measure. Contact
 energy is internal system energy; it is not added again as prescribed-motion
-work. Ordinary nonlinear results keep `static_work.status = unavailable`
-until the Procedure owns accepted-station load and dual histories. This avoids
-turning one endpoint force into a false nonlinear work integral.
+work. The ordinary nonlinear Procedure now retains force--coordinate samples
+only at accepted stations and reports `constraint_path_work` separately. For a
+fixed obstacle its conjugate translation is identically zero, hence obstacle
+work is exactly zero even when contact energy is nonzero. Overall
+`static_work.status` remains unavailable until natural-load work and internal
+energy histories close the complete nonlinear balance; failed cutback trials
+never enter either claim.
 
 Exact rectangular periodic MPC construction has a separate, narrower
 diagnostic contract. `periodicity.diagnostics()` reports globally owned slave

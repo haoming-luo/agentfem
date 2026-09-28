@@ -88,7 +88,8 @@ def test_rigid_obstacle_contact_closes_force_and_reports_energy():
     assert dual["role"] == "contact_constraint"
     assert dual["source"] == "rigid_obstacle_penalty_potential"
     assert dual["force_complete"] is True
-    assert dual["work_complete"] is False
+    assert dual["work_complete"] is True
+    np.testing.assert_allclose(dual["coordinate"], (0.0, 0.0), atol=0.0)
     assert dual["diagnostics"]["contact_energy"] > 0.0
     assert dual["diagnostics"]["penetration_l2_norm"] > 0.0
     assert dual["diagnostics"]["active_contact_measure"] == pytest.approx(1.0)
@@ -100,6 +101,15 @@ def test_rigid_obstacle_contact_closes_force_and_reports_energy():
     )
     assert result.quantities["relative_force_balance_error"].value < 1.0e-8
     assert result.metadata["static_work"]["status"] == "unavailable"
+    path_work = result.metadata["constraint_path_work"]
+    assert path_work["status"] == "complete"
+    assert path_work["sample_count"] >= 2
+    assert path_work["channels"]["rigid_obstacle_contact"]["value"] == pytest.approx(
+        0.0
+    )
+    assert result.quantities["rigid_obstacle_contact_path_work"].value == pytest.approx(
+        0.0
+    )
     assert dual["distribution"]["name"] in result.fields
 
 

@@ -88,9 +88,11 @@ scalar/normal/matrix elastic foundations, and frictionless contact with one
 fixed rigid plane. The contact provider owns its potential, residual, tangent,
 nodal dual distribution, resultant, penetration diagnostics, and contact
 energy in serial and under two MPI ranks. This is not general contact, and the
-gate remains open until nonlinear Procedures preserve accepted-station dual
-histories for path work and the declared weak/contact routes close their full
-force--work--energy contracts.
+ordinary nonlinear Procedure now preserves accepted-station provider duals,
+rejects cutback trials from the path ledger, and proves zero work for its fixed
+obstacle without double-counting contact energy. The gate remains open for
+atomic ordinary-nonlinear checkpoint/restart and for the declared weak/contact
+routes to close their complete force--work--energy contracts.
 
 ## What is usable today
 
