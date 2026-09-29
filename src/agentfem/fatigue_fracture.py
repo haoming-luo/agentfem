@@ -2813,11 +2813,11 @@ class GlobalCyclicFatigueStep:
             ),
             limitations=(
                 "custom auxiliary bulk assets require their own portable adapter",
-                "combined global-cycle cross-rank acceptance remains a release gate",
             ),
             evidence=(
                 "bulk field 1-to-2 and 2-to-1 restart",
                 "physical-facet-keyed cohesive state 2-to-1 restart",
+                "global cyclic bulk-plus-interface 1-to-2 and 2-to-1 restart",
             ),
         )
 

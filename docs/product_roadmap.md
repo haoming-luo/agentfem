@@ -109,9 +109,11 @@ restart. Transient, ordinary and affine nonlinear, harmonic, J2, creep,
 viscoelastic, user-material, finite-strain J2, and cyclic-fatigue owners expose
 that contract in their summaries. Cyclic bulk fields have moved from
 partition-local shards to coordinate-keyed schema v2 and pass both 1-to-2 and
-2-to-1 rank-count restoration. The gate remains open until the composed global
-cyclic bulk-plus-interface restart has its own cross-rank acceptance and the
-same contract is consumed consistently by result inspection and preflight.
+2-to-1 rank-count restoration. The composed global cyclic lifecycle now passes
+those same migrations while preserving bulk fields, physical-facet-keyed
+cohesive history, and the cycle-jump ledger before continuing to the
+uninterrupted reference. The gate remains open until the same contract is
+consumed consistently by result inspection and preflight.
 
 ## What is usable today
 
