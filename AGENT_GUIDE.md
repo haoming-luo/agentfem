@@ -417,6 +417,10 @@ never changes solver access, results, verification, or update behavior.
   surface identity, method, outward unit normal, signed-gap convention,
   validity and discrete entity identity. Never turn a failed or ambiguous
   closest-point query into an active contact silently.
+- A `TriangulatedRigidSurface` can currently validate and project reviewed 3D
+  triangle geometry. Do not claim that this makes STL/STEP contact executable:
+  the present contact Operator still accepts only `RigidPlaneSurface` until a
+  search-based backend passes serial, MPI, sliding and restart gates.
 - Do not hide the finite-element workflow inside overly broad abstractions.
 - Do not make concrete geometry helpers, such as circle/disk/box predicates,
   the core modeling concept. Treat them as selectors used to build named

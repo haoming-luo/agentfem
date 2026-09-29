@@ -367,7 +367,8 @@ geometry.
 
 Every rigid surface exposes one solver-neutral projection contract: query
 points, closest points, outward unit normals, signed gaps, validity flags, the
-projection method, and optional stable entity identities. Positive gap denotes
+projection method, geometry fingerprint, and optional stable entity identities.
+An entity identity is never valid without its geometry fingerprint. Positive gap denotes
 the admissible half-space and negative gap denotes penetration. A discrete or
 trimmed surface must report failed projections explicitly; it may not return a
 plausible closest point and silently treat it as valid.
@@ -377,6 +378,14 @@ orthogonal projection is exact and therefore has no facet identity. The same
 geometry contract is used after solve to audit nonzero-reaction contact nodes;
 this is independent evidence for the weak-form gap convention rather than a
 second contact law.
+
+An oriented three-dimensional triangle surface is the reference discrete
+geometry asset. It validates indices, scale-aware facet area, duplicates,
+shared-edge orientation and manifoldness; preserves stable facet IDs and a
+geometry fingerprint; and distinguishes `no_candidate` from
+`ambiguous_projection`. Its built-in exhaustive closest-point search is a
+correctness oracle for accelerated backends, not an industrial search path.
+It is not yet accepted by the bounded plane-contact Operator.
 Two-dimensional rotation is one counter-clockwise angle; three-dimensional
 rotation is an axis-angle vector. A normalized Procedure coordinate scales the
 declared end translation and rotation. The contact Operator owns gap, penalty

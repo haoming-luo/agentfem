@@ -42,6 +42,7 @@ def test_plane_projection_preserves_signed_gap_and_closest_point_semantics():
         "all_valid": True,
         "status_counts": {"ok": 3},
         "method": "exact_orthogonal_projection",
+        "geometry_fingerprint": surface.geometry_fingerprint,
         "signed_gap_convention": "positive_admissible_negative_penetration",
         "entity_identity": "not_applicable",
     }
@@ -112,6 +113,7 @@ def test_surface_projection_is_immutable_and_validates_backend_evidence():
         status_codes=("ok",),
         method="reviewed_test_projection",
         entity_ids=(7,),
+        geometry_fingerprint="0" * 64,
     )
 
     assert projection.summary()["entity_identity"] == "provided"
@@ -145,6 +147,7 @@ def test_surface_projection_represents_failed_search_without_fake_geometry():
         status_codes=("ok", "no_candidate"),
         method="reviewed_test_projection",
         entity_ids=(7, -1),
+        geometry_fingerprint="0" * 64,
     )
 
     assert projection.all_valid is False
@@ -164,6 +167,21 @@ def test_surface_projection_represents_failed_search_without_fake_geometry():
             status_codes=("no_candidate",),
             method="invalid",
             entity_ids=(7,),
+            geometry_fingerprint="0" * 64,
+        )
+
+    with pytest.raises(ValueError, match="require a geometry fingerprint"):
+        boundary_models.SurfaceProjection(
+            surface_name="broken",
+            surface_kind="triangulated_rigid_surface",
+            query_points=((0.0, 0.0, 0.0),),
+            closest_points=((0.0, 0.0, 0.0),),
+            normals=((0.0, 0.0, 1.0),),
+            signed_gaps=(0.0,),
+            valid=(True,),
+            status_codes=("ok",),
+            method="invalid",
+            entity_ids=(7,),
         )
 
 
@@ -180,8 +198,187 @@ def test_surface_summary_declares_projection_and_gap_conventions():
         "dimension": 2,
         "point": (0.0, 0.0),
         "normal": (0.0, 1.0),
+        "geometry_fingerprint": surface.geometry_fingerprint,
         "representation": "analytical",
         "projection": "exact_orthogonal",
         "signed_gap_convention": "positive_admissible_negative_penetration",
         "entity_identity": "not_applicable",
     }
+
+
+def _square_triangle_surface(**overrides):
+    arguments = {
+        "vertices": (
+            (0.0, 0.0, 0.0),
+            (1.0, 0.0, 0.0),
+            (1.0, 1.0, 0.0),
+            (0.0, 1.0, 0.0),
+        ),
+        "triangles": ((0, 1, 2), (0, 2, 3)),
+        "facet_ids": (20, 10),
+        "name": "square_tool",
+    }
+    arguments.update(overrides)
+    return boundary_models.triangulated_rigid_surface(**arguments)
+
+
+def test_triangulated_surface_projects_faces_and_shared_coplanar_edge():
+    surface = _square_triangle_surface()
+
+    projection = surface.project(
+        (
+            (0.75, 0.25, 0.2),
+            (0.25, 0.75, -0.3),
+            (0.5, 0.5, 0.1),
+        )
+    )
+
+    np.testing.assert_allclose(
+        projection.closest_points,
+        ((0.75, 0.25, 0.0), (0.25, 0.75, 0.0), (0.5, 0.5, 0.0)),
+    )
+    np.testing.assert_allclose(projection.signed_gaps, (0.2, -0.3, 0.1))
+    np.testing.assert_allclose(
+        projection.normals,
+        ((0.0, 0.0, 1.0),) * 3,
+    )
+    np.testing.assert_array_equal(projection.entity_ids, (20, 10, 10))
+    np.testing.assert_array_equal(projection.status_codes, ("ok", "ok", "ok"))
+    assert projection.all_valid
+
+
+def test_triangulated_surface_motion_and_search_radius_preserve_contract():
+    surface = _square_triangle_surface()
+    motion = boundary_models.prescribed_rigid_motion(
+        translation=(0.0, 0.0, 1.0),
+        rotation=(0.0, 0.0, np.pi / 2.0),
+        reference_point=(0.0, 0.0, 0.0),
+    )
+
+    moved = surface.project(
+        ((-0.25, 0.75, 1.2),),
+        motion=motion,
+        factor=1.0,
+    )
+    np.testing.assert_allclose(moved.closest_points, ((-0.25, 0.75, 1.0),))
+    np.testing.assert_allclose(moved.normals, ((0.0, 0.0, 1.0),))
+    np.testing.assert_allclose(moved.signed_gaps, (0.2,))
+
+    absent = surface.project(((0.5, 0.5, 2.0),), maximum_distance=0.5)
+    assert absent.all_valid is False
+    assert absent.status_codes.tolist() == ["no_candidate"]
+    assert absent.entity_ids.tolist() == [-1]
+    assert np.isnan(absent.closest_points).all()
+
+
+def test_triangulated_surface_reports_ambiguous_equidistant_projection():
+    surface = boundary_models.triangulated_rigid_surface(
+        vertices=(
+            (0.0, 0.0, 0.0),
+            (1.0, 0.0, 0.0),
+            (0.0, 1.0, 0.0),
+            (0.0, 0.0, 2.0),
+            (0.0, 1.0, 2.0),
+            (1.0, 0.0, 2.0),
+        ),
+        triangles=((0, 1, 2), (3, 4, 5)),
+        facet_ids=(3, 4),
+    )
+
+    projection = surface.project(((0.2, 0.2, 1.0),))
+
+    assert projection.all_valid is False
+    assert projection.status_codes.tolist() == ["ambiguous_projection"]
+    assert projection.entity_ids.tolist() == [-1]
+    assert np.isnan(projection.signed_gaps).all()
+
+
+def test_triangulated_surface_summary_and_fingerprint_are_stable():
+    surface = _square_triangle_surface()
+    repeated = _square_triangle_surface()
+    changed = _square_triangle_surface(facet_ids=(21, 10))
+
+    assert surface.geometry_fingerprint == repeated.geometry_fingerprint
+    assert surface.geometry_fingerprint != changed.geometry_fingerprint
+    summary = surface.summary()
+    assert summary["vertex_count"] == 4
+    assert summary["facet_count"] == 2
+    assert summary["edge_count"] == 5
+    assert summary["boundary_edge_count"] == 4
+    assert summary["closed"] is False
+    assert summary["manifold"] is True
+    assert summary["orientation_consistent"] is True
+    assert summary["facet_identity"] == "user_provided"
+    assert summary["projection"] == "exhaustive_reference"
+
+
+@pytest.mark.parametrize(
+    "vertices, triangles, message",
+    [
+        (
+            ((0.0, 0.0, 0.0), (1.0, 0.0, 0.0), (2.0, 0.0, 0.0)),
+            ((0, 1, 2),),
+            "degenerate",
+        ),
+        (
+            ((0.0, 0.0, 0.0), (1.0, 0.0, 0.0), (0.0, 1.0, 0.0)),
+            ((0, 1, 2), (2, 1, 0)),
+            "duplicate",
+        ),
+        (
+            (
+                (0.0, 0.0, 0.0),
+                (1.0, 0.0, 0.0),
+                (0.0, 1.0, 0.0),
+                (0.0, -1.0, 0.0),
+            ),
+            ((0, 1, 2), (0, 1, 3)),
+            "inconsistent orientation",
+        ),
+        (
+            (
+                (0.0, 0.0, 0.0),
+                (1.0, 0.0, 0.0),
+                (0.0, 1.0, 0.0),
+                (0.0, -1.0, 0.0),
+                (0.0, 0.0, 1.0),
+            ),
+            ((0, 1, 2), (1, 0, 3), (0, 1, 4)),
+            "non-manifold",
+        ),
+        (
+            (
+                (0.0, 0.0, 0.0),
+                (1.0, 0.0, 0.0),
+                (0.0, 1.0, 0.0),
+                (0.0, 1.0, 0.0),
+            ),
+            ((0, 1, 2), (0, 1, 3)),
+            "duplicate vertices",
+        ),
+        (
+            (
+                (0.0, 0.0, 0.0),
+                (1.0, 0.0, 0.0),
+                (0.0, 1.0, 0.0),
+                (2.0, 2.0, 2.0),
+            ),
+            ((0, 1, 2),),
+            "Every surface vertex",
+        ),
+    ],
+)
+def test_triangulated_surface_rejects_invalid_geometry(vertices, triangles, message):
+    with pytest.raises(ValueError, match=message):
+        boundary_models.triangulated_rigid_surface(
+            vertices=vertices,
+            triangles=triangles,
+        )
+
+
+def test_triangulated_surface_rejects_invalid_facet_identity():
+    with pytest.raises(ValueError, match="unique non-negative"):
+        _square_triangle_surface(facet_ids=(7, 7))
+
+    with pytest.raises(ValueError, match="must be integers"):
+        _square_triangle_surface(facet_ids=(7.5, 8.0))

@@ -18,8 +18,10 @@ from .rigid import (
     RigidPlaneSurface,
     RigidSurface,
     SurfaceProjection,
+    TriangulatedRigidSurface,
     prescribed_rigid_motion,
     rigid_plane,
+    triangulated_rigid_surface,
 )
 from .thermal import ConvectionBoundary, convection
 
@@ -31,6 +33,7 @@ __all__ = [
     "RigidSurface",
     "RigidObstaclePenaltyContact",
     "SurfaceProjection",
+    "TriangulatedRigidSurface",
     "absorbing",
     "convection",
     "elastic_foundation",
@@ -39,5 +42,6 @@ __all__ = [
     "rigid",
     "rigid_plane",
     "rigid_obstacle_contact",
+    "triangulated_rigid_surface",
     "thermal",
 ]

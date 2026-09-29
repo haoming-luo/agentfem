@@ -664,7 +664,11 @@ def rigid_obstacle_contact(
         raise ValueError("Contact initial_gap must be finite.")
     dimension = int(selected.domain.geometry.dim)
     if surface is not None and not isinstance(surface, RigidPlaneSurface):
-        raise TypeError("surface must be a RigidPlaneSurface.")
+        raise TypeError(
+            "The bounded rigid_obstacle_contact route currently lowers only "
+            "RigidPlaneSurface. Other RigidSurface assets may be inspected and "
+            "projected, but require the future search-based contact backend."
+        )
     if motion is not None and not isinstance(motion, PrescribedRigidMotion):
         raise TypeError("motion must be a PrescribedRigidMotion.")
     if motion is not None and surface is None:

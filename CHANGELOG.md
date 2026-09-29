@@ -19,6 +19,12 @@ experimental formulation to a validated one.
   optional entity identity. Analytical planes provide exact orthogonal
   projection under prescribed motion, and moving-contact results independently
   audit nonzero-reaction nodes through the same contract.
+- Add a reviewed three-dimensional oriented-triangle surface with stable facet
+  identity, geometry fingerprint, scale-aware degeneration checks, duplicate,
+  non-manifold and orientation rejection, prescribed rigid motion, bounded
+  closest-point queries, and explicit no-candidate/ambiguous statuses. Its
+  exhaustive projector is a reference oracle; general contact remains gated on
+  the parallel search backend.
 
 ### Fixed
 

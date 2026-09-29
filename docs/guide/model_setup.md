@@ -126,10 +126,32 @@ print(projection.signed_gaps)
 
 The returned contract keeps the query points, closest points, outward unit
 normals, signed gaps, validity flags, projection method and optional entity
-identities together. Positive gap is admissible and negative gap is
+identities together with the geometry fingerprint that gives those identities
+meaning. Positive gap is admissible and negative gap is
 penetration. Analytical planes use exact orthogonal projection; future
 tessellated search must use the same contract and report failed or ambiguous
 queries explicitly.
+
+For reviewed tool meshes, create a projection-only triangle surface with
+explicitly oriented connectivity and stable facet IDs:
+
+```python
+tool_mesh = boundary_models.triangulated_rigid_surface(
+    vertices=vertices,
+    triangles=triangles,
+    facet_ids=facet_ids,
+    name="reviewed_tool_mesh",
+)
+projection = tool_mesh.project(query_points, maximum_distance=search_radius)
+```
+
+Construction rejects duplicate/unreferenced vertices, degenerate or duplicate
+facets, non-manifold edges and inconsistent shared-edge orientation. The result
+preserves `no_candidate` and
+`ambiguous_projection` instead of choosing a facet silently. The built-in
+search checks every triangle and is the correctness reference for a future
+DOLFINx BVH adapter; `rigid_obstacle_contact(...)` does not yet accept this
+surface.
 
 Pass `checkpoint=checkpointing.every(...)` to `model.step(...)` when a long
 load path must be restartable. Only accepted load boundaries are published.
