@@ -56,6 +56,13 @@ def _assert_projection_equal(accelerated, reference):
         equal_nan=True,
         atol=1.0e-14,
     )
+    np.testing.assert_allclose(
+        accelerated.local_coordinates,
+        reference.local_coordinates,
+        equal_nan=True,
+        atol=1.0e-13,
+    )
+    assert accelerated.local_coordinate_system == reference.local_coordinate_system
     assert accelerated.geometry_fingerprint == reference.geometry_fingerprint
 
 
@@ -181,6 +188,30 @@ def test_triangle_bvh_supports_empty_query_batches():
     assert outcome.projection.all_valid
     assert outcome.diagnostics.query_count == 0
     assert outcome.diagnostics.summary()["mean_evaluated_facets"] == 0.0
+
+
+def test_triangle_local_coordinates_reconstruct_reviewed_closest_points():
+    surface = _grid_surface(4)
+    projection = boundary_models.triangle_surface_bvh(surface).project(
+        ((0.18, 0.37, 0.2), (0.75, 0.75, -0.1), (1.2, 0.5, 0.3))
+    )
+    id_to_local = {
+        int(facet_id): local
+        for local, facet_id in enumerate(surface.facet_ids.tolist())
+    }
+
+    for point_index, facet_id in enumerate(projection.entity_ids.tolist()):
+        local = id_to_local[facet_id]
+        triangle = surface.vertices[surface.triangles[local]]
+        weights = projection.local_coordinates[point_index]
+        np.testing.assert_allclose(np.sum(weights), 1.0, atol=1.0e-13)
+        np.testing.assert_allclose(
+            weights @ triangle,
+            projection.closest_points[point_index],
+            atol=1.0e-13,
+        )
+        assert np.min(weights) >= -1.0e-12
+        assert np.max(weights) <= 1.0 + 1.0e-12
 
 
 def test_triangle_bvh_rejects_unreviewed_geometry_type():

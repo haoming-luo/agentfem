@@ -132,6 +132,11 @@ penetration. Analytical planes use exact orthogonal projection; future
 tessellated search must use the same contract and report failed or ambiguous
 queries explicitly.
 
+For triangle surfaces, `projection.local_coordinates` contains barycentric
+weights in connectivity order. Together with the facet ID and geometry
+fingerprint, these weights provide the stable surface location needed by later
+finite-sliding state and restart. Invalid queries carry NaN weights.
+
 Common curved tools can use exact analytical projection without a search
 backend:
 

@@ -45,6 +45,7 @@ def test_plane_projection_preserves_signed_gap_and_closest_point_semantics():
         "geometry_fingerprint": surface.geometry_fingerprint,
         "signed_gap_convention": "positive_admissible_negative_penetration",
         "entity_identity": "not_applicable",
+        "local_coordinates": "not_applicable",
     }
 
 
@@ -182,6 +183,21 @@ def test_surface_projection_represents_failed_search_without_fake_geometry():
             status_codes=("ok",),
             method="invalid",
             entity_ids=(7,),
+        )
+
+    with pytest.raises(ValueError, match="require discrete entity identity"):
+        boundary_models.SurfaceProjection(
+            surface_name="broken",
+            surface_kind="test",
+            query_points=((0.0, 0.0, 0.0),),
+            closest_points=((0.0, 0.0, 0.0),),
+            normals=((0.0, 0.0, 1.0),),
+            signed_gaps=(0.0,),
+            valid=(True,),
+            status_codes=("ok",),
+            method="invalid",
+            local_coordinates=((1.0, 0.0, 0.0),),
+            local_coordinate_system="triangle_barycentric_connectivity_order",
         )
 
 
@@ -420,6 +436,15 @@ def test_triangulated_surface_projects_faces_and_shared_coplanar_edge():
         ((0.0, 0.0, 1.0),) * 3,
     )
     np.testing.assert_array_equal(projection.entity_ids, (20, 10, 10))
+    np.testing.assert_allclose(
+        projection.local_coordinates,
+        ((0.25, 0.5, 0.25), (0.25, 0.25, 0.5), (0.5, 0.5, 0.0)),
+    )
+    assert projection.local_coordinate_system == (
+        "triangle_barycentric_connectivity_order"
+    )
+    with pytest.raises(ValueError):
+        projection.local_coordinates[0, 0] = 0.0
     np.testing.assert_array_equal(projection.status_codes, ("ok", "ok", "ok"))
     assert projection.all_valid
 
@@ -446,6 +471,7 @@ def test_triangulated_surface_motion_and_search_radius_preserve_contract():
     assert absent.status_codes.tolist() == ["no_candidate"]
     assert absent.entity_ids.tolist() == [-1]
     assert np.isnan(absent.closest_points).all()
+    assert np.isnan(absent.local_coordinates).all()
 
 
 def test_triangulated_surface_reports_ambiguous_equidistant_projection():

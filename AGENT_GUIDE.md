@@ -415,8 +415,10 @@ never changes solver access, results, verification, or update behavior.
   force--translation/moment--rotation stations, never from penalty energy.
 - Treat a surface projection as evidence, not merely coordinates. Preserve its
   surface identity, method, admissible-side unit normal, signed-gap convention,
-  validity and discrete entity identity. Never turn a failed or ambiguous
-  closest-point query into an active contact silently.
+  validity, discrete entity identity, geometry fingerprint and local
+  coordinates. Never turn a failed or ambiguous closest-point query into an
+  active contact silently, and never reuse local coordinates with another
+  geometry fingerprint.
 - A `TriangulatedRigidSurface` can currently validate and project reviewed 3D
   triangle geometry. Do not claim that this makes STL/STEP contact executable:
   the present contact Operator still accepts only `RigidPlaneSurface` until a

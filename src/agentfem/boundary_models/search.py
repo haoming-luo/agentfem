@@ -23,6 +23,7 @@ from .rigid import (
     _finite_nonnegative,
     _projection_query,
     _readonly_array,
+    _triangle_barycentric_coordinates,
 )
 
 
@@ -206,6 +207,7 @@ class TriangleSurfaceBVH:
         np.ndarray,
         np.ndarray,
         np.ndarray,
+        np.ndarray,
         tuple[int, ...],
         tuple[int, ...],
     ]:
@@ -216,6 +218,7 @@ class TriangleSurfaceBVH:
         valid = np.zeros(count, dtype=bool)
         statuses = np.full(count, "no_candidate", dtype="<U20")
         entity_ids = np.full(count, -1, dtype=np.int64)
+        local_coordinates = np.full((count, 3), np.nan, dtype=float)
         visited_counts: list[int] = []
         evaluated_counts: list[int] = []
         maximum_squared = (
@@ -309,6 +312,10 @@ class TriangleSurfaceBVH:
             valid[point_index] = True
             statuses[point_index] = "ok"
             entity_ids[point_index] = int(facet_ids[selected_facet])
+            local_coordinates[point_index] = _triangle_barycentric_coordinates(
+                selected_point,
+                self._triangle_points[selected_facet],
+            )
 
         return (
             closest,
@@ -317,6 +324,7 @@ class TriangleSurfaceBVH:
             valid,
             statuses,
             entity_ids,
+            local_coordinates,
             tuple(visited_counts),
             tuple(evaluated_counts),
         )
@@ -357,6 +365,7 @@ class TriangleSurfaceBVH:
             valid,
             statuses,
             entity_ids,
+            local_coordinates,
             visited,
             evaluated,
         ) = self._project_reference(query_reference, maximum_distance)
@@ -377,6 +386,8 @@ class TriangleSurfaceBVH:
             method="aabb_bvh_exact_triangle_projection",
             entity_ids=entity_ids,
             geometry_fingerprint=self.surface.geometry_fingerprint,
+            local_coordinates=local_coordinates,
+            local_coordinate_system="triangle_barycentric_connectivity_order",
         )
         diagnostics = TriangleSearchDiagnostics(
             geometry_fingerprint=self.surface.geometry_fingerprint,

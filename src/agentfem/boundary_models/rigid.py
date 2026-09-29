@@ -63,7 +63,9 @@ class SurfaceProjection:
     penetration.  ``valid`` is explicit so a future tessellated or trimmed
     surface cannot silently return a plausible point when projection failed.
     Entity identifiers are optional for analytical surfaces and required by a
-    discrete search backend that needs stable facet identity.
+    discrete search backend that needs stable facet identity. Optional local
+    coordinates are meaningful only together with that entity identity and its
+    geometry fingerprint.
     """
 
     surface_name: str
@@ -77,6 +79,8 @@ class SurfaceProjection:
     method: str
     entity_ids: object | None = None
     geometry_fingerprint: str | None = None
+    local_coordinates: object | None = None
+    local_coordinate_system: str | None = None
 
     def __post_init__(self) -> None:
         if not str(self.surface_name).strip():
@@ -155,6 +159,39 @@ class SurfaceProjection:
             raise ValueError(
                 "Discrete surface entity IDs require a geometry fingerprint."
             )
+        local_coordinates = None
+        local_system = self.local_coordinate_system
+        if self.local_coordinates is None:
+            if local_system is not None:
+                raise ValueError(
+                    "A local coordinate system requires local-coordinate values."
+                )
+        else:
+            if entity_ids is None:
+                raise ValueError(
+                    "Surface local coordinates require discrete entity identity."
+                )
+            if local_system is None or not str(local_system).strip():
+                raise ValueError(
+                    "Surface local coordinates require a named coordinate system."
+                )
+            local_coordinates = np.asarray(self.local_coordinates, dtype=float)
+            if (
+                local_coordinates.ndim != 2
+                or local_coordinates.shape[0] != count
+                or local_coordinates.shape[1] < 1
+            ):
+                raise ValueError(
+                    "Surface local coordinates must have shape "
+                    "(point_count, coordinate_count)."
+                )
+            if np.any(valid) and not np.all(np.isfinite(local_coordinates[valid])):
+                raise ValueError("Valid surface local coordinates must be finite.")
+            if np.any(~valid) and not np.all(np.isnan(local_coordinates[~valid])):
+                raise ValueError(
+                    "Invalid surface projections must use NaN local coordinates."
+                )
+            local_system = str(local_system)
 
         object.__setattr__(self, "surface_name", str(self.surface_name))
         object.__setattr__(self, "surface_kind", str(self.surface_kind))
@@ -175,6 +212,14 @@ class SurfaceProjection:
             None if entity_ids is None else _readonly_array(entity_ids, dtype=np.int64),
         )
         object.__setattr__(self, "geometry_fingerprint", fingerprint)
+        object.__setattr__(
+            self,
+            "local_coordinates",
+            None
+            if local_coordinates is None
+            else _readonly_array(local_coordinates),
+        )
+        object.__setattr__(self, "local_coordinate_system", local_system)
 
     @property
     def dimension(self) -> int:
@@ -208,6 +253,11 @@ class SurfaceProjection:
             "signed_gap_convention": "positive_admissible_negative_penetration",
             "entity_identity": (
                 "not_applicable" if self.entity_ids is None else "provided"
+            ),
+            "local_coordinates": (
+                "not_applicable"
+                if self.local_coordinates is None
+                else self.local_coordinate_system
             ),
         }
 
@@ -852,6 +902,28 @@ def _closest_point_on_triangle(
     return first + edge_ab * coordinate_b + edge_ac * coordinate_c
 
 
+def _triangle_barycentric_coordinates(
+    point: np.ndarray,
+    triangle: np.ndarray,
+) -> np.ndarray:
+    """Return weights for ``point`` in one reviewed non-degenerate triangle."""
+
+    first, second, third = triangle
+    edge_ab = second - first
+    edge_ac = third - first
+    offset = point - first
+    d00 = float(np.dot(edge_ab, edge_ab))
+    d01 = float(np.dot(edge_ab, edge_ac))
+    d11 = float(np.dot(edge_ac, edge_ac))
+    d20 = float(np.dot(offset, edge_ab))
+    d21 = float(np.dot(offset, edge_ac))
+    denominator = d00 * d11 - d01 * d01
+    coordinate_b = (d11 * d20 - d01 * d21) / denominator
+    coordinate_c = (d00 * d21 - d01 * d20) / denominator
+    coordinate_a = 1.0 - coordinate_b - coordinate_c
+    return np.asarray((coordinate_a, coordinate_b, coordinate_c), dtype=float)
+
+
 @dataclass(frozen=True, eq=False)
 class TriangulatedRigidSurface(RigidSurface):
     """Reviewed three-dimensional oriented triangle surface.
@@ -1064,7 +1136,15 @@ class TriangulatedRigidSurface(RigidSurface):
         self,
         query: np.ndarray,
         maximum_distance: float | None,
-    ) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+    ) -> tuple[
+        np.ndarray,
+        np.ndarray,
+        np.ndarray,
+        np.ndarray,
+        np.ndarray,
+        np.ndarray,
+        np.ndarray,
+    ]:
         count = int(query.shape[0])
         closest = np.full((count, 3), np.nan, dtype=float)
         normals = np.full((count, 3), np.nan, dtype=float)
@@ -1072,6 +1152,7 @@ class TriangulatedRigidSurface(RigidSurface):
         valid = np.zeros(count, dtype=bool)
         statuses = np.full(count, "no_candidate", dtype="<U20")
         entity_ids = np.full(count, -1, dtype=np.int64)
+        local_coordinates = np.full((count, 3), np.nan, dtype=float)
         maximum_squared = (
             float("inf")
             if maximum_distance is None
@@ -1121,7 +1202,19 @@ class TriangulatedRigidSurface(RigidSurface):
             valid[point_index] = True
             statuses[point_index] = "ok"
             entity_ids[point_index] = int(self.facet_ids[selected])
-        return closest, normals, gaps, valid, statuses, entity_ids
+            local_coordinates[point_index] = _triangle_barycentric_coordinates(
+                candidates[selected],
+                triangle_points[selected],
+            )
+        return (
+            closest,
+            normals,
+            gaps,
+            valid,
+            statuses,
+            entity_ids,
+            local_coordinates,
+        )
 
     def project(
         self,
@@ -1155,7 +1248,7 @@ class TriangulatedRigidSurface(RigidSurface):
             translated_reference = np.asarray(state["reference_point"], dtype=float)
             query_reference = reference + (query - translated_reference) @ rotation
 
-        closest, normals, gaps, valid, statuses, entity_ids = (
+        closest, normals, gaps, valid, statuses, entity_ids, local_coordinates = (
             self._reference_projection(query_reference, maximum_distance)
         )
         if motion is not None:
@@ -1176,6 +1269,8 @@ class TriangulatedRigidSurface(RigidSurface):
             method="exhaustive_triangle_closest_point_reference",
             entity_ids=entity_ids,
             geometry_fingerprint=self.geometry_fingerprint,
+            local_coordinates=local_coordinates,
+            local_coordinate_system="triangle_barycentric_connectivity_order",
         )
 
     def summary(self) -> dict[str, object]:
