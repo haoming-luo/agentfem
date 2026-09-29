@@ -270,9 +270,13 @@ _CORE_SOURCE_MPI_DRIVER_MAP = {
     ),
     "src/agentfem/checkpointing.py": (
         "cyclic-field-restart",
+        "global-cyclic-restart",
         "nonlinear-contact-restart",
     ),
-    "src/agentfem/fatigue_fracture.py": ("cyclic-field-restart",),
+    "src/agentfem/fatigue_fracture.py": (
+        "cyclic-field-restart",
+        "global-cyclic-restart",
+    ),
     "src/agentfem/results/_accepted_energy.py": (
         "nonlinear-contact-restart",
     ),
@@ -283,6 +287,7 @@ _CORE_SOURCE_MPI_DRIVER_MAP = {
         "nonlinear-contact-restart",
     ),
     "tests/portable_cyclic_field_driver.py": ("cyclic-field-restart",),
+    "tests/portable_global_cyclic_driver.py": ("global-cyclic-restart",),
 }
 _ML_PREFIXES = (
     "src/agentfem/learning",
