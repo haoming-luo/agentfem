@@ -16,6 +16,8 @@ from .mechanical import (
 from .rigid import (
     PrescribedRigidMotion,
     RigidPlaneSurface,
+    RigidSurface,
+    SurfaceProjection,
     prescribed_rigid_motion,
     rigid_plane,
 )
@@ -26,7 +28,9 @@ __all__ = [
     "ElasticFoundation",
     "PrescribedRigidMotion",
     "RigidPlaneSurface",
+    "RigidSurface",
     "RigidObstaclePenaltyContact",
+    "SurfaceProjection",
     "absorbing",
     "convection",
     "elastic_foundation",

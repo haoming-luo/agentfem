@@ -115,6 +115,15 @@ _CORE_SOURCE_TEST_MAP = {
         "tests/test_parallel_affine.py",
         "tests/test_rigid_obstacle_contact.py",
     ),
+    "src/agentfem/boundary_models/rigid.py": (
+        "tests/test_rigid_obstacle_contact.py",
+        "tests/test_rigid_surface_contract.py",
+    ),
+    "src/agentfem/boundary_models/__init__.py": (
+        "tests/test_engineering_workflows.py",
+        "tests/test_rigid_obstacle_contact.py",
+        "tests/test_rigid_surface_contract.py",
+    ),
     "src/agentfem/input_effects.py": (
         "tests/test_implicit_dynamics_lifecycle.py",
         "tests/test_time_inputs.py",
@@ -228,6 +237,12 @@ _CORE_SOURCE_MPI_TEST_MAP = {
     "src/agentfem/boundary_models/mechanical.py": (
         "tests/test_rigid_obstacle_contact.py",
     ),
+    "src/agentfem/boundary_models/rigid.py": (
+        "tests/test_rigid_obstacle_contact.py",
+    ),
+    "src/agentfem/boundary_models/__init__.py": (
+        "tests/test_rigid_obstacle_contact.py",
+    ),
     "src/agentfem/input_effects.py": ("tests/test_parallel_transient.py",),
     "src/agentfem/time/": ("tests/test_parallel_transient.py",),
     "src/agentfem/constitutive/material_driver.py": (
@@ -272,6 +287,12 @@ _CORE_SOURCE_MPI_DRIVER_MAP = {
     "src/agentfem/_nonlinear_problems.py": ("nonlinear-contact-restart",),
     "src/agentfem/_step_builders_contact.py": ("nonlinear-contact-restart",),
     "src/agentfem/boundary_models/mechanical.py": (
+        "nonlinear-contact-restart",
+    ),
+    "src/agentfem/boundary_models/rigid.py": (
+        "nonlinear-contact-restart",
+    ),
+    "src/agentfem/boundary_models/__init__.py": (
         "nonlinear-contact-restart",
     ),
     "src/agentfem/checkpointing.py": (

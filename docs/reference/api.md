@@ -697,6 +697,8 @@ and evidence remain in the linked guides and scientific function reference.
 | function | `rigid_obstacle_contact(*, on = None, location = None, penalty, normal = None, initial_gap = 0.0, surface: RigidPlaneSurface \| None = None, motion: PrescribedRigidMotion \| None = None, name: str = 'rigid_obstacle_contact') -> RigidObstaclePenaltyContact` | Create conservative frictionless contact with one analytical plane. |
 | class | `PrescribedRigidMotion` | Normalized prescribed rigid-body translation and rotation. |
 | class | `RigidPlaneSurface` | Analytical rigid plane with one explicit point and unit normal. |
+| class | `RigidSurface` | Solver-neutral contract for auditable rigid-surface projection. |
+| class | `SurfaceProjection` | Immutable closest-point evidence produced by one rigid surface. |
 | function | `prescribed_rigid_motion(*, translation, rotation = 0.0, reference_point = None, name: str = 'prescribed_rigid_motion') -> PrescribedRigidMotion` | Describe one normalized proportional rigid translation and rotation. |
 | function | `rigid_plane(*, point, normal, name: str = 'rigid_plane') -> RigidPlaneSurface` | Describe one analytical rigid plane independently of a contact law. |
 | class | `ConvectionBoundary` | Linear convection ``-k grad(T).n = h (T - T_inf)``. |

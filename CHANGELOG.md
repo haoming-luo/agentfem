@@ -14,6 +14,11 @@ experimental formulation to a validated one.
   force and moment, integrates their accepted path work, closes that work
   against bulk plus contact stored energy, and restores moving geometry and
   work history from nonlinear checkpoints.
+- Add the solver-neutral rigid-surface projection contract with immutable query
+  points, closest points, outward normals, signed gaps, validity, method and
+  optional entity identity. Analytical planes provide exact orthogonal
+  projection under prescribed motion, and moving-contact results independently
+  audit nonzero-reaction nodes through the same contract.
 
 ### Fixed
 

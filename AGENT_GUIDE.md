@@ -413,6 +413,10 @@ never changes solver access, results, verification, or update behavior.
 - For contact, keep surface geometry, rigid-body kinematics, and enforcement
   law separate. Report tool work only from accepted generalized
   force--translation/moment--rotation stations, never from penalty energy.
+- Treat a surface projection as evidence, not merely coordinates. Preserve its
+  surface identity, method, outward unit normal, signed-gap convention,
+  validity and discrete entity identity. Never turn a failed or ambiguous
+  closest-point query into an active contact silently.
 - Do not hide the finite-element workflow inside overly broad abstractions.
 - Do not make concrete geometry helpers, such as circle/disk/box predicates,
   the core modeling concept. Treat them as selectors used to build named

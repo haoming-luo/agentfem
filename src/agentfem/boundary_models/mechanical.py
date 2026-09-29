@@ -449,6 +449,7 @@ class RigidObstaclePenaltyContact:
         generalized_force = resultant
         generalized_coordinate = np.zeros_like(resultant)
         contact_moment = None
+        projection_diagnostics = None
         if rigid_state is not None:
             function_space = solution.function_space
             block_size = int(function_space.dofmap.index_map_bs)
@@ -467,6 +468,56 @@ class RigidObstaclePenaltyContact:
             ).reshape((-1, components))
             force_values = values.reshape((-1, components))
             current_positions = coordinates + displacement_values
+            force_norms = np.linalg.norm(force_values, axis=1)
+            global_force_scale = max(
+                float(
+                    comm.allreduce(
+                        float(np.max(force_norms)) if force_norms.size else 0.0,
+                        op=MPI.MAX,
+                    )
+                ),
+                1.0,
+            )
+            active = force_norms > 256.0 * np.finfo(float).eps * global_force_scale
+            projection = self.surface.project(
+                current_positions[active],
+                motion=self.motion,
+                factor=rigid_state["factor"],
+            )
+            local_count = projection.point_count
+            local_invalid = int(np.count_nonzero(~projection.valid))
+            global_count = int(comm.allreduce(local_count, op=MPI.SUM))
+            global_invalid = int(comm.allreduce(local_invalid, op=MPI.SUM))
+            local_minimum = (
+                float(np.min(projection.signed_gaps))
+                if local_count
+                else float("inf")
+            )
+            local_maximum = (
+                float(np.max(projection.signed_gaps))
+                if local_count
+                else float("-inf")
+            )
+            projection_diagnostics = {
+                "method": projection.method,
+                "sample": "nonzero_reaction_nodes",
+                "point_count": global_count,
+                "invalid_count": global_invalid,
+                "all_valid": global_invalid == 0,
+                "signed_gap_convention": (
+                    "positive_admissible_negative_penetration"
+                ),
+                "minimum_signed_gap": (
+                    None
+                    if not global_count
+                    else float(comm.allreduce(local_minimum, op=MPI.MIN))
+                ),
+                "maximum_signed_gap": (
+                    None
+                    if not global_count
+                    else float(comm.allreduce(local_maximum, op=MPI.MAX))
+                ),
+            }
             arm = current_positions - np.asarray(
                 rigid_state["reference_point"], dtype=float
             )
@@ -524,6 +575,7 @@ class RigidObstaclePenaltyContact:
                         rigid_state["reference_point"], dtype=float
                     ).tolist(),
                     "contact_moment": contact_moment.tolist(),
+                    "surface_projection": projection_diagnostics,
                     "generalized_force_convention": (
                         "translation_resultant_then_rotation_moment"
                     ),
