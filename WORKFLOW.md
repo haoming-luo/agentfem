@@ -161,8 +161,10 @@ Package paths below are relative to `src/agentfem/`.
   negative-penetration signed gaps and explicit validity/status evidence. The
   plane, circle/sphere, and infinite-cylinder implementations are exact
   analytical projectors. The oriented-triangle implementation is a reviewed
-  exhaustive reference for future BVH adapters. Projection-only surfaces are
-  not silently lowered by the bounded plane-contact provider.
+  exhaustive reference. `boundary_models/search.py` adds a deterministic
+  process-local AABB/BVH broad phase whose exact leaves preserve the same
+  ambiguity and facet-identity contract. Projection-only surfaces are not
+  silently lowered by the bounded plane-contact provider.
 - Weak-form blocks: `forms.py`
 - Assembly: `assembly.py`
 - Operator families: `operators/`

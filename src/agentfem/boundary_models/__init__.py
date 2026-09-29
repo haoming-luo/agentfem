@@ -6,6 +6,7 @@
 from . import absorbing
 from . import mechanical
 from . import rigid
+from . import search
 from . import thermal
 from .mechanical import (
     ElasticFoundation,
@@ -27,6 +28,12 @@ from .rigid import (
     rigid_sphere,
     triangulated_rigid_surface,
 )
+from .search import (
+    TriangleSearchDiagnostics,
+    TriangleSearchOutcome,
+    TriangleSurfaceBVH,
+    triangle_surface_bvh,
+)
 from .thermal import ConvectionBoundary, convection
 
 __all__ = [
@@ -40,6 +47,9 @@ __all__ = [
     "RigidObstaclePenaltyContact",
     "SurfaceProjection",
     "TriangulatedRigidSurface",
+    "TriangleSearchDiagnostics",
+    "TriangleSearchOutcome",
+    "TriangleSurfaceBVH",
     "absorbing",
     "convection",
     "elastic_foundation",
@@ -50,6 +60,8 @@ __all__ = [
     "rigid_plane",
     "rigid_sphere",
     "rigid_obstacle_contact",
+    "search",
+    "triangle_surface_bvh",
     "triangulated_rigid_surface",
     "thermal",
 ]

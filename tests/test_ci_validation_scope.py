@@ -192,8 +192,10 @@ def test_rigid_surface_owner_selects_contact_evidence_without_release_replay():
     scope = classify_changes(
         [
             "src/agentfem/boundary_models/rigid.py",
+            "src/agentfem/boundary_models/search.py",
             "src/agentfem/boundary_models/__init__.py",
             "tests/test_rigid_surface_contract.py",
+            "tests/test_rigid_surface_search.py",
         ]
     )
 
@@ -202,6 +204,7 @@ def test_rigid_surface_owner_selects_contact_evidence_without_release_replay():
         "tests/test_engineering_workflows.py",
         "tests/test_rigid_obstacle_contact.py",
         "tests/test_rigid_surface_contract.py",
+        "tests/test_rigid_surface_search.py",
     )
     assert scope.mpi_tests == ("tests/test_rigid_obstacle_contact.py",)
     assert scope.mpi_drivers == ("nonlinear-contact-restart",)

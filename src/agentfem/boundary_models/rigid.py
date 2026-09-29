@@ -1048,6 +1048,18 @@ class TriangulatedRigidSurface(RigidSurface):
     def geometry_fingerprint(self) -> str:
         return self._geometry_fingerprint
 
+    @property
+    def scale(self) -> float:
+        """Return the reviewed bounding-box diagonal used by tolerances."""
+
+        return self._scale
+
+    @property
+    def facet_normals(self) -> np.ndarray:
+        """Return immutable unit normals in local triangle order."""
+
+        return self._facet_normals
+
     def _reference_projection(
         self,
         query: np.ndarray,

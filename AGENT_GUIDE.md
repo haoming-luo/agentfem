@@ -421,6 +421,10 @@ never changes solver access, results, verification, or update behavior.
   triangle geometry. Do not claim that this makes STL/STEP contact executable:
   the present contact Operator still accepts only `RigidPlaneSurface` until a
   search-based backend passes serial, MPI, sliding and restart gates.
+- `triangle_surface_bvh(surface)` accelerates a reviewed triangle surface while
+  preserving its exact narrow phase and ambiguity semantics. Inspect its
+  diagnostics when performance matters. It is currently replicated and
+  process-local; never describe it as distributed contact search.
 - `RigidSphereSurface` and `RigidCylinderSurface` provide exact analytical
   projection. The sphere also represents a 2D circle; the cylinder is 3D and
   infinite. Keep their interior/exterior admissible side explicit, preserve

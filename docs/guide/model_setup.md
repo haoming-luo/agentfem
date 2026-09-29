@@ -176,6 +176,23 @@ search checks every triangle and is the correctness reference for a future
 DOLFINx BVH adapter; `rigid_obstacle_contact(...)` does not yet accept this
 surface.
 
+For repeated queries, build the deterministic broad phase once:
+
+```python
+search = boundary_models.triangle_surface_bvh(tool_mesh)
+outcome = search.project_with_diagnostics(
+    query_points,
+    maximum_distance=search_radius,
+)
+projection = outcome.projection
+print(outcome.diagnostics.summary())
+```
+
+The AABB/BVH tree prunes distant facets, but every surviving leaf uses the
+same exact closest-triangle kernel as the exhaustive reference. Equal-distance
+candidates remain visible to the ambiguity check. The current search is
+replicated and process-local, not a distributed contact-search claim.
+
 Pass `checkpoint=checkpointing.every(...)` to `model.step(...)` when a long
 load path must be restartable. Only accepted load boundaries are published.
 The portable checkpoint keeps the displacement, increment/cutback ledger,

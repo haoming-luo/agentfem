@@ -31,6 +31,10 @@ experimental formulation to a validated one.
   infinite-axis representations share one stable geometry fingerprint. These
   assets remain projection-only until their contact lowering is independently
   promoted.
+- Add a deterministic process-local AABB/BVH broad phase for reviewed triangle
+  surfaces. It preserves the exhaustive oracle's exact closest points,
+  equidistant ambiguity and stable facet identity while reporting visited-node
+  and exact-facet work counts. Distributed ownership remains a later gate.
 
 ### Fixed
 

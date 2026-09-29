@@ -393,6 +393,15 @@ geometry fingerprint; and distinguishes `no_candidate` from
 `ambiguous_projection`. Its built-in exhaustive closest-point search is a
 correctness oracle for accelerated backends, not an industrial search path.
 It is not yet accepted by the bounded plane-contact Operator.
+
+`triangle_surface_bvh(...)` builds a deterministic, process-local AABB tree
+over that reviewed surface. The tree changes only broad-phase candidate
+discovery: its leaves call the same exact triangle kernel, retain every
+equidistant candidate needed by `ambiguous_projection`, and return the same
+`SurfaceProjection` contract. Optional diagnostics record visited tree nodes
+and exact facet evaluations per query. The current tree is replicated on each
+MPI process; it does not yet claim distributed facet ownership or ghost
+exchange.
 Two-dimensional rotation is one counter-clockwise angle; three-dimensional
 rotation is an axis-angle vector. A normalized Procedure coordinate scales the
 declared end translation and rotation. The contact Operator owns gap, penalty
