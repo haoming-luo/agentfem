@@ -3,6 +3,7 @@ from pathlib import Path
 import pytest
 
 from ci_validation_scope import (
+    _CORE_SOURCE_MPI_DRIVER_MAP,
     _CORE_SOURCE_MPI_TEST_MAP,
     _CORE_SOURCE_TEST_MAP,
     _SOURCE_TEST_MAP,
@@ -153,6 +154,31 @@ def test_every_declared_owner_test_exists_in_the_repository():
     missing = tuple(path for path in sorted(selected) if not Path(path).is_file())
 
     assert missing == ()
+
+
+def test_contact_checkpoint_owner_selects_cross_rank_restart_driver():
+    scope = classify_changes(
+        [
+            "src/agentfem/_nonlinear_problems.py",
+            "src/agentfem/results/_accepted_energy.py",
+        ]
+    )
+
+    assert scope.level == "core"
+    assert scope.mpi_drivers == ("nonlinear-contact-restart",)
+
+
+def test_declared_mpi_drivers_are_known_to_the_workflow():
+    declared = {
+        driver
+        for drivers in _CORE_SOURCE_MPI_DRIVER_MAP.values()
+        for driver in drivers
+    }
+
+    workflow = Path(".github/workflows/test.yml").read_text(encoding="utf-8")
+
+    assert declared == {"nonlinear-contact-restart"}
+    assert all(f"{driver})" in workflow for driver in declared)
 
 
 @pytest.mark.parametrize("level", ("docs", "targeted", "core", "release"))
