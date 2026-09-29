@@ -1,0 +1,22 @@
+# SPDX-FileCopyrightText: 2026 Haoming Luo and AgentFEM contributors
+# SPDX-License-Identifier: Apache-2.0
+
+[build-system]
+requires = ["setuptools>=77", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "agentfem-reference-material"
+version = "0.1.0"
+description = "Reference external material extension for AgentFEM provider acceptance."
+readme = "README.md"
+requires-python = ">=3.11"
+license = "Apache-2.0"
+dependencies = ["agentfem>=0.3.8.dev0"]
+
+[project.entry-points."agentfem.extensions"]
+agentfem-reference-material = "agentfem_reference_material:extension"
+
+[tool.setuptools]
+package-dir = { "" = "src" }
+packages = ["agentfem_reference_material"]

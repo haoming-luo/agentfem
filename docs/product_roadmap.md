@@ -76,6 +76,17 @@ Every gate must preserve the stable Model, Operator, Procedure, State, Backend,
 and Result/Verification ownership inventory. Passing only unit tests or adding
 new public names is not sufficient evidence for promotion.
 
+Gate 6 now has an executable installed-wheel acceptance path. The reference
+extension is built as a separate distribution, discovered lazily through the
+standard entry-point group, and activated only by an ordinary project's
+declared dependency. `extension_gate.py` installs the candidate core and
+extension wheels into an isolated environment, executes the same Model →
+Procedure → Result/Verification lifecycle used by users, retains the provider
+identity in the result, verifies the sealed manifest, and proves by before/after
+hash that the installed AgentFEM package was not patched. The reference material
+is intentionally only an acceptance fixture; new scientific behavior remains
+owned by companion or third-party packages.
+
 The first two executable slices of gate 3 are now present: built-in and custom
 time inputs retain typed RHS/operator/state/output effects, linear implicit
 dynamics uses those effects to select safe operator reuse or refresh, and
