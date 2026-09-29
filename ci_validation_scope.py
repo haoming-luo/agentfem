@@ -118,11 +118,17 @@ _CORE_SOURCE_TEST_MAP = {
     "src/agentfem/boundary_models/rigid.py": (
         "tests/test_rigid_obstacle_contact.py",
         "tests/test_rigid_surface_contract.py",
+        "tests/test_rigid_surface_search.py",
+    ),
+    "src/agentfem/boundary_models/search.py": (
+        "tests/test_rigid_surface_contract.py",
+        "tests/test_rigid_surface_search.py",
     ),
     "src/agentfem/boundary_models/__init__.py": (
         "tests/test_engineering_workflows.py",
         "tests/test_rigid_obstacle_contact.py",
         "tests/test_rigid_surface_contract.py",
+        "tests/test_rigid_surface_search.py",
     ),
     "src/agentfem/input_effects.py": (
         "tests/test_implicit_dynamics_lifecycle.py",
