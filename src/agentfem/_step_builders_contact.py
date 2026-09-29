@@ -19,6 +19,7 @@ def rigid_obstacle_contact(
     constraints=None,
     incrementation=None,
     solver_options=None,
+    checkpoint=None,
     progress=True,
     status_file=None,
     name: str = "rigid_obstacle_contact",
@@ -32,6 +33,7 @@ def rigid_obstacle_contact(
     from . import constraints as constraint_api
     from . import problems
     from .boundary_models import RigidObstaclePenaltyContact
+    from .checkpointing import _partition_neutral_identity
 
     model.check(target=target)
     if hasattr(model.study, "require"):
@@ -88,6 +90,24 @@ def rigid_obstacle_contact(
     if external is not None:
         residual -= load_factor * external.expression
     jacobian = ufl.derivative(residual, displacement, trial)
+    model_summary = model.summary()
+    checkpoint_identity = _partition_neutral_identity(
+        {
+            key: model_summary[key]
+            for key in (
+                "study",
+                "unit_system",
+                "mesh",
+                "fields",
+                "materials",
+                "eigenstrains",
+                "constraints",
+                "loads",
+                "boundary_models",
+                "regions",
+            )
+        }
+    )
 
     problem = problems.incremental_nonlinear(
         residual,
@@ -100,6 +120,8 @@ def rigid_obstacle_contact(
         constraints=selected_constraints,
         constraint_assets=(*concrete_constraints, contact),
         solver_options=solver_options,
+        checkpoint_policy=checkpoint,
+        checkpoint_identity=checkpoint_identity,
         progress=progress,
         status_file=status_file,
         name=name,

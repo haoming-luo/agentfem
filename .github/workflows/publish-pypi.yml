@@ -216,6 +216,10 @@ jobs:
           mpirun -n 2 python tests/portable_field_history_driver.py read /tmp/agentfem-portable-field-history-reverse.npz
           mpirun -n 2 python tests/portable_cohesive_checkpoint_driver.py write /tmp/agentfem-portable-cohesive
           python tests/portable_cohesive_checkpoint_driver.py read /tmp/agentfem-portable-cohesive
+          python tests/portable_nonlinear_contact_driver.py write /tmp/agentfem-portable-contact
+          mpirun -n 2 python tests/portable_nonlinear_contact_driver.py read /tmp/agentfem-portable-contact
+          mpirun -n 2 python tests/portable_nonlinear_contact_driver.py write /tmp/agentfem-portable-contact-reverse
+          python tests/portable_nonlinear_contact_driver.py read /tmp/agentfem-portable-contact-reverse
           mpirun -n 2 python tests/portable_mixed_cyclic_cohesive_driver.py write /tmp/agentfem-portable-mixed-cyclic
           python tests/portable_mixed_cyclic_cohesive_driver.py read /tmp/agentfem-portable-mixed-cyclic
           mpirun -n 2 python tests/portable_cohesive_checkpoint_driver.py reject-inconsistent /tmp/agentfem-inconsistent-cohesive
