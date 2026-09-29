@@ -373,6 +373,12 @@ the admissible half-space and negative gap denotes penetration. A discrete or
 trimmed surface must report failed projections explicitly; it may not return a
 plausible closest point and silently treat it as valid.
 
+Discrete projections may additionally carry local coordinates. Triangle
+surfaces use three barycentric weights in the reviewed connectivity order, so
+`weights @ facet_vertices` reconstructs the closest point. Local coordinates
+are bound to the facet ID and geometry fingerprint; invalid projections carry
+NaN coordinates rather than a reusable-looking location.
+
 The initial analytical plane route uses a point and outward unit normal. Its
 orthogonal projection is exact and therefore has no facet identity. The same
 geometry contract is used after solve to audit nonzero-reaction contact nodes;

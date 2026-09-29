@@ -35,6 +35,10 @@ experimental formulation to a validated one.
   surfaces. It preserves the exhaustive oracle's exact closest points,
   equidistant ambiguity and stable facet identity while reporting visited-node
   and exact-facet work counts. Distributed ownership remains a later gate.
+- Bind triangle closest points to stable facet IDs and geometry fingerprints
+  with immutable barycentric local coordinates. Invalid or ambiguous
+  projections publish NaN coordinates, preparing finite-sliding state and
+  restart without prematurely changing the contact Operator.
 
 ### Fixed
 
