@@ -8,6 +8,14 @@ experimental formulation to a validated one.
 
 ### Added
 
+- Add atomic, MPI-portable checkpoint/restart to the ordinary incremental
+  nonlinear Procedure and wire it through the bounded rigid-obstacle contact
+  Step. Accepted solution, load coordinate, fixed/automatic increment ledger,
+  next increment, execution events, and provider-dual force/coordinate history
+  now move as one accepted-state transaction. Scientific identity binds the
+  mesh/function space, loads, constraints, time-input plan, solver, and
+  incrementation controls; 1-to-2 and 2-to-1 rank restoration is exercised in
+  release CI.
 - Add the first bounded contact route: frictionless small-strain contact with
   one fixed rigid plane, a conservative one-sided penalty potential, exact
   residual/Jacobian ownership, provider-owned nodal reaction and global

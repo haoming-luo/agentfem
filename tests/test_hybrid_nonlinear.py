@@ -552,6 +552,63 @@ def test_injected_nonlinear_attempt_uses_standard_cutback_and_rollback():
     assert 99.0 not in solution.x.array
 
 
+def test_automatic_nonlinear_checkpoint_restores_next_increment(tmp_path):
+    def build_problem():
+        domain = dolfinx_mesh.create_unit_interval(MPI.COMM_SELF, 2)
+        space = fem.functionspace(domain, ("Lagrange", 1))
+        solution = fem.Function(space, name="Displacement")
+        factor = fem.Constant(domain, PETSc.ScalarType(0.0))
+
+        def solve_attempt():
+            solution.x.array[:] = float(factor.value)
+            solution.x.scatter_forward()
+            return solution, solvers.NonlinearSolveInfo(2, 1, 0.0)
+
+        problem = IncrementalNonlinearVariationalProblem(
+            residual_form=None,
+            solution=solution,
+            factor=factor,
+            value_path=_NoOpValuePath(),
+            bcs=[],
+            incrementation=steps.automatic(
+                initial=0.25,
+                minimum=0.125,
+                maximum=0.5,
+                growth_factor=1.5,
+            ),
+            progress=False,
+            name="automatic_restart_gate",
+            procedure=procedures.nonlinear_static(),
+            _attempt_solver=solve_attempt,
+            _attempt_backend="test_injected",
+        )
+        return problem, solution
+
+    continuous, continuous_solution = build_problem()
+    continuous.solve(until=0.5)
+    expected_next = continuous.next_increment_size
+    checkpoint = continuous.save_checkpoint(tmp_path / "automatic-nonlinear")
+    continuous.solve()
+    assert [item.load_factor for item in continuous.snapshots] == pytest.approx(
+        [0.0, 0.25, 0.5, 0.875, 1.0]
+    )
+
+    restarted, restarted_solution = build_problem()
+    restarted.load_checkpoint(checkpoint)
+    assert restarted.next_increment_size == pytest.approx(expected_next)
+    restarted.solve()
+
+    assert [item.load_factor for item in restarted.accepted_increments] == pytest.approx(
+        [item.load_factor for item in continuous.accepted_increments]
+    )
+    np.testing.assert_allclose(
+        restarted_solution.x.array,
+        continuous_solution.x.array,
+        rtol=0.0,
+        atol=0.0,
+    )
+
+
 def test_constraint_dual_history_excludes_failed_nonlinear_attempts():
     from agentfem import constraints
 

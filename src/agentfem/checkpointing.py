@@ -40,7 +40,7 @@ _ELEMENT_BOUND_TRANSIENT_CHECKPOINT_SCHEMA = "agentfem.transient-checkpoint.v4"
 
 @dataclass(frozen=True)
 class CheckpointPolicy:
-    """Automatic accepted-increment checkpoint cadence for transient steps."""
+    """Automatic checkpoint cadence at accepted procedure boundaries."""
 
     every: int
     directory: Path
@@ -97,7 +97,7 @@ def every(
     keep_last: int | None = None,
     portable: bool = False,
 ) -> CheckpointPolicy:
-    """Create an automatic checkpoint policy for accepted time increments."""
+    """Create an automatic policy for accepted time/load increments."""
 
     return CheckpointPolicy(
         every=increments,
@@ -370,7 +370,7 @@ def _harmonic_scientific_input_manifest(
         label="harmonic_sweep_inputs",
         require_nonempty=True,
     )
-    record = _partition_neutral_harmonic_record(manifest["record"])
+    record = _partition_neutral_identity(manifest["record"])
     selected = {
         **manifest,
         "record": record,
@@ -381,13 +381,15 @@ def _harmonic_scientific_input_manifest(
     return selected
 
 
-def _partition_neutral_harmonic_record(value):
-    if isinstance(value, list):
-        return [_partition_neutral_harmonic_record(item) for item in value]
+def _partition_neutral_identity(value):
+    """Remove declared rank-local observations from scientific identity data."""
+
+    if isinstance(value, (list, tuple)):
+        return [_partition_neutral_identity(item) for item in value]
     if not isinstance(value, dict):
         return value
     selected = {
-        str(name): _partition_neutral_harmonic_record(item)
+        str(name): _partition_neutral_identity(item)
         for name, item in value.items()
     }
     if selected.get("kind") == "boundary_region":

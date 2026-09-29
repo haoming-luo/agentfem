@@ -26,6 +26,8 @@ def from_incremental_nonlinear_step(
     """Build a result after an ordinary nonlinear load path has converged."""
 
     result = _base_nonlinear_result(step, solution, fields=fields)
+    for checkpoint in step.checkpoints:
+        result.add_checkpoint(checkpoint)
     _add_nonlinear_constraint_evidence(step, result)
     add_execution_trace(result, step.execution_events)
     return complete_result(

@@ -90,9 +90,12 @@ nodal dual distribution, resultant, penetration diagnostics, and contact
 energy in serial and under two MPI ranks. This is not general contact, and the
 ordinary nonlinear Procedure now preserves accepted-station provider duals,
 rejects cutback trials from the path ledger, and proves zero work for its fixed
-obstacle without double-counting contact energy. The gate remains open for
-atomic ordinary-nonlinear checkpoint/restart and for the declared weak/contact
-routes to close their complete force--work--energy contracts.
+obstacle without double-counting contact energy. That accepted path now has an
+atomic portable restart envelope covering the solution, increment ledger,
+events, and provider-dual history, with 1-to-2 and 2-to-1 MPI rank-count
+acceptance. The gate remains open for the declared weak/contact routes to close
+their complete force--work--energy contracts and for broader nonlinear
+formulations to adopt the same accepted-boundary lifecycle.
 
 ## What is usable today
 

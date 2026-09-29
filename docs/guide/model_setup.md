@@ -80,6 +80,14 @@ penetration norm, active contact measure, and conservative contact energy.
 The contact energy belongs to the system internal energy and is not counted a
 second time as external work.
 
+Pass `checkpoint=checkpointing.every(...)` to `model.step(...)` when a long
+load path must be restartable. Only accepted load boundaries are published.
+The portable checkpoint keeps the displacement, increment/cutback ledger,
+next automatic increment, execution events, and contact dual history together;
+restart rejects changed mesh/function-space identity, loads, constraints, time
+inputs, or nonlinear controls. The same accepted state can be resumed with a
+different compatible MPI partition or rank count.
+
 This route has no surface search, friction, moving obstacle, or
 deformable-to-deformable coupling. It rejects incompatible boundary providers
 and constraint types before assembly. The penalty has units of traction per

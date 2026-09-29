@@ -65,6 +65,37 @@ class NonlinearLoadIncrementInfo:
             "checks": dict(self.checks),
         }
 
+    @classmethod
+    def from_dict(cls, payload) -> "NonlinearLoadIncrementInfo":
+        """Restore one accepted/attempted increment from durable JSON data."""
+
+        if not isinstance(payload, dict):
+            raise TypeError("Nonlinear increment records must be mappings.")
+        residual = payload.get("residual_norm")
+        result = cls(
+            increment=int(payload["increment"]),
+            attempt=int(payload["attempt"]),
+            start_load_factor=float(payload["start_load_factor"]),
+            load_factor=float(payload["load_factor"]),
+            converged=bool(payload["converged"]),
+            iterations=int(payload["iterations"]),
+            residual_norm=float("nan") if residual is None else float(residual),
+            converged_reason=int(payload["converged_reason"]),
+            message=str(payload.get("message", "")),
+            checks=dict(payload.get("checks", {})),
+        )
+        finite_values = (result.start_load_factor, result.load_factor)
+        if (
+            result.increment <= 0
+            or result.attempt <= 0
+            or result.iterations < 0
+            or not all(np.isfinite(value) for value in finite_values)
+            or (residual is not None and not np.isfinite(result.residual_norm))
+            or result.load_factor <= result.start_load_factor
+        ):
+            raise ValueError("Invalid nonlinear increment checkpoint record.")
+        return result
+
 
 @dataclass(frozen=True)
 class NonlinearLoadPathInfo:
@@ -73,13 +104,15 @@ class NonlinearLoadPathInfo:
     increments: tuple[NonlinearLoadIncrementInfo, ...]
     attempts: tuple[NonlinearLoadIncrementInfo, ...]
     incrementation: object
+    target_load_factor: float = 1.0
 
     @property
     def converged(self) -> bool:
         return (
             bool(self.increments)
             and all(item.converged for item in self.increments)
-            and abs(self.increments[-1].load_factor - 1.0) <= 1.0e-12
+            and abs(self.increments[-1].load_factor - self.target_load_factor)
+            <= 1.0e-12
         )
 
     def as_dict(self) -> dict[str, object]:
@@ -88,6 +121,7 @@ class NonlinearLoadPathInfo:
             "converged": self.converged,
             "accepted_increment_count": len(self.increments),
             "attempt_count": len(self.attempts),
+            "target_load_factor": self.target_load_factor,
             "incrementation": self.incrementation.summary(),
             "increments": tuple(item.as_dict() for item in self.increments),
             "attempts": tuple(item.as_dict() for item in self.attempts),
@@ -125,11 +159,14 @@ class IncrementalNonlinearVariationalProblem:
     result_field_recovery: object | None = None
     result_field_role: str = "primary_subfield"
     snapshot_field_factory: object | None = None
+    checkpoint_policy: object | None = None
+    checkpoint_identity: object | None = None
     _attempt_solver: object | None = field(default=None, repr=False)
     _attempt_backend: str = field(default="assembled_ufl", repr=False)
     last_solve_info: NonlinearLoadPathInfo | None = field(default=None, init=False)
     snapshots: list = field(default_factory=list, init=False)
     execution_events: list = field(default_factory=list, init=False)
+    checkpoints: list = field(default_factory=list, init=False)
     accepted_load_factor: float = field(default=0.0, init=False)
     accepted_increments: list[NonlinearLoadIncrementInfo] = field(
         default_factory=list, init=False
@@ -137,10 +174,14 @@ class IncrementalNonlinearVariationalProblem:
     attempted_increments: list[NonlinearLoadIncrementInfo] = field(
         default_factory=list, init=False
     )
+    next_increment_size: float | None = field(default=None, init=False)
     constraint_dual_history: ConstraintDualHistory = field(
         default_factory=ConstraintDualHistory, init=False
     )
     _constraint_dual_state: str | None = field(default=None, init=False, repr=False)
+    _accepted_solution_values: np.ndarray | None = field(
+        default=None, init=False, repr=False
+    )
 
     def _capture_constraint_duals(self, load_factor: float) -> None:
         if not self.constraint_assets:
@@ -155,7 +196,9 @@ class IncrementalNonlinearVariationalProblem:
         if evidence:
             self.constraint_dual_history.append(load_factor, evidence)
 
-    def solve(self):
+    def solve(self, *, until: float = 1.0):
+        """Advance to one accepted load factor without discarding prior history."""
+
         from . import steps as step_controls
         from .diagnostics import (
             SolveEventRecorder,
@@ -164,6 +207,16 @@ class IncrementalNonlinearVariationalProblem:
             compose_reporters,
         )
 
+        selected_until = float(until)
+        if not np.isfinite(selected_until) or not 0.0 < selected_until <= 1.0:
+            raise ValueError(
+                "Incremental nonlinear solve until must be finite and in (0, 1]."
+            )
+        if selected_until <= self.accepted_load_factor + 1.0e-12:
+            raise ValueError(
+                "Incremental nonlinear solve until must exceed the currently "
+                "accepted load factor."
+            )
         if self.output_every is not None and self.output_every <= 0:
             raise ValueError("Incremental nonlinear output_every must be positive.")
         if self._attempt_solver is not None and not callable(self._attempt_solver):
@@ -176,8 +229,16 @@ class IncrementalNonlinearVariationalProblem:
             else selected_options
         )
         attempt_options = replace(snes_options, error_if_not_converged=False)
+        if isinstance(control, step_controls.FixedIncrementation) and not any(
+            abs(selected_until - factor) <= 1.0e-12 for factor in control.load_factors
+        ):
+            raise ValueError(
+                "A partial fixed-increment solve must stop at a prescribed load factor."
+            )
+        fresh = self.accepted_load_factor <= 1.0e-12 and not self.accepted_increments
         recorder = SolveEventRecorder(self.execution_events)
-        recorder.clear()
+        if fresh:
+            recorder.clear()
         if self.progress is True:
             reporter = compose_reporters(
                 recorder,
@@ -196,40 +257,65 @@ class IncrementalNonlinearVariationalProblem:
             if reporter is not None:
                 reporter.emit(event)
 
-        self.snapshots.clear()
-        self.accepted_load_factor = 0.0
-        self.accepted_increments.clear()
-        self.attempted_increments.clear()
-        self.constraint_dual_history.clear()
-        self.snapshots.append(
-            _load_snapshot(
-                0,
-                0.0,
-                self.solution,
-                field_factory=self.snapshot_field_factory,
+        if fresh:
+            self.snapshots.clear()
+            self.accepted_load_factor = 0.0
+            self.accepted_increments.clear()
+            self.attempted_increments.clear()
+            self.constraint_dual_history.clear()
+            self.next_increment_size = None
+            self._accepted_solution_values = self.solution.x.array.copy()
+        elif self._accepted_solution_values is None:
+            self._accepted_solution_values = self.solution.x.array.copy()
+        elif not np.allclose(
+            self.solution.x.array,
+            self._accepted_solution_values,
+            rtol=0.0,
+            atol=1.0e-12,
+        ):
+            raise RuntimeError(
+                "Incremental nonlinear continuation requires the current field "
+                "to equal the last accepted state."
             )
-        )
-        history: list[NonlinearLoadIncrementInfo] = []
-        attempts: list[NonlinearLoadIncrementInfo] = []
-        accepted_factor = 0.0
+        if (
+            not self.snapshots
+            or abs(
+                self.snapshots[-1].load_factor - self.accepted_load_factor
+            )
+            > 1.0e-12
+        ):
+            self.snapshots.append(
+                _load_snapshot(
+                    len(self.accepted_increments),
+                    self.accepted_load_factor,
+                    self.solution,
+                    field_factory=self.snapshot_field_factory,
+                )
+            )
+        history = list(self.accepted_increments)
+        attempts = list(self.attempted_increments)
+        accepted_factor = float(self.accepted_load_factor)
         total_attempts = 0
         cutbacks = 0
         proposed_size = (
-            control.initial
+            self.next_increment_size or control.initial
             if isinstance(control, step_controls.AutomaticIncrementation)
-            else control.load_factors[0]
+            else 0.0
         )
-        self._update_factor(0.0)
-        self._capture_constraint_duals(0.0)
+        self._update_factor(accepted_factor)
+        if fresh:
+            self._capture_constraint_duals(0.0)
         emit(
             SolveEvent(
-                "step_started",
+                "step_started" if fresh else "step_resumed",
                 self.name,
                 incrementation=control.summary()["kind"],
+                start_factor=accepted_factor,
+                target_factor=selected_until,
             )
         )
 
-        while accepted_factor < 1.0 - 1.0e-12:
+        while accepted_factor < selected_until - 1.0e-12:
             increment_number = len(history) + 1
             if isinstance(control, step_controls.AutomaticIncrementation):
                 if len(history) >= control.max_increments:
@@ -241,13 +327,16 @@ class IncrementalNonlinearVariationalProblem:
                         increment_number,
                         total_attempts,
                         accepted_factor,
-                        "maximum accepted increments reached before load factor 1.0",
+                        "maximum accepted increments reached before the requested "
+                        "load factor",
+                        target_load_factor=selected_until,
                     )
-                factor = min(1.0, accepted_factor + proposed_size)
+                factor = min(selected_until, accepted_factor + proposed_size)
             else:
                 factor = control.load_factors[len(history)]
             attempt_number = cutbacks + 1
             total_attempts += 1
+            attempt_event_count = len(self.execution_events)
             emit(
                 SolveEvent(
                     "increment_started",
@@ -295,6 +384,12 @@ class IncrementalNonlinearVariationalProblem:
                         )
                     )
             if converged:
+                dual_state_before = (
+                    self.constraint_dual_history.snapshot_runtime_state()
+                )
+                previous_next_increment = self.next_increment_size
+                snapshots_before = list(self.snapshots)
+                checkpoints_before = list(self.checkpoints)
                 try:
                     self._capture_constraint_duals(factor)
                 except (RuntimeError, TypeError, ValueError) as exc:
@@ -330,7 +425,7 @@ class IncrementalNonlinearVariationalProblem:
                 cutbacks = 0
                 if self.output_every is not None and (
                     len(history) % self.output_every == 0
-                    or abs(factor - 1.0) <= 1.0e-12
+                    or abs(factor - selected_until) <= 1.0e-12
                 ):
                     self.snapshots.append(
                         _load_snapshot(
@@ -358,6 +453,31 @@ class IncrementalNonlinearVariationalProblem:
                         accepted_size,
                         info.iterations,
                     )
+                    self.next_increment_size = proposed_size
+                else:
+                    self.next_increment_size = None
+                self._accepted_solution_values = self.solution.x.array.copy()
+                try:
+                    self._save_scheduled_checkpoint()
+                except BaseException:
+                    history.pop()
+                    attempts.pop()
+                    self.accepted_increments[:] = history
+                    self.attempted_increments[:] = attempts
+                    self.accepted_load_factor = info.start_load_factor
+                    accepted_factor = info.start_load_factor
+                    self.next_increment_size = previous_next_increment
+                    self.snapshots[:] = snapshots_before
+                    self.checkpoints[:] = checkpoints_before
+                    self.solution.x.array[:] = rollback
+                    self.solution.x.scatter_forward()
+                    self._accepted_solution_values = rollback.copy()
+                    self._update_factor(accepted_factor)
+                    self.constraint_dual_history.restore_runtime_state(
+                        dual_state_before
+                    )
+                    del self.execution_events[attempt_event_count:]
+                    raise
                 continue
 
             self.solution.x.array[:] = rollback
@@ -380,6 +500,7 @@ class IncrementalNonlinearVariationalProblem:
                     factor,
                     f"fixed increment failed at load factor {factor:.6g}",
                     info=info,
+                    target_load_factor=selected_until,
                 )
             cutbacks += 1
             next_size = control.after_failure(factor - accepted_factor)
@@ -394,8 +515,10 @@ class IncrementalNonlinearVariationalProblem:
                     factor,
                     "automatic increment exhausted its cutback policy",
                     info=info,
+                    target_load_factor=selected_until,
                 )
             proposed_size = max(control.minimum, next_size)
+            self.next_increment_size = proposed_size
             emit(
                 SolveEvent(
                     "increment_cutback",
@@ -411,7 +534,7 @@ class IncrementalNonlinearVariationalProblem:
             )
 
         self.last_solve_info = NonlinearLoadPathInfo(
-            tuple(history), tuple(attempts), control
+            tuple(history), tuple(attempts), control, selected_until
         )
         emit(
             SolveEvent(
@@ -419,10 +542,364 @@ class IncrementalNonlinearVariationalProblem:
                 self.name,
                 increment=len(history),
                 attempt=total_attempts,
-                target_factor=1.0,
+                target_factor=selected_until,
             )
         )
         return self.solution
+
+    def _checkpoint_scientific_identity(self) -> dict[str, object]:
+        """Return the partition-independent identity of the resumable path."""
+
+        from .checkpointing import function_portable_identity
+        from .input_effects import summary_of
+
+        update_identity = summary_of(self.update_load)
+        if not bool(update_identity["restart_identity_bound"]):
+            raise ValueError(
+                "Incremental nonlinear checkpointing requires an explicit "
+                "identity for every time/load update callback."
+            )
+        supplied = self.checkpoint_identity
+        if supplied is None:
+            supplied = {
+                "constraints": tuple(
+                    _describe_asset(item) for item in self.constraint_assets
+                ),
+            }
+        return {
+            "procedure": (
+                self.procedure.summary()
+                if hasattr(self.procedure, "summary")
+                else self.procedure
+            ),
+            "incrementation": self.incrementation.summary(),
+            "solver_options": (
+                self.solver_options.summary()
+                if hasattr(self.solver_options, "summary")
+                else self.solver_options
+            ),
+            "solution": function_portable_identity(self.solution),
+            "value_path": (
+                self.value_path.summary()
+                if hasattr(self.value_path, "summary")
+                else type(self.value_path).__name__
+            ),
+            "time_inputs": update_identity,
+            "scientific_inputs": supplied,
+        }
+
+    @staticmethod
+    def _checkpoint_manifest_path(path) -> Path:
+        selected = Path(path)
+        if selected.name.endswith(".checkpoint.json"):
+            return selected
+        if selected.suffix:
+            selected = selected.with_suffix("")
+        return selected.with_name(selected.name + ".checkpoint.json")
+
+    def _save_scheduled_checkpoint(self) -> None:
+        policy = self.checkpoint_policy
+        if policy is None:
+            return
+        increment = len(self.accepted_increments)
+        due = increment % int(policy.every) == 0
+        due = due or (bool(policy.final) and self.accepted_load_factor >= 1.0 - 1.0e-12)
+        if not due:
+            return
+        self.save_checkpoint(
+            policy.path(step_name=self.name, increment=increment),
+            portable=bool(policy.portable),
+        )
+        _prune_nonlinear_checkpoints(self)
+
+    def save_checkpoint(self, path, *, portable: bool | None = None) -> Path:
+        """Save one fully accepted ordinary nonlinear boundary atomically."""
+
+        del portable  # Ordinary nonlinear checkpoints are always portable.
+        from .checkpointing import atomic_write_text, save_portable_state_bundle
+        from .results import CheckpointRecord
+
+        comm = self.solution.function_space.mesh.comm
+        local_problem = None
+        if self._accepted_solution_values is None:
+            local_problem = "No accepted nonlinear state is available."
+        elif not np.allclose(
+            self.solution.x.array,
+            self._accepted_solution_values,
+            rtol=0.0,
+            atol=1.0e-12,
+        ):
+            local_problem = (
+                "Checkpointing is permitted only at a fully accepted nonlinear "
+                "boundary."
+            )
+        problems = comm.allgather(local_problem)
+        if any(problem is not None for problem in problems):
+            rank = next(
+                index for index, problem in enumerate(problems) if problem is not None
+            )
+            raise RuntimeError(f"Rank {rank}: {problems[rank]}")
+
+        identity = self._checkpoint_scientific_identity()
+        manifest = self._checkpoint_manifest_path(path)
+        bundle = save_portable_state_bundle(manifest, state={"U": self.solution})
+        payload = {
+            "schema": "agentfem.incremental-nonlinear-checkpoint.v1",
+            "identity": identity,
+            "coordinate_name": "load_factor",
+            "coordinate": self.accepted_load_factor,
+            "writer_rank_count": int(comm.size),
+            "portable": True,
+            "nodal_state": bundle["record"],
+            "nodal_identity": bundle["identities"],
+            "accepted_increments": [
+                item.as_dict() for item in self.accepted_increments
+            ],
+            "attempted_increments": [
+                item.as_dict() for item in self.attempted_increments
+            ],
+            "next_increment_size": self.next_increment_size,
+            "execution_events": [
+                item.as_dict() if hasattr(item, "as_dict") else dict(item)
+                for item in self.execution_events
+            ],
+            "constraint_dual_history": self.constraint_dual_history.checkpoint_state(),
+        }
+        error = None
+        if comm.rank == 0:
+            try:
+                atomic_write_text(
+                    manifest,
+                    json.dumps(payload, indent=2, sort_keys=True) + "\n",
+                )
+            except Exception as exc:  # pragma: no cover - filesystem failure
+                error = f"{type(exc).__name__}: {exc}"
+        error = comm.bcast(error, root=0)
+        if error is not None:
+            raise RuntimeError(
+                f"Incremental nonlinear checkpoint manifest write failed: {error}"
+            )
+        comm.barrier()
+        record = CheckpointRecord(
+            name=f"{self.name}_increment_{len(self.accepted_increments)}",
+            path=manifest,
+            schema=payload["schema"],
+            step_name=self.name,
+            coordinate_name="load_factor",
+            coordinate_value=self.accepted_load_factor,
+            portable=True,
+            metadata={
+                "accepted_increment_count": len(self.accepted_increments),
+                "writer_rank_count": int(comm.size),
+                "role": "accepted_state",
+            },
+        )
+        self.checkpoints[:] = [
+            item for item in self.checkpoints if item.path != manifest
+        ]
+        self.checkpoints.append(record)
+        return manifest
+
+    def load_checkpoint(self, path) -> None:
+        """Atomically restore solution, path ledger, events, and dual history."""
+
+        from .checkpointing import (
+            load_portable_state_bundle,
+            validate_checkpoint_record,
+        )
+        from .results import CheckpointRecord
+
+        manifest = self._checkpoint_manifest_path(path)
+        comm = self.solution.function_space.mesh.comm
+        envelope = None
+        if comm.rank == 0:
+            try:
+                envelope = {
+                    "payload": json.loads(manifest.read_text(encoding="utf-8")),
+                    "error": None,
+                }
+            except Exception as exc:
+                envelope = {
+                    "payload": None,
+                    "error": f"{type(exc).__name__}: {exc}",
+                }
+        envelope = comm.bcast(envelope, root=0)
+        if envelope["error"] is not None:
+            raise RuntimeError(
+                "Incremental nonlinear checkpoint manifest read failed: "
+                f"{envelope['error']}"
+            )
+        payload = envelope["payload"]
+        if payload.get("schema") != "agentfem.incremental-nonlinear-checkpoint.v1":
+            raise ValueError("Unsupported incremental nonlinear checkpoint schema.")
+        current_identity = json.loads(
+            json.dumps(self._checkpoint_scientific_identity(), sort_keys=True)
+        )
+        if payload.get("identity") != current_identity:
+            stored_identity = payload.get("identity")
+            differing = tuple(
+                sorted(
+                    key
+                    for key in set(current_identity)
+                    | set(stored_identity if isinstance(stored_identity, dict) else {})
+                    if not isinstance(stored_identity, dict)
+                    or current_identity.get(key) != stored_identity.get(key)
+                )
+            )
+            raise ValueError(
+                "Incremental nonlinear checkpoint mesh/function space, loads, "
+                "constraints, or solution controls differ from this analysis; "
+                f"identity sections={differing}."
+            )
+        validation_error = None
+        if comm.rank == 0:
+            try:
+                validate_checkpoint_record(manifest.parent, payload["nodal_state"])
+            except Exception as exc:
+                validation_error = f"{type(exc).__name__}: {exc}"
+        validation_error = comm.bcast(validation_error, root=0)
+        if validation_error is not None:
+            raise RuntimeError(
+                "Incremental nonlinear checkpoint payload validation failed: "
+                f"{validation_error}"
+            )
+
+        backup = {
+            "solution": self.solution.x.array.copy(),
+            "accepted_solution": (
+                None
+                if self._accepted_solution_values is None
+                else self._accepted_solution_values.copy()
+            ),
+            "accepted_load_factor": self.accepted_load_factor,
+            "accepted_increments": list(self.accepted_increments),
+            "attempted_increments": list(self.attempted_increments),
+            "next_increment_size": self.next_increment_size,
+            "execution_events": list(self.execution_events),
+            "last_solve_info": self.last_solve_info,
+            "snapshots": list(self.snapshots),
+            "checkpoints": list(self.checkpoints),
+            "constraint_dual_history": (
+                self.constraint_dual_history.snapshot_runtime_state()
+            ),
+        }
+        try:
+            load_portable_state_bundle(
+                manifest,
+                state={"U": self.solution},
+                record=payload["nodal_state"],
+                identities=payload["nodal_identity"],
+            )
+            accepted = [
+                NonlinearLoadIncrementInfo.from_dict(item)
+                for item in payload["accepted_increments"]
+            ]
+            attempted = [
+                NonlinearLoadIncrementInfo.from_dict(item)
+                for item in payload["attempted_increments"]
+            ]
+            coordinate = float(payload["coordinate"])
+            if (
+                not accepted
+                or abs(accepted[-1].load_factor - coordinate) > 1.0e-12
+                or not 0.0 < coordinate <= 1.0
+            ):
+                raise ValueError(
+                    "Incremental nonlinear checkpoint coordinate and accepted "
+                    "history disagree."
+                )
+            previous_factor = 0.0
+            for index, item in enumerate(accepted, start=1):
+                if (
+                    item.increment != index
+                    or not item.converged
+                    or abs(item.start_load_factor - previous_factor) > 1.0e-12
+                ):
+                    raise ValueError(
+                        "Incremental nonlinear checkpoint accepted history is "
+                        "not a contiguous converged path."
+                    )
+                previous_factor = item.load_factor
+            if (
+                not attempted
+                or attempted[-1].as_dict() != accepted[-1].as_dict()
+                or any(
+                    item.increment < 1 or item.increment > len(accepted)
+                    for item in attempted
+                )
+            ):
+                raise ValueError(
+                    "Incremental nonlinear checkpoint attempted and accepted "
+                    "histories disagree."
+                )
+            self.accepted_increments[:] = accepted
+            self.attempted_increments[:] = attempted
+            self.accepted_load_factor = coordinate
+            next_size = payload.get("next_increment_size")
+            self.next_increment_size = None if next_size is None else float(next_size)
+            if self.next_increment_size is not None and (
+                not np.isfinite(self.next_increment_size)
+                or self.next_increment_size <= 0.0
+            ):
+                raise ValueError("Invalid next increment size in checkpoint.")
+            self.execution_events[:] = [
+                SolveEvent.from_dict(item)
+                for item in payload.get("execution_events", ())
+            ]
+            self.constraint_dual_history.restore_checkpoint_state(
+                payload.get("constraint_dual_history"),
+                accepted_factor=coordinate,
+            )
+            if (
+                self.constraint_dual_history.records
+                and abs(
+                    self.constraint_dual_history.records[0]["load_factor"]
+                )
+                > 1.0e-12
+            ):
+                raise ValueError(
+                    "Constraint dual checkpoint history must begin at load factor zero."
+                )
+            self._accepted_solution_values = self.solution.x.array.copy()
+            self._update_factor(coordinate)
+            self.last_solve_info = NonlinearLoadPathInfo(
+                tuple(accepted), tuple(attempted), self.incrementation, coordinate
+            )
+            self.snapshots.clear()
+        except Exception:
+            self.solution.x.array[:] = backup["solution"]
+            self.solution.x.scatter_forward()
+            self._accepted_solution_values = backup["accepted_solution"]
+            self.accepted_load_factor = backup["accepted_load_factor"]
+            self.accepted_increments[:] = backup["accepted_increments"]
+            self.attempted_increments[:] = backup["attempted_increments"]
+            self.next_increment_size = backup["next_increment_size"]
+            self.execution_events[:] = backup["execution_events"]
+            self.last_solve_info = backup["last_solve_info"]
+            self.snapshots[:] = backup["snapshots"]
+            self.checkpoints[:] = backup["checkpoints"]
+            self.constraint_dual_history.restore_runtime_state(
+                backup["constraint_dual_history"]
+            )
+            self._update_factor(self.accepted_load_factor)
+            raise
+        self.checkpoints.append(
+            CheckpointRecord(
+                name=f"{self.name}_restart_{len(self.accepted_increments)}",
+                path=manifest,
+                schema=payload["schema"],
+                step_name=self.name,
+                coordinate_name="load_factor",
+                coordinate_value=self.accepted_load_factor,
+                portable=True,
+                metadata={
+                    "writer_rank_count": payload.get("writer_rank_count"),
+                    "reader_rank_count": int(comm.size),
+                    "restart_mode": "portable_coordinate_keyed_state",
+                    "role": "restart_source",
+                },
+            )
+        )
 
     def _update_factor(self, factor: float) -> None:
         self.factor.value = PETSc.ScalarType(factor)
@@ -442,9 +919,10 @@ class IncrementalNonlinearVariationalProblem:
         message,
         *,
         info=None,
+        target_load_factor=1.0,
     ) -> None:
         self.last_solve_info = NonlinearLoadPathInfo(
-            tuple(history), tuple(attempts), control
+            tuple(history), tuple(attempts), control, target_load_factor
         )
         emit(
             SolveEvent(
@@ -474,7 +952,11 @@ class IncrementalNonlinearVariationalProblem:
         from .results.performance import attach_performance
 
         started = perf_counter()
-        solution = self.solve()
+        solution = (
+            self.solution
+            if self.accepted_load_factor >= 1.0 - 1.0e-12
+            else self.solve()
+        )
         solve_seconds = perf_counter() - started
         result_started = perf_counter()
         result = from_incremental_nonlinear_step(
@@ -514,9 +996,14 @@ class IncrementalNonlinearVariationalProblem:
             "accepted_load_factor": self.accepted_load_factor,
             "accepted_increment_count": len(self.accepted_increments),
             "attempted_increment_count": len(self.attempted_increments),
-            "constraint_dual_sample_count": len(
-                self.constraint_dual_history.records
+            "next_increment_size": self.next_increment_size,
+            "constraint_dual_sample_count": len(self.constraint_dual_history.records),
+            "checkpoint_policy": (
+                None
+                if self.checkpoint_policy is None
+                else self.checkpoint_policy.summary()
             ),
+            "checkpoint_count": len(self.checkpoints),
             "primary_result_fields": (
                 None
                 if self.result_field_factory is None
@@ -1373,7 +1860,39 @@ def _prune_affine_checkpoints(step) -> None:
     obsolete = scheduled[: -int(keep_last)]
     comm = step.solution.function_space.mesh.comm
     for record in obsolete:
-        remove_stateful_checkpoint(record.path, comm=comm)
+        remove_stateful_checkpoint(
+            record.path,
+            comm=comm,
+            expected_schema="agentfem.incremental-nonlinear-checkpoint.v1",
+        )
+    removed = {id(record) for record in obsolete}
+    step.checkpoints[:] = [
+        record for record in step.checkpoints if id(record) not in removed
+    ]
+
+
+def _prune_nonlinear_checkpoints(step) -> None:
+    """Apply retention to portable ordinary nonlinear checkpoints."""
+
+    policy = getattr(step, "checkpoint_policy", None)
+    keep_last = None if policy is None else getattr(policy, "keep_last", None)
+    scheduled = [
+        record
+        for record in step.checkpoints
+        if record.metadata.get("role") != "restart_source"
+    ]
+    if keep_last is None or len(scheduled) <= int(keep_last):
+        return
+    from .checkpointing import remove_stateful_checkpoint
+
+    obsolete = scheduled[: -int(keep_last)]
+    comm = step.solution.function_space.mesh.comm
+    for record in obsolete:
+        remove_stateful_checkpoint(
+            record.path,
+            comm=comm,
+            expected_schema="agentfem.incremental-nonlinear-checkpoint.v1",
+        )
     removed = {id(record) for record in obsolete}
     step.checkpoints[:] = [
         record for record in step.checkpoints if id(record) not in removed

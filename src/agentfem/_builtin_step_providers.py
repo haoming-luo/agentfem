@@ -82,7 +82,7 @@ def _lower_rigid_obstacle_contact(model, request: StepRequest):
     from . import _step_builders
 
     options = dict(request.options)
-    for key in ("K", "F", "material", "method", "output", "history", "checkpoint"):
+    for key in ("K", "F", "material", "method", "output", "history"):
         options.pop(key, None)
     name = options.pop("name", None) or "rigid_obstacle_contact"
     return _step_builders.rigid_obstacle_contact(
@@ -933,6 +933,7 @@ register_step_provider(
         procedure="standard/newton/rigid_obstacle_penalty_contact",
         option_contract=_option_contract(
             "incrementation",
+            "checkpoint",
             "progress",
             "status_file",
         ),
