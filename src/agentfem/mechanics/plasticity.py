@@ -16,6 +16,7 @@ import dolfinx.fem.petsc as fem_petsc
 from petsc4py import PETSc
 
 from .. import _axisymmetric
+from .. import checkpointing
 from .. import procedures
 from .. import amplitudes
 from .. import steps as step_controls
@@ -237,6 +238,37 @@ class J2PlasticityStep:
     def __post_init__(self) -> None:
         self._strain_evaluator = self.state.compile_strain(
             elasticity.strain(self.solution, study=self.study)
+        )
+
+    def checkpoint_capabilities(self) -> checkpointing.CheckpointCapabilities:
+        """Declare serial and portable J2 restart formats."""
+
+        return checkpointing.CheckpointCapabilities(
+            schemas=(
+                "agentfem.j2-step-checkpoint.v5",
+                "agentfem.j2-step-checkpoint.v7",
+                "agentfem.j2-step-checkpoint.v4",
+            ),
+            boundary="accepted_increment",
+            payload_scope="full_restart_state",
+            state_components=(
+                "accepted displacement",
+                "quadrature constitutive state",
+                "load-path and energy ledgers",
+                "solver continuation controls",
+            ),
+            atomic_publication=True,
+            rank_count_portability="requires_portable_policy",
+            identity_scope=(
+                "mesh and function space",
+                "material and quadrature schema",
+                "load amplitude and procedure controls",
+            ),
+            limitations=(
+                "legacy NPZ schemas are serial layout-bound",
+                "distributed writes require the portable format",
+            ),
+            evidence=("MPI 1-to-2 and 2-to-1 portable restart",),
         )
 
     def solve(self, *, until: float = 1.0):
@@ -677,6 +709,7 @@ class J2PlasticityStep:
             "execution_events": [item.as_dict() for item in self.execution_events],
             "energy_history": [item.as_dict() for item in self.energy_history],
             "next_increment_size": self.next_increment_size,
+            "checkpoint_capabilities": self.checkpoint_capabilities().summary(),
         }
         comm = self.solution.function_space.mesh.comm
         error = None
@@ -1404,6 +1437,7 @@ class J2PlasticityStep:
             "accepted_load_factor": self.accepted_load_factor,
             "energy_frame_count": len(self.energy_history),
             "next_increment_size": self.next_increment_size,
+            "checkpoint_capabilities": self.checkpoint_capabilities().summary(),
         }
 
     def _solve_increment(

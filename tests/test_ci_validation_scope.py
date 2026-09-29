@@ -168,6 +168,13 @@ def test_contact_checkpoint_owner_selects_cross_rank_restart_driver():
     assert scope.mpi_drivers == ("nonlinear-contact-restart",)
 
 
+def test_cyclic_checkpoint_owner_selects_cross_rank_restart_driver():
+    scope = classify_changes(["src/agentfem/fatigue_fracture.py"])
+
+    assert scope.level == "core"
+    assert scope.mpi_drivers == ("cyclic-field-restart",)
+
+
 def test_declared_mpi_drivers_are_known_to_the_workflow():
     declared = {
         driver
@@ -177,7 +184,7 @@ def test_declared_mpi_drivers_are_known_to_the_workflow():
 
     workflow = Path(".github/workflows/test.yml").read_text(encoding="utf-8")
 
-    assert declared == {"nonlinear-contact-restart"}
+    assert declared == {"cyclic-field-restart", "nonlinear-contact-restart"}
     assert all(f"{driver})" in workflow for driver in declared)
 
 

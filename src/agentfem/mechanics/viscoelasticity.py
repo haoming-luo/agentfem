@@ -23,6 +23,7 @@ from mpi4py import MPI
 from petsc4py import PETSc
 
 from .. import amplitudes
+from .. import checkpointing
 from .. import procedures
 from .. import steps as step_controls
 from ..backends._harmonic import PreparedHarmonicLinearProblem
@@ -1083,6 +1084,34 @@ class QuasistaticViscoelasticStep:
     next_increment_size: float | None = field(default=None, init=False)
     _strain_evaluator: object = field(init=False, repr=False)
 
+    def checkpoint_capabilities(self) -> checkpointing.CheckpointCapabilities:
+        return checkpointing.CheckpointCapabilities(
+            schemas=(
+                "agentfem.generalized-maxwell-step-checkpoint.v2",
+                "agentfem.generalized-maxwell-step-checkpoint.v1",
+            ),
+            boundary="accepted_increment",
+            payload_scope="full_restart_state",
+            state_components=(
+                "accepted displacement",
+                "quadrature branch state",
+                "time-path and energy ledgers",
+                "solver continuation controls",
+            ),
+            atomic_publication=True,
+            rank_count_portability="requires_portable_policy",
+            identity_scope=(
+                "mesh and function space",
+                "material and quadrature schema",
+                "temperature, loading, and time controls",
+            ),
+            limitations=(
+                "serial layout checkpoints are not portable",
+                "distributed writes require the portable format",
+            ),
+            evidence=("MPI cross-rank-count portable restart",),
+        )
+
     def __post_init__(self) -> None:
         self.duration = float(self.duration)
         if not np.isfinite(self.duration) or self.duration <= 0.0:
@@ -1210,6 +1239,8 @@ class QuasistaticViscoelasticStep:
     def solve(self, *, until: float | None = None):
         """Advance on the declared or automatically resolved physical-time path."""
 
+        if self.checkpoint_policy is not None:
+            checkpointing.validate_policy(self, self.checkpoint_policy)
         if isinstance(self.incrementation, step_controls.AutomaticIncrementation):
             return self._solve_adaptive(until=until)
 
@@ -2485,6 +2516,9 @@ class QuasistaticViscoelasticStep:
             "amplitude": self.amplitude.summary(),
             "temperature": self._temperature_summary(),
             "checkpoint_policy": checkpoint_policy,
+            "checkpoint_capabilities": self.checkpoint_capabilities().summary(
+                policy=self.checkpoint_policy
+            ),
             "checkpoint_count": len(self.checkpoints),
             "solver": self.solver_options.summary(),
             "last_solve": (

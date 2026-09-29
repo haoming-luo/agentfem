@@ -267,6 +267,12 @@ jobs:
           read -r -a selected <<< "${CHANGED_MPI_DRIVERS}"
           for driver in "${selected[@]}"; do
             case "${driver}" in
+              cyclic-field-restart)
+                python tests/portable_cyclic_field_driver.py write /tmp/agentfem-targeted-cyclic-field
+                mpirun -n 2 python tests/portable_cyclic_field_driver.py read /tmp/agentfem-targeted-cyclic-field
+                mpirun -n 2 python tests/portable_cyclic_field_driver.py write /tmp/agentfem-targeted-cyclic-field-reverse
+                python tests/portable_cyclic_field_driver.py read /tmp/agentfem-targeted-cyclic-field-reverse
+                ;;
               nonlinear-contact-restart)
                 python tests/portable_nonlinear_contact_driver.py write /tmp/agentfem-targeted-contact
                 mpirun -n 2 python tests/portable_nonlinear_contact_driver.py read /tmp/agentfem-targeted-contact
@@ -328,6 +334,10 @@ jobs:
           python tests/portable_nonlinear_contact_driver.py read /tmp/agentfem-portable-contact-reverse
           mpirun -n 2 python tests/portable_mixed_cyclic_cohesive_driver.py write /tmp/agentfem-portable-mixed-cyclic
           python tests/portable_mixed_cyclic_cohesive_driver.py read /tmp/agentfem-portable-mixed-cyclic
+          python tests/portable_cyclic_field_driver.py write /tmp/agentfem-portable-cyclic-field
+          mpirun -n 2 python tests/portable_cyclic_field_driver.py read /tmp/agentfem-portable-cyclic-field
+          mpirun -n 2 python tests/portable_cyclic_field_driver.py write /tmp/agentfem-portable-cyclic-field-reverse
+          python tests/portable_cyclic_field_driver.py read /tmp/agentfem-portable-cyclic-field-reverse
           mpirun -n 2 python tests/portable_cohesive_checkpoint_driver.py reject-inconsistent /tmp/agentfem-inconsistent-cohesive
           mpirun -n 2 python tests/portable_cohesive_dynamics_driver.py write /tmp/agentfem-portable-cohesive-dynamics
           python tests/portable_cohesive_dynamics_driver.py read /tmp/agentfem-portable-cohesive-dynamics

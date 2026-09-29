@@ -16,6 +16,7 @@ import numpy as np
 import ufl
 from petsc4py import PETSc
 
+from .. import checkpointing
 from .. import procedures
 from ..backends._harmonic import PreparedHarmonicLinearProblem
 from ..operators.harmonic import DirectHarmonicSystem
@@ -562,6 +563,33 @@ class DirectHarmonicSweepStep:
     )
     _closed: bool = field(default=False, init=False, repr=False)
 
+    def checkpoint_capabilities(self) -> checkpointing.CheckpointCapabilities:
+        """Declare that restart stores evidence, not a live harmonic field."""
+
+        return checkpointing.CheckpointCapabilities(
+            schemas=(checkpointing.HARMONIC_SWEEP_CHECKPOINT_SCHEMA,),
+            boundary="accepted_frequency_point",
+            payload_scope="progress_ledger",
+            state_components=(
+                "accepted scalar response records",
+                "frequency completion ledger",
+                "bounded execution events",
+            ),
+            atomic_publication=True,
+            rank_count_portability="supported",
+            identity_scope=(
+                "ordered frequency request",
+                "harmonic system and executable assets",
+                "response definitions",
+                "field-space identity",
+            ),
+            limitations=(
+                "live real and imaginary displacement fields are not stored",
+                "the last field is recomputed when field output is requested",
+            ),
+            evidence=("MPI 1-to-2 scalar-ledger restart",),
+        )
+
     def __post_init__(self) -> None:
         comm = self.point_step.solution_real.function_space.mesh.comm
         self.frequencies = collective_call(
@@ -674,11 +702,13 @@ class DirectHarmonicSweepStep:
                 2.0 * np.pi * frequency,
                 comm=comm,
             )
-        collective_call(
+        policy = collective_call(
             self._checkpoint_policy,
             comm=comm,
             label="Harmonic sweep checkpoint policy",
         )
+        if policy is not None:
+            checkpointing.validate_policy(self, policy)
         self._freeze_request_manifest()
         self._freeze_executable_identity()
         indices = list(range(len(self.frequencies)))
@@ -1178,6 +1208,9 @@ class DirectHarmonicSweepStep:
             "execution_events_dropped": self.dropped_execution_events,
             "checkpoint_count": len(self.checkpoints),
             "checkpoint_policy": checkpoint_summary,
+            "checkpoint_capabilities": self.checkpoint_capabilities().summary(
+                policy=checkpoint_policy
+            ),
             "last_live_field_frequency": self.last_live_field_frequency,
             "field_retention": "last_executed_frequency_only",
             "operator_evolution": "frequency_invariant",

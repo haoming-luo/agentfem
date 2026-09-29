@@ -19,6 +19,7 @@ from petsc4py import PETSc
 
 from .. import _axisymmetric
 from .. import amplitudes
+from .. import checkpointing
 from .. import procedures
 from .. import steps as step_controls
 from ..constitutive import elasticity
@@ -253,6 +254,34 @@ class ImplicitCreepStep:
     energy_history: list[CreepEnergyFrame] = field(default_factory=list, init=False)
     next_increment_size: float | None = field(default=None, init=False)
     _strain_evaluator: object = field(init=False, repr=False)
+
+    def checkpoint_capabilities(self) -> checkpointing.CheckpointCapabilities:
+        return checkpointing.CheckpointCapabilities(
+            schemas=(
+                "agentfem.implicit-creep-checkpoint.v2",
+                "agentfem.implicit-creep-checkpoint.v1",
+            ),
+            boundary="accepted_increment",
+            payload_scope="full_restart_state",
+            state_components=(
+                "accepted displacement",
+                "quadrature creep state",
+                "time-path and energy ledgers",
+                "solver continuation controls",
+            ),
+            atomic_publication=True,
+            rank_count_portability="requires_portable_policy",
+            identity_scope=(
+                "mesh and function space",
+                "material and quadrature schema",
+                "temperature, loading, and time controls",
+            ),
+            limitations=(
+                "serial layout checkpoints are not portable",
+                "distributed writes require the portable format",
+            ),
+            evidence=("MPI cross-rank-count portable restart",),
+        )
 
     def __post_init__(self) -> None:
         self.duration = float(self.duration)
@@ -1253,6 +1282,7 @@ class ImplicitCreepStep:
             "execution_events": [item.as_dict() for item in self.execution_events],
             "energy_history": [item.as_dict() for item in self.energy_history],
             "next_increment_size": self.next_increment_size,
+            "checkpoint_capabilities": self.checkpoint_capabilities().summary(),
         }
         comm = self.solution.function_space.mesh.comm
         error = None
@@ -1660,6 +1690,7 @@ class ImplicitCreepStep:
                 None if self.last_solve_info is None else self.last_solve_info.as_dict()
             ),
             "next_increment_size": self.next_increment_size,
+            "checkpoint_capabilities": self.checkpoint_capabilities().summary(),
         }
 
     def _reporter(self):

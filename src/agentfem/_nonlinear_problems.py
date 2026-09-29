@@ -20,6 +20,7 @@ from dolfinx import fem
 from mpi4py import MPI
 from petsc4py import PETSc
 
+from . import checkpointing
 from ._problem_fields import reaction_field as _reaction_field
 from .constraints.affine import AffineConstraintDualHistory
 from .constraints.history import ConstraintDualHistory
@@ -188,6 +189,34 @@ class IncrementalNonlinearVariationalProblem:
         default=None, init=False, repr=False
     )
 
+    def checkpoint_capabilities(self) -> checkpointing.CheckpointCapabilities:
+        """Declare the accepted-boundary restart contract."""
+
+        return checkpointing.CheckpointCapabilities(
+            schemas=("agentfem.incremental-nonlinear-checkpoint.v1",),
+            boundary="accepted_increment",
+            payload_scope="full_restart_state",
+            state_components=(
+                "accepted solution",
+                "load-path ledger",
+                "constraint dual history",
+                "named accepted-observer state",
+                "solver continuation controls",
+            ),
+            atomic_publication=True,
+            rank_count_portability="supported",
+            identity_scope=(
+                "mesh and function space",
+                "loads and constraints",
+                "solution controls",
+                "accepted-observer registry",
+            ),
+            limitations=(
+                "every accepted observer must be named and restartable",
+            ),
+            evidence=("MPI 1-to-2 and 2-to-1 portable restart",),
+        )
+
     def _capture_constraint_duals(self, load_factor: float) -> None:
         if not self.constraint_assets:
             return
@@ -212,6 +241,8 @@ class IncrementalNonlinearVariationalProblem:
             compose_reporters,
         )
 
+        if self.checkpoint_policy is not None:
+            checkpointing.validate_policy(self, self.checkpoint_policy)
         selected_until = float(until)
         if not np.isfinite(selected_until) or not 0.0 < selected_until <= 1.0:
             raise ValueError(
@@ -1117,6 +1148,9 @@ class IncrementalNonlinearVariationalProblem:
                 if self.checkpoint_policy is None
                 else self.checkpoint_policy.summary()
             ),
+            "checkpoint_capabilities": self.checkpoint_capabilities().summary(
+                policy=self.checkpoint_policy
+            ),
             "checkpoint_count": len(self.checkpoints),
             "accepted_history_recorders": {
                 name: recorder.summary()
@@ -1188,6 +1222,32 @@ class AffineNonlinearVariationalProblem:
         init=False,
     )
 
+    def checkpoint_capabilities(self) -> checkpointing.CheckpointCapabilities:
+        """Declare the stateful affine restart contract."""
+
+        return checkpointing.CheckpointCapabilities(
+            schemas=("agentfem.affine-stateful-checkpoint.v1",),
+            boundary="accepted_increment",
+            payload_scope="full_restart_state",
+            state_components=(
+                "accepted nodal state",
+                "quadrature material state",
+                "load-path ledger",
+                "constraint dual history",
+                "accepted-observer state",
+            ),
+            atomic_publication=True,
+            rank_count_portability="supported",
+            identity_scope=(
+                "mesh and function space",
+                "affine constraint",
+                "material and quadrature schema",
+                "solver and load-path controls",
+            ),
+            limitations=("requires a durable state transaction",),
+            evidence=("MPI 1-to-2 and 2-to-1 portable restart",),
+        )
+
     def _capture_constraint_dual(self, load_factor: float) -> None:
         provider = getattr(self.constraint, "dual_evidence", None)
         if provider is None:
@@ -1209,6 +1269,8 @@ class AffineNonlinearVariationalProblem:
     def solve(self, *, until: float = 1.0):
         """Advance to an accepted load factor without discarding prior history."""
 
+        if self.checkpoint_policy is not None:
+            checkpointing.validate_policy(self, self.checkpoint_policy)
         selected_until = float(until)
         if not np.isfinite(selected_until) or not 0.0 < selected_until <= 1.0:
             raise ValueError("Affine solve until must be finite and in (0, 1].")
@@ -1931,6 +1993,9 @@ class AffineNonlinearVariationalProblem:
                 None
                 if self.checkpoint_policy is None
                 else self.checkpoint_policy.summary()
+            ),
+            "checkpoint_capabilities": self.checkpoint_capabilities().summary(
+                policy=self.checkpoint_policy
             ),
             "checkpoint_count": len(self.checkpoints),
             "state_transaction": (

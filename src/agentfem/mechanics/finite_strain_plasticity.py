@@ -18,6 +18,7 @@ from petsc4py import PETSc
 from mpi4py import MPI
 
 from .. import amplitudes
+from .. import checkpointing
 from .. import steps as step_controls
 from ..constitutive import FiniteStrainJ2Logarithmic
 from ..constitutive import MaterialQuadratureResponse
@@ -1095,6 +1096,34 @@ class FiniteStrainJ2StandardProblem:
     _tangent_matrix: object | None = field(default=None, init=False, repr=False)
     _linear_ksp: object | None = field(default=None, init=False, repr=False)
 
+    def checkpoint_capabilities(self) -> checkpointing.CheckpointCapabilities:
+        return checkpointing.CheckpointCapabilities(
+            schemas=(
+                "agentfem.finite-strain-j2-standard-checkpoint.v2",
+                "agentfem.finite-strain-j2-standard-checkpoint.v1",
+            ),
+            boundary="accepted_increment",
+            payload_scope="full_restart_state",
+            state_components=(
+                "accepted displacement and deformation state",
+                "quadrature plastic state",
+                "load-path ledger",
+                "solver continuation controls",
+            ),
+            atomic_publication=True,
+            rank_count_portability="requires_portable_policy",
+            identity_scope=(
+                "mesh and function space",
+                "material and quadrature schema",
+                "constraints, loads, and solver controls",
+            ),
+            limitations=(
+                "serial layout checkpoints are not portable",
+                "distributed writes require the portable format",
+            ),
+            evidence=("MPI cross-rank-count portable restart",),
+        )
+
     def _apply_loading(self, coordinate: float) -> None:
         factor = self.amplitude(coordinate)
         self.load_factor.value = PETSc.ScalarType(factor)
@@ -1410,6 +1439,8 @@ class FiniteStrainJ2StandardProblem:
     def solve(self, *, until: float = 1.0):
         """Advance the normalized load path with commit/cutback discipline."""
 
+        if self.checkpoint_policy is not None:
+            checkpointing.validate_policy(self, self.checkpoint_policy)
         selected_until = float(until)
         if not self.accepted_load_factor < selected_until <= 1.0:
             raise ValueError(
@@ -2441,6 +2472,9 @@ class FiniteStrainJ2StandardProblem:
                 else self.checkpoint_policy.summary()
             ),
             "checkpoint_count": len(self.checkpoints),
+            "checkpoint_capabilities": self.checkpoint_capabilities().summary(
+                policy=self.checkpoint_policy
+            ),
             "procedure": (None if self.procedure is None else self.procedure.summary()),
             "quadrature_degree": self.quadrature_degree,
             "constraints": self.constraint_identity,
