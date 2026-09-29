@@ -5,6 +5,7 @@
 
 from . import absorbing
 from . import mechanical
+from . import rigid
 from . import thermal
 from .mechanical import (
     ElasticFoundation,
@@ -12,16 +13,27 @@ from .mechanical import (
     elastic_foundation,
     rigid_obstacle_contact,
 )
+from .rigid import (
+    PrescribedRigidMotion,
+    RigidPlaneSurface,
+    prescribed_rigid_motion,
+    rigid_plane,
+)
 from .thermal import ConvectionBoundary, convection
 
 __all__ = [
     "ConvectionBoundary",
     "ElasticFoundation",
+    "PrescribedRigidMotion",
+    "RigidPlaneSurface",
     "RigidObstaclePenaltyContact",
     "absorbing",
     "convection",
     "elastic_foundation",
     "mechanical",
+    "prescribed_rigid_motion",
+    "rigid",
+    "rigid_plane",
     "rigid_obstacle_contact",
     "thermal",
 ]

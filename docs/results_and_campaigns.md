@@ -226,23 +226,24 @@ At a kink in a non-proportional deformation history, the result retains both
 `affine_path_outgoing_generalized_reaction` (right-sided). The work on each
 increment therefore uses that increment's own deformation-gradient tangent.
 
-The first bounded contact implementation applies the same ownership rule. A
-fixed-rigid-plane penalty provider assembles its own conservative potential,
-residual, and consistent tangent, then reconstructs the converged nodal
-reaction and MPI-global resultant from that exact operator. Results also
-record contact energy, penetration norm, and active contact measure. Contact
-energy is internal system energy; it is not added again as prescribed-motion
-work. The ordinary nonlinear Procedure now retains force--coordinate samples
-only at accepted stations and reports `constraint_path_work` separately. For a
-fixed obstacle its conjugate translation is identically zero, hence obstacle
-work is exactly zero even when contact energy is nonzero. The same accepted-
-boundary transaction now records the fixed natural-load coordinate, bulk
-strain energy, and contact potential. For proportional dead loading with zero
-prescribed motion, `static_work` closes natural plus provider-dual path work
-against the change in bulk plus contact stored energy. Time-varying loading or
-nonzero prescribed motion remains unavailable until its missing work channel
-is explicitly provided. Failed cutback trials never enter any of these claims,
-and checkpoint/restart restores the scalar ledger with the accepted field.
+The bounded analytical-plane contact implementation applies the same ownership
+rule. Its penalty provider assembles the conservative potential, residual, and
+consistent tangent, then reconstructs the converged nodal reaction and
+MPI-global resultant from that exact operator. Results also record contact
+energy, penetration norm, and active contact measure. Contact energy is internal
+system energy; it is not added again as prescribed-motion work.
+
+A fixed plane has zero generalized coordinate and therefore exactly zero tool
+work. An explicitly prescribed rigid plane instead publishes translation and
+rotation together with the conjugate resultant force and moment. The ordinary
+nonlinear Procedure retains those records only at accepted stations and
+integrates `constraint_path_work` by the trapezoidal rule. The same accepted
+transaction records natural-load work, bulk strain energy, and contact
+potential, so `static_work` closes natural plus moving-tool work against stored
+energy. Failed cutback trials never enter these claims, and checkpoint/restart
+restores the rigid geometry, dual path, scalar energy ledger, and accepted
+field together. General surface search, finite sliding, friction, and multiple
+pairs remain outside this bounded route.
 
 Exact rectangular periodic MPC construction has a separate, narrower
 diagnostic contract. `periodicity.diagnostics()` reports globally owned slave

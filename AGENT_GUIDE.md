@@ -410,6 +410,9 @@ never changes solver access, results, verification, or update behavior.
 ## Agent Rules
 
 - Do not mix constraints, loads, and boundary models.
+- For contact, keep surface geometry, rigid-body kinematics, and enforcement
+  law separate. Report tool work only from accepted generalized
+  force--translation/moment--rotation stations, never from penalty energy.
 - Do not hide the finite-element workflow inside overly broad abstractions.
 - Do not make concrete geometry helpers, such as circle/disk/box predicates,
   the core modeling concept. Treat them as selectors used to build named

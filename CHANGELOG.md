@@ -6,6 +6,22 @@ experimental formulation to a validated one.
 
 ## [Unreleased]
 
+### Added
+
+- Begin the 0.4 foundation with separate analytical rigid-surface and
+  prescribed rigid-motion assets. The bounded frictionless contact route now
+  supports normalized translation and 2D/3D rotation, reconstructs resultant
+  force and moment, integrates their accepted path work, closes that work
+  against bulk plus contact stored energy, and restores moving geometry and
+  work history from nonlinear checkpoints.
+
+### Fixed
+
+- Normalize static force-balance error by the individual natural, strong-
+  reaction, and provider-reaction channels. Self-equilibrated moving-contact
+  systems with zero natural load no longer turn roundoff-sized residuals into
+  a misleading unit relative error.
+
 ## [0.3.8] - 2026-09-29
 
 ### Added

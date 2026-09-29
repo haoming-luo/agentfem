@@ -831,11 +831,13 @@ class Model:
         on=None,
         location=None,
         penalty,
-        normal,
+        normal=None,
         initial_gap=0.0,
+        surface=None,
+        motion=None,
         name: str = "rigid_obstacle_contact",
     ):
-        """Register frictionless one-sided contact with a fixed rigid plane."""
+        """Register frictionless contact with a fixed or prescribed rigid plane."""
 
         from .boundary_models import mechanical
 
@@ -846,6 +848,8 @@ class Model:
                 penalty=penalty,
                 normal=normal,
                 initial_gap=initial_gap,
+                surface=surface,
+                motion=motion,
                 name=name,
             )
         )

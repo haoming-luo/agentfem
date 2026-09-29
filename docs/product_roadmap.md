@@ -110,7 +110,8 @@ across the remaining transient and nonlinear Procedures.
 
 Gate 4 is closed for its declared bounded routes: exact homogeneous rectangular
 MPC, exact affine-periodic paths, scalar/normal/matrix elastic foundations, and
-frictionless contact with one fixed rigid plane. Force and work no longer share
+frictionless contact with one analytical rigid plane, fixed or following a
+prescribed translation/rotation path. Force and work no longer share
 one overloaded endpoint record. Providers publish `ConstraintDualEvidence` for
 force and physical resultants; nonlinear and non-proportional Procedures publish
 typed `ConstraintWorkEvidence` only after integrating accepted stations. The
@@ -121,10 +122,12 @@ path work agree with the balance contract. The contact provider owns its
 potential, residual, tangent, nodal dual distribution, resultant, penetration
 diagnostics, and contact energy in serial and under two MPI ranks. Its atomic
 portable restart envelope covers the solution, increment ledger, events,
-provider-dual history, natural-load work, bulk strain energy, and contact
-potential, with 1-to-2 and 2-to-1 MPI rank-count acceptance. Time-varying loads,
-nonzero prescribed motion, general contact, and undeclared weak formulations
-remain outside this gate and fail closed rather than inheriting its evidence.
+provider-dual history, natural-load work, bulk strain energy, contact potential,
+and prescribed rigid geometry, with 1-to-2 and 2-to-1 MPI rank-count acceptance.
+Moving tools publish force--translation and moment--rotation path work; general
+surface search, finite sliding, friction, multiple pairs, time-varying natural
+loads, and undeclared weak formulations remain outside this gate and fail closed
+rather than inheriting its evidence.
 
 Gate 5 now has an executable checkpoint capability contract. Procedures must
 separately declare the durable payload scope, accepted save boundary, atomic
@@ -190,14 +193,15 @@ The next scientific promotions focus on depth rather than catalog size:
 5. retain every material and fracture capability at its proven maturity until
    its independent benchmark and failure tests pass.
 
-The first general-contact expansion after 0.3.8 is deliberately ordered by
+The general-contact expansion after 0.3.8 is deliberately ordered by
 ownership rather than by one forming example. Model assets will describe
 surfaces, rigid-body motion, contact pairs and laws; Operators will own gap,
 projection, residual, tangent, force, moment and energy; Procedures will own
 search/update cadence and acceptance; State will own active projections and
 history; Result/Verification will own penetration, generalized work and energy
-closure. Prescribed rigid motion and its force--moment--work contract come
-first, followed by reviewed analytic/tessellated surfaces, parallel search,
+closure. Prescribed analytical-plane motion and its accepted
+force--moment--work contract are now the first executable slice. Next come
+reviewed analytic/tessellated surfaces, parallel search,
 finite sliding, multiple pairs, explicit dynamics and finally friction. STEP
 remains an optional geometry-adapter input that is repaired and tessellated
 before the contact core consumes it. Shell/solid-shell forming and self-contact
