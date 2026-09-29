@@ -101,6 +101,10 @@ _CORE_SOURCE_TEST_MAP = {
         "tests/test_transient_restart.py",
     ),
     "src/agentfem/checkpointing.py": ("tests/test_transient_restart.py",),
+    "src/agentfem/fatigue_fracture.py": (
+        "tests/test_checkpoint_capabilities.py",
+        "tests/test_fatigue_fracture.py",
+    ),
     "src/agentfem/boundary_models/mechanical.py": (
         "tests/test_parallel_affine.py",
         "tests/test_rigid_obstacle_contact.py",
@@ -214,6 +218,7 @@ _CORE_SOURCE_MPI_TEST_MAP = {
         "tests/test_parallel_transient.py",
     ),
     "src/agentfem/checkpointing.py": ("tests/test_parallel_transient.py",),
+    "src/agentfem/fatigue_fracture.py": ("tests/test_parallel_cohesive.py",),
     "src/agentfem/boundary_models/mechanical.py": (
         "tests/test_rigid_obstacle_contact.py",
     ),
@@ -263,7 +268,11 @@ _CORE_SOURCE_MPI_DRIVER_MAP = {
     "src/agentfem/boundary_models/mechanical.py": (
         "nonlinear-contact-restart",
     ),
-    "src/agentfem/checkpointing.py": ("nonlinear-contact-restart",),
+    "src/agentfem/checkpointing.py": (
+        "cyclic-field-restart",
+        "nonlinear-contact-restart",
+    ),
+    "src/agentfem/fatigue_fracture.py": ("cyclic-field-restart",),
     "src/agentfem/results/_accepted_energy.py": (
         "nonlinear-contact-restart",
     ),
@@ -273,6 +282,7 @@ _CORE_SOURCE_MPI_DRIVER_MAP = {
     "tests/portable_nonlinear_contact_driver.py": (
         "nonlinear-contact-restart",
     ),
+    "tests/portable_cyclic_field_driver.py": ("cyclic-field-restart",),
 }
 _ML_PREFIXES = (
     "src/agentfem/learning",

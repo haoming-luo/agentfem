@@ -15,7 +15,7 @@ from dolfinx import fem
 import dolfinx.fem.petsc as fem_petsc
 from petsc4py import PETSc
 
-from .. import amplitudes, procedures
+from .. import amplitudes, checkpointing, procedures
 from .. import steps as step_controls
 from ..constitutive import elasticity
 from ..constitutive.material_driver import SmallStrainMaterialQuadratureResponse
@@ -169,6 +169,30 @@ class SmallStrainMaterialStep:
     _strain_evaluator: object = field(init=False, repr=False)
     _accepted_strain: np.ndarray = field(init=False, repr=False)
     _trial_result: object | None = field(default=None, init=False, repr=False)
+
+    def checkpoint_capabilities(self) -> checkpointing.CheckpointCapabilities:
+        return checkpointing.CheckpointCapabilities(
+            schemas=("agentfem.small-strain-material-step-checkpoint.v1",),
+            boundary="accepted_increment",
+            payload_scope="full_restart_state",
+            state_components=(
+                "accepted displacement",
+                "named user-material quadrature state",
+                "load-path ledger",
+                "solver continuation controls",
+            ),
+            atomic_publication=True,
+            rank_count_portability="supported",
+            identity_scope=(
+                "mesh and function space",
+                "material parameter and state schemas",
+                "load amplitude and procedure controls",
+            ),
+            limitations=(
+                "provider state must implement the portable quadrature contract",
+            ),
+            evidence=("portable nodal and quadrature state round trip",),
+        )
 
     def __post_init__(self) -> None:
         expression = elasticity.strain(self.solution, study=self.study)
@@ -853,6 +877,7 @@ class SmallStrainMaterialStep:
             "last_solve": None
             if self.last_solve_info is None
             else self.last_solve_info.as_dict(),
+            "checkpoint_capabilities": self.checkpoint_capabilities().summary(),
         }
 
 

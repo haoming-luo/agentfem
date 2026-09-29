@@ -985,8 +985,18 @@ class _FakeCyclicForce:
         }
 
 
-def _global_fatigue_fixture(*, feedback=0.1):
-    field = _FakeField()
+def _global_fatigue_fixture(*, feedback=0.1, real_field=False):
+    if real_field:
+        domain = mesh.rectangle(
+            (0.0, 0.0),
+            (1.0, 1.0),
+            (1, 1),
+            comm=MPI.COMM_SELF,
+            cell_type="triangle",
+        )
+        field = fields.displacement(domain).value
+    else:
+        field = _FakeField()
     force = _FakeCyclicForce(_cyclic(residual_exponent=1.0), field)
     collection = fracture.named_cohesive_forces(crack=force)
     state = fatigue_fracture.field_state(displacement=field)
@@ -1374,7 +1384,9 @@ def test_global_ordered_path_checks_feedback_at_nonmaximum_station():
 
 
 def test_global_cycle_durable_checkpoint_restores_fields_interfaces_and_ledger(tmp_path):
-    field, force, collection, state, solve, cycle = _global_fatigue_fixture()
+    field, force, collection, state, solve, cycle = _global_fatigue_fixture(
+        real_field=True
+    )
     partial = fatigue_fracture.global_cyclic_fatigue_step(
         cycle=cycle,
         stop_cycle=12,
@@ -1387,7 +1399,9 @@ def test_global_cycle_durable_checkpoint_restores_fields_interfaces_and_ledger(t
     manifest = partial.save_checkpoint(tmp_path / "fatigue")
     assert manifest.name.endswith(".cyclic-fatigue.json")
 
-    field2, force2, collection2, state2, solve2, cycle2 = _global_fatigue_fixture()
+    field2, force2, collection2, state2, solve2, cycle2 = _global_fatigue_fixture(
+        real_field=True
+    )
     restarted = fatigue_fracture.global_cyclic_fatigue_step(
         cycle=cycle2,
         stop_cycle=12,

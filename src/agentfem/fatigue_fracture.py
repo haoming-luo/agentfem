@@ -27,6 +27,7 @@ from pathlib import Path
 import numpy as np
 
 from . import amplitudes
+from . import checkpointing
 from .interfaces import (
     BilinearCohesiveLaw,
     CohesiveResponse,
@@ -1957,8 +1958,9 @@ class FieldStateTransaction:
     """In-memory rollback for bulk fields and other transactional assets.
 
     This adapter is deliberately small: a global cycle block must be able to
-    restore every equilibrium unknown, while durable MPI-portable persistence
-    remains the responsibility of the ordinary AgentFEM checkpoint layer.
+    restore every equilibrium unknown. Durable field persistence delegates to
+    the shared coordinate-keyed AgentFEM checkpoint layer so compatible MPI
+    partitions and rank counts can resume the same accepted state.
     """
 
     _SCHEMA = "agentfem.field-state-transaction.v1"
@@ -2020,10 +2022,35 @@ class FieldStateTransaction:
             "fields": tuple(self.fields),
             "assets": tuple(str(name) for name in self.assets),
             "persistence": "in_memory_rollback",
+            "checkpoint_capabilities": self.checkpoint_capabilities().summary(),
         }
 
+    def checkpoint_capabilities(self) -> checkpointing.CheckpointCapabilities:
+        """Declare the current same-partition durable field contract."""
+
+        return checkpointing.CheckpointCapabilities(
+            schemas=(
+                "agentfem.cyclic-field-checkpoint.v2",
+                "agentfem.cyclic-field-checkpoint.v1",
+            ),
+            boundary="accepted_cycle",
+            payload_scope="field_state",
+            state_components=("named bulk finite-element fields",),
+            atomic_publication=True,
+            rank_count_portability="supported",
+            identity_scope=(
+                "portable mesh and function-space identity",
+                "field names",
+            ),
+            limitations=(
+                "auxiliary constitutive assets need a separate adapter",
+                "legacy v1 archives remain bound to their original partition",
+            ),
+            evidence=("coordinate-keyed cross-rank-count field restart",),
+        )
+
     def save_checkpoint(self, path) -> Path:
-        """Persist field shards for a same-partition cycle restart."""
+        """Persist coordinate-keyed fields for a cross-partition restart."""
 
         if self.assets:
             raise NotImplementedError(
@@ -2036,23 +2063,10 @@ class FieldStateTransaction:
         first = next(iter(self.fields.values()))
         comm = first.function_space.mesh.comm
         manifest = _cycle_manifest_path(path, suffix="field-state")
-        manifest.parent.mkdir(parents=True, exist_ok=True)
-        shard = manifest.with_name(
-            f"{manifest.name.removesuffix('.json')}.rank-{comm.rank:05d}.npz"
+        bundle = checkpointing.save_portable_state_bundle(
+            manifest,
+            state=self.fields,
         )
-        checkpointing.atomic_savez(
-            shard,
-            **{name: value.x.array for name, value in self.fields.items()},
-        )
-        local = {
-            "path": shard.name,
-            "size": int(shard.stat().st_size),
-            "identity": {
-                name: _field_partition_identity(value)
-                for name, value in self.fields.items()
-            },
-        }
-        shards = comm.gather(local, root=0)
         error = None
         if comm.rank == 0:
             try:
@@ -2060,11 +2074,15 @@ class FieldStateTransaction:
                     manifest,
                     json.dumps(
                         {
-                            "schema": "agentfem.cyclic-field-checkpoint.v1",
-                            "rank_count": int(comm.size),
+                            "schema": "agentfem.cyclic-field-checkpoint.v2",
+                            "writer_rank_count": int(comm.size),
                             "fields": list(self.fields),
-                            "shards": shards,
-                            "portability": "same MPI partition and rank count",
+                            "portable_state": bundle["record"],
+                            "portable_state_identity": bundle["identities"],
+                            "portability": (
+                                "portable across compatible MPI partitions and "
+                                "rank counts"
+                            ),
                         },
                         indent=2,
                         sort_keys=True,
@@ -2080,7 +2098,7 @@ class FieldStateTransaction:
         return manifest
 
     def load_checkpoint(self, path) -> dict[str, object]:
-        """Restore a same-partition field checkpoint after identity checks."""
+        """Restore a portable field checkpoint after identity checks."""
 
         first = next(iter(self.fields.values()))
         comm = first.function_space.mesh.comm
@@ -2097,7 +2115,18 @@ class FieldStateTransaction:
                 f"Cyclic field checkpoint read failed: {payload['error']}"
             )
         metadata = payload["metadata"]
-        if metadata.get("schema") != "agentfem.cyclic-field-checkpoint.v1":
+        schema = metadata.get("schema")
+        if schema == "agentfem.cyclic-field-checkpoint.v2":
+            if metadata.get("fields") != list(self.fields):
+                raise ValueError("Cyclic field checkpoint field names differ.")
+            checkpointing.load_portable_state_bundle(
+                manifest,
+                state=self.fields,
+                record=metadata["portable_state"],
+                identities=metadata["portable_state_identity"],
+            )
+            return metadata
+        if schema != "agentfem.cyclic-field-checkpoint.v1":
             raise ValueError("Unsupported cyclic field checkpoint schema.")
         if int(metadata.get("rank_count", -1)) != int(comm.size):
             raise ValueError("Cyclic field checkpoint MPI rank count differs.")
@@ -2758,6 +2787,40 @@ class GlobalCyclicFatigueStep:
             ),
         }
 
+    def checkpoint_capabilities(self) -> checkpointing.CheckpointCapabilities:
+        """Declare the mixed bulk/interface cyclic restart boundary."""
+
+        return checkpointing.CheckpointCapabilities(
+            schemas=(
+                self._SCHEMA,
+                "agentfem.cyclic-field-checkpoint.v2",
+            ),
+            boundary="accepted_cycle",
+            payload_scope="full_restart_state",
+            state_components=(
+                "bulk finite-element fields",
+                "named cohesive interface state",
+                "cycle-jump ledger",
+                "energy ledger",
+                "accepted history",
+            ),
+            atomic_publication=True,
+            rank_count_portability="supported",
+            identity_scope=(
+                "cycle definition and landing cycles",
+                "named interface registry",
+                "portable bulk field identity",
+            ),
+            limitations=(
+                "custom auxiliary bulk assets require their own portable adapter",
+                "combined global-cycle cross-rank acceptance remains a release gate",
+            ),
+            evidence=(
+                "bulk field 1-to-2 and 2-to-1 restart",
+                "physical-facet-keyed cohesive state 2-to-1 restart",
+            ),
+        )
+
     def restore(self, snapshot: dict[str, object]) -> None:
         """Restore bulk, interface and cycle identity from an accepted state."""
 
@@ -2812,7 +2875,7 @@ class GlobalCyclicFatigueStep:
         payload = self.snapshot()
         payload["bulk_state"] = {
             "manifest": Path(field_manifest).name,
-            "portability": "same MPI partition and rank count",
+            "portability": "portable across compatible partitions and rank counts",
         }
         error = None
         if comm.rank == 0:
@@ -2882,6 +2945,7 @@ class GlobalCyclicFatigueStep:
                 else "quasi_static_peak_valley_with_post_damage_equilibrium"
             ),
             "maturity": "experimental_global_cycle_consumer",
+            "checkpoint_capabilities": self.checkpoint_capabilities().summary(),
         }
 
 

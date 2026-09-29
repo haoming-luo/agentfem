@@ -21,6 +21,7 @@ from mpi4py import MPI
 from petsc4py import PETSc
 
 from . import assembly
+from . import checkpointing
 from . import fields
 from . import time
 from .diagnostics import PerformanceLedger
@@ -72,6 +73,16 @@ class ExplicitDynamicsStep:
         default_factory=PerformanceLedger,
         init=False,
     )
+
+    def checkpoint_capabilities(self) -> checkpointing.CheckpointCapabilities:
+        """Declare the durable state and MPI restart contract."""
+
+        return _transient_checkpoint_capabilities(
+            "displacement",
+            "velocity",
+            "acceleration",
+            "accepted time/history ledger",
+        )
 
     def initialize_from_preload(
         self,
@@ -135,6 +146,7 @@ class ExplicitDynamicsStep:
         from .diagnostics import comm_of, print_on_root
 
         selected_comm = comm if comm is not None else comm_of(self.state.u)
+        _validate_checkpoint_policy(self)
         _configure_transient_history(self, history)
         selected_progress = self.progress if progress is None else progress
         if self.completed_steps >= self.steps:
@@ -321,6 +333,9 @@ class ExplicitDynamicsStep:
                 if self.checkpoint_policy is None
                 else self.checkpoint_policy.summary()
             ),
+            "checkpoint_capabilities": self.checkpoint_capabilities().summary(
+                policy=self.checkpoint_policy
+            ),
             "history_requests": [
                 request.summary() for request in self.history_requests
             ],
@@ -388,6 +403,16 @@ class ImplicitDynamicsStep:
         default_factory=PerformanceLedger,
         init=False,
     )
+
+    def checkpoint_capabilities(self) -> checkpointing.CheckpointCapabilities:
+        """Declare the durable state and MPI restart contract."""
+
+        return _transient_checkpoint_capabilities(
+            "displacement",
+            "velocity",
+            "acceleration",
+            "accepted time/history ledger",
+        )
     _selected_operator_policy: str = field(default="", init=False, repr=False)
     _operator_policy_reason: str = field(default="", init=False, repr=False)
     _prepared_problem: object | None = field(default=None, init=False, repr=False)
@@ -457,6 +482,7 @@ class ImplicitDynamicsStep:
         from .diagnostics import comm_of, print_on_root
 
         selected_comm = comm if comm is not None else comm_of(self.state.u)
+        _validate_checkpoint_policy(self)
         _configure_transient_history(self, history)
         selected_progress = self.progress if progress is None else progress
         if self.completed_steps >= self.steps:
@@ -775,6 +801,9 @@ class ImplicitDynamicsStep:
                 if self.checkpoint_policy is None
                 else self.checkpoint_policy.summary()
             ),
+            "checkpoint_capabilities": self.checkpoint_capabilities().summary(
+                policy=self.checkpoint_policy
+            ),
             "history_requests": [
                 request.summary() for request in self.history_requests
             ],
@@ -826,6 +855,15 @@ class FirstOrderTransientStep:
         default_factory=PerformanceLedger,
         init=False,
     )
+
+    def checkpoint_capabilities(self) -> checkpointing.CheckpointCapabilities:
+        """Declare the durable state and MPI restart contract."""
+
+        return _transient_checkpoint_capabilities(
+            "current field",
+            "previous field",
+            "accepted time/history ledger",
+        )
     _selected_operator_policy: str = field(default="", init=False, repr=False)
     _operator_policy_reason: str = field(default="", init=False, repr=False)
     _prepared_problem: object | None = field(default=None, init=False, repr=False)
@@ -948,6 +986,7 @@ class FirstOrderTransientStep:
         from .diagnostics import comm_of, print_on_root
 
         selected_comm = comm if comm is not None else comm_of(self.current)
+        _validate_checkpoint_policy(self)
         _configure_transient_history(self, history)
         selected_progress = self.progress if progress is None else progress
         if self.completed_steps >= self.steps:
@@ -1234,6 +1273,9 @@ class FirstOrderTransientStep:
                 if self.checkpoint_policy is None
                 else self.checkpoint_policy.summary()
             ),
+            "checkpoint_capabilities": self.checkpoint_capabilities().summary(
+                policy=self.checkpoint_policy
+            ),
             "history_requests": [
                 request.summary() for request in self.history_requests
             ],
@@ -1428,6 +1470,40 @@ def _write_scheduled_checkpoint(step) -> Path | None:
     )
     _apply_checkpoint_retention(step, policy)
     return written
+
+
+def _transient_checkpoint_capabilities(
+    *state_components: str,
+) -> checkpointing.CheckpointCapabilities:
+    return checkpointing.CheckpointCapabilities(
+        schemas=(checkpointing.TRANSIENT_CHECKPOINT_SCHEMA,),
+        boundary="accepted_step",
+        payload_scope="full_restart_state",
+        state_components=tuple(state_components),
+        atomic_publication=True,
+        rank_count_portability="requires_portable_policy",
+        identity_scope=(
+            "mesh coordinates and topology",
+            "function-space element and value shape",
+            "time grid and accepted position",
+            "time-dependent input identities",
+            "procedure scientific inputs",
+        ),
+        limitations=(
+            "portable nodal state does not imply unregistered constitutive state",
+        ),
+        evidence=(
+            "serial restart",
+            "MPI same-partition restart",
+            "MPI 1-to-2 and 2-to-1 portable restart",
+        ),
+    )
+
+
+def _validate_checkpoint_policy(step) -> None:
+    policy = getattr(step, "checkpoint_policy", None)
+    if policy is not None:
+        checkpointing.validate_policy(step, policy)
 
 
 def _emit_transient_completed(reporter, step) -> None:

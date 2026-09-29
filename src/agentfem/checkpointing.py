@@ -38,6 +38,158 @@ _LEGACY_TRANSIENT_CHECKPOINT_SCHEMAS = {
 _ELEMENT_BOUND_TRANSIENT_CHECKPOINT_SCHEMA = "agentfem.transient-checkpoint.v4"
 
 
+_CHECKPOINT_BOUNDARIES = {
+    "accepted_step",
+    "accepted_increment",
+    "accepted_frequency_point",
+    "accepted_cycle",
+    "manual_state",
+}
+_CHECKPOINT_PAYLOAD_SCOPES = {
+    "full_restart_state",
+    "field_state",
+    "progress_ledger",
+}
+_RANK_COUNT_PORTABILITY = {
+    "supported",
+    "requires_portable_policy",
+    "unsupported",
+}
+
+
+@dataclass(frozen=True)
+class CheckpointCapabilities:
+    """Executable contract for one procedure's durable restart boundary.
+
+    ``payload_scope`` deliberately answers a different question from
+    ``rank_count_portability``.  A scalar sweep ledger can be portable without
+    being a full solution restart, while a complete field checkpoint can be
+    valid only for the original partition.  Keeping those claims separate
+    prevents a generic ``portable=True`` label from overstating what is saved.
+    """
+
+    schemas: tuple[str, ...]
+    boundary: str
+    payload_scope: str
+    state_components: tuple[str, ...]
+    atomic_publication: bool
+    rank_count_portability: str
+    identity_scope: tuple[str, ...]
+    limitations: tuple[str, ...] = ()
+    evidence: tuple[str, ...] = ()
+
+    def __post_init__(self) -> None:
+        schemas = tuple(str(item).strip() for item in self.schemas)
+        if not schemas or any(not item for item in schemas):
+            raise ValueError("Checkpoint capabilities require non-empty schemas.")
+        object.__setattr__(self, "schemas", schemas)
+        if self.boundary not in _CHECKPOINT_BOUNDARIES:
+            raise ValueError(f"Unsupported checkpoint boundary {self.boundary!r}.")
+        if self.payload_scope not in _CHECKPOINT_PAYLOAD_SCOPES:
+            raise ValueError(
+                f"Unsupported checkpoint payload scope {self.payload_scope!r}."
+            )
+        if self.rank_count_portability not in _RANK_COUNT_PORTABILITY:
+            raise ValueError(
+                "Unsupported checkpoint rank-count portability "
+                f"{self.rank_count_portability!r}."
+            )
+        for name in (
+            "state_components",
+            "identity_scope",
+            "limitations",
+            "evidence",
+        ):
+            values = tuple(str(item).strip() for item in getattr(self, name))
+            if any(not item for item in values):
+                raise ValueError(f"Checkpoint capability {name} cannot contain blanks.")
+            object.__setattr__(self, name, values)
+        if not self.state_components:
+            raise ValueError("Checkpoint capabilities require explicit state components.")
+        if not self.identity_scope:
+            raise ValueError("Checkpoint capabilities require an identity scope.")
+
+    @property
+    def full_restart(self) -> bool:
+        """Whether the payload claims the complete durable procedure state."""
+
+        return self.payload_scope == "full_restart_state"
+
+    def validate_policy(self, policy: "CheckpointPolicy") -> None:
+        """Reject a requested cross-rank contract that this procedure cannot meet."""
+
+        if not isinstance(policy, CheckpointPolicy):
+            raise TypeError("policy must be a CheckpointPolicy.")
+        if policy.portable and self.rank_count_portability == "unsupported":
+            raise ValueError(
+                "This procedure's checkpoint is bound to the original MPI rank "
+                "count and partition; portable=True is not supported."
+            )
+
+    def effective_rank_count_portability(
+        self,
+        policy: "CheckpointPolicy | None" = None,
+    ) -> bool | None:
+        """Return the effective cross-rank claim under *policy*."""
+
+        if self.rank_count_portability == "supported":
+            return True
+        if self.rank_count_portability == "unsupported":
+            return False
+        if policy is None:
+            return None
+        return bool(policy.portable)
+
+    def summary(
+        self,
+        *,
+        policy: "CheckpointPolicy | None" = None,
+    ) -> dict[str, object]:
+        if policy is not None:
+            self.validate_policy(policy)
+        return {
+            "kind": "checkpoint_capabilities",
+            "schemas": self.schemas,
+            "boundary": self.boundary,
+            "payload_scope": self.payload_scope,
+            "full_restart": self.full_restart,
+            "state_components": self.state_components,
+            "atomic_publication": bool(self.atomic_publication),
+            "rank_count_portability": self.rank_count_portability,
+            "effective_rank_count_portable": (
+                self.effective_rank_count_portability(policy)
+            ),
+            "identity_scope": self.identity_scope,
+            "limitations": self.limitations,
+            "evidence": self.evidence,
+        }
+
+
+def capabilities_of(procedure) -> CheckpointCapabilities:
+    """Return an explicitly declared checkpoint contract, never an inference."""
+
+    declaration = getattr(procedure, "checkpoint_capabilities", None)
+    if not callable(declaration):
+        raise TypeError(
+            f"{type(procedure).__name__} does not declare checkpoint capabilities."
+        )
+    capabilities = declaration()
+    if not isinstance(capabilities, CheckpointCapabilities):
+        raise TypeError(
+            f"{type(procedure).__name__}.checkpoint_capabilities() must return "
+            "CheckpointCapabilities."
+        )
+    return capabilities
+
+
+def validate_policy(procedure, policy: "CheckpointPolicy") -> CheckpointCapabilities:
+    """Validate a checkpoint policy before a procedure starts advancing."""
+
+    capabilities = capabilities_of(procedure)
+    capabilities.validate_policy(policy)
+    return capabilities
+
+
 @dataclass(frozen=True)
 class CheckpointPolicy:
     """Automatic checkpoint cadence at accepted procedure boundaries."""
@@ -80,6 +232,7 @@ class CheckpointPolicy:
             "prefix": self.prefix,
             "keep_last": self.keep_last,
             "portable": bool(self.portable),
+            "requested_rank_count_portable": bool(self.portable),
             "retention": (
                 "all_scheduled_checkpoints"
                 if self.keep_last is None
@@ -1654,11 +1807,13 @@ def _raise_collective_checkpoint_error(comm, action: str, local_error) -> None:
 
 
 __all__ = [
+    "CheckpointCapabilities",
     "CheckpointPolicy",
     "HARMONIC_SWEEP_CHECKPOINT_SCHEMA",
     "TRANSIENT_CHECKPOINT_SCHEMA",
     "atomic_savez",
     "atomic_write_text",
+    "capabilities_of",
     "function_partition_identity",
     "function_portable_identity",
     "mesh_portable_identity",
@@ -1670,4 +1825,5 @@ __all__ = [
     "remove_stateful_checkpoint",
     "save_transient_checkpoint",
     "save_harmonic_sweep_checkpoint",
+    "validate_policy",
 ]

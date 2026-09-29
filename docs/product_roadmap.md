@@ -101,6 +101,18 @@ not inferred. The gate remains open for the other declared weak/contact routes
 and broader nonlinear formulations to adopt the same accepted-boundary
 lifecycle.
 
+Gate 5 now has an executable checkpoint capability contract. Procedures must
+separately declare the durable payload scope, accepted save boundary, atomic
+publication, scientific identity, and MPI rank-count portability; a portable
+scalar sweep ledger can therefore no longer masquerade as a full-field
+restart. Transient, ordinary and affine nonlinear, harmonic, J2, creep,
+viscoelastic, user-material, finite-strain J2, and cyclic-fatigue owners expose
+that contract in their summaries. Cyclic bulk fields have moved from
+partition-local shards to coordinate-keyed schema v2 and pass both 1-to-2 and
+2-to-1 rank-count restoration. The gate remains open until the composed global
+cyclic bulk-plus-interface restart has its own cross-rank acceptance and the
+same contract is consumed consistently by result inspection and preflight.
+
 ## What is usable today
 
 The installed capability catalog is authoritative. It covers the supported and

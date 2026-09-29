@@ -219,6 +219,8 @@
     "constraint-force-work-energy-closure",
     "mpi-result-state-checkpoint-lifecycle",
     "ordinary-nonlinear-contact-cross-rank-checkpoint",
+    "typed-checkpoint-capability-contract",
+    "cyclic-bulk-field-one-to-two-and-two-to-one-restart",
     "external-provider-without-core-modification"
   ],
   "not_release_claims": [
@@ -236,6 +238,7 @@
     "observed order, GCI or continuum-error bounds from the nonuniform three-level Test 5H sequence",
     "external generalized-Maxwell harmonic validation from the elastic Rayleigh-damped Test 5H benchmark",
     "full-field harmonic checkpoint recovery",
+    "combined global cyclic bulk-plus-interface cross-rank restart before acceptance evidence exists",
     "complex modes, prestressed small-on-large response or nonlinear harmonic balance",
     "externally validated finite-strain J2 homogenized tangent for arbitrary microstructures",
     "forming-capable composite shell, tool contact, friction or inter-ply slip",
