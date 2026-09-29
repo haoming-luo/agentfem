@@ -277,6 +277,7 @@ def check_distributions(directory: Path) -> Path:
         "pyproject.toml",
         "release_gate.py",
         "promotion_gate.py",
+        "extension_gate.py",
         "build_docs.py",
         "build_knowledge.py",
         "tools/run_wsl2_acceptance.sh",
@@ -289,6 +290,13 @@ def check_distributions(directory: Path) -> Path:
         "skills/agentfem/SKILL.md",
         "skills/agentfem/agents/openai.yaml",
         "skills/agentfem/references/workflow.md",
+        "examples/extensions/reference_material/pyproject.toml",
+        "examples/extensions/reference_material/project/agentfem.toml",
+        "examples/extensions/reference_material/project/case.py",
+        (
+            "examples/extensions/reference_material/src/"
+            "agentfem_reference_material/__init__.py"
+        ),
     ):
         if required not in sdist_members:
             raise RuntimeError(f"Source distribution omits {required}.")

@@ -1,0 +1,14 @@
+# SPDX-FileCopyrightText: 2026 Haoming Luo and AgentFEM contributors
+# SPDX-License-Identifier: Apache-2.0
+
+[project]
+name = "external-material-acceptance"
+entrypoint = "case.py"
+schema_version = "0.2.0"
+created_with = "0.3.8.dev0"
+
+[extensions]
+required = ["agentfem-reference-material"]
+
+[run]
+output_directory = "outputs"

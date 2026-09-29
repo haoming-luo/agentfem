@@ -199,6 +199,16 @@ def test_release_gate_exercises_agent_machine_entrypoints():
         assert f'"{command}"' in source
 
 
+def test_source_distribution_retains_the_external_provider_acceptance_assets():
+    manifest = (PROJECT_ROOT / "MANIFEST.in").read_text(encoding="utf-8")
+    source = (PROJECT_ROOT / "release_gate.py").read_text(encoding="utf-8")
+
+    assert "include extension_gate.py" in manifest
+    assert "recursive-include examples/extensions *.toml" in manifest
+    assert '"extension_gate.py"' in source
+    assert '"examples/extensions/reference_material/pyproject.toml"' in source
+
+
 def test_platform_acceptance_distinguishes_native_and_wsl_routes(tmp_path, monkeypatch):
     wheel = tmp_path / "agentfem.whl"
     wheel.write_bytes(b"immutable candidate")
@@ -312,6 +322,17 @@ def test_test_workflow_runs_the_versioned_critical_static_analysis_gate():
         "RUF009",
     ]
     assert "ruff check . --no-cache" in workflow
+
+
+def test_test_workflow_proves_the_external_provider_from_two_wheels():
+    workflow = (
+        PROJECT_ROOT / ".github" / "workflows" / "test.yml"
+    ).read_text(encoding="utf-8")
+
+    assert "Prove an independently installed external provider" in workflow
+    assert "python extension_gate.py" in workflow
+    assert "--extension agentfem-reference-material" in workflow
+    assert "--evidence /tmp/agentfem-extension-acceptance.json" in workflow
 
 
 def test_source_and_installed_distribution_evidence_are_separate():

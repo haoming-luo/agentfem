@@ -82,10 +82,37 @@ def test_04_foundation_acceptance_is_candidate_bound_and_fail_closed(tmp_path):
         "wheel_sha256": "1" * 64,
     }
     evidence = _write(tmp_path, "foundation.json", record)
+    extension = _write(
+        tmp_path,
+        "extension.json",
+        {
+            "schema": "agentfem.extension-acceptance",
+            "status": "passed",
+            "extension": "reference-extension",
+            "extension_distribution": "agentfem-reference-extension",
+            "extension_version": "1.0.0",
+            "entry_point": "reference_extension:extension",
+            "entry_point_discovered": True,
+            "entry_point_activated": True,
+            "installed_wheel": True,
+            "isolated_from_source_checkout": True,
+            "core_modified": False,
+            "simulation_result": "passed",
+            "verification": "passed",
+            "trust_level": "verified",
+            "agentfem_version": version,
+            "core_commit": commit,
+            "core_wheel_sha256": "2" * 64,
+            "extension_wheel_sha256": "3" * 64,
+            "core_installation_sha256_before": "4" * 64,
+            "core_installation_sha256_after": "4" * 64,
+            "result_manifest_sha256": "5" * 64,
+        },
+    )
 
     report = promotion_gate.evaluate(
         target="0.4-foundation",
-        evidence=(evidence,),
+        evidence=(evidence, extension),
         candidate_version=version,
         candidate_commit=commit,
     )
@@ -96,7 +123,7 @@ def test_04_foundation_acceptance_is_candidate_bound_and_fail_closed(tmp_path):
     incomplete = _write(tmp_path, "incomplete-foundation.json", record)
     report = promotion_gate.evaluate(
         target="0.4-foundation",
-        evidence=(incomplete,),
+        evidence=(incomplete, extension),
         candidate_version=version,
         candidate_commit=commit,
     )
@@ -135,13 +162,23 @@ def test_external_evidence_can_complete_platform_extension_and_agent_gates(tmp_p
                 "extension": "agentfem-learning.xdem",
                 "status": "passed",
                 "installed_wheel": True,
+                "isolated_from_source_checkout": True,
                 "core_modified": False,
                 "simulation_result": "passed",
+                "verification": "passed",
+                "trust_level": "verified",
                 "agentfem_version": version,
                 "core_commit": commit,
-                "companion_commit": "b" * 40,
+                "extension_distribution": "agentfem-learning",
+                "extension_version": "0.1.0",
+                "entry_point": "agentfem_learning:extension",
+                "entry_point_discovered": True,
+                "entry_point_activated": True,
                 "core_wheel_sha256": "2" * 64,
                 "extension_wheel_sha256": "3" * 64,
+                "core_installation_sha256_before": "4" * 64,
+                "core_installation_sha256_after": "4" * 64,
+                "result_manifest_sha256": "5" * 64,
             },
         )
     )

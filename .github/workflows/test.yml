@@ -252,6 +252,22 @@ jobs:
             python -m pytest
           fi
 
+      - name: Prove an independently installed external provider
+        run: |
+          rm -rf /tmp/agentfem-reference-extension-dist
+          python -m build --wheel --no-isolation \
+            --outdir /tmp/agentfem-reference-extension-dist \
+            examples/extensions/reference_material
+          CORE_WHEEL="$(find dist -maxdepth 1 -name 'agentfem-*.whl' -print -quit)"
+          EXTENSION_WHEEL="$(find /tmp/agentfem-reference-extension-dist -maxdepth 1 -name '*.whl' -print -quit)"
+          python extension_gate.py \
+            --core-wheel "${CORE_WHEEL}" \
+            --extension-wheel "${EXTENSION_WHEEL}" \
+            --project examples/extensions/reference_material/project \
+            --extension agentfem-reference-material \
+            --core-commit "${GITHUB_SHA}" \
+            --report /tmp/agentfem-extension-acceptance.json
+
       - name: Run affected distributed owner tests
         if: >-
           needs.change-scope.outputs.level == 'core' &&
@@ -436,6 +452,7 @@ jobs:
           python promotion_gate.py \
             --evidence /tmp/agentfem-agent-acceptance.json \
             --evidence /tmp/agentfem-platform-acceptance.json \
+            --evidence /tmp/agentfem-extension-acceptance.json \
             --report /tmp/agentfem-platform-promotion.json
 
       - name: Upload agent acceptance evidence
@@ -448,6 +465,7 @@ jobs:
           path: |
             /tmp/agentfem-agent-acceptance.json
             /tmp/agentfem-platform-acceptance.json
+            /tmp/agentfem-extension-acceptance.json
             /tmp/agentfem-platform-promotion.json
           if-no-files-found: warn
 

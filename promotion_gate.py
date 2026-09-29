@@ -307,6 +307,41 @@ def _gate_architecture() -> GateResult:
     )
 
 
+def _valid_extension_acceptance(
+    record: dict[str, object],
+    *,
+    version: str,
+    commit: str | None,
+) -> bool:
+    return bool(
+        record.get("schema") == "agentfem.extension-acceptance"
+        and record.get("status") == "passed"
+        and record.get("installed_wheel") is True
+        and record.get("isolated_from_source_checkout") is True
+        and record.get("core_modified") is False
+        and record.get("simulation_result") == "passed"
+        and record.get("verification") == "passed"
+        and record.get("trust_level") in {"verified", "validated"}
+        and bool(record.get("extension_distribution"))
+        and bool(record.get("extension_version"))
+        and bool(record.get("entry_point"))
+        and record.get("entry_point_discovered") is True
+        and record.get("entry_point_activated") is True
+        and _is_sha256(record.get("core_wheel_sha256"))
+        and _is_sha256(record.get("extension_wheel_sha256"))
+        and _is_sha256(record.get("core_installation_sha256_before"))
+        and record.get("core_installation_sha256_before")
+        == record.get("core_installation_sha256_after")
+        and _is_sha256(record.get("result_manifest_sha256"))
+        and _matches_candidate(
+            record,
+            version=version,
+            commit_field="core_commit",
+            commit=commit,
+        )
+    )
+
+
 def _gate_foundation_acceptance(
     records: tuple[dict[str, object], ...],
     *,
@@ -316,6 +351,11 @@ def _gate_foundation_acceptance(
     """Require release-boundary evidence rather than inferring it from unit tests."""
 
     required_mpi = {"state", "nonlinear", "output", "checkpoint"}
+    extensions = tuple(
+        record
+        for record in records
+        if _valid_extension_acceptance(record, version=version, commit=commit)
+    )
     accepted = []
     for record in records:
         mpi = record.get("representative_mpi")
@@ -332,6 +372,7 @@ def _gate_foundation_acceptance(
             and int(record.get("mpi_rank_count", 0)) >= 2
             and all(mpi.get(name) == "passed" for name in required_mpi)
             and _is_sha256(record.get("wheel_sha256"))
+            and bool(extensions)
             and _matches_candidate(
                 record,
                 version=version,
@@ -347,7 +388,8 @@ def _gate_foundation_acceptance(
         else (
             "missing candidate-bound 0.4 foundation acceptance: complete serial, "
             "representative two-rank state/nonlinear/output/checkpoint, installed "
-            "wheel, public examples, and compatibility imports",
+            "wheel, public examples, compatibility imports, and an independently "
+            "installed external provider",
         )
     )
     return GateResult(
@@ -357,7 +399,8 @@ def _gate_foundation_acceptance(
         tuple(
             f"foundation:{item.get('agentfem_version')}:{item.get('source_commit')}"
             for item in accepted
-        ),
+        )
+        + tuple(f"extension:{item.get('extension')}" for item in extensions),
         gaps,
     )
 
@@ -404,20 +447,7 @@ def _gate_extension(
     accepted = [
         record
         for record in records
-        if record.get("schema") == "agentfem.extension-acceptance"
-        and record.get("status") == "passed"
-        and record.get("installed_wheel") is True
-        and record.get("core_modified") is False
-        and record.get("simulation_result") == "passed"
-        and bool(record.get("companion_commit"))
-        and _is_sha256(record.get("core_wheel_sha256"))
-        and _is_sha256(record.get("extension_wheel_sha256"))
-        and _matches_candidate(
-            record,
-            version=version,
-            commit_field="core_commit",
-            commit=commit,
-        )
+        if _valid_extension_acceptance(record, version=version, commit=commit)
     ]
     gaps = (
         ()

@@ -18,7 +18,7 @@ declares it as required.
 [project]
 name = "company-agentfem-solids"
 version = "1.0.0"
-dependencies = ["agentfem>=0.2,<0.3"]
+dependencies = ["agentfem>=0.3,<0.5"]
 
 [project.entry-points."agentfem.extensions"]
 company-solids = "company_agentfem:extension"
@@ -168,3 +168,27 @@ version.
 This boundary is deliberately smaller than a general arbitrary-hook system.
 Additional registration kinds should enter the context only when they have a
 stable public consumer and conflict semantics.
+
+## Installed-wheel acceptance
+
+Unit tests with a simulated entry point are useful, but they do not prove the
+package boundary. Before an extension is used as release evidence, build the
+core and extension as separate wheels and run the reusable acceptance gate:
+
+```bash
+python extension_gate.py \
+  --core-wheel dist/agentfem-VERSION-py3-none-any.whl \
+  --extension-wheel dist-extension/company_agentfem_solids-VERSION.whl \
+  --project company-agentfem/acceptance-project \
+  --extension company-solids \
+  --report extension-acceptance.json
+```
+
+The acceptance project must declare the extension, solve through the ordinary
+Model and Procedure interfaces, publish a verified `SimulationResult`, and
+retain extension identity in the run record. The gate runs from outside the
+source checkout and compares the installed AgentFEM tree before and after the
+solve, so an extension that patches core files cannot pass. The small
+`examples/extensions/reference_material` distribution is an executable author
+example, not a scientific material library or a shortcut around independent
+benchmarking.

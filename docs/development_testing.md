@@ -17,6 +17,12 @@ the most expensive command after every keystroke.
 | Documentation-only pull request and `main` | Strict generated-document and site build; no FEniCSx or PyTorch environment rebuild | GitHub Actions `docs` tier |
 | Release candidate/tag | All preceding checks plus distribution inspection and installed-wheel release smoke | `python release_gate.py --dist dist --smoke` |
 
+An extension promotion additionally requires two independently built wheels.
+`extension_gate.py` installs them into an isolated prefix, executes a declared
+project outside the checkout, verifies the sealed result, and proves that the
+installed core tree was unchanged. Simulated entry-point tests do not replace
+this evidence.
+
 ## Source and installed-wheel evidence are separate
 
 The repository uses the standard `src/agentfem/` package layout. Pytest is
