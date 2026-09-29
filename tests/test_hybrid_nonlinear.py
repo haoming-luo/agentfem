@@ -589,6 +589,9 @@ def test_automatic_nonlinear_checkpoint_restores_next_increment(tmp_path):
     expected_next = continuous.next_increment_size
     checkpoint = continuous.save_checkpoint(tmp_path / "automatic-nonlinear")
     continuous.solve()
+    assert [item.load_factor for item in continuous.snapshots] == pytest.approx(
+        [0.0, 0.25, 0.5, 0.875, 1.0]
+    )
 
     restarted, restarted_solution = build_problem()
     restarted.load_checkpoint(checkpoint)

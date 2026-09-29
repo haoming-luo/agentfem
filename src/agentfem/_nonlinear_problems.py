@@ -257,8 +257,8 @@ class IncrementalNonlinearVariationalProblem:
             if reporter is not None:
                 reporter.emit(event)
 
-        self.snapshots.clear()
         if fresh:
+            self.snapshots.clear()
             self.accepted_load_factor = 0.0
             self.accepted_increments.clear()
             self.attempted_increments.clear()
@@ -277,14 +277,21 @@ class IncrementalNonlinearVariationalProblem:
                 "Incremental nonlinear continuation requires the current field "
                 "to equal the last accepted state."
             )
-        self.snapshots.append(
-            _load_snapshot(
-                len(self.accepted_increments),
-                self.accepted_load_factor,
-                self.solution,
-                field_factory=self.snapshot_field_factory,
+        if (
+            not self.snapshots
+            or abs(
+                self.snapshots[-1].load_factor - self.accepted_load_factor
             )
-        )
+            > 1.0e-12
+        ):
+            self.snapshots.append(
+                _load_snapshot(
+                    len(self.accepted_increments),
+                    self.accepted_load_factor,
+                    self.solution,
+                    field_factory=self.snapshot_field_factory,
+                )
+            )
         history = list(self.accepted_increments)
         attempts = list(self.attempted_increments)
         accepted_factor = float(self.accepted_load_factor)
