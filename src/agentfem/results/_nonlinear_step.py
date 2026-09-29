@@ -76,6 +76,7 @@ def _add_nonlinear_constraint_evidence(step, result) -> None:
         for key, value in item.diagnostics.items():
             if key in {
                 "contact_energy",
+                "contact_moment",
                 "penetration_l2_norm",
                 "active_contact_measure",
             }:

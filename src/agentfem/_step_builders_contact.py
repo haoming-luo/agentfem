@@ -4,9 +4,10 @@
 """Bounded nonlinear contact Step builders.
 
 The first route is intentionally narrow: small-strain linear-elastic bulk,
-one fixed rigid plane, frictionless penalty contact, and ordinary strong
-constraints.  It establishes residual/tangent/dual ownership before surface
-search, friction, and deformable-to-deformable contact are introduced.
+one analytical rigid plane, frictionless penalty contact, and ordinary strong
+constraints. The plane may be fixed or follow prescribed rigid motion. This
+establishes residual/tangent/generalized-work ownership before surface search,
+friction, and deformable-to-deformable contact are introduced.
 """
 
 from __future__ import annotations
@@ -33,6 +34,7 @@ def rigid_obstacle_contact(
     from petsc4py import PETSc
 
     from . import constraints as constraint_api
+    from . import input_effects
     from . import problems
     from .boundary_models import RigidObstaclePenaltyContact
     from .checkpointing import _partition_neutral_identity
@@ -94,7 +96,22 @@ def rigid_obstacle_contact(
         residual -= load_factor * external.expression
     jacobian = ufl.derivative(residual, displacement, trial)
     value_path = constraint_api.prescribed_value_path(selected_constraints)
-    time_update = model._time_update_callback(include_constraints=False)
+    model_time_update = model._time_update_callback(include_constraints=False)
+    rigid_motion_update = (
+        None
+        if contact.motion is None
+        else input_effects.update(
+            contact.update_motion,
+            effects="operator",
+            name=f"{contact.name}_rigid_motion",
+            identity={
+                "kind": "prescribed_rigid_contact_motion",
+                "surface": contact.surface.summary(),
+                "motion": contact.motion.summary(),
+            },
+        )
+    )
+    time_update = input_effects.compose(model_time_update, rigid_motion_update)
 
     def assemble_scalar(form) -> float:
         local = fem.assemble_scalar(fem.form(form))
@@ -128,7 +145,7 @@ def rigid_obstacle_contact(
             "contact_energy": contact_energy,
         },
         natural_load_coordinate_evaluator=natural_coordinate,
-        proportional_dead_load=time_update is None,
+        proportional_dead_load=model_time_update is None,
         zero_prescribed_motion=zero_prescribed_motion,
     )
     model_summary = model.summary()
@@ -169,6 +186,7 @@ def rigid_obstacle_contact(
         petsc_options_prefix="agentfem_rigid_contact_",
     )
     problem.external_force_operator = external
+    problem.external_force_is_zero = external is None
     problem.contact_provider = contact
     problem.accepted_observers = (energy_recorder,)
     problem.accepted_history_recorders["conservative_energy"] = energy_recorder

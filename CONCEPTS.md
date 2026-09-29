@@ -357,6 +357,23 @@ not as a direct dof restriction.
 A weak boundary physics model that is not simply an external load. Robin,
 impedance, convection, and absorbing boundaries are boundary models.
 
+### Rigid surface and prescribed rigid motion
+
+A rigid surface describes geometry; prescribed rigid motion describes its
+kinematics; a contact boundary model supplies the law that couples that surface
+to a deformable field. These are separate assets so changing a tool path does
+not redefine contact enforcement, and changing a contact law does not redefine
+geometry.
+
+The initial analytical plane route uses a point and outward unit normal.
+Two-dimensional rotation is one counter-clockwise angle; three-dimensional
+rotation is an axis-angle vector. A normalized Procedure coordinate scales the
+declared end translation and rotation. The contact Operator owns gap, penalty
+potential, residual, tangent, resultant force, and moment. The Procedure owns
+accepted path stations and rollback. Result/Verification integrates generalized
+force against translation and rotation; it never infers moving-tool work from
+contact energy.
+
 ## Form
 
 A UFL expression representing a weak-form contribution before assembly.

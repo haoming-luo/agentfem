@@ -15,6 +15,7 @@ from mpi4py import MPI
 from agentfem.ir.values import describe_value
 from agentfem.kernel import constants
 from agentfem.operators import OperatorForm
+from .rigid import PrescribedRigidMotion, RigidPlaneSurface
 
 
 @dataclass(frozen=True)
@@ -233,24 +234,30 @@ class ElasticFoundation:
 
 @dataclass(frozen=True)
 class RigidObstaclePenaltyContact:
-    """Frictionless one-sided contact with a fixed rigid plane.
+    """Frictionless one-sided contact with one analytical rigid plane.
 
-    ``normal`` points from the obstacle towards the admissible half-space and
-    ``initial_gap`` is positive when the undeformed boundary is open.  The
-    current normal gap is therefore ``g = initial_gap + u . normal``.  The
-    provider owns the conservative penalty potential
+    The compatibility route uses ``normal`` and ``initial_gap`` for a fixed
+    plane. The explicit route uses a :class:`RigidPlaneSurface`, optionally
+    following :class:`PrescribedRigidMotion`. In both cases the normal points
+    from the obstacle towards the admissible half-space. The provider owns the
+    conservative penalty potential
 
     ``0.5 * penalty * min(g, 0)^2``.
 
-    This deliberately bounded model has no surface search, friction, moving
-    obstacle, or two-body coupling.  Those require a dedicated contact
-    backend rather than hidden extensions of this UFL boundary operator.
+    This deliberately bounded model has no surface search, finite sliding,
+    friction, free rigid-body dynamics, or two-body coupling. Those require a
+    dedicated contact backend rather than hidden extensions of this UFL
+    boundary operator.
     """
 
     penalty: object
     location: object
     normal: object
     initial_gap: object = 0.0
+    surface: RigidPlaneSurface | None = None
+    motion: PrescribedRigidMotion | None = None
+    surface_point: object | None = None
+    motion_factor: object | None = None
     name: str = "rigid_obstacle_contact"
 
     def __post_init__(self) -> None:
@@ -271,10 +278,45 @@ class RigidObstaclePenaltyContact:
             raise ValueError("Contact initial_gap must be scalar.")
         if isinstance(self.initial_gap, Real) and not np.isfinite(self.initial_gap):
             raise ValueError("Contact initial_gap must be finite.")
+        if self.surface is not None:
+            if self.surface.dimension != dimension:
+                raise ValueError("Rigid contact surface must match the mesh dimension.")
+            if self.surface_point is None or self.motion_factor is None:
+                raise ValueError(
+                    "Moving rigid-plane contact requires point and factor state."
+                )
+            if self.motion is not None and self.motion.dimension != dimension:
+                raise ValueError("Rigid contact motion must match the mesh dimension.")
+
+    @property
+    def has_prescribed_motion(self) -> bool:
+        if self.motion is None:
+            return False
+        coordinate = self.motion.generalized_coordinate(1.0)
+        return bool(np.any(np.abs(coordinate) > 0.0))
+
+    def update_motion(self, factor: float) -> None:
+        """Update analytical rigid-plane kinematics for one trial station."""
+
+        if self.surface is None:
+            return
+        state = self.surface.transformed(self.motion, factor)
+        self.surface_point.value = np.asarray(state["point"], dtype=float)
+        self.normal.value = np.asarray(state["normal"], dtype=float)
+        self.motion_factor.value = float(factor)
+
+    def _rigid_state(self) -> dict[str, np.ndarray | float] | None:
+        if self.surface is None:
+            return None
+        factor = float(np.asarray(self.motion_factor.value).reshape(-1)[0])
+        return self.surface.transformed(self.motion, factor)
 
     def gap(self, displacement):
         """Return the signed gap; negative values denote penetration."""
 
+        if self.surface is not None:
+            position = ufl.SpatialCoordinate(self.location.domain)
+            return ufl.dot(position + displacement - self.surface_point, self.normal)
         return self.initial_gap + ufl.dot(displacement, self.normal)
 
     def penetration(self, displacement):
@@ -319,7 +361,11 @@ class RigidObstaclePenaltyContact:
             strict=False,
             supports_parallel=True,
             reaction_evidence="provider_dual_required",
-            work_evidence="internal_energy_operator",
+            work_evidence=(
+                "provider_dual_path_required"
+                if self.has_prescribed_motion
+                else "internal_energy_operator"
+            ),
         )
 
     def dual_evidence(self, problem):
@@ -399,6 +445,53 @@ class RigidObstaclePenaltyContact:
                 * self.location.measure
             )
         )
+        rigid_state = self._rigid_state()
+        generalized_force = resultant
+        generalized_coordinate = np.zeros_like(resultant)
+        contact_moment = None
+        if rigid_state is not None:
+            function_space = solution.function_space
+            block_size = int(function_space.dofmap.index_map_bs)
+            block_count = int(function_space.dofmap.index_map.size_local)
+            if block_size != components:
+                raise NotImplementedError(
+                    "Rigid contact moment recovery requires one blocked vector "
+                    "space with one displacement block per node."
+                )
+            coordinates = np.asarray(
+                function_space.tabulate_dof_coordinates()[:block_count, :components],
+                dtype=float,
+            )
+            displacement_values = np.asarray(
+                solution.x.array[:owned], dtype=float
+            ).reshape((-1, components))
+            force_values = values.reshape((-1, components))
+            current_positions = coordinates + displacement_values
+            arm = current_positions - np.asarray(
+                rigid_state["reference_point"], dtype=float
+            )
+            if components == 2:
+                contact_moment = np.asarray(
+                    [
+                        np.sum(
+                            arm[:, 0] * force_values[:, 1]
+                            - arm[:, 1] * force_values[:, 0]
+                        )
+                    ],
+                    dtype=float,
+                )
+            else:
+                contact_moment = np.sum(np.cross(arm, force_values), axis=0)
+            global_moment = np.empty_like(contact_moment)
+            comm.Allreduce(contact_moment, global_moment, op=MPI.SUM)
+            contact_moment = global_moment
+            generalized_force = np.concatenate((resultant, contact_moment))
+            generalized_coordinate = (
+                np.zeros_like(generalized_force)
+                if self.motion is None
+                else self.motion.generalized_coordinate(rigid_state["factor"])
+            )
+
         diagnostics = {
             "status": "complete",
             "contact_energy": energy,
@@ -414,13 +507,35 @@ class RigidObstaclePenaltyContact:
             "energy_accounting": "conservative_internal_contact_potential",
             "comm_size": int(comm.size),
         }
+        if rigid_state is not None:
+            diagnostics.update(
+                {
+                    "surface": self.surface.summary(),
+                    "rigid_motion": (
+                        None if self.motion is None else self.motion.summary()
+                    ),
+                    "rigid_translation": np.asarray(
+                        rigid_state["translation"], dtype=float
+                    ).tolist(),
+                    "rigid_rotation": np.asarray(
+                        rigid_state["rotation"], dtype=float
+                    ).tolist(),
+                    "rigid_reference_point": np.asarray(
+                        rigid_state["reference_point"], dtype=float
+                    ).tolist(),
+                    "contact_moment": contact_moment.tolist(),
+                    "generalized_force_convention": (
+                        "translation_resultant_then_rotation_moment"
+                    ),
+                }
+            )
         return constraint_dual(
             self,
-            force=resultant,
+            force=generalized_force,
             # A fixed obstacle has zero generalized translation at every
             # station.  Its external work is therefore zero; the penalty
             # potential remains a separate internal-energy contribution.
-            coordinate=np.zeros_like(resultant),
+            coordinate=generalized_coordinate,
             resultant=resultant,
             distribution=distribution,
             diagnostics=diagnostics,
@@ -438,7 +553,13 @@ class RigidObstaclePenaltyContact:
             "normal": describe_value(self.normal),
             "initial_gap": describe_value(self.initial_gap),
             "friction": "none",
-            "obstacle": "fixed_plane",
+            "obstacle": (
+                "prescribed_rigid_plane"
+                if self.has_prescribed_motion
+                else "fixed_plane"
+            ),
+            "surface": None if self.surface is None else self.surface.summary(),
+            "motion": None if self.motion is None else self.motion.summary(),
         }
 
 
@@ -465,11 +586,18 @@ def rigid_obstacle_contact(
     on=None,
     location=None,
     penalty,
-    normal,
+    normal=None,
     initial_gap=0.0,
+    surface: RigidPlaneSurface | None = None,
+    motion: PrescribedRigidMotion | None = None,
     name: str = "rigid_obstacle_contact",
 ) -> RigidObstaclePenaltyContact:
-    """Create conservative frictionless contact with one fixed rigid plane."""
+    """Create conservative frictionless contact with one analytical plane.
+
+    ``normal`` and ``initial_gap`` preserve the original fixed-plane route.
+    ``surface`` makes the plane geometry explicit and may be paired with one
+    normalized prescribed rigid-body ``motion``.
+    """
 
     selected = location if location is not None else on
     if on is not None and location is not None:
@@ -482,8 +610,35 @@ def rigid_obstacle_contact(
         raise ValueError("Contact penalty must be finite and positive.")
     if isinstance(initial_gap, Real) and not np.isfinite(float(initial_gap)):
         raise ValueError("Contact initial_gap must be finite.")
-    raw_normal = np.asarray(normal, dtype=float)
     dimension = int(selected.domain.geometry.dim)
+    if surface is not None and not isinstance(surface, RigidPlaneSurface):
+        raise TypeError("surface must be a RigidPlaneSurface.")
+    if motion is not None and not isinstance(motion, PrescribedRigidMotion):
+        raise TypeError("motion must be a PrescribedRigidMotion.")
+    if motion is not None and surface is None:
+        raise ValueError("Prescribed rigid motion requires an explicit surface.")
+    if surface is not None and normal is not None:
+        raise ValueError("Pass either normal=... or surface=..., not both.")
+    if surface is not None and isinstance(initial_gap, Real) and float(initial_gap) != 0.0:
+        raise ValueError(
+            "Explicit rigid-plane geometry defines the gap; initial_gap must be zero."
+        )
+    if surface is not None:
+        if surface.dimension != dimension:
+            raise ValueError("Rigid-plane surface must match the mesh dimension.")
+        if motion is not None and motion.dimension != dimension:
+            raise ValueError("Rigid motion must match the mesh dimension.")
+        state = surface.transformed(motion, 0.0)
+        contact_normal = np.asarray(state["normal"], dtype=float)
+        contact_point = constants.constant(selected.domain, state["point"])
+        motion_factor = constants.constant(selected.domain, 0.0)
+    else:
+        if normal is None:
+            raise ValueError("Fixed rigid-plane contact requires normal=....")
+        contact_normal = np.asarray(normal, dtype=float)
+        contact_point = None
+        motion_factor = None
+    raw_normal = np.asarray(contact_normal, dtype=float)
     if raw_normal.shape != (dimension,) or not np.all(np.isfinite(raw_normal)):
         raise ValueError(
             "Contact normal must be one finite vector matching the mesh "
@@ -498,8 +653,12 @@ def rigid_obstacle_contact(
     return RigidObstaclePenaltyContact(
         penalty=constants.constant(selected.domain, penalty),
         location=selected,
-        normal=constants.constant(selected.domain, normal),
+        normal=constants.constant(selected.domain, contact_normal),
         initial_gap=constants.constant(selected.domain, initial_gap),
+        surface=surface,
+        motion=motion,
+        surface_point=contact_point,
+        motion_factor=motion_factor,
         name=name,
     )
 

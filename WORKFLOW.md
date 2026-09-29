@@ -154,7 +154,9 @@ Package paths below are relative to `src/agentfem/`.
 - Engineering damage and life-assessment consumers: `assessments.py`
 - Material library, assignment frames, plies, and laminate sections:
   `materials/`
-- Boundary models: `boundary_models/`
+- Boundary models: `boundary_models/`; solver-neutral analytical rigid
+  surfaces and prescribed rigid motion live in `boundary_models/rigid.py` and
+  remain separate from the contact law in `boundary_models/mechanical.py`
 - Weak-form blocks: `forms.py`
 - Assembly: `assembly.py`
 - Operator families: `operators/`

@@ -55,13 +55,13 @@ indefinite numerical matrix is rejected before assembly. General
 nonlinear, moving-normal, damping, and contact foundations remain separate
 future providers.
 
-## Add bounded contact with a fixed rigid plane
+## Add bounded contact with an analytical rigid plane
 
 The first contact provider is deliberately narrow and inspectable: a
-small-strain solid, one fixed plane, frictionless one-sided contact, and a
-penalty selected by the user. The normal points from the obstacle into the
-admissible half-space, while a positive `initial_gap` means that the reference
-boundary is open:
+small-strain solid, one analytical plane, frictionless one-sided contact, and a
+penalty selected by the user. The compatibility route below keeps the plane
+fixed. Its normal points from the obstacle into the admissible half-space,
+while a positive `initial_gap` means that the reference boundary is open:
 
 ```python
 model.rigid_obstacle_contact(
@@ -81,9 +81,36 @@ The contact energy belongs to the system internal energy and is not counted a
 second time as external work. For a fixed obstacle, proportional dead load,
 and zero prescribed motion, the result also records the accepted natural-load
 coordinate and closes natural plus provider-dual work against bulk strain
-energy plus contact potential. A time-varying load or nonzero prescribed motion
-is reported as unavailable until its missing work channel is supplied; no
-partial energy ledger is promoted as complete.
+energy plus contact potential.
+
+Define geometry and motion explicitly when the rigid tool moves:
+
+```python
+from agentfem import boundary_models
+
+tool = boundary_models.rigid_plane(
+    point=(1.0, 0.5),
+    normal=(-1.0, 0.0),
+)
+tool_motion = boundary_models.prescribed_rigid_motion(
+    translation=(-0.01, 0.0),
+    rotation=0.0,
+    reference_point=(1.0, 0.5),
+)
+model.rigid_obstacle_contact(
+    on=possible_contact,
+    surface=tool,
+    motion=tool_motion,
+    penalty=1.0e10,
+)
+```
+
+The translation and rotation are end values scaled by the accepted nonlinear
+load coordinate. At each accepted station the provider records the conjugate
+resultant force and moment. Their trapezoidal path integral is the moving
+tool's work and enters the same bulk-plus-contact energy ledger. Failed Newton
+trials and cutbacks do not enter that ledger. Rotation uses radians: one
+counter-clockwise angle in 2D and an axis-angle vector in 3D.
 
 Pass `checkpoint=checkpointing.every(...)` to `model.step(...)` when a long
 load path must be restartable. Only accepted load boundaries are published.
@@ -94,11 +121,13 @@ restart rejects changed mesh/function-space identity, loads, constraints, time
 inputs, or nonlinear controls. The same accepted state can be resumed with a
 different compatible MPI partition or rank count.
 
-This route has no surface search, friction, moving obstacle, or
-deformable-to-deformable coupling. It rejects incompatible boundary providers
-and constraint types before assembly. The penalty has units of traction per
-length and must therefore be selected and checked by mesh refinement for the
-problem at hand. General contact remains a separate future provider.
+This route has no surface search, finite sliding, friction, multiple contact
+pairs, free rigid-body dynamics, or deformable-to-deformable coupling. The
+moving surface remains one analytical plane. It rejects incompatible boundary
+providers and constraint types before assembly. The penalty has units of
+traction per length and must therefore be selected and checked by mesh
+refinement for the problem at hand. General contact remains a separate future
+provider.
 
 ## Declare the numerical unit contract
 

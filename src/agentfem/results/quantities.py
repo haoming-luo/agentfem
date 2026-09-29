@@ -589,14 +589,6 @@ def external_force_resultant(problem):
     else:
         operator = getattr(problem, "external_force_operator", None)
         expression = getattr(operator, "expression", None)
-    if expression is None:
-        raise TypeError(
-            "external_force_resultant requires a system rhs_form() or an "
-            "explicit external_force_operator."
-        )
-    import dolfinx.fem.petsc as fem_petsc
-    from petsc4py import PETSc
-
     solution_getter = getattr(problem, "_solution", None)
     solution = (
         solution_getter()
@@ -605,13 +597,23 @@ def external_force_resultant(problem):
     )
     if solution is None:
         raise TypeError("external_force_resultant requires a solved field.")
+    shape = tuple(getattr(solution, "ufl_shape", ()))
+    if expression is None and getattr(problem, "external_force_is_zero", False):
+        return 0.0 if not shape else np.zeros(shape, dtype=float)
+    if expression is None:
+        raise TypeError(
+            "external_force_resultant requires a system rhs_form() or an "
+            "explicit external_force_operator."
+        )
+    import dolfinx.fem.petsc as fem_petsc
+    from petsc4py import PETSc
+
     vector = fem_petsc.assemble_vector(fem.form(expression))
     try:
         vector.ghostUpdate(
             addv=PETSc.InsertMode.ADD,
             mode=PETSc.ScatterMode.REVERSE,
         )
-        shape = tuple(getattr(solution, "ufl_shape", ()))
         space = solution.function_space
         owned = int(space.dofmap.index_map.size_local) * int(
             space.dofmap.index_map_bs
@@ -665,8 +667,8 @@ def static_force_balance(
         )
 
     external = external_force_resultant(problem)
-    reaction = reaction_resultant(problem)
-    provider_reaction = np.zeros_like(np.asarray(reaction), dtype=float)
+    strong_reaction = np.asarray(reaction_resultant(problem))
+    provider_reaction = np.zeros_like(strong_reaction, dtype=float)
     for item in provider_duals:
         selected = np.asarray(item.resultant, dtype=float)
         if selected.size != provider_reaction.size:
@@ -677,12 +679,14 @@ def static_force_balance(
         provider_reaction = provider_reaction + selected.reshape(
             provider_reaction.shape
         )
-    reaction = np.asarray(reaction) + provider_reaction
+    reaction = strong_reaction + provider_reaction
     residual = np.asarray(external) + np.asarray(reaction)
     absolute = float(np.linalg.norm(np.atleast_1d(residual)))
     scale = max(
         float(np.linalg.norm(np.atleast_1d(external))),
         float(np.linalg.norm(np.atleast_1d(reaction))),
+        float(np.linalg.norm(np.atleast_1d(strong_reaction))),
+        float(np.linalg.norm(np.atleast_1d(provider_reaction))),
     )
     relative = 0.0 if scale == 0.0 else absolute / scale
     if residual.ndim == 0:

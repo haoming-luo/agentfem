@@ -8,6 +8,7 @@ from dolfinx import mesh as dolfinx_mesh
 from mpi4py import MPI
 
 from agentfem import (
+    boundary_models,
     checkpointing,
     constitutive,
     fields,
@@ -70,6 +71,76 @@ def _contact_model(*, traction=10.0, prescribed_y=None):
             name="prescribed_right_y",
         )
     return model, displacement, contact
+
+
+def _moving_contact_model(*, displacement=-0.01, reference_point=(1.0, 0.5)):
+    domain = mesh.rectangle(
+        (0.0, 0.0),
+        (1.0, 1.0),
+        (8, 4),
+        comm=MPI.COMM_WORLD,
+        cell_type="quadrilateral",
+    )
+    model = models.create(
+        study=studies.static_solid(
+            dimension=2,
+            assumption="plane_stress",
+            nonlinear=True,
+        ),
+        mesh=domain,
+        name="prescribed_rigid_plane_patch",
+    )
+    field = model.field(fields.displacement(domain))
+    model.material(
+        constitutive.elasticity.isotropic_elastic(
+            young=1.0e3,
+            poisson=0.0,
+            density=1.0,
+        )
+    )
+    left = mesh.boundary(domain, _left, name="left", tag=1)
+    right = mesh.boundary(domain, _right, name="contact", tag=2)
+    model.clamp(field, on=left)
+    surface = boundary_models.rigid_plane(
+        point=(1.0, 0.5),
+        normal=(-1.0, 0.0),
+        name="tool_surface",
+    )
+    motion = boundary_models.prescribed_rigid_motion(
+        translation=(float(displacement), 0.0),
+        reference_point=reference_point,
+        name="tool_motion",
+    )
+    contact = model.rigid_obstacle_contact(
+        on=right,
+        penalty=1.0e4,
+        surface=surface,
+        motion=motion,
+        name="moving_tool_contact",
+    )
+    return model, field, contact
+
+
+def test_rigid_surface_and_motion_have_exact_geometry_semantics():
+    surface = boundary_models.rigid_plane(
+        point=(1.0, 0.5),
+        normal=(-1.0, 0.0),
+    )
+    motion = boundary_models.prescribed_rigid_motion(
+        translation=(0.1, -0.2),
+        rotation=np.pi / 2.0,
+        reference_point=(1.0, 0.5),
+    )
+
+    state = surface.transformed(motion, 1.0)
+
+    np.testing.assert_allclose(state["point"], (1.1, 0.3), atol=1.0e-15)
+    np.testing.assert_allclose(state["normal"], (0.0, -1.0), atol=1.0e-15)
+    np.testing.assert_allclose(
+        motion.generalized_coordinate(1.0),
+        (0.1, -0.2, np.pi / 2.0),
+        atol=1.0e-15,
+    )
 
 
 def test_rigid_obstacle_contact_contract_is_explicitly_bounded():
@@ -152,6 +223,75 @@ def test_rigid_obstacle_contact_closes_force_and_reports_energy():
         0.0
     )
     assert dual["distribution"]["name"] in result.fields
+
+
+def test_prescribed_rigid_plane_closes_force_moment_and_path_work():
+    model, displacement, contact = _moving_contact_model()
+    result = model.step(
+        target=displacement,
+        incrementation=steps.fixed(4),
+        progress=False,
+    ).solve_result()
+
+    imposed = 0.01
+    expected_displacement = -1.0e4 * imposed / (1.0e3 + 1.0e4)
+    expected_penetration = imposed + expected_displacement
+    expected_force = -1.0e4 * expected_penetration
+    expected_work = 0.5 * expected_force * -imposed
+    right_values = results.probe(displacement, at=(1.0, 0.5))
+    assert right_values[0] == pytest.approx(expected_displacement, rel=2.0e-6)
+
+    dual = result.metadata["constraint_duals"][0]
+    np.testing.assert_allclose(
+        dual["force"],
+        (expected_force, 0.0, 0.0),
+        rtol=2.0e-6,
+        atol=1.0e-9,
+    )
+    np.testing.assert_allclose(
+        dual["coordinate"], (-imposed, 0.0, 0.0), atol=1.0e-15
+    )
+    np.testing.assert_allclose(dual["resultant"], (expected_force, 0.0), rtol=2.0e-6)
+    np.testing.assert_allclose(dual["diagnostics"]["contact_moment"], (0.0,), atol=1.0e-9)
+    assert contact.summary()["obstacle"] == "prescribed_rigid_plane"
+    assert contact.capabilities().summary()["work_evidence"] == (
+        "provider_dual_path_required"
+    )
+
+    path_work = result.metadata["constraint_path_work"]
+    assert path_work["status"] == "complete"
+    assert path_work["channels"]["moving_tool_contact"]["value"] == pytest.approx(
+        expected_work, rel=2.0e-6
+    )
+    assert result.quantity("moving_tool_contact_path_work") == pytest.approx(
+        expected_work, rel=2.0e-6
+    )
+    work = result.metadata["static_work"]
+    assert work["status"] == "complete"
+    assert work["provider_constraint_work"] == pytest.approx(
+        expected_work, rel=2.0e-6
+    )
+    assert work["external_work"] == pytest.approx(expected_work, rel=2.0e-6)
+    assert work["relative_energy_balance_error"] < 1.0e-10
+    assert result.quantity("relative_force_balance_error") < 1.0e-8
+    assert result.quantity("moving_tool_contact_contact_moment") == pytest.approx(
+        (0.0,), abs=1.0e-9
+    )
+
+
+def test_prescribed_rigid_plane_recovers_nonzero_moment_about_reference():
+    model, displacement, _ = _moving_contact_model(reference_point=(1.0, 0.0))
+    result = model.step(
+        target=displacement,
+        incrementation=steps.fixed(2),
+        progress=False,
+    ).solve_result()
+
+    resultant = np.asarray(
+        result.metadata["constraint_duals"][0]["resultant"], dtype=float
+    )
+    moment = result.quantity("moving_tool_contact_contact_moment")
+    assert moment == pytest.approx((-0.5 * resultant[0],), rel=2.0e-6)
 
 
 def test_rigid_obstacle_contact_rejects_nonpositive_penalty():
@@ -241,6 +381,50 @@ def test_rigid_obstacle_requires_unit_normal():
         )
 
 
+def test_rigid_motion_requires_explicit_surface_and_unambiguous_gap():
+    domain = mesh.rectangle(
+        (0.0, 0.0),
+        (1.0, 1.0),
+        (1, 1),
+        comm=MPI.COMM_SELF,
+    )
+    model = models.create(
+        study=studies.static_solid(
+            dimension=2,
+            assumption="plane_stress",
+            nonlinear=True,
+        ),
+        mesh=domain,
+    )
+    right = mesh.boundary(domain, _right, name="right")
+    surface = boundary_models.rigid_plane(
+        point=(1.0, 0.5), normal=(-1.0, 0.0)
+    )
+    motion = boundary_models.prescribed_rigid_motion(translation=(-0.1, 0.0))
+
+    with pytest.raises(ValueError, match="requires an explicit surface"):
+        model.rigid_obstacle_contact(
+            on=right,
+            penalty=1.0,
+            normal=(-1.0, 0.0),
+            motion=motion,
+        )
+    with pytest.raises(ValueError, match="either normal=.*surface"):
+        model.rigid_obstacle_contact(
+            on=right,
+            penalty=1.0,
+            normal=(-1.0, 0.0),
+            surface=surface,
+        )
+    with pytest.raises(ValueError, match="initial_gap must be zero"):
+        model.rigid_obstacle_contact(
+            on=right,
+            penalty=1.0,
+            initial_gap=0.1,
+            surface=surface,
+        )
+
+
 def test_rigid_obstacle_contact_retains_vector_resultant_in_3d():
     domain = dolfinx_mesh.create_unit_cube(MPI.COMM_SELF, 2, 1, 1)
     model = models.create(
@@ -327,6 +511,52 @@ def test_rigid_contact_checkpoint_restores_solution_path_and_duals(tmp_path):
             "conservative_energy"
         ].checkpoint_state()
         == reference_energy
+    )
+
+
+@pytest.mark.skipif(
+    MPI.COMM_WORLD.size != 1,
+    reason="cross-rank restart is covered by the portable contact driver",
+)
+def test_prescribed_rigid_motion_restores_geometry_and_work_path(tmp_path):
+    reference_model, reference_u, _ = _moving_contact_model()
+    reference = reference_model.step(
+        target=reference_u,
+        incrementation=steps.fixed(4),
+        progress=False,
+    )
+    reference_result = reference.solve_result()
+
+    partial_model, partial_u, partial_contact = _moving_contact_model()
+    partial = partial_model.step(
+        target=partial_u,
+        incrementation=steps.fixed(4),
+        progress=False,
+    )
+    partial.solve(until=0.5)
+    np.testing.assert_allclose(partial_contact.surface_point.value, (0.995, 0.5))
+    checkpoint = partial.save_checkpoint(tmp_path / "moving-contact")
+
+    restarted_model, restarted_u, restarted_contact = _moving_contact_model()
+    restarted = restarted_model.step(
+        target=restarted_u,
+        incrementation=steps.fixed(4),
+        progress=False,
+    )
+    restarted.load_checkpoint(checkpoint)
+    np.testing.assert_allclose(restarted_contact.surface_point.value, (0.995, 0.5))
+    restarted_result = restarted.solve_result()
+
+    np.testing.assert_allclose(
+        restarted_u.value.x.array,
+        reference_u.value.x.array,
+        rtol=0.0,
+        atol=1.0e-12,
+    )
+    assert restarted_result.quantity("moving_tool_contact_path_work") == pytest.approx(
+        reference_result.quantity("moving_tool_contact_path_work"),
+        rel=0.0,
+        abs=1.0e-14,
     )
     assert [item.load_factor for item in restarted.accepted_increments] == [
         0.25,
