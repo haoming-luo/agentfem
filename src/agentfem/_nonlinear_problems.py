@@ -161,12 +161,17 @@ class IncrementalNonlinearVariationalProblem:
     snapshot_field_factory: object | None = None
     checkpoint_policy: object | None = None
     checkpoint_identity: object | None = None
+    accepted_observers: tuple[object, ...] = ()
     _attempt_solver: object | None = field(default=None, repr=False)
     _attempt_backend: str = field(default="assembled_ufl", repr=False)
     last_solve_info: NonlinearLoadPathInfo | None = field(default=None, init=False)
     snapshots: list = field(default_factory=list, init=False)
     execution_events: list = field(default_factory=list, init=False)
     checkpoints: list = field(default_factory=list, init=False)
+    accepted_history_recorders: dict[str, object] = field(
+        default_factory=dict,
+        init=False,
+    )
     accepted_load_factor: float = field(default=0.0, init=False)
     accepted_increments: list[NonlinearLoadIncrementInfo] = field(
         default_factory=list, init=False
@@ -277,6 +282,7 @@ class IncrementalNonlinearVariationalProblem:
                 "Incremental nonlinear continuation requires the current field "
                 "to equal the last accepted state."
             )
+        snapshots_before_observer_initialization = list(self.snapshots)
         if (
             not self.snapshots
             or abs(
@@ -284,14 +290,29 @@ class IncrementalNonlinearVariationalProblem:
             )
             > 1.0e-12
         ):
-            self.snapshots.append(
-                _load_snapshot(
-                    len(self.accepted_increments),
-                    self.accepted_load_factor,
-                    self.solution,
-                    field_factory=self.snapshot_field_factory,
-                )
+            initial_snapshot = _load_snapshot(
+                len(self.accepted_increments),
+                self.accepted_load_factor,
+                self.solution,
+                field_factory=self.snapshot_field_factory,
             )
+            self.snapshots.append(initial_snapshot)
+        else:
+            initial_snapshot = self.snapshots[-1]
+        initial_observer_state = _snapshot_accepted_observers(
+            self.accepted_observers,
+            comm=self.solution.function_space.mesh.comm,
+        )
+        try:
+            for observer in self.accepted_observers:
+                if not fresh and hasattr(observer, "prepare_resume"):
+                    observer.prepare_resume(initial_snapshot)
+                else:
+                    observer.reset(initial_snapshot)
+        except BaseException:
+            _restore_accepted_observers(initial_observer_state)
+            self.snapshots[:] = snapshots_before_observer_initialization
+            raise
         history = list(self.accepted_increments)
         attempts = list(self.attempted_increments)
         accepted_factor = float(self.accepted_load_factor)
@@ -387,15 +408,38 @@ class IncrementalNonlinearVariationalProblem:
                 dual_state_before = (
                     self.constraint_dual_history.snapshot_runtime_state()
                 )
+                observer_state_before = _snapshot_accepted_observers(
+                    self.accepted_observers,
+                    comm=self.solution.function_space.mesh.comm,
+                )
                 previous_next_increment = self.next_increment_size
                 snapshots_before = list(self.snapshots)
                 checkpoints_before = list(self.checkpoints)
+                should_save_snapshot = self.output_every is not None and (
+                    increment_number % self.output_every == 0
+                    or abs(factor - selected_until) <= 1.0e-12
+                )
+                accepted_snapshot = None
                 try:
+                    if self.accepted_observers or should_save_snapshot:
+                        accepted_snapshot = _load_snapshot(
+                            increment_number,
+                            factor,
+                            self.solution,
+                            solve_info=solve_info,
+                            field_factory=self.snapshot_field_factory,
+                        )
+                    for observer in self.accepted_observers:
+                        observer.accept(accepted_snapshot)
                     self._capture_constraint_duals(factor)
-                except (RuntimeError, TypeError, ValueError) as exc:
+                except Exception as exc:
+                    _restore_accepted_observers(observer_state_before)
+                    self.constraint_dual_history.restore_runtime_state(
+                        dual_state_before
+                    )
                     converged = False
                     message = (
-                        "accepted constraint dual capture failed: "
+                        "accepted-boundary evidence capture failed: "
                         f"{type(exc).__name__}: {exc}"
                     )
             info = NonlinearLoadIncrementInfo(
@@ -423,19 +467,8 @@ class IncrementalNonlinearVariationalProblem:
                 self.accepted_load_factor = factor
                 self.accepted_increments[:] = history
                 cutbacks = 0
-                if self.output_every is not None and (
-                    len(history) % self.output_every == 0
-                    or abs(factor - selected_until) <= 1.0e-12
-                ):
-                    self.snapshots.append(
-                        _load_snapshot(
-                            len(history),
-                            factor,
-                            self.solution,
-                            solve_info=solve_info,
-                            field_factory=self.snapshot_field_factory,
-                        )
-                    )
+                if should_save_snapshot:
+                    self.snapshots.append(accepted_snapshot)
                 emit(
                     SolveEvent(
                         "increment_converged",
@@ -476,6 +509,7 @@ class IncrementalNonlinearVariationalProblem:
                     self.constraint_dual_history.restore_runtime_state(
                         dual_state_before
                     )
+                    _restore_accepted_observers(observer_state_before)
                     del self.execution_events[attempt_event_count:]
                     raise
                 continue
@@ -586,7 +620,48 @@ class IncrementalNonlinearVariationalProblem:
             ),
             "time_inputs": update_identity,
             "scientific_inputs": supplied,
+            "accepted_history_recorders": {
+                name: {"kind": type(recorder).__name__}
+                for name, recorder in sorted(self.accepted_history_recorders.items())
+            },
         }
+
+    def _validated_checkpoint_recorders(self) -> dict[str, object]:
+        """Return the complete named, restartable accepted-observer registry."""
+
+        named = dict(self.accepted_history_recorders)
+        unnamed = [
+            type(observer).__name__
+            for observer in self.accepted_observers
+            if not any(observer is recorder for recorder in named.values())
+        ]
+        missing_methods = {
+            name: tuple(
+                method
+                for method in (
+                    "snapshot_runtime_state",
+                    "restore_runtime_state",
+                    "checkpoint_state",
+                    "restore_checkpoint_state",
+                )
+                if not callable(getattr(recorder, method, None))
+            )
+            for name, recorder in named.items()
+        }
+        missing_methods = {
+            name: methods for name, methods in missing_methods.items() if methods
+        }
+        if unnamed or missing_methods:
+            details = []
+            if unnamed:
+                details.append(f"unnamed observers={tuple(unnamed)}")
+            if missing_methods:
+                details.append(f"nonrestartable recorders={missing_methods}")
+            raise TypeError(
+                "Incremental nonlinear checkpointing requires every accepted "
+                "observer to be named and restartable; " + "; ".join(details) + "."
+            )
+        return named
 
     @staticmethod
     def _checkpoint_manifest_path(path) -> Path:
@@ -640,6 +715,7 @@ class IncrementalNonlinearVariationalProblem:
             )
             raise RuntimeError(f"Rank {rank}: {problems[rank]}")
 
+        recorders = self._validated_checkpoint_recorders()
         identity = self._checkpoint_scientific_identity()
         manifest = self._checkpoint_manifest_path(path)
         bundle = save_portable_state_bundle(manifest, state={"U": self.solution})
@@ -664,6 +740,10 @@ class IncrementalNonlinearVariationalProblem:
                 for item in self.execution_events
             ],
             "constraint_dual_history": self.constraint_dual_history.checkpoint_state(),
+            "accepted_observer_state": {
+                name: recorder.checkpoint_state()
+                for name, recorder in sorted(recorders.items())
+            },
         }
         error = None
         if comm.rank == 0:
@@ -711,6 +791,7 @@ class IncrementalNonlinearVariationalProblem:
 
         manifest = self._checkpoint_manifest_path(path)
         comm = self.solution.function_space.mesh.comm
+        self._validated_checkpoint_recorders()
         envelope = None
         if comm.rank == 0:
             try:
@@ -782,6 +863,11 @@ class IncrementalNonlinearVariationalProblem:
             "constraint_dual_history": (
                 self.constraint_dual_history.snapshot_runtime_state()
             ),
+            "accepted_observers": {
+                name: recorder.snapshot_runtime_state()
+                for name, recorder in self.accepted_history_recorders.items()
+                if hasattr(recorder, "snapshot_runtime_state")
+            },
         }
         try:
             load_portable_state_bundle(
@@ -862,10 +948,31 @@ class IncrementalNonlinearVariationalProblem:
                 )
             self._accepted_solution_values = self.solution.x.array.copy()
             self._update_factor(coordinate)
+            observer_state = payload.get("accepted_observer_state", {})
+            if set(observer_state) != set(self.accepted_history_recorders):
+                raise ValueError(
+                    "Incremental nonlinear checkpoint observer history differs "
+                    "from the current output lifecycle."
+                )
+            current_snapshot = _load_snapshot(
+                len(accepted),
+                coordinate,
+                self.solution,
+                solve_info=accepted[-1],
+                field_factory=self.snapshot_field_factory,
+            )
+            for name, state in observer_state.items():
+                recorder = self.accepted_history_recorders[name]
+                if not hasattr(recorder, "restore_checkpoint_state"):
+                    raise TypeError(f"Accepted observer {name!r} is not restartable.")
+                recorder.restore_checkpoint_state(
+                    state,
+                    current_snapshot=current_snapshot,
+                )
             self.last_solve_info = NonlinearLoadPathInfo(
                 tuple(accepted), tuple(attempted), self.incrementation, coordinate
             )
-            self.snapshots.clear()
+            self.snapshots[:] = [current_snapshot]
         except Exception:
             self.solution.x.array[:] = backup["solution"]
             self.solution.x.scatter_forward()
@@ -881,6 +988,13 @@ class IncrementalNonlinearVariationalProblem:
             self.constraint_dual_history.restore_runtime_state(
                 backup["constraint_dual_history"]
             )
+            for name, state in backup["accepted_observers"].items():
+                recorder = self.accepted_history_recorders.get(name)
+                if recorder is not None and hasattr(
+                    recorder,
+                    "restore_runtime_state",
+                ):
+                    recorder.restore_runtime_state(state)
             self._update_factor(self.accepted_load_factor)
             raise
         self.checkpoints.append(
@@ -1004,6 +1118,11 @@ class IncrementalNonlinearVariationalProblem:
                 else self.checkpoint_policy.summary()
             ),
             "checkpoint_count": len(self.checkpoints),
+            "accepted_history_recorders": {
+                name: recorder.summary()
+                for name, recorder in sorted(self.accepted_history_recorders.items())
+                if hasattr(recorder, "summary")
+            },
             "primary_result_fields": (
                 None
                 if self.result_field_factory is None

@@ -225,10 +225,14 @@ energy is internal system energy; it is not added again as prescribed-motion
 work. The ordinary nonlinear Procedure now retains force--coordinate samples
 only at accepted stations and reports `constraint_path_work` separately. For a
 fixed obstacle its conjugate translation is identically zero, hence obstacle
-work is exactly zero even when contact energy is nonzero. Overall
-`static_work.status` remains unavailable until natural-load work and internal
-energy histories close the complete nonlinear balance; failed cutback trials
-never enter either claim.
+work is exactly zero even when contact energy is nonzero. The same accepted-
+boundary transaction now records the fixed natural-load coordinate, bulk
+strain energy, and contact potential. For proportional dead loading with zero
+prescribed motion, `static_work` closes natural plus provider-dual path work
+against the change in bulk plus contact stored energy. Time-varying loading or
+nonzero prescribed motion remains unavailable until its missing work channel
+is explicitly provided. Failed cutback trials never enter any of these claims,
+and checkpoint/restart restores the scalar ledger with the accepted field.
 
 Exact rectangular periodic MPC construction has a separate, narrower
 diagnostic contract. `periodicity.diagnostics()` reports globally owned slave

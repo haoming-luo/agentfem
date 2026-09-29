@@ -125,7 +125,7 @@
       "id": "rigid-obstacle-penalty-contact",
       "maturity": "experimental",
       "example": "tests/test_rigid_obstacle_contact.py",
-      "evidence": ["bounded-fixed-plane-frictionless-scope", "potential-derived-residual-and-tangent", "analytical-series-stiffness", "provider-owned-reaction-distribution-and-resultant", "contact-energy-and-penetration-diagnostics", "serial-and-two-rank-force-balance", "open-gap-zero-contact", "nonlinear-path-work-fail-closed", "atomic-accepted-boundary-checkpoint", "one-to-two-and-two-to-one-rank-restart"]
+      "evidence": ["bounded-fixed-plane-frictionless-scope", "potential-derived-residual-and-tangent", "analytical-series-stiffness", "provider-owned-reaction-distribution-and-resultant", "contact-energy-and-penetration-diagnostics", "serial-and-two-rank-force-balance", "open-gap-zero-contact", "accepted-natural-load-work-history", "bulk-plus-contact-energy-closure", "time-varying-and-prescribed-motion-fail-closed", "atomic-accepted-boundary-checkpoint", "restartable-energy-ledger", "one-to-two-and-two-to-one-rank-restart"]
     },
     {
       "id": "dynamic-cohesive-fracture",

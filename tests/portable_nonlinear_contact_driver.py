@@ -90,6 +90,14 @@ def main() -> None:
         raise RuntimeError("Restarted nonlinear contact solution is incorrect.")
     if len(step.constraint_dual_history.records) != 5:
         raise RuntimeError("Restarted nonlinear constraint history is incomplete.")
+    energy_recorder = step.accepted_history_recorders["conservative_energy"]
+    if len(energy_recorder.frames) != 5:
+        raise RuntimeError("Restarted nonlinear energy history is incomplete.")
+    energy = energy_recorder.evidence(accepted_factor=1.0)
+    if energy["status"] != "complete":
+        raise RuntimeError("Restarted nonlinear energy evidence is unavailable.")
+    if float(energy["relative_energy_balance_error"]) > 1.0e-10:
+        raise RuntimeError("Restarted nonlinear contact energy does not close.")
 
 
 if __name__ == "__main__":
