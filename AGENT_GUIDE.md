@@ -25,8 +25,12 @@ finite-element simulation with AgentFEM.
    inspect the finite-element meaning, not as permission for blind text
    replacement. For repository work, also read this guide.
    Use `agentfem run --mpi N` for projects and
-   `agentfem mpi-run -n N -- ...` for MPI tests or external commands; never
+   `agentfem mpi-run -n N --timeout 600 -- ...` for MPI tests or diagnostic
+   commands; never
    guess a bare `mpiexec` because it may belong to another MPI implementation.
+   Keep unlimited execution only for an intentional long simulation.  A test
+   timeout terminates the launcher and all ranks together instead of leaving
+   an orphaned collective consuming CPU.
    If the v0.3.6 Windows Preview reports a missing C compiler on its first
    solve, repair that existing runtime with
    `sudo apt-get update && sudo apt-get install -y gcc g++`, rerun

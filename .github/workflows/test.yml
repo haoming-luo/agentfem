@@ -201,6 +201,7 @@ jobs:
       needs.change-scope.outputs.level == 'core' ||
       needs.change-scope.outputs.level == 'release'
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     concurrency:
       group: test-core-${{ github.event.pull_request.number || github.ref }}
       cancel-in-progress: true

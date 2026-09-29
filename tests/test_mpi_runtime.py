@@ -1,10 +1,12 @@
 from __future__ import annotations
 
 from pathlib import Path
+import sys
 
 import pytest
 
 from agentfem import mpi_runtime
+from agentfem.cli import build_parser
 
 
 def _touch(path: Path) -> str:
@@ -85,3 +87,54 @@ def test_mpi_command_uses_verified_launcher(monkeypatch):
 def test_mpi_command_rejects_non_positive_rank_counts(ranks):
     with pytest.raises(ValueError, match="positive"):
         mpi_runtime.mpi_command(ranks, ("python", "case.py"))
+
+
+def test_guarded_mpi_command_terminates_process_group_on_timeout(monkeypatch):
+    monkeypatch.setattr(
+        mpi_runtime,
+        "mpi_command",
+        lambda _ranks, command: tuple(command),
+    )
+
+    with pytest.raises(mpi_runtime.MPITimeoutError, match="AFM-MPI-TIMEOUT") as exc:
+        mpi_runtime.run_mpi_command(
+            2,
+            (sys.executable, "-c", "import time; time.sleep(30)"),
+            timeout=0.05,
+            termination_grace=0.05,
+        )
+
+    assert exc.value.timeout == pytest.approx(0.05)
+    assert exc.value.command[0] == sys.executable
+
+
+@pytest.mark.parametrize("timeout", (0.0, -1.0, float("inf")))
+def test_guarded_mpi_command_rejects_invalid_timeout(monkeypatch, timeout):
+    monkeypatch.setattr(
+        mpi_runtime,
+        "mpi_command",
+        lambda _ranks, command: tuple(command),
+    )
+
+    with pytest.raises(ValueError, match="finite and positive"):
+        mpi_runtime.run_mpi_command(2, ("python", "case.py"), timeout=timeout)
+
+
+def test_mpi_run_cli_keeps_timeout_outside_child_command():
+    args = build_parser().parse_args(
+        (
+            "mpi-run",
+            "-n",
+            "2",
+            "--timeout",
+            "600",
+            "--",
+            "python",
+            "-m",
+            "pytest",
+        )
+    )
+
+    assert args.ranks == 2
+    assert args.timeout == pytest.approx(600.0)
+    assert args.child_command == ["--", "python", "-m", "pytest"]

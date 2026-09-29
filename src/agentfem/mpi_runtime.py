@@ -15,7 +15,10 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from functools import lru_cache
+import math
+import os
 from pathlib import Path
+import signal
 import shutil
 import subprocess
 import sys
@@ -106,6 +109,18 @@ class MPILauncherError(RuntimeError):
     def __init__(self, audit: MPIRuntimeAudit):
         super().__init__(f"{audit.code}: {audit.message}")
         self.audit = audit
+
+
+class MPITimeoutError(RuntimeError):
+    """Raised after a guarded MPI process group exceeds its time budget."""
+
+    def __init__(self, *, timeout: float, command: Sequence[str]):
+        self.timeout = float(timeout)
+        self.command = tuple(str(item) for item in command)
+        super().__init__(
+            "AFM-MPI-TIMEOUT: MPI command exceeded "
+            f"{self.timeout:g} seconds and its process group was terminated."
+        )
 
 
 def _mpi_family(name: str) -> str:
@@ -288,11 +303,77 @@ def mpi_command(ranks: int, command: Sequence[str]) -> tuple[str, ...]:
     return (compatible_mpi_launcher(), "-n", str(int(ranks)), *(str(item) for item in command))
 
 
+def run_mpi_command(
+    ranks: int,
+    command: Sequence[str],
+    *,
+    timeout: float | None = None,
+    termination_grace: float = 5.0,
+) -> int:
+    """Run one verified MPI command with optional process-group custody.
+
+    ``timeout`` is deliberately opt-in because a real simulation may run for
+    hours.  Test and diagnostic callers should set it so a mismatched
+    collective cannot leave the launcher and its ranks consuming resources
+    indefinitely.  On POSIX systems (including WSL), AgentFEM creates a new
+    session and terminates the complete MPI process group on expiry.
+    """
+
+    selected_timeout = None if timeout is None else float(timeout)
+    selected_grace = float(termination_grace)
+    if selected_timeout is not None and (
+        not math.isfinite(selected_timeout) or selected_timeout <= 0.0
+    ):
+        raise ValueError("MPI timeout must be finite and positive.")
+    if not math.isfinite(selected_grace) or selected_grace < 0.0:
+        raise ValueError("MPI termination grace must be finite and non-negative.")
+
+    argv = mpi_command(ranks, command)
+    options: dict[str, object] = {}
+    if os.name == "posix":
+        options["start_new_session"] = True
+    elif os.name == "nt":  # pragma: no cover - native Windows is not CI-hosted
+        options["creationflags"] = subprocess.CREATE_NEW_PROCESS_GROUP
+    process = subprocess.Popen(argv, **options)
+    try:
+        return int(process.wait(timeout=selected_timeout))
+    except subprocess.TimeoutExpired as exc:
+        _terminate_process_group(process, grace=selected_grace)
+        raise MPITimeoutError(timeout=selected_timeout, command=argv) from exc
+
+
+def _terminate_process_group(process: subprocess.Popen, *, grace: float) -> None:
+    """Terminate an MPI launcher and every rank it owns."""
+
+    try:
+        if os.name == "posix":
+            os.killpg(process.pid, signal.SIGTERM)
+        else:  # pragma: no cover - native Windows is not CI-hosted
+            process.terminate()
+    except ProcessLookupError:
+        return
+    try:
+        process.wait(timeout=grace)
+        return
+    except subprocess.TimeoutExpired:
+        pass
+    try:
+        if os.name == "posix":
+            os.killpg(process.pid, signal.SIGKILL)
+        else:  # pragma: no cover - native Windows is not CI-hosted
+            process.kill()
+    except ProcessLookupError:
+        return
+    process.wait()
+
+
 __all__ = [
     "MPILauncher",
     "MPILauncherError",
+    "MPITimeoutError",
     "MPIRuntimeAudit",
     "audit_mpi_runtime",
     "compatible_mpi_launcher",
     "mpi_command",
+    "run_mpi_command",
 ]

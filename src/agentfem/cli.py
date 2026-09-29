@@ -27,7 +27,7 @@ from . import presentation
 from . import provenance
 from . import upgrades
 from ._api_contract import CAPABILITIES_SCHEMA_VERSION, CLI_COMMANDS
-from .mpi_runtime import audit_mpi_runtime, mpi_command
+from .mpi_runtime import audit_mpi_runtime, mpi_command, run_mpi_command
 from .project import (
     PROJECT_FILENAME,
     ProjectConfig,
@@ -333,7 +333,6 @@ def _command_mpi_run(args) -> int:
         child = child[1:]
     if not child:
         raise ValueError("mpi-run requires a child command after `--`.")
-    command = mpi_command(args.ranks, child)
     audit = audit_mpi_runtime()
     if MPI.COMM_WORLD.rank == 0:
         print(
@@ -341,7 +340,7 @@ def _command_mpi_run(args) -> int:
             f"({args.ranks} ranks)",
             flush=True,
         )
-    return subprocess.run(command, check=False).returncode
+    return run_mpi_command(args.ranks, child, timeout=args.timeout)
 
 
 def _command_run(args) -> int:
@@ -859,6 +858,14 @@ def build_parser() -> argparse.ArgumentParser:
         help="Run a command with an MPI launcher verified against the active environment.",
     )
     mpi_run.add_argument("-n", "--ranks", type=int, required=True)
+    mpi_run.add_argument(
+        "--timeout",
+        type=float,
+        help=(
+            "Stop the complete MPI process group after this many seconds; "
+            "recommended for tests and diagnostics."
+        ),
+    )
     mpi_run.add_argument("child_command", nargs=argparse.REMAINDER)
 
     inspect = sub.add_parser("inspect", help="Summarize a result, execution, or latest-run record.")

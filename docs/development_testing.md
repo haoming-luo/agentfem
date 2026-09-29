@@ -11,7 +11,7 @@ the most expensive command after every keystroke.
 | Inner development loop | Direct unit/interface tests for the changed owner | `python -m pytest -q tests/test_extensions.py` |
 | Before committing | Related workflow tests, critical static analysis, misuse tests, and generated-asset checks | `ruff check . --no-cache`; `python build_knowledge.py --check --check-imports`; `python build_docs.py --check` |
 | Before pushing a coherent code change | Related suites; complete serial for cross-cutting numerical changes | `python -m pytest -q` when the change can cross ownership boundaries |
-| MPI-sensitive change | Relevant two-rank modules using the verified launcher | `agentfem mpi-run -n 2 -- python -m pytest ...` |
+| MPI-sensitive change | Relevant two-rank modules using the verified launcher and a bounded test budget | `agentfem mpi-run -n 2 --timeout 600 -- python -m pytest ...` |
 | Test-only or orchestration pull request and `main` | Changed test modules, a built-wheel solve, and serial/two-rank smoke | GitHub Actions `targeted` tier |
 | Core numerical pull request and `main` | Wheel installation, owner-selected serial/MPI suites, affected portable-restart drivers, smoke tests, and documentation | GitHub Actions `core` tier |
 | Documentation-only pull request and `main` | Strict generated-document and site build; no FEniCSx or PyTorch environment rebuild | GitHub Actions `docs` tier |
@@ -63,9 +63,16 @@ When they are used against an uninstalled checkout, prefix both serial and MPI
 commands with the checkout parent explicitly, for example:
 
 ```bash
-PYTHONPATH="$(pwd)/src" agentfem mpi-run -n 2 -- \
+PYTHONPATH="$(pwd)/src" agentfem mpi-run -n 2 --timeout 600 -- \
   python tests/portable_inelastic_step_driver.py write /tmp/agentfem-step
 ```
+
+The timeout is a test-lifecycle guard, not a solver convergence parameter.  If
+an MPI rank diverges before a collective while another rank waits inside it,
+the launcher and every child rank are terminated as one process group and the
+CLI reports `AFM-MPI-TIMEOUT`.  Do not remove the guard merely to make a stuck
+test appear busy; first identify the mismatched rank path.  Long production
+simulations remain unlimited unless the caller explicitly supplies a timeout.
 
 Release CI deliberately omits this prefix after force-installing the candidate
 wheel; those same drivers then provide installed-artifact evidence.
