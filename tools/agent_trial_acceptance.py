@@ -17,12 +17,60 @@ import subprocess
 import sys
 
 
+_REQUIRED_SEQUENCE = (
+    "doctor",
+    "capabilities",
+    "init",
+    "check",
+    "run",
+    "inspect",
+    "verify",
+)
+_REQUIRED_OUTPUTS = {
+    "project/agentfem.toml",
+    "project/case.py",
+    "project/result.json",
+    "project/explanation.md",
+    "agent-transcript.md",
+}
+
+
 def _sha256(path: Path) -> str:
     digest = hashlib.sha256()
     with Path(path).open("rb") as stream:
         for chunk in iter(lambda: stream.read(1024 * 1024), b""):
             digest.update(chunk)
     return digest.hexdigest()
+
+
+def _contract_member(bundle: Path, value: object) -> Path | None:
+    """Resolve one contract-owned path without allowing bundle escape."""
+
+    if not isinstance(value, str) or not value.strip():
+        return None
+    candidate = (bundle / value).resolve()
+    if not candidate.is_relative_to(bundle):
+        return None
+    return candidate
+
+
+def _bound_file(
+    bundle: Path,
+    contract: dict[str, object],
+    *,
+    path_field: str,
+    hash_field: str,
+) -> tuple[Path | None, bool]:
+    path = _contract_member(bundle, contract.get(path_field))
+    expected = contract.get(hash_field)
+    valid = bool(
+        path is not None
+        and path.is_file()
+        and isinstance(expected, str)
+        and len(expected) == 64
+        and _sha256(path) == expected
+    )
+    return path, valid
 
 
 def _cli(*arguments: str, cwd: Path) -> dict[str, object]:
@@ -85,6 +133,61 @@ def evaluate(
         loaded = json.loads(contract_path.read_text(encoding="utf-8"))
         if isinstance(loaded, dict):
             contract_record = loaded
+    bundle = contract_path.parent if contract_path is not None else root.parent
+    task_path, task_ok = _bound_file(
+        bundle,
+        contract_record,
+        path_field="task",
+        hash_field="task_sha256",
+    )
+    review_path, review_ok = _bound_file(
+        bundle,
+        contract_record,
+        path_field="review",
+        hash_field="review_sha256",
+    )
+    expected_project = _contract_member(
+        bundle, contract_record.get("project_directory")
+    )
+    required_outputs = contract_record.get("required_outputs", ())
+    output_records: dict[str, dict[str, object]] = {}
+    output_contract_verified = bool(
+        isinstance(required_outputs, list)
+        and set(required_outputs) == _REQUIRED_OUTPUTS
+    )
+    if isinstance(required_outputs, list):
+        for logical_path in required_outputs:
+            path = _contract_member(bundle, logical_path)
+            present = bool(
+                path is not None and path.is_file() and path.stat().st_size > 0
+            )
+            output_records[str(logical_path)] = {
+                "path": None if path is None else str(path),
+                "present": present,
+                "sha256": _sha256(path) if present else None,
+            }
+            output_contract_verified = output_contract_verified and present
+    else:
+        output_contract_verified = False
+    required_sequence = contract_record.get("required_sequence")
+    sequence_contract_verified = bool(
+        isinstance(required_sequence, list)
+        and tuple(required_sequence) == _REQUIRED_SEQUENCE
+    )
+
+    expected_transcript = _contract_member(bundle, "agent-transcript.md")
+    expected_wheel = _contract_member(bundle, contract_record.get("wheel"))
+    expected_explanation = (
+        None
+        if expected_project is None
+        else (expected_project / "explanation.md").resolve()
+    )
+    path_binding_verified = bool(
+        expected_project == root
+        and expected_wheel == wheel_path
+        and expected_transcript == transcript_path
+        and expected_explanation == explanation_path
+    )
     runtime = "passed" if doctor.get("schema") == "agentfem.runtime-report" else "failed"
     capability_discovery = (
         "passed"
@@ -95,7 +198,7 @@ def evaluate(
     simulation_result = (
         "passed"
         if inspect.get("schema") == "agentfem.simulation-result"
-        or inspect.get("status") in {"completed", "verified"}
+        and inspect.get("trust_level") in {"verified", "validated"}
         else "failed"
     )
     verification = "passed" if verify.get("status") == "verified" else "failed"
@@ -111,12 +214,18 @@ def evaluate(
         gaps.append("trial does not retain the exact installed wheel candidate")
     candidate_identity_verified = bool(
         contract_record.get("schema") == "agentfem.agent-trial-contract"
+        and contract_record.get("schema_version") == "0.2.0"
         and contract_record.get("agentfem_version")
         == doctor.get("packages", {}).get("agentfem")
         and contract_record.get("source_commit") == source_commit
         and contract_record.get("wheel")
         == (None if wheel_path is None else wheel_path.name)
         and contract_record.get("wheel_sha256") == wheel_sha256
+        and task_ok
+        and review_ok
+        and path_binding_verified
+        and output_contract_verified
+        and sequence_contract_verified
     )
     if not candidate_identity_verified:
         gaps.append("trial contract does not match the installed candidate identity")
@@ -126,6 +235,16 @@ def evaluate(
         gaps.append("agent required human repair or redirect intervention")
     if not transcript_ok:
         gaps.append("trial transcript is missing or empty")
+    if not task_ok:
+        gaps.append("trial task is missing or differs from the immutable contract")
+    if not review_ok:
+        gaps.append("review instructions differ from the immutable contract")
+    if not path_binding_verified:
+        gaps.append("project, transcript, or explanation is outside its contract path")
+    if not output_contract_verified:
+        gaps.append("one or more contract-required outputs are missing")
+    if not sequence_contract_verified:
+        gaps.append("trial command sequence differs from the product contract")
     for name, value in (
         ("runtime", runtime),
         ("capability discovery", capability_discovery),
@@ -140,7 +259,7 @@ def evaluate(
 
     return {
         "schema": "agentfem.agent-trial-acceptance",
-        "schema_version": "0.1.0",
+        "schema_version": "0.2.0",
         "status": "passed" if not gaps else "failed",
         "agent": str(agent),
         "agentfem_version": doctor.get("packages", {}).get("agentfem"),
@@ -154,6 +273,14 @@ def evaluate(
             else None
         ),
         "candidate_identity_verified": candidate_identity_verified,
+        "task": None if task_path is None else str(task_path),
+        "task_sha256": _sha256(task_path) if task_ok else None,
+        "review": None if review_path is None else str(review_path),
+        "review_sha256": _sha256(review_path) if review_ok else None,
+        "path_binding_verified": path_binding_verified,
+        "output_contract_verified": output_contract_verified,
+        "sequence_contract_verified": sequence_contract_verified,
+        "output_records": output_records,
         "installed_wheel": installed_wheel,
         "fresh_context": bool(fresh_context),
         "human_interventions": int(human_interventions),
@@ -161,6 +288,7 @@ def evaluate(
         "capability_discovery": capability_discovery,
         "project_check": project_check,
         "simulation_result": simulation_result,
+        "result_trust_level": inspect.get("trust_level"),
         "verification": verification,
         "scientific_explanation": scientific_explanation,
         "project": str(root),

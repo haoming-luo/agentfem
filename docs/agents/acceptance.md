@@ -42,9 +42,12 @@ python tools/prepare_agent_trial.py \
 
 The bundle contains one bounded mechanics task, an empty project directory,
 the exact wheel, its SHA-256 digest, the source commit and an independent
-review checklist. Give `TASK.md` and the bundle to a genuinely fresh agent;
-the maintainer who developed the candidate must not silently complete or
-repair the project.
+review checklist. The contract also hashes `TASK.md` and `REVIEW.md`, fixes the
+required command sequence and names every required output. Release-tier CI
+publishes this exact bundle as the `fresh-agent-candidate-trial` artifact; it
+does not mark the behavioral gate passed. Give `TASK.md` and the bundle to a
+genuinely fresh agent. The maintainer who developed the candidate must not
+silently complete or repair the project.
 
 After a genuinely fresh task has completed, retain its transcript and final
 scientific explanation beside the project, then record the trial with:
@@ -64,10 +67,11 @@ python tools/agent_trial_acceptance.py \
 
 The recorder independently reruns `doctor`, `capabilities`, `check`, `inspect`
 and `verify`. It refuses a source checkout, inherited project context, missing
-transcript, human repair intervention, unverified result, or unreviewed
-explanation. The reviewer confirms scientific adequacy; the recorder never
-pretends that prose quality can be inferred from a successful solve.
-Candidate version, source commit, wheel digest, transcript digest and
-explanation digest are retained and cross-checked against the immutable trial
-contract, so an older or substituted successful trial cannot promote a newer
-release candidate.
+or relocated output, altered task or review instructions, human repair
+intervention, unverified result, or unreviewed explanation. The reviewer
+confirms scientific adequacy; the recorder never pretends that prose quality
+can be inferred from a successful solve. Candidate version, source commit,
+wheel, task, review, project source, result, transcript and explanation digests
+are retained and cross-checked against the immutable trial contract, so an
+older, edited or substituted successful trial cannot promote a newer release
+candidate.

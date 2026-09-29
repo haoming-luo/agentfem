@@ -18,10 +18,18 @@ SPEC.loader.exec_module(agent_trial_acceptance)
 def test_agent_trial_requires_installed_fresh_zero_intervention_evidence(
     tmp_path, monkeypatch
 ):
-    transcript = tmp_path / "transcript.md"
-    explanation = tmp_path / "explanation.md"
+    project = tmp_path / "project"
+    project.mkdir()
+    transcript = tmp_path / "agent-transcript.md"
+    explanation = project / "explanation.md"
     transcript.write_text("fresh task transcript", encoding="utf-8")
     explanation.write_text("reviewed scientific explanation", encoding="utf-8")
+    task = tmp_path / "TASK.md"
+    review = tmp_path / "REVIEW.md"
+    task.write_text("immutable task", encoding="utf-8")
+    review.write_text("independent review", encoding="utf-8")
+    for name in ("agentfem.toml", "case.py", "result.json"):
+        (project / name).write_text(f"fixture {name}", encoding="utf-8")
     wheel = tmp_path / "agentfem-0.3.0-py3-none-any.whl"
     wheel.write_bytes(b"candidate wheel")
     contract = tmp_path / "trial-contract.json"
@@ -29,10 +37,32 @@ def test_agent_trial_requires_installed_fresh_zero_intervention_evidence(
         json.dumps(
             {
                 "schema": "agentfem.agent-trial-contract",
+                "schema_version": "0.2.0",
                 "agentfem_version": "0.3.0",
                 "source_commit": "a" * 40,
                 "wheel": wheel.name,
                 "wheel_sha256": hashlib.sha256(wheel.read_bytes()).hexdigest(),
+                "task": task.name,
+                "task_sha256": hashlib.sha256(task.read_bytes()).hexdigest(),
+                "review": review.name,
+                "review_sha256": hashlib.sha256(review.read_bytes()).hexdigest(),
+                "project_directory": "project",
+                "required_sequence": [
+                    "doctor",
+                    "capabilities",
+                    "init",
+                    "check",
+                    "run",
+                    "inspect",
+                    "verify",
+                ],
+                "required_outputs": [
+                    "project/agentfem.toml",
+                    "project/case.py",
+                    "project/result.json",
+                    "project/explanation.md",
+                    "agent-transcript.md",
+                ],
             }
         ),
         encoding="utf-8",
@@ -49,18 +79,21 @@ def test_agent_trial_requires_installed_fresh_zero_intervention_evidence(
         },
         "capabilities": {"schema": "agentfem.capabilities"},
         "check": {"status": "passed"},
-        "inspect": {"schema": "agentfem.simulation-result"},
+        "inspect": {
+            "schema": "agentfem.simulation-result",
+            "trust_level": "verified",
+        },
         "verify": {"status": "verified"},
     }
 
     def fake_cli(command, *_arguments, cwd):
-        assert cwd == tmp_path
+        assert cwd == project
         return records[command]
 
     monkeypatch.setattr(agent_trial_acceptance, "_cli", fake_cli)
 
     report = agent_trial_acceptance.evaluate(
-        tmp_path,
+        project,
         agent="fresh-agent",
         transcript=transcript,
         explanation=explanation,
@@ -77,7 +110,7 @@ def test_agent_trial_requires_installed_fresh_zero_intervention_evidence(
     assert report["gaps"] == []
 
     repaired = agent_trial_acceptance.evaluate(
-        tmp_path,
+        project,
         agent="fresh-agent",
         transcript=transcript,
         explanation=explanation,
@@ -93,3 +126,23 @@ def test_agent_trial_requires_installed_fresh_zero_intervention_evidence(
     assert report["wheel_sha256"]
     assert report["candidate_identity_verified"] is True
     assert report["transcript_sha256"]
+    assert report["output_contract_verified"] is True
+    assert report["sequence_contract_verified"] is True
+    assert report["path_binding_verified"] is True
+    assert report["result_trust_level"] == "verified"
+
+    task.write_text("tampered task", encoding="utf-8")
+    tampered = agent_trial_acceptance.evaluate(
+        project,
+        agent="fresh-agent",
+        transcript=transcript,
+        explanation=explanation,
+        fresh_context=True,
+        human_interventions=0,
+        explanation_reviewed=True,
+        source_commit="a" * 40,
+        wheel=wheel,
+        contract=contract,
+    )
+    assert tampered["status"] == "failed"
+    assert any("task" in item for item in tampered["gaps"])

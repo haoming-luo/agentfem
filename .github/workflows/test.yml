@@ -455,6 +455,16 @@ jobs:
             --evidence /tmp/agentfem-extension-acceptance.json \
             --report /tmp/agentfem-platform-promotion.json
 
+      - name: Prepare the exact fresh-agent candidate trial
+        if: needs.change-scope.outputs.level == 'release'
+        run: |
+          wheel="$(find dist -maxdepth 1 -name 'agentfem-*.whl' -print -quit)"
+          test -n "$wheel"
+          python tools/prepare_agent_trial.py \
+            --wheel "$wheel" \
+            --source-commit "$(git rev-parse HEAD)" \
+            --output /tmp/agentfem-fresh-agent-trial
+
       - name: Upload agent acceptance evidence
         if: >-
           always() &&
@@ -467,6 +477,16 @@ jobs:
             /tmp/agentfem-platform-acceptance.json
             /tmp/agentfem-extension-acceptance.json
             /tmp/agentfem-platform-promotion.json
+          if-no-files-found: warn
+
+      - name: Upload the fresh-agent candidate trial
+        if: >-
+          always() &&
+          needs.change-scope.outputs.level == 'release'
+        uses: actions/upload-artifact@v7
+        with:
+          name: fresh-agent-candidate-trial
+          path: /tmp/agentfem-fresh-agent-trial/
           if-no-files-found: warn
 
       - name: Upload tested distributions

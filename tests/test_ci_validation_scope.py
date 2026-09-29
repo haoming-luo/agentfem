@@ -18,6 +18,7 @@ from ci_validation_scope import (
         (("README.md", "docs/guide/index.md"), "docs"),
         (("tests/test_models.py",), "targeted"),
         (("src/agentfem/cli.py", "tests/test_project_cli.py"), "targeted"),
+        (("tools/prepare_agent_trial.py",), "targeted"),
         (("src/agentfem/operators/identity.py",), "core"),
         (("src/agentfem/results.py", "docs/guide/results.md"), "core"),
         (("tests/test_parallel_results.py",), "core"),
@@ -80,6 +81,25 @@ def test_promotion_contract_change_tests_the_gate_without_replaying_release():
         tests=(
             "tests/test_architecture_contract.py",
             "tests/test_promotion_gate.py",
+        ),
+    )
+
+
+def test_agent_trial_contract_changes_run_only_their_owner_tests():
+    scope = classify_changes(
+        [
+            "tools/prepare_agent_trial.py",
+            "tools/agent_trial_acceptance.py",
+            "tools/promote_agent_trial.py",
+        ]
+    )
+
+    assert scope == ValidationScope(
+        "targeted",
+        tests=(
+            "tests/test_agent_trial_acceptance.py",
+            "tests/test_agent_trial_promotion.py",
+            "tests/test_prepare_agent_trial.py",
         ),
     )
 

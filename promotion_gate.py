@@ -24,6 +24,13 @@ TARGET = "0.3"
 SUPPORTED_TARGETS = (TARGET, "0.4-foundation")
 REPOSITORY_ROOT = Path(__file__).resolve().parent
 SOURCE_ROOT = REPOSITORY_ROOT / "src"
+_AGENT_TRIAL_OUTPUTS = {
+    "project/agentfem.toml",
+    "project/case.py",
+    "project/result.json",
+    "project/explanation.md",
+    "agent-transcript.md",
+}
 
 # ``promotion_gate.py`` audits a source checkout, not whichever AgentFEM wheel
 # happens to be installed in the invoking environment.  A src-layout project
@@ -57,6 +64,7 @@ def _valid_agent_trial(record: dict[str, object]) -> bool:
 
     return bool(
         record.get("schema") == "agentfem.agent-trial-acceptance"
+        and record.get("schema_version") == "0.2.0"
         and record.get("status") == "passed"
         and record.get("installed_wheel") is True
         and record.get("fresh_context") is True
@@ -68,9 +76,24 @@ def _valid_agent_trial(record: dict[str, object]) -> bool:
         and record.get("verification") == "passed"
         and record.get("scientific_explanation") == "reviewed"
         and record.get("candidate_identity_verified") is True
+        and record.get("path_binding_verified") is True
+        and record.get("output_contract_verified") is True
+        and record.get("sequence_contract_verified") is True
+        and record.get("result_trust_level") in {"verified", "validated"}
         and _is_sha256(record.get("wheel_sha256"))
+        and _is_sha256(record.get("trial_contract_sha256"))
+        and _is_sha256(record.get("task_sha256"))
+        and _is_sha256(record.get("review_sha256"))
         and _is_sha256(record.get("transcript_sha256"))
         and _is_sha256(record.get("explanation_sha256"))
+        and isinstance(record.get("output_records"), dict)
+        and set(record.get("output_records", ())) == _AGENT_TRIAL_OUTPUTS
+        and all(
+            isinstance(item, dict)
+            and item.get("present") is True
+            and _is_sha256(item.get("sha256"))
+            for item in record["output_records"].values()
+        )
     )
 
 

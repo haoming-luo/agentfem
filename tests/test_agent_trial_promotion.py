@@ -35,10 +35,30 @@ def _write_wheel(path: Path, version: str) -> None:
 def _acceptance(root: Path, commit: str, wheel: Path) -> Path:
     transcript = root / "transcript.md"
     explanation = root / "explanation.md"
+    contract = root / "trial-contract.json"
+    task = root / "TASK.md"
+    review = root / "REVIEW.md"
+    project = root / "project"
+    project.mkdir(exist_ok=True)
+    project_files = {
+        "project/agentfem.toml": project / "agentfem.toml",
+        "project/case.py": project / "case.py",
+        "project/result.json": project / "result.json",
+        "project/explanation.md": explanation,
+        "agent-transcript.md": transcript,
+    }
     transcript.write_text("fresh agent transcript\n", encoding="utf-8")
     explanation.write_text("reviewed mechanics\n", encoding="utf-8")
+    contract.write_text("{}\n", encoding="utf-8")
+    task.write_text("bounded task\n", encoding="utf-8")
+    review.write_text("independent review\n", encoding="utf-8")
+    for logical, path in project_files.items():
+        if path in {transcript, explanation}:
+            continue
+        path.write_text(f"fixture for {logical}\n", encoding="utf-8")
     record = {
         "schema": "agentfem.agent-trial-acceptance",
+        "schema_version": "0.2.0",
         "status": "passed",
         "agent": "Codex",
         "agentfem_version": "0.2.6",
@@ -53,12 +73,30 @@ def _acceptance(root: Path, commit: str, wheel: Path) -> Path:
         "verification": "passed",
         "scientific_explanation": "reviewed",
         "candidate_identity_verified": True,
+        "path_binding_verified": True,
+        "output_contract_verified": True,
+        "sequence_contract_verified": True,
+        "result_trust_level": "verified",
         "wheel": str(wheel),
         "wheel_sha256": _sha256(wheel),
+        "trial_contract": str(contract),
+        "trial_contract_sha256": _sha256(contract),
+        "task": str(task),
+        "task_sha256": _sha256(task),
+        "review": str(review),
+        "review_sha256": _sha256(review),
         "transcript": str(transcript),
         "transcript_sha256": _sha256(transcript),
         "explanation": str(explanation),
         "explanation_sha256": _sha256(explanation),
+        "output_records": {
+            logical: {
+                "path": str(path),
+                "present": True,
+                "sha256": _sha256(path),
+            }
+            for logical, path in project_files.items()
+        },
     }
     path = root / "acceptance.json"
     path.write_text(json.dumps(record), encoding="utf-8")
