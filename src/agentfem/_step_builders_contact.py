@@ -27,13 +27,16 @@ def rigid_obstacle_contact(
     """Build small-strain equilibrium with one rigid-plane contact provider."""
 
     import ufl
+    import numpy as np
     from dolfinx import fem
+    from mpi4py import MPI
     from petsc4py import PETSc
 
     from . import constraints as constraint_api
     from . import problems
     from .boundary_models import RigidObstaclePenaltyContact
     from .checkpointing import _partition_neutral_identity
+    from .results._accepted_energy import AcceptedConservativeEnergyRecorder
 
     model.check(target=target)
     if hasattr(model.study, "require"):
@@ -90,6 +93,44 @@ def rigid_obstacle_contact(
     if external is not None:
         residual -= load_factor * external.expression
     jacobian = ufl.derivative(residual, displacement, trial)
+    value_path = constraint_api.prescribed_value_path(selected_constraints)
+    time_update = model._time_update_callback(include_constraints=False)
+
+    def assemble_scalar(form) -> float:
+        local = fem.assemble_scalar(fem.form(form))
+        return float(
+            displacement.function_space.mesh.comm.allreduce(float(local), op=MPI.SUM)
+        )
+
+    def bulk_strain_energy(field) -> float:
+        replaced = ufl.replace(internal.expression, {displacement: field})
+        return 0.5 * assemble_scalar(ufl.action(replaced, field))
+
+    def contact_energy(field) -> float:
+        return assemble_scalar(contact.energy_form(field))
+
+    natural_coordinate = None
+    if external is not None:
+
+        def natural_coordinate(field) -> float:
+            return assemble_scalar(ufl.action(external.expression, field))
+
+    zero_prescribed_motion = (
+        not value_path.amplitudes
+        and all(
+            np.allclose(reference, 0.0, rtol=0.0, atol=0.0)
+            for _value, reference in (*value_path.constants, *value_path.fields)
+        )
+    )
+    energy_recorder = AcceptedConservativeEnergyRecorder(
+        {
+            "bulk_strain_energy": bulk_strain_energy,
+            "contact_energy": contact_energy,
+        },
+        natural_load_coordinate_evaluator=natural_coordinate,
+        proportional_dead_load=time_update is None,
+        zero_prescribed_motion=zero_prescribed_motion,
+    )
     model_summary = model.summary()
     checkpoint_identity = _partition_neutral_identity(
         {
@@ -113,8 +154,8 @@ def rigid_obstacle_contact(
         residual,
         displacement,
         factor=load_factor,
-        value_path=constraint_api.prescribed_value_path(selected_constraints),
-        update_load=model._time_update_callback(include_constraints=False),
+        value_path=value_path,
+        update_load=time_update,
         jacobian=jacobian,
         incrementation=incrementation,
         constraints=selected_constraints,
@@ -129,6 +170,8 @@ def rigid_obstacle_contact(
     )
     problem.external_force_operator = external
     problem.contact_provider = contact
+    problem.accepted_observers = (energy_recorder,)
+    problem.accepted_history_recorders["conservative_energy"] = energy_recorder
     problem.primary_fields = {"U": target}
     problem.result_field_factory = lambda: (displacement,)
     return model.add_step(problem)

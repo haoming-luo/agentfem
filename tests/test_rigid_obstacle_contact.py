@@ -27,7 +27,7 @@ def _right(x):
     return np.isclose(x[0], 1.0)
 
 
-def _contact_model(*, traction=10.0):
+def _contact_model(*, traction=10.0, prescribed_y=None):
     domain = mesh.rectangle(
         (0.0, 0.0),
         (1.0, 1.0),
@@ -61,6 +61,14 @@ def _contact_model(*, traction=10.0):
         normal=(-1.0, 0.0),
     )
     model.traction((float(traction), 0.0), on=right)
+    if prescribed_y is not None:
+        model.prescribe(
+            displacement,
+            float(prescribed_y),
+            on=right,
+            component=1,
+            name="prescribed_right_y",
+        )
     return model, displacement, contact
 
 
@@ -111,7 +119,23 @@ def test_rigid_obstacle_contact_closes_force_and_reports_energy():
         atol=1.0e-9,
     )
     assert result.quantities["relative_force_balance_error"].value < 1.0e-8
-    assert result.metadata["static_work"]["status"] == "unavailable"
+    work = result.metadata["static_work"]
+    expected_natural_work = 0.5 * 10.0 * expected_displacement
+    expected_bulk_energy = 0.5 * 1.0e3 * expected_displacement**2
+    expected_contact_energy = 0.5 * 1.0e4 * expected_displacement**2
+    assert work["status"] == "complete"
+    assert work["natural_load_work"] == pytest.approx(expected_natural_work)
+    assert work["stored_energy_components"][
+        "bulk_strain_energy"
+    ] == pytest.approx(expected_bulk_energy)
+    assert work["stored_energy_components"]["contact_energy"] == pytest.approx(
+        expected_contact_energy
+    )
+    assert work["relative_energy_balance_error"] < 1.0e-12
+    assert result.quantity("external_work") == pytest.approx(expected_natural_work)
+    assert result.quantity("stored_energy_change") == pytest.approx(
+        expected_bulk_energy + expected_contact_energy
+    )
     path_work = result.metadata["constraint_path_work"]
     assert path_work["status"] == "complete"
     assert path_work["sample_count"] >= 2
@@ -149,6 +173,17 @@ def test_rigid_obstacle_contact_rejects_nonpositive_penalty():
             normal=(-1.0, 0.0),
         )
     assert displacement is not None
+
+
+def test_rigid_contact_energy_fails_closed_for_unrecorded_prescribed_work():
+    model, displacement, _contact = _contact_model(prescribed_y=0.01)
+    result = model.step(target=displacement, progress=False).solve_result()
+
+    work = result.metadata["static_work"]
+    assert work["status"] == "unavailable"
+    assert "prescribed-motion work" in work["reason"]
+    assert work["prescribed_motion_work"] is None
+    assert "external_work" not in result.quantities
 
 
 def test_open_rigid_obstacle_has_zero_force_and_energy():
@@ -252,6 +287,9 @@ def test_rigid_contact_checkpoint_restores_solution_path_and_duals(tmp_path):
     reference_step.solve()
     reference_values = reference_u.value.x.array.copy()
     reference_duals = reference_step.constraint_dual_history.checkpoint_state()
+    reference_energy = reference_step.accepted_history_recorders[
+        "conservative_energy"
+    ].checkpoint_state()
 
     partial_model, partial_u, _ = _contact_model()
     partial = partial_model.step(
@@ -278,6 +316,12 @@ def test_rigid_contact_checkpoint_restores_solution_path_and_duals(tmp_path):
         restarted_u.value.x.array, reference_values, rtol=0.0, atol=1e-12
     )
     assert restarted.constraint_dual_history.checkpoint_state() == reference_duals
+    assert (
+        restarted.accepted_history_recorders[
+            "conservative_energy"
+        ].checkpoint_state()
+        == reference_energy
+    )
     assert [item.load_factor for item in restarted.accepted_increments] == [
         0.25,
         0.5,
@@ -319,6 +363,40 @@ def test_rigid_contact_checkpoint_rejects_corrupt_duals_atomically(tmp_path):
     assert restarted.accepted_load_factor == pytest.approx(0.0)
     assert restarted.accepted_increments == []
     assert restarted.constraint_dual_history.records == []
+
+
+@pytest.mark.skipif(
+    MPI.COMM_WORLD.size != 1,
+    reason="manifest corruption is a serial filesystem test",
+)
+def test_rigid_contact_checkpoint_rejects_corrupt_energy_history_atomically(tmp_path):
+    model, displacement, _ = _contact_model()
+    step = model.step(
+        target=displacement,
+        incrementation=steps.fixed(2),
+        progress=False,
+    )
+    step.solve(until=0.5)
+    checkpoint = step.save_checkpoint(tmp_path / "contact-corrupt-energy")
+    payload = json.loads(checkpoint.read_text(encoding="utf-8"))
+    payload["accepted_observer_state"]["conservative_energy"]["frames"][-1][
+        "load_factor"
+    ] = 0.4
+    checkpoint.write_text(json.dumps(payload), encoding="utf-8")
+
+    restarted_model, restarted_u, _ = _contact_model()
+    restarted = restarted_model.step(
+        target=restarted_u,
+        incrementation=steps.fixed(2),
+        progress=False,
+    )
+    before = restarted_u.value.x.array.copy()
+    with pytest.raises(ValueError, match="does not end at the restored boundary"):
+        restarted.load_checkpoint(checkpoint)
+
+    np.testing.assert_array_equal(restarted_u.value.x.array, before)
+    assert restarted.accepted_load_factor == pytest.approx(0.0)
+    assert restarted.accepted_history_recorders["conservative_energy"].frames == []
 
 
 @pytest.mark.skipif(
@@ -431,3 +509,6 @@ def test_checkpoint_publication_failure_rolls_back_accepted_boundary(
     assert len(step.constraint_dual_history.records) == 1
     assert step.constraint_dual_history.records[0]["load_factor"] == pytest.approx(0.0)
     assert [event.kind for event in step.execution_events] == ["step_started"]
+    energy_frames = step.accepted_history_recorders["conservative_energy"].frames
+    assert len(energy_frames) == 1
+    assert energy_frames[0].load_factor == pytest.approx(0.0)

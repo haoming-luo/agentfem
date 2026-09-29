@@ -78,12 +78,18 @@ the ordinary incremental Newton Procedure. After convergence, the same
 provider reports the nodal reaction distribution, MPI-global resultant,
 penetration norm, active contact measure, and conservative contact energy.
 The contact energy belongs to the system internal energy and is not counted a
-second time as external work.
+second time as external work. For a fixed obstacle, proportional dead load,
+and zero prescribed motion, the result also records the accepted natural-load
+coordinate and closes natural plus provider-dual work against bulk strain
+energy plus contact potential. A time-varying load or nonzero prescribed motion
+is reported as unavailable until its missing work channel is supplied; no
+partial energy ledger is promoted as complete.
 
 Pass `checkpoint=checkpointing.every(...)` to `model.step(...)` when a long
 load path must be restartable. Only accepted load boundaries are published.
 The portable checkpoint keeps the displacement, increment/cutback ledger,
-next automatic increment, execution events, and contact dual history together;
+next automatic increment, execution events, contact dual history, and accepted
+work/energy history together;
 restart rejects changed mesh/function-space identity, loads, constraints, time
 inputs, or nonlinear controls. The same accepted state can be resumed with a
 different compatible MPI partition or rank count.

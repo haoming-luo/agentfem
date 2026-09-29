@@ -92,10 +92,14 @@ ordinary nonlinear Procedure now preserves accepted-station provider duals,
 rejects cutback trials from the path ledger, and proves zero work for its fixed
 obstacle without double-counting contact energy. That accepted path now has an
 atomic portable restart envelope covering the solution, increment ledger,
-events, and provider-dual history, with 1-to-2 and 2-to-1 MPI rank-count
-acceptance. The gate remains open for the declared weak/contact routes to close
-their complete force--work--energy contracts and for broader nonlinear
-formulations to adopt the same accepted-boundary lifecycle.
+events, provider-dual history, natural-load work, bulk strain energy, and
+contact potential, with 1-to-2 and 2-to-1 MPI rank-count acceptance. For the
+declared proportional dead-load and zero-prescribed-motion scope, external work
+now closes against bulk plus contact stored energy. Time-varying loads and
+nonzero prescribed motion fail closed because their missing work channels are
+not inferred. The gate remains open for the other declared weak/contact routes
+and broader nonlinear formulations to adopt the same accepted-boundary
+lifecycle.
 
 ## What is usable today
 

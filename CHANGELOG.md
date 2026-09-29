@@ -12,17 +12,23 @@ experimental formulation to a validated one.
   nonlinear Procedure and wire it through the bounded rigid-obstacle contact
   Step. Accepted solution, load coordinate, fixed/automatic increment ledger,
   next increment, execution events, and provider-dual force/coordinate history
-  now move as one accepted-state transaction. Scientific identity binds the
-  mesh/function space, loads, constraints, time-input plan, solver, and
-  incrementation controls; 1-to-2 and 2-to-1 rank restoration is exercised in
-  release CI.
+  now move as one accepted-state transaction. Accepted natural-load work,
+  bulk strain energy, and contact-potential history use the same transaction
+  and survive 1-to-2 and 2-to-1 rank restoration. Scientific identity binds
+  the mesh/function space, loads, constraints, time-input plan, solver,
+  incrementation controls, and named history recorders.
+- Close the bounded rigid-contact conservative ledger for proportional dead
+  loads with zero prescribed motion. `SimulationResult` now reports accepted
+  natural-load work, provider-dual work, bulk strain-energy change, contact-
+  potential change, and their balance. Time-varying loads or nonzero prescribed
+  motion remain explicitly unavailable instead of publishing partial closure.
 - Add the first bounded contact route: frictionless small-strain contact with
   one fixed rigid plane, a conservative one-sided penalty potential, exact
   residual/Jacobian ownership, provider-owned nodal reaction and global
   resultant, penetration/contact-energy diagnostics, and serial/two-rank
-  force-balance evidence. Surface search, friction, moving obstacles,
-  deformable-to-deformable contact, and nonlinear path-work closure remain
-  explicit promotion gates rather than hidden approximations.
+  force-balance evidence. Surface search, friction, moving obstacles, and
+  deformable-to-deformable contact remain explicit promotion gates rather
+  than hidden approximations.
 
 ### Changed
 

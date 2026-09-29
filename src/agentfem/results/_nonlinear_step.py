@@ -110,19 +110,15 @@ def _add_nonlinear_constraint_evidence(step, result) -> None:
             kind="diagnostic",
         )
         result.metadata["static_equilibrium"] = equilibrium.as_dict()
-    _add_nonlinear_constraint_path_work(step, result)
-    result.metadata["static_work"] = {
-        "status": "unavailable",
-        "reason": (
-            "Overall nonlinear work balance additionally requires accepted "
-            "natural-load work and internal-energy histories; constraint path "
-            "work is reported separately without double-counting internal "
-            "contact potential."
-        ),
-    }
+    constraint_work = _add_nonlinear_constraint_path_work(step, result)
+    _add_nonlinear_energy_evidence(
+        step,
+        result,
+        constraint_work=constraint_work,
+    )
 
 
-def _add_nonlinear_constraint_path_work(step, result) -> None:
+def _add_nonlinear_constraint_path_work(step, result) -> dict[str, object]:
     history = step.constraint_dual_history
     complete = history.complete(accepted_factor=step.accepted_load_factor)
     channels = {}
@@ -176,13 +172,107 @@ def _add_nonlinear_constraint_path_work(step, result) -> None:
                 "Trapezoidal provider-dual work over accepted nonlinear states."
             ),
         )
-    result.metadata["constraint_path_work"] = {
+    record = {
         "status": "complete" if complete else "unavailable",
         "sample_count": len(history.records),
         "integration": "accepted_force_coordinate_trapezoidal",
         "channels": channels,
         "total": total if complete else None,
     }
+    result.metadata["constraint_path_work"] = record
+    return record
+
+
+def _add_nonlinear_energy_evidence(
+    step,
+    result,
+    *,
+    constraint_work: dict[str, object],
+) -> None:
+    recorder = getattr(step, "accepted_history_recorders", {}).get(
+        "conservative_energy"
+    )
+    if recorder is None:
+        result.metadata["static_work"] = {
+            "status": "unavailable",
+            "reason": (
+                "The nonlinear provider did not publish accepted natural-load "
+                "and stored-energy histories."
+            ),
+        }
+        return
+    evidence = dict(recorder.evidence(accepted_factor=step.accepted_load_factor))
+    frames = tuple(recorder.frames)
+    factors = tuple(item.load_factor for item in frames)
+    result.add_history(
+        "natural_load_generalized_coordinate",
+        factors,
+        tuple(item.natural_load_coordinate for item in frames),
+        abscissa_name="load_factor",
+        abscissa_unit=None,
+        description=(
+            "Dual product of the fixed dead-load pattern with the accepted "
+            "displacement field."
+        ),
+    )
+    for name in recorder.stored_energy_evaluators:
+        result.add_history(
+            name,
+            factors,
+            tuple(item.stored_energy_components[name] for item in frames),
+            abscissa_name="load_factor",
+            abscissa_unit=None,
+            description=f"Accepted conservative energy component {name}.",
+        )
+    result.add_history(
+        "stored_energy",
+        factors,
+        tuple(item.stored_energy for item in frames),
+        abscissa_name="load_factor",
+        abscissa_unit=None,
+        description="Total recoverable energy at accepted nonlinear boundaries.",
+    )
+
+    reasons = []
+    if evidence.get("status") != "complete":
+        reasons.append(str(evidence.get("reason") or "energy history is incomplete"))
+    if constraint_work.get("status") != "complete":
+        reasons.append("constraint provider work history is incomplete")
+    provider_work = (
+        0.0
+        if constraint_work.get("total") is None
+        else float(constraint_work["total"])
+    )
+    natural_work = float(evidence.get("natural_load_work", 0.0))
+    stored_change = float(evidence.get("stored_energy_change", 0.0))
+    external_work = natural_work + provider_work
+    balance_error = external_work - stored_change
+    scale = max(abs(external_work), abs(stored_change), 1.0e-30)
+    relative_error = abs(balance_error) / scale
+    record = {
+        **evidence,
+        "status": "complete" if not reasons else "unavailable",
+        "reason": None if not reasons else "; ".join(reasons),
+        "prescribed_motion_work": 0.0 if recorder.zero_prescribed_motion else None,
+        "provider_constraint_work": provider_work,
+        "external_work": external_work,
+        "energy_balance_error": balance_error,
+        "relative_energy_balance_error": relative_error,
+        "reaction_scope": "accepted nonlinear natural and provider-dual paths",
+    }
+    result.metadata["static_work"] = record
+    if record["status"] != "complete":
+        return
+    quantities = {
+        "natural_load_work": natural_work,
+        "provider_constraint_work": provider_work,
+        "external_work": external_work,
+        "stored_energy_change": stored_change,
+        "energy_balance_error": balance_error,
+        "relative_energy_balance_error": relative_error,
+    }
+    quantities.update(evidence.get("stored_energy_components", {}))
+    result.add_quantities(quantities, kind="diagnostic")
 
 
 def from_affine_nonlinear_step(
