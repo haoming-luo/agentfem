@@ -622,6 +622,25 @@ def _runtime_checks(
             )
         )
 
+    constraint_ok, constraint_evidence = _constraint_balance_evidence(result)
+    if constraint_evidence["inspected"]:
+        claims.append(
+            _runtime_claim(
+                "constraint_evidence_consistent",
+                constraint_ok,
+                observable=(
+                    "constraint capability, dual, accepted-path work, and "
+                    "balance records"
+                ),
+                actual=constraint_evidence,
+                expected="one complete provider-owned force/work contract",
+                criterion=(
+                    "declared force/work availability agrees with every "
+                    "serialized provider evidence channel"
+                ),
+            )
+        )
+
     execution = getattr(result, "metadata", {}).get("execution")
     if isinstance(execution, Mapping):
         events = execution.get("events", ())
@@ -730,6 +749,126 @@ def _checkpoint_contract_evidence(result) -> tuple[bool, dict[str, object]]:
             ),
             "portable_records": portable_records,
             "nonportable_records": nonportable_records,
+            "issues": tuple(issues),
+        }
+    )
+    return not issues, evidence
+
+
+def _constraint_balance_evidence(result) -> tuple[bool, dict[str, object]]:
+    """Validate serialized constraint evidence without inventing tolerances."""
+
+    metadata = getattr(result, "metadata", {})
+    contract = metadata.get("constraint_balance_contract")
+    inspected = contract is not None
+    evidence: dict[str, object] = {
+        "inspected": inspected,
+        "issues": (),
+    }
+    if not inspected:
+        return True, evidence
+    issues = []
+    if not isinstance(contract, Mapping) or contract.get("kind") != (
+        "constraint_balance_contract"
+    ):
+        issues.append("constraint balance contract is missing or malformed")
+        evidence["issues"] = tuple(issues)
+        return False, evidence
+
+    constraints = tuple(contract.get("constraints", ()))
+    names = tuple(
+        str(item.get("name", ""))
+        for item in constraints
+        if isinstance(item, Mapping)
+    )
+    if len(names) != len(constraints) or any(not name for name in names):
+        issues.append("constraint records are malformed")
+    if len(set(names)) != len(names):
+        issues.append("constraint record names are not unique")
+
+    force_gaps = tuple(contract.get("force_balance_gaps", ()))
+    work_gaps = tuple(contract.get("work_balance_gaps", ()))
+    force_available = bool(contract.get("force_balance_available"))
+    work_available = bool(contract.get("work_balance_available"))
+    if force_available != (not force_gaps):
+        issues.append("force availability contradicts force gaps")
+    if work_available != (not work_gaps):
+        issues.append("work availability contradicts work gaps")
+
+    contract_duals = tuple(contract.get("provider_duals", ()))
+    contract_work = tuple(contract.get("provider_work", ()))
+    serialized_duals = tuple(metadata.get("constraint_duals", ()))
+    serialized_work = tuple(metadata.get("constraint_work_evidence", ()))
+    if serialized_duals and serialized_duals != contract_duals:
+        issues.append("serialized provider duals differ from the balance contract")
+    if serialized_work and serialized_work != contract_work:
+        issues.append("serialized provider work differs from the balance contract")
+
+    duals = {
+        str(item.get("constraint_name", "")): item
+        for item in contract_duals
+        if isinstance(item, Mapping)
+    }
+    work = {
+        str(item.get("constraint_name", "")): item
+        for item in contract_work
+        if isinstance(item, Mapping)
+    }
+    if len(duals) != len(contract_duals) or "" in duals:
+        issues.append("provider dual records are malformed or duplicated")
+    if len(work) != len(contract_work) or "" in work:
+        issues.append("provider work records are malformed or duplicated")
+    if set(duals).difference(names) or set(work).difference(names):
+        issues.append("provider evidence names undeclared constraints")
+
+    for item in constraints:
+        if not isinstance(item, Mapping):
+            continue
+        name = str(item.get("name", ""))
+        dual = duals.get(name)
+        path_work = work.get(name)
+        if (
+            item.get("reaction_evidence") == "provider_dual_required"
+            and name not in force_gaps
+            and not (isinstance(dual, Mapping) and bool(dual.get("force_complete")))
+        ):
+            issues.append(f"constraint {name!r} lacks complete force evidence")
+        if item.get("work_evidence") == "provider_dual_path_required" and (
+            name not in work_gaps
+        ):
+            complete_path = bool(
+                isinstance(path_work, Mapping) and path_work.get("complete")
+            )
+            complete_endpoint = bool(
+                isinstance(dual, Mapping) and dual.get("work_complete")
+            )
+            if not (complete_path or complete_endpoint):
+                issues.append(f"constraint {name!r} lacks complete work evidence")
+
+    static_equilibrium = metadata.get("static_equilibrium")
+    if (
+        force_available
+        and isinstance(static_equilibrium, Mapping)
+        and static_equilibrium.get("status") == "unavailable"
+    ):
+        issues.append("force contract is complete but equilibrium is unavailable")
+    static_work = metadata.get("static_work")
+    if (
+        work_available
+        and isinstance(static_work, Mapping)
+        and static_work.get("status") == "unavailable"
+    ):
+        issues.append("work contract is complete but work balance is unavailable")
+
+    evidence.update(
+        {
+            "constraint_count": len(constraints),
+            "provider_dual_count": len(contract_duals),
+            "provider_work_count": len(contract_work),
+            "force_balance_available": force_available,
+            "work_balance_available": work_available,
+            "force_balance_gaps": force_gaps,
+            "work_balance_gaps": work_gaps,
             "issues": tuple(issues),
         }
     )

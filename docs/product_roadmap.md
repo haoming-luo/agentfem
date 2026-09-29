@@ -83,23 +83,23 @@ transient checkpoint schema v5 binds the complete time-input identity before
 authorizing restart. Promotion still requires the same invalidation contract
 across the remaining transient and nonlinear Procedures.
 
-Gate 4 now has three executable bounded slices: exact rectangular affine MPC,
-scalar/normal/matrix elastic foundations, and frictionless contact with one
-fixed rigid plane. The contact provider owns its potential, residual, tangent,
-nodal dual distribution, resultant, penetration diagnostics, and contact
-energy in serial and under two MPI ranks. This is not general contact, and the
-ordinary nonlinear Procedure now preserves accepted-station provider duals,
-rejects cutback trials from the path ledger, and proves zero work for its fixed
-obstacle without double-counting contact energy. That accepted path now has an
-atomic portable restart envelope covering the solution, increment ledger,
-events, provider-dual history, natural-load work, bulk strain energy, and
-contact potential, with 1-to-2 and 2-to-1 MPI rank-count acceptance. For the
-declared proportional dead-load and zero-prescribed-motion scope, external work
-now closes against bulk plus contact stored energy. Time-varying loads and
-nonzero prescribed motion fail closed because their missing work channels are
-not inferred. The gate remains open for the other declared weak/contact routes
-and broader nonlinear formulations to adopt the same accepted-boundary
-lifecycle.
+Gate 4 is closed for its declared bounded routes: exact homogeneous rectangular
+MPC, exact affine-periodic paths, scalar/normal/matrix elastic foundations, and
+frictionless contact with one fixed rigid plane. Force and work no longer share
+one overloaded endpoint record. Providers publish `ConstraintDualEvidence` for
+force and physical resultants; nonlinear and non-proportional Procedures publish
+typed `ConstraintWorkEvidence` only after integrating accepted stations. The
+homogeneous MPC contract states exact zero constraint work instead of inventing
+a unit endpoint coordinate, while affine-periodic work retains its full path and
+integration rule. Engineering verification checks that serialized duals and
+path work agree with the balance contract. The contact provider owns its
+potential, residual, tangent, nodal dual distribution, resultant, penetration
+diagnostics, and contact energy in serial and under two MPI ranks. Its atomic
+portable restart envelope covers the solution, increment ledger, events,
+provider-dual history, natural-load work, bulk strain energy, and contact
+potential, with 1-to-2 and 2-to-1 MPI rank-count acceptance. Time-varying loads,
+nonzero prescribed motion, general contact, and undeclared weak formulations
+remain outside this gate and fail closed rather than inheriting its evidence.
 
 Gate 5 now has an executable checkpoint capability contract. Procedures must
 separately declare the durable payload scope, accepted save boundary, atomic
@@ -157,8 +157,9 @@ The next scientific promotions focus on depth rather than catalog size:
    analytical tangent and per-increment evidence, then profile the remaining
    PETSc share before advancing RVE mixed-MPI, follower-load, and
    prescribed-work promotion;
-3. complete provider-owned dual force, reaction, work, and energy evidence for
-   MPC, weak constraints, and contact;
+3. extend the closed bounded MPC/weak/contact evidence contract only through
+   independently verified provider routes; general contact remains a separate
+   scientific promotion rather than a foundation blocker;
 4. finish portable integration-point output and checkpoint identity across MPI
    partitions;
 5. retain every material and fracture capability at its proven maturity until

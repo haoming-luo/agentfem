@@ -391,7 +391,9 @@ and evidence remain in the linked guides and scientific function reference.
 | --- | --- | --- |
 | class | `ConstraintCapabilities` | Solver-facing capability contract for one kinematic constraint. |
 | class | `ConstraintDualEvidence` | Provider-owned force and optional work-conjugate coordinate. |
+| class | `ConstraintWorkEvidence` | Accepted-path work owned by one constraint provider. |
 | function | `constraint_dual(constraint, *, force, coordinate = None, resultant = None, distribution = None, diagnostics = None, role = 'mpc_constraint', source = 'provider_dual', complete = True) -> ConstraintDualEvidence` | Create provider evidence tied to one named constraint asset. |
+| function | `constraint_work(constraint, *, value, integration, sample_count, role = 'mpc_constraint', source = 'provider_accepted_path', complete = True, diagnostics = None) -> ConstraintWorkEvidence` | Create accepted-path work evidence tied to one named constraint. |
 | function | `collect_provider_duals(constraints, problem, *, extra = ()) -> tuple[ConstraintDualEvidence, ...]` | Collect converged dual evidence from active constraint providers. |
 | class | `DirichletConstraint` | Strong Dirichlet constraint and its optional mutable value object. |
 | class | `RigidModeAudit` | Rank test of strong constraints against analytical rigid modes. |
@@ -424,7 +426,7 @@ and evidence remain in the linked guides and scientific function reference.
 | function | `periodic(target, *, master, slave, match_axis: str \| int = 0, method: str = 'projection', tolerance: float = 1e-12, name: str = 'periodic')` | Create a periodic constraint with an explicit method choice. |
 | function | `periodic_projection(target, *, master, slave, match_axis: str \| int = 0, tolerance: float = 1e-12, name: str = 'periodic_projection') -> PeriodicProjectionConstraint` | Create component-wise dof pairs for projection-style periodicity. |
 | function | `constraint_capabilities(constraint) -> ConstraintCapabilities \| None` | Return the public capability contract of a known constraint asset. |
-| function | `constraint_balance_contract(constraints, *, provider_duals = ()) -> dict[str, object]` | Describe whether strong-reaction force/work diagnostics are complete. |
+| function | `constraint_balance_contract(constraints, *, provider_duals = (), provider_work = ()) -> dict[str, object]` | Describe whether strong-reaction force/work diagnostics are complete. |
 | function | `validate_solver_compatibility(*, constraints, analysis: str, procedure: str \| None = None, comm_size: int = 1)` | Validate constraint/procedure compatibility before assembly or solve. |
 | class | `PeriodicConstraintSpec` | Geometric description of a periodic constraint. |
 | class | `ConstraintSet` | Collection of constraints used by assembly or field updates. |
@@ -546,7 +548,7 @@ and evidence remain in the linked guides and scientific function reference.
 | function | `sample_rectilinear_grid(field, *, bbox, shape, reduction: str \| None = None, component: int \| None = None, padding: float = 1e-10) -> RectilinearGridSample` | Sample a scalar or vector field on a 2D/3D rectilinear grid. |
 | function | `section_resultant(stress, *, on, normal = None, about = None) -> ForceMomentResultant` | Integrate section force and moment from a Cauchy/nominal stress field. |
 | function | `static_force_balance(problem, *, constraints = (), provider_duals = ()) -> StaticForceBalance` | Evaluate ``R + F = 0`` for a converged static solid. |
-| function | `static_work_balance(problem, *, constraints = (), provider_duals = ()) -> StaticWorkBalance` | Evaluate linear-static work including nonzero strong Dirichlet data. |
+| function | `static_work_balance(problem, *, constraints = (), provider_duals = (), provider_work = ()) -> StaticWorkBalance` | Evaluate linear-static work including nonzero strong Dirichlet data. |
 | class | `PreparedProjection(problem, output) -> None` | A reusable L2 projection with one assembled mass matrix. |
 | function | `fabric_membrane_cell_fields(displacement, material, *, variables = ('FABRIC_GENERALIZED_STRAIN', 'FABRIC_GENERALIZED_RESULTANT', 'FABRIC_WARP_DIRECTION', 'FABRIC_WEFT_DIRECTION', 'SENER'), degree: int = 0, scale: float = 1.0) -> tuple[object, ...]` | Project standard woven-membrane observables for inspection and export. |
 | function | `fabric_stack_membrane_cell_fields(displacement, material, *, variables = ('FABRIC_GENERALIZED_STRAIN', 'FABRIC_GENERALIZED_RESULTANT', 'FABRIC_WARP_DIRECTION', 'FABRIC_WEFT_DIRECTION', 'SENER'), degree: int = 0) -> tuple[object, ...]` | Project unambiguous per-layer observables for a fabric stack. |

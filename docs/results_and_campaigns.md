@@ -192,7 +192,10 @@ constraint lacks that channel, `SimulationResult` records
 `constraint_balance_contract` instead of publishing a partial reaction sum as
 a complete equilibrium check. A provider closes force balance only by supplying
 both its generalized dual and the corresponding physical-space resultant; it
-closes work only by also supplying the accepted work-conjugate coordinate.
+closes work through one explicit route: an endpoint coordinate for a reviewed
+proportional path, typed `ConstraintWorkEvidence` integrated over accepted
+stations, an exact homogeneous zero-work relation, or a conservative internal
+energy operator. Endpoint force evidence alone never proves a nonlinear path.
 The constraint provider itself may expose `dual_evidence(problem)` after
 convergence. AgentFEM collects and validates those named records before the
 common ledger consumes them. `AnalysisStep.constraint_dual_provider` remains
@@ -215,8 +218,9 @@ residual. For a homogeneous periodic cell this is checked against
 does **not** pretend that one force--coordinate pair is the complete work.
 Instead, the affine problem records accepted \((Q_\lambda,\lambda)\) samples,
 persists them through checkpoint/restart, and publishes their trapezoidal
-integral as `affine_constraint_path_work`. This path work is independently
-checked against the Hill--Mandel macroscopic work for periodic J2 cells.
+integral as `affine_constraint_path_work` and typed provider work evidence with
+its sample count and integration rule. This path work is independently checked
+against the Hill--Mandel macroscopic work for periodic J2 cells.
 At a kink in a non-proportional deformation history, the result retains both
 `affine_path_generalized_reaction` (incoming) and
 `affine_path_outgoing_generalized_reaction` (right-sided). The work on each
@@ -463,9 +467,11 @@ or from a declared macro-motion mode; summing eliminated slave residuals is
 not invariant to the chosen elimination graph. Weak-constraint reactions are
 consistent boundary tractions/fluxes from the weak form. Providers that can
 extract these values publish a `ConstraintDualEvidence` record through the
-shared protocol. A provider that cannot do so remains explicitly incomplete;
-AgentFEM then marks its force or work balance unavailable instead of applying
-the strong-Dirichlet formula.
+shared protocol. Accepted nonlinear path work is a separate
+`ConstraintWorkEvidence` record, not a synthetic final coordinate attached to
+the dual. A provider that cannot supply the required record remains explicitly
+incomplete; AgentFEM then marks its force or work balance unavailable instead
+of applying the strong-Dirichlet formula.
 
 A model-generated linear static solid also records force equilibrium without
 extra application code:

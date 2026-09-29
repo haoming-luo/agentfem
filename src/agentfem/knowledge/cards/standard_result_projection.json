@@ -83,6 +83,12 @@
         "type": "MPI-global scalar/vector, StaticForceBalance, and LinearStaticEnergy",
         "unit_role": "force and energy",
         "description": "Compact engineering histories or verification quantities."
+      },
+      {
+        "name": "provider-owned constraint evidence",
+        "type": "ConstraintDualEvidence and ConstraintWorkEvidence",
+        "unit_role": "force and energy",
+        "description": "Separates converged force/resultant evidence from nonlinear accepted-path work, including the integration rule and sample count."
       }
     ],
     "assumptions": [
@@ -108,7 +114,7 @@
     ],
     "limitations": [
       "Nodal smoothing and superconvergent stress recovery are not implemented.",
-      "Affine MPC, arbitrary MPC, weak, and contact reactions require their numerical provider to implement the shared dual_evidence(problem) protocol; force or work balance remains unavailable for any provider that has not supplied the corresponding physical dual. The rectangular homogeneous periodic and linear elastic-foundation providers implement their bounded contracts; general weak and contact providers do not yet claim complete evidence.",
+      "MPC, weak and contact reactions require provider-owned dual evidence. Nonlinear or non-proportional work additionally requires typed accepted-path work evidence; a final endpoint is insufficient. The rectangular homogeneous MPC, affine-periodic path, linear elastic foundation and bounded fixed-plane contact providers implement their reviewed contracts; undeclared enforcement routes remain fail-closed.",
       "Thermoelastic output requires temperature-aware field construction in a later extension."
     ]
   },

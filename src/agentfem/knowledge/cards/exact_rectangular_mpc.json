@@ -71,7 +71,7 @@
     "limitations": [
       "Arbitrary master/slave geometry, nonlinear structural Steps, and implicit structural dynamics require separate reviewed providers.",
       "The rectangular provider recovers a physical reaction/flux distribution only after a converged linear solve. Construction diagnostics alone do not constitute dual evidence.",
-      "Its current homogeneous periodic relation performs zero constraint work. Nonzero affine macroscopic work belongs to the affine-periodic path provider rather than this endpoint contract.",
+      "Its current homogeneous periodic relation declares exact zero constraint work without a synthetic endpoint coordinate. Nonzero affine macroscopic work belongs to typed accepted-path evidence from the affine-periodic provider rather than this endpoint contract.",
       "Only one exact-MPC provider may own a linear system."
     ]
   },

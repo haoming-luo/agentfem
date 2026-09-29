@@ -707,6 +707,7 @@ def static_work_balance(
     *,
     constraints=(),
     provider_duals=(),
+    provider_work=(),
 ) -> StaticWorkBalance:
     """Evaluate linear-static work including nonzero strong Dirichlet data.
 
@@ -725,6 +726,7 @@ def static_work_balance(
     contract = constraint_api.constraint_balance_contract(
         constraints,
         provider_duals=provider_duals,
+        provider_work=provider_work,
     )
     if not contract["work_balance_available"]:
         raise NotImplementedError(
@@ -798,14 +800,19 @@ def static_work_balance(
     comm = solution.function_space.mesh.comm
     generalized = float(comm.allreduce(float(local_generalized), op=MPI.SUM))
     prescribed_work = 0.5 * generalized
-    provider_work = float(
-        sum(
+    accepted_path_names = {
+        item.constraint_name for item in provider_work if item.complete
+    }
+    provider_work_value = float(
+        sum(item.value for item in provider_work if item.complete)
+        + sum(
             0.5 * np.dot(item.force, item.coordinate)
             for item in provider_duals
             if item.work_complete
+            and item.constraint_name not in accepted_path_names
         )
     )
-    external = float(natural + prescribed_work + provider_work)
+    external = float(natural + prescribed_work + provider_work_value)
     return StaticWorkBalance(
         strain_energy=float(strain),
         natural_load_work=float(natural),
@@ -813,7 +820,7 @@ def static_work_balance(
         external_work=external,
         balance_error=float(external - strain),
         prescribed_dof_count=int(comm.allreduce(len(prescribed), op=MPI.SUM)),
-        provider_constraint_work=provider_work,
+        provider_constraint_work=provider_work_value,
         reaction_scope=str(contract["work_scope"]),
     )
 

@@ -50,8 +50,9 @@ converged solve, the provider recovers the owned slave multipliers from the
 full residual, publishes a nodal `rectangular_periodic_mpc_reaction` field,
 checks the constraint gap, and contributes its physical resultant and virtual
 work to the common balance ledger. The current relation is homogeneous, so
-its exact constraint work is zero up to solver tolerance; affine macroscopic
-loading and nonlinear path work use the separate affine-periodic provider.
+its capability contract declares exact zero constraint work rather than
+inventing an endpoint coordinate; affine macroscopic loading and nonlinear
+path work use typed accepted-path evidence from the affine-periodic provider.
 Solver convergence alone is not used to invent any missing dual quantity.
 
 ## Axisymmetric solids

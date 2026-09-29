@@ -1058,10 +1058,14 @@ def test_constraint_balance_contract_refuses_partial_mpc_reactions():
     contract = constraints.constraint_balance_contract((periodic,))
 
     assert contract["force_balance_available"] is False
-    assert contract["work_balance_available"] is False
+    assert contract["work_balance_available"] is True
     assert contract["force_balance_gaps"] == ("periodic_x",)
+    assert contract["work_balance_gaps"] == ()
     assert contract["constraints"][0]["reaction_evidence"] == (
         "provider_dual_required"
+    )
+    assert contract["constraints"][0]["work_evidence"] == (
+        "homogeneous_constraint_zero_work"
     )
 
 
@@ -1136,6 +1140,94 @@ def test_constraint_provider_publishes_its_own_converged_dual_evidence():
     assert duals[0].source == "nitsche_boundary_traction"
     assert contract["force_balance_available"] is True
     assert contract["work_balance_available"] is True
+
+
+def test_constraint_path_work_is_typed_and_separate_from_endpoint_dual():
+    class AffineProvider:
+        name = "affine_periodic"
+
+        @staticmethod
+        def capabilities():
+            return constraints.ConstraintCapabilities(
+                kind="periodic_constraint",
+                enforcement="exact_affine_reduction",
+                reaction_evidence="provider_dual_required",
+                work_evidence="provider_dual_path_required",
+            )
+
+    provider = AffineProvider()
+    dual = constraints.constraint_dual(
+        provider,
+        force=(24.0,),
+        resultant=(0.0, 0.0),
+        source="full_residual_virtual_work",
+    )
+    work = constraints.constraint_work(
+        provider,
+        value=0.24,
+        integration="accepted_path_trapezoidal",
+        sample_count=5,
+        source="accepted_affine_path",
+    )
+
+    contract = constraints.constraint_balance_contract(
+        (provider,),
+        provider_duals=(dual,),
+        provider_work=(work,),
+    )
+
+    assert dual.work_complete is False
+    assert contract["force_balance_available"] is True
+    assert contract["work_balance_available"] is True
+    assert contract["provider_work"][0]["value"] == pytest.approx(0.24)
+    assert contract["constraints"][0]["provider_work"]["sample_count"] == 5
+
+
+def test_constraint_path_work_rejects_wrong_owner_role_and_short_history():
+    class ContactProvider:
+        name = "contact"
+
+        @staticmethod
+        def capabilities():
+            return constraints.ConstraintCapabilities(
+                kind="contact_constraint",
+                enforcement="test_contact",
+                reaction_evidence="provider_dual_required",
+                work_evidence="provider_dual_path_required",
+            )
+
+    provider = ContactProvider()
+    with pytest.raises(ValueError, match="at least two accepted samples"):
+        constraints.constraint_work(
+            provider,
+            value=0.0,
+            integration="accepted_path_trapezoidal",
+            sample_count=1,
+            role="contact_constraint",
+        )
+    wrong_role = constraints.constraint_work(
+        provider,
+        value=0.0,
+        integration="accepted_path_trapezoidal",
+        sample_count=2,
+        role="weak_constraint",
+    )
+    with pytest.raises(ValueError, match="roles do not match"):
+        constraints.constraint_balance_contract(
+            (provider,),
+            provider_work=(wrong_role,),
+        )
+    unrelated = constraints.constraint_work(
+        "another_constraint",
+        value=0.0,
+        integration="accepted_path_trapezoidal",
+        sample_count=2,
+    )
+    with pytest.raises(ValueError, match="does not match"):
+        constraints.constraint_balance_contract(
+            (provider,),
+            provider_work=(unrelated,),
+        )
 
 
 def test_constraint_dual_collection_rejects_wrong_owner_and_duplicates():
@@ -1213,7 +1305,7 @@ def test_constraint_balance_contract_rejects_partial_or_unmatched_duals():
         provider_duals=(force_only,),
     )
     assert contract["force_balance_available"] is True
-    assert contract["work_balance_available"] is False
+    assert contract["work_balance_available"] is True
 
     generalized_only = constraints.constraint_dual(
         periodic,

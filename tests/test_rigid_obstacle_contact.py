@@ -108,6 +108,12 @@ def test_rigid_obstacle_contact_closes_force_and_reports_energy():
     assert dual["source"] == "rigid_obstacle_penalty_potential"
     assert dual["force_complete"] is True
     assert dual["work_complete"] is True
+    work_evidence = result.metadata["constraint_work_evidence"][0]
+    assert work_evidence["constraint_name"] == "rigid_obstacle_contact"
+    assert work_evidence["integration"] == (
+        "accepted_force_coordinate_trapezoidal"
+    )
+    assert work_evidence["value"] == pytest.approx(0.0)
     np.testing.assert_allclose(dual["coordinate"], (0.0, 0.0), atol=0.0)
     assert dual["diagnostics"]["contact_energy"] > 0.0
     assert dual["diagnostics"]["penetration_l2_norm"] > 0.0
