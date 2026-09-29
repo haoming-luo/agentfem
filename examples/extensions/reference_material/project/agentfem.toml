@@ -5,7 +5,7 @@
 name = "external-material-acceptance"
 entrypoint = "case.py"
 schema_version = "0.2.0"
-created_with = "0.3.8.dev0"
+created_with = "0.3.8"
 
 [extensions]
 required = ["agentfem-reference-material"]

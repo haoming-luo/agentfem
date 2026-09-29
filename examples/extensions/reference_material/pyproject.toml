@@ -12,7 +12,7 @@ description = "Reference external material extension for AgentFEM provider accep
 readme = "README.md"
 requires-python = ">=3.11"
 license = "Apache-2.0"
-dependencies = ["agentfem>=0.3.8.dev0"]
+dependencies = ["agentfem>=0.3.8"]
 
 [project.entry-points."agentfem.extensions"]
 agentfem-reference-material = "agentfem_reference_material:extension"

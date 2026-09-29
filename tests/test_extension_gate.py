@@ -31,7 +31,7 @@ def test_reference_extension_is_a_separate_distribution_and_entry_point():
     project = configuration["project"]
 
     assert project["name"] == "agentfem-reference-material"
-    assert project["dependencies"] == ["agentfem>=0.3.8.dev0"]
+    assert project["dependencies"] == ["agentfem>=0.3.8"]
     assert configuration["project"]["entry-points"]["agentfem.extensions"] == {
         "agentfem-reference-material": "agentfem_reference_material:extension"
     }
