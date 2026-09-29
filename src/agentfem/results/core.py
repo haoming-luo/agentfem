@@ -262,6 +262,7 @@ class SimulationResult:
     # Append new public fields so existing positional construction remains
     # backward compatible.  New code should still prefer keyword arguments.
     performance: dict[str, object] = field(default_factory=dict)
+    checkpoint_contract: dict[str, object] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
         self.name = _name(self.name)
@@ -387,6 +388,38 @@ class SimulationResult:
         self.checkpoints[checkpoint.name] = checkpoint
         self.add_artifact(f"checkpoint_{checkpoint.name}", checkpoint.path)
         return checkpoint
+
+    def add_checkpoint_contract(self, contract) -> dict[str, object]:
+        """Attach the preflighted durable-state contract used by the Step."""
+
+        if not isinstance(contract, Mapping):
+            raise TypeError("checkpoint contract must be a mapping.")
+        selected = _json_value(dict(contract))
+        if selected.get("schema") != "agentfem.checkpoint-contract":
+            raise ValueError(
+                "Checkpoint contract must use schema "
+                "'agentfem.checkpoint-contract'."
+            )
+        if selected.get("status") not in {
+            "accepted",
+            "available_not_requested",
+        }:
+            raise ValueError("Checkpoint contract has an invalid preflight status.")
+        capabilities = selected.get("capabilities")
+        if not isinstance(capabilities, Mapping) or capabilities.get("kind") != (
+            "checkpoint_capabilities"
+        ):
+            raise ValueError(
+                "Checkpoint contract requires typed checkpoint capabilities."
+            )
+        policy = selected.get("policy")
+        if policy is not None and (
+            not isinstance(policy, Mapping)
+            or policy.get("kind") != "checkpoint_policy"
+        ):
+            raise ValueError("Checkpoint contract policy is not typed.")
+        self.checkpoint_contract = selected
+        return self.checkpoint_contract
 
     def add_scientific_inputs(
         self,
@@ -583,6 +616,7 @@ class SimulationResult:
             "histories": tuple(self.histories),
             "artifacts": {key: str(value) for key, value in self.artifacts.items()},
             "checkpoints": tuple(self.checkpoints),
+            "checkpoint_contract": _json_value(self.checkpoint_contract),
             "metadata": _json_value(self.metadata),
             "performance": _json_value(self.performance),
             "scientific_inputs": self.scientific_input_manifest(),
@@ -622,6 +656,10 @@ class SimulationResult:
             lines.append(
                 "  files: " + ", ".join(sorted(self.artifacts))
             )
+        if self.checkpoint_contract:
+            scope = self.checkpoint_contract["capabilities"]["payload_scope"]
+            status = self.checkpoint_contract["status"]
+            lines.append(f"  checkpoint: {scope} ({status})")
         return "\n".join(lines)
 
     def __str__(self) -> str:

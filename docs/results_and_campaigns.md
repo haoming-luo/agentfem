@@ -59,6 +59,12 @@ story that differs from the machine record. Stateful J2 owns its quadrature
 state, while heat, Explicit dynamics, and Standard dynamics share one transient
 checkpoint envelope. `CheckpointRecord` makes every schema and portability
 boundary visible without pretending a partition-bound checkpoint is portable.
+The owning procedure's preflighted checkpoint contract is also published at
+`result.checkpoint_contract`. It distinguishes a full restart state from a
+field-only state or progress ledger, records the accepted save boundary, and
+states whether a rank-count change is supported, policy-dependent, or
+unsupported. `result.verify(...)` checks emitted records against this same
+contract; successful file creation alone is not treated as restart evidence.
 
 Transient heat, Explicit dynamics, and Standard dynamics also share one-call
 field output:

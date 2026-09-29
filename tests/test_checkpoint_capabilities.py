@@ -21,6 +21,8 @@ from agentfem.mechanics.harmonic import DirectHarmonicSweepStep
 from agentfem.mechanics.plasticity import J2PlasticityStep
 from agentfem.mechanics.small_strain_material import SmallStrainMaterialStep
 from agentfem.mechanics.viscoelasticity import QuasistaticViscoelasticStep
+from agentfem.step_providers import StepProvider, StepProviderRegistry, StepRequest
+from agentfem.validation import ModelValidationError
 
 
 def _capabilities(step_type):
@@ -126,3 +128,75 @@ def test_partition_bound_contract_rejects_portable_policy(tmp_path):
 
     with pytest.raises(ValueError, match="original MPI rank count and partition"):
         capabilities.validate_policy(policy)
+
+
+def test_preflight_contract_is_typed_and_uses_effective_policy(tmp_path):
+    step = object.__new__(ExplicitDynamicsStep)
+    policy = checkpointing.every(2, directory=tmp_path, portable=True)
+
+    contract = checkpointing.preflight_contract(step, policy)
+
+    assert contract["schema"] == "agentfem.checkpoint-contract"
+    assert contract["status"] == "accepted"
+    assert contract["policy"]["requested_rank_count_portable"] is True
+    assert contract["capabilities"]["payload_scope"] == "full_restart_state"
+    assert contract["capabilities"]["effective_rank_count_portable"] is True
+
+
+def test_requested_checkpoint_requires_explicit_procedure_capabilities(tmp_path):
+    class MissingDeclaration:
+        pass
+
+    with pytest.raises(ModelValidationError) as captured:
+        checkpointing.preflight_contract(
+            MissingDeclaration(),
+            checkpointing.every(1, directory=tmp_path),
+        )
+
+    issue = captured.value.report.errors[0]
+    assert issue.code == "AFM-CHECKPOINT-001"
+    assert issue.path == "model.step.checkpoint"
+
+
+def test_unrequested_unsupported_procedure_has_no_checkpoint_contract():
+    class MissingDeclaration:
+        pass
+
+    assert checkpointing.preflight_contract(MissingDeclaration()) is None
+
+
+def test_provider_lowering_rolls_back_registered_steps_on_checkpoint_failure(tmp_path):
+    class MissingDeclaration:
+        pass
+
+    class Model:
+        def __init__(self):
+            self.steps = ["existing"]
+
+    model = Model()
+
+    def lower(selected_model, request):
+        del request
+        step = MissingDeclaration()
+        selected_model.steps.append(step)
+        return step
+
+    registry = StepProviderRegistry()
+    registry.register(
+        StepProvider(
+            name="test_provider",
+            analyses=("nonlinear_static",),
+            accepts=lambda model, request: True,
+            lower=lower,
+        )
+    )
+    request = StepRequest(
+        analysis="nonlinear_static",
+        target=object(),
+        options={"checkpoint": checkpointing.every(1, directory=tmp_path)},
+    )
+
+    with pytest.raises(ModelValidationError, match="AFM-CHECKPOINT-001"):
+        registry.lower(model, request)
+
+    assert model.steps == ["existing"]

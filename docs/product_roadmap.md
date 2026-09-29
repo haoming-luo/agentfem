@@ -112,8 +112,16 @@ partition-local shards to coordinate-keyed schema v2 and pass both 1-to-2 and
 2-to-1 rank-count restoration. The composed global cyclic lifecycle now passes
 those same migrations while preserving bulk fields, physical-facet-keyed
 cohesive history, and the cycle-jump ledger before continuing to the
-uninterrupted reference. The gate remains open until the same contract is
-consumed consistently by result inspection and preflight.
+uninterrupted reference. The consumer boundary is now implemented:
+`model.step()` resolves the exact
+procedure contract before numerical execution, rejects malformed or
+unsupported policies with stable `AFM-CHECKPOINT-*` diagnostics, and rolls
+back any provider-registered Step objects when lowering fails. The same typed
+contract is a top-level `SimulationResult` record, and engineering/release
+verification checks every emitted checkpoint schema and portability claim
+against it. Gate 5 is therefore closed for the declared procedures and tested
+rank-count migrations. Collective high-throughput storage remains a scale
+optimization, not a missing lifecycle contract.
 
 ## What is usable today
 

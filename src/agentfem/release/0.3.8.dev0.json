@@ -220,6 +220,8 @@
     "mpi-result-state-checkpoint-lifecycle",
     "ordinary-nonlinear-contact-cross-rank-checkpoint",
     "typed-checkpoint-capability-contract",
+    "checkpoint-preflight-result-verification-contract",
+    "transactional-step-lowering-on-checkpoint-rejection",
     "cyclic-bulk-field-one-to-two-and-two-to-one-restart",
     "global-cyclic-bulk-interface-one-to-two-and-two-to-one-restart",
     "external-provider-without-core-modification"

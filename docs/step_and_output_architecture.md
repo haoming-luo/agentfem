@@ -342,6 +342,14 @@ step = model.step(
 )
 ```
 
+`model.step()` validates this policy against the selected procedure before the
+first assembly or solve. A malformed policy, a procedure with no durable-state
+declaration, or an unsupported portability request fails with an addressable
+`AFM-CHECKPOINT-*` preflight issue. Provider lowering is transactional: a
+failed checkpoint preflight cannot leave a half-created Step registered on the
+Model. The resolved contract later appears unchanged in
+`SimulationResult.checkpoint_contract` and is checked by result verification.
+
 `checkpointing.every(..., portable=True)` or
 `step.save_checkpoint(..., portable=True)` additionally writes a global,
 physical-node-keyed nodal state. It can be read with a different MPI partition

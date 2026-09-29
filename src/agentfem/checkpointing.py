@@ -190,6 +190,93 @@ def validate_policy(procedure, policy: "CheckpointPolicy") -> CheckpointCapabili
     return capabilities
 
 
+def preflight_contract(
+    procedure,
+    policy: "CheckpointPolicy | None" = None,
+) -> dict[str, object] | None:
+    """Resolve one truthful checkpoint contract before numerical execution.
+
+    A procedure that does not implement durable restart simply returns no
+    contract when checkpointing was not requested.  Once a policy is
+    requested, however, a missing or incompatible declaration is a structured
+    model-preflight error rather than a late solver failure.
+    """
+
+    validate_policy_argument(policy)
+    declaration = getattr(procedure, "checkpoint_capabilities", None)
+    if not callable(declaration):
+        if policy is None:
+            return None
+        _raise_preflight_error(
+            code="AFM-CHECKPOINT-001",
+            message=(
+                f"{type(procedure).__name__} does not declare a durable "
+                "checkpoint capability."
+            ),
+            hint=(
+                "Remove checkpoint= or choose a procedure that explicitly "
+                "declares its accepted restart boundary."
+            ),
+        )
+    capabilities = capabilities_of(procedure)
+    try:
+        if policy is not None:
+            capabilities.validate_policy(policy)
+    except (TypeError, ValueError) as exc:
+        _raise_preflight_error(
+            code="AFM-CHECKPOINT-003",
+            message=str(exc),
+            hint=(
+                "Choose a checkpoint policy supported by this procedure or "
+                "disable the unsupported portability request."
+            ),
+            capabilities=capabilities.summary(),
+        )
+    return {
+        "schema": "agentfem.checkpoint-contract",
+        "schema_version": "0.1.0",
+        "status": "accepted" if policy is not None else "available_not_requested",
+        "policy": None if policy is None else policy.summary(),
+        "capabilities": capabilities.summary(policy=policy),
+    }
+
+
+def validate_policy_argument(policy: "CheckpointPolicy | None") -> None:
+    """Validate the public checkpoint keyword before a provider is lowered."""
+
+    if policy is not None and not isinstance(policy, CheckpointPolicy):
+        _raise_preflight_error(
+            code="AFM-CHECKPOINT-002",
+            message="checkpoint= must be created with checkpointing.every(...).",
+            hint="Use agentfem.checkpointing.every(...) for automatic checkpoints.",
+        )
+
+
+def _raise_preflight_error(
+    *,
+    code: str,
+    message: str,
+    hint: str,
+    **context,
+) -> None:
+    from .validation import ModelValidationError, ValidationReport, issue
+
+    raise ModelValidationError(
+        ValidationReport.from_issues(
+            (
+                issue(
+                    code,
+                    "model.step.checkpoint",
+                    message,
+                    hint=hint,
+                    **context,
+                ),
+            ),
+            scope="checkpoint_preflight",
+        )
+    )
+
+
 @dataclass(frozen=True)
 class CheckpointPolicy:
     """Automatic checkpoint cadence at accepted procedure boundaries."""
@@ -1818,6 +1905,7 @@ __all__ = [
     "function_portable_identity",
     "mesh_portable_identity",
     "every",
+    "preflight_contract",
     "load_harmonic_sweep_checkpoint",
     "load_transient_checkpoint",
     "remove_harmonic_sweep_checkpoint",
@@ -1825,5 +1913,6 @@ __all__ = [
     "remove_stateful_checkpoint",
     "save_transient_checkpoint",
     "save_harmonic_sweep_checkpoint",
+    "validate_policy_argument",
     "validate_policy",
 ]

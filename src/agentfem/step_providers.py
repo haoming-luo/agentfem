@@ -285,6 +285,7 @@ class StepExecutionContext:
     target: object
     material: object | None = None
     policy: StepExecutionPolicy = StepExecutionPolicy()
+    checkpoint_contract: Mapping[str, object] | None = None
 
     @property
     def configured_output(self):
@@ -321,6 +322,11 @@ class StepExecutionContext:
             "policies": declared,
             "declared_policies": declared,
             "resolved_step_record": "metadata.step",
+            "checkpoint_contract": (
+                None
+                if self.checkpoint_contract is None
+                else dict(self.checkpoint_contract)
+            ),
         }
 
 
@@ -377,9 +383,31 @@ class StepProviderRegistry(ProviderSelectionRegistry):
     """Compatibility facade adding lowering to the selection-only registry."""
 
     def lower(self, model, request: StepRequest):
+        from . import checkpointing
+
         provider = self.resolve(model, request)
-        created = provider.lower(model, request)
-        return _bind_execution_context(model, request, provider, created)
+        execution_policy = request.execution_policy
+        checkpointing.validate_policy_argument(execution_policy.checkpoint)
+        registered_steps = getattr(model, "steps", None)
+        previous_steps = (
+            tuple(registered_steps) if isinstance(registered_steps, list) else None
+        )
+        try:
+            created = provider.lower(model, request)
+            return _bind_execution_context(
+                model,
+                request,
+                provider,
+                created,
+                execution_policy=execution_policy,
+            )
+        except Exception:
+            # Provider lowering may register one or more cooperating Step
+            # objects before the common checkpoint preflight runs.  Never
+            # leave those partial objects in the engineering Model.
+            if previous_steps is not None:
+                registered_steps[:] = previous_steps
+            raise
 
 
 _DEFAULT_REGISTRY = StepProviderRegistry()
@@ -522,8 +550,17 @@ def lower_step(model, *, analysis: str, target, options, procedure=None):
     return _DEFAULT_REGISTRY.lower(model, request)
 
 
-def _bind_execution_context(model, request, provider, created):
+def _bind_execution_context(
+    model,
+    request,
+    provider,
+    created,
+    *,
+    execution_policy=None,
+):
     """Bind common workflow context after provider-owned scientific lowering."""
+
+    from . import checkpointing
 
     if request.procedure is not None and hasattr(created, "procedure"):
         actual = getattr(created, "procedure", None)
@@ -537,11 +574,17 @@ def _bind_execution_context(model, request, provider, created):
     context_material = _selected_material(model, request)
     if context_material is None:
         context_material = getattr(created, "material", None)
+    selected_policy = execution_policy or request.execution_policy
+    checkpoint_contract = checkpointing.preflight_contract(
+        created,
+        selected_policy.checkpoint,
+    )
     context = StepExecutionContext(
         model=model,
         target=request.target,
         material=context_material,
-        policy=request.execution_policy,
+        policy=selected_policy,
+        checkpoint_contract=checkpoint_contract,
     )
     try:
         created.execution_context = context

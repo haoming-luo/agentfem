@@ -10,7 +10,7 @@ from time import perf_counter
 from .. import fields as field_api
 from .core import from_solution
 from .execution import add_execution_trace
-from .lifecycle import execution_context
+from .lifecycle import attach_checkpoint_contract, execution_context
 from .performance import attach_performance
 
 
@@ -34,6 +34,7 @@ def from_transient_step(
     context = execution_context(step)
     if context is not None:
         result.metadata.setdefault("execution_context", context.summary())
+    attach_checkpoint_contract(step, result)
     add_execution_trace(result, step.execution_events)
     _attach_transient_output(result, step, tuple(output_fields))
     ledger_stages = dict(step.performance.summary()["stages"])
