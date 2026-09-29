@@ -155,8 +155,10 @@ Package paths below are relative to `src/agentfem/`.
 - Material library, assignment frames, plies, and laminate sections:
   `materials/`
 - Boundary models: `boundary_models/`; solver-neutral analytical rigid
-  surfaces and prescribed rigid motion live in `boundary_models/rigid.py` and
-  remain separate from the contact law in `boundary_models/mechanical.py`
+  surfaces, immutable projection evidence, and prescribed rigid motion live in
+  `boundary_models/rigid.py` and remain separate from the contact law in
+  `boundary_models/mechanical.py`. Projection uses positive-admissible,
+  negative-penetration signed gaps and explicit validity flags.
 - Weak-form blocks: `forms.py`
 - Assembly: `assembly.py`
 - Operator families: `operators/`

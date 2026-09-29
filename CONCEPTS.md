@@ -365,7 +365,18 @@ to a deformable field. These are separate assets so changing a tool path does
 not redefine contact enforcement, and changing a contact law does not redefine
 geometry.
 
-The initial analytical plane route uses a point and outward unit normal.
+Every rigid surface exposes one solver-neutral projection contract: query
+points, closest points, outward unit normals, signed gaps, validity flags, the
+projection method, and optional stable entity identities. Positive gap denotes
+the admissible half-space and negative gap denotes penetration. A discrete or
+trimmed surface must report failed projections explicitly; it may not return a
+plausible closest point and silently treat it as valid.
+
+The initial analytical plane route uses a point and outward unit normal. Its
+orthogonal projection is exact and therefore has no facet identity. The same
+geometry contract is used after solve to audit nonzero-reaction contact nodes;
+this is independent evidence for the weak-form gap convention rather than a
+second contact law.
 Two-dimensional rotation is one counter-clockwise angle; three-dimensional
 rotation is an axis-angle vector. A normalized Procedure coordinate scales the
 declared end translation and rotation. The contact Operator owns gap, penalty

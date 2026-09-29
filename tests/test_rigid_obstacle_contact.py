@@ -253,6 +253,20 @@ def test_prescribed_rigid_plane_closes_force_moment_and_path_work():
     )
     np.testing.assert_allclose(dual["resultant"], (expected_force, 0.0), rtol=2.0e-6)
     np.testing.assert_allclose(dual["diagnostics"]["contact_moment"], (0.0,), atol=1.0e-9)
+    projection = dual["diagnostics"]["surface_projection"]
+    assert projection["method"] == "exact_orthogonal_projection"
+    assert projection["sample"] == "nonzero_reaction_nodes"
+    assert projection["point_count"] > 0
+    assert projection["invalid_count"] == 0
+    assert projection["all_valid"] is True
+    assert projection["minimum_signed_gap"] == pytest.approx(
+        -expected_penetration,
+        rel=2.0e-6,
+    )
+    assert projection["maximum_signed_gap"] == pytest.approx(
+        -expected_penetration,
+        rel=2.0e-6,
+    )
     assert contact.summary()["obstacle"] == "prescribed_rigid_plane"
     assert contact.capabilities().summary()["work_evidence"] == (
         "provider_dual_path_required"

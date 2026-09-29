@@ -112,6 +112,25 @@ tool's work and enters the same bulk-plus-contact energy ledger. Failed Newton
 trials and cutbacks do not enter that ledger. Rotation uses radians: one
 counter-clockwise angle in 2D and an axis-angle vector in 3D.
 
+The surface can also be queried independently of a solve:
+
+```python
+projection = tool.project(
+    [(0.99, 0.2), (1.01, 0.8)],
+    motion=tool_motion,
+    factor=0.5,
+)
+assert projection.all_valid
+print(projection.signed_gaps)
+```
+
+The returned contract keeps the query points, closest points, outward unit
+normals, signed gaps, validity flags, projection method and optional entity
+identities together. Positive gap is admissible and negative gap is
+penetration. Analytical planes use exact orthogonal projection; future
+tessellated search must use the same contract and report failed or ambiguous
+queries explicitly.
+
 Pass `checkpoint=checkpointing.every(...)` to `model.step(...)` when a long
 load path must be restartable. Only accepted load boundaries are published.
 The portable checkpoint keeps the displacement, increment/cutback ledger,
