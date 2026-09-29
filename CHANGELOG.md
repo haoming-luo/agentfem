@@ -25,6 +25,12 @@ experimental formulation to a validated one.
   closest-point queries, and explicit no-candidate/ambiguous statuses. Its
   exhaustive projector is a reference oracle; general contact remains gated on
   the parallel search backend.
+- Add exact analytical projection assets for 2D circles, 3D spheres and 3D
+  infinite circular cylinders. Interior/exterior admissible sides are explicit;
+  non-unique center/axis queries fail with `singular_projection`; equivalent
+  infinite-axis representations share one stable geometry fingerprint. These
+  assets remain projection-only until their contact lowering is independently
+  promoted.
 
 ### Fixed
 

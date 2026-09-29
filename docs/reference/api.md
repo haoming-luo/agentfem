@@ -696,12 +696,16 @@ and evidence remain in the linked guides and scientific function reference.
 | function | `elastic_foundation(*, on = None, location = None, stiffness, mode: str = 'isotropic', normal = None, name: str = 'elastic_foundation') -> ElasticFoundation` | Public AgentFEM object. |
 | function | `rigid_obstacle_contact(*, on = None, location = None, penalty, normal = None, initial_gap = 0.0, surface: RigidPlaneSurface \| None = None, motion: PrescribedRigidMotion \| None = None, name: str = 'rigid_obstacle_contact') -> RigidObstaclePenaltyContact` | Create conservative frictionless contact with one analytical plane. |
 | class | `PrescribedRigidMotion` | Normalized prescribed rigid-body translation and rotation. |
+| class | `RigidCylinderSurface` | Analytical three-dimensional infinite circular cylinder. |
 | class | `RigidPlaneSurface` | Analytical rigid plane with one explicit point and unit normal. |
+| class | `RigidSphereSurface` | Analytical circle or sphere with an explicit admissible side. |
 | class | `RigidSurface` | Solver-neutral contract for auditable rigid-surface projection. |
 | class | `SurfaceProjection` | Immutable closest-point evidence produced by one rigid surface. |
 | class | `TriangulatedRigidSurface` | Reviewed three-dimensional oriented triangle surface. |
 | function | `prescribed_rigid_motion(*, translation, rotation = 0.0, reference_point = None, name: str = 'prescribed_rigid_motion') -> PrescribedRigidMotion` | Describe one normalized proportional rigid translation and rotation. |
+| function | `rigid_cylinder(axis_point, axis_direction, radius: float, *, admissible_side: str = 'exterior', name: str = 'rigid_cylinder') -> RigidCylinderSurface` | Create an analytical three-dimensional infinite cylinder. |
 | function | `rigid_plane(*, point, normal, name: str = 'rigid_plane') -> RigidPlaneSurface` | Describe one analytical rigid plane independently of a contact law. |
+| function | `rigid_sphere(center, radius: float, *, admissible_side: str = 'exterior', name: str = 'rigid_sphere') -> RigidSphereSurface` | Create an analytical circle/sphere with explicit gap orientation. |
 | function | `triangulated_rigid_surface(*, vertices, triangles, facet_ids = None, tolerance: float \| None = None, ambiguity_tolerance: float \| None = None, name: str = 'triangulated_rigid_surface') -> TriangulatedRigidSurface` | Create one reviewed oriented triangle surface for rigid projection. |
 | class | `ConvectionBoundary` | Linear convection ``-k grad(T).n = h (T - T_inf)``. |
 | function | `convection(*, on = None, location = None, coefficient, ambient_temperature, name: str = 'convection') -> ConvectionBoundary` | Create a linear thermal convection boundary condition. |

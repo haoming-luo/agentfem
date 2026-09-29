@@ -159,9 +159,10 @@ Package paths below are relative to `src/agentfem/`.
   `boundary_models/rigid.py` and remain separate from the contact law in
   `boundary_models/mechanical.py`. Projection uses positive-admissible,
   negative-penetration signed gaps and explicit validity/status evidence. The
-  oriented-triangle implementation is a reviewed exhaustive reference for
-  future BVH adapters; it is not silently lowered by the bounded plane-contact
-  provider.
+  plane, circle/sphere, and infinite-cylinder implementations are exact
+  analytical projectors. The oriented-triangle implementation is a reviewed
+  exhaustive reference for future BVH adapters. Projection-only surfaces are
+  not silently lowered by the bounded plane-contact provider.
 - Weak-form blocks: `forms.py`
 - Assembly: `assembly.py`
 - Operator families: `operators/`

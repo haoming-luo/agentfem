@@ -414,13 +414,18 @@ never changes solver access, results, verification, or update behavior.
   law separate. Report tool work only from accepted generalized
   force--translation/moment--rotation stations, never from penalty energy.
 - Treat a surface projection as evidence, not merely coordinates. Preserve its
-  surface identity, method, outward unit normal, signed-gap convention,
+  surface identity, method, admissible-side unit normal, signed-gap convention,
   validity and discrete entity identity. Never turn a failed or ambiguous
   closest-point query into an active contact silently.
 - A `TriangulatedRigidSurface` can currently validate and project reviewed 3D
   triangle geometry. Do not claim that this makes STL/STEP contact executable:
   the present contact Operator still accepts only `RigidPlaneSurface` until a
   search-based backend passes serial, MPI, sliding and restart gates.
+- `RigidSphereSurface` and `RigidCylinderSurface` provide exact analytical
+  projection. The sphere also represents a 2D circle; the cylinder is 3D and
+  infinite. Keep their interior/exterior admissible side explicit, preserve
+  `singular_projection`, and do not claim that projection-only geometry is an
+  executable contact law.
 - Do not hide the finite-element workflow inside overly broad abstractions.
 - Do not make concrete geometry helpers, such as circle/disk/box predicates,
   the core modeling concept. Treat them as selectors used to build named

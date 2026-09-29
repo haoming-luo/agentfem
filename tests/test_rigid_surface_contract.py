@@ -206,6 +206,183 @@ def test_surface_summary_declares_projection_and_gap_conventions():
     }
 
 
+def test_sphere_projection_supports_circle_and_explicit_admissible_side():
+    exterior = boundary_models.rigid_sphere(
+        center=(1.0, -1.0),
+        radius=2.0,
+        name="round_tool",
+    )
+    interior = boundary_models.rigid_sphere(
+        center=(1.0, -1.0),
+        radius=2.0,
+        admissible_side="interior",
+    )
+
+    outside = exterior.project(((4.0, -1.0), (2.0, -1.0)))
+    inside = interior.project(((4.0, -1.0), (2.0, -1.0)))
+
+    np.testing.assert_allclose(outside.closest_points, ((3.0, -1.0),) * 2)
+    np.testing.assert_allclose(outside.normals, ((1.0, 0.0),) * 2)
+    np.testing.assert_allclose(outside.signed_gaps, (1.0, -1.0))
+    np.testing.assert_allclose(inside.normals, ((-1.0, 0.0),) * 2)
+    np.testing.assert_allclose(inside.signed_gaps, (-1.0, 1.0))
+    assert outside.summary()["method"] == "exact_radial_projection"
+    assert exterior.summary()["geometric_shape"] == "circle"
+    assert exterior.summary()["admissible_side"] == "exterior"
+
+
+def test_sphere_projection_tracks_prescribed_rigid_translation():
+    surface = boundary_models.rigid_sphere(center=(1.0, 0.0, 0.0), radius=0.5)
+    motion = boundary_models.prescribed_rigid_motion(
+        translation=(0.0, 1.0, 0.0),
+        rotation=(0.0, 0.0, np.pi / 2.0),
+        reference_point=(0.0, 0.0, 0.0),
+    )
+
+    projection = surface.project(
+        ((0.0, 3.0, 0.0),),
+        motion=motion,
+        factor=1.0,
+    )
+
+    np.testing.assert_allclose(
+        projection.closest_points,
+        ((0.0, 2.5, 0.0),),
+        atol=1.0e-15,
+    )
+    np.testing.assert_allclose(
+        projection.normals,
+        ((0.0, 1.0, 0.0),),
+        atol=1.0e-15,
+    )
+    np.testing.assert_allclose(projection.signed_gaps, (0.5,))
+
+
+def test_sphere_projection_fails_closed_at_center_and_outside_search_radius():
+    surface = boundary_models.rigid_sphere(center=(0.0, 0.0, 0.0), radius=1.0)
+
+    projection = surface.project(
+        ((0.0, 0.0, 0.0), (3.0, 0.0, 0.0)),
+        maximum_distance=0.5,
+    )
+
+    assert projection.valid.tolist() == [False, False]
+    assert projection.status_codes.tolist() == [
+        "singular_projection",
+        "no_candidate",
+    ]
+    assert np.isnan(projection.closest_points).all()
+
+
+def test_infinite_cylinder_projection_and_motion_are_exact():
+    surface = boundary_models.rigid_cylinder(
+        axis_point=(0.0, 0.0, 0.0),
+        axis_direction=(0.0, 0.0, 1.0),
+        radius=2.0,
+        name="roller",
+    )
+    projection = surface.project(((3.0, 0.0, 4.0), (1.0, 0.0, -2.0)))
+
+    np.testing.assert_allclose(
+        projection.closest_points,
+        ((2.0, 0.0, 4.0), (2.0, 0.0, -2.0)),
+    )
+    np.testing.assert_allclose(projection.normals, ((1.0, 0.0, 0.0),) * 2)
+    np.testing.assert_allclose(projection.signed_gaps, (1.0, -1.0))
+
+    motion = boundary_models.prescribed_rigid_motion(
+        translation=(1.0, 0.0, 0.0),
+        rotation=(0.0, np.pi / 2.0, 0.0),
+    )
+    moved = surface.project(
+        ((7.0, 3.0, 0.0),),
+        motion=motion,
+        factor=1.0,
+    )
+    np.testing.assert_allclose(
+        moved.closest_points,
+        ((7.0, 2.0, 0.0),),
+        atol=1.0e-15,
+    )
+    np.testing.assert_allclose(
+        moved.normals,
+        ((0.0, 1.0, 0.0),),
+        atol=1.0e-15,
+    )
+    np.testing.assert_allclose(moved.signed_gaps, (1.0,))
+    assert surface.summary()["geometric_shape"] == "infinite_circular_cylinder"
+
+
+def test_infinite_cylinder_fails_closed_on_axis():
+    surface = boundary_models.rigid_cylinder(
+        axis_point=(1.0, 2.0, 3.0),
+        axis_direction=(0.0, 1.0, 0.0),
+        radius=0.5,
+    )
+
+    projection = surface.project(((1.0, 7.0, 3.0),))
+
+    assert projection.all_valid is False
+    assert projection.status_codes.tolist() == ["singular_projection"]
+    assert np.isnan(projection.signed_gaps).all()
+
+
+@pytest.mark.parametrize(
+    "factory, kwargs, message",
+    [
+        (boundary_models.rigid_sphere, {"center": (0.0, 0.0), "radius": 0.0}, "positive"),
+        (
+            boundary_models.rigid_sphere,
+            {"center": (0.0, 0.0), "radius": 1.0, "admissible_side": "both"},
+            "exterior.*interior",
+        ),
+        (
+            boundary_models.rigid_cylinder,
+            {
+                "axis_point": (0.0, 0.0, 0.0),
+                "axis_direction": (0.0, 0.0, 2.0),
+                "radius": 1.0,
+            },
+            "unit vector",
+        ),
+    ],
+)
+def test_analytical_curved_surfaces_reject_ambiguous_geometry(
+    factory,
+    kwargs,
+    message,
+):
+    with pytest.raises(ValueError, match=message):
+        factory(**kwargs)
+
+
+def test_analytical_curved_surface_fingerprints_include_gap_orientation():
+    exterior = boundary_models.rigid_sphere(center=(0.0, 0.0), radius=1.0)
+    repeated = boundary_models.rigid_sphere(center=(0.0, 0.0), radius=1.0)
+    interior = boundary_models.rigid_sphere(
+        center=(0.0, 0.0),
+        radius=1.0,
+        admissible_side="interior",
+    )
+
+    assert exterior.geometry_fingerprint == repeated.geometry_fingerprint
+    assert exterior.geometry_fingerprint != interior.geometry_fingerprint
+
+    forward = boundary_models.rigid_cylinder(
+        axis_point=(0.0, 0.0, 0.0),
+        axis_direction=(0.0, 0.0, 1.0),
+        radius=1.0,
+    )
+    reverse = boundary_models.rigid_cylinder(
+        axis_point=(0.0, 0.0, 7.0),
+        axis_direction=(0.0, 0.0, -1.0),
+        radius=1.0,
+    )
+    assert forward.geometry_fingerprint == reverse.geometry_fingerprint
+    assert forward.axis_direction == reverse.axis_direction
+    assert forward.axis_point == reverse.axis_point
+
+
 def _square_triangle_surface(**overrides):
     arguments = {
         "vertices": (
