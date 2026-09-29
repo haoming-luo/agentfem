@@ -739,6 +739,9 @@ and evidence remain in the linked guides and scientific function reference.
 
 | Kind | Public object | Purpose |
 | --- | --- | --- |
+| class | `CheckpointCapabilities` | Executable contract for one procedure's durable restart boundary. |
+| function | `capabilities_of(procedure) -> CheckpointCapabilities` | Return an explicitly declared checkpoint contract, never an inference. |
+| function | `validate_policy(procedure, policy: 'CheckpointPolicy') -> CheckpointCapabilities` | Validate a checkpoint policy before a procedure starts advancing. |
 | class | `CheckpointPolicy` | Automatic checkpoint cadence at accepted procedure boundaries. |
 | function | `every(increments: int, *, directory = 'checkpoints', final: bool = True, prefix: str \| None = None, keep_last: int \| None = None, portable: bool = False) -> CheckpointPolicy` | Create an automatic policy for accepted time/load increments. |
 | function | `save_harmonic_sweep_checkpoint(path, *, step_name: str, frequencies, records, scientific_inputs, field_identity: dict[str, object], execution_events = (), comm = MPI.COMM_WORLD)` | Atomically publish a partition-independent scalar sweep ledger. |
