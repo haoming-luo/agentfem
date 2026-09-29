@@ -160,7 +160,7 @@ def test_model_step_lowers_exact_mpc_and_publishes_dual_evidence():
     dual = simulation.metadata["constraint_duals"][0]
     assert dual["source"] == "exact_mpc_slave_residual_multiplier_recovery"
     assert dual["force_complete"] is True
-    assert dual["work_complete"] is True
+    assert dual["work_complete"] is False
     assert dual["diagnostics"]["status"] == "complete"
     assert dual["diagnostics"]["relation_count"] > 0
     assert dual["diagnostics"]["constraint_gap_linf_norm"] < 1.0e-12

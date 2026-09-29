@@ -467,9 +467,12 @@ def test_public_affine_j2_consumes_unload_and_nonproportional_macro_path(tmp_pat
         rel=8.0e-6,
         abs=8.0e-6,
     )
-    assert not result.metadata["constraint_balance_contract"][
+    assert result.metadata["constraint_balance_contract"][
         "work_balance_available"
     ]
+    assert result.metadata["constraint_work_evidence"][0][
+        "integration"
+    ] == "accepted_path_trapezoidal"
     identity = periodicity.scientific_identity()
     assert identity["deformation_gradient_path"]["fingerprint"] == path.summary()[
         "fingerprint"
@@ -775,8 +778,9 @@ def test_public_finite_strain_j2_periodic_cube_matches_material_point(tmp_path):
     )
     balance_contract = result.metadata["constraint_balance_contract"]
     assert balance_contract["force_balance_available"]
-    assert not balance_contract["work_balance_available"]
-    assert balance_contract["work_balance_gaps"] == (periodicity.name,)
+    assert balance_contract["work_balance_available"]
+    assert balance_contract["work_balance_gaps"] == ()
+    assert balance_contract["provider_work"][0]["sample_count"] >= 2
     assert result.metadata["constraint_duals"][0]["source"] == (
         "exact_affine_reduction_full_residual_virtual_work"
     )

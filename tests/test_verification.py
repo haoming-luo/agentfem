@@ -3,7 +3,7 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
-from agentfem import results, verification
+from agentfem import constraints, results, verification
 
 
 def test_reference_claim_does_not_confuse_inapplicable_theory_with_failure():
@@ -178,3 +178,109 @@ def test_quality_contract_reports_missing_outputs_without_hiding_them():
     assert not report.acceptable
     with pytest.raises(RuntimeError, match="required_outputs_present"):
         report.require()
+
+
+def test_runtime_verification_consumes_typed_constraint_work_evidence():
+    class AffineProvider:
+        name = "affine_periodic"
+
+        @staticmethod
+        def capabilities():
+            return constraints.ConstraintCapabilities(
+                kind="periodic_constraint",
+                enforcement="exact_affine_reduction",
+                reaction_evidence="provider_dual_required",
+                work_evidence="provider_dual_path_required",
+            )
+
+    provider = AffineProvider()
+    dual = constraints.constraint_dual(
+        provider,
+        force=(10.0,),
+        resultant=(0.0, 0.0),
+        source="full_residual_virtual_work",
+    )
+    work = constraints.constraint_work(
+        provider,
+        value=0.5,
+        integration="accepted_path_trapezoidal",
+        sample_count=3,
+        source="accepted_affine_path",
+    )
+    contract = constraints.constraint_balance_contract(
+        (provider,),
+        provider_duals=(dual,),
+        provider_work=(work,),
+    )
+    result = results.SimulationResult(
+        "constraint_evidence",
+        metadata={
+            "solve": {"converged": True},
+            "constraint_balance_contract": contract,
+            "constraint_duals": contract["provider_duals"],
+            "constraint_work_evidence": contract["provider_work"],
+        },
+    )
+    result.add_quantity("response", 1.0)
+
+    report = result.verify("engineering")
+    claim = next(
+        item for item in report.claims
+        if item.name == "constraint_evidence_consistent"
+    )
+
+    assert claim.status == "passed"
+    assert claim.actual["provider_work_count"] == 1
+
+
+def test_runtime_verification_rejects_serialized_constraint_work_drift():
+    class AffineProvider:
+        name = "affine_periodic"
+
+        @staticmethod
+        def capabilities():
+            return constraints.ConstraintCapabilities(
+                kind="periodic_constraint",
+                enforcement="exact_affine_reduction",
+                reaction_evidence="provider_dual_required",
+                work_evidence="provider_dual_path_required",
+            )
+
+    provider = AffineProvider()
+    dual = constraints.constraint_dual(
+        provider,
+        force=(10.0,),
+        resultant=(0.0, 0.0),
+    )
+    work = constraints.constraint_work(
+        provider,
+        value=0.5,
+        integration="accepted_path_trapezoidal",
+        sample_count=3,
+    )
+    contract = constraints.constraint_balance_contract(
+        (provider,),
+        provider_duals=(dual,),
+        provider_work=(work,),
+    )
+    changed = dict(contract["provider_work"][0])
+    changed["value"] = 0.75
+    result = results.SimulationResult(
+        "constraint_evidence_drift",
+        metadata={
+            "solve": {"converged": True},
+            "constraint_balance_contract": contract,
+            "constraint_duals": contract["provider_duals"],
+            "constraint_work_evidence": (changed,),
+        },
+    )
+    result.add_quantity("response", 1.0)
+
+    report = result.verify("engineering")
+    claim = next(
+        item for item in report.claims
+        if item.name == "constraint_evidence_consistent"
+    )
+
+    assert claim.status == "failed"
+    assert "serialized provider work differs" in claim.actual["issues"][0]

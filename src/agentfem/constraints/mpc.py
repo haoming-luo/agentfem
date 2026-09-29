@@ -216,7 +216,11 @@ class RectangularPeriodicMPC:
         return constraint_dual(
             self,
             force=(constraint_work,),
-            coordinate=(1.0,),
+            # This exact MPC is homogeneous: B u = 0 at every admissible
+            # state, so it performs no external work.  Do not manufacture an
+            # endpoint coordinate merely to make a force--coordinate product;
+            # the capability contract owns the exact zero-work statement.
+            coordinate=None,
             resultant=resultant,
             distribution=distribution,
             diagnostics=diagnostics,

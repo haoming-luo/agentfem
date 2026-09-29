@@ -199,7 +199,7 @@ Each owned slave is lowered to one checked unit-coefficient master relation in t
 
 - Arbitrary master/slave geometry, nonlinear structural Steps, and implicit structural dynamics require separate reviewed providers.
 - The rectangular provider recovers a physical reaction/flux distribution only after a converged linear solve. Construction diagnostics alone do not constitute dual evidence.
-- Its current homogeneous periodic relation performs zero constraint work. Nonzero affine macroscopic work belongs to the affine-periodic path provider rather than this endpoint contract.
+- Its current homogeneous periodic relation declares exact zero constraint work without a synthetic endpoint coordinate. Nonzero affine macroscopic work belongs to typed accepted-path evidence from the affine-periodic provider rather than this endpoint contract.
 - Only one exact-MPC provider may own a linear system.
 
 ### Minimal example
@@ -5762,6 +5762,7 @@ Natural loads and strong prescribed values are ramped proportionally from zero; 
 | standard fields | DG projected Functions named S, E, MISES, and optionally SENER | stress, strain, and energy density | Serial solve_result(output=...) stores these cell fields with nodal U on one Uniform Grid. |
 | prepared projection | reusable L2 projection space, mass matrix, KSP and live output Function | the projected expression's unit | Repeated recovery reassembles only the right-hand side while retaining the constant projection operator and solver. |
 | resultants, force balance, and energy closure | MPI-global scalar/vector, StaticForceBalance, and LinearStaticEnergy | force and energy | Compact engineering histories or verification quantities. |
+| provider-owned constraint evidence | ConstraintDualEvidence and ConstraintWorkEvidence | force and energy | Separates converged force/resultant evidence from nonlinear accepted-path work, including the integration rule and sample count. |
 
 #### Assumptions
 
@@ -5790,7 +5791,7 @@ Natural loads and strong prescribed values are ramped proportionally from zero; 
 #### Limitations
 
 - Nodal smoothing and superconvergent stress recovery are not implemented.
-- Affine MPC, arbitrary MPC, weak, and contact reactions require their numerical provider to implement the shared dual_evidence(problem) protocol; force or work balance remains unavailable for any provider that has not supplied the corresponding physical dual. The rectangular homogeneous periodic and linear elastic-foundation providers implement their bounded contracts; general weak and contact providers do not yet claim complete evidence.
+- MPC, weak and contact reactions require provider-owned dual evidence. Nonlinear or non-proportional work additionally requires typed accepted-path work evidence; a final endpoint is insufficient. The rectangular homogeneous MPC, affine-periodic path, linear elastic foundation and bounded fixed-plane contact providers implement their reviewed contracts; undeclared enforcement routes remain fail-closed.
 - Thermoelastic output requires temperature-aware field construction in a later extension.
 
 ### Minimal example

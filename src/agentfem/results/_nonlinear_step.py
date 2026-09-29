@@ -45,11 +45,6 @@ def _add_nonlinear_constraint_evidence(step, result) -> None:
     if not assets:
         return
     provider_duals = constraint_api.collect_provider_duals(assets, step)
-    contract = constraint_api.constraint_balance_contract(
-        assets,
-        provider_duals=provider_duals,
-    )
-    result.metadata["constraint_balance_contract"] = contract
     result.metadata["constraint_duals"] = tuple(
         item.summary() for item in provider_duals
     )
@@ -86,6 +81,19 @@ def _add_nonlinear_constraint_evidence(step, result) -> None:
             }:
                 result.add_quantity(f"{prefix}_{key}", value, kind="diagnostic")
 
+    constraint_work, work_evidence = _add_nonlinear_constraint_path_work(
+        step,
+        result,
+    )
+    contract = constraint_api.constraint_balance_contract(
+        assets,
+        provider_duals=provider_duals,
+        provider_work=work_evidence,
+    )
+    result.metadata["constraint_balance_contract"] = contract
+    result.metadata["constraint_work_evidence"] = tuple(
+        item.summary() for item in work_evidence
+    )
     try:
         equilibrium = static_force_balance(
             step,
@@ -110,7 +118,6 @@ def _add_nonlinear_constraint_evidence(step, result) -> None:
             kind="diagnostic",
         )
         result.metadata["static_equilibrium"] = equilibrium.as_dict()
-    constraint_work = _add_nonlinear_constraint_path_work(step, result)
     _add_nonlinear_energy_evidence(
         step,
         result,
@@ -118,11 +125,19 @@ def _add_nonlinear_constraint_evidence(step, result) -> None:
     )
 
 
-def _add_nonlinear_constraint_path_work(step, result) -> dict[str, object]:
+def _add_nonlinear_constraint_path_work(
+    step,
+    result,
+) -> tuple[dict[str, object], tuple[object, ...]]:
     history = step.constraint_dual_history
     complete = history.complete(accepted_factor=step.accepted_load_factor)
     channels = {}
+    work_evidence = []
     total = 0.0
+    assets_by_name = {
+        str(getattr(item, "name", type(item).__name__)): item
+        for item in constraint_api.constraint_assets(step.constraint_assets)
+    }
     for name in history.constraint_names:
         channel = history.channel(name)
         prefix = name.lower().replace(" ", "_")
@@ -172,6 +187,17 @@ def _add_nonlinear_constraint_path_work(step, result) -> dict[str, object]:
                 "Trapezoidal provider-dual work over accepted nonlinear states."
             ),
         )
+        if complete:
+            work_evidence.append(
+                constraint_api.constraint_work(
+                    assets_by_name[name],
+                    value=work,
+                    integration="accepted_force_coordinate_trapezoidal",
+                    sample_count=len(history.records),
+                    role=channel["role"],
+                    source=channel["source"],
+                )
+            )
     record = {
         "status": "complete" if complete else "unavailable",
         "sample_count": len(history.records),
@@ -180,7 +206,7 @@ def _add_nonlinear_constraint_path_work(step, result) -> dict[str, object]:
         "total": total if complete else None,
     }
     result.metadata["constraint_path_work"] = record
-    return record
+    return record, tuple(work_evidence)
 
 
 def _add_nonlinear_energy_evidence(
@@ -349,14 +375,19 @@ def _add_affine_constraint_evidence(step, result) -> None:
         (step.constraint,),
         step,
     )
+    work_evidence = _add_affine_path_work(step, result)
     result.metadata["constraint_balance_contract"] = (
         constraint_api.constraint_balance_contract(
             (step.constraint,),
             provider_duals=provider_duals,
+            provider_work=work_evidence,
         )
     )
     result.metadata["constraint_duals"] = tuple(
         item.summary() for item in provider_duals
+    )
+    result.metadata["constraint_work_evidence"] = tuple(
+        item.summary() for item in work_evidence
     )
     if len(provider_duals) == 1:
         dual = provider_duals[0]
@@ -377,10 +408,9 @@ def _add_affine_constraint_evidence(step, result) -> None:
                 ),
             },
         )
-    _add_affine_path_work(step, result)
 
 
-def _add_affine_path_work(step, result) -> None:
+def _add_affine_path_work(step, result) -> tuple[object, ...]:
     history = tuple(step.constraint_dual_history.records)
     complete = bool(
         len(history) >= 2
@@ -400,7 +430,7 @@ def _add_affine_path_work(step, result) -> None:
     }
     result.metadata["affine_constraint_path_work"] = contract
     if not complete:
-        return
+        return ()
     factors = step.constraint_dual_history.factors
     forces = step.constraint_dual_history.forces
     path_work = step.constraint_dual_history.work()
@@ -434,6 +464,20 @@ def _add_affine_path_work(step, result) -> None:
         ),
     )
     contract["value"] = path_work
+    return (
+        constraint_api.constraint_work(
+            step.constraint,
+            value=path_work,
+            integration="accepted_path_trapezoidal",
+            sample_count=len(history),
+            role="mpc_constraint",
+            source=str(history[-1]["source"]),
+            diagnostics={
+                "accepted_factor": float(step.accepted_load_factor),
+                "segment_count": len(history) - 1,
+            },
+        ),
+    )
 
 
 def _state_summary(transaction):

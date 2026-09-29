@@ -197,6 +197,68 @@ class ConstraintDualEvidence:
         }
 
 
+@dataclass(frozen=True)
+class ConstraintWorkEvidence:
+    """Accepted-path work owned by one constraint provider.
+
+    A converged endpoint dual proves a force, but it cannot in general prove
+    work for a nonlinear or non-proportional path.  This separate record binds
+    an integrated value to the accepted stations and integration rule that
+    produced it.  Result and verification layers transport the record without
+    reconstructing provider physics.
+    """
+
+    constraint_name: str
+    role: str
+    value: float
+    integration: str
+    sample_count: int
+    source: str = "provider_accepted_path"
+    complete: bool = True
+    diagnostics: Mapping[str, object] = field(default_factory=dict)
+
+    def __post_init__(self) -> None:
+        name = str(self.constraint_name).strip()
+        role = str(self.role).strip().lower().replace("-", "_")
+        allowed = {"mpc_constraint", "weak_constraint", "contact_constraint"}
+        value = float(self.value)
+        integration = str(self.integration).strip()
+        source = str(self.source).strip()
+        count = int(self.sample_count)
+        if not name or role not in allowed:
+            raise ValueError("Constraint work evidence needs a name and dual role.")
+        if not np.isfinite(value):
+            raise ValueError("Constraint work evidence must be finite.")
+        if not integration or not source or count < 2:
+            raise ValueError(
+                "Constraint work evidence needs an integration rule, source, "
+                "and at least two accepted samples."
+            )
+        object.__setattr__(self, "constraint_name", name)
+        object.__setattr__(self, "role", role)
+        object.__setattr__(self, "value", value)
+        object.__setattr__(self, "integration", integration)
+        object.__setattr__(self, "sample_count", count)
+        object.__setattr__(self, "source", source)
+        object.__setattr__(
+            self,
+            "diagnostics",
+            MappingProxyType(dict(self.diagnostics)),
+        )
+
+    def summary(self) -> dict[str, object]:
+        return {
+            "constraint_name": self.constraint_name,
+            "role": self.role,
+            "value": self.value,
+            "integration": self.integration,
+            "sample_count": self.sample_count,
+            "source": self.source,
+            "complete": bool(self.complete),
+            "diagnostics": dict(self.diagnostics),
+        }
+
+
 def constraint_dual(
     constraint,
     *,
@@ -221,6 +283,31 @@ def constraint_dual(
         diagnostics={} if diagnostics is None else diagnostics,
         source=source,
         complete=complete,
+    )
+
+
+def constraint_work(
+    constraint,
+    *,
+    value,
+    integration,
+    sample_count,
+    role="mpc_constraint",
+    source="provider_accepted_path",
+    complete=True,
+    diagnostics=None,
+) -> ConstraintWorkEvidence:
+    """Create accepted-path work evidence tied to one named constraint."""
+
+    return ConstraintWorkEvidence(
+        constraint_name=str(getattr(constraint, "name", constraint)),
+        role=role,
+        value=value,
+        integration=integration,
+        sample_count=sample_count,
+        source=source,
+        complete=complete,
+        diagnostics={} if diagnostics is None else diagnostics,
     )
 
 
@@ -1563,7 +1650,7 @@ def constraint_capabilities(constraint) -> ConstraintCapabilities | None:
             strict=True,
             supports_parallel=True,
             reaction_evidence="provider_dual_required",
-            work_evidence="provider_dual_path_required",
+            work_evidence="homogeneous_constraint_zero_work",
         )
     if isinstance(constraint, AbaqusPeriodicConstraint):
         return ConstraintCapabilities(
@@ -1586,7 +1673,12 @@ def constraint_capabilities(constraint) -> ConstraintCapabilities | None:
     return None
 
 
-def constraint_balance_contract(constraints, *, provider_duals=()) -> dict[str, object]:
+def constraint_balance_contract(
+    constraints,
+    *,
+    provider_duals=(),
+    provider_work=(),
+) -> dict[str, object]:
     """Describe whether strong-reaction force/work diagnostics are complete.
 
     Strong Dirichlet elimination exposes reactions through the unconstrained
@@ -1601,6 +1693,14 @@ def constraint_balance_contract(constraints, *, provider_duals=()) -> dict[str, 
     duals = {item.constraint_name: item for item in dual_records}
     if len(duals) != len(dual_records):
         raise ValueError("Provider dual constraint names must be unique.")
+    work_records = tuple(provider_work)
+    if any(not isinstance(item, ConstraintWorkEvidence) for item in work_records):
+        raise TypeError(
+            "provider_work must contain ConstraintWorkEvidence records."
+        )
+    work_by_name = {item.constraint_name: item for item in work_records}
+    if len(work_by_name) != len(work_records):
+        raise ValueError("Provider work constraint names must be unique.")
     records = []
     force_gaps = []
     work_gaps = []
@@ -1620,16 +1720,23 @@ def constraint_balance_contract(constraints, *, provider_duals=()) -> dict[str, 
         dual = duals.get(name)
         if dual is not None:
             summary["provider_dual"] = dual.summary()
+        work = work_by_name.get(name)
+        if work is not None:
+            summary["provider_work"] = work.summary()
         records.append(summary)
         force_available = summary["reaction_evidence"] == "unconstrained_residual"
         work_available = summary["work_evidence"] in {
             "proportional_prescribed_path",
             "internal_energy_operator",
+            "homogeneous_constraint_zero_work",
         }
         if summary["reaction_evidence"] == "provider_dual_required":
             force_available = bool(dual is not None and dual.force_complete)
         if summary["work_evidence"] == "provider_dual_path_required":
-            work_available = bool(dual is not None and dual.work_complete)
+            work_available = bool(
+                (work is not None and work.complete)
+                or (dual is not None and dual.work_complete)
+            )
         if not force_available:
             force_gaps.append(name)
         if not work_available:
@@ -1644,6 +1751,34 @@ def constraint_balance_contract(constraints, *, provider_duals=()) -> dict[str, 
         raise ValueError(
             "Provider dual evidence does not match declared constraints: "
             f"{unexpected!r}."
+        )
+    unexpected_work = tuple(sorted(set(work_by_name) - names))
+    if unexpected_work:
+        raise ValueError(
+            "Provider work evidence does not match declared constraints: "
+            f"{unexpected_work!r}."
+        )
+    expected_roles = {
+        record["name"]: {
+            "periodic_constraint": "mpc_constraint",
+            "mpc_constraint": "mpc_constraint",
+            "weak_constraint": "weak_constraint",
+            "contact_constraint": "contact_constraint",
+        }.get(record["kind"])
+        for record in records
+    }
+    incompatible_work = tuple(
+        sorted(
+            (name, item.role, expected_roles[name])
+            for name, item in work_by_name.items()
+            if expected_roles.get(name) is not None
+            and item.role != expected_roles[name]
+        )
+    )
+    if incompatible_work:
+        raise ValueError(
+            "Provider work roles do not match declared constraint capabilities: "
+            f"{incompatible_work!r}."
         )
     return {
         "kind": "constraint_balance_contract",
@@ -1663,7 +1798,9 @@ def constraint_balance_contract(constraints, *, provider_duals=()) -> dict[str, 
         "work_balance_gaps": tuple(work_gaps),
         "constraints": tuple(records),
         "provider_duals": tuple(item.summary() for item in dual_records),
+        "provider_work": tuple(item.summary() for item in work_records),
         "unexpected_provider_duals": unexpected,
+        "unexpected_provider_work": unexpected_work,
     }
 
 
