@@ -124,13 +124,36 @@ assert projection.all_valid
 print(projection.signed_gaps)
 ```
 
-The returned contract keeps the query points, closest points, outward unit
+The returned contract keeps the query points, closest points, admissible-side unit
 normals, signed gaps, validity flags, projection method and optional entity
 identities together with the geometry fingerprint that gives those identities
 meaning. Positive gap is admissible and negative gap is
 penetration. Analytical planes use exact orthogonal projection; future
 tessellated search must use the same contract and report failed or ambiguous
 queries explicitly.
+
+Common curved tools can use exact analytical projection without a search
+backend:
+
+```python
+sphere = boundary_models.rigid_sphere(
+    center=(0.0, 0.0, 0.0),
+    radius=0.01,
+    admissible_side="exterior",
+)
+roller = boundary_models.rigid_cylinder(
+    axis_point=(0.0, 0.0, 0.0),
+    axis_direction=(0.0, 1.0, 0.0),
+    radius=0.02,
+)
+```
+
+A two-coordinate sphere center creates a circle. The cylinder is explicitly
+infinite: caps and rims require a reviewed compound or triangulated surface.
+At a sphere center or on a cylinder axis, closest-point direction is not
+unique and the projection returns `singular_projection`. These analytical
+assets are currently projection/evidence objects; the bounded contact
+Operator still accepts only a plane.
 
 For reviewed tool meshes, create a projection-only triangle surface with
 explicitly oriented connectivity and stable facet IDs:

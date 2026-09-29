@@ -489,6 +489,313 @@ class RigidPlaneSurface(RigidSurface):
         }
 
 
+def _admissible_side(value: str) -> str:
+    selected = str(value).strip().lower()
+    if selected not in {"exterior", "interior"}:
+        raise ValueError("Admissible side must be 'exterior' or 'interior'.")
+    return selected
+
+
+def _positive_radius(value, *, name: str = "Rigid-surface radius") -> float:
+    selected = _finite_nonnegative(value, name=name)
+    if selected <= 0.0:
+        raise ValueError(f"{name} must be positive.")
+    return selected
+
+
+def _projection_query(points, *, dimension: int, geometry: str) -> np.ndarray:
+    query = np.asarray(points, dtype=float)
+    if query.ndim == 1:
+        query = query.reshape((1, -1))
+    if query.ndim != 2 or query.shape[1] != dimension:
+        raise ValueError(
+            f"{geometry} projection points must have shape (count, {dimension})."
+        )
+    if not np.all(np.isfinite(query)):
+        raise ValueError(f"{geometry} projection points must be finite.")
+    return query
+
+
+def _transformed_point_and_direction(
+    point: np.ndarray,
+    direction: np.ndarray | None,
+    *,
+    motion: PrescribedRigidMotion | None,
+    factor: float,
+) -> tuple[np.ndarray, np.ndarray | None]:
+    if motion is None:
+        selected = float(factor)
+        if not np.isfinite(selected) or not 0.0 <= selected <= 1.0 + 1.0e-12:
+            raise ValueError("Rigid-motion factor must lie in [0, 1].")
+        return point.copy(), None if direction is None else direction.copy()
+    if motion.dimension != point.size:
+        raise ValueError("Rigid surface and motion dimensions must match.")
+    state = motion.state(factor)
+    reference = np.asarray(motion.reference_point, dtype=float)
+    rotation = np.asarray(state["rotation_matrix"], dtype=float)
+    transformed_point = np.asarray(state["reference_point"], dtype=float) + rotation @ (
+        point - reference
+    )
+    transformed_direction = None if direction is None else rotation @ direction
+    return transformed_point, transformed_direction
+
+
+@dataclass(frozen=True)
+class RigidSphereSurface(RigidSurface):
+    """Analytical circle or sphere with an explicit admissible side.
+
+    A two-dimensional center defines a circle and a three-dimensional center
+    defines a sphere.  The returned normal always points into
+    ``admissible_side`` so the global signed-gap convention remains unchanged.
+    """
+
+    center: object
+    radius: float
+    admissible_side: str = "exterior"
+    name: str = "rigid_sphere"
+
+    def __post_init__(self) -> None:
+        center = _finite_vector(self.center, name="Rigid-sphere center")
+        radius = _positive_radius(self.radius)
+        side = _admissible_side(self.admissible_side)
+        if not str(self.name).strip():
+            raise ValueError("Rigid sphere requires a name.")
+        object.__setattr__(self, "center", tuple(float(v) for v in center))
+        object.__setattr__(self, "radius", radius)
+        object.__setattr__(self, "admissible_side", side)
+        object.__setattr__(self, "name", str(self.name))
+
+    @property
+    def dimension(self) -> int:
+        return len(self.center)
+
+    @property
+    def geometry_fingerprint(self) -> str:
+        return _sha256_geometry(
+            "rigid_sphere_surface",
+            np.asarray(self.center, dtype="<f8"),
+            np.asarray((self.radius,), dtype="<f8"),
+            np.asarray((self.admissible_side,), dtype="S8"),
+        )
+
+    def project(
+        self,
+        points,
+        *,
+        motion: PrescribedRigidMotion | None = None,
+        factor: float = 0.0,
+        maximum_distance: float | None = None,
+    ) -> SurfaceProjection:
+        query = _projection_query(
+            points,
+            dimension=self.dimension,
+            geometry="Rigid-sphere",
+        )
+        center, _ = _transformed_point_and_direction(
+            np.asarray(self.center, dtype=float),
+            None,
+            motion=motion,
+            factor=factor,
+        )
+        offsets = query - center[None, :]
+        radial_distances = np.linalg.norm(offsets, axis=1)
+        scale = max(self.radius, 1.0)
+        singular = radial_distances <= np.finfo(float).eps * scale * 64.0
+        valid = ~singular
+        unit_radial = np.full_like(query, np.nan)
+        unit_radial[valid] = offsets[valid] / radial_distances[valid, None]
+        closest = center[None, :] + self.radius * unit_radial
+        direction = 1.0 if self.admissible_side == "exterior" else -1.0
+        normals = direction * unit_radial
+        gaps = direction * (radial_distances - self.radius)
+        statuses = np.where(valid, "ok", "singular_projection").astype("<U20")
+
+        if maximum_distance is not None:
+            distance = _finite_nonnegative(
+                maximum_distance,
+                name="Maximum projection distance",
+            )
+            absent = valid & (np.abs(gaps) > distance)
+            valid[absent] = False
+            statuses[absent] = "no_candidate"
+        closest[~valid] = np.nan
+        normals[~valid] = np.nan
+        gaps[~valid] = np.nan
+        return SurfaceProjection(
+            surface_name=self.name,
+            surface_kind="rigid_sphere_surface",
+            query_points=query,
+            closest_points=closest,
+            normals=normals,
+            signed_gaps=gaps,
+            valid=valid,
+            status_codes=statuses,
+            method="exact_radial_projection",
+            geometry_fingerprint=self.geometry_fingerprint,
+        )
+
+    def summary(self) -> dict[str, object]:
+        return {
+            "name": self.name,
+            "kind": "rigid_sphere_surface",
+            "dimension": self.dimension,
+            "geometric_shape": "circle" if self.dimension == 2 else "sphere",
+            "center": self.center,
+            "radius": self.radius,
+            "admissible_side": self.admissible_side,
+            "geometry_fingerprint": self.geometry_fingerprint,
+            "representation": "analytical",
+            "projection": "exact_radial",
+            "signed_gap_convention": "positive_admissible_negative_penetration",
+            "entity_identity": "not_applicable",
+        }
+
+
+@dataclass(frozen=True)
+class RigidCylinderSurface(RigidSurface):
+    """Analytical three-dimensional infinite circular cylinder.
+
+    End caps and rim ambiguity are intentionally absent.  A finite capped tool
+    is a compound surface and belongs to the later reviewed search backend.
+    """
+
+    axis_point: object
+    axis_direction: object
+    radius: float
+    admissible_side: str = "exterior"
+    name: str = "rigid_cylinder"
+
+    def __post_init__(self) -> None:
+        point = _finite_vector(
+            self.axis_point,
+            name="Rigid-cylinder axis point",
+            dimension=3,
+        )
+        direction = _finite_vector(
+            self.axis_direction,
+            name="Rigid-cylinder axis direction",
+            dimension=3,
+        )
+        norm = float(np.linalg.norm(direction))
+        if not np.isclose(norm, 1.0, rtol=0.0, atol=1.0e-12):
+            raise ValueError(
+                "Rigid-cylinder axis direction must be a unit vector; "
+                f"norm={norm:.16g}."
+            )
+        first_significant = np.flatnonzero(
+            np.abs(direction) > np.finfo(float).eps * 64.0
+        )
+        if first_significant.size and direction[int(first_significant[0])] < 0.0:
+            direction = -direction
+        # One infinite axis has infinitely many point representations.  Store
+        # the closest axis point to the global origin so equivalent inputs
+        # share one geometry identity and checkpoint fingerprint.
+        point = point - float(np.dot(point, direction)) * direction
+        direction[direction == 0.0] = 0.0
+        point[point == 0.0] = 0.0
+        radius = _positive_radius(self.radius)
+        side = _admissible_side(self.admissible_side)
+        if not str(self.name).strip():
+            raise ValueError("Rigid cylinder requires a name.")
+        object.__setattr__(self, "axis_point", tuple(float(v) for v in point))
+        object.__setattr__(
+            self,
+            "axis_direction",
+            tuple(float(v) for v in direction),
+        )
+        object.__setattr__(self, "radius", radius)
+        object.__setattr__(self, "admissible_side", side)
+        object.__setattr__(self, "name", str(self.name))
+
+    @property
+    def dimension(self) -> int:
+        return 3
+
+    @property
+    def geometry_fingerprint(self) -> str:
+        return _sha256_geometry(
+            "rigid_cylinder_surface",
+            np.asarray(self.axis_point, dtype="<f8"),
+            np.asarray(self.axis_direction, dtype="<f8"),
+            np.asarray((self.radius,), dtype="<f8"),
+            np.asarray((self.admissible_side,), dtype="S8"),
+        )
+
+    def project(
+        self,
+        points,
+        *,
+        motion: PrescribedRigidMotion | None = None,
+        factor: float = 0.0,
+        maximum_distance: float | None = None,
+    ) -> SurfaceProjection:
+        query = _projection_query(points, dimension=3, geometry="Rigid-cylinder")
+        point, direction = _transformed_point_and_direction(
+            np.asarray(self.axis_point, dtype=float),
+            np.asarray(self.axis_direction, dtype=float),
+            motion=motion,
+            factor=factor,
+        )
+        if direction is None:  # pragma: no cover - internal contract guard
+            raise RuntimeError("Cylinder transformation lost its axis direction.")
+        offsets = query - point[None, :]
+        axial_coordinates = offsets @ direction
+        axis_closest = point[None, :] + axial_coordinates[:, None] * direction[None, :]
+        radial = query - axis_closest
+        radial_distances = np.linalg.norm(radial, axis=1)
+        scale = max(self.radius, 1.0)
+        singular = radial_distances <= np.finfo(float).eps * scale * 64.0
+        valid = ~singular
+        unit_radial = np.full_like(query, np.nan)
+        unit_radial[valid] = radial[valid] / radial_distances[valid, None]
+        closest = axis_closest + self.radius * unit_radial
+        side_direction = 1.0 if self.admissible_side == "exterior" else -1.0
+        normals = side_direction * unit_radial
+        gaps = side_direction * (radial_distances - self.radius)
+        statuses = np.where(valid, "ok", "singular_projection").astype("<U20")
+
+        if maximum_distance is not None:
+            distance = _finite_nonnegative(
+                maximum_distance,
+                name="Maximum projection distance",
+            )
+            absent = valid & (np.abs(gaps) > distance)
+            valid[absent] = False
+            statuses[absent] = "no_candidate"
+        closest[~valid] = np.nan
+        normals[~valid] = np.nan
+        gaps[~valid] = np.nan
+        return SurfaceProjection(
+            surface_name=self.name,
+            surface_kind="rigid_cylinder_surface",
+            query_points=query,
+            closest_points=closest,
+            normals=normals,
+            signed_gaps=gaps,
+            valid=valid,
+            status_codes=statuses,
+            method="exact_infinite_cylinder_projection",
+            geometry_fingerprint=self.geometry_fingerprint,
+        )
+
+    def summary(self) -> dict[str, object]:
+        return {
+            "name": self.name,
+            "kind": "rigid_cylinder_surface",
+            "dimension": 3,
+            "geometric_shape": "infinite_circular_cylinder",
+            "axis_point": self.axis_point,
+            "axis_direction": self.axis_direction,
+            "radius": self.radius,
+            "admissible_side": self.admissible_side,
+            "geometry_fingerprint": self.geometry_fingerprint,
+            "representation": "analytical",
+            "projection": "exact_radial_to_infinite_axis",
+            "signed_gap_convention": "positive_admissible_negative_penetration",
+            "entity_identity": "not_applicable",
+        }
+
+
 def _closest_point_on_triangle(
     point: np.ndarray,
     first: np.ndarray,
@@ -890,6 +1197,42 @@ def rigid_plane(
     return RigidPlaneSurface(point=point, normal=normal, name=name)
 
 
+def rigid_sphere(
+    center,
+    radius: float,
+    *,
+    admissible_side: str = "exterior",
+    name: str = "rigid_sphere",
+) -> RigidSphereSurface:
+    """Create an analytical circle/sphere with explicit gap orientation."""
+
+    return RigidSphereSurface(
+        center=center,
+        radius=radius,
+        admissible_side=admissible_side,
+        name=name,
+    )
+
+
+def rigid_cylinder(
+    axis_point,
+    axis_direction,
+    radius: float,
+    *,
+    admissible_side: str = "exterior",
+    name: str = "rigid_cylinder",
+) -> RigidCylinderSurface:
+    """Create an analytical three-dimensional infinite cylinder."""
+
+    return RigidCylinderSurface(
+        axis_point=axis_point,
+        axis_direction=axis_direction,
+        radius=radius,
+        admissible_side=admissible_side,
+        name=name,
+    )
+
+
 def triangulated_rigid_surface(
     *,
     vertices,
@@ -930,11 +1273,15 @@ def prescribed_rigid_motion(
 
 __all__ = [
     "PrescribedRigidMotion",
+    "RigidCylinderSurface",
     "RigidPlaneSurface",
+    "RigidSphereSurface",
     "RigidSurface",
     "SurfaceProjection",
     "TriangulatedRigidSurface",
     "prescribed_rigid_motion",
+    "rigid_cylinder",
     "rigid_plane",
+    "rigid_sphere",
     "triangulated_rigid_surface",
 ]

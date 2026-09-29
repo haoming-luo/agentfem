@@ -366,7 +366,7 @@ not redefine contact enforcement, and changing a contact law does not redefine
 geometry.
 
 Every rigid surface exposes one solver-neutral projection contract: query
-points, closest points, outward unit normals, signed gaps, validity flags, the
+points, closest points, admissible-side unit normals, signed gaps, validity flags, the
 projection method, geometry fingerprint, and optional stable entity identities.
 An entity identity is never valid without its geometry fingerprint. Positive gap denotes
 the admissible half-space and negative gap denotes penetration. A discrete or
@@ -378,6 +378,13 @@ orthogonal projection is exact and therefore has no facet identity. The same
 geometry contract is used after solve to audit nonzero-reaction contact nodes;
 this is independent evidence for the weak-form gap convention rather than a
 second contact law.
+
+Analytical circles/spheres and infinite circular cylinders provide exact
+radial projection. Their `admissible_side` is explicit: `exterior` points the
+normal away from the body and `interior` points it into a cavity. A query at a
+sphere center or on a cylinder axis has no unique closest point and therefore
+returns `singular_projection`, not an invented normal. A finite capped
+cylinder remains a compound/trimmed surface and is not implied by this asset.
 
 An oriented three-dimensional triangle surface is the reference discrete
 geometry asset. It validates indices, scale-aware facet area, duplicates,
