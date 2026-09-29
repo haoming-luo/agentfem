@@ -13,7 +13,7 @@ the most expensive command after every keystroke.
 | Before pushing a coherent code change | Related suites; complete serial for cross-cutting numerical changes | `python -m pytest -q` when the change can cross ownership boundaries |
 | MPI-sensitive change | Relevant two-rank modules using the verified launcher | `agentfem mpi-run -n 2 -- python -m pytest ...` |
 | Test-only or orchestration pull request and `main` | Changed test modules, a built-wheel solve, and serial/two-rank smoke | GitHub Actions `targeted` tier |
-| Core numerical pull request and `main` | Wheel installation, full serial, MPI, checkpoint portability, examples, and documentation | GitHub Actions `core` tier |
+| Core numerical pull request and `main` | Wheel installation, owner-selected serial/MPI suites, affected portable-restart drivers, smoke tests, and documentation | GitHub Actions `core` tier |
 | Documentation-only pull request and `main` | Strict generated-document and site build; no FEniCSx or PyTorch environment rebuild | GitHub Actions `docs` tier |
 | Release candidate/tag | All preceding checks plus distribution inspection and installed-wheel release smoke | `python release_gate.py --dist dist --smoke` |
 
@@ -73,12 +73,14 @@ wheel; those same drivers then provide installed-artifact evidence.
 ## Change-aware CI tiers
 
 Cross-module coupling is high—changes to `Model`, providers, output, mesh
-identity, or checkpointing can affect many workflows. Those changes earn the
-complete core gate. Test corrections and product orchestration changes instead
-run the affected test files against a freshly built wheel, followed by serial
-and two-rank solver smoke tests. Documentation changes build the strict site
-without creating a FEniCSx environment. PyTorch is installed only for learning
-changes or a release gate.
+identity, or checkpointing can affect many workflows. Known core owners select
+their serial suites, two-rank suites, and any executable cross-rank restart
+drivers explicitly. An unmapped core owner escalates to the complete release
+gate instead of inventing a partial test set. Test corrections and product
+orchestration changes run the affected test files against a freshly built
+wheel, followed by serial and two-rank solver smoke tests. Documentation
+changes build the strict site without creating a FEniCSx environment. PyTorch
+is installed only for learning changes or a release gate.
 
 The always-running classifier reports one explicit tier:
 
@@ -86,13 +88,13 @@ The always-running classifier reports one explicit tier:
 | --- | --- | --- |
 | `docs` | Documentation and generated site inputs only | Generated entrypoints and strict site build |
 | `targeted` | Tests, examples, integrations, CI, CLI, campaign, dataset, or surrogate orchestration | Built wheel, affected tests, serial and two-rank smoke |
-| `core` | FEM formulation, operator, constitutive, state, result, solver, MPI, or unknown build changes | Full serial and distributed scientific regression |
+| `core` | Mapped FEM formulation, operator, constitutive, state, result, solver, or MPI owners | Owner-selected serial/MPI suites, portable drivers, and installed-wheel smoke |
 | `release` | Release identity/runtime inputs or explicit dispatch | Core gate plus release smoke, promotion audit, and retained artifacts |
 
-Unknown paths fail safe to `core`. A manual dispatch selects the requested
-minimum tier and defaults to `release`. New commits cancel superseded
-development runs; immutable tag and release evidence is never replaced this
-way.
+Unknown repository paths fail safe to `core`; unknown `src/agentfem` owners
+escalate to `release`. A manual dispatch selects the requested minimum tier and
+defaults to `release`. New commits cancel superseded development runs;
+immutable tag and release evidence is never replaced this way.
 
 Developers should still begin with the smallest relevant tests. Re-running the
 entire environment and MPI matrix after every one-line edit wastes time and

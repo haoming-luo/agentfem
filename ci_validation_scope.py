@@ -257,6 +257,23 @@ _CORE_SOURCE_MPI_TEST_MAP = {
     ),
     "src/agentfem/results": ("tests/test_parallel_results.py",),
 }
+_CORE_SOURCE_MPI_DRIVER_MAP = {
+    "src/agentfem/_nonlinear_problems.py": ("nonlinear-contact-restart",),
+    "src/agentfem/_step_builders_contact.py": ("nonlinear-contact-restart",),
+    "src/agentfem/boundary_models/mechanical.py": (
+        "nonlinear-contact-restart",
+    ),
+    "src/agentfem/checkpointing.py": ("nonlinear-contact-restart",),
+    "src/agentfem/results/_accepted_energy.py": (
+        "nonlinear-contact-restart",
+    ),
+    "src/agentfem/results/_nonlinear_step.py": (
+        "nonlinear-contact-restart",
+    ),
+    "tests/portable_nonlinear_contact_driver.py": (
+        "nonlinear-contact-restart",
+    ),
+}
 _ML_PREFIXES = (
     "src/agentfem/learning",
     "src/agentfem/datasets",
@@ -271,6 +288,7 @@ class ValidationScope:
     level: str
     tests: tuple[str, ...] = ()
     mpi_tests: tuple[str, ...] = ()
+    mpi_drivers: tuple[str, ...] = ()
     ml: bool = False
 
     @property
@@ -284,6 +302,7 @@ class ValidationScope:
             "ml": str(self.ml).lower(),
             "tests": " ".join(self.tests),
             "mpi_tests": " ".join(self.mpi_tests),
+            "mpi_drivers": " ".join(self.mpi_drivers),
         }
 
 
@@ -360,6 +379,7 @@ def classify_changes(
         if path.startswith("tests/test_") and path.endswith(".py")
     }
     mpi_tests: set[str] = set()
+    mpi_drivers: set[str] = set()
     unmapped_core_source = False
     if level in {"targeted", "core"}:
         for path in normalized:
@@ -372,6 +392,9 @@ def classify_changes(
             for prefix, mapped_tests in _CORE_SOURCE_MPI_TEST_MAP.items():
                 if path == prefix or path.startswith(prefix):
                     mpi_tests.update(mapped_tests)
+            for prefix, mapped_drivers in _CORE_SOURCE_MPI_DRIVER_MAP.items():
+                if path == prefix or path.startswith(prefix):
+                    mpi_drivers.update(mapped_drivers)
             if (
                 level == "core"
                 and path.startswith("src/agentfem/")
@@ -388,12 +411,14 @@ def classify_changes(
         level = "release"
         selected_tests.clear()
         mpi_tests.clear()
+        mpi_drivers.clear()
     tests = tuple(sorted(selected_tests))
     ml = level == "release" or any(path.startswith(_ML_PREFIXES) for path in normalized)
     return ValidationScope(
         level,
         tests=tests,
         mpi_tests=tuple(sorted(mpi_tests)),
+        mpi_drivers=tuple(sorted(mpi_drivers)),
         ml=ml,
     )
 

@@ -34,6 +34,7 @@ jobs:
       ml: ${{ steps.scope.outputs.ml }}
       tests: ${{ steps.scope.outputs.tests }}
       mpi_tests: ${{ steps.scope.outputs.mpi_tests }}
+      mpi_drivers: ${{ steps.scope.outputs.mpi_drivers }}
     steps:
       - name: Check out enough history to classify the change
         uses: actions/checkout@v6
@@ -211,6 +212,7 @@ jobs:
       VALIDATION_LEVEL: ${{ needs.change-scope.outputs.level }}
       CHANGED_TESTS: ${{ needs.change-scope.outputs.tests }}
       CHANGED_MPI_TESTS: ${{ needs.change-scope.outputs.mpi_tests }}
+      CHANGED_MPI_DRIVERS: ${{ needs.change-scope.outputs.mpi_drivers }}
     defaults:
       run:
         shell: bash -el {0}
@@ -256,6 +258,27 @@ jobs:
         run: |
           read -r -a selected <<< "${CHANGED_MPI_TESTS}"
           mpirun -n 2 python -m pytest -q "${selected[@]}"
+
+      - name: Run affected portable restart drivers
+        if: >-
+          needs.change-scope.outputs.level == 'core' &&
+          needs.change-scope.outputs.mpi_drivers != ''
+        run: |
+          read -r -a selected <<< "${CHANGED_MPI_DRIVERS}"
+          for driver in "${selected[@]}"; do
+            case "${driver}" in
+              nonlinear-contact-restart)
+                python tests/portable_nonlinear_contact_driver.py write /tmp/agentfem-targeted-contact
+                mpirun -n 2 python tests/portable_nonlinear_contact_driver.py read /tmp/agentfem-targeted-contact
+                mpirun -n 2 python tests/portable_nonlinear_contact_driver.py write /tmp/agentfem-targeted-contact-reverse
+                python tests/portable_nonlinear_contact_driver.py read /tmp/agentfem-targeted-contact-reverse
+                ;;
+              *)
+                echo "Unknown targeted MPI driver: ${driver}" >&2
+                exit 1
+                ;;
+            esac
+          done
 
       - name: Run distributed constraint and result tests
         if: needs.change-scope.outputs.level == 'release'
