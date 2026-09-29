@@ -1,9 +1,9 @@
 {
   "schema": "agentfem.release-contract",
   "schema_version": "0.2.0",
-  "target_version": "0.3.8.dev0",
-  "channel": "development",
-  "status": "draft",
+  "target_version": "0.3.8",
+  "channel": "stable",
+  "status": "candidate",
   "supported_python": "3.11",
   "promotion_target": "0.4-foundation",
   "foundation_gates": [

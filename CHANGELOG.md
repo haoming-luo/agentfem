@@ -6,8 +6,18 @@ experimental formulation to a validated one.
 
 ## [Unreleased]
 
+## [0.3.8] - 2026-09-29
+
 ### Added
 
+- Add an installed-wheel extension gate that builds an independent companion
+  distribution, discovers it through the public provider entry point, executes
+  the ordinary Model -> Procedure -> Result/Verification lifecycle, and proves
+  that AgentFEM core was not patched.
+- Add candidate-bound fresh-agent trial bundles. The immutable contract binds
+  the exact wheel, source commit, task, review instructions, command sequence,
+  project source, result, transcript and explanation; stale or path-escaped
+  evidence is rejected rather than promoted.
 - Add atomic, MPI-portable checkpoint/restart to the ordinary incremental
   nonlinear Procedure and wire it through the bounded rigid-obstacle contact
   Step. Accepted solution, load coordinate, fixed/automatic increment ledger,
@@ -1071,7 +1081,8 @@ because the package version is stable.
   platform with readable study, model, step, result, campaign, and evidence
   contracts.
 
-[Unreleased]: https://github.com/haoming-luo/agentfem/compare/v0.3.7...HEAD
+[Unreleased]: https://github.com/haoming-luo/agentfem/compare/v0.3.8...HEAD
+[0.3.8]: https://github.com/haoming-luo/agentfem/compare/v0.3.7...v0.3.8
 [0.3.7]: https://github.com/haoming-luo/agentfem/compare/v0.3.6...v0.3.7
 [0.3.6]: https://github.com/haoming-luo/agentfem/compare/v0.3.5...v0.3.6
 [0.3.5]: https://github.com/haoming-luo/agentfem/compare/v0.3.4...v0.3.5

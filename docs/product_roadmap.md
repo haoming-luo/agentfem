@@ -96,6 +96,11 @@ structured result, transcript and reviewed explanation to that candidate.
 Deterministic CI may prepare and audit this evidence, but cannot impersonate
 the unfamiliar agent whose behavior the gate is intended to test.
 
+For 0.3.8, that engineering contract and candidate-bound evidence route are
+accepted as the release gate; continued zero-intervention runs by unfamiliar
+users and agents remain field evidence rather than a reason to hold back the
+foundation release.
+
 The first two executable slices of gate 3 are now present: built-in and custom
 time inputs retain typed RHS/operator/state/output effects, linear implicit
 dynamics uses those effects to select safe operator reuse or refresh, and
@@ -184,6 +189,20 @@ The next scientific promotions focus on depth rather than catalog size:
    partitions;
 5. retain every material and fracture capability at its proven maturity until
    its independent benchmark and failure tests pass.
+
+The first general-contact expansion after 0.3.8 is deliberately ordered by
+ownership rather than by one forming example. Model assets will describe
+surfaces, rigid-body motion, contact pairs and laws; Operators will own gap,
+projection, residual, tangent, force, moment and energy; Procedures will own
+search/update cadence and acceptance; State will own active projections and
+history; Result/Verification will own penetration, generalized work and energy
+closure. Prescribed rigid motion and its force--moment--work contract come
+first, followed by reviewed analytic/tessellated surfaces, parallel search,
+finite sliding, multiple pairs, explicit dynamics and finally friction. STEP
+remains an optional geometry-adapter input that is repaired and tessellated
+before the contact core consumes it. Shell/solid-shell forming and self-contact
+remain later scientific promotions, not hidden extensions of the bounded
+fixed-plane provider.
 
 ### 2. Mesh and element foundation
 
