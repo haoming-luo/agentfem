@@ -606,6 +606,22 @@ def _runtime_checks(
         )
     )
 
+    checkpoint_ok, checkpoint_evidence = _checkpoint_contract_evidence(result)
+    if checkpoint_evidence["inspected"]:
+        claims.append(
+            _runtime_claim(
+                "checkpoint_contract_consistent",
+                checkpoint_ok,
+                observable="checkpoint capability, policy, and result records",
+                actual=checkpoint_evidence,
+                expected="one preflighted contract consistent with every record",
+                criterion=(
+                    "checkpoint schemas and portability claims agree with the "
+                    "preflighted procedure contract"
+                ),
+            )
+        )
+
     execution = getattr(result, "metadata", {}).get("execution")
     if isinstance(execution, Mapping):
         events = execution.get("events", ())
@@ -634,6 +650,90 @@ def _runtime_checks(
             )
         )
     return tuple(claims)
+
+
+def _checkpoint_contract_evidence(result) -> tuple[bool, dict[str, object]]:
+    """Check durable-state evidence without claiming restart was exercised."""
+
+    contract = getattr(result, "checkpoint_contract", {})
+    records = getattr(result, "checkpoints", {})
+    inspected = bool(contract or records)
+    evidence: dict[str, object] = {
+        "inspected": inspected,
+        "contract_present": bool(contract),
+        "record_count": len(records),
+        "issues": (),
+    }
+    if not inspected:
+        return True, evidence
+    issues = []
+    if not isinstance(contract, Mapping) or not contract:
+        issues.append("checkpoint records exist without a preflighted contract")
+        evidence["issues"] = tuple(issues)
+        return False, evidence
+    if contract.get("schema") != "agentfem.checkpoint-contract":
+        issues.append("checkpoint contract schema is missing or unsupported")
+    status = contract.get("status")
+    policy = contract.get("policy")
+    capabilities = contract.get("capabilities")
+    if status == "accepted" and not isinstance(policy, Mapping):
+        issues.append("accepted checkpoint contract has no typed policy")
+    if status == "available_not_requested" and policy is not None:
+        issues.append("unrequested checkpoint contract unexpectedly contains a policy")
+    if not isinstance(capabilities, Mapping):
+        issues.append("checkpoint capabilities are missing")
+        capabilities = {}
+    allowed_schemas = set(capabilities.get("schemas", ()))
+    unknown_schemas = tuple(
+        sorted(
+            {
+                str(getattr(record, "schema", ""))
+                for record in records.values()
+                if str(getattr(record, "schema", "")) not in allowed_schemas
+            }
+        )
+    )
+    if unknown_schemas:
+        issues.append(f"checkpoint schemas are outside the contract: {unknown_schemas}")
+    portable_records = tuple(
+        sorted(
+            str(name)
+            for name, record in records.items()
+            if bool(getattr(record, "portable", False))
+        )
+    )
+    nonportable_records = tuple(
+        sorted(
+            str(name)
+            for name, record in records.items()
+            if not bool(getattr(record, "portable", False))
+        )
+    )
+    rank_capability = capabilities.get("rank_count_portability")
+    if rank_capability == "unsupported" and portable_records:
+        issues.append("portable records contradict an unsupported portability contract")
+    if isinstance(policy, Mapping) and bool(policy.get("portable")) and nonportable_records:
+        issues.append("portable policy produced partition-bound checkpoint records")
+    evidence.update(
+        {
+            "status": status,
+            "payload_scope": capabilities.get("payload_scope"),
+            "rank_count_portability": rank_capability,
+            "allowed_schemas": tuple(sorted(allowed_schemas)),
+            "record_schemas": tuple(
+                sorted(
+                    {
+                        str(getattr(record, "schema", ""))
+                        for record in records.values()
+                    }
+                )
+            ),
+            "portable_records": portable_records,
+            "nonportable_records": nonportable_records,
+            "issues": tuple(issues),
+        }
+    )
+    return not issues, evidence
 
 
 def _runtime_claim(

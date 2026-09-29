@@ -14,6 +14,30 @@ def execution_context(step):
     return getattr(step, "execution_context", None)
 
 
+def attach_checkpoint_contract(step, result):
+    """Publish the exact checkpoint contract preflighted for *step*.
+
+    Model-owned Steps carry the canonical record in their execution context.
+    Low-level Steps remain inspectable through their own declaration without
+    pretending that a policy was requested.
+    """
+
+    context = execution_context(step)
+    contract = (
+        None if context is None else getattr(context, "checkpoint_contract", None)
+    )
+    if contract is None:
+        from .. import checkpointing
+
+        contract = checkpointing.preflight_contract(
+            step,
+            getattr(step, "checkpoint_policy", None),
+        )
+    if contract is not None:
+        result.add_checkpoint_contract(contract)
+    return result
+
+
 def complete_result(
     step,
     result,
@@ -43,6 +67,7 @@ def complete_result(
         result.metadata.update(dict(metadata))
     if context is not None:
         result.metadata.setdefault("execution_context", context.summary())
+    attach_checkpoint_contract(step, result)
     if selected_output is None:
         return result
 

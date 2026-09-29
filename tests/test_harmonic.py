@@ -996,6 +996,11 @@ def test_direct_harmonic_sweep_checkpoint_policy_progress_and_trace(tmp_path, ca
 
     assert len(step.checkpoints) == 1
     assert len(result.checkpoints) == 1
+    assert result.checkpoint_contract["status"] == "accepted"
+    assert result.checkpoint_contract["capabilities"]["payload_scope"] == (
+        "progress_ledger"
+    )
+    assert result.checkpoint_contract["capabilities"]["full_restart"] is False
     assert step.checkpoints[0].metadata["role"] == "scheduled_checkpoint"
     assert step.checkpoints[0].path.exists()
     assert "SWEEP POINT COORDINATE VALUE UNIT" in status.read_text(encoding="utf-8")
@@ -1025,10 +1030,9 @@ def test_direct_harmonic_sweep_checkpoint_policy_progress_and_trace(tmp_path, ca
         "sweep_completed"
     )
 
-    _bad_model, bad = _rayleigh_sweep(checkpoint="not-a-policy", progress=False)
-    with pytest.raises(TypeError, match="checkpointing.every"):
-        bad.solve(max_points=1)
-    assert bad.records == {}
+    with pytest.raises(ValueError, match="AFM-CHECKPOINT-002") as captured:
+        _rayleigh_sweep(checkpoint="not-a-policy", progress=False)
+    assert captured.value.report.errors[0].path == "model.step.checkpoint"
 
 
 def test_direct_harmonic_sweep_checkpoint_identity_is_mpi_partition_neutral(

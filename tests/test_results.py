@@ -15,6 +15,7 @@ import pytest
 
 from agentfem import (
     campaigns,
+    checkpointing,
     constitutive,
     datasets,
     fields,
@@ -586,6 +587,105 @@ def test_checkpoint_is_a_typed_result_asset_with_portability_boundary(tmp_path):
     assert saved["checkpoint_records"][0]["path"] == "state.npz"
     assert saved["checkpoint_records"][0]["portable"] is False
     assert saved["artifacts"]["checkpoint_accepted_05"] == "state.npz"
+
+
+def _result_checkpoint_contract(tmp_path, *, portable: bool):
+    capabilities = checkpointing.CheckpointCapabilities(
+        schemas=("agentfem.test-checkpoint.v1",),
+        boundary="accepted_increment",
+        payload_scope="full_restart_state",
+        state_components=("accepted solution",),
+        atomic_publication=True,
+        rank_count_portability="requires_portable_policy",
+        identity_scope=("mesh and function space",),
+    )
+    policy = checkpointing.every(1, directory=tmp_path, portable=portable)
+    return {
+        "schema": "agentfem.checkpoint-contract",
+        "schema_version": "0.1.0",
+        "status": "accepted",
+        "policy": policy.summary(),
+        "capabilities": capabilities.summary(policy=policy),
+    }
+
+
+def test_result_manifest_exposes_top_level_checkpoint_contract(tmp_path):
+    result = results.SimulationResult("restartable")
+    result.add_checkpoint_contract(
+        _result_checkpoint_contract(tmp_path, portable=True)
+    )
+
+    saved = result.manifest()
+
+    assert saved["checkpoint_contract"]["status"] == "accepted"
+    assert (
+        saved["checkpoint_contract"]["capabilities"]["payload_scope"]
+        == "full_restart_state"
+    )
+    assert "checkpoint: full_restart_state (accepted)" in result.format()
+
+
+def test_verification_checks_checkpoint_record_against_preflight_contract(tmp_path):
+    state = tmp_path / "state.npz"
+    state.touch()
+    result = results.SimulationResult("restartable")
+    result.add_quantity("load_factor", 1.0)
+    result.add_checkpoint_contract(
+        _result_checkpoint_contract(tmp_path, portable=True)
+    )
+    result.add_checkpoint(
+        results.CheckpointRecord(
+            name="accepted_01",
+            path=state,
+            schema="agentfem.test-checkpoint.v1",
+            step_name="loading",
+            coordinate_name="load_factor",
+            coordinate_value=1.0,
+            portable=True,
+        )
+    )
+
+    report = result.verify("engineering", converged=True)
+    claim = next(
+        item
+        for item in report.claims
+        if item.name == "checkpoint_contract_consistent"
+    )
+
+    assert claim.status == "passed"
+    assert claim.evidence == {}
+    assert claim.actual["record_count"] == 1
+
+
+def test_verification_rejects_nonportable_record_from_portable_policy(tmp_path):
+    state = tmp_path / "state.npz"
+    state.touch()
+    result = results.SimulationResult("restartable")
+    result.add_quantity("load_factor", 1.0)
+    result.add_checkpoint_contract(
+        _result_checkpoint_contract(tmp_path, portable=True)
+    )
+    result.add_checkpoint(
+        results.CheckpointRecord(
+            name="accepted_01",
+            path=state,
+            schema="agentfem.test-checkpoint.v1",
+            step_name="loading",
+            coordinate_name="load_factor",
+            coordinate_value=1.0,
+            portable=False,
+        )
+    )
+
+    report = result.verify("engineering", converged=True)
+    claim = next(
+        item
+        for item in report.claims
+        if item.name == "checkpoint_contract_consistent"
+    )
+
+    assert claim.status == "failed"
+    assert "portable policy produced" in claim.actual["issues"][0]
 
 
 def test_result_sample_builds_a_training_dataset_without_field_serialization():
