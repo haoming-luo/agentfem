@@ -87,6 +87,15 @@ hash that the installed AgentFEM package was not patched. The reference material
 is intentionally only an acceptance fixture; new scientific behavior remains
 owned by companion or third-party packages.
 
+Fresh-agent acceptance remains a separate product gate rather than a seventh
+foundation abstraction. Release-tier CI now emits an immutable trial bundle
+bound to the exact wheel, source commit, task and review instructions. A
+genuinely fresh AI agent must still create, run, verify and explain the model
+without repair prompts. The acceptance recorder then binds the project source,
+structured result, transcript and reviewed explanation to that candidate.
+Deterministic CI may prepare and audit this evidence, but cannot impersonate
+the unfamiliar agent whose behavior the gate is intended to test.
+
 The first two executable slices of gate 3 are now present: built-in and custom
 time inputs retain typed RHS/operator/state/output effects, linear implicit
 dynamics uses those effects to select safe operator reuse or refresh, and

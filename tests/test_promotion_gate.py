@@ -13,6 +13,50 @@ def _write(tmp_path, name, record):
     return path
 
 
+def _agent_trial(*, version: str, commit: str, agent: str = "fresh-test-agent"):
+    return {
+        "schema": "agentfem.agent-trial-acceptance",
+        "schema_version": "0.2.0",
+        "status": "passed",
+        "agent": agent,
+        "agentfem_version": version,
+        "source_commit": commit,
+        "installed_wheel": True,
+        "fresh_context": True,
+        "human_interventions": 0,
+        "runtime": "passed",
+        "capability_discovery": "passed",
+        "project_check": "passed",
+        "simulation_result": "passed",
+        "verification": "passed",
+        "scientific_explanation": "reviewed",
+        "candidate_identity_verified": True,
+        "path_binding_verified": True,
+        "output_contract_verified": True,
+        "sequence_contract_verified": True,
+        "result_trust_level": "verified",
+        "wheel_sha256": "4" * 64,
+        "trial_contract_sha256": "7" * 64,
+        "task_sha256": "8" * 64,
+        "review_sha256": "9" * 64,
+        "transcript_sha256": "5" * 64,
+        "explanation_sha256": "6" * 64,
+        "output_records": {
+            path: {
+                "present": True,
+                "sha256": "a" * 64,
+            }
+            for path in (
+                "project/agentfem.toml",
+                "project/case.py",
+                "project/result.json",
+                "project/explanation.md",
+                "agent-transcript.md",
+            )
+        },
+    }
+
+
 def test_candidate_identity_is_bound_to_the_current_checkout():
     version, commit = promotion_gate._candidate_identity()
 
@@ -186,26 +230,7 @@ def test_external_evidence_can_complete_platform_extension_and_agent_gates(tmp_p
         _write(
             tmp_path,
             "agent.json",
-            {
-                "schema": "agentfem.agent-trial-acceptance",
-                "status": "passed",
-                "agent": "fresh-test-agent",
-                "agentfem_version": "0.3.0",
-                "source_commit": commit,
-                "installed_wheel": True,
-                "fresh_context": True,
-                "human_interventions": 0,
-                "runtime": "passed",
-                "capability_discovery": "passed",
-                "project_check": "passed",
-                "simulation_result": "passed",
-                "verification": "passed",
-                "scientific_explanation": "reviewed",
-                "candidate_identity_verified": True,
-                "wheel_sha256": "4" * 64,
-                "transcript_sha256": "5" * 64,
-                "explanation_sha256": "6" * 64,
-            },
+            _agent_trial(version=version, commit=commit),
         )
     )
 
@@ -302,26 +327,7 @@ def test_old_or_different_commit_evidence_cannot_promote_current_candidate(tmp_p
 def test_behavior_equivalent_bridge_reuses_but_does_not_rewrite_agent_trial(tmp_path):
     source_commit = "b" * 40
     target_commit = "a" * 40
-    source = {
-        "schema": "agentfem.agent-trial-acceptance",
-        "status": "passed",
-        "agent": "Codex",
-        "agentfem_version": "0.2.6",
-        "source_commit": source_commit,
-        "installed_wheel": True,
-        "fresh_context": True,
-        "human_interventions": 0,
-        "runtime": "passed",
-        "capability_discovery": "passed",
-        "project_check": "passed",
-        "simulation_result": "passed",
-        "verification": "passed",
-        "scientific_explanation": "reviewed",
-        "candidate_identity_verified": True,
-        "wheel_sha256": "4" * 64,
-        "transcript_sha256": "5" * 64,
-        "explanation_sha256": "6" * 64,
-    }
+    source = _agent_trial(version="0.2.6", commit=source_commit, agent="Codex")
     source_path = _write(tmp_path, "source-agent.json", source)
     bridge_path = _write(
         tmp_path,

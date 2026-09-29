@@ -35,6 +35,9 @@ _RELEASE_PREFIXES = (
 )
 _TARGETED_SOURCE_FILES = {
     "promotion_gate.py",
+    "tools/agent_trial_acceptance.py",
+    "tools/prepare_agent_trial.py",
+    "tools/promote_agent_trial.py",
     "src/agentfem/campaigns.py",
     "src/agentfem/cli.py",
     "src/agentfem/datasets.py",
@@ -56,6 +59,9 @@ _TARGETED_PREFIXES = (
 )
 _SOURCE_TEST_MAP = {
     "promotion_gate.py": ("tests/test_promotion_gate.py",),
+    "tools/agent_trial_acceptance.py": ("tests/test_agent_trial_acceptance.py",),
+    "tools/prepare_agent_trial.py": ("tests/test_prepare_agent_trial.py",),
+    "tools/promote_agent_trial.py": ("tests/test_agent_trial_promotion.py",),
     "src/agentfem/campaigns/": ("tests/test_campaigns.py",),
     "src/agentfem/datasets/": (
         "tests/test_datasets.py",

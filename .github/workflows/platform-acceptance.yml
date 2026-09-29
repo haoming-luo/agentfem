@@ -52,6 +52,24 @@ jobs:
             --platform-report /tmp/agentfem-platform-acceptance.json \
             --require-platform "${{ matrix.platform }}"
 
+      - name: Prepare the exact fresh-agent release trial
+        if: matrix.platform == 'linux'
+        run: |
+          wheel="$(find dist -maxdepth 1 -name 'agentfem-*.whl' -print -quit)"
+          test -n "$wheel"
+          python tools/prepare_agent_trial.py \
+            --wheel "$wheel" \
+            --source-commit "$(git rev-parse HEAD)" \
+            --output /tmp/agentfem-fresh-agent-trial
+
+      - name: Upload the fresh-agent release trial
+        if: matrix.platform == 'linux'
+        uses: actions/upload-artifact@v7
+        with:
+          name: fresh-agent-release-trial
+          path: /tmp/agentfem-fresh-agent-trial/
+          if-no-files-found: error
+
       - name: Upload platform evidence
         if: always()
         uses: actions/upload-artifact@v7

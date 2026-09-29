@@ -17,12 +17,48 @@ import subprocess
 import zipfile
 
 
+TASK_TEXT = """# Fresh AgentFEM task
+
+Work in the empty `project/` directory using only the supplied AgentFEM wheel
+and public AgentFEM guidance. Start by inspecting the runtime and installed
+capabilities. Do not read an AgentFEM source checkout or a pre-existing project.
+
+Create, run, check and verify a two-dimensional plane-strain linear-elastic
+cantilever: length 1.0 m, height 0.2 m, Young's modulus 210 GPa, Poisson ratio
+0.30, left edge fixed, and a uniform downward traction of 1 MPa on the right
+edge. Request displacement, stress and von Mises output.
+
+Keep the engineering assumptions and units visible. Do not copy a pre-existing
+project. Finish by writing `project/explanation.md`: explain the model,
+boundary conditions, expected deformation, verification evidence and any
+applicability limits. A successful process leaves `agentfem.toml`, `case.py`,
+`result.json` and the explanation in `project/`.
+"""
+
+
+REVIEW_TEXT = """# Independent review
+
+1. Export the complete fresh-task transcript as `agent-transcript.md`.
+2. Record every human correction or redirect; zero means none after TASK.md.
+3. Review `project/explanation.md` for mechanics, units, boundary conditions,
+   evidence and limits—not literary style.
+4. Run the repository's `tools/agent_trial_acceptance.py` with the wheel and
+   source commit recorded in `trial-contract.json`.
+5. Retain the task, review instructions, transcript, project, explanation,
+   result artifacts and acceptance JSON together.
+"""
+
+
 def _sha256(path: Path) -> str:
     digest = hashlib.sha256()
     with Path(path).open("rb") as stream:
         for chunk in iter(lambda: stream.read(1024 * 1024), b""):
             digest.update(chunk)
     return digest.hexdigest()
+
+
+def _text_sha256(value: str) -> str:
+    return hashlib.sha256(value.encode("utf-8")).hexdigest()
 
 
 def _git_commit(root: Path) -> str:
@@ -34,6 +70,21 @@ def _git_commit(root: Path) -> str:
         text=True,
     )
     return completed.stdout.strip()
+
+
+def _require_clean_checkout(root: Path) -> None:
+    completed = subprocess.run(
+        ["git", "status", "--porcelain", "--untracked-files=all"],
+        cwd=root,
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    if completed.stdout.strip():
+        raise RuntimeError(
+            "Fresh-agent trial bundles require a clean source checkout; "
+            "commit the candidate before building its wheel."
+        )
 
 
 def _wheel_version(path: Path) -> str:
@@ -76,16 +127,34 @@ def prepare(
     project = root / "project"
     project.mkdir()
 
+    task_path = root / "TASK.md"
+    review_path = root / "REVIEW.md"
+    task_path.write_text(TASK_TEXT, encoding="utf-8")
+    review_path.write_text(REVIEW_TEXT, encoding="utf-8")
+
     contract = {
         "schema": "agentfem.agent-trial-contract",
-        "schema_version": "0.1.0",
+        "schema_version": "0.2.0",
         "agentfem_version": str(agentfem_version),
         "source_commit": str(source_commit),
         "wheel": candidate.name,
         "wheel_sha256": _sha256(candidate),
+        "task": task_path.name,
+        "task_sha256": _text_sha256(TASK_TEXT),
+        "review": review_path.name,
+        "review_sha256": _text_sha256(REVIEW_TEXT),
         "fresh_context_required": True,
         "human_interventions_allowed": 0,
         "project_directory": "project",
+        "required_sequence": [
+            "doctor",
+            "capabilities",
+            "init",
+            "check",
+            "run",
+            "inspect",
+            "verify",
+        ],
         "required_outputs": [
             "project/agentfem.toml",
             "project/case.py",
@@ -96,40 +165,6 @@ def prepare(
     }
     (root / "trial-contract.json").write_text(
         json.dumps(contract, indent=2, sort_keys=True) + "\n",
-        encoding="utf-8",
-    )
-    (root / "TASK.md").write_text(
-        """# Fresh AgentFEM task
-
-Work in the empty `project/` directory using only the supplied AgentFEM wheel
-and public AgentFEM guidance. Start by inspecting the runtime and installed
-capabilities.
-
-Create, run, check and verify a two-dimensional plane-strain linear-elastic
-cantilever: length 1.0 m, height 0.2 m, Young's modulus 210 GPa, Poisson ratio
-0.30, left edge fixed, and a uniform downward traction of 1 MPa on the right
-edge. Request displacement, stress and von Mises output.
-
-Keep the engineering assumptions and units visible. Do not copy a pre-existing
-project. Finish by writing `project/explanation.md`: explain the model,
-boundary conditions, expected deformation, verification evidence and any
-applicability limits. A successful process leaves `agentfem.toml`, `case.py`,
-`result.json` and the explanation in `project/`.
-""",
-        encoding="utf-8",
-    )
-    (root / "REVIEW.md").write_text(
-        """# Independent review
-
-1. Export the complete fresh-task transcript as `agent-transcript.md`.
-2. Record every human correction or redirect; zero means none after TASK.md.
-3. Review `project/explanation.md` for mechanics, units, boundary conditions,
-   evidence and limits—not literary style.
-4. Run the repository's `tools/agent_trial_acceptance.py` with the wheel and
-   source commit recorded in `trial-contract.json`.
-5. Retain the task, transcript, project, explanation, result artifacts and
-   acceptance JSON together.
-""",
         encoding="utf-8",
     )
     return contract
@@ -143,6 +178,7 @@ def main() -> None:
     parser.add_argument("--agentfem-version")
     options = parser.parse_args()
     repository = Path(__file__).resolve().parents[1]
+    _require_clean_checkout(repository)
     version = (
         _wheel_version(options.wheel)
         if options.agentfem_version is None

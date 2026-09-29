@@ -150,6 +150,24 @@ def _file_integrity(record: dict[str, object], field: str, hash_field: str) -> b
     return path.is_file() and _sha256(path) == expected
 
 
+def _output_integrity(record: dict[str, object]) -> bool:
+    outputs = record.get("output_records")
+    if not isinstance(outputs, dict) or not outputs:
+        return False
+    for item in outputs.values():
+        if not isinstance(item, dict) or item.get("present") is not True:
+            return False
+        path = Path(str(item.get("path", ""))).expanduser()
+        expected = item.get("sha256")
+        if (
+            not path.is_file()
+            or not promotion_gate._is_sha256(expected)
+            or _sha256(path) != expected
+        ):
+            return False
+    return True
+
+
 def evaluate(
     *,
     repository: Path,
@@ -181,6 +199,15 @@ def evaluate(
         gaps.append("source transcript is missing or has changed")
     if not _file_integrity(source, "explanation", "explanation_sha256"):
         gaps.append("source explanation is missing or has changed")
+    for label, field, hash_field in (
+        ("trial contract", "trial_contract", "trial_contract_sha256"),
+        ("task", "task", "task_sha256"),
+        ("review instructions", "review", "review_sha256"),
+    ):
+        if not _file_integrity(source, field, hash_field):
+            gaps.append(f"source {label} is missing or has changed")
+    if not _output_integrity(source):
+        gaps.append("source project outputs are missing or have changed")
     source_wheel = Path(str(source.get("wheel", ""))).expanduser()
     if not source_wheel.is_file() or _sha256(source_wheel) != source.get("wheel_sha256"):
         gaps.append("source wheel is missing or has changed")
