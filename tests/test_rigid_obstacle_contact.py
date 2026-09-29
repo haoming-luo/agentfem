@@ -335,6 +335,38 @@ def test_rigid_obstacle_contact_rejects_nonpositive_penalty():
     assert displacement is not None
 
 
+def test_bounded_contact_rejects_projection_only_triangle_surface():
+    domain = mesh.rectangle(
+        (0.0, 0.0),
+        (1.0, 1.0),
+        (1, 1),
+        comm=MPI.COMM_SELF,
+    )
+    model = models.create(
+        study=studies.static_solid(
+            dimension=2,
+            assumption="plane_stress",
+            nonlinear=True,
+        ),
+        mesh=domain,
+    )
+    displacement = model.field(fields.displacement(domain))
+    right = mesh.boundary(domain, _right, name="right")
+    surface = boundary_models.triangulated_rigid_surface(
+        vertices=((0.0, 0.0, 0.0), (1.0, 0.0, 0.0), (0.0, 1.0, 0.0)),
+        triangles=((0, 1, 2),),
+    )
+
+    with pytest.raises(TypeError, match="currently lowers only RigidPlaneSurface"):
+        model.rigid_obstacle_contact(
+            on=right,
+            penalty=1.0e4,
+            surface=surface,
+        )
+
+    assert displacement is not None
+
+
 def test_rigid_contact_energy_fails_closed_for_unrecorded_prescribed_work():
     model, displacement, _contact = _contact_model(prescribed_y=0.01)
     result = model.step(target=displacement, progress=False).solve_result()
