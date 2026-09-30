@@ -384,6 +384,20 @@ not claim automatic contact spectral estimation, arbitrary topology, multiple
 distributed tools in one broad phase, friction, free rigid-body dynamics, or
 an implicit consistent tangent.
 
+The next friction gate starts with a solver-neutral scientific contract rather
+than a hidden extension of that residual. `penalty_coulomb_friction_law(...)`
+implements elastic stick and return to the Coulomb cap at already projected
+points. `TangentialContactState` keeps stable point IDs, transported
+tangential elastic slip, cumulative irreversible dissipation, and atomic
+trial/commit/rollback state. Its response reports recoverable tangential
+penalty energy, sliding dissipation, and penalty energy released at contact
+opening as three different quantities. A `RigidContactPair` may declare this
+law with `friction_coefficient=` and `tangential_penalty=`, so the Model and its
+scientific identity are complete. The current DOLFINx residual rejects that
+pair with `AFM-CONTACT-FRICTION-OPERATOR-001`: tangential trace assembly,
+checkpoint integration, stability screening, and external verification are
+the next Operator/Procedure promotion and friction is never silently ignored.
+
 The parallel vector ordering follows PETSc's finite-element contract:
 [`ADD_VALUES` with reverse scatter](https://petsc.org/release/manual/vec/)
 accumulates ghost contributions onto the owning rank. Penalty-contact effects
@@ -399,7 +413,8 @@ restart rejects changed mesh/function-space identity, loads, constraints, time
 inputs, or nonlinear controls. The same accepted state can be resumed with a
 different compatible MPI partition or rank count.
 
-This route has no friction, free rigid-body dynamics, deformable-to-deformable
+This route has no assembled friction Operator, free rigid-body dynamics,
+deformable-to-deformable
 coupling, implicit consistent linearization, or shared broad phase for several
 distributed tools. Its reviewed moving geometries are one analytical surface
 or one oriented triangulated rigid surface per pair. It rejects incompatible
