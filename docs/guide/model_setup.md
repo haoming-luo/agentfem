@@ -398,6 +398,18 @@ pair with `AFM-CONTACT-FRICTION-OPERATOR-001`: tangential trace assembly,
 checkpoint integration, stability screening, and external verification are
 the next Operator/Procedure promotion and friction is never silently ignored.
 
+`ContactTraceEvaluation.assemble_friction(...)` is the first completed piece
+of that Operator promotion. It integrates tangential residual traction and
+rigid-body force/moment with the same interpolation and quadrature contract as
+normal contact, while keeping recoverable tangential penalty energy,
+irreversible sliding dissipation, and separation release in named channels.
+It still does not construct relative slip or advance a time step. This follows
+the penalty-friction distinction between elastic stick and the Coulomb cap in
+the [Abaqus friction theory](https://docs.software.vt.edu/abaqusv2025/English/SIMACAETHERefMap/simathe-c-coulombfric.htm)
+and the separate contact-energy categories in its
+[contact energy example](https://docs.software.vt.edu/abaqusv2025/English/SIMACAEEXARefMap/simaexa-c-contactenergy.htm),
+without copying Abaqus-specific solver ownership into AgentFEM.
+
 The parallel vector ordering follows PETSc's finite-element contract:
 [`ADD_VALUES` with reverse scatter](https://petsc.org/release/manual/vec/)
 accumulates ghost contributions onto the owning rank. Penalty-contact effects

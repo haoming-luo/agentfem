@@ -15,6 +15,7 @@ from dataclasses import dataclass
 
 import numpy as np
 
+from .contact_friction import PenaltyCoulombFrictionResponse
 from .contact_response import FrictionlessPenaltyContactResponse
 from .contact_state import ContactProjectionRecord
 from .rigid import _readonly_array
@@ -289,6 +290,102 @@ class ContactTraceAssembly:
 
 
 @dataclass(frozen=True, eq=False)
+class FrictionContactTraceAssembly:
+    """Integrated tangential response and its distinct energy channels."""
+
+    mechanical: ContactTraceAssembly
+    point_dissipation_increment_contributions: object
+    point_cumulative_dissipation_contributions: object
+    point_separation_release_increment_contributions: object
+    point_cumulative_separation_release_contributions: object
+    dissipation_increment: float
+    cumulative_dissipation: float
+    separation_release_increment: float
+    cumulative_separation_release: float
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.mechanical, ContactTraceAssembly):
+            raise TypeError(
+                "Friction trace assembly requires ContactTraceAssembly mechanics."
+            )
+        count = int(self.mechanical.point_ids.size)
+        pairs = (
+            (
+                "point_dissipation_increment_contributions",
+                "dissipation_increment",
+            ),
+            (
+                "point_cumulative_dissipation_contributions",
+                "cumulative_dissipation",
+            ),
+            (
+                "point_separation_release_increment_contributions",
+                "separation_release_increment",
+            ),
+            (
+                "point_cumulative_separation_release_contributions",
+                "cumulative_separation_release",
+            ),
+        )
+        for point_name, total_name in pairs:
+            point_values = np.asarray(getattr(self, point_name), dtype=float)
+            if point_values.shape != (count,) or not np.all(np.isfinite(point_values)):
+                raise ValueError(
+                    f"{point_name} must contain one finite value per trace point."
+                )
+            if np.any(point_values < 0.0):
+                raise ValueError(f"{point_name} cannot be negative.")
+            total = float(getattr(self, total_name))
+            if not np.isfinite(total) or total < 0.0:
+                raise ValueError(f"{total_name} must be finite and non-negative.")
+            if not np.isclose(
+                total,
+                float(np.sum(point_values)),
+                rtol=256.0 * np.finfo(float).eps,
+                atol=256.0 * np.finfo(float).eps,
+            ):
+                raise ValueError(f"{total_name} does not equal its point contributions.")
+            object.__setattr__(self, point_name, _readonly_array(point_values))
+            object.__setattr__(self, total_name, total)
+
+    @property
+    def point_ids(self) -> np.ndarray:
+        return self.mechanical.point_ids
+
+    @property
+    def nodal_structural_residual(self) -> np.ndarray:
+        return self.mechanical.nodal_structural_residual
+
+    @property
+    def contact_force_on_structure(self) -> np.ndarray:
+        return self.mechanical.contact_force_on_structure
+
+    @property
+    def contact_force_on_surface(self) -> np.ndarray:
+        return self.mechanical.contact_force_on_surface
+
+    @property
+    def surface_generalized_moment(self) -> np.ndarray | None:
+        return self.mechanical.surface_generalized_moment
+
+    @property
+    def recoverable_penalty_energy(self) -> float:
+        return self.mechanical.potential_energy
+
+    def summary(self) -> dict[str, object]:
+        return {
+            "kind": "friction_contact_trace_assembly",
+            "mechanical": self.mechanical.summary(),
+            "recoverable_penalty_energy": self.recoverable_penalty_energy,
+            "dissipation_increment": self.dissipation_increment,
+            "cumulative_dissipation": self.cumulative_dissipation,
+            "separation_release_increment": self.separation_release_increment,
+            "cumulative_separation_release": self.cumulative_separation_release,
+            "energy_semantics": "recoverable_dissipated_release_separate",
+        }
+
+
+@dataclass(frozen=True, eq=False)
 class ContactTraceEvaluation:
     """Current slave-point positions bound to one immutable trace contract."""
 
@@ -341,11 +438,116 @@ class ContactTraceEvaluation:
             raise ValueError(
                 "Contact response was not evaluated at this trace evaluation."
             )
+        return self._assemble_fields(
+            record,
+            structural_residual_tractions=response.structural_residual_tractions,
+            surface_generalized_tractions=response.surface_generalized_tractions,
+            potential_densities=response.potential_densities,
+            dimension=response.dimension,
+            valid=response.projection.valid,
+            surface_reference_point=surface_reference_point,
+        )
+
+    def assemble_friction(
+        self,
+        record: ContactProjectionRecord,
+        response: PenaltyCoulombFrictionResponse,
+        *,
+        surface_reference_point=None,
+    ) -> FrictionContactTraceAssembly:
+        """Integrate one matching tangential return-map response."""
+
+        if not isinstance(record, ContactProjectionRecord):
+            raise TypeError("Friction trace assembly requires a projection record.")
+        if not isinstance(response, PenaltyCoulombFrictionResponse):
+            raise TypeError("Friction trace assembly requires a friction response.")
+        if not np.array_equal(
+            record.point_ids,
+            self.trace.point_ids,
+        ) or not np.array_equal(response.record.point_ids, self.trace.point_ids):
+            raise ValueError("Friction projection or state identity differs from this trace.")
+        projection = record.projection
+        if projection.point_count != self.trace.point_count or not np.array_equal(
+            projection.query_points,
+            self.query_points,
+        ):
+            raise ValueError("Friction response was not evaluated at this trace evaluation.")
+        if not np.allclose(
+            response.record.normals,
+            projection.normals,
+            rtol=1.0e-12,
+            atol=1.0e-14,
+        ):
+            raise ValueError("Friction state normals differ from the current projection.")
+        mechanical = self._assemble_fields(
+            record,
+            structural_residual_tractions=response.structural_residual_tractions,
+            surface_generalized_tractions=response.surface_generalized_tractions,
+            potential_densities=response.recoverable_penalty_energy_densities,
+            dimension=response.record.dimension,
+            valid=projection.valid,
+            surface_reference_point=surface_reference_point,
+        )
         weights = self.trace.weights
-        point_residual = response.structural_residual_tractions * weights[:, None]
-        point_potential = response.potential_densities * weights
+        point_dissipation = response.dissipation_increment_densities * weights
+        point_cumulative_dissipation = (
+            response.record.cumulative_dissipation_densities * weights
+        )
+        point_release = response.separation_release_densities * weights
+        point_cumulative_release = (
+            response.record.cumulative_separation_release_densities * weights
+        )
+        return FrictionContactTraceAssembly(
+            mechanical=mechanical,
+            point_dissipation_increment_contributions=point_dissipation,
+            point_cumulative_dissipation_contributions=(
+                point_cumulative_dissipation
+            ),
+            point_separation_release_increment_contributions=point_release,
+            point_cumulative_separation_release_contributions=(
+                point_cumulative_release
+            ),
+            dissipation_increment=float(np.sum(point_dissipation)),
+            cumulative_dissipation=float(np.sum(point_cumulative_dissipation)),
+            separation_release_increment=float(np.sum(point_release)),
+            cumulative_separation_release=float(np.sum(point_cumulative_release)),
+        )
+
+    def _assemble_fields(
+        self,
+        record: ContactProjectionRecord,
+        *,
+        structural_residual_tractions,
+        surface_generalized_tractions,
+        potential_densities,
+        dimension: int,
+        valid,
+        surface_reference_point,
+    ) -> ContactTraceAssembly:
+        """Integrate reviewed point fields without taking law ownership."""
+
+        weights = self.trace.weights
+        structural = np.asarray(structural_residual_tractions, dtype=float)
+        surface = np.asarray(surface_generalized_tractions, dtype=float)
+        potential = np.asarray(potential_densities, dtype=float)
+        expected_vectors = (self.trace.point_count, int(dimension))
+        if structural.shape != expected_vectors or surface.shape != expected_vectors:
+            raise ValueError("Contact point traction fields have the wrong shape.")
+        if potential.shape != (self.trace.point_count,):
+            raise ValueError("Contact point potential field has the wrong shape.")
+        selected_valid = np.asarray(valid, dtype=bool)
+        if selected_valid.shape != (self.trace.point_count,):
+            raise ValueError("Contact validity field has the wrong shape.")
+        if not (
+            np.all(np.isfinite(structural))
+            and np.all(np.isfinite(surface))
+            and np.all(np.isfinite(potential))
+        ):
+            raise ValueError("Contact point fields must be finite before assembly.")
+        point_residual = structural * weights[:, None]
+        point_potential = potential * weights
         nodal_residual = np.zeros(
-            (self.number_of_nodes, response.dimension),
+            (self.number_of_nodes, int(dimension)),
             dtype=float,
         )
         for local_node in range(self.trace.nodes_per_point):
@@ -356,7 +558,7 @@ class ContactTraceEvaluation:
                 contribution,
             )
         surface_generalized = np.sum(
-            response.surface_generalized_tractions * weights[:, None],
+            surface * weights[:, None],
             axis=0,
         )
         force_on_structure = -np.sum(point_residual, axis=0)
@@ -364,25 +566,22 @@ class ContactTraceEvaluation:
         moment = None
         if surface_reference_point is not None:
             reference = np.asarray(surface_reference_point, dtype=float).reshape(-1)
-            if reference.shape != (response.dimension,) or not np.all(
+            if reference.shape != (int(dimension),) or not np.all(
                 np.isfinite(reference)
             ):
                 raise ValueError(
                     "Surface reference point must match the spatial dimension."
                 )
-            point_surface_generalized = (
-                response.surface_generalized_tractions * weights[:, None]
-            )
-            valid = response.projection.valid
-            arms = response.projection.closest_points[valid] - reference
-            if response.dimension == 2:
-                vectors = point_surface_generalized[valid]
+            point_surface_generalized = surface * weights[:, None]
+            arms = record.projection.closest_points[selected_valid] - reference
+            if int(dimension) == 2:
+                vectors = point_surface_generalized[selected_valid]
                 moment = np.asarray(
                     [np.sum(arms[:, 0] * vectors[:, 1] - arms[:, 1] * vectors[:, 0])]
                 )
             else:
                 moment = np.sum(
-                    np.cross(arms, point_surface_generalized[valid]),
+                    np.cross(arms, point_surface_generalized[selected_valid]),
                     axis=0,
                 )
         return ContactTraceAssembly(
@@ -412,4 +611,5 @@ __all__ = [
     "ContactTrace",
     "ContactTraceAssembly",
     "ContactTraceEvaluation",
+    "FrictionContactTraceAssembly",
 ]

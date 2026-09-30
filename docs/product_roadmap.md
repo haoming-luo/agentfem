@@ -278,8 +278,11 @@ trial/commit/rollback and accepted-boundary snapshots; and its response keeps
 recoverable penalty energy, irreversible sliding dissipation, and separation
 release distinct. The existing DOLFINx residual rejects such a pair until a
 real tangential Operator is selected, preventing a declaration-only feature
-from being mistaken for an assembled capability. Next come tangential trace
-assembly, accepted friction evidence/checkpoint integration, explicit
+from being mistaken for an assembled capability. The backend-neutral trace
+can now assemble tangential nodal residual, force/moment, recoverable penalty
+energy, dissipation, and separation release without owning time evolution.
+Next come relative-slip kinematics, accepted friction evidence/checkpoint
+integration, explicit
 stability screening, and an external sliding benchmark. Distributed
 multi-tool candidate routing, measured extreme-scale behavior, arbitrary
 topology, and implicit friction linearization follow that bounded route. STEP

@@ -713,6 +713,7 @@ and evidence remain in the linked guides and scientific function reference.
 | class | `ContactTrace` | Stable quadrature/interpolation contract for one slave boundary shard. |
 | class | `ContactTraceAssembly` | Integrated residual, potential, and generalized rigid-surface evidence. |
 | class | `ContactTraceEvaluation` | Current slave-point positions bound to one immutable trace contract. |
+| class | `FrictionContactTraceAssembly` | Integrated tangential response and its distinct energy channels. |
 | class | `PrescribedContactWorkState(*, identity: str) -> None` | Transactional accepted-path ledger for one prescribed rigid tool. |
 | class | `PrescribedContactWorkStation` | One globally reduced rigid-tool force/coordinate station. |
 | class | `PrescribedRigidMotionSchedule` | A proportional rigid motion over one explicit physical-time interval. |
