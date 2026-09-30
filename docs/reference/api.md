@@ -1488,8 +1488,10 @@ and evidence remain in the linked guides and scientific function reference.
 | function | `center_crack_mode_i_benchmark(*, young_modulus: float = 1000.0, poisson_ratio: float = 0.25, half_crack_length: float = 1.0, half_width: float = 8.0, half_height: float = 8.0, remote_strain: float = 0.001, relative_tolerance: float = 0.05) -> CenterCrackLEFMBenchmark` | Solve and verify a finite-plate Mode-I crack with the public workflow. |
 | class | `FiniteSlidingContactAssessment` | Force, friction, search, and energy evidence for one sliding state. |
 | class | `FiniteSlidingContactReference` | Public two-stage contact protocol and its declared invariants. |
+| class | `FiniteSlidingSolidBridge` | Accepted evidence from the public protocol on a 3D solid bridge. |
 | function | `abaqus_explicit_finite_sliding_reference() -> FiniteSlidingContactReference` | Return the public Abaqus/Explicit B31 finite-sliding protocol. |
 | function | `assess_finite_sliding_contact(*, contact_force_on_structure, contact_force_on_surface, admissible_normal, young: float, poisson: float, density: float, applied_normal_load: float, friction_coefficient: float, sliding_displacement: float, active_point_count: int, sliding_point_count: int, invalid_point_count: int, friction_dissipation: float, facet_crossing_count: int = 0, require_facet_crossing: bool = False, force_tolerance: float = 1e-08, reference: FiniteSlidingContactReference \| None = None) -> FiniteSlidingContactAssessment` | Assess external-protocol invariants from accepted contact evidence. |
+| function | `finite_sliding_solid_protocol_bridge(*, cells = (1, 1, 1), preload_steps: int = 400, sliding_steps: int = 750, preload_ramp_steps: int = 50, penalty_factor: float = 20.0, mass_damping: float = 20000.0, sliding_stability_scale: float = 0.8, comm = None) -> FiniteSlidingSolidBridge` | Run a real two-stage solid-contact bridge to the public protocol. |
 
 ## `agentfem.dependencies`
 

@@ -136,8 +136,10 @@ from .lefm import (
 from .contact_sliding import (
     FiniteSlidingContactAssessment,
     FiniteSlidingContactReference,
+    FiniteSlidingSolidBridge,
     abaqus_explicit_finite_sliding_reference,
     assess_finite_sliding_contact,
+    finite_sliding_solid_protocol_bridge,
 )
 
 __all__ = [
@@ -210,10 +212,12 @@ __all__ = [
     "CenterCrackLEFMBenchmark",
     "FiniteSlidingContactAssessment",
     "FiniteSlidingContactReference",
+    "FiniteSlidingSolidBridge",
     "center_crack_lefm_mesh",
     "center_crack_mode_i_benchmark",
     "abaqus_explicit_finite_sliding_reference",
     "assess_finite_sliding_contact",
+    "finite_sliding_solid_protocol_bridge",
     "creep_thick_cylinder_benchmark",
     "certify_nafems_r0016_test5h_spatial_convergence",
     "classical_cohesive_crack",
