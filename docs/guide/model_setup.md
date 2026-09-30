@@ -220,9 +220,12 @@ print(outcome.diagnostics.summary())
 
 The routed path queries the nearest rank bounding box first and then only boxes
 that can still tie or improve the exact candidate. Its diagnostics expose the
-queried ranks and avoided messages. The current transport uses object-based
-all-to-all; the all-gather implementation remains its partition-independent
-oracle until packed numeric exchange is promoted.
+queried ranks, avoided messages, and actual encoded payload bytes. Integer
+identities and floating geometry travel in aligned packed `MPI_Alltoallv`
+buffers, so 64-bit facet identities are not coerced into floating-point
+packets. The all-gather implementation remains its partition-independent
+correctness oracle; this search contract is not yet wired into the contact
+residual or finite-sliding state machine.
 
 Pass `checkpoint=checkpointing.every(...)` to `model.step(...)` when a long
 load path must be restartable. Only accepted load boundaries are published.

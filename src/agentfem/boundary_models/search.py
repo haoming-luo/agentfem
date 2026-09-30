@@ -340,8 +340,8 @@ class RoutedTriangleSearchDiagnostics:
     queried_rank_counts: tuple[int, ...]
     visited_node_counts: tuple[int, ...]
     evaluated_facet_counts: tuple[int, ...]
-    estimated_query_payload_bytes: int
-    estimated_candidate_payload_bytes: int
+    query_payload_bytes: int
+    candidate_payload_bytes: int
     method: str = "rank_aabb_two_stage_sparse_routing"
 
     def __post_init__(self) -> None:
@@ -362,12 +362,8 @@ class RoutedTriangleSearchDiagnostics:
             "phase_one_query_messages": int(self.phase_one_query_messages),
             "phase_two_query_messages": int(self.phase_two_query_messages),
             "candidate_response_messages": int(self.candidate_response_messages),
-            "estimated_query_payload_bytes": int(
-                self.estimated_query_payload_bytes
-            ),
-            "estimated_candidate_payload_bytes": int(
-                self.estimated_candidate_payload_bytes
-            ),
+            "query_payload_bytes": int(self.query_payload_bytes),
+            "candidate_payload_bytes": int(self.candidate_payload_bytes),
         }
         if any(value < 0 for value in counts.values()):
             raise ValueError("Routed diagnostic counts must be non-negative.")
@@ -426,13 +422,12 @@ class RoutedTriangleSearchDiagnostics:
             "maximum_evaluated_facets": max(
                 self.evaluated_facet_counts, default=0
             ),
-            "estimated_query_payload_bytes": self.estimated_query_payload_bytes,
-            "estimated_candidate_payload_bytes": (
-                self.estimated_candidate_payload_bytes
-            ),
+            "query_payload_bytes": self.query_payload_bytes,
+            "candidate_payload_bytes": self.candidate_payload_bytes,
+            "payload_measurement": "encoded_send_buffer_bytes",
             "distributed_ownership": True,
-            "collective_pattern": "two_stage_sparse_object_alltoall",
-            "packed_numeric_transport": False,
+            "collective_pattern": "two_stage_packed_alltoallv",
+            "packed_numeric_transport": True,
             "partition_independent_oracle": "allgather_reference_distributed_bvh",
         }
 
@@ -985,6 +980,93 @@ def _merge_distributed_candidates(
     )
 
 
+def _packed_alltoallv_rows(
+    *,
+    comm,
+    integer_groups: list[np.ndarray],
+    floating_groups: list[np.ndarray],
+    integer_width: int,
+    floating_width: int,
+) -> tuple[np.ndarray, np.ndarray, int]:
+    """Exchange aligned fixed-width records without Python object pickling."""
+
+    rank_count = int(comm.size)
+    if len(integer_groups) != rank_count or len(floating_groups) != rank_count:
+        raise ValueError("Packed routing requires one payload group per MPI rank.")
+    integer_payloads = [
+        np.ascontiguousarray(value, dtype=np.int64).reshape(-1, integer_width)
+        for value in integer_groups
+    ]
+    floating_payloads = [
+        np.ascontiguousarray(value, dtype=np.float64).reshape(-1, floating_width)
+        for value in floating_groups
+    ]
+    send_counts = np.asarray(
+        [value.shape[0] for value in integer_payloads], dtype=np.int32
+    )
+    if any(
+        integer.shape[0] != floating.shape[0]
+        for integer, floating in zip(integer_payloads, floating_payloads)
+    ):
+        raise ValueError("Packed integer and floating payloads must remain aligned.")
+    receive_counts = np.empty(rank_count, dtype=np.int32)
+    comm.Alltoall(send_counts, receive_counts)
+    send_displacements = np.concatenate(
+        (np.zeros(1, dtype=np.int32), np.cumsum(send_counts[:-1], dtype=np.int32))
+    )
+    receive_displacements = np.concatenate(
+        (
+            np.zeros(1, dtype=np.int32),
+            np.cumsum(receive_counts[:-1], dtype=np.int32),
+        )
+    )
+    send_integer = (
+        np.concatenate(integer_payloads, axis=0)
+        if int(np.sum(send_counts))
+        else np.empty((0, integer_width), dtype=np.int64)
+    )
+    send_floating = (
+        np.concatenate(floating_payloads, axis=0)
+        if int(np.sum(send_counts))
+        else np.empty((0, floating_width), dtype=np.float64)
+    )
+    received_row_count = int(np.sum(receive_counts))
+    receive_integer = np.empty(
+        (received_row_count, integer_width), dtype=np.int64
+    )
+    receive_floating = np.empty(
+        (received_row_count, floating_width), dtype=np.float64
+    )
+
+    def exchange(send, receive, width):
+        scalar_send_counts = np.ascontiguousarray(send_counts * width)
+        scalar_receive_counts = np.ascontiguousarray(receive_counts * width)
+        scalar_send_displacements = np.ascontiguousarray(
+            send_displacements * width
+        )
+        scalar_receive_displacements = np.ascontiguousarray(
+            receive_displacements * width
+        )
+        comm.Alltoallv(
+            [
+                send.reshape(-1),
+                (scalar_send_counts, scalar_send_displacements),
+            ],
+            [
+                receive.reshape(-1),
+                (scalar_receive_counts, scalar_receive_displacements),
+            ],
+        )
+
+    exchange(send_integer, receive_integer, integer_width)
+    exchange(send_floating, receive_floating, floating_width)
+    return (
+        receive_integer,
+        receive_floating,
+        int(send_integer.nbytes + send_floating.nbytes),
+    )
+
+
 def _exchange_routed_queries(
     *,
     comm,
@@ -993,44 +1075,90 @@ def _exchange_routed_queries(
     maximum_distance: float | None,
     ambiguity_tolerance: float,
     normal_scale: float,
-) -> list[tuple[object, ...]]:
-    received_groups = comm.alltoall(outgoing)
-    received = [record for group in received_groups for record in group]
-    points = (
-        np.asarray([record[2:5] for record in received], dtype=float)
-        if received
-        else np.empty((0, 3), dtype=float)
+) -> tuple[list[tuple[object, ...]], int, int]:
+    query_integer_groups = [
+        np.asarray([record[:2] for record in group], dtype=np.int64).reshape(-1, 2)
+        for group in outgoing
+    ]
+    query_floating_groups = [
+        np.asarray([record[2:5] for record in group], dtype=np.float64).reshape(-1, 3)
+        for group in outgoing
+    ]
+    received_integer, received_floating, query_payload_bytes = (
+        _packed_alltoallv_rows(
+            comm=comm,
+            integer_groups=query_integer_groups,
+            floating_groups=query_floating_groups,
+            integer_width=2,
+            floating_width=3,
+        )
     )
+    points = received_floating
     candidates = local_search._candidate_evidence(
         points,
         maximum_distance,
         ambiguity_tolerance=ambiguity_tolerance,
         normal_scale=normal_scale,
     )
-    responses: list[list[tuple[object, ...]]] = [
+    response_integer_groups: list[list[tuple[int, ...]]] = [
         [] for _ in range(int(comm.size))
     ]
-    for record_index, request in enumerate(received):
+    response_floating_groups: list[list[tuple[float, ...]]] = [
+        [] for _ in range(int(comm.size))
+    ]
+    for record_index, request in enumerate(received_integer):
         origin_rank, origin_index = int(request[0]), int(request[1])
-        responses[origin_rank].append(
+        response_integer_groups[origin_rank].append(
             (
                 origin_index,
                 int(comm.rank),
-                bool(candidates.has_candidate[record_index]),
-                bool(candidates.ambiguous[record_index]),
-                float(candidates.squared_distances[record_index]),
+                int(candidates.has_candidate[record_index]),
+                int(candidates.ambiguous[record_index]),
                 int(candidates.entity_ids[record_index]),
-                tuple(float(value) for value in candidates.closest_points[record_index]),
-                tuple(float(value) for value in candidates.normals[record_index]),
-                tuple(
-                    float(value) for value in candidates.local_coordinates[record_index]
-                ),
                 int(candidates.visited_node_counts[record_index]),
                 int(candidates.evaluated_facet_counts[record_index]),
             )
         )
-    returned_groups = comm.alltoall(responses)
-    return [record for group in returned_groups for record in group]
+        response_floating_groups[origin_rank].append(
+            (
+                float(candidates.squared_distances[record_index]),
+                *tuple(float(value) for value in candidates.closest_points[record_index]),
+                *tuple(float(value) for value in candidates.normals[record_index]),
+                *tuple(float(value) for value in candidates.local_coordinates[record_index]),
+            )
+        )
+    returned_integer, returned_floating, candidate_payload_bytes = (
+        _packed_alltoallv_rows(
+            comm=comm,
+            integer_groups=[
+                np.asarray(group, dtype=np.int64).reshape(-1, 7)
+                for group in response_integer_groups
+            ],
+            floating_groups=[
+                np.asarray(group, dtype=np.float64).reshape(-1, 10)
+                for group in response_floating_groups
+            ],
+            integer_width=7,
+            floating_width=10,
+        )
+    )
+    records = [
+        (
+            int(integers[0]),
+            int(integers[1]),
+            bool(integers[2]),
+            bool(integers[3]),
+            float(floating[0]),
+            int(integers[4]),
+            tuple(float(value) for value in floating[1:4]),
+            tuple(float(value) for value in floating[4:7]),
+            tuple(float(value) for value in floating[7:10]),
+            int(integers[5]),
+            int(integers[6]),
+        )
+        for integers, floating in zip(returned_integer, returned_floating)
+    ]
+    return records, query_payload_bytes, candidate_payload_bytes
 
 
 def _merge_routed_candidate_records(
@@ -1358,8 +1486,9 @@ class RoutedDistributedTriangleSurfaceBVH:
     for an exact candidate.  That distance becomes an upper bound; the second
     phase asks only ranks whose boxes can still tie or improve it.  Exact
     candidates are reduced with the same ambiguity semantics as the all-gather
-    oracle.  Transport currently uses Python-object ``alltoall`` and is
-    reported as such; packed numeric ``Alltoallv`` remains a later optimization.
+    oracle.  Integer identities and floating geometry use aligned NumPy
+    buffers over ``Alltoallv``.  This avoids Python-object serialization
+    without coercing stable 64-bit facet identities into floating packets.
     """
 
     def __init__(self, partition: TriangleSurfacePartition, comm):
@@ -1408,8 +1537,8 @@ class RoutedDistributedTriangleSurfaceBVH:
             "rank_count": self.partition.rank_count,
             "distributed_ownership": True,
             "retains_replicated_global_geometry": False,
-            "collective_pattern": "two_stage_sparse_object_alltoall",
-            "packed_numeric_transport": False,
+            "collective_pattern": "two_stage_packed_alltoallv",
+            "packed_numeric_transport": True,
             "exact_narrow_phase": "reviewed_triangle_closest_point",
             "partition_independent_oracle": (
                 "allgather_reference_distributed_bvh"
@@ -1518,7 +1647,11 @@ class RoutedDistributedTriangleSurfaceBVH:
                     float(point[2]),
                 )
             )
-        phase_one_records = _exchange_routed_queries(
+        (
+            phase_one_records,
+            phase_one_query_bytes,
+            phase_one_candidate_bytes,
+        ) = _exchange_routed_queries(
             comm=self._comm,
             local_search=self._local_search,
             outgoing=phase_one_outgoing,
@@ -1559,7 +1692,11 @@ class RoutedDistributedTriangleSurfaceBVH:
                             float(point[2]),
                         )
                     )
-        phase_two_records = _exchange_routed_queries(
+        (
+            phase_two_records,
+            phase_two_query_bytes,
+            phase_two_candidate_bytes,
+        ) = _exchange_routed_queries(
             comm=self._comm,
             local_search=self._local_search,
             outgoing=phase_two_outgoing,
@@ -1610,7 +1747,6 @@ class RoutedDistributedTriangleSurfaceBVH:
             )
             for point_index in range(query_count)
         )
-        query_messages = query_count + len(phase_two_records)
         diagnostics = RoutedTriangleSearchDiagnostics(
             geometry_fingerprint=self.partition.global_geometry_fingerprint,
             rank=self.partition.rank,
@@ -1626,8 +1762,10 @@ class RoutedDistributedTriangleSurfaceBVH:
             queried_rank_counts=queried_rank_counts,
             visited_node_counts=merged.visited_node_counts,
             evaluated_facet_counts=merged.evaluated_facet_counts,
-            estimated_query_payload_bytes=query_messages * 40,
-            estimated_candidate_payload_bytes=len(records) * 122,
+            query_payload_bytes=phase_one_query_bytes + phase_two_query_bytes,
+            candidate_payload_bytes=(
+                phase_one_candidate_bytes + phase_two_candidate_bytes
+            ),
         )
         return RoutedTriangleSearchOutcome(projection, diagnostics)
 
