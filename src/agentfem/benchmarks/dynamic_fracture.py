@@ -133,12 +133,16 @@ class ClassicalCrackBenchmark:
     final_crack_length: float
     propagated_length: float
     maximum_fitted_speed: float
+    representative_fitted_speed: float
     rayleigh_wave_speed: float
     speed_ratio: float
+    representative_speed_ratio: float
+    representative_speed_r_squared: float
     final_relative_energy_error: float
     damping: float
     numerical_damping_dissipation: float
     maximum_simultaneous_failed_fraction: float
+    maximum_disconnected_failed_fraction: float
 
     def summary(self) -> dict[str, object]:
         return {
@@ -149,13 +153,19 @@ class ClassicalCrackBenchmark:
             "final_crack_length": self.final_crack_length,
             "propagated_length": self.propagated_length,
             "maximum_fitted_speed": self.maximum_fitted_speed,
+            "representative_fitted_speed": self.representative_fitted_speed,
             "rayleigh_wave_speed": self.rayleigh_wave_speed,
             "speed_ratio": self.speed_ratio,
+            "representative_speed_ratio": self.representative_speed_ratio,
+            "representative_speed_r_squared": self.representative_speed_r_squared,
             "final_relative_energy_error": self.final_relative_energy_error,
             "damping": self.damping,
             "numerical_damping_dissipation": self.numerical_damping_dissipation,
             "maximum_simultaneous_failed_fraction": (
                 self.maximum_simultaneous_failed_fraction
+            ),
+            "maximum_disconnected_failed_fraction": (
+                self.maximum_disconnected_failed_fraction
             ),
         }
 
@@ -183,6 +193,7 @@ class WeakInterfaceTransitionBenchmark:
     pressure_speed_ratio: float
     failed_ligament_fraction: float
     maximum_simultaneous_failed_fraction: float
+    maximum_disconnected_failed_fraction: float
     rapid_failed_fraction: float
     crack_speed_fit_window: int
     crack_speed_fit_length: float
@@ -242,6 +253,9 @@ class WeakInterfaceTransitionBenchmark:
             "failed_ligament_fraction": self.failed_ligament_fraction,
             "maximum_simultaneous_failed_fraction": (
                 self.maximum_simultaneous_failed_fraction
+            ),
+            "maximum_disconnected_failed_fraction": (
+                self.maximum_disconnected_failed_fraction
             ),
             "rapid_failed_fraction": self.rapid_failed_fraction,
             "crack_speed_fit_window": self.crack_speed_fit_window,
@@ -730,7 +744,7 @@ def classical_cohesive_crack(
     cells: int = 60,
     length: float = 3.0,
     precrack_length: float = 0.5,
-    opening: float = 0.0135,
+    opening: float = 0.08,
     loading_time: float = 0.15,
     hold_time: float = 0.15,
     time_step_scale: float = 0.8,
@@ -739,9 +753,9 @@ def classical_cohesive_crack(
     """Propagate a precracked cohesive strip below the classical limit.
 
     This is the first V3 guardrail, not a supershear configuration.  A smooth
-    remote opening loads a long weak interface with a declared precrack.  The
-    crack front is threshold-interpolated and its speed is fitted over an odd
-    local window so a single failed facet cannot create a velocity spike.
+    end opening loads a long weak interface with a declared precrack.  The
+    crack front is threshold-interpolated; a fixed physical propagation
+    interval supplies the mesh- and cadence-independent convergence speed.
     """
 
     selected_cells = int(cells)
@@ -796,7 +810,10 @@ def classical_cohesive_crack(
     )
     model.constraint(
         constraints.component_dirichlet(
-            displacement, 1, on=lambda p: np.isclose(p[1], 0.0), value=0.0,
+            displacement,
+            1,
+            on=lambda p: np.isclose(p[0], 0.0) & np.isclose(p[1], 0.0),
+            value=0.0,
         )
     )
     model.constraint(
@@ -820,9 +837,9 @@ def classical_cohesive_crack(
         constraints.time_dependent_component_dirichlet(
             displacement,
             1,
-            on=lambda p: np.isclose(p[1], 1.0),
+            on=lambda p: np.isclose(p[0], 0.0) & np.isclose(p[1], 1.0),
             amplitude=smooth_remote_opening,
-            name="smooth_remote_opening",
+            name="smooth_crack_mouth_opening",
         )
     )
     law = interfaces.bilinear_cohesive(
@@ -874,17 +891,30 @@ def classical_cohesive_crack(
         damage_frames.append(np.max(response.damage, axis=1))
 
     step.run(progress=collect)
+    cell_size = float(length) / selected_cells
+    fit_window = max(3, int(round(0.35 / cell_size)))
+    if fit_window % 2 == 0:
+        fit_window += 1
     crack = fracture.crack_tip_history(
         times,
         facet_centers,
         damage_frames,
         threshold=0.95,
-        fit_window=7,
+        fit_window=fit_window,
     )
     finite = crack.speed[np.isfinite(crack.speed)]
     maximum_speed = 0.0 if finite.size == 0 else float(np.max(finite))
     initial_length = float(crack.position[0])
     final_length = float(crack.position[-1])
+    representative = fracture.fit_crack_propagation_speed(
+        crack,
+        start_position=float(precrack_length) + 0.1,
+        end_position=float(precrack_length) + 0.5,
+    )
+    if representative is None:
+        raise RuntimeError(
+            "The classical crack did not cross its representative speed interval."
+        )
     wave = fracture.isotropic_reference_wave_speeds(material)
     failed = np.asarray(damage_frames) >= 0.95
     newly_failed = np.count_nonzero(
@@ -895,6 +925,14 @@ def classical_cohesive_crack(
         if newly_failed.size == 0
         else float(np.max(newly_failed) / selected_cells)
     )
+    maximum_disconnected = max(
+        fracture.disconnected_interface_failure_fraction(
+            facet_centers,
+            frame,
+            threshold=0.95,
+        )
+        for frame in damage_frames
+    )
     return ClassicalCrackBenchmark(
         cells=selected_cells,
         time_increment=dt,
@@ -902,8 +940,11 @@ def classical_cohesive_crack(
         final_crack_length=final_length,
         propagated_length=max(0.0, final_length - initial_length),
         maximum_fitted_speed=maximum_speed,
+        representative_fitted_speed=representative.speed,
         rayleigh_wave_speed=float(wave.rayleigh),
         speed_ratio=maximum_speed / float(wave.rayleigh),
+        representative_speed_ratio=representative.speed / float(wave.rayleigh),
+        representative_speed_r_squared=representative.r_squared,
         final_relative_energy_error=float(
             step.history_records[-1]["relative_energy_balance_error"]
         ),
@@ -912,6 +953,7 @@ def classical_cohesive_crack(
             step.history_records[-1].get("numerical_damping_dissipation", 0.0)
         ),
         maximum_simultaneous_failed_fraction=maximum_simultaneous,
+        maximum_disconnected_failed_fraction=maximum_disconnected,
     )
 
 
@@ -1298,6 +1340,14 @@ def prestressed_weak_interface_separation(
         if newly_failed.size == 0
         else float(np.max(newly_failed) / ligament_count)
     )
+    maximum_disconnected = max(
+        fracture.disconnected_interface_failure_fraction(
+            facet_centers,
+            frame,
+            threshold=0.95,
+        )
+        for frame in damage_frames
+    )
     failed_fraction = float(np.count_nonzero(failed[-1, ligament]) / ligament_count)
     first_failure_time = np.full(selected_cells, np.inf, dtype=float)
     for frame_index, time_value in enumerate(times):
@@ -1373,6 +1423,7 @@ def prestressed_weak_interface_separation(
         pressure_speed_ratio=maximum_speed / pressure_speed,
         failed_ligament_fraction=failed_fraction,
         maximum_simultaneous_failed_fraction=simultaneous,
+        maximum_disconnected_failed_fraction=maximum_disconnected,
         rapid_failed_fraction=rapid_failed_fraction,
         crack_speed_fit_window=fit_window,
         crack_speed_fit_length=selected_fit_length,
@@ -1464,8 +1515,10 @@ def jmps_weak_interface_transition_v4(
         supershear.pressure_wave_speed / supershear.shear_wave_speed
     ):
         failures.append("The supershear front is not cleanly between c_s and c_d.")
-    if supershear.maximum_simultaneous_failed_fraction >= 0.1:
-        failures.append("The supershear endpoint fails too many facets simultaneously.")
+    if supershear.maximum_disconnected_failed_fraction > 0.0:
+        failures.append(
+            "The supershear endpoint develops failure islands ahead of the front."
+        )
     if spall_like.regime != "spall_like":
         failures.append("The weak-interface endpoint is not classified as spall-like.")
     if spall_like.rapid_failed_fraction < 0.8:
@@ -1559,9 +1612,9 @@ def jmps_weak_interface_convergence_v4(
             mechanism_failures.append(
                 f"{result.label} does not preserve supershear."
             )
-        if result.maximum_simultaneous_failed_fraction >= 0.1:
+        if result.maximum_disconnected_failed_fraction > 0.0:
             mechanism_failures.append(
-                f"{result.label} is not a resolved contiguous front."
+                f"{result.label} develops failure islands ahead of the front."
             )
         if result.final_relative_energy_error >= 0.005:
             mechanism_failures.append(

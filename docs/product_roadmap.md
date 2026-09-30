@@ -173,6 +173,17 @@ including time propagation, atomic trial decisions, summed energy/work, and
 nested checkpoint State; the reviewed mixed pair combines one analytical and
 one triangulated tool without a case-specific solver.
 
+Explicit time-step composition is now a Procedure-owned contract rather than
+a contact or fracture special case. Body/material, cohesive-interface and
+contact screens publish named equivalent spectral upper bounds. The Procedure
+adds all simultaneously active stiffness contributions, converts the sum to
+one central-difference limit and applies one safety factor. The legacy
+finite-strain cohesive screen now delegates to this contract and retains its
+body/interface compatibility fields only as a result view. This closes the
+known unsafe `min(body_dt, interface_dt)` composition; formulation-specific
+element eigenvalue bounds and state-dependent re-estimation remain later
+accuracy promotions.
+
 Gate 5 now has an executable checkpoint capability contract. Procedures must
 separately declare the durable payload scope, accepted save boundary, atomic
 publication, scientific identity, and MPI rank-count portability; a portable

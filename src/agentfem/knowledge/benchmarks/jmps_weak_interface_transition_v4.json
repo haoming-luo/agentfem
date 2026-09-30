@@ -14,13 +14,13 @@
   "observables": [
     "Threshold-interpolated crack position and a fit window spanning at least three interface cells at the prestrained shear-wave speed.",
     "Unstretched reference Rayleigh speed and prestrained reference-coordinate shear and pressure bulk-wave speeds.",
-    "Per-increment simultaneous failure, failure accumulated within one specimen-thickness shear-wave time, and peak intact-ligament traction ratio.",
+    "Disconnected failure ahead of the contiguous front, per-increment simultaneous failure, failure accumulated within one specimen-thickness shear-wave time, and peak intact-ligament traction ratio.",
     "Bulk, kinetic, cohesive recoverable, cohesive dissipated, prescribed-motion work, and relative energy-balance channels.",
     "Preload interface opening, traction ratio, free-force release acceleration, and transfer energy jump."
   ],
   "acceptance": [
     "The release-only endpoint remains crack-like and below the declared reference Rayleigh boundary.",
-    "The impact endpoint has a fitted front above 1.05 c_s and below 0.95 c_d while fewer than ten percent of ligament facets fail in one increment.",
+    "The impact endpoint has a fitted front above 1.05 c_s and below 0.95 c_d with no failed islands ahead of the contiguous front.",
     "The weak-interface endpoint fails at least eighty percent of the ligament within one thickness shear-wave time and is classified spall-like.",
     "Every endpoint has relative energy-balance error at or below 0.5 percent and zero preload-transfer energy jump within 1e-12.",
     "A fitted speed above c_d is never labelled supershear; it is either supported by distributed spall evidence or marked unresolved discrete failure."

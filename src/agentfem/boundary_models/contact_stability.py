@@ -17,6 +17,10 @@ from math import isfinite, sqrt
 
 import numpy as np
 
+from ..time.stability import (
+    ExplicitStabilityContribution,
+    combine_explicit_stability,
+)
 from .contact_trace import ContactTrace
 from .rigid import _readonly_array
 
@@ -333,16 +337,29 @@ def combine_explicit_stability_bounds(
     factor = contact.safety_factor if safety_factor is None else float(safety_factor)
     if not isfinite(factor) or not 0.0 < factor <= 1.0:
         raise ValueError("safety_factor must satisfy 0 < value <= 1.")
-    noncontact_spectral = 4.0 / (noncontact_limit * noncontact_limit)
-    total_spectral = noncontact_spectral + contact.spectral_radius_upper_bound
-    unsafed = 2.0 / sqrt(total_spectral)
+    noncontact = ExplicitStabilityContribution.from_time_increment(
+        "noncontact",
+        noncontact_limit,
+        method="caller_noncontact_screening_limit",
+    )
+    contact_contribution = ExplicitStabilityContribution.from_spectral_bound(
+        "contact",
+        contact.spectral_radius_upper_bound,
+        method=contact.method,
+    )
+    combined = combine_explicit_stability(
+        (noncontact, contact_contribution),
+        safety_factor=factor,
+    )
     return CombinedExplicitStabilityEstimate(
-        selected=factor * unsafed,
-        unsafed_limit=unsafed,
+        selected=combined.selected,
+        unsafed_limit=combined.unsafed_time_increment,
         noncontact_unsafed_limit=noncontact_limit,
-        noncontact_spectral_radius_upper_bound=noncontact_spectral,
+        noncontact_spectral_radius_upper_bound=(
+            noncontact.spectral_radius_upper_bound
+        ),
         contact_spectral_radius_upper_bound=contact.spectral_radius_upper_bound,
-        total_spectral_radius_upper_bound=total_spectral,
+        total_spectral_radius_upper_bound=combined.spectral_radius_upper_bound,
         safety_factor=factor,
     )
 

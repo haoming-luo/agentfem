@@ -8,6 +8,21 @@ experimental formulation to a validated one.
 
 ### Added
 
+- Add one Procedure-owned explicit-stability composition contract. Body,
+  material, cohesive-interface, and contact estimators now contribute named
+  equivalent spectral upper bounds; the Procedure adds those bounds before
+  converting them to a central-difference time increment and applies the
+  safety factor once. The finite-strain cohesive route no longer uses the
+  unsafe shortcut of taking the minimum of separately derived body and
+  interface time limits, while its historical summary fields remain
+  available together with the new contribution evidence.
+
+- Replace the cadence-sensitive V3 crack guardrail with an end-loaded
+  precracked strip, a representative speed fitted over a fixed physical path,
+  and an explicit disconnected-failure metric. Per-increment simultaneous
+  threshold crossings remain visible diagnostics but no longer masquerade as
+  proof of a contiguous crack front.
+
 - Add an MPI-consistent explicit contact stability screen derived from the
   contact trace, normal/tangential penalty stiffness, Coulomb pressure-cap
   coupling, and the actual lumped displacement mass. A mass-scaled absolute

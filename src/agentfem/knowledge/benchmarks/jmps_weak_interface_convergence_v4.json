@@ -13,14 +13,14 @@
   },
   "observables": [
     "Resolved supershear classification and fitted speed normalized by the prestrained reference-coordinate shear speed.",
-    "Interface and transverse cell counts, stable time increment, simultaneous failure fraction, and rapid distributed-failure fraction.",
+    "Interface and transverse cell counts, stable time increment, disconnected failure, simultaneous failure fraction, and rapid distributed-failure fraction.",
     "A local 0.3-length speed window for peak-speed mechanism classification and one fixed x=[0.8,1.8] propagation interval for refinement convergence.",
     "Complete bulk, kinetic, cohesive, prescribed-work, and energy-balance ledger at retained frames.",
     "Least-squares fit quality and successive relative representative-speed changes under proportional spatial refinement and time-step halving.",
     "Separate mechanism_preserved and speed_converged decisions so a robust regime classification cannot be mistaken for an asymptotically converged crack speed."
   ],
   "acceptance": [
-    "All four runs remain supershear with fewer than ten percent of intact facets failing in one increment.",
+    "All four runs remain supershear with no failed islands ahead of the contiguous front.",
     "Every run closes the complete energy ledger within 0.5 percent.",
     "Every representative fixed-distance fit must have R-squared of at least 0.95.",
     "Each successive spatial representative-speed change must remain below ten percent.",
