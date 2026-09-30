@@ -165,8 +165,10 @@ Package paths below are relative to `src/agentfem/`.
   and distributed-reference AABB/BVH paths whose exact leaves preserve the
   same ambiguity and facet-identity contract. The distributed path owns a
   facet shard per rank and reports its all-gather communication rather than
-  claiming scalable routing. Projection-only surfaces are not silently lowered
-  by the bounded plane-contact provider.
+  claiming scalable routing. A second two-stage rank-AABB path performs sparse
+  object all-to-all, reports avoided messages, and remains checked against the
+  all-gather oracle. Projection-only surfaces are not silently lowered by the
+  bounded plane-contact provider.
 - Weak-form blocks: `forms.py`
 - Assembly: `assembly.py`
 - Operator families: `operators/`

@@ -45,6 +45,13 @@ experimental formulation to a validated one.
   point, normal, ambiguity status, facet ID and barycentric coordinates match
   the exhaustive global oracle under two MPI ranks. Communication volume is
   reported explicitly; scalable neighborhood routing remains a later gate.
+- Add deterministic spatial-centroid facet partitioning and a two-stage sparse
+  rank-AABB search. The first exact candidate supplies an upper bound, after
+  which only rank boxes that can still tie or improve it are queried. The
+  routed path is checked against the all-gather oracle for separated queries,
+  partition seams, ambiguity, distance limits and rigid motion. It reports
+  avoided messages and currently labels its Python-object all-to-all transport
+  as an optimization boundary rather than claiming packed production MPI.
 
 ### Fixed
 

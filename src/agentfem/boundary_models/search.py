@@ -148,7 +148,7 @@ class TriangleSurfacePartition:
     global_ambiguity_tolerance: float
     rank: int
     rank_count: int
-    ownership_method: str = "stable_facet_id_round_robin"
+    ownership_method: str = "spatial_centroid_contiguous"
 
     def __post_init__(self) -> None:
         if not isinstance(self.local_surface, TriangulatedRigidSurface):
@@ -325,6 +325,136 @@ class DistributedTriangleSearchOutcome:
 
 
 @dataclass(frozen=True)
+class RoutedTriangleSearchDiagnostics:
+    """Sparse rank-routing evidence for one local query batch."""
+
+    geometry_fingerprint: str
+    rank: int
+    rank_count: int
+    local_query_count: int
+    local_facet_count: int
+    global_facet_count: int
+    phase_one_query_messages: int
+    phase_two_query_messages: int
+    candidate_response_messages: int
+    queried_rank_counts: tuple[int, ...]
+    visited_node_counts: tuple[int, ...]
+    evaluated_facet_counts: tuple[int, ...]
+    estimated_query_payload_bytes: int
+    estimated_candidate_payload_bytes: int
+    method: str = "rank_aabb_two_stage_sparse_routing"
+
+    def __post_init__(self) -> None:
+        fingerprint = str(self.geometry_fingerprint).lower()
+        if len(fingerprint) != 64 or any(
+            character not in "0123456789abcdef" for character in fingerprint
+        ):
+            raise ValueError("Routed diagnostics require a SHA-256 identity.")
+        rank = int(self.rank)
+        rank_count = int(self.rank_count)
+        local_query_count = int(self.local_query_count)
+        if rank_count < 1 or not 0 <= rank < rank_count:
+            raise ValueError("Routed diagnostics require a valid rank.")
+        counts = {
+            "local_query_count": local_query_count,
+            "local_facet_count": int(self.local_facet_count),
+            "global_facet_count": int(self.global_facet_count),
+            "phase_one_query_messages": int(self.phase_one_query_messages),
+            "phase_two_query_messages": int(self.phase_two_query_messages),
+            "candidate_response_messages": int(self.candidate_response_messages),
+            "estimated_query_payload_bytes": int(
+                self.estimated_query_payload_bytes
+            ),
+            "estimated_candidate_payload_bytes": int(
+                self.estimated_candidate_payload_bytes
+            ),
+        }
+        if any(value < 0 for value in counts.values()):
+            raise ValueError("Routed diagnostic counts must be non-negative.")
+        queried = tuple(int(value) for value in self.queried_rank_counts)
+        visited = tuple(int(value) for value in self.visited_node_counts)
+        evaluated = tuple(int(value) for value in self.evaluated_facet_counts)
+        if not (
+            len(queried)
+            == len(visited)
+            == len(evaluated)
+            == local_query_count
+        ):
+            raise ValueError("Routed diagnostics require one record per local query.")
+        if any(value < 1 or value > rank_count for value in queried):
+            raise ValueError("Each routed query must visit one or more valid ranks.")
+        if any(value < 0 for value in (*visited, *evaluated)):
+            raise ValueError("Routed work counts must be non-negative.")
+        if not str(self.method).strip():
+            raise ValueError("Routed diagnostics require a method.")
+        object.__setattr__(self, "geometry_fingerprint", fingerprint)
+        object.__setattr__(self, "rank", rank)
+        object.__setattr__(self, "rank_count", rank_count)
+        for name, value in counts.items():
+            object.__setattr__(self, name, value)
+        object.__setattr__(self, "queried_rank_counts", queried)
+        object.__setattr__(self, "visited_node_counts", visited)
+        object.__setattr__(self, "evaluated_facet_counts", evaluated)
+        object.__setattr__(self, "method", str(self.method))
+
+    @property
+    def avoided_query_messages(self) -> int:
+        return self.local_query_count * self.rank_count - (
+            self.phase_one_query_messages + self.phase_two_query_messages
+        )
+
+    def summary(self) -> dict[str, object]:
+        return {
+            "method": self.method,
+            "geometry_fingerprint": self.geometry_fingerprint,
+            "rank": self.rank,
+            "rank_count": self.rank_count,
+            "local_query_count": self.local_query_count,
+            "local_facet_count": self.local_facet_count,
+            "global_facet_count": self.global_facet_count,
+            "phase_one_query_messages": self.phase_one_query_messages,
+            "phase_two_query_messages": self.phase_two_query_messages,
+            "candidate_response_messages": self.candidate_response_messages,
+            "avoided_query_messages": self.avoided_query_messages,
+            "maximum_queried_ranks": max(self.queried_rank_counts, default=0),
+            "mean_queried_ranks": (
+                float(np.mean(self.queried_rank_counts))
+                if self.queried_rank_counts
+                else 0.0
+            ),
+            "maximum_visited_nodes": max(self.visited_node_counts, default=0),
+            "maximum_evaluated_facets": max(
+                self.evaluated_facet_counts, default=0
+            ),
+            "estimated_query_payload_bytes": self.estimated_query_payload_bytes,
+            "estimated_candidate_payload_bytes": (
+                self.estimated_candidate_payload_bytes
+            ),
+            "distributed_ownership": True,
+            "collective_pattern": "two_stage_sparse_object_alltoall",
+            "packed_numeric_transport": False,
+            "partition_independent_oracle": "allgather_reference_distributed_bvh",
+        }
+
+
+@dataclass(frozen=True)
+class RoutedTriangleSearchOutcome:
+    """Sparse-routed projection and its communication/work evidence."""
+
+    projection: SurfaceProjection
+    diagnostics: RoutedTriangleSearchDiagnostics
+
+    def __post_init__(self) -> None:
+        if self.projection.point_count != self.diagnostics.local_query_count:
+            raise ValueError("Routed projection and diagnostics counts differ.")
+        if (
+            self.projection.geometry_fingerprint
+            != self.diagnostics.geometry_fingerprint
+        ):
+            raise ValueError("Routed projection and diagnostics geometry differ.")
+
+
+@dataclass(frozen=True)
 class _TriangleCandidateBatch:
     closest_points: np.ndarray
     normals: np.ndarray
@@ -455,6 +585,12 @@ class TriangleSurfaceBVH:
     @property
     def node_count(self) -> int:
         return int(self._facet.size)
+
+    @property
+    def bounds(self) -> tuple[np.ndarray, np.ndarray]:
+        """Return immutable lower/upper bounds of the complete local tree."""
+
+        return self._lower[self._root], self._upper[self._root]
 
     def summary(self) -> dict[str, object]:
         return {
@@ -692,6 +828,8 @@ class TriangleSurfaceBVH:
 def partition_triangle_surface(
     surface: TriangulatedRigidSurface,
     comm,
+    *,
+    ownership_method: str = "spatial_centroid_contiguous",
 ) -> TriangleSurfacePartition:
     """Partition a replicated reviewed surface by stable facet identity.
 
@@ -717,8 +855,21 @@ def partition_triangle_surface(
             "Reference triangle partitioning requires at least one facet per rank."
         )
     facet_ids = np.asarray(surface.facet_ids, dtype=np.int64)
-    ordered = np.argsort(facet_ids, kind="stable")
-    owned = ordered[np.arange(facet_count) % rank_count == rank]
+    ownership_method = str(ownership_method)
+    if ownership_method == "spatial_centroid_contiguous":
+        centroids = np.mean(surface.vertices[surface.triangles], axis=1)
+        ordered = np.lexsort(
+            (facet_ids, centroids[:, 2], centroids[:, 1], centroids[:, 0])
+        )
+        owned = np.array_split(ordered, rank_count)[rank]
+    elif ownership_method == "stable_facet_id_round_robin":
+        ordered = np.argsort(facet_ids, kind="stable")
+        owned = ordered[np.arange(facet_count) % rank_count == rank]
+    else:
+        raise ValueError(
+            "Triangle ownership method must be 'spatial_centroid_contiguous' "
+            "or 'stable_facet_id_round_robin'."
+        )
     owned = owned[np.argsort(facet_ids[owned], kind="stable")]
     global_triangles = np.asarray(surface.triangles[owned], dtype=np.int64)
     used_vertices = np.unique(global_triangles.reshape(-1))
@@ -751,6 +902,7 @@ def partition_triangle_surface(
         global_ambiguity_tolerance=surface.ambiguity_tolerance,
         rank=rank,
         rank_count=rank_count,
+        ownership_method=ownership_method,
     )
 
 
@@ -830,6 +982,134 @@ def _merge_distributed_candidates(
             sum(batch.evaluated_facet_counts[index] for batch in batches)
             for index in range(count)
         ),
+    )
+
+
+def _exchange_routed_queries(
+    *,
+    comm,
+    local_search: TriangleSurfaceBVH,
+    outgoing: list[list[tuple[int, int, float, float, float]]],
+    maximum_distance: float | None,
+    ambiguity_tolerance: float,
+    normal_scale: float,
+) -> list[tuple[object, ...]]:
+    received_groups = comm.alltoall(outgoing)
+    received = [record for group in received_groups for record in group]
+    points = (
+        np.asarray([record[2:5] for record in received], dtype=float)
+        if received
+        else np.empty((0, 3), dtype=float)
+    )
+    candidates = local_search._candidate_evidence(
+        points,
+        maximum_distance,
+        ambiguity_tolerance=ambiguity_tolerance,
+        normal_scale=normal_scale,
+    )
+    responses: list[list[tuple[object, ...]]] = [
+        [] for _ in range(int(comm.size))
+    ]
+    for record_index, request in enumerate(received):
+        origin_rank, origin_index = int(request[0]), int(request[1])
+        responses[origin_rank].append(
+            (
+                origin_index,
+                int(comm.rank),
+                bool(candidates.has_candidate[record_index]),
+                bool(candidates.ambiguous[record_index]),
+                float(candidates.squared_distances[record_index]),
+                int(candidates.entity_ids[record_index]),
+                tuple(float(value) for value in candidates.closest_points[record_index]),
+                tuple(float(value) for value in candidates.normals[record_index]),
+                tuple(
+                    float(value) for value in candidates.local_coordinates[record_index]
+                ),
+                int(candidates.visited_node_counts[record_index]),
+                int(candidates.evaluated_facet_counts[record_index]),
+            )
+        )
+    returned_groups = comm.alltoall(responses)
+    return [record for group in returned_groups for record in group]
+
+
+def _merge_routed_candidate_records(
+    records: list[tuple[object, ...]],
+    *,
+    query_count: int,
+    ambiguity_tolerance: float,
+    normal_scale: float,
+) -> _TriangleCandidateBatch:
+    grouped: list[list[tuple[object, ...]]] = [[] for _ in range(query_count)]
+    for record in records:
+        index = int(record[0])
+        if index < 0 or index >= query_count:
+            raise ValueError("Routed candidate references an invalid query index.")
+        grouped[index].append(record)
+
+    closest = np.full((query_count, 3), np.nan, dtype=float)
+    normals = np.full((query_count, 3), np.nan, dtype=float)
+    squared_distances = np.full(query_count, np.inf, dtype=float)
+    has_candidate = np.zeros(query_count, dtype=bool)
+    ambiguous = np.zeros(query_count, dtype=bool)
+    entity_ids = np.full(query_count, -1, dtype=np.int64)
+    local_coordinates = np.full((query_count, 3), np.nan, dtype=float)
+    visited: list[int] = []
+    evaluated: list[int] = []
+    ambiguity_squared = float(ambiguity_tolerance) ** 2
+    normal_tolerance = float(ambiguity_tolerance) / float(normal_scale)
+
+    for point_index, point_records in enumerate(grouped):
+        if not point_records:
+            raise ValueError("Every routed query requires at least one response.")
+        if len({int(record[1]) for record in point_records}) != len(point_records):
+            raise ValueError("A routed query received duplicate rank responses.")
+        visited.append(sum(int(record[9]) for record in point_records))
+        evaluated.append(sum(int(record[10]) for record in point_records))
+        participating = [record for record in point_records if bool(record[2])]
+        if not participating:
+            continue
+        minimum = min(float(record[4]) for record in participating)
+        tied = [
+            record
+            for record in participating
+            if float(record[4])
+            <= np.nextafter(minimum + ambiguity_squared, np.inf)
+        ]
+        selected = min(tied, key=lambda record: int(record[5]))
+        selected_point = np.asarray(selected[6], dtype=float)
+        selected_normal = np.asarray(selected[7], dtype=float)
+        has_candidate[point_index] = True
+        closest[point_index] = selected_point
+        normals[point_index] = selected_normal
+        squared_distances[point_index] = minimum
+        entity_ids[point_index] = int(selected[5])
+        local_coordinates[point_index] = np.asarray(selected[8], dtype=float)
+        if any(bool(record[3]) for record in tied):
+            ambiguous[point_index] = True
+            continue
+        same_point = all(
+            np.linalg.norm(np.asarray(record[6], dtype=float) - selected_point)
+            <= ambiguity_tolerance
+            for record in tied
+        )
+        same_normal = all(
+            np.linalg.norm(np.asarray(record[7], dtype=float) - selected_normal)
+            <= normal_tolerance
+            for record in tied
+        )
+        ambiguous[point_index] = not (same_point and same_normal)
+
+    return _TriangleCandidateBatch(
+        closest_points=closest,
+        normals=normals,
+        squared_distances=squared_distances,
+        has_candidate=has_candidate,
+        ambiguous=ambiguous,
+        entity_ids=entity_ids,
+        local_coordinates=local_coordinates,
+        visited_node_counts=tuple(visited),
+        evaluated_facet_counts=tuple(evaluated),
     )
 
 
@@ -1071,6 +1351,304 @@ class DistributedTriangleSurfaceBVH:
         return self.project_with_diagnostics(points, **kwargs).projection
 
 
+class RoutedDistributedTriangleSurfaceBVH:
+    """Two-stage sparse rank-AABB routing over partitioned triangle facets.
+
+    The first phase asks the rank with the smallest bounding-box lower bound
+    for an exact candidate.  That distance becomes an upper bound; the second
+    phase asks only ranks whose boxes can still tie or improve it.  Exact
+    candidates are reduced with the same ambiguity semantics as the all-gather
+    oracle.  Transport currently uses Python-object ``alltoall`` and is
+    reported as such; packed numeric ``Alltoallv`` remains a later optimization.
+    """
+
+    def __init__(self, partition: TriangleSurfacePartition, comm):
+        self._reference = DistributedTriangleSurfaceBVH(partition, comm)
+        self._partition = partition
+        self._comm = comm
+        self._local_search = self._reference._local_search
+        local_lower, local_upper = self._local_search.bounds
+        gathered_bounds = tuple(
+            comm.allgather(
+                (
+                    tuple(float(value) for value in local_lower),
+                    tuple(float(value) for value in local_upper),
+                )
+            )
+        )
+        self._rank_lowers = _readonly_array(
+            [value[0] for value in gathered_bounds]
+        )
+        self._rank_uppers = _readonly_array(
+            [value[1] for value in gathered_bounds]
+        )
+
+    @property
+    def partition(self) -> TriangleSurfacePartition:
+        return self._partition
+
+    @property
+    def correctness_oracle(self) -> DistributedTriangleSurfaceBVH:
+        """Return the all-gather reference using the identical local shard."""
+
+        return self._reference
+
+    def summary(self) -> dict[str, object]:
+        return {
+            "kind": "routed_distributed_triangle_surface_bvh",
+            "method": "rank_aabb_two_stage_sparse_routing",
+            "global_geometry_fingerprint": (
+                self.partition.global_geometry_fingerprint
+            ),
+            "global_facet_count": self.partition.global_facet_count,
+            "local_facet_count": int(
+                self.partition.local_surface.triangles.shape[0]
+            ),
+            "rank": self.partition.rank,
+            "rank_count": self.partition.rank_count,
+            "distributed_ownership": True,
+            "retains_replicated_global_geometry": False,
+            "collective_pattern": "two_stage_sparse_object_alltoall",
+            "packed_numeric_transport": False,
+            "exact_narrow_phase": "reviewed_triangle_closest_point",
+            "partition_independent_oracle": (
+                "allgather_reference_distributed_bvh"
+            ),
+        }
+
+    def project_with_diagnostics(
+        self,
+        points,
+        *,
+        motion: PrescribedRigidMotion | None = None,
+        factor: float = 0.0,
+        maximum_distance: float | None = None,
+    ) -> RoutedTriangleSearchOutcome:
+        error = None
+        try:
+            query = _projection_query(
+                points,
+                dimension=3,
+                geometry="Routed distributed triangle-surface BVH",
+            )
+            selected_factor = float(factor)
+            if not np.isfinite(selected_factor):
+                raise ValueError("Rigid-motion factor must be finite.")
+            selected_maximum = (
+                None
+                if maximum_distance is None
+                else _finite_nonnegative(
+                    maximum_distance,
+                    name="Maximum projection distance",
+                )
+            )
+            if motion is not None and not isinstance(motion, PrescribedRigidMotion):
+                raise TypeError("Rigid motion must be PrescribedRigidMotion.")
+            motion_identity = (
+                None
+                if motion is None
+                else (
+                    tuple(motion.translation),
+                    tuple(motion.rotation),
+                    tuple(motion.reference_point),
+                    motion.name,
+                )
+            )
+        except (TypeError, ValueError) as exc:
+            error = f"{type(exc).__name__}: {exc}"
+            query = np.empty((0, 3), dtype=float)
+            selected_factor = 0.0
+            selected_maximum = None
+            motion_identity = None
+        errors = tuple(self._comm.allgather(error))
+        if any(value is not None for value in errors):
+            raise ValueError(
+                "Routed triangle query validation failed collectively: "
+                + "; ".join(
+                    f"rank {rank}: {value}"
+                    for rank, value in enumerate(errors)
+                    if value is not None
+                )
+            )
+        configs = tuple(
+            self._comm.allgather(
+                (selected_factor, selected_maximum, motion_identity)
+            )
+        )
+        if any(config != configs[0] for config in configs[1:]):
+            raise ValueError(
+                "Routed triangle search requires identical motion and distance "
+                "configuration on every rank."
+            )
+
+        if motion is None:
+            query_reference = query
+            rotation = np.eye(3, dtype=float)
+            reference = np.zeros(3, dtype=float)
+            translated_reference = reference
+        else:
+            if motion.dimension != 3:
+                raise ValueError("Triangulated surface motion must be three-dimensional.")
+            state = motion.state(selected_factor)
+            rotation = np.asarray(state["rotation_matrix"], dtype=float)
+            reference = np.asarray(motion.reference_point, dtype=float)
+            translated_reference = np.asarray(state["reference_point"], dtype=float)
+            query_reference = reference + (query - translated_reference) @ rotation
+
+        query_count = int(query_reference.shape[0])
+        rank_count = self.partition.rank_count
+        first_ranks = np.empty(query_count, dtype=np.int64)
+        lower_bounds = np.empty((query_count, rank_count), dtype=float)
+        phase_one_outgoing: list[list[tuple[int, int, float, float, float]]] = [
+            [] for _ in range(rank_count)
+        ]
+        for point_index, point in enumerate(query_reference):
+            lower_bounds[point_index] = [
+                _bbox_squared_distance(point, lower, upper)
+                for lower, upper in zip(self._rank_lowers, self._rank_uppers)
+            ]
+            first_rank = int(np.argmin(lower_bounds[point_index]))
+            first_ranks[point_index] = first_rank
+            phase_one_outgoing[first_rank].append(
+                (
+                    self.partition.rank,
+                    point_index,
+                    float(point[0]),
+                    float(point[1]),
+                    float(point[2]),
+                )
+            )
+        phase_one_records = _exchange_routed_queries(
+            comm=self._comm,
+            local_search=self._local_search,
+            outgoing=phase_one_outgoing,
+            maximum_distance=selected_maximum,
+            ambiguity_tolerance=self.partition.global_ambiguity_tolerance,
+            normal_scale=self.partition.global_scale,
+        )
+        if len(phase_one_records) != query_count:
+            raise ValueError("Routed phase one must return one candidate per query.")
+        phase_one_by_index = {int(record[0]): record for record in phase_one_records}
+        if len(phase_one_by_index) != query_count:
+            raise ValueError("Routed phase one returned duplicate query evidence.")
+        maximum_squared = (
+            float("inf")
+            if selected_maximum is None
+            else float(selected_maximum) ** 2
+        )
+        ambiguity_squared = self.partition.global_ambiguity_tolerance**2
+        phase_two_outgoing: list[list[tuple[int, int, float, float, float]]] = [
+            [] for _ in range(rank_count)
+        ]
+        for point_index, point in enumerate(query_reference):
+            initial = phase_one_by_index[point_index]
+            upper_bound = (
+                float(initial[4]) if bool(initial[2]) else maximum_squared
+            )
+            threshold = np.nextafter(upper_bound + ambiguity_squared, np.inf)
+            for destination in range(rank_count):
+                if destination == int(first_ranks[point_index]):
+                    continue
+                if lower_bounds[point_index, destination] <= threshold:
+                    phase_two_outgoing[destination].append(
+                        (
+                            self.partition.rank,
+                            point_index,
+                            float(point[0]),
+                            float(point[1]),
+                            float(point[2]),
+                        )
+                    )
+        phase_two_records = _exchange_routed_queries(
+            comm=self._comm,
+            local_search=self._local_search,
+            outgoing=phase_two_outgoing,
+            maximum_distance=selected_maximum,
+            ambiguity_tolerance=self.partition.global_ambiguity_tolerance,
+            normal_scale=self.partition.global_scale,
+        )
+        records = phase_one_records + phase_two_records
+        merged = _merge_routed_candidate_records(
+            records,
+            query_count=query_count,
+            ambiguity_tolerance=self.partition.global_ambiguity_tolerance,
+            normal_scale=self.partition.global_scale,
+        )
+        (
+            closest,
+            normals,
+            gaps,
+            valid,
+            statuses,
+            entity_ids,
+            local_coordinates,
+        ) = _projection_arrays_from_candidates(query_reference, merged)
+        if motion is not None:
+            closest[valid] = (
+                translated_reference + (closest[valid] - reference) @ rotation.T
+            )
+            normals[valid] = normals[valid] @ rotation.T
+        projection = SurfaceProjection(
+            surface_name=self.partition.global_surface_name,
+            surface_kind="triangulated_rigid_surface",
+            query_points=query,
+            closest_points=closest,
+            normals=normals,
+            signed_gaps=gaps,
+            valid=valid,
+            status_codes=statuses,
+            method="routed_distributed_aabb_bvh_exact_triangle_projection",
+            entity_ids=entity_ids,
+            geometry_fingerprint=self.partition.global_geometry_fingerprint,
+            local_coordinates=local_coordinates,
+            local_coordinate_system="triangle_barycentric_connectivity_order",
+        )
+        queried_rank_counts = tuple(
+            1
+            + sum(
+                int(record[0]) == point_index for record in phase_two_records
+            )
+            for point_index in range(query_count)
+        )
+        query_messages = query_count + len(phase_two_records)
+        diagnostics = RoutedTriangleSearchDiagnostics(
+            geometry_fingerprint=self.partition.global_geometry_fingerprint,
+            rank=self.partition.rank,
+            rank_count=rank_count,
+            local_query_count=query_count,
+            local_facet_count=int(
+                self.partition.local_surface.triangles.shape[0]
+            ),
+            global_facet_count=self.partition.global_facet_count,
+            phase_one_query_messages=query_count,
+            phase_two_query_messages=len(phase_two_records),
+            candidate_response_messages=len(records),
+            queried_rank_counts=queried_rank_counts,
+            visited_node_counts=merged.visited_node_counts,
+            evaluated_facet_counts=merged.evaluated_facet_counts,
+            estimated_query_payload_bytes=query_messages * 40,
+            estimated_candidate_payload_bytes=len(records) * 122,
+        )
+        return RoutedTriangleSearchOutcome(projection, diagnostics)
+
+    def project(
+        self,
+        points,
+        *,
+        motion: PrescribedRigidMotion | None = None,
+        factor: float = 0.0,
+        maximum_distance: float | None = None,
+    ) -> SurfaceProjection:
+        """Project rank-local points through sparse two-stage routing."""
+
+        return self.project_with_diagnostics(
+            points,
+            motion=motion,
+            factor=factor,
+            maximum_distance=maximum_distance,
+        ).projection
+
+
 def distributed_triangle_surface_bvh(
     partition: TriangleSurfacePartition,
     comm,
@@ -1078,6 +1656,15 @@ def distributed_triangle_surface_bvh(
     """Build the correctness-reference collective search for one partition."""
 
     return DistributedTriangleSurfaceBVH(partition, comm)
+
+
+def routed_distributed_triangle_surface_bvh(
+    partition: TriangleSurfacePartition,
+    comm,
+) -> RoutedDistributedTriangleSurfaceBVH:
+    """Build sparse two-stage rank-AABB routing for one partition."""
+
+    return RoutedDistributedTriangleSurfaceBVH(partition, comm)
 
 
 def triangle_surface_bvh(surface: TriangulatedRigidSurface) -> TriangleSurfaceBVH:
@@ -1090,11 +1677,15 @@ __all__ = [
     "DistributedTriangleSearchDiagnostics",
     "DistributedTriangleSearchOutcome",
     "DistributedTriangleSurfaceBVH",
+    "RoutedDistributedTriangleSurfaceBVH",
+    "RoutedTriangleSearchDiagnostics",
+    "RoutedTriangleSearchOutcome",
     "TriangleSearchDiagnostics",
     "TriangleSearchOutcome",
     "TriangleSurfacePartition",
     "TriangleSurfaceBVH",
     "distributed_triangle_surface_bvh",
     "partition_triangle_surface",
+    "routed_distributed_triangle_surface_bvh",
     "triangle_surface_bvh",
 ]

@@ -710,12 +710,16 @@ and evidence remain in the linked guides and scientific function reference.
 | class | `DistributedTriangleSearchDiagnostics` | Communication and local-work evidence for the reference MPI search. |
 | class | `DistributedTriangleSearchOutcome` | Distributed projection paired with explicit communication evidence. |
 | class | `DistributedTriangleSurfaceBVH(partition: TriangleSurfacePartition, comm)` | Correctness-first collective search over partitioned triangle facets. |
+| class | `RoutedDistributedTriangleSurfaceBVH(partition: TriangleSurfacePartition, comm)` | Two-stage sparse rank-AABB routing over partitioned triangle facets. |
+| class | `RoutedTriangleSearchDiagnostics` | Sparse rank-routing evidence for one local query batch. |
+| class | `RoutedTriangleSearchOutcome` | Sparse-routed projection and its communication/work evidence. |
 | class | `TriangleSearchDiagnostics` | Per-query work evidence for one immutable triangle BVH. |
 | class | `TriangleSearchOutcome` | Projection evidence paired with broad-phase work diagnostics. |
 | class | `TriangleSurfacePartition` | One deterministic facet shard of a globally identified rigid surface. |
 | class | `TriangleSurfaceBVH(surface: TriangulatedRigidSurface)` | Immutable deterministic AABB tree over a reviewed triangle surface. |
 | function | `distributed_triangle_surface_bvh(partition: TriangleSurfacePartition, comm) -> DistributedTriangleSurfaceBVH` | Build the correctness-reference collective search for one partition. |
-| function | `partition_triangle_surface(surface: TriangulatedRigidSurface, comm) -> TriangleSurfacePartition` | Partition a replicated reviewed surface by stable facet identity. |
+| function | `partition_triangle_surface(surface: TriangulatedRigidSurface, comm, *, ownership_method: str = 'spatial_centroid_contiguous') -> TriangleSurfacePartition` | Partition a replicated reviewed surface by stable facet identity. |
+| function | `routed_distributed_triangle_surface_bvh(partition: TriangleSurfacePartition, comm) -> RoutedDistributedTriangleSurfaceBVH` | Build sparse two-stage rank-AABB routing for one partition. |
 | function | `triangle_surface_bvh(surface: TriangulatedRigidSurface) -> TriangleSurfaceBVH` | Build a deterministic process-local BVH for one reviewed surface. |
 | class | `ConvectionBoundary` | Linear convection ``-k grad(T).n = h (T - T_inf)``. |
 | function | `convection(*, on = None, location = None, coefficient, ambient_temperature, name: str = 'convection') -> ConvectionBoundary` | Create a linear thermal convection boundary condition. |
