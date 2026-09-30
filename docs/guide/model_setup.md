@@ -353,9 +353,14 @@ force--translation and moment--rotation pairs by the trapezoidal rule. Rejected
 increments discard their trial station; checkpoints retain only the accepted
 path and verify the schedule identity before restore. The same record appears
 in the residual summary and therefore in the Step/SimulationResult evidence.
-This bounded route still does not claim automatic contact spectral estimation,
-finite sliding over changing surface entities, friction, multiple pairs, free
-rigid-body dynamics, or an implicit consistent tangent.
+Several bounded analytical contact pairs can be composed by using one contact
+residual as the next pair's base residual. Time updates, commit/rollback,
+per-pair evidence, summed contact potential/work, and nested checkpoint State
+then follow the same residual chain; every pair should have a distinct name
+and schedule identity. This route still does not claim automatic contact
+spectral estimation, finite sliding over changing surface entities, general
+multi-surface search, friction, free rigid-body dynamics, or an implicit
+consistent tangent.
 
 The parallel vector ordering follows PETSc's finite-element contract:
 [`ADD_VALUES` with reverse scatter](https://petsc.org/release/manual/vec/)

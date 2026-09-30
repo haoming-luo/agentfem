@@ -158,7 +158,10 @@ bind the schedule identity and restore the accepted path while recomputing the
 memoryless projection. A caller-supplied contact stability ceiling remains
 mandatory; automatic spectral estimation has not been claimed. This closes
 bounded moving-plane explicit work, not general contact, finite sliding,
-multiple pairs, friction, or implicit Newton linearization.
+distributed multi-surface search, friction, or implicit Newton linearization.
+Multiple bounded analytical pairs already compose through the residual chain,
+including time propagation, atomic trial decisions, summed energy/work, and
+nested checkpoint State.
 
 Gate 5 now has an executable checkpoint capability contract. Procedures must
 separately declare the durable payload scope, accepted save boundary, atomic
@@ -257,9 +260,10 @@ identity remains required before a discrete-surface projection state can claim
 MPI-portable restart. The analytical-plane explicit residual hand-off now
 supports fixed or proportional prescribed motion, a mandatory declared
 stability ceiling, rank-canonical force--moment--work evidence, and
-accepted-path restart. Multiple pairs, finite sliding over discrete surface
-entities, scalable portable projection State, and finally friction follow that
-bounded route. STEP
+accepted-path restart. Bounded analytical pairs now compose with independent
+identity and summed energy evidence. Distributed multi-surface candidate
+routing, finite sliding over discrete surface entities, scalable portable
+projection State, and finally friction follow that bounded route. STEP
 remains an optional geometry-adapter input that is repaired and tessellated
 before the contact core consumes it. Shell/solid-shell forming and self-contact
 remain later scientific promotions, not hidden extensions of the bounded

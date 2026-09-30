@@ -229,7 +229,10 @@ class DolfinxExplicitContactResidual:
             if motion_schedule is None
             else PrescribedContactWorkState(identity=self._work_identity())
         )
-        self.checkpoint_state_required = motion_schedule is not None
+        self.checkpoint_state_required = bool(
+            motion_schedule is not None
+            or getattr(base, "checkpoint_state_required", False)
+        )
 
     @property
     def communicator(self):
@@ -254,6 +257,8 @@ class DolfinxExplicitContactResidual:
         selected = float(time_value)
         if not np.isfinite(selected) or selected < 0.0:
             raise ValueError("Explicit contact time must be finite and non-negative.")
+        if hasattr(self.base, "update_time"):
+            self.base.update_time(selected)
         self.current_time = selected
         self.current_motion_factor = (
             0.0
@@ -374,15 +379,21 @@ class DolfinxExplicitContactResidual:
         )
 
     def initialize_accepted_state(self, *, time: float = 0.0) -> None:
-        """Seed the prescribed-motion work ledger at an accepted boundary."""
+        """Seed contact energy/work evidence at an accepted boundary."""
 
-        if self.work_state is None or self.work_state.accepted:
+        if hasattr(self.base, "initialize_accepted_state"):
+            self.base.initialize_accepted_state(time=time)
+        if (
+            (self.work_state is None and self.accepted_evidence is not None)
+            or (self.work_state is not None and self.work_state.accepted)
+        ):
             return
         self.update_time(time)
         try:
             assembly, response = self._collective_local_contact()
             evidence = self._global_evidence(assembly, response)
-            self.work_state.initialize(self._work_station(evidence))
+            if self.work_state is not None:
+                self.work_state.initialize(self._work_station(evidence))
             self.accepted_evidence = evidence
         finally:
             # Projection is memoryless; only the accepted work station is durable.
@@ -473,7 +484,7 @@ class DolfinxExplicitContactResidual:
         if self.trial_evidence is not None or self.lifecycle.state.trial is not None:
             raise RuntimeError("Explicit contact can only checkpoint an accepted boundary.")
         snapshot = {
-            "schema": "agentfem.dolfinx-explicit-contact-residual.v1",
+            "schema": "agentfem.dolfinx-explicit-contact-residual.v2",
             "name": self.name,
             "motion_schedule": (
                 None
@@ -489,12 +500,36 @@ class DolfinxExplicitContactResidual:
                 if self.accepted_evidence is None
                 else self.accepted_evidence.summary()
             ),
+            "base_state": (
+                self.base.snapshot() if hasattr(self.base, "snapshot") else None
+            ),
         }
         encoded = _canonical_json(snapshot)
         copies = tuple(self.communicator.allgather(encoded))
         if any(item != copies[0] for item in copies[1:]):
             raise RuntimeError("Explicit contact checkpoint State differs across MPI ranks.")
         return snapshot
+
+    def contact_energy_evidence(self) -> tuple[dict[str, object], ...]:
+        """Return accepted per-pair terms for the shared dynamic energy ledger."""
+
+        nested = getattr(self.base, "contact_energy_evidence", None)
+        terms = list(nested()) if callable(nested) else []
+        if self.accepted_evidence is None:
+            raise RuntimeError(
+                f"Explicit contact pair {self.name!r} has no accepted energy evidence."
+            )
+        terms.append(
+            {
+                "name": self.name,
+                "contact_potential_energy": self.accepted_evidence.potential_energy,
+                "contact_motion_work": (
+                    0.0 if self.work_state is None else self.work_state.path_work
+                ),
+                "moving": self.work_state is not None,
+            }
+        )
+        return tuple(terms)
 
     def restore(self, snapshot: object) -> None:
         """Restore accepted work evidence without restoring stale projections."""
@@ -506,11 +541,12 @@ class DolfinxExplicitContactResidual:
             "work_state",
             "accepted_evaluations",
             "accepted_evidence",
+            "base_state",
         }
         if (
             not isinstance(snapshot, dict)
             or snapshot.get("schema")
-            != "agentfem.dolfinx-explicit-contact-residual.v1"
+            != "agentfem.dolfinx-explicit-contact-residual.v2"
             or set(snapshot) != required
         ):
             raise ValueError("Unsupported explicit-contact residual snapshot.")
@@ -522,12 +558,17 @@ class DolfinxExplicitContactResidual:
         ) != _canonical_json(expected_schedule):
             raise ValueError("Explicit-contact checkpoint identity differs.")
         raw_work = snapshot["work_state"]
+        validated_work = None
         if self.work_state is None:
             if raw_work is not None:
                 raise ValueError("Fixed contact cannot restore moving-contact work State.")
         else:
             if raw_work is None:
                 raise ValueError("Moving contact checkpoint lacks its work State.")
+            validated_work = PrescribedContactWorkState(
+                identity=self.work_state.identity
+            )
+            validated_work.restore(raw_work)
         count = int(snapshot["accepted_evaluations"])
         if count < 0:
             raise ValueError("Accepted explicit-contact evaluation count is invalid.")
@@ -537,11 +578,28 @@ class DolfinxExplicitContactResidual:
             if raw_evidence is None
             else ExplicitContactEvidence.from_summary(raw_evidence)
         )
-        # Restore the transactional State only after every other field has
-        # passed validation, so corrupt auxiliary data cannot partially mutate
-        # an otherwise usable Step.
+        raw_base = snapshot["base_state"]
+        base_restore = getattr(self.base, "restore", None)
+        if raw_base is not None and not callable(base_restore):
+            raise ValueError(
+                "Explicit-contact checkpoint has nested residual State, but the "
+                "current base residual cannot restore it."
+            )
+        if raw_base is None and getattr(
+            self.base,
+            "checkpoint_state_required",
+            False,
+        ):
+            raise ValueError(
+                "Explicit-contact checkpoint lacks required nested residual State."
+            )
+        # Every outer field is validated before nested State is allowed to
+        # mutate. The local work assignment below is then infallible.
+        if raw_base is not None:
+            base_restore(raw_base)
         if self.work_state is not None:
-            self.work_state.restore(raw_work)
+            self.work_state.accepted = list(validated_work.accepted)
+            self.work_state.trial = None
         self.accepted_evaluations = count
         self.accepted_evidence = evidence
         self.lifecycle.state.rollback()

@@ -3289,6 +3289,10 @@ class DynamicEnergyLedger:
             )
         return current, natural, prescribed_force
 
+    def _contact_terms(self) -> tuple[dict[str, object], ...]:
+        provider = getattr(self.residual, "contact_energy_evidence", None)
+        return tuple(provider()) if callable(provider) else ()
+
     @staticmethod
     def _global_dot(displacement, left, right) -> float:
         function = field_api.unwrap(displacement)
@@ -3312,17 +3316,20 @@ class DynamicEnergyLedger:
             raise ValueError(
                 "Dynamic energy restart lacks channels: " + ", ".join(missing)
             )
-        contact_state = getattr(self.residual, "work_state", None)
-        if contact_state is not None:
+        contact_terms = self._contact_terms()
+        if any(bool(item["moving"]) for item in contact_terms):
             if "contact_motion_work" not in history_record:
                 raise ValueError(
                     "Dynamic energy restart lacks contact_motion_work for a "
                     "moving-contact residual."
                 )
             restored_work = float(history_record["contact_motion_work"])
+            provider_work = sum(
+                float(item["contact_motion_work"]) for item in contact_terms
+            )
             if not np.isclose(
                 restored_work,
-                float(contact_state.path_work),
+                provider_work,
                 rtol=1.0e-12,
                 atol=1.0e-14,
             ):
@@ -3378,9 +3385,9 @@ class DynamicEnergyLedger:
         self._previous_displacement = current
         self._previous_natural_force = natural
         self._previous_prescribed_force = prescribed_force
-        contact_state = getattr(self.residual, "work_state", None)
-        contact_work = (
-            0.0 if contact_state is None else float(contact_state.path_work)
+        contact_terms = self._contact_terms()
+        contact_work = sum(
+            float(item["contact_motion_work"]) for item in contact_terms
         )
         external = self._natural_work + self._prescribed_work + contact_work
         values = {
@@ -3388,7 +3395,7 @@ class DynamicEnergyLedger:
             "prescribed_motion_work": self._prescribed_work,
             "external_work": external,
         }
-        if contact_state is not None:
+        if any(bool(item["moving"]) for item in contact_terms):
             values["contact_motion_work"] = contact_work
         return values
 
@@ -3403,14 +3410,11 @@ class DynamicEnergyLedger:
             displacement=displacement,
             velocity=velocity,
         )
-        contact_state = getattr(self.residual, "work_state", None)
-        if contact_state is not None:
-            evidence = getattr(self.residual, "accepted_evidence", None)
-            if evidence is None:
-                raise RuntimeError(
-                    "Moving contact energy requires accepted contact evidence."
-                )
-            contact_potential = float(evidence.potential_energy)
+        contact_terms = self._contact_terms()
+        if contact_terms:
+            contact_potential = sum(
+                float(item["contact_potential_energy"]) for item in contact_terms
+            )
             values["contact_potential_energy"] = contact_potential
             values["accounted_internal_kinetic_energy"] = (
                 self._accounted(values) + contact_potential

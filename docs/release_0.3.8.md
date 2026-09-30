@@ -35,12 +35,15 @@ predicted displacement, publishes MPI-global force and moment, integrates only
 accepted force--translation/moment--rotation stations, rolls failed increments
 back, and restores the accepted work path from transient checkpoints. Serial
 restart and two-rank canonical-State tests protect that lifecycle. The caller
-still owns a conservative contact stability ceiling.
+still owns a conservative contact stability ceiling. Bounded analytical pairs
+compose through the residual chain: accepted time, rollback, per-pair
+force/moment, summed work/potential, and nested restart propagate without a
+forming-specific solver.
 
-General moving-surface search, finite sliding across changing facets, multiple
-contact pairs, friction, free rigid-body dynamics, deformable-to-deformable
-contact, and forming are not inferred from this evidence. They remain explicit
-future capabilities.
+General moving-surface search, finite sliding across changing facets,
+distributed multi-surface candidate routing, friction, free rigid-body
+dynamics, deformable-to-deformable contact, and forming are not inferred from
+this evidence. They remain explicit future capabilities.
 
 The 0.4 foundation work now also defines a solver-neutral accepted/trial
 closest-point State. It keeps stable 64-bit contact-point and surface-facet

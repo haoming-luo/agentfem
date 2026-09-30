@@ -395,6 +395,101 @@ def test_moving_contact_transient_checkpoint_matches_uninterrupted_run(tmp_path)
     assert restarted.history_records == continuous.history_records
 
 
+def test_composed_contact_pairs_share_time_work_energy_and_restart():
+    class ZeroBodyEnergy:
+        def evaluate(self, *, displacement, velocity):
+            return {"total_mechanical_energy": 0.0}
+
+    inner_schedule = boundary_models.prescribed_rigid_motion_schedule(
+        boundary_models.prescribed_rigid_motion(
+            translation=(0.02, 0.0, 0.0),
+            name="inner_motion",
+        ),
+        end_time=1.0e-3,
+        name="inner_schedule",
+    )
+    outer_schedule = boundary_models.prescribed_rigid_motion_schedule(
+        boundary_models.prescribed_rigid_motion(
+            translation=(0.01, 0.0, 0.0),
+            name="outer_motion",
+        ),
+        end_time=1.0e-3,
+        name="outer_schedule",
+    )
+
+    def build_step():
+        domain, displacement, inner = _contact(
+            MPI.COMM_SELF,
+            motion_schedule=inner_schedule,
+        )
+        outer_adapter = boundary_models.dolfinx_boundary_region_contact_trace(
+            _left_region(domain),
+            displacement.function_space,
+        )
+        outer = boundary_models.dolfinx_explicit_contact_residual(
+            inner,
+            adapter=outer_adapter,
+            displacement=displacement,
+            projector=boundary_models.rigid_plane(
+                point=(0.04, 0.0, 0.0),
+                normal=(-1.0, 0.0, 0.0),
+                name="outer_plane",
+            ),
+            penalty=100.0,
+            maximum_stable_time_increment=1.0e-3,
+            motion_schedule=outer_schedule,
+            name="outer_contact",
+        )
+        state = problems.second_order_state(displacement)
+        diagonal = np.ones(displacement.x.array.shape, dtype=float)
+        mass = operators.LumpedMassOperator(mass=diagonal, inv_mass=diagonal)
+        integrator = time.explicit.central_difference(state=state, mass=mass)
+        ledger = fracture.DynamicEnergyLedger(
+            energy=ZeroBodyEnergy(),
+            state=state,
+            mass=mass,
+            residual=outer,
+        )
+        step = problems.explicit_dynamics(
+            state=state,
+            integrator=integrator,
+            residual=outer,
+            dt=5.0e-4,
+            steps=1,
+            progress=False,
+            history_monitor=ledger,
+        )
+        return step, outer
+
+    step, residual = build_step()
+    step.run()
+
+    terms = residual.contact_energy_evidence()
+    assert [item["name"] for item in terms] == [
+        "dolfinx_explicit_contact_residual",
+        "outer_contact",
+    ]
+    assert sum(item["contact_motion_work"] for item in terms) == pytest.approx(
+        -0.11875
+    )
+    accepted = step.history_records[-1]
+    assert accepted["contact_motion_work"] == pytest.approx(-0.11875)
+    assert accepted["contact_potential_energy"] == pytest.approx(0.31125)
+    assert accepted["energy_balance_error"] == pytest.approx(0.0, abs=1.0e-14)
+    result = step.solve_result()
+    assert result.histories["contact_motion_work"].latest == pytest.approx(-0.11875)
+    assert result.histories["contact_potential_energy"].latest == pytest.approx(
+        0.31125
+    )
+    assert result.metadata["step"]["residual"]["name"] == "outer_contact"
+
+    snapshot = residual.snapshot()
+    _restored_step, restored = build_step()
+    restored.restore(snapshot)
+    assert restored.snapshot() == snapshot
+    assert restored.contact_energy_evidence() == terms
+
+
 def test_explicit_contact_residual_preserves_global_force_under_mpi():
     if MPI.COMM_WORLD.size != 2:
         pytest.skip("Explicit contact residual is reviewed on two ranks.")
