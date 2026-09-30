@@ -145,6 +145,7 @@ class FiniteSlidingSolidBridge:
     preload_steps: int
     sliding_steps: int
     cells: tuple[int, int, int]
+    surface_representation: str = "triangulated_piecewise_planar"
     preload_force_tolerance: float = 1.0e-6
     energy_tolerance: float = 1.0e-3
 
@@ -173,6 +174,7 @@ class FiniteSlidingSolidBridge:
             "external_reference": self.reference.identifier,
             "comparison_level": "public_protocol_bridge_not_b31_reproduction",
             "discretization": "three_dimensional_tetrahedral_cg1_solid",
+            "surface_representation": self.surface_representation,
             "cells": list(self.cells),
             "preload_steps": self.preload_steps,
             "sliding_steps": self.sliding_steps,
@@ -190,7 +192,7 @@ class FiniteSlidingSolidBridge:
             "failures": list(self.failures),
             "promotion_boundary": (
                 "component_and_protocol evidence only; exact B31 reproduction, "
-                "mesh/time refinement, and triangulated-surface facet crossing "
+                "mesh/time refinement, and independent curved-tool evidence "
                 "remain external promotion gates"
             ),
         }
@@ -441,11 +443,7 @@ def finite_sliding_solid_protocol_bridge(
         name="y_symmetry",
         tag=44,
     )
-    surface = boundary_models.rigid_plane(
-        point=(0.0, 0.0, 0.0),
-        normal=(0.0, 0.0, 1.0),
-        name="public_protocol_plane",
-    )
+    surface = _triangulated_protocol_plane(boundary_models)
     penalty = selected_penalty_factor * reference.young
 
     preload_model = models.create(
@@ -510,6 +508,7 @@ def finite_sliding_solid_protocol_bridge(
     preload.run()
     normal_residual = _single_contact_residual(preload.residual)
     normal_evidence = normal_residual.accepted_evidence
+    preload_projection = normal_residual.lifecycle.state.accepted
     normal_force = abs(float(np.dot(normal_evidence.contact_force_on_structure, (0, 0, 1))))
     preload_balance = abs(normal_force - reference.normal_load) / reference.normal_load
 
@@ -604,7 +603,14 @@ def finite_sliding_solid_protocol_bridge(
         force_tolerance=max(1.0e-4, reference.normal_load * 1.0e-8),
     )
     sliding.run()
-    sliding_evidence = _single_contact_residual(sliding.residual).accepted_evidence
+    sliding_residual = _single_contact_residual(sliding.residual)
+    sliding_evidence = sliding_residual.accepted_evidence
+    sliding_projection = sliding_residual.lifecycle.state.accepted
+    facet_crossings = _global_facet_crossing_count(
+        preload_projection,
+        sliding_projection,
+        selected_comm,
+    )
     assessment = assess_finite_sliding_contact(
         contact_force_on_structure=sliding_evidence.contact_force_on_structure,
         contact_force_on_surface=sliding_evidence.contact_force_on_surface,
@@ -619,6 +625,8 @@ def finite_sliding_solid_protocol_bridge(
         sliding_point_count=sliding_evidence.sliding_point_count,
         invalid_point_count=sliding_evidence.invalid_point_count,
         friction_dissipation=sliding_evidence.friction_dissipation,
+        facet_crossing_count=facet_crossings,
+        require_facet_crossing=True,
         force_tolerance=1.0e-3,
         reference=reference,
     )
@@ -650,6 +658,61 @@ def _single_contact_residual(residual):
         if selected is None:
             raise TypeError("Benchmark residual contains no explicit contact Operator.")
     return selected
+
+
+def _triangulated_protocol_plane(boundary_models):
+    """Return a bounded coplanar tool whose stable facets must be crossed.
+
+    The x-breaks lie between each slave point's initial and final coordinates
+    in the moving tool frame.  The bridge therefore proves that closest-point
+    identity is updated during finite sliding rather than merely exercising a
+    triangulated surface without leaving the original facet.
+    """
+
+    # The CG1 tetrahedral boundary trace is integrated at triangle centroids
+    # (x = 1/6, 1/3, 2/3, 5/6 on this mesh), not only at corner nodes.  Breaks
+    # at 1/4 and 3/4 are crossed by the 1/3 and 5/6 traces under a 0.1 slide.
+    x_coordinates = (-0.3, 0.25, 0.75, 1.3)
+    y_coordinates = (-0.3, 0.5, 1.3)
+    vertices = np.asarray(
+        [(x, y, 0.0) for y in y_coordinates for x in x_coordinates],
+        dtype=float,
+    )
+    column_count = len(x_coordinates)
+    triangles: list[tuple[int, int, int]] = []
+    for row in range(len(y_coordinates) - 1):
+        for column in range(column_count - 1):
+            lower_left = row * column_count + column
+            lower_right = lower_left + 1
+            upper_left = lower_left + column_count
+            upper_right = upper_left + 1
+            triangles.extend(
+                (
+                    (lower_left, lower_right, upper_right),
+                    (lower_left, upper_right, upper_left),
+                )
+            )
+    return boundary_models.triangulated_rigid_surface(
+        vertices=vertices,
+        triangles=np.asarray(triangles, dtype=np.int64),
+        facet_ids=np.arange(100, 100 + len(triangles), dtype=np.int64),
+        name="public_protocol_triangulated_plane",
+    )
+
+
+def _global_facet_crossing_count(initial, final, comm) -> int:
+    """Count point-keyed accepted master-facet changes across all ranks."""
+
+    if initial is None or final is None:
+        raise RuntimeError("Finite-sliding bridge lacks accepted projection State.")
+    if not np.array_equal(initial.point_ids, final.point_ids):
+        raise RuntimeError("Finite-sliding bridge contact point identities differ.")
+    initial_entities = initial.projection.entity_ids
+    final_entities = final.projection.entity_ids
+    if initial_entities is None or final_entities is None:
+        raise RuntimeError("Triangulated finite sliding lacks stable facet identity.")
+    local = int(np.count_nonzero(initial_entities != final_entities))
+    return int(comm.allreduce(local))
 
 
 __all__ = [

@@ -162,6 +162,8 @@ def test_finite_sliding_solid_bridge_runs_actual_two_stage_fem():
         == bridge.assessment.active_point_count
     )
     assert bridge.assessment.invalid_point_count == 0
+    assert bridge.assessment.facet_crossing_count > 0
+    assert bridge.assessment.require_facet_crossing is True
     assert bridge.assessment.friction_dissipation > 0.0
     assert bridge.preload_relative_energy_error < bridge.energy_tolerance
     assert bridge.sliding_relative_energy_error < bridge.energy_tolerance
@@ -169,6 +171,9 @@ def test_finite_sliding_solid_bridge_runs_actual_two_stage_fem():
     assert summary["status"] == "accepted"
     assert summary["comparison_level"] == (
         "public_protocol_bridge_not_b31_reproduction"
+    )
+    assert summary["surface_representation"] == (
+        "triangulated_piecewise_planar"
     )
 
 

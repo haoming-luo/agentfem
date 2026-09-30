@@ -10,11 +10,12 @@ experimental formulation to a validated one.
 
 - Add a real two-stage tetrahedral-solid bridge to the fixed public
   Abaqus/Explicit finite-sliding protocol. The ordinary finite-strain Explicit
-  Procedure now applies the published 500-unit normal resultant, accepts and
+  Procedure now applies the published 500-unit normal resultant against a
+  bounded tessellated tool, accepts and
   atomically transfers frictionless preload State, activates `mu=0.3`, and
   completes the published 0.1-unit rigid slide. Serial and two-rank tests close
   the normal resultant, 150-unit Coulomb force, action--reaction, projection,
-  positive friction dissipation, and energy gates. The evidence is explicitly
+  stable-facet migration, positive friction dissipation, and energy gates. The evidence is explicitly
   labelled a protocol bridge, not a pointwise reproduction of the B31 source.
 
 - Add a fixed external finite-sliding contact verification contract from the

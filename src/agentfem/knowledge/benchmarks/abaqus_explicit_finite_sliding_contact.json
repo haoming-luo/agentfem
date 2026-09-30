@@ -30,9 +30,9 @@
     "command": "python -m pytest -q tests/test_external_contact_benchmark.py tests/test_dolfinx_explicit_contact.py",
     "example": "tests/test_external_contact_benchmark.py",
     "structural_api": "Surface and RigidBody -> RigidContactPair -> contact Operator -> explicit Procedure -> accepted State -> Result/Verification",
-    "evidence": "A real tetrahedral-solid bridge now applies the public 500-unit normal resultant, accepts frictionless equilibrium, atomically transfers that state, activates mu=0.3, and executes the 0.1-unit prescribed rigid slide through the ordinary Explicit Procedure. Serial and two-rank runs close normal balance, the Coulomb cap, action-reaction, projection validity, positive friction dissipation, and the declared energy tolerance. This is protocol evidence, not a pointwise reproduction of the source B31 discretization.",
-    "current_evidence": "The fixed public protocol and fail-closed assessor, complete two-stage deformable-solid bridge, accepted preload transfer, ordinary Procedure lowering, force/friction/energy evidence, restart components, and serial/two-rank canonical endpoint are automated.",
-    "missing_evidence": "Exact B31-equivalent reproduction remains unavailable; mesh/time refinement of the solid bridge and a complete triangulated-tool bridge with recorded facet crossings remain promotion gates."
+    "evidence": "A real tetrahedral-solid bridge now applies the public 500-unit normal resultant against a bounded tessellated tool, accepts frictionless equilibrium, atomically transfers that state, activates mu=0.3, and executes the 0.1-unit prescribed rigid slide through the ordinary Explicit Procedure. Serial and two-rank runs close normal balance, the Coulomb cap, action-reaction, projection validity, stable-facet migration, positive friction dissipation, and the declared energy tolerance. This is protocol evidence, not a pointwise reproduction of the source B31 discretization.",
+    "current_evidence": "The fixed public protocol and fail-closed assessor, complete two-stage deformable-solid bridge, accepted preload transfer, ordinary Procedure lowering, bounded triangulated-tool facet crossings, force/friction/energy evidence, restart components, and serial/two-rank canonical endpoint are automated.",
+    "missing_evidence": "Exact B31-equivalent reproduction remains unavailable; mesh/time refinement of the solid bridge and independent curved or imported-tool evidence remain promotion gates."
   },
   "observables": [
     "normal contact resultant versus applied normal load",

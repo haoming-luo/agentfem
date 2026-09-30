@@ -66,7 +66,9 @@ material, 500-unit normal load, friction coefficient 0.3, and 0.1-unit slide;
 the ordinary Procedure reaches frictionless preload equilibrium, transfers
 the accepted state atomically, and then closes normal force, the Coulomb cap,
 action--reaction, friction dissipation, energy, and serial/two-rank endpoint
-checks. Because the source discretization is B31 and the bridge is a
+checks. The bounded tessellated tool also records real stable-facet crossings
+without changing slave-point identity. Because the source discretization is
+B31 and the bridge is a
 tetrahedral CG1 solid, the evidence is labelled a protocol bridge rather than
 an elementwise external reproduction.
 
