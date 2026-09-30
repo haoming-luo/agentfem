@@ -6,6 +6,7 @@ import numpy as np
 import pytest
 
 from agentfem import boundary_models
+from agentfem import mesh as agent_mesh
 
 
 def _tetrahedral_cube(comm):
@@ -15,6 +16,21 @@ def _tetrahedral_cube(comm):
         1,
         1,
         cell_type=mesh.CellType.tetrahedron,
+    )
+
+
+def _tag_left_boundary(domain, value: int = 9):
+    facet_dimension = domain.topology.dim - 1
+    facets = mesh.locate_entities_boundary(
+        domain,
+        facet_dimension,
+        lambda x: np.isclose(x[0], 0.0),
+    )
+    return mesh.meshtags(
+        domain,
+        facet_dimension,
+        facets,
+        np.full(facets.size, value, dtype=np.int32),
     )
 
 
@@ -96,6 +112,58 @@ def test_dolfinx_exterior_adapter_rejects_unsupported_hexahedra():
         boundary_models.dolfinx_exterior_triangle_partition(domain)
 
 
+def test_dolfinx_tag_and_boundary_region_select_the_same_physical_surface():
+    domain = _tetrahedral_cube(MPI.COMM_SELF)
+    facet_tags = _tag_left_boundary(domain)
+
+    tagged = boundary_models.dolfinx_tagged_exterior_triangle_partition(
+        domain,
+        facet_tags,
+        tag=9,
+        name="left_tool",
+    )
+    region = agent_mesh.tagged_boundary_region(
+        domain,
+        facet_tags,
+        tag=9,
+        name="left_tool",
+    )
+    named = boundary_models.dolfinx_boundary_region_triangle_partition(region)
+
+    assert tagged.global_facet_count == 2
+    assert tagged.global_geometry_fingerprint == named.global_geometry_fingerprint
+    assert tagged.local_surface is not None
+    np.testing.assert_allclose(
+        tagged.local_surface.facet_normals,
+        np.asarray(((-1.0, 0.0, 0.0), (-1.0, 0.0, 0.0))),
+        atol=1.0e-14,
+    )
+
+
+def test_dolfinx_tagged_adapter_rejects_missing_and_wrong_dimension_tags():
+    domain = _tetrahedral_cube(MPI.COMM_SELF)
+    facet_tags = _tag_left_boundary(domain)
+    with pytest.raises(ValueError, match="Facet tag 404 is absent"):
+        boundary_models.dolfinx_tagged_exterior_triangle_partition(
+            domain, facet_tags, tag=404
+        )
+
+    cells = np.arange(
+        domain.topology.index_map(domain.topology.dim).size_local,
+        dtype=np.int32,
+    )
+    cell_tags = mesh.meshtags(
+        domain,
+        domain.topology.dim,
+        cells,
+        np.ones(cells.size, dtype=np.int32),
+    )
+    with pytest.raises(ValueError, match="requires MeshTags"):
+        boundary_models.dolfinx_tagged_exterior_triangle_partition(
+            domain, cell_tags, tag=1
+        )
+
+
 def test_dolfinx_exterior_partition_drives_routed_search_under_mpi():
     if MPI.COMM_WORLD.size != 2:
         pytest.skip("DOLFINx boundary partition is reviewed on two ranks.")
@@ -127,3 +195,31 @@ def test_dolfinx_exterior_partition_drives_routed_search_under_mpi():
     )
     np.testing.assert_allclose(routed.projection.signed_gaps, 0.1, atol=1.0e-14)
     assert routed.diagnostics.summary()["packed_numeric_transport"] is True
+
+
+def test_dolfinx_tagged_boundary_supports_empty_local_shards_under_mpi():
+    if MPI.COMM_WORLD.size != 2:
+        pytest.skip("Tagged DOLFINx boundary partition is reviewed on two ranks.")
+    comm = MPI.COMM_WORLD
+    domain = mesh.create_unit_cube(
+        comm,
+        2,
+        1,
+        1,
+        cell_type=mesh.CellType.tetrahedron,
+    )
+    facet_tags = _tag_left_boundary(domain)
+    partition = boundary_models.dolfinx_tagged_exterior_triangle_partition(
+        domain,
+        facet_tags,
+        tag=9,
+        name="left_tool",
+    )
+    search = boundary_models.routed_distributed_triangle_surface_bvh(partition, comm)
+    query = np.asarray(((-0.1, 0.3 + 0.1 * comm.rank, 0.4),))
+
+    projection = search.project(query)
+
+    assert partition.global_facet_count == 2
+    assert projection.valid.tolist() == [True]
+    np.testing.assert_allclose(projection.signed_gaps, 0.1, atol=1.0e-14)

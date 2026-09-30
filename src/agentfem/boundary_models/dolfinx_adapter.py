@@ -289,4 +289,80 @@ def dolfinx_exterior_triangle_partition(
     )
 
 
-__all__ = ["dolfinx_exterior_triangle_partition"]
+def dolfinx_tagged_exterior_triangle_partition(
+    domain,
+    facet_tags,
+    *,
+    tag: int,
+    name: str | None = None,
+    tolerance: float | None = None,
+    ambiguity_tolerance: float | None = None,
+) -> TriangleSurfacePartition:
+    """Build a distributed triangle partition from one DOLFINx facet tag."""
+
+    facet_dimension = int(domain.topology.dim) - 1
+    if int(facet_tags.dim) != facet_dimension:
+        raise ValueError(
+            "Tagged exterior triangle adaptation requires MeshTags on "
+            f"dimension {facet_dimension}, received {facet_tags.dim}."
+        )
+    selected_tag = int(tag)
+    tagged = np.asarray(facet_tags.find(selected_tag), dtype=np.int32)
+    facet_map = domain.topology.index_map(facet_dimension)
+    if facet_map is None:
+        domain.topology.create_entities(facet_dimension)
+        facet_map = domain.topology.index_map(facet_dimension)
+    owned = tagged[tagged < int(facet_map.size_local)]
+    present = any(domain.comm.allgather(bool(owned.size)))
+    if not present:
+        available_local = tuple(int(value) for value in np.unique(facet_tags.values))
+        available = sorted(
+            set().union(*domain.comm.allgather(available_local))
+        )
+        raise ValueError(
+            f"Facet tag {selected_tag} is absent; available tags are {available}."
+        )
+    return dolfinx_exterior_triangle_partition(
+        domain,
+        facets=owned,
+        name=(
+            f"dolfinx_exterior_facet_tag_{selected_tag}"
+            if name is None
+            else str(name)
+        ),
+        tolerance=tolerance,
+        ambiguity_tolerance=ambiguity_tolerance,
+    )
+
+
+def dolfinx_boundary_region_triangle_partition(
+    region,
+    *,
+    name: str | None = None,
+    tolerance: float | None = None,
+    ambiguity_tolerance: float | None = None,
+) -> TriangleSurfacePartition:
+    """Adapt an AgentFEM named boundary region into the search contract."""
+
+    if region is None or not hasattr(region, "domain"):
+        raise TypeError("Boundary adaptation requires an AgentFEM BoundaryRegion.")
+    if getattr(region, "facet_tags", None) is None:
+        raise ValueError(
+            "Boundary adaptation requires canonical facet tags; construct the "
+            "region with mesh.boundary or mesh.tagged_boundary_region."
+        )
+    return dolfinx_tagged_exterior_triangle_partition(
+        region.domain,
+        region.facet_tags,
+        tag=int(region.tag),
+        name=str(region.name) if name is None else str(name),
+        tolerance=tolerance,
+        ambiguity_tolerance=ambiguity_tolerance,
+    )
+
+
+__all__ = [
+    "dolfinx_boundary_region_triangle_partition",
+    "dolfinx_exterior_triangle_partition",
+    "dolfinx_tagged_exterior_triangle_partition",
+]

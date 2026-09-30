@@ -15,7 +15,11 @@ from .mechanical import (
     elastic_foundation,
     rigid_obstacle_contact,
 )
-from .dolfinx_adapter import dolfinx_exterior_triangle_partition
+from .dolfinx_adapter import (
+    dolfinx_boundary_region_triangle_partition,
+    dolfinx_exterior_triangle_partition,
+    dolfinx_tagged_exterior_triangle_partition,
+)
 from .rigid import (
     PrescribedRigidMotion,
     RigidCylinderSurface,
@@ -72,7 +76,9 @@ __all__ = [
     "absorbing",
     "convection",
     "dolfinx_adapter",
+    "dolfinx_boundary_region_triangle_partition",
     "dolfinx_exterior_triangle_partition",
+    "dolfinx_tagged_exterior_triangle_partition",
     "elastic_foundation",
     "distributed_triangle_surface_bvh",
     "mechanical",
