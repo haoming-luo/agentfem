@@ -130,10 +130,15 @@ stable accepted/trial projection State, collective Procedure acceptance, and a
 geometry-neutral pointwise frictionless penalty law. The local law preserves
 the same conservative potential and explicitly separates structural residual
 traction from conjugate prescribed-surface traction. It does not claim
-finite-element trace integration, a geometry-consistent Newton linearization,
-or assembled force/work evidence. Finite sliding assembly, friction, multiple
-pairs, time-varying natural loads, and undeclared weak formulations remain
-outside this gate and fail closed rather than inheriting its evidence.
+a geometry-consistent Newton linearization or assembled path-work evidence. A
+backend-neutral `ContactTrace` contract now carries stable point identity,
+interpolation and explicit reference/current quadrature measure into a checked
+reference assembly of nodal residual, conservative potential, resultant and
+tool moment. The assembly accepts only matching projection records and query
+coordinates. Production DOLFINx trace adaptation, implicit linearization,
+friction, multiple pairs, time-varying natural loads, and undeclared weak
+formulations remain outside this gate and fail closed rather than inheriting
+its evidence.
 
 Gate 5 now has an executable checkpoint capability contract. Procedures must
 separately declare the durable payload scope, accepted save boundary, atomic

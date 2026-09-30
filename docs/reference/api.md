@@ -702,6 +702,9 @@ and evidence remain in the linked guides and scientific function reference.
 | class | `FrictionlessPenaltyContactLaw` | Evaluate a conservative one-sided penalty law on projected points. |
 | class | `FrictionlessPenaltyContactResponse` | Immutable pointwise response to one reviewed surface projection. |
 | function | `frictionless_penalty_contact_law(penalty, *, invalid_policy: str = 'reject', name: str = 'frictionless_penalty_contact') -> FrictionlessPenaltyContactLaw` | Create the geometry-neutral local frictionless contact law. |
+| class | `ContactTrace` | Stable quadrature/interpolation contract for one slave boundary shard. |
+| class | `ContactTraceAssembly` | Integrated residual, potential, and generalized rigid-surface evidence. |
+| class | `ContactTraceEvaluation` | Current slave-point positions bound to one immutable trace contract. |
 | function | `dolfinx_boundary_region_triangle_partition(region, *, name: str \| None = None, tolerance: float \| None = None, ambiguity_tolerance: float \| None = None) -> TriangleSurfacePartition` | Adapt an AgentFEM named boundary region into the search contract. |
 | function | `dolfinx_exterior_triangle_partition(domain, *, facets = None, name: str = 'dolfinx_exterior_triangle_surface', tolerance: float \| None = None, ambiguity_tolerance: float \| None = None) -> TriangleSurfacePartition` | Build a stable distributed triangle partition from owned exterior facets. |
 | function | `dolfinx_tagged_exterior_triangle_partition(domain, facet_tags, *, tag: int, name: str \| None = None, tolerance: float \| None = None, ambiguity_tolerance: float \| None = None) -> TriangleSurfacePartition` | Build a distributed triangle partition from one DOLFINx facet tag. |

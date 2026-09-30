@@ -7,6 +7,7 @@ from . import absorbing
 from . import contact_state
 from . import contact_lifecycle
 from . import contact_response
+from . import contact_trace
 from . import dolfinx_adapter
 from . import mechanical
 from . import rigid
@@ -25,6 +26,7 @@ from .contact_response import (
     FrictionlessPenaltyContactResponse,
     frictionless_penalty_contact_law,
 )
+from .contact_trace import ContactTrace, ContactTraceAssembly, ContactTraceEvaluation
 from .dolfinx_adapter import (
     dolfinx_boundary_region_triangle_partition,
     dolfinx_exterior_triangle_partition,
@@ -68,6 +70,9 @@ __all__ = [
     "ContactProjectionState",
     "ContactProjectionEvaluation",
     "ContactProjectionLifecycle",
+    "ContactTrace",
+    "ContactTraceAssembly",
+    "ContactTraceEvaluation",
     "FrictionlessPenaltyContactLaw",
     "FrictionlessPenaltyContactResponse",
     "DistributedTriangleSearchDiagnostics",
@@ -93,6 +98,7 @@ __all__ = [
     "contact_state",
     "contact_lifecycle",
     "contact_response",
+    "contact_trace",
     "convection",
     "dolfinx_adapter",
     "dolfinx_boundary_region_triangle_partition",
