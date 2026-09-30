@@ -144,6 +144,13 @@ adaptation, implicit linearization, friction, multiple pairs, time-varying
 natural loads, and undeclared weak formulations remain outside this gate and
 fail closed rather than inheriting its evidence.
 
+Reviewed triangle files can enter the same route as scientific geometry
+assets with canonical identity and source hashes. The explicit contact Backend
+automatically selects the serial BVH or the partitioned routed MPI BVH; the
+Model does not own or expose search acceleration. This closes the import-to-
+search ownership boundary, not CAD healing or general deformable-to-deformable
+contact.
+
 The first explicit Procedure hand-off is now executable for that narrow
 DOLFINx slave trace. A composable residual evaluates the current predicted
 displacement, repeats exact projection, applies the local frictionless penalty
@@ -339,6 +346,16 @@ remains an optional geometry-adapter input that is repaired and tessellated
 before the contact core consumes it. Shell/solid-shell forming and self-contact
 remain later scientific promotions, not hidden extensions of the bounded
 fixed-plane provider.
+
+The first imported-tool boundary is now executable for triangle-only formats
+supported by the optional `meshio` adapter, including STL. Import requires an
+explicit coordinate scale because STL does not encode a dependable length
+unit, binds the file SHA-256 as provenance, canonicalizes exact geometry to
+stable facet identity, and exposes normal reversal only as an explicit user
+decision. Mixed topology, degenerate/duplicate facets, non-manifold edges and
+inconsistent winding fail before search. Approximate repair and STEP-to-mesh
+tessellation remain external preparation capabilities; they do not silently
+alter the contact Model asset.
 
 ### 2. Mesh and element foundation
 

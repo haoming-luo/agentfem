@@ -14,8 +14,11 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 import hashlib
+from pathlib import Path
 
 import numpy as np
+
+from agentfem import dependencies
 
 
 def _readonly_array(value, *, dtype=float) -> np.ndarray:
@@ -940,6 +943,9 @@ class TriangulatedRigidSurface(RigidSurface):
     tolerance: float | None = None
     ambiguity_tolerance: float | None = None
     name: str = "triangulated_rigid_surface"
+    source_format: str | None = None
+    source_sha256: str | None = None
+    source_coordinate_scale: float | None = None
     _facet_normals: np.ndarray = field(init=False, repr=False, compare=False)
     _facet_twice_areas: np.ndarray = field(init=False, repr=False, compare=False)
     _scale: float = field(init=False, repr=False, compare=False)
@@ -953,6 +959,36 @@ class TriangulatedRigidSurface(RigidSurface):
     def __post_init__(self) -> None:
         if not str(self.name).strip():
             raise ValueError("Triangulated rigid surface requires a name.")
+        source_format = (
+            None if self.source_format is None else str(self.source_format).strip()
+        )
+        source_sha256 = (
+            None if self.source_sha256 is None else str(self.source_sha256).strip()
+        )
+        source_scale = self.source_coordinate_scale
+        source_fields = (source_format, source_sha256, source_scale)
+        if any(value is not None for value in source_fields) and any(
+            value is None for value in source_fields
+        ):
+            raise ValueError(
+                "Imported triangle provenance requires format, SHA-256, and "
+                "coordinate scale together."
+            )
+        if source_format is not None:
+            if not source_format:
+                raise ValueError("Imported triangle source format cannot be empty.")
+            if (
+                len(source_sha256) != 64
+                or any(character not in "0123456789abcdef" for character in source_sha256)
+            ):
+                raise ValueError(
+                    "Imported triangle source SHA-256 must be 64 lowercase hex digits."
+                )
+            source_scale = float(source_scale)
+            if not np.isfinite(source_scale) or source_scale <= 0.0:
+                raise ValueError(
+                    "Imported triangle coordinate scale must be finite and positive."
+                )
         vertices = np.asarray(self.vertices, dtype=float)
         triangles_raw = np.asarray(self.triangles)
         if vertices.ndim != 2 or vertices.shape[1] != 3 or vertices.shape[0] < 3:
@@ -1090,6 +1126,9 @@ class TriangulatedRigidSurface(RigidSurface):
         )
 
         object.__setattr__(self, "name", str(self.name))
+        object.__setattr__(self, "source_format", source_format)
+        object.__setattr__(self, "source_sha256", source_sha256)
+        object.__setattr__(self, "source_coordinate_scale", source_scale)
         object.__setattr__(self, "vertices", _readonly_array(vertices))
         object.__setattr__(self, "triangles", _readonly_array(triangles, dtype=np.int64))
         object.__setattr__(self, "facet_ids", _readonly_array(facet_ids, dtype=np.int64))
@@ -1274,7 +1313,7 @@ class TriangulatedRigidSurface(RigidSurface):
         )
 
     def summary(self) -> dict[str, object]:
-        return {
+        summary = {
             "name": self.name,
             "kind": "triangulated_rigid_surface",
             "dimension": 3,
@@ -1291,6 +1330,144 @@ class TriangulatedRigidSurface(RigidSurface):
             "signed_gap_convention": "positive_admissible_negative_penetration",
             **self._topology_summary,
         }
+        if self.source_format is not None:
+            summary["source"] = {
+                "format": self.source_format,
+                "sha256": self.source_sha256,
+                "coordinate_scale": self.source_coordinate_scale,
+                "path_in_identity": False,
+            }
+        return summary
+
+
+def _canonical_triangle_geometry(points, triangles, *, coordinate_scale: float):
+    """Return exact-welded geometry independent of source block ordering."""
+
+    vertices = np.asarray(points, dtype=float)
+    connectivity = np.asarray(triangles)
+    if vertices.ndim != 2 or vertices.shape[1] != 3:
+        raise ValueError("Imported rigid geometry requires three-coordinate points.")
+    if not np.all(np.isfinite(vertices)):
+        raise ValueError("Imported rigid-surface points must be finite.")
+    if connectivity.ndim != 2 or connectivity.shape[1] != 3:
+        raise ValueError("Imported rigid geometry requires linear triangle cells.")
+    if not np.issubdtype(connectivity.dtype, np.integer):
+        raise ValueError("Imported rigid-surface connectivity must be integer-valued.")
+    connectivity = connectivity.astype(np.int64, copy=False)
+    if np.any(connectivity < 0) or np.any(connectivity >= vertices.shape[0]):
+        raise ValueError("Imported triangle index lies outside the point table.")
+
+    used = np.unique(connectivity.reshape(-1))
+    compact = np.full(vertices.shape[0], -1, dtype=np.int64)
+    compact[used] = np.arange(used.size, dtype=np.int64)
+    vertices = vertices[used] * coordinate_scale
+    if not np.all(np.isfinite(vertices)):
+        raise ValueError("Imported rigid-surface scaling produced non-finite points.")
+    vertices[vertices == 0.0] = 0.0
+    connectivity = compact[connectivity]
+
+    # STL commonly repeats the three coordinates for every facet. Exact
+    # welding is deterministic and changes no coordinates. Near-duplicate
+    # repair is deliberately left to an explicit geometry-preparation tool.
+    vertices, inverse = np.unique(vertices, axis=0, return_inverse=True)
+    connectivity = inverse[connectivity]
+
+    # np.unique orders vertices lexicographically. Sort facets by their
+    # unoriented vertex set while retaining each facet's winding, making
+    # stable facet IDs independent of file/block ordering.
+    facet_keys = np.sort(connectivity, axis=1)
+    facet_order = np.lexsort(
+        (facet_keys[:, 2], facet_keys[:, 1], facet_keys[:, 0])
+    )
+    return vertices, connectivity[facet_order]
+
+
+def triangulated_rigid_surface_from_mesh(
+    path,
+    *,
+    coordinate_scale: float,
+    input_format: str | None = None,
+    flip_normals: bool = False,
+    name: str | None = None,
+    tolerance: float | None = None,
+    ambiguity_tolerance: float | None = None,
+) -> TriangulatedRigidSurface:
+    """Read one oriented triangle tool without weakening geometry checks.
+
+    ``coordinate_scale`` is mandatory because common exchange formats such as
+    STL do not encode a dependable length unit. A millimetre STL used in an SI
+    model therefore passes ``coordinate_scale=1e-3``. The source path is not
+    scientific identity; the file SHA-256 and canonicalized geometry are.
+
+    The first reviewed import route accepts triangle-only surface assets.
+    Lines, volume cells, polygons and mixed topology are rejected rather than
+    silently discarded. Exact duplicate vertices are welded; approximate
+    repair, hole filling and normal inference remain explicit preprocessing.
+    """
+
+    selected = Path(path)
+    if not selected.is_file():
+        raise FileNotFoundError(f"Rigid-surface mesh does not exist: {selected}")
+    scale = float(coordinate_scale)
+    if not np.isfinite(scale) or scale <= 0.0:
+        raise ValueError("coordinate_scale must be finite and positive.")
+    if not isinstance(flip_normals, (bool, np.bool_)):
+        raise TypeError("flip_normals must be an explicit boolean.")
+    meshio = dependencies.require(
+        "meshio",
+        extra="mesh-formats",
+        capability="Triangulated rigid-surface import",
+    )
+    before = selected.stat()
+    imported = meshio.read(selected, file_format=input_format)
+    after_read = selected.stat()
+    if (before.st_size, before.st_mtime_ns) != (
+        after_read.st_size,
+        after_read.st_mtime_ns,
+    ):
+        raise RuntimeError("Rigid-surface source changed while it was being read.")
+    blocks = tuple(imported.cells)
+    unsupported = tuple(
+        sorted({str(block.type) for block in blocks if str(block.type) != "triangle"})
+    )
+    if unsupported:
+        raise ValueError(
+            "Rigid-surface import accepts triangle-only topology; found "
+            + ", ".join(unsupported)
+            + "."
+        )
+    triangle_blocks = [np.asarray(block.data) for block in blocks]
+    if not triangle_blocks:
+        raise ValueError("Rigid-surface mesh contains no triangle cells.")
+    triangles = np.concatenate(triangle_blocks, axis=0)
+    if triangles.shape[0] == 0:
+        raise ValueError("Rigid-surface mesh contains an empty triangle block.")
+    vertices, triangles = _canonical_triangle_geometry(
+        imported.points,
+        triangles,
+        coordinate_scale=scale,
+    )
+    if flip_normals:
+        triangles = triangles[:, (0, 2, 1)]
+    source_format = str(input_format or selected.suffix.lstrip(".") or "meshio")
+    source_sha256 = hashlib.sha256(selected.read_bytes()).hexdigest()
+    after_hash = selected.stat()
+    if (after_read.st_size, after_read.st_mtime_ns) != (
+        after_hash.st_size,
+        after_hash.st_mtime_ns,
+    ):
+        raise RuntimeError("Rigid-surface source changed while it was being hashed.")
+    return TriangulatedRigidSurface(
+        vertices=vertices,
+        triangles=triangles,
+        facet_ids=np.arange(triangles.shape[0], dtype=np.int64),
+        tolerance=tolerance,
+        ambiguity_tolerance=ambiguity_tolerance,
+        name=str(name or selected.stem or "imported_rigid_surface"),
+        source_format=source_format,
+        source_sha256=source_sha256,
+        source_coordinate_scale=scale,
+    )
 
 
 def rigid_plane(
@@ -1390,5 +1567,6 @@ __all__ = [
     "rigid_cylinder",
     "rigid_plane",
     "rigid_sphere",
+    "triangulated_rigid_surface_from_mesh",
     "triangulated_rigid_surface",
 ]

@@ -157,8 +157,9 @@ A two-coordinate sphere center creates a circle. The cylinder is explicitly
 infinite: caps and rims require a reviewed compound or triangulated surface.
 At a sphere center or on a cylinder axis, closest-point direction is not
 unique and the projection returns `singular_projection`. These analytical
-assets are currently projection/evidence objects; the bounded contact
-Operator still accepts only a plane.
+assets share the same projection/evidence contract. Curved-normal geometry
+currently requires a caller-reviewed explicit stability ceiling because the
+automatic piecewise-planar bound does not include geometric stiffness.
 
 For reviewed tool meshes, create a projection-only triangle surface with
 explicitly oriented connectivity and stable facet IDs:
@@ -173,13 +174,45 @@ tool_mesh = boundary_models.triangulated_rigid_surface(
 projection = tool_mesh.project(query_points, maximum_distance=search_radius)
 ```
 
+An external triangle tool can enter the same route through the optional
+`meshio` adapter:
+
+```python
+tool_mesh = boundary_models.triangulated_rigid_surface_from_mesh(
+    "tools/punch.stl",
+    coordinate_scale=1.0e-3,  # millimetres in the STL -> metres in the model
+    name="punch",
+)
+```
+
+The scale is mandatory because STL carries no dependable length unit. Import
+records the source-file SHA-256 without making its machine-specific path part
+of scientific identity. Exact duplicate STL vertices are welded and source
+ordering is canonicalized so stable facet IDs do not depend on triangle-block
+order. `flip_normals=True` is an explicit whole-surface orientation decision;
+AgentFEM does not guess an admissible contact side.
+
+The reviewed import boundary accepts triangle-only files. Mixed cells, volume
+elements, non-manifold edges, inconsistent winding, degenerate facets and
+duplicate facets fail before search or assembly. Approximate vertex welding,
+hole filling and CAD repair remain explicit geometry-preparation steps rather
+than silent solver behavior.
+
+When this surface is attached to a `RigidBody` and no projector is supplied,
+the explicit DOLFINx contact Operator selects the reviewed search backend:
+a deterministic local BVH in serial and a partitioned, routed BVH under MPI.
+The `RigidBody` therefore remains a Model asset containing geometry and motion;
+search ownership stays in the Backend. An explicitly supplied compatible
+projector still takes precedence for controlled studies.
+
 Construction rejects duplicate/unreferenced vertices, degenerate or duplicate
 facets, non-manifold edges and inconsistent shared-edge orientation. The result
 preserves `no_candidate` and
 `ambiguous_projection` instead of choosing a facet silently. The built-in
-search checks every triangle and is the correctness reference for a future
-DOLFINx BVH adapter; `rigid_obstacle_contact(...)` does not yet accept this
-surface.
+search checks every triangle and remains the correctness oracle for the
+deterministic serial and distributed BVH routes. The explicit DOLFINx contact
+Operator consumes the reviewed triangle/BVH contract; the nonlinear-static
+`rigid_obstacle_contact(...)` route remains restricted to its analytical plane.
 
 For repeated queries, build the deterministic broad phase once:
 

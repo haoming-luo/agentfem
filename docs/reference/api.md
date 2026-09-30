@@ -750,6 +750,7 @@ and evidence remain in the linked guides and scientific function reference.
 | function | `rigid_plane(*, point, normal, name: str = 'rigid_plane') -> RigidPlaneSurface` | Describe one analytical rigid plane independently of a contact law. |
 | function | `rigid_sphere(center, radius: float, *, admissible_side: str = 'exterior', name: str = 'rigid_sphere') -> RigidSphereSurface` | Create an analytical circle/sphere with explicit gap orientation. |
 | function | `triangulated_rigid_surface(*, vertices, triangles, facet_ids = None, tolerance: float \| None = None, ambiguity_tolerance: float \| None = None, name: str = 'triangulated_rigid_surface') -> TriangulatedRigidSurface` | Create one reviewed oriented triangle surface for rigid projection. |
+| function | `triangulated_rigid_surface_from_mesh(path, *, coordinate_scale: float, input_format: str \| None = None, flip_normals: bool = False, name: str \| None = None, tolerance: float \| None = None, ambiguity_tolerance: float \| None = None) -> TriangulatedRigidSurface` | Read one oriented triangle tool without weakening geometry checks. |
 | class | `RigidBody` | One rigid contact body with fixed or prescribed kinematics. |
 | function | `rigid_body(surface: RigidSurface, *, motion_schedule: PrescribedRigidMotionSchedule \| None = None, reference_point = None, name: str = 'rigid_body') -> RigidBody` | Create a fixed or prescribed-kinematics rigid-body asset. |
 | class | `DistributedTriangleSearchDiagnostics` | Communication and local-work evidence for the reference MPI search. |

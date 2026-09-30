@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import copy
+import struct
 
 import basix.ufl
 from dolfinx import fem, mesh
@@ -68,6 +69,35 @@ def _triangulated_tool_plane():
         facet_ids=(101, 202),
         name="triangulated_tool_plane",
     )
+
+
+def _write_binary_stl_tool_plane(path) -> None:
+    facets = (
+        (
+            (0.05, 0.0, 0.0),
+            (0.05, 0.0, 1.0),
+            (0.05, 1.0, 1.0),
+        ),
+        (
+            (0.05, 0.0, 0.0),
+            (0.05, 1.0, 1.0),
+            (0.05, 1.0, 0.0),
+        ),
+    )
+    payload = bytearray(b"AgentFEM imported contact tool".ljust(80, b"\0"))
+    payload.extend(struct.pack("<I", len(facets)))
+    for facet in facets:
+        payload.extend(
+            struct.pack(
+                "<12fH",
+                -1.0,
+                0.0,
+                0.0,
+                *(coordinate for point in facet for coordinate in point),
+                0,
+            )
+        )
+    path.write_bytes(payload)
 
 
 def _bulk_residual(domain, function_space, value):
@@ -330,6 +360,128 @@ def test_explicit_contact_residual_assembles_force_and_accepts_evidence():
     assert residual.lifecycle.state.accepted is not None
     assert residual.summary()["surface_motion"] == "fixed_only"
     assert domain.comm.size == 1
+
+
+def test_rigid_pair_selects_bvh_without_putting_search_in_model_asset():
+    domain = _cube(MPI.COMM_SELF)
+    function_space = _vector_space(domain)
+    displacement = fem.Function(function_space, name="Displacement")
+    displacement.x.array.reshape((-1, 3))[:, 0] = 0.1
+    displacement.x.scatter_forward()
+    slave = _left_region(domain)
+    adapter = boundary_models.dolfinx_boundary_region_contact_trace(
+        slave,
+        function_space,
+    )
+    surface = _triangulated_tool_plane()
+    body = boundary_models.rigid_body(surface, name="tool_body")
+    pair = boundary_models.rigid_contact_pair(
+        slave,
+        body,
+        penalty=200.0,
+        name="tool_pair",
+    )
+
+    residual = boundary_models.dolfinx_explicit_contact_residual(
+        _bulk_residual(domain, function_space, (0.0, 0.0, 0.0)),
+        adapter=adapter,
+        displacement=displacement,
+        contact_pair=pair,
+        maximum_stable_time_increment=1.0e-3,
+    )
+    vector = residual.assemble_vector()
+    vector.destroy()
+
+    assert surface.summary()["kind"] == "triangulated_rigid_surface"
+    assert residual.lifecycle.projector.summary()["kind"] == "triangle_surface_bvh"
+    assert residual.trial_evidence.active_point_count == 6
+
+
+def test_rigid_pair_selects_routed_bvh_under_mpi():
+    if MPI.COMM_WORLD.size != 2:
+        pytest.skip("Automatic distributed tool search is reviewed on two ranks.")
+    domain = _cube(MPI.COMM_WORLD)
+    function_space = _vector_space(domain)
+    displacement = fem.Function(function_space, name="Displacement")
+    displacement.x.array.reshape((-1, 3))[:, 0] = 0.1
+    displacement.x.scatter_forward()
+    slave = _left_region(domain)
+    adapter = boundary_models.dolfinx_boundary_region_contact_trace(
+        slave,
+        function_space,
+    )
+    body = boundary_models.rigid_body(
+        _triangulated_tool_plane(),
+        name="distributed_tool_body",
+    )
+    pair = boundary_models.rigid_contact_pair(
+        slave,
+        body,
+        penalty=200.0,
+        name="distributed_tool_pair",
+    )
+
+    residual = boundary_models.dolfinx_explicit_contact_residual(
+        _bulk_residual(domain, function_space, (0.0, 0.0, 0.0)),
+        adapter=adapter,
+        displacement=displacement,
+        contact_pair=pair,
+        maximum_stable_time_increment=1.0e-3,
+    )
+    vector = residual.assemble_vector()
+    vector.destroy()
+
+    assert (
+        residual.lifecycle.projector.summary()["kind"]
+        == "routed_distributed_triangle_surface_bvh"
+    )
+    assert residual.trial_evidence.active_point_count == 6
+
+
+def test_binary_stl_tool_reaches_dolfinx_contact_force_and_energy(tmp_path):
+    pytest.importorskip("meshio")
+    source = tmp_path / "tool.stl"
+    _write_binary_stl_tool_plane(source)
+    surface = boundary_models.triangulated_rigid_surface_from_mesh(
+        source,
+        coordinate_scale=1.0,
+        name="imported_tool",
+    )
+    domain = _cube(MPI.COMM_SELF)
+    function_space = _vector_space(domain)
+    displacement = fem.Function(function_space, name="Displacement")
+    displacement.x.array.reshape((-1, 3))[:, 0] = 0.1
+    displacement.x.scatter_forward()
+    slave = _left_region(domain)
+    adapter = boundary_models.dolfinx_boundary_region_contact_trace(
+        slave,
+        function_space,
+    )
+    pair = boundary_models.rigid_contact_pair(
+        slave,
+        boundary_models.rigid_body(surface, name="imported_tool_body"),
+        penalty=200.0,
+        name="imported_tool_pair",
+    )
+
+    residual = boundary_models.dolfinx_explicit_contact_residual(
+        _bulk_residual(domain, function_space, (0.0, 0.0, 0.0)),
+        adapter=adapter,
+        displacement=displacement,
+        contact_pair=pair,
+        maximum_stable_time_increment=1.0e-3,
+    )
+    vector = residual.assemble_vector()
+    vector.destroy()
+
+    assert residual.lifecycle.projector.summary()["kind"] == "triangle_surface_bvh"
+    np.testing.assert_allclose(
+        residual.trial_evidence.contact_force_on_structure,
+        (-10.0, 0.0, 0.0),
+        atol=1.0e-12,
+    )
+    assert residual.trial_evidence.potential_energy == pytest.approx(0.25)
+    assert surface.summary()["source"]["format"] == "stl"
 
 
 def test_explicit_contact_residual_rolls_back_failed_trial():

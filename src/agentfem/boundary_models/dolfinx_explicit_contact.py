@@ -56,8 +56,13 @@ from .dolfinx_contact_trace import DolfinxContactTraceAdapter
 from .dolfinx_contact_stability import (
     estimate_dolfinx_contact_stability,
 )
-from .rigid import _readonly_array
+from .rigid import TriangulatedRigidSurface, _readonly_array
 from .rigid_body import RigidBody
+from .search import (
+    partition_triangle_surface,
+    routed_distributed_triangle_surface_bvh,
+    triangle_surface_bvh,
+)
 
 
 def _canonical_json(value: object) -> str:
@@ -225,6 +230,17 @@ class ExplicitContactEvidence:
             sticking_point_count=summary["sticking_point_count"],
             sliding_point_count=summary["sliding_point_count"],
         )
+
+
+def _reviewed_projector_for_rigid_surface(surface, communicator):
+    """Select search infrastructure without moving it into the Model asset."""
+
+    if not isinstance(surface, TriangulatedRigidSurface):
+        return surface
+    if int(communicator.size) == 1:
+        return triangle_surface_bvh(surface)
+    partition = partition_triangle_surface(surface, communicator)
+    return routed_distributed_triangle_surface_bvh(partition, communicator)
 
 
 class DolfinxExplicitContactResidual:
@@ -1269,7 +1285,10 @@ def dolfinx_explicit_contact_residual(
         motion_schedule = rigid_body.motion_schedule
         surface_reference_point = rigid_body.reference_point
         if projector is None:
-            projector = rigid_body.surface
+            projector = _reviewed_projector_for_rigid_surface(
+                rigid_body.surface,
+                adapter.communicator,
+            )
         projector_summary = projector.summary()
         projected_fingerprint = projector_summary.get(
             "global_geometry_fingerprint",
