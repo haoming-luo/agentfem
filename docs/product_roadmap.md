@@ -135,10 +135,14 @@ backend-neutral `ContactTrace` contract now carries stable point identity,
 interpolation and explicit reference/current quadrature measure into a checked
 reference assembly of nodal residual, conservative potential, resultant and
 tool moment. The assembly accepts only matching projection records and query
-coordinates. Production DOLFINx trace adaptation, implicit linearization,
-friction, multiple pairs, time-varying natural loads, and undeclared weak
-formulations remain outside this gate and fail closed rather than inheriting
-its evidence.
+coordinates. The first DOLFINx trace adapter is now executable for tagged
+exterior triangles of first-order tetrahedral meshes with continuous blocked
+vector CG1 displacement. It uses three positive reference-area points per
+facet, partition-independent facet/point identity, synchronized ghost values,
+and collective rejection of unsupported spaces. Higher-order/general topology
+adaptation, implicit linearization, friction, multiple pairs, time-varying
+natural loads, and undeclared weak formulations remain outside this gate and
+fail closed rather than inheriting its evidence.
 
 Gate 5 now has an executable checkpoint capability contract. Procedures must
 separately declare the durable payload scope, accepted save boundary, atomic

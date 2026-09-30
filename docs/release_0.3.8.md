@@ -65,8 +65,17 @@ positive quadrature weights, and an explicit reference/current measure, then
 integrates a matching projection record and point response into nodal residual,
 penalty potential, contact resultant, and optional tool moment. It rejects
 identity, coordinate, or response mismatches before assembly. This is the
-reference trace contract; a production DOLFINx adapter and consistent implicit
-linearization remain outstanding.
+backend-neutral reference trace contract; consistent implicit linearization
+remains outstanding.
+
+The first DOLFINx trace adapter now closes that hand-off for one bounded route:
+tagged owned exterior triangles on first-order tetrahedral geometry and a
+continuous blocked three-component CG1 displacement space. It uses a positive
+three-point reference-area rule, derives stable point identity from the
+partition-independent facet IDs, synchronizes displacement ghosts before
+interpolation, supports empty local shards, and rejects unsupported spaces
+collectively. General/high-order topology and a consistent implicit contact
+linearization are still not claimed.
 
 ## Time and restart semantics
 
