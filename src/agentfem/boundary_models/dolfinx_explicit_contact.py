@@ -1159,6 +1159,7 @@ def dolfinx_explicit_contact_residual(
     penalty=None,
     maximum_stable_time_increment=None,
     lumped_mass=None,
+    contact_stability_estimate=None,
     noncontact_unsafed_stability_limit=None,
     contact_stability_safety_factor: float = 0.8,
     motion_schedule=None,
@@ -1231,10 +1232,20 @@ def dolfinx_explicit_contact_residual(
             )
     if projector is None:
         raise ValueError("Explicit contact requires projector or rigid_body.")
-    stability_estimate = None
+    stability_estimate = contact_stability_estimate
     combined_stability_estimate = None
     declared_limit = maximum_stable_time_increment
+    if (
+        lumped_mass is None
+        and isinstance(contact_stability_estimate, ContactStabilityEstimate)
+        and maximum_stable_time_increment is None
+    ):
+        maximum_stable_time_increment = contact_stability_estimate.selected
     if lumped_mass is not None:
+        if contact_stability_estimate is not None:
+            raise ValueError(
+                "Pass either lumped_mass or contact_stability_estimate, not both."
+            )
         projector_kind = projector.summary().get("kind")
         reviewed_stability_geometries = {
             "rigid_plane_surface",
@@ -1287,6 +1298,13 @@ def dolfinx_explicit_contact_residual(
                 float(maximum_stable_time_increment),
                 stability_estimate.selected,
             )
+    elif contact_stability_estimate is not None and not isinstance(
+        contact_stability_estimate,
+        ContactStabilityEstimate,
+    ):
+        raise TypeError(
+            "contact_stability_estimate must be ContactStabilityEstimate."
+        )
     elif noncontact_unsafed_stability_limit is not None:
         raise ValueError(
             "noncontact_unsafed_stability_limit requires lumped_mass so the "

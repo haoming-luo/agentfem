@@ -17,6 +17,19 @@ experimental formulation to a validated one.
   defined external gate with component evidence; the complete deformable FEM
   comparison and refinement evidence remain pending.
 
+- Connect registered `RigidContactPair` assets to the ordinary finite-strain
+  Explicit Procedure. One or more pairs now lower through reviewed DOLFINx
+  traces without user-authored residual plumbing; body, cohesive-interface,
+  and every normal/tangential contact stiffness enter one additive spectral
+  stability estimate before `dt` is selected. Accepted contact force, moment,
+  prescribed-tool work, potential, friction dissipation, projection/friction
+  State, checkpoint/restart, progress, and `SimulationResult` evidence remain
+  in their existing owners. Mass-proportional damping now transparently
+  forwards the wrapped residual's time, stability, contact-energy, and progress
+  contracts instead of hiding moving-contact State. The route stays
+  fail-closed to its reviewed three-dimensional tetrahedral-CG1 slave trace
+  and rigid-surface scope.
+
 - Add one Procedure-owned explicit-stability composition contract. Body,
   material, cohesive-interface, and contact estimators now contribute named
   equivalent spectral upper bounds; the Procedure adds those bounds before

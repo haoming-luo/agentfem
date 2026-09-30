@@ -5,6 +5,8 @@
 
 from __future__ import annotations
 
+from collections.abc import Mapping
+
 import numpy as np
 
 from . import constraints as constraint_api
@@ -136,6 +138,8 @@ def finite_strain_explicit_dynamics(
     state=None,
     mass=None,
     cohesive_force=None,
+    contact_pairs=None,
+    contact_projection_options=None,
     constraints=None,
     update_load=None,
     save_every: int | None = None,
@@ -152,7 +156,7 @@ def finite_strain_explicit_dynamics(
 
     import ufl
 
-    from . import fracture, problems
+    from . import boundary_models, fracture, problems
     from . import time as time_api
     from .constitutive import hyperelasticity
 
@@ -207,17 +211,59 @@ def finite_strain_explicit_dynamics(
         if mass is not None
         else model.lumped_mass(target, material=material)
     )
+    selected_contact_pairs = _finite_strain_explicit_contact_pairs(
+        model,
+        contact_pairs,
+        boundary_models=boundary_models,
+    )
+    contact_options = _contact_projection_options(
+        selected_contact_pairs,
+        contact_projection_options,
+    )
+    contact_adapters = tuple(
+        boundary_models.dolfinx_boundary_region_contact_trace(
+            pair.slave_boundary,
+            selected_state.u.value.function_space,
+        )
+        for pair in selected_contact_pairs
+    )
     body_screening_speed = max(
         _finite_strain_reference_speed(record.item, fracture) for record in records
     )
     interface_stability = (
         {} if cohesive_force is None else cohesive_force.stability_inputs(selected_mass)
     )
-    stability = fracture.estimate_stable_time_increment(
+    base_stability = fracture.estimate_stable_time_increment(
         characteristic_length=fracture.minimum_cell_nodal_spacing(_domain(model.mesh)),
         dilatational_speed=body_screening_speed,
         safety_factor=stability_safety,
         **interface_stability,
+    )
+    contact_stability = tuple(
+        boundary_models.estimate_dolfinx_contact_stability(
+            adapter=adapter,
+            lumped_mass=selected_mass,
+            normal_penalty=pair.law.penalty,
+            tangential_penalty=(
+                None if pair.friction is None else pair.friction.tangential_penalty
+            ),
+            friction_coefficient=(
+                0.0 if pair.friction is None else pair.friction.coefficient
+            ),
+            safety_factor=stability_safety,
+        )
+        for pair, adapter in zip(
+            selected_contact_pairs,
+            contact_adapters,
+            strict=True,
+        )
+    )
+    stability = _compose_finite_strain_explicit_stability(
+        base_stability,
+        selected_contact_pairs,
+        contact_stability,
+        safety_factor=stability_safety,
+        time_api=time_api,
     )
     if dt is None or str(dt).strip().lower() == "auto":
         selected_dt = stability.selected
@@ -246,6 +292,23 @@ def finite_strain_explicit_dynamics(
     residual = model.force_balance(internal=internal, external=external)
     if cohesive_force is not None:
         residual = fracture.FiniteStrainCohesiveResidual(residual, cohesive_force)
+    for pair, adapter, options, contact_estimate in zip(
+        selected_contact_pairs,
+        contact_adapters,
+        contact_options,
+        contact_stability,
+        strict=True,
+    ):
+        residual = boundary_models.dolfinx_explicit_contact_residual(
+            residual,
+            adapter=adapter,
+            displacement=selected_state.u.value,
+            contact_pair=pair,
+            maximum_stable_time_increment=stability.selected,
+            contact_stability_estimate=contact_estimate,
+            projection_options=options,
+            name=pair.name,
+        )
     damping_residual = None
     if float(mass_damping) != 0.0:
         damping_residual = fracture.MassProportionalDampingResidual(
@@ -318,6 +381,100 @@ def finite_strain_explicit_dynamics(
         name=name,
     )
     return model.add_step(step)
+
+
+def _finite_strain_explicit_contact_pairs(model, contact_pairs, *, boundary_models):
+    """Resolve Model-owned contact pairs without inventing Procedure assets."""
+
+    pair_type = boundary_models.RigidContactPair
+    if contact_pairs is None:
+        selected = tuple(
+            item for item in model.boundary_models if isinstance(item, pair_type)
+        )
+    elif isinstance(contact_pairs, pair_type):
+        selected = (contact_pairs,)
+    else:
+        selected = tuple(contact_pairs)
+    if any(not isinstance(item, pair_type) for item in selected):
+        raise TypeError(
+            "Finite-strain Explicit contact_pairs must contain RigidContactPair "
+            "assets."
+        )
+    names = tuple(item.name for item in selected)
+    if len(set(names)) != len(names):
+        raise ValueError("Finite-strain Explicit contact-pair names must be unique.")
+    identities = tuple(item.scientific_identity for item in selected)
+    if len(set(identities)) != len(identities):
+        raise ValueError(
+            "Finite-strain Explicit contact_pairs contain a duplicate scientific "
+            "pair."
+        )
+    return selected
+
+
+def _contact_projection_options(contact_pairs, options):
+    """Return one explicit search-option mapping per named contact pair."""
+
+    if options is None:
+        return tuple({} for _ in contact_pairs)
+    if not isinstance(options, Mapping):
+        raise TypeError("contact_projection_options must be a mapping by pair name.")
+    unknown = set(options) - {pair.name for pair in contact_pairs}
+    if unknown:
+        raise ValueError(
+            "contact_projection_options contains unknown pair names: "
+            + ", ".join(sorted(unknown))
+        )
+    selected = []
+    for pair in contact_pairs:
+        pair_options = options.get(pair.name, {})
+        if not isinstance(pair_options, Mapping):
+            raise TypeError(
+                f"Projection options for contact pair {pair.name!r} must be a mapping."
+            )
+        selected.append(dict(pair_options))
+    return tuple(selected)
+
+
+def _compose_finite_strain_explicit_stability(
+    base,
+    contact_pairs,
+    contact_estimates,
+    *,
+    safety_factor,
+    time_api,
+):
+    """Compose body, cohesive, and every contact bound before selecting ``dt``."""
+
+    contributions = [
+        time_api.ExplicitStabilityContribution.from_time_increment(
+            "body",
+            base.body_limit,
+            method="characteristic_length_over_dilatational_speed",
+        )
+    ]
+    if base.interface_limit is not None:
+        contributions.append(
+            time_api.ExplicitStabilityContribution.from_time_increment(
+                "interface",
+                base.interface_limit,
+                method="two_sided_interface_oscillator",
+            )
+        )
+    contributions.extend(
+        time_api.ExplicitStabilityContribution.from_spectral_bound(
+            f"contact:{pair.name}",
+            estimate.spectral_radius_upper_bound,
+            method=estimate.method,
+        )
+        for pair, estimate in zip(contact_pairs, contact_estimates, strict=True)
+    )
+    if not contact_pairs:
+        return base
+    return time_api.combine_explicit_stability(
+        contributions,
+        safety_factor=safety_factor,
+    )
 
 
 def modal(

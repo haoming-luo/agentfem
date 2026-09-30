@@ -3046,6 +3046,39 @@ class MassProportionalDampingResidual:
         self.dissipated_energy = 0.0
         self._trial_dissipation: float | None = None
 
+    def validate_time_increment(self, dt: float) -> None:
+        """Preserve any stability ceiling owned by the wrapped residual."""
+
+        validate = getattr(self.base, "validate_time_increment", None)
+        if callable(validate):
+            validate(dt)
+
+    def update_time(self, time_value: float) -> None:
+        """Forward physical time to stateful loads or moving contact."""
+
+        update = getattr(self.base, "update_time", None)
+        if callable(update):
+            update(time_value)
+
+    def initialize_accepted_state(self, *, time: float = 0.0) -> None:
+        """Initialize accepted State owned by the wrapped residual."""
+
+        initialize = getattr(self.base, "initialize_accepted_state", None)
+        if callable(initialize):
+            initialize(time=time)
+
+    def contact_energy_evidence(self) -> tuple[dict[str, object], ...]:
+        """Expose wrapped contact terms to the shared energy ledger."""
+
+        provider = getattr(self.base, "contact_energy_evidence", None)
+        return tuple(provider()) if callable(provider) else ()
+
+    def contact_progress_evidence(self) -> tuple[dict[str, object], ...]:
+        """Expose wrapped contact terms to throttled progress reporting."""
+
+        provider = getattr(self.base, "contact_progress_evidence", None)
+        return tuple(provider()) if callable(provider) else ()
+
     def assemble_vector(self):
         vector = operators.assemble_vector(self.base)
         diagonal = np.asarray(
