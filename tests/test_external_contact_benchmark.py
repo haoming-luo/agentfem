@@ -186,3 +186,26 @@ def test_finite_sliding_solid_bridge_is_rank_canonical_on_two_ranks():
 
     assert bridge.acceptable, bridge.failures
     assert all(item == summaries[0] for item in summaries)
+
+
+def test_finite_sliding_solid_refinement_separates_time_and_space_axes():
+    refinement = benchmarks.finite_sliding_solid_protocol_refinement()
+
+    assert refinement.acceptable, refinement.failures
+    assert refinement.time_relative_dissipation_change < 1.0e-4
+    assert refinement.space_relative_dissipation_change < 1.0e-4
+    assert (
+        refinement.time_refined.normal_time_increment
+        < refinement.coarse.normal_time_increment
+    )
+    assert (
+        refinement.time_refined.sliding_time_increment
+        < refinement.coarse.sliding_time_increment
+    )
+    assert refinement.space_refined.cells != refinement.time_refined.cells
+    assert refinement.space_refined.assessment.active_point_count > (
+        refinement.time_refined.assessment.active_point_count
+    )
+    assert refinement.summary()["scope"] == (
+        "separated_time_and_space_refinement_not_observed_order"
+    )

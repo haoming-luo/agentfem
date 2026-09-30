@@ -198,6 +198,132 @@ class FiniteSlidingSolidBridge:
         }
 
 
+@dataclass(frozen=True)
+class FiniteSlidingSolidRefinement:
+    """Separated time- and space-refinement evidence for the solid bridge.
+
+    The three runs keep physical stage durations fixed.  The second run halves
+    both stage time increments on the coarse mesh; the third retains those
+    increments while refining the in-plane solid mesh.  This is deliberately
+    called refinement evidence rather than an observed-order claim.
+    """
+
+    coarse: FiniteSlidingSolidBridge
+    time_refined: FiniteSlidingSolidBridge
+    space_refined: FiniteSlidingSolidBridge
+    dissipation_tolerance: float = 1.0e-4
+    energy_growth_tolerance: float = 0.05
+
+    @staticmethod
+    def _relative_change(first: float, second: float) -> float:
+        scale = max(abs(float(first)), abs(float(second)), np.finfo(float).tiny)
+        return abs(float(second) - float(first)) / scale
+
+    @property
+    def time_relative_dissipation_change(self) -> float:
+        return self._relative_change(
+            self.coarse.assessment.friction_dissipation,
+            self.time_refined.assessment.friction_dissipation,
+        )
+
+    @property
+    def space_relative_dissipation_change(self) -> float:
+        return self._relative_change(
+            self.time_refined.assessment.friction_dissipation,
+            self.space_refined.assessment.friction_dissipation,
+        )
+
+    @property
+    def failures(self) -> tuple[str, ...]:
+        failures: list[str] = []
+        for name, bridge in (
+            ("coarse", self.coarse),
+            ("time_refined", self.time_refined),
+            ("space_refined", self.space_refined),
+        ):
+            if not bridge.acceptable:
+                failures.append(f"{name}_bridge_failed")
+            if bridge.assessment.facet_crossing_count <= 0:
+                failures.append(f"{name}_lacks_facet_crossing")
+        if self.time_refined.normal_time_increment >= self.coarse.normal_time_increment:
+            failures.append("preload_time_increment_not_refined")
+        if self.time_refined.sliding_time_increment >= self.coarse.sliding_time_increment:
+            failures.append("sliding_time_increment_not_refined")
+        if self.space_refined.cells == self.time_refined.cells:
+            failures.append("space_mesh_not_refined")
+        duration_pairs = (
+            (
+                self.coarse.normal_time_increment * self.coarse.preload_steps,
+                self.time_refined.normal_time_increment
+                * self.time_refined.preload_steps,
+                "preload_time_duration_changed",
+            ),
+            (
+                self.coarse.sliding_time_increment * self.coarse.sliding_steps,
+                self.time_refined.sliding_time_increment
+                * self.time_refined.sliding_steps,
+                "sliding_time_duration_changed",
+            ),
+            (
+                self.time_refined.normal_time_increment
+                * self.time_refined.preload_steps,
+                self.space_refined.normal_time_increment
+                * self.space_refined.preload_steps,
+                "preload_space_duration_changed",
+            ),
+            (
+                self.time_refined.sliding_time_increment
+                * self.time_refined.sliding_steps,
+                self.space_refined.sliding_time_increment
+                * self.space_refined.sliding_steps,
+                "sliding_space_duration_changed",
+            ),
+        )
+        for first, second, failure in duration_pairs:
+            if not np.isclose(first, second, rtol=1.0e-12, atol=0.0):
+                failures.append(failure)
+        if self.time_relative_dissipation_change > self.dissipation_tolerance:
+            failures.append("time_refined_dissipation_changed")
+        if self.space_relative_dissipation_change > self.dissipation_tolerance:
+            failures.append("space_refined_dissipation_changed")
+        allowed_energy = 1.0 + float(self.energy_growth_tolerance)
+        if (
+            self.time_refined.sliding_relative_energy_error
+            > allowed_energy * self.coarse.sliding_relative_energy_error
+        ):
+            failures.append("time_refined_energy_error_grew")
+        if (
+            self.space_refined.sliding_relative_energy_error
+            > allowed_energy * self.time_refined.sliding_relative_energy_error
+        ):
+            failures.append("space_refined_energy_error_grew")
+        return tuple(failures)
+
+    @property
+    def acceptable(self) -> bool:
+        return not self.failures
+
+    def summary(self) -> dict[str, object]:
+        return {
+            "kind": "finite_sliding_solid_protocol_refinement",
+            "status": "accepted" if self.acceptable else "failed",
+            "acceptable": self.acceptable,
+            "scope": "separated_time_and_space_refinement_not_observed_order",
+            "time_relative_dissipation_change": (
+                self.time_relative_dissipation_change
+            ),
+            "space_relative_dissipation_change": (
+                self.space_relative_dissipation_change
+            ),
+            "dissipation_tolerance": self.dissipation_tolerance,
+            "energy_growth_tolerance": self.energy_growth_tolerance,
+            "coarse": self.coarse.summary(),
+            "time_refined": self.time_refined.summary(),
+            "space_refined": self.space_refined.summary(),
+            "failures": list(self.failures),
+        }
+
+
 def abaqus_explicit_finite_sliding_reference() -> FiniteSlidingContactReference:
     """Return the public Abaqus/Explicit B31 finite-sliding protocol.
 
@@ -364,7 +490,10 @@ def finite_sliding_solid_protocol_bridge(
     preload_ramp_steps: int = 50,
     penalty_factor: float = 20.0,
     mass_damping: float = 2.0e4,
+    preload_stability_scale: float = 1.0,
     sliding_stability_scale: float = 0.8,
+    preload_dt: float | None = None,
+    sliding_dt: float | None = None,
     comm=None,
 ) -> FiniteSlidingSolidBridge:
     """Run a real two-stage solid-contact bridge to the public protocol.
@@ -403,13 +532,26 @@ def finite_sliding_solid_protocol_bridge(
         raise ValueError("Preload ramp must end before the preload stage.")
     selected_penalty_factor = float(penalty_factor)
     selected_damping = float(mass_damping)
+    selected_preload_scale = float(preload_stability_scale)
     selected_stability_scale = float(sliding_stability_scale)
+    selected_preload_dt = None if preload_dt is None else float(preload_dt)
+    selected_sliding_dt = None if sliding_dt is None else float(sliding_dt)
     if not np.isfinite(selected_penalty_factor) or selected_penalty_factor <= 0.0:
         raise ValueError("penalty_factor must be finite and positive.")
     if not np.isfinite(selected_damping) or selected_damping < 0.0:
         raise ValueError("mass_damping must be finite and nonnegative.")
+    if not 0.0 < selected_preload_scale <= 1.0:
+        raise ValueError("preload_stability_scale must lie in (0, 1].")
     if not 0.0 < selected_stability_scale <= 1.0:
         raise ValueError("sliding_stability_scale must lie in (0, 1].")
+    if selected_preload_dt is not None and (
+        not np.isfinite(selected_preload_dt) or selected_preload_dt <= 0.0
+    ):
+        raise ValueError("preload_dt must be finite and positive when provided.")
+    if selected_sliding_dt is not None and (
+        not np.isfinite(selected_sliding_dt) or selected_sliding_dt <= 0.0
+    ):
+        raise ValueError("sliding_dt must be finite and positive when provided.")
 
     reference = abaqus_explicit_finite_sliding_reference()
     domain = mesh.cuboid(
@@ -484,7 +626,11 @@ def finite_sliding_solid_protocol_bridge(
         progress=False,
         name="normal_stability_probe",
     )
-    normal_dt = float(stability_probe.dt)
+    normal_dt = (
+        selected_preload_scale * float(stability_probe.dt)
+        if selected_preload_dt is None
+        else selected_preload_dt
+    )
     preload_model.surface_force(
         (0.0, 0.0, -reference.normal_load),
         on=top,
@@ -581,16 +727,20 @@ def finite_sliding_solid_protocol_bridge(
         progress=False,
         name="sliding_stability_probe",
     )
-    sliding_dt = selected_stability_scale * float(sliding_probe.dt)
+    selected_stage_dt = (
+        selected_stability_scale * float(sliding_probe.dt)
+        if selected_sliding_dt is None
+        else selected_sliding_dt
+    )
     active_pair = sliding_pair(
-        selected_sliding_steps * sliding_dt,
+        selected_sliding_steps * selected_stage_dt,
         name="finite_sliding_contact",
     )
     sliding = sliding_model.finite_strain_explicit_dynamics_step(
         target=sliding_displacement,
         material=sliding_material,
         contact_pairs=(active_pair,),
-        dt=sliding_dt,
+        dt=selected_stage_dt,
         steps=selected_sliding_steps,
         mass_damping=selected_damping,
         history_every=max(1, selected_sliding_steps // 20),
@@ -642,10 +792,47 @@ def finite_sliding_solid_protocol_bridge(
             sliding.history_records[-1]["relative_energy_balance_error"]
         ),
         normal_time_increment=normal_dt,
-        sliding_time_increment=sliding_dt,
+        sliding_time_increment=selected_stage_dt,
         preload_steps=selected_preload_steps,
         sliding_steps=selected_sliding_steps,
         cells=selected_cells,
+    )
+
+
+def finite_sliding_solid_protocol_refinement(
+    *,
+    coarse_cells=(1, 1, 1),
+    refined_cells=(2, 2, 1),
+    comm=None,
+) -> FiniteSlidingSolidRefinement:
+    """Run a separated two-axis refinement check at fixed stage durations."""
+
+    coarse = finite_sliding_solid_protocol_bridge(
+        cells=coarse_cells,
+        comm=comm,
+    )
+    time_refined = finite_sliding_solid_protocol_bridge(
+        cells=coarse_cells,
+        preload_steps=2 * coarse.preload_steps,
+        sliding_steps=2 * coarse.sliding_steps,
+        preload_ramp_steps=100,
+        preload_stability_scale=0.5,
+        sliding_stability_scale=0.4,
+        comm=comm,
+    )
+    space_refined = finite_sliding_solid_protocol_bridge(
+        cells=refined_cells,
+        preload_steps=time_refined.preload_steps,
+        sliding_steps=time_refined.sliding_steps,
+        preload_ramp_steps=100,
+        preload_dt=time_refined.normal_time_increment,
+        sliding_dt=time_refined.sliding_time_increment,
+        comm=comm,
+    )
+    return FiniteSlidingSolidRefinement(
+        coarse=coarse,
+        time_refined=time_refined,
+        space_refined=space_refined,
     )
 
 
@@ -719,7 +906,9 @@ __all__ = [
     "FiniteSlidingContactAssessment",
     "FiniteSlidingContactReference",
     "FiniteSlidingSolidBridge",
+    "FiniteSlidingSolidRefinement",
     "abaqus_explicit_finite_sliding_reference",
     "assess_finite_sliding_contact",
     "finite_sliding_solid_protocol_bridge",
+    "finite_sliding_solid_protocol_refinement",
 ]
