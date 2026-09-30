@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import copy
+
 import basix.ufl
 from dolfinx import fem, mesh
 from mpi4py import MPI
@@ -7,7 +9,7 @@ import numpy as np
 import pytest
 import ufl
 
-from agentfem import boundary_models, operators, problems, time
+from agentfem import boundary_models, fracture, operators, problems, time
 from agentfem import mesh as agent_mesh
 
 
@@ -72,6 +74,7 @@ def _contact(
     cells_x: int = 1,
     displacement_value: float = 0.1,
     bulk_value=(0.0, 0.0, 0.0),
+    motion_schedule=None,
 ):
     domain = _cube(comm, cells_x=cells_x)
     function_space = _vector_space(domain)
@@ -93,6 +96,7 @@ def _contact(
         projector=surface,
         penalty=200.0,
         maximum_stable_time_increment=1.0e-3,
+        motion_schedule=motion_schedule,
         surface_reference_point=(0.0, 0.0, 0.0),
     )
     return domain, displacement, residual
@@ -190,6 +194,207 @@ def test_explicit_contact_residual_advances_through_central_difference():
     assert residual.lifecycle.state.accepted is not None
 
 
+def test_moving_contact_records_only_accepted_force_moment_work():
+    motion = boundary_models.prescribed_rigid_motion(
+        translation=(0.02, 0.0, 0.0),
+        rotation=(0.0, 0.0, 0.0),
+    )
+    schedule = boundary_models.prescribed_rigid_motion_schedule(
+        motion,
+        end_time=1.0e-3,
+    )
+    _domain, displacement, residual = _contact(
+        MPI.COMM_SELF,
+        motion_schedule=schedule,
+    )
+    state = problems.second_order_state(displacement)
+    diagonal = np.ones(displacement.x.array.shape, dtype=float)
+    mass = operators.LumpedMassOperator(mass=diagonal, inv_mass=diagonal)
+    integrator = time.explicit.central_difference(state=state, mass=mass)
+    step = problems.explicit_dynamics(
+        state=state,
+        integrator=integrator,
+        residual=residual,
+        dt=5.0e-4,
+        steps=1,
+        progress=False,
+    )
+
+    step.run()
+
+    assert residual.work_state is not None
+    assert len(residual.work_state.accepted) == 2
+    assert residual.work_state.current.factor == pytest.approx(0.5)
+    assert residual.work_state.path_work == pytest.approx(-0.09)
+    assert residual.work_state.latest_interval_power == pytest.approx(-180.0)
+    summary = residual.summary()
+    assert summary["surface_motion"] == "prescribed_proportional_rigid_motion"
+    assert summary["prescribed_motion_work"]["path_work"] == pytest.approx(-0.09)
+
+
+def test_moving_contact_enters_shared_dynamic_energy_balance():
+    class ZeroBodyEnergy:
+        def evaluate(self, *, displacement, velocity):
+            return {"total_mechanical_energy": 0.0}
+
+    schedule = boundary_models.prescribed_rigid_motion_schedule(
+        boundary_models.prescribed_rigid_motion(
+            translation=(0.02, 0.0, 0.0),
+        ),
+        end_time=1.0e-3,
+    )
+    _domain, displacement, residual = _contact(
+        MPI.COMM_SELF,
+        motion_schedule=schedule,
+    )
+    state = problems.second_order_state(displacement)
+    diagonal = np.ones(displacement.x.array.shape, dtype=float)
+    mass = operators.LumpedMassOperator(mass=diagonal, inv_mass=diagonal)
+    integrator = time.explicit.central_difference(state=state, mass=mass)
+    ledger = fracture.DynamicEnergyLedger(
+        energy=ZeroBodyEnergy(),
+        state=state,
+        mass=mass,
+        residual=residual,
+    )
+    step = problems.explicit_dynamics(
+        state=state,
+        integrator=integrator,
+        residual=residual,
+        dt=5.0e-4,
+        steps=1,
+        progress=False,
+        history_monitor=ledger,
+    )
+
+    step.run()
+
+    assert len(step.history_records) == 2
+    initial, accepted = step.history_records
+    assert initial["contact_potential_energy"] == pytest.approx(0.25)
+    assert accepted["contact_motion_work"] == pytest.approx(-0.09)
+    assert accepted["external_work"] == pytest.approx(-0.09)
+    assert accepted["contact_potential_energy"] == pytest.approx(0.16)
+    assert accepted["energy_balance_error"] == pytest.approx(0.0, abs=1.0e-14)
+
+
+def test_moving_contact_work_snapshot_round_trip_and_identity_check():
+    motion = boundary_models.prescribed_rigid_motion(
+        translation=(0.02, 0.0, 0.0),
+    )
+    schedule = boundary_models.prescribed_rigid_motion_schedule(
+        motion,
+        end_time=1.0e-3,
+    )
+    _domain, _displacement, residual = _contact(
+        MPI.COMM_SELF,
+        motion_schedule=schedule,
+    )
+    residual.initialize_accepted_state(time=0.0)
+    residual.update_time(5.0e-4)
+    vector = residual.assemble_vector()
+    vector.destroy()
+    residual.commit()
+    snapshot = residual.snapshot()
+
+    _other_domain, _other_displacement, restored = _contact(
+        MPI.COMM_SELF,
+        motion_schedule=schedule,
+    )
+    restored.restore(snapshot)
+    assert restored.snapshot() == snapshot
+    assert restored.work_state.path_work == pytest.approx(-0.09)
+
+    pristine = restored.snapshot()
+    corrupt = copy.deepcopy(snapshot)
+    corrupt["accepted_evidence"]["contact_force_on_surface"][0] = 99.0
+    with pytest.raises(ValueError, match="action and reaction"):
+        restored.restore(corrupt)
+    assert restored.snapshot() == pristine
+
+    incompatible = boundary_models.prescribed_rigid_motion_schedule(
+        boundary_models.prescribed_rigid_motion(translation=(0.03, 0.0, 0.0)),
+        end_time=1.0e-3,
+    )
+    _third_domain, _third_displacement, rejected = _contact(
+        MPI.COMM_SELF,
+        motion_schedule=incompatible,
+    )
+    with pytest.raises(ValueError, match="identity differs"):
+        rejected.restore(snapshot)
+
+
+def test_moving_contact_transient_checkpoint_matches_uninterrupted_run(tmp_path):
+    class ZeroBodyEnergy:
+        def evaluate(self, *, displacement, velocity):
+            return {"total_mechanical_energy": 0.0}
+
+    motion = boundary_models.prescribed_rigid_motion(
+        translation=(0.02, 0.0, 0.0),
+    )
+    schedule = boundary_models.prescribed_rigid_motion_schedule(
+        motion,
+        end_time=1.0e-3,
+    )
+
+    def build_step():
+        _domain, displacement, residual = _contact(
+            MPI.COMM_SELF,
+            motion_schedule=schedule,
+        )
+        state = problems.second_order_state(displacement)
+        diagonal = np.ones(displacement.x.array.shape, dtype=float)
+        mass = operators.LumpedMassOperator(mass=diagonal, inv_mass=diagonal)
+        integrator = time.explicit.central_difference(state=state, mass=mass)
+        ledger = fracture.DynamicEnergyLedger(
+            energy=ZeroBodyEnergy(),
+            state=state,
+            mass=mass,
+            residual=residual,
+        )
+        step = problems.explicit_dynamics(
+            state=state,
+            integrator=integrator,
+            residual=residual,
+            dt=5.0e-4,
+            steps=2,
+            progress=False,
+            history_monitor=ledger,
+        )
+        return step, residual
+
+    continuous, continuous_residual = build_step()
+    continuous.run()
+
+    partial, _partial_residual = build_step()
+    partial.run(until_step=1)
+    checkpoint = partial.save_checkpoint(tmp_path / "moving-contact")
+
+    restarted, restarted_residual = build_step()
+    restarted.load_checkpoint(checkpoint)
+    restarted.run()
+
+    np.testing.assert_allclose(
+        restarted.state.u.value.x.array,
+        continuous.state.u.value.x.array,
+        rtol=0.0,
+        atol=1.0e-15,
+    )
+    np.testing.assert_allclose(
+        restarted.state.v.value.x.array,
+        continuous.state.v.value.x.array,
+        rtol=0.0,
+        atol=1.0e-15,
+    )
+    assert restarted_residual.work_state.path_work == pytest.approx(
+        continuous_residual.work_state.path_work
+    )
+    assert restarted_residual.work_state.snapshot() == (
+        continuous_residual.work_state.snapshot()
+    )
+    assert restarted.history_records == continuous.history_records
+
+
 def test_explicit_contact_residual_preserves_global_force_under_mpi():
     if MPI.COMM_WORLD.size != 2:
         pytest.skip("Explicit contact residual is reviewed on two ranks.")
@@ -221,6 +426,33 @@ def test_explicit_contact_residual_preserves_global_force_under_mpi():
     )
     assert residual.trial_evidence.active_point_count == 6
     residual.commit()
+
+
+def test_moving_contact_work_is_rank_canonical_under_mpi():
+    if MPI.COMM_WORLD.size != 2:
+        pytest.skip("Moving contact work is reviewed on two ranks.")
+    comm = MPI.COMM_WORLD
+    schedule = boundary_models.prescribed_rigid_motion_schedule(
+        boundary_models.prescribed_rigid_motion(
+            translation=(0.02, 0.0, 0.0),
+        ),
+        end_time=1.0e-3,
+    )
+    _domain, _displacement, residual = _contact(
+        comm,
+        cells_x=2,
+        motion_schedule=schedule,
+    )
+    residual.initialize_accepted_state(time=0.0)
+    residual.update_time(5.0e-4)
+    vector = residual.assemble_vector()
+    vector.destroy()
+    residual.commit()
+
+    snapshot = residual.snapshot()
+    copies = comm.allgather(snapshot)
+    assert all(item == copies[0] for item in copies)
+    assert residual.work_state.path_work == pytest.approx(-0.09)
 
 
 def test_explicit_step_rolls_back_if_residual_commit_fails():

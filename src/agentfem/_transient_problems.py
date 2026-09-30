@@ -189,6 +189,10 @@ class ExplicitDynamicsStep:
         )
 
         _emit_transient_started(reporter, self)
+        if self.completed_steps == 0 and hasattr(
+            self.residual, "initialize_accepted_state"
+        ):
+            self.residual.initialize_accepted_state(time=0.0)
         _record_transient_history(self, self.completed_steps * self.dt)
 
         if output is None:
@@ -296,6 +300,8 @@ class ExplicitDynamicsStep:
     def _advance_one(self, t: float) -> None:
         if self.update_load is not None:
             self.update_load(t)
+        if hasattr(self.residual, "update_time"):
+            self.residual.update_time(t)
         try:
             self.integrator.step(
                 self.dt,
@@ -1765,7 +1771,11 @@ def _load_transient_checkpoint(step, path, state) -> None:
                 "step has no compatible residual-state consumer."
             )
         residual.restore(auxiliary["residual"])
-    elif hasattr(residual, "restore"):
+    elif getattr(
+        residual,
+        "checkpoint_state_required",
+        hasattr(residual, "restore"),
+    ):
         raise ValueError(
             "The current step requires auxiliary residual state that is absent "
             "from this checkpoint."
@@ -1782,6 +1792,8 @@ def _load_transient_checkpoint(step, path, state) -> None:
     restart_time = float(step.completed_steps) * float(step.dt)
     if getattr(step, "update_load", None) is not None:
         step.update_load(restart_time)
+    if hasattr(residual, "update_time"):
+        residual.update_time(restart_time)
     for item in tuple(getattr(step, "prescribed", ())):
         if hasattr(item, "update"):
             item.update(restart_time)

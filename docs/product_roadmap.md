@@ -148,13 +148,17 @@ The first explicit Procedure hand-off is now executable for that narrow
 DOLFINx slave trace. A composable residual evaluates the current predicted
 displacement, repeats exact projection, applies the local frictionless penalty
 law, integrates the trace, and adds only the owner-reduced contact vector to
-the already assembled bulk residual. Its projection trial follows the same
-increment commit/rollback decision as central difference, and MPI-global
-potential, force/reaction, active-point count and optional tool moment remain
-inspectable. A caller-supplied contact stability ceiling is mandatory and is
-checked when the Step is built; automatic spectral estimation has not been
-claimed. This closes fixed-surface explicit force insertion, not moving-tool
-work, general contact, or implicit Newton linearization.
+the already assembled bulk residual. Its projection and work trials follow the
+same increment commit/rollback decision as central difference. MPI-global
+potential, force/reaction, active-point count and tool moment remain
+inspectable. One explicit physical-time schedule can drive proportional rigid
+translation and rotation; its initial and accepted generalized stations produce
+force--translation plus moment--rotation work and interval power. Checkpoints
+bind the schedule identity and restore the accepted path while recomputing the
+memoryless projection. A caller-supplied contact stability ceiling remains
+mandatory; automatic spectral estimation has not been claimed. This closes
+bounded moving-plane explicit work, not general contact, finite sliding,
+multiple pairs, friction, or implicit Newton linearization.
 
 Gate 5 now has an executable checkpoint capability contract. Procedures must
 separately declare the durable payload scope, accepted save boundary, atomic
@@ -249,11 +253,13 @@ lifecycle with collective MPI rejection and explicit increment
 commit/rollback) and an Operator that consumes the trial projection. Candidate
 warm starts may optimize broad-phase work later, but exact gaps and normals
 remain evaluation-local. Cross-rank checkpoint aggregation by stable point
-identity remains
-required before that state can claim MPI-portable restart. The fixed-surface
-explicit residual hand-off is now executable with a mandatory declared
-stability ceiling; moving-tool work, multiple pairs, finite sliding and
-finally friction follow that bounded route. STEP
+identity remains required before a discrete-surface projection state can claim
+MPI-portable restart. The analytical-plane explicit residual hand-off now
+supports fixed or proportional prescribed motion, a mandatory declared
+stability ceiling, rank-canonical force--moment--work evidence, and
+accepted-path restart. Multiple pairs, finite sliding over discrete surface
+entities, scalable portable projection State, and finally friction follow that
+bounded route. STEP
 remains an optional geometry-adapter input that is repaired and tessellated
 before the contact core consumes it. Shell/solid-shell forming and self-contact
 remain later scientific promotions, not hidden extensions of the bounded

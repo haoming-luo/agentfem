@@ -705,14 +705,19 @@ and evidence remain in the linked guides and scientific function reference.
 | class | `ContactTrace` | Stable quadrature/interpolation contract for one slave boundary shard. |
 | class | `ContactTraceAssembly` | Integrated residual, potential, and generalized rigid-surface evidence. |
 | class | `ContactTraceEvaluation` | Current slave-point positions bound to one immutable trace contract. |
+| class | `PrescribedContactWorkState(*, identity: str) -> None` | Transactional accepted-path ledger for one prescribed rigid tool. |
+| class | `PrescribedContactWorkStation` | One globally reduced rigid-tool force/coordinate station. |
+| class | `PrescribedRigidMotionSchedule` | A proportional rigid motion over one explicit physical-time interval. |
+| function | `prescribed_contact_work_state(*, identity: str) -> PrescribedContactWorkState` | Public AgentFEM object. |
+| function | `prescribed_rigid_motion_schedule(motion: PrescribedRigidMotion, *, start_time: float = 0.0, end_time: float, name: str = 'prescribed_rigid_motion_schedule') -> PrescribedRigidMotionSchedule` | Public AgentFEM object. |
 | function | `dolfinx_boundary_region_triangle_partition(region, *, name: str \| None = None, tolerance: float \| None = None, ambiguity_tolerance: float \| None = None) -> TriangleSurfacePartition` | Adapt an AgentFEM named boundary region into the search contract. |
 | function | `dolfinx_exterior_triangle_partition(domain, *, facets = None, name: str = 'dolfinx_exterior_triangle_surface', tolerance: float \| None = None, ambiguity_tolerance: float \| None = None) -> TriangleSurfacePartition` | Build a stable distributed triangle partition from owned exterior facets. |
 | function | `dolfinx_tagged_exterior_triangle_partition(domain, facet_tags, *, tag: int, name: str \| None = None, tolerance: float \| None = None, ambiguity_tolerance: float \| None = None) -> TriangleSurfacePartition` | Build a distributed triangle partition from one DOLFINx facet tag. |
 | class | `DolfinxContactTraceAdapter` | Bind one reviewed DOLFINx CG1 boundary trace to current displacement. |
 | function | `dolfinx_boundary_region_contact_trace(region, function_space) -> DolfinxContactTraceAdapter` | Adapt a tagged tetrahedral boundary and blocked vector CG1 space. |
-| class | `DolfinxExplicitContactResidual(base, *, adapter: DolfinxContactTraceAdapter, displacement, lifecycle: ContactProjectionLifecycle, law: FrictionlessPenaltyContactLaw, maximum_stable_time_increment: float, surface_reference_point = None, projection_options = None, name: str = 'dolfinx_explicit_contact_residual') -> None` | Add reviewed trace contact to a DOLFINx explicit residual. |
+| class | `DolfinxExplicitContactResidual(base, *, adapter: DolfinxContactTraceAdapter, displacement, lifecycle: ContactProjectionLifecycle, law: FrictionlessPenaltyContactLaw, maximum_stable_time_increment: float, motion_schedule: PrescribedRigidMotionSchedule \| None = None, surface_reference_point = None, projection_options = None, name: str = 'dolfinx_explicit_contact_residual') -> None` | Add reviewed trace contact to a DOLFINx explicit residual. |
 | class | `ExplicitContactEvidence` | MPI-global evidence from one contact residual evaluation. |
-| function | `dolfinx_explicit_contact_residual(base, *, adapter, displacement, projector, penalty, maximum_stable_time_increment, invalid_policy: str = 'reject', surface_reference_point = None, projection_options = None, name: str = 'dolfinx_explicit_contact_residual') -> DolfinxExplicitContactResidual` | Build the reviewed first explicit contact residual consumer. |
+| function | `dolfinx_explicit_contact_residual(base, *, adapter, displacement, projector, penalty, maximum_stable_time_increment, motion_schedule = None, invalid_policy: str = 'reject', surface_reference_point = None, projection_options = None, name: str = 'dolfinx_explicit_contact_residual') -> DolfinxExplicitContactResidual` | Build the reviewed first explicit contact residual consumer. |
 | class | `PrescribedRigidMotion` | Normalized prescribed rigid-body translation and rotation. |
 | class | `RigidCylinderSurface` | Analytical three-dimensional infinite circular cylinder. |
 | class | `RigidPlaneSurface` | Analytical rigid plane with one explicit point and unit normal. |

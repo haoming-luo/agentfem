@@ -342,10 +342,20 @@ bulk ghost contributions.
 The caller must supply `maximum_stable_time_increment`; construction of an
 explicit Step rejects a larger `dt`. This is intentional: penalty contact adds
 stiffness and can reduce the critical central-difference step below the body
-wave estimate. The current route reports global force/reaction, potential and
-optional moment, but supports only a fixed surface. It does not yet claim
-automatic contact spectral estimation, moving-tool accepted-path work,
-friction, multiple pairs, or an implicit consistent tangent.
+wave estimate. A fixed surface remains the default. For one proportional
+prescribed rigid path, construct `prescribed_rigid_motion_schedule(...)` and
+pass it as `motion_schedule`. The schedule states physical start/end times
+explicitly instead of treating solver time as an unnamed load factor.
+
+Moving contact records an MPI-global initial force/moment station and one
+station at every accepted increment. Generalized tool work is integrated from
+force--translation and moment--rotation pairs by the trapezoidal rule. Rejected
+increments discard their trial station; checkpoints retain only the accepted
+path and verify the schedule identity before restore. The same record appears
+in the residual summary and therefore in the Step/SimulationResult evidence.
+This bounded route still does not claim automatic contact spectral estimation,
+finite sliding over changing surface entities, friction, multiple pairs, free
+rigid-body dynamics, or an implicit consistent tangent.
 
 The parallel vector ordering follows PETSc's finite-element contract:
 [`ADD_VALUES` with reverse scatter](https://petsc.org/release/manual/vec/)

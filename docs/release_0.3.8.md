@@ -23,17 +23,23 @@ The release closes six declared foundation gates:
 
 ## Contact and nonlinear state
 
-The first contact route remains intentionally bounded: small-strain solid
-mechanics, one fixed rigid plane, frictionless penalty contact, and nonlinear
-static equilibrium. Within that scope it now owns its potential, residual,
-tangent, nodal reaction, resultant, penetration diagnostics, accepted-path
-work semantics, and conservative energy ledger. Ordinary nonlinear state,
-increment history, dual evidence, energy history, and execution events restart
-atomically across one and two MPI ranks.
+The first contact routes remain intentionally bounded. The nonlinear-static
+route covers small-strain solid mechanics, one analytical rigid plane and
+frictionless penalty contact, with potential, residual, tangent, nodal
+reaction, resultant, penetration diagnostics, accepted-path work semantics,
+and conservative energy evidence.
 
-Time-varying loading, nonzero prescribed motion, moving tools, search, finite
-sliding, multiple contact pairs, friction, deformable-to-deformable contact,
-and forming are not silently inferred from that evidence. They remain explicit
+The bounded explicit route now accepts one proportional prescribed rigid
+translation/rotation schedule. It evaluates the moving analytical plane at the
+predicted displacement, publishes MPI-global force and moment, integrates only
+accepted force--translation/moment--rotation stations, rolls failed increments
+back, and restores the accepted work path from transient checkpoints. Serial
+restart and two-rank canonical-State tests protect that lifecycle. The caller
+still owns a conservative contact stability ceiling.
+
+General moving-surface search, finite sliding across changing facets, multiple
+contact pairs, friction, free rigid-body dynamics, deformable-to-deformable
+contact, and forming are not inferred from this evidence. They remain explicit
 future capabilities.
 
 The 0.4 foundation work now also defines a solver-neutral accepted/trial

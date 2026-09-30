@@ -8,6 +8,7 @@ from . import contact_state
 from . import contact_lifecycle
 from . import contact_response
 from . import contact_trace
+from . import contact_work
 from . import dolfinx_adapter
 from . import dolfinx_contact_trace
 from . import dolfinx_explicit_contact
@@ -29,6 +30,13 @@ from .contact_response import (
     frictionless_penalty_contact_law,
 )
 from .contact_trace import ContactTrace, ContactTraceAssembly, ContactTraceEvaluation
+from .contact_work import (
+    PrescribedContactWorkState,
+    PrescribedContactWorkStation,
+    PrescribedRigidMotionSchedule,
+    prescribed_contact_work_state,
+    prescribed_rigid_motion_schedule,
+)
 from .dolfinx_adapter import (
     dolfinx_boundary_region_triangle_partition,
     dolfinx_exterior_triangle_partition,
@@ -84,6 +92,9 @@ __all__ = [
     "ContactTrace",
     "ContactTraceAssembly",
     "ContactTraceEvaluation",
+    "PrescribedContactWorkState",
+    "PrescribedContactWorkStation",
+    "PrescribedRigidMotionSchedule",
     "FrictionlessPenaltyContactLaw",
     "FrictionlessPenaltyContactResponse",
     "DistributedTriangleSearchDiagnostics",
@@ -113,6 +124,7 @@ __all__ = [
     "contact_lifecycle",
     "contact_response",
     "contact_trace",
+    "contact_work",
     "convection",
     "dolfinx_adapter",
     "dolfinx_contact_trace",
@@ -127,6 +139,8 @@ __all__ = [
     "distributed_triangle_surface_bvh",
     "mechanical",
     "prescribed_rigid_motion",
+    "prescribed_contact_work_state",
+    "prescribed_rigid_motion_schedule",
     "partition_triangle_surface",
     "rigid",
     "rigid_cylinder",
