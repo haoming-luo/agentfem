@@ -8,6 +8,18 @@ experimental formulation to a validated one.
 
 ### Added
 
+- Add an MPI-consistent explicit contact stability screen derived from the
+  contact trace, normal/tangential penalty stiffness, Coulomb pressure-cap
+  coupling, and the actual lumped displacement mass. A mass-scaled absolute
+  row-sum bound conservatively limits the contact contribution to the
+  central-difference spectrum, includes ghost-to-owner contributions, records
+  its derivation in result metadata, and adds it to a supplied body/material
+  spectral bound before selecting the time increment. Taking the smaller of
+  independent body and contact time limits is explicitly rejected as an
+  unsafe composition. A stricter caller ceiling remains authoritative, and
+  automatic screening is fail-closed for curved-normal projectors whose
+  geometric stiffness is not represented by this bound.
+
 - Promote the bounded penalty-Coulomb law into the reviewed DOLFINx explicit
   contact Operator. Stable slave IDs now drive objective slave-minus-master
   displacement increments for fixed, translating, or rotating rigid tools;
@@ -15,9 +27,9 @@ experimental formulation to a validated one.
   recoverable penalty energy, irreversible sliding dissipation, and separation
   release enter one accepted-state lifecycle. Friction history checkpoints are
   rank-canonical and restore by global point identity, including empty MPI
-  shards. The caller-supplied stability ceiling must include both normal and
-  tangential penalty stiffness; automatic spectral estimation and an implicit
-  tangent remain explicit later gates.
+  shards. The automatic contact-only spectral screen includes both normal and
+  tangential penalty stiffness; an exact global eigenvalue estimate and an
+  implicit tangent remain explicit later gates.
 
 - Add the first Procedure-consumed general-contact slice for explicit
   dynamics. A reviewed DOLFINx tetrahedral-CG1 slave trace can now perform

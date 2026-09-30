@@ -432,6 +432,18 @@ accepted path stations and rollback. Result/Verification integrates generalized
 force against translation and rotation; it never infers moving-tool work from
 contact energy.
 
+Explicit penalty contact adds a numerical stiffness that can control the
+central-difference time increment independently of the body's wave-speed
+limit. A contact stability estimate is therefore Operator/Procedure evidence,
+not a material property and not a Model asset. The reviewed bounded route uses
+the actual trace interpolation, positive quadrature, normal/tangential penalty,
+Coulomb pressure-cap coupling, and lumped displacement mass to form a
+conservative mass-scaled spectral upper bound. Curved-normal geometric
+stiffness remains outside that bound and therefore fails closed in automatic
+mode. Because body and contact stiffness add, their spectral upper bounds must
+be added before converting the result into a time increment. Taking the
+smaller of two separately derived time limits is not generally conservative.
+
 ## Form
 
 A UFL expression representing a weak-form contribution before assembly.

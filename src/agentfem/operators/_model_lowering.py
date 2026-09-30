@@ -333,6 +333,7 @@ def lower_lumped_mass(
     return core.LumpedMassOperator(
         mass=mass,
         inv_mass=assembly.inverse_diagonal(mass),
+        function_space=function_space,
     )
 
 

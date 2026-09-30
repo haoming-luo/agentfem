@@ -9,10 +9,12 @@ from . import contact_lifecycle
 from . import contact_friction
 from . import contact_pair
 from . import contact_response
+from . import contact_stability
 from . import contact_trace
 from . import contact_work
 from . import dolfinx_adapter
 from . import dolfinx_contact_trace
+from . import dolfinx_contact_stability
 from . import dolfinx_explicit_contact
 from . import mechanical
 from . import rigid
@@ -43,6 +45,13 @@ from .contact_response import (
     FrictionlessPenaltyContactResponse,
     frictionless_penalty_contact_law,
 )
+from .contact_stability import (
+    CombinedExplicitStabilityEstimate,
+    ContactStabilityEstimate,
+    combine_explicit_stability_bounds,
+    contact_penalty_local_row_sums,
+    contact_stability_estimate_from_bound,
+)
 from .contact_trace import (
     ContactTrace,
     ContactTraceAssembly,
@@ -64,6 +73,9 @@ from .dolfinx_adapter import (
 from .dolfinx_contact_trace import (
     DolfinxContactTraceAdapter,
     dolfinx_boundary_region_contact_trace,
+)
+from .dolfinx_contact_stability import (
+    estimate_dolfinx_contact_stability,
 )
 from .dolfinx_explicit_contact import (
     DolfinxExplicitContactResidual,
@@ -109,6 +121,8 @@ __all__ = [
     "ContactProjectionState",
     "ContactProjectionEvaluation",
     "ContactProjectionLifecycle",
+    "CombinedExplicitStabilityEstimate",
+    "ContactStabilityEstimate",
     "PenaltyCoulombFrictionLaw",
     "PenaltyCoulombFrictionResponse",
     "TangentialContactRecord",
@@ -154,19 +168,25 @@ __all__ = [
     "contact_friction",
     "contact_pair",
     "contact_response",
+    "contact_stability",
     "contact_trace",
     "contact_work",
     "convection",
     "dolfinx_adapter",
     "dolfinx_contact_trace",
+    "dolfinx_contact_stability",
     "dolfinx_explicit_contact",
     "dolfinx_explicit_contact_residual",
     "dolfinx_boundary_region_contact_trace",
+    "estimate_dolfinx_contact_stability",
     "dolfinx_boundary_region_triangle_partition",
     "dolfinx_exterior_triangle_partition",
     "dolfinx_tagged_exterior_triangle_partition",
     "elastic_foundation",
     "frictionless_penalty_contact_law",
+    "contact_penalty_local_row_sums",
+    "contact_stability_estimate_from_bound",
+    "combine_explicit_stability_bounds",
     "penalty_coulomb_friction_law",
     "relative_contact_displacement_increment",
     "distributed_triangle_surface_bvh",

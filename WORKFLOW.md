@@ -169,6 +169,11 @@ Package paths below are relative to `src/agentfem/`.
   object all-to-all, reports avoided messages, and remains checked against the
   all-gather oracle. Projection-only surfaces are not silently lowered by the
   bounded plane-contact provider.
+- Explicit penalty-contact stability is a separate numerical screen under
+  `boundary_models/contact_stability.py`; the DOLFINx lowering consumes the
+  reviewed trace and lumped mass. It bounds only the contact contribution, so
+  the owning Procedure adds it to the body/material spectral bound before
+  converting the total bound into a time increment.
 - Weak-form blocks: `forms.py`
 - Assembly: `assembly.py`
 - Operator families: `operators/`

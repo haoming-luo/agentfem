@@ -155,8 +155,13 @@ inspectable. One explicit physical-time schedule can drive proportional rigid
 translation and rotation; its initial and accepted generalized stations produce
 force--translation plus moment--rotation work and interval power. Checkpoints
 bind the schedule identity and restore the accepted path while recomputing the
-memoryless projection. A caller-supplied contact stability ceiling remains
-mandatory; automatic spectral estimation has not been claimed. The same
+memoryless projection. A caller-supplied whole-system stability ceiling
+remains available. For fixed-normal or piecewise-planar projectors, the same
+route can instead assemble a conservative contact spectral contribution from
+the trace, penalties, Coulomb pressure coupling, lumped mass, and MPI
+ownership, then add it to a supplied unsafed non-contact spectral bound before
+selecting the time increment. Curved-normal geometric stiffness still
+requires a reviewed caller ceiling. The same
 residual now consumes the reviewed serial and routed distributed triangle
 BVHs. Stable slave-point IDs cross changing rigid facets under finite sliding
 in serial and at two MPI ranks, while accepted work remains rank-canonical and
@@ -283,8 +288,15 @@ assembles normal and tangential residuals, and publishes separate recoverable,
 dissipated, and separation-release energy channels. Point history is
 checkpointed by global ID and restored onto the current MPI partition,
 including empty local shards. The mandatory caller-supplied stability ceiling
-now explicitly covers both normal and tangential penalty stiffness. Next come
-automatic contact spectral screening and an external sliding benchmark. Distributed
+now has a conservative automatic alternative for fixed-normal and
+piecewise-planar geometry. It includes normal/tangential penalty stiffness,
+Coulomb pressure coupling, cross-component contact coupling, real lumped mass,
+and ghost-to-owner accumulation. It publishes contact and combined spectral
+evidence, and deliberately rejects the unsafe shortcut of taking the smaller
+of separately derived body and contact time limits. Next comes an external
+finite-sliding benchmark, using the public Abaqus deformable-body/rigid-surface
+verification family as an independent target rather than introducing a
+forming-specific solver. Distributed
 multi-tool candidate routing, measured extreme-scale behavior, arbitrary
 topology, and implicit friction linearization follow that bounded route. STEP
 remains an optional geometry-adapter input that is repaired and tessellated
