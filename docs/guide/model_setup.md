@@ -254,6 +254,27 @@ non-integer facet selections instead of flattening them into an ambiguous
 triangle soup. This is a geometry/search adapter, not yet a finite-sliding
 contact pair or a STEP/STL repair pipeline.
 
+The first finite-sliding State boundary can retain an accepted closest-point
+map without confusing it with search or contact enforcement:
+
+```python
+projection_state = boundary_models.ContactProjectionState()
+projection_state.begin(stable_contact_point_ids, outcome.projection)
+
+# Accept only after the owning nonlinear increment is accepted.
+projection_state.commit()
+checkpoint_record = projection_state.snapshot()
+```
+
+Records are canonically ordered by stable 64-bit contact-point IDs. A later
+trial may move to different stable surface-facet IDs, which is the expected
+finite-sliding behavior, while silently changing the contact points, surface
+identity, dimension, or coordinate convention is rejected. `rollback()`
+discards only the trial; checkpoints are permitted only at an accepted
+boundary. This is deliberately a solver-neutral State contract: it does not
+yet assemble contact force, decide Newton search cadence, aggregate a global
+MPI checkpoint, or claim a finite-sliding contact Procedure.
+
 Pass `checkpoint=checkpointing.every(...)` to `model.step(...)` when a long
 load path must be restartable. Only accepted load boundaries are published.
 The portable checkpoint keeps the displacement, increment/cutback ledger,
