@@ -45,6 +45,54 @@ explicitly. Cohesive forces remain an additional interface contribution and
 use the same global partitioned mass for stability screening and energy
 accounting.
 
+## Rigid contact in finite-strain Explicit
+
+A `RigidContactPair` may be registered as a Model boundary asset. The ordinary
+finite-strain Explicit provider then builds its boundary trace, adds its
+penalty stiffness to the whole-system stability estimate, and carries its
+accepted State and evidence through the same progress, checkpoint, and result
+lifecycle:
+
+```python
+tool = boundary_models.rigid_body(
+    boundary_models.rigid_plane(point=(0.0, 0.0, 0.0), normal=(0.0, 0.0, 1.0)),
+    motion_schedule=tool_motion,
+)
+model.add_boundary_model(
+    boundary_models.rigid_contact_pair(
+        slave_boundary,
+        tool,
+        penalty=normal_penalty,
+        friction_coefficient=friction_coefficient,
+        tangential_penalty=tangential_penalty,
+        name="tool_sheet_contact",
+    )
+)
+
+result = model.step(target=u, steps=steps, dt="auto").solve_result()
+```
+
+Pass `contact_pairs=(pair_a, pair_b)` when the pairs should be explicit rather
+than discovered from the Model. Pair names and scientific identities must be
+unique. `contact_projection_options` is an optional mapping keyed by pair name;
+unknown names fail before the solve.
+
+For staged protocols, first solve and accept the normal preload, then build
+the moving/frictional Explicit step and call `initialize_from_preload(...)`.
+The destination Procedure seeds its contact projection, friction reference,
+and prescribed-tool work station at that accepted configuration before it
+checks free-force equilibrium. The transfer is atomic: a failed projection or
+equilibrium check restores both the second-order fields and residual-owned
+State. Use `mode="release"` only when the reported imbalance is the intended
+impact/release event, not to bypass an unbalanced preload.
+
+This public lowering is intentionally bounded to the reviewed 3D tetrahedral
+CG1 slave trace and rigid analytical or triangulated surfaces. It supports
+multiple rigid pairs, prescribed rigid motion, finite sliding over reviewed
+triangle search, and optional penalty-Coulomb friction. It does not imply
+deformable-to-deformable contact, self-contact, a consistent implicit tangent,
+shell forming, or arbitrary high-order traces.
+
 ## Modal analysis
 
 Modal analysis uses the same material, region, field, and constraint language

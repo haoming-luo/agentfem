@@ -1012,6 +1012,8 @@ register_step_provider(
             "state",
             "mass",
             "cohesive_force",
+            "contact_pairs",
+            "contact_projection_options",
             "update_load",
             "save_every",
             "print_every",

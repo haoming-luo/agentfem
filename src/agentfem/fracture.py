@@ -3046,6 +3046,39 @@ class MassProportionalDampingResidual:
         self.dissipated_energy = 0.0
         self._trial_dissipation: float | None = None
 
+    def validate_time_increment(self, dt: float) -> None:
+        """Preserve any stability ceiling owned by the wrapped residual."""
+
+        validate = getattr(self.base, "validate_time_increment", None)
+        if callable(validate):
+            validate(dt)
+
+    def update_time(self, time_value: float) -> None:
+        """Forward physical time to stateful loads or moving contact."""
+
+        update = getattr(self.base, "update_time", None)
+        if callable(update):
+            update(time_value)
+
+    def initialize_accepted_state(self, *, time: float = 0.0) -> None:
+        """Initialize accepted State owned by the wrapped residual."""
+
+        initialize = getattr(self.base, "initialize_accepted_state", None)
+        if callable(initialize):
+            initialize(time=time)
+
+    def contact_energy_evidence(self) -> tuple[dict[str, object], ...]:
+        """Expose wrapped contact terms to the shared energy ledger."""
+
+        provider = getattr(self.base, "contact_energy_evidence", None)
+        return tuple(provider()) if callable(provider) else ()
+
+    def contact_progress_evidence(self) -> tuple[dict[str, object], ...]:
+        """Expose wrapped contact terms to throttled progress reporting."""
+
+        provider = getattr(self.base, "contact_progress_evidence", None)
+        return tuple(provider()) if callable(provider) else ()
+
     def assemble_vector(self):
         vector = operators.assemble_vector(self.base)
         diagonal = np.asarray(
@@ -3053,14 +3086,16 @@ class MassProportionalDampingResidual:
             dtype=float,
         )
         velocity = np.asarray(self.velocity.x.array, dtype=float)
-        if diagonal.shape != velocity.shape or vector.array.shape != velocity.shape:
+        owned = int(vector.array.size)
+        if diagonal.shape != (owned,) or velocity.size < owned:
             vector.destroy()
-            raise ValueError("Damping mass, velocity, and residual layouts differ.")
-        vector.array[:] += self.coefficient * diagonal * velocity
-        dofmap = self.velocity.function_space.dofmap
-        owned = int(dofmap.index_map.size_local * dofmap.index_map_bs)
+            raise ValueError(
+                "Damping owned mass, velocity, and residual layouts differ."
+            )
+        owned_velocity = velocity[:owned]
+        vector.array[:] += self.coefficient * diagonal * owned_velocity
         local_power = self.coefficient * float(
-            np.dot(diagonal[:owned] * velocity[:owned], velocity[:owned])
+            np.dot(diagonal * owned_velocity, owned_velocity)
         )
         power = self.velocity.function_space.mesh.comm.allreduce(
             local_power, op=MPI.SUM
@@ -4234,7 +4269,63 @@ def transfer_preload_to_explicit(
     tolerance.  ``mode='release'`` retains the computed initial acceleration
     as the physical release/impact condition.  A cohesive residual is rolled
     back after evaluation, so transfer does not advance irreversible damage.
+
+    Stateful residuals are initialized at the transferred accepted boundary
+    before equilibrium is evaluated.  The whole operation is atomic whenever
+    such a residual is present: a failed transfer restores both the second-
+    order fields and residual-owned contact/cohesive State.
     """
+
+    state_snapshot = state.snapshot()
+    initialize = getattr(residual, "initialize_accepted_state", None)
+    residual_snapshot = None
+    if callable(initialize):
+        snapshot = getattr(residual, "snapshot", None)
+        restore = getattr(residual, "restore", None)
+        if not callable(snapshot) or not callable(restore):
+            raise TypeError(
+                "Preload transfer requires stateful residuals to provide "
+                "snapshot() and restore() for atomic initialization."
+            )
+        residual_snapshot = snapshot()
+    try:
+        return _transfer_preload_to_explicit_impl(
+            preload_displacement,
+            state=state,
+            mass=mass,
+            residual=residual,
+            initial_velocity=initial_velocity,
+            mode=mode,
+            force_tolerance=force_tolerance,
+            acceleration_projection=acceleration_projection,
+            energy_monitor=energy_monitor,
+            source_energy=source_energy,
+            source_step=source_step,
+            destination_step=destination_step,
+        )
+    except Exception:
+        state.restore(state_snapshot)
+        if residual_snapshot is not None:
+            residual.restore(residual_snapshot)
+        raise
+
+
+def _transfer_preload_to_explicit_impl(
+    preload_displacement,
+    *,
+    state,
+    mass,
+    residual,
+    initial_velocity=None,
+    mode: str = "equilibrium",
+    force_tolerance: float = 1.0e-8,
+    acceleration_projection=None,
+    energy_monitor=None,
+    source_energy: float | None = None,
+    source_step: str | None = None,
+    destination_step: str | None = None,
+) -> PreloadTransferReport:
+    """Perform a preload transfer inside the public atomic wrapper."""
 
     selected_mode = str(mode).strip().lower()
     if selected_mode not in {"equilibrium", "release"}:
@@ -4254,6 +4345,10 @@ def transfer_preload_to_explicit(
         for item in (state.v, state.v_mid, state.v_next):
             item.assign(initial_velocity)
         velocity_label = "transferred"
+
+    initialize = getattr(residual, "initialize_accepted_state", None)
+    if callable(initialize):
+        initialize(time=0.0)
 
     vector = operators.assemble_vector(residual)
     try:

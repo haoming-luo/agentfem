@@ -17,6 +17,32 @@ experimental formulation to a validated one.
   defined external gate with component evidence; the complete deformable FEM
   comparison and refinement evidence remain pending.
 
+- Connect registered `RigidContactPair` assets to the ordinary finite-strain
+  Explicit Procedure. One or more pairs now lower through reviewed DOLFINx
+  traces without user-authored residual plumbing; body, cohesive-interface,
+  and every normal/tangential contact stiffness enter one additive spectral
+  stability estimate before `dt` is selected. Accepted contact force, moment,
+  prescribed-tool work, potential, friction dissipation, projection/friction
+  State, checkpoint/restart, progress, and `SimulationResult` evidence remain
+  in their existing owners. Mass-proportional damping now transparently
+  forwards the wrapped residual's time, stability, contact-energy, and progress
+  contracts instead of hiding moving-contact State. The route stays
+  fail-closed to its reviewed three-dimensional tetrahedral-CG1 slave trace
+  and rigid-surface scope.
+
+- Make preload-to-Explicit transfer initialize stateful contact at the
+  transferred accepted boundary before evaluating equilibrium. This closes
+  the normal-preload to moving-friction transition used by staged contact
+  protocols. The transfer snapshots both second-order and residual State and
+  restores both if initialization, projection, or equilibrium validation
+  fails; uninitialized friction State is now a valid internal snapshot rather
+  than an uncheckpointable half-state.
+
+- Correct mass-proportional damping assembly under MPI: the lumped diagonal
+  and PETSc residual use owned degrees of freedom while a DOLFINx velocity
+  array also carries ghosts. Damping force and power now consume the owned
+  interval only, avoiding layout rejection and duplicate ghost work.
+
 - Add one Procedure-owned explicit-stability composition contract. Body,
   material, cohesive-interface, and contact estimators now contribute named
   equivalent spectral upper bounds; the Procedure adds those bounds before
