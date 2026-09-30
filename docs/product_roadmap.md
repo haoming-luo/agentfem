@@ -124,10 +124,16 @@ diagnostics, and contact energy in serial and under two MPI ranks. Its atomic
 portable restart envelope covers the solution, increment ledger, events,
 provider-dual history, natural-load work, bulk strain energy, contact potential,
 and prescribed rigid geometry, with 1-to-2 and 2-to-1 MPI rank-count acceptance.
-Moving tools publish force--translation and moment--rotation path work; general
-surface search, finite sliding, friction, multiple pairs, time-varying natural
-loads, and undeclared weak formulations remain outside this gate and fail closed
-rather than inheriting its evidence.
+Moving tools publish force--translation and moment--rotation path work. General
+surface search now has reviewed serial and distributed BVH infrastructure,
+stable accepted/trial projection State, collective Procedure acceptance, and a
+geometry-neutral pointwise frictionless penalty law. The local law preserves
+the same conservative potential and explicitly separates structural residual
+traction from conjugate prescribed-surface traction. It does not claim
+finite-element trace integration, a geometry-consistent Newton linearization,
+or assembled force/work evidence. Finite sliding assembly, friction, multiple
+pairs, time-varying natural loads, and undeclared weak formulations remain
+outside this gate and fail closed rather than inheriting its evidence.
 
 Gate 5 now has an executable checkpoint capability contract. Procedures must
 separately declare the durable payload scope, accepted save boundary, atomic

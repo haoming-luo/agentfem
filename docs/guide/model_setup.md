@@ -302,6 +302,15 @@ exact projection at every evaluation. A search backend may later reuse a facet
 candidate as a warm start, but signed gaps and normals are never reused as
 stale physics.
 
+`frictionless_penalty_contact_law(...)` evaluates the conservative local law on
+that projection evidence. It works identically for analytical and reviewed
+triangulated surfaces, reports both the deformable structural residual and the
+conjugate prescribed-surface traction, and treats invalid points as errors
+unless the caller explicitly selects the `inactive` policy. Its output is a
+pointwise response, not an assembled finite-element contact element: a backend
+must still own boundary trace interpolation, quadrature, assembly, and a
+geometry-consistent linearization.
+
 Pass `checkpoint=checkpointing.every(...)` to `model.step(...)` when a long
 load path must be restartable. Only accepted load boundaries are published.
 The portable checkpoint keeps the displacement, increment/cutback ledger,
