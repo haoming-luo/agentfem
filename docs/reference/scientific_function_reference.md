@@ -71,6 +71,7 @@ the compact machine-readable `agentfem/knowledge/catalog.json`.
 
 | Stable ID | Title | Physics | Status |
 | --- | --- | --- | --- |
+| `agentfem.benchmark.abaqus_explicit_deformable_rigid_finite_sliding` | Abaqus Explicit deformable-body to rigid-surface finite sliding | two-stage explicit normal contact followed by penalty Coulomb sliding against a rigid surface | external_full_fem_gate_defined_not_run |
 | `agentfem.benchmark.abaqus_viscoelastic_rod` | Viscoelastic rod under suddenly applied constant axial traction | Three-dimensional small-strain isotropic linear viscoelastic creep under prescribed traction | automated_external_structural_verification |
 | `agentfem.benchmark.arrhenius_global_creep` | Transient heat to global Arrhenius creep contract | three-dimensional small-strain Mises power-law creep with prescribed or time-varying Arrhenius temperature fields | automated_regression |
 | `agentfem.benchmark.axisymmetric_lame_cylinder` | Axisymmetric Lamé thick-cylinder elasticity | small-strain isotropic axisymmetric elasticity for a long pressurized thick cylinder | release_regression |
