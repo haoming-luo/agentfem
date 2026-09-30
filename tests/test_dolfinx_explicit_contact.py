@@ -505,6 +505,107 @@ def test_composed_contact_pairs_share_time_work_energy_and_restart():
     assert restored.contact_energy_evidence() == terms
 
 
+def test_mixed_rigid_contact_pairs_compose_without_case_specific_solver():
+    domain = _cube(MPI.COMM_SELF)
+    function_space = _vector_space(domain)
+    displacement = fem.Function(function_space, name="Displacement")
+    displacement.x.array.reshape((-1, 3))[:, 0] = 0.1
+    displacement.x.scatter_forward()
+    slave = _left_region(domain)
+    adapter = boundary_models.dolfinx_boundary_region_contact_trace(
+        slave,
+        function_space,
+    )
+    normal_schedule = boundary_models.prescribed_rigid_motion_schedule(
+        boundary_models.prescribed_rigid_motion(
+            translation=(0.01, 0.0, 0.0),
+            name="normal_tool_motion",
+        ),
+        end_time=5.0e-4,
+    )
+    normal_body = boundary_models.rigid_body(
+        boundary_models.rigid_plane(
+            point=(0.05, 0.0, 0.0),
+            normal=(-1.0, 0.0, 0.0),
+            name="analytical_tool_surface",
+        ),
+        motion_schedule=normal_schedule,
+        name="analytical_tool",
+    )
+    normal_pair = boundary_models.rigid_contact_pair(
+        slave,
+        normal_body,
+        penalty=100.0,
+        name="analytical_pair",
+    )
+    inner = boundary_models.dolfinx_explicit_contact_residual(
+        _bulk_residual(domain, function_space, (0.0, 0.0, 0.0)),
+        adapter=adapter,
+        displacement=displacement,
+        contact_pair=normal_pair,
+        maximum_stable_time_increment=1.0e-3,
+        name="analytical_contact",
+    )
+
+    sliding_schedule = boundary_models.prescribed_rigid_motion_schedule(
+        boundary_models.prescribed_rigid_motion(
+            translation=(0.0, 0.0, 0.2),
+            name="sliding_tool_motion",
+        ),
+        end_time=5.0e-4,
+    )
+    sliding_body = boundary_models.rigid_body(
+        _triangulated_tool_plane(),
+        motion_schedule=sliding_schedule,
+        name="triangulated_tool",
+    )
+    sliding_pair = boundary_models.rigid_contact_pair(
+        slave,
+        sliding_body,
+        penalty=100.0,
+        name="triangulated_pair",
+    )
+    outer = boundary_models.dolfinx_explicit_contact_residual(
+        inner,
+        adapter=adapter,
+        displacement=displacement,
+        projector=boundary_models.triangle_surface_bvh(sliding_body.surface),
+        contact_pair=sliding_pair,
+        maximum_stable_time_increment=1.0e-3,
+        name="triangulated_contact",
+    )
+    state = problems.second_order_state(displacement)
+    diagonal = np.ones(displacement.x.array.shape, dtype=float)
+    mass = operators.LumpedMassOperator(mass=diagonal, inv_mass=diagonal)
+    step = problems.explicit_dynamics(
+        state=state,
+        integrator=time.explicit.central_difference(state=state, mass=mass),
+        residual=outer,
+        dt=5.0e-4,
+        steps=1,
+        progress=False,
+    )
+
+    step.run()
+
+    progress = outer.contact_progress_evidence()
+    assert [term["name"] for term in progress] == [
+        "analytical_contact",
+        "triangulated_contact",
+    ]
+    assert progress[0]["contact_motion_work"] != pytest.approx(0.0)
+    assert progress[1]["contact_motion_work"] == pytest.approx(0.0, abs=1.0e-14)
+    increment = next(
+        event for event in step.execution_events if event.kind == "time_increment"
+    )
+    assert increment.metrics["contact_pair_count"] == 2.0
+    snapshot = outer.snapshot()
+    assert snapshot["contact_pair_identity"] == sliding_pair.scientific_identity
+    assert snapshot["base_state"]["contact_pair_identity"] == (
+        normal_pair.scientific_identity
+    )
+
+
 def test_moving_triangle_bvh_tracks_facet_crossing_without_spurious_work():
     domain = _cube(MPI.COMM_SELF)
     function_space = _vector_space(domain)

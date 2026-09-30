@@ -163,9 +163,10 @@ in serial and at two MPI ranks, while accepted work remains rank-canonical and
 pure tangential tool motion adds no false normal work. This closes one bounded
 moving triangulated-tool route, not general multi-tool search, arbitrary
 topology, friction, or implicit Newton linearization.
-Multiple bounded analytical pairs already compose through the residual chain,
+Multiple bounded pairs already compose through the residual chain,
 including time propagation, atomic trial decisions, summed energy/work, and
-nested checkpoint State.
+nested checkpoint State; the reviewed mixed pair combines one analytical and
+one triangulated tool without a case-specific solver.
 
 Gate 5 now has an executable checkpoint capability contract. Procedures must
 separately declare the durable payload scope, accepted save boundary, atomic
@@ -269,7 +270,7 @@ time; it is not serialized as durable history. The explicit residual hand-off
 now supports fixed or proportional prescribed motion, a mandatory declared
 stability ceiling, rank-canonical force--moment--work evidence, accepted-path
 restart, and finite sliding over one serial or routed distributed triangulated
-tool. Bounded analytical pairs compose with independent identity and summed
+tool. Bounded rigid pairs compose with independent identity and summed
 energy evidence. Distributed multi-tool candidate routing, measured
 extreme-scale behavior, arbitrary topology, and finally friction follow that
 bounded route. STEP

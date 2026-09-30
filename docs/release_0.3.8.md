@@ -35,10 +35,11 @@ predicted displacement, publishes MPI-global force and moment, integrates only
 accepted force--translation/moment--rotation stations, rolls failed increments
 back, and restores the accepted work path from transient checkpoints. Serial
 restart and two-rank canonical-State tests protect that lifecycle. The caller
-still owns a conservative contact stability ceiling. Bounded analytical pairs
+still owns a conservative contact stability ceiling. Bounded rigid pairs
 compose through the residual chain: accepted time, rollback, per-pair
 force/moment, summed work/potential, and nested restart propagate without a
-forming-specific solver. A separate reviewed path couples the same Procedure
+forming-specific solver; a mixed analytical-plus-triangulated pair test uses
+that route without a two-tool special case. A separate reviewed path couples the same Procedure
 to serial and routed distributed triangle BVHs; stable slave-point identity is
 preserved while the closest rigid facet changes during finite sliding, and
 pure tangential tool translation produces no spurious normal contact work.

@@ -364,11 +364,12 @@ The ordinary throttled transient progress event also reports pair count,
 active-point count, maximum penetration, contact-force norm, and accepted tool
 work. These are scalar metrics in the bounded execution-event recorder; they
 do not retain per-point arrays at every increment or bypass `print_every`.
-Several bounded analytical contact pairs can be composed by using one contact
+Several bounded contact pairs can be composed by using one contact
 residual as the next pair's base residual. Time updates, commit/rollback,
 per-pair evidence, summed contact potential/work, and nested checkpoint State
 then follow the same residual chain; every pair should have a distinct name
-and schedule identity.
+and schedule identity. A serial acceptance combines an analytical tool and a
+triangulated tool through this same route; no two-tool special solver is used.
 
 The same explicit consumer also accepts the reviewed serial or routed
 distributed triangle BVH as its projector. A moving triangulated rigid tool is
