@@ -3086,14 +3086,16 @@ class MassProportionalDampingResidual:
             dtype=float,
         )
         velocity = np.asarray(self.velocity.x.array, dtype=float)
-        if diagonal.shape != velocity.shape or vector.array.shape != velocity.shape:
+        owned = int(vector.array.size)
+        if diagonal.shape != (owned,) or velocity.size < owned:
             vector.destroy()
-            raise ValueError("Damping mass, velocity, and residual layouts differ.")
-        vector.array[:] += self.coefficient * diagonal * velocity
-        dofmap = self.velocity.function_space.dofmap
-        owned = int(dofmap.index_map.size_local * dofmap.index_map_bs)
+            raise ValueError(
+                "Damping owned mass, velocity, and residual layouts differ."
+            )
+        owned_velocity = velocity[:owned]
+        vector.array[:] += self.coefficient * diagonal * owned_velocity
         local_power = self.coefficient * float(
-            np.dot(diagonal[:owned] * velocity[:owned], velocity[:owned])
+            np.dot(diagonal * owned_velocity, owned_velocity)
         )
         power = self.velocity.function_space.mesh.comm.allreduce(
             local_power, op=MPI.SUM

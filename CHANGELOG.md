@@ -38,6 +38,11 @@ experimental formulation to a validated one.
   fails; uninitialized friction State is now a valid internal snapshot rather
   than an uncheckpointable half-state.
 
+- Correct mass-proportional damping assembly under MPI: the lumped diagonal
+  and PETSc residual use owned degrees of freedom while a DOLFINx velocity
+  array also carries ghosts. Damping force and power now consume the owned
+  interval only, avoiding layout rejection and duplicate ghost work.
+
 - Add one Procedure-owned explicit-stability composition contract. Body,
   material, cohesive-interface, and contact estimators now contribute named
   equivalent spectral upper bounds; the Procedure adds those bounds before

@@ -382,6 +382,7 @@ def test_standard_contact_procedure_is_rank_canonical_under_mpi():
         material=material,
         contact_pairs=(pair,),
         steps=1,
+        mass_damping=0.1,
         progress=False,
     )
 
