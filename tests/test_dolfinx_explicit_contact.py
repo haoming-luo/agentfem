@@ -705,6 +705,68 @@ def test_rigid_contact_pair_rejects_rank_local_pointwise_penalty():
         boundary_models.RigidContactPair(slave, body, law)
 
 
+def test_rigid_contact_pair_declares_friction_but_operator_fails_closed():
+    domain = _cube(MPI.COMM_SELF)
+    function_space = _vector_space(domain)
+    displacement = fem.Function(function_space, name="Displacement")
+    slave = _left_region(domain)
+    body = boundary_models.rigid_body(
+        boundary_models.rigid_plane(
+            point=(0.05, 0.0, 0.0),
+            normal=(-1.0, 0.0, 0.0),
+        )
+    )
+    pair = boundary_models.rigid_contact_pair(
+        slave,
+        body,
+        penalty=100.0,
+        friction_coefficient=0.2,
+        tangential_penalty=50.0,
+        name="frictional_pair",
+    )
+
+    assert pair.summary()["friction"]["coefficient"] == pytest.approx(0.2)
+    assert pair.scientific_identity != boundary_models.rigid_contact_pair(
+        slave,
+        body,
+        penalty=100.0,
+        name="frictionless_pair",
+    ).scientific_identity
+    with pytest.raises(
+        NotImplementedError,
+        match="AFM-CONTACT-FRICTION-OPERATOR-001",
+    ):
+        boundary_models.dolfinx_explicit_contact_residual(
+            _bulk_residual(domain, function_space, (0.0, 0.0, 0.0)),
+            adapter=boundary_models.dolfinx_boundary_region_contact_trace(
+                slave,
+                function_space,
+            ),
+            displacement=displacement,
+            contact_pair=pair,
+            maximum_stable_time_increment=1.0e-3,
+        )
+
+
+def test_rigid_contact_pair_requires_complete_friction_parameters():
+    domain = _cube(MPI.COMM_SELF)
+    slave = _left_region(domain)
+    body = boundary_models.rigid_body(
+        boundary_models.rigid_plane(
+            point=(0.05, 0.0, 0.0),
+            normal=(-1.0, 0.0, 0.0),
+        )
+    )
+
+    with pytest.raises(ValueError, match="requires both"):
+        boundary_models.rigid_contact_pair(
+            slave,
+            body,
+            penalty=100.0,
+            friction_coefficient=0.2,
+        )
+
+
 def test_explicit_contact_rejects_projector_from_another_rigid_body():
     domain = _cube(MPI.COMM_SELF)
     function_space = _vector_space(domain)

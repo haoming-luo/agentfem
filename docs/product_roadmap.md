@@ -271,9 +271,18 @@ now supports fixed or proportional prescribed motion, a mandatory declared
 stability ceiling, rank-canonical force--moment--work evidence, accepted-path
 restart, and finite sliding over one serial or routed distributed triangulated
 tool. Bounded rigid pairs compose with independent identity and summed
-energy evidence. Distributed multi-tool candidate routing, measured
-extreme-scale behavior, arbitrary topology, and finally friction follow that
-bounded route. STEP
+energy evidence. The first friction foundation is now solver-neutral: a pair
+can declare penalty Coulomb friction; stable point-keyed tangential State
+supports objective normal-rotation transport, stick/slip return mapping,
+trial/commit/rollback and accepted-boundary snapshots; and its response keeps
+recoverable penalty energy, irreversible sliding dissipation, and separation
+release distinct. The existing DOLFINx residual rejects such a pair until a
+real tangential Operator is selected, preventing a declaration-only feature
+from being mistaken for an assembled capability. Next come tangential trace
+assembly, accepted friction evidence/checkpoint integration, explicit
+stability screening, and an external sliding benchmark. Distributed
+multi-tool candidate routing, measured extreme-scale behavior, arbitrary
+topology, and implicit friction linearization follow that bounded route. STEP
 remains an optional geometry-adapter input that is repaired and tessellated
 before the contact core consumes it. Shell/solid-shell forming and self-contact
 remain later scientific promotions, not hidden extensions of the bounded

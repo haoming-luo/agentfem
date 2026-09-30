@@ -699,8 +699,14 @@ and evidence remain in the linked guides and scientific function reference.
 | class | `ContactProjectionState` | Atomic accepted/trial projection state for one contact pair. |
 | class | `ContactProjectionEvaluation` | One successful projection evaluation and optional search evidence. |
 | class | `ContactProjectionLifecycle(projector, point_ids, *, state: ContactProjectionState \| None = None, require_all_valid: bool = True) -> None` | Coordinate search/projection trials around accepted increments. |
+| class | `PenaltyCoulombFrictionLaw` | Elastic-stick/return-to-Coulomb-cap point law for explicit contact. |
+| class | `PenaltyCoulombFrictionResponse` | One canonical pointwise return-map result without FE integration. |
+| class | `TangentialContactRecord` | Accepted tangential history keyed by stable contact-point identity. |
+| class | `TangentialContactState` | Atomic accepted/trial state for one frictional contact pair. |
+| function | `penalty_coulomb_friction_law(coefficient: float, tangential_penalty, *, name: str = 'penalty_coulomb_friction') -> PenaltyCoulombFrictionLaw` | Public AgentFEM object. |
+| function | `tangential_contact_state() -> TangentialContactState` | Public AgentFEM object. |
 | class | `RigidContactPair` | Bind one slave boundary, rigid body, and local contact law. |
-| function | `rigid_contact_pair(slave_boundary: BoundaryRegion, rigid_body: RigidBody, *, penalty, invalid_policy: str = 'reject', name: str = 'rigid_contact_pair') -> RigidContactPair` | Create the first solver-neutral rigid frictionless contact pair. |
+| function | `rigid_contact_pair(slave_boundary: BoundaryRegion, rigid_body: RigidBody, *, penalty, friction_coefficient: float \| None = None, tangential_penalty = None, invalid_policy: str = 'reject', name: str = 'rigid_contact_pair') -> RigidContactPair` | Create the first solver-neutral rigid frictionless contact pair. |
 | class | `FrictionlessPenaltyContactLaw` | Evaluate a conservative one-sided penalty law on projected points. |
 | class | `FrictionlessPenaltyContactResponse` | Immutable pointwise response to one reviewed surface projection. |
 | function | `frictionless_penalty_contact_law(penalty, *, invalid_policy: str = 'reject', name: str = 'frictionless_penalty_contact') -> FrictionlessPenaltyContactLaw` | Create the geometry-neutral local frictionless contact law. |

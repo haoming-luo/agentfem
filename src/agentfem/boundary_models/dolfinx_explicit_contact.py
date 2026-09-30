@@ -808,6 +808,14 @@ def dolfinx_explicit_contact_residual(
     if contact_pair is not None:
         if not isinstance(contact_pair, RigidContactPair):
             raise TypeError("contact_pair must be one RigidContactPair asset.")
+        if contact_pair.friction is not None:
+            raise NotImplementedError(
+                "AFM-CONTACT-FRICTION-OPERATOR-001: the contact pair declares "
+                "penalty Coulomb friction, but this DOLFINx residual currently "
+                "assembles only the frictionless normal Operator. Use a "
+                "frictionless pair until the tangential trace/state consumer is "
+                "selected explicitly; AgentFEM will not silently ignore friction."
+            )
         if rigid_body is not None:
             raise ValueError("rigid_body is owned by contact_pair when pair is used.")
         if penalty is not None:

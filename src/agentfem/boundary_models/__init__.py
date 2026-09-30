@@ -6,6 +6,7 @@
 from . import absorbing
 from . import contact_state
 from . import contact_lifecycle
+from . import contact_friction
 from . import contact_pair
 from . import contact_response
 from . import contact_trace
@@ -25,6 +26,14 @@ from .mechanical import (
 )
 from .contact_state import ContactProjectionRecord, ContactProjectionState
 from .contact_lifecycle import ContactProjectionEvaluation, ContactProjectionLifecycle
+from .contact_friction import (
+    PenaltyCoulombFrictionLaw,
+    PenaltyCoulombFrictionResponse,
+    TangentialContactRecord,
+    TangentialContactState,
+    penalty_coulomb_friction_law,
+    tangential_contact_state,
+)
 from .contact_pair import RigidContactPair, rigid_contact_pair
 from .contact_response import (
     FrictionlessPenaltyContactLaw,
@@ -92,6 +101,10 @@ __all__ = [
     "ContactProjectionState",
     "ContactProjectionEvaluation",
     "ContactProjectionLifecycle",
+    "PenaltyCoulombFrictionLaw",
+    "PenaltyCoulombFrictionResponse",
+    "TangentialContactRecord",
+    "TangentialContactState",
     "RigidContactPair",
     "ContactTrace",
     "ContactTraceAssembly",
@@ -127,6 +140,7 @@ __all__ = [
     "absorbing",
     "contact_state",
     "contact_lifecycle",
+    "contact_friction",
     "contact_pair",
     "contact_response",
     "contact_trace",
@@ -142,6 +156,7 @@ __all__ = [
     "dolfinx_tagged_exterior_triangle_partition",
     "elastic_foundation",
     "frictionless_penalty_contact_law",
+    "penalty_coulomb_friction_law",
     "distributed_triangle_surface_bvh",
     "mechanical",
     "prescribed_rigid_motion",
@@ -160,4 +175,5 @@ __all__ = [
     "triangle_surface_bvh",
     "triangulated_rigid_surface",
     "thermal",
+    "tangential_contact_state",
 ]
