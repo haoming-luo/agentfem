@@ -214,7 +214,14 @@ first-order DOLFINx tetrahedral meshes now enter the same stable-ID contract,
 including empty local shards; imported MeshTags and named BoundaryRegion
 subsets now preserve their physical selection, while higher-order tessellation
 and measured extreme-scale routing remain),
-finite sliding, multiple pairs, explicit dynamics and finally friction. STEP
+accepted/trial projection State (stable 64-bit contact-point identity,
+facet-changing finite-slide trials, rollback, and accepted-boundary snapshots
+are now executable without importing solver or contact-law ownership), then a
+Procedure-owned search/update cadence and an Operator that consumes the trial
+projection. Cross-rank checkpoint aggregation by stable point identity remains
+required before that state can claim MPI-portable restart. Multiple pairs,
+explicit dynamics and finally friction follow the verified single-pair
+finite-sliding route. STEP
 remains an optional geometry-adapter input that is repaired and tessellated
 before the contact core consumes it. Shell/solid-shell forming and self-contact
 remain later scientific promotions, not hidden extensions of the bounded

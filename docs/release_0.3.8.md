@@ -36,6 +36,13 @@ sliding, multiple contact pairs, friction, deformable-to-deformable contact,
 and forming are not silently inferred from that evidence. They remain explicit
 future capabilities.
 
+The 0.4 foundation work now also defines a solver-neutral accepted/trial
+closest-point State. It keeps stable 64-bit contact-point and surface-facet
+identity, permits facet changes during sliding, rejects contact-pair identity
+changes, and checkpoints only accepted projection boundaries. Search remains
+geometry infrastructure; no general contact residual, Newton update policy, or
+cross-rank projection checkpoint is claimed by this state contract.
+
 ## Time and restart semantics
 
 Time-dependent inputs now declare whether they affect only the right-hand side,
@@ -92,4 +99,3 @@ AgentFEM 0.3.8 does not claim universal finite-element coverage, native Windows
 solver support, general contact, forming-capable shells, arbitrary-path
 fracture, universal nonlinear-material validation, or monolithic multiphysics.
 Use `agentfem capabilities` for the exact installed maturity and evidence.
-

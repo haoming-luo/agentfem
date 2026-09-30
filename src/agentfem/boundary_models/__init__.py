@@ -4,6 +4,7 @@
 """Reusable weak boundary models."""
 
 from . import absorbing
+from . import contact_state
 from . import dolfinx_adapter
 from . import mechanical
 from . import rigid
@@ -15,6 +16,7 @@ from .mechanical import (
     elastic_foundation,
     rigid_obstacle_contact,
 )
+from .contact_state import ContactProjectionRecord, ContactProjectionState
 from .dolfinx_adapter import (
     dolfinx_boundary_region_triangle_partition,
     dolfinx_exterior_triangle_partition,
@@ -54,6 +56,8 @@ from .thermal import ConvectionBoundary, convection
 
 __all__ = [
     "ConvectionBoundary",
+    "ContactProjectionRecord",
+    "ContactProjectionState",
     "DistributedTriangleSearchDiagnostics",
     "DistributedTriangleSearchOutcome",
     "DistributedTriangleSurfaceBVH",
@@ -74,6 +78,7 @@ __all__ = [
     "TriangleSurfacePartition",
     "TriangleSurfaceBVH",
     "absorbing",
+    "contact_state",
     "convection",
     "dolfinx_adapter",
     "dolfinx_boundary_region_triangle_partition",
