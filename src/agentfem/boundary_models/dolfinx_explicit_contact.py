@@ -23,6 +23,7 @@ from petsc4py import PETSc
 from agentfem import operators
 
 from .contact_lifecycle import ContactProjectionLifecycle
+from .contact_pair import RigidContactPair
 from .contact_response import (
     FrictionlessPenaltyContactLaw,
     frictionless_penalty_contact_law,
@@ -171,6 +172,7 @@ class DolfinxExplicitContactResidual:
         lifecycle: ContactProjectionLifecycle,
         law: FrictionlessPenaltyContactLaw,
         maximum_stable_time_increment: float,
+        contact_pair: RigidContactPair | None = None,
         rigid_body: RigidBody | None = None,
         motion_schedule: PrescribedRigidMotionSchedule | None = None,
         surface_reference_point=None,
@@ -189,6 +191,10 @@ class DolfinxExplicitContactResidual:
             raise TypeError("Explicit contact requires FrictionlessPenaltyContactLaw.")
         if rigid_body is not None and not isinstance(rigid_body, RigidBody):
             raise TypeError("Explicit contact rigid_body must be RigidBody.")
+        if contact_pair is not None and not isinstance(
+            contact_pair, RigidContactPair
+        ):
+            raise TypeError("Explicit contact contact_pair must be RigidContactPair.")
         limit = float(maximum_stable_time_increment)
         if not np.isfinite(limit) or limit <= 0.0:
             raise ValueError(
@@ -242,12 +248,26 @@ class DolfinxExplicitContactResidual:
                 raise ValueError(
                     "Explicit contact reference point differs from its rigid body."
                 )
+        if contact_pair is not None:
+            if rigid_body is not contact_pair.rigid_body:
+                raise ValueError(
+                    "Explicit contact rigid body differs from its contact pair."
+                )
+            if law is not contact_pair.law:
+                raise ValueError(
+                    "Explicit contact law differs from its contact pair."
+                )
+            if adapter.boundary_name != contact_pair.slave_boundary.name:
+                raise ValueError(
+                    "Explicit contact trace boundary differs from its contact pair."
+                )
         self.base = base
         self.adapter = adapter
         self.displacement = displacement
         self.lifecycle = lifecycle
         self.law = law
         self.maximum_stable_time_increment = limit
+        self.contact_pair = contact_pair
         self.rigid_body = rigid_body
         self.motion_schedule = motion_schedule
         self.surface_reference_point = reference
@@ -305,6 +325,11 @@ class DolfinxExplicitContactResidual:
     def _work_identity(self) -> str:
         payload = {
             "residual": self.name,
+            "contact_pair_identity": (
+                None
+                if self.contact_pair is None
+                else self.contact_pair.scientific_identity
+            ),
             "rigid_body_identity": (
                 None
                 if self.rigid_body is None
@@ -535,8 +560,13 @@ class DolfinxExplicitContactResidual:
         if self.trial_evidence is not None or self.lifecycle.state.trial is not None:
             raise RuntimeError("Explicit contact can only checkpoint an accepted boundary.")
         snapshot = {
-            "schema": "agentfem.dolfinx-explicit-contact-residual.v3",
+            "schema": "agentfem.dolfinx-explicit-contact-residual.v4",
             "name": self.name,
+            "contact_pair_identity": (
+                None
+                if self.contact_pair is None
+                else self.contact_pair.scientific_identity
+            ),
             "rigid_body_identity": (
                 None
                 if self.rigid_body is None
@@ -618,6 +648,7 @@ class DolfinxExplicitContactResidual:
         required = {
             "schema",
             "name",
+            "contact_pair_identity",
             "rigid_body_identity",
             "motion_schedule",
             "work_state",
@@ -628,7 +659,7 @@ class DolfinxExplicitContactResidual:
         if (
             not isinstance(snapshot, dict)
             or snapshot.get("schema")
-            != "agentfem.dolfinx-explicit-contact-residual.v3"
+            != "agentfem.dolfinx-explicit-contact-residual.v4"
             or set(snapshot) != required
         ):
             raise ValueError("Unsupported explicit-contact residual snapshot.")
@@ -640,8 +671,14 @@ class DolfinxExplicitContactResidual:
             if self.rigid_body is None
             else self.rigid_body.scientific_identity
         )
+        expected_pair_identity = (
+            None
+            if self.contact_pair is None
+            else self.contact_pair.scientific_identity
+        )
         if (
             snapshot.get("name") != self.name
+            or snapshot.get("contact_pair_identity") != expected_pair_identity
             or snapshot.get("rigid_body_identity") != expected_body_identity
             or _canonical_json(
                 snapshot.get("motion_schedule")
@@ -731,6 +768,9 @@ class DolfinxExplicitContactResidual:
             "rigid_body": (
                 None if self.rigid_body is None else self.rigid_body.summary()
             ),
+            "contact_pair": (
+                None if self.contact_pair is None else self.contact_pair.summary()
+            ),
             "prescribed_motion_work": (
                 None if self.work_state is None else self.work_state.summary()
             ),
@@ -748,7 +788,8 @@ def dolfinx_explicit_contact_residual(
     displacement,
     projector=None,
     rigid_body=None,
-    penalty,
+    contact_pair=None,
+    penalty=None,
     maximum_stable_time_increment,
     motion_schedule=None,
     invalid_policy: str = "reject",
@@ -758,6 +799,27 @@ def dolfinx_explicit_contact_residual(
 ) -> DolfinxExplicitContactResidual:
     """Build the reviewed first explicit contact residual consumer."""
 
+    if contact_pair is not None:
+        if not isinstance(contact_pair, RigidContactPair):
+            raise TypeError("contact_pair must be one RigidContactPair asset.")
+        if rigid_body is not None:
+            raise ValueError("rigid_body is owned by contact_pair when pair is used.")
+        if penalty is not None:
+            raise ValueError("penalty is owned by contact_pair when pair is used.")
+        if invalid_policy != "reject":
+            raise ValueError(
+                "invalid_policy is owned by contact_pair when pair is used."
+            )
+        rigid_body = contact_pair.rigid_body
+        law = contact_pair.law
+    else:
+        if penalty is None:
+            raise ValueError("Explicit contact requires penalty or contact_pair.")
+        law = frictionless_penalty_contact_law(
+            penalty,
+            invalid_policy=invalid_policy,
+            name=f"{name}_law",
+        )
     if rigid_body is not None:
         if not isinstance(rigid_body, RigidBody):
             raise TypeError("rigid_body must be one RigidBody asset.")
@@ -792,11 +854,6 @@ def dolfinx_explicit_contact_residual(
     if projector is None:
         raise ValueError("Explicit contact requires projector or rigid_body.")
     lifecycle = ContactProjectionLifecycle(projector, adapter.trace.point_ids)
-    law = frictionless_penalty_contact_law(
-        penalty,
-        invalid_policy=invalid_policy,
-        name=f"{name}_law",
-    )
     return DolfinxExplicitContactResidual(
         base,
         adapter=adapter,
@@ -804,6 +861,7 @@ def dolfinx_explicit_contact_residual(
         lifecycle=lifecycle,
         law=law,
         maximum_stable_time_increment=maximum_stable_time_increment,
+        contact_pair=contact_pair,
         rigid_body=rigid_body,
         motion_schedule=motion_schedule,
         surface_reference_point=surface_reference_point,

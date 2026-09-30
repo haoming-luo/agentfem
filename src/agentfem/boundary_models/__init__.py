@@ -6,6 +6,7 @@
 from . import absorbing
 from . import contact_state
 from . import contact_lifecycle
+from . import contact_pair
 from . import contact_response
 from . import contact_trace
 from . import contact_work
@@ -24,6 +25,7 @@ from .mechanical import (
 )
 from .contact_state import ContactProjectionRecord, ContactProjectionState
 from .contact_lifecycle import ContactProjectionEvaluation, ContactProjectionLifecycle
+from .contact_pair import RigidContactPair, rigid_contact_pair
 from .contact_response import (
     FrictionlessPenaltyContactLaw,
     FrictionlessPenaltyContactResponse,
@@ -90,6 +92,7 @@ __all__ = [
     "ContactProjectionState",
     "ContactProjectionEvaluation",
     "ContactProjectionLifecycle",
+    "RigidContactPair",
     "ContactTrace",
     "ContactTraceAssembly",
     "ContactTraceEvaluation",
@@ -124,6 +127,7 @@ __all__ = [
     "absorbing",
     "contact_state",
     "contact_lifecycle",
+    "contact_pair",
     "contact_response",
     "contact_trace",
     "contact_work",
@@ -146,6 +150,7 @@ __all__ = [
     "partition_triangle_surface",
     "rigid",
     "rigid_cylinder",
+    "rigid_contact_pair",
     "rigid_body",
     "rigid_plane",
     "rigid_sphere",

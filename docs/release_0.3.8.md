@@ -46,6 +46,10 @@ The recommended construction binds surface, schedule, reference point, and
 rank-independent scientific identity in one immutable `RigidBody`; serial or
 distributed search remains a separate backend object rather than becoming
 part of the body's identity.
+`RigidContactPair` binds the slave boundary, body, and scalar local law as one
+inspectable Model asset while leaving search and time-step stability with the
+Backend and Procedure. Pair and body identities are verified before checkpoint
+restoration.
 Accepted transient events expose compact contact activity, maximum penetration,
 force norm, and prescribed-motion work through the existing bounded/throttled
 progress lifecycle; no per-point history is accumulated implicitly.

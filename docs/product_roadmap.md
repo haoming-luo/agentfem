@@ -239,7 +239,9 @@ search/update cadence and acceptance; State will own active projections and
 history; Result/Verification will own penetration, generalized work and energy
 closure. The immutable `RigidBody` asset now binds scientific surface,
 fixed/prescribed kinematics, reference point, and rank-independent identity
-without owning search or enforcement. Prescribed analytical-plane motion and its accepted
+without owning search or enforcement. `RigidContactPair` now binds one slave
+boundary, rigid body, and scalar frictionless law without taking ownership of
+search or Procedure stability. Prescribed analytical-plane motion and its accepted
 force--moment--work contract are now the first executable slice. Next come
 the solver-neutral projection contract (now executable for analytical planes,
 circles/spheres and infinite cylinders), reviewed tessellated surfaces (the
