@@ -1331,6 +1331,12 @@ class DistributedTriangleSurfaceBVH:
     def partition(self) -> TriangleSurfacePartition:
         return self._partition
 
+    @property
+    def communicator(self):
+        """Return the communicator that owns collective projection calls."""
+
+        return self._comm
+
     def summary(self) -> dict[str, object]:
         return {
             "kind": "distributed_triangle_surface_bvh",
@@ -1562,6 +1568,12 @@ class RoutedDistributedTriangleSurfaceBVH:
     @property
     def partition(self) -> TriangleSurfacePartition:
         return self._partition
+
+    @property
+    def communicator(self):
+        """Return the communicator that owns collective projection calls."""
+
+        return self._comm
 
     @property
     def correctness_oracle(self) -> DistributedTriangleSurfaceBVH:

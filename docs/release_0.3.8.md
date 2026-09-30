@@ -43,6 +43,13 @@ changes, and checkpoints only accepted projection boundaries. Search remains
 geometry infrastructure; no general contact residual, Newton update policy, or
 cross-rank projection checkpoint is claimed by this state contract.
 
+A separate projection lifecycle now owns every-evaluation calls to analytical
+or reviewed BVH projectors, keeps search diagnostics out of State, and binds
+projection commit/rollback to the accepted increment. Distributed projectors
+reach collective post-search acceptance, preventing one rank from entering
+assembly after another rank has rejected invalid projection evidence. This is
+still a lifecycle foundation, not a general contact Operator.
+
 ## Time and restart semantics
 
 Time-dependent inputs now declare whether they affect only the right-hand side,
