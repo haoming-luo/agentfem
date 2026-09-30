@@ -4267,7 +4267,63 @@ def transfer_preload_to_explicit(
     tolerance.  ``mode='release'`` retains the computed initial acceleration
     as the physical release/impact condition.  A cohesive residual is rolled
     back after evaluation, so transfer does not advance irreversible damage.
+
+    Stateful residuals are initialized at the transferred accepted boundary
+    before equilibrium is evaluated.  The whole operation is atomic whenever
+    such a residual is present: a failed transfer restores both the second-
+    order fields and residual-owned contact/cohesive State.
     """
+
+    state_snapshot = state.snapshot()
+    initialize = getattr(residual, "initialize_accepted_state", None)
+    residual_snapshot = None
+    if callable(initialize):
+        snapshot = getattr(residual, "snapshot", None)
+        restore = getattr(residual, "restore", None)
+        if not callable(snapshot) or not callable(restore):
+            raise TypeError(
+                "Preload transfer requires stateful residuals to provide "
+                "snapshot() and restore() for atomic initialization."
+            )
+        residual_snapshot = snapshot()
+    try:
+        return _transfer_preload_to_explicit_impl(
+            preload_displacement,
+            state=state,
+            mass=mass,
+            residual=residual,
+            initial_velocity=initial_velocity,
+            mode=mode,
+            force_tolerance=force_tolerance,
+            acceleration_projection=acceleration_projection,
+            energy_monitor=energy_monitor,
+            source_energy=source_energy,
+            source_step=source_step,
+            destination_step=destination_step,
+        )
+    except Exception:
+        state.restore(state_snapshot)
+        if residual_snapshot is not None:
+            residual.restore(residual_snapshot)
+        raise
+
+
+def _transfer_preload_to_explicit_impl(
+    preload_displacement,
+    *,
+    state,
+    mass,
+    residual,
+    initial_velocity=None,
+    mode: str = "equilibrium",
+    force_tolerance: float = 1.0e-8,
+    acceleration_projection=None,
+    energy_monitor=None,
+    source_energy: float | None = None,
+    source_step: str | None = None,
+    destination_step: str | None = None,
+) -> PreloadTransferReport:
+    """Perform a preload transfer inside the public atomic wrapper."""
 
     selected_mode = str(mode).strip().lower()
     if selected_mode not in {"equilibrium", "release"}:
@@ -4287,6 +4343,10 @@ def transfer_preload_to_explicit(
         for item in (state.v, state.v_mid, state.v_next):
             item.assign(initial_velocity)
         velocity_label = "transferred"
+
+    initialize = getattr(residual, "initialize_accepted_state", None)
+    if callable(initialize):
+        initialize(time=0.0)
 
     vector = operators.assemble_vector(residual)
     try:

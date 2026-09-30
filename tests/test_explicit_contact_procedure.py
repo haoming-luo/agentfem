@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from dolfinx import fem
 from dolfinx import mesh as dolfinx_mesh
 from mpi4py import MPI
 import numpy as np
@@ -237,6 +238,101 @@ def test_mass_damping_preserves_moving_contact_lifecycle_and_evidence():
     assert "contact_motion_work" in result.histories
     assert "numerical_damping_dissipation" in result.histories
     assert step.residual.contact_progress_evidence()[0]["sliding_point_count"] > 0
+
+
+def test_moving_contact_preload_transfer_initializes_work_state_before_equilibrium():
+    model, displacement, material, base_pair = _contact_model(registered=False)
+    schedule = boundary_models.prescribed_rigid_motion_schedule(
+        boundary_models.prescribed_rigid_motion(
+            translation=(0.0, 0.02, 0.0),
+            name="preloaded_tool_slide",
+        ),
+        end_time=1.0e-5,
+        name="preloaded_tool_schedule",
+    )
+    pair = boundary_models.rigid_contact_pair(
+        base_pair.slave_boundary,
+        boundary_models.rigid_body(
+            base_pair.rigid_body.surface,
+            motion_schedule=schedule,
+            name="preloaded_moving_tool",
+        ),
+        penalty=2.0e4,
+        friction_coefficient=0.2,
+        tangential_penalty=1.0e4,
+        name="preloaded_moving_contact",
+    )
+    step = model.finite_strain_explicit_dynamics_step(
+        target=displacement,
+        material=material,
+        contact_pairs=(pair,),
+        dt=5.0e-6,
+        steps=2,
+        progress=False,
+    )
+
+    report = step.initialize_from_preload(
+        displacement.value,
+        mode="release",
+    )
+
+    assert report.mode == "release"
+    assert step.residual.accepted_evidence is not None
+    assert len(step.residual.work_state.accepted) == 1
+    step.run()
+    assert len(step.residual.work_state.accepted) == 3
+
+
+def test_failed_moving_contact_preload_transfer_is_atomic():
+    model, displacement, material, base_pair = _contact_model(registered=False)
+    pair = boundary_models.rigid_contact_pair(
+        base_pair.slave_boundary,
+        boundary_models.rigid_body(
+            base_pair.rigid_body.surface,
+            motion_schedule=boundary_models.prescribed_rigid_motion_schedule(
+                boundary_models.prescribed_rigid_motion(
+                    translation=(0.0, 0.02, 0.0),
+                ),
+                end_time=1.0e-5,
+            ),
+            name="atomic_moving_tool",
+        ),
+        penalty=2.0e4,
+        friction_coefficient=0.2,
+        tangential_penalty=1.0e4,
+        name="atomic_moving_contact",
+    )
+    step = model.finite_strain_explicit_dynamics_step(
+        target=displacement,
+        material=material,
+        contact_pairs=(pair,),
+        dt=5.0e-6,
+        steps=1,
+        progress=False,
+    )
+    before = step.state.snapshot()
+    incompatible = fem.Function(displacement.value.function_space)
+    incompatible.x.array[:] = displacement.value.x.array
+    incompatible.x.array.reshape((-1, 3))[:, 0] += 0.05
+    incompatible.x.scatter_forward()
+
+    import pytest
+
+    with pytest.raises(RuntimeError, match="not in equilibrium"):
+        step.initialize_from_preload(
+            incompatible,
+            mode="equilibrium",
+            force_tolerance=0.0,
+        )
+
+    np.testing.assert_allclose(
+        step.state.u.value.x.array,
+        before["fields"]["u"],
+        rtol=0.0,
+        atol=0.0,
+    )
+    assert step.residual.accepted_evidence is None
+    assert step.residual.work_state.accepted == []
 
 
 def test_standard_contact_procedure_checkpoint_matches_uninterrupted_run(tmp_path):

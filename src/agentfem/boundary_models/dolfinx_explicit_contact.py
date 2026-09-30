@@ -835,6 +835,17 @@ class DolfinxExplicitContactResidual:
     def _global_friction_records(self) -> dict[str, object] | None:
         if self.friction_state is None or self.friction_kinematics is None:
             return None
+        if (
+            self.friction_state.accepted is None
+            and self.friction_kinematics.accepted is None
+        ):
+            return None
+        if (self.friction_state.accepted is None) != (
+            self.friction_kinematics.accepted is None
+        ):
+            raise RuntimeError(
+                "Friction constitutive and kinematic initialization differ."
+            )
         return global_friction_state_snapshot(
             self.friction_state.accepted,
             self.friction_kinematics.accepted,
@@ -845,6 +856,8 @@ class DolfinxExplicitContactResidual:
         if self.friction_state is None or self.friction_kinematics is None:
             if snapshot is not None:
                 raise ValueError("Frictionless contact cannot restore friction State.")
+            return None
+        if snapshot is None:
             return None
         return local_friction_state_from_snapshot(
             snapshot,
@@ -1060,6 +1073,11 @@ class DolfinxExplicitContactResidual:
             self.friction_state.accepted = friction
             self.friction_state.trial = None
             self.friction_kinematics.accepted = kinematics
+            self.friction_kinematics.trial = None
+        elif self.friction_state is not None:
+            self.friction_state.accepted = None
+            self.friction_state.trial = None
+            self.friction_kinematics.accepted = None
             self.friction_kinematics.trial = None
         if self.work_state is not None:
             self.work_state.accepted = list(validated_work.accepted)

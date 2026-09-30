@@ -77,6 +77,15 @@ than discovered from the Model. Pair names and scientific identities must be
 unique. `contact_projection_options` is an optional mapping keyed by pair name;
 unknown names fail before the solve.
 
+For staged protocols, first solve and accept the normal preload, then build
+the moving/frictional Explicit step and call `initialize_from_preload(...)`.
+The destination Procedure seeds its contact projection, friction reference,
+and prescribed-tool work station at that accepted configuration before it
+checks free-force equilibrium. The transfer is atomic: a failed projection or
+equilibrium check restores both the second-order fields and residual-owned
+State. Use `mode="release"` only when the reported imbalance is the intended
+impact/release event, not to bypass an unbalanced preload.
+
 This public lowering is intentionally bounded to the reviewed 3D tetrahedral
 CG1 slave trace and rigid analytical or triangulated surfaces. It supports
 multiple rigid pairs, prescribed rigid motion, finite sliding over reviewed
