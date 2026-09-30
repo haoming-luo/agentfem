@@ -246,7 +246,11 @@ _CORE_SOURCE_MPI_TEST_MAP = {
     "src/agentfem/boundary_models/rigid.py": (
         "tests/test_rigid_obstacle_contact.py",
     ),
+    "src/agentfem/boundary_models/search.py": (
+        "tests/test_parallel_rigid_surface_search.py",
+    ),
     "src/agentfem/boundary_models/__init__.py": (
+        "tests/test_parallel_rigid_surface_search.py",
         "tests/test_rigid_obstacle_contact.py",
     ),
     "src/agentfem/input_effects.py": ("tests/test_parallel_transient.py",),
