@@ -44,7 +44,7 @@ otherwise; runnable examples remain in the repository-level `examples/`.
 | Global stateful and modal solid-mechanics procedures | `mechanics/` |
 | Finite- and small-strain material-point contracts, named parameters, batch response validation, UMAT/UHYPER source inspection, and bridge specifications | `constitutive/user_material.py`, `constitutive/small_strain_user_material.py`, `constitutive/material_driver.py` |
 | Named material definitions, project Python assets, physics-role compatibility, reference records, and property containers | `materials/` |
-| Boundary models, rigid-surface projection, collective projection lifecycle, accepted/trial contact-projection state, reviewed local/distributed triangle search, and fail-closed DOLFINx exterior-facet adaptation | `boundary_models/`, `boundary_models/rigid.py`, `boundary_models/contact_lifecycle.py`, `boundary_models/contact_state.py`, `boundary_models/search.py`, `boundary_models/dolfinx_adapter.py` |
+| Boundary models, rigid-surface projection, collective projection lifecycle, accepted/trial contact-projection state, geometry-neutral local contact response, reviewed local/distributed triangle search, and fail-closed DOLFINx exterior-facet adaptation | `boundary_models/`, `boundary_models/rigid.py`, `boundary_models/contact_lifecycle.py`, `boundary_models/contact_state.py`, `boundary_models/contact_response.py`, `boundary_models/search.py`, `boundary_models/dolfinx_adapter.py` |
 | UFL weak-form blocks, including stiffness, mass, diffusion, and loads | `forms.py` |
 | Assembly | `assembly.py` |
 | Engineering-level K/M/C/F, registered-assignment and model-first operator lowering, transport, SUPG, and reaction operators | `operators/`, `operators/_model_lowering.py` |
