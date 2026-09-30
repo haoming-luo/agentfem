@@ -8,6 +8,17 @@ experimental formulation to a validated one.
 
 ### Added
 
+- Add the first Procedure-consumed general-contact slice for explicit
+  dynamics. A reviewed DOLFINx tetrahedral-CG1 slave trace can now perform
+  exact projection, evaluate the solver-neutral frictionless penalty law,
+  assemble nodal contact residuals through PETSc ghost ownership, and enter
+  the existing central-difference update. The route records MPI-global force,
+  reaction, moment and conservative-potential evidence, enforces a declared
+  contact stability limit, and accepts or rolls back projection State with the
+  time increment. It remains fixed-surface and frictionless; moving-tool work,
+  automatic contact spectral estimation and an implicit tangent are explicit
+  later gates.
+
 - Begin the 0.4 foundation with separate analytical rigid-surface and
   prescribed rigid-motion assets. The bounded frictionless contact route now
   supports normalized translation and 2D/3D rotation, reconstructs resultant

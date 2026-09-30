@@ -710,6 +710,9 @@ and evidence remain in the linked guides and scientific function reference.
 | function | `dolfinx_tagged_exterior_triangle_partition(domain, facet_tags, *, tag: int, name: str \| None = None, tolerance: float \| None = None, ambiguity_tolerance: float \| None = None) -> TriangleSurfacePartition` | Build a distributed triangle partition from one DOLFINx facet tag. |
 | class | `DolfinxContactTraceAdapter` | Bind one reviewed DOLFINx CG1 boundary trace to current displacement. |
 | function | `dolfinx_boundary_region_contact_trace(region, function_space) -> DolfinxContactTraceAdapter` | Adapt a tagged tetrahedral boundary and blocked vector CG1 space. |
+| class | `DolfinxExplicitContactResidual(base, *, adapter: DolfinxContactTraceAdapter, displacement, lifecycle: ContactProjectionLifecycle, law: FrictionlessPenaltyContactLaw, maximum_stable_time_increment: float, surface_reference_point = None, projection_options = None, name: str = 'dolfinx_explicit_contact_residual') -> None` | Add reviewed trace contact to a DOLFINx explicit residual. |
+| class | `ExplicitContactEvidence` | MPI-global evidence from one contact residual evaluation. |
+| function | `dolfinx_explicit_contact_residual(base, *, adapter, displacement, projector, penalty, maximum_stable_time_increment, invalid_policy: str = 'reject', surface_reference_point = None, projection_options = None, name: str = 'dolfinx_explicit_contact_residual') -> DolfinxExplicitContactResidual` | Build the reviewed first explicit contact residual consumer. |
 | class | `PrescribedRigidMotion` | Normalized prescribed rigid-body translation and rotation. |
 | class | `RigidCylinderSurface` | Analytical three-dimensional infinite circular cylinder. |
 | class | `RigidPlaneSurface` | Analytical rigid plane with one explicit point and unit normal. |

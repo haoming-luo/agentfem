@@ -995,6 +995,9 @@ def explicit_dynamics(
         raise ValueError("explicit_dynamics requires steps > 0.")
     if int(history_every) <= 0:
         raise ValueError("explicit_dynamics history_every must be positive.")
+    validate_time_increment = getattr(residual, "validate_time_increment", None)
+    if callable(validate_time_increment):
+        validate_time_increment(dt)
     from . import procedures
     from .diagnostics import MechanicalEnergyMonitor
 

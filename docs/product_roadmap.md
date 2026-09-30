@@ -144,6 +144,18 @@ adaptation, implicit linearization, friction, multiple pairs, time-varying
 natural loads, and undeclared weak formulations remain outside this gate and
 fail closed rather than inheriting its evidence.
 
+The first explicit Procedure hand-off is now executable for that narrow
+DOLFINx slave trace. A composable residual evaluates the current predicted
+displacement, repeats exact projection, applies the local frictionless penalty
+law, integrates the trace, and adds only the owner-reduced contact vector to
+the already assembled bulk residual. Its projection trial follows the same
+increment commit/rollback decision as central difference, and MPI-global
+potential, force/reaction, active-point count and optional tool moment remain
+inspectable. A caller-supplied contact stability ceiling is mandatory and is
+checked when the Step is built; automatic spectral estimation has not been
+claimed. This closes fixed-surface explicit force insertion, not moving-tool
+work, general contact, or implicit Newton linearization.
+
 Gate 5 now has an executable checkpoint capability contract. Procedures must
 separately declare the durable payload scope, accepted save boundary, atomic
 publication, scientific identity, and MPI rank-count portability; a portable
@@ -238,9 +250,10 @@ commit/rollback) and an Operator that consumes the trial projection. Candidate
 warm starts may optimize broad-phase work later, but exact gaps and normals
 remain evaluation-local. Cross-rank checkpoint aggregation by stable point
 identity remains
-required before that state can claim MPI-portable restart. Multiple pairs,
-explicit dynamics and finally friction follow the verified single-pair
-finite-sliding route. STEP
+required before that state can claim MPI-portable restart. The fixed-surface
+explicit residual hand-off is now executable with a mandatory declared
+stability ceiling; moving-tool work, multiple pairs, finite sliding and
+finally friction follow that bounded route. STEP
 remains an optional geometry-adapter input that is repaired and tessellated
 before the contact core consumes it. Shell/solid-shell forming and self-contact
 remain later scientific promotions, not hidden extensions of the bounded
