@@ -169,6 +169,9 @@ def test_contact_opening_reports_penalty_release_without_false_dissipation():
     assert released.separation_release_densities[0] == pytest.approx(0.025)
     assert released.dissipation_increment_densities[0] == pytest.approx(0.0)
     assert released.record.cumulative_dissipation_densities[0] == pytest.approx(0.0)
+    assert released.record.cumulative_separation_release_densities[0] == pytest.approx(
+        0.025
+    )
 
 
 def test_friction_rejects_ambiguous_history_transport_and_identity_changes():

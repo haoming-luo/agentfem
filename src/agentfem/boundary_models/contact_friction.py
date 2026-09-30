@@ -116,6 +116,7 @@ class TangentialContactRecord:
     normals: object
     elastic_slips: object
     cumulative_dissipation_densities: object
+    cumulative_separation_release_densities: object
 
     def __post_init__(self) -> None:
         slips = np.asarray(self.elastic_slips, dtype=float)
@@ -130,23 +131,25 @@ class TangentialContactRecord:
         normal_components = np.einsum("ij,ij->i", slips, normals)
         if not np.allclose(normal_components, 0.0, rtol=0.0, atol=1.0e-11):
             raise ValueError("Stored tangential elastic slips must lie in the tangent plane.")
-        dissipation = np.asarray(
-            self.cumulative_dissipation_densities,
-            dtype=float,
-        )
-        if dissipation.shape != (count,) or not np.all(np.isfinite(dissipation)):
-            raise ValueError("Tangential dissipation must contain one finite value per point.")
-        dissipation = dissipation[order]
-        if np.any(dissipation < 0.0):
-            raise ValueError("Cumulative frictional dissipation cannot be negative.")
+        cumulative = {}
+        for name in (
+            "cumulative_dissipation_densities",
+            "cumulative_separation_release_densities",
+        ):
+            value = np.asarray(getattr(self, name), dtype=float)
+            if value.shape != (count,) or not np.all(np.isfinite(value)):
+                raise ValueError(
+                    f"{name} must contain one finite value per contact point."
+                )
+            value = value[order]
+            if np.any(value < 0.0):
+                raise ValueError(f"{name} cannot be negative.")
+            cumulative[name] = value
         object.__setattr__(self, "point_ids", _readonly_array(point_ids, dtype=np.int64))
         object.__setattr__(self, "normals", _readonly_array(normals))
         object.__setattr__(self, "elastic_slips", _readonly_array(slips))
-        object.__setattr__(
-            self,
-            "cumulative_dissipation_densities",
-            _readonly_array(dissipation),
-        )
+        for name, value in cumulative.items():
+            object.__setattr__(self, name, _readonly_array(value))
 
     @property
     def point_count(self) -> int:
@@ -165,6 +168,9 @@ class TangentialContactRecord:
             "cumulative_dissipation_densities": (
                 self.cumulative_dissipation_densities.copy()
             ),
+            "cumulative_separation_release_densities": (
+                self.cumulative_separation_release_densities.copy()
+            ),
         }
 
     @classmethod
@@ -177,6 +183,7 @@ class TangentialContactRecord:
             "normals",
             "elastic_slips",
             "cumulative_dissipation_densities",
+            "cumulative_separation_release_densities",
         }
         if set(snapshot) != required or snapshot.get("schema") != _RECORD_SCHEMA:
             raise ValueError("Unsupported tangential contact record snapshot.")
@@ -186,6 +193,9 @@ class TangentialContactRecord:
             elastic_slips=snapshot["elastic_slips"],
             cumulative_dissipation_densities=snapshot[
                 "cumulative_dissipation_densities"
+            ],
+            cumulative_separation_release_densities=snapshot[
+                "cumulative_separation_release_densities"
             ],
         )
 
@@ -366,6 +376,7 @@ class PenaltyCoulombFrictionLaw:
         if accepted is None:
             old_slips = np.zeros((count, dimension), dtype=float)
             cumulative = np.zeros(count, dtype=float)
+            cumulative_release = np.zeros(count, dtype=float)
         else:
             if not isinstance(accepted, TangentialContactRecord):
                 raise TypeError("Accepted friction state has the wrong type.")
@@ -380,6 +391,10 @@ class PenaltyCoulombFrictionLaw:
             )
             cumulative = np.asarray(
                 accepted.cumulative_dissipation_densities,
+                dtype=float,
+            )
+            cumulative_release = np.asarray(
+                accepted.cumulative_separation_release_densities,
                 dtype=float,
             )
 
@@ -422,6 +437,9 @@ class PenaltyCoulombFrictionLaw:
             normals=normals,
             elastic_slips=new_slips,
             cumulative_dissipation_densities=cumulative + dissipation_increment,
+            cumulative_separation_release_densities=(
+                cumulative_release + separation_release
+            ),
         )
         return PenaltyCoulombFrictionResponse(
             record=record,
