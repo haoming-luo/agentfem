@@ -50,6 +50,15 @@ reach collective post-search acceptance, preventing one rank from entering
 assembly after another rank has rejected invalid projection evidence. This is
 still a lifecycle foundation, not a general contact Operator.
 
+The same foundation now includes a solver-neutral local frictionless penalty
+law. It consumes any reviewed `SurfaceProjection`, returns penetration,
+pressure, conservative potential density, structural residual traction, and
+the conjugate rigid-surface traction, and rejects invalid search evidence by
+default. The response is deliberately labelled pointwise and unintegrated:
+trace interpolation, quadrature, global assembly, and geometry-consistent
+linearization remain required before AgentFEM can claim a general implicit
+contact Operator.
+
 ## Time and restart semantics
 
 Time-dependent inputs now declare whether they affect only the right-hand side,
