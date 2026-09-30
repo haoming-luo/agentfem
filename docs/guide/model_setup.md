@@ -330,6 +330,29 @@ positions from a synchronized DOLFINx displacement field. Higher-order,
 curved, non-tetrahedral, scalar, discontinuous, and non-blocked spaces are
 rejected collectively rather than coerced into this route.
 
+That trace now has one bounded Procedure consumer:
+`dolfinx_explicit_contact_residual(...)`. It combines an ordinary bulk
+residual with exact projection, the frictionless penalty point law, and trace
+integration before the existing central-difference acceleration update. In
+MPI, contact contributions are first assembled into a separate zeroed ghosted
+vector, reverse-added to their owners, and only then added to the already
+assembled bulk owned entries. This ordering prevents a second accumulation of
+bulk ghost contributions.
+
+The caller must supply `maximum_stable_time_increment`; construction of an
+explicit Step rejects a larger `dt`. This is intentional: penalty contact adds
+stiffness and can reduce the critical central-difference step below the body
+wave estimate. The current route reports global force/reaction, potential and
+optional moment, but supports only a fixed surface. It does not yet claim
+automatic contact spectral estimation, moving-tool accepted-path work,
+friction, multiple pairs, or an implicit consistent tangent.
+
+The parallel vector ordering follows PETSc's finite-element contract:
+[`ADD_VALUES` with reverse scatter](https://petsc.org/release/manual/vec/)
+accumulates ghost contributions onto the owning rank. Penalty-contact effects
+on explicit stability are discussed, for example, by
+[Otto et al. (2020)](https://doi.org/10.1002/nme.6264).
+
 Pass `checkpoint=checkpointing.every(...)` to `model.step(...)` when a long
 load path must be restartable. Only accepted load boundaries are published.
 The portable checkpoint keeps the displacement, increment/cutback ledger,

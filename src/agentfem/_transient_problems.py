@@ -304,13 +304,12 @@ class ExplicitDynamicsStep:
                 prescribed=self.prescribed,
                 constraints=self.constraints,
             )
+            if hasattr(self.residual, "commit"):
+                self.residual.commit()
         except Exception:
             if hasattr(self.residual, "rollback"):
                 self.residual.rollback()
             raise
-        else:
-            if hasattr(self.residual, "commit"):
-                self.residual.commit()
 
     def summary(self) -> dict[str, object]:
         """Return a compact, agent-readable explicit step summary."""

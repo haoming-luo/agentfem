@@ -10,6 +10,7 @@ from . import contact_response
 from . import contact_trace
 from . import dolfinx_adapter
 from . import dolfinx_contact_trace
+from . import dolfinx_explicit_contact
 from . import mechanical
 from . import rigid
 from . import search
@@ -36,6 +37,11 @@ from .dolfinx_adapter import (
 from .dolfinx_contact_trace import (
     DolfinxContactTraceAdapter,
     dolfinx_boundary_region_contact_trace,
+)
+from .dolfinx_explicit_contact import (
+    DolfinxExplicitContactResidual,
+    ExplicitContactEvidence,
+    dolfinx_explicit_contact_residual,
 )
 from .rigid import (
     PrescribedRigidMotion,
@@ -84,7 +90,9 @@ __all__ = [
     "DistributedTriangleSearchOutcome",
     "DistributedTriangleSurfaceBVH",
     "DolfinxContactTraceAdapter",
+    "DolfinxExplicitContactResidual",
     "ElasticFoundation",
+    "ExplicitContactEvidence",
     "PrescribedRigidMotion",
     "RigidCylinderSurface",
     "RigidPlaneSurface",
@@ -108,6 +116,8 @@ __all__ = [
     "convection",
     "dolfinx_adapter",
     "dolfinx_contact_trace",
+    "dolfinx_explicit_contact",
+    "dolfinx_explicit_contact_residual",
     "dolfinx_boundary_region_contact_trace",
     "dolfinx_boundary_region_triangle_partition",
     "dolfinx_exterior_triangle_partition",
