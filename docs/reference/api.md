@@ -706,7 +706,7 @@ and evidence remain in the linked guides and scientific function reference.
 | function | `penalty_coulomb_friction_law(coefficient: float, tangential_penalty, *, name: str = 'penalty_coulomb_friction') -> PenaltyCoulombFrictionLaw` | Public AgentFEM object. |
 | function | `tangential_contact_state() -> TangentialContactState` | Public AgentFEM object. |
 | class | `RigidContactPair` | Bind one slave boundary, rigid body, and local contact law. |
-| function | `rigid_contact_pair(slave_boundary: BoundaryRegion, rigid_body: RigidBody, *, penalty, friction_coefficient: float \| None = None, tangential_penalty = None, invalid_policy: str = 'reject', name: str = 'rigid_contact_pair') -> RigidContactPair` | Create the first solver-neutral rigid frictionless contact pair. |
+| function | `rigid_contact_pair(slave_boundary: BoundaryRegion, rigid_body: RigidBody, *, penalty, friction_coefficient: float \| None = None, tangential_penalty = None, invalid_policy: str = 'reject', name: str = 'rigid_contact_pair') -> RigidContactPair` | Create one solver-neutral rigid pair with optional friction semantics. |
 | class | `FrictionlessPenaltyContactLaw` | Evaluate a conservative one-sided penalty law on projected points. |
 | class | `FrictionlessPenaltyContactResponse` | Immutable pointwise response to one reviewed surface projection. |
 | function | `frictionless_penalty_contact_law(penalty, *, invalid_policy: str = 'reject', name: str = 'frictionless_penalty_contact') -> FrictionlessPenaltyContactLaw` | Create the geometry-neutral local frictionless contact law. |
