@@ -72,6 +72,13 @@ B31 and the bridge is a
 tetrahedral CG1 solid, the evidence is labelled a protocol bridge rather than
 an elementwise external reproduction.
 
+The bridge additionally separates time and space refinement. It first halves
+both stage time increments without changing physical duration, then refines
+the in-plane mesh while retaining those time increments and durations. The
+certificate requires stable friction dissipation, persistent facet crossings,
+and non-growing energy error; it deliberately does not infer an observed order
+from a two-level study.
+
 General multi-tool candidate routing, arbitrary surface topology, free
 rigid-body dynamics, deformable-to-deformable contact, and forming are not
 inferred from this evidence. They remain explicit future capabilities.

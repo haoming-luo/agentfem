@@ -8,6 +8,14 @@ experimental formulation to a validated one.
 
 ### Added
 
+- Add separated time- and space-refinement evidence for the finite-sliding
+  solid bridge. The time study halves both stage increments while preserving
+  physical duration; the spatial study retains the refined increments and
+  duration while increasing the in-plane trace resolution. Friction
+  dissipation changes by less than the declared tolerance, facet crossing
+  remains active, and energy error does not grow. The certificate is labelled
+  refinement evidence rather than an unsupported observed-order claim.
+
 - Add a real two-stage tetrahedral-solid bridge to the fixed public
   Abaqus/Explicit finite-sliding protocol. The ordinary finite-strain Explicit
   Procedure now applies the published 500-unit normal resultant against a

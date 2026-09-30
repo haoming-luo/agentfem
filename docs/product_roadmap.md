@@ -309,7 +309,7 @@ finite-sliding gate is fixed to the public Abaqus/Explicit
 deformable-body/rigid-surface family rather than a forming-specific solver.
 Its parameters, two-stage protocol, and force/friction assessor are
 machine-readable, while the registry explicitly retains
-`protocol_solid_bridge_accepted_exact_b31_gate_pending`. A real deformable
+`protocol_solid_bridge_refinement_accepted_exact_b31_gate_pending`. A real deformable
 tetrahedral-solid bridge now applies the fixed 500-unit resultant, accepts the
 frictionless preload, atomically transfers it into a new stage, activates
 `mu=0.3`, and completes the 0.1-unit rigid slide. Serial and two-rank runs
@@ -317,13 +317,18 @@ recover 500 normal force, the 150 Coulomb force, exact action--reaction,
 positive dissipation, valid projections, actual stable-facet crossings over a
 bounded tessellated tool, and the declared energy tolerance.
 This is explicitly protocol-level evidence, not a pointwise B31 reproduction.
+The bridge now also owns separated refinement evidence: one run halves both
+stage increments at fixed physical duration, then another increases in-plane
+mesh resolution while retaining the refined increments and duration. The
+accepted certificate checks dissipation stability, energy non-growth, and
+facet migration without claiming an observed convergence order from only two
+levels.
 Registered rigid pairs enter the
 ordinary finite-strain Explicit Procedure without user-authored residual
 plumbing. The Procedure builds reviewed traces, composes body, cohesive, and
 every contact spectral contribution once, and preserves per-pair force,
 moment, tool work, potential, friction dissipation, State, and checkpoint
-evidence. The next gates are mesh/time refinement of the solid bridge, curved
-or imported-tool evidence, and an
+evidence. The next gates are curved or imported-tool evidence and an
 element-equivalent external comparison if a reviewed beam-contact formulation
 becomes available. Distributed
 multi-tool candidate routing, measured extreme-scale behavior, arbitrary
