@@ -227,6 +227,22 @@ packets. The all-gather implementation remains its partition-independent
 correctness oracle; this search contract is not yet wired into the contact
 residual or finite-sliding state machine.
 
+For an existing first-order three-dimensional DOLFINx tetrahedral mesh, owned
+exterior facets can enter the same contract without first replicating a global
+surface object:
+
+```python
+partition = boundary_models.dolfinx_exterior_triangle_partition(domain)
+search = boundary_models.routed_distributed_triangle_surface_bvh(partition, comm)
+```
+
+The adapter uses input-global vertex identities, orients every triangle away
+from its adjacent volume cell, and permits a rank to own no selected facets.
+It currently rejects non-tetrahedral, higher-order, interior, duplicate, or
+non-integer facet selections instead of flattening them into an ambiguous
+triangle soup. This is a geometry/search adapter, not yet a finite-sliding
+contact pair or a STEP/STL repair pipeline.
+
 Pass `checkpoint=checkpointing.every(...)` to `model.step(...)` when a long
 load path must be restartable. Only accepted load boundaries are published.
 The portable checkpoint keeps the displacement, increment/cutback ledger,

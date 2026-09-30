@@ -695,6 +695,7 @@ and evidence remain in the linked guides and scientific function reference.
 | class | `RigidObstaclePenaltyContact` | Frictionless one-sided contact with one analytical rigid plane. |
 | function | `elastic_foundation(*, on = None, location = None, stiffness, mode: str = 'isotropic', normal = None, name: str = 'elastic_foundation') -> ElasticFoundation` | Public AgentFEM object. |
 | function | `rigid_obstacle_contact(*, on = None, location = None, penalty, normal = None, initial_gap = 0.0, surface: RigidPlaneSurface \| None = None, motion: PrescribedRigidMotion \| None = None, name: str = 'rigid_obstacle_contact') -> RigidObstaclePenaltyContact` | Create conservative frictionless contact with one analytical plane. |
+| function | `dolfinx_exterior_triangle_partition(domain, *, facets = None, name: str = 'dolfinx_exterior_triangle_surface', tolerance: float \| None = None, ambiguity_tolerance: float \| None = None) -> TriangleSurfacePartition` | Build a stable distributed triangle partition from owned exterior facets. |
 | class | `PrescribedRigidMotion` | Normalized prescribed rigid-body translation and rotation. |
 | class | `RigidCylinderSurface` | Analytical three-dimensional infinite circular cylinder. |
 | class | `RigidPlaneSurface` | Analytical rigid plane with one explicit point and unit normal. |

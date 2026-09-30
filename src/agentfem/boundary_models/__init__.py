@@ -4,6 +4,7 @@
 """Reusable weak boundary models."""
 
 from . import absorbing
+from . import dolfinx_adapter
 from . import mechanical
 from . import rigid
 from . import search
@@ -14,6 +15,7 @@ from .mechanical import (
     elastic_foundation,
     rigid_obstacle_contact,
 )
+from .dolfinx_adapter import dolfinx_exterior_triangle_partition
 from .rigid import (
     PrescribedRigidMotion,
     RigidCylinderSurface,
@@ -69,6 +71,8 @@ __all__ = [
     "TriangleSurfaceBVH",
     "absorbing",
     "convection",
+    "dolfinx_adapter",
+    "dolfinx_exterior_triangle_partition",
     "elastic_foundation",
     "distributed_triangle_surface_bvh",
     "mechanical",

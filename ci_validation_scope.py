@@ -115,6 +115,10 @@ _CORE_SOURCE_TEST_MAP = {
         "tests/test_parallel_affine.py",
         "tests/test_rigid_obstacle_contact.py",
     ),
+    "src/agentfem/boundary_models/dolfinx_adapter.py": (
+        "tests/test_dolfinx_boundary_surface_adapter.py",
+        "tests/test_rigid_surface_search.py",
+    ),
     "src/agentfem/boundary_models/rigid.py": (
         "tests/test_rigid_obstacle_contact.py",
         "tests/test_rigid_surface_contract.py",
@@ -125,6 +129,7 @@ _CORE_SOURCE_TEST_MAP = {
         "tests/test_rigid_surface_search.py",
     ),
     "src/agentfem/boundary_models/__init__.py": (
+        "tests/test_dolfinx_boundary_surface_adapter.py",
         "tests/test_engineering_workflows.py",
         "tests/test_rigid_obstacle_contact.py",
         "tests/test_rigid_surface_contract.py",
@@ -243,6 +248,10 @@ _CORE_SOURCE_MPI_TEST_MAP = {
     "src/agentfem/boundary_models/mechanical.py": (
         "tests/test_rigid_obstacle_contact.py",
     ),
+    "src/agentfem/boundary_models/dolfinx_adapter.py": (
+        "tests/test_dolfinx_boundary_surface_adapter.py",
+        "tests/test_parallel_rigid_surface_search.py",
+    ),
     "src/agentfem/boundary_models/rigid.py": (
         "tests/test_rigid_obstacle_contact.py",
     ),
@@ -250,6 +259,7 @@ _CORE_SOURCE_MPI_TEST_MAP = {
         "tests/test_parallel_rigid_surface_search.py",
     ),
     "src/agentfem/boundary_models/__init__.py": (
+        "tests/test_dolfinx_boundary_surface_adapter.py",
         "tests/test_parallel_rigid_surface_search.py",
         "tests/test_rigid_obstacle_contact.py",
     ),
