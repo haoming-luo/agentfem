@@ -245,7 +245,24 @@ def _runtime_capabilities(topology: str) -> tuple[TopologyCapability, ...]:
         scope="degree-two coordinate-basis identity and sampled Jacobian quality",
         evidence=("tests/test_mesh_quality.py",),
     )
-    return inspection, quality, conforming, high_order
+    capabilities = [inspection, quality, conforming, high_order]
+    if topology in {"tetrahedron", "hexahedron"}:
+        capabilities.append(
+            TopologyCapability(
+                name="explicit_rigid_contact_trace",
+                status="verified",
+                scope=(
+                    "blocked-vector CG1/Q1 exterior trace with positive "
+                    "reference-area quadrature, MPI-stable identity, and the "
+                    "finite-strain Explicit Procedure"
+                ),
+                evidence=(
+                    "tests/test_dolfinx_contact_trace.py",
+                    "tests/test_explicit_contact_procedure.py",
+                ),
+            )
+        )
+    return tuple(capabilities)
 
 
 def describe_cell(source_cell_type: str) -> CellCompatibility:

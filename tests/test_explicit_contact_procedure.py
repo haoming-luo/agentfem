@@ -8,13 +8,19 @@ import numpy as np
 from agentfem import boundary_models, constitutive, fields, mesh, models, studies
 
 
-def _contact_model(*, registered: bool = True, comm=MPI.COMM_SELF):
+def _contact_model(
+    *,
+    registered: bool = True,
+    comm=MPI.COMM_SELF,
+    cell_type=dolfinx_mesh.CellType.tetrahedron,
+    cells_x: int = 1,
+):
     domain = dolfinx_mesh.create_unit_cube(
         comm,
+        cells_x,
         1,
         1,
-        1,
-        cell_type=dolfinx_mesh.CellType.tetrahedron,
+        cell_type=cell_type,
     )
     model = models.create(
         study=studies.dynamic_solid(dimension=3, method="explicit"),
@@ -88,6 +94,25 @@ def test_finite_strain_explicit_discovers_registered_contact_pair():
     assert summary["residual"]["stability_controller"] == "caller_declared"
     step.run()
     assert step.residual.accepted_evidence.active_point_count > 0
+    assert step.history_records[-1]["contact_potential_energy"] >= 0.0
+
+
+def test_hexahedral_finite_strain_explicit_uses_the_same_contact_procedure():
+    model, displacement, material, pair = _contact_model(
+        cell_type=dolfinx_mesh.CellType.hexahedron,
+    )
+
+    step = model.step(
+        target=displacement,
+        material=material,
+        steps=1,
+        progress=False,
+    )
+    step.run()
+
+    assert step.residual.contact_pair is pair
+    assert step.residual.adapter.summary()["facet_topology"] == "quadrilateral"
+    assert step.residual.accepted_evidence.active_point_count == 4
     assert step.history_records[-1]["contact_potential_energy"] >= 0.0
 
 
@@ -390,6 +415,34 @@ def test_standard_contact_procedure_is_rank_canonical_under_mpi():
     snapshots = MPI.COMM_WORLD.allgather(step.residual.snapshot())
 
     assert all(item == snapshots[0] for item in snapshots)
+    assert result.histories["contact_potential_energy"].latest >= 0.0
+
+
+def test_hexahedral_contact_procedure_is_rank_canonical_under_mpi():
+    if MPI.COMM_WORLD.size != 2:
+        import pytest
+
+        pytest.skip("Hexahedral contact Procedure MPI route is reviewed on two ranks.")
+    model, displacement, material, pair = _contact_model(
+        registered=False,
+        comm=MPI.COMM_WORLD,
+        cell_type=dolfinx_mesh.CellType.hexahedron,
+        cells_x=2,
+    )
+    step = model.step(
+        target=displacement,
+        material=material,
+        contact_pairs=(pair,),
+        steps=1,
+        mass_damping=0.1,
+        progress=False,
+    )
+
+    result = step.solve_result()
+    snapshots = MPI.COMM_WORLD.allgather(step.residual.snapshot())
+
+    assert all(item == snapshots[0] for item in snapshots)
+    assert step.residual.base.adapter.summary()["facet_topology"] == "quadrilateral"
     assert result.histories["contact_potential_energy"].latest >= 0.0
 
 

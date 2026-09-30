@@ -52,6 +52,14 @@ def test_runtime_topology_contract_separates_inspection_from_formulation():
     }
     assert verified_prism.release_ready
     assert verified_prism.topology == "prism"
+    assert {
+        item.name
+        for item in mesh.describe_topology_compatibility("hexahedron").capabilities
+        if item.verified
+    } >= {"explicit_rigid_contact_trace"}
+    assert "explicit_rigid_contact_trace" not in {
+        item.name for item in verified_prism.capabilities
+    }
     assert conditional.inspectable
     assert not conditional.release_ready
     assert conditional.topology == "pyramid"

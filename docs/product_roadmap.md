@@ -138,11 +138,13 @@ tool moment. The assembly accepts only matching projection records and query
 coordinates. The first DOLFINx trace adapter is now executable for tagged
 exterior triangles of first-order tetrahedral meshes with continuous blocked
 vector CG1 displacement. It uses three positive reference-area points per
-facet, partition-independent facet/point identity, synchronized ghost values,
-and collective rejection of unsupported spaces. Higher-order/general topology
-adaptation, implicit linearization, friction, multiple pairs, time-varying
-natural loads, and undeclared weak formulations remain outside this gate and
-fail closed rather than inheriting its evidence.
+facet. The same contract now accepts first-order hexahedral Q1 boundaries with
+four-point tensor Gauss integration and the bilinear surface Jacobian. Both use
+partition-independent facet/point identity, synchronized ghost values, and
+collective rejection of unsupported spaces. Higher-order/general topology
+adaptation, implicit linearization, deformable master surfaces, free rigid-body
+dynamics, and undeclared weak formulations remain outside this gate and fail
+closed rather than inheriting its evidence.
 
 Reviewed triangle files can enter the same route as scientific geometry
 assets with canonical identity and source hashes. The explicit contact Backend
@@ -173,8 +175,8 @@ residual now consumes the reviewed serial and routed distributed triangle
 BVHs. Stable slave-point IDs cross changing rigid facets under finite sliding
 in serial and at two MPI ranks, while accepted work remains rank-canonical and
 pure tangential tool motion adds no false normal work. This closes one bounded
-moving triangulated-tool route, not general multi-tool search, arbitrary
-topology, friction, or implicit Newton linearization.
+moving triangulated-tool route, not a shared multi-tool broad phase, arbitrary
+higher-order topology, deformable contact, or implicit Newton linearization.
 Multiple bounded pairs already compose through the residual chain,
 including time propagation, atomic trial decisions, summed energy/work, and
 nested checkpoint State; the reviewed mixed pair combines one analytical and

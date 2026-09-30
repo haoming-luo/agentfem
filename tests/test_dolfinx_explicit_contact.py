@@ -24,6 +24,16 @@ def _cube(comm, *, cells_x: int = 1):
     )
 
 
+def _hex_cube(comm, *, cells_x: int = 1):
+    return mesh.create_unit_cube(
+        comm,
+        cells_x,
+        1,
+        1,
+        cell_type=mesh.CellType.hexahedron,
+    )
+
+
 def _left_region(domain):
     facet_dimension = domain.topology.dim - 1
     facets = mesh.locate_entities_boundary(
@@ -482,6 +492,49 @@ def test_binary_stl_tool_reaches_dolfinx_contact_force_and_energy(tmp_path):
     )
     assert residual.trial_evidence.potential_energy == pytest.approx(0.25)
     assert surface.summary()["source"]["format"] == "stl"
+
+
+def test_hexahedral_slave_trace_reaches_explicit_contact_residual():
+    domain = _hex_cube(MPI.COMM_SELF)
+    function_space = _vector_space(domain)
+    displacement = fem.Function(function_space, name="Displacement")
+    displacement.x.array.reshape((-1, 3))[:, 0] = 0.1
+    displacement.x.scatter_forward()
+    slave = _left_region(domain)
+    adapter = boundary_models.dolfinx_boundary_region_contact_trace(
+        slave,
+        function_space,
+    )
+    pair = boundary_models.rigid_contact_pair(
+        slave,
+        boundary_models.rigid_body(
+            boundary_models.rigid_plane(
+                point=(0.05, 0.0, 0.0),
+                normal=(-1.0, 0.0, 0.0),
+            ),
+            name="hexahedral_tool_body",
+        ),
+        penalty=200.0,
+        name="hexahedral_pair",
+    )
+
+    residual = boundary_models.dolfinx_explicit_contact_residual(
+        _bulk_residual(domain, function_space, (0.0, 0.0, 0.0)),
+        adapter=adapter,
+        displacement=displacement,
+        contact_pair=pair,
+        maximum_stable_time_increment=1.0e-3,
+    )
+    vector = residual.assemble_vector()
+    vector.destroy()
+
+    assert adapter.summary()["facet_topology"] == "quadrilateral"
+    np.testing.assert_allclose(
+        residual.trial_evidence.contact_force_on_structure,
+        (-10.0, 0.0, 0.0),
+        atol=1.0e-12,
+    )
+    assert residual.trial_evidence.potential_energy == pytest.approx(0.25)
 
 
 def test_explicit_contact_residual_rolls_back_failed_trial():

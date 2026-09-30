@@ -20,6 +20,16 @@ def _cube(comm, *, cells_x: int = 1):
     )
 
 
+def _hex_cube(comm, *, cells_x: int = 1):
+    return mesh.create_unit_cube(
+        comm,
+        cells_x,
+        1,
+        1,
+        cell_type=mesh.CellType.hexahedron,
+    )
+
+
 def _left_region(domain):
     facet_dimension = domain.topology.dim - 1
     facets = mesh.locate_entities_boundary(
@@ -116,6 +126,89 @@ def test_dolfinx_contact_trace_drives_projection_response_and_assembly():
     np.testing.assert_allclose(assembly.potential_energy, 0.25, atol=1.0e-14)
 
 
+def test_hexahedral_contact_trace_builds_bilinear_quadrature_and_assembly():
+    domain = _hex_cube(MPI.COMM_SELF)
+    function_space = _vector_space(domain)
+    adapter = boundary_models.dolfinx_boundary_region_contact_trace(
+        _left_region(domain),
+        function_space,
+    )
+    displacement = fem.Function(function_space)
+    displacement.x.array.reshape((-1, 3))[:, 0] = 0.1
+    evaluation = adapter.evaluate(displacement)
+    surface = boundary_models.rigid_plane(
+        point=(0.05, 0.0, 0.0),
+        normal=(-1.0, 0.0, 0.0),
+    )
+    projection = surface.project(evaluation.query_points)
+    record = boundary_models.ContactProjectionRecord(
+        adapter.trace.point_ids,
+        projection,
+    )
+    response = boundary_models.frictionless_penalty_contact_law(200.0).evaluate(
+        record.projection
+    )
+    assembly = evaluation.assemble(
+        record,
+        response,
+        surface_reference_point=(0.0, 0.0, 0.0),
+    )
+
+    assert adapter.trace.point_count == 4
+    assert adapter.trace.nodes_per_point == 4
+    assert adapter.summary()["facet_topology"] == "quadrilateral"
+    assert (
+        adapter.summary()["quadrature_rule"]
+        == "quadrilateral_gauss_degree_three_four_point"
+    )
+    np.testing.assert_allclose(np.sum(adapter.trace.weights), 1.0)
+    np.testing.assert_allclose(evaluation.query_points[:, 0], 0.1)
+    np.testing.assert_allclose(
+        assembly.contact_force_on_structure,
+        (-10.0, 0.0, 0.0),
+        atol=1.0e-13,
+    )
+    np.testing.assert_allclose(assembly.potential_energy, 0.25, atol=1.0e-14)
+
+
+def test_warped_hexahedral_face_uses_bilinear_map_and_pointwise_jacobian():
+    domain = _hex_cube(MPI.COMM_SELF)
+    region = _left_region(domain)
+    moved = np.flatnonzero(domain.geometry.input_global_indices == 6)
+    assert moved.size == 1
+    domain.geometry.x[int(moved[0]), 0] = 0.2
+    function_space = _vector_space(domain)
+    adapter = boundary_models.dolfinx_boundary_region_contact_trace(
+        region,
+        function_space,
+    )
+    evaluation = adapter.evaluate(fem.Function(function_space))
+    abscissae = np.asarray(
+        (0.5 - 1.0 / (2.0 * np.sqrt(3.0)), 0.5 + 1.0 / (2.0 * np.sqrt(3.0)))
+    )
+    expected_x = np.asarray([0.2 * r * s for s in abscissae for r in abscissae])
+    expected_weights = np.asarray(
+        [
+            0.25 * np.sqrt(1.0 + 0.2**2 * (r**2 + s**2))
+            for s in abscissae
+            for r in abscissae
+        ]
+    )
+
+    np.testing.assert_allclose(
+        np.sort(evaluation.query_points[:, 0]),
+        np.sort(expected_x),
+        rtol=0.0,
+        atol=1.0e-14,
+    )
+    np.testing.assert_allclose(
+        np.sort(adapter.trace.weights),
+        np.sort(expected_weights),
+        rtol=0.0,
+        atol=1.0e-14,
+    )
+
+
 def test_dolfinx_contact_trace_rejects_unsupported_spaces_and_foreign_field():
     domain = _cube(MPI.COMM_SELF)
     region = _left_region(domain)
@@ -150,3 +243,22 @@ def test_dolfinx_contact_trace_has_global_identity_and_empty_shards_under_mpi():
     np.testing.assert_allclose(global_measure, 1.0)
     evaluation = adapter.evaluate(fem.Function(adapter.function_space))
     assert evaluation.query_points.shape == (adapter.trace.point_count, 3)
+
+
+def test_hexahedral_contact_trace_identity_is_partition_independent_under_mpi():
+    if MPI.COMM_WORLD.size != 2:
+        pytest.skip("Hexahedral DOLFINx contact trace is reviewed on two ranks.")
+    comm = MPI.COMM_WORLD
+    domain = _hex_cube(comm, cells_x=2)
+    adapter = boundary_models.dolfinx_boundary_region_contact_trace(
+        _left_region(domain),
+        _vector_space(domain),
+    )
+    local_ids = tuple(int(value) for value in adapter.trace.point_ids)
+    gathered = tuple(comm.allgather(local_ids))
+    flattened = tuple(value for values in gathered for value in values)
+    global_measure = comm.allreduce(float(np.sum(adapter.trace.weights)), op=MPI.SUM)
+
+    assert len(flattened) == 4
+    assert len(set(flattened)) == 4
+    np.testing.assert_allclose(global_measure, 1.0)
