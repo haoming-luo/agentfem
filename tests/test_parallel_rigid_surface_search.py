@@ -408,3 +408,29 @@ def test_routed_triangle_search_preserves_full_int64_facet_identity():
 
     _assert_projection_equal(routed, reference)
     assert routed.entity_ids[0] > 2**53
+
+
+def test_distributed_search_supports_an_empty_local_facet_shard():
+    _require_two_ranks()
+    comm = MPI.COMM_WORLD
+    surface = boundary_models.triangulated_rigid_surface(
+        vertices=((0.0, 0.0, 0.0), (1.0, 0.0, 0.0), (0.0, 1.0, 0.0)),
+        triangles=((0, 1, 2),),
+        facet_ids=(77,),
+        name="single_facet_tool",
+    )
+    partition = boundary_models.partition_triangle_surface(surface, comm)
+    routed = boundary_models.routed_distributed_triangle_surface_bvh(partition, comm)
+    points = (
+        np.empty((0, 3))
+        if comm.rank == 0
+        else np.asarray(((0.2, 0.2, 0.1),))
+    )
+
+    outcome = routed.project(points)
+    oracle = routed.correctness_oracle.project(points)
+
+    _assert_projection_equal(outcome, oracle)
+    _assert_projection_equal(outcome, surface.project(points))
+    expected_local_count = 1 if comm.rank == 0 else 0
+    assert partition.local_facet_count == expected_local_count

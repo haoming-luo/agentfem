@@ -209,8 +209,10 @@ and per-query work evidence plus stable barycentric facet coordinates),
 distributed ownership/search (the stable-ID facet partition and all-gather
 correctness reference now reproduce the serial oracle under MPI; scalable
 neighborhood routing now has an oracle-checked two-stage rank-AABB path with
-aligned integer/float `MPI_Alltoallv` payloads; ghost-aware imported boundary
-geometry and measured extreme-scale routing remain),
+aligned integer/float `MPI_Alltoallv` payloads; owned exterior triangles from
+first-order DOLFINx tetrahedral meshes now enter the same stable-ID contract,
+including empty local shards; tagged subsets, higher-order tessellation and
+measured extreme-scale routing remain),
 finite sliding, multiple pairs, explicit dynamics and finally friction. STEP
 remains an optional geometry-adapter input that is repaired and tessellated
 before the contact core consumes it. Shell/solid-shell forming and self-contact

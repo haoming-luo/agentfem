@@ -139,7 +139,7 @@ class TriangleSurfacePartition:
     same contract directly from distributed mesh ownership.
     """
 
-    local_surface: TriangulatedRigidSurface
+    local_surface: TriangulatedRigidSurface | None
     global_geometry_fingerprint: str
     global_facet_identity_fingerprint: str
     global_surface_name: str
@@ -151,8 +151,12 @@ class TriangleSurfacePartition:
     ownership_method: str = "spatial_centroid_contiguous"
 
     def __post_init__(self) -> None:
-        if not isinstance(self.local_surface, TriangulatedRigidSurface):
-            raise TypeError("Triangle partition requires a local triangle surface.")
+        if self.local_surface is not None and not isinstance(
+            self.local_surface, TriangulatedRigidSurface
+        ):
+            raise TypeError(
+                "Triangle partition local surface must be triangular or empty."
+            )
         fingerprint = str(self.global_geometry_fingerprint).lower()
         if len(fingerprint) != 64 or any(
             character not in "0123456789abcdef" for character in fingerprint
@@ -170,10 +174,8 @@ class TriangleSurfacePartition:
         global_facet_count = int(self.global_facet_count)
         if rank_count < 1 or rank < 0 or rank >= rank_count:
             raise ValueError("Triangle partition rank must lie within its communicator.")
-        if global_facet_count < rank_count:
-            raise ValueError(
-                "Reference triangle partitioning requires at least one facet per rank."
-            )
+        if global_facet_count < 1:
+            raise ValueError("Triangle partition requires a non-empty global surface.")
         if not str(self.global_surface_name).strip():
             raise ValueError("Triangle partition requires a global surface name.")
         scale = float(self.global_scale)
@@ -209,15 +211,29 @@ class TriangleSurfacePartition:
             ),
             "global_surface_name": self.global_surface_name,
             "global_facet_count": self.global_facet_count,
-            "local_facet_count": int(self.local_surface.triangles.shape[0]),
-            "local_facet_ids": tuple(
-                int(value) for value in self.local_surface.facet_ids
-            ),
+            "local_facet_count": self.local_facet_count,
+            "local_facet_ids": self.local_facet_ids,
             "rank": self.rank,
             "rank_count": self.rank_count,
             "ownership_method": self.ownership_method,
             "distributed_ownership": True,
         }
+
+    @property
+    def local_facet_count(self) -> int:
+        return (
+            0
+            if self.local_surface is None
+            else int(self.local_surface.triangles.shape[0])
+        )
+
+    @property
+    def local_facet_ids(self) -> tuple[int, ...]:
+        return (
+            ()
+            if self.local_surface is None
+            else tuple(int(value) for value in self.local_surface.facet_ids)
+        )
 
 
 @dataclass(frozen=True)
@@ -475,6 +491,20 @@ class _TriangleCandidateBatch:
                 self.local_coordinates,
             )
         )
+
+
+def _empty_candidate_batch(count: int) -> _TriangleCandidateBatch:
+    return _TriangleCandidateBatch(
+        closest_points=np.full((count, 3), np.nan, dtype=float),
+        normals=np.full((count, 3), np.nan, dtype=float),
+        squared_distances=np.full(count, np.inf, dtype=float),
+        has_candidate=np.zeros(count, dtype=bool),
+        ambiguous=np.zeros(count, dtype=bool),
+        entity_ids=np.full(count, -1, dtype=np.int64),
+        local_coordinates=np.full((count, 3), np.nan, dtype=float),
+        visited_node_counts=(0,) * count,
+        evaluated_facet_counts=(0,) * count,
+    )
 
 
 def _projection_arrays_from_candidates(
@@ -845,10 +875,8 @@ def partition_triangle_surface(
             "All ranks must partition the same reviewed triangle geometry."
         )
     facet_count = int(surface.triangles.shape[0])
-    if facet_count < rank_count:
-        raise ValueError(
-            "Reference triangle partitioning requires at least one facet per rank."
-        )
+    if facet_count < 1:
+        raise ValueError("Triangle partitioning requires a non-empty surface.")
     facet_ids = np.asarray(surface.facet_ids, dtype=np.int64)
     ownership_method = str(ownership_method)
     if ownership_method == "spatial_centroid_contiguous":
@@ -879,13 +907,17 @@ def partition_triangle_surface(
         ],
         dtype=np.int64,
     )
-    local_surface = TriangulatedRigidSurface(
-        vertices=surface.vertices[used_vertices],
-        triangles=local_triangles,
-        facet_ids=facet_ids[owned],
-        tolerance=surface.tolerance,
-        ambiguity_tolerance=surface.ambiguity_tolerance,
-        name=f"{surface.name}__rank_{rank}_partition",
+    local_surface = (
+        None
+        if owned.size == 0
+        else TriangulatedRigidSurface(
+            vertices=surface.vertices[used_vertices],
+            triangles=local_triangles,
+            facet_ids=facet_ids[owned],
+            tolerance=surface.tolerance,
+            ambiguity_tolerance=surface.ambiguity_tolerance,
+            name=f"{surface.name}__rank_{rank}_partition",
+        )
     )
     return TriangleSurfacePartition(
         local_surface=local_surface,
@@ -1070,7 +1102,7 @@ def _packed_alltoallv_rows(
 def _exchange_routed_queries(
     *,
     comm,
-    local_search: TriangleSurfaceBVH,
+    local_search: TriangleSurfaceBVH | None,
     outgoing: list[list[tuple[int, int, float, float, float]]],
     maximum_distance: float | None,
     ambiguity_tolerance: float,
@@ -1094,11 +1126,15 @@ def _exchange_routed_queries(
         )
     )
     points = received_floating
-    candidates = local_search._candidate_evidence(
-        points,
-        maximum_distance,
-        ambiguity_tolerance=ambiguity_tolerance,
-        normal_scale=normal_scale,
+    candidates = (
+        _empty_candidate_batch(int(points.shape[0]))
+        if local_search is None
+        else local_search._candidate_evidence(
+            points,
+            maximum_distance,
+            ambiguity_tolerance=ambiguity_tolerance,
+            normal_scale=normal_scale,
+        )
     )
     response_integer_groups: list[list[tuple[int, ...]]] = [
         [] for _ in range(int(comm.size))
@@ -1263,7 +1299,7 @@ class DistributedTriangleSurfaceBVH:
                     partition.global_geometry_fingerprint,
                     partition.global_facet_count,
                     partition.global_facet_identity_fingerprint,
-                    tuple(int(value) for value in partition.local_surface.facet_ids),
+                    partition.local_facet_ids,
                 )
             )
         )
@@ -1285,7 +1321,11 @@ class DistributedTriangleSurfaceBVH:
             )
         self._partition = partition
         self._comm = comm
-        self._local_search = TriangleSurfaceBVH(partition.local_surface)
+        self._local_search = (
+            None
+            if partition.local_surface is None
+            else TriangleSurfaceBVH(partition.local_surface)
+        )
 
     @property
     def partition(self) -> TriangleSurfacePartition:
@@ -1299,9 +1339,7 @@ class DistributedTriangleSurfaceBVH:
                 self.partition.global_geometry_fingerprint
             ),
             "global_facet_count": self.partition.global_facet_count,
-            "local_facet_count": int(
-                self.partition.local_surface.triangles.shape[0]
-            ),
+            "local_facet_count": self.partition.local_facet_count,
             "rank": self.partition.rank,
             "rank_count": self.partition.rank_count,
             "distributed_ownership": True,
@@ -1396,11 +1434,15 @@ class DistributedTriangleSurfaceBVH:
             if sum(query_counts) > 0
             else np.empty((0, 3), dtype=float)
         )
-        local_candidates = self._local_search._candidate_evidence(
-            global_query,
-            selected_maximum,
-            ambiguity_tolerance=self.partition.global_ambiguity_tolerance,
-            normal_scale=self.partition.global_scale,
+        local_candidates = (
+            _empty_candidate_batch(int(global_query.shape[0]))
+            if self._local_search is None
+            else self._local_search._candidate_evidence(
+                global_query,
+                selected_maximum,
+                ambiguity_tolerance=self.partition.global_ambiguity_tolerance,
+                normal_scale=self.partition.global_scale,
+            )
         )
         gathered_candidates = tuple(self._comm.allgather(local_candidates))
         merged = _merge_distributed_candidates(
@@ -1460,9 +1502,7 @@ class DistributedTriangleSurfaceBVH:
             rank_count=self.partition.rank_count,
             local_query_count=int(query.shape[0]),
             global_query_count=int(global_query.shape[0]),
-            local_facet_count=int(
-                self.partition.local_surface.triangles.shape[0]
-            ),
+            local_facet_count=self.partition.local_facet_count,
             global_facet_count=self.partition.global_facet_count,
             gathered_query_bytes=sum(int(value.nbytes) for value in gathered_queries),
             gathered_candidate_bytes=sum(
@@ -1496,7 +1536,14 @@ class RoutedDistributedTriangleSurfaceBVH:
         self._partition = partition
         self._comm = comm
         self._local_search = self._reference._local_search
-        local_lower, local_upper = self._local_search.bounds
+        local_lower, local_upper = (
+            (
+                np.full(3, np.inf, dtype=float),
+                np.full(3, -np.inf, dtype=float),
+            )
+            if self._local_search is None
+            else self._local_search.bounds
+        )
         gathered_bounds = tuple(
             comm.allgather(
                 (
@@ -1530,9 +1577,7 @@ class RoutedDistributedTriangleSurfaceBVH:
                 self.partition.global_geometry_fingerprint
             ),
             "global_facet_count": self.partition.global_facet_count,
-            "local_facet_count": int(
-                self.partition.local_surface.triangles.shape[0]
-            ),
+            "local_facet_count": self.partition.local_facet_count,
             "rank": self.partition.rank,
             "rank_count": self.partition.rank_count,
             "distributed_ownership": True,
@@ -1752,9 +1797,7 @@ class RoutedDistributedTriangleSurfaceBVH:
             rank=self.partition.rank,
             rank_count=rank_count,
             local_query_count=query_count,
-            local_facet_count=int(
-                self.partition.local_surface.triangles.shape[0]
-            ),
+            local_facet_count=self.partition.local_facet_count,
             global_facet_count=self.partition.global_facet_count,
             phase_one_query_messages=query_count,
             phase_two_query_messages=len(phase_two_records),
