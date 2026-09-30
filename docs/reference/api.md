@@ -994,7 +994,7 @@ and evidence remain in the linked guides and scientific function reference.
 | function | `incremental_wave_speeds(deformation_gradient, direction, material, *, direction_configuration: str = 'current') -> IncrementalWaveSpeeds` | Return homogeneous small-on-large bulk-wave speeds. |
 | function | `principal_surface_wave_speed(deformation_gradient, material: hyperelasticity.NeoHookeanProperties, *, propagation_axis: int = 0, scan_points: int = 320) -> PrincipalSurfaceWaveSpeed` | Solve the 2D small-on-large principal surface-wave secular problem. |
 | function | `isotropic_reference_wave_speeds(material) -> IsotropicWaveSpeeds` | Return unstretched 3D isotropic ``c_d``, ``c_s``, and ``c_R``. |
-| class | `StableTimeIncrement` | Visible body/interface estimate for central difference. |
+| class | `StableTimeIncrement` | Visible compatibility view of Procedure-owned stability evidence. |
 | class | `CohesiveCrackHistory` | Crack-front position and window-fitted speed on a fixed path. |
 | class | `CrackPropagationFit` | Representative crack speed fitted across a declared path interval. |
 | class | `InterfaceFrontHistory` | Front position and fitted speed for one declared interface signal. |
@@ -1002,6 +1002,7 @@ and evidence remain in the linked guides and scientific function reference.
 | class | `PreloadTransferReport` | Evidence for a quasi-static displacement to Explicit state transfer. |
 | function | `transfer_preload_to_explicit(preload_displacement, *, state, mass, residual, initial_velocity = None, mode: str = 'equilibrium', force_tolerance: float = 1e-08, acceleration_projection = None, energy_monitor = None, source_energy: float \| None = None, source_step: str \| None = None, destination_step: str \| None = None) -> PreloadTransferReport` | Initialize ``u/v/a`` consistently from a quasi-static preload state. |
 | function | `cohesive_crack_tip(path_coordinate, damage, *, threshold: float = 0.95, direction: str = 'increasing') -> float` | Locate the contiguous crack front by interpolating a damage threshold. |
+| function | `disconnected_interface_failure_fraction(path_coordinate, damage, *, threshold: float = 0.95, direction: str = 'increasing') -> float` | Return failed-path fraction disconnected from the seeded crack front. |
 | function | `crack_tip_history(time_values, path_coordinate, damage_frames, *, threshold: float = 0.95, fit_window: int = 5, direction: str = 'increasing') -> CohesiveCrackHistory` | Build a crack history without single-failed-element speed spikes. |
 | function | `fit_crack_propagation_speed(history: CohesiveCrackHistory, *, start_position: float, end_position: float, minimum_samples: int = 3) -> CrackPropagationFit \| None` | Fit one representative speed over a fixed physical path interval. |
 | function | `interface_front_history(time_values, path_coordinate, signal_frames, *, signal: str, threshold: float, fit_window: int = 5, direction: str = 'increasing') -> InterfaceFrontHistory` | Track a contiguous interface front from any increasing damage signal. |
@@ -1462,7 +1463,7 @@ and evidence remain in the linked guides and scientific function reference.
 | class | `WeakInterfaceTransitionBenchmark` | One prestressed thin-sheet case in the JMPS V4 mechanism ladder. |
 | class | `WeakInterfaceTransitionSuite` | Auditable crack-like to supershear to spall-like V4 mechanism gate. |
 | function | `cohesive_energy_balance(*, dt: float = 0.001, loading_time: float = 0.2, opening: float = 0.08) -> CohesiveEnergyBenchmark` | Open one split interface through a smooth prescribed-motion history. |
-| function | `classical_cohesive_crack(*, cells: int = 60, length: float = 3.0, precrack_length: float = 0.5, opening: float = 0.0135, loading_time: float = 0.15, hold_time: float = 0.15, time_step_scale: float = 0.8, damping: float = 0.0) -> ClassicalCrackBenchmark` | Propagate a precracked cohesive strip below the classical limit. |
+| function | `classical_cohesive_crack(*, cells: int = 60, length: float = 3.0, precrack_length: float = 0.5, opening: float = 0.08, loading_time: float = 0.15, hold_time: float = 0.15, time_step_scale: float = 0.8, damping: float = 0.0) -> ClassicalCrackBenchmark` | Propagate a precracked cohesive strip below the classical limit. |
 | function | `finite_strain_wave_arrival(*, prestrain: float = 0.0, cells: int = 80, courant: float = 0.3, length: float = 2.0, source_position: float = 0.25, receiver_positions = (0.75, 1.25), pulse_width: float = 0.1) -> WaveArrivalBenchmark` | Measure a small longitudinal pulse about a held homogeneous stretch. |
 | function | `jmps_weak_interface_transition_v4(*, cells: int = 30, total_time: float = 0.1, history_every: int = 5) -> WeakInterfaceTransitionSuite` | Run the first fixed, executable JMPS-inspired V4 mechanism ladder. |
 | function | `jmps_weak_interface_convergence_v4(*, history_every: int = 20, spatial_speed_tolerance: float = 0.1, temporal_speed_tolerance: float = 0.02) -> WeakInterfaceConvergenceStudy` | Run the opt-in two-dimensional V4 supershear convergence contract. |
@@ -1706,6 +1707,9 @@ This package exposes its public objects through focused submodules.
 | class | `TimeStep` | Metadata for one transient-solve step. |
 | class | `TimeStepper` | Iterate over transient-solve step metadata. |
 | function | `format_duration(seconds: float) -> str` | Format elapsed seconds as ``HH:MM:SS``. |
+| class | `ExplicitStabilityContribution` | One conservative contribution to an explicit spectral bound. |
+| class | `ExplicitStabilityEstimate` | Conservative whole-system estimate from additive spectral bounds. |
+| function | `combine_explicit_stability(contributions, *, safety_factor: float = 0.8) -> ExplicitStabilityEstimate` | Combine conservative stiffness contributions before choosing ``dt``. |
 | class | `GeneralizedAlphaParameters` | Parameters for Newmark/generalized-alpha time integration. |
 | function | `generalized_alpha(*, spectral_radius: float = 0.8)` | Second-order generalized-alpha parameters from ``rho_infinity``. |
 | function | `newmark(*, beta: float = 0.25, gamma: float = 0.5)` | Average-acceleration Newmark by default. |

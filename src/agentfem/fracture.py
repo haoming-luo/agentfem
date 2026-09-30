@@ -5,7 +5,7 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from itertools import combinations
 from math import isfinite, sqrt
 from time import perf_counter
@@ -22,6 +22,11 @@ from . import operators
 from .constitutive import hyperelasticity
 from .operators.core import OperatorForm
 from .kernel import dofs
+from .time.stability import (
+    ExplicitStabilityContribution,
+    ExplicitStabilityEstimate,
+    combine_explicit_stability,
+)
 from .fracture_evidence import (
     CohesiveInterfaceTrace,
     DynamicFractureEvidenceBundle,
@@ -3937,13 +3942,75 @@ def isotropic_reference_wave_speeds(
 
 @dataclass(frozen=True)
 class StableTimeIncrement:
-    """Visible body/interface estimate for central difference."""
+    """Visible compatibility view of Procedure-owned stability evidence."""
 
     selected: float
     body_limit: float
     interface_limit: float | None
     safety_factor: float
     controller: str
+    _estimate: ExplicitStabilityEstimate | None = field(
+        default=None,
+        repr=False,
+    )
+
+    def __post_init__(self) -> None:
+        body = ExplicitStabilityContribution.from_time_increment(
+            "body",
+            self.body_limit,
+            method="characteristic_length_over_dilatational_speed",
+        )
+        contributions = [body]
+        interface = None
+        if self.interface_limit is not None:
+            interface = ExplicitStabilityContribution.from_time_increment(
+                "interface",
+                self.interface_limit,
+                method="two_sided_interface_oscillator",
+            )
+            contributions.append(interface)
+        combined = self._estimate or combine_explicit_stability(
+            contributions, safety_factor=self.safety_factor
+        )
+        if not np.isclose(
+            float(self.selected),
+            combined.selected,
+            rtol=256.0 * np.finfo(float).eps,
+            atol=0.0,
+        ):
+            raise ValueError(
+                "StableTimeIncrement.selected must use additive spectral "
+                "composition."
+            )
+        if str(self.controller) != combined.controller:
+            raise ValueError(
+                "StableTimeIncrement.controller is inconsistent with its "
+                "contributions."
+            )
+        if tuple(item.name for item in combined.contributions) != tuple(
+            item.name for item in contributions
+        ):
+            raise ValueError(
+                "StableTimeIncrement estimate has incompatible contributions."
+            )
+        object.__setattr__(self, "_estimate", combined)
+
+    @property
+    def unsafed_time_increment(self) -> float:
+        return self._estimate.unsafed_time_increment
+
+    @property
+    def body_spectral_radius_upper_bound(self) -> float:
+        return self._estimate.contribution("body").spectral_radius_upper_bound
+
+    @property
+    def interface_spectral_radius_upper_bound(self) -> float | None:
+        contribution = self._estimate.contribution("interface")
+        return None if contribution is None else contribution.spectral_radius_upper_bound
+
+    @property
+    def spectral_radius_upper_bound(self) -> float:
+        return self._estimate.spectral_radius_upper_bound
 
     def summary(self) -> dict[str, object]:
         return {
@@ -3952,6 +4019,15 @@ class StableTimeIncrement:
             "interface_limit": self.interface_limit,
             "safety_factor": self.safety_factor,
             "controller": self.controller,
+            "unsafed_time_increment": self.unsafed_time_increment,
+            "body_spectral_radius_upper_bound": (
+                self.body_spectral_radius_upper_bound
+            ),
+            "interface_spectral_radius_upper_bound": (
+                self.interface_spectral_radius_upper_bound
+            ),
+            "spectral_radius_upper_bound": self.spectral_radius_upper_bound,
+            "composition": "additive_spectral_upper_bounds",
             "maturity": "screening_estimate",
         }
 
@@ -4282,8 +4358,14 @@ def cohesive_crack_tip(
 
     coordinate = np.asarray(path_coordinate, dtype=float)
     values = np.asarray(damage, dtype=float)
-    if coordinate.ndim != 1 or values.shape != coordinate.shape or coordinate.size < 2:
-        raise ValueError("path_coordinate and damage must be equal 1D arrays of size >= 2.")
+    if (
+        coordinate.ndim != 1
+        or values.shape != coordinate.shape
+        or coordinate.size < 2
+    ):
+        raise ValueError(
+            "path_coordinate and damage must be equal 1D arrays of size >= 2."
+        )
     if np.any(~np.isfinite(coordinate)) or np.any(~np.isfinite(values)):
         raise ValueError("Crack-front inputs must be finite.")
     selected_threshold = float(threshold)
@@ -4309,6 +4391,45 @@ def cohesive_crack_tip(
         return float(0.5 * (x[left] + x[right]))
     fraction = (selected_threshold - d[left]) / denominator
     return float(x[left] + fraction * (x[right] - x[left]))
+
+
+def disconnected_interface_failure_fraction(
+    path_coordinate,
+    damage,
+    *,
+    threshold: float = 0.95,
+    direction: str = "increasing",
+) -> float:
+    """Return failed-path fraction disconnected from the seeded crack front.
+
+    The metric is spatial rather than tied to output cadence: failed points
+    behind the first intact point form the contiguous crack, while failed
+    points beyond it are disconnected islands.  It therefore distinguishes a
+    resolved propagating front from distributed separation without counting
+    how many points happened to cross a threshold in one time increment.
+    """
+
+    coordinate = np.asarray(path_coordinate, dtype=float)
+    values = np.asarray(damage, dtype=float)
+    if coordinate.ndim != 1 or values.shape != coordinate.shape or coordinate.size < 2:
+        raise ValueError("path_coordinate and damage must be equal 1D arrays of size >= 2.")
+    if np.any(~np.isfinite(coordinate)) or np.any(~np.isfinite(values)):
+        raise ValueError("Interface-failure inputs must be finite.")
+    selected_threshold = float(threshold)
+    if not 0.0 < selected_threshold < 1.0:
+        raise ValueError("damage threshold must lie strictly between zero and one.")
+    order = np.argsort(coordinate)
+    if direction == "decreasing":
+        order = order[::-1]
+    elif direction != "increasing":
+        raise ValueError("direction must be 'increasing' or 'decreasing'.")
+    active = values[order] >= selected_threshold
+    inactive = np.flatnonzero(~active)
+    if inactive.size == 0:
+        return 0.0
+    first_inactive = int(inactive[0])
+    disconnected = np.count_nonzero(active[first_inactive + 1 :])
+    return float(disconnected / active.size)
 
 
 def crack_tip_history(
@@ -4986,14 +5107,31 @@ def estimate_stable_time_increment(
             raise ValueError("Interface stability inputs must be finite and positive.")
         reduced_mass = minus * plus / (minus + plus)
         interface = float(2.0 * sqrt(reduced_mass / (stiffness * area)))
-    controller = "body" if interface is None or body <= interface else "interface"
-    selected_limit = body if interface is None else min(body, interface)
+    body_contribution = ExplicitStabilityContribution.from_time_increment(
+        "body",
+        body,
+        method="characteristic_length_over_dilatational_speed",
+    )
+    contributions = [body_contribution]
+    interface_contribution = None
+    if interface is not None:
+        interface_contribution = ExplicitStabilityContribution.from_time_increment(
+            "interface",
+            interface,
+            method="two_sided_interface_oscillator",
+        )
+        contributions.append(interface_contribution)
+    combined = combine_explicit_stability(
+        contributions,
+        safety_factor=factor,
+    )
     return StableTimeIncrement(
-        selected=factor * selected_limit,
+        selected=combined.selected,
         body_limit=body,
         interface_limit=interface,
         safety_factor=factor,
-        controller=controller,
+        controller=combined.controller,
+        _estimate=combined,
     )
 
 
@@ -5072,6 +5210,7 @@ __all__ = [
     "compare_rectilinear_observations",
     "estimate_stable_time_increment",
     "cohesive_crack_tip",
+    "disconnected_interface_failure_fraction",
     "crack_tip_history",
     "fit_crack_propagation_speed",
     "interface_front_history",

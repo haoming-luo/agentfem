@@ -169,15 +169,18 @@ Package paths below are relative to `src/agentfem/`.
   object all-to-all, reports avoided messages, and remains checked against the
   all-gather oracle. Projection-only surfaces are not silently lowered by the
   bounded plane-contact provider.
-- Explicit penalty-contact stability is a separate numerical screen under
-  `boundary_models/contact_stability.py`; the DOLFINx lowering consumes the
-  reviewed trace and lumped mass. It bounds only the contact contribution, so
-  the owning Procedure adds it to the body/material spectral bound before
-  converting the total bound into a time increment.
+- Explicit stability composition belongs to `time/stability.py`. Body,
+  material, cohesive-interface, and contact screens contribute named spectral
+  upper bounds; the owning Procedure adds them before converting the total
+  bound into a time increment. Explicit penalty-contact stability remains a
+  separate Operator-side screen under `boundary_models/contact_stability.py`;
+  its DOLFINx lowering consumes the reviewed trace and lumped mass but does not
+  choose the whole-system time step.
 - Weak-form blocks: `forms.py`
 - Assembly: `assembly.py`
 - Operator families: `operators/`
-- Time integration: `time/explicit.py`, `time/implicit.py`, and runtime cadence
+- Time integration and whole-system explicit stability composition:
+  `time/explicit.py`, `time/implicit.py`, `time/stability.py`, and runtime cadence
 - Cyclic cohesive damage, cycle jumps and 3D crack observations:
   `fatigue_fracture.py`
 - Method-neutral predefined 2D crack geometry, stable tip identity, analytical

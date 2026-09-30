@@ -48,7 +48,7 @@ otherwise; runnable examples remain in the repository-level `examples/`.
 | UFL weak-form blocks, including stiffness, mass, diffusion, and loads | `forms.py` |
 | Assembly | `assembly.py` |
 | Engineering-level K/M/C/F, registered-assignment and model-first operator lowering, transport, SUPG, and reaction operators | `operators/`, `operators/_model_lowering.py` |
-| Central difference, Newmark, generalized-alpha, and runtime cadence | `time/` |
+| Central difference, Newmark, generalized-alpha, Procedure-owned additive spectral stability composition, and runtime cadence | `time/`, `time/stability.py` |
 | Common analysis steps, discrete system problems, factories, and compatibility delegates | `problems.py` |
 | Incremental/affine nonlinear procedures, state transactions, cutback, and nonlinear checkpointing | `_nonlinear_problems.py` |
 | First-/second-order transient and explicit-dynamics procedure implementations | `_transient_problems.py` |

@@ -18,6 +18,11 @@ from ..input_effects import (
     update as input_update,
 )
 from .runtime import ProgressPrinter, TimeStep, TimeStepper, format_duration
+from .stability import (
+    ExplicitStabilityContribution,
+    ExplicitStabilityEstimate,
+    combine_explicit_stability,
+)
 
 __all__ = [
     "ProgressPrinter",
@@ -26,6 +31,8 @@ __all__ = [
     "TimeInputEffect",
     "TimeInputPlan",
     "TimeInputUpdate",
+    "ExplicitStabilityContribution",
+    "ExplicitStabilityEstimate",
     "acceleration_from_residual",
     "central_difference_update_midstep_velocity",
     "central_difference_correct_velocity",
@@ -42,6 +49,7 @@ __all__ = [
     "input_effects",
     "input_summary",
     "input_update",
+    "combine_explicit_stability",
 ]
 
 

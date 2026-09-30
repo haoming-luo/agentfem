@@ -422,6 +422,12 @@ never changes solver access, results, verification, or update behavior.
   a caller ceiling for curved-normal geometry until geometric stiffness has a
   reviewed bound; never infer stability from penetration or from a converged
   time history.
+- For every explicit Procedure, represent body/material, cohesive, contact,
+  and future stiffness restrictions as named
+  `time.ExplicitStabilityContribution` objects. Combine them once with
+  `time.combine_explicit_stability`; never take the minimum of independently
+  derived time limits when their stiffness operators act simultaneously, and
+  never apply a safety factor separately to every contribution.
 - Treat a surface projection as evidence, not merely coordinates. Preserve its
   surface identity, method, admissible-side unit normal, signed-gap convention,
   validity, discrete entity identity, geometry fingerprint and local

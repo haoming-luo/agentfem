@@ -417,10 +417,38 @@ def test_reference_wave_speeds_and_stability_limits_are_explicitly_scoped():
         negative_mass=0.1,
         positive_mass=0.1,
     )
-    assert estimate.selected == pytest.approx(
-        0.5 * min(estimate.body_limit, estimate.interface_limit)
+    expected_unsafed = 1.0 / np.sqrt(
+        1.0 / estimate.body_limit**2 + 1.0 / estimate.interface_limit**2
     )
+    assert estimate.unsafed_time_increment == pytest.approx(expected_unsafed)
+    assert estimate.selected == pytest.approx(0.5 * expected_unsafed)
+    assert estimate.selected < 0.5 * min(
+        estimate.body_limit,
+        estimate.interface_limit,
+    )
+    assert estimate.summary()["composition"] == "additive_spectral_upper_bounds"
     assert estimate.controller in {"body", "interface"}
+
+
+def test_stable_time_increment_compatibility_constructor_is_fail_closed():
+    body_only = fracture.StableTimeIncrement(
+        selected=0.4,
+        body_limit=0.5,
+        interface_limit=None,
+        safety_factor=0.8,
+        controller="body",
+    )
+    assert body_only.unsafed_time_increment == pytest.approx(0.5)
+    assert body_only.spectral_radius_upper_bound == pytest.approx(16.0)
+
+    with pytest.raises(ValueError, match="additive spectral"):
+        fracture.StableTimeIncrement(
+            selected=0.4,
+            body_limit=0.5,
+            interface_limit=0.5,
+            safety_factor=0.8,
+            controller="body",
+        )
 
 
 def test_incremental_acoustic_tensor_recovers_unstretched_bulk_modes():
@@ -1032,6 +1060,24 @@ def test_representative_crack_speed_uses_declared_physical_path_interval():
         start_position=2.65,
         end_position=2.75,
     ) is None
+
+
+def test_disconnected_interface_failure_fraction_is_spatial_not_cadence_based():
+    coordinate = np.arange(6, dtype=float)
+
+    assert fracture.disconnected_interface_failure_fraction(
+        coordinate,
+        [1.0, 1.0, 1.0, 0.0, 0.0, 0.0],
+    ) == pytest.approx(0.0)
+    assert fracture.disconnected_interface_failure_fraction(
+        coordinate,
+        [1.0, 1.0, 0.0, 1.0, 0.0, 1.0],
+    ) == pytest.approx(2.0 / 6.0)
+    assert fracture.disconnected_interface_failure_fraction(
+        coordinate,
+        [0.0, 0.0, 0.0, 1.0, 1.0, 1.0],
+        direction="decreasing",
+    ) == pytest.approx(0.0)
 
 
 def test_separation_classification_requires_independent_spall_evidence():

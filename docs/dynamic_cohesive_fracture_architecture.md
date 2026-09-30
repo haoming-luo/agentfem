@@ -573,11 +573,14 @@ The first named verification ladder is now executable:
   prescribed separation then drives one interface to complete failure; its
   dissipation equals the declared ``Gamma`` and the final balance error
   converges below ``1e-5``;
-- **V3:** a precracked long interface advances multiple facets. Its
-  threshold-interpolated, seven-frame fitted speed remains below ``0.8 c_R``
-  under 40-to-60-facet refinement, explicit time-step refinement, and a small
-  declared mass-proportional damping perturbation. Damping work is a typed
-  energy channel and final balance errors remain below ``5e-4``.
+- **V3:** an end-loaded precracked interface advances multiple facets without
+  forming failed islands ahead of its contiguous front. Its representative
+  speed is fitted over one fixed physical propagation interval and remains
+  below ``0.8 c_R`` under 40-to-60-facet refinement, explicit time-step
+  refinement, and a small declared mass-proportional damping perturbation.
+  Per-increment threshold crossings remain a cadence diagnostic, not the
+  topology gate. Damping work is a typed energy channel and final balance
+  errors remain below ``5e-4``.
 
 This remains V3 for the named compressible plane-strain cohesive strip, not a
 general dynamic-fracture validation. Supershear claims are evaluated by the
@@ -591,8 +594,8 @@ one public finite-strain Explicit lifecycle:
 1. a homogeneous 12% plane-stress preload followed by precrack release gives
    a contiguous crack-like front at approximately `0.96 c_R`;
 2. the same body and interface with a zero-slope smooth remote impact gives a
-   resolved front at approximately `1.10 c_s` and `0.56 c_d`, while no more
-   than 4% of the ligament fails in one increment;
+   resolved front at approximately `1.10 c_s` and `0.56 c_d`, without failed
+   islands ahead of the contiguous front;
 3. a weaker, larger-cohesive-length interface under the same impact fails
    across the ligament within one thickness shear-wave time and is classified
    `spall_like`, rather than assigning physical meaning to its super-dilatational

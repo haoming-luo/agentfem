@@ -54,11 +54,19 @@ def test_v3_classical_crack_remains_sub_rayleigh_under_refinement_and_damping():
     for result in (coarse, fine, smaller_dt, damped):
         assert result.propagated_length > 0.15
         assert 0.0 < result.speed_ratio < 0.8
-        assert result.maximum_simultaneous_failed_fraction < 0.1
+        assert 0.0 < result.representative_speed_ratio < 0.8
+        assert result.representative_speed_r_squared > 0.99
+        assert result.maximum_disconnected_failed_fraction == pytest.approx(0.0)
         assert result.final_relative_energy_error < 5.0e-4
-    assert abs(fine.speed_ratio - coarse.speed_ratio) < 0.05
-    assert abs(smaller_dt.speed_ratio - fine.speed_ratio) < 0.02
-    assert abs(damped.speed_ratio - coarse.speed_ratio) < 0.02
+    assert abs(
+        fine.representative_speed_ratio - coarse.representative_speed_ratio
+    ) < 0.01
+    assert abs(
+        smaller_dt.representative_speed_ratio - fine.representative_speed_ratio
+    ) < 0.005
+    assert abs(
+        damped.representative_speed_ratio - coarse.representative_speed_ratio
+    ) < 0.01
     assert damped.numerical_damping_dissipation > 0.0
 
 
@@ -194,6 +202,7 @@ def test_v4_refinement_separates_mechanism_from_speed_convergence(monkeypatch):
             representative_speed_r_squared=0.999,
             regime="supershear",
             maximum_simultaneous_failed_fraction=0.02,
+            maximum_disconnected_failed_fraction=0.0,
             final_relative_energy_error=1.0e-4,
         )
 
