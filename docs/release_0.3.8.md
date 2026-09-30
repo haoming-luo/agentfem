@@ -46,6 +46,9 @@ The recommended construction binds surface, schedule, reference point, and
 rank-independent scientific identity in one immutable `RigidBody`; serial or
 distributed search remains a separate backend object rather than becoming
 part of the body's identity.
+Accepted transient events expose compact contact activity, maximum penetration,
+force norm, and prescribed-motion work through the existing bounded/throttled
+progress lifecycle; no per-point history is accumulated implicitly.
 
 General multi-tool candidate routing, arbitrary surface topology, friction,
 free rigid-body dynamics, deformable-to-deformable contact, and forming are not

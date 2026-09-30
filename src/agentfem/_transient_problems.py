@@ -1403,20 +1403,68 @@ def _report_transient_increment(
     comm,
 ) -> None:
     if reporter is not None:
-        message = ""
+        channels = []
+        metrics = {}
         records = getattr(step, "history_records", ())
         if records:
             latest = records[-1]
-            channels = []
             if "relative_energy_balance_error" in latest:
+                metrics["relative_energy_balance_error"] = float(
+                    latest["relative_energy_balance_error"]
+                )
                 channels.append(
                     f"energy_err={float(latest['relative_energy_balance_error']):.3e}"
                 )
             elif "energy_balance_error" in latest:
+                metrics["energy_balance_error"] = float(
+                    latest["energy_balance_error"]
+                )
                 channels.append(
                     f"energy_err={float(latest['energy_balance_error']):.3e}"
                 )
-            message = " | ".join(channels)
+        contact_progress = getattr(
+            getattr(step, "residual", None),
+            "contact_progress_evidence",
+            None,
+        )
+        if callable(contact_progress):
+            terms = tuple(contact_progress())
+            if terms:
+                contact_active = sum(
+                    int(term["active_point_count"]) for term in terms
+                )
+                maximum_penetration = max(
+                    float(term["maximum_penetration"]) for term in terms
+                )
+                contact_force = sum(
+                    float(term["contact_force_norm"]) for term in terms
+                )
+                contact_work = sum(
+                    float(term["contact_motion_work"]) for term in terms
+                )
+                metrics.update(
+                    contact_pair_count=float(len(terms)),
+                    contact_active_point_count=float(contact_active),
+                    contact_maximum_penetration=maximum_penetration,
+                    contact_force_norm_sum=contact_force,
+                    contact_motion_work=contact_work,
+                )
+                channels.extend(
+                    (
+                        f"contact_pairs={len(terms)}",
+                        f"contact_active={contact_active}",
+                        f"max_pen={maximum_penetration:.3e}",
+                        f"contact_force={contact_force:.3e}",
+                        f"contact_work={contact_work:.3e}",
+                    )
+                )
+                invalid = sum(
+                    int(term["invalid_point_count"]) for term in terms
+                )
+                if invalid:
+                    metrics["contact_invalid_point_count"] = float(invalid)
+                    channels.append(f"contact_invalid={invalid}")
+        message = " | ".join(channels)
         reporter.emit(
             SolveEvent(
                 "time_increment",
@@ -1426,6 +1474,7 @@ def _report_transient_increment(
                 total_increments=step.steps,
                 display=bool(info.should_print),
                 message=message,
+                metrics=metrics,
             )
         )
     if info.should_print and callable(selected_progress):

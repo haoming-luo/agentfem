@@ -58,6 +58,7 @@ class ExplicitContactEvidence:
     surface_generalized_moment: object | None
     active_point_count: int
     invalid_point_count: int
+    maximum_penetration: float
 
     def __post_init__(self) -> None:
         potential = float(self.potential_energy)
@@ -86,6 +87,11 @@ class ExplicitContactEvidence:
         invalid = int(self.invalid_point_count)
         if active < 0 or invalid < 0:
             raise ValueError("Explicit contact point counts must be non-negative.")
+        penetration = float(self.maximum_penetration)
+        if not np.isfinite(penetration) or penetration < 0.0:
+            raise ValueError(
+                "Explicit contact maximum penetration must be finite and non-negative."
+            )
         object.__setattr__(self, "potential_energy", potential)
         object.__setattr__(
             self,
@@ -99,6 +105,7 @@ class ExplicitContactEvidence:
         )
         object.__setattr__(self, "active_point_count", active)
         object.__setattr__(self, "invalid_point_count", invalid)
+        object.__setattr__(self, "maximum_penetration", penetration)
 
     def summary(self) -> dict[str, object]:
         return {
@@ -113,6 +120,7 @@ class ExplicitContactEvidence:
             ),
             "active_point_count": self.active_point_count,
             "invalid_point_count": self.invalid_point_count,
+            "maximum_penetration": self.maximum_penetration,
         }
 
     @classmethod
@@ -125,6 +133,7 @@ class ExplicitContactEvidence:
             "surface_generalized_moment",
             "active_point_count",
             "invalid_point_count",
+            "maximum_penetration",
         }
         if (
             not isinstance(summary, dict)
@@ -139,6 +148,7 @@ class ExplicitContactEvidence:
             surface_generalized_moment=summary["surface_generalized_moment"],
             active_point_count=summary["active_point_count"],
             invalid_point_count=summary["invalid_point_count"],
+            maximum_penetration=summary["maximum_penetration"],
         )
 
 
@@ -376,6 +386,15 @@ class DolfinxExplicitContactResidual:
         )
         global_values = np.empty_like(local)
         self.communicator.Allreduce(local, global_values, op=MPI.SUM)
+        local_maximum_penetration = (
+            0.0
+            if response.penetration.size == 0
+            else float(np.max(response.penetration))
+        )
+        maximum_penetration = self.communicator.allreduce(
+            local_maximum_penetration,
+            op=MPI.MAX,
+        )
         return ExplicitContactEvidence(
             potential_energy=global_values[0],
             contact_force_on_structure=global_values[1:4],
@@ -385,6 +404,7 @@ class DolfinxExplicitContactResidual:
             ),
             active_point_count=int(round(global_values[10])),
             invalid_point_count=int(round(global_values[11])),
+            maximum_penetration=maximum_penetration,
         )
 
     def _work_station(self, evidence: ExplicitContactEvidence) -> PrescribedContactWorkStation:
@@ -563,6 +583,31 @@ class DolfinxExplicitContactResidual:
                     0.0 if self.work_state is None else self.work_state.path_work
                 ),
                 "moving": self.work_state is not None,
+            }
+        )
+        return tuple(terms)
+
+    def contact_progress_evidence(self) -> tuple[dict[str, object], ...]:
+        """Return compact accepted contact diagnostics for throttled progress."""
+
+        nested = getattr(self.base, "contact_progress_evidence", None)
+        terms = list(nested()) if callable(nested) else []
+        if self.accepted_evidence is None:
+            return tuple(terms)
+        terms.append(
+            {
+                "name": self.name,
+                "active_point_count": self.accepted_evidence.active_point_count,
+                "invalid_point_count": self.accepted_evidence.invalid_point_count,
+                "maximum_penetration": self.accepted_evidence.maximum_penetration,
+                "contact_force_norm": float(
+                    np.linalg.norm(
+                        self.accepted_evidence.contact_force_on_structure
+                    )
+                ),
+                "contact_motion_work": (
+                    0.0 if self.work_state is None else self.work_state.path_work
+                ),
             }
         )
         return tuple(terms)

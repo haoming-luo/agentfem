@@ -569,6 +569,14 @@ def test_moving_triangle_bvh_tracks_facet_crossing_without_spurious_work():
         "deterministic_aabb_bvh"
     )
     assert residual.summary()["rigid_body"]["name"] == "sliding_tool"
+    increments = [
+        event for event in step.execution_events if event.kind == "time_increment"
+    ]
+    assert increments[-1].metrics["contact_pair_count"] == 1.0
+    assert increments[-1].metrics["contact_active_point_count"] > 0.0
+    assert increments[-1].metrics["contact_maximum_penetration"] > 0.0
+    assert increments[-1].metrics["contact_motion_work"] == pytest.approx(0.0)
+    assert "contact_active=" in increments[-1].message
 
 
 def test_explicit_contact_rejects_projector_from_another_rigid_body():
