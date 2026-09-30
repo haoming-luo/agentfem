@@ -195,8 +195,20 @@ print(outcome.diagnostics.summary())
 
 The AABB/BVH tree prunes distant facets, but every surviving leaf uses the
 same exact closest-triangle kernel as the exhaustive reference. Equal-distance
-candidates remain visible to the ambiguity check. The current search is
-replicated and process-local, not a distributed contact-search claim.
+candidates remain visible to the ambiguity check. For a partition-independent
+MPI correctness check, use:
+
+```python
+partition = boundary_models.partition_triangle_surface(tool_mesh, comm)
+search = boundary_models.distributed_triangle_surface_bvh(partition, comm)
+outcome = search.project_with_diagnostics(rank_local_query_points)
+```
+
+The distributed object retains only its rank's stable-ID facet shard and local
+BVH. It gathers rank-local queries and nearest-candidate evidence, reports the
+communication volume, and must match the exhaustive global oracle. This is a
+correctness reference, not yet scalable neighborhood routing or a general
+contact backend.
 
 Pass `checkpoint=checkpointing.every(...)` to `model.step(...)` when a long
 load path must be restartable. Only accepted load boundaries are published.

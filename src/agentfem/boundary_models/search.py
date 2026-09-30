@@ -11,6 +11,7 @@ identity remain owned by the reviewed :class:`TriangulatedRigidSurface`.
 from __future__ import annotations
 
 from dataclasses import dataclass
+import hashlib
 import heapq
 
 import numpy as np
@@ -34,6 +35,14 @@ def _bbox_squared_distance(
 ) -> float:
     offset = np.maximum(np.maximum(lower - point, point - upper), 0.0)
     return float(np.dot(offset, offset))
+
+
+def _facet_identity_fingerprint(values) -> str:
+    selected = np.sort(np.asarray(values, dtype="<i8").reshape(-1))
+    digest = hashlib.sha256()
+    digest.update(np.asarray(selected.shape, dtype="<i8").tobytes())
+    digest.update(selected.tobytes())
+    return digest.hexdigest()
 
 
 @dataclass(frozen=True)
@@ -120,6 +129,271 @@ class TriangleSearchOutcome:
             raise ValueError("Projection and search diagnostics geometry differ.")
 
 
+@dataclass(frozen=True)
+class TriangleSurfacePartition:
+    """One deterministic facet shard of a globally identified rigid surface.
+
+    This first distributed-search contract starts from a reviewed surface that
+    is replicated while the partition is constructed.  Only the compact local
+    shard is retained by the search object.  Importers may later construct the
+    same contract directly from distributed mesh ownership.
+    """
+
+    local_surface: TriangulatedRigidSurface
+    global_geometry_fingerprint: str
+    global_facet_identity_fingerprint: str
+    global_surface_name: str
+    global_facet_count: int
+    global_scale: float
+    global_ambiguity_tolerance: float
+    rank: int
+    rank_count: int
+    ownership_method: str = "stable_facet_id_round_robin"
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.local_surface, TriangulatedRigidSurface):
+            raise TypeError("Triangle partition requires a local triangle surface.")
+        fingerprint = str(self.global_geometry_fingerprint).lower()
+        if len(fingerprint) != 64 or any(
+            character not in "0123456789abcdef" for character in fingerprint
+        ):
+            raise ValueError("Triangle partition requires a global SHA-256 identity.")
+        facet_fingerprint = str(self.global_facet_identity_fingerprint).lower()
+        if len(facet_fingerprint) != 64 or any(
+            character not in "0123456789abcdef" for character in facet_fingerprint
+        ):
+            raise ValueError(
+                "Triangle partition requires a global facet-identity digest."
+            )
+        rank = int(self.rank)
+        rank_count = int(self.rank_count)
+        global_facet_count = int(self.global_facet_count)
+        if rank_count < 1 or rank < 0 or rank >= rank_count:
+            raise ValueError("Triangle partition rank must lie within its communicator.")
+        if global_facet_count < rank_count:
+            raise ValueError(
+                "Reference triangle partitioning requires at least one facet per rank."
+            )
+        if not str(self.global_surface_name).strip():
+            raise ValueError("Triangle partition requires a global surface name.")
+        scale = float(self.global_scale)
+        ambiguity = float(self.global_ambiguity_tolerance)
+        if not np.isfinite(scale) or scale <= 0.0:
+            raise ValueError("Triangle partition requires a positive global scale.")
+        if not np.isfinite(ambiguity) or ambiguity <= 0.0:
+            raise ValueError(
+                "Triangle partition requires a positive ambiguity tolerance."
+            )
+        if not str(self.ownership_method).strip():
+            raise ValueError("Triangle partition requires an ownership method.")
+        object.__setattr__(self, "global_geometry_fingerprint", fingerprint)
+        object.__setattr__(
+            self,
+            "global_facet_identity_fingerprint",
+            facet_fingerprint,
+        )
+        object.__setattr__(self, "global_surface_name", str(self.global_surface_name))
+        object.__setattr__(self, "global_facet_count", global_facet_count)
+        object.__setattr__(self, "global_scale", scale)
+        object.__setattr__(self, "global_ambiguity_tolerance", ambiguity)
+        object.__setattr__(self, "rank", rank)
+        object.__setattr__(self, "rank_count", rank_count)
+        object.__setattr__(self, "ownership_method", str(self.ownership_method))
+
+    def summary(self) -> dict[str, object]:
+        return {
+            "kind": "triangle_surface_partition",
+            "global_geometry_fingerprint": self.global_geometry_fingerprint,
+            "global_facet_identity_fingerprint": (
+                self.global_facet_identity_fingerprint
+            ),
+            "global_surface_name": self.global_surface_name,
+            "global_facet_count": self.global_facet_count,
+            "local_facet_count": int(self.local_surface.triangles.shape[0]),
+            "local_facet_ids": tuple(
+                int(value) for value in self.local_surface.facet_ids
+            ),
+            "rank": self.rank,
+            "rank_count": self.rank_count,
+            "ownership_method": self.ownership_method,
+            "distributed_ownership": True,
+        }
+
+
+@dataclass(frozen=True)
+class DistributedTriangleSearchDiagnostics:
+    """Communication and local-work evidence for the reference MPI search."""
+
+    geometry_fingerprint: str
+    rank: int
+    rank_count: int
+    local_query_count: int
+    global_query_count: int
+    local_facet_count: int
+    global_facet_count: int
+    gathered_query_bytes: int
+    gathered_candidate_bytes: int
+    visited_node_counts: tuple[int, ...]
+    evaluated_facet_counts: tuple[int, ...]
+    method: str = "allgather_reference_distributed_bvh"
+
+    def __post_init__(self) -> None:
+        fingerprint = str(self.geometry_fingerprint).lower()
+        if len(fingerprint) != 64 or any(
+            character not in "0123456789abcdef" for character in fingerprint
+        ):
+            raise ValueError(
+                "Distributed search diagnostics require a SHA-256 identity."
+            )
+        integer_fields = (
+            "rank",
+            "rank_count",
+            "local_query_count",
+            "global_query_count",
+            "local_facet_count",
+            "global_facet_count",
+            "gathered_query_bytes",
+            "gathered_candidate_bytes",
+        )
+        values = {name: int(getattr(self, name)) for name in integer_fields}
+        if values["rank_count"] < 1 or not (
+            0 <= values["rank"] < values["rank_count"]
+        ):
+            raise ValueError("Distributed diagnostics require a valid rank.")
+        if any(values[name] < 0 for name in integer_fields[2:]):
+            raise ValueError("Distributed diagnostic counts must be non-negative.")
+        if values["local_query_count"] > values["global_query_count"]:
+            raise ValueError("Local query count cannot exceed the global count.")
+        if values["local_facet_count"] > values["global_facet_count"]:
+            raise ValueError("Local facet count cannot exceed the global count.")
+        visited = tuple(int(value) for value in self.visited_node_counts)
+        evaluated = tuple(int(value) for value in self.evaluated_facet_counts)
+        if len(visited) != values["local_query_count"] or len(evaluated) != len(
+            visited
+        ):
+            raise ValueError(
+                "Distributed work counts must contain one value per local query."
+            )
+        if any(value < 0 for value in (*visited, *evaluated)):
+            raise ValueError("Distributed work counts must be non-negative.")
+        if not str(self.method).strip():
+            raise ValueError("Distributed diagnostics require a method.")
+        object.__setattr__(self, "geometry_fingerprint", fingerprint)
+        for name, value in values.items():
+            object.__setattr__(self, name, value)
+        object.__setattr__(self, "visited_node_counts", visited)
+        object.__setattr__(self, "evaluated_facet_counts", evaluated)
+        object.__setattr__(self, "method", str(self.method))
+
+    def summary(self) -> dict[str, object]:
+        return {
+            "method": self.method,
+            "geometry_fingerprint": self.geometry_fingerprint,
+            "rank": self.rank,
+            "rank_count": self.rank_count,
+            "local_query_count": self.local_query_count,
+            "global_query_count": self.global_query_count,
+            "local_facet_count": self.local_facet_count,
+            "global_facet_count": self.global_facet_count,
+            "gathered_query_bytes": self.gathered_query_bytes,
+            "gathered_candidate_bytes": self.gathered_candidate_bytes,
+            "maximum_visited_nodes": max(self.visited_node_counts, default=0),
+            "maximum_evaluated_facets": max(
+                self.evaluated_facet_counts, default=0
+            ),
+            "distributed_ownership": True,
+            "collective_pattern": "allgather_queries_and_nearest_candidates",
+            "scalable_neighbor_routing": False,
+        }
+
+
+@dataclass(frozen=True)
+class DistributedTriangleSearchOutcome:
+    """Distributed projection paired with explicit communication evidence."""
+
+    projection: SurfaceProjection
+    diagnostics: DistributedTriangleSearchDiagnostics
+
+    def __post_init__(self) -> None:
+        if self.projection.point_count != self.diagnostics.local_query_count:
+            raise ValueError("Distributed projection and diagnostics counts differ.")
+        if (
+            self.projection.geometry_fingerprint
+            != self.diagnostics.geometry_fingerprint
+        ):
+            raise ValueError("Distributed projection and diagnostics geometry differ.")
+
+
+@dataclass(frozen=True)
+class _TriangleCandidateBatch:
+    closest_points: np.ndarray
+    normals: np.ndarray
+    squared_distances: np.ndarray
+    has_candidate: np.ndarray
+    ambiguous: np.ndarray
+    entity_ids: np.ndarray
+    local_coordinates: np.ndarray
+    visited_node_counts: tuple[int, ...]
+    evaluated_facet_counts: tuple[int, ...]
+
+    @property
+    def byte_count(self) -> int:
+        return sum(
+            int(value.nbytes)
+            for value in (
+                self.closest_points,
+                self.normals,
+                self.squared_distances,
+                self.has_candidate,
+                self.ambiguous,
+                self.entity_ids,
+                self.local_coordinates,
+            )
+        )
+
+
+def _projection_arrays_from_candidates(
+    query: np.ndarray,
+    candidates: _TriangleCandidateBatch,
+) -> tuple[
+    np.ndarray,
+    np.ndarray,
+    np.ndarray,
+    np.ndarray,
+    np.ndarray,
+    np.ndarray,
+    np.ndarray,
+]:
+    count = int(query.shape[0])
+    closest = np.full((count, 3), np.nan, dtype=float)
+    normals = np.full((count, 3), np.nan, dtype=float)
+    gaps = np.full(count, np.nan, dtype=float)
+    valid = candidates.has_candidate & ~candidates.ambiguous
+    statuses = np.full(count, "no_candidate", dtype="<U20")
+    statuses[candidates.ambiguous] = "ambiguous_projection"
+    statuses[valid] = "ok"
+    entity_ids = np.full(count, -1, dtype=np.int64)
+    local_coordinates = np.full((count, 3), np.nan, dtype=float)
+    closest[valid] = candidates.closest_points[valid]
+    normals[valid] = candidates.normals[valid]
+    gaps[valid] = np.einsum(
+        "ij,ij->i",
+        query[valid] - candidates.closest_points[valid],
+        candidates.normals[valid],
+    )
+    entity_ids[valid] = candidates.entity_ids[valid]
+    local_coordinates[valid] = candidates.local_coordinates[valid]
+    return (
+        closest,
+        normals,
+        gaps,
+        valid,
+        statuses,
+        entity_ids,
+        local_coordinates,
+    )
+
+
 class TriangleSurfaceBVH:
     """Immutable deterministic AABB tree over a reviewed triangle surface.
 
@@ -196,27 +470,20 @@ class TriangleSurfaceBVH:
             "distributed_ownership": False,
         }
 
-    def _project_reference(
+    def _candidate_evidence(
         self,
         query: np.ndarray,
         maximum_distance: float | None,
-    ) -> tuple[
-        np.ndarray,
-        np.ndarray,
-        np.ndarray,
-        np.ndarray,
-        np.ndarray,
-        np.ndarray,
-        np.ndarray,
-        tuple[int, ...],
-        tuple[int, ...],
-    ]:
+        *,
+        ambiguity_tolerance: float | None = None,
+        normal_scale: float | None = None,
+    ) -> _TriangleCandidateBatch:
         count = int(query.shape[0])
         closest = np.full((count, 3), np.nan, dtype=float)
         normals = np.full((count, 3), np.nan, dtype=float)
-        gaps = np.full(count, np.nan, dtype=float)
-        valid = np.zeros(count, dtype=bool)
-        statuses = np.full(count, "no_candidate", dtype="<U20")
+        squared_distances = np.full(count, np.inf, dtype=float)
+        has_candidate = np.zeros(count, dtype=bool)
+        ambiguous = np.zeros(count, dtype=bool)
         entity_ids = np.full(count, -1, dtype=np.int64)
         local_coordinates = np.full((count, 3), np.nan, dtype=float)
         visited_counts: list[int] = []
@@ -230,7 +497,18 @@ class TriangleSurfaceBVH:
             )
             ** 2
         )
-        ambiguity_squared = float(self.surface.ambiguity_tolerance) ** 2
+        ambiguity_tolerance = (
+            float(self.surface.ambiguity_tolerance)
+            if ambiguity_tolerance is None
+            else _finite_nonnegative(
+                ambiguity_tolerance,
+                name="Projection ambiguity tolerance",
+            )
+        )
+        scale = self.surface.scale if normal_scale is None else float(normal_scale)
+        if not np.isfinite(scale) or scale <= 0.0:
+            raise ValueError("Projection normal scale must be finite and positive.")
+        ambiguity_squared = ambiguity_tolerance**2
         facet_ids = np.asarray(self.surface.facet_ids, dtype=np.int64)
 
         for point_index, point in enumerate(query):
@@ -289,44 +567,40 @@ class TriangleSurfaceBVH:
                 tied,
                 key=lambda item: int(facet_ids[item[0]]),
             )
-            if len(tied) > 1:
-                same_point = all(
-                    np.linalg.norm(candidate - selected_point)
-                    <= self.surface.ambiguity_tolerance
-                    for _, candidate, _ in tied
-                )
-                selected_normal = self._facet_normals[selected_facet]
-                same_normal = all(
-                    np.linalg.norm(self._facet_normals[facet] - selected_normal)
-                    <= self.surface.ambiguity_tolerance / self.surface.scale
-                    for facet, _, _ in tied
-                )
-                if not (same_point and same_normal):
-                    statuses[point_index] = "ambiguous_projection"
-                    continue
+            selected_normal = self._facet_normals[selected_facet]
+            has_candidate[point_index] = True
             closest[point_index] = selected_point
-            normals[point_index] = self._facet_normals[selected_facet]
-            gaps[point_index] = float(
-                np.dot(point - selected_point, self._facet_normals[selected_facet])
-            )
-            valid[point_index] = True
-            statuses[point_index] = "ok"
+            normals[point_index] = selected_normal
+            squared_distances[point_index] = minimum
             entity_ids[point_index] = int(facet_ids[selected_facet])
             local_coordinates[point_index] = _triangle_barycentric_coordinates(
                 selected_point,
                 self._triangle_points[selected_facet],
             )
+            if len(tied) > 1:
+                same_point = all(
+                    np.linalg.norm(candidate - selected_point)
+                    <= ambiguity_tolerance
+                    for _, candidate, _ in tied
+                )
+                same_normal = all(
+                    np.linalg.norm(self._facet_normals[facet] - selected_normal)
+                    <= ambiguity_tolerance / scale
+                    for facet, _, _ in tied
+                )
+                if not (same_point and same_normal):
+                    ambiguous[point_index] = True
 
-        return (
-            closest,
-            normals,
-            gaps,
-            valid,
-            statuses,
-            entity_ids,
-            local_coordinates,
-            tuple(visited_counts),
-            tuple(evaluated_counts),
+        return _TriangleCandidateBatch(
+            closest_points=closest,
+            normals=normals,
+            squared_distances=squared_distances,
+            has_candidate=has_candidate,
+            ambiguous=ambiguous,
+            entity_ids=entity_ids,
+            local_coordinates=local_coordinates,
+            visited_node_counts=tuple(visited_counts),
+            evaluated_facet_counts=tuple(evaluated_counts),
         )
 
     def project_with_diagnostics(
@@ -358,6 +632,7 @@ class TriangleSurfaceBVH:
             translated_reference = np.asarray(state["reference_point"], dtype=float)
             query_reference = reference + (query - translated_reference) @ rotation
 
+        candidates = self._candidate_evidence(query_reference, maximum_distance)
         (
             closest,
             normals,
@@ -366,9 +641,7 @@ class TriangleSurfaceBVH:
             statuses,
             entity_ids,
             local_coordinates,
-            visited,
-            evaluated,
-        ) = self._project_reference(query_reference, maximum_distance)
+        ) = _projection_arrays_from_candidates(query_reference, candidates)
         if motion is not None:
             closest[valid] = (
                 translated_reference + (closest[valid] - reference) @ rotation.T
@@ -393,8 +666,8 @@ class TriangleSurfaceBVH:
             geometry_fingerprint=self.surface.geometry_fingerprint,
             tree_node_count=self.node_count,
             facet_count=int(self.surface.triangles.shape[0]),
-            visited_node_counts=visited,
-            evaluated_facet_counts=evaluated,
+            visited_node_counts=candidates.visited_node_counts,
+            evaluated_facet_counts=candidates.evaluated_facet_counts,
         )
         return TriangleSearchOutcome(projection=projection, diagnostics=diagnostics)
 
@@ -416,6 +689,397 @@ class TriangleSurfaceBVH:
         ).projection
 
 
+def partition_triangle_surface(
+    surface: TriangulatedRigidSurface,
+    comm,
+) -> TriangleSurfacePartition:
+    """Partition a replicated reviewed surface by stable facet identity.
+
+    The routine is intentionally a correctness-reference adapter.  It proves
+    that search results are independent of facet ownership while avoiding a
+    dependency on one mesh importer.  Large imported tools should eventually
+    construct :class:`TriangleSurfacePartition` without first replicating the
+    complete geometry.
+    """
+
+    if not isinstance(surface, TriangulatedRigidSurface):
+        raise TypeError("Triangle partitioning requires a TriangulatedRigidSurface.")
+    rank = int(comm.rank)
+    rank_count = int(comm.size)
+    fingerprints = tuple(comm.allgather(surface.geometry_fingerprint))
+    if len(set(fingerprints)) != 1:
+        raise ValueError(
+            "All ranks must partition the same reviewed triangle geometry."
+        )
+    facet_count = int(surface.triangles.shape[0])
+    if facet_count < rank_count:
+        raise ValueError(
+            "Reference triangle partitioning requires at least one facet per rank."
+        )
+    facet_ids = np.asarray(surface.facet_ids, dtype=np.int64)
+    ordered = np.argsort(facet_ids, kind="stable")
+    owned = ordered[np.arange(facet_count) % rank_count == rank]
+    owned = owned[np.argsort(facet_ids[owned], kind="stable")]
+    global_triangles = np.asarray(surface.triangles[owned], dtype=np.int64)
+    used_vertices = np.unique(global_triangles.reshape(-1))
+    global_to_local = {
+        int(global_index): local_index
+        for local_index, global_index in enumerate(used_vertices.tolist())
+    }
+    local_triangles = np.asarray(
+        [
+            [global_to_local[int(global_index)] for global_index in triangle]
+            for triangle in global_triangles
+        ],
+        dtype=np.int64,
+    )
+    local_surface = TriangulatedRigidSurface(
+        vertices=surface.vertices[used_vertices],
+        triangles=local_triangles,
+        facet_ids=facet_ids[owned],
+        tolerance=surface.tolerance,
+        ambiguity_tolerance=surface.ambiguity_tolerance,
+        name=f"{surface.name}__rank_{rank}_partition",
+    )
+    return TriangleSurfacePartition(
+        local_surface=local_surface,
+        global_geometry_fingerprint=surface.geometry_fingerprint,
+        global_facet_identity_fingerprint=_facet_identity_fingerprint(facet_ids),
+        global_surface_name=surface.name,
+        global_facet_count=facet_count,
+        global_scale=surface.scale,
+        global_ambiguity_tolerance=surface.ambiguity_tolerance,
+        rank=rank,
+        rank_count=rank_count,
+    )
+
+
+def _merge_distributed_candidates(
+    batches: tuple[_TriangleCandidateBatch, ...],
+    *,
+    query: np.ndarray,
+    ambiguity_tolerance: float,
+    normal_scale: float,
+) -> _TriangleCandidateBatch:
+    count = int(query.shape[0])
+    closest = np.full((count, 3), np.nan, dtype=float)
+    normals = np.full((count, 3), np.nan, dtype=float)
+    squared_distances = np.full(count, np.inf, dtype=float)
+    has_candidate = np.zeros(count, dtype=bool)
+    ambiguous = np.zeros(count, dtype=bool)
+    entity_ids = np.full(count, -1, dtype=np.int64)
+    local_coordinates = np.full((count, 3), np.nan, dtype=float)
+    ambiguity_squared = float(ambiguity_tolerance) ** 2
+    normal_tolerance = float(ambiguity_tolerance) / float(normal_scale)
+
+    for point_index in range(count):
+        participating = [
+            batch
+            for batch in batches
+            if bool(batch.has_candidate[point_index])
+        ]
+        if not participating:
+            continue
+        minimum = min(
+            float(batch.squared_distances[point_index])
+            for batch in participating
+        )
+        tied = [
+            batch
+            for batch in participating
+            if float(batch.squared_distances[point_index])
+            <= np.nextafter(minimum + ambiguity_squared, np.inf)
+        ]
+        selected = min(tied, key=lambda batch: int(batch.entity_ids[point_index]))
+        has_candidate[point_index] = True
+        closest[point_index] = selected.closest_points[point_index]
+        normals[point_index] = selected.normals[point_index]
+        squared_distances[point_index] = minimum
+        entity_ids[point_index] = selected.entity_ids[point_index]
+        local_coordinates[point_index] = selected.local_coordinates[point_index]
+        if any(bool(batch.ambiguous[point_index]) for batch in tied):
+            ambiguous[point_index] = True
+            continue
+        selected_point = selected.closest_points[point_index]
+        selected_normal = selected.normals[point_index]
+        same_point = all(
+            np.linalg.norm(batch.closest_points[point_index] - selected_point)
+            <= ambiguity_tolerance
+            for batch in tied
+        )
+        same_normal = all(
+            np.linalg.norm(batch.normals[point_index] - selected_normal)
+            <= normal_tolerance
+            for batch in tied
+        )
+        ambiguous[point_index] = not (same_point and same_normal)
+
+    return _TriangleCandidateBatch(
+        closest_points=closest,
+        normals=normals,
+        squared_distances=squared_distances,
+        has_candidate=has_candidate,
+        ambiguous=ambiguous,
+        entity_ids=entity_ids,
+        local_coordinates=local_coordinates,
+        visited_node_counts=tuple(
+            sum(batch.visited_node_counts[index] for batch in batches)
+            for index in range(count)
+        ),
+        evaluated_facet_counts=tuple(
+            sum(batch.evaluated_facet_counts[index] for batch in batches)
+            for index in range(count)
+        ),
+    )
+
+
+class DistributedTriangleSurfaceBVH:
+    """Correctness-first collective search over partitioned triangle facets.
+
+    Queries and one nearest-candidate record per rank are currently exchanged
+    with ``allgather``.  This removes global facet replication from the search
+    object and establishes partition-independent physics, but deliberately
+    does not claim scalable neighbor routing.
+    """
+
+    def __init__(self, partition: TriangleSurfacePartition, comm):
+        if not isinstance(partition, TriangleSurfacePartition):
+            raise TypeError(
+                "Distributed triangle search requires TriangleSurfacePartition."
+            )
+        if int(comm.rank) != partition.rank or int(comm.size) != partition.rank_count:
+            raise ValueError("Triangle partition does not match the communicator.")
+        records = tuple(
+            comm.allgather(
+                (
+                    partition.global_geometry_fingerprint,
+                    partition.global_facet_count,
+                    partition.global_facet_identity_fingerprint,
+                    tuple(int(value) for value in partition.local_surface.facet_ids),
+                )
+            )
+        )
+        if len({record[0] for record in records}) != 1 or len(
+            {record[1] for record in records}
+        ) != 1:
+            raise ValueError("Distributed triangle partitions disagree globally.")
+        if len({record[2] for record in records}) != 1:
+            raise ValueError("Distributed triangle facet registries disagree.")
+        owned_ids = tuple(value for record in records for value in record[3])
+        if (
+            len(owned_ids) != partition.global_facet_count
+            or len(set(owned_ids)) != len(owned_ids)
+            or _facet_identity_fingerprint(owned_ids)
+            != partition.global_facet_identity_fingerprint
+        ):
+            raise ValueError(
+                "Distributed triangle facet ownership must be complete and unique."
+            )
+        self._partition = partition
+        self._comm = comm
+        self._local_search = TriangleSurfaceBVH(partition.local_surface)
+
+    @property
+    def partition(self) -> TriangleSurfacePartition:
+        return self._partition
+
+    def summary(self) -> dict[str, object]:
+        return {
+            "kind": "distributed_triangle_surface_bvh",
+            "method": "allgather_reference_distributed_bvh",
+            "global_geometry_fingerprint": (
+                self.partition.global_geometry_fingerprint
+            ),
+            "global_facet_count": self.partition.global_facet_count,
+            "local_facet_count": int(
+                self.partition.local_surface.triangles.shape[0]
+            ),
+            "rank": self.partition.rank,
+            "rank_count": self.partition.rank_count,
+            "distributed_ownership": True,
+            "retains_replicated_global_geometry": False,
+            "collective_pattern": "allgather_queries_and_nearest_candidates",
+            "scalable_neighbor_routing": False,
+        }
+
+    def project_with_diagnostics(
+        self,
+        points,
+        *,
+        motion: PrescribedRigidMotion | None = None,
+        factor: float = 0.0,
+        maximum_distance: float | None = None,
+    ) -> DistributedTriangleSearchOutcome:
+        error = None
+        try:
+            query = _projection_query(
+                points,
+                dimension=3,
+                geometry="Distributed triangle-surface BVH",
+            )
+            selected_factor = float(factor)
+            if not np.isfinite(selected_factor):
+                raise ValueError("Rigid-motion factor must be finite.")
+            selected_maximum = (
+                None
+                if maximum_distance is None
+                else _finite_nonnegative(
+                    maximum_distance,
+                    name="Maximum projection distance",
+                )
+            )
+            if motion is not None and not isinstance(motion, PrescribedRigidMotion):
+                raise TypeError("Rigid motion must be PrescribedRigidMotion.")
+            motion_identity = (
+                None
+                if motion is None
+                else (
+                    tuple(motion.translation),
+                    tuple(motion.rotation),
+                    tuple(motion.reference_point),
+                    motion.name,
+                )
+            )
+        except (TypeError, ValueError) as exc:
+            error = f"{type(exc).__name__}: {exc}"
+            query = np.empty((0, 3), dtype=float)
+            selected_factor = 0.0
+            selected_maximum = None
+            motion_identity = None
+        errors = tuple(self._comm.allgather(error))
+        if any(value is not None for value in errors):
+            raise ValueError(
+                "Distributed triangle query validation failed collectively: "
+                + "; ".join(
+                    f"rank {rank}: {value}"
+                    for rank, value in enumerate(errors)
+                    if value is not None
+                )
+            )
+        configs = tuple(
+            self._comm.allgather(
+                (selected_factor, selected_maximum, motion_identity)
+            )
+        )
+        if any(config != configs[0] for config in configs[1:]):
+            raise ValueError(
+                "Distributed triangle search requires identical motion and "
+                "distance configuration on every rank."
+            )
+
+        if motion is None:
+            query_reference = query
+            rotation = np.eye(3, dtype=float)
+            reference = np.zeros(3, dtype=float)
+            translated_reference = reference
+        else:
+            if motion.dimension != 3:
+                raise ValueError("Triangulated surface motion must be three-dimensional.")
+            state = motion.state(selected_factor)
+            rotation = np.asarray(state["rotation_matrix"], dtype=float)
+            reference = np.asarray(motion.reference_point, dtype=float)
+            translated_reference = np.asarray(state["reference_point"], dtype=float)
+            query_reference = reference + (query - translated_reference) @ rotation
+
+        gathered_queries = tuple(self._comm.allgather(query_reference))
+        query_counts = tuple(int(value.shape[0]) for value in gathered_queries)
+        global_query = (
+            np.vstack(gathered_queries)
+            if sum(query_counts) > 0
+            else np.empty((0, 3), dtype=float)
+        )
+        local_candidates = self._local_search._candidate_evidence(
+            global_query,
+            selected_maximum,
+            ambiguity_tolerance=self.partition.global_ambiguity_tolerance,
+            normal_scale=self.partition.global_scale,
+        )
+        gathered_candidates = tuple(self._comm.allgather(local_candidates))
+        merged = _merge_distributed_candidates(
+            gathered_candidates,
+            query=global_query,
+            ambiguity_tolerance=self.partition.global_ambiguity_tolerance,
+            normal_scale=self.partition.global_scale,
+        )
+        start = sum(query_counts[: self.partition.rank])
+        stop = start + query_counts[self.partition.rank]
+        local_candidates_merged = _TriangleCandidateBatch(
+            closest_points=merged.closest_points[start:stop],
+            normals=merged.normals[start:stop],
+            squared_distances=merged.squared_distances[start:stop],
+            has_candidate=merged.has_candidate[start:stop],
+            ambiguous=merged.ambiguous[start:stop],
+            entity_ids=merged.entity_ids[start:stop],
+            local_coordinates=merged.local_coordinates[start:stop],
+            visited_node_counts=merged.visited_node_counts[start:stop],
+            evaluated_facet_counts=merged.evaluated_facet_counts[start:stop],
+        )
+        (
+            closest,
+            normals,
+            gaps,
+            valid,
+            statuses,
+            entity_ids,
+            local_coordinates,
+        ) = _projection_arrays_from_candidates(
+            query_reference,
+            local_candidates_merged,
+        )
+        if motion is not None:
+            closest[valid] = (
+                translated_reference + (closest[valid] - reference) @ rotation.T
+            )
+            normals[valid] = normals[valid] @ rotation.T
+        projection = SurfaceProjection(
+            surface_name=self.partition.global_surface_name,
+            surface_kind="triangulated_rigid_surface",
+            query_points=query,
+            closest_points=closest,
+            normals=normals,
+            signed_gaps=gaps,
+            valid=valid,
+            status_codes=statuses,
+            method="distributed_aabb_bvh_exact_triangle_projection",
+            entity_ids=entity_ids,
+            geometry_fingerprint=self.partition.global_geometry_fingerprint,
+            local_coordinates=local_coordinates,
+            local_coordinate_system="triangle_barycentric_connectivity_order",
+        )
+        diagnostics = DistributedTriangleSearchDiagnostics(
+            geometry_fingerprint=self.partition.global_geometry_fingerprint,
+            rank=self.partition.rank,
+            rank_count=self.partition.rank_count,
+            local_query_count=int(query.shape[0]),
+            global_query_count=int(global_query.shape[0]),
+            local_facet_count=int(
+                self.partition.local_surface.triangles.shape[0]
+            ),
+            global_facet_count=self.partition.global_facet_count,
+            gathered_query_bytes=sum(int(value.nbytes) for value in gathered_queries),
+            gathered_candidate_bytes=sum(
+                value.byte_count for value in gathered_candidates
+            ),
+            visited_node_counts=local_candidates_merged.visited_node_counts,
+            evaluated_facet_counts=local_candidates_merged.evaluated_facet_counts,
+        )
+        return DistributedTriangleSearchOutcome(projection, diagnostics)
+
+    def project(self, points, **kwargs) -> SurfaceProjection:
+        """Project rank-local points through the collective reference search."""
+
+        return self.project_with_diagnostics(points, **kwargs).projection
+
+
+def distributed_triangle_surface_bvh(
+    partition: TriangleSurfacePartition,
+    comm,
+) -> DistributedTriangleSurfaceBVH:
+    """Build the correctness-reference collective search for one partition."""
+
+    return DistributedTriangleSurfaceBVH(partition, comm)
+
+
 def triangle_surface_bvh(surface: TriangulatedRigidSurface) -> TriangleSurfaceBVH:
     """Build a deterministic process-local BVH for one reviewed surface."""
 
@@ -423,8 +1087,14 @@ def triangle_surface_bvh(surface: TriangulatedRigidSurface) -> TriangleSurfaceBV
 
 
 __all__ = [
+    "DistributedTriangleSearchDiagnostics",
+    "DistributedTriangleSearchOutcome",
+    "DistributedTriangleSurfaceBVH",
     "TriangleSearchDiagnostics",
     "TriangleSearchOutcome",
+    "TriangleSurfacePartition",
     "TriangleSurfaceBVH",
+    "distributed_triangle_surface_bvh",
+    "partition_triangle_surface",
     "triangle_surface_bvh",
 ]

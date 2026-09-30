@@ -39,6 +39,12 @@ experimental formulation to a validated one.
   with immutable barycentric local coordinates. Invalid or ambiguous
   projections publish NaN coordinates, preparing finite-sliding state and
   restart without prematurely changing the contact Operator.
+- Add a correctness-first distributed triangle search. Stable facet IDs are
+  partitioned without replication in each search object, rank-local BVHs
+  exchange queries and nearest-candidate evidence collectively, and the final
+  point, normal, ambiguity status, facet ID and barycentric coordinates match
+  the exhaustive global oracle under two MPI ranks. Communication volume is
+  reported explicitly; scalable neighborhood routing remains a later gate.
 
 ### Fixed
 

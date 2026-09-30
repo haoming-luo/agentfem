@@ -206,7 +206,9 @@ circles/spheres and infinite cylinders), reviewed tessellated surfaces (the
 serial triangle reference projector and fail-closed geometry audit are now
 executable, together with a deterministic process-local AABB/BVH accelerator
 and per-query work evidence plus stable barycentric facet coordinates),
-distributed ownership/search,
+distributed ownership/search (the stable-ID facet partition and all-gather
+correctness reference now reproduce the serial oracle under MPI; scalable
+neighborhood routing and ghost exchange remain),
 finite sliding, multiple pairs, explicit dynamics and finally friction. STEP
 remains an optional geometry-adapter input that is repaired and tessellated
 before the contact core consumes it. Shell/solid-shell forming and self-contact

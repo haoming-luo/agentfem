@@ -29,15 +29,24 @@ from .rigid import (
     triangulated_rigid_surface,
 )
 from .search import (
+    DistributedTriangleSearchDiagnostics,
+    DistributedTriangleSearchOutcome,
+    DistributedTriangleSurfaceBVH,
     TriangleSearchDiagnostics,
     TriangleSearchOutcome,
+    TriangleSurfacePartition,
     TriangleSurfaceBVH,
+    distributed_triangle_surface_bvh,
+    partition_triangle_surface,
     triangle_surface_bvh,
 )
 from .thermal import ConvectionBoundary, convection
 
 __all__ = [
     "ConvectionBoundary",
+    "DistributedTriangleSearchDiagnostics",
+    "DistributedTriangleSearchOutcome",
+    "DistributedTriangleSurfaceBVH",
     "ElasticFoundation",
     "PrescribedRigidMotion",
     "RigidCylinderSurface",
@@ -49,12 +58,15 @@ __all__ = [
     "TriangulatedRigidSurface",
     "TriangleSearchDiagnostics",
     "TriangleSearchOutcome",
+    "TriangleSurfacePartition",
     "TriangleSurfaceBVH",
     "absorbing",
     "convection",
     "elastic_foundation",
+    "distributed_triangle_surface_bvh",
     "mechanical",
     "prescribed_rigid_motion",
+    "partition_triangle_surface",
     "rigid",
     "rigid_cylinder",
     "rigid_plane",

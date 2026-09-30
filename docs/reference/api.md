@@ -707,9 +707,15 @@ and evidence remain in the linked guides and scientific function reference.
 | function | `rigid_plane(*, point, normal, name: str = 'rigid_plane') -> RigidPlaneSurface` | Describe one analytical rigid plane independently of a contact law. |
 | function | `rigid_sphere(center, radius: float, *, admissible_side: str = 'exterior', name: str = 'rigid_sphere') -> RigidSphereSurface` | Create an analytical circle/sphere with explicit gap orientation. |
 | function | `triangulated_rigid_surface(*, vertices, triangles, facet_ids = None, tolerance: float \| None = None, ambiguity_tolerance: float \| None = None, name: str = 'triangulated_rigid_surface') -> TriangulatedRigidSurface` | Create one reviewed oriented triangle surface for rigid projection. |
+| class | `DistributedTriangleSearchDiagnostics` | Communication and local-work evidence for the reference MPI search. |
+| class | `DistributedTriangleSearchOutcome` | Distributed projection paired with explicit communication evidence. |
+| class | `DistributedTriangleSurfaceBVH(partition: TriangleSurfacePartition, comm)` | Correctness-first collective search over partitioned triangle facets. |
 | class | `TriangleSearchDiagnostics` | Per-query work evidence for one immutable triangle BVH. |
 | class | `TriangleSearchOutcome` | Projection evidence paired with broad-phase work diagnostics. |
+| class | `TriangleSurfacePartition` | One deterministic facet shard of a globally identified rigid surface. |
 | class | `TriangleSurfaceBVH(surface: TriangulatedRigidSurface)` | Immutable deterministic AABB tree over a reviewed triangle surface. |
+| function | `distributed_triangle_surface_bvh(partition: TriangleSurfacePartition, comm) -> DistributedTriangleSurfaceBVH` | Build the correctness-reference collective search for one partition. |
+| function | `partition_triangle_surface(surface: TriangulatedRigidSurface, comm) -> TriangleSurfacePartition` | Partition a replicated reviewed surface by stable facet identity. |
 | function | `triangle_surface_bvh(surface: TriangulatedRigidSurface) -> TriangleSurfaceBVH` | Build a deterministic process-local BVH for one reviewed surface. |
 | class | `ConvectionBoundary` | Linear convection ``-k grad(T).n = h (T - T_inf)``. |
 | function | `convection(*, on = None, location = None, coefficient, ambient_temperature, name: str = 'convection') -> ConvectionBoundary` | Create a linear thermal convection boundary condition. |

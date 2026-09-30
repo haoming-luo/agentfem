@@ -405,9 +405,16 @@ over that reviewed surface. The tree changes only broad-phase candidate
 discovery: its leaves call the same exact triangle kernel, retain every
 equidistant candidate needed by `ambiguous_projection`, and return the same
 `SurfaceProjection` contract. Optional diagnostics record visited tree nodes
-and exact facet evaluations per query. The current tree is replicated on each
-MPI process; it does not yet claim distributed facet ownership or ghost
-exchange.
+and exact facet evaluations per query.
+
+`partition_triangle_surface(...)` and
+`distributed_triangle_surface_bvh(...)` form the MPI correctness reference.
+Each rank owns only its deterministic stable-ID facet shard and local BVH;
+rank-local queries and nearest-candidate evidence are then reduced with the
+same ambiguity rule as the serial oracle. Diagnostics state the gathered byte
+volume and explicitly mark neighbor routing as absent. This proves that
+projection physics is partition independent, not that industrial-scale
+parallel contact search is complete.
 Two-dimensional rotation is one counter-clockwise angle; three-dimensional
 rotation is an axis-angle vector. A normalized Procedure coordinate scales the
 declared end translation and rotation. The contact Operator owns gap, penalty
