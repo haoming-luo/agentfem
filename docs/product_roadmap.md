@@ -217,8 +217,12 @@ and measured extreme-scale routing remain),
 accepted/trial projection State (stable 64-bit contact-point identity,
 facet-changing finite-slide trials, rollback, and accepted-boundary snapshots
 are now executable without importing solver or contact-law ownership), then a
-Procedure-owned search/update cadence and an Operator that consumes the trial
-projection. Cross-rank checkpoint aggregation by stable point identity remains
+Procedure-owned search/update cadence (now executable as an every-evaluation
+lifecycle with collective MPI rejection and explicit increment
+commit/rollback) and an Operator that consumes the trial projection. Candidate
+warm starts may optimize broad-phase work later, but exact gaps and normals
+remain evaluation-local. Cross-rank checkpoint aggregation by stable point
+identity remains
 required before that state can claim MPI-portable restart. Multiple pairs,
 explicit dynamics and finally friction follow the verified single-pair
 finite-sliding route. STEP

@@ -5,6 +5,7 @@
 
 from . import absorbing
 from . import contact_state
+from . import contact_lifecycle
 from . import dolfinx_adapter
 from . import mechanical
 from . import rigid
@@ -17,6 +18,7 @@ from .mechanical import (
     rigid_obstacle_contact,
 )
 from .contact_state import ContactProjectionRecord, ContactProjectionState
+from .contact_lifecycle import ContactProjectionEvaluation, ContactProjectionLifecycle
 from .dolfinx_adapter import (
     dolfinx_boundary_region_triangle_partition,
     dolfinx_exterior_triangle_partition,
@@ -58,6 +60,8 @@ __all__ = [
     "ConvectionBoundary",
     "ContactProjectionRecord",
     "ContactProjectionState",
+    "ContactProjectionEvaluation",
+    "ContactProjectionLifecycle",
     "DistributedTriangleSearchDiagnostics",
     "DistributedTriangleSearchOutcome",
     "DistributedTriangleSurfaceBVH",
@@ -79,6 +83,7 @@ __all__ = [
     "TriangleSurfaceBVH",
     "absorbing",
     "contact_state",
+    "contact_lifecycle",
     "convection",
     "dolfinx_adapter",
     "dolfinx_boundary_region_triangle_partition",

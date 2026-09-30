@@ -275,6 +275,33 @@ boundary. This is deliberately a solver-neutral State contract: it does not
 yet assemble contact force, decide Newton search cadence, aggregate a global
 MPI checkpoint, or claim a finite-sliding contact Procedure.
 
+The solver-neutral lifecycle is the next ownership layer. It evaluates an
+analytical surface or reviewed BVH on every nonlinear evaluation, retains
+search diagnostics outside State, and accepts or rejects the projection with
+the owning increment:
+
+```python
+lifecycle = boundary_models.ContactProjectionLifecycle(
+    search,
+    stable_contact_point_ids,
+)
+trial = lifecycle.evaluate(current_contact_point_coordinates)
+
+if increment_converged:
+    lifecycle.commit_increment()
+else:
+    lifecycle.rollback_increment()
+```
+
+Invalid projections fail closed by default. Callers may explicitly set
+`require_all_valid=False` when `no_candidate` means an inactive point and the
+future contact Operator is prepared to consume that status. Distributed search
+backends reach a collective decision: one rank cannot reject a projection
+while another continues into assembly. The lifecycle deliberately repeats the
+exact projection at every evaluation. A search backend may later reuse a facet
+candidate as a warm start, but signed gaps and normals are never reused as
+stale physics.
+
 Pass `checkpoint=checkpointing.every(...)` to `model.step(...)` when a long
 load path must be restartable. Only accepted load boundaries are published.
 The portable checkpoint keeps the displacement, increment/cutback ledger,

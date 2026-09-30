@@ -141,6 +141,31 @@ def test_distributed_triangle_search_preserves_cross_rank_ambiguity():
         assert distributed.status_codes.tolist() == ["ambiguous_projection"]
 
 
+def test_contact_projection_lifecycle_rejects_invalid_rank_collectively():
+    _require_two_ranks()
+    comm = MPI.COMM_WORLD
+    surface = _square_surface()
+    search = boundary_models.distributed_triangle_surface_bvh(
+        boundary_models.partition_triangle_surface(surface, comm),
+        comm,
+    )
+    lifecycle = boundary_models.ContactProjectionLifecycle(
+        search,
+        (100 + comm.rank,),
+    )
+    points = (
+        np.asarray(((0.2, 0.2, 0.05),))
+        if comm.rank == 0
+        else np.asarray(((10.0, 10.0, 10.0),))
+    )
+
+    with pytest.raises(ValueError, match="rejected collectively"):
+        lifecycle.evaluate(points, maximum_distance=0.1)
+
+    assert lifecycle.state.trial is None
+    assert lifecycle.summary()["rejected_projections"] == 1
+
+
 def test_distributed_triangle_search_uses_global_stable_id_on_shared_edge():
     _require_two_ranks()
     comm = MPI.COMM_WORLD
