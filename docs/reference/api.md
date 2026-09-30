@@ -699,20 +699,27 @@ and evidence remain in the linked guides and scientific function reference.
 | class | `ContactProjectionState` | Atomic accepted/trial projection state for one contact pair. |
 | class | `ContactProjectionEvaluation` | One successful projection evaluation and optional search evidence. |
 | class | `ContactProjectionLifecycle(projector, point_ids, *, state: ContactProjectionState \| None = None, require_all_valid: bool = True) -> None` | Coordinate search/projection trials around accepted increments. |
+| class | `RigidContactPair` | Bind one slave boundary, rigid body, and local contact law. |
+| function | `rigid_contact_pair(slave_boundary: BoundaryRegion, rigid_body: RigidBody, *, penalty, invalid_policy: str = 'reject', name: str = 'rigid_contact_pair') -> RigidContactPair` | Create the first solver-neutral rigid frictionless contact pair. |
 | class | `FrictionlessPenaltyContactLaw` | Evaluate a conservative one-sided penalty law on projected points. |
 | class | `FrictionlessPenaltyContactResponse` | Immutable pointwise response to one reviewed surface projection. |
 | function | `frictionless_penalty_contact_law(penalty, *, invalid_policy: str = 'reject', name: str = 'frictionless_penalty_contact') -> FrictionlessPenaltyContactLaw` | Create the geometry-neutral local frictionless contact law. |
 | class | `ContactTrace` | Stable quadrature/interpolation contract for one slave boundary shard. |
 | class | `ContactTraceAssembly` | Integrated residual, potential, and generalized rigid-surface evidence. |
 | class | `ContactTraceEvaluation` | Current slave-point positions bound to one immutable trace contract. |
+| class | `PrescribedContactWorkState(*, identity: str) -> None` | Transactional accepted-path ledger for one prescribed rigid tool. |
+| class | `PrescribedContactWorkStation` | One globally reduced rigid-tool force/coordinate station. |
+| class | `PrescribedRigidMotionSchedule` | A proportional rigid motion over one explicit physical-time interval. |
+| function | `prescribed_contact_work_state(*, identity: str) -> PrescribedContactWorkState` | Public AgentFEM object. |
+| function | `prescribed_rigid_motion_schedule(motion: PrescribedRigidMotion, *, start_time: float = 0.0, end_time: float, name: str = 'prescribed_rigid_motion_schedule') -> PrescribedRigidMotionSchedule` | Public AgentFEM object. |
 | function | `dolfinx_boundary_region_triangle_partition(region, *, name: str \| None = None, tolerance: float \| None = None, ambiguity_tolerance: float \| None = None) -> TriangleSurfacePartition` | Adapt an AgentFEM named boundary region into the search contract. |
 | function | `dolfinx_exterior_triangle_partition(domain, *, facets = None, name: str = 'dolfinx_exterior_triangle_surface', tolerance: float \| None = None, ambiguity_tolerance: float \| None = None) -> TriangleSurfacePartition` | Build a stable distributed triangle partition from owned exterior facets. |
 | function | `dolfinx_tagged_exterior_triangle_partition(domain, facet_tags, *, tag: int, name: str \| None = None, tolerance: float \| None = None, ambiguity_tolerance: float \| None = None) -> TriangleSurfacePartition` | Build a distributed triangle partition from one DOLFINx facet tag. |
 | class | `DolfinxContactTraceAdapter` | Bind one reviewed DOLFINx CG1 boundary trace to current displacement. |
 | function | `dolfinx_boundary_region_contact_trace(region, function_space) -> DolfinxContactTraceAdapter` | Adapt a tagged tetrahedral boundary and blocked vector CG1 space. |
-| class | `DolfinxExplicitContactResidual(base, *, adapter: DolfinxContactTraceAdapter, displacement, lifecycle: ContactProjectionLifecycle, law: FrictionlessPenaltyContactLaw, maximum_stable_time_increment: float, surface_reference_point = None, projection_options = None, name: str = 'dolfinx_explicit_contact_residual') -> None` | Add reviewed trace contact to a DOLFINx explicit residual. |
+| class | `DolfinxExplicitContactResidual(base, *, adapter: DolfinxContactTraceAdapter, displacement, lifecycle: ContactProjectionLifecycle, law: FrictionlessPenaltyContactLaw, maximum_stable_time_increment: float, contact_pair: RigidContactPair \| None = None, rigid_body: RigidBody \| None = None, motion_schedule: PrescribedRigidMotionSchedule \| None = None, surface_reference_point = None, projection_options = None, name: str = 'dolfinx_explicit_contact_residual') -> None` | Add reviewed trace contact to a DOLFINx explicit residual. |
 | class | `ExplicitContactEvidence` | MPI-global evidence from one contact residual evaluation. |
-| function | `dolfinx_explicit_contact_residual(base, *, adapter, displacement, projector, penalty, maximum_stable_time_increment, invalid_policy: str = 'reject', surface_reference_point = None, projection_options = None, name: str = 'dolfinx_explicit_contact_residual') -> DolfinxExplicitContactResidual` | Build the reviewed first explicit contact residual consumer. |
+| function | `dolfinx_explicit_contact_residual(base, *, adapter, displacement, projector = None, rigid_body = None, contact_pair = None, penalty = None, maximum_stable_time_increment, motion_schedule = None, invalid_policy: str = 'reject', surface_reference_point = None, projection_options = None, name: str = 'dolfinx_explicit_contact_residual') -> DolfinxExplicitContactResidual` | Build the reviewed first explicit contact residual consumer. |
 | class | `PrescribedRigidMotion` | Normalized prescribed rigid-body translation and rotation. |
 | class | `RigidCylinderSurface` | Analytical three-dimensional infinite circular cylinder. |
 | class | `RigidPlaneSurface` | Analytical rigid plane with one explicit point and unit normal. |
@@ -725,6 +732,8 @@ and evidence remain in the linked guides and scientific function reference.
 | function | `rigid_plane(*, point, normal, name: str = 'rigid_plane') -> RigidPlaneSurface` | Describe one analytical rigid plane independently of a contact law. |
 | function | `rigid_sphere(center, radius: float, *, admissible_side: str = 'exterior', name: str = 'rigid_sphere') -> RigidSphereSurface` | Create an analytical circle/sphere with explicit gap orientation. |
 | function | `triangulated_rigid_surface(*, vertices, triangles, facet_ids = None, tolerance: float \| None = None, ambiguity_tolerance: float \| None = None, name: str = 'triangulated_rigid_surface') -> TriangulatedRigidSurface` | Create one reviewed oriented triangle surface for rigid projection. |
+| class | `RigidBody` | One rigid contact body with fixed or prescribed kinematics. |
+| function | `rigid_body(surface: RigidSurface, *, motion_schedule: PrescribedRigidMotionSchedule \| None = None, reference_point = None, name: str = 'rigid_body') -> RigidBody` | Create a fixed or prescribed-kinematics rigid-body asset. |
 | class | `DistributedTriangleSearchDiagnostics` | Communication and local-work evidence for the reference MPI search. |
 | class | `DistributedTriangleSearchOutcome` | Distributed projection paired with explicit communication evidence. |
 | class | `DistributedTriangleSurfaceBVH(partition: TriangleSurfacePartition, comm)` | Correctness-first collective search over partitioned triangle facets. |

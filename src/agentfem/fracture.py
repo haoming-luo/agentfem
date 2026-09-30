@@ -3191,9 +3191,11 @@ class DynamicEnergyLedger:
 
     Natural-load work and strong prescribed-motion work are integrated with
     the trapezoidal rule between accepted configurations.  The latter uses
-    the constrained generalized force ``M a + R``.  MPC, contact, and weak
-    constraints require their own dual variables and are not silently folded
-    into this first ledger.
+    the constrained generalized force ``M a + R``.  A residual may additionally
+    publish a transactional prescribed-contact work State and accepted contact
+    potential; those provider-owned values enter the same external-work and
+    accounted-energy balance. Unsupported MPC and weak constraints remain
+    excluded rather than being inferred.
     """
 
     energy: object
@@ -3287,6 +3289,10 @@ class DynamicEnergyLedger:
             )
         return current, natural, prescribed_force
 
+    def _contact_terms(self) -> tuple[dict[str, object], ...]:
+        provider = getattr(self.residual, "contact_energy_evidence", None)
+        return tuple(provider()) if callable(provider) else ()
+
     @staticmethod
     def _global_dot(displacement, left, right) -> float:
         function = field_api.unwrap(displacement)
@@ -3310,6 +3316,26 @@ class DynamicEnergyLedger:
             raise ValueError(
                 "Dynamic energy restart lacks channels: " + ", ".join(missing)
             )
+        contact_terms = self._contact_terms()
+        if any(bool(item["moving"]) for item in contact_terms):
+            if "contact_motion_work" not in history_record:
+                raise ValueError(
+                    "Dynamic energy restart lacks contact_motion_work for a "
+                    "moving-contact residual."
+                )
+            restored_work = float(history_record["contact_motion_work"])
+            provider_work = sum(
+                float(item["contact_motion_work"]) for item in contact_terms
+            )
+            if not np.isclose(
+                restored_work,
+                provider_work,
+                rtol=1.0e-12,
+                atol=1.0e-14,
+            ):
+                raise ValueError(
+                    "Dynamic energy history and restored contact work State differ."
+                )
         if hasattr(self.energy, "restore"):
             self.energy.restore(history_record)
         self._natural_work = float(history_record["natural_load_work"])
@@ -3359,12 +3385,19 @@ class DynamicEnergyLedger:
         self._previous_displacement = current
         self._previous_natural_force = natural
         self._previous_prescribed_force = prescribed_force
-        external = self._natural_work + self._prescribed_work
-        return {
+        contact_terms = self._contact_terms()
+        contact_work = sum(
+            float(item["contact_motion_work"]) for item in contact_terms
+        )
+        external = self._natural_work + self._prescribed_work + contact_work
+        values = {
             "natural_load_work": self._natural_work,
             "prescribed_motion_work": self._prescribed_work,
             "external_work": external,
         }
+        if any(bool(item["moving"]) for item in contact_terms):
+            values["contact_motion_work"] = contact_work
+        return values
 
     def evaluate(
         self,
@@ -3377,6 +3410,15 @@ class DynamicEnergyLedger:
             displacement=displacement,
             velocity=velocity,
         )
+        contact_terms = self._contact_terms()
+        if contact_terms:
+            contact_potential = sum(
+                float(item["contact_potential_energy"]) for item in contact_terms
+            )
+            values["contact_potential_energy"] = contact_potential
+            values["accounted_internal_kinetic_energy"] = (
+                self._accounted(values) + contact_potential
+            )
         work = self.advance(
             displacement=displacement,
             velocity=velocity,

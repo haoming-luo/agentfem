@@ -188,6 +188,8 @@ _HISTORY_DESCRIPTIONS = {
     "numerical_damping_dissipation": "Accepted nonnegative work dissipated by the declared viscous damping model.",
     "natural_load_work": "Accepted-path trapezoidal work of weak natural loads.",
     "prescribed_motion_work": "Accepted-path trapezoidal work of strong prescribed-motion reactions.",
+    "contact_motion_work": "Accepted-path force--translation and moment--rotation work of prescribed rigid contact motion.",
+    "contact_potential_energy": "Recoverable frictionless penalty-contact potential at the accepted state.",
     "external_work": "Sum of natural-load and prescribed-motion work.",
     "energy_balance_error": "Initial accounted energy plus external work minus current accounted energy.",
     "relative_energy_balance_error": "Absolute energy-balance error normalized by the largest energy scale.",

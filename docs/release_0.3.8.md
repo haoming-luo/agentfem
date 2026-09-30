@@ -23,18 +23,42 @@ The release closes six declared foundation gates:
 
 ## Contact and nonlinear state
 
-The first contact route remains intentionally bounded: small-strain solid
-mechanics, one fixed rigid plane, frictionless penalty contact, and nonlinear
-static equilibrium. Within that scope it now owns its potential, residual,
-tangent, nodal reaction, resultant, penetration diagnostics, accepted-path
-work semantics, and conservative energy ledger. Ordinary nonlinear state,
-increment history, dual evidence, energy history, and execution events restart
-atomically across one and two MPI ranks.
+The first contact routes remain intentionally bounded. The nonlinear-static
+route covers small-strain solid mechanics, one analytical rigid plane and
+frictionless penalty contact, with potential, residual, tangent, nodal
+reaction, resultant, penetration diagnostics, accepted-path work semantics,
+and conservative energy evidence.
 
-Time-varying loading, nonzero prescribed motion, moving tools, search, finite
-sliding, multiple contact pairs, friction, deformable-to-deformable contact,
-and forming are not silently inferred from that evidence. They remain explicit
-future capabilities.
+The bounded explicit route now accepts one proportional prescribed rigid
+translation/rotation schedule. It evaluates the moving surface at the
+predicted displacement, publishes MPI-global force and moment, integrates only
+accepted force--translation/moment--rotation stations, rolls failed increments
+back, and restores the accepted work path from transient checkpoints. Serial
+restart and two-rank canonical-State tests protect that lifecycle. The caller
+still owns a conservative contact stability ceiling. Bounded rigid pairs
+compose through the residual chain: accepted time, rollback, per-pair
+force/moment, summed work/potential, and nested restart propagate without a
+forming-specific solver; a mixed analytical-plus-triangulated pair test uses
+that route without a two-tool special case. A separate reviewed path couples the same Procedure
+to serial and routed distributed triangle BVHs; stable slave-point identity is
+preserved while the closest rigid facet changes during finite sliding, and
+pure tangential tool translation produces no spurious normal contact work.
+The recommended construction binds surface, schedule, reference point, and
+rank-independent scientific identity in one immutable `RigidBody`; serial or
+distributed search remains a separate backend object rather than becoming
+part of the body's identity.
+`RigidContactPair` binds the slave boundary, body, and scalar local law as one
+inspectable Model asset while leaving search and time-step stability with the
+Backend and Procedure. Pair and body identities are verified before checkpoint
+restoration.
+Accepted transient events expose compact contact activity, maximum penetration,
+force norm, prescribed-motion work, and interval power through the existing
+bounded/throttled
+progress lifecycle; no per-point history is accumulated implicitly.
+
+General multi-tool candidate routing, arbitrary surface topology, friction,
+free rigid-body dynamics, deformable-to-deformable contact, and forming are not
+inferred from this evidence. They remain explicit future capabilities.
 
 The 0.4 foundation work now also defines a solver-neutral accepted/trial
 closest-point State. It keeps stable 64-bit contact-point and surface-facet

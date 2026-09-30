@@ -342,10 +342,47 @@ bulk ghost contributions.
 The caller must supply `maximum_stable_time_increment`; construction of an
 explicit Step rejects a larger `dt`. This is intentional: penalty contact adds
 stiffness and can reduce the critical central-difference step below the body
-wave estimate. The current route reports global force/reaction, potential and
-optional moment, but supports only a fixed surface. It does not yet claim
-automatic contact spectral estimation, moving-tool accepted-path work,
-friction, multiple pairs, or an implicit consistent tangent.
+wave estimate. A fixed surface remains the default. For one proportional
+prescribed rigid path, construct `prescribed_rigid_motion_schedule(...)` and
+bind it with the scientific surface in `rigid_body(...)`. Pass that immutable
+asset with the slave `BoundaryRegion` and scalar penalty in
+`rigid_contact_pair(...)`, then pass the pair as `contact_pair`; a serial or
+distributed projector remains a separate backend/search choice. The schedule
+states physical start/end times explicitly instead of treating solver time as
+an unnamed load factor. The pair and rigid body's surface, motion, reference
+point, local law, and stable scientific identities enter result and checkpoint
+evidence. The earlier direct `projector` plus `motion_schedule` form remains
+available as a lower-level route.
+
+Moving contact records an MPI-global initial force/moment station and one
+station at every accepted increment. Generalized tool work is integrated from
+force--translation and moment--rotation pairs by the trapezoidal rule. Rejected
+increments discard their trial station; checkpoints retain only the accepted
+path and verify the schedule identity before restore. The same record appears
+in the residual summary and therefore in the Step/SimulationResult evidence.
+The ordinary throttled transient progress event also reports pair count,
+active-point count, maximum penetration, contact-force norm, accepted tool
+work, and latest interval power. These are scalar metrics in the bounded
+execution-event recorder; they
+do not retain per-point arrays at every increment or bypass `print_every`.
+Several bounded contact pairs can be composed by using one contact
+residual as the next pair's base residual. Time updates, commit/rollback,
+per-pair evidence, summed contact potential/work, and nested checkpoint State
+then follow the same residual chain; every pair should have a distinct name
+and schedule identity. A serial acceptance combines an analytical tool and a
+triangulated tool through this same route; no two-tool special solver is used.
+
+The same explicit consumer also accepts the reviewed serial or routed
+distributed triangle BVH as its projector. A moving triangulated rigid tool is
+reprojected at every residual evaluation, so stable slave-point IDs may change
+their closest surface-facet IDs during finite sliding. Serial and two-rank
+tests cover that facet crossing, packed rank-AABB routing, rank-canonical
+accepted work, and the absence of spurious normal work under purely tangential
+tool translation. Projection remains evaluation-local and is recomputed after
+restart from accepted displacement and schedule time. This route still does
+not claim automatic contact spectral estimation, arbitrary topology, multiple
+distributed tools in one broad phase, friction, free rigid-body dynamics, or
+an implicit consistent tangent.
 
 The parallel vector ordering follows PETSc's finite-element contract:
 [`ADD_VALUES` with reverse scatter](https://petsc.org/release/manual/vec/)
@@ -362,13 +399,14 @@ restart rejects changed mesh/function-space identity, loads, constraints, time
 inputs, or nonlinear controls. The same accepted state can be resumed with a
 different compatible MPI partition or rank count.
 
-This route has no surface search, finite sliding, friction, multiple contact
-pairs, free rigid-body dynamics, or deformable-to-deformable coupling. The
-moving surface remains one analytical plane. It rejects incompatible boundary
-providers and constraint types before assembly. The penalty has units of
-traction per length and must therefore be selected and checked by mesh
-refinement for the problem at hand. General contact remains a separate future
-provider.
+This route has no friction, free rigid-body dynamics, deformable-to-deformable
+coupling, implicit consistent linearization, or shared broad phase for several
+distributed tools. Its reviewed moving geometries are one analytical surface
+or one oriented triangulated rigid surface per pair. It rejects incompatible
+boundary providers and constraint types before assembly. The penalty has units
+of traction per length and must therefore be selected and checked by mesh
+refinement for the problem at hand. General industrial contact remains a
+separate scientific promotion.
 
 ## Declare the numerical unit contract
 
