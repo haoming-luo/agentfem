@@ -311,6 +311,16 @@ pointwise response, not an assembled finite-element contact element: a backend
 must still own boundary trace interpolation, quadrature, assembly, and a
 geometry-consistent linearization.
 
+The next ownership boundary is `ContactTrace`: a backend supplies stable point
+IDs, node interpolation, quadrature weights, and an explicit reference/current
+measure declaration. `ContactTrace.evaluate(...)` produces the current slave
+points; its assembly route then requires both the matching
+`ContactProjectionRecord` and local penalty response before it will integrate
+nodal residual, conservative potential, contact resultant, and optional tool
+moment. Identity or coordinate mismatches fail before assembly. This reference
+route still supplies no Newton linearization and is therefore not, by itself,
+an implicit general-contact solver.
+
 Pass `checkpoint=checkpointing.every(...)` to `model.step(...)` when a long
 load path must be restartable. Only accepted load boundaries are published.
 The portable checkpoint keeps the displacement, increment/cutback ledger,

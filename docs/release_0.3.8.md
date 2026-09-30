@@ -59,6 +59,15 @@ trace interpolation, quadrature, global assembly, and geometry-consistent
 linearization remain required before AgentFEM can claim a general implicit
 contact Operator.
 
+A backend-neutral `ContactTrace` now defines the next hand-off without
+hard-coding one element family. It binds stable point IDs to node interpolation,
+positive quadrature weights, and an explicit reference/current measure, then
+integrates a matching projection record and point response into nodal residual,
+penalty potential, contact resultant, and optional tool moment. It rejects
+identity, coordinate, or response mismatches before assembly. This is the
+reference trace contract; a production DOLFINx adapter and consistent implicit
+linearization remain outstanding.
+
 ## Time and restart semantics
 
 Time-dependent inputs now declare whether they affect only the right-hand side,
