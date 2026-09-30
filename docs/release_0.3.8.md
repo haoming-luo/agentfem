@@ -34,8 +34,12 @@ translation/rotation schedule. It evaluates the moving surface at the
 predicted displacement, publishes MPI-global force and moment, integrates only
 accepted force--translation/moment--rotation stations, rolls failed increments
 back, and restores the accepted work path from transient checkpoints. Serial
-restart and two-rank canonical-State tests protect that lifecycle. The caller
-still owns a conservative contact stability ceiling. Bounded rigid pairs
+restart and two-rank canonical-State tests protect that lifecycle. The bounded
+DOLFINx route can now derive a conservative contact spectral contribution
+from its trace, both penalty channels, Coulomb pressure-cap coupling, and the
+actual lumped mass for fixed-normal or piecewise-planar projectors; the
+Procedure adds it to the body/material spectral bound before selecting the
+time increment. Bounded rigid pairs
 compose through the residual chain: accepted time, rollback, per-pair
 force/moment, summed work/potential, and nested restart propagate without a
 forming-specific solver; a mixed analytical-plus-triangulated pair test uses
@@ -56,8 +60,8 @@ force norm, prescribed-motion work, and interval power through the existing
 bounded/throttled
 progress lifecycle; no per-point history is accumulated implicitly.
 
-General multi-tool candidate routing, arbitrary surface topology, friction,
-free rigid-body dynamics, deformable-to-deformable contact, and forming are not
+General multi-tool candidate routing, arbitrary surface topology, free
+rigid-body dynamics, deformable-to-deformable contact, and forming are not
 inferred from this evidence. They remain explicit future capabilities.
 
 The 0.4 foundation work now also defines a solver-neutral accepted/trial

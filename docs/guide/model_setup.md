@@ -339,10 +339,25 @@ vector, reverse-added to their owners, and only then added to the already
 assembled bulk owned entries. This ordering prevents a second accumulation of
 bulk ghost contributions.
 
-The caller must supply `maximum_stable_time_increment`; construction of an
-explicit Step rejects a larger `dt`. This is intentional: penalty contact adds
-stiffness and can reduce the critical central-difference step below the body
-wave estimate. A fixed surface remains the default. For one proportional
+Pass the Step's `LumpedMassOperator` as `lumped_mass=` to screen the additional
+contact stability limit automatically. AgentFEM forms a conservative
+mass-scaled absolute row-sum bound from trace interpolation, quadrature,
+normal penalty, optional tangential penalty, and Coulomb pressure-cap coupling,
+reverse-accumulates ghost rows, and records the selected limit. The reviewed
+automatic path accepts fixed-normal and piecewise-planar projectors; curved
+normal geometry requires an explicit ceiling until geometric stiffness is
+included. A caller may instead provide
+`maximum_stable_time_increment`. For automatic whole-system selection, also
+pass the unsafed body/material/interface limit as
+`noncontact_unsafed_stability_limit=`;
+AgentFEM converts it back to a spectral upper bound, adds the contact
+contribution, and only then applies the safety factor. Taking the smaller of
+separate body and contact time limits is not conservative. If a caller ceiling
+is also supplied, the stricter combined limit wins. Construction of an
+explicit Step rejects a larger `dt`.
+This is intentional: penalty contact adds stiffness and can reduce the
+critical central-difference step below the body-wave estimate. A fixed surface
+remains the default. For one proportional
 prescribed rigid path, construct `prescribed_rigid_motion_schedule(...)` and
 bind it with the scientific surface in `rigid_body(...)`. Pass that immutable
 asset with the slave `BoundaryRegion` and scalar penalty in
@@ -379,8 +394,9 @@ their closest surface-facet IDs during finite sliding. Serial and two-rank
 tests cover that facet crossing, packed rank-AABB routing, rank-canonical
 accepted work, and the absence of spurious normal work under purely tangential
 tool translation. Projection remains evaluation-local and is recomputed after
-restart from accepted displacement and schedule time. This route still does
-not claim automatic contact spectral estimation, arbitrary topology, multiple
+restart from accepted displacement and schedule time. The contact-only
+stability screen is conservative rather than an exact global eigenanalysis.
+This route still does not claim arbitrary topology, multiple
 distributed tools in one broad phase, free rigid-body dynamics, or an implicit
 consistent tangent.
 
@@ -415,7 +431,13 @@ without copying Abaqus-specific solver ownership into AgentFEM.
 The parallel vector ordering follows PETSc's finite-element contract:
 [`ADD_VALUES` with reverse scatter](https://petsc.org/release/manual/vec/)
 accumulates ghost contributions onto the owning rank. Penalty-contact effects
-on explicit stability are discussed, for example, by
+on explicit stability follow the central-difference spectral restriction
+described in the
+[Abaqus explicit-dynamics theory](https://docs.software.vt.edu/abaqusv2025/English/SIMACAETHERefMap/simathe-c-expdynamic.htm)
+and its warning that penalty enforcement may reduce the stable increment in
+the
+[explicit-contact documentation](https://docs.software.vt.edu/abaqusv2025/English/SIMACAEITNRefMap/simaitn-c-expcontactconstraints.htm).
+The interface contribution is also discussed, for example, by
 [Otto et al. (2020)](https://doi.org/10.1002/nme.6264).
 
 Pass `checkpoint=checkpointing.every(...)` to `model.step(...)` when a long
@@ -433,10 +455,11 @@ distributed tools. Its reviewed moving geometries are one analytical surface
 or one oriented triangulated rigid surface per pair. It rejects incompatible
 boundary providers and constraint types before assembly. The penalty has units
 of traction per length and must therefore be selected and checked by mesh
-refinement for the problem at hand. For frictional pairs the declared explicit
-stability ceiling must cover both normal and tangential penalty stiffness.
-General industrial contact remains a separate scientific promotion until an
-external sliding benchmark and automatic spectral screening pass.
+refinement for the problem at hand. For frictional pairs the automatic contact
+screen covers both normal and tangential penalty stiffness, but penalty and
+time-step sensitivity still require refinement evidence. General industrial
+contact remains a separate scientific promotion until an external sliding
+benchmark and forming-relevant validation pass.
 
 ## Declare the numerical unit contract
 

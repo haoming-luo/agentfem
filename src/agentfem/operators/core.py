@@ -46,6 +46,7 @@ class LumpedMassOperator:
 
     mass: np.ndarray
     inv_mass: np.ndarray
+    function_space: object | None = field(default=None, repr=False, compare=False)
 
     @classmethod
     def assemble(cls, V, density=1.0, measure=None):
@@ -55,7 +56,11 @@ class LumpedMassOperator:
             mass = assembly.assemble_lumped_mass(V, density)
         else:
             mass = assembly.assemble_lumped_mass(V, density, measure=measure)
-        return cls(mass=mass, inv_mass=assembly.inverse_diagonal(mass))
+        return cls(
+            mass=mass,
+            inv_mass=assembly.inverse_diagonal(mass),
+            function_space=V,
+        )
 
 
 @dataclass(frozen=True)

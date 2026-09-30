@@ -37,6 +37,11 @@ from .contact_response import (
     FrictionlessPenaltyContactLaw,
     frictionless_penalty_contact_law,
 )
+from .contact_stability import (
+    CombinedExplicitStabilityEstimate,
+    ContactStabilityEstimate,
+    combine_explicit_stability_bounds,
+)
 from .contact_trace import ContactTraceAssembly
 from .contact_work import (
     PrescribedContactWorkState,
@@ -44,6 +49,9 @@ from .contact_work import (
     PrescribedRigidMotionSchedule,
 )
 from .dolfinx_contact_trace import DolfinxContactTraceAdapter
+from .dolfinx_contact_stability import (
+    estimate_dolfinx_contact_stability,
+)
 from .rigid import _readonly_array
 from .rigid_body import RigidBody
 
@@ -220,9 +228,11 @@ class DolfinxExplicitContactResidual:
 
     The adapter owns no time integration.  ``ExplicitDynamicsStep`` evaluates
     it after displacement prediction and kinematic projection, then accepts or
-    rejects its projection trial with the surrounding increment.  A declared
-    contact stability limit is mandatory because a penalty spring can reduce
-    the central-difference critical time step below the body-wave estimate.
+    rejects its projection trial with the surrounding increment.  Its contact
+    stability ceiling is either declared by the caller or produced by adding
+    the trace/mass contact spectral contribution to an independent non-contact
+    spectral bound. A penalty spring can reduce the central-difference
+    critical time step below the body-wave estimate.
     """
 
     def __init__(
@@ -235,6 +245,9 @@ class DolfinxExplicitContactResidual:
         law: FrictionlessPenaltyContactLaw,
         friction_law: PenaltyCoulombFrictionLaw | None = None,
         maximum_stable_time_increment: float,
+        contact_stability_estimate: ContactStabilityEstimate | None = None,
+        combined_stability_estimate: CombinedExplicitStabilityEstimate | None = None,
+        declared_maximum_stable_time_increment: float | None = None,
         contact_pair: RigidContactPair | None = None,
         rigid_body: RigidBody | None = None,
         motion_schedule: PrescribedRigidMotionSchedule | None = None,
@@ -267,6 +280,47 @@ class DolfinxExplicitContactResidual:
             raise ValueError(
                 "maximum_stable_time_increment must be finite and positive."
             )
+        if contact_stability_estimate is not None:
+            if not isinstance(contact_stability_estimate, ContactStabilityEstimate):
+                raise TypeError(
+                    "contact_stability_estimate must be ContactStabilityEstimate."
+                )
+            tolerance = 64.0 * np.finfo(float).eps * contact_stability_estimate.selected
+            if limit > contact_stability_estimate.selected + tolerance:
+                raise ValueError(
+                    "Explicit contact limit exceeds its automatic stability estimate."
+                )
+        if combined_stability_estimate is not None:
+            if not isinstance(
+                combined_stability_estimate,
+                CombinedExplicitStabilityEstimate,
+            ):
+                raise TypeError(
+                    "combined_stability_estimate must be "
+                    "CombinedExplicitStabilityEstimate."
+                )
+            tolerance = (
+                64.0
+                * np.finfo(float).eps
+                * combined_stability_estimate.selected
+            )
+            if limit > combined_stability_estimate.selected + tolerance:
+                raise ValueError(
+                    "Explicit contact limit exceeds its combined non-contact/contact "
+                    "stability estimate."
+                )
+        declared_limit = declared_maximum_stable_time_increment
+        if declared_limit is not None:
+            declared_limit = float(declared_limit)
+            if not np.isfinite(declared_limit) or declared_limit <= 0.0:
+                raise ValueError(
+                    "declared_maximum_stable_time_increment must be finite and positive."
+                )
+            tolerance = 64.0 * np.finfo(float).eps * declared_limit
+            if limit > declared_limit + tolerance:
+                raise ValueError(
+                    "Explicit contact limit exceeds its caller-declared ceiling."
+                )
         options = {} if projection_options is None else dict(projection_options)
         if any(not isinstance(key, str) or not key for key in options):
             raise ValueError("Contact projection option names must be non-empty strings.")
@@ -341,6 +395,9 @@ class DolfinxExplicitContactResidual:
             None if friction_law is None else TangentialKinematicState()
         )
         self.maximum_stable_time_increment = limit
+        self.contact_stability_estimate = contact_stability_estimate
+        self.combined_stability_estimate = combined_stability_estimate
+        self.declared_maximum_stable_time_increment = declared_limit
         self.contact_pair = contact_pair
         self.rigid_body = rigid_body
         self.motion_schedule = motion_schedule
@@ -369,8 +426,22 @@ class DolfinxExplicitContactResidual:
     def communicator(self):
         return self.adapter.communicator
 
+    @property
+    def stability_controller(self) -> str:
+        """Return which contact ceiling controls the explicit residual."""
+
+        combined = self.combined_stability_estimate
+        if combined is None:
+            return "caller_declared"
+        declared = self.declared_maximum_stable_time_increment
+        if declared is not None:
+            tolerance = 64.0 * np.finfo(float).eps * declared
+            if declared < combined.selected - tolerance:
+                return "caller_declared"
+        return "combined_spectral_bound"
+
     def validate_time_increment(self, dt: float) -> None:
-        """Reject a step exceeding the separately screened contact limit."""
+        """Reject a step exceeding the selected whole-system ceiling."""
 
         selected = float(dt)
         if not np.isfinite(selected) or selected <= 0.0:
@@ -1014,10 +1085,28 @@ class DolfinxExplicitContactResidual:
                 else "prescribed_proportional_rigid_motion"
             ),
             "maximum_stable_time_increment": self.maximum_stable_time_increment,
+            "declared_maximum_stable_time_increment": (
+                self.declared_maximum_stable_time_increment
+            ),
             "stability": (
-                "caller_supplied_normal_contact_limit_enforced"
-                if self.friction_law is None
-                else "caller_supplied_normal_and_tangential_contact_limit_enforced"
+                (
+                    "caller_supplied_normal_contact_limit_enforced"
+                    if self.friction_law is None
+                    else "caller_supplied_normal_and_tangential_contact_limit_enforced"
+                )
+                if self.contact_stability_estimate is None
+                else "automatic_contact_spectral_bound_available"
+            ),
+            "stability_controller": self.stability_controller,
+            "contact_stability_estimate": (
+                None
+                if self.contact_stability_estimate is None
+                else self.contact_stability_estimate.summary()
+            ),
+            "combined_stability_estimate": (
+                None
+                if self.combined_stability_estimate is None
+                else self.combined_stability_estimate.summary()
             ),
             "parallel_assembly": "ghost_reverse_add_then_owned_accumulation",
             "projection_update": "every_residual_evaluation",
@@ -1068,14 +1157,23 @@ def dolfinx_explicit_contact_residual(
     rigid_body=None,
     contact_pair=None,
     penalty=None,
-    maximum_stable_time_increment,
+    maximum_stable_time_increment=None,
+    lumped_mass=None,
+    noncontact_unsafed_stability_limit=None,
+    contact_stability_safety_factor: float = 0.8,
     motion_schedule=None,
     invalid_policy: str = "reject",
     surface_reference_point=None,
     projection_options=None,
     name: str = "dolfinx_explicit_contact_residual",
 ) -> DolfinxExplicitContactResidual:
-    """Build the reviewed first explicit contact residual consumer."""
+    """Build the reviewed first explicit contact residual consumer.
+
+    Pass ``lumped_mass`` to derive a conservative contact spectral bound.
+    Automatic time-step selection additionally requires the unsafed
+    non-contact stability limit so the spectral bounds are added before
+    selecting ``dt``. A caller-declared whole-system ceiling may be stricter.
+    """
 
     if contact_pair is not None:
         if not isinstance(contact_pair, RigidContactPair):
@@ -1133,6 +1231,82 @@ def dolfinx_explicit_contact_residual(
             )
     if projector is None:
         raise ValueError("Explicit contact requires projector or rigid_body.")
+    stability_estimate = None
+    combined_stability_estimate = None
+    declared_limit = maximum_stable_time_increment
+    if lumped_mass is not None:
+        projector_kind = projector.summary().get("kind")
+        reviewed_stability_geometries = {
+            "rigid_plane_surface",
+            "triangulated_rigid_surface",
+            "triangle_surface_bvh",
+            "distributed_triangle_surface_bvh",
+            "routed_distributed_triangle_surface_bvh",
+        }
+        if projector_kind not in reviewed_stability_geometries:
+            raise NotImplementedError(
+                "Automatic contact stability screening currently requires a "
+                "fixed-normal or piecewise-planar reviewed projector; provide "
+                "maximum_stable_time_increment for other geometry."
+            )
+        stability_estimate = estimate_dolfinx_contact_stability(
+            adapter=adapter,
+            lumped_mass=lumped_mass,
+            normal_penalty=law.penalty,
+            tangential_penalty=(
+                None
+                if friction_law is None
+                else friction_law.tangential_penalty
+            ),
+            friction_coefficient=(
+                0.0 if friction_law is None else friction_law.coefficient
+            ),
+            safety_factor=contact_stability_safety_factor,
+        )
+        if noncontact_unsafed_stability_limit is not None:
+            combined_stability_estimate = combine_explicit_stability_bounds(
+                stability_estimate,
+                noncontact_unsafed_limit=noncontact_unsafed_stability_limit,
+                safety_factor=contact_stability_safety_factor,
+            )
+        if maximum_stable_time_increment is None:
+            if combined_stability_estimate is None:
+                raise ValueError(
+                    "Automatic explicit contact time-step selection requires "
+                    "noncontact_unsafed_stability_limit so non-contact and "
+                    "contact spectral bounds can be combined."
+                )
+            maximum_stable_time_increment = combined_stability_estimate.selected
+        elif combined_stability_estimate is not None:
+            maximum_stable_time_increment = min(
+                float(maximum_stable_time_increment),
+                combined_stability_estimate.selected,
+            )
+        else:
+            maximum_stable_time_increment = min(
+                float(maximum_stable_time_increment),
+                stability_estimate.selected,
+            )
+    elif noncontact_unsafed_stability_limit is not None:
+        raise ValueError(
+            "noncontact_unsafed_stability_limit requires lumped_mass so the "
+            "contact spectral contribution can be assembled."
+        )
+    elif maximum_stable_time_increment is None:
+        raise ValueError(
+            "Explicit contact requires either maximum_stable_time_increment "
+            "or lumped_mass for automatic stability screening."
+        )
+    elif not np.isclose(
+        float(contact_stability_safety_factor),
+        0.8,
+        rtol=0.0,
+        atol=0.0,
+    ):
+        raise ValueError(
+            "contact_stability_safety_factor requires lumped_mass; it does not "
+            "modify a caller-declared ceiling."
+        )
     lifecycle = ContactProjectionLifecycle(projector, adapter.trace.point_ids)
     return DolfinxExplicitContactResidual(
         base,
@@ -1142,6 +1316,9 @@ def dolfinx_explicit_contact_residual(
         law=law,
         friction_law=friction_law,
         maximum_stable_time_increment=maximum_stable_time_increment,
+        contact_stability_estimate=stability_estimate,
+        combined_stability_estimate=combined_stability_estimate,
+        declared_maximum_stable_time_increment=declared_limit,
         contact_pair=contact_pair,
         rigid_body=rigid_body,
         motion_schedule=motion_schedule,

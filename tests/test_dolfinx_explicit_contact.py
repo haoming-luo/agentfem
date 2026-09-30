@@ -117,6 +117,196 @@ def _contact(
     return domain, displacement, residual
 
 
+def test_contact_stability_estimate_is_mass_penalty_and_mpi_aware():
+    domain = _cube(MPI.COMM_WORLD)
+    function_space = _vector_space(domain)
+    adapter = boundary_models.dolfinx_boundary_region_contact_trace(
+        _left_region(domain),
+        function_space,
+    )
+    mass = operators.LumpedMassOperator.assemble(function_space, density=1.0)
+
+    baseline = boundary_models.estimate_dolfinx_contact_stability(
+        adapter=adapter,
+        lumped_mass=mass,
+        normal_penalty=200.0,
+        safety_factor=0.8,
+    )
+    stiffer = boundary_models.estimate_dolfinx_contact_stability(
+        adapter=adapter,
+        lumped_mass=mass,
+        normal_penalty=800.0,
+        safety_factor=0.8,
+    )
+    frictional = boundary_models.estimate_dolfinx_contact_stability(
+        adapter=adapter,
+        lumped_mass=mass,
+        normal_penalty=200.0,
+        tangential_penalty=800.0,
+        friction_coefficient=0.25,
+        safety_factor=0.8,
+    )
+
+    assert baseline.point_count > 0
+    assert baseline.selected > 0.0
+    assert baseline.mass_compatibility == "function_space_identity"
+    assert stiffer.selected == pytest.approx(0.5 * baseline.selected)
+    assert frictional.selected == pytest.approx(
+        np.sqrt(200.0 / 1050.0) * baseline.selected
+    )
+    assert frictional.tangential_penalty_maximum == 800.0
+    assert frictional.friction_coefficient == 0.25
+    gathered = domain.comm.allgather(baseline.summary())
+    assert all(item == gathered[0] for item in gathered)
+
+    serial_domain = _cube(MPI.COMM_SELF)
+    serial_space = _vector_space(serial_domain)
+    serial_adapter = boundary_models.dolfinx_boundary_region_contact_trace(
+        _left_region(serial_domain),
+        serial_space,
+    )
+    serial_mass = operators.LumpedMassOperator.assemble(serial_space, density=1.0)
+    serial = boundary_models.estimate_dolfinx_contact_stability(
+        adapter=serial_adapter,
+        lumped_mass=serial_mass,
+        normal_penalty=200.0,
+        safety_factor=0.8,
+    )
+    assert baseline.selected == pytest.approx(serial.selected)
+    assert baseline.spectral_radius_upper_bound == pytest.approx(
+        serial.spectral_radius_upper_bound
+    )
+
+
+def test_contact_stability_rejects_mass_from_another_space_instance():
+    domain = _cube(MPI.COMM_SELF)
+    function_space = _vector_space(domain)
+    adapter = boundary_models.dolfinx_boundary_region_contact_trace(
+        _left_region(domain),
+        function_space,
+    )
+    other_mass = operators.LumpedMassOperator.assemble(
+        _vector_space(domain),
+        density=1.0,
+    )
+
+    with pytest.raises(ValueError, match="same function-space instance"):
+        boundary_models.estimate_dolfinx_contact_stability(
+            adapter=adapter,
+            lumped_mass=other_mass,
+            normal_penalty=200.0,
+        )
+
+
+def test_explicit_contact_factory_can_select_automatic_stability_limit():
+    domain = _cube(MPI.COMM_SELF)
+    function_space = _vector_space(domain)
+    displacement = fem.Function(function_space, name="Displacement")
+    adapter = boundary_models.dolfinx_boundary_region_contact_trace(
+        _left_region(domain),
+        function_space,
+    )
+    mass = operators.LumpedMassOperator.assemble(function_space, density=1.0)
+    residual = boundary_models.dolfinx_explicit_contact_residual(
+        _bulk_residual(domain, function_space, (0.0, 0.0, 0.0)),
+        adapter=adapter,
+        displacement=displacement,
+        projector=boundary_models.rigid_plane(
+            point=(0.05, 0.0, 0.0),
+            normal=(-1.0, 0.0, 0.0),
+        ),
+        penalty=200.0,
+        lumped_mass=mass,
+        noncontact_unsafed_stability_limit=0.25,
+        contact_stability_safety_factor=0.75,
+    )
+
+    summary = residual.summary()
+    assert summary["stability"] == "automatic_contact_spectral_bound_available"
+    assert summary["stability_controller"] == "combined_spectral_bound"
+    assert summary["declared_maximum_stable_time_increment"] is None
+    assert summary["contact_stability_estimate"]["safety_factor"] == 0.75
+    combined = summary["combined_stability_estimate"]
+    assert combined["noncontact_unsafed_limit"] == 0.25
+    assert residual.maximum_stable_time_increment == pytest.approx(
+        combined["selected"]
+    )
+
+
+def test_explicit_contact_factory_takes_stricter_declared_limit():
+    domain = _cube(MPI.COMM_SELF)
+    function_space = _vector_space(domain)
+    displacement = fem.Function(function_space, name="Displacement")
+    adapter = boundary_models.dolfinx_boundary_region_contact_trace(
+        _left_region(domain),
+        function_space,
+    )
+    mass = operators.LumpedMassOperator.assemble(function_space, density=1.0)
+    residual = boundary_models.dolfinx_explicit_contact_residual(
+        _bulk_residual(domain, function_space, (0.0, 0.0, 0.0)),
+        adapter=adapter,
+        displacement=displacement,
+        projector=boundary_models.rigid_plane(
+            point=(0.05, 0.0, 0.0),
+            normal=(-1.0, 0.0, 0.0),
+        ),
+        penalty=200.0,
+        lumped_mass=mass,
+        noncontact_unsafed_stability_limit=0.25,
+        maximum_stable_time_increment=1.0e-8,
+    )
+
+    assert residual.maximum_stable_time_increment == pytest.approx(1.0e-8)
+    assert residual.summary()["stability_controller"] == "caller_declared"
+    declared = residual.summary()["declared_maximum_stable_time_increment"]
+    assert declared == pytest.approx(1.0e-8)
+
+
+def test_explicit_contact_factory_rejects_contact_only_automatic_limit():
+    domain = _cube(MPI.COMM_SELF)
+    function_space = _vector_space(domain)
+    displacement = fem.Function(function_space, name="Displacement")
+    adapter = boundary_models.dolfinx_boundary_region_contact_trace(
+        _left_region(domain),
+        function_space,
+    )
+    mass = operators.LumpedMassOperator.assemble(function_space, density=1.0)
+
+    with pytest.raises(ValueError, match="noncontact_unsafed_stability_limit"):
+        boundary_models.dolfinx_explicit_contact_residual(
+            _bulk_residual(domain, function_space, (0.0, 0.0, 0.0)),
+            adapter=adapter,
+            displacement=displacement,
+            projector=boundary_models.rigid_plane(
+                point=(0.05, 0.0, 0.0),
+                normal=(-1.0, 0.0, 0.0),
+            ),
+            penalty=200.0,
+            lumped_mass=mass,
+        )
+
+
+def test_explicit_contact_automatic_stability_rejects_curved_normal_geometry():
+    domain = _cube(MPI.COMM_SELF)
+    function_space = _vector_space(domain)
+    displacement = fem.Function(function_space, name="Displacement")
+    adapter = boundary_models.dolfinx_boundary_region_contact_trace(
+        _left_region(domain),
+        function_space,
+    )
+    mass = operators.LumpedMassOperator.assemble(function_space, density=1.0)
+
+    with pytest.raises(NotImplementedError, match="piecewise-planar"):
+        boundary_models.dolfinx_explicit_contact_residual(
+            _bulk_residual(domain, function_space, (0.0, 0.0, 0.0)),
+            adapter=adapter,
+            displacement=displacement,
+            projector=boundary_models.rigid_sphere((0.5, 0.5, 0.5), 0.25),
+            penalty=200.0,
+            lumped_mass=mass,
+        )
+
+
 def test_explicit_contact_residual_assembles_force_and_accepts_evidence():
     domain, _displacement, residual = _contact(MPI.COMM_SELF)
 

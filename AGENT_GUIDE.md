@@ -413,6 +413,15 @@ never changes solver access, results, verification, or update behavior.
 - For contact, keep surface geometry, rigid-body kinematics, and enforcement
   law separate. Report tool work only from accepted generalized
   force--translation/moment--rotation stations, never from penalty energy.
+- For explicit penalty contact, prefer the reviewed lumped-mass stability
+  screen and preserve its contact-only scope. Add its spectral upper bound to
+  the body/material spectral upper bound before converting the sum to a time
+  increment; taking the minimum of separately derived time limits is not a
+  valid composition. Apply any stricter caller ceiling afterward. Include
+  both normal and tangential penalties plus Coulomb pressure coupling. Require
+  a caller ceiling for curved-normal geometry until geometric stiffness has a
+  reviewed bound; never infer stability from penetration or from a converged
+  time history.
 - Treat a surface projection as evidence, not merely coordinates. Preserve its
   surface identity, method, admissible-side unit normal, signed-gap convention,
   validity, discrete entity identity, geometry fingerprint and local
