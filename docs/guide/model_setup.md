@@ -210,6 +210,20 @@ communication volume, and must match the exhaustive global oracle. This is a
 correctness reference, not yet scalable neighborhood routing or a general
 contact backend.
 
+For sparse rank routing over the same partition, use:
+
+```python
+search = boundary_models.routed_distributed_triangle_surface_bvh(partition, comm)
+outcome = search.project_with_diagnostics(rank_local_query_points)
+print(outcome.diagnostics.summary())
+```
+
+The routed path queries the nearest rank bounding box first and then only boxes
+that can still tie or improve the exact candidate. Its diagnostics expose the
+queried ranks and avoided messages. The current transport uses object-based
+all-to-all; the all-gather implementation remains its partition-independent
+oracle until packed numeric exchange is promoted.
+
 Pass `checkpoint=checkpointing.every(...)` to `model.step(...)` when a long
 load path must be restartable. Only accepted load boundaries are published.
 The portable checkpoint keeps the displacement, increment/cutback ledger,

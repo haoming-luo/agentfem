@@ -431,6 +431,11 @@ never changes solver access, results, verification, or update behavior.
   facet shard per rank and reproduces the global projection contract, but uses
   all-gather communication; never describe it as scalable neighborhood search
   or executable general contact.
+- `routed_distributed_triangle_surface_bvh(partition, comm)` uses two-stage
+  rank-AABB routing and the all-gather implementation as its correctness
+  oracle. Inspect avoided-message and queried-rank evidence. Its present
+  object-based all-to-all is sparse but not the final packed numeric transport;
+  preserve that distinction in performance claims.
 - `RigidSphereSurface` and `RigidCylinderSurface` provide exact analytical
   projection. The sphere also represents a 2D circle; the cylinder is 3D and
   infinite. Keep their interior/exterior admissible side explicit, preserve
