@@ -321,6 +321,15 @@ moment. Identity or coordinate mismatches fail before assembly. This reference
 route still supplies no Newton linearization and is therefore not, by itself,
 an implicit general-contact solver.
 
+For the first reviewed DOLFINx route,
+`dolfinx_boundary_region_contact_trace(region, V)` adapts a tagged exterior
+boundary on a first-order tetrahedral mesh and a continuous blocked vector CG1
+space. It emits three positive reference-area points per triangle, keys them by
+partition-independent facet/point identity, and evaluates their current
+positions from a synchronized DOLFINx displacement field. Higher-order,
+curved, non-tetrahedral, scalar, discontinuous, and non-blocked spaces are
+rejected collectively rather than coerced into this route.
+
 Pass `checkpoint=checkpointing.every(...)` to `model.step(...)` when a long
 load path must be restartable. Only accepted load boundaries are published.
 The portable checkpoint keeps the displacement, increment/cutback ledger,
