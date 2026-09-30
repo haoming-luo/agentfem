@@ -638,6 +638,12 @@ class DolfinxExplicitContactResidual:
                 "contact_motion_work": (
                     0.0 if self.work_state is None else self.work_state.path_work
                 ),
+                "contact_motion_power": (
+                    0.0
+                    if self.work_state is None
+                    or self.work_state.latest_interval_power is None
+                    else self.work_state.latest_interval_power
+                ),
             }
         )
         return tuple(terms)

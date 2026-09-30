@@ -1442,12 +1442,16 @@ def _report_transient_increment(
                 contact_work = sum(
                     float(term["contact_motion_work"]) for term in terms
                 )
+                contact_power = sum(
+                    float(term["contact_motion_power"]) for term in terms
+                )
                 metrics.update(
                     contact_pair_count=float(len(terms)),
                     contact_active_point_count=float(contact_active),
                     contact_maximum_penetration=maximum_penetration,
                     contact_force_norm_sum=contact_force,
                     contact_motion_work=contact_work,
+                    contact_motion_power=contact_power,
                 )
                 channels.extend(
                     (
@@ -1456,6 +1460,7 @@ def _report_transient_increment(
                         f"max_pen={maximum_penetration:.3e}",
                         f"contact_force={contact_force:.3e}",
                         f"contact_work={contact_work:.3e}",
+                        f"contact_power={contact_power:.3e}",
                     )
                 )
                 invalid = sum(

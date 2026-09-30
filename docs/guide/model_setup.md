@@ -361,8 +361,9 @@ increments discard their trial station; checkpoints retain only the accepted
 path and verify the schedule identity before restore. The same record appears
 in the residual summary and therefore in the Step/SimulationResult evidence.
 The ordinary throttled transient progress event also reports pair count,
-active-point count, maximum penetration, contact-force norm, and accepted tool
-work. These are scalar metrics in the bounded execution-event recorder; they
+active-point count, maximum penetration, contact-force norm, accepted tool
+work, and latest interval power. These are scalar metrics in the bounded
+execution-event recorder; they
 do not retain per-point arrays at every increment or bypass `print_every`.
 Several bounded contact pairs can be composed by using one contact
 residual as the next pair's base residual. Time updates, commit/rollback,

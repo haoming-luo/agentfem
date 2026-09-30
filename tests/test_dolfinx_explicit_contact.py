@@ -686,6 +686,7 @@ def test_moving_triangle_bvh_tracks_facet_crossing_without_spurious_work():
     assert increments[-1].metrics["contact_active_point_count"] > 0.0
     assert increments[-1].metrics["contact_maximum_penetration"] > 0.0
     assert increments[-1].metrics["contact_motion_work"] == pytest.approx(0.0)
+    assert increments[-1].metrics["contact_motion_power"] == pytest.approx(0.0)
     assert "contact_active=" in increments[-1].message
 
 
