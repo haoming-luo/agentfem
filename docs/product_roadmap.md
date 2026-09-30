@@ -304,10 +304,14 @@ piecewise-planar geometry. It includes normal/tangential penalty stiffness,
 Coulomb pressure coupling, cross-component contact coupling, real lumped mass,
 and ghost-to-owner accumulation. It publishes contact and combined spectral
 evidence, and deliberately rejects the unsafe shortcut of taking the smaller
-of separately derived body and contact time limits. Next comes an external
-finite-sliding benchmark, using the public Abaqus deformable-body/rigid-surface
-verification family as an independent target rather than introducing a
-forming-specific solver. Distributed
+of separately derived body and contact time limits. The external
+finite-sliding gate is now fixed to the public Abaqus/Explicit
+deformable-body/rigid-surface family rather than a forming-specific solver.
+Its source parameters, two-stage protocol and force/friction assessor are
+machine-readable, while the registry explicitly retains
+`external_full_fem_gate_defined_not_run`: the complete deformable solve,
+time-step/mesh refinement, and serial/MPI endpoint evidence remain the next
+promotion step. Distributed
 multi-tool candidate routing, measured extreme-scale behavior, arbitrary
 topology, and implicit friction linearization follow that bounded route. STEP
 remains an optional geometry-adapter input that is repaired and tessellated

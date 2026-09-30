@@ -1486,6 +1486,10 @@ and evidence remain in the linked guides and scientific function reference.
 | class | `CenterCrackLEFMBenchmark` | One solved center-crack model and its independently extracted evidence. |
 | function | `center_crack_lefm_mesh(*, half_crack_length: float = 1.0, half_width: float = 8.0, half_height: float = 8.0, comm = MPI.COMM_SELF)` | Build the serial, conforming split mesh used by the LEFM benchmark. |
 | function | `center_crack_mode_i_benchmark(*, young_modulus: float = 1000.0, poisson_ratio: float = 0.25, half_crack_length: float = 1.0, half_width: float = 8.0, half_height: float = 8.0, remote_strain: float = 0.001, relative_tolerance: float = 0.05) -> CenterCrackLEFMBenchmark` | Solve and verify a finite-plate Mode-I crack with the public workflow. |
+| class | `FiniteSlidingContactAssessment` | Force, friction, search, and energy evidence for one sliding state. |
+| class | `FiniteSlidingContactReference` | Public two-stage contact protocol and its declared invariants. |
+| function | `abaqus_explicit_finite_sliding_reference() -> FiniteSlidingContactReference` | Return the public Abaqus/Explicit B31 finite-sliding protocol. |
+| function | `assess_finite_sliding_contact(*, contact_force_on_structure, contact_force_on_surface, admissible_normal, young: float, poisson: float, density: float, applied_normal_load: float, friction_coefficient: float, sliding_displacement: float, active_point_count: int, sliding_point_count: int, invalid_point_count: int, friction_dissipation: float, facet_crossing_count: int = 0, require_facet_crossing: bool = False, force_tolerance: float = 1e-08, reference: FiniteSlidingContactReference \| None = None) -> FiniteSlidingContactAssessment` | Assess external-protocol invariants from accepted contact evidence. |
 
 ## `agentfem.dependencies`
 

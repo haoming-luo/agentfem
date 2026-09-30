@@ -241,6 +241,36 @@ _BENCHMARKS = (
         automated_test="tests/test_operators.py",
     ),
     BenchmarkSpec(
+        identifier="abaqus_explicit_deformable_rigid_finite_sliding",
+        capability="explicit_rigid_contact",
+        level="external_protocol_and_component_evidence",
+        reference=(
+            "knowledge/benchmarks/"
+            "abaqus_explicit_finite_sliding_contact.json"
+        ),
+        criterion=(
+            "the public two-stage Abaqus protocol establishes frictionless "
+            "normal contact before activating mu=0.3 and prescribed sliding; "
+            "accepted AgentFEM evidence must close normal balance, the "
+            "Coulomb cap, action-reaction, nonnegative dissipation, stable "
+            "finite-slide identity and serial/MPI agreement"
+        ),
+        automated_test=(
+            "tests/test_external_contact_benchmark.py; "
+            "tests/test_dolfinx_explicit_contact.py -k "
+            "'moving_triangle or friction or moving_routed'"
+        ),
+        status="external_full_fem_gate_defined_not_run",
+        evidence=(
+            "external_reference",
+            "operator",
+            "finite_sliding",
+            "friction",
+            "failure_behavior",
+            "mpi_component_evidence",
+        ),
+    ),
+    BenchmarkSpec(
         identifier="neo_hookean_energy_gradient",
         capability="neo_hookean",
         level="material_point_and_finite_element",

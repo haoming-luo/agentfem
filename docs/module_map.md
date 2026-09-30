@@ -69,7 +69,7 @@ otherwise; runnable examples remain in the repository-level `examples/`.
 | Reactions, work/energy, thermal balance, progress, and distributed diagnostics | `diagnostics.py`, `results/quantities.py` |
 | Output writers and scalar logs | `io.py` |
 | Element and integration policies | `elements/` |
-| Test-linked verification obligations | `benchmarks/` |
+| Test-linked verification obligations, including fixed external-reference protocols and fail-closed assessors | `benchmarks/`, `benchmarks/contact_sliding.py` |
 | Versioned external scientific contracts | `integrations/` |
 | Runnable workflows | `examples/` |
 | Versioned AF-IR scientific records | `ir/` |

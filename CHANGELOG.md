@@ -8,6 +8,15 @@ experimental formulation to a validated one.
 
 ### Added
 
+- Add a fixed external finite-sliding contact verification contract from the
+  public Abaqus/Explicit deformable-body/rigid-surface family. The contract
+  preserves the two-stage normal-contact then frictional-sliding protocol,
+  fixed source parameters and URLs, and a fail-closed assessor for normal
+  balance, the Coulomb cap, action-reaction, projection validity, finite-slide
+  facet crossings, and nonnegative dissipation. It is recorded honestly as a
+  defined external gate with component evidence; the complete deformable FEM
+  comparison and refinement evidence remain pending.
+
 - Add one Procedure-owned explicit-stability composition contract. Body,
   material, cohesive-interface, and contact estimators now contribute named
   equivalent spectral upper bounds; the Procedure adds those bounds before
