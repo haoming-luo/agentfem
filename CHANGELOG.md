@@ -8,6 +8,17 @@ experimental formulation to a validated one.
 
 ### Added
 
+- Promote the bounded penalty-Coulomb law into the reviewed DOLFINx explicit
+  contact Operator. Stable slave IDs now drive objective slave-minus-master
+  displacement increments for fixed, translating, or rotating rigid tools;
+  normal and tangential residuals, rigid force/moment, stick/slip counts,
+  recoverable penalty energy, irreversible sliding dissipation, and separation
+  release enter one accepted-state lifecycle. Friction history checkpoints are
+  rank-canonical and restore by global point identity, including empty MPI
+  shards. The caller-supplied stability ceiling must include both normal and
+  tangential penalty stiffness; automatic spectral estimation and an implicit
+  tangent remain explicit later gates.
+
 - Add the first Procedure-consumed general-contact slice for explicit
   dynamics. A reviewed DOLFINx tetrahedral-CG1 slave trace can now perform
   exact projection, evaluate the solver-neutral frictionless penalty law,

@@ -1445,6 +1445,16 @@ def _report_transient_increment(
                 contact_power = sum(
                     float(term["contact_motion_power"]) for term in terms
                 )
+                sticking = sum(
+                    int(term.get("sticking_point_count", 0)) for term in terms
+                )
+                sliding = sum(
+                    int(term.get("sliding_point_count", 0)) for term in terms
+                )
+                friction_dissipation = sum(
+                    float(term.get("contact_friction_dissipation", 0.0))
+                    for term in terms
+                )
                 metrics.update(
                     contact_pair_count=float(len(terms)),
                     contact_active_point_count=float(contact_active),
@@ -1452,6 +1462,9 @@ def _report_transient_increment(
                     contact_force_norm_sum=contact_force,
                     contact_motion_work=contact_work,
                     contact_motion_power=contact_power,
+                    contact_sticking_point_count=float(sticking),
+                    contact_sliding_point_count=float(sliding),
+                    contact_friction_dissipation=friction_dissipation,
                 )
                 channels.extend(
                     (
@@ -1461,6 +1474,8 @@ def _report_transient_increment(
                         f"contact_force={contact_force:.3e}",
                         f"contact_work={contact_work:.3e}",
                         f"contact_power={contact_power:.3e}",
+                        f"stick/slide={sticking}/{sliding}",
+                        f"friction_diss={friction_dissipation:.3e}",
                     )
                 )
                 invalid = sum(

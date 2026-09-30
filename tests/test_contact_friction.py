@@ -208,3 +208,128 @@ def test_friction_contract_refuses_invalid_parameters_and_claims_no_implicit_tan
     law = boundary_models.penalty_coulomb_friction_law(0.2, 100.0)
     assert law.summary()["linearization"] == "not_provided"
     assert law.summary()["intended_procedure"] == "explicit"
+
+
+def _projection_record(point_ids, query, closest, *, normal=(0.0, 1.0, 0.0)):
+    count = len(point_ids)
+    projection = boundary_models.SurfaceProjection(
+        surface_name="tool",
+        surface_kind="test_surface",
+        query_points=query,
+        closest_points=closest,
+        normals=np.tile(np.asarray(normal, dtype=float), (count, 1)),
+        signed_gaps=np.zeros(count),
+        valid=np.ones(count, dtype=bool),
+        status_codes=np.full(count, "ok"),
+        method="test_projection",
+    )
+    return boundary_models.ContactProjectionRecord(point_ids, projection)
+
+
+def test_relative_contact_increment_preserves_fixed_master_and_stable_identity():
+    accepted = _projection_record(
+        (9, 2),
+        ((1.0, 0.0, 0.0), (0.0, 0.0, 0.0)),
+        ((1.0, 0.0, 0.0), (0.0, 0.0, 0.0)),
+    )
+    current = _projection_record(
+        (2, 9),
+        ((0.3, 0.0, 0.0), (1.2, 0.0, 0.0)),
+        ((0.0, 0.0, 0.0), (1.0, 0.0, 0.0)),
+    )
+
+    increment = boundary_models.relative_contact_displacement_increment(
+        accepted,
+        current,
+    )
+
+    np.testing.assert_allclose(increment, ((0.3, 0.0, 0.0), (0.2, 0.0, 0.0)))
+    assert not increment.flags.writeable
+
+
+def test_relative_contact_increment_removes_prescribed_master_translation():
+    accepted = _projection_record(
+        (1,),
+        ((0.0, 0.0, 0.0),),
+        ((0.0, 0.0, 0.0),),
+    )
+    current = _projection_record(
+        (1,),
+        ((0.7, 0.0, 0.0),),
+        ((0.5, 0.0, 0.0),),
+    )
+    motion = boundary_models.prescribed_rigid_motion(
+        translation=(1.0, 0.0, 0.0),
+    )
+
+    increment = boundary_models.relative_contact_displacement_increment(
+        accepted,
+        current,
+        motion=motion,
+        accepted_motion_factor=0.0,
+        current_motion_factor=0.5,
+    )
+
+    np.testing.assert_allclose(increment, ((0.2, 0.0, 0.0),), atol=1.0e-15)
+
+
+def test_relative_contact_increment_tracks_same_material_point_during_rotation():
+    accepted = _projection_record(
+        (4,),
+        ((1.0, 0.0, 0.0),),
+        ((1.0, 0.0, 0.0),),
+        normal=(1.0, 0.0, 0.0),
+    )
+    current = _projection_record(
+        (4,),
+        ((0.0, 1.25, 0.0),),
+        ((0.0, 1.0, 0.0),),
+        normal=(0.0, 1.0, 0.0),
+    )
+    motion = boundary_models.prescribed_rigid_motion(
+        translation=(0.0, 0.0, 0.0),
+        rotation=(0.0, 0.0, np.pi / 2.0),
+    )
+
+    increment = boundary_models.relative_contact_displacement_increment(
+        accepted,
+        current,
+        motion=motion,
+        accepted_motion_factor=0.0,
+        current_motion_factor=1.0,
+    )
+
+    np.testing.assert_allclose(increment, ((0.0, 0.25, 0.0),), atol=1.0e-15)
+
+
+def test_tangential_kinematics_are_transactional_restartable_and_drive_motion():
+    accepted_projection = _projection_record(
+        (5,),
+        ((0.0, 0.0, 0.0),),
+        ((0.0, 0.0, 0.0),),
+    )
+    current_projection = _projection_record(
+        (5,),
+        ((0.4, 0.0, 0.0),),
+        ((0.25, 0.0, 0.0),),
+    )
+    state = boundary_models.TangentialKinematicState()
+    state.begin(accepted_projection, motion_factor=0.0)
+    state.commit()
+    snapshot = state.snapshot()
+    state.begin(current_projection, motion_factor=0.25)
+    state.rollback()
+
+    restored = boundary_models.TangentialKinematicState()
+    restored.restore(snapshot)
+    motion = boundary_models.prescribed_rigid_motion(
+        translation=(1.0, 0.0, 0.0),
+    )
+    increment = boundary_models.relative_contact_displacement_increment(
+        restored.accepted,
+        current_projection,
+        motion=motion,
+        current_motion_factor=0.25,
+    )
+
+    np.testing.assert_allclose(increment, ((0.15, 0.0, 0.0),))

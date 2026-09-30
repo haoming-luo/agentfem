@@ -31,7 +31,10 @@ from .contact_friction import (
     PenaltyCoulombFrictionResponse,
     TangentialContactRecord,
     TangentialContactState,
+    TangentialKinematicRecord,
+    TangentialKinematicState,
     penalty_coulomb_friction_law,
+    relative_contact_displacement_increment,
     tangential_contact_state,
 )
 from .contact_pair import RigidContactPair, rigid_contact_pair
@@ -110,6 +113,8 @@ __all__ = [
     "PenaltyCoulombFrictionResponse",
     "TangentialContactRecord",
     "TangentialContactState",
+    "TangentialKinematicRecord",
+    "TangentialKinematicState",
     "RigidContactPair",
     "ContactTrace",
     "ContactTraceAssembly",
@@ -163,6 +168,7 @@ __all__ = [
     "elastic_foundation",
     "frictionless_penalty_contact_law",
     "penalty_coulomb_friction_law",
+    "relative_contact_displacement_increment",
     "distributed_triangle_surface_bvh",
     "mechanical",
     "prescribed_rigid_motion",

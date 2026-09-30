@@ -276,14 +276,15 @@ can declare penalty Coulomb friction; stable point-keyed tangential State
 supports objective normal-rotation transport, stick/slip return mapping,
 trial/commit/rollback and accepted-boundary snapshots; and its response keeps
 recoverable penalty energy, irreversible sliding dissipation, and separation
-release distinct. The existing DOLFINx residual rejects such a pair until a
-real tangential Operator is selected, preventing a declaration-only feature
-from being mistaken for an assembled capability. The backend-neutral trace
-can now assemble tangential nodal residual, force/moment, recoverable penalty
-energy, dissipation, and separation release without owning time evolution.
-Next come relative-slip kinematics, accepted friction evidence/checkpoint
-integration, explicit
-stability screening, and an external sliding benchmark. Distributed
+release distinct. The bounded DOLFINx explicit residual now consumes that
+contract. It follows the same master material point through prescribed
+translation/rotation, forms the accepted slave-minus-master increment,
+assembles normal and tangential residuals, and publishes separate recoverable,
+dissipated, and separation-release energy channels. Point history is
+checkpointed by global ID and restored onto the current MPI partition,
+including empty local shards. The mandatory caller-supplied stability ceiling
+now explicitly covers both normal and tangential penalty stiffness. Next come
+automatic contact spectral screening and an external sliding benchmark. Distributed
 multi-tool candidate routing, measured extreme-scale behavior, arbitrary
 topology, and implicit friction linearization follow that bounded route. STEP
 remains an optional geometry-adapter input that is repaired and tessellated

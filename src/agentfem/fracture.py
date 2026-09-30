@@ -3336,6 +3336,16 @@ class DynamicEnergyLedger:
                 raise ValueError(
                     "Dynamic energy history and restored contact work State differ."
                 )
+        if any(float(item.get("contact_friction_dissipation", 0.0)) > 0.0 for item in contact_terms):
+            if "contact_friction_dissipation" not in history_record:
+                raise ValueError(
+                    "Dynamic energy restart lacks contact_friction_dissipation."
+                )
+        if any(float(item.get("contact_separation_release", 0.0)) > 0.0 for item in contact_terms):
+            if "contact_separation_release" not in history_record:
+                raise ValueError(
+                    "Dynamic energy restart lacks contact_separation_release."
+                )
         if hasattr(self.energy, "restore"):
             self.energy.restore(history_record)
         self._natural_work = float(history_record["natural_load_work"])
@@ -3415,9 +3425,28 @@ class DynamicEnergyLedger:
             contact_potential = sum(
                 float(item["contact_potential_energy"]) for item in contact_terms
             )
+            friction_dissipation = sum(
+                float(item.get("contact_friction_dissipation", 0.0))
+                for item in contact_terms
+            )
+            separation_release = sum(
+                float(item.get("contact_separation_release", 0.0))
+                for item in contact_terms
+            )
             values["contact_potential_energy"] = contact_potential
+            if friction_dissipation or any(
+                "contact_friction_dissipation" in item for item in contact_terms
+            ):
+                values["contact_friction_dissipation"] = friction_dissipation
+            if separation_release or any(
+                "contact_separation_release" in item for item in contact_terms
+            ):
+                values["contact_separation_release"] = separation_release
             values["accounted_internal_kinetic_energy"] = (
-                self._accounted(values) + contact_potential
+                self._accounted(values)
+                + contact_potential
+                + friction_dissipation
+                + separation_release
             )
         work = self.advance(
             displacement=displacement,
