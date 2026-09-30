@@ -40,7 +40,12 @@ from .contact_response import (
     FrictionlessPenaltyContactResponse,
     frictionless_penalty_contact_law,
 )
-from .contact_trace import ContactTrace, ContactTraceAssembly, ContactTraceEvaluation
+from .contact_trace import (
+    ContactTrace,
+    ContactTraceAssembly,
+    ContactTraceEvaluation,
+    FrictionContactTraceAssembly,
+)
 from .contact_work import (
     PrescribedContactWorkState,
     PrescribedContactWorkStation,
@@ -109,6 +114,7 @@ __all__ = [
     "ContactTrace",
     "ContactTraceAssembly",
     "ContactTraceEvaluation",
+    "FrictionContactTraceAssembly",
     "PrescribedContactWorkState",
     "PrescribedContactWorkStation",
     "PrescribedRigidMotionSchedule",
