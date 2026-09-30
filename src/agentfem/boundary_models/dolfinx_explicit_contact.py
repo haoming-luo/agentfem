@@ -35,6 +35,7 @@ from .contact_work import (
 )
 from .dolfinx_contact_trace import DolfinxContactTraceAdapter
 from .rigid import _readonly_array
+from .rigid_body import RigidBody
 
 
 def _canonical_json(value: object) -> str:
@@ -160,6 +161,7 @@ class DolfinxExplicitContactResidual:
         lifecycle: ContactProjectionLifecycle,
         law: FrictionlessPenaltyContactLaw,
         maximum_stable_time_increment: float,
+        rigid_body: RigidBody | None = None,
         motion_schedule: PrescribedRigidMotionSchedule | None = None,
         surface_reference_point=None,
         projection_options=None,
@@ -175,6 +177,8 @@ class DolfinxExplicitContactResidual:
             raise ValueError("Explicit contact lifecycle and trace identities differ.")
         if not isinstance(law, FrictionlessPenaltyContactLaw):
             raise TypeError("Explicit contact requires FrictionlessPenaltyContactLaw.")
+        if rigid_body is not None and not isinstance(rigid_body, RigidBody):
+            raise TypeError("Explicit contact rigid_body must be RigidBody.")
         limit = float(maximum_stable_time_increment)
         if not np.isfinite(limit) or limit <= 0.0:
             raise ValueError(
@@ -207,12 +211,34 @@ class DolfinxExplicitContactResidual:
                 raise ValueError(
                     "Motion-controlled projection options are owned by motion_schedule."
                 )
+        if rigid_body is not None:
+            if rigid_body.dimension != 3:
+                raise ValueError(
+                    "The current DOLFINx explicit contact adapter requires a 3D body."
+                )
+            body_schedule = rigid_body.motion_schedule
+            if _canonical_json(
+                None if body_schedule is None else body_schedule.summary()
+            ) != _canonical_json(
+                None if motion_schedule is None else motion_schedule.summary()
+            ):
+                raise ValueError(
+                    "Explicit contact motion differs from its rigid-body asset."
+                )
+            if rigid_body.reference_point is not None and (
+                reference is None
+                or not np.array_equal(reference, rigid_body.reference_point)
+            ):
+                raise ValueError(
+                    "Explicit contact reference point differs from its rigid body."
+                )
         self.base = base
         self.adapter = adapter
         self.displacement = displacement
         self.lifecycle = lifecycle
         self.law = law
         self.maximum_stable_time_increment = limit
+        self.rigid_body = rigid_body
         self.motion_schedule = motion_schedule
         self.surface_reference_point = reference
         self.projection_options = options
@@ -269,6 +295,11 @@ class DolfinxExplicitContactResidual:
     def _work_identity(self) -> str:
         payload = {
             "residual": self.name,
+            "rigid_body_identity": (
+                None
+                if self.rigid_body is None
+                else self.rigid_body.scientific_identity
+            ),
             "motion_schedule": (
                 None
                 if self.motion_schedule is None
@@ -484,8 +515,13 @@ class DolfinxExplicitContactResidual:
         if self.trial_evidence is not None or self.lifecycle.state.trial is not None:
             raise RuntimeError("Explicit contact can only checkpoint an accepted boundary.")
         snapshot = {
-            "schema": "agentfem.dolfinx-explicit-contact-residual.v2",
+            "schema": "agentfem.dolfinx-explicit-contact-residual.v3",
             "name": self.name,
+            "rigid_body_identity": (
+                None
+                if self.rigid_body is None
+                else self.rigid_body.scientific_identity
+            ),
             "motion_schedule": (
                 None
                 if self.motion_schedule is None
@@ -537,6 +573,7 @@ class DolfinxExplicitContactResidual:
         required = {
             "schema",
             "name",
+            "rigid_body_identity",
             "motion_schedule",
             "work_state",
             "accepted_evaluations",
@@ -546,16 +583,26 @@ class DolfinxExplicitContactResidual:
         if (
             not isinstance(snapshot, dict)
             or snapshot.get("schema")
-            != "agentfem.dolfinx-explicit-contact-residual.v2"
+            != "agentfem.dolfinx-explicit-contact-residual.v3"
             or set(snapshot) != required
         ):
             raise ValueError("Unsupported explicit-contact residual snapshot.")
         expected_schedule = (
             None if self.motion_schedule is None else self.motion_schedule.summary()
         )
-        if snapshot.get("name") != self.name or _canonical_json(
-            snapshot.get("motion_schedule")
-        ) != _canonical_json(expected_schedule):
+        expected_body_identity = (
+            None
+            if self.rigid_body is None
+            else self.rigid_body.scientific_identity
+        )
+        if (
+            snapshot.get("name") != self.name
+            or snapshot.get("rigid_body_identity") != expected_body_identity
+            or _canonical_json(
+                snapshot.get("motion_schedule")
+            )
+            != _canonical_json(expected_schedule)
+        ):
             raise ValueError("Explicit-contact checkpoint identity differs.")
         raw_work = snapshot["work_state"]
         validated_work = None
@@ -636,6 +683,9 @@ class DolfinxExplicitContactResidual:
                 if self.motion_schedule is None
                 else self.motion_schedule.summary()
             ),
+            "rigid_body": (
+                None if self.rigid_body is None else self.rigid_body.summary()
+            ),
             "prescribed_motion_work": (
                 None if self.work_state is None else self.work_state.summary()
             ),
@@ -651,7 +701,8 @@ def dolfinx_explicit_contact_residual(
     *,
     adapter,
     displacement,
-    projector,
+    projector=None,
+    rigid_body=None,
     penalty,
     maximum_stable_time_increment,
     motion_schedule=None,
@@ -662,6 +713,39 @@ def dolfinx_explicit_contact_residual(
 ) -> DolfinxExplicitContactResidual:
     """Build the reviewed first explicit contact residual consumer."""
 
+    if rigid_body is not None:
+        if not isinstance(rigid_body, RigidBody):
+            raise TypeError("rigid_body must be one RigidBody asset.")
+        if motion_schedule is not None:
+            raise ValueError(
+                "motion_schedule is owned by rigid_body when that asset is used."
+            )
+        if surface_reference_point is not None:
+            raise ValueError(
+                "surface_reference_point is owned by rigid_body when that asset is used."
+            )
+        motion_schedule = rigid_body.motion_schedule
+        surface_reference_point = rigid_body.reference_point
+        if projector is None:
+            projector = rigid_body.surface
+        projector_summary = projector.summary()
+        projected_fingerprint = projector_summary.get(
+            "global_geometry_fingerprint",
+            projector_summary.get("geometry_fingerprint"),
+        )
+        expected_fingerprint = rigid_body.surface.summary().get(
+            "geometry_fingerprint"
+        )
+        if (
+            projected_fingerprint is not None
+            and expected_fingerprint is not None
+            and projected_fingerprint != expected_fingerprint
+        ):
+            raise ValueError(
+                "Contact projector geometry differs from rigid_body.surface."
+            )
+    if projector is None:
+        raise ValueError("Explicit contact requires projector or rigid_body.")
     lifecycle = ContactProjectionLifecycle(projector, adapter.trace.point_ids)
     law = frictionless_penalty_contact_law(
         penalty,
@@ -675,6 +759,7 @@ def dolfinx_explicit_contact_residual(
         lifecycle=lifecycle,
         law=law,
         maximum_stable_time_increment=maximum_stable_time_increment,
+        rigid_body=rigid_body,
         motion_schedule=motion_schedule,
         surface_reference_point=surface_reference_point,
         projection_options=projection_options,

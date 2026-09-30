@@ -344,8 +344,13 @@ explicit Step rejects a larger `dt`. This is intentional: penalty contact adds
 stiffness and can reduce the critical central-difference step below the body
 wave estimate. A fixed surface remains the default. For one proportional
 prescribed rigid path, construct `prescribed_rigid_motion_schedule(...)` and
-pass it as `motion_schedule`. The schedule states physical start/end times
-explicitly instead of treating solver time as an unnamed load factor.
+bind it with the scientific surface in `rigid_body(...)`. Pass that immutable
+asset as `rigid_body`; a serial or distributed projector remains a separate
+backend/search choice. The schedule states physical start/end times explicitly
+instead of treating solver time as an unnamed load factor. The rigid body's
+surface, motion, reference point, and stable scientific identity enter result
+and checkpoint evidence. The earlier direct `projector` plus
+`motion_schedule` form remains available as a lower-level route.
 
 Moving contact records an MPI-global initial force/moment station and one
 station at every accepted increment. Generalized tool work is integrated from

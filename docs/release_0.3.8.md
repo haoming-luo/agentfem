@@ -42,6 +42,10 @@ forming-specific solver. A separate reviewed path couples the same Procedure
 to serial and routed distributed triangle BVHs; stable slave-point identity is
 preserved while the closest rigid facet changes during finite sliding, and
 pure tangential tool translation produces no spurious normal contact work.
+The recommended construction binds surface, schedule, reference point, and
+rank-independent scientific identity in one immutable `RigidBody`; serial or
+distributed search remains a separate backend object rather than becoming
+part of the body's identity.
 
 General multi-tool candidate routing, arbitrary surface topology, friction,
 free rigid-body dynamics, deformable-to-deformable contact, and forming are not

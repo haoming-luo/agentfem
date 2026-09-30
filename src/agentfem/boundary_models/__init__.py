@@ -65,6 +65,7 @@ from .rigid import (
     rigid_sphere,
     triangulated_rigid_surface,
 )
+from .rigid_body import RigidBody, rigid_body
 from .search import (
     DistributedTriangleSearchDiagnostics,
     DistributedTriangleSearchOutcome,
@@ -106,6 +107,7 @@ __all__ = [
     "ExplicitContactEvidence",
     "PrescribedRigidMotion",
     "RigidCylinderSurface",
+    "RigidBody",
     "RigidPlaneSurface",
     "RigidSphereSurface",
     "RigidSurface",
@@ -144,6 +146,7 @@ __all__ = [
     "partition_triangle_surface",
     "rigid",
     "rigid_cylinder",
+    "rigid_body",
     "rigid_plane",
     "rigid_sphere",
     "routed_distributed_triangle_surface_bvh",

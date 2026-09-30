@@ -521,16 +521,21 @@ def test_moving_triangle_bvh_tracks_facet_crossing_without_spurious_work():
         ),
         end_time=1.0e-3,
     )
+    body = boundary_models.rigid_body(
+        _triangulated_tool_plane(),
+        motion_schedule=schedule,
+        name="sliding_tool",
+    )
     residual = boundary_models.dolfinx_explicit_contact_residual(
         _bulk_residual(domain, function_space, (0.0, 0.0, 0.0)),
         adapter=adapter,
         displacement=displacement,
         projector=boundary_models.triangle_surface_bvh(
-            _triangulated_tool_plane()
+            body.surface
         ),
+        rigid_body=body,
         penalty=200.0,
         maximum_stable_time_increment=1.0e-3,
-        motion_schedule=schedule,
         name="sliding_triangle_contact",
     )
     state = problems.second_order_state(displacement)
@@ -563,6 +568,38 @@ def test_moving_triangle_bvh_tracks_facet_crossing_without_spurious_work():
     assert residual.summary()["lifecycle"]["projector"]["method"] == (
         "deterministic_aabb_bvh"
     )
+    assert residual.summary()["rigid_body"]["name"] == "sliding_tool"
+
+
+def test_explicit_contact_rejects_projector_from_another_rigid_body():
+    domain = _cube(MPI.COMM_SELF)
+    function_space = _vector_space(domain)
+    displacement = fem.Function(function_space, name="Displacement")
+    adapter = boundary_models.dolfinx_boundary_region_contact_trace(
+        _left_region(domain),
+        function_space,
+    )
+    body = boundary_models.rigid_body(
+        boundary_models.rigid_plane(
+            point=(0.04, 0.0, 0.0),
+            normal=(-1.0, 0.0, 0.0),
+            name="other_tool",
+        ),
+        name="other_body",
+    )
+
+    with pytest.raises(ValueError, match="geometry differs"):
+        boundary_models.dolfinx_explicit_contact_residual(
+            _bulk_residual(domain, function_space, (0.0, 0.0, 0.0)),
+            adapter=adapter,
+            displacement=displacement,
+            projector=boundary_models.triangle_surface_bvh(
+                _triangulated_tool_plane()
+            ),
+            rigid_body=body,
+            penalty=200.0,
+            maximum_stable_time_increment=1.0e-3,
+        )
 
 
 def test_explicit_contact_residual_preserves_global_force_under_mpi():
@@ -650,14 +687,19 @@ def test_moving_routed_triangle_contact_preserves_identity_under_mpi():
         ),
         end_time=1.0e-3,
     )
+    body = boundary_models.rigid_body(
+        surface,
+        motion_schedule=schedule,
+        name="distributed_sliding_tool",
+    )
     residual = boundary_models.dolfinx_explicit_contact_residual(
         _bulk_residual(domain, function_space, (0.0, 0.0, 0.0)),
         adapter=adapter,
         displacement=displacement,
         projector=projector,
+        rigid_body=body,
         penalty=200.0,
         maximum_stable_time_increment=1.0e-3,
-        motion_schedule=schedule,
         name="distributed_sliding_triangle_contact",
     )
     trace = adapter.evaluate(displacement)
