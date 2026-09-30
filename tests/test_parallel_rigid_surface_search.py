@@ -261,7 +261,13 @@ def test_routed_triangle_search_matches_oracle_and_avoids_remote_queries():
     assert diagnostics["phase_two_query_messages"] == 0
     assert diagnostics["avoided_query_messages"] == points.shape[0]
     assert diagnostics["maximum_queried_ranks"] == 1
-    assert diagnostics["packed_numeric_transport"] is False
+    assert diagnostics["packed_numeric_transport"] is True
+    assert diagnostics["collective_pattern"] == "two_stage_packed_alltoallv"
+    assert diagnostics["payload_measurement"] == "encoded_send_buffer_bytes"
+    assert diagnostics["query_payload_bytes"] == points.shape[0] * (2 * 8 + 3 * 8)
+    assert diagnostics["candidate_payload_bytes"] == points.shape[0] * (
+        7 * 8 + 10 * 8
+    )
 
 
 def test_routed_triangle_search_queries_both_ranks_at_partition_seam():
@@ -351,3 +357,54 @@ def test_routed_triangle_search_matches_oracle_under_rigid_motion():
     )
 
     _assert_projection_equal(routed, oracle)
+
+
+def test_routed_triangle_search_accepts_collectively_empty_query_batches():
+    _require_two_ranks()
+    comm = MPI.COMM_WORLD
+    surface = _strip_surface()
+    search = boundary_models.routed_distributed_triangle_surface_bvh(
+        boundary_models.partition_triangle_surface(surface, comm),
+        comm,
+    )
+
+    outcome = search.project_with_diagnostics(np.empty((0, 3)))
+
+    assert outcome.projection.point_count == 0
+    diagnostics = outcome.diagnostics.summary()
+    assert diagnostics["query_payload_bytes"] == 0
+    assert diagnostics["candidate_payload_bytes"] == 0
+    assert diagnostics["packed_numeric_transport"] is True
+
+
+def test_routed_triangle_search_preserves_full_int64_facet_identity():
+    _require_two_ranks()
+    comm = MPI.COMM_WORLD
+    surface = boundary_models.triangulated_rigid_surface(
+        vertices=(
+            (0.0, 0.0, 0.0),
+            (1.0, 0.0, 0.0),
+            (0.0, 1.0, 0.0),
+            (3.0, 0.0, 0.0),
+            (4.0, 0.0, 0.0),
+            (3.0, 1.0, 0.0),
+        ),
+        triangles=((0, 1, 2), (3, 4, 5)),
+        facet_ids=(2**60 + 1, 2**60 + 3),
+        name="large_identity_tool",
+    )
+    search = boundary_models.routed_distributed_triangle_surface_bvh(
+        boundary_models.partition_triangle_surface(surface, comm),
+        comm,
+    )
+    points = (
+        np.asarray(((0.2, 0.2, 0.1),))
+        if comm.rank == 0
+        else np.asarray(((3.2, 0.2, 0.1),))
+    )
+
+    routed = search.project(points)
+    reference = surface.project(points)
+
+    _assert_projection_equal(routed, reference)
+    assert routed.entity_ids[0] > 2**53

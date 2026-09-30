@@ -208,8 +208,9 @@ executable, together with a deterministic process-local AABB/BVH accelerator
 and per-query work evidence plus stable barycentric facet coordinates),
 distributed ownership/search (the stable-ID facet partition and all-gather
 correctness reference now reproduce the serial oracle under MPI; scalable
-neighborhood routing has started with an oracle-checked two-stage rank-AABB
-path, while packed numeric exchange and ghost-aware imported geometry remain),
+neighborhood routing now has an oracle-checked two-stage rank-AABB path with
+aligned integer/float `MPI_Alltoallv` payloads; ghost-aware imported boundary
+geometry and measured extreme-scale routing remain),
 finite sliding, multiple pairs, explicit dynamics and finally friction. STEP
 remains an optional geometry-adapter input that is repaired and tessellated
 before the contact core consumes it. Shell/solid-shell forming and self-contact
