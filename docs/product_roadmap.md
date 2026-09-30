@@ -309,14 +309,23 @@ finite-sliding gate is fixed to the public Abaqus/Explicit
 deformable-body/rigid-surface family rather than a forming-specific solver.
 Its parameters, two-stage protocol, and force/friction assessor are
 machine-readable, while the registry explicitly retains
-`external_full_fem_gate_defined_not_run`. Registered rigid pairs now enter the
+`protocol_solid_bridge_accepted_exact_b31_gate_pending`. A real deformable
+tetrahedral-solid bridge now applies the fixed 500-unit resultant, accepts the
+frictionless preload, atomically transfers it into a new stage, activates
+`mu=0.3`, and completes the 0.1-unit rigid slide. Serial and two-rank runs
+recover 500 normal force, the 150 Coulomb force, exact action--reaction,
+positive dissipation, valid projections, actual stable-facet crossings over a
+bounded tessellated tool, and the declared energy tolerance.
+This is explicitly protocol-level evidence, not a pointwise B31 reproduction.
+Registered rigid pairs enter the
 ordinary finite-strain Explicit Procedure without user-authored residual
 plumbing. The Procedure builds reviewed traces, composes body, cohesive, and
 every contact spectral contribution once, and preserves per-pair force,
 moment, tool work, potential, friction dissipation, State, and checkpoint
-evidence. The next gate is the complete deformable-body
-normal-preload-to-frictional-slide solve, with time-step/mesh refinement and
-serial/MPI endpoint evidence. Distributed
+evidence. The next gates are mesh/time refinement of the solid bridge, curved
+or imported-tool evidence, and an
+element-equivalent external comparison if a reviewed beam-contact formulation
+becomes available. Distributed
 multi-tool candidate routing, measured extreme-scale behavior, arbitrary
 topology, and implicit friction linearization follow that bounded route. STEP
 remains an optional geometry-adapter input that is repaired and tessellated

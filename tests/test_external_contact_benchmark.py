@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import numpy as np
 import pytest
+from mpi4py import MPI
 
 from agentfem import benchmarks
 
@@ -144,3 +145,44 @@ def test_finite_sliding_assessment_rejects_nonfinite_force():
             invalid_point_count=0,
             friction_dissipation=0.0,
         )
+
+
+def test_finite_sliding_solid_bridge_runs_actual_two_stage_fem():
+    bridge = benchmarks.finite_sliding_solid_protocol_bridge()
+
+    assert bridge.acceptable, bridge.failures
+    assert bridge.preload_transfer["equilibrium_accepted"]
+    assert bridge.preload_relative_normal_balance_error < 1.0e-6
+    assert bridge.assessment.relative_normal_balance_error < 1.0e-3
+    assert bridge.assessment.relative_coulomb_cap_error < 1.0e-3
+    assert bridge.assessment.relative_action_reaction_error < 1.0e-12
+    assert bridge.assessment.active_point_count > 0
+    assert (
+        bridge.assessment.sliding_point_count
+        == bridge.assessment.active_point_count
+    )
+    assert bridge.assessment.invalid_point_count == 0
+    assert bridge.assessment.facet_crossing_count > 0
+    assert bridge.assessment.require_facet_crossing is True
+    assert bridge.assessment.friction_dissipation > 0.0
+    assert bridge.preload_relative_energy_error < bridge.energy_tolerance
+    assert bridge.sliding_relative_energy_error < bridge.energy_tolerance
+    summary = bridge.summary()
+    assert summary["status"] == "accepted"
+    assert summary["comparison_level"] == (
+        "public_protocol_bridge_not_b31_reproduction"
+    )
+    assert summary["surface_representation"] == (
+        "triangulated_piecewise_planar"
+    )
+
+
+def test_finite_sliding_solid_bridge_is_rank_canonical_on_two_ranks():
+    if MPI.COMM_WORLD.size != 2:
+        pytest.skip("The distributed solid bridge is reviewed on two ranks.")
+
+    bridge = benchmarks.finite_sliding_solid_protocol_bridge(comm=MPI.COMM_WORLD)
+    summaries = MPI.COMM_WORLD.allgather(bridge.summary())
+
+    assert bridge.acceptable, bridge.failures
+    assert all(item == summaries[0] for item in summaries)

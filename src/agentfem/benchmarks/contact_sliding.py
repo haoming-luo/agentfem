@@ -123,6 +123,81 @@ class FiniteSlidingContactAssessment:
         }
 
 
+@dataclass(frozen=True)
+class FiniteSlidingSolidBridge:
+    """Accepted evidence from the public protocol on a 3D solid bridge.
+
+    This is deliberately a protocol bridge rather than an elementwise
+    reproduction of the public Abaqus B31 model.  It exercises AgentFEM's
+    ordinary finite-strain Explicit Procedure with a deformable tetrahedral
+    solid, actual applied normal resultant, staged contact State, prescribed
+    rigid motion, and Coulomb sliding.
+    """
+
+    reference: FiniteSlidingContactReference
+    assessment: FiniteSlidingContactAssessment
+    preload_transfer: dict[str, object]
+    preload_relative_normal_balance_error: float
+    preload_relative_energy_error: float
+    sliding_relative_energy_error: float
+    normal_time_increment: float
+    sliding_time_increment: float
+    preload_steps: int
+    sliding_steps: int
+    cells: tuple[int, int, int]
+    surface_representation: str = "triangulated_piecewise_planar"
+    preload_force_tolerance: float = 1.0e-6
+    energy_tolerance: float = 1.0e-3
+
+    @property
+    def failures(self) -> tuple[str, ...]:
+        failures = [f"contact:{item}" for item in self.assessment.failures]
+        if not bool(self.preload_transfer.get("equilibrium_accepted", False)):
+            failures.append("preload_transfer_not_equilibrated")
+        if self.preload_relative_normal_balance_error > self.preload_force_tolerance:
+            failures.append("preload_normal_force_balance")
+        if self.preload_relative_energy_error > self.energy_tolerance:
+            failures.append("preload_energy_balance")
+        if self.sliding_relative_energy_error > self.energy_tolerance:
+            failures.append("sliding_energy_balance")
+        return tuple(failures)
+
+    @property
+    def acceptable(self) -> bool:
+        return not self.failures
+
+    def summary(self) -> dict[str, object]:
+        return {
+            "kind": "finite_sliding_solid_protocol_bridge",
+            "status": "accepted" if self.acceptable else "failed",
+            "acceptable": self.acceptable,
+            "external_reference": self.reference.identifier,
+            "comparison_level": "public_protocol_bridge_not_b31_reproduction",
+            "discretization": "three_dimensional_tetrahedral_cg1_solid",
+            "surface_representation": self.surface_representation,
+            "cells": list(self.cells),
+            "preload_steps": self.preload_steps,
+            "sliding_steps": self.sliding_steps,
+            "normal_time_increment": self.normal_time_increment,
+            "sliding_time_increment": self.sliding_time_increment,
+            "preload_transfer": dict(self.preload_transfer),
+            "preload_relative_normal_balance_error": (
+                self.preload_relative_normal_balance_error
+            ),
+            "preload_relative_energy_error": self.preload_relative_energy_error,
+            "sliding_relative_energy_error": self.sliding_relative_energy_error,
+            "preload_force_tolerance": self.preload_force_tolerance,
+            "energy_tolerance": self.energy_tolerance,
+            "contact_assessment": self.assessment.summary(),
+            "failures": list(self.failures),
+            "promotion_boundary": (
+                "component_and_protocol evidence only; exact B31 reproduction, "
+                "mesh/time refinement, and independent curved-tool evidence "
+                "remain external promotion gates"
+            ),
+        }
+
+
 def abaqus_explicit_finite_sliding_reference() -> FiniteSlidingContactReference:
     """Return the public Abaqus/Explicit B31 finite-sliding protocol.
 
@@ -281,9 +356,370 @@ def assess_finite_sliding_contact(
     )
 
 
+def finite_sliding_solid_protocol_bridge(
+    *,
+    cells=(1, 1, 1),
+    preload_steps: int = 400,
+    sliding_steps: int = 750,
+    preload_ramp_steps: int = 50,
+    penalty_factor: float = 20.0,
+    mass_damping: float = 2.0e4,
+    sliding_stability_scale: float = 0.8,
+    comm=None,
+) -> FiniteSlidingSolidBridge:
+    """Run a real two-stage solid-contact bridge to the public protocol.
+
+    The first stage ramps the declared 500-unit surface resultant into a
+    frictionless rigid plane and reaches an accepted equilibrium.  The second
+    stage keeps that load, transfers the accepted configuration atomically,
+    activates ``mu=0.3``, and moves the rigid plane by 0.1 units.  A second
+    Model shares the same physical displacement field so time-local load and
+    tool schedules restart at zero without resetting the accepted structure.
+    """
+
+    from mpi4py import MPI
+
+    from agentfem import (
+        amplitudes,
+        boundary_models,
+        constitutive,
+        constraints,
+        fields,
+        mesh,
+        models,
+        studies,
+    )
+
+    selected_comm = MPI.COMM_SELF if comm is None else comm
+    selected_cells = tuple(int(value) for value in cells)
+    if len(selected_cells) != 3 or any(value < 1 for value in selected_cells):
+        raise ValueError("Solid bridge cells must contain three positive integers.")
+    selected_preload_steps = int(preload_steps)
+    selected_sliding_steps = int(sliding_steps)
+    selected_ramp_steps = int(preload_ramp_steps)
+    if min(selected_preload_steps, selected_sliding_steps, selected_ramp_steps) < 1:
+        raise ValueError("Solid bridge step counts must be positive.")
+    if selected_ramp_steps >= selected_preload_steps:
+        raise ValueError("Preload ramp must end before the preload stage.")
+    selected_penalty_factor = float(penalty_factor)
+    selected_damping = float(mass_damping)
+    selected_stability_scale = float(sliding_stability_scale)
+    if not np.isfinite(selected_penalty_factor) or selected_penalty_factor <= 0.0:
+        raise ValueError("penalty_factor must be finite and positive.")
+    if not np.isfinite(selected_damping) or selected_damping < 0.0:
+        raise ValueError("mass_damping must be finite and nonnegative.")
+    if not 0.0 < selected_stability_scale <= 1.0:
+        raise ValueError("sliding_stability_scale must lie in (0, 1].")
+
+    reference = abaqus_explicit_finite_sliding_reference()
+    domain = mesh.cuboid(
+        (0.0, 0.0, 0.0),
+        (1.0, 1.0, 0.1),
+        selected_cells,
+        comm=selected_comm,
+        cell_type="tetrahedron",
+    )
+    bottom = mesh.boundary(
+        domain,
+        lambda x: np.isclose(x[2], 0.0),
+        name="contact_slave",
+        tag=41,
+    )
+    top = mesh.boundary(
+        domain,
+        lambda x: np.isclose(x[2], 0.1),
+        name="normal_load",
+        tag=42,
+    )
+    x_symmetry = mesh.boundary(
+        domain,
+        lambda x: np.isclose(x[0], 0.0),
+        name="x_symmetry",
+        tag=43,
+    )
+    y_symmetry = mesh.boundary(
+        domain,
+        lambda x: np.isclose(x[1], 0.0),
+        name="y_symmetry",
+        tag=44,
+    )
+    surface = _triangulated_protocol_plane(boundary_models)
+    penalty = selected_penalty_factor * reference.young
+
+    preload_model = models.create(
+        study=studies.dynamic_solid(dimension=3, method="explicit"),
+        mesh=domain,
+        name="finite_sliding_normal_preload",
+    )
+    displacement = preload_model.field(fields.displacement(domain))
+    preload_material = preload_model.material(
+        constitutive.neo_hookean(
+            young=reference.young,
+            poisson=reference.poisson,
+            density=reference.density,
+        )
+    )
+    preload_model.constraint(
+        constraints.component_dirichlet(
+            displacement, 0, on=x_symmetry, value=0.0, name="x_symmetry"
+        )
+    )
+    preload_model.constraint(
+        constraints.component_dirichlet(
+            displacement, 1, on=y_symmetry, value=0.0, name="y_symmetry"
+        )
+    )
+    fixed_body = boundary_models.rigid_body(surface, name="fixed_plane")
+    normal_pair = boundary_models.rigid_contact_pair(
+        bottom,
+        fixed_body,
+        penalty=penalty,
+        name="normal_contact",
+    )
+    stability_probe = preload_model.finite_strain_explicit_dynamics_step(
+        target=displacement,
+        material=preload_material,
+        contact_pairs=(normal_pair,),
+        steps=1,
+        progress=False,
+        name="normal_stability_probe",
+    )
+    normal_dt = float(stability_probe.dt)
+    preload_model.surface_force(
+        (0.0, 0.0, -reference.normal_load),
+        on=top,
+        amplitude=amplitudes.smooth_step(
+            end_time=selected_ramp_steps * normal_dt,
+            name="normal_load_ramp",
+        ),
+        name="normal_load",
+    )
+    preload = preload_model.finite_strain_explicit_dynamics_step(
+        target=displacement,
+        material=preload_material,
+        contact_pairs=(normal_pair,),
+        dt=normal_dt,
+        steps=selected_preload_steps,
+        mass_damping=selected_damping,
+        history_every=max(1, selected_preload_steps // 20),
+        progress=False,
+        name="normal_preload",
+    )
+    preload.run()
+    normal_residual = _single_contact_residual(preload.residual)
+    normal_evidence = normal_residual.accepted_evidence
+    preload_projection = normal_residual.lifecycle.state.accepted
+    normal_force = abs(float(np.dot(normal_evidence.contact_force_on_structure, (0, 0, 1))))
+    preload_balance = abs(normal_force - reference.normal_load) / reference.normal_load
+
+    sliding_model = models.create(
+        study=studies.dynamic_solid(dimension=3, method="explicit"),
+        mesh=domain,
+        name="finite_sliding_stage",
+    )
+    sliding_displacement = sliding_model.field(displacement)
+    sliding_material = sliding_model.material(
+        constitutive.neo_hookean(
+            young=reference.young,
+            poisson=reference.poisson,
+            density=reference.density,
+        )
+    )
+    sliding_model.constraint(
+        constraints.component_dirichlet(
+            sliding_displacement,
+            0,
+            on=x_symmetry,
+            value=0.0,
+            name="x_symmetry",
+        )
+    )
+    sliding_model.constraint(
+        constraints.component_dirichlet(
+            sliding_displacement,
+            1,
+            on=y_symmetry,
+            value=0.0,
+            name="y_symmetry",
+        )
+    )
+    sliding_model.surface_force(
+        (0.0, 0.0, -reference.normal_load),
+        on=top,
+        name="held_normal_load",
+    )
+
+    def sliding_pair(end_time: float, *, name: str):
+        schedule = boundary_models.prescribed_rigid_motion_schedule(
+            boundary_models.prescribed_rigid_motion(
+                translation=(reference.sliding_displacement, 0.0, 0.0),
+                name="public_tangential_slide",
+            ),
+            end_time=end_time,
+            name="public_tangential_slide_schedule",
+        )
+        body = boundary_models.rigid_body(
+            surface,
+            motion_schedule=schedule,
+            name="sliding_plane",
+        )
+        return boundary_models.rigid_contact_pair(
+            bottom,
+            body,
+            penalty=penalty,
+            friction_coefficient=reference.friction_coefficient,
+            tangential_penalty=penalty,
+            name=name,
+        )
+
+    sliding_probe_pair = sliding_pair(1.0, name="sliding_stability_contact")
+    sliding_probe = sliding_model.finite_strain_explicit_dynamics_step(
+        target=sliding_displacement,
+        material=sliding_material,
+        contact_pairs=(sliding_probe_pair,),
+        steps=1,
+        progress=False,
+        name="sliding_stability_probe",
+    )
+    sliding_dt = selected_stability_scale * float(sliding_probe.dt)
+    active_pair = sliding_pair(
+        selected_sliding_steps * sliding_dt,
+        name="finite_sliding_contact",
+    )
+    sliding = sliding_model.finite_strain_explicit_dynamics_step(
+        target=sliding_displacement,
+        material=sliding_material,
+        contact_pairs=(active_pair,),
+        dt=sliding_dt,
+        steps=selected_sliding_steps,
+        mass_damping=selected_damping,
+        history_every=max(1, selected_sliding_steps // 20),
+        progress=False,
+        name="finite_sliding",
+    )
+    transfer = sliding.initialize_from_preload(
+        displacement.value,
+        source_step=preload,
+        force_tolerance=max(1.0e-4, reference.normal_load * 1.0e-8),
+    )
+    sliding.run()
+    sliding_residual = _single_contact_residual(sliding.residual)
+    sliding_evidence = sliding_residual.accepted_evidence
+    sliding_projection = sliding_residual.lifecycle.state.accepted
+    facet_crossings = _global_facet_crossing_count(
+        preload_projection,
+        sliding_projection,
+        selected_comm,
+    )
+    assessment = assess_finite_sliding_contact(
+        contact_force_on_structure=sliding_evidence.contact_force_on_structure,
+        contact_force_on_surface=sliding_evidence.contact_force_on_surface,
+        admissible_normal=(0.0, 0.0, 1.0),
+        young=reference.young,
+        poisson=reference.poisson,
+        density=reference.density,
+        applied_normal_load=reference.normal_load,
+        friction_coefficient=reference.friction_coefficient,
+        sliding_displacement=reference.sliding_displacement,
+        active_point_count=sliding_evidence.active_point_count,
+        sliding_point_count=sliding_evidence.sliding_point_count,
+        invalid_point_count=sliding_evidence.invalid_point_count,
+        friction_dissipation=sliding_evidence.friction_dissipation,
+        facet_crossing_count=facet_crossings,
+        require_facet_crossing=True,
+        force_tolerance=1.0e-3,
+        reference=reference,
+    )
+    return FiniteSlidingSolidBridge(
+        reference=reference,
+        assessment=assessment,
+        preload_transfer=transfer.summary(),
+        preload_relative_normal_balance_error=preload_balance,
+        preload_relative_energy_error=float(
+            preload.history_records[-1]["relative_energy_balance_error"]
+        ),
+        sliding_relative_energy_error=float(
+            sliding.history_records[-1]["relative_energy_balance_error"]
+        ),
+        normal_time_increment=normal_dt,
+        sliding_time_increment=sliding_dt,
+        preload_steps=selected_preload_steps,
+        sliding_steps=selected_sliding_steps,
+        cells=selected_cells,
+    )
+
+
+def _single_contact_residual(residual):
+    """Return the single contact Operator below transparent wrappers."""
+
+    selected = residual
+    while not hasattr(selected, "accepted_evidence"):
+        selected = getattr(selected, "base", None)
+        if selected is None:
+            raise TypeError("Benchmark residual contains no explicit contact Operator.")
+    return selected
+
+
+def _triangulated_protocol_plane(boundary_models):
+    """Return a bounded coplanar tool whose stable facets must be crossed.
+
+    The x-breaks lie between each slave point's initial and final coordinates
+    in the moving tool frame.  The bridge therefore proves that closest-point
+    identity is updated during finite sliding rather than merely exercising a
+    triangulated surface without leaving the original facet.
+    """
+
+    # The CG1 tetrahedral boundary trace is integrated at triangle centroids
+    # (x = 1/6, 1/3, 2/3, 5/6 on this mesh), not only at corner nodes.  Breaks
+    # at 1/4 and 3/4 are crossed by the 1/3 and 5/6 traces under a 0.1 slide.
+    x_coordinates = (-0.3, 0.25, 0.75, 1.3)
+    y_coordinates = (-0.3, 0.5, 1.3)
+    vertices = np.asarray(
+        [(x, y, 0.0) for y in y_coordinates for x in x_coordinates],
+        dtype=float,
+    )
+    column_count = len(x_coordinates)
+    triangles: list[tuple[int, int, int]] = []
+    for row in range(len(y_coordinates) - 1):
+        for column in range(column_count - 1):
+            lower_left = row * column_count + column
+            lower_right = lower_left + 1
+            upper_left = lower_left + column_count
+            upper_right = upper_left + 1
+            triangles.extend(
+                (
+                    (lower_left, lower_right, upper_right),
+                    (lower_left, upper_right, upper_left),
+                )
+            )
+    return boundary_models.triangulated_rigid_surface(
+        vertices=vertices,
+        triangles=np.asarray(triangles, dtype=np.int64),
+        facet_ids=np.arange(100, 100 + len(triangles), dtype=np.int64),
+        name="public_protocol_triangulated_plane",
+    )
+
+
+def _global_facet_crossing_count(initial, final, comm) -> int:
+    """Count point-keyed accepted master-facet changes across all ranks."""
+
+    if initial is None or final is None:
+        raise RuntimeError("Finite-sliding bridge lacks accepted projection State.")
+    if not np.array_equal(initial.point_ids, final.point_ids):
+        raise RuntimeError("Finite-sliding bridge contact point identities differ.")
+    initial_entities = initial.projection.entity_ids
+    final_entities = final.projection.entity_ids
+    if initial_entities is None or final_entities is None:
+        raise RuntimeError("Triangulated finite sliding lacks stable facet identity.")
+    local = int(np.count_nonzero(initial_entities != final_entities))
+    return int(comm.allreduce(local))
+
+
 __all__ = [
     "FiniteSlidingContactAssessment",
     "FiniteSlidingContactReference",
+    "FiniteSlidingSolidBridge",
     "abaqus_explicit_finite_sliding_reference",
     "assess_finite_sliding_contact",
+    "finite_sliding_solid_protocol_bridge",
 ]

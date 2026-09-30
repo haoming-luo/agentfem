@@ -4,7 +4,7 @@
       "id": "agentfem.benchmark.abaqus_explicit_deformable_rigid_finite_sliding",
       "physics": "two-stage explicit normal contact followed by penalty Coulomb sliding against a rigid surface",
       "source": "src/agentfem/knowledge/benchmarks/abaqus_explicit_finite_sliding_contact.json",
-      "status": "external_full_fem_gate_defined_not_run",
+      "status": "protocol_solid_bridge_accepted_exact_b31_gate_pending",
       "title": "Abaqus Explicit deformable-body to rigid-surface finite sliding"
     },
     {

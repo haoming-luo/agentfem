@@ -3,7 +3,7 @@
   "schema_version": "0.1.0",
   "id": "agentfem.benchmark.abaqus_explicit_deformable_rigid_finite_sliding",
   "title": "Abaqus Explicit deformable-body to rigid-surface finite sliding",
-  "status": "external_full_fem_gate_defined_not_run",
+  "status": "protocol_solid_bridge_accepted_exact_b31_gate_pending",
   "purpose": "Turn the first bounded AgentFEM explicit rigid-contact route into an externally anchored verification obligation without introducing a forming-specific solver or claiming that a different finite-element discretization reproduces Abaqus pointwise output.",
   "physics": "two-stage explicit normal contact followed by penalty Coulomb sliding against a rigid surface",
   "source": {
@@ -30,9 +30,9 @@
     "command": "python -m pytest -q tests/test_external_contact_benchmark.py tests/test_dolfinx_explicit_contact.py",
     "example": "tests/test_external_contact_benchmark.py",
     "structural_api": "Surface and RigidBody -> RigidContactPair -> contact Operator -> explicit Procedure -> accepted State -> Result/Verification",
-    "evidence": "The fixed public protocol, parameter identity, force/friction assessor, fail-closed cases, finite sliding across triangle facets, accepted friction State, restart, and two-rank component consistency are automated; the complete deformable finite-element external comparison remains pending.",
-    "current_evidence": "The fixed public protocol, parameter identity, force/friction assessor, fail-closed cases, finite sliding across triangle facets, accepted friction State, restart, and two-rank component consistency are automated.",
-    "missing_evidence": "A complete deformable finite-element time history using the fixed protocol has not yet produced a SimulationResult with mesh/time convergence and serial/MPI endpoint comparison."
+    "evidence": "A real tetrahedral-solid bridge now applies the public 500-unit normal resultant against a bounded tessellated tool, accepts frictionless equilibrium, atomically transfers that state, activates mu=0.3, and executes the 0.1-unit prescribed rigid slide through the ordinary Explicit Procedure. Serial and two-rank runs close normal balance, the Coulomb cap, action-reaction, projection validity, stable-facet migration, positive friction dissipation, and the declared energy tolerance. This is protocol evidence, not a pointwise reproduction of the source B31 discretization.",
+    "current_evidence": "The fixed public protocol and fail-closed assessor, complete two-stage deformable-solid bridge, accepted preload transfer, ordinary Procedure lowering, bounded triangulated-tool facet crossings, force/friction/energy evidence, restart components, and serial/two-rank canonical endpoint are automated.",
+    "missing_evidence": "Exact B31-equivalent reproduction remains unavailable; mesh/time refinement of the solid bridge and independent curved or imported-tool evidence remain promotion gates."
   },
   "observables": [
     "normal contact resultant versus applied normal load",
@@ -51,10 +51,10 @@
     "At least one point is active and sliding; no projection is invalid.",
     "A tessellated-tool variant crosses at least one rigid facet without changing slave-point identity.",
     "Frictional dissipation is nonnegative and remains distinct from recoverable penalty energy.",
-    "The complete finite-element result passes time-step refinement and serial/two-rank comparison before promotion."
+    "The solid protocol bridge passes serial/two-rank endpoint comparison; mesh/time refinement remains required before stronger promotion."
   ],
   "limitations": [
-    "The current automated assessor and component tests define the gate but do not yet satisfy the complete finite-element external benchmark.",
+    "The accepted tetrahedral-solid run bridges the public protocol but does not satisfy an exact elementwise B31 external reproduction.",
     "The Abaqus Explicit reference uses B31 beam contact; AgentFEM must not present a tetrahedral solid trace as a pointwise beam-output reproduction.",
     "This benchmark does not verify deformable-to-deformable contact, curved-normal geometric stiffness, implicit friction linearization, self-contact, shells, or plastic forming."
   ]
