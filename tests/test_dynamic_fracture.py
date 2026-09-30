@@ -333,6 +333,50 @@ def test_dynamic_energy_ledger_integrates_natural_and_prescribed_work():
     )
 
 
+def test_dynamic_energy_ledger_accounts_for_friction_and_separation_channels():
+    domain = mesh.rectangle(
+        (0.0, 0.0),
+        (1.0, 1.0),
+        (1, 1),
+        comm=MPI.COMM_SELF,
+        cell_type="quadrilateral",
+    )
+    displacement = fields.displacement(domain)
+    state = problems.second_order_state(displacement)
+    mass = problems.LumpedMassOperator.assemble(displacement.space, density=1.0)
+
+    class ZeroEnergy:
+        def evaluate(self, **_kwargs):
+            return {"total_mechanical_energy": 0.0}
+
+    class ContactEvidence:
+        def contact_energy_evidence(self):
+            return (
+                {
+                    "name": "frictional_pair",
+                    "contact_potential_energy": 2.0,
+                    "contact_friction_dissipation": 3.0,
+                    "contact_separation_release": 4.0,
+                    "contact_motion_work": 0.0,
+                    "moving": False,
+                },
+            )
+
+    ledger = fracture.DynamicEnergyLedger(
+        energy=ZeroEnergy(),
+        state=state,
+        mass=mass,
+        residual=ContactEvidence(),
+    )
+    record = ledger.evaluate(displacement=state.u, velocity=state.v)
+
+    assert record["contact_potential_energy"] == pytest.approx(2.0)
+    assert record["contact_friction_dissipation"] == pytest.approx(3.0)
+    assert record["contact_separation_release"] == pytest.approx(4.0)
+    assert record["total_accounted_energy"] == pytest.approx(9.0)
+    assert record["energy_balance_error"] == pytest.approx(0.0)
+
+
 def test_direct_explicit_convenience_cannot_silently_linearize_neo_hookean():
     model, displacement, _ = _dynamic_neo_hookean_model()
     step = model.explicit_dynamics_step(

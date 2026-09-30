@@ -4,10 +4,9 @@
 """Explicit-dynamics residual adapter for the reviewed contact stack.
 
 This module is deliberately a narrow Procedure consumer of the backend-neutral
-surface, projection, response, trace, and accepted-work contracts.  It adds a
-frictionless penalty contribution to an already assembled DOLFINx residual.
-Prescribed proportional rigid motion is supported with transactional work;
-friction and an implicit tangent remain separate capability gates.
+surface, projection, response, trace, state, and accepted-work contracts. It
+adds normal penalty contact and optional penalty Coulomb friction to an already
+assembled DOLFINx residual. An implicit tangent remains a separate gate.
 """
 
 from __future__ import annotations
@@ -23,6 +22,16 @@ from petsc4py import PETSc
 from agentfem import operators
 
 from .contact_lifecycle import ContactProjectionLifecycle
+from .contact_friction import (
+    PenaltyCoulombFrictionLaw,
+    TangentialContactState,
+    TangentialKinematicState,
+    relative_contact_displacement_increment,
+)
+from .contact_friction_checkpoint import (
+    global_friction_state_snapshot,
+    local_friction_state_from_snapshot,
+)
 from .contact_pair import RigidContactPair
 from .contact_response import (
     FrictionlessPenaltyContactLaw,
@@ -60,6 +69,12 @@ class ExplicitContactEvidence:
     active_point_count: int
     invalid_point_count: int
     maximum_penetration: float
+    normal_potential_energy: float = 0.0
+    tangential_potential_energy: float = 0.0
+    friction_dissipation: float = 0.0
+    separation_release: float = 0.0
+    sticking_point_count: int = 0
+    sliding_point_count: int = 0
 
     def __post_init__(self) -> None:
         potential = float(self.potential_energy)
@@ -93,6 +108,29 @@ class ExplicitContactEvidence:
             raise ValueError(
                 "Explicit contact maximum penetration must be finite and non-negative."
             )
+        normal_potential = float(self.normal_potential_energy)
+        tangential_potential = float(self.tangential_potential_energy)
+        dissipation = float(self.friction_dissipation)
+        release = float(self.separation_release)
+        for label, value in (
+            ("normal potential energy", normal_potential),
+            ("tangential potential energy", tangential_potential),
+            ("friction dissipation", dissipation),
+            ("separation release", release),
+        ):
+            if not np.isfinite(value) or value < 0.0:
+                raise ValueError(f"Explicit contact {label} must be non-negative.")
+        if not np.isclose(
+            potential,
+            normal_potential + tangential_potential,
+            rtol=256.0 * np.finfo(float).eps,
+            atol=256.0 * np.finfo(float).eps,
+        ):
+            raise ValueError("Explicit contact potential-energy channels do not sum.")
+        sticking = int(self.sticking_point_count)
+        sliding = int(self.sliding_point_count)
+        if sticking < 0 or sliding < 0 or sticking + sliding > active:
+            raise ValueError("Explicit contact stick/slip counts are inconsistent.")
         object.__setattr__(self, "potential_energy", potential)
         object.__setattr__(
             self,
@@ -107,6 +145,12 @@ class ExplicitContactEvidence:
         object.__setattr__(self, "active_point_count", active)
         object.__setattr__(self, "invalid_point_count", invalid)
         object.__setattr__(self, "maximum_penetration", penetration)
+        object.__setattr__(self, "normal_potential_energy", normal_potential)
+        object.__setattr__(self, "tangential_potential_energy", tangential_potential)
+        object.__setattr__(self, "friction_dissipation", dissipation)
+        object.__setattr__(self, "separation_release", release)
+        object.__setattr__(self, "sticking_point_count", sticking)
+        object.__setattr__(self, "sliding_point_count", sliding)
 
     def summary(self) -> dict[str, object]:
         return {
@@ -122,6 +166,12 @@ class ExplicitContactEvidence:
             "active_point_count": self.active_point_count,
             "invalid_point_count": self.invalid_point_count,
             "maximum_penetration": self.maximum_penetration,
+            "normal_potential_energy": self.normal_potential_energy,
+            "tangential_potential_energy": self.tangential_potential_energy,
+            "friction_dissipation": self.friction_dissipation,
+            "separation_release": self.separation_release,
+            "sticking_point_count": self.sticking_point_count,
+            "sliding_point_count": self.sliding_point_count,
         }
 
     @classmethod
@@ -135,6 +185,12 @@ class ExplicitContactEvidence:
             "active_point_count",
             "invalid_point_count",
             "maximum_penetration",
+            "normal_potential_energy",
+            "tangential_potential_energy",
+            "friction_dissipation",
+            "separation_release",
+            "sticking_point_count",
+            "sliding_point_count",
         }
         if (
             not isinstance(summary, dict)
@@ -150,6 +206,12 @@ class ExplicitContactEvidence:
             active_point_count=summary["active_point_count"],
             invalid_point_count=summary["invalid_point_count"],
             maximum_penetration=summary["maximum_penetration"],
+            normal_potential_energy=summary["normal_potential_energy"],
+            tangential_potential_energy=summary["tangential_potential_energy"],
+            friction_dissipation=summary["friction_dissipation"],
+            separation_release=summary["separation_release"],
+            sticking_point_count=summary["sticking_point_count"],
+            sliding_point_count=summary["sliding_point_count"],
         )
 
 
@@ -171,6 +233,7 @@ class DolfinxExplicitContactResidual:
         displacement,
         lifecycle: ContactProjectionLifecycle,
         law: FrictionlessPenaltyContactLaw,
+        friction_law: PenaltyCoulombFrictionLaw | None = None,
         maximum_stable_time_increment: float,
         contact_pair: RigidContactPair | None = None,
         rigid_body: RigidBody | None = None,
@@ -189,6 +252,10 @@ class DolfinxExplicitContactResidual:
             raise ValueError("Explicit contact lifecycle and trace identities differ.")
         if not isinstance(law, FrictionlessPenaltyContactLaw):
             raise TypeError("Explicit contact requires FrictionlessPenaltyContactLaw.")
+        if friction_law is not None and not isinstance(
+            friction_law, PenaltyCoulombFrictionLaw
+        ):
+            raise TypeError("Explicit friction requires PenaltyCoulombFrictionLaw.")
         if rigid_body is not None and not isinstance(rigid_body, RigidBody):
             raise TypeError("Explicit contact rigid_body must be RigidBody.")
         if contact_pair is not None and not isinstance(
@@ -266,6 +333,13 @@ class DolfinxExplicitContactResidual:
         self.displacement = displacement
         self.lifecycle = lifecycle
         self.law = law
+        self.friction_law = friction_law
+        self.friction_state = (
+            None if friction_law is None else TangentialContactState()
+        )
+        self.friction_kinematics = (
+            None if friction_law is None else TangentialKinematicState()
+        )
         self.maximum_stable_time_increment = limit
         self.contact_pair = contact_pair
         self.rigid_body = rigid_body
@@ -287,6 +361,7 @@ class DolfinxExplicitContactResidual:
         )
         self.checkpoint_state_required = bool(
             motion_schedule is not None
+            or friction_law is not None
             or getattr(base, "checkpoint_state_required", False)
         )
 
@@ -353,7 +428,7 @@ class DolfinxExplicitContactResidual:
             reference = motion.state(self.current_motion_factor)["reference_point"]
         return options, reference
 
-    def _evaluate_local_contact(self) -> tuple[ContactTraceAssembly, object]:
+    def _evaluate_local_contact(self):
         trace_evaluation = self.adapter.evaluate(self.displacement)
         options, reference = self._projection_context()
         projection = self.lifecycle.evaluate(
@@ -366,9 +441,46 @@ class DolfinxExplicitContactResidual:
             response,
             surface_reference_point=reference,
         )
-        return assembly, response
+        friction_assembly = None
+        friction_response = None
+        if self.friction_law is not None:
+            if self.friction_state is None or self.friction_kinematics is None:
+                raise RuntimeError("Explicit friction State was not constructed.")
+            accepted_kinematics = self.friction_kinematics.accepted
+            if accepted_kinematics is None:
+                relative_increment = np.zeros_like(
+                    projection.record.projection.query_points
+                )
+            else:
+                relative_increment = relative_contact_displacement_increment(
+                    accepted_kinematics,
+                    projection.record,
+                    motion=(
+                        None
+                        if self.motion_schedule is None
+                        else self.motion_schedule.motion
+                    ),
+                    current_motion_factor=self.current_motion_factor,
+                )
+            friction_response = self.friction_law.evaluate(
+                point_ids=projection.record.point_ids,
+                normal_response=response,
+                relative_displacement_increment=relative_increment,
+                accepted=self.friction_state.accepted,
+            )
+            friction_assembly = trace_evaluation.assemble_friction(
+                projection.record,
+                friction_response,
+                surface_reference_point=reference,
+            )
+            self.friction_state.begin(friction_response)
+            self.friction_kinematics.begin(
+                projection.record,
+                motion_factor=self.current_motion_factor,
+            )
+        return assembly, response, friction_assembly, friction_response
 
-    def _collective_local_contact(self) -> tuple[ContactTraceAssembly, object]:
+    def _collective_local_contact(self):
         local_error = None
         outcome = None
         try:
@@ -383,6 +495,9 @@ class DolfinxExplicitContactResidual:
         )
         if failures:
             self.lifecycle.rollback_increment()
+            if self.friction_state is not None:
+                self.friction_state.rollback()
+                self.friction_kinematics.rollback()
             self.trial_evidence = None
             raise ValueError(
                 "Explicit contact evaluation rejected collectively; "
@@ -392,18 +507,61 @@ class DolfinxExplicitContactResidual:
             raise RuntimeError("Explicit contact consensus produced no local assembly.")
         return outcome
 
-    def _global_evidence(self, assembly, response) -> ExplicitContactEvidence:
+    def _global_evidence(
+        self,
+        assembly,
+        response,
+        friction_assembly=None,
+        friction_response=None,
+    ) -> ExplicitContactEvidence:
+        total_structure = np.asarray(assembly.contact_force_on_structure, dtype=float)
+        total_surface = np.asarray(assembly.contact_force_on_surface, dtype=float)
         moment = assembly.surface_generalized_moment
+        total_moment = None if moment is None else np.asarray(moment, dtype=float)
+        tangential_potential = 0.0
+        friction_dissipation = 0.0
+        separation_release = 0.0
+        sticking_count = 0
+        sliding_count = 0
+        if friction_assembly is not None:
+            total_structure = total_structure + np.asarray(
+                friction_assembly.contact_force_on_structure,
+                dtype=float,
+            )
+            total_surface = total_surface + np.asarray(
+                friction_assembly.contact_force_on_surface,
+                dtype=float,
+            )
+            friction_moment = friction_assembly.surface_generalized_moment
+            if (total_moment is None) != (friction_moment is None):
+                raise ValueError("Normal and friction moment contracts differ.")
+            if total_moment is not None:
+                total_moment = total_moment + np.asarray(friction_moment, dtype=float)
+            tangential_potential = friction_assembly.recoverable_penalty_energy
+            friction_dissipation = friction_assembly.cumulative_dissipation
+            separation_release = friction_assembly.cumulative_separation_release
+            sticking_count = int(np.count_nonzero(friction_response.sticking))
+            sliding_count = int(np.count_nonzero(friction_response.sliding))
         local = np.concatenate(
             (
-                np.asarray((assembly.potential_energy,), dtype=float),
-                np.asarray(assembly.contact_force_on_structure, dtype=float),
-                np.asarray(assembly.contact_force_on_surface, dtype=float),
-                np.zeros(3, dtype=float) if moment is None else np.asarray(moment),
+                np.asarray(
+                    (
+                        assembly.potential_energy,
+                        tangential_potential,
+                        friction_dissipation,
+                        separation_release,
+                    ),
+                    dtype=float,
+                ),
+                total_structure,
+                total_surface,
+                np.zeros(3, dtype=float) if total_moment is None else total_moment,
                 np.asarray(
                     (
                         np.count_nonzero(response.active),
                         np.count_nonzero(~response.projection.valid),
+                        sticking_count,
+                        sliding_count,
                     ),
                     dtype=float,
                 ),
@@ -421,14 +579,20 @@ class DolfinxExplicitContactResidual:
             op=MPI.MAX,
         )
         return ExplicitContactEvidence(
-            potential_energy=global_values[0],
-            contact_force_on_structure=global_values[1:4],
-            contact_force_on_surface=global_values[4:7],
+            potential_energy=global_values[0] + global_values[1],
+            normal_potential_energy=global_values[0],
+            tangential_potential_energy=global_values[1],
+            friction_dissipation=global_values[2],
+            separation_release=global_values[3],
+            contact_force_on_structure=global_values[4:7],
+            contact_force_on_surface=global_values[7:10],
             surface_generalized_moment=(
-                None if moment is None else global_values[7:10]
+                None if total_moment is None else global_values[10:13]
             ),
-            active_point_count=int(round(global_values[10])),
-            invalid_point_count=int(round(global_values[11])),
+            active_point_count=int(round(global_values[13])),
+            invalid_point_count=int(round(global_values[14])),
+            sticking_point_count=int(round(global_values[15])),
+            sliding_point_count=int(round(global_values[16])),
             maximum_penetration=maximum_penetration,
         )
 
@@ -466,14 +630,34 @@ class DolfinxExplicitContactResidual:
             return
         self.update_time(time)
         try:
-            assembly, response = self._collective_local_contact()
-            evidence = self._global_evidence(assembly, response)
+            assembly, response, friction_assembly, friction_response = (
+                self._collective_local_contact()
+            )
+            evidence = self._global_evidence(
+                assembly,
+                response,
+                friction_assembly,
+                friction_response,
+            )
             if self.work_state is not None:
                 self.work_state.initialize(self._work_station(evidence))
             self.accepted_evidence = evidence
+            if self.friction_state is not None:
+                self.lifecycle.commit_increment()
+                self.friction_state.commit()
+                self.friction_kinematics.commit()
+        except Exception:
+            if self.lifecycle.state.trial is not None:
+                self.lifecycle.rollback_increment()
+            if self.friction_state is not None:
+                self.friction_state.rollback()
+                self.friction_kinematics.rollback()
+            raise
         finally:
-            # Projection is memoryless; only the accepted work station is durable.
-            self.lifecycle.state.rollback()
+            # Frictionless projection is memoryless. Friction preserves only
+            # the accepted boundary required by its incremental State.
+            if self.friction_state is None:
+                self.lifecycle.state.rollback()
             self.trial_evidence = None
 
     def assemble_vector(self):
@@ -481,13 +665,20 @@ class DolfinxExplicitContactResidual:
 
         vector = operators.assemble_vector(self.base)
         try:
-            assembly, response = self._collective_local_contact()
+            assembly, response, friction_assembly, friction_response = (
+                self._collective_local_contact()
+            )
             contact = vector.duplicate()
             try:
                 values = np.asarray(
                     assembly.nodal_structural_residual,
                     dtype=float,
                 ).reshape(-1)
+                if friction_assembly is not None:
+                    values = values + np.asarray(
+                        friction_assembly.nodal_structural_residual,
+                        dtype=float,
+                    ).reshape(-1)
                 with contact.localForm() as local:
                     local.set(0.0)
                     if local.array.shape != values.shape:
@@ -505,7 +696,12 @@ class DolfinxExplicitContactResidual:
                 vector.array[:] += contact.array
             finally:
                 contact.destroy()
-            self.trial_evidence = self._global_evidence(assembly, response)
+            self.trial_evidence = self._global_evidence(
+                assembly,
+                response,
+                friction_assembly,
+                friction_response,
+            )
             if self.work_state is not None:
                 if not self.work_state.accepted:
                     raise RuntimeError(
@@ -536,9 +732,17 @@ class DolfinxExplicitContactResidual:
             raise RuntimeError(
                 "No moving-contact work trial is available to commit at this time."
             )
+        if self.friction_state is not None and (
+            self.friction_state.trial is None
+            or self.friction_kinematics.trial is None
+        ):
+            raise RuntimeError("No explicit-friction trial is available to commit.")
         if hasattr(self.base, "commit"):
             self.base.commit()
         self.lifecycle.commit_increment()
+        if self.friction_state is not None:
+            self.friction_state.commit()
+            self.friction_kinematics.commit()
         if self.work_state is not None:
             self.work_state.commit()
         self.accepted_evidence = self.trial_evidence
@@ -550,17 +754,50 @@ class DolfinxExplicitContactResidual:
             self.base.rollback()
         if self.lifecycle.state.trial is not None:
             self.lifecycle.rollback_increment()
+        if self.friction_state is not None:
+            self.friction_state.rollback()
+            self.friction_kinematics.rollback()
         if self.work_state is not None:
             self.work_state.rollback()
         self.trial_evidence = None
 
+    def _global_friction_records(self) -> dict[str, object] | None:
+        if self.friction_state is None or self.friction_kinematics is None:
+            return None
+        return global_friction_state_snapshot(
+            self.friction_state.accepted,
+            self.friction_kinematics.accepted,
+            self.communicator,
+        )
+
+    def _validated_global_friction_records(self, snapshot: object):
+        if self.friction_state is None or self.friction_kinematics is None:
+            if snapshot is not None:
+                raise ValueError("Frictionless contact cannot restore friction State.")
+            return None
+        return local_friction_state_from_snapshot(
+            snapshot,
+            point_ids=self.adapter.trace.point_ids,
+            dimension=self.adapter.reference_nodal_positions.shape[1],
+        )
+
     def snapshot(self) -> dict[str, object]:
         """Return rank-canonical accepted residual state for checkpoints."""
 
-        if self.trial_evidence is not None or self.lifecycle.state.trial is not None:
+        if (
+            self.trial_evidence is not None
+            or self.lifecycle.state.trial is not None
+            or (
+                self.friction_state is not None
+                and (
+                    self.friction_state.trial is not None
+                    or self.friction_kinematics.trial is not None
+                )
+            )
+        ):
             raise RuntimeError("Explicit contact can only checkpoint an accepted boundary.")
         snapshot = {
-            "schema": "agentfem.dolfinx-explicit-contact-residual.v4",
+            "schema": "agentfem.dolfinx-explicit-contact-residual.v5",
             "name": self.name,
             "contact_pair_identity": (
                 None
@@ -586,6 +823,7 @@ class DolfinxExplicitContactResidual:
                 if self.accepted_evidence is None
                 else self.accepted_evidence.summary()
             ),
+            "friction_state": self._global_friction_records(),
             "base_state": (
                 self.base.snapshot() if hasattr(self.base, "snapshot") else None
             ),
@@ -609,6 +847,12 @@ class DolfinxExplicitContactResidual:
             {
                 "name": self.name,
                 "contact_potential_energy": self.accepted_evidence.potential_energy,
+                "contact_friction_dissipation": (
+                    self.accepted_evidence.friction_dissipation
+                ),
+                "contact_separation_release": (
+                    self.accepted_evidence.separation_release
+                ),
                 "contact_motion_work": (
                     0.0 if self.work_state is None else self.work_state.path_work
                 ),
@@ -644,6 +888,11 @@ class DolfinxExplicitContactResidual:
                     or self.work_state.latest_interval_power is None
                     else self.work_state.latest_interval_power
                 ),
+                "sticking_point_count": self.accepted_evidence.sticking_point_count,
+                "sliding_point_count": self.accepted_evidence.sliding_point_count,
+                "contact_friction_dissipation": (
+                    self.accepted_evidence.friction_dissipation
+                ),
             }
         )
         return tuple(terms)
@@ -660,12 +909,13 @@ class DolfinxExplicitContactResidual:
             "work_state",
             "accepted_evaluations",
             "accepted_evidence",
+            "friction_state",
             "base_state",
         }
         if (
             not isinstance(snapshot, dict)
             or snapshot.get("schema")
-            != "agentfem.dolfinx-explicit-contact-residual.v4"
+            != "agentfem.dolfinx-explicit-contact-residual.v5"
             or set(snapshot) != required
         ):
             raise ValueError("Unsupported explicit-contact residual snapshot.")
@@ -713,6 +963,8 @@ class DolfinxExplicitContactResidual:
             if raw_evidence is None
             else ExplicitContactEvidence.from_summary(raw_evidence)
         )
+        raw_friction = snapshot["friction_state"]
+        validated_friction = self._validated_global_friction_records(raw_friction)
         raw_base = snapshot["base_state"]
         base_restore = getattr(self.base, "restore", None)
         if raw_base is not None and not callable(base_restore):
@@ -732,6 +984,12 @@ class DolfinxExplicitContactResidual:
         # mutate. The local work assignment below is then infallible.
         if raw_base is not None:
             base_restore(raw_base)
+        if validated_friction is not None:
+            friction, kinematics = validated_friction
+            self.friction_state.accepted = friction
+            self.friction_state.trial = None
+            self.friction_kinematics.accepted = kinematics
+            self.friction_kinematics.trial = None
         if self.work_state is not None:
             self.work_state.accepted = list(validated_work.accepted)
             self.work_state.trial = None
@@ -745,14 +1003,22 @@ class DolfinxExplicitContactResidual:
             "name": self.name,
             "kind": "dolfinx_explicit_contact_residual",
             "procedure": "central_difference",
-            "contact": "frictionless_penalty",
+            "contact": (
+                "frictionless_penalty"
+                if self.friction_law is None
+                else "normal_penalty_with_penalty_coulomb_friction"
+            ),
             "surface_motion": (
                 "fixed_only"
                 if self.motion_schedule is None
                 else "prescribed_proportional_rigid_motion"
             ),
             "maximum_stable_time_increment": self.maximum_stable_time_increment,
-            "stability": "caller_supplied_screening_limit_enforced",
+            "stability": (
+                "caller_supplied_normal_contact_limit_enforced"
+                if self.friction_law is None
+                else "caller_supplied_normal_and_tangential_contact_limit_enforced"
+            ),
             "parallel_assembly": "ghost_reverse_add_then_owned_accumulation",
             "projection_update": "every_residual_evaluation",
             "restart": (
@@ -783,6 +1049,12 @@ class DolfinxExplicitContactResidual:
             "adapter": self.adapter.summary(),
             "lifecycle": self.lifecycle.summary(),
             "law": self.law.summary(),
+            "friction_law": (
+                None if self.friction_law is None else self.friction_law.summary()
+            ),
+            "friction_state": (
+                None if self.friction_state is None else self.friction_state.summary()
+            ),
             "base": self.base.summary() if hasattr(self.base, "summary") else repr(self.base),
         }
 
@@ -808,14 +1080,6 @@ def dolfinx_explicit_contact_residual(
     if contact_pair is not None:
         if not isinstance(contact_pair, RigidContactPair):
             raise TypeError("contact_pair must be one RigidContactPair asset.")
-        if contact_pair.friction is not None:
-            raise NotImplementedError(
-                "AFM-CONTACT-FRICTION-OPERATOR-001: the contact pair declares "
-                "penalty Coulomb friction, but this DOLFINx residual currently "
-                "assembles only the frictionless normal Operator. Use a "
-                "frictionless pair until the tangential trace/state consumer is "
-                "selected explicitly; AgentFEM will not silently ignore friction."
-            )
         if rigid_body is not None:
             raise ValueError("rigid_body is owned by contact_pair when pair is used.")
         if penalty is not None:
@@ -826,6 +1090,7 @@ def dolfinx_explicit_contact_residual(
             )
         rigid_body = contact_pair.rigid_body
         law = contact_pair.law
+        friction_law = contact_pair.friction
     else:
         if penalty is None:
             raise ValueError("Explicit contact requires penalty or contact_pair.")
@@ -834,6 +1099,7 @@ def dolfinx_explicit_contact_residual(
             invalid_policy=invalid_policy,
             name=f"{name}_law",
         )
+        friction_law = None
     if rigid_body is not None:
         if not isinstance(rigid_body, RigidBody):
             raise TypeError("rigid_body must be one RigidBody asset.")
@@ -874,6 +1140,7 @@ def dolfinx_explicit_contact_residual(
         displacement=displacement,
         lifecycle=lifecycle,
         law=law,
+        friction_law=friction_law,
         maximum_stable_time_increment=maximum_stable_time_increment,
         contact_pair=contact_pair,
         rigid_body=rigid_body,

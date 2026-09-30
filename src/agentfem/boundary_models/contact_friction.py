@@ -23,11 +23,228 @@ from dataclasses import dataclass
 import numpy as np
 
 from .contact_response import FrictionlessPenaltyContactResponse, _penalty_values
-from .rigid import _readonly_array
+from .contact_state import ContactProjectionRecord
+from .rigid import PrescribedRigidMotion, _readonly_array
 
 
 _RECORD_SCHEMA = "agentfem.tangential-contact-record.v1"
 _STATE_SCHEMA = "agentfem.tangential-contact-state.v1"
+_KINEMATIC_RECORD_SCHEMA = "agentfem.tangential-kinematic-record.v1"
+_KINEMATIC_STATE_SCHEMA = "agentfem.tangential-kinematic-state.v1"
+
+
+@dataclass(frozen=True, eq=False)
+class TangentialKinematicRecord:
+    """Accepted slave positions and rigid-motion coordinate by stable ID."""
+
+    point_ids: object
+    slave_positions: object
+    motion_factor: float = 0.0
+
+    def __post_init__(self) -> None:
+        positions = np.asarray(self.slave_positions, dtype=float)
+        if positions.ndim != 2 or positions.shape[1] not in {2, 3}:
+            raise ValueError("Tangential kinematics require 2D or 3D slave positions.")
+        if not np.all(np.isfinite(positions)):
+            raise ValueError("Tangential slave positions must be finite.")
+        ids, order = _canonical_point_order(self.point_ids, positions.shape[0])
+        factor = float(self.motion_factor)
+        if not np.isfinite(factor) or not 0.0 <= factor <= 1.0 + 1.0e-12:
+            raise ValueError("Tangential kinematic motion factor must lie in [0, 1].")
+        object.__setattr__(self, "point_ids", _readonly_array(ids, dtype=np.int64))
+        object.__setattr__(self, "slave_positions", _readonly_array(positions[order]))
+        object.__setattr__(self, "motion_factor", factor)
+
+    @property
+    def point_count(self) -> int:
+        return int(self.point_ids.size)
+
+    @property
+    def dimension(self) -> int:
+        return int(self.slave_positions.shape[1])
+
+    @classmethod
+    def from_projection(
+        cls,
+        record: ContactProjectionRecord,
+        *,
+        motion_factor: float = 0.0,
+    ) -> TangentialKinematicRecord:
+        if not isinstance(record, ContactProjectionRecord):
+            raise TypeError("Tangential kinematics require ContactProjectionRecord.")
+        return cls(
+            point_ids=record.point_ids,
+            slave_positions=record.projection.query_points,
+            motion_factor=motion_factor,
+        )
+
+    def snapshot(self) -> dict[str, object]:
+        return {
+            "schema": _KINEMATIC_RECORD_SCHEMA,
+            "point_ids": self.point_ids.tolist(),
+            "slave_positions": self.slave_positions.tolist(),
+            "motion_factor": self.motion_factor,
+        }
+
+    @classmethod
+    def from_snapshot(cls, snapshot: object) -> TangentialKinematicRecord:
+        required = {"schema", "point_ids", "slave_positions", "motion_factor"}
+        if (
+            not isinstance(snapshot, Mapping)
+            or set(snapshot) != required
+            or snapshot.get("schema") != _KINEMATIC_RECORD_SCHEMA
+        ):
+            raise ValueError("Unsupported tangential kinematic record snapshot.")
+        return cls(
+            point_ids=snapshot["point_ids"],
+            slave_positions=snapshot["slave_positions"],
+            motion_factor=snapshot["motion_factor"],
+        )
+
+
+@dataclass
+class TangentialKinematicState:
+    """Atomic accepted/trial kinematics for explicit friction increments."""
+
+    accepted: TangentialKinematicRecord | None = None
+    trial: TangentialKinematicRecord | None = None
+
+    def begin(
+        self,
+        projection: ContactProjectionRecord,
+        *,
+        motion_factor: float = 0.0,
+    ) -> TangentialKinematicRecord:
+        candidate = TangentialKinematicRecord.from_projection(
+            projection,
+            motion_factor=motion_factor,
+        )
+        if self.accepted is not None:
+            if not np.array_equal(self.accepted.point_ids, candidate.point_ids):
+                raise ValueError("Tangential kinematic point identity changed.")
+            if self.accepted.dimension != candidate.dimension:
+                raise ValueError("Tangential kinematic dimension changed.")
+            if candidate.motion_factor + 1.0e-14 < self.accepted.motion_factor:
+                raise ValueError("Tangential rigid-motion factor moved backward.")
+        self.trial = candidate
+        return candidate
+
+    def commit(self) -> None:
+        if self.trial is None:
+            raise RuntimeError("No tangential kinematic trial is available to commit.")
+        self.accepted = self.trial
+        self.trial = None
+
+    def rollback(self) -> None:
+        self.trial = None
+
+    def snapshot(self) -> dict[str, object]:
+        if self.trial is not None:
+            raise RuntimeError("Tangential kinematics require an accepted checkpoint.")
+        return {
+            "schema": _KINEMATIC_STATE_SCHEMA,
+            "accepted": None if self.accepted is None else self.accepted.snapshot(),
+        }
+
+    def restore(self, snapshot: object) -> None:
+        if self.trial is not None:
+            raise RuntimeError("Rollback tangential kinematics before restore.")
+        if (
+            not isinstance(snapshot, Mapping)
+            or set(snapshot) != {"schema", "accepted"}
+            or snapshot.get("schema") != _KINEMATIC_STATE_SCHEMA
+        ):
+            raise ValueError("Unsupported tangential kinematic state snapshot.")
+        raw = snapshot["accepted"]
+        self.accepted = (
+            None if raw is None else TangentialKinematicRecord.from_snapshot(raw)
+        )
+
+
+def relative_contact_displacement_increment(
+    accepted: ContactProjectionRecord | TangentialKinematicRecord,
+    current: ContactProjectionRecord,
+    *,
+    motion: PrescribedRigidMotion | None = None,
+    accepted_motion_factor: float = 0.0,
+    current_motion_factor: float = 0.0,
+) -> np.ndarray:
+    """Return slave-minus-master increments at stable contact-point IDs.
+
+    The current closest point is pulled back to the rigid surface reference
+    configuration and pushed to the accepted configuration. This follows the
+    same master material point even when finite sliding changes the contacted
+    facet. Subtracting two gap vectors would erase common tangential motion.
+    """
+
+    if not isinstance(
+        accepted, (ContactProjectionRecord, TangentialKinematicRecord)
+    ) or not isinstance(current, ContactProjectionRecord):
+        raise TypeError(
+            "Relative contact motion requires accepted and current projection records."
+        )
+    if not np.array_equal(accepted.point_ids, current.point_ids):
+        raise ValueError("Relative contact motion point identity differs.")
+    new = current.projection
+    if isinstance(accepted, ContactProjectionRecord):
+        old_positions = accepted.projection.query_points
+        old_dimension = accepted.projection.dimension
+        old_surface_name = accepted.projection.surface_name
+        old_surface_kind = accepted.projection.surface_kind
+        old_fingerprint = accepted.projection.geometry_fingerprint
+        accepted_factor_default = accepted_motion_factor
+        if not np.all(accepted.projection.valid):
+            raise ValueError(
+                "Relative contact motion requires valid accepted/current points."
+            )
+    else:
+        old_positions = accepted.slave_positions
+        old_dimension = accepted.dimension
+        old_surface_name = new.surface_name
+        old_surface_kind = new.surface_kind
+        old_fingerprint = new.geometry_fingerprint
+        accepted_factor_default = accepted.motion_factor
+    if old_dimension != new.dimension:
+        raise ValueError("Relative contact motion dimension differs.")
+    if old_surface_name != new.surface_name or old_surface_kind != new.surface_kind:
+        raise ValueError("Relative contact motion surface identity differs.")
+    if old_fingerprint != new.geometry_fingerprint:
+        raise ValueError("Relative contact motion geometry identity differs.")
+    if not np.all(new.valid):
+        raise ValueError("Relative contact motion requires valid accepted/current points.")
+
+    dimension = new.dimension
+    accepted_factor = float(accepted_factor_default)
+    current_factor = float(current_motion_factor)
+    if not np.isfinite(accepted_factor) or not np.isfinite(current_factor):
+        raise ValueError("Rigid-motion factors must be finite.")
+    if motion is None:
+        if accepted_factor != 0.0 or current_factor != 0.0:
+            raise ValueError("Fixed contact cannot use non-zero rigid-motion factors.")
+        master_increment = np.zeros_like(new.closest_points)
+    else:
+        if not isinstance(motion, PrescribedRigidMotion):
+            raise TypeError("Relative contact motion requires PrescribedRigidMotion.")
+        if motion.dimension != dimension:
+            raise ValueError("Rigid motion and contact projection dimensions differ.")
+        old_state = motion.state(accepted_factor)
+        new_state = motion.state(current_factor)
+        reference = np.asarray(motion.reference_point, dtype=float)
+        old_reference = np.asarray(old_state["reference_point"], dtype=float)
+        new_reference = np.asarray(new_state["reference_point"], dtype=float)
+        old_rotation = np.asarray(old_state["rotation_matrix"], dtype=float)
+        new_rotation = np.asarray(new_state["rotation_matrix"], dtype=float)
+        # Row-vector form of x = r(f) + R(f) (X-r0).
+        material_reference_points = reference + (
+            np.asarray(new.closest_points) - new_reference
+        ) @ new_rotation
+        previous_master_points = old_reference + (
+            material_reference_points - reference
+        ) @ old_rotation.T
+        master_increment = np.asarray(new.closest_points) - previous_master_points
+
+    slave_increment = np.asarray(new.query_points) - np.asarray(old_positions)
+    return _readonly_array(slave_increment - master_increment)
 
 
 def _canonical_point_order(point_ids, point_count: int) -> tuple[np.ndarray, np.ndarray]:
@@ -575,6 +792,9 @@ __all__ = [
     "PenaltyCoulombFrictionResponse",
     "TangentialContactRecord",
     "TangentialContactState",
+    "TangentialKinematicRecord",
+    "TangentialKinematicState",
     "penalty_coulomb_friction_law",
+    "relative_contact_displacement_increment",
     "tangential_contact_state",
 ]

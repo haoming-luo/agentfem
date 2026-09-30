@@ -705,7 +705,7 @@ def test_rigid_contact_pair_rejects_rank_local_pointwise_penalty():
         boundary_models.RigidContactPair(slave, body, law)
 
 
-def test_rigid_contact_pair_declares_friction_but_operator_fails_closed():
+def test_rigid_contact_pair_friction_enters_explicit_operator_and_commits_state():
     domain = _cube(MPI.COMM_SELF)
     function_space = _vector_space(domain)
     displacement = fem.Function(function_space, name="Displacement")
@@ -732,20 +732,64 @@ def test_rigid_contact_pair_declares_friction_but_operator_fails_closed():
         penalty=100.0,
         name="frictionless_pair",
     ).scientific_identity
-    with pytest.raises(
-        NotImplementedError,
-        match="AFM-CONTACT-FRICTION-OPERATOR-001",
-    ):
-        boundary_models.dolfinx_explicit_contact_residual(
-            _bulk_residual(domain, function_space, (0.0, 0.0, 0.0)),
-            adapter=boundary_models.dolfinx_boundary_region_contact_trace(
-                slave,
-                function_space,
-            ),
-            displacement=displacement,
-            contact_pair=pair,
-            maximum_stable_time_increment=1.0e-3,
-        )
+    displacement.x.array.reshape((-1, 3))[:, 0] = 0.1
+    displacement.x.scatter_forward()
+    residual = boundary_models.dolfinx_explicit_contact_residual(
+        _bulk_residual(domain, function_space, (0.0, 0.0, 0.0)),
+        adapter=boundary_models.dolfinx_boundary_region_contact_trace(
+            slave,
+            function_space,
+        ),
+        displacement=displacement,
+        contact_pair=pair,
+        maximum_stable_time_increment=1.0e-3,
+    )
+    residual.initialize_accepted_state(time=0.0)
+    displacement.x.array.reshape((-1, 3))[:, 2] = 0.01
+    displacement.x.scatter_forward()
+
+    vector = residual.assemble_vector()
+    try:
+        resultant = vector.array.reshape((-1, 3)).sum(axis=0)
+    finally:
+        vector.destroy()
+
+    np.testing.assert_allclose(resultant, (5.0, 0.0, 0.5), atol=1.0e-13)
+    assert residual.trial_evidence.tangential_potential_energy == pytest.approx(
+        0.0025
+    )
+    assert residual.trial_evidence.sticking_point_count == 6
+    assert residual.trial_evidence.sliding_point_count == 0
+    residual.commit()
+    np.testing.assert_allclose(
+        residual.friction_state.accepted.elastic_slips,
+        np.tile((0.0, 0.0, 0.01), (6, 1)),
+    )
+    snapshot = residual.snapshot()
+    restored = boundary_models.dolfinx_explicit_contact_residual(
+        _bulk_residual(domain, function_space, (0.0, 0.0, 0.0)),
+        adapter=boundary_models.dolfinx_boundary_region_contact_trace(
+            slave,
+            function_space,
+        ),
+        displacement=displacement,
+        contact_pair=pair,
+        maximum_stable_time_increment=1.0e-3,
+    )
+    restored.restore(snapshot)
+    assert restored.snapshot() == snapshot
+
+    displacement.x.array.reshape((-1, 3))[:, 2] = 0.1
+    displacement.x.scatter_forward()
+    vector = restored.assemble_vector()
+    vector.destroy()
+    assert restored.trial_evidence.sticking_point_count == 0
+    assert restored.trial_evidence.sliding_point_count == 6
+    assert restored.trial_evidence.tangential_potential_energy == pytest.approx(0.01)
+    assert restored.trial_evidence.friction_dissipation == pytest.approx(0.08)
+    restored.rollback()
+    assert restored.friction_state.trial is None
+    assert restored.friction_kinematics.trial is None
 
 
 def test_rigid_contact_pair_requires_complete_friction_parameters():
@@ -765,6 +809,61 @@ def test_rigid_contact_pair_requires_complete_friction_parameters():
             penalty=100.0,
             friction_coefficient=0.2,
         )
+
+
+def test_explicit_friction_removes_common_prescribed_tool_translation():
+    domain = _cube(MPI.COMM_SELF)
+    function_space = _vector_space(domain)
+    displacement = fem.Function(function_space, name="Displacement")
+    displacement.x.array.reshape((-1, 3))[:, 0] = 0.1
+    displacement.x.scatter_forward()
+    slave = _left_region(domain)
+    schedule = boundary_models.prescribed_rigid_motion_schedule(
+        boundary_models.prescribed_rigid_motion(
+            translation=(0.0, 0.0, 0.5),
+        ),
+        end_time=1.0e-3,
+    )
+    body = boundary_models.rigid_body(
+        boundary_models.rigid_plane(
+            point=(0.05, 0.0, 0.0),
+            normal=(-1.0, 0.0, 0.0),
+        ),
+        motion_schedule=schedule,
+    )
+    pair = boundary_models.rigid_contact_pair(
+        slave,
+        body,
+        penalty=100.0,
+        friction_coefficient=0.2,
+        tangential_penalty=50.0,
+    )
+    residual = boundary_models.dolfinx_explicit_contact_residual(
+        _bulk_residual(domain, function_space, (0.0, 0.0, 0.0)),
+        adapter=boundary_models.dolfinx_boundary_region_contact_trace(
+            slave,
+            function_space,
+        ),
+        displacement=displacement,
+        contact_pair=pair,
+        maximum_stable_time_increment=1.0e-3,
+    )
+    residual.initialize_accepted_state(time=0.0)
+    residual.update_time(5.0e-4)
+    displacement.x.array.reshape((-1, 3))[:, 2] = 0.25
+    displacement.x.scatter_forward()
+
+    vector = residual.assemble_vector()
+    try:
+        resultant = vector.array.reshape((-1, 3)).sum(axis=0)
+    finally:
+        vector.destroy()
+
+    np.testing.assert_allclose(resultant, (5.0, 0.0, 0.0), atol=1.0e-13)
+    assert residual.trial_evidence.tangential_potential_energy == pytest.approx(0.0)
+    assert residual.trial_evidence.friction_dissipation == pytest.approx(0.0)
+    residual.commit()
+    assert residual.work_state.path_work == pytest.approx(0.0, abs=1.0e-14)
 
 
 def test_explicit_contact_rejects_projector_from_another_rigid_body():
@@ -937,6 +1036,65 @@ def test_moving_routed_triangle_contact_preserves_identity_under_mpi():
     assert residual.work_state.path_work == pytest.approx(0.0, abs=1.0e-14)
     assert projector.summary()["collective_pattern"] == (
         "two_stage_packed_alltoallv"
+    )
+
+
+def test_friction_state_checkpoint_is_rank_canonical_under_mpi():
+    if MPI.COMM_WORLD.size != 2:
+        pytest.skip("Explicit friction checkpoint is reviewed on two ranks.")
+    comm = MPI.COMM_WORLD
+    domain = _cube(comm, cells_x=2)
+    function_space = _vector_space(domain)
+    displacement = fem.Function(function_space, name="Displacement")
+    displacement.x.array.reshape((-1, 3))[:, 0] = 0.1
+    displacement.x.scatter_forward()
+    slave = _left_region(domain)
+    body = boundary_models.rigid_body(
+        boundary_models.rigid_plane(
+            point=(0.05, 0.0, 0.0),
+            normal=(-1.0, 0.0, 0.0),
+        )
+    )
+    pair = boundary_models.rigid_contact_pair(
+        slave,
+        body,
+        penalty=100.0,
+        friction_coefficient=0.2,
+        tangential_penalty=50.0,
+        name="distributed_friction_pair",
+    )
+
+    def build_residual():
+        return boundary_models.dolfinx_explicit_contact_residual(
+            _bulk_residual(domain, function_space, (0.0, 0.0, 0.0)),
+            adapter=boundary_models.dolfinx_boundary_region_contact_trace(
+                slave,
+                function_space,
+            ),
+            displacement=displacement,
+            contact_pair=pair,
+            maximum_stable_time_increment=1.0e-3,
+        )
+
+    residual = build_residual()
+    residual.initialize_accepted_state(time=0.0)
+    displacement.x.array.reshape((-1, 3))[:, 2] = 0.03
+    displacement.x.scatter_forward()
+    vector = residual.assemble_vector()
+    vector.destroy()
+    residual.commit()
+
+    snapshot = residual.snapshot()
+    copies = comm.allgather(snapshot)
+    assert all(item == copies[0] for item in copies)
+    assert residual.accepted_evidence.sliding_point_count == 6
+    assert residual.accepted_evidence.friction_dissipation == pytest.approx(0.01)
+
+    restored = build_residual()
+    restored.restore(snapshot)
+    assert restored.snapshot() == snapshot
+    assert restored.friction_state.accepted.point_count == (
+        restored.adapter.trace.point_count
     )
 
 

@@ -381,8 +381,8 @@ accepted work, and the absence of spurious normal work under purely tangential
 tool translation. Projection remains evaluation-local and is recomputed after
 restart from accepted displacement and schedule time. This route still does
 not claim automatic contact spectral estimation, arbitrary topology, multiple
-distributed tools in one broad phase, friction, free rigid-body dynamics, or
-an implicit consistent tangent.
+distributed tools in one broad phase, free rigid-body dynamics, or an implicit
+consistent tangent.
 
 The next friction gate starts with a solver-neutral scientific contract rather
 than a hidden extension of that residual. `penalty_coulomb_friction_law(...)`
@@ -393,17 +393,19 @@ trial/commit/rollback state. Its response reports recoverable tangential
 penalty energy, sliding dissipation, and penalty energy released at contact
 opening as three different quantities. A `RigidContactPair` may declare this
 law with `friction_coefficient=` and `tangential_penalty=`, so the Model and its
-scientific identity are complete. The current DOLFINx residual rejects that
-pair with `AFM-CONTACT-FRICTION-OPERATOR-001`: tangential trace assembly,
-checkpoint integration, stability screening, and external verification are
-the next Operator/Procedure promotion and friction is never silently ignored.
+scientific identity are complete. The DOLFINx explicit residual consumes that
+declaration. It computes relative slave-minus-master motion against the same
+rigid material point for fixed, translating, and rotating tools; stages point
+history with the time increment; and assembles tangential force and moment
+without changing the Model API.
 
 `ContactTraceEvaluation.assemble_friction(...)` is the first completed piece
 of that Operator promotion. It integrates tangential residual traction and
 rigid-body force/moment with the same interpolation and quadrature contract as
 normal contact, while keeping recoverable tangential penalty energy,
 irreversible sliding dissipation, and separation release in named channels.
-It still does not construct relative slip or advance a time step. This follows
+The explicit Procedure now supplies relative slip and accepted-state
+commit/rollback. The trace itself remains free of time integration. This follows
 the penalty-friction distinction between elastic stick and the Coulomb cap in
 the [Abaqus friction theory](https://docs.software.vt.edu/abaqusv2025/English/SIMACAETHERefMap/simathe-c-coulombfric.htm)
 and the separate contact-energy categories in its
@@ -425,15 +427,16 @@ restart rejects changed mesh/function-space identity, loads, constraints, time
 inputs, or nonlinear controls. The same accepted state can be resumed with a
 different compatible MPI partition or rank count.
 
-This route has no assembled friction Operator, free rigid-body dynamics,
-deformable-to-deformable
+This route has no free rigid-body dynamics, deformable-to-deformable
 coupling, implicit consistent linearization, or shared broad phase for several
 distributed tools. Its reviewed moving geometries are one analytical surface
 or one oriented triangulated rigid surface per pair. It rejects incompatible
 boundary providers and constraint types before assembly. The penalty has units
 of traction per length and must therefore be selected and checked by mesh
-refinement for the problem at hand. General industrial contact remains a
-separate scientific promotion.
+refinement for the problem at hand. For frictional pairs the declared explicit
+stability ceiling must cover both normal and tangential penalty stiffness.
+General industrial contact remains a separate scientific promotion until an
+external sliding benchmark and automatic spectral screening pass.
 
 ## Declare the numerical unit contract
 
