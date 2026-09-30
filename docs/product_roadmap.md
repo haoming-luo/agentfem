@@ -280,9 +280,11 @@ Procedure-owned search/update cadence (now executable as an every-evaluation
 lifecycle with collective MPI rejection and explicit increment
 commit/rollback) and an Operator that consumes the trial projection. Candidate
 warm starts may optimize broad-phase work later, but exact gaps and normals
-remain evaluation-local. Discrete-surface projection is deliberately
-recomputed after restart from portable accepted displacement and schedule
-time; it is not serialized as durable history. The explicit residual hand-off
+remain evaluation-local. Accepted discrete-surface projection evidence is now
+serialized by stable global point ID and restored onto the current MPI
+partition, including master facet and barycentric coordinates. It remains
+audit State, not a search cache: projection is deliberately recomputed after
+restart from portable accepted displacement and schedule time. The explicit residual hand-off
 now supports fixed or proportional prescribed motion, a mandatory declared
 stability ceiling, rank-canonical force--moment--work evidence, accepted-path
 restart, and finite sliding over one serial or routed distributed triangulated

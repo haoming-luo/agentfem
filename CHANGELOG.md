@@ -8,6 +8,15 @@ experimental formulation to a validated one.
 
 ### Added
 
+- Preserve accepted closest-point evidence in explicit-contact checkpoints by
+  stable global slave-point ID. Master facet identity, barycentric coordinates,
+  closest point, normal, gap, validity, and status now form one rank-canonical
+  snapshot that can be restored onto a different MPI partition. Corrupt or
+  geometrically incompatible evidence is rejected before existing State is
+  mutated. Restored evidence supports audit continuity only: the next residual
+  evaluation still performs exact search and never reuses a stale gap or
+  normal for force assembly.
+
 - Add separated time- and space-refinement evidence for the finite-sliding
   solid bridge. The time study halves both stage increments while preserving
   physical duration; the spatial study retains the refined increments and

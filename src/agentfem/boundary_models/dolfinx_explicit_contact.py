@@ -22,6 +22,10 @@ from petsc4py import PETSc
 from agentfem import operators
 
 from .contact_lifecycle import ContactProjectionLifecycle
+from .contact_projection_checkpoint import (
+    global_projection_state_snapshot,
+    local_projection_state_from_snapshot,
+)
 from .contact_friction import (
     PenaltyCoulombFrictionLaw,
     TangentialContactState,
@@ -852,6 +856,33 @@ class DolfinxExplicitContactResidual:
             self.communicator,
         )
 
+    def _global_projection_record(self) -> dict[str, object] | None:
+        accepted = self.lifecycle.state.accepted
+        if accepted is None:
+            return None
+        return global_projection_state_snapshot(accepted, self.communicator)
+
+    def _validated_global_projection_record(self, snapshot: object):
+        if snapshot is None:
+            return None
+        restored = local_projection_state_from_snapshot(
+            snapshot,
+            point_ids=self.adapter.trace.point_ids,
+        )
+        projector_summary = self.lifecycle.projector.summary()
+        expected_fingerprint = projector_summary.get(
+            "global_geometry_fingerprint",
+            projector_summary.get("geometry_fingerprint"),
+        )
+        if (
+            expected_fingerprint is not None
+            and restored.projection.geometry_fingerprint != expected_fingerprint
+        ):
+            raise ValueError(
+                "Contact-projection checkpoint geometry differs from its projector."
+            )
+        return restored
+
     def _validated_global_friction_records(self, snapshot: object):
         if self.friction_state is None or self.friction_kinematics is None:
             if snapshot is not None:
@@ -881,7 +912,7 @@ class DolfinxExplicitContactResidual:
         ):
             raise RuntimeError("Explicit contact can only checkpoint an accepted boundary.")
         snapshot = {
-            "schema": "agentfem.dolfinx-explicit-contact-residual.v5",
+            "schema": "agentfem.dolfinx-explicit-contact-residual.v6",
             "name": self.name,
             "contact_pair_identity": (
                 None
@@ -908,6 +939,7 @@ class DolfinxExplicitContactResidual:
                 else self.accepted_evidence.summary()
             ),
             "friction_state": self._global_friction_records(),
+            "projection_state": self._global_projection_record(),
             "base_state": (
                 self.base.snapshot() if hasattr(self.base, "snapshot") else None
             ),
@@ -982,7 +1014,7 @@ class DolfinxExplicitContactResidual:
         return tuple(terms)
 
     def restore(self, snapshot: object) -> None:
-        """Restore accepted work evidence without restoring stale projections."""
+        """Restore accepted audit State; the next evaluation still reprojects."""
 
         required = {
             "schema",
@@ -994,12 +1026,13 @@ class DolfinxExplicitContactResidual:
             "accepted_evaluations",
             "accepted_evidence",
             "friction_state",
+            "projection_state",
             "base_state",
         }
         if (
             not isinstance(snapshot, dict)
             or snapshot.get("schema")
-            != "agentfem.dolfinx-explicit-contact-residual.v5"
+            != "agentfem.dolfinx-explicit-contact-residual.v6"
             or set(snapshot) != required
         ):
             raise ValueError("Unsupported explicit-contact residual snapshot.")
@@ -1049,6 +1082,10 @@ class DolfinxExplicitContactResidual:
         )
         raw_friction = snapshot["friction_state"]
         validated_friction = self._validated_global_friction_records(raw_friction)
+        raw_projection = snapshot["projection_state"]
+        validated_projection = self._validated_global_projection_record(
+            raw_projection
+        )
         raw_base = snapshot["base_state"]
         base_restore = getattr(self.base, "restore", None)
         if raw_base is not None and not callable(base_restore):
@@ -1084,6 +1121,7 @@ class DolfinxExplicitContactResidual:
             self.work_state.trial = None
         self.accepted_evaluations = count
         self.accepted_evidence = evidence
+        self.lifecycle.state.accepted = validated_projection
         self.lifecycle.state.rollback()
         self.trial_evidence = None
 
@@ -1129,9 +1167,9 @@ class DolfinxExplicitContactResidual:
             "parallel_assembly": "ghost_reverse_add_then_owned_accumulation",
             "projection_update": "every_residual_evaluation",
             "restart": (
-                "memoryless_projection_recomputed"
+                "accepted_projection_evidence_restored_then_recomputed"
                 if self.work_state is None
-                else "projection_recomputed_and_accepted_work_restored"
+                else "projection_and_accepted_work_restored_then_recomputed"
             ),
             "accepted_evaluations": self.accepted_evaluations,
             "accepted_evidence": (

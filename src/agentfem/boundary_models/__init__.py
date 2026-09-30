@@ -6,6 +6,7 @@
 from . import absorbing
 from . import contact_state
 from . import contact_lifecycle
+from . import contact_projection_checkpoint
 from . import contact_friction
 from . import contact_pair
 from . import contact_response
@@ -28,6 +29,10 @@ from .mechanical import (
 )
 from .contact_state import ContactProjectionRecord, ContactProjectionState
 from .contact_lifecycle import ContactProjectionEvaluation, ContactProjectionLifecycle
+from .contact_projection_checkpoint import (
+    global_projection_state_snapshot,
+    local_projection_state_from_snapshot,
+)
 from .contact_friction import (
     PenaltyCoulombFrictionLaw,
     PenaltyCoulombFrictionResponse,
@@ -165,12 +170,15 @@ __all__ = [
     "absorbing",
     "contact_state",
     "contact_lifecycle",
+    "contact_projection_checkpoint",
     "contact_friction",
     "contact_pair",
     "contact_response",
     "contact_stability",
     "contact_trace",
     "contact_work",
+    "global_projection_state_snapshot",
+    "local_projection_state_from_snapshot",
     "convection",
     "dolfinx_adapter",
     "dolfinx_contact_trace",
