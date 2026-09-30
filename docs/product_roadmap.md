@@ -156,9 +156,13 @@ translation and rotation; its initial and accepted generalized stations produce
 force--translation plus moment--rotation work and interval power. Checkpoints
 bind the schedule identity and restore the accepted path while recomputing the
 memoryless projection. A caller-supplied contact stability ceiling remains
-mandatory; automatic spectral estimation has not been claimed. This closes
-bounded moving-plane explicit work, not general contact, finite sliding,
-distributed multi-surface search, friction, or implicit Newton linearization.
+mandatory; automatic spectral estimation has not been claimed. The same
+residual now consumes the reviewed serial and routed distributed triangle
+BVHs. Stable slave-point IDs cross changing rigid facets under finite sliding
+in serial and at two MPI ranks, while accepted work remains rank-canonical and
+pure tangential tool motion adds no false normal work. This closes one bounded
+moving triangulated-tool route, not general multi-tool search, arbitrary
+topology, friction, or implicit Newton linearization.
 Multiple bounded analytical pairs already compose through the residual chain,
 including time propagation, atomic trial decisions, summed energy/work, and
 nested checkpoint State.
@@ -255,15 +259,16 @@ Procedure-owned search/update cadence (now executable as an every-evaluation
 lifecycle with collective MPI rejection and explicit increment
 commit/rollback) and an Operator that consumes the trial projection. Candidate
 warm starts may optimize broad-phase work later, but exact gaps and normals
-remain evaluation-local. Cross-rank checkpoint aggregation by stable point
-identity remains required before a discrete-surface projection state can claim
-MPI-portable restart. The analytical-plane explicit residual hand-off now
-supports fixed or proportional prescribed motion, a mandatory declared
-stability ceiling, rank-canonical force--moment--work evidence, and
-accepted-path restart. Bounded analytical pairs now compose with independent
-identity and summed energy evidence. Distributed multi-surface candidate
-routing, finite sliding over discrete surface entities, scalable portable
-projection State, and finally friction follow that bounded route. STEP
+remain evaluation-local. Discrete-surface projection is deliberately
+recomputed after restart from portable accepted displacement and schedule
+time; it is not serialized as durable history. The explicit residual hand-off
+now supports fixed or proportional prescribed motion, a mandatory declared
+stability ceiling, rank-canonical force--moment--work evidence, accepted-path
+restart, and finite sliding over one serial or routed distributed triangulated
+tool. Bounded analytical pairs compose with independent identity and summed
+energy evidence. Distributed multi-tool candidate routing, measured
+extreme-scale behavior, arbitrary topology, and finally friction follow that
+bounded route. STEP
 remains an optional geometry-adapter input that is repaired and tessellated
 before the contact core consumes it. Shell/solid-shell forming and self-contact
 remain later scientific promotions, not hidden extensions of the bounded

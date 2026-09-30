@@ -56,6 +56,20 @@ def _vector_space(domain):
     )
 
 
+def _triangulated_tool_plane():
+    return boundary_models.triangulated_rigid_surface(
+        vertices=(
+            (0.05, 0.0, 0.0),
+            (0.05, 0.0, 1.0),
+            (0.05, 1.0, 1.0),
+            (0.05, 1.0, 0.0),
+        ),
+        triangles=((0, 1, 2), (0, 2, 3)),
+        facet_ids=(101, 202),
+        name="triangulated_tool_plane",
+    )
+
+
 def _bulk_residual(domain, function_space, value):
     test = ufl.TestFunction(function_space)
     source = fem.Constant(domain, np.asarray(value, dtype=float))
@@ -490,6 +504,67 @@ def test_composed_contact_pairs_share_time_work_energy_and_restart():
     assert restored.contact_energy_evidence() == terms
 
 
+def test_moving_triangle_bvh_tracks_facet_crossing_without_spurious_work():
+    domain = _cube(MPI.COMM_SELF)
+    function_space = _vector_space(domain)
+    displacement = fem.Function(function_space, name="Displacement")
+    displacement.x.array.reshape((-1, 3))[:, 0] = 0.1
+    displacement.x.scatter_forward()
+    adapter = boundary_models.dolfinx_boundary_region_contact_trace(
+        _left_region(domain),
+        function_space,
+    )
+    schedule = boundary_models.prescribed_rigid_motion_schedule(
+        boundary_models.prescribed_rigid_motion(
+            translation=(0.0, 0.0, 0.5),
+            name="tangential_tool_motion",
+        ),
+        end_time=1.0e-3,
+    )
+    residual = boundary_models.dolfinx_explicit_contact_residual(
+        _bulk_residual(domain, function_space, (0.0, 0.0, 0.0)),
+        adapter=adapter,
+        displacement=displacement,
+        projector=boundary_models.triangle_surface_bvh(
+            _triangulated_tool_plane()
+        ),
+        penalty=200.0,
+        maximum_stable_time_increment=1.0e-3,
+        motion_schedule=schedule,
+        name="sliding_triangle_contact",
+    )
+    state = problems.second_order_state(displacement)
+    diagonal = np.ones(displacement.x.array.shape, dtype=float)
+    mass = operators.LumpedMassOperator(mass=diagonal, inv_mass=diagonal)
+    step = problems.explicit_dynamics(
+        state=state,
+        integrator=time.explicit.central_difference(state=state, mass=mass),
+        residual=residual,
+        dt=5.0e-4,
+        steps=2,
+        progress=False,
+    )
+
+    trace = adapter.evaluate(displacement)
+    initial = residual.lifecycle.evaluate(
+        trace.query_points,
+        motion=schedule.motion,
+        factor=schedule.factor_at(0.0),
+    ).record
+    initial_entities = initial.projection.entity_ids.copy()
+    initial_points = initial.point_ids.copy()
+    residual.lifecycle.rollback_increment()
+    step.run()
+    final = residual.lifecycle.state.accepted
+
+    np.testing.assert_array_equal(final.point_ids, initial_points)
+    assert np.any(final.projection.entity_ids != initial_entities)
+    assert residual.work_state.path_work == pytest.approx(0.0, abs=1.0e-14)
+    assert residual.summary()["lifecycle"]["projector"]["method"] == (
+        "deterministic_aabb_bvh"
+    )
+
+
 def test_explicit_contact_residual_preserves_global_force_under_mpi():
     if MPI.COMM_WORLD.size != 2:
         pytest.skip("Explicit contact residual is reviewed on two ranks.")
@@ -548,6 +623,76 @@ def test_moving_contact_work_is_rank_canonical_under_mpi():
     copies = comm.allgather(snapshot)
     assert all(item == copies[0] for item in copies)
     assert residual.work_state.path_work == pytest.approx(-0.09)
+
+
+def test_moving_routed_triangle_contact_preserves_identity_under_mpi():
+    if MPI.COMM_WORLD.size != 2:
+        pytest.skip("Moving distributed contact is reviewed on two ranks.")
+    comm = MPI.COMM_WORLD
+    domain = _cube(comm, cells_x=2)
+    function_space = _vector_space(domain)
+    displacement = fem.Function(function_space, name="Displacement")
+    displacement.x.array.reshape((-1, 3))[:, 0] = 0.1
+    displacement.x.scatter_forward()
+    adapter = boundary_models.dolfinx_boundary_region_contact_trace(
+        _left_region(domain),
+        function_space,
+    )
+    surface = _triangulated_tool_plane()
+    projector = boundary_models.routed_distributed_triangle_surface_bvh(
+        boundary_models.partition_triangle_surface(surface, comm),
+        comm,
+    )
+    schedule = boundary_models.prescribed_rigid_motion_schedule(
+        boundary_models.prescribed_rigid_motion(
+            translation=(0.0, 0.0, 0.5),
+            name="distributed_tangential_tool_motion",
+        ),
+        end_time=1.0e-3,
+    )
+    residual = boundary_models.dolfinx_explicit_contact_residual(
+        _bulk_residual(domain, function_space, (0.0, 0.0, 0.0)),
+        adapter=adapter,
+        displacement=displacement,
+        projector=projector,
+        penalty=200.0,
+        maximum_stable_time_increment=1.0e-3,
+        motion_schedule=schedule,
+        name="distributed_sliding_triangle_contact",
+    )
+    trace = adapter.evaluate(displacement)
+    initial = residual.lifecycle.evaluate(
+        trace.query_points,
+        motion=schedule.motion,
+        factor=schedule.factor_at(0.0),
+    ).record
+    initial_entities = initial.projection.entity_ids.copy()
+    initial_points = initial.point_ids.copy()
+    residual.lifecycle.rollback_increment()
+
+    state = problems.second_order_state(displacement)
+    mass = operators.LumpedMassOperator.assemble(function_space, density=1.0)
+    problems.explicit_dynamics(
+        state=state,
+        integrator=time.explicit.central_difference(state=state, mass=mass),
+        residual=residual,
+        dt=5.0e-4,
+        steps=2,
+        progress=False,
+    ).run()
+
+    final = residual.lifecycle.state.accepted
+    np.testing.assert_array_equal(final.point_ids, initial_points)
+    local_crossings = int(
+        np.count_nonzero(final.projection.entity_ids != initial_entities)
+    )
+    assert comm.allreduce(local_crossings, op=MPI.SUM) > 0
+    snapshots = comm.allgather(residual.snapshot())
+    assert all(item == snapshots[0] for item in snapshots)
+    assert residual.work_state.path_work == pytest.approx(0.0, abs=1.0e-14)
+    assert projector.summary()["collective_pattern"] == (
+        "two_stage_packed_alltoallv"
+    )
 
 
 def test_explicit_step_rolls_back_if_residual_commit_fails():

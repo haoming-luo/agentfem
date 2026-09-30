@@ -357,10 +357,19 @@ Several bounded analytical contact pairs can be composed by using one contact
 residual as the next pair's base residual. Time updates, commit/rollback,
 per-pair evidence, summed contact potential/work, and nested checkpoint State
 then follow the same residual chain; every pair should have a distinct name
-and schedule identity. This route still does not claim automatic contact
-spectral estimation, finite sliding over changing surface entities, general
-multi-surface search, friction, free rigid-body dynamics, or an implicit
-consistent tangent.
+and schedule identity.
+
+The same explicit consumer also accepts the reviewed serial or routed
+distributed triangle BVH as its projector. A moving triangulated rigid tool is
+reprojected at every residual evaluation, so stable slave-point IDs may change
+their closest surface-facet IDs during finite sliding. Serial and two-rank
+tests cover that facet crossing, packed rank-AABB routing, rank-canonical
+accepted work, and the absence of spurious normal work under purely tangential
+tool translation. Projection remains evaluation-local and is recomputed after
+restart from accepted displacement and schedule time. This route still does
+not claim automatic contact spectral estimation, arbitrary topology, multiple
+distributed tools in one broad phase, friction, free rigid-body dynamics, or
+an implicit consistent tangent.
 
 The parallel vector ordering follows PETSc's finite-element contract:
 [`ADD_VALUES` with reverse scatter](https://petsc.org/release/manual/vec/)
@@ -377,13 +386,14 @@ restart rejects changed mesh/function-space identity, loads, constraints, time
 inputs, or nonlinear controls. The same accepted state can be resumed with a
 different compatible MPI partition or rank count.
 
-This route has no surface search, finite sliding, friction, multiple contact
-pairs, free rigid-body dynamics, or deformable-to-deformable coupling. The
-moving surface remains one analytical plane. It rejects incompatible boundary
-providers and constraint types before assembly. The penalty has units of
-traction per length and must therefore be selected and checked by mesh
-refinement for the problem at hand. General contact remains a separate future
-provider.
+This route has no friction, free rigid-body dynamics, deformable-to-deformable
+coupling, implicit consistent linearization, or shared broad phase for several
+distributed tools. Its reviewed moving geometries are one analytical surface
+or one oriented triangulated rigid surface per pair. It rejects incompatible
+boundary providers and constraint types before assembly. The penalty has units
+of traction per length and must therefore be selected and checked by mesh
+refinement for the problem at hand. General industrial contact remains a
+separate scientific promotion.
 
 ## Declare the numerical unit contract
 

@@ -30,7 +30,7 @@ reaction, resultant, penetration diagnostics, accepted-path work semantics,
 and conservative energy evidence.
 
 The bounded explicit route now accepts one proportional prescribed rigid
-translation/rotation schedule. It evaluates the moving analytical plane at the
+translation/rotation schedule. It evaluates the moving surface at the
 predicted displacement, publishes MPI-global force and moment, integrates only
 accepted force--translation/moment--rotation stations, rolls failed increments
 back, and restores the accepted work path from transient checkpoints. Serial
@@ -38,12 +38,14 @@ restart and two-rank canonical-State tests protect that lifecycle. The caller
 still owns a conservative contact stability ceiling. Bounded analytical pairs
 compose through the residual chain: accepted time, rollback, per-pair
 force/moment, summed work/potential, and nested restart propagate without a
-forming-specific solver.
+forming-specific solver. A separate reviewed path couples the same Procedure
+to serial and routed distributed triangle BVHs; stable slave-point identity is
+preserved while the closest rigid facet changes during finite sliding, and
+pure tangential tool translation produces no spurious normal contact work.
 
-General moving-surface search, finite sliding across changing facets,
-distributed multi-surface candidate routing, friction, free rigid-body
-dynamics, deformable-to-deformable contact, and forming are not inferred from
-this evidence. They remain explicit future capabilities.
+General multi-tool candidate routing, arbitrary surface topology, friction,
+free rigid-body dynamics, deformable-to-deformable contact, and forming are not
+inferred from this evidence. They remain explicit future capabilities.
 
 The 0.4 foundation work now also defines a solver-neutral accepted/trial
 closest-point State. It keeps stable 64-bit contact-point and surface-facet
