@@ -236,6 +236,17 @@ partition = boundary_models.dolfinx_exterior_triangle_partition(domain)
 search = boundary_models.routed_distributed_triangle_surface_bvh(partition, comm)
 ```
 
+Imported physical groups and AgentFEM boundary regions retain their named
+selection instead of requiring users to pass local facet indices manually:
+
+```python
+partition = boundary_models.dolfinx_tagged_exterior_triangle_partition(
+    domain, facet_tags, tag=tool_tag, name="forming_tool"
+)
+# Or, when the named region already exists:
+partition = boundary_models.dolfinx_boundary_region_triangle_partition(tool_region)
+```
+
 The adapter uses input-global vertex identities, orients every triangle away
 from its adjacent volume cell, and permits a rank to own no selected facets.
 It currently rejects non-tetrahedral, higher-order, interior, duplicate, or
