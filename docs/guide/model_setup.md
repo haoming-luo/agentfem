@@ -257,8 +257,8 @@ queried ranks, avoided messages, and actual encoded payload bytes. Integer
 identities and floating geometry travel in aligned packed `MPI_Alltoallv`
 buffers, so 64-bit facet identities are not coerced into floating-point
 packets. The all-gather implementation remains its partition-independent
-correctness oracle; this search contract is not yet wired into the contact
-residual or finite-sliding state machine.
+correctness oracle. The explicit DOLFINx contact Operator selects this routed
+backend automatically for triangulated rigid tools under MPI.
 
 For an existing first-order three-dimensional DOLFINx tetrahedral mesh, owned
 exterior facets can enter the same contract without first replicating a global
@@ -356,17 +356,19 @@ an implicit general-contact solver.
 
 For the first reviewed DOLFINx route,
 `dolfinx_boundary_region_contact_trace(region, V)` adapts a tagged exterior
-boundary on a first-order tetrahedral mesh and a continuous blocked vector CG1
-space. It emits three positive reference-area points per triangle, keys them by
-partition-independent facet/point identity, and evaluates their current
-positions from a synchronized DOLFINx displacement field. Higher-order,
-curved, non-tetrahedral, scalar, discontinuous, and non-blocked spaces are
-rejected collectively rather than coerced into this route.
+boundary on a first-order tetrahedral or hexahedral mesh and a continuous
+blocked vector CG1 space. It emits three positive reference-area points per
+triangle or a 2-by-2 Gauss rule with the true bilinear surface Jacobian per
+quadrilateral. Both routes use partition-independent facet/point identity and
+evaluate current positions from a synchronized DOLFINx displacement field.
+Higher-order, curved-coordinate, other-topology, scalar, discontinuous, and
+non-blocked spaces are rejected collectively rather than coerced.
 
 That trace now has one bounded Procedure consumer:
 `dolfinx_explicit_contact_residual(...)`. It combines an ordinary bulk
-residual with exact projection, the frictionless penalty point law, and trace
-integration before the existing central-difference acceleration update. In
+residual with exact projection, the normal penalty law, optional
+penalty--Coulomb friction, and trace integration before the existing
+central-difference acceleration update. In
 MPI, contact contributions are first assembled into a separate zeroed ghosted
 vector, reverse-added to their owners, and only then added to the already
 assembled bulk owned entries. This ordering prevents a second accumulation of
@@ -394,8 +396,9 @@ remains the default. For one proportional
 prescribed rigid path, construct `prescribed_rigid_motion_schedule(...)` and
 bind it with the scientific surface in `rigid_body(...)`. Pass that immutable
 asset with the slave `BoundaryRegion` and scalar penalty in
-`rigid_contact_pair(...)`, then pass the pair as `contact_pair`; a serial or
-distributed projector remains a separate backend/search choice. The schedule
+`rigid_contact_pair(...)`, then pass the pair as `contact_pair`. The Backend
+selects a serial or routed distributed BVH for triangulated tools unless an
+explicit compatible projector is supplied. The schedule
 states physical start/end times explicitly instead of treating solver time as
 an unnamed load factor. The pair and rigid body's surface, motion, reference
 point, local law, and stable scientific identities enter result and checkpoint
@@ -433,7 +436,7 @@ This route still does not claim arbitrary topology, multiple
 distributed tools in one broad phase, free rigid-body dynamics, or an implicit
 consistent tangent.
 
-The next friction gate starts with a solver-neutral scientific contract rather
+The friction extension starts with a solver-neutral scientific contract rather
 than a hidden extension of that residual. `penalty_coulomb_friction_law(...)`
 implements elastic stick and return to the Coulomb cap at already projected
 points. `TangentialContactState` keeps stable point IDs, transported

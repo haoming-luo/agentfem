@@ -8,6 +8,12 @@ experimental formulation to a validated one.
 
 ### Added
 
+- Extend the DOLFINx contact trace from tetrahedral CG1 triangle faces to
+  hexahedral Q1 quadrilateral faces. The new route uses four-point tensor Gauss
+  integration, evaluates the bilinear surface Jacobian at every point, retains
+  partition-independent facet/point identity under MPI, and enters the same
+  explicit contact residual, force, energy, friction, and checkpoint contracts.
+
 - Add an optional `meshio` boundary for imported rigid triangle tools. The
   loader requires an explicit coordinate scale, binds the source SHA-256,
   welds only exact duplicate vertices, canonicalizes point/facet ordering,
@@ -65,8 +71,8 @@ experimental formulation to a validated one.
   in their existing owners. Mass-proportional damping now transparently
   forwards the wrapped residual's time, stability, contact-energy, and progress
   contracts instead of hiding moving-contact State. The route stays
-  fail-closed to its reviewed three-dimensional tetrahedral-CG1 slave trace
-  and rigid-surface scope.
+  fail-closed to its reviewed three-dimensional tetrahedral-CG1 or
+  hexahedral-Q1 slave trace and rigid-surface scope.
 
 - Make preload-to-Explicit transfer initialize stateful contact at the
   transferred accepted boundary before evaluating equilibrium. This closes
