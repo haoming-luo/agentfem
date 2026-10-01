@@ -379,13 +379,44 @@ def _gate_foundation_acceptance(
         for record in records
         if _valid_extension_acceptance(record, version=version, commit=commit)
     )
+    agent_acceptances = tuple(
+        record
+        for record in records
+        if record.get("schema") == "agentfem.agent-acceptance"
+        and record.get("agentfem_version") == version
+        and record.get("runtime") == "passed"
+        and record.get("capability_discovery") == "passed"
+        and record.get("declared_maturity_evidence") == "passed"
+    )
     accepted = []
     for record in records:
         mpi = record.get("representative_mpi")
+        evidence = record.get("evidence")
         if not isinstance(mpi, dict):
             continue
+        matching_extensions = (
+            tuple(
+                item
+                for item in extensions
+                if item.get("core_wheel_sha256") == record.get("wheel_sha256")
+                and _record_sha256(item)
+                == evidence.get("extension_acceptance_sha256")
+            )
+            if isinstance(evidence, dict)
+            else ()
+        )
+        matching_agents = (
+            tuple(
+                item
+                for item in agent_acceptances
+                if _record_sha256(item) == evidence.get("agent_acceptance_sha256")
+            )
+            if isinstance(evidence, dict)
+            else ()
+        )
         if not (
             record.get("schema") == "agentfem.foundation-acceptance"
+            and record.get("schema_version") == "0.1.0"
             and record.get("status") == "passed"
             and record.get("source_dirty") is False
             and record.get("complete_serial") == "passed"
@@ -395,7 +426,20 @@ def _gate_foundation_acceptance(
             and int(record.get("mpi_rank_count", 0)) >= 2
             and all(mpi.get(name) == "passed" for name in required_mpi)
             and _is_sha256(record.get("wheel_sha256"))
-            and bool(extensions)
+            and isinstance(evidence, dict)
+            and _is_sha256(evidence.get("agent_acceptance_sha256"))
+            and _is_sha256(evidence.get("extension_acceptance_sha256"))
+            and set(evidence.get("validated_stages", ()))
+            == {
+                "complete_serial",
+                "compatibility_imports",
+                "mpi_checkpoint",
+                "mpi_nonlinear",
+                "mpi_output",
+                "mpi_state",
+            }
+            and bool(matching_extensions)
+            and bool(matching_agents)
             and _matches_candidate(
                 record,
                 version=version,

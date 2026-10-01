@@ -204,8 +204,10 @@ def test_source_distribution_retains_the_external_provider_acceptance_assets():
     source = (PROJECT_ROOT / "release_gate.py").read_text(encoding="utf-8")
 
     assert "include extension_gate.py" in manifest
+    assert "include foundation_gate.py" in manifest
     assert "recursive-include examples/extensions *.toml" in manifest
     assert '"extension_gate.py"' in source
+    assert '"foundation_gate.py"' in source
     assert '"examples/extensions/reference_material/pyproject.toml"' in source
 
 
@@ -333,6 +335,9 @@ def test_test_workflow_proves_the_external_provider_from_two_wheels():
     assert "python extension_gate.py" in workflow
     assert "--extension agentfem-reference-material" in workflow
     assert "--evidence /tmp/agentfem-extension-acceptance.json" in workflow
+    assert "python foundation_gate.py" in workflow
+    assert "--target 0.4-foundation" in workflow
+    assert "--evidence /tmp/agentfem-foundation-acceptance.json" in workflow
 
 
 def test_source_and_installed_distribution_evidence_are_separate():

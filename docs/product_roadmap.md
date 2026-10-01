@@ -85,7 +85,13 @@ Procedure → Result/Verification lifecycle used by users, retains the provider
 identity in the result, verifies the sealed manifest, and proves by before/after
 hash that the installed AgentFEM package was not patched. The reference material
 is intentionally only an acceptance fixture; new scientific behavior remains
-owned by companion or third-party packages.
+owned by companion or third-party packages. Release-tier CI now runs
+`foundation_gate.py` only after the complete serial suite, representative MPI
+state/nonlinear/output/checkpoint checks, installed-wheel examples,
+compatibility imports, and external provider gate have passed. The resulting
+foundation certificate binds those stages to the exact clean commit and wheel
+digest; `promotion_gate.py --target 0.4-foundation` no longer waits for a
+record that no workflow can produce.
 
 Fresh-agent acceptance remains a separate product gate rather than a seventh
 foundation abstraction. Release-tier CI now emits an immutable trial bundle

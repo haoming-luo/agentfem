@@ -446,13 +446,33 @@ jobs:
             --platform-report /tmp/agentfem-platform-acceptance.json \
             --require-platform linux
 
-      - name: Audit the 0.3 platform-promotion contract
+      - name: Record the candidate-bound 0.4 foundation acceptance
+        if: needs.change-scope.outputs.level == 'release'
+        run: |
+          wheel="$(find dist -maxdepth 1 -name 'agentfem-*.whl' -print -quit)"
+          test -n "$wheel"
+          python foundation_gate.py \
+            --wheel "$wheel" \
+            --agent-acceptance /tmp/agentfem-agent-acceptance.json \
+            --extension-acceptance /tmp/agentfem-extension-acceptance.json \
+            --source-commit "${GITHUB_SHA}" \
+            --validated complete_serial \
+            --validated compatibility_imports \
+            --validated mpi_state \
+            --validated mpi_nonlinear \
+            --validated mpi_output \
+            --validated mpi_checkpoint \
+            --report /tmp/agentfem-foundation-acceptance.json
+
+      - name: Audit the 0.4 foundation promotion contract
         if: needs.change-scope.outputs.level == 'release'
         run: |
           python promotion_gate.py \
+            --target 0.4-foundation \
             --evidence /tmp/agentfem-agent-acceptance.json \
             --evidence /tmp/agentfem-platform-acceptance.json \
             --evidence /tmp/agentfem-extension-acceptance.json \
+            --evidence /tmp/agentfem-foundation-acceptance.json \
             --report /tmp/agentfem-platform-promotion.json
 
       - name: Prepare the exact fresh-agent candidate trial
@@ -476,6 +496,7 @@ jobs:
             /tmp/agentfem-agent-acceptance.json
             /tmp/agentfem-platform-acceptance.json
             /tmp/agentfem-extension-acceptance.json
+            /tmp/agentfem-foundation-acceptance.json
             /tmp/agentfem-platform-promotion.json
           if-no-files-found: warn
 

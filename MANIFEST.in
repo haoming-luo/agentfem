@@ -15,6 +15,7 @@ include environment.yml
 include release_gate.py
 include promotion_gate.py
 include extension_gate.py
+include foundation_gate.py
 include build_docs.py
 include build_knowledge.py
 include src/agentfem/py.typed
