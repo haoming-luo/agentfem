@@ -332,6 +332,17 @@ jobs:
         if: needs.change-scope.outputs.level == 'release'
         run: mpirun -n 3 python -m pytest tests/test_parallel_cohesive.py -k "interface_sparse or serial_nonuniform"
 
+      - name: Verify high-order contact trace and positive mass gates with two MPI ranks
+        if: needs.change-scope.outputs.level == 'release'
+        run: |
+          mpirun -n 2 python -m pytest -q \
+            tests/test_dolfinx_contact_trace.py \
+            -k "global_identity or partition_independent"
+          mpirun -n 2 python -m pytest -q \
+            tests/test_explicit_contact_procedure.py \
+            -k "collective_under_mpi or rank_canonical_under_mpi"
+          mpirun -n 2 python -m pytest -q tests/test_lumped_mass_contract.py
+
       - name: Verify checkpoint portability across MPI rank counts
         if: needs.change-scope.outputs.level == 'release'
         run: |
