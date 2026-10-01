@@ -86,9 +86,13 @@ inferred from this evidence. They remain explicit future capabilities.
 The 0.4 foundation work now also defines a solver-neutral accepted/trial
 closest-point State. It keeps stable 64-bit contact-point and surface-facet
 identity, permits facet changes during sliding, rejects contact-pair identity
-changes, and checkpoints only accepted projection boundaries. Search remains
-geometry infrastructure; no general contact residual, Newton update policy, or
-cross-rank projection checkpoint is claimed by this state contract.
+changes, and checkpoints only accepted projection boundaries. The explicit
+contact residual now gathers those accepted records by global slave-point ID
+and restores them onto the current MPI partition, including master facet and
+barycentric coordinates. Search remains geometry infrastructure: restored
+records preserve audit continuity, while the next residual evaluation still
+performs exact projection and never assembles force from a stale gap or normal.
+No general implicit Newton update policy is claimed by this state contract.
 
 A separate projection lifecycle now owns every-evaluation calls to analytical
 or reviewed BVH projectors, keeps search diagnostics out of State, and binds

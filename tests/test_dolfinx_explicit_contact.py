@@ -517,6 +517,12 @@ def test_moving_contact_work_snapshot_round_trip_and_identity_check():
         restored.restore(corrupt)
     assert restored.snapshot() == pristine
 
+    corrupt_projection = copy.deepcopy(snapshot)
+    corrupt_projection["projection_state"]["records"][0]["normal"] = None
+    with pytest.raises(ValueError, match="lacks geometric values"):
+        restored.restore(corrupt_projection)
+    assert restored.snapshot() == pristine
+
     incompatible = boundary_models.prescribed_rigid_motion_schedule(
         boundary_models.prescribed_rigid_motion(translation=(0.03, 0.0, 0.0)),
         end_time=1.0e-3,
@@ -868,7 +874,16 @@ def test_moving_triangle_bvh_tracks_facet_crossing_without_spurious_work():
     )
     assert residual.summary()["rigid_body"]["name"] == "sliding_tool"
     assert residual.summary()["contact_pair"]["name"] == "sliding_pair"
-    assert residual.snapshot()["contact_pair_identity"] == pair.scientific_identity
+    snapshot = residual.snapshot()
+    assert snapshot["contact_pair_identity"] == pair.scientific_identity
+    projection_state = snapshot["projection_state"]
+    assert projection_state["metadata"]["has_entity_ids"] is True
+    assert projection_state["metadata"]["has_local_coordinates"] is True
+    assert all(
+        item["entity_id"] is not None
+        and item["local_coordinates"] is not None
+        for item in projection_state["records"]
+    )
     increments = [
         event for event in step.execution_events if event.kind == "time_increment"
     ]

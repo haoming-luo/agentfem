@@ -699,6 +699,8 @@ and evidence remain in the linked guides and scientific function reference.
 | class | `ContactProjectionState` | Atomic accepted/trial projection state for one contact pair. |
 | class | `ContactProjectionEvaluation` | One successful projection evaluation and optional search evidence. |
 | class | `ContactProjectionLifecycle(projector, point_ids, *, state: ContactProjectionState \| None = None, require_all_valid: bool = True) -> None` | Coordinate search/projection trials around accepted increments. |
+| function | `global_projection_state_snapshot(record, communicator) -> dict[str, object]` | Gather one accepted projection into a rank-canonical point snapshot. |
+| function | `local_projection_state_from_snapshot(snapshot, *, point_ids) -> ContactProjectionRecord` | Validate a global snapshot and select one rank's current point shard. |
 | class | `PenaltyCoulombFrictionLaw` | Elastic-stick/return-to-Coulomb-cap point law for explicit contact. |
 | class | `PenaltyCoulombFrictionResponse` | One canonical pointwise return-map result without FE integration. |
 | class | `TangentialContactRecord` | Accepted tangential history keyed by stable contact-point identity. |
