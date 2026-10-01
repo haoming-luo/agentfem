@@ -247,18 +247,24 @@ def _runtime_capabilities(topology: str) -> tuple[TopologyCapability, ...]:
     )
     capabilities = [inspection, quality, conforming, high_order]
     if topology in {"tetrahedron", "hexahedron"}:
+        contact_scope = (
+            "blocked-vector CG1 exterior trace plus CG2 interpolation/curved-geometry "
+            "trace; standard P2 row-sum mass fails closed before the finite-strain "
+            "Explicit Procedure"
+            if topology == "tetrahedron"
+            else "blocked-vector Q1/Q2 exterior trace with positive reference-area "
+            "quadrature, first/second-order geometry, MPI-stable identity, and the "
+            "finite-strain Explicit Procedure"
+        )
         capabilities.append(
             TopologyCapability(
                 name="explicit_rigid_contact_trace",
                 status="verified",
-                scope=(
-                    "blocked-vector CG1/Q1 exterior trace with positive "
-                    "reference-area quadrature, MPI-stable identity, and the "
-                    "finite-strain Explicit Procedure"
-                ),
+                scope=contact_scope,
                 evidence=(
                     "tests/test_dolfinx_contact_trace.py",
                     "tests/test_explicit_contact_procedure.py",
+                    "tests/test_lumped_mass_contract.py",
                 ),
             )
         )

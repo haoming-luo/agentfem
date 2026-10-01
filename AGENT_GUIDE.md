@@ -434,10 +434,11 @@ never changes solver access, results, verification, or update behavior.
   coordinates. Never turn a failed or ambiguous closest-point query into an
   active contact silently, and never reuse local coordinates with another
   geometry fingerprint.
-- A `TriangulatedRigidSurface` can currently validate and project reviewed 3D
-  triangle geometry. Do not claim that this makes STL/STEP contact executable:
-  the present contact Operator still accepts only `RigidPlaneSurface` until a
-  search-based backend passes serial, MPI, sliding and restart gates.
+- A `TriangulatedRigidSurface` can validate and project reviewed 3D triangle
+  geometry, and imported triangle tools are executable in the bounded Explicit
+  route through the reviewed serial or routed distributed BVH. This does not
+  imply CAD healing, deformable-master contact, an implicit linearization, or
+  free rigid-body dynamics.
 - `triangle_surface_bvh(surface)` accelerates a reviewed triangle surface while
   preserving its exact narrow phase and ambiguity semantics. Inspect its
   diagnostics when performance matters. For the MPI correctness reference,
@@ -448,9 +449,9 @@ never changes solver access, results, verification, or update behavior.
   or executable general contact.
 - `routed_distributed_triangle_surface_bvh(partition, comm)` uses two-stage
   rank-AABB routing and the all-gather implementation as its correctness
-  oracle. Inspect avoided-message and queried-rank evidence. Its present
-  object-based all-to-all is sparse but not the final packed numeric transport;
-  preserve that distinction in performance claims.
+  oracle. Inspect avoided-message and queried-rank evidence. Its sparse route
+  uses packed numeric `MPI_Alltoallv` transport; do not describe that bounded
+  route as a general neighborhood-collective or extreme-scale contact search.
 - `RigidSphereSurface` and `RigidCylinderSurface` provide exact analytical
   projection. The sphere also represents a 2D circle; the cylinder is 3D and
   infinite. Keep their interior/exterior admissible side explicit, preserve

@@ -113,9 +113,40 @@ def assemble_lumped_mass(V, density=1.0, measure=ufl.dx) -> np.ndarray:
     return assemble_lumped_operator(V, coefficient=density, measure=measure)
 
 
-def inverse_diagonal(diagonal: np.ndarray) -> np.ndarray:
-    """Return a safe inverse for a diagonal vector."""
+def inverse_diagonal(diagonal: np.ndarray, *, comm=None) -> np.ndarray:
+    """Return the inverse of a finite, strictly positive diagonal.
 
-    safe = diagonal.copy()
-    safe[safe <= 0.0] = np.inf
-    return 1.0 / safe
+    Explicit dynamics requires a physically admissible diagonal operator.
+    Silently replacing zero or negative row sums with a zero inverse would
+    freeze unsupported degrees of freedom and can make an invalid mass-lumped
+    element appear to run.  Reject that combination at the operator boundary
+    instead.
+    """
+
+    values = np.asarray(diagonal, dtype=float)
+    if values.ndim != 1:
+        raise ValueError("A diagonal operator must be a one-dimensional array.")
+    local_non_finite = int(np.count_nonzero(~np.isfinite(values)))
+    non_finite = (
+        local_non_finite if comm is None else int(comm.allreduce(local_non_finite))
+    )
+    if non_finite:
+        raise ValueError("A diagonal operator must contain only finite entries.")
+    local_count = int(np.count_nonzero(values <= 0.0))
+    local_minimum = float(np.min(values)) if values.size else float("inf")
+    if comm is None:
+        count = local_count
+        minimum = local_minimum
+    else:
+        from mpi4py import MPI
+
+        count = int(comm.allreduce(local_count, op=MPI.SUM))
+        minimum = float(comm.allreduce(local_minimum, op=MPI.MIN))
+    if count:
+        raise ValueError(
+            "Row-sum lumped mass contains non-positive entries "
+            f"(count={count}, minimum={minimum:.6g}); this interpolation is not "
+            "a valid explicit mass-lumped element. Use a reviewed positive "
+            "mass-lumped element or another supported positive-mass explicit space."
+        )
+    return np.reciprocal(values)

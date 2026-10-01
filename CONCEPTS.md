@@ -421,9 +421,9 @@ changing that contract. A deterministic spatial-centroid partition gives each
 rank a compact bounding box. The closest rank box is queried first; its exact
 distance bounds a second sparse exchange to every rank box that could still
 tie or improve the answer. The all-gather path remains the oracle. Diagnostics
-record queried ranks, avoided messages and approximate payload volume, while
-also stating that transport still uses Python-object all-to-all rather than
-packed numeric buffers.
+record queried ranks, avoided messages and approximate payload volume. The
+routed exchange uses packed numeric `MPI_Alltoallv` buffers; this does not yet
+claim a general neighborhood-collective or extreme-scale search.
 Two-dimensional rotation is one counter-clockwise angle; three-dimensional
 rotation is an axis-angle vector. A normalized Procedure coordinate scales the
 declared end translation and rotation. The contact Operator owns gap, penalty
