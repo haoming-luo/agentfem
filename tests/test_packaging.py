@@ -220,6 +220,7 @@ def test_release_workflow_fans_in_linux_and_macos_foundation_evidence():
     assert "needs:\n      - change-scope\n      - fenicsx" in workflow
     assert "name: tested-python-package-distributions" in workflow
     assert 'name: agent-acceptance-evidence' in workflow
+    assert "release_gate.py --dist dist --smoke --mpi-ranks 2" in workflow
     assert (
         '--evidence "${LINUX}/agentfem-platform-acceptance.json"'
         in workflow

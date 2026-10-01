@@ -452,7 +452,7 @@ jobs:
       - name: Run release demo smoke suite
         if: needs.change-scope.outputs.level == 'release'
         run: |
-          python release_gate.py --dist dist --smoke \
+          python release_gate.py --dist dist --smoke --mpi-ranks 2 \
             --report /tmp/agentfem-agent-acceptance.json \
             --platform-report /tmp/agentfem-platform-acceptance.json \
             --require-platform linux
