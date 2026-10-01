@@ -18,6 +18,7 @@ from mpi4py import MPI
 
 import agentfem
 from agentfem import (
+    checkpointing,
     constitutive,
     fields,
     mesh,
@@ -54,6 +55,7 @@ def _candidate_step(
     absolute_tolerance=CANDIDATE_ABSOLUTE_RESIDUAL_TOLERANCE,
     relative_tolerance=CANDIDATE_RELATIVE_RESIDUAL_TOLERANCE,
     tangent_evaluation="analytic_spectral",
+    checkpoint_policy=None,
 ):
     definition = DEFINITION
     domain = mesh.cuboid(
@@ -124,6 +126,7 @@ def _candidate_step(
             line_search=line_search,
         ),
         progress=progress,
+        checkpoint=checkpoint_policy,
         name="lewandowski_2023_self_weight_beam_candidate",
     )
     return step, displacement
@@ -161,6 +164,51 @@ def _write_candidate_curve(
     temporary.replace(destination)
 
 
+def _read_restart_prefix(
+    output: Path,
+    *,
+    accepted_load_factor: float,
+) -> tuple[list[float], list[float]]:
+    """Return only curve points proven to belong to a restored checkpoint.
+
+    The curve is written after every accepted increment, while a deliberately
+    coarser checkpoint cadence may lag behind it.  After interruption we must
+    therefore truncate the CSV to the checkpoint coordinate instead of
+    treating newer curve rows as restored state.
+    """
+
+    curve = Path(output) / "candidate_curve.csv"
+    if not curve.is_file():
+        raise FileNotFoundError(
+            "Restart requires the existing candidate_curve.csv beside the "
+            "checkpoint evidence."
+        )
+    table = np.genfromtxt(curve, names=True, delimiter=",")
+    names = tuple(table.dtype.names or ())
+    required = ("load_factor", "downward_displacement_m")
+    if not set(required).issubset(names):
+        raise ValueError(f"Candidate CSV must contain columns {required}.")
+    load = np.atleast_1d(table["load_factor"]).astype(float)
+    displacement = np.atleast_1d(table["downward_displacement_m"]).astype(float)
+    if load.size != displacement.size or load.size == 0:
+        raise ValueError("Candidate restart curve is empty or inconsistent.")
+    if not np.all(np.isfinite(load)) or not np.all(np.isfinite(displacement)):
+        raise ValueError("Candidate restart curve contains non-finite values.")
+    if abs(float(load[0])) > 1.0e-14 or np.any(np.diff(load) <= 0.0):
+        raise ValueError(
+            "Candidate restart curve must start at zero and increase strictly."
+        )
+    accepted = float(accepted_load_factor)
+    match = np.flatnonzero(np.isclose(load, accepted, rtol=0.0, atol=1.0e-12))
+    if match.size != 1:
+        raise ValueError(
+            "Candidate restart curve does not contain exactly one row at the "
+            f"checkpoint load factor {accepted:.16g}."
+        )
+    stop = int(match[0]) + 1
+    return load[:stop].tolist(), displacement[:stop].tolist()
+
+
 def _increment_performance(records) -> dict[str, object]:
     """Summarize rank-reduced nonlinear stage timings without hiding detail."""
 
@@ -192,12 +240,8 @@ def _increment_performance(records) -> dict[str, object]:
                 "increment": int(record.increment),
                 "load_factor": float(record.load_factor),
                 **{name: float(getattr(record, name, 0.0)) for name in names},
-                "linear_solve_calls": int(
-                    getattr(record, "linear_solve_calls", 0)
-                ),
-                "linear_iterations": int(
-                    getattr(record, "linear_iterations", 0)
-                ),
+                "linear_solve_calls": int(getattr(record, "linear_solve_calls", 0)),
+                "linear_iterations": int(getattr(record, "linear_iterations", 0)),
                 "linear_converged_reasons": list(
                     getattr(record, "linear_converged_reasons", ())
                 ),
@@ -210,7 +254,9 @@ def _increment_performance(records) -> dict[str, object]:
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("output", type=Path)
-    parser.add_argument("--subdivisions", type=int, nargs=3, default=DEFINITION.subdivisions)
+    parser.add_argument(
+        "--subdivisions", type=int, nargs=3, default=DEFINITION.subdivisions
+    )
     parser.add_argument("--increments", type=int, default=DEFINITION.increments)
     parser.add_argument(
         "--adaptive",
@@ -253,6 +299,28 @@ def main() -> None:
     )
     parser.add_argument("--reference-csv", type=Path)
     parser.add_argument("--promotion-evidence-json", type=Path)
+    parser.add_argument(
+        "--checkpoint-directory",
+        type=Path,
+        help=(
+            "Write portable accepted-state checkpoints here. Use this for "
+            "long refinement runs so an interruption does not discard the path."
+        ),
+    )
+    parser.add_argument(
+        "--checkpoint-every",
+        type=int,
+        default=10,
+        help="Accepted-increment cadence for --checkpoint-directory (default: 10).",
+    )
+    parser.add_argument(
+        "--resume-checkpoint",
+        type=Path,
+        help=(
+            "Restore a portable checkpoint and continue the curve in output. "
+            "The checkpoint policy and all scientific inputs must be identical."
+        ),
+    )
     arguments = parser.parse_args()
     if any(value <= 0 for value in arguments.subdivisions):
         raise ValueError("All subdivisions must be positive.")
@@ -264,9 +332,28 @@ def main() -> None:
         raise ValueError("absolute-tolerance must be positive.")
     if arguments.relative_tolerance <= 0.0:
         raise ValueError("relative-tolerance must be positive.")
+    if arguments.checkpoint_every <= 0:
+        raise ValueError("checkpoint-every must be positive.")
+    if (
+        arguments.resume_checkpoint is not None
+        and arguments.checkpoint_directory is None
+    ):
+        raise ValueError(
+            "--resume-checkpoint requires --checkpoint-directory so the "
+            "restored Step has the same checkpoint-policy identity."
+        )
 
     comm = MPI.COMM_WORLD
     started = time.perf_counter()
+    checkpoint_policy = None
+    if arguments.checkpoint_directory is not None:
+        checkpoint_policy = checkpointing.every(
+            arguments.checkpoint_every,
+            directory=arguments.checkpoint_directory,
+            prefix="lewandowski-2023-beam",
+            keep_last=2,
+            portable=True,
+        )
     step, displacement = _candidate_step(
         comm,
         subdivisions=tuple(arguments.subdivisions),
@@ -278,15 +365,36 @@ def main() -> None:
         absolute_tolerance=arguments.absolute_tolerance,
         relative_tolerance=arguments.relative_tolerance,
         tangent_evaluation=arguments.tangent_evaluation,
+        checkpoint_policy=checkpoint_policy,
     )
     factors = np.linspace(0.0, 1.0, arguments.increments + 1)
     downward = [0.0]
     accepted_factors = [0.0]
+    resumed_load_factor = None
+    if arguments.resume_checkpoint is not None:
+        step.load_checkpoint(arguments.resume_checkpoint)
+        resumed_load_factor = float(step.accepted_load_factor)
+        prefix = None
+        prefix_error = None
+        if comm.rank == 0:
+            try:
+                prefix = _read_restart_prefix(
+                    arguments.output,
+                    accepted_load_factor=resumed_load_factor,
+                )
+            except Exception as exc:
+                prefix_error = f"{type(exc).__name__}: {exc}"
+        prefix_error = comm.bcast(prefix_error, root=0)
+        if prefix_error is not None:
+            raise RuntimeError(f"Candidate restart prefix rejected: {prefix_error}")
+        prefix = comm.bcast(prefix, root=0)
+        accepted_factors, downward = prefix
+    remaining_factors = factors[factors > float(accepted_factors[-1]) + 1.0e-12]
     if comm.rank == 0:
         _write_candidate_curve(arguments.output, accepted_factors, downward)
     failure = None
     try:
-        for factor in factors[1:]:
+        for factor in remaining_factors:
             step.solve(until=float(factor))
             value = results.probe(displacement, at=DEFINITION.observer)
             downward.append(-float(value[2]))
@@ -303,7 +411,9 @@ def main() -> None:
     declared_reference_curve_sha256 = None
     actual_reference_curve_sha256 = None
     if arguments.reference_csv is not None:
-        reference_load, reference_displacement = _read_reference(arguments.reference_csv)
+        reference_load, reference_displacement = _read_reference(
+            arguments.reference_csv
+        )
         actual_reference_curve_sha256 = hashlib.sha256(
             arguments.reference_csv.read_bytes()
         ).hexdigest()
@@ -311,9 +421,7 @@ def main() -> None:
         promotion = json.loads(arguments.promotion_evidence_json.read_text())
         evidence = dict(promotion.get("evidence", {}))
         source = dict(promotion.get("source", {}))
-        declared_reference_curve_sha256 = promotion.get(
-            "reference_curve_sha256"
-        )
+        declared_reference_curve_sha256 = promotion.get("reference_curve_sha256")
     if comm.rank == 0:
         candidate_path = arguments.output / "candidate_curve.csv"
         candidate_curve_sha256 = hashlib.sha256(candidate_path.read_bytes()).hexdigest()
@@ -380,6 +488,18 @@ def main() -> None:
             ),
             "performance": _increment_performance(step.accepted_increments),
             "final_plastic_points": int(step.state_transaction.last_plastic_points),
+            "restart": {
+                "resumed": arguments.resume_checkpoint is not None,
+                "checkpoint": (
+                    None
+                    if arguments.resume_checkpoint is None
+                    else str(arguments.resume_checkpoint)
+                ),
+                "restored_load_factor": resumed_load_factor,
+                "checkpoint_policy": (
+                    None if checkpoint_policy is None else checkpoint_policy.summary()
+                ),
+            },
             "step": step.summary(),
         },
         "reference": {

@@ -122,6 +122,36 @@ promotion set.
 The candidate curve is replaced atomically after every accepted load point,
 so a long interrupted run still leaves a readable accepted prefix; only a
 completed run writes the final assessment.
+
+Long refinement runs can additionally write portable accepted-state
+checkpoints. The runner keeps the latest two scheduled states, and restart
+uses the checkpoint coordinate as the authority: any newer CSV rows without a
+matching restored constitutive state are discarded before the path continues.
+The checkpoint policy is part of the Step identity and must remain unchanged:
+
+```bash
+PYTHONPATH=src mpiexec -n 4 python \
+  tests/lewandowski_2023_self_weight_beam_driver.py \
+  evidence/lewandowski-beam-i180 \
+  --increments 180 \
+  --checkpoint-directory evidence/lewandowski-beam-i180/checkpoints \
+  --checkpoint-every 10 \
+  --reference-csv \
+  src/agentfem/knowledge/external_data/lewandowski_2023_self_weight_beam.csv
+
+# After an interruption, select the newest complete manifest and retain the
+# same output, increment count, mesh, solver controls, and checkpoint policy.
+PYTHONPATH=src mpiexec -n 4 python \
+  tests/lewandowski_2023_self_weight_beam_driver.py \
+  evidence/lewandowski-beam-i180 \
+  --increments 180 \
+  --checkpoint-directory evidence/lewandowski-beam-i180/checkpoints \
+  --checkpoint-every 10 \
+  --resume-checkpoint /path/to/lewandowski-2023-beam-inc-XXXXXXXX.checkpoint.json \
+  --reference-csv \
+  src/agentfem/knowledge/external_data/lewandowski_2023_self_weight_beam.csv
+```
+
 Candidate output must never be recycled as its own reference. The assessment
 records the candidate-curve digest, actual accepted load path, elapsed time,
 Newton statistics, AgentFEM import path and runtime fingerprint so an installed

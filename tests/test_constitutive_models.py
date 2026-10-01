@@ -207,9 +207,7 @@ def test_quadrature_field_reuses_stable_dof_layout_for_tensor_round_trips():
         value_shape=(3, 3),
     )
     first_layout = source._array_indices()
-    expected = np.arange(source.values.size, dtype=float).reshape(
-        source.values.shape
-    )
+    expected = np.arange(source.values.size, dtype=float).reshape(source.values.shape)
 
     source.assign(expected)
     np.testing.assert_array_equal(source.values, expected)
@@ -1305,5 +1303,16 @@ def test_capability_and_benchmark_catalogs_state_the_actual_maturity():
     assert "external" in audit["j2_plasticity"].demonstrated
     assert "external_gate_defined" in audit["finite_strain_j2_plasticity"].demonstrated
     assert "external" not in audit["finite_strain_j2_plasticity"].demonstrated
+    finite_j2 = constitutive.capability("finite_strain_j2_plasticity")
+    assert "analytical tangent" in finite_j2.available_scope
+    assert "rollback and cutback" in finite_j2.available_scope
+    assert all(
+        "analytical tangent is not implemented" not in limitation
+        for limitation in finite_j2.limitations
+    )
+    assert any(
+        "0.6784 percent" in limitation and "0.5 percent" in limitation
+        for limitation in finite_j2.limitations
+    )
     assert "mpi" in audit["mixed_mode_cohesive_interface"].demonstrated
     assert audit["mixed_mode_cohesive_interface"].maturity.startswith("experimental_")

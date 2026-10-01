@@ -22,7 +22,10 @@ from lewandowski_2023_self_weight_beam_fixture import (
     assess_external_curve,
     bundled_reference_curve,
 )
-from lewandowski_2023_self_weight_beam_driver import _increment_performance
+from lewandowski_2023_self_weight_beam_driver import (
+    _increment_performance,
+    _read_restart_prefix,
+)
 from lewandowski_2023_self_weight_beam_promotion import assess_promotion
 from lewandowski_2023_self_weight_beam_restart_driver import (
     PRIMARY_NORMALIZED_TOLERANCE,
@@ -72,6 +75,48 @@ def test_increment_performance_preserves_stage_totals_and_ksp_evidence():
     assert evidence["linear_solve_calls"] == 7
     assert evidence["linear_iterations"] == 7
     assert evidence["increments"][1]["linear_converged_reasons"] == [4, 4, 4, 4]
+
+
+def test_restart_prefix_truncates_rows_newer_than_checkpoint(tmp_path):
+    output = tmp_path / "candidate"
+    output.mkdir()
+    np.savetxt(
+        output / "candidate_curve.csv",
+        np.array(
+            [
+                [0.0, 0.0],
+                [0.1, 0.001],
+                [0.2, 0.004],
+                [0.3, 0.009],
+            ]
+        ),
+        delimiter=",",
+        header="load_factor,downward_displacement_m",
+        comments="",
+    )
+
+    load, displacement = _read_restart_prefix(
+        output,
+        accepted_load_factor=0.2,
+    )
+
+    assert load == pytest.approx([0.0, 0.1, 0.2])
+    assert displacement == pytest.approx([0.0, 0.001, 0.004])
+
+
+def test_restart_prefix_rejects_curve_without_checkpoint_coordinate(tmp_path):
+    output = tmp_path / "candidate"
+    output.mkdir()
+    np.savetxt(
+        output / "candidate_curve.csv",
+        np.array([[0.0, 0.0], [0.1, 0.001], [0.3, 0.009]]),
+        delimiter=",",
+        header="load_factor,downward_displacement_m",
+        comments="",
+    )
+
+    with pytest.raises(ValueError, match="exactly one row"):
+        _read_restart_prefix(output, accepted_load_factor=0.2)
 
 
 def test_restart_error_contract_respects_physical_channel_scale():
@@ -128,16 +173,14 @@ def test_full_size_mpi_candidate_evidence_is_content_bound_and_fail_closed():
     rms = float(np.sqrt(np.mean((candidate - reference) ** 2)) / scale)
     maximum = float(np.max(np.abs(candidate - reference)) / scale)
 
-    assert hashlib.sha256(curve_bytes).hexdigest() == manifest["candidate"][
-        "curve_sha256"
-    ]
+    assert (
+        hashlib.sha256(curve_bytes).hexdigest() == manifest["candidate"]["curve_sha256"]
+    )
     assert manifest["status"] == "incomplete"
     assert manifest["runtime"]["source_tracked_dirty"] is True
     assert manifest["comparison"]["curve_contract_passed"] is True
     assert rms == pytest.approx(manifest["comparison"]["normalized_rms_error"])
-    assert maximum == pytest.approx(
-        manifest["comparison"]["normalized_maximum_error"]
-    )
+    assert maximum == pytest.approx(manifest["comparison"]["normalized_maximum_error"])
     assert set(manifest["open_promotion_gates"]) >= {
         "clean committed candidate identity",
         "candidate mesh convergence",
@@ -228,7 +271,9 @@ def test_external_curve_comparator_requires_identity_and_all_evidence():
         convergence_evidence=evidence,
     )
     assert wrong_curve_identity["status"] == "incomplete"
-    assert "reference_curve_content_identity" in wrong_curve_identity["missing_evidence"]
+    assert (
+        "reference_curve_content_identity" in wrong_curve_identity["missing_evidence"]
+    )
 
     with pytest.raises(ValueError, match="tightened, not relaxed"):
         assess_external_curve(
@@ -401,9 +446,9 @@ def test_content_bound_promotion_derives_evidence_from_artifacts(tmp_path):
     )
 
     dirty = json.loads((mesh[0] / "assessment.json").read_text(encoding="utf-8"))
-    dirty["runtime"]["manifest"]["identity"]["execution"]["source"][
-        "tracked_dirty"
-    ] = True
+    dirty["runtime"]["manifest"]["identity"]["execution"]["source"]["tracked_dirty"] = (
+        True
+    )
     (mesh[0] / "assessment.json").write_text(json.dumps(dirty), encoding="utf-8")
     rejected = assess_promotion(
         mesh_roots=mesh,
