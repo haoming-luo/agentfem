@@ -100,6 +100,7 @@ from .rigid import (
     rigid_plane,
     rigid_sphere,
     triangulated_rigid_surface,
+    triangulated_rigid_surface_from_mesh,
 )
 from .rigid_body import RigidBody, rigid_body
 from .search import (
@@ -214,6 +215,7 @@ __all__ = [
     "search",
     "triangle_surface_bvh",
     "triangulated_rigid_surface",
+    "triangulated_rigid_surface_from_mesh",
     "thermal",
     "tangential_contact_state",
 ]

@@ -8,6 +8,17 @@ experimental formulation to a validated one.
 
 ### Added
 
+- Add an optional `meshio` boundary for imported rigid triangle tools. The
+  loader requires an explicit coordinate scale, binds the source SHA-256,
+  welds only exact duplicate vertices, canonicalizes point/facet ordering,
+  and exposes an explicit whole-surface normal flip. Mixed or non-triangle
+  topology and invalid manifold/orientation/quality evidence fail before
+  contact search. Imported tools reuse the existing triangle BVH, explicit
+  contact, friction, MPI, and checkpoint contracts rather than introducing a
+  file-format-specific solver. Ordinary rigid contact pairs automatically use
+  the deterministic local BVH in serial and the partitioned routed BVH under
+  MPI, while the Model continues to own geometry rather than search machinery.
+
 - Preserve accepted closest-point evidence in explicit-contact checkpoints by
   stable global slave-point ID. Master facet identity, barycentric coordinates,
   closest point, normal, gap, validity, and status now form one rank-canonical
