@@ -211,6 +211,26 @@ def test_source_distribution_retains_the_external_provider_acceptance_assets():
     assert '"examples/extensions/reference_material/pyproject.toml"' in source
 
 
+def test_release_workflow_fans_in_linux_and_macos_foundation_evidence():
+    workflow = (PROJECT_ROOT / ".github/workflows/test.yml").read_text(
+        encoding="utf-8"
+    )
+
+    assert "macos-foundation-platform:" in workflow
+    assert "needs:\n      - change-scope\n      - fenicsx" in workflow
+    assert "name: tested-python-package-distributions" in workflow
+    assert 'name: agent-acceptance-evidence' in workflow
+    assert (
+        '--evidence "${LINUX}/agentfem-platform-acceptance.json"'
+        in workflow
+    )
+    assert (
+        "--evidence /tmp/agentfem-macos-platform-acceptance.json"
+        in workflow
+    )
+    assert 'report.get("status") != "passed"' in workflow
+
+
 def test_platform_acceptance_distinguishes_native_and_wsl_routes(tmp_path, monkeypatch):
     wheel = tmp_path / "agentfem.whl"
     wheel.write_bytes(b"immutable candidate")
@@ -334,10 +354,16 @@ def test_test_workflow_proves_the_external_provider_from_two_wheels():
     assert "Prove an independently installed external provider" in workflow
     assert "python extension_gate.py" in workflow
     assert "--extension agentfem-reference-material" in workflow
-    assert "--evidence /tmp/agentfem-extension-acceptance.json" in workflow
+    assert (
+        '--evidence "${LINUX}/agentfem-extension-acceptance.json"'
+        in workflow
+    )
     assert "python foundation_gate.py" in workflow
     assert "--target 0.4-foundation" in workflow
-    assert "--evidence /tmp/agentfem-foundation-acceptance.json" in workflow
+    assert (
+        '--evidence "${LINUX}/agentfem-foundation-acceptance.json"'
+        in workflow
+    )
 
 
 def test_source_and_installed_distribution_evidence_are_separate():

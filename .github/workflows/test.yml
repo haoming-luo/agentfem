@@ -475,17 +475,6 @@ jobs:
             --validated mpi_checkpoint \
             --report /tmp/agentfem-foundation-acceptance.json
 
-      - name: Audit the 0.4 foundation promotion contract
-        if: needs.change-scope.outputs.level == 'release'
-        run: |
-          python promotion_gate.py \
-            --target 0.4-foundation \
-            --evidence /tmp/agentfem-agent-acceptance.json \
-            --evidence /tmp/agentfem-platform-acceptance.json \
-            --evidence /tmp/agentfem-extension-acceptance.json \
-            --evidence /tmp/agentfem-foundation-acceptance.json \
-            --report /tmp/agentfem-platform-promotion.json
-
       - name: Prepare the exact fresh-agent candidate trial
         if: needs.change-scope.outputs.level == 'release'
         run: |
@@ -508,7 +497,6 @@ jobs:
             /tmp/agentfem-platform-acceptance.json
             /tmp/agentfem-extension-acceptance.json
             /tmp/agentfem-foundation-acceptance.json
-            /tmp/agentfem-platform-promotion.json
           if-no-files-found: warn
 
       - name: Upload the fresh-agent candidate trial
@@ -529,6 +517,97 @@ jobs:
         with:
           name: tested-python-package-distributions
           path: dist/
+
+  macos-foundation-platform:
+    name: macOS installed-wheel foundation acceptance
+    needs:
+      - change-scope
+      - fenicsx
+    if: needs.change-scope.outputs.level == 'release'
+    runs-on: macos-14
+    timeout-minutes: 30
+    concurrency:
+      group: test-foundation-macos-${{ github.event.pull_request.number || github.ref }}
+      cancel-in-progress: true
+    env:
+      UCX_TLS: tcp,sm,self
+    defaults:
+      run:
+        shell: bash -el {0}
+    steps:
+      - name: Check out the candidate source
+        uses: actions/checkout@v6
+
+      - name: Create the macOS FEniCSx acceptance environment
+        uses: conda-incubator/setup-miniconda@v4
+        with:
+          activate-environment: agentfem-foundation-macos
+          environment-file: environment.yml
+          miniforge-version: latest
+          use-mamba: true
+          channels: conda-forge
+          channel-priority: strict
+
+      - name: Download the exact Linux-tested candidate
+        uses: actions/download-artifact@v8
+        with:
+          name: tested-python-package-distributions
+          path: /tmp/agentfem-foundation-fan-in/dist
+
+      - name: Download the Linux foundation evidence
+        uses: actions/download-artifact@v8
+        with:
+          name: agent-acceptance-evidence
+          path: /tmp/agentfem-foundation-fan-in/linux
+
+      - name: Install optional mesh interoperability used by release smoke
+        run: python -m pip install meshio
+
+      - name: Run installed-use acceptance on macOS
+        run: |
+          DIST=/tmp/agentfem-foundation-fan-in/dist
+          python release_gate.py --dist "${DIST}" --smoke --mpi-ranks 2 \
+            --report /tmp/agentfem-macos-agent-acceptance.json \
+            --platform-report /tmp/agentfem-macos-platform-acceptance.json \
+            --require-platform macos
+
+      - name: Audit the complete Linux and macOS foundation promotion
+        run: |
+          LINUX=/tmp/agentfem-foundation-fan-in/linux
+          python promotion_gate.py \
+            --target 0.4-foundation \
+            --evidence "${LINUX}/agentfem-agent-acceptance.json" \
+            --evidence "${LINUX}/agentfem-platform-acceptance.json" \
+            --evidence "${LINUX}/agentfem-extension-acceptance.json" \
+            --evidence "${LINUX}/agentfem-foundation-acceptance.json" \
+            --evidence /tmp/agentfem-macos-agent-acceptance.json \
+            --evidence /tmp/agentfem-macos-platform-acceptance.json \
+            --report /tmp/agentfem-platform-promotion.json
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          report = json.loads(
+              Path("/tmp/agentfem-platform-promotion.json").read_text(
+                  encoding="utf-8"
+              )
+          )
+          if report.get("status") != "passed":
+              raise SystemExit(
+                  "The Linux/macOS 0.4 foundation promotion is incomplete."
+              )
+          PY
+
+      - name: Upload the complete foundation promotion evidence
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: foundation-promotion-evidence
+          path: |
+            /tmp/agentfem-macos-agent-acceptance.json
+            /tmp/agentfem-macos-platform-acceptance.json
+            /tmp/agentfem-platform-promotion.json
+          if-no-files-found: error
 
   ml-optional:
     name: Optional PyTorch bridge

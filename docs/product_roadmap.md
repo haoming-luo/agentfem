@@ -90,8 +90,13 @@ owned by companion or third-party packages. Release-tier CI now runs
 state/nonlinear/output/checkpoint checks, installed-wheel examples,
 compatibility imports, and external provider gate have passed. The resulting
 foundation certificate binds those stages to the exact clean commit and wheel
-digest; `promotion_gate.py --target 0.4-foundation` no longer waits for a
-record that no workflow can produce.
+digest. The same release workflow then exercises that exact Linux-tested wheel
+on a hosted macOS runner and performs one final evidence fan-in; promotion can
+pass only when both immutable platform records match the candidate. This
+cross-platform job is release-only, so ordinary targeted and core changes do
+not consume macOS capacity. `promotion_gate.py --target 0.4-foundation` no
+longer waits for a record that no workflow can produce or audits one platform
+before the other exists.
 
 Fresh-agent acceptance remains a separate product gate rather than a seventh
 foundation abstraction. Release-tier CI now emits an immutable trial bundle
