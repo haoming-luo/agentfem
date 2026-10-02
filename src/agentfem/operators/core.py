@@ -58,7 +58,7 @@ class LumpedMassOperator:
             mass = assembly.assemble_lumped_mass(V, density, measure=measure)
         return cls(
             mass=mass,
-            inv_mass=assembly.inverse_diagonal(mass),
+            inv_mass=assembly.inverse_diagonal(mass, comm=V.mesh.comm),
             function_space=V,
         )
 

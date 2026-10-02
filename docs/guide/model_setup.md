@@ -354,15 +354,19 @@ moment. Identity or coordinate mismatches fail before assembly. This reference
 route still supplies no Newton linearization and is therefore not, by itself,
 an implicit general-contact solver.
 
-For the first reviewed DOLFINx route,
+For the reviewed DOLFINx route,
 `dolfinx_boundary_region_contact_trace(region, V)` adapts a tagged exterior
-boundary on a first-order tetrahedral or hexahedral mesh and a continuous
-blocked vector CG1 space. It emits three positive reference-area points per
-triangle or a 2-by-2 Gauss rule with the true bilinear surface Jacobian per
-quadrilateral. Both routes use partition-independent facet/point identity and
-evaluate current positions from a synchronized DOLFINx displacement field.
-Higher-order, curved-coordinate, other-topology, scalar, discontinuous, and
-non-blocked spaces are rejected collectively rather than coerced.
+boundary on a tetrahedral or hexahedral mesh and a continuous blocked vector
+CG1 or CG2 space. It restricts the cell basis to positive triangle or
+quadrilateral facet quadrature and evaluates the physical surface Jacobian
+from complete Lagrange first- or second-order coordinate geometry. The trace uses
+partition-independent facet/point identity and evaluates current positions
+from a synchronized DOLFINx displacement field. Q2 hexahedra pass the complete
+Explicit route. A standard P2 tetrahedral trace is available for interpolation
+and geometry evidence, but its non-positive row-sum mass is rejected before
+central difference; use a reviewed positive mass-lumped simplex element before
+claiming high-order tetrahedral Explicit dynamics. Prism/pyramid mixed-facet,
+scalar, discontinuous, and non-blocked spaces remain rejected collectively.
 
 That trace now has one bounded Procedure consumer:
 `dolfinx_explicit_contact_residual(...)`. It combines an ordinary bulk

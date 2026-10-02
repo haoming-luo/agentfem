@@ -123,40 +123,59 @@ def test_04_foundation_acceptance_is_candidate_bound_and_fail_closed(tmp_path):
         "installed_wheel": "passed",
         "public_examples": "passed",
         "compatibility_imports": "passed",
-        "wheel_sha256": "1" * 64,
+        "wheel_sha256": "2" * 64,
+    }
+    extension_record = {
+        "schema": "agentfem.extension-acceptance",
+        "status": "passed",
+        "extension": "reference-extension",
+        "extension_distribution": "agentfem-reference-extension",
+        "extension_version": "1.0.0",
+        "entry_point": "reference_extension:extension",
+        "entry_point_discovered": True,
+        "entry_point_activated": True,
+        "installed_wheel": True,
+        "isolated_from_source_checkout": True,
+        "core_modified": False,
+        "simulation_result": "passed",
+        "verification": "passed",
+        "trust_level": "verified",
+        "agentfem_version": version,
+        "core_commit": commit,
+        "core_wheel_sha256": "2" * 64,
+        "extension_wheel_sha256": "3" * 64,
+        "core_installation_sha256_before": "4" * 64,
+        "core_installation_sha256_after": "4" * 64,
+        "result_manifest_sha256": "5" * 64,
+    }
+    extension = _write(tmp_path, "extension.json", extension_record)
+    agent_record = {
+        "schema": "agentfem.agent-acceptance",
+        "agentfem_version": version,
+        "runtime": "passed",
+        "capability_discovery": "passed",
+        "declared_maturity_evidence": "passed",
+    }
+    agent = _write(tmp_path, "agent.json", agent_record)
+    record["evidence"] = {
+        "agent_acceptance_sha256": promotion_gate._record_sha256(agent_record),
+        "extension_acceptance_sha256": promotion_gate._record_sha256(
+            extension_record
+        ),
+        "validated_stages": [
+            "complete_serial",
+            "compatibility_imports",
+            "mpi_checkpoint",
+            "mpi_nonlinear",
+            "mpi_output",
+            "mpi_state",
+        ],
     }
     evidence = _write(tmp_path, "foundation.json", record)
-    extension = _write(
-        tmp_path,
-        "extension.json",
-        {
-            "schema": "agentfem.extension-acceptance",
-            "status": "passed",
-            "extension": "reference-extension",
-            "extension_distribution": "agentfem-reference-extension",
-            "extension_version": "1.0.0",
-            "entry_point": "reference_extension:extension",
-            "entry_point_discovered": True,
-            "entry_point_activated": True,
-            "installed_wheel": True,
-            "isolated_from_source_checkout": True,
-            "core_modified": False,
-            "simulation_result": "passed",
-            "verification": "passed",
-            "trust_level": "verified",
-            "agentfem_version": version,
-            "core_commit": commit,
-            "core_wheel_sha256": "2" * 64,
-            "extension_wheel_sha256": "3" * 64,
-            "core_installation_sha256_before": "4" * 64,
-            "core_installation_sha256_after": "4" * 64,
-            "result_manifest_sha256": "5" * 64,
-        },
-    )
 
     report = promotion_gate.evaluate(
         target="0.4-foundation",
-        evidence=(evidence, extension),
+        evidence=(evidence, extension, agent),
         candidate_version=version,
         candidate_commit=commit,
     )
@@ -167,7 +186,7 @@ def test_04_foundation_acceptance_is_candidate_bound_and_fail_closed(tmp_path):
     incomplete = _write(tmp_path, "incomplete-foundation.json", record)
     report = promotion_gate.evaluate(
         target="0.4-foundation",
-        evidence=(incomplete, extension),
+        evidence=(incomplete, extension, agent),
         candidate_version=version,
         candidate_commit=commit,
     )

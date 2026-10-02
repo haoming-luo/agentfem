@@ -278,6 +278,7 @@ def check_distributions(directory: Path) -> Path:
         "release_gate.py",
         "promotion_gate.py",
         "extension_gate.py",
+        "foundation_gate.py",
         "build_docs.py",
         "build_knowledge.py",
         "tools/run_wsl2_acceptance.sh",

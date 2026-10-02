@@ -23,6 +23,14 @@ project outside the checkout, verifies the sealed result, and proves that the
 installed core tree was unchanged. Simulated entry-point tests do not replace
 this evidence.
 
+The 0.4 foundation certificate is an aggregation step, not another expensive
+test matrix. On the release tier, `foundation_gate.py` validates the installed
+smoke and external-provider artifacts after the serial and representative MPI
+stages have passed, then binds those stages to the clean source commit and
+candidate wheel digest. Omitting any required stage, changing the wheel, or
+mixing extension evidence from another commit fails closed. The resulting
+record is consumed with `promotion_gate.py --target 0.4-foundation`.
+
 ## Source and installed-wheel evidence are separate
 
 The repository uses the standard `src/agentfem/` package layout. Pytest is

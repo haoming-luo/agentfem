@@ -85,7 +85,18 @@ Procedure → Result/Verification lifecycle used by users, retains the provider
 identity in the result, verifies the sealed manifest, and proves by before/after
 hash that the installed AgentFEM package was not patched. The reference material
 is intentionally only an acceptance fixture; new scientific behavior remains
-owned by companion or third-party packages.
+owned by companion or third-party packages. Release-tier CI now runs
+`foundation_gate.py` only after the complete serial suite, representative MPI
+state/nonlinear/output/checkpoint checks, installed-wheel examples,
+compatibility imports, and external provider gate have passed. The resulting
+foundation certificate binds those stages to the exact clean commit and wheel
+digest. The same release workflow then exercises that exact Linux-tested wheel
+on a hosted macOS runner and performs one final evidence fan-in; promotion can
+pass only when both immutable platform records match the candidate. This
+cross-platform job is release-only, so ordinary targeted and core changes do
+not consume macOS capacity. `promotion_gate.py --target 0.4-foundation` no
+longer waits for a record that no workflow can produce or audits one platform
+before the other exists.
 
 Fresh-agent acceptance remains a separate product gate rather than a seventh
 foundation abstraction. Release-tier CI now emits an immutable trial bundle
@@ -135,16 +146,20 @@ backend-neutral `ContactTrace` contract now carries stable point identity,
 interpolation and explicit reference/current quadrature measure into a checked
 reference assembly of nodal residual, conservative potential, resultant and
 tool moment. The assembly accepts only matching projection records and query
-coordinates. The first DOLFINx trace adapter is now executable for tagged
-exterior triangles of first-order tetrahedral meshes with continuous blocked
-vector CG1 displacement. It uses three positive reference-area points per
-facet. The same contract now accepts first-order hexahedral Q1 boundaries with
-four-point tensor Gauss integration and the bilinear surface Jacobian. Both use
+coordinates. The DOLFINx trace adapter is executable for tagged exterior
+triangles of tetrahedral meshes and quadrilateral faces of hexahedral meshes
+with continuous blocked vector CG1 or CG2 displacement. It restricts the cell
+basis to positive facet quadrature and evaluates the surface Jacobian from
+complete Lagrange first- or second-order coordinate geometry. Both routes use
 partition-independent facet/point identity, synchronized ghost values, and
-collective rejection of unsupported spaces. Higher-order/general topology
-adaptation, implicit linearization, deformable master surfaces, free rigid-body
-dynamics, and undeclared weak formulations remain outside this gate and fail
-closed rather than inheriting its evidence.
+collective rejection of unsupported spaces. Standard Q2 hexahedra also pass
+the positive row-sum mass gate and the complete Explicit contact Procedure.
+Standard P2 tetrahedra do not: their row-sum lumped mass has non-positive
+vertex entries, so Explicit fails closed until a reviewed positive mass-lumped
+high-order simplex element is available. Prism/pyramid mixed-facet adaptation,
+implicit linearization, deformable master surfaces, free rigid-body dynamics,
+and undeclared weak formulations remain outside this gate rather than
+inheriting its evidence.
 
 Reviewed triangle files can enter the same route as scientific geometry
 assets with canonical identity and source hashes. The explicit contact Backend
@@ -245,10 +260,13 @@ The next scientific promotions focus on depth rather than catalog size:
 
 1. complete external DCB, ENF, and MMB cohesive validation, including unstable
    propagation control and closed force--work--energy evidence;
-2. close the remaining finite-strain J2 increment-maximum gate with the new
-   analytical tangent and per-increment evidence, then profile the remaining
-   PETSc share before advancing RVE mixed-MPI, follower-load, and
-   prescribed-work promotion;
+2. close the remaining finite-strain J2 external-beam increment-convergence
+   gate without relaxing its fixed tolerance: complete the full refined load
+   path through the sharp yield transition, regenerate the content-bound
+   promotion report, and only then advance RVE mixed-MPI, follower-load, and
+   prescribed-work promotion. The spectral analytical tangent, independent
+   numerical oracle, collective inelastic-increment gate, rollback/cutback,
+   and per-increment evidence are already implemented and tested;
 3. extend the closed bounded MPC/weak/contact evidence contract only through
    independently verified provider routes; general contact remains a separate
    scientific promotion rather than a foundation blocker;
@@ -339,11 +357,13 @@ ordinary finite-strain Explicit Procedure without user-authored residual
 plumbing. The Procedure builds reviewed traces, composes body, cohesive, and
 every contact spectral contribution once, and preserves per-pair force,
 moment, tool work, potential, friction dissipation, State, and checkpoint
-evidence. The next gates are curved or imported-tool evidence and an
+evidence. Imported triangle tools and curved CG2 slave geometry now enter this
+bounded route; Q2 hexahedra complete the Explicit Procedure while standard P2
+tetrahedra fail the positive-mass gate. The next independent gate is an
 element-equivalent external comparison if a reviewed beam-contact formulation
-becomes available. Distributed
-multi-tool candidate routing, measured extreme-scale behavior, arbitrary
-topology, and implicit friction linearization follow that bounded route. STEP
+becomes available. Distributed multi-tool candidate routing, measured
+extreme-scale behavior, additional topology, and implicit friction
+linearization follow that bounded route. STEP
 remains an optional geometry-adapter input that is repaired and tessellated
 before the contact core consumes it. Shell/solid-shell forming and self-contact
 remain later scientific promotions, not hidden extensions of the bounded

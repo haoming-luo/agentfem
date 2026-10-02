@@ -732,8 +732,8 @@ and evidence remain in the linked guides and scientific function reference.
 | function | `dolfinx_boundary_region_triangle_partition(region, *, name: str \| None = None, tolerance: float \| None = None, ambiguity_tolerance: float \| None = None) -> TriangleSurfacePartition` | Adapt an AgentFEM named boundary region into the search contract. |
 | function | `dolfinx_exterior_triangle_partition(domain, *, facets = None, name: str = 'dolfinx_exterior_triangle_surface', tolerance: float \| None = None, ambiguity_tolerance: float \| None = None) -> TriangleSurfacePartition` | Build a stable distributed triangle partition from owned exterior facets. |
 | function | `dolfinx_tagged_exterior_triangle_partition(domain, facet_tags, *, tag: int, name: str \| None = None, tolerance: float \| None = None, ambiguity_tolerance: float \| None = None) -> TriangleSurfacePartition` | Build a distributed triangle partition from one DOLFINx facet tag. |
-| class | `DolfinxContactTraceAdapter` | Bind one reviewed DOLFINx CG1 boundary trace to current displacement. |
-| function | `dolfinx_boundary_region_contact_trace(region, function_space) -> DolfinxContactTraceAdapter` | Adapt a tagged tetrahedral or hexahedral CG1 boundary trace. |
+| class | `DolfinxContactTraceAdapter` | Bind one reviewed DOLFINx CG1/CG2 boundary trace to displacement. |
+| function | `dolfinx_boundary_region_contact_trace(region, function_space) -> DolfinxContactTraceAdapter` | Adapt a tagged tetrahedral or hexahedral CG1/CG2 boundary trace. |
 | function | `estimate_dolfinx_contact_stability(*, adapter: DolfinxContactTraceAdapter, lumped_mass, normal_penalty, tangential_penalty = None, friction_coefficient: float = 0.0, safety_factor: float = 0.8) -> ContactStabilityEstimate` | Estimate the contact contribution to explicit stability. |
 | class | `DolfinxExplicitContactResidual(base, *, adapter: DolfinxContactTraceAdapter, displacement, lifecycle: ContactProjectionLifecycle, law: FrictionlessPenaltyContactLaw, friction_law: PenaltyCoulombFrictionLaw \| None = None, maximum_stable_time_increment: float, contact_stability_estimate: ContactStabilityEstimate \| None = None, combined_stability_estimate: CombinedExplicitStabilityEstimate \| None = None, declared_maximum_stable_time_increment: float \| None = None, contact_pair: RigidContactPair \| None = None, rigid_body: RigidBody \| None = None, motion_schedule: PrescribedRigidMotionSchedule \| None = None, surface_reference_point = None, projection_options = None, name: str = 'dolfinx_explicit_contact_residual') -> None` | Add reviewed trace contact to a DOLFINx explicit residual. |
 | class | `ExplicitContactEvidence` | MPI-global evidence from one contact residual evaluation. |
@@ -1351,7 +1351,7 @@ and evidence remain in the linked guides and scientific function reference.
 | function | `assemble_matrix(form, bcs = None)` | Assemble a matrix and apply optional strong Dirichlet BC structure. |
 | function | `assemble_lumped_operator(V, coefficient = 1.0, measure = ufl.dx) -> np.ndarray` | Assemble a diagonal/lumped operator vector on ``V``. |
 | function | `assemble_lumped_mass(V, density = 1.0, measure = ufl.dx) -> np.ndarray` | Assemble a lumped mass vector for a scalar or vector space. |
-| function | `inverse_diagonal(diagonal: np.ndarray) -> np.ndarray` | Return a safe inverse for a diagonal vector. |
+| function | `inverse_diagonal(diagonal: np.ndarray, *, comm = None) -> np.ndarray` | Return the inverse of a finite, strictly positive diagonal. |
 
 ## `agentfem.backends`
 

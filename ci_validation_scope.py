@@ -77,6 +77,7 @@ _SOURCE_TEST_MAP = {
     ),
 }
 _CORE_SOURCE_TEST_MAP = {
+    "src/agentfem/assembly.py": ("tests/test_lumped_mass_contract.py",),
     "src/agentfem/_step_builders_contact.py": (
         "tests/test_rigid_obstacle_contact.py",
     ),
@@ -118,6 +119,11 @@ _CORE_SOURCE_TEST_MAP = {
     "src/agentfem/boundary_models/dolfinx_adapter.py": (
         "tests/test_dolfinx_boundary_surface_adapter.py",
         "tests/test_rigid_surface_search.py",
+    ),
+    "src/agentfem/boundary_models/dolfinx_contact_trace.py": (
+        "tests/test_dolfinx_contact_trace.py",
+        "tests/test_explicit_contact_procedure.py",
+        "tests/test_lumped_mass_contract.py",
     ),
     "src/agentfem/boundary_models/rigid.py": (
         "tests/test_rigid_obstacle_contact.py",
@@ -209,6 +215,11 @@ _CORE_SOURCE_TEST_MAP = {
         "tests/test_harmonic.py",
         "tests/test_provenance.py",
     ),
+    "src/agentfem/operators/core.py": (
+        "tests/test_dynamics.py",
+        "tests/test_lumped_mass_contract.py",
+        "tests/test_operators.py",
+    ),
     "src/agentfem/operators/": (
         "tests/test_operators.py",
         "tests/test_common_workflows.py",
@@ -230,6 +241,7 @@ _CORE_SOURCE_TEST_MAP = {
     "src/agentfem/_architecture_contract.py": ("tests/test_architecture_contract.py",),
 }
 _CORE_SOURCE_MPI_TEST_MAP = {
+    "src/agentfem/assembly.py": ("tests/test_lumped_mass_contract.py",),
     "src/agentfem/_step_builders_contact.py": (
         "tests/test_rigid_obstacle_contact.py",
     ),
@@ -251,6 +263,11 @@ _CORE_SOURCE_MPI_TEST_MAP = {
     "src/agentfem/boundary_models/dolfinx_adapter.py": (
         "tests/test_dolfinx_boundary_surface_adapter.py",
         "tests/test_parallel_rigid_surface_search.py",
+    ),
+    "src/agentfem/boundary_models/dolfinx_contact_trace.py": (
+        "tests/test_dolfinx_contact_trace.py",
+        "tests/test_explicit_contact_procedure.py",
+        "tests/test_lumped_mass_contract.py",
     ),
     "src/agentfem/boundary_models/rigid.py": (
         "tests/test_rigid_obstacle_contact.py",
@@ -293,6 +310,10 @@ _CORE_SOURCE_MPI_TEST_MAP = {
         "tests/test_mixed_cell_topologies.py",
     ),
     "src/agentfem/operators/identity.py": ("tests/test_parallel_operator_identity.py",),
+    "src/agentfem/operators/core.py": (
+        "tests/test_lumped_mass_contract.py",
+        "tests/test_parallel_operator_identity.py",
+    ),
     "src/agentfem/solvers.py": (
         "tests/test_parallel_affine.py",
         "tests/test_parallel_results.py",

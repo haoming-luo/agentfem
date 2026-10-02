@@ -14,6 +14,7 @@ def _contact_model(
     comm=MPI.COMM_SELF,
     cell_type=dolfinx_mesh.CellType.tetrahedron,
     cells_x: int = 1,
+    degree: int = 1,
 ):
     domain = dolfinx_mesh.create_unit_cube(
         comm,
@@ -26,7 +27,7 @@ def _contact_model(
         study=studies.dynamic_solid(dimension=3, method="explicit"),
         mesh=domain,
     )
-    displacement = model.field(fields.displacement(domain))
+    displacement = model.field(fields.displacement(domain, degree=degree))
     material = model.material(
         constitutive.neo_hookean(
             young=1.0e5,
@@ -116,6 +117,70 @@ def test_hexahedral_finite_strain_explicit_uses_the_same_contact_procedure():
     assert step.history_records[-1]["contact_potential_energy"] >= 0.0
 
 
+def test_quadratic_tetrahedral_explicit_fails_closed_on_row_sum_mass():
+    import pytest
+
+    model, displacement, material, pair = _contact_model(degree=2)
+
+    with pytest.raises(
+        ValueError,
+        match="non-positive entries.*not a valid explicit mass-lumped element",
+    ):
+        model.step(
+            target=displacement,
+            material=material,
+            steps=1,
+            progress=False,
+        )
+
+    assert pair in model.boundary_models
+
+
+def test_quadratic_tetrahedral_mass_rejection_is_collective_under_mpi():
+    if MPI.COMM_WORLD.size != 2:
+        import pytest
+
+        pytest.skip("Quadratic tetrahedral mass rejection is reviewed on two ranks.")
+    import pytest
+
+    model, displacement, material, _pair = _contact_model(
+        comm=MPI.COMM_WORLD,
+        cells_x=2,
+        degree=2,
+    )
+
+    with pytest.raises(ValueError, match="non-positive entries"):
+        model.step(
+            target=displacement,
+            material=material,
+            steps=1,
+            progress=False,
+        )
+
+
+def test_quadratic_hexahedral_contact_reaches_the_explicit_procedure():
+    model, displacement, material, pair = _contact_model(
+        cell_type=dolfinx_mesh.CellType.hexahedron,
+        degree=2,
+    )
+
+    step = model.step(
+        target=displacement,
+        material=material,
+        steps=1,
+        progress=False,
+    )
+    step.run()
+
+    summary = step.residual.adapter.summary()
+    assert step.residual.contact_pair is pair
+    assert summary["facet_topology"] == "quadrilateral"
+    assert summary["interpolation_degree"] == 2
+    assert summary["geometry_degree"] == 1
+    assert step.residual.accepted_evidence.active_point_count == 9
+    assert step.history_records[-1]["contact_potential_energy"] >= 0.0
+
+
 def test_finite_strain_explicit_accepts_explicit_contact_pair_without_registration():
     model, displacement, material, pair = _contact_model(registered=False)
 
@@ -172,9 +237,7 @@ def test_finite_strain_explicit_composes_multiple_contact_pairs_once():
         progress=False,
     )
 
-    names = [
-        item["name"] for item in step.summary()["stability"]["contributions"]
-    ]
+    names = [item["name"] for item in step.summary()["stability"]["contributions"]]
     assert names == [
         "body",
         f"contact:{left_pair.name}",

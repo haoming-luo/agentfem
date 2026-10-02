@@ -215,6 +215,21 @@ def test_rigid_surface_owner_selects_contact_evidence_without_release_replay():
     assert scope.mpi_drivers == ("nonlinear-contact-restart",)
 
 
+def test_contact_trace_owner_selects_high_order_serial_and_mpi_evidence():
+    scope = classify_changes(
+        ["src/agentfem/boundary_models/dolfinx_contact_trace.py"]
+    )
+
+    assert scope.level == "core"
+    assert scope.tests == (
+        "tests/test_dolfinx_contact_trace.py",
+        "tests/test_explicit_contact_procedure.py",
+        "tests/test_lumped_mass_contract.py",
+    )
+    assert scope.mpi_tests == scope.tests
+    assert scope.mpi_drivers == ()
+
+
 def test_cyclic_checkpoint_owner_selects_cross_rank_restart_driver():
     scope = classify_changes(["src/agentfem/fatigue_fracture.py"])
 

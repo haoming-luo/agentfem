@@ -43,7 +43,9 @@ def _quadrilateral_shape_values(r: float, s: float) -> np.ndarray:
     )
 
 
-def _quadrilateral_shape_derivatives(r: float, s: float) -> tuple[np.ndarray, np.ndarray]:
+def _quadrilateral_shape_derivatives(
+    r: float, s: float
+) -> tuple[np.ndarray, np.ndarray]:
     return (
         np.asarray((-(1.0 - s), 1.0 - s, -s, s), dtype=float),
         np.asarray((-(1.0 - r), -r, 1.0 - r, r), dtype=float),
@@ -108,7 +110,9 @@ def _quadrilateral_boundary_identity(region):
             raise ValueError("a quadrilateral contact facet repeats a global vertex")
     except Exception as exc:
         local_error = f"{type(exc).__name__}: {exc}"
-    _collective_error(comm, local_error, context="extract owned exterior quadrilaterals")
+    _collective_error(
+        comm, local_error, context="extract owned exterior quadrilaterals"
+    )
 
     gathered = tuple(comm.allgather(records))
     canonical = tuple(sorted(record for group in gathered for record in group))
@@ -128,10 +132,140 @@ def _quadrilateral_boundary_identity(region):
     if not np.isfinite(scale) or scale <= 0.0:
         raise ValueError("DOLFINx exterior quadrilateral surface has zero scale.")
     facet_id_by_key = {key: index for index, key in enumerate(keys)}
-    local_ids = np.asarray(
-        [facet_id_by_key[key] for key, _ in records], dtype=np.int64
-    )
+    local_ids = np.asarray([facet_id_by_key[key] for key, _ in records], dtype=np.int64)
     return owned, facet_geometry, local_ids, len(keys), scale
+
+
+def _higher_order_boundary_identity(region, *, corner_count: int):
+    """Return owned high-order face closures and vertex-based stable IDs."""
+
+    domain = region.domain
+    comm = domain.comm
+    local_error = None
+    owned = None
+    facet_geometry = None
+    records = None
+    try:
+        from dolfinx import mesh as mesh_api
+
+        facet_dimension = int(domain.topology.dim) - 1
+        domain.topology.create_entities(facet_dimension)
+        domain.topology.create_entity_permutations()
+        domain.topology.create_connectivity(facet_dimension, domain.topology.dim)
+        domain.topology.create_connectivity(domain.topology.dim, facet_dimension)
+        owned_exterior = np.asarray(
+            mesh_api.exterior_facet_indices(domain.topology), dtype=np.int32
+        )
+        tagged = np.asarray(region.facet_tags.find(int(region.tag)), dtype=np.int32)
+        facet_map = domain.topology.index_map(facet_dimension)
+        owned = tagged[tagged < int(facet_map.size_local)]
+        exterior = set(int(value) for value in owned_exterior)
+        invalid = tuple(int(value) for value in owned if int(value) not in exterior)
+        if invalid:
+            raise ValueError(
+                "contact facets must be owned exterior facets; first invalid "
+                f"local index is {invalid[0]}"
+            )
+        facet_geometry = mesh_api.entities_to_geometry(
+            domain,
+            facet_dimension,
+            owned,
+            permute=True,
+        )
+        if facet_geometry.ndim != 2 or facet_geometry.shape[1] < corner_count:
+            raise NotImplementedError(
+                "contact facets do not expose the required geometry vertices"
+            )
+        global_vertices = np.asarray(
+            domain.geometry.input_global_indices,
+            dtype=np.int64,
+        )
+        coordinates = np.asarray(domain.geometry.x, dtype=float)[:, :3]
+        corner_geometry = facet_geometry[:, :corner_count]
+        records = tuple(
+            (
+                tuple(sorted(int(value) for value in global_vertices[dofs])),
+                tuple(
+                    np.asarray(coordinates[dofs], dtype="<f8")[
+                        np.argsort(global_vertices[dofs], kind="stable")
+                    ].reshape(-1)
+                ),
+            )
+            for dofs in corner_geometry
+        )
+        if any(len(set(key)) != corner_count for key, _ in records):
+            raise ValueError("a high-order contact facet repeats a global vertex")
+    except Exception as exc:
+        local_error = f"{type(exc).__name__}: {exc}"
+    _collective_error(comm, local_error, context="extract high-order exterior facets")
+
+    gathered = tuple(comm.allgather(records))
+    canonical = tuple(sorted(record for group in gathered for record in group))
+    keys = tuple(record[0] for record in canonical)
+    if not keys:
+        raise ValueError("DOLFINx boundary adapter selected no exterior facets.")
+    if len(set(keys)) != len(keys):
+        raise ValueError(
+            "DOLFINx exterior facet ownership is not globally unique by vertex ID."
+        )
+    coordinates = np.asarray(
+        [value for _, values in canonical for value in values], dtype=float
+    ).reshape((-1, 3))
+    scale = float(
+        np.linalg.norm(np.max(coordinates, axis=0) - np.min(coordinates, axis=0))
+    )
+    if not np.isfinite(scale) or scale <= 0.0:
+        raise ValueError("DOLFINx exterior high-order surface has zero scale.")
+    facet_id_by_key = {key: index for index, key in enumerate(keys)}
+    local_ids = np.asarray([facet_id_by_key[key] for key, _ in records], dtype=np.int64)
+    return owned, facet_geometry, local_ids, len(keys), scale
+
+
+def _reference_facet_quadrature(cell_type, local_facet: int, *, degree: int):
+    """Map positive facet quadrature into one Basix reference cell."""
+
+    import basix
+
+    facet_vertices = basix.cell.topology(cell_type)[2][int(local_facet)]
+    reference_vertices = np.asarray(basix.cell.geometry(cell_type), dtype=float)[
+        facet_vertices
+    ]
+    if len(facet_vertices) == 3:
+        points, weights = basix.make_quadrature(
+            basix.CellType.triangle,
+            int(degree),
+        )
+        barycentric = np.column_stack((1.0 - points[:, 0] - points[:, 1], points))
+        cell_points = barycentric @ reference_vertices
+        tangent_r = reference_vertices[1] - reference_vertices[0]
+        tangent_s = reference_vertices[2] - reference_vertices[0]
+        reference_tangents = np.broadcast_to(
+            np.stack((tangent_r, tangent_s), axis=1),
+            (points.shape[0], reference_vertices.shape[1], 2),
+        )
+        topology = "triangle"
+    elif len(facet_vertices) == 4:
+        points, weights = basix.make_quadrature(
+            basix.CellType.quadrilateral,
+            int(degree),
+        )
+        values = np.asarray(
+            [_quadrilateral_shape_values(float(r), float(s)) for r, s in points]
+        )
+        cell_points = values @ reference_vertices
+        reference_tangents = np.empty(
+            (points.shape[0], reference_vertices.shape[1], 2), dtype=float
+        )
+        for index, (r, s) in enumerate(points):
+            derivative_r, derivative_s = _quadrilateral_shape_derivatives(
+                float(r), float(s)
+            )
+            reference_tangents[index, :, 0] = derivative_r @ reference_vertices
+            reference_tangents[index, :, 1] = derivative_s @ reference_vertices
+        topology = "quadrilateral"
+    else:  # pragma: no cover - guarded by supported volume topologies
+        raise NotImplementedError("unsupported high-order contact facet topology")
+    return topology, cell_points, np.asarray(weights, dtype=float), reference_tangents
 
 
 def _matching_dof_block(
@@ -152,7 +286,7 @@ def _matching_dof_block(
 
 @dataclass(frozen=True, eq=False)
 class DolfinxContactTraceAdapter:
-    """Bind one reviewed DOLFINx CG1 boundary trace to current displacement."""
+    """Bind one reviewed DOLFINx CG1/CG2 boundary trace to displacement."""
 
     trace: ContactTrace
     function_space: object
@@ -160,6 +294,8 @@ class DolfinxContactTraceAdapter:
     boundary_name: str
     facet_topology: str = "triangle"
     quadrature_rule: str = "triangle_degree_two_three_point"
+    interpolation_degree: int = 1
+    geometry_degree: int = 1
 
     def __post_init__(self) -> None:
         if not isinstance(self.trace, ContactTrace):
@@ -185,6 +321,10 @@ class DolfinxContactTraceAdapter:
             raise ValueError("DOLFINx contact adapter requires a boundary name.")
         if self.facet_topology not in {"triangle", "quadrilateral"}:
             raise ValueError("DOLFINx contact adapter has unsupported facet topology.")
+        if int(self.interpolation_degree) not in {1, 2}:
+            raise ValueError("DOLFINx contact interpolation degree must be one or two.")
+        if int(self.geometry_degree) not in {1, 2}:
+            raise ValueError("DOLFINx contact geometry degree must be one or two.")
         object.__setattr__(
             self,
             "reference_nodal_positions",
@@ -208,7 +348,7 @@ class DolfinxContactTraceAdapter:
         expected = self.reference_nodal_positions.shape[0] * 3
         if values.size != expected:
             raise ValueError(
-                "Contact displacement storage is incompatible with blocked CG1."
+                "Contact displacement storage is incompatible with blocked CG1/CG2."
             )
         return self.reference_nodal_positions + values.reshape((-1, 3))
 
@@ -221,10 +361,14 @@ class DolfinxContactTraceAdapter:
         return {
             "kind": "dolfinx_contact_trace_adapter",
             "boundary": self.boundary_name,
-            "function_space": "continuous_blocked_vector_cg1",
+            "function_space": (
+                f"continuous_blocked_vector_cg{int(self.interpolation_degree)}"
+            ),
             "spatial_dimension": 3,
             "facet_topology": self.facet_topology,
             "quadrature_rule": self.quadrature_rule,
+            "interpolation_degree": int(self.interpolation_degree),
+            "geometry_degree": int(self.geometry_degree),
             "measure_configuration": self.trace.measure_configuration,
             "point_count_local": self.trace.point_count,
             "rank": int(self.communicator.rank),
@@ -237,12 +381,12 @@ def dolfinx_boundary_region_contact_trace(
     region,
     function_space,
 ) -> DolfinxContactTraceAdapter:
-    """Adapt a tagged tetrahedral or hexahedral CG1 boundary trace.
+    """Adapt a tagged tetrahedral or hexahedral CG1/CG2 boundary trace.
 
-    The first production hand-off is intentionally narrow and fail-closed. It
-    It supports three-dimensional first-order tetrahedral or hexahedral meshes,
-    owned exterior facets, and a continuous blocked vector CG1 displacement
-    space. Positive reference-area quadrature is emitted per facet.
+    The production hand-off remains intentionally bounded and fail-closed. It
+    supports first- or second-order coordinate geometry, owned exterior
+    facets, and a continuous blocked vector CG1 or CG2 displacement space.
+    Positive reference-area quadrature is emitted per facet.
     """
 
     if region is None or not hasattr(region, "domain"):
@@ -250,17 +394,35 @@ def dolfinx_boundary_region_contact_trace(
     domain = region.domain
     comm = domain.comm
     cell_type = str(domain.topology.cell_type)
+    element = function_space.element.basix_element
+    interpolation_degree = int(element.degree)
+    geometry_degree = int(domain.geometry.cmaps[0].degree)
+    high_order = interpolation_degree == 2 or geometry_degree == 2
     if cell_type == "CellType.tetrahedron":
         facet_topology = "triangle"
-        partition = dolfinx_boundary_region_triangle_partition(region)
+        partition = (
+            None if high_order else dolfinx_boundary_region_triangle_partition(region)
+        )
         quadrilateral_identity = None
+        high_order_identity = (
+            _higher_order_boundary_identity(region, corner_count=3)
+            if high_order
+            else None
+        )
     elif cell_type == "CellType.hexahedron":
         facet_topology = "quadrilateral"
         partition = None
-        quadrilateral_identity = _quadrilateral_boundary_identity(region)
+        quadrilateral_identity = (
+            None if high_order else _quadrilateral_boundary_identity(region)
+        )
+        high_order_identity = (
+            _higher_order_boundary_identity(region, corner_count=4)
+            if high_order
+            else None
+        )
     else:
         raise NotImplementedError(
-            "contact traces support first-order tetrahedral or hexahedral meshes"
+            "contact traces support tetrahedral or hexahedral meshes"
         )
     local_error = None
     adapter = None
@@ -277,19 +439,38 @@ def dolfinx_boundary_region_contact_trace(
             raise NotImplementedError(
                 "only blocked three-component displacement spaces are supported"
             )
-        element = function_space.element.basix_element
         if (
-            int(element.degree) != 1
+            interpolation_degree not in {1, 2}
             or bool(element.discontinuous)
             or str(element.family) != "ElementFamily.P"
             or str(element.map_type) != "MapType.identity"
         ):
             raise NotImplementedError(
-                "only continuous identity-mapped CG1 displacement is supported"
+                "only continuous identity-mapped CG1/CG2 displacement is supported"
             )
+        if geometry_degree not in {1, 2}:
+            raise NotImplementedError(
+                "only first- or second-order coordinate geometry is supported"
+            )
+        if high_order:
+            import basix
+
+            expected_geometry_element = basix.create_element(
+                basix.ElementFamily.P,
+                domain.basix_cell(),
+                geometry_degree,
+                lagrange_variant=basix.LagrangeVariant(
+                    domain.geometry.cmaps[0].variant
+                ),
+            )
+            if int(domain.geometry.cmaps[0].dim) != int(expected_geometry_element.dim):
+                raise NotImplementedError(
+                    "high-order contact requires complete Lagrange P1/P2 "
+                    "coordinate geometry; serendipity geometry is not yet supported"
+                )
 
         facet_dimension = int(domain.topology.dim) - 1
-        if facet_topology == "triangle":
+        if facet_topology == "triangle" and not high_order:
             tagged = np.asarray(region.facet_tags.find(int(region.tag)), dtype=np.int32)
             facet_map = domain.topology.index_map(facet_dimension)
             owned = tagged[tagged < int(facet_map.size_local)]
@@ -315,6 +496,18 @@ def dolfinx_boundary_region_contact_trace(
             nodes_per_facet = 3
             points_per_facet = 3
             quadrature_rule = "triangle_degree_two_three_point"
+        elif facet_topology == "quadrilateral" and not high_order:
+            (
+                owned,
+                facet_geometry,
+                local_facet_ids,
+                global_facet_count,
+                global_scale,
+            ) = quadrilateral_identity
+            quadrature = _QUADRILATERAL_DEGREE_THREE
+            nodes_per_facet = 4
+            points_per_facet = 4
+            quadrature_rule = "quadrilateral_gauss_degree_three_four_point"
         else:
             (
                 owned,
@@ -322,13 +515,25 @@ def dolfinx_boundary_region_contact_trace(
                 local_facet_ids,
                 global_facet_count,
                 global_scale,
-            ) = (
-                quadrilateral_identity
+            ) = high_order_identity
+            import basix
+
+            facet_cell_type = (
+                basix.CellType.triangle
+                if facet_topology == "triangle"
+                else basix.CellType.quadrilateral
             )
-            quadrature = _QUADRILATERAL_DEGREE_THREE
-            nodes_per_facet = 4
-            points_per_facet = 4
-            quadrature_rule = "quadrilateral_gauss_degree_three_four_point"
+            quadrature_degree = 2 * max(interpolation_degree, geometry_degree)
+            reference_points, _ = basix.make_quadrature(
+                facet_cell_type,
+                quadrature_degree,
+            )
+            nodes_per_facet = int(element.dim)
+            points_per_facet = int(reference_points.shape[0])
+            quadrature_rule = (
+                f"{facet_topology}_basix_positive_degree_{quadrature_degree}_"
+                f"{points_per_facet}_point"
+            )
         if local_facet_ids.shape != (owned.size,):
             raise RuntimeError("contact facet identity differs from owned facets")
         if global_facet_count > np.iinfo(np.int64).max // points_per_facet:
@@ -352,25 +557,99 @@ def dolfinx_boundary_region_contact_trace(
         node_ids = []
         shape_values = []
         weights = []
-        for facet_id, geometry_dofs in zip(
+        if high_order:
+            import basix
+
+            cell_basix_type = domain.basix_cell()
+            geometry_element = expected_geometry_element
+            facet_to_cell = domain.topology.connectivity(
+                facet_dimension,
+                domain.topology.dim,
+            )
+            cell_to_facet = domain.topology.connectivity(
+                domain.topology.dim,
+                facet_dimension,
+            )
+            geometry_dofmap = domain.geometry.dofmaps[0]
+
+        for facet, facet_id, geometry_dofs in zip(
+            owned,
             local_facet_ids,
             facet_geometry,
             strict=True,
         ):
-            if facet_topology == "triangle":
+            if high_order:
+                adjacent = np.asarray(facet_to_cell.links(int(facet)), dtype=np.int32)
+                if adjacent.size != 1:
+                    raise ValueError(
+                        "an exterior contact facet must have exactly one adjacent cell"
+                    )
+                cell = int(adjacent[0])
+                local_matches = np.flatnonzero(
+                    np.asarray(cell_to_facet.links(cell), dtype=np.int32) == int(facet)
+                )
+                if local_matches.size != 1:
+                    raise ValueError(
+                        "contact facet does not have one local cell-facet identity"
+                    )
+                (
+                    evaluated_topology,
+                    cell_points,
+                    reference_weights,
+                    reference_tangents,
+                ) = _reference_facet_quadrature(
+                    cell_basix_type,
+                    int(local_matches[0]),
+                    degree=quadrature_degree,
+                )
+                if evaluated_topology != facet_topology:
+                    raise RuntimeError("contact facet topology changed during lowering")
+                basis = element.tabulate(0, cell_points)[0, :, :, 0]
+                if basis.shape != (points_per_facet, nodes_per_facet):
+                    raise RuntimeError("contact displacement basis has wrong shape")
+                geometry_basis = geometry_element.tabulate(1, cell_points)
+                cell_geometry = coordinates[geometry_dofmap[cell]]
+                jacobian = np.empty((points_per_facet, 3, 3), dtype=float)
+                for derivative in range(3):
+                    jacobian[:, :, derivative] = (
+                        geometry_basis[derivative + 1, :, :, 0] @ cell_geometry
+                    )
+                physical_tangents = np.einsum(
+                    "qij,qjk->qik",
+                    jacobian,
+                    reference_tangents,
+                )
+                surface_jacobian = np.linalg.norm(
+                    np.cross(
+                        physical_tangents[:, :, 0],
+                        physical_tangents[:, :, 1],
+                    ),
+                    axis=1,
+                )
+                if not np.all(np.isfinite(surface_jacobian)) or np.any(
+                    surface_jacobian <= 0.0
+                ):
+                    raise ValueError("contact trace contains a degenerate curved facet")
+                blocks = tuple(
+                    int(value) for value in function_space.dofmap.cell_dofs(cell)
+                )
+                facet_shape_values = basis
+                facet_weights = reference_weights * surface_jacobian
+            elif facet_topology == "triangle":
                 order = np.argsort(global_vertices[geometry_dofs], kind="stable")
                 points = coordinates[geometry_dofs[order]]
             else:
                 points = coordinates[geometry_dofs]
-            blocks = tuple(
-                _matching_dof_block(
-                    point,
-                    dof_coordinates,
-                    tolerance=tolerance,
+            if not high_order:
+                blocks = tuple(
+                    _matching_dof_block(
+                        point,
+                        dof_coordinates,
+                        tolerance=tolerance,
+                    )
+                    for point in points
                 )
-                for point in points
-            )
-            if facet_topology == "triangle":
+            if facet_topology == "triangle" and not high_order:
                 area = 0.5 * float(
                     np.linalg.norm(
                         np.cross(points[1] - points[0], points[2] - points[0])
@@ -380,7 +659,7 @@ def dolfinx_boundary_region_contact_trace(
                     raise ValueError("contact trace contains a degenerate triangle")
                 facet_shape_values = quadrature
                 facet_weights = np.full((3,), area / 3.0, dtype=float)
-            else:
+            elif not high_order:
                 facet_shape_values = []
                 facet_weights = []
                 for r, s in quadrature:
@@ -400,9 +679,7 @@ def dolfinx_boundary_region_contact_trace(
             for quadrature_index, (values, weight) in enumerate(
                 zip(facet_shape_values, facet_weights, strict=True)
             ):
-                point_ids.append(
-                    int(facet_id) * points_per_facet + quadrature_index
-                )
+                point_ids.append(int(facet_id) * points_per_facet + quadrature_index)
                 node_ids.append(blocks)
                 shape_values.append(tuple(float(value) for value in values))
                 weights.append(float(weight))
@@ -419,7 +696,8 @@ def dolfinx_boundary_region_contact_trace(
             measure_configuration="reference",
             source=(
                 "dolfinx_owned_exterior_"
-                f"{facet_topology}s_continuous_blocked_vector_cg1"
+                f"{facet_topology}s_continuous_blocked_vector_"
+                f"cg{interpolation_degree}"
             ),
         )
         adapter = DolfinxContactTraceAdapter(
@@ -429,6 +707,8 @@ def dolfinx_boundary_region_contact_trace(
             boundary_name=str(region.name),
             facet_topology=facet_topology,
             quadrature_rule=quadrature_rule,
+            interpolation_degree=interpolation_degree,
+            geometry_degree=geometry_degree,
         )
     except Exception as exc:
         local_error = f"{type(exc).__name__}: {exc}"

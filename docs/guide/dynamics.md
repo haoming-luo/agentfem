@@ -86,12 +86,21 @@ equilibrium check restores both the second-order fields and residual-owned
 State. Use `mode="release"` only when the reported imbalance is the intended
 impact/release event, not to bypass an unbalanced preload.
 
-This public lowering is intentionally bounded to the reviewed 3D tetrahedral
-CG1 slave trace and rigid analytical or triangulated surfaces. It supports
-multiple rigid pairs, prescribed rigid motion, finite sliding over reviewed
-triangle search, and optional penalty-Coulomb friction. It does not imply
+This public lowering is intentionally bounded to reviewed 3D tetrahedral CG1
+and hexahedral Q1/Q2 slave traces with rigid analytical or triangulated
+surfaces. It supports multiple rigid pairs, prescribed rigid motion, finite
+sliding over reviewed triangle search, and optional penalty-Coulomb friction.
+Standard P2 tetrahedral interpolation can be traced, including curved
+coordinate geometry, but is rejected by the Explicit mass gate because its
+row-sum lumping is non-positive. This route does not imply
 deformable-to-deformable contact, self-contact, a consistent implicit tangent,
-shell forming, or arbitrary high-order traces.
+shell forming, or arbitrary high-order Explicit elements.
+
+Higher-order tetrahedral Explicit support therefore requires a dedicated
+positive mass-lumped element, not a tolerance around the standard P2 row sum.
+Geevers, Mulder, and van der Vegt construct and verify enriched degree-2 and
+higher tetrahedra for this purpose in
+[SIAM J. Sci. Comput. 40 (2018)](https://doi.org/10.1137/18M1175549).
 
 ## Modal analysis
 
