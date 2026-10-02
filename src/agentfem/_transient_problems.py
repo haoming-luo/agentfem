@@ -84,6 +84,33 @@ class ExplicitDynamicsStep:
             "accepted time/history ledger",
         )
 
+    def operator_lifecycle_summary(self) -> dict[str, object]:
+        """Describe how typed inputs enter the matrix-free Explicit route.
+
+        Explicit central difference does not retain a prepared global tangent,
+        so every accepted increment reevaluates the residual after applying the
+        time-input plan.  A preflight stability estimate is still a separate
+        scientific promise: operator- or state-changing inputs require the
+        declared bound to remain valid for the complete path.
+        """
+
+        input_summary = time.input_summary(self.update_load)
+        stability_scope = "not_declared"
+        if self.stability is not None:
+            stability_scope = (
+                "caller_must_bound_complete_path"
+                if input_summary["changes_operator"]
+                else "fixed_preflight_bound"
+            )
+        return {
+            "kind": "explicit_residual_lifecycle",
+            "time_inputs": input_summary,
+            "operator_policy": "evaluate_residual_each_increment",
+            "prepared_operator_reused": False,
+            "state_acceptance": "commit_after_integrator_acceptance",
+            "stability_scope": stability_scope,
+        }
+
     def initialize_from_preload(
         self,
         displacement,
@@ -332,6 +359,7 @@ class ExplicitDynamicsStep:
             "history_every": self.history_every,
             "history_evaluation_every": 1,
             "time_inputs": time.input_summary(self.update_load),
+            "operator_lifecycle": self.operator_lifecycle_summary(),
             "performance": self.performance.summary(),
             "checkpoint_policy": (
                 None

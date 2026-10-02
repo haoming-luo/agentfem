@@ -138,12 +138,16 @@ OWNERSHIP_BOUNDARIES = (
             "_step_builders_inelastic",
             "_step_builders_frequency",
             "_step_builders_dynamics",
+            "_step_builders_contact",
             "_nonlinear_problems",
+            "_hybrid_nonlinear",
             "_transient_problems",
             "_problem_fields",
             "_material_history",
             "_modal",
             "_modal_fem",
+            "steps",
+            "time",
             "problems",
             "mechanics",
         ),
@@ -199,6 +203,7 @@ _BUILDER_MODULES = (
     "_step_builders_inelastic",
     "_step_builders_frequency",
     "_step_builders_dynamics",
+    "_step_builders_contact",
 )
 
 
@@ -372,6 +377,14 @@ def audit_source_architecture(
         for module, path in modules.items()
     }
     cycles = _dependency_cycles(graph)
+    owned_module_counts = {item.name: 0 for item in OWNERSHIP_BOUNDARIES}
+    unowned_roots: set[str] = set()
+    for module in modules:
+        owner = ownership_of(module)
+        if owner is None:
+            unowned_roots.add(module.removeprefix("agentfem.").split(".", 1)[0])
+        else:
+            owned_module_counts[owner] += 1
     violations: list[str] = []
     for source, forbidden in FORBIDDEN_IMPORTS.items():
         candidates = [root / f"{source}.py"]
@@ -395,6 +408,8 @@ def audit_source_architecture(
         "schema_version": "0.1.0",
         "status": "passed" if not cycles and not violations else "failed",
         "module_count": len(modules),
+        "owned_module_counts": owned_module_counts,
+        "unowned_module_roots": tuple(sorted(unowned_roots)),
         "cycles": cycles,
         "violations": tuple(violations),
     }

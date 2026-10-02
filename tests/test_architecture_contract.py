@@ -156,6 +156,14 @@ def test_ownership_contract_is_small_stable_and_machine_readable():
     assert _architecture_contract.ownership_of("agentfem.events") == (
         "result_verification"
     )
+    assert _architecture_contract.ownership_of("agentfem._step_builders_contact") == (
+        "procedure"
+    )
+    assert _architecture_contract.ownership_of("agentfem._hybrid_nonlinear") == (
+        "procedure"
+    )
+    assert _architecture_contract.ownership_of("agentfem.steps") == "procedure"
+    assert _architecture_contract.ownership_of("agentfem.time.stability") == "procedure"
     assert _architecture_contract.ownership_of("agentfem._private_utility") is None
 
 
@@ -183,6 +191,19 @@ def test_runtime_architecture_audit_matches_the_ci_contract():
     assert report["schema"] == "agentfem.architecture-audit"
     assert report["status"] == "passed"
     assert report["module_count"] > 0
+    assert sum(report["owned_module_counts"].values()) <= report["module_count"]
+    assert set(report["owned_module_counts"]) == {
+        "model",
+        "constitutive",
+        "state",
+        "operator",
+        "procedure",
+        "backend",
+        "result_verification",
+    }
+    assert tuple(sorted(report["unowned_module_roots"])) == tuple(
+        report["unowned_module_roots"]
+    )
     assert report["cycles"] == ()
     assert report["violations"] == ()
 

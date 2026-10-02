@@ -28,6 +28,11 @@ The records under `ownership_contract` are generated from
 Architecture tests also reject selected cross-layer imports, including a
 `Model` that constructs a discrete `problem` directly.
 
+The executable source audit additionally reports module counts per owner and
+the top-level utility roots that intentionally have no stable owner. An
+unowned utility is visible evidence, not permission for downstream code to
+guess a layer; cycles and declared impossible imports remain hard failures.
+
 ## The public execution path
 
 The recommended route remains:
@@ -77,10 +82,17 @@ lowering live in `_step_builders_thermal.py`; finite-kinematics hyperelastic,
 mixed, and fabric-membrane lowering live in
 `_step_builders_finite_strain.py`; stateful inelastic and hereditary lowering
 live in `_step_builders_inelastic.py`; frequency- and time-domain dynamics
-have their corresponding family modules. `_step_builders.py` is now only the
-stable private facade consumed by providers and 0.2.x compatibility methods.
-Further splitting inside a family should occur only when ownership evidence
-requires it, not to satisfy a line-count target.
+have their corresponding family modules; contact lowering lives in
+`_step_builders_contact.py`. `_step_builders.py` is now only the stable private
+facade consumed by providers and 0.2.x compatibility methods. Further
+splitting inside a family should occur only when ownership evidence requires
+it, not to satisfy a line-count target.
+
+The Procedure boundary also owns `steps`, `time`, and the internal hybrid
+nonlinear runtime. Respectively, these modules define accepted increment
+policy, time integration and stability policy, and the nonlinear execution
+lifecycle for local-UFL plus matrix-free operators. They do not move material
+history out of State or compiled algebra out of Backend.
 
 The same ownership rule applies after a procedure finishes. Discrete problem
 objects may advance state and expose the solution they computed, but private

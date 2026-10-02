@@ -112,12 +112,19 @@ accepted as the release gate; continued zero-intervention runs by unfamiliar
 users and agents remain field evidence rather than a reason to hold back the
 foundation release.
 
-The first two executable slices of gate 3 are now present: built-in and custom
-time inputs retain typed RHS/operator/state/output effects, linear implicit
-dynamics uses those effects to select safe operator reuse or refresh, and
-transient checkpoint schema v5 binds the complete time-input identity before
-authorizing restart. Promotion still requires the same invalidation contract
-across the remaining transient and nonlinear Procedures.
+Gate 3 now has one typed contract across the supported transient and ordinary
+incremental nonlinear Procedures. Built-in and custom time inputs retain
+separate RHS/operator/state/output effects. Linear implicit dynamics and
+linear implicit-Euler heat transfer use those effects to select safe operator
+reuse or refresh; nonlinear first-order and load-path Procedures declare
+per-step or per-attempt residual/tangent assembly and restore the accepted
+coordinate on rejection; matrix-free Explicit declares per-increment residual
+evaluation and reports whether a fixed preflight stability bound must remain
+conservative over an operator-changing path. Transient checkpoint schema v5
+and ordinary nonlinear checkpoints bind the complete time-input identity
+before authorizing restart. The runtime architecture audit now exposes both
+owned-module counts and deliberately unowned utility roots in addition to
+cycles and forbidden cross-layer dependencies.
 
 Gate 4 is closed for its declared bounded routes: exact homogeneous rectangular
 MPC, exact affine-periodic paths, scalar/normal/matrix elastic foundations, and

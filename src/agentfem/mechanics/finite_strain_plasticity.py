@@ -1834,22 +1834,23 @@ class FiniteStrainJ2StandardProblem:
         portable = (
             bool(policy.portable) or self.solution.function_space.mesh.comm.size > 1
         )
-        self.checkpoints.append(
-            CheckpointRecord(
-                name=f"{self.name}_checkpoint_{increment}",
-                path=path,
-                schema=(
-                    "agentfem.finite-strain-j2-standard-checkpoint.v2"
-                    if portable
-                    else "agentfem.finite-strain-j2-standard-checkpoint.v1"
-                ),
-                step_name=self.name,
-                coordinate_name="load_factor",
-                coordinate_value=self.accepted_load_factor,
-                portable=portable,
-                metadata={"role": "scheduled_checkpoint"},
-            )
+        record = CheckpointRecord(
+            name=f"{self.name}_checkpoint_{increment}",
+            path=path,
+            schema=(
+                "agentfem.finite-strain-j2-standard-checkpoint.v2"
+                if portable
+                else "agentfem.finite-strain-j2-standard-checkpoint.v1"
+            ),
+            step_name=self.name,
+            coordinate_name="load_factor",
+            coordinate_value=self.accepted_load_factor,
+            portable=portable,
+            metadata={"role": "scheduled_checkpoint"},
         )
+        self.checkpoints.append(record)
+        if not portable:
+            record.write_manifest()
         from .._nonlinear_problems import _prune_affine_checkpoints
 
         _prune_affine_checkpoints(self)

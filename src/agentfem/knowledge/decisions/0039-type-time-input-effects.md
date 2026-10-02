@@ -67,6 +67,15 @@ already implements every possible optimized refresh strategy.
 - operator and state declarations either refresh automatically or reject an
   explicitly unsafe reuse policy;
 - the selected policy and declarations survive into lifecycle evidence.
+- matrix-free Explicit records that it reevaluates the residual after every
+  input update and distinguishes a fixed preflight stability bound from an
+  operator-changing path that the caller must bound conservatively;
+- ordinary incremental nonlinear procedures record the same plan, state that
+  residual and tangent are assembled for every attempt, and restore the
+  accepted load coordinate after a rejected attempt;
+- architecture audit output reports owned-module counts and the deliberately
+  unowned utility roots, so a clean dependency graph cannot hide accidental
+  ownership growth.
 - restart rejects a changed load identity before mutating any field, while an
   unbound callback cannot publish a misleading checkpoint.
 - serial and two-rank first-order runs retain the same selected policy and

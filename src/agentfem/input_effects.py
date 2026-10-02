@@ -136,10 +136,14 @@ class TimeInputPlan:
         return tuple(update(float(time_value)) for update in self.updates)
 
     def summary(self) -> dict[str, object]:
+        effects = self.effects
         return {
             "kind": "time_input_plan",
-            "effects": tuple(sorted(item.value for item in self.effects)),
+            "effects": tuple(sorted(item.value for item in effects)),
+            "changes_right_hand_side": (TimeInputEffect.RIGHT_HAND_SIDE in effects),
             "changes_operator": self.changes_operator,
+            "changes_state": TimeInputEffect.STATE in effects,
+            "changes_output": TimeInputEffect.OUTPUT in effects,
             "restart_identity_bound": all(
                 item.identity is not None for item in self.updates
             ),
@@ -233,7 +237,10 @@ def summary_of(value: object | None) -> dict[str, object]:
         return {
             "kind": "time_input_plan",
             "effects": (),
+            "changes_right_hand_side": False,
             "changes_operator": False,
+            "changes_state": False,
+            "changes_output": False,
             "restart_identity_bound": True,
             "updates": (),
         }
