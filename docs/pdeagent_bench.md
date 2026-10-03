@@ -13,6 +13,31 @@ The current adapter is pinned to benchmark commit
 README, paper, dataset, and runner have changed at different rates. Results
 without a benchmark commit and AgentFEM source identity are not comparable.
 
+## September 2026 three-dimensional numerical update
+
+The new development policy uses quartic hexahedral elasticity and Poisson
+spaces, quartic heat/Helmholtz/transport spaces, and Q4/Q3 Taylor--Hood Stokes.
+Mesh density is selected from public expression bandwidth and, for elasticity,
+the bulk/shear ratio. Three-dimensional heat uses a second-order theta scheme
+with two substeps per nominal step unless backward Euler is explicitly
+requested. This improves the continuum-solution error; a coarse numerical
+benchmark reference need not reward that improvement.
+
+The reusable `solvers.solve_linear_problem(..., bc_assembly="matrix_elimination")`
+option applies Dirichlet elimination to the assembled matrix instead of
+re-evaluating element tensors for lifting. The default remains `"lifting"`.
+The optional route requires boundary conditions on the solution's complete
+function space; it is checked against the default in 2D/3D with homogeneous
+and inhomogeneous data, including a two-rank MPI run.
+
+Keep the original 645-case scoring separate from the equation-consistent 3D
+companion study. The latter replaces 37 inconsistent manufactured source terms
+and uses independent heat-series or exact zero-velocity references for four
+additional cases. Its fixed accuracy thresholds and absence of a runtime gate
+are different from the original benchmark, so its pass count is not a public
+leaderboard score. Final frozen evidence is stored with the paper's September
+2026 rebenchmark report; development candidates are retained separately.
+
 ## Boundaries of the Adapter
 
 The adapter consumes the official agent view only:
@@ -78,7 +103,7 @@ The nonlinear transport and incompressible-flow contracts add
 and the steady Navier--Stokes momentum convection
 \((\boldsymbol{u}\!\cdot\!\nabla)\boldsymbol{u}\). Stokes and Navier--Stokes
 use public Taylor--Hood velocity/pressure spaces. Three-dimensional structured
-Stokes cases use a Q3/Q2 block formulation, an explicit constant-pressure
+Stokes cases use a Q4/Q3 block formulation, an explicit constant-pressure
 nullspace, and a viscosity-scaled velocity-Laplacian/pressure-mass
 preconditioner; this avoids treating a saddle-point system as an ordinary
 scalar elliptic solve. Navier--Stokes starts from a Stokes predictor and
@@ -105,6 +130,57 @@ Crank--Nicolson available for linear reactions; the wave path uses the
 average-acceleration Newmark method. Time-step count, scheme, nonlinear
 iterations, solver convergence, sampled coverage, and wall time remain in
 `solver_info` rather than being inferred from a successful process exit.
+
+## Three-dimensional numerical policy
+
+Structured cube elasticity uses quartic hexahedral fields, with cell count
+selected from the exposed source bandwidth and bulk/shear contrast. Loads
+are interpolated one degree higher than displacement. Material coefficients
+are DOLFINx Constants so changing their values does not generate a different
+compiled stiffness kernel. This is a numerical-policy improvement, not a new
+constitutive model.
+
+The 3D Stokes path uses a viscosity-scaled block preconditioner, GAMG for the
+velocity block and a consistent pressure-mass inverse. A diagonal pressure
+mass approximation required substantially more iterations at high order.
+The constant-pressure nullspace remains explicit. Runtime metadata records
+the actual vector DOF count, including block size, and the cell type.
+
+A benchmark source and its scoring reference need not be mutually
+consistent. Diagnose such cases independently, retain them in the official
+score, and never alter a submitted solution using a hidden manufactured
+field. Any equation-corrected suite must be reported separately.
+
+## September 21 transport and repeated-solve update
+
+Three-dimensional cube transport uses Q4 hexahedra (minimum four cells per
+axis, increased with public source bandwidth), a diffusion- and degree-aware
+SUPG scale, and Crank--Nicolson unless backward Euler is explicitly requested.
+Explicit `stabilization="none"` remains respected. Two-dimensional defaults
+are unchanged. Constant velocity and diffusivity values reuse compiled kernels.
+`operators.transient_transport_forms` supplies the reusable theta residual,
+including endpoint forcing, spatial terms and the time derivative in SUPG.
+
+`operators.intrinsic_time_scale(..., diffusivity=..., degree=...)` blends
+advective and diffusive scales. Its optional `directional=True` uses the
+mapped streamline length for stretched, full-dimensional cells. Neither
+choice guarantees monotonicity or removes the need to resolve physical layers.
+The benchmark uses the cell-diameter variant on uniform cubes; the graded
+outflow-layer regression exercises the directional variant independently.
+
+Heat and transport use
+`solvers.prepare_linear_problem(..., bc_assembly="matrix_elimination")` in
+three dimensions. A cached unconstrained matrix applies changing boundary
+values through sparse products, avoiding repeated lifting element kernels.
+This opt-in route requires full-space Dirichlet conditions and stores an
+additional matrix; the default lifting route and existing callers are retained.
+Tests cover changing zero/nonzero boundary values in scalar and vector 2D/3D
+problems, including two MPI ranks.
+
+The Stokes velocity-block preconditioner can be selected through
+`BenchmarkPolicy.spatial_stokes_velocity_pc`; GAMG remains the default.
+HYPRE reduced iterations in exploratory tests but was not uniformly faster
+on these small problems, so it was not promoted as the default.
 
 ## Official Runner
 

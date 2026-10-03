@@ -35,6 +35,18 @@ class BenchmarkPolicy:
     spatial_resolution: int = 14
     planar_degree: int = 3
     spatial_degree: int = 2
+    spatial_elasticity_resolution: int = 3
+    spatial_elasticity_degree: int = 4
+    spatial_scalar_degree: int = 4
+    spatial_scalar_resolution: int = 4
+    spatial_poisson_degree: int = 4
+    spatial_transport_degree: int = 4
+    spatial_transport_resolution: int = 4
+    spatial_transport_theta: float = 0.5
+    spatial_transport_supg: bool = True
+    spatial_stokes_velocity_pc: str = "gamg"
+    spatial_heat_theta: float = 0.5
+    spatial_time_refinement: int = 2
     relative_tolerance: float = 1.0e-10
     absolute_tolerance: float = 1.0e-12
     ksp_type: str = "cg"
@@ -73,10 +85,10 @@ class BenchmarkPolicy:
 
         frequency = _expression_frequency(pde_spec)
         if dimension == 3:
-            # Three-dimensional Taylor--Hood fields need enough cells to
-            # resolve both velocity curvature and the pressure constraint.
-            # Keep this policy independent of benchmark case identity.
-            return max(4, 2 * frequency)
+            # Quartic/cubic Taylor--Hood fields resolve smooth 3D flow on
+            # a compact hexahedral grid. Select cells from public bandwidth,
+            # never a case identifier or a reference solution.
+            return max(3, int(np.ceil(1.5 * frequency)))
         base = self.resolution(dimension, domain_spec, pde_spec)
         domain_type = str(domain_spec.get("type", ""))
         grid = output_spec.get("grid", {})
@@ -148,7 +160,62 @@ def solve_case(
     )
     degree = selected.degree(dimension)
     if (
-        family in {"stokes", "navier_stokes"}
+        family == "linear_elasticity"
+        and dimension == 3
+        and case["domain"].get("type") == "unit_cube"
+    ):
+        # Tensor-product high-order elements avoid uniformly refining a
+        # tetrahedral P2 mesh. Higher bulk/shear contrast needs extra cells.
+        resolution = max(
+            selected.spatial_elasticity_resolution,
+            int(np.ceil(2.5 * _expression_frequency(case["pde"]))),
+        )
+        params = case["pde"].get("pde_params", {})
+        if "lambda" in params and "mu" in params:
+            ratio = float(params["lambda"]) / float(params["mu"])
+        else:
+            poisson = float(params.get("nu", 0.3))
+            ratio = 2.0 * poisson / (1.0 - 2.0 * poisson)
+        if ratio > 20:
+            resolution = max(resolution, 4)
+        degree = selected.spatial_elasticity_degree
+    if (
+        dimension == 3
+        and family == "poisson"
+        and case["domain"].get("type") == "unit_cube"
+    ):
+        resolution = max(3, 2 * _expression_frequency(case["pde"]))
+        degree = selected.spatial_poisson_degree
+    if (
+        dimension == 3
+        and family in {"heat", "helmholtz"}
+        and case["domain"].get("type") == "unit_cube"
+    ):
+        resolution = max(
+            selected.spatial_scalar_resolution, 2 * _expression_frequency(case["pde"])
+        )
+        degree = selected.spatial_scalar_degree
+    if (
+        dimension == 3
+        and family == "convection_diffusion"
+        and case["domain"].get("type") == "unit_cube"
+    ):
+        resolution = max(
+            selected.spatial_transport_resolution,
+            int(np.ceil(2.5 * _expression_frequency(case["pde"]))),
+        )
+        degree = selected.spatial_transport_degree
+    if (
+        family
+        in {
+            "stokes",
+            "navier_stokes",
+            "linear_elasticity",
+            "heat",
+            "helmholtz",
+            "poisson",
+            "convection_diffusion",
+        }
         and dimension == 3
         and str(case["domain"].get("type", "")) == "unit_cube"
     ):
@@ -224,7 +291,11 @@ def solve_case(
         "benchmark_commit": BENCHMARK_COMMIT,
         "pde_family": family,
         "dimension": dimension,
-        "num_dofs": int(solved.function_space.dofmap.index_map.size_global),
+        "num_dofs": int(
+            solved.function_space.dofmap.index_map.size_global
+            * solved.function_space.dofmap.index_map_bs
+        ),
+        "cell_type": domain.topology.cell_type.name,
         "coverage": float(np.mean(np.isfinite(grid))),
         "solve_wall_time_sec": float(perf_counter() - started),
         **info,
@@ -239,7 +310,12 @@ def _solve_poisson(case, domain, policy, degree):
     unknown = fields.scalar_unknown(domain, name="u", degree=degree)
     pde = case["pde"]
     kappa = _coefficient(pde, "kappa", unknown.space, default=1.0)
-    source = _known_field(pde.get("source_term", 0.0), unknown.space)
+    source_space = (
+        spaces.scalar_space(domain, degree=degree + 1)
+        if domain.geometry.dim == 3
+        else unknown.space
+    )
+    source = _known_field(pde.get("source_term", 0.0), source_space)
     bcs = _dirichlet_bcs(case, unknown.value)
     a = ufl.inner(kappa * ufl.grad(unknown.trial), ufl.grad(unknown.test)) * ufl.dx
     L = source * unknown.test * ufl.dx
@@ -248,6 +324,7 @@ def _solve_poisson(case, domain, policy, degree):
         fem.form(L),
         unknown.value,
         bcs=bcs,
+        bc_assembly="matrix_elimination" if domain.geometry.dim == 3 else "lifting",
         options=policy.linear_options(),
         return_info=True,
     )
@@ -294,7 +371,15 @@ def _solve_elasticity(case, domain, policy, degree):
     source_spec = pde.get("source_term", [0.0] * dimension)
     if not isinstance(source_spec, Sequence) or isinstance(source_spec, (str, bytes)):
         source_spec = [source_spec] * dimension
-    source = _known_field(source_spec, unknown.space)
+    source_space = (
+        spaces.vector_space(domain, degree=degree + 1)
+        if dimension == 3
+        else unknown.space
+    )
+    source = _known_field(source_spec, source_space)
+    # Constants reuse the compiled form across material parameter changes.
+    lam_coefficient = fem.Constant(domain, PETSc.ScalarType(lame_lambda))
+    mu_coefficient = fem.Constant(domain, PETSc.ScalarType(shear_modulus))
     bcs = _dirichlet_bcs(case, unknown.value)
 
     def strain(value):
@@ -302,9 +387,9 @@ def _solve_elasticity(case, domain, policy, degree):
 
     def stress(value):
         eps = strain(value)
-        return 2.0 * shear_modulus * eps + lame_lambda * ufl.tr(eps) * ufl.Identity(
-            dimension
-        )
+        return 2.0 * mu_coefficient * eps + lam_coefficient * ufl.tr(
+            eps
+        ) * ufl.Identity(dimension)
 
     a = ufl.inner(stress(unknown.trial), strain(unknown.test)) * ufl.dx
     L = ufl.inner(source, unknown.test) * ufl.dx
@@ -313,6 +398,7 @@ def _solve_elasticity(case, domain, policy, degree):
         fem.form(L),
         unknown.value,
         bcs=bcs,
+        bc_assembly="matrix_elimination" if dimension == 3 else "lifting",
         options=policy.linear_options(),
         return_info=True,
     )
@@ -326,7 +412,7 @@ def _solve_stokes(case, domain, policy, degree):
 
     dimension = int(domain.geometry.dim)
     if dimension == 3:
-        return _solve_stokes_block(case, domain, policy, velocity_degree=3)
+        return _solve_stokes_block(case, domain, policy, velocity_degree=4)
     structured_planar = dimension == 2 and str(case["domain"].get("type", "")) in {
         "unit_square",
         "periodic_square",
@@ -419,17 +505,20 @@ def _solve_stokes_block(case, domain, policy, *, velocity_degree: int):
     source_spec = pde.get("source_term", [0.0] * dimension)
     if not isinstance(source_spec, Sequence) or isinstance(source_spec, (str, bytes)):
         source_spec = [source_spec] * dimension
-    source = _known_field(source_spec, velocity_space)
+    source = _known_field(
+        source_spec, spaces.vector_space(domain, degree=velocity_degree + 1)
+    )
+    nu_coefficient = fem.Constant(domain, PETSc.ScalarType(viscosity))
     velocity_field = fem.Function(velocity_space, name="Velocity")
     pressure_field = fem.Function(pressure_space, name="Pressure")
     bcs = _dirichlet_bcs(case, velocity_field)
 
-    a00 = viscosity * ufl.inner(
-        ufl.grad(velocity), ufl.grad(test_velocity)
-    ) * ufl.dx
+    a00 = (
+        nu_coefficient * ufl.inner(ufl.grad(velocity), ufl.grad(test_velocity)) * ufl.dx
+    )
     a01 = -pressure * ufl.div(test_velocity) * ufl.dx
     a10 = -test_pressure * ufl.div(velocity) * ufl.dx
-    pressure_mass = (1.0 / viscosity) * pressure * test_pressure * ufl.dx
+    pressure_mass = (1.0 / nu_coefficient) * pressure * test_pressure * ufl.dx
     block_operator = [[a00, a01], [a10, None]]
     block_load = [
         ufl.inner(source, test_velocity) * ufl.dx,
@@ -446,7 +535,7 @@ def _solve_stokes_block(case, domain, policy, *, velocity_degree: int):
         petsc_options_prefix="agentfem_pdebench_stokes3d_",
         petsc_options={
             "ksp_type": "minres",
-            "ksp_rtol": max(policy.relative_tolerance, 1.0e-6),
+            "ksp_rtol": max(policy.relative_tolerance, 1.0e-8),
             "ksp_atol": policy.absolute_tolerance,
             "ksp_max_it": 1000,
             "ksp_error_if_not_converged": True,
@@ -473,9 +562,11 @@ def _solve_stokes_block(case, domain, policy, *, velocity_degree: int):
     block_pc.setUp()
     velocity_solver, pressure_solver = block_pc.getFieldSplitSubKSP()
     velocity_solver.setType("preonly")
-    velocity_solver.getPC().setType("gamg")
+    velocity_solver.getPC().setType(policy.spatial_stokes_velocity_pc)
     pressure_solver.setType("preonly")
-    pressure_solver.getPC().setType("jacobi")
+    # A consistent mass inverse avoids the iteration growth of a diagonal
+    # pressure preconditioner for high-order pressure spaces.
+    pressure_solver.getPC().setType("lu")
 
     solved_velocity, solved_pressure = problem.solve()
     solved_velocity.x.scatter_forward()
@@ -484,7 +575,7 @@ def _solve_stokes_block(case, domain, policy, *, velocity_degree: int):
     payload = {
         "ksp_type": "minres",
         "pc_type": "fieldsplit",
-        "rtol": max(policy.relative_tolerance, 1.0e-6),
+        "rtol": max(policy.relative_tolerance, 1.0e-8),
         "converged": int(solver.getConvergedReason()) > 0,
         "converged_reason": int(solver.getConvergedReason()),
         "iterations": int(solver.getIterationNumber()),
@@ -614,7 +705,14 @@ def _solve_heat(case, domain, policy, degree):
     time_cfg = pde["time"]
     t0 = float(time_cfg.get("t0", 0.0))
     t_end = float(time_cfg["t_end"])
-    nominal_dt = float(time_cfg.get("dt", 0.01))
+    spatial = int(domain.geometry.dim) == 3
+    theta = float(policy.spatial_heat_theta) if spatial else 1.0
+    if "scheme" in time_cfg:
+        theta = 1.0  # An explicitly requested backward-Euler scheme is respected.
+    refinement = int(policy.spatial_time_refinement) if spatial else 1
+    if not 0.5 <= theta <= 1.0 or refinement < 1:
+        raise ValueError("Heat theta must be in [0.5,1] and temporal refinement >= 1")
+    nominal_dt = float(time_cfg.get("dt", 0.01)) / refinement
     steps = int(np.ceil((t_end - t0) / nominal_dt - 1.0e-14))
     if steps < 1:
         raise BenchmarkContractError(
@@ -632,16 +730,34 @@ def _solve_heat(case, domain, policy, degree):
     )
     source_spec = pde.get("source_term", 0.0)
     source = _known_field(source_spec, unknown.space, parameters={"t": time})
+    previous_source = fem.Function(unknown.space)
+    previous_source.x.array[:] = source.x.array
+    previous_source.x.scatter_forward()
     bcs, boundary_values = _dirichlet_bcs(
         case, unknown.value, parameters={"t": time}, track_values=True
     )
     a = (
         unknown.trial * unknown.test
-        + dt * kappa * ufl.inner(ufl.grad(unknown.trial), ufl.grad(unknown.test))
+        + theta
+        * dt
+        * kappa
+        * ufl.inner(ufl.grad(unknown.trial), ufl.grad(unknown.test))
     ) * ufl.dx
-    L = (previous * unknown.test + dt * source * unknown.test) * ufl.dx
+    L = (
+        previous * unknown.test
+        + dt * (theta * source + (1.0 - theta) * previous_source) * unknown.test
+        - (1.0 - theta)
+        * dt
+        * kappa
+        * ufl.inner(ufl.grad(previous), ufl.grad(unknown.test))
+    ) * ufl.dx
     with solvers.prepare_linear_problem(
-        a, L, unknown.value, bcs=bcs, options=policy.linear_options()
+        a,
+        L,
+        unknown.value,
+        bcs=bcs,
+        bc_assembly="matrix_elimination" if spatial else "lifting",
+        options=policy.linear_options(),
     ) as problem:
         for step in range(1, steps + 1):
             time.value = t0 + step * dt
@@ -650,6 +766,8 @@ def _solve_heat(case, domain, policy, degree):
             problem.solve()
             previous.x.array[:] = unknown.value.x.array
             previous.x.scatter_forward()
+            previous_source.x.array[:] = source.x.array
+            previous_source.x.scatter_forward()
         last_info = problem.last_solve_info
     if last_info is None:
         raise RuntimeError("Heat problem did not execute a time step.")
@@ -658,7 +776,11 @@ def _solve_heat(case, domain, policy, degree):
         {
             "num_timesteps": steps,
             "n_steps": steps,
-            "time_scheme": "backward_euler",
+            "time_scheme": "crank_nicolson"
+            if theta == 0.5
+            else ("backward_euler" if theta == 1.0 else "theta_method"),
+            "theta": theta,
+            "temporal_refinement": refinement,
             "dt": dt,
             "matrix_reused": True,
         }
@@ -667,7 +789,7 @@ def _solve_heat(case, domain, policy, degree):
 
 
 def _solve_convection_diffusion(case, domain, policy, degree):
-    """Solve steady or backward-Euler advection--diffusion with optional SUPG."""
+    """Solve steady or theta-method advection--diffusion with consistent SUPG."""
 
     unknown = fields.scalar_unknown(domain, name="u", degree=degree)
     pde = case["pde"]
@@ -680,8 +802,21 @@ def _solve_convection_diffusion(case, domain, policy, degree):
             "AFM-PDEB-003",
             f"convection vector has {len(beta_values)} components for a {dimension}D domain",
         )
-    beta = operators.as_velocity(beta_values)
-    stabilization = str(params.get("stabilization", "none")).lower() == "supg"
+    beta = (
+        fem.Constant(domain, np.asarray(beta_values, dtype=PETSc.ScalarType))
+        if dimension == 3
+        else operators.as_velocity(beta_values)
+    )
+    diffusivity = (
+        fem.Constant(domain, PETSc.ScalarType(epsilon)) if dimension == 3 else epsilon
+    )
+    default_stabilization = (
+        "supg" if dimension == 3 and policy.spatial_transport_supg else "none"
+    )
+    stabilization = (
+        str(params.get("stabilization", default_stabilization)).lower() == "supg"
+        and np.linalg.norm(beta_values) > 0.0
+    )
     source_spec = pde.get("source_term", 0.0)
     time_cfg = pde.get("time")
     time = fem.Constant(domain, float(time_cfg.get("t0", 0.0)) if time_cfg else 0.0)
@@ -692,15 +827,21 @@ def _solve_convection_diffusion(case, domain, policy, degree):
 
     advected = ufl.dot(beta, ufl.grad(unknown.trial))
     a_spatial = (
-        epsilon * ufl.inner(ufl.grad(unknown.trial), ufl.grad(unknown.test))
+        diffusivity * ufl.inner(ufl.grad(unknown.trial), ufl.grad(unknown.test))
         + advected * unknown.test
     ) * ufl.dx
     L_spatial = source * unknown.test * ufl.dx
     tau = None
     if stabilization and np.linalg.norm(beta_values) > 0.0:
-        tau = operators.intrinsic_time_scale(domain, beta_values)
+        tau = (
+            operators.intrinsic_time_scale(
+                domain, beta, diffusivity=diffusivity, degree=degree
+            )
+            if dimension == 3
+            else operators.intrinsic_time_scale(domain, beta_values)
+        )
         streamline_test = ufl.dot(beta, ufl.grad(unknown.test))
-        strong_trial = advected - epsilon * ufl.div(ufl.grad(unknown.trial))
+        strong_trial = advected - diffusivity * ufl.div(ufl.grad(unknown.trial))
         a_spatial += tau * strong_trial * streamline_test * ufl.dx
         L_spatial += tau * source * streamline_test * ufl.dx
 
@@ -733,14 +874,31 @@ def _solve_convection_diffusion(case, domain, policy, degree):
     initial_field.x.array[:] = previous.x.array
     initial_field.x.scatter_forward()
     t0, t_end, dt, steps = _time_grid(time_cfg)
-    a = (unknown.trial * unknown.test) * ufl.dx + dt * a_spatial
-    L = (previous * unknown.test) * ufl.dx + dt * L_spatial
-    if tau is not None:
-        streamline_test = ufl.dot(beta, ufl.grad(unknown.test))
-        a += tau * unknown.trial * streamline_test * ufl.dx
-        L += tau * previous * streamline_test * ufl.dx
+    theta = policy.spatial_transport_theta if dimension == 3 else 1.0
+    if "scheme" in time_cfg:
+        theta = 1.0  # Honor an explicitly requested backward-Euler method.
+    previous_source = fem.Function(unknown.space)
+    previous_source.x.array[:] = source.x.array
+    previous_source.x.scatter_forward()
+    a, L = operators.transient_transport_forms(
+        unknown.trial,
+        unknown.test,
+        previous,
+        source,
+        previous_source,
+        beta,
+        diffusivity,
+        dt=dt,
+        theta=theta,
+        tau=tau,
+    )
     with solvers.prepare_linear_problem(
-        a, L, unknown.value, bcs=bcs, options=policy.linear_options(indefinite=True)
+        a,
+        L,
+        unknown.value,
+        bcs=bcs,
+        bc_assembly="matrix_elimination" if dimension == 3 else "lifting",
+        options=policy.linear_options(indefinite=True),
     ) as problem:
         for step in range(1, steps + 1):
             time.value = t0 + step * dt
@@ -749,6 +907,8 @@ def _solve_convection_diffusion(case, domain, policy, degree):
             problem.solve()
             previous.x.array[:] = unknown.value.x.array
             previous.x.scatter_forward()
+            previous_source.x.array[:] = source.x.array
+            previous_source.x.scatter_forward()
         info = problem.last_solve_info
     if info is None:
         raise RuntimeError("Transient convection--diffusion did not execute a step.")
@@ -761,7 +921,10 @@ def _solve_convection_diffusion(case, domain, policy, degree):
             "steady": False,
             "num_timesteps": steps,
             "n_steps": steps,
-            "time_scheme": "backward_euler",
+            "time_scheme": "crank_nicolson"
+            if theta == 0.5
+            else ("backward_euler" if theta == 1 else "theta_method"),
+            "theta": theta,
             "dt": dt,
             "matrix_reused": True,
         }
