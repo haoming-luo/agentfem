@@ -284,7 +284,9 @@ def rectangular_periodic_mpc(
     if np.any(span <= 0.0):
         raise ValueError("Rectangular periodic bounds must have positive span.")
     selected_tolerance = (
-        100.0 * np.finfo(float).eps * max(1.0, float(np.max(span)))
+        # Match dolfinx_mpc's default basis-value tolerance: higher-order
+        # nodal evaluation can leave roundoff coefficients above 100 eps.
+        500.0 * np.finfo(float).eps * max(1.0, float(np.max(span)))
         if tolerance is None
         else float(tolerance)
     )

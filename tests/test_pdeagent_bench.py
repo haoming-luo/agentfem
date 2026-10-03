@@ -87,6 +87,23 @@ def test_heat_adapter_returns_initial_and_final_grids():
     assert result["solver_info"]["matrix_reused"] is True
 
 
+def test_first_order_time_scheme_is_explicit_and_dimension_independent():
+    case = _case(
+        {
+            "type": "heat",
+            "time": {"t_end": 0.01, "dt": 0.01},
+            "source_term": "0.0",
+            "initial_condition": "0.0",
+        }
+    )
+    result = solve_case(case, policy=BenchmarkPolicy(planar_resolution=4))
+    assert result["solver_info"]["time_scheme"] == "backward_euler"
+
+    case["pde"]["time"]["scheme"] = "crank_nicolson"
+    result = solve_case(case, policy=BenchmarkPolicy(planar_resolution=4))
+    assert result["solver_info"]["time_scheme"] == "crank_nicolson"
+
+
 def test_burgers_periodic_adapter_closes_matching_faces():
     pytest.importorskip("dolfinx_mpc")
     case = _case(
@@ -392,11 +409,11 @@ def test_three_dimensional_stokes_uses_block_taylor_hood_and_pressure_nullspace(
     )
     relative_error = np.linalg.norm(result["u"] - exact) / np.linalg.norm(exact)
 
-    assert relative_error < 3.0e-4
+    assert relative_error < 4.0e-5
     assert result["solver_info"]["formulation"] == "block_taylor_hood"
     assert result["solver_info"]["pressure_reference"] == "constant_nullspace"
-    assert result["solver_info"]["velocity_degree"] == 3
-    assert result["solver_info"]["pressure_degree"] == 2
+    assert result["solver_info"]["velocity_degree"] == 4
+    assert result["solver_info"]["pressure_degree"] == 3
     assert result["solver_info"]["converged"] is True
 
 
@@ -555,7 +572,7 @@ def test_flow_resolution_uses_dimension_geometry_and_public_sampling_density():
             boundary,
             {"grid": {"nx": 16, "ny": 16, "nz": 16}},
         )
-        == 4
+        == 3
     )
 
 
@@ -650,3 +667,35 @@ def test_disjoint_official_family_runs_combine_without_double_counting(tmp_path)
     assert report.as_dict()["source"] == [str(first), str(second)]
     with pytest.raises(ValueError, match="duplicate benchmark case"):
         combine_official_summaries((first, first))
+
+
+def test_three_dimensional_elasticity_resolves_independent_vector_mms():
+    young, poisson = 2.7, 0.23
+    mu = young / (2.0 * (1.0 + poisson))
+    lam = young * poisson / ((1.0 + poisson) * (1.0 - 2.0 * poisson))
+    case = {
+        "id": "independent_vector_elasticity_mms",
+        "pde": {
+            "type": "linear_elasticity",
+            "pde_params": {"E": young, "nu": poisson},
+            "source_term": [
+                f"{lam + 4 * mu}*pi**2*sin(pi*x)*sin(pi*y)*sin(pi*z)",
+                f"{-lam - mu}*pi**2*cos(pi*x)*cos(pi*y)*sin(pi*z)",
+                f"{-lam - mu}*pi**2*cos(pi*x)*sin(pi*y)*cos(pi*z)",
+            ],
+        },
+        "domain": {"type": "unit_cube"},
+        "bc": {"dirichlet": {"on": "all", "value": [0.0, 0.0, 0.0]}},
+        "output": {
+            "field": "u_mag",
+            "grid": {"bbox": [0, 1, 0, 1, 0, 1], "nx": 11, "ny": 11, "nz": 11},
+        },
+    }
+    result = solve_case(case)
+    axis = np.linspace(0.0, 1.0, 11)
+    z, y, x = np.meshgrid(axis, axis, axis, indexing="ij")
+    exact = np.sin(np.pi * x) * np.sin(np.pi * y) * np.sin(np.pi * z)
+    assert np.linalg.norm(result["u"] - exact) / np.linalg.norm(exact) < 5.0e-5
+    assert result["solver_info"]["cell_type"] == "hexahedron"
+    assert result["solver_info"]["element_degree"] == 4
+    assert result["solver_info"]["num_dofs"] == 3 * 13**3

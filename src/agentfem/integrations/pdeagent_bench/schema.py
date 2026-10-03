@@ -86,7 +86,7 @@ def validate_case_spec(case_spec: Mapping[str, object]) -> dict[str, object]:
             )
         scheme = str(time.get("scheme", "backward_euler")).lower().replace("-", "_")
         accepted = {"backward_euler", "implicit_euler"}
-        if family == "reaction_diffusion":
+        if family in {"heat", "convection_diffusion", "reaction_diffusion"}:
             accepted.add("crank_nicolson")
         if family != "wave" and scheme not in accepted:
             raise BenchmarkContractError(
