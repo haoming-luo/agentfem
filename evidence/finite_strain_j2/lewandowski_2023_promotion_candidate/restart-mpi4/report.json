@@ -10,51 +10,51 @@
     },
     "accepted_solution": {
       "absolute_tolerance": 2e-11,
-      "maximum_absolute": 3.37403716077489e-16,
-      "maximum_normalized": 3.0685083829526008e-15,
+      "maximum_absolute": 3.469446951953614e-16,
+      "maximum_normalized": 3.155278542881894e-15,
       "normalized_tolerance": 2e-10,
       "passed": true,
-      "reference_scale": 0.10995691520739145
+      "reference_scale": 0.10995691520738998
     },
     "cauchy_stress": {
       "absolute_tolerance": 2e-11,
-      "maximum_absolute": 0.004928898997604847,
-      "maximum_normalized": 3.248104607759067e-12,
+      "maximum_absolute": 0.005017340183258057,
+      "maximum_normalized": 3.306386634388726e-12,
       "normalized_tolerance": 1e-08,
       "passed": true,
-      "reference_scale": 1517469291.4232814
+      "reference_scale": 1517469291.4235198
     },
     "deformation_gradient": {
       "absolute_tolerance": 2e-11,
-      "maximum_absolute": 6.483008574420523e-14,
-      "maximum_normalized": 5.3659035195481776e-14,
+      "maximum_absolute": 7.893685705084863e-14,
+      "maximum_normalized": 6.533502990300704e-14,
       "normalized_tolerance": 2e-10,
       "passed": true,
-      "reference_scale": 1.2081858257053435
+      "reference_scale": 1.208185825705355
     },
     "displacement_curve": {
       "absolute_tolerance": 2e-11,
-      "maximum_absolute": 2.636779683484747e-16,
-      "maximum_normalized": 2.401580112899356e-15,
+      "maximum_absolute": 3.3133218391157016e-16,
+      "maximum_normalized": 3.0177750102880565e-15,
       "normalized_tolerance": 2e-10,
       "passed": true,
-      "reference_scale": 0.10979353423698372
+      "reference_scale": 0.1097935342369819
     },
     "equivalent_stress": {
       "absolute_tolerance": 2e-11,
-      "maximum_absolute": 0.001812988892197609,
-      "maximum_normalized": 7.193745047109756e-12,
+      "maximum_absolute": 0.001635633409023285,
+      "maximum_normalized": 6.490017553712666e-12,
       "normalized_tolerance": 1e-08,
       "passed": true,
-      "reference_scale": 252022956.09934312
+      "reference_scale": 252022956.0993418
     },
     "first_piola": {
       "absolute_tolerance": 2e-11,
-      "maximum_absolute": 0.004907144233584404,
-      "maximum_normalized": 3.1953427558692285e-12,
+      "maximum_absolute": 0.004984233528375626,
+      "maximum_normalized": 3.245540326582119e-12,
       "normalized_tolerance": 1e-08,
       "passed": true,
-      "reference_scale": 1535717639.2332015
+      "reference_scale": 1535717639.2334418
     },
     "load_path": {
       "absolute_tolerance": 2e-11,
@@ -71,59 +71,59 @@
     },
     "solution": {
       "absolute_tolerance": 2e-11,
-      "maximum_absolute": 3.37403716077489e-16,
-      "maximum_normalized": 3.0685083829526008e-15,
+      "maximum_absolute": 3.469446951953614e-16,
+      "maximum_normalized": 3.155278542881894e-15,
       "normalized_tolerance": 2e-10,
       "passed": true,
-      "reference_scale": 0.10995691520739145
+      "reference_scale": 0.10995691520738998
     },
     "state.equivalent_plastic_strain": {
       "absolute_tolerance": 2e-11,
-      "maximum_absolute": 2.4730217873525362e-14,
-      "maximum_normalized": 1.281233388406371e-13,
+      "maximum_absolute": 3.1585845050585704e-14,
+      "maximum_normalized": 1.636412565663685e-13,
       "normalized_tolerance": 2e-10,
       "passed": true,
-      "reference_scale": 0.1930188371400889
+      "reference_scale": 0.19301883714010307
     },
     "state.plastic_deformation_gradient": {
       "absolute_tolerance": 2e-11,
-      "maximum_absolute": 3.516284485804988e-14,
-      "maximum_normalized": 2.9110171414012766e-14,
+      "maximum_absolute": 4.650273222051027e-14,
+      "maximum_normalized": 3.849809398596111e-14,
       "normalized_tolerance": 2e-10,
       "passed": true,
-      "reference_scale": 1.2079229750300795
+      "reference_scale": 1.2079229750300928
     },
     "state.plastic_dissipation": {
       "absolute_tolerance": 2e-11,
-      "maximum_absolute": 6.191432476043701e-06,
-      "maximum_normalized": 1.2830732104245542e-13,
+      "maximum_absolute": 7.897615432739258e-06,
+      "maximum_normalized": 1.6366517485558695e-13,
       "normalized_tolerance": 1e-08,
       "passed": true,
-      "reference_scale": 48254709.28502223
+      "reference_scale": 48254709.28502577
     },
     "state_schema": {
       "passed": true
     },
     "strain_energy_density": {
       "absolute_tolerance": 2e-11,
-      "maximum_absolute": 2.4549663066864014e-05,
-      "maximum_normalized": 4.3133535152043596e-12,
+      "maximum_absolute": 1.25812366604805e-05,
+      "maximum_normalized": 2.2105118602759855e-12,
       "normalized_tolerance": 1e-08,
       "passed": true,
-      "reference_scale": 5691549.041906177
+      "reference_scale": 5691549.041908201
     },
     "tangent": {
       "absolute_tolerance": 2e-11,
-      "maximum_absolute": 510.42784252762794,
-      "maximum_normalized": 1.62070071013054e-09,
+      "maximum_absolute": 26.915115356445312,
+      "maximum_normalized": 8.546035881912218e-11,
       "normalized_tolerance": 1e-08,
       "passed": true,
-      "reference_scale": 314942690736.84515
+      "reference_scale": 314942690720.6353
     }
   },
   "execution": {
-    "checkpoint_manifest": "/tmp/agentfem-beam-promotion-7a13c3b/restart-mpi4-v2/checkpoint.checkpoint.json",
-    "checkpoint_manifest_sha256": "a2dd367072ac70da814975718ed4fe2a7ccd52505a37c52a2d84f0798708e811",
+    "checkpoint_manifest": "/private/tmp/agentfem-j2-refresh/restart-mpi4/checkpoint.checkpoint.json",
+    "checkpoint_manifest_sha256": "dc183a9343e47a014eb9ae4858d9cdf21ab6da0938cc62cb2b7bd5ae38682b9c",
     "increments": 30,
     "midpoint": 0.5,
     "mpi_ranks": 4,
@@ -137,14 +137,14 @@
   "failed_checks": [],
   "passed": true,
   "runtime": {
-    "fingerprint": "sha256:f38906dc8ea96839f2de22bd7e5ab4bb2582a2e674dbb40013952b36ee9326c7",
+    "fingerprint": "sha256:f3a6e03ab217629d4f41dfdbf8d387e6149afca140567f3ce5573250d301205b",
     "identity": {
       "execution": {
         "distribution": null,
         "mode": "source_checkout",
         "source": {
-          "commit": "33e705f3f03a20d6b4d25d8ada433596adb55626",
-          "package_tree_sha256": "3f8208f8c269463ddb8d6112fdd415bae184536ff9a962bb70cdcba9849bb428",
+          "commit": "b6b4ad70cbd0bb9b5cd5f26f47f0130b55abd174",
+          "package_tree_sha256": "75713f001865987a92a7775dedd67a6009cbba463865ae1199afc1e6b5a1bf2d",
           "tracked_dirty": false
         }
       },
@@ -166,7 +166,7 @@
         "version": "Darwin Kernel Version 25.6.0: Fri Jul 31 19:16:20 PDT 2026; root:xnu-12377.161.14~5/RELEASE_ARM64_T8142"
       },
       "packages": {
-        "agentfem": "0.3.7",
+        "agentfem": "0.4.0.dev0",
         "fenics-basix": "0.11.0",
         "fenics-dolfinx": "0.11.0",
         "fenics-ffcx": "0.11.0",
@@ -185,33 +185,28 @@
     "report": {
       "execution": {
         "distribution": {
-          "direct_url": {
-            "dir_info": {
-              "editable": true
-            },
-            "url": "file:///Users/luo/Desktop/%E5%BC%80%E5%8F%91%E7%8E%AF%E5%A2%83/fenicsx-code/agentfem"
-          },
-          "installer": "pip\n",
-          "record_sha256": "1a58fa9b3685c93b398b2a66c27e5a787675085ab95305d62909145cf0bbc297",
-          "version": "0.3.7.dev0"
+          "direct_url": null,
+          "installer": null,
+          "record_sha256": null,
+          "version": "0.4.0.dev0"
         },
-        "distribution_mismatch": true,
-        "distribution_version": "0.3.7.dev0",
-        "environment_consistent": false,
-        "imported_package": "/private/tmp/agentfem-j2-rve/src/agentfem",
-        "installed_distribution": null,
+        "distribution_mismatch": false,
+        "distribution_version": "0.4.0.dev0",
+        "environment_consistent": true,
+        "imported_package": "/private/tmp/agentfem-contact-bridge/src/agentfem",
+        "installed_distribution": "/private/tmp/agentfem-contact-bridge/src/agentfem",
         "mode": "source_checkout",
         "path_mismatch": false,
         "python_executable": "/opt/homebrew/Caskroom/miniforge/base/envs/fenicsx-env/bin/python",
-        "runtime_version": "0.3.7",
+        "runtime_version": "0.4.0.dev0",
         "source": {
-          "commit": "33e705f3f03a20d6b4d25d8ada433596adb55626",
-          "package_tree_sha256": "3f8208f8c269463ddb8d6112fdd415bae184536ff9a962bb70cdcba9849bb428",
+          "commit": "b6b4ad70cbd0bb9b5cd5f26f47f0130b55abd174",
+          "package_tree_sha256": "75713f001865987a92a7775dedd67a6009cbba463865ae1199afc1e6b5a1bf2d",
           "tracked_dirty": false
         },
-        "source_root": "/private/tmp/agentfem-j2-rve",
-        "version_mismatch": true,
-        "working_directory": "/private/tmp/agentfem-j2-rve"
+        "source_root": "/private/tmp/agentfem-contact-bridge",
+        "version_mismatch": false,
+        "working_directory": "/private/tmp/agentfem-contact-bridge"
       },
       "machine": "arm64",
       "mpi": {
@@ -299,7 +294,7 @@
         }
       ],
       "packages": {
-        "agentfem": "0.3.7",
+        "agentfem": "0.4.0.dev0",
         "fenics-basix": "0.11.0",
         "fenics-dolfinx": "0.11.0",
         "fenics-ffcx": "0.11.0",

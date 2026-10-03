@@ -60,10 +60,10 @@ The clean, content-bound AgentFEM candidate uses the source-declared
 All 30 increments converged without cutback. Its final displacement was
 `0.109793534 m` versus `0.109796364 m` for the independent reference;
 normalized RMS and maximum curve errors were `7.71e-6` and `2.58e-5`.
-Serial and four-rank curves agree to `1.28e-15` normalized RMS, and the
-four-rank run was `2.99x` faster than serial. A scale-aware restart comparison
-accepts the displacement, complete constitutive state, stresses, energies and
-algorithmic tangent.
+Serial and four-rank curves agree to `1.10e-15` normalized RMS, and the
+four-rank evidence run was `1.63x` faster than serial on the recorded host. A
+scale-aware restart comparison accepts the displacement, complete constitutive
+state, stresses, energies and algorithmic tangent.
 
 Three spatial levels pass the fixed mesh contract: the `30 x 5 x 8` to
 `36 x 6 x 10` differences are `0.7054%` normalized RMS and `1.7861%` maximum.
@@ -85,12 +85,10 @@ observer, so this gate is strictly a comparison with the pinned executable
 curve and does not claim to reproduce the plotted paper point A.
 
 The numerical external, mesh, increment, serial/MPI and checkpoint/restart
-gates now pass. Aggregate promotion remains **incomplete** only because the
-new 180-increment artifact and the earlier compact evidence bind two different
-executable package-tree identities. The fail-closed assessor will not merge
-cross-revision evidence into one release claim. The next evidence maintenance
-run must refresh the compact lower levels from one package identity; no new
-algorithm or weaker tolerance is required. The promotion manifest binds the
+gates now pass, and the aggregate promotion is **accepted**. Every constituent
+run binds the same executable package-tree identity, `75713f...`; the recorded
+Git commits may differ only because evidence and harness documentation do not
+change that executable package tree. The promotion manifest binds the
 independently generated CSV by
 its SHA-256 digest; the candidate driver never fills source identity from its
 own constants merely because a CSV was supplied. The fixture then applies fixed

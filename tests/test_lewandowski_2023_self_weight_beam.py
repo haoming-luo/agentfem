@@ -283,7 +283,7 @@ def test_external_curve_comparator_requires_identity_and_all_evidence():
         )
 
 
-def test_archived_full_increment_path_closes_numerical_gate_fail_closed():
+def test_archived_evidence_authorizes_content_bound_promotion():
     root = (
         PROJECT_ROOT
         / "evidence"
@@ -304,9 +304,13 @@ def test_archived_full_increment_path_closes_numerical_gate_fail_closed():
     assert report["increment_convergence"]["setup_consistent"]
     assert report["increment_convergence"]["passed"]
     assert report["external_comparison"]["accepted"]
-    assert report["status"] == "incomplete"
-    assert not report["content_bound"]
-    assert not report["source"]["common_identity"]
+    assert report["status"] == "accepted"
+    assert report["accepted"]
+    assert report["benchmark_promotion_authorized"]
+    assert report["content_bound"]
+    assert report["source"]["common_identity"]
+    assert report["restart_equivalence"]["passed"]
+    assert report["rank_equivalence"]["passed"]
 
 
 def test_content_bound_promotion_derives_evidence_from_artifacts(tmp_path):
