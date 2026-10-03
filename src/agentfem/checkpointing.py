@@ -20,7 +20,6 @@ import json
 import os
 from pathlib import Path
 import tempfile
-import warnings
 from uuid import uuid4
 
 import numpy as np
@@ -1659,106 +1658,6 @@ def remove_stateful_checkpoint(
     if error is not None:
         raise RuntimeError(f"Stateful checkpoint removal failed: {error}")
     comm.barrier()
-
-
-def _stateful_checkpoint_for_replacement(
-    path,
-    *,
-    comm,
-    expected_schema: str,
-) -> dict[str, object] | None:
-    """Collectively read a same-schema manifest before replacing it.
-
-    Stateful writers use generation-specific payload names.  Reading the old
-    manifest before publishing the replacement lets them remove only payloads
-    that the old generation declared, while an unrelated or damaged manifest
-    remains fail-closed.
-    """
-
-    manifest = _manifest_path(path)
-    envelope = None
-    if comm.rank == 0:
-        try:
-            metadata = (
-                json.loads(manifest.read_text(encoding="utf-8"))
-                if manifest.exists()
-                else None
-            )
-            if metadata is not None and metadata.get("schema") != str(
-                expected_schema
-            ):
-                raise ValueError(
-                    "Refusing to replace an unrelated checkpoint schema."
-                )
-            envelope = {"metadata": metadata, "error": None}
-        except Exception as exc:
-            envelope = {
-                "metadata": None,
-                "error": f"{type(exc).__name__}: {exc}",
-            }
-    envelope = comm.bcast(envelope, root=0)
-    if envelope["error"] is not None:
-        raise RuntimeError(
-            "Stateful checkpoint replacement preflight failed: "
-            f"{envelope['error']}"
-        )
-    return envelope["metadata"]
-
-
-def _cleanup_replaced_stateful_payloads(
-    path,
-    *,
-    previous: dict[str, object] | None,
-    current: dict[str, object],
-    comm,
-) -> tuple[str, ...]:
-    """Best-effort cleanup of payloads superseded by an atomic manifest write.
-
-    The new manifest is already the valid durable checkpoint when this helper
-    runs.  A filesystem cleanup failure therefore emits an explicit warning
-    instead of converting a valid checkpoint into a failed numerical step.
-    """
-
-    if previous is None:
-        comm.barrier()
-        return ()
-
-    def declared_names(metadata: dict[str, object]) -> set[str]:
-        names = set()
-        for key in ("nodal_state", "quadrature_state"):
-            record = metadata.get(key)
-            if not record:
-                continue
-            name = str(record["path"])
-            selected = Path(name)
-            if selected.is_absolute() or selected.name != name:
-                raise ValueError(
-                    f"Checkpoint payload {name!r} is not a local file name."
-                )
-            names.add(name)
-        return names
-
-    manifest = _manifest_path(path)
-    error = None
-    if comm.rank == 0:
-        try:
-            obsolete = declared_names(previous) - declared_names(current)
-            for name in sorted(obsolete):
-                payload = manifest.parent / name
-                if payload.exists():
-                    payload.unlink()
-        except Exception as exc:  # pragma: no cover - filesystem failure
-            error = f"{type(exc).__name__}: {exc}"
-    error = comm.bcast(error, root=0)
-    if error is not None and comm.rank == 0:
-        warnings.warn(
-            "Published checkpoint is valid, but superseded payload cleanup "
-            f"failed: {error}",
-            RuntimeWarning,
-            stacklevel=2,
-        )
-    comm.barrier()
-    return () if error is None else (error,)
 
 
 def remove_serial_checkpoint(path, *, comm, expected_schema: str) -> None:

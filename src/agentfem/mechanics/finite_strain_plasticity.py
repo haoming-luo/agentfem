@@ -2131,8 +2131,6 @@ class FiniteStrainJ2StandardProblem:
 
     def _save_portable_checkpoint(self, path) -> Path:
         from ..checkpointing import (
-            _cleanup_replaced_stateful_payloads,
-            _stateful_checkpoint_for_replacement,
             atomic_write_text,
             checkpoint_file_record,
             save_portable_state_bundle,
@@ -2142,13 +2140,6 @@ class FiniteStrainJ2StandardProblem:
         if selected.suffix:
             selected = selected.with_suffix("")
         manifest = selected.with_name(selected.name + ".checkpoint.json")
-        comm = self.solution.function_space.mesh.comm
-        schema = "agentfem.finite-strain-j2-standard-checkpoint.v2"
-        previous = _stateful_checkpoint_for_replacement(
-            manifest,
-            comm=comm,
-            expected_schema=schema,
-        )
         bundle = save_portable_state_bundle(
             manifest,
             state={"U": self.solution, "U_ACCEPTED": self.accepted_solution},
@@ -2157,8 +2148,9 @@ class FiniteStrainJ2StandardProblem:
             manifest.with_name(f"{selected.name}.{bundle['generation']}.quadrature"),
             material=self.material,
         )
+        comm = self.solution.function_space.mesh.comm
         payload = {
-            "schema": schema,
+            "schema": "agentfem.finite-strain-j2-standard-checkpoint.v2",
             "identity": self._portable_checkpoint_identity(),
             "coordinate": self.accepted_load_factor,
             "nodal_state": bundle["record"],
@@ -2189,12 +2181,6 @@ class FiniteStrainJ2StandardProblem:
                 f"Finite-strain J2 checkpoint manifest write failed: {error}"
             )
         comm.barrier()
-        _cleanup_replaced_stateful_payloads(
-            manifest,
-            previous=previous,
-            current=payload,
-            comm=comm,
-        )
         return manifest
 
     def _load_portable_checkpoint(self, manifest: Path, payload: dict) -> None:

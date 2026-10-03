@@ -220,48 +220,6 @@ def test_standard_j2_checkpoint_retention_uses_record_schema(tmp_path, portable)
     assert tuple(directory.glob("*00000003*"))
 
 
-def test_standard_j2_portable_checkpoint_replacement_removes_old_payloads(tmp_path):
-    _, _, _, step = _standard_patch(incrementation=steps.fixed(2))
-    checkpoint = tmp_path / "accepted"
-
-    step.solve(until=0.5)
-    manifest = step.save_checkpoint(checkpoint, portable=True)
-    first = json.loads(manifest.read_text(encoding="utf-8"))
-    old_payloads = {
-        manifest.parent / first[name]["path"]
-        for name in ("nodal_state", "quadrature_state")
-    }
-    assert all(path.is_file() for path in old_payloads)
-
-    step.solve()
-    step.save_checkpoint(checkpoint, portable=True)
-    second = json.loads(manifest.read_text(encoding="utf-8"))
-    new_payloads = {
-        manifest.parent / second[name]["path"]
-        for name in ("nodal_state", "quadrature_state")
-    }
-
-    assert old_payloads.isdisjoint(new_payloads)
-    assert not any(path.exists() for path in old_payloads)
-    assert all(path.is_file() for path in new_payloads)
-
-
-def test_standard_j2_checkpoint_replacement_refuses_unrelated_manifest(tmp_path):
-    _, _, _, step = _standard_patch(incrementation=steps.fixed(2))
-    step.solve(until=0.5)
-    manifest = tmp_path / "accepted.checkpoint.json"
-    unrelated = {"schema": "another.application.checkpoint.v1"}
-    manifest.write_text(json.dumps(unrelated), encoding="utf-8")
-
-    with pytest.raises(
-        RuntimeError,
-        match="Refusing to replace an unrelated checkpoint schema",
-    ):
-        step.save_checkpoint(tmp_path / "accepted", portable=True)
-
-    assert json.loads(manifest.read_text(encoding="utf-8")) == unrelated
-
-
 def test_standard_j2_real_cutback_and_manual_restart_are_equivalent(tmp_path):
     automatic = steps.automatic(
         initial=1.0,
