@@ -319,6 +319,7 @@ def test_content_bound_promotion_derives_evidence_from_artifacts(tmp_path):
         "commit": "1" * 40,
         "tracked_dirty": False,
         "package_tree_sha256": "2" * 64,
+        "scientific_runtime_sha256": "3" * 64,
     }
 
     def candidate(name, *, subdivisions, increments, ranks, scale):
@@ -451,6 +452,28 @@ def test_content_bound_promotion_derives_evidence_from_artifacts(tmp_path):
     assert report["observer_reconciliation"]["claim_scope"] == (
         "pinned_public_executable_curve_not_paper_point_A"
     )
+
+    metadata_only_change = json.loads(
+        (mesh[0] / "assessment.json").read_text(encoding="utf-8")
+    )
+    metadata_only_change["runtime"]["manifest"]["identity"]["execution"][
+        "source"
+    ]["package_tree_sha256"] = "4" * 64
+    (mesh[0] / "assessment.json").write_text(
+        json.dumps(metadata_only_change),
+        encoding="utf-8",
+    )
+    metadata_report = assess_promotion(
+        mesh_roots=mesh,
+        increment_roots=increments,
+        rank_roots=ranks,
+        restart_report=restart,
+    )
+    assert metadata_report["status"] == "accepted"
+    assert metadata_report["source"]["scientific_runtime_sha256"] == (
+        "3" * 64,
+    )
+    assert len(metadata_report["source"]["package_tree_sha256"]) == 2
 
     changed_solver = json.loads(
         (mesh[0] / "assessment.json").read_text(encoding="utf-8")

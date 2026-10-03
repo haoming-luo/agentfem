@@ -77,6 +77,14 @@ def _sha256(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
+def _scientific_runtime_identity(source: dict[str, object]) -> object:
+    """Use the narrow numerical identity, with legacy-evidence fallback."""
+
+    return source.get("scientific_runtime_sha256") or source.get(
+        "package_tree_sha256"
+    )
+
+
 def load_candidate(root: Path) -> dict[str, object]:
     """Load one candidate run and verify its content identities."""
 
@@ -171,6 +179,9 @@ def assess_promotion(
 
     source_commits = {run["source"].get("commit") for run in all_runs}
     source_identities = {
+        _scientific_runtime_identity(run["source"]) for run in all_runs
+    }
+    package_identities = {
         run["source"].get("package_tree_sha256") for run in all_runs
     }
     clean_source = all(not run["source"].get("tracked_dirty", True) for run in all_runs)
@@ -257,22 +268,23 @@ def assess_promotion(
     restart_path = Path(restart_report)
     restart = json.loads(restart_path.read_text(encoding="utf-8"))
     restart_source = restart["runtime"]["identity"]["execution"]["source"]
-    candidate_package_identities = {
-        run["source"].get("package_tree_sha256") for run in all_runs
+    candidate_runtime_identities = {
+        _scientific_runtime_identity(run["source"]) for run in all_runs
     }
-    restart_package_identity = restart_source.get("package_tree_sha256")
-    restart_package_matches = restart_package_identity in candidate_package_identities
+    restart_runtime_identity = _scientific_runtime_identity(restart_source)
+    restart_runtime_matches = restart_runtime_identity in candidate_runtime_identities
     restart_assessment = {
         "passed": bool(
             restart.get("passed")
             and not restart_source.get("tracked_dirty", True)
-            and restart_package_matches
+            and restart_runtime_matches
         ),
         "report_sha256": _sha256(restart_path),
         "reported_status": restart.get("status"),
-        "package_tree_matches_candidates": restart_package_matches,
+        "scientific_runtime_matches_candidates": restart_runtime_matches,
         "restart_commit": restart_source.get("commit"),
-        "restart_package_tree_sha256": restart_package_identity,
+        "restart_scientific_runtime_sha256": restart_runtime_identity,
+        "restart_package_tree_sha256": restart_source.get("package_tree_sha256"),
     }
 
     exact_candidates = [
@@ -320,10 +332,13 @@ def assess_promotion(
         "source": {
             "clean": clean_source,
             "common_identity": common_source,
-            "package_tree_sha256": tuple(sorted(source_identities)),
+            "scientific_runtime_sha256": tuple(sorted(source_identities)),
+            "package_tree_sha256": tuple(sorted(package_identities)),
             "commits": tuple(sorted(source_commits)),
             "identity_semantics": (
-                "executable_agentfem_package_tree; harness-only commits may differ"
+                "scientific_runtime_tree; benchmark declaration metadata and "
+                "harness-only commits may differ while exact package identities "
+                "remain recorded"
             ),
         },
         "observer_reconciliation": {

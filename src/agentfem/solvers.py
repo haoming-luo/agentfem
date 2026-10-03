@@ -1974,11 +1974,17 @@ def _solve_distributed_affine_nonlinear_path(
 ):
     """Distributed Newton path using homogeneous ``dolfinx_mpc`` corrections."""
 
-    import dolfinx_mpc
-
     reduction = constraint.distributed_reduction()
-    correction = reduction.correction()
-    reduction.validate_prefix_layout(correction)
+    dolfinx_mpc = None
+    if reduction.transformation is None:
+        import dolfinx_mpc as _dolfinx_mpc
+
+        dolfinx_mpc = _dolfinx_mpc
+    correction = (
+        None if reduction.transformation is not None else reduction.correction()
+    )
+    if correction is not None:
+        reduction.validate_prefix_layout(correction)
     history = list(accepted_history)
     attempt_history = list(attempted_history)
     accepted_factor = (
@@ -2400,6 +2406,18 @@ def _distributed_reduced_residual_norm(
     reduction,
     dolfinx_mpc,
 ) -> float:
+    if reduction.transformation is not None:
+        full_vector = fem_petsc.assemble_vector(residual)
+        full_vector.ghostUpdate(
+            addv=PETSc.InsertMode.ADD,
+            mode=PETSc.ScatterMode.REVERSE,
+        )
+        reduced_vector = reduction.transformation.createVecRight()
+        reduction.transformation.multTranspose(full_vector, reduced_vector)
+        value = float(reduced_vector.norm())
+        full_vector.destroy()
+        reduced_vector.destroy()
+        return value
     vector = dolfinx_mpc.assemble_vector(residual, reduction.mpc)
     vector.ghostUpdate(
         addv=PETSc.InsertMode.ADD,
@@ -2420,6 +2438,54 @@ def _distributed_newton_direction(
     dolfinx_mpc,
     options,
 ) -> tuple[np.ndarray | None, LinearSolveInfo]:
+    if reduction.transformation is not None:
+        full_residual = fem_petsc.assemble_vector(residual)
+        full_residual.ghostUpdate(
+            addv=PETSc.InsertMode.ADD,
+            mode=PETSc.ScatterMode.REVERSE,
+        )
+        right_hand_side = reduction.transformation.createVecRight()
+        reduction.transformation.multTranspose(full_residual, right_hand_side)
+        right_hand_side.scale(-1.0)
+        full_tangent = fem_petsc.assemble_matrix(jacobian)
+        full_tangent.assemble()
+        reduced_tangent = full_tangent.PtAP(reduction.transformation)
+        reduced_correction = reduction.transformation.createVecRight()
+        reduced_correction.set(0.0)
+        info = solve_matrix_system(
+            reduced_tangent,
+            right_hand_side,
+            reduced_correction,
+            options.linear_options,
+            raise_on_failure=False,
+        )
+        direction = None
+        full_direction = None
+        if info.converged:
+            full_direction = reduction.transformation.createVecLeft()
+            reduction.transformation.mult(reduced_correction, full_direction)
+            full_function = fem.Function(
+                reduction.original_space,
+                name="AffineCorrection",
+            )
+            owned_size = int(
+                reduction.original_space.dofmap.index_map.size_local
+                * reduction.original_space.dofmap.index_map_bs
+            )
+            full_function.x.array[:owned_size] = np.asarray(
+                full_direction.array_r,
+                dtype=PETSc.ScalarType,
+            )
+            full_function.x.scatter_forward()
+            direction = full_function.x.array.copy()
+        full_residual.destroy()
+        right_hand_side.destroy()
+        full_tangent.destroy()
+        reduced_tangent.destroy()
+        reduced_correction.destroy()
+        if full_direction is not None:
+            full_direction.destroy()
+        return direction, info
     full_residual = dolfinx_mpc.assemble_vector(residual, reduction.mpc)
     full_residual.ghostUpdate(
         addv=PETSc.InsertMode.ADD,

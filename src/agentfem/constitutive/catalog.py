@@ -114,8 +114,10 @@ _CAPABILITIES = {
             "ordinary strong-boundary route supports compatible material "
             "regions, proportional prescribed motion, a shared normalized "
             "amplitude, and reference-configuration dead body/natural loads. "
-            "The affine-periodic route uses exact serial affine reduction or "
-            "distributed dolfinx_mpc Newton with prescribed macroscopic F. "
+            "The affine-periodic route uses exact serial affine reduction, "
+            "distributed dolfinx_mpc Newton for displacement spaces, or an "
+            "explicit PETSc T-transformation for mixed displacement-pressure "
+            "spaces under prescribed macroscopic F. "
             "Both retain a collective quadrature-point equivalent-plastic-"
             "strain increment gate with rollback and cutback, accepted-state "
             "output, and portable checkpoint/restart across compatible MPI "
@@ -125,7 +127,7 @@ _CAPABILITIES = {
             "the ordinary route accepts only strong Dirichlet/remote-displacement constraints and reference dead loads; current/follower loads, absolute TimeDependentDirichlet histories, weak boundary models, contact, and MPC constraints require separate consistent lowering",
             "the affine route requires exactly one AbaqusPeriodicConstraint, prescribed macroscopic deformation, compatible regional materials sharing one state/tangent/energy contract, and no body or natural loads",
             "the production tangent is analytical for the declared spectral logarithmic-J2 update, while centered differentiation remains a selectable verification oracle; other finite-strain constitutive formulations require their own consistent linearization",
-            "regional, strong-boundary, two-phase, serial/MPI, cutback, and portable restart tests pass; the independently reexecuted Lewandowski beam comparison also passes curve, mesh, MPI, and restart gates, but its final increment-refinement maximum difference is 0.6784 percent versus the fixed 0.5 percent promotion contract, so external structural promotion remains fail-closed",
+            "regional, strong-boundary, two-phase, serial/MPI, cutback, and portable restart tests pass; the independently reexecuted Lewandowski beam comparison passes curve, mesh, MPI, restart, and 45-to-90-to-180 increment gates without relaxing the fixed promotion contracts",
             "reaction output is available for strong constraints, but complete prescribed-motion work and plastic-dissipation energy closure are not yet claimed",
             "finite-strain kinematic hardening, plane stress, thermal coupling, damage, and deletion are not implemented",
         ),

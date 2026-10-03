@@ -66,6 +66,17 @@ The printed path must point to the current checkout. Release CI instead builds
 and force-installs the candidate wheel before testing, intentionally verifying
 the artifact users receive.
 
+Source evidence records two deliberately different hashes. The
+`package_tree_sha256` binds every packaged byte and remains the exact audit
+identity. The `scientific_runtime_sha256` excludes only
+`knowledge/benchmarks/**`, whose records describe promotion state rather than
+execute a numerical model. Promotion comparisons use the scientific runtime
+identity while retaining every exact package identity. Consequently, changing
+a solver, material, operator, knowledge card, schema, or any other packaged
+resource invalidates the evidence; changing an archived benchmark declaration
+from experimental to accepted does not create a circular demand to rerun the
+calculation that justified that declaration.
+
 `promotion_gate.py` is a source-checkout audit and therefore inserts the local
 `src/` directory itself. It also rejects an AgentFEM import from outside that
 checkout. This prevents an installed older wheel from being paired with the
