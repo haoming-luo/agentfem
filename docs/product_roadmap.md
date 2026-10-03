@@ -267,13 +267,15 @@ The next scientific promotions focus on depth rather than catalog size:
 
 1. complete external DCB, ENF, and MMB cohesive validation, including unstable
    propagation control and closed force--work--energy evidence;
-2. close the remaining finite-strain J2 external-beam increment-convergence
-   gate without relaxing its fixed tolerance: complete the full refined load
-   path through the sharp yield transition, regenerate the content-bound
-   promotion report, and only then advance RVE mixed-MPI, follower-load, and
-   prescribed-work promotion. The spectral analytical tangent, independent
-   numerical oracle, collective inelastic-increment gate, rollback/cutback,
-   and per-increment evidence are already implemented and tested;
+2. refresh the finite-strain J2 external-beam evidence set from one executable
+   package identity, then authorize promotion without relaxing a tolerance.
+   The complete four-rank 180-increment path has closed the numerical
+   refinement gate: the 90-to-180 RMS and maximum differences are `0.04460%`
+   and `0.21498%`, within the fixed `0.2%` and `0.5%` contracts. The external
+   curve, mesh, serial/MPI, checkpoint/restart, and increment gates all pass;
+   only cross-revision provenance prevents the current aggregate from being a
+   content-bound release claim. After the compact evidence refresh, advance
+   RVE mixed-MPI, follower-load, and prescribed-work promotion;
 3. extend the closed bounded MPC/weak/contact evidence contract only through
    independently verified provider routes; general contact remains a separate
    scientific promotion rather than a foundation blocker;

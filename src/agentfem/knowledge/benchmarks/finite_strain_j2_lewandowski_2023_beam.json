@@ -3,7 +3,7 @@
   "schema_version": "0.1.0",
   "id": "agentfem.benchmark.finite_strain_j2_lewandowski_2023_beam",
   "title": "Lewandowski et al. finite-strain J2 self-weight beam",
-  "status": "external_reference_reexecuted_candidate_promotion_incomplete",
+  "status": "numerical_gates_pass_content_refresh_pending",
   "purpose": "Provide an independent, fail-closed structure-level promotion gate for finite-strain J2 plasticity with finite rotation, distributed loading, membrane stiffening, MPI and restart evidence.",
   "physics": "Three-dimensional slender beam under a ramped gravity-like body force, with a left clamp, right-end axial symmetry constraint, finite rotations, isotropic J2 plasticity and linear isotropic hardening.",
   "source": {
@@ -47,7 +47,7 @@
     "driver": "tests/lewandowski_2023_self_weight_beam_driver.py",
     "restart_driver": "tests/lewandowski_2023_self_weight_beam_restart_driver.py",
     "promotion_assessor": "tests/lewandowski_2023_self_weight_beam_promotion.py",
-    "evidence": "The candidate driver binds the accepted curve, runtime, per-increment material/residual/tangent/linear-solve/line-search timings, KSP statistics and Newton history. It can explicitly compare the production analytical spectral tangent with the central-difference oracle. The restart driver compares the full provider state. The promotion assessor derives convergence and equivalence from clean-commit content-bound artifacts rather than accepting caller-supplied Boolean claims. The compact current candidate is archived at evidence/finite_strain_j2/lewandowski_2023_promotion_candidate and remains incomplete because its increment maximum misses the fixed gate."
+    "evidence": "The candidate driver binds the accepted curve, runtime, per-increment material/residual/tangent/linear-solve/line-search timings, KSP statistics and Newton history. It can explicitly compare the production analytical spectral tangent with the central-difference oracle. The restart driver compares the full provider state. The promotion assessor derives convergence and equivalence from clean-commit content-bound artifacts rather than accepting caller-supplied Boolean claims. The compact archive at evidence/finite_strain_j2/lewandowski_2023_promotion_candidate contains a complete four-rank 180-increment path: the numerical increment gate passes, while aggregate promotion remains incomplete until all compact levels are refreshed from one executable package identity."
   },
   "observables": [
     "Downward displacement versus load factor at the reconciled right-end observer.",
@@ -64,11 +64,11 @@
     "Missing provenance or verification evidence produces incomplete; an available curve outside tolerance produces failed."
   ],
   "limitations": [
-    "A clean content-bound candidate passes the external curve, mesh, serial/MPI and full-state restart gates. The 15-to-45-to-90 increment sequence is decreasing and passes the RMS contract, but its final-pair normalized maximum is 0.6784 percent versus the fixed 0.5 percent contract, so promotion remains incomplete.",
+    "The external curve, mesh, serial/MPI, full-state restart and numerical increment gates pass. The complete 45-to-90-to-180 sequence is decreasing; its final-pair normalized RMS and maximum are 0.04460 percent and 0.21498 percent versus fixed 0.2 percent and 0.5 percent contracts.",
     "The legacy FEniCS, MGIS and MFront stack is isolated in a digest-pinned reference container with its resolved package manifest recorded; it is not a runtime dependency of AgentFEM.",
     "AgentFEM uses multiplicative plastic kinematics with quadratic Hencky elasticity and a Kirchhoff-stress J2 return, whereas the public MFront demo uses a total-Hencky formulation; this is a cross-formulation structural comparison rather than bitwise reproduction.",
     "The paper and public script identify different right-end observation locations. The gate is explicitly scoped to the pinned executable's middle-of-right-extremity observer and does not claim a comparison with the paper's plotted point A.",
-    "The candidate lowers model.body_force through the public ordinary strong-boundary model.step provider. The complete compact evidence archive is content-bound; only the final increment-convergence gate remains open."
+    "The candidate lowers model.body_force through the public ordinary strong-boundary model.step provider. Aggregate promotion remains fail-closed because the new 180-increment artifact and earlier compact levels bind different executable package-tree identities; refresh those lower levels from one identity before authorizing the release claim."
   ],
   "references": [
     "Lewandowski et al., Multifield finite strain plasticity: Theory and numerics, CMAME 414 (2023) 116101, https://doi.org/10.1016/j.cma.2023.116101",
