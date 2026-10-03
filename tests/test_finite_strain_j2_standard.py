@@ -196,6 +196,30 @@ def test_public_standard_j2_provider_result_output_progress_and_checkpoint(tmp_p
     assert "COMPLETED" in status
 
 
+@pytest.mark.parametrize("portable", [False, True])
+def test_standard_j2_checkpoint_retention_uses_record_schema(tmp_path, portable):
+    directory = tmp_path / ("portable" if portable else "serial")
+    _, _, _, step = _standard_patch(
+        incrementation=steps.fixed(3),
+        checkpoint=checkpointing.every(
+            1,
+            directory=directory,
+            keep_last=2,
+            portable=portable,
+        ),
+    )
+
+    step.solve()
+
+    assert len(step.checkpoints) == 2
+    assert [item.coordinate_value for item in step.checkpoints] == pytest.approx(
+        [2.0 / 3.0, 1.0]
+    )
+    assert not tuple(directory.glob("*00000001*"))
+    assert tuple(directory.glob("*00000002*"))
+    assert tuple(directory.glob("*00000003*"))
+
+
 def test_standard_j2_real_cutback_and_manual_restart_are_equivalent(tmp_path):
     automatic = steps.automatic(
         initial=1.0,

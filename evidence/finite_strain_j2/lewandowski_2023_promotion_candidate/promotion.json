@@ -1,51 +1,51 @@
 {
-  "accepted": false,
-  "benchmark_promotion_authorized": false,
+  "accepted": true,
+  "benchmark_promotion_authorized": true,
   "candidate_artifacts": [
     {
-      "curve_sha256": "0143fc03f1d5c1764b0521ecd267c5bb47d908c7b4a487f9fb08e35421a1e6ad",
-      "manifest_sha256": "34e3a0c2fb28ee57d35b62c163b367282d46377a5dcd967f1d3c2abf41fc24e1",
+      "curve_sha256": "472845c9517da51c07081beee5270708789282bd85c2ed22eca5eb6c71037e6b",
+      "manifest_sha256": "5e49fea5ef9b7100cb050e25455dfa740d9aa5dbe3c92042cb931623fc80b6b2",
       "root": "evidence/finite_strain_j2/lewandowski_2023_promotion_candidate/mesh-24"
     },
     {
-      "curve_sha256": "97b5d8343c69fe197eb29e82e714b4a51c3d6f747d089fd6e85776848d52879d",
-      "manifest_sha256": "682658e780c38e91b26bbde72070e424b1468a40583466344f07899f7b7217bb",
+      "curve_sha256": "40d83e5fcfc33aa62ac79d2a7d219559c4d6df799864335214b370e4aa5f0c95",
+      "manifest_sha256": "d51d2e3aabd6a55b7fda7ce530319656df98a12d793eb4ce4c571ea247c1ba41",
       "root": "evidence/finite_strain_j2/lewandowski_2023_promotion_candidate/mesh-30"
     },
     {
-      "curve_sha256": "d97468613624fd84390a7d35cdbbf0bb5b0647211984dfe634084684d9b423ad",
-      "manifest_sha256": "542c9ea27671408a3ebd0e90328d70257f162e6c5d549401ceda596e62925c39",
+      "curve_sha256": "28c527b21a106b86e703613d90c30a57f098c9d2a3e42b02f7fc1defa119c78b",
+      "manifest_sha256": "f9593234170dd7766c945282084428be28949178b3f96420061105a3efe3025e",
       "root": "evidence/finite_strain_j2/lewandowski_2023_promotion_candidate/mesh-36"
     },
     {
-      "curve_sha256": "6b4a4b6802b16462daf0affd31c03d4f64d68accba6263850b04e1408511da54",
-      "manifest_sha256": "1074ccb16ce2f782a7c33929066ee385ed77b8b7336d5fd9e2759370e995e485",
-      "root": "evidence/finite_strain_j2/lewandowski_2023_promotion_candidate/increment-15"
-    },
-    {
-      "curve_sha256": "b40259864a66fe4293d03280e92bbd188170042579e57f5a982d7a0d5f015d2e",
-      "manifest_sha256": "70ede9647250949a233057a3d3d68b3ca000a0ed792d6ddb1407e8f8536836ac",
+      "curve_sha256": "add77890a0bf899e4aaa26798ae431124335c6d4d21a863bf8014b392b39a5fc",
+      "manifest_sha256": "a57cdc80604e9fdcbad96ca900020d74ded5f81e84117d1efa48ac5271adb8f0",
       "root": "evidence/finite_strain_j2/lewandowski_2023_promotion_candidate/increment-45"
     },
     {
-      "curve_sha256": "7adc9b200ec45f17294e529af9a0926028a537b4a8cdf2664312c3a89cfa1360",
-      "manifest_sha256": "65177ebff14617b790e481a560d8aa3427bd030a3c6fb9ba8de6691c87ceda53",
+      "curve_sha256": "491c2b4aebf0406a2b6d202ab64dea87fd15e48b71091e3c3f122a93be33947b",
+      "manifest_sha256": "6da083c5aeeb6860e01fd49dc1af69247ff8f6be944085ec32fc93d1a042f330",
       "root": "evidence/finite_strain_j2/lewandowski_2023_promotion_candidate/increment-90"
     },
     {
-      "curve_sha256": "042d54a09ae81453cb3b985b13e3f008a5f7f58232168ba29e173e6891f47083",
-      "manifest_sha256": "4a9c1243b75f774e8b483966408887d19033eebd9fe4ad95ded14507617cd00f",
+      "curve_sha256": "410d2578e4c324f810f80cfafb1044757c5d9fb9a2898ec0852d0d54aea856eb",
+      "manifest_sha256": "690292dc458b5cb7e867b6c8ccefc48b67a1a6289073af36e265f2bceebbc4a3",
+      "root": "evidence/finite_strain_j2/lewandowski_2023_promotion_candidate/increment-180"
+    },
+    {
+      "curve_sha256": "d4afb45c033b37e8618aaa0f00c86728e3342d6c8f37e7e0eb842452ac0d025d",
+      "manifest_sha256": "933d800bb0c88f379f07bcbb22b1874ad9ed8441d4b715f34d314fceee8551a9",
       "root": "evidence/finite_strain_j2/lewandowski_2023_promotion_candidate/rank-serial"
     },
     {
-      "curve_sha256": "97b5d8343c69fe197eb29e82e714b4a51c3d6f747d089fd6e85776848d52879d",
-      "manifest_sha256": "682658e780c38e91b26bbde72070e424b1468a40583466344f07899f7b7217bb",
+      "curve_sha256": "40d83e5fcfc33aa62ac79d2a7d219559c4d6df799864335214b370e4aa5f0c95",
+      "manifest_sha256": "d51d2e3aabd6a55b7fda7ce530319656df98a12d793eb4ce4c571ea247c1ba41",
       "root": "evidence/finite_strain_j2/lewandowski_2023_promotion_candidate/rank-mpi4"
     }
   ],
   "content_bound": true,
   "external_comparison": {
-    "accepted": false,
+    "accepted": true,
     "benchmark": "lewandowski_2023_self_weight_beam",
     "candidate_points": 31,
     "comparison_class": "cross_formulation_structure_level",
@@ -55,21 +55,19 @@
       "origin": "AgentFEM_project_promotion_contract_not_author_tolerance"
     },
     "errors": {
-      "normalized_maximum": 2.577246496634909e-05,
-      "normalized_rms": 7.710336653631717e-06
+      "normalized_maximum": 2.5772464993144978e-05,
+      "normalized_rms": 7.710336664497157e-06
     },
-    "missing_evidence": [
-      "candidate_increment_converged"
-    ],
+    "missing_evidence": [],
     "reference_curve_sha256": "c26ac9a056db5c83371b0920d6a78a982871e5f3fd6ba32990b0facb9b2f1b5d",
     "reference_points": 31,
     "schema": "agentfem.external-curve-assessment.v1",
-    "status": "incomplete"
+    "status": "accepted"
   },
   "increment_convergence": {
     "coarse_to_medium": {
-      "normalized_maximum": 0.025692245371618253,
-      "normalized_rms": 0.005248337102236906
+      "normalized_maximum": 0.006783981059031405,
+      "normalized_rms": 0.0011013879674329201
     },
     "contracts": {
       "medium_to_fine_normalized_maximum": 0.005,
@@ -78,21 +76,21 @@
     },
     "decreasing": true,
     "levels": [
-      15,
       45,
-      90
+      90,
+      180
     ],
     "medium_to_fine": {
-      "normalized_maximum": 0.006783981059033444,
-      "normalized_rms": 0.0011013879674337593
+      "normalized_maximum": 0.0021498074669490165,
+      "normalized_rms": 0.0004459869156446924
     },
-    "passed": false,
+    "passed": true,
     "setup_consistent": true
   },
   "mesh_convergence": {
     "coarse_to_medium": {
-      "normalized_maximum": 0.034280368724740204,
-      "normalized_rms": 0.012526803537666427
+      "normalized_maximum": 0.034280368724744,
+      "normalized_rms": 0.012526803537650795
     },
     "contracts": {
       "medium_to_fine_normalized_maximum": 0.02,
@@ -118,8 +116,8 @@
       ]
     ],
     "medium_to_fine": {
-      "normalized_maximum": 0.017860742144186526,
-      "normalized_rms": 0.007054023369929456
+      "normalized_maximum": 0.01786074214418602,
+      "normalized_rms": 0.007054023369938653
     },
     "passed": true,
     "setup_consistent": true
@@ -137,8 +135,8 @@
       "origin": "AgentFEM_project_promotion_contract_not_author_tolerance"
     },
     "errors": {
-      "normalized_maximum": 4.139565720918618e-15,
-      "normalized_rms": 1.278290843722859e-15
+      "normalized_maximum": 4.992758655764579e-15,
+      "normalized_rms": 1.101890757116738e-15
     },
     "passed": true,
     "ranks": [
@@ -150,24 +148,23 @@
   "restart_equivalence": {
     "package_tree_matches_candidates": true,
     "passed": true,
-    "report_sha256": "66cd3ba3ca57f9afc2f309d09abdee0e3724ab7f724c4dbaad6b5d1712587da8",
+    "report_sha256": "dc322c7288d6598bae9015f2b3235c52b15321b786f7f8958d4c75c1c4ac69c8",
     "reported_status": "accepted",
-    "restart_commit": "33e705f3f03a20d6b4d25d8ada433596adb55626",
-    "restart_package_tree_sha256": "3f8208f8c269463ddb8d6112fdd415bae184536ff9a962bb70cdcba9849bb428"
+    "restart_commit": "b6b4ad70cbd0bb9b5cd5f26f47f0130b55abd174",
+    "restart_package_tree_sha256": "75713f001865987a92a7775dedd67a6009cbba463865ae1199afc1e6b5a1bf2d"
   },
   "schema": "agentfem.lewandowski-2023-beam-promotion.v1",
   "source": {
     "clean": true,
     "commits": [
-      "33e705f3f03a20d6b4d25d8ada433596adb55626",
-      "79ddd1b22384a923e8338b410ca8003bbb416c6b",
-      "7a13c3bfc8938cf29f9c73e87f7c0d52880f0d6a"
+      "5423a6f8284d27b6ff46f0bb33577214c3f1804c",
+      "b6b4ad70cbd0bb9b5cd5f26f47f0130b55abd174"
     ],
     "common_identity": true,
     "identity_semantics": "executable_agentfem_package_tree; harness-only commits may differ",
     "package_tree_sha256": [
-      "3f8208f8c269463ddb8d6112fdd415bae184536ff9a962bb70cdcba9849bb428"
+      "75713f001865987a92a7775dedd67a6009cbba463865ae1199afc1e6b5a1bf2d"
     ]
   },
-  "status": "incomplete"
+  "status": "accepted"
 }

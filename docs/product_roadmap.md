@@ -112,12 +112,19 @@ accepted as the release gate; continued zero-intervention runs by unfamiliar
 users and agents remain field evidence rather than a reason to hold back the
 foundation release.
 
-The first two executable slices of gate 3 are now present: built-in and custom
-time inputs retain typed RHS/operator/state/output effects, linear implicit
-dynamics uses those effects to select safe operator reuse or refresh, and
-transient checkpoint schema v5 binds the complete time-input identity before
-authorizing restart. Promotion still requires the same invalidation contract
-across the remaining transient and nonlinear Procedures.
+Gate 3 now has one typed contract across the supported transient and ordinary
+incremental nonlinear Procedures. Built-in and custom time inputs retain
+separate RHS/operator/state/output effects. Linear implicit dynamics and
+linear implicit-Euler heat transfer use those effects to select safe operator
+reuse or refresh; nonlinear first-order and load-path Procedures declare
+per-step or per-attempt residual/tangent assembly and restore the accepted
+coordinate on rejection; matrix-free Explicit declares per-increment residual
+evaluation and reports whether a fixed preflight stability bound must remain
+conservative over an operator-changing path. Transient checkpoint schema v5
+and ordinary nonlinear checkpoints bind the complete time-input identity
+before authorizing restart. The runtime architecture audit now exposes both
+owned-module counts and deliberately unowned utility roots in addition to
+cycles and forbidden cross-layer dependencies.
 
 Gate 4 is closed for its declared bounded routes: exact homogeneous rectangular
 MPC, exact affine-periodic paths, scalar/normal/matrix elastic foundations, and
@@ -260,13 +267,13 @@ The next scientific promotions focus on depth rather than catalog size:
 
 1. complete external DCB, ENF, and MMB cohesive validation, including unstable
    propagation control and closed force--work--energy evidence;
-2. close the remaining finite-strain J2 external-beam increment-convergence
-   gate without relaxing its fixed tolerance: complete the full refined load
-   path through the sharp yield transition, regenerate the content-bound
-   promotion report, and only then advance RVE mixed-MPI, follower-load, and
-   prescribed-work promotion. The spectral analytical tangent, independent
-   numerical oracle, collective inelastic-increment gate, rollback/cutback,
-   and per-increment evidence are already implemented and tested;
+2. advance finite-strain J2 through RVE mixed-MPI, follower-load, and
+   prescribed-work promotion. The external-beam gate is now accepted from one
+   executable package identity without relaxing a tolerance: the external
+   curve, mesh, serial/MPI, checkpoint/restart, and `45 -> 90 -> 180`
+   increment contracts all pass. The 90-to-180 RMS and maximum differences
+   are `0.04460%` and `0.21498%`, within the fixed `0.2%` and `0.5%`
+   contracts;
 3. extend the closed bounded MPC/weak/contact evidence contract only through
    independently verified provider routes; general contact remains a separate
    scientific promotion rather than a foundation blocker;

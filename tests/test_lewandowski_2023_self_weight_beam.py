@@ -283,6 +283,36 @@ def test_external_curve_comparator_requires_identity_and_all_evidence():
         )
 
 
+def test_archived_evidence_authorizes_content_bound_promotion():
+    root = (
+        PROJECT_ROOT
+        / "evidence"
+        / "finite_strain_j2"
+        / "lewandowski_2023_promotion_candidate"
+    )
+    run = json.loads((root / "increment-180" / "assessment.json").read_text())
+    report = json.loads((root / "promotion.json").read_text())
+    source = run["runtime"]["manifest"]["identity"]["execution"]["source"]
+
+    assert run["candidate"]["points"] == 181
+    assert run["candidate"]["accepted_increments"] == 180
+    assert run["candidate"]["attempted_increments"] == 180
+    assert run["candidate"]["mpi_ranks"] == 4
+    assert run["candidate"]["tangent_evaluation"] == "central_difference"
+    assert source["tracked_dirty"] is False
+    assert report["increment_convergence"]["levels"] == [45, 90, 180]
+    assert report["increment_convergence"]["setup_consistent"]
+    assert report["increment_convergence"]["passed"]
+    assert report["external_comparison"]["accepted"]
+    assert report["status"] == "accepted"
+    assert report["accepted"]
+    assert report["benchmark_promotion_authorized"]
+    assert report["content_bound"]
+    assert report["source"]["common_identity"]
+    assert report["restart_equivalence"]["passed"]
+    assert report["rank_equivalence"]["passed"]
+
+
 def test_content_bound_promotion_derives_evidence_from_artifacts(tmp_path):
     reference_load, reference_u, _metadata = bundled_reference_curve()
     source = {

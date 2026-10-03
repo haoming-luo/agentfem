@@ -1127,6 +1127,9 @@ class IncrementalNonlinearVariationalProblem:
         return _reaction_field(self.residual_form, self.solution, name=name)
 
     def summary(self) -> dict[str, object]:
+        from .input_effects import summary_of
+
+        time_inputs = summary_of(self.update_load)
         summary = {
             "kind": "incremental_nonlinear_variational_problem",
             "name": self.name,
@@ -1169,6 +1172,14 @@ class IncrementalNonlinearVariationalProblem:
             ),
             "result_field_role": self.result_field_role,
             "attempt_backend": self._attempt_backend,
+            "time_inputs": time_inputs,
+            "operator_lifecycle": {
+                "kind": "incremental_nonlinear_operator_lifecycle",
+                "time_inputs": time_inputs,
+                "operator_policy": "assemble_residual_and_tangent_each_attempt",
+                "prepared_operator_reused": False,
+                "rollback_policy": "restore_accepted_load_coordinate",
+            },
             "last_solve": (
                 None if self.last_solve_info is None else self.last_solve_info.as_dict()
             ),
@@ -1968,6 +1979,9 @@ class AffineNonlinearVariationalProblem:
         )
 
     def summary(self) -> dict[str, object]:
+        from .input_effects import summary_of
+
+        time_inputs = summary_of(None)
         summary = {
             "kind": "affine_nonlinear_variational_problem",
             "name": self.name,
@@ -2008,6 +2022,16 @@ class AffineNonlinearVariationalProblem:
                 )
             ),
             "step_number": self.step_number,
+            "time_inputs": time_inputs,
+            "operator_lifecycle": {
+                "kind": "affine_nonlinear_operator_lifecycle",
+                "time_inputs": time_inputs,
+                "operator_policy": (
+                    "assemble_reduced_residual_and_tangent_each_attempt"
+                ),
+                "prepared_operator_reused": False,
+                "rollback_policy": "restore_accepted_affine_coordinate",
+            },
             "solver": (
                 self.solver_options.summary()
                 if self.solver_options is not None
@@ -2039,16 +2063,23 @@ def _prune_affine_checkpoints(step) -> None:
     ]
     if keep_last is None or len(scheduled) <= int(keep_last):
         return
-    from .checkpointing import remove_stateful_checkpoint
+    from .checkpointing import remove_serial_checkpoint, remove_stateful_checkpoint
 
     obsolete = scheduled[: -int(keep_last)]
     comm = step.solution.function_space.mesh.comm
     for record in obsolete:
-        remove_stateful_checkpoint(
-            record.path,
-            comm=comm,
-            expected_schema="agentfem.incremental-nonlinear-checkpoint.v1",
-        )
+        if record.portable:
+            remove_stateful_checkpoint(
+                record.path,
+                comm=comm,
+                expected_schema=record.schema,
+            )
+        else:
+            remove_serial_checkpoint(
+                record.path,
+                comm=comm,
+                expected_schema=record.schema,
+            )
     removed = {id(record) for record in obsolete}
     step.checkpoints[:] = [
         record for record in step.checkpoints if id(record) not in removed
@@ -2075,7 +2106,7 @@ def _prune_nonlinear_checkpoints(step) -> None:
         remove_stateful_checkpoint(
             record.path,
             comm=comm,
-            expected_schema="agentfem.incremental-nonlinear-checkpoint.v1",
+            expected_schema=record.schema,
         )
     removed = {id(record) for record in obsolete}
     step.checkpoints[:] = [

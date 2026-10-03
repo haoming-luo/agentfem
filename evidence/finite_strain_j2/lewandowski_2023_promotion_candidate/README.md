@@ -1,9 +1,8 @@
 # Lewandowski beam promotion candidate
 
-This directory is a compact, content-bound evidence archive for the
-Lewandowski et al. finite-strain J2 self-weight beam. It intentionally records
-an **incomplete** promotion candidate rather than converting a near pass into a
-capability claim.
+This directory is the compact, content-bound evidence archive for the
+Lewandowski et al. finite-strain J2 self-weight beam. Its machine-derived
+aggregate promotion is **accepted**.
 
 The archived evidence establishes:
 
@@ -12,19 +11,21 @@ The archived evidence establishes:
 - three-level spatial convergence (`24x4x6`, `30x5x8`, `36x6x10`): final-pair
   normalized RMS `0.7054%`, maximum `1.7861%`, both within the fixed project
   contract;
-- serial/four-rank curve equivalence: normalized RMS `1.27829e-15`, maximum
-  `4.13957e-15`;
+- serial/four-rank curve equivalence: normalized RMS `1.10189e-15`, maximum
+  `4.99276e-15`;
 - scale-aware full-state checkpoint/restart equivalence;
-- decreasing three-level increment differences (`15`, `45`, `90`), with RMS
-  `0.1101%` within the `0.2%` contract.
+- a completed four-rank, central-difference 180-increment path with 180 accepted
+  attempts, no cutback, a final downward displacement of `0.109482534 m`, and
+  a clean source identity;
+- decreasing three-level increment differences (`45`, `90`, `180`): the
+  90-to-180 normalized RMS is `0.04460%` and the maximum is `0.21498%`, both
+  within the fixed `0.2%` and `0.5%` contracts.
 
-Promotion remains closed because the final-pair increment maximum is `0.6784%`,
-above the predeclared `0.5%` contract. The maximum occurs at the sharply curved
-yield transition between coarse load nodes. A diagnostic 180-increment prefix
-reduced the local 90-to-180 maximum through load factor `0.5444` to about
-`0.1204%`, but the full 180-increment path was not accepted as release evidence:
-the local runtime entered an abnormally slow PETSc solve regime, and the run was
-stopped rather than weakening the gate or archiving a partial path as complete.
+The external comparison, mesh convergence, increment convergence, MPI
+equivalence and complete-state restart gates all pass without changing a
+tolerance. Every consumed artifact binds the clean executable package tree
+`75713f...`; harness-only Git commits may differ without changing that tree.
+The fail-closed assessor therefore authorizes this benchmark promotion.
 
 `promotion.json` is the authoritative aggregate. Every candidate curve is
 paired with its original `assessment.json`; large checkpoint arrays and
