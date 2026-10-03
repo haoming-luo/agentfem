@@ -522,12 +522,17 @@ _BENCHMARKS = (
             "tests/test_lewandowski_2023_self_weight_beam.py; "
             "tests/lewandowski_2023_self_weight_beam_driver.py"
         ),
-        status="external_reference_reexecuted_candidate_promotion_pending",
+        status="external_release_regression",
         evidence=(
             "external_gate_defined",
+            "external",
             "external_reference_execution",
             "content_bound_reference_curve",
-            "development_candidate_curve_contract",
+            "accepted_curve_contract",
+            "mesh_convergence",
+            "increment_convergence",
+            "mpi",
+            "restart",
             "public_strong_provider",
             "provenance",
             "failure_behavior",
