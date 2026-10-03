@@ -3013,12 +3013,6 @@ def finite_strain_j2_mixed_affine_problem(
             "Mixed finite-strain J2 currently has formulation evidence only "
             f"for {required_cell} cells in {dimension}D; received {actual_cell}."
         )
-    if domain.comm.size != 1:
-        raise NotImplementedError(
-            "Mixed affine finite-strain J2 currently uses the serial sparse "
-            "affine reduction. Distributed mixed displacement-pressure MPC "
-            "requires a separate verified block-aware backend."
-        )
     conditioning = _mixed_j2_conditioning(material)
 
     solution = target.value

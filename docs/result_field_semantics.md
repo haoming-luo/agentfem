@@ -109,10 +109,11 @@ unrecovered DPC1 field fail closed instead of silently relabeling a reduced
 field. Portable checkpoint identity preserves the exact cell moments by
 original physical cell and local mode. Fresh-Step checkpoint/continue is
 verified for both serial mixed routes: 3D tetrahedral P2/DG0 and 2D plane-strain
-quadrilateral Q2/DPC1. The generic DPC state primitive independently has
-one-to-two and two-to-one-rank acceptance coverage, while the mixed J2
-equilibrium provider itself remains serial; serializer portability does not
-establish a mixed MPI solve or cross-rank mixed-Step restart.
+quadrilateral Q2/DPC1. The 3D P2/DG0 equilibrium provider also has a two-rank
+affine-periodic solve using an exact PETSc transformation of the mixed block
+system. The 2D Q2/DPC1 equilibrium provider remains serial, and the generic
+DPC state's one-to-two and two-to-one-rank portability does not by itself
+establish cross-rank mixed-Step restart.
 
 Every generated `FieldResult` records a `processing` mapping containing the
 projection method, result space, and explicit false flags for nodal

@@ -1302,7 +1302,7 @@ def test_capability_and_benchmark_catalogs_state_the_actual_maturity():
     assert all(item.meets_declared_maturity for item in audit.values())
     assert "external" in audit["j2_plasticity"].demonstrated
     assert "external_gate_defined" in audit["finite_strain_j2_plasticity"].demonstrated
-    assert "external" not in audit["finite_strain_j2_plasticity"].demonstrated
+    assert "external" in audit["finite_strain_j2_plasticity"].demonstrated
     finite_j2 = constitutive.capability("finite_strain_j2_plasticity")
     assert "analytical tangent" in finite_j2.available_scope
     assert "rollback and cutback" in finite_j2.available_scope
@@ -1311,7 +1311,8 @@ def test_capability_and_benchmark_catalogs_state_the_actual_maturity():
         for limitation in finite_j2.limitations
     )
     assert any(
-        "0.6784 percent" in limitation and "0.5 percent" in limitation
+        "Lewandowski beam comparison passes" in limitation
+        and "fixed promotion contracts" in limitation
         for limitation in finite_j2.limitations
     )
     assert "mpi" in audit["mixed_mode_cohesive_interface"].demonstrated

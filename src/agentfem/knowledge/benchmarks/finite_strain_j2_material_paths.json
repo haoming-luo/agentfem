@@ -36,6 +36,6 @@
   "limitations": [
     "The global evidence consists of controlled patch paths; it is not an independent external structural validation.",
     "The analytical tangent is verified for the declared logarithmic J2 model, not a generic tangent for other elastic potentials, flow rules or hardening laws.",
-    "The external Lewandowski structure comparison remains incomplete only at its fixed increment-maximum gate; passing material and performance tests do not override that fail-closed structure-level decision."
+    "The independently reexecuted Lewandowski beam is accepted as a cross-formulation structure-level benchmark; it does not verify the mixed RVE formulation, the Zhang composite case, follower loading, or other finite-strain plasticity families."
   ]
 }

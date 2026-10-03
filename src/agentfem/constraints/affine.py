@@ -10,11 +10,14 @@ For a displacement vector ``u`` the reduction stores
 where ``q`` contains independent degrees of freedom. Nonlinear residuals and
 tangents are reduced by ``T.T @ R`` and ``T.T @ K @ T``. Serial problems use
 an explicit transformation matrix. Distributed problems flatten the same
-constraint graph and delegate ownership-aware assembly to ``dolfinx_mpc``.
+constraint graph. Ordinary displacement spaces delegate ownership-aware
+assembly to ``dolfinx_mpc``; mixed parent spaces retain the explicit PETSc
+transformation so their subfield constraints remain algebraically exact.
 """
 
 from __future__ import annotations
 
+from bisect import bisect_left
 from collections.abc import Iterable
 from dataclasses import dataclass, field
 from hashlib import sha256
@@ -483,13 +486,15 @@ class AffineConstraintDualHistory:
 class DistributedAffineReduction:
     """Homogeneous correction space for a distributed affine constraint."""
 
-    mpc: object
+    mpc: object | None
     bcs: tuple[object, ...]
     original_space: object
     full_size: int
     reduced_size: int
     slave_count: int
     control_dof_count: int
+    transformation: object | None = None
+    backend: str = "dolfinx_mpc"
 
     @property
     def eliminated_count(self) -> int:
@@ -498,19 +503,51 @@ class DistributedAffineReduction:
     def correction(self):
         """Create a correction function on the augmented MPC space."""
 
+        if self.mpc is None:
+            raise RuntimeError(
+                "An explicit PETSc affine transformation has no augmented "
+                "MPC correction space."
+            )
         return fem.Function(self.mpc.function_space, name="AffineCorrection")
 
     def validate_prefix_layout(self, correction) -> None:
         """Check that augmented local dofs retain the original ordering."""
 
-        original = np.asarray(
-            self.original_space.tabulate_dof_coordinates(),
-            dtype=float,
+        if self.mpc is None:
+            return
+        original_array_size = int(
+            (
+                self.original_space.dofmap.index_map.size_local
+                + self.original_space.dofmap.index_map.num_ghosts
+            )
+            * self.original_space.dofmap.index_map_bs
         )
-        augmented = np.asarray(
-            correction.function_space.tabulate_dof_coordinates(),
-            dtype=float,
-        )
+        if correction.x.array.size < original_array_size:
+            raise RuntimeError(
+                "MPC function-space layout is smaller than the original local "
+                "coefficient prefix."
+            )
+        try:
+            original = np.asarray(
+                self.original_space.tabulate_dof_coordinates(),
+                dtype=float,
+            )
+            augmented = np.asarray(
+                correction.function_space.tabulate_dof_coordinates(),
+                dtype=float,
+            )
+        except RuntimeError:
+            # DOLFINx deliberately cannot tabulate coordinates for a mixed
+            # space.  Its cell dofmap is nevertheless an exact, stronger
+            # prefix-order check for the coefficient layout consumed below.
+            original_dofmap = np.asarray(self.original_space.dofmap.list)
+            augmented_dofmap = np.asarray(correction.function_space.dofmap.list)
+            if not np.array_equal(original_dofmap, augmented_dofmap):
+                raise RuntimeError(
+                    "MPC mixed function-space layout changed the original cell "
+                    "dof ordering."
+                )
+            return
         if augmented.shape[0] < original.shape[0] or not np.allclose(
             augmented[: original.shape[0]],
             original,
@@ -524,7 +561,7 @@ class DistributedAffineReduction:
     def summary(self) -> dict[str, object]:
         return {
             "kind": "distributed_affine_dof_reduction",
-            "backend": "dolfinx_mpc",
+            "backend": self.backend,
             "full_dofs": self.full_size,
             "independent_dofs": self.reduced_size,
             "eliminated_or_prescribed_dofs": self.eliminated_count,
@@ -969,13 +1006,29 @@ class AbaqusPeriodicConstraint:
             )
             parent_map = np.asarray(parent_map, dtype=np.int64)
             if self.is_mixed:
-                # Mixed affine reduction is serial in the public provider, so
-                # the collapsed displacement map is an exact local selection.
-                displacement_residual = np.asarray(residual.array_r)[parent_map]
-                direction = (
-                    self.reduction(path_right).offset
-                    - self.reduction(path_left).offset
-                )[parent_map] / path_span
+                owned_parent_size = int(residual.array_r.size)
+                owned_displacement = parent_map < owned_parent_size
+                displacement_residual = np.asarray(residual.array_r)[
+                    parent_map[owned_displacement]
+                ]
+                if function.function_space.mesh.comm.size == 1:
+                    direction = (
+                        self.reduction(path_right).offset
+                        - self.reduction(path_left).offset
+                    )[parent_map] / path_span
+                else:
+                    coordinates = np.asarray(
+                        displacement_space.tabulate_dof_coordinates(), dtype=float
+                    )
+                    origin = self.nodes.coordinate(int(self.anchor_node))[:block_size]
+                    delta_gradient = (
+                        self.deformation_gradient_at(path_right)
+                        - self.deformation_gradient_at(path_left)
+                    ) / path_span
+                    all_directions = (
+                        (coordinates[:, :block_size] - origin) @ delta_gradient.T
+                    ).reshape(-1)
+                    direction = all_directions[owned_displacement]
             else:
                 owned = int(displacement_space.dofmap.index_map.size_local) * int(
                     block_size
@@ -1195,44 +1248,70 @@ class AbaqusPeriodicConstraint:
     def distributed_reduction(self) -> DistributedAffineReduction:
         """Build an ownership-aware correction MPC from ``*EQUATION`` data."""
 
-        if self.is_mixed:
-            raise NotImplementedError(
-                "Distributed affine MPC for a mixed displacement-pressure "
-                "space is not yet implemented. Run this C3D10H periodic route "
-                "in serial; ordinary C3D10 displacement MPC remains parallel."
-            )
         if self.has_free_macro_dofs:
             raise NotImplementedError(
                 "Distributed affine MPC with free macroscopic control dofs is "
                 "not yet implemented; run this mixed-control route in serial."
             )
 
-        try:
-            import dolfinx_mpc
-        except ImportError as exc:
-            raise ImportError(
-                "Distributed Abaqus *EQUATION constraints require dolfinx_mpc "
-                "matching the installed DOLFINx version."
-            ) from exc
-
-        function = field_api.unwrap(self.target)
+        function, displacement_space, parent_map, block_size = (
+            self._displacement_layout()
+        )
         space = function.function_space
         domain = space.mesh
-        block_size = int(space.dofmap.index_map_bs)
         node_map = _distributed_node_map(
-            space,
+            displacement_space,
             self.nodes,
             labels=_equation_node_labels(self.equations) | set(self.control_nodes),
             tolerance=self.tolerance,
         )
+        mixed_global_dofs = None
+        if self.is_mixed:
+            mixed_global_dofs = _distributed_mixed_parent_dofs(
+                parent_space=space,
+                displacement_space=displacement_space,
+                parent_map=parent_map,
+                node_map=node_map,
+                block_size=block_size,
+            )
         relations, prescribed = _semantic_relations(
             self.equations,
             self.prescribed_control_dofs,
             block_size,
         )
         expanded = _expand_semantic_relations(relations, prescribed)
-
         index_map = space.dofmap.index_map
+
+        if self.is_mixed:
+            transformation = _distributed_affine_transformation(
+                space=space,
+                expanded=expanded,
+                prescribed=prescribed,
+                semantic_global_dofs=mixed_global_dofs,
+            )
+            full_size = int(index_map.size_global * space.dofmap.index_map_bs)
+            return DistributedAffineReduction(
+                mpc=None,
+                bcs=(),
+                original_space=space,
+                full_size=full_size,
+                reduced_size=(
+                    full_size - len(expanded) - len(prescribed)
+                ),
+                slave_count=len(expanded),
+                control_dof_count=len(prescribed),
+                transformation=transformation,
+                backend="petsc_affine_transformation",
+            )
+
+        try:
+            import dolfinx_mpc
+        except ImportError as exc:
+            raise ImportError(
+                "Distributed displacement-only Abaqus *EQUATION constraints "
+                "require dolfinx_mpc matching the installed DOLFINx version."
+            ) from exc
+
         slaves: list[int] = []
         masters: list[int] = []
         coefficients: list[float] = []
@@ -1294,12 +1373,8 @@ class AbaqusPeriodicConstraint:
             dtype=np.int64,
         )
         control_local = index_map.global_to_local(control_globals)
-        # DOLFINx records the owned/ghost split of a Dirichlet dof array as a
-        # single prefix position.  Preserve that contract explicitly: local
-        # owned blocks are numbered before ghosts, whereas control-node order
-        # is unrelated to partition ownership.  Passing an unsorted sequence
-        # such as ``[ghost, ghost, owned]`` makes the owned prefix appear empty
-        # and leaves the corresponding global matrix rows unconstrained.
+        # DOLFINx records the owned/ghost split of a Dirichlet dof array as
+        # one prefix position. Preserve owned dofs before ghosts.
         control_blocks = np.unique(
             control_local[control_local >= 0]
         ).astype(np.int32, copy=False)
@@ -1308,7 +1383,7 @@ class AbaqusPeriodicConstraint:
             control_blocks,
             space,
         )
-        full_size = int(index_map.size_global * block_size)
+        full_size = int(index_map.size_global * space.dofmap.index_map_bs)
         slave_count = len(expanded)
         control_dof_count = len(prescribed)
         return DistributedAffineReduction(
@@ -1319,6 +1394,7 @@ class AbaqusPeriodicConstraint:
             reduced_size=full_size - slave_count - control_dof_count,
             slave_count=slave_count,
             control_dof_count=control_dof_count,
+            backend="dolfinx_mpc",
         )
 
     def apply_affine_increment(
@@ -1418,9 +1494,13 @@ class AbaqusPeriodicConstraint:
                 "mixed_displacement_pressure" if self.is_mixed else "displacement"
             ),
             "supports_parallel": (
-                _dolfinx_mpc_available()
-                and not self.is_mixed
+                (self.is_mixed or _dolfinx_mpc_available())
                 and not self.has_free_macro_dofs
+            ),
+            "parallel_backend": (
+                "petsc_affine_transformation"
+                if self.is_mixed
+                else "dolfinx_mpc"
             ),
         }
         if not self.has_free_macro_dofs:
@@ -1660,6 +1740,176 @@ def _expand_semantic_relations(
         return coefficients
 
     return {slave: expand(slave) for slave in relations}
+
+
+def _distributed_mixed_parent_dofs(
+    *,
+    parent_space,
+    displacement_space,
+    parent_map,
+    node_map: Mapping[int, tuple[int, int]],
+    block_size: int,
+) -> dict[SemanticDof, tuple[int, int]]:
+    """Map mixed displacement semantics to parent global scalar dofs.
+
+    The PETSc transformation constrains the monolithic parent space, while
+    geometric node matching is meaningful only on the collapsed displacement
+    space.
+    The result is a rank-canonical ``semantic -> (global, owner)`` map.
+    """
+
+    comm = parent_space.mesh.comm
+    parent_index_map = parent_space.dofmap.index_map
+    parent_block_size = int(parent_space.dofmap.index_map_bs)
+    displacement_index_map = displacement_space.dofmap.index_map
+    selected_parent_map = np.asarray(parent_map, dtype=PETSc.IntType)
+    owned_globals: dict[SemanticDof, tuple[int, int]] = {}
+
+    for label, (global_block, owner) in node_map.items():
+        local_block = int(
+            displacement_index_map.global_to_local(
+                np.asarray([global_block], dtype=np.int64)
+            )[0]
+        )
+        if local_block < 0:
+            continue
+        for component in range(int(block_size)):
+            semantic = (int(label), int(component))
+            collapsed_scalar = local_block * int(block_size) + component
+            if collapsed_scalar >= selected_parent_map.size:
+                raise RuntimeError(
+                    "Collapsed mixed displacement map is shorter than its "
+                    "local coefficient layout."
+                )
+            parent_scalar = int(selected_parent_map[collapsed_scalar])
+            if int(owner) != comm.rank:
+                continue
+            parent_block, parent_component = divmod(
+                parent_scalar,
+                parent_block_size,
+            )
+            if parent_block >= parent_index_map.size_local:
+                raise RuntimeError(
+                    f"Owned mixed displacement dof {semantic!r} maps to a "
+                    "non-owned parent coefficient."
+                )
+            parent_global_block = int(
+                parent_index_map.local_to_global(
+                    np.asarray([parent_block], dtype=np.int32)
+                )[0]
+            )
+            owned_globals[semantic] = (
+                parent_global_block * parent_block_size + parent_component,
+                int(comm.rank),
+            )
+
+    global_map: dict[SemanticDof, tuple[int, int]] = {}
+    for rank_map in comm.allgather(owned_globals):
+        for semantic, entry in rank_map.items():
+            if semantic in global_map and global_map[semantic] != entry:
+                raise RuntimeError(
+                    f"Mixed displacement dof {semantic!r} has inconsistent "
+                    "parent-space ownership."
+                )
+            global_map[semantic] = entry
+    expected = {
+        (int(label), component)
+        for label in node_map
+        for component in range(int(block_size))
+    }
+    missing = expected - set(global_map)
+    if missing:
+        raise RuntimeError(
+            "Mixed displacement nodes have no parent-space global dofs: "
+            f"{sorted(missing)[:8]}."
+        )
+    return global_map
+
+
+def _distributed_affine_transformation(
+    *,
+    space,
+    expanded: Mapping[SemanticDof, Mapping[SemanticDof, float]],
+    prescribed: set[SemanticDof] | frozenset[SemanticDof],
+    semantic_global_dofs: Mapping[SemanticDof, tuple[int, int]],
+):
+    """Build the exact distributed prolongation ``u = T q``.
+
+    ``dolfinx_mpc`` is retained for ordinary displacement spaces.  Mixed
+    parent spaces use this explicit PETSc transformation because current MPC
+    vector assembly does not preserve ``T.T @ r`` for a constrained subfield.
+    The transformation is backend algebra only: the public constraint still
+    owns the semantic equation graph and the solver consumes ``T`` without
+    learning any mesh-specific relation.
+    """
+
+    index_map = space.dofmap.index_map
+    block_size = int(space.dofmap.index_map_bs)
+    full_size = int(index_map.size_global * block_size)
+    slave_rows = {
+        int(semantic_global_dofs[slave][0]): {
+            int(semantic_global_dofs[master][0]): float(coefficient)
+            for master, coefficient in relation.items()
+        }
+        for slave, relation in expanded.items()
+    }
+    prescribed_rows = {
+        int(semantic_global_dofs[item][0]) for item in prescribed
+    }
+    constrained_rows = set(slave_rows) | prescribed_rows
+    constrained_order = tuple(sorted(constrained_rows))
+    reduced_size = full_size - len(constrained_order)
+
+    def reduced_index(full_row: int) -> int:
+        """Map an unconstrained global row without a full-size lookup table."""
+
+        return int(full_row - bisect_left(constrained_order, full_row))
+
+    for slave, relation in slave_rows.items():
+        invalid = set(relation) & constrained_rows
+        if invalid:
+            raise RuntimeError(
+                f"Expanded affine slave {slave} still depends on constrained "
+                f"global dofs {sorted(invalid)[:8]}."
+            )
+
+    local_rows = int(index_map.size_local * block_size)
+    maximum_width = max(
+        (len(relation) for relation in slave_rows.values()),
+        default=1,
+    )
+    transformation = PETSc.Mat().createAIJ(
+        size=((local_rows, full_size), (PETSc.DECIDE, reduced_size)),
+        nnz=max(1, maximum_width),
+        comm=space.mesh.comm,
+    )
+    row_start, row_end = transformation.getOwnershipRange()
+    expected_start = int(index_map.local_range[0] * block_size)
+    expected_end = int(index_map.local_range[1] * block_size)
+    if (row_start, row_end) != (expected_start, expected_end):
+        transformation.destroy()
+        raise RuntimeError(
+            "PETSc affine transformation row ownership does not match the "
+            "mixed function-space index map."
+        )
+    for row in range(row_start, row_end):
+        if row in prescribed_rows:
+            continue
+        relation = slave_rows.get(row)
+        if relation is None:
+            columns = (reduced_index(row),)
+            values = (1.0,)
+        else:
+            columns = tuple(reduced_index(master) for master in relation)
+            values = tuple(relation[master] for master in relation)
+        if columns:
+            transformation.setValues(
+                [row],
+                np.asarray(columns, dtype=PETSc.IntType),
+                np.asarray(values, dtype=PETSc.ScalarType),
+            )
+    transformation.assemble()
+    return transformation
 
 
 def _distributed_node_map(

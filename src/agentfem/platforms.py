@@ -20,6 +20,9 @@ from . import dependencies
 from .mpi_runtime import audit_mpi_runtime
 
 
+_SCIENTIFIC_RUNTIME_EXCLUSIONS = (Path("knowledge/benchmarks"),)
+
+
 @dataclass(frozen=True)
 class PlatformSupport:
     """One operating-system support decision with explicit limitations."""
@@ -463,17 +466,45 @@ def _git_identity(root: Path | None) -> dict[str, object] | None:
     except (OSError, subprocess.CalledProcessError):
         return None
     return {
+        "schema": "agentfem.source-identity.v2",
         "commit": commit,
         "tracked_dirty": bool(status.strip()),
         "package_tree_sha256": _source_tree_digest(root / "src" / "agentfem"),
+        "scientific_runtime_sha256": _source_tree_digest(
+            root / "src" / "agentfem",
+            excluded_subtrees=_SCIENTIFIC_RUNTIME_EXCLUSIONS,
+        ),
+        "scientific_runtime_exclusions": tuple(
+            f"{path.as_posix()}/**" for path in _SCIENTIFIC_RUNTIME_EXCLUSIONS
+        ),
     }
 
 
-def _source_tree_digest(package_root: Path) -> str | None:
-    """Hash the importable source tree without including build/cache noise."""
+def _source_tree_digest(
+    package_root: Path,
+    *,
+    excluded_subtrees: tuple[Path, ...] = (),
+) -> str | None:
+    """Hash selected package content without including build/cache noise.
+
+    The default is the exact importable package tree. A caller may exclude a
+    narrowly declared metadata subtree to derive a second, purpose-specific
+    identity; exclusions are never implicit so widening this boundary remains
+    a visible code change.
+    """
 
     if not package_root.is_dir():
         return None
+    normalized_exclusions = tuple(Path(path) for path in excluded_subtrees)
+
+    def included(path: Path) -> bool:
+        relative = path.relative_to(package_root)
+        return not any(
+            relative == excluded
+            or relative.parts[: len(excluded.parts)] == excluded.parts
+            for excluded in normalized_exclusions
+        )
+
     checksum = sha256()
     selected = tuple(
         path
@@ -481,6 +512,7 @@ def _source_tree_digest(package_root: Path) -> str | None:
         if path.is_file()
         and "__pycache__" not in path.parts
         and path.suffix not in {".pyc", ".pyo"}
+        and included(path)
     )
     for path in selected:
         relative = path.relative_to(package_root).as_posix().encode("utf-8")

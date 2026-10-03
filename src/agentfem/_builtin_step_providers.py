@@ -305,7 +305,6 @@ def _accept_finite_strain_j2_mixed_affine(
         getattr(study, "physics", None) == "solid_mechanics"
         and interpolation_supported
         and domain is not None
-        and int(domain.comm.size) == 1
         and getattr(request.target, "kind", None) == "displacement_pressure"
         and _all_materials_support(
             model,

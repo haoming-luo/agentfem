@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from pathlib import Path
 import subprocess
 import sys
 
@@ -109,6 +110,10 @@ def test_runtime_report_is_serializable_and_names_optional_integrations():
         assert report["execution"]["source"]["commit"]
         assert isinstance(report["execution"]["source"]["tracked_dirty"], bool)
         assert len(report["execution"]["source"]["package_tree_sha256"]) == 64
+        assert len(report["execution"]["source"]["scientific_runtime_sha256"]) == 64
+        assert report["execution"]["source"]["scientific_runtime_exclusions"] == (
+            "knowledge/benchmarks/**",
+        )
     assert {item["package"] for item in report["optional"]} >= {
         "gmsh",
         "meshio",
@@ -153,3 +158,47 @@ def test_runtime_identity_detects_stale_distribution_version(monkeypatch):
     assert identity["version_mismatch"] is True
     assert identity["distribution_mismatch"] is True
     assert identity["environment_consistent"] is False
+
+
+def test_scientific_runtime_identity_excludes_only_benchmark_declarations(tmp_path):
+    package = tmp_path / "agentfem"
+    solver = package / "solver.py"
+    benchmark = package / "knowledge" / "benchmarks" / "example.json"
+    card = package / "knowledge" / "cards" / "example.json"
+    benchmark.parent.mkdir(parents=True)
+    card.parent.mkdir(parents=True)
+    solver.write_text("VALUE = 1\n", encoding="utf-8")
+    benchmark.write_text('{"status": "experimental"}\n', encoding="utf-8")
+    card.write_text('{"statement": "runtime input"}\n', encoding="utf-8")
+
+    exact_before = platforms._source_tree_digest(package)
+    runtime_before = platforms._source_tree_digest(
+        package,
+        excluded_subtrees=(Path("knowledge/benchmarks"),),
+    )
+    benchmark.write_text('{"status": "accepted"}\n', encoding="utf-8")
+
+    assert platforms._source_tree_digest(package) != exact_before
+    assert (
+        platforms._source_tree_digest(
+            package,
+            excluded_subtrees=(Path("knowledge/benchmarks"),),
+        )
+        == runtime_before
+    )
+
+    card.write_text('{"statement": "changed runtime input"}\n', encoding="utf-8")
+    runtime_after_card = platforms._source_tree_digest(
+        package,
+        excluded_subtrees=(Path("knowledge/benchmarks"),),
+    )
+    assert runtime_after_card != runtime_before
+
+    solver.write_text("VALUE = 2\n", encoding="utf-8")
+    assert (
+        platforms._source_tree_digest(
+            package,
+            excluded_subtrees=(Path("knowledge/benchmarks"),),
+        )
+        != runtime_after_card
+    )
