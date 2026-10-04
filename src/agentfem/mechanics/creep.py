@@ -1450,23 +1450,23 @@ class ImplicitCreepStep:
             },
         )
         add_execution_trace(result, self.execution_events)
-        for name, field_value, description in (
-            ("S", self.state.stress.function, "Stress at constitutive integration points."),
-            ("CE", self.state.creep_strain.function, "Committed creep strain."),
+        for name, source, description in (
+            ("S", self.state.stress, "Stress at constitutive integration points."),
+            ("CE", self.state.creep_strain, "Committed creep strain."),
             (
                 "CEEQ",
-                self.state.equivalent_creep_strain.function,
+                self.state.equivalent_creep_strain,
                 "Committed equivalent creep strain.",
             ),
             (
                 "MISES",
-                self.state.equivalent_stress().function,
+                self.state.equivalent_stress(),
                 "Von Mises stress at integration points.",
             ),
         ):
             result.add_field(
                 name,
-                field_value,
+                source.function,
                 location="quadrature_points",
                 description=description,
                 processing={
@@ -1476,6 +1476,7 @@ class ImplicitCreepStep:
                     "postprocessed": False,
                     "committed": name in {"CE", "CEEQ"},
                 },
+                sampling=source,
             )
         for source, recovered_name in (
             (self.state.stress, "S_CELL"),

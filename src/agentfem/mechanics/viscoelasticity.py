@@ -2365,6 +2365,7 @@ class QuasistaticViscoelasticStep:
                     "postprocessed": False,
                     "committed": name in {"E", "VDENER"},
                 },
+                sampling=source,
             )
             recovered = recover_integration_point_field(source, name=f"{name}_CELL")
             result.add_field(

@@ -1222,6 +1222,8 @@
         "agentfem.results.FieldRecovery",
         "agentfem.results.cell_average_recovery",
         "agentfem.results.recover_integration_point_field",
+        "agentfem.results.write_integration_point_fields",
+        "agentfem.results.read_integration_point_fields",
         "agentfem.results.write_result_fields"
       ],
       "related_cards": [
@@ -1231,7 +1233,7 @@
       ],
       "source": "src/agentfem/knowledge/cards/integration_point_recovery.json",
       "status": "supported",
-      "summary": "Converts J2 and creep quadrature evidence to separately named weighted DG0 cell fields without nodal extrapolation, interelement smoothing, or material-boundary averaging.",
+      "summary": "Preserves raw constitutive integration-point fields in a partition-independent HDF5 scientific source and converts them to separately named weighted DG0 visualization fields without nodal extrapolation, interelement smoothing, or material-boundary averaging.",
       "title": "Traceable integration-point field recovery"
     },
     {

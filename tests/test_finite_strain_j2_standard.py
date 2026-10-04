@@ -190,6 +190,10 @@ def test_public_standard_j2_provider_result_output_progress_and_checkpoint(tmp_p
     assert event_names.count("step_completed") == 1
     assert (tmp_path / "output" / "standard_j2.xdmf").is_file()
     assert (tmp_path / "output" / "standard_j2.h5").is_file()
+    assert (
+        tmp_path / "output" / "standard_j2.integration-points.h5"
+    ).is_file()
+    assert result.artifacts["integration_points_hdf5"].is_file()
     assert result.metadata["output_plan"]["status"] == "completed"
     status = (tmp_path / "status.log").read_text(encoding="utf-8")
     assert "CONVERGED" in status

@@ -824,6 +824,18 @@ class OutputPlan:
                 processing=processing,
             )
         _register_field_artifacts(result, artifacts)
+        if any(
+            item.location == "quadrature_points" and item.field is not None
+            for item in result.fields.values()
+        ):
+            from .integration_points import write_integration_point_fields
+
+            raw = write_integration_point_fields(
+                result,
+                self.directory / f"{self.basename}.integration-points.h5",
+            )
+            result.metadata["integration_point_output"] = raw.summary()
+            result.add_artifact("integration_points_hdf5", raw.hdf5)
         context = OutputContext(
             directory=self.directory,
             basename=self.basename,

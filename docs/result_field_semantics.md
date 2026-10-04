@@ -165,8 +165,18 @@ cell_peeq = results.recover_integration_point_field(
 )
 ```
 
-Direct general quadrature-file export and reviewed material-domain nodal
-recovery remain roadmap items. A naive global continuous projection is
+Raw integration-point fields are also written to the separately versioned
+`*.integration-points.h5` scientific source when their provider supplies an
+explicit sampling contract. The archive retains stable physical-cell IDs,
+reference and physical point coordinates, physical integration weights, raw
+values, units, descriptions, and processing metadata. Owned cells are sorted
+independently of the MPI partition, and the minimal reader does not import
+DOLFINx. It is deliberately not presented as an XDMF cell attribute: XDMF
+continues to carry the explicit `*_CELL` visualization view.
+
+The compact v1 archive currently gathers owned rows to rank zero. An
+independently partitioned extreme-scale writer and reviewed material-domain
+nodal recovery remain roadmap items. A naive global continuous projection is
 intentionally not presented as a standard smoothing method because it can
 erase real jumps at material interfaces and obscure singular or poorly
 converged regions.

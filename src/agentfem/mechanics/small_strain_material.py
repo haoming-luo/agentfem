@@ -684,6 +684,7 @@ class SmallStrainMaterialStep:
                     "postprocessed": False,
                     "committed": True,
                 },
+                sampling=source,
             )
             recovered = recover_integration_point_field(
                 source,

@@ -693,6 +693,35 @@ class QuadratureField:
         count = int(cell_map.size_local) * len(self.points)
         return self.values[:count]
 
+    @property
+    def owned_cell_keys(self) -> np.ndarray:
+        """Return stable physical-cell identities for locally owned cells.
+
+        The identities come from DOLFINx's original input-cell numbering, not
+        from partition-local cell indices.  They can therefore key scientific
+        integration-point output across MPI partitions and rank counts.
+        """
+
+        domain = self.function.function_space.mesh
+        cell_map = domain.topology.index_map(domain.topology.dim)
+        return _original_cell_keys(domain)[: int(cell_map.size_local)].copy()
+
+    @property
+    def owned_physical_points(self) -> np.ndarray:
+        """Return physical coordinates in ``cell, point, coordinate`` order."""
+
+        domain = self.function.function_space.mesh
+        cell_map = domain.topology.index_map(domain.topology.dim)
+        owned = int(cell_map.size_local)
+        cells = np.arange(owned, dtype=np.int32)
+        coordinates = np.asarray(
+            fem.Expression(ufl.SpatialCoordinate(domain), self.points).eval(
+                domain, cells
+            ),
+            dtype=float,
+        )
+        return coordinates.reshape((owned, len(self.points), -1))
+
     def owned_physical_weights(self, *, multipliers=None) -> np.ndarray:
         """Return physical weights for owned integration points.
 

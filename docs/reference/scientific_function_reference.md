@@ -4421,13 +4421,15 @@ manifest = datasets.science_supershear_dryad_manifest(); manifest.audit(data_dir
 **Status:** `supported`<br>
 **Source card:** `src/agentfem/knowledge/cards/integration_point_recovery.json`
 
-Converts J2 and creep quadrature evidence to separately named weighted DG0 cell fields without nodal extrapolation, interelement smoothing, or material-boundary averaging.
+Preserves raw constitutive integration-point fields in a partition-independent HDF5 scientific source and converts them to separately named weighted DG0 visualization fields without nodal extrapolation, interelement smoothing, or material-boundary averaging.
 
 ### Public API
 
 - `agentfem.results.FieldRecovery`
 - `agentfem.results.cell_average_recovery`
 - `agentfem.results.recover_integration_point_field`
+- `agentfem.results.write_integration_point_fields`
+- `agentfem.results.read_integration_point_fields`
 - `agentfem.results.write_result_fields`
 
 ### Scientific contract
@@ -4453,6 +4455,7 @@ Reference-cell quadrature weights form one DG0 value per cell; no neighbor contr
 | Name | Type | Unit role | Meaning |
 | --- | --- | --- | --- |
 | recovered field | FieldResult carrying a DG0 Function and processing metadata | same as source | A compact cell field suitable for quantitative queries and point/cell visualization. |
+| raw integration-point dataset | versioned HDF5 | field dependent | Partition-independent physical-cell IDs, point coordinates, physical weights, reference rule, raw values, and field semantics readable without DOLFINx. |
 
 #### Assumptions
 
@@ -4462,7 +4465,8 @@ Reference-cell quadrature weights form one DG0 value per cell; no neighbor contr
 #### Conventions
 
 - Raw integration-point fields keep their original names; recovered variants use an explicit *_CELL suffix in J2 and creep SimulationResult objects.
-- J2 and creep solve_result(output=...) automatically omit raw quadrature attributes and write the recovered cell fields in the common completed-result dataset.
+- J2, creep, viscoelastic, learned-material, and finite-strain J2 result paths retain raw quadrature fields with an explicit sampling contract.
+- solve_result(output=...) writes recovered cell fields to XDMF/HDF5 and raw values to a separate *.integration-points.h5 scientific source.
 - Material boundaries are preserved because recovery is performed independently within every cell.
 - A smooth contour is a later presentation product and never overwrites constitutive evidence.
 
@@ -4472,7 +4476,7 @@ Reference-cell quadrature weights form one DG0 value per cell; no neighbor contr
 
 #### Limitations
 
-- Direct general quadrature-file export is not yet implemented.
+- The compact writer currently gathers owned rows on rank zero; independently partitioned extreme-scale output remains a later performance route.
 - Material-domain nodal extrapolation and smoothing are not yet implemented.
 - For curved non-affine cells, a physical-Jacobian-weighted recovery will need a distinct reviewed policy.
 
@@ -4481,6 +4485,7 @@ Reference-cell quadrature weights form one DG0 value per cell; no neighbor contr
 ```python
 result = step.solve_result(output='inelastic.xdmf')
 cell_peeq = result.fields['PEEQ_CELL']
+raw = results.read_integration_point_fields(result.artifacts['integration_points_hdf5'])
 ```
 
 ### Verification
@@ -4489,6 +4494,8 @@ cell_peeq = result.fields['PEEQ_CELL']
 
 - `tests/test_constitutive_models.py`
 - `tests/test_p1_platform.py`
+- `tests/test_integration_point_output.py`
+- `tests/test_parallel_results.py`
 
 **Benchmarks**
 
@@ -4499,6 +4506,8 @@ cell_peeq = result.fields['PEEQ_CELL']
 **Validation rules**
 
 - Reject sources without explicit quadrature points and weights.
+- Sort owned rows by stable original physical-cell identity and reject duplicates.
+- Verify serial and two-rank archives preserve physical weights, coordinates, and raw values.
 - Reject policies that silently request a non-DG0 or cross-material recovery.
 - Check weighted values independently and preserve processing metadata in SimulationResult.
 
