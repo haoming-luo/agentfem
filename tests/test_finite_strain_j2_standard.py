@@ -195,6 +195,20 @@ def test_public_standard_j2_provider_result_output_progress_and_checkpoint(tmp_p
     ).is_file()
     assert result.artifacts["integration_points_hdf5"].is_file()
     assert result.metadata["output_plan"]["status"] == "completed"
+    assert len(step.energy_history) == 4
+    assert step.energy_history[-1].prescribed_motion_work > 0.0
+    assert step.energy_history[-1].natural_load_work == pytest.approx(0.0)
+    assert result.metadata["mechanical_energy_ledger"]["status"] == (
+        "complete_accepted_path"
+    )
+    assert {
+        "stored_energy",
+        "plastic_dissipation",
+        "internal_energy",
+        "prescribed_motion_work",
+        "external_work",
+        "mechanical_energy_residual",
+    } <= set(result.histories)
     status = (tmp_path / "status.log").read_text(encoding="utf-8")
     assert "CONVERGED" in status
     assert "COMPLETED" in status
@@ -280,6 +294,14 @@ def test_standard_j2_real_cutback_and_manual_restart_are_equivalent(tmp_path):
         rtol=2e-8,
         atol=2e-8,
     )
+    assert len(restarted.energy_history) == len(reference.energy_history)
+    for name in restarted.energy_history[0].__dataclass_fields__:
+        np.testing.assert_allclose(
+            [getattr(item, name) for item in restarted.energy_history],
+            [getattr(item, name) for item in reference.energy_history],
+            rtol=2.0e-10,
+            atol=2.0e-12,
+        )
 
 
 def test_public_standard_j2_consumes_registered_reference_body_force():
@@ -330,6 +352,8 @@ def test_public_standard_j2_consumes_registered_reference_body_force():
     np.testing.assert_allclose(reaction, (0.0, 0.0, 1.0), atol=2.0e-8)
     assert step.summary()["external_load"] == step.load_identity
     assert step.load_identity[0]["name"] == load.name
+    assert step.energy_history[-1].natural_load_work > 0.0
+    assert step.energy_history[-1].prescribed_motion_work == pytest.approx(0.0)
 
 
 def test_public_standard_j2_lowers_registered_material_regions():
@@ -568,12 +592,29 @@ def test_standard_j2_rolls_back_if_accepted_state_finalization_fails(monkeypatch
 
     assert step.accepted_load_factor == pytest.approx(0.0)
     assert not step.accepted_increments
+    assert not step.energy_history
     assert step.next_increment_size is None
     np.testing.assert_allclose(step.solution.x.array, initial_solution)
     np.testing.assert_allclose(
         step.response.state.committed_state_vectors(), initial_state
     )
     assert step.execution_events[-1].kind == "step_failed"
+
+
+def test_standard_j2_work_ledger_converges_with_path_refinement():
+    _, _, _, coarse = _standard_patch(incrementation=steps.fixed(4))
+    coarse_result = coarse.solve_result()
+    _, _, _, fine = _standard_patch(incrementation=steps.fixed(40))
+    fine_result = fine.solve_result()
+
+    coarse_error = coarse_result.quantity("relative_mechanical_energy_residual")
+    fine_error = fine_result.quantity("relative_mechanical_energy_residual")
+    assert fine_error < coarse_error
+    assert fine_error < 2.0e-5
+    assert fine.energy_history[-1].internal_energy == pytest.approx(
+        coarse.energy_history[-1].internal_energy,
+        rel=2.0e-9,
+    )
 
 
 def test_standard_j2_loading_update_failure_is_atomic(monkeypatch):
@@ -661,6 +702,28 @@ def test_standard_j2_checkpoint_requires_an_accepted_boundary(tmp_path):
     step.state_transaction.accepted_factor = 0.25
     with pytest.raises(RuntimeError, match="fully accepted material state"):
         step.save_checkpoint(tmp_path / "mismatched_coordinate")
+
+
+def test_standard_j2_legacy_checkpoint_disables_incomplete_work_ledger(tmp_path):
+    _, _, _, source = _standard_patch(incrementation=steps.fixed(4))
+    source.solve(until=0.5)
+    current = source.save_checkpoint(tmp_path / "current")
+    legacy = tmp_path / "legacy_without_work_history.npz"
+    with np.load(current, allow_pickle=False) as data:
+        payload = {
+            name: np.asarray(data[name]).copy()
+            for name in data.files
+            if name not in {"energy_history", "energy_history_complete"}
+        }
+    np.savez(legacy, **payload)
+
+    _, _, _, restarted = _standard_patch(incrementation=steps.fixed(4))
+    restarted.load_checkpoint(legacy)
+    restarted.solve()
+
+    assert not restarted.energy_history_complete
+    assert restarted.energy_history == []
+    assert restarted.summary()["energy_history_complete"] is False
 
 
 def test_standard_j2_portable_checkpoint_restore_is_atomic(monkeypatch, tmp_path):

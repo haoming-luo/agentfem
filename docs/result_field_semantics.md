@@ -85,9 +85,16 @@ may be relabelled as a primal physical-energy value without the explicit
 conversion and diagnostics. `HARDENER` is the stored linear-isotropic-hardening
 free energy. None of these channels is plastic dissipation.
 `PDENER` is reported separately as committed cumulative material dissipation
-for the declared rate-independent linear-hardening law. It does not by itself
-close the structural energy balance: external work for every load and
-constraint remains provider-owned evidence.
+for the declared rate-independent linear-hardening law. For the ordinary
+strong-boundary finite-strain J2 provider, the result also retains accepted-
+increment histories for dead-load work, prescribed-motion reaction work,
+stored energy, plastic dissipation and the residual
+`external_work - internal_energy`. These histories are integrated only across
+accepted increments and share material rollback and checkpoint/restart. Their
+accuracy is therefore an increment-convergence question, not an exact closure
+identity. Legacy checkpoints that predate the work history remain restorable
+but explicitly disable the incomplete ledger. Affine/MPC and follower-load
+routes still require provider-owned conjugate work evidence.
 
 The default `DG0` result is a cell average. It is discontinuous, performs no
 nodal extrapolation, and does not average across elements or material
