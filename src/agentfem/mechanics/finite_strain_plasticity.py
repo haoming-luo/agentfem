@@ -356,6 +356,36 @@ class FiniteStrainPlasticityPathInfo:
         }
 
 
+@dataclass(frozen=True)
+class FiniteStrainJ2EnergyFrame:
+    """Accepted work and material-energy evidence at one load coordinate."""
+
+    load_factor: float
+    load_amplitude: float
+    stored_energy: float
+    plastic_dissipation: float
+    internal_energy: float
+    natural_load_work: float
+    prescribed_motion_work: float
+    external_work: float
+    mechanical_energy_residual: float
+
+    def as_dict(self) -> dict[str, float]:
+        return {
+            name: float(getattr(self, name))
+            for name in self.__dataclass_fields__
+        }
+
+    @classmethod
+    def from_dict(cls, record) -> "FiniteStrainJ2EnergyFrame":
+        return cls(
+            **{
+                name: float(record[name])
+                for name in cls.__dataclass_fields__
+            }
+        )
+
+
 @dataclass
 class FiniteStrainJ2StateTransaction:
     """Constraint-neutral trial/commit state for finite-strain J2 Newton.
@@ -1090,12 +1120,18 @@ class FiniteStrainJ2StandardProblem:
     snapshots: list[object] = field(default_factory=list, init=False)
     execution_events: list[object] = field(default_factory=list, init=False)
     checkpoints: list[object] = field(default_factory=list, init=False)
+    energy_history: list[FiniteStrainJ2EnergyFrame] = field(
+        default_factory=list,
+        init=False,
+    )
+    energy_history_complete: bool = field(default=True, init=False)
     last_solve_info: FiniteStrainPlasticityPathInfo | None = field(
         default=None,
         init=False,
     )
     _tangent_matrix: object | None = field(default=None, init=False, repr=False)
     _linear_ksp: object | None = field(default=None, init=False, repr=False)
+    external_force: object | None = field(default=None, repr=False)
 
     def checkpoint_capabilities(self) -> checkpointing.CheckpointCapabilities:
         return checkpointing.CheckpointCapabilities(
@@ -1109,6 +1145,7 @@ class FiniteStrainJ2StandardProblem:
                 "accepted displacement and deformation state",
                 "quadrature plastic state",
                 "load-path ledger",
+                "accepted work and material-energy ledger",
                 "solver continuation controls",
             ),
             atomic_publication=True,
@@ -1363,6 +1400,131 @@ class FiniteStrainJ2StandardProblem:
             accepted_factor=self.accepted_load_factor,
         )
 
+    def _assembled_reaction_values(self) -> np.ndarray:
+        """Assemble the full residual without changing the material trial state."""
+
+        from ..problems import _reaction_field
+
+        return _reaction_field(
+            self.residual_form,
+            self.solution,
+            name="RF_WORK",
+        ).x.array.copy()
+
+    def _integrate_quadrature_scalar(self, field) -> float:
+        values = np.asarray(field.owned_values, dtype=float).reshape(-1)
+        weights = field.owned_physical_weights()
+        local = float(np.dot(weights, values))
+        return float(
+            self.solution.function_space.mesh.comm.allreduce(local, op=MPI.SUM)
+        )
+
+    def _natural_load_work_increment(
+        self,
+        previous_displacement,
+        *,
+        previous_amplitude: float,
+        current_amplitude: float,
+    ) -> float:
+        if self.external_force is None:
+            return 0.0
+        vector = fem_petsc.assemble_vector(fem.form(self.external_force.expression))
+        vector.ghostUpdate(
+            addv=PETSc.InsertMode.ADD,
+            mode=PETSc.ScatterMode.REVERSE,
+        )
+        index_map = self.solution.function_space.dofmap.index_map
+        owned = int(index_map.size_local) * int(
+            self.solution.function_space.dofmap.index_map_bs
+        )
+        delta = self.solution.x.array[:owned] - np.asarray(previous_displacement)[:owned]
+        local = float(np.vdot(vector.array_r[:owned], delta).real)
+        vector.destroy()
+        unit_work = float(
+            self.solution.function_space.mesh.comm.allreduce(local, op=MPI.SUM)
+        )
+        return 0.5 * (float(previous_amplitude) + float(current_amplitude)) * unit_work
+
+    def _prescribed_motion_work_increment(
+        self,
+        previous_displacement,
+        *,
+        start_reaction_values,
+        current_reaction_values,
+    ) -> float:
+        previous = np.asarray(previous_displacement, dtype=float)
+        start_reaction = np.asarray(start_reaction_values, dtype=float)
+        current_reaction = np.asarray(current_reaction_values, dtype=float)
+        local = 0.0
+        visited: set[int] = set()
+        for bc in self.bcs:
+            dofs, owned = bc.dof_indices()
+            for dof in np.asarray(dofs[:owned], dtype=np.int32):
+                index = int(dof)
+                if index in visited:
+                    continue
+                visited.add(index)
+                increment = float(self.solution.x.array[index] - previous[index])
+                local += 0.5 * (
+                    float(start_reaction[index]) + float(current_reaction[index])
+                ) * increment
+        return float(
+            self.solution.function_space.mesh.comm.allreduce(local, op=MPI.SUM)
+        )
+
+    def _record_energy(
+        self,
+        load_factor: float,
+        *,
+        previous_displacement,
+        start_reaction_values,
+        previous_amplitude: float,
+    ) -> None:
+        """Commit one path-consistent work/energy frame after material commit."""
+
+        if not self.energy_history_complete:
+            return
+        stored = self._integrate_quadrature_scalar(
+            self.response.strain_energy_density
+        )
+        dissipation = self._integrate_quadrature_scalar(
+            self.response.state.committed["plastic_dissipation"]
+        )
+        amplitude = float(self.amplitude(load_factor))
+        current_reaction = self._assembled_reaction_values()
+        natural_increment = self._natural_load_work_increment(
+            previous_displacement,
+            previous_amplitude=previous_amplitude,
+            current_amplitude=amplitude,
+        )
+        prescribed_increment = self._prescribed_motion_work_increment(
+            previous_displacement,
+            start_reaction_values=start_reaction_values,
+            current_reaction_values=current_reaction,
+        )
+        previous_natural = 0.0
+        previous_prescribed = 0.0
+        if self.energy_history:
+            previous_natural = self.energy_history[-1].natural_load_work
+            previous_prescribed = self.energy_history[-1].prescribed_motion_work
+        natural_work = previous_natural + natural_increment
+        prescribed_work = previous_prescribed + prescribed_increment
+        external_work = natural_work + prescribed_work
+        internal_energy = stored + dissipation
+        self.energy_history.append(
+            FiniteStrainJ2EnergyFrame(
+                load_factor=float(load_factor),
+                load_amplitude=amplitude,
+                stored_energy=stored,
+                plastic_dissipation=dissipation,
+                internal_energy=internal_energy,
+                natural_load_work=natural_work,
+                prescribed_motion_work=prescribed_work,
+                external_work=external_work,
+                mechanical_energy_residual=external_work - internal_energy,
+            )
+        )
+
     def _snapshot_increment_boundary(self) -> dict[str, object]:
         """Capture the accepted boundary before one provisional attempt."""
 
@@ -1375,6 +1537,8 @@ class FiniteStrainJ2StandardProblem:
             "snapshots": list(self.snapshots),
             "checkpoints": list(self.checkpoints),
             "execution_events": list(self.execution_events),
+            "energy_history": list(self.energy_history),
+            "energy_history_complete": bool(self.energy_history_complete),
             "next_increment_size": self.next_increment_size,
             "loading": self._snapshot_loading_state(),
         }
@@ -1391,6 +1555,8 @@ class FiniteStrainJ2StandardProblem:
         self.snapshots[:] = boundary["snapshots"]
         self.checkpoints[:] = boundary["checkpoints"]
         self.execution_events[:] = boundary["execution_events"]
+        self.energy_history[:] = boundary["energy_history"]
+        self.energy_history_complete = bool(boundary["energy_history_complete"])
         self.next_increment_size = boundary["next_increment_size"]
         self._restore_loading_state(boundary["loading"])
 
@@ -1480,6 +1646,8 @@ class FiniteStrainJ2StandardProblem:
         entry_runtime = self.state_transaction.snapshot_runtime_state()
         entry_events = list(self.execution_events)
         entry_snapshots = list(self.snapshots)
+        entry_energy_history = list(self.energy_history)
+        entry_energy_history_complete = bool(self.energy_history_complete)
         entry_loading = self._snapshot_loading_state()
         try:
             self._apply_loading(accepted)
@@ -1514,6 +1682,8 @@ class FiniteStrainJ2StandardProblem:
             self.state_transaction.restore_runtime_state(entry_runtime)
             self.execution_events[:] = entry_events
             self.snapshots[:] = entry_snapshots
+            self.energy_history[:] = entry_energy_history
+            self.energy_history_complete = entry_energy_history_complete
             self._restore_loading_state(entry_loading)
             self._record_failure(
                 emit,
@@ -1527,6 +1697,8 @@ class FiniteStrainJ2StandardProblem:
             entry_runtime,
             entry_events,
             entry_snapshots,
+            entry_energy_history,
+            entry_energy_history_complete,
             entry_loading,
         )
         emit(
@@ -1587,7 +1759,11 @@ class FiniteStrainJ2StandardProblem:
             rollback_proposed = proposed
             rollback_cutbacks = cutbacks
             loading_problem = None
+            previous_displacement = self.solution.x.array.copy()
+            previous_amplitude = float(self.amplitude(accepted))
+            start_reaction_values = None
             try:
+                start_reaction_values = self._assembled_reaction_values()
                 self._apply_loading(target)
             except BaseException as exc:
                 loading_problem = f"{type(exc).__name__}: {exc}"
@@ -1647,6 +1823,12 @@ class FiniteStrainJ2StandardProblem:
                     self.state_transaction.commit_increment(
                         start_factor=accepted,
                         target_factor=target,
+                    )
+                    self._record_energy(
+                        target,
+                        previous_displacement=previous_displacement,
+                        start_reaction_values=start_reaction_values,
+                        previous_amplitude=previous_amplitude,
                     )
                     self.accepted_increments.append(info)
                     size = target - accepted
@@ -1886,6 +2068,8 @@ class FiniteStrainJ2StandardProblem:
             "attempted_increments": list(self.attempted_increments),
             "next_increment_size": self.next_increment_size,
             "execution_events": list(self.execution_events),
+            "energy_history": list(self.energy_history),
+            "energy_history_complete": bool(self.energy_history_complete),
             "last_solve_info": self.last_solve_info,
             "snapshots": list(self.snapshots),
             "checkpoints": list(self.checkpoints),
@@ -1908,6 +2092,8 @@ class FiniteStrainJ2StandardProblem:
         self.attempted_increments[:] = boundary["attempted_increments"]
         self.next_increment_size = boundary["next_increment_size"]
         self.execution_events[:] = boundary["execution_events"]
+        self.energy_history[:] = boundary["energy_history"]
+        self.energy_history_complete = bool(boundary["energy_history_complete"])
         self.last_solve_info = boundary["last_solve_info"]
         self.snapshots[:] = boundary["snapshots"]
         self.checkpoints[:] = boundary["checkpoints"]
@@ -1969,6 +2155,10 @@ class FiniteStrainJ2StandardProblem:
             execution_events=json.dumps(
                 [item.as_dict() for item in self.execution_events]
             ),
+            energy_history=json.dumps(
+                [item.as_dict() for item in self.energy_history]
+            ),
+            energy_history_complete=bool(self.energy_history_complete),
             next_increment_size=(
                 np.nan if self.next_increment_size is None else self.next_increment_size
             ),
@@ -2061,6 +2251,15 @@ class FiniteStrainJ2StandardProblem:
                 SolveEvent.from_dict(item)
                 for item in json.loads(str(data["execution_events"]))
             ]
+            if "energy_history" in data:
+                energy_history = [
+                    FiniteStrainJ2EnergyFrame.from_dict(item)
+                    for item in json.loads(str(data["energy_history"]))
+                ]
+                energy_history_complete = bool(data["energy_history_complete"])
+            else:
+                energy_history = []
+                energy_history_complete = abs(coordinate) <= 1.0e-12
             size = float(data["next_increment_size"])
         if not np.allclose(solution, accepted_solution, rtol=0.0, atol=1.0e-12):
             raise ValueError("Finite-strain J2 checkpoint U and U_ACCEPTED differ.")
@@ -2087,6 +2286,8 @@ class FiniteStrainJ2StandardProblem:
             self.attempted_increments[:] = attempted
             self.next_increment_size = size if np.isfinite(size) else None
             self.execution_events[:] = events
+            self.energy_history[:] = energy_history
+            self.energy_history_complete = energy_history_complete
             self.last_solve_info = FiniteStrainPlasticityPathInfo(
                 tuple(accepted),
                 tuple(attempted),
@@ -2164,6 +2365,8 @@ class FiniteStrainJ2StandardProblem:
                 item.as_dict() for item in self.attempted_increments
             ],
             "execution_events": [item.as_dict() for item in self.execution_events],
+            "energy_history": [item.as_dict() for item in self.energy_history],
+            "energy_history_complete": bool(self.energy_history_complete),
             "next_increment_size": self.next_increment_size,
             "writer_rank_count": int(comm.size),
         }
@@ -2226,7 +2429,8 @@ class FiniteStrainJ2StandardProblem:
             )
 
         parsed_problem = None
-        accepted = attempted = events = None
+        accepted = attempted = events = energy_history = None
+        energy_history_complete = False
         coordinate = None
         try:
             coordinate = float(payload["coordinate"])
@@ -2241,6 +2445,13 @@ class FiniteStrainJ2StandardProblem:
             events = [
                 SolveEvent.from_dict(item) for item in payload["execution_events"]
             ]
+            energy_history = [
+                FiniteStrainJ2EnergyFrame.from_dict(item)
+                for item in payload.get("energy_history", ())
+            ]
+            energy_history_complete = bool(
+                payload.get("energy_history_complete", abs(coordinate) <= 1.0e-12)
+            )
             if accepted:
                 if abs(accepted[-1].load_factor - coordinate) > 1.0e-12:
                     raise ValueError(
@@ -2294,6 +2505,8 @@ class FiniteStrainJ2StandardProblem:
             self.attempted_increments[:] = attempted
             self.next_increment_size = payload.get("next_increment_size")
             self.execution_events[:] = events
+            self.energy_history[:] = energy_history
+            self.energy_history_complete = energy_history_complete
             self.last_solve_info = FiniteStrainPlasticityPathInfo(
                 tuple(accepted),
                 tuple(attempted),
@@ -2436,6 +2649,92 @@ class FiniteStrainJ2StandardProblem:
             abscissa_name="load_factor",
             description="Accepted normalized load increment size.",
         )
+        if self.energy_history_complete and self.energy_history:
+            energy_factors = np.asarray(
+                [item.load_factor for item in self.energy_history],
+                dtype=float,
+            )
+            result.add_histories(
+                energy_factors,
+                {
+                    "stored_energy": [
+                        item.stored_energy for item in self.energy_history
+                    ],
+                    "plastic_dissipation": [
+                        item.plastic_dissipation for item in self.energy_history
+                    ],
+                    "internal_energy": [
+                        item.internal_energy for item in self.energy_history
+                    ],
+                    "natural_load_work": [
+                        item.natural_load_work for item in self.energy_history
+                    ],
+                    "prescribed_motion_work": [
+                        item.prescribed_motion_work for item in self.energy_history
+                    ],
+                    "external_work": [
+                        item.external_work for item in self.energy_history
+                    ],
+                    "mechanical_energy_residual": [
+                        item.mechanical_energy_residual
+                        for item in self.energy_history
+                    ],
+                },
+                abscissa_name="load_factor",
+                descriptions={
+                    "stored_energy": (
+                        "Accepted total recoverable elastic and hardening energy."
+                    ),
+                    "plastic_dissipation": (
+                        "Accepted cumulative irrecoverable plastic dissipation."
+                    ),
+                    "internal_energy": (
+                        "Stored energy plus cumulative plastic dissipation."
+                    ),
+                    "natural_load_work": (
+                        "Accepted-path trapezoidal work of reference-configuration "
+                        "dead loads."
+                    ),
+                    "prescribed_motion_work": (
+                        "Accepted-path trapezoidal reaction work of strong "
+                        "prescribed motion."
+                    ),
+                    "external_work": (
+                        "Natural-load work plus strong prescribed-motion work."
+                    ),
+                    "mechanical_energy_residual": (
+                        "External work minus stored energy and plastic dissipation."
+                    ),
+                },
+            )
+            last_energy = self.energy_history[-1]
+            scale = max(
+                abs(last_energy.external_work),
+                abs(last_energy.internal_energy),
+                1.0e-30,
+            )
+            result.add_quantities(
+                {
+                    "mechanical_energy_residual": (
+                        last_energy.mechanical_energy_residual
+                    ),
+                    "relative_mechanical_energy_residual": (
+                        abs(last_energy.mechanical_energy_residual) / scale
+                    ),
+                },
+                kind="verification",
+            )
+        result.metadata["mechanical_energy_ledger"] = {
+            "status": (
+                "complete_accepted_path"
+                if self.energy_history_complete
+                else "unavailable_legacy_checkpoint_without_work_history"
+            ),
+            "internal_energy": "stored_energy + plastic_dissipation",
+            "external_work": "natural_load_work + prescribed_motion_work",
+            "integration": "accepted_increment_trapezoidal_path",
+            "follower_loads": "unsupported_fail_closed",
+        }
         for checkpoint in self.checkpoints:
             result.add_checkpoint(checkpoint)
         add_execution_trace(result, self.execution_events)
@@ -2474,6 +2773,8 @@ class FiniteStrainJ2StandardProblem:
                 else self.checkpoint_policy.summary()
             ),
             "checkpoint_count": len(self.checkpoints),
+            "energy_frame_count": len(self.energy_history),
+            "energy_history_complete": bool(self.energy_history_complete),
             "checkpoint_capabilities": self.checkpoint_capabilities().summary(
                 policy=self.checkpoint_policy
             ),
@@ -2779,6 +3080,7 @@ def finite_strain_j2_standard_problem(
         incrementation=selected_incrementation,
         solver_options=selected_options,
         state_transaction=transaction,
+        external_force=external_force,
         output_every=None if output_every is None else int(output_every),
         output_factors=selected_output_factors,
         progress=progress,

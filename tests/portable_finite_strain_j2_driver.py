@@ -80,6 +80,10 @@ def _verify_completed(step) -> None:
         1.0,
     ]:
         raise RuntimeError("Restarted accepted-increment history is incomplete.")
+    if not step.energy_history_complete or len(step.energy_history) != 4:
+        raise RuntimeError("Restarted accepted work/energy history is incomplete.")
+    if step.energy_history[-1].prescribed_motion_work <= 0.0:
+        raise RuntimeError("Restarted prescribed-motion work is invalid.")
 
 
 def main() -> None:
@@ -97,6 +101,8 @@ def main() -> None:
     step.load_checkpoint(manifest)
     if step.accepted_load_factor != 0.5:
         raise RuntimeError("Portable finite-strain J2 coordinate was not restored.")
+    if not step.energy_history_complete or len(step.energy_history) != 2:
+        raise RuntimeError("Portable finite-strain J2 work history was not restored.")
     step.solve()
     _verify_completed(step)
 

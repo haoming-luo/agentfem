@@ -267,8 +267,15 @@ The next scientific promotions focus on depth rather than catalog size:
 
 1. complete external DCB, ENF, and MMB cohesive validation, including unstable
    propagation control and closed force--work--energy evidence;
-2. advance finite-strain J2 through RVE mixed-MPI, follower-load, and
-   prescribed-work promotion. The external-beam gate is now accepted from one
+2. advance finite-strain J2 through RVE mixed-MPI and follower-load
+   promotion. Ordinary strong-boundary J2 now records accepted-path dead-load
+   work, prescribed-motion reaction work, stored energy, cumulative plastic
+   dissipation, and their mechanical residual in the same rollback and
+   checkpoint lifecycle. A four-to-forty increment refinement reduces the
+   reference patch residual from about `9.4%` to `9.3e-6`, so the ledger
+   exposes path-integration error instead of manufacturing closure. Follower
+   loads remain fail-closed until their residual and external tangent are
+   implemented together. The external-beam gate is accepted from one
    executable package identity without relaxing a tolerance: the external
    curve, mesh, serial/MPI, checkpoint/restart, and `45 -> 90 -> 180`
    increment contracts all pass. The 90-to-180 RMS and maximum differences

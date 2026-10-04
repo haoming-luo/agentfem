@@ -233,6 +233,21 @@ elimination algorithm. Accepted results retain `F`, first-Piola `P`, Cauchy
 `S`, `FP`, `PEEQ`, invariants, and stored-energy components at integration
 points before any cell recovery.
 
+For ordinary strong boundaries and reference-configuration dead loads, each
+accepted load increment also contributes trapezoidal path work. Natural-load
+work is integrated from the unit reference load and the displacement
+increment; prescribed-motion work uses the full residual reactions on unique
+owned constrained degrees of freedom. The reported mechanical residual is
+
+\[
+W_{\mathrm{dead}}+W_{\mathrm{prescribed}}
+-\left(\Psi_{\mathrm{stored}}+D_{\mathrm{plastic}}\right).
+\]
+
+It is a convergence diagnostic for the accepted increment path. Current-
+configuration follower loads remain unsupported because their external
+residual and consistent tangent have not yet entered this same contract.
+
 The supported global creep route is three-dimensional or axisymmetric,
 small-strain Mises power-law creep. It may be isothermal or consume a positive scalar/field
 temperature through a normalized Arrhenius coefficient. Backward Euler solves
