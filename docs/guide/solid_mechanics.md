@@ -15,7 +15,7 @@ layer.
 | Mooney--Rivlin | Experimental FEM workflow | Compressible 3D solids and incompressible plane-stress sheets |
 | Mixed displacement-pressure Neo-Hookean | Experimental/engineering | Near-incompressible quadratic tetrahedral solids |
 | Small-strain J2 plasticity | Engineering path | Stateful elastoplastic loading with consistent tangent |
-| Finite-strain logarithmic J2 | Experimental public path | Strong-boundary solids with reference dead loads, and regional 3D affine-periodic cells |
+| Finite-strain logarithmic J2 | Experimental public path | Strong-boundary solids with dead or current-configuration pressure loads, and regional 3D affine-periodic cells |
 | Small-strain power-law creep | Engineering path | 3D or axisymmetric stateful creep with adaptive physical time |
 
 ## Modeling sequence

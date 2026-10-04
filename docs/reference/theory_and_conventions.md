@@ -244,9 +244,14 @@ W_{\mathrm{dead}}+W_{\mathrm{prescribed}}
 -\left(\Psi_{\mathrm{stored}}+D_{\mathrm{plastic}}\right).
 \]
 
-It is a convergence diagnostic for the accepted increment path. Current-
-configuration follower loads remain unsupported because their external
-residual and consistent tangent have not yet entered this same contract.
+It is a convergence diagnostic for the accepted increment path. For current-
+configuration follower pressure, the load vector is assembled separately at
+both accepted endpoint configurations and the external residual is
+automatically differentiated with
+[UFL](https://docs.fenicsproject.org/ufl/main/manual/form_language.html#automatic-functional-differentiation).
+The tangent and accepted path work
+therefore consume the same pulled-back Nanson traction rather than treating a
+follower load as a fixed dead load.
 
 The supported global creep route is three-dimensional or axisymmetric,
 small-strain Mises power-law creep. It may be isothermal or consume a positive scalar/field

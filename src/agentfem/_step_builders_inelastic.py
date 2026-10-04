@@ -407,17 +407,6 @@ def finite_strain_j2(
             selected_loads,
             unwrap_amplitudes=True,
         )
-        follower = tuple(
-            item
-            for item in physical_loads
-            if getattr(item, "configuration", "reference") != "reference"
-        )
-        if follower:
-            raise NotImplementedError(
-                "Standard finite-strain J2 currently supports dead loads in the "
-                "reference configuration. Follower/current-configuration loads "
-                "require their external-work tangent."
-            )
         problem = mechanics.finite_strain_j2_standard_problem(
             displacement=target,
             material=properties,
@@ -427,6 +416,10 @@ def finite_strain_j2(
                 else None
             ),
             load_identity=tuple(_describe(item) for item in selected_loads),
+            follower_loads=any(
+                getattr(item, "configuration", "reference") != "reference"
+                for item in physical_loads
+            ),
             constraints=selected_constraints,
             incrementation=incrementation,
             solver_options=solver_options,

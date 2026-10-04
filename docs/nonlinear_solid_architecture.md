@@ -153,7 +153,8 @@ consumer merely because it resembles a stiffness matrix. This is protocol
 foundation only: those declarations do not by themselves promote a material.
 Finite-strain J2 now has material paths, numerical tangent comparison, and
 public `model.step(...)` lowerings for ordinary three-dimensional strong
-boundaries with reference dead loads, displacement-only three-dimensional
+boundaries with reference dead loads or current-configuration pressure,
+displacement-only three-dimensional
 affine/MPC periodic kinematics, and experimental mixed affine-periodic routes
 using P2/DG0 in 3D or Q2/DPC1 in 2D plane strain.
 The ordinary and displacement-only affine paths have cutback/restart
@@ -194,7 +195,8 @@ commit are executable tests. One constraint-neutral
 `FiniteStrainJ2StateTransaction` owns trial/commit state and accepted fields.
 `FiniteStrainJ2StandardProblem` consumes it for ordinary strong Dirichlet or
 remote-displacement kinematics, a shared normalized amplitude, and reference-
-configuration dead loads. The separate affine provider consumes the same
+configuration dead loads or current-configuration pressure with its
+automatically differentiated external tangent. The separate affine provider consumes the same
 transaction with exactly one `AbaqusPeriodicConstraint`, using exact affine
 elimination in serial or distributed `dolfinx_mpc` Newton. Both assemble the
 total-Lagrangian residual from `P` and `dP/dF`, accept fixed or automatic
@@ -372,8 +374,9 @@ instead of inventing a dissipation history. Re-run that accepted model with
 the current material schema before using its state as new release evidence.
 
 The present public scope is deliberately narrow. The ordinary route accepts
-proportional prescribed motion and reference dead loads but not follower-load
-tangents, absolute time histories, weak boundary models, contact, or MPC. The
+proportional prescribed motion, reference dead loads, and current-configuration
+pressure with a consistent external tangent, but not arbitrary follower-load
+families, absolute time histories, weak boundary models, contact, or MPC. The
 displacement-only affine route accepts prescribed macroscopic deformation,
 compatible regional materials, one periodic constraint, and no body-force or
 natural-load power. The mixed affine route has the narrower serial boundary

@@ -1132,6 +1132,7 @@ class FiniteStrainJ2StandardProblem:
     _tangent_matrix: object | None = field(default=None, init=False, repr=False)
     _linear_ksp: object | None = field(default=None, init=False, repr=False)
     external_force: object | None = field(default=None, repr=False)
+    follower_loads: bool = False
 
     def checkpoint_capabilities(self) -> checkpointing.CheckpointCapabilities:
         return checkpointing.CheckpointCapabilities(
@@ -1423,27 +1424,44 @@ class FiniteStrainJ2StandardProblem:
         self,
         previous_displacement,
         *,
+        start_external_force_values,
         previous_amplitude: float,
         current_amplitude: float,
     ) -> float:
         if self.external_force is None:
             return 0.0
-        vector = fem_petsc.assemble_vector(fem.form(self.external_force.expression))
-        vector.ghostUpdate(
-            addv=PETSc.InsertMode.ADD,
-            mode=PETSc.ScatterMode.REVERSE,
-        )
+        current_force = self._assembled_external_force_values()
+        start_force = np.asarray(start_external_force_values, dtype=float)
         index_map = self.solution.function_space.dofmap.index_map
         owned = int(index_map.size_local) * int(
             self.solution.function_space.dofmap.index_map_bs
         )
         delta = self.solution.x.array[:owned] - np.asarray(previous_displacement)[:owned]
-        local = float(np.vdot(vector.array_r[:owned], delta).real)
-        vector.destroy()
-        unit_work = float(
+        local = float(
+            np.vdot(
+                0.5
+                * (
+                    float(previous_amplitude) * start_force[:owned]
+                    + float(current_amplitude) * current_force[:owned]
+                ),
+                delta,
+            ).real
+        )
+        return float(
             self.solution.function_space.mesh.comm.allreduce(local, op=MPI.SUM)
         )
-        return 0.5 * (float(previous_amplitude) + float(current_amplitude)) * unit_work
+
+    def _assembled_external_force_values(self) -> np.ndarray | None:
+        if self.external_force is None:
+            return None
+        vector = fem_petsc.assemble_vector(fem.form(self.external_force.expression))
+        vector.ghostUpdate(
+            addv=PETSc.InsertMode.ADD,
+            mode=PETSc.ScatterMode.REVERSE,
+        )
+        values = vector.array_r.copy()
+        vector.destroy()
+        return values
 
     def _prescribed_motion_work_increment(
         self,
@@ -1478,6 +1496,7 @@ class FiniteStrainJ2StandardProblem:
         *,
         previous_displacement,
         start_reaction_values,
+        start_external_force_values,
         previous_amplitude: float,
     ) -> None:
         """Commit one path-consistent work/energy frame after material commit."""
@@ -1494,6 +1513,7 @@ class FiniteStrainJ2StandardProblem:
         current_reaction = self._assembled_reaction_values()
         natural_increment = self._natural_load_work_increment(
             previous_displacement,
+            start_external_force_values=start_external_force_values,
             previous_amplitude=previous_amplitude,
             current_amplitude=amplitude,
         )
@@ -1762,8 +1782,10 @@ class FiniteStrainJ2StandardProblem:
             previous_displacement = self.solution.x.array.copy()
             previous_amplitude = float(self.amplitude(accepted))
             start_reaction_values = None
+            start_external_force_values = None
             try:
                 start_reaction_values = self._assembled_reaction_values()
+                start_external_force_values = self._assembled_external_force_values()
                 self._apply_loading(target)
             except BaseException as exc:
                 loading_problem = f"{type(exc).__name__}: {exc}"
@@ -1828,6 +1850,7 @@ class FiniteStrainJ2StandardProblem:
                         target,
                         previous_displacement=previous_displacement,
                         start_reaction_values=start_reaction_values,
+                        start_external_force_values=start_external_force_values,
                         previous_amplitude=previous_amplitude,
                     )
                     self.accepted_increments.append(info)
@@ -2052,6 +2075,7 @@ class FiniteStrainJ2StandardProblem:
             "constraints": self.constraint_identity,
             "prescribed_value_path": self.value_path.summary(),
             "external_load": self.load_identity,
+            "follower_loads": bool(self.follower_loads),
             "solver": self.solver_options.summary(),
             "solution": function_partition_identity(self.solution),
         }
@@ -2327,6 +2351,7 @@ class FiniteStrainJ2StandardProblem:
             "constraints": self.constraint_identity,
             "prescribed_value_path": self.value_path.summary(),
             "external_load": self.load_identity,
+            "follower_loads": bool(self.follower_loads),
             "solver": self.solver_options.summary(),
             "solution": function_portable_identity(self.solution),
         }
@@ -2692,8 +2717,8 @@ class FiniteStrainJ2StandardProblem:
                         "Stored energy plus cumulative plastic dissipation."
                     ),
                     "natural_load_work": (
-                        "Accepted-path trapezoidal work of reference-configuration "
-                        "dead loads."
+                        "Accepted-path trapezoidal work of natural loads, using "
+                        "the actual load vector at both accepted endpoints."
                     ),
                     "prescribed_motion_work": (
                         "Accepted-path trapezoidal reaction work of strong "
@@ -2733,7 +2758,11 @@ class FiniteStrainJ2StandardProblem:
             "internal_energy": "stored_energy + plastic_dissipation",
             "external_work": "natural_load_work + prescribed_motion_work",
             "integration": "accepted_increment_trapezoidal_path",
-            "follower_loads": "unsupported_fail_closed",
+            "follower_loads": (
+                "consistent_external_tangent_and_current_configuration_path_work"
+                if self.follower_loads
+                else "not_present"
+            ),
         }
         for checkpoint in self.checkpoints:
             result.add_checkpoint(checkpoint)
@@ -2782,6 +2811,7 @@ class FiniteStrainJ2StandardProblem:
             "quadrature_degree": self.quadrature_degree,
             "constraints": self.constraint_identity,
             "external_load": self.load_identity,
+            "follower_loads": bool(self.follower_loads),
             "last_solve": (
                 None if self.last_solve_info is None else self.last_solve_info.as_dict()
             ),
@@ -2969,6 +2999,7 @@ def finite_strain_j2_standard_problem(
     displacement,
     material: FiniteStrainJ2Logarithmic | QuadratureMaterialMap,
     external_force=None,
+    follower_loads: bool = False,
     load_identity=None,
     constraints=(),
     incrementation=None,
@@ -3000,9 +3031,15 @@ def finite_strain_j2_standard_problem(
     tangent_action = ufl.as_tensor(tangent[i, j, k, l] * gradient_trial[k, l], (i, j))
     load_factor = fem.Constant(domain, PETSc.ScalarType(0.0))
     residual = ufl.inner(first_piola, gradient_test) * response.measure
-    if external_force is not None:
-        residual -= load_factor * external_force.expression
     jacobian = ufl.inner(tangent_action, gradient_test) * response.measure
+    if external_force is not None:
+        external_residual = load_factor * external_force.expression
+        residual -= external_residual
+        jacobian -= ufl.derivative(
+            external_residual,
+            solution,
+            displacement.trial,
+        )
 
     from .. import constraints as constraint_api
 
@@ -3081,6 +3118,7 @@ def finite_strain_j2_standard_problem(
         solver_options=selected_options,
         state_transaction=transaction,
         external_force=external_force,
+        follower_loads=bool(follower_loads),
         output_every=None if output_every is None else int(output_every),
         output_factors=selected_output_factors,
         progress=progress,
