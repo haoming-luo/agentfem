@@ -157,6 +157,7 @@ class FieldResult:
     artifact: str | Path | None = None
     description: str = ""
     processing: Mapping[str, object] = dc_field(default_factory=dict)
+    sampling: object | None = dc_field(default=None, repr=False, compare=False)
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "name", _name(self.name))
@@ -314,6 +315,7 @@ class SimulationResult:
         artifact: str | Path | None = None,
         description: str = "",
         processing: Mapping[str, object] | None = None,
+        sampling=None,
     ) -> FieldResult:
         item = FieldResult(
             name,
@@ -323,6 +325,7 @@ class SimulationResult:
             artifact,
             description,
             {} if processing is None else processing,
+            sampling,
         )
         self.fields[item.name] = item
         return item

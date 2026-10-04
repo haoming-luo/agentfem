@@ -971,6 +971,7 @@ class FiniteStrainJ2StateTransaction:
                     "postprocessed": False,
                     "committed": name in {"FP", "PEEQ", "PDENER"},
                 },
+                sampling=source,
             )
             recovered = recover_integration_point_field(
                 source,

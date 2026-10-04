@@ -893,6 +893,7 @@ class J2PlasticityStep:
                 "postprocessed": False,
                 "accepted": True,
             },
+            sampling=self.state.stress,
         )
         result.add_field(
             "PE",
@@ -906,6 +907,7 @@ class J2PlasticityStep:
                 "postprocessed": False,
                 "committed": True,
             },
+            sampling=self.state.plastic_strain,
         )
         result.add_field(
             "PEEQ",
@@ -919,11 +921,14 @@ class J2PlasticityStep:
                 "postprocessed": False,
                 "committed": True,
             },
+            sampling=self.state.equivalent_plastic_strain,
         )
+        total_backstress = None
         if isinstance(self.state, ChabocheQuadratureState):
+            total_backstress = self.state.total_backstress()
             result.add_field(
                 "ALPHA",
-                self.state.total_backstress().function,
+                total_backstress.function,
                 location="quadrature_points",
                 description="Total Chaboche backstress at integration points.",
                 processing={
@@ -934,10 +939,12 @@ class J2PlasticityStep:
                     "postprocessed": False,
                     "committed": True,
                 },
+                sampling=total_backstress,
             )
+        equivalent_stress = self.state.equivalent_stress()
         result.add_field(
             "MISES",
-            self.state.equivalent_stress().function,
+            equivalent_stress.function,
             location="quadrature_points",
             description="Pointwise von Mises invariant of quadrature stress.",
             processing={
@@ -948,16 +955,17 @@ class J2PlasticityStep:
                 "nodal_extrapolation": False,
                 "interelement_smoothing": False,
             },
+            sampling=equivalent_stress,
         )
         recovery_sources = [
             (self.state.stress, "S_CELL"),
             (self.state.plastic_strain, "PE_CELL"),
             (self.state.equivalent_plastic_strain, "PEEQ_CELL"),
-            (self.state.equivalent_stress(), "MISES_CELL"),
+            (equivalent_stress, "MISES_CELL"),
         ]
-        if isinstance(self.state, ChabocheQuadratureState):
+        if total_backstress is not None:
             recovery_sources.append(
-                (self.state.total_backstress(), "ALPHA_CELL")
+                (total_backstress, "ALPHA_CELL")
             )
         for source, recovered_name in recovery_sources:
             recovered = recover_integration_point_field(

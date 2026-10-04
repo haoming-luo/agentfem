@@ -905,6 +905,21 @@ def attach_result_field_output(
             result.add_artifact("fields_hdf5", artifacts.hdf5)
         if artifacts.paraview is not None:
             result.add_artifact("fields_paraview", artifacts.paraview)
+        raw_records = tuple(
+            item
+            for item in result.fields.values()
+            if item.location == "quadrature_points"
+            and item.field is not None
+        )
+        if raw_records:
+            from .integration_points import write_integration_point_fields
+
+            raw_path = selected_path.with_name(
+                f"{selected_path.stem}.integration-points.h5"
+            )
+            raw = write_integration_point_fields(result, raw_path)
+            result.metadata["integration_point_output"] = raw.summary()
+            result.add_artifact("integration_points_hdf5", raw.hdf5)
     except Exception as exc:
         result.status = "completed_with_output_errors"
         result.metadata["field_output"] = {

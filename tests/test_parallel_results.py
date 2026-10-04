@@ -219,6 +219,61 @@ def test_quadrature_field_statistics_exclude_ghost_cells_and_preserve_volume():
     assert all(item == summaries[0] for item in summaries)
 
 
+def test_raw_integration_point_output_is_partition_independent(tmp_path):
+    if MPI.COMM_WORLD.size != 2:
+        pytest.skip("portable integration-point fixture requires two MPI ranks")
+
+    domain = mesh.rectangle(
+        (0.0, 0.0),
+        (2.0, 1.0),
+        (5, 3),
+        comm=MPI.COMM_WORLD,
+        cell_type="triangle",
+    )
+    field = constitutive.QuadratureField.create(
+        domain,
+        name="PEEQ",
+        degree=2,
+    )
+    cell_map = domain.topology.index_map(domain.topology.dim)
+    visible = int(cell_map.size_local + cell_map.num_ghosts)
+    cells = np.arange(visible, dtype=np.int32)
+    coordinates = np.asarray(
+        fem.Expression(ufl.SpatialCoordinate(domain), field.points).eval(
+            domain, cells
+        ),
+        dtype=float,
+    ).reshape((-1, 2))
+    field.assign(coordinates[:, 0] + 2.0 * coordinates[:, 1])
+    simulation = results.SimulationResult("parallel-quadrature")
+    simulation.add_field(
+        "PEEQ",
+        field.function,
+        unit="1",
+        location="quadrature_points",
+        processing={"representation": "quadrature_values"},
+        sampling=field,
+    )
+
+    artifact = results.write_integration_point_fields(
+        simulation,
+        tmp_path / "parallel-integration-points.h5",
+    )
+
+    assert artifact.cell_count == 30
+    if MPI.COMM_WORLD.rank == 0:
+        restored = results.read_integration_point_fields(artifact.hdf5)
+        rule = restored["rules"][0]
+        assert len(rule["cell_id"]) == 30
+        assert np.unique(rule["cell_id"]).size == 30
+        np.testing.assert_allclose(
+            rule["fields"]["PEEQ"],
+            rule["coordinates"][..., 0]
+            + 2.0 * rule["coordinates"][..., 1],
+        )
+        assert np.sum(rule["physical_weights"]) == pytest.approx(2.0)
+
+
 def test_point_sampling_rejects_rank_inconsistent_requests():
     if MPI.COMM_WORLD.size < 2:
         pytest.skip("distributed point sampling requires at least two MPI ranks")

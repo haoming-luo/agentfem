@@ -411,12 +411,19 @@ def test_creep_solve_result_writes_recovered_state_in_common_dataset(tmp_path):
 
     assert simulation.artifacts["fields_xdmf"].is_file()
     assert simulation.artifacts["fields_hdf5"].is_file()
+    assert simulation.artifacts["integration_points_hdf5"].is_file()
     assert {"Displacement", "S_CELL", "CE_CELL", "CEEQ_CELL", "MISES_CELL", "RF"} <= set(
         simulation.metadata["field_output_fields"]["included"]
     )
     assert {"S", "CE", "CEEQ", "MISES"} <= set(
         simulation.metadata["field_output_fields"]["omitted"]
     )
+    assert set(simulation.metadata["integration_point_output"]["field_names"]) == {
+        "S",
+        "CE",
+        "CEEQ",
+        "MISES",
+    }
     assert simulation.verify(
         "engineering",
         required_artifacts=("fields_xdmf", "fields_hdf5"),
@@ -699,6 +706,7 @@ def test_j2_solve_result_writes_recovered_state_in_common_dataset(tmp_path):
 
     assert simulation.artifacts["fields_xdmf"].is_file()
     assert simulation.artifacts["fields_hdf5"].is_file()
+    assert simulation.artifacts["integration_points_hdf5"].is_file()
     assert {"Displacement", "S_CELL", "PE_CELL", "PEEQ_CELL", "MISES_CELL", "RF"} <= set(
         simulation.metadata["field_output_fields"]["included"]
     )

@@ -277,8 +277,9 @@ The next scientific promotions focus on depth rather than catalog size:
 3. extend the closed bounded MPC/weak/contact evidence contract only through
    independently verified provider routes; general contact remains a separate
    scientific promotion rather than a foundation blocker;
-4. finish portable integration-point output and checkpoint identity across MPI
-   partitions;
+4. scale the now executable partition-independent raw integration-point HDF5
+   result and portable quadrature-checkpoint identity from the compact
+   root-gathered route to independently partitioned extreme-scale output;
 5. retain every material and fracture capability at its proven maturity until
    its independent benchmark and failure tests pass.
 
