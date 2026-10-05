@@ -267,7 +267,7 @@ The next scientific promotions focus on depth rather than catalog size:
 
 1. complete external DCB, ENF, and MMB cohesive validation, including unstable
    propagation control and closed force--work--energy evidence;
-2. advance finite-strain J2 through the remaining RVE mixed-MPI promotion.
+2. advance finite-strain J2 through the remaining external RVE comparison.
    Ordinary strong-boundary J2 now records accepted-path dead-load
    work, prescribed-motion reaction work, stored energy, cumulative plastic
    dissipation, and their mechanical residual in the same rollback and
@@ -276,8 +276,10 @@ The next scientific promotions focus on depth rather than catalog size:
    exposes path-integration error instead of manufacturing closure. Current-
    configuration follower pressure now enters the same residual through its
    UFL-derived external tangent, while its accepted work integrates the
-   configuration-dependent load vectors at both increment ends. The external-
-   beam gate is accepted from one
+   configuration-dependent load vectors at both increment ends. Three-
+   dimensional mixed P2/DG0 state now also passes one-to-two and
+   two-to-one MPI checkpoint/continue with exact split primary fields and
+   quadrature state. The external-beam gate is accepted from one
    executable package identity without relaxing a tolerance: the external
    curve, mesh, serial/MPI, checkpoint/restart, and `45 -> 90 -> 180`
    increment contracts all pass. The 90-to-180 RMS and maximum differences

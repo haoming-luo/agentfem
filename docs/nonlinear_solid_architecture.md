@@ -363,10 +363,13 @@ mesh/function identity, material and state schema, quadrature rule, procedure,
 solver, increment control, amplitude, constraints, and natural-load identity
 before changing the analysis. The affine route also binds its periodic
 equations. The displacement-only checkpoint has been resumed between one and
-two MPI ranks in both directions. A resumed solve restores the previous execution trace,
-appends a new resumed segment, and starts a new field series from the accepted
-boundary; earlier visualization frames remain in the earlier result artifact
-and are not silently reconstructed or merged.
+two MPI ranks in both directions. The 3D mixed P2/DG0 route now has the same
+bidirectional evidence after splitting live and accepted mixed functions into
+standalone displacement and mean-Kirchhoff-stress fields. A resumed solve
+restores the previous execution trace, appends a new resumed segment, and
+starts a new field series from the accepted boundary; earlier visualization
+frames remain in the earlier result artifact and are not silently reconstructed
+or merged.
 
 Adding `PDENER` changes the finite-strain J2 material-state schema from v0.1
 to v0.2. A checkpoint written with the earlier schema therefore fails closed

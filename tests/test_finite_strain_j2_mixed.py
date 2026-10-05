@@ -715,12 +715,17 @@ def test_mixed_j2_affine_cube_uses_public_step_and_complete_block_system():
     )
 
 
+@pytest.mark.parametrize("portable", (False, True))
 def test_mixed_j2_checkpoint_splits_and_atomically_restores_primary_fields(
     tmp_path,
+    portable,
 ):
     uninterrupted, _, uninterrupted_unknown, _, _, _ = _mixed_cube_step()
     uninterrupted.solve(until=0.5)
-    checkpoint = uninterrupted.save_checkpoint(tmp_path / "mixed_j2")
+    checkpoint = uninterrupted.save_checkpoint(
+        tmp_path / "mixed_j2",
+        portable=portable,
+    )
     assert checkpoint.is_file()
     uninterrupted.solve()
     expected_solution = uninterrupted.solution.x.array.copy()
