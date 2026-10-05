@@ -345,6 +345,9 @@ _CORE_SOURCE_MPI_DRIVER_MAP = {
         "cyclic-field-restart",
         "global-cyclic-restart",
     ),
+    "src/agentfem/mechanics/finite_strain_plasticity.py": (
+        "mixed-finite-strain-j2-restart",
+    ),
     "src/agentfem/results/_accepted_energy.py": (
         "nonlinear-contact-restart",
     ),
@@ -356,6 +359,9 @@ _CORE_SOURCE_MPI_DRIVER_MAP = {
     ),
     "tests/portable_cyclic_field_driver.py": ("cyclic-field-restart",),
     "tests/portable_global_cyclic_driver.py": ("global-cyclic-restart",),
+    "tests/portable_mixed_finite_strain_j2_driver.py": (
+        "mixed-finite-strain-j2-restart",
+    ),
 }
 _ML_PREFIXES = (
     "src/agentfem/learning",

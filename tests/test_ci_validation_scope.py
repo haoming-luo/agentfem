@@ -240,6 +240,15 @@ def test_cyclic_checkpoint_owner_selects_cross_rank_restart_driver():
     )
 
 
+def test_finite_strain_j2_owner_selects_mixed_restart_driver():
+    scope = classify_changes(
+        ["src/agentfem/mechanics/finite_strain_plasticity.py"]
+    )
+
+    assert scope.level == "core"
+    assert scope.mpi_drivers == ("mixed-finite-strain-j2-restart",)
+
+
 def test_declared_mpi_drivers_are_known_to_the_workflow():
     declared = {
         driver
@@ -252,6 +261,7 @@ def test_declared_mpi_drivers_are_known_to_the_workflow():
     assert declared == {
         "cyclic-field-restart",
         "global-cyclic-restart",
+        "mixed-finite-strain-j2-restart",
         "nonlinear-contact-restart",
     }
     assert all(f"{driver})" in workflow for driver in declared)

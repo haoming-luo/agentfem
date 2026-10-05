@@ -511,11 +511,10 @@ live and accepted mixed solutions into standalone displacement and
 mean-Kirchhoff-stress fields before serialization, then let the state owner
 reassemble them after identity validation. Fresh-Step checkpoint/continue equivalence is
 verified for both serial mixed routes: 3D tetrahedral P2/DG0 and 2D plane-strain
-quadrilateral Q2/DPC1. Independently, the underlying generic DPC cell-moment
-identity has two-to-one and one-to-two MPI-rank acceptance coverage. This does
-not promote the mixed equilibrium provider itself: distributed mixed MPC, an
-MPI mixed-J2 solve, and cross-rank-count restart of a solved mixed J2 step remain
-unverified.
+quadrilateral Q2/DPC1. The 3D P2/DG0 provider also passes a distributed mixed
+solve and both one-to-two and two-to-one-rank checkpoint/continue paths. Those
+paths restore the exact split primary fields, quadrature state and accepted
+increment history. The 2D Q2/DPC1 equilibrium provider remains serial.
 
 These tests establish the software contract; an RVE used for a material claim
 still requires its own mesh, loading-path, convergence, and reference-result

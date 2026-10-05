@@ -120,9 +120,10 @@ original physical cell and local mode. Fresh-Step checkpoint/continue is
 verified for both serial mixed routes: 3D tetrahedral P2/DG0 and 2D plane-strain
 quadrilateral Q2/DPC1. The 3D P2/DG0 equilibrium provider also has a two-rank
 affine-periodic solve using an exact PETSc transformation of the mixed block
-system. The 2D Q2/DPC1 equilibrium provider remains serial, and the generic
-DPC state's one-to-two and two-to-one-rank portability does not by itself
-establish cross-rank mixed-Step restart.
+system. The same 3D mixed Step now restores and continues in both one-to-two
+and two-to-one-rank directions, including exact split primary fields,
+quadrature material state and accepted increment history. The 2D Q2/DPC1
+equilibrium provider remains serial.
 
 Every generated `FieldResult` records a `processing` mapping containing the
 projection method, result space, and explicit false flags for nodal

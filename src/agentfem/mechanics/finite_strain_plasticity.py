@@ -1143,7 +1143,7 @@ class FiniteStrainJ2StandardProblem:
             boundary="accepted_increment",
             payload_scope="full_restart_state",
             state_components=(
-                "accepted displacement and deformation state",
+                "accepted displacement/deformation and optional mixed pressure state",
                 "quadrature plastic state",
                 "load-path ledger",
                 "accepted work and material-energy ledger",
@@ -2340,6 +2340,15 @@ class FiniteStrainJ2StandardProblem:
     def _portable_checkpoint_identity(self) -> dict[str, object]:
         from ..checkpointing import function_portable_identity
 
+        nodal_state = self.state_transaction.portable_nodal_state()
+        solution_identity = (
+            function_portable_identity(self.solution)
+            if nodal_state is None
+            else {
+                name: function_portable_identity(function)
+                for name, function in nodal_state.items()
+            }
+        )
         return {
             "step_name": self.name,
             "procedure": (None if self.procedure is None else self.procedure.summary()),
@@ -2353,8 +2362,16 @@ class FiniteStrainJ2StandardProblem:
             "external_load": self.load_identity,
             "follower_loads": bool(self.follower_loads),
             "solver": self.solver_options.summary(),
-            "solution": function_portable_identity(self.solution),
+            "solution": solution_identity,
         }
+
+    def _portable_checkpoint_nodal_state(self) -> dict[str, object]:
+        """Return standalone nodal fields owned by the checkpoint boundary."""
+
+        mixed_state = self.state_transaction.portable_nodal_state()
+        if mixed_state is not None:
+            return dict(mixed_state)
+        return {"U": self.solution, "U_ACCEPTED": self.accepted_solution}
 
     def _save_portable_checkpoint(self, path) -> Path:
         from ..checkpointing import (
@@ -2369,7 +2386,7 @@ class FiniteStrainJ2StandardProblem:
         manifest = selected.with_name(selected.name + ".checkpoint.json")
         bundle = save_portable_state_bundle(
             manifest,
-            state={"U": self.solution, "U_ACCEPTED": self.accepted_solution},
+            state=self._portable_checkpoint_nodal_state(),
         )
         quadrature = self.response.state.save(
             manifest.with_name(f"{selected.name}.{bundle['generation']}.quadrature"),
@@ -2496,15 +2513,17 @@ class FiniteStrainJ2StandardProblem:
         try:
             load_problem = None
             try:
+                nodal_state = self._portable_checkpoint_nodal_state()
                 load_portable_state_bundle(
                     manifest,
-                    state={
-                        "U": self.solution,
-                        "U_ACCEPTED": self.accepted_solution,
-                    },
+                    state=nodal_state,
                     record=payload["nodal_state"],
                     identities=payload["nodal_identity"],
                 )
+                if self.state_transaction.pressure_evaluator is not None:
+                    self.state_transaction.restore_portable_nodal_state(
+                        nodal_state
+                    )
                 self.response.state.load(
                     Path(validation["quadrature_path"]),
                     material=self.material,
