@@ -318,7 +318,6 @@ def _accept_finite_strain_j2_mixed_affine(
 
 
 def _accept_finite_strain_j2_strong(model, request: StepRequest) -> bool:
-    from . import loads as load_api
     from .constitutive import FiniteStrainJ2Logarithmic
     from .constraints import (
         DirichletConstraint,
@@ -335,14 +334,6 @@ def _accept_finite_strain_j2_strong(model, request: StepRequest) -> bool:
         isinstance(item, (DirichletConstraint, RemoteDisplacementConstraint))
         for item in selected_constraints
     )
-    physical_loads = load_api.load_assets(
-        getattr(model, "loads", ()),
-        unwrap_amplitudes=True,
-    )
-    reference_dead_loads = all(
-        getattr(item, "configuration", "reference") == "reference"
-        for item in physical_loads
-    )
     return (
         getattr(study, "physics", None) == "solid_mechanics"
         and getattr(study, "dimension", None) == 3
@@ -354,7 +345,6 @@ def _accept_finite_strain_j2_strong(model, request: StepRequest) -> bool:
             lambda item: isinstance(item, FiniteStrainJ2Logarithmic),
         )
         and ordinary_strong
-        and reference_dead_loads
         and not tuple(getattr(model, "boundary_models", ()))
     )
 

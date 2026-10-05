@@ -6,7 +6,9 @@ import json
 
 import numpy as np
 import pytest
-from dolfinx import mesh as dolfinx_mesh
+import ufl
+from dolfinx import fem, mesh as dolfinx_mesh
+from dolfinx.fem import petsc as fem_petsc
 from mpi4py import MPI
 
 from agentfem import (
@@ -503,20 +505,37 @@ def test_standard_j2_constraint_capability_sees_nested_periodic_assets():
     assert not capability["supported"]
 
 
-def test_standard_j2_rejects_follower_load_without_external_tangent():
-    model, displacement, material, _step = _standard_patch(
-        incrementation=steps.fixed(1)
+def test_standard_j2_follower_pressure_has_external_tangent_and_path_work():
+    domain = dolfinx_mesh.create_unit_cube(MPI.COMM_SELF, 2, 1, 1)
+    model = models.create(
+        study=studies.nonlinear_static(
+            physics="solid_mechanics",
+            dimension=3,
+        ),
+        mesh=domain,
+        name="finite_strain_j2_follower_pressure",
     )
+    displacement = model.field(fields.displacement(domain))
+    left = mesh.boundary(domain, lambda x: np.isclose(x[0], 0.0), name="left")
     right = mesh.boundary(
-        displacement.value.function_space.mesh,
+        domain,
         lambda x: np.isclose(x[0], 1.0),
         name="right_pressure",
     )
+    model.fix(displacement, on=left, value=(0.0, 0.0, 0.0))
     model.pressure(
-        1.0,
+        5.0,
         on=right,
         configuration="current",
         displacement=displacement,
+    )
+    material = model.material(
+        constitutive.finite_strain_j2_logarithmic(
+            young=1_000.0,
+            poisson=0.3,
+            yield_stress=10_000.0,
+            hardening_modulus=10.0,
+        )
     )
 
     capability = step_capability(
@@ -524,15 +543,59 @@ def test_standard_j2_rejects_follower_load_without_external_tangent():
         target=displacement,
         options={"material": material},
     )
-    assert not capability["supported"]
+    assert capability["supported"]
+    step = model.step(
+        target=displacement,
+        material=material,
+        incrementation=steps.fixed(10),
+        progress=False,
+    )
+    result = step.solve_result()
 
-    with pytest.raises(NotImplementedError, match="No step provider accepted"):
-        model.step(
-            target=displacement,
-            material=material,
-            incrementation=steps.fixed(1),
-            progress=False,
-        )
+    assert step.last_solve_info.converged
+    assert np.min(displacement.value.x.array) < 0.0
+    energy = step.energy_history[-1]
+    assert energy.natural_load_work > 0.0
+    assert energy.prescribed_motion_work == pytest.approx(0.0)
+    energy_scale = max(abs(energy.external_work), abs(energy.internal_energy))
+    assert abs(energy.mechanical_energy_residual) / energy_scale < 2.0e-3
+    assert result.metadata["mechanical_energy_ledger"]["follower_loads"] == (
+        "consistent_external_tangent_and_current_configuration_path_work"
+    )
+
+    base = step.solution.x.array.copy()
+    direction = np.sin(np.arange(base.size, dtype=float) + 0.5)
+    external = step.load_factor * step.external_force.expression
+    external_tangent = fem.form(
+        ufl.derivative(external, step.solution, displacement.trial)
+    )
+    matrix = fem_petsc.assemble_matrix(external_tangent)
+    matrix.assemble()
+    direction_vector = step.solution.x.petsc_vec.duplicate()
+    direction_vector.array[:] = direction
+    tangent_action = direction_vector.duplicate()
+    matrix.mult(direction_vector, tangent_action)
+
+    def assembled_external(alpha):
+        step.solution.x.array[:] = base + alpha * direction
+        step.solution.x.scatter_forward()
+        return step._assembled_external_force_values()
+
+    increment = 1.0e-7
+    finite_difference = (
+        assembled_external(increment) - assembled_external(-increment)
+    ) / (2.0 * increment)
+    np.testing.assert_allclose(
+        tangent_action.array_r,
+        finite_difference,
+        rtol=2.0e-6,
+        atol=2.0e-7,
+    )
+    step.solution.x.array[:] = base
+    step.solution.x.scatter_forward()
+    tangent_action.destroy()
+    direction_vector.destroy()
+    matrix.destroy()
 
 
 def test_standard_j2_load_capability_sees_follower_inside_public_containers():
@@ -568,7 +631,7 @@ def test_standard_j2_load_capability_sees_follower_inside_public_containers():
         target=displacement,
         options={"material": material},
     )
-    assert not capability["supported"]
+    assert capability["supported"]
 
 
 def test_standard_j2_rolls_back_if_accepted_state_finalization_fails(monkeypatch):
