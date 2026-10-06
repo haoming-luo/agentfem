@@ -7,6 +7,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from math import isfinite
+import time
 
 import numpy as np
 from mpi4py import MPI
@@ -345,6 +346,10 @@ class AffineLoadIncrementInfo:
     start_load_factor: float = 0.0
     message: str = ""
     checks: dict[str, object] = field(default_factory=dict)
+    total_seconds: float = 0.0
+    linear_solve_calls: int = 0
+    linear_iterations: int = 0
+    linear_converged_reasons: tuple[int, ...] = ()
 
     def as_dict(self) -> dict[str, object]:
         return {
@@ -362,6 +367,10 @@ class AffineLoadIncrementInfo:
             "equation_mismatch": self.equation_mismatch,
             "message": self.message,
             "checks": dict(self.checks),
+            "total_seconds": self.total_seconds,
+            "linear_solve_calls": self.linear_solve_calls,
+            "linear_iterations": self.linear_iterations,
+            "linear_converged_reasons": self.linear_converged_reasons,
         }
 
     @classmethod
@@ -384,6 +393,12 @@ class AffineLoadIncrementInfo:
             start_load_factor=float(record.get("start_load_factor", 0.0)),
             message=str(record.get("message", "")),
             checks=dict(record.get("checks", {})),
+            total_seconds=float(record.get("total_seconds", 0.0)),
+            linear_solve_calls=int(record.get("linear_solve_calls", 0)),
+            linear_iterations=int(record.get("linear_iterations", 0)),
+            linear_converged_reasons=tuple(
+                int(value) for value in record.get("linear_converged_reasons", ())
+            ),
         )
 
 
@@ -612,9 +627,12 @@ class PreparedLinearProblem:
             self.matrix.zeroEntries()
             self.matrix.axpy(1.0, self._lifting_matrix)
             start, _ = self.matrix.getOwnershipRange()
-            owned = [bc.dof_indices()[0][:bc.dof_indices()[1]] for bc in self.bcs]
-            rows = (np.unique(np.concatenate(owned)).astype(PETSc.IntType) + start
-                    if owned else np.empty(0, dtype=PETSc.IntType))
+            owned = [bc.dof_indices()[0][: bc.dof_indices()[1]] for bc in self.bcs]
+            rows = (
+                np.unique(np.concatenate(owned)).astype(PETSc.IntType) + start
+                if owned
+                else np.empty(0, dtype=PETSc.IntType)
+            )
             self.matrix.zeroRowsColumns(rows, diag=1.0)
         else:
             self.matrix.zeroEntries()
@@ -1104,11 +1122,14 @@ def solve_linear_problem(
 
 def _raise_linear_failure(info: LinearSolveInfo) -> None:
     from .diagnostics import ComputationalFailure, linear_failure_diagnostic
+
     raise ComputationalFailure(
-        linear_failure_diagnostic(info.converged_reason, info.iterations, info.residual_norm),
+        linear_failure_diagnostic(
+            info.converged_reason, info.iterations, info.residual_norm
+        ),
         "PETSc KSP did not converge: "
         f"reason={info.converged_reason}, iterations={info.iterations}, "
-        f"residual_norm={info.residual_norm:.6g}."
+        f"residual_norm={info.residual_norm:.6g}.",
     )
 
 
@@ -1499,6 +1520,7 @@ def solve_affine_nonlinear_path(
     )
 
     while accepted_factor < selected_stop - 1.0e-12:
+        increment_started = time.perf_counter()
         increment_number = len(history) + 1
         if isinstance(control, step_controls.AutomaticIncrementation):
             if len(history) >= control.max_increments:
@@ -1574,6 +1596,8 @@ def solve_affine_nonlinear_path(
         )
 
         accepted_steps: list[float] = []
+        linear_solve_iterations: list[int] = []
+        linear_solve_reasons: list[int] = []
         initial_norm = (
             _reduced_residual_norm(residual, T) if trial_valid else float("inf")
         )
@@ -1611,6 +1635,8 @@ def solve_affine_nonlinear_path(
                 selected.linear_options,
                 raise_on_failure=False,
             )
+            linear_solve_iterations.append(int(linear_info.iterations))
+            linear_solve_reasons.append(int(linear_info.converged_reason))
             direction = increment.array_r.copy() if linear_info.converged else None
 
             full_residual.destroy()
@@ -1741,6 +1767,15 @@ def solve_affine_nonlinear_path(
             start_load_factor=accepted_factor,
             message=acceptance_message,
             checks=checks,
+            total_seconds=float(
+                function.function_space.mesh.comm.allreduce(
+                    time.perf_counter() - increment_started,
+                    op=MPI.MAX,
+                )
+            ),
+            linear_solve_calls=len(linear_solve_reasons),
+            linear_iterations=sum(linear_solve_iterations),
+            linear_converged_reasons=tuple(linear_solve_reasons),
         )
         attempt_history.append(increment_info)
         T.destroy()
@@ -1779,6 +1814,11 @@ def solve_affine_nonlinear_path(
                     target_factor=factor,
                     iteration=iteration,
                     residual_norm=current_norm,
+                    metrics={
+                        "total_seconds": increment_info.total_seconds,
+                        "linear_solve_calls": float(increment_info.linear_solve_calls),
+                        "linear_iterations": float(increment_info.linear_iterations),
+                    },
                 )
                 _run_affine_acceptance_stage(
                     function,
@@ -2021,6 +2061,7 @@ def _solve_distributed_affine_nonlinear_path(
     )
 
     while accepted_factor < stop_factor - 1.0e-12:
+        increment_started = time.perf_counter()
         increment_number = len(history) + 1
         if isinstance(control, step_controls.AutomaticIncrementation):
             if len(history) >= control.max_increments:
@@ -2075,6 +2116,8 @@ def _solve_distributed_affine_nonlinear_path(
         )
 
         accepted_steps: list[float] = []
+        linear_solve_iterations: list[int] = []
+        linear_solve_reasons: list[int] = []
         initial_norm = (
             _distributed_reduced_residual_norm(
                 residual,
@@ -2104,6 +2147,8 @@ def _solve_distributed_affine_nonlinear_path(
                 dolfinx_mpc,
                 options,
             )
+            linear_solve_iterations.append(int(linear_info.iterations))
+            linear_solve_reasons.append(int(linear_info.converged_reason))
             if direction is None:
                 _emit(
                     reporter,
@@ -2228,6 +2273,15 @@ def _solve_distributed_affine_nonlinear_path(
             start_load_factor=accepted_factor,
             message=acceptance_message,
             checks=checks,
+            total_seconds=float(
+                function.function_space.mesh.comm.allreduce(
+                    time.perf_counter() - increment_started,
+                    op=MPI.MAX,
+                )
+            ),
+            linear_solve_calls=len(linear_solve_reasons),
+            linear_iterations=sum(linear_solve_iterations),
+            linear_converged_reasons=tuple(linear_solve_reasons),
         )
         attempt_history.append(increment_info)
         if converged:
@@ -2263,6 +2317,11 @@ def _solve_distributed_affine_nonlinear_path(
                     target_factor=factor,
                     iteration=iteration,
                     residual_norm=current_norm,
+                    metrics={
+                        "total_seconds": increment_info.total_seconds,
+                        "linear_solve_calls": float(increment_info.linear_solve_calls),
+                        "linear_iterations": float(increment_info.linear_iterations),
+                    },
                 )
                 _run_affine_acceptance_stage(
                     function,
@@ -2677,21 +2736,29 @@ def attach_nullspace(matrix, modes, *, rhs=None):
             norm = vector.norm()
             if not np.isfinite(norm) or norm <= 1e-14:
                 vector.destroy()
-                raise ValueError("Nullspace modes must be finite and linearly independent.")
-            vector.scale(1.0/norm)
+                raise ValueError(
+                    "Nullspace modes must be finite and linearly independent."
+                )
+            vector.scale(1.0 / norm)
             basis.append(vector)
         if not basis:
             raise ValueError("Provide at least one nullspace mode.")
         space = PETSc.NullSpace().create(vectors=basis, comm=matrix.comm)
         if not space.test(matrix):
-            raise ValueError("Declared nullspace is not a nullspace of the assembled constrained matrix.")
+            raise ValueError(
+                "Declared nullspace is not a nullspace of the assembled constrained matrix."
+            )
         if rhs is not None:
             # For the symmetric systems targeted here left and right modes coincide.
             if not matrix.isSymmetric(tol=1e-10):
-                raise ValueError("RHS compatibility checking requires a symmetric matrix.")
+                raise ValueError(
+                    "RHS compatibility checking requires a symmetric matrix."
+                )
             residual = max(abs(v.dot(rhs)) for v in basis)
             if residual > 1e-10 * max(rhs.norm(), 1.0):
-                raise ValueError("RHS is incompatible with the nullspace; check boundary flux/load balance.")
+                raise ValueError(
+                    "RHS is incompatible with the nullspace; check boundary flux/load balance."
+                )
         matrix.setNullSpace(space)
         return space
     except Exception:

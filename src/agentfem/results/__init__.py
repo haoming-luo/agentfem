@@ -97,6 +97,7 @@ from .statistics import WeightedFieldStatistics, weighted_field_statistics
 from .performance import (
     PerformanceEvidence,
     attach_performance,
+    increment_performance,
     performance_evidence,
 )
 
@@ -146,6 +147,7 @@ def __getattr__(name: str):
     globals()[name] = value
     return value
 
+
 __all__ = [
     "CheckpointRecord",
     "FieldResult",
@@ -187,6 +189,7 @@ __all__ = [
     "dof_statistics",
     "add_execution_trace",
     "attach_performance",
+    "increment_performance",
     "execution_records",
     "complete_result",
     "execution_context",

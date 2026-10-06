@@ -109,6 +109,96 @@ def attach_performance(
     return result
 
 
+def increment_performance(records) -> dict[str, object]:
+    """Summarize provider-owned nonlinear increment timings.
+
+    Finite-strain, creep, and future nonlinear Procedures may expose richer
+    accepted-increment records than a generic ``SolveInfo``.  This helper keeps
+    those measurements first-class without teaching ``SimulationResult`` any
+    material-specific meaning.  Providers remain responsible for reducing
+    each timing across MPI ranks before constructing the record.
+    """
+
+    selected = tuple(records)
+    names = (
+        "total_seconds",
+        "material_update_seconds",
+        "residual_assembly_seconds",
+        "tangent_assembly_seconds",
+        "linear_solve_seconds",
+        "line_search_seconds",
+    )
+
+    available_timing_fields = tuple(
+        name
+        for name in names
+        if selected and all(hasattr(record, name) for record in selected)
+    )
+
+    def timing(record, name: str) -> float:
+        value = float(getattr(record, name))
+        if not math.isfinite(value) or value < 0.0:
+            raise ValueError(
+                f"Increment performance field {name!r} must be finite and nonnegative."
+            )
+        return value
+
+    increments = []
+    for index, record in enumerate(selected, start=1):
+        number = int(getattr(record, "increment", index))
+        load_factor = float(getattr(record, "load_factor", number))
+        if not math.isfinite(load_factor):
+            raise ValueError("Increment load_factor must be finite.")
+        solve_calls = int(getattr(record, "linear_solve_calls", 0))
+        linear_iterations = int(getattr(record, "linear_iterations", 0))
+        reasons = tuple(
+            int(value) for value in getattr(record, "linear_converged_reasons", ())
+        )
+        if solve_calls < 0 or linear_iterations < 0:
+            raise ValueError(
+                "Increment linear-solver counts must be nonnegative integers."
+            )
+        if len(reasons) != solve_calls:
+            raise ValueError(
+                "Increment linear_converged_reasons must contain one entry per "
+                "linear solve call."
+            )
+        increments.append(
+            {
+                "increment": number,
+                "load_factor": load_factor,
+                **{name: timing(record, name) for name in available_timing_fields},
+                "linear_solve_calls": solve_calls,
+                "linear_iterations": linear_iterations,
+                "linear_converged_reasons": reasons,
+            }
+        )
+    return {
+        "schema": "agentfem.increment-performance",
+        "schema_version": "0.1.0",
+        "timing_basis": "provider_rank_reduced_wall_clock_perf_counter",
+        "measurement_boundary": (
+            "provider nonlinear attempt through convergence and physical "
+            "acceptance checks; post-commit output, progress, and checkpoint "
+            "callbacks are excluded"
+        ),
+        "accepted_increment_count": len(increments),
+        "available_timing_fields": available_timing_fields,
+        "unavailable_timing_fields": tuple(
+            name for name in names if name not in available_timing_fields
+        ),
+        "totals": {
+            name: float(sum(item[name] for item in increments))
+            for name in available_timing_fields
+        },
+        "linear_solve_calls": int(
+            sum(item["linear_solve_calls"] for item in increments)
+        ),
+        "linear_iterations": int(sum(item["linear_iterations"] for item in increments)),
+        "increments": increments,
+    }
+
+
 def _local_stage_records(stages: Mapping[str, object]) -> dict[str, dict[str, object]]:
     selected = stages.get("stages", stages)
     if not isinstance(selected, Mapping):
@@ -149,22 +239,15 @@ def _collective_stages(comm, local_stages) -> dict[str, dict[str, object]]:
         # ranks.
         gathered = tuple(comm.allgather(local_stages))
     names = sorted({name for mapping in gathered for name in mapping})
-    return {
-        name: _collective_stage(name, gathered)
-        for name in names
-    }
+    return {name: _collective_stage(name, gathered) for name in names}
 
 
 def _collective_stage(name, gathered) -> dict[str, object]:
     records = tuple(mapping.get(name) for mapping in gathered)
     times = tuple(
-        0.0 if record is None else float(record["seconds"])
-        for record in records
+        0.0 if record is None else float(record["seconds"]) for record in records
     )
-    counts = tuple(
-        0 if record is None else int(record["calls"])
-        for record in records
-    )
+    counts = tuple(0 if record is None else int(record["calls"]) for record in records)
     minimum = min(times)
     maximum = max(times)
     mean = sum(times) / len(times)
@@ -180,9 +263,7 @@ def _collective_stage(name, gathered) -> dict[str, object]:
         "calls_min": calls_min,
         "calls_max": calls_max,
         "participating_ranks": participating_ranks,
-        "seconds_per_call": (
-            None if calls_max < 1 else maximum / calls_max
-        ),
+        "seconds_per_call": (None if calls_max < 1 else maximum / calls_max),
     }
 
 
@@ -278,5 +359,6 @@ def _measurement_boundary(scope: str) -> dict[str, str]:
 __all__ = (
     "PerformanceEvidence",
     "attach_performance",
+    "increment_performance",
     "performance_evidence",
 )

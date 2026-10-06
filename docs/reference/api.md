@@ -597,6 +597,7 @@ and evidence remain in the linked guides and scientific function reference.
 | function | `weighted_field_statistics(values, weights, *, quantiles: Sequence[float] = (0.05, 0.5, 0.95), thresholds: Sequence[float] = (), location: str, representation: str, comm = None) -> WeightedFieldStatistics` | Return exact global statistics from physical sample weights. |
 | class | `PerformanceEvidence` | Comparable execution-cost evidence for one result lifecycle. |
 | function | `attach_performance(result, *, stages: Mapping[str, object], solution = None, source = None, scope: str = 'solve_result_call')` | Attach normalized performance evidence and return ``result``. |
+| function | `increment_performance(records) -> dict[str, object]` | Summarize provider-owned nonlinear increment timings. |
 | function | `performance_evidence(*, stages: Mapping[str, object], solution = None, source = None, scope: str = 'solve_result_call') -> PerformanceEvidence` | Build collective, rank-consistent evidence from local stage timings. |
 | class | `FiniteStrainDiagnosticRequest` | Record physical admissibility and constraint checks. |
 | class | `HistoryRequest` | Evaluate one scientific quantity on every accepted output frame. |

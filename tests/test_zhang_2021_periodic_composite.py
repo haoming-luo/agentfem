@@ -2,12 +2,15 @@
 
 from __future__ import annotations
 
+import json
+
 import numpy as np
 import pytest
 import ufl
 from dolfinx import fem
 from mpi4py import MPI
 
+import agentfem
 from agentfem import fields
 
 from zhang_2021_periodic_composite_fixture import (
@@ -18,6 +21,34 @@ from zhang_2021_periodic_composite_fixture import (
     zhang_2021_plane_strain_composite,
     zhang_2021_periodic_composite,
 )
+from zhang_2021_plane_strain_promotion import (
+    assess_convergence,
+    load_candidate,
+)
+from zhang_2021_plane_strain_driver import (
+    _benchmark_implementation_identity,
+    _require_checkout_runtime,
+)
+
+
+def test_zhang_driver_refuses_cross_worktree_runtime(monkeypatch, tmp_path):
+    _require_checkout_runtime()
+    fake = tmp_path / "other-checkout" / "src" / "agentfem" / "__init__.py"
+    monkeypatch.setattr(agentfem, "__file__", str(fake))
+
+    with pytest.raises(RuntimeError, match="different checkout"):
+        _require_checkout_runtime()
+
+
+def test_zhang_driver_binds_fixture_and_driver_source_files():
+    identity = _benchmark_implementation_identity()
+
+    assert identity["schema"] == "agentfem.benchmark-implementation-identity.v1"
+    assert {item["name"] for item in identity["files"]} == {
+        "zhang_2021_plane_strain_driver.py",
+        "zhang_2021_periodic_composite_fixture.py",
+    }
+    assert all(len(item["sha256"]) == 64 for item in identity["files"])
 
 
 @pytest.mark.skip(
@@ -168,6 +199,143 @@ def test_table5_reference_preserves_published_component_order_and_evidence_gate(
         )
 
 
+def _write_zhang_candidate(
+    root,
+    *,
+    increments,
+    scale,
+    mesh_size=0.2,
+    quadrature_degree=4,
+    tracked_dirty=False,
+    benchmark_digest="4" * 64,
+):
+    root.mkdir()
+    path = root / "zhang_2021_table5_plane_strain_assessment.json"
+    tangent = scale * np.eye(4)
+    payload = {
+        "candidate_schema": "agentfem.external-benchmark-candidate.v2",
+        "result_status": "completed",
+        "identity_stable_during_run": True,
+        "first_piola": (scale * np.asarray([1.0, 2.0, 3.0, 4.0])).tolist(),
+        "mixed_elastic_energy_diagnostics": {
+            "primal_elastic_energy_density": float(scale * 2.0),
+        },
+        "homogenized_algorithmic_tangent": {"values": tangent.tolist()},
+        "benchmark_implementation": {
+            "schema": "agentfem.benchmark-implementation-identity.v1",
+            "files": (
+                {
+                    "name": "zhang_2021_plane_strain_driver.py",
+                    "sha256": benchmark_digest,
+                },
+                {
+                    "name": "zhang_2021_periodic_composite_fixture.py",
+                    "sha256": "5" * 64,
+                },
+            ),
+        },
+        "candidate": {
+            "formulation": "2D_plane_strain_Q2_DPC1",
+            "mesh_size": mesh_size,
+            "global_cells": 315,
+            "quadrature_degree": quadrature_degree,
+            "accepted_increments": increments,
+            "requested_fixed_increments": increments,
+            "mpi_ranks": 1,
+            "macro_tangent_requested": True,
+        },
+        "runtime": {
+            "manifest": {
+                "identity": {
+                    "execution": {
+                        "source": {
+                            "commit": "1" * 40,
+                            "tracked_dirty": tracked_dirty,
+                            "package_tree_sha256": "2" * 64,
+                            "scientific_runtime_sha256": "3" * 64,
+                        }
+                    }
+                }
+            }
+        },
+    }
+    path.write_text(json.dumps(payload), encoding="utf-8")
+    return path
+
+
+def test_zhang_content_bound_increment_audit_derives_decision_from_artifacts(
+    tmp_path,
+):
+    paths = (
+        _write_zhang_candidate(tmp_path / "i20", increments=20, scale=1.02),
+        _write_zhang_candidate(tmp_path / "i40", increments=40, scale=1.004),
+        _write_zhang_candidate(tmp_path / "i80", increments=80, scale=1.0),
+    )
+    runs = tuple(load_candidate(path) for path in paths)
+    report = assess_convergence(increment_runs=runs)
+
+    increment = report["axis_audits"]["load_increment_path_converged"]
+    assert increment["setup_consistent"]
+    assert increment["passed"]
+    assert increment["checks"]["first_piola"]["finest_change"] == pytest.approx(0.004)
+    assert report["derived_convergence"]["load_increment_path_converged"]
+    assert report["content_bound"]
+    assert report["status"] == "incomplete"
+    assert not report["benchmark_promotion_authorized"]
+    assert "serial_mpi_equivalent" in report["missing_promotion_evidence"]
+    assert all(len(item["sha256"]) == 64 for item in increment["artifacts"])
+
+
+def test_zhang_convergence_audit_rejects_uncontrolled_and_dirty_slices(tmp_path):
+    paths = (
+        _write_zhang_candidate(
+            tmp_path / "i20", increments=20, scale=1.02, tracked_dirty=True
+        ),
+        _write_zhang_candidate(tmp_path / "i40", increments=40, scale=1.004),
+        _write_zhang_candidate(
+            tmp_path / "i80", increments=80, scale=1.0, mesh_size=0.1
+        ),
+    )
+    report = assess_convergence(
+        increment_runs=tuple(load_candidate(path) for path in paths)
+    )
+
+    increment = report["axis_audits"]["load_increment_path_converged"]
+    assert not increment["setup_consistent"]
+    assert not increment["passed"]
+    assert not report["content_bound"]
+    assert not report["derived_convergence"]["load_increment_path_converged"]
+
+
+def test_zhang_convergence_audit_rejects_mixed_benchmark_definitions(tmp_path):
+    paths = (
+        _write_zhang_candidate(tmp_path / "i20", increments=20, scale=1.02),
+        _write_zhang_candidate(tmp_path / "i40", increments=40, scale=1.004),
+        _write_zhang_candidate(
+            tmp_path / "i80",
+            increments=80,
+            scale=1.0,
+            benchmark_digest="6" * 64,
+        ),
+    )
+    report = assess_convergence(
+        increment_runs=tuple(load_candidate(path) for path in paths)
+    )
+
+    assert not report["content_bound"]
+    assert not report["source"]["common_benchmark_implementation"]
+
+
+def test_zhang_candidate_rejects_runtime_identity_drift(tmp_path):
+    path = _write_zhang_candidate(tmp_path / "candidate", increments=20, scale=1.0)
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    payload["identity_stable_during_run"] = False
+    path.write_text(json.dumps(payload), encoding="utf-8")
+
+    with pytest.raises(ValueError, match="not stable during execution"):
+        load_candidate(path)
+
+
 def test_zhang_cell_geometry_materials_and_affine_periodicity_are_explicit():
     pytest.importorskip("gmsh")
     fixture = zhang_2021_periodic_composite(
@@ -220,9 +388,7 @@ def test_exact_plane_strain_geometry_is_q9_only_and_periodic(mesh_size):
         mesh_size=mesh_size,
     )
     matrix_region, inclusion_region = fixture.regions()
-    matrix_area = fem.assemble_scalar(
-        fem.form(ufl.as_ufl(1.0) * matrix_region.measure)
-    )
+    matrix_area = fem.assemble_scalar(fem.form(ufl.as_ufl(1.0) * matrix_region.measure))
     inclusion_area = fem.assemble_scalar(
         fem.form(ufl.as_ufl(1.0) * inclusion_region.measure)
     )
@@ -278,9 +444,7 @@ def test_exact_plane_strain_fixture_prepares_three_dpc_pressure_modes():
         mesh_size=0.20,
     )
     unknown = fixture.mixed_field()
-    displacement_element, pressure_element = (
-        unknown.space.ufl_element().sub_elements
-    )
+    displacement_element, pressure_element = unknown.space.ufl_element().sub_elements
     periodicity = fixture.constraint(unknown)
 
     assert fixture.pressure_modes_per_cell == 3

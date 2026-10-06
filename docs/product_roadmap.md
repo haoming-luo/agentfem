@@ -284,7 +284,25 @@ The next scientific promotions focus on depth rather than catalog size:
    curve, mesh, serial/MPI, checkpoint/restart, and `45 -> 90 -> 180`
    increment contracts all pass. The 90-to-180 RMS and maximum differences
    are `0.04460%` and `0.21498%`, within the fixed `0.2%` and `0.5%`
-   contracts;
+   contracts. For the separate Zhang Q2/DPC1 RVE, content-bound candidate and
+   multi-axis audit records now replace caller-declared convergence flags;
+   both the scientific runtime and the benchmark fixture/driver hashes must
+   remain identical across a refinement slice. A separate Appendix-B oracle
+   evolving \(C_p^{-1}\) matches the provider's stress, plastic strain,
+   inverse plastic metric and elastic energy on a non-coaxial path, so the
+   remaining external gap is no longer attributed to a J2 normalization or
+   state-variable mismatch.
+   Initial 20/40/80-increment and degree-4/6/8 quadrature diagnostics show that
+   path refinement and over-integration do not explain the remaining Table 5
+   stress, energy and tangent gap. A 315/459/804/1590/2859-cell spatial
+   sequence remains unconverged: at 2859 cells, close to the paper's stated
+   2823, the published-energy error falls from about `20.5%` to `4.21%`, while
+   the first-Piola error remains about `5.59%`. Element count alone therefore
+   does not reproduce unpublished connectivity or geometry approximation. The
+   next gate is
+   finer content-bound spatial sequence, a fixed-old-state finite-difference
+   check of the homogenized tangent, and an independent material/element
+   oracle; parameter tuning and tolerance relaxation are explicitly excluded;
 3. extend the closed bounded MPC/weak/contact evidence contract only through
    independently verified provider routes; general contact remains a separate
    scientific promotion rather than a foundation blocker;

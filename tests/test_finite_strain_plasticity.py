@@ -7,7 +7,15 @@ import pytest
 from dolfinx import mesh
 from mpi4py import MPI
 
-from agentfem import constitutive, fields, mesh as agentfem_mesh, models, solvers, steps, studies
+from agentfem import (
+    constitutive,
+    fields,
+    mesh as agentfem_mesh,
+    models,
+    solvers,
+    steps,
+    studies,
+)
 from agentfem.mechanics import experimental_finite_strain_j2_step
 
 
@@ -20,9 +28,7 @@ def _point(material, deformation_gradient, *, state=None, old=None):
         time=0.0,
         time_increment=0.1,
         properties=[],
-        state_old=(
-            material.state_schema.initial_state() if state is None else state
-        ),
+        state_old=(material.state_schema.initial_state() if state is None else state),
         state_schema=material.state_schema,
     )
 
@@ -30,14 +36,55 @@ def _point(material, deformation_gradient, *, state=None, old=None):
 def _rotation(angle):
     cosine = np.cos(angle)
     sine = np.sin(angle)
-    return np.asarray(
-        ((cosine, -sine, 0.0), (sine, cosine, 0.0), (0.0, 0.0, 1.0))
-    )
+    return np.asarray(((cosine, -sine, 0.0), (sine, cosine, 0.0), (0.0, 0.0, 1.0)))
 
 
 def _isochoric_extension(stretch):
     lateral = 1.0 / np.sqrt(stretch)
     return np.diag((stretch, lateral, lateral))
+
+
+def _appendix_b_inverse_plastic_metric_step(
+    deformation_gradient,
+    inverse_plastic_metric,
+    equivalent_plastic_strain,
+    *,
+    bulk,
+    shear,
+    yield_stress,
+    hardening_modulus,
+):
+    """Independent Appendix-B return using ``C_p^-1`` rather than ``F_p``."""
+
+    gradient = np.asarray(deformation_gradient, dtype=float)
+    trial_finger = gradient @ inverse_plastic_metric @ gradient.T
+    eigenvalues, directions = np.linalg.eigh(trial_finger)
+    logarithmic_trial = 0.5 * np.log(eigenvalues)
+    volumetric = float(np.sum(logarithmic_trial))
+    deviatoric_logarithmic = logarithmic_trial - volumetric / 3.0
+    deviatoric_trial = 2.0 * shear * deviatoric_logarithmic
+    norm_trial = float(np.linalg.norm(deviatoric_trial))
+    flow_radius = np.sqrt(2.0 / 3.0) * (
+        yield_stress + hardening_modulus * equivalent_plastic_strain
+    )
+    trial_yield = norm_trial - flow_radius
+    plastic_multiplier = 0.0
+    if trial_yield > 64.0 * np.finfo(float).eps:
+        plastic_multiplier = trial_yield / (2.0 * shear + 2.0 * hardening_modulus / 3.0)
+        direction = deviatoric_trial / norm_trial
+        deviatoric_logarithmic -= plastic_multiplier * direction
+    alpha_new = equivalent_plastic_strain + np.sqrt(2.0 / 3.0) * plastic_multiplier
+    logarithmic_new = volumetric / 3.0 + deviatoric_logarithmic
+    principal_kirchhoff = bulk * volumetric + 2.0 * shear * deviatoric_logarithmic
+    kirchhoff = directions @ np.diag(principal_kirchhoff) @ directions.T
+    elastic_finger = directions @ np.diag(np.exp(2.0 * logarithmic_new)) @ directions.T
+    inverse_gradient = np.linalg.inv(gradient)
+    inverse_metric_new = inverse_gradient @ elastic_finger @ inverse_gradient.T
+    elastic_energy = (
+        shear * float(np.dot(deviatoric_logarithmic, deviatoric_logarithmic))
+        + 0.5 * bulk * volumetric**2
+    )
+    return kirchhoff, inverse_metric_new, alpha_new, elastic_energy
 
 
 def test_finite_strain_j2_declares_portable_state_and_rejects_bad_parameters():
@@ -125,6 +172,65 @@ def test_finite_strain_j2_plastic_return_is_isochoric_and_yield_consistent():
     )
 
 
+def test_finite_strain_j2_matches_appendix_b_inverse_metric_oracle():
+    material = constitutive.finite_strain_j2_logarithmic(
+        young=9.0 * 17.5 * 8.0 / (3.0 * 17.5 + 8.0),
+        poisson=(3.0 * 17.5 - 2.0 * 8.0) / (2.0 * (3.0 * 17.5 + 8.0)),
+        yield_stress=0.45,
+        hardening_modulus=0.1,
+    )
+    path = (
+        np.asarray(((1.0, 0.025, 0.0), (0.0, 1.0, 0.0), (0.0, 0.0, 1.0))),
+        np.asarray(((1.01, 0.050, 0.0), (-0.005, 0.995, 0.0), (0.0, 0.0, 1.0))),
+        np.asarray(((0.995, 0.080, 0.0), (0.010, 1.005, 0.0), (0.0, 0.0, 1.0))),
+        np.asarray(((1.0, 0.100, 0.0), (0.0, 1.0, 0.0), (0.0, 0.0, 1.0))),
+    )
+    state = material.state_schema.initial_state()
+    old_gradient = np.eye(3)
+    inverse_metric = np.eye(3)
+    alpha = 0.0
+    for gradient in path:
+        reference_stress, inverse_metric, alpha, reference_energy = (
+            _appendix_b_inverse_plastic_metric_step(
+                gradient,
+                inverse_metric,
+                alpha,
+                bulk=17.5,
+                shear=8.0,
+                yield_stress=0.45,
+                hardening_modulus=0.1,
+            )
+        )
+        response = material.update(
+            _point(material, gradient, state=state, old=old_gradient)
+        )
+        unpacked = material.state_schema.unpack(response.state_new)
+        inverse_plastic = np.linalg.inv(unpacked["plastic_deformation_gradient"])
+        agentfem_inverse_metric = inverse_plastic @ inverse_plastic.T
+        agentfem_kirchhoff = np.linalg.det(gradient) * response.cauchy_stress
+
+        np.testing.assert_allclose(
+            agentfem_kirchhoff,
+            reference_stress,
+            rtol=2.0e-11,
+            atol=2.0e-12,
+        )
+        np.testing.assert_allclose(
+            agentfem_inverse_metric,
+            inverse_metric,
+            rtol=2.0e-11,
+            atol=2.0e-12,
+        )
+        assert unpacked["equivalent_plastic_strain"] == pytest.approx(
+            alpha, rel=2.0e-11, abs=2.0e-12
+        )
+        assert response.stored_energy_density_components["ELENER"] == pytest.approx(
+            reference_energy, rel=2.0e-11, abs=2.0e-12
+        )
+        state = response.state_new
+        old_gradient = gradient
+
+
 def test_finite_strain_j2_separates_recoverable_energy_components():
     material = constitutive.finite_strain_j2_logarithmic(
         young=210_000.0,
@@ -140,9 +246,7 @@ def test_finite_strain_j2_separates_recoverable_energy_components():
         "ELENER",
         "HARDENER",
     )
-    assert elastic.stored_energy_density_components["HARDENER"] == pytest.approx(
-        0.0
-    )
+    assert elastic.stored_energy_density_components["HARDENER"] == pytest.approx(0.0)
     assert elastic.strain_energy_density == pytest.approx(
         elastic.stored_energy_density_components["ELENER"]
     )
@@ -160,8 +264,9 @@ def test_finite_strain_j2_separates_recoverable_energy_components():
         material.yield_stress * plastic_state["equivalent_plastic_strain"],
         rel=2.0e-12,
     )
-    assert "yield_stress_times_equivalent_plastic_strain" in (
-        material.summary()["stored_energy_density"]["PDENER"]
+    assert (
+        "yield_stress_times_equivalent_plastic_strain"
+        in (material.summary()["stored_energy_density"]["PDENER"])
     )
 
 
@@ -209,12 +314,11 @@ def test_finite_strain_j2_unloading_does_not_erase_plastic_history():
         )
     )
     reversed_state = material.state_schema.unpack(reversed_response.state_new)
-    assert reversed_state["equivalent_plastic_strain"] > loaded_state[
-        "equivalent_plastic_strain"
-    ]
-    assert reversed_state["plastic_dissipation"] > loaded_state[
-        "plastic_dissipation"
-    ]
+    assert (
+        reversed_state["equivalent_plastic_strain"]
+        > loaded_state["equivalent_plastic_strain"]
+    )
+    assert reversed_state["plastic_dissipation"] > loaded_state["plastic_dissipation"]
 
 
 def test_finite_strain_j2_reload_preserves_then_extends_history():
@@ -225,17 +329,14 @@ def test_finite_strain_j2_reload_preserves_then_extends_history():
         hardening_modulus=1_000.0,
     )
     gradients = tuple(
-        _isochoric_extension(stretch)
-        for stretch in (1.004, 1.0035, 1.004, 1.005)
+        _isochoric_extension(stretch) for stretch in (1.004, 1.0035, 1.004, 1.005)
     )
     state = material.state_schema.initial_state()
     old = np.eye(3)
     responses = []
     states = []
     for gradient in gradients:
-        response = material.update(
-            _point(material, gradient, state=state, old=old)
-        )
+        response = material.update(_point(material, gradient, state=state, old=old))
         responses.append(response)
         state = response.state_new.copy()
         states.append(material.state_schema.unpack(state))
@@ -261,14 +362,12 @@ def test_finite_strain_j2_reload_preserves_then_extends_history():
         rtol=0.0,
         atol=2.0e-13,
     )
-    assert extended["equivalent_plastic_strain"] > reloaded[
-        "equivalent_plastic_strain"
-    ]
+    assert extended["equivalent_plastic_strain"] > reloaded["equivalent_plastic_strain"]
     assert extended["plastic_dissipation"] > reloaded["plastic_dissipation"]
     for selected in states:
-        assert np.linalg.det(
-            selected["plastic_deformation_gradient"]
-        ) == pytest.approx(1.0, abs=3.0e-10)
+        assert np.linalg.det(selected["plastic_deformation_gradient"]) == pytest.approx(
+            1.0, abs=3.0e-10
+        )
 
 
 def test_finite_strain_j2_nonproportional_order_changes_history():
@@ -289,9 +388,7 @@ def test_finite_strain_j2_nonproportional_order_changes_history():
         old = np.eye(3)
         response = None
         for gradient in history:
-            response = material.update(
-                _point(material, gradient, state=state, old=old)
-            )
+            response = material.update(_point(material, gradient, state=state, old=old))
             state = response.state_new.copy()
             old = gradient
         return response, material.state_schema.unpack(state)
@@ -299,17 +396,21 @@ def test_finite_strain_j2_nonproportional_order_changes_history():
     tension_first, tension_state = integrate((tension, final))
     shear_first, shear_state = integrate((shear, final))
 
-    assert abs(
-        tension_state["equivalent_plastic_strain"]
-        - shear_state["equivalent_plastic_strain"]
-    ) > 1.0e-7
-    assert np.linalg.norm(
-        tension_state["plastic_deformation_gradient"]
-        - shear_state["plastic_deformation_gradient"]
-    ) > 1.0e-5
-    assert np.linalg.norm(
-        tension_first.cauchy_stress - shear_first.cauchy_stress
-    ) > 1.0
+    assert (
+        abs(
+            tension_state["equivalent_plastic_strain"]
+            - shear_state["equivalent_plastic_strain"]
+        )
+        > 1.0e-7
+    )
+    assert (
+        np.linalg.norm(
+            tension_state["plastic_deformation_gradient"]
+            - shear_state["plastic_deformation_gradient"]
+        )
+        > 1.0e-5
+    )
+    assert np.linalg.norm(tension_first.cauchy_stress - shear_first.cauchy_stress) > 1.0
 
     unloaded = final.copy()
     unloaded[0, 1] -= 1.0e-3
@@ -415,8 +516,7 @@ def test_finite_strain_j2_analytic_tangent_matches_numerical_oracle_after_histor
         atol=0.0,
     )
     relative_error = np.linalg.norm(
-        analytic_response.consistent_tangent
-        - numerical_response.consistent_tangent
+        analytic_response.consistent_tangent - numerical_response.consistent_tangent
     ) / np.linalg.norm(numerical_response.consistent_tangent)
     assert relative_error < 2.0e-5
     assert analytic.summary()["tangent_evaluation"] == "analytic_spectral"
@@ -687,12 +787,10 @@ def test_finite_strain_j2_quadrature_batch_respects_trial_commit_and_rollback():
     np.testing.assert_allclose(state.committed_state_vectors(), committed_before)
     np.testing.assert_allclose(state.trial_state_vectors(), trial_result.state_new)
     assert np.all(
-        state.trial_state_vectors()[:, -2]
-        > state.committed_state_vectors()[:, -2]
+        state.trial_state_vectors()[:, -2] > state.committed_state_vectors()[:, -2]
     )
     assert np.all(
-        state.trial_state_vectors()[:, -1]
-        > state.committed_state_vectors()[:, -1]
+        state.trial_state_vectors()[:, -1] > state.committed_state_vectors()[:, -1]
     )
 
     state.rollback()
@@ -801,10 +899,7 @@ def test_quadrature_response_postprocessing_failure_does_not_commit(monkeypatch)
     )
     point_count = len(response.state.reference_field.values)
     gradients = np.asarray(
-        [
-            _isochoric_extension(value)
-            for value in np.linspace(1.06, 1.12, point_count)
-        ]
+        [_isochoric_extension(value) for value in np.linspace(1.06, 1.12, point_count)]
     )
     committed_before = response.state.committed_state_vectors().copy()
 
@@ -932,7 +1027,9 @@ def test_global_finite_strain_j2_patch_consumes_neutral_tangent_and_state():
     assert step._linear_ksp is not None
     assert all(item.total_seconds > 0.0 for item in step.accepted_increments)
     assert all(item.material_update_seconds > 0.0 for item in step.accepted_increments)
-    assert all(item.residual_assembly_seconds > 0.0 for item in step.accepted_increments)
+    assert all(
+        item.residual_assembly_seconds > 0.0 for item in step.accepted_increments
+    )
     assert all(item.tangent_assembly_seconds > 0.0 for item in step.accepted_increments)
     assert all(item.linear_solve_seconds > 0.0 for item in step.accepted_increments)
     assert all(item.linear_solve_calls > 0 for item in step.accepted_increments)
@@ -1039,6 +1136,4 @@ def test_global_finite_strain_j2_multielement_patch_preserves_uniform_path():
         rel=2.0e-8,
         abs=2.0e-10,
     )
-    assert max(
-        item.residual_norm for item in refined.accepted_increments
-    ) < 1.0e-6
+    assert max(item.residual_norm for item in refined.accepted_increments) < 1.0e-6

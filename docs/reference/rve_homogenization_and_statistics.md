@@ -370,7 +370,14 @@ The material equations have also been compared directly. Both routes use the
 multiplicative split \(\mathbf F=\mathbf F_e\mathbf F_p\), a quadratic Hencky
 elastic energy, a Kirchhoff-stress \(J_2\) surface and linear isotropic
 hardening. The differing yield-function normalizations are algebraically
-equivalent. Discretization must nevertheless be compared precisely. Zhang et
+equivalent. An independent Appendix-B material-point oracle evolves
+\(\mathbf C_p^{-1}\), rather than AgentFEM's stored \(\mathbf F_p\), and uses
+the paper's unscaled stress norm and plastic multiplier. It reproduces the
+AgentFEM Kirchhoff stress, equivalent plastic strain, inverse plastic metric,
+and elastic energy along a non-coaxial path. This removes the material-point
+normalization and state representation from the current discrepancy list; it
+does not validate the heterogeneous finite-element solve. Discretization must
+nevertheless be compared precisely. Zhang et
 al. use a two-dimensional Q2 nine-node quadrilateral displacement field and a
 three-mode discontinuous pressure space, which a direct AgentFEM route would
 represent with DPC1 and which is commonly abbreviated 9/3. The pressure
@@ -448,17 +455,63 @@ passed benchmark**. Promotion requires all of the following:
 - serial/MPI and checkpoint/restart equivalence.
 
 `tests/zhang_2021_periodic_composite_fixture.py` defines the geometry, material
-translation, oracle and fail-closed comparison-completeness assessment. A
-missing tangent or missing convergence axis produces `incomplete`, even if one
-stress vector happens to be close. The AgentFEM-owned 3 percent relative and
-componentwise absolute-plus-relative contracts may be tightened but cannot be
-relaxed. At present, however, the assessor accepts caller-supplied Boolean
-statements for load-increment/path, mesh, plane-strain formulation, cell-size,
-serial/MPI, and restart equivalence. It is therefore a completeness schema, not
-yet a content-bound scientific promotion gate. Promotion requires those flags
-to be derived from identified evidence artifacts rather than asserted by a
-caller. `tests/test_zhang_2021_periodic_composite.py` verifies the fixture
-semantics without claiming the external result has passed.
+translation, oracle and fail-closed numerical comparator. A missing tangent or
+missing convergence axis produces `incomplete`, even if one stress vector
+happens to be close. The AgentFEM-owned 3 percent relative and componentwise
+absolute-plus-relative contracts may be tightened but cannot be relaxed. The
+comparator deliberately remains a caller-level comparison helper and never
+authorizes promotion by itself.
+
+The executable candidate now writes a versioned record containing the exact
+mesh, quadrature, increment and rank coordinates, the AgentFEM scientific
+runtime identity, SHA-256 identities of both the benchmark fixture and its
+driver, complete solver evidence and rank-reduced stage timings. Runtime and
+benchmark identities are sampled before and after the solve; a source change
+during a long run invalidates the candidate instead of binding it to whichever
+files happen to exist at the end. The
+separate `zhang_2021_plane_strain_promotion.py` audit hashes those archived
+records, rejects a refinement slice when the benchmark implementation differs
+or an undeclared parameter changes, and
+derives mesh, load-path and quadrature decisions from the stored stress,
+primal-energy and tangent observables. A caller can no longer promote one of
+those axes by passing a Boolean. The audit still fails closed until independent
+formulation, cell-replication, finite-difference macro-tangent, MPI and restart
+evidence is present. `tests/test_zhang_2021_periodic_composite.py` verifies both
+the fixture semantics and this content-bound decision boundary without claiming
+the external result has passed.
+
+Current unarchived diagnostics isolate two non-causes of the Table 5 gap. On a
+315-cell Q9 mesh, 20, 40 and 80 fixed increments reduce successive first-Piola
+changes from about 0.603 percent to 0.307 percent and primal-energy changes from
+about 0.250 percent to 0.125 percent. The candidate is therefore stable along
+that path for those observables, while its published stress and energy errors
+remain approximately 5 percent and 20 percent. At 40 increments, increasing the
+quadrature degree from 4 to 6 and 8 leaves the two finest first-Piola results
+within about 0.102 percent and the energies within about 0.086 percent; it does
+not remove the external gap. Solve time on the same local machine rises from
+about 39 seconds to 70 and 109 seconds, so permanent over-integration is not a
+defensible remedy. The condensed four-column macro tangent costs about 0.06
+seconds at this size and is not the measured bottleneck. These observations are
+diagnostic evidence only; they do not replace a committed clean-source archive.
+
+The first five-level spatial sequence uses nominal mesh sizes 0.20, 0.14, 0.10,
+0.07 and 0.05, producing 315, 459, 804, 1590 and 2859 Q9 cells. The 1590-cell
+level still changes primal elastic energy by about 3.40 percent relative to the
+previous mesh. At 2859 cells--very close to the publication's stated 2823--the
+Table 5 primal-energy error falls further to about 4.21 percent, while the
+first-Piola vector error remains about 5.59 percent. The measured solve takes
+about 500 seconds on the same local machine. Spatial convergence is therefore
+not established, and matching only the element count does not reproduce the
+paper's unpublished connectivity or curved-boundary approximation. The energy
+trend is strong evidence against interpreting the coarse discrepancy as a
+constitutive failure, while the persistent stress gap requires an independent
+element/mesh oracle rather than parameter tuning.
+
+Table 5 is also a published **discrete-result target**, not a continuum exact
+solution: the paper identifies 2823 Q9 cells and the 9/3 family but does not
+publish the mesh connectivity or load-increment schedule. AgentFEM therefore
+records any residual reproduction ambiguity instead of tuning material data or
+relaxing tolerances to force agreement.
 
 One unarchived current-stack coarse diagnostic makes that boundary concrete.
 On a 502-tetrahedron, thickness-0.10 P2/DG0 extrusion with 20 load increments,
@@ -549,3 +602,10 @@ closure, not another local material tangent.
    [open manuscript](https://arxiv.org/abs/2010.02371).
 5. FEniCS Project, “Basix `create_element` and discontinuous DPC variant,”
    [official API reference](https://docs.fenicsproject.org/basix/main/python/_autosummary/basix.finite_element.html).
+6. T. Sussman and K.-J. Bathe, “A finite element formulation for nonlinear
+   incompressible elastic and inelastic analysis,” *Computers & Structures* 26
+   (1987), 357--409.
+   [doi:10.1016/0045-7949(87)90265-3](https://doi.org/10.1016/0045-7949(87)90265-3),
+   [author manuscript](https://web.mit.edu/kjb/www/Publications_Prior_to_1998/A_Finite_Element_Formulation_for_Nonlinear_Incompressible_Elastic_and_Inelastic_Analysis.pdf).
+7. The deal.II Project, “Step-44: three-field finite-strain mixed formulation,”
+   [official tutorial](https://dealii.org/current/doxygen/deal.II/step_44.html).
