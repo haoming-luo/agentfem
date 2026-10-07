@@ -295,17 +295,17 @@ preserves the provider-owned quadrature history beside them, and reassembles
 the mixed functions only after mesh, field, material, procedure, and
 constraint identities pass restore validation. Fresh-Step checkpoint/continue
 equivalence is verified for both serial mixed routes: 3D tetrahedral P2/DG0 and
-2D plane-strain quadrilateral Q2/DPC1. Separately, the generic DPC cell-interior
-state primitive has one-to-two and two-to-one-rank acceptance coverage. That
-serializer evidence is not evidence for an MPI mixed-J2 solve or a cross-rank
-restart of one.
+2D plane-strain quadrilateral Q2/DPC1. The exact curved Q9/DPC1 periodic cell
+also passes serial/two-rank response comparison and one-to-two and
+two-to-one-rank full checkpoint continuation, including its primary pressure
+modes and quadrature history.
 
 These routes are intentionally limited to tetrahedral 3D P2/DG0 or
 quadrilateral 2D plane-strain Q2/DPC1, one exact affine-periodic constraint,
-and serial sparse reduction. A bulk-to-shear ratio of \(10^4\) is a temporary
+and an exact affine sparse transformation. A bulk-to-shear ratio of \(10^4\) is a temporary
 implementation ceiling that guards the current subtractive tangent extraction;
 it is not an audited accuracy range or a material-model limit. They do not yet
-support distributed block-aware MPC, ordinary strong-boundary mixed problems,
+support general distributed block-aware MPC, ordinary strong-boundary mixed problems,
 or body/natural-load power. The Q2/DPC1 path supplies the three pressure modes
 of the 9/3 formulation. The Zhang--Feng--Khandelwal geometry now has a direct,
 formulation-correspondent plane-strain diagnostic driver that reports primal
@@ -323,8 +323,8 @@ discretization, mesh-quality measure, exact accepted load path and increment
 policy. The driver accepts `--increments N` for a prescribed uniform path so
 mesh and path studies do not silently compare different automatic histories.
 That execution remains an unpromoted diagnostic: Table 5
-agreement, load-path, formulation and mesh convergence, replicated cells,
-MPI/restart equivalence, and content-bound evidence remain open. The existing
+agreement and full formulation/mesh convergence remain open. Geometric
+supercell and MPI/restart diagnostics now pass their bounded contracts. The existing
 thin-3D tetrahedral fixture is a separate experimental
 diagnostic rather than evidence of 2D formulation identity or locking
 convergence.

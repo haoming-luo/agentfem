@@ -7,6 +7,7 @@ from types import SimpleNamespace
 import pytest
 
 from agentfem import ir, models, public_api, studies
+from agentfem import _model_inspection
 
 
 class _IndexMap:
@@ -82,6 +83,37 @@ def test_model_ir_records_scope_backend_and_validation(tmp_path):
     assert "local_cells" not in record["root"]["mesh"]
     assert record["metadata"]["case"] == "unit_test"
     assert json.loads(output.read_text(encoding="utf-8"))["root"]["name"] == "heat"
+
+
+def test_distributed_ir_builds_collective_document_on_nonroot(monkeypatch, tmp_path):
+    calls = []
+
+    class Comm:
+        rank = 1
+
+        def barrier(self):
+            calls.append("barrier")
+
+    fake_model = SimpleNamespace(mesh=SimpleNamespace(comm=Comm()))
+
+    def build(*_args, **_kwargs):
+        calls.append("build")
+        return {"root": {"name": "distributed"}}
+
+    monkeypatch.setattr(_model_inspection, "model_to_ir", build)
+    monkeypatch.setattr(
+        ir,
+        "write_document",
+        lambda *_args, **_kwargs: calls.append("write"),
+    )
+
+    output = _model_inspection.write_model_ir(
+        fake_model,
+        tmp_path / "distributed.afir.json",
+    )
+
+    assert output == tmp_path / "distributed.afir.json"
+    assert calls == ["build", "barrier"]
 
 
 def test_runtime_objects_use_typed_opaque_markers():

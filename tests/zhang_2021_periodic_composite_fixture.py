@@ -191,10 +191,13 @@ class Zhang2021PlaneStrainCompositeFixture:
     minimum_scaled_jacobian: float
     inclusion_surface_count: int
     void_curve_count: int
+    cell_repetitions: tuple[int, int]
+    cell_origin: tuple[float, float]
+    cell_periods: tuple[float, float]
 
     @property
     def reference_cell_area(self) -> float:
-        return 1.0
+        return float(np.prod(self.cell_periods))
 
     @property
     def pressure_modes_per_cell(self) -> int:
@@ -452,6 +455,7 @@ def zhang_2021_plane_strain_composite(
     shear: float = 0.10,
     macro_deformation_gradient=None,
     element_order: int = 2,
+    cell_repetitions: tuple[int, int] = (1, 1),
     model_rank: int = 0,
 ) -> Zhang2021PlaneStrainCompositeFixture:
     """Build the published 2D unit cell as a pure curved Q9 mesh.
@@ -488,6 +492,15 @@ def zhang_2021_plane_strain_composite(
         raise ValueError("The exact plane-strain fixture requires element_order=2.")
     if not 0 <= int(model_rank) < int(comm.size):
         raise ValueError("model_rank must identify one rank in the communicator.")
+    if (
+        len(cell_repetitions) != 2
+        or any(isinstance(value, bool) for value in cell_repetitions)
+        or any(int(value) != value or int(value) <= 0 for value in cell_repetitions)
+    ):
+        raise ValueError("cell_repetitions must contain two positive integers.")
+    repetitions = tuple(int(value) for value in cell_repetitions)
+    origin = (-0.5, -0.5)
+    periods = tuple(float(value) for value in repetitions)
 
     gmsh = mesh.require_gmsh()
     initialized_here = not gmsh.isInitialized()
@@ -515,12 +528,23 @@ def zhang_2021_plane_strain_composite(
             }
             for name, value in selected_options.items():
                 gmsh.option.setNumber(name, float(value))
-            gmsh.model.add("zhang_2021_plane_strain_composite")
+            gmsh.model.add(
+                "zhang_2021_plane_strain_composite_"
+                f"{repetitions[0]}x{repetitions[1]}"
+            )
 
-            square = gmsh.model.occ.addRectangle(-0.5, -0.5, 0.0, 1.0, 1.0)
+            square = gmsh.model.occ.addRectangle(
+                origin[0], origin[1], 0.0, periods[0], periods[1]
+            )
+            centers = tuple(
+                (x + i, y + j)
+                for j in range(repetitions[1])
+                for i in range(repetitions[0])
+                for x, y in ((-0.2, 0.2), (-0.2, -0.2), (0.2, 0.0))
+            )
             disks = tuple(
                 gmsh.model.occ.addDisk(x, y, 0.0, 0.15, 0.15)
-                for x, y in ((-0.2, 0.2), (-0.2, -0.2), (0.2, 0.0))
+                for x, y in centers
             )
             _surfaces, entity_maps = gmsh.model.occ.fragment(
                 [(2, square)],
@@ -530,7 +554,7 @@ def zhang_2021_plane_strain_composite(
             )
             gmsh.model.occ.synchronize()
             mapped_disks = []
-            for index in (1, 2, 3):
+            for index in range(1, len(disks) + 1):
                 mapped = tuple(
                     int(tag) for dim, tag in entity_maps[index] if int(dim) == 2
                 )
@@ -539,9 +563,19 @@ def zhang_2021_plane_strain_composite(
                         "The Zhang 2021 disks must remain three disjoint surfaces."
                     )
                 mapped_disks.append(mapped[0])
-            inclusion_surfaces = tuple(mapped_disks[:2])
-            void_surface = int(mapped_disks[2])
-            gmsh.model.occ.remove([(2, void_surface)], recursive=True)
+            inclusion_surfaces = tuple(
+                mapped_disks[index]
+                for index in range(len(mapped_disks))
+                if index % 3 in (0, 1)
+            )
+            void_surfaces = tuple(
+                mapped_disks[index]
+                for index in range(len(mapped_disks))
+                if index % 3 == 2
+            )
+            gmsh.model.occ.remove(
+                [(2, int(tag)) for tag in void_surfaces], recursive=True
+            )
             gmsh.model.occ.synchronize()
 
             existing_surfaces = {
@@ -555,13 +589,19 @@ def zhang_2021_plane_strain_composite(
                 or not set(inclusion_surfaces) <= existing_surfaces
             ):
                 raise RuntimeError(
-                    "Could not identify one matrix and two inclusion surfaces."
+                    "Could not identify one matrix and the replicated inclusion surfaces."
                 )
 
-            periodic_curves, void_curves = _classify_periodic_curves_2d(gmsh)
+            bounds = tuple(
+                (origin[axis], origin[axis] + periods[axis])
+                for axis in range(2)
+            )
+            periodic_curves, void_curves = _classify_periodic_curves_2d(
+                gmsh, bounds=bounds
+            )
             for axis in range(2):
                 transform = np.eye(4)
-                transform[axis, 3] = 1.0
+                transform[axis, 3] = periods[axis]
                 gmsh.model.mesh.setPeriodic(
                     1,
                     list(periodic_curves[(axis, 1)]),
@@ -588,6 +628,8 @@ def zhang_2021_plane_strain_composite(
                 gmsh,
                 periodic_curves,
                 tolerance=1.0e-9,
+                origin=origin,
+                periods=periods,
             )
             semantics["inclusion_surface_count"] = len(inclusion_surfaces)
             semantics["void_curve_count"] = len(void_curves)
@@ -664,6 +706,9 @@ def zhang_2021_plane_strain_composite(
         ),
         inclusion_surface_count=int(semantics["inclusion_surface_count"]),
         void_curve_count=int(semantics["void_curve_count"]),
+        cell_repetitions=repetitions,
+        cell_origin=origin,
+        cell_periods=periods,
     )
 
 
@@ -860,8 +905,11 @@ def _classify_periodic_faces(gmsh, thickness: float):
     return {key: tuple(value) for key, value in periodic.items()}, tuple(void_faces)
 
 
-def _classify_periodic_curves_2d(gmsh):
-    bounds = ((-0.5, 0.5), (-0.5, 0.5))
+def _classify_periodic_curves_2d(
+    gmsh,
+    *,
+    bounds=((-0.5, 0.5), (-0.5, 0.5)),
+):
     # OpenCASCADE bounding boxes carry its geometric tolerance beyond the
     # analytical coordinate even though the curve itself is exact.
     tolerance = 2.0e-6
@@ -966,11 +1014,19 @@ def _quadrilateral9_mesh_diagnostics(gmsh) -> dict[str, object]:
     }
 
 
-def _periodic_semantics_2d(gmsh, curves, *, tolerance: float):
-    """Return exact two-component equations for the unit-square lattice."""
+def _periodic_semantics_2d(
+    gmsh,
+    curves,
+    *,
+    tolerance: float,
+    origin=(-0.5, -0.5),
+    periods=(1.0, 1.0),
+):
+    """Return exact two-component equations for a rectangular supercell."""
 
-    origin = np.asarray((-0.5, -0.5, 0.0), dtype=float)
-    periods = np.asarray((1.0, 1.0), dtype=float)
+    origin = np.asarray((*origin, 0.0), dtype=float)
+    periods = np.asarray(periods, dtype=float)
+    upper = origin[:2] + periods
     node_tags, node_coordinates, _ = gmsh.model.mesh.getNodes()
     coordinates = np.asarray(node_coordinates, dtype=float).reshape(-1, 3)
     labels = np.asarray(node_tags, dtype=np.int64)
@@ -1008,7 +1064,7 @@ def _periodic_semantics_2d(gmsh, curves, *, tolerance: float):
         if any(
             abs(coordinate[axis] - bound) <= tolerance
             for axis in range(2)
-            for bound in (-0.5, 0.5)
+            for bound in (origin[axis], upper[axis])
         )
     )
     equations = []
@@ -1017,12 +1073,12 @@ def _periodic_semantics_2d(gmsh, curves, *, tolerance: float):
         active_axes = tuple(
             axis
             for axis in range(2)
-            if abs(coordinate[axis] - 0.5) <= tolerance
+            if abs(coordinate[axis] - upper[axis]) <= tolerance
         )
         if not active_axes or slave in control_nodes:
             continue
         wrapped = coordinate.copy()
-        wrapped[list(active_axes)] = -0.5
+        wrapped[list(active_axes)] = origin[list(active_axes)]
         base = label_at(wrapped)
         for component in (1, 2):
             terms = [(slave, component, 1.0), (base, component, -1.0)]
@@ -1042,7 +1098,7 @@ def _periodic_semantics_2d(gmsh, curves, *, tolerance: float):
         expected_slave_labels = {
             int(label)
             for label, coordinate in zip(labels, coordinates)
-            if abs(coordinate[axis] - 0.5) <= tolerance
+            if abs(coordinate[axis] - upper[axis]) <= tolerance
         }
         found_pair = False
         for selected_curve in selected_curves:
@@ -1052,7 +1108,7 @@ def _periodic_semantics_2d(gmsh, curves, *, tolerance: float):
             if len(slaves) == 0:
                 continue
             found_pair = True
-            translation = np.eye(3)[axis]
+            translation = np.eye(3)[axis] * periods[axis]
             for slave, master in zip(slaves, masters):
                 slave = int(slave)
                 master = int(master)

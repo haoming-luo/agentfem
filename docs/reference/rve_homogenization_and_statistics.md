@@ -543,6 +543,25 @@ publish the mesh connectivity or load-increment schedule. AgentFEM therefore
 records any residual reproduction ambiguity instead of tuning material data or
 relaxing tolerances to force agreement.
 
+The controlled curved-Q9 geometric supercell diagnostic now covers 1x1,
+1x2, 2x1 and 2x2 cells at a common mesh target of 0.28 and quadrature degree 4.
+Relative to 1x1, maximum first-Piola and primal-energy changes are 0.7404%
+and 4.1493%. The diagnostic contracts are 1% and 5%, respectively; they are
+AgentFEM thresholds, not published tolerances. These independently remeshed
+supercells establish a bounded geometric size check, not exact topology tiling
+or mesh convergence. An independent hand-polynomial Q9/DPC1 oracle verifies
+basis values, derivatives, linear pressure completeness and a curved affine
+physical patch with errors below 2e-13.
+
+The exact cell also passes serial/two-rank response comparison and portable
+checkpoint continuation in both 1-to-2 and 2-to-1 directions. The audit
+commands `zhang_2021_parallel_equivalence.py` and
+`zhang_2021_supercell_audit.py` consume hashed candidate artifacts;
+`zhang_2021_plane_strain_promotion.py` accepts their reports together with
+both restart reports and verifies the checkpoint artifact graph. These gates
+do not authorize Table 5 promotion: full spatial/formulation convergence and
+agreement with the published stress, energy and tangent remain outstanding.
+
 One unarchived current-stack coarse diagnostic makes that boundary concrete.
 On a 502-tetrahedron, thickness-0.10 P2/DG0 extrusion with 20 load increments,
 the first-Piola vector has 1.4324 percent relative L2 error and passes that
@@ -597,14 +616,16 @@ verified for both serial mixed routes: 3D tetrahedral P2/DG0 and 2D plane-strain
 quadrilateral Q2/DPC1. The 3D P2/DG0 provider also passes a distributed mixed
 solve and both one-to-two and two-to-one-rank checkpoint/continue paths. Those
 paths restore the exact split primary fields, quadrature state and accepted
-increment history. The 2D Q2/DPC1 equilibrium provider remains serial.
+increment history. The 2D Q2/DPC1 exact periodic cell now also passes a
+two-rank solve and bidirectional one/two-rank checkpoint continuation.
 
 These tests establish the software contract; an RVE used for a material claim
 still requires its own mesh, loading-path, convergence, and reference-result
 evidence. Multi-material finite-strain J2 dispatch is now part of the
 experimental public affine routes. The Zhang fixture makes the independent
-external comparison executable, but it has not yet passed its loading-path,
-formulation, replication, effective-tangent, or distributed-execution gates.
+external comparison executable. Its bounded geometric replication and
+distributed lifecycle diagnostics pass; full spatial/formulation convergence
+and the external effective-tangent comparison remain open.
 Stress-state-controlled macro loading, full Zhang evidence through the direct
 2D Q2/DPC1 route, and the mixed-route conditioning study remain separate
 promotion gates. The underlying local J2 return already uses the analytical

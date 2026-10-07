@@ -162,9 +162,95 @@ def _verified_artifact(reference, *, root: Path) -> Path:
     path = Path(str(reference.get("path", "")))
     selected = path if path.is_absolute() else root / path
     digest = reference.get("sha256")
-    if not selected.is_file() or not isinstance(digest, str) or _sha256(selected) != digest:
+    if (
+        not selected.is_file()
+        or not isinstance(digest, str)
+        or _sha256(selected) != digest
+    ):
         raise ValueError(f"Tangent evidence artifact hash mismatch: {selected}")
     return selected
+
+
+def load_lifecycle_evidence(*, supercell=None, parallel=None, restarts=()):
+    """Recompute audits from hashed candidates and verify restart archives.
+
+    This closes only the stated lifecycle gates.  Element interpolation and
+    coarse supercell evidence do not establish spatial or formulation convergence.
+    """
+    from zhang_2021_parallel_equivalence import assess as assess_parallel
+    from zhang_2021_supercell_audit import assess as assess_supercell
+
+    gates = {}
+    artifacts = []
+
+    def read(path):
+        selected = Path(path)
+        payload = json.loads(selected.read_text(encoding="utf-8"))
+        artifacts.append({"path": str(selected), "sha256": _sha256(selected)})
+        return selected, payload
+
+    if supercell is not None:
+        selected, payload = read(supercell)
+        if payload.get("schema") != "agentfem.zhang-2021-geometric-supercell-audit.v1":
+            raise ValueError("Unsupported supercell evidence schema.")
+        runs = tuple(
+            load_candidate(_verified_artifact(item["artifact"], root=selected.parent))
+            for item in payload["comparisons"].values()
+        )
+        gates["periodic_cell_size_invariant"] = assess_supercell(runs)["passed"]
+    if parallel is not None:
+        selected, payload = read(parallel)
+        if payload.get("schema") != "agentfem.zhang-2021-serial-mpi-equivalence.v1":
+            raise ValueError("Unsupported parallel evidence schema.")
+        runs = [
+            load_candidate(
+                _verified_artifact(payload["artifacts"][name], root=selected.parent)
+            )
+            for name in ("serial", "parallel")
+        ]
+        gates["serial_mpi_equivalent"] = assess_parallel(*runs)["passed"]
+    directions = set()
+    restart_passed = bool(restarts)
+    for path in restarts:
+        selected, payload = read(path)
+        unsealed = dict(payload)
+        fingerprint = unsealed.pop("fingerprint", None)
+        if (
+            payload.get("schema") != "agentfem.zhang-2021-plane-strain-restart.v1"
+            or fingerprint != _canonical_fingerprint(unsealed)
+        ):
+            raise ValueError("Restart evidence schema or fingerprint mismatch.")
+        references = payload["checkpoint"]["artifacts"]
+        manifest_path = _verified_artifact(references["manifest"], root=selected.parent)
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+        for name in ("nodal_state", "quadrature_state"):
+            actual = _verified_artifact(references[name], root=selected.parent)
+            original = _verified_artifact(manifest[name], root=manifest_path.parent)
+            if actual.resolve() != original.resolve():
+                raise ValueError(
+                    "Restart evidence does not reference the manifest archive."
+                )
+        writer, reader = (
+            int(payload["writer_rank_count"]),
+            int(payload["reader_rank_count"]),
+        )
+        if (
+            writer != int(manifest["writer_rank_count"])
+            or manifest.get("portable") is not True
+        ):
+            raise ValueError("Restart rank or portability identity mismatch.")
+        directions.add((writer, reader))
+        checks = payload["comparison"]["checks"]
+        restart_passed &= bool(
+            payload.get("passed") is True
+            and checks
+            and all(item.get("passed") is True for item in checks.values())
+        )
+    if restarts:
+        gates["restart_equivalent"] = bool(
+            restart_passed and {(1, 2), (2, 1)} <= directions
+        )
+    return {"derived_gates": gates, "artifacts": artifacts}
 
 
 def load_macro_tangent_check(path: Path) -> dict[str, object]:
@@ -184,7 +270,9 @@ def load_macro_tangent_check(path: Path) -> dict[str, object]:
         or payload.get("accepted") is not True
         or payload.get("content_bound") is not True
     ):
-        raise ValueError(f"Macro-tangent evidence is not accepted and content-bound: {selected}")
+        raise ValueError(
+            f"Macro-tangent evidence is not accepted and content-bound: {selected}"
+        )
     root = selected.parent
     base_path = _verified_artifact(payload.get("base"), root=root)
     base = load_candidate(base_path)
@@ -194,7 +282,9 @@ def load_macro_tangent_check(path: Path) -> dict[str, object]:
             raise ValueError("Tangent perturbation record must be a mapping.")
         references.extend((perturbation.get("plus"), perturbation.get("minus")))
     if len(references) != 8:
-        raise ValueError("A 2D macro-tangent check requires eight perturbation artifacts.")
+        raise ValueError(
+            "A 2D macro-tangent check requires eight perturbation artifacts."
+        )
     for reference in references:
         _verified_artifact(reference, root=root)
     check = payload.get("check")
@@ -244,9 +334,7 @@ def assess_macro_tangent_sensitivity(runs) -> dict[str, object]:
     )
     analytical_consistent = bool(
         analytical
-        and all(
-            np.array_equal(analytical[0], value) for value in analytical[1:]
-        )
+        and all(np.array_equal(analytical[0], value) for value in analytical[1:])
     )
     relative_errors = tuple(
         float(run["check"]["relative_frobenius_error"]) for run in selected
@@ -413,6 +501,7 @@ def assess_convergence(
     mesh_runs=(),
     quadrature_runs=(),
     tangent_runs=(),
+    lifecycle_evidence=None,
 ) -> dict[str, object]:
     """Derive available convergence axes from candidate file contents."""
 
@@ -489,11 +578,17 @@ def assess_convergence(
     independent_gates = tuple(
         name
         for name in INDEPENDENT_PROMOTION_GATES
-        if name != "macro_tangent_finite_difference_consistent"
-        or tangent_audit is None
-        or not tangent_audit["passed"]
+        if not (lifecycle_evidence or {}).get("derived_gates", {}).get(name, False)
+        and (
+            name != "macro_tangent_finite_difference_consistent"
+            or tangent_audit is None
+            or not tangent_audit["passed"]
+        )
     )
-    missing = tuple(name for name, passed in derived.items() if not passed) + independent_gates
+    missing = (
+        tuple(name for name, passed in derived.items() if not passed)
+        + independent_gates
+    )
     return {
         "schema": SCHEMA,
         "status": "incomplete",
@@ -515,6 +610,7 @@ def assess_convergence(
         "derived_convergence": derived,
         "axis_audits": audits,
         "macro_tangent_step_audit": tangent_audit,
+        "lifecycle_evidence": lifecycle_evidence,
         "missing_promotion_evidence": missing,
         "decision_scope": (
             "content-bound mesh, increment, and quadrature diagnostics; "
@@ -529,6 +625,9 @@ def main() -> None:
     parser.add_argument("--mesh-run", action="append", type=Path, default=[])
     parser.add_argument("--quadrature-run", action="append", type=Path, default=[])
     parser.add_argument("--tangent-run", action="append", type=Path, default=[])
+    parser.add_argument("--supercell-audit", type=Path)
+    parser.add_argument("--parallel-audit", type=Path)
+    parser.add_argument("--restart-audit", action="append", type=Path, default=[])
     parser.add_argument("--output", type=Path, required=True)
     arguments = parser.parse_args()
     report = assess_convergence(
@@ -539,6 +638,11 @@ def main() -> None:
         ),
         tangent_runs=tuple(
             load_macro_tangent_check(path) for path in arguments.tangent_run
+        ),
+        lifecycle_evidence=load_lifecycle_evidence(
+            supercell=arguments.supercell_audit,
+            parallel=arguments.parallel_audit,
+            restarts=arguments.restart_audit,
         ),
     )
     arguments.output.parent.mkdir(parents=True, exist_ok=True)

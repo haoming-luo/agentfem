@@ -82,6 +82,14 @@ def main() -> int:
     _require_checkout_runtime()
     parser = argparse.ArgumentParser()
     parser.add_argument("--mesh-size", type=float, default=0.20)
+    parser.add_argument(
+        "--cell-repetitions",
+        type=int,
+        nargs=2,
+        default=(1, 1),
+        metavar=("NX", "NY"),
+        help="Replicate the published unit cell into an NX by NY supercell.",
+    )
     parser.add_argument("--quadrature-degree", type=int, default=4)
     parser.add_argument(
         "--macro-gradient",
@@ -137,6 +145,8 @@ def main() -> int:
         parser.error("--max-increments must be positive and --max-cutbacks nonnegative")
     if arguments.increments is not None and arguments.increments <= 0:
         parser.error("--increments must be positive")
+    if any(value <= 0 for value in arguments.cell_repetitions):
+        parser.error("--cell-repetitions values must be positive")
     if (arguments.penultimate_gradient is None) != (
         arguments.penultimate_coordinate is None
     ):
@@ -165,6 +175,7 @@ def main() -> int:
         comm,
         mesh_size=arguments.mesh_size,
         macro_deformation_gradient=final_gradient,
+        cell_repetitions=tuple(arguments.cell_repetitions),
     )
     fixture_seconds = time.perf_counter() - fixture_started
     build_started = time.perf_counter()
@@ -324,6 +335,8 @@ def main() -> int:
             "result_status": simulation.status,
             "formulation": "2D_plane_strain_Q2_DPC1",
             "mesh_size": float(arguments.mesh_size),
+            "cell_repetitions": list(fixture.cell_repetitions),
+            "reference_cell_area": fixture.reference_cell_area,
             "global_cells": int(fixture.domain.topology.index_map(2).size_global),
             "published_q9_element_count": TABLE5.published_q9_element_count,
             "element_count_fraction_of_published": (
@@ -361,6 +374,8 @@ def main() -> int:
             "candidate": {
                 "formulation": "2D_plane_strain_Q2_DPC1",
                 "mesh_size": float(arguments.mesh_size),
+                "cell_repetitions": list(fixture.cell_repetitions),
+                "reference_cell_area": fixture.reference_cell_area,
                 "global_cells": int(fixture.domain.topology.index_map(2).size_global),
                 "discretization_fingerprint": discretization_at_start["fingerprint"],
                 "quadrature_degree": int(arguments.quadrature_degree),

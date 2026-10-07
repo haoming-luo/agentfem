@@ -32,6 +32,36 @@ from zhang_2021_plane_strain_driver import (
 )
 
 
+def test_independent_q9_dpc1_curved_element_oracle():
+    from zhang_2021_q9_dpc1_oracle import run_oracle
+
+    evidence = run_oracle()
+    assert evidence["passed"]
+    assert all(evidence["checks"].values())
+    assert evidence["metrics"]["dpc1_sample_rank"] == 3
+
+
+def test_lifecycle_empty_evidence_does_not_close_gates():
+    from zhang_2021_plane_strain_promotion import load_lifecycle_evidence
+
+    report = assess_convergence(lifecycle_evidence=load_lifecycle_evidence())
+    assert "restart_equivalent" in report["missing_promotion_evidence"]
+    assert not report["benchmark_promotion_authorized"]
+
+
+def test_restart_evidence_rejects_forged_passed_flag(tmp_path):
+    from zhang_2021_plane_strain_promotion import load_lifecycle_evidence
+
+    path = tmp_path / "forged.json"
+    path.write_text(json.dumps({
+        "schema": "agentfem.zhang-2021-plane-strain-restart.v1",
+        "passed": True,
+        "fingerprint": "sha256:" + "0" * 64,
+    }))
+    with pytest.raises(ValueError, match="fingerprint"):
+        load_lifecycle_evidence(restarts=(path,))
+
+
 def test_zhang_driver_refuses_cross_worktree_runtime(monkeypatch, tmp_path):
     _require_checkout_runtime()
     fake = tmp_path / "other-checkout" / "src" / "agentfem" / "__init__.py"
@@ -57,8 +87,8 @@ def test_zhang_driver_binds_fixture_and_driver_source_files():
         "Zhang 2021 Table 5 promotion requires content-bound evidence: the "
         "formulation-correspondent 2D Q2/DPC1 diagnostic has not passed the "
         "stress, energy or "
-        "effective-tangent comparison and still lacks load-path/mesh/cell-size "
-        "convergence plus serial-MPI and restart equivalence. The thin-3D "
+        "effective-tangent comparison and still lacks full mesh/formulation "
+        "convergence. Lifecycle diagnostics do not promote Table 5. The thin-3D "
         "P2/DG0 diagnostic is not the published formulation."
     )
 )
@@ -559,6 +589,52 @@ def test_exact_plane_strain_fixture_prepares_three_dpc_pressure_modes():
     )
 
 
+@pytest.mark.parametrize("repetitions", ((1, 2), (2, 1), (2, 2)))
+def test_exact_plane_strain_supercell_preserves_periodicity_and_phase_measure(
+    repetitions,
+):
+    pytest.importorskip("gmsh")
+    fixture = zhang_2021_plane_strain_composite(
+        MPI.COMM_SELF,
+        mesh_size=0.28,
+        cell_repetitions=repetitions,
+    )
+    matrix_region, inclusion_region = fixture.regions()
+    matrix_area = fem.assemble_scalar(
+        fem.form(ufl.as_ufl(1.0) * matrix_region.measure)
+    )
+    inclusion_area = fem.assemble_scalar(
+        fem.form(ufl.as_ufl(1.0) * inclusion_region.measure)
+    )
+    cell_count = int(np.prod(repetitions))
+    radius = 0.15
+    unknown = fixture.mixed_field()
+    periodicity = fixture.constraint(unknown)
+
+    assert fixture.cell_repetitions == repetitions
+    assert fixture.cell_periods == tuple(float(value) for value in repetitions)
+    assert fixture.reference_cell_area == pytest.approx(float(cell_count))
+    assert fixture.inclusion_surface_count == 2 * cell_count
+    assert fixture.void_curve_count >= cell_count
+    assert matrix_area == pytest.approx(
+        cell_count * (1.0 - 3.0 * np.pi * radius**2), rel=5.0e-3
+    )
+    assert inclusion_area == pytest.approx(
+        cell_count * 2.0 * np.pi * radius**2, rel=5.0e-3
+    )
+    assert fixture.periodic_pair_counts == fixture.periodic_expected_pair_counts
+    assert fixture.periodic_pairing_error < 1.0e-13
+    assert periodicity.reference_cell_volume == pytest.approx(float(cell_count))
+    periodicity.apply_affine_increment(0.0, 1.0)
+    assert periodicity.mismatch() < 1.0e-12
+    np.testing.assert_allclose(
+        periodicity.measured_deformation_gradient(unknown.displacement),
+        fixture.deformation_gradient,
+        rtol=0.0,
+        atol=2.0e-12,
+    )
+
+
 def test_exact_plane_strain_fixture_restores_gmsh_global_options():
     gmsh = pytest.importorskip("gmsh")
     initialized_here = not gmsh.isInitialized()
@@ -609,6 +685,8 @@ def test_exact_plane_strain_fixture_restores_gmsh_global_options():
         ({"mesh_size": np.nan}, "mesh_size must be finite and positive"),
         ({"element_order": 1}, "requires element_order=2"),
         ({"element_order": True}, "requires element_order=2"),
+        ({"cell_repetitions": (0, 1)}, "two positive integers"),
+        ({"cell_repetitions": (1, True)}, "two positive integers"),
     ),
 )
 def test_exact_plane_strain_fixture_fails_closed_for_unsupported_mesh(

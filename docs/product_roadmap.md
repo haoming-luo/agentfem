@@ -305,8 +305,13 @@ The next scientific promotions focus on depth rather than catalog size:
    macro tangent to about `1.43e-8`, even though that coarse tangent remains
    about `21.68%` from Table 5. This rules out an internally inconsistent
    Jacobian as the leading explanation without turning a self-consistency check
-   into external validation. The next gate is a controlled curved-geometry and
-   topology family and an independent element oracle. The clean-source,
+   into external validation. A controlled independently remeshed 1x1/1x2/2x1/2x2
+   curved-geometry family now passes its 1% stress and 5% energy diagnostic
+   contracts (observed maxima 0.7404% and 4.1493%). An independent Q9/DPC1
+   hand-polynomial and curved-patch oracle passes. Serial/two-rank response
+   equivalence and bidirectional 1-to-2/2-to-1 checkpoint continuation also
+   pass. Exact discrete topology replication and full mesh/formulation
+   convergence remain distinct open questions. The clean-source,
    content-bound `1e-5/1e-6/1e-7` tangent study now passes: its coarse-to-
    middle observed order is `1.998`, and the two finest finite-difference
    tangents differ by only `1.36e-8`. Blind refinement, parameter
