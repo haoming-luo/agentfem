@@ -516,9 +516,10 @@ local material linearization and Schur condensation are mutually consistent;
 the external discrepancy is now concentrated in the reproduced discrete
 problem--geometry representation, connectivity, interpolation details, path,
 or unpublished reference implementation--rather than an unsupported claim of
-an internal Jacobian defect. This run was made from intentionally modified
-diagnostic source and is not promotion evidence. A clean content-bound repeat
-and perturbation-size study remain required.
+an internal Jacobian defect. A clean-source repeat produced content-bound local
+evidence with the same error, but this diagnostic is not a promoted Table 5
+archive. Perturbation-size sensitivity and the remaining external gates are
+still required.
 
 The first five-level spatial sequence uses nominal mesh sizes 0.20, 0.14, 0.10,
 0.07 and 0.05, producing 315, 459, 804, 1590 and 2859 Q9 cells. The 1590-cell
