@@ -77,3 +77,66 @@ Local archive `rve-localization-20261007/evidence.tar.gz` retains the experiment
 and three localization reports. SHA-256:
 `6089754565595860867edf8149bd5d14fb4e63541a90d68a56f6096bac02f920`.
 It is local diagnostic evidence, not a promoted/public Golden archive.
+
+## Clean, controlled interface-size sequence (2026-10-07)
+
+Commit `fc98aec80bfa82b41bd49d149f79f64e2b03d2e6` produced three clean,
+start/end-identity-stable runs. Background size 0.10, transition distance 0.10,
+curve sampling 200, degree-4 quadrature, Figure 10(a) geometry, materials and
+40 fixed increments are identical. Every run accepted all 40 increments.
+
+| Interface size | Q9 cells | Stress error | Primal-energy error | Tangent error |
+| --- | ---: | ---: | ---: | ---: |
+| 0.05 | 1755 | 0.136% | 1.048% | 0.534% |
+| 0.04 | 2448 | 0.053% | 0.470% | 0.942% |
+| 0.03 | 3543 | 0.064% | 1.312% | 0.706% |
+
+All three satisfy the existing external numerical comparison contracts, not
+the complete promotion contract. The 0.04 candidate exactly reproduces the
+earlier development candidate's stress and primal energy.
+
+The separate `--interface-run` audit reports `content_bound: true` and locks
+every other mesh-policy and physical coordinate. It does **not** set
+`mesh_converged`: local sizing sensitivity at fixed background size cannot
+certify full spatial convergence.
+
+| Observable | 0.05 to 0.04 change | 0.04 to 0.03 change | Existing threshold |
+| --- | ---: | ---: | ---: |
+| First Piola stress | 0.171516% | 0.068473% | 0.5%: pass |
+| Primal elastic energy | 1.524890% | 0.853690% | 0.5%: **fail** |
+| Effective tangent | 0.427955% | 0.258122% | 1%: pass |
+
+The changes decrease, but the energy gate remains failed. Primal energies are
+0.0024483878510, 0.0024116134105 and 0.0023911999807; corresponding pressure-
+defect energies are 9.1438344564e-5, 5.5111853009e-5 and 3.6038875766e-5.
+Independent raw-point reconstruction verifies all four energy channels at
+each level. This supports further bounded local refinement; it is not an
+exact error estimator or permission to replace the primal observable.
+Subsequent work must also separate background resolution, fine-mesh
+quadrature, loading-path and figure-specific lifecycle checks. No material,
+solver or acceptance tolerance was tuned.
+
+### Result-envelope defect discovered during this audit
+
+`verify_manifest` on these original outputs reports `AFM-SEAL-004`: the output
+plan registered its own result manifest as an artifact before publication.
+Its stored inventory therefore describes a missing self-file, while verification
+sees the newly written file. This is a self-reference defect, not a changed
+numerical field. Every other stored artifact record agrees with its file.
+
+The writer fix omits only paths resolving to the manifest being published
+from its serialized artifact inventory. The manifest content remains protected
+by `manifest_sha256`; external artifacts retain their hashes, and the live
+result retains its manifest locator. Tests cover first/repeated publication,
+relative/absolute paths, aliases, an external artifact named `result_manifest`,
+and two-rank collective publication with tamper detection.
+
+Original run files have **not** been rewritten or resealed. The numerical
+candidate audit is content-bound; that is distinct from successful verification
+of the old result envelope. Neither this packaging fix nor the local sequence
+promotes the benchmark.
+
+Local archive: `rve-interface-clean-20261007/evidence.tar.gz` (about 13 MB),
+including all three original runs, the axis audit and three localization reports.
+SHA-256: `7bc927f2cc485ccd03dc74394f58913bc246e3dc4d19fb5bee5667e486a3a5f8`.
+This remains local diagnostic evidence, not a public Golden download.

@@ -506,6 +506,12 @@ repeat now reproduces the fine stress and energy exactly, and a fixed-mesh
 4/6/8-degree quadrature slice passes its observable-change contracts.
 Remaining spatial and lifecycle gates are still required; see the
 [energy follow-up](https://github.com/haoming-luo/agentfem/blob/main/evidence/zhang_2021/energy-sensitivity-followup.md).
+A separate clean interface-size sequence at fixed background resolution now
+passes stress and tangent sensitivity, but its final primal-energy change is
+0.85369%, still above 0.5%. This is local sizing evidence, not full spatial
+convergence. The [localization record](https://github.com/haoming-luo/agentfem/blob/main/evidence/zhang_2021/pressure-localization.md)
+also documents an independently discovered manifest self-reference defect,
+its writer fix, and why the original result envelopes remain unmodified.
 The
 [source-discrepancy investigation](https://github.com/haoming-luo/agentfem/blob/main/evidence/zhang_2021/geometry-source-discrepancy.md)
 records the inspected PDF identity, both geometries and all four mesh levels.

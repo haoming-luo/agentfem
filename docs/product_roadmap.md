@@ -312,6 +312,14 @@ The next scientific promotions focus on depth rather than catalog size:
    defect by 17.30%, retaining the three external comparison checks. This
    remains a development experiment, not a mesh-convergence certificate or
    general adaptive-solver capability.
+   A clean same-policy 1755/2448/3543-cell interface-size sequence now keeps
+   all three external comparisons within their contracts. Its final stress
+   and tangent changes pass at `0.06847% / 0.25812%`, but primal-energy change
+   remains `0.85369%`, above `0.5%`; local refinement does not promote global
+   mesh convergence. All raw-point energy reconstructions agree. Result-envelope
+   auditing additionally exposed a self-hashed manifest; the writer now excludes
+   only its own publication path while retaining external artifact verification.
+   Original diagnostic archives retain the old envelope failure explicitly.
    The earlier diagnostics
    below use the prose geometry and must not be interpreted as unresolved
    constitutive errors or transferred to the figure geometry automatically.
