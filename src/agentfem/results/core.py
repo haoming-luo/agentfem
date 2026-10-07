@@ -788,6 +788,16 @@ class SimulationResult:
         if comm is None or comm.rank == 0:
             try:
                 output.parent.mkdir(parents=True, exist_ok=True)
+                # The manifest is protected by manifest_sha256, not by a
+                # recursive hash of its own missing/previous file bytes.
+                # Preserve the live result's output locator; omit only paths
+                # resolving to this publication from the serialized inventory.
+                for name, value in tuple(record["artifacts"].items()):
+                    artifact = Path(value).expanduser()
+                    if not artifact.is_absolute():
+                        artifact = output.parent / artifact
+                    if artifact.resolve() == output.resolve():
+                        del record["artifacts"][name]
                 record["runtime"] = runtime_manifest()
                 record["provenance_seal"] = seal_manifest(
                     record,

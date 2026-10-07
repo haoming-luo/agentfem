@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from pathlib import Path
 from types import SimpleNamespace
 import xml.etree.ElementTree as ET
@@ -16,10 +17,40 @@ from agentfem import (
     fields,
     mesh,
     models,
+    provenance,
     results,
     studies,
     surrogates,
 )
+
+
+def test_collective_manifest_self_reference_and_external_integrity(tmp_path):
+    comm = MPI.COMM_WORLD
+    if comm.size < 2:
+        pytest.skip("collective publication requires at least two ranks")
+    directory = Path(comm.bcast(str(tmp_path) if comm.rank == 0 else None, root=0))
+    artifact = directory / "field.bin"
+    manifest = directory / "result.json"
+    if comm.rank == 0:
+        artifact.write_bytes(b"accepted distributed field")
+    comm.barrier()
+    simulation = results.SimulationResult("collective-publication")
+    simulation.add_artifact("field", artifact)
+    simulation.add_artifact("result_manifest", manifest)
+    for value in (1.0, 2.0):
+        simulation.add_quantity("response", value)
+        simulation.write_manifest(manifest, comm=comm)
+        verified = provenance.verify_manifest(manifest).verified
+        assert all(comm.allgather(verified))
+        record = json.loads(manifest.read_text(encoding="utf-8"))
+        assert set(record["artifacts"]) == {"field"}
+        assert simulation.artifacts["result_manifest"] == manifest
+        comm.barrier()
+    if comm.rank == 0:
+        artifact.write_bytes(b"changed distributed field")
+    comm.barrier()
+    issues = {item["code"] for item in provenance.verify_manifest(manifest).issues}
+    assert all(comm.allgather("AFM-SEAL-004" in issues))
 
 
 def test_performance_evidence_reduces_rank_local_timings_to_one_result():

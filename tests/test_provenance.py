@@ -63,6 +63,48 @@ def test_provenance_detects_artifact_and_manifest_changes(tmp_path):
     assert "AFM-SEAL-003" in {item["code"] for item in manifest_report.issues}
 
 
+@pytest.mark.parametrize("relative_artifacts", (True, False))
+def test_manifest_self_reference_is_not_a_recursive_file_hash(
+    tmp_path, relative_artifacts,
+):
+    manifest = tmp_path / "result.json"
+    artifact = tmp_path / "field.bin"
+    artifact.write_bytes(b"accepted field")
+    result = results.SimulationResult("self-reference")
+    result.add_artifact("field", artifact)
+    result.add_artifact("result_manifest", manifest)
+    result.add_artifact("same_path_other_name", manifest)
+    original_artifacts = dict(result.artifacts)
+
+    # Both first publication and replacement must avoid hashing their own
+    # missing/previous bytes. The in-memory output locator remains available.
+    for value in (1.0, 2.0):
+        result.add_quantity("response", value)
+        result.write_manifest(manifest, relative_artifacts=relative_artifacts)
+        record = json.loads(manifest.read_text(encoding="utf-8"))
+        assert set(record["artifacts"]) == {"field"}
+        assert result.artifacts == original_artifacts
+        assert provenance.verify_manifest(manifest).verified
+
+    artifact.write_bytes(b"changed field")
+    assert "AFM-SEAL-004" in {
+        item["code"] for item in provenance.verify_manifest(manifest).issues
+    }
+
+
+def test_manifest_named_external_artifact_is_still_hashed(tmp_path):
+    external = tmp_path / "previous.result.json"
+    external.write_text('{"previous": true}', encoding="utf-8")
+    result = results.SimulationResult("external-manifest")
+    result.add_artifact("result_manifest", external)
+    manifest = result.write_manifest(tmp_path / "result.json")
+    assert provenance.verify_manifest(manifest).verified
+    external.write_text('{"previous": false}', encoding="utf-8")
+    assert "AFM-SEAL-004" in {
+        item["code"] for item in provenance.verify_manifest(manifest).issues
+    }
+
+
 def test_missing_artifact_produces_truthful_incomplete_seal(tmp_path):
     result = results.SimulationResult("incomplete")
     result.add_artifact("future-field", tmp_path / "missing.xdmf")
