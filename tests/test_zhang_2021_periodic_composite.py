@@ -208,6 +208,7 @@ def _write_zhang_candidate(
     quadrature_degree=4,
     tracked_dirty=False,
     benchmark_digest="4" * 64,
+    discretization_digest="6" * 64,
 ):
     root.mkdir()
     path = root / "zhang_2021_table5_plane_strain_assessment.json"
@@ -234,6 +235,14 @@ def _write_zhang_candidate(
                 },
             ),
         },
+        "discretization_identity": {
+            "schema": "agentfem.external-benchmark-discretization.v1",
+            "mesh": {"mesh_sha256": "7" * 64},
+            "cell_tags": {"meshtags_sha256": "8" * 64},
+            "facet_tags": {"meshtags_sha256": "9" * 64},
+            "periodic_constraint": {"fingerprint": "a" * 64},
+            "fingerprint": discretization_digest,
+        },
         "candidate": {
             "formulation": "2D_plane_strain_Q2_DPC1",
             "mesh_size": mesh_size,
@@ -243,6 +252,7 @@ def _write_zhang_candidate(
             "requested_fixed_increments": increments,
             "mpi_ranks": 1,
             "macro_tangent_requested": True,
+            "discretization_fingerprint": discretization_digest,
         },
         "runtime": {
             "manifest": {
@@ -326,6 +336,26 @@ def test_zhang_convergence_audit_rejects_mixed_benchmark_definitions(tmp_path):
     assert not report["source"]["common_benchmark_implementation"]
 
 
+def test_zhang_increment_audit_rejects_mixed_discretizations(tmp_path):
+    paths = (
+        _write_zhang_candidate(tmp_path / "i20", increments=20, scale=1.02),
+        _write_zhang_candidate(tmp_path / "i40", increments=40, scale=1.004),
+        _write_zhang_candidate(
+            tmp_path / "i80",
+            increments=80,
+            scale=1.0,
+            discretization_digest="b" * 64,
+        ),
+    )
+    report = assess_convergence(
+        increment_runs=tuple(load_candidate(path) for path in paths)
+    )
+
+    audit = report["axis_audits"]["load_increment_path_converged"]
+    assert not audit["setup_consistent"]
+    assert not audit["passed"]
+
+
 def test_zhang_candidate_rejects_runtime_identity_drift(tmp_path):
     path = _write_zhang_candidate(tmp_path / "candidate", increments=20, scale=1.0)
     payload = json.loads(path.read_text(encoding="utf-8"))
@@ -333,6 +363,16 @@ def test_zhang_candidate_rejects_runtime_identity_drift(tmp_path):
     path.write_text(json.dumps(payload), encoding="utf-8")
 
     with pytest.raises(ValueError, match="not stable during execution"):
+        load_candidate(path)
+
+
+def test_zhang_candidate_rejects_discretization_identity_mismatch(tmp_path):
+    path = _write_zhang_candidate(tmp_path / "candidate", increments=20, scale=1.0)
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    payload["candidate"]["discretization_fingerprint"] = "c" * 64
+    path.write_text(json.dumps(payload), encoding="utf-8")
+
+    with pytest.raises(ValueError, match="discretization fingerprints disagree"):
         load_candidate(path)
 
 

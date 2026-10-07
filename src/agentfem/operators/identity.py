@@ -538,6 +538,25 @@ def _meshtags_identity(domain, tags) -> dict[str, object]:
     }
 
 
+def meshtags_executable_identity(domain, tags) -> dict[str, object]:
+    """Bind one ``MeshTags`` field to its executable mesh and membership.
+
+    Entity indices are local implementation details, so the identity uses
+    input-node ids and exact physical coordinates for every owned tagged
+    entity. The enclosing mesh identity additionally binds topology,
+    geometry-node order and coordinate-element semantics. The result is
+    partition neutral and suitable for restart and external-evidence records.
+    """
+
+    membership = _meshtags_identity(domain, tags)
+    record = {
+        "schema": "agentfem.meshtags-executable-identity.v1",
+        "mesh_sha256": mesh_executable_identity(domain)["mesh_sha256"],
+        **membership,
+    }
+    return record | {"meshtags_sha256": content_fingerprint(record)}
+
+
 def _homogeneous_dirichlet_identity(
     function,
     bcs,
@@ -805,5 +824,6 @@ def _coordinate_keys(coordinates, domain, *, policy=None) -> tuple[tuple[str, ..
 __all__ = [
     "harmonic_executable_identity",
     "mesh_executable_identity",
+    "meshtags_executable_identity",
     "modal_executable_identity",
 ]

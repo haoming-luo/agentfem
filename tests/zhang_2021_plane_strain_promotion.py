@@ -91,6 +91,31 @@ def _benchmark_identity(candidate: dict[str, object]) -> tuple[tuple[str, str], 
     return tuple(sorted(identities))
 
 
+def _discretization_identity(candidate: dict[str, object]) -> str:
+    identity = candidate.get("discretization_identity")
+    if not isinstance(identity, dict) or identity.get("schema") != (
+        "agentfem.external-benchmark-discretization.v1"
+    ):
+        raise ValueError("Candidate has no executable discretization identity.")
+    fingerprint = identity.get("fingerprint")
+    selected = candidate.get("candidate")
+    if (
+        not isinstance(selected, dict)
+        or selected.get("discretization_fingerprint") != fingerprint
+    ):
+        raise ValueError("Candidate discretization fingerprints disagree.")
+    digest = (
+        fingerprint.removeprefix("sha256:") if isinstance(fingerprint, str) else None
+    )
+    if (
+        not isinstance(digest, str)
+        or len(digest) != 64
+        or any(character not in "0123456789abcdef" for character in digest.lower())
+    ):
+        raise ValueError("Candidate has no valid discretization SHA-256.")
+    return digest.lower()
+
+
 def load_candidate(path: Path) -> dict[str, object]:
     """Load one candidate and retain the exact artifact identity."""
 
@@ -109,6 +134,7 @@ def load_candidate(path: Path) -> dict[str, object]:
         )
     _scientific_identity(payload)
     _benchmark_identity(payload)
+    _discretization_identity(payload)
     return {
         "path": str(selected),
         "sha256": _sha256(selected),
@@ -259,6 +285,7 @@ def assess_convergence(
                 "global_cells",
                 "quadrature_degree",
                 "mpi_ranks",
+                "discretization_fingerprint",
             ),
         )
     if mesh_runs:
@@ -286,6 +313,7 @@ def assess_convergence(
                 "global_cells",
                 "requested_fixed_increments",
                 "mpi_ranks",
+                "discretization_fingerprint",
             ),
             require_decreasing=False,
         )

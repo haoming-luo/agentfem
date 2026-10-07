@@ -574,6 +574,7 @@ and evidence remain in the linked guides and scientific function reference.
 | class | `HillMandelIncrement` | Finite-strain macrohomogeneity evidence over one accepted increment. |
 | class | `HomogenizedFrame` | Macroscopic response reconstructed from one periodic-cell state. |
 | class | `HomogenizedAlgorithmicTangent` | Condensed current-state tangent for a prescribed periodic cell. |
+| class | `HomogenizedTangentFiniteDifferenceCheck` | Independent central-difference check of a homogenized tangent. |
 | class | `LiveFiniteStrainCellFields` | Derived cell fields refreshed from active Explicit state at output time. |
 | class | `MixedJ2ElasticEnergyDiagnostics` | Volume-normalized energy identity for mixed finite-strain J2 fields. |
 | class | `StressStateInvariants` | Three-dimensional Cauchy-stress invariants with explicit validity. |
@@ -584,6 +585,7 @@ and evidence remain in the linked guides and scientific function reference.
 | function | `homogenize_periodic_cell(displacement, properties, *, pressure = None, accepted_fields = None, macro_deformation_gradient, cell_reference_volume: float, load_factor: float) -> HomogenizedFrame` | Return volume-normalized macroscopic finite-strain response. |
 | function | `homogenize_periodic_path(snapshots, properties, *, constraint) -> tuple[HomogenizedFrame, ...]` | Homogenize every saved state of an affine periodic-cell analysis. |
 | function | `homogenized_algorithmic_tangent(problem, constraint, *, linear_solver_options = None) -> HomogenizedAlgorithmicTangent` | Condense a converged periodic-cell Jacobian to :math:`d\bar P/d\bar F`. |
+| function | `check_homogenized_algorithmic_tangent(analytical, *, plus_first_piola, minus_first_piola, perturbation_steps, component_order, relative_tolerance: float = 0.001) -> HomogenizedTangentFiniteDifferenceCheck` | Compare a condensed macro tangent with fixed-old-state differences. |
 | function | `hill_mandel_increment(start_snapshot, snapshot, properties, *, constraint, start_frame: HomogenizedFrame \| None = None, frame: HomogenizedFrame \| None = None) -> HillMandelIncrement` | Compare microscopic and macroscopic first-Piola work increments. |
 | function | `hill_mandel_periodic_path(snapshots, properties, *, constraint, frames = None) -> tuple[HillMandelIncrement, ...]` | Evaluate Hill--Mandel evidence between consecutive saved states. |
 | function | `mixed_j2_elastic_energy_diagnostics(*, deformation_gradient, pressure, inverse_bulk_modulus, condensed_elastic_energy_density, reference_volume: float) -> MixedJ2ElasticEnergyDiagnostics` | Audit mixed J2 elastic energy using aligned accepted quadrature fields. |
@@ -1231,6 +1233,8 @@ and evidence remain in the linked guides and scientific function reference.
 | function | `split_laplacian_operator(trial, test, *, measure = ufl.dx, name: str = 'K_split_laplacian') -> OperatorForm` | Return one second-order block of a mixed biharmonic split. |
 | class | `DirectHarmonicSystem` | One linear steady-state harmonic system. |
 | function | `direct_harmonic_system(K, F, *, M = None, C = None, K_loss = None, name: str = 'direct_harmonic_system') -> DirectHarmonicSystem` | Create an inspectable direct harmonic ``K/M/C/F`` system. |
+| function | `mesh_executable_identity(domain) -> dict[str, object]` | Hash connectivity, physical geometry and coordinate basis by science. |
+| function | `meshtags_executable_identity(domain, tags) -> dict[str, object]` | Bind one ``MeshTags`` field to its executable mesh and membership. |
 | class | `FirstOrderSystem` | First-order transient system, ``C x_dot + K x = F``. |
 | class | `LinearSystem` | Engineering-level static system, usually ``K x = F``. |
 | class | `SecondOrderSystem` | Engineering-level second-order system, ``M a + C v + K u = F``. |

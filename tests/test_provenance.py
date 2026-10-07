@@ -13,7 +13,10 @@ import ufl
 from basix.ufl import element
 
 from agentfem import cli, mesh, provenance, results
-from agentfem.operators.identity import mesh_executable_identity
+from agentfem.operators.identity import (
+    mesh_executable_identity,
+    meshtags_executable_identity,
+)
 
 
 def _sealed_result(tmp_path):
@@ -205,9 +208,7 @@ def test_result_manifest_carries_content_addressed_scientific_inputs(tmp_path):
         material={"model": "elastic", "young": np.float64(210.0e9)},
     )
     saved = json.loads(
-        result.write_manifest(tmp_path / "identified.json").read_text(
-            encoding="utf-8"
-        )
+        result.write_manifest(tmp_path / "identified.json").read_text(encoding="utf-8")
     )
 
     assert attached["complete"] is True
@@ -359,6 +360,38 @@ def test_mesh_executable_identity_binds_coordinate_element_semantics():
         "embedded": False,
     }
     assert linear["mesh_sha256"] != quadratic["mesh_sha256"]
+
+
+def test_meshtags_executable_identity_binds_membership_and_mesh():
+    from dolfinx import mesh as dolfinx_mesh
+
+    domain = mesh.rectangle(
+        (0.0, 0.0),
+        (1.0, 1.0),
+        (2, 1),
+        comm=MPI.COMM_SELF,
+        cell_type="quadrilateral",
+    )
+    first = dolfinx_mesh.meshtags(
+        domain,
+        domain.topology.dim,
+        np.asarray((0, 1), dtype=np.int32),
+        np.asarray((1, 2), dtype=np.int32),
+    )
+    changed = dolfinx_mesh.meshtags(
+        domain,
+        domain.topology.dim,
+        np.asarray((0, 1), dtype=np.int32),
+        np.asarray((2, 1), dtype=np.int32),
+    )
+
+    identity = meshtags_executable_identity(domain, first)
+    changed_identity = meshtags_executable_identity(domain, changed)
+
+    assert identity["schema"] == "agentfem.meshtags-executable-identity.v1"
+    assert identity["global_tagged_entities"] == 2
+    assert identity["mesh_sha256"] == mesh_executable_identity(domain)["mesh_sha256"]
+    assert identity["meshtags_sha256"] != changed_identity["meshtags_sha256"]
 
 
 def test_empty_result_does_not_claim_complete_input_coverage():

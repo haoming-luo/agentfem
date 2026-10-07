@@ -216,6 +216,44 @@ def test_empty_increment_performance_does_not_invent_available_measurements():
     assert evidence["totals"] == {}
 
 
+def test_homogenized_tangent_check_uses_fixed_old_state_central_differences():
+    analytical = np.asarray(
+        (
+            (4.0, 0.5, -0.2, 1.0),
+            (0.5, 3.0, 0.8, -0.4),
+            (-0.2, 0.8, 2.5, 0.3),
+            (1.0, -0.4, 0.3, 5.0),
+        )
+    )
+    steps = np.asarray((1.0e-6, 2.0e-6, 1.5e-6, 1.0e-6))
+    base = np.asarray((0.2, -0.1, 0.4, 0.3))[:, np.newaxis]
+    plus = base + analytical * steps[np.newaxis, :]
+    minus = base - analytical * steps[np.newaxis, :]
+
+    check = results.check_homogenized_algorithmic_tangent(
+        analytical,
+        plus_first_piola=plus,
+        minus_first_piola=minus,
+        perturbation_steps=steps,
+        component_order=("11", "21", "12", "22"),
+        relative_tolerance=1.0e-8,
+    )
+
+    assert check.passed
+    assert check.relative_frobenius_error < 1.0e-10
+    assert check.as_dict()["state_basis"] == "fixed_pre_increment_committed_state"
+
+    failed = results.check_homogenized_algorithmic_tangent(
+        analytical + np.eye(4),
+        plus_first_piola=plus,
+        minus_first_piola=minus,
+        perturbation_steps=steps,
+        component_order=("11", "21", "12", "22"),
+        relative_tolerance=1.0e-3,
+    )
+    assert not failed.passed
+
+
 def test_performance_field_preserves_legacy_positional_result_construction():
     verification_record = object()
     simulation = results.SimulationResult(

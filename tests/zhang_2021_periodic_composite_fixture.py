@@ -266,14 +266,17 @@ class Zhang2021PlaneStrainCompositeFixture:
             pressure_degree=1,
         )
 
-    def constraint(self, displacement_pressure):
+    def constraint(self, displacement_pressure, *, deformation_gradient_path=None):
         """Create exact two-dimensional affine-periodic equations."""
 
         return constraints.abaqus_periodic_cell(
             displacement_pressure,
             nodes=self.nodes,
             equations=self.equations,
-            deformation_gradient=self.deformation_gradient,
+            deformation_gradient=(
+                self.deformation_gradient if deformation_gradient_path is None else None
+            ),
+            deformation_gradient_path=deformation_gradient_path,
             anchor_node=self.anchor_node,
             reference_nodes=self.reference_nodes,
             tolerance=2.0e-9,
@@ -447,6 +450,7 @@ def zhang_2021_plane_strain_composite(
     *,
     mesh_size: float = 0.12,
     shear: float = 0.10,
+    macro_deformation_gradient=None,
     element_order: int = 2,
     model_rank: int = 0,
 ) -> Zhang2021PlaneStrainCompositeFixture:
@@ -465,6 +469,18 @@ def zhang_2021_plane_strain_composite(
         raise ValueError("mesh_size must be finite and positive.")
     if not np.isfinite(shear):
         raise ValueError("shear must be finite.")
+    if macro_deformation_gradient is not None:
+        selected_gradient = np.asarray(macro_deformation_gradient, dtype=float)
+        if selected_gradient.shape != (2, 2) or not np.all(
+            np.isfinite(selected_gradient)
+        ):
+            raise ValueError(
+                "macro_deformation_gradient must be one finite 2x2 matrix."
+            )
+        if float(np.linalg.det(selected_gradient)) <= 0.0:
+            raise ValueError(
+                "macro_deformation_gradient must have positive determinant."
+            )
     if isinstance(element_order, bool) or int(element_order) != element_order:
         raise ValueError("The exact plane-strain fixture requires element_order=2.")
     element_order = int(element_order)
@@ -591,8 +607,14 @@ def zhang_2021_plane_strain_composite(
         if initialized_here:
             gmsh.finalize()
 
-    deformation_gradient = np.eye(2)
-    deformation_gradient[0, 1] = shear
+    if macro_deformation_gradient is None:
+        deformation_gradient = np.eye(2)
+        deformation_gradient[0, 1] = shear
+    else:
+        deformation_gradient = np.asarray(
+            macro_deformation_gradient,
+            dtype=float,
+        ).copy()
     return Zhang2021PlaneStrainCompositeFixture(
         domain=imported.domain,
         cell_tags=imported.cell_tags,

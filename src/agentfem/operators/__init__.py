@@ -87,6 +87,7 @@ from .flow import (
 )
 from .fourth_order import auxiliary_laplacian_boundary, split_laplacian_operator
 from .harmonic import DirectHarmonicSystem, direct_harmonic_system
+from .identity import mesh_executable_identity, meshtags_executable_identity
 from .system import (
     FirstOrderSystem,
     LinearSystem,
@@ -175,6 +176,8 @@ __all__ = [
     "lumped_operator",
     "mass_action_vector",
     "mass_operator",
+    "mesh_executable_identity",
+    "meshtags_executable_identity",
     "NonlinearOperatorContribution",
     "pressure_coupling_operator",
     "residual_operator",

@@ -412,10 +412,14 @@ proves that the live quadrature tangent came from that increment; it otherwise
 fails closed, including after a checkpoint reconstruction that did not persist
 the macro tangent. It does not rerun or finite-difference the load path.
 Homogeneous Q2/DPC1 and three-dimensional P2/DG0 Hencky-elastic patches verify
-the component order and Schur condensation. This is still not a promoted Zhang
-benchmark: Table 5 tangent agreement, load-path, mesh and formulation
-convergence, replicated cells, restart/MPI equivalence, and content-bound
-evidence remain open.
+the component order and Schur condensation. A separate final-gradient central-
+difference check now reruns the last increment from the same pre-increment
+committed state and holds every earlier path knot fixed. This is the analogue
+of PETSc's user-Jacobian versus finite-difference check at the homogenized
+operator boundary, rather than a second implementation of the same condensed
+formula. This is still not a promoted Zhang benchmark: Table 5 tangent
+agreement, load-path, mesh and formulation convergence, replicated cells,
+restart/MPI equivalence, and content-bound evidence remain open.
 
 AgentFEM now has two deliberately distinct thin-3D diagnostic lowerings of the
 published plane-strain cell with \(F_{33}=1\):
@@ -465,18 +469,25 @@ authorizes promotion by itself.
 The executable candidate now writes a versioned record containing the exact
 mesh, quadrature, increment and rank coordinates, the AgentFEM scientific
 runtime identity, SHA-256 identities of both the benchmark fixture and its
-driver, complete solver evidence and rank-reduced stage timings. Runtime and
-benchmark identities are sampled before and after the solve; a source change
-during a long run invalidates the candidate instead of binding it to whichever
-files happen to exist at the end. The
+driver, complete solver evidence and rank-reduced stage timings. It also binds
+the **executed discretization**, not merely the meshing script: the
+partition-neutral mesh topology and high-order physical coordinates, cell and
+facet `MeshTags` membership, and complete periodic-equation graph share one
+fingerprint. This prevents two Gmsh versions or topology realizations from
+silently being treated as the same refinement point. Runtime, benchmark, and
+discretization identities are sampled before and after the solve; a source,
+mesh, tag, or constraint change during a long run invalidates the candidate
+instead of binding it to whichever objects happen to exist at the end. The
 separate `zhang_2021_plane_strain_promotion.py` audit hashes those archived
 records, rejects a refinement slice when the benchmark implementation differs
-or an undeclared parameter changes, and
+or an undeclared parameter changes, requires the exact same discretization for
+load-path and quadrature slices, and
 derives mesh, load-path and quadrature decisions from the stored stress,
 primal-energy and tangent observables. A caller can no longer promote one of
 those axes by passing a Boolean. The audit still fails closed until independent
-formulation, cell-replication, finite-difference macro-tangent, MPI and restart
-evidence is present. `tests/test_zhang_2021_periodic_composite.py` verifies both
+formulation, cell-replication, MPI and restart evidence is present and the
+macro-tangent perturbation study has been repeated from clean, content-bound
+source. `tests/test_zhang_2021_periodic_composite.py` verifies both
 the fixture semantics and this content-bound decision boundary without claiming
 the external result has passed.
 
@@ -493,6 +504,21 @@ about 39 seconds to 70 and 109 seconds, so permanent over-integration is not a
 defensible remedy. The condensed four-column macro tangent costs about 0.06
 seconds at this size and is not the measured bottleneck. These observations are
 diagnostic evidence only; they do not replace a committed clean-source archive.
+
+The independent fixed-old-state macro-tangent diagnostic gives a sharper
+result. With a (10^{-6}) perturbation of each final macroscopic-gradient
+component, all earlier load knots identical, and the state at nine tenths of
+the path held fixed, the centered-difference and condensed (4\times4)
+tangents agree to (1.43\times10^{-8}) in relative Frobenius norm; the largest
+column error is (1.47\times10^{-8}). The same coarse candidate's tangent is
+still about 21.68 percent from Table 5. Thus the implemented discrete residual,
+local material linearization and Schur condensation are mutually consistent;
+the external discrepancy is now concentrated in the reproduced discrete
+problem--geometry representation, connectivity, interpolation details, path,
+or unpublished reference implementation--rather than an unsupported claim of
+an internal Jacobian defect. This run was made from intentionally modified
+diagnostic source and is not promotion evidence. A clean content-bound repeat
+and perturbation-size study remain required.
 
 The first five-level spatial sequence uses nominal mesh sizes 0.20, 0.14, 0.10,
 0.07 and 0.05, producing 315, 459, 804, 1590 and 2859 Q9 cells. The 1590-cell
@@ -609,3 +635,7 @@ closure, not another local material tangent.
    [author manuscript](https://web.mit.edu/kjb/www/Publications_Prior_to_1998/A_Finite_Element_Formulation_for_Nonlinear_Incompressible_Elastic_and_Inelastic_Analysis.pdf).
 7. The deal.II Project, “Step-44: three-field finite-strain mixed formulation,”
    [official tutorial](https://dealii.org/current/doxygen/deal.II/step_44.html).
+8. Dassault Systèmes, “Abaqus Verification Guide,”
+   [official guide](https://docs.software.vt.edu/abaqusv2025/English/SIMACAEVERRefMap/simaver-c-ov.htm).
+9. PETSc, “SNESTestJacobian,”
+   [official API reference](https://petsc.org/release/manualpages/SNES/SNESTestJacobian/).

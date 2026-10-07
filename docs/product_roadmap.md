@@ -286,8 +286,10 @@ The next scientific promotions focus on depth rather than catalog size:
    are `0.04460%` and `0.21498%`, within the fixed `0.2%` and `0.5%`
    contracts. For the separate Zhang Q2/DPC1 RVE, content-bound candidate and
    multi-axis audit records now replace caller-declared convergence flags;
-   both the scientific runtime and the benchmark fixture/driver hashes must
-   remain identical across a refinement slice. A separate Appendix-B oracle
+   the scientific runtime, benchmark fixture/driver, executed high-order mesh,
+   region/boundary tags, and periodic equations are bound explicitly. Path and
+   quadrature slices must retain the identical discretization rather than
+   relying on a nominal mesh-size label. A separate Appendix-B oracle
    evolving \(C_p^{-1}\) matches the provider's stress, plastic strain,
    inverse plastic metric and elastic energy on a non-coaxial path, so the
    remaining external gap is no longer attributed to a J2 normalization or
@@ -299,10 +301,14 @@ The next scientific promotions focus on depth rather than catalog size:
    2823, the published-energy error falls from about `20.5%` to `4.21%`, while
    the first-Piola error remains about `5.59%`. Element count alone therefore
    does not reproduce unpublished connectivity or geometry approximation. The
-   next gate is
-   finer content-bound spatial sequence, a fixed-old-state finite-difference
-   check of the homogenized tangent, and an independent material/element
-   oracle; parameter tuning and tolerance relaxation are explicitly excluded;
+   fixed-old-state final-gradient differences now agree with the condensed
+   macro tangent to about `1.43e-8`, even though that coarse tangent remains
+   about `21.68%` from Table 5. This rules out an internally inconsistent
+   Jacobian as the leading explanation without turning a self-consistency check
+   into external validation. The next gate is a controlled curved-geometry and
+   topology family, a clean content-bound tangent repeat with perturbation-size
+   sensitivity, and an independent element oracle. Blind refinement, parameter
+   tuning, and tolerance relaxation are explicitly excluded;
 3. extend the closed bounded MPC/weak/contact evidence contract only through
    independently verified provider routes; general contact remains a separate
    scientific promotion rather than a foundation blocker;

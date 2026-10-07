@@ -648,6 +648,151 @@ class HomogenizedAlgorithmicTangent:
         }
 
 
+@dataclass(frozen=True)
+class HomogenizedTangentFiniteDifferenceCheck:
+    """Independent central-difference check of a homogenized tangent.
+
+    Columns of ``finite_difference`` are obtained by perturbing the final
+    macroscopic gradient while holding the pre-increment committed state and
+    every earlier path knot fixed. This is deliberately distinct from
+    differentiating a completely perturbed loading history.
+    """
+
+    analytical: np.ndarray
+    finite_difference: np.ndarray
+    perturbation_steps: tuple[float, ...]
+    component_order: tuple[str, ...]
+    column_relative_errors: tuple[float, ...]
+    relative_frobenius_error: float
+    relative_tolerance: float
+    passed: bool
+
+    def __post_init__(self) -> None:
+        analytical = np.asarray(self.analytical, dtype=float)
+        finite_difference = np.asarray(self.finite_difference, dtype=float)
+        order = tuple(str(value) for value in self.component_order)
+        steps = tuple(float(value) for value in self.perturbation_steps)
+        errors = tuple(float(value) for value in self.column_relative_errors)
+        size = len(order)
+        if analytical.shape != (size, size) or finite_difference.shape != (
+            size,
+            size,
+        ):
+            raise ValueError(
+                "Homogenized tangent check requires two square matrices in "
+                "the declared component order."
+            )
+        scalars = (
+            *steps,
+            *errors,
+            self.relative_frobenius_error,
+            self.relative_tolerance,
+        )
+        if (
+            size not in {4, 9}
+            or len(steps) != size
+            or len(errors) != size
+            or not np.all(np.isfinite(analytical))
+            or not np.all(np.isfinite(finite_difference))
+            or any(not np.isfinite(value) for value in scalars)
+        ):
+            raise ValueError("Homogenized tangent check contains invalid evidence.")
+        if min(steps) <= 0.0 or min(errors) < 0.0:
+            raise ValueError("Perturbations must be positive and errors nonnegative.")
+        if self.relative_frobenius_error < 0.0 or self.relative_tolerance <= 0.0:
+            raise ValueError("Homogenized tangent check tolerances are invalid.")
+        if bool(self.passed) != (
+            self.relative_frobenius_error <= self.relative_tolerance
+            and max(errors) <= self.relative_tolerance
+        ):
+            raise ValueError("Homogenized tangent check pass state is inconsistent.")
+        object.__setattr__(self, "analytical", analytical.copy())
+        object.__setattr__(self, "finite_difference", finite_difference.copy())
+        object.__setattr__(self, "component_order", order)
+        object.__setattr__(self, "perturbation_steps", steps)
+        object.__setattr__(self, "column_relative_errors", errors)
+
+    def as_dict(self) -> dict[str, object]:
+        return {
+            "kind": "homogenized_tangent_finite_difference_check",
+            "schema": "agentfem.homogenized-tangent-fd-check",
+            "schema_version": "0.1.0",
+            "analytical": self.analytical.tolist(),
+            "finite_difference": self.finite_difference.tolist(),
+            "perturbation_steps": self.perturbation_steps,
+            "component_order": self.component_order,
+            "column_relative_errors": self.column_relative_errors,
+            "relative_frobenius_error": self.relative_frobenius_error,
+            "relative_tolerance": self.relative_tolerance,
+            "passed": self.passed,
+            "difference_method": "centered_final_macro_gradient_perturbation",
+            "state_basis": "fixed_pre_increment_committed_state",
+        }
+
+
+def check_homogenized_algorithmic_tangent(
+    analytical,
+    *,
+    plus_first_piola,
+    minus_first_piola,
+    perturbation_steps,
+    component_order,
+    relative_tolerance: float = 1.0e-3,
+) -> HomogenizedTangentFiniteDifferenceCheck:
+    """Compare a condensed macro tangent with fixed-old-state differences.
+
+    ``plus_first_piola`` and ``minus_first_piola`` have one response vector
+    per column. They must come from paths that are identical through the
+    pre-final accepted state and differ only by ``+/- perturbation_steps[j]``
+    in final macroscopic component ``j``.
+    """
+
+    selected = np.asarray(analytical, dtype=float)
+    plus = np.asarray(plus_first_piola, dtype=float)
+    minus = np.asarray(minus_first_piola, dtype=float)
+    steps = np.asarray(perturbation_steps, dtype=float)
+    order = tuple(str(value) for value in component_order)
+    size = len(order)
+    expected_shape = (size, size)
+    if any(
+        value.shape != expected_shape for value in (selected, plus, minus)
+    ):
+        raise ValueError(
+            "Analytical and perturbed first-Piola arrays must be square in "
+            "the declared component order."
+        )
+    if steps.shape != (size,) or not np.all(np.isfinite(steps)) or np.min(steps) <= 0.0:
+        raise ValueError("One finite positive perturbation is required per column.")
+    if not np.all(np.isfinite(plus)) or not np.all(np.isfinite(minus)):
+        raise ValueError("Perturbed first-Piola responses must be finite.")
+    tolerance = float(relative_tolerance)
+    if not np.isfinite(tolerance) or tolerance <= 0.0:
+        raise ValueError("relative_tolerance must be finite and positive.")
+    finite_difference = (plus - minus) / (2.0 * steps[np.newaxis, :])
+    difference = selected - finite_difference
+    tiny = np.finfo(float).tiny
+    column_errors = tuple(
+        float(np.linalg.norm(difference[:, column]))
+        / max(float(np.linalg.norm(finite_difference[:, column])), tiny)
+        for column in range(size)
+    )
+    relative_error = float(np.linalg.norm(difference)) / max(
+        float(np.linalg.norm(finite_difference)),
+        tiny,
+    )
+    passed = bool(relative_error <= tolerance and max(column_errors) <= tolerance)
+    return HomogenizedTangentFiniteDifferenceCheck(
+        analytical=selected,
+        finite_difference=finite_difference,
+        perturbation_steps=tuple(float(value) for value in steps),
+        component_order=order,
+        column_relative_errors=column_errors,
+        relative_frobenius_error=relative_error,
+        relative_tolerance=tolerance,
+        passed=passed,
+    )
+
+
 def homogenized_algorithmic_tangent(
     problem,
     constraint,

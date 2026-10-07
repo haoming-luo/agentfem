@@ -17,10 +17,11 @@ from pathlib import Path
 import time
 
 from mpi4py import MPI
+import numpy as np
 
 import agentfem
-from agentfem import models, results, solvers, steps, studies
-from agentfem.provenance import runtime_manifest
+from agentfem import constraints, models, operators, results, solvers, steps, studies
+from agentfem.provenance import content_fingerprint, runtime_manifest
 
 from zhang_2021_periodic_composite_fixture import (
     TABLE5,
@@ -49,6 +50,23 @@ def _benchmark_implementation_identity() -> dict[str, object]:
     }
 
 
+def _discretization_identity(fixture, periodicity) -> dict[str, object]:
+    record = {
+        "schema": "agentfem.external-benchmark-discretization.v1",
+        "mesh": operators.mesh_executable_identity(fixture.domain),
+        "cell_tags": operators.meshtags_executable_identity(
+            fixture.domain,
+            fixture.cell_tags,
+        ),
+        "facet_tags": operators.meshtags_executable_identity(
+            fixture.domain,
+            fixture.facet_tags,
+        ),
+        "periodic_constraint": periodicity.scientific_identity(),
+    }
+    return record | {"fingerprint": content_fingerprint(record)}
+
+
 def _require_checkout_runtime() -> None:
     expected = (Path(__file__).resolve().parents[1] / "src" / "agentfem").resolve()
     imported = Path(agentfem.__file__).resolve().parent
@@ -65,6 +83,24 @@ def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--mesh-size", type=float, default=0.20)
     parser.add_argument("--quadrature-degree", type=int, default=4)
+    parser.add_argument(
+        "--macro-gradient",
+        type=float,
+        nargs=4,
+        metavar=("F11", "F21", "F12", "F22"),
+        help="Override the final 2D macro gradient in published column-major order.",
+    )
+    parser.add_argument(
+        "--penultimate-gradient",
+        type=float,
+        nargs=4,
+        metavar=("F11", "F21", "F12", "F22"),
+        help=(
+            "Add one explicit pre-final path state in published column-major "
+            "order. This is used by the fixed-old-state tangent oracle."
+        ),
+    )
+    parser.add_argument("--penultimate-coordinate", type=float)
     parser.add_argument("--initial-increment", type=float, default=0.05)
     parser.add_argument("--minimum-increment", type=float, default=1.0e-4)
     parser.add_argument("--maximum-increment", type=float, default=0.10)
@@ -101,6 +137,24 @@ def main() -> int:
         parser.error("--max-increments must be positive and --max-cutbacks nonnegative")
     if arguments.increments is not None and arguments.increments <= 0:
         parser.error("--increments must be positive")
+    if (arguments.penultimate_gradient is None) != (
+        arguments.penultimate_coordinate is None
+    ):
+        parser.error(
+            "--penultimate-gradient and --penultimate-coordinate must be supplied together"
+        )
+    if arguments.penultimate_coordinate is not None and not (
+        0.0 < arguments.penultimate_coordinate < 1.0
+    ):
+        parser.error("--penultimate-coordinate must lie strictly inside (0, 1)")
+
+    final_gradient = (
+        None
+        if arguments.macro_gradient is None
+        else np.asarray(arguments.macro_gradient, dtype=float).reshape(
+            (2, 2), order="F"
+        )
+    )
 
     comm = MPI.COMM_WORLD
     runtime_at_start = runtime_manifest()
@@ -110,6 +164,7 @@ def main() -> int:
     fixture = zhang_2021_plane_strain_composite(
         comm,
         mesh_size=arguments.mesh_size,
+        macro_deformation_gradient=final_gradient,
     )
     fixture_seconds = time.perf_counter() - fixture_started
     build_started = time.perf_counter()
@@ -127,7 +182,21 @@ def main() -> int:
     matrix, inclusion = fixture.materials()
     model.material(matrix, region=matrix_region)
     model.material(inclusion, region=inclusion_region)
-    periodicity = model.constraint(fixture.constraint(target))
+    macro_path = None
+    if arguments.penultimate_gradient is not None:
+        penultimate = np.asarray(
+            arguments.penultimate_gradient,
+            dtype=float,
+        ).reshape((2, 2), order="F")
+        macro_path = constraints.deformation_gradient_path(
+            (0.0, arguments.penultimate_coordinate, 1.0),
+            (np.eye(2), penultimate, fixture.deformation_gradient),
+            name="fixed_old_state_macro_tangent_path",
+        )
+    periodicity = model.constraint(
+        fixture.constraint(target, deformation_gradient_path=macro_path)
+    )
+    discretization_at_start = _discretization_identity(fixture, periodicity)
     output = results.output_plan(
         arguments.output,
         field=results.field_output(
@@ -233,6 +302,7 @@ def main() -> int:
     )
     runtime_at_end = runtime_manifest()
     benchmark_at_end = _benchmark_implementation_identity()
+    discretization_at_end = _discretization_identity(fixture, periodicity)
     if runtime_at_end["identity"] != runtime_at_start["identity"]:
         raise RuntimeError(
             "AgentFEM runtime identity changed while the benchmark was running; "
@@ -242,6 +312,11 @@ def main() -> int:
         raise RuntimeError(
             "Benchmark implementation changed while the solve was running; "
             "the candidate is not reproducible."
+        )
+    if discretization_at_end != discretization_at_start:
+        raise RuntimeError(
+            "Mesh, region tags, boundary tags, or periodic equations changed "
+            "while the benchmark was running; the candidate is not reproducible."
         )
     assessment.update(
         {
@@ -281,16 +356,24 @@ def main() -> int:
                 "manifest": runtime_at_start,
             },
             "benchmark_implementation": benchmark_at_start,
+            "discretization_identity": discretization_at_start,
             "identity_stable_during_run": True,
             "candidate": {
                 "formulation": "2D_plane_strain_Q2_DPC1",
                 "mesh_size": float(arguments.mesh_size),
                 "global_cells": int(fixture.domain.topology.index_map(2).size_global),
+                "discretization_fingerprint": discretization_at_start["fingerprint"],
                 "quadrature_degree": int(arguments.quadrature_degree),
                 "accepted_increments": len(problem.accepted_increments),
                 "requested_fixed_increments": arguments.increments,
                 "mpi_ranks": int(comm.size),
                 "macro_tangent_requested": not arguments.skip_tangent,
+                "macroscopic_deformation_gradient": (
+                    fixture.deformation_gradient.tolist()
+                ),
+                "deformation_gradient_path": (
+                    None if macro_path is None else macro_path.summary()
+                ),
             },
             "performance": performance.as_dict(),
             "increment_performance": results.increment_performance(
