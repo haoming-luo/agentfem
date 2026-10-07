@@ -82,6 +82,7 @@ def main() -> int:
     _require_checkout_runtime()
     parser = argparse.ArgumentParser()
     parser.add_argument("--mesh-size", type=float, default=0.20)
+    parser.add_argument("--interface-size", type=float, help="Explicit experimental interface refinement; changes the recorded mesh policy.")
     parser.add_argument(
         "--geometry-source", choices=("section-3.2.1-text", "figure-10a"),
         default="section-3.2.1-text",
@@ -182,6 +183,7 @@ def main() -> int:
         macro_deformation_gradient=final_gradient,
         cell_repetitions=tuple(arguments.cell_repetitions),
         geometry_source=arguments.geometry_source,
+        interface_size=arguments.interface_size,
     )
     fixture_seconds = time.perf_counter() - fixture_started
     build_started = time.perf_counter()
@@ -382,6 +384,7 @@ def main() -> int:
                 "mesh_size": float(arguments.mesh_size),
                 "cell_repetitions": list(fixture.cell_repetitions),
                 "geometry_source": fixture.geometry_source,
+                "mesh_policy": fixture.mesh_policy,
                 "reference_cell_area": fixture.reference_cell_area,
                 "global_cells": int(fixture.domain.topology.index_map(2).size_global),
                 "discretization_fingerprint": discretization_at_start["fingerprint"],

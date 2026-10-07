@@ -195,6 +195,7 @@ class Zhang2021PlaneStrainCompositeFixture:
     cell_origin: tuple[float, float]
     cell_periods: tuple[float, float]
     geometry_source: str
+    mesh_policy: dict[str, object] | None
 
     @property
     def reference_cell_area(self) -> float:
@@ -458,6 +459,7 @@ def zhang_2021_plane_strain_composite(
     element_order: int = 2,
     cell_repetitions: tuple[int, int] = (1, 1),
     geometry_source: str = "section-3.2.1-text",
+    interface_size: float | None = None,
     model_rank: int = 0,
 ) -> Zhang2021PlaneStrainCompositeFixture:
     """Build the published 2D unit cell as a pure curved Q9 mesh.
@@ -479,6 +481,10 @@ def zhang_2021_plane_strain_composite(
     void_index = 2 if geometry_source == "section-3.2.1-text" else 1
     if not np.isfinite(mesh_size) or mesh_size <= 0.0:
         raise ValueError("mesh_size must be finite and positive.")
+    if interface_size is not None and (
+        not np.isfinite(interface_size) or not 0 < interface_size < mesh_size
+    ):
+        raise ValueError("interface_size must be positive and smaller than mesh_size.")
     if not np.isfinite(shear):
         raise ValueError("shear must be finite.")
     if macro_deformation_gradient is not None:
@@ -519,7 +525,7 @@ def zhang_2021_plane_strain_composite(
     previous_options = {}
     selected_options = {
         "General.Verbosity": 0.0,
-        "Mesh.MeshSizeMin": mesh_size,
+        "Mesh.MeshSizeMin": mesh_size if interface_size is None else interface_size,
         "Mesh.MeshSizeMax": mesh_size,
         "Mesh.Algorithm": 6.0,
         "Mesh.RecombineAll": 0.0,
@@ -629,6 +635,18 @@ def zhang_2021_plane_strain_composite(
             gmsh.model.addPhysicalGroup(1, list(void_curves), 20)
             gmsh.model.setPhysicalName(1, 20, "void_boundary")
 
+            if interface_size is not None:
+                interfaces = sorted({int(tag) for dim, tag in gmsh.model.getEntities(1)} - set(outer_curves))
+                distance = gmsh.model.mesh.field.add("Distance")
+                gmsh.model.mesh.field.setNumbers(distance, "CurvesList", interfaces)
+                gmsh.model.mesh.field.setNumber(distance, "Sampling", 200)
+                threshold = gmsh.model.mesh.field.add("Threshold")
+                for key, value in {"InField": distance, "SizeMin": interface_size,
+                                   "SizeMax": mesh_size, "DistMin": 0.0,
+                                   "DistMax": mesh_size}.items():
+                    gmsh.model.mesh.field.setNumber(threshold, key, value)
+                gmsh.model.mesh.field.setAsBackgroundMesh(threshold)
+
             gmsh.model.mesh.generate(2)
             gmsh.model.mesh.setOrder(2)
             diagnostics = _quadrilateral9_mesh_diagnostics(gmsh)
@@ -718,6 +736,10 @@ def zhang_2021_plane_strain_composite(
         cell_origin=origin,
         cell_periods=periods,
         geometry_source=geometry_source,
+        mesh_policy=None if interface_size is None else {
+            "kind": "interface_distance_threshold", "interface_size": interface_size,
+            "transition_distance": mesh_size, "distance_sampling": 200,
+        },
     )
 
 

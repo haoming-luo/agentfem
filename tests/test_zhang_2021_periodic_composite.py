@@ -535,6 +535,23 @@ def test_phase_assignment_matches_explicit_manuscript_source(source, expected_ce
     assert fixture.geometry_source == source
 
 
+def test_interface_refinement_preserves_q9_and_periodic_pairing():
+    fixture = zhang_2021_plane_strain_composite(
+        MPI.COMM_SELF, mesh_size=0.1, interface_size=0.04, geometry_source="figure-10a",
+    )
+    assert fixture.nodes_per_element == 9
+    assert fixture.minimum_scaled_jacobian > 0.0
+    assert fixture.periodic_pair_counts == fixture.periodic_expected_pair_counts
+    assert fixture.periodic_pairing_error < 1e-10
+    assert fixture.mesh_policy["interface_size"] == 0.04
+
+
+@pytest.mark.parametrize("size", (0., -0.1, 0.2, float("nan")))
+def test_interface_refinement_rejects_invalid_size(size):
+    with pytest.raises(ValueError, match="interface_size"):
+        zhang_2021_plane_strain_composite(MPI.COMM_SELF, mesh_size=0.1, interface_size=size)
+
+
 @pytest.mark.parametrize("mesh_size", (0.20, 0.12, 0.08))
 def test_exact_plane_strain_geometry_is_q9_only_and_periodic(mesh_size):
     pytest.importorskip("gmsh")

@@ -435,6 +435,7 @@ def _axis_audit(
         for parameter in (
             *invariant_parameters,
             "geometry_source",
+            "mesh_policy",
             "macroscopic_deformation_gradient",
             "cell_repetitions",
             "reference_cell_area",

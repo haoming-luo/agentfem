@@ -108,6 +108,7 @@ def test_zero_energy_change_has_no_invented_fraction():
         ("macroscopic_deformation_gradient", [[1.0, 0.2], [0.0, 1.0]]),
         ("cell_repetitions", [2, 1]),
         ("reference_cell_area", 2.0),
+        ("mesh_policy", {"kind": "interface_distance_threshold"}),
         ("deformation_gradient_path", {"name": "different_path"}),
     ],
 )

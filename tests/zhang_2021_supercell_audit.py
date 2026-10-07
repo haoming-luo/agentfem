@@ -52,6 +52,7 @@ def assess(runs) -> dict[str, object]:
                         for key in (
                             "formulation",
                             "geometry_source",
+                            "mesh_policy",
                             "mesh_size",
                             "quadrature_degree",
                             "macroscopic_deformation_gradient",

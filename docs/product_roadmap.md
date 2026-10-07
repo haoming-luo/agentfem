@@ -306,6 +306,12 @@ The next scientific promotions focus on depth rather than catalog size:
    attribution assigns 99.8554% of the last mesh change to the pressure
    constraint defect, not to the condensed channel; this is diagnostic
    attribution, not a license to switch the acceptance observable.
+   Offline raw-point reconstruction localizes 97.19% of the defect in the
+   worst 5% of cells, almost entirely in the matrix. An explicit interface
+   refinement diagnostic uses 2448 rather than 2859 cells and reduces the
+   defect by 17.30%, retaining the three external comparison checks. This
+   remains a development experiment, not a mesh-convergence certificate or
+   general adaptive-solver capability.
    The earlier diagnostics
    below use the prose geometry and must not be interpreted as unresolved
    constitutive errors or transferred to the figure geometry automatically.
