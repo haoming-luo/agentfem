@@ -432,7 +432,14 @@ def _axis_audit(
         parameter: tuple(
             sorted({_stable(run["candidate"].get(parameter)) for run in selected})
         )
-        for parameter in (*invariant_parameters, "geometry_source")
+        for parameter in (
+            *invariant_parameters,
+            "geometry_source",
+            "macroscopic_deformation_gradient",
+            "cell_repetitions",
+            "reference_cell_area",
+            "deformation_gradient_path",
+        )
     }
     setup_consistent = bool(
         len(selected) >= 3

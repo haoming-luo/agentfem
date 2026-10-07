@@ -300,7 +300,13 @@ The next scientific promotions focus on depth rather than catalog size:
    at 2859 cells gives stress/energy/tangent errors of `0.099% / 0.014% /
    0.507%`, within the unchanged comparison contracts, but the last mesh pair
    changes energy by `5.3442%`; complete promotion remains blocked by energy
-   convergence and clean figure-specific evidence. The earlier diagnostics
+   convergence and remaining figure-specific evidence. The fine candidate
+   has now been reproduced from clean commit `597e8795`, with identical stress
+   and energy. A same-mesh 4/6/8-degree quadrature slice passes. Energy-channel
+   attribution assigns 99.8554% of the last mesh change to the pressure
+   constraint defect, not to the condensed channel; this is diagnostic
+   attribution, not a license to switch the acceptance observable.
+   The earlier diagnostics
    below use the prose geometry and must not be interpreted as unresolved
    constitutive errors or transferred to the figure geometry automatically.
    Initial 20/40/80-increment and degree-4/6/8 quadrature diagnostics show that

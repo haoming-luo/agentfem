@@ -501,8 +501,12 @@ With `--geometry-source figure-10a`, a 2859-cell, 40-increment run gives
 passing the numerical comparison contracts without modifying the solver or
 material parameters. **This is not full benchmark promotion:** the last mesh
 pair still changes energy by 5.3442%, above the 0.5% convergence contract,
-and the new candidates are dirty-checkout diagnostics. Figure-specific clean
-evidence and remaining convergence/lifecycle gates are required. The
+and the first candidates were dirty-checkout diagnostics. A clean-source
+repeat now reproduces the fine stress and energy exactly, and a fixed-mesh
+4/6/8-degree quadrature slice passes its observable-change contracts.
+Remaining spatial and lifecycle gates are still required; see the
+[energy follow-up](https://github.com/haoming-luo/agentfem/blob/main/evidence/zhang_2021/energy-sensitivity-followup.md).
+The
 [source-discrepancy investigation](https://github.com/haoming-luo/agentfem/blob/main/evidence/zhang_2021/geometry-source-discrepancy.md)
 records the inspected PDF identity, both geometries and all four mesh levels.
 The final publisher PDF has not been checked for this discrepancy.
