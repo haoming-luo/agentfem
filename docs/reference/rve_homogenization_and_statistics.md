@@ -491,7 +491,23 @@ source. `tests/test_zhang_2021_periodic_composite.py` verifies both
 the fixture semantics and this content-bound decision boundary without claiming
 the external result has passed.
 
-Current unarchived diagnostics isolate two non-causes of the Table 5 gap. On a
+The historical diagnostics in the following paragraphs use the manuscript's
+**prose geometry** (`section-3.2.1-text`). Visual review on 2026-10-07 found
+that the inspected author manuscript instead places the void at lower left in
+Figure 10(a), not on the right as in its prose. The fixture now records an
+explicit `geometry_source`; existing runs retain their original meaning.
+With `--geometry-source figure-10a`, a 2859-cell, 40-increment run gives
+0.099% stress, 0.014% primal-energy and 0.507% tangent errors against Table 5,
+passing the numerical comparison contracts without modifying the solver or
+material parameters. **This is not full benchmark promotion:** the last mesh
+pair still changes energy by 5.3442%, above the 0.5% convergence contract,
+and the new candidates are dirty-checkout diagnostics. Figure-specific clean
+evidence and remaining convergence/lifecycle gates are required. The
+[source-discrepancy investigation](https://github.com/haoming-luo/agentfem/blob/main/evidence/zhang_2021/geometry-source-discrepancy.md)
+records the inspected PDF identity, both geometries and all four mesh levels.
+The final publisher PDF has not been checked for this discrepancy.
+
+Historical unarchived diagnostics isolate two non-causes of the Table 5 gap. On a
 315-cell Q9 mesh, 20, 40 and 80 fixed increments reduce successive first-Piola
 changes from about 0.603 percent to 0.307 percent and primal-energy changes from
 about 0.250 percent to 0.125 percent. The candidate is therefore stable along

@@ -34,6 +34,7 @@ def assess(serial, parallel, *, tolerance: float = 1.0e-10) -> dict[str, object]
     parallel_ranks = int(parallel["candidate"]["mpi_ranks"])
     invariant_parameters = (
         "formulation",
+        "geometry_source",
         "mesh_size",
         "global_cells",
         "discretization_fingerprint",

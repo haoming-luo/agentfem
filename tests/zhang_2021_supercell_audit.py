@@ -51,6 +51,7 @@ def assess(runs) -> dict[str, object]:
                         key: run["candidate"].get(key)
                         for key in (
                             "formulation",
+                            "geometry_source",
                             "mesh_size",
                             "quadrature_degree",
                             "macroscopic_deformation_gradient",

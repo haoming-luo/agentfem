@@ -294,6 +294,15 @@ The next scientific promotions focus on depth rather than catalog size:
    inverse plastic metric and elastic energy on a non-coaxial path, so the
    remaining external gap is no longer attributed to a J2 normalization or
    state-variable mismatch.
+   A 2026-10-07 source review found a phase-placement discrepancy between
+   prose and Figure 10(a) in the inspected author manuscript. Explicit
+   `geometry_source` now prevents mixing those models. Figure-based geometry
+   at 2859 cells gives stress/energy/tangent errors of `0.099% / 0.014% /
+   0.507%`, within the unchanged comparison contracts, but the last mesh pair
+   changes energy by `5.3442%`; complete promotion remains blocked by energy
+   convergence and clean figure-specific evidence. The earlier diagnostics
+   below use the prose geometry and must not be interpreted as unresolved
+   constitutive errors or transferred to the figure geometry automatically.
    Initial 20/40/80-increment and degree-4/6/8 quadrature diagnostics show that
    path refinement and over-integration do not explain the remaining Table 5
    stress, energy and tangent gap. A 315/459/804/1590/2859-cell spatial

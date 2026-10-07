@@ -85,10 +85,9 @@ def test_zhang_driver_binds_fixture_and_driver_source_files():
 @pytest.mark.skip(
     reason=(
         "Zhang 2021 Table 5 promotion requires content-bound evidence: the "
-        "formulation-correspondent 2D Q2/DPC1 diagnostic has not passed the "
-        "stress, energy or "
-        "effective-tangent comparison and still lacks full mesh/formulation "
-        "convergence. Lifecycle diagnostics do not promote Table 5. The thin-3D "
+        "figure-based 2D Q2/DPC1 diagnostic passes numerical comparisons but "
+        "still lacks clean-source full mesh/formulation convergence and "
+        "figure-specific lifecycle evidence. The thin-3D "
         "P2/DG0 diagnostic is not the published formulation."
     )
 )
@@ -240,6 +239,7 @@ def _write_zhang_candidate(
     tracked_dirty=False,
     benchmark_digest="4" * 64,
     discretization_digest="6" * 64,
+    geometry_source="section-3.2.1-text",
 ):
     root.mkdir()
     path = root / "zhang_2021_table5_plane_strain_assessment.json"
@@ -276,6 +276,7 @@ def _write_zhang_candidate(
         },
         "candidate": {
             "formulation": "2D_plane_strain_Q2_DPC1",
+            "geometry_source": geometry_source,
             "mesh_size": mesh_size,
             "global_cells": 315,
             "quadrature_degree": quadrature_degree,
@@ -325,6 +326,18 @@ def test_zhang_content_bound_increment_audit_derives_decision_from_artifacts(
     assert not report["benchmark_promotion_authorized"]
     assert "serial_mpi_equivalent" in report["missing_promotion_evidence"]
     assert all(len(item["sha256"]) == 64 for item in increment["artifacts"])
+
+
+def test_zhang_mesh_audit_rejects_mixed_geometry_sources(tmp_path):
+    paths = (
+        _write_zhang_candidate(tmp_path / "coarse", increments=40, scale=1.02, mesh_size=0.2),
+        _write_zhang_candidate(tmp_path / "middle", increments=40, scale=1.004, mesh_size=0.1),
+        _write_zhang_candidate(tmp_path / "fine", increments=40, scale=1.0, mesh_size=0.05,
+                               geometry_source="figure-10a"),
+    )
+    report = assess_convergence(mesh_runs=tuple(load_candidate(path) for path in paths))
+    assert not report["axis_audits"]["mesh_converged"]["setup_consistent"]
+    assert not report["derived_convergence"]["mesh_converged"]
 
 
 def test_zhang_convergence_audit_rejects_uncontrolled_and_dirty_slices(tmp_path):
@@ -503,6 +516,23 @@ def test_zhang_cell_geometry_materials_and_affine_periodicity_are_explicit():
         rtol=0.0,
         atol=2.0e-12,
     )
+
+
+@pytest.mark.parametrize(
+    "source, expected_centroid",
+    [("section-3.2.1-text", (-0.2, 0.0)), ("figure-10a", (0.0, 0.1))],
+)
+def test_phase_assignment_matches_explicit_manuscript_source(source, expected_centroid):
+    fixture = zhang_2021_plane_strain_composite(
+        MPI.COMM_SELF, mesh_size=0.2, geometry_source=source,
+    )
+    _, inclusion = fixture.regions()
+    x = ufl.SpatialCoordinate(fixture.domain)
+    area = fem.assemble_scalar(fem.form(ufl.as_ufl(1.0) * inclusion.measure))
+    centroid = [fem.assemble_scalar(fem.form(x[i] * inclusion.measure)) / area
+                for i in range(2)]
+    np.testing.assert_allclose(centroid, expected_centroid, atol=2e-4)
+    assert fixture.geometry_source == source
 
 
 @pytest.mark.parametrize("mesh_size", (0.20, 0.12, 0.08))

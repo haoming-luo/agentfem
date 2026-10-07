@@ -194,6 +194,7 @@ class Zhang2021PlaneStrainCompositeFixture:
     cell_repetitions: tuple[int, int]
     cell_origin: tuple[float, float]
     cell_periods: tuple[float, float]
+    geometry_source: str
 
     @property
     def reference_cell_area(self) -> float:
@@ -456,6 +457,7 @@ def zhang_2021_plane_strain_composite(
     macro_deformation_gradient=None,
     element_order: int = 2,
     cell_repetitions: tuple[int, int] = (1, 1),
+    geometry_source: str = "section-3.2.1-text",
     model_rank: int = 0,
 ) -> Zhang2021PlaneStrainCompositeFixture:
     """Build the published 2D unit cell as a pure curved Q9 mesh.
@@ -469,6 +471,12 @@ def zhang_2021_plane_strain_composite(
 
     mesh_size = float(mesh_size)
     shear = float(shear)
+    if geometry_source not in {"section-3.2.1-text", "figure-10a"}:
+        raise ValueError("geometry_source must be section-3.2.1-text or figure-10a.")
+    # The manuscript's prose places the void on the right, while Figure 10a
+    # and Table 6 place it at lower left. Preserve both hypotheses explicitly;
+    # never change the established benchmark geometry silently.
+    void_index = 2 if geometry_source == "section-3.2.1-text" else 1
     if not np.isfinite(mesh_size) or mesh_size <= 0.0:
         raise ValueError("mesh_size must be finite and positive.")
     if not np.isfinite(shear):
@@ -566,12 +574,12 @@ def zhang_2021_plane_strain_composite(
             inclusion_surfaces = tuple(
                 mapped_disks[index]
                 for index in range(len(mapped_disks))
-                if index % 3 in (0, 1)
+                if index % 3 != void_index
             )
             void_surfaces = tuple(
                 mapped_disks[index]
                 for index in range(len(mapped_disks))
-                if index % 3 == 2
+                if index % 3 == void_index
             )
             gmsh.model.occ.remove(
                 [(2, int(tag)) for tag in void_surfaces], recursive=True
@@ -709,6 +717,7 @@ def zhang_2021_plane_strain_composite(
         cell_repetitions=repetitions,
         cell_origin=origin,
         cell_periods=periods,
+        geometry_source=geometry_source,
     )
 
 

@@ -12,12 +12,15 @@
     "journal": "International Journal for Numerical Methods in Engineering 122 (2021), 6527--6575",
     "doi": "https://doi.org/10.1002/nme.6802",
     "open_manuscript": "https://arxiv.org/abs/2010.02371",
-    "reference": "Section 3.2.1, Figure 9, Table 5 and Appendix B",
+    "reference": "Section 3.2.1, Figure 10(a), Table 5 and Appendix B in the inspected author manuscript",
+    "geometry_provenance": "The inspected author manuscript prose and Figure 10(a) disagree on phase placement. Existing default section-3.2.1-text puts the void at (0.2, 0); explicit figure-10a puts the void at (-0.2, -0.2). See evidence/zhang_2021/geometry-source-discrepancy.md. The final publisher PDF has not been checked for this discrepancy.",
     "mixed_formulation_reference": "T. Sussman and K.-J. Bathe, Computers & Structures 26 (1987) 357--409, https://doi.org/10.1016/0045-7949(87)90265-3",
     "retrieved": "2026-08-28"
   },
   "parameters": {
     "unit_cell": "unit square, plane strain, unit reference thickness",
+    "geometry_source": "section-3.2.1-text",
+    "figure_10a_alternative": {"inclusion_centres": [[-0.2, 0.2], [0.2, 0.0]], "void_centre": [-0.2, -0.2]},
     "inclusion_centres": [[-0.2, 0.2], [-0.2, -0.2]],
     "void_centre": [0.2, 0.0],
     "diameter": 0.3,
@@ -71,6 +74,7 @@
     "The promotion audit must independently verify content identity, controlled convergence axes, clean-source execution and stable start/end identities; any unbound, mixed-definition or source-mutated candidate is rejected rather than downgraded to an accepted comparison."
   ],
   "limitations": [
+    "Historical diagnostics below use prose geometry. With explicit figure-10a geometry, a dirty-checkout 2859-cell/40-increment diagnostic gives 0.099 percent stress, 0.014 percent primal-energy and 0.507 percent tangent errors. All numerical comparisons pass, but the final mesh pair changes energy by 5.3442 percent, so mesh convergence and full benchmark promotion remain unestablished. Prior prose-geometry lifecycle evidence cannot automatically promote this alternative.",
     "The publication uses a two-dimensional quadrilateral Q2 nine-node displacement field with a DPC1 three-mode discontinuous pressure space. AgentFEM now executes that interpolation on the exact complex geometry as a diagnostic, but it has no locking-, path-, formulation-, or mesh-convergence claim and is not promoted benchmark evidence.",
     "The published elastic inclusions are represented in the shared regional transaction by the same J2 provider with an intentionally unreachable yield stress; they remain elastic over the declared path but are not a distinct elastic constitutive implementation.",
     "The unarchived thin-3D diagnostic passed the first-Piola vector-L2 threshold but failed the P11 and P22 componentwise checks. Its condensed ELENER is not comparable with the Table 5 primal Hencky energy; that physical-energy gate remained incomplete. Its reported periodic and Hill--Mandel values do not replace a sealed evidence archive, so the benchmark is not promoted.",
