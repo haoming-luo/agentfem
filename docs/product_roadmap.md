@@ -306,8 +306,10 @@ The next scientific promotions focus on depth rather than catalog size:
    about `21.68%` from Table 5. This rules out an internally inconsistent
    Jacobian as the leading explanation without turning a self-consistency check
    into external validation. The next gate is a controlled curved-geometry and
-   topology family, a perturbation-size study for the now clean-source,
-   content-bound tangent diagnostic, and an independent element oracle. Blind refinement, parameter
+   topology family and an independent element oracle. The clean-source,
+   content-bound `1e-5/1e-6/1e-7` tangent study now passes: its coarse-to-
+   middle observed order is `1.998`, and the two finest finite-difference
+   tangents differ by only `1.36e-8`. Blind refinement, parameter
    tuning, and tolerance relaxation are explicitly excluded;
 3. extend the closed bounded MPC/weak/contact evidence contract only through
    independently verified provider routes; general contact remains a separate

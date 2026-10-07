@@ -4,8 +4,9 @@ The audit consumes candidate JSON files written by
 ``zhang_2021_plane_strain_driver.py``.  It derives refinement decisions from
 the archived observables and refuses slices in which more than the declared
 axis changes.  It deliberately cannot promote the external benchmark yet:
-formulation, cell-size, MPI, restart, and finite-difference macro-tangent
-evidence remain independent gates.
+formulation, cell-size, MPI, and restart evidence remain independent gates.
+Fixed-old-state finite-difference macro-tangent evidence can be supplied as a
+separate, content-bound perturbation study.
 """
 
 from __future__ import annotations

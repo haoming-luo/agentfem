@@ -517,9 +517,12 @@ the external discrepancy is now concentrated in the reproduced discrete
 problem--geometry representation, connectivity, interpolation details, path,
 or unpublished reference implementation--rather than an unsupported claim of
 an internal Jacobian defect. A clean-source repeat produced content-bound local
-evidence with the same error, but this diagnostic is not a promoted Table 5
-archive. Perturbation-size sensitivity and the remaining external gates are
-still required.
+evidence with the same error. A content-bound (10^{-5},10^{-6},10^{-7})
+step study then passes the independent audit: the coarse-to-middle observed
+order is 1.998, all point checks pass, and the two finest finite-difference
+tangents differ by (1.36\times10^{-8}). This closes the internal macro-
+tangent consistency gate, but it is not a promoted Table 5 archive; the
+remaining external gates are still required.
 
 The first five-level spatial sequence uses nominal mesh sizes 0.20, 0.14, 0.10,
 0.07 and 0.05, producing 315, 459, 804, 1590 and 2859 Q9 cells. The 1590-cell
