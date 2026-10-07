@@ -13,6 +13,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import math
 from pathlib import Path
 from typing import Callable
 
@@ -143,6 +144,160 @@ def load_candidate(path: Path) -> dict[str, object]:
     }
 
 
+def _canonical_fingerprint(record: object) -> str:
+    payload = json.dumps(
+        record,
+        sort_keys=True,
+        separators=(",", ":"),
+        ensure_ascii=False,
+        allow_nan=False,
+    ).encode("utf-8")
+    return "sha256:" + hashlib.sha256(payload).hexdigest()
+
+
+def _verified_artifact(reference, *, root: Path) -> Path:
+    if not isinstance(reference, dict):
+        raise ValueError("Tangent evidence artifact reference must be a mapping.")
+    path = Path(str(reference.get("path", "")))
+    selected = path if path.is_absolute() else root / path
+    digest = reference.get("sha256")
+    if not selected.is_file() or not isinstance(digest, str) or _sha256(selected) != digest:
+        raise ValueError(f"Tangent evidence artifact hash mismatch: {selected}")
+    return selected
+
+
+def load_macro_tangent_check(path: Path) -> dict[str, object]:
+    """Load one fixed-old-state tangent check and verify its artifact graph."""
+
+    selected = Path(path)
+    payload = json.loads(selected.read_text(encoding="utf-8"))
+    if payload.get("schema") != "agentfem.zhang-2021-macro-tangent-fd.v1":
+        raise ValueError(f"Unsupported macro-tangent evidence schema: {selected}")
+    fingerprint = payload.get("fingerprint")
+    unsealed = dict(payload)
+    unsealed.pop("fingerprint", None)
+    if fingerprint != _canonical_fingerprint(unsealed):
+        raise ValueError(f"Macro-tangent evidence fingerprint mismatch: {selected}")
+    if (
+        payload.get("status") != "passed"
+        or payload.get("accepted") is not True
+        or payload.get("content_bound") is not True
+    ):
+        raise ValueError(f"Macro-tangent evidence is not accepted and content-bound: {selected}")
+    root = selected.parent
+    base_path = _verified_artifact(payload.get("base"), root=root)
+    base = load_candidate(base_path)
+    references = []
+    for perturbation in payload.get("perturbations", ()):
+        if not isinstance(perturbation, dict):
+            raise ValueError("Tangent perturbation record must be a mapping.")
+        references.extend((perturbation.get("plus"), perturbation.get("minus")))
+    if len(references) != 8:
+        raise ValueError("A 2D macro-tangent check requires eight perturbation artifacts.")
+    for reference in references:
+        _verified_artifact(reference, root=root)
+    check = payload.get("check")
+    candidate = payload.get("candidate")
+    implementation = payload.get("implementation")
+    if not isinstance(check, dict) or check.get("passed") is not True:
+        raise ValueError("Macro-tangent numerical check did not pass.")
+    if not isinstance(candidate, dict) or not isinstance(implementation, dict):
+        raise ValueError("Macro-tangent candidate identity is incomplete.")
+    return {
+        "path": str(selected),
+        "sha256": _sha256(selected),
+        "payload": payload,
+        "candidate": candidate,
+        "check": check,
+        "implementation": implementation,
+        "scientific_runtime": _scientific_identity(base["payload"]),
+        "benchmark_implementation": _benchmark_identity(base["payload"]),
+        "discretization": _discretization_identity(base["payload"]),
+    }
+
+
+def assess_macro_tangent_sensitivity(runs) -> dict[str, object]:
+    """Audit a three-level centered-difference perturbation sequence."""
+
+    selected = tuple(sorted(runs, key=lambda run: -run["candidate"]["relative_step"]))
+    steps = tuple(float(run["candidate"]["relative_step"]) for run in selected)
+    invariant_parameters = ("mesh_size", "quadrature_degree", "increments")
+    common_problem = bool(
+        len(selected) >= 3
+        and len(set(steps)) == len(steps)
+        and all(steps[index] > steps[index + 1] for index in range(len(steps) - 1))
+        and all(
+            len({json.dumps(run["candidate"].get(name)) for run in selected}) == 1
+            for name in invariant_parameters
+        )
+        and len({run["scientific_runtime"] for run in selected}) == 1
+        and len({run["benchmark_implementation"] for run in selected}) == 1
+        and len({run["discretization"] for run in selected}) == 1
+        and len({_stable(run["implementation"]) for run in selected}) == 1
+    )
+    analytical = tuple(
+        np.asarray(run["check"]["analytical"], dtype=float) for run in selected
+    )
+    finite_difference = tuple(
+        np.asarray(run["check"]["finite_difference"], dtype=float) for run in selected
+    )
+    analytical_consistent = bool(
+        analytical
+        and all(
+            np.array_equal(analytical[0], value) for value in analytical[1:]
+        )
+    )
+    relative_errors = tuple(
+        float(run["check"]["relative_frobenius_error"]) for run in selected
+    )
+    successive_changes = tuple(
+        _relative_change(finite_difference[index - 1], finite_difference[index])
+        for index in range(1, len(finite_difference))
+    )
+    observed_orders = tuple(
+        math.log(relative_errors[index - 1] / relative_errors[index])
+        / math.log(steps[index - 1] / steps[index])
+        for index in range(1, len(selected))
+        if relative_errors[index] > 0.0 and relative_errors[index - 1] > 0.0
+    )
+    all_checks_passed = bool(
+        selected and all(run["check"].get("passed") is True for run in selected)
+    )
+    second_order_entry = bool(observed_orders and observed_orders[0] >= 1.5)
+    stable_finest = bool(successive_changes and successive_changes[-1] <= 1.0e-6)
+    passed = bool(
+        common_problem
+        and analytical_consistent
+        and all_checks_passed
+        and second_order_entry
+        and stable_finest
+    )
+    return {
+        "schema": "agentfem.zhang-2021-macro-tangent-step-audit.v1",
+        "status": "passed" if passed else "failed",
+        "passed": passed,
+        "macro_tangent_finite_difference_consistent": passed,
+        "benchmark_promotion_authorized": False,
+        "common_problem": common_problem,
+        "analytical_tangent_identical": analytical_consistent,
+        "all_point_checks_passed": all_checks_passed,
+        "relative_steps_coarse_to_fine": steps,
+        "relative_frobenius_errors": relative_errors,
+        "successive_finite_difference_changes": successive_changes,
+        "observed_orders": observed_orders,
+        "second_order_entry": second_order_entry,
+        "stable_finest": stable_finest,
+        "finest_change_tolerance": 1.0e-6,
+        "artifacts": tuple(
+            {"path": run["path"], "sha256": run["sha256"]} for run in selected
+        ),
+        "decision_scope": (
+            "fixed-pre-increment-state macro-tangent step sensitivity; "
+            "no Table 5 promotion authority"
+        ),
+    }
+
+
 def _observable(run, name: str) -> np.ndarray:
     payload = run["payload"]
     if name == "first_piola":
@@ -256,6 +411,7 @@ def assess_convergence(
     increment_runs=(),
     mesh_runs=(),
     quadrature_runs=(),
+    tangent_runs=(),
 ) -> dict[str, object]:
     """Derive available convergence axes from candidate file contents."""
 
@@ -318,15 +474,31 @@ def assess_convergence(
             require_decreasing=False,
         )
     derived = {name: bool(audits.get(name, {}).get("passed")) for name in groups}
-    missing = tuple(name for name, passed in derived.items() if not passed) + tuple(
-        INDEPENDENT_PROMOTION_GATES
+    tangent_audit = (
+        assess_macro_tangent_sensitivity(tangent_runs) if tangent_runs else None
     )
+    content_bound = bool(
+        (all_runs or tangent_runs)
+        and (not all_runs or (clean and common_source and common_benchmark))
+        and (
+            not tangent_runs
+            or all(run["payload"].get("content_bound") is True for run in tangent_runs)
+        )
+    )
+    independent_gates = tuple(
+        name
+        for name in INDEPENDENT_PROMOTION_GATES
+        if name != "macro_tangent_finite_difference_consistent"
+        or tangent_audit is None
+        or not tangent_audit["passed"]
+    )
+    missing = tuple(name for name, passed in derived.items() if not passed) + independent_gates
     return {
         "schema": SCHEMA,
         "status": "incomplete",
         "accepted": False,
         "benchmark_promotion_authorized": False,
-        "content_bound": bool(clean and common_source and common_benchmark),
+        "content_bound": content_bound,
         "source": {
             "clean": clean,
             "common_scientific_runtime": common_source,
@@ -341,6 +513,7 @@ def assess_convergence(
         },
         "derived_convergence": derived,
         "axis_audits": audits,
+        "macro_tangent_step_audit": tangent_audit,
         "missing_promotion_evidence": missing,
         "decision_scope": (
             "content-bound mesh, increment, and quadrature diagnostics; "
@@ -354,6 +527,7 @@ def main() -> None:
     parser.add_argument("--increment-run", action="append", type=Path, default=[])
     parser.add_argument("--mesh-run", action="append", type=Path, default=[])
     parser.add_argument("--quadrature-run", action="append", type=Path, default=[])
+    parser.add_argument("--tangent-run", action="append", type=Path, default=[])
     parser.add_argument("--output", type=Path, required=True)
     arguments = parser.parse_args()
     report = assess_convergence(
@@ -361,6 +535,9 @@ def main() -> None:
         mesh_runs=tuple(load_candidate(path) for path in arguments.mesh_run),
         quadrature_runs=tuple(
             load_candidate(path) for path in arguments.quadrature_run
+        ),
+        tangent_runs=tuple(
+            load_macro_tangent_check(path) for path in arguments.tangent_run
         ),
     )
     arguments.output.parent.mkdir(parents=True, exist_ok=True)

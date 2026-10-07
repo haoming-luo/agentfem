@@ -23,6 +23,7 @@ from zhang_2021_periodic_composite_fixture import (
 )
 from zhang_2021_plane_strain_promotion import (
     assess_convergence,
+    assess_macro_tangent_sensitivity,
     load_candidate,
 )
 from zhang_2021_plane_strain_driver import (
@@ -374,6 +375,60 @@ def test_zhang_candidate_rejects_discretization_identity_mismatch(tmp_path):
 
     with pytest.raises(ValueError, match="discretization fingerprints disagree"):
         load_candidate(path)
+
+
+def _macro_tangent_run(step, error, *, discretization="d" * 64):
+    analytical = np.asarray(
+        ((2.0, 0.2, 0.1, 0.0), (0.2, 1.8, 0.0, 0.1),
+         (0.1, 0.0, 0.8, 0.05), (0.0, 0.1, 0.05, 1.1))
+    )
+    finite_difference = analytical + error * np.eye(4)
+    relative_error = float(
+        np.linalg.norm(finite_difference - analytical)
+        / np.linalg.norm(finite_difference)
+    )
+    return {
+        "path": f"step-{step}.json",
+        "sha256": "e" * 64,
+        "payload": {"content_bound": True},
+        "candidate": {
+            "relative_step": step,
+            "mesh_size": 0.3,
+            "quadrature_degree": 4,
+            "increments": 10,
+        },
+        "check": {
+            "passed": True,
+            "analytical": analytical.tolist(),
+            "finite_difference": finite_difference.tolist(),
+            "relative_frobenius_error": relative_error,
+        },
+        "implementation": {"driver_sha256": "a" * 64},
+        "scientific_runtime": "b" * 64,
+        "benchmark_implementation": (("fixture.py", "c" * 64),),
+        "discretization": discretization,
+    }
+
+
+def test_zhang_macro_tangent_step_audit_requires_one_controlled_problem():
+    runs = (
+        _macro_tangent_run(1.0e-5, 1.0e-5),
+        _macro_tangent_run(1.0e-6, 1.0e-7),
+        _macro_tangent_run(1.0e-7, 1.0e-9),
+    )
+    report = assess_macro_tangent_sensitivity(runs)
+
+    assert report["passed"]
+    assert report["macro_tangent_finite_difference_consistent"]
+    assert report["observed_orders"][0] == pytest.approx(2.0, rel=1.0e-2)
+    assert not report["benchmark_promotion_authorized"]
+
+    changed = tuple(runs[:2]) + (
+        _macro_tangent_run(1.0e-7, 1.0e-9, discretization="f" * 64),
+    )
+    rejected = assess_macro_tangent_sensitivity(changed)
+    assert not rejected["common_problem"]
+    assert not rejected["passed"]
 
 
 def test_zhang_cell_geometry_materials_and_affine_periodicity_are_explicit():
