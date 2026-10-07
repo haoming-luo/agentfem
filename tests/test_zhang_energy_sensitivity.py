@@ -117,3 +117,36 @@ def test_promotion_axis_rejects_changed_physical_problem(parameter, value):
     runs[-1]["candidate"][parameter] = value
     report = assess_convergence(mesh_runs=runs)
     assert not report["axis_audits"]["mesh_converged"]["setup_consistent"]
+
+
+def _interface_runs():
+    runs = _runs()
+    for run, size in zip(runs, (.06, .04, .03)):
+        run["candidate"]["mesh_size"] = .1
+        run["candidate"]["mesh_policy"] = {
+            "kind": "interface_distance_threshold", "interface_size": size,
+            "transition_distance": .1, "distance_sampling": 200,
+        }
+        run["payload"]["mixed_elastic_energy_diagnostics"]["primal_elastic_energy_density"] = 2.
+    return runs
+
+
+def test_interface_axis_does_not_claim_global_mesh_convergence():
+    report = assess_convergence(interface_runs=_interface_runs())
+    assert report["interface_refinement_audit"]["passed"]
+    assert not report["derived_convergence"]["mesh_converged"]
+    assert not report["benchmark_promotion_authorized"]
+
+
+@pytest.mark.parametrize("parameter", ("transition_distance", "distance_sampling"))
+def test_interface_axis_locks_other_policy_parameters(parameter):
+    runs = _interface_runs()
+    runs[-1]["candidate"]["mesh_policy"][parameter] *= 2
+    assert not assess_convergence(interface_runs=runs)["interface_refinement_audit"]["setup_consistent"]
+
+
+def test_interface_axis_refuses_implicit_policy():
+    runs = _interface_runs()
+    runs[-1]["candidate"]["mesh_policy"] = None
+    with pytest.raises(ValueError, match="explicit"):
+        assess_convergence(interface_runs=runs)

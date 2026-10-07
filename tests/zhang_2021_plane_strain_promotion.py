@@ -424,6 +424,7 @@ def _axis_audit(
     fine_order: Callable[[dict[str, object]], float],
     invariant_parameters: tuple[str, ...],
     require_decreasing: bool = True,
+    interface_refinement: bool = False,
 ) -> dict[str, object]:
     selected = tuple(sorted(runs, key=lambda run: fine_order(run["candidate"])))
     coordinates = tuple(float(coordinate(run["candidate"])) for run in selected)
@@ -442,6 +443,11 @@ def _axis_audit(
             "deformation_gradient_path",
         )
     }
+    if interface_refinement:
+        invariant["mesh_policy"] = tuple(sorted({
+            _stable({key: value for key, value in run["candidate"]["mesh_policy"].items()
+                     if key != "interface_size"}) for run in selected
+        }))
     setup_consistent = bool(
         len(selected) >= 3
         and unique
@@ -507,6 +513,7 @@ def assess_convergence(
     *,
     increment_runs=(),
     mesh_runs=(),
+    interface_runs=(),
     quadrature_runs=(),
     tangent_runs=(),
     lifecycle_evidence=None,
@@ -518,7 +525,8 @@ def assess_convergence(
         "mesh_converged": tuple(mesh_runs),
         "quadrature_converged": tuple(quadrature_runs),
     }
-    all_runs = tuple(run for runs in groups.values() for run in runs)
+    interface_runs = tuple(interface_runs)
+    all_runs = tuple(run for runs in groups.values() for run in runs) + interface_runs
     source_identities = {_scientific_identity(run["payload"]) for run in all_runs}
     benchmark_identities = {_benchmark_identity(run["payload"]) for run in all_runs}
     clean = bool(all_runs) and all(
@@ -527,6 +535,27 @@ def assess_convergence(
     common_source = bool(all_runs) and len(source_identities) == 1
     common_benchmark = bool(all_runs) and len(benchmark_identities) == 1
     audits: dict[str, object] = {}
+    interface_audit = None
+    if interface_runs:
+        for run in interface_runs:
+            item = run["candidate"]
+            policy = item.get("mesh_policy") or {}
+            if policy.get("kind") != "interface_distance_threshold" or set(policy) != {
+                "kind", "interface_size", "transition_distance", "distance_sampling"
+            }:
+                raise ValueError("Interface study requires the explicit supported mesh policy.")
+            size = float(policy["interface_size"])
+            if not np.isfinite(size) or not 0 < size < float(item["mesh_size"]):
+                raise ValueError("Invalid interface refinement coordinate.")
+        interface_audit = _axis_audit(
+            interface_runs, name="interface_size",
+            coordinate=lambda item: float(item["mesh_policy"]["interface_size"]),
+            fine_order=lambda item: -float(item["mesh_policy"]["interface_size"]),
+            invariant_parameters=("formulation", "mesh_size", "quadrature_degree",
+                                  "requested_fixed_increments", "mpi_ranks"),
+            interface_refinement=True,
+        )
+        interface_audit["scope"] = "Interface-size sensitivity at fixed background mesh; not global spatial convergence."
     if increment_runs:
         audits["load_increment_path_converged"] = _axis_audit(
             increment_runs,
@@ -617,6 +646,7 @@ def assess_convergence(
         },
         "derived_convergence": derived,
         "axis_audits": audits,
+        "interface_refinement_audit": interface_audit,
         "macro_tangent_step_audit": tangent_audit,
         "lifecycle_evidence": lifecycle_evidence,
         "missing_promotion_evidence": missing,
@@ -631,6 +661,7 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--increment-run", action="append", type=Path, default=[])
     parser.add_argument("--mesh-run", action="append", type=Path, default=[])
+    parser.add_argument("--interface-run", action="append", type=Path, default=[])
     parser.add_argument("--quadrature-run", action="append", type=Path, default=[])
     parser.add_argument("--tangent-run", action="append", type=Path, default=[])
     parser.add_argument("--supercell-audit", type=Path)
@@ -641,6 +672,7 @@ def main() -> None:
     report = assess_convergence(
         increment_runs=tuple(load_candidate(path) for path in arguments.increment_run),
         mesh_runs=tuple(load_candidate(path) for path in arguments.mesh_run),
+        interface_runs=tuple(load_candidate(path) for path in arguments.interface_run),
         quadrature_runs=tuple(
             load_candidate(path) for path in arguments.quadrature_run
         ),
