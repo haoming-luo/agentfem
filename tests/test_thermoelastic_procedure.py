@@ -152,6 +152,61 @@ def test_closed_procedure_cannot_reuse_destroyed_petsc_resources():
         step.advance()
 
 
+@pytest.mark.parametrize(
+    "kind", ["wrong_space", "unsupported", "nonfinite", "initial_jump"]
+)
+def test_preflight_rejects_invalid_initial_boundary_without_preparing_solver(
+    kind, monkeypatch
+):
+    from agentfem import solvers
+
+    with make_step() as source:
+        thermal_bcs = []
+        if kind == "wrong_space":
+            thermal_bcs = [
+                constraints.time_dependent_component_dirichlet(
+                    source.u,
+                    0,
+                    marker=lambda x: np.isclose(x[0], 0.0),
+                    amplitude=amplitudes.ramp(),
+                    name="wrong_target",
+                )
+            ]
+        elif kind == "unsupported":
+            thermal_bcs = [object()]
+        elif kind == "nonfinite":
+            if source.comm.rank == 0:
+                source.theta.value.x.array[0] = np.nan
+        else:
+            thermal_bcs = [
+                constraints.time_dependent_scalar_dirichlet(
+                    source.theta,
+                    marker=lambda x: np.isclose(x[0], 0.0),
+                    amplitude=amplitudes.ramp(start_value=1.0, end_value=2.0),
+                    name="nonzero_initial_temperature",
+                )
+            ]
+            # Constructor rejection must also restore the registered input.
+            thermal_bcs[0].constant.value = 7.0
+
+        def unexpected_prepare(*args, **kwargs):
+            raise AssertionError("invalid input reached solver preparation")
+
+        monkeypatch.setattr(solvers, "prepare_linear_problem", unexpected_prepare)
+        code = "007" if kind in ("wrong_space", "unsupported") else "008"
+        with pytest.raises((ValueError, RuntimeError), match=f"AFM-COUPLING-{code}"):
+            _ThermoelasticStep(
+                source.u,
+                source.theta,
+                material=source.material,
+                dt=0.1,
+                steps=1,
+                thermal_bcs=thermal_bcs,
+            )
+        if kind == "initial_jump":
+            assert float(thermal_bcs[0].constant.value) == 7.0
+
+
 def test_joint_procedure_restart_and_corrupt_history_are_atomic(tmp_path):
     comm = MPI.COMM_WORLD
     path = comm.bcast(str(tmp_path / "coupled"), root=0)

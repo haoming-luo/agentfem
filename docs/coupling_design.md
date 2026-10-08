@@ -170,6 +170,27 @@ Numerical inputs/results in this private slice use SI. Non-SI Model metadata,
 ordinary output policies and explicit capability rejection need review before
 public registration.
 
+The initial-state preflight now rejects unsupported constraints, boundaries
+attached to the wrong participant space, non-finite initial values, and initial
+fields inconsistent with the prescribed values at physical time zero. It
+checks each boundary independently, so overlapping conflicting values cannot
+be hidden by assignment order. This is not an equilibrium certificate: users
+still own the physical consistency of the initial state. No automatic repair
+or hidden initial jump is introduced. A failed preflight restores registered
+boundary constants and runs before prepared solver construction. The targeted
+Procedure suite passes 13 tests in serial and on each of two MPI ranks,
+including a non-finite initial value injected on only one rank.
+
+Public lowering must keep both participants explicit: displacement as the
+Step target and a named temperature-departure field, with no field-name
+inference. Its option contract must distinguish integrated mechanical and
+heat loads, participant-specific strong boundaries, and outer iteration
+controls. Before registering this route, bind registered model inputs to the
+restart identity and reuse the common result/output/progress policy. Reject
+unsupported regional materials, weak/contact constraints, operator-changing
+inputs, and incompatible unit systems rather than ignoring them. Public
+registration remains pending these checks and convergence acceptance.
+
 ## Product decision
 
 Finish the shared-mesh sequential route first. Keep Model as the problem

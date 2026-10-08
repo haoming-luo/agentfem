@@ -67,6 +67,11 @@ class _ThermoelasticStep:
         )
         mechanical_bcs = tuple(getattr(item, "bc", item) for item in mechanical_assets)
         thermal_bcs = tuple(getattr(item, "bc", item) for item in thermal_assets)
+        collective_call(
+            lambda: self._validate_boundary_spaces(mechanical_bcs, thermal_bcs),
+            comm=self.comm,
+            label="validate coupled strong boundaries",
+        )
         self.input_identity = collective_canonical_record(
             {
                 "declared_inputs": input_identity,
@@ -107,7 +112,11 @@ class _ThermoelasticStep:
         ]
         try:
             with self._boundary_time(0.0):
-                pass
+                collective_call(
+                    lambda: self._validate_initial_fields(mechanical_bcs, thermal_bcs),
+                    comm=self.comm,
+                    label="validate coupled initial state",
+                )
             self.thermal = self._resources.enter_context(
                 solvers.prepare_linear_problem(
                     self.blocks.thermal_matrix,
@@ -134,6 +143,41 @@ class _ThermoelasticStep:
                 item.constant.value = value
             self.close()
             raise
+
+    def _validate_boundary_spaces(self, mechanical_bcs, thermal_bcs):
+        from dolfinx import fem
+
+        for field, boundaries in ((self.u, mechanical_bcs), (self.theta, thermal_bcs)):
+            for boundary in boundaries:
+                if not isinstance(boundary, fem.DirichletBC):
+                    raise ValueError(
+                        "AFM-COUPLING-007: only strong Dirichlet boundaries are "
+                        "supported by this coupled Procedure."
+                    )
+                if not field.space._cpp_object.contains(boundary.function_space):
+                    raise ValueError(
+                        "AFM-COUPLING-007: boundary belongs to a different field space."
+                    )
+
+    def _validate_initial_fields(self, mechanical_bcs, thermal_bcs):
+        # Check each boundary independently: conflicting overlapping values
+        # must not be hidden by the last boundary overwriting the first one.
+        # Never repair user initial data or silently introduce an initial jump.
+        for name, field, boundaries in (
+            ("displacement", self.u, mechanical_bcs),
+            ("temperature departure", self.theta, thermal_bcs),
+        ):
+            values = field.value.x.array
+            if not np.all(np.isfinite(values)):
+                raise ValueError(f"AFM-COUPLING-008: non-finite initial {name}.")
+            for boundary in boundaries:
+                prescribed = values.copy()
+                boundary.set(prescribed)
+                if not np.allclose(values, prescribed, rtol=1e-12, atol=1e-14):
+                    raise ValueError(
+                        f"AFM-COUPLING-008: initial {name} does not match its "
+                        "prescribed value at time zero; supply consistent initial data."
+                    )
 
     @property
     def time(self):
