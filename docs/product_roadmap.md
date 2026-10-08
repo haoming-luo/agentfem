@@ -326,6 +326,12 @@ The next scientific promotions focus on depth rather than catalog size:
    decreasing-change requirement. Five clean runs verify their output seals;
    neither complete spatial axis is promoted. See the
    [spatial follow-up](https://github.com/haoming-luo/agentfem/blob/main/evidence/zhang_2021/2026-10-08-spatial-followup.md).
+   Figure-specific 285-cell lifecycle verification now passes direct serial/MPI
+   response equivalence, both cross-rank restart directions, and a local
+   macro-tangent perturbation audit. A larger `1e-3` perturbation failed and
+   remains recorded; MPI tangent condensation is still unsupported. These
+   coarse lifecycle checks do not promote the fine spatial/formulation gates.
+   See the [bounded verification record](https://github.com/haoming-luo/agentfem/blob/main/evidence/zhang_2021/2026-10-08-lifecycle-verification.md).
    The earlier diagnostics
    below use the prose geometry and must not be interpreted as unresolved
    constitutive errors or transferred to the figure geometry automatically.

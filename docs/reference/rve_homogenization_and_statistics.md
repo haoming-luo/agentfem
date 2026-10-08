@@ -518,6 +518,12 @@ is 0.46575%, but global energy change remains 0.72236%, above 0.5%.
 The strict decreasing-change checks also reject local stress and global tangent.
 All five new output seals and raw-point reconstructions verify; spatial
 convergence and full benchmark promotion remain incomplete.
+Figure-specific coarse lifecycle checks now pass serial/MPI response and
+bidirectional portable restart. A fixed-old-state tangent study passes on
+`1e-4 … 1e-7`; its failed `1e-3` perturbation is retained explicitly. MPI
+tangent condensation remains unsupported. These results do not establish
+spatial accuracy; see the
+[lifecycle verification record](https://github.com/haoming-luo/agentfem/blob/main/evidence/zhang_2021/2026-10-08-lifecycle-verification.md).
 The
 [source-discrepancy investigation](https://github.com/haoming-luo/agentfem/blob/main/evidence/zhang_2021/geometry-source-discrepancy.md)
 records the inspected PDF identity, both geometries and all four mesh levels.
