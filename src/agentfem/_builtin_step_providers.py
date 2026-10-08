@@ -110,6 +110,22 @@ def _lower_linear_static(model, request: StepRequest):
     )
 
 
+def _accept_coupled_thermoelastic(model, request: StepRequest) -> bool:
+    study = getattr(model, "study", None)
+    return (
+        getattr(study, "physics", None) == "multiphysics"
+        and getattr(study, "assumption", None) == "small_strain_thermoelasticity"
+        and getattr(study, "dimension", None) == 3
+        and _is_vector_target(request.target)
+        and _procedure_method(model, request) == "staggered_implicit_euler"
+    )
+
+
+def _lower_coupled_thermoelastic(model, request):
+    from ._step_builders_coupled import thermoelastic
+    return thermoelastic(model, request)
+
+
 def _accept_transient_heat(model, request: StepRequest) -> bool:
     return (
         request.target is not None
@@ -1135,6 +1151,22 @@ register_step_provider(
             "amplitude",
             "temperature",
             required=("duration",),
+        ),
+    )
+)
+register_step_provider(
+    StepProvider(
+        name="staggered_thermoelastic",
+        analyses=("first_order_transient",),
+        accepts=_accept_coupled_thermoelastic,
+        lower=_lower_coupled_thermoelastic,
+        priority=100,
+        description="Experimental shared-mesh 3D linear thermoelasticity; SI, strong boundaries, final snapshot.",
+        procedure="standard/staggered_implicit_euler",
+        option_contract=_option_contract(
+            "dt", "steps", "temperature_departure", "heat_loads", "mechanical_loads",
+            "relaxation", "rtol", "max_iterations", "displacement_atol", "temperature_atol",
+            required=("dt", "steps", "temperature_departure"),
         ),
     )
 )

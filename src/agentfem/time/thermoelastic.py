@@ -1,7 +1,7 @@
 # SPDX-FileCopyrightText: 2026 Haoming Luo and AgentFEM contributors
 # SPDX-License-Identifier: Apache-2.0
 
-"""Private bounded thermoelastic Procedure, before public Step promotion.
+"""Bounded experimental thermoelastic Procedure behind the Step provider.
 
 The benchmark owns its independent oracle. This execution object owns only
 the physical participants and one accepted time coordinate. No mesh creation
@@ -30,7 +30,7 @@ class _ThermoelasticStep:
     Temperature is explicitly a departure from material reference temperature.
     Registered time-dependent strong values modify only the RHS. Joint restart
     includes their accepted time and conjugate force history. Public execution
-    and output policy still need integration before built-in Step promotion.
+    and output use the common result boundary; automatic cadence remains pending.
     """
 
     def __init__(
@@ -48,6 +48,7 @@ class _ThermoelasticStep:
         solver_options=None,
         input_identity=None,
         name="coupled_thermoelastic",
+        iteration_options=None,
     ):
         self.u, self.theta = displacement, temperature_departure
         self.comm = self.u.space.mesh.comm
@@ -60,6 +61,10 @@ class _ThermoelasticStep:
             raise ValueError("Positive finite dt and positive integer steps required.")
         self.dt, self.total_steps, self.completed_steps = float(dt), steps, 0
         self.name, self.material = name, material
+        from ..procedures import staggered_implicit_euler
+
+        self.procedure = staggered_implicit_euler()
+        self.iteration_options = dict(iteration_options or {})
         mechanical_assets, thermal_assets = tuple(mechanical_bcs), tuple(thermal_bcs)
         self._time_boundaries = tuple(
             item
@@ -282,6 +287,7 @@ class _ThermoelasticStep:
             self._active = False
 
     def run(self, **iteration_options):
+        iteration_options = {**self.iteration_options, **iteration_options}
         while self.completed_steps < self.total_steps:
             self.advance(**iteration_options)
         return self
@@ -363,7 +369,7 @@ class _ThermoelasticStep:
             )
         result.metadata.update(
             {
-                "maturity": "private_thermoelastic_procedure",
+                "maturity": "experimental",
                 "unit_system": "SI",
                 "time": self.time,
                 "accepted_steps": self.completed_steps,
@@ -380,7 +386,7 @@ class _ThermoelasticStep:
                     "mechanical": self.mechanical.solve_count,
                 },
                 "limitations": [
-                    "no_public_step_provider",
+                    "bounded_shared_mesh_3d_thermoelasticity",
                     "no_general_energy_verification",
                     "constant_material_and_natural_loads",
                 ],
@@ -425,7 +431,7 @@ class _ThermoelasticStep:
             limitations=(
                 "Explicit scientific input identity is required.",
                 "Constant material and natural loads; fixed strong-boundary DOF sets.",
-                "Not a public coupled Step yet.",
+                "Experimental 3D shared-mesh route; no automatic checkpoint cadence.",
             ),
         )
 

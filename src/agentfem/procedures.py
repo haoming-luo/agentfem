@@ -129,6 +129,15 @@ def implicit_euler(*, nonlinear: bool = False, stateful: bool = True) -> Solutio
     )
 
 
+def staggered_implicit_euler() -> SolutionProcedure:
+    """Backward Euler advanced through converged participant iterations."""
+    return SolutionProcedure(
+        name="staggered implicit Euler", family="standard",
+        equation_order="first_order", control="time_increments",
+        algorithm="staggered_implicit_euler", stateful=True,
+    )
+
+
 def quasistatic_viscoelasticity() -> SolutionProcedure:
     """Exact generalized-Maxwell update with incremental equilibrium."""
 
@@ -286,6 +295,8 @@ def for_step(*, analysis: str, method: str | None = None, stateful: bool = False
     if selected_analysis == "nonlinear_static":
         return nonlinear_static(stateful=stateful)
     if selected_analysis == "first_order_transient":
+        if selected_method == "staggered_implicit_euler":
+            return staggered_implicit_euler()
         if selected_method in {
             "quasistatic_viscoelasticity",
             "generalized_maxwell",
@@ -363,6 +374,7 @@ def _validate_method_name(analysis: str, method: str | None) -> None:
         },
         "nonlinear_static": {"newton", "nonlinear_static"},
         "first_order_transient": {
+            "staggered_implicit_euler",
             "implicit_euler",
             "backward_euler",
             "quasistatic_viscoelasticity",
@@ -465,6 +477,7 @@ __all__ = [
     "for_step",
     "generalized_alpha",
     "implicit_euler",
+    "staggered_implicit_euler",
     "implicit_creep",
     "linear_static",
     "modal",

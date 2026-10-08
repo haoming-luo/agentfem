@@ -23,6 +23,54 @@ from .. import fields
 from ..provenance import content_fingerprint
 
 
+def _coupled_input_identity(participants, loads, *, material, unit_system):
+    """Bind initial fields, each boundary membership/value, and natural forms.
+
+    Called once at construction; evolving participant values must never replace
+    this initial scientific identity during checkpoint publication.
+    """
+    domain = participants[0][1].function_space.mesh
+    missing = []
+    records = {}
+    for name, function, assets in participants:
+        boundaries = []
+        for index, asset in enumerate(assets):
+            bc = getattr(asset, "bc", asset)
+            values = function.copy()
+            values.x.array[:] = 0.0
+            bc.set(values.x.array)
+            values.x.scatter_forward()
+            boundaries.append({
+                "membership": _homogeneous_dirichlet_identity(
+                    function, (bc,), missing=missing, path=f"{name}.bcs[{index}]"
+                ),
+                "values": _function_content_identity(values, domain=domain),
+                "history": asset.summary() if hasattr(asset, "amplitude") else None,
+            })
+        records[name] = {
+            "initial": _function_content_identity(function, domain=domain),
+            "boundaries": boundaries,
+        }
+    record = {
+        "schema": "agentfem.coupled-input-identity.v1",
+        "mesh": mesh_executable_identity(domain),
+        "participants": records,
+        "material": material.as_dict(),
+        "units": unit_system.summary(),
+        "loads": {
+            name: None if form is None else _form_identity(
+                form, domain=domain, path=f"loads.{name}", missing=missing
+            ) for name, form in loads.items()
+        },
+    }
+    identity = _finalize_collective_identity(
+        record, missing, comm=domain.comm, path="coupled_inputs"
+    )
+    if not identity["complete"]:
+        raise ValueError(f"AFM-COUPLING-010: incomplete input identity: {identity['missing']}")
+    return identity
+
+
 def harmonic_executable_identity(system, *, solution, bcs=()) -> dict[str, object]:
     """Return a partition-neutral identity for an executable harmonic system."""
 

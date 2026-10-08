@@ -8,6 +8,13 @@ experimental formulation to a validated one.
 
 ### Thermoelastic coupling experiment
 
+- Add experimental `studies.coupled_thermoelastic()` and a typed ordinary
+  `model.step()` provider for shared-mesh 3D SI small-strain thermoelasticity.
+  Explicit participant loads and strong boundaries enter one accepted
+  lifecycle, with input-bound portable restart, final-state XDMF at physical
+  time and rank-reduced performance evidence. General first-law validation,
+  convergence promotion and automatic transient output/cadence remain pending.
+
 - Add an explicit three-dimensional reversible heat-feedback Operator, with
   constant-strain capacity semantics and early geometry/time/measure checks.
 - Add a bounded staggered thermoelastic verification prototype against an
@@ -19,7 +26,8 @@ experimental formulation to a validated one.
   residual reactions and prescribed-dilation path work, separately from the
   backward-Euler quadratic identity. Reuse the transient checkpoint envelope
   for joint accepted fields/history, trial-write rejection and atomic staged
-  recovery; this does not yet expose general coupled restart to applications.
+  recovery; the ordinary experimental provider now reuses this physical-state
+  lifecycle without carrying the benchmark's independent reference fields.
 - Preserve linear-form arity for exactly zero eigenstrain/thermal expansion
   and scalar/vector/tensor result projection, including zero-temperature-rise
   standard result output.

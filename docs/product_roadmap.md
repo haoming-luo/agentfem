@@ -113,8 +113,11 @@ reversible heat-feedback Operator, unrelaxed residuals, in-memory joint rollback
 and an independently written monolithic oracle. See [coupling design](coupling_design.md).
 The private experiment now verifies inward flux, prescribed-temperature heat
 reactions, affine prescribed-motion path work, and joint durable recovery.
-General registered boundaries, public Step integration and physical refinement
-remain promotion gates; no general coupled capability is declared stable.
+Registered strong boundaries and a bounded ordinary Step provider now reuse
+the physical Procedure and joint restart, with explicit SI/participant-load
+contracts and final-snapshot output. Public progress/checkpoint cadence,
+space/time refinement and installed-use acceptance remain promotion gates;
+no general coupled capability is declared stable.
 
 Execution order: finish this bounded thermal--mechanical product route first,
 then audit contact against existing moving-tool/work/search implementations
@@ -124,7 +127,7 @@ performance changes follow demonstrated application needs, not a parallel
 architecture rewrite. Small releases do not rebuild complete installers.
 
 Stop after this vertical route has explicit field/response and state evidence.
-Nonmatching-mesh transfer, two-way staggered iteration, monolithic Jacobians,
+Nonmatching-mesh transfer, broader nonlinear coupling, monolithic Jacobians,
 and additional physics remain separate subsequent decisions. Installation or
 mesh defects reported by users still interrupt this ordering when they block
 an otherwise supported workflow; no speculative installer rewrite is planned.

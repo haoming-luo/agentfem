@@ -1,7 +1,38 @@
 # Bounded coupling design: after sequential thermal mechanics
 
-Status: bounded 3D verification prototype implemented; a production two-way
-Step provider is not yet available.
+Status: bounded 3D experimental Step provider implemented. General coupled
+validation, convergence acceptance and release integration remain pending.
+
+## Ordinary workflow (experimental)
+
+Use `studies.coupled_thermoelastic()` with an SI Model, register displacement
+and a temperature-departure field, then call:
+
+```python
+step = model.step(
+    target=u, temperature_departure=theta, dt=0.1, steps=3,
+    heat_loads=(heating,), mechanical_loads=(), output="fields.xdmf",
+)
+result = step.solve_result()
+```
+
+See `examples/coupled_thermoelastic_3d.py` for a complete ordinary workflow.
+`procedures.staggered_implicit_euler()` describes the numerical route; the
+Study describes shared-mesh 3D small-strain thermoelastic physics. No numerical
+loop was added to Model. Each registered natural load must be assigned to an
+explicit participant. Existing nested strong constraints from `model.fix()`
+are reused, including their component spaces. Regional materials, additional
+eigenstrains, weak/contact boundaries, changing natural loads and non-SI units
+are rejected in this slice. Output is the final accepted snapshot at its real
+physical time. Automatic checkpoint cadence, progress and custom history
+options are not accepted yet; explicit save/load is available between windows.
+
+The Step option contract is shared by capability discovery and execution.
+Restart identity includes actual initial field contents, mesh, individual
+boundary membership and values, histories, material and executable natural
+load forms. Changing a load therefore cannot reuse an old checkpoint merely
+because its display name stayed the same. The result remains experimental and
+`computed`; this interface does not promote scientific maturity.
 
 ## Implemented experiment
 
@@ -199,7 +230,9 @@ rank-reduced timing schema with solve and result/output stages; constructor/JIT
 preparation is outside that call's timing scope. A rejected window publishes
 no completion dataset. Finite-strain OutputPlan is rejected before advancing;
 ordinary transient cadence and automatic progress/checkpoint policies remain
-public-integration work, not silently supported options.
+public-integration work, not silently supported options. The initial public
+provider now exposes this bounded completion; earlier private-stage notes above
+describe the extraction history rather than a separate user-facing solver.
 
 ## Product decision
 
