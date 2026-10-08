@@ -1,0 +1,149 @@
+{
+  "schema": "agentfem.contact-search-microbenchmark.v1",
+  "scope": "serial_planar_tool_warm_query_not_fem_or_mpi_speedup",
+  "agentfem_version": "0.4.1",
+  "numpy_version": "2.4.6",
+  "platform": "macOS-26.6.2-arm64-arm-64bit",
+  "python": "3.11.15",
+  "thread_environment": {
+    "OMP_NUM_THREADS": "1",
+    "OPENBLAS_NUM_THREADS": "1"
+  },
+  "cases": [
+    {
+      "cells_per_side": 8,
+      "queries": 16,
+      "repeats": 3,
+      "seed": 20261009,
+      "geometry_fingerprint": "37d65e6ddfd38ccaec6789dede04d28694553ac3f8eafe1e22278c5d3f4c9928",
+      "search_implementation_sha256": "ad6e47fb2c6da4905fc80fbe57056fcbd0bc5ef38c2efd4c199fa77a6ed18344",
+      "query_sha256": "fdd66618bf680a3aaa979a71fb50d273804e730b4359dd60c04645cfd7079209",
+      "projection_equivalence": "passed",
+      "tree_build_seconds": 0.0013392078690230846,
+      "query_seconds": {
+        "bvh": [
+          0.0007184580899775028,
+          0.0006719171069562435,
+          0.0006494172848761082
+        ],
+        "exhaustive": [
+          0.004771791864186525,
+          0.004894542042165995,
+          0.0047976248897612095
+        ]
+      },
+      "median_query_seconds": {
+        "bvh": 0.0006719171069562435,
+        "exhaustive": 0.0047976248897612095
+      },
+      "query_speed_ratio": 7.140203516315056,
+      "exact_facet_evaluations": {
+        "bvh": 32,
+        "exhaustive": 2048
+      },
+      "exact_work_fraction": 0.015625,
+      "diagnostics": {
+        "method": "deterministic_aabb_bvh",
+        "geometry_fingerprint": "37d65e6ddfd38ccaec6789dede04d28694553ac3f8eafe1e22278c5d3f4c9928",
+        "query_count": 16,
+        "tree_node_count": 255,
+        "facet_count": 128,
+        "maximum_visited_nodes": 9,
+        "mean_visited_nodes": 9.0,
+        "maximum_evaluated_facets": 2,
+        "mean_evaluated_facets": 2.0,
+        "distributed_ownership": false
+      }
+    },
+    {
+      "cells_per_side": 16,
+      "queries": 16,
+      "repeats": 3,
+      "seed": 20261009,
+      "geometry_fingerprint": "dc514feb81532b54ade32b2af044fbd25574e25c2b33b947ebd56c2060fcebd1",
+      "search_implementation_sha256": "ad6e47fb2c6da4905fc80fbe57056fcbd0bc5ef38c2efd4c199fa77a6ed18344",
+      "query_sha256": "fdd66618bf680a3aaa979a71fb50d273804e730b4359dd60c04645cfd7079209",
+      "projection_equivalence": "passed",
+      "tree_build_seconds": 0.00479208305478096,
+      "query_seconds": {
+        "bvh": [
+          0.000765583012253046,
+          0.0007555000483989716,
+          0.0007554581388831139
+        ],
+        "exhaustive": [
+          0.017513041850179434,
+          0.017430415842682123,
+          0.01748641673475504
+        ]
+      },
+      "median_query_seconds": {
+        "bvh": 0.0007555000483989716,
+        "exhaustive": 0.01748641673475504
+      },
+      "query_speed_ratio": 23.145487246243892,
+      "exact_facet_evaluations": {
+        "bvh": 32,
+        "exhaustive": 8192
+      },
+      "exact_work_fraction": 0.00390625,
+      "diagnostics": {
+        "method": "deterministic_aabb_bvh",
+        "geometry_fingerprint": "dc514feb81532b54ade32b2af044fbd25574e25c2b33b947ebd56c2060fcebd1",
+        "query_count": 16,
+        "tree_node_count": 1023,
+        "facet_count": 512,
+        "maximum_visited_nodes": 11,
+        "mean_visited_nodes": 11.0,
+        "maximum_evaluated_facets": 2,
+        "mean_evaluated_facets": 2.0,
+        "distributed_ownership": false
+      }
+    },
+    {
+      "cells_per_side": 32,
+      "queries": 16,
+      "repeats": 3,
+      "seed": 20261009,
+      "geometry_fingerprint": "2ac6b3f086f3c314cacda3ad506d04a26f5863eeda89e2dc76b7cf6bd21e5856",
+      "search_implementation_sha256": "ad6e47fb2c6da4905fc80fbe57056fcbd0bc5ef38c2efd4c199fa77a6ed18344",
+      "query_sha256": "fdd66618bf680a3aaa979a71fb50d273804e730b4359dd60c04645cfd7079209",
+      "projection_equivalence": "passed",
+      "tree_build_seconds": 0.01926429197192192,
+      "query_seconds": {
+        "bvh": [
+          0.000890249852091074,
+          0.0008596251718699932,
+          0.0008131661452353001
+        ],
+        "exhaustive": [
+          0.0672065420076251,
+          0.0671412916854024,
+          0.06703212484717369
+        ]
+      },
+      "median_query_seconds": {
+        "bvh": 0.0008596251718699932,
+        "exhaustive": 0.0671412916854024
+      },
+      "query_speed_ratio": 78.10531134092548,
+      "exact_facet_evaluations": {
+        "bvh": 32,
+        "exhaustive": 32768
+      },
+      "exact_work_fraction": 0.0009765625,
+      "diagnostics": {
+        "method": "deterministic_aabb_bvh",
+        "geometry_fingerprint": "2ac6b3f086f3c314cacda3ad506d04a26f5863eeda89e2dc76b7cf6bd21e5856",
+        "query_count": 16,
+        "tree_node_count": 4095,
+        "facet_count": 2048,
+        "maximum_visited_nodes": 13,
+        "mean_visited_nodes": 13.0,
+        "maximum_evaluated_facets": 2,
+        "mean_evaluated_facets": 2.0,
+        "distributed_ownership": false
+      }
+    }
+  ]
+}
