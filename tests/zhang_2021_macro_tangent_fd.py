@@ -47,6 +47,7 @@ def _run_candidate(
     penultimate: np.ndarray,
     final: np.ndarray,
     tangent: bool,
+    geometry_source: str = "section-3.2.1-text",
 ) -> dict[str, object]:
     driver = Path(__file__).with_name("zhang_2021_plane_strain_driver.py")
     coordinate = (increments - 1.0) / increments
@@ -55,6 +56,8 @@ def _run_candidate(
         str(driver),
         "--mesh-size",
         str(mesh_size),
+        "--geometry-source",
+        geometry_source,
         "--quadrature-degree",
         str(quadrature_degree),
         "--increments",
@@ -107,6 +110,7 @@ def _same_preincrement_problem(reference, candidate) -> bool:
         and left_path["gradients"][:-1] == right_path["gradients"][:-1]
     )
     invariants = (
+        "geometry_source",
         "formulation",
         "mesh_size",
         "global_cells",
@@ -137,6 +141,8 @@ def _same_preincrement_problem(reference, candidate) -> bool:
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--mesh-size", type=float, default=0.30)
+    parser.add_argument("--geometry-source", choices=("section-3.2.1-text", "figure-10a"),
+                        default="section-3.2.1-text")
     parser.add_argument("--quadrature-degree", type=int, default=4)
     parser.add_argument("--increments", type=int, default=10)
     parser.add_argument("--relative-step", type=float, default=1.0e-6)
@@ -159,6 +165,7 @@ def main() -> int:
         penultimate=penultimate,
         final=BASE_GRADIENT,
         tangent=True,
+        geometry_source=arguments.geometry_source,
     )
     base_payload = base["payload"]
     tangent = base_payload.get("homogenized_algorithmic_tangent") or {}
@@ -185,6 +192,7 @@ def main() -> int:
                 penultimate=penultimate,
                 final=final,
                 tangent=False,
+                geometry_source=arguments.geometry_source,
             )
             if not _same_preincrement_problem(base_payload, record["payload"]):
                 raise RuntimeError(
@@ -238,6 +246,7 @@ def main() -> int:
         "benchmark_promotion_authorized": False,
         "content_bound": clean_source,
         "candidate": {
+            "geometry_source": arguments.geometry_source,
             "mesh_size": arguments.mesh_size,
             "quadrature_degree": arguments.quadrature_degree,
             "increments": arguments.increments,

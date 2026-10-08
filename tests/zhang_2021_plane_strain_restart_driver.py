@@ -77,8 +77,11 @@ def _fingerprint(record: object) -> str:
     return "sha256:" + hashlib.sha256(encoded).hexdigest()
 
 
-def _build(comm, *, mesh_size: float, increments: int, progress: bool = False):
-    fixture = zhang_2021_plane_strain_composite(comm, mesh_size=mesh_size)
+def _build(comm, *, mesh_size: float, increments: int, progress: bool = False,
+           geometry_source: str = "section-3.2.1-text"):
+    fixture = zhang_2021_plane_strain_composite(
+        comm, mesh_size=mesh_size, geometry_source=geometry_source,
+    )
     model = models.create(
         study=studies.nonlinear_static(
             physics="solid_mechanics",
@@ -139,6 +142,7 @@ def _capture(fixture, target, periodicity, problem) -> dict[str, object]:
     mesh_identity = operators.mesh_executable_identity(fixture.domain)
     synchronize("capture complete")
     return {
+        "geometry_source": fixture.geometry_source,
         "accepted_load_factor": float(problem.accepted_load_factor),
         "accepted_increment_factors": [
             float(item.load_factor) for item in problem.accepted_increments
@@ -195,6 +199,7 @@ def _numeric_check(reference, candidate) -> dict[str, object]:
 
 def _compare(reference, candidate) -> dict[str, object]:
     exact = (
+        "geometry_source",
         "accepted_increment_factors",
         "attempted_increment_count",
         "global_cells",
@@ -228,6 +233,8 @@ def main() -> None:
     parser.add_argument("action", choices=("write", "read"))
     parser.add_argument("checkpoint", type=Path)
     parser.add_argument("--mesh-size", type=float, default=0.30)
+    parser.add_argument("--geometry-source", choices=("section-3.2.1-text", "figure-10a"),
+                        default="section-3.2.1-text")
     parser.add_argument("--increments", type=int, default=20)
     parser.add_argument("--output", type=Path)
     parser.add_argument("--progress", action="store_true")
@@ -242,6 +249,7 @@ def main() -> None:
             mesh_size=arguments.mesh_size,
             increments=arguments.increments,
             progress=arguments.progress,
+            geometry_source=arguments.geometry_source,
         )
         problem.solve(until=0.5)
         manifest = problem.save_checkpoint(arguments.checkpoint)
@@ -256,6 +264,7 @@ def main() -> None:
         mesh_size=arguments.mesh_size,
         increments=arguments.increments,
         progress=arguments.progress,
+        geometry_source=arguments.geometry_source,
     )
     reference_case[-1].solve()
     reference = _capture(*reference_case)
@@ -265,6 +274,7 @@ def main() -> None:
         mesh_size=arguments.mesh_size,
         increments=arguments.increments,
         progress=arguments.progress,
+        geometry_source=arguments.geometry_source,
     )
     restarted = restarted_case[-1]
     checkpoint = _checkpoint_artifacts(arguments.checkpoint)
@@ -280,6 +290,7 @@ def main() -> None:
         "restart_equivalent": comparison["passed"],
         "content_bound": True,
         "benchmark_promotion_authorized": False,
+        "geometry_source": arguments.geometry_source,
         "writer_rank_count": checkpoint["writer_rank_count"],
         "reader_rank_count": int(comm.size),
         "restored_coordinate": restored_coordinate,
