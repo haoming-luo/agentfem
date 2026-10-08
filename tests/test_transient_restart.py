@@ -664,3 +664,58 @@ def test_transient_checkpoint_rejects_a_different_time_contract(tmp_path):
 
     with pytest.raises(ValueError, match="time increment differs"):
         incompatible.load_checkpoint(checkpoint)
+
+
+def test_portable_coordinate_keys_admit_one_unique_quantization_neighbour():
+    stored = np.asarray(((100, 200), (300, 400)), dtype=np.int64)
+    local = np.asarray(((101, 199), (300, 400)), dtype=np.int64)
+
+    indices = checkpointing._portable_key_indices(
+        stored,
+        local,
+        key_mode="quantized_physical_dof_coordinate_and_block_component",
+        coordinate_columns=2,
+        field_name="U",
+    )
+
+    assert indices == [0, 1]
+
+
+def test_portable_coordinate_keys_reject_ambiguous_or_noncoordinate_recovery():
+    stored = np.asarray(((100, 200), (102, 200)), dtype=np.int64)
+    local = np.asarray(((101, 200),), dtype=np.int64)
+
+    with pytest.raises(ValueError, match="candidates=2"):
+        checkpointing._portable_key_indices(
+            stored,
+            local,
+            key_mode="quantized_physical_dof_coordinate_and_block_component",
+            coordinate_columns=2,
+            field_name="U",
+        )
+    with pytest.raises(ValueError, match="lacks a local dof coordinate"):
+        checkpointing._portable_key_indices(
+            stored,
+            local,
+            key_mode="original_physical_cell_and_local_dof",
+            coordinate_columns=2,
+            field_name="P",
+        )
+
+
+@pytest.mark.parametrize(
+    "stored, local, message",
+    [
+        ([(100, 200), (100, 200)], [(100, 200)], "duplicate keys"),
+        ([(100, 200)], [(100, 200), (101, 200)], "many-to-one"),
+    ],
+)
+def test_portable_coordinate_keys_reject_noninjective_mapping(stored, local, message):
+    with pytest.raises(ValueError, match=message):
+        checkpointing._portable_key_indices(
+            np.asarray(stored, dtype=np.int64),
+            np.asarray(local, dtype=np.int64),
+            key_mode="quantized_physical_dof_coordinate_and_block_component",
+            coordinate_columns=2,
+            field_name="U",
+        )

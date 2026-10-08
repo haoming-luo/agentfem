@@ -635,6 +635,8 @@
         "agentfem.results.mixed_j2_elastic_energy_diagnostics",
         "agentfem.results.HomogenizedAlgorithmicTangent",
         "agentfem.results.homogenized_algorithmic_tangent",
+        "agentfem.results.HomogenizedTangentFiniteDifferenceCheck",
+        "agentfem.results.check_homogenized_algorithmic_tangent",
         "agentfem.constraints.AffineMacroGradientLift"
       ],
       "related_cards": [

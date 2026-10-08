@@ -123,7 +123,10 @@ affine-periodic solve using an exact PETSc transformation of the mixed block
 system. The same 3D mixed Step now restores and continues in both one-to-two
 and two-to-one-rank directions, including exact split primary fields,
 quadrature material state and accepted increment history. The 2D Q2/DPC1
-equilibrium provider remains serial.
+equilibrium provider now also has a two-rank exact periodic-cell solve and
+bidirectional one/two-rank checkpoint continuation evidence. Primary DPC
+moments remain cell-and-mode keyed; nodal coordinate matching permits one
+quantization unit only when the match is unique and one-to-one.
 
 Every generated `FieldResult` records a `processing` mapping containing the
 projection method, result space, and explicit false flags for nodal

@@ -29,9 +29,7 @@ def _integrate_material_path(material, deformation_gradient, increments):
     response = None
     for index in range(1, increments + 1):
         factor = index / increments
-        new_gradient = np.eye(3) + factor * (
-            deformation_gradient - np.eye(3)
-        )
+        new_gradient = np.eye(3) + factor * (deformation_gradient - np.eye(3))
         response = material.update(
             constitutive.MaterialPointInput(
                 deformation_gradient_old=old_gradient,
@@ -402,6 +400,18 @@ def test_public_affine_j2_consumes_unload_and_nonproportional_macro_path(tmp_pat
     )
 
     assert result.status == "completed"
+    assert all(item.total_seconds > 0.0 for item in step.accepted_increments)
+    assert all(item.linear_solve_calls >= 0 for item in step.accepted_increments)
+    assert all(item.linear_iterations >= 0 for item in step.accepted_increments)
+    assert all(
+        len(item.linear_converged_reasons) == item.linear_solve_calls
+        for item in step.accepted_increments
+    )
+    assert all(
+        reason > 0
+        for item in step.accepted_increments
+        for reason in item.linear_converged_reasons
+    )
     assert [snapshot.load_factor for snapshot in step.snapshots] == pytest.approx(
         coordinates
     )
@@ -436,9 +446,7 @@ def test_public_affine_j2_consumes_unload_and_nonproportional_macro_path(tmp_pat
         rtol=8.0e-6,
         atol=8.0e-6,
     )
-    piola_history = _material_first_piola_history(
-        material, coordinates, gradients
-    )
+    piola_history = _material_first_piola_history(material, coordinates, gradients)
     expected_path_work = periodicity.reference_cell_volume * sum(
         0.5 * float(np.sum((left_P + right_P) * (right_F - left_F)))
         for left_P, right_P, left_F, right_F in zip(
@@ -454,9 +462,7 @@ def test_public_affine_j2_consumes_unload_and_nonproportional_macro_path(tmp_pat
         abs=8.0e-6,
     )
     incoming = result.histories["affine_path_generalized_reaction"].values
-    outgoing = result.histories[
-        "affine_path_outgoing_generalized_reaction"
-    ].values
+    outgoing = result.histories["affine_path_outgoing_generalized_reaction"].values
     assert abs(float(incoming[1, 0] - outgoing[1, 0])) > 1.0e-3
     final_path_tangent = (gradients[-1] - gradients[-2]) / (
         coordinates[-1] - coordinates[-2]
@@ -467,16 +473,16 @@ def test_public_affine_j2_consumes_unload_and_nonproportional_macro_path(tmp_pat
         rel=8.0e-6,
         abs=8.0e-6,
     )
-    assert result.metadata["constraint_balance_contract"][
-        "work_balance_available"
-    ]
-    assert result.metadata["constraint_work_evidence"][0][
-        "integration"
-    ] == "accepted_path_trapezoidal"
+    assert result.metadata["constraint_balance_contract"]["work_balance_available"]
+    assert (
+        result.metadata["constraint_work_evidence"][0]["integration"]
+        == "accepted_path_trapezoidal"
+    )
     identity = periodicity.scientific_identity()
-    assert identity["deformation_gradient_path"]["fingerprint"] == path.summary()[
-        "fingerprint"
-    ]
+    assert (
+        identity["deformation_gradient_path"]["fingerprint"]
+        == path.summary()["fingerprint"]
+    )
 
     checkpoint = step.save_checkpoint(tmp_path / "nonproportional_path")
     fixture_changed = periodic_unit_cube(MPI.COMM_SELF)
@@ -537,9 +543,7 @@ def test_automatic_macro_path_hits_knots_and_restarts_at_internal_state(tmp_path
         incrementation=control
     )
     reference.solve()
-    accepted = tuple(
-        float(item.load_factor) for item in reference.accepted_increments
-    )
+    accepted = tuple(float(item.load_factor) for item in reference.accepted_increments)
     for knot in path.coordinates[1:]:
         assert any(abs(value - knot) <= 1.0e-12 for value in accepted)
 
@@ -647,10 +651,7 @@ def test_public_finite_strain_j2_periodic_cube_matches_material_point(tmp_path):
         },
     )
     assert wrapped_capability["supported"]
-    assert (
-        wrapped_capability["provider"]["name"]
-        == "finite_strain_j2_affine_static"
-    )
+    assert wrapped_capability["provider"]["name"] == "finite_strain_j2_affine_static"
     natural_load = model.load(
         loads.LoadSet.create(
             loads.body_force(
@@ -745,13 +746,9 @@ def test_public_finite_strain_j2_periodic_cube_matches_material_point(tmp_path):
         rel=5.0e-6,
     )
     assert result.quantity("plastic_dissipation") > 0.0
-    assert (
-        result.quantity("homogenized_plastic_dissipation_density")
-        == pytest.approx(
-            material.yield_stress
-            * result.quantity("maximum_equivalent_plastic_strain"),
-            rel=5.0e-6,
-        )
+    assert result.quantity("homogenized_plastic_dissipation_density") == pytest.approx(
+        material.yield_stress * result.quantity("maximum_equivalent_plastic_strain"),
+        rel=5.0e-6,
     )
     np.testing.assert_allclose(
         result.histories["homogenized_first_piola_stress"].values[-1],
@@ -761,10 +758,7 @@ def test_public_finite_strain_j2_periodic_cube_matches_material_point(tmp_path):
     )
     assert result.quantity("maximum_hill_mandel_relative_error") < 1.0e-8
     expected_macro_reaction = periodicity.reference_cell_volume * float(
-        np.sum(
-            expected_first_piola
-            * (fixture.deformation_gradient - np.eye(3))
-        )
+        np.sum(expected_first_piola * (fixture.deformation_gradient - np.eye(3)))
     )
     assert result.quantity("affine_path_generalized_reaction") == pytest.approx(
         expected_macro_reaction,
@@ -786,11 +780,7 @@ def test_public_finite_strain_j2_periodic_cube_matches_material_point(tmp_path):
     )
     assert result.metadata["affine_constraint_path_work"]["status"] == "complete"
     expected_path_work = periodicity.reference_cell_volume * float(
-        np.sum(
-            result.histories[
-                "hill_mandel_macroscopic_work_density"
-            ].values
-        )
+        np.sum(result.histories["hill_mandel_macroscopic_work_density"].values)
     )
     assert result.quantity("affine_constraint_path_work") == pytest.approx(
         expected_path_work,
@@ -812,9 +802,7 @@ def test_public_finite_strain_j2_periodic_checkpoint_restart_is_equivalent(
     partial = _periodic_j2_step()
     partial.solve(until=0.5)
     assert partial.state_transaction.accepted_factor == pytest.approx(0.5)
-    checkpoint = partial.save_checkpoint(
-        tmp_path / "finite_strain_j2_periodic_restart"
-    )
+    checkpoint = partial.save_checkpoint(tmp_path / "finite_strain_j2_periodic_restart")
     assert checkpoint.is_file()
 
     restarted = _periodic_j2_step()
@@ -961,12 +949,11 @@ def test_failed_affine_checkpoint_load_restores_complete_runtime_state(tmp_path)
             transaction_state["trial_state"][name],
         )
     assert restored["accepted_factor"] == transaction_state["accepted_factor"]
-    assert restored["last_plastic_points"] == transaction_state[
-        "last_plastic_points"
-    ]
-    assert restored["last_maximum_plastic_increment"] == transaction_state[
-        "last_maximum_plastic_increment"
-    ]
+    assert restored["last_plastic_points"] == transaction_state["last_plastic_points"]
+    assert (
+        restored["last_maximum_plastic_increment"]
+        == transaction_state["last_maximum_plastic_increment"]
+    )
     assert target.accepted_load_factor == accepted_load_factor
     assert target.accepted_increments == accepted_increments
     assert target.attempted_increments == attempted_increments

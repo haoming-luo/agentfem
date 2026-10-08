@@ -111,6 +111,149 @@ def test_performance_mapping_requires_the_stable_schema():
         simulation.add_performance({"wall_seconds": 1.0})
 
 
+def test_increment_performance_preserves_stage_and_linear_solver_costs():
+    records = (
+        SimpleNamespace(
+            increment=1,
+            load_factor=0.5,
+            total_seconds=2.0,
+            material_update_seconds=0.4,
+            residual_assembly_seconds=0.3,
+            tangent_assembly_seconds=0.5,
+            linear_solve_seconds=0.7,
+            line_search_seconds=0.1,
+            linear_solve_calls=2,
+            linear_iterations=8,
+            linear_converged_reasons=(2, 2),
+        ),
+        SimpleNamespace(
+            increment=2,
+            load_factor=1.0,
+            total_seconds=3.0,
+            material_update_seconds=0.6,
+            residual_assembly_seconds=0.5,
+            tangent_assembly_seconds=0.8,
+            linear_solve_seconds=0.9,
+            line_search_seconds=0.2,
+            linear_solve_calls=3,
+            linear_iterations=11,
+            linear_converged_reasons=(2, 2, 2),
+        ),
+    )
+
+    evidence = results.increment_performance(records)
+
+    assert evidence["schema"] == "agentfem.increment-performance"
+    assert evidence["accepted_increment_count"] == 2
+    assert set(evidence["available_timing_fields"]) == {
+        "total_seconds",
+        "material_update_seconds",
+        "residual_assembly_seconds",
+        "tangent_assembly_seconds",
+        "linear_solve_seconds",
+        "line_search_seconds",
+    }
+    assert evidence["unavailable_timing_fields"] == ()
+    assert evidence["totals"]["total_seconds"] == pytest.approx(5.0)
+    assert evidence["totals"]["linear_solve_seconds"] == pytest.approx(1.6)
+    assert evidence["linear_solve_calls"] == 5
+    assert evidence["linear_iterations"] == 19
+    assert evidence["increments"][1]["linear_converged_reasons"] == (2, 2, 2)
+
+
+def test_increment_performance_rejects_invalid_provider_timings():
+    with pytest.raises(ValueError, match="finite and nonnegative"):
+        results.increment_performance(
+            (SimpleNamespace(increment=1, load_factor=1.0, total_seconds=-1.0),)
+        )
+
+    with pytest.raises(ValueError, match="one entry per linear solve call"):
+        results.increment_performance(
+            (
+                SimpleNamespace(
+                    increment=1,
+                    load_factor=1.0,
+                    total_seconds=1.0,
+                    linear_solve_calls=1,
+                    linear_iterations=1,
+                    linear_converged_reasons=(),
+                ),
+            )
+        )
+
+
+def test_increment_performance_does_not_report_unmeasured_stages_as_zero():
+    evidence = results.increment_performance(
+        (
+            SimpleNamespace(
+                increment=1,
+                load_factor=1.0,
+                total_seconds=1.25,
+                linear_solve_calls=1,
+                linear_iterations=0,
+                linear_converged_reasons=(2,),
+            ),
+        )
+    )
+
+    assert evidence["available_timing_fields"] == ("total_seconds",)
+    assert set(evidence["unavailable_timing_fields"]) == {
+        "material_update_seconds",
+        "residual_assembly_seconds",
+        "tangent_assembly_seconds",
+        "linear_solve_seconds",
+        "line_search_seconds",
+    }
+    assert evidence["totals"] == {"total_seconds": pytest.approx(1.25)}
+    assert "material_update_seconds" not in evidence["increments"][0]
+
+
+def test_empty_increment_performance_does_not_invent_available_measurements():
+    evidence = results.increment_performance(())
+
+    assert evidence["accepted_increment_count"] == 0
+    assert evidence["available_timing_fields"] == ()
+    assert evidence["totals"] == {}
+
+
+def test_homogenized_tangent_check_uses_fixed_old_state_central_differences():
+    analytical = np.asarray(
+        (
+            (4.0, 0.5, -0.2, 1.0),
+            (0.5, 3.0, 0.8, -0.4),
+            (-0.2, 0.8, 2.5, 0.3),
+            (1.0, -0.4, 0.3, 5.0),
+        )
+    )
+    steps = np.asarray((1.0e-6, 2.0e-6, 1.5e-6, 1.0e-6))
+    base = np.asarray((0.2, -0.1, 0.4, 0.3))[:, np.newaxis]
+    plus = base + analytical * steps[np.newaxis, :]
+    minus = base - analytical * steps[np.newaxis, :]
+
+    check = results.check_homogenized_algorithmic_tangent(
+        analytical,
+        plus_first_piola=plus,
+        minus_first_piola=minus,
+        perturbation_steps=steps,
+        component_order=("11", "21", "12", "22"),
+        relative_tolerance=1.0e-8,
+    )
+
+    assert check.passed
+    assert check.relative_frobenius_error < 1.0e-10
+    assert check.as_dict()["state_basis"] == "fixed_pre_increment_committed_state"
+
+    failed = results.check_homogenized_algorithmic_tangent(
+        analytical + np.eye(4),
+        plus_first_piola=plus,
+        minus_first_piola=minus,
+        perturbation_steps=steps,
+        component_order=("11", "21", "12", "22"),
+        relative_tolerance=1.0e-3,
+    )
+    assert not failed.passed
+
+
 def test_performance_field_preserves_legacy_positional_result_construction():
     verification_record = object()
     simulation = results.SimulationResult(
@@ -222,8 +365,9 @@ def test_linear_step_result_carries_ksp_evidence_consumed_by_engineering_quality
     assert {"solve", "result_assembly_and_output", "total"} == set(
         simulation.performance["stages"]
     )
-    assert simulation.performance["wall_seconds"] >= (
-        simulation.performance["stages"]["solve"]["seconds"]
+    assert (
+        simulation.performance["wall_seconds"]
+        >= (simulation.performance["stages"]["solve"]["seconds"])
     )
     assert simulation.performance["measurement_boundary"]["preexisting_work"] == (
         "excluded"
@@ -342,9 +486,10 @@ def test_displacement_controlled_3d_elastic_patch_writes_standard_fields(tmp_pat
     assert simulation.fields["S"].processing["expression_source"] == (
         "constitutive_expression"
     )
-    assert simulation.fields["S"].processing["material_partition"][0][
-        "material"
-    ] == material.name
+    assert (
+        simulation.fields["S"].processing["material_partition"][0]["material"]
+        == material.name
+    )
     assert simulation.fields["Displacement"].processing == {
         "method": "primary_finite_element_solution",
         "representation": "finite_element_dofs",
@@ -354,15 +499,15 @@ def test_displacement_controlled_3d_elastic_patch_writes_standard_fields(tmp_pat
     assert simulation.artifacts["fields_hdf5"].is_file()
     assert simulation.metadata["field_output"] == {
         "status": "completed",
-            "backend": "agentfem_unified_xdmf",
-            "layout": "single_uniform_grid",
-            "geometry": "reference",
-            "scientific_artifact": str(output),
-            "scientific_xdmf_layout": "single_uniform_grid",
-            "recommended_visualization_artifact": str(output),
-            "visualization_geometry_datasets_per_time": 1,
-            "visualization_requires_extract_block": False,
-            "warp_field": "U",
+        "backend": "agentfem_unified_xdmf",
+        "layout": "single_uniform_grid",
+        "geometry": "reference",
+        "scientific_artifact": str(output),
+        "scientific_xdmf_layout": "single_uniform_grid",
+        "recommended_visualization_artifact": str(output),
+        "visualization_geometry_datasets_per_time": 1,
+        "visualization_requires_extract_block": False,
+        "warp_field": "U",
         "warp_field_semantic": "Displacement",
         "physical_components": 3,
         "stored_components": 3,
@@ -437,20 +582,17 @@ def test_provider_reaction_distribution_is_written_with_static_result(tmp_path):
     )
 
     assert "left_foundation_reaction" in simulation.fields
-    assert "left_foundation_reaction" in (
-        simulation.metadata["field_output_fields"]["included"]
+    assert (
+        "left_foundation_reaction"
+        in (simulation.metadata["field_output_fields"]["included"])
     )
     attributes = {
         item.attrib["Name"]: item.attrib["Center"]
-        for item in ET.parse(output).findall(
-            ".//Grid[@GridType='Uniform']/Attribute"
-        )
+        for item in ET.parse(output).findall(".//Grid[@GridType='Uniform']/Attribute")
     }
     assert attributes["left_foundation_reaction"] == "Node"
     with h5py.File(output.with_suffix(".h5"), "r") as h5:
-        reaction = np.asarray(
-            h5["Frames/0000/Point/left_foundation_reaction"]
-        )
+        reaction = np.asarray(h5["Frames/0000/Point/left_foundation_reaction"])
     assert reaction.shape[1] == 3
     np.testing.assert_allclose(reaction[:, 2], 0.0)
     assert np.max(np.linalg.norm(reaction[:, :2], axis=1)) > 0.0
@@ -505,7 +647,9 @@ def test_two_material_elastic_bar_has_piecewise_fields_and_boundary_reaction():
     assert results.region_average(stress[0, 0], on=regions.soft) == pytest.approx(10.0)
     assert results.region_average(stress[0, 0], on=regions.stiff) == pytest.approx(10.0)
     assert results.region_average(strain[0, 0], on=regions.soft) == pytest.approx(0.01)
-    assert results.region_average(strain[0, 0], on=regions.stiff) == pytest.approx(0.005)
+    assert results.region_average(strain[0, 0], on=regions.stiff) == pytest.approx(
+        0.005
+    )
     assert results.reaction_resultant(
         step.problem,
         on=left,
@@ -611,9 +755,7 @@ def _result_checkpoint_contract(tmp_path, *, portable: bool):
 
 def test_result_manifest_exposes_top_level_checkpoint_contract(tmp_path):
     result = results.SimulationResult("restartable")
-    result.add_checkpoint_contract(
-        _result_checkpoint_contract(tmp_path, portable=True)
-    )
+    result.add_checkpoint_contract(_result_checkpoint_contract(tmp_path, portable=True))
 
     saved = result.manifest()
 
@@ -630,9 +772,7 @@ def test_verification_checks_checkpoint_record_against_preflight_contract(tmp_pa
     state.touch()
     result = results.SimulationResult("restartable")
     result.add_quantity("load_factor", 1.0)
-    result.add_checkpoint_contract(
-        _result_checkpoint_contract(tmp_path, portable=True)
-    )
+    result.add_checkpoint_contract(_result_checkpoint_contract(tmp_path, portable=True))
     result.add_checkpoint(
         results.CheckpointRecord(
             name="accepted_01",
@@ -647,9 +787,7 @@ def test_verification_checks_checkpoint_record_against_preflight_contract(tmp_pa
 
     report = result.verify("engineering", converged=True)
     claim = next(
-        item
-        for item in report.claims
-        if item.name == "checkpoint_contract_consistent"
+        item for item in report.claims if item.name == "checkpoint_contract_consistent"
     )
 
     assert claim.status == "passed"
@@ -662,9 +800,7 @@ def test_verification_rejects_nonportable_record_from_portable_policy(tmp_path):
     state.touch()
     result = results.SimulationResult("restartable")
     result.add_quantity("load_factor", 1.0)
-    result.add_checkpoint_contract(
-        _result_checkpoint_contract(tmp_path, portable=True)
-    )
+    result.add_checkpoint_contract(_result_checkpoint_contract(tmp_path, portable=True))
     result.add_checkpoint(
         results.CheckpointRecord(
             name="accepted_01",
@@ -679,9 +815,7 @@ def test_verification_rejects_nonportable_record_from_portable_policy(tmp_path):
 
     report = result.verify("engineering", converged=True)
     claim = next(
-        item
-        for item in report.claims
-        if item.name == "checkpoint_contract_consistent"
+        item for item in report.claims if item.name == "checkpoint_contract_consistent"
     )
 
     assert claim.status == "failed"
@@ -950,13 +1084,15 @@ def test_homogenized_history_writes_exact_npz_and_human_csv(tmp_path):
     assert saved["accepted_increment_size"][0] == pytest.approx(0.5)
     assert saved["accepted_newton_iterations"][0] == pytest.approx(4.0)
     assert saved["accepted_residual_norm"][0] == pytest.approx(2.0e-9)
-    assert saved["accepted_periodic_equation_mismatch"][0] == pytest.approx(
-        3.0e-12
-    )
+    assert saved["accepted_periodic_equation_mismatch"][0] == pytest.approx(3.0e-12)
     assert saved["accepted_attempt"][0] == pytest.approx(2.0)
     assert "first_piola_stress_11" in csv.read_text(encoding="utf-8").splitlines()[0]
-    assert "hill_mandel_relative_error" in csv.read_text(encoding="utf-8").splitlines()[0]
-    assert "accepted_newton_iterations" in csv.read_text(encoding="utf-8").splitlines()[0]
+    assert (
+        "hill_mandel_relative_error" in csv.read_text(encoding="utf-8").splitlines()[0]
+    )
+    assert (
+        "accepted_newton_iterations" in csv.read_text(encoding="utf-8").splitlines()[0]
+    )
 
 
 def test_cauchy_stress_invariants_use_explicit_triaxiality_and_lode_conventions():
@@ -999,9 +1135,7 @@ def test_hill_mandel_evidence_matches_homogeneous_finite_strain_work():
     material = constitutive.neo_hookean(young=1000.0, poisson=0.3)
     constraint = SimpleNamespace(
         reference_cell_volume=1.0,
-        deformation_gradient_at=lambda factor: (
-            np.eye(3) + float(factor) * gradient
-        ),
+        deformation_gradient_at=lambda factor: np.eye(3) + float(factor) * gradient,
     )
     snapshots = (
         SimpleNamespace(load_factor=0.0, solution=initial, fields={}),
@@ -1051,12 +1185,8 @@ def test_standard_field_catalog_resolves_finite_strain_e_to_le():
 
 
 def test_fabric_result_aliases_lower_to_explicit_catalog_keys():
-    assert results.field_variable("FABRIC_STRAIN").key == (
-        "FABRIC_GENERALIZED_STRAIN"
-    )
-    assert results.field_variable("FABRIC_N").key == (
-        "FABRIC_GENERALIZED_RESULTANT"
-    )
+    assert results.field_variable("FABRIC_STRAIN").key == ("FABRIC_GENERALIZED_STRAIN")
+    assert results.field_variable("FABRIC_N").key == ("FABRIC_GENERALIZED_RESULTANT")
     assert results.field_variable("FabricWarpDirection").key == (
         "FABRIC_WARP_DIRECTION"
     )
@@ -1078,9 +1208,7 @@ def test_small_strain_standard_fields_are_cell_average_projections():
         cell_type="triangle",
     )
     displacement = fields.displacement(domain).value
-    displacement.interpolate(
-        lambda x: np.vstack((0.01 * x[0], -0.002 * x[1]))
-    )
+    displacement.interpolate(lambda x: np.vstack((0.01 * x[0], -0.002 * x[1])))
     material = elasticity.isotropic_elastic(
         young=200.0e9,
         poisson=0.3,
@@ -1261,9 +1389,7 @@ def test_solver_history_request_records_accepted_increment_evidence(tmp_path):
     )
     result = results.SimulationResult("nonlinear")
     context = SimpleNamespace(
-        step=SimpleNamespace(
-            last_solve_info=SimpleNamespace(increments=increments)
-        ),
+        step=SimpleNamespace(last_solve_info=SimpleNamespace(increments=increments)),
         result=result,
     )
 
@@ -1431,9 +1557,7 @@ def test_unified_xdmf_keeps_deformed_time_series_and_fields_in_one_h5(tmp_path):
     uniform_grids = ET.parse(xdmf).findall(".//Grid[@GridType='Uniform']")
     assert len(uniform_grids) == 2
     for grid in uniform_grids:
-        attributes = {
-            item.attrib["Name"]: item for item in grid.findall("Attribute")
-        }
+        attributes = {item.attrib["Name"]: item for item in grid.findall("Attribute")}
         names = set(attributes)
         assert names == {"U", "UMAG", "MISES"}
         assert attributes["U"].attrib["AttributeType"] == "Vector"
@@ -1464,9 +1588,7 @@ def test_unified_xdmf_keeps_three_dimensional_displacement_unchanged(tmp_path):
     )
     V = fem.functionspace(domain, ("Lagrange", 1, (3,)))
     displacement = fem.Function(V, name="U")
-    displacement.interpolate(
-        lambda x: np.vstack((0.1 * x[0], 0.2 * x[1], -0.3 * x[2]))
-    )
+    displacement.interpolate(lambda x: np.vstack((0.1 * x[0], 0.2 * x[1], -0.3 * x[2])))
 
     xdmf = results.write_unified_xdmf_series(
         tmp_path / "three_dimensional.xdmf",
@@ -1547,8 +1669,7 @@ def test_unified_xdmf_accepts_scalar_primary_field_on_reference_geometry(tmp_pat
     grid = ET.parse(xdmf).find(".//Grid[@GridType='Uniform']")
     assert grid is not None
     assert {
-        item.attrib["Name"]: item.attrib["Center"]
-        for item in grid.findall("Attribute")
+        item.attrib["Name"]: item.attrib["Center"] for item in grid.findall("Attribute")
     } == {"Temperature": "Node"}
 
 

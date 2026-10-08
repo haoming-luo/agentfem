@@ -1184,52 +1184,144 @@ def _restore_portable_state(manifest, *, metadata, functions, comm) -> None:
     record = metadata["portable_state"]
     portable_path = manifest.parent / record["path"]
     error = None
-    restored = None
     try:
         _validate_checkpoint_file(
             portable_path,
             expected_size=int(record["size"]),
             expected_digest=str(record["sha256"]),
         )
-        expected_identity = metadata["portable_state_identity"]
-        for name, function in functions.items():
-            if expected_identity[name] != function_portable_identity(function):
-                raise ValueError(
+    except Exception as exc:
+        error = f"{type(exc).__name__}: {exc}"
+    _raise_collective_checkpoint_error(comm, "validate portable state file", error)
+
+    # Identity construction contains communicator-wide operations.  Never let
+    # one rank leave this loop after a local mismatch while its peers continue
+    # into the next field identity: doing so pairs different MPI collectives
+    # and deadlocks before the collective error reporter can run.
+    expected_identity = metadata["portable_state_identity"]
+    identity_errors = []
+    for name, function in functions.items():
+        try:
+            current_identity = function_portable_identity(function)
+            if expected_identity[name] != current_identity:
+                identity_errors.append(
                     f"portable mesh/function identity for {name!r} differs"
                 )
+        except Exception as exc:
+            identity_errors.append(f"{name!r}: {type(exc).__name__}: {exc}")
+    _raise_collective_checkpoint_error(
+        comm,
+        "validate portable state identity",
+        "; ".join(identity_errors) if identity_errors else None,
+    )
+
+    # Cell-local key preparation may also contain collectives (for example for
+    # discontinuous modal pressure fields).  Complete it for every field on
+    # every rank before any rank is allowed to report a local mapping error.
+    local_fields = {}
+    local_field_errors = []
+    for name, function in functions.items():
+        try:
+            local_fields[name] = _portable_local_field(function)
+        except Exception as exc:
+            local_field_errors.append(f"{name!r}: {type(exc).__name__}: {exc}")
+    _raise_collective_checkpoint_error(
+        comm,
+        "prepare portable state keys",
+        "; ".join(local_field_errors) if local_field_errors else None,
+    )
+
+    restored = None
+    error = None
+    try:
         with np.load(portable_path, allow_pickle=False) as data:
             restored = {}
             for name, function in functions.items():
                 selected = record["index"][name]
                 stored_coordinates = np.asarray(data[selected["coordinates"]])
                 stored_values = np.asarray(data[selected["values"]])
-                local = _portable_local_field(function)
+                local = local_fields[name]
                 if selected.get("key_mode") != local["key_mode"]:
                     raise ValueError(
                         f"portable state key mode for {name!r} differs"
                     )
-                lookup = {
-                    row.tobytes(): index
-                    for index, row in enumerate(stored_coordinates)
-                }
-                indices = []
-                for row in local["coordinates"]:
-                    key = row.tobytes()
-                    if key not in lookup:
-                        raise ValueError(
-                            f"portable state for {name!r} lacks a local dof coordinate"
-                        )
-                    indices.append(lookup[key])
+                indices = _portable_key_indices(
+                    stored_coordinates,
+                    local["coordinates"],
+                    key_mode=str(selected.get("key_mode", "")),
+                    coordinate_columns=int(
+                        function.function_space.mesh.geometry.dim
+                    ),
+                    field_name=name,
+                )
                 restored[name] = stored_values[np.asarray(indices, dtype=np.int64)]
     except Exception as exc:
         error = f"{type(exc).__name__}: {exc}"
-    _raise_collective_checkpoint_error(comm, "read portable state", error)
+    _raise_collective_checkpoint_error(comm, "map portable state", error)
     for name, function in functions.items():
         V = function.function_space
         owned = int(V.dofmap.index_map.size_local)
         block_size = int(V.dofmap.index_map_bs)
         function.x.array[: owned * block_size] = restored[name].reshape(-1)
         function.x.scatter_forward()
+
+
+def _portable_key_indices(
+    stored_coordinates,
+    local_coordinates,
+    *,
+    key_mode: str,
+    coordinate_columns: int,
+    field_name: str,
+) -> list[int]:
+    """Map local durable keys to one archived row without ambiguous recovery."""
+
+    stored = np.asarray(stored_coordinates)
+    local = np.asarray(local_coordinates)
+    if stored.ndim != 2 or local.ndim != 2 or stored.shape[1] != local.shape[1]:
+        raise ValueError(f"portable state for {field_name!r} has incompatible key shapes")
+    lookup = {row.tobytes(): index for index, row in enumerate(stored)}
+    if len(lookup) != len(stored):
+        raise ValueError(f"portable state for {field_name!r} contains duplicate keys")
+    indices = []
+    for row in local:
+        key = row.tobytes()
+        if key in lookup:
+            indices.append(lookup[key])
+            continue
+        # A high-order physical node can fall on opposite sides of the same
+        # rounding boundary when an otherwise identical curved mesh is
+        # repartitioned.  Its durable integer key then differs by exactly one
+        # quantum.  Admit that narrow case only for coordinate-based keys and
+        # only when the neighbouring stored key is unique.  Cell ids, local
+        # modal ids, and augmented source-node ids remain exact.
+        if not key_mode.startswith("quantized_physical_dof_coordinate"):
+            raise ValueError(
+                f"portable state for {field_name!r} lacks a local dof coordinate"
+            )
+        differences = np.abs(
+            np.asarray(stored, dtype=np.int64) - np.asarray(row, dtype=np.int64)
+        )
+        nearby = np.all(
+            differences[:, :coordinate_columns] <= 1,
+            axis=1,
+        )
+        if differences.shape[1] > coordinate_columns:
+            nearby &= np.all(
+                differences[:, coordinate_columns:] == 0,
+                axis=1,
+            )
+        candidates = np.flatnonzero(nearby)
+        if candidates.size != 1:
+            raise ValueError(
+                f"portable state for {field_name!r} lacks one unique local "
+                "dof coordinate within the one-quantum partition tolerance; "
+                f"candidates={int(candidates.size)}"
+            )
+        indices.append(int(candidates[0]))
+    if len(set(indices)) != len(indices):
+        raise ValueError(f"portable state for {field_name!r} has a many-to-one key mapping")
+    return indices
 
 
 def _portable_local_field(function) -> dict[str, np.ndarray]:

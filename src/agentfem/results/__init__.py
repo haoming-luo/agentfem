@@ -71,6 +71,7 @@ from .finite_strain import (
     HillMandelIncrement,
     HomogenizedFrame,
     HomogenizedAlgorithmicTangent,
+    HomogenizedTangentFiniteDifferenceCheck,
     LiveFiniteStrainCellFields,
     MixedJ2ElasticEnergyDiagnostics,
     StressStateInvariants,
@@ -81,6 +82,7 @@ from .finite_strain import (
     homogenize_periodic_cell,
     homogenize_periodic_path,
     homogenized_algorithmic_tangent,
+    check_homogenized_algorithmic_tangent,
     hill_mandel_increment,
     hill_mandel_periodic_path,
     mixed_j2_elastic_energy_diagnostics,
@@ -97,6 +99,7 @@ from .statistics import WeightedFieldStatistics, weighted_field_statistics
 from .performance import (
     PerformanceEvidence,
     attach_performance,
+    increment_performance,
     performance_evidence,
 )
 
@@ -146,6 +149,7 @@ def __getattr__(name: str):
     globals()[name] = value
     return value
 
+
 __all__ = [
     "CheckpointRecord",
     "FieldResult",
@@ -166,6 +170,7 @@ __all__ = [
     "HillMandelIncrement",
     "HomogenizedFrame",
     "HomogenizedAlgorithmicTangent",
+    "HomogenizedTangentFiniteDifferenceCheck",
     "LiveFiniteStrainCellFields",
     "MixedJ2ElasticEnergyDiagnostics",
     "OutputPlan",
@@ -187,6 +192,7 @@ __all__ = [
     "dof_statistics",
     "add_execution_trace",
     "attach_performance",
+    "increment_performance",
     "execution_records",
     "complete_result",
     "execution_context",
@@ -215,6 +221,7 @@ __all__ = [
     "homogenize_periodic_cell",
     "homogenize_periodic_path",
     "homogenized_algorithmic_tangent",
+    "check_homogenized_algorithmic_tangent",
     "hill_mandel_increment",
     "hill_mandel_periodic_path",
     "mixed_j2_elastic_energy_diagnostics",

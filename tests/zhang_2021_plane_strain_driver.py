@@ -10,13 +10,18 @@ even when individual observable comparisons pass.
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import math
 from pathlib import Path
+import time
 
 from mpi4py import MPI
+import numpy as np
 
-from agentfem import models, results, solvers, steps, studies
+import agentfem
+from agentfem import constraints, models, operators, results, solvers, steps, studies
+from agentfem.provenance import content_fingerprint, runtime_manifest
 
 from zhang_2021_periodic_composite_fixture import (
     TABLE5,
@@ -25,10 +30,91 @@ from zhang_2021_periodic_composite_fixture import (
 )
 
 
+def _file_identity(path: Path) -> dict[str, str]:
+    selected = path.resolve()
+    return {
+        "name": selected.name,
+        "sha256": hashlib.sha256(selected.read_bytes()).hexdigest(),
+    }
+
+
+def _benchmark_implementation_identity() -> dict[str, object]:
+    return {
+        "schema": "agentfem.benchmark-implementation-identity.v1",
+        "files": (
+            _file_identity(Path(__file__)),
+            _file_identity(
+                Path(zhang_2021_plane_strain_composite.__code__.co_filename)
+            ),
+        ),
+    }
+
+
+def _discretization_identity(fixture, periodicity) -> dict[str, object]:
+    record = {
+        "schema": "agentfem.external-benchmark-discretization.v1",
+        "mesh": operators.mesh_executable_identity(fixture.domain),
+        "cell_tags": operators.meshtags_executable_identity(
+            fixture.domain,
+            fixture.cell_tags,
+        ),
+        "facet_tags": operators.meshtags_executable_identity(
+            fixture.domain,
+            fixture.facet_tags,
+        ),
+        "periodic_constraint": periodicity.scientific_identity(),
+    }
+    return record | {"fingerprint": content_fingerprint(record)}
+
+
+def _require_checkout_runtime() -> None:
+    expected = (Path(__file__).resolve().parents[1] / "src" / "agentfem").resolve()
+    imported = Path(agentfem.__file__).resolve().parent
+    if imported != expected:
+        raise RuntimeError(
+            "Zhang benchmark driver imported AgentFEM from a different checkout: "
+            f"expected {expected}, received {imported}. Run with "
+            f"PYTHONPATH={expected.parent} so evidence cannot cross worktrees."
+        )
+
+
 def main() -> int:
+    _require_checkout_runtime()
     parser = argparse.ArgumentParser()
     parser.add_argument("--mesh-size", type=float, default=0.20)
+    parser.add_argument("--interface-size", type=float, help="Explicit experimental interface refinement; changes the recorded mesh policy.")
+    parser.add_argument(
+        "--geometry-source", choices=("section-3.2.1-text", "figure-10a"),
+        default="section-3.2.1-text",
+        help="Explicitly select the conflicting manuscript prose or Figure 10a phase assignment.",
+    )
+    parser.add_argument(
+        "--cell-repetitions",
+        type=int,
+        nargs=2,
+        default=(1, 1),
+        metavar=("NX", "NY"),
+        help="Replicate the published unit cell into an NX by NY supercell.",
+    )
     parser.add_argument("--quadrature-degree", type=int, default=4)
+    parser.add_argument(
+        "--macro-gradient",
+        type=float,
+        nargs=4,
+        metavar=("F11", "F21", "F12", "F22"),
+        help="Override the final 2D macro gradient in published column-major order.",
+    )
+    parser.add_argument(
+        "--penultimate-gradient",
+        type=float,
+        nargs=4,
+        metavar=("F11", "F21", "F12", "F22"),
+        help=(
+            "Add one explicit pre-final path state in published column-major "
+            "order. This is used by the fixed-old-state tangent oracle."
+        ),
+    )
+    parser.add_argument("--penultimate-coordinate", type=float)
     parser.add_argument("--initial-increment", type=float, default=0.05)
     parser.add_argument("--minimum-increment", type=float, default=1.0e-4)
     parser.add_argument("--maximum-increment", type=float, default=0.10)
@@ -48,6 +134,15 @@ def main() -> int:
         action="store_true",
         help="Show the human progress stream (quiet by default for diagnostics).",
     )
+    parser.add_argument(
+        "--skip-tangent",
+        action="store_true",
+        help=(
+            "Skip the four condensed macro-tangent solves. This is intended "
+            "for mesh, increment, and quadrature diagnostics; the resulting "
+            "candidate remains incomplete for benchmark promotion."
+        ),
+    )
     parser.add_argument("--output", type=Path, required=True)
     arguments = parser.parse_args()
     if arguments.quadrature_degree < 2:
@@ -56,12 +151,42 @@ def main() -> int:
         parser.error("--max-increments must be positive and --max-cutbacks nonnegative")
     if arguments.increments is not None and arguments.increments <= 0:
         parser.error("--increments must be positive")
+    if any(value <= 0 for value in arguments.cell_repetitions):
+        parser.error("--cell-repetitions values must be positive")
+    if (arguments.penultimate_gradient is None) != (
+        arguments.penultimate_coordinate is None
+    ):
+        parser.error(
+            "--penultimate-gradient and --penultimate-coordinate must be supplied together"
+        )
+    if arguments.penultimate_coordinate is not None and not (
+        0.0 < arguments.penultimate_coordinate < 1.0
+    ):
+        parser.error("--penultimate-coordinate must lie strictly inside (0, 1)")
+
+    final_gradient = (
+        None
+        if arguments.macro_gradient is None
+        else np.asarray(arguments.macro_gradient, dtype=float).reshape(
+            (2, 2), order="F"
+        )
+    )
 
     comm = MPI.COMM_WORLD
+    runtime_at_start = runtime_manifest()
+    benchmark_at_start = _benchmark_implementation_identity()
+    total_started = time.perf_counter()
+    fixture_started = total_started
     fixture = zhang_2021_plane_strain_composite(
         comm,
         mesh_size=arguments.mesh_size,
+        macro_deformation_gradient=final_gradient,
+        cell_repetitions=tuple(arguments.cell_repetitions),
+        geometry_source=arguments.geometry_source,
+        interface_size=arguments.interface_size,
     )
+    fixture_seconds = time.perf_counter() - fixture_started
+    build_started = time.perf_counter()
     model = models.create(
         study=studies.nonlinear_static(
             physics="solid_mechanics",
@@ -76,7 +201,21 @@ def main() -> int:
     matrix, inclusion = fixture.materials()
     model.material(matrix, region=matrix_region)
     model.material(inclusion, region=inclusion_region)
-    periodicity = model.constraint(fixture.constraint(target))
+    macro_path = None
+    if arguments.penultimate_gradient is not None:
+        penultimate = np.asarray(
+            arguments.penultimate_gradient,
+            dtype=float,
+        ).reshape((2, 2), order="F")
+        macro_path = constraints.deformation_gradient_path(
+            (0.0, arguments.penultimate_coordinate, 1.0),
+            (np.eye(2), penultimate, fixture.deformation_gradient),
+            name="fixed_old_state_macro_tangent_path",
+        )
+    periodicity = model.constraint(
+        fixture.constraint(target, deformation_gradient_path=macro_path)
+    )
+    discretization_at_start = _discretization_identity(fixture, periodicity)
     output = results.output_plan(
         arguments.output,
         field=results.field_output(
@@ -115,13 +254,17 @@ def main() -> int:
         output=output,
         progress=arguments.progress,
     )
+    build_seconds = time.perf_counter() - build_started
+    solve_started = time.perf_counter()
     simulation = problem.solve_result()
+    solve_seconds = time.perf_counter() - solve_started
     recorder = problem.accepted_history_recorders["homogenized_history"]
     frame = recorder.frames[-1]
     if frame.elastic_energy_density is None:
         raise RuntimeError(
             "The mixed provider did not expose accepted condensed ELENER."
         )
+    postprocess_started = time.perf_counter()
     energy = results.mixed_j2_elastic_energy_diagnostics(
         deformation_gradient=problem.state_transaction.deformation_gradient,
         pressure=problem.state_transaction.mixed_pressure,
@@ -131,7 +274,14 @@ def main() -> int:
         ),
         reference_volume=periodicity.reference_cell_volume,
     )
-    tangent = results.homogenized_algorithmic_tangent(problem, periodicity)
+    energy_seconds = time.perf_counter() - postprocess_started
+    tangent_started = time.perf_counter()
+    tangent = (
+        None
+        if arguments.skip_tangent
+        else results.homogenized_algorithmic_tangent(problem, periodicity)
+    )
+    tangent_seconds = time.perf_counter() - tangent_started
     condensed_scale = max(abs(frame.elastic_energy_density), 1.0)
     if (
         abs(frame.elastic_energy_density - energy.condensed_elastic_energy_density)
@@ -145,7 +295,7 @@ def main() -> int:
         first_piola=frame.first_piola_stress,
         elastic_energy_density=energy.primal_elastic_energy_density,
         elastic_energy_semantics="primal_hencky_elastic_energy",
-        effective_tangent=tangent.values,
+        effective_tangent=None if tangent is None else tangent.values,
         convergence_evidence={
             "load_increment_path_converged": False,
             "mesh_converged": False,
@@ -156,11 +306,45 @@ def main() -> int:
         },
     )
     last_checks = problem.last_solve_info.increments[-1].checks
+    performance = results.performance_evidence(
+        stages={
+            "total": time.perf_counter() - total_started,
+            "fixture": fixture_seconds,
+            "model_build": build_seconds,
+            "solve": solve_seconds,
+            "energy_postprocess": energy_seconds,
+            "macro_tangent": tangent_seconds,
+        },
+        solution=problem.solution,
+        source=problem,
+        scope="external_benchmark_candidate",
+    )
+    runtime_at_end = runtime_manifest()
+    benchmark_at_end = _benchmark_implementation_identity()
+    discretization_at_end = _discretization_identity(fixture, periodicity)
+    if runtime_at_end["identity"] != runtime_at_start["identity"]:
+        raise RuntimeError(
+            "AgentFEM runtime identity changed while the benchmark was running; "
+            "the candidate is not reproducible."
+        )
+    if benchmark_at_end != benchmark_at_start:
+        raise RuntimeError(
+            "Benchmark implementation changed while the solve was running; "
+            "the candidate is not reproducible."
+        )
+    if discretization_at_end != discretization_at_start:
+        raise RuntimeError(
+            "Mesh, region tags, boundary tags, or periodic equations changed "
+            "while the benchmark was running; the candidate is not reproducible."
+        )
     assessment.update(
         {
+            "candidate_schema": "agentfem.external-benchmark-candidate.v2",
             "result_status": simulation.status,
             "formulation": "2D_plane_strain_Q2_DPC1",
             "mesh_size": float(arguments.mesh_size),
+            "cell_repetitions": list(fixture.cell_repetitions),
+            "reference_cell_area": fixture.reference_cell_area,
             "global_cells": int(fixture.domain.topology.index_map(2).size_global),
             "published_q9_element_count": TABLE5.published_q9_element_count,
             "element_count_fraction_of_published": (
@@ -184,7 +368,42 @@ def main() -> int:
                 "maximum_quadrature_pressure_projection_defect"
             ],
             "mixed_elastic_energy_diagnostics": energy.as_dict(),
-            "homogenized_algorithmic_tangent": tangent.as_dict(),
+            "homogenized_algorithmic_tangent": (
+                None if tangent is None else tangent.as_dict()
+            ),
+            "runtime": {
+                "agentfem_version": agentfem.__version__,
+                "agentfem_import_path": str(Path(agentfem.__file__).resolve()),
+                "manifest": runtime_at_start,
+            },
+            "benchmark_implementation": benchmark_at_start,
+            "discretization_identity": discretization_at_start,
+            "identity_stable_during_run": True,
+            "candidate": {
+                "formulation": "2D_plane_strain_Q2_DPC1",
+                "mesh_size": float(arguments.mesh_size),
+                "cell_repetitions": list(fixture.cell_repetitions),
+                "geometry_source": fixture.geometry_source,
+                "mesh_policy": fixture.mesh_policy,
+                "reference_cell_area": fixture.reference_cell_area,
+                "global_cells": int(fixture.domain.topology.index_map(2).size_global),
+                "discretization_fingerprint": discretization_at_start["fingerprint"],
+                "quadrature_degree": int(arguments.quadrature_degree),
+                "accepted_increments": len(problem.accepted_increments),
+                "requested_fixed_increments": arguments.increments,
+                "mpi_ranks": int(comm.size),
+                "macro_tangent_requested": not arguments.skip_tangent,
+                "macroscopic_deformation_gradient": (
+                    fixture.deformation_gradient.tolist()
+                ),
+                "deformation_gradient_path": (
+                    None if macro_path is None else macro_path.summary()
+                ),
+            },
+            "performance": performance.as_dict(),
+            "increment_performance": results.increment_performance(
+                problem.accepted_increments
+            ),
             "stored_energy_scope": (
                 "primal Hencky elastic energy reconstructed from the "
                 "provider-owned condensed ELENER channel; HARDENER and "
@@ -197,9 +416,15 @@ def main() -> int:
         assessment_path = (
             arguments.output / "zhang_2021_table5_plane_strain_assessment.json"
         )
-        assessment_path.write_text(
+        temporary_path = assessment_path.with_suffix(assessment_path.suffix + ".tmp")
+        temporary_path.write_text(
             json.dumps(assessment, indent=2, sort_keys=True) + "\n",
             encoding="utf-8",
+        )
+        temporary_path.replace(assessment_path)
+        tangent_error = assessment["effective_tangent_relative_frobenius_error"]
+        tangent_summary = (
+            "not-computed" if tangent_error is None else f"{100.0 * tangent_error:.3f}%"
         )
         print(
             "Zhang 2021 Table 5 diagnostic "
@@ -208,7 +433,7 @@ def main() -> int:
             f"| increments={assessment['accepted_increments']} "
             f"| P_error={100.0 * assessment['first_piola_relative_l2_error']:.3f}% "
             f"| energy_error={100.0 * assessment['elastic_energy_relative_error']:.3f}% "
-            f"| tangent_error={100.0 * assessment['effective_tangent_relative_frobenius_error']:.3f}%"
+            f"| tangent_error={tangent_summary}"
         )
         print(f"Evidence: {assessment_path}")
     return 0

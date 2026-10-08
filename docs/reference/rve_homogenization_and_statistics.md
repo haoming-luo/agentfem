@@ -370,7 +370,14 @@ The material equations have also been compared directly. Both routes use the
 multiplicative split \(\mathbf F=\mathbf F_e\mathbf F_p\), a quadratic Hencky
 elastic energy, a Kirchhoff-stress \(J_2\) surface and linear isotropic
 hardening. The differing yield-function normalizations are algebraically
-equivalent. Discretization must nevertheless be compared precisely. Zhang et
+equivalent. An independent Appendix-B material-point oracle evolves
+\(\mathbf C_p^{-1}\), rather than AgentFEM's stored \(\mathbf F_p\), and uses
+the paper's unscaled stress norm and plastic multiplier. It reproduces the
+AgentFEM Kirchhoff stress, equivalent plastic strain, inverse plastic metric,
+and elastic energy along a non-coaxial path. This removes the material-point
+normalization and state representation from the current discrepancy list; it
+does not validate the heterogeneous finite-element solve. Discretization must
+nevertheless be compared precisely. Zhang et
 al. use a two-dimensional Q2 nine-node quadrilateral displacement field and a
 three-mode discontinuous pressure space, which a direct AgentFEM route would
 represent with DPC1 and which is commonly abbreviated 9/3. The pressure
@@ -405,10 +412,14 @@ proves that the live quadrature tangent came from that increment; it otherwise
 fails closed, including after a checkpoint reconstruction that did not persist
 the macro tangent. It does not rerun or finite-difference the load path.
 Homogeneous Q2/DPC1 and three-dimensional P2/DG0 Hencky-elastic patches verify
-the component order and Schur condensation. This is still not a promoted Zhang
-benchmark: Table 5 tangent agreement, load-path, mesh and formulation
-convergence, replicated cells, restart/MPI equivalence, and content-bound
-evidence remain open.
+the component order and Schur condensation. A separate final-gradient central-
+difference check now reruns the last increment from the same pre-increment
+committed state and holds every earlier path knot fixed. This is the analogue
+of PETSc's user-Jacobian versus finite-difference check at the homogenized
+operator boundary, rather than a second implementation of the same condensed
+formula. This is still not a promoted Zhang benchmark: Table 5 tangent
+agreement, load-path, mesh and formulation convergence, replicated cells,
+restart/MPI equivalence, and content-bound evidence remain open.
 
 AgentFEM now has two deliberately distinct thin-3D diagnostic lowerings of the
 published plane-strain cell with \(F_{33}=1\):
@@ -448,17 +459,146 @@ passed benchmark**. Promotion requires all of the following:
 - serial/MPI and checkpoint/restart equivalence.
 
 `tests/zhang_2021_periodic_composite_fixture.py` defines the geometry, material
-translation, oracle and fail-closed comparison-completeness assessment. A
-missing tangent or missing convergence axis produces `incomplete`, even if one
-stress vector happens to be close. The AgentFEM-owned 3 percent relative and
-componentwise absolute-plus-relative contracts may be tightened but cannot be
-relaxed. At present, however, the assessor accepts caller-supplied Boolean
-statements for load-increment/path, mesh, plane-strain formulation, cell-size,
-serial/MPI, and restart equivalence. It is therefore a completeness schema, not
-yet a content-bound scientific promotion gate. Promotion requires those flags
-to be derived from identified evidence artifacts rather than asserted by a
-caller. `tests/test_zhang_2021_periodic_composite.py` verifies the fixture
-semantics without claiming the external result has passed.
+translation, oracle and fail-closed numerical comparator. A missing tangent or
+missing convergence axis produces `incomplete`, even if one stress vector
+happens to be close. The AgentFEM-owned 3 percent relative and componentwise
+absolute-plus-relative contracts may be tightened but cannot be relaxed. The
+comparator deliberately remains a caller-level comparison helper and never
+authorizes promotion by itself.
+
+The executable candidate now writes a versioned record containing the exact
+mesh, quadrature, increment and rank coordinates, the AgentFEM scientific
+runtime identity, SHA-256 identities of both the benchmark fixture and its
+driver, complete solver evidence and rank-reduced stage timings. It also binds
+the **executed discretization**, not merely the meshing script: the
+partition-neutral mesh topology and high-order physical coordinates, cell and
+facet `MeshTags` membership, and complete periodic-equation graph share one
+fingerprint. This prevents two Gmsh versions or topology realizations from
+silently being treated as the same refinement point. Runtime, benchmark, and
+discretization identities are sampled before and after the solve; a source,
+mesh, tag, or constraint change during a long run invalidates the candidate
+instead of binding it to whichever objects happen to exist at the end. The
+separate `zhang_2021_plane_strain_promotion.py` audit hashes those archived
+records, rejects a refinement slice when the benchmark implementation differs
+or an undeclared parameter changes, requires the exact same discretization for
+load-path and quadrature slices, and
+derives mesh, load-path and quadrature decisions from the stored stress,
+primal-energy and tangent observables. A caller can no longer promote one of
+those axes by passing a Boolean. The audit still fails closed until independent
+formulation, cell-replication, MPI and restart evidence is present and the
+macro-tangent perturbation study has been repeated from clean, content-bound
+source. `tests/test_zhang_2021_periodic_composite.py` verifies both
+the fixture semantics and this content-bound decision boundary without claiming
+the external result has passed.
+
+The historical diagnostics in the following paragraphs use the manuscript's
+**prose geometry** (`section-3.2.1-text`). Visual review on 2026-10-07 found
+that the inspected author manuscript instead places the void at lower left in
+Figure 10(a), not on the right as in its prose. The fixture now records an
+explicit `geometry_source`; existing runs retain their original meaning.
+With `--geometry-source figure-10a`, a 2859-cell, 40-increment run gives
+0.099% stress, 0.014% primal-energy and 0.507% tangent errors against Table 5,
+passing the numerical comparison contracts without modifying the solver or
+material parameters. **This is not full benchmark promotion:** the last mesh
+pair still changes energy by 5.3442%, above the 0.5% convergence contract,
+and the first candidates were dirty-checkout diagnostics. A clean-source
+repeat now reproduces the fine stress and energy exactly, and a fixed-mesh
+4/6/8-degree quadrature slice passes its observable-change contracts.
+Remaining spatial and lifecycle gates are still required; see the
+[energy follow-up](https://github.com/haoming-luo/agentfem/blob/main/evidence/zhang_2021/energy-sensitivity-followup.md).
+A separate clean interface-size sequence at fixed background resolution now
+passes stress and tangent sensitivity, but its final primal-energy change is
+0.85369%, still above 0.5%. This is local sizing evidence, not full spatial
+convergence. The [localization record](https://github.com/haoming-luo/agentfem/blob/main/evidence/zhang_2021/pressure-localization.md)
+also documents an independently discovered manifest self-reference defect,
+its writer fix, and why the original result envelopes remain unmodified.
+The [2026-10-08 follow-up](https://github.com/haoming-luo/agentfem/blob/main/evidence/zhang_2021/2026-10-08-spatial-followup.md)
+extends this to 5538 local and 7224 globally refined cells: local energy change
+is 0.46575%, but global energy change remains 0.72236%, above 0.5%.
+The strict decreasing-change checks also reject local stress and global tangent.
+All five new output seals and raw-point reconstructions verify; spatial
+convergence and full benchmark promotion remain incomplete.
+Figure-specific coarse lifecycle checks now pass serial/MPI response and
+bidirectional portable restart. A fixed-old-state tangent study passes on
+`1e-4 … 1e-7`; its failed `1e-3` perturbation is retained explicitly. MPI
+tangent condensation remains unsupported. These results do not establish
+spatial accuracy; see the
+[lifecycle verification record](https://github.com/haoming-luo/agentfem/blob/main/evidence/zhang_2021/2026-10-08-lifecycle-verification.md).
+The
+[source-discrepancy investigation](https://github.com/haoming-luo/agentfem/blob/main/evidence/zhang_2021/geometry-source-discrepancy.md)
+records the inspected PDF identity, both geometries and all four mesh levels.
+The final publisher PDF has not been checked for this discrepancy.
+
+Historical unarchived diagnostics isolate two non-causes of the Table 5 gap. On a
+315-cell Q9 mesh, 20, 40 and 80 fixed increments reduce successive first-Piola
+changes from about 0.603 percent to 0.307 percent and primal-energy changes from
+about 0.250 percent to 0.125 percent. The candidate is therefore stable along
+that path for those observables, while its published stress and energy errors
+remain approximately 5 percent and 20 percent. At 40 increments, increasing the
+quadrature degree from 4 to 6 and 8 leaves the two finest first-Piola results
+within about 0.102 percent and the energies within about 0.086 percent; it does
+not remove the external gap. Solve time on the same local machine rises from
+about 39 seconds to 70 and 109 seconds, so permanent over-integration is not a
+defensible remedy. The condensed four-column macro tangent costs about 0.06
+seconds at this size and is not the measured bottleneck. These observations are
+diagnostic evidence only; they do not replace a committed clean-source archive.
+
+The independent fixed-old-state macro-tangent diagnostic gives a sharper
+result. With a (10^{-6}) perturbation of each final macroscopic-gradient
+component, all earlier load knots identical, and the state at nine tenths of
+the path held fixed, the centered-difference and condensed (4\times4)
+tangents agree to (1.43\times10^{-8}) in relative Frobenius norm; the largest
+column error is (1.47\times10^{-8}). The same coarse candidate's tangent is
+still about 21.68 percent from Table 5. Thus the implemented discrete residual,
+local material linearization and Schur condensation are mutually consistent;
+the external discrepancy is now concentrated in the reproduced discrete
+problem--geometry representation, connectivity, interpolation details, path,
+or unpublished reference implementation--rather than an unsupported claim of
+an internal Jacobian defect. A clean-source repeat produced content-bound local
+evidence with the same error. A content-bound (10^{-5},10^{-6},10^{-7})
+step study then passes the independent audit: the coarse-to-middle observed
+order is 1.998, all point checks pass, and the two finest finite-difference
+tangents differ by (1.36\times10^{-8}). This closes the internal macro-
+tangent consistency gate, but it is not a promoted Table 5 archive; the
+remaining external gates are still required.
+
+The first five-level spatial sequence uses nominal mesh sizes 0.20, 0.14, 0.10,
+0.07 and 0.05, producing 315, 459, 804, 1590 and 2859 Q9 cells. The 1590-cell
+level still changes primal elastic energy by about 3.40 percent relative to the
+previous mesh. At 2859 cells--very close to the publication's stated 2823--the
+Table 5 primal-energy error falls further to about 4.21 percent, while the
+first-Piola vector error remains about 5.59 percent. The measured solve takes
+about 500 seconds on the same local machine. Spatial convergence is therefore
+not established, and matching only the element count does not reproduce the
+paper's unpublished connectivity or curved-boundary approximation. The energy
+trend is strong evidence against interpreting the coarse discrepancy as a
+constitutive failure, while the persistent stress gap requires an independent
+element/mesh oracle rather than parameter tuning.
+
+Table 5 is also a published **discrete-result target**, not a continuum exact
+solution: the paper identifies 2823 Q9 cells and the 9/3 family but does not
+publish the mesh connectivity or load-increment schedule. AgentFEM therefore
+records any residual reproduction ambiguity instead of tuning material data or
+relaxing tolerances to force agreement.
+
+The controlled curved-Q9 geometric supercell diagnostic now covers 1x1,
+1x2, 2x1 and 2x2 cells at a common mesh target of 0.28 and quadrature degree 4.
+Relative to 1x1, maximum first-Piola and primal-energy changes are 0.7404%
+and 4.1493%. The diagnostic contracts are 1% and 5%, respectively; they are
+AgentFEM thresholds, not published tolerances. These independently remeshed
+supercells establish a bounded geometric size check, not exact topology tiling
+or mesh convergence. An independent hand-polynomial Q9/DPC1 oracle verifies
+basis values, derivatives, linear pressure completeness and a curved affine
+physical patch with errors below 2e-13.
+
+The exact cell also passes serial/two-rank response comparison and portable
+checkpoint continuation in both 1-to-2 and 2-to-1 directions. The audit
+commands `zhang_2021_parallel_equivalence.py` and
+`zhang_2021_supercell_audit.py` consume hashed candidate artifacts;
+`zhang_2021_plane_strain_promotion.py` accepts their reports together with
+both restart reports and verifies the checkpoint artifact graph. These gates
+do not authorize Table 5 promotion: full spatial/formulation convergence and
+agreement with the published stress, energy and tangent remain outstanding.
 
 One unarchived current-stack coarse diagnostic makes that boundary concrete.
 On a 502-tetrahedron, thickness-0.10 P2/DG0 extrusion with 20 load increments,
@@ -514,14 +654,16 @@ verified for both serial mixed routes: 3D tetrahedral P2/DG0 and 2D plane-strain
 quadrilateral Q2/DPC1. The 3D P2/DG0 provider also passes a distributed mixed
 solve and both one-to-two and two-to-one-rank checkpoint/continue paths. Those
 paths restore the exact split primary fields, quadrature state and accepted
-increment history. The 2D Q2/DPC1 equilibrium provider remains serial.
+increment history. The 2D Q2/DPC1 exact periodic cell now also passes a
+two-rank solve and bidirectional one/two-rank checkpoint continuation.
 
 These tests establish the software contract; an RVE used for a material claim
 still requires its own mesh, loading-path, convergence, and reference-result
 evidence. Multi-material finite-strain J2 dispatch is now part of the
 experimental public affine routes. The Zhang fixture makes the independent
-external comparison executable, but it has not yet passed its loading-path,
-formulation, replication, effective-tangent, or distributed-execution gates.
+external comparison executable. Its bounded geometric replication and
+distributed lifecycle diagnostics pass; full spatial/formulation convergence
+and the external effective-tangent comparison remain open.
 Stress-state-controlled macro loading, full Zhang evidence through the direct
 2D Q2/DPC1 route, and the mixed-route conditioning study remain separate
 promotion gates. The underlying local J2 return already uses the analytical
@@ -549,3 +691,14 @@ closure, not another local material tangent.
    [open manuscript](https://arxiv.org/abs/2010.02371).
 5. FEniCS Project, “Basix `create_element` and discontinuous DPC variant,”
    [official API reference](https://docs.fenicsproject.org/basix/main/python/_autosummary/basix.finite_element.html).
+6. T. Sussman and K.-J. Bathe, “A finite element formulation for nonlinear
+   incompressible elastic and inelastic analysis,” *Computers & Structures* 26
+   (1987), 357--409.
+   [doi:10.1016/0045-7949(87)90265-3](https://doi.org/10.1016/0045-7949(87)90265-3),
+   [author manuscript](https://web.mit.edu/kjb/www/Publications_Prior_to_1998/A_Finite_Element_Formulation_for_Nonlinear_Incompressible_Elastic_and_Inelastic_Analysis.pdf).
+7. The deal.II Project, “Step-44: three-field finite-strain mixed formulation,”
+   [official tutorial](https://dealii.org/current/doxygen/deal.II/step_44.html).
+8. Dassault Systèmes, “Abaqus Verification Guide,”
+   [official guide](https://docs.software.vt.edu/abaqusv2025/English/SIMACAEVERRefMap/simaver-c-ov.htm).
+9. PETSc, “SNESTestJacobian,”
+   [official API reference](https://petsc.org/release/manualpages/SNES/SNESTestJacobian/).

@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 from copy import deepcopy
 from functools import partial
+from pathlib import Path
 from types import SimpleNamespace
 
 import basix
@@ -13,7 +14,41 @@ import ufl
 from basix.ufl import element
 
 from agentfem import cli, mesh, provenance, results
-from agentfem.operators.identity import mesh_executable_identity
+from agentfem.operators.identity import (
+    mesh_executable_identity,
+    meshtags_executable_identity,
+)
+
+
+@pytest.mark.parametrize("comm", (None, MPI.COMM_SELF))
+def test_manifest_publication_failure_is_not_success(tmp_path, comm):
+    parent = tmp_path / "not-a-directory"
+    parent.write_text("occupied", encoding="utf-8")
+    with pytest.raises(RuntimeError, match="manifest publication failed"):
+        results.SimulationResult("failed-write").write_manifest(
+            parent / "result.json", comm=comm,
+        )
+    assert not (parent / "result.json").exists()
+
+
+@pytest.mark.parametrize("comm", (None, MPI.COMM_SELF))
+def test_failed_manifest_replacement_preserves_previous(tmp_path, monkeypatch, comm):
+    result = results.SimulationResult("atomic-publication")
+    manifest = result.write_manifest(tmp_path / "result.json", comm=comm)
+    original = manifest.read_bytes()
+    replace = Path.replace
+
+    def fail_replace(path, target):
+        if path == manifest.with_suffix(".json.tmp"):
+            raise OSError("injected replacement failure")
+        return replace(path, target)
+
+    monkeypatch.setattr(Path, "replace", fail_replace)
+    result.add_quantity("new-response", 2.0)
+    with pytest.raises(RuntimeError, match="injected replacement failure"):
+        result.write_manifest(manifest, comm=comm)
+    assert manifest.read_bytes() == original
+    assert provenance.verify_manifest(manifest).verified
 
 
 def _sealed_result(tmp_path):
@@ -58,6 +93,48 @@ def test_provenance_detects_artifact_and_manifest_changes(tmp_path):
     manifest_report = provenance.verify_manifest(manifest)
     assert manifest_report.status == "modified"
     assert "AFM-SEAL-003" in {item["code"] for item in manifest_report.issues}
+
+
+@pytest.mark.parametrize("relative_artifacts", (True, False))
+def test_manifest_self_reference_is_not_a_recursive_file_hash(
+    tmp_path, relative_artifacts,
+):
+    manifest = tmp_path / "result.json"
+    artifact = tmp_path / "field.bin"
+    artifact.write_bytes(b"accepted field")
+    result = results.SimulationResult("self-reference")
+    result.add_artifact("field", artifact)
+    result.add_artifact("result_manifest", manifest)
+    result.add_artifact("same_path_other_name", manifest)
+    original_artifacts = dict(result.artifacts)
+
+    # Both first publication and replacement must avoid hashing their own
+    # missing/previous bytes. The in-memory output locator remains available.
+    for value in (1.0, 2.0):
+        result.add_quantity("response", value)
+        result.write_manifest(manifest, relative_artifacts=relative_artifacts)
+        record = json.loads(manifest.read_text(encoding="utf-8"))
+        assert set(record["artifacts"]) == {"field"}
+        assert result.artifacts == original_artifacts
+        assert provenance.verify_manifest(manifest).verified
+
+    artifact.write_bytes(b"changed field")
+    assert "AFM-SEAL-004" in {
+        item["code"] for item in provenance.verify_manifest(manifest).issues
+    }
+
+
+def test_manifest_named_external_artifact_is_still_hashed(tmp_path):
+    external = tmp_path / "previous.result.json"
+    external.write_text('{"previous": true}', encoding="utf-8")
+    result = results.SimulationResult("external-manifest")
+    result.add_artifact("result_manifest", external)
+    manifest = result.write_manifest(tmp_path / "result.json")
+    assert provenance.verify_manifest(manifest).verified
+    external.write_text('{"previous": false}', encoding="utf-8")
+    assert "AFM-SEAL-004" in {
+        item["code"] for item in provenance.verify_manifest(manifest).issues
+    }
 
 
 def test_missing_artifact_produces_truthful_incomplete_seal(tmp_path):
@@ -205,9 +282,7 @@ def test_result_manifest_carries_content_addressed_scientific_inputs(tmp_path):
         material={"model": "elastic", "young": np.float64(210.0e9)},
     )
     saved = json.loads(
-        result.write_manifest(tmp_path / "identified.json").read_text(
-            encoding="utf-8"
-        )
+        result.write_manifest(tmp_path / "identified.json").read_text(encoding="utf-8")
     )
 
     assert attached["complete"] is True
@@ -359,6 +434,38 @@ def test_mesh_executable_identity_binds_coordinate_element_semantics():
         "embedded": False,
     }
     assert linear["mesh_sha256"] != quadratic["mesh_sha256"]
+
+
+def test_meshtags_executable_identity_binds_membership_and_mesh():
+    from dolfinx import mesh as dolfinx_mesh
+
+    domain = mesh.rectangle(
+        (0.0, 0.0),
+        (1.0, 1.0),
+        (2, 1),
+        comm=MPI.COMM_SELF,
+        cell_type="quadrilateral",
+    )
+    first = dolfinx_mesh.meshtags(
+        domain,
+        domain.topology.dim,
+        np.asarray((0, 1), dtype=np.int32),
+        np.asarray((1, 2), dtype=np.int32),
+    )
+    changed = dolfinx_mesh.meshtags(
+        domain,
+        domain.topology.dim,
+        np.asarray((0, 1), dtype=np.int32),
+        np.asarray((2, 1), dtype=np.int32),
+    )
+
+    identity = meshtags_executable_identity(domain, first)
+    changed_identity = meshtags_executable_identity(domain, changed)
+
+    assert identity["schema"] == "agentfem.meshtags-executable-identity.v1"
+    assert identity["global_tagged_entities"] == 2
+    assert identity["mesh_sha256"] == mesh_executable_identity(domain)["mesh_sha256"]
+    assert identity["meshtags_sha256"] != changed_identity["meshtags_sha256"]
 
 
 def test_empty_result_does_not_claim_complete_input_coverage():

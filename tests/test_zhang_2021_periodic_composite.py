@@ -2,12 +2,15 @@
 
 from __future__ import annotations
 
+import json
+
 import numpy as np
 import pytest
 import ufl
 from dolfinx import fem
 from mpi4py import MPI
 
+import agentfem
 from agentfem import fields
 
 from zhang_2021_periodic_composite_fixture import (
@@ -18,15 +21,73 @@ from zhang_2021_periodic_composite_fixture import (
     zhang_2021_plane_strain_composite,
     zhang_2021_periodic_composite,
 )
+from zhang_2021_plane_strain_promotion import (
+    assess_convergence,
+    assess_macro_tangent_sensitivity,
+    load_candidate,
+)
+from zhang_2021_plane_strain_driver import (
+    _benchmark_implementation_identity,
+    _require_checkout_runtime,
+)
+
+
+def test_independent_q9_dpc1_curved_element_oracle():
+    from zhang_2021_q9_dpc1_oracle import run_oracle
+
+    evidence = run_oracle()
+    assert evidence["passed"]
+    assert all(evidence["checks"].values())
+    assert evidence["metrics"]["dpc1_sample_rank"] == 3
+
+
+def test_lifecycle_empty_evidence_does_not_close_gates():
+    from zhang_2021_plane_strain_promotion import load_lifecycle_evidence
+
+    report = assess_convergence(lifecycle_evidence=load_lifecycle_evidence())
+    assert "restart_equivalent" in report["missing_promotion_evidence"]
+    assert not report["benchmark_promotion_authorized"]
+
+
+def test_restart_evidence_rejects_forged_passed_flag(tmp_path):
+    from zhang_2021_plane_strain_promotion import load_lifecycle_evidence
+
+    path = tmp_path / "forged.json"
+    path.write_text(json.dumps({
+        "schema": "agentfem.zhang-2021-plane-strain-restart.v1",
+        "passed": True,
+        "fingerprint": "sha256:" + "0" * 64,
+    }))
+    with pytest.raises(ValueError, match="fingerprint"):
+        load_lifecycle_evidence(restarts=(path,))
+
+
+def test_zhang_driver_refuses_cross_worktree_runtime(monkeypatch, tmp_path):
+    _require_checkout_runtime()
+    fake = tmp_path / "other-checkout" / "src" / "agentfem" / "__init__.py"
+    monkeypatch.setattr(agentfem, "__file__", str(fake))
+
+    with pytest.raises(RuntimeError, match="different checkout"):
+        _require_checkout_runtime()
+
+
+def test_zhang_driver_binds_fixture_and_driver_source_files():
+    identity = _benchmark_implementation_identity()
+
+    assert identity["schema"] == "agentfem.benchmark-implementation-identity.v1"
+    assert {item["name"] for item in identity["files"]} == {
+        "zhang_2021_plane_strain_driver.py",
+        "zhang_2021_periodic_composite_fixture.py",
+    }
+    assert all(len(item["sha256"]) == 64 for item in identity["files"])
 
 
 @pytest.mark.skip(
     reason=(
         "Zhang 2021 Table 5 promotion requires content-bound evidence: the "
-        "formulation-correspondent 2D Q2/DPC1 diagnostic has not passed the "
-        "stress, energy or "
-        "effective-tangent comparison and still lacks load-path/mesh/cell-size "
-        "convergence plus serial-MPI and restart equivalence. The thin-3D "
+        "figure-based 2D Q2/DPC1 diagnostic passes numerical comparisons but "
+        "still lacks clean-source full mesh/formulation convergence and "
+        "figure-specific lifecycle evidence. The thin-3D "
         "P2/DG0 diagnostic is not the published formulation."
     )
 )
@@ -168,6 +229,251 @@ def test_table5_reference_preserves_published_component_order_and_evidence_gate(
         )
 
 
+def _write_zhang_candidate(
+    root,
+    *,
+    increments,
+    scale,
+    mesh_size=0.2,
+    quadrature_degree=4,
+    tracked_dirty=False,
+    benchmark_digest="4" * 64,
+    discretization_digest="6" * 64,
+    geometry_source="section-3.2.1-text",
+):
+    root.mkdir()
+    path = root / "zhang_2021_table5_plane_strain_assessment.json"
+    tangent = scale * np.eye(4)
+    payload = {
+        "candidate_schema": "agentfem.external-benchmark-candidate.v2",
+        "result_status": "completed",
+        "identity_stable_during_run": True,
+        "first_piola": (scale * np.asarray([1.0, 2.0, 3.0, 4.0])).tolist(),
+        "mixed_elastic_energy_diagnostics": {
+            "primal_elastic_energy_density": float(scale * 2.0),
+        },
+        "homogenized_algorithmic_tangent": {"values": tangent.tolist()},
+        "benchmark_implementation": {
+            "schema": "agentfem.benchmark-implementation-identity.v1",
+            "files": (
+                {
+                    "name": "zhang_2021_plane_strain_driver.py",
+                    "sha256": benchmark_digest,
+                },
+                {
+                    "name": "zhang_2021_periodic_composite_fixture.py",
+                    "sha256": "5" * 64,
+                },
+            ),
+        },
+        "discretization_identity": {
+            "schema": "agentfem.external-benchmark-discretization.v1",
+            "mesh": {"mesh_sha256": "7" * 64},
+            "cell_tags": {"meshtags_sha256": "8" * 64},
+            "facet_tags": {"meshtags_sha256": "9" * 64},
+            "periodic_constraint": {"fingerprint": "a" * 64},
+            "fingerprint": discretization_digest,
+        },
+        "candidate": {
+            "formulation": "2D_plane_strain_Q2_DPC1",
+            "geometry_source": geometry_source,
+            "mesh_size": mesh_size,
+            "global_cells": 315,
+            "quadrature_degree": quadrature_degree,
+            "accepted_increments": increments,
+            "requested_fixed_increments": increments,
+            "mpi_ranks": 1,
+            "macro_tangent_requested": True,
+            "discretization_fingerprint": discretization_digest,
+        },
+        "runtime": {
+            "manifest": {
+                "identity": {
+                    "execution": {
+                        "source": {
+                            "commit": "1" * 40,
+                            "tracked_dirty": tracked_dirty,
+                            "package_tree_sha256": "2" * 64,
+                            "scientific_runtime_sha256": "3" * 64,
+                        }
+                    }
+                }
+            }
+        },
+    }
+    path.write_text(json.dumps(payload), encoding="utf-8")
+    return path
+
+
+def test_zhang_content_bound_increment_audit_derives_decision_from_artifacts(
+    tmp_path,
+):
+    paths = (
+        _write_zhang_candidate(tmp_path / "i20", increments=20, scale=1.02),
+        _write_zhang_candidate(tmp_path / "i40", increments=40, scale=1.004),
+        _write_zhang_candidate(tmp_path / "i80", increments=80, scale=1.0),
+    )
+    runs = tuple(load_candidate(path) for path in paths)
+    report = assess_convergence(increment_runs=runs)
+
+    increment = report["axis_audits"]["load_increment_path_converged"]
+    assert increment["setup_consistent"]
+    assert increment["passed"]
+    assert increment["checks"]["first_piola"]["finest_change"] == pytest.approx(0.004)
+    assert report["derived_convergence"]["load_increment_path_converged"]
+    assert report["content_bound"]
+    assert report["status"] == "incomplete"
+    assert not report["benchmark_promotion_authorized"]
+    assert "serial_mpi_equivalent" in report["missing_promotion_evidence"]
+    assert all(len(item["sha256"]) == 64 for item in increment["artifacts"])
+
+
+def test_zhang_mesh_audit_rejects_mixed_geometry_sources(tmp_path):
+    paths = (
+        _write_zhang_candidate(tmp_path / "coarse", increments=40, scale=1.02, mesh_size=0.2),
+        _write_zhang_candidate(tmp_path / "middle", increments=40, scale=1.004, mesh_size=0.1),
+        _write_zhang_candidate(tmp_path / "fine", increments=40, scale=1.0, mesh_size=0.05,
+                               geometry_source="figure-10a"),
+    )
+    report = assess_convergence(mesh_runs=tuple(load_candidate(path) for path in paths))
+    assert not report["axis_audits"]["mesh_converged"]["setup_consistent"]
+    assert not report["derived_convergence"]["mesh_converged"]
+
+
+def test_zhang_convergence_audit_rejects_uncontrolled_and_dirty_slices(tmp_path):
+    paths = (
+        _write_zhang_candidate(
+            tmp_path / "i20", increments=20, scale=1.02, tracked_dirty=True
+        ),
+        _write_zhang_candidate(tmp_path / "i40", increments=40, scale=1.004),
+        _write_zhang_candidate(
+            tmp_path / "i80", increments=80, scale=1.0, mesh_size=0.1
+        ),
+    )
+    report = assess_convergence(
+        increment_runs=tuple(load_candidate(path) for path in paths)
+    )
+
+    increment = report["axis_audits"]["load_increment_path_converged"]
+    assert not increment["setup_consistent"]
+    assert not increment["passed"]
+    assert not report["content_bound"]
+    assert not report["derived_convergence"]["load_increment_path_converged"]
+
+
+def test_zhang_convergence_audit_rejects_mixed_benchmark_definitions(tmp_path):
+    paths = (
+        _write_zhang_candidate(tmp_path / "i20", increments=20, scale=1.02),
+        _write_zhang_candidate(tmp_path / "i40", increments=40, scale=1.004),
+        _write_zhang_candidate(
+            tmp_path / "i80",
+            increments=80,
+            scale=1.0,
+            benchmark_digest="6" * 64,
+        ),
+    )
+    report = assess_convergence(
+        increment_runs=tuple(load_candidate(path) for path in paths)
+    )
+
+    assert not report["content_bound"]
+    assert not report["source"]["common_benchmark_implementation"]
+
+
+def test_zhang_increment_audit_rejects_mixed_discretizations(tmp_path):
+    paths = (
+        _write_zhang_candidate(tmp_path / "i20", increments=20, scale=1.02),
+        _write_zhang_candidate(tmp_path / "i40", increments=40, scale=1.004),
+        _write_zhang_candidate(
+            tmp_path / "i80",
+            increments=80,
+            scale=1.0,
+            discretization_digest="b" * 64,
+        ),
+    )
+    report = assess_convergence(
+        increment_runs=tuple(load_candidate(path) for path in paths)
+    )
+
+    audit = report["axis_audits"]["load_increment_path_converged"]
+    assert not audit["setup_consistent"]
+    assert not audit["passed"]
+
+
+def test_zhang_candidate_rejects_runtime_identity_drift(tmp_path):
+    path = _write_zhang_candidate(tmp_path / "candidate", increments=20, scale=1.0)
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    payload["identity_stable_during_run"] = False
+    path.write_text(json.dumps(payload), encoding="utf-8")
+
+    with pytest.raises(ValueError, match="not stable during execution"):
+        load_candidate(path)
+
+
+def test_zhang_candidate_rejects_discretization_identity_mismatch(tmp_path):
+    path = _write_zhang_candidate(tmp_path / "candidate", increments=20, scale=1.0)
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    payload["candidate"]["discretization_fingerprint"] = "c" * 64
+    path.write_text(json.dumps(payload), encoding="utf-8")
+
+    with pytest.raises(ValueError, match="discretization fingerprints disagree"):
+        load_candidate(path)
+
+
+def _macro_tangent_run(step, error, *, discretization="d" * 64):
+    analytical = np.asarray(
+        ((2.0, 0.2, 0.1, 0.0), (0.2, 1.8, 0.0, 0.1),
+         (0.1, 0.0, 0.8, 0.05), (0.0, 0.1, 0.05, 1.1))
+    )
+    finite_difference = analytical + error * np.eye(4)
+    relative_error = float(
+        np.linalg.norm(finite_difference - analytical)
+        / np.linalg.norm(finite_difference)
+    )
+    return {
+        "path": f"step-{step}.json",
+        "sha256": "e" * 64,
+        "payload": {"content_bound": True},
+        "candidate": {
+            "relative_step": step,
+            "mesh_size": 0.3,
+            "quadrature_degree": 4,
+            "increments": 10,
+        },
+        "check": {
+            "passed": True,
+            "analytical": analytical.tolist(),
+            "finite_difference": finite_difference.tolist(),
+            "relative_frobenius_error": relative_error,
+        },
+        "implementation": {"driver_sha256": "a" * 64},
+        "scientific_runtime": "b" * 64,
+        "benchmark_implementation": (("fixture.py", "c" * 64),),
+        "discretization": discretization,
+    }
+
+
+def test_zhang_macro_tangent_step_audit_requires_one_controlled_problem():
+    runs = (
+        _macro_tangent_run(1.0e-5, 1.0e-5),
+        _macro_tangent_run(1.0e-6, 1.0e-7),
+        _macro_tangent_run(1.0e-7, 1.0e-9),
+    )
+    report = assess_macro_tangent_sensitivity(runs)
+
+    assert report["passed"]
+    assert report["macro_tangent_finite_difference_consistent"]
+    assert report["observed_orders"][0] == pytest.approx(2.0, rel=1.0e-2)
+    assert not report["benchmark_promotion_authorized"]
+
+    changed = tuple(runs[:2]) + (
+        _macro_tangent_run(1.0e-7, 1.0e-9, discretization="f" * 64),
+    )
+    rejected = assess_macro_tangent_sensitivity(changed)
+    assert not rejected["common_problem"]
+    assert not rejected["passed"]
+
+
 def test_zhang_cell_geometry_materials_and_affine_periodicity_are_explicit():
     pytest.importorskip("gmsh")
     fixture = zhang_2021_periodic_composite(
@@ -212,6 +518,40 @@ def test_zhang_cell_geometry_materials_and_affine_periodicity_are_explicit():
     )
 
 
+@pytest.mark.parametrize(
+    "source, expected_centroid",
+    [("section-3.2.1-text", (-0.2, 0.0)), ("figure-10a", (0.0, 0.1))],
+)
+def test_phase_assignment_matches_explicit_manuscript_source(source, expected_centroid):
+    fixture = zhang_2021_plane_strain_composite(
+        MPI.COMM_SELF, mesh_size=0.2, geometry_source=source,
+    )
+    _, inclusion = fixture.regions()
+    x = ufl.SpatialCoordinate(fixture.domain)
+    area = fem.assemble_scalar(fem.form(ufl.as_ufl(1.0) * inclusion.measure))
+    centroid = [fem.assemble_scalar(fem.form(x[i] * inclusion.measure)) / area
+                for i in range(2)]
+    np.testing.assert_allclose(centroid, expected_centroid, atol=2e-4)
+    assert fixture.geometry_source == source
+
+
+def test_interface_refinement_preserves_q9_and_periodic_pairing():
+    fixture = zhang_2021_plane_strain_composite(
+        MPI.COMM_SELF, mesh_size=0.1, interface_size=0.04, geometry_source="figure-10a",
+    )
+    assert fixture.nodes_per_element == 9
+    assert fixture.minimum_scaled_jacobian > 0.0
+    assert fixture.periodic_pair_counts == fixture.periodic_expected_pair_counts
+    assert fixture.periodic_pairing_error < 1e-10
+    assert fixture.mesh_policy["interface_size"] == 0.04
+
+
+@pytest.mark.parametrize("size", (0., -0.1, 0.2, float("nan")))
+def test_interface_refinement_rejects_invalid_size(size):
+    with pytest.raises(ValueError, match="interface_size"):
+        zhang_2021_plane_strain_composite(MPI.COMM_SELF, mesh_size=0.1, interface_size=size)
+
+
 @pytest.mark.parametrize("mesh_size", (0.20, 0.12, 0.08))
 def test_exact_plane_strain_geometry_is_q9_only_and_periodic(mesh_size):
     pytest.importorskip("gmsh")
@@ -220,9 +560,7 @@ def test_exact_plane_strain_geometry_is_q9_only_and_periodic(mesh_size):
         mesh_size=mesh_size,
     )
     matrix_region, inclusion_region = fixture.regions()
-    matrix_area = fem.assemble_scalar(
-        fem.form(ufl.as_ufl(1.0) * matrix_region.measure)
-    )
+    matrix_area = fem.assemble_scalar(fem.form(ufl.as_ufl(1.0) * matrix_region.measure))
     inclusion_area = fem.assemble_scalar(
         fem.form(ufl.as_ufl(1.0) * inclusion_region.measure)
     )
@@ -278,9 +616,7 @@ def test_exact_plane_strain_fixture_prepares_three_dpc_pressure_modes():
         mesh_size=0.20,
     )
     unknown = fixture.mixed_field()
-    displacement_element, pressure_element = (
-        unknown.space.ufl_element().sub_elements
-    )
+    displacement_element, pressure_element = unknown.space.ufl_element().sub_elements
     periodicity = fixture.constraint(unknown)
 
     assert fixture.pressure_modes_per_cell == 3
@@ -290,6 +626,52 @@ def test_exact_plane_strain_fixture_prepares_three_dpc_pressure_modes():
     assert periodicity.reference_cell_volume == pytest.approx(
         fixture.reference_cell_area
     )
+    periodicity.apply_affine_increment(0.0, 1.0)
+    assert periodicity.mismatch() < 1.0e-12
+    np.testing.assert_allclose(
+        periodicity.measured_deformation_gradient(unknown.displacement),
+        fixture.deformation_gradient,
+        rtol=0.0,
+        atol=2.0e-12,
+    )
+
+
+@pytest.mark.parametrize("repetitions", ((1, 2), (2, 1), (2, 2)))
+def test_exact_plane_strain_supercell_preserves_periodicity_and_phase_measure(
+    repetitions,
+):
+    pytest.importorskip("gmsh")
+    fixture = zhang_2021_plane_strain_composite(
+        MPI.COMM_SELF,
+        mesh_size=0.28,
+        cell_repetitions=repetitions,
+    )
+    matrix_region, inclusion_region = fixture.regions()
+    matrix_area = fem.assemble_scalar(
+        fem.form(ufl.as_ufl(1.0) * matrix_region.measure)
+    )
+    inclusion_area = fem.assemble_scalar(
+        fem.form(ufl.as_ufl(1.0) * inclusion_region.measure)
+    )
+    cell_count = int(np.prod(repetitions))
+    radius = 0.15
+    unknown = fixture.mixed_field()
+    periodicity = fixture.constraint(unknown)
+
+    assert fixture.cell_repetitions == repetitions
+    assert fixture.cell_periods == tuple(float(value) for value in repetitions)
+    assert fixture.reference_cell_area == pytest.approx(float(cell_count))
+    assert fixture.inclusion_surface_count == 2 * cell_count
+    assert fixture.void_curve_count >= cell_count
+    assert matrix_area == pytest.approx(
+        cell_count * (1.0 - 3.0 * np.pi * radius**2), rel=5.0e-3
+    )
+    assert inclusion_area == pytest.approx(
+        cell_count * 2.0 * np.pi * radius**2, rel=5.0e-3
+    )
+    assert fixture.periodic_pair_counts == fixture.periodic_expected_pair_counts
+    assert fixture.periodic_pairing_error < 1.0e-13
+    assert periodicity.reference_cell_volume == pytest.approx(float(cell_count))
     periodicity.apply_affine_increment(0.0, 1.0)
     assert periodicity.mismatch() < 1.0e-12
     np.testing.assert_allclose(
@@ -350,6 +732,8 @@ def test_exact_plane_strain_fixture_restores_gmsh_global_options():
         ({"mesh_size": np.nan}, "mesh_size must be finite and positive"),
         ({"element_order": 1}, "requires element_order=2"),
         ({"element_order": True}, "requires element_order=2"),
+        ({"cell_repetitions": (0, 1)}, "two positive integers"),
+        ({"cell_repetitions": (1, True)}, "two positive integers"),
     ),
 )
 def test_exact_plane_strain_fixture_fails_closed_for_unsupported_mesh(

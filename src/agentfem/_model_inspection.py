@@ -94,15 +94,19 @@ def write_model_ir(
     mesh_domain = domain(model.mesh)
     comm = getattr(mesh_domain, "comm", None)
     rank = getattr(comm, "rank", 0)
+    # Building AF-IR optionally validates the model.  Validation of a
+    # distributed material partition contains communicator-wide reductions,
+    # so every rank must build the document in the same collective order even
+    # though only rank zero owns the filesystem write.  Calling
+    # ``model_to_ir`` inside the rank-zero branch deadlocks rank zero in the
+    # validation reduction while all other ranks wait at the barrier below.
+    document = model_to_ir(
+        model,
+        include_validation=include_validation,
+        metadata=metadata,
+    )
     if rank == 0:
-        write_document(
-            model_to_ir(
-                model,
-                include_validation=include_validation,
-                metadata=metadata,
-            ),
-            output,
-        )
+        write_document(document, output)
     if comm is not None and hasattr(comm, "barrier"):
         comm.barrier()
     return output

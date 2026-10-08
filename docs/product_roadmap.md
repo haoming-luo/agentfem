@@ -284,7 +284,79 @@ The next scientific promotions focus on depth rather than catalog size:
    curve, mesh, serial/MPI, checkpoint/restart, and `45 -> 90 -> 180`
    increment contracts all pass. The 90-to-180 RMS and maximum differences
    are `0.04460%` and `0.21498%`, within the fixed `0.2%` and `0.5%`
-   contracts;
+   contracts. For the separate Zhang Q2/DPC1 RVE, content-bound candidate and
+   multi-axis audit records now replace caller-declared convergence flags;
+   the scientific runtime, benchmark fixture/driver, executed high-order mesh,
+   region/boundary tags, and periodic equations are bound explicitly. Path and
+   quadrature slices must retain the identical discretization rather than
+   relying on a nominal mesh-size label. A separate Appendix-B oracle
+   evolving \(C_p^{-1}\) matches the provider's stress, plastic strain,
+   inverse plastic metric and elastic energy on a non-coaxial path, so the
+   remaining external gap is no longer attributed to a J2 normalization or
+   state-variable mismatch.
+   A 2026-10-07 source review found a phase-placement discrepancy between
+   prose and Figure 10(a) in the inspected author manuscript. Explicit
+   `geometry_source` now prevents mixing those models. Figure-based geometry
+   at 2859 cells gives stress/energy/tangent errors of `0.099% / 0.014% /
+   0.507%`, within the unchanged comparison contracts, but the last mesh pair
+   changes energy by `5.3442%`; complete promotion remains blocked by energy
+   convergence and remaining figure-specific evidence. The fine candidate
+   has now been reproduced from clean commit `597e8795`, with identical stress
+   and energy. A same-mesh 4/6/8-degree quadrature slice passes. Energy-channel
+   attribution assigns 99.8554% of the last mesh change to the pressure
+   constraint defect, not to the condensed channel; this is diagnostic
+   attribution, not a license to switch the acceptance observable.
+   Offline raw-point reconstruction localizes 97.19% of the defect in the
+   worst 5% of cells, almost entirely in the matrix. An explicit interface
+   refinement diagnostic uses 2448 rather than 2859 cells and reduces the
+   defect by 17.30%, retaining the three external comparison checks. This
+   remains a development experiment, not a mesh-convergence certificate or
+   general adaptive-solver capability.
+   A clean same-policy 1755/2448/3543-cell interface-size sequence now keeps
+   all three external comparisons within their contracts. Its final stress
+   and tangent changes pass at `0.06847% / 0.25812%`, but primal-energy change
+   remains `0.85369%`, above `0.5%`; local refinement does not promote global
+   mesh convergence. All raw-point energy reconstructions agree. Result-envelope
+   auditing additionally exposed a self-hashed manifest; the writer now excludes
+   only its own publication path while retaining external artifact verification.
+   Original diagnostic archives retain the old envelope failure explicitly.
+   The 2026-10-08 follow-up separates local from globally scaled refinement:
+   local primal-energy change reaches `0.46575%`, but global change remains
+   `0.72236%` (above `0.5%`). Local stress and global tangent also fail the
+   decreasing-change requirement. Five clean runs verify their output seals;
+   neither complete spatial axis is promoted. See the
+   [spatial follow-up](https://github.com/haoming-luo/agentfem/blob/main/evidence/zhang_2021/2026-10-08-spatial-followup.md).
+   Figure-specific 285-cell lifecycle verification now passes direct serial/MPI
+   response equivalence, both cross-rank restart directions, and a local
+   macro-tangent perturbation audit. A larger `1e-3` perturbation failed and
+   remains recorded; MPI tangent condensation is still unsupported. These
+   coarse lifecycle checks do not promote the fine spatial/formulation gates.
+   See the [bounded verification record](https://github.com/haoming-luo/agentfem/blob/main/evidence/zhang_2021/2026-10-08-lifecycle-verification.md).
+   The earlier diagnostics
+   below use the prose geometry and must not be interpreted as unresolved
+   constitutive errors or transferred to the figure geometry automatically.
+   Initial 20/40/80-increment and degree-4/6/8 quadrature diagnostics show that
+   path refinement and over-integration do not explain the remaining Table 5
+   stress, energy and tangent gap. A 315/459/804/1590/2859-cell spatial
+   sequence remains unconverged: at 2859 cells, close to the paper's stated
+   2823, the published-energy error falls from about `20.5%` to `4.21%`, while
+   the first-Piola error remains about `5.59%`. Element count alone therefore
+   does not reproduce unpublished connectivity or geometry approximation. The
+   fixed-old-state final-gradient differences now agree with the condensed
+   macro tangent to about `1.43e-8`, even though that coarse tangent remains
+   about `21.68%` from Table 5. This rules out an internally inconsistent
+   Jacobian as the leading explanation without turning a self-consistency check
+   into external validation. A controlled independently remeshed 1x1/1x2/2x1/2x2
+   curved-geometry family now passes its 1% stress and 5% energy diagnostic
+   contracts (observed maxima 0.7404% and 4.1493%). An independent Q9/DPC1
+   hand-polynomial and curved-patch oracle passes. Serial/two-rank response
+   equivalence and bidirectional 1-to-2/2-to-1 checkpoint continuation also
+   pass. Exact discrete topology replication and full mesh/formulation
+   convergence remain distinct open questions. The clean-source,
+   content-bound `1e-5/1e-6/1e-7` tangent study now passes: its coarse-to-
+   middle observed order is `1.998`, and the two finest finite-difference
+   tangents differ by only `1.36e-8`. Blind refinement, parameter
+   tuning, and tolerance relaxation are explicitly excluded;
 3. extend the closed bounded MPC/weak/contact evidence contract only through
    independently verified provider routes; general contact remains a separate
    scientific promotion rather than a foundation blocker;
