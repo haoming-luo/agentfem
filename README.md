@@ -321,13 +321,12 @@ Please cite the AgentFEM version used. GitHub's **Cite this repository** uses
 [`CITATION.cff`](CITATION.cff).
 
 ```bibtex
-@software{luo2026agentfem038,
+@software{luo2026agentfem040,
   author  = {Luo, Haoming},
   title   = {AgentFEM},
   year    = {2026},
-  version = {0.3.8},
-  doi     = {10.5281/zenodo.22847104},
-  url     = {https://doi.org/10.5281/zenodo.22847104}
+  version = {0.4.0},
+  url     = {https://github.com/haoming-luo/agentfem/releases/tag/v0.4.0}
 }
 ```
 

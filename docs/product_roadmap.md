@@ -37,7 +37,7 @@ Each owner answers one question:
 - **Backend:** which numerical runtime executes the formulation?
 - **Result / Verification:** what was computed, and why is it usable?
 
-Before 0.4.0, AgentFEM must keep these boundaries acyclic, preserve one
+For 0.4.0 and subsequent releases, AgentFEM must keep these boundaries acyclic, preserve one
 provider-owned lowering route, retain atomic state and result lifecycles, and
 pass a candidate-bound release ladder. The executable audit is:
 
@@ -50,6 +50,28 @@ representative two-rank state/nonlinear/output/checkpoint tests, clean installed
 wheel acceptance, unchanged public examples and compatibility imports, Linux
 and macOS acceptance, and benchmark evidence for every maturity change.
 Windows runtime acceptance remains a separate product gate.
+
+### 0.4.0 release and the next bounded cycle
+
+0.4.0 consolidates the foundation rather than promoting experimental physics.
+The release pipeline must gate publication on the same immutable wheel's
+Linux/macOS foundation evidence. See [release scope](release_0.4.0.md).
+
+After release, prioritize in this order:
+
+1. installation/upgrade, examples, result readability, and actionable user
+   failures; protect projects and results independently of runtime replacement;
+2. supported mesh--element--formulation interoperability and early quality
+   diagnostics, with small representative engineering regressions;
+3. measured assembly/solver/state/output efficiency under fixed scientific
+   inputs; no speed claim obtained by relaxing tolerances or changing physics;
+4. one bounded external-validation track, beginning with the existing
+   finite-strain RVE gaps, without reclassifying incomplete evidence as passed.
+
+Each item needs a reusable owner, a finite acceptance test, and a stop/review
+condition. New materials, forming, additional backends, or benchmark-specific
+public APIs are not prerequisites for this consolidation. Keep routine CI
+targeted; reserve the full installed-wheel ladder for milestones and releases.
 
 ### 0.3.8: the 0.4 foundation candidate
 

@@ -130,7 +130,7 @@ def test_release_contract_is_complete_and_references_real_workflows():
         "quad-hex-real-import-and-quality",
         "unknown-cell-fail-closed",
     } <= set(contract["required_gates"])
-    if contract["target_version"].startswith("0.3.8"):
+    if contract["target_version"].startswith(("0.3.8", "0.4.")):
         foundation_gate_ids = {
             item["id"] for item in contract.get("foundation_gates", ())
         }
@@ -232,6 +232,22 @@ def test_release_workflow_fans_in_linux_and_macos_foundation_evidence():
     assert 'report.get("status") != "passed"' in workflow
 
 
+def test_pypi_publication_requires_exact_wheel_foundation_audit():
+    workflow = (PROJECT_ROOT / ".github/workflows/publish-pypi.yml").read_text(
+        encoding="utf-8"
+    )
+    assert "needs: [verify, foundation-verify, ml-verify, chaboche-release-verify]" in workflow
+    assert "foundation_gate.py" in workflow
+    assert "extension_gate.py" in workflow
+    assert "--target 0.4-foundation --require-complete" in workflow
+    assert "--evidence-directory /tmp/agentfem-foundation-linux" in workflow
+    macos_job = workflow.split("  foundation-verify:", 1)[1].split("  ml-verify:", 1)[0]
+    assert "needs: verify" in macos_job
+    assert "name: python-package-distributions" in macos_job
+    assert "--require-platform macos" in macos_job
+    assert "python -m build" not in macos_job
+
+
 def test_platform_acceptance_distinguishes_native_and_wsl_routes(tmp_path, monkeypatch):
     wheel = tmp_path / "agentfem.whl"
     wheel.write_bytes(b"immutable candidate")
@@ -316,14 +332,18 @@ def test_publish_workflow_verifies_the_same_artifacts_it_builds_once():
         PROJECT_ROOT / ".github" / "workflows" / "publish-pypi.yml"
     ).read_text(encoding="utf-8")
 
-    assert workflow.count("python -m build") == 1
+    build_job = workflow.split("  build:", 1)[1].split("  verify:", 1)[0]
+    assert build_job.count("python -m build") == 1
+    # The other build is the independent provider, never a replacement core wheel.
+    assert workflow.count("python -m build") == 2
+    assert "examples/extensions/reference_material" in workflow
     assert "workflow_dispatch:" in workflow
     assert "run-id: ${{ inputs.candidate_run_id }}" in workflow
     assert 'actions/runs/${CANDIDATE_RUN_ID}' in workflow
     assert "--jq .head_sha" in workflow
     assert "--site-dir /tmp/agentfem-release-site" in workflow
     assert "python release_gate.py --dist dist --tag \"${RELEASE_TAG}\" --smoke" in workflow
-    assert "needs: [verify, ml-verify, chaboche-release-verify]" in workflow
+    assert "needs: [verify, foundation-verify, ml-verify, chaboche-release-verify]" in workflow
     assert "Verify every published ratcheting cycle" in workflow
     assert "needs: attest" in workflow
 

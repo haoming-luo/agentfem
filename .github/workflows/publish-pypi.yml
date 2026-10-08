@@ -114,6 +114,7 @@ jobs:
     name: Verify the exact wheel users will receive
     needs: build
     runs-on: ubuntu-latest
+    timeout-minutes: 60
     env:
       UCX_TLS: tcp,sm,self
     defaults:
@@ -143,7 +144,7 @@ jobs:
 
       - name: Install the candidate wheel and optional mesh reader
         run: |
-          python -m pip install meshio
+          python -m pip install meshio build
           python -m pip install "mkdocs>=1.6,<2" "mkdocs-material>=9,<10" pymdown-extensions
           python -m pip install --no-deps --force-reinstall dist/*.whl
 
@@ -155,7 +156,7 @@ jobs:
       - name: Verify the wheel identity and release workflows
         run: |
           GITHUB_SHA="$(git rev-parse HEAD)" \
-          python release_gate.py --dist dist --tag "${RELEASE_TAG}" --smoke \
+          python release_gate.py --dist dist --tag "${RELEASE_TAG}" --smoke --mpi-ranks 2 \
             --report /tmp/agentfem-agent-acceptance.json \
             --platform-report /tmp/agentfem-platform-acceptance.json \
             --require-platform linux
@@ -174,6 +175,21 @@ jobs:
 
       - name: Run the complete serial suite
         run: python -m pytest
+
+      - name: Prove an independently installed external provider
+        run: |
+          python -m build --wheel --no-isolation \
+            --outdir /tmp/agentfem-reference-extension-dist \
+            examples/extensions/reference_material
+          CORE_WHEEL="$(find dist -maxdepth 1 -name 'agentfem-*.whl' -print -quit)"
+          EXTENSION_WHEEL="$(find /tmp/agentfem-reference-extension-dist -maxdepth 1 -name '*.whl' -print -quit)"
+          python extension_gate.py \
+            --core-wheel "${CORE_WHEEL}" \
+            --extension-wheel "${EXTENSION_WHEEL}" \
+            --project examples/extensions/reference_material/project \
+            --extension agentfem-reference-material \
+            --core-commit "$(git rev-parse HEAD)" \
+            --report /tmp/agentfem-extension-acceptance.json
 
       - name: Verify Test 5H spatial-refinement stability
         env:
@@ -274,6 +290,93 @@ jobs:
           python tests/external_elasticity_3d_benchmark_driver.py write /tmp/agentfem-nafems-le10.json
           mpirun -n 2 python tests/external_elasticity_3d_benchmark_driver.py compare /tmp/agentfem-nafems-le10.json
 
+      - name: Record the candidate-bound foundation acceptance
+        run: |
+          wheel="$(find dist -maxdepth 1 -name 'agentfem-*.whl' -print -quit)"
+          test -n "$wheel"
+          python foundation_gate.py \
+            --wheel "$wheel" \
+            --agent-acceptance /tmp/agentfem-agent-acceptance.json \
+            --extension-acceptance /tmp/agentfem-extension-acceptance.json \
+            --source-commit "$(git rev-parse HEAD)" \
+            --validated complete_serial \
+            --validated compatibility_imports \
+            --validated mpi_state \
+            --validated mpi_nonlinear \
+            --validated mpi_output \
+            --validated mpi_checkpoint \
+            --report /tmp/agentfem-foundation-acceptance.json
+
+      - name: Upload Linux foundation evidence
+        uses: actions/upload-artifact@v7
+        with:
+          name: release-foundation-linux
+          path: |
+            /tmp/agentfem-agent-acceptance.json
+            /tmp/agentfem-platform-acceptance.json
+            /tmp/agentfem-extension-acceptance.json
+            /tmp/agentfem-foundation-acceptance.json
+          if-no-files-found: error
+
+  foundation-verify:
+    name: Verify the same wheel on macOS and close the foundation audit
+    needs: verify
+    runs-on: macos-14
+    timeout-minutes: 30
+    defaults:
+      run:
+        shell: bash -el {0}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ env.RELEASE_TAG }}
+
+      - uses: conda-incubator/setup-miniconda@v4
+        with:
+          activate-environment: agentfem-release-macos
+          environment-file: environment.yml
+          miniforge-version: latest
+          use-mamba: true
+          channels: conda-forge
+          channel-priority: strict
+
+      - uses: actions/download-artifact@v8
+        with:
+          name: python-package-distributions
+          path: dist/
+
+      - uses: actions/download-artifact@v8
+        with:
+          name: release-foundation-linux
+          path: /tmp/agentfem-foundation-linux
+
+      - name: Verify installed macOS workflows and MPI
+        run: |
+          python -m pip install meshio
+          python release_gate.py --dist dist --tag "${RELEASE_TAG}" --smoke --mpi-ranks 2 \
+            --report /tmp/agentfem-macos-agent-acceptance.json \
+            --platform-report /tmp/agentfem-macos-platform-acceptance.json \
+            --require-platform macos
+
+      - name: Require complete candidate-bound foundation evidence
+        run: |
+          python promotion_gate.py --target 0.4-foundation --require-complete \
+            --evidence-directory /tmp/agentfem-foundation-linux \
+            --evidence /tmp/agentfem-macos-agent-acceptance.json \
+            --evidence /tmp/agentfem-macos-platform-acceptance.json \
+            --report /tmp/agentfem-platform-promotion.json
+
+      - name: Upload the foundation release audit
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: release-foundation-promotion
+          path: |
+            /tmp/agentfem-macos-agent-acceptance.json
+            /tmp/agentfem-macos-platform-acceptance.json
+            /tmp/agentfem-platform-promotion.json
+          if-no-files-found: error
+
   ml-verify:
     name: Verify the optional PyTorch bridge from the candidate wheel
     needs: build
@@ -373,7 +476,7 @@ jobs:
 
   attest:
     name: Attest the verified distributions
-    needs: [verify, ml-verify, chaboche-release-verify]
+    needs: [verify, foundation-verify, ml-verify, chaboche-release-verify]
     runs-on: ubuntu-latest
     permissions:
       contents: read
