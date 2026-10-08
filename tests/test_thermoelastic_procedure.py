@@ -3,6 +3,7 @@
 
 import numpy as np
 import json
+import xml.etree.ElementTree as ET
 from pathlib import Path
 import pytest
 import ufl
@@ -150,6 +151,36 @@ def test_closed_procedure_cannot_reuse_destroyed_petsc_resources():
     step.close()
     with pytest.raises(RuntimeError, match="AFM-COUPLING-004"):
         step.advance()
+
+
+def test_completion_publishes_only_final_accepted_fields_and_performance(tmp_path):
+    path = MPI.COMM_WORLD.bcast(str(tmp_path / "coupled.xdmf"), root=0)
+    with make_step() as step:
+        step.advance()
+        result = step.solve_result(output=path, strict_output=True)
+        assert result.metadata["execution_segment"] == {
+            "starting_step": 1,
+            "ending_step": 3,
+        }
+        assert result.metadata["output_scope"]["time_series"] is False
+        assert result.metadata["output_scope"]["physical_time"] == pytest.approx(0.3)
+        assert set(result.fields) == {"Displacement", "TemperatureDeparture"}
+        assert result.performance["wall_seconds"] >= 0
+        assert Path(path).exists()
+        times = [float(node.attrib["Value"]) for node in ET.parse(path).iter("Time")]
+        assert times and all(value == pytest.approx(0.3) for value in times)
+        count = step.thermal.solve_count
+        step.solve_result()
+        assert step.thermal.solve_count == count
+
+
+def test_failed_window_does_not_publish_completion(tmp_path):
+    path = MPI.COMM_WORLD.bcast(str(tmp_path / "rejected.xdmf"), root=0)
+    with make_step() as step:
+        with pytest.raises(RuntimeError, match="AFM-COUPLING-001"):
+            step.solve_result(output=path, max_iterations=1)
+        assert step.completed_steps == 0
+        assert not Path(path).exists()
 
 
 @pytest.mark.parametrize(

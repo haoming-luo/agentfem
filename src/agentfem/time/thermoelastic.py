@@ -13,6 +13,7 @@ from copy import deepcopy
 from math import isfinite
 from hashlib import sha256
 import json
+from time import perf_counter
 import numpy as np
 
 from .. import checkpointing, results, solvers, state
@@ -284,6 +285,56 @@ class _ThermoelasticStep:
         while self.completed_steps < self.total_steps:
             self.advance(**iteration_options)
         return self
+
+    def solve_result(self, *, output=None, strict_output=False, **iteration_options):
+        """Advance remaining windows and publish a final accepted snapshot.
+
+        This bounded completion is not a reconstructed transient time series.
+        Output and performance evidence use the common Result implementation.
+        """
+        from ..results import OutputPlan
+        from ..results.performance import attach_performance
+
+        context = getattr(self, "execution_context", None)
+        selected_output = output
+        if selected_output is None and context is not None:
+            selected_output = context.configured_output
+        if isinstance(selected_output, OutputPlan):
+            raise ValueError(
+                "AFM-COUPLING-009: coupled completion accepts a final XDMF path, "
+                "not the finite-strain OutputPlan."
+            )
+        started = perf_counter()
+        starting_step = self.completed_steps
+        self.run(**iteration_options)
+        solved = perf_counter()
+        result = self.result()
+        result.metadata["output_scope"] = {
+            "kind": "final_accepted_snapshot",
+            "physical_time": self.time,
+            "time_series": False,
+        }
+        result.metadata["execution_segment"] = {
+            "starting_step": starting_step,
+            "ending_step": self.completed_steps,
+        }
+        results.complete_result(
+            self,
+            result,
+            output=selected_output,
+            strict_output=strict_output,
+            time=self.time,
+        )
+        return attach_performance(
+            result,
+            stages={
+                "solve": solved - started,
+                "result_assembly_and_output": perf_counter() - solved,
+                "total": perf_counter() - started,
+            },
+            solution=self.u.value,
+            source=self,
+        )
 
     def result(self):
         if not self.history:

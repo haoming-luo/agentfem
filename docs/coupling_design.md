@@ -191,6 +191,16 @@ unsupported regional materials, weak/contact constraints, operator-changing
 inputs, and incompatible unit systems rather than ignoring them. Public
 registration remains pending these checks and convergence acceptance.
 
+Private `solve_result()` now delegates final-field publication and checkpoint
+contract attachment to the shared Result lifecycle. It advances only remaining
+windows, records the executed segment, and labels field output explicitly as
+a final accepted snapshot, not a transient series. Performance uses the shared
+rank-reduced timing schema with solve and result/output stages; constructor/JIT
+preparation is outside that call's timing scope. A rejected window publishes
+no completion dataset. Finite-strain OutputPlan is rejected before advancing;
+ordinary transient cadence and automatic progress/checkpoint policies remain
+public-integration work, not silently supported options.
+
 ## Product decision
 
 Finish the shared-mesh sequential route first. Keep Model as the problem
