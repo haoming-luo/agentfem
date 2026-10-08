@@ -129,6 +129,14 @@ retain ordinary region/constraint/load semantics, add its Step option contract,
 then perform space/time convergence and installed-use acceptance. Do not
 promote the benchmark class itself or duplicate its cube geometry in core.
 
+The first extraction is private `time/_staggered.py`: ordered prepared solves,
+MPI-global unrelaxed field criteria and fixed relaxation, with residual forms
+compiled once. It owns scratch iterates only; accepted time, rollback and
+checkpoint publication remain with the calling Procedure. It has no cube,
+material, thermal boundary or independent reference solve. This is an internal
+implementation seam, not yet a public coupled Step. A regression prohibits
+creating new residual forms during iteration; no end-to-end speedup is claimed.
+
 ## Product decision
 
 Finish the shared-mesh sequential route first. Keep Model as the problem

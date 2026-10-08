@@ -34,6 +34,7 @@ from agentfem import (
     state,
 )
 from agentfem.provenance import collective_call
+from agentfem.time._staggered import StaggeredFieldIteration
 
 
 class _ThermoelasticPrototype:
@@ -107,8 +108,12 @@ class _ThermoelasticPrototype:
         self.theta = fields.temperature(self.domain, value=0.0)
         self.u_old = fem.Function(self.u.space)
         self.theta_old = fem.Function(self.theta.space)
-        self.u_iter = fem.Function(self.u.space)
-        self.t_iter = fem.Function(self.theta.space)
+        self._iteration = StaggeredFieldIteration(
+            {
+                "displacement": self.u.value,
+                "temperature": self.theta.value,
+            }
+        )
         self.dx = ufl.Measure("dx", domain=self.domain)
         self.ds = ufl.Measure("ds", domain=self.domain)
         self.flux = fem.Constant(self.domain, self.inward_heat_flux)
@@ -448,49 +453,24 @@ class _ThermoelasticPrototype:
             raise ValueError(
                 "Finite positive tolerances, 0 < relaxation <= 1 and iterations required."
             )
-        residuals = []
         with (
             self._motion_window(),
             state.field_transaction(
                 displacement=self.u, temperature=self.theta, reference=self.reference
             ),
         ):
-            for iteration in range(1, max_iterations + 1):
-                self._copy(self.u_iter, self.u.value)
-                self._copy(self.t_iter, self.theta.value)
-                self.heat.solve()
-                self.solid.solve()
-                # Both residuals precede relaxation; near-zero scales rely on
-                # absolute tolerances. Physical integrals exclude MPI ghosts.
-                ru = self._norm(self.u.value - self.u_iter)
-                rt = self._norm(self.theta.value - self.t_iter)
-                su, st = self._norm(self.u.value), self._norm(self.theta.value)
-                residuals.append(
-                    {
-                        "iteration": iteration,
-                        "temperature_absolute": rt,
-                        "displacement_absolute": ru,
-                        "temperature_relative": rt / st if st else None,
-                        "displacement_relative": ru / su if su else None,
-                    }
-                )
-                if self.beta == 0 or (
-                    rt <= temperature_atol + rtol * st
-                    and ru <= displacement_atol + rtol * su
-                ):
-                    break
-                if iteration == max_iterations:
-                    raise RuntimeError(
-                        "AFM-COUPLING-001: outer iteration exhausted; window rejected."
-                    )
-                for value, previous in (
-                    (self.u.value, self.u_iter),
-                    (self.theta.value, self.t_iter),
-                ):
-                    value.x.array[:] = previous.x.array + relaxation * (
-                        value.x.array - previous.x.array
-                    )
-                    value.x.scatter_forward()
+            residuals = self._iteration.run(
+                (self.heat.solve, self.solid.solve),
+                absolute_tolerances={
+                    "displacement": displacement_atol,
+                    "temperature": temperature_atol,
+                },
+                rtol=rtol,
+                relaxation=relaxation,
+                max_iterations=max_iterations,
+                decoupled=self.beta == 0,
+            )
+            iteration = len(residuals)
             self.monolithic.solve()
             u_ref, t_ref = (self.reference.sub(i).collapse() for i in range(2))
             record = {
