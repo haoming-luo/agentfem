@@ -15,7 +15,7 @@ from mpi4py import MPI
 from agentfem import constitutive, fields, loads, mesh, models, studies, units
 
 
-def run(output):
+def create_model():
     domain = mesh.cuboid(
         (0.0, 0.0, 0.0),
         (2.0, 1.0, 3.0),
@@ -51,6 +51,12 @@ def run(output):
         )
         model.fix(u, on=face, component=axis, value=0.0)
     heating = model.load(loads.heat_source(10.0, target=theta))
+    return model, u, theta, heating
+
+
+def run(output):
+    model, u, theta, heating = create_model()
+    domain = u.space.mesh
     with model.step(
         target=u,
         temperature_departure=theta,

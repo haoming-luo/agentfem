@@ -37,6 +37,8 @@ available between windows. Custom history and transient field-series options
 are not accepted yet.
 
 The Step option contract is shared by capability discovery and execution.
+Manual `advance()` inherits the same configured iteration policy as `run()`;
+an explicit per-window override does not modify subsequent windows.
 Restart identity includes actual initial field contents, mesh, individual
 boundary membership and values, histories, material and executable natural
 load forms. Changing a load therefore cannot reuse an old checkpoint merely
@@ -151,16 +153,24 @@ temperature/displacement reference errors were approximately 2.2e-12 K and
 4.4e-15 m. These are RMS differences between two discrete solves, not physical
 prediction errors or a platform speedup. Reproduce with the command above.
 
-### Remaining promotion gates
+### Current acceptance and remaining gates
 
-1. Generalize the tested boundary-input and prescribed-motion evidence to
-   ordinary registered boundaries, with explicitly scoped thermodynamic
-   semantics rather than claiming a nonlinear first law.
-2. Carry the tested joint portable checkpoint/restart into the ordinary
-   Procedure without the benchmark's independent reference fields.
-3. Physical space/time convergence and an external problem beyond the cube.
-4. A bounded ordinary Step provider and its option contract, only after the
-   participant State/restart semantics are stable. No new Model god object.
+Ordinary registered boundaries, physical-only joint restart, the bounded Step
+option contract, and smooth-mode space/time convergence are implemented.
+`tests/portable_coupled_checkpoint_driver.py` additionally passes public-provider
+`1 -> 2 -> 1` continuation with moving strong boundaries. At every station it
+compares displacement, temperature, both force stations, and numeric accepted
+history against uninterrupted execution on the current partition. This driver
+is included in the installed-wheel release workflow. Local acceptance used
+24 targeted serial tests and nine public-provider tests on each of two ranks.
+
+PR #90 passed remote FEniCSx, macOS installed-wheel, lint, and documentation
+checks at `008d419d`; subsequent fixes require their own check status before
+integration. The original installed-wheel record remains bound to `9cd7e644`,
+not silently relabelled as evidence for later code. Release integration and
+any broader multidimensional/external scientific promotion remain separate
+gates. Neither the smooth mode nor the quadratic balance establishes a general
+first-law certificate.
 
 ### Boundary and recovery increment (2026-10-08)
 

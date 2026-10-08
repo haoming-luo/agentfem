@@ -30,7 +30,8 @@ class _ThermoelasticStep:
     Temperature is explicitly a departure from material reference temperature.
     Registered time-dependent strong values modify only the RHS. Joint restart
     includes their accepted time and conjugate force history. Public execution
-    and output use the common result boundary; automatic cadence remains pending.
+    and output use the common result boundary; automatic checkpoint cadence
+    publishes only accepted windows.
     """
 
     def __init__(
@@ -237,13 +238,38 @@ class _ThermoelasticStep:
     def advance(
         self,
         *,
-        relaxation=1.0,
-        max_iterations=200,
-        rtol=1e-9,
-        displacement_atol=1e-13,
-        temperature_atol=1e-11,
+        relaxation=None,
+        max_iterations=None,
+        rtol=None,
+        displacement_atol=None,
+        temperature_atol=None,
         acceptance_check=None,
     ):
+        # Manual advancement and run() consume the same configured policy;
+        # explicit per-window values override it without changing later windows.
+        policy = {
+            "relaxation": 1.0,
+            "max_iterations": 200,
+            "rtol": 1e-9,
+            "displacement_atol": 1e-13,
+            "temperature_atol": 1e-11,
+            **self.iteration_options,
+        }
+        overrides = {
+            "relaxation": relaxation,
+            "max_iterations": max_iterations,
+            "rtol": rtol,
+            "displacement_atol": displacement_atol,
+            "temperature_atol": temperature_atol,
+        }
+        policy.update(
+            {key: value for key, value in overrides.items() if value is not None}
+        )
+        relaxation = policy["relaxation"]
+        max_iterations = policy["max_iterations"]
+        rtol = policy["rtol"]
+        displacement_atol = policy["displacement_atol"]
+        temperature_atol = policy["temperature_atol"]
         declaration = (
             self.completed_steps,
             self._active,

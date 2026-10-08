@@ -119,7 +119,10 @@ contracts and final-snapshot output. Accepted-window progress/checkpoint cadence
 now reuses the existing reporter and policy, with explicit retention. Field-series
 output remains explicitly final-snapshot-only. Local installed-wheel serial/MPI
 acceptance passes for the candidate recorded under `evidence/coupling/`;
-remote integration and release acceptance remain gates. A separate smooth
+public-provider cross-partition recovery now also passes `1 -> 2 -> 1` with
+prescribed motion and accepted force/work history. PR #90's initial remote
+FEniCSx/macOS/docs checks pass; final-head integration and release acceptance
+remain gates. A separate smooth
 Fourier-mode oracle now shows approximately second-order spatial and first-order
 temporal convergence of both fields through the ordinary Step; its 1D mode
 embedded in 3D is not general multidimensional validation. See the coupling

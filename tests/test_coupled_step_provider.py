@@ -178,3 +178,24 @@ def test_rejected_window_never_schedules_checkpoint(tmp_path):
             with pytest.raises(RuntimeError, match="AFM-COUPLING-001"):
                 step.solve_result()
             assert not Path(directory).exists()
+
+
+def test_manual_advance_uses_configured_policy_and_temporary_override():
+    with coupled_model() as (model, u, theta, heat):
+        with model.step(
+            target=u,
+            temperature_departure=theta,
+            dt=0.1,
+            steps=3,
+            heat_loads=(heat,),
+            max_iterations=1,
+        ) as step:
+            with pytest.raises(RuntimeError, match="AFM-COUPLING-001"):
+                step.advance()
+            assert step.completed_steps == 0
+            record = step.advance(max_iterations=200)
+            assert record["iteration_policy"]["max_iterations"] == 200
+            assert step.iteration_options["max_iterations"] == 1
+            with pytest.raises(RuntimeError, match="AFM-COUPLING-001"):
+                step.advance()
+            assert step.completed_steps == 1
