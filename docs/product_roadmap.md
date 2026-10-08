@@ -115,8 +115,9 @@ The private experiment now verifies inward flux, prescribed-temperature heat
 reactions, affine prescribed-motion path work, and joint durable recovery.
 Registered strong boundaries and a bounded ordinary Step provider now reuse
 the physical Procedure and joint restart, with explicit SI/participant-load
-contracts and final-snapshot output. Public progress/checkpoint cadence,
-space/time refinement and installed-use acceptance remain promotion gates;
+contracts and final-snapshot output. Accepted-window progress/checkpoint cadence
+now reuses the existing reporter and policy, with explicit retention. Field-series
+output, space/time refinement and installed-use acceptance remain promotion gates;
 no general coupled capability is declared stable.
 
 Execution order: finish this bounded thermal--mechanical product route first,

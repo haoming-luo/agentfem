@@ -2,10 +2,11 @@
 # SPDX-License-Identifier: Apache-2.0
 
 from contextlib import contextmanager
+from pathlib import Path
 from mpi4py import MPI
 import numpy as np
 import pytest
-from agentfem import constraints, loads, models, studies, units
+from agentfem import checkpointing, constraints, loads, models, studies, units
 from agentfem.step_providers import step_capability
 from test_thermoelastic_procedure import make_step
 
@@ -48,9 +49,7 @@ def test_normal_step_route_and_contract(tmp_path):
         assert len(model.steps) == 1
 
 
-@pytest.mark.parametrize(
-    "extra", [dict(progress=True), dict(update_load=lambda t: None)]
-)
+@pytest.mark.parametrize("extra", [dict(history=()), dict(update_load=lambda t: None)])
 def test_unsupported_workflow_options_are_not_silently_consumed(extra):
     with coupled_model() as (model, u, theta, heat):
         with pytest.raises(TypeError, match="Unsupported Step option"):
@@ -119,3 +118,63 @@ def test_public_restart_binds_actual_natural_load(tmp_path):
                 step.load_checkpoint(path)
             assert step.completed_steps == 0
             np.testing.assert_array_equal(theta.value.x.array, 0)
+
+
+def test_public_progress_and_bounded_scheduled_checkpoints(tmp_path):
+    directory = MPI.COMM_WORLD.bcast(str(tmp_path / "scheduled"), root=0)
+
+    class Reporter:
+        def __init__(self):
+            self.events = []
+
+        def emit(self, event):
+            self.events.append(event)
+
+    reporter = Reporter()
+    with coupled_model() as (model, u, theta, heat):
+        with model.step(
+            target=u,
+            temperature_departure=theta,
+            dt=0.1,
+            steps=3,
+            heat_loads=(heat,),
+            progress=reporter,
+            print_every=2,
+            checkpoint=checkpointing.every(
+                1, directory=directory, keep_last=1, portable=True
+            ),
+        ) as step:
+            result = step.solve_result()
+            increments = [e for e in reporter.events if e.kind == "time_increment"]
+            assert [e.increment for e in increments] == [1, 2, 3]
+            assert [e.display for e in increments] == [False, True, True]
+            assert all(
+                e.metrics["quadratic_balance_absolute"] < 1e-10 for e in increments
+            )
+            assert len(result.metadata["scheduled_checkpoints"]) == 1
+            kept = result.metadata["scheduled_checkpoints"][0]
+            assert Path(kept).exists()
+            assert len(list(Path(directory).glob("*.checkpoint.json"))) == 1
+    with coupled_model() as (model, u, theta, heat):
+        with model.step(
+            target=u, temperature_departure=theta, dt=0.1, steps=3, heat_loads=(heat,)
+        ) as resumed:
+            resumed.load_checkpoint(kept)
+            assert resumed.completed_steps == 3
+
+
+def test_rejected_window_never_schedules_checkpoint(tmp_path):
+    directory = MPI.COMM_WORLD.bcast(str(tmp_path / "rejected"), root=0)
+    with coupled_model() as (model, u, theta, heat):
+        with model.step(
+            target=u,
+            temperature_departure=theta,
+            dt=0.1,
+            steps=3,
+            heat_loads=(heat,),
+            max_iterations=1,
+            checkpoint=checkpointing.every(1, directory=directory),
+        ) as step:
+            with pytest.raises(RuntimeError, match="AFM-COUPLING-001"):
+                step.solve_result()
+            assert not Path(directory).exists()

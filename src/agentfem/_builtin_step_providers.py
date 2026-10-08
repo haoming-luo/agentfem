@@ -1164,6 +1164,7 @@ register_step_provider(
         description="Experimental shared-mesh 3D linear thermoelasticity; SI, strong boundaries, final snapshot.",
         procedure="standard/staggered_implicit_euler",
         option_contract=_option_contract(
+            "progress", "print_every", "checkpoint",
             "dt", "steps", "temperature_departure", "heat_loads", "mechanical_loads",
             "relaxation", "rtol", "max_iterations", "displacement_atol", "temperature_atol",
             required=("dt", "steps", "temperature_departure"),

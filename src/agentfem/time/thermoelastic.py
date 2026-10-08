@@ -49,6 +49,9 @@ class _ThermoelasticStep:
         input_identity=None,
         name="coupled_thermoelastic",
         iteration_options=None,
+        progress=False,
+        print_every=100,
+        checkpoint=None,
     ):
         self.u, self.theta = displacement, temperature_departure
         self.comm = self.u.space.mesh.comm
@@ -65,6 +68,24 @@ class _ThermoelasticStep:
 
         self.procedure = staggered_implicit_euler()
         self.iteration_options = dict(iteration_options or {})
+
+        def validate_cadence():
+            checkpointing.validate_policy_argument(checkpoint)
+            if type(print_every) is not int or print_every < 1:
+                raise ValueError("print_every must be a positive integer.")
+            if (
+                progress is not None
+                and type(progress) is not bool
+                and not callable(getattr(progress, "emit", None))
+            ):
+                raise TypeError("progress must be a bool or a SolveEvent reporter.")
+
+        collective_call(
+            validate_cadence, comm=self.comm, label="validate coupled cadence"
+        )
+        self.checkpoint_policy = checkpoint
+        self.progress, self.print_every = progress, print_every
+        self._scheduled_checkpoints = []
         mechanical_assets, thermal_assets = tuple(mechanical_bcs), tuple(thermal_bcs)
         self._time_boundaries = tuple(
             item
@@ -288,8 +309,86 @@ class _ThermoelasticStep:
 
     def run(self, **iteration_options):
         iteration_options = {**self.iteration_options, **iteration_options}
+        from ..diagnostics import StandardRunReporter
+        from ..events import SolveEvent
+
+        checkpointing.preflight_contract(self, self.checkpoint_policy)
+        policy = (
+            None
+            if self.checkpoint_policy is None
+            else self.checkpoint_policy.summary(),
+            self.print_every,
+            bool(self.progress),
+        )
+        if any(value != policy for value in self.comm.allgather(policy)):
+            raise ValueError("AFM-COUPLING-003: run cadence differs across ranks.")
+        reporter = (
+            StandardRunReporter(self.comm, show_iterations=False)
+            if self.progress is True
+            else self.progress
+        )
+
+        def emit(kind, *, record=None, display=True):
+            if not reporter:
+                return
+            event = SolveEvent(
+                kind,
+                self.name,
+                increment=self.completed_steps,
+                total_increments=self.total_steps,
+                time=self.time,
+                iteration=0 if record is None else record["outer_iterations"],
+                incrementation=self.procedure.algorithm,
+                display=display,
+                metrics={}
+                if record is None
+                else {
+                    key: record[key]
+                    for key in (
+                        "quadratic_balance_absolute",
+                        "linearized_heat_balance_absolute",
+                    )
+                },
+            )
+            collective_call(
+                lambda: reporter.emit(event),
+                comm=self.comm,
+                label="report coupled progress",
+            )
+
+        if self.completed_steps == self.total_steps:
+            return self
+        emit("transient_started" if self.completed_steps == 0 else "transient_resumed")
         while self.completed_steps < self.total_steps:
-            self.advance(**iteration_options)
+            try:
+                record = self.advance(**iteration_options)
+            except Exception:
+                emit("step_failed")
+                raise
+            policy = self.checkpoint_policy
+            if policy is not None and policy.due(
+                self.completed_steps, self.total_steps
+            ):
+                path = self.save_checkpoint(
+                    policy.path(step_name=self.name, increment=self.completed_steps),
+                    portable=policy.portable,
+                )
+                self._scheduled_checkpoints.append(str(path))
+                if policy.keep_last is not None:
+                    while len(self._scheduled_checkpoints) > policy.keep_last:
+                        checkpointing._remove_transient_checkpoint(
+                            self._scheduled_checkpoints[0], comm=self.comm
+                        )
+                        self._scheduled_checkpoints.pop(0)
+            emit(
+                "time_increment",
+                record=record,
+                display=(
+                    self.completed_steps % self.print_every == 0
+                    or self.completed_steps == self.total_steps
+                ),
+            )
+        emit("transient_completed")
         return self
 
     def solve_result(self, *, output=None, strict_output=False, **iteration_options):
@@ -376,6 +475,7 @@ class _ThermoelasticStep:
                 "reference_temperature": self.material.reference_temperature,
                 "energy_semantics": "linearized_heat_and_quadratic_identity_not_general_first_law",
                 "restart_source": deepcopy(self.restart_source),
+                "scheduled_checkpoints": list(self._scheduled_checkpoints),
                 "history": deepcopy(self.history),
                 "matrix_assemblies": {
                     "thermal": self.thermal.matrix_assembly_count,
@@ -431,7 +531,7 @@ class _ThermoelasticStep:
             limitations=(
                 "Explicit scientific input identity is required.",
                 "Constant material and natural loads; fixed strong-boundary DOF sets.",
-                "Experimental 3D shared-mesh route; no automatic checkpoint cadence.",
+                "Experimental 3D shared-mesh route; accepted-window checkpoint cadence.",
             ),
         )
 
@@ -527,6 +627,8 @@ class _ThermoelasticStep:
                 target.x.array[:] = staged[key].x.array
                 target.x.scatter_forward()
         self.completed_steps, self.history = count, deepcopy(history)
+        # Retention owns only files published by this continuation segment.
+        self._scheduled_checkpoints = []
         self.restart_source = {
             "manifest": metadata["manifest_path"],
             "mode": metadata["restart_mode"],
