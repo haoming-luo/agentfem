@@ -74,13 +74,60 @@ prediction errors or a platform speedup. Reproduce with the command above.
 
 ### Remaining promotion gates
 
-1. Nonzero prescribed-motion work and thermal boundary input with an explicit
-   thermodynamic ledger, not merely the restricted quadratic identity.
-2. Joint portable checkpoint/restart for both accepted fields, time and
-   iteration-independent physical history; current rollback is in memory only.
+1. Generalize the tested boundary-input and prescribed-motion evidence to
+   ordinary registered boundaries, with explicitly scoped thermodynamic
+   semantics rather than claiming a nonlinear first law.
+2. Carry the tested joint portable checkpoint/restart into the ordinary
+   Procedure without the benchmark's independent reference fields.
 3. Physical space/time convergence and an external problem beyond the cube.
 4. A bounded ordinary Step provider and its option contract, only after the
    participant State/restart semantics are stable. No new Model god object.
+
+### Boundary and recovery increment (2026-10-08)
+
+PR #89 was merged after remote FEniCSx and macOS installed-wheel acceptance.
+The follow-on private experiment now accepts uniform inward boundary heat flux
+(positive heating), prescribed boundary temperature rate, or insulated faces;
+temperature and flux cannot be prescribed on the same complete boundary.
+It also accepts a prescribed affine dilation rate on the upper cube faces.
+These options are benchmark inputs, not new application-specific public APIs.
+
+Prescribed-temperature heat is extracted from the unconstrained thermal
+residual at owned boundary degrees of freedom, including capacity and
+coupling terms. Ghost contributions are accumulated before reduction; they
+are not counted twice. Flux heat is separately integrated on the boundary.
+The temperature-weighted residual supply belongs to the quadratic identity,
+not to the physical incoming heat record.
+
+The virtual displacement `v=x` gives the generalized dilation reaction from
+the mechanical weak residual. Accepted old/new reactions and the prescribed
+dilation increment give trapezoidal path work. Backward Euler's quadratic
+identity instead uses endpoint work; both are recorded with distinct names.
+The prescribed-dilation oracle independently checks
+`theta=(Q-3*beta*T0*dilation_rate)*t/C` and
+`reaction=3*(3*K*dilation_rate*t-beta*theta)` on the unit cube.
+Zero-coupling uniform heating also checks prescribed-temperature reactions.
+These references do not establish arbitrary-boundary first-law closure.
+
+Joint checkpoints reuse `agentfem.transient-checkpoint.v5`: both accepted
+fields, independent reference fields, common time, history digest, and all
+benchmark physics inputs are bound together. Trial-window writes are refused.
+Restore stages fields before checking accepted history and before touching
+live fields or time. Altered physics or damaged history is rejected. The
+independent reference fields are verification overhead and will not belong to
+the production Procedure. Serial-to-two-rank-to-serial recovery was exercised;
+repeat after archive-contract changes using:
+
+```bash
+PYTHONPATH=src python tools/benchmark_thermoelastic_coupling.py --dilation-rate .0001 --inward-heat-flux 2 --stop-after 1 --checkpoint /tmp/coupled-one
+PYTHONPATH=src agentfem mpi-run -n 2 --timeout 120 -- python tools/benchmark_thermoelastic_coupling.py --dilation-rate .0001 --inward-heat-flux 2 --resume /tmp/coupled-one --stop-after 2 --checkpoint /tmp/coupled-two
+PYTHONPATH=src python tools/benchmark_thermoelastic_coupling.py --dilation-rate .0001 --inward-heat-flux 2 --resume /tmp/coupled-two
+```
+
+Next: separate the reusable physical participant/Procedure from this oracle,
+retain ordinary region/constraint/load semantics, add its Step option contract,
+then perform space/time convergence and installed-use acceptance. Do not
+promote the benchmark class itself or duplicate its cube geometry in core.
 
 ## Product decision
 

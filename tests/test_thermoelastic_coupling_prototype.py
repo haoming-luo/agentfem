@@ -2,6 +2,8 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import numpy as np
+import json
+from pathlib import Path
 import pytest
 import ufl
 from dolfinx import fem
@@ -9,6 +11,114 @@ from mpi4py import MPI
 
 from agentfem import fields, mesh, operators
 from agentfem.benchmarks.thermoelastic_coupling import _ThermoelasticPrototype
+
+
+def test_joint_restart_matches_continuous_and_rejects_corrupt_history(tmp_path):
+    comm = MPI.COMM_WORLD
+    path = comm.bcast(str(tmp_path / "joint"), root=0)
+    with _ThermoelasticPrototype(inward_heat_flux=2, dilation_rate=0.0001) as original:
+        original.advance()
+        manifest = original.save_checkpoint(path, total_steps=3)
+        original.advance()
+        expected = original.advance()
+        with _ThermoelasticPrototype(
+            inward_heat_flux=2, dilation_rate=0.0001
+        ) as resumed:
+            resumed.load_checkpoint(path, total_steps=3)
+            assert resumed.completed_steps == 1
+            resumed.advance()
+            actual = resumed.advance()
+            for key in (
+                "quadratic_energy_change",
+                "prescribed_motion_path_work",
+                "boundary_heat_input",
+            ):
+                assert actual[key] == pytest.approx(expected[key], abs=1e-11)
+            np.testing.assert_allclose(
+                resumed.u.value.x.array, original.u.value.x.array, atol=1e-12
+            )
+            np.testing.assert_allclose(
+                resumed.theta.value.x.array, original.theta.value.x.array, atol=1e-10
+            )
+            snapshots = [
+                resumed.u.value.x.array.copy(),
+                resumed.theta.value.x.array.copy(),
+            ]
+            if comm.rank == 0:
+                data = json.loads(Path(manifest).read_text())
+                data["completed_steps"] = 2
+                Path(manifest).write_text(json.dumps(data))
+            comm.barrier()
+            with pytest.raises(ValueError, match="AFM-COUPLING-005"):
+                resumed.load_checkpoint(path, total_steps=3)
+            assert resumed.completed_steps == 3
+            for field, snapshot in zip(
+                (resumed.u.value, resumed.theta.value), snapshots
+            ):
+                np.testing.assert_array_equal(field.x.array, snapshot)
+
+
+def test_checkpoint_refuses_trial_and_changed_physics(tmp_path):
+    path = MPI.COMM_WORLD.bcast(str(tmp_path / "joint"), root=0)
+    with _ThermoelasticPrototype() as case:
+
+        def save_trial(_):
+            case.save_checkpoint(path, total_steps=3)
+
+        with pytest.raises(RuntimeError, match="AFM-COUPLING-004"):
+            case.advance(acceptance_check=save_trial)
+        assert case.completed_steps == 0
+        case.advance()
+        case.save_checkpoint(path, total_steps=3)
+    with _ThermoelasticPrototype(inward_heat_flux=1) as other:
+        with pytest.raises(ValueError, match="time inputs differs"):
+            other.load_checkpoint(path, total_steps=3)
+        assert other.completed_steps == 0
+        np.testing.assert_array_equal(other.theta.value.x.array, 0)
+
+
+@pytest.mark.parametrize("rate", [-0.2, 0.2])
+def test_prescribed_temperature_uses_owned_residual_heat_and_block_reference(rate):
+    with _ThermoelasticPrototype(temperature_rate=rate) as case:
+        for _ in range(3):
+            record = case.advance()
+            assert record["prescribed_temperature_heat_input"] * rate > 0
+            assert record["linearized_heat_balance_absolute"] < 2e-8
+            assert record["quadratic_balance_absolute"] < 1e-10
+            assert record["temperature_reference_error"] < 2e-10
+            assert record["displacement_reference_error"] < 2e-12
+
+
+def test_prescribed_temperature_manufactured_uniform_heating():
+    # C * T_dot = Q, alpha=0: uniform heating, zero boundary reaction.
+    with _ThermoelasticPrototype(alpha=0, temperature_rate=0.1) as case:
+        for _ in range(3):
+            record = case.advance()
+            np.testing.assert_allclose(
+                case.theta.value.x.array, 0.1 * record["time"], atol=1e-12
+            )
+            assert abs(record["prescribed_temperature_heat_input"]) < 1e-10
+
+
+def test_corrupt_checkpoint_field_payload_leaves_both_live_fields_unchanged(tmp_path):
+    comm = MPI.COMM_WORLD
+    path = comm.bcast(str(tmp_path / "payload"), root=0)
+    with _ThermoelasticPrototype(temperature_rate=0.2) as case:
+        case.advance()
+        manifest = case.save_checkpoint(path, total_steps=3)
+        case.advance()
+        snapshots = [case.u.value.x.array.copy(), case.theta.value.x.array.copy()]
+        if comm.rank == 0:
+            data = json.loads(Path(manifest).read_text())
+            shard = Path(manifest).parent / data["shards"][0]["path"]
+            shard.write_bytes(b"corrupt")
+        comm.barrier()
+        with pytest.raises((ValueError, RuntimeError)):
+            case.load_checkpoint(path, total_steps=3)
+        assert case.completed_steps == 2
+        assert float(case.prescribed_temperature.value) == pytest.approx(0.04)
+        for field, snapshot in zip((case.u.value, case.theta.value), snapshots):
+            np.testing.assert_array_equal(field.x.array, snapshot)
 
 
 @pytest.mark.parametrize("alpha,relaxation", [(0.0, 1.0), (0.002, 1.0), (0.01, 0.25)])
@@ -50,6 +160,60 @@ def test_spatial_heat_feedback_matches_block_solution(cells, dt):
             assert record["linearized_heat_balance_absolute"] < 2e-8
             assert record["quadratic_balance_absolute"] < 1e-10
             assert record["conduction_term"] > 0
+
+
+@pytest.mark.parametrize("flux", [-2.0, 3.0])
+def test_inward_boundary_heat_has_signed_physical_input_and_separate_identity(flux):
+    with _ThermoelasticPrototype(inward_heat_flux=flux) as case:
+        for _ in range(2):
+            record = case.advance()
+            # Unit cube has six unit-area faces; positive means heat entering.
+            assert record["boundary_heat_input"] == pytest.approx(6 * flux * case.dt)
+            assert record["volume_heat_input"] == pytest.approx(10 * case.dt)
+            assert record["linearized_heat_balance_absolute"] < 2e-8
+            assert record["quadratic_balance_absolute"] < 1e-10
+            assert record["temperature_reference_error"] < 2e-10
+        assert case.result().metadata["inputs"]["inward_heat_flux"] == flux
+
+
+@pytest.mark.parametrize("rate", [-0.0001, 0.0002])
+def test_prescribed_dilation_matches_closed_form_reaction_and_path_work(rate):
+    with _ThermoelasticPrototype(dilation_rate=rate) as case:
+        previous_reaction = 0.0
+        for _ in range(3):
+            record = case.advance()
+            time = record["time"]
+            theta = (10 - 3 * case.beta * case.t0 * rate) * time / case.capacity
+            reaction = 3 * (2000 * rate * time - case.beta * theta)
+            np.testing.assert_allclose(case.theta.value.x.array, theta, atol=2e-10)
+            np.testing.assert_allclose(
+                case.u.value.x.array.reshape(-1, 3),
+                rate * time * case.u.space.tabulate_dof_coordinates(),
+                atol=2e-12,
+            )
+            assert record["dilation_reaction"] == pytest.approx(reaction, abs=1e-9)
+            assert record["prescribed_motion_path_work"] == pytest.approx(
+                0.5 * (previous_reaction + reaction) * rate * case.dt, abs=1e-12
+            )
+            assert record["quadratic_balance_absolute"] < 1e-10
+            assert record["linearized_heat_balance_absolute"] < 2e-8
+            assert record["temperature_reference_error"] < 2e-10
+            previous_reaction = reaction
+
+
+def test_rejected_motion_restores_boundary_control_and_accepted_path():
+    with _ThermoelasticPrototype(dilation_rate=0.0002) as case:
+        case.advance()
+        accepted = float(case.prescribed_dilation.value)
+
+        def reject(_):
+            raise RuntimeError("reject motion")
+
+        with pytest.raises(RuntimeError, match="reject motion"):
+            case.advance(acceptance_check=reject)
+        assert float(case.prescribed_dilation.value) == accepted
+        assert len(case.history) == case.completed_steps == 1
+        assert case.advance()["quadratic_balance_absolute"] < 1e-10
 
 
 def test_tiny_relaxation_cannot_fake_convergence_and_retry_preserves_time():

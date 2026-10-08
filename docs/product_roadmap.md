@@ -111,8 +111,17 @@ This is durable upstream reuse, not a combined multiphysics checkpoint.
 The next two-way slice now has a bounded 3D verification prototype with a
 reversible heat-feedback Operator, unrelaxed residuals, in-memory joint rollback
 and an independently written monolithic oracle. See [coupling design](coupling_design.md).
-General boundary work, joint durable restart and public Step integration remain
-promotion gates; no general coupled capability is declared stable.
+The private experiment now verifies inward flux, prescribed-temperature heat
+reactions, affine prescribed-motion path work, and joint durable recovery.
+General registered boundaries, public Step integration and physical refinement
+remain promotion gates; no general coupled capability is declared stable.
+
+Execution order: finish this bounded thermal--mechanical product route first,
+then audit contact against existing moving-tool/work/search implementations
+before selecting any missing capability. Do not reimplement already tested
+contact features based on an outdated roadmap. Mesh compatibility and measured
+performance changes follow demonstrated application needs, not a parallel
+architecture rewrite. Small releases do not rebuild complete installers.
 
 Stop after this vertical route has explicit field/response and state evidence.
 Nonmatching-mesh transfer, two-way staggered iteration, monolithic Jacobians,

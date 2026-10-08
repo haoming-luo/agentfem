@@ -14,7 +14,12 @@ experimental formulation to a validated one.
   independent mixed-space block solve and a closed-form uniform solution.
   Includes outer-failure rollback, MPI-global residuals, fixed under-relaxation,
   prepared-matrix reuse and explicitly limited energy identities. This is not
-  yet a production coupled Step or joint durable checkpoint.
+  yet a production coupled Step.
+- Extend the private experiment with signed inward heat, prescribed-temperature
+  residual reactions and prescribed-dilation path work, separately from the
+  backward-Euler quadratic identity. Reuse the transient checkpoint envelope
+  for joint accepted fields/history, trial-write rejection and atomic staged
+  recovery; this does not yet expose general coupled restart to applications.
 - Preserve linear-form arity for exactly zero eigenstrain/thermal expansion
   and scalar/vector/tensor result projection, including zero-temperature-rise
   standard result output.
