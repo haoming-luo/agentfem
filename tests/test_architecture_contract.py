@@ -163,6 +163,7 @@ def test_ownership_contract_is_small_stable_and_machine_readable():
         "procedure"
     )
     assert _architecture_contract.ownership_of("agentfem.steps") == "procedure"
+    assert _architecture_contract.ownership_of("agentfem._operator_lifecycle") == "procedure"
     assert _architecture_contract.ownership_of("agentfem.time.stability") == "procedure"
     assert _architecture_contract.ownership_of("agentfem._private_utility") is None
 

@@ -364,6 +364,8 @@ class EngineeringStep:
     load_changes: dict[str, object | None] = field(default_factory=dict)
     constraint_changes: dict[str, object | None] = field(default_factory=dict)
     predefined_fields: dict[str, tuple[object, object]] = field(default_factory=dict)
+    predefined_options: dict[str, dict] = field(default_factory=dict)
+    transfer_evidence: tuple[dict, ...] = field(default=(), init=False)
 
     def activate_load(self, load, *, name=None):
         self.load_changes[_asset_name(load, name)] = load
@@ -379,8 +381,34 @@ class EngineeringStep:
     def deactivate_constraint(self, constraint_or_name) -> None:
         self.constraint_changes[_asset_name(constraint_or_name)] = None
 
-    def predefine(self, target, value, *, name=None) -> None:
-        self.predefined_fields[_asset_name(target, name)] = (target, value)
+    def predefine(self, target, value, *, name=None, method="copy",
+                  source_time=None, target_time=None) -> None:
+        """Declare a snapshot assignment; interpolation is never implicit.
+
+        Optional physical times must both be supplied and equal. No temporal
+        interpolation or unit conversion is inferred from a field name.
+        """
+        if method not in {"copy", "interpolate"}:
+            raise ValueError("AFM-TRANSFER-003: method must be copy or interpolate.")
+        if (source_time is None) != (target_time is None):
+            raise ValueError("AFM-TRANSFER-004: declare both source_time and target_time.")
+        if source_time is not None:
+            source_time, target_time = float(source_time), float(target_time)
+            if not isfinite(source_time) or not isfinite(target_time) or source_time != target_time:
+                raise ValueError("AFM-TRANSFER-004: source and target physical times must match.")
+        key = _asset_name(target, name)
+        self.predefined_fields[key] = (target, value)
+        self.predefined_options[key] = {
+            "method": method, "source_time": source_time, "target_time": target_time,
+        }
+
+    def field_transaction(self, **protected_fields):
+        """Protect predefined targets and explicitly named downstream unknowns."""
+        from . import state
+        targets = {f"predefined:{name}": pair[0]
+                   for name, pair in self._resolved_predefined().items()}
+        targets.update({f"protected:{name}": value for name, value in protected_fields.items()})
+        return state.field_transaction(**targets)
 
     def resolve_loads(self, base):
         return self._resolve(base, "load_changes")
@@ -389,17 +417,68 @@ class EngineeringStep:
         return self._resolve(base, "constraint_changes")
 
     def apply_predefined_fields(self) -> None:
-        values = {} if self.previous is None else self.previous._resolved_predefined()
-        values.update(self.predefined_fields)
-        for target, value in values.values():
-            function = getattr(target, "value", target)
-            if callable(value):
-                function.interpolate(value)
-            elif hasattr(value, "x"):
-                function.x.array[:] = value.x.array
-            else:
-                function.x.array[:] = value
-            function.x.scatter_forward()
+        from . import fields
+        from dolfinx import fem
+        import numpy as np
+
+        values = self._resolved_predefined()
+        if not values:
+            return
+        options = self._resolved_predefined_options()
+        records, staged = [], []
+        with self.field_transaction():
+            first = fields.unwrap(next(iter(values.values()))[0])
+            declaration = tuple((name, options.get(name, {"method": "copy"}))
+                                for name in sorted(values))
+            if any(item != declaration for item in first.function_space.mesh.comm.allgather(declaration)):
+                raise ValueError("AFM-TRANSFER-009: assignment declarations differ across ranks.")
+            for name in sorted(values):
+                target, value = values[name]
+                function, source = fields.unwrap(target), fields.unwrap(value)
+                domain = function.function_space.mesh
+                selected = options.get(name, {"method": "copy"})
+                failure = None
+                try:
+                    candidate = fem.Function(function.function_space)
+                    if hasattr(source, "function_space"):
+                        if source.function_space.mesh is not domain:
+                            raise ValueError("AFM-TRANSFER-005: different meshes require an explicit transfer provider.")
+                        if tuple(source.ufl_shape) != tuple(function.ufl_shape):
+                            raise ValueError("AFM-TRANSFER-006: source and target component shapes differ.")
+                        if not np.all(np.isfinite(source.x.array)):
+                            raise ValueError("AFM-TRANSFER-007: source contains non-finite values.")
+                        if selected["method"] == "copy":
+                            fields.require_same_space(function, source)
+                            candidate.x.array[:] = source.x.array
+                        else:
+                            candidate.interpolate(source)
+                        kind = "function"
+                    elif callable(value):
+                        candidate.interpolate(value)
+                        kind = "callable"
+                    else:
+                        candidate.x.array[:] = value
+                        kind = "coefficient_assignment"
+                    if not np.all(np.isfinite(candidate.x.array)):
+                        raise ValueError("AFM-TRANSFER-007: assignment produced non-finite values.")
+                except Exception as exc:
+                    failure = exc
+                errors = domain.comm.allgather(None if failure is None else str(failure))
+                if any(error is not None for error in errors):
+                    raise ValueError(f"AFM-TRANSFER-008: predefined field {name!r}: {errors}") from failure
+                staged.append((function, candidate))
+                records.append({"name": name, "source_kind": kind, **selected,
+                                "source_field": getattr(source, "name", None) if kind == "function" else None,
+                                "method": "interpolate" if kind == "callable" else selected["method"],
+                                "target_element": str(function.ufl_element()),
+                                "source_element": str(source.ufl_element()) if kind == "function" else None,
+                                "mesh_relation": "same_runtime_mesh" if kind == "function" else "target_mesh",
+                                "time_status": "declared_equal" if selected.get("source_time") is not None else "unspecified",
+                                "scope": "snapshot_not_live_binding"})
+            for function, candidate in staged:
+                function.x.array[:] = candidate.x.array
+                function.x.scatter_forward()
+        self.transfer_evidence = tuple(records)
 
     def summary(self):
         return {
@@ -410,6 +489,7 @@ class EngineeringStep:
             "load_changes": tuple(self.load_changes),
             "constraint_changes": tuple(self.constraint_changes),
             "predefined_fields": tuple(self.predefined_fields),
+            "field_transfers": self.transfer_evidence,
         }
 
     def _resolve(self, base, attribute):
@@ -419,7 +499,13 @@ class EngineeringStep:
             source = base if self.inherit_model_loads else ()
         else:
             source = base if self.inherit_model_constraints else ()
-        resolved = {_asset_name(item): item for item in source}
+        # Model helpers may return unnamed ConstraintSets. Preserve inherited
+        # assets unchanged; only explicit activation/deactivation needs a name.
+        resolved = {
+            ((item if isinstance(item, str) else getattr(item, "name", None))
+             or ("inherited", index)): item
+            for index, item in enumerate(source)
+        }
         for name, item in getattr(self, attribute).items():
             if item is None:
                 resolved.pop(name, None)
@@ -430,6 +516,11 @@ class EngineeringStep:
     def _resolved_predefined(self):
         values = {} if self.previous is None else self.previous._resolved_predefined()
         values.update(self.predefined_fields)
+        return values
+
+    def _resolved_predefined_options(self):
+        values = {} if self.previous is None else self.previous._resolved_predefined_options()
+        values.update(self.predefined_options)
         return values
 
 

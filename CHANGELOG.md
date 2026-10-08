@@ -6,6 +6,30 @@ experimental formulation to a validated one.
 
 ## [Unreleased]
 
+### Sequential field handoff
+
+- Engineering predefined fields now reject silent cross-mesh/space/component
+  mismatches, allow explicit same-mesh interpolation, and stage assignments
+  atomically across MPI ranks. Optional source/target times must match.
+- Add explicit nodal field transactions around sequential solves, restore
+  predefined fields after failed lowering, and retain construction-time field
+  transfer evidence in results. This does not claim a combined coupled restart.
+- Preserve unnamed inherited model constraints in engineering configurations,
+  and retain zero-source form arity/domain for pure prescribed-temperature
+  steady heat problems.
+- Normalize public temperature-field wrappers consistently in temperature-
+  dependent elasticity, including stress recovery after a structural solve.
+
+### Transient lifecycle maintenance
+
+- Preserve cumulative matrix/RHS/solve counts when a first-order or implicit
+  dynamics Step releases its prepared system and continues. Both Procedures
+  now share one private evidence ledger without changing integration formulas
+  or the public result schema.
+- Reduce Python allocation in the per-increment boundary identity guard using
+  exact array-byte snapshots. Changed constrained indices and ownership remain
+  detectable; no checks are skipped and no time-input policy is relaxed.
+
 ### Added
 
 - Extend the DOLFINx contact trace from tetrahedral CG1 triangle faces to

@@ -142,6 +142,7 @@ OWNERSHIP_BOUNDARIES = (
             "_nonlinear_problems",
             "_hybrid_nonlinear",
             "_transient_problems",
+            "_operator_lifecycle",
             "_problem_fields",
             "_material_history",
             "_modal",

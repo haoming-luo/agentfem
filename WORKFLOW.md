@@ -55,6 +55,12 @@ record.
     inputs, preserve the declared right-hand-side, operator, state, or output
     effect. The Procedure—not the Model—uses this declaration to decide
     whether a prepared operator remains valid.
+    For sequential same-mesh thermal--mechanical analysis, solve heat first,
+    declare `stage.predefine(T_solid, T, method="interpolate")`, and create the
+    ordinary structural Step with `configuration=stage`. Enclose construction
+    and solve in `with stage.field_transaction(displacement=u):` to restore
+    downstream nodal fields on failure. See `docs/engineering_workflows.md`;
+    this is a snapshot handoff, not a two-way coupled solver.
 17. Solve to a `results.SimulationResult` as the standard completion path.
     Output may be declared while constructing the step and consumed without
     repeating it: `model.step(target=u, output="results.xdmf").solve_result()`.

@@ -67,6 +67,10 @@ def complete_result(
         result.metadata.update(dict(metadata))
     if context is not None:
         result.metadata.setdefault("execution_context", context.summary())
+    engineering = getattr(step, "engineering_step_summary", None)
+    if engineering is not None:
+        from copy import deepcopy
+        result.metadata["engineering_step"] = deepcopy(engineering)
     attach_checkpoint_contract(step, result)
     if selected_output is None:
         return result

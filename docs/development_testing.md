@@ -31,6 +31,43 @@ candidate wheel digest. Omitting any required stage, changing the wheel, or
 mixing extension evidence from another commit fails closed. The resulting
 record is consumed with `promotion_gate.py --target 0.4-foundation`.
 
+## Transient lifecycle maintenance
+
+The post-0.4 maintenance slice uses these focused checks in `fenicsx-env`:
+
+```bash
+python -m pytest -q tests/test_operator_lifecycle_ledger.py \
+  tests/test_first_order_operator_lifecycle.py tests/test_implicit_dynamics_lifecycle.py \
+  tests/test_transient_restart.py tests/test_sprint_transient_rollback.py tests/test_time_inputs.py
+agentfem mpi-run -n 2 --timeout 600 -- python -m pytest -q \
+  tests/test_operator_lifecycle_ledger.py tests/test_first_order_operator_lifecycle.py \
+  tests/test_implicit_dynamics_lifecycle.py -k 'collective or live_transferred'
+PYTHONPATH=src python tools/benchmark_operator_identity.py
+```
+
+The measurement compares the former Python-int tuple snapshot with an exact
+array-byte snapshot, including equality comparison. It does not measure a
+complete solve or promise an end-to-end speedup. On the development macOS ARM64
+host (Python 3.11.15, NumPy 2.4.6), seven repeats of 100 checks at 100,000
+boundary indices measured approximately 3.79 ms versus 0.012 ms per check;
+single-snapshot peak Python allocation was 4.12 MB versus 0.40 MB. Reproduce
+locally rather than enforcing wall-clock thresholds in CI. Both paths remain
+linear in the number of boundary indices; this is not a constant-time cache.
+
+The original 0.4.0 code was independently replayed for a four-increment heat
+and dynamics run, releasing the prepared system after increment two. It
+reported one matrix and two solves instead of the actual two matrices and
+four solves. The shared ledger retains totals across prepared generations.
+Checkpoint restoration starts a new execution-cost ledger, not fabricated
+timings from the previous process. Integration equations and accepted-state
+history remain owned by their existing Procedures.
+
+Live-input tests additionally compare both RHS-only updates and operator
+updates with the independent implicit-Euler recurrence for a spatially uniform
+linear first-order problem. They check the computed field and assembly counts
+in serial and MPI, not only the declared capability metadata. This protects a
+coupling prerequisite; it is not a validation of a complete coupled solver.
+
 ## Source and installed-wheel evidence are separate
 
 The repository uses the standard `src/agentfem/` package layout. Pytest is

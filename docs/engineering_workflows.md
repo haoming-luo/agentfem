@@ -38,6 +38,70 @@ This interface is for trusted mathematical structure, not for guessing a
 missing equation. A formula that is inconsistent with its stated PDE remains
 a model or dataset error.
 
+## Sequential thermal--mechanical field handoff
+
+Solve the thermal problem first on the same runtime mesh. Keep its accepted
+temperature separate from the structural input field, then use the existing
+engineering configuration and ordinary structural Step:
+
+```python
+thermal_result = thermal_model.step(target=T).solve_result()
+T_solid = fields.temperature(domain, value=300.0)
+solid_model.eigenstrain(eigenstrains.thermal(T_solid))
+stage = solid_model.stage("thermal-to-solid")
+stage.predefine(T_solid, T, method="interpolate")
+with stage.field_transaction(displacement=u):
+    result = solid_model.step(target=u, configuration=stage).solve_result()
+```
+
+The models, material, boundary conditions and `u` must be defined normally;
+this fragment is a handoff, not another solver. `copy` (the default) requires
+the identical function-space object. `interpolate` explicitly permits different
+spaces on the same mesh with identical value shapes. Neither mode transfers
+across meshes or silently smooths/project fields. Interpolation is not an
+L2-conservative projection. Imported/reordered meshes need a separately
+verified transfer method even when coefficient-array lengths match.
+
+For a transient source, pass both `source_time=t` and `target_time=t` to
+`predefine`. These are explicit caller-supplied physical times, checked for
+finite equality; they do not infer a field's history or convert time units.
+Omitted times are recorded as `unspecified`, appropriate for static snapshots.
+Temperature values and reference temperatures must already use a consistent
+unit convention. No unit conversion is guessed.
+
+Assignments are staged before any target is changed and reject non-finite
+values collectively. `model.step(configuration=...)` also restores the fields
+if lowering fails. To cover downstream solve/result failure, the explicit
+`field_transaction` above protects predefined targets and named unknowns; the
+accepted thermal source is untouched. This is an in-memory nodal-field
+transaction, not rollback of files, solver caches, or plastic material history.
+All ranks must participate with the same field names, mesh, and declaration.
+Backend failures within unfinished collectives need backend error handling.
+
+Each new ordinary static structural Step assembles its operator for the supplied
+temperature, including temperature-dependent material properties. Do not reuse
+a manually prepared stiffness after changing temperature-dependent stiffness.
+For existing transient Procedures, use the explicit time-input contract: an
+eigenstrain-only update changes the RHS; material stiffness changes invalidate
+the operator. `predefine` itself is a snapshot, not a live callback binding.
+
+The result retains the construction-time configuration under
+`metadata.engineering_step.field_transfers`, with source/target elements,
+method, time declaration and mesh relation. This record is not a scientific
+validation claim or a portable mesh fingerprint. Thermal restart uses the
+thermal Procedure's existing checkpoint; after restoring, transfer the accepted
+temperature at its accepted time and recompute the structural stage. No
+combined multiphysics checkpoint or two-way coupled iteration is claimed.
+
+Regression coverage: `tests/test_sequential_field_transfer.py` solves uniform
+and linear steady temperature fields, checks free expansion and restrained
+plane-strain stress, rejects mesh/component/time mismatch, verifies collective
+rollback, and transfers a restored transient heat solution. The same tests run
+with two MPI ranks. Multiple-material constitutive/eigenstrain semantics retain
+their independent regression in `tests/test_thermoelastic_semantics.py`.
+Two successive temperature-dependent-stiffness stages also check the stress
+against the current elastic modulus, rather than only checking successful solve.
+
 ## Continuum loads
 
 ```python
