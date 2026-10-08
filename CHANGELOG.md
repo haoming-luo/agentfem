@@ -6,22 +6,26 @@ experimental formulation to a validated one.
 
 ## [Unreleased]
 
+## [0.4.1] - 2026-10-09
+
 ### Thermoelastic coupling experiment
 
 - Add experimental `studies.coupled_thermoelastic()` and a typed ordinary
   `model.step()` provider for shared-mesh 3D SI small-strain thermoelasticity.
   Explicit participant loads and strong boundaries enter one accepted
   lifecycle, with input-bound portable restart, final-state XDMF at physical
-  time and rank-reduced performance evidence. General first-law validation,
-  convergence promotion and automatic transient output/cadence remain pending.
+  time and rank-reduced performance evidence. Accepted-window progress and
+  retained checkpoints reuse the existing policies. Public 1-to-2-to-1 recovery
+  and independent smooth-mode spatial/time convergence pass. General first-law
+  validation and transient field-series output remain outside this scope.
 
 - Add an explicit three-dimensional reversible heat-feedback Operator, with
   constant-strain capacity semantics and early geometry/time/measure checks.
 - Add a bounded staggered thermoelastic verification prototype against an
   independent mixed-space block solve and a closed-form uniform solution.
   Includes outer-failure rollback, MPI-global residuals, fixed under-relaxation,
-  prepared-matrix reuse and explicitly limited energy identities. This is not
-  yet a production coupled Step.
+  prepared-matrix reuse and explicitly limited energy identities. The ordinary
+  provider reuses the physical Procedure, not the geometry-specific oracle.
 - Extend the private experiment with signed inward heat, prescribed-temperature
   residual reactions and prescribed-dilation path work, separately from the
   backward-Euler quadratic identity. Reuse the transient checkpoint envelope
@@ -64,6 +68,8 @@ experimental formulation to a validated one.
 - Reduce Python allocation in the per-increment boundary identity guard using
   exact array-byte snapshots. Changed constrained indices and ownership remain
   detectable; no checks are skipped and no time-input policy is relaxed.
+
+## [0.4.0] - 2026-10-08
 
 ### Added
 

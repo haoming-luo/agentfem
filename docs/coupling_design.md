@@ -2,7 +2,8 @@
 
 Status: bounded 3D experimental Step provider implemented; smooth-mode
 space/time convergence and local installed-wheel serial/MPI acceptance pass.
-General coupled validation and release integration remain pending. See
+PR #90 is merged after its final-head CI passed. Version 0.4.1 publication
+remains gated by release acceptance; general coupled validation is not claimed. See
 `evidence/coupling/2026-10-09-installed-wheel.md` for the exact candidate identity.
 
 ## Ordinary workflow (experimental)
