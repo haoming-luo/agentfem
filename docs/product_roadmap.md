@@ -131,7 +131,12 @@ no general coupled capability is declared stable.
 
 Execution order: finish this bounded thermal--mechanical product route first,
 then audit contact against existing moving-tool/work/search implementations
-before selecting any missing capability. Do not reimplement already tested
+before selecting any missing capability. A post-release two-rank audit passes
+34 tests per rank for the explicit contact provider, distributed search and
+accepted work. The serial search microbenchmark confirms existing BVH pruning
+against exhaustive projection without modifying solver physics. Next measure
+representative solve-stage costs before optimizing; implicit friction, wider
+topology and extreme-scale routing remain separate gates. Do not reimplement already tested
 contact features based on an outdated roadmap. Mesh compatibility and measured
 performance changes follow demonstrated application needs, not a parallel
 architecture rewrite. Small releases do not rebuild complete installers.

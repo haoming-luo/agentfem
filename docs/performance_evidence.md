@@ -70,6 +70,30 @@ Startup, mesh generation, JIT compilation, solve, output, and verification
 should be compared separately. A faster run with different physics or a looser
 accuracy target is not an AgentFEM performance claim.
 
+## Contact search measurement
+
+`tools/benchmark_contact_search.py` measures the existing serial triangle BVH
+against exhaustive projection on a deterministic planar grid. It checks exact
+facet/status identity and tolerance-bounded points, normals, gaps and barycentric
+coordinates before timing. Tree construction is reported separately; warmed
+query batches alternate execution order and retain individual samples.
+Geometry, query and search implementation hashes identify the comparison.
+
+```bash
+OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 PYTHONPATH=src python tools/benchmark_contact_search.py --output /tmp/contact-search.json
+```
+
+The 2026-10-09 local 128/512/2048-facet, 16-query audit evaluates only 32 exact
+facets per batch in each case, versus exhaustive counts of 2048/8192/32768.
+All projections agree. This confirms existing pruning; it is **not** a new
+algorithmic improvement, an end-to-end FEM speedup, or distributed scaling
+evidence. Timings depend on the machine and are not CI acceptance thresholds.
+Curved/ambiguous geometry and MPI correctness remain covered by separate
+regressions, not by this planar performance fixture. Profile a representative
+full solve before investing in search optimization; do not extrapolate this
+microbenchmark to industrial forming. Raw local samples are retained under
+`evidence/contact/2026-10-09-search-microbenchmark.json` in the repository.
+
 ## Scientific trust boundary
 
 `SimulationResult.performance` is operational evidence. It does not modify
