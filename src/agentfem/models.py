@@ -1258,22 +1258,25 @@ class Model:
                 options=options,
                 procedure=procedure,
             )
-        configuration.apply_predefined_fields()
-        configured_model = replace(
-            self,
-            loads=list(configuration.resolve_loads(self.loads)),
-            constraints=list(configuration.resolve_constraints(self.constraints)),
-        )
-        if constraints is not None:
-            options["constraints"] = constraints
-        created = lower_step(
-            configured_model,
-            analysis=selected_kind,
-            target=target,
-            options=options,
-            procedure=procedure,
-        )
+        with configuration.field_transaction():
+            configuration.apply_predefined_fields()
+            configured_model = replace(
+                self,
+                loads=list(configuration.resolve_loads(self.loads)),
+                constraints=list(configuration.resolve_constraints(self.constraints)),
+            )
+            if constraints is not None:
+                options["constraints"] = constraints
+            created = lower_step(
+                configured_model,
+                analysis=selected_kind,
+                target=target,
+                options=options,
+                procedure=procedure,
+            )
         created.engineering_step = configuration
+        from copy import deepcopy
+        created.engineering_step_summary = deepcopy(configuration.summary())
         return created
 
     def linear_static_step(

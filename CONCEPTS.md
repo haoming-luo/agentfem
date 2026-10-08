@@ -469,6 +469,15 @@ operator should still be inspectable.
 
 ## Analysis Step
 
+An engineering configuration may predefine snapshot fields from a previously
+solved analysis. Copy requires identical function-space identity; explicit
+interpolation requires the same runtime mesh and value shape. A declaration
+does not infer physical time, units, cross-mesh mapping, or a live coupling.
+`state.field_transaction(...)` owns collective in-memory nodal rollback;
+`configuration.field_transaction(...)` includes its predefined targets and
+explicitly named downstream unknowns. It does not replace constitutive-state
+transactions or serialize a combined multiphysics restart.
+
 A solve stage under a study. A step records the analysis method, time increment
 when relevant, visible operators, boundary conditions, and solver options.
 

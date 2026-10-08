@@ -12,6 +12,7 @@ restore capabilities stay explicit and inspectable.
 from __future__ import annotations
 
 from collections.abc import Mapping
+from contextlib import contextmanager
 from dataclasses import dataclass
 from typing import Protocol, runtime_checkable
 
@@ -19,6 +20,54 @@ import numpy as np
 
 from . import fields, spaces, time
 from .kernel import dofs
+
+
+@contextmanager
+def field_transaction(**named_fields):
+    """Keep same-mesh nodal fields on success; restore all on collective failure.
+
+    This protects in-memory fields, not files, solver caches or material history.
+    All ranks must enter with the same names and leave this scope. Exceptions
+    inside an unfinished backend collective still require backend handling.
+    """
+
+    if not named_fields:
+        yield
+        return
+    functions = {name: fields.unwrap(value) for name, value in named_fields.items()}
+    first = next(iter(functions.values()))
+    domain = first.function_space.mesh
+    comm = domain.comm
+    names = tuple(sorted(functions))
+    if any(item != names for item in comm.allgather(names)):
+        raise ValueError("AFM-TRANSFER-001: field transaction names differ across ranks.")
+    failure = None
+    snapshots = {}
+    try:
+        for name in names:
+            function = functions[name]
+            if function.function_space.mesh is not domain:
+                raise ValueError("Field transactions require one shared mesh.")
+            snapshots[name] = _array(function).copy()
+    except Exception as exc:
+        failure = exc
+    errors = comm.allgather(None if failure is None else str(failure))
+    if any(error is not None for error in errors):
+        raise ValueError(f"AFM-TRANSFER-001: invalid transaction fields: {errors}") from failure
+    failure = None
+    try:
+        yield
+        for name in names:
+            _array(functions[name])
+    except BaseException as exc:
+        failure = exc
+    errors = comm.allgather(None if failure is None else str(failure))
+    if any(error is not None for error in errors):
+        for name in names:
+            _assign(functions[name], snapshots[name], label=name)
+        if failure is not None:
+            raise failure
+        raise RuntimeError(f"AFM-TRANSFER-002: another rank rejected the field transaction: {errors}")
 
 
 @runtime_checkable

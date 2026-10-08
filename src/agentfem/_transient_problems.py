@@ -26,6 +26,7 @@ from . import fields
 from . import time
 from .diagnostics import PerformanceLedger
 from .events import SolveEvent
+from ._operator_lifecycle import OperatorLifecycleLedger, boundary_dof_identity
 from .solvers import LinearSolverOptions
 
 
@@ -454,11 +455,9 @@ class ImplicitDynamicsStep:
         init=False,
         repr=False,
     )
-    _matrix_assembly_count: int = field(default=0, init=False, repr=False)
-    _rhs_assembly_count: int = field(default=0, init=False, repr=False)
-    _solve_count: int = field(default=0, init=False, repr=False)
-    _ksp_iterations_total: int = field(default=0, init=False, repr=False)
-    _ksp_iterations_maximum: int = field(default=0, init=False, repr=False)
+    _operator_ledger: OperatorLifecycleLedger = field(
+        default_factory=OperatorLifecycleLedger, init=False, repr=False,
+    )
 
     def __post_init__(self) -> None:
         selected = str(self.operator_policy).strip().lower().replace("-", "_")
@@ -731,6 +730,7 @@ class ImplicitDynamicsStep:
         if self._prepared_problem is None:
             started = perf_counter()
             self._prepared_problem = self.problem.prepare()
+            self._operator_ledger.begin_prepared()
             self.performance.add("matrix_preparation", perf_counter() - started)
         try:
             started = perf_counter()
@@ -749,10 +749,6 @@ class ImplicitDynamicsStep:
 
         V = self.problem.solution.function_space
         index_map = V.dofmap.index_map
-        bcs = []
-        for bc in self.problem.bcs:
-            dofs, owned = bc.dof_indices()
-            bcs.append((tuple(int(item) for item in dofs), int(owned)))
         parameters = (
             self.parameters.summary()
             if hasattr(self.parameters, "summary")
@@ -763,33 +759,13 @@ class ImplicitDynamicsStep:
             json.dumps(parameters, sort_keys=True, default=str),
             int(index_map.size_global),
             int(V.dofmap.index_map_bs),
-            tuple(bcs),
+            boundary_dof_identity(self.problem.bcs),
         )
 
     def _record_lifecycle(self, summary, *, accumulate: bool) -> None:
-        if summary is None:
-            return
-        values = {
-            "matrix": int(summary.get("matrix_assembly_count", 0)),
-            "rhs": int(summary.get("rhs_assembly_count", 0)),
-            "solve": int(summary.get("solve_count", 0)),
-        }
-        if accumulate:
-            self._matrix_assembly_count += values["matrix"]
-            self._rhs_assembly_count += values["rhs"]
-            self._solve_count += values["solve"]
-        else:
-            self._matrix_assembly_count = values["matrix"]
-            self._rhs_assembly_count = values["rhs"]
-            self._solve_count = values["solve"]
-        info = self.problem.last_solve_info
-        if info is not None:
-            iterations = int(info.iterations)
-            self._ksp_iterations_total += iterations
-            self._ksp_iterations_maximum = max(
-                self._ksp_iterations_maximum,
-                iterations,
-            )
+        self._operator_ledger.record(
+            summary, self.problem.last_solve_info, accumulate=accumulate,
+        )
 
     def operator_lifecycle_summary(self) -> dict[str, object]:
         """Return inspectable evidence for operator reuse or refresh."""
@@ -801,12 +777,7 @@ class ImplicitDynamicsStep:
             "selection_reason": self._operator_policy_reason,
             "time_inputs": time.input_summary(self.update_load),
             "matrix_reused": self._selected_operator_policy == "reuse",
-            "matrix_assembly_count": self._matrix_assembly_count,
-            "matrix_refresh_count": max(0, self._matrix_assembly_count - 1),
-            "rhs_assembly_count": self._rhs_assembly_count,
-            "solve_count": self._solve_count,
-            "ksp_iterations_total": self._ksp_iterations_total,
-            "ksp_iterations_maximum": self._ksp_iterations_maximum,
+            **self._operator_ledger.summary(),
         }
 
     def close(self) -> None:
@@ -905,11 +876,9 @@ class FirstOrderTransientStep:
         init=False,
         repr=False,
     )
-    _matrix_assembly_count: int = field(default=0, init=False, repr=False)
-    _rhs_assembly_count: int = field(default=0, init=False, repr=False)
-    _solve_count: int = field(default=0, init=False, repr=False)
-    _ksp_iterations_total: int = field(default=0, init=False, repr=False)
-    _ksp_iterations_maximum: int = field(default=0, init=False, repr=False)
+    _operator_ledger: OperatorLifecycleLedger = field(
+        default_factory=OperatorLifecycleLedger, init=False, repr=False,
+    )
 
     def __post_init__(self) -> None:
         selected = str(self.operator_policy).strip().lower().replace("-", "_")
@@ -1156,6 +1125,7 @@ class FirstOrderTransientStep:
         if self._prepared_problem is None:
             started = perf_counter()
             self._prepared_problem = linear_problem.prepare()
+            self._operator_ledger.begin_prepared()
             self.performance.add("matrix_preparation", perf_counter() - started)
         try:
             started = perf_counter()
@@ -1176,42 +1146,19 @@ class FirstOrderTransientStep:
         solution = linear_problem._solution()
         V = solution.function_space
         index_map = V.dofmap.index_map
-        bcs = []
-        for bc in linear_problem.bcs:
-            dofs, owned = bc.dof_indices()
-            bcs.append((tuple(int(item) for item in dofs), int(owned)))
         return (
             float(self.dt),
             int(index_map.size_global),
             int(V.dofmap.index_map_bs),
-            tuple(bcs),
+            boundary_dof_identity(linear_problem.bcs),
         )
 
     def _record_lifecycle(self, summary, *, accumulate: bool) -> None:
-        if summary is None:
-            return
-        values = {
-            "matrix": int(summary.get("matrix_assembly_count", 0)),
-            "rhs": int(summary.get("rhs_assembly_count", 0)),
-            "solve": int(summary.get("solve_count", 0)),
-        }
-        if accumulate:
-            self._matrix_assembly_count += values["matrix"]
-            self._rhs_assembly_count += values["rhs"]
-            self._solve_count += values["solve"]
-        else:
-            self._matrix_assembly_count = values["matrix"]
-            self._rhs_assembly_count = values["rhs"]
-            self._solve_count = values["solve"]
         linear_problem = getattr(self.problem, "problem", None)
-        info = getattr(linear_problem, "last_solve_info", None)
-        if info is not None:
-            iterations = int(info.iterations)
-            self._ksp_iterations_total += iterations
-            self._ksp_iterations_maximum = max(
-                self._ksp_iterations_maximum,
-                iterations,
-            )
+        self._operator_ledger.record(
+            summary, getattr(linear_problem, "last_solve_info", None),
+            accumulate=accumulate,
+        )
 
     def operator_lifecycle_summary(self) -> dict[str, object]:
         """Return evidence for first-order operator reuse or refresh."""
@@ -1223,12 +1170,7 @@ class FirstOrderTransientStep:
             "selection_reason": self._operator_policy_reason,
             "time_inputs": time.input_summary(self.update_load),
             "matrix_reused": self._selected_operator_policy == "reuse",
-            "matrix_assembly_count": self._matrix_assembly_count,
-            "matrix_refresh_count": max(0, self._matrix_assembly_count - 1),
-            "rhs_assembly_count": self._rhs_assembly_count,
-            "solve_count": self._solve_count,
-            "ksp_iterations_total": self._ksp_iterations_total,
-            "ksp_iterations_maximum": self._ksp_iterations_maximum,
+            **self._operator_ledger.summary(),
         }
 
     def close(self) -> None:

@@ -669,6 +669,15 @@ def body_force_vector(force, test_function, *, measure=ufl.dx) -> OperatorForm:
     """Create a body-force/source vector ``F``."""
 
     test = _test(test_function)
+    # Literal zero is simplified by UFL before it can retain the test space
+    # and integration domain. A coefficient keeps a valid zero RHS (including
+    # its arity) for pure prescribed-value problems.
+    if isinstance(force, (int, float, complex, np.number, tuple, list, np.ndarray)):
+        numeric = np.asarray(force)
+        if numeric.shape == tuple(test.ufl_shape) and np.all(numeric == 0):
+            from dolfinx import fem
+            domain = ufl.domain.extract_unique_domain(test)
+            force = fem.Constant(domain, np.asarray(force, dtype=PETSc.ScalarType))
     return OperatorForm(
         name="F_body",
         kind="body_force_vector",

@@ -121,6 +121,14 @@ never changes solver access, results, verification, or update behavior.
   `model.distributing_coupling(...)`, and `model.elastic_foundation(...)` in
   application workflows when the assets should stay visible and auditable.
 - Application unknowns: use `fields.py` before dropping to `spaces.py`.
+- Sequential thermal--mechanical handoff: use the same runtime mesh and an
+  explicit `stage.predefine(T_solid, T, method="interpolate")`. Never copy
+  coefficient arrays merely because their lengths match. Protect the
+  configured Step's construction and solve with
+  `stage.field_transaction(displacement=u)`; see `docs/engineering_workflows.md`.
+  Physical times, when relevant, must be explicitly declared and equal.
+  This does not imply cross-mesh transfer, unit conversion, live binding,
+  or converged two-way coupling.
 - Function spaces: inspect `spaces.py`; only inspect `kernel/dofs.py` for
   implementation-level dof work.
 - Essential boundary conditions: read `CONCEPTS.md`, then use `constraints/`.

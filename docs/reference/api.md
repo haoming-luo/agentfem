@@ -1309,6 +1309,7 @@ and evidence remain in the linked guides and scientific function reference.
 
 | Kind | Public object | Purpose |
 | --- | --- | --- |
+| function | `field_transaction(**named_fields)` | Keep same-mesh nodal fields on success; restore all on collective failure. |
 | class | `RestartableState` | State whose accepted scientific identity can cross a restart. |
 | class | `ReplaceableState` | State with an atomic trial/accept/reject boundary. |
 | class | `StateCapabilities` | Inspectable transaction features without guessing from class names. |

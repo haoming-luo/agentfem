@@ -38,6 +38,116 @@ This interface is for trusted mathematical structure, not for guessing a
 missing equation. A formula that is inconsistent with its stated PDE remains
 a model or dataset error.
 
+## Sequential thermal--mechanical field handoff
+
+Solve the thermal problem first on the same runtime mesh. Keep its accepted
+temperature separate from the structural input field, then use the existing
+engineering configuration and ordinary structural Step:
+
+```python
+thermal_result = thermal_model.step(target=T).solve_result()
+T_solid = fields.temperature(domain, value=300.0)
+solid_model.eigenstrain(eigenstrains.thermal(T_solid))
+stage = solid_model.stage("thermal-to-solid")
+stage.predefine(T_solid, T, method="interpolate")
+with stage.field_transaction(displacement=u):
+    result = solid_model.step(target=u, configuration=stage).solve_result()
+```
+
+The models, material, boundary conditions and `u` must be defined normally;
+this fragment is a handoff, not another solver. `copy` (the default) requires
+the identical function-space object. `interpolate` explicitly permits different
+spaces on the same mesh with identical value shapes. Neither mode transfers
+across meshes or silently smooths/project fields. Interpolation is not an
+L2-conservative projection. Imported/reordered meshes need a separately
+verified transfer method even when coefficient-array lengths match.
+
+For a transient source, pass both `source_time=t` and `target_time=t` to
+`predefine`. These are explicit caller-supplied physical times, checked for
+finite equality; they do not infer a field's history or convert time units.
+Omitted times are recorded as `unspecified`, appropriate for static snapshots.
+Temperature values and reference temperatures must already use a consistent
+unit convention. No unit conversion is guessed.
+
+Assignments are staged before any target is changed and reject non-finite
+values collectively. `model.step(configuration=...)` also restores the fields
+if lowering fails. To cover downstream solve/result failure, the explicit
+`field_transaction` above protects predefined targets and named unknowns; the
+accepted thermal source is untouched. This is an in-memory nodal-field
+transaction, not rollback of files, solver caches, or plastic material history.
+All ranks must participate with the same field names, mesh, and declaration.
+Backend failures within unfinished collectives need backend error handling.
+
+Each new ordinary static structural Step assembles its operator for the supplied
+temperature, including temperature-dependent material properties. Do not reuse
+a manually prepared stiffness after changing temperature-dependent stiffness.
+For existing transient Procedures, use the explicit time-input contract: an
+eigenstrain-only update changes the RHS; material stiffness changes invalidate
+the operator. `predefine` itself is a snapshot, not a live callback binding.
+
+The result retains the construction-time configuration under
+`metadata.engineering_step.field_transfers`, with source/target elements,
+method, time declaration and mesh relation. This record is not a scientific
+validation claim or a portable mesh fingerprint. Thermal restart uses the
+thermal Procedure's existing checkpoint; after restoring, transfer the accepted
+temperature at its accepted time and recompute the structural stage. No
+combined multiphysics checkpoint or two-way coupled iteration is claimed.
+
+Regression coverage: `tests/test_sequential_field_transfer.py` solves uniform
+and linear steady temperature fields, checks free expansion and restrained
+plane-strain stress, rejects mesh/component/time mismatch, verifies collective
+rollback, and transfers a restored transient heat solution. The same tests run
+with two MPI ranks. Multiple-material constitutive/eigenstrain semantics retain
+their independent regression in `tests/test_thermoelastic_semantics.py`.
+Two successive temperature-dependent-stiffness stages also check the stress
+against the current elastic modulus, rather than only checking successful solve.
+
+### Retry mechanics without repeating heat
+
+The existing `examples/thermal_stress_wall_2d.py` now exposes a small restart
+workflow using the same public Step API:
+
+```bash
+python examples/thermal_stress_wall_2d.py --smoke --output outputs/wall
+python examples/thermal_stress_wall_2d.py --smoke --output outputs/wall --resume-heat
+```
+
+The first command saves the accepted thermal checkpoint and heat result. The
+second restores that completed stage and solves elasticity again; it performs
+zero thermal increments. Omit `--smoke` for the normal mesh/time horizon, but
+do not mix smoke and normal checkpoints. Existing accepted heat is never
+silently overwritten by a fresh run. The example checks its source-file hash,
+AgentFEM version and smoke setting before restoration; a changed recipe needs
+a new directory. This deliberately conservative example guard is not a general
+semantic fingerprint for arbitrary scientific Python or external assets.
+
+The structural result records the upstream checkpoint manifest SHA-256,
+accepted time, recovery policy and thermal solve count. The checkpoint loader
+validates its payload; the digest alone is not a scientific validation claim.
+Existing portable checkpoint support is reused, not duplicated into a new
+coupling archive. Both stages still need their own scientific acceptance.
+
+If a structural trial is rejected inside `stage.field_transaction`, both the
+nodal fields and the stage's prior transfer evidence are restored. Correct the
+explicit cause and build a fresh structural Step; the accepted thermal source
+remains unchanged. Do not reuse or publish a result object from the rejected
+attempt. Files already written are not rolled back: use an attempt-specific
+output path when preserving failed-attempt artifacts matters. This recovery
+recipe applies to elasticity; history-dependent mechanics additionally needs
+its own committed material checkpoint and is not covered by nodal rollback.
+
+The regression now includes two thermal conductivities, two regional
+temperature-dependent moduli and expansion coefficients, checking the exact
+DG0 cell average of quadratic thermal stress. It also rejects a completed
+structural trial on one MPI rank, retries without additional thermal solves,
+and checks that accepted result metadata does not change with later transfers.
+
+The one-way dependency is the same distinction used in the
+[Abaqus analysis overview](https://docs.software.vt.edu/abaqusv2025/English/SIMACAEANLRefMap/simaanl-c-solving.htm):
+sequential thermal stress is appropriate when the thermal solution does not
+require feedback from the mechanical response. See the
+[bounded two-way design](coupling_design.md) before introducing feedback.
+
 ## Continuum loads
 
 ```python

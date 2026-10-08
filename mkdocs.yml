@@ -195,6 +195,7 @@ nav:
   - Project:
       - project/index.md
       - Product Roadmap: product_roadmap.md
+      - Coupling Design (Planned): coupling_design.md
       - Trust and Validation:
           - Trust and Operations: trust/index.md
           - Reliability Feedback and Private Support: feedback_and_privacy.md

@@ -73,6 +73,50 @@ condition. New materials, forming, additional backends, or benchmark-specific
 public APIs are not prerequisites for this consolidation. Keep routine CI
 targeted; reserve the full installed-wheel ladder for milestones and releases.
 
+#### Agile maintenance slice before coupling work
+
+Do not turn the installation/mesh/performance priorities into another broad
+foundation programme. The current bounded slice shares transient operator
+accounting, fixes evidence loss after prepared-system release/continuation,
+and reduces allocation in exact boundary-identity checks. It changes neither
+the public modelling API nor scientific maturity. Targeted serial/restart and
+two-rank tests are its exit gate; see the reproducible measurement instructions
+in [development testing](development_testing.md#transient-lifecycle-maintenance).
+
+The next bounded implementation is **sequential thermal--mechanical
+coupling on a shared mesh**, using existing thermal fields, eigenstrain,
+EngineeringStep and ordinary providers, not a new coupling god object.
+Audit the following before implementing a public convenience layer:
+
+1. Field transfer now guards same-mesh/space/component identity and explicitly
+   declared equal time. Copy is exact-space only; interpolation is explicit.
+   Equal array length is not evidence for compatible field transfer.
+2. A transferred temperature may change only eigenstrain/RHS, or also material
+   stiffness. Preserve this distinction in the existing time-input contract.
+3. Define ownership of accepted source and target states, failed-target
+   recovery, and restart provenance without confusing one-way sequencing with
+   converged two-way coupling.
+4. Begin with uniform free thermal expansion and restrained thermal stress;
+   then one spatial-temperature, multi-region regression and two-rank restart.
+
+The same-mesh slice is implemented with nodal field transactions and uniform/
+linear-temperature analytical response tests, including two-rank rollback and
+transfer after thermal restart. Temperature/material dependence retains the
+ordinary operator lowering; no new global coupling solver is introduced.
+The multi-region handoff regression now combines two conductivities, regional
+E(T) and thermal expansion with exact cell-average stress checks. The existing
+hot-wall example restores accepted heat and recomputes only mechanics; a
+rejected structural trial rolls back field and transfer evidence together.
+This is durable upstream reuse, not a combined multiphysics checkpoint.
+The next two-way slice is specified in [coupling design](coupling_design.md),
+including participant rollback, unrelaxed residuals and a monolithic oracle.
+
+Stop after this vertical route has explicit field/response and state evidence.
+Nonmatching-mesh transfer, two-way staggered iteration, monolithic Jacobians,
+and additional physics remain separate subsequent decisions. Installation or
+mesh defects reported by users still interrupt this ordering when they block
+an otherwise supported workflow; no speculative installer rewrite is planned.
+
 ### 0.3.8: the 0.4 foundation candidate
 
 0.3.8 is the deliberate consolidation release before 0.4.0. It is promoted by

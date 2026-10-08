@@ -396,7 +396,7 @@ def _coefficient(properties, name: str, temperature=None):
             raise ValueError(
                 f"Temperature-dependent {name} requires a known temperature field."
             )
-        return properties.coefficient(name, temperature)
+        return properties.coefficient(name, field_api.unwrap(temperature))
     return getattr(properties, name)
 
 
