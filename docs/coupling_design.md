@@ -147,6 +147,16 @@ wrong test space; departure from T0 is explicit, never guessed from a field name
 The remaining public Step must own boundary/time-input handling and the joint
 accepted lifecycle rather than subclassing the benchmark.
 
+Private `time/thermoelastic.py` now exercises that separation on rectangular
+3D tetrahedral and hexahedral meshes: two physical prepared systems, one
+accepted time, atomic rejection/retry and immutable returned records. It does
+not construct a reference solution. Its fixed-input joint checkpoint contains
+only physical accepted fields and history; the caller must supply a reviewed
+scientific input identity, in addition to the material and mesh identity.
+History is integrity-checked before live state changes. This is not a built-in
+Step provider yet: registered time-dependent boundaries, generic work/heat
+evidence and public execution/output policy remain its next gates.
+
 ## Product decision
 
 Finish the shared-mesh sequential route first. Keep Model as the problem
