@@ -9,6 +9,27 @@ from agentfem import constraints, fields, mesh, operators, results, solvers
 from agentfem._solver_lifecycle import PreparedSolve
 
 
+@pytest.mark.parametrize("ksp,pc", [("cg", "jacobi"), ("preonly", "lu")])
+def test_prepared_zero_rhs_ignores_stale_norm_after_numpy_write(ksp, pc):
+    import ufl
+    domain = mesh.rectangle((0., 0.), (1., 1.), (2, 2), comm=MPI.COMM_WORLD)
+    unknown = fields.scalar_unknown(domain, degree=1, name="zero")
+    source = fem.Constant(domain, 0.)
+    with solvers.prepare_linear_problem(
+        unknown.trial*unknown.test*ufl.dx,
+        source*unknown.test*ufl.dx,
+        unknown.value,
+        options=solvers.LinearSolverOptions(ksp_type=ksp, pc_type=pc),
+    ) as prepared:
+        prepared.solve()
+        assert unknown.value.x.petsc_vec.norm() == 0.
+        unknown.value.x.array[:] = 3.
+        prepared.solve()
+        np.testing.assert_array_equal(unknown.value.x.array, 0.)
+        assert prepared.matrix_assembly_count == 1
+        assert prepared.solve_count == 2
+
+
 def test_prepared_linear_problem_reuses_matrix_for_updated_rhs():
     domain = mesh.rectangle(
         (0.0, 0.0),

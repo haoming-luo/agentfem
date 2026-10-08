@@ -34,6 +34,17 @@ from agentfem.results.finite_strain import HomogenizedFrame
 from agentfem.results.output import attach_result_field_output
 
 
+@pytest.mark.parametrize("expression", [0.0, ufl.as_vector((0., 0.)), ufl.zero((2, 2))])
+def test_exact_zero_projection_preserves_scalar_vector_and_tensor_spaces(expression):
+    domain = mesh.rectangle((0., 0.), (1., 1.), (2, 2), comm=MPI.COMM_SELF)
+    with results.prepare_projection(expression, domain=domain) as prepared:
+        projected = prepared.solve()
+        np.testing.assert_array_equal(projected.x.array, 0.)
+        projected.x.array[:] = 1.
+        np.testing.assert_array_equal(prepared.solve().x.array, 0.)
+        assert prepared.solve_count == 2
+
+
 def test_result_collects_qois_histories_artifacts_and_dataset_sample(tmp_path):
     result = results.SimulationResult(
         "cantilever",

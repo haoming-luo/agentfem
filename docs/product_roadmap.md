@@ -108,8 +108,11 @@ E(T) and thermal expansion with exact cell-average stress checks. The existing
 hot-wall example restores accepted heat and recomputes only mechanics; a
 rejected structural trial rolls back field and transfer evidence together.
 This is durable upstream reuse, not a combined multiphysics checkpoint.
-The next two-way slice is specified in [coupling design](coupling_design.md),
-including participant rollback, unrelaxed residuals and a monolithic oracle.
+The next two-way slice now has a bounded 3D verification prototype with a
+reversible heat-feedback Operator, unrelaxed residuals, in-memory joint rollback
+and an independently written monolithic oracle. See [coupling design](coupling_design.md).
+General boundary work, joint durable restart and public Step integration remain
+promotion gates; no general coupled capability is declared stable.
 
 Stop after this vertical route has explicit field/response and state evidence.
 Nonmatching-mesh transfer, two-way staggered iteration, monolithic Jacobians,
