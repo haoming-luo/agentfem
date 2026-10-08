@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 from copy import deepcopy
 from functools import partial
+from pathlib import Path
 from types import SimpleNamespace
 
 import basix
@@ -17,6 +18,37 @@ from agentfem.operators.identity import (
     mesh_executable_identity,
     meshtags_executable_identity,
 )
+
+
+@pytest.mark.parametrize("comm", (None, MPI.COMM_SELF))
+def test_manifest_publication_failure_is_not_success(tmp_path, comm):
+    parent = tmp_path / "not-a-directory"
+    parent.write_text("occupied", encoding="utf-8")
+    with pytest.raises(RuntimeError, match="manifest publication failed"):
+        results.SimulationResult("failed-write").write_manifest(
+            parent / "result.json", comm=comm,
+        )
+    assert not (parent / "result.json").exists()
+
+
+@pytest.mark.parametrize("comm", (None, MPI.COMM_SELF))
+def test_failed_manifest_replacement_preserves_previous(tmp_path, monkeypatch, comm):
+    result = results.SimulationResult("atomic-publication")
+    manifest = result.write_manifest(tmp_path / "result.json", comm=comm)
+    original = manifest.read_bytes()
+    replace = Path.replace
+
+    def fail_replace(path, target):
+        if path == manifest.with_suffix(".json.tmp"):
+            raise OSError("injected replacement failure")
+        return replace(path, target)
+
+    monkeypatch.setattr(Path, "replace", fail_replace)
+    result.add_quantity("new-response", 2.0)
+    with pytest.raises(RuntimeError, match="injected replacement failure"):
+        result.write_manifest(manifest, comm=comm)
+    assert manifest.read_bytes() == original
+    assert provenance.verify_manifest(manifest).verified
 
 
 def _sealed_result(tmp_path):

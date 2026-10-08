@@ -817,15 +817,15 @@ class SimulationResult:
                     encoding="utf-8",
                 )
                 temporary.replace(output)
-            except Exception as exc:  # pragma: no cover - exercised under MPI
+            except Exception as exc:
                 write_error = f"{type(exc).__name__}: {exc}"
         if comm is not None:
             write_error = comm.bcast(write_error, root=0)
-            if write_error is not None:
-                raise RuntimeError(
-                    "SimulationResult manifest publication failed on rank 0: "
-                    f"{write_error}"
-                )
+        if write_error is not None:
+            raise RuntimeError(
+                "SimulationResult manifest publication failed on rank 0: "
+                f"{write_error}"
+            )
         return output
 
 

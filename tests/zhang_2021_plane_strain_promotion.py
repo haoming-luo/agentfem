@@ -416,6 +416,24 @@ def _stable(value: object) -> str:
     return json.dumps(value, sort_keys=True, separators=(",", ":"), allow_nan=False)
 
 
+def _interface_policy(candidate):
+    policy = candidate.get("mesh_policy")
+    if not isinstance(policy, dict) or policy.get("kind") != "interface_distance_threshold" or set(policy) != {
+        "kind", "interface_size", "transition_distance", "distance_sampling"
+    }:
+        raise ValueError("Interface study requires the explicit supported mesh policy.")
+    size = float(policy["interface_size"])
+    background = float(candidate["mesh_size"])
+    transition = float(policy["transition_distance"])
+    if not np.all(np.isfinite((size, background, transition))) or not (
+        0 < size < background and transition > 0
+    ):
+        raise ValueError("Invalid interface refinement coordinate or transition distance.")
+    if type(policy["distance_sampling"]) is not int or policy["distance_sampling"] <= 0:
+        raise ValueError("Interface distance sampling must be a positive integer.")
+    return policy
+
+
 def _axis_audit(
     runs,
     *,
@@ -425,6 +443,7 @@ def _axis_audit(
     invariant_parameters: tuple[str, ...],
     require_decreasing: bool = True,
     interface_refinement: bool = False,
+    scaled_mesh_refinement: bool = False,
 ) -> dict[str, object]:
     selected = tuple(sorted(runs, key=lambda run: fine_order(run["candidate"])))
     coordinates = tuple(float(coordinate(run["candidate"])) for run in selected)
@@ -448,10 +467,40 @@ def _axis_audit(
             _stable({key: value for key, value in run["candidate"]["mesh_policy"].items()
                      if key != "interface_size"}) for run in selected
         }))
+    scaling = None
+    if scaled_mesh_refinement:
+        policies = tuple(_interface_policy(run["candidate"]) for run in selected)
+        invariant["mesh_policy"] = tuple(sorted({
+            _stable({key: value for key, value in policy.items()
+                     if key not in {"interface_size", "transition_distance"}})
+            for policy in policies
+        }))
+        ratios = tuple(
+            (float(policy["interface_size"]) / coordinate(run["candidate"]),
+             float(policy["transition_distance"]) / coordinate(run["candidate"]))
+            for run, policy in zip(selected, policies)
+        )
+        cells = tuple(run["candidate"].get("global_cells") for run in selected)
+        increasing_cells = bool(
+            cells and all(type(value) is int and value > 0 for value in cells)
+            and all(fine > coarse for coarse, fine in zip(cells, cells[1:]))
+        )
+        scaling = {
+            "interface_and_transition_to_background_ratios": ratios,
+            "ratio_relative_tolerance": 1.0e-12,
+            "ratios_preserved": bool(ratios and np.allclose(
+                ratios, ratios[0], rtol=1.0e-12, atol=0.0,
+            )),
+            "global_cells_coarse_to_fine": cells,
+            "cell_count_increases": increasing_cells,
+        }
     setup_consistent = bool(
         len(selected) >= 3
         and unique
         and all(len(values) == 1 for values in invariant.values())
+        and (scaling is None or (
+            scaling["ratios_preserved"] and scaling["cell_count_increases"]
+        ))
     )
     checks: dict[str, object] = {}
     for observable, tolerance in OBSERVABLE_TOLERANCES.items():
@@ -502,6 +551,7 @@ def _axis_audit(
         "coordinates_coarse_to_fine": coordinates,
         "setup_consistent": setup_consistent,
         "invariant_parameters": invariant,
+        "mesh_policy_scaling": scaling,
         "checks": checks,
         "artifacts": tuple(
             {"path": run["path"], "sha256": run["sha256"]} for run in selected
@@ -513,6 +563,7 @@ def assess_convergence(
     *,
     increment_runs=(),
     mesh_runs=(),
+    scaled_mesh_runs=(),
     interface_runs=(),
     quadrature_runs=(),
     tangent_runs=(),
@@ -520,9 +571,11 @@ def assess_convergence(
 ) -> dict[str, object]:
     """Derive available convergence axes from candidate file contents."""
 
+    if mesh_runs and scaled_mesh_runs:
+        raise ValueError("Choose one global mesh family per convergence audit.")
     groups = {
         "load_increment_path_converged": tuple(increment_runs),
-        "mesh_converged": tuple(mesh_runs),
+        "mesh_converged": tuple(mesh_runs or scaled_mesh_runs),
         "quadrature_converged": tuple(quadrature_runs),
     }
     interface_runs = tuple(interface_runs)
@@ -538,15 +591,7 @@ def assess_convergence(
     interface_audit = None
     if interface_runs:
         for run in interface_runs:
-            item = run["candidate"]
-            policy = item.get("mesh_policy") or {}
-            if policy.get("kind") != "interface_distance_threshold" or set(policy) != {
-                "kind", "interface_size", "transition_distance", "distance_sampling"
-            }:
-                raise ValueError("Interface study requires the explicit supported mesh policy.")
-            size = float(policy["interface_size"])
-            if not np.isfinite(size) or not 0 < size < float(item["mesh_size"]):
-                raise ValueError("Invalid interface refinement coordinate.")
+            _interface_policy(run["candidate"])
         interface_audit = _axis_audit(
             interface_runs, name="interface_size",
             coordinate=lambda item: float(item["mesh_policy"]["interface_size"]),
@@ -583,6 +628,22 @@ def assess_convergence(
                 "requested_fixed_increments",
                 "mpi_ranks",
             ),
+        )
+    if scaled_mesh_runs:
+        audits["mesh_converged"] = _axis_audit(
+            scaled_mesh_runs,
+            name="scaled_interface_mesh_size",
+            coordinate=lambda item: float(item["mesh_size"]),
+            fine_order=lambda item: -float(item["mesh_size"]),
+            invariant_parameters=(
+                "formulation", "quadrature_degree",
+                "requested_fixed_increments", "mpi_ranks",
+            ),
+            scaled_mesh_refinement=True,
+        )
+        audits["mesh_converged"]["scope"] = (
+            "Globally scaled background/interface/transition mesh policy; "
+            "observable-change contract, not a continuum error bound."
         )
     if quadrature_runs:
         audits["quadrature_converged"] = _axis_audit(
@@ -661,6 +722,7 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--increment-run", action="append", type=Path, default=[])
     parser.add_argument("--mesh-run", action="append", type=Path, default=[])
+    parser.add_argument("--scaled-mesh-run", action="append", type=Path, default=[])
     parser.add_argument("--interface-run", action="append", type=Path, default=[])
     parser.add_argument("--quadrature-run", action="append", type=Path, default=[])
     parser.add_argument("--tangent-run", action="append", type=Path, default=[])
@@ -672,6 +734,7 @@ def main() -> None:
     report = assess_convergence(
         increment_runs=tuple(load_candidate(path) for path in arguments.increment_run),
         mesh_runs=tuple(load_candidate(path) for path in arguments.mesh_run),
+        scaled_mesh_runs=tuple(load_candidate(path) for path in arguments.scaled_mesh_run),
         interface_runs=tuple(load_candidate(path) for path in arguments.interface_run),
         quadrature_runs=tuple(
             load_candidate(path) for path in arguments.quadrature_run

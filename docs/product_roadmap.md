@@ -320,6 +320,12 @@ The next scientific promotions focus on depth rather than catalog size:
    auditing additionally exposed a self-hashed manifest; the writer now excludes
    only its own publication path while retaining external artifact verification.
    Original diagnostic archives retain the old envelope failure explicitly.
+   The 2026-10-08 follow-up separates local from globally scaled refinement:
+   local primal-energy change reaches `0.46575%`, but global change remains
+   `0.72236%` (above `0.5%`). Local stress and global tangent also fail the
+   decreasing-change requirement. Five clean runs verify their output seals;
+   neither complete spatial axis is promoted. See the
+   [spatial follow-up](https://github.com/haoming-luo/agentfem/blob/main/evidence/zhang_2021/2026-10-08-spatial-followup.md).
    The earlier diagnostics
    below use the prose geometry and must not be interpreted as unresolved
    constitutive errors or transferred to the figure geometry automatically.

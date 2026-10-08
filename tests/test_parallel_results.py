@@ -24,6 +24,29 @@ from agentfem import (
 )
 
 
+def test_collective_manifest_failed_replacement_is_atomic(tmp_path, monkeypatch):
+    comm = MPI.COMM_WORLD
+    if comm.size < 2:
+        pytest.skip("collective publication requires at least two ranks")
+    directory = Path(comm.bcast(str(tmp_path) if comm.rank == 0 else None, root=0))
+    simulation = results.SimulationResult("failed-collective-publication")
+    manifest = simulation.write_manifest(directory / "result.json", comm=comm)
+    original = manifest.read_bytes()
+    replace = Path.replace
+
+    def fail_replace(path, target):
+        if path == manifest.with_suffix(".json.tmp"):
+            raise OSError("injected collective replacement failure")
+        return replace(path, target)
+
+    monkeypatch.setattr(Path, "replace", fail_replace)
+    simulation.add_quantity("new-response", 2.0)
+    with pytest.raises(RuntimeError, match="injected collective replacement failure"):
+        simulation.write_manifest(manifest, comm=comm)
+    assert all(comm.allgather(manifest.read_bytes() == original))
+    assert all(comm.allgather(provenance.verify_manifest(manifest).verified))
+
+
 def test_collective_manifest_self_reference_and_external_integrity(tmp_path):
     comm = MPI.COMM_WORLD
     if comm.size < 2:
