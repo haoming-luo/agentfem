@@ -11,6 +11,27 @@ from mpi4py import MPI
 
 from agentfem import fields, mesh, operators
 from agentfem.benchmarks.thermoelastic_coupling import _ThermoelasticPrototype
+from agentfem.operators.thermoelastic import _thermoelastic_blocks
+
+
+def test_physical_blocks_reject_wrong_load_target_and_history_space():
+    with _ThermoelasticPrototype() as case:
+        arguments = dict(
+            old_displacement=case.u_old,
+            old_temperature_departure=case.theta_old,
+            material=case.material,
+            dt=case.dt,
+        )
+        with pytest.raises(ValueError, match="AFM-THERMO-006"):
+            _thermoelastic_blocks(
+                case.u,
+                case.theta,
+                **arguments,
+                heat_load=ufl.inner(case.u.trial, case.u.test) * case.dx,
+            )
+        arguments["old_temperature_departure"] = case.u_old
+        with pytest.raises(ValueError, match="AFM-THERMO-003"):
+            _thermoelastic_blocks(case.u, case.theta, **arguments)
 
 
 def test_joint_restart_matches_continuous_and_rejects_corrupt_history(tmp_path):

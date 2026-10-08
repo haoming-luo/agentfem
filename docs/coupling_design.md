@@ -137,6 +137,16 @@ material, thermal boundary or independent reference solve. This is an internal
 implementation seam, not yet a public coupled Step. A regression prohibits
 creating new residual forms during iteration; no end-to-end speedup is claimed.
 
+The physical blocks are separately lowered by private
+`operators.thermoelastic._thermoelastic_blocks`: constant homogeneous material,
+current/old displacement and temperature departure, time increment and explicit
+integrated loads. They have no geometry factory, boundary selection, solver or
+reference problem. The monolithic oracle continues to write its equations
+independently. The seam rejects incompatible history spaces and loads on the
+wrong test space; departure from T0 is explicit, never guessed from a field name.
+The remaining public Step must own boundary/time-input handling and the joint
+accepted lifecycle rather than subclassing the benchmark.
+
 ## Product decision
 
 Finish the shared-mesh sequential route first. Keep Model as the problem

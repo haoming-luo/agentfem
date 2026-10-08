@@ -35,6 +35,7 @@ from agentfem import (
 )
 from agentfem.provenance import collective_call
 from agentfem.time._staggered import StaggeredFieldIteration
+from agentfem.operators.thermoelastic import _thermoelastic_blocks
 
 
 class _ThermoelasticPrototype:
@@ -125,28 +126,18 @@ class _ThermoelasticPrototype:
         self.restart_source = None
         self._resources = ExitStack()
 
-        a_u = operators.elastic_stiffness(self.u, self.material).expression
-        f_u = operators.thermal_expansion_vector(
-            self.u, self.t0 + self.theta.value, self.material
-        ).expression
         q = self.theta.test
-        a_t = (
-            self.capacity / self.dt * self.theta.trial * q
-            + self.k * ufl.inner(ufl.grad(self.theta.trial), ufl.grad(q))
-        ) * self.dx
-        feedback = operators.thermoelastic_heat_source(
-            q,
-            self.u.value - self.u_old,
-            coupling_coefficient=self.beta,
-            reference_temperature=self.t0,
+        blocks = _thermoelastic_blocks(
+            self.u,
+            self.theta,
+            old_displacement=self.u_old,
+            old_temperature_departure=self.theta_old,
+            material=self.material,
             dt=self.dt,
-            measure=self.dx,
+            heat_load=self.source * q * self.dx + self.flux * q * self.ds,
         )
-        f_t = (
-            (self.capacity / self.dt * self.theta_old + self.source) * q * self.dx
-            + feedback.expression
-            + self.flux * q * self.ds
-        )
+        a_u, f_u = blocks.mechanical_matrix, blocks.mechanical_rhs
+        a_t, f_t = blocks.thermal_matrix, blocks.thermal_rhs
 
         # Independent coupled reference: raw mixed-space forms, no feedback
         # helper, eigenstrain helper or staggered update is reused here.

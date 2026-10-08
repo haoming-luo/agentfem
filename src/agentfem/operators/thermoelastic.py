@@ -4,12 +4,105 @@
 """Explicit reversible thermal feedback for three-dimensional small strain."""
 
 from math import isfinite
+from dataclasses import dataclass
 
 import ufl
 from dolfinx import fem
 
 from agentfem import fields
 from .core import OperatorForm
+
+
+@dataclass(frozen=True)
+class _ThermoelasticBlocks:
+    """Physical block forms, with no solver, geometry factory or oracle."""
+
+    mechanical_matrix: object
+    mechanical_rhs: object
+    thermal_matrix: object
+    thermal_rhs: object
+    beta: float
+    capacity: float
+
+
+def _thermoelastic_blocks(
+    displacement,
+    temperature_departure,
+    *,
+    old_displacement,
+    old_temperature_departure,
+    material,
+    dt,
+    heat_load=None,
+    mechanical_load=None,
+):
+    """Lower constant homogeneous 3D small-strain thermoelastic blocks.
+
+    Temperature unknown and history are departures from material T0, not
+    absolute temperatures. Loads are already integrated linear forms. This
+    private seam deliberately does not select boundaries, mesh or time path.
+    """
+    from .elasticity import elastic_stiffness, thermal_expansion_vector
+    from agentfem.materials.properties import (
+        ThermoElasticIsotropicProperties,
+        constant_volumetric_heat_capacity,
+    )
+
+    if not isinstance(material, ThermoElasticIsotropicProperties):
+        raise ValueError(
+            "AFM-THERMO-005: constant isotropic thermoelastic material required."
+        )
+    u, theta = displacement, temperature_departure
+    domain = u.space.mesh
+    if (
+        theta.space.mesh is not domain
+        or old_displacement.function_space != u.space
+        or old_temperature_departure.function_space != theta.space
+    ):
+        raise ValueError(
+            "AFM-THERMO-003: current/history fields require matching spaces on one mesh."
+        )
+    beta = float((3 * material.lambda_ + 2 * material.mu) * material.thermal_expansion)
+    capacity = constant_volumetric_heat_capacity(material)
+    if not isfinite(capacity) or capacity <= 0:
+        raise ValueError(
+            "AFM-THERMO-005: positive constant-strain heat capacity required."
+        )
+    dx = ufl.Measure("dx", domain=domain)
+    feedback = thermoelastic_heat_source(
+        theta.test,
+        u.value - old_displacement,
+        coupling_coefficient=beta,
+        reference_temperature=material.reference_temperature,
+        dt=dt,
+        measure=dx,
+    )
+    a_u = elastic_stiffness(u, material).expression
+    f_u = thermal_expansion_vector(
+        u, material.reference_temperature + theta.value, material
+    ).expression
+    a_t = (
+        capacity / dt * theta.trial * theta.test
+        + material.conductivity * ufl.inner(ufl.grad(theta.trial), ufl.grad(theta.test))
+    ) * dx
+    f_t = (
+        capacity / dt * old_temperature_departure * theta.test * dx
+        + feedback.expression
+    )
+    for load, expected in ((heat_load, theta.test), (mechanical_load, u.test)):
+        if load is not None:
+            form = getattr(load, "expression", load)
+            if not isinstance(form, ufl.Form) or form.arguments() != (expected,):
+                raise ValueError(
+                    "AFM-THERMO-006: loads must be linear forms on their target test space."
+                )
+            if any(item != domain.ufl_domain() for item in form.ufl_domains()):
+                raise ValueError("AFM-THERMO-003: load uses a different mesh.")
+    if heat_load is not None:
+        f_t += getattr(heat_load, "expression", heat_load)
+    if mechanical_load is not None:
+        f_u += getattr(mechanical_load, "expression", mechanical_load)
+    return _ThermoelasticBlocks(a_u, f_u, a_t, f_t, beta, capacity)
 
 
 def thermoelastic_heat_source(
