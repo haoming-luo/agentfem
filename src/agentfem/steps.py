@@ -13,6 +13,8 @@ The controls in this module therefore describe how a normalized step interval
 from __future__ import annotations
 
 from collections.abc import Callable, Iterable
+from contextlib import contextmanager
+from copy import deepcopy
 from dataclasses import dataclass, field
 from math import isfinite
 from sys import float_info
@@ -402,13 +404,24 @@ class EngineeringStep:
             "method": method, "source_time": source_time, "target_time": target_time,
         }
 
+    @contextmanager
     def field_transaction(self, **protected_fields):
-        """Protect predefined targets and explicitly named downstream unknowns."""
+        """Protect nodal fields and accepted transfer evidence together.
+
+        Declarations remain editable for an explicit retry. This does not
+        restore constitutive history, solver caches, or output files.
+        """
         from . import state
         targets = {f"predefined:{name}": pair[0]
                    for name, pair in self._resolved_predefined().items()}
         targets.update({f"protected:{name}": value for name, value in protected_fields.items()})
-        return state.field_transaction(**targets)
+        evidence = deepcopy(self.transfer_evidence)
+        try:
+            with state.field_transaction(**targets):
+                yield
+        except BaseException:
+            self.transfer_evidence = evidence
+            raise
 
     def resolve_loads(self, base):
         return self._resolve(base, "load_changes")

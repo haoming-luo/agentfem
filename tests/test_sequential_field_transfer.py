@@ -287,3 +287,134 @@ def test_snapshot_assignments_do_not_cascade_or_alias():
     stage.apply_predefined_fields()
     np.testing.assert_array_equal(a.value.x.array, 20.0)
     np.testing.assert_array_equal(b.x.array, 10.0)
+
+
+def test_multimaterial_solved_heat_uses_regional_temperature_dependent_stress():
+    """Two conductivities and moduli: compare cell stresses to exact integrals.
+
+    Full restraint isolates regional constitutive/transfer semantics; this is
+    not a free bilayer bending benchmark. E(T)*(T-Tref) is quadratic, so DG0
+    must match its cell average, not merely its value at the cell centre.
+    """
+    from agentfem import materials
+
+    domain = _domain()
+    regions = mesh.partition_cells(
+        domain,
+        left=mesh.layer("x", upper=0.5),
+        right=mesh.layer("x", lower=0.5),
+    )
+    heat = models.create(study=studies.steady_heat_transfer(dimension=2), mesh=domain)
+    solid = models.create(
+        study=studies.static_solid(dimension=2, assumption="plane_strain"), mesh=domain
+    )
+    temperature = heat.field(fields.temperature(domain))
+    displacement = solid.field(fields.displacement(domain, degree=2))
+    for region, conductivity, base, alpha in (
+        (regions.left, 1.0, 1.0e6, 1.0e-5),
+        (regions.right, 2.0, 3.0e6, 2.0e-5),
+    ):
+        material = constitutive.temperature_dependent_thermoelastic(
+            young=materials.temperature_property(
+                [300.0, 500.0], [base, 2.0 * base], extrapolation="constant"
+            ),
+            poisson=0.25, density=1.0, thermal_expansion=alpha,
+            conductivity=conductivity, specific_heat=1.0, reference_temperature=300.0,
+        )
+        heat.material(material, region=region)
+        solid.material(material, region=region)
+    for x, value in ((0.0, 350.0), (1.0, 450.0)):
+        heat.prescribed_temperature(
+            temperature, on=mesh.face(domain, axis="x", value=x), value=value
+        )
+    heat_result = heat.step(target=temperature).solve_result()
+    x = temperature.space.tabulate_dof_coordinates()[:, 0]
+    expected_temperature = np.where(
+        x <= 0.5, 350.0 + (400.0 / 3.0) * x,
+        350.0 + 200.0 / 3.0 + (200.0 / 3.0) * (x - 0.5),
+    )
+    np.testing.assert_allclose(temperature.value.x.array, expected_temperature, atol=1e-10)
+    target = fields.temperature(domain, degree=2, value=300.0)
+    solid.eigenstrain(eigenstrains.thermal(target))
+    solid.fix(displacement, location=lambda x: np.full(x.shape[1], True))
+    stage = solid.stage("partitioned-thermal-to-solid")
+    stage.predefine(target, temperature, method="interpolate")
+    with stage.field_transaction(displacement=displacement):
+        result = solid.step(target=displacement, configuration=stage).solve_result()
+    stress_field = result.fields["S"].field
+    centers = stress_field.function_space.tabulate_dof_coordinates()[:, 0]
+    left = centers < 0.5
+    slope = np.where(left, 400.0 / 3.0, 200.0 / 3.0)
+    delta = np.where(left, 50.0 + slope * centers,
+                     50.0 + 200.0 / 3.0 + slope * (centers - 0.5))
+    average_delta_squared = delta**2 + slope**2 * 0.25**2 / 12.0
+    expected_stress = -np.where(left, 1e6, 3e6) * np.where(left, 1e-5, 2e-5) / 0.5 * (
+        delta + average_delta_squared / 200.0
+    )
+    stress = stress_field.x.array.reshape(-1, 2, 2)
+    np.testing.assert_allclose(stress[:, 0, 0], expected_stress, rtol=1e-10)
+    np.testing.assert_allclose(stress[:, 1, 1], expected_stress, rtol=1e-10)
+    assert result.fields["S"].processing["material_boundary_averaging"] is False
+    assert len(result.fields["S"].processing["material_partition"]) == 2
+    assert heat_result.status == "completed"
+
+
+def test_rejected_downstream_solve_retry_preserves_heat_and_accepted_evidence(tmp_path):
+    """Restart heat once, reject a solved structural trial, retry without heat work."""
+    from pathlib import Path
+    from copy import deepcopy
+    from test_first_order_operator_lifecycle import _heat_step
+
+    comm = MPI.COMM_WORLD
+    path = Path(comm.bcast(str(tmp_path / "accepted-heat"), root=0))
+    source = _heat_step("auto", steps=4, comm=comm)
+    restored = _heat_step("auto", steps=4, comm=comm)
+    try:
+        source.run()
+        source.save_checkpoint(path)
+        restored.load_checkpoint(path)
+        domain = restored.current.function_space.mesh
+        model = models.create(
+            study=studies.static_solid(dimension=2, assumption="plane_strain"), mesh=domain
+        )
+        u = model.field(fields.displacement(domain))
+        model.material(_material())
+        model.fix(u, location=lambda x: np.full(x.shape[1], True))
+        target = fields.temperature(domain, value=300.0)
+        model.eigenstrain(eigenstrains.thermal(target))
+        stage = model.stage("retry-solid")
+        stage.predefine(target, 300.0)
+        stage.apply_predefined_fields()
+        accepted_evidence = deepcopy(stage.transfer_evidence)
+        accepted_heat = restored.current.x.array.copy()
+        counters = deepcopy(restored.operator_lifecycle_summary())
+        accepted_time = restored.completed_steps * restored.dt
+        stage.predefine(target, restored.current, method="interpolate",
+                        source_time=accepted_time, target_time=accepted_time)
+        rejected_result = None
+        with pytest.raises(RuntimeError):
+            with stage.field_transaction(displacement=u):
+                rejected_result = model.step(target=u, configuration=stage).solve_result()
+                if comm.rank == 0:
+                    raise RuntimeError("deliberate downstream acceptance rejection")
+        assert stage.transfer_evidence == accepted_evidence
+        np.testing.assert_array_equal(target.value.x.array, 300.0)
+        np.testing.assert_array_equal(u.value.x.array, 0.0)
+        with stage.field_transaction(displacement=u):
+            result = model.step(target=u, configuration=stage).solve_result()
+        np.testing.assert_array_equal(restored.current.x.array, accepted_heat)
+        assert restored.operator_lifecycle_summary() == counters
+        stress = result.fields["S"].field.x.array.reshape(-1, 2, 2)
+        # Uniform heating: Q/(rho*c) * (4*dt) = 0.4 K.
+        np.testing.assert_allclose(stress[:, 0, 0], -8.0, atol=1e-8)
+        np.testing.assert_allclose(
+            result.fields["S"].field.x.array, rejected_result.fields["S"].field.x.array
+        )
+        evidence = deepcopy(result.metadata["engineering_step"])
+        stage.predefine(target, 500.0)
+        stage.apply_predefined_fields()
+        assert result.metadata["engineering_step"] == evidence
+        assert evidence["field_transfers"][0]["source_time"] == accepted_time
+    finally:
+        source.close()
+        restored.close()

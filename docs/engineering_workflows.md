@@ -102,6 +102,52 @@ their independent regression in `tests/test_thermoelastic_semantics.py`.
 Two successive temperature-dependent-stiffness stages also check the stress
 against the current elastic modulus, rather than only checking successful solve.
 
+### Retry mechanics without repeating heat
+
+The existing `examples/thermal_stress_wall_2d.py` now exposes a small restart
+workflow using the same public Step API:
+
+```bash
+python examples/thermal_stress_wall_2d.py --smoke --output outputs/wall
+python examples/thermal_stress_wall_2d.py --smoke --output outputs/wall --resume-heat
+```
+
+The first command saves the accepted thermal checkpoint and heat result. The
+second restores that completed stage and solves elasticity again; it performs
+zero thermal increments. Omit `--smoke` for the normal mesh/time horizon, but
+do not mix smoke and normal checkpoints. Existing accepted heat is never
+silently overwritten by a fresh run. The example checks its source-file hash,
+AgentFEM version and smoke setting before restoration; a changed recipe needs
+a new directory. This deliberately conservative example guard is not a general
+semantic fingerprint for arbitrary scientific Python or external assets.
+
+The structural result records the upstream checkpoint manifest SHA-256,
+accepted time, recovery policy and thermal solve count. The checkpoint loader
+validates its payload; the digest alone is not a scientific validation claim.
+Existing portable checkpoint support is reused, not duplicated into a new
+coupling archive. Both stages still need their own scientific acceptance.
+
+If a structural trial is rejected inside `stage.field_transaction`, both the
+nodal fields and the stage's prior transfer evidence are restored. Correct the
+explicit cause and build a fresh structural Step; the accepted thermal source
+remains unchanged. Do not reuse or publish a result object from the rejected
+attempt. Files already written are not rolled back: use an attempt-specific
+output path when preserving failed-attempt artifacts matters. This recovery
+recipe applies to elasticity; history-dependent mechanics additionally needs
+its own committed material checkpoint and is not covered by nodal rollback.
+
+The regression now includes two thermal conductivities, two regional
+temperature-dependent moduli and expansion coefficients, checking the exact
+DG0 cell average of quadratic thermal stress. It also rejects a completed
+structural trial on one MPI rank, retries without additional thermal solves,
+and checks that accepted result metadata does not change with later transfers.
+
+The one-way dependency is the same distinction used in the
+[Abaqus analysis overview](https://docs.software.vt.edu/abaqusv2025/English/SIMACAEANLRefMap/simaanl-c-solving.htm):
+sequential thermal stress is appropriate when the thermal solution does not
+require feedback from the mechanical response. See the
+[bounded two-way design](coupling_design.md) before introducing feedback.
+
 ## Continuum loads
 
 ```python

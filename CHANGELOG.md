@@ -8,6 +8,12 @@ experimental formulation to a validated one.
 
 ### Sequential field handoff
 
+- Roll back accepted transfer evidence together with nodal fields after a
+  rejected downstream solve. Extend the hot-wall example with explicit heat
+  restart, recipe checking and upstream checkpoint provenance; retrying
+  elasticity does not rerun completed heat increments.
+- Add a multi-material sequential regression with different conductivities,
+  temperature-dependent moduli and exact unsmoothed cell-average stresses.
 - Engineering predefined fields now reject silent cross-mesh/space/component
   mismatches, allow explicit same-mesh interpolation, and stage assignments
   atomically across MPI ranks. Optional source/target times must match.

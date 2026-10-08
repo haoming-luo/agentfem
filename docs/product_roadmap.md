@@ -103,8 +103,13 @@ The same-mesh slice is implemented with nodal field transactions and uniform/
 linear-temperature analytical response tests, including two-rank rollback and
 transfer after thermal restart. Temperature/material dependence retains the
 ordinary operator lowering; no new global coupling solver is introduced.
-Cross-region coupled examples and a combined coupling checkpoint remain
-separate from the existing multi-material eigenstrain and thermal restart gates.
+The multi-region handoff regression now combines two conductivities, regional
+E(T) and thermal expansion with exact cell-average stress checks. The existing
+hot-wall example restores accepted heat and recomputes only mechanics; a
+rejected structural trial rolls back field and transfer evidence together.
+This is durable upstream reuse, not a combined multiphysics checkpoint.
+The next two-way slice is specified in [coupling design](coupling_design.md),
+including participant rollback, unrelaxed residuals and a monolithic oracle.
 
 Stop after this vertical route has explicit field/response and state evidence.
 Nonmatching-mesh transfer, two-way staggered iteration, monolithic Jacobians,

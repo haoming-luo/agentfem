@@ -6,6 +6,30 @@ the most expensive command after every keystroke.
 
 ## Validation layers
 
+### Sequential thermal--mechanical sprint (2026-10-08)
+
+Focused acceptance: 71 serial tests across field transfer, public recovery
+example, engineering workflows, State, thermoelastic semantics and documentation.
+The field-transfer and example modules additionally pass 20 tests per rank on
+two MPICH processes. A separate public-example run saved heat on one rank and
+restored on two ranks, reporting zero thermal solves during structural recovery.
+These are bounded workflow checks, not a full release acceptance.
+
+```bash
+python -m pytest -q tests/test_sequential_field_transfer.py tests/test_sequential_workflow_example.py tests/test_engineering_workflows.py tests/test_state_contract.py tests/test_thermoelastic_semantics.py tests/test_documentation.py
+agentfem mpi-run -n 2 --timeout 180 -- python -m pytest -q tests/test_sequential_field_transfer.py tests/test_sequential_workflow_example.py
+```
+
+Use a new directory for the first command below, then reuse it only with the
+explicit recovery flag:
+
+```bash
+python examples/thermal_stress_wall_2d.py --smoke --output outputs/wall-recovery
+agentfem mpi-run -n 2 --timeout 180 -- python examples/thermal_stress_wall_2d.py --smoke --resume-heat --output outputs/wall-recovery
+```
+
+The layered testing policy remains:
+
 | Moment | Required evidence | Typical command |
 | --- | --- | --- |
 | Inner development loop | Direct unit/interface tests for the changed owner | `python -m pytest -q tests/test_extensions.py` |

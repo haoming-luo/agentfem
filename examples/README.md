@@ -67,7 +67,10 @@ unless the example is intentionally advanced.
 12. `thermal_stress_wall_2d.py`
    Power-plant-oriented sequential coupling. One thermoelastic material feeds
    implicit heat transfer and the equivalent thermal-expansion load of a
-   plane-strain stress solve.
+   plane-strain stress solve. `--output DIR --smoke` runs a small case;
+   repeat with `--resume-heat` to reuse its accepted thermal checkpoint and
+   recompute only mechanics. Field transfer, failure rollback and upstream
+   checkpoint provenance use the ordinary public workflow.
 
 13. `creep_hot_wall_assessment.py`
    Power-component screening route. Connects transient heat FEM, sequential
