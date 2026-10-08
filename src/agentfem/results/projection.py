@@ -227,6 +227,12 @@ def _prepare_projection_terms(
             raise ValueError(
                 "All piecewise projection expressions need one value shape."
             )
+        if isinstance(expression, ufl.constantvalue.Zero) or (
+            isinstance(expression, (int, float, np.number)) and expression == 0
+        ):
+            # Retain the test space in an exactly zero projected field. UFL
+            # otherwise erases the linear-form argument before PETSc assembly.
+            expression = fem.Constant(domain, np.zeros(shape))
         lhs_term = term_weight * ufl.inner(trial, test) * measure
         rhs_term = term_weight * ufl.inner(expression, test) * measure
         lhs = lhs_term if lhs is None else lhs + lhs_term

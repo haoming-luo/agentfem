@@ -1248,6 +1248,7 @@ and evidence remain in the linked guides and scientific function reference.
 | function | `reaction_expression(value, law: str \| Mapping[str, object], **parameters)` | Lower a named scalar reaction law to a UFL expression. |
 | function | `streamline_upwind_operator(strong_residual, test, velocity, *, tau = None, domain = None, measure = ufl.dx, name: str = 'A_supg') -> OperatorForm` | Return a SUPG contribution ``tau R(u) (v . grad(w))``. |
 | function | `transient_transport_forms(trial, test, previous, source, previous_source, velocity, diffusivity, *, dt: float, theta: float = 0.5, tau = None, measure = ufl.dx)` | Return ``(a, L)`` for a constant-coefficient transport theta step. |
+| function | `thermoelastic_heat_source(test, displacement_increment, *, coupling_coefficient, reference_temperature, dt, measure = ufl.dx)` | Return RHS ``-beta*T0*div(delta_u)/dt`` (not plastic dissipation). |
 
 ## `agentfem.procedures`
 

@@ -105,6 +105,7 @@ from .transport import (
     streamline_upwind_operator,
     transient_transport_forms,
 )
+from .thermoelastic import thermoelastic_heat_source
 
 assemble_lumped_mass = lumped_mass
 assemble_lumped_operator = lumped_operator
@@ -193,6 +194,7 @@ __all__ = [
     "transient_transport_forms",
     "split_laplacian_operator",
     "thermal_expansion_vector",
+    "thermoelastic_heat_source",
     "eigenstrain_vector",
     "viscous_flow_operator",
     "quadratic_form",

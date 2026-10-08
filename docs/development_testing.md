@@ -6,6 +6,25 @@ the most expensive command after every keystroke.
 
 ## Validation layers
 
+### Two-way thermoelastic prototype (2026-10-08)
+
+The bounded experiment and its zero-field fixes passed 174 related serial
+tests, with one rank-divergence test intentionally skipped in serial. The
+prototype and prepared-linear modules passed 14 tests per rank with two MPICH
+processes. Related coverage includes projection, zero thermal expansion,
+prepared boundary reuse, first/second-order lifecycle, architecture and docs;
+this is not a full-release regression.
+
+```bash
+python -m pytest -q tests/test_thermoelastic_coupling_prototype.py tests/test_prepared_linear_problem.py tests/test_thermoelastic_semantics.py
+agentfem mpi-run -n 2 --timeout 120 -- python -m pytest -q tests/test_thermoelastic_coupling_prototype.py tests/test_prepared_linear_problem.py
+PYTHONPATH=src python tools/benchmark_thermoelastic_coupling.py --nonuniform --output outputs/coupling-prototype.json
+```
+
+The CLI result retains input fingerprints, tolerances, residuals, reference
+errors and assembly counts without automatically promoting trust. See
+[coupling design](coupling_design.md) for the identities and remaining gates.
+
 ### Sequential thermal--mechanical sprint (2026-10-08)
 
 Focused acceptance: 71 serial tests across field transfer, public recovery

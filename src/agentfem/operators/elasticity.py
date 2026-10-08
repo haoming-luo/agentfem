@@ -119,6 +119,15 @@ def eigenstrain_vector(
         study=study,
         dimension=dimension,
     )
+    if isinstance(stress, ufl.constantvalue.Zero):
+        # Zero expansion/eigenstrain must still produce a linear zero load,
+        # not a domain-less scalar form after UFL simplification.
+        import numpy as np
+        from dolfinx import fem
+
+        stress = fem.Constant(
+            ufl.domain.extract_unique_domain(test), np.zeros(stress.ufl_shape)
+        )
     weight = _axisymmetric.integration_weight(test, study)
     base_properties = getattr(properties, "material", properties)
     metadata = {

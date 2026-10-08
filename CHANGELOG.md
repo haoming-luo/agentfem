@@ -6,6 +6,22 @@ experimental formulation to a validated one.
 
 ## [Unreleased]
 
+### Thermoelastic coupling experiment
+
+- Add an explicit three-dimensional reversible heat-feedback Operator, with
+  constant-strain capacity semantics and early geometry/time/measure checks.
+- Add a bounded staggered thermoelastic verification prototype against an
+  independent mixed-space block solve and a closed-form uniform solution.
+  Includes outer-failure rollback, MPI-global residuals, fixed under-relaxation,
+  prepared-matrix reuse and explicitly limited energy identities. This is not
+  yet a production coupled Step or joint durable checkpoint.
+- Preserve linear-form arity for exactly zero eigenstrain/thermal expansion
+  and scalar/vector/tensor result projection, including zero-temperature-rise
+  standard result output.
+- Invalidate PETSc solution-vector cache state before a prepared linear solve
+  after possible NumPy field edits; zero-RHS solves must not preserve stale
+  nonzero values. Matrix assembly/factorization reuse is unchanged.
+
 ### Sequential field handoff
 
 - Roll back accepted transfer evidence together with nodal fields after a

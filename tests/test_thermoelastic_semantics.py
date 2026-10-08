@@ -266,3 +266,18 @@ def test_three_dimensional_free_expansion_uses_the_same_public_contract():
     np.testing.assert_allclose(values, 1.0e-3 * coordinates, rtol=2.0e-8, atol=2.0e-11)
     assert np.max(np.abs(simulation.fields["S"].field.x.array)) < 1.0e-6
     assert simulation.fields["S"].processing["material_boundary_averaging"] is False
+
+
+@pytest.mark.parametrize("alpha,temperature", [(0.0, 400.0), (1e-5, 300.0)])
+def test_exactly_zero_eigenstrain_remains_a_valid_linear_load(alpha, temperature):
+    domain = mesh.rectangle((0., 0.), (1., 1.), (2, 2), comm=MPI.COMM_SELF)
+    model = models.create(
+        study=studies.static_solid(dimension=2, assumption="plane_strain"), mesh=domain
+    )
+    u = model.field(fields.displacement(domain))
+    model.material(_thermoelastic(name="zero-expansion", alpha=alpha))
+    model.fix(u, location=lambda x: np.isclose(x[0], 0.))
+    model.eigenstrain(eigenstrains.thermal(temperature))
+    result = model.step(target=u).solve_result()
+    np.testing.assert_array_equal(u.value.x.array, 0.)
+    np.testing.assert_array_equal(result.fields["S"].field.x.array, 0.)

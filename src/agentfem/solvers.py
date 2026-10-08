@@ -599,7 +599,12 @@ class PreparedLinearProblem:
                 addv=PETSc.InsertMode.ADD, mode=PETSc.ScatterMode.REVERSE
             )
         fem_petsc.set_bc(vector, self.bcs)
-        self.ksp.solve(vector, self.solution.x.petsc_vec)
+        solution_vector = self.solution.x.petsc_vec
+        # DOLFINx exposes a NumPy view that can change between solves without
+        # advancing PETSc's object state. Invalidate cached norms before KSP
+        # can take a zero-RHS/zero-initial-guess shortcut on stale information.
+        solution_vector.stateIncrease()
+        self.ksp.solve(vector, solution_vector)
         self.solution.x.scatter_forward()
         info = LinearSolveInfo(
             converged_reason=int(self.ksp.getConvergedReason()),
