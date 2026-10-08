@@ -325,8 +325,8 @@ Please cite the AgentFEM version used. GitHub's **Cite this repository** uses
   author  = {Luo, Haoming},
   title   = {AgentFEM},
   year    = {2026},
-  version = {0.4.0},
-  url     = {https://github.com/haoming-luo/agentfem/releases/tag/v0.4.0}
+  version = {0.4.1},
+  url     = {https://github.com/haoming-luo/agentfem/releases/tag/v0.4.1}
 }
 ```
 
