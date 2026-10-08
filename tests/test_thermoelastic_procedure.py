@@ -9,11 +9,13 @@ import ufl
 from dolfinx import fem, mesh as dmesh
 from mpi4py import MPI
 
-from agentfem import constitutive, fields, mesh
+from agentfem import amplitudes, constraints, constitutive, fields, mesh
 from agentfem.time.thermoelastic import _ThermoelasticStep
 
 
-def make_step(*, cells="tetrahedron", alpha=0.002):
+def make_step(
+    *, cells="tetrahedron", alpha=0.002, dilation_rate=None, temperature_rate=None
+):
     domain = mesh.cuboid(
         (0.0, 0.0, 0.0),
         (2.0, 1.0, 3.0),
@@ -38,6 +40,33 @@ def make_step(*, cells="tetrahedron", alpha=0.002):
         )
         dofs = fem.locate_dofs_topological(u.space.sub(axis), 2, facets)
         bcs.append(fem.dirichletbc(0.0, dofs, u.space.sub(axis)))
+        if dilation_rate is not None:
+            length = (2.0, 1.0, 3.0)[axis]
+            bcs.append(
+                constraints.time_dependent_component_dirichlet(
+                    u,
+                    axis,
+                    marker=lambda x, axis=axis, length=length: np.isclose(
+                        x[axis], length
+                    ),
+                    amplitude=amplitudes.ramp(end_value=dilation_rate * length),
+                    name=f"motion_{axis}",
+                )
+            )
+    thermal_bcs = []
+    if temperature_rate is not None:
+        thermal_bcs.append(
+            constraints.time_dependent_scalar_dirichlet(
+                theta,
+                marker=lambda x: np.any(
+                    np.isclose(x, 0.0)
+                    | np.isclose(x, np.array([2.0, 1.0, 3.0])[:, None]),
+                    axis=0,
+                ),
+                amplitude=amplitudes.ramp(end_value=temperature_rate),
+                name="boundary_temperature",
+            )
+        )
     return _ThermoelasticStep(
         u,
         theta,
@@ -45,12 +74,15 @@ def make_step(*, cells="tetrahedron", alpha=0.002):
         dt=0.1,
         steps=3,
         mechanical_bcs=bcs,
+        thermal_bcs=thermal_bcs,
         heat_load=fem.Constant(domain, 10.0) * theta.test * ufl.dx,
         input_identity={
             "geometry": [2, 1, 3],
             "source": 10,
             "boundaries": "lower-face rollers, insulated",
             "initial": "zero",
+            "dilation_rate": dilation_rate,
+            "temperature_rate": temperature_rate,
         },
     )
 
@@ -71,6 +103,11 @@ def test_geometry_independent_procedure_matches_closed_form(cells):
         assert set(result.metadata["matrix_assemblies"].values()) == {1}
         assert not hasattr(step, "reference")
         assert step.completed_steps == 3
+        assert max(item["quadratic_balance_absolute"] for item in step.history) < 1e-10
+        assert (
+            max(item["linearized_heat_balance_absolute"] for item in step.history)
+            < 2e-8
+        )
         with pytest.raises(RuntimeError, match="AFM-COUPLING-004"):
             step.advance()
 
@@ -146,3 +183,50 @@ def test_joint_procedure_restart_and_corrupt_history_are_atomic(tmp_path):
         assert restarted.completed_steps == 3
         for f, snapshot in zip((restarted.u.value, restarted.theta.value), snapshots):
             np.testing.assert_array_equal(f.x.array, snapshot)
+
+
+def test_registered_motion_work_and_boundary_rollback(tmp_path):
+    path = MPI.COMM_WORLD.bcast(str(tmp_path / "moving"), root=0)
+    rate = 0.0001
+    with make_step(dilation_rate=rate) as step:
+        previous_reaction = 0.0
+        for _ in range(2):
+            record = step.advance()
+            theta = (10 - 3 * step.blocks.beta * 300 * rate) * step.time / 100
+            reaction = 6 * 3 * (2000 * rate * step.time - step.blocks.beta * theta)
+            assert record["prescribed_motion_path_work"] == pytest.approx(
+                0.5 * (previous_reaction + reaction) * rate * 0.1, abs=1e-11
+            )
+            assert record["quadratic_balance_absolute"] < 1e-10
+            assert record["linearized_heat_balance_absolute"] < 2e-8
+            previous_reaction = reaction
+        step.save_checkpoint(path)
+        accepted = [float(b.constant.value) for b in step._time_boundaries]
+
+        def reject(_):
+            if step.comm.rank == 0:
+                raise RuntimeError("reject prescribed motion")
+
+        with pytest.raises(RuntimeError, match="reject prescribed motion"):
+            step.advance(acceptance_check=reject)
+        assert [float(b.constant.value) for b in step._time_boundaries] == accepted
+        expected = step.advance()
+        with make_step(dilation_rate=rate) as resumed:
+            resumed.load_checkpoint(path)
+            assert [
+                float(b.constant.value) for b in resumed._time_boundaries
+            ] == accepted
+            actual = resumed.advance()
+            assert actual["prescribed_motion_path_work"] == pytest.approx(
+                expected["prescribed_motion_path_work"], abs=1e-11
+            )
+
+
+@pytest.mark.parametrize("rate", [-0.2, 0.2])
+def test_registered_temperature_boundary_has_signed_heat_reaction(rate):
+    with make_step(temperature_rate=rate) as step:
+        for _ in range(3):
+            record = step.advance()
+            assert record["prescribed_temperature_heat_input"] * rate > 0
+            assert record["linearized_heat_balance_absolute"] < 2e-8
+            assert record["quadratic_balance_absolute"] < 1e-10

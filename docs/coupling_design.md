@@ -154,8 +154,21 @@ not construct a reference solution. Its fixed-input joint checkpoint contains
 only physical accepted fields and history; the caller must supply a reviewed
 scientific input identity, in addition to the material and mesh identity.
 History is integrity-checked before live state changes. This is not a built-in
-Step provider yet: registered time-dependent boundaries, generic work/heat
-evidence and public execution/output policy remain its next gates.
+Step provider yet; public execution/output policy remains a gate.
+
+The private Procedure now consumes existing `TimeDependentDirichlet` assets,
+updates them at the proposed physical time, and restores their constants on
+rejection. Restore re-evaluates the same registered histories at accepted time.
+No arbitrary operator-changing callback is accepted. Generic evidence uses
+uneliminated thermal/mechanical residuals on owned strong-boundary DOFs, with
+reverse ghost accumulation, instead of geometry-specific reaction formulas.
+Natural-load and prescribed-motion path work retain both accepted force
+stations; their force history is part of the joint checkpoint. Energy forms
+are compiled once. The result reports separate cumulative heat and path work,
+linearized heat residual and quadratic residual; trust remains `computed`.
+Numerical inputs/results in this private slice use SI. Non-SI Model metadata,
+ordinary output policies and explicit capability rejection need review before
+public registration.
 
 ## Product decision
 

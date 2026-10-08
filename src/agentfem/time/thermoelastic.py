@@ -8,25 +8,28 @@ the physical participants and one accepted time coordinate. No mesh creation
 or reference solution belongs here.
 """
 
-from contextlib import ExitStack
+from contextlib import ExitStack, contextmanager
 from copy import deepcopy
 from math import isfinite
 from hashlib import sha256
 import json
+import numpy as np
 
 from .. import checkpointing, results, solvers, state
+from ..constraints import TimeDependentDirichlet
 from ..operators.thermoelastic import _thermoelastic_blocks
 from ..provenance import collective_call, collective_canonical_record
 from ._staggered import StaggeredFieldIteration
+from ._thermoelastic_energy import ThermoelasticEnergyEvidence
 
 
 class _ThermoelasticStep:
-    """Same-mesh 3D homogeneous small-strain physics with fixed inputs.
+    """Same-mesh 3D homogeneous small-strain physics with SI numeric inputs.
 
     Temperature is explicitly a departure from material reference temperature.
-    Joint fixed-input restart is available with explicit scientific identity.
-    Boundary/time-input and general work evidence must be completed before
-    registering this private executable as a built-in public provider.
+    Registered time-dependent strong values modify only the RHS. Joint restart
+    includes their accepted time and conjugate force history. Public execution
+    and output policy still need integration before built-in Step promotion.
     """
 
     def __init__(
@@ -56,8 +59,22 @@ class _ThermoelasticStep:
             raise ValueError("Positive finite dt and positive integer steps required.")
         self.dt, self.total_steps, self.completed_steps = float(dt), steps, 0
         self.name, self.material = name, material
+        mechanical_assets, thermal_assets = tuple(mechanical_bcs), tuple(thermal_bcs)
+        self._time_boundaries = tuple(
+            item
+            for item in (*mechanical_assets, *thermal_assets)
+            if isinstance(item, TimeDependentDirichlet)
+        )
+        mechanical_bcs = tuple(getattr(item, "bc", item) for item in mechanical_assets)
+        thermal_bcs = tuple(getattr(item, "bc", item) for item in thermal_assets)
         self.input_identity = collective_canonical_record(
-            {"declared_inputs": input_identity, "material": material.as_dict()},
+            {
+                "declared_inputs": input_identity,
+                "material": material.as_dict(),
+                "boundary_histories": [
+                    item.summary() for item in self._time_boundaries
+                ],
+            },
             comm=self.comm,
             label="coupled scientific input identity",
         )
@@ -84,7 +101,13 @@ class _ThermoelasticStep:
         self._active = False
         self._closed = False
         self._resources = ExitStack()
+        mechanical_bcs, thermal_bcs = tuple(mechanical_bcs), tuple(thermal_bcs)
+        initial_boundary_values = [
+            np.asarray(item.constant.value).copy() for item in self._time_boundaries
+        ]
         try:
+            with self._boundary_time(0.0):
+                pass
             self.thermal = self._resources.enter_context(
                 solvers.prepare_linear_problem(
                     self.blocks.thermal_matrix,
@@ -103,13 +126,42 @@ class _ThermoelasticStep:
                     options=solver_options,
                 )
             )
+            self.energy = ThermoelasticEnergyEvidence(
+                self, mechanical_bcs, thermal_bcs, heat_load, mechanical_load
+            )
         except BaseException:
+            for item, value in zip(self._time_boundaries, initial_boundary_values):
+                item.constant.value = value
             self.close()
             raise
 
     @property
     def time(self):
         return self.completed_steps * self.dt
+
+    @contextmanager
+    def _boundary_time(self, time):
+        previous = [
+            np.asarray(item.constant.value).copy() for item in self._time_boundaries
+        ]
+        try:
+
+            def update():
+                for item in self._time_boundaries:
+                    item.update(time)
+                    if not np.all(np.isfinite(item.constant.value)):
+                        raise ValueError(
+                            "AFM-COUPLING-002: non-finite prescribed boundary."
+                        )
+
+            collective_call(
+                update, comm=self.comm, label="update coupled boundary time"
+            )
+            yield
+        except BaseException:
+            for item, value in zip(self._time_boundaries, previous):
+                item.constant.value = value
+            raise
 
     def advance(
         self,
@@ -135,7 +187,10 @@ class _ThermoelasticStep:
             raise RuntimeError("AFM-COUPLING-004: no new coupled window is available.")
         self._active = True
         try:
-            with state.field_transaction(displacement=self.u, temperature=self.theta):
+            with (
+                self._boundary_time((self.completed_steps + 1) * self.dt),
+                state.field_transaction(displacement=self.u, temperature=self.theta),
+            ):
                 residuals = self._iteration.run(
                     (self.thermal.solve, self.mechanical.solve),
                     absolute_tolerances={
@@ -160,6 +215,8 @@ class _ThermoelasticStep:
                         "temperature_atol": temperature_atol,
                     },
                 }
+                evidence, reaction, external = self.energy.evaluate()
+                record.update(evidence)
                 if acceptance_check is not None:
                     collective_call(
                         lambda: acceptance_check(deepcopy(record)),
@@ -173,6 +230,7 @@ class _ThermoelasticStep:
                 previous.x.array[:] = current.x.array
                 previous.x.scatter_forward()
             self.completed_steps += 1
+            self.energy.commit(reaction, external)
             self.history.append(record)
             return deepcopy(record)
         finally:
@@ -189,12 +247,33 @@ class _ThermoelasticStep:
         result = results.SimulationResult(self.name)
         result.add_field("Displacement", self.u.value.copy(), unit="m")
         result.add_field("TemperatureDeparture", self.theta.value.copy(), unit="K")
+        for key in ("linearized_heat_balance_absolute", "quadratic_balance_absolute"):
+            result.add_quantity(
+                "maximum_" + key,
+                max(record[key] for record in self.history),
+                unit="J",
+                kind="diagnostic",
+            )
+        for key in (
+            "natural_heat_input",
+            "prescribed_temperature_heat_input",
+            "prescribed_motion_path_work",
+            "natural_load_path_work",
+        ):
+            result.add_quantity(
+                "cumulative_" + key,
+                sum(record[key] for record in self.history),
+                unit="J",
+                kind="diagnostic",
+            )
         result.metadata.update(
             {
-                "maturity": "private_fixed_input_procedure",
+                "maturity": "private_thermoelastic_procedure",
+                "unit_system": "SI",
                 "time": self.time,
                 "accepted_steps": self.completed_steps,
                 "reference_temperature": self.material.reference_temperature,
+                "energy_semantics": "linearized_heat_and_quadratic_identity_not_general_first_law",
                 "restart_source": deepcopy(self.restart_source),
                 "history": deepcopy(self.history),
                 "matrix_assemblies": {
@@ -208,9 +287,14 @@ class _ThermoelasticStep:
                 "limitations": [
                     "no_public_step_provider",
                     "no_general_energy_verification",
-                    "fixed_inputs_only",
+                    "constant_material_and_natural_loads",
                 ],
             }
+        )
+        result.add_scientific_inputs(
+            model=self.input_identity,
+            time_path={"dt": self.dt, "steps": self.total_steps},
+            iteration_policies=[record["iteration_policy"] for record in self.history],
         )
         return result
 
@@ -219,6 +303,36 @@ class _ThermoelasticStep:
         return sha256(
             json.dumps(history, sort_keys=True, allow_nan=False).encode()
         ).hexdigest()
+
+    def checkpoint_capabilities(self):
+        return checkpointing.CheckpointCapabilities(
+            schemas=(checkpointing.TRANSIENT_CHECKPOINT_SCHEMA,),
+            boundary="accepted_step",
+            payload_scope="full_restart_state",
+            state_components=(
+                "displacement",
+                "temperature_departure",
+                "mechanical_reaction",
+                "external_force",
+                "accepted_time",
+                "history",
+            ),
+            atomic_publication=True,
+            rank_count_portability="requires_portable_policy",
+            identity_scope=(
+                "mesh",
+                "element",
+                "material",
+                "declared_inputs",
+                "boundary_histories",
+                "time_path",
+            ),
+            limitations=(
+                "Explicit scientific input identity is required.",
+                "Constant material and natural loads; fixed strong-boundary DOF sets.",
+                "Not a public coupled Step yet.",
+            ),
+        )
 
     def _checkpoint_arguments(self):
         boundary = (self.completed_steps, self._active, self._closed)
@@ -252,7 +366,12 @@ class _ThermoelasticStep:
             path,
             **self._checkpoint_arguments(),
             completed_steps=self.completed_steps,
-            state={"displacement": self.u_old, "temperature_departure": self.theta_old},
+            state={
+                "displacement": self.u_old,
+                "temperature_departure": self.theta_old,
+                "mechanical_reaction": self.energy.old_reaction,
+                "external_force": self.energy.old_external,
+            },
             accepted_times=[record["time"] for record in self.history],
             history_records=self.history,
             auxiliary_state={"history_sha256": self._history_digest(self.history)},
@@ -263,6 +382,8 @@ class _ThermoelasticStep:
         staged = {
             "displacement": self.u_old.copy(),
             "temperature_departure": self.theta_old.copy(),
+            "mechanical_reaction": self.energy.old_reaction.copy(),
+            "external_force": self.energy.old_external.copy(),
         }
         metadata = checkpointing.load_transient_checkpoint(
             path, **self._checkpoint_arguments(), state=staged
@@ -283,14 +404,24 @@ class _ThermoelasticStep:
         for i, record in enumerate(history):
             if record["step"] != i + 1 or record["time"] != (i + 1) * self.dt:
                 raise ValueError("AFM-COUPLING-005: inconsistent checkpoint time.")
-        with state.field_transaction(
-            u=self.u, t=self.theta, u_old=self.u_old, t_old=self.theta_old
+        with (
+            self._boundary_time(count * self.dt),
+            state.field_transaction(
+                u=self.u,
+                t=self.theta,
+                u_old=self.u_old,
+                t_old=self.theta_old,
+                reaction=self.energy.old_reaction,
+                external=self.energy.old_external,
+            ),
         ):
             for target, key in (
                 (self.u.value, "displacement"),
                 (self.u_old, "displacement"),
                 (self.theta.value, "temperature_departure"),
                 (self.theta_old, "temperature_departure"),
+                (self.energy.old_reaction, "mechanical_reaction"),
+                (self.energy.old_external, "external_force"),
             ):
                 target.x.array[:] = staged[key].x.array
                 target.x.scatter_forward()
