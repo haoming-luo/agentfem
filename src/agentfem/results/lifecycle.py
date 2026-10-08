@@ -46,6 +46,7 @@ def complete_result(
     fields=(),
     strict_output: bool = False,
     deformation_scale: float = 0.0,
+    time: float = 0.0,
     metadata: Mapping[str, object] | None = None,
 ):
     """Complete output and metadata through one compatibility-safe path.
@@ -100,6 +101,7 @@ def complete_result(
     attach_result_field_output(
         result,
         selected_output,
+        time=time,
         names=tuple(fields),
         deformation_scale=float(deformation_scale),
         strict=bool(strict_output),

@@ -297,6 +297,22 @@ def transient_heat_transfer(*, dimension: int, name: str | None = None) -> Study
     )
 
 
+def coupled_thermoelastic(*, dimension: int = 3, name: str | None = None) -> Study:
+    """Experimental shared-mesh, small-strain, quasi-static thermoelasticity.
+
+    Temperature is a departure from the constant material reference. The
+    first implementation is 3D and does not include inertia or plastic heat.
+    """
+    if dimension != 3:
+        raise ValueError("Coupled thermoelasticity currently requires dimension=3.")
+    return first_order_transient(
+        physics="multiphysics", dimension=3,
+        assumption="small_strain_thermoelasticity",
+        procedure="staggered_implicit_euler",
+        name=name or "coupled_thermoelastic",
+    )
+
+
 def viscoelastic_solid(
     *,
     dimension: int = 3,

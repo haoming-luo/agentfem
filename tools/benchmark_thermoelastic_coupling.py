@@ -20,10 +20,18 @@ def main():
     parser.add_argument("--alpha", type=float, default=0.002)
     parser.add_argument("--relaxation", type=float, default=1.0)
     parser.add_argument("--nonuniform", action="store_true")
+    parser.add_argument("--inward-heat-flux", type=float, default=0.0)
+    parser.add_argument("--dilation-rate", type=float)
+    parser.add_argument("--temperature-rate", type=float)
+    parser.add_argument("--checkpoint", type=Path)
+    parser.add_argument("--resume", type=Path)
+    parser.add_argument("--stop-after", type=int)
     parser.add_argument("--output", type=Path)
     args = parser.parse_args()
     if args.steps < 1:
         parser.error("--steps must be positive")
+    if args.stop_after is not None and not 1 <= args.stop_after <= args.steps:
+        parser.error("--stop-after must lie within the declared path")
     comm = MPI.COMM_WORLD
     with _ThermoelasticPrototype(
         comm=comm,
@@ -31,8 +39,13 @@ def main():
         dt=args.dt,
         alpha=args.alpha,
         nonuniform=args.nonuniform,
+        inward_heat_flux=args.inward_heat_flux,
+        dilation_rate=args.dilation_rate,
+        temperature_rate=args.temperature_rate,
     ) as case:
-        for _ in range(args.steps):
+        if args.resume:
+            case.load_checkpoint(args.resume, total_steps=args.steps)
+        for _ in range(case.completed_steps, args.stop_after or args.steps):
             record = case.advance(relaxation=args.relaxation)
             if comm.rank == 0:
                 print(
@@ -41,6 +54,8 @@ def main():
                     f"T_error={record['temperature_reference_error']:.3e} "
                     f"u_error={record['displacement_reference_error']:.3e}"
                 )
+        if args.checkpoint:
+            case.save_checkpoint(args.checkpoint, total_steps=args.steps)
         result = case.result()
         if args.output:
             collective_call(

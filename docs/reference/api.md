@@ -28,6 +28,7 @@ and evidence remain in the linked guides and scientific function reference.
 | function | `first_order_transient(*, physics: str, dimension: int, assumption: str \| None = None, name: str \| None = None, procedure: str \| None = None) -> Study` | Define a first-order transient study. |
 | function | `transient(*, physics: str, dimension: int, assumption: str \| None = None, name: str \| None = None, procedure: str \| None = None) -> Study` | Compatibility alias for ``first_order_transient``. |
 | function | `transient_heat_transfer(*, dimension: int, name: str \| None = None) -> Study` | Define an implicit first-order heat-transfer study. |
+| function | `coupled_thermoelastic(*, dimension: int = 3, name: str \| None = None) -> Study` | Experimental shared-mesh, small-strain, quasi-static thermoelasticity. |
 | function | `viscoelastic_solid(*, dimension: int = 3, assumption: str \| None = None, name: str \| None = None) -> Study` | Define quasi-static small-strain generalized-Maxwell evolution. |
 | function | `harmonic_solid(*, dimension: int = 3, assumption: str \| None = None, name: str \| None = None) -> Study` | Define a direct steady-state harmonic solid-mechanics study. |
 | function | `nonlinear_transient(*, physics: str, dimension: int, assumption: str \| None = None, name: str \| None = None, procedure: str \| None = None) -> Study` | Define a nonlinear time-domain study. |
@@ -563,7 +564,7 @@ and evidence remain in the linked guides and scientific function reference.
 | function | `recover_integration_point_field(source, *, name: str \| None = None, policy: FieldRecovery \| None = None, unit: str \| None = None, description: str = '') -> FieldResult` | Recover one ``QuadratureField`` without hiding its processing history. |
 | function | `add_execution_trace(result, events: Iterable[object]) -> tuple[dict[str, object], ...]` | Attach one complete execution trace and its standard histories. |
 | function | `execution_records(events: Iterable[object]) -> tuple[dict[str, object], ...]` | Normalize solver events without depending on a particular procedure. |
-| function | `complete_result(step, result, *, output = None, fields = (), strict_output: bool = False, deformation_scale: float = 0.0, metadata: Mapping[str, object] \| None = None)` | Complete output and metadata through one compatibility-safe path. |
+| function | `complete_result(step, result, *, output = None, fields = (), strict_output: bool = False, deformation_scale: float = 0.0, time: float = 0.0, metadata: Mapping[str, object] \| None = None)` | Complete output and metadata through one compatibility-safe path. |
 | function | `execution_context(step)` | Return the context bound by :meth:`Model.step`, when available. |
 | class | `HarmonicAverageResponse` | Measure-weighted complex average with rank-local assembly. |
 | class | `HarmonicProbeResponse` | Complex finite-element point probe with framework-owned MPI selection. |
@@ -1259,6 +1260,7 @@ and evidence remain in the linked guides and scientific function reference.
 | function | `modal() -> SolutionProcedure` | Undamped linear modes from ``K phi = lambda M phi``. |
 | function | `nonlinear_static(*, stateful: bool = False) -> SolutionProcedure` | Public AgentFEM object. |
 | function | `implicit_euler(*, nonlinear: bool = False, stateful: bool = True) -> SolutionProcedure` | Public AgentFEM object. |
+| function | `staggered_implicit_euler() -> SolutionProcedure` | Backward Euler advanced through converged participant iterations. |
 | function | `quasistatic_viscoelasticity() -> SolutionProcedure` | Exact generalized-Maxwell update with incremental equilibrium. |
 | function | `direct_harmonic() -> SolutionProcedure` | Direct real-block solve of a complex steady-state harmonic system. |
 | function | `direct_harmonic_sweep() -> SolutionProcedure` | Ordered independent solves over one canonical frequency axis. |

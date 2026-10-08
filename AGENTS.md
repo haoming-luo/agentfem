@@ -19,7 +19,8 @@ examples, tests, and public documentation at the repository root.
   numerical route.
 - Start ordinary cases with the physical Study factories: `static_solid`,
   `steady_heat_transfer`, `transient_heat_transfer`, `dynamic_solid`, or
-  `creep_solid`. Keep generic analysis-order factories for formulation work.
+  `creep_solid`. The bounded two-way route uses experimental
+  `coupled_thermoelastic`. Keep generic analysis-order factories for formulation work.
 - Keep materials, constraints, loads, boundary models, steps, and outputs as
   distinct concepts.
 - Keep surrogates, neural operators, neural-field solvers, and learned
