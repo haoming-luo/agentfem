@@ -43,6 +43,45 @@ because its display name stayed the same. The result remains experimental and
 
 ## Implemented experiment
 
+### Independent nonuniform decay convergence
+
+`tools/benchmark_coupled_decay.py` exercises the ordinary Step, not the private
+cube oracle. On a unit box, all normal displacements vanish and all thermal
+faces are insulated. With `H=lambda+2*mu`, `beta=(3*lambda+2*mu)*alpha` and
+`w=2*pi`, the independently derived continuous solution is
+
+```text
+theta = cos(w*x) * exp(-gamma*t)
+u_x = beta/(H*w) * sin(w*x) * exp(-gamma*t), u_y=u_z=0
+gamma = k*w^2 / (C + beta^2*T0/H)
+```
+
+Indeed `H*du_x/dx=beta*theta` satisfies axial equilibrium and the normal
+constraints; substituting into the linearized heat equation gives gamma.
+Nonzero initial fields are interpolated explicitly. The reference follows the
+linearized equations cited below; it is our analytical verification problem,
+not a reproduction of the cited perforated-plate geometry.
+
+The 2026-10-09 local Q1-hexahedron run kept one cell in each transverse
+direction (the exact solution is transverse-uniform). At 128 time steps,
+8/16/32 axial cells give temperature relative L2 errors
+`0.0712221 / 0.0177099 / 0.00404966`, and displacement errors
+`0.117874 / 0.0299607 / 0.00713390`. Observed spatial orders are
+`2.008, 2.129` and `1.976, 2.070`. At 128 axial cells, 4/8/16 time steps
+give temperature errors `0.0168227 / 0.00849863 / 0.00417228` and displacement
+errors `0.0166185 / 0.00829613 / 0.00397068`; temporal orders are
+`0.985, 1.026` and `1.002, 1.063`. The fixed acceptance requires both
+spatial orders above 1.7 and both temporal orders above 0.8.
+
+Each participant matrix assembles once in all six cases. Maximum quadratic
+residual is below `5.3e-14 J`. This is a bounded smooth-mode verification and
+reuse check, not extreme-scale performance, multidimensional mesh convergence,
+or a general first-law certificate. Reproduce with:
+
+```bash
+PYTHONPATH=src python tools/benchmark_coupled_decay.py --output /tmp/coupled-decay.json
+```
+
 `operators.thermoelastic_heat_source(...)` contributes explicit reversible
 volumetric heat feedback for constant coefficients on a shared 3D mesh. It
 does not enable coupling automatically. A separate private benchmark driver

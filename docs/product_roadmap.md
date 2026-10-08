@@ -117,7 +117,11 @@ Registered strong boundaries and a bounded ordinary Step provider now reuse
 the physical Procedure and joint restart, with explicit SI/participant-load
 contracts and final-snapshot output. Accepted-window progress/checkpoint cadence
 now reuses the existing reporter and policy, with explicit retention. Field-series
-output, space/time refinement and installed-use acceptance remain promotion gates;
+output and installed-use acceptance remain promotion gates. A separate smooth
+Fourier-mode oracle now shows approximately second-order spatial and first-order
+temporal convergence of both fields through the ordinary Step; its 1D mode
+embedded in 3D is not general multidimensional validation. See the coupling
+design for parameters, errors and fixed acceptance thresholds;
 no general coupled capability is declared stable.
 
 Execution order: finish this bounded thermal--mechanical product route first,
