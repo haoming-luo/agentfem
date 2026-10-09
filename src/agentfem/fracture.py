@@ -251,7 +251,7 @@ class FiniteStrainRegionalEnergyMonitor:
 
 def nonmatching_cohesive_force(pairing, displacement, law, *, negative_dofs,
                               positive_dofs, tangential="mixed", tangential_stiffness=None):
-    """Lower fixed triangular traces to a serial P1 reference interface force.
+    """Lower fixed P1/Q1 traces to a serial reference interface force.
 
     The ordinary linear-static Step currently consumes only elastic laws.
     Local damage evaluation is not an incremental global damage capability.

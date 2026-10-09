@@ -1,6 +1,6 @@
 # SPDX-FileCopyrightText: 2026 Haoming Luo and AgentFEM contributors
 # SPDX-License-Identifier: Apache-2.0
-"""Serial P1 lowering of reference interface residuals to existing PETSc assembly."""
+"""Serial P1/Q1 lowering of reference interface residuals to PETSc assembly."""
 
 import numpy as np
 
@@ -31,11 +31,17 @@ class NonmatchingCohesiveForce:
             or space.element.basix_element.discontinuous
         ):
             raise ValueError(
-                "Nonmatching force requires a three-component P1 displacement."
+                "Nonmatching force requires a continuous three-component degree-one displacement."
             )
-        if space.element.basix_element.cell_type.name != "tetrahedron":
+        topology = space.element.basix_element.cell_type.name
+        width = assembler.pairing.negative_nodes.shape[1]
+        other_width = assembler.pairing.positive_nodes.shape[1]
+        if (topology, width, other_width) not in {
+            ("tetrahedron", 3, 3),
+            ("hexahedron", 4, 4),
+        }:
             raise NotImplementedError(
-                "Only tetrahedral P1 traces are supported; Q1 is not P1."
+                "Trace basis must match volume topology: tetrahedral P1 or hexahedral Q1; Q1 is not P1."
             )
         self.assembler = assembler
         count = self.displacement.x.array.size // 3
@@ -77,6 +83,47 @@ class NonmatchingCohesiveForce:
     def begin(self):
         return self.assembler.begin(*self._values())
 
+    def evaluate(self):
+        return self.assembler.evaluate(*self._values())
+
+    def elastic_stability_bound(self, mass_diagonal):
+        """Conservative assembled mass-scaled eigenvalue bound for elastic laws."""
+        from ._elastic_cohesive import ElasticCohesiveLaw
+
+        law = self.assembler.law
+        if not isinstance(law, ElasticCohesiveLaw):
+            raise NotImplementedError(
+                "Nonmatching stability currently supports elastic interfaces only."
+            )
+        mass = np.asarray(mass_diagonal, dtype=float)
+        if (
+            mass.shape != self.displacement.x.array.shape
+            or not np.all(np.isfinite(mass))
+            or np.any(mass <= 0)
+        ):
+            raise ValueError(
+                "Interface stability requires positive finite global diagonal mass."
+            )
+        nodal_mass = mass.reshape(-1, 3).min(axis=1)
+        pair = self.assembler.pairing
+        negative = self.negative_dofs[pair.negative_nodes]
+        positive = self.positive_dofs[pair.positive_nodes]
+        wn = np.abs(pair.negative_weights) / np.sqrt(nodal_mass[negative])
+        wp = np.abs(pair.positive_weights) / np.sqrt(nodal_mass[positive])
+        stiffness = max(
+            law.normal_stiffness,
+            law.tangential_stiffness,
+            law.second_tangential_stiffness,
+        )
+        weight = pair.weights * stiffness * (wn.sum(axis=1) + wp.sum(axis=1))
+        rows = np.zeros_like(nodal_mass)
+        np.add.at(rows, negative.ravel(), (weight[:, None] * wn).ravel())
+        np.add.at(rows, positive.ravel(), (weight[:, None] * wp).ravel())
+        bound = float(rows.max())
+        if not np.isfinite(bound) or bound <= 0:
+            raise ValueError("Interface spectral bound must be positive finite.")
+        return bound
+
     def add_to_vector(self, vector):
         response = self.begin()
         values = vector.array.reshape(-1, 3)
@@ -113,7 +160,8 @@ class NonmatchingCohesiveForce:
             "kind": "nonmatching_cohesive_force",
             "pairing": self.assembler.pairing.summary(),
             "law": self.assembler.law.summary(),
-            "execution_scope": "serial_p1_tetrahedral",
+            "execution_scope": "serial_fixed_reference_degree_one",
+            "volume_topology": self.displacement.function_space.element.basix_element.cell_type.name,
             "finite_rotation": False,
             "portable_restart": False,
         }

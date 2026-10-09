@@ -58,7 +58,9 @@ def _barycentric(points, triangle):
     return np.column_stack((1 - tail.sum(axis=1), tail))
 
 
-def planar_overlap_pairing(negative, positive, *, tolerance, maximum_points=200_000):
+def planar_overlap_pairing(
+    negative, positive, *, tolerance, maximum_points=200_000, quadrature_degree=2
+):
     """Integrate coincident non-overlapping planar triangle partitions.
 
     Reject uncovered area and within-side overlapping elements. Coverage is
@@ -78,6 +80,23 @@ def planar_overlap_pairing(negative, positive, *, tolerance, maximum_points=200_
         or maximum_points < 1
     ):
         raise ValueError("maximum_points must be a positive integer.")
+    if (
+        isinstance(quadrature_degree, bool)
+        or not isinstance(quadrature_degree, (int, np.integer))
+        or not 2 <= quadrature_degree <= 8
+    ):
+        raise ValueError("quadrature_degree must be an integer between 2 and 8.")
+    if quadrature_degree == 2:
+        rule, normalized_weights = _TRIANGLE_RULE, np.full(3, 1 / 3)
+    else:
+        import basix
+
+        points, weights = basix.make_quadrature(
+            basix.CellType.triangle, quadrature_degree
+        )
+        rule = np.column_stack((1 - points.sum(axis=1), points))
+        normalized_weights = 2 * weights
+    count = len(rule)
     origin = negative.vertices[negative.triangles[0, 0]]
     normal = negative.facet_normals[0]
     edge = negative.vertices[negative.triangles[0, 1]] - origin
@@ -132,20 +151,20 @@ def planar_overlap_pairing(negative, positive, *, tolerance, maximum_points=200_
                 area = _area(triangle)
                 if area <= 1e-15 * min(_area(planar[0][i]), _area(planar[1][j])):
                     continue
-                point_count += 3
+                point_count += count
                 if point_count > maximum_points:
                     raise ValueError("Interface overlap exceeds maximum_points.")
-                points = _TRIANGLE_RULE @ triangle
+                points = rule @ triangle
                 wn = _barycentric(points, planar[0][i])
                 wp = _barycentric(points, planar[1][j])
                 nn, pn = negative.triangles[i], positive.triangles[j]
                 values = {
-                    "negative_nodes": np.tile(nn, (3, 1)),
-                    "positive_nodes": np.tile(pn, (3, 1)),
+                    "negative_nodes": np.tile(nn, (count, 1)),
+                    "positive_nodes": np.tile(pn, (count, 1)),
                     "negative_weights": wn,
                     "positive_weights": wp,
-                    "weights": np.full(3, area * scale**2 / 3),
-                    "normals": np.tile(normal, (3, 1)),
+                    "weights": area * scale**2 * normalized_weights,
+                    "normals": np.tile(normal, (count, 1)),
                     "reference_mismatch": wp @ positive.vertices[pn]
                     - wn @ negative.vertices[nn],
                 }

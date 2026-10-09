@@ -2971,6 +2971,33 @@ def pair_nonmatching_triangles(negative, positive, *, tolerance, maximum_points=
                                   maximum_points=maximum_points)
 
 
+def reference_trace(vertices, cells, *, topology, tolerance):
+    """Create fixed reference geometry with its original P1 or affine Q1 trace.
+
+    Quadrilateral connectivity is cyclic perimeter order. This is not a
+    rigid-body declaration or automatic extraction from a volume mesh.
+    """
+    if topology == "quadrilateral":
+        from ._interface_quadrilateral import QuadrilateralReferenceTrace
+        return QuadrilateralReferenceTrace(vertices, cells, tolerance=tolerance)
+    if topology == "triangle":
+        from .boundary_models.rigid import TriangulatedRigidSurface
+        if not np.isfinite(float(tolerance)) or float(tolerance) <= 0:
+            raise ValueError("Trace tolerance must be positive finite.")
+        return TriangulatedRigidSurface(vertices, cells)
+    raise NotImplementedError("Reference traces support triangle or affine quadrilateral topology.")
+
+
+def pair_reference_traces(negative, positive, *, tolerance, maximum_points=200_000):
+    """Common-refinement pairing without replacing the original field bases."""
+    from ._interface_quadrilateral import QuadrilateralReferenceTrace, quadrilateral_overlap_pairing
+    if isinstance(negative, QuadrilateralReferenceTrace) or isinstance(positive, QuadrilateralReferenceTrace):
+        return quadrilateral_overlap_pairing(negative, positive, tolerance=tolerance,
+                                             maximum_points=maximum_points)
+    return pair_nonmatching_triangles(negative, positive, tolerance=tolerance,
+                                      maximum_points=maximum_points)
+
+
 def bilinear_cohesive(
     *,
     strength: float,
@@ -3118,6 +3145,8 @@ __all__ = [
     "bilinear_cohesive",
     "elastic_cohesive",
     "pair_nonmatching_triangles",
+    "reference_trace",
+    "pair_reference_traces",
     "audit_mode_i_kinematics",
     "audit_split_interface_rigid_modes",
     "mixed_mode_bilinear_cohesive",

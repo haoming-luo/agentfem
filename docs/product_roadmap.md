@@ -35,16 +35,21 @@ or describe unstabilized one-point quadrature as Hex8R support.
 The fixed coplanar P1 route now has common-refinement integration, per-facet
 coverage checks, independent nodal-force audits and serial two-block
 series-compliance evidence. Its experimental elastic `model.step` provider
-reuses PETSc solving and Result output. Global damage, MPI/restart,
-finite-rotation kinematics and Hex8 quadrilateral traces remain separate gates.
+reuses PETSc solving and Result output. The affine planar Q1 extension retains
+the original four-node basis and degree-four common-refinement integration;
+global 1:3 and 2:3 compliance tests exercise independent Hex8 partitions.
+Global damage, MPI and finite-rotation kinematics remain separate gates.
 The experimental [uniform-gradient Hex8 policy](hex8_uniform_strain.md) now
 has compact batch execution, serial global affine/bending/wave evidence and
 ordinary explicit `model.step()` integration. Isotropic/rotated anisotropic
 elasticity, disjoint material regions, physical/artificial energy separation
 and serial restart are exercised. Failed explicit increments and auxiliary
 checkpoint rejection restore the accepted field state. Finite deformation,
-damage, Q1 interface pairing, external-work closure and MPI remain separate
-gates, not consequences of local Hex8 tests.
+damage, external-work closure and MPI remain separate gates. The elastic Q1
+interface now composes with this explicit Step, including an additive spectral
+stability bound, interface energy, serial restart and failed-commit retry.
+Warped/nonaffine quadrilateral traces remain rejected. These are bounded
+small-strain capabilities, not an industrial finite-deformation reproduction.
 
 The 0.4 line is an architectural consolidation, not a feature-count release.
 Its stable middle layer is:

@@ -108,12 +108,14 @@ class FixedReferencePairing:
             "method": self.method,
             "integration_side": (
                 "common-refinement"
-                if self.method == "coplanar-triangle-common-refinement"
+                if self.method.startswith("coplanar-")
                 else "negative"
             ),
             "quadrature_points": len(self.weights),
             "mean_quadrature_points_per_negative_facet": len(self.weights)
-            / len(self.negative.triangles),
+            / len(getattr(self.negative, "quadrilaterals", self.negative.triangles)),
+            "negative_basis": "Q1" if self.negative_nodes.shape[1] == 4 else "P1",
+            "positive_basis": "Q1" if self.positive_nodes.shape[1] == 4 else "P1",
             "reference_area": float(self.weights.sum()),
             "maximum_reference_mismatch": float(
                 np.linalg.norm(self.reference_mismatch, axis=1).max()
@@ -123,7 +125,7 @@ class FixedReferencePairing:
             "execution_scope": "process-local-trace-operator",
             "coverage": (
                 "coplanar-per-facet-area-and-self-overlap-checked"
-                if self.method == "coplanar-triangle-common-refinement"
+                if self.method.startswith("coplanar-")
                 else "integration-points-only-not-overlap-proof"
             ),
             "finite_rotation_law": False,
@@ -161,8 +163,11 @@ class FixedReferencePairing:
                 ),
                 axis=1,
             )
-            expected = np.zeros(len(surface.vertices))
-            np.add.at(expected, surface.triangles.ravel(), np.repeat(areas / 3, 3))
+            if hasattr(surface, "nodal_measures"):
+                expected = surface.nodal_measures
+            else:
+                expected = np.zeros(len(surface.vertices))
+                np.add.at(expected, surface.triangles.ravel(), np.repeat(areas / 3, 3))
             actual = np.zeros_like(expected)
             np.add.at(
                 actual,
@@ -338,25 +343,32 @@ class FixedReferenceCohesiveAssembler:
     def begin(self, negative, positive):
         try:
             point = self._point_response(negative, positive, begin=True)
-            traction = point["traction_vector"][:, 0]
-            rn, rp = self.pairing.residual(traction)
-            stored = float(self.pairing.weights @ point["stored_energy"][:, 0])
-            dissipated = float(self.pairing.weights @ point["dissipated_energy"][:, 0])
-            if not np.all(np.isfinite([stored, dissipated])):
-                raise ValueError("Non-finite cohesive energy.")
-            self._trial = NonmatchingResponse(
-                rn,
-                rp,
-                traction.copy(),
-                point["jump"][:, 0].copy(),
-                point["damage"][:, 0].copy(),
-                stored,
-                dissipated,
-            )
+            self._trial = self._response(point)
             return self._trial
         except Exception:
             self.rollback()
             raise
+
+    def evaluate(self, negative, positive):
+        """Read the current response at fixed committed history, without a trial."""
+        return self._response(self._point_response(negative, positive, begin=False))
+
+    def _response(self, point):
+        traction = point["traction_vector"][:, 0]
+        rn, rp = self.pairing.residual(traction)
+        stored = float(self.pairing.weights @ point["stored_energy"][:, 0])
+        dissipated = float(self.pairing.weights @ point["dissipated_energy"][:, 0])
+        if not np.all(np.isfinite([stored, dissipated])):
+            raise ValueError("Non-finite cohesive energy.")
+        return NonmatchingResponse(
+            rn,
+            rp,
+            traction.copy(),
+            point["jump"][:, 0].copy(),
+            point["damage"][:, 0].copy(),
+            stored,
+            dissipated,
+        )
 
     def tangent_action(self, negative, positive, delta_negative, delta_positive):
         point = self._point_response(negative, positive, begin=False)
@@ -371,7 +383,7 @@ class FixedReferenceCohesiveAssembler:
         self._trial = None
 
     def tangent_blocks(self, negative, positive):
-        """Yield point-local 18-by-18 blocks; never allocate a dense global matrix."""
+        """Yield point-local blocks; never allocate a dense global matrix."""
         point = self._point_response(negative, positive, begin=False)
         pair = self.pairing
         for q, weight in enumerate(pair.weights):
@@ -382,7 +394,7 @@ class FixedReferenceCohesiveAssembler:
             yield (
                 pair.negative_nodes[q],
                 pair.positive_nodes[q],
-                weight * matrix.reshape(18, 18),
+                weight * matrix.reshape(3 * len(shape), 3 * len(shape)),
             )
 
     def rollback(self):

@@ -26,13 +26,13 @@ from agentfem._nonmatching_force import NonmatchingCohesiveForce
 from agentfem.boundary_models.rigid import TriangulatedRigidSurface
 
 
-def _blocks(n, m):
+def _blocks(n, m, *, cell_type="tetrahedron"):
     parts = [
         mesh.create_box(
             MPI.COMM_SELF,
             [[0, 0, z], [1, 1, z + 1]],
             [size, size, size],
-            mesh.CellType.tetrahedron,
+            getattr(mesh.CellType, cell_type),
         )
         for z, size in ((-1, n), (0, m))
     ]
@@ -43,7 +43,7 @@ def _blocks(n, m):
             parts[1].geometry.dofmaps[0] + len(parts[0].geometry.x),
         )
     )
-    domain = ufl.Mesh(basix.ufl.element("Lagrange", "tetrahedron", 1, shape=(3,)))
+    domain = ufl.Mesh(basix.ufl.element("Lagrange", cell_type, 1, shape=(3,)))
     return mesh.create_mesh(MPI.COMM_SELF, cells.astype(np.int64), domain, vertices)
 
 

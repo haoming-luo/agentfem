@@ -2,7 +2,7 @@
 
 The geometry operator is process-local. An experimental ordinary `model.step`
 provider now consumes its coplanar common-refinement route for serial P1
-tetrahedra and a purely elastic interface. Existing matched cohesive laws and
+tetrahedra or Q1 hexahedra and a purely elastic interface. Existing matched cohesive laws and
 their transactions remain the constitutive owner; global damage evolution is
 not enabled by this elastic provider.
 
@@ -25,7 +25,7 @@ cohesive_force=force)` for a linear-static solid and call `solve_result()`.
 
 The first provider accepts registered linear elastic bulk materials, loads and
 ordinary strong constraints. It rejects damage laws, projected-only quadrature,
-MPI, Q1/DG traces, eigenstrains, additional boundary models and direct K/F
+MPI, DG traces, eigenstrains, additional boundary models and direct K/F
 overrides. Result output reuses the standard lifecycle and supplies U/RF,
 free residual, bulk/interface energy and linear proportional-path natural and
 prescribed-motion work. These work quantities assume a stress-free origin and
@@ -96,10 +96,26 @@ bases, reference-gap treatment, and their derivatives require separate tests.
 Force balance alone does not prove moment balance when projection has a finite
 offset. Finite initial gaps are outside the first physical scope.
 
-Hex8 faces have bilinear quadrilateral interpolation. Splitting such faces
-into triangles and replacing their trace with P1 shape functions is not a
-faithful Hex8 coupling. A later quadrilateral trace must retain its original
-four-node basis even if geometric integration uses subtriangles.
+Hex8 faces retain their original four-node bilinear basis: triangulation is
+used only for geometric overlap integration, never as a P1 replacement.
+Use `interfaces.reference_trace(vertices, cells, topology="quadrilateral")`
+with cyclic perimeter connectivity, then `interfaces.pair_reference_traces`.
+The first Q1 route accepts planar parallelograms only; warped/nonaffine faces
+and mixed P1/Q1 pairs are rejected. Basix supplies the original Q1 basis and
+degree-four overlap quadrature. The bilinear `u=xy` patch integrates its square
+to `1/9` on the unit square; nodal traction, force, moment and side-swap tests
+complement that interpolation check. Global two-block compliance tests use
+independent 1:3 and 2:3 hexahedral interface partitions.
+
+For explicit dynamics, combine `cohesive_force` with
+`element_policy=elements.uniform_strain_hex8(...)` in ordinary `model.step`.
+Only the undamaged elastic interface is admitted. The stable-step estimate
+sums bulk and interface squared-frequency bounds, rather than taking the
+minimum of two isolated stable steps. Histories distinguish physical bulk,
+interface and artificial hourglass energy. Serial checkpoint/restart and
+failed-increment retry reuse the existing Procedure/State lifecycle. This
+does not yet claim arbitrary external-work closure, MPI, finite rotation,
+damage evolution or compatibility with every commercial Hex8R formulation.
 
 ## Promotion sequence
 
@@ -120,7 +136,7 @@ the complete patch-test, MPI or global Step gates below.
 4. DOLFINx boundary-dof lowering and ordinary force/Step integration; compare
    a two-block specimen to an independent series-compliance reference.
 5. Stable quadrature identity, portable restart and MPI owner exchange.
-6. Convected finite-rotation kinematics and quadrilateral traces before any
+6. Convected finite-rotation kinematics and general quadrilateral traces before any
    claim about a large-deformation Hex8 industrial reproduction.
 
 No migration capability is promoted by the initial local tests.

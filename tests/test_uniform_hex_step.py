@@ -78,7 +78,7 @@ def test_uniform_hex_step_checks_time_increment_and_policy():
 def test_uniform_hex_rotated_anisotropic_material_matches_ufl():
     from agentfem import materials
     from agentfem.constitutive import elasticity
-    from agentfem._step_uniform_hex import _material_matrix
+    from agentfem.constitutive.elasticity import _constant_stiffness_matrix_3d
     from agentfem.elements._uniform_hex_dolfinx import UniformHexResidual
     from dolfinx import fem
     from dolfinx.fem import petsc
@@ -98,7 +98,7 @@ def test_uniform_hex_rotated_anisotropic_material_matches_ufl():
     )
     internal = UniformHexResidual(
         u,
-        _material_matrix(oriented),
+        _constant_stiffness_matrix_3d(oriented),
         density=2,
         hourglass_modulus=30,
         hourglass_scale=0.1,

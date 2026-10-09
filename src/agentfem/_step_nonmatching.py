@@ -34,7 +34,7 @@ class ElasticInterfaceStep:
             raise ValueError(
                 "Interface and Step must share the same displacement field."
             )
-        if force.assembler.pairing.method != "coplanar-triangle-common-refinement":
+        if force.assembler.pairing.method not in {"coplanar-triangle-common-refinement", "coplanar-affine-q1-common-refinement"}:
             raise NotImplementedError(
                 "The first elastic Step requires reviewed common-refinement integration."
             )

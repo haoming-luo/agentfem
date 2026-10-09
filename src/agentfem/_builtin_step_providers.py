@@ -906,7 +906,7 @@ register_step_provider(StepProvider(
     accepts=_accept_elastic_interface,
     lower=_lower_elastic_interface,
     priority=150,
-    description="Experimental serial P1 elastic solid with a fixed nonmatching elastic interface.",
+    description="Experimental serial P1/Q1 elastic solid with a fixed nonmatching elastic interface.",
     procedure="standard/linear_static",
     option_contract=_option_contract("cohesive_force", required=("cohesive_force",)),
 ))
@@ -919,7 +919,7 @@ register_step_provider(StepProvider(
     priority=180,
     description="Experimental serial small-strain elastic Hex8 with explicit hourglass energy.",
     procedure="explicit/central_difference",
-    option_contract=_option_contract("element_policy", "dt", "steps", "save_every", "print_every",
+    option_contract=_option_contract("element_policy", "cohesive_force", "dt", "steps", "save_every", "print_every",
         "history_every", "progress", "status_file", "checkpoint", required=("element_policy", "dt", "steps")),
 ))
 

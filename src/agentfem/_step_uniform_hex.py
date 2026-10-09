@@ -8,43 +8,7 @@ from hashlib import sha256
 import numpy as np
 
 from ._transient_problems import ExplicitDynamicsStep
-
-
-def _material_matrix(properties):
-    from .materials.properties import (
-        ElasticIsotropicProperties,
-        ElasticAnisotropic3DProperties,
-    )
-
-    frame = getattr(properties, "orientation", None)
-    if frame is not None and frame.evolution != "fixed":
-        raise NotImplementedError("Uniform Hex8 requires fixed material orientation.")
-    raw = getattr(properties, "material", properties)
-    if type(raw) is ElasticIsotropicProperties:
-        e, nu = float(raw.young), float(raw.poisson)
-        mu = e / (2 * (1 + nu))
-        lame = e * nu / ((1 + nu) * (1 - 2 * nu))
-        matrix = np.diag([2 * mu] * 3 + [mu] * 3)
-        matrix[:3, :3] += lame
-    elif type(raw) is ElasticAnisotropic3DProperties:
-        matrix = np.asarray(raw.stiffness_voigt, dtype=float)
-    else:
-        raise TypeError("Uniform Hex8 supports constant 3D elastic materials only.")
-    if frame is None:
-        return matrix
-    basis = np.asarray(frame.basis, dtype=float)
-    result = np.empty((6, 6))
-    order = ((0, 0), (1, 1), (2, 2), (1, 2), (0, 2), (0, 1))
-    for column, (i, j) in enumerate(order):
-        strain = np.zeros((3, 3))
-        strain[i, j] = strain[j, i] = 1 if i == j else 0.5
-        local = basis.T @ strain @ basis
-        vector = np.array([local[a, b] * (1 if a == b else 2) for a, b in order])
-        stress = matrix @ vector
-        tensor = stress[np.array([[0, 5, 4], [5, 1, 3], [4, 3, 2]])]
-        global_stress = basis @ tensor @ basis.T
-        result[:, column] = [global_stress[a, b] for a, b in order]
-    return result
+from .constitutive.elasticity import _constant_stiffness_matrix_3d
 
 
 def _material_partition(model, domain):
@@ -64,7 +28,7 @@ def _material_partition(model, domain):
             indices = region.cell_tags.find(region.tag)
         if not len(indices):
             raise ValueError("Uniform Hex8 material region is empty.")
-        matrices[indices] = _material_matrix(record.item)
+        matrices[indices] = _constant_stiffness_matrix_3d(record.item)
         rho = getattr(record.item, "density", None)
         if rho is None or not np.isfinite(rho) or rho <= 0:
             raise ValueError("Every Hex8 material needs positive finite density.")
@@ -78,8 +42,9 @@ def _material_partition(model, domain):
 
 
 class _Residual:
-    def __init__(self, internal, external):
+    def __init__(self, internal, external, cohesive=None):
         self.internal, self.external = internal, external
+        self.cohesive = cohesive
         digest = sha256()
         for array in (
             internal.cell_nodes,
@@ -120,6 +85,8 @@ class _Residual:
 
         vector = self.internal.assemble_vector()
         try:
+            if self.cohesive is not None:
+                self.cohesive.add_to_vector(vector)
             if self.external is not None:
                 force = operators.assemble_vector(self.external)
                 try:
@@ -137,16 +104,29 @@ class _Residual:
         return {
             "schema": "agentfem.uniform-hex-elastic.v1",
             "operator_identity": self.identity,
+            "cohesive": None if self.cohesive is None else self.cohesive.snapshot(),
         }
 
     def restore(self, record):
         if record != self.snapshot():
             raise ValueError("Uniform Hex8 checkpoint operator identity mismatch.")
+        if self.cohesive is not None:
+            self.cohesive.rollback()
+            self.cohesive.restore(record["cohesive"])
+
+    def commit(self):
+        if self.cohesive is not None:
+            self.cohesive.commit()
+
+    def rollback(self):
+        if self.cohesive is not None:
+            self.cohesive.rollback()
 
 
 class _Energy:
-    def __init__(self, internal):
+    def __init__(self, internal, cohesive=None):
         self.internal = internal
+        self.cohesive = cohesive
 
     def evaluate(self, *, displacement, velocity):
         from .fields import unwrap
@@ -156,6 +136,10 @@ class _Energy:
             0.5 * np.sum(self.internal.mass_diagonal * unwrap(velocity).x.array ** 2)
         )
         physical = values["strain_energy"] + kinetic
+        if self.cohesive is not None:
+            interface = self.cohesive.evaluate().stored_energy
+            values["cohesive_stored_energy"] = interface
+            physical += interface
         return {
             **values,
             "kinetic_energy": kinetic,
@@ -184,6 +168,9 @@ class UniformHexStep(ExplicitDynamicsStep):
             "element_policy": self.element_policy.summary(),
             "energy_balance_scope": "components_only_no_external_work_closure",
             "execution_scope": "serial_small_strain_elastic",
+            "interface": None
+            if self.residual.cohesive is None
+            else self.residual.cohesive.summary(),
         }
 
 
@@ -238,9 +225,30 @@ def lower(model, request):
         chunk_size=policy.chunk_size,
     )
     external = model.external_force(request.target) if model.loads else None
-    residual = _Residual(internal, external)
+    cohesive = options.pop("cohesive_force", None)
+    if cohesive is not None:
+        from ._nonmatching_force import NonmatchingCohesiveForce
+        from ._elastic_cohesive import ElasticCohesiveLaw
+
+        if not isinstance(cohesive, NonmatchingCohesiveForce) or not isinstance(
+            cohesive.assembler.law, ElasticCohesiveLaw
+        ):
+            raise NotImplementedError(
+                "Uniform Hex8 currently composes only fixed nonmatching elastic interfaces."
+            )
+        if cohesive.displacement is not history.u.value:
+            raise ValueError("Interface force must use the same displacement field.")
+        if cohesive.assembler.pairing.method != "coplanar-affine-q1-common-refinement":
+            raise ValueError("Uniform Hex8 needs original Q1 common-refinement traces.")
+    residual = _Residual(internal, external, cohesive)
     dt = options.pop("dt")
-    stable = internal.stable_dt()
+    interface_bound = (
+        0
+        if cohesive is None
+        else cohesive.elastic_stability_bound(internal.mass_diagonal)
+    )
+    bulk_bound = internal.cells.stability_bound()
+    stable = 0.8 * 2 / np.sqrt(bulk_bound + interface_bound)
     dt = stable if dt == "auto" else float(dt)
     if not np.isfinite(dt) or dt <= 0 or dt > stable:
         raise ValueError(
@@ -263,6 +271,7 @@ def lower(model, request):
         from .time.explicit import _owned_dirichlet_dofs
 
         history.a.value.x.array[_owned_dirichlet_dofs(bcs)] = 0
+        residual.commit()
     finally:
         initial.destroy()
     options["checkpoint_policy"] = options.pop("checkpoint", None)
@@ -276,11 +285,13 @@ def lower(model, request):
         prescribed=prescribed,
         constraints=assets,
         update_load=update,
-        history_monitor=_Energy(internal),
+        history_monitor=_Energy(internal, cohesive),
         stability={
             "dt_limit": stable,
             "method": "positive_cell_mass_rayleigh_bound",
-            "scope": "fixed_elastic_bulk_and_hourglass_only",
+            "scope": "fixed_elastic_bulk_hourglass_and_optional_interface",
+            "bulk_omega_squared_bound": bulk_bound,
+            "interface_omega_squared_bound": interface_bound,
         },
         **options,
     )
