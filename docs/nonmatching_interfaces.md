@@ -125,7 +125,8 @@ sums bulk and interface squared-frequency bounds, rather than taking the
 minimum of two isolated stable steps. Histories distinguish physical bulk,
 interface and artificial hourglass energy. Serial checkpoint/restart and
 failed-increment retry reuse the existing Procedure/State lifecycle. This
-does not yet claim arbitrary external-work closure, MPI, finite rotation,
+uses the shared accepted-path dynamic work ledger, with separate artificial
+energy; it does not claim general constraint work, MPI, finite rotation,
 damage evolution or compatibility with every commercial Hex8R formulation.
 
 ## Promotion sequence

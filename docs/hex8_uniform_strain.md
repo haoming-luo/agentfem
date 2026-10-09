@@ -26,7 +26,12 @@ bound with safety 0.8; it does not tune an adaptive nonlinear increment.
 
 The result distinguishes `strain_energy`, `kinetic_energy`, `hourglass_energy`,
 physical `total_mechanical_energy` and `total_discrete_energy`. These components
-are not a verified external-work balance. Serial interrupted/continuous runs
+feed the existing accepted-path `DynamicEnergyLedger`: natural-load and strong
+prescribed-motion work are integrated every accepted increment, independent of
+history output cadence. The discrete balance explicitly includes artificial
+hourglass energy, not just material storage. Rigid acceleration and a deforming
+single-cell oscillator supply independent analytic/discrete references; this
+is not a blanket accuracy guarantee for arbitrary loads. Serial interrupted/continuous runs
 agree; changed operator identity rejects a checkpoint atomically. Public
 portable restart, MPI, finite deformation, evolving material orientation,
 damage/deletion, eigenstrain, additional contact operators and
@@ -100,6 +105,12 @@ stored arrays occupied 1,081,632 bytes versus 18,874,368 bytes for two dense
 cell matrices alone. This is not a complete solver speedup or peak-memory
 measurement; global DOFs, connectivity and temporary gathers add storage.
 
+A separate 20,000-cell gather comparison (three repetitions, same thread limit)
+measured traced transient allocations of 5,155,736 bytes for the full displacement
+gather versus 1,512,088 bytes for chunk gathering. Median response time changed
+from 0.02053 s to 0.02119 s; energies were identical. This optimization reduces
+temporary allocation, not measured CPU time, and does not represent process RSS.
+
 The private `UniformHexResidual` uses DOLFINx blocked Q1 DOF maps and the
 existing central-difference integrator. Serial affine internal forces agree
 with independent fully integrated UFL assembly. Separate resultant and moment
@@ -129,7 +140,7 @@ Compact preparation and serial affine/bending/wave checks are implemented.
 DOLFINx retains mesh/DOF ownership; Procedure retains time integration and
 stability composition. The experimental policy, ordinary Step, serial restart
 and separate artificial energy are implemented. Remaining work includes
-reviewed external-work closure, bounded-distortion admission, richer loading
+bounded-distortion admission, richer loading
 evidence and eventual MPI composition. No implicit numerical
 equivalence to imported commercial reduced-integration elements is assumed.
 

@@ -45,7 +45,10 @@ ordinary explicit `model.step()` integration. Isotropic/rotated anisotropic
 elasticity, disjoint material regions, physical/artificial energy separation
 and serial restart are exercised. Failed explicit increments and auxiliary
 checkpoint rejection restore the accepted field state. Finite deformation,
-damage, external-work closure and MPI remain separate gates. The elastic Q1
+damage and MPI remain separate gates. Natural-load and strong prescribed-motion
+work reuse the existing dynamic ledger; independent acceleration/oscillator
+tests exercise work and time refinement. Checkpoints capture accepted endpoint
+history even between output frames, preventing cumulative-work loss. The elastic Q1
 interface now composes with this explicit Step, including an additive spectral
 stability bound, interface energy, serial restart and failed-commit retry.
 Warped/nonaffine quadrilateral traces remain rejected. These are bounded

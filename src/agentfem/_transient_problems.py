@@ -1622,10 +1622,7 @@ def _record_transient_history(
     if (
         store
         and step.history_records
-        and np.isclose(
-            step.history_records[-1]["time"],
-            selected_time,
-        )
+        and step.history_records[-1]["time"] == selected_time
     ):
         if hasattr(monitor, "restore"):
             monitor.restore(step.history_records[-1])
@@ -1768,6 +1765,9 @@ def _save_transient_checkpoint(step, path, state, *, portable: bool = False) -> 
     from . import checkpointing
     from .results import CheckpointRecord
 
+    # Path-dependent monitors must archive their accepted endpoint, including
+    # when checkpoint cadence is independent of retained history cadence.
+    _record_transient_history(step, float(step.completed_steps) * float(step.dt))
     manifest = checkpointing.save_transient_checkpoint(
         path,
         step_kind=step.summary()["kind"],
@@ -1892,6 +1892,13 @@ def _load_transient_checkpoint_impl(step, path, state) -> None:
         for item in metadata["history_records"]
     ]
     restart_time = float(step.completed_steps) * float(step.dt)
+    monitor = getattr(step, "history_monitor", None)
+    if callable(getattr(monitor, "restore", None)) and (
+        not step.history_records or step.history_records[-1]["time"] != restart_time
+    ):
+        raise ValueError(
+            "Checkpoint lacks the accepted endpoint for its path-dependent history monitor."
+        )
     if getattr(step, "update_load", None) is not None:
         step.update_load(restart_time)
     if hasattr(residual, "update_time"):

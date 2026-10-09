@@ -145,6 +145,7 @@ class _Energy:
             "kinetic_energy": kinetic,
             "total_mechanical_energy": physical,
             "total_discrete_energy": physical + values["hourglass_energy"],
+            "accounted_internal_kinetic_energy": physical + values["hourglass_energy"],
         }
 
 
@@ -166,7 +167,7 @@ class UniformHexStep(ExplicitDynamicsStep):
         return {
             **super().summary(),
             "element_policy": self.element_policy.summary(),
-            "energy_balance_scope": "components_only_no_external_work_closure",
+            "energy_balance_scope": "accepted_path_work_with_explicit_artificial_energy",
             "execution_scope": "serial_small_strain_elastic",
             "interface": None
             if self.residual.cohesive is None
@@ -175,7 +176,7 @@ class UniformHexStep(ExplicitDynamicsStep):
 
 
 def lower(model, request):
-    from . import constraints, problems, state, time
+    from . import constraints, fracture, problems, state, time
     from .elements import UniformStrainHex8
     from .elements._uniform_hex_dolfinx import UniformHexResidual
 
@@ -204,7 +205,9 @@ def lower(model, request):
         model.constraints if selected_constraints is None else selected_constraints
     )
     if any(
-        not isinstance(item, constraints.DirichletConstraint)
+        not isinstance(
+            item, (constraints.DirichletConstraint, constraints.TimeDependentDirichlet)
+        )
         for item in constraints.constraint_assets(assets)
     ):
         raise NotImplementedError(
@@ -268,9 +271,11 @@ def lower(model, request):
     initial = residual.assemble_vector()
     try:
         history.a.value.x.array[:] = -initial.array * internal.inv_mass
-        from .time.explicit import _owned_dirichlet_dofs
+        from .time.explicit import _assign_prescribed_component, _prescribed_kinematics
 
-        history.a.value.x.array[_owned_dirichlet_dofs(bcs)] = 0
+        kinematics = _prescribed_kinematics(prescribed, time=0.0, dt=dt)
+        _assign_prescribed_component(history.a, kinematics, component=1)
+        _assign_prescribed_component(history.v, kinematics, component=2)
         residual.commit()
     finally:
         initial.destroy()
@@ -285,7 +290,14 @@ def lower(model, request):
         prescribed=prescribed,
         constraints=assets,
         update_load=update,
-        history_monitor=_Energy(internal, cohesive),
+        history_monitor=fracture.DynamicEnergyLedger(
+            energy=_Energy(internal, cohesive),
+            state=history,
+            mass=internal.mass_diagonal,
+            residual=residual,
+            natural_force=external,
+            prescribed=prescribed,
+        ),
         stability={
             "dt_limit": stable,
             "method": "positive_cell_mass_rayleigh_bound",
