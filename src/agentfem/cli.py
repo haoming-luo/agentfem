@@ -857,16 +857,9 @@ def build_parser() -> argparse.ArgumentParser:
         "mpi-run",
         help="Run a command with an MPI launcher verified against the active environment.",
     )
-    mpi_run.add_argument("-n", "--ranks", type=int, required=True)
-    mpi_run.add_argument(
-        "--timeout",
-        type=float,
-        help=(
-            "Stop the complete MPI process group after this many seconds; "
-            "recommended for tests and diagnostics."
-        ),
-    )
-    mpi_run.add_argument("child_command", nargs=argparse.REMAINDER)
+    from ._cli_entry import configure_mpi_parser
+
+    configure_mpi_parser(mpi_run)
 
     inspect = sub.add_parser("inspect", help="Summarize a result, execution, or latest-run record.")
     inspect.add_argument("path", nargs="?")
