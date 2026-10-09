@@ -956,6 +956,34 @@ def update_material_points(
                 material_group_count += 1
                 for start in range(0, len(all_indices), max_batch_points):
                     indices = all_indices[start : start + max_batch_points]
+                    if callable(getattr(selected_material, "update_array_batch", None)):
+                        from .material_array_batch import (
+                            MaterialPointArrayBatchInput,
+                            validated_material_array_batch_update,
+                        )
+
+                        provider_batch_calls += 1
+                        try:
+                            request = MaterialPointArrayBatchInput(
+                                deformation_gradient_old=old_gradients[indices],
+                                deformation_gradient_new=new_gradients[indices],
+                                state_old=committed_state[indices],
+                                state_schema=state.state_schema,
+                                time=float(time), time_increment=float(time_increment),
+                                properties=selected_properties,
+                                temperature=None if temperatures is None else temperatures[indices],
+                                temperature_increment=(None if temperature_increments is None
+                                                       else temperature_increments[indices]),
+                                field_variables=None if fields is None else fields[indices],
+                            )
+                            response = validated_material_array_batch_update(selected_material, request)
+                        except Exception as exc:
+                            raise RuntimeError(
+                                "material array batch update failed for local quadrature "
+                                f"points {indices[0]}..{indices[-1]}: {type(exc).__name__}: {exc}"
+                            ) from exc
+                        yield indices, selected_material, response
+                        continue
                     point_inputs = tuple(
                         MaterialPointInput(
                             deformation_gradient_old=old_gradients[index],
@@ -1001,6 +1029,7 @@ def update_material_points(
 
         def store_response(index, selected_material, response):
             nonlocal energy_components
+            location = f"{index[0]}..{index[-1]}" if isinstance(index, list) else str(index)
             stress[index] = response.cauchy_stress
             tangent[index] = response.consistent_tangent
             state_new[index] = response.state_new
@@ -1026,7 +1055,7 @@ def update_material_points(
             if declared is not None and set(point_components) != declared:
                 raise ValueError(
                     "material update returned stored-energy components that differ "
-                    f"from its declared contract at local quadrature point {index}"
+                    f"from its declared contract at local quadrature point {location}"
                 )
             if energy_components is None:
                 energy_components = {
@@ -1035,7 +1064,7 @@ def update_material_points(
             if set(point_components) != set(energy_components):
                 raise ValueError(
                     "material update changed the stored-energy component "
-                    f"contract at local quadrature point {index}"
+                    f"contract at local quadrature point {location}"
                 )
             for name, values in energy_components.items():
                 values[index] = point_components[name]

@@ -801,6 +801,35 @@ class FiniteStrainJ2Logarithmic:
             ),
         )
 
+    def update_array_batch(self, request):
+        """Columnar form of the same discrete update and algorithmic tangent."""
+        from .material_array_batch import (
+            MaterialPointArrayBatchInput, MaterialPointArrayBatchOutput,
+        )
+
+        if not isinstance(request, MaterialPointArrayBatchInput):
+            raise TypeError("request must be a MaterialPointArrayBatchInput.")
+        self._validate_point(request)
+        if request.state_schema != self.state_schema:
+            raise ValueError("Array batch state schema does not match the material.")
+        gradients, states = request.deformation_gradient_new, request.state_old
+        integrated = self._integrate_batch(gradients, states)
+        return MaterialPointArrayBatchOutput(
+            cauchy_stress=integrated["cauchy_stress"],
+            consistent_tangent=self._selected_algorithmic_tangent_batch(
+                gradients, states, baseline=integrated,
+            ),
+            state_new=integrated["state"],
+            tangent_convention=self.tangent_convention,
+            state_schema=self.state_schema,
+            strain_energy_density=integrated["strain_energy_density"],
+            stored_energy_density_components={
+                "ELENER": integrated["elastic_energy_density"],
+                "HARDENER": integrated["hardening_energy_density"],
+            },
+            dissipation_density_increment=integrated["plastic_dissipation_density"] - states[:, 10],
+        )
+
     def update_batch(
         self,
         request: MaterialPointBatchInput,

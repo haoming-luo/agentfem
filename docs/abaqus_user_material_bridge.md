@@ -98,6 +98,25 @@ Input/output state definitions are compared in full, not only by name/version.
 Optional stored energy has an explicit availability mask; a missing value is
 not certified as a physically defined zero.
 
+Providers can additionally implement `update_array_batch(request)` with
+`MaterialPointArrayBatchInput` and `MaterialPointArrayBatchOutput`. These are
+columnar representations of the **same** finite-strain point semantics, not
+a second material law or acceptance lifecycle. Gradients use `(points, 3, 3)`,
+state uses `(points, state_schema.size)`, and tangent shape follows its explicit
+convention. Shared properties, optional point temperatures and field variables
+retain the ordinary meanings. Buffers are copied and read-only at the provider
+boundary. Energy-component sum checks use a per-point tolerance, not a tolerance
+scaled by the largest energy elsewhere in the batch.
+
+The quadrature driver prefers this optional path when present, otherwise uses
+the existing ordered `update_batch` or scalar `update` fallback. Array-call
+failure is a failure of the whole update, never permission to silently switch
+algorithms. Optional energy/dissipation channels are present for the entire
+array batch or absent; providers needing mixed per-point availability can retain
+the ordered point protocol. Empty MPI partitions do not call a provider. Native
+finite-strain J2 uses the same integration and tangent routines through both
+representations. This adds no temperature dependence or new physical capability.
+
 `MaterialPointOutput.dissipation_density_increment` optionally reports irreversible
 energy per reference volume over the update from the fixed committed state.
 The batch response preserves a separate availability mask: `None` means unavailable,

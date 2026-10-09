@@ -58,7 +58,8 @@ def test_material_chunk_partition_does_not_change_response_or_state(chunk):
     )
 
 
-def test_later_chunk_failure_is_collective_and_preserves_entire_state():
+@pytest.mark.parametrize("encoding", ["ordered", "columnar"])
+def test_later_chunk_failure_is_collective_and_preserves_entire_state(encoding):
     material = law()
     domain = mesh.create_unit_cube(MPI.COMM_WORLD, 2, 2, 2)
     state = constitutive.MaterialQuadratureState.create(
@@ -82,6 +83,13 @@ def test_later_chunk_failure_is_collective_and_preserves_entire_state():
                 raise ValueError("injected late chunk failure")
             return material.update_batch(request)
 
+    if encoding == "columnar":
+        def array_update(self, request):
+            self.calls += 1
+            if domain.comm.rank == domain.comm.size - 1 and self.calls == 3:
+                raise ValueError("injected late chunk failure")
+            return material.update_array_batch(request)
+        FailingBatch.update_array_batch = array_update
     provider = FailingBatch()
     with pytest.raises(RuntimeError, match="late chunk failure"):
         constitutive.update_material_points(
@@ -163,6 +171,24 @@ def test_missing_energy_is_not_reported_as_defined_zero():
     assert result.summary()["stored_energy_defined_points"] == 0
     assert result.summary()["dissipation_increment_defined_points"] == 0
     assert not np.any(result.dissipation_density_increment_defined)
+
+
+def test_array_path_does_not_construct_scalar_point_objects(monkeypatch):
+    from agentfem.constitutive import material_driver
+
+    def fail(*args, **kwargs):
+        raise AssertionError("Columnar path constructed a scalar point")
+
+    monkeypatch.setattr(material_driver, "MaterialPointInput", fail)
+    material = law()
+    domain = mesh.create_unit_cube(MPI.COMM_SELF, 1, 1, 1)
+    state = constitutive.MaterialQuadratureState.create(domain, material.state_schema, degree=1)
+    result = constitutive.update_material_points(
+        material, state, deformation_gradient_old=np.eye(3),
+        deformation_gradient_new=1.01 * np.eye(3), time=0, time_increment=0.1,
+    )
+    assert result.provider_batch_calls == 1
+    assert result.scalar_fallback_points == 0
 
 
 def test_finite_j2_dissipation_increment_tracks_existing_accepted_history():
