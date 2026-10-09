@@ -28,6 +28,50 @@ def _operator(x):
     )
 
 
+def test_small_gram_stability_bound_is_safe_and_sharper_than_trace_bound():
+    rng = np.random.default_rng(194)
+    coordinates = np.stack(
+        [_cell() + rng.uniform(-0.1, 0.1, (8, 3)) for _ in range(20)]
+    )
+    factors = rng.normal(size=(20, 6, 6))
+    stiffness = factors @ factors.swapaxes(1, 2) + np.eye(6)
+    for index in range(20):
+        batch = UniformHexBatch(
+            coordinates[index : index + 1],
+            stiffness[index],
+            density=2,
+            hourglass_modulus=3,
+            hourglass_scale=0.1,
+            chunk_size=1,
+        )
+        cell = UniformHex8(
+            coordinates[index],
+            stiffness[index],
+            density=2,
+            hourglass_modulus=3,
+            hourglass_scale=0.1,
+        )
+        mass = np.repeat(cell.lumped_mass, 3)
+        exact = np.linalg.eigvalsh(
+            (cell.physical_matrix + cell.hourglass_matrix)
+            / np.sqrt(mass[:, None] * mass[None, :])
+        ).max()
+        previous = (
+            3
+            * batch.volume
+            * np.linalg.eigvalsh(stiffness[index]).max()
+            * np.sum(
+                batch.average_gradient**2 / batch.lumped_mass[:, :, None], axis=(1, 2)
+            )
+            + batch.hourglass_coefficient
+            * np.sum(
+                batch.hourglass_modes**2 / batch.lumped_mass[:, :, None], axis=(1, 2)
+            )
+        ).max()
+        assert exact <= batch.stability_bound() * (1 + 1e-13)
+        assert batch.stability_bound() < previous
+
+
 @pytest.mark.parametrize("distorted", [False, True])
 def test_uniform_hex_affine_patch_and_infinitesimal_rigid_modes(distorted):
     x = _cell(distorted)

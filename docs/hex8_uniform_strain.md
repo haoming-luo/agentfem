@@ -24,6 +24,21 @@ the existing elasticity module. A prescribed time increment above the
 conservative bulk-plus-hourglass bound is rejected. `dt="auto"` uses that
 bound with safety 0.8; it does not tune an adaptive nonlinear increment.
 
+The bound uses small Gram spectra rather than a coarse trace estimate:
+with `C=L L^T`, physical eigenvalues are those of
+`V L^T B M^-1 B^T L` (6-by-6); hourglass eigenvalues are obtained from
+`coefficient * gamma^T M_node^-1 gamma` (4-by-4). Adding the two largest
+eigenvalues bounds their combined cell stiffness. Positive assembled mass
+then makes the maximum cell bound conservative for the body. Optional interface
+stiffness is added separately. All temporary arrays are chunked.
+
+In regular and perturbed single-cell checks this permits about 2.97x and 2.95x
+larger stable steps than the former trace bound, with the same safety factor.
+Twenty independently distorted, positive-definite anisotropic cell checks
+compare the bound against full 24-by-24 spectra. Stability is not temporal
+accuracy: wave/load time resolution can still require a smaller user-selected
+`dt`; no physical time-step convergence claim follows from increasing the bound.
+
 The result distinguishes `strain_energy`, `kinetic_energy`, `hourglass_energy`,
 physical `total_mechanical_energy` and `total_discrete_energy`. These components
 feed the existing accepted-path `DynamicEnergyLedger`: natural-load and strong
@@ -153,6 +168,10 @@ equivalence to imported commercial reduced-integration elements is assumed.
   https://www.sandia.gov/files/sierra/SM_Theory_5_20/main/element_formulations.html.
   The candidate uses the affine-removal construction but explicitly documents
   its own stiffness normalization rather than claiming full Sierra equivalence.
+- Sandia, *Sierra/SM Theory Manual*, Dynamics, element eigenvalue bounds:
+  https://www.sandia.gov/files/sierra/SM_Theory_5_30/main/dynamics.html.
+  The small-Gram calculation above applies this bound to the declared fixed
+  linear operator; it does not implement a global Lanczos estimator.
 - Abaqus verification documentation, *Performance of continuum and shell
   elements for linear analysis of bending problems*:
   https://docs.software.vt.edu/abaqusv2025/English/SIMACAEBMKRefMap/simabmk-c-linbending.htm.

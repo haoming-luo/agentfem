@@ -165,6 +165,28 @@ acceptance claim. Relaxation hourglass control needs its own history and
 restart, not another unimplemented method string. Keep Basix/DOLFINx as the
 mesh/DOF/assembly owner; add only the missing formulation contribution.
 
+## Local implementation performance
+
+The shared interface-frame construction is vectorized with the same deterministic
+axis/tie convention. Reference pairing also groups integration points sharing
+the same trace-node pair before matrix insertion. It sums every point tangent;
+it does not assume a constant law or average material history.
+
+On a 10-by-10 / 13-by-13 Q1 interface, 13,848 point blocks become 484 integrated
+blocks. Five-repeat, single-thread medians for local response plus block
+generation were 0.26825 s (original scalar frames/point blocks), 0.05986 s
+(vectorized frames/point blocks), and 0.00937 s (vectorized/grouped blocks).
+The matrix traces agree to roundoff and independent matrix-free action tests
+verify the assembled blocks. This approximately 28.6x local improvement is not
+a whole-solver or general industrial speedup claim. Reproduce the current
+point-versus-grouped comparison with
+`OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 PYTHONPATH=src python tools/benchmark_nonmatching_blocks.py`.
+
+The installed-use example `examples/nonmatching_hex_bond.py` starts from two
+independent Gmsh meshes and named boundaries, then solves through ordinary
+`model.step`. It writes fields and a result manifest and checks interface energy
+against the independent series-compliance reference.
+
 ## References
 
 - Paggi and Wriggers (2016), *Node-to-segment and node-to-surface interface

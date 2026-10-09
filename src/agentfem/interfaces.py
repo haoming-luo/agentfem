@@ -1846,13 +1846,11 @@ def _interface_frames(normals) -> np.ndarray:
     if dimension != 3:
         raise ValueError("Interface frames require geometric dimension 2 or 3.")
     axes = np.eye(3)
-    for index, direction in enumerate(normal):
-        seed = axes[int(np.argmin(np.abs(axes @ direction)))]
-        first = np.cross(direction, seed)
-        first /= np.linalg.norm(first)
-        second = np.cross(direction, first)
-        frames[index, :, 1] = first
-        frames[index, :, 2] = second
+    seed = axes[np.argmin(np.abs(normal), axis=1)]
+    first = np.cross(normal, seed)
+    first /= np.linalg.norm(first, axis=1)[:, None]
+    frames[:, :, 1] = first
+    frames[:, :, 2] = np.cross(normal, first)
     return frames
 
 

@@ -48,6 +48,17 @@ def test_q1_bilinear_field_is_retained_and_integrated_exactly(n, m):
     assert response.stored_energy == pytest.approx(5 / 9)
     blocks = list(assembler.tangent_blocks(un, up))
     assert all(matrix.shape == (24, 24) for _, _, matrix in blocks)
+    assert len(blocks) < len(pair.weights)
+    rng = np.random.default_rng(47)
+    dn, dp = rng.normal(size=un.shape), rng.normal(size=up.shape)
+    expected_n, expected_p = assembler.tangent_action(un, up, dn, dp)
+    actual_n, actual_p = np.zeros_like(un), np.zeros_like(up)
+    for nn, pn, block in blocks:
+        action = (block @ np.concatenate((dn[nn], dp[pn])).ravel()).reshape(-1, 3)
+        np.add.at(actual_n, nn, action[: len(nn)])
+        np.add.at(actual_p, pn, action[len(nn) :])
+    np.testing.assert_allclose(actual_n, expected_n, atol=1e-12)
+    np.testing.assert_allclose(actual_p, expected_p, atol=1e-12)
 
 
 def test_q1_work_moment_and_side_swap_are_consistent():

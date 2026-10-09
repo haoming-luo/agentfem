@@ -300,24 +300,47 @@ class UniformHexBatch:
         )
 
     def stability_bound(self):
-        """Conservative max cell Rayleigh bound, valid after additive assembly.
+        """Conservative element bound from small physical/hourglass Gram spectra.
 
         The assembled mass must be the sum of these same positive cell masses.
         Extra stiffness (contact, interfaces) must be bounded separately.
+        Physical nonzero eigenvalues use a 6x6 Gram matrix; hourglass modes
+        use 4x4. Their largest eigenvalues add to bound the combined stiffness.
+        No global eigensolve or persistent 24x24 cell matrix is needed.
         """
-        modulus = np.linalg.eigvalsh(self.stiffness)[..., -1]
-        physical = (
-            3
-            * self.volume
-            * modulus
-            * np.sum(
-                self.average_gradient**2 / self.lumped_mass[:, :, None], axis=(1, 2)
+        bound = 0.0
+        shared = (
+            np.linalg.cholesky(self.stiffness) if self.stiffness.ndim == 2 else None
+        )
+        for start in range(0, self.size, self.chunk_size):
+            region = slice(start, min(start + self.chunk_size, self.size))
+            gradient = self.average_gradient[region]
+            b = np.zeros((len(gradient), 6, 8, 3))
+            for i in range(3):
+                b[:, i, :, i] = gradient[:, :, i]
+            for row, (i, j) in enumerate(((1, 2), (0, 2), (0, 1)), start=3):
+                b[:, row, :, i] = gradient[:, :, j]
+                b[:, row, :, j] = gradient[:, :, i]
+            b /= np.sqrt(self.lumped_mass[region])[:, None, :, None]
+            b = b.reshape(-1, 6, 24)
+            factor = (
+                shared
+                if shared is not None
+                else np.linalg.cholesky(self.stiffness[region])
             )
-        )
-        hourglass = self.hourglass_coefficient * np.sum(
-            self.hourglass_modes**2 / self.lumped_mass[:, :, None], axis=(1, 2)
-        )
-        bound = float(np.max(physical + hourglass))
+            gram = b @ b.swapaxes(-1, -2)
+            physical_gram = factor.swapaxes(-1, -2) @ gram @ factor
+            physical = self.volume[region] * np.linalg.eigvalsh(physical_gram)[:, -1]
+            gamma = (
+                self.hourglass_modes[region]
+                / np.sqrt(self.lumped_mass[region])[:, :, None]
+            )
+            hourglass = (
+                self.hourglass_coefficient[region]
+                * np.linalg.eigvalsh(gamma.swapaxes(-1, -2) @ gamma)[:, -1]
+            )
+            bound = max(bound, float(np.max(physical + hourglass)))
+        bound *= 1 + 64 * np.finfo(float).eps
         if not np.isfinite(bound) or bound <= 0:
             raise ValueError("Hex8 spectral bound is not positive finite.")
         return bound

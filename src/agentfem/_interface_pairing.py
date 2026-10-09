@@ -326,6 +326,12 @@ class FixedReferenceCohesiveAssembler:
         if callable(configure):
             configure(3)
         self._trial = None
+        # Many integration points share the same pair of trace nodes. Aggregate
+        # their small blocks before PETSc insertion, never a dense global matrix.
+        rows = np.concatenate((pairing.negative_nodes, pairing.positive_nodes), axis=1)
+        self._block_nodes, groups = np.unique(rows, axis=0, return_inverse=True)
+        self._block_order = np.argsort(groups, kind="stable")
+        self._block_offsets = np.concatenate(([0], np.cumsum(np.bincount(groups))))
 
     def _point_response(self, negative, positive, *, begin):
         from .interfaces import _point_interface_response
@@ -383,18 +389,30 @@ class FixedReferenceCohesiveAssembler:
         self._trial = None
 
     def tangent_blocks(self, negative, positive):
-        """Yield point-local blocks; never allocate a dense global matrix."""
+        """Yield integrated trace-pair blocks; never a dense global matrix."""
         point = self._point_response(negative, positive, begin=False)
         pair = self.pairing
-        for q, weight in enumerate(pair.weights):
+        width = pair.negative_nodes.shape[1]
+        for group, nodes in enumerate(self._block_nodes):
+            q = self._block_order[
+                self._block_offsets[group] : self._block_offsets[group + 1]
+            ]
             shape = np.concatenate(
-                (-pair.negative_weights[q], pair.positive_weights[q])
+                (-pair.negative_weights[q], pair.positive_weights[q]), axis=1
             )
-            matrix = np.einsum("a,ij,b->aibj", shape, point["tangent"][q, 0], shape)
+            weighted = pair.weights[q, None, None] * point["tangent"][q, 0]
+            left = (shape[:, :, None, None] * weighted[:, None, :, :]).reshape(
+                len(q), -1
+            )
+            matrix = (
+                (left.T @ shape)
+                .reshape(len(nodes), 3, 3, len(nodes))
+                .transpose(0, 1, 3, 2)
+            )
             yield (
-                pair.negative_nodes[q],
-                pair.positive_nodes[q],
-                weight * matrix.reshape(3 * len(shape), 3 * len(shape)),
+                nodes[:width],
+                nodes[width:],
+                matrix.reshape(3 * len(nodes), 3 * len(nodes)),
             )
 
     def rollback(self):
