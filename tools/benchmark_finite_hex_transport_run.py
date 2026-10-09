@@ -24,6 +24,7 @@ from verify_finite_hex_patch import prepare
 def run(size, steps, repeats):
     timings = {"ordered": [], "columnar": []}
     errors = []
+    setup_record = None
     for repetition in range(repeats + 1):
         order = tuple(timings) if repetition % 2 == 0 else tuple(reversed(timings))
         answers = {}
@@ -33,6 +34,17 @@ def run(size, steps, repeats):
                 steps,
                 material_adapter=OrderedProvider if mode == "ordered" else None,
             )
+            setup_record = {
+                "material": step.residual.material.summary(),
+                "dt": step.dt,
+                "duration": steps * step.dt,
+                "density": 2.0,
+                "hourglass_modulus": 40.0,
+                "hourglass_scale": 0.1,
+                "omega_squared_ceiling": step.residual.bound,
+                "motion": "homogeneous dilation, boundary normal components prescribed",
+                "constitutive_scope": "finite-strain J2 provider remaining in elastic branch",
+            }
             start = perf_counter()
             step.run()
             elapsed = perf_counter() - start
@@ -105,6 +117,7 @@ def run(size, steps, repeats):
         "repeats": repeats,
         "scope": "private_serial_affine_trajectory_including_transactions_monitoring_no_setup_io",
         "identical_material_equations": True,
+        "setup": setup_record,
         "nodal_and_material_fields_agree": True,
         "seconds": timings,
         "median_seconds": {mode: median(values) for mode, values in timings.items()},
