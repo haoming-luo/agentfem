@@ -914,6 +914,8 @@ and evidence remain in the linked guides and scientific function reference.
 | function | `describe_element(element_or_space) -> ElementIdentity` | Describe a UFL element or a function space without constructing forms. |
 | function | `describe_field(field, *, registered_mesh = None) -> FieldDiscretization` | Describe the runtime discretization of one AgentFEM or DOLFINx field. |
 | function | `audit(model, *, check_quality: bool = False, quality_threshold: float = 0.1, reject_poor_quality: bool = False) -> DiscretizationAudit` | Audit mesh topology, field elements, Study shapes, and mesh quality. |
+| class | `UniformStrainHex8` | Experimental serial small-strain elastic uniform-gradient formulation. |
+| function | `uniform_strain_hex8(*, hourglass_modulus, hourglass_scale, chunk_size = 1024)` | Declare stabilization explicitly; not an automatic C3D8R translation. |
 
 ## `agentfem.expressions`
 
@@ -976,6 +978,7 @@ and evidence remain in the linked guides and scientific function reference.
 | function | `finite_strain_internal_force(displacement, test_function, material, *, measure = ufl.dx, name: str = 'F_internal_finite_strain') -> OperatorForm` | Return the current Total-Lagrangian hyperelastic internal force. |
 | class | `FiniteStrainEnergyMonitor` | Accepted-frame kinetic and hyperelastic bulk energy monitor. |
 | class | `FiniteStrainRegionalEnergyMonitor` | Accepted-frame energy for a partitioned hyperelastic solid. |
+| function | `nonmatching_cohesive_force(pairing, displacement, law, *, negative_dofs, positive_dofs, tangential = 'mixed', tangential_stiffness = None)` | Lower fixed P1/Q1 traces to a serial reference interface force. |
 | class | `DofMappedCohesiveForce(assembler, displacement, *, node_to_block_dof)` | Map a serial cohesive facet kernel to vector finite-element dofs. |
 | class | `NamedCohesiveResponse` | Responses and aggregate energy from several named interfaces. |
 | class | `CohesiveForceCollection(interfaces)` | Atomically compose independent named cohesive-interface forces. |
@@ -1067,10 +1070,15 @@ and evidence remain in the linked guides and scientific function reference.
 | function | `split_conforming_named_interfaces(coordinates, cells, named_interfaces) -> NamedSplitInterfaceMesh` | Atomically split several disjoint conforming cohesive manifolds. |
 | function | `split_conforming_cell_interface(coordinates, cells, *, positive_cells) -> SplitInterfaceMesh` | Split the internal facet separating two declared cell partitions. |
 | class | `CohesiveSurface` | Public description of a fixed-path zero-thickness interface. |
+| function | `elastic_cohesive(*, normal_stiffness, tangential_stiffness, second_tangential_stiffness = None, name = 'elastic traction-separation')` | Undamaged reference-area interface elasticity with explicit local stiffnesses. |
+| function | `pair_nonmatching_triangles(negative, positive, *, tolerance, maximum_points = 200000)` | Experimental fixed coplanar P1 common-refinement trace integration. |
+| function | `reference_trace(vertices, cells, *, topology, tolerance)` | Create fixed reference geometry with its original P1 or affine Q1 trace. |
+| function | `pair_reference_traces(negative, positive, *, tolerance, maximum_points = 200000)` | Common-refinement pairing without replacing the original field bases. |
 | function | `bilinear_cohesive(*, strength: float, fracture_energy: float, initial_stiffness: float, compression_stiffness: float \| None = None, name: str = 'bilinear Mode-I cohesive law') -> BilinearCohesiveLaw` | Create a bilinear Mode-I cohesive law. |
 | function | `mixed_mode_bilinear_cohesive(*, normal_strength: float, shear_strength: float, normal_fracture_energy: float, shear_fracture_energy: float, normal_stiffness: float, tangential_stiffness: float, interaction: str = 'bk', interaction_exponent: float = 1.45, compression_stiffness: float \| None = None, residual_tangential_fraction: float = 0.0, friction_coefficient: float = 0.0, friction_regularization: float = 1e-08, name: str = 'bilinear mixed-mode cohesive law') -> MixedModeBilinearCohesiveLaw` | Create a quadratic-initiation, energy-evolution mixed-mode law. |
 | function | `cohesive_surface(*, law, mode: str = 'normal', name: str = 'cohesive surface') -> CohesiveSurface` | Declare a fixed-path zero-thickness cohesive interface. |
 | function | `cohesive_characteristic_length(*, young: float, fracture_energy: float, strength: float) -> float` | Return the declared scale ``E * Gamma / strength**2``. |
+| function | `reference_trace_from_boundary(displacement, boundary, *, tolerance = 1e-10)` | Extract an outward reference trace and DOF map from a named boundary. |
 
 ## `agentfem.manifests`
 

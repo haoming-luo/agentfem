@@ -29,8 +29,14 @@ physical `total_mechanical_energy` and `total_discrete_energy`. These components
 are not a verified external-work balance. Serial interrupted/continuous runs
 agree; changed operator identity rejects a checkpoint atomically. Public
 portable restart, MPI, finite deformation, evolving material orientation,
-damage/deletion, eigenstrain, additional contact/interface operators and
+damage/deletion, eigenstrain, additional contact operators and
 operator-changing time inputs are not admitted by this provider.
+
+An optional `cohesive_force` now composes the fixed-reference, undamaged elastic
+Q1 interface. Its independent nonmatching traces retain original bilinear
+interpolation. The conservative stable step includes both interface and bulk
+stiffness; interface stored energy and failed-increment/restart state share
+the existing lifecycle. See [nonmatching interfaces](nonmatching_interfaces.md).
 
 See `examples/uniform_hex_wave.py` for a runnable ordinary-workflow example.
 On 2026-10-09 a candidate wheel was built without isolation downloads, installed
@@ -83,7 +89,9 @@ tested separately through the ordinary Step lifecycle.
 positive nodal masses and coefficients. Shared material stiffness is stored
 once; heterogeneous tensors are supported. Geometry preparation and response
 evaluation are chunked. No per-cell 24-by-24 matrices are retained. Response
-iteration can consume chunks without storing all output fields.
+iteration can consume chunks without storing all output fields. Global residual
+evaluation also gathers displacement through the node map one chunk at a time;
+it no longer creates a full `(cells, 8, 3)` displacement copy each step.
 
 A 2,048-cell, single-thread local microbenchmark on 2026-10-09 compared five
 response repetitions against the scalar reference operator. Median response
@@ -122,7 +130,7 @@ DOLFINx retains mesh/DOF ownership; Procedure retains time integration and
 stability composition. The experimental policy, ordinary Step, serial restart
 and separate artificial energy are implemented. Remaining work includes
 reviewed external-work closure, bounded-distortion admission, richer loading
-evidence and eventual interface/MPI composition. No implicit numerical
+evidence and eventual MPI composition. No implicit numerical
 equivalence to imported commercial reduced-integration elements is assumed.
 
 ## Sources

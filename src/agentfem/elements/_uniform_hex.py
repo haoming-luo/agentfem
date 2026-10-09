@@ -322,15 +322,40 @@ class UniformHexBatch:
             raise ValueError("Hex8 spectral bound is not positive finite.")
         return bound
 
-    def iter_responses(self, displacement):
+    def iter_responses(self, displacement, *, node_map=None):
+        """Evaluate bounded chunks, optionally gathering from global nodal values.
+
+        Supplying the mesh owner's connectivity avoids a whole-mesh (cells,8,3)
+        displacement copy on every residual evaluation.
+        """
         displacement = np.asarray(displacement, dtype=float)
-        if displacement.shape != (self.size, 8, 3) or not np.all(
-            np.isfinite(displacement)
-        ):
-            raise ValueError("Hex8 batch displacement must be finite (cells, 8, 3).")
+        if node_map is None:
+            if displacement.shape != (self.size, 8, 3):
+                raise ValueError(
+                    "Hex8 batch displacement must be finite (cells, 8, 3)."
+                )
+        else:
+            node_map = np.asarray(node_map)
+            if displacement.ndim != 2 or displacement.shape[1] != 3:
+                raise ValueError("Hex8 nodal displacement must have shape (nodes, 3).")
+            if (
+                node_map.shape != (self.size, 8)
+                or node_map.dtype.kind not in "iu"
+                or np.any(node_map < 0)
+                or np.any(node_map >= len(displacement))
+            ):
+                raise ValueError(
+                    "Hex8 node map must contain valid integer (cells, 8) indices."
+                )
+        if not np.all(np.isfinite(displacement)):
+            raise ValueError("Hex8 displacement must be finite.")
         for start in range(0, self.size, self.chunk_size):
             region = slice(start, min(start + self.chunk_size, self.size))
-            u = displacement[region]
+            u = (
+                displacement[region]
+                if node_map is None
+                else displacement[node_map[region]]
+            )
             gradient = self.average_gradient[region]
             du = np.einsum("cai,caj->cij", u, gradient)
             strain = np.column_stack(

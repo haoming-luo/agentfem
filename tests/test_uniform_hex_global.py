@@ -58,6 +58,31 @@ def test_global_hex_affine_force_and_mass_match_full_integration():
     assert op.energies()["strain_energy"] == pytest.approx(expected)
 
 
+def test_global_chunk_gather_matches_full_gather_and_rejects_bad_maps():
+    _, _, u, op = _problem(3)
+    values = u.x.array.reshape(-1, 3)
+    values[:] = np.random.default_rng(123).normal(size=values.shape)
+    full = list(op.cells.iter_responses(values[op.cell_nodes]))
+    chunks = list(op.cells.iter_responses(values, node_map=op.cell_nodes))
+    for (region, expected), (actual_region, actual) in zip(full, chunks, strict=True):
+        assert region == actual_region
+        assert region.stop - region.start <= op.cells.chunk_size
+        for name in (
+            "strain",
+            "stress",
+            "internal_force",
+            "physical_energy",
+            "hourglass_energy",
+        ):
+            np.testing.assert_array_equal(
+                getattr(actual, name), getattr(expected, name)
+            )
+    invalid = op.cell_nodes.copy()
+    invalid[0, 0] = len(values)
+    with pytest.raises(ValueError, match="node map"):
+        list(op.cells.iter_responses(values, node_map=invalid))
+
+
 def test_global_hex_wave_convergence_uses_existing_integrator():
     errors = []
     for n in (8, 16):

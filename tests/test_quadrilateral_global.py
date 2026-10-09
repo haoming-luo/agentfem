@@ -134,6 +134,21 @@ def test_stiffer_interface_reduces_composed_stable_step():
     assert stiff.stability["dt_limit"] < soft.stability["dt_limit"]
 
 
+def test_global_interface_rejects_undeclared_anisotropic_tangent_frame():
+    step, force = _dynamic_interface()
+    law = interfaces.elastic_cohesive(
+        normal_stiffness=1000, tangential_stiffness=500, second_tangential_stiffness=300
+    )
+    with pytest.raises(NotImplementedError, match="material frame"):
+        fracture.nonmatching_cohesive_force(
+            force.assembler.pairing,
+            step.state.u,
+            law,
+            negative_dofs=force.negative_dofs,
+            positive_dofs=force.positive_dofs,
+        )
+
+
 def test_combined_interface_commit_failure_restores_and_retries(monkeypatch):
     reference, _ = _dynamic_interface()
     reference.run()

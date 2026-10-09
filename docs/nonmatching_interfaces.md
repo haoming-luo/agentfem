@@ -23,6 +23,14 @@ P1 traces; matching coordinates alone cannot distinguish the two bodies.
 Pass the resulting force as `model.step(target=displacement,
 cohesive_force=force)` for a linear-static solid and call `solve_result()`.
 
+For imported/named boundaries, use
+`trace, dofs = interfaces.reference_trace_from_boundary(displacement, boundary)`
+on each side. Extraction follows parent-cell topology, keeps coincident but
+independent nodes distinct, and orients each facet outward. It does not infer
+which coincident body the user intended, split an internal bonded surface, or
+perform a whole-mesh nearest-coordinate match. Boundary tags must select the
+intended exterior side explicitly.
+
 The first provider accepts registered linear elastic bulk materials, loads and
 ordinary strong constraints. It rejects damage laws, projected-only quadrature,
 MPI, DG traces, eigenstrains, additional boundary models and direct K/F
@@ -109,7 +117,10 @@ independent 1:3 and 2:3 hexahedral interface partitions.
 
 For explicit dynamics, combine `cohesive_force` with
 `element_policy=elements.uniform_strain_hex8(...)` in ordinary `model.step`.
-Only the undamaged elastic interface is admitted. The stable-step estimate
+Only the undamaged elastic interface is admitted. Global assembly
+requires equal tangential stiffnesses until an explicit oriented material-frame
+contract is available in the global adapter. The local law can still describe
+distinct tangent components for callers that own their local frame. The stable-step estimate
 sums bulk and interface squared-frequency bounds, rather than taking the
 minimum of two isolated stable steps. Histories distinguish physical bulk,
 interface and artificial hourglass energy. Serial checkpoint/restart and

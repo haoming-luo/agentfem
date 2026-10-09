@@ -19,6 +19,15 @@ class NonmatchingCohesiveForce:
 
         if not isinstance(assembler, FixedReferenceCohesiveAssembler):
             raise TypeError("Expected a fixed-reference cohesive assembler.")
+        from ._elastic_cohesive import ElasticCohesiveLaw
+
+        if isinstance(assembler.law, ElasticCohesiveLaw) and (
+            assembler.law.second_tangential_stiffness
+            != assembler.law.tangential_stiffness
+        ):
+            raise NotImplementedError(
+                "Unequal tangential stiffnesses require an explicitly oriented interface material frame; this global adapter currently supports isotropic tangential response only."
+            )
         self.displacement = unwrap(displacement)
         space = self.displacement.function_space
         if space.mesh.comm.size != 1:

@@ -74,7 +74,7 @@ class UniformHexResidual:
 
     def _responses(self):
         values = self.displacement.x.array.reshape(-1, 3)
-        return self.cells.iter_responses(values[self.cell_nodes])
+        return self.cells.iter_responses(values, node_map=self.cell_nodes)
 
     def assemble_vector(self):
         from petsc4py import PETSc

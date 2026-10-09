@@ -3120,6 +3120,19 @@ from .cohesive_checkpoint import (  # noqa: E402
 )
 
 
+def reference_trace_from_boundary(displacement, boundary, *, tolerance=1e-10):
+    """Extract an outward reference trace and DOF map from a named boundary.
+
+    Serial continuous P1 tetrahedra and affine-face Q1 hexahedra only. Both
+    interface sides must have independent boundary labels and displacement DOFs.
+    Returns ``(trace, dofs)`` for ``pair_reference_traces`` and
+    ``fracture.nonmatching_cohesive_force``; it does not split or merge a mesh.
+    """
+    from ._interface_boundary import reference_trace_from_boundary as extract
+
+    return extract(displacement, boundary, tolerance=tolerance)
+
+
 __all__ = [
     "BilinearCohesiveLaw",
     "MixedModeBilinearCohesiveLaw",
@@ -3146,6 +3159,7 @@ __all__ = [
     "elastic_cohesive",
     "pair_nonmatching_triangles",
     "reference_trace",
+    "reference_trace_from_boundary",
     "pair_reference_traces",
     "audit_mode_i_kinematics",
     "audit_split_interface_rigid_modes",
