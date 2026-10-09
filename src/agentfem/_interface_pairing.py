@@ -87,19 +87,21 @@ class FixedReferencePairing:
     def residual(self, traction):
         """Scatter global work-conjugate traction using the exact trace transpose."""
         t = _field(traction, len(self.weights), "traction") * self.weights[:, None]
-        rn = np.zeros_like(self.negative.vertices)
-        rp = np.zeros_like(self.positive.vertices)
-        np.add.at(
-            rn,
-            self.negative_nodes.ravel(),
-            (-self.negative_weights[:, :, None] * t[:, None, :]).reshape(-1, 3),
-        )
-        np.add.at(
-            rp,
-            self.positive_nodes.ravel(),
-            (self.positive_weights[:, :, None] * t[:, None, :]).reshape(-1, 3),
-        )
-        return rn, rp
+        result = []
+        for side, sign in (("negative", -1), ("positive", 1)):
+            nodes = getattr(self, side + "_nodes").ravel()
+            shape = getattr(self, side + "_weights")
+            count = len(getattr(self, side).vertices)
+            # Component-wise reductions avoid a (points, trace_width, 3)
+            # temporary and preserve the same interpolation transpose.
+            values = np.empty((count, 3))
+            for component in range(3):
+                values[:, component] = sign * np.bincount(
+                    nodes, weights=(shape * t[:, component, None]).ravel(),
+                    minlength=count,
+                )
+            result.append(values)
+        return tuple(result)
 
     def summary(self):
         return {

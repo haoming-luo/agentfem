@@ -115,6 +115,44 @@ def test_global_hex_wave_convergence_uses_existing_integrator():
     assert errors[1] < 0.002
 
 
+@pytest.mark.parametrize("component", [1, 2])
+def test_ordinary_hex_step_constrained_shear_wave_converges(component):
+    from agentfem import constitutive, elements, fields, models, studies
+
+    errors = []
+    for n in (8, 16):
+        domain = mesh.create_box(
+            MPI.COMM_SELF, [[0, 0, 0], [1, .2, .2]], [n, 2, 2],
+            cell_type=mesh.CellType.hexahedron,
+        )
+        model = models.create(study=studies.dynamic_solid(dimension=3), mesh=domain)
+        u = model.field(fields.displacement(domain))
+        model.material(constitutive.isotropic_elastic(young=100, poisson=0, density=2))
+        model.fix(u, on=lambda x: np.ones(x.shape[1], dtype=bool),
+                  components=tuple(i for i in range(3) if i != component))
+        x = u.value.function_space.tabulate_dof_coordinates()[:, 0]
+        shape = np.cos(np.pi*x)
+        u.value.x.array[component::3] = 1e-4 * shape
+        omega = np.pi*np.sqrt(50/2)
+        stop = np.pi/(4*omega)
+        steps = 20*n
+        step = model.step(
+            target=u, element_policy=elements.uniform_strain_hex8(
+                hourglass_modulus=50, hourglass_scale=.1,
+            ), dt=stop/steps, steps=steps, progress=False,
+        )
+        step.run()
+        errors.append(np.max(np.abs(u.value.x.array[component::3]/1e-4
+                                    - shape*np.cos(omega*stop))))
+        initial = step.history_records[0]["total_discrete_energy"]
+        last = step.history_records[-1]
+        assert abs(last["total_discrete_energy"]/initial - 1) < 2e-5
+        assert last["hourglass_energy"] < 1e-25
+        assert abs(last["prescribed_motion_work"]) < 1e-25
+    assert errors[1] < errors[0]/3.8
+    assert errors[1] < .002
+
+
 def test_global_hex_rejects_tetrahedra_and_bad_safety():
     domain = mesh.create_unit_cube(MPI.COMM_SELF, 1, 1, 1)
     u = fem.Function(fem.functionspace(domain, ("Lagrange", 1, (3,))))

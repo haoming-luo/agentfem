@@ -32,14 +32,18 @@ def _trace(space, positive):
 
 
 @pytest.mark.parametrize("n,m", [(1, 3), (2, 3)])
-def test_q1_nonmatching_global_compliance_and_energy(n, m):
+@pytest.mark.parametrize("component", [0, 1, 2])
+def test_q1_nonmatching_global_compliance_and_energy(n, m, component):
     domain = _blocks(n, m, cell_type="hexahedron")
     model = models.create(study=studies.static_solid(dimension=3), mesh=domain)
     u = model.field(fields.displacement(domain))
     model.material(constitutive.isotropic_elastic(young=100, poisson=0, density=2))
-    model.fix(u, on=lambda x: np.ones(x.shape[1], dtype=bool), components=(0, 1))
-    model.fix(u, on=lambda x: np.isclose(x[2], -1), components=2)
-    model.fix(u, on=lambda x: np.isclose(x[2], 1), components=2, value=0.02)
+    # Suppressed transverse modes give independent 1D normal/shear compliance.
+    # This is not an unconstrained three-dimensional shear specimen.
+    model.fix(u, on=lambda x: np.ones(x.shape[1], dtype=bool),
+              components=tuple(i for i in range(3) if i != component))
+    model.fix(u, on=lambda x: np.isclose(x[2], -1), components=component)
+    model.fix(u, on=lambda x: np.isclose(x[2], 1), components=component, value=0.02)
     a, na = _trace(u.value.function_space, False)
     b, nb = _trace(u.value.function_space, True)
     pair = interfaces.pair_reference_traces(a, b, tolerance=1e-10)
@@ -51,9 +55,10 @@ def test_q1_nonmatching_global_compliance_and_energy(n, m):
     result = step.solve_result()
     assert pair.summary()["negative_basis"] == "Q1"
     assert result.quantities["free_residual_norm"].value < 1e-10
-    expected_force = 0.02 / (2 / 100 + 1 / 1000)
+    modulus, stiffness = (100, 1000) if component == 2 else (50, 500)
+    expected_force = 0.02 / (2 / modulus + 1 / stiffness)
     assert result.quantities["interface_stored_energy"].value == pytest.approx(
-        expected_force**2 / 2000, rel=1e-10
+        expected_force**2 / (2 * stiffness), rel=1e-10
     )
     assert abs(result.quantities["energy_balance_residual"].value) < 1e-12
 
