@@ -374,16 +374,44 @@ With deterministic interior-node perturbations of up to 20% of grid spacing
 6.483% / 1.596% / 0.732% / 0.417%; corresponding artificial/physical energy
 ratios are 2.052% / 0.488% / 0.221% / 0.126%. Full-cell geometric admission is
 still required. This bounded perturbation test does not admit arbitrary distortion.
+Raw regular/distorted records, including clean source revision `341060e3`, are
+retained under `evidence/hex8/2026-10-09-finite-spatial-*.json`. Their wall times
+overlap a separate endurance run and are not used as performance evidence.
 
 ## Remaining implementation gates
 
 Compact preparation and serial affine/bending/wave checks are implemented.
 DOLFINx retains mesh/DOF ownership; Procedure retains time integration and
 stability composition. The experimental policy, ordinary Step, same-partition restart
-and separate artificial energy are implemented. Remaining work includes
-distortion-dependent accuracy evidence, richer loading
+and separate artificial energy are implemented. Bounded distortion is tested;
+remaining work includes more severe and application-specific mesh-quality
+accuracy limits, richer loading
 evidence and distributed nonmatching interface composition. No implicit numerical
 equivalence to imported commercial reduced-integration elements is assumed.
+
+### Next finite-explicit decision, not an enabled capability
+
+Do not turn the current positive-semidefinite material screen into a general
+policy by taking absolute eigenvalues. The next implementation must distinguish
+the highest oscillatory frequency, negative curvature and a complete-path
+bound. Local negative curvature is not a global instability diagnosis. A new
+policy must declare its validity range and preserve that distinction in Result.
+
+The practical design sequence is: material-owned effective-modulus evidence;
+Operator-owned geometric/mass conversion and additive interface contribution;
+Procedure-owned increment selection and rejection; State-owned rollback.
+Initial/accepted response sampling must not manufacture a positive time increment
+to query a rate-dependent law. Energy output must consume an explicit accepted
+response, including its initial energy, before claiming a global balance.
+
+Abaqus documents separate user-supplied effective bulk/shear moduli when its
+automatic estimate is not conservative for a highly nonlinear user material.
+This supports a distinct stability contract rather than assuming that every
+algorithmic tangent is a wave-speed model. Its explicit analysis guide also
+distinguishes element-wise and global frequency estimates. These are design
+references, not claims that AgentFEM implements those algorithms:
+[VUMAT effective moduli](https://docs.software.vt.edu/abaqusv2025/English/SIMACAESUBRefMap/simasub-c-vumat.htm),
+[explicit stability estimation](https://docs.software.vt.edu/abaqusv2025/English/SIMACAEANLRefMap/simaanl-c-expdynamic.htm).
 
 ## Sources
 

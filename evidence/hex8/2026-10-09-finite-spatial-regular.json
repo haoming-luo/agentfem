@@ -1,0 +1,80 @@
+{
+  "schema": "agentfem.private-finite-hex-spatial-verification.v1",
+  "revision": "341060e3842dc634dc57f6a216263f6b1bc39333",
+  "tracked_source_dirty": false,
+  "scope": "serial_hex_neo_hookean_manufactured_solution",
+  "mesh_family": "regular",
+  "distortion_seed": null,
+  "numpy_version": "2.4.6",
+  "amplitude": 0.08,
+  "mu": 30,
+  "lambda": 40,
+  "hourglass_scale": 0.1,
+  "records": [
+    {
+      "size": 2,
+      "cells": 8,
+      "distortion_fraction": 0.0,
+      "displacement_relative_l2": 0.3446239366875896,
+      "equilibrium_relative": 4.003510165998126e-13,
+      "physical_energy": 0.8193853202861239,
+      "hourglass_energy": 0.12227101668261942,
+      "hourglass_to_physical": 0.14922285481014377,
+      "newton_iterations": 3,
+      "cg_iterations": 7,
+      "wall_seconds": 0.03406841726973653
+    },
+    {
+      "size": 4,
+      "cells": 64,
+      "distortion_fraction": 0.0,
+      "displacement_relative_l2": 0.05867917455594093,
+      "equilibrium_relative": 8.179897541882556e-14,
+      "physical_energy": 0.7787212477580145,
+      "hourglass_energy": 0.015725989926241694,
+      "hourglass_to_physical": 0.020194633152129556,
+      "newton_iterations": 4,
+      "cg_iterations": 81,
+      "wall_seconds": 0.085980708245188
+    },
+    {
+      "size": 8,
+      "cells": 512,
+      "distortion_fraction": 0.0,
+      "displacement_relative_l2": 0.01339596736513223,
+      "equilibrium_relative": 1.5060884140511094e-12,
+      "physical_energy": 0.7678705868261162,
+      "hourglass_energy": 0.0034315996982974203,
+      "hourglass_to_physical": 0.004468981827369439,
+      "newton_iterations": 4,
+      "cg_iterations": 151,
+      "wall_seconds": 0.7131090420298278
+    },
+    {
+      "size": 12,
+      "cells": 1728,
+      "distortion_fraction": 0.0,
+      "displacement_relative_l2": 0.005855288613523852,
+      "equilibrium_relative": 5.6965492611826446e-12,
+      "physical_energy": 0.7659805104548518,
+      "hourglass_energy": 0.0014890333719212708,
+      "hourglass_to_physical": 0.0019439572568720558,
+      "newton_iterations": 4,
+      "cg_iterations": 233,
+      "wall_seconds": 3.2734256670810282
+    },
+    {
+      "size": 16,
+      "cells": 4096,
+      "distortion_fraction": 0.0,
+      "displacement_relative_l2": 0.0032744502877749436,
+      "equilibrium_relative": 1.090794839705161e-11,
+      "physical_energy": 0.7653297003263462,
+      "hourglass_energy": 0.0008306557111626015,
+      "hourglass_to_physical": 0.001085356691120702,
+      "newton_iterations": 4,
+      "cg_iterations": 320,
+      "wall_seconds": 10.392079709097743
+    }
+  ]
+}
