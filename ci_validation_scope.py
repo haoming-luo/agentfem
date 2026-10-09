@@ -173,6 +173,10 @@ _CORE_SOURCE_TEST_MAP = {
         "tests/test_p1_platform.py",
         "tests/test_viscoelasticity.py",
     ),
+    "src/agentfem/mechanics/_finite_hex_explicit.py": (
+        "tests/test_finite_hex_explicit.py",
+        "tests/test_finite_uniform_hex_dolfinx.py",
+    ),
     "src/agentfem/mechanics/small_strain_material.py": (
         "tests/test_small_strain_material_step.py",
         "tests/test_learned_constitutive.py",
@@ -208,6 +212,7 @@ _CORE_SOURCE_TEST_MAP = {
         "tests/test_finite_uniform_hex.py",
         "tests/test_finite_uniform_hex_material.py",
         "tests/test_finite_uniform_hex_dolfinx.py",
+        "tests/test_finite_hex_explicit.py",
         "tests/test_uniform_hex_global.py",
         "tests/test_uniform_hex_step.py",
         "tests/test_uniform_hex_work.py",

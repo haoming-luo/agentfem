@@ -85,9 +85,14 @@ bridge now exercises existing quadrature trial/commit/rollback, global force and
 moment, fixed-old-state tangents and a four-increment J2 patch. An instantaneous
 nonnegative symmetric-tangent spectral screen is tested separately; unsupported
 tangents are rejected, not silently symmetrized into a stability claim.
-The next gates are accepted whole-system time/state lifecycle and a bounded
-state-dependent explicit stability policy, then
-objective interface/contact composition and small global independent references.
+The private serial path now reuses the existing explicit Procedure, jointly
+restores nodal/material state after rejected increments, and passes interrupted
+versus continuous execution. A nonlinear Hencky bar exceeds 10% extension and
+shows second-order time refinement against an independent ODE. This does not
+admit arbitrary J2 trajectories: the nonnegative tangent screen is deliberately
+restrictive. Next are general state-dependent frequency/curvature semantics,
+energy/output contracts, public lowering, then objective interface/contact
+composition and broader independent references.
 Do not infer these gates from local element tests or reuse the small-strain
 constant spectral bound for a finite-deformation trajectory.
 Its stable middle layer is:

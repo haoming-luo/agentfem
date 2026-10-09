@@ -140,6 +140,7 @@ def test_discretization_owners_select_focused_serial_and_mpi_evidence():
     assert scope.tests == (
         "tests/test_documentation.py",
         "tests/test_element_contracts.py",
+        "tests/test_finite_hex_explicit.py",
         "tests/test_finite_uniform_hex.py",
         "tests/test_finite_uniform_hex_dolfinx.py",
         "tests/test_finite_uniform_hex_material.py",

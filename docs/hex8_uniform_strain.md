@@ -143,8 +143,21 @@ symmetric positive-semidefinite material tangent and rejects unsupported
 asymmetry/negative curvature; it is not a general elastoplastic wave-speed
 policy or a guarantee over a future increment.
 
-Finite-strain public Step lowering, accepted whole-system time advancement,
-evolving stability policy, global restart,
+The private serial residual lifecycle now runs under the existing central-
+difference Procedure with joint nodal/material rejection, accepted-time guards,
+and same-partition checkpoint recovery. Tests inject failure even after material
+commit and reproduce the uninterrupted trajectory after retry. A constrained
+one-cell elastic Hencky bar is checked against an independently integrated ODE,
+`m_eff u'' + C log(1+u)/(1+u) = 0`, with extension exceeding 10% and second-order
+time refinement over three increments sizes. This checks temporal integration
+of the one-cell model, not spatial continuum convergence or plastic dynamics.
+
+That private route requires a caller-declared complete-path spectral ceiling
+and checks each endpoint against the nonnegative symmetric-tangent screen.
+Ordinary isochoric J2 extension can fall outside this screen; negative material
+curvature is not by itself a constitutive bug or proof of global instability.
+General wave-speed/curvature treatment remains a gate, not an absolute-value
+workaround. Finite-strain public Step lowering, distributed/portable restart,
 objective nonmatching-interface kinematics and contact composition remain
 unimplemented in this route. The public small-strain policy is unchanged.
 The batch stores compact geometry and evaluates forces/tangent actions in
