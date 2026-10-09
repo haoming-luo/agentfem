@@ -380,6 +380,23 @@ overlap a separate endurance run and are not used as performance evidence.
 
 ## Remaining implementation gates
 
+### Bounded serial capacity evidence
+
+The private affine-dilation oracle completed 262,144 Hex8 cells and 500 accepted
+increments at clean source `aca01be0`. Peak process RSS was 3,074,506,752 bytes
+(about 3.07 GB); final absolute displacement/stress/stored-energy errors were
+6.38e-16, 1.50e-12 and 1.13e-12 against the independent homogeneous solution.
+The native finite-strain J2 provider remained elastic. The record is
+`evidence/hex8/2026-10-09-finite-affine-capacity.json`.
+
+This establishes bounded serial capacity and repeated state advancement, not
+plastic dynamics, spatial convergence, a complete energy balance or industrial
+forming. The run predates columnar transport; its elapsed time overlapped other
+checks and is not used to quantify that optimization. Its explicit 8 GiB budget
+was an observed-RSS stop at reporting stations, not an operating-system limit.
+
+### Public and private promotion boundaries
+
 Compact preparation and serial affine/bending/wave checks are implemented.
 DOLFINx retains mesh/DOF ownership; Procedure retains time integration and
 stability composition. The experimental policy, ordinary Step, same-partition restart

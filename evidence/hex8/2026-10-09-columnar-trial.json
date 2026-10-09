@@ -1,0 +1,62 @@
+{
+  "cells": 4096,
+  "repeats": 9,
+  "scope": "private_serial_finite_hex_trial_no_commit_restore_or_io",
+  "identical_material_equations": true,
+  "force_and_response_fields_agree": true,
+  "seconds": {
+    "ordered": [
+      0.17564212484285235,
+      0.17590087512508035,
+      0.17501720925793052,
+      0.18356520822271705,
+      0.18435445800423622,
+      0.17673774994909763,
+      0.17546933284029365,
+      0.18369012512266636,
+      0.17716483306139708
+    ],
+    "columnar": [
+      0.08010633289813995,
+      0.0799690829589963,
+      0.08101675007492304,
+      0.08109416719526052,
+      0.08110875030979514,
+      0.08025191677734256,
+      0.08053087489679456,
+      0.08570966590195894,
+      0.08253729110583663
+    ]
+  },
+  "median_seconds": {
+    "ordered": 0.17673774994909763,
+    "columnar": 0.08101675007492304
+  },
+  "thread_environment": {
+    "OMP_NUM_THREADS": "1",
+    "OPENBLAS_NUM_THREADS": "1",
+    "VECLIB_MAXIMUM_THREADS": "1"
+  },
+  "numpy_version": "2.4.6",
+  "runtime": {
+    "platform": "macOS-26.6.2-arm64-arm-64bit",
+    "machine": "arm64",
+    "python": "3.11.15",
+    "dolfinx": "0.11.0",
+    "petsc": [
+      3,
+      25,
+      3
+    ],
+    "mpi_vendor": [
+      "MPICH",
+      [
+        5,
+        0,
+        1
+      ]
+    ]
+  },
+  "revision": "07ee074b1d7d63e4444c8a8b6d95a1152e155b95",
+  "tracked_source_dirty": false
+}

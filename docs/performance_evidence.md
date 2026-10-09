@@ -173,6 +173,36 @@ full solve before investing in search optimization; do not extrapolate this
 microbenchmark to industrial forming. Raw local samples are retained under
 `evidence/contact/2026-10-09-search-microbenchmark.json` in the repository.
 
+## Finite-material transport comparison
+
+The 2026-10-09 controlled comparison uses clean source `07ee074b`, macOS ARM64,
+Python 3.11.15, DOLFINx 0.11.0, PETSc 3.25.3 and MPICH 5.0.1. Other numerical
+jobs were finished first. Each pair alternates execution order after warmup;
+raw times, runtime versions and thread environment are retained. The two routes
+use the identical native J2 integration and tangent implementation: only the
+ordered per-point object protocol versus optional columnar transport differs.
+
+| Fixed workload | Ordered median | Columnar median | Time reduction |
+| --- | ---: | ---: | ---: |
+| 4,096-cell complete trial, nine measured pairs | 0.17674 s | 0.08102 s | 54.2% |
+| 4,096 cells, 200 increments, three measured pairs | 38.8836 s | 17.9949 s | 53.7% |
+
+The first boundary excludes commit, restore and I/O. The second includes time
+integration, geometry/stability checks, transactions and scheduled monitoring,
+but excludes setup and disk I/O. This is approximately 2.16 times faster for
+the measured trajectory, **not** a general application or industrial-forming
+speedup. Both routes retain the same equations, tolerances and acceptance checks.
+All compared nodal/material fields agree within 2e-12 absolute/relative tolerance.
+The affine trajectory remains in the elastic branch of finite-strain J2 and
+independently matches displacement, stress and stored energy. It does not
+measure plastic-path throughput or validate the private route for public use.
+
+Reproduction tools are `tools/benchmark_material_transport.py` and
+`tools/benchmark_finite_hex_transport_run.py`; raw records are
+`evidence/hex8/2026-10-09-columnar-trial.json` and
+`evidence/hex8/2026-10-09-columnar-trajectory.json`. Do not multiply these factors
+by separate checkpoint or geometry microbenchmark factors.
+
 ## Scientific trust boundary
 
 `SimulationResult.performance` is operational evidence. It does not modify
