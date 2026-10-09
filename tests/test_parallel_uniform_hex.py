@@ -1,6 +1,6 @@
 # SPDX-FileCopyrightText: 2026 Haoming Luo and AgentFEM contributors
 # SPDX-License-Identifier: Apache-2.0
-"""Owned-cell/ghost-vector gate only; public Hex8 Step remains serial."""
+"""Owned-cell assembly and ordinary Hex8 Step distributed lifecycle gates."""
 
 import numpy as np
 import pytest
@@ -22,14 +22,19 @@ def problem(comm, counts=(4, 2, 2), stiffness=None):
         from dolfinx import graph
 
         def partitioner(comm, parts, types, cells):
-            count = cells.num_nodes if hasattr(cells, "num_nodes") else sum(
-                array.size // 8 for array in cells
+            count = (
+                cells.num_nodes
+                if hasattr(cells, "num_nodes")
+                else sum(array.size // 8 for array in cells)
             )
             result = graph.adjacencylist(np.zeros((count, 1), dtype=np.int32))
             return getattr(result, "_cpp_object", result)
 
     domain = mesh.create_box(
-        comm, [[0, 0, 0], [1, 0.2, 0.2]], counts, cell_type=mesh.CellType.hexahedron,
+        comm,
+        [[0, 0, 0], [1, 0.2, 0.2]],
+        counts,
+        cell_type=mesh.CellType.hexahedron,
         partitioner=partitioner,
     )
     u = fem.Function(fem.functionspace(domain, ("Lagrange", 1, (3,))))
@@ -145,7 +150,7 @@ def test_stability_rejects_rank_inconsistent_safety():
         pytest.skip("requires multiple ranks")
     _, _, operator = problem(MPI.COMM_WORLD)
     with pytest.raises(ValueError, match="differs across ranks"):
-        operator.stable_dt(safety=.5 if MPI.COMM_WORLD.rank == 0 else .8)
+        operator.stable_dt(safety=0.5 if MPI.COMM_WORLD.rank == 0 else 0.8)
 
 
 @pytest.mark.parametrize("where", ["time_input", "kinematics"])
@@ -164,7 +169,9 @@ def test_explicit_rank_local_input_failure_restores_all_ranks(where):
         return 0.0
 
     prescribed = constraints.time_dependent_component_dirichlet(
-        u, 0, marker=lambda x: np.ones(x.shape[1], dtype=bool),
+        u,
+        0,
+        marker=lambda x: np.ones(x.shape[1], dtype=bool),
         amplitude=amplitudes.Amplitude("fault_probe", amplitude),
     )
 
@@ -174,10 +181,14 @@ def test_explicit_rank_local_input_failure_restores_all_ranks(where):
             raise ValueError("injected rank-local load failure")
 
     step = problems.explicit_dynamics(
-        state=history, integrator=central_difference(state=history, mass=operator),
-        residual=operator, dt=1e-4, steps=1,
+        state=history,
+        integrator=central_difference(state=history, mass=operator),
+        residual=operator,
+        dt=1e-4,
+        steps=1,
         prescribed=(prescribed,) if where == "kinematics" else (),
-        update_load=load if where == "time_input" else None, progress=False,
+        update_load=load if where == "time_input" else None,
+        progress=False,
     )
     accepted = history.snapshot()
     with pytest.raises(RuntimeError, match="rank 1"):
@@ -195,14 +206,20 @@ def test_work_ledger_samples_collectively_when_only_one_rank_owns_constraint():
     from agentfem import constraints, fracture
 
     _, u, operator = problem(MPI.COMM_WORLD)
-    u.interpolate(lambda x: np.vstack((.01*x[0], 0*x[0], 0*x[0])))
+    u.interpolate(lambda x: np.vstack((0.01 * x[0], 0 * x[0], 0 * x[0])))
     history = state.second_order_state(u)
     fixed = constraints.component_dirichlet(
-        u, 0, marker=lambda x: np.all(np.isclose(x, 0), axis=0), value=0,
+        u,
+        0,
+        marker=lambda x: np.all(np.isclose(x, 0), axis=0),
+        value=0,
     )
     ledger = fracture.DynamicEnergyLedger(
-        energy=None, state=history, mass=operator.mass_diagonal,
-        residual=operator, prescribed=(fixed,),
+        energy=None,
+        state=history,
+        mass=operator.mass_diagonal,
+        residual=operator,
+        prescribed=(fixed,),
     )
     constrained = ledger._prescribed_dofs(u)
     counts = MPI.COMM_WORLD.allgather(len(constrained))
@@ -215,5 +232,96 @@ def test_work_ledger_samples_collectively_when_only_one_rank_owns_constraint():
         np.testing.assert_array_equal(force[free], 0)
     finally:
         expected.destroy()
-    ledger.restore(dict(natural_load_work=1., prescribed_motion_work=2., initial_accounted_energy=3.))
+    ledger.restore(
+        dict(
+            natural_load_work=1.0,
+            prescribed_motion_work=2.0,
+            initial_accounted_energy=3.0,
+        )
+    )
     assert ledger._prescribed_work == 2
+
+
+def ordinary_step(*, prescribed=False, domain=None):
+    from agentfem import (
+        amplitudes,
+        constitutive,
+        elements,
+        fields,
+        loads,
+        models,
+        studies,
+    )
+
+    if domain is None:
+        domain = mesh.create_box(
+            MPI.COMM_WORLD,
+            [[0, 0, 0], [1, 0.2, 0.2]],
+            [4, 2, 2],
+            cell_type=mesh.CellType.hexahedron,
+        )
+    model = models.create(study=studies.dynamic_solid(dimension=3), mesh=domain)
+    u = model.field(fields.displacement(domain))
+    model.material(constitutive.isotropic_elastic(young=100, poisson=0, density=2))
+    if prescribed:
+        model.fix(
+            u,
+            on=lambda x: np.ones(x.shape[1], dtype=bool),
+            components=0,
+            value=amplitudes.Amplitude(
+                "quadratic",
+                lambda t: 0.5 * t * t,
+                metadata={"coefficient": 0.5, "power": 2},
+            ),
+        )
+    else:
+        model.load(loads.body_force((2, 0, 0), domain=domain, target=u))
+    return model.step(
+        target=u,
+        element_policy=elements.uniform_strain_hex8(
+            hourglass_modulus=50,
+            hourglass_scale=0.1,
+        ),
+        dt=1e-4,
+        steps=10,
+        history_every=3,
+        progress=False,
+    )
+
+
+@pytest.mark.parametrize("prescribed", [False, True])
+def test_ordinary_distributed_hex_result_work_and_partition_restart(
+    tmp_path, prescribed
+):
+    from pathlib import Path
+
+    directory = Path(MPI.COMM_WORLD.bcast(str(tmp_path), root=0))
+    reference = ordinary_step(prescribed=prescribed)
+    result = reference.solve_result(output=directory / "reference.xdmf")
+    expected = 0.5 * 0.08 * (10e-4) ** 2
+    last = reference.history_records[-1]
+    assert last["kinetic_energy"] == pytest.approx(expected)
+    assert last["external_work"] == pytest.approx(expected)
+    assert "hourglass_energy" in result.histories
+    partial = ordinary_step(prescribed=prescribed)
+    partial.run(until_step=5)
+    checkpoint = partial.save_checkpoint(directory / "parallel_hex")
+    resumed = ordinary_step(prescribed=prescribed)
+    resumed.load_checkpoint(checkpoint)
+    resumed.run()
+    for name in ("u", "v", "a"):
+        np.testing.assert_allclose(
+            getattr(resumed.state, name).value.x.array,
+            getattr(reference.state, name).value.x.array,
+            atol=1e-15,
+        )
+    assert resumed.history_records[-1] == pytest.approx(last)
+
+
+def test_ordinary_hex_step_tolerates_empty_owned_cell_partition():
+    domain, _, _ = problem(MPI.COMM_WORLD, counts=(1, 1, 1))
+    step = ordinary_step(domain=domain)
+    step.solve_result()
+    assert step.history_records[-1]["kinetic_energy"] == pytest.approx(
+        0.5 * 0.08 * (10e-4) ** 2
+    )

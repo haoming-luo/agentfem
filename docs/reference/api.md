@@ -914,7 +914,7 @@ and evidence remain in the linked guides and scientific function reference.
 | function | `describe_element(element_or_space) -> ElementIdentity` | Describe a UFL element or a function space without constructing forms. |
 | function | `describe_field(field, *, registered_mesh = None) -> FieldDiscretization` | Describe the runtime discretization of one AgentFEM or DOLFINx field. |
 | function | `audit(model, *, check_quality: bool = False, quality_threshold: float = 0.1, reject_poor_quality: bool = False) -> DiscretizationAudit` | Audit mesh topology, field elements, Study shapes, and mesh quality. |
-| class | `UniformStrainHex8` | Experimental serial small-strain elastic uniform-gradient formulation. |
+| class | `UniformStrainHex8` | Experimental small-strain elastic uniform-gradient formulation. |
 | function | `uniform_strain_hex8(*, hourglass_modulus, hourglass_scale, chunk_size = 1024)` | Declare stabilization explicitly; not an automatic C3D8R translation. |
 
 ## `agentfem.expressions`

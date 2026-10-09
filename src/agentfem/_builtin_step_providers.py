@@ -917,7 +917,7 @@ register_step_provider(StepProvider(
     accepts=_accept_uniform_hex,
     lower=_lower_uniform_hex,
     priority=180,
-    description="Experimental serial small-strain elastic Hex8 with explicit hourglass energy.",
+    description="Experimental small-strain elastic Hex8 with owned-cell MPI assembly; nonmatching interfaces remain serial.",
     procedure="explicit/central_difference",
     option_contract=_option_contract("element_policy", "cohesive_force", "dt", "steps", "save_every", "print_every",
         "history_every", "progress", "status_file", "checkpoint", required=("element_policy", "dt", "steps")),

@@ -9,11 +9,12 @@ import numpy as np
 
 from ._transient_problems import ExplicitDynamicsStep
 from .constitutive.elasticity import _constant_stiffness_matrix_3d
+from .provenance import collective_call
 
 
 def _material_partition(model, domain):
     count = domain.topology.index_map(3).size_local
-    if count == 0:
+    if count == 0 and domain.comm.size == 1:
         raise ValueError("Uniform Hex8 requires nonempty cells.")
     matrices = np.empty((count, 6, 6))
     density = np.empty(count)
@@ -26,7 +27,8 @@ def _material_partition(model, domain):
             if region.domain is not domain:
                 raise ValueError("Material region belongs to another mesh.")
             indices = region.cell_tags.find(region.tag)
-        if not len(indices):
+            indices = indices[indices < count]
+        if not len(indices) and domain.comm.size == 1:
             raise ValueError("Uniform Hex8 material region is empty.")
         matrices[indices] = _constant_stiffness_matrix_3d(record.item)
         rho = getattr(record.item, "density", None)
@@ -36,7 +38,7 @@ def _material_partition(model, domain):
         coverage[indices] += 1
     if np.any(coverage != 1):
         raise ValueError("Hex8 material partition must cover each cell exactly once.")
-    if np.all(matrices == matrices[0]):
+    if count and np.all(matrices == matrices[0]):
         matrices = matrices[0].copy()
     return matrices, density
 
@@ -46,14 +48,18 @@ class _Residual:
         self.internal, self.external = internal, external
         self.cohesive = cohesive
         digest = sha256()
-        for array in (
-            internal.cell_nodes,
-            internal.cells.stiffness,
-            internal.cells.average_gradient,
-            internal.cells.hourglass_modes,
-            internal.cells.hourglass_coefficient,
-            internal.mass_diagonal,
-        ):
+        arrays = [internal.cell_nodes, internal.mass_diagonal]
+        if internal.cells is not None:
+            arrays.extend(
+                (
+                    internal.cells.stiffness,
+                    internal.cells.volume,
+                    internal.cells.average_gradient,
+                    internal.cells.hourglass_modes,
+                    internal.cells.hourglass_coefficient,
+                )
+            )
+        for array in arrays:
             digest.update(str(array.shape).encode())
             digest.update(array.tobytes())
         self.identity = digest.hexdigest()
@@ -78,7 +84,10 @@ class _Residual:
             digest.update(vector.array.tobytes())
         finally:
             vector.destroy()
-        self.identity = digest.hexdigest()
+        # The checkpoint auxiliary record is shared by all ranks. Retain the
+        # ordered partition identities; this is deliberately not portable.
+        partitions = self.internal.comm.allgather(digest.hexdigest())
+        self.identity = sha256("|".join(partitions).encode()).hexdigest()
 
     def assemble_vector(self):
         from . import operators
@@ -93,8 +102,14 @@ class _Residual:
                     vector.axpy(-1, force)
                 finally:
                     force.destroy()
-            if not np.all(np.isfinite(vector.array)):
-                raise ValueError("Non-finite Hex8 residual or external load.")
+
+            def check_finite():
+                if not np.all(np.isfinite(vector.array)):
+                    raise ValueError("Non-finite Hex8 residual or external load.")
+
+            collective_call(
+                check_finite, comm=self.internal.comm, label="Hex8 total residual"
+            )
             return vector
         except Exception:
             vector.destroy()
@@ -129,12 +144,14 @@ class _Energy:
         self.cohesive = cohesive
 
     def evaluate(self, *, displacement, velocity):
-        from .fields import unwrap
+        from .kernel.dofs import owned_array
+        from mpi4py import MPI
 
         values = self.internal.energies()
         kinetic = float(
-            0.5 * np.sum(self.internal.mass_diagonal * unwrap(velocity).x.array ** 2)
+            0.5 * np.sum(self.internal.mass_diagonal * owned_array(velocity) ** 2)
         )
+        kinetic = self.internal.comm.allreduce(kinetic, op=MPI.SUM)
         physical = values["strain_energy"] + kinetic
         if self.cohesive is not None:
             interface = self.cohesive.evaluate().stored_energy
@@ -154,8 +171,8 @@ class UniformHexStep(ExplicitDynamicsStep):
         return replace(
             super().checkpoint_capabilities(),
             rank_count_portability="unsupported",
-            evidence=("serial fixed-operator restart",),
-            limitations=("serial only; no cross-partition restore",),
+            evidence=("fixed-operator same-partition restart",),
+            limitations=("no cross-partition restore",),
         )
 
     def save_checkpoint(self, path, *, portable=False):
@@ -168,7 +185,7 @@ class UniformHexStep(ExplicitDynamicsStep):
             **super().summary(),
             "element_policy": self.element_policy.summary(),
             "energy_balance_scope": "accepted_path_work_with_explicit_artificial_energy",
-            "execution_scope": "serial_small_strain_elastic",
+            "execution_scope": "small_strain_elastic_owned_cell_assembly",
             "geometry_admission": "bounded_bernstein_with_floating_point_margin",
             "interface": None
             if self.residual.cohesive is None
@@ -217,9 +234,11 @@ def lower(model, request):
     model.check(target=request.target)
     history = state.second_order_state(request.target)
     domain = history.u.value.function_space.mesh
-    if domain.comm.size != 1:
-        raise NotImplementedError("Uniform Hex8 MPI is not yet verified.")
-    matrices, density = _material_partition(model, domain)
+    matrices, density = collective_call(
+        lambda: _material_partition(model, domain),
+        comm=domain.comm,
+        label="Uniform Hex8 material partition",
+    )
     internal = UniformHexResidual(
         history.u,
         matrices,
@@ -251,13 +270,22 @@ def lower(model, request):
         if cohesive is None
         else cohesive.elastic_stability_bound(internal.mass_diagonal)
     )
-    bulk_bound = internal.cells.stability_bound()
+    bulk_dt = internal.stable_dt(safety=0.8)
+    bulk_bound = (1.6 / bulk_dt) ** 2
     stable = 0.8 * 2 / np.sqrt(bulk_bound + interface_bound)
-    dt = stable if dt == "auto" else float(dt)
-    if not np.isfinite(dt) or dt <= 0 or dt > stable:
-        raise ValueError(
-            f"Hex8 dt must be positive and at most the conservative bound {stable:g}."
-        )
+
+    def select_dt():
+        selected = stable if dt == "auto" else float(dt)
+        if not np.isfinite(selected) or selected <= 0 or selected > stable:
+            raise ValueError(
+                f"Hex8 dt must be positive and at most the conservative bound {stable:g}."
+            )
+        return selected
+
+    dt = collective_call(select_dt, comm=domain.comm, label="Hex8 time increment")
+    controls = domain.comm.allgather((dt, int(steps)))
+    if any(value != controls[0] for value in controls):
+        raise ValueError("Hex8 time increment/step count differs across ranks.")
     # Record the selected time-input contract for restart, not excluded model
     # constraints. The explicit integrator also consumes these same assets.
     prescribed = tuple(constraints.dirichlet_constraints(assets))
@@ -273,7 +301,9 @@ def lower(model, request):
             "Uniform Hex8 requires fixed material/operator inputs."
         )
     if update is not None:
-        update(0.0)
+        collective_call(
+            lambda: update(0.0), comm=domain.comm, label="Initial Hex8 inputs"
+        )
     bcs = [item.bc for item in prescribed]
     residual.bind_initial_inputs(bcs)
     accepted = history.snapshot()
@@ -281,10 +311,16 @@ def lower(model, request):
     try:
         constraints.apply_dirichlet_bcs(history.u, bcs)
         initial = residual.assemble_vector()
-        history.a.value.x.array[:] = -initial.array * internal.inv_mass
+        from .kernel.dofs import assign_owned
+
+        assign_owned(history.a, -initial.array * internal.inv_mass)
         from .time.explicit import _assign_prescribed_component, _prescribed_kinematics
 
-        kinematics = _prescribed_kinematics(prescribed, time=0.0, dt=dt)
+        kinematics = collective_call(
+            lambda: _prescribed_kinematics(prescribed, time=0.0, dt=dt),
+            comm=domain.comm,
+            label="Initial Hex8 prescribed kinematics",
+        )
         _assign_prescribed_component(history.a, kinematics, component=1)
         _assign_prescribed_component(history.v, kinematics, component=2)
         residual.commit()

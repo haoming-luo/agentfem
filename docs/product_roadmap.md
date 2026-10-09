@@ -45,7 +45,8 @@ ordinary explicit `model.step()` integration. Isotropic/rotated anisotropic
 elasticity, disjoint material regions, physical/artificial energy separation
 and serial restart are exercised. Failed explicit increments and auxiliary
 checkpoint rejection restore the accepted field state. Finite deformation,
-damage and MPI remain separate gates. Natural-load and strong prescribed-motion
+damage and distributed interface composition remain separate gates.
+Natural-load and strong prescribed-motion
 work reuse the existing dynamic ledger; independent acceleration/oscillator
 tests exercise work and time refinement. Checkpoints capture accepted endpoint
 history even between output frames, preventing cumulative-work loss. The elastic Q1
@@ -53,6 +54,10 @@ interface now composes with this explicit Step, including an additive spectral
 stability bound, interface energy, serial restart and failed-commit retry.
 Warped/nonaffine quadrilateral traces remain rejected. These are bounded
 small-strain capabilities, not an industrial finite-deformation reproduction.
+The bulk Hex8 path additionally has two-/four-rank assembly, ordinary-Step work,
+output and same-partition restart evidence. Nonmatching interface communication
+and cross-partition restart remain unsupported. Rank-local input failures and
+work sampling on partitions without constrained nodes now have collective guards.
 
 Hex8 geometry admission now uses bounded Bernstein subdivision of the
 triquadratic Jacobian determinant, rejecting hidden inversion and unresolved

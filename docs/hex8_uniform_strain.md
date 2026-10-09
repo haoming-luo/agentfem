@@ -1,7 +1,8 @@
 # Uniform-gradient Hex8 development boundary
 
 The experimental `elements.uniform_strain_hex8(...)` policy lowers ordinary
-`model.step()` to a serial small-strain elastic explicit provider. The private
+`model.step()` to a small-strain elastic explicit provider with owned-cell MPI
+assembly. Nonmatching interface composition remains serial. The private
 `elements._uniform_hex.UniformHex8` remains its local verification oracle.
 This is not advertised as an Abaqus C3D8R reproduction.
 
@@ -46,9 +47,10 @@ prescribed-motion work are integrated every accepted increment, independent of
 history output cadence. The discrete balance explicitly includes artificial
 hourglass energy, not just material storage. Rigid acceleration and a deforming
 single-cell oscillator supply independent analytic/discrete references; this
-is not a blanket accuracy guarantee for arbitrary loads. Serial interrupted/continuous runs
-agree; changed operator identity rejects a checkpoint atomically. Public
-portable restart, MPI, finite deformation, evolving material orientation,
+is not a blanket accuracy guarantee for arbitrary loads. Serial and distributed
+same-partition interrupted/continuous runs agree; changed operator identity
+rejects a checkpoint atomically. Public portable restart, finite deformation,
+evolving material orientation,
 damage/deletion, eigenstrain, additional contact operators and
 operator-changing time inputs are not admitted by this provider.
 
@@ -103,13 +105,13 @@ infinitesimal rigid translation/rotation, six physical stiffness modes,
 twelve controlled hourglass modes, six remaining rigid null modes,
 energy-gradient/tangent consistency, positive mass, geometric scaling, and
 independent higher-order integration of mean gradients and mass. General
-positive-definite orthotropic elasticity is exercised. The mass-scaled
-combined stiffness row-sum is a conservative cell spectral bound, not yet a
-whole-model time-step policy.
+positive-definite orthotropic elasticity is exercised. The local oracle retains
+a mass-scaled stiffness row-sum bound; compact execution uses the sharper Gram
+bound described above and composes it into the whole-model time-step policy.
 
 No finite-rotation objectivity, material damage, deletion, viscous/relaxation
-control or MPI capability follows from these local checks. Serial restart is
-tested separately through the ordinary Step lifecycle.
+control or MPI capability follows from these local checks. Distributed assembly
+and same-partition restart are tested separately through the ordinary Step.
 
 ## Compact execution and serial global evidence
 
@@ -142,14 +144,16 @@ refinement, with a bounded energy error. The conservative time-step bound uses
 positive cell mass and stiffness Rayleigh bounds; additional interface/contact
 stiffness is not included and must be composed separately.
 
-The private operator also has two-/four-rank owned-cell assembly evidence:
+The operator has two-/four-rank owned-cell assembly evidence:
 reverse ghost accumulation for mass and internal force, global physical and
 artificial energy, a global maximum stability bound, empty local partitions,
 and collective rejection of rank-local invalid material/non-finite fields.
 Distributed nodal wave response agrees with the serial formulation. Ordinary
-`model.step` remains serial until initialization, input-failure handling,
-partition-bound checkpoint identity and result ownership pass their own gates;
-this operator check does not enable nonmatching interface MPI.
+`model.step` also passes distributed natural-load and prescribed-motion work,
+field output, and same-partition interrupted/continuous runs. A two-rank test
+includes an empty owned-cell partition. Rank-local time-input/kinematic failures
+are delivered before field communication and accepted state is restored.
+These tests do not enable nonmatching interface MPI or cross-partition restart.
 
 A slender cantilever (length 10, unit square section, E=100, nu=0, uniformly
 distributed end shear) was checked against Euler-Bernoulli deflection with
@@ -170,10 +174,10 @@ thickness. Tests are in `test_uniform_hex.py` and `test_uniform_hex_global.py`.
 
 Compact preparation and serial affine/bending/wave checks are implemented.
 DOLFINx retains mesh/DOF ownership; Procedure retains time integration and
-stability composition. The experimental policy, ordinary Step, serial restart
+stability composition. The experimental policy, ordinary Step, same-partition restart
 and separate artificial energy are implemented. Remaining work includes
 distortion-dependent accuracy evidence, richer loading
-evidence and eventual MPI composition. No implicit numerical
+evidence and distributed nonmatching interface composition. No implicit numerical
 equivalence to imported commercial reduced-integration elements is assumed.
 
 ## Sources

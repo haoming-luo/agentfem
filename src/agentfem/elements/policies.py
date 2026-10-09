@@ -8,7 +8,7 @@ from math import isfinite
 
 @dataclass(frozen=True)
 class UniformStrainHex8:
-    """Experimental serial small-strain elastic uniform-gradient formulation."""
+    """Experimental small-strain elastic uniform-gradient formulation."""
 
     hourglass_modulus: float
     hourglass_scale: float
