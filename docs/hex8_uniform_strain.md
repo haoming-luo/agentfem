@@ -142,6 +142,15 @@ refinement, with a bounded energy error. The conservative time-step bound uses
 positive cell mass and stiffness Rayleigh bounds; additional interface/contact
 stiffness is not included and must be composed separately.
 
+The private operator also has two-/four-rank owned-cell assembly evidence:
+reverse ghost accumulation for mass and internal force, global physical and
+artificial energy, a global maximum stability bound, empty local partitions,
+and collective rejection of rank-local invalid material/non-finite fields.
+Distributed nodal wave response agrees with the serial formulation. Ordinary
+`model.step` remains serial until initialization, input-failure handling,
+partition-bound checkpoint identity and result ownership pass their own gates;
+this operator check does not enable nonmatching interface MPI.
+
 A slender cantilever (length 10, unit square section, E=100, nu=0, uniformly
 distributed end shear) was checked against Euler-Bernoulli deflection with
 the rectangular-section Timoshenko shear correction. This is a beam-theory
