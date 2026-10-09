@@ -328,6 +328,36 @@ errors are 0.995%, 0.532%, and 0.341%; artificial-energy fractions are 0.475%,
 0.897%, and 1.707%. Every error decreases from the coarse mesh. This is bounded
 distortion evidence, not admission of arbitrary poor-quality meshes.
 
+### Nonuniform finite-deformation spatial check
+
+`tools/verify_finite_hex_manufactured.py` uses an independent compressible
+Neo-Hookean test provider (mu=30, lambda=40) and a manufactured displacement
+`0.08*sin(pi*x)*sin(pi*y)*sin(pi*z)*(1, 0.4, -0.2)` on the unit cube.
+UFL differentiates the exact first-Piola field to generate the body force;
+degree-ten integration assembles that load and the displacement error.
+All boundary displacements are zero. A test-only Newton/CG oracle solves the
+private contribution; it is not a new public nonlinear Procedure.
+
+| Cells per edge | Relative displacement L2 error | Hourglass / physical energy |
+| --- | ---: | ---: |
+| 2 | 34.46% | 14.92% |
+| 4 | 5.868% | 2.019% |
+| 8 | 1.340% | 0.447% |
+| 12 | 0.586% | 0.194% |
+| 16 | 0.327% | 0.109% |
+
+The refined displacement error approaches second-order convergence, while
+artificial energy decreases. Equilibrium residuals are below 1e-9 relative.
+The coarse mesh is visibly inadequate: patch-test success must not be confused
+with accuracy for nonuniform deformation. This is regular-mesh hyperelastic
+verification, not plastic localization, industrial forming, or Abaqus agreement.
+
+With deterministic interior-node perturbations of up to 20% of grid spacing
+(seed 1729; boundary retained), errors on 4/8/12/16 cells per edge are
+6.483% / 1.596% / 0.732% / 0.417%; corresponding artificial/physical energy
+ratios are 2.052% / 0.488% / 0.221% / 0.126%. Full-cell geometric admission is
+still required. This bounded perturbation test does not admit arbitrary distortion.
+
 ## Remaining implementation gates
 
 Compact preparation and serial affine/bending/wave checks are implemented.

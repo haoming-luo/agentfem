@@ -1824,8 +1824,11 @@ def _load_transient_checkpoint(step, path, state) -> None:
     state_owner = getattr(step, "state", None)
     full_state = state_owner.snapshot() if hasattr(state_owner, "snapshot") else None
     residual = getattr(step, "residual", None)
-    old_residual = (residual.snapshot() if hasattr(residual, "snapshot")
-                    and hasattr(residual, "restore") else None)
+    old_residual = (
+        getattr(residual, "transaction_snapshot", residual.snapshot)()
+        if hasattr(residual, "snapshot") and hasattr(residual, "restore")
+        else None
+    )
     old_completed = step.completed_steps
     lists = {name: list(getattr(step, name)) for name in (
         "accepted_times", "execution_events", "history_records", "checkpoints")}

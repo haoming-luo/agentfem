@@ -66,7 +66,11 @@ def material_trial(
         ):
             raise ValueError("Finite Hex8 cell and material point counts differ.")
         with field_transaction(**scratch):
-            gradient = operator.deformation_gradient(displacement)
+            # Own a fixed copy for this trial; provider callbacks cannot change
+            # the nodal data between geometric admission and force assembly.
+            selected_displacement = np.array(displacement, dtype=float, copy=True)
+            selected_displacement.setflags(write=False)
+            gradient = operator.deformation_gradient(selected_displacement)
             updated = response.update(
                 material,
                 deformation_gradient_old=deformation_gradient_old,
@@ -79,8 +83,8 @@ def material_trial(
                 raise ValueError(
                     "Finite Hex8 energy reporting requires material stored energy."
                 )
-            element = operator.response(
-                displacement,
+            element = operator._response_from_checked_displacement(
+                selected_displacement,
                 first_piola=response.first_piola_stress.values,
                 stored_energy_density=updated.strain_energy_density,
             )

@@ -36,7 +36,7 @@ from agentfem.elements._finite_uniform_hex_dolfinx import FiniteUniformHexResidu
 from agentfem.mechanics._finite_hex_explicit import FiniteHexExplicitResidual
 
 
-def run(size, steps):
+def run(size, steps, max_rss_mb=4096):
     if MPI.COMM_WORLD.size != 1:
         raise ValueError("The private finite bridge is serial only.")
     domain = mesh.create_unit_cube(
@@ -87,7 +87,7 @@ def run(size, steps):
     )
     start = perf_counter()
     samples = []
-    for station in sorted(set(round(steps * k / 10) for k in range(1, 11))):
+    for station in sorted({1, 5, 10} | {round(steps * k / 10) for k in range(1, 11)}):
         step.run(until_step=station)
         t = step.completed_steps * step.dt
         stretch = 1 + rate * t
@@ -123,6 +123,8 @@ def run(size, steps):
         }
         samples.append(sample)
         print(json.dumps(sample), flush=True)
+        if sample["peak_rss_bytes"] > max_rss_mb * 1024**2:
+            raise MemoryError("Observed process RSS exceeded the verification budget.")
     return {
         "cells": size**3,
         "steps": steps,
@@ -136,9 +138,19 @@ def main():
     parser.add_argument("--size", type=int, default=8)
     parser.add_argument("--steps", type=int, default=250)
     parser.add_argument("--output", type=Path)
+    parser.add_argument(
+        "--max-rss-mb",
+        type=int,
+        default=4096,
+        help="Stop at an observation station above this RSS budget; not an OS hard limit.",
+    )
     args = parser.parse_args()
-    if not 1 <= args.size <= 32 or not 200 <= args.steps <= 2000:
-        parser.error("Use size 1..32 and steps 200..2000.")
+    if not 1 <= args.size <= 64 or not 200 <= args.steps <= 2000:
+        parser.error("Use size 1..64 and steps 200..2000.")
+    if not 512 <= args.max_rss_mb <= 8192:
+        parser.error("Use an observed RSS budget between 512 and 8192 MiB.")
+    if args.size > 32 and args.max_rss_mb < 8192:
+        parser.error("Larger meshes require an explicit --max-rss-mb 8192 budget.")
     if args.output is not None and args.output.exists():
         parser.error("Output already exists; choose a new evidence path.")
     revision = subprocess.run(
@@ -160,12 +172,13 @@ def main():
             check=True,
         ).stdout.strip()
     )
-    result = run(args.size, args.steps)
+    result = run(args.size, args.steps, args.max_rss_mb)
     result.update(
         {
             "revision": revision,
             "tracked_source_dirty_at_start": dirty,
             "numpy_version": np.__version__,
+            "observed_rss_budget_mb": args.max_rss_mb,
         }
     )
     if args.output is not None:

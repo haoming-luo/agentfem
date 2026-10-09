@@ -78,13 +78,71 @@ def test_downstream_force_failure_restores_response_fields_and_trial_state(monke
     def fail(*args, **kwargs):
         raise RuntimeError("injected force mapping failure")
 
-    monkeypatch.setattr(op, "response", fail)
+    monkeypatch.setattr(op, "_response_from_checked_displacement", fail)
     with pytest.raises(RuntimeError, match="injected"):
         update(op, law, response, stretch=1.12)
     np.testing.assert_array_equal(response.state.committed_state_vectors(), accepted)
     np.testing.assert_array_equal(response.state.trial_state_vectors(), accepted)
     np.testing.assert_array_equal(response.first_piola_stress.values, stress)
     np.testing.assert_array_equal(response.tangent.values, tangent)
+
+
+def test_material_trial_checks_geometry_once_and_freezes_its_input(monkeypatch):
+    op, law, response = setup()
+    displacement = 0.02 * op.coordinates
+    original = displacement.copy()
+    checks = []
+    gradient = op.deformation_gradient
+    provider_update = response.update
+
+    def count(value):
+        assert not value.flags.writeable
+        checks.append(1)
+        return gradient(value)
+
+    def mutate_source(*args, **kwargs):
+        displacement[:] = 999
+        return provider_update(*args, **kwargs)
+
+    monkeypatch.setattr(op, "deformation_gradient", count)
+    monkeypatch.setattr(response, "update", mutate_source)
+    trial = evaluate_material_trial(
+        op,
+        response,
+        law,
+        displacement,
+        deformation_gradient_old=np.tile(np.eye(3), (2, 1, 1)),
+        time=0,
+        time_increment=0.1,
+    )
+    assert len(checks) == 1
+    expected = op._response_from_checked_displacement(
+        original,
+        first_piola=response.first_piola_stress.values,
+        stored_energy_density=trial.material_response.strain_energy_density,
+    )
+    np.testing.assert_array_equal(
+        trial.element_response.internal_force, expected.internal_force
+    )
+
+
+def test_invalid_geometry_is_rejected_before_material_provider(monkeypatch):
+    op, law, response = setup()
+    monkeypatch.setattr(
+        response, "update", lambda *args, **kwargs: pytest.fail("provider entered")
+    )
+    displacement = np.zeros_like(op.coordinates)
+    displacement[..., 0] = -2 * op.coordinates[..., 0]
+    with pytest.raises(ValueError, match="Jacobian"):
+        evaluate_material_trial(
+            op,
+            response,
+            law,
+            displacement,
+            deformation_gradient_old=np.tile(np.eye(3), (2, 1, 1)),
+            time=0,
+            time_increment=0.1,
+        )
 
 
 def test_invalid_cell_count_discards_previous_unaccepted_trial():

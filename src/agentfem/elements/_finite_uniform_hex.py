@@ -150,6 +150,20 @@ class FiniteUniformHexBatch:
         u = self._displacement(displacement)
         # Full cell validity is distinct from det(F_bar)>0: the latter can hide folds.
         self.deformation_gradient(u)
+        return self._response_from_checked_displacement(
+            u, first_piola=first_piola, stored_energy_density=stored_energy_density
+        )
+
+    def _response_from_checked_displacement(
+        self, displacement, *, first_piola, stored_energy_density
+    ):
+        """Internal continuation of one admitted kinematics evaluation.
+
+        Never cache this admission across updates. The material bridge owns a
+        frozen displacement copy and validates it before invoking provider code.
+        Standalone callers use response(), which always checks full cell validity.
+        """
+        u = self._displacement(displacement)
         p = np.asarray(first_piola, dtype=float)
         energy = np.asarray(stored_energy_density, dtype=float)
         count = len(self.coordinates)

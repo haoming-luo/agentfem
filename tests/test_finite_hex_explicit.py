@@ -93,6 +93,40 @@ def test_explicit_increment_uses_array_snapshot_not_json_lists(monkeypatch):
     assert all(isinstance(value, np.ndarray) for value in record["fields"].values())
 
 
+@pytest.mark.parametrize("corrupt", [False, True])
+def test_restart_rollback_uses_array_snapshot(tmp_path, monkeypatch, corrupt):
+    import json
+
+    source = make_step()
+    source.run(until_step=2)
+    path = source.save_checkpoint(tmp_path / "array-rollback")
+    if corrupt:
+        record = json.loads(path.read_text())
+        record["auxiliary_state"]["residual"]["gradient"] = [float("nan")]
+        path.write_text(json.dumps(record))
+    target = make_step()
+    before = target.residual.snapshot()
+    nodal = target.state.snapshot()
+    original = target.residual.snapshot
+
+    def forbid_json_snapshot():
+        raise AssertionError("Restart rollback allocated a JSON snapshot")
+
+    monkeypatch.setattr(target.residual, "snapshot", forbid_json_snapshot)
+    if corrupt:
+        with pytest.raises(ValueError):
+            target.load_checkpoint(path)
+        assert original() == before
+        for name, value in nodal["fields"].items():
+            np.testing.assert_array_equal(
+                target.state.snapshot()["fields"][name], value
+            )
+    else:
+        target.load_checkpoint(path)
+        assert original() == source.residual.snapshot()
+        assert target.completed_steps == 2
+
+
 def test_material_cutback_request_rejects_increment_and_restores_state(monkeypatch):
     step = make_step()
     saved = step.residual.snapshot()

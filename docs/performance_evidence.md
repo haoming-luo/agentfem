@@ -25,13 +25,47 @@ checkpoint format or a whole-solver speedup.
 
 `tools/benchmark_finite_hex_trial.py --size 16 --repeats 7` measures a complete
 private serial trial (material, geometry admission, force and spectral screen),
-excluding mesh preparation, commit, restore and I/O. On the same one-thread
-host, caching immutable state-layout sizes and replacing scalar NumPy energy
+excluding mesh preparation, commit, restore and I/O. On the same host with
+`OMP_NUM_THREADS=1` and `OPENBLAS_NUM_THREADS=1`, caching immutable state-layout
+sizes and replacing scalar NumPy energy
 sum checks with the identical scalar tolerance reduced the warm median from
 0.27001 s to 0.22358 s (17.2%). The force norm remained 0.7198301095792459.
 Neither material equations nor rejection tolerances changed; boundary tests
 compare both sides of the former NumPy tolerance. `--profile` is diagnostic
 only and must not be enabled for comparable wall-clock measurements.
+
+These environment settings do not prove that every runtime uses one thread.
+A subsequent process sample found the old MPI launcher supervisor consuming
+CPU in two libfabric sockets threads while waiting for its child. NumPy on this
+host also links Apple Accelerate rather than OpenBLAS. Treat the measurements
+above as bounded same-environment observations, not certified single-thread
+benchmarks. The lightweight installed MPI entry now probes the linked vendor
+without initializing MPI in the supervisor; the numerical child retains its
+normal runtime and environment. Timeout and interruption still terminate the
+owned process group. The transport itself is not silently reconfigured.
+The underlying mechanisms are documented in the
+[mpi4py initialization controls](https://mpi4py.github.io/mpi4py/stable/html/mpi4py.html)
+and [libfabric sockets provider](https://ofiwg.github.io/libfabric/v2.6.0/man/fi_sockets.7.html).
+This supervisor saving is not an acceleration factor for the numerical kernel.
+
+The serial 32,768-cell, 500-increment affine endurance diagnostic completed
+with maximum displacement/stress/reference-energy absolute errors of
+4.44e-16 / 7.00e-13 / 6.00e-14. Bounded provider batches reduced observed peak
+process RSS from 1,054,834,688 to 724,598,784 bytes (about 31%). The older run
+was a dirty development diagnostic; the newer run identifies clean commit
+`f5991141`. Both had brief diagnostic overlap, so their 1,090.9 / 1,062.4 s
+wall times are not offered as a controlled speedup. The check is an affine
+path endurance test, not a spatial convergence or industrial validation result.
+
+A further local trial optimization admits a frozen displacement copy once,
+then reuses that same admitted geometry through material and force evaluation.
+It does not cache admission across increments or skip standalone geometry
+checks. Nine warmed 4,096-cell trials measured 0.21909 s before and 0.19580 s
+after (about 10.6% less trial time), with identical force norm. Those runs used
+OMP/OpenBLAS/vecLib limits of one and no concurrent numerical workload.
+Input-mutation isolation, folded-cell rejection and downstream rollback remain
+covered by targeted tests. This is again a trial measurement, not a whole-solve
+or cross-software performance claim.
 
 AgentFEM records execution cost as a first-class part of
 `SimulationResult`. Performance evidence explains the cost of a computation;
