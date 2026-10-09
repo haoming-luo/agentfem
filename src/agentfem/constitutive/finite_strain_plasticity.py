@@ -219,9 +219,7 @@ class FiniteStrainJ2Logarithmic:
             plastic_dissipation,
             expected_dissipation,
             rtol=1.0e-10,
-            atol=256.0
-            * np.finfo(float).eps
-            * max(1.0, abs(expected_dissipation)),
+            atol=256.0 * np.finfo(float).eps * max(1.0, abs(expected_dissipation)),
         ):
             raise ValueError(
                 "Committed PDENER is inconsistent with the declared "
@@ -237,9 +235,7 @@ class FiniteStrainJ2Logarithmic:
             )
 
         elastic_trial = deformation_gradient @ np.linalg.inv(plastic_gradient)
-        left_vectors, stretches, right_vectors_transpose = np.linalg.svd(
-            elastic_trial
-        )
+        left_vectors, stretches, right_vectors_transpose = np.linalg.svd(elastic_trial)
         if np.any(stretches <= 0.0):
             raise ValueError("Elastic principal stretches must be positive.")
         elastic_rotation = left_vectors @ right_vectors_transpose
@@ -255,16 +251,22 @@ class FiniteStrainJ2Logarithmic:
             2.0 * self.shear_modulus * deviatoric_logarithmic_trial
         )
         equivalent_trial = float(
-            np.sqrt(1.5 * np.dot(deviatoric_kirchhoff_trial, deviatoric_kirchhoff_trial))
+            np.sqrt(
+                1.5 * np.dot(deviatoric_kirchhoff_trial, deviatoric_kirchhoff_trial)
+            )
         )
         trial_yield = equivalent_trial - self.current_yield_stress(
             equivalent_plastic_strain
         )
 
-        tolerance = 64.0 * np.finfo(float).eps * max(
-            self.young,
-            self.yield_stress,
-            equivalent_trial,
+        tolerance = (
+            64.0
+            * np.finfo(float).eps
+            * max(
+                self.young,
+                self.yield_stress,
+                equivalent_trial,
+            )
         )
         plastic_increment = 0.0
         logarithmic_strain = logarithmic_strain_trial.copy()
@@ -276,11 +278,7 @@ class FiniteStrainJ2Logarithmic:
             )
             radial_scale = max(
                 0.0,
-                1.0
-                - 3.0
-                * self.shear_modulus
-                * plastic_increment
-                / equivalent_trial,
+                1.0 - 3.0 * self.shear_modulus * plastic_increment / equivalent_trial,
             )
             deviatoric_kirchhoff = radial_scale * deviatoric_kirchhoff_trial
             logarithmic_strain = (
@@ -289,9 +287,7 @@ class FiniteStrainJ2Logarithmic:
             )
 
             elastic_left_stretch = (
-                left_vectors
-                @ np.diag(np.exp(logarithmic_strain))
-                @ left_vectors.T
+                left_vectors @ np.diag(np.exp(logarithmic_strain)) @ left_vectors.T
             )
             elastic_new = elastic_left_stretch @ elastic_rotation
             plastic_new = np.linalg.solve(elastic_new, deformation_gradient)
@@ -307,8 +303,7 @@ class FiniteStrainJ2Logarithmic:
                     np.asarray(
                         [
                             equivalent_plastic_strain + plastic_increment,
-                            plastic_dissipation
-                            + self.yield_stress * plastic_increment,
+                            plastic_dissipation + self.yield_stress * plastic_increment,
                         ],
                         dtype=float,
                     ),
@@ -316,28 +311,27 @@ class FiniteStrainJ2Logarithmic:
             )
 
         principal_kirchhoff = (
-            self.bulk_modulus * volumetric_logarithmic_strain
-            + deviatoric_kirchhoff
+            self.bulk_modulus * volumetric_logarithmic_strain + deviatoric_kirchhoff
         )
-        kirchhoff_stress = (
-            left_vectors @ np.diag(principal_kirchhoff) @ left_vectors.T
-        )
+        kirchhoff_stress = left_vectors @ np.diag(principal_kirchhoff) @ left_vectors.T
         kirchhoff_stress = 0.5 * (kirchhoff_stress + kirchhoff_stress.T)
         cauchy_stress = kirchhoff_stress / jacobian
-        first_piola_stress = kirchhoff_stress @ np.linalg.inv(
-            deformation_gradient
-        ).T
+        first_piola_stress = kirchhoff_stress @ np.linalg.inv(deformation_gradient).T
         elastic_energy = (
             self.shear_modulus
-            * float(np.dot(logarithmic_strain - np.mean(logarithmic_strain),
-                           logarithmic_strain - np.mean(logarithmic_strain)))
-            + 0.5
-            * self.bulk_modulus
-            * volumetric_logarithmic_strain**2
+            * float(
+                np.dot(
+                    logarithmic_strain - np.mean(logarithmic_strain),
+                    logarithmic_strain - np.mean(logarithmic_strain),
+                )
+            )
+            + 0.5 * self.bulk_modulus * volumetric_logarithmic_strain**2
         )
-        hardening_energy = 0.5 * self.hardening_modulus * (
-            equivalent_plastic_strain + plastic_increment
-        ) ** 2
+        hardening_energy = (
+            0.5
+            * self.hardening_modulus
+            * (equivalent_plastic_strain + plastic_increment) ** 2
+        )
         return _FiniteStrainJ2Integration(
             cauchy_stress=cauchy_stress,
             first_piola_stress=first_piola_stress,
@@ -399,28 +393,27 @@ class FiniteStrainJ2Logarithmic:
         plastic_gradients = states[:, :9].reshape((-1, 3, 3))
         inverse_plastic = np.linalg.inv(plastic_gradients)
         elastic_trial = gradients @ inverse_plastic
-        left_vectors, stretches, _right_vectors_transpose = np.linalg.svd(
-            elastic_trial
-        )
+        left_vectors, stretches, _right_vectors_transpose = np.linalg.svd(elastic_trial)
         eigenvalues = stretches**2
         logarithmic_trial = np.log(stretches)
         volumetric = np.sum(logarithmic_trial, axis=1)
         deviatoric_logarithmic = logarithmic_trial - volumetric[:, None] / 3.0
         deviatoric_trial = 2.0 * self.shear_modulus * deviatoric_logarithmic
-        equivalent_trial = np.sqrt(
-            1.5 * np.sum(deviatoric_trial**2, axis=1)
-        )
+        equivalent_trial = np.sqrt(1.5 * np.sum(deviatoric_trial**2, axis=1))
         equivalent_plastic_strain = states[:, 9]
         yield_level = (
-            self.yield_stress
-            + self.hardening_modulus * equivalent_plastic_strain
+            self.yield_stress + self.hardening_modulus * equivalent_plastic_strain
         )
         trial_yield = equivalent_trial - yield_level
-        tolerance = 64.0 * np.finfo(float).eps * np.maximum.reduce(
-            (
-                np.full(point_count, self.young),
-                np.full(point_count, self.yield_stress),
-                equivalent_trial,
+        tolerance = (
+            64.0
+            * np.finfo(float).eps
+            * np.maximum.reduce(
+                (
+                    np.full(point_count, self.young),
+                    np.full(point_count, self.yield_stress),
+                    equivalent_trial,
+                )
             )
         )
         plastic = trial_yield > tolerance
@@ -437,13 +430,9 @@ class FiniteStrainJ2Logarithmic:
         radial_scale = np.ones(point_count, dtype=float)
         if np.any(plastic):
             denominator = 3.0 * self.shear_modulus + self.hardening_modulus
-            radial_scale[plastic] = (
-                1.0
-                - 3.0
-                * self.shear_modulus
-                * trial_yield[plastic]
-                / (denominator * equivalent_trial[plastic])
-            )
+            radial_scale[plastic] = 1.0 - 3.0 * self.shear_modulus * trial_yield[
+                plastic
+            ] / (denominator * equivalent_trial[plastic])
             dyadic_coefficient = (
                 9.0
                 * self.shear_modulus**2
@@ -488,9 +477,7 @@ class FiniteStrainJ2Logarithmic:
                 "that differs from the discrete return."
             )
 
-        principal_derivative = principal_moduli / (
-            2.0 * eigenvalues[:, None, :]
-        )
+        principal_derivative = principal_moduli / (2.0 * eigenvalues[:, None, :])
         divided_difference = np.zeros((point_count, 3, 3), dtype=float)
         for first in range(3):
             for second in range(3):
@@ -522,19 +509,16 @@ class FiniteStrainJ2Logarithmic:
             row, component = divmod(column, 3)
             variation_elastic = np.zeros_like(elastic_trial)
             variation_elastic[:, row, :] = inverse_plastic[:, component, :]
-            variation_left = (
-                variation_elastic @ np.swapaxes(elastic_trial, 1, 2)
-                + elastic_trial @ np.swapaxes(variation_elastic, 1, 2)
-            )
+            variation_left = variation_elastic @ np.swapaxes(
+                elastic_trial, 1, 2
+            ) + elastic_trial @ np.swapaxes(variation_elastic, 1, 2)
             principal_variation = np.einsum(
                 "pia,pij,pjb->pab",
                 left_vectors,
                 variation_left,
                 left_vectors,
             )
-            variation_stress_principal = (
-                divided_difference * principal_variation
-            )
+            variation_stress_principal = divided_difference * principal_variation
             diagonal_variation = np.diagonal(
                 principal_variation,
                 axis1=1,
@@ -588,18 +572,14 @@ class FiniteStrainJ2Logarithmic:
         plastic_gradients = states[:, :9].reshape((-1, 3, 3))
         equivalent_plastic_strain = states[:, 9]
         plastic_dissipation = states[:, 10]
-        if np.any(equivalent_plastic_strain < 0.0) or np.any(
-            plastic_dissipation < 0.0
-        ):
+        if np.any(equivalent_plastic_strain < 0.0) or np.any(plastic_dissipation < 0.0):
             raise ValueError(
                 "Committed equivalent plastic strain and plastic dissipation "
                 "must be nonnegative."
             )
         expected_dissipation = self.yield_stress * equivalent_plastic_strain
         dissipation_tolerance = (
-            256.0
-            * np.finfo(float).eps
-            * np.maximum(1.0, np.abs(expected_dissipation))
+            256.0 * np.finfo(float).eps * np.maximum(1.0, np.abs(expected_dissipation))
         )
         if np.any(
             np.abs(plastic_dissipation - expected_dissipation)
@@ -618,9 +598,7 @@ class FiniteStrainJ2Logarithmic:
             )
 
         elastic_trial = gradients @ np.linalg.inv(plastic_gradients)
-        left_vectors, stretches, right_vectors_transpose = np.linalg.svd(
-            elastic_trial
-        )
+        left_vectors, stretches, right_vectors_transpose = np.linalg.svd(elastic_trial)
         if np.any(stretches <= 0.0):
             raise ValueError("Elastic principal stretches must be positive.")
         elastic_rotation = left_vectors @ right_vectors_transpose
@@ -635,18 +613,19 @@ class FiniteStrainJ2Logarithmic:
         deviatoric_kirchhoff_trial = (
             2.0 * self.shear_modulus * deviatoric_logarithmic_trial
         )
-        equivalent_trial = np.sqrt(
-            1.5 * np.sum(deviatoric_kirchhoff_trial**2, axis=1)
-        )
+        equivalent_trial = np.sqrt(1.5 * np.sum(deviatoric_kirchhoff_trial**2, axis=1))
         trial_yield = equivalent_trial - (
-            self.yield_stress
-            + self.hardening_modulus * equivalent_plastic_strain
+            self.yield_stress + self.hardening_modulus * equivalent_plastic_strain
         )
-        tolerance = 64.0 * np.finfo(float).eps * np.maximum.reduce(
-            (
-                np.full_like(equivalent_trial, self.young),
-                np.full_like(equivalent_trial, self.yield_stress),
-                equivalent_trial,
+        tolerance = (
+            64.0
+            * np.finfo(float).eps
+            * np.maximum.reduce(
+                (
+                    np.full_like(equivalent_trial, self.young),
+                    np.full_like(equivalent_trial, self.yield_stress),
+                    equivalent_trial,
+                )
             )
         )
         plastic = trial_yield > tolerance
@@ -663,13 +642,10 @@ class FiniteStrainJ2Logarithmic:
             * plastic_increment[plastic]
             / equivalent_trial[plastic],
         )
-        deviatoric_kirchhoff = (
-            radial_scale[:, None] * deviatoric_kirchhoff_trial
-        )
-        logarithmic_strain = (
-            volumetric_logarithmic_strain[:, None] / 3.0
-            + deviatoric_kirchhoff / (2.0 * self.shear_modulus)
-        )
+        deviatoric_kirchhoff = radial_scale[:, None] * deviatoric_kirchhoff_trial
+        logarithmic_strain = volumetric_logarithmic_strain[
+            :, None
+        ] / 3.0 + deviatoric_kirchhoff / (2.0 * self.shear_modulus)
 
         states_new = states.copy()
         if np.any(plastic):
@@ -688,9 +664,7 @@ class FiniteStrainJ2Logarithmic:
                 )
             states_new[plastic, :9] = plastic_new.reshape((-1, 9))
             states_new[plastic, 9] += plastic_increment[plastic]
-            states_new[plastic, 10] += (
-                self.yield_stress * plastic_increment[plastic]
-            )
+            states_new[plastic, 10] += self.yield_stress * plastic_increment[plastic]
 
         principal_kirchhoff = (
             self.bulk_modulus * volumetric_logarithmic_strain[:, None]
@@ -713,13 +687,13 @@ class FiniteStrainJ2Logarithmic:
         )
         elastic_energy = (
             self.shear_modulus * np.sum(deviatoric_logarithmic**2, axis=1)
-            + 0.5
-            * self.bulk_modulus
-            * volumetric_logarithmic_strain**2
+            + 0.5 * self.bulk_modulus * volumetric_logarithmic_strain**2
         )
-        hardening_energy = 0.5 * self.hardening_modulus * (
-            equivalent_plastic_strain + plastic_increment
-        ) ** 2
+        hardening_energy = (
+            0.5
+            * self.hardening_modulus
+            * (equivalent_plastic_strain + plastic_increment) ** 2
+        )
         return {
             "cauchy_stress": cauchy_stress,
             "first_piola_stress": first_piola_stress,
@@ -754,21 +728,19 @@ class FiniteStrainJ2Logarithmic:
             minus = gradients.copy()
             plus[:, row, component] += increments
             minus[:, row, component] -= increments
-            plus_piola = self._integrate_batch(plus, states)[
-                "first_piola_stress"
-            ]
+            plus_piola = self._integrate_batch(plus, states)["first_piola_stress"]
             central = np.linalg.det(minus) > 0.0
-            derivative = (
-                plus_piola - baseline["first_piola_stress"]
-            ) / increments[:, None, None]
+            derivative = (plus_piola - baseline["first_piola_stress"]) / increments[
+                :, None, None
+            ]
             if np.any(central):
                 minus_piola = self._integrate_batch(
                     minus[central],
                     states[central],
                 )["first_piola_stress"]
-                derivative[central] = (
-                    plus_piola[central] - minus_piola
-                ) / (2.0 * increments[central, None, None])
+                derivative[central] = (plus_piola[central] - minus_piola) / (
+                    2.0 * increments[central, None, None]
+                )
             tangent[:, :, column] = derivative.reshape((-1, 9))
         return tangent
 
@@ -806,9 +778,7 @@ class FiniteStrainJ2Logarithmic:
                     np.asarray(point.deformation_gradient_new)[None, ...],
                     np.asarray(point.state_old)[None, ...],
                     baseline={
-                        "first_piola_stress": integrated.first_piola_stress[
-                            None, ...
-                        ]
+                        "first_piola_stress": integrated.first_piola_stress[None, ...]
                     },
                 )[0]
                 if self.tangent_evaluation == "analytic_spectral"
@@ -826,6 +796,9 @@ class FiniteStrainJ2Logarithmic:
             },
             tangent_convention=self.tangent_convention,
             state_schema=self.state_schema,
+            dissipation_density_increment=(
+                integrated.plastic_dissipation_density - point.state_old[10]
+            ),
         )
 
     def update_batch(
@@ -858,15 +831,17 @@ class FiniteStrainJ2Logarithmic:
                     cauchy_stress=integrated["cauchy_stress"][index],
                     consistent_tangent=tangents[index],
                     state_new=integrated["state"][index],
-                    strain_energy_density=integrated[
-                        "strain_energy_density"
-                    ][index],
+                    strain_energy_density=integrated["strain_energy_density"][index],
                     stored_energy_density_components={
                         "ELENER": integrated["elastic_energy_density"][index],
                         "HARDENER": integrated["hardening_energy_density"][index],
                     },
                     tangent_convention=self.tangent_convention,
                     state_schema=self.state_schema,
+                    dissipation_density_increment=(
+                        integrated["plastic_dissipation_density"][index]
+                        - states[index, 10]
+                    ),
                 )
                 for index in range(request.point_count)
             )

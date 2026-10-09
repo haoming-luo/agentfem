@@ -44,11 +44,13 @@ def test_material_chunk_partition_does_not_change_response_or_state(chunk):
         "consistent_tangent",
         "state_new",
         "strain_energy_density",
+        "dissipation_density_increment",
     ):
         np.testing.assert_allclose(
             getattr(selected, name), getattr(reference, name), rtol=1e-12, atol=1e-12
         )
     assert selected.provider_batch_calls == (count + chunk - 1) // chunk
+    assert np.all(selected.dissipation_density_increment_defined)
     np.testing.assert_array_equal(state.trial_state_vectors(), selected.state_new)
     np.testing.assert_array_equal(
         state.committed_state_vectors(),
@@ -141,6 +143,7 @@ def test_missing_energy_is_not_reported_as_defined_zero():
                 material.update(point),
                 strain_energy_density=None,
                 stored_energy_density_components={},
+                dissipation_density_increment=None,
             )
 
     domain = mesh.create_unit_cube(MPI.COMM_SELF, 1, 1, 1)
@@ -158,6 +161,49 @@ def test_missing_energy_is_not_reported_as_defined_zero():
     assert np.all(result.strain_energy_density == 0)  # compatibility storage only
     assert not np.any(result.strain_energy_density_defined)
     assert result.summary()["stored_energy_defined_points"] == 0
+    assert result.summary()["dissipation_increment_defined_points"] == 0
+    assert not np.any(result.dissipation_density_increment_defined)
+
+
+def test_finite_j2_dissipation_increment_tracks_existing_accepted_history():
+    material = law()
+    domain = mesh.create_unit_cube(MPI.COMM_SELF, 1, 1, 1)
+    state = constitutive.MaterialQuadratureState.create(
+        domain, material.state_schema, degree=1
+    )
+    old_f = np.eye(3)
+    increments = []
+    for stretch in (1.0, 1.04, 1.08, 1.079, 1.04):
+        old_state = state.committed_state_vectors().copy()
+        new_f = np.diag([stretch, 1 / np.sqrt(stretch), 1 / np.sqrt(stretch)])
+        result = constitutive.update_material_points(
+            material,
+            state,
+            deformation_gradient_old=old_f,
+            deformation_gradient_new=new_f,
+            time=0,
+            time_increment=0.1,
+            commit=True,
+            max_batch_points=2,
+        )
+        assert np.all(result.dissipation_density_increment_defined)
+        np.testing.assert_allclose(
+            result.dissipation_density_increment,
+            material.yield_stress * (result.state_new[:, 9] - old_state[:, 9]),
+            atol=1e-14,
+        )
+        np.testing.assert_allclose(
+            result.dissipation_density_increment,
+            result.state_new[:, 10] - old_state[:, 10],
+            atol=1e-14,
+        )
+        assert np.all(result.dissipation_density_increment >= 0)
+        increments.append(result.dissipation_density_increment)
+        old_f = new_f
+    np.testing.assert_array_equal(increments[0], 0)
+    np.testing.assert_allclose(
+        np.sum(increments, axis=0), state.committed_state_vectors()[:, 10], atol=1e-14
+    )
 
 
 def test_quadrature_response_empty_rank_preserves_component_and_summary_contract():

@@ -75,6 +75,12 @@ def test_material_point_contract_copies_and_validates_state():
     assert np.linalg.det(point.deformation_gradient_new) == pytest.approx(1.1)
     assert response.state_new.tolist() == [0.2]
     assert not response.global_newton_contract_complete
+    assert not response.summary()["dissipation_density_increment_defined"]
+    assert replace(response, dissipation_density_increment=0).summary()[
+        "dissipation_density_increment_defined"
+    ]
+    with pytest.raises(ValueError, match="dissipation_density_increment"):
+        replace(response, dissipation_density_increment=np.nan)
     with pytest.raises(ValueError, match="tangent_convention, state_schema"):
         response.require_global_newton_contract()
 

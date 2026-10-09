@@ -360,9 +360,17 @@ class MaterialPointOutput:
     tangent_convention: MaterialTangentConvention | None = None
     state_schema: MaterialStateSchema | None = None
     stored_energy_density_components: Mapping[str, float] = field(default_factory=dict)
+    dissipation_density_increment: float | None = None
 
     def __post_init__(self) -> None:
         stress = np.asarray(self.cauchy_stress, dtype=float)
+        if self.dissipation_density_increment is not None:
+            value = float(self.dissipation_density_increment)
+            if not np.isfinite(value):
+                raise ValueError(
+                    "dissipation_density_increment must be finite when provided."
+                )
+            object.__setattr__(self, "dissipation_density_increment", value)
         tangent = np.asarray(self.consistent_tangent, dtype=float)
         state = np.asarray(self.state_new, dtype=float).reshape(-1)
         if stress.shape != (3, 3) or not np.all(np.isfinite(stress)):
@@ -463,6 +471,8 @@ class MaterialPointOutput:
                 None if self.state_schema is None else self.state_schema.summary()
             ),
             "strain_energy_density_defined": self.strain_energy_density is not None,
+            "dissipation_density_increment_defined": self.dissipation_density_increment
+            is not None,
             "stored_energy_density_components": tuple(
                 self.stored_energy_density_components
             ),

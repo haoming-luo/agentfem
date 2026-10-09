@@ -98,6 +98,17 @@ Input/output state definitions are compared in full, not only by name/version.
 Optional stored energy has an explicit availability mask; a missing value is
 not certified as a physically defined zero.
 
+`MaterialPointOutput.dissipation_density_increment` optionally reports irreversible
+energy per reference volume over the update from the fixed committed state.
+The batch response preserves a separate availability mask: `None` means unavailable,
+whereas `0.0` means explicitly supplied zero. This is neither plastic work nor
+the time-discretization remainder. Finite-strain J2 supplies the increment of its
+existing cumulative plastic dissipation history; no additional history variable
+or constitutive formula is introduced. Finite values are transported without
+clipping; thermodynamic admissibility remains a separate verification decision.
+Providers without this quantity remain compatible but cannot claim a complete
+dissipation balance solely from successful execution.
+
 For a provider that declares the total-Lagrangian convention
 (mathbb A=\partial\mathbf P/\partial\mathbf F), the discrete update can be
 checked directly:

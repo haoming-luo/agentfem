@@ -46,6 +46,8 @@ class MaterialPointBatchResult:
         default_factory=dict
     )
     strain_energy_density_defined: np.ndarray | None = None
+    dissipation_density_increment: np.ndarray | None = None
+    dissipation_density_increment_defined: np.ndarray | None = None
 
     def __post_init__(self) -> None:
         stress = np.asarray(self.cauchy_stress, dtype=float)
@@ -54,6 +56,27 @@ class MaterialPointBatchResult:
         energy = np.asarray(self.strain_energy_density, dtype=float).reshape(-1)
         scale = np.asarray(self.suggested_time_scale, dtype=float).reshape(-1)
         count = len(stress)
+        dissipation = (
+            np.zeros(count)
+            if self.dissipation_density_increment is None
+            else np.asarray(self.dissipation_density_increment, dtype=float)
+        )
+        dissipation_defined = (
+            np.full(count, self.dissipation_density_increment is not None, dtype=bool)
+            if self.dissipation_density_increment_defined is None
+            else np.asarray(self.dissipation_density_increment_defined)
+        )
+        if dissipation.shape != (count,) or not np.isfinite(dissipation).all():
+            raise ValueError(
+                "Dissipation increment must be finite with one value per point."
+            )
+        if (
+            dissipation_defined.shape != (count,)
+            or dissipation_defined.dtype.kind != "b"
+        ):
+            raise ValueError("Dissipation availability must be one boolean per point.")
+        if self.dissipation_density_increment is None and np.any(dissipation_defined):
+            raise ValueError("Defined dissipation requires actual increment values.")
         defined = (
             np.ones(count, dtype=bool)
             if self.strain_energy_density_defined is None
@@ -125,6 +148,10 @@ class MaterialPointBatchResult:
         object.__setattr__(self, "state_new", state.copy())
         object.__setattr__(self, "strain_energy_density", energy.copy())
         object.__setattr__(self, "strain_energy_density_defined", defined.copy())
+        object.__setattr__(self, "dissipation_density_increment", dissipation.copy())
+        object.__setattr__(
+            self, "dissipation_density_increment_defined", dissipation_defined.copy()
+        )
         object.__setattr__(self, "suggested_time_scale", scale.copy())
         object.__setattr__(self, "material_group_count", group_count)
         object.__setattr__(self, "provider_batch_calls", batch_calls)
@@ -152,6 +179,9 @@ class MaterialPointBatchResult:
             "state_size": self.state_new.shape[1],
             "stored_energy_defined_points": int(
                 np.count_nonzero(self.strain_energy_density_defined)
+            ),
+            "dissipation_increment_defined_points": int(
+                np.count_nonzero(self.dissipation_density_increment_defined)
             ),
             "stress_measure": "cauchy",
             "tangent_measure": "first_piola_deformation_gradient",
@@ -881,6 +911,8 @@ def update_material_points(
     state_new = np.empty_like(committed_state)
     energy = np.empty(point_count, dtype=float)
     energy_defined = np.empty(point_count, dtype=bool)
+    dissipation = np.empty(point_count, dtype=float)
+    dissipation_defined = np.empty(point_count, dtype=bool)
     energy_components: dict[str, np.ndarray] | None = None
     if not point_count:
         names = (
@@ -978,6 +1010,14 @@ def update_material_points(
                 else response.strain_energy_density
             )
             energy_defined[index] = response.strain_energy_density is not None
+            dissipation[index] = (
+                0.0
+                if response.dissipation_density_increment is None
+                else response.dissipation_density_increment
+            )
+            dissipation_defined[index] = (
+                response.dissipation_density_increment is not None
+            )
             point_components = dict(response.stored_energy_density_components)
             names = getattr(selected_material, "stored_energy_component_names", None)
             declared = (
@@ -1023,6 +1063,8 @@ def update_material_points(
                 state_new=state_new,
                 strain_energy_density=energy,
                 strain_energy_density_defined=energy_defined,
+                dissipation_density_increment=dissipation,
+                dissipation_density_increment_defined=dissipation_defined,
                 suggested_time_scale=scales,
                 committed=bool(commit),
                 material_group_count=material_group_count,
