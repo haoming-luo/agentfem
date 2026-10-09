@@ -11,6 +11,7 @@ import argparse
 import json
 import os
 from pathlib import Path
+import platform
 from statistics import median
 import subprocess
 from time import perf_counter
@@ -18,6 +19,22 @@ from time import perf_counter
 import numpy as np
 
 from benchmark_finite_hex_trial import make_case
+
+
+def runtime_metadata():
+    """Identify the numerical runtime without claiming thread-count control."""
+    import dolfinx
+    from mpi4py import MPI
+    from petsc4py import PETSc
+
+    return {
+        "platform": platform.platform(),
+        "machine": platform.machine(),
+        "python": platform.python_version(),
+        "dolfinx": dolfinx.__version__,
+        "petsc": list(PETSc.Sys.getVersion()),
+        "mpi_vendor": MPI.get_vendor(),
+    }
 
 
 class OrderedProvider:
@@ -84,6 +101,7 @@ def run(size, repeats):
             )
         },
         "numpy_version": np.__version__,
+        "runtime": runtime_metadata(),
     }
 
 

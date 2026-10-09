@@ -17,7 +17,7 @@ from time import perf_counter
 
 import numpy as np
 
-from benchmark_material_transport import OrderedProvider
+from benchmark_material_transport import OrderedProvider, runtime_metadata
 from verify_finite_hex_patch import prepare
 
 
@@ -120,6 +120,7 @@ def run(size, steps, repeats):
             )
         },
         "numpy_version": np.__version__,
+        "runtime": runtime_metadata(),
     }
 
 
