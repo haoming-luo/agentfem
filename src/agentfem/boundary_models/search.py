@@ -645,7 +645,13 @@ class TriangleSurfaceBVH:
         pending, found = [self._root], []
         while pending:
             node = pending.pop()
-            if np.any(self._upper[node] < lower) or np.any(self._lower[node] > upper):
+            # Fixed three-dimensional comparisons avoid two temporary arrays
+            # and NumPy reduction dispatch for every visited tree node.
+            hi, lo = self._upper[node], self._lower[node]
+            if (
+                hi[0] < lower[0] or hi[1] < lower[1] or hi[2] < lower[2]
+                or lo[0] > upper[0] or lo[1] > upper[1] or lo[2] > upper[2]
+            ):
                 continue
             facet = int(self._facet[node])
             if facet >= 0:

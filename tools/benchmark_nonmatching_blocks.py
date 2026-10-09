@@ -38,11 +38,15 @@ def main():
     args = parser.parse_args()
     if min(args.negative_cells, args.positive_cells, args.repeats) < 1:
         parser.error("counts must be positive")
+    if max(args.negative_cells, args.positive_cells) > 100 or args.repeats > 20:
+        parser.error("bounded benchmark: at most 100 cells per side axis and 20 repeats")
+    start = perf_counter()
     pair = interfaces.pair_reference_traces(
         surface(args.negative_cells),
         surface(args.positive_cells, True),
         tolerance=1e-10,
     )
+    preparation_seconds = perf_counter() - start
     assembler = FixedReferenceCohesiveAssembler(
         pair,
         interfaces.elastic_cohesive(normal_stiffness=10, tangential_stiffness=5),
@@ -87,6 +91,7 @@ def main():
             dict(
                 scope="local_response_and_block_generation_not_global_solve",
                 quadrature_points=len(pair.weights),
+                pairing_preparation_seconds=preparation_seconds,
                 repeats=args.repeats,
                 measurements=records,
             ),

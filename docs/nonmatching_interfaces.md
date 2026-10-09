@@ -192,6 +192,15 @@ a whole-solver or general industrial speedup claim. Reproduce the current
 point-versus-grouped comparison with
 `OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 PYTHONPATH=src python tools/benchmark_nonmatching_blocks.py`.
 
+A subsequent profile identified repeated tiny-array AABB comparisons during
+tree traversal. Fixed three-coordinate comparisons preserve the same closed-box
+predicate without allocating those arrays. Five alternating runs preparing a
+20-by-20 / 27-by-27 Q1 interface measured median preparation time 1.24551 s before
+and 0.95469 s after (about 23% less preparation time); all pairing fingerprints
+were identical. Random rotated-box and point-touch queries also match exhaustive
+candidate enumeration. This changes broad-phase overhead, not integration rules
+or the narrow-phase algorithm; it is not an additional per-step speedup.
+
 The installed-use example `examples/nonmatching_hex_bond.py` starts from two
 independent Gmsh meshes and named boundaries, then solves through ordinary
 `model.step`. It writes fields and a result manifest and checks interface energy

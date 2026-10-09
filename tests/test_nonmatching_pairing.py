@@ -118,6 +118,25 @@ def test_aabb_overlap_candidates_equal_exhaustive_boxes():
         tree.overlapping_facets(upper, lower)
 
 
+def test_aabb_random_and_touching_queries_preserve_closed_box_candidates():
+    from agentfem.boundary_models.search import TriangleSurfaceBVH
+
+    original = surface(8)
+    rotation, _ = np.linalg.qr(np.random.default_rng(79).normal(size=(3, 3)))
+    s = TriangulatedRigidSurface(original.vertices @ rotation, original.triangles)
+    tree = TriangleSurfaceBVH(s)
+    xyz = s.vertices[s.triangles]
+    lo, hi = xyz.min(axis=1), xyz.max(axis=1)
+    rng = np.random.default_rng(101)
+    boxes = rng.uniform(-1.5, 1.5, (100, 2, 3))
+    queries = [(pair.min(axis=0), pair.max(axis=0)) for pair in boxes]
+    queries += [(point, point) for point in s.vertices]
+    for lower, upper in queries:
+        actual = tree.overlapping_facets(lower, upper)
+        expected = np.flatnonzero(np.all(hi >= lower, axis=1) & np.all(lo <= upper, axis=1))
+        np.testing.assert_array_equal(np.sort(actual), expected)
+
+
 def test_elastic_interface_has_no_hidden_damage_and_reuses_assembler():
     law = ElasticCohesiveLaw(1000, 300, 400)
     jump = np.array([[0.1, -0.2, 0.3], [-0.1, 0.2, -0.3]])
