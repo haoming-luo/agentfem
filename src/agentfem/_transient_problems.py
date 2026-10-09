@@ -329,7 +329,7 @@ class ExplicitDynamicsStep:
         accepted = self.state.snapshot()
         previous_residual = getattr(self.integrator, "last_residual_owned", None)
         residual_state = (
-            self.residual.snapshot()
+            getattr(self.residual, "transaction_snapshot", self.residual.snapshot)()
             if hasattr(self.residual, "snapshot") and hasattr(self.residual, "restore")
             else None
         )

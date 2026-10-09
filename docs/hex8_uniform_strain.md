@@ -137,11 +137,25 @@ loading/unloading increments. Its tiny dense Newton loop is a test oracle, not
 a second production solver. Shared Q1 layout preparation is also consumed by
 the existing small-strain operator.
 
+Stored-energy availability is explicit in the shared material batch result:
+missing optional energy is not a physically defined zero. This route rejects
+providers without stored energy, and rejects a material-requested increment
+reduction instead of ignoring it. Empty MPI material partitions preserve their
+component schema and neutral time-scale summary (separate driver evidence,
+not admission of distributed finite Hex8 execution).
+
 An instantaneous spectral screen bounds the declared nodal tangent through
 small Gram matrices, checked against an explicit 24-by-24 matrix. It requires a
 symmetric positive-semidefinite material tangent and rejects unsupported
 asymmetry/negative curvature; it is not a general elastoplastic wave-speed
 policy or a guarantee over a future increment.
+
+The diagnostic-only signed report separately encloses positive and negative
+eigenvalues using the positive/negative parts of the symmetric material
+tangent. It does not replace that tangent by its absolute value. A regression
+demonstrates that an isochoric J2 patch can have negative material curvature
+while its assembled, constrained free-DOF matrix is positive definite. Thus a
+local curvature finding is not reported as a structural instability verdict.
 
 The private serial residual lifecycle now runs under the existing central-
 difference Procedure with joint nodal/material rejection, accepted-time guards,
@@ -149,7 +163,7 @@ and same-partition checkpoint recovery. Tests inject failure even after material
 commit and reproduce the uninterrupted trajectory after retry. A constrained
 one-cell elastic Hencky bar is checked against an independently integrated ODE,
 `m_eff u'' + C log(1+u)/(1+u) = 0`, with extension exceeding 10% and second-order
-time refinement over three increments sizes. This checks temporal integration
+time refinement over three increment sizes. This checks temporal integration
 of the one-cell model, not spatial continuum convergence or plastic dynamics.
 
 That private route requires a caller-declared complete-path spectral ceiling

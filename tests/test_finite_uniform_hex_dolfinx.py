@@ -151,3 +151,27 @@ def test_incremental_global_equilibrium_uses_fixed_committed_material_history():
         np.testing.assert_allclose(u.x.array, expected, atol=2e-9)
         response.commit()
         old_f = trial.deformation_gradient.copy()
+
+
+def test_material_negative_curvature_is_not_global_instability_verdict():
+    u, law, response, residual = setup()
+    x = u.function_space.tabulate_dof_coordinates()
+    f = np.diag([1.06, 1 / np.sqrt(1.06), 1 / np.sqrt(1.06)])
+    u.x.array[:] = (x @ (f - np.eye(3)).T).ravel()
+    vector, _ = evaluate(residual, law)
+    vector.destroy()
+    report = residual.cells.tangent_spectral_report(
+        first_piola_tangent=response.tangent.values
+    )
+    assert report.negative_material_curvature_cells > 0
+    interior = np.all((x > 1e-10) & (x < np.array([2, 1, 1]) - 1e-10), axis=1)
+    free = (3 * np.flatnonzero(interior)[:, None] + np.arange(3)).ravel()
+    columns = []
+    for dof in free:
+        direction = np.zeros_like(u.x.array)
+        direction[dof] = 1
+        column = residual.tangent_action(direction)
+        columns.append(column.array[free].copy())
+        column.destroy()
+    # Same material, assembled and constrained equilibrium has positive curvature.
+    assert np.linalg.eigvalsh(np.column_stack(columns))[0] > 0

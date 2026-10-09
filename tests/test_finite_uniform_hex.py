@@ -182,6 +182,34 @@ def test_spectral_screen_does_not_hide_unsupported_material_tangent(invalid):
         op.tangent_spectral_bound(first_piola_tangent=tangent)
 
 
+def test_signed_tangent_enclosure_retains_negative_curvature_separately():
+    op = _operator(True, count=2)
+    rng = np.random.default_rng(78)
+    q, _ = np.linalg.qr(rng.normal(size=(9, 9)))
+    a = q @ np.diag([-10, -4, -1, 2, 3, 4, 5, 6, 7]) @ q.T
+    tangent = np.tile(a.reshape(1, 3, 3, 3, 3), (2, 1, 1, 1, 1))
+    report = op.tangent_spectral_report(first_piola_tangent=tangent)
+    assert report.negative_material_curvature_cells == 2
+    assert report.negative_eigenvalue_magnitude_bound > 0
+    for cell in range(2):
+        columns = []
+        for basis in np.eye(24):
+            direction = np.zeros((2, 8, 3))
+            direction[cell] = basis.reshape(8, 3)
+            columns.append(
+                op.tangent_action(direction, first_piola_tangent=tangent)[cell].ravel()
+            )
+        mass = np.repeat(op.lumped_mass[cell], 3)
+        eigenvalues = np.linalg.eigvalsh(
+            np.column_stack(columns) / np.sqrt(mass[:, None] * mass[None, :])
+        )
+        assert eigenvalues[0] < 0
+        assert eigenvalues[-1] <= report.positive_eigenvalue_upper_bound * (1 + 1e-12)
+        assert eigenvalues[0] >= -report.negative_eigenvalue_magnitude_bound * (
+            1 + 1e-12
+        )
+
+
 def test_existing_j2_batch_protocol_supplies_work_conjugate_element_tangent():
     from agentfem import constitutive
 

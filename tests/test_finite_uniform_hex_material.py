@@ -95,3 +95,30 @@ def test_invalid_cell_count_discards_previous_unaccepted_trial():
     with pytest.raises(ValueError, match="counts differ"):
         update(op, law, response)
     np.testing.assert_array_equal(response.state.trial_state_vectors(), accepted)
+
+
+def test_energy_free_provider_is_rejected_without_committing_material():
+    from dataclasses import replace
+
+    op, law, original = setup()
+
+    class StressOnly:
+        name = "stress only"
+        state_schema = law.state_schema
+        tangent_convention = law.tangent_convention
+
+        def update(self, point):
+            return replace(
+                law.update(point),
+                strain_energy_density=None,
+                stored_energy_density_components={},
+            )
+
+    response = MaterialQuadratureResponse.create(
+        original.domain, law.state_schema, degree=1
+    )
+    initial = response.state.committed_state_vectors().copy()
+    with pytest.raises(ValueError, match="requires material stored energy"):
+        update(op, StressOnly(), response)
+    np.testing.assert_array_equal(response.state.committed_state_vectors(), initial)
+    np.testing.assert_array_equal(response.state.trial_state_vectors(), initial)

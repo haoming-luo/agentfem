@@ -73,6 +73,10 @@ def evaluate_material_trial(
                 time_increment=time_increment,
                 commit=False,
             )
+            if not np.all(updated.strain_energy_density_defined):
+                raise ValueError(
+                    "Finite Hex8 energy reporting requires material stored energy."
+                )
             element = operator.response(
                 displacement,
                 first_piola=response.first_piola_stress.values,

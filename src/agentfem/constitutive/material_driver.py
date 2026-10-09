@@ -45,6 +45,7 @@ class MaterialPointBatchResult:
     stored_energy_density_components: Mapping[str, np.ndarray] = field(
         default_factory=dict
     )
+    strain_energy_density_defined: np.ndarray | None = None
 
     def __post_init__(self) -> None:
         stress = np.asarray(self.cauchy_stress, dtype=float)
@@ -53,6 +54,15 @@ class MaterialPointBatchResult:
         energy = np.asarray(self.strain_energy_density, dtype=float).reshape(-1)
         scale = np.asarray(self.suggested_time_scale, dtype=float).reshape(-1)
         count = len(stress)
+        defined = (
+            np.ones(count, dtype=bool)
+            if self.strain_energy_density_defined is None
+            else np.asarray(self.strain_energy_density_defined)
+        )
+        if defined.shape != (count,) or defined.dtype.kind != "b":
+            raise ValueError(
+                "Stored-energy availability must be one boolean per point."
+            )
         if stress.shape != (count, 3, 3):
             raise ValueError("Batch Cauchy stress must have shape (points, 3, 3).")
         if tangent.shape != (count, 9, 9):
@@ -77,13 +87,19 @@ class MaterialPointBatchResult:
         group_count = int(self.material_group_count)
         batch_calls = int(self.provider_batch_calls)
         scalar_points = int(self.scalar_fallback_points)
-        if group_count < 1:
-            raise ValueError("material_group_count must be positive.")
+        if group_count < 0 or (count and group_count == 0):
+            raise ValueError(
+                "Nonempty material batches require positive material_group_count."
+            )
         if batch_calls < 0 or scalar_points < 0:
             raise ValueError("Batch evaluation counters must be nonnegative.")
         if scalar_points > count:
             raise ValueError("scalar_fallback_points cannot exceed point_count.")
         components = {}
+        if self.stored_energy_density_components and not np.all(defined):
+            raise ValueError(
+                "Stored-energy components require defined energy at every point."
+            )
         for name, value in self.stored_energy_density_components.items():
             key = str(name).strip().upper()
             selected = np.asarray(value, dtype=float).reshape(-1)
@@ -108,6 +124,7 @@ class MaterialPointBatchResult:
         object.__setattr__(self, "consistent_tangent", tangent.copy())
         object.__setattr__(self, "state_new", state.copy())
         object.__setattr__(self, "strain_energy_density", energy.copy())
+        object.__setattr__(self, "strain_energy_density_defined", defined.copy())
         object.__setattr__(self, "suggested_time_scale", scale.copy())
         object.__setattr__(self, "material_group_count", group_count)
         object.__setattr__(self, "provider_batch_calls", batch_calls)
@@ -124,7 +141,7 @@ class MaterialPointBatchResult:
 
     @property
     def minimum_suggested_time_scale(self) -> float:
-        return float(np.min(self.suggested_time_scale))
+        return float(np.min(self.suggested_time_scale)) if self.point_count else 1.0
 
     def summary(self) -> dict[str, object]:
         return {
@@ -133,6 +150,9 @@ class MaterialPointBatchResult:
             "committed": self.committed,
             "minimum_suggested_time_scale": self.minimum_suggested_time_scale,
             "state_size": self.state_new.shape[1],
+            "stored_energy_defined_points": int(
+                np.count_nonzero(self.strain_energy_density_defined)
+            ),
             "stress_measure": "cauchy",
             "tangent_measure": "first_piola_deformation_gradient",
             "evaluation": {
@@ -837,7 +857,15 @@ def update_material_points(
     tangent = np.empty((point_count, 9, 9), dtype=float)
     state_new = np.empty_like(committed_state)
     energy = np.empty(point_count, dtype=float)
+    energy_defined = np.empty(point_count, dtype=bool)
     energy_components: dict[str, np.ndarray] | None = None
+    if not point_count:
+        names = (
+            material.require_common_stored_energy_component_names()
+            if regional
+            else getattr(material, "stored_energy_component_names", ())
+        )
+        energy_components = {str(name).strip().upper(): np.empty(0) for name in names}
     scales = np.empty(point_count, dtype=float)
     material_group_count = 0
     provider_batch_calls = 0
@@ -935,6 +963,7 @@ def update_material_points(
                     if response.strain_energy_density is None
                     else response.strain_energy_density
                 )
+                energy_defined[index] = response.strain_energy_density is not None
                 point_components = dict(response.stored_energy_density_components)
                 declared_component_names = getattr(
                     selected_material,
@@ -986,6 +1015,7 @@ def update_material_points(
                 consistent_tangent=tangent,
                 state_new=state_new,
                 strain_energy_density=energy,
+                strain_energy_density_defined=energy_defined,
                 suggested_time_scale=scales,
                 committed=bool(commit),
                 material_group_count=material_group_count,

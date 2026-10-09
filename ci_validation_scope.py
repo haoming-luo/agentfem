@@ -163,6 +163,7 @@ _CORE_SOURCE_TEST_MAP = {
     ),
     "src/agentfem/constitutive/material_driver.py": (
         "tests/test_user_material.py",
+        "tests/test_material_batch_evidence.py",
         "tests/test_material_stress_conversion.py",
         "tests/test_finite_strain_plasticity.py",
         "tests/test_finite_strain_j2_material_map.py",
@@ -304,6 +305,7 @@ _CORE_SOURCE_MPI_TEST_MAP = {
     "src/agentfem/time/": ("tests/test_parallel_transient.py",),
     "src/agentfem/constitutive/material_driver.py": (
         "tests/test_parallel_inelastic.py",
+        "tests/test_material_batch_evidence.py",
     ),
     "src/agentfem/mechanics/_incremental_runtime.py": (
         "tests/test_parallel_inelastic.py",

@@ -116,11 +116,13 @@ def test_known_core_change_selects_serial_and_distributed_owner_suites():
     assert scope.tests == (
         "tests/test_finite_strain_j2_material_map.py",
         "tests/test_finite_strain_plasticity.py",
+        "tests/test_material_batch_evidence.py",
         "tests/test_material_stress_conversion.py",
         "tests/test_user_material.py",
         "tests/test_viscoelasticity.py",
     )
     assert scope.mpi_tests == (
+        "tests/test_material_batch_evidence.py",
         "tests/test_parallel_inelastic.py",
         "tests/test_parallel_viscoelasticity.py",
     )

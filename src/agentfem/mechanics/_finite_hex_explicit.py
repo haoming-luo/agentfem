@@ -93,6 +93,10 @@ class FiniteHexExplicitResidual:
                     time=self.accepted_time,
                     time_increment=dt,
                 )
+                if trial.material_response.minimum_suggested_time_scale < 1:
+                    raise ValueError(
+                        "Material requested increment reduction; fixed explicit step rejected."
+                    )
                 bound = self.internal.cells.tangent_spectral_bound(
                     first_piola_tangent=self.internal.response.tangent.values
                 )
@@ -141,16 +145,25 @@ class FiniteHexExplicitResidual:
         }
 
     def snapshot(self):
+        record = self.transaction_snapshot()
+        record["gradient"] = record["gradient"].tolist()
+        record["fields"] = {
+            name: value.tolist() for name, value in record["fields"].items()
+        }
+        return record
+
+    def transaction_snapshot(self):
+        """Bound in-memory rollback storage; JSON expansion is checkpoint-only."""
         if self._trial is not None:
             raise RuntimeError("Cannot archive an unaccepted finite Hex8 trial.")
         return {
             "schema": "agentfem.private-finite-hex.v1",
             "identity": self.identity,
             "time": self.accepted_time,
-            "gradient": self.accepted_gradient.tolist(),
+            "gradient": self.accepted_gradient.copy(),
             "last_bound": self.last_bound,
             "fields": {
-                name: value.x.array.tolist() for name, value in self._fields().items()
+                name: value.x.array.copy() for name, value in self._fields().items()
             },
         }
 

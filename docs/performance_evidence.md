@@ -13,6 +13,16 @@ OpenBLAS/OMP thread counts were one. The maximum absolute difference was
 remain explicitly checked. This excludes constitutive updates, assembly, I/O
 and the global solve; no whole-solver acceleration factor follows from it.
 
+The private finite-Hex residual also separates array-based rollback snapshots
+from JSON-ready durable snapshots. On a 4,096-cell (16x16x16) unit cube with
+the finite-strain J2 state schema, five warm snapshots measured median
+0.00379 s for list expansion versus 0.000156 s for copied arrays (24.2x for
+snapshot creation only). `tracemalloc` peak allocations were 22.54 MB versus
+4.36 MB. These are Python-tracked allocations, not process RSS. Real disk
+checkpoints still use the existing JSON auxiliary contract; this change avoids
+paying its expansion cost on every increment, rather than claiming a new binary
+checkpoint format or a whole-solver speedup.
+
 AgentFEM records execution cost as a first-class part of
 `SimulationResult`. Performance evidence explains the cost of a computation;
 it does not turn a completed solve into a scientifically verified result.

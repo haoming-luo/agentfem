@@ -3,6 +3,7 @@
 """Private serial lifecycle acceptance; not a public finite-strain capability."""
 
 from copy import deepcopy
+from dataclasses import replace
 
 import numpy as np
 import pytest
@@ -77,6 +78,37 @@ def test_trial_cannot_be_committed_at_another_time():
         residual.commit()
     residual.restore(saved)
     assert residual.snapshot() == saved
+
+
+def test_explicit_increment_uses_array_snapshot_not_json_lists(monkeypatch):
+    step = make_step()
+
+    def forbid_json_snapshot():
+        raise AssertionError("Checkpoint JSON snapshot used during an increment")
+
+    monkeypatch.setattr(step.residual, "snapshot", forbid_json_snapshot)
+    step.run()
+    record = step.residual.transaction_snapshot()
+    assert isinstance(record["gradient"], np.ndarray)
+    assert all(isinstance(value, np.ndarray) for value in record["fields"].values())
+
+
+def test_material_cutback_request_rejects_increment_and_restores_state(monkeypatch):
+    step = make_step()
+    saved = step.residual.snapshot()
+    original = step.residual.internal.evaluate
+
+    def request_cutback(*args, **kwargs):
+        vector, trial = original(*args, **kwargs)
+        result = trial.material_response
+        result = replace(result, suggested_time_scale=np.full(result.point_count, 0.5))
+        return vector, replace(trial, material_response=result)
+
+    monkeypatch.setattr(step.residual.internal, "evaluate", request_cutback)
+    with pytest.raises(ValueError, match="requested increment reduction"):
+        step.run()
+    assert step.completed_steps == 0
+    assert step.residual.snapshot() == saved
 
 
 def test_corrupt_auxiliary_record_is_rejected_before_assignment():

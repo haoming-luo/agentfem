@@ -22,6 +22,15 @@ class FiniteUniformHexResponse:
     hourglass_energy: np.ndarray
 
 
+@dataclass(frozen=True)
+class FiniteHexTangentSpectrum:
+    """Signed enclosure, not a claim that the constrained system is unstable."""
+
+    positive_eigenvalue_upper_bound: float
+    negative_eigenvalue_magnitude_bound: float
+    negative_material_curvature_cells: int
+
+
 class FiniteUniformHexBatch:
     """Reference-volume-average deformation gradient, in Basix node order.
 
@@ -197,11 +206,30 @@ class FiniteUniformHexBatch:
         numerical policy; taking their absolute values would hide instability.
         The Procedure must refresh this screen when the accepted state changes.
         """
+        report = self.tangent_spectral_report(first_piola_tangent=first_piola_tangent)
+        if report.negative_material_curvature_cells:
+            raise ValueError(
+                "Indefinite material tangent requires an explicit curvature policy; "
+                "a positive time-step bound is not sufficient."
+            )
+        return report.positive_eigenvalue_upper_bound
+
+    def tangent_spectral_report(self, *, first_piola_tangent):
+        """Enclose positive and negative curvature separately using A=A+ - A-.
+
+        For symmetric material tangents, congruence preserves Loewner order:
+        -G.T A- G <= G.T A G + H <= G.T A+ G + H, with H nonnegative.
+        Element lumped masses then bound assembled Rayleigh quotients. Negative
+        material curvature is diagnostic: constraints and assembly can remove it.
+        It is never relabeled a positive-frequency stability guarantee.
+        """
         tangent = np.asarray(first_piola_tangent, dtype=float)
         count = len(self.coordinates)
         if tangent.shape != (count, 3, 3, 3, 3) or not np.isfinite(tangent).all():
             raise ValueError("Expected finite dP/dF with shape (cells,3,3,3,3).")
         bound = 0.0
+        negative_bound = 0.0
+        negative_cells = 0
         for region in self._regions():
             matrix = tangent[region].reshape(-1, 9, 9)
             scale = np.max(np.abs(matrix), axis=(1, 2))
@@ -213,11 +241,8 @@ class FiniteUniformHexBatch:
                     "Non-symmetric material tangent has no admitted conservative stability screen."
                 )
             eigenvalues, vectors = np.linalg.eigh((matrix + matrix.swapaxes(1, 2)) / 2)
-            if np.any(eigenvalues[:, 0] < -tolerance):
-                raise ValueError(
-                    "Indefinite material tangent requires an instability policy; a positive time-step bound is not sufficient."
-                )
-            # Clip roundoff-negative eigenvalues only, conservatively increasing A.
+            negative_cells += int(np.count_nonzero(eigenvalues[:, 0] < -tolerance))
+            # Positive and negative parts are retained separately, never |A|.
             root = vectors * np.sqrt(np.maximum(eigenvalues, 0))[:, None, :]
             gradient = self.average_gradient[region]
             mass = self.lumped_mass[region]
@@ -227,6 +252,14 @@ class FiniteUniformHexBatch:
                 self.volume[region]
                 * np.linalg.eigvalsh(root.swapaxes(1, 2) @ gram @ root)[:, -1]
             )
+            negative_root = vectors * np.sqrt(np.maximum(-eigenvalues, 0))[:, None, :]
+            negative = (
+                self.volume[region]
+                * np.linalg.eigvalsh(
+                    negative_root.swapaxes(1, 2) @ gram @ negative_root
+                )[:, -1]
+            )
+            negative_bound = max(negative_bound, float(np.max(negative)))
             gamma = self.hourglass_modes[region]
             hourglass = (
                 self.hourglass_coefficient[region]
@@ -239,4 +272,6 @@ class FiniteUniformHexBatch:
             raise ValueError(
                 "Finite Hex8 tangent spectral bound must be positive finite."
             )
-        return bound
+        if not np.isfinite(negative_bound):
+            raise ValueError("Finite Hex8 negative-curvature bound overflowed.")
+        return FiniteHexTangentSpectrum(bound, negative_bound, negative_cells)
