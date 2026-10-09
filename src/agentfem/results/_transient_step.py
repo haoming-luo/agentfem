@@ -12,6 +12,7 @@ from .core import from_solution
 from .execution import add_execution_trace
 from .lifecycle import attach_checkpoint_contract, execution_context
 from .performance import attach_performance
+from ._field_metadata import field_location
 
 
 def from_transient_step(
@@ -19,11 +20,14 @@ def from_transient_step(
     solution,
     *,
     output_fields,
+    live_field_sets=(),
     metadata=None,
 ):
     """Build a result after a transient procedure has advanced its state."""
 
     result_started = perf_counter()
+    for group in live_field_sets:
+        group.update()
     summary = step.summary()
     if "performance" in summary:
         # Step.summary() is an inexpensive rank-local diagnostic. Published
@@ -50,8 +54,7 @@ def from_transient_step(
     result_seconds = perf_counter() - result_started
     ledger_stages["result_assembly"] = result_seconds
     ledger_stages["total"] = (
-        float(step.performance.summary()["run_wall_seconds"])
-        + result_seconds
+        float(step.performance.summary()["run_wall_seconds"]) + result_seconds
     )
     return attach_performance(
         result,
@@ -88,6 +91,17 @@ def _attach_transient_output(result, step, output_fields) -> None:
         result.add_checkpoint(checkpoint)
     if step.last_output is not None:
         _attach_field_output(result, step, output_fields)
+    else:
+        for function in output_fields:
+            processing = getattr(function, "_agentfem_processing", None)
+            if processing is not None:
+                result.add_field(
+                    function.name,
+                    function,
+                    location=field_location(function),
+                    processing=processing,
+                    description="Derived field evaluated from the final accepted state; see processing metadata.",
+                )
 
 
 def _attach_histories(result, step) -> None:
@@ -179,6 +193,8 @@ def _attach_field_output(result, step, output_fields) -> None:
         result.add_field(
             name,
             function,
+            location=field_location(function),
+            processing=dict(getattr(function, "_agentfem_processing", {})),
             artifact=path,
             description=(
                 "Transient field in the shared single-geometry series; "

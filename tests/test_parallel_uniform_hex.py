@@ -297,7 +297,10 @@ def test_ordinary_distributed_hex_result_work_and_partition_restart(
 
     directory = Path(MPI.COMM_WORLD.bcast(str(tmp_path), root=0))
     reference = ordinary_step(prescribed=prescribed)
-    result = reference.solve_result(output=directory / "reference.xdmf")
+    result = reference.solve_result(
+        output=directory / "reference.xdmf",
+        field_variables=("S", "E", "MISES", "SENER"),
+    )
     result.write_manifest(directory / "result.json", comm=MPI.COMM_WORLD)
     assert result.performance["parallel"]["rank_count"] == MPI.COMM_WORLD.size
     assert (
@@ -309,6 +312,7 @@ def test_ordinary_distributed_hex_result_work_and_partition_restart(
     assert last["kinetic_energy"] == pytest.approx(expected)
     assert last["external_work"] == pytest.approx(expected)
     assert "hourglass_energy" in result.histories
+    assert result.fields["S"].location == "cells"
     partial = ordinary_step(prescribed=prescribed)
     partial.run(until_step=5)
     checkpoint = partial.save_checkpoint(directory / "parallel_hex")
@@ -327,7 +331,7 @@ def test_ordinary_distributed_hex_result_work_and_partition_restart(
 def test_ordinary_hex_step_tolerates_empty_owned_cell_partition():
     domain, _, _ = problem(MPI.COMM_WORLD, counts=(1, 1, 1))
     step = ordinary_step(domain=domain)
-    step.solve_result()
+    step.solve_result(field_variables=("S", "E", "MISES", "SENER"))
     assert step.history_records[-1]["kinetic_energy"] == pytest.approx(
         0.5 * 0.08 * (10e-4) ** 2
     )

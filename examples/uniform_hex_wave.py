@@ -41,7 +41,9 @@ def main():
         progress=False,
     )
     args.output.mkdir(parents=True, exist_ok=True)
-    result = step.solve_result(output=args.output / "fields.xdmf")
+    result = step.solve_result(
+        output=args.output / "fields.xdmf", field_variables=("S", "MISES", "SENER")
+    )
     result.write_manifest(args.output / "result.json", comm=domain.comm)
     latest = step.history_records[-1]
     if domain.comm.rank == 0:

@@ -175,6 +175,18 @@ class _Energy:
 
 
 class UniformHexStep(ExplicitDynamicsStep):
+    def solve_result(self, *, field_variables=None, fields=(), **options):
+        if field_variables is None:
+            return super().solve_result(fields=fields, **options)
+        if fields:
+            raise ValueError(
+                "Choose explicit live fields or field_variables, not both."
+            )
+        from .results._uniform_hex import UniformHexCellFields
+
+        generated = UniformHexCellFields(self.residual.internal, field_variables)
+        return super().solve_result(fields=(self.state.u.value, generated), **options)
+
     def checkpoint_capabilities(self):
         return replace(
             super().checkpoint_capabilities(),

@@ -14,8 +14,21 @@ policy = elements.uniform_strain_hex8(
     hourglass_scale=0.1,
 )
 step = model.step(target=u, element_policy=policy, dt="auto", steps=100)
-result = step.solve_result(output="fields.xdmf")
+result = step.solve_result(
+    output="fields.xdmf", field_variables=("S", "E", "MISES", "SENER")
+)
 ```
+
+Optional cell fields come directly from the uniform-gradient constitutive
+response: `S` is physical stress, `E` is small strain (both 3-by-3 tensors),
+`MISES` is von Mises equivalent stress and `SENER` is physical strain-energy
+density. They use DG0 without smoothing across cells or material interfaces.
+Artificial hourglass energy remains separate; no artificial stress is added to
+`S`. Von Mises output is not an anisotropic failure criterion. Units follow the
+model's consistent unit system and are not inferred. Processing provenance and
+cell location remain in `SimulationResult` with or without file output. Omitting
+`field_variables` preserves the existing primary-field default; an empty tuple
+requests no derived fields. Unsupported fields are rejected before stepping.
 
 The model uses a 3D `studies.dynamic_solid()` Study, continuous Q1 hexahedra,
 registered constant isotropic or anisotropic elasticity, positive density and

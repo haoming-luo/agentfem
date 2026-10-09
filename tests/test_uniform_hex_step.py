@@ -75,26 +75,115 @@ def test_uniform_hex_step_checks_time_increment_and_policy():
         elements.uniform_strain_hex8(hourglass_modulus=50, hourglass_scale=0)
 
 
+@pytest.mark.parametrize("write", [False, True])
+def test_uniform_hex_derived_fields_match_constitutive_cell_response(tmp_path, write):
+    step = _step()
+    result = step.solve_result(
+        field_variables=("S", "E", "MISES", "SENER"),
+        output=tmp_path / "cells.xdmf" if write else None,
+    )
+    for name in ("S", "E", "MISES", "SENER"):
+        item = result.fields[name]
+        assert item.location == "cells"
+        assert (
+            item.processing["method"] == "direct_uniform_gradient_constitutive_response"
+        )
+        assert item.processing["material_boundary_averaging"] is False
+        assert (item.artifact is not None) == write
+    internal = step.residual.internal
+    energy = 0.0
+    for region, response in internal._responses():
+        for name, expected in (("S", response.stress), ("E", response.strain)):
+            field = result.fields[name].field
+            cell_dofs = [
+                field.function_space.dofmap.cell_dofs(k)[0]
+                for k in range(region.start, region.stop)
+            ]
+            values = field.x.array.reshape(-1, 3, 3)[cell_dofs]
+            actual = values[:, [0, 1, 2, 1, 0, 0], [0, 1, 2, 2, 2, 1]].copy()
+            if name == "E":
+                actual[:, 3:] *= 2
+            np.testing.assert_allclose(actual, expected, atol=1e-15)
+        field = result.fields["SENER"].field
+        dofs = [
+            field.function_space.dofmap.cell_dofs(k)[0]
+            for k in range(region.start, region.stop)
+        ]
+        energy += float(field.x.array[dofs] @ internal.cells.volume[region])
+    assert energy == pytest.approx(step.history_records[-1]["strain_energy"])
+    result.write_manifest(tmp_path / "result.json")
+
+
+def test_uniform_hex_field_selection_rejects_before_advancing():
+    step = _step()
+    with pytest.raises(ValueError, match="support"):
+        step.solve_result(field_variables=("DAMAGE",))
+    assert step.completed_steps == 0
+    with pytest.raises(ValueError, match="not both"):
+        step.solve_result(field_variables=("S",), fields=(step.state.u,))
+    assert step.completed_steps == 0
+    result = step.solve_result(field_variables=())
+    assert set(result.fields) == {step.state.u.value.name}
+
+
+def test_uniform_hex_cell_fields_preserve_tensor_shear_and_material_jump():
+    from agentfem import mesh as mesh_api
+    from agentfem.results._uniform_hex import UniformHexCellFields
+
+    original, _, policy = _model()
+    domain = original.mesh
+    model = models.create(study=studies.dynamic_solid(dimension=3), mesh=domain)
+    u = model.field(fields.displacement(domain))
+    regions = mesh_api.partition_cells(
+        domain, left=lambda x: x[0] < 0.5, right=lambda x: x[0] >= 0.5
+    )
+    for young, region in ((100, regions.left), (200, regions.right)):
+        model.material(
+            constitutive.isotropic_elastic(young=young, poisson=0, density=2),
+            region=region,
+        )
+    # gamma_xy = 0.02, tensor epsilon_xy = 0.01; stress jumps with modulus.
+    u.value.interpolate(lambda x: np.vstack((0.02 * x[1], 0 * x[0], 0 * x[0])))
+    step = model.step(target=u, element_policy=policy, dt=1e-4, steps=1, progress=False)
+    live = UniformHexCellFields(step.residual.internal, ("S", "E", "MISES", "SENER"))
+    values = {field.name: field for field in live.update()}
+    stress = values["S"].x.array.reshape(-1, 3, 3)
+    strain = values["E"].x.array.reshape(-1, 3, 3)
+    np.testing.assert_allclose(strain[:, 0, 1], 0.01, atol=1e-14)
+    np.testing.assert_allclose(strain[:, 1, 0], 0.01, atol=1e-14)
+    np.testing.assert_allclose(np.unique(np.round(stress[:, 0, 1], 12)), [1, 2])
+    np.testing.assert_allclose(values["MISES"].x.array, np.sqrt(3) * stress[:, 0, 1])
+    np.testing.assert_allclose(values["SENER"].x.array, 0.01 * stress[:, 0, 1])
+
+
 def test_step_constraint_override_initializes_only_selected_motion():
     from agentfem import amplitudes, constraints
 
     model, u, policy = _model()
     calls = []
-    unused = amplitudes.Amplitude("unused", lambda t: calls.append(t) or 123.)
-    model.fix(u, on=lambda x: np.ones(x.shape[1], dtype=bool), components=0, value=unused)
+    unused = amplitudes.Amplitude("unused", lambda t: calls.append(t) or 123.0)
+    model.fix(
+        u, on=lambda x: np.ones(x.shape[1], dtype=bool), components=0, value=unused
+    )
     selected = constraints.time_dependent_component_dirichlet(
-        u, 0, marker=lambda x: np.ones(x.shape[1], dtype=bool),
-        amplitude=amplitudes.Amplitude("selected", lambda t: .01 + .02*t),
+        u,
+        0,
+        marker=lambda x: np.ones(x.shape[1], dtype=bool),
+        amplitude=amplitudes.Amplitude("selected", lambda t: 0.01 + 0.02 * t),
     )
     calls.clear()
     step = model.step(
-        target=u, element_policy=policy, constraints=(selected,),
-        dt=1e-4, steps=2, progress=False,
+        target=u,
+        element_policy=policy,
+        constraints=(selected,),
+        dt=1e-4,
+        steps=2,
+        progress=False,
     )
-    np.testing.assert_allclose(step.state.u.value.x.array[::3], .01)
-    np.testing.assert_allclose(step.state.v.value.x.array[::3], .02)
+    np.testing.assert_allclose(step.state.u.value.x.array[::3], 0.01)
+    np.testing.assert_allclose(step.state.v.value.x.array[::3], 0.02)
     step.run()
-    np.testing.assert_allclose(step.state.u.value.x.array[::3], .01 + .02 * 2e-4)
+    np.testing.assert_allclose(step.state.u.value.x.array[::3], 0.01 + 0.02 * 2e-4)
     assert calls == []
 
 
@@ -102,7 +191,7 @@ def test_initial_residual_failure_restores_user_displacement(monkeypatch):
     from agentfem.elements._uniform_hex_dolfinx import UniformHexResidual
 
     model, u, policy = _model()
-    model.fix(u, on=lambda x: np.ones(x.shape[1], dtype=bool), components=0, value=.02)
+    model.fix(u, on=lambda x: np.ones(x.shape[1], dtype=bool), components=0, value=0.02)
     before = u.value.x.array.copy()
 
     def fail(self):

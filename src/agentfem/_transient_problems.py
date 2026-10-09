@@ -1337,12 +1337,14 @@ def _solve_transient_result(
         )
     from .results._transient_step import from_transient_step
 
+    output_fields, live_field_sets = _transient_output_fields(
+        fields or step.last_output_fields or tuple(default_fields)
+    )
     return from_transient_step(
         step,
         solution,
-        output_fields=(
-            tuple(fields) or step.last_output_fields or tuple(default_fields)
-        ),
+        output_fields=output_fields,
+        live_field_sets=live_field_sets,
         metadata=metadata,
     )
 
