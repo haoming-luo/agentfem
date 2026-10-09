@@ -361,6 +361,64 @@ def test_elastic_failed_trial_cannot_commit_previous_response():
         ElasticCohesiveLaw(1000, 300, name=None)
 
 
+@pytest.mark.parametrize("exception", [RuntimeError, KeyboardInterrupt, SystemExit])
+@pytest.mark.parametrize("elastic", [False, True])
+def test_cancelled_assembly_discards_replacement_trial(monkeypatch, exception, elastic):
+    a, b = surface(1), surface(2, reverse=True)
+    pair = fixed_reference_pairing(a, b, tolerance=1e-10)
+    law = (ElasticCohesiveLaw(1000, 300) if elastic else
+           bilinear_cohesive(strength=10, fracture_energy=2, initial_stiffness=1000))
+    assembler = FixedReferenceCohesiveAssembler(
+        pair, law, tangential="mixed" if elastic else "free"
+    )
+    un = np.zeros_like(a.vertices)
+    up = np.tile([0, 0, 0.1], (len(b.vertices), 1))
+    saved = assembler.snapshot()
+    assembler.begin(un, up)
+    original = assembler._response
+
+    def interrupt_response(point):
+        original(point)
+        raise exception("injected interface assembly cancellation")
+
+    monkeypatch.setattr(assembler, "_response", interrupt_response)
+    with pytest.raises(exception, match="assembly cancellation"):
+        assembler.begin(un, 2 * up)
+    assert assembler.snapshot() == saved
+    with pytest.raises(RuntimeError, match="No nonmatching"):
+        assembler.commit()
+    monkeypatch.setattr(assembler, "_response", original)
+    assembler.begin(un, up)
+    assembler.commit()
+
+
+@pytest.mark.parametrize("exception", [RuntimeError, KeyboardInterrupt, SystemExit])
+def test_cancelled_interface_restore_keeps_previous_history(monkeypatch, exception):
+    a, b = surface(1), surface(2, reverse=True)
+    pair = fixed_reference_pairing(a, b, tolerance=1e-10)
+    law = bilinear_cohesive(strength=10, fracture_energy=2, initial_stiffness=1000)
+    assembler = FixedReferenceCohesiveAssembler(pair, law)
+    previous = assembler.snapshot()
+    assembler.begin(np.zeros_like(a.vertices), np.tile([0, 0, 0.1], (len(b.vertices), 1)))
+    assembler.commit()
+    later = assembler.snapshot()
+    original = assembler.state.restore
+    calls = 0
+
+    def interrupt_restore(record):
+        nonlocal calls
+        original(record)
+        calls += 1
+        if calls == 1:
+            raise exception("injected interface restore cancellation")
+
+    monkeypatch.setattr(assembler.state, "restore", interrupt_restore)
+    with pytest.raises(exception, match="restore cancellation"):
+        assembler.restore(previous)
+    assert calls == 2
+    assert assembler.snapshot() == later
+
+
 @pytest.mark.parametrize("budget", [True, 100.0, float("inf"), float("nan"), 0])
 def test_quadrature_budget_rejects_invalid_values(budget):
     with pytest.raises(ValueError, match="positive integer"):

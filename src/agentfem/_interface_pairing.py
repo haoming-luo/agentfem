@@ -353,7 +353,7 @@ class FixedReferenceCohesiveAssembler:
             point = self._point_response(negative, positive, begin=True)
             self._trial = self._response(point)
             return self._trial
-        except Exception:
+        except BaseException:
             self.rollback()
             raise
 
@@ -441,6 +441,6 @@ class FixedReferenceCohesiveAssembler:
             raise ValueError("Nonmatching cohesive checkpoint identity mismatch.")
         try:
             self.state.restore(snapshot["state"])
-        except Exception:
+        except BaseException:
             self.state.restore(expected["state"])
             raise
