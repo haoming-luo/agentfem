@@ -202,6 +202,17 @@ _CORE_SOURCE_TEST_MAP = {
     "src/agentfem/elements/": (
         "tests/test_element_contracts.py",
         "tests/test_validation.py",
+        "tests/test_hex_validity.py",
+        "tests/test_uniform_hex.py",
+        "tests/test_uniform_hex_global.py",
+        "tests/test_uniform_hex_step.py",
+        "tests/test_uniform_hex_work.py",
+    ),
+    "src/agentfem/_step_uniform_hex.py": (
+        "tests/test_uniform_hex_step.py",
+        "tests/test_uniform_hex_work.py",
+        "tests/test_uniform_hex_global.py",
+        "tests/test_transient_restart.py",
     ),
     "src/agentfem/fracture": ("tests/test_fracture_v5.py",),
     "src/agentfem/mesh/": (
@@ -303,7 +314,11 @@ _CORE_SOURCE_MPI_TEST_MAP = {
         "tests/test_parallel_mixed.py",
     ),
     "src/agentfem/mechanics/harmonic.py": ("tests/test_parallel_viscoelasticity.py",),
-    "src/agentfem/elements/": ("tests/test_element_contracts.py",),
+    "src/agentfem/elements/": (
+        "tests/test_element_contracts.py",
+        "tests/test_parallel_uniform_hex.py",
+    ),
+    "src/agentfem/_step_uniform_hex.py": ("tests/test_parallel_uniform_hex.py",),
     "src/agentfem/fracture": ("tests/test_parallel_cohesive.py",),
     "src/agentfem/mesh/": (
         "tests/test_element_contracts.py",
