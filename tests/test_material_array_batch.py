@@ -114,6 +114,23 @@ def test_columnar_input_validation(field, value):
         replace(request, **{field: value})
 
 
+@pytest.mark.parametrize("field", ["deformation_gradient_old", "deformation_gradient_new", "state_old", "properties"])
+def test_columnar_input_rejects_complex_arrays_without_discarding_imaginary_part(field):
+    _, request = fixture()
+    values = np.asarray(getattr(request, field), dtype=complex)
+    with pytest.raises(ValueError, match="must be real"):
+        replace(request, **{field: values})
+
+
+@pytest.mark.parametrize("field", ["cauchy_stress", "consistent_tangent", "state_new", "strain_energy_density"])
+def test_columnar_output_rejects_complex_arrays(field):
+    material, request = fixture()
+    response = validated_material_array_batch_update(material, request)
+    values = np.asarray(getattr(response, field), dtype=complex)
+    with pytest.raises(ValueError, match="must be real"):
+        replace(response, **{field: values})
+
+
 def test_arrays_are_owned_and_readonly():
     material, request = fixture()
     original = request.deformation_gradient_new.copy()

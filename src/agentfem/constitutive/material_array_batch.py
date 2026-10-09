@@ -22,6 +22,8 @@ from .user_material import (
 
 
 def _array(value, shape, label):
+    if np.iscomplexobj(value):
+        raise ValueError(f"{label} must be real; complex values are not supported.")
     selected = np.asarray(value, dtype=float)
     if selected.shape != shape or not np.isfinite(selected).all():
         raise ValueError(f"{label} must be finite with shape {shape}.")
@@ -69,6 +71,8 @@ class MaterialPointArrayBatchInput:
             or self.time_increment <= 0
         ):
             raise ValueError("Material time must be finite and increment positive.")
+        if np.iscomplexobj(self.properties):
+            raise ValueError("properties must be real; complex values are not supported.")
         properties = np.asarray(self.properties, dtype=float).reshape(-1)
         object.__setattr__(
             self, "properties", _array(properties, properties.shape, "properties")

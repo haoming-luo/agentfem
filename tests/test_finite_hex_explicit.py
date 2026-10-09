@@ -155,6 +155,22 @@ def test_corrupt_auxiliary_record_is_rejected_before_assignment():
     assert step.residual.snapshot() == saved
 
 
+@pytest.mark.parametrize("field", ["gradient", "material"])
+def test_complex_auxiliary_record_is_not_silently_cast_to_real(field):
+    step = make_step()
+    step.run(until_step=2)
+    saved = step.residual.snapshot()
+    corrupt = deepcopy(saved)
+    if field == "gradient":
+        corrupt["gradient"] = np.asarray(corrupt["gradient"], dtype=complex)
+    else:
+        name = next(iter(corrupt["fields"]))
+        corrupt["fields"][name] = np.asarray(corrupt["fields"][name], dtype=complex)
+    with pytest.raises(ValueError, match="must be real"):
+        step.residual.restore(corrupt)
+    assert step.residual.snapshot() == saved
+
+
 @pytest.mark.parametrize("exception", [RuntimeError, KeyboardInterrupt, SystemExit])
 def test_failure_after_material_commit_restores_entire_accepted_station(monkeypatch, exception):
     step = make_step()

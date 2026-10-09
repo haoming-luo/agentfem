@@ -237,6 +237,8 @@ class FiniteHexExplicitResidual:
         ):
             raise ValueError("Finite Hex8 checkpoint identity mismatch.")
         selected_time = float(record["time"])
+        if np.iscomplexobj(record["gradient"]):
+            raise ValueError("Finite Hex8 checkpoint gradient must be real.")
         gradient = np.asarray(record["gradient"], dtype=float)
         bound = record["last_bound"]
         if (
@@ -259,6 +261,8 @@ class FiniteHexExplicitResidual:
             raise ValueError("Finite Hex8 checkpoint interface identity mismatch.")
         if set(record["fields"]) != set(fields):
             raise ValueError("Finite Hex8 checkpoint fields differ.")
+        if any(np.iscomplexobj(value) for value in record["fields"].values()):
+            raise ValueError("Finite Hex8 checkpoint fields must be real.")
         arrays = {
             name: np.asarray(record["fields"][name], dtype=float) for name in fields
         }
