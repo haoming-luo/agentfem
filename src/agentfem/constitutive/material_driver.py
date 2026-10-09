@@ -270,14 +270,7 @@ class MaterialQuadratureResponse:
                 point_count=result.point_count,
                 label="deformation_gradient_new",
             )
-            first_piola = np.asarray(
-                [
-                    np.linalg.det(gradient) * stress @ np.linalg.inv(gradient).T
-                    for gradient, stress in zip(
-                        new_gradients, result.cauchy_stress, strict=True
-                    )
-                ]
-            )
+            first_piola = _cauchy_to_first_piola(new_gradients, result.cauchy_stress)
             if not np.all(np.isfinite(first_piola)):
                 raise ValueError("First Piola stress must be finite.")
             if set(result.stored_energy_density_components) != set(
@@ -660,6 +653,33 @@ class SmallStrainMaterialQuadratureResponse:
         }
 
 
+def _cauchy_to_first_piola(gradients, stresses):
+    """Bound temporary inversion storage; preserve empty MPI partitions."""
+    gradients = np.asarray(gradients, dtype=float)
+    stresses = np.asarray(stresses, dtype=float)
+    if (
+        gradients.ndim != 3
+        or gradients.shape[1:] != (3, 3)
+        or stresses.shape != gradients.shape
+    ):
+        raise ValueError("Stress conversion requires matching (points,3,3) arrays.")
+    if not np.isfinite(gradients).all() or not np.isfinite(stresses).all():
+        raise ValueError("Stress conversion inputs must be finite.")
+    result = np.empty_like(stresses)
+    for start in range(0, len(gradients), 1024):
+        region = slice(start, start + 1024)
+        f = gradients[region]
+        jacobian = np.linalg.det(f)
+        if np.any(jacobian <= 0) or not np.isfinite(jacobian).all():
+            raise ValueError("Stress conversion requires positive finite det(F).")
+        result[region] = jacobian[:, None, None] * (
+            stresses[region] @ np.linalg.inv(f).swapaxes(1, 2)
+        )
+    if not np.isfinite(result).all():
+        raise ValueError("First Piola stress conversion overflowed.")
+    return result
+
+
 def _raise_collective_material_problem(comm, local_problem, *, context: str) -> None:
     """Raise the first rank-local setup error before constitutive collectives."""
 
@@ -925,8 +945,7 @@ def update_material_points(
                     None
                     if declared_component_names is None
                     else tuple(
-                        str(name).strip().upper()
-                        for name in declared_component_names
+                        str(name).strip().upper() for name in declared_component_names
                     )
                 )
                 if declared_components is not None and set(point_components) != set(

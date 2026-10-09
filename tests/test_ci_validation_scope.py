@@ -116,6 +116,7 @@ def test_known_core_change_selects_serial_and_distributed_owner_suites():
     assert scope.tests == (
         "tests/test_finite_strain_j2_material_map.py",
         "tests/test_finite_strain_plasticity.py",
+        "tests/test_material_stress_conversion.py",
         "tests/test_user_material.py",
         "tests/test_viscoelasticity.py",
     )
@@ -140,6 +141,8 @@ def test_discretization_owners_select_focused_serial_and_mpi_evidence():
         "tests/test_documentation.py",
         "tests/test_element_contracts.py",
         "tests/test_finite_uniform_hex.py",
+        "tests/test_finite_uniform_hex_dolfinx.py",
+        "tests/test_finite_uniform_hex_material.py",
         "tests/test_hex_validity.py",
         "tests/test_ir.py",
         "tests/test_mesh_formats.py",

@@ -5,6 +5,7 @@
 import numpy as np
 
 from ._uniform_hex import UniformHexBatch
+from ._hex_dolfinx_layout import prepare_layout
 from ..provenance import collective_call
 
 
@@ -67,39 +68,12 @@ class UniformHexResidual:
         self, stiffness, density, hourglass_modulus, hourglass_scale, chunk_size
     ):
         """Rank-local validation, guarded collectively before ghost assembly."""
-        space = self.displacement.function_space
-        element = space.element.basix_element
-        if (
-            space.dofmap.index_map_bs != 3
-            or element.degree != 1
-            or element.discontinuous
-            or element.cell_type.name != "hexahedron"
-        ):
-            raise ValueError(
-                "Uniform Hex8 requires continuous blocked vector Q1 hexahedra."
-            )
-        maps = getattr(space.mesh.geometry, "cmaps", None)
-        coordinate_map = maps[0] if maps is not None else space.mesh.geometry.cmap
-        if coordinate_map.degree != 1:
-            raise ValueError("Uniform Hex8 requires trilinear geometry.")
-        count = space.mesh.topology.index_map(3).size_local
-        self.cell_nodes = np.array(
-            [space.dofmap.cell_dofs(k) for k in range(count)], dtype=np.int32
-        ).reshape(-1, 8)
-        self.cell_nodes.setflags(write=False)
-        # Reuse compact chunk-local scatter schedules. Bincount over the whole
-        # mesh per chunk would allocate O(global_nodes) repeatedly; these maps
-        # contain only nodes touched by the bounded cell chunk.
-        self._scatter_plans = []
-        for start in range(0, count, chunk_size):
-            nodes, inverse = np.unique(
-                self.cell_nodes[start : start + chunk_size].ravel(), return_inverse=True
-            )
-            self._scatter_plans.append((nodes, inverse.astype(np.int32)))
-        if count == 0:
+        self.cell_nodes, coordinates, self._scatter_plans = prepare_layout(
+            self.displacement, chunk_size
+        )
+        if len(self.cell_nodes) == 0:
             self.cells = None
             return
-        coordinates = space.tabulate_dof_coordinates()[self.cell_nodes]
         self.cells = UniformHexBatch(
             coordinates,
             stiffness,

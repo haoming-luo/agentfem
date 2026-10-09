@@ -1,5 +1,18 @@
 # Performance evidence
 
+## Bounded constitutive stress conversion measurement (2026-10-09)
+
+The shared finite-strain quadrature driver converts Cauchy to first Piola stress
+in NumPy blocks of 1,024 points, replacing a Python loop of individual 3-by-3
+inversions. For 20,000 float64 points on the development Apple Silicon host,
+five warm repetitions gave median 0.06990 s for the scalar expression and
+0.00533 s for the chunked expression (13.1x for **conversion only**).
+Inputs used NumPy seed 823, `F = I + normal(0, 0.03)` and random stress arrays;
+OpenBLAS/OMP thread counts were one. The maximum absolute difference was
+8.88e-16. Empty partitions, invalid determinants and nonfinite input/output
+remain explicitly checked. This excludes constitutive updates, assembly, I/O
+and the global solve; no whole-solver acceleration factor follows from it.
+
 AgentFEM records execution cost as a first-class part of
 `SimulationResult`. Performance evidence explains the cost of a computation;
 it does not turn a completed solve into a scientifically verified result.

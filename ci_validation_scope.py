@@ -163,6 +163,7 @@ _CORE_SOURCE_TEST_MAP = {
     ),
     "src/agentfem/constitutive/material_driver.py": (
         "tests/test_user_material.py",
+        "tests/test_material_stress_conversion.py",
         "tests/test_finite_strain_plasticity.py",
         "tests/test_finite_strain_j2_material_map.py",
     ),
@@ -205,6 +206,8 @@ _CORE_SOURCE_TEST_MAP = {
         "tests/test_hex_validity.py",
         "tests/test_uniform_hex.py",
         "tests/test_finite_uniform_hex.py",
+        "tests/test_finite_uniform_hex_material.py",
+        "tests/test_finite_uniform_hex_dolfinx.py",
         "tests/test_uniform_hex_global.py",
         "tests/test_uniform_hex_step.py",
         "tests/test_uniform_hex_work.py",

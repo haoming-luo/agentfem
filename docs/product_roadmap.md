@@ -80,8 +80,13 @@ The 0.4 line is an architectural consolidation, not a feature-count release.
 
 The next Hex8 prerequisite now has a private total-Lagrangian contribution with
 large-rotation objectivity, energy/tangent and existing J2 batch-protocol checks.
-It deliberately does not enable a finite-strain public Step. The next gates are
-accepted material-state lifecycle and state-dependent explicit stability, then
+It deliberately does not enable a finite-strain public Step. A serial DOLFINx
+bridge now exercises existing quadrature trial/commit/rollback, global force and
+moment, fixed-old-state tangents and a four-increment J2 patch. An instantaneous
+nonnegative symmetric-tangent spectral screen is tested separately; unsupported
+tangents are rejected, not silently symmetrized into a stability claim.
+The next gates are accepted whole-system time/state lifecycle and a bounded
+state-dependent explicit stability policy, then
 objective interface/contact composition and small global independent references.
 Do not infer these gates from local element tests or reuse the small-strain
 constant spectral bound for a finite-deformation trajectory.

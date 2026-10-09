@@ -127,8 +127,24 @@ finite-strain J2 batch protocol separately supplies Cauchy stress converted as
 with fixed-old-state force differences. Plastic stored energy is **not** treated
 as an incremental potential or a complete dissipation balance.
 
-These are local contribution tests only. Finite-strain public Step lowering,
-accepted material transactions, evolving stability bounds, global restart,
+The private serial DOLFINx bridge now reuses `MaterialQuadratureResponse` at one
+material point per cell, with fixed committed history during trial evaluations.
+Downstream element/scatter failures discard trial state and restore scratch
+stress/tangent fields. The caller, not the element, commits accepted material
+state. A 12-cell global J2 patch checks interior equilibrium, boundary Piola
+traction, current-configuration moment, global tangent differences, and four
+loading/unloading increments. Its tiny dense Newton loop is a test oracle, not
+a second production solver. Shared Q1 layout preparation is also consumed by
+the existing small-strain operator.
+
+An instantaneous spectral screen bounds the declared nodal tangent through
+small Gram matrices, checked against an explicit 24-by-24 matrix. It requires a
+symmetric positive-semidefinite material tangent and rejects unsupported
+asymmetry/negative curvature; it is not a general elastoplastic wave-speed
+policy or a guarantee over a future increment.
+
+Finite-strain public Step lowering, accepted whole-system time advancement,
+evolving stability policy, global restart,
 objective nonmatching-interface kinematics and contact composition remain
 unimplemented in this route. The public small-strain policy is unchanged.
 The batch stores compact geometry and evaluates forces/tangent actions in

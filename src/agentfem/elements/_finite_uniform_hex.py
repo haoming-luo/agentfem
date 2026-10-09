@@ -188,3 +188,55 @@ class FiniteUniformHexBatch:
         if not np.isfinite(result).all():
             raise ValueError("Finite Hex8 tangent action overflowed.")
         return result
+
+    def tangent_spectral_bound(self, *, first_piola_tangent):
+        """Instantaneous symmetric nonnegative tangent screen, not a trajectory guarantee.
+
+        The 9-by-9 material Gram and 4-by-4 hourglass Gram replace dense cell
+        matrices. Negative/nonsymmetric tangents require a separate physical and
+        numerical policy; taking their absolute values would hide instability.
+        The Procedure must refresh this screen when the accepted state changes.
+        """
+        tangent = np.asarray(first_piola_tangent, dtype=float)
+        count = len(self.coordinates)
+        if tangent.shape != (count, 3, 3, 3, 3) or not np.isfinite(tangent).all():
+            raise ValueError("Expected finite dP/dF with shape (cells,3,3,3,3).")
+        bound = 0.0
+        for region in self._regions():
+            matrix = tangent[region].reshape(-1, 9, 9)
+            scale = np.max(np.abs(matrix), axis=(1, 2))
+            tolerance = 1e-10 * np.maximum(scale, np.finfo(float).tiny)
+            if np.any(
+                np.max(np.abs(matrix - matrix.swapaxes(1, 2)), axis=(1, 2)) > tolerance
+            ):
+                raise ValueError(
+                    "Non-symmetric material tangent has no admitted conservative stability screen."
+                )
+            eigenvalues, vectors = np.linalg.eigh((matrix + matrix.swapaxes(1, 2)) / 2)
+            if np.any(eigenvalues[:, 0] < -tolerance):
+                raise ValueError(
+                    "Indefinite material tangent requires an instability policy; a positive time-step bound is not sufficient."
+                )
+            # Clip roundoff-negative eigenvalues only, conservatively increasing A.
+            root = vectors * np.sqrt(np.maximum(eigenvalues, 0))[:, None, :]
+            gradient = self.average_gradient[region]
+            mass = self.lumped_mass[region]
+            small = np.einsum("caJ,caK,ca->cJK", gradient, gradient, 1 / mass)
+            gram = np.einsum("ik,cJL->ciJkL", np.eye(3), small).reshape(-1, 9, 9)
+            physical = (
+                self.volume[region]
+                * np.linalg.eigvalsh(root.swapaxes(1, 2) @ gram @ root)[:, -1]
+            )
+            gamma = self.hourglass_modes[region]
+            hourglass = (
+                self.hourglass_coefficient[region]
+                * np.linalg.eigvalsh(
+                    np.einsum("cam,can,ca->cmn", gamma, gamma, 1 / mass)
+                )[:, -1]
+            )
+            bound = max(bound, float(np.max(physical + hourglass)))
+        if not np.isfinite(bound) or bound <= 0:
+            raise ValueError(
+                "Finite Hex8 tangent spectral bound must be positive finite."
+            )
+        return bound

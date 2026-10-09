@@ -143,6 +143,45 @@ def test_finite_operator_does_not_admit_public_finite_step():
         )
 
 
+def test_state_dependent_spectral_screen_bounds_full_nodal_tangent():
+    op = _operator(True)
+    bounds = []
+    for stretch in (1.0, 1.1, 1.3):
+        f = stretch * np.eye(3)[None]
+        _, _, tangent = _material(f)
+        bound = op.tangent_spectral_bound(first_piola_tangent=tangent)
+        columns = []
+        for basis in np.eye(24):
+            columns.append(
+                op.tangent_action(
+                    basis.reshape(1, 8, 3), first_piola_tangent=tangent
+                ).ravel()
+            )
+        matrix = np.column_stack(columns)
+        mass = np.repeat(op.lumped_mass[0], 3)
+        exact = np.linalg.eigvalsh(
+            matrix / np.sqrt(mass[:, None] * mass[None, :])
+        ).max()
+        assert bound >= exact * (1 - 1e-12)
+        bounds.append(bound)
+    assert np.ptp(bounds) > 1
+
+
+@pytest.mark.parametrize("invalid", ["negative", "asymmetric", "nan"])
+def test_spectral_screen_does_not_hide_unsupported_material_tangent(invalid):
+    op = _operator()
+    tangent = np.eye(9).reshape(1, 3, 3, 3, 3)
+    matrix = tangent.reshape(9, 9)
+    if invalid == "negative":
+        matrix[0, 0] = -1
+    elif invalid == "asymmetric":
+        matrix[0, 1] = 1
+    else:
+        matrix[0, 0] = np.nan
+    with pytest.raises(ValueError):
+        op.tangent_spectral_bound(first_piola_tangent=tangent)
+
+
 def test_existing_j2_batch_protocol_supplies_work_conjugate_element_tangent():
     from agentfem import constitutive
 
