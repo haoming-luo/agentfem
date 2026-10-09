@@ -23,6 +23,27 @@ _TRIANGLE_RULE = np.array(
 )
 
 
+def _subdivided_triangle_rule(level):
+    """Uniform reference subdivision, preserving the parent P1 trace basis."""
+    if (
+        isinstance(level, bool)
+        or not isinstance(level, (int, np.integer))
+        or not 0 <= level <= 6
+    ):
+        raise ValueError("quadrature_refinement must be an integer between 0 and 6.")
+    cells = np.eye(3)[None, :, :]
+    for _ in range(level):
+        a, b, c = cells[:, 0], cells[:, 1], cells[:, 2]
+        ab, bc, ca = (a + b) / 2, (b + c) / 2, (c + a) / 2
+        cells = np.concatenate(
+            [
+                np.stack(v, axis=1)
+                for v in ((a, ab, ca), (ab, b, bc), (ca, bc, c), (ab, bc, ca))
+            ]
+        )
+    return np.einsum("qi,fij->fqj", _TRIANGLE_RULE, cells).reshape(-1, 3)
+
+
 def _field(value, count, name):
     result = np.asarray(value, dtype=float)
     if result.shape != (count, 3) or not np.all(np.isfinite(result)):
@@ -86,6 +107,8 @@ class FixedReferencePairing:
             "method": "single-sided-triangle-projected-quadrature",
             "integration_side": "negative",
             "quadrature_points": len(self.weights),
+            "quadrature_points_per_negative_facet": len(self.weights)
+            // len(self.negative.triangles),
             "reference_area": float(self.weights.sum()),
             "maximum_reference_mismatch": float(
                 np.linalg.norm(self.reference_mismatch, axis=1).max()
@@ -112,9 +135,51 @@ class FixedReferencePairing:
         delta = self.jump(negative_increment, positive_increment)
         return self.residual(np.einsum("qij,qj->qi", tangent, delta))
 
+    def constant_traction_audit(self):
+        """Compare each trace's nodal measures to independent surface integrals.
 
-def fixed_reference_pairing(negative, positive, *, tolerance):
-    """Pair each negative triangle's three quadrature points to the positive side.
+        This necessary patch check is not an overlap proof, nor an error
+        estimator for arbitrary traction. It never silently refines a map:
+        changing quadrature also changes the constitutive state identity.
+        """
+        report = {}
+        for side in ("negative", "positive"):
+            surface = getattr(self, side)
+            vertices = surface.vertices[surface.triangles]
+            areas = 0.5 * np.linalg.norm(
+                np.cross(
+                    vertices[:, 1] - vertices[:, 0], vertices[:, 2] - vertices[:, 0]
+                ),
+                axis=1,
+            )
+            expected = np.zeros(len(surface.vertices))
+            np.add.at(expected, surface.triangles.ravel(), np.repeat(areas / 3, 3))
+            actual = np.zeros_like(expected)
+            np.add.at(
+                actual,
+                getattr(self, side + "_nodes").ravel(),
+                (getattr(self, side + "_weights") * self.weights[:, None]).ravel(),
+            )
+            error = actual - expected
+            report[side] = {
+                "absolute_nodal_measure_error_l2": float(np.linalg.norm(error)),
+                "relative_nodal_measure_error_l2": float(
+                    np.linalg.norm(error) / np.linalg.norm(expected)
+                ),
+                "surface_area": float(areas.sum()),
+                "integrated_area": float(actual.sum()),
+            }
+        return {
+            "check": "constant-traction-nodal-patch",
+            "coverage_proven": False,
+            "sides": report,
+        }
+
+
+def fixed_reference_pairing(
+    negative, positive, *, tolerance, quadrature_refinement=0, maximum_points=200_000
+):
+    """Project a possibly subdivided negative-side quadrature to the positive side.
 
     Side choice is explicit: finer triangulation alone is not a guarantee of
     integration accuracy. Both surfaces must have opposing, locally parallel
@@ -130,8 +195,20 @@ def fixed_reference_pairing(negative, positive, *, tolerance):
     tolerance = float(tolerance)
     if not np.isfinite(tolerance) or tolerance <= 0:
         raise ValueError("coincidence tolerance must be finite and positive.")
-    nodes = np.repeat(negative.triangles, 3, axis=0)
-    shape = np.tile(_TRIANGLE_RULE, (len(negative.triangles), 1))
+    rule = _subdivided_triangle_rule(quadrature_refinement)
+    if (
+        isinstance(maximum_points, bool)
+        or not isinstance(maximum_points, (int, np.integer))
+        or maximum_points < 1
+    ):
+        raise ValueError("maximum_points must be a positive integer.")
+    count = len(rule)
+    if count * len(negative.triangles) > maximum_points:
+        raise ValueError(
+            "Interface quadrature exceeds maximum_points; reduce refinement or partition the surface."
+        )
+    nodes = np.repeat(negative.triangles, count, axis=0)
+    shape = np.tile(rule, (len(negative.triangles), 1))
     query = np.einsum("qi,qij->qj", shape, negative.vertices[nodes])
     projection = (
         TriangleSurfaceBVH(positive)
@@ -145,7 +222,7 @@ def fixed_reference_pairing(negative, positive, *, tolerance):
         )
     lookup = {int(key): index for index, key in enumerate(positive.facet_ids)}
     indices = np.array([lookup[int(key)] for key in projection.entity_ids])
-    normals = np.repeat(negative.facet_normals, 3, axis=0)
+    normals = np.repeat(negative.facet_normals, count, axis=0)
     if not np.allclose(projection.normals, -normals, rtol=0, atol=1e-8):
         raise ValueError("Interface normals must be opposing and locally parallel.")
     xyz = negative.vertices[negative.triangles]
@@ -158,7 +235,7 @@ def fixed_reference_pairing(negative, positive, *, tolerance):
         "positive_nodes": positive.triangles[indices],
         "negative_weights": shape,
         "positive_weights": projection.local_coordinates,
-        "weights": np.repeat(area / 3, 3),
+        "weights": np.repeat(area / count, count),
         "normals": normals,
         "reference_mismatch": projection.closest_points - query,
     }

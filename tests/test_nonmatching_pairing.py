@@ -8,6 +8,7 @@ from agentfem._interface_pairing import (
     FixedReferenceCohesiveAssembler,
 )
 from agentfem.interfaces import bilinear_cohesive
+from agentfem._elastic_cohesive import ElasticCohesiveLaw
 from agentfem.boundary_models.rigid import TriangulatedRigidSurface
 
 
@@ -24,6 +25,68 @@ def surface(n, *, reverse=False, offset=0):
     if reverse:
         triangles = triangles[:, ::-1]
     return TriangulatedRigidSurface(vertices, triangles)
+
+
+def test_elastic_interface_has_no_hidden_damage_and_reuses_assembler():
+    law = ElasticCohesiveLaw(1000, 300, 400)
+    jump = np.array([[0.1, -0.2, 0.3], [-0.1, 0.2, -0.3]])
+    response = law.update(jump)
+    np.testing.assert_allclose(response.traction, jump * [1000, 300, 400])
+    np.testing.assert_allclose(response.stored_energy, 29)
+    np.testing.assert_array_equal(response.damage, 0)
+    np.testing.assert_array_equal(response.dissipated_energy, 0)
+    a, b = surface(2), surface(3, reverse=True)
+    pair = fixed_reference_pairing(a, b, tolerance=1e-10)
+    assembler = FixedReferenceCohesiveAssembler(pair, law, tangential="mixed")
+    result = assembler.begin(
+        np.zeros_like(a.vertices), np.tile([0, 0, 0.1], (len(b.vertices), 1))
+    )
+    assert result.stored_energy == pytest.approx(5)
+    assert result.dissipated_energy == 0
+    assembler.commit()
+    saved = assembler.snapshot()
+    assembler.begin(
+        np.zeros_like(a.vertices), np.tile([0, 0, -0.1], (len(b.vertices), 1))
+    )
+    assembler.rollback()
+    assert assembler.snapshot() == saved
+    assembler.restore(saved)
+    with pytest.raises(ValueError, match="precracking"):
+        assembler.state.initialize(1)
+
+
+def test_quadrature_refinement_controls_constant_traction_nodal_error():
+    a, b = surface(3), surface(2, reverse=True)
+    xyz = b.vertices[b.triangles]
+    areas = (
+        np.linalg.norm(np.cross(xyz[:, 1] - xyz[:, 0], xyz[:, 2] - xyz[:, 0]), axis=1)
+        / 2
+    )
+    expected = np.zeros(len(b.vertices))
+    np.add.at(expected, b.triangles.ravel(), np.repeat(areas / 3, 3))
+    errors = []
+    fingerprints = []
+    for level in (0, 1, 2):
+        pair = fixed_reference_pairing(
+            a, b, tolerance=1e-10, quadrature_refinement=level
+        )
+        _, residual = pair.residual(np.tile([0.0, 0.0, 1.0], (len(pair.weights), 1)))
+        errors.append(
+            np.linalg.norm(residual[:, 2] - expected) / np.linalg.norm(expected)
+        )
+        fingerprints.append(pair.fingerprint)
+    assert errors[0] > 0.01  # A balanced total force is not a nodal patch test.
+    assert errors[2] < 0.002
+    assert (
+        max(errors[1:]) < 1e-12
+    )  # This nested grid becomes exact; roundoff need not decrease.
+    assert len(set(fingerprints)) == 3
+    with pytest.raises(ValueError, match="maximum_points"):
+        fixed_reference_pairing(
+            a, b, tolerance=1e-10, quadrature_refinement=2, maximum_points=10
+        )
+    with pytest.raises(ValueError, match="refinement"):
+        fixed_reference_pairing(a, b, tolerance=1e-10, quadrature_refinement=1.5)
 
 
 @pytest.mark.parametrize("n,m", [(1, 1), (2, 1), (3, 2), (1, 3)])
@@ -152,6 +215,51 @@ def test_existing_law_damage_rollback_and_bound_restart():
     with pytest.raises(ValueError):
         restored.begin(un, up * np.nan)
     assert restored.snapshot() == snapshot
+
+
+def test_constant_traction_audit_exposes_side_sensitivity():
+    coarse = fixed_reference_pairing(
+        surface(1), surface(3, reverse=True), tolerance=1e-10
+    )
+    report = coarse.constant_traction_audit()
+    assert report["coverage_proven"] is False
+    assert report["sides"]["negative"]["relative_nodal_measure_error_l2"] < 1e-14
+    assert report["sides"]["positive"]["relative_nodal_measure_error_l2"] > 0.7
+    matching = fixed_reference_pairing(
+        surface(2), surface(2, reverse=True), tolerance=1e-10
+    )
+    for result in matching.constant_traction_audit()["sides"].values():
+        assert result["relative_nodal_measure_error_l2"] < 1e-14
+
+
+def test_elastic_failed_trial_cannot_commit_previous_response():
+    from agentfem._elastic_cohesive import ElasticCohesiveLaw
+
+    law = ElasticCohesiveLaw(1000, 300)
+    state = law.transaction(2)
+    state.begin(np.zeros((2, 3)))
+    with pytest.raises(ValueError):
+        state.begin(np.full((2, 3), np.nan))
+    with pytest.raises(RuntimeError, match="No elastic"):
+        state.commit()
+    state.begin(np.zeros((2, 3)))
+    state.commit()
+    for invalid in (True, 2.0, float("inf"), float("nan"), 0):
+        with pytest.raises(ValueError, match="positive integer"):
+            law.transaction(invalid)
+    with pytest.raises(ValueError, match="name"):
+        ElasticCohesiveLaw(1000, 300, name=None)
+
+
+@pytest.mark.parametrize("budget", [True, 100.0, float("inf"), float("nan"), 0])
+def test_quadrature_budget_rejects_invalid_values(budget):
+    with pytest.raises(ValueError, match="positive integer"):
+        fixed_reference_pairing(
+            surface(1),
+            surface(1, reverse=True),
+            tolerance=1e-10,
+            maximum_points=budget,
+        )
 
 
 def test_existing_law_matrix_free_tangent_at_fixed_history():

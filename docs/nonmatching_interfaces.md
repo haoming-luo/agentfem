@@ -27,6 +27,23 @@ Side-swap and quadrature-refinement checks are mandatory before promotion.
 Neither automatic finer-side selection nor arbitrary surface tessellation
 eliminates these issues.
 
+An explicit `quadrature_refinement` splits integration triangles without
+changing their parent interpolation. A point-count ceiling rejects excessive
+allocation before trace arrays are built. In the 3:2 structured regression,
+the base rule has approximately 1.735% relative positive-side nodal-force
+error under constant traction despite exact total-force balance; one
+subdivision brings that particular fixture to roundoff. This is not a general
+proof of exactness or coverage. Overlap integration remains the robust next
+gate for unaligned partitions. The elastic material candidate has genuinely
+zero damage and dissipation; no invented failure thresholds are used.
+
+`constant_traction_audit()` compares both assembled nodal measures against
+independent triangle-area integrals. A coarse-to-fine 1:3 regression exposes
+more than 70% nodal-force error despite balanced total forces. This necessary
+patch check neither certifies complete overlap nor estimates arbitrary
+traction error. Refinement must be chosen before creating material state;
+changing quadrature changes the checkpoint identity.
+
 The trace preserves common rigid displacement at coincident points, including
 finite rotation of a closed interface. This does **not** establish objective
 finite-rotation traction or tangent for an already open interface. Convected
@@ -42,7 +59,7 @@ four-node basis even if geometric integration uses subtriangles.
 ## Promotion sequence
 
 Initial local evidence (2026-10-09): `test_nonmatching_pairing.py`,
-`test_rigid_surface_search.py`, and `test_interfaces.py` pass 52 tests in the
+`test_rigid_surface_search.py`, and `test_interfaces.py` pass 61 tests in the
 local `fenicsx-env`. The new tests cover fixed-history tangent finite
 differences, energy gradients, existing bilinear-law damage and rejected
 checkpoint atomicity in addition to trace invariants. This does not establish
