@@ -44,6 +44,21 @@ def _accept_elastic_interface(model, request: StepRequest) -> bool:
             and _all_materials_support(model, request, _supports_elasticity))
 
 
+def _accept_uniform_hex(model, request):
+    from .elements import UniformStrainHex8
+
+    method = _procedure_method(model, request)
+    return (isinstance(request.option("element_policy"), UniformStrainHex8)
+            and _is_vector_target(request.target)
+            and (method is None or _normalize(method) in {"central_difference", "explicit_dynamics"}))
+
+
+def _lower_uniform_hex(model, request):
+    from ._step_uniform_hex import lower
+
+    return lower(model, request)
+
+
 def _lower_elastic_interface(model, request):
     from ._step_nonmatching import lower
     return lower(model, request)
@@ -894,6 +909,18 @@ register_step_provider(StepProvider(
     description="Experimental serial P1 elastic solid with a fixed nonmatching elastic interface.",
     procedure="standard/linear_static",
     option_contract=_option_contract("cohesive_force", required=("cohesive_force",)),
+))
+
+register_step_provider(StepProvider(
+    name="uniform_strain_hex8_explicit",
+    analyses=("explicit_dynamics", "second_order_dynamics"),
+    accepts=_accept_uniform_hex,
+    lower=_lower_uniform_hex,
+    priority=180,
+    description="Experimental serial small-strain elastic Hex8 with explicit hourglass energy.",
+    procedure="explicit/central_difference",
+    option_contract=_option_contract("element_policy", "dt", "steps", "save_every", "print_every",
+        "history_every", "progress", "status_file", "checkpoint", required=("element_policy", "dt", "steps")),
 ))
 
 

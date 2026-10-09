@@ -182,6 +182,8 @@ _HISTORY_DESCRIPTIONS = {
     "kinetic_energy": "Discrete kinetic energy, one half v-transpose M v.",
     "strain_energy": "Recoverable linear strain energy, one half u-transpose K u.",
     "total_mechanical_energy": "Sum of discrete kinetic and recoverable strain energy.",
+    "hourglass_energy": "Artificial recoverable energy from the declared hourglass stabilization; not material dissipation.",
+    "total_discrete_energy": "Physical mechanical energy plus separately reported artificial stabilization energy.",
     "bulk_strain_energy": "Finite-strain constitutive energy integrated in the reference body.",
     "cohesive_stored_energy": "Recoverable energy currently stored by the cohesive interface.",
     "cohesive_fracture_dissipation": "Irreversible cohesive dissipation relative to the initial interface state.",

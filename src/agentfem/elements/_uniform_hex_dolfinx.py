@@ -68,6 +68,8 @@ class UniformHexResidual:
         self.mass_diagonal = np.repeat(mass, 3)
         self.mass_diagonal.setflags(write=False)
         self.inv_mass = 1 / self.mass_diagonal
+        if not np.all(np.isfinite(self.inv_mass)):
+            raise ValueError("Uniform Hex8 inverse mass overflowed.")
         self.inv_mass.setflags(write=False)
 
     def _responses(self):

@@ -22,6 +22,7 @@ from typing import TYPE_CHECKING, Iterable
 from agentfem._model_support import domain as model_domain
 from agentfem.mesh.compatibility import TopologyCompatibility, describe_topology
 from agentfem.validation import ValidationIssue, ValidationReport, issue
+from .policies import UniformStrainHex8, uniform_strain_hex8
 
 if TYPE_CHECKING:
     from agentfem.mesh.quality import GeometryIdentity, MeshQualityReport
@@ -507,6 +508,8 @@ def _normal_label(value) -> str | None:
 
 
 __all__ = [
+    "UniformStrainHex8",
+    "uniform_strain_hex8",
     "DiscretizationAudit",
     "ElementIdentity",
     "FieldDiscretization",

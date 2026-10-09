@@ -37,9 +37,14 @@ coverage checks, independent nodal-force audits and serial two-block
 series-compliance evidence. Its experimental elastic `model.step` provider
 reuses PETSc solving and Result output. Global damage, MPI/restart,
 finite-rotation kinematics and Hex8 quadrilateral traces remain separate gates.
-The private [uniform-gradient Hex8 candidate](hex8_uniform_strain.md) now has
-local affine, mode, mass and energy evidence. Compact global assembly and
-bending/wave convergence are required before an executable element claim.
+The experimental [uniform-gradient Hex8 policy](hex8_uniform_strain.md) now
+has compact batch execution, serial global affine/bending/wave evidence and
+ordinary explicit `model.step()` integration. Isotropic/rotated anisotropic
+elasticity, disjoint material regions, physical/artificial energy separation
+and serial restart are exercised. Failed explicit increments and auxiliary
+checkpoint rejection restore the accepted field state. Finite deformation,
+damage, Q1 interface pairing, external-work closure and MPI remain separate
+gates, not consequences of local Hex8 tests.
 
 The 0.4 line is an architectural consolidation, not a feature-count release.
 Its stable middle layer is:

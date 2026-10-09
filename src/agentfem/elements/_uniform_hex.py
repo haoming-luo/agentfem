@@ -86,7 +86,7 @@ class UniformHex8:
     """Fixed-reference, positive-Jacobian, small-strain elastic local operator.
 
     Coordinates follow Basix Hex8 ordering. C maps engineering strains
-    (xx, yy, zz, 2xy, 2yz, 2xz) to physical stress components. Hourglass scale
+    (xx, yy, zz, 2yz, 2xz, 2xy) to physical stress components. Hourglass scale
     and modulus are mandatory, recorded inputs, not inferred material choices.
     """
 
@@ -116,7 +116,7 @@ class UniformHex8:
         b = np.zeros((6, 8, 3))
         for i in range(3):
             b[i, :, i] = average[:, i]
-        for row, (i, j) in enumerate(((0, 1), (1, 2), (0, 2)), start=3):
+        for row, (i, j) in enumerate(((1, 2), (0, 2), (0, 1)), start=3):
             b[row, :, i] = average[:, j]
             b[row, :, j] = average[:, i]
         b = b.reshape(6, 24)
@@ -338,14 +338,14 @@ class UniformHexBatch:
                     du[:, 0, 0],
                     du[:, 1, 1],
                     du[:, 2, 2],
-                    du[:, 0, 1] + du[:, 1, 0],
                     du[:, 1, 2] + du[:, 2, 1],
                     du[:, 0, 2] + du[:, 2, 0],
+                    du[:, 0, 1] + du[:, 1, 0],
                 )
             )
             c = self.stiffness if self.stiffness.ndim == 2 else self.stiffness[region]
             stress = np.einsum("ij,cj->ci" if c.ndim == 2 else "cij,cj->ci", c, strain)
-            tensor = stress[:, np.array([[0, 3, 5], [3, 1, 4], [5, 4, 2]])]
+            tensor = stress[:, np.array([[0, 5, 4], [5, 1, 3], [4, 3, 2]])]
             force = self.volume[region, None, None] * np.einsum(
                 "cij,caj->cai", tensor, gradient
             )

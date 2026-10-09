@@ -39,9 +39,9 @@ def test_uniform_hex_affine_patch_and_infinitesimal_rigid_modes(distorted):
         g[0, 0],
         g[1, 1],
         g[2, 2],
-        g[0, 1] + g[1, 0],
         g[1, 2] + g[2, 1],
         g[0, 2] + g[2, 0],
+        g[0, 1] + g[1, 0],
     ]
     np.testing.assert_allclose(result.strain, expected, atol=1e-14)
     assert result.hourglass_energy < 1e-26

@@ -1,15 +1,50 @@
 # Uniform-gradient Hex8 development boundary
 
-The private `elements._uniform_hex.UniformHex8` is a local verification
-candidate, not a public element selection or a completed Explicit provider.
-It is not advertised as an Abaqus C3D8R reproduction.
+The experimental `elements.uniform_strain_hex8(...)` policy lowers ordinary
+`model.step()` to a serial small-strain elastic explicit provider. The private
+`elements._uniform_hex.UniformHex8` remains its local verification oracle.
+This is not advertised as an Abaqus C3D8R reproduction.
+
+## Ordinary workflow
+
+```python
+policy = elements.uniform_strain_hex8(
+    hourglass_modulus=material_shear_scale,
+    hourglass_scale=0.1,
+)
+step = model.step(target=u, element_policy=policy, dt="auto", steps=100)
+result = step.solve_result(output="fields.xdmf")
+```
+
+The model uses a 3D `studies.dynamic_solid()` Study, continuous Q1 hexahedra,
+registered constant isotropic or anisotropic elasticity, positive density and
+ordinary strong constraints. Fixed material orientation and complete disjoint
+material regions are supported. The engineering-shear order is shared with
+the existing elasticity module. A prescribed time increment above the
+conservative bulk-plus-hourglass bound is rejected. `dt="auto"` uses that
+bound with safety 0.8; it does not tune an adaptive nonlinear increment.
+
+The result distinguishes `strain_energy`, `kinetic_energy`, `hourglass_energy`,
+physical `total_mechanical_energy` and `total_discrete_energy`. These components
+are not a verified external-work balance. Serial interrupted/continuous runs
+agree; changed operator identity rejects a checkpoint atomically. Public
+portable restart, MPI, finite deformation, evolving material orientation,
+damage/deletion, eigenstrain, additional contact/interface operators and
+operator-changing time inputs are not admitted by this provider.
+
+See `examples/uniform_hex_wave.py` for a runnable ordinary-workflow example.
+On 2026-10-09 a candidate wheel was built without isolation downloads, installed
+into a separate environment and used outside the source directory to execute
+this 100-step example. Field output and the result manifest were written;
+the original installed package was not replaced. This was a local candidate
+acceptance, not a public version release.
 
 ## Formulation
 
 Basix supplies Hex8 node order, trilinear interpolation and geometric
 quadrature. Reference preparation integrates volume and shape gradients once.
 The material subsequently sees one volume-average engineering strain vector
-in the order `(xx, yy, zz, 2xy, 2yz, 2xz)`. A symmetric positive-definite
+in the existing elasticity order `(xx, yy, zz, 2yz, 2xz, 2xy)`. A symmetric positive-definite
 six-by-six elasticity tensor maps that vector to physical stress components.
 The preparation quadrature does not imply multiple constitutive updates.
 
@@ -39,7 +74,8 @@ combined stiffness row-sum is a conservative cell spectral bound, not yet a
 whole-model time-step policy.
 
 No finite-rotation objectivity, material damage, deletion, viscous/relaxation
-control, MPI or restart capability follows from these checks.
+control or MPI capability follows from these local checks. Serial restart is
+tested separately through the ordinary Step lifecycle.
 
 ## Compact execution and serial global evidence
 
@@ -79,13 +115,15 @@ All three choices improve under refinement. This does not select a universal
 default coefficient or establish accuracy for a single element through the
 thickness. Tests are in `test_uniform_hex.py` and `test_uniform_hex_global.py`.
 
-## Next implementation gate
+## Remaining implementation gates
 
 Compact preparation and serial affine/bending/wave checks are implemented.
 DOLFINx retains mesh/DOF ownership; Procedure retains time integration and
-stability composition. The next gate is an explicit element policy, ordinary
-Step admission and separate physical/artificial energy in Result metadata,
-with unsupported nonlinear or MPI paths rejected before execution.
+stability composition. The experimental policy, ordinary Step, serial restart
+and separate artificial energy are implemented. Remaining work includes
+reviewed external-work closure, bounded-distortion admission, richer loading
+evidence and eventual interface/MPI composition. No implicit numerical
+equivalence to imported commercial reduced-integration elements is assumed.
 
 ## Sources
 
