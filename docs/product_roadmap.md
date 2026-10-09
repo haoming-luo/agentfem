@@ -54,6 +54,14 @@ stability bound, interface energy, serial restart and failed-commit retry.
 Warped/nonaffine quadrilateral traces remain rejected. These are bounded
 small-strain capabilities, not an industrial finite-deformation reproduction.
 
+Hex8 geometry admission now uses bounded Bernstein subdivision of the
+triquadratic Jacobian determinant, rejecting hidden inversion and unresolved
+near-degeneracy before assembly. This does not certify approximation quality or
+inter-cell non-overlap. The installed candidate also runs the Gmsh independent
+Q1 bonded-block and Hex8 wave examples; both result manifests pass provenance
+verification. Scientific evidence remains the separate analytic/convergence
+checks, not the provenance seal alone.
+
 The 0.4 line is an architectural consolidation, not a feature-count release.
 Its stable middle layer is:
 

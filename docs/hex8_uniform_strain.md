@@ -83,10 +83,18 @@ defaults; bending and wave evidence must constrain their appropriate use.
 Physical and artificial energies remain distinct. Consistent row-sum masses
 are integrated rather than assuming distorted cells have equal nodal mass.
 
-Jacobian checks sample preparation quadrature and corners. They reject detected
-inversion and degeneracy but are not a proof of positivity everywhere in a
-general trilinear map. Mesh-quality and supported-distortion limits remain
-part of any future global admission policy.
+Geometry admission expands the triquadratic Jacobian determinant in a tensor
+Bernstein basis, using 27 Basix evaluations. Positive control coefficients bound
+the determinant throughout the reference cell. Ambiguous cells undergo adaptive
+half-subdivision, limited to depth 5 and 4,096 visited boxes per cell. Unresolved
+cells are rejected explicitly, not mislabeled as inverted. Preparation remains
+chunked; ordinary affine cells take the vectorized fast path.
+
+The check includes a scale-relative floating-point margin; it is not an
+interval-arithmetic certificate, a guarantee of good approximation quality, or
+a test for overlaps between separate cells. A regression fixture passes the old
+corner/Gauss samples but has a negative determinant elsewhere and is now refused.
+Distortion-dependent accuracy still requires mesh convergence evidence.
 
 ## Local evidence
 
@@ -155,12 +163,16 @@ Compact preparation and serial affine/bending/wave checks are implemented.
 DOLFINx retains mesh/DOF ownership; Procedure retains time integration and
 stability composition. The experimental policy, ordinary Step, serial restart
 and separate artificial energy are implemented. Remaining work includes
-bounded-distortion admission, richer loading
+distortion-dependent accuracy evidence, richer loading
 evidence and eventual MPI composition. No implicit numerical
 equivalence to imported commercial reduced-integration elements is assumed.
 
 ## Sources
 
+- Johnen, Weill and Remacle, 2017, *Robust and efficient validation of the linear
+  hexahedral element*, https://arxiv.org/abs/1706.01613.
+  Admission uses the Bernstein convex-hull and subdivision construction, not
+  the paper's optimized 20-tetrahedron implementation or its performance claim.
 - Flanagan and Belytschko, 1981, *A uniform strain hexahedron and quadrilateral
   with orthogonal hourglass control*, https://doi.org/10.1002/nme.1620170504.
 - Sandia, *Sierra/SM Theory Manual*, section 15.1, uniform-gradient Hex8 and

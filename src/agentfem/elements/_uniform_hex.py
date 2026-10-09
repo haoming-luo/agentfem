@@ -13,6 +13,8 @@ from functools import lru_cache
 import basix
 import numpy as np
 
+from ._hex_validity import require_positive_hex_jacobian
+
 
 @lru_cache(maxsize=1)
 def _reference():
@@ -46,6 +48,7 @@ def _frozen(value):
 
 def _geometry(coordinates):
     """Vectorized geometry preparation; caller bounds temporary batch size."""
+    require_positive_hex_jacobian(coordinates)
     weights, shape, gradient, corners, modes = _reference()
     centered = coordinates - coordinates.mean(axis=1, keepdims=True)
     jacobian = np.einsum("cai,qaj->cqij", centered, gradient)
@@ -185,7 +188,7 @@ class UniformHex8:
             "hourglass_modulus": self.hourglass_modulus,
             "volume": self.volume,
             "global_step_integrated": False,
-            "jacobian_check": "quadrature_and_corners_not_global_positivity_proof",
+            "jacobian_check": "bounded_bernstein_with_floating_point_margin",
         }
 
 

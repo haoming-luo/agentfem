@@ -377,3 +377,27 @@ def test_existing_law_matrix_free_tangent_at_fixed_history():
         kp, (plus.positive_residual - minus.positive_residual) / (2 * h), atol=1e-7
     )
     np.testing.assert_allclose(assembler.state.committed_maximum, 0)
+
+
+def test_grouped_blocks_preserve_point_varying_damage_tangents():
+    a, b = surface(2), surface(1, reverse=True)
+    pair = fixed_reference_pairing(a, b, tolerance=1e-10)
+    law = bilinear_cohesive(strength=10, fracture_energy=2, initial_stiffness=1000)
+    assembler = FixedReferenceCohesiveAssembler(
+        pair, law, tangential="tie", tangential_stiffness=300
+    )
+    un, up = np.zeros_like(a.vertices), np.zeros_like(b.vertices)
+    up[:, 2] = 0.004 + 0.12 * b.vertices[:, 0]
+    rng = np.random.default_rng(431)
+    dn, dp = rng.normal(size=un.shape), rng.normal(size=up.shape)
+    expected_n, expected_p = assembler.tangent_action(un, up, dn, dp)
+    assembled_n, assembled_p = np.zeros_like(un), np.zeros_like(up)
+    blocks = list(assembler.tangent_blocks(un, up))
+    assert len(blocks) < len(pair.weights)
+    for negative, positive, block in blocks:
+        action = (block @ np.concatenate((dn[negative], dp[positive])).ravel()).reshape(-1, 3)
+        np.add.at(assembled_n, negative, action[:len(negative)])
+        np.add.at(assembled_p, positive, action[len(negative):])
+    np.testing.assert_allclose(assembled_n, expected_n, atol=1e-12)
+    np.testing.assert_allclose(assembled_p, expected_p, atol=1e-12)
+    np.testing.assert_allclose(assembler.state.committed_maximum, 0)

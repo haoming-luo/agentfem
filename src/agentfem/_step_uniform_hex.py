@@ -169,6 +169,7 @@ class UniformHexStep(ExplicitDynamicsStep):
             "element_policy": self.element_policy.summary(),
             "energy_balance_scope": "accepted_path_work_with_explicit_artificial_energy",
             "execution_scope": "serial_small_strain_elastic",
+            "geometry_admission": "bounded_bernstein_with_floating_point_margin",
             "interface": None
             if self.residual.cohesive is None
             else self.residual.cohesive.summary(),
