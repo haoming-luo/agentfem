@@ -141,21 +141,29 @@ class ExplicitDynamicsIntegrator:
         prescribed_values = tuple(prescribed)
         active_constraints = tuple(constraints) + tuple(projections)
         kinematics_started = perf_counter()
-        if time is not None:
-            for item in prescribed_values:
-                if hasattr(item, "update"):
-                    item.update(time)
-            for update in update_prescribed_values:
-                update(time)
-        self.predict_displacement(dt)
-        displacement_bcs = _collect_bcs(prescribed_values, displacement_bcs)
-        prescribed_kinematics = _prescribed_kinematics(
-            prescribed_values,
-            time=time,
-            dt=dt,
+        from ..provenance import collective_call
+
+        def prepare_kinematics():
+            # Time histories are rank-local inputs. Deliver a failed amplitude
+            # or conflicting boundary history before any field ghost exchange.
+            if time is not None:
+                for item in prescribed_values:
+                    if hasattr(item, "update"):
+                        item.update(time)
+                for update in update_prescribed_values:
+                    update(time)
+            bcs = _collect_bcs(prescribed_values, displacement_bcs)
+            kinematics = _prescribed_kinematics(prescribed_values, time=time, dt=dt)
+            for dof in _owned_dirichlet_dofs(bcs):
+                kinematics.setdefault(int(dof), (0.0, 0.0, 0.0))
+            return bcs, kinematics
+
+        displacement_bcs, prescribed_kinematics = collective_call(
+            prepare_kinematics,
+            comm=fields.unwrap(self.state.u).function_space.mesh.comm,
+            label="Explicit prescribed kinematics",
         )
-        for dof in _owned_dirichlet_dofs(displacement_bcs):
-            prescribed_kinematics.setdefault(int(dof), (0.0, 0.0, 0.0))
+        self.predict_displacement(dt)
         if displacement_bcs:
             constraint_api.apply_dirichlet_bcs(self.state.u_next, displacement_bcs)
         _apply_constraints(active_constraints, self.state.u_next)

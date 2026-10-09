@@ -3319,7 +3319,13 @@ class DynamicEnergyLedger:
         natural = self._assemble_owned(self.natural_force, displacement)
         prescribed_force = np.zeros(owned, dtype=float)
         constrained = self._prescribed_dofs(displacement)
-        if constrained.size:
+        # Residual assembly is collective even on ranks with no constrained
+        # DOFs. A rank-local branch here can hang the initial/restart sample.
+        comm = function.function_space.mesh.comm
+        has_constraints = bool(constrained.size)
+        if comm.size > 1:
+            has_constraints = comm.allreduce(has_constraints, op=MPI.LOR)
+        if has_constraints:
             if residual_owned is None:
                 try:
                     residual = self._assemble_owned(self.residual, displacement)

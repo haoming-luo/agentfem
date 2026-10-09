@@ -146,3 +146,74 @@ def test_stability_rejects_rank_inconsistent_safety():
     _, _, operator = problem(MPI.COMM_WORLD)
     with pytest.raises(ValueError, match="differs across ranks"):
         operator.stable_dt(safety=.5 if MPI.COMM_WORLD.rank == 0 else .8)
+
+
+@pytest.mark.parametrize("where", ["time_input", "kinematics"])
+def test_explicit_rank_local_input_failure_restores_all_ranks(where):
+    if MPI.COMM_WORLD.size < 2:
+        pytest.skip("requires multiple ranks")
+    from agentfem import amplitudes, constraints, problems
+
+    _, u, operator = problem(MPI.COMM_WORLD)
+    history = state.second_order_state(u)
+    enabled = [True]
+
+    def amplitude(t):
+        if enabled[0] and MPI.COMM_WORLD.rank == 1 and t > 1e-4:
+            raise ValueError("injected rank-local amplitude failure")
+        return 0.0
+
+    prescribed = constraints.time_dependent_component_dirichlet(
+        u, 0, marker=lambda x: np.ones(x.shape[1], dtype=bool),
+        amplitude=amplitudes.Amplitude("fault_probe", amplitude),
+    )
+
+    def load(t):
+        if enabled[0] and MPI.COMM_WORLD.rank == 1 and t > 0:
+            u.x.array[:] = 999
+            raise ValueError("injected rank-local load failure")
+
+    step = problems.explicit_dynamics(
+        state=history, integrator=central_difference(state=history, mass=operator),
+        residual=operator, dt=1e-4, steps=1,
+        prescribed=(prescribed,) if where == "kinematics" else (),
+        update_load=load if where == "time_input" else None, progress=False,
+    )
+    accepted = history.snapshot()
+    with pytest.raises(RuntimeError, match="rank 1"):
+        step._advance_one(1e-4)
+    for name, values in accepted["fields"].items():
+        np.testing.assert_array_equal(history.snapshot()["fields"][name], values)
+    enabled[0] = False
+    step._advance_one(1e-4)
+    np.testing.assert_array_equal(u.x.array, 0)
+
+
+def test_work_ledger_samples_collectively_when_only_one_rank_owns_constraint():
+    if MPI.COMM_WORLD.size < 2:
+        pytest.skip("requires multiple ranks")
+    from agentfem import constraints, fracture
+
+    _, u, operator = problem(MPI.COMM_WORLD)
+    u.interpolate(lambda x: np.vstack((.01*x[0], 0*x[0], 0*x[0])))
+    history = state.second_order_state(u)
+    fixed = constraints.component_dirichlet(
+        u, 0, marker=lambda x: np.all(np.isclose(x, 0), axis=0), value=0,
+    )
+    ledger = fracture.DynamicEnergyLedger(
+        energy=None, state=history, mass=operator.mass_diagonal,
+        residual=operator, prescribed=(fixed,),
+    )
+    constrained = ledger._prescribed_dofs(u)
+    counts = MPI.COMM_WORLD.allgather(len(constrained))
+    assert min(counts) == 0 and sum(counts) == 1
+    expected = operator.assemble_vector()
+    try:
+        _, _, force = ledger._sample(u, history.a)
+        np.testing.assert_allclose(force[constrained], expected.array[constrained])
+        free = np.setdiff1d(np.arange(len(force)), constrained)
+        np.testing.assert_array_equal(force[free], 0)
+    finally:
+        expected.destroy()
+    ledger.restore(dict(natural_load_work=1., prescribed_motion_work=2., initial_accounted_energy=3.))
+    assert ledger._prescribed_work == 2

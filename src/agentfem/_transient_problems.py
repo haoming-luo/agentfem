@@ -335,7 +335,13 @@ class ExplicitDynamicsStep:
         )
         try:
             if self.update_load is not None:
-                self.update_load(t)
+                from .provenance import collective_call
+
+                collective_call(
+                    lambda: self.update_load(t),
+                    comm=fields.unwrap(self.state.u).function_space.mesh.comm,
+                    label="Explicit time inputs",
+                )
             if hasattr(self.residual, "update_time"):
                 self.residual.update_time(t)
             self.integrator.step(
