@@ -122,35 +122,50 @@ def test_ordinary_hex_step_constrained_shear_wave_converges(component):
     errors = []
     for n in (8, 16):
         domain = mesh.create_box(
-            MPI.COMM_SELF, [[0, 0, 0], [1, .2, .2]], [n, 2, 2],
+            MPI.COMM_SELF,
+            [[0, 0, 0], [1, 0.2, 0.2]],
+            [n, 2, 2],
             cell_type=mesh.CellType.hexahedron,
         )
         model = models.create(study=studies.dynamic_solid(dimension=3), mesh=domain)
         u = model.field(fields.displacement(domain))
         model.material(constitutive.isotropic_elastic(young=100, poisson=0, density=2))
-        model.fix(u, on=lambda x: np.ones(x.shape[1], dtype=bool),
-                  components=tuple(i for i in range(3) if i != component))
+        model.fix(
+            u,
+            on=lambda x: np.ones(x.shape[1], dtype=bool),
+            components=tuple(i for i in range(3) if i != component),
+        )
         x = u.value.function_space.tabulate_dof_coordinates()[:, 0]
-        shape = np.cos(np.pi*x)
+        shape = np.cos(np.pi * x)
         u.value.x.array[component::3] = 1e-4 * shape
-        omega = np.pi*np.sqrt(50/2)
-        stop = np.pi/(4*omega)
-        steps = 20*n
+        omega = np.pi * np.sqrt(50 / 2)
+        stop = np.pi / (4 * omega)
+        steps = 20 * n
         step = model.step(
-            target=u, element_policy=elements.uniform_strain_hex8(
-                hourglass_modulus=50, hourglass_scale=.1,
-            ), dt=stop/steps, steps=steps, progress=False,
+            target=u,
+            element_policy=elements.uniform_strain_hex8(
+                hourglass_modulus=50,
+                hourglass_scale=0.1,
+            ),
+            dt=stop / steps,
+            steps=steps,
+            progress=False,
         )
         step.run()
-        errors.append(np.max(np.abs(u.value.x.array[component::3]/1e-4
-                                    - shape*np.cos(omega*stop))))
+        errors.append(
+            np.max(
+                np.abs(
+                    u.value.x.array[component::3] / 1e-4 - shape * np.cos(omega * stop)
+                )
+            )
+        )
         initial = step.history_records[0]["total_discrete_energy"]
         last = step.history_records[-1]
-        assert abs(last["total_discrete_energy"]/initial - 1) < 2e-5
+        assert abs(last["total_discrete_energy"] / initial - 1) < 2e-5
         assert last["hourglass_energy"] < 1e-25
         assert abs(last["prescribed_motion_work"]) < 1e-25
-    assert errors[1] < errors[0]/3.8
-    assert errors[1] < .002
+    assert errors[1] < errors[0] / 3.8
+    assert errors[1] < 0.002
 
 
 def test_global_hex_rejects_tetrahedra_and_bad_safety():
@@ -166,7 +181,8 @@ def test_global_hex_rejects_tetrahedra_and_bad_safety():
 
 
 @pytest.mark.parametrize("scale", [0.05, 0.1, 0.2])
-def test_global_hex_cantilever_bending_refinement(scale):
+@pytest.mark.parametrize("distortion", [0.0, 0.2])
+def test_global_hex_cantilever_bending_refinement(scale, distortion):
     """Slender beam reference, not a claim of matching commercial C3D8R."""
     from scipy.sparse import coo_matrix
     from scipy.sparse.linalg import spsolve
@@ -180,6 +196,17 @@ def test_global_hex_cantilever_bending_refinement(scale):
             [20 * level, 2 * level, 4 * level],
             cell_type=mesh.CellType.hexahedron,
         )
+        if distortion:
+            # Bounded deterministic mesh perturbation, preserving the box and
+            # boundary planes. Amplitudes scale with cell size on refinement;
+            # alternate signs retain non-affine element distortion.
+            x = domain.geometry.x
+            h = np.array([0.5, 0.5, 0.25]) / level
+            interior = np.all((x > 1e-12) & (x < np.array([10, 1, 1]) - 1e-12), axis=1)
+            seed = np.random.default_rng(1729)
+            x[interior] += (
+                distortion * h * seed.uniform(-1, 1, size=(interior.sum(), 3))
+            )
         space = fem.functionspace(domain, ("Lagrange", 1, (3,)))
         u = fem.Function(space)
         c = np.diag([100, 100, 100, 50, 50, 50])
@@ -234,6 +261,7 @@ def test_global_hex_cantilever_bending_refinement(scale):
             dict(
                 level=level,
                 scale=scale,
+                distortion=distortion,
                 relative_error=error,
                 hourglass_fraction=fraction,
             )

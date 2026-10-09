@@ -348,7 +348,7 @@ class UniformHexBatch:
             raise ValueError("Hex8 spectral bound is not positive finite.")
         return bound
 
-    def iter_responses(self, displacement, *, node_map=None):
+    def _iter_kinematics(self, displacement, *, node_map=None):
         """Evaluate bounded chunks, optionally gathering from global nodal values.
 
         Supplying the mesh owner's connectivity avoids a whole-mesh (cells,8,3)
@@ -396,26 +396,43 @@ class UniformHexBatch:
             )
             c = self.stiffness if self.stiffness.ndim == 2 else self.stiffness[region]
             stress = np.einsum("ij,cj->ci" if c.ndim == 2 else "cij,cj->ci", c, strain)
-            tensor = stress[:, np.array([[0, 5, 4], [5, 1, 3], [4, 3, 2]])]
-            force = self.volume[region, None, None] * np.einsum(
-                "cij,caj->cai", tensor, gradient
-            )
             gamma = self.hourglass_modes[region]
             modes = np.einsum("cam,cai->cmi", gamma, u)
             coefficient = self.hourglass_coefficient[region]
-            force += coefficient[:, None, None] * np.einsum(
-                "cam,cmi->cai", gamma, modes
-            )
             physical = 0.5 * self.volume[region] * np.einsum("ci,ci->c", strain, stress)
             hourglass = 0.5 * coefficient * np.einsum("cmi,cmi->c", modes, modes)
             if not all(
-                np.all(np.isfinite(a))
-                for a in (strain, stress, force, physical, hourglass)
+                np.all(np.isfinite(a)) for a in (strain, stress, physical, hourglass)
             ):
                 raise ValueError(
                     f"Hex8 response overflowed in batch starting at cell {start}."
+                )
+            yield region, strain, stress, modes, physical, hourglass
+
+    def iter_responses(self, displacement, *, node_map=None):
+        """Stream complete cell responses without whole-mesh gathers."""
+        for region, strain, stress, modes, physical, hourglass in self._iter_kinematics(
+            displacement, node_map=node_map
+        ):
+            tensor = stress[:, np.array([[0, 5, 4], [5, 1, 3], [4, 3, 2]])]
+            force = self.volume[region, None, None] * np.einsum(
+                "cij,caj->cai", tensor, self.average_gradient[region]
+            )
+            force += self.hourglass_coefficient[region, None, None] * np.einsum(
+                "cam,cmi->cai", self.hourglass_modes[region], modes
+            )
+            if not np.all(np.isfinite(force)):
+                raise ValueError(
+                    f"Hex8 force overflowed in batch starting at cell {region.start}."
                 )
             yield (
                 region,
                 UniformHexBatchResponse(strain, stress, force, physical, hourglass),
             )
+
+    def iter_energies(self, displacement, *, node_map=None):
+        """Evaluate physical/artificial energies without unused nodal forces."""
+        for region, _, _, _, physical, hourglass in self._iter_kinematics(
+            displacement, node_map=node_map
+        ):
+            yield region, physical, hourglass

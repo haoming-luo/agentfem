@@ -148,6 +148,23 @@ gather versus 1,512,088 bytes for chunk gathering. Median response time changed
 from 0.02053 s to 0.02119 s; energies were identical. This optimization reduces
 temporary allocation, not measured CPU time, and does not represent process RSS.
 
+Energy monitoring now uses an energy-only evaluation of the same cell kinematics;
+it does not recompute unused nodal forces or skip accepted increments. Residual
+assembly reuses bounded, chunk-local reduction maps, with PETSc still responsible
+for ghost accumulation. An alternating five-repeat comparison on 8,192 cells
+and 50 steps measured median run time 0.85270 s before these two changes and
+0.62880 s after (1.36x throughput, about 26% less run time). Physical energy and
+kinetic energy agree to roundoff. This is one local no-field-I/O elastic workload,
+not a claim about nonlinear material, contact or industrial models.
+
+`tools/benchmark_uniform_hex.py` measures ordinary-Step preparation, run time,
+peak process RSS, and the existing collective performance evidence. A bounded
+262,144-cell/20-step single-thread run (energy-only path before scatter reduction)
+took 7.04 s preparation and 8.75 s advancement, with 1,258,487,808 bytes peak RSS.
+RSS includes mesh/runtime/preparation storage and is not the compact kernel size.
+The automatically selected step is stable for this declared linear operator,
+not an accuracy criterion. No field I/O, contact or material history is included.
+
 The private `UniformHexResidual` uses DOLFINx blocked Q1 DOF maps and the
 existing central-difference integrator. Serial affine internal forces agree
 with independent fully integrated UFL assembly. Separate resultant and moment
@@ -181,6 +198,12 @@ reference, not an exact three-dimensional solution or a commercial-code run.
 All three choices improve under refinement. This does not select a universal
 default coefficient or establish accuracy for a single element through the
 thickness. Tests are in `test_uniform_hex.py` and `test_uniform_hex_global.py`.
+
+With deterministic interior-node perturbations up to 20% of each grid spacing
+(seed 1729; the box and boundary planes retained), corresponding fine-mesh tip
+errors are 0.995%, 0.532%, and 0.341%; artificial-energy fractions are 0.475%,
+0.897%, and 1.707%. Every error decreases from the coarse mesh. This is bounded
+distortion evidence, not admission of arbitrary poor-quality meshes.
 
 ## Remaining implementation gates
 

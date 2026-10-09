@@ -87,6 +87,15 @@ class UniformHexResidual:
             [space.dofmap.cell_dofs(k) for k in range(count)], dtype=np.int32
         ).reshape(-1, 8)
         self.cell_nodes.setflags(write=False)
+        # Reuse compact chunk-local scatter schedules. Bincount over the whole
+        # mesh per chunk would allocate O(global_nodes) repeatedly; these maps
+        # contain only nodes touched by the bounded cell chunk.
+        self._scatter_plans = []
+        for start in range(0, count, chunk_size):
+            nodes, inverse = np.unique(
+                self.cell_nodes[start : start + chunk_size].ravel(), return_inverse=True
+            )
+            self._scatter_plans.append((nodes, inverse.astype(np.int32)))
         if count == 0:
             self.cells = None
             return
@@ -117,12 +126,16 @@ class UniformHexResidual:
                 with vector.localForm() as local:
                     local.set(0)
                     values = local.array.reshape(-1, 3)
-                    for region, response in self._responses():
-                        np.add.at(
-                            values,
-                            self.cell_nodes[region].ravel(),
-                            response.internal_force.reshape(-1, 3),
-                        )
+                    for (_, response), (nodes, inverse) in zip(
+                        self._responses(), self._scatter_plans
+                    ):
+                        force = response.internal_force.reshape(-1, 3)
+                        for component in range(3):
+                            values[nodes, component] += np.bincount(
+                                inverse,
+                                weights=force[:, component],
+                                minlength=len(nodes),
+                            )
 
             collective_call(
                 assemble_local, comm=self.comm, label="Uniform Hex8 residual"
@@ -142,11 +155,12 @@ class UniformHexResidual:
 
         def local_energy():
             values = np.zeros(2)
-            for _, response in self._responses():
-                values += [
-                    response.physical_energy.sum(),
-                    response.hourglass_energy.sum(),
-                ]
+            if self.cells is not None:
+                nodal = self.displacement.x.array.reshape(-1, 3)
+                for _, physical, artificial in self.cells.iter_energies(
+                    nodal, node_map=self.cell_nodes
+                ):
+                    values += [physical.sum(), artificial.sum()]
             return values
 
         local = collective_call(
@@ -172,5 +186,7 @@ class UniformHexResidual:
             raise ValueError("Uniform Hex8 stability safety differs across ranks.")
         bound = self.comm.allreduce(bound, op=MPI.MAX)
         if not np.isfinite(bound) or bound <= 0:
-            raise ValueError("Uniform Hex8 requires a positive finite global spectral bound.")
+            raise ValueError(
+                "Uniform Hex8 requires a positive finite global spectral bound."
+            )
         return float(safety) * 2 / np.sqrt(bound)

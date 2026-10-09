@@ -230,6 +230,14 @@ def test_compact_hex_batch_matches_cell_oracle(chunk_size, heterogeneous):
         chunk_size=chunk_size,
     )
     u = np.random.default_rng(30).normal(size=(count, 8, 3))
+    energy_chunks = list(op.iter_energies(u))
+    response_chunks = list(op.iter_responses(u))
+    for (region, physical, artificial), (other, response) in zip(
+        energy_chunks, response_chunks
+    ):
+        assert region == other
+        np.testing.assert_array_equal(physical, response.physical_energy)
+        np.testing.assert_array_equal(artificial, response.hourglass_energy)
     seen = []
     for region, result in op.iter_responses(u):
         for local, index in enumerate(range(region.start, region.stop)):
