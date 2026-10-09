@@ -67,6 +67,18 @@ this 100-step example. Field output and the result manifest were written;
 the original installed package was not replaced. This was a local candidate
 acceptance, not a public version release.
 
+The subsequent owned-cell MPI candidate (commit `f4f6f79f`) was also installed
+outside the source tree. Its two-rank 100-step wave publishes one collective
+manifest, which passes integrity verification; 13 distributed Hex8 tests pass
+against the installed wheel with source-path injection disabled. Collective
+publication uncovered and fixed a duplicate rank-local timing record and an
+unstable Python-object representation in Step metadata. Timing now uses the
+existing min/mean/max performance evidence, while residual identity is explicit.
+
+For imported `C3D8R`, the migration report continues to say `topology_only`.
+It points to this explicitly selected alternative but never silently substitutes
+it for the source formulation, material updates or section controls.
+
 ## Formulation
 
 Basix supplies Hex8 node order, trilinear interpolation and geometric

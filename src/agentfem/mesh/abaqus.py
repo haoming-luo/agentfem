@@ -592,7 +592,15 @@ _register_element_types(
     ("C3D8R",), topology="hexahedron", interpolation="linear", node_count=8,
     family="continuum_solid", physics="solid_mechanics", kinematics="three_dimensional",
     formulation="displacement_hourglass_control", integration="reduced",
-    notes=("Abaqus hourglass control is not implied by topology conversion.",),
+    notes=(
+        "Abaqus hourglass control is not implied by topology conversion.",
+        "AgentFEM elements.uniform_strain_hex8 is an explicitly selected, "
+        "experimental small-strain elastic alternative, not an automatic "
+        "C3D8R lowering. It requires declared hourglass modulus and scale. "
+        "Finite deformation, damage/deletion and additional contact operators "
+        "remain unsupported by that provider; original section controls and "
+        "material behavior require separate review.",
+    ),
 )
 _register_element_types(
     ("C3D8H", "C3D8RH"), topology="hexahedron", interpolation="linear", node_count=8,
