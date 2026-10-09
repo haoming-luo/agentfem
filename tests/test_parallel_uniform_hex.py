@@ -325,3 +325,41 @@ def test_ordinary_hex_step_tolerates_empty_owned_cell_partition():
     assert step.history_records[-1]["kinetic_energy"] == pytest.approx(
         0.5 * 0.08 * (10e-4) ** 2
     )
+
+
+def test_distributed_material_regions_preserve_owned_mass_and_affine_force():
+    from agentfem import constitutive, elements, fields, models, studies
+    from agentfem import mesh as mesh_api
+    from agentfem.constitutive.elasticity import stress
+
+    domain, _, _ = problem(MPI.COMM_WORLD)
+    model = models.create(study=studies.dynamic_solid(dimension=3), mesh=domain)
+    u = model.field(fields.displacement(domain))
+    regions = mesh_api.partition_cells(
+        domain, left=lambda x: x[0] < 0.5, right=lambda x: x[0] >= 0.5
+    )
+    a = constitutive.isotropic_elastic(young=100, poisson=0, density=2)
+    b = constitutive.isotropic_elastic(young=40, poisson=0.2, density=4)
+    model.material(a, region=regions.left)
+    model.material(b, region=regions.right)
+    u.value.interpolate(lambda x: np.vstack((0.01 * x[0], 0.02 * x[1], 0.03 * x[2])))
+    policy = elements.uniform_strain_hex8(hourglass_modulus=50, hourglass_scale=0.1)
+    step = model.step(
+        target=u, element_policy=policy, dt="auto", steps=2, progress=False
+    )
+    assert domain.comm.allreduce(
+        step.integrator.mass.mass_diagonal[::3].sum()
+    ) == pytest.approx(0.12)
+    v = ufl.TestFunction(u.value.function_space)
+    expression = sum(
+        ufl.inner(stress(u, law), ufl.sym(ufl.grad(v))) * region.measure
+        for law, region in ((a, regions.left), (b, regions.right))
+    )
+    expected = assembly.assemble_vector(fem.form(expression))
+    actual = step.residual.assemble_vector()
+    try:
+        np.testing.assert_allclose(actual.array, expected.array, atol=1e-13)
+    finally:
+        actual.destroy()
+        expected.destroy()
+    step.run()
