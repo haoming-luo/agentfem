@@ -36,6 +36,19 @@ from .step_providers import (
 )
 
 
+def _accept_elastic_interface(model, request: StepRequest) -> bool:
+    from ._nonmatching_force import NonmatchingCohesiveForce
+    return (getattr(getattr(model, "study", None), "physics", None) == "solid_mechanics"
+            and isinstance(request.option("cohesive_force"), NonmatchingCohesiveForce)
+            and _is_vector_target(request.target)
+            and _all_materials_support(model, request, _supports_elasticity))
+
+
+def _lower_elastic_interface(model, request):
+    from ._step_nonmatching import lower
+    return lower(model, request)
+
+
 def _accept_linear_static(model, request: StepRequest) -> bool:
     study = getattr(model, "study", None)
     if request.target is None:
@@ -870,6 +883,18 @@ def _option_contract(
         required=tuple(required),
         exactly_one_of=tuple(tuple(group) for group in exactly_one_of),
     )
+
+
+register_step_provider(StepProvider(
+    name="elastic_nonmatching_interface",
+    analyses=("linear_static",),
+    accepts=_accept_elastic_interface,
+    lower=_lower_elastic_interface,
+    priority=150,
+    description="Experimental serial P1 elastic solid with a fixed nonmatching elastic interface.",
+    procedure="standard/linear_static",
+    option_contract=_option_contract("cohesive_force", required=("cohesive_force",)),
+))
 
 
 def _accept_callable_neural_field(_model, request) -> bool:

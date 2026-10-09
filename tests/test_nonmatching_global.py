@@ -10,7 +10,15 @@ from dolfinx import fem, mesh
 from mpi4py import MPI
 from petsc4py import PETSc
 
-from agentfem import fracture, operators
+from agentfem import (
+    fracture,
+    operators,
+    models,
+    studies,
+    fields,
+    constitutive,
+    interfaces,
+)
 from agentfem._elastic_cohesive import ElasticCohesiveLaw
 from agentfem._interface_overlap import planar_overlap_pairing
 from agentfem._interface_pairing import FixedReferenceCohesiveAssembler
@@ -30,7 +38,10 @@ def _blocks(n, m):
     ]
     vertices = np.concatenate([p.geometry.x for p in parts])
     cells = np.concatenate(
-        (parts[0].geometry.dofmaps[0], parts[1].geometry.dofmaps[0] + len(parts[0].geometry.x))
+        (
+            parts[0].geometry.dofmaps[0],
+            parts[1].geometry.dofmaps[0] + len(parts[0].geometry.x),
+        )
     )
     domain = ufl.Mesh(basix.ufl.element("Lagrange", "tetrahedron", 1, shape=(3,)))
     return mesh.create_mesh(MPI.COMM_SELF, cells.astype(np.int64), domain, vertices)
@@ -59,6 +70,52 @@ def _trace(space, positive):
     unique, inverse = np.unique(triangles, return_inverse=True)
     surface = TriangulatedRigidSurface(xyz[unique], inverse.reshape(-1, 3))
     return surface, unique
+
+
+def test_ordinary_model_step_elastic_interface_result(tmp_path, monkeypatch):
+    domain = _blocks(1, 2)
+    model = models.create(study=studies.static_solid(dimension=3), mesh=domain)
+    target = model.field(fields.displacement(domain))
+    model.material(
+        constitutive.isotropic_elastic(young=100.0, poisson=0.0, density=1.0)
+    )
+    model.fix(target, on=lambda x: np.ones(x.shape[1], dtype=bool), components=(0, 1))
+    model.fix(target, on=lambda x: np.isclose(x[2], -1), components=2)
+    model.fix(target, on=lambda x: np.isclose(x[2], 1), components=2, value=0.02)
+    a, na = _trace(target.value.function_space, False)
+    b, nb = _trace(target.value.function_space, True)
+    pair = interfaces.pair_nonmatching_triangles(a, b, tolerance=1e-10)
+    law = interfaces.elastic_cohesive(normal_stiffness=1000, tangential_stiffness=500)
+    force = fracture.nonmatching_cohesive_force(
+        pair, target, law, negative_dofs=na, positive_dofs=nb
+    )
+    step = model.step(target=target, cohesive_force=force)
+    result = step.solve_result(output=tmp_path / "interface.xdmf")
+    assert abs(result.quantities["energy_balance_residual"].value) < 1e-12
+    assert result.quantities["free_residual_norm"].value < 1e-10
+    assert result.quantities["interface_stored_energy"].value == pytest.approx(
+        (0.02 / 0.021) ** 2 / 2000
+    )
+    assert (tmp_path / "interface.xdmf").exists()
+    with pytest.raises(ValueError, match="overrides"):
+        model.step(target=target, cohesive_force=force, K=model.stiffness(target))
+    with pytest.raises(ValueError, match="U and RF"):
+        step.solve_result(field_variables=("S",))
+    minimal = step.solve_result(field_variables=())
+    assert set(minimal.fields) == {"U"}
+    saved = target.value.x.array.copy()
+    saved_state = force.snapshot()
+    from agentfem import solvers
+
+    def fail_solve(matrix, rhs, solution, *args, **kwargs):
+        solution.set(123.0)
+        raise RuntimeError("forced solver failure")
+
+    monkeypatch.setattr(solvers, "solve_matrix_system", fail_solve)
+    with pytest.raises(RuntimeError, match="forced"):
+        step.solve()
+    np.testing.assert_array_equal(target.value.x.array, saved)
+    assert force.snapshot() == saved_state
 
 
 @pytest.mark.parametrize("n,m", [(1, 1), (1, 2), (2, 3)])

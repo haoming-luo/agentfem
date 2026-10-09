@@ -32,6 +32,12 @@ do not enable migration, finite rotations, quadrilateral traces or MPI.
 Do not introduce artificial damage thresholds for an elastic-only interface,
 or describe unstabilized one-point quadrature as Hex8R support.
 
+The fixed coplanar P1 route now has common-refinement integration, per-facet
+coverage checks, independent nodal-force audits and serial two-block
+series-compliance evidence. Its experimental elastic `model.step` provider
+reuses PETSc solving and Result output. Global damage, MPI/restart,
+finite-rotation kinematics and Hex8 quadrilateral traces remain separate gates.
+
 The 0.4 line is an architectural consolidation, not a feature-count release.
 Its stable middle layer is:
 

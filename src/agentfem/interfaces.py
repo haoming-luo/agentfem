@@ -2952,6 +2952,25 @@ class CohesiveSurface:
         }
 
 
+def elastic_cohesive(*, normal_stiffness, tangential_stiffness,
+                     second_tangential_stiffness=None, name="elastic traction-separation"):
+    """Undamaged reference-area interface elasticity with explicit local stiffnesses."""
+    from ._elastic_cohesive import ElasticCohesiveLaw
+    return ElasticCohesiveLaw(normal_stiffness, tangential_stiffness,
+                              second_tangential_stiffness, name)
+
+
+def pair_nonmatching_triangles(negative, positive, *, tolerance, maximum_points=200_000):
+    """Experimental fixed coplanar P1 common-refinement trace integration.
+
+    Both inputs are reviewed triangular reference surfaces, not declarations
+    of rigid-body physics. Curved geometry, Q1 and MPI ownership are excluded.
+    """
+    from ._interface_overlap import planar_overlap_pairing
+    return planar_overlap_pairing(negative, positive, tolerance=tolerance,
+                                  maximum_points=maximum_points)
+
+
 def bilinear_cohesive(
     *,
     strength: float,
@@ -3097,6 +3116,8 @@ __all__ = [
     "PairedSurfaceFacets",
     "SplitInterfaceMesh",
     "bilinear_cohesive",
+    "elastic_cohesive",
+    "pair_nonmatching_triangles",
     "audit_mode_i_kinematics",
     "audit_split_interface_rigid_modes",
     "mixed_mode_bilinear_cohesive",

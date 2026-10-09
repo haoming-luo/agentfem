@@ -25,7 +25,11 @@ class NonmatchingCohesiveForce:
             raise NotImplementedError(
                 "Nonmatching force MPI ownership is not yet verified."
             )
-        if space.dofmap.index_map_bs != 3 or space.element.basix_element.degree != 1:
+        if (
+            space.dofmap.index_map_bs != 3
+            or space.element.basix_element.degree != 1
+            or space.element.basix_element.discontinuous
+        ):
             raise ValueError(
                 "Nonmatching force requires a three-component P1 displacement."
             )
@@ -103,3 +107,13 @@ class NonmatchingCohesiveForce:
 
     def restore(self, snapshot):
         self.assembler.restore(snapshot)
+
+    def summary(self):
+        return {
+            "kind": "nonmatching_cohesive_force",
+            "pairing": self.assembler.pairing.summary(),
+            "law": self.assembler.law.summary(),
+            "execution_scope": "serial_p1_tetrahedral",
+            "finite_rotation": False,
+            "portable_restart": False,
+        }

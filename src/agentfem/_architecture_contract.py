@@ -139,6 +139,7 @@ OWNERSHIP_BOUNDARIES = (
             "_step_builders_frequency",
             "_step_builders_dynamics",
             "_step_builders_contact",
+            "_step_nonmatching",
             "_nonlinear_problems",
             "_hybrid_nonlinear",
             "_transient_problems",

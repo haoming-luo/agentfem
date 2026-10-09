@@ -1,15 +1,41 @@
 # Nonmatching cohesive interfaces: bounded development contract
 
-The initial implementation is an internal, process-local reference trace
-operator, **not yet an executable `model.step` interface provider**. Existing
-matched cohesive laws and their transactions remain the constitutive owner.
+The geometry operator is process-local. An experimental ordinary `model.step`
+provider now consumes its coplanar common-refinement route for serial P1
+tetrahedra and a purely elastic interface. Existing matched cohesive laws and
+their transactions remain the constitutive owner; global damage evolution is
+not enabled by this elastic provider.
 
 The serial P1 lowering now adds the same residual and tangent to the existing
 PETSc cohesive assembly. A separate two-block test verifies reaction,
 interface opening and interface energy against the exact series compliance
 `2/E + 1/Kn` for unit-area, unit-length blocks (Poisson ratio zero), using
 matching and nonmatching tetrahedral meshes. This is global assembly evidence,
-not yet an ordinary Step, MPI, finite-strain or forming capability.
+not an MPI, finite-strain or forming capability.
+
+## Ordinary workflow (experimental)
+
+Use `interfaces.elastic_cohesive(normal_stiffness=..., tangential_stiffness=...)`,
+`interfaces.pair_nonmatching_triangles(negative, positive, tolerance=...)`, then
+`fracture.nonmatching_cohesive_force(pairing, displacement, law,
+negative_dofs=..., positive_dofs=...)`. Dof maps explicitly identify independent
+P1 traces; matching coordinates alone cannot distinguish the two bodies.
+Pass the resulting force as `model.step(target=displacement,
+cohesive_force=force)` for a linear-static solid and call `solve_result()`.
+
+The first provider accepts registered linear elastic bulk materials, loads and
+ordinary strong constraints. It rejects damage laws, projected-only quadrature,
+MPI, Q1/DG traces, eigenstrains, additional boundary models and direct K/F
+overrides. Result output reuses the standard lifecycle and supplies U/RF,
+free residual, bulk/interface energy and linear proportional-path natural and
+prescribed-motion work. These work quantities assume a stress-free origin and
+are not arbitrary-history work integration. Empty `field_variables=()` exports
+only U. Solver failure restores the previous nodal field and discards trial
+interface state. Durable Step restart is not yet supported.
+
+The ordinary-Step, existing global cohesive, local interface/search and
+architecture regression selection passes 112 tests in the local `fenicsx-env`.
+This is targeted candidate evidence, not the release ladder or MPI acceptance.
 
 ## Ownership and numerical contract
 

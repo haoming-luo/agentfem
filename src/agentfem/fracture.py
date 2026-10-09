@@ -249,6 +249,22 @@ class FiniteStrainRegionalEnergyMonitor:
         }
 
 
+def nonmatching_cohesive_force(pairing, displacement, law, *, negative_dofs,
+                              positive_dofs, tangential="mixed", tangential_stiffness=None):
+    """Lower fixed triangular traces to a serial P1 reference interface force.
+
+    The ordinary linear-static Step currently consumes only elastic laws.
+    Local damage evaluation is not an incremental global damage capability.
+    Dof maps must retain independent traces even at coincident coordinates.
+    """
+    from ._interface_pairing import FixedReferenceCohesiveAssembler
+    from ._nonmatching_force import NonmatchingCohesiveForce
+    assembler = FixedReferenceCohesiveAssembler(pairing, law, tangential=tangential,
+                                               tangential_stiffness=tangential_stiffness)
+    return NonmatchingCohesiveForce(assembler, displacement, negative_dofs=negative_dofs,
+                                   positive_dofs=positive_dofs)
+
+
 class DofMappedCohesiveForce:
     """Map a serial cohesive facet kernel to vector finite-element dofs."""
 
@@ -5315,6 +5331,7 @@ __all__ = [
     "minimum_cell_nodal_spacing",
     "mach_cone_angle",
     "cohesive_force",
+    "nonmatching_cohesive_force",
     "cohesive_forces",
     "mode_i_cohesive_force",
     "named_cohesive_forces",
