@@ -40,8 +40,11 @@ def test_q1_nonmatching_global_compliance_and_energy(n, m, component):
     model.material(constitutive.isotropic_elastic(young=100, poisson=0, density=2))
     # Suppressed transverse modes give independent 1D normal/shear compliance.
     # This is not an unconstrained three-dimensional shear specimen.
-    model.fix(u, on=lambda x: np.ones(x.shape[1], dtype=bool),
-              components=tuple(i for i in range(3) if i != component))
+    model.fix(
+        u,
+        on=lambda x: np.ones(x.shape[1], dtype=bool),
+        components=tuple(i for i in range(3) if i != component),
+    )
     model.fix(u, on=lambda x: np.isclose(x[2], -1), components=component)
     model.fix(u, on=lambda x: np.isclose(x[2], 1), components=component, value=0.02)
     a, na = _trace(u.value.function_space, False)
@@ -137,6 +140,71 @@ def test_stiffer_interface_reduces_composed_stable_step():
     soft, _ = _dynamic_interface(1000)
     stiff, _ = _dynamic_interface(100000)
     assert stiff.stability["dt_limit"] < soft.stability["dt_limit"]
+
+
+@pytest.mark.parametrize("stiffness", [10.0, 100.0, 1000.0])
+def test_nonmatching_hex_bond_converges_to_independent_bar_mode(stiffness):
+    """Free bar pair, unit half-length: E*k*tan(k)=2*K, omega=k*sqrt(E/rho).
+
+    Opposite cosine modes give a displacement jump at the elastic interface;
+    the end derivatives vanish. Poisson zero and transverse restraints reduce
+    this bounded 3D test to an independent longitudinal continuum solution.
+    """
+    from scipy.optimize import brentq
+    from agentfem import elements
+
+    young, rho = 100.0, 2.0
+    wave_number = brentq(
+        lambda k: young * k * np.tan(k) - 2 * stiffness, 1e-8, np.pi / 2 - 1e-8
+    )
+    omega = wave_number * np.sqrt(young / rho)
+    final_time = 1.1 / omega
+    errors = []
+    for n, m in ((2, 3), (4, 6)):
+        domain = _blocks(n, m, cell_type="hexahedron")
+        model = models.create(study=studies.dynamic_solid(dimension=3), mesh=domain)
+        u = model.field(fields.displacement(domain))
+        model.material(
+            constitutive.isotropic_elastic(young=young, poisson=0, density=rho)
+        )
+        model.fix(u, on=lambda x: np.ones(x.shape[1], dtype=bool), components=(0, 1))
+        a, na = _trace(u.value.function_space, False)
+        b, nb = _trace(u.value.function_space, True)
+        pair = interfaces.pair_reference_traces(a, b, tolerance=1e-10)
+        force = fracture.nonmatching_cohesive_force(
+            pair,
+            u,
+            interfaces.elastic_cohesive(
+                normal_stiffness=stiffness, tangential_stiffness=50
+            ),
+            negative_dofs=na,
+            positive_dofs=nb,
+        )
+        xyz = u.value.function_space.tabulate_dof_coordinates()
+        nodal = u.value.x.array.reshape(-1, 3)
+        for cell in range(domain.topology.index_map(3).size_local):
+            nodes = u.value.function_space.dofmap.cell_dofs(cell)
+            sign = 1 if xyz[nodes, 2].mean() < 0 else -1
+            nodal[nodes, 2] = (
+                sign * 1e-4 * np.cos(wave_number * (1 + sign * xyz[nodes, 2]))
+            )
+        initial = u.value.x.array.copy()
+        step = model.step(
+            target=u,
+            cohesive_force=force,
+            element_policy=elements.uniform_strain_hex8(
+                hourglass_modulus=50, hourglass_scale=0.1
+            ),
+            dt=final_time / 200,
+            steps=200,
+            progress=False,
+        )
+        step.run()
+        mass = step.integrator.mass.mass_diagonal
+        difference = u.value.x.array - initial * np.cos(omega * final_time)
+        errors.append(np.sqrt(np.dot(mass, difference**2) / np.dot(mass, initial**2)))
+    assert errors[1] < errors[0] / 3, errors
+    assert errors[1] < 0.01, errors
 
 
 def test_global_interface_rejects_undeclared_anisotropic_tangent_frame():

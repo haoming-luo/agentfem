@@ -129,6 +129,16 @@ uses the shared accepted-path dynamic work ledger, with separate artificial
 energy; it does not claim general constraint work, MPI, finite rotation,
 damage evolution or compatibility with every commercial Hex8R formulation.
 
+An independent longitudinal vibration check couples two unit-length elastic
+bars with free outer ends. With Poisson ratio zero and transverse motion
+restrained, opposite cosine modes satisfy `E*k*tan(k)=2*K` and
+`omega=k*sqrt(E/rho)`. The reference is derived from continuum traction/jump
+conditions, not from AgentFEM's discrete stiffness. Three interface stiffnesses
+(`K/E = 0.1, 1, 10`) pass nonmatching 2:3 to 4:6 refinement: the mass-weighted
+displacement error decreases by more than threefold and is below 1% on the
+finer mesh. This complements work/energy/restart tests; it is not a finite-strain
+or general three-dimensional modal validation.
+
 ## Promotion sequence
 
 Initial local evidence (2026-10-09): `test_nonmatching_pairing.py`,
