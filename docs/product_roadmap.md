@@ -21,14 +21,15 @@ or a successful run is not by itself a validated engineering capability.
 
 ### User-driven mesh/interface slice (2026-10-09)
 
-The urgent next implementation is fixed-reference nonmatching cohesive trace
-integration, followed by uniform-strain Hex8 stabilization. These are missing
-general formulation capabilities, not an automatic translation of a specific
+This slice implements bounded fixed-reference nonmatching cohesive trace
+integration and uniform-strain Hex8 stabilization. These are general formulation
+capabilities, not an automatic translation of a specific
 Abaqus forming model. Reuse triangle search and existing cohesive laws; keep
 pairing, material state, force assembly and Procedure separate. The bounded
 design and scientific promotion gates are in
-[nonmatching interfaces](nonmatching_interfaces.md). Initial local trace tests
-do not enable migration, finite rotations, quadrilateral traces or MPI.
+[nonmatching interfaces](nonmatching_interfaces.md). Each geometry and execution
+route requires its own evidence; local trace tests alone do not enable migration,
+finite rotations or distributed interface execution.
 Do not introduce artificial damage thresholds for an elastic-only interface,
 or describe unstabilized one-point quadrature as Hex8R support.
 
