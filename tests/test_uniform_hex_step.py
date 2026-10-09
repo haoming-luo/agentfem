@@ -75,6 +75,45 @@ def test_uniform_hex_step_checks_time_increment_and_policy():
         elements.uniform_strain_hex8(hourglass_modulus=50, hourglass_scale=0)
 
 
+def test_step_constraint_override_initializes_only_selected_motion():
+    from agentfem import amplitudes, constraints
+
+    model, u, policy = _model()
+    calls = []
+    unused = amplitudes.Amplitude("unused", lambda t: calls.append(t) or 123.)
+    model.fix(u, on=lambda x: np.ones(x.shape[1], dtype=bool), components=0, value=unused)
+    selected = constraints.time_dependent_component_dirichlet(
+        u, 0, marker=lambda x: np.ones(x.shape[1], dtype=bool),
+        amplitude=amplitudes.Amplitude("selected", lambda t: .01 + .02*t),
+    )
+    calls.clear()
+    step = model.step(
+        target=u, element_policy=policy, constraints=(selected,),
+        dt=1e-4, steps=2, progress=False,
+    )
+    np.testing.assert_allclose(step.state.u.value.x.array[::3], .01)
+    np.testing.assert_allclose(step.state.v.value.x.array[::3], .02)
+    step.run()
+    np.testing.assert_allclose(step.state.u.value.x.array[::3], .01 + .02 * 2e-4)
+    assert calls == []
+
+
+def test_initial_residual_failure_restores_user_displacement(monkeypatch):
+    from agentfem.elements._uniform_hex_dolfinx import UniformHexResidual
+
+    model, u, policy = _model()
+    model.fix(u, on=lambda x: np.ones(x.shape[1], dtype=bool), components=0, value=.02)
+    before = u.value.x.array.copy()
+
+    def fail(self):
+        raise RuntimeError("injected initial assembly failure")
+
+    monkeypatch.setattr(UniformHexResidual, "assemble_vector", fail)
+    with pytest.raises(RuntimeError, match="injected"):
+        model.step(target=u, element_policy=policy, dt=1e-4, steps=2, progress=False)
+    np.testing.assert_array_equal(u.value.x.array, before)
+
+
 def test_uniform_hex_rotated_anisotropic_material_matches_ufl():
     from agentfem import materials
     from agentfem.constitutive import elasticity

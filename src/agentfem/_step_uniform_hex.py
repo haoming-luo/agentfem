@@ -177,7 +177,7 @@ class UniformHexStep(ExplicitDynamicsStep):
 
 
 def lower(model, request):
-    from . import constraints, fracture, problems, state, time
+    from . import constraints, fracture, input_effects, problems, state, time
     from .elements import UniformStrainHex8
     from .elements._uniform_hex_dolfinx import UniformHexResidual
 
@@ -258,19 +258,29 @@ def lower(model, request):
         raise ValueError(
             f"Hex8 dt must be positive and at most the conservative bound {stable:g}."
         )
-    update = model._time_update_callback()
+    # Record the selected time-input contract for restart, not excluded model
+    # constraints. The explicit integrator also consumes these same assets.
+    prescribed = tuple(constraints.dirichlet_constraints(assets))
+    callbacks = [model._time_update_callback(include_constraints=False)]
+    callbacks.extend(
+        input_effects.from_asset(item)
+        for item in prescribed
+        if callable(getattr(item, "update", None))
+    )
+    update = input_effects.compose(*callbacks)
     if time.input_summary(update)["changes_operator"]:
         raise NotImplementedError(
             "Uniform Hex8 requires fixed material/operator inputs."
         )
     if update is not None:
         update(0.0)
-    prescribed = tuple(constraints.dirichlet_constraints(assets))
     bcs = [item.bc for item in prescribed]
     residual.bind_initial_inputs(bcs)
-    constraints.apply_dirichlet_bcs(history.u, bcs)
-    initial = residual.assemble_vector()
+    accepted = history.snapshot()
+    initial = None
     try:
+        constraints.apply_dirichlet_bcs(history.u, bcs)
+        initial = residual.assemble_vector()
         history.a.value.x.array[:] = -initial.array * internal.inv_mass
         from .time.explicit import _assign_prescribed_component, _prescribed_kinematics
 
@@ -278,8 +288,13 @@ def lower(model, request):
         _assign_prescribed_component(history.a, kinematics, component=1)
         _assign_prescribed_component(history.v, kinematics, component=2)
         residual.commit()
+    except Exception:
+        residual.rollback()
+        history.restore(accepted)
+        raise
     finally:
-        initial.destroy()
+        if initial is not None:
+            initial.destroy()
     options["checkpoint_policy"] = options.pop("checkpoint", None)
     options["name"] = options.get("name") or "uniform_strain_hex8_explicit"
     base = problems.explicit_dynamics(
