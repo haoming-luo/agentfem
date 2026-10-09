@@ -36,7 +36,8 @@ from agentfem.elements._finite_uniform_hex_dolfinx import FiniteUniformHexResidu
 from agentfem.mechanics._finite_hex_explicit import FiniteHexExplicitResidual
 
 
-def run(size, steps, max_rss_mb=4096):
+def prepare(size, steps, *, material_adapter=None):
+    """Shared diagnostic fixture; not an installed finite-Hex modeling API."""
     if MPI.COMM_WORLD.size != 1:
         raise ValueError("The private finite bridge is serial only.")
     domain = mesh.create_unit_cube(
@@ -61,6 +62,8 @@ def run(size, steps, max_rss_mb=4096):
     law = constitutive.finite_strain_j2_logarithmic(
         young=100, poisson=0.3, yield_stress=1e9
     )
+    if material_adapter is not None:
+        law = material_adapter(law)
     response = MaterialQuadratureResponse.create(
         domain,
         law.state_schema,
@@ -85,6 +88,12 @@ def run(size, steps, max_rss_mb=4096):
         progress=False,
         history_monitor=MechanicalEnergyMonitor(mass=internal.mass_diagonal),
     )
+    return step, history, internal, x, rate
+
+
+def run(size, steps, max_rss_mb=4096):
+    step, history, internal, x, rate = prepare(size, steps)
+    response = internal.response
     start = perf_counter()
     samples = []
     for station in sorted({1, 5, 10} | {round(steps * k / 10) for k in range(1, 11)}):
