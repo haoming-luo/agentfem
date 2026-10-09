@@ -457,12 +457,8 @@ class FiniteStrainJ2Logarithmic:
             self.bulk_modulus * volumetric[:, None]
             + radial_scale[:, None] * deviatoric_trial
         )
-        kirchhoff_stress = np.einsum(
-            "pia,pa,pja->pij",
-            left_vectors,
-            principal_stress,
-            left_vectors,
-        )
+        left_transpose = np.swapaxes(left_vectors, 1, 2)
+        kirchhoff_stress = (left_vectors * principal_stress[:, None, :]) @ left_transpose
         inverse_transpose = np.swapaxes(np.linalg.inv(gradients), 1, 2)
         first_piola = kirchhoff_stress @ inverse_transpose
         baseline_piola = np.asarray(baseline["first_piola_stress"], dtype=float)
@@ -512,12 +508,9 @@ class FiniteStrainJ2Logarithmic:
             variation_left = variation_elastic @ np.swapaxes(
                 elastic_trial, 1, 2
             ) + elastic_trial @ np.swapaxes(variation_elastic, 1, 2)
-            principal_variation = np.einsum(
-                "pia,pij,pjb->pab",
-                left_vectors,
-                variation_left,
-                left_vectors,
-            )
+            # Two explicit 3x3 products avoid the unoptimized three-operand
+            # contraction; the spectral derivative and branch are unchanged.
+            principal_variation = left_transpose @ variation_left @ left_vectors
             variation_stress_principal = divided_difference * principal_variation
             diagonal_variation = np.diagonal(
                 principal_variation,
@@ -531,19 +524,11 @@ class FiniteStrainJ2Logarithmic:
             )
             indices = np.arange(3)
             variation_stress_principal[:, indices, indices] = diagonal_stress
-            variation_kirchhoff = np.einsum(
-                "pia,pab,pjb->pij",
-                left_vectors,
-                variation_stress_principal,
-                left_vectors,
-            )
-            variation_gradient = np.zeros((3, 3), dtype=float)
-            variation_gradient[row, component] = 1.0
-            variation_inverse_transpose = -np.einsum(
-                "pij,jk,pkl->pil",
-                inverse_transpose,
-                variation_gradient.T,
-                inverse_transpose,
+            variation_kirchhoff = left_vectors @ variation_stress_principal @ left_transpose
+            # d(F^-T)/dF[row,component] = -F^-T[:,component] outer F^-T[row,:].
+            variation_inverse_transpose = -(
+                inverse_transpose[:, :, component, None]
+                * inverse_transpose[:, None, row, :]
             )
             variation_piola = (
                 variation_kirchhoff @ inverse_transpose
