@@ -195,8 +195,27 @@ class FiniteHexExplicitResidual:
         }
         return record
 
+    def checkpoint_snapshot(self):
+        """Numeric arrays for the shared serial binary auxiliary envelope."""
+        return self.transaction_snapshot()
+
+    def checkpoint_capabilities(self):
+        from ..checkpointing import CheckpointCapabilities
+
+        return CheckpointCapabilities(
+            schemas=("agentfem.transient-checkpoint.v5", "agentfem.transient-checkpoint.v6"),
+            boundary="accepted_step", payload_scope="full_restart_state",
+            state_components=("accepted deformation gradient", "material committed/trial fields",
+                              "material response fields", "stability state", "interface identity"),
+            atomic_publication=True, rank_count_portability="unsupported",
+            identity_scope=("material schema and parameters", "reference cells and mass",
+                            "hourglass coefficients", "interface mapping", "stability ceiling"),
+            limitations=("private serial finite Hex8; no cross-partition material restore",),
+            evidence=("serial interrupted/continuous path", "corrupt auxiliary atomic rejection"),
+        )
+
     def transaction_snapshot(self):
-        """Bound in-memory rollback storage; JSON expansion is checkpoint-only."""
+        """Bound rollback and binary-checkpoint storage without JSON expansion."""
         if self._trial is not None:
             raise RuntimeError("Cannot archive an unaccepted finite Hex8 trial.")
         return {

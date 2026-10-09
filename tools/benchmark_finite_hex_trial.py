@@ -21,21 +21,15 @@ from agentfem.elements._finite_uniform_hex_dolfinx import FiniteUniformHexResidu
 from agentfem.mechanics._finite_hex_explicit import FiniteHexExplicitResidual
 
 
-def main():
-    parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--size", type=int, default=12)
-    parser.add_argument("--repeats", type=int, default=5)
-    parser.add_argument("--profile", action="store_true")
-    args = parser.parse_args()
-    if not 1 <= args.size <= 32 or not 1 <= args.repeats <= 20:
-        parser.error("Use size 1..32 and repeats 1..20.")
+def make_case(size):
+    """Shared benchmark fixture; not an installed modeling API."""
     if MPI.COMM_WORLD.size != 1:
-        parser.error("This private bridge is serial only.")
+        raise ValueError("This private bridge is serial only.")
     domain = mesh.create_unit_cube(
         MPI.COMM_SELF,
-        args.size,
-        args.size,
-        args.size,
+        size,
+        size,
+        size,
         cell_type=mesh.CellType.hexahedron,
     )
     u = fem.Function(fem.functionspace(domain, ("Lagrange", 1, (3,))))
@@ -52,6 +46,18 @@ def main():
         u, response, density=2, hourglass_modulus=40, hourglass_scale=0.1
     )
     residual = FiniteHexExplicitResidual(internal, law, omega_squared_bound=1e9)
+    return u, residual
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--size", type=int, default=12)
+    parser.add_argument("--repeats", type=int, default=5)
+    parser.add_argument("--profile", action="store_true")
+    args = parser.parse_args()
+    if not 1 <= args.size <= 32 or not 1 <= args.repeats <= 20:
+        parser.error("Use size 1..32 and repeats 1..20.")
+    u, residual = make_case(args.size)
     snapshot = residual.transaction_snapshot()
     x = u.function_space.tabulate_dof_coordinates()
     u.x.array[:] = (0.02 * x).ravel()

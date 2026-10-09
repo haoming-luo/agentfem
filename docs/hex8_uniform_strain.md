@@ -137,6 +137,17 @@ loading/unloading increments. Its tiny dense Newton loop is a test oracle, not
 a second production solver. Shared Q1 layout preparation is also consumed by
 the existing small-strain operator.
 
+Private serial material checkpoints use an optional typed numeric-array payload
+instead of expanding integration-point arrays into JSON lists. The v6 manifest
+binds its payload by size and SHA-256; shape, dtype and finite values are checked
+before nodal assignment, and material identity is checked within joint rollback.
+Reading uses `allow_pickle=False`. The previous v5 JSON auxiliary representation
+remains readable. Failed payload/manifest publication preserves the previous
+checkpoint and removes the new generation's unpublished files when possible.
+The composed Procedure capability explicitly refuses rank-count portability:
+portable nodal fields alone do not make material or interface history portable.
+No distributed finite-Hex restart is admitted by this encoding change.
+
 The private assembly exposes one open trial scope through material evaluation,
 force scatter and the Procedure's final checks, avoiding three nested copies of
 the same scratch fields. Downstream exceptions (including interruption) restore

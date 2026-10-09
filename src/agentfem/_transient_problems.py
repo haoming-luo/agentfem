@@ -78,11 +78,35 @@ class ExplicitDynamicsStep:
     def checkpoint_capabilities(self) -> checkpointing.CheckpointCapabilities:
         """Declare the durable state and MPI restart contract."""
 
-        return _transient_checkpoint_capabilities(
+        base = _transient_checkpoint_capabilities(
             "displacement",
             "velocity",
             "acceleration",
             "accepted time/history ledger",
+        )
+        declaration = getattr(getattr(self, "residual", None), "checkpoint_capabilities", None)
+        if declaration is None:
+            return base
+        auxiliary = declaration()
+        if not isinstance(auxiliary, checkpointing.CheckpointCapabilities):
+            raise TypeError("Residual checkpoint declaration must be CheckpointCapabilities.")
+        if auxiliary.boundary != base.boundary:
+            raise ValueError("Residual checkpoint acceptance boundary differs from the Procedure.")
+        portability = {"unsupported": 0, "requires_portable_policy": 1, "supported": 2}
+        return replace(
+            base,
+            schemas=tuple(dict.fromkeys(base.schemas + auxiliary.schemas)),
+            state_components=base.state_components + auxiliary.state_components,
+            atomic_publication=base.atomic_publication and auxiliary.atomic_publication,
+            rank_count_portability=min(
+                (base.rank_count_portability, auxiliary.rank_count_portability),
+                key=portability.__getitem__,
+            ),
+            payload_scope=(base.payload_scope if auxiliary.full_restart else auxiliary.payload_scope),
+            identity_scope=base.identity_scope + auxiliary.identity_scope,
+            limitations=base.limitations + auxiliary.limitations,
+            evidence=tuple(f"nodal: {item}" for item in base.evidence)
+            + tuple(f"auxiliary: {item}" for item in auxiliary.evidence),
         )
 
     def operator_lifecycle_summary(self) -> dict[str, object]:
@@ -1776,6 +1800,11 @@ def _save_transient_checkpoint(step, path, state, *, portable: bool = False) -> 
     # Path-dependent monitors must archive their accepted endpoint, including
     # when checkpoint cadence is independent of retained history cadence.
     _record_transient_history(step, float(step.completed_steps) * float(step.dt))
+    residual = getattr(step, "residual", None)
+    auxiliary_state = (
+        {"residual": getattr(residual, "checkpoint_snapshot", residual.snapshot)()}
+        if hasattr(residual, "snapshot") else None
+    )
     manifest = checkpointing.save_transient_checkpoint(
         path,
         step_kind=step.summary()["kind"],
@@ -1789,17 +1818,13 @@ def _save_transient_checkpoint(step, path, state, *, portable: bool = False) -> 
         accepted_times=step.accepted_times,
         execution_events=step.execution_events,
         history_records=step.history_records,
-        auxiliary_state=(
-            {"residual": step.residual.snapshot()}
-            if hasattr(getattr(step, "residual", None), "snapshot")
-            else None
-        ),
+        auxiliary_state=auxiliary_state,
         portable=portable,
     )
     record = CheckpointRecord(
         name=f"{step.name}_{step.completed_steps}",
         path=manifest,
-        schema=checkpointing.TRANSIENT_CHECKPOINT_SCHEMA,
+        schema=checkpointing._transient_schema(auxiliary_state),
         step_name=step.name,
         coordinate_name="time",
         coordinate_value=float(step.completed_steps) * float(step.dt),
@@ -1921,7 +1946,7 @@ def _load_transient_checkpoint_impl(step, path, state) -> None:
         CheckpointRecord(
             name=f"{step.name}_{step.completed_steps}_restart",
             path=Path(metadata["manifest_path"]),
-            schema=checkpointing.TRANSIENT_CHECKPOINT_SCHEMA,
+            schema=metadata["schema"],
             step_name=step.name,
             coordinate_name="time",
             coordinate_value=float(step.completed_steps) * float(step.dt),

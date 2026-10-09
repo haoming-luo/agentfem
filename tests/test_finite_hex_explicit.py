@@ -102,7 +102,7 @@ def test_restart_rollback_uses_array_snapshot(tmp_path, monkeypatch, corrupt):
     path = source.save_checkpoint(tmp_path / "array-rollback")
     if corrupt:
         record = json.loads(path.read_text())
-        record["auxiliary_state"]["residual"]["gradient"] = [float("nan")]
+        record["auxiliary_arrays"]["sha256"] = "0" * 64
         path.write_text(json.dumps(record))
     target = make_step()
     before = target.residual.snapshot()
@@ -195,6 +195,127 @@ def test_changed_stability_identity_rejects_restart_without_modification(tmp_pat
     assert target.residual.snapshot() == material
     for name, value in before["fields"].items():
         np.testing.assert_array_equal(target.state.snapshot()["fields"][name], value)
+
+
+def test_binary_checkpoint_does_not_expand_material_arrays_to_json(
+    tmp_path, monkeypatch
+):
+    import json
+    from agentfem import checkpointing
+    from mpi4py import MPI
+
+    source = make_step()
+    source.run(until_step=2)
+    monkeypatch.setattr(
+        source.residual, "snapshot", lambda: pytest.fail("JSON expansion")
+    )
+    path = source.save_checkpoint(tmp_path / "binary")
+    metadata = json.loads(path.read_text())
+    assert metadata["schema"] == "agentfem.transient-checkpoint.v6"
+    assert source.checkpoints[-1].schema == metadata["schema"]
+    payload = path.parent / metadata["auxiliary_arrays"]["path"]
+    assert payload.is_file()
+    assert source.checkpoint_capabilities().rank_count_portability == "unsupported"
+    target = make_step()
+    target.load_checkpoint(path)
+    assert target.completed_steps == 2
+    checkpointing._remove_transient_checkpoint(path, comm=MPI.COMM_SELF)
+    assert not path.exists() and not payload.exists()
+
+
+def test_existing_json_auxiliary_checkpoint_remains_readable(tmp_path, monkeypatch):
+    import json
+
+    source = make_step()
+    source.run(until_step=2)
+    monkeypatch.setattr(
+        source.residual, "checkpoint_snapshot", source.residual.snapshot
+    )
+    path = source.save_checkpoint(tmp_path / "legacy-json")
+    assert json.loads(path.read_text())["schema"] == "agentfem.transient-checkpoint.v5"
+    target = make_step()
+    target.load_checkpoint(path)
+    assert target.residual.snapshot() == source.residual.snapshot()
+
+
+def test_binary_checkpoint_rejects_portability_claim_before_publication(tmp_path):
+    source = make_step()
+    with pytest.raises(ValueError, match="serial same-partition"):
+        source.save_checkpoint(tmp_path / "portable", portable=True)
+    assert not tuple(tmp_path.iterdir())
+
+
+@pytest.mark.parametrize("failure", ["shape", "nan", "path", "missing"])
+def test_binary_auxiliary_rejection_preserves_all_state(tmp_path, failure):
+    import json
+    from hashlib import sha256
+
+    source = make_step()
+    source.run(until_step=2)
+    path = source.save_checkpoint(tmp_path / "damaged")
+    metadata = json.loads(path.read_text())
+    descriptor = metadata["auxiliary_arrays"]
+    payload = path.parent / descriptor["path"]
+    if failure in {"shape", "nan"}:
+        with np.load(payload, allow_pickle=False) as data:
+            arrays = {key: data[key] for key in data}
+        key = next(iter(arrays))
+        if failure == "shape":
+            arrays[key] = arrays[key].reshape(-1)
+        else:
+            arrays[key].flat[0] = np.nan
+        np.savez(payload, **arrays)
+        descriptor["size"] = payload.stat().st_size
+        descriptor["sha256"] = sha256(payload.read_bytes()).hexdigest()
+    elif failure == "path":
+        descriptor["path"] = "../outside.npz"
+    else:
+        descriptor["path"] = "damaged.missing.auxiliary.npz"
+    path.write_text(json.dumps(metadata))
+    target = make_step()
+    before = target.state.snapshot()
+    material = target.residual.snapshot()
+    with pytest.raises((ValueError, FileNotFoundError)):
+        target.load_checkpoint(path)
+    assert target.completed_steps == 0
+    assert target.residual.snapshot() == material
+    for name, values in before["fields"].items():
+        np.testing.assert_array_equal(target.state.snapshot()["fields"][name], values)
+
+
+@pytest.mark.parametrize("where", ["auxiliary", "manifest"])
+def test_failed_binary_publication_preserves_previous_checkpoint(
+    tmp_path, monkeypatch, where
+):
+    from agentfem import checkpointing
+
+    source = make_step()
+    source.run(until_step=2)
+    path = source.save_checkpoint(tmp_path / "atomic")
+    before = path.read_bytes()
+    files = set(tmp_path.iterdir())
+    if where == "auxiliary":
+        original = checkpointing.atomic_savez
+
+        def fail(selected, **arrays):
+            if str(selected).endswith(".auxiliary.npz"):
+                raise OSError("injected auxiliary write failure")
+            return original(selected, **arrays)
+
+        monkeypatch.setattr(checkpointing, "atomic_savez", fail)
+    else:
+
+        def fail(*args, **kwargs):
+            raise OSError("injected manifest publication failure")
+
+        monkeypatch.setattr(checkpointing, "atomic_write_text", fail)
+    with pytest.raises(RuntimeError, match="injected"):
+        source.save_checkpoint(path)
+    assert path.read_bytes() == before
+    assert set(tmp_path.iterdir()) == files
+    restored = make_step()
+    restored.load_checkpoint(path)
+    assert restored.residual.snapshot() == source.residual.snapshot()
 
 
 def test_nonlinear_bar_matches_independent_ode_with_time_refinement():

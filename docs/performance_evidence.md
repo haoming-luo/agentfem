@@ -19,9 +19,21 @@ the finite-strain J2 state schema, five warm snapshots measured median
 0.00379 s for list expansion versus 0.000156 s for copied arrays (24.2x for
 snapshot creation only). `tracemalloc` peak allocations were 22.54 MB versus
 4.36 MB. These are Python-tracked allocations, not process RSS. Real disk
-checkpoints still use the existing JSON auxiliary contract; this change avoids
-paying its expansion cost on every increment, rather than claiming a new binary
-checkpoint format or a whole-solver speedup.
+checkpoints originally retained the JSON auxiliary contract. The subsequent
+optional numeric-tree encoding below also removes that expansion from durable
+serial material snapshots; neither measurement is a whole-solver speedup.
+
+`tools/benchmark_checkpoint_arrays.py --size 16` separately compares durable
+auxiliary serialization for 4,096 finite-J2 cells, including copied state,
+encoding and atomic file writes, but excluding nodal archives and solving.
+JSON uses 14,048,099 bytes; typed numeric arrays plus metadata use 4,365,404 bytes
+(about 69% less). Python-traced peak allocations are 79,684,017 versus 8,730,193
+bytes (about 89% less); these are not process RSS measurements. Every restored
+gradient and material field is compared with its source. This measurement
+overlapped a capacity run, so its wall times are not presented as a speedup.
+The optional v6 format uses non-executable NumPy arrays and a small JSON tree;
+existing JSON auxiliary checkpoints retain v5 and remain readable. This does
+not extend serial material history to MPI-portable restart.
 
 `tools/benchmark_finite_hex_trial.py --size 16 --repeats 7` measures a complete
 private serial trial (material, geometry admission, force and spectral screen),
