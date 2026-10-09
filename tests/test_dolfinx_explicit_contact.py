@@ -1526,9 +1526,16 @@ def test_explicit_step_rolls_back_if_residual_commit_fails():
     from agentfem._transient_problems import ExplicitDynamicsStep
 
     residual = Residual()
+    class State:
+        def snapshot(self):
+            return {}
+
+        def restore(self, snapshot):
+            assert snapshot == {}
+
     step = ExplicitDynamicsStep(
         name="commit_failure",
-        state=object(),
+        state=State(),
         integrator=Integrator(),
         residual=residual,
         dt=1.0,

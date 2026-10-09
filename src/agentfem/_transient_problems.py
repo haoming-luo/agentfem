@@ -326,11 +326,18 @@ class ExplicitDynamicsStep:
         self.integrator.last_residual_owned = None
 
     def _advance_one(self, t: float) -> None:
-        if self.update_load is not None:
-            self.update_load(t)
-        if hasattr(self.residual, "update_time"):
-            self.residual.update_time(t)
+        accepted = self.state.snapshot()
+        previous_residual = getattr(self.integrator, "last_residual_owned", None)
+        residual_state = (
+            self.residual.snapshot()
+            if hasattr(self.residual, "snapshot") and hasattr(self.residual, "restore")
+            else None
+        )
         try:
+            if self.update_load is not None:
+                self.update_load(t)
+            if hasattr(self.residual, "update_time"):
+                self.residual.update_time(t)
             self.integrator.step(
                 self.dt,
                 time=t,
@@ -340,9 +347,25 @@ class ExplicitDynamicsStep:
             )
             if hasattr(self.residual, "commit"):
                 self.residual.commit()
-        except Exception:
-            if hasattr(self.residual, "rollback"):
-                self.residual.rollback()
+        except Exception as failure:
+            accepted_time = self.completed_steps * self.dt
+            try:
+                if residual_state is not None:
+                    self.residual.restore(residual_state)
+                elif hasattr(self.residual, "rollback"):
+                    self.residual.rollback()
+            except Exception as recovery_failure:
+                failure.add_note(f"Residual rollback failed: {recovery_failure}")
+            callbacks = [self.update_load, getattr(self.residual, "update_time", None)]
+            callbacks.extend(getattr(item, "update", None) for item in self.prescribed)
+            for callback in callbacks:
+                if callable(callback):
+                    try:
+                        callback(accepted_time)
+                    except Exception as recovery_failure:
+                        failure.add_note(f"Could not restore accepted-time input: {recovery_failure}")
+            self.state.restore(accepted)
+            self.integrator.last_residual_owned = previous_residual
             raise
 
     def summary(self) -> dict[str, object]:
@@ -1788,6 +1811,46 @@ def _save_transient_checkpoint(step, path, state, *, portable: bool = False) -> 
 
 
 def _load_transient_checkpoint(step, path, state) -> None:
+    """Extend file-level atomicity across auxiliary state and input restoration."""
+    arrays = {name: fields.unwrap(value).x.array.copy() for name, value in state.items()}
+    state_owner = getattr(step, "state", None)
+    full_state = state_owner.snapshot() if hasattr(state_owner, "snapshot") else None
+    residual = getattr(step, "residual", None)
+    old_residual = (residual.snapshot() if hasattr(residual, "snapshot")
+                    and hasattr(residual, "restore") else None)
+    old_completed = step.completed_steps
+    lists = {name: list(getattr(step, name)) for name in (
+        "accepted_times", "execution_events", "history_records", "checkpoints")}
+    try:
+        _load_transient_checkpoint_impl(step, path, state)
+    except Exception as failure:
+        step.completed_steps = old_completed
+        for name, value in lists.items():
+            getattr(step, name)[:] = value
+        if old_residual is not None:
+            try:
+                residual.restore(old_residual)
+            except Exception as recovery_failure:
+                failure.add_note(f"Auxiliary checkpoint rollback failed: {recovery_failure}")
+        callbacks = [getattr(step, "update_load", None), getattr(residual, "update_time", None)]
+        callbacks.extend(getattr(item, "update", None) for item in getattr(step, "prescribed", ()))
+        for callback in callbacks:
+            if callable(callback):
+                try:
+                    callback(old_completed * step.dt)
+                except Exception as recovery_failure:
+                    failure.add_note(f"Checkpoint input rollback failed: {recovery_failure}")
+        if full_state is not None:
+            state_owner.restore(full_state)
+        else:
+            for name, value in state.items():
+                target = fields.unwrap(value)
+                target.x.array[:] = arrays[name]
+                target.x.scatter_forward()
+        raise
+
+
+def _load_transient_checkpoint_impl(step, path, state) -> None:
     from . import checkpointing
     from .results import CheckpointRecord
 
