@@ -101,6 +101,46 @@ it for the source formulation, material updates or section controls.
 
 ## Formulation
 
+### Finite-deformation prerequisite (private, not a Step)
+
+`elements._finite_uniform_hex.FiniteUniformHexBatch` separates total-Lagrangian
+kinematics from material updates. It computes `F = I + sum(u_a outer grad_X N_a)`
+using reference-volume-average gradients, consumes first Piola stress and
+reference-volume stored-energy density, and maps `dP/dF` to a matrix-free nodal
+tangent action. It does not treat Cauchy stress as Piola stress or embed a new
+material law. This mean-gradient approximation is not a selective volumetric
+F-bar correction.
+
+The fixed-reference artificial potential uses the existing affine-annihilating
+mode vectors. Since their contraction with reference coordinates is zero,
+their displacement contraction rotates with the current geometry; its squared
+norm is objective. The coefficient remains a declared fixed reference value,
+not a damage-updated modulus. Current-cell Bernstein Jacobian admission and
+positive mean deformation determinant are checked separately.
+
+Local tests cover finite affine deformation, large rigid rotations, superposed
+rotation of already deformed/hourglassed cells, resultant force and current
+moment, energy derivatives and tangent finite differences. An independent
+compressible Neo-Hookean oracle checks the conservative case. The existing
+finite-strain J2 batch protocol separately supplies Cauchy stress converted as
+`P = J sigma F^-T` and its declared `dP/dF`; the resulting element tangent agrees
+with fixed-old-state force differences. Plastic stored energy is **not** treated
+as an incremental potential or a complete dissipation balance.
+
+These are local contribution tests only. Finite-strain public Step lowering,
+accepted material transactions, evolving stability bounds, global restart,
+objective nonmatching-interface kinematics and contact composition remain
+unimplemented in this route. The public small-strain policy is unchanged.
+The batch stores compact geometry and evaluates forces/tangent actions in
+bounded chunks without retaining dense 24-by-24 element matrices. No measured
+finite-strain whole-solver speedup is claimed.
+
+Reference: [Sierra/SM Theory Manual, §15.1.4](https://www.sandia.gov/files/sierra/SM_Theory_5_20/main/element_formulations.html)
+motivates an objective reference-configuration hourglass potential; our existing
+normalization and coefficient remain explicitly declared, not Sierra defaults.
+
+### Public small-strain formulation
+
 Basix supplies Hex8 node order, trilinear interpolation and geometric
 quadrature. Reference preparation integrates volume and shape gradients once.
 The material subsequently sees one volume-average engineering strain vector

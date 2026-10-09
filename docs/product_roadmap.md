@@ -77,6 +77,14 @@ verification. Scientific evidence remains the separate analytic/convergence
 checks, not the provenance seal alone.
 
 The 0.4 line is an architectural consolidation, not a feature-count release.
+
+The next Hex8 prerequisite now has a private total-Lagrangian contribution with
+large-rotation objectivity, energy/tangent and existing J2 batch-protocol checks.
+It deliberately does not enable a finite-strain public Step. The next gates are
+accepted material-state lifecycle and state-dependent explicit stability, then
+objective interface/contact composition and small global independent references.
+Do not infer these gates from local element tests or reuse the small-strain
+constant spectral bound for a finite-deformation trajectory.
 Its stable middle layer is:
 
 ```text

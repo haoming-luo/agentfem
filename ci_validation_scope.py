@@ -204,6 +204,7 @@ _CORE_SOURCE_TEST_MAP = {
         "tests/test_validation.py",
         "tests/test_hex_validity.py",
         "tests/test_uniform_hex.py",
+        "tests/test_finite_uniform_hex.py",
         "tests/test_uniform_hex_global.py",
         "tests/test_uniform_hex_step.py",
         "tests/test_uniform_hex_work.py",
