@@ -1,0 +1,90 @@
+# Nonmatching cohesive interfaces: bounded development contract
+
+The initial implementation is an internal, process-local reference trace
+operator, **not yet an executable `model.step` interface provider**. Existing
+matched cohesive laws and their transactions remain the constitutive owner.
+
+## Ownership and numerical contract
+
+- Pairing owns reference surface identity, projection, interpolation and
+  positive integration weights. It reuses the reviewed triangle BVH.
+- Kinematics owns the jump and basis transformation; a reference projection
+  snapshot does not declare either deformable body rigid.
+- The law owns traction, tangent and state evolution. No case-specific
+  stiffness, fracture energy, part name or damage criterion enters pairing.
+- The Operator scatters `B^T W t` and applies `B^T W D B`; this is the internal
+  residual, not the restoring force. The transpose shares exactly the same
+  interpolation as the jump so discrete virtual work is preserved.
+- Procedure/State will own accepted updates, rollback and restart; Result
+  retains pairing diagnostics separately from constitutive energy.
+
+The first map explicitly selects the negative integration side and requires
+coincident linear triangular reference surfaces with opposing locally
+parallel normals. It rejects failed/ambiguous projections. Matching at the
+quadrature points is **not a proof of complete surface overlap**. Three-point
+triangle quadrature is not exact across projected master-element boundaries.
+Side-swap and quadrature-refinement checks are mandatory before promotion.
+Neither automatic finer-side selection nor arbitrary surface tessellation
+eliminates these issues.
+
+The trace preserves common rigid displacement at coincident points, including
+finite rotation of a closed interface. This does **not** establish objective
+finite-rotation traction or tangent for an already open interface. Convected
+bases, reference-gap treatment, and their derivatives require separate tests.
+Force balance alone does not prove moment balance when projection has a finite
+offset. Finite initial gaps are outside the first physical scope.
+
+Hex8 faces have bilinear quadrilateral interpolation. Splitting such faces
+into triangles and replacing their trace with P1 shape functions is not a
+faithful Hex8 coupling. A later quadrilateral trace must retain its original
+four-node basis even if geometric integration uses subtriangles.
+
+## Promotion sequence
+
+Initial local evidence (2026-10-09): `test_nonmatching_pairing.py`,
+`test_rigid_surface_search.py`, and `test_interfaces.py` pass 52 tests in the
+local `fenicsx-env`. The new tests cover fixed-history tangent finite
+differences, energy gradients, existing bilinear-law damage and rejected
+checkpoint atomicity in addition to trace invariants. This does not establish
+the complete patch-test, MPI or global Step gates below.
+
+1. Pure trace tests: affine consistency, force/moment, virtual work, invalid
+   geometry, immutable identity and matrix-free tangent action.
+2. Reuse existing material transactions; verify residual/tangent, stored
+   energy, damage rollback and matching-limit response. Add a genuine elastic
+   interface law for undamaged bonding; never invent large damage thresholds.
+3. Surface coverage and integration accuracy, side-swap sensitivity and
+   fixed-plane nonmatching patch tests with independent expected nodal forces.
+4. DOLFINx boundary-dof lowering and ordinary force/Step integration; compare
+   a two-block specimen to an independent series-compliance reference.
+5. Stable quadrature identity, portable restart and MPI owner exchange.
+6. Convected finite-rotation kinematics and quadrilateral traces before any
+   claim about a large-deformation Hex8 industrial reproduction.
+
+No migration capability is promoted by the initial local tests.
+
+## Related Hex8R work
+
+Uniform strain means volume-averaged gradients, not simply evaluating the
+gradient at the geometric centre of a distorted element. A1 is small-strain
+elasticity with stiffness stabilization, positive lumped mass, separate
+physical/hourglass energy and a composed stability bound. Verify six rigid,
+six constant-strain and twelve hourglass modes, distorted affine patches,
+bending and waves. Large finite rotations belong to A2, not the small-strain
+acceptance claim. Relaxation hourglass control needs its own history and
+restart, not another unimplemented method string. Keep Basix/DOLFINx as the
+mesh/DOF/assembly owner; add only the missing formulation contribution.
+
+## References
+
+- Paggi and Wriggers (2016), *Node-to-segment and node-to-surface interface
+  finite elements for fracture mechanics*, CMAME 300, 540–560.
+  https://doi.org/10.1016/j.cma.2015.11.023;
+  author manuscript https://arxiv.org/abs/1604.05236.
+  Their node-to-surface formulation informs the work-conjugacy review; the
+  initial projected quadrature here is not claimed as an exact reproduction.
+- Flanagan and Belytschko (1981), *A uniform strain hexahedron and quadrilateral
+  with orthogonal hourglass control*, IJNME 17, 679–706.
+  https://doi.org/10.1002/nme.1620170504.
+- Belytschko and Bindeman (1993), *Assumed strain stabilization of the eight
+  node hexahedral element*. https://doi.org/10.1016/0045-7825(93)90124-G.
