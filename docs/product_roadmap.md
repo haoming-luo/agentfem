@@ -91,8 +91,12 @@ versus continuous execution. A nonlinear Hencky bar exceeds 10% extension and
 shows second-order time refinement against an independent ODE. This does not
 admit arbitrary J2 trajectories: the nonnegative tangent screen is deliberately
 restrictive. Next are general state-dependent frequency/curvature semantics,
-energy/output contracts, public lowering, then objective interface/contact
-composition and broader independent references.
+energy/output contracts, public lowering, then general objective interface/contact
+composition and broader independent references. The private finite path already
+reuses the elastic nonmatching interface in the equal-three-stiffness special
+case, with opened-interface objectivity, current moment, joint recovery and
+post-commit failure checks. This does not admit anisotropic/damaging finite
+interfaces, contact or distributed interface state.
 Do not infer these gates from local element tests or reuse the small-strain
 constant spectral bound for a finite-deformation trajectory.
 Its stable middle layer is:

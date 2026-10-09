@@ -18,8 +18,11 @@ from ..time.stability import ExplicitStabilityContribution, combine_explicit_sta
 
 
 class FiniteHexExplicitResidual:
-    def __init__(self, internal, material, *, omega_squared_bound, safety=0.8):
+    def __init__(
+        self, internal, material, *, omega_squared_bound, safety=0.8, cohesive=None
+    ):
         self.internal, self.material = internal, material
+        self.cohesive = cohesive
         self.bound, self.safety = float(omega_squared_bound), float(safety)
         if not np.isfinite(self.bound) or self.bound <= 0:
             raise ValueError(
@@ -27,14 +30,45 @@ class FiniteHexExplicitResidual:
             )
         if not np.isfinite(self.safety) or not 0 < self.safety < 1:
             raise ValueError("Stability safety must be between zero and one.")
-        self.stability = combine_explicit_stability(
-            (
+        contributions = [
+            ExplicitStabilityContribution.from_spectral_bound(
+                "finite_hex_bulk_and_hourglass",
+                self.bound,
+                method="caller_complete_path_ceiling_with_endpoint_screen",
+            )
+        ]
+        if cohesive is not None:
+            from .._elastic_cohesive import ElasticCohesiveLaw
+            from .._nonmatching_force import NonmatchingCohesiveForce
+
+            if not isinstance(cohesive, NonmatchingCohesiveForce):
+                raise TypeError("Expected an existing nonmatching cohesive force.")
+            law = cohesive.assembler.law
+            if not isinstance(law, ElasticCohesiveLaw) or not (
+                law.normal_stiffness
+                == law.tangential_stiffness
+                == law.second_tangential_stiffness
+            ):
+                raise NotImplementedError(
+                    "Finite reference interface requires isotropic elastic separation stiffness."
+                )
+            if cohesive.displacement is not internal.displacement:
+                raise ValueError(
+                    "Bulk and interface must share the displacement field."
+                )
+            if not cohesive.assembler.pairing.method.startswith("coplanar-"):
+                raise NotImplementedError(
+                    "Finite reference interface requires checked common-refinement coverage."
+                )
+            contributions.append(
                 ExplicitStabilityContribution.from_spectral_bound(
-                    "finite_hex_bulk_and_hourglass",
-                    self.bound,
-                    method="caller_complete_path_ceiling_with_endpoint_screen",
-                ),
-            ),
+                    "isotropic_reference_interface",
+                    cohesive.elastic_stability_bound(internal.mass_diagonal),
+                    method="fixed_reference_isotropic_interface_row_bound",
+                )
+            )
+        self.stability = combine_explicit_stability(
+            contributions,
             safety_factor=self.safety,
         )
         if np.any(internal.displacement.x.array != 0):
@@ -51,6 +85,10 @@ class FiniteHexExplicitResidual:
         if not callable(description):
             raise ValueError("Material must declare a restart identity summary.")
         digest = sha256(content_fingerprint(description()).encode())
+        if cohesive is not None:
+            digest.update(content_fingerprint(cohesive.snapshot()).encode())
+            for mapping in (cohesive.negative_dofs, cohesive.positive_dofs):
+                digest.update(mapping.tobytes())
         for array in (
             internal.cell_nodes,
             internal.cells.coordinates,
@@ -104,6 +142,10 @@ class FiniteHexExplicitResidual:
                     raise ValueError(
                         "Current tangent exceeds the declared spectral ceiling."
                     )
+                if self.cohesive is not None:
+                    self.cohesive.add_to_vector(vector)
+                if not np.isfinite(vector.array).all():
+                    raise ValueError("Non-finite combined finite Hex8 residual.")
             self._trial = trial
             self._trial_displacement = self.internal.displacement.x.array.copy()
             self._trial_time = self.time
@@ -113,6 +155,8 @@ class FiniteHexExplicitResidual:
             if vector is not None:
                 vector.destroy()
             self.internal.response.rollback()
+            if self.cohesive is not None:
+                self.cohesive.rollback()
             self.internal._tangent_available = False
             raise
 
@@ -126,6 +170,8 @@ class FiniteHexExplicitResidual:
         ):
             raise RuntimeError("Displacement changed after the material trial.")
         self.internal.response.commit()
+        if self.cohesive is not None:
+            self.cohesive.commit()
         self.accepted_gradient = self._trial.deformation_gradient.copy()
         self.accepted_time = self.time
         self._trial = None
@@ -162,6 +208,7 @@ class FiniteHexExplicitResidual:
             "time": self.accepted_time,
             "gradient": self.accepted_gradient.copy(),
             "last_bound": self.last_bound,
+            "cohesive": None if self.cohesive is None else self.cohesive.snapshot(),
             "fields": {
                 name: value.x.array.copy() for name, value in self._fields().items()
             },
@@ -191,6 +238,9 @@ class FiniteHexExplicitResidual:
         ):
             raise ValueError("Invalid finite Hex8 checkpoint kinematics/stability.")
         fields = self._fields()
+        expected_cohesive = None if self.cohesive is None else self.cohesive.snapshot()
+        if record.get("cohesive") != expected_cohesive:
+            raise ValueError("Finite Hex8 checkpoint interface identity mismatch.")
         if set(record["fields"]) != set(fields):
             raise ValueError("Finite Hex8 checkpoint fields differ.")
         arrays = {
@@ -213,6 +263,8 @@ class FiniteHexExplicitResidual:
         self._trial_displacement = None
         self._trial_time = None
         self.internal._tangent_available = False
+        if self.cohesive is not None:
+            self.cohesive.rollback()
 
     def summary(self):
         return {
@@ -222,4 +274,8 @@ class FiniteHexExplicitResidual:
             "stability_scope": "caller_path_ceiling_and_endpoint_tangent_screen",
             "omega_squared_bound": self.bound,
             "last_endpoint_bound": self.last_bound,
+            "stability": self.stability.summary(),
+            "interface_scope": None
+            if self.cohesive is None
+            else "isotropic_elastic_reference_area",
         }

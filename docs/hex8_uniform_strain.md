@@ -171,9 +171,22 @@ and checks each endpoint against the nonnegative symmetric-tangent screen.
 Ordinary isochoric J2 extension can fall outside this screen; negative material
 curvature is not by itself a constitutive bug or proof of global instability.
 General wave-speed/curvature treatment remains a gate, not an absolute-value
-workaround. Finite-strain public Step lowering, distributed/portable restart,
-objective nonmatching-interface kinematics and contact composition remain
-unimplemented in this route. The public small-strain policy is unchanged.
+workaround. A private composition now admits the already existing elastic
+nonmatching interface **only when all three separation stiffnesses are equal**.
+Its reference-area potential is `K * |jump|^2 / 2`; traction is parallel to the
+jump. Checked coplanar common refinement and Q1 trace interpolation are retained.
+Tests rotate an already opened interface, check current force/moment balance,
+and exercise joint explicit commit, injected failure and interrupted recovery.
+The combined stable bound adds the interface contribution; it is not the
+minimum of the independent bulk/interface time limits. This is a bounded
+isotropic elastic special case, not a convected anisotropic/damaging interface.
+Unequal normal/tangential stiffness is explicitly rejected. The restriction is
+consistent with the frame-indifference/angular-momentum analysis of
+[Ottosen, Ristinmaa and Mosler (2016)](https://doi.org/10.1016/j.jmps.2016.02.034);
+their general surface-deformation-gradient extension is not implemented here.
+Finite-strain public Step lowering, distributed/portable restart, general
+finite-deformation interface kinematics and contact composition remain
+unimplemented. The public small-strain policy is unchanged.
 The batch stores compact geometry and evaluates forces/tangent actions in
 bounded chunks without retaining dense 24-by-24 element matrices. No measured
 finite-strain whole-solver speedup is claimed.

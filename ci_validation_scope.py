@@ -176,6 +176,8 @@ _CORE_SOURCE_TEST_MAP = {
     ),
     "src/agentfem/mechanics/_finite_hex_explicit.py": (
         "tests/test_finite_hex_explicit.py",
+        "tests/test_finite_hex_interface.py",
+        "tests/test_isotropic_interface_objectivity.py",
         "tests/test_finite_uniform_hex_dolfinx.py",
     ),
     "src/agentfem/mechanics/small_strain_material.py": (
