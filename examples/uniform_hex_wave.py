@@ -1,9 +1,9 @@
 # SPDX-FileCopyrightText: 2026 Haoming Luo and AgentFEM contributors
 # SPDX-License-Identifier: Apache-2.0
-"""Experimental serial elastic Hex8 wave with visible artificial energy.
+"""Experimental elastic Hex8 wave with visible artificial energy, serial or MPI.
 
 Run from an installed AgentFEM environment. No commercial C3D8R equivalence,
-finite rotations, interface damage, or MPI support is implied.
+finite rotations, interface damage, or cross-partition restart is implied.
 """
 
 import argparse
@@ -42,14 +42,15 @@ def main():
     )
     args.output.mkdir(parents=True, exist_ok=True)
     result = step.solve_result(output=args.output / "fields.xdmf")
-    result.write_manifest(args.output / "result.json")
+    result.write_manifest(args.output / "result.json", comm=domain.comm)
     latest = step.history_records[-1]
-    print(
-        f"Completed {step.completed_steps} steps; experimental small-strain elastic Hex8."
-    )
-    print(f"Physical mechanical energy: {latest['total_mechanical_energy']:.6g}")
-    print(f"Artificial hourglass energy: {latest['hourglass_energy']:.6g}")
-    print(f"Results: {args.output.resolve()}")
+    if domain.comm.rank == 0:
+        print(
+            f"Completed {step.completed_steps} steps; experimental small-strain elastic Hex8."
+        )
+        print(f"Physical mechanical energy: {latest['total_mechanical_energy']:.6g}")
+        print(f"Artificial hourglass energy: {latest['hourglass_energy']:.6g}")
+        print(f"Results: {args.output.resolve()}")
 
 
 if __name__ == "__main__":

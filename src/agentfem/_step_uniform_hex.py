@@ -122,6 +122,14 @@ class _Residual:
             "cohesive": None if self.cohesive is None else self.cohesive.snapshot(),
         }
 
+    def summary(self):
+        return {
+            "kind": "uniform_strain_hex8_elastic_residual",
+            "operator_identity": self.identity,
+            "assembly": "owned_cells_reverse_ghost_accumulation",
+            "interface": None if self.cohesive is None else self.cohesive.summary(),
+        }
+
     def restore(self, record):
         if record != self.snapshot():
             raise ValueError("Uniform Hex8 checkpoint operator identity mismatch.")

@@ -24,10 +24,19 @@ def from_transient_step(
     """Build a result after a transient procedure has advanced its state."""
 
     result_started = perf_counter()
+    summary = step.summary()
+    if "performance" in summary:
+        # Step.summary() is an inexpensive rank-local diagnostic. Published
+        # results own the collective timing record attached below; do not embed
+        # a second, rank-dependent copy in otherwise canonical metadata.
+        summary["performance"] = {
+            "source": "SimulationResult.performance",
+            "timing_aggregation": "min_mean_max_across_ranks",
+        }
     result = from_solution(
         solution,
         name=step.name,
-        metadata={"step": step.summary()},
+        metadata={"step": summary},
     )
     if metadata:
         result.metadata.update(dict(metadata))

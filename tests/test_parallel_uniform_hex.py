@@ -298,6 +298,12 @@ def test_ordinary_distributed_hex_result_work_and_partition_restart(
     directory = Path(MPI.COMM_WORLD.bcast(str(tmp_path), root=0))
     reference = ordinary_step(prescribed=prescribed)
     result = reference.solve_result(output=directory / "reference.xdmf")
+    result.write_manifest(directory / "result.json", comm=MPI.COMM_WORLD)
+    assert result.performance["parallel"]["rank_count"] == MPI.COMM_WORLD.size
+    assert (
+        result.metadata["step"]["performance"]["source"]
+        == "SimulationResult.performance"
+    )
     expected = 0.5 * 0.08 * (10e-4) ** 2
     last = reference.history_records[-1]
     assert last["kinetic_energy"] == pytest.approx(expected)
