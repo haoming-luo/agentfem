@@ -3,6 +3,7 @@
 """Private single-point material lowering; commits remain a Procedure decision."""
 
 from dataclasses import dataclass
+from contextlib import contextmanager
 
 import numpy as np
 
@@ -30,7 +31,8 @@ def response_fields(response):
     }
 
 
-def evaluate_material_trial(
+@contextmanager
+def material_trial(
     operator,
     response,
     material,
@@ -82,8 +84,14 @@ def evaluate_material_trial(
                 first_piola=response.first_piola_stress.values,
                 stored_energy_density=updated.strain_energy_density,
             )
-        gradient.setflags(write=False)
-        return FiniteHexMaterialTrial(gradient, element, updated)
-    except Exception:
+            gradient.setflags(write=False)
+            yield FiniteHexMaterialTrial(gradient, element, updated)
+    except BaseException:
         response.rollback()
         raise
+
+
+def evaluate_material_trial(*args, **kwargs):
+    """Standalone evaluation; downstream consumers can extend material_trial."""
+    with material_trial(*args, **kwargs) as trial:
+        return trial

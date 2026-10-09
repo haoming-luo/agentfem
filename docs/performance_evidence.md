@@ -23,6 +23,16 @@ checkpoints still use the existing JSON auxiliary contract; this change avoids
 paying its expansion cost on every increment, rather than claiming a new binary
 checkpoint format or a whole-solver speedup.
 
+`tools/benchmark_finite_hex_trial.py --size 16 --repeats 7` measures a complete
+private serial trial (material, geometry admission, force and spectral screen),
+excluding mesh preparation, commit, restore and I/O. On the same one-thread
+host, caching immutable state-layout sizes and replacing scalar NumPy energy
+sum checks with the identical scalar tolerance reduced the warm median from
+0.27001 s to 0.22358 s (17.2%). The force norm remained 0.7198301095792459.
+Neither material equations nor rejection tolerances changed; boundary tests
+compare both sides of the former NumPy tolerance. `--profile` is diagnostic
+only and must not be enabled for comparable wall-clock measurements.
+
 AgentFEM records execution cost as a first-class part of
 `SimulationResult`. Performance evidence explains the cost of a computation;
 it does not turn a completed solve into a scientifically verified result.

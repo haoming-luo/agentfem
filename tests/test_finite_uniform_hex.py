@@ -18,6 +18,28 @@ def _operator(distorted=False, count=1, chunk_size=2):
     )
 
 
+def test_reference_spectral_cache_is_compact_immutable_and_material_independent():
+    operator = _operator(True, count=5)
+    assert operator._mass_gradient_gram.shape == (5, 3, 3)
+    assert operator._hourglass_spectral_bound.shape == (5,)
+    assert not operator._mass_gradient_gram.flags.writeable
+    assert not operator._hourglass_spectral_bound.flags.writeable
+    assert (
+        operator._mass_gradient_gram.nbytes + operator._hourglass_spectral_bound.nbytes
+        == 5 * 10 * 8
+    )
+
+
+def test_underflowed_lumped_mass_is_rejected_before_spectral_division():
+    with pytest.raises(ValueError, match="coefficients"):
+        FiniteUniformHexBatch(
+            basix.cell.geometry(basix.CellType.hexahedron)[None],
+            density=np.nextafter(0.0, 1.0),
+            hourglass_modulus=30,
+            hourglass_scale=0.1,
+        )
+
+
 def _material(f):
     # Independent compressible Neo-Hookean reference, per reference volume.
     mu, lam = 30, 40

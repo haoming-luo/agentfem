@@ -241,6 +241,7 @@ class MaterialQuadratureResponse:
         time_increment: float,
         properties=(),
         commit: bool = False,
+        max_batch_points: int = 1024,
     ) -> MaterialPointBatchResult:
         comm = self.domain.comm
         contract_problem = None
@@ -277,6 +278,7 @@ class MaterialQuadratureResponse:
             time=time,
             time_increment=time_increment,
             properties=properties,
+            max_batch_points=max_batch_points,
             # Commit only after all derived response fields have been built.
             # Otherwise a postprocessing failure could commit the internal
             # variables while leaving P/S/DPDF at the previous boundary.
@@ -760,6 +762,7 @@ def update_material_points(
     temperature_increment=None,
     field_variables=None,
     commit: bool = False,
+    max_batch_points: int = 1024,
 ) -> MaterialPointBatchResult:
     """Update every local quadrature point as one rollback-safe transaction.
 
@@ -768,10 +771,27 @@ def update_material_points(
     the caller commits only after the structural increment converges.  Any
     local exception restores trial storage to the committed state before the
     exception is propagated.
+
+    Provider batches are bounded independently of mesh size. All chunks read
+    the same accepted state; trial storage is assigned only after every local
+    chunk and MPI rank succeeds. Constitutive updates must be point-local and
+    independent of batch partitioning.
     """
 
     input_problem = None
     try:
+        if (
+            isinstance(max_batch_points, bool)
+            or not isinstance(max_batch_points, (int, np.integer))
+            or max_batch_points < 1
+        ):
+            raise ValueError("max_batch_points must be a positive integer.")
+        if (
+            not np.isfinite(time)
+            or not np.isfinite(time_increment)
+            or time_increment <= 0
+        ):
+            raise ValueError("Material time must be finite and increment positive.")
         regional = isinstance(material, QuadratureMaterialMap)
         if regional:
             if material.domain is not state.domain:
@@ -789,6 +809,8 @@ def update_material_points(
                 "Quadrature and material state schema definitions do not match."
             )
         committed_state = state.committed_state_vectors()
+        if not np.isfinite(committed_state).all():
+            raise ValueError("Committed material state must be finite.")
         point_count = len(committed_state)
         points_per_cell = len(state.reference_field.points)
         if regional and point_count != len(material.cell_regions) * points_per_cell:
@@ -846,6 +868,7 @@ def update_material_points(
         input_problem = f"{type(exc).__name__}: {exc}"
     input_problems = state.domain.comm.allgather(input_problem)
     if any(problem is not None for problem in input_problems):
+        state.rollback()
         rank = next(
             index for index, problem in enumerate(input_problems) if problem is not None
         )
@@ -873,8 +896,7 @@ def update_material_points(
     state.begin()
     local_problem = None
     try:
-        point_materials = []
-        point_inputs = []
+        groups: dict[int, tuple[UserMaterial, list[int]]] = {}
         for index in range(point_count):
             try:
                 selected_material = (
@@ -885,122 +907,107 @@ def update_material_points(
                     if regional
                     else material
                 )
-                point_materials.append(selected_material)
-                point_inputs.append(
-                    MaterialPointInput(
-                        deformation_gradient_old=old_gradients[index],
-                        deformation_gradient_new=new_gradients[index],
-                        time=float(time),
-                        time_increment=float(time_increment),
-                        properties=selected_properties,
-                        state_old=committed_state[index],
-                        state_schema=state.state_schema,
-                        temperature=(
-                            None if temperatures is None else float(temperatures[index])
-                        ),
-                        temperature_increment=(
-                            None
-                            if temperature_increments is None
-                            else float(temperature_increments[index])
-                        ),
-                        field_variables=None if fields is None else fields[index],
-                    )
-                )
+                identity = id(selected_material)
+                if identity not in groups:
+                    groups[identity] = (selected_material, [])
+                groups[identity][1].append(index)
             except Exception as exc:
                 local_problem = (
                     f"material input failed at local quadrature point {index}: "
                     f"{type(exc).__name__}: {exc}"
                 )
                 break
-        responses = [None] * point_count
-        if local_problem is None:
-            groups: dict[int, tuple[UserMaterial, list[int]]] = {}
-            for index, selected_material in enumerate(point_materials):
-                identity = id(selected_material)
-                if identity not in groups:
-                    groups[identity] = (selected_material, [])
-                groups[identity][1].append(index)
-            for selected_material, indices in groups.values():
+
+        def responses_by_chunk():
+            nonlocal material_group_count, provider_batch_calls, scalar_fallback_points
+            for selected_material, all_indices in groups.values():
                 material_group_count += 1
-                if isinstance(selected_material, BatchedUserMaterial):
-                    provider_batch_calls += 1
-                else:
-                    scalar_fallback_points += len(indices)
-                try:
-                    batch_response = validated_material_batch_update(
-                        selected_material,
-                        MaterialPointBatchInput(
-                            tuple(point_inputs[index] for index in indices)
-                        ),
+                for start in range(0, len(all_indices), max_batch_points):
+                    indices = all_indices[start : start + max_batch_points]
+                    point_inputs = tuple(
+                        MaterialPointInput(
+                            deformation_gradient_old=old_gradients[index],
+                            deformation_gradient_new=new_gradients[index],
+                            time=float(time),
+                            time_increment=float(time_increment),
+                            properties=selected_properties,
+                            state_old=committed_state[index],
+                            state_schema=state.state_schema,
+                            temperature=(
+                                None
+                                if temperatures is None
+                                else float(temperatures[index])
+                            ),
+                            temperature_increment=(
+                                None
+                                if temperature_increments is None
+                                else float(temperature_increments[index])
+                            ),
+                            field_variables=None if fields is None else fields[index],
+                        )
+                        for index in indices
                     )
+                    if isinstance(selected_material, BatchedUserMaterial):
+                        provider_batch_calls += 1
+                    else:
+                        scalar_fallback_points += len(indices)
+                    try:
+                        batch_response = validated_material_batch_update(
+                            selected_material,
+                            MaterialPointBatchInput(point_inputs),
+                        )
+                    except Exception as exc:
+                        raise RuntimeError(
+                            "material batch update failed for local quadrature "
+                            f"points {indices[0]}..{indices[-1]}: "
+                            f"{type(exc).__name__}: {exc}"
+                        ) from exc
                     for index, response in zip(
-                        indices,
-                        batch_response.responses,
-                        strict=True,
+                        indices, batch_response.responses, strict=True
                     ):
-                        responses[index] = response
-                except Exception as exc:
-                    local_problem = (
-                        "material batch update failed for local quadrature "
-                        f"points {indices[0]}..{indices[-1]}: "
-                        f"{type(exc).__name__}: {exc}"
-                    )
-                    break
+                        yield index, selected_material, response
+
+        def store_response(index, selected_material, response):
+            nonlocal energy_components
+            stress[index] = response.cauchy_stress
+            tangent[index] = response.consistent_tangent
+            state_new[index] = response.state_new
+            energy[index] = (
+                0.0
+                if response.strain_energy_density is None
+                else response.strain_energy_density
+            )
+            energy_defined[index] = response.strain_energy_density is not None
+            point_components = dict(response.stored_energy_density_components)
+            names = getattr(selected_material, "stored_energy_component_names", None)
+            declared = (
+                None if names is None else {str(name).strip().upper() for name in names}
+            )
+            if declared is not None and set(point_components) != declared:
+                raise ValueError(
+                    "material update returned stored-energy components that differ "
+                    f"from its declared contract at local quadrature point {index}"
+                )
+            if energy_components is None:
+                energy_components = {
+                    name: np.empty(point_count) for name in point_components
+                }
+            if set(point_components) != set(energy_components):
+                raise ValueError(
+                    "material update changed the stored-energy component "
+                    f"contract at local quadrature point {index}"
+                )
+            for name, values in energy_components.items():
+                values[index] = point_components[name]
+            scales[index] = response.suggested_time_scale
+
         if local_problem is None:
-            for index, response in enumerate(responses):
-                selected_material = point_materials[index]
-                if response is None:
-                    local_problem = (
-                        "material batch provider omitted local quadrature "
-                        f"point {index}"
-                    )
-                    break
-                stress[index] = response.cauchy_stress
-                tangent[index] = response.consistent_tangent
-                state_new[index] = response.state_new
-                energy[index] = (
-                    0.0
-                    if response.strain_energy_density is None
-                    else response.strain_energy_density
-                )
-                energy_defined[index] = response.strain_energy_density is not None
-                point_components = dict(response.stored_energy_density_components)
-                declared_component_names = getattr(
-                    selected_material,
-                    "stored_energy_component_names",
-                    None,
-                )
-                declared_components = (
-                    None
-                    if declared_component_names is None
-                    else tuple(
-                        str(name).strip().upper() for name in declared_component_names
-                    )
-                )
-                if declared_components is not None and set(point_components) != set(
-                    declared_components
-                ):
-                    local_problem = (
-                        "material update returned stored-energy components that "
-                        "differ from its declared contract at local quadrature "
-                        f"point {index}"
-                    )
-                    break
-                if energy_components is None:
-                    energy_components = {
-                        name: np.empty(point_count, dtype=float)
-                        for name in point_components
-                    }
-                if set(point_components) != set(energy_components):
-                    local_problem = (
-                        "material update changed the stored-energy component "
-                        "contract at local quadrature point "
-                        f"{index}"
-                    )
-                    break
-                for name, values in energy_components.items():
-                    values[index] = point_components[name]
-                scales[index] = response.suggested_time_scale
+            # Collect failures before any state assignment or MPI barrier.
+            try:
+                for index, selected_material, response in responses_by_chunk():
+                    store_response(index, selected_material, response)
+            except Exception as exc:
+                local_problem = f"{type(exc).__name__}: {exc}"
         problems = state.domain.comm.allgather(local_problem)
         if any(problem is not None for problem in problems):
             rank = next(

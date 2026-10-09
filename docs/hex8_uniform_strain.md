@@ -137,6 +137,13 @@ loading/unloading increments. Its tiny dense Newton loop is a test oracle, not
 a second production solver. Shared Q1 layout preparation is also consumed by
 the existing small-strain operator.
 
+The private assembly exposes one open trial scope through material evaluation,
+force scatter and the Procedure's final checks, avoiding three nested copies of
+the same scratch fields. Downstream exceptions (including interruption) restore
+those fields and discard material trial state. Fixed-reference spectral geometry
+is cached as ten float64 values per cell; material-dependent spectra are still
+recomputed. No stale tangent or unchecked current-cell geometry is reused.
+
 Stored-energy availability is explicit in the shared material batch result:
 missing optional energy is not a physically defined zero. This route rejects
 providers without stored energy, and rejects a material-requested increment

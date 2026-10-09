@@ -47,6 +47,35 @@ def evaluate(residual, law):
     )
 
 
+@pytest.mark.parametrize("exception", [RuntimeError, KeyboardInterrupt])
+def test_open_trial_scope_cleans_up_downstream_failure(exception):
+    from agentfem.elements._finite_uniform_hex_material import response_fields
+
+    u, law, response, residual = setup()
+    before = {
+        name: field.x.array.copy() for name, field in response_fields(response).items()
+    }
+    u.x.array[:] = (0.02 * u.function_space.tabulate_dof_coordinates()).ravel()
+    with pytest.raises(exception):
+        with residual.trial_evaluation(
+            law,
+            deformation_gradient_old=np.tile(
+                np.eye(3), (len(residual.cell_nodes), 1, 1)
+            ),
+            time=0,
+            time_increment=0.1,
+        ) as (vector, trial):
+            assert vector.norm() > 0
+            raise exception("downstream rejection")
+    for name, field in response_fields(response).items():
+        np.testing.assert_array_equal(field.x.array, before[name])
+    np.testing.assert_array_equal(
+        response.state.trial_state_vectors(), response.state.committed_state_vectors()
+    )
+    with pytest.raises(RuntimeError, match="valid material trial"):
+        residual.tangent_action(u.x.array)
+
+
 def test_global_finite_patch_force_moment_and_tangent():
     u, law, response, residual = setup()
     x = u.function_space.tabulate_dof_coordinates()

@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from dataclasses import asdict, replace
+
 import numpy as np
 import pytest
 
@@ -16,6 +18,43 @@ from agentfem.constitutive.user_material import (
     validated_material_batch_update,
     validated_material_update,
 )
+
+
+def test_cached_state_size_preserves_serialization_and_replacement():
+    variable = MaterialStateVariable("tensor", shape=(3, 3))
+    schema = MaterialStateSchema("cached", (variable,))
+    before = asdict(schema)
+    assert variable.size == schema.size == 9
+    assert asdict(schema) == before
+    changed = replace(schema, variables=(MaterialStateVariable("scalar"),))
+    assert changed.size == 1
+    assert schema.size == 9
+    assert MaterialStateSchema("empty").size == 0
+
+
+@pytest.mark.parametrize("energy", [0.0, 1e-20, -1e-20, 1.0, -1.0, 1e20, -1e20])
+@pytest.mark.parametrize("factor", [0.0, 0.99, 1.01, -0.99, -1.01])
+def test_scalar_energy_sum_check_preserves_numpy_tolerance(energy, factor):
+    tolerance = 2e-14 * max(1, abs(energy)) + 2e-12 * abs(energy)
+    component = energy + factor * tolerance
+    accepted = np.isclose(
+        component, energy, rtol=2e-12, atol=2e-14 * max(1, abs(energy))
+    )
+
+    def response():
+        return MaterialPointOutput(
+            cauchy_stress=np.zeros((3, 3)),
+            consistent_tangent=np.eye(6),
+            state_new=[],
+            strain_energy_density=energy,
+            stored_energy_density_components={"ELENER": component},
+        )
+
+    if accepted:
+        response()
+    else:
+        with pytest.raises(ValueError, match="must sum"):
+            response()
 
 
 def test_material_point_contract_copies_and_validates_state():
@@ -176,6 +215,28 @@ def test_validated_material_update_fails_closed_on_contract_drift():
     with pytest.raises(ValueError, match="changed the declared state schema"):
         validated_material_update(DriftingMaterial(), point)
 
+    # Equal advertised name/version/length is insufficient: variable meaning
+    # must not change across the provider boundary.
+    drift = replace(schema, variables=(MaterialStateVariable("plastic_strain"),))
+
+    class SameIdentityMaterial(Material):
+        def update(self, point):
+            return replace(super().update(point), state_schema=drift)
+
+    with pytest.raises(ValueError, match="changed the declared state schema"):
+        validated_material_update(SameIdentityMaterial(), point)
+    with pytest.raises(ValueError, match="changed the declared state schema"):
+        validated_material_batch_update(
+            SameIdentityMaterial(), MaterialPointBatchInput((point,))
+        )
+    invalid_input = replace(point, state_schema=drift)
+    with pytest.raises(ValueError, match="does not match"):
+        validated_material_update(Material(), invalid_input)
+    with pytest.raises(ValueError, match="does not match"):
+        validated_material_batch_update(
+            Material(), MaterialPointBatchInput((invalid_input,))
+        )
+
 
 def test_finite_strain_batch_contract_prefers_provider_batch_and_validates_all():
     schema = MaterialStateSchema(
@@ -302,7 +363,9 @@ def test_first_piola_material_tangent_check_matches_discrete_update():
             deformation_gradient = point.deformation_gradient_new
             inverse_transpose = np.linalg.inv(deformation_gradient).T
             logarithmic_jacobian = np.log(np.linalg.det(deformation_gradient))
-            coefficient = self.lame_parameter * logarithmic_jacobian - self.shear_modulus
+            coefficient = (
+                self.lame_parameter * logarithmic_jacobian - self.shear_modulus
+            )
             first_piola = (
                 self.shear_modulus * deformation_gradient
                 + coefficient * inverse_transpose

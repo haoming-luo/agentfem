@@ -95,9 +95,31 @@ class FiniteUniformHexBatch:
         self.hourglass_coefficient = _frozen(scale * modulus * self.volume ** (1 / 3))
         if (
             not np.isfinite(self.lumped_mass).all()
+            or np.any(self.lumped_mass <= 0)
             or not np.isfinite(self.hourglass_coefficient).all()
         ):
             raise ValueError("Finite Hex8 coefficients overflowed.")
+        # Fixed-reference geometry/mass terms are independent of material state.
+        # Retain only 3x3 Gram and scalar hourglass bounds, never cell matrices.
+        grams, hourglass_bounds = [], []
+        for region in self._regions():
+            gradient = self.average_gradient[region]
+            gamma = self.hourglass_modes[region]
+            inverse_mass = 1 / self.lumped_mass[region]
+            grams.append(np.einsum("caJ,caK,ca->cJK", gradient, gradient, inverse_mass))
+            hourglass_bounds.append(
+                self.hourglass_coefficient[region]
+                * np.linalg.eigvalsh(
+                    np.einsum("cam,can,ca->cmn", gamma, gamma, inverse_mass)
+                )[:, -1]
+            )
+        self._mass_gradient_gram = _frozen(np.concatenate(grams))
+        self._hourglass_spectral_bound = _frozen(np.concatenate(hourglass_bounds))
+        if (
+            not np.isfinite(self._mass_gradient_gram).all()
+            or not np.isfinite(self._hourglass_spectral_bound).all()
+        ):
+            raise ValueError("Finite Hex8 reference spectral geometry overflowed.")
 
     def _regions(self):
         for start in range(0, len(self.coordinates), self.chunk_size):
@@ -244,9 +266,7 @@ class FiniteUniformHexBatch:
             negative_cells += int(np.count_nonzero(eigenvalues[:, 0] < -tolerance))
             # Positive and negative parts are retained separately, never |A|.
             root = vectors * np.sqrt(np.maximum(eigenvalues, 0))[:, None, :]
-            gradient = self.average_gradient[region]
-            mass = self.lumped_mass[region]
-            small = np.einsum("caJ,caK,ca->cJK", gradient, gradient, 1 / mass)
+            small = self._mass_gradient_gram[region]
             gram = np.einsum("ik,cJL->ciJkL", np.eye(3), small).reshape(-1, 9, 9)
             physical = (
                 self.volume[region]
@@ -260,13 +280,7 @@ class FiniteUniformHexBatch:
                 )[:, -1]
             )
             negative_bound = max(negative_bound, float(np.max(negative)))
-            gamma = self.hourglass_modes[region]
-            hourglass = (
-                self.hourglass_coefficient[region]
-                * np.linalg.eigvalsh(
-                    np.einsum("cam,can,ca->cmn", gamma, gamma, 1 / mass)
-                )[:, -1]
-            )
+            hourglass = self._hourglass_spectral_bound[region]
             bound = max(bound, float(np.max(physical + hourglass)))
         if not np.isfinite(bound) or bound <= 0:
             raise ValueError(

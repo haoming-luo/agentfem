@@ -124,13 +124,12 @@ class FiniteHexExplicitResidual:
         vector = None
         self._trial = None
         try:
-            with field_transaction(**response_fields(self.internal.response)):
-                vector, trial = self.internal.evaluate(
-                    self.material,
-                    deformation_gradient_old=self.accepted_gradient,
-                    time=self.accepted_time,
-                    time_increment=dt,
-                )
+            with self.internal.trial_evaluation(
+                self.material,
+                deformation_gradient_old=self.accepted_gradient,
+                time=self.accepted_time,
+                time_increment=dt,
+            ) as (vector, trial):
                 if trial.material_response.minimum_suggested_time_scale < 1:
                     raise ValueError(
                         "Material requested increment reduction; fixed explicit step rejected."
@@ -151,9 +150,7 @@ class FiniteHexExplicitResidual:
             self._trial_time = self.time
             self.last_bound = bound
             return vector
-        except Exception:
-            if vector is not None:
-                vector.destroy()
+        except BaseException:
             self.internal.response.rollback()
             if self.cohesive is not None:
                 self.cohesive.rollback()

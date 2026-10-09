@@ -96,6 +96,8 @@ def test_combined_nonfinite_force_rolls_back_material_and_interface(monkeypatch)
     residual.update_time(1e-5)
     with pytest.raises(ValueError, match="Non-finite combined"):
         residual.assemble_vector()
+    for name, field in residual._fields().items():
+        np.testing.assert_array_equal(field.x.array, before["fields"][name])
     residual.restore(before)
     assert residual.snapshot() == before
 

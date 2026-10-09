@@ -3,6 +3,7 @@
 from dataclasses import replace
 
 import numpy as np
+import pytest
 from dolfinx import mesh
 from mpi4py import MPI
 
@@ -13,6 +14,118 @@ def law():
     return constitutive.finite_strain_j2_logarithmic(
         young=100, poisson=0.3, yield_stress=1, hardening_modulus=2
     )
+
+
+@pytest.mark.parametrize("chunk", [1, 3, 7, 1024])
+def test_material_chunk_partition_does_not_change_response_or_state(chunk):
+    material = law()
+    domain = mesh.create_unit_cube(MPI.COMM_SELF, 2, 1, 1)
+    state = constitutive.MaterialQuadratureState.create(
+        domain, material.state_schema, degree=1
+    )
+    count = len(state.committed_state_vectors())
+    gradient = np.tile(np.eye(3), (count, 1, 1))
+    gradient[:, 0, 0] = np.linspace(1.001, 1.08, count)
+    common = dict(
+        deformation_gradient_old=np.eye(3),
+        deformation_gradient_new=gradient,
+        time=0,
+        time_increment=0.1,
+    )
+    reference = constitutive.update_material_points(
+        material, state, max_batch_points=count, **common
+    )
+    state.rollback()
+    selected = constitutive.update_material_points(
+        material, state, max_batch_points=chunk, **common
+    )
+    for name in (
+        "cauchy_stress",
+        "consistent_tangent",
+        "state_new",
+        "strain_energy_density",
+    ):
+        np.testing.assert_allclose(
+            getattr(selected, name), getattr(reference, name), rtol=1e-12, atol=1e-12
+        )
+    assert selected.provider_batch_calls == (count + chunk - 1) // chunk
+    np.testing.assert_array_equal(state.trial_state_vectors(), selected.state_new)
+    np.testing.assert_array_equal(
+        state.committed_state_vectors(),
+        np.tile(material.state_schema.initial_state(), (count, 1)),
+    )
+
+
+def test_later_chunk_failure_is_collective_and_preserves_entire_state():
+    material = law()
+    domain = mesh.create_unit_cube(MPI.COMM_WORLD, 2, 2, 2)
+    state = constitutive.MaterialQuadratureState.create(
+        domain, material.state_schema, degree=1
+    )
+    before = state.committed_state_vectors().copy()
+
+    class FailingBatch:
+        name = "later chunk failure"
+        state_schema = material.state_schema
+        tangent_convention = material.tangent_convention
+        stored_energy_component_names = material.stored_energy_component_names
+        calls = 0
+
+        def update(self, point):
+            raise AssertionError("Batch path must not use scalar update")
+
+        def update_batch(self, request):
+            self.calls += 1
+            if domain.comm.rank == domain.comm.size - 1 and self.calls == 3:
+                raise ValueError("injected late chunk failure")
+            return material.update_batch(request)
+
+    provider = FailingBatch()
+    with pytest.raises(RuntimeError, match="late chunk failure"):
+        constitutive.update_material_points(
+            provider,
+            state,
+            deformation_gradient_old=np.eye(3),
+            deformation_gradient_new=1.01 * np.eye(3),
+            time=0,
+            time_increment=0.1,
+            max_batch_points=2,
+            commit=True,
+        )
+    np.testing.assert_array_equal(state.committed_state_vectors(), before)
+    np.testing.assert_array_equal(state.trial_state_vectors(), before)
+    assert provider.calls >= 3
+
+
+@pytest.mark.parametrize("chunk", [0, -1, True, 2.5])
+def test_invalid_batch_bound_is_rejected_before_state_mutation(chunk):
+    material = law()
+    domain = mesh.create_unit_cube(MPI.COMM_SELF, 1, 1, 1)
+    state = constitutive.MaterialQuadratureState.create(
+        domain, material.state_schema, degree=1
+    )
+    before = state.committed_state_vectors().copy()
+    constitutive.update_material_points(
+        material,
+        state,
+        deformation_gradient_old=np.eye(3),
+        deformation_gradient_new=np.diag([1.08, 1, 1]),
+        time=0,
+        time_increment=0.1,
+    )
+    assert not np.array_equal(state.trial_state_vectors(), before)
+    with pytest.raises(RuntimeError, match="max_batch_points"):
+        constitutive.update_material_points(
+            material,
+            state,
+            deformation_gradient_old=np.eye(3),
+            deformation_gradient_new=np.eye(3),
+            time=0,
+            time_increment=0.1,
+            max_batch_points=chunk,
+        )
+    np.testing.assert_array_equal(state.committed_state_vectors(), before)
+    np.testing.assert_array_equal(state.trial_state_vectors(), before)
 
 
 def test_missing_energy_is_not_reported_as_defined_zero():

@@ -314,7 +314,7 @@ and evidence remain in the linked guides and scientific function reference.
 | class | `MaterialPointBatchResult` | Responses from one atomic integration-point constitutive update. |
 | class | `MaterialQuadratureResponse` | Quadrature stress/tangent fields sharing one typed state transaction. |
 | class | `SmallStrainMaterialQuadratureResponse` | Rollback-safe local state and fields for a generic small-strain material. |
-| function | `update_material_points(material: UserMaterial \| QuadratureMaterialMap, state: MaterialQuadratureState, *, deformation_gradient_old, deformation_gradient_new, time: float, time_increment: float, properties = (), temperature = None, temperature_increment = None, field_variables = None, commit: bool = False) -> MaterialPointBatchResult` | Update every local quadrature point as one rollback-safe transaction. |
+| function | `update_material_points(material: UserMaterial \| QuadratureMaterialMap, state: MaterialQuadratureState, *, deformation_gradient_old, deformation_gradient_new, time: float, time_increment: float, properties = (), temperature = None, temperature_increment = None, field_variables = None, commit: bool = False, max_batch_points: int = 1024) -> MaterialPointBatchResult` | Update every local quadrature point as one rollback-safe transaction. |
 | class | `ChabocheCombinedHardening` | Small-strain J2 plasticity with nonlinear combined hardening. |
 | class | `ChabocheState` | History for small-strain combined isotropic/kinematic hardening. |
 | class | `J2LinearIsotropicHardening` | Rate-independent von Mises plasticity with linear isotropic hardening. |

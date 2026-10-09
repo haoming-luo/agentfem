@@ -3,11 +3,11 @@
 """Private serial total-Lagrangian assembly; no time integration or acceptance."""
 
 import numpy as np
+from contextlib import contextmanager
 
 from ._finite_uniform_hex import FiniteUniformHexBatch
-from ._finite_uniform_hex_material import evaluate_material_trial, response_fields
+from ._finite_uniform_hex_material import material_trial
 from ._hex_dolfinx_layout import prepare_layout
-from ..state import field_transaction
 
 
 class FiniteUniformHexResidual:
@@ -80,22 +80,42 @@ class FiniteUniformHexResidual:
 
     def evaluate(self, material, *, deformation_gradient_old, time, time_increment):
         """Return (owned PETSc force vector, unaccepted material/element trial)."""
+        with self.trial_evaluation(
+            material,
+            deformation_gradient_old=deformation_gradient_old,
+            time=time,
+            time_increment=time_increment,
+        ) as result:
+            return result
+
+    @contextmanager
+    def trial_evaluation(
+        self, material, *, deformation_gradient_old, time, time_increment
+    ):
+        """One rollback scope through material, assembly and caller validation.
+
+        The caller owns the returned vector after successful scope exit; on
+        failure this scope destroys it. Material acceptance remains explicit.
+        """
         self._tangent_available = False
+        vector = None
         try:
-            with field_transaction(**response_fields(self.response)):
-                trial = evaluate_material_trial(
-                    self.cells,
-                    self.response,
-                    material,
-                    self.displacement.x.array.reshape(-1, 3)[self.cell_nodes],
-                    deformation_gradient_old=deformation_gradient_old,
-                    time=time,
-                    time_increment=time_increment,
-                )
+            with material_trial(
+                self.cells,
+                self.response,
+                material,
+                self.displacement.x.array.reshape(-1, 3)[self.cell_nodes],
+                deformation_gradient_old=deformation_gradient_old,
+                time=time,
+                time_increment=time_increment,
+            ) as trial:
                 vector = self._scatter(trial.element_response.internal_force)
-            self._tangent_available = True
-            return vector, trial
-        except Exception:
+                self._tangent_available = True
+                yield vector, trial
+        except BaseException:
+            if vector is not None:
+                vector.destroy()
+            self._tangent_available = False
             self.response.rollback()
             raise
 

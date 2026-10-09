@@ -96,15 +96,13 @@ def test_explicit_increment_uses_array_snapshot_not_json_lists(monkeypatch):
 def test_material_cutback_request_rejects_increment_and_restores_state(monkeypatch):
     step = make_step()
     saved = step.residual.snapshot()
-    original = step.residual.internal.evaluate
+    original = step.residual.internal.response.update
 
     def request_cutback(*args, **kwargs):
-        vector, trial = original(*args, **kwargs)
-        result = trial.material_response
-        result = replace(result, suggested_time_scale=np.full(result.point_count, 0.5))
-        return vector, replace(trial, material_response=result)
+        result = original(*args, **kwargs)
+        return replace(result, suggested_time_scale=np.full(result.point_count, 0.5))
 
-    monkeypatch.setattr(step.residual.internal, "evaluate", request_cutback)
+    monkeypatch.setattr(step.residual.internal.response, "update", request_cutback)
     with pytest.raises(ValueError, match="requested increment reduction"):
         step.run()
     assert step.completed_steps == 0

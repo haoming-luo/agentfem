@@ -86,6 +86,18 @@ output alias, unit, or schema version cannot silently reuse an incompatible
 archive. This container provides storage and atomic lifecycle only; the
 material update and global residual remain separate consumers.
 
+Finite-strain `update_material_points(...)` and `MaterialQuadratureResponse.update(...)`
+bound provider calls with `max_batch_points=1024` by default. This limits temporary
+Python input/response objects independently of mesh size; final numeric fields
+still scale with the number of integration points. Users can explicitly choose
+another positive bound. A provider must produce point-local responses independent
+of batch partitioning. Every chunk reads committed history; no trial field is
+assigned until all chunks and ranks succeed. A later-chunk failure rejects the
+whole update, not only that chunk. Result evidence counts actual provider calls.
+Input/output state definitions are compared in full, not only by name/version.
+Optional stored energy has an explicit availability mask; a missing value is
+not certified as a physically defined zero.
+
 For a provider that declares the total-Lagrangian convention
 (mathbb A=\partial\mathbf P/\partial\mathbf F), the discrete update can be
 checked directly:
