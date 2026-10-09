@@ -181,7 +181,10 @@ and same-partition checkpoint recovery. Tests inject failure even after material
 commit and reproduce the uninterrupted trajectory after retry. A serial user
 interruption likewise restores the accepted nodal, material and
 interface station before propagating cancellation; this is not coordinated
-recovery from an arbitrary MPI process failure. A constrained
+recovery from an arbitrary MPI process failure. Cancellation after auxiliary
+checkpoint restoration also restores the complete pre-load station before
+propagating, and a subsequent continuation reproduces an uninterrupted run.
+A constrained
 one-cell elastic Hencky bar is checked against an independently integrated ODE,
 `m_eff u'' + C log(1+u)/(1+u) = 0`, with extension exceeding 10% and second-order
 time refinement over three increment sizes. This checks temporal integration

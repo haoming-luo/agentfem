@@ -97,6 +97,16 @@ reuses the elastic nonmatching interface in the equal-three-stiffness special
 case, with opened-interface objectivity, current moment, joint recovery and
 post-commit failure checks. This does not admit anisotropic/damaging finite
 interfaces, contact or distributed interface state.
+The shared finite-material driver now offers optional validated columnar
+batches, retaining scalar/ordered providers and the same atomic trial boundary.
+Native J2 uses its existing constitutive equations through this transport;
+no new material formulation or provider framework is introduced. Serial
+numeric-array auxiliary checkpoints avoid JSON expansion and preserve legacy
+reads, but do not promote finite-Hex MPI portability. Spatial refinement uses
+an independent manufactured Neo-Hookean problem on regular and bounded
+distorted meshes. Large affine endurance runs are capacity evidence only;
+they do not replace nonuniform spatial or industrial validation. The remaining
+promotion gates above are unchanged.
 Do not infer these gates from local element tests or reuse the small-strain
 constant spectral bound for a finite-deformation trajectory.
 Its stable middle layer is:

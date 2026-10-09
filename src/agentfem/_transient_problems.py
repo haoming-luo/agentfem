@@ -1861,7 +1861,10 @@ def _load_transient_checkpoint(step, path, state) -> None:
         "accepted_times", "execution_events", "history_records", "checkpoints")}
     try:
         _load_transient_checkpoint_impl(step, path, state)
-    except Exception as failure:
+    except BaseException as failure:
+        # Serial cancellation during auxiliary/input restoration must not leave
+        # nodal fields from one station and material history from another.
+        # This does not claim recovery from a lost MPI rank.
         step.completed_steps = old_completed
         for name, value in lists.items():
             getattr(step, name)[:] = value

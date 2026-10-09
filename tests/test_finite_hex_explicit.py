@@ -198,6 +198,48 @@ def test_changed_stability_identity_rejects_restart_without_modification(tmp_pat
         np.testing.assert_array_equal(target.state.snapshot()["fields"][name], value)
 
 
+@pytest.mark.parametrize("exception", [RuntimeError, KeyboardInterrupt, SystemExit])
+def test_interrupted_auxiliary_restore_restores_preload_station(
+    tmp_path, monkeypatch, exception
+):
+    source = make_step()
+    source.run(until_step=3)
+    path = source.save_checkpoint(tmp_path / "interrupted-restore")
+    target = make_step()
+    target.run(until_step=1)
+    nodal = target.state.snapshot()
+    material = target.residual.snapshot()
+    histories = {
+        name: list(getattr(target, name))
+        for name in ("accepted_times", "execution_events", "history_records", "checkpoints")
+    }
+    original = target.residual.restore
+    calls = 0
+
+    def interrupt_after_restore(record):
+        nonlocal calls
+        original(record)
+        calls += 1
+        if calls == 1:
+            raise exception("injected restore interruption")
+
+    monkeypatch.setattr(target.residual, "restore", interrupt_after_restore)
+    with pytest.raises(exception, match="restore interruption"):
+        target.load_checkpoint(path)
+    assert calls == 2
+    assert target.completed_steps == 1
+    assert target.residual.snapshot() == material
+    for name, values in histories.items():
+        assert getattr(target, name) == values
+    for name, value in nodal["fields"].items():
+        np.testing.assert_array_equal(target.state.snapshot()["fields"][name], value)
+    target.run()
+    reference = make_step()
+    reference.run()
+    assert target.residual.snapshot() == reference.residual.snapshot()
+    np.testing.assert_array_equal(target.state.u.value.x.array, reference.state.u.value.x.array)
+
+
 def test_binary_checkpoint_does_not_expand_material_arrays_to_json(
     tmp_path, monkeypatch
 ):
