@@ -176,6 +176,12 @@ class _Energy:
 
 class UniformHexStep(ExplicitDynamicsStep):
     def solve_result(self, *, field_variables=None, fields=(), **options):
+        # All ranks must enter the same live-field collectives, including when
+        # one caller accidentally mixes explicit fields and named selection.
+        comm = self.residual.internal.comm
+        modes = comm.allgather((field_variables is None, bool(fields)))
+        if any(mode != modes[0] for mode in modes):
+            raise ValueError("Uniform Hex8 output mode differs across MPI ranks.")
         if field_variables is None:
             return super().solve_result(fields=fields, **options)
         if fields:

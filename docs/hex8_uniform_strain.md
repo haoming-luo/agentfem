@@ -88,6 +88,13 @@ publication uncovered and fixed a duplicate rank-local timing record and an
 unstable Python-object representation in Step metadata. Timing now uses the
 existing min/mean/max performance evidence, while residual identity is explicit.
 
+Candidate `8ab39cd3` additionally passes installed ordinary-Step/interface tests
+(14 selected tests), plus a two-rank 100-step wave with constitutive DG0 fields
+and a collectively published, integrity-verified manifest. This checks packaging
+and publication, not independent physical validation. Serial field regressions
+separately verify tensor shear, material stress jumps and the integral of physical
+energy density against the accepted energy history.
+
 For imported `C3D8R`, the migration report continues to say `topology_only`.
 It points to this explicitly selected alternative but never silently substitutes
 it for the source formulation, material updates or section controls.

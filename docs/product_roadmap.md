@@ -59,6 +59,15 @@ output and same-partition restart evidence. Nonmatching interface communication
 and cross-partition restart remain unsupported. Rank-local input failures and
 work sampling on partitions without constrained nodes now have collective guards.
 
+The Hex8 result path now exports optional constitutive DG0 stress, tensor strain,
+von Mises stress and physical energy density through the existing transient
+result lifecycle. Material jumps are retained, artificial stabilization stress
+is not mixed into material stress, and field provenance records the generating
+formulation. An installed two-rank candidate exercises this path independently
+of source-tree imports. Bounded energy-only monitoring and local scatter maps
+reduce measured run time by about 26% on one 8,192-cell elastic workload; this
+is a workload-specific measurement, not a general performance guarantee.
+
 Hex8 geometry admission now uses bounded Bernstein subdivision of the
 triquadratic Jacobian determinant, rejecting hidden inversion and unresolved
 near-degeneracy before assembly. This does not certify approximation quality or

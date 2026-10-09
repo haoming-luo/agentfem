@@ -337,6 +337,19 @@ def test_ordinary_hex_step_tolerates_empty_owned_cell_partition():
     )
 
 
+@pytest.mark.parametrize("mismatch", ["mode", "selection", "unknown"])
+def test_hex_output_selection_failure_is_collective_before_advance(mismatch):
+    if MPI.COMM_WORLD.size < 2:
+        pytest.skip("requires multiple ranks")
+    step = ordinary_step()
+    selection = ("S",)
+    if MPI.COMM_WORLD.rank == 1:
+        selection = {"mode": None, "selection": ("E",), "unknown": ("DAMAGE",)}[mismatch]
+    with pytest.raises((ValueError, RuntimeError), match="(?i)(rank|support|collectiv)"):
+        step.solve_result(field_variables=selection)
+    assert step.completed_steps == 0
+
+
 def test_distributed_material_regions_preserve_owned_mass_and_affine_force():
     from agentfem import constitutive, elements, fields, models, studies
     from agentfem import mesh as mesh_api
