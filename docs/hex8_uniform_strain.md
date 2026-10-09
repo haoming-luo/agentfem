@@ -178,7 +178,10 @@ local curvature finding is not reported as a structural instability verdict.
 The private serial residual lifecycle now runs under the existing central-
 difference Procedure with joint nodal/material rejection, accepted-time guards,
 and same-partition checkpoint recovery. Tests inject failure even after material
-commit and reproduce the uninterrupted trajectory after retry. A constrained
+commit and reproduce the uninterrupted trajectory after retry. A serial user
+interruption likewise restores the accepted nodal, material and
+interface station before propagating cancellation; this is not coordinated
+recovery from an arbitrary MPI process failure. A constrained
 one-cell elastic Hencky bar is checked against an independently integrated ODE,
 `m_eff u'' + C log(1+u)/(1+u) = 0`, with extension exceeding 10% and second-order
 time refinement over three increment sizes. This checks temporal integration

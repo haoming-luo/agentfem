@@ -155,7 +155,8 @@ def test_corrupt_auxiliary_record_is_rejected_before_assignment():
     assert step.residual.snapshot() == saved
 
 
-def test_failure_after_material_commit_restores_entire_accepted_station(monkeypatch):
+@pytest.mark.parametrize("exception", [RuntimeError, KeyboardInterrupt, SystemExit])
+def test_failure_after_material_commit_restores_entire_accepted_station(monkeypatch, exception):
     step = make_step()
     step.run(until_step=2)
     nodal = step.state.snapshot()
@@ -164,10 +165,10 @@ def test_failure_after_material_commit_restores_entire_accepted_station(monkeypa
 
     def fail_after_commit():
         original()
-        raise RuntimeError("injected post-commit failure")
+        raise exception("injected post-commit failure")
 
     monkeypatch.setattr(step.residual, "commit", fail_after_commit)
-    with pytest.raises(RuntimeError, match="post-commit"):
+    with pytest.raises(exception, match="post-commit"):
         step.run()
     assert step.completed_steps == 2
     assert step.residual.snapshot() == material

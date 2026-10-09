@@ -129,8 +129,9 @@ def dynamic_step():
     )
 
 
+@pytest.mark.parametrize("exception", [RuntimeError, KeyboardInterrupt])
 def test_combined_explicit_restart_and_post_interface_commit_failure(
-    tmp_path, monkeypatch
+    tmp_path, monkeypatch, exception
 ):
     reference = dynamic_step()
     reference.run()
@@ -145,10 +146,10 @@ def test_combined_explicit_restart_and_post_interface_commit_failure(
 
     def fail_after_commit():
         original()
-        raise RuntimeError("injected interface post-commit")
+        raise exception("injected interface post-commit")
 
     monkeypatch.setattr(resumed.residual.cohesive, "commit", fail_after_commit)
-    with pytest.raises(RuntimeError, match="interface post-commit"):
+    with pytest.raises(exception, match="interface post-commit"):
         resumed.run()
     assert resumed.completed_steps == 2
     assert resumed.residual.snapshot() == saved

@@ -377,7 +377,9 @@ class ExplicitDynamicsStep:
             )
             if hasattr(self.residual, "commit"):
                 self.residual.commit()
-        except Exception as failure:
+        except BaseException as failure:
+            # A user interrupt is still a rejected increment. Restore the
+            # accepted station before propagating it; never swallow cancellation.
             accepted_time = self.completed_steps * self.dt
             try:
                 if residual_state is not None:
