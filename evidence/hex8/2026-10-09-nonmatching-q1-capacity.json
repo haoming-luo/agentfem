@@ -1,0 +1,26 @@
+{
+  "schema": "agentfem.nonmatching-q1-capacity.v1",
+  "scope": "serial_fixed_reference_coplanar_q1_polynomial_and_virtual_work",
+  "negative_facets": 8836,
+  "positive_facets": 4900,
+  "quadrature_points": 771252,
+  "maximum_points": 1000000,
+  "pairing_fingerprint": "d40e7b928caec169d014043839a07b1be34e8ff64c83705ec0864ef6ef1f06f3",
+  "coverage_check": "coplanar-per-facet-area-and-self-overlap-checked",
+  "nodal_measure_relative_errors": {
+    "negative": 3.721201798259207e-15,
+    "positive": 3.242024543659922e-15
+  },
+  "polynomial_energy_absolute_error": 1.1102230246251565e-16,
+  "resultant_force_norm": 6.661338147750939e-15,
+  "reference_moment_norm": 1.88411095042053e-15,
+  "virtual_work_relative_error": 0.0,
+  "seed": 561,
+  "pairing_preparation_seconds": 16.832985375076532,
+  "total_seconds": 18.43730533309281,
+  "peak_rss_bytes": 1095172096,
+  "numpy_version": "2.4.6",
+  "accepted": true,
+  "revision": "41e2638ff9b357075f374a21ec8ed3f4f782bd74",
+  "tracked_source_dirty": false
+}

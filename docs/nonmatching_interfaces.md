@@ -201,6 +201,18 @@ were identical. Random rotated-box and point-touch queries also match exhaustive
 candidate enumeration. This changes broad-phase overhead, not integration rules
 or the narrow-phase algorithm; it is not an additional per-step speedup.
 
+The bounded capacity oracle `tools/verify_nonmatching_capacity.py` additionally
+checks 8,836 versus 4,900 affine Q1 facets on independent unit-square grids.
+It creates 771,252 integration points with an explicitly requested one-million
+point ceiling. Independent `u_z=x*y` energy, resultant force/reference moment,
+nodal measures and matrix-free virtual work agree to roundoff. Peak process
+RSS is 1,095,172,096 bytes on the development host. The raw clean-revision record
+is `evidence/hex8/2026-10-09-nonmatching-q1-capacity.json`.
+Its wall time overlapped a separate endurance job and is not speed evidence.
+The default 200,000-point safety ceiling is unchanged: callers must deliberately
+raise `maximum_points` for such a map. This is process-local reference-interface
+capacity, not distributed execution or an industrial forming reproduction.
+
 The installed-use example `examples/nonmatching_hex_bond.py` starts from two
 independent Gmsh meshes and named boundaries, then solves through ordinary
 `model.step`. It writes fields and a result manifest and checks interface energy
