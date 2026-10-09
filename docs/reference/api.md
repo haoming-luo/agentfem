@@ -350,6 +350,9 @@ and evidence remain in the linked guides and scientific function reference.
 | function | `check_material_tangent(material: UserMaterial, point: MaterialPointInput, *, relative_step: float = 1e-07, tolerance: float = 1e-05) -> MaterialTangentCheck` | Compare a declared ``dP/dF`` against fixed-state finite differences. |
 | function | `validated_material_batch_update(material: UserMaterial, request: MaterialPointBatchInput) -> MaterialPointBatchOutput` | Evaluate a provider batch, falling back to the scalar contract. |
 | function | `validated_material_update(material: UserMaterial, point: MaterialPointInput) -> MaterialPointOutput` | Run one material update and verify the complete solver contract. |
+| class | `MaterialPointArrayBatchInput` | Read-only finite-strain arrays sharing one schema, time and parameter set. |
+| class | `MaterialPointArrayBatchOutput` | Stress, declared tangent and uncommitted state in matching point order. |
+| function | `validated_material_array_batch_update(material: UserMaterial, request: MaterialPointArrayBatchInput) -> MaterialPointArrayBatchOutput` | Validate one columnar batch; failures never silently fall back. |
 | class | `MaterialApplicabilityError(status: str, message: str) -> None` | A material refused to extrapolate or accepted state was invalid. |
 | class | `MaterialParameter` | One named, unit-aware constitutive parameter. |
 | class | `MaterialParameterSchema` | Stable named parameter layout for native and external materials. |

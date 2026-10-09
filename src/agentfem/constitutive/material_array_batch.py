@@ -32,6 +32,7 @@ def _array(value, shape, label):
 
 @dataclass(frozen=True)
 class MaterialPointArrayBatchInput:
+    """Read-only finite-strain arrays sharing one schema, time and parameter set."""
     deformation_gradient_old: np.ndarray
     deformation_gradient_new: np.ndarray
     state_old: np.ndarray
@@ -91,6 +92,11 @@ class MaterialPointArrayBatchInput:
 
 @dataclass(frozen=True)
 class MaterialPointArrayBatchOutput:
+    """Stress, declared tangent and uncommitted state in matching point order.
+
+    Optional energy channels use the same reference-volume convention as
+    MaterialPointOutput. No clipping or thermodynamic approval is implied.
+    """
     cauchy_stress: np.ndarray
     consistent_tangent: np.ndarray
     state_new: np.ndarray
@@ -173,7 +179,9 @@ class MaterialPointArrayBatchOutput:
         return len(self.cauchy_stress)
 
 
-def validated_material_array_batch_update(material, request):
+def validated_material_array_batch_update(
+    material: UserMaterial, request: MaterialPointArrayBatchInput
+) -> MaterialPointArrayBatchOutput:
     """Validate one columnar batch; failures never silently fall back."""
     if not isinstance(material, UserMaterial):
         raise TypeError(
