@@ -71,6 +71,7 @@ class FixedReferencePairing:
     reference_mismatch: np.ndarray
     tolerance: float
     fingerprint: str
+    method: str
 
     def jump(self, negative_displacement, positive_displacement):
         un = _field(
@@ -104,11 +105,15 @@ class FixedReferencePairing:
         return {
             "schema": "agentfem.fixed-reference-pairing.v1",
             "fingerprint": self.fingerprint,
-            "method": "single-sided-triangle-projected-quadrature",
-            "integration_side": "negative",
+            "method": self.method,
+            "integration_side": (
+                "common-refinement"
+                if self.method == "coplanar-triangle-common-refinement"
+                else "negative"
+            ),
             "quadrature_points": len(self.weights),
-            "quadrature_points_per_negative_facet": len(self.weights)
-            // len(self.negative.triangles),
+            "mean_quadrature_points_per_negative_facet": len(self.weights)
+            / len(self.negative.triangles),
             "reference_area": float(self.weights.sum()),
             "maximum_reference_mismatch": float(
                 np.linalg.norm(self.reference_mismatch, axis=1).max()
@@ -116,7 +121,11 @@ class FixedReferencePairing:
             "coincidence_tolerance": self.tolerance,
             "normal_convention": "negative-side-oriented-normal",
             "execution_scope": "process-local-trace-operator",
-            "coverage": "integration-points-only-not-overlap-proof",
+            "coverage": (
+                "coplanar-per-facet-area-and-self-overlap-checked"
+                if self.method == "coplanar-triangle-common-refinement"
+                else "integration-points-only-not-overlap-proof"
+            ),
             "finite_rotation_law": False,
             "global_step_integrated": False,
         }
@@ -239,8 +248,20 @@ def fixed_reference_pairing(
         "normals": normals,
         "reference_mismatch": projection.closest_points - query,
     }
+    return _make_pairing(
+        negative,
+        positive,
+        tolerance,
+        values,
+        "single-sided-triangle-projected-quadrature",
+    )
+
+
+def _make_pairing(negative, positive, tolerance, values, method):
+    """Seal trace arrays and bind method identity for all reference factories."""
     result = object.__new__(FixedReferencePairing)
     digest = sha256(b"agentfem.fixed-reference-pairing.v1")
+    digest.update(method.encode())
     digest.update(negative.geometry_fingerprint.encode())
     digest.update(positive.geometry_fingerprint.encode())
     digest.update(np.asarray([tolerance], dtype="<f8").tobytes())
@@ -257,6 +278,7 @@ def fixed_reference_pairing(
         positive=positive,
         tolerance=tolerance,
         fingerprint=digest.hexdigest(),
+        method=method,
     ).items():
         object.__setattr__(result, name, value)
     return result
@@ -347,6 +369,21 @@ class FixedReferenceCohesiveAssembler:
             raise RuntimeError("No nonmatching cohesive trial to commit.")
         self.state.commit()
         self._trial = None
+
+    def tangent_blocks(self, negative, positive):
+        """Yield point-local 18-by-18 blocks; never allocate a dense global matrix."""
+        point = self._point_response(negative, positive, begin=False)
+        pair = self.pairing
+        for q, weight in enumerate(pair.weights):
+            shape = np.concatenate(
+                (-pair.negative_weights[q], pair.positive_weights[q])
+            )
+            matrix = np.einsum("a,ij,b->aibj", shape, point["tangent"][q, 0], shape)
+            yield (
+                pair.negative_nodes[q],
+                pair.positive_nodes[q],
+                weight * matrix.reshape(18, 18),
+            )
 
     def rollback(self):
         self.state.rollback()

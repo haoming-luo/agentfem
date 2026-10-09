@@ -4,6 +4,13 @@ The initial implementation is an internal, process-local reference trace
 operator, **not yet an executable `model.step` interface provider**. Existing
 matched cohesive laws and their transactions remain the constitutive owner.
 
+The serial P1 lowering now adds the same residual and tangent to the existing
+PETSc cohesive assembly. A separate two-block test verifies reaction,
+interface opening and interface energy against the exact series compliance
+`2/E + 1/Kn` for unit-area, unit-length blocks (Poisson ratio zero), using
+matching and nonmatching tetrahedral meshes. This is global assembly evidence,
+not yet an ordinary Step, MPI, finite-strain or forming capability.
+
 ## Ownership and numerical contract
 
 - Pairing owns reference surface identity, projection, interpolation and
@@ -43,6 +50,18 @@ more than 70% nodal-force error despite balanced total forces. This necessary
 patch check neither certifies complete overlap nor estimates arbitrary
 traction error. Refinement must be chosen before creating material state;
 changing quadrature changes the checkpoint identity.
+
+The bounded alternative `planar_overlap_pairing` constructs common-refinement
+integration triangles while retaining both original P1 bases. Existing BVH
+AABB queries select candidates; convex clipping supplies the narrow phase.
+Every facet must have complete area coverage to relative tolerance `1e-9`,
+and within-side overlapping triangles are rejected. Geometry is restricted to
+coincident coplanar triangles. Three-point quadrature integrates products of
+the two P1 traces exactly on each overlap, not arbitrary nonlinear tractions.
+Tests include 1:3 and 3:2 ratios, perturbed internal nodes, rotated planes,
+side-swap energy/residual equivalence and reference force/moment balance.
+The pairing fingerprint includes the integration method. No Lagrange
+multiplier or dual mortar formulation is claimed.
 
 The trace preserves common rigid displacement at coincident points, including
 finite rotation of a closed interface. This does **not** establish objective
@@ -105,3 +124,7 @@ mesh/DOF/assembly owner; add only the missing formulation contribution.
   https://doi.org/10.1002/nme.1620170504.
 - Belytschko and Bindeman (1993), *Assumed strain stabilization of the eight
   node hexahedral element*. https://doi.org/10.1016/0045-7825(93)90124-G.
+- *3D Common-Refinement Method for Non-Matching Meshes in Partitioned
+  Variational Fluid-Structure Analysis*, https://arxiv.org/abs/1711.01773.
+  Common-refinement integration motivation; not a claim to reproduce that
+  fluid-structure solver.

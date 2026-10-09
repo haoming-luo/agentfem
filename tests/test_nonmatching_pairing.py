@@ -9,6 +9,7 @@ from agentfem._interface_pairing import (
 )
 from agentfem.interfaces import bilinear_cohesive
 from agentfem._elastic_cohesive import ElasticCohesiveLaw
+from agentfem._interface_overlap import planar_overlap_pairing
 from agentfem.boundary_models.rigid import TriangulatedRigidSurface
 
 
@@ -25,6 +26,96 @@ def surface(n, *, reverse=False, offset=0):
     if reverse:
         triangles = triangles[:, ::-1]
     return TriangulatedRigidSurface(vertices, triangles)
+
+
+@pytest.mark.parametrize("n,m", [(1, 1), (1, 3), (3, 2), (2, 5)])
+def test_overlap_nodal_patch_and_side_swap(n, m):
+    a, b = surface(n), surface(m, reverse=True)
+    pair = planar_overlap_pairing(a, b, tolerance=1e-10)
+    swapped = planar_overlap_pairing(b, a, tolerance=1e-10)
+    for item in pair.constant_traction_audit()["sides"].values():
+        assert item["relative_nodal_measure_error_l2"] < 1e-12
+    assert pair.weights.sum() == pytest.approx(1)
+    rng = np.random.default_rng(16)
+    un, up = rng.normal(size=a.vertices.shape), rng.normal(size=b.vertices.shape)
+    jump = pair.jump(un, up)
+    other = swapped.jump(up, un)
+    energy = np.sum(pair.weights[:, None] * jump**2)
+    assert np.sum(swapped.weights[:, None] * other**2) == pytest.approx(
+        energy, rel=1e-12
+    )
+    rn, rp = pair.residual(jump)
+    sp, sn = swapped.residual(other)
+    np.testing.assert_allclose(rn, sn, atol=1e-12)
+    np.testing.assert_allclose(rp, sp, atol=1e-12)
+
+
+def test_overlap_unstructured_trace_and_rotated_plane():
+    a, b = surface(3), surface(4, reverse=True)
+    vertices = b.vertices.copy()
+    inside = np.all((vertices[:, :2] > 0) & (vertices[:, :2] < 1), axis=1)
+    vertices[inside, :2] += np.random.default_rng(4).uniform(
+        -0.04, 0.04, (inside.sum(), 2)
+    )
+    rotation, _ = np.linalg.qr(np.random.default_rng(9).normal(size=(3, 3)))
+    shift = np.array([1.3, -2.1, 0.4])
+    a = TriangulatedRigidSurface(a.vertices @ rotation.T + shift, a.triangles)
+    b = TriangulatedRigidSurface(vertices @ rotation.T + shift, b.triangles)
+    pair = planar_overlap_pairing(a, b, tolerance=1e-10)
+    for item in pair.constant_traction_audit()["sides"].values():
+        assert item["relative_nodal_measure_error_l2"] < 1e-12
+    traction = np.tile([0.3, -0.7, 1.2], (len(pair.weights), 1))
+    rn, rp = pair.residual(traction)
+    np.testing.assert_allclose(rn.sum(axis=0) + rp.sum(axis=0), 0, atol=1e-13)
+    np.testing.assert_allclose(
+        np.cross(a.vertices, rn).sum(axis=0) + np.cross(b.vertices, rp).sum(axis=0),
+        0,
+        atol=1e-13,
+    )
+    np.testing.assert_allclose(pair.jump(a.vertices, b.vertices), 0, atol=1e-13)
+
+
+def test_overlap_rejects_geometrically_overlapping_disconnected_facets():
+    vertices = np.array(
+        [[0, 0, 0], [1, 0, 0], [0, 1, 0], [0.1, 0.1, 0], [0.8, 0.1, 0], [0.1, 0.8, 0]]
+    )
+    duplicate_area = TriangulatedRigidSurface(
+        vertices, np.array([[0, 1, 2], [3, 4, 5]])
+    )
+    with pytest.raises(ValueError, match="Within-side"):
+        planar_overlap_pairing(
+            duplicate_area, surface(1, reverse=True), tolerance=1e-10
+        )
+
+
+def test_overlap_rejects_missing_coverage_and_point_budget():
+    a, b = surface(2), surface(3, reverse=True)
+    with pytest.raises(ValueError, match="maximum_points"):
+        planar_overlap_pairing(a, b, tolerance=1e-10, maximum_points=3)
+    vertices = b.vertices.copy()
+    vertices[:, 0] *= 0.9
+    truncated = TriangulatedRigidSurface(vertices, b.triangles)
+    with pytest.raises(ValueError, match="coverage"):
+        planar_overlap_pairing(a, truncated, tolerance=1e-10)
+    with pytest.raises(ValueError, match="coplanar"):
+        planar_overlap_pairing(a, surface(1, reverse=True, offset=0.1), tolerance=1e-10)
+
+
+def test_aabb_overlap_candidates_equal_exhaustive_boxes():
+    from agentfem.boundary_models.search import TriangleSurfaceBVH
+
+    s = surface(5)
+    tree = TriangleSurfaceBVH(s)
+    xyz = s.vertices[s.triangles]
+    lower, upper = np.array([0.21, 0.33, 0]), np.array([0.51, 0.72, 0])
+    actual = tree.overlapping_facets(lower, upper)
+    expected = np.flatnonzero(
+        np.all(xyz.max(axis=1) >= lower, axis=1)
+        & np.all(xyz.min(axis=1) <= upper, axis=1)
+    )
+    np.testing.assert_array_equal(np.sort(actual), expected)
+    with pytest.raises(ValueError, match="AABB"):
+        tree.overlapping_facets(upper, lower)
 
 
 def test_elastic_interface_has_no_hidden_damage_and_reuses_assembler():
