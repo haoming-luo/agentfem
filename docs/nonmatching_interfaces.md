@@ -154,6 +154,19 @@ or general three-dimensional modal validation.
 
 ## Promotion sequence
 
+MPI prerequisite audit (2026-10-10): reuse the existing sparse cohesive owner
+exchange rather than introduce a dense replicated displacement vector. Its
+schedule now rejects duplicate or missing node identities, incompatible global
+layouts and missing owner outputs collectively. Runtime payload preflight
+checks the actual interface values and agrees on component count/direction
+before `Alltoallv`; invalid data on one rank must not strand its peers. Empty
+consumer and transpose virtual-work tests complement force/restart regressions.
+This is communication infrastructure evidence, not admission of distributed
+nonmatching interfaces. Remaining work is physical-keyed quadrature ownership,
+remote trace construction, single-count interface energy/stability assembly and
+joint State/checkpoint integration. See the
+[MPI collective contract](https://docs.open-mpi.org/en/v5.0.2/man-openmpi/man3/MPI_Alltoallv.3.html).
+
 Initial local evidence (2026-10-09): `test_nonmatching_pairing.py`,
 `test_rigid_surface_search.py`, and `test_interfaces.py` pass 61 tests in the
 local `fenicsx-env`. The new tests cover fixed-history tangent finite

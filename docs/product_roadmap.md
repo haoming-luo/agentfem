@@ -102,6 +102,14 @@ MPI tests. Distributed nonmatching interface ownership and cross-partition
 finite-material restart remain separate work; no VUMAT is needed to develop
 those infrastructure contracts.
 
+The next prerequisite hardens the existing sparse cohesive communication owner:
+collective schedule/payload rejection, idle consumers and transpose virtual-work
+checks now pass with two/three processes. This preserves sparse numeric payloads;
+the added readiness exchange carries only small status records. It is not yet a
+distributed nonmatching force. Next implement physically identified integration
+point ownership, remote trace schedules, single-count energy/stability and joint
+restart as one bounded acceptance slice rather than removing the serial guard.
+
 The next serial combination now composes bulk, an equal-stiffness nonmatching
 elastic bond and an external translating plane through the same Step. Contact
 and bond must have disjoint trace nodes (even shared edge nodes are conservatively

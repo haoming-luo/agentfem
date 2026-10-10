@@ -24,6 +24,106 @@ from agentfem import (
 )
 
 
+@pytest.mark.parametrize("fault", ["shape", "width", "nan", "short", "direction"])
+def test_sparse_exchange_collectively_rejects_rank_local_payload(fault):
+    comm = MPI.COMM_WORLD
+    if comm.size != 2:
+        pytest.skip("Sparse payload failure gate requires two ranks")
+    exchange = fracture._SparseCohesiveExchange(
+        comm=comm, input_node_to_block_dof=np.array([0, 0]),
+        input_node_owned=np.arange(2) == comm.rank,
+        required_nodes=np.arange(2), owned_interface_nodes=np.array([comm.rank]),
+        block_size=3,
+    )
+    values = np.ones((1, 3)) * (comm.rank + 1)
+    if comm.rank == 1:
+        if fault == "shape":
+            values = values.ravel()
+        elif fault == "width":
+            values = np.ones((1, 2))
+        elif fault == "nan":
+            values[0, 0] = np.nan
+        elif fault == "short":
+            values = np.empty((0, 3))
+    with pytest.raises(ValueError, match="Sparse cohesive"):
+        if fault == "direction" and comm.rank == 1:
+            exchange.accumulate_to_owners(np.ones((2, 3)))
+        else:
+            exchange.gather_owned_dof_values(values)
+    # Rejection does not poison the persistent schedule or mutate input State.
+    valid = np.ones((1, 3)) * (comm.rank + 1)
+    np.testing.assert_array_equal(exchange.gather_owned_dof_values(valid),
+                                  [[1, 1, 1], [2, 2, 2]])
+    np.testing.assert_array_equal(exchange.accumulate_to_owners(np.ones((2, 3))),
+                                  [[2, 2, 2]])
+
+
+def test_sparse_exchange_rejects_invalid_force_before_owner_sum():
+    comm = MPI.COMM_WORLD
+    if comm.size != 2:
+        pytest.skip("Sparse payload failure gate requires two ranks")
+    exchange = fracture._SparseCohesiveExchange(
+        comm=comm, input_node_to_block_dof=np.array([0, 0]),
+        input_node_owned=np.arange(2) == comm.rank,
+        required_nodes=np.arange(2), owned_interface_nodes=np.array([comm.rank]),
+        block_size=3,
+    )
+    invalid = np.ones((1 if comm.rank == 1 else 2, 3))
+    with pytest.raises(ValueError, match="rejected collectively"):
+        exchange.accumulate_to_owners(invalid)
+
+
+@pytest.mark.parametrize("fault", ["duplicate", "missing_owner", "missing_output", "layout", "negative_map"])
+def test_sparse_schedule_collectively_rejects_bad_ownership(fault):
+    comm = MPI.COMM_WORLD
+    if comm.size != 2:
+        pytest.skip("Sparse schedule failure gate requires two ranks")
+    mapping = np.array([0, 0])
+    owned = np.arange(2) == comm.rank
+    required = np.arange(2)
+    output = np.array([comm.rank])
+    if comm.rank == 1:
+        if fault == "duplicate":
+            required = np.array([0, 0])
+        elif fault == "missing_owner":
+            owned[:] = False
+            output = np.empty(0, dtype=int)
+        elif fault == "missing_output":
+            output = np.empty(0, dtype=int)
+        elif fault == "layout":
+            mapping = np.array([0, 0, -1])
+            owned = np.array([False, True, False])
+        elif fault == "negative_map":
+            mapping[1] = -1
+    with pytest.raises((RuntimeError, ValueError), match="cohesive"):
+        fracture._SparseCohesiveExchange(
+            comm=comm, input_node_to_block_dof=mapping, input_node_owned=owned,
+            required_nodes=required, owned_interface_nodes=output, block_size=3,
+        )
+
+
+def test_sparse_exchange_empty_consumer_preserves_virtual_work():
+    comm = MPI.COMM_WORLD
+    if comm.size not in (2, 3):
+        pytest.skip("Sparse transpose gate requires two or three ranks")
+    nodes = np.arange(comm.size)
+    required = nodes if comm.rank == 0 else np.empty(0, dtype=int)
+    exchange = fracture._SparseCohesiveExchange(
+        comm=comm, input_node_to_block_dof=np.zeros(comm.size, dtype=int),
+        input_node_owned=nodes == comm.rank, required_nodes=required,
+        owned_interface_nodes=np.array([comm.rank]), block_size=3,
+    )
+    owned = np.array([[comm.rank + 1., -0.3 * comm.rank, 0.7]])
+    gathered = exchange.gather_owned_dof_values(owned)
+    force = np.arange(required.size * 3, dtype=float).reshape(-1, 3) / 7
+    accumulated = exchange.accumulate_to_owners(force)
+    trace_work = comm.allreduce(float(np.sum(gathered * force)))
+    owner_work = comm.allreduce(float(np.sum(owned * accumulated)))
+    assert trace_work == pytest.approx(owner_work, abs=1e-14)
+    expected = np.arange(comm.size * 3, dtype=float).reshape(-1, 3)[comm.rank] / 7
+    np.testing.assert_array_equal(accumulated[0], expected)
+
+
 def _split_strip():
     coordinates = np.asarray(
         [(x / 3.0, y / 2.0) for y in range(3) for x in range(4)],

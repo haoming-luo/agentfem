@@ -8,6 +8,11 @@ experimental formulation to a validated one.
 
 ### Experimental Hex8 and nonmatching interfaces
 
+- Harden the existing sparse cohesive exchange before reuse by nonmatching
+  interfaces: collectively reject invalid ownership, payloads and component
+  conventions before numeric communication. Empty consumers retain the same
+  gather/transpose-scatter virtual-work contract. This does not yet enable
+  distributed nonmatching assembly.
 - Admit distributed finite-Hex material plus one translating-plane contact,
   without a bonded interface. Verify serial/parallel agreement, same-partition
   restart, empty ranks and collective rollback. Reject inconsistent contact
