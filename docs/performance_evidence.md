@@ -48,8 +48,10 @@ only and must not be enabled for comparable wall-clock measurements.
 
 These environment settings do not prove that every runtime uses one thread.
 A subsequent process sample found the old MPI launcher supervisor consuming
-CPU in two libfabric sockets threads while waiting for its child. NumPy on this
-host also links Apple Accelerate rather than OpenBLAS. Treat the measurements
+CPU in two libfabric sockets threads while waiting for its child. NumPy build
+metadata alone does not establish the library actually loaded at runtime;
+the October 10 environment loads conda OpenBLAS through its BLAS/LAPACK dylibs.
+Treat the measurements
 above as bounded same-environment observations, not certified single-thread
 benchmarks. The lightweight installed MPI entry now probes the linked vendor
 without initializing MPI in the supervisor; the numerical child retains its
@@ -59,6 +61,40 @@ The underlying mechanisms are documented in the
 [mpi4py initialization controls](https://mpi4py.github.io/mpi4py/stable/html/mpi4py.html)
 and [libfabric sockets provider](https://ofiwg.github.io/libfabric/v2.6.0/man/fi_sockets.7.html).
 This supervisor saving is not an acceleration factor for the numerical kernel.
+
+## Optional MPI idle-CPU diagnostic (2026-10-10)
+
+`tools/diagnose_mpi_idle.py` measures bounded, isolated single-rank children.
+It never initializes MPI in its parent or changes the user's environment:
+
+```bash
+python tools/diagnose_mpi_idle.py --compare-provider tcp --output /tmp/mpi-idle.json
+```
+
+On this macOS ARM64 host with MPICH 5.0.1 and libfabric 2.5.1, three paired
+two-second observations measured 1.963–1.995 equivalent CPU cores while idle
+with `FI_PROVIDER` unset, versus less than 0.000036 with `FI_PROVIDER=tcp`.
+A process sample attributed two busy background threads to the sockets
+connection listener and endpoint connection manager. These are MPI runtime
+threads, not material integration or an unbounded Python loop.
+Raw observations are archived in
+`evidence/hex8/2026-10-10-mpi-idle.json`.
+
+The same installed AgentFEM wheel passed the same 50 selected tests per rank
+on two ranks with both the default provider and TCP. The selection covers
+finite Hex state/energy, ordinary Step output, checkpoint restore, small-strain
+Hex and transient rollback. This is local compatibility evidence, not a
+multi-node scaling study or a Windows guarantee. Use a process-local
+`FI_PROVIDER=tcp` only after checking the relevant installed MPI runtime;
+AgentFEM does not set it automatically. The libfabric project documents the
+[TCP provider](https://github.com/ofiwg/libfabric/blob/main/man/fi_tcp.7.md)
+and marks the older sockets provider deprecated in its
+[provider overview](https://github.com/ofiwg/libfabric).
+
+Reducing idle CPU is useful independently of solve time, but is not a solver
+speedup factor. Keep the provider identical on both sides of a performance
+comparison. Thread-limit environment variables alone do not prove that MPI
+has no background threads.
 
 The serial 32,768-cell, 500-increment affine endurance diagnostic completed
 with maximum displacement/stress/reference-energy absolute errors of

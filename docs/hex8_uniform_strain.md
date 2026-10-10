@@ -88,6 +88,17 @@ of arbitrary external materials. A separate ordinary-Step regression combines
 finite bulk and unequal-mesh Q1 elastic bonding and verifies interrupted
 recovery against continuous execution.
 
+The October 10 clean-source wheel (`7abe50be`) passed 233 selected serial
+tests and 50 selected tests per rank on two MPI ranks, with pytest source-path
+injection disabled. The installed example completed 1,000 increments on two
+ranks and its published result passed artifact-integrity verification.
+The same MPI selection also passed with an explicitly selected TCP provider;
+this local runtime comparison does not imply multi-node or cross-partition
+support. The archive
+`evidence/hex8/2026-10-10-installed-acceptance.json` identifies the wheel and
+test boundaries. These are acceptance checks, not a published package release
+or a complete industrial validation.
+
 ### Small-strain elastic workflow
 
 The model uses a 3D `studies.dynamic_solid()` Study, continuous Q1 hexahedra,

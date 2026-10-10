@@ -15,6 +15,7 @@ from contextlib import ExitStack
 from functools import lru_cache
 from hashlib import sha256
 import json
+import os
 from pathlib import Path
 import platform
 import subprocess
@@ -23,6 +24,7 @@ from unittest.mock import patch
 
 import basix
 import numpy as np
+from mpi4py import MPI
 
 from agentfem.elements._hex_validity import _derivatives, _jacobians
 from agentfem.constitutive.finite_strain_plasticity import FiniteStrainJ2Logarithmic
@@ -278,6 +280,15 @@ def main():
         ),
         "platform": platform.platform(),
         "numpy_version": np.__version__,
+        "mpi_vendor": MPI.get_vendor(),
+        "requested_runtime_environment": {
+            name: os.environ.get(name)
+            for name in (
+                "OMP_NUM_THREADS", "OPENBLAS_NUM_THREADS", "VECLIB_MAXIMUM_THREADS",
+                "FI_PROVIDER", "MPIR_CVAR_ASYNC_PROGRESS",
+            )
+        },
+        "thread_scope": "BLAS_limits_requested_not_a_claim_of_no_MPI_background_threads",
         "kernel_measurements": kernels(),
         "trajectory": full_trajectory(args.size, args.pairs),
     }
