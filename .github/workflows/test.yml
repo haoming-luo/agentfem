@@ -333,10 +333,11 @@ jobs:
 
       - name: Verify finite Hex distributed accepted lifecycle
         if: needs.change-scope.outputs.level == 'release'
-        run: >-
-          agentfem mpi-run -n 2 --timeout 180 -- python -m pytest -q
-          tests/test_parallel_finite_hex.py
-          tests/test_parallel_finite_hex_step.py
+        run: |
+          python -c "from pathlib import Path; import agentfem; print(agentfem.__file__); assert not Path(agentfem.__file__).resolve().is_relative_to(Path('src').resolve())"
+          agentfem mpi-run -n 2 --timeout 180 -- python -m pytest -q -o pythonpath= \
+            tests/test_parallel_finite_hex.py \
+            tests/test_parallel_finite_hex_step.py
 
       - name: Verify three-dimensional block Stokes with two MPI ranks
         if: needs.change-scope.outputs.level == 'release'

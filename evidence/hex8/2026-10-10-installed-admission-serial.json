@@ -6,6 +6,13 @@
   "wheel_sha256": "b33c8a6089e53eb29d2003753d6a1bb97822bfceac8acfd60c4ac4134606804b",
   "installation": "isolated_no_deps_no_index_target",
   "pytest_source_injection": false,
+  "python_module_content_audit": {
+    "compared_source_revision": "7ad7a067546c3a73c219cc1566794f09a32af41f",
+    "module_count": 298,
+    "missing_modules": [],
+    "extra_modules": [],
+    "content_mismatches": []
+  },
   "serial_selection": [
     "tests/test_finite_hex_cyclic_energy.py",
     "tests/test_finite_hex_energy.py",

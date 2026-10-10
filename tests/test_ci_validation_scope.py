@@ -370,5 +370,7 @@ def test_release_ladder_includes_bounded_finite_hex_mpi_checks():
     section = section.split("- name:", 1)[0]
     assert "outputs.level == 'release'" in section
     assert "agentfem mpi-run -n 2 --timeout 180" in section
+    assert "-o pythonpath=" in section
+    assert "assert not Path(agentfem.__file__)" in section
     assert "tests/test_parallel_finite_hex.py" in section
     assert "tests/test_parallel_finite_hex_step.py" in section
