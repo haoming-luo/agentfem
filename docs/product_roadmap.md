@@ -89,9 +89,21 @@ The next candidate lowers one registered frictionless translating plane through
 ordinary finite-Hex `model.step`, preserving the separate constitutive owner.
 It passes a scalar finite-compression ODE comparison and a native finite-J2
 plastic work/restart test. Distributed composition, curved/rotating tools,
-multiple pairs, friction, joint bonding/contact and the tester's actual
-orthotropic material remain open; do not equate this serial slice with
-industrial forming completion.
+multiple pairs, friction and the tester's actual orthotropic material remain
+open; do not equate this serial slice with industrial forming completion.
+
+The next serial combination now composes bulk, an equal-stiffness nonmatching
+elastic bond and an external translating plane through the same Step. Contact
+and bond must have disjoint trace nodes (even shared edge nodes are conservatively
+rejected). All three stiffness contributions enter the existing summed stability
+bound once. Independent four-mass axial dynamics, temporal refinement, separate
+energy channels, native-J2 plastic response and exact interrupted recovery are
+the acceptance tests. This is not post-failure contact, distributed bonding or
+the tester's unspecified finite orthotropic law. Obtain that law, orientation
+update and parameters before claiming equivalence; do not substitute J2.
+A separate, rotated orthotropic Green-strain test provider also passes tangent,
+energy-derivative, objectivity and joint recovery checks without core changes.
+It proves the extension seam, not equivalence to the private user material.
 
 This slice implements bounded fixed-reference nonmatching cohesive trace
 integration and uniform-strain Hex8 stabilization. These are general formulation

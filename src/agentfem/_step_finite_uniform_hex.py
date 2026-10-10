@@ -52,6 +52,11 @@ class FiniteUniformHexStep(ExplicitDynamicsStep):
                 "none" if self.residual is self.material_residual else
                 "serial_single_frictionless_translating_plane_reference_surface_penalty"
             ),
+            "bond_contact_scope": (
+                "serial_disjoint_trace_nodes_isotropic_elastic_reference_bond"
+                if self.residual is not self.material_residual
+                and self.material_residual.cohesive is not None else "none"
+            ),
             "energy_balance_scope": "accepted_work_stored_artificial_and_material_dissipation",
             "stability_scope": (
                 "caller_path_ceiling_and_signed_endpoint_screen_not_nonlinear_guarantee"
@@ -102,8 +107,6 @@ def _prepare(model, request):
                 "Finite Hex8 eigenstrains are not admitted."
             )
         if contact_pairs:
-            if options.get("cohesive_force") is not None:
-                raise NotImplementedError("Finite Hex8 joint bonding/contact is not admitted yet.")
             if domain.comm.size != 1 or len(contact_pairs) != 1:
                 raise NotImplementedError("Finite Hex8 contact is not admitted beyond one serial pair.")
             pair = contact_pairs[0]
@@ -292,6 +295,23 @@ def _prepare(model, request):
     stability = material_residual.stability
     if contact_pairs:
         pair = contact_pairs[0]
+        if material_residual.cohesive is not None:
+            from dolfinx import fem
+
+            region = pair.slave_boundary
+            contact_nodes = fem.locate_dofs_topological(
+                history.u.value.function_space, domain.topology.dim - 1,
+                region.facet_tags.find(region.tag),
+            )
+            bonded_nodes = np.union1d(
+                material_residual.cohesive.negative_dofs,
+                material_residual.cohesive.positive_dofs,
+            )
+            if np.intersect1d(contact_nodes, bonded_nodes).size:
+                raise NotImplementedError(
+                    "Finite Hex8 combined bonding/contact requires disjoint trace nodes; "
+                    "overlap or post-failure contact switching is not admitted."
+                )
         adapter = boundary_models.dolfinx_boundary_region_contact_trace(
             pair.slave_boundary, history.u.value.function_space,
         )
