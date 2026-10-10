@@ -206,12 +206,15 @@ class FiniteUniformHexResidual:
         self._tangent_available = False
         vector = None
         try:
-            with field_transaction(**self.response.trial_fields()):
-                displacement = self.displacement.x.array.reshape(-1, 3)[self.cell_nodes].copy()
+            with field_transaction(_kinematics=self.displacement, **self.response.trial_fields()):
+                nodal = self.displacement.x.array.copy()
+                displacement = nodal.reshape(-1, 3)[self.cell_nodes].copy()
                 gradient = self.cells.deformation_gradient(displacement)
                 response = self.response.update(
                     material, deformation_gradient_old=deformation_gradient_old,
                     deformation_gradient_new=gradient, time=time, time_increment=time_increment)
+                if not np.array_equal(self.displacement.x.array, nodal):
+                    raise RuntimeError("Material callback changed the admitted Hex8 configuration.")
                 element = self.cells._response_from_checked_displacement(
                     displacement, first_piola=self.response.first_piola_stress.owned_values,
                     stored_energy_density=response.stored_energy_density)
@@ -225,6 +228,8 @@ class FiniteUniformHexResidual:
                         damping_vector.destroy()
                 gradient.setflags(write=False)
                 yield vector, FiniteHexMaterialTrial(gradient, element, response, viscosity)
+                if not np.array_equal(self.displacement.x.array, nodal):
+                    raise RuntimeError("Hex8 configuration changed before trial scope acceptance.")
         except BaseException:
             if vector is not None:
                 vector.destroy()

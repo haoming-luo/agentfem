@@ -163,6 +163,48 @@ def test_real_hex_force_assembly_without_invented_energy_or_tangent(nx):
         np.testing.assert_array_equal(value.x.array, fields_before[name])
 
 
+@pytest.mark.parametrize("when", ["provider", "consumer"])
+def test_response_trial_rejects_changed_nodal_configuration(monkeypatch, when):
+    from agentfem.constitutive._explicit_material_driver import (
+        ExplicitQuadratureResponse,
+    )
+    from agentfem.elements._finite_uniform_hex_dolfinx import FiniteUniformHexResidual
+
+    material = ResponseOnly()
+    domain = mesh.create_unit_cube(
+        MPI.COMM_SELF, 1, 1, 1, cell_type=mesh.CellType.hexahedron
+    )
+    u = fem.Function(fem.functionspace(domain, ("Lagrange", 1, (3,))))
+    response = ExplicitQuadratureResponse.create(domain, material.state_schema)
+    residual = FiniteUniformHexResidual(
+        u, response, density=1, hourglass_modulus=1, hourglass_scale=0.1
+    )
+    u.interpolate(lambda x: 0.01 * x)
+    before = u.x.array.copy()
+    update = material.update_explicit_array_batch
+
+    if when == "provider":
+
+        def corrupt(request):
+            output = update(request)
+            u.x.array[:] += 0.2
+            return output
+
+        monkeypatch.setattr(material, "update_explicit_array_batch", corrupt)
+    with pytest.raises(RuntimeError, match="configuration"):
+        with residual.explicit_trial_evaluation(
+            material,
+            deformation_gradient_old=np.eye(3)[None],
+            time=0,
+            time_increment=0.01,
+        ):
+            if when == "consumer":
+                u.x.array[:] += 0.3
+    np.testing.assert_array_equal(u.x.array, before)
+    np.testing.assert_array_equal(response.state.committed_state_vectors(), 0)
+    np.testing.assert_array_equal(response.state.trial_state_vectors(), 0)
+
+
 def test_joint_response_commit_rollback_and_commit_failure(monkeypatch):
     from agentfem.constitutive._explicit_material_driver import (
         ExplicitQuadratureResponse,

@@ -512,6 +512,12 @@ are unchanged. Five alternating 65,536-point random moving-batch comparisons
 against `91cec180` measured 1.13x component throughput at chunk sizes 1,024 and
 8,192, with maximum strain difference 2.82e-18. No whole-step gain is inferred.
 
+Response-only trials now also freeze the nodal configuration across provider
+and downstream callbacks. A provider must not return stress for the admitted
+gradient while changing the live displacement consumed by later assembly or
+commit. Such mutation rejects the scope and restores nodal and quadrature
+fields together; injected provider/consumer mutations have dedicated tests.
+
 ## Primary design references
 
 Closed-solid explicit contact now rejects unresolved outside-to-outside paths
