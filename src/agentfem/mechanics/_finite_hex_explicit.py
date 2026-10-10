@@ -4,7 +4,8 @@
 
 Serial and fixed-reference only. No public provider registration is made here.
 The caller declares a complete-path spectral ceiling; each endpoint additionally
-checks the bounded symmetric/nonnegative tangent screen before acceptance.
+checks the signed symmetric tangent enclosure before acceptance. Optional
+negative-curvature resolution does not establish physical stability.
 """
 
 from hashlib import sha256
@@ -19,11 +20,26 @@ from ..time.stability import ExplicitStabilityContribution, combine_explicit_sta
 
 class FiniteHexExplicitResidual:
     def __init__(
-        self, internal, material, *, omega_squared_bound, safety=0.8, cohesive=None
+        self,
+        internal,
+        material,
+        *,
+        omega_squared_bound,
+        safety=0.8,
+        cohesive=None,
+        maximum_negative_growth_per_increment=None,
     ):
         self.internal, self.material = internal, material
         self.cohesive = cohesive
         self.bound, self.safety = float(omega_squared_bound), float(safety)
+        self.maximum_negative_growth_per_increment = (
+            maximum_negative_growth_per_increment
+        )
+        if maximum_negative_growth_per_increment is not None:
+            selected = float(maximum_negative_growth_per_increment)
+            if not np.isfinite(selected) or not 0 < selected <= 0.25:
+                raise ValueError("Negative-curvature resolution must lie in (0, 0.25].")
+            self.maximum_negative_growth_per_increment = selected
         if not np.isfinite(self.bound) or self.bound <= 0:
             raise ValueError(
                 "A positive finite complete-path spectral ceiling is required."
@@ -98,7 +114,13 @@ class FiniteHexExplicitResidual:
             digest.update(str(array.shape).encode())
             digest.update(array.tobytes())
         digest.update(
-            content_fingerprint({"bound": self.bound, "safety": self.safety}).encode()
+            content_fingerprint(
+                {
+                    "bound": self.bound,
+                    "safety": self.safety,
+                    "negative_growth_resolution": self.maximum_negative_growth_per_increment,
+                }
+            ).encode()
         )
         self.identity = digest.hexdigest()
         self.accepted_gradient = np.tile(np.eye(3), (len(internal.cell_nodes), 1, 1))
@@ -107,6 +129,132 @@ class FiniteHexExplicitResidual:
         self._trial_displacement = None
         self._trial_time = None
         self.last_bound = None
+        self.last_spectrum = None
+        self._accepted_energy = None
+        self._accepted_force = None
+        self._accepted_displacement = None
+        self._trial_force = None
+        self._trial_interface = None
+
+    def enable_energy(self, initial_response):
+        """Declare the virgin response explicitly; never perform a fictitious step."""
+        from dataclasses import replace
+        from ..constitutive.material_array_batch import MaterialPointArrayBatchOutput
+
+        if (
+            self.accepted_time != 0
+            or self._trial is not None
+            or self._accepted_energy is not None
+        ):
+            raise RuntimeError(
+                "Initial energy can only be declared once before advancement."
+            )
+        if not isinstance(initial_response, MaterialPointArrayBatchOutput):
+            raise TypeError("Expected a declared initial material array response.")
+        initial = replace(initial_response)
+        count = len(self.internal.cell_nodes)
+        if (
+            initial.point_count != count
+            or initial.state_schema != self.material.state_schema
+            or initial.tangent_convention != self.material.tangent_convention
+            or not np.array_equal(
+                initial.state_new,
+                self.internal.response.state.committed_state_vectors(),
+            )
+        ):
+            raise ValueError(
+                "Initial response identity/state differs from the virgin material."
+            )
+        if (
+            initial.strain_energy_density is None
+            or initial.dissipation_density_increment is None
+        ):
+            raise ValueError(
+                "Initial energy requires explicit stored energy and zero dissipation increment."
+            )
+        if np.any(initial.dissipation_density_increment != 0):
+            raise ValueError("Initial declaration must not dissipate energy.")
+        u = self.internal.displacement.x.array
+        if np.any(u != 0):
+            raise ValueError("Initial response requires the undeformed configuration.")
+        element = self.internal.cells.response(
+            u.reshape(-1, 3)[self.internal.cell_nodes],
+            first_piola=initial.cauchy_stress,
+            stored_energy_density=initial.strain_energy_density,
+        )
+        vector = self.internal._scatter(element.internal_force)
+        try:
+            initial_interface = None
+            if self.cohesive is not None:
+                initial_interface = self.cohesive.evaluate()
+                values = vector.array.reshape(-1, 3)
+                values[self.cohesive.negative_dofs] += (
+                    initial_interface.negative_residual
+                )
+                values[self.cohesive.positive_dofs] += (
+                    initial_interface.positive_residual
+                )
+            force = vector.array.copy()
+        finally:
+            vector.destroy()
+        # F=I: Cauchy and first Piola stresses coincide.
+        energy = {
+            "bulk_stored_energy": float(np.sum(element.physical_energy)),
+            "hourglass_energy": float(np.sum(element.hourglass_energy)),
+            "material_dissipation": 0.0,
+            "interface_stored_energy": 0.0
+            if initial_interface is None
+            else initial_interface.stored_energy,
+        }
+        if (
+            not all(np.isfinite(value) for value in energy.values())
+            or not np.isfinite(force).all()
+        ):
+            raise ValueError("Non-finite initial energy or force.")
+        digest = sha256((self.identity + content_fingerprint(energy)).encode())
+        digest.update(force.tobytes())
+        response = self.internal.response
+        if set(initial.stored_energy_density_components) != set(
+            response.stored_energy_density_components
+        ):
+            raise ValueError(
+                "Initial stored-energy components differ from the quadrature contract."
+            )
+        assignments = (
+            (response.first_piola_stress, initial.cauchy_stress),
+            (response.cauchy_stress, initial.cauchy_stress),
+            (response.tangent, initial.consistent_tangent.reshape(-1, 3, 3, 3, 3)),
+            (response.strain_energy_density, initial.strain_energy_density),
+            *(
+                (field, initial.stored_energy_density_components[name])
+                for name, field in response.stored_energy_density_components.items()
+            ),
+        )
+        with field_transaction(**response_fields(response)):
+            for field, values in assignments:
+                field.assign(values)
+        self._accepted_force = force
+        self._accepted_displacement = u.copy()
+        self._accepted_energy = energy
+        self.identity = digest.hexdigest()
+
+    def assemble_accepted_vector(self):
+        """Owned force sample for work/restart; does not update material history."""
+        self.require_accepted_configuration()
+        vector = self.internal.displacement.x.petsc_vec.duplicate()
+        vector.array[:] = self._accepted_force
+        return vector
+
+    def require_accepted_configuration(self):
+        """Validate cached samples without allocating or assembling a vector."""
+        if self._accepted_force is None or self._trial is not None:
+            raise RuntimeError("Accepted energy/force response is unavailable.")
+        if self.time != self.accepted_time or not np.array_equal(
+            self.internal.displacement.x.array, self._accepted_displacement
+        ):
+            raise RuntimeError(
+                "Force sampling requires the accepted configuration and time."
+            )
 
     def validate_time_increment(self, dt):
         if not np.isfinite(dt) or dt <= 0 or dt > self.stability.selected:
@@ -123,6 +271,7 @@ class FiniteHexExplicitResidual:
         self.validate_time_increment(dt)
         vector = None
         self._trial = None
+        self._trial_interface = None
         try:
             with self.internal.trial_evaluation(
                 self.material,
@@ -134,21 +283,42 @@ class FiniteHexExplicitResidual:
                     raise ValueError(
                         "Material requested increment reduction; fixed explicit step rejected."
                     )
-                bound = self.internal.cells.tangent_spectral_bound(
+                spectrum = self.internal.cells.tangent_spectral_report(
                     first_piola_tangent=self.internal.response.tangent.values
                 )
+                bound = spectrum.positive_eigenvalue_upper_bound
+                if spectrum.negative_material_curvature_cells:
+                    if self.maximum_negative_growth_per_increment is None:
+                        raise ValueError(
+                            "Indefinite material tangent requires an explicit curvature policy."
+                        )
+                    if (
+                        dt * np.sqrt(spectrum.negative_eigenvalue_magnitude_bound)
+                        > self.maximum_negative_growth_per_increment
+                    ):
+                        raise ValueError(
+                            "Increment under-resolves the negative-curvature growth bound."
+                        )
                 if bound > self.bound * (1 + 1e-12):
                     raise ValueError(
                         "Current tangent exceeds the declared spectral ceiling."
                     )
                 if self.cohesive is not None:
-                    self.cohesive.add_to_vector(vector)
+                    self._trial_interface = self.cohesive.add_to_vector(vector)
                 if not np.isfinite(vector.array).all():
                     raise ValueError("Non-finite combined finite Hex8 residual.")
             self._trial = trial
             self._trial_displacement = self.internal.displacement.x.array.copy()
             self._trial_time = self.time
+            self._trial_force = (
+                vector.array.copy() if self._accepted_energy is not None else None
+            )
             self.last_bound = bound
+            self.last_spectrum = {
+                "positive_eigenvalue_upper_bound": bound,
+                "negative_eigenvalue_magnitude_bound": spectrum.negative_eigenvalue_magnitude_bound,
+                "negative_material_curvature_cells": spectrum.negative_material_curvature_cells,
+            }
             return vector
         except BaseException:
             self.internal.response.rollback()
@@ -166,11 +336,39 @@ class FiniteHexExplicitResidual:
             self.internal.displacement.x.array, self._trial_displacement
         ):
             raise RuntimeError("Displacement changed after the material trial.")
+        energy = None
+        if self._accepted_energy is not None:
+            response = self._trial.material_response
+            if not np.all(response.dissipation_density_increment_defined):
+                raise ValueError(
+                    "Energy accounting requires explicit material dissipation increments."
+                )
+            energy = {
+                "bulk_stored_energy": float(
+                    np.sum(self._trial.element_response.physical_energy)
+                ),
+                "hourglass_energy": float(
+                    np.sum(self._trial.element_response.hourglass_energy)
+                ),
+                "material_dissipation": self._accepted_energy["material_dissipation"]
+                + float(
+                    self.internal.cells.volume @ response.dissipation_density_increment
+                ),
+                "interface_stored_energy": 0.0
+                if self._trial_interface is None
+                else self._trial_interface.stored_energy,
+            }
+            if not all(np.isfinite(value) for value in energy.values()):
+                raise ValueError("Non-finite accepted energy increment.")
         self.internal.response.commit()
         if self.cohesive is not None:
             self.cohesive.commit()
         self.accepted_gradient = self._trial.deformation_gradient.copy()
         self.accepted_time = self.time
+        if energy is not None:
+            self._accepted_energy = energy
+            self._accepted_force = self._trial_force
+            self._accepted_displacement = self._trial_displacement.copy()
         self._trial = None
 
     def _fields(self):
@@ -193,6 +391,9 @@ class FiniteHexExplicitResidual:
         record["fields"] = {
             name: value.tolist() for name, value in record["fields"].items()
         }
+        for name in ("accepted_force", "accepted_displacement"):
+            if record[name] is not None:
+                record[name] = record[name].tolist()
         return record
 
     def checkpoint_snapshot(self):
@@ -203,15 +404,35 @@ class FiniteHexExplicitResidual:
         from ..checkpointing import CheckpointCapabilities
 
         return CheckpointCapabilities(
-            schemas=("agentfem.transient-checkpoint.v5", "agentfem.transient-checkpoint.v6"),
-            boundary="accepted_step", payload_scope="full_restart_state",
-            state_components=("accepted deformation gradient", "material committed/trial fields",
-                              "material response fields", "stability state", "interface identity"),
-            atomic_publication=True, rank_count_portability="unsupported",
-            identity_scope=("material schema and parameters", "reference cells and mass",
-                            "hourglass coefficients", "interface mapping", "stability ceiling"),
-            limitations=("private serial finite Hex8; no cross-partition material restore",),
-            evidence=("serial interrupted/continuous path", "corrupt auxiliary atomic rejection"),
+            schemas=(
+                "agentfem.transient-checkpoint.v5",
+                "agentfem.transient-checkpoint.v6",
+            ),
+            boundary="accepted_step",
+            payload_scope="full_restart_state",
+            state_components=(
+                "accepted deformation gradient",
+                "material committed/trial fields",
+                "material response fields",
+                "stability state",
+                "interface identity",
+            ),
+            atomic_publication=True,
+            rank_count_portability="unsupported",
+            identity_scope=(
+                "material schema and parameters",
+                "reference cells and mass",
+                "hourglass coefficients",
+                "interface mapping",
+                "stability ceiling",
+            ),
+            limitations=(
+                "private serial finite Hex8; no cross-partition material restore",
+            ),
+            evidence=(
+                "serial interrupted/continuous path",
+                "corrupt auxiliary atomic rejection",
+            ),
         )
 
     def transaction_snapshot(self):
@@ -224,6 +445,18 @@ class FiniteHexExplicitResidual:
             "time": self.accepted_time,
             "gradient": self.accepted_gradient.copy(),
             "last_bound": self.last_bound,
+            "last_spectrum": None
+            if self.last_spectrum is None
+            else dict(self.last_spectrum),
+            "accepted_energy": None
+            if self._accepted_energy is None
+            else dict(self._accepted_energy),
+            "accepted_force": None
+            if self._accepted_force is None
+            else self._accepted_force.copy(),
+            "accepted_displacement": None
+            if self._accepted_displacement is None
+            else self._accepted_displacement.copy(),
             "cohesive": None if self.cohesive is None else self.cohesive.snapshot(),
             "fields": {
                 name: value.x.array.copy() for name, value in self._fields().items()
@@ -241,6 +474,24 @@ class FiniteHexExplicitResidual:
             raise ValueError("Finite Hex8 checkpoint gradient must be real.")
         gradient = np.asarray(record["gradient"], dtype=float)
         bound = record["last_bound"]
+        spectrum = record.get("last_spectrum")
+        if spectrum is not None:
+            if (
+                set(spectrum)
+                != {
+                    "positive_eigenvalue_upper_bound",
+                    "negative_eigenvalue_magnitude_bound",
+                    "negative_material_curvature_cells",
+                }
+                or spectrum["positive_eigenvalue_upper_bound"] != bound
+                or not np.isfinite(spectrum["negative_eigenvalue_magnitude_bound"])
+                or spectrum["negative_eigenvalue_magnitude_bound"] < 0
+                or not isinstance(spectrum["negative_material_curvature_cells"], int)
+                or not 0
+                <= spectrum["negative_material_curvature_cells"]
+                <= len(self.internal.cell_nodes)
+            ):
+                raise ValueError("Invalid finite Hex8 signed spectrum evidence.")
         if (
             not np.isfinite(selected_time)
             or selected_time < 0
@@ -256,6 +507,32 @@ class FiniteHexExplicitResidual:
         ):
             raise ValueError("Invalid finite Hex8 checkpoint kinematics/stability.")
         fields = self._fields()
+        energy = record.get("accepted_energy")
+        accepted_arrays = []
+        if (energy is None) != (self._accepted_energy is None):
+            raise ValueError("Finite Hex8 checkpoint energy contract differs.")
+        if energy is not None:
+            if set(energy) != set(self._accepted_energy) or not all(
+                np.isreal(value) and np.isscalar(value) and np.isfinite(value)
+                for value in energy.values()
+            ):
+                raise ValueError("Invalid finite Hex8 accepted energy.")
+            for name in ("accepted_force", "accepted_displacement"):
+                value = np.asarray(record[name])
+                if (
+                    np.iscomplexobj(value)
+                    or value.shape != self.internal.displacement.x.array.shape
+                    or not np.isfinite(value).all()
+                ):
+                    raise ValueError("Invalid finite Hex8 accepted force/displacement.")
+                accepted_arrays.append(value.copy())
+        elif (
+            record.get("accepted_force") is not None
+            or record.get("accepted_displacement") is not None
+        ):
+            raise ValueError(
+                "Unexpected finite Hex8 accepted force without energy contract."
+            )
         expected_cohesive = None if self.cohesive is None else self.cohesive.snapshot()
         if record.get("cohesive") != expected_cohesive:
             raise ValueError("Finite Hex8 checkpoint interface identity mismatch.")
@@ -279,9 +556,15 @@ class FiniteHexExplicitResidual:
         self.accepted_time = self.time = selected_time
         self.accepted_gradient = gradient.copy()
         self.last_bound = bound
+        self.last_spectrum = None if spectrum is None else dict(spectrum)
+        if energy is not None:
+            self._accepted_energy = dict(energy)
+            self._accepted_force, self._accepted_displacement = accepted_arrays
         self._trial = None
         self._trial_displacement = None
         self._trial_time = None
+        self._trial_force = None
+        self._trial_interface = None
         self.internal._tangent_available = False
         if self.cohesive is not None:
             self.cohesive.rollback()
@@ -294,6 +577,8 @@ class FiniteHexExplicitResidual:
             "stability_scope": "caller_path_ceiling_and_endpoint_tangent_screen",
             "omega_squared_bound": self.bound,
             "last_endpoint_bound": self.last_bound,
+            "signed_spectrum": self.last_spectrum,
+            "negative_growth_resolution": self.maximum_negative_growth_per_increment,
             "stability": self.stability.summary(),
             "interface_scope": None
             if self.cohesive is None

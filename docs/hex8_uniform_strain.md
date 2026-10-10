@@ -406,7 +406,36 @@ accuracy limits, richer loading
 evidence and distributed nonmatching interface composition. No implicit numerical
 equivalence to imported commercial reduced-integration elements is assumed.
 
-### Next finite-explicit decision, not an enabled capability
+### Accepted finite-explicit energy and signed-curvature policy (private)
+
+The serial finite route now reuses `DynamicEnergyLedger` with cached accepted
+force and material energy. Initial energy is declared explicitly by the material
+(the native logarithmic J2 law supplies a virgin response); no artificial time
+increment is used to obtain an initial stress. The same declaration populates
+the initial quadrature response fields. Sampling and restart do not reintegrate
+the material. Bulk stored energy, artificial hourglass energy, isotropic
+reference-interface energy, cumulative material dissipation and kinetic energy
+remain separate. Prescribed-motion work uses the existing reaction-path ledger.
+Accepted values participate in the same atomic rollback/checkpoint transaction.
+
+Independent proportional finite-stretch checks cover elastic and plastically
+yielding logarithmic J2 response, stored energy and yield-stress-times-PEEQ
+dissipation. Time refinement reduces the work/energy residual. The interface
+composition has interrupted/continuous restart and cached-energy checks. These
+tests do not establish arbitrary plastic loading, localization or forming.
+
+The default still rejects negative material curvature. An explicit private
+option may instead require `dt * sqrt(negative_bound) <= eta`, with
+`0 < eta <= 0.25`, while retaining the positive-frequency ceiling separately.
+For a frozen scalar negative mode, central difference has growth rate
+`2*asinh(omega*dt/2)/dt`, rather than the exact `omega`; this motivates a growth
+**resolution** limit, not a physical stability certificate. Negative material
+curvature is not sufficient to diagnose a constrained global instability.
+No negative eigenvalues are silently replaced by their absolute values in the
+physical residual or tangent. This opt-in and the signed spectrum are included
+in restart identity/evidence. Nonsymmetric tangents remain rejected.
+
+### Remaining general finite-explicit gate
 
 Do not turn the current positive-semidefinite material screen into a general
 policy by taking absolute eigenvalues. The next implementation must distinguish

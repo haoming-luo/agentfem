@@ -3327,11 +3327,19 @@ class DynamicEnergyLedger:
             has_constraints = comm.allreduce(has_constraints, op=MPI.LOR)
         if has_constraints:
             if residual_owned is None:
-                try:
-                    residual = self._assemble_owned(self.residual, displacement)
-                finally:
-                    if hasattr(self.residual, "rollback"):
-                        self.residual.rollback()
+                accepted = getattr(self.residual, "assemble_accepted_vector", None)
+                if callable(accepted):
+                    vector = accepted()
+                    try:
+                        residual = np.asarray(vector.array[:owned], dtype=float).copy()
+                    finally:
+                        vector.destroy()
+                else:
+                    try:
+                        residual = self._assemble_owned(self.residual, displacement)
+                    finally:
+                        if hasattr(self.residual, "rollback"):
+                            self.residual.rollback()
             else:
                 residual = np.asarray(residual_owned, dtype=float)
                 if residual.shape != (owned,):

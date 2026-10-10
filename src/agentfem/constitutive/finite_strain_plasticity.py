@@ -458,7 +458,9 @@ class FiniteStrainJ2Logarithmic:
             + radial_scale[:, None] * deviatoric_trial
         )
         left_transpose = np.swapaxes(left_vectors, 1, 2)
-        kirchhoff_stress = (left_vectors * principal_stress[:, None, :]) @ left_transpose
+        kirchhoff_stress = (
+            left_vectors * principal_stress[:, None, :]
+        ) @ left_transpose
         inverse_transpose = np.swapaxes(np.linalg.inv(gradients), 1, 2)
         first_piola = kirchhoff_stress @ inverse_transpose
         baseline_piola = np.asarray(baseline["first_piola_stress"], dtype=float)
@@ -524,7 +526,9 @@ class FiniteStrainJ2Logarithmic:
             )
             indices = np.arange(3)
             variation_stress_principal[:, indices, indices] = diagonal_stress
-            variation_kirchhoff = left_vectors @ variation_stress_principal @ left_transpose
+            variation_kirchhoff = (
+                left_vectors @ variation_stress_principal @ left_transpose
+            )
             # d(F^-T)/dF[row,component] = -F^-T[:,component] outer F^-T[row,:].
             variation_inverse_transpose = -(
                 inverse_transpose[:, :, component, None]
@@ -786,10 +790,48 @@ class FiniteStrainJ2Logarithmic:
             ),
         )
 
+    def initial_array_response(self, point_count):
+        """Virgin F=I response without advancing time or constitutive history.
+
+        This declaration is specific to this law's stress-free initial state;
+        consumers must not infer the same initial energy for another provider.
+        """
+        from .material_array_batch import MaterialPointArrayBatchOutput
+
+        if (
+            isinstance(point_count, bool)
+            or not isinstance(point_count, (int, np.integer))
+            or point_count <= 0
+        ):
+            raise ValueError("point_count must be a positive integer.")
+        eye = np.eye(3)
+        mu, lam = self.shear_modulus, self.bulk_modulus - 2 * self.shear_modulus / 3
+        tangent = (
+            lam * np.einsum("ij,kl->ijkl", eye, eye)
+            + mu
+            * (np.einsum("ik,jl->ijkl", eye, eye) + np.einsum("il,jk->ijkl", eye, eye))
+        ).reshape(9, 9)
+        return MaterialPointArrayBatchOutput(
+            cauchy_stress=np.zeros((point_count, 3, 3)),
+            consistent_tangent=np.broadcast_to(tangent, (point_count, 9, 9)),
+            state_new=np.broadcast_to(
+                self.state_schema.initial_state(), (point_count, self.state_schema.size)
+            ),
+            tangent_convention=self.tangent_convention,
+            state_schema=self.state_schema,
+            strain_energy_density=np.zeros(point_count),
+            dissipation_density_increment=np.zeros(point_count),
+            stored_energy_density_components={
+                name: np.zeros(point_count)
+                for name in self.stored_energy_component_names
+            },
+        )
+
     def update_array_batch(self, request):
         """Columnar form of the same discrete update and algorithmic tangent."""
         from .material_array_batch import (
-            MaterialPointArrayBatchInput, MaterialPointArrayBatchOutput,
+            MaterialPointArrayBatchInput,
+            MaterialPointArrayBatchOutput,
         )
 
         if not isinstance(request, MaterialPointArrayBatchInput):
@@ -802,7 +844,9 @@ class FiniteStrainJ2Logarithmic:
         return MaterialPointArrayBatchOutput(
             cauchy_stress=integrated["cauchy_stress"],
             consistent_tangent=self._selected_algorithmic_tangent_batch(
-                gradients, states, baseline=integrated,
+                gradients,
+                states,
+                baseline=integrated,
             ),
             state_new=integrated["state"],
             tangent_convention=self.tangent_convention,
@@ -812,7 +856,8 @@ class FiniteStrainJ2Logarithmic:
                 "ELENER": integrated["elastic_energy_density"],
                 "HARDENER": integrated["hardening_energy_density"],
             },
-            dissipation_density_increment=integrated["plastic_dissipation_density"] - states[:, 10],
+            dissipation_density_increment=integrated["plastic_dissipation_density"]
+            - states[:, 10],
         )
 
     def update_batch(

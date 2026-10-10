@@ -21,6 +21,17 @@ or a successful run is not by itself a validated engineering capability.
 
 ### User-driven mesh/interface slice (2026-10-09)
 
+2026-10-10 continuation: the private finite Hex8 route now has accepted-response
+energy sampling, declared virgin response, prescribed-motion work, material
+dissipation, isotropic reference-interface energy and energy-preserving serial
+restart. Independent finite elastic/plastic stretch checks pass, with time-step
+refinement of the balance residual. A bounded opt-in negative-curvature growth
+resolution policy preserves signed spectrum evidence; it is not a general
+nonlinear stability guarantee. Next: nonuniform plastic response and distributed
+bulk ownership/failure tests, then performance measurement. Distributed interface
+integration, cross-partition finite state recovery, damage/deletion and advanced
+hourglass laws remain separate gates, not requirements satisfied by these tests.
+
 This slice implements bounded fixed-reference nonmatching cohesive trace
 integration and uniform-strain Hex8 stabilization. These are general formulation
 capabilities, not an automatic translation of a specific
