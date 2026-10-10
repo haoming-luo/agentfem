@@ -3,6 +3,7 @@
 """A non-native material uses public Step without a new core solver branch."""
 
 import numpy as np
+import pytest
 
 from agentfem import amplitudes, constitutive, elements, fields, models, studies
 from agentfem.constitutive.material_array_batch import MaterialPointArrayBatchOutput
@@ -59,6 +60,19 @@ class ReferenceNeoHookean:
 
     def update_array_batch(self, request):
         return self._response(request.deformation_gradient_new, request.state_old)
+
+
+@pytest.mark.parametrize("alias", ["S", "f", "SENER", "MISES"])
+def test_energy_component_must_not_shadow_physical_result(alias):
+    from agentfem.results._finite_hex import FiniteHexCellFields
+    from test_finite_hex_step import make_step
+
+    step = make_step()
+    response = step.residual.internal.response
+    response.stored_energy_density_components[alias] = response.strain_energy_density
+    with pytest.raises(ValueError, match="collides"):
+        FiniteHexCellFields(step.residual, ("S",))
+    assert step.completed_steps == 0
 
 
 def test_external_array_material_uses_ordinary_step_state_fields_and_restart(tmp_path):

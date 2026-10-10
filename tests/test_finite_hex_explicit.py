@@ -14,11 +14,14 @@ from agentfem.mechanics._finite_hex_explicit import FiniteHexExplicitResidual
 from test_finite_uniform_hex_dolfinx import setup
 
 
-def make_step(bound=1e8):
+def make_step(bound=1e8, *, growth_resolution=None):
     u, law, response, internal = setup()
     history = state.second_order_state(u)
     internal.displacement = history.u.value
-    residual = FiniteHexExplicitResidual(internal, law, omega_squared_bound=bound)
+    residual = FiniteHexExplicitResidual(
+        internal, law, omega_squared_bound=bound,
+        maximum_negative_growth_per_increment=growth_resolution,
+    )
     x = u.function_space.tabulate_dof_coordinates()
     history.v.value.x.array[:] = (1e-3 * x).ravel()
     step = problems.explicit_dynamics(

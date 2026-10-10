@@ -15,31 +15,36 @@ class FiniteHexCellFields:
         internal = residual.internal
         response = internal.response
         domain = internal.displacement.function_space.mesh
-        self.sources = {
-            "S": response.cauchy_stress,
-            "P": response.first_piola_stress,
-            "SENER": response.strain_energy_density,
-        }
-        self.sources.update(response.stored_energy_density_components)
-        state_descriptions = {}
-        for variable in residual.material.state_schema.variables:
-            if variable.output_name:
-                if (
-                    variable.output_name.upper() in self.sources
-                    or variable.output_name.upper()
-                    in {
-                        "U",
-                        "F",
-                        "MISES",
-                    }
-                ):
+        def source_contract():
+            sources = {
+                "S": response.cauchy_stress,
+                "P": response.first_piola_stress,
+                "SENER": response.strain_energy_density,
+            }
+            reserved = {*sources, "U", "F", "MISES"}
+            state_descriptions = {}
+
+            def add(name, source):
+                # A component called S must never replace physical stress;
+                # case aliases must not make a requested field ambiguous.
+                if name.upper() in reserved:
                     raise ValueError(
-                        "Material state output name collides with a finite Hex8 field."
+                        "Material output name collides with a finite Hex8 field."
                     )
-                self.sources[variable.output_name] = response.state.committed[
-                    variable.name
-                ]
-                state_descriptions[variable.output_name] = variable.summary()
+                reserved.add(name.upper())
+                sources[name] = source
+
+            for name, source in response.stored_energy_density_components.items():
+                add(name, source)
+            for variable in residual.material.state_schema.variables:
+                if variable.output_name:
+                    add(variable.output_name, response.state.committed[variable.name])
+                    state_descriptions[variable.output_name] = variable.summary()
+            return sources, state_descriptions
+
+        self.sources, state_descriptions = collective_call(
+            source_contract, comm=domain.comm, label="Finite Hex8 output source contract"
+        )
 
         def selection():
             selected = (variables,) if isinstance(variables, str) else variables

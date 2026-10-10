@@ -12,8 +12,8 @@ from agentfem.mechanics._finite_hex_energy import FiniteHexEnergyMonitor
 from test_finite_hex_explicit import make_step
 
 
-def energy_step():
-    step = make_step()
+def energy_step(*, growth_resolution=None):
+    step = make_step(growth_resolution=growth_resolution)
     residual = step.residual
     residual.enable_energy(
         residual.material.initial_array_response(len(residual.internal.cell_nodes))
@@ -131,6 +131,26 @@ def test_failed_commit_restores_accepted_energy(monkeypatch):
     with pytest.raises(RuntimeError, match="after commit"):
         step.run()
     assert step.residual.snapshot() == before
+
+
+def test_physical_discrete_and_dissipated_energy_have_distinct_meanings():
+    step = energy_step(growth_resolution=0.1)
+    xyz = step.state.u.value.function_space.tabulate_dof_coordinates()
+    step.state.v.value.x.array[:] = np.column_stack(
+        (0.1 * xyz[:, 1] * xyz[:, 2], np.zeros(len(xyz)), np.zeros(len(xyz)))
+    ).ravel()
+    step.run()
+    row = step.history_records[-1]
+    assert row["hourglass_energy"] > 1e-15
+    assert row["total_mechanical_energy"] == pytest.approx(
+        row["kinetic_energy"] + row["bulk_stored_energy"] + row["interface_stored_energy"]
+    )
+    assert row["total_discrete_energy"] == pytest.approx(
+        row["total_mechanical_energy"] + row["hourglass_energy"]
+    )
+    assert row["accounted_internal_kinetic_energy"] == pytest.approx(
+        row["total_discrete_energy"] + row["material_dissipation"]
+    )
 
 
 def prescribed_bar(dt, *, yield_stress=1e9, growth_resolution=None):

@@ -69,6 +69,10 @@ deformation gradient, and `SENER` material stored energy per reference volume.
 Declared material state output names are also available (`FP`, `PEEQ`, `PDENER`
 for native J2). All derived fields are unsmoothed DG0 views of accepted state;
 output never advances the material. Artificial energy stays in its own ledger.
+As in the small-strain route, `total_mechanical_energy` excludes artificial
+hourglass energy; `total_discrete_energy` includes it. The work-balance quantity
+`accounted_internal_kinetic_energy` additionally includes accumulated material
+dissipation. These three quantities must not be used interchangeably.
 Strong prescribed motion and displacement-independent reference body/traction
 loads are supported. Starts are undeformed with virgin history; restarts reuse
 the accepted state. The admitted interface special case remains isotropic,
@@ -483,6 +487,26 @@ yielding logarithmic J2 response, stored energy and yield-stress-times-PEEQ
 dissipation. Time refinement reduces the work/energy residual. The interface
 composition has interrupted/continuous restart and cached-energy checks. These
 tests do not establish arbitrary plastic loading, localization or forming.
+
+The ordinary Step also has two complete tension/compression cycles with an
+independent scalar coaxial logarithmic-plasticity recurrence. It keeps signed
+plastic strain distinct from accumulated PEEQ, checks stress/storage/dissipation,
+refines the accepted-path work residual, and restores exactly after a reversal.
+This is rate-independent proportional-direction cyclic evidence, not a
+nonproportional or fatigue constitutive validation.
+
+Independent nonuniform plastic manufactured runs are archived in
+`evidence/hex8/2026-10-10-finite-plastic-manufactured.json` and its
+`-fine-time.json` companion. Five axial meshes (8 to 128 cells, two cells in
+each transverse direction) use analytically derived forcing with a lumped
+nodal load rule. At 128 axial cells and 8,000 increments, relative displacement,
+cell stress and PEEQ errors are approximately 0.00459%, 0.119% and 0.131%.
+Reducing the increment fourfold barely changes the spatial errors. The moving
+yield front prevents claiming a uniform second-order stress convergence rate.
+These clean-revision records retain their original field names: in those older
+records `total_mechanical_energy` included the separately reported artificial
+energy, which is below 1e-27 here. Current output separates mechanical and
+discrete totals explicitly; the raw historical evidence is not rewritten.
 
 The default still rejects negative material curvature. An explicit
 option may instead require `dt * sqrt(negative_bound) <= eta`, with

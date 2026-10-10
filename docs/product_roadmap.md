@@ -21,7 +21,8 @@ or a successful run is not by itself a validated engineering capability.
 
 ### User-driven mesh/interface slice (2026-10-09)
 
-2026-10-10 continuation: the private finite Hex8 route now has accepted-response
+2026-10-10 continuation: the bounded finite Hex8 route now has ordinary-Step
+lowering and accepted-response
 energy sampling, declared virgin response, prescribed-motion work, material
 dissipation, isotropic reference-interface energy and energy-preserving
 restart. Independent finite elastic/plastic stretch checks pass, with time-step
@@ -34,6 +35,21 @@ ranks, corrupt or swapped payloads and failed publication. Next: independent
 capacity evidence and performance measurement. Distributed interface
 integration, cross-partition finite state recovery, damage/deletion and advanced
 hourglass laws remain separate gates, not requirements satisfied by these tests.
+
+The tester's Hex8/interface brief is assessed by capability, not by reproducing
+one private input file:
+
+| Requested part | Current evidence-backed boundary | Next missing gate |
+| --- | --- | --- |
+| A1 uniform-gradient elastic Hex8 | Ordinary Step; isotropic/rotated orthotropic, stiffness hourglass, lumped mass, bending/wave/patch checks and separate artificial energy | Application-specific accuracy and commercial cross-comparison are not inferred |
+| A2 finite deformation | Bounded history-material Step, finite objectivity/tangents, independent proportional and nonuniform plastic references, owned-cell MPI and same-partition restart | Automatic material-owned stability estimates; viscous/relaxation stabilization; damage/deletion and mass scaling remain unimplemented in this path |
+| B1 nonmatching bonding | Serial fixed coplanar P1 and affine planar Q1 traces, genuine elastic law, coverage/force/moment/work checks and accepted recovery in explicit dynamics | Warped/general surfaces, cross-rank interface ownership and general convected material frames |
+| B2 integration quality | Common-refinement overlap integration retaining both original bases, side-swap and patch evidence | Not dual mortar, arbitrary sliding, re-pairing or post-failure contact |
+| Combined industrial forming | Small finite-bulk/equal-stiffness elastic-bond Step verified, without case-specific solver code | Moving contact plus the actual orthotropic finite material, damage policies and independent industrial reference remain separate work |
+
+Prioritize these genuine gaps instead of advertising all of A2 or the complete
+industrial model as finished. Installed-use and performance evidence support
+usability and efficiency, but do not promote scientific scope by themselves.
 
 This slice implements bounded fixed-reference nonmatching cohesive trace
 integration and uniform-strain Hex8 stabilization. These are general formulation

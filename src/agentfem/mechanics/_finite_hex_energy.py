@@ -43,13 +43,14 @@ class FiniteHexEnergyMonitor:
         mechanical = (
             kinetic
             + values["bulk_stored_energy"]
-            + values["hourglass_energy"]
             + values["interface_stored_energy"]
         )
+        discrete = mechanical + values["hourglass_energy"]
         return {
             **values,
             "kinetic_energy": kinetic,
             "total_mechanical_energy": mechanical,
-            "accounted_internal_kinetic_energy": mechanical
+            "total_discrete_energy": discrete,
+            "accounted_internal_kinetic_energy": discrete
             + values["material_dissipation"],
         }
