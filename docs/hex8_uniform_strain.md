@@ -470,6 +470,23 @@ forming. The run predates columnar transport; its elapsed time overlapped other
 checks and is not used to quantify that optimization. Its explicit 8 GiB budget
 was an observed-RSS stop at reporting stations, not an operating-system limit.
 
+The subsequent clean `5bb568a3` plastic-path capacity run completed 262,144
+cells and 1,000 increments through 20% axial extension. Its independent
+proportional logarithmic-J2 oracle checks stress, stored energy, PEEQ and
+irreversible dissipation, not only displacement. The final absolute stress
+and PEEQ errors are 1.03e-11 and 1.01e-13; the maximum sampled relative
+work/energy residual is 1.92e-7. Peak process RSS is 3,383,967,744 bytes
+(3.15 GiB). The 200 reporting stations are preserved in
+`evidence/hex8/2026-10-10-finite-plastic-capacity.json`.
+
+This run used the private verification entry point and predates the subsequent
+geometry/tangent optimizations. Its approximately 114-minute run overlapped
+short acceptance checks and is **not** a controlled performance baseline.
+The ordinary Step is tested separately. A homogeneous capacity test still does
+not establish nonuniform accuracy, contact forming, or a general stable-step
+estimator; it retains a caller-declared path ceiling and explicit signed-curvature
+growth-resolution policy.
+
 ### Public and private promotion boundaries
 
 Compact preparation and serial affine/bending/wave checks are implemented.
