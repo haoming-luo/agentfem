@@ -31,12 +31,17 @@ No geometry routine may implicitly activate a bond or adjust model coordinates.
    seams use a deterministic facet; competing positions or normals reject.
    This is a scalar narrow-phase reference, not yet production/MPI qualified.
    Coverage and side-swap/integration sensitivity remain required.
-3. Initial bond semantics: explicitly preserve eligibility and initialization,
-   rather than substitute a full tie. Persist selected identities only after
-   the physical policy is reviewed. Not yet integrated.
-4. Global composition: reuse existing elastic law, transpose force transfer,
-   State and accepted work ledger. Nonzero-gap objectivity/moment balance and
-   checkpoint tests are required before ordinary-Step admission.
+3. Initial bond semantics: private `initial_nodal_q1_pairing` consumes an
+   explicit original-node eligibility mask and already coincident true-Q1
+   geometry. It never moves coordinates or bonds later arrivals. Positive
+   nodal area weights integrate the secondary trace basis. The existing
+   elastic law and transpose force scatter are reused. Original-source
+   initialization/adjustment policy remains separate and unresolved.
+4. Global composition: the private response-only adapter now composes the
+   nodal bond and two moving lateral-cylinder contacts, with joint disk
+   restart and post-commit rollback. Equal three-direction stiffness is
+   required; tests check virtual work, finite rigid rotations, and current
+   moment balance. This is not admission of a finite-offset anisotropic bond.
 
 Local projection verification uses independent analytic warped graphs, an
 independent constrained minimizer, rigid rotations and three length scales,
@@ -54,6 +59,27 @@ normals or bind them anyway. This reveals a remaining crease/ambiguity policy
 gate before initializing source bonds. The diagnostic search takes about
 0.33/0.42 seconds including tree construction on this host; this is neither
 full-surface coverage nor a time-step/whole-solver performance certificate.
+
+Follow-up diagnosis corrects the earlier interpretation: those eight centroid
+failures were near-seam unique minima incorrectly classified as ties by an
+overly broad distance tolerance, not conflicting normals. Local-roundoff
+comparison fixes them. Full-surface sampling additionally exposed polynomial
+degree-reduction conditioning: roundoff leading coefficients could lose a
+finite stationary root. Relative coefficient trimming and polishing the
+original two-variable stationarity equations fix that failure. All 54,572
+bidirectional Gauss queries now resolve on exact Q1 geometry. All 8,898/4,942
+original nodes also resolve. This does not prove original bond eligibility.
+For isotropic nodal bonding only, shared-edge normals need not agree, but
+coincident competing projections must give identical global-node interpolation;
+coincident disconnected DOFs still reject. Unique normals remain the default.
+
+Global composition exposed and fixed a separate adapter defect: first-order
+contact vertices were matched against all mesh DOFs, rejecting coincident
+independent bodies. Matching now uses the facet's owning-cell DOFs, preserving
+topological identity and replacing a full-mesh scan by a four/eight-node scan.
+The focused serial selection passes 107 tests; a single bounded two-rank run
+passes 42 contact/trace tests on each rank. New response-only execution itself
+remains serial. These are targeted regressions, not full release acceptance.
 
 | Gate | Deliverable and acceptance | Status |
 | --- | --- | --- |
@@ -126,7 +152,8 @@ equivalence. Source increment/spin equivalence remains unestablished.
 
 Accepted body forces are cached with accepted displacement and material history.
 Reaction sampling must not call a history material with a zero time increment
-or advance it twice. Numeric checkpoint v2 preserves that cache. Two moving
+or advance it twice. Numeric checkpoint v3 preserves that cache and the bonded
+interface state/energy. Two moving
 contact contributions wrap the same body Operator and share the existing
 `DynamicEnergyLedger`, without a two-tool special solver. Serial regressions
 cover planes and finite lateral cylinder patches, nonzero tool work, identical

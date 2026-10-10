@@ -41,6 +41,13 @@ def q1_closest_point(vertices, point):
     equation = sum(
         ((e[i] * B - f[i] * A) * (c[i] * B - d[i] * A) for i in range(3)), P([0])
     )
+    # Geometry can reduce this polynomial's degree (e.g. a planar trapezoid).
+    # Roundoff-only leading coefficients produce enormous companion roots and
+    # can erase a finite root. Trim only relative coefficient roundoff, then
+    # check/polish candidates against the uneliminated physical equations.
+    equation = equation.trim(
+        tol=64 * np.finfo(float).eps * np.max(np.abs(equation.coef))
+    )
     candidates = []
     for root in equation.roots():
         if abs(root.imag) > 1e-8 or not 0 < root.real < 1:
@@ -48,11 +55,27 @@ def q1_closest_point(vertices, point):
         v = float(root.real)
         u = float(-A(v) / B(v))
         if 0 < u < 1:
+            # Near degree reduction, polynomial roots need polishing in the
+            # original stationarity equations rather than the eliminated one.
+            for _ in range(12):
+                residual = a + b * u + c * v + d * u * v
+                ju, jv = b + d * v, c + d * u
+                gradient = np.array([ju @ residual, jv @ residual])
+                if np.linalg.norm(gradient) <= 1e-13:
+                    break
+                cross = ju @ jv + d @ residual
+                hessian = np.array([[ju @ ju, cross], [cross, jv @ jv]])
+                try:
+                    step = np.linalg.solve(hessian, gradient)
+                except np.linalg.LinAlgError as exc:
+                    raise ValueError("Unresolved Q1 stationary root.") from exc
+                u, v = np.array([u, v]) - step
             residual = a + b * u + c * v + d * u * v
             gradient = np.array([(b + d * v) @ residual, (c + d * u) @ residual])
             if np.linalg.norm(gradient) > 1e-9:
                 raise ValueError("Unresolved Q1 stationary root.")
-            candidates.append([u, v])
+            if 0 < u < 1 and 0 < v < 1:
+                candidates.append([u, v])
     corners = np.array([[0.0, 0], [1, 0], [1, 1], [0, 1]])
     for i in range(4):
         j = (i + 1) % 4

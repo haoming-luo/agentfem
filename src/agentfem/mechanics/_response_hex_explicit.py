@@ -35,9 +35,11 @@ class ResponseHexWorkMonitor:
             "kinetic_energy": kinetic,
             "material_internal_work": r.internal_work,
             "hourglass_energy": r.hourglass_energy,
+            "interface_stored_energy": r.interface_energy,
             "accounted_internal_kinetic_energy": kinetic
             + r.internal_work
-            + r.hourglass_energy,
+            + r.hourglass_energy
+            + r.interface_energy,
         }
 
 
@@ -50,6 +52,7 @@ class ResponseHexExplicitResidual:
         time_increment_ceiling,
         material_identity,
         stress_free_initial_state,
+        cohesive=None,
     ):
         from ..constitutive._explicit_material_driver import ExplicitQuadratureResponse
 
@@ -73,6 +76,30 @@ class ResponseHexExplicitResidual:
         if not np.array_equal(committed, np.broadcast_to(initial, committed.shape)):
             raise ValueError("Response-only initialization requires virgin state.")
         self.internal, self.material = internal, material
+        self.cohesive = cohesive
+        if cohesive is not None:
+            from .._elastic_cohesive import ElasticCohesiveLaw
+            from .._nonmatching_force import NonmatchingCohesiveForce
+
+            if not isinstance(cohesive, NonmatchingCohesiveForce):
+                raise TypeError("Expected existing nonmatching interface force.")
+            law = cohesive.assembler.law
+            if cohesive.displacement is not internal.displacement:
+                raise ValueError("Body and interface displacement differ.")
+            if not isinstance(law, ElasticCohesiveLaw) or not (
+                law.normal_stiffness
+                == law.tangential_stiffness
+                == law.second_tangential_stiffness
+            ):
+                raise NotImplementedError(
+                    "Response-only finite bond requires isotropic elasticity."
+                )
+            method = cohesive.assembler.pairing.method
+            if not (
+                method.startswith("coplanar-")
+                or method == "original-node-q1-isotropic-elastic"
+            ):
+                raise NotImplementedError("Unreviewed finite reference pairing method.")
         self.checkpoint_state_required = True
         self.comm = internal.comm
         self.ceiling = ceiling
@@ -95,10 +122,16 @@ class ResponseHexExplicitResidual:
             digest.update(str((array.shape, array.dtype.str)).encode())
             digest.update(np.ascontiguousarray(array).tobytes())
         self.identity = digest.hexdigest()
+        if cohesive is not None:
+            digest.update(content_fingerprint(cohesive.snapshot()).encode())
+            digest.update(cohesive.negative_dofs.tobytes())
+            digest.update(cohesive.positive_dofs.tobytes())
+            self.identity = digest.hexdigest()
         self.accepted_gradient = np.tile(np.eye(3), (len(internal.cell_nodes), 1, 1))
         self.accepted_time = self.time = 0.0
         self.internal_work = 0.0
         self.hourglass_energy = 0.0
+        self.interface_energy = 0.0
         self._trial = None
         self.accepted_force = np.zeros_like(internal.mass_diagonal)
         self.accepted_displacement = internal.displacement.x.array.copy()
@@ -113,6 +146,13 @@ class ResponseHexExplicitResidual:
         self.time = float(time)
 
     def assemble_vector(self):
+        try:
+            return self._assemble_vector()
+        except BaseException:
+            self.rollback()
+            raise
+
+    def _assemble_vector(self):
         dt = self.time - self.accepted_time
         self.validate_time_increment(dt)
         self._trial = None
@@ -122,6 +162,13 @@ class ResponseHexExplicitResidual:
             time=self.accepted_time,
             time_increment=dt,
         ) as (vector, trial):
+            interface_energy = 0.0
+            if self.cohesive is not None:
+                try:
+                    interface_energy = self.cohesive.add_to_vector(vector).stored_energy
+                except BaseException:
+                    self.cohesive.rollback()
+                    raise
             if not np.isfinite(vector.array).all():
                 raise ValueError("Nonfinite response-only force.")
             work = self.internal_work + float(
@@ -129,7 +176,7 @@ class ResponseHexExplicitResidual:
                 @ trial.material_response.internal_work_density_increment
             )
             hg = float(np.sum(trial.element_response.hourglass_energy))
-            if not np.isfinite([work, hg]).all():
+            if not np.isfinite([work, hg, interface_energy]).all():
                 raise ValueError("Nonfinite response-only work.")
             self._trial = (
                 trial,
@@ -138,22 +185,26 @@ class ResponseHexExplicitResidual:
                 self.time,
                 self.internal.displacement.x.array.copy(),
                 vector.array.copy(),
+                interface_energy,
             )
         return vector
 
     def commit(self):
         if self._trial is None:
             raise RuntimeError("No response-only trial to accept.")
-        trial, work, hg, time, displacement, force = self._trial
+        trial, work, hg, time, displacement, force, interface_energy = self._trial
         if time != self.time or not np.array_equal(
             displacement, self.internal.displacement.x.array
         ):
             raise RuntimeError("Configuration changed after response-only trial.")
         self.internal.response.commit()
+        if self.cohesive is not None:
+            self.cohesive.commit()
         self.accepted_gradient = trial.deformation_gradient.copy()
         self.accepted_time = time
         self.internal_work, self.hourglass_energy = work, hg
         self.accepted_force = force
+        self.interface_energy = interface_energy
         self.accepted_displacement = displacement
         self._trial = None
 
@@ -172,6 +223,8 @@ class ResponseHexExplicitResidual:
 
     def rollback(self):
         self.internal.response.rollback()
+        if self.cohesive is not None:
+            self.cohesive.rollback()
         self.time = self.accepted_time
         self._trial = None
 
@@ -207,12 +260,14 @@ class ResponseHexExplicitResidual:
         if self._trial is not None:
             raise RuntimeError("Cannot save an unaccepted response-only trial.")
         return {
-            "schema": "agentfem.private-response-hex.v2",
+            "schema": "agentfem.private-response-hex.v3",
             "identity": self.identity,
             "time": self.accepted_time,
             "gradient": self.accepted_gradient.copy(),
             "internal_work": self.internal_work,
             "hourglass_energy": self.hourglass_energy,
+            "interface_energy": self.interface_energy,
+            "cohesive": None if self.cohesive is None else self.cohesive.snapshot(),
             "accepted_force": self.accepted_force.copy(),
             "accepted_displacement": self.accepted_displacement.copy(),
             "fields": {k: v.x.array.copy() for k, v in self._fields().items()},
@@ -260,7 +315,7 @@ class ResponseHexExplicitResidual:
 
     def restore(self, record):
         if (
-            record.get("schema") != "agentfem.private-response-hex.v2"
+            record.get("schema") != "agentfem.private-response-hex.v3"
             or record.get("identity") != self.identity
         ):
             raise ValueError("Response-only checkpoint identity mismatch.")
@@ -275,7 +330,10 @@ class ResponseHexExplicitResidual:
             or np.any(np.linalg.det(gradient) <= 0)
         ):
             raise ValueError("Invalid response-only checkpoint gradient.")
-        values = [record[k] for k in ("time", "internal_work", "hourglass_energy")]
+        values = [
+            record[k]
+            for k in ("time", "internal_work", "hourglass_energy", "interface_energy")
+        ]
         if (
             any(
                 not np.isscalar(v) or not np.isreal(v) or not np.isfinite(v)
@@ -283,6 +341,7 @@ class ResponseHexExplicitResidual:
             )
             or values[0] < 0
             or values[2] < 0
+            or values[3] < 0
         ):
             raise ValueError("Invalid response-only checkpoint scalars.")
         arrays = {k: np.asarray(record["fields"][k]) for k in fields}
@@ -311,13 +370,26 @@ class ResponseHexExplicitResidual:
         for name in self.internal.response.response_transaction.committed:
             if not np.array_equal(arrays[name], arrays["committed_response_" + name]):
                 raise ValueError("Checkpoint contains unaccepted material response.")
-        with field_transaction(**fields):
-            for k, v in fields.items():
-                v.x.array[:] = arrays[k]
-                v.x.scatter_forward()
+        if (record.get("cohesive") is None) != (self.cohesive is None):
+            raise ValueError("Response-only checkpoint interface differs.")
+        previous_interface = None if self.cohesive is None else self.cohesive.snapshot()
+        try:
+            if self.cohesive is not None:
+                self.cohesive.rollback()
+                self.cohesive.restore(record["cohesive"])
+            with field_transaction(**fields):
+                for k, v in fields.items():
+                    v.x.array[:] = arrays[k]
+                    v.x.scatter_forward()
+        except BaseException:
+            if self.cohesive is not None:
+                self.cohesive.restore(previous_interface)
+            raise
         self.accepted_gradient = gradient.copy()
         self.accepted_time = self.time = float(values[0])
-        self.internal_work, self.hourglass_energy = map(float, values[1:])
+        self.internal_work, self.hourglass_energy, self.interface_energy = map(
+            float, values[1:]
+        )
         self.accepted_force = force.copy()
         self.accepted_displacement = displacement.copy()
         self._trial = None

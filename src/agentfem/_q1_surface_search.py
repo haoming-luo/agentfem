@@ -20,12 +20,34 @@ class Q1SurfaceSearch:
     a performance-qualified production search.
     """
 
-    def __init__(self, vertices):
+    def __init__(self, vertices, *, node_ids=None):
         self.vertices = np.array(vertices, dtype=float, copy=True)
+        self.node_ids = None
+        if node_ids is not None:
+            ids = np.asarray(node_ids)
+            if (
+                ids.shape != self.vertices.shape[:2]
+                or ids.dtype.kind not in "iu"
+                or np.any(ids < 0)
+            ):
+                raise ValueError(
+                    "Q1 node identities must be nonnegative facet connectivity."
+                )
+            self.node_ids = ids.copy()
+            self.node_ids.flags.writeable = False
+            order = np.argsort(ids.ravel(), kind="stable")
+            ordered_ids = ids.ravel()[order]
+            ordered_points = self.vertices.reshape(-1, 3)[order]
+            if np.any(
+                (ordered_ids[1:] == ordered_ids[:-1])[:, None]
+                & (ordered_points[1:] != ordered_points[:-1])
+            ):
+                raise ValueError("One Q1 node identity has inconsistent coordinates.")
         bounds = q1_triangulation_distance_bound(vertices)
         if not len(bounds):
             raise ValueError("Q1 search requires a nonempty surface.")
         self.padding = float(bounds.max())
+        self.facet_scales = np.linalg.norm(np.ptp(self.vertices, axis=1), axis=1)
         self.vertices.flags.writeable = False
         ids = np.arange(len(bounds) * 4).reshape(-1, 4)
         triangles = np.stack((ids[:, [0, 1, 2]], ids[:, [0, 2, 3]]), axis=1).reshape(
@@ -38,7 +60,20 @@ class Q1SurfaceSearch:
             TriangulatedRigidSurface(nodes, inverse[triangles])
         )
 
-    def project(self, points, *, maximum_distance, maximum_candidates=128):
+    def project(
+        self,
+        points,
+        *,
+        maximum_distance,
+        maximum_candidates=128,
+        require_unique_normal=True,
+    ):
+        if not isinstance(require_unique_normal, bool):
+            raise ValueError("Normal uniqueness must be a boolean policy.")
+        if not require_unique_normal and self.node_ids is None:
+            raise ValueError(
+                "Normal-independent selection requires explicit node identities."
+            )
         raw = np.asarray(points)
         if np.iscomplexobj(raw):
             raise ValueError("Q1 queries must be real.")
@@ -70,16 +105,39 @@ class Q1SurfaceSearch:
                 raise ValueError(f"Q1 query {index}: no surface within search radius.")
             choices.sort(key=lambda item: (item[1][-1], item[0]))
             best = choices[0]
-            tolerance = 1e-10 * maximum_distance
+            # A physical search radius is not an ambiguity tolerance. Close to
+            # a shared edge, an interior minimum and its neighboring edge
+            # minimum can differ by far less than 1e-10*radius while remaining
+            # numerically resolvable. Use local geometric roundoff instead.
+            scale = max(maximum_distance, float(self.facet_scales[facets].max()))
+            tolerance = 64 * np.finfo(float).eps * scale
+            point_tolerance = (
+                64 * np.finfo(float).eps * max(scale, np.linalg.norm(point))
+            )
             for candidate in choices[1:]:
                 if abs(candidate[1][-1] - best[1][-1]) <= tolerance:
-                    if (
-                        np.linalg.norm(candidate[1][2] - best[1][2]) > tolerance
-                        or np.linalg.norm(candidate[1][3] - best[1][3]) > 1e-8
+                    if np.linalg.norm(
+                        candidate[1][2] - best[1][2]
+                    ) > point_tolerance or (
+                        require_unique_normal
+                        and np.linalg.norm(candidate[1][3] - best[1][3]) > 1e-8
                     ):
                         raise ValueError(
                             f"Q1 query {index}: ambiguous surface projection."
                         )
+                    if not require_unique_normal:
+                        coefficients = {}
+                        for (facet, record), sign in ((best, 1.0), (candidate, -1.0)):
+                            for node, weight in zip(
+                                self.node_ids[facet], record[1], strict=True
+                            ):
+                                coefficients[int(node)] = (
+                                    coefficients.get(int(node), 0.0) + sign * weight
+                                )
+                        if max(map(abs, coefficients.values()), default=0.0) > 1e-10:
+                            raise ValueError(
+                                f"Q1 query {index}: ambiguous trace interpolation."
+                            )
                     if candidate[0] < best[0]:
                         best = candidate
             found.append(best)
@@ -90,4 +148,5 @@ class Q1SurfaceSearch:
             "normals": np.array([r[3] for _, r in found]).reshape(-1, 3),
             "distances": np.array([r[4] for _, r in found]),
             "candidate_counts": np.array(counts, dtype=np.int64),
+            "unique_normal_required": require_unique_normal,
         }

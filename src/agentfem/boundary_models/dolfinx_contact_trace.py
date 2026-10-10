@@ -452,6 +452,9 @@ def dolfinx_boundary_region_contact_trace(
             raise NotImplementedError(
                 "only first- or second-order coordinate geometry is supported"
             )
+        domain.topology.create_connectivity(
+            int(domain.topology.dim) - 1, domain.topology.dim
+        )
         if high_order:
             import basix
 
@@ -641,11 +644,26 @@ def dolfinx_boundary_region_contact_trace(
             else:
                 points = coordinates[geometry_dofs]
             if not high_order:
+                adjacent = domain.topology.connectivity(
+                    facet_dimension, domain.topology.dim
+                ).links(int(facet))
+                if len(adjacent) != 1:
+                    raise ValueError(
+                        "an exterior contact facet must have exactly one adjacent cell"
+                    )
+                cell_blocks = function_space.dofmap.cell_dofs(int(adjacent[0]))
+                # Topology selects the owning body before coordinate matching.
+                # Coincident independent interface nodes are not interchangeable.
+                # This also avoids scanning every mesh DOF for each face vertex.
                 blocks = tuple(
-                    _matching_dof_block(
-                        point,
-                        dof_coordinates,
-                        tolerance=tolerance,
+                    int(
+                        cell_blocks[
+                            _matching_dof_block(
+                                point,
+                                dof_coordinates[cell_blocks],
+                                tolerance=tolerance,
+                            )
+                        ]
                     )
                     for point in points
                 )

@@ -26,10 +26,15 @@ def test_unaccepted_response_cannot_be_restored():
     assert step.residual.snapshot() == before
 
 
-def make_step(dt=1e-4, *, contact=False):
-    domain = mesh.create_unit_cube(
-        MPI.COMM_SELF, 2, 1, 1, cell_type=mesh.CellType.hexahedron
-    )
+def make_step(dt=1e-4, *, contact=False, bond=False):
+    if bond:
+        from test_nonmatching_global import _blocks
+
+        domain = _blocks(1, 2, cell_type="hexahedron")
+    else:
+        domain = mesh.create_unit_cube(
+            MPI.COMM_SELF, 2, 1, 1, cell_type=mesh.CellType.hexahedron
+        )
     u = fem.Function(fem.functionspace(domain, ("Lagrange", 1, (3,))))
     history = state.second_order_state(u)
     law = ResponseOnly()
@@ -41,15 +46,42 @@ def make_step(dt=1e-4, *, contact=False):
         hourglass_modulus=1.0,
         hourglass_scale=0.1,
     )
+    cohesive = None
+    if bond:
+        from test_quadrilateral_global import _trace
+        from agentfem import fracture, interfaces
+        from agentfem._interface_quadrilateral import BilinearReferenceTrace
+        from agentfem._initial_nodal_bond import initial_nodal_q1_pairing
+
+        a, na = _trace(u.function_space, False)
+        b, nb = _trace(u.function_space, True)
+        a = BilinearReferenceTrace(a.vertices, a.quadrilaterals, tolerance=1e-10)
+        b = BilinearReferenceTrace(b.vertices, b.quadrilaterals, tolerance=1e-10)
+        pair = initial_nodal_q1_pairing(
+            a, b, eligible_nodes=np.ones(len(a.vertices), dtype=bool), tolerance=1e-10
+        )
+        cohesive = fracture.nonmatching_cohesive_force(
+            pair,
+            u,
+            interfaces.elastic_cohesive(normal_stiffness=100, tangential_stiffness=100),
+            negative_dofs=na,
+            positive_dofs=nb,
+        )
     residual = ResponseHexExplicitResidual(
         internal,
         law,
         time_increment_ceiling=1e-3,
         stress_free_initial_state=True,
         material_identity={"test": "linear-response", "modulus": 20.0},
+        cohesive=cohesive,
     )
     xyz = u.function_space.tabulate_dof_coordinates()
     history.v.value.x.array[:] = (0.001 * xyz).ravel()
+    if bond:
+        for nodes in internal.cell_nodes:
+            history.v.value.x.array.reshape(-1, 3)[nodes, 2] += 0.01 * np.sign(
+                xyz[nodes, 2].mean()
+            )
     monitor = MechanicalEnergyMonitor(mass=internal.mass_diagonal)
     if contact:
         from agentfem import boundary_models, fracture, mesh as af_mesh
@@ -113,14 +145,16 @@ def make_step(dt=1e-4, *, contact=False):
     return step
 
 
-@pytest.mark.parametrize("contact", [True, "cylinder"])
-def test_response_only_nested_moving_contact_and_restart(tmp_path, contact):
-    reference = make_step(contact=contact)
+@pytest.mark.parametrize(
+    "contact,bond", [(True, False), ("cylinder", False), ("cylinder", True)]
+)
+def test_response_only_nested_moving_contact_and_restart(tmp_path, contact, bond):
+    reference = make_step(contact=contact, bond=bond)
     reference.run()
-    partial = make_step(contact=contact)
+    partial = make_step(contact=contact, bond=bond)
     partial.run(until_step=4)
     path = partial.save_checkpoint(tmp_path / "contact_response")
-    resumed = make_step(contact=contact)
+    resumed = make_step(contact=contact, bond=bond)
     resumed.load_checkpoint(path)
     resumed.run()
     for name in ("u", "v", "a"):
@@ -140,10 +174,13 @@ def test_response_only_nested_moving_contact_and_restart(tmp_path, contact):
         sum(item["contact_motion_work"] for item in evidence)
     )
     assert "stored_energy" not in last
+    if bond:
+        assert last["interface_stored_energy"] > 0
 
 
-def test_nested_contact_late_failure_is_atomic(monkeypatch):
-    step = make_step(contact=True)
+@pytest.mark.parametrize("bond", [False, True])
+def test_nested_contact_late_failure_is_atomic(monkeypatch, bond):
+    step = make_step(contact=True, bond=bond)
     step.run(until_step=2)
     accepted = step.residual.snapshot()
     nodal = step.state.snapshot()
@@ -162,6 +199,24 @@ def test_nested_contact_late_failure_is_atomic(monkeypatch):
         np.testing.assert_array_equal(value, step.state.snapshot()["fields"][name])
 
 
+def test_bond_failure_clears_both_trials(monkeypatch):
+    step = make_step(bond=True)
+    residual = step.residual
+    before = residual.snapshot()
+    original = residual.cohesive.add_to_vector
+
+    def broken(vector):
+        response = original(vector)
+        vector.array[0] = np.nan
+        return response
+
+    monkeypatch.setattr(residual.cohesive, "add_to_vector", broken)
+    with pytest.raises(ValueError, match="Nonfinite"):
+        step.run()
+    assert residual.snapshot() == before
+    assert residual.cohesive.assembler._trial is None
+
+
 def test_accepted_force_does_not_update_material():
     step = make_step()
     step.run(until_step=2)
@@ -175,6 +230,21 @@ def test_accepted_force_does_not_update_material():
     step.state.u.value.x.array[0] += 1e-5
     with pytest.raises(RuntimeError, match="configuration"):
         step.residual.assemble_accepted_vector()
+
+
+def test_contact_vertex_lookup_is_cell_local(monkeypatch):
+    from agentfem.boundary_models import dolfinx_contact_trace as implementation
+
+    original = implementation._matching_dof_block
+    sizes = []
+
+    def checked(point, coordinates, **options):
+        sizes.append(len(coordinates))
+        return original(point, coordinates, **options)
+
+    monkeypatch.setattr(implementation, "_matching_dof_block", checked)
+    make_step(contact=True, bond=True)
+    assert sizes and max(sizes) == 8
 
 
 def test_response_only_advancement_and_disk_restart(tmp_path):

@@ -97,7 +97,8 @@ class FixedReferencePairing:
             values = np.empty((count, 3))
             for component in range(3):
                 values[:, component] = sign * np.bincount(
-                    nodes, weights=(shape * t[:, component, None]).ravel(),
+                    nodes,
+                    weights=(shape * t[:, component, None]).ravel(),
                     minlength=count,
                 )
             result.append(values)
@@ -318,6 +319,21 @@ class FixedReferenceCohesiveAssembler:
 
         if not isinstance(pairing, FixedReferencePairing):
             raise TypeError("Assembler requires FixedReferencePairing.")
+        if pairing.method == "original-node-q1-isotropic-elastic":
+            from ._elastic_cohesive import ElasticCohesiveLaw
+
+            if (
+                tangential != "mixed"
+                or not isinstance(law, ElasticCohesiveLaw)
+                or not (
+                    law.normal_stiffness
+                    == law.tangential_stiffness
+                    == law.second_tangential_stiffness
+                )
+            ):
+                raise NotImplementedError(
+                    "Original-node finite bond requires isotropic elastic stiffness."
+                )
         self.pairing = pairing
         self.law = law
         self.tangential, self.tangential_stiffness = _validate_tangential_mode(
