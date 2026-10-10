@@ -112,6 +112,26 @@ class FiniteUniformHexResidual:
             vector.destroy()
             raise
 
+    def assemble_bulk_viscosity(self, velocity, **options):
+        """Separate artificial force/power; caller owns vector and acceptance.
+
+        Not automatically enabled in existing Steps. A Procedure must include
+        damping in stability, power integration and accepted restart evidence.
+        """
+        from ..fields import unwrap
+        from ._bulk_viscosity import bulk_viscosity_response
+
+        velocity = unwrap(velocity)
+        if self.comm.size != 1:
+            raise NotImplementedError("Bulk viscosity composition is serial pending MPI acceptance.")
+        if velocity.function_space is not self.displacement.function_space:
+            raise ValueError("Velocity and displacement must share the function space.")
+        response = bulk_viscosity_response(
+            self.cells,
+            self.displacement.x.array.reshape(-1, 3)[self.cell_nodes],
+            velocity.x.array.reshape(-1, 3)[self.cell_nodes], **options)
+        return self._scatter(response.internal_force), response
+
     def evaluate(self, material, *, deformation_gradient_old, time, time_increment):
         """Return (owned PETSc force vector, unaccepted material/element trial)."""
         with self.trial_evaluation(
@@ -165,7 +185,8 @@ class FiniteUniformHexResidual:
             raise
 
     @contextmanager
-    def explicit_trial_evaluation(self, material, *, deformation_gradient_old, time, time_increment):
+    def explicit_trial_evaluation(self, material, *, deformation_gradient_old, time, time_increment,
+                                  velocity=None, bulk_viscosity=None):
         """Serial response-only trial; does not provide a time-step policy.
 
         Reuses cell geometry, scatter and quadrature State. The existing public
@@ -178,6 +199,8 @@ class FiniteUniformHexResidual:
 
         if self.comm.size != 1 or not isinstance(self.response, ExplicitQuadratureResponse):
             raise NotImplementedError("Expected serial response-only quadrature.")
+        if (velocity is None) != (bulk_viscosity is None):
+            raise ValueError("Bulk viscosity requires both velocity and explicit coefficients.")
         if len(self.response.state.reference_field.points) != 1:
             raise ValueError("Uniform Hex8 requires one material point per cell.")
         self._tangent_available = False
@@ -193,8 +216,15 @@ class FiniteUniformHexResidual:
                     displacement, first_piola=self.response.first_piola_stress.owned_values,
                     stored_energy_density=response.stored_energy_density)
                 vector = self._scatter(element.internal_force)
+                viscosity = None
+                if bulk_viscosity is not None:
+                    damping_vector, viscosity = self.assemble_bulk_viscosity(velocity, **bulk_viscosity)
+                    try:
+                        vector.axpy(1., damping_vector)
+                    finally:
+                        damping_vector.destroy()
                 gradient.setflags(write=False)
-                yield vector, FiniteHexMaterialTrial(gradient, element, response)
+                yield vector, FiniteHexMaterialTrial(gradient, element, response, viscosity)
         except BaseException:
             if vector is not None:
                 vector.destroy()

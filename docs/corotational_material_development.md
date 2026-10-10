@@ -16,7 +16,7 @@ conversion; Procedure and State own acceptance and recovery.
 | 5 | Ordinary finite-Hex Step consumes the provider; single-element traction, multi-element patch, failed-trial recovery and checkpoint | Real Hex8 internal-force assembly and downstream trial rollback tested; ordinary time-integrating Step and full checkpoint pending |
 | 6 | Multiple analytical rigid tools in that same Step; geometry validity, curvature stability, resultant/moment/work, joint rollback | Pending; reuse existing rigid surfaces, contact law and accepted work ledger |
 | 7 | Imported geometry/section/interface audit and controlled incremental whole-model runs | Local geometry audit identifies nonaffine, globally noncoplanar traces and small facet warpage; general pairing and whole-model runs pending |
-| 8 | Bulk viscosity and variable mass scaling when required for source equivalence, with separate work/inertia evidence | Pending; do not silently replace these by damping or a larger fixed increment |
+| 8 | Bulk viscosity and variable mass scaling when required for source equivalence, with separate work/inertia evidence | Serial Hex8 bulk-viscosity force/power and response-trial composition tested; accepted time integration, damping stability and variable mass scaling pending |
 | 9 | Independent reference curves, mesh/time/penalty/hourglass sensitivity, performance and installed-use acceptance | Pending; commercial output is required before cross-validation claims |
 
 Deletion and interface damage are not prerequisites for reproducing a source
@@ -95,6 +95,26 @@ consistent-tangent requirements, and record its scope and refinement evidence.
 
 ## Acceptance and efficiency policy
 
+The private bulk-viscosity contribution reuses the reference-average Hex8
+gradient and current F. With tension-positive volumetric rate `theta`, it uses
+`q = rho*b1*c*L*theta - rho*(b2*L*min(theta,0))^2`. The contribution to Cauchy
+stress is `q I`; artificial power is `current_volume*q*theta >= 0`.
+Current density, wave speed and characteristic length are explicit inputs,
+not inferred from a damaged material or a silently scaled mass.
+
+`FiniteUniformHexResidual.assemble_bulk_viscosity` scatters this force through
+the same existing DOF layout. The response-only trial accepts an explicit
+velocity/coefficients pair and combines forces while returning artificial
+power separately from material work/storage/dissipation. Existing Steps do
+not enable it automatically. A per-cell frozen-configuration velocity-Jacobian
+bound is returned; it is not a complete nonlinear global stability claim.
+The owning Procedure must still integrate accepted artificial work and include
+damping in its increment policy and restart before global admission.
+Five focused checks cover analytical compression/expansion, rigid motion,
+force and moment balance, all 24 assembled velocity derivative columns, invalid
+coefficients, and downstream material-trial rollback. The combined existing
+material/element/architecture selection passes 56 tests.
+
 The response-only slice passes 87 selected tests including real serial
 quadrature, Hex8 force assembly, rollback, kinematics, geometry and architecture.
 The existing interface selection additionally passes 61 tests after reuse of
@@ -145,3 +165,7 @@ whole-model speedup from a local kernel benchmark.
   nonaffine pull-back is nonlinear and requires convergence control.
 - [DefElement Q1 quadrilateral](https://defelement.org/elements/examples/quadrilateral-lagrange-gll-1.html):
   the four-node tensor-product basis must not be replaced by a triangular field.
+- [Abaqus explicit dynamics](https://docs.software.vt.edu/abaqusv2025/English/SIMACAETHERefMap/simathe-c-expdynamic.htm):
+  linear and compression-only quadratic artificial bulk viscosity. Matching
+  these formulas alone does not establish identical characteristic lengths,
+  velocity sampling, stable increments or whole-solver equivalence.
