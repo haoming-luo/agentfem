@@ -79,6 +79,28 @@ def test_rank_local_unsupported_asset_is_collective_before_material_setup():
         )
 
 
+def test_rank_local_material_description_failure_is_collective(monkeypatch):
+    if MPI.COMM_WORLD.size < 2:
+        pytest.skip("Requires rank-local material description failure")
+    model, u, policy = problem(MPI.COMM_WORLD)
+    schema = type(model.materials[0].item.state_schema)
+    original = schema.summary
+
+    def describe(self):
+        if MPI.COMM_WORLD.rank == 1:
+            raise ValueError("injected material description failure")
+        return original(self)
+
+    monkeypatch.setattr(schema, "summary", describe)
+    before = u.value.x.array.copy()
+    with pytest.raises((ValueError, RuntimeError), match="material description failure"):
+        model.step(
+            target=u, element_policy=policy, omega_squared_bound=1e8, dt=1e-4, steps=20
+        )
+    np.testing.assert_array_equal(u.value.x.array, before)
+    assert not model.steps
+
+
 def test_rank_local_state_schema_mismatch_is_rejected_before_field_creation():
     from agentfem import constitutive
 

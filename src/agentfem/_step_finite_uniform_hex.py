@@ -127,8 +127,8 @@ def _prepare(model, request):
     )
     # Validate field-creation semantics before ranks allocate differing spaces.
     # A provider's friendly summary is not a substitute for the actual schema.
-    collective_canonical_record(
-        {
+    field_contract = collective_call(
+        lambda: {
             "state_schema": material.state_schema.summary(),
             "tangent": material.tangent_convention.summary(),
             "density": float(material.density),
@@ -136,6 +136,11 @@ def _prepare(model, request):
                 getattr(material, "stored_energy_component_names", ())
             ),
         },
+        comm=domain.comm,
+        label="Finite Hex8 material field description",
+    )
+    collective_canonical_record(
+        field_contract,
         comm=domain.comm,
         label="Finite Hex8 material field contract",
     )

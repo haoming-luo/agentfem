@@ -155,6 +155,33 @@ def test_finite_load_must_not_silently_add_displacement_stiffness():
         )
 
 
+def test_material_field_description_failure_precedes_allocation(monkeypatch):
+    from agentfem import _step_finite_uniform_hex as lowering
+
+    model, u, policy = problem(force=0)
+    schema = type(model.materials[0].item.state_schema)
+    guarded_labels = []
+    original = lowering.collective_call
+
+    def guard(operation, *, comm, label):
+        guarded_labels.append(label)
+        return original(operation, comm=comm, label=label)
+
+    def failed_description(self):
+        raise ValueError("injected field description failure")
+
+    monkeypatch.setattr(lowering, "collective_call", guard)
+    monkeypatch.setattr(schema, "summary", failed_description)
+    before = u.value.x.array.copy()
+    with pytest.raises(ValueError, match="field description failure"):
+        model.step(
+            target=u, element_policy=policy, omega_squared_bound=1e8, dt=1e-4, steps=20
+        )
+    assert guarded_labels[-1] == "Finite Hex8 material field description"
+    np.testing.assert_array_equal(u.value.x.array, before)
+    assert not model.steps
+
+
 def test_failed_finite_step_construction_restores_user_field_and_registration():
     model, u, policy = problem(force=0)
     model.fix(
