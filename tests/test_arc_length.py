@@ -190,3 +190,17 @@ def test_distributed_fem_adapter_fails_explicitly():
     m, u = patch(comm=MPI.COMM_WORLD)
     with pytest.raises(NotImplementedError, match="serial"):
         m.step(target=u, procedure=procedures.arc_length(), increments=3)
+
+
+def test_arc_length_rejects_partial_material_coverage():
+    m, u = patch()
+    region = mesh.partition_cells(
+        u.value.function_space.mesh,
+        left=lambda x: x[0] <= .5 + 1e-12,
+        right=lambda x: x[0] >= .5 - 1e-12,
+    )["left"]
+    material = m.materials[0].item
+    m.materials.clear()
+    m.material(material, region=region)
+    with pytest.raises(NotImplementedError, match="full-domain"):
+        m.step(target=u, procedure=procedures.arc_length(), increments=3)

@@ -127,3 +127,12 @@ multi-rank-only rejection test skipped in serial. Under two ranks the arc-length
 test file reports 7 passed and 1 intentional skip (the serial continuum arch).
 Ruff, REUSE, generated documentation and all 55 scientific cards/imports pass.
 These are local checks; hosted PR CI has not been represented as completed.
+
+## Integration review
+
+PR #100 integrates current main and adds an early rejection of regional
+material assignments in the bounded arc-length adapter. This prevents an
+uncovered part of the domain from reaching numerical assembly. Independent
+review reran the stability, imperfection, continuation, architecture and solver
+selection: 65 passed, one intentional multi-rank-only skip. Hosted CI remains
+a separate merge gate; no release or installer rebuild is part of this PR.

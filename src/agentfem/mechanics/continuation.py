@@ -48,6 +48,10 @@ class HyperelasticArcLengthStep:
             raise ValueError(
                 "AFM-ARC-FEM-002: one stateless hyperelastic material, no boundary models/eigenstrains."
             )
+        if model.materials[0].region is not None:
+            raise NotImplementedError(
+                "AFM-ARC-FEM-002: the serial arc-length adapter requires a full-domain material; regional coverage is not yet admitted."
+            )
         material = model.materials[0].item
         if not hyperelasticity.is_finite_strain_hyperelastic(
             material
