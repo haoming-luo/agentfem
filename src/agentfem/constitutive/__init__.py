@@ -17,6 +17,7 @@ from . import small_strain_user_material
 from . import user_material
 from . import viscoelasticity
 from .catalog import ConstitutiveCapability, capabilities, capability
+from .stability import FirstPiolaTangentEnvelope
 from .creep import (
     ArrheniusPowerLawCreep,
     CreepDamageState,
@@ -225,6 +226,7 @@ from .._material_history import (
 )
 
 __all__ = [
+    "FirstPiolaTangentEnvelope",
     "catalog",
     "creep",
     "elasticity",

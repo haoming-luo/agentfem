@@ -948,7 +948,7 @@ register_step_provider(StepProvider(
     procedure="explicit/central_difference",
     option_contract=_option_contract("element_policy", "cohesive_force", "dt", "steps", "save_every", "print_every",
         "history_every", "progress", "status_file", "checkpoint", "omega_squared_bound", "maximum_negative_growth_per_increment",
-        required=("element_policy", "dt", "steps", "omega_squared_bound")),
+        required=("element_policy", "dt", "steps")),
 ))
 
 

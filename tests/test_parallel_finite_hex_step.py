@@ -188,3 +188,40 @@ def test_rank_local_time_callback_failure_rolls_back_collectively(tmp_path, monk
     target.load_checkpoint(checkpoint)
     target.run(until_step=8)
     assert target.completed_steps == 8
+
+
+def test_material_envelope_distributed_bound_and_restart(tmp_path):
+    from test_finite_hex_material_envelope_step import prepare
+
+    comm = MPI.COMM_WORLD
+    if comm.size < 2:
+        pytest.skip("Requires distributed material envelope acceptance")
+    folder = Path(comm.bcast(str(tmp_path), root=0))
+    parallel = prepare(comm=comm, steps=20)
+    serial = prepare(steps=20)
+    assert parallel.residual.bound == pytest.approx(serial.residual.bound)
+    parallel.run(until_step=7)
+    checkpoint = parallel.save_checkpoint(folder / "envelope")
+    resumed = prepare(comm=comm, steps=20)
+    resumed.load_checkpoint(checkpoint)
+    resumed.run()
+    parallel.run()
+    serial.run()
+    np.testing.assert_array_equal(parallel.state.u.value.x.array, resumed.state.u.value.x.array)
+    for key in ("bulk_stored_energy", "kinetic_energy", "prescribed_motion_work"):
+        assert parallel.history_records[-1][key] == pytest.approx(
+            serial.history_records[-1][key], rel=1e-8, abs=1e-15
+        )
+
+
+def test_rank_local_material_envelope_domain_mismatch_is_collective():
+    from test_finite_hex_material_envelope_step import BoundedNeoHookean, prepare
+
+    comm = MPI.COMM_WORLD
+    if comm.size < 2:
+        pytest.skip("Requires distinct material stability declarations")
+    material = BoundedNeoHookean()
+    if comm.rank == 1:
+        material.maximum = 1.04
+    with pytest.raises(RuntimeError, match="stability domain"):
+        prepare(material, comm=comm)

@@ -609,9 +609,7 @@ references, not claims that AgentFEM implements those algorithms:
 [VUMAT effective moduli](https://docs.software.vt.edu/abaqusv2025/English/SIMACAESUBRefMap/simasub-c-vumat.htm),
 [explicit stability estimation](https://docs.software.vt.edu/abaqusv2025/English/SIMACAEANLRefMap/simaanl-c-expdynamic.htm).
 
-## Sources
-
-### Next stability gate: material envelopes (private operator experiment)
+## Material-owned stability envelopes (experimental)
 
 The fixed-reference Hex8 operator can now convert declared symmetric material
 bounds `-c_minus I <= dP/dF <= c_plus I` into separate positive-frequency and
@@ -622,10 +620,34 @@ Dense single-element and shared-node assembly oracles check this conversion,
 including anisotropic signed tangents and a bounded Neo-Hookean deformation
 domain. It does not infer material bounds or certify their validity domain.
 
-This private conversion is not yet a replacement for the caller's complete-path
-ceiling: provider-owned applicability checks, lifecycle/result identity and a
-public end-to-end acceptance gate are still required. No automatic variable
-time integration or general finite-material wave-speed claim follows from it.
+An external material may implement `explicit_stability_envelope()` returning
+`constitutive.FirstPiolaTangentEnvelope(positive_modulus=..., negative_modulus=...,
+minimum_stretch=..., maximum_stretch=..., source=...)`. Both moduli are in the
+model's consistent stress units and bound symmetric `dP_iJ/dF_kL` in reference
+configuration. The provider owns the derivation over **all admissible internal
+states and inputs**, throughout the principal-stretch domain. State-restricted
+or nonsymmetric tangents cannot be silently represented by this contract.
+
+The ordinary finite Hex8 `model.step()` may then omit `omega_squared_bound`;
+`dt="auto"` selects a **fixed initial increment** from the domain bound plus
+hourglass/interface contributions. A numerical `omega_squared_bound` explicitly
+selects the existing caller-ceiling route instead. Providers without a reviewed
+envelope, including the present native finite J2 provider, still need that ceiling.
+
+Initial and trial endpoint responses are checked for domain and signed-tangent
+violations; failure uses existing full rollback. Envelope identity enters
+restart compatibility, including its domain, moduli and source. Results identify
+provider-declared evidence, not automatic scientific verification. An independent
+Neo-Hookean test provider exercises equivalence with the explicit-ceiling route,
+restart, changed-identity rejection and domain-failure rollback. New distributed
+envelope tests await their separate MPI acceptance; existing caller-ceiling MPI
+evidence does not establish the new route.
+
+No variable time integration, skipped tangent, nonlinear stability guarantee
+between endpoints or general finite-material wave-speed claim follows from this
+route. A sampled initial modulus is not a whole-domain envelope.
+
+## Sources
 
 - Johnen, Weill and Remacle, 2017, *Robust and efficient validation of the linear
   hexahedral element*, https://arxiv.org/abs/1706.01613.
