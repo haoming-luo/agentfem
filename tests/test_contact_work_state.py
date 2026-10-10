@@ -124,3 +124,21 @@ def test_contact_work_compact_transaction_preserves_full_history_and_cached_sum(
 
     monkeypatch.setattr(state, "_integrated_work", reject)
     assert state.path_work == work
+
+
+def test_compact_history_fingerprint_detects_different_pasts_with_equal_endpoints():
+    states = []
+    for middle_force in (1.0, 2.0):
+        state = boundary_models.prescribed_contact_work_state(identity="tool")
+        state.initialize(_station(0.0, (0.0, 0.0), (0.0, 0.0)))
+        for time_value, force in ((1.0, middle_force), (2.0, 0.0)):
+            state.begin(_station(time_value, (force, 0.0), (0.0, 0.0)))
+            state.commit()
+        states.append(state)
+    left, right = (state.summary() for state in states)
+    assert left["path_work"] == right["path_work"] == 0
+    assert left["current"] == right["current"]
+    assert left["history_fingerprint"] != right["history_fingerprint"]
+    restored = boundary_models.prescribed_contact_work_state(identity="tool")
+    restored.restore(states[0].snapshot())
+    assert restored.summary() == states[0].summary()

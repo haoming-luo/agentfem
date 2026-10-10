@@ -13,6 +13,8 @@ JSON serializable for transient checkpoint/restart.
 from __future__ import annotations
 
 from dataclasses import dataclass
+from hashlib import sha256
+import json
 
 import numpy as np
 
@@ -195,6 +197,19 @@ class PrescribedContactWorkState:
         self.accepted: list[PrescribedContactWorkStation] = []
         self.trial: PrescribedContactWorkStation | None = None
         self._path_work = 0.0
+        self._history_fingerprint = self._fingerprint(())
+
+    @staticmethod
+    def _extend_fingerprint(previous, station):
+        payload = json.dumps(station.snapshot(), sort_keys=True, allow_nan=False,
+                             separators=(",", ":"))
+        return sha256((previous + payload).encode()).hexdigest()
+
+    def _fingerprint(self, stations):
+        value = sha256(self.identity.encode()).hexdigest()
+        for station in stations:
+            value = self._extend_fingerprint(value, station)
+        return value
 
     @property
     def path_work(self) -> float:
@@ -230,7 +245,10 @@ class PrescribedContactWorkState:
     def initialize(self, station: PrescribedContactWorkStation) -> None:
         if self.accepted or self.trial is not None:
             raise RuntimeError("Prescribed-contact work State is already initialized.")
-        self.accepted.append(self._validated_next(station, initial=True))
+        station = self._validated_next(station, initial=True)
+        fingerprint = self._extend_fingerprint(self._history_fingerprint, station)
+        self.accepted.append(station)
+        self._history_fingerprint = fingerprint
 
     def begin(self, station: PrescribedContactWorkStation) -> None:
         if not self.accepted:
@@ -247,8 +265,10 @@ class PrescribedContactWorkState:
         total = self._path_work + increment
         if not np.isfinite(total):
             raise ValueError("Non-finite accumulated prescribed contact work.")
+        fingerprint = self._extend_fingerprint(self._history_fingerprint, accepted)
         self.accepted.append(accepted)
         self._path_work = total
+        self._history_fingerprint = fingerprint
         self.trial = None
         return accepted
 
@@ -298,7 +318,9 @@ class PrescribedContactWorkState:
             work = self._integrated_work(restored)
             if not np.isfinite(work):
                 raise ValueError("Non-finite restored contact work.")
+            fingerprint = self._fingerprint(restored)
             self.accepted, self._path_work, self.trial = restored, work, None
+            self._history_fingerprint = fingerprint
             return
         if not isinstance(snapshot, dict) or snapshot.get("schema") != _STATE_SCHEMA:
             raise ValueError("Unsupported prescribed-contact work State snapshot.")
@@ -324,8 +346,10 @@ class PrescribedContactWorkState:
         work = self._integrated_work(restored)
         if not np.isfinite(work):
             raise ValueError("Non-finite restored contact work.")
+        fingerprint = self._fingerprint(restored)
         self.accepted = restored
         self._path_work = work
+        self._history_fingerprint = fingerprint
         self.trial = None
 
     def summary(self) -> dict[str, object]:
@@ -335,6 +359,7 @@ class PrescribedContactWorkState:
             "identity": self.identity,
             "accepted_station_count": len(self.accepted),
             "path_work": self.path_work,
+            "history_fingerprint": self._history_fingerprint,
             "latest_interval_power": self.latest_interval_power,
             "current": None if current is None else current.snapshot(),
             "trial_present": self.trial is not None,
