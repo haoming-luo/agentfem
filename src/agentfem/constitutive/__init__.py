@@ -181,6 +181,11 @@ from .user_material import (
     validated_material_batch_update,
     validated_material_update,
 )
+from .material_array_batch import (
+    MaterialPointArrayBatchInput,
+    MaterialPointArrayBatchOutput,
+    validated_material_array_batch_update,
+)
 from .small_strain_user_material import (
     MaterialApplicabilityError,
     MaterialParameter,
@@ -276,6 +281,8 @@ __all__ = [
     "MaterialPointInput",
     "MaterialPointBatchInput",
     "MaterialPointBatchOutput",
+    "MaterialPointArrayBatchInput",
+    "MaterialPointArrayBatchOutput",
     "MaterialPointBatchResult",
     "MaterialPointOutput",
     "MaterialApplicabilityError",
@@ -320,6 +327,7 @@ __all__ = [
     "WLFShift",
     "validated_material_update",
     "validated_material_batch_update",
+    "validated_material_array_batch_update",
     "update_material_points",
     "check_material_tangent",
     "check_small_strain_material_tangent",

@@ -13,8 +13,10 @@ comparisons against Abaqus.
 from __future__ import annotations
 
 from dataclasses import dataclass, field, replace
+from functools import cached_property
 from hashlib import sha256
 import json
+from math import prod
 import os
 from pathlib import Path
 import re
@@ -68,16 +70,14 @@ class MaterialStateVariable:
             normalized_initial = float(initial.reshape(-1)[0])
         if not str(self.description).strip():
             raise ValueError("Material state descriptions must not be empty.")
-        if self.output_name is not None and not _STATE_NAME.fullmatch(
-            self.output_name
-        ):
+        if self.output_name is not None and not _STATE_NAME.fullmatch(self.output_name):
             raise ValueError("Material state output_name must be a valid field name.")
         object.__setattr__(self, "shape", shape)
         object.__setattr__(self, "initial_value", normalized_initial)
 
-    @property
+    @cached_property
     def size(self) -> int:
-        return int(np.prod(self.shape, dtype=int)) if self.shape else 1
+        return prod(self.shape)
 
     def initial_values(self) -> np.ndarray:
         """Return the declared initial value flattened in schema order."""
@@ -128,7 +128,7 @@ class MaterialStateSchema:
             )
         object.__setattr__(self, "variables", variables)
 
-    @property
+    @cached_property
     def size(self) -> int:
         return sum(item.size for item in self.variables)
 
@@ -359,12 +359,18 @@ class MaterialPointOutput:
     suggested_time_scale: float = 1.0
     tangent_convention: MaterialTangentConvention | None = None
     state_schema: MaterialStateSchema | None = None
-    stored_energy_density_components: Mapping[str, float] = field(
-        default_factory=dict
-    )
+    stored_energy_density_components: Mapping[str, float] = field(default_factory=dict)
+    dissipation_density_increment: float | None = None
 
     def __post_init__(self) -> None:
         stress = np.asarray(self.cauchy_stress, dtype=float)
+        if self.dissipation_density_increment is not None:
+            value = float(self.dissipation_density_increment)
+            if not np.isfinite(value):
+                raise ValueError(
+                    "dissipation_density_increment must be finite when provided."
+                )
+            object.__setattr__(self, "dissipation_density_increment", value)
         tangent = np.asarray(self.consistent_tangent, dtype=float)
         state = np.asarray(self.state_new, dtype=float).reshape(-1)
         if stress.shape != (3, 3) or not np.all(np.isfinite(stress)):
@@ -390,9 +396,8 @@ class MaterialPointOutput:
             if not isinstance(self.state_schema, MaterialStateSchema):
                 raise TypeError("state_schema must be a MaterialStateSchema.")
             state = self.state_schema.validate(state, label="state_new")
-        if (
-            self.strain_energy_density is not None
-            and not np.isfinite(self.strain_energy_density)
+        if self.strain_energy_density is not None and not np.isfinite(
+            self.strain_energy_density
         ):
             raise ValueError("strain_energy_density must be finite when provided.")
         components = {}
@@ -404,21 +409,18 @@ class MaterialPointOutput:
                 )
             selected = float(value)
             if not np.isfinite(selected):
-                raise ValueError(
-                    f"Stored-energy component {key!r} must be finite."
-                )
+                raise ValueError(f"Stored-energy component {key!r} must be finite.")
             if key in components:
                 raise ValueError(f"Duplicate stored-energy component {key!r}.")
             components[key] = selected
         if components and self.strain_energy_density is None:
-            raise ValueError(
-                "Stored-energy components require strain_energy_density."
-            )
-        if components and not np.isclose(
-            sum(components.values()),
-            float(self.strain_energy_density),
-            rtol=2.0e-12,
-            atol=2.0e-14 * max(1.0, abs(float(self.strain_energy_density))),
+            raise ValueError("Stored-energy components require strain_energy_density.")
+        # Scalar contract with the same asymmetric tolerance as np.isclose;
+        # avoid allocating/reducing arrays for every integration point.
+        energy_scale = abs(float(self.strain_energy_density or 0.0))
+        if components and not (
+            abs(sum(components.values()) - float(self.strain_energy_density))
+            <= 2.0e-14 * max(1.0, energy_scale) + 2.0e-12 * energy_scale
         ):
             raise ValueError(
                 "Stored-energy components must sum to strain_energy_density."
@@ -469,6 +471,8 @@ class MaterialPointOutput:
                 None if self.state_schema is None else self.state_schema.summary()
             ),
             "strain_energy_density_defined": self.strain_energy_density is not None,
+            "dissipation_density_increment_defined": self.dissipation_density_increment
+            is not None,
             "stored_energy_density_components": tuple(
                 self.stored_energy_density_components
             ),
@@ -559,7 +563,7 @@ def _validated_material_response(
             "User material update methods must return MaterialPointOutput values."
         )
     response.require_global_newton_contract()
-    if response.state_schema.identity != material.state_schema.identity:
+    if response.state_schema != material.state_schema:
         raise ValueError("Material response changed the declared state schema.")
     if response.tangent_convention != material.tangent_convention:
         raise ValueError("Material response changed the declared tangent convention.")
@@ -578,9 +582,7 @@ def validated_material_update(
             "User material must declare name, state_schema, tangent_convention, "
             "and update()."
         )
-    if point.state_schema is not None and (
-        point.state_schema.identity != material.state_schema.identity
-    ):
+    if point.state_schema is not None and (point.state_schema != material.state_schema):
         raise ValueError(
             "Material-point input state schema does not match the material."
         )
@@ -609,7 +611,7 @@ def validated_material_batch_update(
         raise TypeError("request must be a MaterialPointBatchInput.")
     for point in request.points:
         if point.state_schema is not None and (
-            point.state_schema.identity != material.state_schema.identity
+            point.state_schema != material.state_schema
         ):
             raise ValueError(
                 "Material-point input state schema does not match the material."
@@ -707,9 +709,7 @@ def check_material_tangent(
             "first-Piola/deformation-gradient 9x9 reference tangent. Spatial "
             "UMAT tangents require a separately verified convention transform."
         )
-    standard_order = tuple(
-        f"{i}{j}" for i in range(1, 4) for j in range(1, 4)
-    )
+    standard_order = tuple(f"{i}{j}" for i in range(1, 4) for j in range(1, 4))
     if set(convention.component_order) != set(standard_order):
         raise ValueError(
             "First-Piola tangent component_order must contain every 3D component."
@@ -718,9 +718,7 @@ def check_material_tangent(
     def first_piola(response, deformation_gradient) -> np.ndarray:
         selected = np.asarray(deformation_gradient, dtype=float)
         return (
-            np.linalg.det(selected)
-            * response.cauchy_stress
-            @ np.linalg.inv(selected).T
+            np.linalg.det(selected) * response.cauchy_stress @ np.linalg.inv(selected).T
         )
 
     base_gradient = point.deformation_gradient_new
@@ -807,9 +805,7 @@ class AbaqusUserMaterialBridge:
             "property_count": self.property_count,
             "state_variable_count": self.state_variable_count,
             "tensor_order": self.tensor_order,
-            "tangent_convention": (
-                tangent.summary() if self.kind == "UMAT" else None
-            ),
+            "tangent_convention": (tangent.summary() if self.kind == "UMAT" else None),
             "status": self.status,
             "executable": self.executable,
             "required_runtime": (
@@ -959,9 +955,7 @@ class AbaqusUserMaterialInspection:
             f"{self.source_graph.fingerprint}",
         ]
         if self.abaqus_utility_calls:
-            lines.append(
-                "  Abaqus utilities: " + ", ".join(self.abaqus_utility_calls)
-            )
+            lines.append("  Abaqus utilities: " + ", ".join(self.abaqus_utility_calls))
         if self.project_calls:
             lines.append("  project calls: " + ", ".join(self.project_calls))
         if self.external_calls:
@@ -972,8 +966,7 @@ class AbaqusUserMaterialInspection:
                 + ", ".join(self.missing_contract_symbols)
             )
         lines.extend(
-            f"  [{item.severity}] {item.code}: {item.message}"
-            for item in self.findings
+            f"  [{item.severity}] {item.code}: {item.message}" for item in self.findings
         )
         return "\n".join(lines)
 
@@ -1159,14 +1152,15 @@ def inspect_abaqus_user_material(
 
     path = Path(source).expanduser().resolve()
     if path.suffix.lower() not in {".f", ".for", ".f90", ".f95", ".f03", ".f08"}:
-        raise ValueError("Abaqus user-material inspection requires a Fortran source file.")
+        raise ValueError(
+            "Abaqus user-material inspection requires a Fortran source file."
+        )
     if not path.is_file():
         raise FileNotFoundError(path)
     graph = read_user_material_source_graph(path)
     raw = path.read_bytes()
     texts = [
-        item.path.read_text(encoding="utf-8", errors="replace")
-        for item in graph.files
+        item.path.read_text(encoding="utf-8", errors="replace") for item in graph.files
     ]
     text = "\n".join(texts)
     upper = text.upper()
@@ -1192,15 +1186,11 @@ def inspect_abaqus_user_material(
     includes = tuple(
         dict.fromkeys(
             match.strip("'\"")
-            for match in re.findall(
-                r"(?im)^\s*INCLUDE\s+(['\"][^'\"]+['\"])", text
-            )
+            for match in re.findall(r"(?im)^\s*INCLUDE\s+(['\"][^'\"]+['\"])", text)
         )
     )
     calls = tuple(
-        dict.fromkeys(
-            re.findall(r"(?im)\bCALL\s+([A-Z][A-Z0-9_]*)\s*\(", upper)
-        )
+        dict.fromkeys(re.findall(r"(?im)\bCALL\s+([A-Z][A-Z0-9_]*)\s*\(", upper))
     )
     utilities = tuple(item for item in calls if item in _ABAQUS_UTILITY_NAMES)
     project_calls = tuple(
@@ -1262,8 +1252,7 @@ def inspect_abaqus_user_material(
                 "AFM-USERMAT-SOURCE-101",
                 "warning",
                 "Unresolved subroutine calls require additional source or an "
-                "explicit replacement before compilation: "
-                + ", ".join(external),
+                "explicit replacement before compilation: " + ", ".join(external),
             )
         )
     for issue in graph.issues:

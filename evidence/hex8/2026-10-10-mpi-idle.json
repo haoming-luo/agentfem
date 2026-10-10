@@ -1,0 +1,123 @@
+{
+  "schema": "agentfem.mpi-idle-diagnostic.v1",
+  "platform": "macOS-26.6.2-arm64-arm-64bit",
+  "python_version": "3.11.15",
+  "scope": "single_rank_idle_cpu_not_solver_speed_or_distributed_correctness",
+  "environment_modified_in_parent": false,
+  "records": [
+    {
+      "repeat": 1,
+      "requested_provider": null,
+      "effective_provider_environment": null,
+      "status": "completed",
+      "vendor": [
+        "MPICH",
+        [
+          5,
+          0,
+          1
+        ]
+      ],
+      "ranks": 1,
+      "wall_seconds": 2.005030707921833,
+      "user_cpu_seconds": 0.98559,
+      "system_cpu_seconds": 2.949878,
+      "idle_cpu_equivalent_cores": 1.9627968711157648
+    },
+    {
+      "repeat": 1,
+      "requested_provider": "tcp",
+      "effective_provider_environment": "tcp",
+      "status": "completed",
+      "vendor": [
+        "MPICH",
+        [
+          5,
+          0,
+          1
+        ]
+      ],
+      "ranks": 1,
+      "wall_seconds": 2.0029869158752263,
+      "user_cpu_seconds": 9.000000000000327e-06,
+      "system_cpu_seconds": 7.000000000000062e-06,
+      "idle_cpu_equivalent_cores": 7.988070153223653e-06
+    },
+    {
+      "repeat": 2,
+      "requested_provider": "tcp",
+      "effective_provider_environment": "tcp",
+      "status": "completed",
+      "vendor": [
+        "MPICH",
+        [
+          5,
+          0,
+          1
+        ]
+      ],
+      "ranks": 1,
+      "wall_seconds": 2.0050171250477433,
+      "user_cpu_seconds": 1.0000000000001327e-05,
+      "system_cpu_seconds": 4.999999999999796e-06,
+      "idle_cpu_equivalent_cores": 7.48123285961657e-06
+    },
+    {
+      "repeat": 2,
+      "requested_provider": null,
+      "effective_provider_environment": null,
+      "status": "completed",
+      "vendor": [
+        "MPICH",
+        [
+          5,
+          0,
+          1
+        ]
+      ],
+      "ranks": 1,
+      "wall_seconds": 2.005033999681473,
+      "user_cpu_seconds": 1.211504,
+      "system_cpu_seconds": 2.788952,
+      "idle_cpu_equivalent_cores": 1.9952060666480105
+    },
+    {
+      "repeat": 3,
+      "requested_provider": null,
+      "effective_provider_environment": null,
+      "status": "completed",
+      "vendor": [
+        "MPICH",
+        [
+          5,
+          0,
+          1
+        ]
+      ],
+      "ranks": 1,
+      "wall_seconds": 2.003030417021364,
+      "user_cpu_seconds": 1.079032,
+      "system_cpu_seconds": 2.9179269999999997,
+      "idle_cpu_equivalent_cores": 1.9954559681343913
+    },
+    {
+      "repeat": 3,
+      "requested_provider": "tcp",
+      "effective_provider_environment": "tcp",
+      "status": "completed",
+      "vendor": [
+        "MPICH",
+        [
+          5,
+          0,
+          1
+        ]
+      ],
+      "ranks": 1,
+      "wall_seconds": 2.005081791896373,
+      "user_cpu_seconds": 1.6999999999999654e-05,
+      "system_cpu_seconds": 5.400000000000023e-05,
+      "idle_cpu_equivalent_cores": 3.5410026806362477e-05
+    }
+  ]
+}

@@ -1,0 +1,27 @@
+{
+  "schema": "agentfem.installed-acceptance.v1",
+  "source_revision": "4885637e1ef7a31135351b8430aa0a85fa2d215f",
+  "distribution_version": "0.4.1",
+  "release_published": false,
+  "wheel_sha256": "15c36f5643aa5197a563eeefd812801a86715f78ab3bface77eecfb90bfba11c",
+  "installation": "isolated_no_deps_no_index_target",
+  "pytest_source_injection": false,
+  "serial_selection": [
+    "tests/test_finite_hex_cyclic_energy.py",
+    "tests/test_finite_hex_energy.py",
+    "tests/test_finite_hex_external_material.py",
+    "tests/test_finite_hex_step.py"
+  ],
+  "tests": {
+    "serial": {
+      "tests": 29,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "seconds": 6.357,
+      "timestamp": "2026-10-10T11:18:59.876014+08:00"
+    }
+  },
+  "scope": "targeted_followup_after_initial_field_transaction_not_final_branch_or_MPI_validation",
+  "timing_scope": "acceptance_not_controlled_performance_measurement"
+}

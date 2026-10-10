@@ -631,6 +631,35 @@ class TriangleSurfaceBVH:
             "distributed_ownership": False,
         }
 
+    def overlapping_facets(self, lower, upper):
+        """Return local facet indices whose AABBs intersect the closed query box.
+
+        This is broad-phase evidence only, not triangle intersection. Results
+        are ordered by stable facet ID, independently of tree traversal.
+        """
+        lower, upper = np.asarray(lower, dtype=float), np.asarray(upper, dtype=float)
+        if (lower.shape != (3,) or upper.shape != (3,)
+                or not np.all(np.isfinite(lower)) or not np.all(np.isfinite(upper))
+                or np.any(lower > upper)):
+            raise ValueError("AABB bounds must be finite ordered three-vectors.")
+        pending, found = [self._root], []
+        while pending:
+            node = pending.pop()
+            # Fixed three-dimensional comparisons avoid two temporary arrays
+            # and NumPy reduction dispatch for every visited tree node.
+            hi, lo = self._upper[node], self._lower[node]
+            if (
+                hi[0] < lower[0] or hi[1] < lower[1] or hi[2] < lower[2]
+                or lo[0] > upper[0] or lo[1] > upper[1] or lo[2] > upper[2]
+            ):
+                continue
+            facet = int(self._facet[node])
+            if facet >= 0:
+                found.append(facet)
+            else:
+                pending.extend((int(self._left[node]), int(self._right[node])))
+        return np.asarray(sorted(found, key=lambda i: self.surface.facet_ids[i]), dtype=np.int64)
+
     def _candidate_evidence(
         self,
         query: np.ndarray,

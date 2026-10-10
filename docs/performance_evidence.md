@@ -1,5 +1,120 @@
 # Performance evidence
 
+## Bounded constitutive stress conversion measurement (2026-10-09)
+
+The shared finite-strain quadrature driver converts Cauchy to first Piola stress
+in NumPy blocks of 1,024 points, replacing a Python loop of individual 3-by-3
+inversions. For 20,000 float64 points on the development Apple Silicon host,
+five warm repetitions gave median 0.06990 s for the scalar expression and
+0.00533 s for the chunked expression (13.1x for **conversion only**).
+Inputs used NumPy seed 823, `F = I + normal(0, 0.03)` and random stress arrays;
+OpenBLAS/OMP thread counts were one. The maximum absolute difference was
+8.88e-16. Empty partitions, invalid determinants and nonfinite input/output
+remain explicitly checked. This excludes constitutive updates, assembly, I/O
+and the global solve; no whole-solver acceleration factor follows from it.
+
+The private finite-Hex residual also separates array-based rollback snapshots
+from JSON-ready durable snapshots. On a 4,096-cell (16x16x16) unit cube with
+the finite-strain J2 state schema, five warm snapshots measured median
+0.00379 s for list expansion versus 0.000156 s for copied arrays (24.2x for
+snapshot creation only). `tracemalloc` peak allocations were 22.54 MB versus
+4.36 MB. These are Python-tracked allocations, not process RSS. Real disk
+checkpoints originally retained the JSON auxiliary contract. The subsequent
+optional numeric-tree encoding below also removes that expansion from durable
+serial material snapshots; neither measurement is a whole-solver speedup.
+
+`tools/benchmark_checkpoint_arrays.py --size 16` separately compares durable
+auxiliary serialization for 4,096 finite-J2 cells, including copied state,
+encoding and atomic file writes, but excluding nodal archives and solving.
+JSON uses 14,048,099 bytes; typed numeric arrays plus metadata use 4,365,404 bytes
+(about 69% less). Python-traced peak allocations are 79,684,017 versus 8,730,193
+bytes (about 89% less); these are not process RSS measurements. Every restored
+gradient and material field is compared with its source. This measurement
+overlapped a capacity run, so its wall times are not presented as a speedup.
+The optional v6 format uses non-executable NumPy arrays and a small JSON tree;
+existing JSON auxiliary checkpoints retain v5 and remain readable. This does
+not extend serial material history to MPI-portable restart.
+
+`tools/benchmark_finite_hex_trial.py --size 16 --repeats 7` measures a complete
+private serial trial (material, geometry admission, force and spectral screen),
+excluding mesh preparation, commit, restore and I/O. On the same host with
+`OMP_NUM_THREADS=1` and `OPENBLAS_NUM_THREADS=1`, caching immutable state-layout
+sizes and replacing scalar NumPy energy
+sum checks with the identical scalar tolerance reduced the warm median from
+0.27001 s to 0.22358 s (17.2%). The force norm remained 0.7198301095792459.
+Neither material equations nor rejection tolerances changed; boundary tests
+compare both sides of the former NumPy tolerance. `--profile` is diagnostic
+only and must not be enabled for comparable wall-clock measurements.
+
+These environment settings do not prove that every runtime uses one thread.
+A subsequent process sample found the old MPI launcher supervisor consuming
+CPU in two libfabric sockets threads while waiting for its child. NumPy build
+metadata alone does not establish the library actually loaded at runtime;
+the October 10 environment loads conda OpenBLAS through its BLAS/LAPACK dylibs.
+Treat the measurements
+above as bounded same-environment observations, not certified single-thread
+benchmarks. The lightweight installed MPI entry now probes the linked vendor
+without initializing MPI in the supervisor; the numerical child retains its
+normal runtime and environment. Timeout and interruption still terminate the
+owned process group. The transport itself is not silently reconfigured.
+The underlying mechanisms are documented in the
+[mpi4py initialization controls](https://mpi4py.github.io/mpi4py/stable/html/mpi4py.html)
+and [libfabric sockets provider](https://ofiwg.github.io/libfabric/v2.6.0/man/fi_sockets.7.html).
+This supervisor saving is not an acceleration factor for the numerical kernel.
+
+## Optional MPI idle-CPU diagnostic (2026-10-10)
+
+`tools/diagnose_mpi_idle.py` measures bounded, isolated single-rank children.
+It never initializes MPI in its parent or changes the user's environment:
+
+```bash
+python tools/diagnose_mpi_idle.py --compare-provider tcp --output /tmp/mpi-idle.json
+```
+
+On this macOS ARM64 host with MPICH 5.0.1 and libfabric 2.5.1, three paired
+two-second observations measured 1.963–1.995 equivalent CPU cores while idle
+with `FI_PROVIDER` unset, versus less than 0.000036 with `FI_PROVIDER=tcp`.
+A process sample attributed two busy background threads to the sockets
+connection listener and endpoint connection manager. These are MPI runtime
+threads, not material integration or an unbounded Python loop.
+Raw observations are archived in
+`evidence/hex8/2026-10-10-mpi-idle.json`.
+
+The same installed AgentFEM wheel passed the same 50 selected tests per rank
+on two ranks with both the default provider and TCP. The selection covers
+finite Hex state/energy, ordinary Step output, checkpoint restore, small-strain
+Hex and transient rollback. This is local compatibility evidence, not a
+multi-node scaling study or a Windows guarantee. Use a process-local
+`FI_PROVIDER=tcp` only after checking the relevant installed MPI runtime;
+AgentFEM does not set it automatically. The libfabric project documents the
+[TCP provider](https://github.com/ofiwg/libfabric/blob/main/man/fi_tcp.7.md)
+and marks the older sockets provider deprecated in its
+[provider overview](https://github.com/ofiwg/libfabric).
+
+Reducing idle CPU is useful independently of solve time, but is not a solver
+speedup factor. Keep the provider identical on both sides of a performance
+comparison. Thread-limit environment variables alone do not prove that MPI
+has no background threads.
+
+The serial 32,768-cell, 500-increment affine endurance diagnostic completed
+with maximum displacement/stress/reference-energy absolute errors of
+4.44e-16 / 7.00e-13 / 6.00e-14. Bounded provider batches reduced observed peak
+process RSS from 1,054,834,688 to 724,598,784 bytes (about 31%). The older run
+was a dirty development diagnostic; the newer run identifies clean commit
+`f5991141`. Both had brief diagnostic overlap, so their 1,090.9 / 1,062.4 s
+wall times are not offered as a controlled speedup. The check is an affine
+path endurance test, not a spatial convergence or industrial validation result.
+
+A further local trial optimization admits a frozen displacement copy once,
+then reuses that same admitted geometry through material and force evaluation.
+It does not cache admission across increments or skip standalone geometry
+checks. Nine warmed 4,096-cell trials measured 0.21909 s before and 0.19580 s
+after (about 10.6% less trial time), with identical force norm. Those runs used
+OMP/OpenBLAS/vecLib limits of one and no concurrent numerical workload.
+Input-mutation isolation, folded-cell rejection and downstream rollback remain
+covered by targeted tests. This is again a trial measurement, not a whole-solve
+or cross-software performance claim.
+
 AgentFEM records execution cost as a first-class part of
 `SimulationResult`. Performance evidence explains the cost of a computation;
 it does not turn a completed solve into a scientifically verified result.
@@ -93,6 +208,70 @@ regressions, not by this planar performance fixture. Profile a representative
 full solve before investing in search optimization; do not extrapolate this
 microbenchmark to industrial forming. Raw local samples are retained under
 `evidence/contact/2026-10-09-search-microbenchmark.json` in the repository.
+
+## Finite-material transport comparison
+
+The 2026-10-09 controlled comparison uses clean source `07ee074b`, macOS ARM64,
+Python 3.11.15, DOLFINx 0.11.0, PETSc 3.25.3 and MPICH 5.0.1. Other numerical
+jobs were finished first. Each pair alternates execution order after warmup;
+raw times, runtime versions and thread environment are retained. The two routes
+use the identical native J2 integration and tangent implementation: only the
+ordered per-point object protocol versus optional columnar transport differs.
+
+| Fixed workload | Ordered median | Columnar median | Time reduction |
+| --- | ---: | ---: | ---: |
+| 4,096-cell complete trial, nine measured pairs | 0.17674 s | 0.08102 s | 54.2% |
+| 4,096 cells, 200 increments, three measured pairs | 38.8836 s | 17.9949 s | 53.7% |
+
+The first boundary excludes commit, restore and I/O. The second includes time
+integration, geometry/stability checks, transactions and scheduled monitoring,
+but excludes setup and disk I/O. This is approximately 2.16 times faster for
+the measured trajectory, **not** a general application or industrial-forming
+speedup. Both routes retain the same equations, tolerances and acceptance checks.
+All compared nodal/material fields agree within 2e-12 absolute/relative tolerance.
+The affine trajectory remains in the elastic branch of finite-strain J2 and
+independently matches displacement, stress and stored energy. It does not
+measure plastic-path throughput or validate the private route for public use.
+
+Reproduction tools are `tools/benchmark_material_transport.py` and
+`tools/benchmark_finite_hex_transport_run.py`; raw records are
+`evidence/hex8/2026-10-09-columnar-trial.json` and
+`evidence/hex8/2026-10-09-columnar-trajectory.json`. Do not multiply these factors
+by separate checkpoint or geometry microbenchmark factors.
+
+## Bounded finite-plastic kernel consolidation (2026-10-10)
+
+After the earlier capacity job exited, clean numerical source `b8ac0ddd` was
+measured on Apple M5 (10 logical cores, 32 GiB RAM), macOS ARM64, with the same
+default MPI provider on both sides and OMP/OpenBLAS/Accelerate limits requested
+as one. This does not suppress the separately diagnosed MPI background threads.
+Three paired 4,096-cell, 1,000-increment plastic trajectories alternate execution
+order after warmup. The reference reinstates the committed nine-column analytic
+tangent, general signed spectral algebra and former geometry contraction;
+the optimized route uses batched tangent directions, the applicable spherical
+reference-Gram bound and dense cached geometry contraction.
+
+| Same plastic trajectory | Reference | Optimized |
+| --- | ---: | ---: |
+| Pair 1 | 85.580 s | 53.751 s |
+| Pair 2 | 88.388 s | 54.628 s |
+| Pair 3 | 88.648 s | 55.055 s |
+| Median | 88.388 s | 54.628 s |
+
+This is **1.62x**, or **38.2% less elapsed integration time**, for this workload.
+All final displacement, velocity, stress and state arrays are identical; numeric
+history entries agree within 1e-12. Material equations, time increments, energy
+accounting and rejection checks are unchanged. Preparation and disk I/O are
+excluded. This comparison already uses columnar transport on both sides and
+must not be multiplied by the earlier 2.16x transport result. It is not an
+arbitrary distorted-mesh, interface, contact, MPI-scaling or forming speed claim.
+
+`tools/benchmark_finite_hex_kernels.py --size 16 --pairs 3` reproduces this
+comparison from the development Git history, including pinned reference
+`0c0df953`; it is not a wheel-only benchmark. Raw samples, source hash, runtime
+environment and separate microkernel timings are retained in
+`evidence/hex8/2026-10-10-finite-kernels-trajectory.json`.
+Microkernel speedups are not whole-solver speedups and must not be multiplied.
 
 ## Scientific trust boundary
 

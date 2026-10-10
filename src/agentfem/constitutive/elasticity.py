@@ -19,6 +19,43 @@ from agentfem.materials.properties import (
 )
 
 
+def _constant_stiffness_matrix_3d(properties):
+    """Numeric fixed-frame elasticity in 11,22,33,23,13,12 engineering order.
+
+    This constitutive mapping is independent of element integration policy.
+    Temperature-dependent and history-dependent laws require their own update.
+    """
+    frame = getattr(properties, "orientation", None)
+    if frame is not None and frame.evolution != "fixed":
+        raise NotImplementedError("Constant elasticity requires fixed material orientation.")
+    raw = getattr(properties, "material", properties)
+    if type(raw) is ElasticIsotropicProperties:
+        e, nu = float(raw.young), float(raw.poisson)
+        mu = e / (2 * (1 + nu))
+        lame = e * nu / ((1 + nu) * (1 - 2 * nu))
+        matrix = np.diag([2 * mu] * 3 + [mu] * 3)
+        matrix[:3, :3] += lame
+    elif type(raw) is ElasticAnisotropic3DProperties:
+        matrix = np.asarray(raw.stiffness_voigt, dtype=float)
+    else:
+        raise TypeError("Expected constant 3D elastic material properties.")
+    if frame is None:
+        return matrix
+    basis = np.asarray(frame.basis, dtype=float)
+    result = np.empty((6, 6))
+    order = ((0, 0), (1, 1), (2, 2), (1, 2), (0, 2), (0, 1))
+    for column, (i, j) in enumerate(order):
+        strain = np.zeros((3, 3))
+        strain[i, j] = strain[j, i] = 1 if i == j else 0.5
+        local = basis.T @ strain @ basis
+        vector = np.array([local[a, b] * (1 if a == b else 2) for a, b in order])
+        stress = matrix @ vector
+        tensor = stress[np.array([[0, 5, 4], [5, 1, 3], [4, 3, 2]])]
+        global_stress = basis @ tensor @ basis.T
+        result[:, column] = [global_stress[a, b] for a, b in order]
+    return result
+
+
 def strain(displacement, *, study=None):
     """Small-strain tensor for Cartesian or declared axisymmetric kinematics."""
 

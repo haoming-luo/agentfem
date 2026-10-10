@@ -1,0 +1,67 @@
+{
+  "schema": "agentfem.private-finite-hex-spatial-verification.v1",
+  "revision": "341060e3842dc634dc57f6a216263f6b1bc39333",
+  "tracked_source_dirty": false,
+  "scope": "serial_hex_neo_hookean_manufactured_solution",
+  "mesh_family": "bounded_distorted",
+  "distortion_seed": 1729,
+  "numpy_version": "2.4.6",
+  "amplitude": 0.08,
+  "mu": 30,
+  "lambda": 40,
+  "hourglass_scale": 0.1,
+  "records": [
+    {
+      "size": 4,
+      "cells": 64,
+      "distortion_fraction": 0.2,
+      "displacement_relative_l2": 0.06482670781630838,
+      "equilibrium_relative": 1.1064561301941041e-13,
+      "physical_energy": 0.774010048001435,
+      "hourglass_energy": 0.015881064806792446,
+      "hourglass_to_physical": 0.020517905223322117,
+      "newton_iterations": 4,
+      "cg_iterations": 94,
+      "wall_seconds": 0.09105841675773263
+    },
+    {
+      "size": 8,
+      "cells": 512,
+      "distortion_fraction": 0.2,
+      "displacement_relative_l2": 0.015957170662825964,
+      "equilibrium_relative": 1.705694118798525e-12,
+      "physical_energy": 0.7667979302904891,
+      "hourglass_energy": 0.003738736377976419,
+      "hourglass_to_physical": 0.00487577786831018,
+      "newton_iterations": 4,
+      "cg_iterations": 168,
+      "wall_seconds": 0.7961142081767321
+    },
+    {
+      "size": 12,
+      "cells": 1728,
+      "distortion_fraction": 0.2,
+      "displacement_relative_l2": 0.007317290387052871,
+      "equilibrium_relative": 5.843840037625048e-12,
+      "physical_energy": 0.7654679498570665,
+      "hourglass_energy": 0.0016896796328089375,
+      "hourglass_to_physical": 0.0022073812928737856,
+      "newton_iterations": 4,
+      "cg_iterations": 250,
+      "wall_seconds": 3.6792938327416778
+    },
+    {
+      "size": 16,
+      "cells": 4096,
+      "distortion_fraction": 0.2,
+      "displacement_relative_l2": 0.00417424813499025,
+      "equilibrium_relative": 1.1323729004818773e-11,
+      "physical_energy": 0.7650396935428533,
+      "hourglass_energy": 0.0009618179898413656,
+      "hourglass_to_physical": 0.0012572131850927155,
+      "newton_iterations": 4,
+      "cg_iterations": 338,
+      "wall_seconds": 11.150984583888203
+    }
+  ]
+}

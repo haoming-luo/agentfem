@@ -78,11 +78,35 @@ class ExplicitDynamicsStep:
     def checkpoint_capabilities(self) -> checkpointing.CheckpointCapabilities:
         """Declare the durable state and MPI restart contract."""
 
-        return _transient_checkpoint_capabilities(
+        base = _transient_checkpoint_capabilities(
             "displacement",
             "velocity",
             "acceleration",
             "accepted time/history ledger",
+        )
+        declaration = getattr(getattr(self, "residual", None), "checkpoint_capabilities", None)
+        if declaration is None:
+            return base
+        auxiliary = declaration()
+        if not isinstance(auxiliary, checkpointing.CheckpointCapabilities):
+            raise TypeError("Residual checkpoint declaration must be CheckpointCapabilities.")
+        if auxiliary.boundary != base.boundary:
+            raise ValueError("Residual checkpoint acceptance boundary differs from the Procedure.")
+        portability = {"unsupported": 0, "requires_portable_policy": 1, "supported": 2}
+        return replace(
+            base,
+            schemas=tuple(dict.fromkeys(base.schemas + auxiliary.schemas)),
+            state_components=base.state_components + auxiliary.state_components,
+            atomic_publication=base.atomic_publication and auxiliary.atomic_publication,
+            rank_count_portability=min(
+                (base.rank_count_portability, auxiliary.rank_count_portability),
+                key=portability.__getitem__,
+            ),
+            payload_scope=(base.payload_scope if auxiliary.full_restart else auxiliary.payload_scope),
+            identity_scope=base.identity_scope + auxiliary.identity_scope,
+            limitations=base.limitations + auxiliary.limitations,
+            evidence=tuple(f"nodal: {item}" for item in base.evidence)
+            + tuple(f"auxiliary: {item}" for item in auxiliary.evidence),
         )
 
     def operator_lifecycle_summary(self) -> dict[str, object]:
@@ -326,11 +350,30 @@ class ExplicitDynamicsStep:
         self.integrator.last_residual_owned = None
 
     def _advance_one(self, t: float) -> None:
-        if self.update_load is not None:
-            self.update_load(t)
-        if hasattr(self.residual, "update_time"):
-            self.residual.update_time(t)
+        accepted = self.state.snapshot()
+        previous_residual = getattr(self.integrator, "last_residual_owned", None)
+        residual_state = (
+            getattr(self.residual, "transaction_snapshot", self.residual.snapshot)()
+            if hasattr(self.residual, "snapshot") and hasattr(self.residual, "restore")
+            else None
+        )
         try:
+            if self.update_load is not None:
+                from .provenance import collective_call
+
+                collective_call(
+                    lambda: self.update_load(t),
+                    comm=fields.unwrap(self.state.u).function_space.mesh.comm,
+                    label="Explicit time inputs",
+                )
+            if hasattr(self.residual, "update_time"):
+                from .provenance import collective_call
+
+                collective_call(
+                    lambda: self.residual.update_time(t),
+                    comm=fields.unwrap(self.state.u).function_space.mesh.comm,
+                    label="Explicit residual time",
+                )
             self.integrator.step(
                 self.dt,
                 time=t,
@@ -339,10 +382,41 @@ class ExplicitDynamicsStep:
                 constraints=self.constraints,
             )
             if hasattr(self.residual, "commit"):
-                self.residual.commit()
-        except Exception:
-            if hasattr(self.residual, "rollback"):
-                self.residual.rollback()
+                # The residual owns collectives inside its commit. Synchronize
+                # the completed phase before another rank can enter monitoring
+                # or a new increment while a failed rank starts rollback.
+                commit_failure = None
+                try:
+                    self.residual.commit()
+                except BaseException as exc:
+                    commit_failure = exc
+                comm = fields.unwrap(self.state.u).function_space.mesh.comm
+                failures = comm.allgather(None if commit_failure is None else str(commit_failure))
+                if commit_failure is not None:
+                    raise commit_failure
+                if any(value is not None for value in failures):
+                    raise RuntimeError(f"Explicit residual commit failed on another rank: {failures}")
+        except BaseException as failure:
+            # A user interrupt is still a rejected increment. Restore the
+            # accepted station before propagating it; never swallow cancellation.
+            accepted_time = self.completed_steps * self.dt
+            try:
+                if residual_state is not None:
+                    self.residual.restore(residual_state)
+                elif hasattr(self.residual, "rollback"):
+                    self.residual.rollback()
+            except Exception as recovery_failure:
+                failure.add_note(f"Residual rollback failed: {recovery_failure}")
+            callbacks = [self.update_load, getattr(self.residual, "update_time", None)]
+            callbacks.extend(getattr(item, "update", None) for item in self.prescribed)
+            for callback in callbacks:
+                if callable(callback):
+                    try:
+                        callback(accepted_time)
+                    except Exception as recovery_failure:
+                        failure.add_note(f"Could not restore accepted-time input: {recovery_failure}")
+            self.state.restore(accepted)
+            self.integrator.last_residual_owned = previous_residual
             raise
 
     def summary(self) -> dict[str, object]:
@@ -1308,12 +1382,14 @@ def _solve_transient_result(
         )
     from .results._transient_step import from_transient_step
 
+    output_fields, live_field_sets = _transient_output_fields(
+        fields or step.last_output_fields or tuple(default_fields)
+    )
     return from_transient_step(
         step,
         solution,
-        output_fields=(
-            tuple(fields) or step.last_output_fields or tuple(default_fields)
-        ),
+        output_fields=output_fields,
+        live_field_sets=live_field_sets,
         metadata=metadata,
     )
 
@@ -1599,10 +1675,7 @@ def _record_transient_history(
     if (
         store
         and step.history_records
-        and np.isclose(
-            step.history_records[-1]["time"],
-            selected_time,
-        )
+        and step.history_records[-1]["time"] == selected_time
     ):
         if hasattr(monitor, "restore"):
             monitor.restore(step.history_records[-1])
@@ -1745,6 +1818,14 @@ def _save_transient_checkpoint(step, path, state, *, portable: bool = False) -> 
     from . import checkpointing
     from .results import CheckpointRecord
 
+    # Path-dependent monitors must archive their accepted endpoint, including
+    # when checkpoint cadence is independent of retained history cadence.
+    _record_transient_history(step, float(step.completed_steps) * float(step.dt))
+    residual = getattr(step, "residual", None)
+    auxiliary_state = (
+        {"residual": getattr(residual, "checkpoint_snapshot", residual.snapshot)()}
+        if hasattr(residual, "snapshot") else None
+    )
     manifest = checkpointing.save_transient_checkpoint(
         path,
         step_kind=step.summary()["kind"],
@@ -1758,17 +1839,14 @@ def _save_transient_checkpoint(step, path, state, *, portable: bool = False) -> 
         accepted_times=step.accepted_times,
         execution_events=step.execution_events,
         history_records=step.history_records,
-        auxiliary_state=(
-            {"residual": step.residual.snapshot()}
-            if hasattr(getattr(step, "residual", None), "snapshot")
-            else None
-        ),
+        auxiliary_state=auxiliary_state,
         portable=portable,
     )
     record = CheckpointRecord(
         name=f"{step.name}_{step.completed_steps}",
         path=manifest,
-        schema=checkpointing.TRANSIENT_CHECKPOINT_SCHEMA,
+        schema=checkpointing._transient_schema(auxiliary_state,
+            rank_count=fields.unwrap(next(iter(state.values()))).function_space.mesh.comm.size),
         step_name=step.name,
         coordinate_name="time",
         coordinate_value=float(step.completed_steps) * float(step.dt),
@@ -1788,6 +1866,52 @@ def _save_transient_checkpoint(step, path, state, *, portable: bool = False) -> 
 
 
 def _load_transient_checkpoint(step, path, state) -> None:
+    """Extend file-level atomicity across auxiliary state and input restoration."""
+    arrays = {name: fields.unwrap(value).x.array.copy() for name, value in state.items()}
+    state_owner = getattr(step, "state", None)
+    full_state = state_owner.snapshot() if hasattr(state_owner, "snapshot") else None
+    residual = getattr(step, "residual", None)
+    old_residual = (
+        getattr(residual, "transaction_snapshot", residual.snapshot)()
+        if hasattr(residual, "snapshot") and hasattr(residual, "restore")
+        else None
+    )
+    old_completed = step.completed_steps
+    lists = {name: list(getattr(step, name)) for name in (
+        "accepted_times", "execution_events", "history_records", "checkpoints")}
+    try:
+        _load_transient_checkpoint_impl(step, path, state)
+    except BaseException as failure:
+        # Serial cancellation during auxiliary/input restoration must not leave
+        # nodal fields from one station and material history from another.
+        # This does not claim recovery from a lost MPI rank.
+        step.completed_steps = old_completed
+        for name, value in lists.items():
+            getattr(step, name)[:] = value
+        if old_residual is not None:
+            try:
+                residual.restore(old_residual)
+            except Exception as recovery_failure:
+                failure.add_note(f"Auxiliary checkpoint rollback failed: {recovery_failure}")
+        callbacks = [getattr(step, "update_load", None), getattr(residual, "update_time", None)]
+        callbacks.extend(getattr(item, "update", None) for item in getattr(step, "prescribed", ()))
+        for callback in callbacks:
+            if callable(callback):
+                try:
+                    callback(old_completed * step.dt)
+                except Exception as recovery_failure:
+                    failure.add_note(f"Checkpoint input rollback failed: {recovery_failure}")
+        if full_state is not None:
+            state_owner.restore(full_state)
+        else:
+            for name, value in state.items():
+                target = fields.unwrap(value)
+                target.x.array[:] = arrays[name]
+                target.x.scatter_forward()
+        raise
+
+
+def _load_transient_checkpoint_impl(step, path, state) -> None:
     from . import checkpointing
     from .results import CheckpointRecord
 
@@ -1829,18 +1953,37 @@ def _load_transient_checkpoint(step, path, state) -> None:
         for item in metadata["history_records"]
     ]
     restart_time = float(step.completed_steps) * float(step.dt)
-    if getattr(step, "update_load", None) is not None:
-        step.update_load(restart_time)
-    if hasattr(residual, "update_time"):
-        residual.update_time(restart_time)
-    for item in tuple(getattr(step, "prescribed", ())):
-        if hasattr(item, "update"):
-            item.update(restart_time)
+    monitor = getattr(step, "history_monitor", None)
+    if callable(getattr(monitor, "restore", None)) and (
+        not step.history_records or step.history_records[-1]["time"] != restart_time
+    ):
+        raise ValueError(
+            "Checkpoint lacks the accepted endpoint for its path-dependent history monitor."
+        )
+    def restore_inputs():
+        if getattr(step, "update_load", None) is not None:
+            step.update_load(restart_time)
+        if hasattr(residual, "update_time"):
+            residual.update_time(restart_time)
+        for item in tuple(getattr(step, "prescribed", ())):
+            if hasattr(item, "update"):
+                item.update(restart_time)
+
+    # A rank-local callback failure must make every rank enter joint rollback;
+    # otherwise successful ranks can leave load_checkpoint while one rank
+    # blocks restoring distributed material/nodal state.
+    from .provenance import collective_call
+
+    collective_call(
+        restore_inputs,
+        comm=fields.unwrap(next(iter(state.values()))).function_space.mesh.comm,
+        label="Transient checkpoint time inputs",
+    )
     step.checkpoints.append(
         CheckpointRecord(
             name=f"{step.name}_{step.completed_steps}_restart",
             path=Path(metadata["manifest_path"]),
-            schema=checkpointing.TRANSIENT_CHECKPOINT_SCHEMA,
+            schema=metadata["schema"],
             step_name=step.name,
             coordinate_name="time",
             coordinate_value=float(step.completed_steps) * float(step.dt),

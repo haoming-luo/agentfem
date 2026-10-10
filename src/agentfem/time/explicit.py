@@ -141,21 +141,30 @@ class ExplicitDynamicsIntegrator:
         prescribed_values = tuple(prescribed)
         active_constraints = tuple(constraints) + tuple(projections)
         kinematics_started = perf_counter()
-        if time is not None:
-            for item in prescribed_values:
-                if hasattr(item, "update"):
-                    item.update(time)
-            for update in update_prescribed_values:
-                update(time)
-        self.predict_displacement(dt)
-        displacement_bcs = _collect_bcs(prescribed_values, displacement_bcs)
-        prescribed_kinematics = _prescribed_kinematics(
-            prescribed_values,
-            time=time,
-            dt=dt,
+        from ..provenance import collective_call
+
+        def prepare_kinematics():
+            # Time histories are rank-local inputs. Deliver a failed amplitude
+            # or conflicting boundary history before any field ghost exchange.
+            if time is not None:
+                for item in prescribed_values:
+                    if hasattr(item, "update"):
+                        item.update(time)
+                for update in update_prescribed_values:
+                    update(time)
+            bcs = _collect_bcs(prescribed_values, displacement_bcs)
+            kinematics = _prescribed_kinematics(
+                prescribed_values, time=time, dt=dt,
+                stationary_dofs=_owned_dirichlet_dofs(bcs),
+            )
+            return bcs, kinematics
+
+        displacement_bcs, prescribed_kinematics = collective_call(
+            prepare_kinematics,
+            comm=fields.unwrap(self.state.u).function_space.mesh.comm,
+            label="Explicit prescribed kinematics",
         )
-        for dof in _owned_dirichlet_dofs(displacement_bcs):
-            prescribed_kinematics.setdefault(int(dof), (0.0, 0.0, 0.0))
+        self.predict_displacement(dt)
         if displacement_bcs:
             constraint_api.apply_dirichlet_bcs(self.state.u_next, displacement_bcs)
         _apply_constraints(active_constraints, self.state.u_next)
@@ -253,10 +262,10 @@ def _owned_dirichlet_dofs(bcs) -> np.ndarray:
     selected = []
     for bc in bcs:
         indices, first_ghost = bc.dof_indices()
-        selected.extend(np.asarray(indices[:first_ghost], dtype=np.int64).tolist())
+        selected.append(np.asarray(indices[:first_ghost], dtype=np.int64))
     if not selected:
         return np.empty(0, dtype=np.int64)
-    return np.unique(np.asarray(selected, dtype=np.int64))
+    return np.unique(np.concatenate(selected))
 
 
 def project_homogeneous_kinematics(
@@ -278,11 +287,17 @@ def project_homogeneous_kinematics(
     selected = _owned_dirichlet_dofs(bcs)
     if selected.size:
         function.x.array[selected] = 0.0
-        function.x.scatter_forward()
+    function.x.scatter_forward()
     _apply_constraints(tuple(constraints), field)
 
 
-def _prescribed_kinematics(prescribed, *, time, dt: float):
+@dataclass(frozen=True)
+class _PrescribedKinematics:
+    dofs: np.ndarray
+    values: np.ndarray
+
+
+def _prescribed_kinematics(prescribed, *, time, dt: float, stationary_dofs=()):
     """Resolve midpoint velocity, acceleration, and whole-step velocity.
 
     Ordinary Dirichlet data are stationary.  Amplitude-driven data are
@@ -292,7 +307,7 @@ def _prescribed_kinematics(prescribed, *, time, dt: float):
     state unconstrained.
     """
 
-    resolved: dict[int, tuple[float, float, float]] = {}
+    indices, components = [], []
     selected_time = 0.0 if time is None else float(time)
     h = 0.5 * float(dt)
     for item in prescribed:
@@ -322,22 +337,39 @@ def _prescribed_kinematics(prescribed, *, time, dt: float):
                 float(acceleration),
                 float(whole_velocity),
             )
-        for dof in _owned_dirichlet_dofs(bcs):
-            previous = resolved.get(int(dof))
-            if previous is not None and not np.allclose(previous, values):
-                raise ValueError(
-                    f"Conflicting prescribed kinematics at scalar dof {int(dof)}."
-                )
-            resolved[int(dof)] = values
-    return resolved
+        if not np.isfinite(values).all():
+            raise ValueError("Prescribed kinematics must be finite.")
+        selected = _owned_dirichlet_dofs(bcs)
+        indices.append(selected)
+        components.append(np.broadcast_to(values, (len(selected), 3)))
+    index = np.concatenate(indices) if indices else np.empty(0, dtype=np.int64)
+    values = np.concatenate(components) if components else np.empty((0, 3))
+    if index.size:
+        # Stable order preserves the previous last-declaration-wins convention
+        # for compatible duplicate histories, without Python work per DOF.
+        order = np.argsort(index, kind="stable")
+        index, values = index[order], values[order]
+        duplicate = index[1:] == index[:-1]
+        shared = np.flatnonzero(duplicate)
+        compatible = np.all(np.isclose(values[shared], values[shared + 1]), axis=1)
+        conflicts = shared[~compatible]
+        if conflicts.size:
+            raise ValueError(
+                f"Conflicting prescribed kinematics at scalar dof {int(index[conflicts[0]])}."
+            )
+        keep = np.r_[~duplicate, True]
+        index, values = index[keep], values[keep]
+    stationary = np.setdiff1d(np.asarray(stationary_dofs, dtype=np.int64), index)
+    if stationary.size:
+        index = np.concatenate((index, stationary))
+        values = np.concatenate((values, np.zeros((len(stationary), 3))))
+    return _PrescribedKinematics(index, values)
 
 
 def _assign_prescribed_component(field, kinematics, *, component: int) -> None:
-    if not kinematics:
-        return
     function = fields.unwrap(field)
-    for dof, values in kinematics.items():
-        function.x.array[dof] = values[component]
+    function.x.array[kinematics.dofs] = kinematics.values[:, component]
+    # Every partition participates, including ranks without prescribed DOFs.
     function.x.scatter_forward()
 
 

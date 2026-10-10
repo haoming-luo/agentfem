@@ -1,0 +1,38 @@
+{
+  "schema": "agentfem.targeted-installed-acceptance.v1",
+  "source_revision": "0688827b",
+  "wheel": "agentfem-0.4.1-py3-none-any.whl",
+  "wheel_sha256": "d15dfe9f28e8f5b99fc3d963097b99ca23087566f49843592c7aa8146b485f89",
+  "source_imports_disabled": true,
+  "installation": "temporary venv with system fenicsx-env dependencies; --no-deps",
+  "serial": {
+    "passed": 140,
+    "seconds": 3.07,
+    "files": [
+      "tests/test_material_array_batch.py",
+      "tests/test_material_batch_evidence.py",
+      "tests/test_finite_hex_explicit.py",
+      "tests/test_checkpoint_arrays.py",
+      "tests/test_nonmatching_pairing.py",
+      "tests/test_nonmatching_global.py",
+      "tests/test_finite_hex_interface.py"
+    ]
+  },
+  "mpi": {
+    "ranks": 2,
+    "passed_per_rank": 39,
+    "seconds_per_rank": 1.94,
+    "launcher": "agentfem mpi-run; MPICH matched launcher",
+    "timeout_seconds": 180,
+    "files": [
+      "tests/test_material_batch_evidence.py",
+      "tests/test_parallel_transient.py",
+      "tests/test_parallel_uniform_hex.py"
+    ]
+  },
+  "limitations": [
+    "Targeted selections overlap and must not be summed as distinct tests.",
+    "MPI checks cover the shared material driver, transient lifecycle and public small-strain Hex8, not distributed finite-Hex or nonmatching interfaces.",
+    "Not a clean-machine dependency installation or Windows acceptance."
+  ]
+}

@@ -266,6 +266,12 @@ neighbor-collective scalability claim.
 
 ## Design Principle
 
+For the experimental nonmatching elastic-interface route, retain independent
+P1 trace dof maps, construct `interfaces.pair_nonmatching_triangles` and
+`fracture.nonmatching_cohesive_force`, then supply `cohesive_force=` to the
+ordinary linear-static `model.step`. See `docs/nonmatching_interfaces.md` for
+the deliberately bounded geometry, work and restart contract.
+
 The workflow should be easy for a human researcher to read and easy for an
 agent to audit. A simulation file may call reusable helpers, but it should still
 show the finite-element meaning of each step.

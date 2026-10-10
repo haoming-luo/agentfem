@@ -86,6 +86,48 @@ output alias, unit, or schema version cannot silently reuse an incompatible
 archive. This container provides storage and atomic lifecycle only; the
 material update and global residual remain separate consumers.
 
+Finite-strain `update_material_points(...)` and `MaterialQuadratureResponse.update(...)`
+bound provider calls with `max_batch_points=1024` by default. This limits temporary
+Python input/response objects independently of mesh size; final numeric fields
+still scale with the number of integration points. Users can explicitly choose
+another positive bound. A provider must produce point-local responses independent
+of batch partitioning. Every chunk reads committed history; no trial field is
+assigned until all chunks and ranks succeed. A later-chunk failure rejects the
+whole update, not only that chunk. Result evidence counts actual provider calls.
+Input/output state definitions are compared in full, not only by name/version.
+Optional stored energy has an explicit availability mask; a missing value is
+not certified as a physically defined zero.
+
+Providers can additionally implement `update_array_batch(request)` with
+`MaterialPointArrayBatchInput` and `MaterialPointArrayBatchOutput`. These are
+columnar representations of the **same** finite-strain point semantics, not
+a second material law or acceptance lifecycle. Gradients use `(points, 3, 3)`,
+state uses `(points, state_schema.size)`, and tangent shape follows its explicit
+convention. Shared properties, optional point temperatures and field variables
+retain the ordinary meanings. Buffers are copied and read-only at the provider
+boundary. Energy-component sum checks use a per-point tolerance, not a tolerance
+scaled by the largest energy elsewhere in the batch.
+
+The quadrature driver prefers this optional path when present, otherwise uses
+the existing ordered `update_batch` or scalar `update` fallback. Array-call
+failure is a failure of the whole update, never permission to silently switch
+algorithms. Optional energy/dissipation channels are present for the entire
+array batch or absent; providers needing mixed per-point availability can retain
+the ordered point protocol. Empty MPI partitions do not call a provider. Native
+finite-strain J2 uses the same integration and tangent routines through both
+representations. This adds no temperature dependence or new physical capability.
+
+`MaterialPointOutput.dissipation_density_increment` optionally reports irreversible
+energy per reference volume over the update from the fixed committed state.
+The batch response preserves a separate availability mask: `None` means unavailable,
+whereas `0.0` means explicitly supplied zero. This is neither plastic work nor
+the time-discretization remainder. Finite-strain J2 supplies the increment of its
+existing cumulative plastic dissipation history; no additional history variable
+or constitutive formula is introduced. Finite values are transported without
+clipping; thermodynamic admissibility remains a separate verification decision.
+Providers without this quantity remain compatible but cannot claim a complete
+dissipation balance solely from successful execution.
+
 For a provider that declares the total-Lagrangian convention
 (mathbb A=\partial\mathbf P/\partial\mathbf F), the discrete update can be
 checked directly:

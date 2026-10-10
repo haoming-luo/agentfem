@@ -1,0 +1,171 @@
+{
+  "schema": "agentfem.private-finite-hex-transport-run.v1",
+  "cells": 4096,
+  "steps": 200,
+  "repeats": 3,
+  "scope": "private_serial_affine_trajectory_including_transactions_monitoring_no_setup_io",
+  "identical_material_equations": true,
+  "setup": {
+    "material": {
+      "kind": "finite_strain_j2_logarithmic",
+      "name": "finite-strain logarithmic J2 plasticity",
+      "status": "experimental_material_point",
+      "parameters": {
+        "young": 100,
+        "poisson": 0.3,
+        "yield_stress": 1000000000.0,
+        "hardening_modulus": 0.0
+      },
+      "numerical_parameters": {
+        "tangent_relative_step": 2e-06
+      },
+      "kinematics": "multiplicative_F_equals_Fe_Fp",
+      "elastic_potential": "quadratic_Hencky",
+      "plastic_flow": "associated_isochoric_J2",
+      "hardening": "linear_isotropic",
+      "stored_energy_density": {
+        "SENER": "ELENER + HARDENER",
+        "ELENER": "quadratic_Hencky_elastic_free_energy",
+        "HARDENER": "linear_isotropic_hardening_free_energy",
+        "PDENER": "cumulative_rate_independent_plastic_dissipation_yield_stress_times_equivalent_plastic_strain"
+      },
+      "tangent": {
+        "kind": "material_tangent_convention",
+        "stress_measure": "first_piola",
+        "kinematic_measure": "deformation_gradient",
+        "configuration": "reference",
+        "storage": "matrix_9x9",
+        "array_shape": [
+          9,
+          9
+        ],
+        "component_order": [
+          "11",
+          "12",
+          "13",
+          "21",
+          "22",
+          "23",
+          "31",
+          "32",
+          "33"
+        ],
+        "shear_convention": "not_applicable",
+        "objective_rate": "not_applicable",
+        "symmetric": false
+      },
+      "tangent_evaluation": "analytic_spectral",
+      "batch_update": "numpy_vectorized_rank_local_points",
+      "state_schema": {
+        "kind": "material_state_schema",
+        "identity": "agentfem.finite_strain_j2_logarithmic_state@0.2.0",
+        "size": 11,
+        "variables": [
+          {
+            "name": "plastic_deformation_gradient",
+            "shape": [
+              3,
+              3
+            ],
+            "size": 9,
+            "initial_value": [
+              [
+                1.0,
+                0.0,
+                0.0
+              ],
+              [
+                0.0,
+                1.0,
+                0.0
+              ],
+              [
+                0.0,
+                0.0,
+                1.0
+              ]
+            ],
+            "unit": "1",
+            "description": "Plastic part Fp of the multiplicative deformation gradient, initialized to the identity.",
+            "output_name": "FP"
+          },
+          {
+            "name": "equivalent_plastic_strain",
+            "shape": [],
+            "size": 1,
+            "initial_value": 0.0,
+            "unit": "1",
+            "description": "Accumulated equivalent plastic strain.",
+            "output_name": "PEEQ"
+          },
+          {
+            "name": "plastic_dissipation",
+            "shape": [],
+            "size": 1,
+            "initial_value": 0.0,
+            "unit": "consistent stress unit",
+            "description": "Cumulative irrecoverable plastic dissipation per reference volume.",
+            "output_name": "PDENER"
+          }
+        ]
+      }
+    },
+    "dt": 0.0005,
+    "duration": 0.1,
+    "density": 2.0,
+    "hourglass_modulus": 40.0,
+    "hourglass_scale": 0.1,
+    "omega_squared_ceiling": 10000000.0,
+    "motion": "homogeneous dilation, boundary normal components prescribed",
+    "constitutive_scope": "finite-strain J2 provider remaining in elastic branch"
+  },
+  "nodal_and_material_fields_agree": true,
+  "seconds": {
+    "ordered": [
+      38.22113291686401,
+      39.536018332932144,
+      38.88358691614121
+    ],
+    "columnar": [
+      17.661227874923497,
+      17.994913541711867,
+      18.08983708312735
+    ]
+  },
+  "median_seconds": {
+    "ordered": 38.88358691614121,
+    "columnar": 17.994913541711867
+  },
+  "maximum_absolute_reference_error": {
+    "displacement": 2.636779683484747e-16,
+    "stress": 2.3447910280083306e-13,
+    "energy": 1.7763568394002505e-15
+  },
+  "thread_environment": {
+    "OMP_NUM_THREADS": "1",
+    "OPENBLAS_NUM_THREADS": "1",
+    "VECLIB_MAXIMUM_THREADS": "1"
+  },
+  "numpy_version": "2.4.6",
+  "runtime": {
+    "platform": "macOS-26.6.2-arm64-arm-64bit",
+    "machine": "arm64",
+    "python": "3.11.15",
+    "dolfinx": "0.11.0",
+    "petsc": [
+      3,
+      25,
+      3
+    ],
+    "mpi_vendor": [
+      "MPICH",
+      [
+        5,
+        0,
+        1
+      ]
+    ]
+  },
+  "revision": "07ee074b1d7d63e4444c8a8b6d95a1152e155b95",
+  "tracked_source_dirty": false
+}

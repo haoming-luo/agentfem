@@ -1,4 +1,6 @@
 from pathlib import Path
+from dataclasses import replace
+from types import SimpleNamespace
 
 import pytest
 
@@ -66,6 +68,37 @@ def test_payload_scope_is_independent_of_rank_count_portability():
     assert transient.payload_scope == "full_restart_state"
     assert transient.rank_count_portability == "requires_portable_policy"
     assert transient.summary()["effective_rank_count_portable"] is None
+
+
+def test_explicit_auxiliary_contract_cannot_upgrade_nodal_capabilities(tmp_path):
+    step = object.__new__(ExplicitDynamicsStep)
+    base = step.checkpoint_capabilities()
+    auxiliary = replace(
+        base, rank_count_portability="unsupported", payload_scope="field_state",
+        atomic_publication=False, state_components=("material history",),
+        evidence=("serial only",),
+    )
+    step.residual = SimpleNamespace(checkpoint_capabilities=lambda: auxiliary)
+    combined = step.checkpoint_capabilities()
+    assert combined.rank_count_portability == "unsupported"
+    assert not combined.full_restart
+    assert not combined.atomic_publication
+    assert "material history" in combined.state_components
+    assert "auxiliary: serial only" in combined.evidence
+    with pytest.raises(ValueError, match="portable=True"):
+        combined.validate_policy(checkpointing.every(1, directory=tmp_path, portable=True))
+
+
+@pytest.mark.parametrize("invalid", [None, "boundary"])
+def test_explicit_auxiliary_contract_rejects_invalid_declaration(invalid):
+    step = object.__new__(ExplicitDynamicsStep)
+    declaration = (
+        replace(step.checkpoint_capabilities(), boundary="manual_state")
+        if invalid == "boundary" else None
+    )
+    step.residual = SimpleNamespace(checkpoint_capabilities=lambda: declaration)
+    with pytest.raises((TypeError, ValueError)):
+        step.checkpoint_capabilities()
 
 
 def test_policy_summary_reports_effective_rank_count_claim(tmp_path):

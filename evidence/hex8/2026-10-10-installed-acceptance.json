@@ -1,0 +1,79 @@
+{
+  "schema": "agentfem.installed-acceptance.v1",
+  "source_revision": "7abe50beb9bcbc2f068ee21ba54799c509f9ae48",
+  "distribution_version": "0.4.1",
+  "release_published": false,
+  "wheel_sha256": "f1a64e5ce589ff366c81ce6ae129775ad71faf1818b6ca936c419c4728da5aa2",
+  "installation": "isolated_no_deps_no_index_target",
+  "pytest_source_injection": false,
+  "serial_selection": "18 finite-material, Hex, output, energy, checkpoint and transient files",
+  "mpi_selection": [
+    "test_parallel_finite_hex.py",
+    "test_parallel_finite_hex_step.py",
+    "test_parallel_uniform_hex.py",
+    "test_parallel_transient.py"
+  ],
+  "mpi_scope": "two_ranks_same_partition_not_multi_node_or_cross_partition",
+  "tests": {
+    "mpi-0": [
+      {
+        "errors": "0",
+        "failures": "0",
+        "skipped": "0",
+        "tests": "50",
+        "time": "9.013",
+        "timestamp": "2026-10-10T10:57:23.542629+08:00"
+      }
+    ],
+    "mpi-1": [
+      {
+        "errors": "0",
+        "failures": "0",
+        "skipped": "0",
+        "tests": "50",
+        "time": "9.011",
+        "timestamp": "2026-10-10T10:57:23.544242+08:00"
+      }
+    ],
+    "serial": [
+      {
+        "errors": "0",
+        "failures": "0",
+        "skipped": "0",
+        "tests": "233",
+        "time": "16.043",
+        "timestamp": "2026-10-10T10:56:46.296424+08:00"
+      }
+    ],
+    "tcp-mpi-0": [
+      {
+        "errors": "0",
+        "failures": "0",
+        "skipped": "0",
+        "tests": "50",
+        "time": "6.050",
+        "timestamp": "2026-10-10T11:08:08.440756+08:00"
+      }
+    ],
+    "tcp-mpi-1": [
+      {
+        "errors": "0",
+        "failures": "0",
+        "skipped": "0",
+        "tests": "50",
+        "time": "6.044",
+        "timestamp": "2026-10-10T11:08:08.446755+08:00"
+      }
+    ]
+  },
+  "example": {
+    "name": "finite_hex_extension",
+    "ranks": 2,
+    "steps": 1000,
+    "result_integrity_passed": true,
+    "provenance_seal": "sha256:5b51a165ed7144a6ed040aeb13cec61de888d6a604d2461b634346a6c68b5fdc",
+    "note": "Integrity is not scientific verification."
+  },
+  "docs_strict_build": "passed",
+  "timing_scope": "acceptance_not_controlled_performance_measurement"
+}

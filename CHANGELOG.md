@@ -6,6 +6,33 @@ experimental formulation to a validated one.
 
 ## [Unreleased]
 
+### Experimental Hex8 and nonmatching interfaces
+
+- Add a uniform-gradient, one-material-point Hex8 policy to ordinary
+  `model.step()`, with stiffness hourglass control, positive lumped mass,
+  isotropic/rotated orthotropic small-strain elasticity and bounded finite
+  history-material execution. Preserve DOLFINx mesh/DOF ownership and the
+  existing explicit Procedure; imported C3D8R remains `topology_only`, not an
+  automatic formulation or material conversion.
+- Add fixed coplanar nonmatching P1 and affine planar Q1 bonding with checked
+  common-refinement coverage and work-conjugate assembly. Q1 faces retain their
+  bilinear basis. The finite-strain composition admits only equal normal and
+  tangential elastic stiffnesses; interface execution remains serial.
+- Separate accepted physical storage, material dissipation, artificial
+  hourglass energy and prescribed-motion work. Optional unsmoothed DG0 fields
+  read accepted material state without reintegration or cross-material
+  smoothing. Reject field-name collisions instead of replacing physical data.
+- Extend numeric auxiliary checkpoints to same-partition finite-Hex MPI
+  recovery, including empty partitions, joint rollback and collective
+  time-input failure. Preflight the entire checkpoint-retention deletion set.
+  Cross-partition material/interface recovery is not implied.
+- Reduce geometry, prescribed-DOF and spectral-tangent overhead without
+  changing quadrature, constitutive equations or acceptance checks. Independent
+  manufactured, cyclic and installed-use checks complement capacity and
+  workload-specific performance evidence. General finite stability estimates,
+  viscous/relaxation hourglass laws, damage/deletion, mass scaling and forming
+  contact composition remain outside this experimental slice.
+
 ## [0.4.1] - 2026-10-09
 
 ### Thermoelastic coupling experiment

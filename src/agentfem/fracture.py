@@ -249,6 +249,22 @@ class FiniteStrainRegionalEnergyMonitor:
         }
 
 
+def nonmatching_cohesive_force(pairing, displacement, law, *, negative_dofs,
+                              positive_dofs, tangential="mixed", tangential_stiffness=None):
+    """Lower fixed P1/Q1 traces to a serial reference interface force.
+
+    The ordinary linear-static Step currently consumes only elastic laws.
+    Local damage evaluation is not an incremental global damage capability.
+    Dof maps must retain independent traces even at coincident coordinates.
+    """
+    from ._interface_pairing import FixedReferenceCohesiveAssembler
+    from ._nonmatching_force import NonmatchingCohesiveForce
+    assembler = FixedReferenceCohesiveAssembler(pairing, law, tangential=tangential,
+                                               tangential_stiffness=tangential_stiffness)
+    return NonmatchingCohesiveForce(assembler, displacement, negative_dofs=negative_dofs,
+                                   positive_dofs=positive_dofs)
+
+
 class DofMappedCohesiveForce:
     """Map a serial cohesive facet kernel to vector finite-element dofs."""
 
@@ -3303,13 +3319,27 @@ class DynamicEnergyLedger:
         natural = self._assemble_owned(self.natural_force, displacement)
         prescribed_force = np.zeros(owned, dtype=float)
         constrained = self._prescribed_dofs(displacement)
-        if constrained.size:
+        # Residual assembly is collective even on ranks with no constrained
+        # DOFs. A rank-local branch here can hang the initial/restart sample.
+        comm = function.function_space.mesh.comm
+        has_constraints = bool(constrained.size)
+        if comm.size > 1:
+            has_constraints = comm.allreduce(has_constraints, op=MPI.LOR)
+        if has_constraints:
             if residual_owned is None:
-                try:
-                    residual = self._assemble_owned(self.residual, displacement)
-                finally:
-                    if hasattr(self.residual, "rollback"):
-                        self.residual.rollback()
+                accepted = getattr(self.residual, "assemble_accepted_vector", None)
+                if callable(accepted):
+                    vector = accepted()
+                    try:
+                        residual = np.asarray(vector.array[:owned], dtype=float).copy()
+                    finally:
+                        vector.destroy()
+                else:
+                    try:
+                        residual = self._assemble_owned(self.residual, displacement)
+                    finally:
+                        if hasattr(self.residual, "rollback"):
+                            self.residual.rollback()
             else:
                 residual = np.asarray(residual_owned, dtype=float)
                 if residual.shape != (owned,):
@@ -5315,6 +5345,7 @@ __all__ = [
     "minimum_cell_nodal_spacing",
     "mach_cone_angle",
     "cohesive_force",
+    "nonmatching_cohesive_force",
     "cohesive_forces",
     "mode_i_cohesive_force",
     "named_cohesive_forces",

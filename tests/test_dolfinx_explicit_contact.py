@@ -1509,6 +1509,11 @@ def test_friction_state_checkpoint_is_rank_canonical_under_mpi():
 
 
 def test_explicit_step_rolls_back_if_residual_commit_fails():
+    from agentfem import fields, state
+
+    accepted_state = state.second_order_state(fields.displacement(_cube(MPI.COMM_SELF)))
+    before = accepted_state.snapshot()
+
     class Residual:
         def __init__(self):
             self.rollbacks = 0
@@ -1521,14 +1526,15 @@ def test_explicit_step_rolls_back_if_residual_commit_fails():
 
     class Integrator:
         def step(self, *args, **kwargs):
-            return None
+            accepted_state.u.value.x.array[:] = 13.0
+            accepted_state.v.value.x.array[:] = -7.0
 
     from agentfem._transient_problems import ExplicitDynamicsStep
 
     residual = Residual()
     step = ExplicitDynamicsStep(
         name="commit_failure",
-        state=object(),
+        state=accepted_state,
         integrator=Integrator(),
         residual=residual,
         dt=1.0,
@@ -1538,3 +1544,6 @@ def test_explicit_step_rolls_back_if_residual_commit_fails():
     with pytest.raises(RuntimeError, match="commit failed"):
         step._advance_one(1.0)
     assert residual.rollbacks == 1
+    for name, values in before["fields"].items():
+        np.testing.assert_array_equal(accepted_state.snapshot()["fields"][name], values)
+    assert step.completed_steps == 0

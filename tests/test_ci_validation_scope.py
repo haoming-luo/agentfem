@@ -116,10 +116,13 @@ def test_known_core_change_selects_serial_and_distributed_owner_suites():
     assert scope.tests == (
         "tests/test_finite_strain_j2_material_map.py",
         "tests/test_finite_strain_plasticity.py",
+        "tests/test_material_batch_evidence.py",
+        "tests/test_material_stress_conversion.py",
         "tests/test_user_material.py",
         "tests/test_viscoelasticity.py",
     )
     assert scope.mpi_tests == (
+        "tests/test_material_batch_evidence.py",
         "tests/test_parallel_inelastic.py",
         "tests/test_parallel_viscoelasticity.py",
     )
@@ -139,16 +142,27 @@ def test_discretization_owners_select_focused_serial_and_mpi_evidence():
     assert scope.tests == (
         "tests/test_documentation.py",
         "tests/test_element_contracts.py",
+        "tests/test_finite_hex_explicit.py",
+        "tests/test_finite_uniform_hex.py",
+        "tests/test_finite_uniform_hex_dolfinx.py",
+        "tests/test_finite_uniform_hex_material.py",
+        "tests/test_hex_validity.py",
         "tests/test_ir.py",
         "tests/test_mesh_formats.py",
         "tests/test_mesh_quality.py",
         "tests/test_mixed_cell_topologies.py",
         "tests/test_project_cli.py",
+        "tests/test_uniform_hex.py",
+        "tests/test_uniform_hex_global.py",
+        "tests/test_uniform_hex_step.py",
+        "tests/test_uniform_hex_work.py",
         "tests/test_validation.py",
     )
     assert scope.mpi_tests == (
         "tests/test_element_contracts.py",
         "tests/test_mixed_cell_topologies.py",
+        "tests/test_parallel_finite_hex.py",
+        "tests/test_parallel_uniform_hex.py",
     )
     assert not scope.ml
 
@@ -216,9 +230,7 @@ def test_rigid_surface_owner_selects_contact_evidence_without_release_replay():
 
 
 def test_contact_trace_owner_selects_high_order_serial_and_mpi_evidence():
-    scope = classify_changes(
-        ["src/agentfem/boundary_models/dolfinx_contact_trace.py"]
-    )
+    scope = classify_changes(["src/agentfem/boundary_models/dolfinx_contact_trace.py"])
 
     assert scope.level == "core"
     assert scope.tests == (
@@ -241,9 +253,7 @@ def test_cyclic_checkpoint_owner_selects_cross_rank_restart_driver():
 
 
 def test_finite_strain_j2_owner_selects_mixed_restart_driver():
-    scope = classify_changes(
-        ["src/agentfem/mechanics/finite_strain_plasticity.py"]
-    )
+    scope = classify_changes(["src/agentfem/mechanics/finite_strain_plasticity.py"])
 
     assert scope.level == "core"
     assert scope.mpi_drivers == ("mixed-finite-strain-j2-restart",)
@@ -251,9 +261,7 @@ def test_finite_strain_j2_owner_selects_mixed_restart_driver():
 
 def test_declared_mpi_drivers_are_known_to_the_workflow():
     declared = {
-        driver
-        for drivers in _CORE_SOURCE_MPI_DRIVER_MAP.values()
-        for driver in drivers
+        driver for drivers in _CORE_SOURCE_MPI_DRIVER_MAP.values() for driver in drivers
     }
 
     workflow = Path(".github/workflows/test.yml").read_text(encoding="utf-8")
@@ -323,3 +331,46 @@ def test_stable_release_manifest_still_requires_complete_release_validation():
 
 def test_empty_automatic_diff_fails_safe_to_core():
     assert classify_changes([]) == ValidationScope("core")
+
+
+def test_hex_formulation_selects_geometry_mechanics_and_mpi_lifecycle():
+    scope = classify_changes(["src/agentfem/elements/_uniform_hex.py"])
+    assert scope.level == "core"
+    assert {
+        "tests/test_hex_validity.py",
+        "tests/test_uniform_hex.py",
+        "tests/test_uniform_hex_global.py",
+        "tests/test_uniform_hex_step.py",
+        "tests/test_uniform_hex_work.py",
+    } <= set(scope.tests)
+    assert "tests/test_parallel_uniform_hex.py" in scope.mpi_tests
+    step = classify_changes(["src/agentfem/_step_uniform_hex.py"])
+    assert step.level == "core"
+    assert "tests/test_uniform_hex_work.py" in step.tests
+    assert step.mpi_tests == ("tests/test_parallel_uniform_hex.py",)
+
+
+@pytest.mark.parametrize("owner", (
+    "src/agentfem/_step_finite_uniform_hex.py",
+    "src/agentfem/mechanics/_finite_hex_explicit.py",
+    "src/agentfem/mechanics/_finite_hex_energy.py",
+    "src/agentfem/results/_finite_hex.py",
+))
+def test_finite_hex_owners_select_related_evidence_not_full_release(owner):
+    scope = classify_changes([owner])
+    assert scope.level == "core"
+    assert "tests/test_finite_hex_step.py" in scope.tests
+    assert "tests/test_parallel_finite_hex_step.py" in scope.mpi_tests
+    assert not scope.ml
+
+
+def test_release_ladder_includes_bounded_finite_hex_mpi_checks():
+    workflow = Path(".github/workflows/test.yml").read_text(encoding="utf-8")
+    section = workflow.split("- name: Verify finite Hex distributed accepted lifecycle", 1)[1]
+    section = section.split("- name:", 1)[0]
+    assert "outputs.level == 'release'" in section
+    assert "agentfem mpi-run -n 2 --timeout 180" in section
+    assert "-o pythonpath=" in section
+    assert "assert not Path(agentfem.__file__)" in section
+    assert "tests/test_parallel_finite_hex.py" in section
+    assert "tests/test_parallel_finite_hex_step.py" in section

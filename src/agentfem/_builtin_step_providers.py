@@ -36,6 +36,49 @@ from .step_providers import (
 )
 
 
+def _accept_elastic_interface(model, request: StepRequest) -> bool:
+    from ._nonmatching_force import NonmatchingCohesiveForce
+    return (getattr(getattr(model, "study", None), "physics", None) == "solid_mechanics"
+            and isinstance(request.option("cohesive_force"), NonmatchingCohesiveForce)
+            and _is_vector_target(request.target)
+            and _all_materials_support(model, request, _supports_elasticity))
+
+
+def _accept_uniform_hex(model, request):
+    from .elements import UniformStrainHex8
+
+    method = _procedure_method(model, request)
+    return (isinstance(request.option("element_policy"), UniformStrainHex8)
+            and request.option("element_policy").kinematics == "small_strain"
+            and _is_vector_target(request.target)
+            and (method is None or _normalize(method) in {"central_difference", "explicit_dynamics"}))
+
+
+def _lower_uniform_hex(model, request):
+    from ._step_uniform_hex import lower
+
+    return lower(model, request)
+
+
+def _accept_finite_uniform_hex(model, request):
+    from .elements import UniformStrainHex8
+    policy = request.option("element_policy")
+    method = _procedure_method(model, request)
+    return (isinstance(policy, UniformStrainHex8) and policy.kinematics == "finite_strain"
+            and _is_vector_target(request.target)
+            and (method is None or _normalize(method) in {"central_difference", "explicit_dynamics"}))
+
+
+def _lower_finite_uniform_hex(model, request):
+    from ._step_finite_uniform_hex import lower
+    return lower(model, request)
+
+
+def _lower_elastic_interface(model, request):
+    from ._step_nonmatching import lower
+    return lower(model, request)
+
+
 def _accept_linear_static(model, request: StepRequest) -> bool:
     study = getattr(model, "study", None)
     if request.target is None:
@@ -870,6 +913,43 @@ def _option_contract(
         required=tuple(required),
         exactly_one_of=tuple(tuple(group) for group in exactly_one_of),
     )
+
+
+register_step_provider(StepProvider(
+    name="elastic_nonmatching_interface",
+    analyses=("linear_static",),
+    accepts=_accept_elastic_interface,
+    lower=_lower_elastic_interface,
+    priority=150,
+    description="Experimental serial P1/Q1 elastic solid with a fixed nonmatching elastic interface.",
+    procedure="standard/linear_static",
+    option_contract=_option_contract("cohesive_force", required=("cohesive_force",)),
+))
+
+register_step_provider(StepProvider(
+    name="uniform_strain_hex8_explicit",
+    analyses=("explicit_dynamics", "second_order_dynamics"),
+    accepts=_accept_uniform_hex,
+    lower=_lower_uniform_hex,
+    priority=180,
+    description="Experimental small-strain elastic Hex8 with owned-cell MPI assembly; nonmatching interfaces remain serial.",
+    procedure="explicit/central_difference",
+    option_contract=_option_contract("element_policy", "cohesive_force", "dt", "steps", "save_every", "print_every",
+        "history_every", "progress", "status_file", "checkpoint", required=("element_policy", "dt", "steps")),
+))
+
+register_step_provider(StepProvider(
+    name="finite_uniform_strain_hex8_explicit",
+    analyses=("explicit_dynamics", "second_order_dynamics"),
+    accepts=_accept_finite_uniform_hex,
+    lower=_lower_finite_uniform_hex,
+    priority=181,
+    description="Experimental finite Hex8 with one history material, declared spectral ceiling and same-partition restart.",
+    procedure="explicit/central_difference",
+    option_contract=_option_contract("element_policy", "cohesive_force", "dt", "steps", "save_every", "print_every",
+        "history_every", "progress", "status_file", "checkpoint", "omega_squared_bound", "maximum_negative_growth_per_increment",
+        required=("element_policy", "dt", "steps", "omega_squared_bound")),
+))
 
 
 def _accept_callable_neural_field(_model, request) -> bool:

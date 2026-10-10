@@ -285,7 +285,7 @@ def audit_mpi_runtime(
 
 
 def compatible_mpi_launcher() -> str:
-    """Return a verified launcher or fail before MPI initialization."""
+    """Return a verified launcher or fail before starting child ranks."""
 
     audit = audit_mpi_runtime()
     if audit.selected_launcher is None:
@@ -293,14 +293,19 @@ def compatible_mpi_launcher() -> str:
     return audit.selected_launcher
 
 
-def mpi_command(ranks: int, command: Sequence[str]) -> tuple[str, ...]:
+def mpi_command(
+    ranks: int, command: Sequence[str], *, audit: MPIRuntimeAudit | None = None
+) -> tuple[str, ...]:
     """Build an argv-safe MPI command using the verified launcher."""
 
     if int(ranks) <= 0:
         raise ValueError("MPI rank count must be positive.")
     if not command:
         raise ValueError("An MPI child command is required.")
-    return (compatible_mpi_launcher(), "-n", str(int(ranks)), *(str(item) for item in command))
+    if audit is not None and not audit.compatible:
+        raise MPILauncherError(audit)
+    launcher = compatible_mpi_launcher() if audit is None else audit.selected_launcher
+    return (launcher, "-n", str(int(ranks)), *(str(item) for item in command))
 
 
 def run_mpi_command(
@@ -309,6 +314,7 @@ def run_mpi_command(
     *,
     timeout: float | None = None,
     termination_grace: float = 5.0,
+    audit: MPIRuntimeAudit | None = None,
 ) -> int:
     """Run one verified MPI command with optional process-group custody.
 
@@ -328,7 +334,11 @@ def run_mpi_command(
     if not math.isfinite(selected_grace) or selected_grace < 0.0:
         raise ValueError("MPI termination grace must be finite and non-negative.")
 
-    argv = mpi_command(ranks, command)
+    argv = (
+        mpi_command(ranks, command)
+        if audit is None
+        else mpi_command(ranks, command, audit=audit)
+    )
     options: dict[str, object] = {}
     if os.name == "posix":
         options["start_new_session"] = True
@@ -340,6 +350,9 @@ def run_mpi_command(
     except subprocess.TimeoutExpired as exc:
         _terminate_process_group(process, grace=selected_grace)
         raise MPITimeoutError(timeout=selected_timeout, command=argv) from exc
+    except BaseException:
+        _terminate_process_group(process, grace=selected_grace)
+        raise
 
 
 def _terminate_process_group(process: subprocess.Popen, *, grace: float) -> None:

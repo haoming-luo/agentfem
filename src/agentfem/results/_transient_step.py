@@ -12,6 +12,7 @@ from .core import from_solution
 from .execution import add_execution_trace
 from .lifecycle import attach_checkpoint_contract, execution_context
 from .performance import attach_performance
+from ._field_metadata import field_location
 
 
 def from_transient_step(
@@ -19,15 +20,27 @@ def from_transient_step(
     solution,
     *,
     output_fields,
+    live_field_sets=(),
     metadata=None,
 ):
     """Build a result after a transient procedure has advanced its state."""
 
     result_started = perf_counter()
+    for group in live_field_sets:
+        group.update()
+    summary = step.summary()
+    if "performance" in summary:
+        # Step.summary() is an inexpensive rank-local diagnostic. Published
+        # results own the collective timing record attached below; do not embed
+        # a second, rank-dependent copy in otherwise canonical metadata.
+        summary["performance"] = {
+            "source": "SimulationResult.performance",
+            "timing_aggregation": "min_mean_max_across_ranks",
+        }
     result = from_solution(
         solution,
         name=step.name,
-        metadata={"step": step.summary()},
+        metadata={"step": summary},
     )
     if metadata:
         result.metadata.update(dict(metadata))
@@ -41,8 +54,7 @@ def from_transient_step(
     result_seconds = perf_counter() - result_started
     ledger_stages["result_assembly"] = result_seconds
     ledger_stages["total"] = (
-        float(step.performance.summary()["run_wall_seconds"])
-        + result_seconds
+        float(step.performance.summary()["run_wall_seconds"]) + result_seconds
     )
     return attach_performance(
         result,
@@ -79,6 +91,17 @@ def _attach_transient_output(result, step, output_fields) -> None:
         result.add_checkpoint(checkpoint)
     if step.last_output is not None:
         _attach_field_output(result, step, output_fields)
+    else:
+        for function in output_fields:
+            processing = getattr(function, "_agentfem_processing", None)
+            if processing is not None:
+                result.add_field(
+                    function.name,
+                    function,
+                    location=field_location(function),
+                    processing=processing,
+                    description="Derived field evaluated from the final accepted state; see processing metadata.",
+                )
 
 
 def _attach_histories(result, step) -> None:
@@ -170,6 +193,8 @@ def _attach_field_output(result, step, output_fields) -> None:
         result.add_field(
             name,
             function,
+            location=field_location(function),
+            processing=dict(getattr(function, "_agentfem_processing", {})),
             artifact=path,
             description=(
                 "Transient field in the shared single-geometry series; "
@@ -182,6 +207,8 @@ _HISTORY_DESCRIPTIONS = {
     "kinetic_energy": "Discrete kinetic energy, one half v-transpose M v.",
     "strain_energy": "Recoverable linear strain energy, one half u-transpose K u.",
     "total_mechanical_energy": "Sum of discrete kinetic and recoverable strain energy.",
+    "hourglass_energy": "Artificial recoverable energy from the declared hourglass stabilization; not material dissipation.",
+    "total_discrete_energy": "Physical mechanical energy plus separately reported artificial stabilization energy.",
     "bulk_strain_energy": "Finite-strain constitutive energy integrated in the reference body.",
     "cohesive_stored_energy": "Recoverable energy currently stored by the cohesive interface.",
     "cohesive_fracture_dissipation": "Irreversible cohesive dissipation relative to the initial interface state.",

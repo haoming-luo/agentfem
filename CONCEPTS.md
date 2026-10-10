@@ -344,6 +344,14 @@ periodicity, and MPC relations are constraints.
 
 Neumann force, flux, and traction terms are not constraints.
 
+## Nonmatching Interface
+
+A fixed nonmatching interface keeps geometric integration separate from its
+traction law. The experimental coplanar P1 route uses common-refinement
+quadrature without replacing either side's interpolation. Its elastic
+linear-static Step is serial and small-strain; local damage transactions do
+not imply global damage evolution, finite rotations or portable restart.
+
 ## Load
 
 A weak right-hand-side source term, such as body force, heat source, Neumann

@@ -1846,13 +1846,11 @@ def _interface_frames(normals) -> np.ndarray:
     if dimension != 3:
         raise ValueError("Interface frames require geometric dimension 2 or 3.")
     axes = np.eye(3)
-    for index, direction in enumerate(normal):
-        seed = axes[int(np.argmin(np.abs(axes @ direction)))]
-        first = np.cross(direction, seed)
-        first /= np.linalg.norm(first)
-        second = np.cross(direction, first)
-        frames[index, :, 1] = first
-        frames[index, :, 2] = second
+    seed = axes[np.argmin(np.abs(normal), axis=1)]
+    first = np.cross(normal, seed)
+    first /= np.linalg.norm(first, axis=1)[:, None]
+    frames[:, :, 1] = first
+    frames[:, :, 2] = np.cross(normal, first)
     return frames
 
 
@@ -2952,6 +2950,52 @@ class CohesiveSurface:
         }
 
 
+def elastic_cohesive(*, normal_stiffness, tangential_stiffness,
+                     second_tangential_stiffness=None, name="elastic traction-separation"):
+    """Undamaged reference-area interface elasticity with explicit local stiffnesses."""
+    from ._elastic_cohesive import ElasticCohesiveLaw
+    return ElasticCohesiveLaw(normal_stiffness, tangential_stiffness,
+                              second_tangential_stiffness, name)
+
+
+def pair_nonmatching_triangles(negative, positive, *, tolerance, maximum_points=200_000):
+    """Experimental fixed coplanar P1 common-refinement trace integration.
+
+    Both inputs are reviewed triangular reference surfaces, not declarations
+    of rigid-body physics. Curved geometry, Q1 and MPI ownership are excluded.
+    """
+    from ._interface_overlap import planar_overlap_pairing
+    return planar_overlap_pairing(negative, positive, tolerance=tolerance,
+                                  maximum_points=maximum_points)
+
+
+def reference_trace(vertices, cells, *, topology, tolerance):
+    """Create fixed reference geometry with its original P1 or affine Q1 trace.
+
+    Quadrilateral connectivity is cyclic perimeter order. This is not a
+    rigid-body declaration or automatic extraction from a volume mesh.
+    """
+    if topology == "quadrilateral":
+        from ._interface_quadrilateral import QuadrilateralReferenceTrace
+        return QuadrilateralReferenceTrace(vertices, cells, tolerance=tolerance)
+    if topology == "triangle":
+        from .boundary_models.rigid import TriangulatedRigidSurface
+        if not np.isfinite(float(tolerance)) or float(tolerance) <= 0:
+            raise ValueError("Trace tolerance must be positive finite.")
+        return TriangulatedRigidSurface(vertices, cells)
+    raise NotImplementedError("Reference traces support triangle or affine quadrilateral topology.")
+
+
+def pair_reference_traces(negative, positive, *, tolerance, maximum_points=200_000):
+    """Common-refinement pairing without replacing the original field bases."""
+    from ._interface_quadrilateral import QuadrilateralReferenceTrace, quadrilateral_overlap_pairing
+    if isinstance(negative, QuadrilateralReferenceTrace) or isinstance(positive, QuadrilateralReferenceTrace):
+        return quadrilateral_overlap_pairing(negative, positive, tolerance=tolerance,
+                                             maximum_points=maximum_points)
+    return pair_nonmatching_triangles(negative, positive, tolerance=tolerance,
+                                      maximum_points=maximum_points)
+
+
 def bilinear_cohesive(
     *,
     strength: float,
@@ -3074,6 +3118,19 @@ from .cohesive_checkpoint import (  # noqa: E402
 )
 
 
+def reference_trace_from_boundary(displacement, boundary, *, tolerance=1e-10):
+    """Extract an outward reference trace and DOF map from a named boundary.
+
+    Serial continuous P1 tetrahedra and affine-face Q1 hexahedra only. Both
+    interface sides must have independent boundary labels and displacement DOFs.
+    Returns ``(trace, dofs)`` for ``pair_reference_traces`` and
+    ``fracture.nonmatching_cohesive_force``; it does not split or merge a mesh.
+    """
+    from ._interface_boundary import reference_trace_from_boundary as extract
+
+    return extract(displacement, boundary, tolerance=tolerance)
+
+
 __all__ = [
     "BilinearCohesiveLaw",
     "MixedModeBilinearCohesiveLaw",
@@ -3097,6 +3154,11 @@ __all__ = [
     "PairedSurfaceFacets",
     "SplitInterfaceMesh",
     "bilinear_cohesive",
+    "elastic_cohesive",
+    "pair_nonmatching_triangles",
+    "reference_trace",
+    "reference_trace_from_boundary",
+    "pair_reference_traces",
     "audit_mode_i_kinematics",
     "audit_split_interface_rigid_modes",
     "mixed_mode_bilinear_cohesive",

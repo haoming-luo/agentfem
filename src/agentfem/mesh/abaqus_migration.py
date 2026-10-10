@@ -1270,6 +1270,13 @@ def _migration_report_markdown(
     )
     if not plan_record.element_blocks:
         lines.append("| — | — | — | — | — |")
+    noted_types = set()
+    for item in plan_record.element_blocks:
+        definition = item.definition
+        if definition.source_type not in noted_types and definition.notes:
+            noted_types.add(definition.source_type)
+            lines.extend(("", f"{_markdown_cell(definition.source_type)} review notes:"))
+            lines.extend(f"- {_markdown_cell(note)}" for note in definition.notes)
     lines.extend(
         (
             "",

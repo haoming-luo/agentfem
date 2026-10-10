@@ -483,6 +483,15 @@ def test_plan_marks_topology_only_element_without_discarding_suffix(tmp_path):
     assert plan.element_blocks[0].definition.source_type == "C3D8R"
     assert plan.element_blocks[0].definition.solver_capability == "topology_only"
     assert {item.code for item in plan.issues} == {"AFM-ABAQUS-ELEMENT-002"}
+    notes = plan.element_blocks[0].definition.summary()["notes"]
+    assert "uniform_strain_hex8" in " ".join(notes)
+    assert "not an automatic" in " ".join(notes)
+    rendered = abaqus_migration._migration_report_markdown(plan)
+    assert "uniform_strain_hex8" in rendered
+    assert "topology_only" in rendered
+    assert "damage/deletion" in rendered.lower()
+    assert "bounded finite-strain" in rendered
+    assert "complete-path spectral ceiling" in rendered
 
 
 def test_plan_blocks_element_declaration_without_type(tmp_path):

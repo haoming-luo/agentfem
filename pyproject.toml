@@ -46,7 +46,7 @@ Documentation = "https://haoming-luo.github.io/agentfem/"
 Changelog = "https://github.com/haoming-luo/agentfem/blob/main/CHANGELOG.md"
 
 [project.scripts]
-agentfem = "agentfem.cli:main"
+agentfem = "agentfem._cli_entry:main"
 
 [project.optional-dependencies]
 mesh-formats = ["meshio"]

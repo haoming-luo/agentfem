@@ -19,7 +19,159 @@ or a successful run is not by itself a validated engineering capability.
 
 ## Current product phase: the 0.4 foundation
 
+### User-driven mesh/interface slice (2026-10-09)
+
+2026-10-10 continuation: the bounded finite Hex8 route now has ordinary-Step
+lowering and accepted-response
+energy sampling, declared virgin response, prescribed-motion work, material
+dissipation, isotropic reference-interface energy and energy-preserving
+restart. Independent finite elastic/plastic stretch checks pass, with time-step
+refinement of the balance residual. A bounded opt-in negative-curvature growth
+resolution policy preserves signed spectrum evidence; it is not a general
+nonlinear stability guarantee. Nonuniform plastic response and distributed
+bulk ownership/failure tests now pass. The shared rank-local numeric checkpoint
+encoding additionally covers same-partition finite MPI restart, including empty
+ranks, corrupt or swapped payloads and failed publication. Independent private
+and ordinary-Step plastic capacity runs now both complete 262,144 cells and
+1,000 increments; the public run peaks at 3.20 GiB. A separate three-pair,
+4,096-cell plastic comparison reduces median integration time by 38.2% with
+identical compared response arrays; see [performance evidence](performance_evidence.md).
+This is not an industrial-forming or universal speedup claim. Distributed interface
+integration, cross-partition finite state recovery, damage/deletion and advanced
+hourglass laws remain separate gates, not requirements satisfied by these tests.
+
+The tester's Hex8/interface brief is assessed by capability, not by reproducing
+one private input file:
+
+| Requested part | Current evidence-backed boundary | Next missing gate |
+| --- | --- | --- |
+| A1 uniform-gradient elastic Hex8 | Ordinary Step; isotropic/rotated orthotropic, stiffness hourglass, lumped mass, bending/wave/patch checks and separate artificial energy | Application-specific accuracy and commercial cross-comparison are not inferred |
+| A2 finite deformation | Bounded history-material Step, finite objectivity/tangents, independent proportional and nonuniform plastic references, owned-cell MPI and same-partition restart | Automatic material-owned stability estimates; viscous/relaxation stabilization; damage/deletion and mass scaling remain unimplemented in this path |
+| B1 nonmatching bonding | Serial fixed coplanar P1 and affine planar Q1 traces, genuine elastic law, coverage/force/moment/work checks and accepted recovery in explicit dynamics | Warped/general surfaces, cross-rank interface ownership and general convected material frames |
+| B2 integration quality | Common-refinement overlap integration retaining both original bases, side-swap and patch evidence | Not dual mortar, arbitrary sliding, re-pairing or post-failure contact |
+| Combined industrial forming | Small finite-bulk/equal-stiffness elastic-bond Step verified, without case-specific solver code | Moving contact plus the actual orthotropic finite material, damage policies and independent industrial reference remain separate work |
+
+Prioritize these genuine gaps instead of advertising all of A2 or the complete
+industrial model as finished. Installed-use and performance evidence support
+usability and efficiency, but do not promote scientific scope by themselves.
+
+The next bounded stability slice should first expose material-owned evidence
+at the initial and accepted states, with explicit configuration, units and
+validity scope; do not infer an isotropic wave model from an arbitrary dP/dF
+array. Compare the composed bulk/hourglass/interface estimate against the
+existing fixed-step screen and independent time refinement before replacing
+the caller ceiling. An independently validated stability response could then
+permit response-only material updates where the explicit integrator needs no
+Newton tangent; do not skip tangent generation while the current admission
+screen still depends on it, and measure the actual whole-step benefit.
+Automatic variable increments are a subsequent Procedure
+change: actual accepted times, prescribed-motion work and restart identity
+must remain consistent, and a rejected attempt must not advance material state.
+Do not add an alternative explicit solver or silently enable mass scaling to
+make this gate pass. The tester's actual finite orthotropic material and moving
+contact combination require their own evidence after these shared contracts.
+
+This slice implements bounded fixed-reference nonmatching cohesive trace
+integration and uniform-strain Hex8 stabilization. These are general formulation
+capabilities, not an automatic translation of a specific
+Abaqus forming model. Reuse triangle search and existing cohesive laws; keep
+pairing, material state, force assembly and Procedure separate. The bounded
+design and scientific promotion gates are in
+[nonmatching interfaces](nonmatching_interfaces.md). Each geometry and execution
+route requires its own evidence; local trace tests alone do not enable migration,
+finite rotations or distributed interface execution.
+Do not introduce artificial damage thresholds for an elastic-only interface,
+or describe unstabilized one-point quadrature as Hex8R support.
+
+The fixed coplanar P1 route now has common-refinement integration, per-facet
+coverage checks, independent nodal-force audits and serial two-block
+series-compliance evidence. Its experimental elastic `model.step` provider
+reuses PETSc solving and Result output. The affine planar Q1 extension retains
+the original four-node basis and degree-four common-refinement integration;
+global 1:3 and 2:3 compliance tests exercise independent Hex8 partitions.
+Global nonmatching damage, distributed interface ownership and general
+convected anisotropic interface frames remain separate gates; the isotropic
+finite elastic special case above does not promote them.
+The experimental [uniform-gradient Hex8 policy](hex8_uniform_strain.md) now
+has compact batch execution, serial global affine/bending/wave evidence and
+ordinary explicit `model.step()` integration. Isotropic/rotated anisotropic
+elasticity, disjoint material regions, physical/artificial energy separation
+and serial restart are exercised. Failed explicit increments and auxiliary
+checkpoint rejection restore the accepted field state. General finite forming
+beyond the bounded history-material route, damage and distributed interface
+composition remain separate gates.
+Natural-load and strong prescribed-motion
+work reuse the existing dynamic ledger; independent acceleration/oscillator
+tests exercise work and time refinement. Checkpoints capture accepted endpoint
+history even between output frames, preventing cumulative-work loss. The elastic Q1
+interface now composes with this explicit Step, including an additive spectral
+stability bound, interface energy, serial restart and failed-commit retry.
+Warped/nonaffine quadrilateral traces remain rejected. These are bounded
+small-strain capabilities, not an industrial finite-deformation reproduction.
+The bulk Hex8 path additionally has two-/four-rank assembly, ordinary-Step work,
+output and same-partition restart evidence. Nonmatching interface communication
+and cross-partition restart remain unsupported. Rank-local input failures and
+work sampling on partitions without constrained nodes now have collective guards.
+
+The Hex8 result path now exports optional constitutive DG0 stress, tensor strain,
+von Mises stress and physical energy density through the existing transient
+result lifecycle. Material jumps are retained, artificial stabilization stress
+is not mixed into material stress, and field provenance records the generating
+formulation. An installed two-rank candidate exercises this path independently
+of source-tree imports. Bounded energy-only monitoring and local scatter maps
+reduce measured run time by about 26% on one 8,192-cell elastic workload; this
+is a workload-specific measurement, not a general performance guarantee.
+
+Hex8 geometry admission now uses bounded Bernstein subdivision of the
+triquadratic Jacobian determinant, rejecting hidden inversion and unresolved
+near-degeneracy before assembly. This does not certify approximation quality or
+inter-cell non-overlap. The installed candidate also runs the Gmsh independent
+Q1 bonded-block and Hex8 wave examples; both result manifests pass provenance
+verification. Scientific evidence remains the separate analytic/convergence
+checks, not the provenance seal alone.
+
 The 0.4 line is an architectural consolidation, not a feature-count release.
+
+The next Hex8 prerequisite now has a private total-Lagrangian contribution with
+large-rotation objectivity, energy/tangent and existing J2 batch-protocol checks.
+The bounded route now lowers through the ordinary `model.step()` with explicit
+`kinematics="finite_strain"`, a caller-declared complete-path spectral ceiling,
+one full-domain history material and declared reference density. A DOLFINx
+bridge exercises existing quadrature trial/commit/rollback, global force and
+moment, fixed-old-state tangents and a four-increment J2 patch. An instantaneous
+nonnegative symmetric-tangent spectral screen is tested separately; unsupported
+tangents are rejected, not silently symmetrized into a stability claim.
+The private serial path now reuses the existing explicit Procedure, jointly
+restores nodal/material state after rejected increments, and passes interrupted
+versus continuous execution. A nonlinear Hencky bar exceeds 10% extension and
+shows second-order time refinement against an independent ODE. This does not
+admit arbitrary J2 trajectories: the signed endpoint screen reports positive and
+negative curvature separately and requires an explicit bounded-growth policy
+for negative curvature. It is not a general nonlinear stability guarantee.
+Accepted work, stored energy, artificial energy and material dissipation now
+share the existing ledger; optional unsmoothed DG0 views expose the accepted
+response without reintegration. Next are broader independent references and
+general objective interface/contact composition. The finite contribution already
+reuses the elastic nonmatching interface in the equal-three-stiffness special
+case, with opened-interface objectivity, current moment, joint recovery and
+post-commit failure checks. This does not admit anisotropic/damaging finite
+interfaces, contact or distributed interface state.
+The shared finite-material driver now offers optional validated columnar
+batches, retaining scalar/ordered providers and the same atomic trial boundary.
+Native J2 uses its existing constitutive equations through this transport;
+no new material formulation or provider framework is introduced. Serial
+numeric-array auxiliary checkpoints avoid JSON expansion and preserve legacy
+reads. Rank-local version-7 payloads now support same-partition MPI recovery,
+including empty ranks and collective rejection of corrupt/swapped payloads;
+cross-partition history migration remains unsupported. Spatial refinement uses
+independent manufactured Neo-Hookean and proportional finite-J2 problems.
+The plastic reference includes nonuniform tension/compression and a moving yield
+front, with a separate body-force derivation rather than the solver residual.
+Large affine endurance runs are capacity evidence only;
+they do not replace nonuniform spatial or industrial validation. The remaining
+promotion gates above are unchanged.
+Do not infer these gates from local element tests or reuse the small-strain
+constant spectral bound for a finite-deformation trajectory.
 Its stable middle layer is:
 
 ```text
