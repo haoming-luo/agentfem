@@ -4,14 +4,17 @@ The geometry operator is process-local. An experimental ordinary `model.step`
 provider now consumes its coplanar common-refinement route for serial P1
 tetrahedra or Q1 hexahedra and a purely elastic interface. Existing matched cohesive laws and
 their transactions remain the constitutive owner; global damage evolution is
-not enabled by this elastic provider.
+not enabled by this elastic provider. The explicit Hex8 composition additionally
+has accepted-path energy and serial restart; its bounded finite-strain special
+case requires equal stiffness in all three separation directions, as detailed
+below. All nonmatching interface execution on this page remains serial.
 
 The serial P1 lowering now adds the same residual and tangent to the existing
 PETSc cohesive assembly. A separate two-block test verifies reaction,
 interface opening and interface energy against the exact series compliance
 `2/E + 1/Kn` for unit-area, unit-length blocks (Poisson ratio zero), using
-matching and nonmatching tetrahedral meshes. This is global assembly evidence,
-not an MPI, finite-strain or forming capability.
+matching and nonmatching tetrahedral meshes. This particular static comparison
+is small-strain assembly evidence, not a finite-strain or forming benchmark.
 
 ## Ordinary workflow (experimental)
 
@@ -39,7 +42,8 @@ free residual, bulk/interface energy and linear proportional-path natural and
 prescribed-motion work. These work quantities assume a stress-free origin and
 are not arbitrary-history work integration. Empty `field_variables=()` exports
 only U. Solver failure restores the previous nodal field and discards trial
-interface state. Durable Step restart is not yet supported.
+interface state. This linear-static provider has no durable Step restart;
+the explicit composition described below has its own tested restart contract.
 
 The ordinary-Step, existing global cohesive, local interface/search and
 architecture regression selection passes 112 tests in the local `fenicsx-env`.
@@ -56,7 +60,7 @@ This is targeted candidate evidence, not the release ladder or MPI acceptance.
 - The Operator scatters `B^T W t` and applies `B^T W D B`; this is the internal
   residual, not the restoring force. The transpose shares exactly the same
   interpolation as the jump so discrete virtual work is preserved.
-- Procedure/State will own accepted updates, rollback and restart; Result
+- Procedure/State own accepted updates, rollback and admitted restart; Result
   retains pairing diagnostics separately from constitutive energy.
 
 The first map explicitly selects the negative integration side and requires

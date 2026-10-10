@@ -69,14 +69,17 @@ series-compliance evidence. Its experimental elastic `model.step` provider
 reuses PETSc solving and Result output. The affine planar Q1 extension retains
 the original four-node basis and degree-four common-refinement integration;
 global 1:3 and 2:3 compliance tests exercise independent Hex8 partitions.
-Global damage, MPI and finite-rotation kinematics remain separate gates.
+Global nonmatching damage, distributed interface ownership and general
+convected anisotropic interface frames remain separate gates; the isotropic
+finite elastic special case above does not promote them.
 The experimental [uniform-gradient Hex8 policy](hex8_uniform_strain.md) now
 has compact batch execution, serial global affine/bending/wave evidence and
 ordinary explicit `model.step()` integration. Isotropic/rotated anisotropic
 elasticity, disjoint material regions, physical/artificial energy separation
 and serial restart are exercised. Failed explicit increments and auxiliary
-checkpoint rejection restore the accepted field state. Finite deformation,
-damage and distributed interface composition remain separate gates.
+checkpoint rejection restore the accepted field state. General finite forming
+beyond the bounded history-material route, damage and distributed interface
+composition remain separate gates.
 Natural-load and strong prescribed-motion
 work reuse the existing dynamic ledger; independent acceleration/oscillator
 tests exercise work and time refinement. Checkpoints capture accepted endpoint
