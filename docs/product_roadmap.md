@@ -88,7 +88,7 @@ refinement, restart equality and post-commit rollback are exercised together.
 The next candidate lowers one registered frictionless translating plane through
 ordinary finite-Hex `model.step`, preserving the separate constitutive owner.
 It passes a scalar finite-compression ODE comparison and a native finite-J2
-plastic work/restart test. Distributed bonded composition, curved/rotating tools,
+plastic work/restart test. Curved/rotating tools,
 multiple pairs, friction and the tester's actual orthotropic material remain
 open; do not equate this serial slice with industrial forming completion.
 
@@ -98,17 +98,21 @@ restart, empty partitions, rank-inconsistent admission/corrupt outer-state
 rejection and post-commit rollback. The combined contact/finite-Hex MPI
 regression passes 62 tests per rank; serial contact/bond regressions pass 57
 with eight MPI-only skips. These are overlapping selections, not 124 distinct
-MPI tests. Distributed nonmatching interface ownership and cross-partition
-finite-material restart remain separate work; no VUMAT is needed to develop
-those infrastructure contracts.
+MPI tests. Cross-partition finite-material restart remains separate work.
 
 The next prerequisite hardens the existing sparse cohesive communication owner:
 collective schedule/payload rejection, idle consumers and transpose virtual-work
 checks now pass with two/three processes. This preserves sparse numeric payloads;
-the added readiness exchange carries only small status records. It is not yet a
-distributed nonmatching force. Next implement physically identified integration
-point ownership, remote trace schedules, single-count energy/stability and joint
-restart as one bounded acceptance slice rather than removing the serial guard.
+the added readiness exchange carries only small status records.
+
+The following bounded distributed nonmatching slice now owns quadrature points
+once, uses remote trace schedules, assembles single-count interface energy and
+the global owner-summed stability bound, and preserves joint same-partition
+restart. Two-rank elastic/J2 bulk + bond + tool tests compare with serial values,
+ordinary results and exact resumed trajectories; corrupted interface identity
+and post-commit failure roll back collectively. Reference geometry is replicated
+and point identity remains partition-bound: scalable geometry discovery and
+cross-partition finite-material recovery are NOT completed by this slice.
 
 The next serial combination now composes bulk, an equal-stiffness nonmatching
 elastic bond and an external translating plane through the same Step. Contact
@@ -116,7 +120,7 @@ and bond must have disjoint trace nodes (even shared edge nodes are conservative
 rejected). All three stiffness contributions enter the existing summed stability
 bound once. Independent four-mass axial dynamics, temporal refinement, separate
 energy channels, native-J2 plastic response and exact interrupted recovery are
-the acceptance tests. This is not post-failure contact, distributed bonding or
+the acceptance tests. This is not post-failure contact or
 the tester's unspecified finite orthotropic law. Obtain that law, orientation
 update and parameters before claiming equivalence; do not substitute J2.
 A separate, rotated orthotropic Green-strain test provider also passes tangent,

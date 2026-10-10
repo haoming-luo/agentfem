@@ -276,6 +276,8 @@ def lower(model, request):
     external = model.external_force(request.target) if model.loads else None
     cohesive = options.pop("cohesive_force", None)
     if cohesive is not None:
+        if history.u.value.function_space.mesh.comm.size > 1:
+            raise NotImplementedError("Distributed nonmatching linear Hex8 history is not admitted yet.")
         from ._nonmatching_force import NonmatchingCohesiveForce
         from ._elastic_cohesive import ElasticCohesiveLaw
 

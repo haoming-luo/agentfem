@@ -363,7 +363,7 @@ linear-static Step is serial and small-strain; local damage transactions do
 not imply global damage evolution, finite rotations or portable restart.
 
 For the bounded finite-reference Hex8 route, an equal-stiffness elastic
-nonmatching bond may coexist with one serial translating-plane contact boundary
+nonmatching bond may coexist with one serial/MPI translating-plane contact boundary
 on disjoint trace nodes. This composes existing Operators and State transactions;
 it does not imply a damage-to-contact transition or convected anisotropic law.
 

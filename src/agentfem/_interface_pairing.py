@@ -120,7 +120,7 @@ class FixedReferencePairing:
             "positive_basis": "Q1" if self.positive_nodes.shape[1] == 4 else "P1",
             "reference_area": float(self.weights.sum()),
             "maximum_reference_mismatch": float(
-                np.linalg.norm(self.reference_mismatch, axis=1).max()
+                np.linalg.norm(self.reference_mismatch, axis=1).max(initial=0)
             ),
             "coincidence_tolerance": self.tolerance,
             "normal_convention": "negative-side-oriented-normal",

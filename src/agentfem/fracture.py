@@ -251,17 +251,27 @@ class FiniteStrainRegionalEnergyMonitor:
 
 def nonmatching_cohesive_force(pairing, displacement, law, *, negative_dofs,
                               positive_dofs, tangential="mixed", tangential_stiffness=None):
-    """Lower fixed P1/Q1 traces to a serial reference interface force.
+    """Lower fixed P1/Q1 traces to a reference interface force.
 
     The ordinary linear-static Step currently consumes only elastic laws.
     Local damage evaluation is not an incremental global damage capability.
     Dof maps must retain independent traces even at coincident coordinates.
+    MPI admits elastic Explicit finite-Hex execution with partition-local State;
+    maps use -1 for absent nodes and geometry is replicated at construction.
     """
     from ._interface_pairing import FixedReferenceCohesiveAssembler
     from ._nonmatching_force import NonmatchingCohesiveForce
-    assembler = FixedReferenceCohesiveAssembler(pairing, law, tangential=tangential,
-                                               tangential_stiffness=tangential_stiffness)
-    return NonmatchingCohesiveForce(assembler, displacement, negative_dofs=negative_dofs,
+    from .provenance import collective_call
+    comm = field_api.unwrap(displacement).function_space.mesh.comm
+    assembler = collective_call(
+        lambda: FixedReferenceCohesiveAssembler(pairing, law, tangential=tangential,
+                                               tangential_stiffness=tangential_stiffness),
+        comm=comm, label="Nonmatching material construction")
+    factory = NonmatchingCohesiveForce
+    if comm.size > 1:
+        from ._nonmatching_mpi import DistributedNonmatchingForce
+        factory = DistributedNonmatchingForce
+    return factory(assembler, displacement, negative_dofs=negative_dofs,
                                    positive_dofs=positive_dofs)
 
 

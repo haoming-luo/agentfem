@@ -8,6 +8,12 @@ experimental formulation to a validated one.
 
 ### Experimental Hex8 and nonmatching interfaces
 
+- Add bounded distributed finite-Hex elastic bonding plus a separate moving
+  plane through ordinary Step. Own each reference integration point once,
+  reuse sparse trace/force exchange and joint energy/restart. Verify elastic
+  and finite-J2 bulk against serial execution, stable-step agreement and atomic
+  failure recovery. Reference geometry remains replicated; no implicit MPI
+  interface, damage, repartitioned restart or VUMAT equivalence is claimed.
 - Harden the existing sparse cohesive exchange before reuse by nonmatching
   interfaces: collectively reject invalid ownership, payloads and component
   conventions before numeric communication. Empty consumers retain the same

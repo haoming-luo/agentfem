@@ -7,7 +7,31 @@ their transactions remain the constitutive owner; global damage evolution is
 not enabled by this elastic provider. The explicit Hex8 composition additionally
 has accepted-path energy and serial restart; its bounded finite-strain special
 case requires equal stiffness in all three separation directions, as detailed
-below. All nonmatching interface execution on this page remains serial.
+below. The finite-Hex Explicit route additionally supports distributed elastic
+bonding and one external translating plane, with same-partition restart.
+Implicit and small-strain nonmatching Step routes remain serial.
+
+## Distributed finite-Hex slice
+
+Use the same named-boundary extraction and force factory. On MPI, extraction
+collects owned boundary facets once, preserving independent global DOF IDs;
+the returned local maps use `-1` for absent trace nodes. Reference geometry and
+pairing are replicated during construction. Quadrature points are assigned
+deterministically to ranks; only the owning rank integrates each point and owns
+its elastic transaction. Empty shards have zero force and energy.
+
+During advancement, the existing sparse owner schedule exchanges needed nodal
+values and transpose force contributions. Interface energy is rank-local until
+the common ledger reduces it once. The mass-scaled interface row bound is
+assembled on node owners before a global maximum; it is not a maximum of
+incomplete local bounds. Bulk, interface and tool restrictions remain additive.
+
+`tests/test_parallel_nonmatching.py` compares serial/two-rank elastic and finite-J2
+bulk with a nonmatching elastic bond and moving plane, including stability,
+energy/work, ordinary results, exact same-partition restart, rank-local corrupt
+interface identity and post-commit rollback. This is not scalable distributed
+geometry search, damage evolution, implicit interface matrices, arbitrary tool
+motion or cross-partition finite-material restart. No VUMAT equivalence is claimed.
 
 The serial P1 lowering now adds the same residual and tangent to the existing
 PETSc cohesive assembly. A separate two-block test verifies reaction,
@@ -138,9 +162,8 @@ point with the stricter requirement `Kn = Ks = Kt`. This special potential is
 objective under a superposed rotation of an already open interface and has
 separate current-force/current-moment tests. Its accepted-path work, energy,
 failed-step rollback and serial disk restart are tested together with the bulk.
-It is not an anisotropic convected interface or contact formulation. Distributed
-bulk support does not admit distributed interface state: that combination still
-rejects before execution. See [finite Hex8 scope](hex8_uniform_strain.md).
+It is not an anisotropic convected interface or contact formulation. Its bounded
+distributed route is described above. See [finite Hex8 scope](hex8_uniform_strain.md).
 
 An independent longitudinal vibration check couples two unit-length elastic
 bars with free outer ends. With Poisson ratio zero and transverse motion

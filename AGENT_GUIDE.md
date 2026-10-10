@@ -442,10 +442,10 @@ never changes solver access, results, verification, or update behavior.
   Never invent an envelope from one initial tangent or equate `dt="auto"`
   with adaptive stepping. Native finite J2 still requires the caller ceiling.
   Its bounded finite-Hex contact candidate accepts one registered frictionless
-  fixed/translating plane in serial or MPI without a bonded interface. Keep the
+  fixed/translating plane in serial or MPI with optional elastic bonding. Keep the
   reference-surface penalty meaning explicit; rotating/curved tools, multiple
   pairs and friction are not admitted. An equal-stiffness elastic reference
-  bond can coexist in serial on disjoint
+  bond can coexist on disjoint
   trace nodes; this is not debonding/contact switching. Use
   `examples/finite_hex_moving_plane.py` or `examples/finite_hex_bond_contact.py`.
 - Treat a surface projection as evidence, not merely coordinates. Preserve its
