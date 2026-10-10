@@ -1291,6 +1291,19 @@
       "title": "Conservative initial-stress solid buckling"
     },
     {
+      "id": "agentfem.workflow.mode_imperfect_displacement_path",
+      "kind": "workflow",
+      "public_api": [
+        "agentfem.mesh.apply_mode_imperfection",
+        "agentfem.mechanics.displacement_controlled_response"
+      ],
+      "related_cards": [],
+      "source": "src/agentfem/knowledge/cards/mode_imperfect_displacement_path.json",
+      "status": "experimental",
+      "summary": "Length-scaled mode transfer to stress-free geometry and accepted-state reaction curves; reuses existing nonlinear increment control.",
+      "title": "Mode imperfections and displacement-controlled hyperelastic response"
+    },
+    {
       "id": "agentfem.workflow.observation_grid_learning",
       "kind": "workflow",
       "public_api": [

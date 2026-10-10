@@ -1262,3 +1262,5 @@ def from_arrays(*, cells, coordinates, coordinate_element, comm=None,
                             e=coordinate_element,
                             x=np.ascontiguousarray(points),
                             partitioner=partitioner)
+
+from .imperfection import apply_mode_imperfection, GeometryImperfection

@@ -45,8 +45,9 @@ responsible for their equilibrium and matching material assumptions; naming a
 state alone does not prove equilibrium. The fixed base must remain stable and
 small-displacement. This is not a finite-deformed-base perturbation method.
 Only conservative elastic solids and strong supports are covered. Follower
-loads, MPC buckling, contact, plasticity, shells, geometry imperfections and
-general arc-length/postbuckling are outside this first delivery.
+loads, MPC buckling, contact, plasticity, shells and general arc-length
+continuation remain outside this delivery. A bounded mode-imperfection and
+displacement-controlled hyperelastic workflow is described below.
 
 ## Periodic elastic properties
 
@@ -139,8 +140,8 @@ honeycomb requires optional Gmsh and the periodic graph requires dolfinx_mpc.
 
 ## Next isolated increments
 
-1. Physical-length imperfection transfer onto a copied mesh, with quality
-   rejection; nonlinear displacement control and accepted-state rollback.
+1. Extend the bounded imperfection and displacement-control workflow to more
+   geometry orders, materials and independent postbuckling references.
 2. A formulation-independent arc-length procedure, tested on a shallow arch
    across a limit point; do not relabel the cohesive-specific continuation.
 3. Oblique/nonmatching periodic cells and large-strain response as separate
@@ -153,3 +154,43 @@ honeycomb requires optional Gmsh and the periodic graph requires dolfinx_mpc.
 - [FEniCSx periodic elasticity](https://bleyerj.github.io/comet-fenicsx/tours/homogenization/periodic_elasticity/periodic_elasticity.html)
 - [Abaqus eigenvalue buckling](https://docs.software.vt.edu/abaqusv2025/English/SIMACAEANLRefMap/simaanl-c-eigenbuckling.htm)
 - [COMSOL homogenization](https://www.comsol.com/support/learning-center/article/Homogenization-of-Material-Properties-80311)
+
+## Mode imperfections and displacement-controlled response
+
+An additional bounded workflow is now provided by `examples/imperfect_column`.
+The existing displacement-based neo-Hookean solver already provides consistent
+tangents, adaptive increments, failed-attempt rollback and accepted snapshots;
+this workflow reuses it rather than introducing another nonlinear solver.
+
+```python
+receipt = mesh.apply_mode_imperfection(
+    domain, [buckling_result.field("Buckling_mode_1")], amplitudes=[0.02]
+)
+# Build a fresh nonlinear model on the perturbed, stress-free geometry.
+# Keep moving boundaries through tagged_boundary_region, not old x==L predicates.
+# After the ordinary model.step(...).solve_result():
+curve = mechanics.displacement_controlled_response(model, step, on=loaded_end)
+# receipt.restore() restores original coordinates when the deformed model is no longer used.
+```
+
+Amplitudes have length units. Each mode is normalized by its maximum vector norm
+at geometry nodes; multiple signed amplitudes can be combined. Original geometry
+is retained in the receipt. Failed quality/orientation checks restore coordinates.
+The current scope is full-dimensional linear-coordinate triangle, quadrilateral,
+tetrahedron and hexahedron meshes; displacement/mode fields may be higher order.
+Do not reuse assembled operators or geometric search trees after a geometry edit.
+
+Curve extraction currently supports ordinary strong-boundary, single-material
+hyperelastic displacement loading, without body/traction loads, eigenstrains or
+boundary models. Reaction and monitor displacement are signed; the example plots
+compression and shortening as positive. Measurements use the reference boundary
+area, not a nodal-average surrogate. Save every accepted increment for a complete
+accepted-step curve. This is not a general arc-length or snap-back algorithm.
+
+![Computed imperfect-column response](../assets/imperfect_column_paths.png)
+
+For the guided-end example, at shortening 0.05, increasing initial amplitude
+from 0.02 to 0.10 changes compression force from 1.98445 to 1.76232. Refining
+nx=24 to 40 and halving maximum increment changes the small-imperfection final
+force by about 0.010% and transverse displacement by about 0.017%. These are
+internal refinement checks, not independent commercial-software validation.

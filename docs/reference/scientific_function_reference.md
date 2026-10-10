@@ -55,6 +55,7 @@ the compact machine-readable `agentfem/knowledge/catalog.json`.
 | [`agentfem.workflow.lefm_interaction_integral`](#agentfem-workflow-lefm_interaction_integral) | Solver-neutral LEFM stress-intensity extraction | workflow | experimental |
 | [`agentfem.workflow.linear_periodic_elasticity`](#agentfem-workflow-linear_periodic_elasticity) | Matching periodic linear elastic homogenization | workflow | experimental |
 | [`agentfem.workflow.linear_solid_buckling`](#agentfem-workflow-linear_solid_buckling) | Conservative initial-stress solid buckling | analysis_step | experimental |
+| [`agentfem.workflow.mode_imperfect_displacement_path`](#agentfem-workflow-mode_imperfect_displacement_path) | Mode imperfections and displacement-controlled hyperelastic response | workflow | experimental |
 | [`agentfem.workflow.observation_grid_learning`](#agentfem-workflow-observation_grid_learning) | Mesh-independent structured observation grids | workflow | supported |
 | [`agentfem.workflow.periodic_cell_homogenization`](#agentfem-workflow-periodic_cell_homogenization) | Finite-strain periodic-cell homogenization evidence | workflow | experimental |
 | [`agentfem.workflow.physical_field_statistics`](#agentfem-workflow-physical_field_statistics) | Physical-measure statistics for quadrature fields | workflow | supported |
@@ -4820,6 +4821,92 @@ model.step(target=u, reference_displacement=u0, reference_name="unit compression
 
 - FEniCSx solid buckling: `https://bleyerj.github.io/comet-fenicsx/tours/eigenvalue_problems/buckling_3d_solid/buckling_3d_solid.html`
 - SLEPc EPS problem types: `https://slepc.upv.es/release/documentation/manual/eps.html`
+
+<a id="agentfem-workflow-mode_imperfect_displacement_path"></a>
+
+## Mode imperfections and displacement-controlled hyperelastic response
+
+**Stable ID:** `agentfem.workflow.mode_imperfect_displacement_path`<br>
+**Kind:** `workflow`<br>
+**Status:** `experimental`<br>
+**Source card:** `src/agentfem/knowledge/cards/mode_imperfect_displacement_path.json`
+
+Length-scaled mode transfer to stress-free geometry and accepted-state reaction curves; reuses existing nonlinear increment control.
+
+### Public API
+
+- `agentfem.mesh.apply_mode_imperfection`
+- `agentfem.mechanics.displacement_controlled_response`
+
+### Scientific contract
+
+Length-scaled mode transfer to stress-free geometry and accepted-state reaction curves; reuses existing nonlinear increment control.
+
+**Mode-shaped reference geometry**
+
+$$
+\mathbf X_{\mathrm{imp}}=\mathbf X+\sum_i a_i\boldsymbol\phi_i/\max_j\|\boldsymbol\phi_i(\mathbf X_j)\|
+$$
+
+Signed length amplitudes a_i multiply modes normalized at geometry nodes; j ranges over those nodes.
+
+#### Inputs
+
+| Name | Type | Unit role | Meaning |
+| --- | --- | --- | --- |
+| modes and amplitudes | mesh fields and scalars | length amplitudes | Modes on the same mesh; zero modes rejected. |
+
+#### Outputs
+
+| Name | Type | Unit role | Meaning |
+| --- | --- | --- | --- |
+| geometry receipt and accepted path arrays | GeometryImperfection and dictionary | displacement and force | Original coordinates retained; failed quality checks roll back. |
+
+#### Assumptions
+
+- Linear coordinate geometry; full-dimensional 2D/3D solids.
+- Response extraction requires a single hyperelastic material, ordinary strong boundary conditions and no external body/traction loads.
+
+#### Conventions
+
+- Each mode normalized by global maximum nodal vector norm; reference geometry is stress-free.
+- Signed reactions and boundary-averaged displacements from accepted snapshots.
+
+#### Applicability
+
+- Mode-imperfect displacement-controlled columns and solids.
+
+#### Limitations
+
+- No general arc length, snap-back, contact or elastoplastic path claim.
+- Rebuild nonlinear operators after geometry changes; preserve moving boundaries with facet tags.
+
+### Minimal example
+
+```python
+receipt = mesh.apply_mode_imperfection(domain, [mode], amplitudes=[0.02])
+```
+
+### Verification
+
+**Tests**
+
+- `tests/test_mode_imperfection.py`
+- `tests/test_constitutive_models.py`
+
+**Benchmarks**
+
+- None declared.
+
+**Validation rules**
+
+- Amplitude and restore checks on four cell topologies.
+- Geometry inversion rejection and rollback.
+- Defect-amplitude, mesh and increment sensitivity of guided column.
+
+### References
+
+- Abaqus eigenvalue buckling and imperfection-sensitive structures: `https://docs.software.vt.edu/abaqusv2025/English/SIMACAEANLRefMap/simaanl-c-eigenbuckling.htm`
 
 <a id="agentfem-workflow-observation_grid_learning"></a>
 

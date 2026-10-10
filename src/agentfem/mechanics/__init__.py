@@ -69,6 +69,7 @@ from .viscoelasticity import (
 )
 
 __all__ = [
+    "displacement_controlled_response",
     "periodic_elasticity",
     "apparent_poisson_ratio",
     "elastic_engineering_properties",
@@ -122,3 +123,5 @@ __all__ = [
     "surface_deformation_gradient",
     "quasistatic_viscoelastic_step",
 ]
+
+from .path_response import displacement_controlled_response

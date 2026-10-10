@@ -132,6 +132,8 @@ and evidence remain in the linked guides and scientific function reference.
 | function | `layer(axis: str \| int, lower = None, upper = None) -> Selector` | Select points inside a coordinate interval along one axis. |
 | function | `plane(axis: str \| int, value: float, *, tolerance: float = 1e-12) -> Selector` | Select points near a coordinate plane such as ``x = 0``. |
 | function | `where(predicate, *, name: str \| None = None) -> Selector` | Create a selector from a vectorized coordinate predicate. |
+| function | `apply_mode_imperfection(domain, modes, *, amplitudes, minimum_quality = 0.001)` | Perturb geometry in place, retaining original coordinates in the receipt. |
+| class | `GeometryImperfection` | Own the original coordinates; restore before reusing original forms/tags. |
 
 ## `agentfem.models`
 
@@ -1176,6 +1178,7 @@ and evidence remain in the linked guides and scientific function reference.
 | class | `ViscoelasticQuadratureState` | Typed committed/trial Maxwell state and current response fields. |
 | function | `harmonic_viscoelastic_step(*, displacement, material, frequency: float \| None = None, angular_frequency: float \| None = None, external_force = None, constraints = (), density: float \| None = None, load_phase: float = 0.0, temperature: float \| None = None, study = None, solver_options = None, name: str = 'harmonic_viscoelastic') -> HarmonicViscoelasticStep` | Build one direct 3D harmonic generalized-Maxwell equilibrium Step. |
 | function | `quasistatic_viscoelastic_step(*, displacement, material, duration: float, steps: int \| None = None, time_points = None, incrementation = None, time_error_tolerance: float \| None = None, external_force = None, constraints = (), study = None, solver_options = None, quadrature_degree: int = 2, amplitude = None, temperature = None, time_unit: str \| None = None, progress = True, status_file = None, checkpoint_policy = None, name: str = 'viscoelastic') -> QuasistaticViscoelasticStep` | Build a 3D quasi-static generalized-Maxwell Step. |
+| function | `displacement_controlled_response(model, step, *, on, component = 0, monitor = None, monitor_component = 1)` | Return accepted factor, mean boundary displacement and reaction arrays. |
 
 ## `agentfem.operators`
 

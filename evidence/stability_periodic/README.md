@@ -67,6 +67,29 @@ contact stability, elastoplastic buckling or general postbuckling claim.
 Periodic homogenization is small-strain linear elasticity on matching rectangular
 cells; no nonmatching interpolation or large-deformation auxetic claim.
 
-Next independent increments: mode-based geometric imperfections with mesh-quality
-checks; nonlinear displacement-control continuation; general equilibrium-driven
-arc length with shallow-arch validation. Those are not included in this branch.
+## Additional increment: mode imperfections and nonlinear loading
+
+The same branch now includes a reversible, quality-checked mode imperfection
+utility and a displacement-controlled response extractor. The nonlinear solver,
+cutback and rollback are reused from the existing hyperelastic workflow.
+
+- Final combined regression: 158 tests passed, including constitutive,
+  architecture, solvers, workflows, buckling and imperfection coverage; five
+  new tests passed on two MPI ranks. Ruff, REUSE, generated documentation and
+  all 54 scientific cards/imports also passed.
+- Triangle, quadrilateral, tetrahedron and hexahedron geometry amplitude,
+  restoration and inversion rejection are tested.
+- The guided-end column uses matching linear and nonlinear end constraints.
+  At end shortening 0.05, amplitude 0.02 gives compression force 1.98445;
+  amplitude 0.10 gives 1.76232. Increasing nx from 24 to 40 and reducing maximum
+  increment from 0.10 to 0.05 gives 1.98425 for amplitude 0.02.
+- `imperfect_column.json` stores full curves. Reproduce with
+  `PYTHONPATH=src python tests/imperfect_column_evidence_driver.py`.
+- `examples/imperfect_column` exports a CSV curve and final ParaView field.
+
+The perturbed reference configuration is stress-free, and amplitudes have length
+units. Existing boundary coordinates move: preserve boundary facet tags with
+`tagged_boundary_region` rather than reusing old geometric selectors.
+
+General arc length, snap-back traversal, plasticity and contact stability remain
+future work. Internal refinement is not an external postbuckling validation.

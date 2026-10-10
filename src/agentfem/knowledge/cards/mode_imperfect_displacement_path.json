@@ -1,0 +1,83 @@
+{
+  "schema": "agentfem.scientific-function-card",
+  "schema_version": "0.1.0",
+  "id": "agentfem.workflow.mode_imperfect_displacement_path",
+  "title": "Mode imperfections and displacement-controlled hyperelastic response",
+  "kind": "workflow",
+  "status": "experimental",
+  "summary": "Length-scaled mode transfer to stress-free geometry and accepted-state reaction curves; reuses existing nonlinear increment control.",
+  "public_api": [
+    "agentfem.mesh.apply_mode_imperfection",
+    "agentfem.mechanics.displacement_controlled_response"
+  ],
+  "implementation": [
+    "mesh/imperfection.py",
+    "mechanics/path_response.py"
+  ],
+  "science": {
+    "statement": "Length-scaled mode transfer to stress-free geometry and accepted-state reaction curves; reuses existing nonlinear increment control.",
+    "equations": [
+      {
+        "label": "Mode-shaped reference geometry",
+        "expression": "\\mathbf X_{\\mathrm{imp}}=\\mathbf X+\\sum_i a_i\\boldsymbol\\phi_i/\\max_j\\|\\boldsymbol\\phi_i(\\mathbf X_j)\\|",
+        "description": "Signed length amplitudes a_i multiply modes normalized at geometry nodes; j ranges over those nodes."
+      }
+    ],
+    "inputs": [
+      {
+        "name": "modes and amplitudes",
+        "type": "mesh fields and scalars",
+        "unit_role": "length amplitudes",
+        "description": "Modes on the same mesh; zero modes rejected."
+      }
+    ],
+    "outputs": [
+      {
+        "name": "geometry receipt and accepted path arrays",
+        "type": "GeometryImperfection and dictionary",
+        "unit_role": "displacement and force",
+        "description": "Original coordinates retained; failed quality checks roll back."
+      }
+    ],
+    "assumptions": [
+      "Linear coordinate geometry; full-dimensional 2D/3D solids.",
+      "Response extraction requires a single hyperelastic material, ordinary strong boundary conditions and no external body/traction loads."
+    ],
+    "conventions": [
+      "Each mode normalized by global maximum nodal vector norm; reference geometry is stress-free.",
+      "Signed reactions and boundary-averaged displacements from accepted snapshots."
+    ],
+    "applicability": [
+      "Mode-imperfect displacement-controlled columns and solids."
+    ],
+    "limitations": [
+      "No general arc length, snap-back, contact or elastoplastic path claim.",
+      "Rebuild nonlinear operators after geometry changes; preserve moving boundaries with facet tags."
+    ]
+  },
+  "usage": {
+    "minimal_example": "receipt = mesh.apply_mode_imperfection(domain, [mode], amplitudes=[0.02])",
+    "examples": [
+      "examples/imperfect_column/case.py"
+    ]
+  },
+  "verification": {
+    "tests": [
+      "tests/test_mode_imperfection.py",
+      "tests/test_constitutive_models.py"
+    ],
+    "benchmarks": [],
+    "validation_rules": [
+      "Amplitude and restore checks on four cell topologies.",
+      "Geometry inversion rejection and rollback.",
+      "Defect-amplitude, mesh and increment sensitivity of guided column."
+    ]
+  },
+  "references": [
+    {
+      "title": "Abaqus eigenvalue buckling and imperfection-sensitive structures",
+      "locator": "https://docs.software.vt.edu/abaqusv2025/English/SIMACAEANLRefMap/simaanl-c-eigenbuckling.htm"
+    }
+  ],
+  "related_cards": []
+}

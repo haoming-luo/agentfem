@@ -1,0 +1,7 @@
+[project]
+name = "imperfect_column"
+entrypoint = "case.py"
+schema_version = "0.2.0"
+
+[run]
+output_directory = "outputs"
