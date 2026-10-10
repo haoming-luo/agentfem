@@ -155,6 +155,21 @@ def test_finite_load_must_not_silently_add_displacement_stiffness():
         )
 
 
+def test_failed_finite_step_construction_restores_user_field_and_registration():
+    model, u, policy = problem(force=0)
+    model.fix(
+        u, on=lambda x: np.ones(x.shape[1], dtype=bool), components=0, value=0.02
+    )
+    before = u.value.x.array.copy()
+    before_steps = tuple(model.steps)
+    with pytest.raises((ValueError, RuntimeError), match="undeformed"):
+        model.step(
+            target=u, element_policy=policy, omega_squared_bound=1e8, dt=1e-4, steps=20
+        )
+    np.testing.assert_array_equal(u.value.x.array, before)
+    assert tuple(model.steps) == before_steps
+
+
 def test_density_does_not_change_material_response():
     from dataclasses import replace
     from test_material_array_batch import fixture

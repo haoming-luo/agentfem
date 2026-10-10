@@ -46,6 +46,17 @@ class FiniteUniformHexStep(ExplicitDynamicsStep):
 
 
 def lower(model, request):
+    from .state import field_transaction
+
+    # Construction can apply prescribed values before a later admission check
+    # fails. Keep the user's field untouched on failure, just as an increment
+    # protects accepted State. Register only after the transaction succeeds.
+    with field_transaction(displacement=request.target):
+        step = _prepare(model, request)
+    return model.add_step(step)
+
+
+def _prepare(model, request):
     from . import constraints, fracture, input_effects, problems, state, time
     from .constitutive.material_driver import MaterialQuadratureResponse
     from .constitutive.user_material import MaterialTangentConvention
@@ -281,4 +292,4 @@ def lower(model, request):
         }
     )
     step.element_policy = policy
-    return model.add_step(step)
+    return step
