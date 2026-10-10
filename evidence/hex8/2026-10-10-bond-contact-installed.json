@@ -1,0 +1,39 @@
+{
+  "schema_version": 1,
+  "kind": "serial_finite_bond_contact_composition",
+  "source_commit": "3a2f17987a3c3926b1aef6bb07da75c64da40412",
+  "wheel_sha256": "2761b009ea47a058f2647cdf61b0f56633d7aeb8aa6075ce7dc06b6d5eab9825",
+  "source_selection": {"passed": 54, "seconds": 23.79},
+  "installed_selection": {
+    "passed": 7,
+    "seconds": 15.12,
+    "source_path_injection": false,
+    "matching_source_modules": 299,
+    "tests": ["tests/test_finite_hex_bond_contact.py", "tests/test_finite_hex_orthotropic_provider.py"]
+  },
+  "test_counts_overlap": true,
+  "independent_reference": "Four lumped axial masses with analytic Neo-Hookean Piola force; RK4 refinement and three FEM time increments. Not a spatial continuum comparison.",
+  "installed_example": {
+    "path": "examples/finite_hex_bond_contact.py",
+    "geometry_helper": "examples/nonmatching_hex_bond.py",
+    "cells": 35,
+    "increments": 1000,
+    "contact_motion_work_rounded": 0.00678778226,
+    "interface_stored_energy_rounded": 4.14790767e-8,
+    "material_dissipation_rounded": 6.26068213e-5,
+    "relative_energy_balance_error_rounded": 1.85668401e-7,
+    "artifact_integrity_verified": true,
+    "seal_id": "sha256:a407f5c4a36fc01ef210ccffaba00daf277cc48aa22188c63b63f891a8e347dc"
+  },
+  "limits": [
+    "Serial, one frictionless translating plane, equal-stiffness elastic reference bond, disjoint trace nodes.",
+    "No contact switching after bond failure, shared-edge admission, MPI composition or arbitrary tool geometry.",
+    "Reference orthotropic Green-strain provider is test-only, not the tester's unspecified material or an Abaqus equivalence claim.",
+    "Artifact integrity is not scientific validation; candidate wheel is not a release or complete installer."
+  ],
+  "design_references": [
+    "https://docs.software.vt.edu/abaqusv2025/English/SIMACAEITNRefMap/simaitn-c-expcontactconstraints.htm",
+    "https://www.sandia.gov/files/sierra/SM_Users_5_30/user_manual/contact/interactions.html",
+    "https://febiosoftware.github.io/febio-docs/theory/chapter5/5.2-compressible-materials/"
+  ]
+}
