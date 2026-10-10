@@ -161,6 +161,7 @@ def test_discretization_owners_select_focused_serial_and_mpi_evidence():
     assert scope.mpi_tests == (
         "tests/test_element_contracts.py",
         "tests/test_mixed_cell_topologies.py",
+        "tests/test_parallel_finite_hex.py",
         "tests/test_parallel_uniform_hex.py",
     )
     assert not scope.ml
@@ -347,3 +348,17 @@ def test_hex_formulation_selects_geometry_mechanics_and_mpi_lifecycle():
     assert step.level == "core"
     assert "tests/test_uniform_hex_work.py" in step.tests
     assert step.mpi_tests == ("tests/test_parallel_uniform_hex.py",)
+
+
+@pytest.mark.parametrize("owner", (
+    "src/agentfem/_step_finite_uniform_hex.py",
+    "src/agentfem/mechanics/_finite_hex_explicit.py",
+    "src/agentfem/mechanics/_finite_hex_energy.py",
+    "src/agentfem/results/_finite_hex.py",
+))
+def test_finite_hex_owners_select_related_evidence_not_full_release(owner):
+    scope = classify_changes([owner])
+    assert scope.level == "core"
+    assert "tests/test_finite_hex_step.py" in scope.tests
+    assert "tests/test_parallel_finite_hex_step.py" in scope.mpi_tests
+    assert not scope.ml

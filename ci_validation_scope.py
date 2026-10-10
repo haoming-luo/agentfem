@@ -179,6 +179,24 @@ _CORE_SOURCE_TEST_MAP = {
         "tests/test_finite_hex_interface.py",
         "tests/test_isotropic_interface_objectivity.py",
         "tests/test_finite_uniform_hex_dolfinx.py",
+        "tests/test_finite_hex_energy.py",
+        "tests/test_finite_hex_cyclic_energy.py",
+        "tests/test_finite_hex_step.py",
+    ),
+    "src/agentfem/mechanics/_finite_hex_energy.py": (
+        "tests/test_finite_hex_energy.py",
+        "tests/test_finite_hex_cyclic_energy.py",
+        "tests/test_finite_hex_step.py",
+    ),
+    "src/agentfem/_step_finite_uniform_hex.py": (
+        "tests/test_finite_hex_step.py",
+        "tests/test_finite_hex_external_material.py",
+        "tests/test_finite_hex_cyclic_energy.py",
+        "tests/test_transient_restart.py",
+    ),
+    "src/agentfem/results/_finite_hex.py": (
+        "tests/test_finite_hex_step.py",
+        "tests/test_finite_hex_external_material.py",
     ),
     "src/agentfem/mechanics/small_strain_material.py": (
         "tests/test_small_strain_material_step.py",
@@ -305,6 +323,20 @@ _CORE_SOURCE_MPI_TEST_MAP = {
     ),
     "src/agentfem/input_effects.py": ("tests/test_parallel_transient.py",),
     "src/agentfem/time/": ("tests/test_parallel_transient.py",),
+    "src/agentfem/mechanics/_finite_hex_explicit.py": (
+        "tests/test_parallel_finite_hex.py",
+        "tests/test_parallel_finite_hex_step.py",
+    ),
+    "src/agentfem/mechanics/_finite_hex_energy.py": (
+        "tests/test_parallel_finite_hex.py",
+        "tests/test_parallel_finite_hex_step.py",
+    ),
+    "src/agentfem/_step_finite_uniform_hex.py": (
+        "tests/test_parallel_finite_hex_step.py",
+    ),
+    "src/agentfem/results/_finite_hex.py": (
+        "tests/test_parallel_finite_hex_step.py",
+    ),
     "src/agentfem/constitutive/material_driver.py": (
         "tests/test_parallel_inelastic.py",
         "tests/test_material_batch_evidence.py",
@@ -330,6 +362,7 @@ _CORE_SOURCE_MPI_TEST_MAP = {
     "src/agentfem/elements/": (
         "tests/test_element_contracts.py",
         "tests/test_parallel_uniform_hex.py",
+        "tests/test_parallel_finite_hex.py",
     ),
     "src/agentfem/_step_uniform_hex.py": ("tests/test_parallel_uniform_hex.py",),
     "src/agentfem/fracture": ("tests/test_parallel_cohesive.py",),
