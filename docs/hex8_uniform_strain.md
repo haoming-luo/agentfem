@@ -75,6 +75,15 @@ the accepted state. The admitted interface special case remains isotropic,
 undamaged and serial. Regional history materials, follower loads, contact,
 damage/deletion, mass scaling and cross-partition restart are not admitted.
 
+`examples/finite_hex_extension.py` demonstrates the installed-use workflow and
+its same-partition checkpoint. An independent test material (compressible
+Neo-Hookean with a named peak-energy history) exercises the same entry point,
+array protocol, fields and restart without changing the core or invoking a
+per-point Python update. This is protocol integration evidence, not validation
+of arbitrary external materials. A separate ordinary-Step regression combines
+finite bulk and unequal-mesh Q1 elastic bonding and verifies interrupted
+recovery against continuous execution.
+
 ### Small-strain elastic workflow
 
 The model uses a 3D `studies.dynamic_solid()` Study, continuous Q1 hexahedra,

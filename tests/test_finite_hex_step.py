@@ -165,3 +165,67 @@ def test_density_does_not_change_material_response():
     for density in (0, -1, np.nan, np.inf):
         with pytest.raises(ValueError, match="density"):
             replace(law, density=density)
+
+
+def test_public_finite_nonmatching_elastic_bond_energy_and_restart(tmp_path):
+    from agentfem import fracture, interfaces
+    from test_nonmatching_global import _blocks
+    from test_quadrilateral_global import _trace
+
+    def prepare():
+        domain = _blocks(1, 2, cell_type="hexahedron")
+        model = models.create(study=studies.dynamic_solid(dimension=3), mesh=domain)
+        u = model.field(fields.displacement(domain))
+        model.material(
+            constitutive.finite_strain_j2_logarithmic(
+                young=100, poisson=0.3, yield_stress=1, hardening_modulus=5, density=2
+            )
+        )
+        model.fix(u, on=lambda x: np.ones(x.shape[1], dtype=bool), components=(0, 1))
+        model.fix(u, on=lambda x: np.isclose(x[2], -1), components=2)
+        model.fix(
+            u,
+            on=lambda x: np.isclose(x[2], 1),
+            components=2,
+            value=amplitudes.Amplitude(
+                "bond_extension", lambda t: 100 * t * t, metadata={"coefficient": 100}
+            ),
+        )
+        (negative, dn), (positive, dp) = (
+            _trace(u.value.function_space, side) for side in (False, True)
+        )
+        pairing = interfaces.pair_reference_traces(negative, positive, tolerance=1e-10)
+        cohesive = fracture.nonmatching_cohesive_force(
+            pairing,
+            u,
+            interfaces.elastic_cohesive(normal_stiffness=100, tangential_stiffness=100),
+            negative_dofs=dn,
+            positive_dofs=dp,
+        )
+        return model.step(
+            target=u,
+            element_policy=elements.uniform_strain_hex8(
+                hourglass_modulus=40, hourglass_scale=0.1, kinematics="finite_strain"
+            ),
+            cohesive_force=cohesive,
+            omega_squared_bound=1e8,
+            maximum_negative_growth_per_increment=0.1,
+            dt=1e-4,
+            steps=100,
+            progress=False,
+        )
+
+    reference = prepare()
+    reference.run()
+    partial = prepare()
+    partial.run(until_step=47)
+    checkpoint = partial.save_checkpoint(tmp_path / "finite-bond")
+    resumed = prepare()
+    resumed.load_checkpoint(checkpoint)
+    resumed.run()
+    np.testing.assert_array_equal(
+        resumed.state.u.value.x.array, reference.state.u.value.x.array
+    )
+    assert resumed.history_records[-1] == pytest.approx(reference.history_records[-1])
+    assert reference.history_records[-1]["interface_stored_energy"] > 0
+    assert reference.history_records[-1]["relative_energy_balance_error"] < 5e-3

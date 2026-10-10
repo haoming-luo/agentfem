@@ -48,31 +48,39 @@ def lower(model, request):
 
     options = dict(request.options)
     policy = options.pop("element_policy")
-    if model.study.dimension != 3 or model.study.physics != "solid_mechanics":
-        raise ValueError("Finite Hex8 requires a 3D solid dynamics Study.")
-    for key in ("K", "F", "material", "solver_options"):
-        if options.pop(key, None) is not None:
-            raise ValueError(
-                f"Finite Hex8 does not accept {key}; use registered model assets."
-            )
-    options.pop("output", None)
-    options.pop("history", None)
-    if model.boundary_models or model.eigenstrains:
-        raise NotImplementedError(
-            "Finite Hex8 boundary models/contact and eigenstrains are not admitted."
-        )
-    selected = options.pop("constraints", None)
-    assets = tuple(model.constraints if selected is None else selected)
-    if any(
-        not isinstance(
-            item, (constraints.DirichletConstraint, constraints.TimeDependentDirichlet)
-        )
-        for item in constraints.constraint_assets(assets)
-    ):
-        raise NotImplementedError(
-            "Finite Hex8 currently requires strong Dirichlet constraints."
-        )
     domain = request.target.value.function_space.mesh
+
+    def admit_assets():
+        if model.study.dimension != 3 or model.study.physics != "solid_mechanics":
+            raise ValueError("Finite Hex8 requires a 3D solid dynamics Study.")
+        for key in ("K", "F", "material", "solver_options"):
+            if options.pop(key, None) is not None:
+                raise ValueError(
+                    f"Finite Hex8 does not accept {key}; use registered model assets."
+                )
+        options.pop("output", None)
+        options.pop("history", None)
+        if model.boundary_models or model.eigenstrains:
+            raise NotImplementedError(
+                "Finite Hex8 boundary models/contact and eigenstrains are not admitted."
+            )
+        selected = options.pop("constraints", None)
+        assets = tuple(model.constraints if selected is None else selected)
+        if any(
+            not isinstance(
+                item,
+                (constraints.DirichletConstraint, constraints.TimeDependentDirichlet),
+            )
+            for item in constraints.constraint_assets(assets)
+        ):
+            raise NotImplementedError(
+                "Finite Hex8 currently requires strong Dirichlet constraints."
+            )
+        return assets
+
+    assets = collective_call(
+        admit_assets, comm=domain.comm, label="Finite Hex8 model admission"
+    )
 
     def select_material():
         if len(model.materials) != 1 or model.materials[0].region is not None:
@@ -99,7 +107,13 @@ def lower(model, request):
     material = collective_call(
         select_material, comm=domain.comm, label="Finite Hex8 material admission"
     )
-    model.check(target=request.target)
+    # Preserve the selected formulation during readiness validation; otherwise
+    # a generic material is incorrectly re-tested against the default solver.
+    collective_call(
+        lambda: model.check(target=request.target, step_options=request.options),
+        comm=domain.comm,
+        label="Finite Hex8 model validation",
+    )
     history = state.second_order_state(request.target)
     response = MaterialQuadratureResponse.create(
         domain,
@@ -117,10 +131,13 @@ def lower(model, request):
         hourglass_scale=policy.hourglass_scale,
         chunk_size=policy.chunk_size,
     )
-    external = model.external_force(request.target) if model.loads else None
-    if external is not None:
+
+    def prepare_external():
         from ufl.algorithms import extract_coefficients
 
+        external = model.external_force(request.target) if model.loads else None
+        if external is None:
+            return None
         expression = getattr(external, "expression", external)
         if any(
             coefficient is history.u.value
@@ -129,6 +146,11 @@ def lower(model, request):
             raise NotImplementedError(
                 "Finite Hex8 natural loads must not depend on displacement; follower loads need a separate tangent bound."
             )
+        return external
+
+    external = collective_call(
+        prepare_external, comm=domain.comm, label="Finite Hex8 natural loads"
+    )
     prescribed = tuple(constraints.dirichlet_constraints(assets))
     callbacks = [model._time_update_callback(include_constraints=False)]
     callbacks.extend(

@@ -46,6 +46,18 @@ def test_rank_local_missing_density_is_collective_before_step_creation():
         )
 
 
+def test_rank_local_unsupported_asset_is_collective_before_material_setup():
+    if MPI.COMM_WORLD.size < 2:
+        pytest.skip("Requires a rank-local admission failure")
+    model, u, policy = problem(MPI.COMM_WORLD)
+    if MPI.COMM_WORLD.rank == 1:
+        model.boundary_models.append(object())
+    with pytest.raises((NotImplementedError, RuntimeError), match="not admitted"):
+        model.step(
+            target=u, element_policy=policy, omega_squared_bound=1e8, dt=1e-4, steps=20
+        )
+
+
 def test_finite_step_with_boundary_owned_only_on_some_ranks():
     comm = MPI.COMM_WORLD
     model, u, policy = problem(comm)
