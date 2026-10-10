@@ -4,22 +4,76 @@
 
 Run when other numerical jobs are idle, with BLAS threads limited to one.
 Geometry and boundary timings isolate kernels. The paired trajectory comparison
-isolates the isotropic mass-gradient spectral shortcut: both routes retain the
-same constitutive model, signed-curvature checks, time step and energy ledger.
+compares retained general spectral algebra, the old geometry contraction and
+the old nine-column tangent algebra against their optimized equivalents. Both
+routes retain the constitutive equations, checks, time step and energy ledger.
 """
 
 import argparse
+import ast
+from contextlib import ExitStack
+from functools import lru_cache
+from hashlib import sha256
 import json
 from pathlib import Path
 import platform
 import subprocess
 from time import perf_counter
+from unittest.mock import patch
 
 import basix
 import numpy as np
 
 from agentfem.elements._hex_validity import _derivatives, _jacobians
+from agentfem.constitutive.finite_strain_plasticity import FiniteStrainJ2Logarithmic
 from verify_finite_hex_plastic_path import prepare
+
+
+REFERENCE_REVISION = "0c0df953"
+
+
+@lru_cache(maxsize=1)
+def reference_tangent():
+    """Load only our committed pre-optimization method from this trusted repo.
+
+    This benchmark intentionally has no remote-code download or caller-selected
+    module. Pinning the source avoids maintaining a second constitutive law.
+    """
+    revision = subprocess.check_output(
+        ["git", "rev-parse", REFERENCE_REVISION], text=True
+    ).strip()
+    source = subprocess.check_output(
+        [
+            "git",
+            "show",
+            revision + ":src/agentfem/constitutive/finite_strain_plasticity.py",
+        ],
+        text=True,
+    )
+    owner = next(
+        node
+        for node in ast.parse(source).body
+        if isinstance(node, ast.ClassDef) and node.name == "FiniteStrainJ2Logarithmic"
+    )
+    method = next(
+        node
+        for node in owner.body
+        if isinstance(node, ast.FunctionDef)
+        and node.name == "_analytic_algorithmic_tangent_batch"
+    )
+    namespace = {"np": np}
+    exec(
+        compile(
+            ast.Module(body=[method], type_ignores=[]),
+            "committed-reference-tangent",
+            "exec",
+        ),
+        namespace,
+    )
+    return namespace[method.name], {
+        "revision": revision,
+        "source_sha256": sha256(source.encode()).hexdigest(),
+    }
 
 
 def paired(reference, optimized, *, repetitions=11, equivalent=None):
@@ -44,6 +98,8 @@ def paired(reference, optimized, *, repetitions=11, equivalent=None):
 
 
 def kernels():
+    from agentfem import constitutive
+
     rng = np.random.default_rng(983)
     coordinates = np.tile(basix.cell.geometry(basix.CellType.hexahedron), (4096, 1, 1))
     coordinates += rng.uniform(-0.04, 0.04, coordinates.shape)
@@ -78,7 +134,27 @@ def kernels():
         target[index] = values
         return target.copy()
 
+    material = constitutive.finite_strain_j2_logarithmic(
+        young=100, poisson=0.3, yield_stress=1, hardening_modulus=5
+    )
+    gradients = np.eye(3) + rng.uniform(-0.04, 0.04, (4096, 3, 3))
+    states = np.tile(material.state_schema.initial_state(), (4096, 1))
+    baseline = material._integrate_batch(gradients, states)
+
+    def tangent_equivalence(old, new):
+        if np.linalg.norm(new - old) > 2e-12 * np.linalg.norm(old):
+            raise AssertionError("Directional tangent batching changed the derivative.")
+
+    tangent = paired(
+        lambda: reference_tangent()[0](material, gradients, states, baseline=baseline),
+        lambda: material._analytic_algorithmic_tangent_batch(
+            gradients, states, baseline=baseline
+        ),
+        equivalent=tangent_equivalence,
+    )
+
     return {
+        "analytic_material_tangent_4096_points": tangent,
         "geometry_4096_cells_jacobian_contraction": contraction,
         "geometry_4096_cells_27_determinants": geometry,
         "prescribed_component_274625_dofs": paired(scalar_assignment, array_assignment),
@@ -92,9 +168,26 @@ def trajectory(*, size, optimized):
         # No physics, tangent or timestep is replaced.
         cells = step.residual.internal.cells
         cells._isotropic_mass_gradient_bound = np.zeros(len(cells.coordinates))
-    started = perf_counter()
-    step.run()
-    elapsed = perf_counter() - started
+    with ExitStack() as comparison:
+        if not optimized:
+            comparison.enter_context(
+                patch.object(
+                    FiniteStrainJ2Logarithmic,
+                    "_analytic_algorithmic_tangent_batch",
+                    reference_tangent()[0],
+                )
+            )
+            comparison.enter_context(
+                patch(
+                    "agentfem.elements._hex_validity._jacobians",
+                    lambda centered: np.einsum(
+                        "cai,qaj->cqij", centered, _derivatives()
+                    ),
+                )
+            )
+        started = perf_counter()
+        step.run()
+        elapsed = perf_counter() - started
     material = step.residual.internal.response
     return elapsed, {
         "u": step.state.u.value.x.array.copy(),
@@ -159,7 +252,9 @@ def full_trajectory(size, pairs):
         "median_seconds": medians,
         "median_speedup": medians["reference"] / medians["optimized"],
         "maximum_absolute_response_difference": max_difference,
-        "scope": "regular_cell_spectral_shortcut_only_same_plastic_trajectory_not_arbitrary_geometry",
+        "scope": "regular_cell_geometry_spectral_and_direction_batch_algebra_same_plastic_trajectory_not_arbitrary_geometry",
+        "reference_tangent": reference_tangent()[1],
+        "preparation_and_disk_io_included": False,
     }
 
 

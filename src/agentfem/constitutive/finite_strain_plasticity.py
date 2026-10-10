@@ -83,7 +83,9 @@ class FiniteStrainJ2Logarithmic:
     tangent_convention: MaterialTangentConvention = field(init=False, repr=False)
 
     def __post_init__(self) -> None:
-        if self.density is not None and (not isfinite(float(self.density)) or self.density <= 0):
+        if self.density is not None and (
+            not isfinite(float(self.density)) or self.density <= 0
+        ):
             raise ValueError("density must be positive finite when supplied.")
         values = (
             self.young,
@@ -506,42 +508,44 @@ class FiniteStrainJ2Logarithmic:
                 ) / (2.0 * eigenvalues[repeated, first])
 
         tangent = np.empty((point_count, 9, 9), dtype=float)
-        for column in range(9):
-            row, component = divmod(column, 3)
-            variation_elastic = np.zeros_like(elastic_trial)
-            variation_elastic[:, row, :] = inverse_plastic[:, component, :]
-            variation_left = variation_elastic @ np.swapaxes(
-                elastic_trial, 1, 2
-            ) + elastic_trial @ np.swapaxes(variation_elastic, 1, 2)
-            # Two explicit 3x3 products avoid the unoptimized three-operand
-            # contraction; the spectral derivative and branch are unchanged.
-            principal_variation = left_transpose @ variation_left @ left_vectors
-            variation_stress_principal = divided_difference * principal_variation
-            diagonal_variation = np.diagonal(
-                principal_variation,
-                axis1=1,
-                axis2=2,
+        # d(be)/dF_rs = e_r outer h_s + h_s outer e_r, h=Fe*Fp^-T.
+        # In the principal frame this is U_ra*q_bs + U_rb*q_as.
+        # Evaluate the same nine directional derivatives together, in bounded
+        # point chunks, instead of nine repeated zero-fill/push-forward loops.
+        indices = np.arange(3)
+        for start in range(0, point_count, 1024):
+            region = slice(start, min(start + 1024, point_count))
+            left, left_t = left_vectors[region], left_transpose[region]
+            inverse_t = inverse_transpose[region]
+            q = left_t @ (
+                elastic_trial[region] @ inverse_plastic[region].swapaxes(1, 2)
             )
-            diagonal_stress = np.einsum(
-                "pij,pj->pi",
-                principal_derivative,
-                diagonal_variation,
-            )
-            indices = np.arange(3)
-            variation_stress_principal[:, indices, indices] = diagonal_stress
-            variation_kirchhoff = (
-                left_vectors @ variation_stress_principal @ left_transpose
-            )
-            # d(F^-T)/dF[row,component] = -F^-T[:,component] outer F^-T[row,:].
-            variation_inverse_transpose = -(
-                inverse_transpose[:, :, component, None]
-                * inverse_transpose[:, None, row, :]
+            principal_variation = (
+                np.einsum("pra,pbs->prsab", left, q)
+                + np.einsum("prb,pas->prsab", left, q)
+            ).reshape(-1, 9, 3, 3)
+            variation_stress = divided_difference[region, None] * principal_variation
+            variation_stress[:, :, indices, indices] = np.einsum(
+                "pab,pcb->pca",
+                principal_derivative[region],
+                np.diagonal(principal_variation, axis1=2, axis2=3),
             )
             variation_piola = (
-                variation_kirchhoff @ inverse_transpose
-                + kirchhoff_stress @ variation_inverse_transpose
+                (
+                    left[:, None]
+                    @ variation_stress
+                    @ left_t[:, None]
+                    @ inverse_t[:, None]
+                )
+                .reshape(-1, 3, 3, 3, 3)
+                .transpose(0, 3, 4, 1, 2)
             )
-            tangent[:, :, column] = variation_piola.reshape((-1, 9))
+            # The geometric derivative is -P_is * F^-T_rJ, with the old
+            # constitutive state fixed throughout the complete discrete update.
+            variation_piola -= np.einsum(
+                "pis,prJ->piJrs", first_piola[region], inverse_t
+            )
+            tangent[region] = variation_piola.reshape(-1, 9, 9)
         return tangent
 
     def _integrate_batch(self, deformation_gradients, states_old):

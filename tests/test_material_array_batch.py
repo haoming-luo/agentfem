@@ -34,6 +34,47 @@ def fixture(count=7):
     return material, request
 
 
+@pytest.mark.parametrize("history", [False, True])
+def test_direction_batched_tangent_crosses_chunks_and_matches_fixed_state_difference(
+    history,
+):
+    material, request = fixture(count=1031)
+    if history:
+        first = material.update_array_batch(request)
+        gradient = request.deformation_gradient_new.copy()
+        gradient[:, 0, 1] += np.linspace(0.04, 0.06, request.point_count)
+        angle = 0.7
+        rotation = np.array(
+            [
+                [np.cos(angle), -np.sin(angle), 0],
+                [np.sin(angle), np.cos(angle), 0],
+                [0, 0, 1],
+            ]
+        )
+        request = replace(
+            request,
+            deformation_gradient_new=rotation @ gradient,
+            deformation_gradient_old=request.deformation_gradient_new,
+            state_old=first.state_new,
+            time=0.1,
+        )
+    else:
+        # Repeated principal stretches: exercise the divided-difference limit.
+        request = replace(
+            request, deformation_gradient_new=np.tile(1.03 * np.eye(3), (1031, 1, 1))
+        )
+    expected = replace(
+        material, tangent_evaluation="central_difference", tangent_relative_step=2e-6
+    ).update_array_batch(request)
+    actual = material.update_array_batch(request)
+    errors = np.linalg.norm(
+        actual.consistent_tangent - expected.consistent_tangent, axis=(1, 2)
+    ) / np.linalg.norm(expected.consistent_tangent, axis=(1, 2))
+    assert np.max(errors) < 2e-5
+    np.testing.assert_array_equal(actual.state_new, expected.state_new)
+    np.testing.assert_array_equal(actual.cauchy_stress, expected.cauchy_stress)
+
+
 @pytest.mark.parametrize("stage", ["loading", "unloading", "rotated"])
 def test_columnar_matches_ordered_point_protocol(stage):
     material, request = fixture()
@@ -114,7 +155,10 @@ def test_columnar_input_validation(field, value):
         replace(request, **{field: value})
 
 
-@pytest.mark.parametrize("field", ["deformation_gradient_old", "deformation_gradient_new", "state_old", "properties"])
+@pytest.mark.parametrize(
+    "field",
+    ["deformation_gradient_old", "deformation_gradient_new", "state_old", "properties"],
+)
 def test_columnar_input_rejects_complex_arrays_without_discarding_imaginary_part(field):
     _, request = fixture()
     values = np.asarray(getattr(request, field), dtype=complex)
@@ -122,7 +166,10 @@ def test_columnar_input_rejects_complex_arrays_without_discarding_imaginary_part
         replace(request, **{field: values})
 
 
-@pytest.mark.parametrize("field", ["cauchy_stress", "consistent_tangent", "state_new", "strain_energy_density"])
+@pytest.mark.parametrize(
+    "field",
+    ["cauchy_stress", "consistent_tangent", "state_new", "strain_energy_density"],
+)
 def test_columnar_output_rejects_complex_arrays(field):
     material, request = fixture()
     response = validated_material_array_batch_update(material, request)
