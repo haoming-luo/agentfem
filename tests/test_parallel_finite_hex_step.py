@@ -58,6 +58,30 @@ def test_rank_local_unsupported_asset_is_collective_before_material_setup():
         )
 
 
+def test_rank_local_state_schema_mismatch_is_rejected_before_field_creation():
+    from agentfem import constitutive
+
+    if MPI.COMM_WORLD.size < 2:
+        pytest.skip("Requires a rank-local schema mismatch")
+    model, u, policy = problem(MPI.COMM_WORLD)
+    if MPI.COMM_WORLD.rank == 1:
+        material = model.materials[0].item
+        schema = constitutive.MaterialStateSchema(
+            name="incompatible_extra_state",
+            variables=(
+                *material.state_schema.variables,
+                constitutive.MaterialStateVariable(name="extra"),
+            ),
+        )
+        object.__setattr__(material, "state_schema", schema)
+    with pytest.raises(
+        (ValueError, RuntimeError), match="field contract|differs|inconsistent"
+    ):
+        model.step(
+            target=u, element_policy=policy, omega_squared_bound=1e8, dt=1e-4, steps=20
+        )
+
+
 def test_finite_step_with_boundary_owned_only_on_some_ranks():
     comm = MPI.COMM_WORLD
     model, u, policy = problem(comm)

@@ -7,7 +7,7 @@ from dataclasses import fields as dataclass_fields
 import numpy as np
 
 from ._transient_problems import ExplicitDynamicsStep
-from .provenance import collective_call
+from .provenance import collective_call, collective_canonical_record
 
 
 class FiniteUniformHexStep(ExplicitDynamicsStep):
@@ -106,6 +106,20 @@ def lower(model, request):
 
     material = collective_call(
         select_material, comm=domain.comm, label="Finite Hex8 material admission"
+    )
+    # Validate field-creation semantics before ranks allocate differing spaces.
+    # A provider's friendly summary is not a substitute for the actual schema.
+    collective_canonical_record(
+        {
+            "state_schema": material.state_schema.summary(),
+            "tangent": material.tangent_convention.summary(),
+            "density": float(material.density),
+            "energy_components": list(
+                getattr(material, "stored_energy_component_names", ())
+            ),
+        },
+        comm=domain.comm,
+        label="Finite Hex8 material field contract",
     )
     # Preserve the selected formulation during readiness validation; otherwise
     # a generic material is incorrectly re-tested against the default solver.

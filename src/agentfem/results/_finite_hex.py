@@ -21,23 +21,36 @@ class FiniteHexCellFields:
             "SENER": response.strain_energy_density,
         }
         self.sources.update(response.stored_energy_density_components)
+        state_descriptions = {}
         for variable in residual.material.state_schema.variables:
             if variable.output_name:
-                if variable.output_name in self.sources or variable.output_name in {
-                    "U",
-                    "F",
-                    "MISES",
-                }:
+                if (
+                    variable.output_name.upper() in self.sources
+                    or variable.output_name.upper()
+                    in {
+                        "U",
+                        "F",
+                        "MISES",
+                    }
+                ):
                     raise ValueError(
                         "Material state output name collides with a finite Hex8 field."
                     )
                 self.sources[variable.output_name] = response.state.committed[
                     variable.name
                 ]
+                state_descriptions[variable.output_name] = variable.summary()
 
         def selection():
             selected = (variables,) if isinstance(variables, str) else variables
-            names = tuple(dict.fromkeys(str(name).upper() for name in selected))
+            # Built-in abbreviations accept lowercase input. External state
+            # fields retain their declared spelling instead of guessing it.
+            names = tuple(
+                dict.fromkeys(
+                    str(name) if str(name) in self.sources else str(name).upper()
+                    for name in selected
+                )
+            )
             unknown = set(names) - self.sources.keys() - {"U", "F", "MISES"}
             if unknown:
                 raise ValueError(f"Unsupported finite Hex8 fields: {sorted(unknown)}.")
@@ -90,6 +103,13 @@ class FiniteHexCellFields:
                 value._agentfem_processing["stress_measure"] = "first_piola"
             if value.name in {"SENER", *response.stored_energy_density_components}:
                 value._agentfem_processing["volume_measure"] = "reference"
+            if value.name in state_descriptions:
+                value._agentfem_processing["state_variable"] = state_descriptions[
+                    value.name
+                ]
+                value._agentfem_processing["state_schema_identity"] = (
+                    residual.material.state_schema.identity
+                )
 
     def update(self):
         collective_call(

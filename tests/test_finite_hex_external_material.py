@@ -19,7 +19,9 @@ class ReferenceNeoHookean:
     state_schema = constitutive.MaterialStateSchema(
         name="external_peak_energy",
         variables=(
-            constitutive.MaterialStateVariable(name="peak_energy", output_name="PEAKW"),
+            constitutive.MaterialStateVariable(
+                name="peak_energy", output_name="peak_work"
+            ),
         ),
     )
 
@@ -88,16 +90,19 @@ def test_external_array_material_uses_ordinary_step_state_fields_and_restart(tmp
         )
 
     reference = prepare()
-    reference.solve_result(field_variables=("S", "PEAKW"))
+    reference.solve_result(field_variables=("S", "peak_work"))
     partial = prepare()
     partial.run(until_step=39)
     saved = partial.save_checkpoint(tmp_path / "external")
     resumed = prepare()
     resumed.load_checkpoint(saved)
-    result = resumed.solve_result(field_variables=("S", "PEAKW"))
+    result = resumed.solve_result(field_variables=("s", "peak_work"))
     np.testing.assert_array_equal(
         resumed.state.u.value.x.array, reference.state.u.value.x.array
     )
-    assert np.max(result.fields["PEAKW"].field.x.array) > 0
+    assert np.max(result.fields["peak_work"].field.x.array) > 0
+    assert (
+        result.fields["peak_work"].processing["state_variable"]["name"] == "peak_energy"
+    )
     assert resumed.history_records[-1]["material_dissipation"] == 0
     assert resumed.history_records[-1]["relative_energy_balance_error"] < 5e-3

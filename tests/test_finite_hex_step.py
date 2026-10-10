@@ -55,6 +55,11 @@ def test_ordinary_finite_step_body_force_result_fields_and_restart(tmp_path):
     assert result.fields["S"].processing["stress_measure"] == "cauchy"
     assert result.fields["P"].processing["stress_measure"] == "first_piola"
     assert result.fields["SENER"].processing["volume_measure"] == "reference"
+    assert result.fields["PEEQ"].processing["state_variable"]["unit"] == "1"
+    assert (
+        result.fields["PEEQ"].processing["state_schema_identity"]
+        == step.residual.material.state_schema.identity
+    )
     for name in ("S", "P", "F", "SENER", "PEEQ", "PDENER", "MISES"):
         assert result.fields[name].location == "cells"
         assert result.fields[name].processing["interelement_smoothing"] is False
