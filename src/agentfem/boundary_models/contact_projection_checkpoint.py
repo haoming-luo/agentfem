@@ -19,6 +19,149 @@ from .rigid import SurfaceProjection
 
 
 _SCHEMA = "agentfem.global-contact-projection-state.v1"
+_NUMERIC_SCHEMA = "agentfem.local-numeric-contact-projection-state.v1"
+
+
+def numeric_projection_state_snapshot(record):
+    """Encode a fixed partition without millions of Python point dictionaries.
+
+    Invalid geometry is zero-filled under an explicit validity mask; the shared
+    numerical archive intentionally rejects NaN payloads. This encoding does
+    not promise redistribution between partitions.
+    """
+    if not isinstance(record, ContactProjectionRecord):
+        raise TypeError("Projection checkpoint requires ContactProjectionRecord.")
+    p = record.projection
+    catalog, codes = np.unique(p.status_codes, return_inverse=True)
+
+    def masked(values):
+        if values is None:
+            return None
+        return np.where(p.valid if values.ndim == 1 else p.valid[:, None], values, 0.0)
+
+    return {
+        "schema": _NUMERIC_SCHEMA,
+        "metadata": _metadata(record),
+        "point_ids": record.point_ids,
+        "query_points": p.query_points,
+        "closest_points": masked(p.closest_points),
+        "normals": masked(p.normals),
+        "signed_gaps": masked(p.signed_gaps),
+        "valid": p.valid,
+        "status_catalog": catalog.tolist(),
+        "status_indices": codes,
+        "entity_ids": p.entity_ids,
+        "local_coordinates": masked(p.local_coordinates),
+    }
+
+
+def numeric_projection_state_from_snapshot(snapshot, *, point_ids):
+    """Validate a same-partition numeric archive before constructing State."""
+    required = {
+        "schema",
+        "metadata",
+        "point_ids",
+        "query_points",
+        "closest_points",
+        "normals",
+        "signed_gaps",
+        "valid",
+        "status_catalog",
+        "status_indices",
+        "entity_ids",
+        "local_coordinates",
+    }
+    if (
+        not isinstance(snapshot, dict)
+        or set(snapshot) != required
+        or snapshot.get("schema") != _NUMERIC_SCHEMA
+    ):
+        raise ValueError("Unsupported numeric contact-projection State.")
+    ids = np.asarray(snapshot["point_ids"])
+    expected = np.asarray(point_ids)
+    if (
+        ids.dtype.kind not in "iu"
+        or ids.ndim != 1
+        or not np.array_equal(ids, np.sort(expected))
+    ):
+        raise ValueError("Numeric contact-projection partition point IDs differ.")
+    metadata = snapshot["metadata"]
+    if not isinstance(metadata, dict):
+        raise ValueError("Numeric contact-projection metadata must be a mapping.")
+    valid = np.asarray(snapshot["valid"])
+    if valid.dtype.kind != "b" or valid.shape != ids.shape:
+        raise ValueError(
+            "Numeric contact-projection validity must be a boolean vector."
+        )
+    catalog = snapshot["status_catalog"]
+    codes = np.asarray(snapshot["status_indices"])
+    if (
+        not isinstance(catalog, list)
+        or any(not isinstance(s, str) or not s for s in catalog)
+        or len(set(catalog)) != len(catalog)
+        or codes.dtype.kind not in "iu"
+        or codes.shape != ids.shape
+        or np.any(codes < 0)
+        or np.any(codes >= len(catalog))
+    ):
+        raise ValueError(
+            "Numeric contact-projection status catalog or indices are invalid."
+        )
+    entities = snapshot["entity_ids"]
+    if entities is not None:
+        entities = np.asarray(entities)
+        if (
+            entities.dtype.kind not in "iu"
+            or entities.shape != ids.shape
+            or (
+                entities.dtype.kind == "u" and np.any(entities > np.iinfo(np.int64).max)
+            )
+        ):
+            raise ValueError(
+                "Numeric contact-projection entity IDs must be signed-range integer values."
+            )
+
+    def geometric(name, *, masked=False):
+        raw = snapshot[name]
+        if raw is None:
+            return None
+        array = np.asarray(raw)
+        if array.dtype.kind not in "fiu" or not np.all(np.isfinite(array)):
+            raise ValueError(
+                "Numeric contact-projection geometry must be finite numeric arrays."
+            )
+        if masked:
+            if (
+                array.ndim not in (1, 2)
+                or array.shape[0] != len(ids)
+                or np.any(array[~valid] != 0)
+            ):
+                raise ValueError(
+                    "Invalid numeric contact-projection geometry must be zero-filled."
+                )
+            array = array.astype(float, copy=True)
+            array[~valid] = np.nan
+        return array
+
+    projection = SurfaceProjection(
+        surface_name=metadata.get("surface_name"),
+        surface_kind=metadata.get("surface_kind"),
+        query_points=geometric("query_points"),
+        closest_points=geometric("closest_points", masked=True),
+        normals=geometric("normals", masked=True),
+        signed_gaps=geometric("signed_gaps", masked=True),
+        valid=valid,
+        status_codes=np.asarray(catalog, dtype=str)[codes],
+        method=metadata.get("method"),
+        entity_ids=entities,
+        geometry_fingerprint=metadata.get("geometry_fingerprint"),
+        local_coordinates=geometric("local_coordinates", masked=True),
+        local_coordinate_system=metadata.get("local_coordinate_system"),
+    )
+    restored = ContactProjectionRecord(ids, projection)
+    if _metadata(restored) != metadata:
+        raise ValueError("Numeric contact-projection metadata differs from its arrays.")
+    return restored
 
 
 def _metadata(record: ContactProjectionRecord) -> dict[str, object]:
@@ -62,9 +205,7 @@ def global_projection_state_snapshot(record, communicator) -> dict[str, object]:
                     projection.closest_points[index].tolist() if valid else None
                 ),
                 "normal": projection.normals[index].tolist() if valid else None,
-                "signed_gap": (
-                    float(projection.signed_gaps[index]) if valid else None
-                ),
+                "signed_gap": (float(projection.signed_gaps[index]) if valid else None),
                 "valid": valid,
                 "status_code": str(projection.status_codes[index]),
                 "entity_id": (
@@ -162,13 +303,13 @@ def local_projection_state_from_snapshot(
             raise TypeError("Contact-projection point IDs must be integers.")
         if not isinstance(item["valid"], (bool, np.bool_)):
             raise TypeError("Contact-projection validity must be boolean.")
-        if not isinstance(item["status_code"], str) or not item[
-            "status_code"
-        ]:
+        if not isinstance(item["status_code"], str) or not item["status_code"]:
             raise ValueError("Contact-projection status codes must be non-empty.")
         point_id = int(item["point_id"])
         if point_id < 0 or point_id in by_id:
-            raise ValueError("Contact-projection point identity is invalid or repeated.")
+            raise ValueError(
+                "Contact-projection point identity is invalid or repeated."
+            )
         by_id[point_id] = item
 
     local_ids = np.asarray(point_ids)
@@ -176,9 +317,7 @@ def local_projection_state_from_snapshot(
         local_ids.size and local_ids.dtype.kind not in {"i", "u"}
     ):
         raise TypeError("Local contact point IDs must be one integer vector.")
-    if local_ids.dtype.kind == "u" and np.any(
-        local_ids > np.iinfo(np.int64).max
-    ):
+    if local_ids.dtype.kind == "u" and np.any(local_ids > np.iinfo(np.int64).max):
         raise ValueError("Local contact point IDs must fit signed 64-bit identity.")
     local_ids = local_ids.astype(np.int64, copy=False)
     missing = [int(point_id) for point_id in local_ids if int(point_id) not in by_id]
@@ -188,9 +327,9 @@ def local_projection_state_from_snapshot(
         )
     selected = [by_id[int(point_id)] for point_id in local_ids]
     count = len(selected)
-    query = np.asarray(
-        [item["query_point"] for item in selected], dtype=float
-    ).reshape(count, dimension)
+    query = np.asarray([item["query_point"] for item in selected], dtype=float).reshape(
+        count, dimension
+    )
     valid = np.asarray([item["valid"] for item in selected], dtype=bool)
     closest = np.full((count, dimension), np.nan, dtype=float)
     normals = np.full((count, dimension), np.nan, dtype=float)
@@ -207,8 +346,7 @@ def local_projection_state_from_snapshot(
             normals[index] = np.asarray(item["normal"], dtype=float)
             gaps[index] = float(item["signed_gap"])
         elif any(
-            item[name] is not None
-            for name in ("closest_point", "normal", "signed_gap")
+            item[name] is not None for name in ("closest_point", "normal", "signed_gap")
         ):
             raise ValueError("Invalid projection record must omit geometric values.")
 

@@ -350,7 +350,45 @@ preserved archived history responses to scaled error 4.8e-16; its 255,041-point
 material-only batch was 1.63x faster than the private NumPy translation. Do not
 advertise that local material gain as a solver speedup.
 
+## Original-size lifecycle follow-up
+
+The complete imported topology (255,041 cells, 888,222 displacement DOFs) now
+prepares the original-node bond hypothesis and four bounded cylindrical tools.
+This is a **startup integration pilot**, not the full 0.1-second analysis.
+The first large checkpoint exposed per-contact-point dictionary/JSON expansion:
+the interrupted process reached approximately 9 GB resident memory. Serial,
+explicitly nonportable nested numerical State now uses typed projection arrays
+with an explicit validity mask and status catalog. The common checkpoint codec
+owns array storage and hashes. Legacy/global portable projection records remain
+unchanged; no cross-partition capability is added.
+
+The same two-increment pilot now completes and saves in 38.60 seconds including
+31.32 seconds preparation, with peak RSS 3.23 GB and 167 KB JSON metadata.
+Its second increment takes about 3.05 seconds rather than the earlier observed
+12.74 seconds with dictionary transactions. These are single-run diagnostic
+measurements, not a statistically controlled whole-solver performance claim.
+The numerical auxiliary archive is approximately 318 MB. The delivered private
+case marks full simulation and Abaqus cross-validation as false.
+Independent continuous-four-step and two-step/restart/two-step executions now
+agree bitwise on all eleven compared nodal/material response arrays, accepted
+history and body evidence. Restore takes 0.54 seconds; peak RSS is 3.53 GB for
+the continuous run and 3.35 GB for the resumed run. The physical endpoint is
+only 4e-10 seconds: this demonstrates lifecycle correctness, not developed
+forming response. The focused serial regression passes 57 tests (six MPI-only
+skips); one bounded two-rank regression passes 41 tests per rank.
+
+The next gates remain material-owned stability, explicit variable-mass State
+and inertia accounting, body/body contact outside the original bond set,
+source initialization evidence, and complete loading/refinement comparisons.
+Neither smaller checkpoint overhead nor a completed startup run closes them.
+
 ## Primary design references
+
+- [Abaqus mass scaling](https://docs.software.vt.edu/abaqusv2025/English/SIMACAEANLRefMap/simaanl-c-massscaling.htm):
+  distinguish physical density from altered numerical inertia, preserve the
+  physical time scale for rate-dependent laws, and evaluate added mass and
+  response sensitivity. A requested element increment is not automatically a
+  certified whole-system increment after contact and damping contributions.
 
 - [Abaqus smooth-step amplitude verification](https://docs.software.vt.edu/abaqusv2025/English/SIMACAEVERRefMap/simaver-c-amplitude.htm):
   the fifth-order `s^3*(10-15s+6s^2)` law is distinct from our established
