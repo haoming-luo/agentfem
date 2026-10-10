@@ -3,6 +3,49 @@ import pytest
 from scipy.optimize import minimize
 
 from agentfem._q1_surface_geometry import q1_interior_normal_projection
+from agentfem._q1_surface_geometry import q1_closest_point
+
+
+@pytest.mark.parametrize(
+    "query,expected",
+    [
+        ([0.3, 0.6, 0.4], [0.3, 0.6, 0]),
+        ([1.4, 0.6, 0.4], [1, 0.6, 0]),
+        ([-1, 2, 0.4], [0, 1, 0]),
+    ],
+)
+def test_closest_point_interior_edges_corners(query, expected):
+    x = np.array([[0.0, 0, 0], [1, 0, 0], [1, 1, 0], [0, 1, 0]])
+    uv, basis, point, normal, distance = q1_closest_point(x, query)
+    np.testing.assert_allclose(point, expected, atol=1e-12)
+    np.testing.assert_allclose(basis @ x, point, atol=1e-12)
+    assert distance == pytest.approx(np.linalg.norm(np.array(query) - expected))
+    np.testing.assert_allclose(normal, [0, 0, 1], atol=1e-12)
+
+
+def test_closest_point_warped_against_global_numerical_oracle():
+    from scipy.optimize import differential_evolution
+
+    x = np.array([[0.0, 0, 0], [2, 0, 0], [1.4, 1, 0.7], [0.1, 1, 0]])
+    rng = np.random.default_rng(813)
+    for query in rng.uniform([-1, -1, -2], [3, 2, 2], (12, 3)):
+
+        def distance(uv, query=query):
+            u, v = uv
+            p = np.array([(1 - u) * (1 - v), u * (1 - v), u * v, (1 - u) * v]) @ x
+            return np.sum((p - query) ** 2)
+
+        result = q1_closest_point(x, query)
+        reference = differential_evolution(
+            distance, [(0, 1), (0, 1)], seed=41, tol=1e-10
+        )
+        assert result[-1] ** 2 == pytest.approx(reference.fun, abs=2e-9)
+
+
+def test_near_edge_interior_minimum_is_not_ambiguous():
+    x = np.array([[0.0, 0, 0], [1, 0, 0], [1, 1, 0], [0, 1, 0]])
+    result = q1_closest_point(x, [0.6, 1 - 2e-8, 0.001])
+    np.testing.assert_allclose(result[0], [0.6, 1 - 2e-8], atol=1e-12)
 
 
 @pytest.mark.parametrize("scale", [1e-6, 1.0, 1e6])

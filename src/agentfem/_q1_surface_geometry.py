@@ -14,6 +14,89 @@ import basix
 import numpy as np
 
 
+def q1_closest_point(vertices, point):
+    """Reference closest point including all edges/corners of one Q1 facet.
+
+    Eliminate u from the interior stationarity equations, solve the resulting
+    polynomial in v, and compare admissible stationary points with exact
+    straight-edge minima. This bounded scalar oracle complements the batched
+    local projector; it is not the production batch search implementation.
+    Returns (uv, Q1 basis, position, normal, distance). Tied distinct positions
+    are rejected; no arbitrary branch is used to define a contact normal.
+    """
+    from numpy.polynomial import Polynomial as P
+
+    physical = _real(vertices, (4, 3), "vertices")
+    query = _real(point, (3,), "point")
+    q1_surface_pull_back(physical[None], physical.mean(axis=0)[None])
+    scale = np.linalg.norm(np.ptp(physical, axis=0))
+    x = (physical - physical[0]) / scale
+    q = (query - physical[0]) / scale
+    a, b, c, d = -q, x[1], x[3], x[2] - x[1] - x[3]
+    # x-query = (a+c*v) + (b+d*v)*u; optimal u=-A/B.
+    e = [P([a[i], c[i]]) for i in range(3)]
+    f = [P([b[i], d[i]]) for i in range(3)]
+    A = sum((e[i] * f[i] for i in range(3)), P([0]))
+    B = sum((f[i] * f[i] for i in range(3)), P([0]))
+    equation = sum(
+        ((e[i] * B - f[i] * A) * (c[i] * B - d[i] * A) for i in range(3)), P([0])
+    )
+    candidates = []
+    for root in equation.roots():
+        if abs(root.imag) > 1e-8 or not 0 < root.real < 1:
+            continue
+        v = float(root.real)
+        u = float(-A(v) / B(v))
+        if 0 < u < 1:
+            residual = a + b * u + c * v + d * u * v
+            gradient = np.array([(b + d * v) @ residual, (c + d * u) @ residual])
+            if np.linalg.norm(gradient) > 1e-9:
+                raise ValueError("Unresolved Q1 stationary root.")
+            candidates.append([u, v])
+    corners = np.array([[0.0, 0], [1, 0], [1, 1], [0, 1]])
+    for i in range(4):
+        j = (i + 1) % 4
+        edge = x[j] - x[i]
+        t = np.clip((q - x[i]) @ edge / (edge @ edge), 0, 1)
+        candidates.append((1 - t) * corners[i] + t * corners[j])
+    uv = np.asarray(candidates)
+    # Boundary candidates must satisfy the one-sided minimum conditions.
+    # Otherwise an edge just beside an interior minimum can look numerically
+    # tied in distance while not being a constrained stationary point at all.
+    residual = a + uv[:, :1] * b + uv[:, 1:] * c + uv.prod(axis=1)[:, None] * d
+    gradient = np.column_stack(
+        (
+            np.einsum("ni,ni->n", b + uv[:, 1:] * d, residual),
+            np.einsum("ni,ni->n", c + uv[:, :1] * d, residual),
+        )
+    )
+    admissible = np.where(
+        uv == 0,
+        gradient >= -1e-12,
+        np.where(uv == 1, gradient <= 1e-12, np.abs(gradient) <= 1e-9),
+    )
+    uv = uv[np.all(admissible, axis=1)]
+    if not len(uv):
+        raise ValueError("No resolved constrained Q1 minimum.")
+    basis = _element().tabulate(1, uv)[..., 0][:, :, [0, 1, 3, 2]]
+    positions = basis[0] @ x
+    distances = np.linalg.norm(positions - q, axis=1)
+    best = int(np.argmin(distances))
+    tied = np.abs(distances - distances[best]) <= 1e-11
+    if np.any(np.linalg.norm(positions[tied] - positions[best], axis=1) > 1e-8):
+        raise ValueError("Ambiguous Q1 closest points.")
+    tangents = basis[1:3, best] @ x
+    normal = np.cross(tangents[0], tangents[1])
+    normal /= np.linalg.norm(normal)
+    return (
+        uv[best],
+        basis[0, best],
+        physical[0] + scale * positions[best],
+        normal,
+        float(scale * distances[best]),
+    )
+
+
 def q1_interior_normal_projection(vertices, points, *, max_iterations=40):
     """Batch local normal projections on nominated Q1 facets (private).
 

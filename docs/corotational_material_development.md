@@ -22,9 +22,15 @@ No geometry routine may implicitly activate a bond or adjust model coordinates.
    interior convergence are required. Edge/corner minima and global ambiguity
    remain the responsibility of the upcoming search composition, not silently
    clipped local coordinates. No claim of global nearest-point uniqueness.
-2. Search composition: reuse BVH candidate discovery, refine on true Q1 facets,
-   handle edges/corners and competing candidates, then quantify uncovered area
-   and side-swap/integration sensitivity. Not yet implemented for general Q1.
+2. Search composition: a private reference now reuses BVH candidate discovery,
+   with surrogate-error padding, then refines on original Q1 facets. Interior
+   stationarity is reduced to a polynomial after eliminating one coordinate;
+   its admissible roots compete with straight-edge/corner minima, subject to
+   one-sided optimality checks. Original Q1 weights are retained. Candidate
+   count and physical search radius are bounded explicitly. Identical smooth
+   seams use a deterministic facet; competing positions or normals reject.
+   This is a scalar narrow-phase reference, not yet production/MPI qualified.
+   Coverage and side-swap/integration sensitivity remain required.
 3. Initial bond semantics: explicitly preserve eligibility and initialization,
    rather than substitute a full tie. Persist selected identities only after
    the physical policy is reviewed. Not yet integrated.
@@ -38,6 +44,16 @@ orientation reversal, scalar/batch equality and deliberate rejection cases.
 Backtracking evaluates only basis values, not discarded Hessians; converged
 points are frozen. No whole-model performance improvement is claimed.
 This is a narrow geometry increment, not a new public solver or a release.
+
+The expanded geometry/interface selection passes 57 tests, including an
+independent global optimizer, exact edges/corners, near-edge stationarity,
+cross-facet search and ambiguity/budget rejection. A private 256-point-per-side
+source-centroid sample accepts 248/256 and 256/256 respectively. Eight queries
+are rejected for competing projections/normals; do not silently average their
+normals or bind them anyway. This reveals a remaining crease/ambiguity policy
+gate before initializing source bonds. The diagnostic search takes about
+0.33/0.42 seconds including tree construction on this host; this is neither
+full-surface coverage nor a time-step/whole-solver performance certificate.
 
 | Gate | Deliverable and acceptance | Status |
 | --- | --- | --- |
