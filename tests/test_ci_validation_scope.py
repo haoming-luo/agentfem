@@ -362,3 +362,13 @@ def test_finite_hex_owners_select_related_evidence_not_full_release(owner):
     assert "tests/test_finite_hex_step.py" in scope.tests
     assert "tests/test_parallel_finite_hex_step.py" in scope.mpi_tests
     assert not scope.ml
+
+
+def test_release_ladder_includes_bounded_finite_hex_mpi_checks():
+    workflow = Path(".github/workflows/test.yml").read_text(encoding="utf-8")
+    section = workflow.split("- name: Verify finite Hex distributed accepted lifecycle", 1)[1]
+    section = section.split("- name:", 1)[0]
+    assert "outputs.level == 'release'" in section
+    assert "agentfem mpi-run -n 2 --timeout 180" in section
+    assert "tests/test_parallel_finite_hex.py" in section
+    assert "tests/test_parallel_finite_hex_step.py" in section

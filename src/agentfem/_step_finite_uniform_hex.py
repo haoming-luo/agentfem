@@ -184,17 +184,24 @@ def _prepare(model, request):
         prepare_external, comm=domain.comm, label="Finite Hex8 natural loads"
     )
     prescribed = tuple(constraints.dirichlet_constraints(assets))
-    callbacks = [model._time_update_callback(include_constraints=False)]
-    callbacks.extend(
-        input_effects.from_asset(item)
-        for item in prescribed
-        if callable(getattr(item, "update", None))
-    )
-    update = input_effects.compose(*callbacks)
-    if time.input_summary(update)["changes_operator"]:
-        raise NotImplementedError(
-            "Finite Hex8 does not admit externally changing mass/material operators."
+
+    def prepare_inputs():
+        callbacks = [model._time_update_callback(include_constraints=False)]
+        callbacks.extend(
+            input_effects.from_asset(item)
+            for item in prescribed
+            if callable(getattr(item, "update", None))
         )
+        update = input_effects.compose(*callbacks)
+        if time.input_summary(update)["changes_operator"]:
+            raise NotImplementedError(
+                "Finite Hex8 does not admit externally changing mass/material operators."
+            )
+        return update
+
+    update = collective_call(
+        prepare_inputs, comm=domain.comm, label="Finite Hex8 input admission"
+    )
     if update is not None:
         collective_call(
             lambda: update(0.0), comm=domain.comm, label="Finite Hex8 initial inputs"

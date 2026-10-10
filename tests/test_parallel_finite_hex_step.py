@@ -46,6 +46,27 @@ def test_rank_local_missing_density_is_collective_before_step_creation():
         )
 
 
+def test_rank_local_input_preparation_failure_precedes_initial_collectives(monkeypatch):
+    if MPI.COMM_WORLD.size < 2:
+        pytest.skip("Requires rank-local preparation failure")
+    model, u, policy = problem(MPI.COMM_WORLD)
+    original = type(model)._time_update_callback
+
+    def callback(self, **options):
+        if MPI.COMM_WORLD.rank == 1:
+            raise ValueError("injected input preparation failure")
+        return original(self, **options)
+
+    monkeypatch.setattr(type(model), "_time_update_callback", callback)
+    before = u.value.x.array.copy()
+    with pytest.raises((ValueError, RuntimeError), match="input preparation failure"):
+        model.step(
+            target=u, element_policy=policy, omega_squared_bound=1e8, dt=1e-4, steps=20
+        )
+    np.testing.assert_array_equal(u.value.x.array, before)
+    assert not model.steps
+
+
 def test_rank_local_unsupported_asset_is_collective_before_material_setup():
     if MPI.COMM_WORLD.size < 2:
         pytest.skip("Requires a rank-local admission failure")
