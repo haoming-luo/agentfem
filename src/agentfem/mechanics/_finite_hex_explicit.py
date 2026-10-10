@@ -715,6 +715,10 @@ class FiniteHexExplicitResidual:
             comm=self.comm,
             label="Finite Hex8 restore identity",
         )
+        collective_canonical_record(
+            {"time": selected_time, "bound": bound, "spectrum": spectrum},
+            comm=self.comm, label="Finite Hex8 restore accepted station",
+        )
         with field_transaction(**fields):
             for name, field in fields.items():
                 field.x.array[:] = arrays[name]

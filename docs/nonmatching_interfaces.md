@@ -129,6 +129,15 @@ uses the shared accepted-path dynamic work ledger, with separate artificial
 energy; it does not claim general constraint work, MPI, finite rotation,
 damage evolution or compatibility with every commercial Hex8R formulation.
 
+The bounded finite-strain Hex8 policy now uses the same ordinary Step entry
+point with the stricter requirement `Kn = Ks = Kt`. This special potential is
+objective under a superposed rotation of an already open interface and has
+separate current-force/current-moment tests. Its accepted-path work, energy,
+failed-step rollback and serial disk restart are tested together with the bulk.
+It is not an anisotropic convected interface or contact formulation. Distributed
+bulk support does not admit distributed interface state: that combination still
+rejects before execution. See [finite Hex8 scope](hex8_uniform_strain.md).
+
 An independent longitudinal vibration check couples two unit-length elastic
 bars with free outer ends. With Poisson ratio zero and transverse motion
 restrained, opposite cosine modes satisfy `E*k*tan(k)=2*K` and

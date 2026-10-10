@@ -31,7 +31,10 @@ class FiniteHexEnergyMonitor:
         values = collective_call(
             local_values, comm=residual.comm, label="Finite Hex8 accepted energy"
         )
-        names = tuple(values)
+        # Dictionary insertion order is not a cross-rank scientific contract.
+        # Restored or externally supplied records may order the same keys
+        # differently; reduce matching physical channels, never local positions.
+        names = tuple(sorted(values))
         local = np.asarray([values[name] for name in names], dtype=float)
         global_values = np.empty_like(local)
         residual.comm.Allreduce(local, global_values, op=MPI.SUM)

@@ -232,6 +232,35 @@ def test_distributed_post_commit_failure_restores_energy_state(monkeypatch):
         np.testing.assert_array_equal(step.state.snapshot()["fields"][name], values)
 
 
+def test_energy_reduction_does_not_depend_on_rank_dictionary_order():
+    step = dynamic_step(MPI.COMM_WORLD)
+    step.run(until_step=24)
+    monitor = step.history_monitor.energy
+    reference = monitor.evaluate(displacement=step.state.u, velocity=step.state.v)
+    if MPI.COMM_WORLD.rank % 2:
+        step.residual._accepted_energy = dict(
+            reversed(tuple(step.residual._accepted_energy.items()))
+        )
+    actual = monitor.evaluate(displacement=step.state.u, velocity=step.state.v)
+    assert actual == pytest.approx(reference)
+
+
+def test_restore_rejects_inconsistent_rank_time_before_mutation():
+    if MPI.COMM_WORLD.size < 2:
+        pytest.skip("Requires multiple accepted stations")
+    step = dynamic_step(MPI.COMM_WORLD)
+    step.run(until_step=24)
+    before = step.residual.snapshot()
+    modified = step.residual.snapshot()
+    if MPI.COMM_WORLD.rank == 1:
+        modified["time"] *= 2
+    with pytest.raises(
+        (ValueError, RuntimeError), match="accepted station|differs|inconsistent"
+    ):
+        step.residual.restore(modified)
+    assert step.residual.snapshot() == before
+
+
 @pytest.mark.parametrize("counts", [(4, 2, 2), (1, 1, 1)])
 def test_distributed_finite_checkpoint_matches_continuous(tmp_path, counts):
     from pathlib import Path
