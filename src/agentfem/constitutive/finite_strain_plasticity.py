@@ -78,10 +78,13 @@ class FiniteStrainJ2Logarithmic:
     tangent_relative_step: float = 2.0e-6
     tangent_evaluation: str = "analytic_spectral"
     name: str = "finite-strain logarithmic J2 plasticity"
+    density: float | None = None
     state_schema: MaterialStateSchema = field(init=False, repr=False)
     tangent_convention: MaterialTangentConvention = field(init=False, repr=False)
 
     def __post_init__(self) -> None:
+        if self.density is not None and (not isfinite(float(self.density)) or self.density <= 0):
+            raise ValueError("density must be positive finite when supplied.")
         values = (
             self.young,
             self.poisson,
@@ -916,6 +919,7 @@ class FiniteStrainJ2Logarithmic:
                 "poisson": self.poisson,
                 "yield_stress": self.yield_stress,
                 "hardening_modulus": self.hardening_modulus,
+                **({"density": self.density} if self.density is not None else {}),
             },
             "numerical_parameters": {
                 "tangent_relative_step": self.tangent_relative_step,
@@ -951,6 +955,7 @@ def finite_strain_j2_logarithmic(
     hardening_modulus: float = 0.0,
     tangent_relative_step: float = 2.0e-6,
     tangent_evaluation: str = "analytic_spectral",
+    density: float | None = None,
 ) -> FiniteStrainJ2Logarithmic:
     """Create the logarithmic finite-strain J2 material provider."""
 
@@ -961,4 +966,5 @@ def finite_strain_j2_logarithmic(
         hardening_modulus=hardening_modulus,
         tangent_relative_step=tangent_relative_step,
         tangent_evaluation=tangent_evaluation,
+        density=density,
     )

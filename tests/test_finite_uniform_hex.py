@@ -156,7 +156,7 @@ def test_finite_batch_chunking_and_inverted_current_geometry():
         )
 
 
-def test_finite_operator_does_not_admit_public_finite_step():
+def test_finite_policy_requires_explicit_kinematics_not_boolean_alias():
     from agentfem import elements
 
     with pytest.raises(TypeError):

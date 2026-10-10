@@ -49,6 +49,7 @@ def _accept_uniform_hex(model, request):
 
     method = _procedure_method(model, request)
     return (isinstance(request.option("element_policy"), UniformStrainHex8)
+            and request.option("element_policy").kinematics == "small_strain"
             and _is_vector_target(request.target)
             and (method is None or _normalize(method) in {"central_difference", "explicit_dynamics"}))
 
@@ -56,6 +57,20 @@ def _accept_uniform_hex(model, request):
 def _lower_uniform_hex(model, request):
     from ._step_uniform_hex import lower
 
+    return lower(model, request)
+
+
+def _accept_finite_uniform_hex(model, request):
+    from .elements import UniformStrainHex8
+    policy = request.option("element_policy")
+    method = _procedure_method(model, request)
+    return (isinstance(policy, UniformStrainHex8) and policy.kinematics == "finite_strain"
+            and _is_vector_target(request.target)
+            and (method is None or _normalize(method) in {"central_difference", "explicit_dynamics"}))
+
+
+def _lower_finite_uniform_hex(model, request):
+    from ._step_finite_uniform_hex import lower
     return lower(model, request)
 
 
@@ -921,6 +936,19 @@ register_step_provider(StepProvider(
     procedure="explicit/central_difference",
     option_contract=_option_contract("element_policy", "cohesive_force", "dt", "steps", "save_every", "print_every",
         "history_every", "progress", "status_file", "checkpoint", required=("element_policy", "dt", "steps")),
+))
+
+register_step_provider(StepProvider(
+    name="finite_uniform_strain_hex8_explicit",
+    analyses=("explicit_dynamics", "second_order_dynamics"),
+    accepts=_accept_finite_uniform_hex,
+    lower=_lower_finite_uniform_hex,
+    priority=181,
+    description="Experimental finite Hex8 with one history material, declared spectral ceiling and same-partition restart.",
+    procedure="explicit/central_difference",
+    option_contract=_option_contract("element_policy", "cohesive_force", "dt", "steps", "save_every", "print_every",
+        "history_every", "progress", "status_file", "checkpoint", "omega_squared_bound", "maximum_negative_growth_per_increment",
+        required=("element_policy", "dt", "steps", "omega_squared_bound")),
 ))
 
 

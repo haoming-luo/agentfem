@@ -95,8 +95,10 @@ The 0.4 line is an architectural consolidation, not a feature-count release.
 
 The next Hex8 prerequisite now has a private total-Lagrangian contribution with
 large-rotation objectivity, energy/tangent and existing J2 batch-protocol checks.
-It deliberately does not enable a finite-strain public Step. A serial DOLFINx
-bridge now exercises existing quadrature trial/commit/rollback, global force and
+The bounded route now lowers through the ordinary `model.step()` with explicit
+`kinematics="finite_strain"`, a caller-declared complete-path spectral ceiling,
+one full-domain history material and declared reference density. A DOLFINx
+bridge exercises existing quadrature trial/commit/rollback, global force and
 moment, fixed-old-state tangents and a four-increment J2 patch. An instantaneous
 nonnegative symmetric-tangent spectral screen is tested separately; unsupported
 tangents are rejected, not silently symmetrized into a stability claim.
@@ -104,10 +106,13 @@ The private serial path now reuses the existing explicit Procedure, jointly
 restores nodal/material state after rejected increments, and passes interrupted
 versus continuous execution. A nonlinear Hencky bar exceeds 10% extension and
 shows second-order time refinement against an independent ODE. This does not
-admit arbitrary J2 trajectories: the nonnegative tangent screen is deliberately
-restrictive. Next are general state-dependent frequency/curvature semantics,
-energy/output contracts, public lowering, then general objective interface/contact
-composition and broader independent references. The private finite path already
+admit arbitrary J2 trajectories: the signed endpoint screen reports positive and
+negative curvature separately and requires an explicit bounded-growth policy
+for negative curvature. It is not a general nonlinear stability guarantee.
+Accepted work, stored energy, artificial energy and material dissipation now
+share the existing ledger; optional unsmoothed DG0 views expose the accepted
+response without reintegration. Next are broader independent references and
+general objective interface/contact composition. The finite contribution already
 reuses the elastic nonmatching interface in the equal-three-stiffness special
 case, with opened-interface objectivity, current moment, joint recovery and
 post-commit failure checks. This does not admit anisotropic/damaging finite
@@ -117,9 +122,13 @@ batches, retaining scalar/ordered providers and the same atomic trial boundary.
 Native J2 uses its existing constitutive equations through this transport;
 no new material formulation or provider framework is introduced. Serial
 numeric-array auxiliary checkpoints avoid JSON expansion and preserve legacy
-reads, but do not promote finite-Hex MPI portability. Spatial refinement uses
-an independent manufactured Neo-Hookean problem on regular and bounded
-distorted meshes. Large affine endurance runs are capacity evidence only;
+reads. Rank-local version-7 payloads now support same-partition MPI recovery,
+including empty ranks and collective rejection of corrupt/swapped payloads;
+cross-partition history migration remains unsupported. Spatial refinement uses
+independent manufactured Neo-Hookean and proportional finite-J2 problems.
+The plastic reference includes nonuniform tension/compression and a moving yield
+front, with a separate body-force derivation rather than the solver residual.
+Large affine endurance runs are capacity evidence only;
 they do not replace nonuniform spatial or industrial validation. The remaining
 promotion gates above are unchanged.
 Do not infer these gates from local element tests or reuse the small-strain

@@ -1,8 +1,9 @@
 # Uniform-gradient Hex8 development boundary
 
 The experimental `elements.uniform_strain_hex8(...)` policy lowers ordinary
-`model.step()` to a small-strain elastic explicit provider with owned-cell MPI
-assembly. Nonmatching interface composition remains serial. The private
+`model.step()` to small-strain elasticity or a bounded finite-strain history
+provider, both with owned-cell MPI assembly and same-partition restart.
+Nonmatching interface composition remains serial. The private
 `elements._uniform_hex.UniformHex8` remains its local verification oracle.
 This is not advertised as an Abaqus C3D8R reproduction.
 
@@ -29,6 +30,52 @@ model's consistent unit system and are not inferred. Processing provenance and
 cell location remain in `SimulationResult` with or without file output. Omitting
 `field_variables` preserves the existing primary-field default; an empty tuple
 requests no derived fields. Unsupported fields are rejected before stepping.
+
+### Bounded finite-strain workflow
+
+Set `kinematics="finite_strain"` on the same element policy. Register one
+full-domain material with positive density, the existing `dP/dF` convention,
+stored energy/dissipation and an explicit `initial_array_response(count)`.
+The native logarithmic J2 material accepts optional `density=`; density affects
+inertia, not the constitutive equations. For example:
+
+```python
+material = constitutive.finite_strain_j2_logarithmic(
+    young=100.0, poisson=0.3, yield_stress=1.0,
+    hardening_modulus=5.0, density=2.0,
+)
+model.material(material)
+policy = elements.uniform_strain_hex8(
+    hourglass_modulus=40.0, hourglass_scale=0.1,
+    kinematics="finite_strain",
+)
+step = model.step(
+    target=u, element_policy=policy, dt=1e-4, steps=100,
+    omega_squared_bound=1e8,
+    maximum_negative_growth_per_increment=0.1,
+)
+result = step.solve_result(field_variables=("S", "P", "F", "SENER", "PEEQ"))
+```
+
+The numerical values above are demonstration choices, **not universal stable
+defaults**. `omega_squared_bound` is a caller-declared complete-path bulk and
+hourglass ceiling. The current signed tangent is screened at each endpoint;
+`dt="auto"` only selects from the declared ceiling, not from an automatic
+nonlinear wave-speed estimate. Negative curvature is rejected unless its
+growth-resolution policy is explicitly supplied, as described below.
+
+`S` is accepted Cauchy stress, `P` first Piola stress, `F` the accepted mean
+deformation gradient, and `SENER` material stored energy per reference volume.
+Declared material state output names are also available (`FP`, `PEEQ`, `PDENER`
+for native J2). All derived fields are unsmoothed DG0 views of accepted state;
+output never advances the material. Artificial energy stays in its own ledger.
+Strong prescribed motion and displacement-independent reference body/traction
+loads are supported. Starts are undeformed with virgin history; restarts reuse
+the accepted state. The admitted interface special case remains isotropic,
+undamaged and serial. Regional history materials, follower loads, contact,
+damage/deletion, mass scaling and cross-partition restart are not admitted.
+
+### Small-strain elastic workflow
 
 The model uses a 3D `studies.dynamic_solid()` Study, continuous Q1 hexahedra,
 registered constant isotropic or anisotropic elasticity, positive density and
@@ -101,7 +148,7 @@ it for the source formulation, material updates or section controls.
 
 ## Formulation
 
-### Finite-deformation prerequisite (private, not a Step)
+### Finite-deformation contribution and staged evidence
 
 `elements._finite_uniform_hex.FiniteUniformHexBatch` separates total-Lagrangian
 kinematics from material updates. It computes `F = I + sum(u_a outer grad_X N_a)`
@@ -146,29 +193,31 @@ remains readable. Failed payload/manifest publication preserves the previous
 checkpoint and removes the new generation's unpublished files when possible.
 The composed Procedure capability explicitly refuses rank-count portability:
 portable nodal fields alone do not make material or interface history portable.
-No distributed finite-Hex restart is admitted by this encoding change.
+The subsequent v7 encoding adds rank-local arrays for same-partition MPI
+restart; it does not make these arrays portable across partitions.
 
 The private assembly exposes one open trial scope through material evaluation,
 force scatter and the Procedure's final checks, avoiding three nested copies of
 the same scratch fields. Downstream exceptions (including interruption) restore
 those fields and discard material trial state. Fixed-reference spectral geometry
-is cached as ten float64 values per cell; material-dependent spectra are still
+is cached compactly per cell; material-dependent spectra are still
 recomputed. No stale tangent or unchecked current-cell geometry is reused.
 
 Stored-energy availability is explicit in the shared material batch result:
 missing optional energy is not a physically defined zero. This route rejects
 providers without stored energy, and rejects a material-requested increment
 reduction instead of ignoring it. Empty MPI material partitions preserve their
-component schema and neutral time-scale summary (separate driver evidence,
-not admission of distributed finite Hex8 execution).
+component schema and neutral time-scale summary; owned-cell MPI assembly and
+empty-rank restoration are checked separately.
 
 An instantaneous spectral screen bounds the declared nodal tangent through
 small Gram matrices, checked against an explicit 24-by-24 matrix. It requires a
-symmetric positive-semidefinite material tangent and rejects unsupported
-asymmetry/negative curvature; it is not a general elastoplastic wave-speed
+symmetric material tangent and rejects unsupported asymmetry. The default
+rejects negative curvature; an explicit signed growth-resolution option is
+described below. This is not a general elastoplastic wave-speed
 policy or a guarantee over a future increment.
 
-The diagnostic-only signed report separately encloses positive and negative
+The signed report separately encloses positive and negative
 eigenvalues using the positive/negative parts of the symmetric material
 tangent. It does not replace that tangent by its absolute value. A regression
 demonstrates that an isochoric J2 patch can have negative material curvature
@@ -190,10 +239,10 @@ one-cell elastic Hencky bar is checked against an independently integrated ODE,
 time refinement over three increment sizes. This checks temporal integration
 of the one-cell model, not spatial continuum convergence or plastic dynamics.
 
-That private route requires a caller-declared complete-path spectral ceiling
-and checks each endpoint against the nonnegative symmetric-tangent screen.
-Ordinary isochoric J2 extension can fall outside this screen; negative material
-curvature is not by itself a constitutive bug or proof of global instability.
+The finite route requires a caller-declared complete-path spectral ceiling
+and checks each endpoint against the signed symmetric-tangent screen.
+Ordinary isochoric J2 extension can have negative material
+curvature; this is not by itself a constitutive bug or proof of global instability.
 General wave-speed/curvature treatment remains a gate, not an absolute-value
 workaround. A private composition now admits the already existing elastic
 nonmatching interface **only when all three separation stiffnesses are equal**.
@@ -208,12 +257,14 @@ Unequal normal/tangential stiffness is explicitly rejected. The restriction is
 consistent with the frame-indifference/angular-momentum analysis of
 [Ottosen, Ristinmaa and Mosler (2016)](https://doi.org/10.1016/j.jmps.2016.02.034);
 their general surface-deformation-gradient extension is not implemented here.
-Finite-strain public Step lowering, distributed/portable restart, general
-finite-deformation interface kinematics and contact composition remain
-unimplemented. The public small-strain policy is unchanged.
+Finite-strain public Step lowering and same-partition distributed bulk restart
+are implemented within the bounded workflow above. Cross-partition restart,
+general finite-deformation interface kinematics and contact composition remain
+unimplemented. The default small-strain policy is unchanged.
 The batch stores compact geometry and evaluates forces/tangent actions in
-bounded chunks without retaining dense 24-by-24 element matrices. No measured
-finite-strain whole-solver speedup is claimed.
+bounded chunks without retaining dense 24-by-24 element matrices. The measured
+columnar-history speedup below applies to its stated workload; newer spectral
+and kinematics optimizations require their own controlled measurements.
 
 Reference: [Sierra/SM Theory Manual, §15.1.4](https://www.sandia.gov/files/sierra/SM_Theory_5_20/main/element_formulations.html)
 motivates an objective reference-configuration hourglass potential; our existing
@@ -406,7 +457,7 @@ accuracy limits, richer loading
 evidence and distributed nonmatching interface composition. No implicit numerical
 equivalence to imported commercial reduced-integration elements is assumed.
 
-### Accepted finite-explicit energy and signed-curvature policy (private)
+### Accepted finite-explicit energy and signed-curvature policy
 
 The finite route now reuses `DynamicEnergyLedger` with cached accepted
 force and material energy. Initial energy is declared explicitly by the material
@@ -424,7 +475,7 @@ dissipation. Time refinement reduces the work/energy residual. The interface
 composition has interrupted/continuous restart and cached-energy checks. These
 tests do not establish arbitrary plastic loading, localization or forming.
 
-The default still rejects negative material curvature. An explicit private
+The default still rejects negative material curvature. An explicit
 option may instead require `dt * sqrt(negative_bound) <= eta`, with
 `0 < eta <= 0.25`, while retaining the positive-frequency ceiling separately.
 For a frozen scalar negative mode, central difference has growth rate
@@ -453,11 +504,10 @@ Cross-partition recovery and distributed nonmatching interfaces remain separate
 gates. The material driver may update visible ghost points, but these never
 contribute a second time to force, energy or negative-curvature cell counts.
 
-Do not turn the current positive-semidefinite material screen into a general
-policy by taking absolute eigenvalues. The next implementation must distinguish
-the highest oscillatory frequency, negative curvature and a complete-path
-bound. Local negative curvature is not a global instability diagnosis. A new
-policy must declare its validity range and preserve that distinction in Result.
+The signed screen distinguishes the highest oscillatory frequency, negative
+curvature and the declared complete-path ceiling. It never takes absolute
+eigenvalues as a replacement constitutive tangent. Automatic material-owned
+wave-speed/effective-modulus admission remains a separate gate.
 
 The practical design sequence is: material-owned effective-modulus evidence;
 Operator-owned geometric/mass conversion and additive interface contribution;

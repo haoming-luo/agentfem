@@ -31,9 +31,11 @@ class FiniteHexExplicitResidual:
         omega_squared_bound,
         safety=0.8,
         cohesive=None,
+        external_force=None,
         maximum_negative_growth_per_increment=None,
     ):
         self.comm = internal.comm
+        self.external_force = external_force
         collective_call(
             lambda: self._initialize(
                 internal,
@@ -202,6 +204,20 @@ class FiniteHexExplicitResidual:
             raise ValueError("Current tangent exceeds the declared spectral ceiling.")
         return spectrum
 
+    def bind_prescribed_layout(self, scalar_dofs):
+        """Bind strong boundary ownership before initial-response publication."""
+        def local_identity():
+            if self.accepted_time != 0 or self._accepted_energy is not None:
+                raise RuntimeError("Boundary layout must be bound before initial energy.")
+            selected = np.asarray(scalar_dofs)
+            if selected.ndim != 1 or selected.dtype.kind not in "iu" or np.any(selected < 0) or np.any(selected >= len(self.internal.mass_diagonal)):
+                raise ValueError("Boundary layout must contain owned scalar DOFs.")
+            digest = sha256(self.partition_identity.encode())
+            digest.update(np.unique(selected).astype(np.int64).tobytes())
+            return digest.hexdigest()
+        self.partition_identity = collective_call(local_identity, comm=self.comm, label="Finite Hex8 boundary identity")
+        self.identity = content_fingerprint(self.comm.allgather(self.partition_identity))
+
     def _initial_energy_response(self, initial_response):
         from dataclasses import replace
         from ..constitutive.material_array_batch import MaterialPointArrayBatchOutput
@@ -277,6 +293,7 @@ class FiniteHexExplicitResidual:
                 values[self.cohesive.positive_dofs] += (
                     initial_interface.positive_residual
                 )
+            self._subtract_external(vector)
             force = vector.array.copy()
         finally:
             vector.destroy()
@@ -289,11 +306,14 @@ class FiniteHexExplicitResidual:
             if initial_interface is None
             else initial_interface.stored_energy,
         }
-        if (
-            not all(np.isfinite(value) for value in energy.values())
-            or not np.isfinite(force).all()
-        ):
-            raise ValueError("Non-finite initial energy or force.")
+        def validate_initial_values():
+            if (
+                not all(np.isfinite(value) for value in energy.values())
+                or not np.isfinite(force).all()
+            ):
+                raise ValueError("Non-finite initial energy or force.")
+
+        collective_call(validate_initial_values, comm=self.comm, label="Finite Hex8 initial values")
         digest = sha256(
             (self.partition_identity + content_fingerprint(energy)).encode()
         )
@@ -336,6 +356,15 @@ class FiniteHexExplicitResidual:
         vector = self.internal.displacement.x.petsc_vec.duplicate()
         vector.array[:] = self._accepted_force
         return vector
+
+    def _subtract_external(self, vector):
+        if self.external_force is not None:
+            from ..operators import assemble_vector
+            force = assemble_vector(self.external_force)
+            try:
+                vector.axpy(-1, force)
+            finally:
+                force.destroy()
 
     def require_accepted_configuration(self):
         """Validate cached samples without allocating or assembling a vector."""
@@ -393,6 +422,7 @@ class FiniteHexExplicitResidual:
                 )
                 if self.cohesive is not None:
                     self._trial_interface = self.cohesive.add_to_vector(vector)
+                self._subtract_external(vector)
                 if not np.isfinite(vector.array).all():
                     raise ValueError("Non-finite combined finite Hex8 residual.")
             self._trial = trial
