@@ -153,6 +153,28 @@ area and empty batches are tested; related Q1 mapping/interface selection:
 certificate. Before admitting pairing, measure reference gaps and coverage;
 do not silently increase coincidence tolerance or flatten either surface.
 
+A subsequent private bidirectional BVH diagnostic samples 54,572 true Q1
+Gauss points. The maximum distances to triangular diagnostic surrogates are
+0.003446 and 0.002817 in source length units; about 9.17% and 9.61% of sampled
+area lies farther than 1e-4. These are sampled area estimates, not complete
+coverage certificates. The new `q1_triangulation_distance_bound` bounds the
+surrogate's geometric Hausdorff discrepancy using the corner-height range over
+the admitted convex projected polygon. The target bounds are approximately
+roundoff and 1.30e-7, respectively, so the observed mismatch cannot be explained
+by triangulation alone. Mapping/quadrature/interface selection: 39 tests pass.
+
+The source uses surface-based cohesive contact with no explicit eligibility
+override. Abaqus's default limits bonds to original contacts; initialization
+can change that active set. Thus a full-surface permanent elastic tie cannot
+be assumed equivalent merely because all three stiffnesses match. Next work
+must separate geometry projection, reference-gap/initial-contact policy and
+accepted bond identity. Inspect secondary-node contact eligibility and initial
+adjustment before deciding the original bonded set. No claim about the actual
+Abaqus-initialized active set follows from Gauss-point distance samples alone.
+Finite-offset subtraction alone also does not establish finite-rotation
+objectivity or moment balance. Keep these gates explicit while developing the
+general interface, rather than loosening the current coincidence contract.
+
 Local candidate checks: 15 kinematic tests plus 26 architecture tests pass.
 The independent noncoaxial oracle integrates the rate with 64-point Gaussian
 quadrature. Random 3D frame tests check objective stress and virtual-power
@@ -171,6 +193,10 @@ to `all_points * all_search_angles * full_tensor` is required. Do not claim
 whole-model speedup from a local kernel benchmark.
 
 ## Primary design references
+
+- [Abaqus surface-based cohesive behavior](https://docs.software.vt.edu/abaqusv2025/English/SIMACAEITNRefMap/simaitn-c-cohesivebehavior.htm):
+  original-contact eligibility and the influence of initialization on bonding.
+  The source interaction must not silently become a permanently tied surface.
 
 - [Abaqus VUMAT](https://docs.software.vt.edu/abaqusv2025/English/SIMACAESUBRefMap/simasub-c-vumat.htm):
   tensor shear, material corotational axes, Green--Naghdi rate, specific internal

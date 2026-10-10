@@ -4,6 +4,33 @@ import pytest
 from agentfem._q1_surface_geometry import planar_q1_pull_back
 from agentfem._q1_surface_geometry import q1_surface_pull_back
 from agentfem._q1_surface_geometry import q1_surface_quadrature
+from agentfem._q1_surface_geometry import q1_triangulation_distance_bound
+
+
+@pytest.mark.parametrize("scale", [1e-6, 1, 1e6])
+def test_triangulation_bound_under_rigid_motion_and_scaling(scale):
+    x = np.array([[[0., 0, 0], [1, 0, 0], [1, 1, .6], [0, 1, 0]]])
+    rng = np.random.default_rng(431)
+    rotation, _ = np.linalg.qr(rng.normal(size=(3, 3)))
+    moved = scale * (x @ rotation.T + [2, -3, 4])
+    bound = q1_triangulation_distance_bound(moved)[0]
+    assert bound == pytest.approx(.6 * scale)
+    uv = rng.random((500, 2))
+    # For this graph, the diagonal-split height is a*min(u,v), while
+    # the true bilinear height is a*u*v, at the same projected point.
+    error = .6 * np.abs(np.minimum(uv[:, 0], uv[:, 1])-uv.prod(axis=1))
+    assert np.max(error) * scale <= bound
+    planar = x.copy()
+    planar[0, 2] = [1.7, 1, 0]
+    assert q1_triangulation_distance_bound(planar)[0] == 0
+
+
+def test_triangulation_bound_empty_and_invalid():
+    assert q1_triangulation_distance_bound(np.empty((0, 4, 3))).shape == (0,)
+    with pytest.raises(ValueError, match="Degenerate"):
+        q1_triangulation_distance_bound(np.zeros((1, 4, 3)))
+    with pytest.raises(ValueError, match="shape"):
+        q1_triangulation_distance_bound(np.zeros((4, 3)))
 
 
 def test_true_warped_surface_quadrature_and_orientation():

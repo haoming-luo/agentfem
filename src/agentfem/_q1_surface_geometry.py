@@ -169,3 +169,28 @@ def q1_surface_quadrature(vertices, *, order=3):
     weights = jacobian * reference_weight
     normals = cross / jacobian[..., None]
     return points, basis[0], weights, normals
+
+
+def q1_triangulation_distance_bound(vertices):
+    """Conservative per-facet Hausdorff bound to the cyclic diagonal split.
+
+    Admission requires the same strictly convex projected graph as the inverse
+    map. Both bilinear and triangular surfaces cover that projected polygon;
+    their heights lie within the corner-height range. Pairing points at equal
+    projected coordinates bounds their distance by that range, in physical
+    length units. This is a geometry-search diagnostic, not permission to use
+    triangular interpolation for Q1 fields or a surface-coverage certificate.
+    """
+    raw = np.asarray(vertices)
+    if raw.ndim != 3 or raw.shape[1:] != (4, 3):
+        raise ValueError("vertices must have shape (facets, 4, 3).")
+    x = _real(vertices, raw.shape, "vertices")
+    q1_surface_pull_back(x, x.mean(axis=1))
+    shifted = x - x[:, :1]
+    # Normalize first, as in the inverse map, to avoid unit-dependent products.
+    scale = np.linalg.norm(np.ptp(x, axis=1), axis=1)
+    normalized = shifted / scale[:, None, None]
+    normal = np.cross(normalized[:, 1], normalized[:, 3])
+    normal /= np.linalg.norm(normal, axis=1)[:, None]
+    heights = np.einsum("nki,ni->nk", normalized, normal)
+    return np.ptp(heights, axis=1) * scale
