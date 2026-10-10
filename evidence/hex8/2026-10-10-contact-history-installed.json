@@ -1,0 +1,23 @@
+{
+  "schema_version": 1,
+  "source_commit": "5334bac97e9d343f88e87cc71d2b867b3e5aa943",
+  "wheel": "agentfem-0.4.1-py3-none-any.whl",
+  "wheel_sha256": "f0d2a3aacf24cde7ea0d45bbb4ac95923bc91bc40db9c705958cca4afba19818",
+  "matching_source_modules": 299,
+  "installed_test_passed": 36,
+  "installed_test_seconds": 8.39,
+  "source_path_injection": false,
+  "tests": [
+    "tests/test_finite_hex_contact_composition.py",
+    "tests/test_contact_numeric_state.py",
+    "tests/test_finite_hex_step.py",
+    "tests/test_finite_hex_material_envelope_step.py",
+    "tests/test_contact_work_state.py"
+  ],
+  "source_selection_passed": 111,
+  "source_selection_skipped": 8,
+  "test_counts_overlap": true,
+  "skipped_reason": "Existing MPI-only cases require separate distributed acceptance; no new local MPI group was started.",
+  "scope": "Serial single frictionless fixed/translating reference plane; cached accepted work, compact rollback, rolling complete-history identity.",
+  "release_status": "Candidate wheel only; no published release or full installer."
+}

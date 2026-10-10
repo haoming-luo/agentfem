@@ -295,8 +295,9 @@ consistent with the frame-indifference/angular-momentum analysis of
 their general surface-deformation-gradient extension is not implemented here.
 Finite-strain public Step lowering and same-partition distributed bulk restart
 are implemented within the bounded workflow above. Cross-partition restart,
-general finite-deformation interface kinematics and contact composition remain
-unimplemented. The default small-strain policy is unchanged.
+general finite-deformation interface kinematics and distributed contact composition
+remain unimplemented. The bounded serial translating-plane composition is described
+below. The default small-strain policy is unchanged.
 The batch stores compact geometry and evaluates forces/tangent actions in
 bounded chunks without retaining dense 24-by-24 element matrices. The measured
 columnar-history speedup below applies to its stated workload; newer spectral
@@ -709,6 +710,22 @@ example also completes and its output passes artifact-integrity verification.
 The wider 142-test source selection overlaps these checks, not an additional
 independent sample. Exact wheel identity and limits are recorded in
 [`2026-10-10-finite-contact-installed.json`](https://github.com/haoming-luo/agentfem/blob/main/evidence/hex8/2026-10-10-finite-contact-installed.json).
+
+### Accepted contact-history performance
+
+The accepted tool-work ledger caches its incremental sum and rolling history
+fingerprint. In-memory rollback shares immutable accepted stations rather than
+re-encoding the whole work history; durable checkpoints still retain the complete
+history. Restores recompute and validate the ledger before committing it.
+
+On the measured 12-cell, 1,000-increment serial workload, three alternating runs
+reduced median elapsed time from 4.342 s to 1.282 s (3.39x, 70.5% less time).
+Displacements, velocities, material state and complete recorded histories are
+identical. This is a history-overhead-dominated workload, not a general solver
+or industrial-model speedup. The benchmark reinstates the previous full-history
+integration/serialization path without changing physics or tolerances.
+See `tools/benchmark_finite_contact_history.py` and the versioned
+`evidence/hex8/2026-10-10-contact-history-performance.json` record.
 
 ## Sources
 

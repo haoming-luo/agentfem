@@ -1,0 +1,24 @@
+{
+  "schema_version": 1,
+  "source_commit": "5334bac97e9d343f88e87cc71d2b867b3e5aa943",
+  "benchmark": "tools/benchmark_finite_contact_history.py",
+  "cells": 12,
+  "increments": 1000,
+  "mpi_ranks": 1,
+  "numerical_threads": 1,
+  "seconds": {
+    "reference": [4.341717790812254, 4.351716000121087, 4.341655957978219],
+    "optimized": [1.2775478749535978, 1.2881768750958145, 1.2822977919131517]
+  },
+  "reference_median_seconds": 4.341717790812254,
+  "optimized_median_seconds": 1.2822977919131517,
+  "speedup": 3.3858888459400176,
+  "elapsed_reduction": 0.7046565774895153,
+  "compared_arrays_and_histories_identical": true,
+  "reference": "Same physics with full work-history integration and JSON rollback snapshots restored by benchmark patches.",
+  "limitations": [
+    "Small history-overhead-dominated workload, not industrial performance evidence.",
+    "Does not combine multiplicatively with earlier bulk-material speedups.",
+    "In-memory snapshots still copy station references; this is not an O(1) claim for the entire transaction."
+  ]
+}
