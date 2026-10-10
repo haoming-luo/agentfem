@@ -31,8 +31,11 @@ class LinearSolverOptions:
     max_it: int | None = None
     factor_solver_type: str | None = None
     error_if_not_converged: bool = True
+    mpc_assembly: str = "native"
 
     def __post_init__(self) -> None:
+        if self.mpc_assembly not in {"native", "algebraic"}:
+            raise ValueError("mpc_assembly must be native or algebraic.")
         if self.rtol is not None and self.rtol <= 0.0:
             raise ValueError("LinearSolverOptions.rtol must be positive.")
         if self.atol is not None and self.atol <= 0.0:
@@ -54,6 +57,7 @@ class LinearSolverOptions:
 
         return {
             "kind": "linear_solver_options",
+            "mpc_assembly": self.mpc_assembly,
             "ksp_type": self.ksp_type,
             "pc_type": self.pc_type,
             "rtol": self.rtol,
@@ -897,6 +901,12 @@ def prepare_mpc_linear_problem(
     petsc_options_prefix: str = "agentfem_mpc_linear_",
 ) -> PreparedMPCLinearProblem:
     """Prepare one exact-MPC operator for repeated right-hand sides."""
+
+    if options is not None and options.mpc_assembly == "algebraic":
+        from .backends._mpc_algebraic import PreparedAlgebraicMPCLinearProblem
+        return PreparedAlgebraicMPCLinearProblem(
+            bilinear_form, linear_form, solution, constraint, bcs=bcs,
+            options=options, petsc_options_prefix=petsc_options_prefix)
 
     return PreparedMPCLinearProblem(
         bilinear_form,
@@ -2773,3 +2783,5 @@ def attach_nullspace(matrix, modes, *, rhs=None):
     finally:
         for vector in basis:
             vector.destroy()
+
+from ._continuation import ArcLengthOptions, ArcLengthPath

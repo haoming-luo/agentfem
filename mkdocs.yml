@@ -132,6 +132,7 @@ nav:
       - guide/index.md
       - Core Analyses:
           - Solid Mechanics: guide/solid_mechanics.md
+          - Stability and Periodic Elasticity: guide/stability_and_periodic_elasticity.md
           - Heat Transfer: guide/heat_transfer.md
           - Transient Heat Example: guide/transient_heat_workflow.md
           - Dynamics and Waves: guide/dynamics.md

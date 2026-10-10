@@ -1528,3 +1528,63 @@ register_step_provider(
         ),
     )
 )
+
+
+def _accept_buckling(model, request):
+    return (_is_vector_target(request.target)
+            and getattr(model.study, "physics", None) == "solid_mechanics"
+            and _all_materials_support(model, request, _supports_elasticity))
+
+
+def _lower_buckling(model, request):
+    from .mechanics.buckling import lower_buckling
+    return lower_buckling(model, request)
+
+
+register_step_provider(StepProvider(
+    name="linear_solid_buckling", analyses=("linear_buckling",),
+    accepts=_accept_buckling, lower=_lower_buckling, priority=110,
+    description="Experimental conservative initial-stress solid buckling with an indefinite geometric pencil.",
+    procedure="standard/generalized_nonhermitian_eigenproblem",
+    option_contract=StepOptionContract(
+        accepted=("K", "F", "solver_options", "reference_displacement", "reference_name", "base_displacement", "base_name",
+                  "constraints", "modes", "tolerance", "maximum_iterations", "name", "output"),
+        required=("reference_displacement", "reference_name")),
+))
+
+
+def _accept_arc_length(model, request):
+    return getattr(request.procedure, "algorithm", None) == "spherical_arc_length"
+
+
+def _lower_arc_length(model, request):
+    from .mechanics.continuation import lower_arc_length
+
+    return lower_arc_length(model, request)
+
+
+register_step_provider(
+    StepProvider(
+        name="hyperelastic_spherical_arc_length",
+        analyses=("nonlinear_static",),
+        accepts=_accept_arc_length,
+        lower=_lower_arc_length,
+        priority=1000,
+        description="Serial sparse continuation adapter for conservative hyperelastic solids.",
+        procedure="standard/spherical_arc_length",
+        option_contract=StepOptionContract(
+            accepted=(
+                "K",
+                "F",
+                "solver_options",
+                "material",
+                "constraints",
+                "arc_options",
+                "increments",
+                "name",
+                "output",
+            ),
+            required=("increments",),
+        ),
+    )
+)

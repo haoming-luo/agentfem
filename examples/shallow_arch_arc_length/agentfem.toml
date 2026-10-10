@@ -1,0 +1,7 @@
+[project]
+name = "shallow_arch_arc_length"
+entrypoint = "case.py"
+schema_version = "0.2.0"
+
+[run]
+output_directory = "outputs"

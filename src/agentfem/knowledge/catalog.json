@@ -1262,6 +1262,48 @@
       "title": "Solver-neutral LEFM stress-intensity extraction"
     },
     {
+      "id": "agentfem.workflow.linear_periodic_elasticity",
+      "kind": "workflow",
+      "public_api": [
+        "agentfem.mechanics.periodic_elasticity",
+        "agentfem.mechanics.elastic_engineering_properties",
+        "agentfem.mechanics.apparent_poisson_ratio",
+        "agentfem.mesh.reentrant_honeycomb"
+      ],
+      "related_cards": [],
+      "source": "src/agentfem/knowledge/cards/linear_periodic_elasticity.json",
+      "status": "experimental",
+      "summary": "Independent engineering macrostrain cases recover directional effective stiffness and compliance from periodic fluctuations; porous stress and energy use full cell volume.",
+      "title": "Matching periodic linear elastic homogenization"
+    },
+    {
+      "id": "agentfem.workflow.linear_solid_buckling",
+      "kind": "analysis_step",
+      "public_api": [
+        "agentfem.studies.buckling_solid",
+        "agentfem.procedures.linear_buckling",
+        "agentfem.operators.geometric_stiffness"
+      ],
+      "related_cards": [],
+      "source": "src/agentfem/knowledge/cards/linear_solid_buckling.json",
+      "status": "experimental",
+      "summary": "Small-displacement elastic reference and fixed-base states define a linear buckling pencil; reference load factors are not postbuckling capacities.",
+      "title": "Conservative initial-stress solid buckling"
+    },
+    {
+      "id": "agentfem.workflow.mode_imperfect_displacement_path",
+      "kind": "workflow",
+      "public_api": [
+        "agentfem.mesh.apply_mode_imperfection",
+        "agentfem.mechanics.displacement_controlled_response"
+      ],
+      "related_cards": [],
+      "source": "src/agentfem/knowledge/cards/mode_imperfect_displacement_path.json",
+      "status": "experimental",
+      "summary": "Length-scaled mode transfer to stress-free geometry and accepted-state reaction curves; reuses existing nonlinear increment control.",
+      "title": "Mode imperfections and displacement-controlled hyperelastic response"
+    },
+    {
       "id": "agentfem.workflow.observation_grid_learning",
       "kind": "workflow",
       "public_api": [
@@ -1451,6 +1493,20 @@
       "status": "supported",
       "summary": "Owns how a declared Study is solved: static or transient advancement, linear modal extraction, and provider-neutral direct harmonic response. Constitutive materials own their response and history separately.",
       "title": "Solution procedure vocabulary"
+    },
+    {
+      "id": "agentfem.workflow.spherical_arc_length",
+      "kind": "workflow",
+      "public_api": [
+        "agentfem.solvers.ArcLengthOptions",
+        "agentfem.solvers.ArcLengthPath",
+        "agentfem.procedures.arc_length"
+      ],
+      "related_cards": [],
+      "source": "src/agentfem/knowledge/cards/spherical_arc_length.json",
+      "status": "experimental",
+      "summary": "Bordered sparse continuation solves for displacement and proportional load simultaneously, with accepted-state cutback.",
+      "title": "Physics-independent spherical continuation and serial hyperelastic adapter"
     },
     {
       "id": "agentfem.workflow.standard_result_projection",

@@ -53,6 +53,9 @@ the compact machine-readable `agentfem/knowledge/catalog.json`.
 | [`agentfem.workflow.dynamic_fracture_v5_evidence`](#agentfem-workflow-dynamic_fracture_v5_evidence) | Publication-data evidence for dynamic cohesive fracture | workflow | experimental |
 | [`agentfem.workflow.integration_point_recovery`](#agentfem-workflow-integration_point_recovery) | Traceable integration-point field recovery | workflow | supported |
 | [`agentfem.workflow.lefm_interaction_integral`](#agentfem-workflow-lefm_interaction_integral) | Solver-neutral LEFM stress-intensity extraction | workflow | experimental |
+| [`agentfem.workflow.linear_periodic_elasticity`](#agentfem-workflow-linear_periodic_elasticity) | Matching periodic linear elastic homogenization | workflow | experimental |
+| [`agentfem.workflow.linear_solid_buckling`](#agentfem-workflow-linear_solid_buckling) | Conservative initial-stress solid buckling | analysis_step | experimental |
+| [`agentfem.workflow.mode_imperfect_displacement_path`](#agentfem-workflow-mode_imperfect_displacement_path) | Mode imperfections and displacement-controlled hyperelastic response | workflow | experimental |
 | [`agentfem.workflow.observation_grid_learning`](#agentfem-workflow-observation_grid_learning) | Mesh-independent structured observation grids | workflow | supported |
 | [`agentfem.workflow.periodic_cell_homogenization`](#agentfem-workflow-periodic_cell_homogenization) | Finite-strain periodic-cell homogenization evidence | workflow | experimental |
 | [`agentfem.workflow.physical_field_statistics`](#agentfem-workflow-physical_field_statistics) | Physical-measure statistics for quadrature fields | workflow | supported |
@@ -62,6 +65,7 @@ the compact machine-readable `agentfem/knowledge/catalog.json`.
 | [`agentfem.workflow.scientific_verification`](#agentfem-workflow-scientific_verification) | Scientific trust and verification workflow | workflow | supported |
 | [`agentfem.workflow.simplex_mesh_quality`](#agentfem-workflow-simplex_mesh_quality) | Collective mesh-quality preflight | workflow | supported |
 | [`agentfem.workflow.solution_procedures`](#agentfem-workflow-solution_procedures) | Solution procedure vocabulary | analysis_step | supported |
+| [`agentfem.workflow.spherical_arc_length`](#agentfem-workflow-spherical_arc_length) | Physics-independent spherical continuation and serial hyperelastic adapter | workflow | experimental |
 | [`agentfem.workflow.standard_result_projection`](#agentfem-workflow-standard_result_projection) | Projected small-strain fields, reactions, and static equilibrium | workflow | supported |
 | [`agentfem.workflow.thermoelastic_analysis`](#agentfem-workflow-thermoelastic_analysis) | Sequential thermoelastic analysis | workflow | supported |
 | [`agentfem.workflow.transient_checkpoint_portability`](#agentfem-workflow-transient_checkpoint_portability) | Portable transient checkpoint state | workflow | supported |
@@ -4640,6 +4644,271 @@ evidence = benchmarks.center_crack_mode_i_benchmark(); assert evidence.status ==
 - An interaction energy integral method for computation of mixed-mode stress intensity factors along non-planar crack fronts in three dimensions: `https://doi.org/10.1016/S0013-7944(01)00080-7`
 - Interaction integral procedures for 3-D curved cracks including surface tractions: `https://doi.org/10.1016/j.engfracmech.2005.01.002`
 
+<a id="agentfem-workflow-linear_periodic_elasticity"></a>
+
+## Matching periodic linear elastic homogenization
+
+**Stable ID:** `agentfem.workflow.linear_periodic_elasticity`<br>
+**Kind:** `workflow`<br>
+**Status:** `experimental`<br>
+**Source card:** `src/agentfem/knowledge/cards/linear_periodic_elasticity.json`
+
+Independent engineering macrostrain cases recover directional effective stiffness and compliance from periodic fluctuations; porous stress and energy use full cell volume.
+
+### Public API
+
+- `agentfem.mechanics.periodic_elasticity`
+- `agentfem.mechanics.elastic_engineering_properties`
+- `agentfem.mechanics.apparent_poisson_ratio`
+- `agentfem.mesh.reentrant_honeycomb`
+
+### Scientific contract
+
+Independent engineering macrostrain cases recover directional effective stiffness and compliance from periodic fluctuations; porous stress and energy use full cell volume.
+
+**Matching periodic linear elastic homogenization**
+
+$$
+\mathbf u=\bar{\boldsymbol\varepsilon}\mathbf x+\mathbf w,\quad C^{\mathrm{eff}}_{ij}=\langle\sigma_i^{(j)}\rangle/a,\quad\nu_{ij}=-S_{ji}/S_{ii}
+$$
+
+Independent engineering macrostrain cases recover directional effective stiffness and compliance from periodic fluctuations; porous stress and energy use full cell volume.
+
+#### Inputs
+
+| Name | Type | Unit role | Meaning |
+| --- | --- | --- | --- |
+| registered elastic cell model | FEniCSx fields and material/constraint objects | consistent mechanical units | Caller declares material, geometry and reference-state or cell-loading semantics. |
+
+#### Outputs
+
+| Name | Type | Unit role | Meaning |
+| --- | --- | --- | --- |
+| effective stiffness and directional properties | SimulationResult | dimensionless factors or mechanical moduli | Computed numerical evidence; independent physical validation remains a separate claim. |
+
+#### Assumptions
+
+- Axis-aligned rectangular 2D/3D matching-node cells; one translational anchor on solid material and no external loads.
+- Linear elasticity only, with engineering shear strain and tensor shear stress in xx,yy,xy or xx,yy,zz,yz,xz,xy order.
+
+#### Conventions
+
+- Engineering strain Voigt order xx,yy,xy or xx,yy,zz,yz,xz,xy; tensor shear stress; full rectangular cell volume.
+
+#### Applicability
+
+- Matching periodic linear elastic homogenization
+
+#### Limitations
+
+- Axis-aligned rectangular 2D/3D matching-node cells; one translational anchor on solid material and no external loads.
+- Linear elasticity only, with engineering shear strain and tensor shear stress in xx,yy,xy or xx,yy,zz,yz,xz,xy order.
+- The algebraic periodic route replicates constraint/root numbering; it is not an extreme-scale graph construction claim. Native MPC remains the default outside this workflow.
+- Finite-array gauge Poisson ratio is a specimen property, not an infinite-cell material constant. Connected specimens remove detached fragments created by rectangular clipping.
+- No nonmatching-cell interpolation, oblique cell lattice, finite-strain secant/incremental Poisson ratio or wall contact.
+
+### Minimal example
+
+```python
+mechanics.periodic_elasticity(model, w, anchor=(0.,0.))
+```
+
+### Verification
+
+**Tests**
+
+- `tests/test_stability_periodic.py`
+
+**Benchmarks**
+
+- None declared.
+
+**Validation rules**
+
+- Recover analytical column or homogeneous-cell references.
+- Check scaling, geometry/mesh sensitivity and independent conservation evidence.
+- Keep finite specimens distinct from periodic effective materials.
+
+### References
+
+- FEniCSx periodic elasticity: `https://bleyerj.github.io/comet-fenicsx/tours/homogenization/periodic_elasticity/periodic_elasticity.html`
+- COMSOL homogenization: `https://www.comsol.com/support/learning-center/article/Homogenization-of-Material-Properties-80311`
+
+<a id="agentfem-workflow-linear_solid_buckling"></a>
+
+## Conservative initial-stress solid buckling
+
+**Stable ID:** `agentfem.workflow.linear_solid_buckling`<br>
+**Kind:** `analysis_step`<br>
+**Status:** `experimental`<br>
+**Source card:** `src/agentfem/knowledge/cards/linear_solid_buckling.json`
+
+Small-displacement elastic reference and fixed-base states define a linear buckling pencil; reference load factors are not postbuckling capacities.
+
+### Public API
+
+- `agentfem.studies.buckling_solid`
+- `agentfem.procedures.linear_buckling`
+- `agentfem.operators.geometric_stiffness`
+
+### Scientific contract
+
+Small-displacement elastic reference and fixed-base states define a linear buckling pencil; reference load factors are not postbuckling capacities.
+
+**Conservative initial-stress solid buckling**
+
+$$
+(\mathbf K+\mathbf K_G(\mathbf u_b)+\lambda\mathbf K_G(\mathbf u_r))\boldsymbol\phi=\mathbf0
+$$
+
+Small-displacement elastic reference and fixed-base states define a linear buckling pencil; reference load factors are not postbuckling capacities.
+
+#### Inputs
+
+| Name | Type | Unit role | Meaning |
+| --- | --- | --- | --- |
+| equilibrium reference fields | FEniCSx fields and material/constraint objects | consistent mechanical units | Caller declares material, geometry and reference-state or cell-loading semantics. |
+
+#### Outputs
+
+| Name | Type | Unit role | Meaning |
+| --- | --- | --- | --- |
+| load factors and relative modes | SimulationResult | dimensionless factors or mechanical moduli | Computed numerical evidence; independent physical validation remains a separate claim. |
+
+#### Assumptions
+
+- Only 2D plane stress/strain and 3D solids with homogeneous strong perturbation constraints and conservative loading.
+- Reference/base fields must be equilibrated on the same mesh with the same material assignments; the provider snapshots their displacement fields but does not certify their originating load equilibrium.
+
+#### Conventions
+
+- Tension-positive stress; conservative dead reference loads; positive real load factors; maximum absolute mode component one.
+
+#### Applicability
+
+- Conservative initial-stress solid buckling
+
+#### Limitations
+
+- Only 2D plane stress/strain and 3D solids with homogeneous strong perturbation constraints and conservative loading.
+- Reference/base fields must be equilibrated on the same mesh with the same material assignments; the provider snapshots their displacement fields but does not certify their originating load equilibrium.
+- No follower-load stiffness, contact, plasticity, shell/beam, MPC eigenproblem, geometry imperfections or general postbuckling continuation.
+- A stable nonsingular elastic base is required; this initial-stress approximation does not update base geometry. Repeated modes may rotate within their eigenspace.
+- The near-zero search filters positive real factors; insufficient accepted factors raise instead of returning a partial requested spectrum.
+
+### Minimal example
+
+```python
+model.step(target=u, reference_displacement=u0, reference_name="unit compression", modes=3).solve_result()
+```
+
+### Verification
+
+**Tests**
+
+- `tests/test_stability_periodic.py`
+
+**Benchmarks**
+
+- None declared.
+
+**Validation rules**
+
+- Recover analytical column or homogeneous-cell references.
+- Check scaling, geometry/mesh sensitivity and independent conservation evidence.
+- Keep finite specimens distinct from periodic effective materials.
+
+### References
+
+- FEniCSx solid buckling: `https://bleyerj.github.io/comet-fenicsx/tours/eigenvalue_problems/buckling_3d_solid/buckling_3d_solid.html`
+- SLEPc EPS problem types: `https://slepc.upv.es/release/documentation/manual/eps.html`
+
+<a id="agentfem-workflow-mode_imperfect_displacement_path"></a>
+
+## Mode imperfections and displacement-controlled hyperelastic response
+
+**Stable ID:** `agentfem.workflow.mode_imperfect_displacement_path`<br>
+**Kind:** `workflow`<br>
+**Status:** `experimental`<br>
+**Source card:** `src/agentfem/knowledge/cards/mode_imperfect_displacement_path.json`
+
+Length-scaled mode transfer to stress-free geometry and accepted-state reaction curves; reuses existing nonlinear increment control.
+
+### Public API
+
+- `agentfem.mesh.apply_mode_imperfection`
+- `agentfem.mechanics.displacement_controlled_response`
+
+### Scientific contract
+
+Length-scaled mode transfer to stress-free geometry and accepted-state reaction curves; reuses existing nonlinear increment control.
+
+**Mode-shaped reference geometry**
+
+$$
+\mathbf X_{\mathrm{imp}}=\mathbf X+\sum_i a_i\boldsymbol\phi_i/\max_j\|\boldsymbol\phi_i(\mathbf X_j)\|
+$$
+
+Signed length amplitudes a_i multiply modes normalized at geometry nodes; j ranges over those nodes.
+
+#### Inputs
+
+| Name | Type | Unit role | Meaning |
+| --- | --- | --- | --- |
+| modes and amplitudes | mesh fields and scalars | length amplitudes | Modes on the same mesh; zero modes rejected. |
+
+#### Outputs
+
+| Name | Type | Unit role | Meaning |
+| --- | --- | --- | --- |
+| geometry receipt and accepted path arrays | GeometryImperfection and dictionary | displacement and force | Original coordinates retained; failed quality checks roll back. |
+
+#### Assumptions
+
+- Linear coordinate geometry; full-dimensional 2D/3D solids.
+- Response extraction requires a single hyperelastic material, ordinary strong boundary conditions and no external body/traction loads.
+
+#### Conventions
+
+- Each mode normalized by global maximum nodal vector norm; reference geometry is stress-free.
+- Signed reactions and boundary-averaged displacements from accepted snapshots.
+
+#### Applicability
+
+- Mode-imperfect displacement-controlled columns and solids.
+
+#### Limitations
+
+- No general arc length, snap-back, contact or elastoplastic path claim.
+- Rebuild nonlinear operators after geometry changes; preserve moving boundaries with facet tags.
+
+### Minimal example
+
+```python
+receipt = mesh.apply_mode_imperfection(domain, [mode], amplitudes=[0.02])
+```
+
+### Verification
+
+**Tests**
+
+- `tests/test_mode_imperfection.py`
+- `tests/test_constitutive_models.py`
+
+**Benchmarks**
+
+- None declared.
+
+**Validation rules**
+
+- Amplitude and restore checks on four cell topologies.
+- Geometry inversion rejection and rollback.
+- Defect-amplitude, mesh and increment sensitivity of guided column.
+
+### References
+
+- Abaqus eigenvalue buckling and imperfection-sensitive structures: `https://docs.software.vt.edu/abaqusv2025/English/SIMACAEANLRefMap/simaanl-c-eigenbuckling.htm`
+
 <a id="agentfem-workflow-observation_grid_learning"></a>
 
 ## Mesh-independent structured observation grids
@@ -5699,6 +5968,93 @@ modal = model.step(target=u, modes=6).solve_result(); harmonic = model.step(targ
 - Chung and Hulbert generalized-alpha method: `https://deepblue.lib.umich.edu/bitstream/handle/2027.42/50422/1640100803_ftp.pdf?isAllowed=y&sequence=1`
 - NAFEMS R0016 Selected Benchmarks for Forced Vibration: `https://www.nafems.org/publications/resource_center/r0016/`
 - Abaqus Benchmarks Guide: NAFEMS Test 5H forced vibration of a simply supported beam: `https://docs.software.vt.edu/abaqusv2025/English/SIMACAEBMKRefMap/simabmk-c-forcedvibrationtest5h.htm`
+
+<a id="agentfem-workflow-spherical_arc_length"></a>
+
+## Physics-independent spherical continuation and serial hyperelastic adapter
+
+**Stable ID:** `agentfem.workflow.spherical_arc_length`<br>
+**Kind:** `workflow`<br>
+**Status:** `experimental`<br>
+**Source card:** `src/agentfem/knowledge/cards/spherical_arc_length.json`
+
+Bordered sparse continuation solves for displacement and proportional load simultaneously, with accepted-state cutback.
+
+### Public API
+
+- `agentfem.solvers.ArcLengthOptions`
+- `agentfem.solvers.ArcLengthPath`
+- `agentfem.procedures.arc_length`
+
+### Scientific contract
+
+Bordered sparse continuation solves for displacement and proportional load simultaneously, with accepted-state cutback.
+
+**Equilibrium and scaled arc constraint**
+
+$$
+\mathbf f_{\mathrm{int}}(\mathbf u)-\mathbf f_0-\lambda\mathbf f_{\mathrm{ref}}=0,\quad \Delta\mathbf u^T\mathbf W\Delta\mathbf u+(\Delta\lambda/\lambda_*)^2=\Delta s^2
+$$
+
+u are free unknowns, lambda is reference-load factor, f0 is fixed load, W is the RMS displacement metric, lambda* is load scale, and delta-s is the arc increment.
+
+#### Inputs
+
+| Name | Type | Unit role | Meaning |
+| --- | --- | --- | --- |
+| stateless force and tangent, load vectors, scales | callbacks, arrays and ArcLengthOptions | consistent force/displacement; dimensionless arc increment | Initial equilibrium must satisfy the supplied force balance. |
+
+#### Outputs
+
+| Name | Type | Unit role | Meaning |
+| --- | --- | --- | --- |
+| accepted equilibrium path | history arrays; SimulationResult through FEM adapter | displacement, force factor and relative residuals | Accepted states survive failed trials. |
+
+#### Assumptions
+
+- Conservative proportional loads; pure internal-force/tangent callback.
+- Serial sparse FE adapter, displacement hyperelasticity and homogeneous strong supports.
+
+#### Conventions
+
+- RMS displacement metric and independently declared load scale.
+- Static path parameter is not time; negative load increments may be valid.
+
+#### Applicability
+
+- Smooth equilibrium paths including upper/lower load limit points.
+
+#### Limitations
+
+- No irreversible material transactions or automatic bifurcation branch switching.
+- No MPI FE adapter, follower loads, contact, MPC or nonzero prescribed-displacement paths.
+- Continuum arch evidence is internal refinement, not external solver validation.
+
+### Minimal example
+
+```python
+model.step(target=u, procedure=procedures.arc_length(), increments=80, arc_options=solvers.ArcLengthOptions()).solve_result()
+```
+
+### Verification
+
+**Tests**
+
+- `tests/test_arc_length.py`
+
+**Benchmarks**
+
+- None declared.
+
+**Validation rules**
+
+- Analytical two-bar arch and 2D/3D hyperelastic patches.
+- Continuum arch limit points and mesh/step refinement.
+- Failure cutback, initial equilibrium and supported-scope rejection.
+
+### References
+
+- Abaqus unstable collapse and postbuckling analysis: `https://docs.software.vt.edu/abaqusv2025/English/SIMACAEANLRefMap/simaanl-c-postbuckling.htm`
 
 <a id="agentfem-workflow-standard_result_projection"></a>
 

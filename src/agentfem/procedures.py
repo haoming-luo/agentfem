@@ -19,6 +19,7 @@ _ORDERS = {"static", "first_order", "second_order"}
 _CONTROL = {
     "single_solve",
     "load_increments",
+    "arc_length_increments",
     "time_increments",
     "cycle_increments",
     "frequency_points",
@@ -93,6 +94,13 @@ def linear_static() -> SolutionProcedure:
     )
 
 
+
+def linear_buckling() -> SolutionProcedure:
+    """Generalized pencil with potentially indefinite geometric stiffness."""
+    return SolutionProcedure(name="linear buckling", family="standard", equation_order="static",
+                             control="single_solve", algorithm="generalized_nonhermitian_eigenproblem")
+
+
 def modal() -> SolutionProcedure:
     """Undamped linear modes from ``K phi = lambda M phi``."""
 
@@ -102,6 +110,18 @@ def modal() -> SolutionProcedure:
         equation_order="static",
         control="single_solve",
         algorithm="generalized_hermitian_eigenproblem",
+    )
+
+
+def arc_length() -> SolutionProcedure:
+    """Spherical continuation with load factor as an additional unknown."""
+    return SolutionProcedure(
+        name="spherical arc length",
+        family="standard",
+        equation_order="static",
+        control="arc_length_increments",
+        algorithm="spherical_arc_length",
+        nonlinear=True,
     )
 
 
@@ -282,6 +302,8 @@ def for_step(*, analysis: str, method: str | None = None, stateful: bool = False
     selected_method = _normalize(method or "")
     if selected_analysis == "linear_static":
         return linear_static()
+    if selected_analysis == "linear_buckling":
+        return linear_buckling()
     if selected_analysis == "modal":
         return modal()
     if selected_analysis == "frequency_domain":
@@ -293,6 +315,8 @@ def for_step(*, analysis: str, method: str | None = None, stateful: bool = False
             return direct_harmonic_sweep()
         return direct_harmonic()
     if selected_analysis == "nonlinear_static":
+        if selected_method in ("arc_length", "spherical_arc_length"):
+            return arc_length()
         return nonlinear_static(stateful=stateful)
     if selected_analysis == "first_order_transient":
         if selected_method == "staggered_implicit_euler":
@@ -372,7 +396,7 @@ def _validate_method_name(analysis: str, method: str | None) -> None:
             "linear_static",
             "direct_or_iterative_linear",
         },
-        "nonlinear_static": {"newton", "nonlinear_static"},
+        "nonlinear_static": {"newton", "nonlinear_static", "arc_length", "spherical_arc_length"},
         "first_order_transient": {
             "staggered_implicit_euler",
             "implicit_euler",
@@ -394,6 +418,7 @@ def _validate_method_name(analysis: str, method: str | None) -> None:
             "central_difference",
         },
         "explicit_dynamics": {"explicit", "central_difference"},
+        "linear_buckling": {"linear_buckling", "generalized_nonhermitian_eigenproblem"},
         "modal": {
             "modal",
             "eigenvalue",
@@ -428,6 +453,7 @@ def _validate_for_analysis(
         "second_order_dynamics": "second_order",
         "explicit_dynamics": "second_order",
         "modal": "static",
+        "linear_buckling": "static",
         "frequency_domain": "second_order",
     }.get(analysis)
     if expected_order is None:
@@ -450,7 +476,7 @@ def _validate_for_analysis(
         )
     if analysis == "linear_static" and procedure.nonlinear:
         raise ValueError("A linear-static Study cannot use a nonlinear procedure.")
-    if analysis == "modal" and procedure.nonlinear:
+    if analysis in {"modal", "linear_buckling"} and procedure.nonlinear:
         raise ValueError("A modal Study cannot use a nonlinear procedure.")
     if analysis == "frequency_domain" and procedure.nonlinear:
         raise ValueError("A frequency-domain Study cannot use a nonlinear procedure.")
@@ -469,6 +495,7 @@ def _normalize(value: str) -> str:
 
 
 __all__ = [
+    "arc_length",
     "SolutionProcedure",
     "central_difference",
     "cyclic_fatigue",
