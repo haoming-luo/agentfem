@@ -19,6 +19,7 @@ _ORDERS = {"static", "first_order", "second_order"}
 _CONTROL = {
     "single_solve",
     "load_increments",
+    "arc_length_increments",
     "time_increments",
     "cycle_increments",
     "frequency_points",
@@ -109,6 +110,18 @@ def modal() -> SolutionProcedure:
         equation_order="static",
         control="single_solve",
         algorithm="generalized_hermitian_eigenproblem",
+    )
+
+
+def arc_length() -> SolutionProcedure:
+    """Spherical continuation with load factor as an additional unknown."""
+    return SolutionProcedure(
+        name="spherical arc length",
+        family="standard",
+        equation_order="static",
+        control="arc_length_increments",
+        algorithm="spherical_arc_length",
+        nonlinear=True,
     )
 
 
@@ -302,6 +315,8 @@ def for_step(*, analysis: str, method: str | None = None, stateful: bool = False
             return direct_harmonic_sweep()
         return direct_harmonic()
     if selected_analysis == "nonlinear_static":
+        if selected_method in ("arc_length", "spherical_arc_length"):
+            return arc_length()
         return nonlinear_static(stateful=stateful)
     if selected_analysis == "first_order_transient":
         if selected_method == "staggered_implicit_euler":
@@ -381,7 +396,7 @@ def _validate_method_name(analysis: str, method: str | None) -> None:
             "linear_static",
             "direct_or_iterative_linear",
         },
-        "nonlinear_static": {"newton", "nonlinear_static"},
+        "nonlinear_static": {"newton", "nonlinear_static", "arc_length", "spherical_arc_length"},
         "first_order_transient": {
             "staggered_implicit_euler",
             "implicit_euler",
@@ -406,7 +421,6 @@ def _validate_method_name(analysis: str, method: str | None) -> None:
         "linear_buckling": {"linear_buckling", "generalized_nonhermitian_eigenproblem"},
         "modal": {
             "modal",
-    "linear_buckling",
             "eigenvalue",
             "generalized_hermitian_eigenproblem",
         },
@@ -481,6 +495,7 @@ def _normalize(value: str) -> str:
 
 
 __all__ = [
+    "arc_length",
     "SolutionProcedure",
     "central_difference",
     "cyclic_fatigue",

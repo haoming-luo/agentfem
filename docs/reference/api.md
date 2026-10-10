@@ -1280,6 +1280,7 @@ and evidence remain in the linked guides and scientific function reference.
 | function | `linear_static() -> SolutionProcedure` | Public AgentFEM object. |
 | function | `linear_buckling() -> SolutionProcedure` | Generalized pencil with potentially indefinite geometric stiffness. |
 | function | `modal() -> SolutionProcedure` | Undamped linear modes from ``K phi = lambda M phi``. |
+| function | `arc_length() -> SolutionProcedure` | Spherical continuation with load factor as an additional unknown. |
 | function | `nonlinear_static(*, stateful: bool = False) -> SolutionProcedure` | Public AgentFEM object. |
 | function | `implicit_euler(*, nonlinear: bool = False, stateful: bool = True) -> SolutionProcedure` | Public AgentFEM object. |
 | function | `staggered_implicit_euler() -> SolutionProcedure` | Backward Euler advanced through converged participant iterations. |

@@ -91,5 +91,39 @@ The perturbed reference configuration is stress-free, and amplitudes have length
 units. Existing boundary coordinates move: preserve boundary facet tags with
 `tagged_boundary_region` rather than reusing old geometric selectors.
 
-General arc length, snap-back traversal, plasticity and contact stability remain
-future work. Internal refinement is not an external postbuckling validation.
+The displacement-control increment does not itself supply arc length. The
+subsequent bounded continuation increment is documented below. Plasticity and
+contact stability remain future work; internal refinement is not external validation.
+
+
+## Additional increment: reusable spherical continuation
+
+`solvers.ArcLengthPath` is independent of materials and finite-element assembly.
+It consumes pure internal-force/tangent callbacks, a reference force and an
+optional fixed force. A bordered sparse Newton solve enforces equilibrium and
+the scaled arc constraint; orientation follows the previous accepted increment.
+Failed correctors cut back without changing the accepted state.
+
+`procedures.arc_length()` routes ordinary `model.step` to the first serial
+hyperelastic adapter. No MPI gathering, contact, plasticity, history-dependent
+material support or automatic bifurcation switching is implied. The older
+cohesive-specific continuation is unchanged.
+
+- Analytical two-bar arch: maximum force discrepancy about 1.02e-12, with load
+  reversal and both turning points traversed.
+- 2D/3D uniform hyperelastic patches agree with analytical nominal stress.
+- Clamped continuum arch: upper and lower load limit points traversed. Comparing
+  nx=32/arc=0.04 with nx=64/arc=0.02 at common crown displacements gives a
+  normalized maximum curve difference of about 1.20% over [0.02,0.32]. This is
+  an internal mesh/step comparison, not a commercial-solver comparison.
+- Failed trial rollback, fixed-load equilibrium, force-unit rescaling, unsupported
+  boundary/solver options and explicit distributed-adapter rejection are tested.
+- Run `PYTHONPATH=src python tests/arc_length_evidence_driver.py` to reproduce
+  `arc_length.json` and the figure. Run the standard project in
+  `examples/shallow_arch_arc_length` for CSV and ParaView output.
+
+Validation after the continuation increment: 165 tests passed, with the
+multi-rank-only rejection test skipped in serial. Under two ranks the arc-length
+test file reports 7 passed and 1 intentional skip (the serial continuum arch).
+Ruff, REUSE, generated documentation and all 55 scientific cards/imports pass.
+These are local checks; hosted PR CI has not been represented as completed.

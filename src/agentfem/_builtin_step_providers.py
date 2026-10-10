@@ -1551,3 +1551,40 @@ register_step_provider(StepProvider(
                   "constraints", "modes", "tolerance", "maximum_iterations", "name", "output"),
         required=("reference_displacement", "reference_name")),
 ))
+
+
+def _accept_arc_length(model, request):
+    return getattr(request.procedure, "algorithm", None) == "spherical_arc_length"
+
+
+def _lower_arc_length(model, request):
+    from .mechanics.continuation import lower_arc_length
+
+    return lower_arc_length(model, request)
+
+
+register_step_provider(
+    StepProvider(
+        name="hyperelastic_spherical_arc_length",
+        analyses=("nonlinear_static",),
+        accepts=_accept_arc_length,
+        lower=_lower_arc_length,
+        priority=1000,
+        description="Serial sparse continuation adapter for conservative hyperelastic solids.",
+        procedure="standard/spherical_arc_length",
+        option_contract=StepOptionContract(
+            accepted=(
+                "K",
+                "F",
+                "solver_options",
+                "material",
+                "constraints",
+                "arc_options",
+                "increments",
+                "name",
+                "output",
+            ),
+            required=("increments",),
+        ),
+    )
+)

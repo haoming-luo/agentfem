@@ -1,0 +1,84 @@
+{
+  "schema": "agentfem.scientific-function-card",
+  "schema_version": "0.1.0",
+  "id": "agentfem.workflow.spherical_arc_length",
+  "title": "Physics-independent spherical continuation and serial hyperelastic adapter",
+  "kind": "workflow",
+  "status": "experimental",
+  "summary": "Bordered sparse continuation solves for displacement and proportional load simultaneously, with accepted-state cutback.",
+  "public_api": [
+    "agentfem.solvers.ArcLengthOptions",
+    "agentfem.solvers.ArcLengthPath",
+    "agentfem.procedures.arc_length"
+  ],
+  "implementation": [
+    "_continuation.py",
+    "mechanics/continuation.py"
+  ],
+  "science": {
+    "statement": "Bordered sparse continuation solves for displacement and proportional load simultaneously, with accepted-state cutback.",
+    "equations": [
+      {
+        "label": "Equilibrium and scaled arc constraint",
+        "expression": "\\mathbf f_{\\mathrm{int}}(\\mathbf u)-\\mathbf f_0-\\lambda\\mathbf f_{\\mathrm{ref}}=0,\\quad \\Delta\\mathbf u^T\\mathbf W\\Delta\\mathbf u+(\\Delta\\lambda/\\lambda_*)^2=\\Delta s^2",
+        "description": "u are free unknowns, lambda is reference-load factor, f0 is fixed load, W is the RMS displacement metric, lambda* is load scale, and delta-s is the arc increment."
+      }
+    ],
+    "inputs": [
+      {
+        "name": "stateless force and tangent, load vectors, scales",
+        "type": "callbacks, arrays and ArcLengthOptions",
+        "unit_role": "consistent force/displacement; dimensionless arc increment",
+        "description": "Initial equilibrium must satisfy the supplied force balance."
+      }
+    ],
+    "outputs": [
+      {
+        "name": "accepted equilibrium path",
+        "type": "history arrays; SimulationResult through FEM adapter",
+        "unit_role": "displacement, force factor and relative residuals",
+        "description": "Accepted states survive failed trials."
+      }
+    ],
+    "assumptions": [
+      "Conservative proportional loads; pure internal-force/tangent callback.",
+      "Serial sparse FE adapter, displacement hyperelasticity and homogeneous strong supports."
+    ],
+    "conventions": [
+      "RMS displacement metric and independently declared load scale.",
+      "Static path parameter is not time; negative load increments may be valid."
+    ],
+    "applicability": [
+      "Smooth equilibrium paths including upper/lower load limit points."
+    ],
+    "limitations": [
+      "No irreversible material transactions or automatic bifurcation branch switching.",
+      "No MPI FE adapter, follower loads, contact, MPC or nonzero prescribed-displacement paths.",
+      "Continuum arch evidence is internal refinement, not external solver validation."
+    ]
+  },
+  "usage": {
+    "minimal_example": "model.step(target=u, procedure=procedures.arc_length(), increments=80, arc_options=solvers.ArcLengthOptions()).solve_result()",
+    "examples": [
+      "examples/shallow_arch_arc_length/case.py"
+    ]
+  },
+  "verification": {
+    "tests": [
+      "tests/test_arc_length.py"
+    ],
+    "benchmarks": [],
+    "validation_rules": [
+      "Analytical two-bar arch and 2D/3D hyperelastic patches.",
+      "Continuum arch limit points and mesh/step refinement.",
+      "Failure cutback, initial equilibrium and supported-scope rejection."
+    ]
+  },
+  "references": [
+    {
+      "title": "Abaqus unstable collapse and postbuckling analysis",
+      "locator": "https://docs.software.vt.edu/abaqusv2025/English/SIMACAEANLRefMap/simaanl-c-postbuckling.htm"
+    }
+  ],
+  "related_cards": []
+}

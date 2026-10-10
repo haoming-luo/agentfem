@@ -2783,3 +2783,5 @@ def attach_nullspace(matrix, modes, *, rhs=None):
     finally:
         for vector in basis:
             vector.destroy()
+
+from ._continuation import ArcLengthOptions, ArcLengthPath

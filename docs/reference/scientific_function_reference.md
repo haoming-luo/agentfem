@@ -65,6 +65,7 @@ the compact machine-readable `agentfem/knowledge/catalog.json`.
 | [`agentfem.workflow.scientific_verification`](#agentfem-workflow-scientific_verification) | Scientific trust and verification workflow | workflow | supported |
 | [`agentfem.workflow.simplex_mesh_quality`](#agentfem-workflow-simplex_mesh_quality) | Collective mesh-quality preflight | workflow | supported |
 | [`agentfem.workflow.solution_procedures`](#agentfem-workflow-solution_procedures) | Solution procedure vocabulary | analysis_step | supported |
+| [`agentfem.workflow.spherical_arc_length`](#agentfem-workflow-spherical_arc_length) | Physics-independent spherical continuation and serial hyperelastic adapter | workflow | experimental |
 | [`agentfem.workflow.standard_result_projection`](#agentfem-workflow-standard_result_projection) | Projected small-strain fields, reactions, and static equilibrium | workflow | supported |
 | [`agentfem.workflow.thermoelastic_analysis`](#agentfem-workflow-thermoelastic_analysis) | Sequential thermoelastic analysis | workflow | supported |
 | [`agentfem.workflow.transient_checkpoint_portability`](#agentfem-workflow-transient_checkpoint_portability) | Portable transient checkpoint state | workflow | supported |
@@ -5967,6 +5968,93 @@ modal = model.step(target=u, modes=6).solve_result(); harmonic = model.step(targ
 - Chung and Hulbert generalized-alpha method: `https://deepblue.lib.umich.edu/bitstream/handle/2027.42/50422/1640100803_ftp.pdf?isAllowed=y&sequence=1`
 - NAFEMS R0016 Selected Benchmarks for Forced Vibration: `https://www.nafems.org/publications/resource_center/r0016/`
 - Abaqus Benchmarks Guide: NAFEMS Test 5H forced vibration of a simply supported beam: `https://docs.software.vt.edu/abaqusv2025/English/SIMACAEBMKRefMap/simabmk-c-forcedvibrationtest5h.htm`
+
+<a id="agentfem-workflow-spherical_arc_length"></a>
+
+## Physics-independent spherical continuation and serial hyperelastic adapter
+
+**Stable ID:** `agentfem.workflow.spherical_arc_length`<br>
+**Kind:** `workflow`<br>
+**Status:** `experimental`<br>
+**Source card:** `src/agentfem/knowledge/cards/spherical_arc_length.json`
+
+Bordered sparse continuation solves for displacement and proportional load simultaneously, with accepted-state cutback.
+
+### Public API
+
+- `agentfem.solvers.ArcLengthOptions`
+- `agentfem.solvers.ArcLengthPath`
+- `agentfem.procedures.arc_length`
+
+### Scientific contract
+
+Bordered sparse continuation solves for displacement and proportional load simultaneously, with accepted-state cutback.
+
+**Equilibrium and scaled arc constraint**
+
+$$
+\mathbf f_{\mathrm{int}}(\mathbf u)-\mathbf f_0-\lambda\mathbf f_{\mathrm{ref}}=0,\quad \Delta\mathbf u^T\mathbf W\Delta\mathbf u+(\Delta\lambda/\lambda_*)^2=\Delta s^2
+$$
+
+u are free unknowns, lambda is reference-load factor, f0 is fixed load, W is the RMS displacement metric, lambda* is load scale, and delta-s is the arc increment.
+
+#### Inputs
+
+| Name | Type | Unit role | Meaning |
+| --- | --- | --- | --- |
+| stateless force and tangent, load vectors, scales | callbacks, arrays and ArcLengthOptions | consistent force/displacement; dimensionless arc increment | Initial equilibrium must satisfy the supplied force balance. |
+
+#### Outputs
+
+| Name | Type | Unit role | Meaning |
+| --- | --- | --- | --- |
+| accepted equilibrium path | history arrays; SimulationResult through FEM adapter | displacement, force factor and relative residuals | Accepted states survive failed trials. |
+
+#### Assumptions
+
+- Conservative proportional loads; pure internal-force/tangent callback.
+- Serial sparse FE adapter, displacement hyperelasticity and homogeneous strong supports.
+
+#### Conventions
+
+- RMS displacement metric and independently declared load scale.
+- Static path parameter is not time; negative load increments may be valid.
+
+#### Applicability
+
+- Smooth equilibrium paths including upper/lower load limit points.
+
+#### Limitations
+
+- No irreversible material transactions or automatic bifurcation branch switching.
+- No MPI FE adapter, follower loads, contact, MPC or nonzero prescribed-displacement paths.
+- Continuum arch evidence is internal refinement, not external solver validation.
+
+### Minimal example
+
+```python
+model.step(target=u, procedure=procedures.arc_length(), increments=80, arc_options=solvers.ArcLengthOptions()).solve_result()
+```
+
+### Verification
+
+**Tests**
+
+- `tests/test_arc_length.py`
+
+**Benchmarks**
+
+- None declared.
+
+**Validation rules**
+
+- Analytical two-bar arch and 2D/3D hyperelastic patches.
+- Continuum arch limit points and mesh/step refinement.
+- Failure cutback, initial equilibrium and supported-scope rejection.
+
+### References
+
+- Abaqus unstable collapse and postbuckling analysis: `https://docs.software.vt.edu/abaqusv2025/English/SIMACAEANLRefMap/simaanl-c-postbuckling.htm`
 
 <a id="agentfem-workflow-standard_result_projection"></a>
 
