@@ -19,6 +19,19 @@ or a successful run is not by itself a validated engineering capability.
 
 ## Current product phase: the 0.4 foundation
 
+### Corotational history-material gate (2026-10-10)
+
+The source-material review now has a compiled local reference and an independent
+private batch implementation. General polar-frame kinematics are implemented
+as a private core candidate, with objective stress transport and independent
+noncoaxial integration checks. This does not admit that material to finite-Hex
+`model.step`: its work-only energy output and response-only stability need
+explicit contracts, followed by single-element/global lifecycle verification.
+Multiple curved tools, imported-interface geometry, viscosity/mass scaling and
+commercial reference comparison remain open. The ordered nine-gate plan is
+[corotational material development](corotational_material_development.md).
+Keep confidential source equations and parameters in external project providers.
+
 ### User-driven mesh/interface slice (2026-10-09)
 
 2026-10-10 continuation: the bounded finite Hex8 route now has ordinary-Step
