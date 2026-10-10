@@ -127,7 +127,7 @@ finite-strain J2 batch protocol separately supplies Cauchy stress converted as
 with fixed-old-state force differences. Plastic stored energy is **not** treated
 as an incremental potential or a complete dissipation balance.
 
-The private serial DOLFINx bridge now reuses `MaterialQuadratureResponse` at one
+The private DOLFINx bridge now reuses `MaterialQuadratureResponse` at one
 material point per cell, with fixed committed history during trial evaluations.
 Downstream element/scatter failures discard trial state and restore scratch
 stress/tangent fields. The caller, not the element, commits accepted material
@@ -175,7 +175,7 @@ demonstrates that an isochoric J2 patch can have negative material curvature
 while its assembled, constrained free-DOF matrix is positive definite. Thus a
 local curvature finding is not reported as a structural instability verdict.
 
-The private serial residual lifecycle now runs under the existing central-
+The private residual lifecycle now runs under the existing central-
 difference Procedure with joint nodal/material rejection, accepted-time guards,
 and same-partition checkpoint recovery. Tests inject failure even after material
 commit and reproduce the uninterrupted trajectory after retry. A serial user
@@ -408,7 +408,7 @@ equivalence to imported commercial reduced-integration elements is assumed.
 
 ### Accepted finite-explicit energy and signed-curvature policy (private)
 
-The serial finite route now reuses `DynamicEnergyLedger` with cached accepted
+The finite route now reuses `DynamicEnergyLedger` with cached accepted
 force and material energy. Initial energy is declared explicitly by the material
 (the native logarithmic J2 law supplies a virgin response); no artificial time
 increment is used to obtain an initial stress. The same declaration populates
@@ -443,8 +443,13 @@ Nonuniform finite plastic trajectories agree with serial execution on the tested
 partitions; an empty owned-cell partition is valid. Rank-local geometry, force,
 spectrum and accepted-energy failures reject collectively. Explicit Procedure
 now synchronizes a completed material commit before any rank enters subsequent
-monitoring, including an injected failure after one rank committed. Durable
-finite MPI restart and distributed nonmatching interfaces are still separate
+monitoring, including an injected failure after one rank committed. The shared
+transient schema v7 stores numeric auxiliary state per rank, while v6 remains
+readable for serial arrays and v5 for JSON state. Finite same-partition MPI
+restart now has interrupted/continuous, empty-rank, corrupt-payload,
+swapped-partition and failed-publication checks. A rank's material/energy
+payload is bound to its local identity in addition to the collective identity.
+Cross-partition recovery and distributed nonmatching interfaces remain separate
 gates. The material driver may update visible ghost points, but these never
 contribute a second time to force, energy or negative-curvature cell counts.
 
@@ -487,6 +492,13 @@ references, not claims that AgentFEM implements those algorithms:
   https://www.sandia.gov/files/sierra/SM_Theory_5_30/main/dynamics.html.
   The small-Gram calculation above applies this bound to the declared fixed
   linear operator; it does not implement a global Lanczos estimator.
+- PETSc, `VecGhostUpdateBegin`, reverse-add accumulation of ghost contributions:
+  https://petsc.org/main/manualpages/Vec/VecGhostUpdateBegin/.
+- Abaqus theory, *Energy balance*, separating work, kinetic energy and physical
+  internal-energy channels:
+  https://docs.software.vt.edu/abaqusv2025/English/SIMACAETHERefMap/simathe-c-energybalance.htm.
+  AgentFEM's present discrete ledger and its tested material decomposition are
+  bounded independently; this reference does not imply Abaqus equivalence.
 - Abaqus verification documentation, *Performance of continuum and shell
   elements for linear analysis of bending problems*:
   https://docs.software.vt.edu/abaqusv2025/English/SIMACAEBMKRefMap/simabmk-c-linbending.htm.

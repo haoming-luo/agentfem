@@ -299,7 +299,7 @@ def test_existing_json_auxiliary_checkpoint_remains_readable(tmp_path, monkeypat
 
 def test_binary_checkpoint_rejects_portability_claim_before_publication(tmp_path):
     source = make_step()
-    with pytest.raises(ValueError, match="serial same-partition"):
+    with pytest.raises(ValueError, match="same-partition"):
         source.save_checkpoint(tmp_path / "portable", portable=True)
     assert not tuple(tmp_path.iterdir())
 

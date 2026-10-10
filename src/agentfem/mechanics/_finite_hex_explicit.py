@@ -56,7 +56,10 @@ class FiniteHexExplicitResidual:
             comm=self.comm,
             label="Finite Hex8 trajectory contract",
         )
-        self.identity = content_fingerprint(self.comm.allgather(self.identity))
+        self.partition_identity = self.identity
+        self.identity = content_fingerprint(
+            self.comm.allgather(self.partition_identity)
+        )
 
     def _initialize(
         self,
@@ -291,7 +294,9 @@ class FiniteHexExplicitResidual:
             or not np.isfinite(force).all()
         ):
             raise ValueError("Non-finite initial energy or force.")
-        digest = sha256((self.identity + content_fingerprint(energy)).encode())
+        digest = sha256(
+            (self.partition_identity + content_fingerprint(energy)).encode()
+        )
         digest.update(force.tobytes())
         response = self.internal.response
         if set(initial.stored_energy_density_components) != set(
@@ -316,12 +321,18 @@ class FiniteHexExplicitResidual:
         self._accepted_force = force
         self._accepted_displacement = u.copy()
         self._accepted_energy = energy
-        self.identity = content_fingerprint(self.comm.allgather(digest.hexdigest()))
+        self.partition_identity = digest.hexdigest()
+        self.identity = content_fingerprint(
+            self.comm.allgather(self.partition_identity)
+        )
 
     def assemble_accepted_vector(self):
         """Owned force sample for work/restart; does not update material history."""
-        collective_call(self.require_accepted_configuration, comm=self.comm,
-                        label="Finite Hex8 accepted force")
+        collective_call(
+            self.require_accepted_configuration,
+            comm=self.comm,
+            label="Finite Hex8 accepted force",
+        )
         vector = self.internal.displacement.x.petsc_vec.duplicate()
         vector.array[:] = self._accepted_force
         return vector
@@ -483,9 +494,7 @@ class FiniteHexExplicitResidual:
         return record
 
     def checkpoint_snapshot(self):
-        """Numeric arrays for the shared serial binary auxiliary envelope."""
-        if self.comm.size > 1:
-            raise NotImplementedError("Finite Hex8 durable MPI restart is not admitted; in-memory rollback remains available.")
+        """Numeric arrays for the shared partition-bound auxiliary envelope."""
         return self.transaction_snapshot()
 
     def checkpoint_capabilities(self):
@@ -495,6 +504,7 @@ class FiniteHexExplicitResidual:
             schemas=(
                 "agentfem.transient-checkpoint.v5",
                 "agentfem.transient-checkpoint.v6",
+                "agentfem.transient-checkpoint.v7",
             ),
             boundary="accepted_step",
             payload_scope="full_restart_state",
@@ -515,7 +525,7 @@ class FiniteHexExplicitResidual:
                 "stability ceiling",
             ),
             limitations=(
-                "private serial finite Hex8; no cross-partition material restore",
+                "same-partition finite Hex8; no cross-partition material restore",
             ),
             evidence=(
                 "serial interrupted/continuous path",
@@ -530,6 +540,7 @@ class FiniteHexExplicitResidual:
         return {
             "schema": "agentfem.private-finite-hex.v1",
             "identity": self.identity,
+            "partition_identity": self.partition_identity,
             "time": self.accepted_time,
             "gradient": self.accepted_gradient.copy(),
             "last_bound": self.last_bound,
@@ -551,16 +562,20 @@ class FiniteHexExplicitResidual:
             },
         }
 
-    def restore(self, record):
+    def _restore_payload(self, record):
         if (
             record.get("schema") != "agentfem.private-finite-hex.v1"
             or record.get("identity") != self.identity
+            or record.get("partition_identity") != self.partition_identity
         ):
             raise ValueError("Finite Hex8 checkpoint identity mismatch.")
         selected_time = float(record["time"])
         if np.iscomplexobj(record["gradient"]):
             raise ValueError("Finite Hex8 checkpoint gradient must be real.")
         gradient = np.asarray(record["gradient"], dtype=float)
+        if gradient.size == 0 and self.accepted_gradient.size == 0:
+            # JSON loses trailing dimensions of an empty owned-cell array.
+            gradient = gradient.reshape(self.accepted_gradient.shape)
         bound = record["last_bound"]
         spectrum = record.get("last_spectrum")
         if spectrum is not None:
@@ -644,6 +659,32 @@ class FiniteHexExplicitResidual:
                 or not np.isfinite(arrays[name]).all()
             ):
                 raise ValueError(f"Invalid finite Hex8 checkpoint field {name}.")
+        return (
+            selected_time,
+            gradient,
+            bound,
+            spectrum,
+            energy,
+            accepted_arrays,
+            fields,
+            arrays,
+        )
+
+    def restore(self, record):
+        (
+            selected_time,
+            gradient,
+            bound,
+            spectrum,
+            energy,
+            accepted_arrays,
+            fields,
+            arrays,
+        ) = collective_call(
+            lambda: self._restore_payload(record),
+            comm=self.comm,
+            label="Finite Hex8 restore identity",
+        )
         with field_transaction(**fields):
             for name, field in fields.items():
                 field.x.array[:] = arrays[name]

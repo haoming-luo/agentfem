@@ -30,6 +30,7 @@ from . import fields
 
 TRANSIENT_CHECKPOINT_SCHEMA = "agentfem.transient-checkpoint.v5"
 _TRANSIENT_ARRAY_CHECKPOINT_SCHEMA = "agentfem.transient-checkpoint.v6"
+_TRANSIENT_RANK_ARRAY_CHECKPOINT_SCHEMA = "agentfem.transient-checkpoint.v7"
 HARMONIC_SWEEP_CHECKPOINT_SCHEMA = "agentfem.harmonic-sweep-checkpoint.v2"
 _LEGACY_TRANSIENT_CHECKPOINT_SCHEMAS = {
     "agentfem.transient-checkpoint.v1",
@@ -695,11 +696,13 @@ def _decode_harmonic_records(records, axis) -> dict[int, dict[str, object]]:
     return decoded
 
 
-def _transient_schema(auxiliary_state):
+def _transient_schema(auxiliary_state, *, rank_count=1):
     from ._checkpoint_arrays import contains_arrays
 
-    return (_TRANSIENT_ARRAY_CHECKPOINT_SCHEMA if contains_arrays(auxiliary_state)
-            else TRANSIENT_CHECKPOINT_SCHEMA)
+    if not contains_arrays(auxiliary_state):
+        return TRANSIENT_CHECKPOINT_SCHEMA
+    return (_TRANSIENT_ARRAY_CHECKPOINT_SCHEMA if rank_count == 1
+            else _TRANSIENT_RANK_ARRAY_CHECKPOINT_SCHEMA)
 
 
 def save_transient_checkpoint(
@@ -738,12 +741,14 @@ def save_transient_checkpoint(
         label="transient time-input identity",
     )
     auxiliary_schema = collective_call(
-        lambda: _transient_schema(auxiliary_state), comm=comm,
+        lambda: _transient_schema(auxiliary_state, rank_count=comm.size), comm=comm,
         label="inspect transient auxiliary encoding",
     )
-    if any(schema != TRANSIENT_CHECKPOINT_SCHEMA for schema in comm.allgather(auxiliary_schema)):
-        if comm.size != 1 or portable:
-            raise ValueError("Array auxiliary checkpoints currently require serial same-partition restart.")
+    schemas = comm.allgather(auxiliary_schema)
+    if any(schema != schemas[0] for schema in schemas):
+        raise ValueError("Transient auxiliary encoding differs across ranks.")
+    if auxiliary_schema != TRANSIENT_CHECKPOINT_SCHEMA and portable:
+        raise ValueError("Array auxiliary checkpoints require same-partition restart.")
     auxiliary_tree, auxiliary_arrays = collective_call(
         lambda: _encode_transient_auxiliary(auxiliary_state, auxiliary_schema),
         comm=comm, label="encode transient auxiliary state",
@@ -790,6 +795,9 @@ def save_transient_checkpoint(
         raise
     identities = comm.gather(local_identity, root=0)
     shards = comm.gather(local_shard, root=0)
+    auxiliary_by_rank = None
+    if auxiliary_schema == _TRANSIENT_RANK_ARRAY_CHECKPOINT_SCHEMA:
+        auxiliary_by_rank = comm.gather({"tree": auxiliary_tree, "arrays": auxiliary_record}, root=0)
     portable_record = None
     portable_identities = None
     portability = "same mesh partition and MPI size"
@@ -829,15 +837,17 @@ def save_transient_checkpoint(
             for event in execution_events
         ],
         "history_records": [dict(item) for item in history_records],
-        "auxiliary_state": auxiliary_tree,
+        "auxiliary_state": None if auxiliary_schema == _TRANSIENT_RANK_ARRAY_CHECKPOINT_SCHEMA else auxiliary_tree,
     }
-    if auxiliary_record is not None:
+    if auxiliary_record is not None and auxiliary_schema == _TRANSIENT_ARRAY_CHECKPOINT_SCHEMA:
         metadata["auxiliary_arrays"] = auxiliary_record
     root_error = None
     if comm.rank == 0:
         try:
             metadata["shards"] = list(shards)
             metadata["state_identity_by_rank"] = list(identities)
+            if auxiliary_by_rank is not None:
+                metadata["auxiliary_by_rank"] = auxiliary_by_rank
             if portable_record is not None:
                 metadata["portable_state"] = portable_record
                 metadata["portable_state_identity"] = portable_identities
@@ -867,7 +877,7 @@ def _discard_unpublished_payloads(*paths):
 
 
 def _encode_transient_auxiliary(value, schema):
-    if schema == _TRANSIENT_ARRAY_CHECKPOINT_SCHEMA:
+    if schema in {_TRANSIENT_ARRAY_CHECKPOINT_SCHEMA, _TRANSIENT_RANK_ARRAY_CHECKPOINT_SCHEMA}:
         from ._checkpoint_arrays import encode_tree
         return encode_tree(value)
     return json.loads(json.dumps(value, sort_keys=True, allow_nan=False)), {}
@@ -889,16 +899,25 @@ def _auxiliary_payload_path(manifest, record):
 def _decode_transient_auxiliary(manifest, metadata, comm):
     from ._checkpoint_arrays import decode_tree
 
-    if comm.size != 1 or metadata.get("rank_count") != 1 or metadata.get("portable"):
-        raise ValueError("Array auxiliary restart is serial and partition-bound.")
-    record = metadata.get("auxiliary_arrays", {})
+    if metadata.get("rank_count") != comm.size or metadata.get("portable"):
+        raise ValueError("Array auxiliary restart requires the same rank count and partition.")
+    if metadata["schema"] == _TRANSIENT_RANK_ARRAY_CHECKPOINT_SCHEMA:
+        entries = metadata.get("auxiliary_by_rank")
+        if not isinstance(entries, list) or len(entries) != comm.size:
+            raise ValueError("Rank-local auxiliary checkpoint entries do not match rank count.")
+        entry = entries[comm.rank]
+        record, tree = entry["arrays"], entry["tree"]
+    else:
+        if comm.size != 1:
+            raise ValueError("Array auxiliary schema v6 is serial and partition-bound.")
+        record, tree = metadata.get("auxiliary_arrays", {}), metadata["auxiliary_state"]
     if record.get("encoding") != "numeric-tree.v1":
         raise ValueError("Unsupported auxiliary checkpoint encoding.")
     path = _auxiliary_payload_path(manifest, record)
     _validate_checkpoint_file(path, expected_size=int(record["size"]),
                               expected_digest=str(record["sha256"]))
     with np.load(path, allow_pickle=False) as arrays:
-        return decode_tree(metadata["auxiliary_state"], arrays)
+        return decode_tree(tree, arrays)
 
 
 def load_transient_checkpoint(
@@ -962,13 +981,15 @@ def load_transient_checkpoint(
             "version that created it, then write a new checkpoint; AgentFEM "
             "will not guess whether its load or operator history matches."
         )
-    if stored_schema not in {TRANSIENT_CHECKPOINT_SCHEMA, _TRANSIENT_ARRAY_CHECKPOINT_SCHEMA}:
+    if stored_schema not in {TRANSIENT_CHECKPOINT_SCHEMA, _TRANSIENT_ARRAY_CHECKPOINT_SCHEMA, _TRANSIENT_RANK_ARRAY_CHECKPOINT_SCHEMA}:
         raise ValueError("Unsupported transient checkpoint schema.")
-    if stored_schema == _TRANSIENT_ARRAY_CHECKPOINT_SCHEMA:
+    if stored_schema in {_TRANSIENT_ARRAY_CHECKPOINT_SCHEMA, _TRANSIENT_RANK_ARRAY_CHECKPOINT_SCHEMA}:
         # Validate all auxiliary data before assigning even a nodal field.
-        metadata["auxiliary_state"] = _decode_transient_auxiliary(manifest, metadata, comm)
-    elif metadata.get("auxiliary_arrays") is not None:
-        raise ValueError("Array auxiliary payload requires transient checkpoint schema v6.")
+        metadata["auxiliary_state"] = collective_call(
+            lambda: _decode_transient_auxiliary(manifest, metadata, comm),
+            comm=comm, label="decode rank-local transient auxiliary state")
+    elif metadata.get("auxiliary_arrays") is not None or metadata.get("auxiliary_by_rank") is not None:
+        raise ValueError("Array auxiliary payload requires transient checkpoint schema v6 or v7.")
     expected_procedure = (
         procedure.summary() if hasattr(procedure, "summary") else procedure
     )
@@ -1788,7 +1809,9 @@ def _remove_transient_checkpoint(path, *, comm) -> None:
         try:
             metadata = json.loads(manifest.read_text(encoding="utf-8"))
             auxiliary = metadata.get("auxiliary_arrays")
-            auxiliary_path = None if auxiliary is None else _auxiliary_payload_path(manifest, auxiliary)
+            auxiliary_records = ([] if auxiliary is None else [auxiliary]) + [
+                entry["arrays"] for entry in metadata.get("auxiliary_by_rank", ())]
+            auxiliary_paths = [_auxiliary_payload_path(manifest, record) for record in auxiliary_records]
             for record in metadata.get("shards", ()):
                 name = record if isinstance(record, str) else record["path"]
                 shard = manifest.parent / name
@@ -1799,8 +1822,9 @@ def _remove_transient_checkpoint(path, *, comm) -> None:
                 portable_path = manifest.parent / portable["path"]
                 if portable_path.exists():
                     portable_path.unlink()
-            if auxiliary_path is not None and auxiliary_path.exists():
-                auxiliary_path.unlink()
+            for auxiliary_path in auxiliary_paths:
+                if auxiliary_path.exists():
+                    auxiliary_path.unlink()
             manifest.unlink()
         except Exception as exc:  # pragma: no cover - filesystem failure
             error = f"{type(exc).__name__}: {exc}"

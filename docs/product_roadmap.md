@@ -23,12 +23,15 @@ or a successful run is not by itself a validated engineering capability.
 
 2026-10-10 continuation: the private finite Hex8 route now has accepted-response
 energy sampling, declared virgin response, prescribed-motion work, material
-dissipation, isotropic reference-interface energy and energy-preserving serial
+dissipation, isotropic reference-interface energy and energy-preserving
 restart. Independent finite elastic/plastic stretch checks pass, with time-step
 refinement of the balance residual. A bounded opt-in negative-curvature growth
 resolution policy preserves signed spectrum evidence; it is not a general
-nonlinear stability guarantee. Next: nonuniform plastic response and distributed
-bulk ownership/failure tests, then performance measurement. Distributed interface
+nonlinear stability guarantee. Nonuniform plastic response and distributed
+bulk ownership/failure tests now pass. The shared rank-local numeric checkpoint
+encoding additionally covers same-partition finite MPI restart, including empty
+ranks, corrupt or swapped payloads and failed publication. Next: independent
+capacity evidence and performance measurement. Distributed interface
 integration, cross-partition finite state recovery, damage/deletion and advanced
 hourglass laws remain separate gates, not requirements satisfied by these tests.
 
