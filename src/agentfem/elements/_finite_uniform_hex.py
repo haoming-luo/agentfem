@@ -349,3 +349,44 @@ class FiniteUniformHexBatch:
         if not np.isfinite(negative_bound):
             raise ValueError("Finite Hex8 negative-curvature bound overflowed.")
         return FiniteHexTangentSpectrum(bound, negative_bound, negative_cells)
+
+    def tangent_envelope_bounds(
+        self, *, positive_modulus, negative_modulus=0.0
+    ) -> tuple[float, float]:
+        """Convert a declared symmetric dP/dF envelope into spectral bounds.
+
+        The material must establish ``-negative_modulus*I <= A <=
+        positive_modulus*I`` in flattened (i,J) coordinates. Moduli have stress
+        units, not frequency units. This operator supplies reference geometry,
+        element lumped mass and positive hourglass stiffness only. It cannot
+        establish the material envelope's state domain or path validity.
+
+        For B mapping nodal displacement to F, the nonzero eigenvalues of
+        B M_e^-1 B.T are those of the 3x3 mass-gradient Gram, repeated three
+        times. The maximum element Rayleigh bound encloses the assembled
+        system when element masses assemble into the same positive lumped mass.
+        Return (positive upper bound, negative magnitude bound); never take |A|.
+        """
+        count = len(self.coordinates)
+
+        def coefficients(value, name):
+            array = np.asarray(value, dtype=float)
+            if (
+                array.shape not in ((), (count,))
+                or not np.isfinite(array).all()
+                or np.any(array < 0)
+            ):
+                raise ValueError(f"{name} must be a nonnegative finite scalar or (cells,).")
+            return np.broadcast_to(array, (count,))
+
+        positive = coefficients(positive_modulus, "positive_modulus")
+        negative = coefficients(negative_modulus, "negative_modulus")
+        if count == 0:
+            return 0.0, 0.0
+        # No cell 24x24 stiffness and no material 9x9 array is constructed.
+        factor = self.volume * np.linalg.eigvalsh(self._mass_gradient_gram)[:, -1]
+        upper = float(np.max(positive * factor + self._hourglass_spectral_bound))
+        lower_magnitude = float(np.max(negative * factor))
+        if not np.isfinite(upper) or not np.isfinite(lower_magnitude):
+            raise ValueError("Finite Hex8 material-envelope spectral conversion overflowed.")
+        return upper, lower_magnitude

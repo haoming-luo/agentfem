@@ -436,6 +436,11 @@ never changes solver access, results, verification, or update behavior.
   `time.combine_explicit_stability`; never take the minimum of independently
   derived time limits when their stiffness operators act simultaneously, and
   never apply a safety factor separately to every contribution.
+  The bounded finite Hex8 provider may consume a material-owned
+  `FirstPiolaTangentEnvelope` instead of a caller frequency ceiling. It must
+  cover all admissible material states/inputs in its stated stretch domain.
+  Never invent an envelope from one initial tangent or equate `dt="auto"`
+  with adaptive stepping. Native finite J2 still requires the caller ceiling.
 - Treat a surface projection as evidence, not merely coordinates. Preserve its
   surface identity, method, admissible-side unit normal, signed-gap convention,
   validity, discrete entity identity, geometry fingerprint and local

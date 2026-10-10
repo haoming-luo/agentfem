@@ -29,6 +29,7 @@ class FiniteHexExplicitResidual:
         material,
         *,
         omega_squared_bound,
+        material_envelope=None,
         safety=0.8,
         cohesive=None,
         external_force=None,
@@ -41,6 +42,7 @@ class FiniteHexExplicitResidual:
                 internal,
                 material,
                 omega_squared_bound=omega_squared_bound,
+                material_envelope=material_envelope,
                 safety=safety,
                 cohesive=cohesive,
                 maximum_negative_growth_per_increment=maximum_negative_growth_per_increment,
@@ -54,6 +56,7 @@ class FiniteHexExplicitResidual:
                 "bound": self.bound,
                 "safety": self.safety,
                 "negative_growth_resolution": self.maximum_negative_growth_per_increment,
+                "material_envelope": None if self.material_envelope is None else self.material_envelope.summary(),
             },
             comm=self.comm,
             label="Finite Hex8 trajectory contract",
@@ -69,11 +72,17 @@ class FiniteHexExplicitResidual:
         material,
         *,
         omega_squared_bound,
+        material_envelope,
         safety,
         cohesive,
         maximum_negative_growth_per_increment,
     ):
         self.internal, self.material = internal, material
+        from ..constitutive.stability import FirstPiolaTangentEnvelope
+
+        if material_envelope is not None and not isinstance(material_envelope, FirstPiolaTangentEnvelope):
+            raise TypeError("Expected a FirstPiolaTangentEnvelope.")
+        self.material_envelope = material_envelope
         self.cohesive = cohesive
         self.bound, self.safety = float(omega_squared_bound), float(safety)
         self.maximum_negative_growth_per_increment = (
@@ -94,7 +103,8 @@ class FiniteHexExplicitResidual:
             ExplicitStabilityContribution.from_spectral_bound(
                 "finite_hex_bulk_and_hourglass",
                 self.bound,
-                method="caller_complete_path_ceiling_with_endpoint_screen",
+                method=("caller_complete_path_ceiling_with_endpoint_screen" if material_envelope is None
+                        else "material_domain_envelope_reference_gram_and_hourglass"),
             )
         ]
         if cohesive is not None:
@@ -145,6 +155,8 @@ class FiniteHexExplicitResidual:
         if not callable(description):
             raise ValueError("Material must declare a restart identity summary.")
         digest = sha256(content_fingerprint(description()).encode())
+        if material_envelope is not None:
+            digest.update(content_fingerprint(material_envelope.summary()).encode())
         if cohesive is not None:
             digest.update(content_fingerprint(cohesive.snapshot()).encode())
             for mapping in (cohesive.negative_dofs, cohesive.positive_dofs):
@@ -181,6 +193,10 @@ class FiniteHexExplicitResidual:
         self._trial_interface = None
 
     def _screen_trial(self, trial, dt):
+        if self.material_envelope is not None:
+            self.material_envelope.validate_response(
+                trial.deformation_gradient, self.internal.response.tangent.owned_values
+            )
         if trial.material_response.minimum_suggested_time_scale < 1:
             raise ValueError(
                 "Material requested increment reduction; fixed explicit step rejected."
@@ -264,6 +280,10 @@ class FiniteHexExplicitResidual:
         u = self.internal.displacement.x.array
         if np.any(u != 0):
             raise ValueError("Initial response requires the undeformed configuration.")
+        if self.material_envelope is not None:
+            self.material_envelope.validate_response(
+                np.tile(np.eye(3), (initial.point_count, 1, 1)), initial.consistent_tangent
+            )
         element = self.internal.cells.response(
             u.reshape(-1, 3)[self.internal.cell_nodes],
             first_piola=initial.cauchy_stress[: len(self.internal.cell_nodes)],
@@ -641,6 +661,8 @@ class FiniteHexExplicitResidual:
             )
         ):
             raise ValueError("Invalid finite Hex8 checkpoint kinematics/stability.")
+        if self.material_envelope is not None:
+            self.material_envelope.validate_deformation(gradient)
         fields = self._fields()
         energy = record.get("accepted_energy")
         accepted_arrays = []
@@ -744,7 +766,9 @@ class FiniteHexExplicitResidual:
             "kind": "private_finite_hex_explicit_residual",
             "identity": self.identity,
             "accepted_time": self.accepted_time,
-            "stability_scope": "caller_path_ceiling_and_endpoint_tangent_screen",
+            "stability_scope": ("caller_path_ceiling_and_endpoint_tangent_screen" if self.material_envelope is None
+                                else "provider_domain_envelope_with_endpoint_checks_not_nonlinear_guarantee"),
+            "material_stability_envelope": None if self.material_envelope is None else self.material_envelope.summary(),
             "omega_squared_bound": self.bound,
             "last_endpoint_bound": self.last_bound,
             "signed_spectrum": self.last_spectrum,

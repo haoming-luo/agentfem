@@ -215,6 +215,7 @@ and evidence remain in the linked guides and scientific function reference.
 | class | `ConstitutiveCapability` | What a material capability can truthfully do in this release. |
 | function | `capabilities() -> tuple[ConstitutiveCapability, ...]` | Return all constitutive capabilities in stable name order. |
 | function | `capability(name: str) -> ConstitutiveCapability` | Return one capability or raise with the available names. |
+| class | `FirstPiolaTangentEnvelope` | Declared symmetric dP/dF envelope over a principal-stretch domain. |
 | class | `ArrheniusPowerLawCreep` | Temperature-dependent Mises power-law creep. |
 | class | `CreepDamageState` | Local creep strain and scalar continuum-damage state. |
 | class | `CreepDamageUpdate` | Accepted material-point increment from a creep-damage law. |

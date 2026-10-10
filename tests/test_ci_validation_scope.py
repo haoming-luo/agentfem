@@ -175,6 +175,14 @@ def test_unknown_core_change_fails_safe_to_complete_release_validation():
     assert scope.mpi_tests == ()
 
 
+def test_material_stability_contract_selects_domain_and_distributed_lifecycle():
+    scope = classify_changes(["src/agentfem/constitutive/stability.py"])
+    assert "tests/test_material_stability_envelope.py" in scope.tests
+    assert "tests/test_finite_hex_material_envelope_step.py" in scope.tests
+    assert "tests/test_parallel_finite_hex_step.py" in scope.mpi_tests
+    assert scope.level == "core"
+
+
 def test_every_declared_owner_test_exists_in_the_repository():
     mappings = (
         _SOURCE_TEST_MAP,

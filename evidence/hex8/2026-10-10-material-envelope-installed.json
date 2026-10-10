@@ -1,0 +1,34 @@
+{
+  "schema_version": 1,
+  "scope": "bounded_material_envelope_serial_installed_acceptance",
+  "source_commit": "eb75f6c59e9dceb982905d5e6b5e9657ab0304cb",
+  "source_tracked_dirty": false,
+  "wheel": "agentfem-0.4.1-py3-none-any.whl",
+  "wheel_sha256": "6f909b56a2ad9c0d09943601e5591fae2ab55ed8da8fa1a5f513caa05a02d3d2",
+  "wheel_is_release": false,
+  "installed_python_modules_matched_to_source": 299,
+  "installed_tests": {
+    "passed": 37,
+    "seconds": 2.35,
+    "pytest_pythonpath_override": "",
+    "installed_import_asserted_before_pytest": true,
+    "files": [
+      "tests/test_material_stability_envelope.py",
+      "tests/test_finite_hex_material_envelope_step.py",
+      "tests/test_finite_hex_step.py",
+      "tests/test_finite_hex_external_material.py"
+    ]
+  },
+  "source_targeted_tests": {
+    "passed": 108,
+    "seconds": 4.99,
+    "overlaps_installed_selection": true
+  },
+  "limitations": [
+    "New distributed envelope tests have not yet passed a recorded MPI run.",
+    "Provider declaration is not an automatically proven material bound.",
+    "Native finite J2 still requires a caller spectral ceiling.",
+    "Automatic selection means fixed initial increment, not adaptive stepping.",
+    "No response-only material optimization or industrial forming claim."
+  ]
+}

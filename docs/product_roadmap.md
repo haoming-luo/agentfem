@@ -71,6 +71,24 @@ Do not add an alternative explicit solver or silently enable mass scaling to
 make this gate pass. The tester's actual finite orthotropic material and moving
 contact combination require their own evidence after these shared contracts.
 
+Continuation candidate: a provider-declared `FirstPiolaTangentEnvelope` now
+lowers through the fixed-reference mass-gradient Gram and ordinary Step. The
+bounded serial route checks its principal-stretch domain, signed tangent and
+restart identity; independent element/assembled spectra and a Neo-Hookean
+external provider exercise the contract. This removes hand-entered frequency
+ceilings only for materials supplying a valid domain envelope. Native finite J2
+still needs its caller ceiling; its history-dependent proof and new distributed
+envelope tests remain open. Variable increments, response-only updates and
+moving-contact composition are not implied by this candidate.
+
+Contact follow-up: numeric nested material checkpoints and accepted-force
+sampling now pass serial composition with a moving plane and a finite elastic
+history provider. The common work ledger, summed spectral ceiling, time
+refinement, restart equality and post-commit rollback are exercised together.
+Public finite-Hex contact admission, distributed composition and the tester's
+actual orthotropic material remain open; do not equate the private gate with
+industrial forming completion.
+
 This slice implements bounded fixed-reference nonmatching cohesive trace
 integration and uniform-strain Hex8 stabilization. These are general formulation
 capabilities, not an automatic translation of a specific

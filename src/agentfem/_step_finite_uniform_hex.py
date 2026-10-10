@@ -14,7 +14,11 @@ class FiniteUniformHexStep(ExplicitDynamicsStep):
     def operator_lifecycle_summary(self):
         return {
             **super().operator_lifecycle_summary(),
-            "stability_scope": "caller_path_ceiling_with_signed_endpoint_screen",
+            "stability_scope": (
+                "caller_path_ceiling_with_signed_endpoint_screen"
+                if self.residual.material_envelope is None
+                else self.residual.summary()["stability_scope"]
+            ),
             "material_tangent_policy": "accepted_trial_recomputed_each_increment",
         }
 
@@ -40,7 +44,12 @@ class FiniteUniformHexStep(ExplicitDynamicsStep):
             "element_policy": self.element_policy.summary(),
             "execution_scope": "experimental_single_material_finite_reference_hex8",
             "energy_balance_scope": "accepted_work_stored_artificial_and_material_dissipation",
-            "stability_scope": "caller_path_ceiling_and_signed_endpoint_screen_not_nonlinear_guarantee",
+            "stability_scope": (
+                "caller_path_ceiling_and_signed_endpoint_screen_not_nonlinear_guarantee"
+                if self.residual.material_envelope is None
+                else self.residual.summary()["stability_scope"]
+            ),
+            "material_stability_envelope": self.residual.summary()["material_stability_envelope"],
             "material": self.residual.material.summary(),
         }
 
@@ -169,6 +178,39 @@ def _prepare(model, request):
         chunk_size=policy.chunk_size,
     )
 
+    def prepare_stability():
+        from .constitutive.stability import FirstPiolaTangentEnvelope
+
+        ceiling = options.pop("omega_squared_bound", None)
+        if ceiling is not None:
+            return float(ceiling), None
+        provider = getattr(material, "explicit_stability_envelope", None)
+        if not callable(provider):
+            raise ValueError(
+                "Finite Hex8 requires omega_squared_bound or a material-owned explicit_stability_envelope."
+            )
+        envelope = provider()
+        if not isinstance(envelope, FirstPiolaTangentEnvelope):
+            raise TypeError("Expected a FirstPiolaTangentEnvelope from the material provider.")
+        upper, _ = internal.cells.tangent_envelope_bounds(
+            positive_modulus=envelope.positive_modulus,
+            negative_modulus=envelope.negative_modulus,
+        )
+        return upper, envelope
+
+    ceiling, envelope = collective_call(
+        prepare_stability, comm=domain.comm, label="Finite Hex8 material stability declaration"
+    )
+    collective_canonical_record(
+        None if envelope is None else envelope.summary(),
+        comm=domain.comm,
+        label="Finite Hex8 material stability domain",
+    )
+    if envelope is not None:
+        from mpi4py import MPI
+
+        ceiling = domain.comm.allreduce(ceiling, op=MPI.MAX)
+
     def prepare_external():
         from ufl.algorithms import extract_coefficients
 
@@ -215,7 +257,8 @@ def _prepare(model, request):
     residual = FiniteHexExplicitResidual(
         internal,
         material,
-        omega_squared_bound=options.pop("omega_squared_bound"),
+        omega_squared_bound=ceiling,
+        material_envelope=envelope,
         maximum_negative_growth_per_increment=options.pop(
             "maximum_negative_growth_per_increment", None
         ),
@@ -291,7 +334,7 @@ def _prepare(model, request):
         ),
         stability={
             "dt_limit": residual.stability.selected,
-            "method": "declared_path_ceiling_with_signed_endpoint_screen",
+            "method": residual.summary()["stability_scope"],
             "scope": "experimental_not_general_nonlinear_stability",
         },
         **options,

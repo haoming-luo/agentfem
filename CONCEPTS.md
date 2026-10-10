@@ -284,6 +284,16 @@ and sparse-owner MPI assembly, while leaving cohesive state commit/rollback to
 the owning monotonic or cyclic Step. A converged Newton correction therefore
 does not silently advance crack history.
 
+### Material stability envelope
+
+A `FirstPiolaTangentEnvelope` is optional material-owned stability evidence,
+not a constitutive update or time integrator. It bounds symmetric `dP/dF` in
+reference configuration over a principal-stretch domain and all of the
+provider's admissible internal states/inputs. The Operator supplies geometry
+and mass conversion; the Procedure composes contributions and selects time.
+Observed violations reject the increment. A declaration is not a proof of
+nonlinear trajectory stability or scientific verification.
+
 ## Material Record
 
 A reusable set of material constants with units and provenance. Material

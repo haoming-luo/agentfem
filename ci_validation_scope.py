@@ -125,6 +125,13 @@ _CORE_SOURCE_TEST_MAP = {
         "tests/test_explicit_contact_procedure.py",
         "tests/test_lumped_mass_contract.py",
     ),
+    "src/agentfem/boundary_models/dolfinx_explicit_contact.py": (
+        "tests/test_dolfinx_explicit_contact.py",
+        "tests/test_explicit_contact_procedure.py",
+        "tests/test_contact_numeric_state.py",
+        "tests/test_finite_hex_contact_composition.py",
+        "tests/test_checkpoint_capabilities.py",
+    ),
     "src/agentfem/boundary_models/rigid.py": (
         "tests/test_rigid_obstacle_contact.py",
         "tests/test_rigid_surface_contract.py",
@@ -190,9 +197,15 @@ _CORE_SOURCE_TEST_MAP = {
     ),
     "src/agentfem/_step_finite_uniform_hex.py": (
         "tests/test_finite_hex_step.py",
+        "tests/test_finite_hex_material_envelope_step.py",
         "tests/test_finite_hex_external_material.py",
         "tests/test_finite_hex_cyclic_energy.py",
         "tests/test_transient_restart.py",
+    ),
+    "src/agentfem/constitutive/stability.py": (
+        "tests/test_material_stability_envelope.py",
+        "tests/test_finite_hex_material_envelope_step.py",
+        "tests/test_finite_hex_stability_envelope.py",
     ),
     "src/agentfem/results/_finite_hex.py": (
         "tests/test_finite_hex_step.py",
@@ -237,6 +250,10 @@ _CORE_SOURCE_TEST_MAP = {
         "tests/test_uniform_hex_global.py",
         "tests/test_uniform_hex_step.py",
         "tests/test_uniform_hex_work.py",
+    ),
+    "src/agentfem/elements/_finite_uniform_hex.py": (
+        "tests/test_finite_hex_stability_envelope.py",
+        "tests/test_finite_hex_material_envelope_step.py",
     ),
     "src/agentfem/_step_uniform_hex.py": (
         "tests/test_uniform_hex_step.py",
@@ -310,6 +327,10 @@ _CORE_SOURCE_MPI_TEST_MAP = {
         "tests/test_explicit_contact_procedure.py",
         "tests/test_lumped_mass_contract.py",
     ),
+    "src/agentfem/boundary_models/dolfinx_explicit_contact.py": (
+        "tests/test_dolfinx_explicit_contact.py",
+        "tests/test_explicit_contact_procedure.py",
+    ),
     "src/agentfem/boundary_models/rigid.py": (
         "tests/test_rigid_obstacle_contact.py",
     ),
@@ -332,6 +353,9 @@ _CORE_SOURCE_MPI_TEST_MAP = {
         "tests/test_parallel_finite_hex_step.py",
     ),
     "src/agentfem/_step_finite_uniform_hex.py": (
+        "tests/test_parallel_finite_hex_step.py",
+    ),
+    "src/agentfem/constitutive/stability.py": (
         "tests/test_parallel_finite_hex_step.py",
     ),
     "src/agentfem/results/_finite_hex.py": (

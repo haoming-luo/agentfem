@@ -182,6 +182,11 @@ Package paths below are relative to `src/agentfem/`.
   separate Operator-side screen under `boundary_models/contact_stability.py`;
   its DOLFINx lowering consumes the reviewed trace and lumped mass but does not
   choose the whole-system time step.
+  A finite reference Hex8 material may also provide a reviewed
+  `constitutive.FirstPiolaTangentEnvelope`; the ordinary Step converts that
+  material-domain declaration using reference geometry/mass. Without one,
+  retain the caller ceiling. `dt="auto"` selects a fixed initial increment,
+  not an adaptive nonlinear trajectory.
 - Weak-form blocks: `forms.py`
 - Assembly: `assembly.py`
 - Operator families: `operators/`
