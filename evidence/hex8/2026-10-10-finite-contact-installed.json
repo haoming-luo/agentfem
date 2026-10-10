@@ -1,0 +1,37 @@
+{
+  "schema_version": 1,
+  "kind": "bounded_finite_hex_contact_installed_acceptance",
+  "source_commit": "afef243af23ccbc6027f0a165cc07adb1786705d",
+  "wheel": "agentfem-0.4.1-py3-none-any.whl",
+  "wheel_sha256": "6c48b7284345cfe1a8ee61d7151f3ba27f9a9326bb5a8e3612038ed46736a5dd",
+  "matching_source_modules": 299,
+  "installed_test_passed": 29,
+  "installed_test_seconds": 16.07,
+  "source_path_injection": false,
+  "tests": [
+    "tests/test_finite_hex_contact_composition.py",
+    "tests/test_contact_numeric_state.py",
+    "tests/test_finite_hex_step.py",
+    "tests/test_finite_hex_material_envelope_step.py"
+  ],
+  "source_selection_passed": 142,
+  "source_selection_skipped": 8,
+  "test_counts_overlap": true,
+  "example": "examples/finite_hex_moving_plane.py",
+  "example_steps": 1000,
+  "example_contact_motion_work": 0.008497033560553603,
+  "example_final_relative_energy_balance_error": 2.0271982293072864e-7,
+  "artifact_integrity": {
+    "verified": true,
+    "issues": [],
+    "seal_id": "sha256:45309a2d3f5e089ab9669727a251f284f7673d5df41483776e7bc38783a40189"
+  },
+  "scope": "Serial single frictionless fixed/translating plane; reference-surface penalty; ordinary finite Hex Step; material-owned envelope or explicit bulk ceiling.",
+  "limitations": [
+    "Artifact integrity is not independent scientific validation.",
+    "The compression ODE checks the lumped one-element model, not mesh convergence.",
+    "No MPI contact composition, curved or rotating tools, multiple pairs, friction, or joint bonding/contact admission.",
+    "No arbitrary orthotropic material or complete industrial forming claim.",
+    "Candidate wheel only; no published release or full installer."
+  ]
+}

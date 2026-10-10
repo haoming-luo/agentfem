@@ -703,6 +703,13 @@ Interrupted/continuous material State and nodal displacement match exactly.
 These are small serial acceptance gates; MPI, general tool geometry and the
 tester's actual finite orthotropic material remain separate requirements.
 
+Clean candidate `afef243a` passes 29 isolated installed-wheel checks with source
+injection disabled; all 299 packaged Python modules match source. The installed
+example also completes and its output passes artifact-integrity verification.
+The wider 142-test source selection overlaps these checks, not an additional
+independent sample. Exact wheel identity and limits are recorded in
+[`2026-10-10-finite-contact-installed.json`](https://github.com/haoming-luo/agentfem/blob/main/evidence/hex8/2026-10-10-finite-contact-installed.json).
+
 ## Sources
 
 - Johnen, Weill and Remacle, 2017, *Robust and efficient validation of the linear
