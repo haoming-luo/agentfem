@@ -3,6 +3,7 @@
 
 """Solid-mechanics solution procedures."""
 
+from .homogenization import periodic_elasticity, elastic_engineering_properties, apparent_poisson_ratio
 from .creep import (
     CreepEnergyFrame,
     CreepIncrementInfo,
@@ -68,6 +69,9 @@ from .viscoelasticity import (
 )
 
 __all__ = [
+    "periodic_elasticity",
+    "apparent_poisson_ratio",
+    "elastic_engineering_properties",
     "CreepEnergyFrame",
     "CreepIncrementInfo",
     "CreepPathInfo",

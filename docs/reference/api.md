@@ -38,6 +38,7 @@ and evidence remain in the linked guides and scientific function reference.
 | function | `explicit_dynamics(*, physics: str, dimension: int, assumption: str \| None = None, name: str \| None = None) -> Study` | Define second-order dynamics with an Explicit preference. |
 | function | `dynamic_solid(*, dimension: int, assumption: str \| None = None, method: str = 'explicit', name: str \| None = None) -> Study` | Define structural dynamics without repeating the physics name. |
 | function | `modal_solid(*, dimension: int, assumption: str \| None = None, name: str \| None = None) -> Study` | Define a linear structural modal analysis. |
+| function | `buckling_solid(*, dimension: int, assumption: str \| None = None, name: str \| None = None) -> Study` | Linear initial-stress buckling of conservative elastic solid structures. |
 
 ## `agentfem.mesh`
 
@@ -99,6 +100,7 @@ and evidence remain in the linked guides and scientific function reference.
 | function | `facet_normal(domain)` | Return the outward facet normal for boundary models. |
 | function | `tagged_boundary_measure(domain, marker, tag: int)` | Locate/tag exterior facets and return ``(ds, facet_tags)``. |
 | function | `from_arrays(*, cells, coordinates, coordinate_element, comm = None, partitioner = None)` | Create a DOLFINx mesh through explicit topology/geometry keywords. |
+| function | `reentrant_honeycomb(*, angle = -30.0, ligament = 1.0, vertical = 1.5, thickness = 0.12, repeats = (1, 1), mesh_size = 0.06, comm = MPI.COMM_WORLD, connected_specimen = False)` | Mesh a rectangular cut of a periodic rounded-joint honeycomb. |
 | class | `CellCompatibility` | One meshio-style source cell mapped to an AgentFEM solver topology. |
 | class | `TopologyCapability` | One narrowly scoped, evidence-bearing runtime topology capability. |
 | class | `TopologyCompatibility` | Runtime solver-topology support independent of source element names. |
@@ -1122,6 +1124,9 @@ and evidence remain in the linked guides and scientific function reference.
 
 | Kind | Public object | Purpose |
 | --- | --- | --- |
+| function | `periodic_elasticity(model, target, *, anchor, amplitude = 0.001, periodic_tolerance = 1e-09, name = 'periodic_elasticity')` | Solve all 3/6 macrostrain cases on a rectangular matching periodic cell. |
+| function | `elastic_engineering_properties(stiffness)` | Directional E_i and nu_ij=-S_ji/S_ii; no isotropy assumption. |
+| function | `apparent_poisson_ratio(target, *, axial_axis, transverse_axis, axial_faces, transverse_faces, axial_length, transverse_length, strain_tolerance = 1e-12)` | Measure finite-specimen strains from area-averaged gauge displacements. |
 | class | `CreepEnergyFrame` | Accepted work and energy evidence for one physical-time increment. |
 | class | `CreepIncrementInfo` | Public AgentFEM object. |
 | class | `CreepPathInfo` | Public AgentFEM object. |
@@ -1176,6 +1181,7 @@ and evidence remain in the linked guides and scientific function reference.
 
 | Kind | Public object | Purpose |
 | --- | --- | --- |
+| function | `geometric_stiffness(target, stress, *, measure = ufl.dx, name = 'KG')` | Return KG with tension-positive stress (compression destabilizes). |
 | class | `LumpedMassOperator` | Diagonal mass operator owned by the mathematical operator layer. |
 | class | `NonlinearOperatorContribution` | Additive nonlinear contribution consumed by a numerical Procedure. |
 | class | `OperatorForm` | Named scientific operator with a current backend expression. |
@@ -1269,6 +1275,7 @@ and evidence remain in the linked guides and scientific function reference.
 | --- | --- | --- |
 | class | `SolutionProcedure` | Inspectable, backend-neutral description of a solution algorithm. |
 | function | `linear_static() -> SolutionProcedure` | Public AgentFEM object. |
+| function | `linear_buckling() -> SolutionProcedure` | Generalized pencil with potentially indefinite geometric stiffness. |
 | function | `modal() -> SolutionProcedure` | Undamped linear modes from ``K phi = lambda M phi``. |
 | function | `nonlinear_static(*, stateful: bool = False) -> SolutionProcedure` | Public AgentFEM object. |
 | function | `implicit_euler(*, nonlinear: bool = False, stateful: bool = True) -> SolutionProcedure` | Public AgentFEM object. |

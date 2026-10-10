@@ -19,6 +19,7 @@ ANALYSIS_TYPES = {
     "first_order_transient",
     "second_order_dynamics",
     "modal",
+    "linear_buckling",
     "nonlinear_static",
     "nonlinear_transient",
 }
@@ -498,6 +499,14 @@ def modal_solid(
     )
 
 
+
+def buckling_solid(*, dimension: int, assumption: str | None = None, name: str | None = None) -> Study:
+    """Linear initial-stress buckling of conservative elastic solid structures."""
+    return define(analysis="linear_buckling", physics="solid_mechanics", dimension=dimension,
+                  assumption=assumption, preferred_procedure="generalized_nonhermitian_eigenproblem",
+                  name=name or "linear_buckling")
+
+
 def _normalize(value: str) -> str:
     return value.strip().lower().replace(" ", "_").replace("-", "_")
 
@@ -509,7 +518,7 @@ def _normalize_optional(value: str | None) -> str | None:
 def _default_time_domain(analysis: str) -> str:
     if analysis == "frequency_domain":
         return "frequency"
-    if analysis in {"linear_static", "nonlinear_static", "modal"}:
+    if analysis in {"linear_static", "nonlinear_static", "modal", "linear_buckling"}:
         return "static"
     return "transient"
 

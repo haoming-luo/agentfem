@@ -18,6 +18,7 @@ from mpi4py import MPI
 
 from agentfem import dependencies
 
+from .honeycomb import reentrant_honeycomb
 from . import formats
 from . import quality
 from . import abaqus

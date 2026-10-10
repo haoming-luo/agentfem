@@ -1262,6 +1262,35 @@
       "title": "Solver-neutral LEFM stress-intensity extraction"
     },
     {
+      "id": "agentfem.workflow.linear_periodic_elasticity",
+      "kind": "workflow",
+      "public_api": [
+        "agentfem.mechanics.periodic_elasticity",
+        "agentfem.mechanics.elastic_engineering_properties",
+        "agentfem.mechanics.apparent_poisson_ratio",
+        "agentfem.mesh.reentrant_honeycomb"
+      ],
+      "related_cards": [],
+      "source": "src/agentfem/knowledge/cards/linear_periodic_elasticity.json",
+      "status": "experimental",
+      "summary": "Independent engineering macrostrain cases recover directional effective stiffness and compliance from periodic fluctuations; porous stress and energy use full cell volume.",
+      "title": "Matching periodic linear elastic homogenization"
+    },
+    {
+      "id": "agentfem.workflow.linear_solid_buckling",
+      "kind": "analysis_step",
+      "public_api": [
+        "agentfem.studies.buckling_solid",
+        "agentfem.procedures.linear_buckling",
+        "agentfem.operators.geometric_stiffness"
+      ],
+      "related_cards": [],
+      "source": "src/agentfem/knowledge/cards/linear_solid_buckling.json",
+      "status": "experimental",
+      "summary": "Small-displacement elastic reference and fixed-base states define a linear buckling pencil; reference load factors are not postbuckling capacities.",
+      "title": "Conservative initial-stress solid buckling"
+    },
+    {
       "id": "agentfem.workflow.observation_grid_learning",
       "kind": "workflow",
       "public_api": [

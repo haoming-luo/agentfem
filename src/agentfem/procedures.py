@@ -93,6 +93,13 @@ def linear_static() -> SolutionProcedure:
     )
 
 
+
+def linear_buckling() -> SolutionProcedure:
+    """Generalized pencil with potentially indefinite geometric stiffness."""
+    return SolutionProcedure(name="linear buckling", family="standard", equation_order="static",
+                             control="single_solve", algorithm="generalized_nonhermitian_eigenproblem")
+
+
 def modal() -> SolutionProcedure:
     """Undamped linear modes from ``K phi = lambda M phi``."""
 
@@ -282,6 +289,8 @@ def for_step(*, analysis: str, method: str | None = None, stateful: bool = False
     selected_method = _normalize(method or "")
     if selected_analysis == "linear_static":
         return linear_static()
+    if selected_analysis == "linear_buckling":
+        return linear_buckling()
     if selected_analysis == "modal":
         return modal()
     if selected_analysis == "frequency_domain":
@@ -394,8 +403,10 @@ def _validate_method_name(analysis: str, method: str | None) -> None:
             "central_difference",
         },
         "explicit_dynamics": {"explicit", "central_difference"},
+        "linear_buckling": {"linear_buckling", "generalized_nonhermitian_eigenproblem"},
         "modal": {
             "modal",
+    "linear_buckling",
             "eigenvalue",
             "generalized_hermitian_eigenproblem",
         },
@@ -428,6 +439,7 @@ def _validate_for_analysis(
         "second_order_dynamics": "second_order",
         "explicit_dynamics": "second_order",
         "modal": "static",
+        "linear_buckling": "static",
         "frequency_domain": "second_order",
     }.get(analysis)
     if expected_order is None:
@@ -450,7 +462,7 @@ def _validate_for_analysis(
         )
     if analysis == "linear_static" and procedure.nonlinear:
         raise ValueError("A linear-static Study cannot use a nonlinear procedure.")
-    if analysis == "modal" and procedure.nonlinear:
+    if analysis in {"modal", "linear_buckling"} and procedure.nonlinear:
         raise ValueError("A modal Study cannot use a nonlinear procedure.")
     if analysis == "frequency_domain" and procedure.nonlinear:
         raise ValueError("A frequency-domain Study cannot use a nonlinear procedure.")

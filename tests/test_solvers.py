@@ -27,6 +27,7 @@ def test_solver_options_are_inspectable():
 
     assert options.summary() == {
         "kind": "linear_solver_options",
+        "mpc_assembly": "native",
         "ksp_type": "cg",
         "pc_type": "hypre",
         "rtol": 1.0e-8,

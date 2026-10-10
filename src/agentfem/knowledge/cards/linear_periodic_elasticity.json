@@ -1,0 +1,91 @@
+{
+  "schema": "agentfem.scientific-function-card",
+  "schema_version": "0.1.0",
+  "id": "agentfem.workflow.linear_periodic_elasticity",
+  "title": "Matching periodic linear elastic homogenization",
+  "kind": "workflow",
+  "status": "experimental",
+  "summary": "Independent engineering macrostrain cases recover directional effective stiffness and compliance from periodic fluctuations; porous stress and energy use full cell volume.",
+  "public_api": [
+    "agentfem.mechanics.periodic_elasticity",
+    "agentfem.mechanics.elastic_engineering_properties",
+    "agentfem.mechanics.apparent_poisson_ratio",
+    "agentfem.mesh.reentrant_honeycomb"
+  ],
+  "implementation": [
+    "mechanics/homogenization.py",
+    "mesh/honeycomb.py",
+    "backends/_mpc_algebraic.py"
+  ],
+  "science": {
+    "statement": "Independent engineering macrostrain cases recover directional effective stiffness and compliance from periodic fluctuations; porous stress and energy use full cell volume.",
+    "equations": [
+      {
+        "label": "Matching periodic linear elastic homogenization",
+        "expression": "\\mathbf u=\\bar{\\boldsymbol\\varepsilon}\\mathbf x+\\mathbf w,\\quad C^{\\mathrm{eff}}_{ij}=\\langle\\sigma_i^{(j)}\\rangle/a,\\quad\\nu_{ij}=-S_{ji}/S_{ii}",
+        "description": "Independent engineering macrostrain cases recover directional effective stiffness and compliance from periodic fluctuations; porous stress and energy use full cell volume."
+      }
+    ],
+    "inputs": [
+      {
+        "name": "registered elastic cell model",
+        "type": "FEniCSx fields and material/constraint objects",
+        "unit_role": "consistent mechanical units",
+        "description": "Caller declares material, geometry and reference-state or cell-loading semantics."
+      }
+    ],
+    "outputs": [
+      {
+        "name": "effective stiffness and directional properties",
+        "type": "SimulationResult",
+        "unit_role": "dimensionless factors or mechanical moduli",
+        "description": "Computed numerical evidence; independent physical validation remains a separate claim."
+      }
+    ],
+    "assumptions": [
+      "Axis-aligned rectangular 2D/3D matching-node cells; one translational anchor on solid material and no external loads.",
+      "Linear elasticity only, with engineering shear strain and tensor shear stress in xx,yy,xy or xx,yy,zz,yz,xz,xy order."
+    ],
+    "conventions": [
+      "Engineering strain Voigt order xx,yy,xy or xx,yy,zz,yz,xz,xy; tensor shear stress; full rectangular cell volume."
+    ],
+    "applicability": [
+      "Matching periodic linear elastic homogenization"
+    ],
+    "limitations": [
+      "Axis-aligned rectangular 2D/3D matching-node cells; one translational anchor on solid material and no external loads.",
+      "Linear elasticity only, with engineering shear strain and tensor shear stress in xx,yy,xy or xx,yy,zz,yz,xz,xy order.",
+      "The algebraic periodic route replicates constraint/root numbering; it is not an extreme-scale graph construction claim. Native MPC remains the default outside this workflow.",
+      "Finite-array gauge Poisson ratio is a specimen property, not an infinite-cell material constant. Connected specimens remove detached fragments created by rectangular clipping.",
+      "No nonmatching-cell interpolation, oblique cell lattice, finite-strain secant/incremental Poisson ratio or wall contact."
+    ]
+  },
+  "usage": {
+    "minimal_example": "mechanics.periodic_elasticity(model, w, anchor=(0.,0.))",
+    "examples": [
+      "examples/reentrant_honeycomb/case.py"
+    ]
+  },
+  "verification": {
+    "tests": [
+      "tests/test_stability_periodic.py"
+    ],
+    "benchmarks": [],
+    "validation_rules": [
+      "Recover analytical column or homogeneous-cell references.",
+      "Check scaling, geometry/mesh sensitivity and independent conservation evidence.",
+      "Keep finite specimens distinct from periodic effective materials."
+    ]
+  },
+  "references": [
+    {
+      "title": "FEniCSx periodic elasticity",
+      "locator": "https://bleyerj.github.io/comet-fenicsx/tours/homogenization/periodic_elasticity/periodic_elasticity.html"
+    },
+    {
+      "title": "COMSOL homogenization",
+      "locator": "https://www.comsol.com/support/learning-center/article/Homogenization-of-Material-Properties-80311"
+    }
+  ],
+  "related_cards": []
+}
