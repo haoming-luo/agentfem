@@ -158,6 +158,17 @@ tests and a representative contact submodel; only then spend a long-run budget
 on the original mesh. No additional material library, implicit solver, or full
 installer is required for this next gate.
 
+For throughput, profile a nonzero accepted Step before further micro-optimization.
+The measured original-mesh body trial alone is about 1.85 s/increment on this
+host: extrapolating 100,000 identical-cost increments gives about 51 hours,
+before contact/output, not an actual full-run ETA. Do not launch that expense
+just to replace missing admission evidence with a long process. The next
+performance comparison should examine chunk/temporary-array cost and, only if
+kinematics dominate, an explicitly separate midpoint-rate integration candidate
+against the current finite endpoint-stretch integral. Any cheaper integration
+route must pass noncoaxial/objectivity tests and time refinement of stress,
+state and work, without silently changing an existing provider's convention.
+
 ## Kinematics chosen for the candidate
 
 For the right polar decomposition `F = R U`, the polar-frame stretching rate
