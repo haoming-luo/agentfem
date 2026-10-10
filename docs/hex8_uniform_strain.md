@@ -611,6 +611,22 @@ references, not claims that AgentFEM implements those algorithms:
 
 ## Sources
 
+### Next stability gate: material envelopes (private operator experiment)
+
+The fixed-reference Hex8 operator can now convert declared symmetric material
+bounds `-c_minus I <= dP/dF <= c_plus I` into separate positive-frequency and
+negative-curvature bounds. It uses the reference-volume-scaled 3x3
+mass-gradient Gram, adds positive hourglass stiffness only to the upper bound,
+and retains the maximum element bound for assembled positive lumped mass.
+Dense single-element and shared-node assembly oracles check this conversion,
+including anisotropic signed tangents and a bounded Neo-Hookean deformation
+domain. It does not infer material bounds or certify their validity domain.
+
+This private conversion is not yet a replacement for the caller's complete-path
+ceiling: provider-owned applicability checks, lifecycle/result identity and a
+public end-to-end acceptance gate are still required. No automatic variable
+time integration or general finite-material wave-speed claim follows from it.
+
 - Johnen, Weill and Remacle, 2017, *Robust and efficient validation of the linear
   hexahedral element*, https://arxiv.org/abs/1706.01613.
   Admission uses the Bernstein convex-hull and subdivision construction, not
