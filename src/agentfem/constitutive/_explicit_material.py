@@ -16,6 +16,89 @@ from .user_material import MaterialStateSchema
 
 
 @dataclass(frozen=True)
+class ExplicitMaterialIncrementLimit:
+    """Provider-declared material-update limit in the request's time units.
+
+    This is not a body/contact/damping spectral certificate. A stateless
+    provider computes it from the request; history stays in state_old. The
+    identity must identify the numerical policy, not the current array values.
+    """
+
+    maximum_time_increment: np.ndarray
+    policy_identity: str
+
+    def __post_init__(self):
+        values = np.asarray(self.maximum_time_increment)
+        if values.ndim != 1 or values.dtype.kind == "b":
+            raise ValueError("Material increment limits require one value per point.")
+        values = _array(values, values.shape, "maximum_time_increment")
+        if np.any(values <= 0):
+            raise ValueError("Material increment limits must be positive.")
+        if (
+            not isinstance(self.policy_identity, str)
+            or not self.policy_identity.strip()
+        ):
+            raise ValueError("Material increment policy requires a nonempty identity.")
+        object.__setattr__(self, "maximum_time_increment", values)
+
+
+class ExplicitMaterialIncrementExceeded(ValueError):
+    code = "explicit_material_increment_exceeded"
+
+    def __init__(self, *, requested, allowed, point_index, policy_identity):
+        self.requested_time_increment = float(requested)
+        self.allowed_time_increment = float(allowed)
+        self.point_index = int(point_index)
+        self.policy_identity = policy_identity
+        super().__init__(
+            f"Material increment {requested} exceeds declared limit {allowed} "
+            f"at point {point_index}; policy={policy_identity}."
+        )
+
+
+def explicit_increment_policy_identity(material):
+    """Read the optional provider contract without executing a material update."""
+    method = getattr(material, "explicit_increment_limit", None)
+    identity = getattr(material, "explicit_increment_policy_identity", None)
+    if method is None and identity is None:
+        return None
+    if not callable(method) or not isinstance(identity, str) or not identity.strip():
+        raise ValueError(
+            "Material increment query and stable policy identity are both required."
+        )
+    return identity
+
+
+def _check_explicit_increment(material, request):
+    identity = explicit_increment_policy_identity(material)
+    if identity is None:
+        return
+    limit = material.explicit_increment_limit(request)
+    if not isinstance(limit, ExplicitMaterialIncrementLimit):
+        raise TypeError("Expected ExplicitMaterialIncrementLimit.")
+    limit = replace(limit)
+    if (
+        limit.policy_identity != identity
+        or limit.maximum_time_increment.shape != (request.point_count,)
+        or explicit_increment_policy_identity(material) != identity
+    ):
+        raise ValueError("Material increment policy changed identity or point count.")
+    if request.point_count:
+        point = int(np.argmin(limit.maximum_time_increment))
+        allowed = float(limit.maximum_time_increment[point])
+        # Accepted times are accumulated and subtracted by the Procedure;
+        # tolerate only floating-point reconstruction noise at equality.
+        rounding = 32 * np.finfo(float).eps * max(request.time_increment, allowed)
+        if request.time_increment - allowed > rounding:
+            raise ExplicitMaterialIncrementExceeded(
+                requested=request.time_increment,
+                allowed=allowed,
+                point_index=point,
+                policy_identity=identity,
+            )
+
+
+@dataclass(frozen=True)
 class ExplicitMaterialBatchOutput:
     cauchy_stress: np.ndarray
     state_new: np.ndarray
@@ -90,10 +173,16 @@ def validated_explicit_material_update(material, request):
         raise TypeError("Expected MaterialPointArrayBatchInput.")
     if request.state_schema != material.state_schema:
         raise ValueError("Explicit request state schema differs from material.")
+    identity = explicit_increment_policy_identity(material)
+    _check_explicit_increment(material, request)
     method = getattr(material, "update_explicit_array_batch", None)
     if not callable(method):
         raise TypeError("Material must implement update_explicit_array_batch.")
     response = method(request)
+    if explicit_increment_policy_identity(material) != identity:
+        raise ValueError(
+            "Material increment policy changed during response evaluation."
+        )
     if not isinstance(response, ExplicitMaterialBatchOutput):
         raise TypeError(
             "Expected ExplicitMaterialBatchOutput; no implicit response coercion."

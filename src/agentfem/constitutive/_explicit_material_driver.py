@@ -12,6 +12,7 @@ import numpy as np
 
 from ._explicit_material import (
     ExplicitMaterialBatchOutput,
+    ExplicitMaterialIncrementExceeded,
     validated_explicit_material_update,
 )
 from .material_array_batch import MaterialPointArrayBatchInput, _array
@@ -158,7 +159,15 @@ def update_explicit_material_points(
             time_increment,
             properties=np.asarray(properties),
         )
-        batches.append(validated_explicit_material_update(material, request))
+        try:
+            batches.append(validated_explicit_material_update(material, request))
+        except ExplicitMaterialIncrementExceeded as error:
+            raise ExplicitMaterialIncrementExceeded(
+                requested=error.requested_time_increment,
+                allowed=error.allowed_time_increment,
+                point_index=start + error.point_index,
+                policy_identity=error.policy_identity,
+            ) from error
     channels = (
         "cauchy_stress",
         "state_new",

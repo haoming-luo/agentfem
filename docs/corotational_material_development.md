@@ -171,6 +171,35 @@ state and work, without silently changing an existing provider's convention.
 
 ## Kinematics chosen for the candidate
 
+### Provider-owned material increment restriction
+
+The private response protocol now accepts an optional stateless
+`explicit_increment_limit(request)` query returning an immutable
+`ExplicitMaterialIncrementLimit`, with one positive finite limit per point in
+the request's time units. A nonempty `explicit_increment_policy_identity`
+must identify the algorithm and all fixed policy parameters. Dynamic history
+must come from `request.state_old`, not an uncheckpointed callback closure.
+Limits may govern local material-update accuracy or admissibility; they are
+not automatically a geometric wave-speed, contact, or damping bound.
+
+The query is numerically enforced before the corresponding batch's response
+update. Exceeding it raises `explicit_material_increment_exceeded` with the
+requested/allowed increments, policy identity and process-local point index.
+A late chunk rejection preserves all trial/committed fields. Previously
+evaluated chunks have not committed State. No automatic retry or enlargement
+of a step follows, and existing providers without this optional contract keep
+their caller-ceiling behavior. The response Hex adapter can explicitly require
+the query, includes its identity in restart compatibility, and rejects identity
+changes after construction. Provider evaluation also rejects mid-call changes.
+
+Focused contract/quadrature/response/inertia selection: 70 tests pass, including
+nonzero dynamic response with bitwise disk restart, a later accepted-time limit
+change followed by whole-Step rollback, and a rejected late batch with a
+correct global-in-this-process point index. Equality allows only floating-point
+time-reconstruction noise, not a physical relaxation of the limit. This is an
+enforced material restriction, **not** the still-pending combined body/contact/
+damping increment strategy. No private source material is auto-promoted.
+
 For the right polar decomposition `F = R U`, the polar-frame stretching rate
 is `R^T D R = sym(Udot U^-1)`. Given only endpoint gradients, the candidate
 explicitly chooses a linear right-stretch path between `U0` and `U1`.

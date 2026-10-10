@@ -96,8 +96,18 @@ class ResponseHexExplicitResidual:
         stress_free_initial_state,
         cohesive=None,
         bulk_viscosity=None,
+        require_material_increment_limit=False,
     ):
         from ..constitutive._explicit_material_driver import ExplicitQuadratureResponse
+        from ..constitutive._explicit_material import explicit_increment_policy_identity
+
+        if not isinstance(require_material_increment_limit, bool):
+            raise TypeError("require_material_increment_limit must be a bool.")
+        self.material_increment_policy = explicit_increment_policy_identity(material)
+        if require_material_increment_limit and self.material_increment_policy is None:
+            raise ValueError(
+                "This response route requires a material increment policy."
+            )
 
         if internal.comm.size != 1 or not isinstance(
             internal.response, ExplicitQuadratureResponse
@@ -162,6 +172,11 @@ class ResponseHexExplicitResidual:
                     "state": repr(material.state_schema),
                     "ceiling": ceiling,
                     "stress_free_initial_state": True,
+                    **(
+                        {"material_increment_policy": self.material_increment_policy}
+                        if self.material_increment_policy is not None
+                        else {}
+                    ),
                     "bulk_viscosity": None
                     if bulk_viscosity is None
                     else bulk_viscosity.summary(),
@@ -210,6 +225,15 @@ class ResponseHexExplicitResidual:
             raise
 
     def _assemble_vector(self):
+        from ..constitutive._explicit_material import explicit_increment_policy_identity
+
+        if (
+            explicit_increment_policy_identity(self.material)
+            != self.material_increment_policy
+        ):
+            raise ValueError(
+                "Material increment policy identity changed after construction."
+            )
         dt = self.time - self.accepted_time
         self.validate_time_increment(dt)
         self._trial = None
@@ -352,6 +376,7 @@ class ResponseHexExplicitResidual:
             "identity": self.identity,
             "increment_ceiling": self.ceiling,
             "stability_certified": False,
+            "material_increment_policy": self.material_increment_policy,
             "material_internal_work": self.internal_work,
             "artificial_bulk_viscosity_work": self.viscosity_work,
             "bulk_viscosity": None
