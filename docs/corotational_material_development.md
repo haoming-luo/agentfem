@@ -134,6 +134,30 @@ also distinguishes original-contact eligibility from later contact. Our selected
 near-coincident mask is a recorded hypothesis, not proof of the source solver's
 actual initial bond set.
 
+### Next bounded engineering increment (not an unbounded proof project)
+
+The next response-only step policy should accept provider-declared effective
+moduli or a reviewed wave-speed bound with units and provenance, combine it
+with current element geometry, and account separately for interface/contact
+penalty and damping restrictions. Do not force generation of a full implicit
+consistent tangent merely to advance explicit dynamics. This follows the
+practical separation illustrated by the
+[VUMAT EFFMOD interface](https://docs.software.vt.edu/abaqusv2025/English/SIMACAESUBRefMap/simasub-c-vumat.htm):
+automatic effective moduli can be nonconservative for strongly nonlinear laws,
+and user-specified effective moduli provide an alternative input.
+
+Such an engineering estimate must not be mislabeled a universal nonlinear
+stability theorem. Admission should instead require a bounded demonstrated
+domain, accepted-state energy/penetration checks, an explicit added-mass budget,
+and predeclared response tolerances under increment and mass refinement. For
+anisotropy, the declared bound must cover the relevant directions; copying
+isotropic bulk/shear numbers without that justification is not sufficient.
+The core owns the input/diagnostic contract and policy lifetime, while private
+providers own material-specific bounds. Begin with small nonzero force-driven
+tests and a representative contact submodel; only then spend a long-run budget
+on the original mesh. No additional material library, implicit solver, or full
+installer is required for this next gate.
+
 ## Kinematics chosen for the candidate
 
 For the right polar decomposition `F = R U`, the polar-frame stretching rate
