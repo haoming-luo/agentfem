@@ -35,7 +35,7 @@ from agentfem.mechanics._finite_hex_explicit import FiniteHexExplicitResidual
 from agentfem.mechanics._finite_hex_energy import FiniteHexEnergyMonitor
 
 
-def prepare(size, steps):
+def prepare(size, steps, *, public_step=False):
     if MPI.COMM_WORLD.size != 1:
         raise ValueError("Use the serial capacity oracle without an MPI launcher.")
     domain = mesh.create_unit_cube(
@@ -54,8 +54,29 @@ def prepare(size, steps):
         ),
     )
     law = constitutive.finite_strain_j2_logarithmic(
-        young=100, poisson=0.3, yield_stress=1, hardening_modulus=5
+        young=100, poisson=0.3, yield_stress=1, hardening_modulus=5,
+        density=2 if public_step else None,
     )
+    if public_step:
+        from agentfem import elements
+
+        model.material(law)
+        step = model.step(
+            target=u,
+            element_policy=elements.uniform_strain_hex8(
+                hourglass_modulus=40, hourglass_scale=0.1,
+                kinematics="finite_strain",
+            ),
+            omega_squared_bound=1e8,
+            maximum_negative_growth_per_increment=0.1,
+            dt=0.1 / steps,
+            steps=steps,
+            history_every=max(1, steps // 20),
+            progress=False,
+        )
+        xyz = u.value.function_space.tabulate_dof_coordinates()
+        step.state.v.value.x.array[::3] = 2 * xyz[:, 0]
+        return step, xyz
     response = MaterialQuadratureResponse.create(
         domain,
         law.state_schema,
@@ -119,9 +140,9 @@ def oracle(t):
     return tau / stretch, energy, peeq, yield_stress * peeq
 
 
-def run(size, steps, max_rss_mb):
+def run(size, steps, max_rss_mb, *, public_step=False):
     start = perf_counter()
-    step, xyz = prepare(size, steps)
+    step, xyz = prepare(size, steps, public_step=public_step)
     preparation = perf_counter() - start
     start = perf_counter()
     samples = []
@@ -174,6 +195,7 @@ def run(size, steps, max_rss_mb):
         "dt": step.dt,
         "preparation_seconds": preparation,
         "scope": "homogeneous_uniaxial_strain_not_spatial_convergence_or_forming",
+        "entrypoint": "ordinary_model_step" if public_step else "private_oracle_procedure",
         "material": step.residual.material.summary(),
         "samples": samples,
         "stability": step.residual.summary(),
@@ -186,6 +208,7 @@ def main():
     parser.add_argument("--size", type=int, default=8)
     parser.add_argument("--steps", type=int, default=1000)
     parser.add_argument("--max-rss-mb", type=int, default=4096)
+    parser.add_argument("--public-step", action="store_true")
     parser.add_argument("--output", type=Path, required=True)
     args = parser.parse_args()
     if not 1 <= args.size <= 64 or not 1000 <= args.steps <= 4000 or args.steps % 5:
@@ -200,7 +223,7 @@ def main():
             ["git", "status", "--porcelain", "--untracked-files=no"], text=True
         ).strip()
     )
-    result = run(args.size, args.steps, args.max_rss_mb)
+    result = run(args.size, args.steps, args.max_rss_mb, public_step=args.public_step)
     result.update(revision=revision, tracked_source_dirty=dirty)
     args.output.parent.mkdir(parents=True, exist_ok=True)
     with args.output.open("x") as stream:

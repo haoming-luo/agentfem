@@ -170,6 +170,29 @@ def test_failed_finite_step_construction_restores_user_field_and_registration():
     assert tuple(model.steps) == before_steps
 
 
+def test_capacity_oracle_public_and_private_entrypoints_agree():
+    from pathlib import Path
+    import runpy
+
+    tool = runpy.run_path(
+        str(Path(__file__).parents[1] / "tools/verify_finite_hex_plastic_path.py")
+    )
+    public, _ = tool["prepare"](1, 1000, public_step=True)
+    private, _ = tool["prepare"](1, 1000)
+    for step in (public, private):
+        step.run(until_step=100)
+    np.testing.assert_allclose(
+        public.state.u.value.x.array, private.state.u.value.x.array,
+        rtol=1e-12, atol=1e-14,
+    )
+    np.testing.assert_allclose(
+        public.residual.internal.response.cauchy_stress.values,
+        private.residual.internal.response.cauchy_stress.values,
+        rtol=1e-12, atol=1e-14,
+    )
+    assert public.history_records[-1] == pytest.approx(private.history_records[-1])
+
+
 def test_density_does_not_change_material_response():
     from dataclasses import replace
     from test_material_array_batch import fixture
