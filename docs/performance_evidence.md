@@ -239,6 +239,40 @@ Reproduction tools are `tools/benchmark_material_transport.py` and
 `evidence/hex8/2026-10-09-columnar-trajectory.json`. Do not multiply these factors
 by separate checkpoint or geometry microbenchmark factors.
 
+## Bounded finite-plastic kernel consolidation (2026-10-10)
+
+After the earlier capacity job exited, clean numerical source `b8ac0ddd` was
+measured on Apple M5 (10 logical cores, 32 GiB RAM), macOS ARM64, with the same
+default MPI provider on both sides and OMP/OpenBLAS/Accelerate limits requested
+as one. This does not suppress the separately diagnosed MPI background threads.
+Three paired 4,096-cell, 1,000-increment plastic trajectories alternate execution
+order after warmup. The reference reinstates the committed nine-column analytic
+tangent, general signed spectral algebra and former geometry contraction;
+the optimized route uses batched tangent directions, the applicable spherical
+reference-Gram bound and dense cached geometry contraction.
+
+| Same plastic trajectory | Reference | Optimized |
+| --- | ---: | ---: |
+| Pair 1 | 85.580 s | 53.751 s |
+| Pair 2 | 88.388 s | 54.628 s |
+| Pair 3 | 88.648 s | 55.055 s |
+| Median | 88.388 s | 54.628 s |
+
+This is **1.62x**, or **38.2% less elapsed integration time**, for this workload.
+All final displacement, velocity, stress and state arrays are identical; numeric
+history entries agree within 1e-12. Material equations, time increments, energy
+accounting and rejection checks are unchanged. Preparation and disk I/O are
+excluded. This comparison already uses columnar transport on both sides and
+must not be multiplied by the earlier 2.16x transport result. It is not an
+arbitrary distorted-mesh, interface, contact, MPI-scaling or forming speed claim.
+
+`tools/benchmark_finite_hex_kernels.py --size 16 --pairs 3` reproduces this
+comparison from the development Git history, including pinned reference
+`0c0df953`; it is not a wheel-only benchmark. Raw samples, source hash, runtime
+environment and separate microkernel timings are retained in
+`evidence/hex8/2026-10-10-finite-kernels-trajectory.json`.
+Microkernel speedups are not whole-solver speedups and must not be multiplied.
+
 ## Scientific trust boundary
 
 `SimulationResult.performance` is operational evidence. It does not modify
