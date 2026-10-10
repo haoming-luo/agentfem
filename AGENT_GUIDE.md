@@ -441,6 +441,10 @@ never changes solver access, results, verification, or update behavior.
   cover all admissible material states/inputs in its stated stretch domain.
   Never invent an envelope from one initial tangent or equate `dt="auto"`
   with adaptive stepping. Native finite J2 still requires the caller ceiling.
+  Its bounded finite-Hex contact candidate accepts one registered frictionless
+  fixed/translating plane in serial. Keep the reference-surface penalty meaning
+  explicit; rotating/curved tools, MPI, multiple pairs, friction and simultaneous
+  bonding/contact are not admitted. Use `examples/finite_hex_moving_plane.py`.
 - Treat a surface projection as evidence, not merely coordinates. Preserve its
   surface identity, method, admissible-side unit normal, signed-gap convention,
   validity, discrete entity identity, geometry fingerprint and local

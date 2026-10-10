@@ -76,7 +76,9 @@ dissipation. These three quantities must not be used interchangeably.
 Strong prescribed motion and displacement-independent reference body/traction
 loads are supported. Starts are undeformed with virgin history; restarts reuse
 the accepted state. The admitted interface special case remains isotropic,
-undamaged and serial. Regional history materials, follower loads, contact,
+undamaged and serial. A separate bounded serial route admits one registered
+frictionless rigid plane, fixed or in prescribed translation (see below).
+Regional history materials, follower loads, general contact,
 damage/deletion, mass scaling and cross-partition restart are not admitted.
 
 `examples/finite_hex_extension.py` demonstrates the installed-use workflow and
@@ -671,10 +673,35 @@ exactly and rolls back an injected failure after both material/contact commits.
 Accepted reaction sampling reuses the material's cached force rather than
 performing a zero-increment constitutive update.
 
-This remains a small serial composition gate, not an independent industrial
-validation or a general contact-convergence proof. The ordinary finite Hex8
-Step still rejects boundary-model/contact assets pending reviewed lowering,
-MPI composition and broader loading/geometry checks.
+### Ordinary translating-plane composition (candidate)
+
+Register one `RigidContactPair` with `model.add_boundary_model(pair)` and use
+the same finite-Hex `model.step(...)`. The lowering keeps the constitutive
+residual as the owner of fields and material energy while the composed residual
+owns total force and contact State. It adds the contact spectral bound once to
+the bulk/hourglass/interface ceiling before selecting a fixed increment; a
+caller ceiling or a reviewed material envelope is still required for the bulk.
+
+This first admission is serial, one frictionless plane, fixed or in prescribed
+translation. Rotation, curved tools, multiple pairs, friction, simultaneous
+bonding/contact and MPI contact composition reject before stepping. The
+penalty potential uses the reference-surface quadrature weights; it must not be
+interpreted as an independently validated current-area pressure formulation.
+
+An independent one-element uniaxial-strain oracle solves
+`(rho*V/2)*q'' = -A*P11(1+q) - k*A*positive(q-s)` with a refined scalar RK4
+reference. For compressible Neo-Hookean material,
+`P11(a) = mu*(a-1/a) + lambda*log(a)/a`. Displacement, velocity and integrated
+tool work converge at approximately second order under time refinement. The
+oracle never reads the FEM tangent or residual. This checks the lumped
+one-element model, not spatial accuracy or industrial forming.
+
+`examples/finite_hex_moving_plane.py` uses ordinary registered assets and native
+finite J2. Its 1,000-increment source run reports positive material dissipation
+and tool work, with final relative work/energy residual about `2.03e-7`.
+Interrupted/continuous material State and nodal displacement match exactly.
+These are small serial acceptance gates; MPI, general tool geometry and the
+tester's actual finite orthotropic material remain separate requirements.
 
 ## Sources
 

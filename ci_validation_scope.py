@@ -197,6 +197,7 @@ _CORE_SOURCE_TEST_MAP = {
     ),
     "src/agentfem/_step_finite_uniform_hex.py": (
         "tests/test_finite_hex_step.py",
+        "tests/test_finite_hex_contact_composition.py",
         "tests/test_finite_hex_material_envelope_step.py",
         "tests/test_finite_hex_external_material.py",
         "tests/test_finite_hex_cyclic_energy.py",

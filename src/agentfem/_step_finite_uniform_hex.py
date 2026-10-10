@@ -11,19 +11,24 @@ from .provenance import collective_call, collective_canonical_record
 
 
 class FiniteUniformHexStep(ExplicitDynamicsStep):
+    @property
+    def material_residual(self):
+        """The constitutive owner, distinct from a composed contact residual."""
+        return getattr(self, "_material_residual", self.residual)
+
     def operator_lifecycle_summary(self):
         return {
             **super().operator_lifecycle_summary(),
             "stability_scope": (
                 "caller_path_ceiling_with_signed_endpoint_screen"
-                if self.residual.material_envelope is None
-                else self.residual.summary()["stability_scope"]
+                if self.material_residual.material_envelope is None
+                else self.material_residual.summary()["stability_scope"]
             ),
             "material_tangent_policy": "accepted_trial_recomputed_each_increment",
         }
 
     def solve_result(self, *, field_variables=None, fields=(), **options):
-        comm = self.residual.comm
+        comm = self.material_residual.comm
         modes = comm.allgather((field_variables is None, bool(fields)))
         if any(mode != modes[0] for mode in modes):
             raise ValueError("Finite Hex8 output mode differs across ranks.")
@@ -35,7 +40,7 @@ class FiniteUniformHexStep(ExplicitDynamicsStep):
             )
         from .results._finite_hex import FiniteHexCellFields
 
-        generated = FiniteHexCellFields(self.residual, field_variables)
+        generated = FiniteHexCellFields(self.material_residual, field_variables)
         return super().solve_result(fields=(self.state.u.value, generated), **options)
 
     def summary(self):
@@ -43,14 +48,18 @@ class FiniteUniformHexStep(ExplicitDynamicsStep):
             **super().summary(),
             "element_policy": self.element_policy.summary(),
             "execution_scope": "experimental_single_material_finite_reference_hex8",
+            "contact_scope": (
+                "none" if self.residual is self.material_residual else
+                "serial_single_frictionless_translating_plane_reference_surface_penalty"
+            ),
             "energy_balance_scope": "accepted_work_stored_artificial_and_material_dissipation",
             "stability_scope": (
                 "caller_path_ceiling_and_signed_endpoint_screen_not_nonlinear_guarantee"
-                if self.residual.material_envelope is None
-                else self.residual.summary()["stability_scope"]
+                if self.material_residual.material_envelope is None
+                else self.material_residual.summary()["stability_scope"]
             ),
-            "material_stability_envelope": self.residual.summary()["material_stability_envelope"],
-            "material": self.residual.material.summary(),
+            "material_stability_envelope": self.material_residual.summary()["material_stability_envelope"],
+            "material": self.material_residual.material.summary(),
         }
 
 
@@ -66,7 +75,7 @@ def lower(model, request):
 
 
 def _prepare(model, request):
-    from . import constraints, fracture, input_effects, problems, state, time
+    from . import boundary_models, constraints, fracture, input_effects, problems, state, time
     from .constitutive.material_driver import MaterialQuadratureResponse
     from .constitutive.user_material import MaterialTangentConvention
     from .elements._finite_uniform_hex_dolfinx import FiniteUniformHexResidual
@@ -76,6 +85,7 @@ def _prepare(model, request):
     options = dict(request.options)
     policy = options.pop("element_policy")
     domain = request.target.value.function_space.mesh
+    contact_pairs = tuple(model.boundary_models)
 
     def admit_assets():
         if model.study.dimension != 3 or model.study.physics != "solid_mechanics":
@@ -87,10 +97,23 @@ def _prepare(model, request):
                 )
         options.pop("output", None)
         options.pop("history", None)
-        if model.boundary_models or model.eigenstrains:
+        if model.eigenstrains:
             raise NotImplementedError(
-                "Finite Hex8 boundary models/contact and eigenstrains are not admitted."
+                "Finite Hex8 eigenstrains are not admitted."
             )
+        if contact_pairs:
+            if options.get("cohesive_force") is not None:
+                raise NotImplementedError("Finite Hex8 joint bonding/contact is not admitted yet.")
+            if domain.comm.size != 1 or len(contact_pairs) != 1:
+                raise NotImplementedError("Finite Hex8 contact is not admitted beyond one serial pair.")
+            pair = contact_pairs[0]
+            if (not isinstance(pair, boundary_models.RigidContactPair)
+                    or not isinstance(pair.rigid_body.surface, boundary_models.RigidPlaneSurface)
+                    or pair.friction is not None):
+                raise NotImplementedError("Finite Hex8 contact is not admitted beyond a frictionless rigid plane.")
+            schedule = pair.rigid_body.motion_schedule
+            if schedule is not None and np.any(np.asarray(schedule.motion.rotation) != 0):
+                raise NotImplementedError("Finite Hex8 rotating contact is not admitted yet.")
         selected = options.pop("constraints", None)
         assets = tuple(model.constraints if selected is None else selected)
         if any(
@@ -265,6 +288,28 @@ def _prepare(model, request):
         cohesive=options.pop("cohesive_force", None),
         external_force=external,
     )
+    material_residual = residual
+    stability = material_residual.stability
+    if contact_pairs:
+        pair = contact_pairs[0]
+        adapter = boundary_models.dolfinx_boundary_region_contact_trace(
+            pair.slave_boundary, history.u.value.function_space,
+        )
+        estimate = boundary_models.estimate_dolfinx_contact_stability(
+            adapter=adapter, lumped_mass=internal.mass_diagonal,
+            normal_penalty=pair.law.penalty, safety_factor=material_residual.safety,
+        )
+        stability = time.combine_explicit_stability(
+            (*stability.contributions, time.ExplicitStabilityContribution.from_time_increment(
+                f"contact:{pair.name}", estimate.unsafed_limit,
+                method="contact_trace_mass_spectral_bound",
+            )), safety_factor=material_residual.safety,
+        )
+        residual = boundary_models.dolfinx_explicit_contact_residual(
+            material_residual, adapter=adapter, displacement=history.u.value,
+            contact_pair=pair, maximum_stable_time_increment=stability.selected,
+            contact_stability_estimate=estimate, name=pair.name,
+        )
     dt_option = options.pop("dt")
 
     def controls():
@@ -275,7 +320,8 @@ def _prepare(model, request):
             or steps < 1
         ):
             raise ValueError("Finite Hex8 steps must be a positive integer.")
-        dt = residual.stability.selected if dt_option == "auto" else float(dt_option)
+        dt = stability.selected if dt_option == "auto" else float(dt_option)
+        material_residual.validate_time_increment(dt)
         residual.validate_time_increment(dt)
         return dt, int(steps)
 
@@ -286,7 +332,7 @@ def _prepare(model, request):
         raise ValueError("Finite Hex8 time controls differ across ranks.")
     from .time.explicit import _owned_dirichlet_dofs
 
-    residual.bind_prescribed_layout(
+    material_residual.bind_prescribed_layout(
         _owned_dirichlet_dofs([item.bc for item in prescribed])
     )
     initial = collective_call(
@@ -296,7 +342,9 @@ def _prepare(model, request):
         comm=domain.comm,
         label="Finite Hex8 declared virgin response",
     )
-    residual.enable_energy(initial)
+    material_residual.enable_energy(initial)
+    if contact_pairs:
+        residual.initialize_accepted_state(time=0.0)
     vector = residual.assemble_accepted_vector()
     try:
         from .kernel.dofs import assign_owned
@@ -325,16 +373,16 @@ def _prepare(model, request):
         dt=dt,
         study=model.study,
         history_monitor=fracture.DynamicEnergyLedger(
-            energy=FiniteHexEnergyMonitor(residual),
+            energy=FiniteHexEnergyMonitor(material_residual),
             state=history,
             mass=internal.mass_diagonal,
             residual=residual,
             natural_force=external,
             prescribed=prescribed,
         ),
-        stability={
-            "dt_limit": residual.stability.selected,
-            "method": residual.summary()["stability_scope"],
+        stability=stability if contact_pairs else {
+            "dt_limit": stability.selected,
+            "method": material_residual.summary()["stability_scope"],
             "scope": "experimental_not_general_nonlinear_stability",
         },
         **options,
@@ -347,4 +395,5 @@ def _prepare(model, request):
         }
     )
     step.element_policy = policy
+    step._material_residual = material_residual
     return step
