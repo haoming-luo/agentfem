@@ -3,6 +3,51 @@ import pytest
 
 from agentfem._q1_surface_geometry import planar_q1_pull_back
 from agentfem._q1_surface_geometry import q1_surface_pull_back
+from agentfem._q1_surface_geometry import q1_surface_quadrature
+
+
+def test_true_warped_surface_quadrature_and_orientation():
+    # x=(u,v,a*u*v); exact Jacobian sqrt(1+a^2*(u^2+v^2)).
+    a = 0.6
+    x = np.array([[[0.0, 0, 0], [1, 0, 0], [1, 1, a], [0, 1, 0]]])
+    reference_nodes, reference_weights = np.polynomial.legendre.leggauss(64)
+    u, v = np.meshgrid((reference_nodes + 1) / 2, (reference_nodes + 1) / 2)
+    exact = np.sum(
+        np.outer(reference_weights, reference_weights)
+        / 4
+        * np.sqrt(1 + a * a * (u * u + v * v))
+    )
+    errors = []
+    for order in (2, 4, 8):
+        points, basis, weights, normals = q1_surface_quadrature(x, order=order)
+        errors.append(abs(weights.sum() - exact))
+        np.testing.assert_allclose(points[0], basis @ x[0], atol=1e-14)
+        np.testing.assert_allclose(np.linalg.norm(normals, axis=-1), 1, atol=1e-14)
+        np.testing.assert_allclose(
+            (weights[..., None] * normals).sum(axis=1),
+            [[-a / 2, -a / 2, 1]],
+            atol=1e-14,
+        )
+    assert errors[2] < errors[1] < errors[0]
+    assert errors[2] < 1e-12
+    _, _, reverse_weights, reverse_normals = q1_surface_quadrature(
+        x[:, [0, 3, 2, 1]], order=8
+    )
+    np.testing.assert_allclose(reverse_weights.sum(), exact, atol=1e-12)
+    np.testing.assert_allclose(
+        (reverse_weights[..., None] * reverse_normals).sum(axis=1),
+        [[a / 2, a / 2, -1]],
+        atol=1e-14,
+    )
+
+
+def test_surface_quadrature_planar_area_and_empty_batch():
+    x = np.array([[[0.0, 0, 0], [2, 0, 0], [1.5, 1, 0], [0, 1, 0]]])
+    _, basis, weights, normals = q1_surface_quadrature(x)
+    assert weights.sum() == pytest.approx(1.75)
+    np.testing.assert_allclose(normals, np.broadcast_to([0, 0, 1], normals.shape))
+    np.testing.assert_allclose(basis.sum(axis=1), 1)
+    assert q1_surface_quadrature(np.empty((0, 4, 3)))[2].shape == (0, 9)
 
 
 @pytest.mark.parametrize("warpage", [1e-7, 0.1, 0.6])

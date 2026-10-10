@@ -142,6 +142,17 @@ patch query batches take approximately 0.070 s and 0.038 s respectively on
 this machine. The related mapping and existing Q1 interface tests pass 33
 checks. No cross-surface coverage or traction integration claim follows.
 
+`q1_surface_quadrature` now integrates the actual bilinear surface Jacobian
+and oriented normal without replacing a warped facet by two planes. It uses
+Basix derivatives and positive tensor-product Gauss weights. Analytical warped
+graph area, integrated oriented area, orientation reversal, planar trapezoid
+area and empty batches are tested; related Q1 mapping/interface selection:
+35 passed. Private source surfaces converge in area at orders 2/3/5 to
+781.947900530708 and 781.754905210090 in the model's area units. Their roughly
+0.025% mismatch is geometry evidence, not an integration error or an overlap
+certificate. Before admitting pairing, measure reference gaps and coverage;
+do not silently increase coincidence tolerance or flatten either surface.
+
 Local candidate checks: 15 kinematic tests plus 26 architecture tests pass.
 The independent noncoaxial oracle integrates the rate with 64-point Gaussian
 quadrature. Random 3D frame tests check objective stress and virtual-power

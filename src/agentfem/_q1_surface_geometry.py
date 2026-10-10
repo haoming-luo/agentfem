@@ -132,3 +132,40 @@ def _pull_back(vertices, points, *, relative_tolerance, max_iterations, planar_o
     if np.any(local < -relative_tolerance) or np.any(local > 1 + relative_tolerance):
         raise ValueError("Q1 query lies outside the reference facet.")
     return local, weights
+
+
+def q1_surface_quadrature(vertices, *, order=3):
+    """True bilinear surface measure and oriented normals, one facet batch.
+
+    Returns physical points (facets,q,3), cyclic basis (q,4), physical weights
+    (facets,q), normals (facets,q,3). Positive Gauss weights integrate the actual
+    surface Jacobian, not its triangular approximation. This supplies no
+    cross-surface coverage guarantee; quadrature refinement remains required.
+    """
+    if isinstance(order, bool) or not isinstance(order, int) or not 1 <= order <= 16:
+        raise ValueError("Q1 quadrature order must be an integer from 1 to 16.")
+    raw = np.asarray(vertices)
+    if raw.ndim != 3 or raw.shape[1:] != (4, 3):
+        raise ValueError("vertices must have shape (facets, 4, 3).")
+    x = _real(vertices, raw.shape, "vertices")
+    # The inverse-map admission checks projected convexity and nondegeneracy.
+    q1_surface_pull_back(x, x.mean(axis=1))
+    abscissa, weight = np.polynomial.legendre.leggauss(order)
+    abscissa = (abscissa + 1) / 2
+    weight = weight / 2
+    local = np.stack(np.meshgrid(abscissa, abscissa, indexing="ij"), axis=-1).reshape(
+        -1, 2
+    )
+    reference_weight = np.outer(weight, weight).ravel()
+    basis = _element().tabulate(1, local)[..., 0][:, :, [0, 1, 3, 2]]
+    # Subtract the origin before derivative contractions to limit cancellation.
+    shifted = x - x[:, :1]
+    tangents = np.einsum("aqk,nki->nqia", basis[1:3], shifted)
+    cross = np.cross(tangents[..., 0], tangents[..., 1])
+    jacobian = np.linalg.norm(cross, axis=-1)
+    if np.any(jacobian <= 0) or not np.isfinite(jacobian).all():
+        raise ValueError("Invalid Q1 surface Jacobian.")
+    points = np.einsum("qk,nki->nqi", basis[0], shifted) + x[:, :1]
+    weights = jacobian * reference_weight
+    normals = cross / jacobian[..., None]
+    return points, basis[0], weights, normals
