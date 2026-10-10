@@ -123,7 +123,15 @@ class DeformableQ1ContactResidual:
         vector = None
         try:
             values = self._values()
-            response = self.operator.evaluate(*values)
+            response = (
+                self.accepted[2]
+                if self.accepted is not None
+                and all(
+                    np.array_equal(a, b)
+                    for a, b in zip(values, self.accepted[:2], strict=True)
+                )
+                else self.operator.evaluate(*values)
+            )
             vector = self.base.assemble_vector()
             self._add(vector, response)
             self.trial = (*values, response)

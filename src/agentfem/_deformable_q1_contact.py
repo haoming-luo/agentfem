@@ -45,7 +45,16 @@ class DeformableQ1Penalty:
     would introduce a spurious moment.
     """
 
-    def __init__(self, secondary, primary, *, candidate_nodes, penalty, search_radius):
+    def __init__(
+        self,
+        secondary,
+        primary,
+        *,
+        candidate_nodes,
+        penalty,
+        search_radius,
+        geometry_policy="oriented_open_patch",
+    ):
         if not all(isinstance(s, BilinearReferenceTrace) for s in (secondary, primary)):
             raise TypeError("Deformable contact requires original Q1 traces.")
         mask = np.asarray(candidate_nodes)
@@ -62,6 +71,13 @@ class DeformableQ1Penalty:
         if np.ndim(penalty) != 0:
             raise ValueError("This contact contribution requires a scalar penalty.")
         self.secondary, self.primary = secondary, primary
+        if geometry_policy not in ("oriented_open_patch", "reviewed_closed_solid"):
+            raise ValueError("Unknown deformable contact geometry policy.")
+        self.geometry_policy = geometry_policy
+        if geometry_policy == "reviewed_closed_solid":
+            from ._closed_q1_surface import ClosedQ1Surface
+
+            ClosedQ1Surface(primary.vertices, primary.quadrilaterals)
         self.nodes = _readonly_array(np.flatnonzero(mask), dtype=np.int64)
         self.weights = _readonly_array(secondary.nodal_measures[self.nodes])
         self.search_radius = float(search_radius)
@@ -75,6 +91,7 @@ class DeformableQ1Penalty:
                 "search_radius": self.search_radius,
                 "measure": "reference_nodal",
                 "normal": "primary_connectivity_outward",
+                "geometry_policy": self.geometry_policy,
             }
         )
 
@@ -96,12 +113,19 @@ class DeformableQ1Penalty:
             current.append(trace.vertices + raw)
         xs, xp = current
         query = xs[self.nodes]
-        search = Q1SurfaceSearch(
-            xp[self.primary.quadrilaterals], node_ids=self.primary.quadrilaterals
-        )
+        if self.geometry_policy == "reviewed_closed_solid":
+            from ._closed_q1_surface import ClosedQ1Surface
+
+            search = ClosedQ1Surface(xp, self.primary.quadrilaterals)
+        else:
+            search = Q1SurfaceSearch(
+                xp[self.primary.quadrilaterals], node_ids=self.primary.quadrilaterals
+            )
         found = search.project(query, maximum_distance=self.search_radius)
         separation = query - found["points"]
-        gaps = np.einsum("ij,ij->i", separation, found["normals"])
+        gaps = found.get(
+            "signed_gaps", np.einsum("ij,ij->i", separation, found["normals"])
+        )
         tangential = separation - gaps[:, None] * found["normals"]
         scale = max(
             float(np.max(np.abs(xs))), float(np.max(np.abs(xp))), self.search_radius
@@ -155,4 +179,6 @@ class DeformableQ1Penalty:
             "hard_contact_exact": False,
             "implicit_tangent": False,
             "mpi": False,
+            "geometry_policy": self.geometry_policy,
+            "self_intersection_certificate": False,
         }

@@ -134,3 +134,48 @@ def test_explicit_candidate_mask_is_immutable_and_validated():
             penalty=100.0,
             search_radius=0.5,
         )
+
+
+def test_closed_concave_edge_contact_force_moment_and_energy_variation():
+    from test_closed_q1_surface import solid
+
+    vertices, cells = solid(concave=True)
+    primary = BilinearReferenceTrace(vertices, cells, tolerance=1e-10)
+    secondary = BilinearReferenceTrace(
+        np.array(
+            [[0.90, 0.91, 0.3], [0.92, 0.91, 0.3], [0.92, 0.93, 0.3], [0.90, 0.93, 0.3]]
+        ),
+        np.array([[0, 1, 2, 3]]),
+        tolerance=1e-10,
+    )
+    op = DeformableQ1Penalty(
+        secondary,
+        primary,
+        candidate_nodes=np.ones(4, dtype=bool),
+        penalty=100.0,
+        search_radius=0.3,
+        geometry_policy="reviewed_closed_solid",
+    )
+    us, up = np.zeros_like(secondary.vertices), np.zeros_like(vertices)
+    response = op.evaluate(us, up)
+    assert response.potential_energy > 0
+    np.testing.assert_allclose(
+        response.secondary_residual.sum(0) + response.primary_residual.sum(0),
+        0,
+        atol=1e-14,
+    )
+    moment = np.cross(secondary.vertices, response.secondary_residual).sum(
+        0
+    ) + np.cross(vertices, response.primary_residual).sum(0)
+    np.testing.assert_allclose(moment, 0, atol=1e-14)
+    rng = np.random.default_rng(92)
+    ds, dp = rng.normal(size=us.shape), rng.normal(size=up.shape)
+    h = 1e-7
+    gradient = (
+        op.evaluate(h * ds, h * dp).potential_energy
+        - op.evaluate(-h * ds, -h * dp).potential_energy
+    ) / (2 * h)
+    expected = np.sum(response.secondary_residual * ds) + np.sum(
+        response.primary_residual * dp
+    )
+    assert gradient == pytest.approx(expected, rel=2e-7, abs=1e-11)

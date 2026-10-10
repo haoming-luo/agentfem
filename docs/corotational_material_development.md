@@ -403,10 +403,48 @@ single facet normal there would violate the distance-potential gradient and
 moment balance. The private source's 1,000-node unbonded hypothesis fails this
 geometric admission at an ambiguous normal. A closed-solid sign/normal-cone
 contract is still required; an open interface patch cannot silently stand in
-for the solid exterior. Hence this contribution is not inserted into the
-original case merely to obtain a completed run.
+for the solid exterior.
+
+The follow-up closed-solid candidate uses two independently oriented rays and
+true bilinear patch intersections for sign, while retaining exact Q1 closest
+coordinates for force transfer. Edge closure, orientation and vertex
+manifoldness are checked; nonsingular ray classifications must agree. Force
+directions follow the signed-distance gradient, not an arbitrarily averaged
+facet normal. Concave-edge moment and virtual-work checks pass, as do warped
+surface, rigid-rotation and real two-body disk-restart tests. This still assumes
+a reviewed non-self-intersecting solid: it does not certify arbitrary geometry
+or provide continuous collision detection.
+
+On the private complete patch exterior (8,944 quads), all 1,000 initially
+unbonded candidates are classified successfully. Importantly, all are outside,
+at distances 0.0001255--0.0042484 in source units. Earlier open-patch negative
+normal gaps must **not** be interpreted as proven solid overclosure. The source
+initialization still needs independent confirmation; neither these openings nor
+the unknown commercial adjustment should be silently bonded. The private case
+can opt into this candidate contact, but its initial interface candidates are
+not yet general ALL EXTERIOR contact.
+
+Affine and convex planar Q1 closest points now avoid the general polynomial
+solve; nonaffine planar interpolation still uses Basix Q1 inversion. The inverse
+is converged to geometric roundoff rather than the looser default interpolation
+tolerance, which was insufficient near shared seams. Genuine warpage retains
+the polynomial path. Strictly identical contact configurations reuse the
+accepted response, but material updates still execute at every increment.
+Exactly stationary polar-frame kinematics avoid redundant spectral operations;
+invalid nonidentity gradients are still checked. These are bounded algorithmic
+optimizations, not evidence of full-loading throughput.
 
 ## Primary design references
+
+- [Ramsey, Potter and Hansen, Ray Bilinear Patch Intersections](https://www.sci.utah.edu/~kpotter/publications/ramsey-2004-RBPI.pdf):
+  two-plane elimination, both quadratic roots and robust parameter recovery.
+  The private classifier rejects seam/tangent rays and checks another direction.
+- [Bærentzen and Aanæs, signed-distance computation](https://doi.org/10.1109/TVCG.2005.49):
+  why arbitrary single-facet normals do not define inside/outside at edges and
+  vertices. We do not apply the triangle pseudonormal theorem to an open Q1 patch.
+- [Eberly, Distance Between Point and Parallelogram](https://www.geometrictools.com/Documentation/DistancePointParallelogram.pdf):
+  convex interior/boundary distance structure; independent polynomial-oracle
+  comparisons protect the specialized Q1 fast path.
 
 - [Abaqus mass scaling](https://docs.software.vt.edu/abaqusv2025/English/SIMACAEANLRefMap/simaanl-c-massscaling.htm):
   distinguish physical density from altered numerical inertia, preserve the

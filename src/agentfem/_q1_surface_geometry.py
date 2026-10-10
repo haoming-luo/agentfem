@@ -15,6 +15,71 @@ import numpy as np
 
 
 def q1_closest_point(vertices, point):
+    """Exact Q1 closest point, with a convex affine fast path.
+
+    A parallelogram needs only an interior Gram solve and four segment
+    minima. General bilinear geometry still uses the polynomial oracle below;
+    a user geometry tolerance cannot flatten genuine warpage.
+    """
+    physical = _real(vertices, (4, 3), "vertices")
+    query = _real(point, (3,), "point")
+    scale = np.linalg.norm(np.ptp(physical, axis=0))
+    if scale <= 0:
+        raise ValueError("Degenerate Q1 facet.")
+    x = (physical - physical[0]) / scale
+    d = x[2] - x[1] - x[3]
+    q = (query - physical[0]) / scale
+    axes = x[[1, 3]]
+    normal = np.cross(*axes)
+    norm = np.linalg.norm(normal)
+    if norm <= 1e-12:
+        raise ValueError("Degenerate Q1 corner.")
+    normal /= norm
+    if np.linalg.norm(d) > 8 * np.finfo(float).eps:
+        if abs(x[2] @ normal) > 8 * np.finfo(float).eps:
+            return _q1_closest_point_polynomial(physical, query)
+        # Convex planar nonaffine quads still have a planar distance problem;
+        # only the on-surface inverse needs the original bilinear mapping.
+        edges = np.roll(x, -1, axis=0) - x
+        turns = np.cross(edges, np.roll(edges, -1, axis=0)) @ normal
+        if np.any(turns <= 1e-12):
+            return _q1_closest_point_polynomial(physical, query)
+        projected = q - (q @ normal) * normal
+        if np.all(np.cross(edges, projected - x) @ normal >= 0):
+            uv, _ = q1_surface_pull_back(
+                x[None], projected[None], relative_tolerance=16 * np.finfo(float).eps
+            )
+            uv = np.clip(uv, 0.0, 1.0)
+            basis = _element().tabulate(0, uv)[0, :, :, 0][:, [0, 1, 3, 2]]
+            position = physical[0] + scale * (basis[0] @ x)
+            return (
+                uv[0],
+                basis[0],
+                position,
+                normal,
+                float(np.linalg.norm(query - position)),
+            )
+        # Edge minima are exact even for a nonaffine planar quad.
+        uv = np.array([-1.0, -1.0])
+    else:
+        uv = np.linalg.solve(axes @ axes.T, axes @ q)
+    if not np.all((uv >= 0) & (uv <= 1)):
+        corners = np.array([[0.0, 0.0], [1.0, 0.0], [1.0, 1.0], [0.0, 1.0]])
+        edges = np.roll(x, -1, axis=0) - x
+        t = np.clip(
+            np.einsum("ij,ij->i", q - x, edges) / np.einsum("ij,ij->i", edges, edges),
+            0,
+            1,
+        )
+        positions = x + t[:, None] * edges
+        best = int(np.argmin(np.linalg.norm(positions - q, axis=1)))
+        uv = (1 - t[best]) * corners[best] + t[best] * corners[(best + 1) % 4]
+    basis = _element().tabulate(0, uv[None])[0, 0, [0, 1, 3, 2], 0]
+    point = physical[0] + scale * (basis @ x)
+    return uv, basis, point, normal, float(np.linalg.norm(query - point))
+
+
+def _q1_closest_point_polynomial(vertices, point):
     """Reference closest point including all edges/corners of one Q1 facet.
 
     Eliminate u from the interior stationarity equations, solve the resulting

@@ -39,6 +39,13 @@ def _spectral(vectors, values):
 
 
 def _polar(gradient):
+    identity = np.all(gradient == np.eye(3), axis=(1, 2))
+    if np.any(identity):
+        rotation = np.broadcast_to(np.eye(3), gradient.shape).copy()
+        stretch = rotation.copy()
+        if not np.all(identity):
+            rotation[~identity], stretch[~identity] = _polar(gradient[~identity])
+        return rotation, stretch
     left, stretches, right = np.linalg.svd(gradient)
     rotation = left @ right
     if np.any(np.linalg.det(rotation) <= 0):
@@ -92,6 +99,20 @@ def polar_strain_increment(gradient_old, gradient_new, *, reference_frame=None):
         return CorotationalIncrement(
             *(_readonly(np.empty((0, 3, 3))) for _ in range(3))
         )
+    stationary = np.all(old == new, axis=(1, 2))
+    if np.any(stationary):
+        strain = np.zeros_like(old)
+        r0 = np.empty_like(old)
+        r1 = np.empty_like(old)
+        stationary_rotation, _ = _polar(old[stationary])
+        r0[stationary] = r1[stationary] = stationary_rotation @ frame[stationary]
+        if not np.all(stationary):
+            moving = polar_strain_increment(
+                old[~stationary], new[~stationary], reference_frame=frame[~stationary]
+            )
+            strain[~stationary] = moving.strain_increment
+            r0[~stationary], r1[~stationary] = moving.frame_old, moving.frame_new
+        return CorotationalIncrement(_readonly(strain), _readonly(r0), _readonly(r1))
     r0, u0 = _polar(old)
     r1, u1 = _polar(new)
     values, vectors = np.linalg.eigh(u0)

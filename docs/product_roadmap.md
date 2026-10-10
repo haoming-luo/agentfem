@@ -42,7 +42,12 @@ initialization, variable mass scaling and commercial comparison remain open.
 Current-configuration deformable Q1 penalty contact now has a private serial
 face-interior composition with force/moment/virtual-work and time-refinement
 checks. This does not admit edge/corner normal cones or source ALL EXTERIOR
-hard contact: the original unbonded-node audit still rejects ambiguous normals.
+hard contact. A following closed-solid candidate now classifies all 1,000
+unbonded source candidates with two true-Q1 rays; they are outside the complete
+patch, so old open-patch negative gaps were not evidence of penetration.
+Concave-edge force/moment/work checks and serial two-body restart pass. The
+original case can opt into this bounded initial-candidate contact; arbitrary
+ALL EXTERIOR search, collision detection and mass-scaled full loading remain open.
 Follow-up: private accepted artificial-viscosity work/restart now passes its
 targeted composition gates; this does not close variable mass scaling or
 vendor-equivalent viscosity/stability. Explicit reference-surface adjustment

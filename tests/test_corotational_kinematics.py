@@ -151,3 +151,29 @@ def test_complex_and_mismatched_batches_rejected():
         polar_strain_increment(identity.astype(complex), identity)
     with pytest.raises(ValueError):
         polar_strain_increment(identity, np.repeat(identity, 2, axis=0))
+
+
+def test_stationary_batch_preserves_frames_without_spectral_work(monkeypatch):
+    original = np.linalg.svd
+    counts = []
+
+    def tracked(value, *args, **kwargs):
+        counts.append(len(value))
+        return original(value, *args, **kwargs)
+
+    monkeypatch.setattr(np.linalg, "svd", tracked)
+    old = np.broadcast_to(np.eye(3), (100, 3, 3)).copy()
+    old[1] = rotation(0.7) @ np.diag([1.2, 0.9, 1.1])
+    new = old.copy()
+    new[2, 0, 0] = 1.01
+    result = polar_strain_increment(old, new)
+    assert sum(counts) == 2  # One stationary nonidentity and one changed endpoint.
+    np.testing.assert_array_equal(result.strain_increment[:2], 0)
+    np.testing.assert_allclose(result.frame_old[1], rotation(0.7), atol=1e-14)
+    assert result.strain_increment[2, 0, 0] == pytest.approx(np.log(1.01))
+
+
+def test_stationary_invalid_gradient_is_not_skipped():
+    for bad in (np.diag([-1.0, 1, 1]), np.diag([1e-14, 1, 1])):
+        with pytest.raises(ValueError):
+            polar_strain_increment(bad[None], bad[None])

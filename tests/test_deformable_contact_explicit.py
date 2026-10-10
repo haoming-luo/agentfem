@@ -22,7 +22,7 @@ from test_nonmatching_global import _blocks
 from test_quadrilateral_global import _trace
 
 
-def make_step(dt=1e-4, steps=20):
+def make_step(dt=1e-4, steps=20, *, closed=False):
     domain = _blocks(1, 2, cell_type="hexahedron")
     # A smaller lower block puts its contact nodes strictly inside the upper
     # surface. Coincident boundary edges need the separate normal-cone gate.
@@ -51,12 +51,33 @@ def make_step(dt=1e-4, steps=20):
     b, nb = _trace(u.function_space, True)
     a = BilinearReferenceTrace(a.vertices, a.quadrilaterals, tolerance=1e-10)
     b = BilinearReferenceTrace(b.vertices, b.quadrilaterals, tolerance=1e-10)
+    if closed:
+        xyz = u.function_space.tabulate_dof_coordinates()
+        cells = internal.cell_nodes[xyz[internal.cell_nodes, 2].mean(axis=1) > 0]
+        faces = cells[
+            :,
+            [
+                [0, 2, 3, 1],
+                [4, 5, 7, 6],
+                [0, 1, 5, 4],
+                [1, 3, 7, 5],
+                [3, 2, 6, 7],
+                [2, 0, 4, 6],
+            ],
+        ].reshape(-1, 4)
+        _, first, count = np.unique(
+            np.sort(faces, axis=1), axis=0, return_index=True, return_counts=True
+        )
+        faces = faces[first[count == 1]]
+        nb, inverse = np.unique(faces, return_inverse=True)
+        b = BilinearReferenceTrace(xyz[nb], inverse.reshape(-1, 4), tolerance=1e-10)
     operator = DeformableQ1Penalty(
         a,
         b,
         candidate_nodes=np.ones(len(a.vertices), dtype=bool),
         penalty=100.0,
         search_radius=0.5,
+        geometry_policy="reviewed_closed_solid" if closed else "oriented_open_patch",
     )
     residual = DeformableQ1ContactResidual(
         body,
@@ -90,17 +111,18 @@ def make_step(dt=1e-4, steps=20):
     return step
 
 
-def test_actual_two_body_contact_restart_and_momentum(tmp_path):
-    continuous = make_step()
+@pytest.mark.parametrize("closed", [False, True])
+def test_actual_two_body_contact_restart_and_momentum(tmp_path, closed):
+    continuous = make_step(closed=closed)
     mass = continuous.residual.base.internal.mass_diagonal.reshape(-1, 3)
     initial_momentum = np.sum(
         mass * continuous.state.v.value.x.array.reshape(-1, 3), axis=0
     )
     continuous.run()
-    partial = make_step()
+    partial = make_step(closed=closed)
     partial.run(until_step=8)
     path = partial.save_checkpoint(tmp_path / "deformable")
-    resumed = make_step()
+    resumed = make_step(closed=closed)
     resumed.load_checkpoint(path)
     resumed.run()
     for name in ("u", "v", "a"):
@@ -155,3 +177,24 @@ def test_two_body_energy_time_refinement():
         errors.append(abs(last["energy_balance_error"]))
     assert errors[1] < 0.35 * errors[0]
     assert errors[2] < 0.35 * errors[1]
+
+
+def test_identical_contact_geometry_reuses_search_but_not_material_update(monkeypatch):
+    step = make_step(steps=3, closed=True)
+    step.state.v.value.x.array[:] = 0
+    calls = {"search": 0, "material": 0}
+    search = step.residual.operator.evaluate
+    material = step.residual.base.assemble_vector
+
+    def counted_search(*args):
+        calls["search"] += 1
+        return search(*args)
+
+    def counted_material():
+        calls["material"] += 1
+        return material()
+
+    monkeypatch.setattr(step.residual.operator, "evaluate", counted_search)
+    monkeypatch.setattr(step.residual.base, "assemble_vector", counted_material)
+    step.run()
+    assert calls == {"search": 1, "material": 3}
