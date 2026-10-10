@@ -85,8 +85,12 @@ Contact follow-up: numeric nested material checkpoints and accepted-force
 sampling now pass serial composition with a moving plane and a finite elastic
 history provider. The common work ledger, summed spectral ceiling, time
 refinement, restart equality and post-commit rollback are exercised together.
-Public finite-Hex contact admission, distributed composition and the tester's
-actual orthotropic material remain open; do not equate the private gate with
+The next candidate lowers one registered frictionless translating plane through
+ordinary finite-Hex `model.step`, preserving the separate constitutive owner.
+It passes a scalar finite-compression ODE comparison and a native finite-J2
+plastic work/restart test. Distributed composition, curved/rotating tools,
+multiple pairs, friction, joint bonding/contact and the tester's actual
+orthotropic material remain open; do not equate this serial slice with
 industrial forming completion.
 
 This slice implements bounded fixed-reference nonmatching cohesive trace

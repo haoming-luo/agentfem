@@ -1012,7 +1012,10 @@ class DolfinxExplicitContactResidual:
                 else self.motion_schedule.summary()
             ),
             "work_state": (
-                None if self.work_state is None else self.work_state.snapshot()
+                None if self.work_state is None else (
+                    self.work_state.transaction_snapshot()
+                    if base_method == "transaction_snapshot" else self.work_state.snapshot()
+                )
             ),
             "accepted_evaluations": self.accepted_evaluations,
             "accepted_evidence": (
@@ -1033,6 +1036,8 @@ class DolfinxExplicitContactResidual:
         canonical = snapshot if canonical_base else {
             key: value for key, value in snapshot.items() if key != "base_state"
         }
+        if base_method == "transaction_snapshot" and self.work_state is not None:
+            canonical["work_state"] = self.work_state.summary()
         encoded = _canonical_json(canonical)
         copies = tuple(self.communicator.allgather(encoded))
         if any(item != copies[0] for item in copies[1:]):
@@ -1206,8 +1211,7 @@ class DolfinxExplicitContactResidual:
             self.friction_kinematics.accepted = None
             self.friction_kinematics.trial = None
         if self.work_state is not None:
-            self.work_state.accepted = list(validated_work.accepted)
-            self.work_state.trial = None
+            self.work_state.restore(validated_work.transaction_snapshot())
         self.accepted_evaluations = count
         self.accepted_evidence = evidence
         self.lifecycle.state.accepted = validated_projection

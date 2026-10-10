@@ -12,7 +12,13 @@ experimental formulation to a validated one.
   wrappers and inherit its restart restrictions. Reuse accepted material force
   for reaction queries instead of reintegrating history at zero increment.
   A private serial finite-material/moving-plane composition passes work/energy,
-  time refinement and restart tests; ordinary finite-Hex contact remains gated.
+  time refinement and restart tests. A follow-up ordinary-Step candidate admits
+  one serial frictionless fixed/translating plane and rejects broader
+  combinations; an independent compression ODE and native finite-J2 example
+  check response, accepted plastic work and recovery.
+- Accumulate accepted tool work once per commit and use immutable station
+  references for in-memory contact rollback. Durable checkpoints retain the
+  complete history; no constitutive integration or verification is skipped.
 
 - Allow a reviewed external material to supply a signed, reference-configuration
   `FirstPiolaTangentEnvelope` for bounded finite Hex8 initial-step selection.
