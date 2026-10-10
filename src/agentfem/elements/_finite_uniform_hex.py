@@ -18,7 +18,7 @@ from ._uniform_hex import _frozen, _geometry
 @dataclass(frozen=True)
 class FiniteUniformHexResponse:
     internal_force: np.ndarray
-    physical_energy: np.ndarray
+    physical_energy: np.ndarray | None
     hourglass_energy: np.ndarray
 
 
@@ -172,6 +172,7 @@ class FiniteUniformHexBatch:
         return np.concatenate(gradients) if gradients else np.empty((0, 3, 3))
 
     def response(self, displacement, *, first_piola, stored_energy_density):
+        """Map stress to force; None energy remains unavailable, never zero."""
         u = self._displacement(displacement)
         # Full cell validity is distinct from det(F_bar)>0: the latter can hide folds.
         self.deformation_gradient(u)
@@ -190,13 +191,13 @@ class FiniteUniformHexBatch:
         """
         u = self._displacement(displacement)
         p = np.asarray(first_piola, dtype=float)
-        energy = np.asarray(stored_energy_density, dtype=float)
+        energy = None if stored_energy_density is None else np.asarray(stored_energy_density, dtype=float)
         count = len(self.coordinates)
         if (
             p.shape != (count, 3, 3)
-            or energy.shape != (count,)
+            or (energy is not None and energy.shape != (count,))
             or not np.isfinite(p).all()
-            or not np.isfinite(energy).all()
+            or (energy is not None and not np.isfinite(energy).all())
         ):
             raise ValueError(
                 "Expected finite first Piola (cells,3,3) and reference energy density (cells,)."
@@ -217,7 +218,7 @@ class FiniteUniformHexBatch:
             artificial.append(0.5 * coefficient * np.sum(modes**2, axis=(1, 2)))
         result = FiniteUniformHexResponse(
             np.concatenate(forces) if forces else np.empty((0, 8, 3)),
-            self.volume * energy,
+            None if energy is None else self.volume * energy,
             np.concatenate(artificial) if artificial else np.empty(0),
         )
         if any(
@@ -227,6 +228,7 @@ class FiniteUniformHexBatch:
                 result.physical_energy,
                 result.hourglass_energy,
             )
+            if value is not None
         ):
             raise ValueError("Finite Hex8 response overflowed.")
         return result

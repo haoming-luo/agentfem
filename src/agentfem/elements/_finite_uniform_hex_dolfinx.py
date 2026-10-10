@@ -164,6 +164,42 @@ class FiniteUniformHexResidual:
             self.response.rollback()
             raise
 
+    @contextmanager
+    def explicit_trial_evaluation(self, material, *, deformation_gradient_old, time, time_increment):
+        """Serial response-only trial; does not provide a time-step policy.
+
+        Reuses cell geometry, scatter and quadrature State. The existing public
+        finite Step remains on its tangent/storage path until explicit stability
+        and the accepted work-only ledger are independently admitted.
+        """
+        from ..constitutive._explicit_material_driver import ExplicitQuadratureResponse
+        from ._finite_uniform_hex_material import FiniteHexMaterialTrial
+        from ..state import field_transaction
+
+        if self.comm.size != 1 or not isinstance(self.response, ExplicitQuadratureResponse):
+            raise NotImplementedError("Expected serial response-only quadrature.")
+        if len(self.response.state.reference_field.points) != 1:
+            raise ValueError("Uniform Hex8 requires one material point per cell.")
+        self._tangent_available = False
+        vector = None
+        try:
+            with field_transaction(**self.response.trial_fields()):
+                displacement = self.displacement.x.array.reshape(-1, 3)[self.cell_nodes].copy()
+                gradient = self.cells.deformation_gradient(displacement)
+                response = self.response.update(
+                    material, deformation_gradient_old=deformation_gradient_old,
+                    deformation_gradient_new=gradient, time=time, time_increment=time_increment)
+                element = self.cells._response_from_checked_displacement(
+                    displacement, first_piola=self.response.first_piola_stress.owned_values,
+                    stored_energy_density=response.stored_energy_density)
+                vector = self._scatter(element.internal_force)
+                gradient.setflags(write=False)
+                yield vector, FiniteHexMaterialTrial(gradient, element, response)
+        except BaseException:
+            if vector is not None:
+                vector.destroy()
+            raise
+
     def tangent_action(self, direction):
         """Apply the most recently evaluated trial tangent; never update history."""
         if not self._tangent_available:

@@ -5,11 +5,11 @@
 from dataclasses import dataclass
 from hashlib import sha256
 
-import basix
 import numpy as np
 
 from ._interface_overlap import planar_overlap_pairing
 from ._interface_pairing import _make_pairing
+from ._q1_surface_geometry import planar_q1_pull_back
 from .boundary_models.rigid import TriangulatedRigidSurface
 
 
@@ -95,22 +95,7 @@ def _q1_values(trace, triangle_nodes, points):
     parents = np.array([lookup[tuple(nodes)] for nodes in triangle_nodes])
     nodes = trace.quadrilaterals[parents]
     vertices = trace.vertices[nodes]
-    axes = np.stack(
-        (vertices[:, 1] - vertices[:, 0], vertices[:, 3] - vertices[:, 0]), axis=2
-    )
-    gram = np.einsum("qia,qib->qab", axes, axes)
-    rhs = np.einsum("qia,qi->qa", axes, points - vertices[:, 0])
-    local = np.linalg.solve(gram, rhs[..., None])[..., 0]
-    if np.any(local < -1e-9) or np.any(local > 1 + 1e-9):
-        raise ValueError("Quadrilateral integration point lies outside its parent.")
-    element = basix.create_element(
-        basix.ElementFamily.P,
-        basix.CellType.quadrilateral,
-        1,
-        basix.LagrangeVariant.equispaced,
-    )
-    # Basix tensor-product node order -> declared cyclic trace connectivity.
-    weights = element.tabulate(0, local)[0, :, :, 0][:, [0, 1, 3, 2]]
+    _, weights = planar_q1_pull_back(vertices, points)
     return nodes, weights
 
 

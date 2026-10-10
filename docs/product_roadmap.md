@@ -27,6 +27,11 @@ as a private core candidate, with objective stress transport and independent
 noncoaxial integration checks. This does not admit that material to finite-Hex
 `model.step`: its work-only energy output and response-only stability need
 explicit contracts, followed by single-element/global lifecycle verification.
+The next local slice now supplies a genuine response-only work contract,
+serial quadrature transactions and real Hex8 internal-force assembly without
+inventing DPDF/SENER fields. Trial failures restore state and response fields.
+Independent explicit stability, the accepted work-only time-integration ledger,
+ordinary Step admission and MPI remain open.
 Multiple curved tools, imported-interface geometry, viscosity/mass scaling and
 commercial reference comparison remain open. The ordered nine-gate plan is
 [corotational material development](corotational_material_development.md).

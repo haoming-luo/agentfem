@@ -12,10 +12,10 @@ conversion; Procedure and State own acceptance and recovery.
 | 1 | Original compiled material oracle; frozen parameters, tensor ordering, full state, work and source hashes | Local reference established; no commercial-solver validation |
 | 2 | Independent response-only batch implementation; proportional, reversal and random-path comparison | Local private implementation checked; not a packaged material |
 | 3 | General corotational kinematics; proper frames, invalid-gradient rejection, objective stress transport, noncoaxial independent integration | Private core candidate, tested separately from any material name |
-| 4 | Explicit material response contract with independently declared stability and energy capabilities | Pending; existing finite-Hex tangent/storage contract is NOT bypassed |
-| 5 | Ordinary finite-Hex Step consumes the provider; single-element traction, multi-element patch, failed-trial recovery and checkpoint | Pending |
+| 4 | Explicit material response contract with independently declared stability and energy capabilities | Private work-only response and serial quadrature lowering tested; independent explicit stability admission pending |
+| 5 | Ordinary finite-Hex Step consumes the provider; single-element traction, multi-element patch, failed-trial recovery and checkpoint | Real Hex8 internal-force assembly and downstream trial rollback tested; ordinary time-integrating Step and full checkpoint pending |
 | 6 | Multiple analytical rigid tools in that same Step; geometry validity, curvature stability, resultant/moment/work, joint rollback | Pending; reuse existing rigid surfaces, contact law and accepted work ledger |
-| 7 | Imported geometry/section/interface audit and controlled incremental whole-model runs | Pending; nonplanar interfaces must not be flattened to satisfy the coplanar implementation |
+| 7 | Imported geometry/section/interface audit and controlled incremental whole-model runs | Local geometry audit identifies nonaffine, globally noncoplanar traces and small facet warpage; general pairing and whole-model runs pending |
 | 8 | Bulk viscosity and variable mass scaling when required for source equivalence, with separate work/inertia evidence | Pending; do not silently replace these by damping or a larger fixed increment |
 | 9 | Independent reference curves, mesh/time/penalty/hourglass sensitivity, performance and installed-use acceptance | Pending; commercial output is required before cross-validation claims |
 
@@ -50,6 +50,22 @@ until the response, stability and global lifecycle gates close.
 
 ## Energy and stability: do not falsify the existing contract
 
+The private `ExplicitMaterialBatchOutput` now carries Cauchy stress, state and
+reference-volume internal-work increment without a fabricated tangent. Storage
+and dissipation remain independently optional, not zero-filled. Negative work
+is legal during unloading; reported dissipation is evidence to assess, not
+silently clipped into a passing thermodynamic claim. A requested time reduction
+rejects the fixed-increment quadrature trial before state mutation.
+
+Serial `update_explicit_material_points` reuses `MaterialQuadratureState` and
+bounded point chunks. Every response is validated before writing trial fields.
+The `ExplicitQuadratureResponse` owns real P/S/work fields, not placeholder
+DPDF/SENER fields. Its existing Hex8 residual now exposes a separate private
+trial evaluation which reuses geometry, mass, Piola-force scatter and hourglass
+contributions. Missing stored energy stays `None` in the element response.
+Downstream rejection restores all trial state and response fields. No public
+Step admission or MPI claim follows from this force-assembly slice.
+
 Current finite-Hex lowering requires reference-volume stored energy and
 dissipation plus a reviewed tangent or envelope. A legacy material's cumulative
 specific internal work is not stored energy. Reporting zero nonelastic energy
@@ -65,6 +81,25 @@ before skipping numerical tangent generation. An initial elastic modulus alone
 is not a global nonlinear stability proof.
 
 ## Acceptance and efficiency policy
+
+The response-only slice passes 87 selected tests including real serial
+quadrature, Hex8 force assembly, rollback, kinematics, geometry and architecture.
+The existing interface selection additionally passes 61 tests after reuse of
+the new inverse-map adapter. These are development selections, not a release
+or MPI qualification. A private original-material exercise passes 120 imposed
+finite-deformation increments on two real Hex8 cells, including damage and
+large superposed rotation. Prescribed deformation does not test a dynamic
+time integrator, contact, stability or the full source model.
+
+The source geometry audit rules out reusing coplanar parallelogram pairing
+unchanged. The new private `_q1_surface_geometry` adapter uses Basix Q1 basis
+values and derivatives, normalized batched Newton inversion, positive convex
+corner checks, physical reconstruction and reference containment checks.
+It handles nonaffine planar facets, but does not admit warped-facet projection
+or general nonplanar interface integration. Existing pairing keeps its affine
+restriction. Geometry inversion alone is not a coverage or quadrature proof.
+The private source patch's 4,874 facets pass 24,370 round-trip queries with
+maximum local-coordinate error 1.21e-14 (about 0.042 s on this machine).
 
 Local candidate checks: 15 kinematic tests plus 26 architecture tests pass.
 The independent noncoaxial oracle integrates the rate with 64-point Gaussian
@@ -93,3 +128,7 @@ whole-model speedup from a local kernel benchmark.
   incremental corotational approaches and explicit decomposition choices.
   This motivates exposing the numerical path, not claiming implementation
   equivalence with MOOSE's incremental-rotation algorithms.
+- [DOLFINx coordinate maps](https://docs.fenicsproject.org/dolfinx/main/python/generated/dolfinx.fem.html):
+  nonaffine pull-back is nonlinear and requires convergence control.
+- [DefElement Q1 quadrilateral](https://defelement.org/elements/examples/quadrilateral-lagrange-gll-1.html):
+  the four-node tensor-product basis must not be replaced by a triangular field.
