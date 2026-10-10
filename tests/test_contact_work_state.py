@@ -98,3 +98,29 @@ def test_rigid_motion_schedule_has_explicit_physical_time_semantics():
         [1.0, -0.5, 0.25]
     )
     assert schedule.summary()["interpolation"] == "linear_factor_clamped"
+
+
+def test_contact_work_compact_transaction_preserves_full_history_and_cached_sum(monkeypatch):
+    state = boundary_models.prescribed_contact_work_state(identity="tool")
+    state.initialize(_station(0.0, (1.0, 0.0), (0.0, 0.0)))
+    for index in range(1, 25):
+        state.begin(_station(float(index), (float(index), 0.0), (index / 10, 0.0)))
+        state.commit()
+    before = state.snapshot()
+    work = state.path_work
+    transaction = state.transaction_snapshot()
+    assert transaction.accepted[0] is state.accepted[0]
+    assert not transaction.accepted[0].generalized_force.flags.writeable
+    state.begin(_station(25.0, (30.0, 0.0), (3.0, 0.0)))
+    state.commit()
+    state.restore(transaction)
+    assert state.snapshot() == before
+    assert state.path_work == work
+    with pytest.raises(ValueError, match="identity"):
+        boundary_models.prescribed_contact_work_state(identity="other").restore(transaction)
+
+    def reject(_):
+        raise AssertionError("Reading accepted work must not re-integrate its history")
+
+    monkeypatch.setattr(state, "_integrated_work", reject)
+    assert state.path_work == work

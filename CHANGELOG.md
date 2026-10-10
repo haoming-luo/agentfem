@@ -16,6 +16,9 @@ experimental formulation to a validated one.
   one serial frictionless fixed/translating plane and rejects broader
   combinations; an independent compression ODE and native finite-J2 example
   check response, accepted plastic work and recovery.
+- Accumulate accepted tool work once per commit and use immutable station
+  references for in-memory contact rollback. Durable checkpoints retain the
+  complete history; no constitutive integration or verification is skipped.
 
 - Allow a reviewed external material to supply a signed, reference-configuration
   `FirstPiolaTangentEnvelope` for bounded finite Hex8 initial-step selection.

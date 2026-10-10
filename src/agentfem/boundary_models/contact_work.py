@@ -172,8 +172,20 @@ class PrescribedContactWorkStation:
         )
 
 
+@dataclass(frozen=True)
+class _WorkTransaction:
+    """In-memory immutable station references; never a durable file format."""
+
+    identity: str
+    accepted: tuple[PrescribedContactWorkStation, ...]
+
+
 class PrescribedContactWorkState:
-    """Transactional accepted-path ledger for one prescribed rigid tool."""
+    """Transactional accepted-path ledger for one prescribed rigid tool.
+
+    ``accepted`` is an observational history; modify it only through this
+    State's initialize/commit/restore methods so cumulative work stays coherent.
+    """
 
     def __init__(self, *, identity: str) -> None:
         selected = str(identity).strip()
@@ -182,11 +194,16 @@ class PrescribedContactWorkState:
         self.identity = selected
         self.accepted: list[PrescribedContactWorkStation] = []
         self.trial: PrescribedContactWorkStation | None = None
+        self._path_work = 0.0
 
     @property
     def path_work(self) -> float:
+        return self._path_work
+
+    @staticmethod
+    def _integrated_work(stations) -> float:
         value = 0.0
-        for previous, current in zip(self.accepted[:-1], self.accepted[1:]):
+        for previous, current in zip(stations[:-1], stations[1:]):
             average_force = 0.5 * (
                 previous.generalized_force + current.generalized_force
             )
@@ -226,7 +243,12 @@ class PrescribedContactWorkState:
         if self.trial is None:
             raise RuntimeError("No prescribed-contact work trial is available to commit.")
         accepted = self.trial
+        increment = self._integrated_work((self.accepted[-1], accepted))
+        total = self._path_work + increment
+        if not np.isfinite(total):
+            raise ValueError("Non-finite accumulated prescribed contact work.")
         self.accepted.append(accepted)
+        self._path_work = total
         self.trial = None
         return accepted
 
@@ -262,7 +284,22 @@ class PrescribedContactWorkState:
             "accepted": [station.snapshot() for station in self.accepted],
         }
 
+    def transaction_snapshot(self):
+        if self.trial is not None:
+            raise RuntimeError("Contact work transaction requires an accepted boundary.")
+        return _WorkTransaction(self.identity, tuple(self.accepted))
+
     def restore(self, snapshot: object) -> None:
+        if isinstance(snapshot, _WorkTransaction):
+            if snapshot.identity != self.identity:
+                raise ValueError("Prescribed-contact work State identity differs.")
+            # Stations were validated before acceptance and are immutable.
+            restored = list(snapshot.accepted)
+            work = self._integrated_work(restored)
+            if not np.isfinite(work):
+                raise ValueError("Non-finite restored contact work.")
+            self.accepted, self._path_work, self.trial = restored, work, None
+            return
         if not isinstance(snapshot, dict) or snapshot.get("schema") != _STATE_SCHEMA:
             raise ValueError("Unsupported prescribed-contact work State snapshot.")
         if set(snapshot) != {"schema", "identity", "accepted"}:
@@ -284,7 +321,11 @@ class PrescribedContactWorkState:
                 if station.contact_resultant.shape != previous.contact_resultant.shape:
                     raise ValueError("Restored contact resultant layout changed.")
             restored.append(station)
+        work = self._integrated_work(restored)
+        if not np.isfinite(work):
+            raise ValueError("Non-finite restored contact work.")
         self.accepted = restored
+        self._path_work = work
         self.trial = None
 
     def summary(self) -> dict[str, object]:
