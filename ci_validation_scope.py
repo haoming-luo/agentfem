@@ -338,6 +338,7 @@ _CORE_SOURCE_MPI_TEST_MAP = {
     "src/agentfem/boundary_models/dolfinx_explicit_contact.py": (
         "tests/test_dolfinx_explicit_contact.py",
         "tests/test_explicit_contact_procedure.py",
+        "tests/test_parallel_finite_hex_contact.py",
     ),
     "src/agentfem/boundary_models/contact_work.py": (
         "tests/test_dolfinx_explicit_contact.py",
@@ -365,6 +366,7 @@ _CORE_SOURCE_MPI_TEST_MAP = {
     ),
     "src/agentfem/_step_finite_uniform_hex.py": (
         "tests/test_parallel_finite_hex_step.py",
+        "tests/test_parallel_finite_hex_contact.py",
     ),
     "src/agentfem/constitutive/stability.py": (
         "tests/test_parallel_finite_hex_step.py",
