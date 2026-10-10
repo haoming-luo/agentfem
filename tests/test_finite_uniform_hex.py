@@ -232,6 +232,54 @@ def test_signed_tangent_enclosure_retains_negative_curvature_separately():
         )
 
 
+def test_spherical_gram_shortcut_matches_general_signed_bound():
+    operator = _operator(count=7, chunk_size=3)
+    assert np.all(operator._isotropic_mass_gradient_bound > 0)
+    rng = np.random.default_rng(507)
+    matrices = rng.normal(size=(7, 9, 9))
+    matrices += matrices.swapaxes(1, 2)
+    tangent = matrices.reshape(7, 3, 3, 3, 3)
+    fast = operator.tangent_spectral_report(first_piola_tangent=tangent)
+    operator._isotropic_mass_gradient_bound = np.zeros(7)
+    full = operator.tangent_spectral_report(first_piola_tangent=tangent)
+    assert (
+        fast.negative_material_curvature_cells == full.negative_material_curvature_cells
+    )
+    assert fast.positive_eigenvalue_upper_bound == pytest.approx(
+        full.positive_eigenvalue_upper_bound, rel=1e-13
+    )
+    assert fast.negative_eigenvalue_magnitude_bound == pytest.approx(
+        full.negative_eigenvalue_magnitude_bound, rel=1e-13
+    )
+
+
+def test_spherical_shortcut_and_general_geometry_mix_in_one_batch():
+    regular, distorted = _operator(count=2), _operator(True, count=2)
+    combined = FiniteUniformHexBatch(
+        np.concatenate((regular.coordinates, distorted.coordinates)),
+        density=2,
+        hourglass_modulus=30,
+        hourglass_scale=0.1,
+        chunk_size=3,
+    )
+    np.testing.assert_array_equal(
+        combined._isotropic_mass_gradient_bound > 0, [True, True, False, False]
+    )
+    tangent = np.tile(np.diag([-2, -1, 0, 1, 2, 3, 4, 5, 6]), (4, 1, 1)).reshape(
+        4, 3, 3, 3, 3
+    )
+    fast = combined.tangent_spectral_report(first_piola_tangent=tangent)
+    combined._isotropic_mass_gradient_bound = np.zeros(4)
+    full = combined.tangent_spectral_report(first_piola_tangent=tangent)
+    assert fast.negative_material_curvature_cells == 4
+    assert fast.positive_eigenvalue_upper_bound == pytest.approx(
+        full.positive_eigenvalue_upper_bound, rel=1e-13
+    )
+    assert fast.negative_eigenvalue_magnitude_bound == pytest.approx(
+        full.negative_eigenvalue_magnitude_bound, rel=1e-13
+    )
+
+
 def test_existing_j2_batch_protocol_supplies_work_conjugate_element_tangent():
     from agentfem import constitutive
 

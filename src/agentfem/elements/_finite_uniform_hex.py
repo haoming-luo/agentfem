@@ -86,6 +86,7 @@ class FiniteUniformHexBatch:
             self.hourglass_coefficient = _frozen(np.empty(0))
             self._mass_gradient_gram = _frozen(np.empty((0, 3, 3)))
             self._hourglass_spectral_bound = _frozen(np.empty(0))
+            self._isotropic_mass_gradient_bound = _frozen(np.empty(0))
             return
         volumes, gradients, modes, nodal = [], [], [], []
         for region in self._regions():
@@ -121,6 +122,24 @@ class FiniteUniformHexBatch:
             )
         self._mass_gradient_gram = _frozen(np.concatenate(grams))
         self._hourglass_spectral_bound = _frozen(np.concatenate(hourglass_bounds))
+        gram = self._mass_gradient_gram
+        spherical = np.trace(gram, axis1=1, axis2=2) / 3
+        difference = np.max(
+            np.abs(gram - spherical[:, None, None] * np.eye(3)), axis=(1, 2)
+        )
+        nearly_isotropic = difference <= 32 * np.finfo(float).eps * np.max(
+            np.abs(gram), axis=(1, 2)
+        )
+        # For G=gI the signed bounds reduce to g*lambda(A+/-). Small
+        # roundoff departures use ||G||_infinity >= lambda_max(G), retaining
+        # an upper bound rather than treating a nearly spherical Gram as exact.
+        self._isotropic_mass_gradient_bound = _frozen(
+            np.where(
+                nearly_isotropic,
+                np.max(np.sum(np.abs(gram), axis=2), axis=1),
+                0.0,
+            )
+        )
         if (
             not np.isfinite(self._mass_gradient_gram).all()
             or not np.isfinite(self._hourglass_spectral_bound).all()
@@ -286,23 +305,40 @@ class FiniteUniformHexBatch:
                 raise ValueError(
                     "Non-symmetric material tangent has no admitted conservative stability screen."
                 )
-            eigenvalues, vectors = np.linalg.eigh((matrix + matrix.swapaxes(1, 2)) / 2)
-            negative_cells += int(np.count_nonzero(eigenvalues[:, 0] < -tolerance))
-            # Positive and negative parts are retained separately, never |A|.
-            root = vectors * np.sqrt(np.maximum(eigenvalues, 0))[:, None, :]
-            small = self._mass_gradient_gram[region]
-            gram = np.einsum("ik,cJL->ciJkL", np.eye(3), small).reshape(-1, 9, 9)
-            physical = (
-                self.volume[region]
-                * np.linalg.eigvalsh(root.swapaxes(1, 2) @ gram @ root)[:, -1]
-            )
-            negative_root = vectors * np.sqrt(np.maximum(-eigenvalues, 0))[:, None, :]
-            negative = (
-                self.volume[region]
-                * np.linalg.eigvalsh(
-                    negative_root.swapaxes(1, 2) @ gram @ negative_root
-                )[:, -1]
-            )
+            matrix = (matrix + matrix.swapaxes(1, 2)) / 2
+            shortcut = self._isotropic_mass_gradient_bound[region]
+            fast = shortcut > 0
+            physical, negative = np.empty(len(matrix)), np.empty(len(matrix))
+            if np.any(fast):
+                eigenvalues = np.linalg.eigvalsh(matrix[fast])
+                negative_cells += int(
+                    np.count_nonzero(eigenvalues[:, 0] < -tolerance[fast])
+                )
+                factor = self.volume[region][fast] * shortcut[fast]
+                physical[fast] = factor * np.maximum(eigenvalues[:, -1], 0)
+                negative[fast] = factor * np.maximum(-eigenvalues[:, 0], 0)
+            if np.any(~fast):
+                eigenvalues, vectors = np.linalg.eigh(matrix[~fast])
+                negative_cells += int(
+                    np.count_nonzero(eigenvalues[:, 0] < -tolerance[~fast])
+                )
+                # Positive and negative parts are retained separately, never |A|.
+                root = vectors * np.sqrt(np.maximum(eigenvalues, 0))[:, None, :]
+                small = self._mass_gradient_gram[region][~fast]
+                gram = np.einsum("ik,cJL->ciJkL", np.eye(3), small).reshape(-1, 9, 9)
+                physical[~fast] = (
+                    self.volume[region][~fast]
+                    * np.linalg.eigvalsh(root.swapaxes(1, 2) @ gram @ root)[:, -1]
+                )
+                negative_root = (
+                    vectors * np.sqrt(np.maximum(-eigenvalues, 0))[:, None, :]
+                )
+                negative[~fast] = (
+                    self.volume[region][~fast]
+                    * np.linalg.eigvalsh(
+                        negative_root.swapaxes(1, 2) @ gram @ negative_root
+                    )[:, -1]
+                )
             negative_bound = max(negative_bound, float(np.max(negative)))
             hourglass = self._hourglass_spectral_bound[region]
             bound = max(bound, float(np.max(physical + hourglass)))
