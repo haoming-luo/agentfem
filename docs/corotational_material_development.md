@@ -434,6 +434,25 @@ Exactly stationary polar-frame kinematics avoid redundant spectral operations;
 invalid nonidentity gradients are still checked. These are bounded algorithmic
 optimizations, not evidence of full-loading throughput.
 
+## Fixed numerical inertia foundation (not variable mass scaling)
+
+The private immutable `FixedScaledInertia` retains a separate physical nodal
+mass, constructs positive numerical inertia from explicit nodal factors, and
+records added mass without changing constitutive density. The existing central
+difference integrator consumes its inverse diagonal. Its optional immutable
+identity now participates in the common checkpoint: scaled/unscaled or changed
+factor restarts reject atomically rather than silently changing the dynamics.
+This first identity is serial and not portable across partitions.
+
+Response-only energy monitoring can report numerical kinetic energy for the
+actual discrete equation alongside physical-mass kinetic energy and their
+difference. A two-body test verifies the exact uniform mass/time rescaling
+relationship and identical interrupted/restarted history. This is not an
+automatic stable-step certificate, and no fixed factor is presented as
+equivalent to the source's per-increment variable mass scaling. That next gate
+must own accepted mass updates, acceleration consistency, added-mass momentum
+and kinetic contributions, rejected-step rollback and restart.
+
 ## Primary design references
 
 - [Ramsey, Potter and Hansen, Ray Bilinear Patch Intersections](https://www.sci.utah.edu/~kpotter/publications/ramsey-2004-RBPI.pdf):

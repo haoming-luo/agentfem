@@ -84,6 +84,14 @@ class ExplicitDynamicsStep:
             "acceleration",
             "accepted time/history ledger",
         )
+        if _explicit_inertia_identity(self) is not None:
+            base = replace(
+                base,
+                rank_count_portability="unsupported",
+                identity_scope=base.identity_scope + ("fixed numerical inertia",),
+                limitations=base.limitations
+                + ("Numerical inertia identity uses serial nodal ordering.",),
+            )
         declaration = getattr(getattr(self, "residual", None), "checkpoint_capabilities", None)
         if declaration is None:
             return base
@@ -1814,10 +1822,28 @@ def _apply_checkpoint_retention(step, policy) -> None:
     ]
 
 
+def _explicit_inertia_identity(step):
+    """Optional immutable inertia identity; no mutable mass State is admitted."""
+    mass = getattr(getattr(step, "integrator", None), "mass", None)
+    declaration = getattr(mass, "checkpoint_identity", None)
+    if not callable(declaration):
+        return None
+    if fields.unwrap(step.state.u).function_space.mesh.comm.size != 1:
+        raise NotImplementedError(
+            "Explicit inertia identity is serial pending distributed admission."
+        )
+    from .provenance import content_fingerprint
+
+    return content_fingerprint(declaration())
+
+
 def _save_transient_checkpoint(step, path, state, *, portable: bool = False) -> Path:
     from . import checkpointing
     from .results import CheckpointRecord
 
+    inertia_identity = _explicit_inertia_identity(step)
+    if inertia_identity is not None and portable:
+        raise NotImplementedError("Fixed numerical inertia restart is serial and nonportable.")
     # Path-dependent monitors must archive their accepted endpoint, including
     # when checkpoint cadence is independent of retained history cadence.
     _record_transient_history(step, float(step.completed_steps) * float(step.dt))
@@ -1826,6 +1852,8 @@ def _save_transient_checkpoint(step, path, state, *, portable: bool = False) -> 
         {"residual": getattr(residual, "checkpoint_snapshot", residual.snapshot)()}
         if hasattr(residual, "snapshot") else None
     )
+    if inertia_identity is not None:
+        auxiliary_state = {**(auxiliary_state or {}), "inertia_identity": inertia_identity}
     manifest = checkpointing.save_transient_checkpoint(
         path,
         step_kind=step.summary()["kind"],
@@ -1926,8 +1954,16 @@ def _load_transient_checkpoint_impl(step, path, state) -> None:
         time_inputs=time.input_summary(step.update_load),
     )
     auxiliary = metadata.get("auxiliary_state")
+    if auxiliary is not None and (
+        not isinstance(auxiliary, dict)
+        or not set(auxiliary).issubset({"residual", "inertia_identity"})
+    ):
+        raise ValueError("Checkpoint contains unsupported transient auxiliary state.")
+    saved_inertia = (auxiliary or {}).get("inertia_identity")
+    if saved_inertia != _explicit_inertia_identity(step):
+        raise ValueError("Checkpoint numerical inertia identity differs or is missing.")
     residual = getattr(step, "residual", None)
-    if auxiliary is not None:
+    if auxiliary is not None and "residual" in auxiliary:
         if residual is None or not hasattr(residual, "restore"):
             raise ValueError(
                 "Checkpoint contains auxiliary residual state, but the current "

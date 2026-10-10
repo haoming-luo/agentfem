@@ -55,6 +55,11 @@ class ExplicitDynamicsIntegrator:
         repr=False,
     )
 
+    def __post_init__(self):
+        validate = getattr(self.mass, "validate_state", None)
+        if callable(validate):
+            validate(self.state)
+
     @property
     def inv_mass(self) -> np.ndarray:
         """Return the inverse lumped mass diagonal."""

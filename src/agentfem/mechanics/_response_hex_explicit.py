@@ -16,8 +16,21 @@ from ..state import field_transaction
 class ResponseHexWorkMonitor:
     """Accepted work balance ingredients, not a thermodynamic decomposition."""
 
-    def __init__(self, residual):
+    def __init__(self, residual, *, numerical_inertia=None):
         self.residual = residual
+        self.numerical_inertia = numerical_inertia
+        if numerical_inertia is not None:
+            from ..time._scaled_inertia import FixedScaledInertia
+
+            if not isinstance(
+                numerical_inertia, FixedScaledInertia
+            ) or not np.array_equal(
+                numerical_inertia.physical_mass_diagonal,
+                residual.internal.mass_diagonal,
+            ):
+                raise ValueError(
+                    "Numerical inertia must retain this body's physical mass."
+                )
 
     def evaluate(self, *, displacement, velocity):
         from ..fields import unwrap
@@ -30,9 +43,22 @@ class ResponseHexWorkMonitor:
             raise ValueError("Work monitor displacement identity differs.")
         if not np.array_equal(r.internal.displacement.x.array, r.accepted_displacement):
             raise RuntimeError("Work monitor requires the accepted configuration.")
-        kinetic = kinetic_energy(r.internal.mass_diagonal, velocity)
+        physical_kinetic = kinetic_energy(r.internal.mass_diagonal, velocity)
+        kinetic = (
+            physical_kinetic
+            if self.numerical_inertia is None
+            else kinetic_energy(self.numerical_inertia.mass_diagonal, velocity)
+        )
         return {
             "kinetic_energy": kinetic,
+            **(
+                {
+                    "physical_mass_kinetic_energy": physical_kinetic,
+                    "added_inertia_kinetic_energy": kinetic - physical_kinetic,
+                }
+                if self.numerical_inertia is not None
+                else {}
+            ),
             "material_internal_work": r.internal_work,
             "hourglass_energy": r.hourglass_energy,
             "interface_stored_energy": r.interface_energy,
