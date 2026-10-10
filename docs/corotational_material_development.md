@@ -222,6 +222,25 @@ no constitutive history. Read-only returned arrays, zero-length partitions and
 proper-frame checks are covered by focused tests. It is deliberately private
 until the response, stability and global lifecycle gates close.
 
+An explicit private `integration_rule="midpoint"` candidate now evaluates
+`sym((U1-U0) inv((U0+U1)/2))`. The existing exact integral remains the default;
+the returned method tag distinguishes them, including empty/stationary batches.
+This is a numerical approximation to the same linear-stretch path, not an
+equivalent finite logarithmic increment or a vendor algorithm. A provider
+choosing it must include that choice in its numerical/restart identity.
+Independent noncoaxial quadrature demonstrates second-order subdivision;
+rigid rotations, material axes, virtual power and invalid gradients are tested.
+The combined kinematics selection passes 27 tests.
+
+Five alternating 65,536-point moving-batch runs measured median exact/midpoint
+cost ratio 1.257 with chunk size 8,192. Maximum strain difference was 1.35e-8
+for that generated input, not a universal accuracy bound. A private source
+material path at 120/240/480 increments shows roughly fourfold decrease of
+the rule difference in stress, state and internal work on each refinement.
+This does not change the original case or establish full dynamic accuracy.
+`tools/benchmark_corotational_rules.py` preserves the method distinction and
+source fingerprint in its output instead of advertising algorithm equivalence.
+
 ## Energy and stability: do not falsify the existing contract
 
 `mechanics/_response_hex_explicit.py` now connects response-only material

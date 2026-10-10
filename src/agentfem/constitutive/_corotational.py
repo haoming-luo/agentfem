@@ -81,7 +81,9 @@ class CorotationalIncrement:
     method: str = "polar_linear_right_stretch_exact_integral"
 
 
-def polar_strain_increment(gradient_old, gradient_new, *, reference_frame=None):
+def polar_strain_increment(
+    gradient_old, gradient_new, *, reference_frame=None, integration_rule="exact"
+):
     """Return one batch; proper reference material axes may vary by point.
 
     The integral is evaluated analytically using a symmetric generalized
@@ -89,7 +91,18 @@ def polar_strain_increment(gradient_old, gradient_new, *, reference_frame=None):
     B=U0^(-1/2) U1 U0^(-1/2), its unsymmetrized value is
     U0^(1/2) log(B) U0^(-1/2). This follows by integrating
     (U1-U0) inv(U0+s*(U1-U0)) over s in [0,1].
+
+    The opt-in ``midpoint`` rule approximates that same path integral at s=1/2.
+    It is second order under subdivision, not an exact finite logarithmic
+    increment. Providers must include this choice in their numerical identity.
     """
+    if integration_rule not in ("exact", "midpoint"):
+        raise ValueError("Unknown polar right-stretch integration rule.")
+    method = (
+        "polar_linear_right_stretch_exact_integral"
+        if integration_rule == "exact"
+        else "polar_linear_right_stretch_midpoint"
+    )
     old = _checked(gradient_old, "gradient_old")
     new = _checked(gradient_new, "gradient_new")
     if old.shape != new.shape:
@@ -112,7 +125,7 @@ def polar_strain_increment(gradient_old, gradient_new, *, reference_frame=None):
         raise ValueError("Reference frames must be proper orthonormal axes.")
     if count == 0:
         return CorotationalIncrement(
-            *(_readonly(np.empty((0, 3, 3))) for _ in range(3))
+            *(_readonly(np.empty((0, 3, 3))) for _ in range(3)), method=method
         )
     stationary = np.all(old == new, axis=(1, 2))
     if np.any(stationary):
@@ -123,23 +136,35 @@ def polar_strain_increment(gradient_old, gradient_new, *, reference_frame=None):
         r0[stationary] = r1[stationary] = stationary_rotation @ frame[stationary]
         if not np.all(stationary):
             moving = polar_strain_increment(
-                old[~stationary], new[~stationary], reference_frame=frame[~stationary]
+                old[~stationary],
+                new[~stationary],
+                reference_frame=frame[~stationary],
+                integration_rule=integration_rule,
             )
             strain[~stationary] = moving.strain_increment
             r0[~stationary], r1[~stationary] = moving.frame_old, moving.frame_new
-        return CorotationalIncrement(_readonly(strain), _readonly(r0), _readonly(r1))
-    r0, u0, root, inverse_root = _polar(old, include_roots=True)
-    r1, u1 = _polar(new)
-    # Form B-I directly: log1p retains very small increments accurately.
-    delta = inverse_root @ (u1 - u0) @ inverse_root
-    values, vectors = np.linalg.eigh(0.5 * (delta + _transpose(delta)))
-    if np.any(values <= -1):
-        raise ValueError("Right-stretch path is numerically singular.")
-    logarithm = _spectral(vectors, np.log1p(values))
-    integral = root @ logarithm @ inverse_root
+        return CorotationalIncrement(
+            _readonly(strain), _readonly(r0), _readonly(r1), method
+        )
+    if integration_rule == "midpoint":
+        r0, u0 = _polar(old)
+        r1, u1 = _polar(new)
+        integral = _transpose(
+            np.linalg.solve(_transpose((u0 + u1) / 2), _transpose(u1 - u0))
+        )
+    else:
+        r0, u0, root, inverse_root = _polar(old, include_roots=True)
+        r1, u1 = _polar(new)
+        # Form B-I directly: log1p retains very small increments accurately.
+        delta = inverse_root @ (u1 - u0) @ inverse_root
+        values, vectors = np.linalg.eigh(0.5 * (delta + _transpose(delta)))
+        if np.any(values <= -1):
+            raise ValueError("Right-stretch path is numerically singular.")
+        logarithm = _spectral(vectors, np.log1p(values))
+        integral = root @ logarithm @ inverse_root
     strain = _transpose(frame) @ (0.5 * (integral + _transpose(integral))) @ frame
     return CorotationalIncrement(
-        _readonly(strain), _readonly(r0 @ frame), _readonly(r1 @ frame)
+        _readonly(strain), _readonly(r0 @ frame), _readonly(r1 @ frame), method
     )
 
 
