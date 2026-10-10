@@ -7,6 +7,38 @@ conversion; Procedure and State own acceptance and recovery.
 
 ## Ordered gates
 
+### Immediate reusable interface work
+
+Keep the responsibilities separate: geometry returns projections and gaps;
+initialization defines the original bonded set and reference treatment; the
+interface Operator uses one interpolation and its virtual-work transpose;
+State owns accepted bond identities; Procedure owns advancement and recovery.
+No geometry routine may implicitly activate a bond or adjust model coordinates.
+
+1. True bilinear local projection: private candidate implemented. The batched
+   `q1_interior_normal_projection` solves distance stationarity with the exact
+   2-by-2 Hessian including curvature, normalized coordinates and per-query
+   backtracking. Basix owns basis evaluation. Positive Hessian and strict
+   interior convergence are required. Edge/corner minima and global ambiguity
+   remain the responsibility of the upcoming search composition, not silently
+   clipped local coordinates. No claim of global nearest-point uniqueness.
+2. Search composition: reuse BVH candidate discovery, refine on true Q1 facets,
+   handle edges/corners and competing candidates, then quantify uncovered area
+   and side-swap/integration sensitivity. Not yet implemented for general Q1.
+3. Initial bond semantics: explicitly preserve eligibility and initialization,
+   rather than substitute a full tie. Persist selected identities only after
+   the physical policy is reviewed. Not yet integrated.
+4. Global composition: reuse existing elastic law, transpose force transfer,
+   State and accepted work ledger. Nonzero-gap objectivity/moment balance and
+   checkpoint tests are required before ordinary-Step admission.
+
+Local projection verification uses independent analytic warped graphs, an
+independent constrained minimizer, rigid rotations and three length scales,
+orientation reversal, scalar/batch equality and deliberate rejection cases.
+Backtracking evaluates only basis values, not discarded Hessians; converged
+points are frozen. No whole-model performance improvement is claimed.
+This is a narrow geometry increment, not a new public solver or a release.
+
 | Gate | Deliverable and acceptance | Status |
 | --- | --- | --- |
 | 1 | Original compiled material oracle; frozen parameters, tensor ordering, full state, work and source hashes | Local reference established; no commercial-solver validation |
@@ -193,6 +225,11 @@ to `all_points * all_search_angles * full_tensor` is required. Do not claim
 whole-model speedup from a local kernel benchmark.
 
 ## Primary design references
+
+- [MOOSE contact module](https://mooseframework.inl.gov/modules/contact/index.html)
+  and [mortar generation](https://mooseframework.inl.gov/source/constraints/AutomaticMortarGeneration.html):
+  separation of contact enforcement and geometric projection/segmentation.
+  Our bounded local projector is not a mortar implementation.
 
 - [Abaqus surface-based cohesive behavior](https://docs.software.vt.edu/abaqusv2025/English/SIMACAEITNRefMap/simaitn-c-cohesivebehavior.htm):
   original-contact eligibility and the influence of initialization on bonding.

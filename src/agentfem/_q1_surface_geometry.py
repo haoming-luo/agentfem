@@ -1,16 +1,104 @@
 # SPDX-FileCopyrightText: 2026 Haoming Luo and AgentFEM contributors
 # SPDX-License-Identifier: Apache-2.0
-"""Private Q1 inverse maps; no interface integration admission.
+"""Private Q1 geometry kernels; no interface integration admission.
 
 Basix owns interpolation. This adapter batches geometric inversion for boundary
-queries, preserving all four parent nodes. Warped maps admit on-surface points
-only; nearest-point projection and curved intersection integration are separate.
+queries, preserving all four parent nodes. On-surface inversion and bounded
+interior normal projection are distinct; global closest search and curved
+intersection integration remain separate.
 """
 
 from functools import lru_cache
 
 import basix
 import numpy as np
+
+
+def q1_interior_normal_projection(vertices, points, *, max_iterations=40):
+    """Batch local normal projections on nominated Q1 facets (private).
+
+    Returns local coordinates, original Q1 weights, physical projected points,
+    oriented normals and signed normal gaps. Newton solves J.T*(x-query)=0
+    with the exact distance Hessian, including bilinear curvature. Only strict
+    interior positive-Hessian solutions are admitted. No edge/corner search,
+    global nearest-point uniqueness, bond eligibility or force is inferred.
+    Candidate discovery and ambiguity resolution belong to the search layer.
+    """
+    raw = np.asarray(vertices)
+    if raw.ndim != 3 or raw.shape[1:] != (4, 3):
+        raise ValueError("vertices must have shape (queries, 4, 3).")
+    x = _real(vertices, raw.shape, "vertices")
+    q = _real(points, (len(x), 3), "points")
+    if (
+        isinstance(max_iterations, bool)
+        or not isinstance(max_iterations, int)
+        or max_iterations < 1
+    ):
+        raise ValueError("max_iterations must be a positive integer.")
+    q1_surface_pull_back(x, x.mean(axis=1))
+    if not len(x):
+        return (
+            np.empty((0, 2)),
+            np.empty((0, 4)),
+            np.empty((0, 3)),
+            np.empty((0, 3)),
+            np.empty(0),
+        )
+    origin = x[:, 0].copy()
+    scale = np.linalg.norm(np.ptp(x, axis=1), axis=1)
+    x = (x - origin[:, None]) / scale[:, None, None]
+    q = (q - origin) / scale[:, None]
+    twist = x[:, 0] - x[:, 1] + x[:, 2] - x[:, 3]
+
+    def evaluate(uv):
+        basis = _element().tabulate(1, uv)[..., 0][:, :, [0, 1, 3, 2]]
+        position = np.einsum("nk,nki->ni", basis[0], x)
+        residual = position - q
+        jacobian = np.einsum("ank,nki->nia", basis[1:3], x)
+        gradient = np.einsum("nia,ni->na", jacobian, residual)
+        hessian = np.einsum("nia,nib->nab", jacobian, jacobian)
+        curvature = np.einsum("ni,ni->n", residual, twist)
+        hessian[:, 0, 1] += curvature
+        hessian[:, 1, 0] += curvature
+        return basis[0], position, residual, jacobian, gradient, hessian
+
+    uv = np.full((len(x), 2), 0.5)
+    for _ in range(max_iterations):
+        _, _, residual, _, gradient, hessian = evaluate(uv)
+        if np.any(np.linalg.eigvalsh(hessian)[:, 0] <= 1e-12):
+            raise ValueError("Q1 projection has a nonpositive distance Hessian.")
+        if np.all(np.linalg.norm(gradient, axis=1) < 1e-12):
+            break
+        step = np.linalg.solve(hessian, gradient[..., None])[..., 0]
+        step[np.linalg.norm(gradient, axis=1) < 1e-12] = 0
+        # Independent per-query backtracking, vectorized across the batch.
+        alpha = np.ones(len(x))
+        old_value = np.sum(residual * residual, axis=1)
+        accepted = np.zeros(len(x), dtype=bool)
+        for _ in range(25):
+            trial = uv - alpha[:, None] * step
+            trial_basis = _element().tabulate(0, trial)[0, :, :, 0][:, [0, 1, 3, 2]]
+            trial_residual = np.einsum("nk,nki->ni", trial_basis, x) - q
+            roundoff = 32 * np.finfo(float).eps * np.maximum(1, old_value)
+            accepted = np.sum(trial_residual**2, axis=1) <= old_value + roundoff
+            accepted &= np.all((trial >= 0) & (trial <= 1), axis=1)
+            if accepted.all():
+                break
+            alpha[~accepted] *= 0.5
+        if not accepted.all():
+            raise ValueError("Q1 projection cannot find an interior descent step.")
+        uv = trial
+    basis, position, residual, jacobian, gradient, hessian = evaluate(uv)
+    if np.any(np.linalg.norm(gradient, axis=1) >= 1e-12):
+        raise ValueError("Q1 normal projection did not converge.")
+    if np.any((uv <= 1e-10) | (uv >= 1 - 1e-10)):
+        raise ValueError("Q1 normal projection requires a strict interior point.")
+    if np.any(np.linalg.eigvalsh(hessian)[:, 0] <= 1e-12):
+        raise ValueError("Q1 projection has a nonpositive distance Hessian.")
+    normal = np.cross(jacobian[..., 0], jacobian[..., 1])
+    normal /= np.linalg.norm(normal, axis=1)[:, None]
+    gap = -np.einsum("ni,ni->n", residual, normal) * scale
+    return uv, basis, origin + position * scale[:, None], normal, gap
 
 
 @lru_cache(maxsize=1)
