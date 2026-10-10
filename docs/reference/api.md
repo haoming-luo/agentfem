@@ -293,7 +293,7 @@ and evidence remain in the linked guides and scientific function reference.
 | function | `rainflow_cycles(history) -> tuple[StressCycle, ...]` | Count full and residual half-cycles from a scalar stress history. |
 | function | `turning_points(history) -> np.ndarray` | Return endpoints and local reversals from a scalar stress history. |
 | class | `FiniteStrainJ2Logarithmic` | Multiplicative finite-strain J2 plasticity with Hencky elasticity. |
-| function | `finite_strain_j2_logarithmic(*, young: float, poisson: float, yield_stress: float, hardening_modulus: float = 0.0, tangent_relative_step: float = 2e-06, tangent_evaluation: str = 'analytic_spectral') -> FiniteStrainJ2Logarithmic` | Create the logarithmic finite-strain J2 material provider. |
+| function | `finite_strain_j2_logarithmic(*, young: float, poisson: float, yield_stress: float, hardening_modulus: float = 0.0, tangent_relative_step: float = 2e-06, tangent_evaluation: str = 'analytic_spectral', density: float \| None = None) -> FiniteStrainJ2Logarithmic` | Create the logarithmic finite-strain J2 material provider. |
 | class | `FiniteStrainKinematics` | Standard total-Lagrangian kinematics derived from one displacement. |
 | class | `MixedNeoHookeanProperties` | Isochoric Neo-Hookean solid with an independent pressure field. |
 | class | `MooneyRivlinProperties` | Two-parameter isotropic Mooney-Rivlin finite-strain solid. |
@@ -917,8 +917,8 @@ and evidence remain in the linked guides and scientific function reference.
 | function | `describe_element(element_or_space) -> ElementIdentity` | Describe a UFL element or a function space without constructing forms. |
 | function | `describe_field(field, *, registered_mesh = None) -> FieldDiscretization` | Describe the runtime discretization of one AgentFEM or DOLFINx field. |
 | function | `audit(model, *, check_quality: bool = False, quality_threshold: float = 0.1, reject_poor_quality: bool = False) -> DiscretizationAudit` | Audit mesh topology, field elements, Study shapes, and mesh quality. |
-| class | `UniformStrainHex8` | Experimental small-strain elastic uniform-gradient formulation. |
-| function | `uniform_strain_hex8(*, hourglass_modulus, hourglass_scale, chunk_size = 1024)` | Declare stabilization explicitly; not an automatic C3D8R translation. |
+| class | `UniformStrainHex8` | Experimental uniform-gradient formulation with explicit kinematics. |
+| function | `uniform_strain_hex8(*, hourglass_modulus, hourglass_scale, chunk_size = 1024, kinematics = 'small_strain')` | Declare stabilization explicitly; not an automatic C3D8R translation. |
 
 ## `agentfem.expressions`
 
