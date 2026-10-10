@@ -474,7 +474,9 @@ never changes solver access, results, verification, or update behavior.
   route as a general neighborhood-collective or extreme-scale contact search.
 - `RigidSphereSurface` and `RigidCylinderSurface` provide exact analytical
   projection. The sphere also represents a 2D circle; the cylinder is 3D and
-  infinite. Keep their interior/exterior admissible side explicit, preserve
+  infinite by default. Its optional `axial_interval` admits finite lateral
+  interior only; rim/end queries remain unsupported. Keep their
+  interior/exterior admissible side explicit, preserve
   `singular_projection`, and do not claim that projection-only geometry is an
   executable contact law.
 - Do not hide the finite-element workflow inside overly broad abstractions.

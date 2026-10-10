@@ -62,7 +62,7 @@ full-surface coverage nor a time-step/whole-solver performance certificate.
 | 3 | General corotational kinematics; proper frames, invalid-gradient rejection, objective stress transport, noncoaxial independent integration | Private core candidate, tested separately from any material name |
 | 4 | Explicit material response contract with independently declared stability and energy capabilities | Private work-only response and serial quadrature lowering tested; independent explicit stability admission pending |
 | 5 | Ordinary finite-Hex Step consumes the provider; single-element traction, multi-element patch, failed-trial recovery and checkpoint | Private response-only adapter now advances existing central difference with serial disk restart and whole-step rollback; ordinary model admission and full structure still pending |
-| 6 | Multiple analytical rigid tools in that same Step; geometry validity, curvature stability, resultant/moment/work, joint rollback | Pending; reuse existing rigid surfaces, contact law and accepted work ledger |
+| 6 | Multiple analytical rigid tools in that same Step; geometry validity, curvature stability, resultant/moment/work, joint rollback | Private response-only route composes two moving planes or bounded lateral cylinders with existing contact residuals, tool-work ledger and disk restart; curvature stability and ordinary-Step admission pending |
 | 7 | Imported geometry/section/interface audit and controlled incremental whole-model runs | Local geometry audit identifies nonaffine, globally noncoplanar traces and small facet warpage; general pairing and whole-model runs pending |
 | 8 | Bulk viscosity and variable mass scaling when required for source equivalence, with separate work/inertia evidence | Serial Hex8 bulk-viscosity force/power and response-trial composition tested; accepted time integration, damping stability and variable mass scaling pending |
 | 9 | Independent reference curves, mesh/time/penalty/hourglass sensitivity, performance and installed-use acceptance | Pending; commercial output is required before cross-validation claims |
@@ -123,6 +123,23 @@ and shows comparable refinement. Both interrupted/resumed paths reproduce
 continuous displacement exactly. These are free-response material integration
 checks, not the original specimen, severe damage validation, or Abaqus solver
 equivalence. Source increment/spin equivalence remains unestablished.
+
+Accepted body forces are cached with accepted displacement and material history.
+Reaction sampling must not call a history material with a zero time increment
+or advance it twice. Numeric checkpoint v2 preserves that cache. Two moving
+contact contributions wrap the same body Operator and share the existing
+`DynamicEnergyLedger`, without a two-tool special solver. Serial regressions
+cover planes and finite lateral cylinder patches, nonzero tool work, identical
+continuous/restarted fields and histories, and failure after the outer contact
+has committed. These are small integration tests, not the original four-tool
+specimen or a penalty/time convergence certificate.
+
+`rigid_cylinder(..., axial_interval=(a, b))` measures the interval along the
+supplied axis from the supplied axis point. Rigid motion transports both.
+Strict-interior lateral projection is exact; rim/end queries return
+`unsupported_rim`, not an invented cap or ignored contact. Infinite-cylinder
+behavior remains the default. Source-tool admission must check this interval
+throughout the accepted path, not just at initialization.
 
 The private `ExplicitMaterialBatchOutput` now carries Cauchy stress, state and
 reference-volume internal-work increment without a fabricated tangent. Storage

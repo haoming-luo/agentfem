@@ -28,6 +28,8 @@ class ResponseHexWorkMonitor:
             raise RuntimeError("Work monitor requires an accepted material state.")
         if unwrap(displacement) is not r.internal.displacement:
             raise ValueError("Work monitor displacement identity differs.")
+        if not np.array_equal(r.internal.displacement.x.array, r.accepted_displacement):
+            raise RuntimeError("Work monitor requires the accepted configuration.")
         kinetic = kinetic_energy(r.internal.mass_diagonal, velocity)
         return {
             "kinetic_energy": kinetic,
@@ -71,6 +73,8 @@ class ResponseHexExplicitResidual:
         if not np.array_equal(committed, np.broadcast_to(initial, committed.shape)):
             raise ValueError("Response-only initialization requires virgin state.")
         self.internal, self.material = internal, material
+        self.checkpoint_state_required = True
+        self.comm = internal.comm
         self.ceiling = ceiling
         digest = sha256(
             content_fingerprint(
@@ -96,6 +100,8 @@ class ResponseHexExplicitResidual:
         self.internal_work = 0.0
         self.hourglass_energy = 0.0
         self._trial = None
+        self.accepted_force = np.zeros_like(internal.mass_diagonal)
+        self.accepted_displacement = internal.displacement.x.array.copy()
 
     def validate_time_increment(self, dt):
         if not np.isfinite(dt) or dt <= 0 or dt > self.ceiling * (1 + 1e-12):
@@ -131,13 +137,14 @@ class ResponseHexExplicitResidual:
                 hg,
                 self.time,
                 self.internal.displacement.x.array.copy(),
+                vector.array.copy(),
             )
         return vector
 
     def commit(self):
         if self._trial is None:
             raise RuntimeError("No response-only trial to accept.")
-        trial, work, hg, time, displacement = self._trial
+        trial, work, hg, time, displacement, force = self._trial
         if time != self.time or not np.array_equal(
             displacement, self.internal.displacement.x.array
         ):
@@ -146,7 +153,38 @@ class ResponseHexExplicitResidual:
         self.accepted_gradient = trial.deformation_gradient.copy()
         self.accepted_time = time
         self.internal_work, self.hourglass_energy = work, hg
+        self.accepted_force = force
+        self.accepted_displacement = displacement
         self._trial = None
+
+    def assemble_accepted_vector(self):
+        if (
+            self._trial is not None
+            or self.time != self.accepted_time
+            or not np.array_equal(
+                self.internal.displacement.x.array, self.accepted_displacement
+            )
+        ):
+            raise RuntimeError("Accepted force requires the accepted configuration.")
+        vector = self.internal.displacement.x.petsc_vec.duplicate()
+        vector.array[:] = self.accepted_force
+        return vector
+
+    def rollback(self):
+        self.internal.response.rollback()
+        self.time = self.accepted_time
+        self._trial = None
+
+    def summary(self):
+        return {
+            "kind": "private_response_hex_explicit",
+            "identity": self.identity,
+            "increment_ceiling": self.ceiling,
+            "stability_certified": False,
+            "material_internal_work": self.internal_work,
+            "stored_energy_decomposition_available": False,
+            "execution_scope": "serial_development",
+        }
 
     def _fields(self):
         response = self.internal.response
@@ -169,12 +207,14 @@ class ResponseHexExplicitResidual:
         if self._trial is not None:
             raise RuntimeError("Cannot save an unaccepted response-only trial.")
         return {
-            "schema": "agentfem.private-response-hex.v1",
+            "schema": "agentfem.private-response-hex.v2",
             "identity": self.identity,
             "time": self.accepted_time,
             "gradient": self.accepted_gradient.copy(),
             "internal_work": self.internal_work,
             "hourglass_energy": self.hourglass_energy,
+            "accepted_force": self.accepted_force.copy(),
+            "accepted_displacement": self.accepted_displacement.copy(),
             "fields": {k: v.x.array.copy() for k, v in self._fields().items()},
         }
 
@@ -213,12 +253,14 @@ class ResponseHexExplicitResidual:
     def snapshot(self):
         record = self.transaction_snapshot()
         record["gradient"] = record["gradient"].tolist()
+        for name in ("accepted_force", "accepted_displacement"):
+            record[name] = record[name].tolist()
         record["fields"] = {k: v.tolist() for k, v in record["fields"].items()}
         return record
 
     def restore(self, record):
         if (
-            record.get("schema") != "agentfem.private-response-hex.v1"
+            record.get("schema") != "agentfem.private-response-hex.v2"
             or record.get("identity") != self.identity
         ):
             raise ValueError("Response-only checkpoint identity mismatch.")
@@ -244,6 +286,16 @@ class ResponseHexExplicitResidual:
         ):
             raise ValueError("Invalid response-only checkpoint scalars.")
         arrays = {k: np.asarray(record["fields"][k]) for k in fields}
+        force = np.asarray(record["accepted_force"])
+        displacement = np.asarray(record["accepted_displacement"])
+        if any(
+            np.iscomplexobj(a) or a.shape != ref.shape or not np.isfinite(a).all()
+            for a, ref in (
+                (force, self.accepted_force),
+                (displacement, self.accepted_displacement),
+            )
+        ):
+            raise ValueError("Invalid accepted force/displacement checkpoint.")
         if any(
             np.iscomplexobj(v)
             or v.shape != fields[k].x.array.shape
@@ -266,4 +318,6 @@ class ResponseHexExplicitResidual:
         self.accepted_gradient = gradient.copy()
         self.accepted_time = self.time = float(values[0])
         self.internal_work, self.hourglass_energy = map(float, values[1:])
+        self.accepted_force = force.copy()
+        self.accepted_displacement = displacement.copy()
         self._trial = None

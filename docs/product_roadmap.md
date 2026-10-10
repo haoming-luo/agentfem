@@ -30,10 +30,14 @@ explicit contracts, followed by single-element/global lifecycle verification.
 The next local slice now supplies a genuine response-only work contract,
 serial quadrature transactions and real Hex8 internal-force assembly without
 inventing DPDF/SENER fields. Trial failures restore state and response fields.
-Independent explicit stability, the accepted work-only time-integration ledger,
-ordinary Step admission and MPI remain open.
-Multiple curved tools, imported-interface geometry, viscosity/mass scaling and
-commercial reference comparison remain open. The ordered nine-gate plan is
+The private response-only route now advances the existing central difference
+Procedure, records internal work separately from artificial energy, and restores
+accepted material/force state atomically. Two moving planes or bounded lateral
+cylinders compose with the existing contact work ledger and disk restart.
+Independent explicit stability, ordinary Step admission and MPI remain open.
+Original imported-interface initialization, full four-tool assembly,
+viscosity/mass scaling and commercial reference comparison remain open.
+The ordered nine-gate plan is
 [corotational material development](corotational_material_development.md).
 Keep confidential source equations and parameters in external project providers.
 

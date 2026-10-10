@@ -329,6 +329,40 @@ def test_infinite_cylinder_projection_and_motion_are_exact():
     assert surface.summary()["geometric_shape"] == "infinite_circular_cylinder"
 
 
+def test_bounded_cylinder_lateral_interval_preserves_origin_and_motion():
+    surface = boundary_models.rigid_cylinder(
+        axis_point=(0, 5, 0),
+        axis_direction=(0, -1, 0),
+        radius=1,
+        axial_interval=(0, 2),
+    )
+    points = np.array([[2.0, 4, 0], [2, 5, 0], [2, 3, 0], [2, 2, 0]])
+    result = surface.project(points)
+    np.testing.assert_array_equal(result.valid, [True, False, False, False])
+    np.testing.assert_allclose(result.closest_points[0], [1, 4, 0])
+    assert list(result.status_codes[1:]) == ["unsupported_rim"] * 3
+    assert np.isnan(result.closest_points[1:]).all()
+    motion = boundary_models.prescribed_rigid_motion(
+        translation=(2, 3, 1),
+        rotation=(0, 0, np.pi / 2),
+    )
+    rotation = motion.rotation_matrix(1.0)
+    moved = surface.project(points @ rotation.T + [2, 3, 1], motion=motion, factor=1.0)
+    np.testing.assert_array_equal(moved.valid, result.valid)
+    np.testing.assert_allclose(
+        moved.closest_points[0], rotation @ result.closest_points[0] + [2, 3, 1]
+    )
+    np.testing.assert_allclose(moved.normals[0], rotation @ result.normals[0], atol=1e-14)
+    infinite = boundary_models.rigid_cylinder((0, 5, 0), (0, -1, 0), 1)
+    assert infinite.geometry_fingerprint != surface.geometry_fingerprint
+
+
+@pytest.mark.parametrize("interval", [(0, 0), (1, 0), (0, np.inf), (0, 1, 2)])
+def test_invalid_cylinder_interval(interval):
+    with pytest.raises(ValueError):
+        boundary_models.rigid_cylinder((0, 0, 0), (0, 1, 0), 1, axial_interval=interval)
+
+
 def test_infinite_cylinder_fails_closed_on_axis():
     surface = boundary_models.rigid_cylinder(
         axis_point=(1.0, 2.0, 3.0),
@@ -346,7 +380,11 @@ def test_infinite_cylinder_fails_closed_on_axis():
 @pytest.mark.parametrize(
     "factory, kwargs, message",
     [
-        (boundary_models.rigid_sphere, {"center": (0.0, 0.0), "radius": 0.0}, "positive"),
+        (
+            boundary_models.rigid_sphere,
+            {"center": (0.0, 0.0), "radius": 0.0},
+            "positive",
+        ),
         (
             boundary_models.rigid_sphere,
             {"center": (0.0, 0.0), "radius": 1.0, "admissible_side": "both"},

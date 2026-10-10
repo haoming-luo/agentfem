@@ -9,7 +9,10 @@ from agentfem import problems, state, time
 from agentfem.constitutive._explicit_material_driver import ExplicitQuadratureResponse
 from agentfem.diagnostics import MechanicalEnergyMonitor
 from agentfem.elements._finite_uniform_hex_dolfinx import FiniteUniformHexResidual
-from agentfem.mechanics._response_hex_explicit import ResponseHexExplicitResidual
+from agentfem.mechanics._response_hex_explicit import (
+    ResponseHexExplicitResidual,
+    ResponseHexWorkMonitor,
+)
 from test_explicit_material_quadrature import ResponseOnly
 
 
@@ -23,7 +26,7 @@ def test_unaccepted_response_cannot_be_restored():
     assert step.residual.snapshot() == before
 
 
-def make_step(dt=1e-4):
+def make_step(dt=1e-4, *, contact=False):
     domain = mesh.create_unit_cube(
         MPI.COMM_SELF, 2, 1, 1, cell_type=mesh.CellType.hexahedron
     )
@@ -47,16 +50,131 @@ def make_step(dt=1e-4):
     )
     xyz = u.function_space.tabulate_dof_coordinates()
     history.v.value.x.array[:] = (0.001 * xyz).ravel()
+    monitor = MechanicalEnergyMonitor(mass=internal.mass_diagonal)
+    if contact:
+        from agentfem import boundary_models, fracture, mesh as af_mesh
+
+        body_monitor = ResponseHexWorkMonitor(residual)
+
+        for side in (0, 1):
+            facets = mesh.locate_entities_boundary(
+                domain, 2, lambda x, side=side: np.isclose(x[0], side)
+            )
+            tags = mesh.meshtags(
+                domain, 2, facets, np.full(len(facets), 1, dtype=np.int32)
+            )
+            region = af_mesh.tagged_boundary_region(
+                domain, tags, tag=1, name=f"side_{side}"
+            )
+            adapter = boundary_models.dolfinx_boundary_region_contact_trace(
+                region, u.function_space
+            )
+            direction = 1.0 if side == 0 else -1.0
+            schedule = boundary_models.prescribed_rigid_motion_schedule(
+                boundary_models.prescribed_rigid_motion(
+                    translation=(direction * 1e-4, 0, 0), name=f"motion_{side}"
+                ),
+                end_time=0.001,
+                name=f"schedule_{side}",
+            )
+            projector = boundary_models.rigid_plane(
+                point=(side, 0, 0), normal=(direction, 0, 0), name=f"plane_{side}"
+            )
+            if contact == "cylinder":
+                projector = boundary_models.rigid_cylinder(
+                    axis_point=(side - direction * 0.8, 0, 0.5),
+                    axis_direction=(0, 1, 0),
+                    radius=1,
+                    axial_interval=(-1, 2),
+                    name=f"roller_{side}",
+                )
+            residual = boundary_models.dolfinx_explicit_contact_residual(
+                residual,
+                adapter=adapter,
+                displacement=u,
+                projector=projector,
+                penalty=100,
+                maximum_stable_time_increment=1e-3,
+                motion_schedule=schedule,
+                name=f"contact_{side}",
+            )
+        monitor = fracture.DynamicEnergyLedger(
+            energy=body_monitor, state=history, mass=internal, residual=residual
+        )
     step = problems.explicit_dynamics(
         state=history,
         integrator=time.explicit.central_difference(state=history, mass=internal),
         residual=residual,
-        history_monitor=MechanicalEnergyMonitor(mass=internal.mass_diagonal),
+        history_monitor=monitor,
         dt=dt,
         steps=10,
         progress=False,
     )
     return step
+
+
+@pytest.mark.parametrize("contact", [True, "cylinder"])
+def test_response_only_nested_moving_contact_and_restart(tmp_path, contact):
+    reference = make_step(contact=contact)
+    reference.run()
+    partial = make_step(contact=contact)
+    partial.run(until_step=4)
+    path = partial.save_checkpoint(tmp_path / "contact_response")
+    resumed = make_step(contact=contact)
+    resumed.load_checkpoint(path)
+    resumed.run()
+    for name in ("u", "v", "a"):
+        np.testing.assert_array_equal(
+            getattr(resumed.state, name).value.x.array,
+            getattr(reference.state, name).value.x.array,
+        )
+    assert resumed.residual.snapshot() == reference.residual.snapshot()
+    evidence = reference.residual.contact_energy_evidence()
+    assert len(evidence) == 2
+    assert all(item["contact_potential_energy"] > 0 for item in evidence)
+    assert all(item["contact_motion_work"] != 0 for item in evidence)
+    assert resumed.history_records == reference.history_records
+    last = reference.history_records[-1]
+    assert last["material_internal_work"] > 0
+    assert last["contact_motion_work"] == pytest.approx(
+        sum(item["contact_motion_work"] for item in evidence)
+    )
+    assert "stored_energy" not in last
+
+
+def test_nested_contact_late_failure_is_atomic(monkeypatch):
+    step = make_step(contact=True)
+    step.run(until_step=2)
+    accepted = step.residual.snapshot()
+    nodal = step.state.snapshot()
+    work = step.residual.work_state
+    original = work.commit
+
+    def fail_after_commit():
+        original()
+        raise RuntimeError("outer contact failed after commit")
+
+    monkeypatch.setattr(work, "commit", fail_after_commit)
+    with pytest.raises(RuntimeError, match="outer contact"):
+        step.run()
+    assert step.residual.snapshot() == accepted
+    for name, value in nodal["fields"].items():
+        np.testing.assert_array_equal(value, step.state.snapshot()["fields"][name])
+
+
+def test_accepted_force_does_not_update_material():
+    step = make_step()
+    step.run(until_step=2)
+    record = step.residual.snapshot()
+    vector = step.residual.assemble_accepted_vector()
+    try:
+        np.testing.assert_array_equal(vector.array, step.residual.accepted_force)
+    finally:
+        vector.destroy()
+    assert step.residual.snapshot() == record
+    step.state.u.value.x.array[0] += 1e-5
+    with pytest.raises(RuntimeError, match="configuration"):
+        step.residual.assemble_accepted_vector()
 
 
 def test_response_only_advancement_and_disk_restart(tmp_path):

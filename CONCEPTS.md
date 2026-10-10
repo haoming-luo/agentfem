@@ -414,6 +414,10 @@ normal away from the body and `interior` points it into a cavity. A query at a
 sphere center or on a cylinder axis has no unique closest point and therefore
 returns `singular_projection`, not an invented normal. A finite capped
 cylinder remains a compound/trimmed surface and is not implied by this asset.
+The optional cylinder `axial_interval` bounds its lateral patch along the
+supplied axis. It admits only strict-interior radial projections; queries
+at or beyond either rim return `unsupported_rim`. It neither adds caps nor
+silently extends a finite tool to an infinite one.
 
 An oriented three-dimensional triangle surface is the reference discrete
 geometry asset. It validates indices, scale-aware facet area, duplicates,

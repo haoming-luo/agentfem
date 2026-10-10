@@ -166,7 +166,10 @@ Package paths below are relative to `src/agentfem/`.
   `boundary_models/mechanical.py`. Projection uses positive-admissible,
   negative-penetration signed gaps and explicit validity/status evidence. The
   plane, circle/sphere, and infinite-cylinder implementations are exact
-  analytical projectors. The oriented-triangle implementation is a reviewed
+  analytical projectors. A cylinder's optional `axial_interval` restricts
+  admission to its finite lateral interior; rim/end projection remains
+  explicitly unsupported, without an implicit end cap.
+  The oriented-triangle implementation is a reviewed
   exhaustive reference. `boundary_models/search.py` adds deterministic local
   and distributed-reference AABB/BVH paths whose exact leaves preserve the
   same ambiguity and facet-identity contract. The distributed path owns a
