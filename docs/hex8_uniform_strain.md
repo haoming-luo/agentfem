@@ -643,6 +643,12 @@ restart, changed-identity rejection and domain-failure rollback. New distributed
 envelope tests await their separate MPI acceptance; existing caller-ceiling MPI
 evidence does not establish the new route.
 
+Candidate `eb75f6c5` passes 37 isolated installed-wheel checks with source-path
+injection disabled; all 299 packaged Python modules match that clean source.
+The 108 source-level focused checks overlap that selection and are not additive.
+The exact wheel hash and scope are in
+[`2026-10-10-material-envelope-installed.json`](https://github.com/haoming-luo/agentfem/blob/main/evidence/hex8/2026-10-10-material-envelope-installed.json).
+
 No variable time integration, skipped tangent, nonlinear stability guarantee
 between endpoints or general finite-material wave-speed claim follows from this
 route. A sampled initial modulus is not a whole-domain envelope.
