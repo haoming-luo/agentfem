@@ -89,14 +89,37 @@ def test_batched_triple_product_matches_lapack_on_distorted_cells():
     vertices = basix.cell.geometry(basix.CellType.hexahedron)
     coordinates = vertices + rng.uniform(-0.08, 0.08, (127, 8, 3))
     jacobian = np.einsum(
-        "cai,qaj->cqij", coordinates - coordinates.mean(axis=1, keepdims=True),
+        "cai,qaj->cqij",
+        coordinates - coordinates.mean(axis=1, keepdims=True),
         _derivatives(),
     )
     expected = _bernstein(np.linalg.det(jacobian).reshape(-1, 3, 3, 3)).min((1, 2, 3))
     assert np.all(expected > 0)
     np.testing.assert_allclose(
-        require_positive_hex_jacobian(coordinates), expected, rtol=5e-14, atol=0,
+        require_positive_hex_jacobian(coordinates),
+        expected,
+        rtol=5e-14,
+        atol=0,
     )
+
+
+@pytest.mark.parametrize("count", [0, 1, 127])
+def test_blas_geometry_contraction_retains_all_samples(count):
+    from agentfem.elements._hex_validity import (
+        _derivatives,
+        _derivative_matrix,
+        _jacobians,
+    )
+
+    coordinates = np.random.default_rng(84).normal(size=(count, 8, 3))
+    centered = coordinates - coordinates.mean(axis=1, keepdims=True)
+    np.testing.assert_allclose(
+        _jacobians(centered),
+        np.einsum("cai,qaj->cqij", centered, _derivatives()),
+        rtol=1e-13,
+        atol=1e-14,
+    )
+    assert not _derivative_matrix().flags.writeable
 
 
 @pytest.mark.parametrize("scale", [1e-8, 1, 1e8])

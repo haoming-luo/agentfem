@@ -18,7 +18,7 @@ from time import perf_counter
 import basix
 import numpy as np
 
-from agentfem.elements._hex_validity import _derivatives
+from agentfem.elements._hex_validity import _derivatives, _jacobians
 from verify_finite_hex_plastic_path import prepare
 
 
@@ -52,6 +52,11 @@ def kernels():
         coordinates - coordinates.mean(1, keepdims=True),
         _derivatives(),
     )
+    centered = coordinates - coordinates.mean(1, keepdims=True)
+    contraction = paired(
+        lambda: np.einsum("cai,qaj->cqij", centered, _derivatives()),
+        lambda: _jacobians(centered),
+    )
     geometry = paired(
         lambda: np.linalg.det(jacobian),
         lambda: np.einsum(
@@ -74,6 +79,7 @@ def kernels():
         return target.copy()
 
     return {
+        "geometry_4096_cells_jacobian_contraction": contraction,
         "geometry_4096_cells_27_determinants": geometry,
         "prescribed_component_274625_dofs": paired(scalar_assignment, array_assignment),
     }
