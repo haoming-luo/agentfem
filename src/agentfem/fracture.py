@@ -1001,29 +1001,50 @@ class _SparseCohesiveExchange:
         block_size: int,
     ):
         self.comm = comm
-        self.mapping = np.asarray(input_node_to_block_dof, dtype=int)
-        self.owned = np.asarray(input_node_owned, dtype=bool)
-        self.required_nodes = np.asarray(required_nodes, dtype=int)
-        self.owned_interface_nodes = np.asarray(owned_interface_nodes, dtype=int)
-        self.block_size = int(block_size)
-        number_of_nodes = int(self.mapping.size)
-        if self.owned.shape != (number_of_nodes,):
-            raise ValueError("Sparse cohesive ownership has an incompatible shape.")
-        if np.any(self.required_nodes < 0) or np.any(
-            self.required_nodes >= number_of_nodes
-        ):
-            raise ValueError("Sparse cohesive schedule contains an invalid node id.")
+        from .provenance import collective_call
 
+        def validate_layout():
+            mapping = np.asarray(input_node_to_block_dof)
+            owned = np.asarray(input_node_owned)
+            required = np.asarray(required_nodes)
+            interface = np.asarray(owned_interface_nodes)
+            if mapping.ndim != 1 or mapping.dtype.kind not in "iu":
+                raise ValueError("Sparse cohesive mapping must be an integer vector.")
+            if owned.shape != mapping.shape or owned.dtype.kind != "b":
+                raise ValueError("Sparse cohesive ownership has an incompatible shape or type.")
+            if np.any(mapping[owned] < 0):
+                raise ValueError("Sparse cohesive owner requires a local DOF.")
+            for indices in (required, interface):
+                if (indices.ndim != 1 or indices.dtype.kind not in "iu"
+                        or np.any(indices < 0) or np.any(indices >= mapping.size)
+                        or np.unique(indices).size != indices.size):
+                    raise ValueError("Sparse cohesive schedule requires unique valid node ids.")
+            if np.any(~owned[interface]):
+                raise ValueError("Sparse cohesive interface nodes must be locally owned.")
+            if int(block_size) != block_size or int(block_size) < 1:
+                raise ValueError("Sparse cohesive block size must be a positive integer.")
+            return mapping.copy(), owned.copy(), required.copy(), interface.copy(), int(block_size)
+
+        (self.mapping, self.owned, self.required_nodes,
+         self.owned_interface_nodes, self.block_size) = collective_call(
+            validate_layout, comm=comm, label="Sparse cohesive layout",
+        )
+        number_of_nodes = int(self.mapping.size)
         owner_by_node = np.full(number_of_nodes, -1, dtype=int)
-        for rank, nodes in enumerate(
-            comm.allgather(np.flatnonzero(self.owned).astype(int).tolist())
-        ):
+        layouts = comm.allgather((number_of_nodes, self.block_size,
+                                 np.flatnonzero(self.owned).astype(int).tolist()))
+        if any(record[:2] != layouts[0][:2] for record in layouts):
+            raise ValueError("Sparse cohesive global layout differs across ranks.")
+        for rank, (_, _, nodes) in enumerate(layouts):
             selected = np.asarray(nodes, dtype=int)
             if np.any(owner_by_node[selected] >= 0):
                 raise RuntimeError("A cohesive input node has multiple MPI owners.")
             owner_by_node[selected] = int(rank)
-        if np.any(owner_by_node[self.required_nodes] < 0):
-            raise RuntimeError("A required cohesive trace node has no MPI owner.")
+        def validate_owners():
+            if np.any(owner_by_node[self.required_nodes] < 0):
+                raise RuntimeError("A required cohesive trace node has no MPI owner.")
+
+        collective_call(validate_owners, comm=comm, label="Sparse cohesive owners")
         self.owner_by_node = owner_by_node
 
         requested_by_owner = []
@@ -1043,16 +1064,18 @@ class _SparseCohesiveExchange:
         self.send_nodes_by_requester = tuple(
             np.asarray(nodes, dtype=int) for nodes in incoming
         )
-        for nodes in self.send_nodes_by_requester:
-            if nodes.size and (
-                np.any(~self.owned[nodes]) or np.any(self.mapping[nodes] < 0)
-            ):
-                raise RuntimeError(
-                    "Sparse cohesive schedule requested a node not owned locally."
-                )
         self.local_required_owned = self.required_nodes[
             owner_by_node[self.required_nodes] == int(comm.rank)
         ]
+        self.requested_owned_nodes = np.unique(np.concatenate(
+            (self.local_required_owned, *self.send_nodes_by_requester)
+        ))
+
+        def validate_requests():
+            if not np.all(np.isin(self.requested_owned_nodes, self.owned_interface_nodes)):
+                raise ValueError("Sparse cohesive requested owner is absent from interface output.")
+
+        collective_call(validate_requests, comm=comm, label="Sparse cohesive requests")
         position = np.full(number_of_nodes, -1, dtype=int)
         position[self.owned_interface_nodes] = np.arange(
             self.owned_interface_nodes.size, dtype=int
@@ -1105,9 +1128,7 @@ class _SparseCohesiveExchange:
     def gather_owned_dof_values(self, dof_values) -> np.ndarray:
         """Return only the global-node rows required by locally owned facets."""
 
-        values = np.asarray(dof_values, dtype=float)
-        if values.ndim != 2:
-            raise ValueError("Owned DOF values must be a 2D blocked array.")
+        values = self._validated_values(dof_values, owned_dofs=True)
         result = np.zeros((self.required_nodes.size, values.shape[1]), dtype=float)
         local = self.local_required_owned
         result[self.required_position[local]] = values[self.mapping[local]]
@@ -1137,9 +1158,7 @@ class _SparseCohesiveExchange:
     def accumulate_to_owners(self, local_values) -> np.ndarray:
         """Sum local facet contributions on the MPI owner of every node."""
 
-        values = np.asarray(local_values, dtype=float)
-        if values.ndim != 2 or values.shape[0] != self.required_nodes.size:
-            raise ValueError("Local cohesive force has an incompatible node layout.")
+        values = self._validated_values(local_values, owned_dofs=False)
         components = int(values.shape[1])
         result = np.zeros(
             (self.owned_interface_nodes.size, components), dtype=float
@@ -1172,6 +1191,40 @@ class _SparseCohesiveExchange:
                 np.add.at(result, self.owned_position[nodes], contribution)
             cursor += count
         return result
+
+    def _validated_values(self, raw, *, owned_dofs):
+        """Agree on readiness and component width before numeric exchange.
+
+        A local exception must not strand other ranks in Alltoallv.  Only a
+        compact status record is shared; nodal values retain sparse routing.
+        """
+        values, error, width = None, None, None
+        try:
+            values = np.asarray(raw, dtype=float)
+            if values.ndim != 2 or values.shape[1] < 1:
+                raise ValueError("Sparse cohesive values require a nonempty component axis.")
+            if owned_dofs:
+                selected = self.requested_owned_nodes
+                if np.any(self.mapping[selected] < 0) or np.any(
+                    self.mapping[selected] >= values.shape[0]
+                ):
+                    raise ValueError("Sparse cohesive owned DOF values have an incompatible node layout.")
+            elif values.shape[0] != self.required_nodes.size:
+                raise ValueError("Local cohesive force has an incompatible node layout.")
+            checked = values[self.mapping[selected]] if owned_dofs else values
+            if not np.all(np.isfinite(checked)):
+                raise ValueError("Sparse cohesive values must be finite.")
+            width = int(values.shape[1])
+        except Exception as exc:
+            error = f"{type(exc).__name__}: {exc}"
+        records = self.comm.allgather((error, width, owned_dofs))
+        failures = [f"rank {rank}: {record[0]}" for rank, record in enumerate(records)
+                    if record[0] is not None]
+        if failures:
+            raise ValueError("Sparse cohesive payload rejected collectively; " + "; ".join(failures))
+        if any(record[1:] != records[0][1:] for record in records):
+            raise ValueError("Sparse cohesive payload components or direction differ across ranks.")
+        return values
 
     def summary(self) -> dict[str, int | str]:
         remote = int(sum(nodes.size for nodes in self.receive_nodes_by_owner))
