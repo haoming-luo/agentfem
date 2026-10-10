@@ -189,6 +189,12 @@ from symbolic weak-form expressions.
 
 ## Amplitude
 
+`amplitudes.quintic_step(...)` is a C2 polynomial transition with zero first
+and second endpoint derivatives. `smooth_step(...)` retains its existing
+half-cosine meaning. These are different loading histories, not interchangeable
+spellings. Rigid-motion schedules may consume an explicit amplitude on their
+physical start/end interval; that amplitude is part of restart identity.
+
 A named time history or scale factor used to drive prescribed data. Amplitudes
 may be constant, ramped, tabular, sinusoidal, or application-defined. They are
 model assets, but they are not finite-element fields: they do not own a

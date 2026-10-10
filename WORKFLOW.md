@@ -35,6 +35,9 @@ record.
 8. Create state containers when needed.
 9. Load or define material properties, then choose constitutive laws.
 10. Define reusable amplitudes for prescribed time histories or scale factors.
+    For a fifth-order smooth ramp, use `amplitudes.quintic_step(...)`; the
+    existing `smooth_step(...)` is half-cosine. Pass the same amplitude asset to
+    a rigid-motion schedule rather than coding a second clock in the case.
 11. Define essential constraints.
 12. Define weak loads and boundary models.
 13. Build operators or weak forms. Use model-first helpers such as

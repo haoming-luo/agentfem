@@ -34,6 +34,7 @@ class PrescribedRigidMotionSchedule:
     start_time: float
     end_time: float
     name: str = "prescribed_rigid_motion_schedule"
+    amplitude: object | None = None
 
     def __post_init__(self) -> None:
         if not isinstance(self.motion, PrescribedRigidMotion):
@@ -43,17 +44,43 @@ class PrescribedRigidMotionSchedule:
         if not np.isfinite(start) or start < 0.0:
             raise ValueError("Rigid-motion start_time must be finite and non-negative.")
         if not np.isfinite(end) or end <= start:
-            raise ValueError("Rigid-motion end_time must be finite and exceed start_time.")
+            raise ValueError(
+                "Rigid-motion end_time must be finite and exceed start_time."
+            )
         if not str(self.name).strip():
             raise ValueError("Rigid-motion schedule requires a name.")
         object.__setattr__(self, "start_time", start)
         object.__setattr__(self, "end_time", end)
         object.__setattr__(self, "name", str(self.name))
+        if self.amplitude is not None:
+            from ..amplitudes import Amplitude
+
+            if (
+                not isinstance(self.amplitude, Amplitude)
+                or not self.amplitude.serializable
+            ):
+                raise TypeError("Rigid motion requires a serializable Amplitude asset.")
+            endpoints = np.array([self.amplitude(start), self.amplitude(end)])
+            if not np.isfinite(endpoints).all() or not np.allclose(
+                endpoints, [0, 1], rtol=0, atol=1e-12
+            ):
+                raise ValueError(
+                    "Rigid motion amplitude must span factors zero to one over its physical interval."
+                )
 
     def factor_at(self, time_value: float) -> float:
         selected = float(time_value)
         if not np.isfinite(selected) or selected < 0.0:
-            raise ValueError("Rigid-motion evaluation time must be finite and non-negative.")
+            raise ValueError(
+                "Rigid-motion evaluation time must be finite and non-negative."
+            )
+        if self.amplitude is not None:
+            factor = self.amplitude(
+                float(np.clip(selected, self.start_time, self.end_time))
+            )
+            if not np.isfinite(factor) or not 0.0 <= factor <= 1.0:
+                raise ValueError("Rigid-motion amplitude must remain finite in [0,1].")
+            return factor
         raw = (selected - self.start_time) / (self.end_time - self.start_time)
         return float(np.clip(raw, 0.0, 1.0))
 
@@ -66,7 +93,14 @@ class PrescribedRigidMotionSchedule:
             "kind": "prescribed_rigid_motion_schedule",
             "start_time": self.start_time,
             "end_time": self.end_time,
-            "interpolation": "linear_factor_clamped",
+            "interpolation": "linear_factor_clamped"
+            if self.amplitude is None
+            else "amplitude_in_physical_time_clamped",
+            **(
+                {}
+                if self.amplitude is None
+                else {"amplitude": self.amplitude.summary()}
+            ),
             "motion": self.motion.summary(),
         }
 
@@ -95,7 +129,9 @@ class PrescribedContactWorkStation:
         selected_time = float(self.time)
         factor = float(self.factor)
         if not np.isfinite(selected_time) or selected_time < 0.0:
-            raise ValueError("Contact work-station time must be finite and non-negative.")
+            raise ValueError(
+                "Contact work-station time must be finite and non-negative."
+            )
         if not np.isfinite(factor) or not 0.0 <= factor <= 1.0 + 1.0e-12:
             raise ValueError("Contact work-station factor must lie in [0, 1].")
         force = _finite_vector(self.generalized_force, name="Generalized force")
@@ -201,8 +237,9 @@ class PrescribedContactWorkState:
 
     @staticmethod
     def _extend_fingerprint(previous, station):
-        payload = json.dumps(station.snapshot(), sort_keys=True, allow_nan=False,
-                             separators=(",", ":"))
+        payload = json.dumps(
+            station.snapshot(), sort_keys=True, allow_nan=False, separators=(",", ":")
+        )
         return sha256((previous + payload).encode()).hexdigest()
 
     def _fingerprint(self, stations):
@@ -232,9 +269,7 @@ class PrescribedContactWorkState:
             return None
         previous, current = self.accepted[-2:]
         dt = current.time - previous.time
-        average_force = 0.5 * (
-            previous.generalized_force + current.generalized_force
-        )
+        average_force = 0.5 * (previous.generalized_force + current.generalized_force)
         increment = current.generalized_coordinate - previous.generalized_coordinate
         return float(np.dot(average_force, increment) / dt)
 
@@ -259,7 +294,9 @@ class PrescribedContactWorkState:
 
     def commit(self) -> PrescribedContactWorkStation:
         if self.trial is None:
-            raise RuntimeError("No prescribed-contact work trial is available to commit.")
+            raise RuntimeError(
+                "No prescribed-contact work trial is available to commit."
+            )
         accepted = self.trial
         increment = self._integrated_work((self.accepted[-1], accepted))
         total = self._path_work + increment
@@ -288,7 +325,9 @@ class PrescribedContactWorkState:
             if station.time <= previous.time:
                 raise ValueError("Accepted contact work times must strictly increase.")
             if station.generalized_force.shape != previous.generalized_force.shape:
-                raise ValueError("Contact generalized-force layout changed during a run.")
+                raise ValueError(
+                    "Contact generalized-force layout changed during a run."
+                )
             if station.contact_resultant.shape != previous.contact_resultant.shape:
                 raise ValueError("Contact resultant layout changed during a run.")
         return station
@@ -306,7 +345,9 @@ class PrescribedContactWorkState:
 
     def transaction_snapshot(self):
         if self.trial is not None:
-            raise RuntimeError("Contact work transaction requires an accepted boundary.")
+            raise RuntimeError(
+                "Contact work transaction requires an accepted boundary."
+            )
         return _WorkTransaction(self.identity, tuple(self.accepted))
 
     def restore(self, snapshot: object) -> None:
@@ -337,9 +378,13 @@ class PrescribedContactWorkState:
             if restored:
                 previous = restored[-1]
                 if station.time <= previous.time:
-                    raise ValueError("Restored contact work times must strictly increase.")
+                    raise ValueError(
+                        "Restored contact work times must strictly increase."
+                    )
                 if station.generalized_force.shape != previous.generalized_force.shape:
-                    raise ValueError("Restored contact generalized-force layout changed.")
+                    raise ValueError(
+                        "Restored contact generalized-force layout changed."
+                    )
                 if station.contact_resultant.shape != previous.contact_resultant.shape:
                     raise ValueError("Restored contact resultant layout changed.")
             restored.append(station)
@@ -377,12 +422,14 @@ def prescribed_rigid_motion_schedule(
     start_time: float = 0.0,
     end_time: float,
     name: str = "prescribed_rigid_motion_schedule",
+    amplitude=None,
 ) -> PrescribedRigidMotionSchedule:
     return PrescribedRigidMotionSchedule(
         motion=motion,
         start_time=start_time,
         end_time=end_time,
         name=name,
+        amplitude=amplitude,
     )
 
 

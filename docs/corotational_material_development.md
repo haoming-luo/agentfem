@@ -352,6 +352,12 @@ advertise that local material gain as a solver speedup.
 
 ## Primary design references
 
+- [Abaqus smooth-step amplitude verification](https://docs.software.vt.edu/abaqusv2025/English/SIMACAEVERRefMap/simaver-c-amplitude.htm):
+  the fifth-order `s^3*(10-15s+6s^2)` law is distinct from our established
+  half-cosine amplitude. The new `quintic_step` retains exact analytic first and
+  second derivatives and passes the documented .12-to-.9 example. Explicit
+  amplitudes now enter rigid-motion schedule identity and restart tests.
+
 - [MOOSE contact module](https://mooseframework.inl.gov/modules/contact/index.html)
   and [mortar generation](https://mooseframework.inl.gov/source/constraints/AutomaticMortarGeneration.html):
   separation of contact enforcement and geometric projection/segmentation.

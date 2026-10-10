@@ -460,6 +460,7 @@ and evidence remain in the linked guides and scientific function reference.
 | function | `constant(value: float, *, name: str = 'constant') -> Amplitude` | Create a constant amplitude. |
 | function | `ramp(start_value: float = 0.0, end_value: float = 1.0, *, start_time: float = 0.0, end_time: float = 1.0, name: str = 'ramp') -> Amplitude` | Create a clipped linear ramp amplitude. |
 | function | `smooth_step(start_value: float = 0.0, end_value: float = 1.0, *, start_time: float = 0.0, end_time: float = 1.0, name: str = 'smooth_step') -> Amplitude` | Create a clipped half-cosine transition with zero endpoint slopes. |
+| function | `quintic_step(start_value: float = 0.0, end_value: float = 1.0, *, start_time: float = 0.0, end_time: float = 1.0, name: str = 'quintic_step') -> Amplitude` | C2 polynomial transition with zero endpoint velocity and acceleration. |
 | function | `tabular(times, values, *, name: str = 'tabular', left: float \| None = None, right: float \| None = None) -> Amplitude` | Create a linearly interpolated tabular amplitude. |
 | function | `sine(amplitude: float = 1.0, frequency: float = 1.0, *, phase: float = 0.0, offset: float = 0.0, name: str = 'sine') -> Amplitude` | Create a sinusoidal amplitude. |
 | function | `gaussian_modulated_sine(amplitude: float, frequency: float, width: float, *, center: float \| None = None, phase: float = 0.0, name: str = 'gaussian_modulated_sine') -> Amplitude` | Create a Gaussian-windowed sinusoidal pulse. |
@@ -739,7 +740,7 @@ and evidence remain in the linked guides and scientific function reference.
 | class | `PrescribedContactWorkStation` | One globally reduced rigid-tool force/coordinate station. |
 | class | `PrescribedRigidMotionSchedule` | A proportional rigid motion over one explicit physical-time interval. |
 | function | `prescribed_contact_work_state(*, identity: str) -> PrescribedContactWorkState` | Public AgentFEM object. |
-| function | `prescribed_rigid_motion_schedule(motion: PrescribedRigidMotion, *, start_time: float = 0.0, end_time: float, name: str = 'prescribed_rigid_motion_schedule') -> PrescribedRigidMotionSchedule` | Public AgentFEM object. |
+| function | `prescribed_rigid_motion_schedule(motion: PrescribedRigidMotion, *, start_time: float = 0.0, end_time: float, name: str = 'prescribed_rigid_motion_schedule', amplitude=None) -> PrescribedRigidMotionSchedule` | Physical-time rigid path; optional explicit factor amplitude. |
 | function | `dolfinx_boundary_region_triangle_partition(region, *, name: str \| None = None, tolerance: float \| None = None, ambiguity_tolerance: float \| None = None) -> TriangleSurfacePartition` | Adapt an AgentFEM named boundary region into the search contract. |
 | function | `dolfinx_exterior_triangle_partition(domain, *, facets = None, name: str = 'dolfinx_exterior_triangle_surface', tolerance: float \| None = None, ambiguity_tolerance: float \| None = None) -> TriangleSurfacePartition` | Build a stable distributed triangle partition from owned exterior facets. |
 | function | `dolfinx_tagged_exterior_triangle_partition(domain, facet_tags, *, tag: int, name: str \| None = None, tolerance: float \| None = None, ambiguity_tolerance: float \| None = None) -> TriangleSurfacePartition` | Build a distributed triangle partition from one DOLFINx facet tag. |

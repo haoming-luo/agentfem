@@ -26,7 +26,7 @@ def test_unaccepted_response_cannot_be_restored():
     assert step.residual.snapshot() == before
 
 
-def make_step(dt=1e-4, *, contact=False, bond=False, viscosity=False):
+def make_step(dt=1e-4, *, contact=False, bond=False, viscosity=False, quintic=False):
     if bond:
         from test_nonmatching_global import _blocks
 
@@ -87,7 +87,7 @@ def make_step(dt=1e-4, *, contact=False, bond=False, viscosity=False):
             )
     monitor = MechanicalEnergyMonitor(mass=internal.mass_diagonal)
     if contact:
-        from agentfem import boundary_models, fracture, mesh as af_mesh
+        from agentfem import amplitudes, boundary_models, fracture, mesh as af_mesh
 
         body_monitor = ResponseHexWorkMonitor(residual)
 
@@ -111,6 +111,7 @@ def make_step(dt=1e-4, *, contact=False, bond=False, viscosity=False):
                 ),
                 end_time=0.001,
                 name=f"schedule_{side}",
+                amplitude=amplitudes.quintic_step(end_time=0.001) if quintic else None,
             )
             projector = boundary_models.rigid_plane(
                 point=(side, 0, 0), normal=(direction, 0, 0), name=f"plane_{side}"

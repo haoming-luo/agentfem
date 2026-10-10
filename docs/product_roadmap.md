@@ -37,6 +37,15 @@ cylinders compose with the existing contact work ledger and disk restart.
 Independent explicit stability, ordinary Step admission and MPI remain open.
 Original imported-interface initialization, full four-tool assembly,
 viscosity/mass scaling and commercial reference comparison remain open.
+Follow-up: private accepted artificial-viscosity work/restart now passes its
+targeted composition gates; this does not close variable mass scaling or
+vendor-equivalent viscosity/stability. Explicit reference-surface adjustment
+proposals preserve the original mesh and require an independently selected
+bond mask plus validation of affected bulk cells. The source's initial bond set
+is still unknown. Its body/body hard-contact behavior is also not equivalent to
+a compression spring. A reusable quintic amplitude and amplitude-driven rigid
+schedule now address the source loading-history mismatch without changing the
+existing half-cosine `smooth_step` API.
 The ordered nine-gate plan is
 [corotational material development](corotational_material_development.md).
 Keep confidential source equations and parameters in external project providers.

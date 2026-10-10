@@ -175,6 +175,9 @@ never changes solver access, results, verification, or update behavior.
   histories with `model.amplitude("name", history)`, and reference the name
   from loads or prescribed data. Static single-solve, nonlinear normalized
   step time, and transient physical time have distinct documented coordinates.
+  Do not substitute the half-cosine `smooth_step` for a quintic loading law:
+  use `quintic_step` and pass its physical-time amplitude to the rigid-motion
+  schedule. Changing that history changes checkpoint identity.
   Attach histories to model loads, prescribed values, or supported boundary
   models. Transient procedures update registered histories automatically; use
   callbacks only for genuinely application-specific state. Type a custom
