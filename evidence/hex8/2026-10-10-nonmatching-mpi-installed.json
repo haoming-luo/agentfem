@@ -1,0 +1,40 @@
+{
+  "schema": "agentfem.bounded-acceptance.v1",
+  "source_commit": "9b2f642f2b90d37ff7a6dea1bf77f9df5466ac77",
+  "wheel": "agentfem-0.4.1-py3-none-any.whl",
+  "wheel_sha256": "d68a9533af2b345c3147a2b702c77535197e555bdd87aee7a70b336661f4c6b8",
+  "installed_import_checked": true,
+  "pytest_source_pythonpath_disabled": true,
+  "mpi_processes": 2,
+  "mpi_timeout_seconds": 120,
+  "numeric_threads": 1,
+  "installed_tests": {
+    "file": "tests/test_parallel_nonmatching.py",
+    "passed_per_rank": 4,
+    "distinct_tests": 4,
+    "wall_seconds_max_rank": 11.30
+  },
+  "source_evidence": {
+    "serial_pairing_global_bond_regression_passed": 60,
+    "pairing_empty_shard_ci_architecture_passed": 107,
+    "parallel_nonmatching_and_contact_passed_per_rank": 9,
+    "counts_overlap_not_additive": true
+  },
+  "checks": [
+    "elastic_and_finite_J2_bulk_serial_parallel_energy_work_agreement",
+    "owner_summed_interface_stability_matches_serial",
+    "ordinary_SimulationResult",
+    "same_partition_joint_restart_exact_nodal_and_residual_state",
+    "post_commit_rank_local_failure_collective_rollback",
+    "corrupt_interface_identity_collective_atomic_rejection"
+  ],
+  "limitations": [
+    "replicated_reference_geometry_not_scalable_distributed_search",
+    "elastic_fixed_reference_interface_only",
+    "one_frictionless_fixed_or_translating_plane_on_disjoint_nodes",
+    "no_distributed_nonmatching_implicit_or_small_strain_Step",
+    "no_cross_partition_finite_material_restart",
+    "no_damage_failure_to_contact_switching",
+    "no_private_VUMAT_equivalence_or_industrial_validation"
+  ]
+}
