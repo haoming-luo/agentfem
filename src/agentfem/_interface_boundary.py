@@ -7,23 +7,57 @@ import numpy as np
 
 
 def reference_trace_from_boundary(displacement, boundary, *, tolerance):
+    from .fields import unwrap
+    from .interfaces import reference_trace
+    from .provenance import collective_call, collective_canonical_record
+
+    space = unwrap(displacement).function_space
+    comm = space.mesh.comm
+    xyz, cells, nodes, topology = collective_call(
+        lambda: _local_trace(displacement, boundary), comm=comm,
+        label="Reference interface extraction",
+    )
+    collective_canonical_record(
+        {"topology": topology, "tag": int(boundary.tag), "tolerance": float(tolerance)},
+        comm=comm, label="Reference trace description")
+    if comm.size > 1:
+        index = space.dofmap.index_map
+        ids = index.local_to_global(nodes.astype(np.int32))
+        pieces = comm.allgather((ids, xyz, ids[cells]))
+        coordinates, faces = {}, []
+        for global_ids, points, global_faces in pieces:
+            coordinates.update(zip(global_ids.tolist(), points, strict=True))
+            faces.extend(global_faces.tolist())
+        if not faces:
+            raise ValueError("Interface boundary selects no facets globally.")
+        ordered = sorted(coordinates)
+        position = {node: i for i, node in enumerate(ordered)}
+        xyz = np.array([coordinates[node] for node in ordered])
+        cells = np.array([[position[node] for node in face] for face in
+                          sorted(faces, key=lambda face: tuple(sorted(face)))], dtype=np.int32)
+        local_ids = index.local_to_global(np.arange(index.size_local + index.num_ghosts, dtype=np.int32))
+        local = {int(node): i for i, node in enumerate(local_ids)}
+        nodes = np.array([local.get(node, -1) for node in ordered], dtype=np.int32)
+    elif not len(cells):
+        raise ValueError("Interface boundary selects no facets.")
+    trace = reference_trace(xyz, cells, topology=topology, tolerance=tolerance)
+    nodes.setflags(write=False)
+    return trace, nodes
+
+
+def _local_trace(displacement, boundary):
     """Return outward-oriented trace and its independent displacement block map.
 
     Boundary labels must identify one side explicitly. Coordinate matching over
     the whole mesh would collapse coincident but independent interface nodes.
     """
     from .fields import unwrap
-    from .interfaces import reference_trace
 
     space = unwrap(displacement).function_space
     domain = space.mesh
     if boundary.domain is not domain:
         raise ValueError(
             "Interface boundary and displacement belong to different meshes."
-        )
-    if domain.comm.size != 1:
-        raise NotImplementedError(
-            "Reference interface extraction currently requires serial ownership."
         )
     element = space.element.basix_element
     topology = element.cell_type.name
@@ -46,8 +80,7 @@ def reference_trace_from_boundary(displacement, boundary, *, tolerance):
     if boundary.facet_tags is None or boundary.facet_tags.dim != 2:
         raise ValueError("Interface boundary must carry surface facet tags.")
     facets = np.asarray(boundary.facet_tags.find(int(boundary.tag)), dtype=np.int32)
-    if not len(facets):
-        raise ValueError("Interface boundary selects no facets.")
+    facets = facets[facets < domain.topology.index_map(2).size_local]
     domain.topology.create_connectivity(2, 3)
     domain.topology.create_connectivity(3, 2)
     f2c = domain.topology.connectivity(2, 3)
@@ -80,12 +113,7 @@ def reference_trace_from_boundary(displacement, boundary, *, tolerance):
                 "Interface facet has degenerate or ambiguous outward orientation."
             )
         faces.append(nodes if direction > 0 else nodes[::-1])
-    nodes, inverse = np.unique(np.asarray(faces), return_inverse=True)
-    trace = reference_trace(
-        coordinates[nodes],
-        inverse.reshape(len(faces), -1),
-        topology="triangle" if topology == "tetrahedron" else "quadrilateral",
-        tolerance=tolerance,
-    )
-    nodes.setflags(write=False)
-    return trace, nodes
+    width = 3 if topology == "tetrahedron" else 4
+    nodes, inverse = np.unique(np.asarray(faces, dtype=np.int32).reshape(-1, width), return_inverse=True)
+    return (coordinates[nodes], inverse.reshape(-1, width), nodes,
+            "triangle" if topology == "tetrahedron" else "quadrilateral")

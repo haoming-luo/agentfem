@@ -135,10 +135,13 @@ class NonmatchingCohesiveForce:
 
     def add_to_vector(self, vector):
         response = self.begin()
+        self.add_response_to_vector(vector, response)
+        return response
+
+    def add_response_to_vector(self, vector, response):
         values = vector.array.reshape(-1, 3)
         values[self.negative_dofs] += response.negative_residual
         values[self.positive_dofs] += response.positive_residual
-        return response
 
     def add_to_matrix(self, matrix):
         from petsc4py import PETSc

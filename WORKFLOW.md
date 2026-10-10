@@ -271,7 +271,7 @@ neighbor-collective scalability claim.
 
 ## Design Principle
 
-The bounded serial finite-Hex route accepts an equal-stiffness elastic
+The bounded serial/MPI finite-Hex route accepts an equal-stiffness elastic
 `cohesive_force` plus one registered translating-plane contact boundary model
 through the same `model.step`. Their trace nodes must be disjoint. Both remain
 separate scientific assets; the common Procedure owns the summed stability bound,

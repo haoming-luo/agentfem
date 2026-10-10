@@ -28,6 +28,23 @@ def surface(n, *, reverse=False, offset=0):
     return TriangulatedRigidSurface(vertices, triangles)
 
 
+def test_empty_elastic_quadrature_shard_has_zero_energy_and_force():
+    from agentfem._interface_pairing import _make_pairing
+    pair = planar_overlap_pairing(surface(1), surface(1, reverse=True), tolerance=1e-10)
+    names = ("negative_nodes", "positive_nodes", "negative_weights", "positive_weights",
+             "weights", "normals", "reference_mismatch")
+    empty = _make_pairing(pair.negative, pair.positive, pair.tolerance,
+                          {key: getattr(pair, key)[:0] for key in names}, pair.method)
+    assembler = FixedReferenceCohesiveAssembler(empty, ElasticCohesiveLaw(10, 10), tangential="mixed")
+    response = assembler.begin(np.zeros((4, 3)), np.ones((4, 3)))
+    assert response.stored_energy == response.dissipated_energy == 0
+    assert not np.any(response.negative_residual)
+    assert not np.any(response.positive_residual)
+    assembler.commit()
+    assembler.restore(assembler.snapshot())
+    assert empty.summary()["quadrature_points"] == 0
+
+
 @pytest.mark.parametrize("n,m", [(1, 1), (1, 3), (3, 2), (2, 5)])
 def test_overlap_nodal_patch_and_side_swap(n, m):
     a, b = surface(n), surface(m, reverse=True)
@@ -354,9 +371,13 @@ def test_elastic_failed_trial_cannot_commit_previous_response():
         state.commit()
     state.begin(np.zeros((2, 3)))
     state.commit()
-    for invalid in (True, 2.0, float("inf"), float("nan"), 0):
-        with pytest.raises(ValueError, match="positive integer"):
+    for invalid in (True, 2.0, float("inf"), float("nan"), -1):
+        with pytest.raises(ValueError, match="nonnegative integer"):
             law.transaction(invalid)
+    empty = law.transaction(0)
+    empty.begin(np.empty((0, 3)))
+    empty.commit()
+    empty.restore(empty.snapshot())
     with pytest.raises(ValueError, match="name"):
         ElasticCohesiveLaw(1000, 300, name=None)
 

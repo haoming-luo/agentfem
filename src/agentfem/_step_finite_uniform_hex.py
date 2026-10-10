@@ -53,7 +53,7 @@ class FiniteUniformHexStep(ExplicitDynamicsStep):
                 "single_frictionless_translating_plane_reference_surface_penalty"
             ),
             "bond_contact_scope": (
-                "serial_disjoint_trace_nodes_isotropic_elastic_reference_bond"
+                "disjoint_trace_nodes_isotropic_elastic_reference_bond"
                 if self.residual is not self.material_residual
                 and self.material_residual.cohesive is not None else "none"
             ),
@@ -314,7 +314,7 @@ def _prepare(model, request):
                 material_residual.cohesive.negative_dofs,
                 material_residual.cohesive.positive_dofs,
             )
-            if np.intersect1d(contact_nodes, bonded_nodes).size:
+            if domain.comm.allreduce(bool(np.intersect1d(contact_nodes, bonded_nodes[bonded_nodes >= 0]).size)):
                 raise NotImplementedError(
                     "Finite Hex8 combined bonding/contact requires disjoint trace nodes; "
                     "overlap or post-failure contact switching is not admitted."

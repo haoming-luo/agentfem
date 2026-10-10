@@ -307,6 +307,10 @@ _CORE_SOURCE_TEST_MAP = {
     "src/agentfem/_architecture_contract.py": ("tests/test_architecture_contract.py",),
 }
 _CORE_SOURCE_MPI_TEST_MAP = {
+    "src/agentfem/_nonmatching": ("tests/test_parallel_nonmatching.py",),
+    "src/agentfem/_interface_boundary.py": ("tests/test_parallel_nonmatching.py",),
+    "src/agentfem/_interface_pairing.py": ("tests/test_parallel_nonmatching.py",),
+    "src/agentfem/_elastic_cohesive.py": ("tests/test_parallel_nonmatching.py",),
     "src/agentfem/assembly.py": ("tests/test_lumped_mass_contract.py",),
     "src/agentfem/_step_builders_contact.py": (
         "tests/test_rigid_obstacle_contact.py",
@@ -359,6 +363,7 @@ _CORE_SOURCE_MPI_TEST_MAP = {
     "src/agentfem/mechanics/_finite_hex_explicit.py": (
         "tests/test_parallel_finite_hex.py",
         "tests/test_parallel_finite_hex_step.py",
+        "tests/test_parallel_nonmatching.py",
     ),
     "src/agentfem/mechanics/_finite_hex_energy.py": (
         "tests/test_parallel_finite_hex.py",
@@ -367,6 +372,7 @@ _CORE_SOURCE_MPI_TEST_MAP = {
     "src/agentfem/_step_finite_uniform_hex.py": (
         "tests/test_parallel_finite_hex_step.py",
         "tests/test_parallel_finite_hex_contact.py",
+        "tests/test_parallel_nonmatching.py",
     ),
     "src/agentfem/constitutive/stability.py": (
         "tests/test_parallel_finite_hex_step.py",
