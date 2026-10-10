@@ -8,6 +8,12 @@ experimental formulation to a validated one.
 
 ### Experimental Hex8 and nonmatching interfaces
 
+- Preserve nested numeric material State through contact checkpoint/rollback
+  wrappers and inherit its restart restrictions. Reuse accepted material force
+  for reaction queries instead of reintegrating history at zero increment.
+  A private serial finite-material/moving-plane composition passes work/energy,
+  time refinement and restart tests; ordinary finite-Hex contact remains gated.
+
 - Allow a reviewed external material to supply a signed, reference-configuration
   `FirstPiolaTangentEnvelope` for bounded finite Hex8 initial-step selection.
   Enforce stretch-domain/tangent checks and restart identity. This is provider

@@ -653,6 +653,29 @@ No variable time integration, skipped tangent, nonlinear stability guarantee
 between endpoints or general finite-material wave-speed claim follows from this
 route. A sampled initial modulus is not a whole-domain envelope.
 
+## Contact composition groundwork
+
+The existing contact residual now delegates numeric checkpoint and rollback
+snapshots to its nested material provider, retaining rank-local arrays instead
+of expanding/gathering them as JSON. Two nested contact wrappers around a real
+finite Hex8 material pass a shared binary-archive round trip; malformed outer
+identity is rejected before material mutation. The contact layer inherits the
+material's same-partition restriction rather than claiming portable restart.
+An additional private serial composition now advances a moving plane against
+a bounded Neo-Hookean body with the summed material/contact spectral ceiling.
+It uses the existing Procedure and energy ledger, not a special forming solver.
+At time increments `2e-4`, `1e-4`, `5e-5`, final relative balance errors are
+`5.005e-6`, `1.251e-6`, `3.128e-7`; displacement differences also decrease by
+approximately four on halving the increment. The test restores mid-path state
+exactly and rolls back an injected failure after both material/contact commits.
+Accepted reaction sampling reuses the material's cached force rather than
+performing a zero-increment constitutive update.
+
+This remains a small serial composition gate, not an independent industrial
+validation or a general contact-convergence proof. The ordinary finite Hex8
+Step still rejects boundary-model/contact assets pending reviewed lowering,
+MPI composition and broader loading/geometry checks.
+
 ## Sources
 
 - Johnen, Weill and Remacle, 2017, *Robust and efficient validation of the linear

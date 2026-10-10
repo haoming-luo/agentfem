@@ -754,7 +754,25 @@ class DolfinxExplicitContactResidual:
     def assemble_vector(self):
         """Assemble base and contact residuals without double-counting ghosts."""
 
-        vector = operators.assemble_vector(self.base)
+        return self._assemble_with_base(accepted=False)
+
+    def assemble_accepted_vector(self):
+        """Sample reactions without reintegrating a history material at dt=0."""
+        if self.trial_evidence is not None or self.lifecycle.state.trial is not None:
+            raise RuntimeError("Accepted contact force cannot replace an active trial.")
+        if self.work_state is not None and (
+            self.work_state.current is None
+            or self.work_state.current.time != self.current_time
+        ):
+            raise RuntimeError("Accepted contact force requires the accepted motion time.")
+        try:
+            return self._assemble_with_base(accepted=True)
+        finally:
+            self.rollback()
+
+    def _assemble_with_base(self, *, accepted):
+        cached = getattr(self.base, "assemble_accepted_vector", None)
+        vector = cached() if accepted and callable(cached) else operators.assemble_vector(self.base)
         try:
             assembly, response, friction_assembly, friction_response = (
                 self._collective_local_contact()
@@ -915,6 +933,54 @@ class DolfinxExplicitContactResidual:
     def snapshot(self) -> dict[str, object]:
         """Return rank-canonical accepted residual state for checkpoints."""
 
+        return self._accepted_snapshot("snapshot", canonical_base=True)
+
+    def checkpoint_snapshot(self) -> dict[str, object]:
+        """Preserve nested rank-local numeric State in the shared archive."""
+
+        return self._accepted_snapshot("checkpoint_snapshot", canonical_base=False)
+
+    def transaction_snapshot(self) -> dict[str, object]:
+        """Keep numeric bulk rollback buffers out of JSON serialization."""
+
+        return self._accepted_snapshot("transaction_snapshot", canonical_base=False)
+
+    def checkpoint_capabilities(self):
+        """A contact wrapper cannot broaden its nested State's portability."""
+        from dataclasses import replace
+        from ..checkpointing import CheckpointCapabilities, TRANSIENT_CHECKPOINT_SCHEMA
+
+        components = ("accepted contact projection, friction and prescribed-motion work",)
+        identities = ("contact pair, rigid geometry and prescribed motion",)
+        declaration = getattr(self.base, "checkpoint_capabilities", None)
+        if callable(declaration):
+            nested = declaration()
+            if not isinstance(nested, CheckpointCapabilities):
+                raise TypeError("Nested residual must declare CheckpointCapabilities.")
+            if nested.boundary != "accepted_step":
+                raise ValueError("Contact and nested residual acceptance boundaries differ.")
+            return replace(
+                nested,
+                state_components=nested.state_components + components,
+                identity_scope=nested.identity_scope + identities,
+            )
+        # Preserve the existing global-record route for stateless forms and
+        # legacy contact providers. Numeric providers must declare their own
+        # partition contract before their capability can be advertised.
+        has_numeric_state = callable(getattr(self.base, "checkpoint_snapshot", None))
+        if has_numeric_state:
+            raise ValueError("Numeric nested State requires an explicit checkpoint capability contract.")
+        return CheckpointCapabilities(
+            schemas=(TRANSIENT_CHECKPOINT_SCHEMA,),
+            boundary="accepted_step", payload_scope="full_restart_state",
+            state_components=components, atomic_publication=True,
+            rank_count_portability="requires_portable_policy",
+            identity_scope=identities,
+            limitations=("Nested State retains its own restart restrictions.",),
+        )
+
+    def _accepted_snapshot(self, base_method: str, *, canonical_base: bool):
+
         if (
             self.trial_evidence is not None
             or self.lifecycle.state.trial is not None
@@ -957,10 +1023,17 @@ class DolfinxExplicitContactResidual:
             "friction_state": self._global_friction_records(),
             "projection_state": self._global_projection_record(),
             "base_state": (
-                self.base.snapshot() if hasattr(self.base, "snapshot") else None
+                getattr(self.base, base_method, self.base.snapshot)()
+                if hasattr(self.base, "snapshot") else None
             ),
         }
-        encoded = _canonical_json(snapshot)
+        # Contact records are global/canonical; a numeric material buffer is
+        # owned by one partition. Its provider and the common array archive
+        # validate that identity without gathering the large payload here.
+        canonical = snapshot if canonical_base else {
+            key: value for key, value in snapshot.items() if key != "base_state"
+        }
+        encoded = _canonical_json(canonical)
         copies = tuple(self.communicator.allgather(encoded))
         if any(item != copies[0] for item in copies[1:]):
             raise RuntimeError("Explicit contact checkpoint State differs across MPI ranks.")

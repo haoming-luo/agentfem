@@ -125,6 +125,13 @@ _CORE_SOURCE_TEST_MAP = {
         "tests/test_explicit_contact_procedure.py",
         "tests/test_lumped_mass_contract.py",
     ),
+    "src/agentfem/boundary_models/dolfinx_explicit_contact.py": (
+        "tests/test_dolfinx_explicit_contact.py",
+        "tests/test_explicit_contact_procedure.py",
+        "tests/test_contact_numeric_state.py",
+        "tests/test_finite_hex_contact_composition.py",
+        "tests/test_checkpoint_capabilities.py",
+    ),
     "src/agentfem/boundary_models/rigid.py": (
         "tests/test_rigid_obstacle_contact.py",
         "tests/test_rigid_surface_contract.py",
@@ -319,6 +326,10 @@ _CORE_SOURCE_MPI_TEST_MAP = {
         "tests/test_dolfinx_contact_trace.py",
         "tests/test_explicit_contact_procedure.py",
         "tests/test_lumped_mass_contract.py",
+    ),
+    "src/agentfem/boundary_models/dolfinx_explicit_contact.py": (
+        "tests/test_dolfinx_explicit_contact.py",
+        "tests/test_explicit_contact_procedure.py",
     ),
     "src/agentfem/boundary_models/rigid.py": (
         "tests/test_rigid_obstacle_contact.py",
