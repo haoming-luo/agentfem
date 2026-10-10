@@ -241,6 +241,23 @@ This does not change the original case or establish full dynamic accuracy.
 `tools/benchmark_corotational_rules.py` preserves the method distinction and
 source fingerprint in its output instead of advertising algorithm equivalence.
 
+The follow-up original-mesh manufactured-path run at `bc07740f` used all
+255,041 cells / 888,222 displacement DOFs for 120 imposed increments. Body
+trial median was 1.7230 s versus the earlier exact-rule run's 1.8459 s (6.66%
+less time); total diagnostic elapsed was 233.07 s versus 248.67 s. These are
+separate single runs, not an alternating repeated whole-body benchmark.
+The same-rule exact-gradient point comparison had maximum scaled stress/state
+differences 2.07e-11 / 2.25e-10; relative force/moment residuals were below
+1.12e-14 / 7.62e-15. Peak RSS was 2.50 GB. This tests large-mesh lowering, not
+the error between integration rules, which is assessed separately above.
+No four-tool loading, free dynamics, interface forces or coupled stability was
+tested by this imposed path. Neither the production case default nor its
+checkpoint identity changed. The previously delivered review wheel/package
+remains based on `7d5de8ea` and does not contain these later candidates.
+After that run, the combined increment-limit, response/quadrature, variable
+inertia and kinematics selection passed 97 tests in the real FEniCSx runtime.
+No new MPI qualification or full pressing acceptance is inferred.
+
 ## Energy and stability: do not falsify the existing contract
 
 `mechanics/_response_hex_explicit.py` now connects response-only material
