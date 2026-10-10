@@ -161,3 +161,39 @@ def test_real_hex_force_assembly_without_invented_energy_or_tangent(nx):
     )
     for name, value in response.trial_fields().items():
         np.testing.assert_array_equal(value.x.array, fields_before[name])
+
+
+def test_joint_response_commit_rollback_and_commit_failure(monkeypatch):
+    from agentfem.constitutive._explicit_material_driver import (
+        ExplicitQuadratureResponse,
+    )
+
+    material, state, options = fixture()
+    response = ExplicitQuadratureResponse.create(state.domain, material.state_schema)
+    response.update(material, **options)
+    response.commit()
+    accepted = {
+        name: value.x.array.copy() for name, value in response.trial_fields().items()
+    }
+    options["deformation_gradient_old"] = options["deformation_gradient_new"].copy()
+    options["deformation_gradient_new"] = options["deformation_gradient_old"].copy()
+    options["deformation_gradient_new"][:, 0, 0] = 1.04
+    response.update(material, **options)
+    response.rollback()
+    for name, value in response.trial_fields().items():
+        np.testing.assert_array_equal(value.x.array, accepted[name])
+    response.update(material, **options)
+    before = response.state.committed_state_vectors().copy()
+    saved_response = response.response_transaction.snapshot()
+    original = response.response_transaction.commit
+
+    def fail_after_commit():
+        original()
+        raise ValueError("injected joint commit failure")
+
+    monkeypatch.setattr(response.response_transaction, "commit", fail_after_commit)
+    with pytest.raises(ValueError, match="joint commit"):
+        response.commit()
+    np.testing.assert_array_equal(response.state.committed_state_vectors(), before)
+    for name, value in response.response_transaction.snapshot().items():
+        np.testing.assert_array_equal(value, saved_response[name])

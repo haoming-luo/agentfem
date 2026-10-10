@@ -65,6 +65,11 @@ trial evaluation which reuses geometry, mass, Piola-force scatter and hourglass
 contributions. Missing stored energy stays `None` in the element response.
 Downstream rejection restores all trial state and response fields. No public
 Step admission or MPI claim follows from this force-assembly slice.
+Explicit commit/rollback also includes accepted P/S/work, using the existing
+quadrature transaction machinery. A late failure during response commit restores
+both previously accepted material history and response fields. The focused
+post-fix selection passes 45 tests, including fault injection; the private
+120-increment real-Hex material exercise also passes again.
 
 Current finite-Hex lowering requires reference-volume stored energy and
 dissipation plus a reviewed tangent or envelope. A legacy material's cumulative
@@ -79,6 +84,14 @@ fake symmetric tangent: damage updates may have nonsymmetric derivatives.
 Response-only execution needs a separately justified explicit stability screen
 before skipping numerical tangent generation. An initial elastic modulus alone
 is not a global nonlinear stability proof.
+
+Fixed-old-state numerical differentiation of the private source response at
+three perturbation sizes confirms a nonzero antisymmetric part of dP/dF, both
+at an elastic endpoint and at a damaging endpoint. This excludes reuse of the
+existing symmetric-tangent envelope unchanged. These sampled derivatives are
+diagnostic evidence, not a complete-path stability envelope. Next implementation
+must separate effective wave-speed/time-resolution policy from implicit
+consistent-tangent requirements, and record its scope and refinement evidence.
 
 ## Acceptance and efficiency policy
 

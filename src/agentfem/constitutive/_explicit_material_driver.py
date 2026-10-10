@@ -33,19 +33,36 @@ class ExplicitQuadratureResponse:
     first_piola_stress: object
     cauchy_stress: object
     internal_work_density_increment: object
+    response_transaction: object
 
     @classmethod
     def create(cls, domain, state_schema, *, degree=1):
-        from .quadrature import MaterialQuadratureState, QuadratureField
+        from .quadrature import (
+            MaterialQuadratureState,
+            QuadratureField,
+            QuadratureTransaction,
+        )
 
         state = MaterialQuadratureState.create(domain, state_schema, degree=degree)
+        shapes = {"P": (3, 3), "S": (3, 3), "WORK": ()}
+        trial = {
+            name: QuadratureField.create(
+                domain, name=name, value_shape=shape, degree=degree
+            )
+            for name, shape in shapes.items()
+        }
+        committed = {
+            name: QuadratureField.create(
+                domain, name=name + "_accepted", value_shape=shape, degree=degree
+            )
+            for name, shape in shapes.items()
+        }
         return cls(
             state,
-            QuadratureField.create(domain, name="P", value_shape=(3, 3), degree=degree),
-            QuadratureField.create(domain, name="S", value_shape=(3, 3), degree=degree),
-            QuadratureField.create(
-                domain, name="INTERNAL_WORK_INCREMENT", degree=degree
-            ),
+            trial["P"],
+            trial["S"],
+            trial["WORK"],
+            QuadratureTransaction(committed, trial, "explicit-material-response"),
         )
 
     @property
@@ -74,10 +91,24 @@ class ExplicitQuadratureResponse:
         return trial.response
 
     def commit(self):
-        self.state.commit()
+        fields = {
+            f"state_{name}": value.function
+            for name, value in self.state.committed.items()
+        }
+        fields.update(
+            {
+                f"response_{name}": value.function
+                for name, value in self.response_transaction.committed.items()
+            }
+        )
+        with field_transaction(**fields):
+            self.state.commit()
+            self.response_transaction.commit()
 
     def rollback(self):
-        self.state.rollback()
+        with field_transaction(**self.trial_fields()):
+            self.state.rollback()
+            self.response_transaction.rollback()
 
 
 def update_explicit_material_points(
