@@ -80,3 +80,29 @@ def test_hidden_inversion_passes_old_samples_but_is_rejected():
     assert np.linalg.det(np.einsum("ai,qaj->qij", x, gradients)).min() < -0.01
     with pytest.raises(ValueError, match="inverted"):
         UniformHex8(x, np.eye(6), density=1, hourglass_modulus=1, hourglass_scale=0.1)
+
+
+def test_batched_triple_product_matches_lapack_on_distorted_cells():
+    from agentfem.elements._hex_validity import _derivatives
+
+    rng = np.random.default_rng(274)
+    vertices = basix.cell.geometry(basix.CellType.hexahedron)
+    coordinates = vertices + rng.uniform(-0.08, 0.08, (127, 8, 3))
+    jacobian = np.einsum(
+        "cai,qaj->cqij", coordinates - coordinates.mean(axis=1, keepdims=True),
+        _derivatives(),
+    )
+    expected = _bernstein(np.linalg.det(jacobian).reshape(-1, 3, 3, 3)).min((1, 2, 3))
+    assert np.all(expected > 0)
+    np.testing.assert_allclose(
+        require_positive_hex_jacobian(coordinates), expected, rtol=5e-14, atol=0,
+    )
+
+
+@pytest.mark.parametrize("scale", [1e-8, 1, 1e8])
+@pytest.mark.parametrize("height", [-1e-14, 0, 1e-14])
+def test_cancellation_does_not_admit_near_degenerate_affine_cell(scale, height):
+    vertices = basix.cell.geometry(basix.CellType.hexahedron)
+    mapping = np.array([[1, 1, 0], [1, 1 + height, 0], [0, 0, 1]])
+    with pytest.raises(ValueError, match="near-singular"):
+        require_positive_hex_jacobian((scale * (vertices @ mapping.T))[None])

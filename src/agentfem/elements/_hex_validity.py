@@ -79,7 +79,13 @@ def require_positive_hex_jacobian(coordinates):
     """
     centered = coordinates - coordinates.mean(axis=1, keepdims=True)
     jacobian = np.einsum("cai,qaj->cqij", centered, _derivatives())
-    values = np.linalg.det(jacobian)
+    # Scalar triple products avoid one tiny LAPACK factorization per sample.
+    # The existing conservative column-norm margin still guards cancellation;
+    # the Bernstein admission and subdivision are unchanged.
+    values = np.einsum(
+        "...i,...i->...", jacobian[..., 0],
+        np.cross(jacobian[..., 1], jacobian[..., 2]),
+    )
     scale = np.prod(np.max(np.linalg.norm(jacobian, axis=2), axis=1), axis=1)
     coefficients = _bernstein(values.reshape(-1, 3, 3, 3))
     margin = 512 * np.finfo(float).eps * scale
