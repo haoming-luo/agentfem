@@ -266,18 +266,11 @@ def contact_penalty_local_row_sums(
         # elastic tangential penalty, and pressure-cap coupling mu * k_n.
         stiffness = normal + tangential + friction * normal
 
-    rows = np.zeros_like(masses)
-    for point in range(trace.point_count):
-        node_ids = trace.node_ids[point]
-        interpolation = np.abs(trace.shape_values[point])
-        # The smallest component mass bounds the norm of each diagonal
-        # inverse-square-root mass block. This retains cross-component contact
-        # coupling without paying an artificial factor equal to the dimension.
-        mass_scaled = interpolation / np.sqrt(np.min(masses[node_ids], axis=1))
-        contribution = (
-            trace.weights[point] * stiffness[point] * mass_scaled * np.sum(mass_scaled)
-        )
-        np.add.at(rows, node_ids, contribution[:, None])
+    from .._penalty_stability import penalty_stencil_row_sums
+
+    rows = penalty_stencil_row_sums(
+        trace.node_ids, trace.shape_values, trace.weights, stiffness, masses
+    )
     return _readonly_array(rows)
 
 

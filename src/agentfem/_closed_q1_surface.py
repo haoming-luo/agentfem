@@ -88,9 +88,7 @@ class ClosedQ1Surface:
             end = point + length * direction
             pad = self.search.padding + 128 * np.finfo(float).eps * self.scale
             facets = np.unique(
-                self.search.tree.overlapping_facets(
-                    np.minimum(point, end) - pad, np.maximum(point, end) + pad
-                )
+                self.search.tree.segment_overlapping_facets(point, end, padding=pad)
                 // 2
             )
             try:

@@ -660,6 +660,57 @@ class TriangleSurfaceBVH:
                 pending.extend((int(self._left[node]), int(self._right[node])))
         return np.asarray(sorted(found, key=lambda i: self.surface.facet_ids[i]), dtype=np.int64)
 
+    def segment_overlapping_facets(self, start, end, *, padding=0.0):
+        """Broad-phase facet boxes intersected by a closed line segment.
+
+        Slab clipping avoids the potentially huge box around a diagonal ray.
+        Padding expands each box (e.g. for a curved-surface surrogate bound).
+        This does not perform triangle intersection or collision detection.
+        """
+        if any(np.iscomplexobj(value) for value in (start, end, padding)):
+            raise ValueError("Segment bounds must be real.")
+        start, end = np.asarray(start, dtype=float), np.asarray(end, dtype=float)
+        if (start.shape != (3,) or end.shape != (3,)
+                or not np.isfinite(start).all() or not np.isfinite(end).all()
+                or np.ndim(padding) != 0 or not np.isfinite(padding) or padding < 0):
+            raise ValueError("Segment requires finite endpoints and nonnegative padding.")
+        direction = end - start
+        if not np.isfinite(direction).all():
+            raise ValueError("Segment direction overflowed.")
+        pending, found = [self._root], []
+        roundoff = 16 * np.finfo(float).eps
+        while pending:
+            node = pending.pop()
+            near, far = 0.0, 1.0
+            for axis in range(3):
+                lower = self._lower[node, axis] - padding
+                upper = self._upper[node, axis] + padding
+                origin, delta = float(start[axis]), float(direction[axis])
+                if delta == 0:
+                    if origin < lower or origin > upper:
+                        near, far = 1.0, 0.0
+                        break
+                    continue
+                a, b = float(lower - origin) / delta, float(upper - origin) / delta
+                if a > b:
+                    a, b = b, a
+                # Expand both interval endpoints, including negative values.
+                if np.isfinite(a):
+                    a -= roundoff * max(1.0, abs(a))
+                if np.isfinite(b):
+                    b += roundoff * max(1.0, abs(b))
+                near, far = max(near, a), min(far, b)
+                if near > far:
+                    break
+            if near > far:
+                continue
+            facet = int(self._facet[node])
+            if facet >= 0:
+                found.append(facet)
+            else:
+                pending.extend((int(self._left[node]), int(self._right[node])))
+        return np.asarray(sorted(found, key=lambda i: self.surface.facet_ids[i]), dtype=np.int64)
+
     def _candidate_evidence(
         self,
         query: np.ndarray,

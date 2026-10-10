@@ -113,21 +113,21 @@ class NonmatchingCohesiveForce:
             raise ValueError(
                 "Interface stability requires positive finite global diagonal mass."
             )
-        nodal_mass = mass.reshape(-1, 3).min(axis=1)
+        from ._penalty_stability import penalty_stencil_row_sums
+
         pair = self.assembler.pairing
         negative = self.negative_dofs[pair.negative_nodes]
         positive = self.positive_dofs[pair.positive_nodes]
-        wn = np.abs(pair.negative_weights) / np.sqrt(nodal_mass[negative])
-        wp = np.abs(pair.positive_weights) / np.sqrt(nodal_mass[positive])
         stiffness = max(
             law.normal_stiffness,
             law.tangential_stiffness,
             law.second_tangential_stiffness,
         )
-        weight = pair.weights * stiffness * (wn.sum(axis=1) + wp.sum(axis=1))
-        rows = np.zeros_like(nodal_mass)
-        np.add.at(rows, negative.ravel(), (weight[:, None] * wn).ravel())
-        np.add.at(rows, positive.ravel(), (weight[:, None] * wp).ravel())
+        rows = penalty_stencil_row_sums(
+            np.concatenate((negative, positive), axis=1),
+            np.concatenate((-pair.negative_weights, pair.positive_weights), axis=1),
+            pair.weights, stiffness, mass.reshape(-1, 3),
+        )
         bound = float(rows.max())
         if not np.isfinite(bound) or bound <= 0:
             raise ValueError("Interface spectral bound must be positive finite.")

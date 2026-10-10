@@ -455,6 +455,23 @@ and kinetic contributions, rejected-step rollback and restart.
 
 ## Primary design references
 
+The closed-surface ray broad phase now traverses the existing BVH with segment
+slab clipping rather than the ray's entire axis-aligned bounding box. Exact Q1
+intersection and two-ray agreement are unchanged. Three alternating private
+original-geometry comparisons (1,000 queries) returned identical signed gaps:
+median query time 11.812 s versus 0.641 s, 18.4x for this search component only.
+No full-loading speedup is inferred. Parallel rays, endpoints, zero-length
+segments, randomized exhaustive boxes and actual contact restart are tested.
+
+Fixed elastic interface and penalty-contact spectral rows now reuse one
+bounded-memory stencil kernel. Signed interpolation and shared-node assembly
+are retained; tests compare independent dense spectra and prior scalar rows.
+This refactor does not admit moving-projection geometric stiffness or damaged
+material tangents into an unproven whole-path stability estimate.
+
+- [PBRT, ray--bounds intersections](https://pbr-book.org/4ed/Shapes/Basic_Shape_Interface):
+  slab interval clipping and conservative roundoff expansion motivate the
+  segment broad-phase optimization. Exact Q1 geometry remains the narrow phase.
 - [Ramsey, Potter and Hansen, Ray Bilinear Patch Intersections](https://www.sci.utah.edu/~kpotter/publications/ramsey-2004-RBPI.pdf):
   two-plane elimination, both quadratic roots and robust parameter recovery.
   The private classifier rejects seam/tangent rays and checks another direction.
