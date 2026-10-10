@@ -2,6 +2,23 @@ import numpy as np
 import pytest
 
 from agentfem._q1_surface_geometry import planar_q1_pull_back
+from agentfem._q1_surface_geometry import q1_surface_pull_back
+
+
+@pytest.mark.parametrize("warpage", [1e-7, 0.1, 0.6])
+def test_warped_surface_inverse_preserves_geometry(warpage):
+    rng = np.random.default_rng(12)
+    local = rng.random((100, 2))
+    quad = np.array([[0.0, 0, 0], [2, 0, 0], [1.4, 1, warpage], [0.1, 1, 0]])
+    points = weights(local) @ quad
+    vertices = np.broadcast_to(quad, (len(local), 4, 3))
+    recovered, basis = q1_surface_pull_back(vertices, points)
+    np.testing.assert_allclose(recovered, local, atol=2e-10)
+    np.testing.assert_allclose(basis @ quad, points, atol=2e-11)
+    with pytest.raises(ValueError, match="Warped"):
+        planar_q1_pull_back(vertices, points)
+    with pytest.raises(ValueError, match="converge"):
+        q1_surface_pull_back(vertices, points + [0, 0, 0.01])
 
 
 def weights(uv):

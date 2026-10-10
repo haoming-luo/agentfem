@@ -1,10 +1,10 @@
 # SPDX-FileCopyrightText: 2026 Haoming Luo and AgentFEM contributors
 # SPDX-License-Identifier: Apache-2.0
-"""Private planar convex Q1 inverse maps; no interface integration admission.
+"""Private Q1 inverse maps; no interface integration admission.
 
 Basix owns interpolation. This adapter batches geometric inversion for boundary
-queries, preserving all four parent nodes. Warped surfaces require a separate
-closest-point and integration contract and are deliberately rejected here.
+queries, preserving all four parent nodes. Warped maps admit on-surface points
+only; nearest-point projection and curved intersection integration are separate.
 """
 
 from functools import lru_cache
@@ -36,6 +36,36 @@ def _real(value, shape, name):
 def planar_q1_pull_back(
     vertices, points, *, relative_tolerance=1e-11, max_iterations=30
 ):
+    """Strict planar adapter retained for the existing planar overlap route."""
+    return _pull_back(
+        vertices,
+        points,
+        relative_tolerance=relative_tolerance,
+        max_iterations=max_iterations,
+        planar_only=True,
+    )
+
+
+def q1_surface_pull_back(
+    vertices, points, *, relative_tolerance=1e-11, max_iterations=30
+):
+    """Invert a bilinear surface with convex projection onto its corner plane.
+
+    Keeps real warpage. This is an on-surface inverse, not a closest-point
+    projection. Convex projected corners ensure a one-to-one planar Q1 map;
+    the bilinear surface is a graph over that projection. Folded projections
+    are rejected rather than resolved through an arbitrary inverse branch.
+    """
+    return _pull_back(
+        vertices,
+        points,
+        relative_tolerance=relative_tolerance,
+        max_iterations=max_iterations,
+        planar_only=False,
+    )
+
+
+def _pull_back(vertices, points, *, relative_tolerance, max_iterations, planar_only):
     """Return local coordinates and cyclic Q1 weights for one query per facet.
 
     Input shapes are (queries, 4, 3) and (queries, 3). Tolerance is relative
@@ -72,7 +102,9 @@ def planar_q1_pull_back(
     if np.any(length <= 1e-12):
         raise ValueError("Degenerate Q1 corner.")
     normal /= length[:, None]
-    if np.any(np.abs(np.einsum("nki,ni->nk", x, normal)) > relative_tolerance):
+    if planar_only and np.any(
+        np.abs(np.einsum("nki,ni->nk", x, normal)) > relative_tolerance
+    ):
         raise ValueError("Warped Q1 facets are not admitted by the planar map.")
     turns = np.einsum("nki,ni->nk", np.cross(edge, np.roll(edge, -1, axis=1)), normal)
     if np.any(turns <= 1e-12):

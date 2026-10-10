@@ -128,11 +128,19 @@ The source geometry audit rules out reusing coplanar parallelogram pairing
 unchanged. The new private `_q1_surface_geometry` adapter uses Basix Q1 basis
 values and derivatives, normalized batched Newton inversion, positive convex
 corner checks, physical reconstruction and reference containment checks.
-It handles nonaffine planar facets, but does not admit warped-facet projection
-or general nonplanar interface integration. Existing pairing keeps its affine
+It handles nonaffine planar facets; the separate `q1_surface_pull_back` also
+inverts on-surface queries on bilinear warped facets with a convex projection.
+This retains real warpage and rejects off-surface queries, folded projections
+and failed inversion. It does not perform nearest-point projection or admit
+general nonplanar interface integration. Existing pairing keeps its affine
 restriction. Geometry inversion alone is not a coverage or quadrature proof.
 The private source patch's 4,874 facets pass 24,370 round-trip queries with
 maximum local-coordinate error 1.21e-14 (about 0.042 s on this machine).
+The subsequent warped-map check covers both original surfaces: 13,643 facets,
+68,215 queries, maximum local-coordinate error 1.25e-14. Mother-surface and
+patch query batches take approximately 0.070 s and 0.038 s respectively on
+this machine. The related mapping and existing Q1 interface tests pass 33
+checks. No cross-surface coverage or traction integration claim follows.
 
 Local candidate checks: 15 kinematic tests plus 26 architecture tests pass.
 The independent noncoaxial oracle integrates the rate with 64-point Gaussian
