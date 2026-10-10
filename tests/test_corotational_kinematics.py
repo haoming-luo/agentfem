@@ -177,3 +177,23 @@ def test_stationary_invalid_gradient_is_not_skipped():
     for bad in (np.diag([-1.0, 1, 1]), np.diag([1e-14, 1, 1])):
         with pytest.raises(ValueError):
             polar_strain_increment(bad[None], bad[None])
+
+
+def test_moving_increment_reuses_svd_stretch_spectrum(monkeypatch):
+    original = np.linalg.eigh
+    calls = []
+
+    def tracked(value, *args, **kwargs):
+        calls.append(len(value))
+        return original(value, *args, **kwargs)
+
+    monkeypatch.setattr(np.linalg, "eigh", tracked)
+    old = np.array([rotation(0.4) @ np.diag([0.8, 1.2, 2.0])])
+    new = np.array([rotation(-0.7) @ np.diag([1.3, 1.5, 1.1])])
+    result = polar_strain_increment(old, new)
+    assert calls == [1]  # Only the relative stretch logarithm needs an eigensolve.
+    np.testing.assert_allclose(
+        result.strain_increment[0],
+        np.diag(np.log([1.3 / 0.8, 1.5 / 1.2, 1.1 / 2.0])),
+        atol=1e-14,
+    )

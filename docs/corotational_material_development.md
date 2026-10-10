@@ -505,6 +505,13 @@ versus 0.00415 s median cold-layout construction for 262,144 cells (27.3x for
 this initialization component only); all indices were identical. This is not
 a full-simulation speedup or a change to quadrature/assembly ownership.
 
+The moving polar-frame kernel reuses the old gradient's SVD spectrum to form
+the right-stretch square root/inverse root, avoiding a redundant eigenproblem.
+Independent noncoaxial quadrature, rotating prestress and virtual-power checks
+are unchanged. Five alternating 65,536-point random moving-batch comparisons
+against `91cec180` measured 1.13x component throughput at chunk sizes 1,024 and
+8,192, with maximum strain difference 2.82e-18. No whole-step gain is inferred.
+
 ## Primary design references
 
 Closed-solid explicit contact now rejects unresolved outside-to-outside paths

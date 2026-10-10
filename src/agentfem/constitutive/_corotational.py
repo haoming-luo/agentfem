@@ -38,21 +38,36 @@ def _spectral(vectors, values):
     return (vectors * values[..., None, :]) @ _transpose(vectors)
 
 
-def _polar(gradient):
+def _polar(gradient, *, include_roots=False):
     identity = np.all(gradient == np.eye(3), axis=(1, 2))
     if np.any(identity):
         rotation = np.broadcast_to(np.eye(3), gradient.shape).copy()
         stretch = rotation.copy()
+        outputs = [rotation, stretch]
+        if include_roots:
+            outputs.extend((rotation.copy(), rotation.copy()))
         if not np.all(identity):
-            rotation[~identity], stretch[~identity] = _polar(gradient[~identity])
-        return rotation, stretch
+            selected = _polar(gradient[~identity], include_roots=include_roots)
+            for output, values in zip(outputs, selected, strict=True):
+                output[~identity] = values
+        return tuple(outputs)
     left, stretches, right = np.linalg.svd(gradient)
     rotation = left @ right
     if np.any(np.linalg.det(rotation) <= 0):
         raise ValueError("Deformation gradients must preserve orientation.")
     if np.any(stretches[:, -1] <= 1.0e-12 * stretches[:, 0]):
         raise ValueError("Deformation gradients are singular or ill-conditioned.")
-    stretch = _spectral(_transpose(right), stretches)
+    vectors = _transpose(right)
+    stretch = _spectral(vectors, stretches)
+    if include_roots:
+        # Right singular vectors already diagonalize U. Do not diagonalize
+        # the reconstructed stretch a second time just to obtain its roots.
+        return (
+            rotation,
+            stretch,
+            _spectral(vectors, np.sqrt(stretches)),
+            _spectral(vectors, 1 / np.sqrt(stretches)),
+        )
     return rotation, stretch
 
 
@@ -113,13 +128,8 @@ def polar_strain_increment(gradient_old, gradient_new, *, reference_frame=None):
             strain[~stationary] = moving.strain_increment
             r0[~stationary], r1[~stationary] = moving.frame_old, moving.frame_new
         return CorotationalIncrement(_readonly(strain), _readonly(r0), _readonly(r1))
-    r0, u0 = _polar(old)
+    r0, u0, root, inverse_root = _polar(old, include_roots=True)
     r1, u1 = _polar(new)
-    values, vectors = np.linalg.eigh(u0)
-    if np.any(values <= 0):
-        raise ValueError("Right stretch is numerically singular.")
-    root = _spectral(vectors, np.sqrt(values))
-    inverse_root = _spectral(vectors, 1 / np.sqrt(values))
     # Form B-I directly: log1p retains very small increments accurately.
     delta = inverse_root @ (u1 - u0) @ inverse_root
     values, vectors = np.linalg.eigh(0.5 * (delta + _transpose(delta)))
