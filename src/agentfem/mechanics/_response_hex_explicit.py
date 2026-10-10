@@ -1,0 +1,269 @@
+# SPDX-FileCopyrightText: 2026 Haoming Luo and AgentFEM contributors
+# SPDX-License-Identifier: Apache-2.0
+"""Private response-only material adapter to the existing explicit Procedure.
+
+Caller increment ceilings are resolution choices, NOT proven stability bounds.
+Internal work remains work; no recoverable energy or tangent is manufactured.
+"""
+
+import numpy as np
+from hashlib import sha256
+
+from ..provenance import content_fingerprint
+from ..state import field_transaction
+
+
+class ResponseHexWorkMonitor:
+    """Accepted work balance ingredients, not a thermodynamic decomposition."""
+
+    def __init__(self, residual):
+        self.residual = residual
+
+    def evaluate(self, *, displacement, velocity):
+        from ..fields import unwrap
+        from ..diagnostics import kinetic_energy
+
+        r = self.residual
+        if r._trial is not None or r.time != r.accepted_time:
+            raise RuntimeError("Work monitor requires an accepted material state.")
+        if unwrap(displacement) is not r.internal.displacement:
+            raise ValueError("Work monitor displacement identity differs.")
+        kinetic = kinetic_energy(r.internal.mass_diagonal, velocity)
+        return {
+            "kinetic_energy": kinetic,
+            "material_internal_work": r.internal_work,
+            "hourglass_energy": r.hourglass_energy,
+            "accounted_internal_kinetic_energy": kinetic
+            + r.internal_work
+            + r.hourglass_energy,
+        }
+
+
+class ResponseHexExplicitResidual:
+    def __init__(
+        self,
+        internal,
+        material,
+        *,
+        time_increment_ceiling,
+        material_identity,
+        stress_free_initial_state,
+    ):
+        from ..constitutive._explicit_material_driver import ExplicitQuadratureResponse
+
+        if internal.comm.size != 1 or not isinstance(
+            internal.response, ExplicitQuadratureResponse
+        ):
+            raise NotImplementedError("Response-only explicit lifecycle is serial.")
+        if stress_free_initial_state is not True:
+            raise ValueError(
+                "An explicit stress-free initial-state declaration is required."
+            )
+        ceiling = float(time_increment_ceiling)
+        if not np.isfinite(ceiling) or ceiling <= 0:
+            raise ValueError("A finite positive caller increment ceiling is required.")
+        if not isinstance(material_identity, dict) or not material_identity:
+            raise ValueError("Explicit material identity is required for recovery.")
+        if np.any(internal.displacement.x.array != 0):
+            raise ValueError("Response-only initialization requires zero displacement.")
+        initial = material.state_schema.initial_state()
+        committed = internal.response.state.committed_state_vectors()
+        if not np.array_equal(committed, np.broadcast_to(initial, committed.shape)):
+            raise ValueError("Response-only initialization requires virgin state.")
+        self.internal, self.material = internal, material
+        self.ceiling = ceiling
+        digest = sha256(
+            content_fingerprint(
+                {
+                    "material": material_identity,
+                    "state": repr(material.state_schema),
+                    "ceiling": ceiling,
+                    "stress_free_initial_state": True,
+                }
+            ).encode()
+        )
+        for array in (
+            internal.cells.coordinates,
+            internal.cell_nodes,
+            internal.mass_diagonal,
+            internal.cells.hourglass_coefficient,
+        ):
+            digest.update(str((array.shape, array.dtype.str)).encode())
+            digest.update(np.ascontiguousarray(array).tobytes())
+        self.identity = digest.hexdigest()
+        self.accepted_gradient = np.tile(np.eye(3), (len(internal.cell_nodes), 1, 1))
+        self.accepted_time = self.time = 0.0
+        self.internal_work = 0.0
+        self.hourglass_energy = 0.0
+        self._trial = None
+
+    def validate_time_increment(self, dt):
+        if not np.isfinite(dt) or dt <= 0 or dt > self.ceiling * (1 + 1e-12):
+            raise ValueError("Increment exceeds the declared resolution ceiling.")
+
+    def update_time(self, time):
+        if not np.isfinite(time) or time < self.accepted_time:
+            raise ValueError("Invalid response-only time.")
+        self.time = float(time)
+
+    def assemble_vector(self):
+        dt = self.time - self.accepted_time
+        self.validate_time_increment(dt)
+        self._trial = None
+        with self.internal.explicit_trial_evaluation(
+            self.material,
+            deformation_gradient_old=self.accepted_gradient,
+            time=self.accepted_time,
+            time_increment=dt,
+        ) as (vector, trial):
+            if not np.isfinite(vector.array).all():
+                raise ValueError("Nonfinite response-only force.")
+            work = self.internal_work + float(
+                self.internal.cells.volume
+                @ trial.material_response.internal_work_density_increment
+            )
+            hg = float(np.sum(trial.element_response.hourglass_energy))
+            if not np.isfinite([work, hg]).all():
+                raise ValueError("Nonfinite response-only work.")
+            self._trial = (
+                trial,
+                work,
+                hg,
+                self.time,
+                self.internal.displacement.x.array.copy(),
+            )
+        return vector
+
+    def commit(self):
+        if self._trial is None:
+            raise RuntimeError("No response-only trial to accept.")
+        trial, work, hg, time, displacement = self._trial
+        if time != self.time or not np.array_equal(
+            displacement, self.internal.displacement.x.array
+        ):
+            raise RuntimeError("Configuration changed after response-only trial.")
+        self.internal.response.commit()
+        self.accepted_gradient = trial.deformation_gradient.copy()
+        self.accepted_time = time
+        self.internal_work, self.hourglass_energy = work, hg
+        self._trial = None
+
+    def _fields(self):
+        response = self.internal.response
+        result = dict(response.trial_fields())
+        result.update(
+            {
+                "committed_state_" + k: v.function
+                for k, v in response.state.committed.items()
+            }
+        )
+        result.update(
+            {
+                "committed_response_" + k: v.function
+                for k, v in response.response_transaction.committed.items()
+            }
+        )
+        return result
+
+    def transaction_snapshot(self):
+        if self._trial is not None:
+            raise RuntimeError("Cannot save an unaccepted response-only trial.")
+        return {
+            "schema": "agentfem.private-response-hex.v1",
+            "identity": self.identity,
+            "time": self.accepted_time,
+            "gradient": self.accepted_gradient.copy(),
+            "internal_work": self.internal_work,
+            "hourglass_energy": self.hourglass_energy,
+            "fields": {k: v.x.array.copy() for k, v in self._fields().items()},
+        }
+
+    checkpoint_snapshot = transaction_snapshot
+
+    def checkpoint_capabilities(self):
+        from ..checkpointing import CheckpointCapabilities
+
+        return CheckpointCapabilities(
+            schemas=("agentfem.transient-checkpoint.v7",),
+            boundary="accepted_step",
+            payload_scope="full_restart_state",
+            atomic_publication=True,
+            rank_count_portability="unsupported",
+            state_components=(
+                "material history and accepted stress/work",
+                "accepted deformation gradient",
+                "accumulated internal work",
+            ),
+            identity_scope=(
+                "material and schema",
+                "geometry and mass",
+                "hourglass coefficients",
+                "caller increment ceiling",
+            ),
+            limitations=(
+                "serial same-partition response-only development route",
+                "caller ceiling is not a certified stability bound",
+            ),
+            evidence=(
+                "serial interrupted/continuous regression",
+                "invalid state atomic rejection",
+            ),
+        )
+
+    def snapshot(self):
+        record = self.transaction_snapshot()
+        record["gradient"] = record["gradient"].tolist()
+        record["fields"] = {k: v.tolist() for k, v in record["fields"].items()}
+        return record
+
+    def restore(self, record):
+        if (
+            record.get("schema") != "agentfem.private-response-hex.v1"
+            or record.get("identity") != self.identity
+        ):
+            raise ValueError("Response-only checkpoint identity mismatch.")
+        fields = self._fields()
+        if set(record["fields"]) != set(fields):
+            raise ValueError("Response-only checkpoint fields mismatch.")
+        gradient = np.asarray(record["gradient"])
+        if (
+            np.iscomplexobj(gradient)
+            or gradient.shape != self.accepted_gradient.shape
+            or not np.isfinite(gradient).all()
+            or np.any(np.linalg.det(gradient) <= 0)
+        ):
+            raise ValueError("Invalid response-only checkpoint gradient.")
+        values = [record[k] for k in ("time", "internal_work", "hourglass_energy")]
+        if (
+            any(
+                not np.isscalar(v) or not np.isreal(v) or not np.isfinite(v)
+                for v in values
+            )
+            or values[0] < 0
+            or values[2] < 0
+        ):
+            raise ValueError("Invalid response-only checkpoint scalars.")
+        arrays = {k: np.asarray(record["fields"][k]) for k in fields}
+        if any(
+            np.iscomplexobj(v)
+            or v.shape != fields[k].x.array.shape
+            or not np.isfinite(v).all()
+            for k, v in arrays.items()
+        ):
+            raise ValueError("Invalid response-only checkpoint field values.")
+        for name in self.internal.response.state.committed:
+            if not np.array_equal(
+                arrays["state_" + name], arrays["committed_state_" + name]
+            ):
+                raise ValueError("Checkpoint contains unaccepted material history.")
+        for name in self.internal.response.response_transaction.committed:
+            if not np.array_equal(arrays[name], arrays["committed_response_" + name]):
+                raise ValueError("Checkpoint contains unaccepted material response.")
+        with field_transaction(**fields):
+            for k, v in fields.items():
+                v.x.array[:] = arrays[k]
+                v.x.scatter_forward()
+        self.accepted_gradient = gradient.copy()
+        self.accepted_time = self.time = float(values[0])
+        self.internal_work, self.hourglass_energy = map(float, values[1:])
+        self._trial = None

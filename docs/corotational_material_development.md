@@ -61,7 +61,7 @@ full-surface coverage nor a time-step/whole-solver performance certificate.
 | 2 | Independent response-only batch implementation; proportional, reversal and random-path comparison | Local private implementation checked; not a packaged material |
 | 3 | General corotational kinematics; proper frames, invalid-gradient rejection, objective stress transport, noncoaxial independent integration | Private core candidate, tested separately from any material name |
 | 4 | Explicit material response contract with independently declared stability and energy capabilities | Private work-only response and serial quadrature lowering tested; independent explicit stability admission pending |
-| 5 | Ordinary finite-Hex Step consumes the provider; single-element traction, multi-element patch, failed-trial recovery and checkpoint | Real Hex8 internal-force assembly and downstream trial rollback tested; ordinary time-integrating Step and full checkpoint pending |
+| 5 | Ordinary finite-Hex Step consumes the provider; single-element traction, multi-element patch, failed-trial recovery and checkpoint | Private response-only adapter now advances existing central difference with serial disk restart and whole-step rollback; ordinary model admission and full structure still pending |
 | 6 | Multiple analytical rigid tools in that same Step; geometry validity, curvature stability, resultant/moment/work, joint rollback | Pending; reuse existing rigid surfaces, contact law and accepted work ledger |
 | 7 | Imported geometry/section/interface audit and controlled incremental whole-model runs | Local geometry audit identifies nonaffine, globally noncoplanar traces and small facet warpage; general pairing and whole-model runs pending |
 | 8 | Bulk viscosity and variable mass scaling when required for source equivalence, with separate work/inertia evidence | Serial Hex8 bulk-viscosity force/power and response-trial composition tested; accepted time integration, damping stability and variable mass scaling pending |
@@ -97,6 +97,32 @@ proper-frame checks are covered by focused tests. It is deliberately private
 until the response, stability and global lifecycle gates close.
 
 ## Energy and stability: do not falsify the existing contract
+
+`mechanics/_response_hex_explicit.py` now connects response-only material
+trials to the existing `problems.explicit_dynamics` Procedure. It does not
+implement another time integrator. It records cumulative reference-volume
+internal work and separate hourglass energy, and supplies an optional work
+monitor without a fabricated recoverable-energy/dissipation decomposition.
+Construction requires an explicitly stress-free virgin state. Its caller
+increment ceiling is a numerical resolution choice, NOT a certified spectral
+bound; no public automatic-stability or ordinary-model admission follows.
+
+Full accepted material history, stress/work fields, deformation gradient and
+work totals enter the existing binary checkpoint envelope. Recovery is serial,
+same-partition and atomic; inconsistent committed/trial records are rejected.
+Identity hashes numeric arrays directly rather than expanding mesh data into
+Python lists. Whole-step rollback covers provider cutback and injected failure
+after material commit. The selected lifecycle/material regressions pass 50 tests.
+
+Private two-cell source-material dynamics now runs 100/200/400 increments at
+2e-9/1e-9/5e-10 source-time units. At the lower initial velocity, successive
+displacement differences are 4.72e-7 and 1.18e-7; maximum relative drift in
+kinetic + material internal work + hourglass energy is 2.03e-4, 5.08e-5 and
+1.27e-5. A fivefold-velocity path initiates weak viscous damage (about 1.76e-4)
+and shows comparable refinement. Both interrupted/resumed paths reproduce
+continuous displacement exactly. These are free-response material integration
+checks, not the original specimen, severe damage validation, or Abaqus solver
+equivalence. Source increment/spin equivalence remains unestablished.
 
 The private `ExplicitMaterialBatchOutput` now carries Cauchy stress, state and
 reference-volume internal-work increment without a fabricated tangent. Storage
