@@ -376,7 +376,20 @@ class ExplicitDynamicsStep:
                 constraints=self.constraints,
             )
             if hasattr(self.residual, "commit"):
-                self.residual.commit()
+                # The residual owns collectives inside its commit. Synchronize
+                # the completed phase before another rank can enter monitoring
+                # or a new increment while a failed rank starts rollback.
+                commit_failure = None
+                try:
+                    self.residual.commit()
+                except BaseException as exc:
+                    commit_failure = exc
+                comm = fields.unwrap(self.state.u).function_space.mesh.comm
+                failures = comm.allgather(None if commit_failure is None else str(commit_failure))
+                if commit_failure is not None:
+                    raise commit_failure
+                if any(value is not None for value in failures):
+                    raise RuntimeError(f"Explicit residual commit failed on another rank: {failures}")
         except BaseException as failure:
             # A user interrupt is still a rejected increment. Restore the
             # accepted station before propagating it; never swallow cancellation.

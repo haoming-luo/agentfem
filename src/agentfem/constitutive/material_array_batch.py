@@ -119,8 +119,8 @@ class MaterialPointArrayBatchOutput:
         if not isinstance(self.tangent_convention, MaterialTangentConvention):
             raise TypeError("tangent_convention must be a MaterialTangentConvention.")
         stress = np.asarray(self.cauchy_stress)
-        if stress.ndim != 3 or len(stress) == 0:
-            raise ValueError("An array response requires at least one stress tensor.")
+        if stress.ndim != 3:
+            raise ValueError("An array response requires a batch of stress tensors.")
         count = len(stress)
         stress = _array(stress, (count, 3, 3), "cauchy_stress")
         scale = np.maximum(np.linalg.norm(stress, axis=(1, 2)), np.finfo(float).tiny)

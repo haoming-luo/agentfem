@@ -51,13 +51,8 @@ class FiniteUniformHexBatch:
         chunk_size=1024,
     ):
         x = np.asarray(coordinates, dtype=float)
-        if (
-            x.ndim != 3
-            or x.shape[1:] != (8, 3)
-            or not len(x)
-            or not np.isfinite(x).all()
-        ):
-            raise ValueError("Coordinates must be finite nonempty (cells, 8, 3).")
+        if x.ndim != 3 or x.shape[1:] != (8, 3) or not np.isfinite(x).all():
+            raise ValueError("Coordinates must be finite (cells, 8, 3).")
         if (
             isinstance(chunk_size, bool)
             or not isinstance(chunk_size, (int, np.integer))
@@ -81,6 +76,17 @@ class FiniteUniformHexBatch:
         rho = coefficient(density, "density")
         modulus = coefficient(hourglass_modulus, "hourglass_modulus")
         scale = coefficient(hourglass_scale, "hourglass_scale")
+        if count == 0:
+            # Empty owned-cell partitions still enter shared material/assembly
+            # collectives; no artificial element or mass is introduced.
+            self.volume = _frozen(np.empty(0))
+            self.average_gradient = _frozen(np.empty((0, 8, 3)))
+            self.hourglass_modes = _frozen(np.empty((0, 8, 4)))
+            self.lumped_mass = _frozen(np.empty((0, 8)))
+            self.hourglass_coefficient = _frozen(np.empty(0))
+            self._mass_gradient_gram = _frozen(np.empty((0, 3, 3)))
+            self._hourglass_spectral_bound = _frozen(np.empty(0))
+            return
         volumes, gradients, modes, nodal = [], [], [], []
         for region in self._regions():
             volume, gradient, gamma, nodal_volume = _geometry(x[region])
@@ -144,7 +150,7 @@ class FiniteUniformHexBatch:
                     "Mean deformation gradient must have positive determinant."
                 )
             gradients.append(f)
-        return np.concatenate(gradients)
+        return np.concatenate(gradients) if gradients else np.empty((0, 3, 3))
 
     def response(self, displacement, *, first_piola, stored_energy_density):
         u = self._displacement(displacement)
@@ -191,7 +197,9 @@ class FiniteUniformHexBatch:
             forces.append(force)
             artificial.append(0.5 * coefficient * np.sum(modes**2, axis=(1, 2)))
         result = FiniteUniformHexResponse(
-            np.concatenate(forces), self.volume * energy, np.concatenate(artificial)
+            np.concatenate(forces) if forces else np.empty((0, 8, 3)),
+            self.volume * energy,
+            np.concatenate(artificial) if artificial else np.empty(0),
         )
         if any(
             not np.isfinite(value).all()
@@ -229,7 +237,7 @@ class FiniteUniformHexBatch:
                 "cam,cbm,cbi->cai", gamma, gamma, du[region]
             )
             actions.append(action)
-        result = np.concatenate(actions)
+        result = np.concatenate(actions) if actions else np.empty((0, 8, 3))
         if not np.isfinite(result).all():
             raise ValueError("Finite Hex8 tangent action overflowed.")
         return result
@@ -263,6 +271,8 @@ class FiniteUniformHexBatch:
         count = len(self.coordinates)
         if tangent.shape != (count, 3, 3, 3, 3) or not np.isfinite(tangent).all():
             raise ValueError("Expected finite dP/dF with shape (cells,3,3,3,3).")
+        if count == 0:
+            return FiniteHexTangentSpectrum(0.0, 0.0, 0)
         bound = 0.0
         negative_bound = 0.0
         negative_cells = 0

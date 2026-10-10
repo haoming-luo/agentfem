@@ -437,6 +437,17 @@ in restart identity/evidence. Nonsymmetric tangents remain rejected.
 
 ### Remaining general finite-explicit gate
 
+The finite bulk assembly now retains owned-cell force/energy contributions and
+uses DOLFINx quadrature maps to exchange deformation gradients for ghost points.
+Nonuniform finite plastic trajectories agree with serial execution on the tested
+partitions; an empty owned-cell partition is valid. Rank-local geometry, force,
+spectrum and accepted-energy failures reject collectively. Explicit Procedure
+now synchronizes a completed material commit before any rank enters subsequent
+monitoring, including an injected failure after one rank committed. Durable
+finite MPI restart and distributed nonmatching interfaces are still separate
+gates. The material driver may update visible ghost points, but these never
+contribute a second time to force, energy or negative-curvature cell counts.
+
 Do not turn the current positive-semidefinite material screen into a general
 policy by taking absolute eigenvalues. The next implementation must distinguish
 the highest oscillatory frequency, negative curvature and a complete-path

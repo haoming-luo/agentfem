@@ -801,9 +801,9 @@ class FiniteStrainJ2Logarithmic:
         if (
             isinstance(point_count, bool)
             or not isinstance(point_count, (int, np.integer))
-            or point_count <= 0
+            or point_count < 0
         ):
-            raise ValueError("point_count must be a positive integer.")
+            raise ValueError("point_count must be a nonnegative integer.")
         eye = np.eye(3)
         mu, lam = self.shear_modulus, self.bulk_modulus - 2 * self.shear_modulus / 3
         tangent = (

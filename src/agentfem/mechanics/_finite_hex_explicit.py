@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 """Private finite-Hex residual lifecycle for the existing explicit Procedure.
 
-Serial and fixed-reference only. No public provider registration is made here.
+Fixed-reference only. No public provider registration is made here.
 The caller declares a complete-path spectral ceiling; each endpoint additionally
 checks the signed symmetric tangent enclosure before acceptance. Optional
 negative-curvature resolution does not establish physical stability.
@@ -13,7 +13,11 @@ from hashlib import sha256
 import numpy as np
 
 from ..elements._finite_uniform_hex_material import response_fields
-from ..provenance import content_fingerprint
+from ..provenance import (
+    content_fingerprint,
+    collective_call,
+    collective_canonical_record,
+)
 from ..state import field_transaction
 from ..time.stability import ExplicitStabilityContribution, combine_explicit_stability
 
@@ -28,6 +32,41 @@ class FiniteHexExplicitResidual:
         safety=0.8,
         cohesive=None,
         maximum_negative_growth_per_increment=None,
+    ):
+        self.comm = internal.comm
+        collective_call(
+            lambda: self._initialize(
+                internal,
+                material,
+                omega_squared_bound=omega_squared_bound,
+                safety=safety,
+                cohesive=cohesive,
+                maximum_negative_growth_per_increment=maximum_negative_growth_per_increment,
+            ),
+            comm=self.comm,
+            label="Finite Hex8 trajectory preparation",
+        )
+        collective_canonical_record(
+            {
+                "material": material.summary(),
+                "bound": self.bound,
+                "safety": self.safety,
+                "negative_growth_resolution": self.maximum_negative_growth_per_increment,
+            },
+            comm=self.comm,
+            label="Finite Hex8 trajectory contract",
+        )
+        self.identity = content_fingerprint(self.comm.allgather(self.identity))
+
+    def _initialize(
+        self,
+        internal,
+        material,
+        *,
+        omega_squared_bound,
+        safety,
+        cohesive,
+        maximum_negative_growth_per_increment,
     ):
         self.internal, self.material = internal, material
         self.cohesive = cohesive
@@ -136,8 +175,31 @@ class FiniteHexExplicitResidual:
         self._trial_force = None
         self._trial_interface = None
 
-    def enable_energy(self, initial_response):
-        """Declare the virgin response explicitly; never perform a fictitious step."""
+    def _screen_trial(self, trial, dt):
+        if trial.material_response.minimum_suggested_time_scale < 1:
+            raise ValueError(
+                "Material requested increment reduction; fixed explicit step rejected."
+            )
+        spectrum = self.internal.cells.tangent_spectral_report(
+            first_piola_tangent=self.internal.response.tangent.owned_values
+        )
+        if spectrum.negative_material_curvature_cells:
+            if self.maximum_negative_growth_per_increment is None:
+                raise ValueError(
+                    "Indefinite material tangent requires an explicit curvature policy."
+                )
+            if (
+                dt * np.sqrt(spectrum.negative_eigenvalue_magnitude_bound)
+                > self.maximum_negative_growth_per_increment
+            ):
+                raise ValueError(
+                    "Increment under-resolves the negative-curvature growth bound."
+                )
+        if spectrum.positive_eigenvalue_upper_bound > self.bound * (1 + 1e-12):
+            raise ValueError("Current tangent exceeds the declared spectral ceiling.")
+        return spectrum
+
+    def _initial_energy_response(self, initial_response):
         from dataclasses import replace
         from ..constitutive.material_array_batch import MaterialPointArrayBatchOutput
 
@@ -152,7 +214,7 @@ class FiniteHexExplicitResidual:
         if not isinstance(initial_response, MaterialPointArrayBatchOutput):
             raise TypeError("Expected a declared initial material array response.")
         initial = replace(initial_response)
-        count = len(self.internal.cell_nodes)
+        count = len(self.internal.response.state.committed_state_vectors())
         if (
             initial.point_count != count
             or initial.state_schema != self.material.state_schema
@@ -174,14 +236,32 @@ class FiniteHexExplicitResidual:
             )
         if np.any(initial.dissipation_density_increment != 0):
             raise ValueError("Initial declaration must not dissipate energy.")
+        if set(initial.stored_energy_density_components) != set(
+            self.internal.response.stored_energy_density_components
+        ):
+            raise ValueError(
+                "Initial stored-energy components differ from the quadrature contract."
+            )
         u = self.internal.displacement.x.array
         if np.any(u != 0):
             raise ValueError("Initial response requires the undeformed configuration.")
         element = self.internal.cells.response(
             u.reshape(-1, 3)[self.internal.cell_nodes],
-            first_piola=initial.cauchy_stress,
-            stored_energy_density=initial.strain_energy_density,
+            first_piola=initial.cauchy_stress[: len(self.internal.cell_nodes)],
+            stored_energy_density=initial.strain_energy_density[
+                : len(self.internal.cell_nodes)
+            ],
         )
+        return initial, element
+
+    def enable_energy(self, initial_response):
+        """Declare the virgin response explicitly; never perform a fictitious step."""
+        initial, element = collective_call(
+            lambda: self._initial_energy_response(initial_response),
+            comm=self.comm,
+            label="Finite Hex8 initial energy declaration",
+        )
+        u = self.internal.displacement.x.array
         vector = self.internal._scatter(element.internal_force)
         try:
             initial_interface = None
@@ -236,11 +316,12 @@ class FiniteHexExplicitResidual:
         self._accepted_force = force
         self._accepted_displacement = u.copy()
         self._accepted_energy = energy
-        self.identity = digest.hexdigest()
+        self.identity = content_fingerprint(self.comm.allgather(digest.hexdigest()))
 
     def assemble_accepted_vector(self):
         """Owned force sample for work/restart; does not update material history."""
-        self.require_accepted_configuration()
+        collective_call(self.require_accepted_configuration, comm=self.comm,
+                        label="Finite Hex8 accepted force")
         vector = self.internal.displacement.x.petsc_vec.duplicate()
         vector.array[:] = self._accepted_force
         return vector
@@ -268,7 +349,11 @@ class FiniteHexExplicitResidual:
 
     def assemble_vector(self):
         dt = self.time - self.accepted_time
-        self.validate_time_increment(dt)
+        collective_call(
+            lambda: self.validate_time_increment(dt),
+            comm=self.comm,
+            label="Finite Hex8 increment",
+        )
         vector = None
         self._trial = None
         self._trial_interface = None
@@ -279,30 +364,22 @@ class FiniteHexExplicitResidual:
                 time=self.accepted_time,
                 time_increment=dt,
             ) as (vector, trial):
-                if trial.material_response.minimum_suggested_time_scale < 1:
-                    raise ValueError(
-                        "Material requested increment reduction; fixed explicit step rejected."
-                    )
-                spectrum = self.internal.cells.tangent_spectral_report(
-                    first_piola_tangent=self.internal.response.tangent.values
+                from mpi4py import MPI
+
+                spectrum = collective_call(
+                    lambda: self._screen_trial(trial, dt),
+                    comm=self.comm,
+                    label="Finite Hex8 spectrum",
                 )
-                bound = spectrum.positive_eigenvalue_upper_bound
-                if spectrum.negative_material_curvature_cells:
-                    if self.maximum_negative_growth_per_increment is None:
-                        raise ValueError(
-                            "Indefinite material tangent requires an explicit curvature policy."
-                        )
-                    if (
-                        dt * np.sqrt(spectrum.negative_eigenvalue_magnitude_bound)
-                        > self.maximum_negative_growth_per_increment
-                    ):
-                        raise ValueError(
-                            "Increment under-resolves the negative-curvature growth bound."
-                        )
-                if bound > self.bound * (1 + 1e-12):
-                    raise ValueError(
-                        "Current tangent exceeds the declared spectral ceiling."
-                    )
+                bound = self.comm.allreduce(
+                    spectrum.positive_eigenvalue_upper_bound, op=MPI.MAX
+                )
+                negative_bound = self.comm.allreduce(
+                    spectrum.negative_eigenvalue_magnitude_bound, op=MPI.MAX
+                )
+                negative_cells = self.comm.allreduce(
+                    spectrum.negative_material_curvature_cells, op=MPI.SUM
+                )
                 if self.cohesive is not None:
                     self._trial_interface = self.cohesive.add_to_vector(vector)
                 if not np.isfinite(vector.array).all():
@@ -316,8 +393,8 @@ class FiniteHexExplicitResidual:
             self.last_bound = bound
             self.last_spectrum = {
                 "positive_eigenvalue_upper_bound": bound,
-                "negative_eigenvalue_magnitude_bound": spectrum.negative_eigenvalue_magnitude_bound,
-                "negative_material_curvature_cells": spectrum.negative_material_curvature_cells,
+                "negative_eigenvalue_magnitude_bound": negative_bound,
+                "negative_material_curvature_cells": negative_cells,
             }
             return vector
         except BaseException:
@@ -327,7 +404,7 @@ class FiniteHexExplicitResidual:
             self.internal._tangent_available = False
             raise
 
-    def commit(self):
+    def _commit_energy(self):
         if self._trial is None:
             raise RuntimeError("No finite Hex8 material trial to accept.")
         if self.time != self._trial_time:
@@ -352,7 +429,10 @@ class FiniteHexExplicitResidual:
                 ),
                 "material_dissipation": self._accepted_energy["material_dissipation"]
                 + float(
-                    self.internal.cells.volume @ response.dissipation_density_increment
+                    self.internal.cells.volume
+                    @ response.dissipation_density_increment[
+                        : len(self.internal.cell_nodes)
+                    ]
                 ),
                 "interface_stored_energy": 0.0
                 if self._trial_interface is None
@@ -360,6 +440,12 @@ class FiniteHexExplicitResidual:
             }
             if not all(np.isfinite(value) for value in energy.values()):
                 raise ValueError("Non-finite accepted energy increment.")
+        return energy
+
+    def commit(self):
+        energy = collective_call(
+            self._commit_energy, comm=self.comm, label="Finite Hex8 acceptance"
+        )
         self.internal.response.commit()
         if self.cohesive is not None:
             self.cohesive.commit()
@@ -398,6 +484,8 @@ class FiniteHexExplicitResidual:
 
     def checkpoint_snapshot(self):
         """Numeric arrays for the shared serial binary auxiliary envelope."""
+        if self.comm.size > 1:
+            raise NotImplementedError("Finite Hex8 durable MPI restart is not admitted; in-memory rollback remains available.")
         return self.transaction_snapshot()
 
     def checkpoint_capabilities(self):
@@ -489,7 +577,9 @@ class FiniteHexExplicitResidual:
                 or not isinstance(spectrum["negative_material_curvature_cells"], int)
                 or not 0
                 <= spectrum["negative_material_curvature_cells"]
-                <= len(self.internal.cell_nodes)
+                <= self.internal.displacement.function_space.mesh.topology.index_map(
+                    3
+                ).size_global
             ):
                 raise ValueError("Invalid finite Hex8 signed spectrum evidence.")
         if (
@@ -521,7 +611,12 @@ class FiniteHexExplicitResidual:
                 value = np.asarray(record[name])
                 if (
                     np.iscomplexobj(value)
-                    or value.shape != self.internal.displacement.x.array.shape
+                    or value.shape
+                    != (
+                        self.internal.mass_diagonal.shape
+                        if name == "accepted_force"
+                        else self.internal.displacement.x.array.shape
+                    )
                     or not np.isfinite(value).all()
                 ):
                     raise ValueError("Invalid finite Hex8 accepted force/displacement.")

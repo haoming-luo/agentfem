@@ -4,6 +4,8 @@
 
 from dataclasses import dataclass
 
+import numpy as np
+
 from ..diagnostics import kinetic_energy
 
 
@@ -14,12 +16,26 @@ class FiniteHexEnergyMonitor:
     def evaluate(self, *, displacement, velocity):
         residual = self.residual
         # Also rejects an unaccepted or changed configuration without re-evaluation.
-        residual.require_accepted_configuration()
         from ..fields import unwrap
+        from ..provenance import collective_call
+        from mpi4py import MPI
 
-        if unwrap(displacement) is not residual.internal.displacement:
-            raise ValueError("Energy must use the residual's accepted displacement.")
-        values = dict(residual._accepted_energy)
+        def local_values():
+            residual.require_accepted_configuration()
+            if unwrap(displacement) is not residual.internal.displacement:
+                raise ValueError(
+                    "Energy must use the residual's accepted displacement."
+                )
+            return dict(residual._accepted_energy)
+
+        values = collective_call(
+            local_values, comm=residual.comm, label="Finite Hex8 accepted energy"
+        )
+        names = tuple(values)
+        local = np.asarray([values[name] for name in names], dtype=float)
+        global_values = np.empty_like(local)
+        residual.comm.Allreduce(local, global_values, op=MPI.SUM)
+        values = dict(zip(names, map(float, global_values)))
         kinetic = kinetic_energy(residual.internal.mass_diagonal, velocity)
         mechanical = (
             kinetic
