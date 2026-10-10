@@ -99,6 +99,16 @@ support. The archive
 test boundaries. These are acceptance checks, not a published package release
 or a complete industrial validation.
 
+After the input-admission and initialization safeguards, clean numerical
+source `7ad7a067` was rebuilt and independently installed again. Its 29 focused
+public-Step, external-material, energy and cyclic/restart tests passed, with
+source-path injection disabled; strict documentation construction also passed.
+`evidence/hex8/2026-10-10-installed-admission-serial.json` records that exact wheel.
+The subsequent material-description guard passes 15 related serial tests;
+new rank-local description/input-preparation fault tests are retained in bounded
+remote MPI release CI. Earlier wheel results are not substituted for that
+final-revision check.
+
 ### Small-strain elastic workflow
 
 The model uses a 3D `studies.dynamic_solid()` Study, continuous Q1 hexahedra,
