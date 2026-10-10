@@ -110,3 +110,38 @@ def test_finite_step_with_boundary_owned_only_on_some_ranks():
         assert step.history_records[-1][key] == pytest.approx(
             serial.history_records[-1][key], rel=1e-9, abs=1e-16
         )
+
+
+@pytest.mark.parametrize("stage", ["increment", "restart"])
+def test_rank_local_time_callback_failure_rolls_back_collectively(tmp_path, monkeypatch, stage):
+    comm = MPI.COMM_WORLD
+    if comm.size < 2:
+        pytest.skip("Requires a rank-local callback failure")
+    directory = Path(comm.bcast(str(tmp_path), root=0))
+    source = make_step(comm)
+    source.run(until_step=7)
+    checkpoint = source.save_checkpoint(directory / "time-callback")
+    target = make_step(comm)
+    material = target.residual.snapshot()
+    nodal = target.state.snapshot()
+    update = target.residual.update_time
+
+    def fail(value):
+        if comm.rank == 1 and value > 0:
+            raise ValueError("injected residual time callback failure")
+        update(value)
+
+    monkeypatch.setattr(target.residual, "update_time", fail)
+    with pytest.raises((ValueError, RuntimeError), match="time callback failure"):
+        if stage == "restart":
+            target.load_checkpoint(checkpoint)
+        else:
+            target.run(until_step=1)
+    assert target.completed_steps == 0
+    assert target.residual.snapshot() == material
+    for name, value in nodal["fields"].items():
+        np.testing.assert_array_equal(target.state.snapshot()["fields"][name], value)
+    monkeypatch.setattr(target.residual, "update_time", update)
+    target.load_checkpoint(checkpoint)
+    target.run(until_step=8)
+    assert target.completed_steps == 8

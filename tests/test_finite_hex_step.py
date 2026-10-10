@@ -118,6 +118,9 @@ def test_finite_step_rejects_missing_density_bound_and_unsupported_fields():
     with pytest.raises((ValueError, TypeError), match="omega_squared_bound"):
         model.step(target=u, element_policy=policy, dt=1e-4, steps=2)
     step = make_step()
+    assert step.operator_lifecycle_summary()["stability_scope"] == (
+        "caller_path_ceiling_with_signed_endpoint_screen"
+    )
     with pytest.raises(ValueError, match="Unsupported finite"):
         step.solve_result(field_variables=("DAMAGE",))
     assert step.completed_steps == 0

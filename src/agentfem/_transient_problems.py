@@ -367,7 +367,13 @@ class ExplicitDynamicsStep:
                     label="Explicit time inputs",
                 )
             if hasattr(self.residual, "update_time"):
-                self.residual.update_time(t)
+                from .provenance import collective_call
+
+                collective_call(
+                    lambda: self.residual.update_time(t),
+                    comm=fields.unwrap(self.state.u).function_space.mesh.comm,
+                    label="Explicit residual time",
+                )
             self.integrator.step(
                 self.dt,
                 time=t,
@@ -1954,13 +1960,25 @@ def _load_transient_checkpoint_impl(step, path, state) -> None:
         raise ValueError(
             "Checkpoint lacks the accepted endpoint for its path-dependent history monitor."
         )
-    if getattr(step, "update_load", None) is not None:
-        step.update_load(restart_time)
-    if hasattr(residual, "update_time"):
-        residual.update_time(restart_time)
-    for item in tuple(getattr(step, "prescribed", ())):
-        if hasattr(item, "update"):
-            item.update(restart_time)
+    def restore_inputs():
+        if getattr(step, "update_load", None) is not None:
+            step.update_load(restart_time)
+        if hasattr(residual, "update_time"):
+            residual.update_time(restart_time)
+        for item in tuple(getattr(step, "prescribed", ())):
+            if hasattr(item, "update"):
+                item.update(restart_time)
+
+    # A rank-local callback failure must make every rank enter joint rollback;
+    # otherwise successful ranks can leave load_checkpoint while one rank
+    # blocks restoring distributed material/nodal state.
+    from .provenance import collective_call
+
+    collective_call(
+        restore_inputs,
+        comm=fields.unwrap(next(iter(state.values()))).function_space.mesh.comm,
+        label="Transient checkpoint time inputs",
+    )
     step.checkpoints.append(
         CheckpointRecord(
             name=f"{step.name}_{step.completed_steps}_restart",

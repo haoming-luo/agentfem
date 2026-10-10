@@ -11,6 +11,13 @@ from .provenance import collective_call, collective_canonical_record
 
 
 class FiniteUniformHexStep(ExplicitDynamicsStep):
+    def operator_lifecycle_summary(self):
+        return {
+            **super().operator_lifecycle_summary(),
+            "stability_scope": "caller_path_ceiling_with_signed_endpoint_screen",
+            "material_tangent_policy": "accepted_trial_recomputed_each_increment",
+        }
+
     def solve_result(self, *, field_variables=None, fields=(), **options):
         comm = self.residual.comm
         modes = comm.allgather((field_variables is None, bool(fields)))
