@@ -8,6 +8,11 @@ experimental formulation to a validated one.
 
 ### Experimental Hex8 and nonmatching interfaces
 
+- Compose a serial equal-stiffness nonmatching elastic bond with an external
+  translating-plane contact through the ordinary finite-Hex Step. Reject shared
+  trace nodes; no failure/contact switching is inferred. Verify the summed
+  stability restriction, independent four-mass dynamics, temporal convergence,
+  plastic energy and exact joint rollback/restart. Add a Gmsh example.
 - Preserve nested numeric material State through contact checkpoint/rollback
   wrappers and inherit its restart restrictions. Reuse accepted material force
   for reaction queries instead of reintegrating history at zero increment.

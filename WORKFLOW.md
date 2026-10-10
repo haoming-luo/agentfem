@@ -271,6 +271,12 @@ neighbor-collective scalability claim.
 
 ## Design Principle
 
+The bounded serial finite-Hex route accepts an equal-stiffness elastic
+`cohesive_force` plus one registered translating-plane contact boundary model
+through the same `model.step`. Their trace nodes must be disjoint. Both remain
+separate scientific assets; the common Procedure owns the summed stability bound,
+accepted energy ledger and joint recovery. See `examples/finite_hex_bond_contact.py`.
+
 For the experimental nonmatching elastic-interface route, retain independent
 P1 trace dof maps, construct `interfaces.pair_nonmatching_triangles` and
 `fracture.nonmatching_cohesive_force`, then supply `cohesive_force=` to the

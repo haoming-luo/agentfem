@@ -684,8 +684,9 @@ the bulk/hourglass/interface ceiling before selecting a fixed increment; a
 caller ceiling or a reviewed material envelope is still required for the bulk.
 
 This first admission is serial, one frictionless plane, fixed or in prescribed
-translation. Rotation, curved tools, multiple pairs, friction, simultaneous
-bonding/contact and MPI contact composition reject before stepping. The
+translation. Rotation, curved tools, multiple pairs, friction and MPI contact
+composition reject before stepping. Bonding on a separate trace is bounded
+as described below; no bond-failure/contact switching is admitted. The
 penalty potential uses the reference-surface quadrature weights; it must not be
 interpreted as an independently validated current-area pressure formulation.
 
@@ -710,6 +711,46 @@ example also completes and its output passes artifact-integrity verification.
 The wider 142-test source selection overlaps these checks, not an additional
 independent sample. Exact wheel identity and limits are recorded in
 [`2026-10-10-finite-contact-installed.json`](https://github.com/haoming-luo/agentfem/blob/main/evidence/hex8/2026-10-10-finite-contact-installed.json).
+
+### Bond plus external tool contact
+
+The same ordinary finite-Hex Step admits the reviewed equal-stiffness elastic
+reference bond together with one external translating frictionless plane. The
+contact boundary and either bond trace must have disjoint nodal support; shared
+edges are conservatively refused as well. This intentionally excludes contact
+on the bonded interface and any automatic transition after failure.
+
+Bulk/hourglass, interface and contact contributions enter the common spectral
+sum once. The existing material State owns the bond transaction; the contact
+wrapper adds tool state without replacing that owner. The energy ledger reports
+bulk storage, bond storage, artificial energy, contact potential, material
+dissipation and tool path work separately. No additional integrator is introduced.
+
+`tests/test_finite_hex_bond_contact.py` checks a coarse/fine two-block specimen
+against an independently integrated four-mass axial Neo-Hookean system, with
+three time increments and second-order convergence. It also checks plastic
+loading, complete post-commit rollback, exact interrupted restart and changed
+bond-identity rejection. The lumped reference is not a continuum mesh-convergence
+or Abaqus comparison. `examples/finite_hex_bond_contact.py` supplies a Gmsh/native
+J2 demonstration alongside its geometry helper `nonmatching_hex_bond.py`.
+The 35-cell, 1,000-increment Gmsh demonstration reports tool work `0.00678778226`,
+bond energy `4.14790767e-8`, material dissipation `6.26068213e-5` and final
+relative energy residual `1.85668401e-7` in its declared consistent model units.
+
+An independent external test provider additionally uses a restricted orthotropic
+Green-strain energy, with fixed reference material axes. Analytic `dP/dF` and
+energy derivatives are checked by finite differences, then by superposed rigid
+rotation. The same provider runs and restarts the combined Step without any
+material-name branch in core. See `tests/test_finite_hex_orthotropic_provider.py`.
+This test law is not shipped as the tester's material or claimed reliable in
+arbitrary large compression. [FEBio's orthotropic hyperelastic discussion](https://febiosoftware.github.io/febio-docs/theory/chapter5/5.2-compressible-materials/)
+motivates the energy-based reference, not a claim of a FEBio cross-validation.
+
+The design follows explicit penalty-contact practice in keeping additional
+contact stiffness in the time-step restriction, and fixed initial bonding
+distinct from evolving contact; see [Abaqus contact enforcement](https://docs.software.vt.edu/abaqusv2025/English/SIMACAEITNRefMap/simaitn-c-expcontactconstraints.htm)
+and [Sierra interface interactions](https://www.sandia.gov/files/sierra/SM_Users_5_30/user_manual/contact/interactions.html).
+These are algorithm-design references, not equivalence claims.
 
 ### Accepted contact-history performance
 
