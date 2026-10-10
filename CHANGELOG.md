@@ -8,6 +8,10 @@ experimental formulation to a validated one.
 
 ### Experimental Hex8 and nonmatching interfaces
 
+- Admit distributed finite-Hex material plus one translating-plane contact,
+  without a bonded interface. Verify serial/parallel agreement, same-partition
+  restart, empty ranks and collective rollback. Reject inconsistent contact
+  descriptions and corrupt outer records before entering nested MPI restores.
 - Compose a serial equal-stiffness nonmatching elastic bond with an external
   translating-plane contact through the ordinary finite-Hex Step. Reject shared
   trace nodes; no failure/contact switching is inferred. Verify the summed

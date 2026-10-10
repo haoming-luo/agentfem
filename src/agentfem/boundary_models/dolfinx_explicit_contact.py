@@ -931,9 +931,11 @@ class DolfinxExplicitContactResidual:
         )
 
     def snapshot(self) -> dict[str, object]:
-        """Return rank-canonical accepted residual state for checkpoints."""
+        """Canonical contact records with provider-owned nested State."""
 
-        return self._accepted_snapshot("snapshot", canonical_base=True)
+        return self._accepted_snapshot(
+            "snapshot", canonical_base=not callable(getattr(self.base, "checkpoint_snapshot", None)),
+        )
 
     def checkpoint_snapshot(self) -> dict[str, object]:
         """Preserve nested rank-local numeric State in the shared archive."""
@@ -1107,8 +1109,8 @@ class DolfinxExplicitContactResidual:
         )
         return tuple(terms)
 
-    def restore(self, snapshot: object) -> None:
-        """Restore accepted audit State; the next evaluation still reprojects."""
+    def _validate_restore(self, snapshot: object):
+        """Local validation only, before any nested collective restoration."""
 
         required = {
             "schema",
@@ -1195,10 +1197,22 @@ class DolfinxExplicitContactResidual:
             raise ValueError(
                 "Explicit-contact checkpoint lacks required nested residual State."
             )
+        return (raw_base, validated_work, count, evidence,
+                validated_friction, validated_projection)
+
+    def restore(self, snapshot: object) -> None:
+        """Reject rank-local outer corruption before nested State collectives."""
+        from ..provenance import collective_call
+
+        (raw_base, validated_work, count, evidence,
+         validated_friction, validated_projection) = collective_call(
+            lambda: self._validate_restore(snapshot), comm=self.communicator,
+            label="Explicit-contact restore validation",
+        )
         # Every outer field is validated before nested State is allowed to
         # mutate. The local work assignment below is then infallible.
         if raw_base is not None:
-            base_restore(raw_base)
+            self.base.restore(raw_base)
         if validated_friction is not None:
             friction, kinematics = validated_friction
             self.friction_state.accepted = friction

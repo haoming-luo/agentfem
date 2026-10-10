@@ -88,9 +88,19 @@ refinement, restart equality and post-commit rollback are exercised together.
 The next candidate lowers one registered frictionless translating plane through
 ordinary finite-Hex `model.step`, preserving the separate constitutive owner.
 It passes a scalar finite-compression ODE comparison and a native finite-J2
-plastic work/restart test. Distributed composition, curved/rotating tools,
+plastic work/restart test. Distributed bonded composition, curved/rotating tools,
 multiple pairs, friction and the tester's actual orthotropic material remain
 open; do not equate this serial slice with industrial forming completion.
+
+Distributed contact follow-up (without a bonded interface): the same ordinary
+Step now passes five two-rank gates for serial equivalence, same-partition
+restart, empty partitions, rank-inconsistent admission/corrupt outer-state
+rejection and post-commit rollback. The combined contact/finite-Hex MPI
+regression passes 62 tests per rank; serial contact/bond regressions pass 57
+with eight MPI-only skips. These are overlapping selections, not 124 distinct
+MPI tests. Distributed nonmatching interface ownership and cross-partition
+finite-material restart remain separate work; no VUMAT is needed to develop
+those infrastructure contracts.
 
 The next serial combination now composes bulk, an equal-stiffness nonmatching
 elastic bond and an external translating plane through the same Step. Contact

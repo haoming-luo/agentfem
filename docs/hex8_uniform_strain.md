@@ -683,9 +683,10 @@ owns total force and contact State. It adds the contact spectral bound once to
 the bulk/hourglass/interface ceiling before selecting a fixed increment; a
 caller ceiling or a reviewed material envelope is still required for the bulk.
 
-This first admission is serial, one frictionless plane, fixed or in prescribed
-translation. Rotation, curved tools, multiple pairs, friction and MPI contact
-composition reject before stepping. Bonding on a separate trace is bounded
+This admission supports one frictionless plane, fixed or in prescribed
+translation, in serial or distributed execution without bonded interfaces.
+Rotation, curved tools, multiple pairs and friction reject before stepping.
+Serial bonding on a separate trace is bounded
 as described below; no bond-failure/contact switching is admitted. The
 penalty potential uses the reference-surface quadrature weights; it must not be
 interpreted as an independently validated current-area pressure formulation.
@@ -702,8 +703,16 @@ one-element model, not spatial accuracy or industrial forming.
 finite J2. Its 1,000-increment source run reports positive material dissipation
 and tool work, with final relative work/energy residual about `2.03e-7`.
 Interrupted/continuous material State and nodal displacement match exactly.
-These are small serial acceptance gates; MPI, general tool geometry and the
+These are small serial acceptance gates; general tool geometry and the
 tester's actual finite orthotropic material remain separate requirements.
+
+The focused two-rank gate `tests/test_parallel_finite_hex_contact.py` compares
+the energy/work history with serial execution and checks exact same-partition
+restart, an intentionally empty rank, collective rejection of inconsistent
+contact descriptions or corrupt outer records, and rollback after a rank-local
+post-commit failure. Nested material State remains rank-local; contact work
+records remain canonical. This does not establish repartitioned finite-material
+restart or distributed nonmatching bonding, which remain unsupported.
 
 Clean candidate `afef243a` passes 29 isolated installed-wheel checks with source
 injection disabled; all 299 packaged Python modules match source. The installed

@@ -50,7 +50,7 @@ class FiniteUniformHexStep(ExplicitDynamicsStep):
             "execution_scope": "experimental_single_material_finite_reference_hex8",
             "contact_scope": (
                 "none" if self.residual is self.material_residual else
-                "serial_single_frictionless_translating_plane_reference_surface_penalty"
+                "single_frictionless_translating_plane_reference_surface_penalty"
             ),
             "bond_contact_scope": (
                 "serial_disjoint_trace_nodes_isotropic_elastic_reference_bond"
@@ -107,8 +107,8 @@ def _prepare(model, request):
                 "Finite Hex8 eigenstrains are not admitted."
             )
         if contact_pairs:
-            if domain.comm.size != 1 or len(contact_pairs) != 1:
-                raise NotImplementedError("Finite Hex8 contact is not admitted beyond one serial pair.")
+            if len(contact_pairs) != 1:
+                raise NotImplementedError("Finite Hex8 contact is not admitted beyond one pair.")
             pair = contact_pairs[0]
             if (not isinstance(pair, boundary_models.RigidContactPair)
                     or not isinstance(pair.rigid_body.surface, boundary_models.RigidPlaneSurface)
@@ -133,6 +133,13 @@ def _prepare(model, request):
 
     assets = collective_call(
         admit_assets, comm=domain.comm, label="Finite Hex8 model admission"
+    )
+    contact_contract = collective_call(
+        lambda: [pair.scientific_identity for pair in contact_pairs],
+        comm=domain.comm, label="Finite Hex8 contact description",
+    )
+    collective_canonical_record(
+        contact_contract, comm=domain.comm, label="Finite Hex8 contact contract",
     )
 
     def select_material():

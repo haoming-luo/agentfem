@@ -15,11 +15,24 @@ from test_finite_hex_step import problem
 
 
 def prepare_contact(*, dt=1e-4, duration=0.02, single_cell=False, public=False,
-                    rotation=0.0, automatic=False, material=None, frequency_ceiling=None):
-    prototype, _, policy = problem(force=0)
+                    rotation=0.0, automatic=False, material=None, frequency_ceiling=None,
+                    comm=MPI.COMM_SELF, include_contact=True):
+    prototype, _, policy = problem(comm, force=0)
     domain = prototype.mesh
     if single_cell:
-        domain = mesh.create_unit_cube(MPI.COMM_SELF, 1, 1, 1, cell_type=mesh.CellType.hexahedron)
+        partitioner = None
+        if comm.size > 1:
+            from dolfinx import graph
+
+            def partitioner(comm, parts, types, cells):
+                # Exercise an empty rank without partitioning an edgeless graph.
+                count = (cells.num_nodes if hasattr(cells, "num_nodes")
+                         else sum(array.size // 8 for array in cells))
+                result = graph.adjacencylist(np.zeros((count, 1), dtype=np.int32))
+                return getattr(result, "_cpp_object", result)
+
+        domain = mesh.create_unit_cube(comm, 1, 1, 1, cell_type=mesh.CellType.hexahedron,
+                                      partitioner=partitioner)
     model = models.create(study=studies.dynamic_solid(dimension=3), mesh=domain)
     u = model.field(fields.displacement(domain))
     model.material(material or BoundedNeoHookean())
@@ -45,7 +58,8 @@ def prepare_contact(*, dt=1e-4, duration=0.02, single_cell=False, public=False,
             region, boundary_models.rigid_body(surface, motion_schedule=schedule),
             penalty=200, name="moving_plane",
         )
-        model.add_boundary_model(pair)
+        if include_contact:
+            model.add_boundary_model(pair)
         return model.step(**options)
     body = model.step(**options)
     residual = boundary_models.dolfinx_explicit_contact_residual(
