@@ -89,14 +89,50 @@ remains serial. These are targeted regressions, not full release acceptance.
 | 4 | Explicit material response contract with independently declared stability and energy capabilities | Private work-only response and serial quadrature lowering tested; independent explicit stability admission pending |
 | 5 | Ordinary finite-Hex Step consumes the provider; single-element traction, multi-element patch, failed-trial recovery and checkpoint | Private response-only adapter now advances existing central difference with serial disk restart and whole-step rollback; ordinary model admission and full structure still pending |
 | 6 | Multiple analytical rigid tools in that same Step; geometry validity, curvature stability, resultant/moment/work, joint rollback | Private response-only route composes two moving planes or bounded lateral cylinders with existing contact residuals, tool-work ledger and disk restart; curvature stability and ordinary-Step admission pending |
-| 7 | Imported geometry/section/interface audit and controlled incremental whole-model runs | Local geometry audit identifies nonaffine, globally noncoplanar traces and small facet warpage; general pairing and whole-model runs pending |
-| 8 | Bulk viscosity and variable mass scaling when required for source equivalence, with separate work/inertia evidence | Serial Hex8 bulk-viscosity force/power and response-trial composition tested; accepted time integration, damping stability and variable mass scaling pending |
-| 9 | Independent reference curves, mesh/time/penalty/hourglass sensitivity, performance and installed-use acceptance | Pending; commercial output is required before cross-validation claims |
+| 7 | Imported geometry/section/interface audit and controlled incremental whole-model runs | True-Q1 pairing, bounded closed-solid contact and full original-mesh startup/restart tested; full loading, complete contact coverage and independently confirmed bond eligibility pending |
+| 8 | Bulk viscosity and variable mass scaling when required for source equivalence, with separate work/inertia evidence | Serial accepted viscosity and variable-inertia transactions/restart tested; evolving material/contact/damping increment policy, mass sensitivity and vendor equivalence pending |
+| 9 | Independent reference curves, mesh/time/penalty/hourglass sensitivity, performance and installed-use acceptance | Isolated review-wheel and startup acceptance tested; complete loading convergence and commercial comparison pending |
 
 Deletion and interface damage are not prerequisites for reproducing a source
 that defines neither. General-purpose implementations of those features remain
 separate roadmap items. A complete model may need gates 4--8 even though its
 material-point behavior is already reproducible.
+
+### Evidence checkpoint, 2026-10-11
+
+The bounded implementation has a 321-test targeted selection; subsequent polar
+reuse and callback-transaction fixes passed their 42- and 38-test selections.
+An isolated installed review wheel (`0.4.1+review.7d5de8ea`) passed 89 selected
+tests without importing repository source. These selections overlap and must
+not be added as unique tests. The quadrature-layout MPI check passed 18 unique
+tests on two ranks; it does not admit the combined private response route to MPI.
+
+All 255,041 original cells additionally completed 120 prescribed affine
+stretch/shear/rotation updates, including damage. The exact-gradient material
+reference gives maximum scaled stress error about 2.1e-11 and force/moment
+balance below 1.1e-14. This is a manufactured kinematic path, not solved tool
+loading or global equilibrium. Reusing the polar spectrum reduced the measured
+median body-trial time by about 4.6% in this exercise; the approximately 13%
+standalone kinematics gain is not a whole-solver speedup.
+
+The installed-wheel four-increment original-mesh startup and its interrupted
+restart agree bitwise in 11 accepted array fields and exactly in recorded
+history. The endpoint remains 4e-10 s with zero displacement: no completed
+0.1 s source simulation, force--displacement curve, or commercial validation
+is claimed. Keep this capacity/recovery evidence separate from nonzero
+manufactured-path evidence and eventual full-loading evidence.
+
+The review package is private and excludes original confidential source assets.
+Do not substitute zero inelastic work reported by a source routine for a proven
+energy decomposition. Likewise, an initial mass/time screen is insufficient
+for an evolving damaged/contacting model. Abaqus' own
+[explicit-analysis guidance](https://docs.software.vt.edu/abaqusv2025/English/SIMACAEANLRefMap/simaanl-c-expdynamic.htm)
+calls for checking inertia when accelerating quasi-static analysis; a small
+kinetic-energy ratio alone is not a replacement for response sensitivity.
+Its [cohesive-contact documentation](https://docs.software.vt.edu/abaqusv2025/English/SIMACAEITNRefMap/simaitn-c-cohesivebehavior.htm)
+also distinguishes original-contact eligibility from later contact. Our selected
+near-coincident mask is a recorded hypothesis, not proof of the source solver's
+actual initial bond set.
 
 ## Kinematics chosen for the candidate
 
