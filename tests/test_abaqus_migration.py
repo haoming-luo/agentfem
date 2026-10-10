@@ -489,7 +489,9 @@ def test_plan_marks_topology_only_element_without_discarding_suffix(tmp_path):
     rendered = abaqus_migration._migration_report_markdown(plan)
     assert "uniform_strain_hex8" in rendered
     assert "topology_only" in rendered
-    assert "damage/deletion" in rendered
+    assert "damage/deletion" in rendered.lower()
+    assert "bounded finite-strain" in rendered
+    assert "complete-path spectral ceiling" in rendered
 
 
 def test_plan_blocks_element_declaration_without_type(tmp_path):
