@@ -26,7 +26,7 @@ def test_unaccepted_response_cannot_be_restored():
     assert step.residual.snapshot() == before
 
 
-def make_step(dt=1e-4, *, contact=False, bond=False):
+def make_step(dt=1e-4, *, contact=False, bond=False, viscosity=False):
     if bond:
         from test_nonmatching_global import _blocks
 
@@ -67,6 +67,8 @@ def make_step(dt=1e-4, *, contact=False, bond=False):
             negative_dofs=na,
             positive_dofs=nb,
         )
+    from agentfem.elements._bulk_viscosity_policy import BulkViscosityPolicy
+
     residual = ResponseHexExplicitResidual(
         internal,
         law,
@@ -74,6 +76,7 @@ def make_step(dt=1e-4, *, contact=False, bond=False):
         stress_free_initial_state=True,
         material_identity={"test": "linear-response", "modulus": 20.0},
         cohesive=cohesive,
+        bulk_viscosity=BulkViscosityPolicy(1.0, 5.0, 0.5) if viscosity else None,
     )
     xyz = u.function_space.tabulate_dof_coordinates()
     history.v.value.x.array[:] = (0.001 * xyz).ravel()
@@ -148,13 +151,16 @@ def make_step(dt=1e-4, *, contact=False, bond=False):
 @pytest.mark.parametrize(
     "contact,bond", [(True, False), ("cylinder", False), ("cylinder", True)]
 )
-def test_response_only_nested_moving_contact_and_restart(tmp_path, contact, bond):
-    reference = make_step(contact=contact, bond=bond)
+@pytest.mark.parametrize("viscosity", [False, True])
+def test_response_only_nested_moving_contact_and_restart(
+    tmp_path, contact, bond, viscosity
+):
+    reference = make_step(contact=contact, bond=bond, viscosity=viscosity)
     reference.run()
-    partial = make_step(contact=contact, bond=bond)
+    partial = make_step(contact=contact, bond=bond, viscosity=viscosity)
     partial.run(until_step=4)
     path = partial.save_checkpoint(tmp_path / "contact_response")
-    resumed = make_step(contact=contact, bond=bond)
+    resumed = make_step(contact=contact, bond=bond, viscosity=viscosity)
     resumed.load_checkpoint(path)
     resumed.run()
     for name in ("u", "v", "a"):
@@ -176,11 +182,13 @@ def test_response_only_nested_moving_contact_and_restart(tmp_path, contact, bond
     assert "stored_energy" not in last
     if bond:
         assert last["interface_stored_energy"] > 0
+    if viscosity:
+        assert last["artificial_bulk_viscosity_work"] > 0
 
 
 @pytest.mark.parametrize("bond", [False, True])
 def test_nested_contact_late_failure_is_atomic(monkeypatch, bond):
-    step = make_step(contact=True, bond=bond)
+    step = make_step(contact=True, bond=bond, viscosity=True)
     step.run(until_step=2)
     accepted = step.residual.snapshot()
     nodal = step.state.snapshot()

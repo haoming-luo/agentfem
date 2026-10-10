@@ -36,10 +36,12 @@ class ResponseHexWorkMonitor:
             "material_internal_work": r.internal_work,
             "hourglass_energy": r.hourglass_energy,
             "interface_stored_energy": r.interface_energy,
+            "artificial_bulk_viscosity_work": r.viscosity_work,
             "accounted_internal_kinetic_energy": kinetic
             + r.internal_work
             + r.hourglass_energy
-            + r.interface_energy,
+            + r.interface_energy
+            + r.viscosity_work,
         }
 
 
@@ -53,6 +55,7 @@ class ResponseHexExplicitResidual:
         material_identity,
         stress_free_initial_state,
         cohesive=None,
+        bulk_viscosity=None,
     ):
         from ..constitutive._explicit_material_driver import ExplicitQuadratureResponse
 
@@ -76,6 +79,15 @@ class ResponseHexExplicitResidual:
         if not np.array_equal(committed, np.broadcast_to(initial, committed.shape)):
             raise ValueError("Response-only initialization requires virgin state.")
         self.internal, self.material = internal, material
+        self.bulk_viscosity = bulk_viscosity
+        self._secant_velocity = None
+        if bulk_viscosity is not None:
+            from ..elements._bulk_viscosity_policy import BulkViscosityPolicy
+            from dolfinx import fem
+
+            if not isinstance(bulk_viscosity, BulkViscosityPolicy):
+                raise TypeError("Expected a BulkViscosityPolicy.")
+            self._secant_velocity = fem.Function(internal.displacement.function_space)
         self.cohesive = cohesive
         if cohesive is not None:
             from .._elastic_cohesive import ElasticCohesiveLaw
@@ -110,6 +122,9 @@ class ResponseHexExplicitResidual:
                     "state": repr(material.state_schema),
                     "ceiling": ceiling,
                     "stress_free_initial_state": True,
+                    "bulk_viscosity": None
+                    if bulk_viscosity is None
+                    else bulk_viscosity.summary(),
                 }
             ).encode()
         )
@@ -132,6 +147,8 @@ class ResponseHexExplicitResidual:
         self.internal_work = 0.0
         self.hourglass_energy = 0.0
         self.interface_energy = 0.0
+        self.viscosity_work = 0.0
+        self.damping_rate_bound = 0.0
         self._trial = None
         self.accepted_force = np.zeros_like(internal.mass_diagonal)
         self.accepted_displacement = internal.displacement.x.array.copy()
@@ -162,6 +179,51 @@ class ResponseHexExplicitResidual:
             time=self.accepted_time,
             time_increment=dt,
         ) as (vector, trial):
+            viscosity_work = self.viscosity_work
+            damping_bound = 0.0
+            if self.bulk_viscosity is not None:
+                increment = (
+                    self.internal.displacement.x.array - self.accepted_displacement
+                )
+                self._secant_velocity.x.array[:] = increment / dt
+                damping, viscous = self.internal.assemble_bulk_viscosity(
+                    self._secant_velocity,
+                    **self.bulk_viscosity.options(
+                        np.linalg.det(trial.deformation_gradient)
+                    ),
+                )
+                try:
+                    contribution = float(damping.array @ increment)
+                    expected = dt * float(viscous.artificial_power.sum())
+                    roundoff = (
+                        128
+                        * np.finfo(float).eps
+                        * float(np.sum(np.abs(damping.array * increment)))
+                    )
+                    if (
+                        expected < 0
+                        or abs(contribution - expected) > roundoff + 1e-10 * expected
+                    ):
+                        raise ValueError(
+                            "Artificial damping work is not conjugate to the increment."
+                        )
+                    damping_bound = float(
+                        np.max(viscous.mass_scaled_damping_bound, initial=0.0)
+                    )
+                    # Conditional fixed-coefficient estimate: ceiling is still
+                    # supplied, NOT a proven material/contact spectral bound.
+                    omega = 2 / self.ceiling
+                    limit = 4 / (np.hypot(damping_bound, 2 * omega) + damping_bound)
+                    if dt > limit * (1 + 1e-12):
+                        raise ValueError(
+                            "Increment exceeds the damping-adjusted resolution ceiling."
+                        )
+                    vector.axpy(1.0, damping)
+                    # Equivalent positive local-power contraction avoids
+                    # cancellation of opposite nodal forces in rigid motion.
+                    viscosity_work += expected
+                finally:
+                    damping.destroy()
             interface_energy = 0.0
             if self.cohesive is not None:
                 try:
@@ -176,7 +238,9 @@ class ResponseHexExplicitResidual:
                 @ trial.material_response.internal_work_density_increment
             )
             hg = float(np.sum(trial.element_response.hourglass_energy))
-            if not np.isfinite([work, hg, interface_energy]).all():
+            if not np.isfinite(
+                [work, hg, interface_energy, viscosity_work, damping_bound]
+            ).all():
                 raise ValueError("Nonfinite response-only work.")
             self._trial = (
                 trial,
@@ -186,13 +250,25 @@ class ResponseHexExplicitResidual:
                 self.internal.displacement.x.array.copy(),
                 vector.array.copy(),
                 interface_energy,
+                viscosity_work,
+                damping_bound,
             )
         return vector
 
     def commit(self):
         if self._trial is None:
             raise RuntimeError("No response-only trial to accept.")
-        trial, work, hg, time, displacement, force, interface_energy = self._trial
+        (
+            trial,
+            work,
+            hg,
+            time,
+            displacement,
+            force,
+            interface_energy,
+            viscosity_work,
+            damping_bound,
+        ) = self._trial
         if time != self.time or not np.array_equal(
             displacement, self.internal.displacement.x.array
         ):
@@ -205,6 +281,8 @@ class ResponseHexExplicitResidual:
         self.internal_work, self.hourglass_energy = work, hg
         self.accepted_force = force
         self.interface_energy = interface_energy
+        self.viscosity_work = viscosity_work
+        self.damping_rate_bound = damping_bound
         self.accepted_displacement = displacement
         self._trial = None
 
@@ -235,6 +313,10 @@ class ResponseHexExplicitResidual:
             "increment_ceiling": self.ceiling,
             "stability_certified": False,
             "material_internal_work": self.internal_work,
+            "artificial_bulk_viscosity_work": self.viscosity_work,
+            "bulk_viscosity": None
+            if self.bulk_viscosity is None
+            else self.bulk_viscosity.summary(),
             "stored_energy_decomposition_available": False,
             "execution_scope": "serial_development",
         }
@@ -260,13 +342,15 @@ class ResponseHexExplicitResidual:
         if self._trial is not None:
             raise RuntimeError("Cannot save an unaccepted response-only trial.")
         return {
-            "schema": "agentfem.private-response-hex.v3",
+            "schema": "agentfem.private-response-hex.v4",
             "identity": self.identity,
             "time": self.accepted_time,
             "gradient": self.accepted_gradient.copy(),
             "internal_work": self.internal_work,
             "hourglass_energy": self.hourglass_energy,
             "interface_energy": self.interface_energy,
+            "viscosity_work": self.viscosity_work,
+            "damping_rate_bound": self.damping_rate_bound,
             "cohesive": None if self.cohesive is None else self.cohesive.snapshot(),
             "accepted_force": self.accepted_force.copy(),
             "accepted_displacement": self.accepted_displacement.copy(),
@@ -315,7 +399,7 @@ class ResponseHexExplicitResidual:
 
     def restore(self, record):
         if (
-            record.get("schema") != "agentfem.private-response-hex.v3"
+            record.get("schema") != "agentfem.private-response-hex.v4"
             or record.get("identity") != self.identity
         ):
             raise ValueError("Response-only checkpoint identity mismatch.")
@@ -332,7 +416,14 @@ class ResponseHexExplicitResidual:
             raise ValueError("Invalid response-only checkpoint gradient.")
         values = [
             record[k]
-            for k in ("time", "internal_work", "hourglass_energy", "interface_energy")
+            for k in (
+                "time",
+                "internal_work",
+                "hourglass_energy",
+                "interface_energy",
+                "viscosity_work",
+                "damping_rate_bound",
+            )
         ]
         if (
             any(
@@ -342,6 +433,8 @@ class ResponseHexExplicitResidual:
             or values[0] < 0
             or values[2] < 0
             or values[3] < 0
+            or values[4] < 0
+            or values[5] < 0
         ):
             raise ValueError("Invalid response-only checkpoint scalars.")
         arrays = {k: np.asarray(record["fields"][k]) for k in fields}
@@ -387,9 +480,13 @@ class ResponseHexExplicitResidual:
             raise
         self.accepted_gradient = gradient.copy()
         self.accepted_time = self.time = float(values[0])
-        self.internal_work, self.hourglass_energy, self.interface_energy = map(
-            float, values[1:]
-        )
+        (
+            self.internal_work,
+            self.hourglass_energy,
+            self.interface_energy,
+            self.viscosity_work,
+            self.damping_rate_bound,
+        ) = map(float, values[1:])
         self.accepted_force = force.copy()
         self.accepted_displacement = displacement.copy()
         self._trial = None

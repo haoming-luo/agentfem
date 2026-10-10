@@ -310,6 +310,46 @@ bounded scratch allocation for material plane searches; no array proportional
 to `all_points * all_search_angles * full_tensor` is required. Do not claim
 whole-model speedup from a local kernel benchmark.
 
+## Accepted artificial damping work (development gate)
+
+The private response-only lifecycle now composes the existing volumetric
+viscosity force with material and original-node interface trials. It records
+artificial work separately, using the positive element-power contraction after
+checking its agreement with assembled force dotted into the displacement
+increment. Opposite nodal forces can cancel to a tiny negative floating-point
+dot product during rigid translation; the check uses a contraction-scale
+roundoff bound, not an arbitrary absolute energy tolerance.
+
+The explicit policy declares physical reference density, a fixed supplied wave
+speed, and a volume-equivalent current length `L0*cuberoot(J)`. The rate is the
+end-configuration displacement secant. These are inspectable numerical choices,
+not claims about Abaqus's characteristic length or velocity sampling. Initial
+acceleration remains a Procedure/case responsibility; an initially resting,
+stress-free body has zero initial damping force. No finite-rotation exactness is
+claimed for this discrete velocity estimate. The conditional damping-adjusted
+ceiling does not turn a caller-supplied elastic ceiling into a certified global
+material/contact bound. Variable mass scaling remains unimplemented.
+
+The private restart schema is now v4 and includes accepted artificial work,
+damping rate and policy identity. Old private payloads are rejected. Targeted
+serial checks: 27 pass, including body/bond/two moving contacts/damping combined
+restart, outer-commit failure rollback, analytic homogeneous dilation work,
+rigid translation, and damped-ceiling rejection. No public capability promotion
+or new MPI claim follows from these checks.
+
+## Original-size cost measurement
+
+A confidential source-mesh preflight executed three prescribed affine trials
+on 255,041 Hex8 cells / 888,222 displacement DOFs. This is not the industrial
+loading simulation. Peak resident memory was approximately 1.91 GB; the
+unprofiled trial times were 1.815, 1.870 and 1.829 seconds. Extrapolating 100,000
+body-only increments gives about 51 hours before contact, interface, output and
+whole-Procedure transaction costs. This estimate is a planning warning, not a
+completion-time guarantee. Direct optimized compilation of the supplied source
+preserved archived history responses to scaled error 4.8e-16; its 255,041-point
+material-only batch was 1.63x faster than the private NumPy translation. Do not
+advertise that local material gain as a solver speedup.
+
 ## Primary design references
 
 - [MOOSE contact module](https://mooseframework.inl.gov/modules/contact/index.html)
