@@ -31,8 +31,12 @@ resolution policy preserves signed spectrum evidence; it is not a general
 nonlinear stability guarantee. Nonuniform plastic response and distributed
 bulk ownership/failure tests now pass. The shared rank-local numeric checkpoint
 encoding additionally covers same-partition finite MPI restart, including empty
-ranks, corrupt or swapped payloads and failed publication. Next: independent
-capacity evidence and performance measurement. Distributed interface
+ranks, corrupt or swapped payloads and failed publication. Independent private
+and ordinary-Step plastic capacity runs now both complete 262,144 cells and
+1,000 increments; the public run peaks at 3.20 GiB. A separate three-pair,
+4,096-cell plastic comparison reduces median integration time by 38.2% with
+identical compared response arrays; see [performance evidence](performance_evidence.md).
+This is not an industrial-forming or universal speedup claim. Distributed interface
 integration, cross-partition finite state recovery, damage/deletion and advanced
 hourglass laws remain separate gates, not requirements satisfied by these tests.
 
@@ -50,6 +54,22 @@ one private input file:
 Prioritize these genuine gaps instead of advertising all of A2 or the complete
 industrial model as finished. Installed-use and performance evidence support
 usability and efficiency, but do not promote scientific scope by themselves.
+
+The next bounded stability slice should first expose material-owned evidence
+at the initial and accepted states, with explicit configuration, units and
+validity scope; do not infer an isotropic wave model from an arbitrary dP/dF
+array. Compare the composed bulk/hourglass/interface estimate against the
+existing fixed-step screen and independent time refinement before replacing
+the caller ceiling. An independently validated stability response could then
+permit response-only material updates where the explicit integrator needs no
+Newton tangent; do not skip tangent generation while the current admission
+screen still depends on it, and measure the actual whole-step benefit.
+Automatic variable increments are a subsequent Procedure
+change: actual accepted times, prescribed-motion work and restart identity
+must remain consistent, and a rejected attempt must not advance material state.
+Do not add an alternative explicit solver or silently enable mass scaling to
+make this gate pass. The tester's actual finite orthotropic material and moving
+contact combination require their own evidence after these shared contracts.
 
 This slice implements bounded fixed-reference nonmatching cohesive trace
 integration and uniform-strain Hex8 stabilization. These are general formulation

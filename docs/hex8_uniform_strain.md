@@ -497,6 +497,19 @@ not establish nonuniform accuracy, contact forming, or a general stable-step
 estimator; it retains a caller-declared path ceiling and explicit signed-curvature
 growth-resolution policy.
 
+The optimized ordinary `model.step()` entry point then completed the same
+262,144-cell, 1,000-increment oracle at clean source `7ad7a067`. Preparation took
+8.66 s; the monitored solve/oracle loop took 3,864.74 s (64.4 minutes), with peak
+RSS 3,435,347,968 bytes (3.20 GiB). Final stress/PEEQ errors and maximum sampled
+relative energy residual retain the values above. Raw evidence, including all
+200 stations and `entrypoint="ordinary_model_step"`, is in
+`evidence/hex8/2026-10-10-finite-public-plastic-capacity.json`.
+These capacity timings overlap brief acceptance checks and must not be used to
+compute an old/new speedup. The separate paired 4,096-cell plastic measurement
+in [performance evidence](performance_evidence.md) provides that comparison.
+The large run does not measure field export, durable checkpoint throughput,
+distributed scaling or the tester's industrial geometry.
+
 ### Public and private promotion boundaries
 
 Compact preparation and serial affine/bending/wave checks are implemented.
