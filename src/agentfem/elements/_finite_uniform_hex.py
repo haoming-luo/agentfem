@@ -369,6 +369,18 @@ class FiniteUniformHexBatch:
         system when element masses assemble into the same positive lumped mass.
         Return (positive upper bound, negative magnitude bound); never take |A|.
         """
+        upper, lower = self.tangent_envelope_cell_bounds(
+            positive_modulus=positive_modulus, negative_modulus=negative_modulus
+        )
+        return float(upper.max(initial=0)), float(lower.max(initial=0))
+
+    def tangent_envelope_cell_bounds(self, *, positive_modulus, negative_modulus=0.0):
+        """Per-element physical-mass envelope for an external inertia policy.
+
+        Same supplied material-envelope assumptions as tangent_envelope_bounds;
+        positive and negative curvature remain separate. Numerical mass scaling
+        cannot cure negative physical curvature.
+        """
         count = len(self.coordinates)
 
         def coefficients(value, name):
@@ -384,11 +396,11 @@ class FiniteUniformHexBatch:
         positive = coefficients(positive_modulus, "positive_modulus")
         negative = coefficients(negative_modulus, "negative_modulus")
         if count == 0:
-            return 0.0, 0.0
+            return np.empty(0), np.empty(0)
         # No cell 24x24 stiffness and no material 9x9 array is constructed.
         factor = self.volume * np.linalg.eigvalsh(self._mass_gradient_gram)[:, -1]
-        upper = float(np.max(positive * factor + self._hourglass_spectral_bound))
-        lower_magnitude = float(np.max(negative * factor))
-        if not np.isfinite(upper) or not np.isfinite(lower_magnitude):
+        upper = positive * factor + self._hourglass_spectral_bound
+        lower_magnitude = negative * factor
+        if not np.isfinite(upper).all() or not np.isfinite(lower_magnitude).all():
             raise ValueError("Finite Hex8 material-envelope spectral conversion overflowed.")
         return upper, lower_magnitude

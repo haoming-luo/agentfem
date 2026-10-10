@@ -88,7 +88,7 @@ class ExplicitDynamicsStep:
             base = replace(
                 base,
                 rank_count_portability="unsupported",
-                identity_scope=base.identity_scope + ("fixed numerical inertia",),
+                identity_scope=base.identity_scope + ("numerical inertia",),
                 limitations=base.limitations
                 + ("Numerical inertia identity uses serial nodal ordering.",),
             )
@@ -206,6 +206,9 @@ class ExplicitDynamicsStep:
         from .diagnostics import comm_of, print_on_root
 
         selected_comm = comm if comm is not None else comm_of(self.state.u)
+        inertia_owner = _explicit_inertia_state_owner(self)
+        if inertia_owner is not None:
+            inertia_owner.validate_procedure(self)
         _validate_checkpoint_policy(self)
         _configure_transient_history(self, history)
         selected_progress = self.progress if progress is None else progress
@@ -359,6 +362,8 @@ class ExplicitDynamicsStep:
 
     def _advance_one(self, t: float) -> None:
         accepted = self.state.snapshot()
+        inertia_owner = _explicit_inertia_state_owner(self)
+        inertia_state = None if inertia_owner is None else inertia_owner.snapshot()
         previous_residual = getattr(self.integrator, "last_residual_owned", None)
         residual_state = (
             getattr(self.residual, "transaction_snapshot", self.residual.snapshot)()
@@ -366,6 +371,11 @@ class ExplicitDynamicsStep:
             else None
         )
         try:
+            if inertia_owner is not None:
+                inertia_owner.prepare_increment(
+                    self.state, increment=self.completed_steps + 1,
+                    time=self.completed_steps * self.dt, dt=self.dt,
+                )
             if self.update_load is not None:
                 from .provenance import collective_call
 
@@ -408,6 +418,11 @@ class ExplicitDynamicsStep:
             # A user interrupt is still a rejected increment. Restore the
             # accepted station before propagating it; never swallow cancellation.
             accepted_time = self.completed_steps * self.dt
+            if inertia_owner is not None:
+                try:
+                    inertia_owner.restore(inertia_state)
+                except Exception as recovery_failure:
+                    failure.add_note(f"Numerical inertia rollback failed: {recovery_failure}")
             try:
                 if residual_state is not None:
                     self.residual.restore(residual_state)
@@ -1822,8 +1837,20 @@ def _apply_checkpoint_retention(step, policy) -> None:
     ]
 
 
+def _explicit_inertia_state_owner(step):
+    """Discover the optional numerical-inertia transaction participant."""
+    mass = getattr(getattr(step, "integrator", None), "mass", None)
+    if not callable(getattr(mass, "prepare_increment", None)):
+        return None
+    required = ("snapshot", "restore", "checkpoint_identity", "validate_procedure",
+                "validate_accepted_station")
+    if any(not callable(getattr(mass, name, None)) for name in required):
+        raise TypeError("Variable inertia requires the complete transaction protocol.")
+    return mass
+
+
 def _explicit_inertia_identity(step):
-    """Optional immutable inertia identity; no mutable mass State is admitted."""
+    """Immutable inertia configuration identity, separate from mutable State."""
     mass = getattr(getattr(step, "integrator", None), "mass", None)
     declaration = getattr(mass, "checkpoint_identity", None)
     if not callable(declaration):
@@ -1842,8 +1869,11 @@ def _save_transient_checkpoint(step, path, state, *, portable: bool = False) -> 
     from .results import CheckpointRecord
 
     inertia_identity = _explicit_inertia_identity(step)
+    inertia_owner = _explicit_inertia_state_owner(step)
+    if inertia_owner is not None:
+        inertia_owner.validate_accepted_station(step.completed_steps)
     if inertia_identity is not None and portable:
-        raise NotImplementedError("Fixed numerical inertia restart is serial and nonportable.")
+        raise NotImplementedError("Numerical inertia restart is serial and nonportable.")
     # Path-dependent monitors must archive their accepted endpoint, including
     # when checkpoint cadence is independent of retained history cadence.
     _record_transient_history(step, float(step.completed_steps) * float(step.dt))
@@ -1854,6 +1884,8 @@ def _save_transient_checkpoint(step, path, state, *, portable: bool = False) -> 
     )
     if inertia_identity is not None:
         auxiliary_state = {**(auxiliary_state or {}), "inertia_identity": inertia_identity}
+    if inertia_owner is not None:
+        auxiliary_state["inertia_state"] = inertia_owner.snapshot()
     manifest = checkpointing.save_transient_checkpoint(
         path,
         step_kind=step.summary()["kind"],
@@ -1898,6 +1930,8 @@ def _load_transient_checkpoint(step, path, state) -> None:
     arrays = {name: fields.unwrap(value).x.array.copy() for name, value in state.items()}
     state_owner = getattr(step, "state", None)
     full_state = state_owner.snapshot() if hasattr(state_owner, "snapshot") else None
+    inertia_owner = _explicit_inertia_state_owner(step)
+    old_inertia = None if inertia_owner is None else inertia_owner.snapshot()
     residual = getattr(step, "residual", None)
     old_residual = (
         getattr(residual, "transaction_snapshot", residual.snapshot)()
@@ -1914,6 +1948,11 @@ def _load_transient_checkpoint(step, path, state) -> None:
         # nodal fields from one station and material history from another.
         # This does not claim recovery from a lost MPI rank.
         step.completed_steps = old_completed
+        if inertia_owner is not None:
+            try:
+                inertia_owner.restore(old_inertia)
+            except Exception as recovery_failure:
+                failure.add_note(f"Numerical inertia checkpoint rollback failed: {recovery_failure}")
         for name, value in lists.items():
             getattr(step, name)[:] = value
         if old_residual is not None:
@@ -1956,12 +1995,18 @@ def _load_transient_checkpoint_impl(step, path, state) -> None:
     auxiliary = metadata.get("auxiliary_state")
     if auxiliary is not None and (
         not isinstance(auxiliary, dict)
-        or not set(auxiliary).issubset({"residual", "inertia_identity"})
+        or not set(auxiliary).issubset({"residual", "inertia_identity", "inertia_state"})
     ):
         raise ValueError("Checkpoint contains unsupported transient auxiliary state.")
     saved_inertia = (auxiliary or {}).get("inertia_identity")
     if saved_inertia != _explicit_inertia_identity(step):
         raise ValueError("Checkpoint numerical inertia identity differs or is missing.")
+    inertia_owner = _explicit_inertia_state_owner(step)
+    if inertia_owner is not None:
+        inertia_owner.restore((auxiliary or {}).get("inertia_state"))
+        inertia_owner.validate_accepted_station(int(metadata["completed_steps"]))
+    elif "inertia_state" in (auxiliary or {}):
+        raise ValueError("Checkpoint inertia State has no current consumer.")
     residual = getattr(step, "residual", None)
     if auxiliary is not None and "residual" in auxiliary:
         if residual is None or not hasattr(residual, "restore"):

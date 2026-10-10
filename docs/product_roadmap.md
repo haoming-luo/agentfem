@@ -61,6 +61,33 @@ The ordered nine-gate plan is
 [corotational material development](corotational_material_development.md).
 Keep confidential source equations and parameters in external project providers.
 
+2026-10-11 continuation: segment/BVH pruning reduced the private 1,000-point
+closed-Q1 query median from 11.812 s to 0.641 s with identical signed gaps.
+This is a search-component result, not whole-loading throughput. Fixed and
+variable numerical inertia now have private serial state/identity contracts,
+accepted acceleration adjustment, artificial energy/linear/angular-momentum
+inputs, atomic rejection and disk restart. A selective element-bound planner
+assembles nodal inertia without changing physical constitutive density.
+The planner consumes supplied positive element bounds; it does not establish
+an evolving damaged-material/contact/damping stability certificate.
+
+Remaining source-reproduction gates, in execution order:
+
+1. Admit a justified evolving increment/mass policy and quantify added-inertia
+   sensitivity; retain separate negative-curvature/damping handling. The initial
+   elastic screen alone is approximately 8.5e-9 s, not the requested source dt.
+2. Extend bounded initial candidates to the required body/body contact coverage
+   with missed-crossing protection; penalty convergence is not exact HARD contact.
+3. Confirm source initial bond eligibility/adjustment and review stabilization/
+   characteristic-length differences. Do not invent interface damage or deletion
+   absent from the supplied source deck.
+4. Run nonzero/full physical loading with force--displacement, artificial-energy,
+   penetration, increment and mass-scaling convergence; then compare independent
+   source-solver evidence. Startup/restart capacity is not a completed reproduction.
+5. Promote only proven combinations into ordinary Step options and MPI; keep
+   general mortar, relaxation stabilization and deletion as separate product
+   gates rather than prerequisites invented for this one elastic interface.
+
 ### User-driven mesh/interface slice (2026-10-09)
 
 2026-10-10 continuation: the bounded finite Hex8 route now has ordinary-Step

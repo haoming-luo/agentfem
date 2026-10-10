@@ -833,17 +833,14 @@ class QuadratureField:
         V = self.function.function_space
         points_per_cell = len(self.points)
         block_size = int(V.dofmap.bs)
-        cell_dofs = np.empty(
-            (self._cell_count(), points_per_cell),
-            dtype=np.int64,
-        )
-        for cell in range(self._cell_count()):
-            dofs = np.asarray(V.dofmap.cell_dofs(cell), dtype=np.int64)
-            if dofs.size != points_per_cell:
-                raise RuntimeError(
-                    "Quadrature dof count does not match the selected rule."
-                )
-            cell_dofs[cell] = dofs
+        # The backend already owns this cell-local adjacency table, including
+        # ghosts. Read it in bulk instead of rebuilding it with one Python/C++
+        # call per cell (costly for every new history field on large meshes).
+        cell_dofs = np.asarray(V.dofmap.list, dtype=np.int64)
+        if cell_dofs.shape != (self._cell_count(), points_per_cell):
+            raise RuntimeError(
+                "Quadrature dof count does not match the selected rule."
+            )
         indices = (
             cell_dofs[..., None] * block_size
             + np.arange(block_size, dtype=np.int64)

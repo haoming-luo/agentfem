@@ -7,6 +7,7 @@ from dataclasses import replace
 import numpy as np
 
 from .._deformable_q1_contact import DeformableQ1Penalty
+from .._contact_path_guard import unresolved_outside_paths
 from ..fields import unwrap
 from ..provenance import content_fingerprint
 
@@ -132,6 +133,19 @@ class DeformableQ1ContactResidual:
                 )
                 else self.operator.evaluate(*values)
             )
+            if self.accepted is not None and self.operator.geometry_policy == "reviewed_closed_solid":
+                uncertain = unresolved_outside_paths(
+                    self.accepted[2].projection.signed_gaps,
+                    response.projection.signed_gaps,
+                    (values[0] - self.accepted[0])[self.operator.nodes],
+                    values[1] - self.accepted[1],
+                )
+                if np.any(uncertain):
+                    raise ValueError(
+                        "Potential missed contact crossing: outside endpoints do not "
+                        "resolve the swept path; reduce the increment or use a "
+                        "validated continuous-contact procedure."
+                    )
             vector = self.base.assemble_vector()
             self._add(vector, response)
             self.trial = (*values, response)
@@ -263,5 +277,7 @@ class DeformableQ1ContactResidual:
             else self.accepted[2].potential_energy,
             "restart": "accepted configuration; deterministic closest-point reconstruction",
             "increment_ceiling_is_certificate": False,
+            "outside_crossing_guard": self.operator.geometry_policy == "reviewed_closed_solid",
+            "continuous_collision_detection": False,
             "base": self.base.summary(),
         }

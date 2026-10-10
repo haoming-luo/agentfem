@@ -179,6 +179,25 @@ def test_two_body_energy_time_refinement():
     assert errors[2] < 0.35 * errors[1]
 
 
+def test_outside_to_outside_tunneling_is_rejected_before_material_update():
+    step = make_step(steps=1, closed=True)
+    residual = step.residual
+    values = step.state.u.value.x.array.reshape(-1, 3)
+    # Contact-only swept-path test: start .1 below the primary solid and end
+    # .2 above it. Both endpoint penalty forces vanish, but the path crosses.
+    values[residual.secondary_dofs, 2] = -0.1
+    residual.initialize_accepted_state()
+    accepted = residual.accepted
+    before_material = residual.base.internal.response.state.committed_state_vectors().copy()
+    values[residual.secondary_dofs, 2] = 1.2
+    with pytest.raises(ValueError, match="Potential missed contact crossing"):
+        residual.assemble_vector()
+    assert residual.trial is None and residual.accepted is accepted
+    np.testing.assert_array_equal(
+        residual.base.internal.response.state.committed_state_vectors(), before_material
+    )
+
+
 def test_identical_contact_geometry_reuses_search_but_not_material_update(monkeypatch):
     step = make_step(steps=3, closed=True)
     step.state.v.value.x.array[:] = 0

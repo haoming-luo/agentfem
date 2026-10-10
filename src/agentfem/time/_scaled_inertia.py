@@ -13,6 +13,23 @@ from hashlib import sha256
 import numpy as np
 
 
+def _checked_nodal_factors(factor, count):
+    """Validate without allocating a new physical/numerical diagonal."""
+    raw = np.asarray(factor)
+    if raw.dtype.kind == "b" or np.iscomplexobj(raw):
+        raise ValueError("Inertia factors must be real numeric values, not booleans.")
+    scale = np.asarray(raw, dtype=float)
+    if (
+        scale.shape not in ((), (count,))
+        or not np.isfinite(scale).all()
+        or np.any(scale < 1)
+    ):
+        raise ValueError(
+            "Fixed inertia factors must be finite scalar or nodal values >= 1."
+        )
+    return np.broadcast_to(scale, (count,))
+
+
 @dataclass(frozen=True, init=False)
 class FixedScaledInertia:
     physical_mass_diagonal: np.ndarray
@@ -35,7 +52,6 @@ class FixedScaledInertia:
                 "Inertia requires real mass/factors and a positive block size."
             )
         mass = np.asarray(physical_mass_diagonal, dtype=float)
-        scale = np.asarray(factor, dtype=float)
         if (
             mass.ndim != 1
             or not len(mass)
@@ -44,18 +60,10 @@ class FixedScaledInertia:
             or np.any(mass <= 0)
         ):
             raise ValueError("Physical mass must be a positive finite nodal diagonal.")
-        if (
-            scale.shape not in ((), (len(mass) // block_size,))
-            or not np.isfinite(scale).all()
-            or np.any(scale < 1)
-        ):
-            raise ValueError(
-                "Fixed inertia factors must be finite scalar or nodal values >= 1."
-            )
         blocks = mass.reshape(-1, block_size)
         if not np.array_equal(blocks, np.broadcast_to(blocks[:, :1], blocks.shape)):
             raise ValueError("Physical nodal mass must be isotropic across components.")
-        factors = np.broadcast_to(scale, (len(blocks),)).copy()
+        factors = _checked_nodal_factors(factor, len(blocks)).copy()
         numerical = mass * np.repeat(factors, block_size)
         if not np.isfinite(numerical).all() or not np.isfinite(1 / numerical).all():
             raise ValueError("Numerical inertia overflow/underflow.")
@@ -82,6 +90,11 @@ class FixedScaledInertia:
             "portability": "same_serial_nodal_order",
             "fixed": True,
         }
+
+    @property
+    def mass(self):
+        """Existing lumped-mass protocol used by reaction/work consumers."""
+        return self.mass_diagonal
 
     def validate_state(self, state):
         from ..fields import unwrap

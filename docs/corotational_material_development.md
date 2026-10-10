@@ -453,7 +453,70 @@ equivalent to the source's per-increment variable mass scaling. That next gate
 must own accepted mass updates, acceleration consistency, added-mass momentum
 and kinetic contributions, rejected-step rollback and restart.
 
+### Variable numerical inertia transaction
+
+The private serial `VariableScaledInertia` now participates in the existing
+Explicit Procedure's increment and checkpoint transactions. A deterministic,
+stateless, identity-bearing external policy proposes nondecreasing nodal
+factors at the accepted configuration. The configured added-mass budget is
+enforced before mutation. At fixed velocity, mass changes contribute
+`0.5 * v.T * delta(M) * v` and `sum(delta(M) * v)` to numerical energy and
+momentum inputs; accepted acceleration is rescaled to preserve the old force
+before displacement prediction. These are not physical external work.
+The artificial angular-momentum input about the coordinate origin is also
+retained; equal/opposite physical forces do not cancel this numerical input.
+
+The common dynamic ledger includes that separate numerical energy input in its
+balance and checks restored history against inertia State. Inertia, mechanical
+fields and material/contact state roll back together, including an injected
+failure after material commit or during disk restoration. Independent restart
+reproduces fields, history and mass state exactly. Free translation verifies
+the added momentum/energy analytically. Prescribed nodal motion, MPC, MPI and
+partition-portable recovery remain rejected for this bounded variable route.
+
+This is the transaction mechanism, **not** a validated automatic mass-scaling
+policy. A source-case policy must still establish an evolving body/contact/
+damping bound and sensitivity to added inertia; neither a supplied target dt
+nor an initial elastic bound can certify the entire damage/loading path.
+
+An operator-neutral element planner consumes supplied positive element bounds
+and physical element lumped masses. It scales only controlling elements, assembles
+their nodal numerical mass and never decreases accepted nodal factors. Its
+Rayleigh argument is checked against independently assembled dense operators.
+The Hex8 envelope can now expose per-element positive and negative bounds
+without changing the existing global maxima. Negative material curvature is
+not removed by taking an absolute value or adding mass. This is a reusable
+policy building block, not an automatic source-material certificate.
+
+The variable-inertia gate also includes an independent oscillator whose mass
+changes at a prescribed accepted station. Against its piecewise analytic
+solution, displacement/velocity and energy-balance errors converge at second
+order. Restart needs no material residual State and reproduces the complete
+history. Unchanged proposals reuse the immutable mass arrays rather than
+copying/hashing large diagonals on every increment. Artificial angular
+momentum is reported about the spatial coordinate origin.
+
+Quadrature-field initialization now consumes the backend's complete cell dof
+table in bulk, retaining the existing cached permutation and ghost semantics.
+Scalar, vector and tensor fields at three quadrature degrees agree with
+independent cell-wise indexing on tetrahedra/hexahedra in serial and two ranks.
+`tools/benchmark_quadrature_layout.py --size 64 --repeats 5` measured 0.1131 s
+versus 0.00415 s median cold-layout construction for 262,144 cells (27.3x for
+this initialization component only); all indices were identical. This is not
+a full-simulation speedup or a change to quadrature/assembly ownership.
+
 ## Primary design references
+
+Closed-solid explicit contact now rejects unresolved outside-to-outside paths
+before updating material State. For linear nodal trajectories, two positive
+endpoint gaps can only exclude a crossing when their sum exceeds the bound on
+relative point/boundary travel. The guard removes common translation, includes
+primary deformation, and deliberately permits conservative false positives
+requiring a smaller increment. A real two-body contact regression verifies
+that a through-solid jump with zero endpoint contact force is rejected. This
+is **not** continuous collision detection, does not handle arbitrary curved
+temporal paths, and does not establish ALL EXTERIOR coverage or valid geometry
+through an inverting/self-intersecting increment.
 
 The closed-surface ray broad phase now traverses the existing BVH with segment
 slab clipping rather than the ray's entire axis-aligned bounding box. Exact Q1

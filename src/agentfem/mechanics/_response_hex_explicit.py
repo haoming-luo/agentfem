@@ -21,9 +21,10 @@ class ResponseHexWorkMonitor:
         self.numerical_inertia = numerical_inertia
         if numerical_inertia is not None:
             from ..time._scaled_inertia import FixedScaledInertia
+            from ..time._variable_inertia import VariableScaledInertia
 
             if not isinstance(
-                numerical_inertia, FixedScaledInertia
+                numerical_inertia, (FixedScaledInertia, VariableScaledInertia)
             ) or not np.array_equal(
                 numerical_inertia.physical_mass_diagonal,
                 residual.internal.mass_diagonal,
@@ -51,6 +52,19 @@ class ResponseHexWorkMonitor:
         )
         return {
             "kinetic_energy": kinetic,
+            **(
+                {
+                    "numerical_inertia_energy_input": self.numerical_inertia.energy_input,
+                    "numerical_inertia_momentum_input_norm": float(
+                        np.linalg.norm(self.numerical_inertia.momentum_input)
+                    ),
+                    "numerical_inertia_angular_momentum_input_norm": float(
+                        np.linalg.norm(self.numerical_inertia.angular_momentum_input)
+                    ),
+                }
+                if hasattr(self.numerical_inertia, "energy_input")
+                else {}
+            ),
             **(
                 {
                     "physical_mass_kinetic_energy": physical_kinetic,
