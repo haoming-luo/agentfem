@@ -1796,6 +1796,25 @@ def _validate_checkpoint_file(path, *, expected_size, expected_digest) -> None:
         raise ValueError("checkpoint shard checksum does not match its manifest")
 
 
+def _retention_payload_path(manifest, name, *, generation=None):
+    """Admit only this checkpoint's local regular payload before any deletion."""
+    if (not isinstance(name, str) or Path(name).name != name
+            or "/" in name or "\\" in name or name in {"", ".", ".."}):
+        raise ValueError("Checkpoint retention requires a local payload filename.")
+    prefix = manifest.name.removesuffix(".checkpoint.json") + "."
+    if generation is not None:
+        if (not isinstance(generation, str) or len(generation) != 16
+                or any(character not in "0123456789abcdef" for character in generation)):
+            raise ValueError("Checkpoint retention has an invalid generation identity.")
+        prefix += generation + "."
+    if not name.startswith(prefix) or not name.endswith(".npz"):
+        raise ValueError("Payload does not belong to this checkpoint generation.")
+    payload = manifest.parent / name
+    if payload.is_symlink() or (payload.exists() and not payload.is_file()):
+        raise ValueError("Checkpoint retention requires regular payload files.")
+    return payload
+
+
 def _remove_transient_checkpoint(path, *, comm) -> None:
     """Collectively remove one published manifest and exactly its shards.
 
@@ -1808,23 +1827,30 @@ def _remove_transient_checkpoint(path, *, comm) -> None:
     if comm.rank == 0:
         try:
             metadata = json.loads(manifest.read_text(encoding="utf-8"))
+            if metadata.get("schema") not in {
+                TRANSIENT_CHECKPOINT_SCHEMA, _TRANSIENT_ARRAY_CHECKPOINT_SCHEMA,
+                _TRANSIENT_RANK_ARRAY_CHECKPOINT_SCHEMA,
+                _ELEMENT_BOUND_TRANSIENT_CHECKPOINT_SCHEMA,
+                *_LEGACY_TRANSIENT_CHECKPOINT_SCHEMAS,
+            }:
+                raise ValueError("Refusing to remove an unrelated checkpoint schema.")
             auxiliary = metadata.get("auxiliary_arrays")
             auxiliary_records = ([] if auxiliary is None else [auxiliary]) + [
                 entry["arrays"] for entry in metadata.get("auxiliary_by_rank", ())]
             auxiliary_paths = [_auxiliary_payload_path(manifest, record) for record in auxiliary_records]
-            for record in metadata.get("shards", ()):
-                name = record if isinstance(record, str) else record["path"]
-                shard = manifest.parent / name
-                if shard.exists():
-                    shard.unlink()
+            names = [record if isinstance(record, str) else record["path"]
+                     for record in metadata.get("shards", ())]
             portable = metadata.get("portable_state")
             if portable:
-                portable_path = manifest.parent / portable["path"]
-                if portable_path.exists():
-                    portable_path.unlink()
-            for auxiliary_path in auxiliary_paths:
-                if auxiliary_path.exists():
-                    auxiliary_path.unlink()
+                names.append(portable["path"])
+            names.extend(payload.name for payload in auxiliary_paths)
+            # Preflight the entire deletion set: a bad late entry must not
+            # remove an earlier valid shard and destroy a recoverable station.
+            payloads = [_retention_payload_path(
+                manifest, name, generation=metadata.get("generation")) for name in names]
+            for payload in dict.fromkeys(payloads):
+                if payload.exists():
+                    payload.unlink()
             manifest.unlink()
         except Exception as exc:  # pragma: no cover - filesystem failure
             error = f"{type(exc).__name__}: {exc}"
