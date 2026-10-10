@@ -35,8 +35,14 @@ Procedure, records internal work separately from artificial energy, and restores
 accepted material/force state atomically. Two moving planes or bounded lateral
 cylinders compose with the existing contact work ledger and disk restart.
 Independent explicit stability, ordinary Step admission and MPI remain open.
-Original imported-interface initialization, full four-tool assembly,
-viscosity/mass scaling and commercial reference comparison remain open.
+The original 255,041-cell mesh now runs a bounded four-tool startup pilot and
+passes independent continuous/restarted four-increment bitwise comparison.
+That endpoint is only 4e-10 s, not the full 0.1 s loading. Original interface
+initialization, variable mass scaling and commercial comparison remain open.
+Current-configuration deformable Q1 penalty contact now has a private serial
+face-interior composition with force/moment/virtual-work and time-refinement
+checks. This does not admit edge/corner normal cones or source ALL EXTERIOR
+hard contact: the original unbonded-node audit still rejects ambiguous normals.
 Follow-up: private accepted artificial-viscosity work/restart now passes its
 targeted composition gates; this does not close variable mass scaling or
 vendor-equivalent viscosity/stability. Explicit reference-surface adjustment

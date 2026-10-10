@@ -382,6 +382,30 @@ and inertia accounting, body/body contact outside the original bond set,
 source initialization evidence, and complete loading/refinement comparisons.
 Neither smaller checkpoint overhead nor a completed startup run closes them.
 
+## Current-configuration deformable contact: bounded slice
+
+`_deformable_q1_contact` separates the fixed original bond mask from current
+contact candidates. It retains the original four-node basis, reuses the BVH
+and frictionless penalty law, and transfers equal/opposite residuals by the
+transpose interpolation. A separate residual adapter composes with the existing
+central-difference Procedure, accepted-state transactions and energy ledger.
+No new case-specific integrator is introduced.
+
+Ten focused tests cover open/closed analytical response, cross-facet motion,
+finite rigid rotation, resultant and moment balance, independent energy
+variation, actual two-body integration, bitwise disk restart, atomic rejection
+and decreasing energy error under time refinement. This slice is serial,
+one-sided reference nodal integration with a caller-specified increment ceiling;
+it does not certify nonlinear stability or reproduce exact hard contact.
+
+Active off-normal edge/corner projections are rejected, because substituting a
+single facet normal there would violate the distance-potential gradient and
+moment balance. The private source's 1,000-node unbonded hypothesis fails this
+geometric admission at an ambiguous normal. A closed-solid sign/normal-cone
+contract is still required; an open interface patch cannot silently stand in
+for the solid exterior. Hence this contribution is not inserted into the
+original case merely to obtain a completed run.
+
 ## Primary design references
 
 - [Abaqus mass scaling](https://docs.software.vt.edu/abaqusv2025/English/SIMACAEANLRefMap/simaanl-c-massscaling.htm):
