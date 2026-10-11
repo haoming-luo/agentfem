@@ -5,6 +5,33 @@ source materials stay outside the distribution. Model retains engineering
 assets; constitutive providers own local updates; Operator owns stress/force
 conversion; Procedure and State own acceptance and recovery.
 
+## Bounded contact retries and filtered geometry (2026-10-12)
+
+The swept Q1 separation proof first tries outward-rounded interval dot
+products on proposed separating axes. A strict common sign excludes zero
+from the trilinear control hull; uncertain arithmetic still reaches the exact
+rational subdivision. The filter changes computational cost, not physical
+contact tolerance. Tests include dyadic impacts over widely separated scales
+and comparisons with the rational proof.
+
+An unresolved swept path now raises `ContactPathResolutionError` with stable
+code `contact_path_unresolved` and query indices. It is still a `ValueError`;
+no contact force or state is accepted after this rejection. An internal
+explicit advancement primitive accepts a smaller increment while retaining
+its ordinary field, residual, material, prescribed-input and inertia rollback.
+Its enclosing Procedure must own the macro transaction and intermediate work
+ledger. Variable inertia must be prepared once at the macro station and held
+constant through subincrements. The private serial pilot exercises bounded
+dyadic retries, terminal-failure rollback, energy accounting and checkpoint
+continuation. This does not yet expose a general adaptive explicit public API,
+claim MPI subcycling, or certify arbitrary curved temporal trajectories.
+
+The private compiled contact experiment additionally batches independent Q1
+ray classifications. Unresolved arithmetic falls back to the exact reference;
+two independent oriented rays must still agree. Frozen-geometry timings are
+not whole-simulation speedups, and neither successful retries nor timing gains
+establish vendor equivalence, full loading completion or mass sensitivity.
+
 ## Cancellation-limited closest-point recovery (2026-10-11)
 
 Nearly affine Q1 elimination can produce a tiny admissible quadratic root and

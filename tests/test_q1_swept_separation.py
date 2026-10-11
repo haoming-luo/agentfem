@@ -69,3 +69,42 @@ def test_manufactured_dyadic_impacts_are_never_certified_separated():
         velocity = rng.integers(-2, 3, 3)/8
         p0, p1 = impact-t*velocity, impact+(1-t)*velocity
         assert not separated_q1_paths(old,new,[[0,1,2,3]],[p0],[p1])[0]
+
+
+def test_float_filter_preserves_exact_dyadic_impacts_across_scales():
+    from agentfem._q1_swept_separation import _filtered_separating_plane
+
+    rng = np.random.default_rng(871)
+    for exponent in (-300, -100, 0, 100, 300):
+        for _ in range(100):
+            old = (square()+rng.integers(-2, 3, (4, 3))/32)*2.**exponent
+            new = old+rng.integers(-2, 3, (4, 3))*2.**(exponent-6)
+            u, v, t = rng.integers(1, 4, 3)/4
+            weights = np.array([(1-u)*(1-v), u*(1-v), u*v, (1-u)*v])
+            impact = weights@((1-t)*old+t*new)
+            velocity = rng.integers(-2, 3, 3)*2.**(exponent-3)
+            assert not _filtered_separating_plane(
+                old, new, impact-t*velocity, impact+(1-t)*velocity)
+
+
+def test_filtered_positive_sign_agrees_with_exact_control_proof():
+    from agentfem._q1_swept_separation import _filtered_separating_plane, _separating_plane, Q
+
+    rng = np.random.default_rng(746)
+    passed = 0
+    for _ in range(200):
+        old = square()+rng.normal(size=(4, 3))*.1
+        new = old+rng.normal(size=(4, 3))*.01
+        point = rng.normal(size=3)
+        end = point+rng.normal(size=3)*.01
+        if not _filtered_separating_plane(old, new, point, end):
+            continue
+        control = np.empty((2, 2, 2, 3), dtype=object)
+        for t, (vertices, p) in enumerate(((old, point), (new, end))):
+            for k, (u, v) in enumerate(((0,0),(1,0),(1,1),(0,1))):
+                control[t,u,v]=[Q(float(x))-Q(float(y)) for x,y in zip(vertices[k],p)]
+        # This independent exact test uses the same family of proposal axes;
+        # generic random cases are well separated from uncertain signs.
+        assert _separating_plane(control)
+        passed += 1
+    assert passed > 100

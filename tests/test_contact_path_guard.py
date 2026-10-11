@@ -7,6 +7,16 @@ from agentfem._contact_path_guard import unresolved_outside_paths
 from agentfem._contact_path_guard import outside_gap_lower_bounds
 
 
+def test_unresolved_path_has_structured_retry_diagnostic():
+    from agentfem._contact_path_guard import ContactPathResolutionError
+    error = ContactPathResolutionError([np.int64(2), 5])
+    assert isinstance(error, ValueError)
+    assert error.diagnostic == {
+        "code": "contact_path_unresolved", "query_indices": (2, 5),
+        "retry": "reduce_increment",
+    }
+
+
 def test_thin_solid_crossing_with_two_separated_endpoints_is_unresolved():
     assert unresolved_outside_paths([0.1], [0.2], [[0, 0, 1.3]], np.zeros((8, 3)))[0]
     assert not unresolved_outside_paths(

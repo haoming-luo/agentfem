@@ -13,6 +13,22 @@ certified here. Negative/zero endpoint gaps require the ordinary contact law.
 import numpy as np
 
 
+class ContactPathResolutionError(ValueError):
+    """A discrete increment cannot resolve its swept contact path."""
+
+    def __init__(self, indices):
+        self.diagnostic = {
+            "code": "contact_path_unresolved",
+            "query_indices": tuple(int(i) for i in indices),
+            "retry": "reduce_increment",
+        }
+        super().__init__(
+            "Potential missed contact crossing: outside endpoints do not "
+            "resolve the swept path; reduce the increment or use a "
+            "validated continuous-contact procedure."
+        )
+
+
 def outside_gap_lower_bounds(gaps_old, secondary_increment, primary_increment):
     """Distance lower bounds for a closed boundary under linear nodal motion.
 

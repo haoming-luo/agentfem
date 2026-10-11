@@ -156,11 +156,9 @@ class DeformableQ1ContactResidual:
                     )
                     uncertain[np.flatnonzero(uncertain)[separated]] = False
                 if np.any(uncertain):
-                    raise ValueError(
-                        "Potential missed contact crossing: outside endpoints do not "
-                        "resolve the swept path; reduce the increment or use a "
-                        "validated continuous-contact procedure."
-                    )
+                    from .._contact_path_guard import ContactPathResolutionError
+
+                    raise ContactPathResolutionError(np.flatnonzero(uncertain))
             vector = self.base.assemble_vector()
             self._add(vector, response)
             self.trial = (*values, response)

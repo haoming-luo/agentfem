@@ -372,9 +372,26 @@ class ExplicitDynamicsStep:
         )
         self.integrator.last_residual_owned = None
 
-    def _advance_one(self, t: float) -> None:
+    def _advance_one(self, t: float, *, increment_size: float | None = None) -> None:
+        # Internal Procedure primitive: a bounded substep caller owns its
+        # accepted-time/work ledger and outer transaction. The ordinary run
+        # schedule and checkpoint cadence remain unchanged.
+        dt = self.dt if increment_size is None else float(increment_size)
+        if not np.isfinite(dt) or not 0 < dt <= self.dt:
+            raise ValueError("Explicit subincrement must be positive and no larger than dt.")
+        accepted_time = (
+            self.completed_steps * self.dt if increment_size is None else t - dt
+        )
+        if not np.isfinite(t) or accepted_time < 0:
+            raise ValueError("Explicit subincrement time is invalid.")
         accepted = self.state.snapshot()
         inertia_owner = _explicit_inertia_state_owner(self)
+        if (
+            inertia_owner is not None
+            and increment_size is not None
+            and inertia_owner.last_increment != self.completed_steps + 1
+        ):
+            raise ValueError("Subincrements require inertia prepared at the enclosing macro station.")
         inertia_state = None if inertia_owner is None else inertia_owner.snapshot()
         previous_residual = getattr(self.integrator, "last_residual_owned", None)
         residual_state = (
@@ -383,10 +400,10 @@ class ExplicitDynamicsStep:
             else None
         )
         try:
-            if inertia_owner is not None:
+            if inertia_owner is not None and increment_size is None:
                 inertia_owner.prepare_increment(
                     self.state, increment=self.completed_steps + 1,
-                    time=self.completed_steps * self.dt, dt=self.dt,
+                    time=accepted_time, dt=dt,
                 )
             if self.update_load is not None:
                 from .provenance import collective_call
@@ -405,7 +422,7 @@ class ExplicitDynamicsStep:
                     label="Explicit residual time",
                 )
             self.integrator.step(
-                self.dt,
+                dt,
                 time=t,
                 residual_operator=self.residual,
                 prescribed=self.prescribed,
@@ -429,7 +446,6 @@ class ExplicitDynamicsStep:
         except BaseException as failure:
             # A user interrupt is still a rejected increment. Restore the
             # accepted station before propagating it; never swallow cancellation.
-            accepted_time = self.completed_steps * self.dt
             if inertia_owner is not None:
                 try:
                     inertia_owner.restore(inertia_state)

@@ -37,7 +37,41 @@ def _separating_plane(control):
     return False
 
 
+def _filtered_separating_plane(old, new, point_old, point_new):
+    """Outward-rounded interval dot products; uncertain signs fall back."""
+    vertices = np.stack((old, new))[:, [0, 3, 1, 2]].reshape(2, 2, 2, 3)
+    points = np.array([point_old, point_new])[:, None, None, :]
+    with np.errstate(over="ignore", invalid="ignore", under="ignore"):
+        delta = vertices-points
+        lower = np.nextafter(delta, -np.inf).reshape(-1, 3)
+        upper = np.nextafter(delta, np.inf).reshape(-1, 3)
+        if not np.isfinite(lower).all() or not np.isfinite(upper).all():
+            return False
+        for dimension in range(3):
+            for side in (0, 1):
+                face = np.take(delta, side, axis=dimension)
+                # Any finite proposed axis is valid. Its construction need
+                # not be exact: interval verification below owns the proof.
+                axis = np.cross(face[1, 1]-face[0, 0], face[0, 1]-face[1, 0])
+                scale = np.max(np.abs(axis))
+                if not np.isfinite(scale) or scale == 0:
+                    continue
+                axis /= scale
+                a, b = lower*axis, upper*axis
+                lo = np.nextafter(np.minimum(a, b), -np.inf)
+                hi = np.nextafter(np.maximum(a, b), np.inf)
+                dot_lo, dot_hi = lo[:, 0], hi[:, 0]
+                for k in (1, 2):
+                    dot_lo = np.nextafter(dot_lo+lo[:, k], -np.inf)
+                    dot_hi = np.nextafter(dot_hi+hi[:, k], np.inf)
+                if np.all(dot_lo > 0) or np.all(dot_hi < 0):
+                    return True
+    return False
+
+
 def _patch_path_separated(old, new, point_old, point_new, *, max_depth):
+    if _filtered_separating_plane(old, new, point_old, point_new):
+        return True
     control = np.empty((2, 2, 2, 3), dtype=object)
     for t, (vertices, point) in enumerate(((old, point_old), (new, point_new))):
         for index, (u, v) in enumerate(((0, 0), (1, 0), (1, 1), (0, 1))):
