@@ -23,6 +23,17 @@ and commercial reference curves remain separate gates.
 
 ## Ordered gates
 
+### One enclosing response transaction
+
+Response-only material preparation now produces the complete validated batch
+without assigning quadrature fields. The Hex8 trial's existing outer transaction
+then owns state, stress and work assignment together, avoiding duplicate nested
+snapshots of the same large arrays. Standalone material updates retain atomic
+assignment. Fifty focused tests include provider mutation, late assignment of
+each response channel, downstream failure, commit failure and damping lifecycle.
+This establishes unchanged rollback behavior; no measured end-to-end speedup is
+inferred from the reduced snapshot count alone.
+
 ### Exterior projection ambiguity versus separation
 
 A closed-solid exterior query can have unresolved nearest-face choices while

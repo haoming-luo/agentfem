@@ -245,3 +245,30 @@ def test_joint_response_commit_rollback_and_commit_failure(monkeypatch):
     np.testing.assert_array_equal(response.state.committed_state_vectors(), before)
     for name, value in response.response_transaction.snapshot().items():
         np.testing.assert_array_equal(value, saved_response[name])
+
+
+@pytest.mark.parametrize("channel", ["first_piola_stress", "cauchy_stress", "internal_work_density_increment"])
+def test_single_hex_transaction_restores_late_response_assignment(monkeypatch, channel):
+    from agentfem.constitutive._explicit_material_driver import ExplicitQuadratureResponse
+    from agentfem.elements._finite_uniform_hex_dolfinx import FiniteUniformHexResidual
+
+    material, state, options = fixture()
+    response = ExplicitQuadratureResponse.create(state.domain, material.state_schema)
+    u = fem.Function(fem.functionspace(state.domain, ("Lagrange", 1, (3,))))
+    u.interpolate(lambda x: .01*x)
+    residual = FiniteUniformHexResidual(u, response, density=1.,
+                                       hourglass_modulus=1., hourglass_scale=.1)
+    before = {name: field.x.array.copy() for name, field in response.trial_fields().items()}
+    field = getattr(response, channel)
+    assign = field.assign
+    def fail(values):
+        assign(values)
+        raise ValueError("late response assignment")
+    monkeypatch.setattr(field, "assign", fail)
+    options.pop("deformation_gradient_new")
+    with pytest.raises(ValueError, match="late response assignment"):
+        with residual.explicit_trial_evaluation(material, **options):
+            pytest.fail("Failed assignment must not yield a trial")
+    for name, field in response.trial_fields().items():
+        np.testing.assert_array_equal(field.x.array, before[name])
+    np.testing.assert_array_equal(response.state.committed_state_vectors(), 0.)

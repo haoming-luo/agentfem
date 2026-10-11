@@ -212,7 +212,9 @@ class FiniteUniformHexResidual:
         finite Step remains on its tangent/storage path until explicit stability
         and the accepted work-only ledger are independently admitted.
         """
-        from ..constitutive._explicit_material_driver import ExplicitQuadratureResponse
+        from ..constitutive._explicit_material_driver import (
+            ExplicitQuadratureResponse, _prepare_explicit_material_points,
+        )
         from ._finite_uniform_hex_material import FiniteHexMaterialTrial
         from ..state import field_transaction
 
@@ -229,10 +231,12 @@ class FiniteUniformHexResidual:
                 nodal = self.displacement.x.array.copy()
                 displacement = nodal.reshape(-1, 3)[self.cell_nodes].copy()
                 gradient = self.cells.deformation_gradient(displacement)
-                response = self.response.update(
-                    material, deformation_gradient_old=deformation_gradient_old,
+                prepared = _prepare_explicit_material_points(
+                    material, self.response.state, deformation_gradient_old=deformation_gradient_old,
                     deformation_gradient_new=gradient, time=time, time_increment=time_increment,
                     max_batch_points=self.material_batch_points)
+                self.response._assign_prepared(prepared)
+                response = prepared.response
                 if not np.array_equal(self.displacement.x.array, nodal):
                     raise RuntimeError("Material callback changed the admitted Hex8 configuration.")
                 element = self.cells._response_from_checked_displacement(

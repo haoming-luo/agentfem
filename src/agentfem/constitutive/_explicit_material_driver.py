@@ -83,13 +83,18 @@ class ExplicitQuadratureResponse:
 
     def update(self, material, **options):
         with field_transaction(**self.trial_fields()):
-            trial = update_explicit_material_points(material, self.state, **options)
-            self.first_piola_stress.assign(trial.first_piola_stress)
-            self.cauchy_stress.assign(trial.response.cauchy_stress)
-            self.internal_work_density_increment.assign(
-                trial.response.internal_work_density_increment
-            )
+            trial = _prepare_explicit_material_points(material, self.state, **options)
+            self._assign_prepared(trial)
         return trial.response
+
+    def _assign_prepared(self, trial):
+        """Assign under the caller's complete trial-field transaction only."""
+        self.state.assign_trial_state_vectors(trial.response.state_new)
+        self.first_piola_stress.assign(trial.first_piola_stress)
+        self.cauchy_stress.assign(trial.response.cauchy_stress)
+        self.internal_work_density_increment.assign(
+            trial.response.internal_work_density_increment
+        )
 
     def commit(self):
         fields = {
@@ -112,7 +117,7 @@ class ExplicitQuadratureResponse:
             self.response_transaction.rollback()
 
 
-def update_explicit_material_points(
+def _prepare_explicit_material_points(
     material,
     state,
     *,
@@ -123,7 +128,7 @@ def update_explicit_material_points(
     properties=(),
     max_batch_points=1024,
 ):
-    """Prepare all chunks before atomically writing trial fields; caller commits.
+    """Prepare all chunks without writing fields; caller assigns and commits.
 
     MPI is intentionally refused until assignment/ghost exchange failures have
     their own collective acceptance. A per-point cutback request rejects this
@@ -194,10 +199,14 @@ def update_explicit_material_points(
         )
     piola = _cauchy_to_first_piola(new, result.cauchy_stress)
     piola.setflags(write=False)
-    # The existing State remains the sole owner; failed late assignment restores
-    # all previously visible trial values, not a partly updated batch.
+    return ExplicitQuadratureTrial(result, piola)
+
+
+def update_explicit_material_points(material, state, **options):
+    """Atomically assign prepared history; preserve the standalone entrypoint."""
+    trial = _prepare_explicit_material_points(material, state, **options)
     with field_transaction(
         **{name: value.function for name, value in state.trial.items()}
     ):
-        state.assign_trial_state_vectors(result.state_new)
-    return ExplicitQuadratureTrial(result, piola)
+        state.assign_trial_state_vectors(trial.response.state_new)
+    return trial
