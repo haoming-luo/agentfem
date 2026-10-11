@@ -115,3 +115,55 @@ def test_zero_distance_does_not_need_an_arbitrary_sign():
         [[0, 0, 0.4], [0, 0, 0]], maximum_distance=0.1
     )
     np.testing.assert_array_equal(result["signed_gaps"], 0)
+
+
+def test_distance_enclosures_under_rotation_and_warpage():
+    rng = np.random.default_rng(742)
+    for warped in (False, True):
+        x, cells = solid()
+        if warped:
+            x[6, 2] += 0.4
+        rotation, _ = np.linalg.qr(rng.normal(size=(3, 3)))
+        x = x @ rotation.T + [10, -20, 30]
+        surface = ClosedQ1Surface(x, cells)
+        points = rng.uniform(-0.2, 1.2, (80, 3)) @ rotation.T + [10, -20, 30]
+        projected = surface.search.project(
+            points, maximum_distance=2, require_unique_normal=False
+        )
+        bound = surface.search.distance_lower_bounds(
+            points, refinement_distance=projected["distances"] / 4
+        )
+        assert np.all(bound <= projected["distances"] + 1e-12)
+        assert np.all(bound >= 0)
+        assert not bound.flags.writeable
+        if not warped:
+            assert np.count_nonzero(bound > 0) == len(bound)
+
+
+def test_q1_subdivision_bound_cannot_exclude_surface_points():
+    x, cells = solid()
+    x[6, 2] += 0.4
+    surface = ClosedQ1Surface(x, cells)
+    # Direct bilinear interpolation supplies exact-on-surface points, including
+    # a warped face whose triangular surrogate does not pass through them.
+    rng = np.random.default_rng(55)
+    points = []
+    for face in x[cells]:
+        for local in rng.uniform(-1, 1, (3, 2)):
+            r, s = local
+            weights = (
+                np.array(
+                    [
+                        (1 - r) * (1 - s),
+                        (1 + r) * (1 - s),
+                        (1 + r) * (1 + s),
+                        (1 - r) * (1 + s),
+                    ]
+                )
+                / 4
+            )
+            points.append(weights @ face)
+    bounds = surface.search.distance_lower_bounds(
+        np.asarray(points), refinement_distance=np.full(len(points), 0.01)
+    )
+    np.testing.assert_array_equal(bounds, 0)

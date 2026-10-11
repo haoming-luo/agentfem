@@ -6,8 +6,8 @@ from dataclasses import replace
 
 import numpy as np
 
-from .._deformable_q1_contact import DeformableQ1Penalty
-from .._contact_path_guard import unresolved_outside_paths
+from .._deformable_q1_contact import DeformableQ1Penalty, DeformableContactResponse
+from .._contact_path_guard import unresolved_outside_paths, outside_gap_lower_bounds
 from ..fields import unwrap
 from ..provenance import content_fingerprint
 
@@ -131,12 +131,15 @@ class DeformableQ1ContactResidual:
                     np.array_equal(a, b)
                     for a, b in zip(values, self.accepted[:2], strict=True)
                 )
-                else self.operator.evaluate(*values)
+                else self._evaluate_current(values)
             )
-            if self.accepted is not None and self.operator.geometry_policy == "reviewed_closed_solid":
+            if (
+                self.accepted is not None
+                and self.operator.geometry_policy == "reviewed_closed_solid"
+            ):
                 uncertain = unresolved_outside_paths(
-                    self.accepted[2].projection.signed_gaps,
-                    response.projection.signed_gaps,
+                    self.accepted[2].path_gaps,
+                    response.path_gaps,
                     (values[0] - self.accepted[0])[self.operator.nodes],
                     values[1] - self.accepted[1],
                 )
@@ -155,6 +158,30 @@ class DeformableQ1ContactResidual:
                 vector.destroy()
             self.rollback()
             raise
+
+    def _evaluate_current(self, values):
+        # Only a closed solid supplies signed-distance separation evidence.
+        # Keep bounds distinct from fabricated closest points or normals.
+        if (
+            self.accepted is not None
+            and self.operator.geometry_policy == "reviewed_closed_solid"
+        ):
+            lower = outside_gap_lower_bounds(
+                self.accepted[2].gap_lower_bounds,
+                (values[0] - self.accepted[0])[self.operator.nodes],
+                values[1] - self.accepted[1],
+            )
+            if np.all(lower > 0):
+                return DeformableContactResponse(
+                    np.zeros_like(values[0]),
+                    np.zeros_like(values[1]),
+                    0.0,
+                    None,
+                    None,
+                    None,
+                    lower,
+                )
+        return self.operator.evaluate(*values)
 
     def assemble_accepted_vector(self):
         if (
@@ -277,7 +304,8 @@ class DeformableQ1ContactResidual:
             else self.accepted[2].potential_energy,
             "restart": "accepted configuration; deterministic closest-point reconstruction",
             "increment_ceiling_is_certificate": False,
-            "outside_crossing_guard": self.operator.geometry_policy == "reviewed_closed_solid",
+            "outside_crossing_guard": self.operator.geometry_policy
+            == "reviewed_closed_solid",
             "continuous_collision_detection": False,
             "base": self.base.summary(),
         }

@@ -2,11 +2,57 @@
 # SPDX-License-Identifier: Apache-2.0
 """Bounded process-local Q1 candidate search; no contact-law admission."""
 
+import heapq
+
 import numpy as np
 
 from ._q1_surface_geometry import q1_closest_point, q1_triangulation_distance_bound
 from .boundary_models.rigid import TriangulatedRigidSurface
-from .boundary_models.search import TriangleSurfaceBVH
+from .boundary_models.search import TriangleSurfaceBVH, _bbox_squared_distance
+
+
+def _patch_enclosure_bound(vertices, point, pad, target, depth=0):
+    box = np.sqrt(
+        _bbox_squared_distance(point, vertices.min(axis=0), vertices.max(axis=0))
+    )
+    normal = np.cross(vertices[2] - vertices[0], vertices[3] - vertices[1])
+    length = np.linalg.norm(normal)
+    if length:
+        normal = normal / length
+    axes = np.vstack(
+        (normal, np.cross(np.roll(vertices, -1, axis=0) - vertices, normal))
+    )
+    lengths = np.linalg.norm(axes, axis=1)
+    axes /= np.where(lengths > 0, lengths, 1)[:, None]
+    offsets = (vertices - vertices[0]) @ axes.T
+    offset = (point - vertices[0]) @ axes.T
+    slab = max(
+        float(np.max(offsets.min(axis=0) - offset)),
+        float(np.max(offset - offsets.max(axis=0))),
+        0.0,
+    )
+    lower = max(0.0, max(box, slab) - pad)
+    if lower >= target or depth >= 6:
+        return lower
+    # Exact Q1 restriction to four parameter subrectangles; convex enclosures
+    # tighten without substituting a triangular field for the bilinear patch.
+    a, b, c, d = vertices
+    ab, bc, cd, da, center = (
+        (a + b) / 2,
+        (b + c) / 2,
+        (c + d) / 2,
+        (d + a) / 2,
+        vertices.mean(axis=0),
+    )
+    return min(
+        _patch_enclosure_bound(np.array(v), point, pad, target, depth + 1)
+        for v in (
+            (a, ab, center, da),
+            (ab, b, bc, center),
+            (center, bc, c, cd),
+            (da, center, cd, d),
+        )
+    )
 
 
 class Q1SurfaceSearch:
@@ -59,6 +105,119 @@ class Q1SurfaceSearch:
         self.tree = TriangleSurfaceBVH(
             TriangulatedRigidSurface(nodes, inverse[triangles])
         )
+        self._bound_lower = self.vertices.min(axis=1)
+        self._bound_upper = self.vertices.max(axis=1)
+        self._bound_origins = self.vertices[:, 0]
+        normals = np.cross(
+            self.vertices[:, 2] - self.vertices[:, 0],
+            self.vertices[:, 3] - self.vertices[:, 1],
+        )
+        lengths = np.linalg.norm(normals, axis=1)
+        normals = normals / np.where(lengths > 0, lengths, 1)[:, None]
+        axes = np.concatenate(
+            (
+                normals[:, None],
+                np.cross(
+                    np.roll(self.vertices, -1, axis=1) - self.vertices, normals[:, None]
+                ),
+            ),
+            axis=1,
+        )
+        lengths = np.linalg.norm(axes, axis=2)
+        self._bound_normals = axes / np.where(lengths > 0, lengths, 1)[:, :, None]
+        offsets = np.einsum(
+            "nvi,nai->nva",
+            self.vertices - self._bound_origins[:, None],
+            self._bound_normals,
+        )
+        self._slab_lower, self._slab_upper = offsets.min(axis=1), offsets.max(axis=1)
+
+    def distance_lower_bounds(self, points, *, refinement_distance=None):
+        """Conservative distance to convex enclosures of the original Q1 faces.
+
+        Each face lies inside its vertex box and a normal slab because Q1
+        weights are nonnegative. The BVH's triangulation padding is used only
+        for branch pruning, never subtracted globally from the final leaf bound.
+        This is not a closest-point projection or an inside/outside classifier.
+        """
+        raw = np.asarray(points)
+        if (
+            np.iscomplexobj(raw)
+            or raw.ndim != 2
+            or raw.shape[1:] != (3,)
+            or not np.isfinite(raw).all()
+        ):
+            raise ValueError("Q1 distance bounds require finite real (points,3) data.")
+        tree = self.tree
+        targets = (
+            np.zeros(len(raw))
+            if refinement_distance is None
+            else np.asarray(refinement_distance)
+        )
+        if (
+            targets.shape != (len(raw),)
+            or np.iscomplexobj(targets)
+            or not np.isfinite(targets).all()
+            or np.any(targets < 0)
+        ):
+            raise ValueError(
+                "Refinement distances must be finite nonnegative point values."
+            )
+        scale = float(np.max(np.abs(self.vertices)))
+        result = np.zeros(len(raw))
+        for i, point in enumerate(raw):
+            pad = 256 * np.finfo(float).eps * max(scale, float(np.max(np.abs(point))))
+            pending = [(0.0, tree._root)]
+            best = float("inf")
+            visited = set()
+            while pending:
+                bound, node = heapq.heappop(pending)
+                if bound >= best:
+                    break
+                facet = int(tree._facet[node])
+                if facet >= 0:
+                    face = facet // 2
+                    if face in visited:
+                        continue
+                    visited.add(face)
+                    box = np.sqrt(
+                        _bbox_squared_distance(
+                            point, self._bound_lower[face], self._bound_upper[face]
+                        )
+                    )
+                    offset = self._bound_normals[face] @ (
+                        point - self._bound_origins[face]
+                    )
+                    slab = max(
+                        float(np.max(self._slab_lower[face] - offset)),
+                        float(np.max(offset - self._slab_upper[face])),
+                        0.0,
+                    )
+                    leaf = max(0.0, max(box, slab) - pad)
+                    if leaf < targets[i]:
+                        leaf = _patch_enclosure_bound(
+                            self.vertices[face], point, pad, targets[i]
+                        )
+                    best = min(best, leaf)
+                else:
+                    for child in (tree._left[node], tree._right[node]):
+                        lower = max(
+                            0.0,
+                            np.sqrt(
+                                _bbox_squared_distance(
+                                    point, tree._lower[child], tree._upper[child]
+                                )
+                            )
+                            - self.padding
+                            - pad,
+                        )
+                        if lower < best:
+                            heapq.heappush(pending, (lower, int(child)))
+            result[i] = best
+        if not np.isfinite(result).all():
+            raise ValueError("Q1 distance bound overflowed.")
+        result.flags.writeable = False
+        return result
 
     def project(
         self,

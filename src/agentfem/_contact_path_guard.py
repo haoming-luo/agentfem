@@ -13,6 +13,42 @@ certified here. Negative/zero endpoint gaps require the ordinary contact law.
 import numpy as np
 
 
+def outside_gap_lower_bounds(gaps_old, secondary_increment, primary_increment):
+    """Distance lower bounds for a closed boundary under linear nodal motion.
+
+    An initially positive signed distance can decrease by at most relative
+    point travel plus maximum boundary-node travel (Q1 has convex weights).
+    Positive returned values certify separation THROUGH the increment, not
+    exact endpoint distances. Nonpositive bounds request fresh narrow phase.
+    """
+    raw = tuple(
+        np.asarray(x) for x in (gaps_old, secondary_increment, primary_increment)
+    )
+    if any(np.iscomplexobj(x) or not np.isfinite(x).all() for x in raw):
+        raise ValueError("Contact separation bound requires finite real geometry.")
+    gaps, secondary, primary = raw
+    if (
+        gaps.ndim != 1
+        or secondary.shape != (len(gaps), 3)
+        or primary.ndim != 2
+        or primary.shape[1:] != (3,)
+        or not len(primary)
+    ):
+        raise ValueError("Contact separation bound geometry layout differs.")
+    translation = primary.mean(axis=0)
+    travel = np.linalg.norm(secondary - translation, axis=1) + np.max(
+        np.linalg.norm(primary - translation, axis=1)
+    )
+    scale = np.maximum(np.abs(gaps), travel)
+    scale = np.maximum(scale, np.max(np.abs(primary)))
+    if len(secondary):
+        scale = np.maximum(scale, np.max(np.abs(secondary), axis=1))
+    lower = gaps - travel - 128 * np.finfo(float).eps * scale
+    if not np.isfinite(lower).all():
+        raise ValueError("Contact separation bound overflowed.")
+    return lower
+
+
 def unresolved_outside_paths(
     gaps_old, gaps_new, secondary_increment, primary_increment
 ):

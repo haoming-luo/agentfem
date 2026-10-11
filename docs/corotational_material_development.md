@@ -23,6 +23,27 @@ and commercial reference curves remain separate gates.
 
 ## Ordered gates
 
+### Conservative separated-contact reuse
+
+Closed Q1 contact now distinguishes exact projection records from force-free
+separation certificates. Convex boxes and directional slabs of the original
+four control vertices provide distance lower bounds; bounded Q1 subdivision
+tightens them near warped patches. Triangular BVH padding only controls search
+pruning and never substitutes a P1 field for a Q1 face. A numerical closest
+distance may request more refinement, but is never itself admission evidence.
+Relative nodal travel reduces the accepted lower bound. Only a strictly positive
+remaining bound bypasses search; otherwise the existing narrow phase runs.
+This applies to the existing reviewed, non-self-intersecting closed-solid scope,
+not general continuous collision detection. Roundoff margins are conservative
+engineering guards, not formal interval-arithmetic certification.
+
+Bound-only responses carry no invented normal or closest point. Checkpoints
+retain accepted geometry and reconstruct projection evidence on restore;
+separated-contact continuous/restarted trajectories and histories agree exactly
+in the focused regression. The original private 1,000 unbonded queries all have
+positive refined bounds (minimum approximately `1.25515e-4` in source units).
+That is a geometry result, not ALL EXTERIOR coverage or a completed simulation.
+
 ### Long-clock increment comparison and unchanged reference cells
 
 The original-mesh pilot subsequently restored the accepted increment-66

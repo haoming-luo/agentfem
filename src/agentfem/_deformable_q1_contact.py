@@ -23,15 +23,65 @@ class DeformableContactResponse:
     secondary_residual: np.ndarray
     primary_residual: np.ndarray
     potential_energy: float
-    projection: SurfaceProjection
-    primary_nodes: np.ndarray
-    primary_weights: np.ndarray
+    projection: SurfaceProjection | None
+    primary_nodes: np.ndarray | None
+    primary_weights: np.ndarray | None
+    separation_lower_bounds: np.ndarray | None = None
 
     def __post_init__(self):
         for name in ("secondary_residual", "primary_residual", "primary_weights"):
-            object.__setattr__(self, name, _readonly_array(getattr(self, name)))
-        object.__setattr__(
-            self, "primary_nodes", _readonly_array(self.primary_nodes, dtype=np.int64)
+            if getattr(self, name) is not None:
+                object.__setattr__(self, name, _readonly_array(getattr(self, name)))
+        if self.primary_nodes is not None:
+            object.__setattr__(
+                self,
+                "primary_nodes",
+                _readonly_array(self.primary_nodes, dtype=np.int64),
+            )
+        if self.projection is None:
+            bound = np.asarray(self.separation_lower_bounds)
+            if (
+                bound.ndim != 1
+                or np.iscomplexobj(bound)
+                or not np.isfinite(bound).all()
+                or np.any(bound <= 0)
+                or self.potential_energy != 0
+                or self.primary_nodes is not None
+                or self.primary_weights is not None
+                or np.any(self.secondary_residual)
+                or np.any(self.primary_residual)
+            ):
+                raise ValueError(
+                    "Bound-only contact must be strictly separated and force-free."
+                )
+            object.__setattr__(self, "separation_lower_bounds", _readonly_array(bound))
+        elif self.separation_lower_bounds is not None:
+            bound = np.asarray(self.separation_lower_bounds)
+            if (
+                np.iscomplexobj(bound)
+                or bound.shape != self.projection.signed_gaps.shape
+                or not np.isfinite(bound).all()
+                or np.any(bound > self.projection.signed_gaps)
+            ):
+                raise ValueError("Contact separation lower bounds are inconsistent.")
+            object.__setattr__(self, "separation_lower_bounds", _readonly_array(bound))
+
+    @property
+    def gap_lower_bounds(self):
+        return (
+            self.separation_lower_bounds
+            if self.separation_lower_bounds is not None
+            else self.projection.signed_gaps
+        )
+
+    @property
+    def path_gaps(self):
+        # Preserve the existing endpoint guard for exact projected states.
+        # A bound-only state is strictly outside, with a conservative distance.
+        return (
+            self.projection.signed_gaps
+            if self.projection is not None
+            else self.separation_lower_bounds
         )
 
 
@@ -166,6 +216,7 @@ class DeformableQ1Penalty:
             projection,
             nodes,
             found["weights"],
+            found.get("separation_lower_bounds"),
         )
 
     def summary(self):

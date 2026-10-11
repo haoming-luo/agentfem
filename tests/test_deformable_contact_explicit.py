@@ -22,7 +22,7 @@ from test_nonmatching_global import _blocks
 from test_quadrilateral_global import _trace
 
 
-def make_step(dt=1e-4, steps=20, *, closed=False):
+def make_step(dt=1e-4, steps=20, *, closed=False, separated=False):
     domain = _blocks(1, 2, cell_type="hexahedron")
     # A smaller lower block puts its contact nodes strictly inside the upper
     # surface. Coincident boundary edges need the separate normal-cone gate.
@@ -92,6 +92,8 @@ def make_step(dt=1e-4, steps=20, *, closed=False):
         history.v.value.x.array.reshape(-1, 3)[nodes, 2] = -0.1 * np.sign(
             xyz[nodes, 2].mean()
         )
+    if separated:
+        history.v.value.x.array[:] *= -1
     ledger = fracture.DynamicEnergyLedger(
         energy=ResponseHexWorkMonitor(body),
         state=history,
@@ -188,7 +190,9 @@ def test_outside_to_outside_tunneling_is_rejected_before_material_update():
     values[residual.secondary_dofs, 2] = -0.1
     residual.initialize_accepted_state()
     accepted = residual.accepted
-    before_material = residual.base.internal.response.state.committed_state_vectors().copy()
+    before_material = (
+        residual.base.internal.response.state.committed_state_vectors().copy()
+    )
     values[residual.secondary_dofs, 2] = 1.2
     with pytest.raises(ValueError, match="Potential missed contact crossing"):
         residual.assemble_vector()
@@ -196,6 +200,66 @@ def test_outside_to_outside_tunneling_is_rejected_before_material_update():
     np.testing.assert_array_equal(
         residual.base.internal.response.state.committed_state_vectors(), before_material
     )
+
+
+def test_proved_separation_skips_search_without_fabricating_projection(monkeypatch):
+    step = make_step(closed=True)
+    residual = step.residual
+    step.state.u.value.x.array.reshape(-1, 3)[residual.secondary_dofs, 2] = -0.1
+    residual.initialize_accepted_state()
+    search = residual.operator.evaluate
+    calls = []
+
+    def counted(*values):
+        calls.append(1)
+        return search(*values)
+
+    monkeypatch.setattr(residual.operator, "evaluate", counted)
+    values = tuple(a.copy() for a in residual.accepted[:2])
+    values[0][:, 2] += 0.01
+    bounded = residual._evaluate_current(values)
+    assert calls == [] and bounded.projection is None
+    assert bounded.potential_energy == 0
+    assert np.all(bounded.separation_lower_bounds > 0)
+    exact = search(*values)
+    assert np.all(bounded.separation_lower_bounds <= exact.projection.signed_gaps)
+    np.testing.assert_array_equal(bounded.secondary_residual, exact.secondary_residual)
+    # Approaching through the old separation invalidates the bound; exact
+    # search discovers penetration and supplies a real projection again.
+    values[0][:, 2] += 0.1
+    active = residual._evaluate_current(values)
+    assert calls == [1] and active.projection is not None
+    assert active.potential_energy > 0
+
+
+def test_bound_only_response_rejects_forces_or_false_separation():
+    from agentfem._deformable_q1_contact import DeformableContactResponse
+
+    with pytest.raises(ValueError, match="force-free"):
+        DeformableContactResponse(
+            np.ones((1, 3)), np.zeros((1, 3)), 0.0, None, None, None, np.array([0.1])
+        )
+
+
+def test_separated_contact_restart_preserves_physics(tmp_path):
+    def separated():
+        return make_step(steps=5, closed=True, separated=True)
+
+    continuous = separated()
+    continuous.run()
+    partial = separated()
+    partial.run(until_step=3)
+    assert partial.residual.accepted[2].projection is None
+    path = partial.save_checkpoint(tmp_path / "separated")
+    resumed = separated()
+    resumed.load_checkpoint(path)
+    resumed.run()
+    for name in ("u", "v", "a"):
+        np.testing.assert_array_equal(
+            getattr(resumed.state, name).value.x.array,
+            getattr(continuous.state, name).value.x.array,
+        )
+    assert resumed.history_records == continuous.history_records
 
 
 def test_identical_contact_geometry_reuses_search_but_not_material_update(monkeypatch):

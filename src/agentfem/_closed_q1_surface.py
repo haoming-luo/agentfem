@@ -126,9 +126,15 @@ class ClosedQ1Surface:
             # This is the signed-distance gradient, not an averaged facet
             # normal. It makes pair forces central even at edges/corners.
             normal[i] = delta[i] / gaps[i]
+        # Numerical closest distance controls refinement effort only. Returned
+        # admission evidence comes exclusively from convex Q1 enclosures.
+        lower = self.search.distance_lower_bounds(
+            query, refinement_distance=distance / 4
+        )
         return {
             **found,
             "normals": normal,
             "signed_gaps": gaps,
+            "separation_lower_bounds": np.where(gaps > 0, lower, gaps),
             "sign_method": "two_true_q1_oriented_rays",
         }
