@@ -240,8 +240,9 @@ class FiniteUniformHexResidual:
         try:
             with field_transaction(_kinematics=self.displacement, **self.response.trial_fields()):
                 nodal = self.displacement.x.array.copy()
-                # Integer cell indexing already creates detached storage.
-                displacement = nodal.reshape(-1, 3)[self.cell_nodes]
+                # Axis-specific gather creates detached cell storage without
+                # the generic multi-axis advanced-indexing overhead.
+                displacement = np.take(nodal.reshape(-1, 3), self.cell_nodes, axis=0)
                 gradient = self.cells.deformation_gradient(displacement)
                 prepared = _prepare_explicit_material_points(
                     material, self.response.state, deformation_gradient_old=deformation_gradient_old,
@@ -270,7 +271,7 @@ class FiniteUniformHexResidual:
                                else bulk_viscosity)
                     viscosity = _bulk_viscosity_from_checked_gradient(
                         self.cells, gradient,
-                        velocity_field.x.array.reshape(-1, 3)[self.cell_nodes], **options)
+                        np.take(velocity_field.x.array.reshape(-1, 3), self.cell_nodes, axis=0), **options)
                     # Both contributions share the same cell-to-node map.
                     # Assemble once, retaining separate response/energy records.
                 vector = self._scatter(

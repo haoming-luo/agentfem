@@ -157,6 +157,34 @@ def make_step(
     return step
 
 
+@pytest.mark.parametrize("viscosity", [False, True])
+def test_cell_gather_preserves_response_trajectory(monkeypatch, viscosity):
+    import agentfem.elements._finite_uniform_hex_dolfinx as hex_backend
+
+    optimized = make_step(contact="cylinder", bond=True, viscosity=viscosity)
+    optimized.run()
+
+    class AdvancedIndexReference:
+        def __getattr__(self, name):
+            return getattr(np, name)
+
+        def take(self, values, indices, axis=None):
+            assert axis == 0
+            return values[indices]
+
+    # Replace only this backend's namespace, never NumPy's process-wide API.
+    monkeypatch.setattr(hex_backend, "np", AdvancedIndexReference())
+    reference = make_step(contact="cylinder", bond=True, viscosity=viscosity)
+    reference.run()
+    for name in ("u", "v", "a"):
+        np.testing.assert_array_equal(
+            getattr(optimized.state, name).value.x.array,
+            getattr(reference.state, name).value.x.array,
+        )
+    assert optimized.residual.snapshot() == reference.residual.snapshot()
+    assert optimized.history_records == reference.history_records
+
+
 @pytest.mark.parametrize(
     "contact,bond", [(True, False), ("cylinder", False), ("cylinder", True)]
 )

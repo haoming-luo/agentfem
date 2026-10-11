@@ -1357,6 +1357,12 @@ material tangents into an unproven whole-path stability estimate.
   visible ghost points. The 48-test targeted state/layout suite passed; the
   20 layout tests also passed under a bounded two-rank TCP-backed MPI launch.
   This does not admit the private response-only full simulation to MPI.
+- Response-only Hex8 displacement and velocity gathering uses axis-specific
+  NumPy extraction, retaining detached arrays and the same cell ordering.
+  A 91-test targeted finite-element/material/viscosity suite passed. Paired
+  moving-contact, bonded-interface trajectories with and without viscosity
+  agree bitwise with the original advanced-indexing implementation. Component
+  timings are not a completed full-model performance claim.
 - [Abaqus explicit dynamics](https://docs.software.vt.edu/abaqusv2025/English/SIMACAETHERefMap/simathe-c-expdynamic.htm):
   linear and compression-only quadratic artificial bulk viscosity. Matching
   these formulas alone does not establish identical characteristic lengths,
