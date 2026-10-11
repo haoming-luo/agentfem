@@ -42,3 +42,36 @@ def test_missing_polynomial_candidate_recovers_only_with_certificate(monkeypatch
     actual = geometry._q1_closest_point_polynomial(x, point)
     np.testing.assert_allclose(actual[0], reference[0], atol=1e-13, rtol=0)
     np.testing.assert_allclose(actual[2], reference[2], atol=1e-13, rtol=0)
+
+
+def test_skew_anisotropic_comparison_bound_is_positive_and_conservative():
+    from agentfem._q1_exact_order import _coefficients, _strong_convexity_modulus
+
+    b, c = np.array([.01, 0., 0.]), np.array([.1, 1., 0.])
+    x = np.array([np.zeros(3), b, b+c, c])
+    point = .37*b+.61*c+np.array([0., 0., .2])
+    hessian = np.array([[b@b, b@c], [b@c, c@c]])
+    assert min(hessian.diagonal())-abs(hessian[0, 1]) < 0
+    bound = float(_strong_convexity_modulus(_coefficients(x, point)))
+    assert 0 < bound <= np.linalg.eigvalsh(hessian)[0]
+    np.testing.assert_allclose(convex_closest_parameters(x, point), [.37, .61],
+                               atol=4e-15, rtol=0)
+
+
+def test_comparison_bound_below_sampled_warped_hessian_eigenvalues():
+    from agentfem._q1_exact_order import _coefficients, _strong_convexity_modulus
+
+    rng = np.random.default_rng(703)
+    for _ in range(25):
+        b = np.array([rng.uniform(.01, .1), 0., 0.])
+        c = np.array([rng.uniform(.02, .2), 1., 0.])
+        d = rng.uniform(-1e-4, 1e-4, 3)
+        x = np.array([np.zeros(3), b, b+c+d, c])
+        point = np.array([.04, .3, .05])
+        bound = float(_strong_convexity_modulus(_coefficients(x, point)))
+        for u, v in rng.uniform(0, 1, (20, 2)):
+            du, dv = b+d*v, c+d*u
+            delta = b*u+c*v+d*u*v-point
+            off = du@dv+delta@d
+            hessian = [[du@du, off], [off, dv@dv]]
+            assert bound <= np.linalg.eigvalsh(hessian)[0]+1e-16

@@ -1141,33 +1141,37 @@ class TriangulatedRigidSurface(RigidSurface):
                 raise ValueError("Facet IDs must be unique non-negative integers.")
             identity_source = "user_provided"
 
-        edge_uses: dict[tuple[int, int], list[int]] = {}
-        for triangle in triangles:
-            for start, end in (
-                (int(triangle[0]), int(triangle[1])),
-                (int(triangle[1]), int(triangle[2])),
-                (int(triangle[2]), int(triangle[0])),
-            ):
-                key = (min(start, end), max(start, end))
-                direction = 1 if (start, end) == key else -1
-                edge_uses.setdefault(key, []).append(direction)
-        non_manifold = [edge for edge, uses in edge_uses.items() if len(uses) > 2]
-        if non_manifold:
+        # Integer topology is checked in batches. In a refitted contact trace
+        # this same validation otherwise creates three Python tuples/lists per
+        # triangle on every increment. Preserve both rejection criteria and
+        # the first-input-edge diagnostic, rather than dropping the check.
+        directed_edges = triangles[:, ((0, 1), (1, 2), (2, 0))].reshape(-1, 2)
+        edges, first, inverse, counts = np.unique(
+            np.sort(directed_edges, axis=1), axis=0,
+            return_index=True, return_inverse=True, return_counts=True,
+        )
+        non_manifold = np.flatnonzero(counts > 2)
+        if non_manifold.size:
+            edge = tuple(int(v) for v in edges[
+                non_manifold[np.argmin(first[non_manifold])]
+            ])
             raise ValueError(
                 "Triangulated surface contains non-manifold edges; first edge "
-                f"is {non_manifold[0]}."
+                f"is {edge}."
             )
-        orientation_conflicts = [
-            edge
-            for edge, uses in edge_uses.items()
-            if len(uses) == 2 and uses[0] == uses[1]
-        ]
-        if orientation_conflicts:
+        directions = np.where(directed_edges[:, 0] < directed_edges[:, 1], 1, -1)
+        orientation_sum = np.zeros(len(edges), dtype=np.int64)
+        np.add.at(orientation_sum, inverse, directions)
+        orientation_conflicts = np.flatnonzero((counts == 2) & (orientation_sum != 0))
+        if orientation_conflicts.size:
+            edge = tuple(int(v) for v in edges[
+                orientation_conflicts[np.argmin(first[orientation_conflicts])]
+            ])
             raise ValueError(
                 "Adjacent surface facets have inconsistent orientation; first "
-                f"edge is {orientation_conflicts[0]}."
+                f"edge is {edge}."
             )
-        boundary_edge_count = sum(len(uses) == 1 for uses in edge_uses.values())
+        boundary_edge_count = int(np.count_nonzero(counts == 1))
 
         fingerprint = _sha256_geometry(
             "triangulated_rigid_surface",
@@ -1198,7 +1202,7 @@ class TriangulatedRigidSurface(RigidSurface):
             self,
             "_topology_summary",
             {
-                "edge_count": len(edge_uses),
+                "edge_count": len(edges),
                 "boundary_edge_count": boundary_edge_count,
                 "closed": boundary_edge_count == 0,
                 "manifold": True,

@@ -136,6 +136,11 @@ class ClosedQ1Surface:
             self.scale, float(np.max(np.abs(points), initial=0))
         )
 
+    def _inside_batch(self, points):
+        """Reference batch seam; every point retains the two-ray contract."""
+        return np.fromiter((self._inside(p) for p in points), dtype=bool,
+                           count=len(points))
+
     def project(self, points, *, maximum_distance):
         found = self.search.project(
             points, maximum_distance=maximum_distance, require_unique_normal=False
@@ -146,11 +151,14 @@ class ClosedQ1Surface:
         tolerance = self.zero_gap_resolution(query)
         gaps = np.zeros(len(query))
         normal = found["normals"].copy()
-        for i in np.flatnonzero(distance > tolerance):
-            gaps[i] = -distance[i] if self._inside(query[i]) else distance[i]
-            # This is the signed-distance gradient, not an averaged facet
-            # normal. It makes pair forces central even at edges/corners.
-            normal[i] = delta[i] / gaps[i]
+        resolved = np.flatnonzero(distance > tolerance)
+        if len(resolved):
+            inside = self._inside_batch(query[resolved])
+            gaps[resolved] = np.where(inside, -distance[resolved], distance[resolved])
+            # Signed-distance gradients, not averaged facet normals: pair
+            # forces remain central even at edges/corners. Zero-gap points
+            # are not classified by artificial rays launched on the surface.
+            normal[resolved] = delta[resolved] / gaps[resolved, None]
         # Numerical closest distance controls refinement effort only. Returned
         # admission evidence comes exclusively from convex Q1 enclosures.
         # Only exterior points consume a positive separation certificate.

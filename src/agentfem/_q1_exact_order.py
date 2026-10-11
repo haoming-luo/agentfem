@@ -31,7 +31,7 @@ def _value(coefficients, s, t):
 
 
 def _strong_convexity_modulus(coefficients):
-    """Exact Gershgorin lower bound for Hessian(distance squared / 2)."""
+    """Exact comparison-matrix bound for Hessian(distance squared / 2)."""
     a, b, c, d = coefficients
     dd = _dot(d, d)
 
@@ -42,7 +42,16 @@ def _strong_convexity_modulus(coefficients):
 
     off = max(abs(_dot(b, c)+_dot(a, d)+2*x*_dot(b, d)
                   +2*y*_dot(c, d)+2*x*y*dd) for x in (0, 1) for y in (0, 1))
-    return min(diagonal_lower(b), diagonal_lower(c))-off
+    first, second = diagonal_lower(b), diagonal_lower(c)
+    gershgorin = min(first, second)-off
+    # For skew/anisotropic traces Gershgorin can fail despite positive
+    # definiteness. The comparison matrix [[first,-off],[-off,second]]
+    # bounds the quadratic form in absolute components. If its determinant
+    # is positive, det/trace is an exact lower bound on its least eigenvalue.
+    determinant = first*second-off*off
+    if first > 0 and second > 0 and determinant > 0:
+        return max(gershgorin, determinant/(first+second))
+    return gershgorin
 
 
 def witness_within_distance(vertices, point, uv, tolerance):

@@ -1193,6 +1193,17 @@ acceleration remains a separately audited private runtime prototype. Benchmark
 frozen geometry separately from accepted dynamic trajectories; do not infer a
 whole-run speedup from one contact evaluation.
 
+The exact convexity screen also uses a two-dimensional comparison matrix.
+With diagonal lower bounds `a,c` and off-diagonal magnitude upper bound `b`,
+positive `a*c-b*b` gives the conservative eigenvalue bound
+`(a*c-b*b)/(a+c)`. This covers skew, anisotropic traces for which the simpler
+Gershgorin bound is negative. The minimum-distance recovery still needs an
+exact normal-cone residual certificate; a better lower bound is not permission
+to admit a nonconvex or unresolved patch. Closed-surface sign classification
+has one internal batch seam retaining the same two independent oriented rays.
+Triangle edge-incidence validation is vectorized, preserving manifold,
+orientation and first-input-edge diagnostics rather than omitting validation.
+
 Related method: [Tight Inclusion continuous-collision-detection reference](https://github.com/Continuous-Collision-Detection/Tight-Inclusion).
 The present Q1 certificate uses exact trilinear convex-hull exclusion, not that
 package's triangle CCD implementation or a complete time-of-impact algorithm.
