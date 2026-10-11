@@ -7,6 +7,7 @@ must be explicit; no mass scaling or stable increment is inferred here.
 """
 
 from dataclasses import dataclass
+from math import fsum
 
 import numpy as np
 
@@ -21,6 +22,48 @@ class BulkViscosityResponse:
     isotropic_stress: np.ndarray
     mass_scaled_damping_bound: np.ndarray
     damping_row_majorant: np.ndarray | None = None
+
+
+def _cell_increment_work(force, cell_nodes, nodal_increment, *, chunk_size=4096):
+    """Contract admitted cell forces with nodal motion using bounded scratch.
+
+    Returns signed work and absolute-product sum for the caller's roundoff
+    check. Does not substitute power for force-displacement conjugacy.
+    """
+    force = np.asarray(force)
+    nodes = np.asarray(cell_nodes)
+    increment = np.asarray(nodal_increment)
+    if (
+        force.shape != nodes.shape + (3,)
+        or nodes.ndim != 2
+        or nodes.shape[1] != 8
+        or nodes.dtype.kind not in "iu"
+        or increment.ndim != 2
+        or increment.shape[1] != 3
+        or np.iscomplexobj(force)
+        or np.iscomplexobj(increment)
+        or isinstance(chunk_size, bool)
+        or not isinstance(chunk_size, (int, np.integer))
+        or chunk_size < 1
+    ):
+        raise ValueError("Cell work requires real Hex8 forces, node map and nodal increments.")
+    increment = np.asarray(increment, dtype=float)
+    signed_parts, absolute_parts = [], []
+    for start in range(0, len(nodes), chunk_size):
+        selected = nodes[start:start + chunk_size]
+        if np.any(selected < 0) or np.any(selected >= len(increment)):
+            raise ValueError("Cell work node index is out of range.")
+        products = increment[selected]
+        products *= force[start:start + chunk_size]
+        if not np.isfinite(products).all():
+            raise ValueError("Nonfinite cell increment work.")
+        signed_parts.append(float(products.sum()))
+        np.abs(products, out=products)
+        absolute_parts.append(float(products.sum()))
+    work, absolute = fsum(signed_parts), fsum(absolute_parts)
+    if not np.isfinite([work, absolute]).all():
+        raise ValueError("Cell increment work overflowed.")
+    return work, absolute
 
 
 def bulk_viscosity_response(

@@ -281,11 +281,13 @@ class ResponseHexExplicitResidual:
             damping_bound = 0.0
             if self.bulk_viscosity is not None:
                 viscous = trial.bulk_viscosity_response
-                cell_increment = increment.reshape(-1, 3)[self.internal.cell_nodes]
-                products = viscous.internal_force * cell_increment
-                contribution = float(products.sum())
+                from ..elements._bulk_viscosity import _cell_increment_work
+                contribution, absolute_products = _cell_increment_work(
+                    viscous.internal_force, self.internal.cell_nodes,
+                    increment.reshape(-1, 3),
+                )
                 expected = dt * float(viscous.artificial_power.sum())
-                roundoff = 128 * np.finfo(float).eps * float(np.abs(products).sum())
+                roundoff = 128 * np.finfo(float).eps * absolute_products
                 if (
                     expected < 0
                     or abs(contribution - expected) > roundoff + 1e-10 * expected
