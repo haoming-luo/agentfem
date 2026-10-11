@@ -199,6 +199,43 @@ class DeformableQ1ContactResidual:
         self._add(vector, self.accepted[2])
         return vector
 
+    def frozen_projection_row_sums(self, nodal_mass):
+        """Accepted-contact PSD contribution only, NOT a nonlinear step bound.
+
+        Freeze projection weights/normals and the active set at the accepted
+        state. Moving-projection curvature, body stiffness, other contacts and
+        damping must not be inferred from this diagnostic contribution.
+        """
+        from .._penalty_stability import penalty_stencil_row_sums
+
+        if self.accepted is None or self.trial is not None:
+            raise RuntimeError("Contact stiffness evidence requires accepted state.")
+        mass = np.asarray(nodal_mass)
+        expected = self.displacement.x.array.reshape(-1, 3).shape
+        if mass.shape != expected or np.iscomplexobj(mass):
+            raise ValueError("Contact inertia must match the nodal vector layout.")
+        response = self.accepted[2]
+        projection = response.projection
+        if projection is None:
+            nodes = np.empty((0, 5), dtype=np.int64)
+            shapes = np.empty((0, 5))
+            weights = np.empty(0)
+        else:
+            indices = (np.arange(len(self.operator.nodes))
+                       if response.projection_indices is None
+                       else response.projection_indices)
+            active = projection.signed_gaps < 0
+            nodes = np.column_stack((
+                self.secondary_dofs[self.operator.nodes[indices[active]]],
+                self.primary_dofs[response.primary_nodes[active]],
+            ))
+            shapes = np.column_stack((np.ones(active.sum()),
+                                      -response.primary_weights[active]))
+            weights = self.operator.weights[indices[active]]
+        return penalty_stencil_row_sums(
+            nodes, shapes, weights, self.operator.law.penalty, mass
+        )
+
     def commit(self):
         if self.trial is None or any(
             not np.array_equal(a, b)

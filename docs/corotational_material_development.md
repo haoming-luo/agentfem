@@ -40,6 +40,14 @@ when the remaining certificates expire all eight are searched again. This is
 not a measured full-model speedup, continuous collision detection, self-contact,
 or a nonlinear stability certificate.
 
+The accepted contact residual also exposes a frozen-projection PSD row-bound
+contribution using the existing penalty-stencil machinery. It uses the actual
+numerical nodal inertia and active point weights, including partial-projection
+indexing. Independent dense normal-constraint eigenvalues are bounded in the
+focused test; separated states contribute zero. This is **not** a total time
+step bound: moving-projection curvature, body operators and damping are absent.
+The source-case ledger must report that distinction explicitly.
+
 ### One enclosing response transaction
 
 Response-only material preparation now produces the complete validated batch

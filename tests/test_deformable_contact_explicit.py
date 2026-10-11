@@ -262,6 +262,44 @@ def test_partial_separation_lifecycle_uses_fresh_contact_for_expired_bounds(monk
         residual._evaluate_current(values)
 
 
+def test_frozen_contact_rows_bound_independent_mass_scaled_normal_operator():
+    step = make_step(closed=True)
+    residual = step.residual
+    step.state.u.value.x.array.reshape(-1, 3)[residual.secondary_dofs, 2] = .02
+    residual.initialize_accepted_state()
+    response = residual.accepted[2]
+    assert np.any(response.projection.signed_gaps < 0)
+    mass = np.linspace(1., 2., step.state.u.value.x.array.size).reshape(-1, 3)
+    rows = residual.frozen_projection_row_sums(mass)
+    dense = np.zeros((mass.size, mass.size))
+    for point, gap in enumerate(response.projection.signed_gaps):
+        if gap >= 0:
+            continue
+        normal = response.projection.normals[point]
+        gradient = np.zeros_like(mass)
+        gradient[residual.secondary_dofs[residual.operator.nodes[point]]] += normal
+        np.add.at(gradient, residual.primary_dofs[response.primary_nodes[point]],
+                  -response.primary_weights[point, :, None] * normal)
+        scaled = (gradient / np.sqrt(mass)).ravel()
+        dense += residual.operator.law.penalty * residual.operator.weights[point] * np.outer(scaled, scaled)
+    assert np.linalg.eigvalsh(dense)[-1] <= rows.max() * (1 + 1e-13)
+    assert rows.max() > 0
+    with pytest.raises(ValueError, match="inertia"):
+        residual.frozen_projection_row_sums(mass.ravel())
+    residual.trial = residual.accepted
+    with pytest.raises(RuntimeError, match="accepted"):
+        residual.frozen_projection_row_sums(mass)
+
+
+def test_frozen_contact_rows_are_zero_for_separated_state():
+    step = make_step(closed=True)
+    residual = step.residual
+    step.state.u.value.x.array.reshape(-1, 3)[residual.secondary_dofs, 2] = -.1
+    residual.initialize_accepted_state()
+    mass = np.ones_like(step.state.u.value.x.array).reshape(-1, 3)
+    np.testing.assert_array_equal(residual.frozen_projection_row_sums(mass), 0)
+
+
 def test_bound_only_response_rejects_forces_or_false_separation():
     from agentfem._deformable_q1_contact import DeformableContactResponse
 
