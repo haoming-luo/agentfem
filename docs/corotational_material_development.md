@@ -78,6 +78,18 @@ The focused directional and finite-Hex selection passes 25 tests. Original
 material tensor conversion, frame identity and damaged-path admission remain
 separate gates before deployment in that case.
 
+An initial-state-only private source audit at `4397a270` checks all nine
+gradient directions against the compiled virgin material update; the tensor
+shear/engineering-stiffness conversion agrees to the reported floating-point
+precision. Source orientations used here are identity. On the original mesh,
+the directional initial tensor gives added/physical mass 228.79 at target
+`1e-6`, versus 767.77 with the previous scalar envelope (about 70.2% lower).
+At `1e-7` the corresponding diagnostic is 1.52 versus 6.99. These are initial
+planning comparisons only: no modified dynamic run, damaged/rotated-state
+upper-bound proof, or achieved runtime improvement is claimed. Even the tighter
+initial plan remains strongly mass-scaled. Keep the original pilot unchanged
+until response sensitivity and evolving-domain checks justify another policy.
+
 An original-mesh nodal-contact pilot accepted 66 increments, then rejected
 increment 67 because subtracting accepted times reconstructed `1e-6` with a
 floating-point tail above an overly narrow tolerance. Provider limits now account
