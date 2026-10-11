@@ -10,7 +10,7 @@ loads, so they belong in ``agentfem.loads``.
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from numbers import Integral, Real
 from types import MappingProxyType
 from typing import Mapping
@@ -404,6 +404,7 @@ class DirichletConstraint:
     value: object | None = None
     name: str = "dirichlet"
     location: object | None = None
+    match_evidence: dict | None = None
 
     @classmethod
     def component(
@@ -445,6 +446,11 @@ class DirichletConstraint:
         return {
             "name": self.name,
             "kind": "dirichlet_constraint",
+            **(
+                {"point_match": self.match_evidence}
+                if self.match_evidence is not None
+                else {}
+            ),
             "location": getattr(self.location, "name", None),
             "value": describe_value(self.value),
         }
@@ -1113,13 +1119,42 @@ def pin(
             <= selected_tolerance
         )
 
-    return fixed(
+    support = fixed(
         target,
         location=marker,
         value=value,
         components=components,
         name=name,
     )
+
+    function = getattr(target, "value", target)
+    comm = function.function_space.mesh.comm
+    for index, item in enumerate(support.dirichlet):
+        indices, owned = item.bc.dof_indices()
+        count = int(comm.allreduce(int(owned), op=MPI.SUM))
+        if count == 0:
+            raise ValueError(
+                f"AFM-CONSTRAINT-PIN-EMPTY: Point support {name!r} at {tuple(float(x) for x in coordinate)} matched zero global "
+                f"degrees of freedom ({item.name}); "
+                "choose a mesh node or adjust the coordinate/tolerance."
+            )
+        space = function.function_space
+        points = space.tabulate_dof_coordinates()[
+            np.asarray(indices[:owned]) // space.dofmap.index_map_bs
+        ]
+        matched = [point[: coordinate.size].tolist() for point in points]
+        support.dirichlet[index] = replace(
+            item,
+            match_evidence={
+                "coordinate": coordinate.tolist(),
+                "owned_global_dofs": count,
+                "matched_coordinates": [
+                    point for group in comm.allgather(matched) for point in group
+                ],
+                "tolerance": selected_tolerance,
+            },
+        )
+    return support
 
 
 def fixed_all(target, *, location=None, on=None, value=0.0, name: str | None = None):

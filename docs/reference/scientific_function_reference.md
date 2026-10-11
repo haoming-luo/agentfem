@@ -25,6 +25,7 @@ the compact machine-readable `agentfem/knowledge/catalog.json`.
 | [`agentfem.material.fabric_surface_constitutive`](#agentfem-material-fabric_surface_constitutive) | Non-orthogonal woven-fabric surface response | material | experimental |
 | [`agentfem.material.finite_strain_j2_logarithmic`](#agentfem-material-finite_strain_j2_logarithmic) | Finite-strain logarithmic J2 plasticity | material | experimental |
 | [`agentfem.material.finite_strain_plane_stress`](#agentfem-material-finite_strain_plane_stress) | Locally condensed finite-strain plane-stress Neo-Hookean membrane | material | experimental |
+| [`agentfem.material.geometric_elasticity`](#agentfem-material-geometric_elasticity) | Finite-rotation elastic solids with exact plane-stress reduction | material | supported |
 | [`agentfem.material.global_implicit_creep`](#agentfem-material-global_implicit_creep) | Global implicit power-law creep | material | supported |
 | [`agentfem.material.j2_global_plasticity`](#agentfem-material-j2_global_plasticity) | Global small-strain J2 plasticity | material | supported |
 | [`agentfem.material.linear_viscoelastic_dynamics`](#agentfem-material-linear_viscoelastic_dynamics) | Generalized-Maxwell linear viscoelastic material | material | supported |
@@ -1506,6 +1507,112 @@ step = model.step(target=u, material=material, steps=100)
 ### References
 
 - Wang, Fineberg, and Needleman (2025), transition from crack-type to supershear-type to spall-type dynamics: `https://doi.org/10.1016/j.jmps.2025.106213`
+
+<a id="agentfem-material-geometric_elasticity"></a>
+
+## Finite-rotation elastic solids with exact plane-stress reduction
+
+**Stable ID:** `agentfem.material.geometric_elasticity`<br>
+**Kind:** `material`<br>
+**Status:** `supported`<br>
+**Source card:** `src/agentfem/knowledge/cards/geometric_elasticity.json`
+
+Saint-Venant–Kirchhoff elasticity through the standard model.step workflow, with objective finite-rotation kinematics, exact plane-stress thickness condensation and consistent tangent.
+
+### Public API
+
+- `agentfem.constitutive.saint_venant_kirchhoff`
+- `agentfem.constitutive.SaintVenantKirchhoffProperties`
+- `agentfem.constitutive.geometric_elasticity.response_value`
+- `agentfem.mechanics.load_controlled_response`
+- `agentfem.constraints.pin`
+
+### Scientific contract
+
+Finite rotations are represented by Green–Lagrange strain, with a linear isotropic relation to second Piola–Kirchhoff stress. Exact elimination of the thickness strain defines the plane-stress energy and tangent.
+
+**total-Lagrangian elastic potential**
+
+$$
+\boldsymbol E=\tfrac12(\boldsymbol F^{T}\boldsymbol F-\boldsymbol I),\quad\Psi=\tfrac{\lambda}{2}(\operatorname{tr}\boldsymbol E)^2+\mu\boldsymbol E:\boldsymbol E
+$$
+
+F is the deformation gradient; E is Green–Lagrange strain; lambda and mu are Lamé constants; energy is per reference volume.
+
+**plane-stress thickness condensation**
+
+$$
+E_{33}=-\frac{\lambda}{\lambda+2\mu}(E_{11}+E_{22}),\quad F_{33}=\sqrt{1+2E_{33}}>0
+$$
+
+The eliminated thickness satisfies zero out-of-plane second Piola and Cauchy stresses.
+
+#### Inputs
+
+| Name | Type | Unit role | Meaning |
+| --- | --- | --- | --- |
+| young, poisson, plane_stress | material parameters and dimensional reduction | stress, dimensionless | An explicit material choice; nonlinear=True does not automatically change an existing linear material. |
+
+#### Outputs
+
+| Name | Type | Unit role | Meaning |
+| --- | --- | --- | --- |
+| energy, stress and tangent | scalar and tensors | energy per reference volume and stress | S output is Cauchy stress; GREEN is Green–Lagrange strain; P is first Piola; J includes relaxed thickness. |
+
+#### Assumptions
+
+- Isotropic stateless elasticity, small material strains and finite rotations.
+- One material with no initial stress or eigenstrain; conservative reference loading.
+
+#### Conventions
+
+- 2D forces and energies are per unit reference thickness.
+- Plane strain fixes F33=1; plane stress eliminates S33 exactly.
+- Standard finite-strain cell outputs embed this material into three dimensions.
+
+#### Applicability
+
+- Elastic cantilevers, imperfect columns and conservative structural stability paths.
+
+#### Limitations
+
+- Not a general large-strain rubber model; no near-incompressible mixed formulation.
+- No automatic dynamics, thermal strains, contact or follower pressure in this release.
+- Arc-length adapter remains serial; Newton path uses the existing MPI assembly.
+
+### Minimal example
+
+```python
+model = models.create(study=studies.static_solid(dimension=2, assumption='plane_stress', nonlinear=True), mesh=domain)
+u = model.field(fields.displacement(domain, degree=2))
+model.material(constitutive.saint_venant_kirchhoff(young=210000., poisson=.3, plane_stress=True))
+model.clamp(u, on=left)
+model.traction((-10., 0.), on=right)
+result = model.step(target=u).solve_result()
+```
+
+### Verification
+
+**Tests**
+
+- `tests/test_geometric_elasticity.py`
+- `tests/test_geometric_elasticity_structures.py`
+
+**Benchmarks**
+
+- None declared.
+
+**Validation rules**
+
+- Differentiate energy and stress independently; verify rigid-rotation objectivity.
+- Compare plane-stress results with three-dimensional homogeneous states.
+- Reject non-positive J or thickness and restore the accepted state.
+- Verify load balance, Euler scaling, elastica response and mesh/increment convergence.
+
+### References
+
+- COMSOL: linear elastic material with geometric nonlinearity: `https://www.comsol.com/blogs/modeling-linear-elastic-materials-how-difficult-can-it-be/`
+- Bisshopp and Drucker (1945), Large deflection of cantilever beams: `doi:10.1090/qam/13360`
 
 <a id="agentfem-material-global_implicit_creep"></a>
 

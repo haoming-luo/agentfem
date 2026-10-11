@@ -216,6 +216,14 @@ def _accept_neo_hookean(model, request: StepRequest) -> bool:
     )
 
 
+def _accept_geometric_elasticity(model, request: StepRequest) -> bool:
+    from .constitutive.geometric_elasticity import SaintVenantKirchhoffProperties
+
+    return isinstance(
+        _selected_material(model, request), SaintVenantKirchhoffProperties
+    ) and _accept_neo_hookean(model, request)
+
+
 def _accept_fabric_membrane(model, request: StepRequest) -> bool:
     from .constitutive.fabric import DecoupledFabricSurface, FabricStack
 
@@ -1414,6 +1422,27 @@ register_step_provider(
             "membrane equilibrium."
         ),
         procedure="standard/newton/fabric_membrane",
+        option_contract=_option_contract(
+            "measure",
+            "petsc_options_prefix",
+            "incrementation",
+            "increments",
+            "load_factors",
+            "output_every",
+            "progress",
+            "status_file",
+        ),
+    )
+)
+register_step_provider(
+    StepProvider(
+        name="saint_venant_kirchhoff_finite_strain_static",
+        analyses=("nonlinear_static",),
+        accepts=_accept_geometric_elasticity,
+        lower=_lower_neo_hookean,
+        priority=110,
+        description="Total-Lagrangian elastic solids with exact plane-stress condensation, finite rotations and consistent Newton tangent.",
+        procedure="standard/newton",
         option_contract=_option_contract(
             "measure",
             "petsc_options_prefix",

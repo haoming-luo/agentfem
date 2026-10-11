@@ -299,6 +299,8 @@ and evidence remain in the linked guides and scientific function reference.
 | function | `turning_points(history) -> np.ndarray` | Return endpoints and local reversals from a scalar stress history. |
 | class | `FiniteStrainJ2Logarithmic` | Multiplicative finite-strain J2 plasticity with Hencky elasticity. |
 | function | `finite_strain_j2_logarithmic(*, young: float, poisson: float, yield_stress: float, hardening_modulus: float = 0.0, tangent_relative_step: float = 2e-06, tangent_evaluation: str = 'analytic_spectral', density: float \| None = None) -> FiniteStrainJ2Logarithmic` | Create the logarithmic finite-strain J2 material provider. |
+| class | `SaintVenantKirchhoffProperties` | Public AgentFEM object. |
+| function | `saint_venant_kirchhoff(*, young: float, poisson: float, density: float \| None = None, plane_stress: bool = False, name: str = 'Saint-Venant--Kirchhoff') -> SaintVenantKirchhoffProperties` | Create explicit geometrically nonlinear elastic material parameters. |
 | class | `FiniteStrainKinematics` | Standard total-Lagrangian kinematics derived from one displacement. |
 | class | `MixedNeoHookeanProperties` | Isochoric Neo-Hookean solid with an independent pressure field. |
 | class | `MooneyRivlinProperties` | Two-parameter isotropic Mooney-Rivlin finite-strain solid. |
@@ -1179,6 +1181,7 @@ and evidence remain in the linked guides and scientific function reference.
 | function | `harmonic_viscoelastic_step(*, displacement, material, frequency: float \| None = None, angular_frequency: float \| None = None, external_force = None, constraints = (), density: float \| None = None, load_phase: float = 0.0, temperature: float \| None = None, study = None, solver_options = None, name: str = 'harmonic_viscoelastic') -> HarmonicViscoelasticStep` | Build one direct 3D harmonic generalized-Maxwell equilibrium Step. |
 | function | `quasistatic_viscoelastic_step(*, displacement, material, duration: float, steps: int \| None = None, time_points = None, incrementation = None, time_error_tolerance: float \| None = None, external_force = None, constraints = (), study = None, solver_options = None, quadrature_degree: int = 2, amplitude = None, temperature = None, time_unit: str \| None = None, progress = True, status_file = None, checkpoint_policy = None, name: str = 'viscoelastic') -> QuasistaticViscoelasticStep` | Build a 3D quasi-static generalized-Maxwell Step. |
 | function | `displacement_controlled_response(model, step, *, on, component = 0, monitor = None, monitor_component = 1)` | Return accepted factor, mean boundary displacement and reaction arrays. |
+| function | `load_controlled_response(model, step, *, support, monitor, component = 0, monitor_component = 1)` | Measure a conservative traction-driven accepted path. |
 
 ## `agentfem.operators`
 

@@ -1,0 +1,104 @@
+{
+  "schema": "agentfem.scientific-function-card",
+  "schema_version": "0.1.0",
+  "id": "agentfem.material.geometric_elasticity",
+  "title": "Finite-rotation elastic solids with exact plane-stress reduction",
+  "kind": "material",
+  "status": "supported",
+  "summary": "Saint-Venant–Kirchhoff elasticity through the standard model.step workflow, with objective finite-rotation kinematics, exact plane-stress thickness condensation and consistent tangent.",
+  "public_api": [
+    "agentfem.constitutive.saint_venant_kirchhoff",
+    "agentfem.constitutive.SaintVenantKirchhoffProperties",
+    "agentfem.constitutive.geometric_elasticity.response_value",
+    "agentfem.mechanics.load_controlled_response",
+    "agentfem.constraints.pin"
+  ],
+  "implementation": [
+    "constitutive/geometric_elasticity.py",
+    "constitutive/hyperelasticity.py",
+    "_step_builders_finite_strain.py",
+    "results/finite_strain.py",
+    "mechanics/continuation.py"
+  ],
+  "science": {
+    "statement": "Finite rotations are represented by Green–Lagrange strain, with a linear isotropic relation to second Piola–Kirchhoff stress. Exact elimination of the thickness strain defines the plane-stress energy and tangent.",
+    "equations": [
+      {
+        "label": "total-Lagrangian elastic potential",
+        "expression": "\\boldsymbol E=\\tfrac12(\\boldsymbol F^{T}\\boldsymbol F-\\boldsymbol I),\\quad\\Psi=\\tfrac{\\lambda}{2}(\\operatorname{tr}\\boldsymbol E)^2+\\mu\\boldsymbol E:\\boldsymbol E",
+        "description": "F is the deformation gradient; E is Green–Lagrange strain; lambda and mu are Lamé constants; energy is per reference volume."
+      },
+      {
+        "label": "plane-stress thickness condensation",
+        "expression": "E_{33}=-\\frac{\\lambda}{\\lambda+2\\mu}(E_{11}+E_{22}),\\quad F_{33}=\\sqrt{1+2E_{33}}>0",
+        "description": "The eliminated thickness satisfies zero out-of-plane second Piola and Cauchy stresses."
+      }
+    ],
+    "inputs": [
+      {
+        "name": "young, poisson, plane_stress",
+        "type": "material parameters and dimensional reduction",
+        "unit_role": "stress, dimensionless",
+        "description": "An explicit material choice; nonlinear=True does not automatically change an existing linear material."
+      }
+    ],
+    "outputs": [
+      {
+        "name": "energy, stress and tangent",
+        "type": "scalar and tensors",
+        "unit_role": "energy per reference volume and stress",
+        "description": "S output is Cauchy stress; GREEN is Green–Lagrange strain; P is first Piola; J includes relaxed thickness."
+      }
+    ],
+    "assumptions": [
+      "Isotropic stateless elasticity, small material strains and finite rotations.",
+      "One material with no initial stress or eigenstrain; conservative reference loading."
+    ],
+    "conventions": [
+      "2D forces and energies are per unit reference thickness.",
+      "Plane strain fixes F33=1; plane stress eliminates S33 exactly.",
+      "Standard finite-strain cell outputs embed this material into three dimensions."
+    ],
+    "applicability": [
+      "Elastic cantilevers, imperfect columns and conservative structural stability paths."
+    ],
+    "limitations": [
+      "Not a general large-strain rubber model; no near-incompressible mixed formulation.",
+      "No automatic dynamics, thermal strains, contact or follower pressure in this release.",
+      "Arc-length adapter remains serial; Newton path uses the existing MPI assembly."
+    ]
+  },
+  "usage": {
+    "minimal_example": "model = models.create(study=studies.static_solid(dimension=2, assumption='plane_stress', nonlinear=True), mesh=domain)\nu = model.field(fields.displacement(domain, degree=2))\nmodel.material(constitutive.saint_venant_kirchhoff(young=210000., poisson=.3, plane_stress=True))\nmodel.clamp(u, on=left)\nmodel.traction((-10., 0.), on=right)\nresult = model.step(target=u).solve_result()",
+    "examples": [
+      "examples/geometric_elastic_column/case.py",
+      "examples/geometric_elastic_cantilever/case.py"
+    ]
+  },
+  "verification": {
+    "tests": [
+      "tests/test_geometric_elasticity.py",
+      "tests/test_geometric_elasticity_structures.py"
+    ],
+    "benchmarks": [],
+    "validation_rules": [
+      "Differentiate energy and stress independently; verify rigid-rotation objectivity.",
+      "Compare plane-stress results with three-dimensional homogeneous states.",
+      "Reject non-positive J or thickness and restore the accepted state.",
+      "Verify load balance, Euler scaling, elastica response and mesh/increment convergence."
+    ]
+  },
+  "references": [
+    {
+      "title": "COMSOL: linear elastic material with geometric nonlinearity",
+      "locator": "https://www.comsol.com/blogs/modeling-linear-elastic-materials-how-difficult-can-it-be/"
+    },
+    {
+      "title": "Bisshopp and Drucker (1945), Large deflection of cantilever beams",
+      "locator": "doi:10.1090/qam/13360"
+    }
+  ],
+  "related_cards": [
+    "agentfem.workflow.solution_procedures"
+  ]
+}

@@ -12,6 +12,8 @@ import numpy as np
 import ufl
 
 from agentfem import fields as field_api
+from . import geometric_elasticity
+from .geometric_elasticity import SaintVenantKirchhoffProperties
 
 
 @dataclass(frozen=True)
@@ -265,13 +267,23 @@ def mooney_rivlin_plane_stress(
 def is_finite_strain_hyperelastic(properties) -> bool:
     """Return whether a material is consumed by the displacement formulation."""
 
-    return isinstance(properties, (NeoHookeanProperties, MooneyRivlinProperties))
+    return isinstance(
+        properties,
+        (NeoHookeanProperties, MooneyRivlinProperties, SaintVenantKirchhoffProperties),
+    )
 
 
 def is_plane_stress_hyperelastic(properties) -> bool:
-    return isinstance(properties, PlaneStressNeoHookeanProperties) or (
-        isinstance(properties, MooneyRivlinProperties)
-        and properties.plane_stress_incompressible
+    return (
+        (
+            isinstance(properties, SaintVenantKirchhoffProperties)
+            and properties.plane_stress
+        )
+        or isinstance(properties, PlaneStressNeoHookeanProperties)
+        or (
+            isinstance(properties, MooneyRivlinProperties)
+            and properties.plane_stress_incompressible
+        )
     )
 
 
@@ -285,7 +297,7 @@ def supports_hyperelastic_study(properties, *, dimension: int, assumption) -> bo
         if properties.plane_stress_incompressible:
             return selected_dimension == 2 and assumption == "plane_stress"
         return selected_dimension == 3
-    if isinstance(properties, PlaneStressNeoHookeanProperties):
+    if is_plane_stress_hyperelastic(properties):
         return selected_dimension == 2 and assumption == "plane_stress"
     return selected_dimension == 3 or (
         selected_dimension == 2 and assumption == "plane_strain"
@@ -523,6 +535,9 @@ def strain_energy_density_from_gradient(
 ):
     """Return the declared hyperelastic energy density from ``F``."""
 
+    if isinstance(properties, SaintVenantKirchhoffProperties):
+        return geometric_elasticity.energy(F, properties)
+
     if isinstance(properties, MooneyRivlinProperties):
         dimension = int(F.ufl_shape[0])
         if properties.plane_stress_incompressible:
@@ -533,10 +548,13 @@ def strain_energy_density_from_gradient(
             invariant = ufl.tr(F * F.T)
             jacobian = ufl.det(F)
             fraction = float(properties.first_invariant_fraction)
-            return 0.5 * properties.mu * (
-                fraction * (invariant + jacobian**-2 - 3.0)
-                + (1.0 - fraction)
-                * (jacobian**2 + invariant * jacobian**-2 - 3.0)
+            return (
+                0.5
+                * properties.mu
+                * (
+                    fraction * (invariant + jacobian**-2 - 3.0)
+                    + (1.0 - fraction) * (jacobian**2 + invariant * jacobian**-2 - 3.0)
+                )
             )
         if dimension != 3:
             raise ValueError(
@@ -641,6 +659,9 @@ def first_piola_from_gradient(
 ):
     """Return first Piola stress ``P = d psi / d F``."""
 
+    if isinstance(properties, SaintVenantKirchhoffProperties):
+        return geometric_elasticity.first_piola(F, properties)
+
     if isinstance(properties, MooneyRivlinProperties):
         variable = ufl.variable(F)
         return ufl.diff(
@@ -680,7 +701,12 @@ def cauchy_stress(
 
     F = deformation_gradient(displacement)
     J = ufl.det(F)
-    if isinstance(properties, PlaneStressNeoHookeanProperties):
+    if (
+        isinstance(properties, SaintVenantKirchhoffProperties)
+        and properties.plane_stress
+    ):
+        J *= ufl.sqrt(geometric_elasticity.thickness_squared(F, properties))
+    elif isinstance(properties, PlaneStressNeoHookeanProperties):
         J *= plane_stress_thickness_stretch_from_gradient(F, properties)
     elif (
         isinstance(properties, MooneyRivlinProperties)
@@ -922,22 +948,25 @@ def plane_stress_uniaxial_deformation_gradient(
         # For an isotropic incompressible sheet with traction-free width and
         # thickness, symmetry and J3=1 give lambda_width=lambda_thickness.
         return np.diag((axial**-0.5, axial))
+    if isinstance(properties, SaintVenantKirchhoffProperties):
+        lateral_squared = 1 - properties.poisson * (axial**2 - 1)
+        if lateral_squared <= 0:
+            raise ValueError("StVK uniaxial state has no positive lateral stretch.")
+        return np.diag((np.sqrt(lateral_squared), axial))
     selected_tolerance = float(tolerance)
     lateral = axial ** (-properties.poisson)
     scale = max(abs(properties.mu), abs(properties.lambda_), 1.0)
     for _ in range(int(maximum_iterations)):
-        residual = (
-            properties.mu * (lateral**2 - 1.0)
-            + properties.lambda_ * log(lateral**2 * axial)
+        residual = properties.mu * (lateral**2 - 1.0) + properties.lambda_ * log(
+            lateral**2 * axial
         )
         if abs(residual) <= selected_tolerance * scale:
             return np.diag((float(lateral), axial))
-        derivative = (
-            2.0 * properties.mu * lateral
-            + 2.0 * properties.lambda_ / lateral
-        )
+        derivative = 2.0 * properties.mu * lateral + 2.0 * properties.lambda_ / lateral
         candidate = lateral - residual / derivative
-        lateral = candidate if isfinite(candidate) and candidate > 0.0 else 0.5 * lateral
+        lateral = (
+            candidate if isfinite(candidate) and candidate > 0.0 else 0.5 * lateral
+        )
     raise RuntimeError("Uniaxial plane-stress lateral contraction did not converge.")
 
 
@@ -1011,10 +1040,14 @@ def principal_nominal_stress(
         raise ValueError("stretches must be a vector of length two or three.")
     if not np.all(np.isfinite(selected)) or np.any(selected <= 0.0):
         raise ValueError("principal stretches must be finite and positive.")
-    if isinstance(properties, MooneyRivlinProperties):
+    if isinstance(properties, SaintVenantKirchhoffProperties):
         return np.diag(
-            mooney_rivlin_first_piola_value(np.diag(selected), properties)
+            geometric_elasticity.response_value(np.diag(selected), properties)[
+                "first_piola"
+            ]
         )
+    if isinstance(properties, MooneyRivlinProperties):
+        return np.diag(mooney_rivlin_first_piola_value(np.diag(selected), properties))
     J = float(np.prod(selected))
     return (
         properties.mu * (selected - 1.0 / selected)
@@ -1033,6 +1066,10 @@ def principal_energy_density(
         raise ValueError("stretches must be a vector of length two or three.")
     if not np.all(np.isfinite(selected)) or np.any(selected <= 0.0):
         raise ValueError("principal stretches must be finite and positive.")
+    if isinstance(properties, SaintVenantKirchhoffProperties):
+        return geometric_elasticity.response_value(np.diag(selected), properties)[
+            "energy"
+        ]
     if isinstance(properties, MooneyRivlinProperties):
         return mooney_rivlin_energy_value(np.diag(selected), properties)
     J = float(np.prod(selected))

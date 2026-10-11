@@ -263,6 +263,21 @@ def hyperelastic(
         else model._material_record(material)
     )
     properties = record.item
+    if isinstance(properties, hyperelasticity.SaintVenantKirchhoffProperties):
+        if len(model.materials) != 1:
+            raise NotImplementedError(
+                "StVK convenience steps require exactly one material assignment."
+            )
+        if model.eigenstrains:
+            raise NotImplementedError(
+                "Saint-Venant--Kirchhoff does not yet support initial or thermal eigenstrains."
+            )
+        for load in model.loads:
+            raw_load = getattr(load, "load", load)
+            if isinstance(raw_load, load_api.PressureLoad):
+                raise NotImplementedError(
+                    "StVK first release supports reference dead traction, not pressure/follower loading."
+                )
     if not hyperelasticity.is_finite_strain_hyperelastic(properties):
         raise TypeError("model.step requires a supported hyperelastic material here.")
     if not hyperelasticity.supports_hyperelastic_study(
@@ -578,10 +593,32 @@ def _finite_strain_acceptance(
 ):
     from .results import finite_strain_diagnostics, integral
 
-    diagnostics = finite_strain_diagnostics(target, quadrature_degree=2)
+    diagnostics = finite_strain_diagnostics(target, quadrature_degree=8)
     minimum_j = float(diagnostics["minimum_quadrature_J"])
+    valid = np.isfinite(minimum_j) and minimum_j > 0.0
+    extra = {}
+    message = "deformation Jacobian became non-positive" if not valid else ""
+    if (
+        isinstance(properties, hyperelasticity.SaintVenantKirchhoffProperties)
+        and properties.plane_stress
+    ):
+        from .constitutive.geometric_elasticity import thickness_squared
+        from .results.quantities import quadrature_extrema
+
+        minimum_t2, _ = quadrature_extrema(
+            thickness_squared(
+                hyperelasticity.deformation_gradient(target.value), properties
+            ),
+            _domain(model.mesh),
+            degree=8,
+        )
+        extra["minimum_thickness_squared"] = float(minimum_t2)
+        if not np.isfinite(minimum_t2) or minimum_t2 <= 0.0:
+            valid = False
+            message = "plane-stress material has no positive thickness solution"
     return {
-        "accepted": bool(minimum_j > 0.0),
+        **extra,
+        "accepted": bool(valid),
         "minimum_quadrature_J": minimum_j,
         "maximum_quadrature_J": float(diagnostics["maximum_quadrature_J"]),
         "recoverable_strain_energy": float(
@@ -591,9 +628,7 @@ def _finite_strain_acceptance(
                 comm=_domain(model.mesh).comm,
             )
         ),
-        "message": (
-            "deformation Jacobian became non-positive" if minimum_j <= 0.0 else ""
-        ),
+        "message": message,
     }
 
 

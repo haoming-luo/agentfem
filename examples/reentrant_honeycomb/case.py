@@ -58,7 +58,15 @@ def main():
     finite.constraint(
         constraints.fixed_component(u, component=0, on=right, value=0.001 * width)
     )
-    finite.constraint(constraints.pin(u, at=(0.0, 0.0), components=(1,)))
+    # The connected cut has no solid node at the bounding-box origin.
+    # Select the lowest actual node on the left edge; never snap an absent pin.
+    coordinates = domain.geometry.x
+    left_nodes = coordinates[np.isclose(coordinates[:, 0], 0.0)]
+    anchor_y = domain.comm.allreduce(
+        float(np.min(left_nodes[:, 1], initial=np.inf)), op=MPI.MIN,
+    )
+    support = constraints.pin(u, at=(0.0, anchor_y), components=(1,))
+    finite.constraint(support)
     step = finite.step(target=u)
     result = step.solve_result(
         output=run.artifact("finite_array.xdmf"), strict_output=True
@@ -78,6 +86,7 @@ def main():
         results.reaction_resultant(step.problem, on=right, component=0),
     )
     result.metadata["gauge_measurement"] = apparent
+    result.metadata["point_support"] = support.summary()
     if MPI.COMM_WORLD.rank == 0:
         effective.write_manifest(run.artifact("periodic_properties.json"))
         run.publish(result)

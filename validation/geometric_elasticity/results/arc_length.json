@@ -1,0 +1,20 @@
+[
+  {
+    "nx": 32,
+    "arc_size": 0.04,
+    "maximum_load_factor": 0.19540946750184018,
+    "minimum_load_factor": 0.003995752897441212,
+    "max_equilibrium_residual": 6.1147858466710795e-09,
+    "passed_limit_point": true,
+    "final_displacement": 0.3634013730438911
+  },
+  {
+    "nx": 64,
+    "arc_size": 0.02,
+    "maximum_load_factor": 0.19548364758794998,
+    "minimum_load_factor": 0.001997930046552773,
+    "max_equilibrium_residual": 3.590030657700328e-09,
+    "passed_limit_point": true,
+    "final_displacement": 0.364287131523962
+  }
+]

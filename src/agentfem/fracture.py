@@ -183,7 +183,9 @@ def finite_strain_internal_force(
         kind="finite_strain_internal_force",
         role="vector",
         family=(
-            "total_lagrangian_neo_hookean"
+            "total_lagrangian_saint_venant_kirchhoff"
+            if isinstance(material, hyperelasticity.SaintVenantKirchhoffProperties)
+            else "total_lagrangian_neo_hookean"
             if isinstance(material, hyperelasticity.NeoHookeanProperties)
             else "total_lagrangian_mooney_rivlin"
         ),
@@ -191,7 +193,11 @@ def finite_strain_internal_force(
             "kinematics": "finite_strain",
             "configuration": "reference",
             "stress_measure": "first_piola",
-            "maturity": "experimental_explicit_consumer",
+            "maturity": (
+                "fem_form_available"
+                if isinstance(material, hyperelasticity.SaintVenantKirchhoffProperties)
+                else "experimental_explicit_consumer"
+            ),
         },
     )
 
@@ -3691,6 +3697,10 @@ def neo_hookean_material_tangent(
 
     if not hyperelasticity.is_finite_strain_hyperelastic(material):
         raise TypeError("material tangent requires a supported hyperelastic material.")
+    if isinstance(material, hyperelasticity.SaintVenantKirchhoffProperties):
+        return hyperelasticity.geometric_elasticity.response_value(
+            deformation_gradient, material
+        )["tangent"]
     F = np.asarray(deformation_gradient, dtype=float)
     if F.ndim != 2 or F.shape[0] != F.shape[1] or F.shape[0] not in {2, 3}:
         raise ValueError("deformation_gradient must be one finite 2x2 or 3x3 array.")
@@ -3837,7 +3847,11 @@ def incremental_wave_speeds(
         )
     reference_speeds = np.sqrt(eigenvalues / float(material.density))
     deformation_jacobian = float(np.linalg.det(F))
-    if isinstance(material, hyperelasticity.PlaneStressNeoHookeanProperties):
+    if isinstance(material, hyperelasticity.SaintVenantKirchhoffProperties):
+        deformation_jacobian = hyperelasticity.geometric_elasticity.response_value(
+            F, material
+        )["jacobian"]
+    elif isinstance(material, hyperelasticity.PlaneStressNeoHookeanProperties):
         deformation_jacobian *= (
             hyperelasticity.plane_stress_thickness_stretch_value(F, material)
         )
@@ -3897,7 +3911,11 @@ def principal_surface_wave_speed(
     if points < 80:
         raise ValueError("scan_points must be at least 80.")
     depth = 1 - axis
-    if isinstance(material, hyperelasticity.PlaneStressNeoHookeanProperties):
+    if isinstance(material, hyperelasticity.SaintVenantKirchhoffProperties):
+        first_piola = hyperelasticity.geometric_elasticity.response_value(
+            F, material
+        )["first_piola"]
+    elif isinstance(material, hyperelasticity.PlaneStressNeoHookeanProperties):
         first_piola = hyperelasticity.plane_stress_first_piola_value(F, material)
     elif isinstance(material, hyperelasticity.MooneyRivlinProperties):
         first_piola = hyperelasticity.mooney_rivlin_first_piola_value(F, material)

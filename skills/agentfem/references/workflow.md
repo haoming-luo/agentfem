@@ -112,3 +112,14 @@ with explicit reviewer and unit system, inspect the inactive draft, then
 activate separately. Multiple constant isotropic materials may be lowered
 through exact ELSET/SOLID SECTION regions; partial or overlapping converted
 tags remain blockers. Never modify the decision JSON to hide a blocker.
+
+## Elastic finite rotations
+
+Use `constitutive.saint_venant_kirchhoff` with a nonlinear static solid Study
+for small-strain elastic material with finite rotations. Set `plane_stress=True`
+only with a matching plane-stress Study. Do not substitute Neo-Hookean silently.
+Use the standard `model.step` and existing increment/rollback controls; load
+choice and reference thickness remain explicit. Route first to
+`docs/guide/geometric_elasticity.md` and its column/cantilever projects.
+Explicit point supports now reject globally empty matches; never repair a
+rigid translation by shifting only the visualization.

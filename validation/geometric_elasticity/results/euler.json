@@ -1,0 +1,38 @@
+[
+  {
+    "dimension": 2,
+    "nx": 40,
+    "ny": 2,
+    "critical_load_N": 10781.724513943649,
+    "Euler_load_N": 10794.879813691485,
+    "relative_error": 0.0012186610666243824,
+    "residual": 2.018693232308066e-10
+  },
+  {
+    "dimension": 2,
+    "nx": 80,
+    "ny": 4,
+    "critical_load_N": 10779.601091310957,
+    "Euler_load_N": 10794.879813691485,
+    "relative_error": 0.0014153675301831203,
+    "residual": 6.137606521878656e-10
+  },
+  {
+    "dimension": 2,
+    "nx": 120,
+    "ny": 6,
+    "critical_load_N": 10779.112244550635,
+    "Euler_load_N": 10794.879813691485,
+    "relative_error": 0.001460652588355038,
+    "residual": 1.0158406196352631e-09
+  },
+  {
+    "dimension": 3,
+    "nx": 40,
+    "ny": 3,
+    "critical_load_N": 10805.002256483394,
+    "Euler_load_N": 10794.879813691485,
+    "relative_error": 0.0009377077805972078,
+    "residual": 8.735464469075621e-10
+  }
+]
