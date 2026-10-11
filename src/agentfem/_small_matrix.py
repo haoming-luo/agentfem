@@ -28,7 +28,13 @@ def determinants_3x3(matrices):
         )
         determinant = terms[0]+terms[1]+terms[2]-terms[3]-terms[4]-terms[5]
         absolute = sum(np.abs(t) for t in terms)
+        # An intermediate pair product can underflow and subsequently be
+        # multiplied by a large third factor. A normal final sum alone does
+        # not detect that lost term. Route extreme nonzero inputs to LU.
+        tiny_inputs = np.any((a != 0) & (np.abs(a) < np.sqrt(np.finfo(float).tiny)),
+                             axis=(1, 2))
         uncertain = (~np.isfinite(absolute) | ~np.isfinite(determinant)
+                     | tiny_inputs
                      | (np.abs(determinant) <= .01*absolute)
                      | (absolute < np.finfo(float).tiny*128))
         if np.any(uncertain):

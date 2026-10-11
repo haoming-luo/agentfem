@@ -177,6 +177,14 @@ focused orientation, material-array, finite-Hex and damping selection passes
 65 tests, including inversion, singularity, overflow and fallback boundaries.
 No physical configuration, numerical inertia or accepted time step changes.
 
+The separate batched determinant arithmetic retains LU for cancellation,
+overflow and extreme nonzero inputs. The latter guard is necessary because an
+intermediate product can underflow before a large third factor restores its
+mathematical scale; checking the final sum alone is insufficient. A constructed
+regression and 37 determinant/damping/explicit-lifecycle tests pass. A corrected
+255041-matrix microbenchmark measured approximately 0.0090 s versus 0.0193 s
+for NumPy LU; this component timing is not whole-simulation acceleration.
+
 If the reference perturbation screen is inconclusive, an affine-removed check
 now writes the current cell as `F X + r + translation`. The reference singular
 value lower bound, multiplied by `sigma_min(F)`, bounds the permissible

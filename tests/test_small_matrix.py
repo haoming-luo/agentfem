@@ -27,6 +27,15 @@ def test_cancellation_and_range_use_reference_factorization(monkeypatch):
     assert calls == [4]
 
 
+def test_intermediate_underflow_cannot_hide_in_normal_final_sum():
+    # The first determinant term underflows before multiplication by 1e250;
+    # another normal term otherwise makes a naive final-range screen pass.
+    values = np.array([[[1e-250, 1e-250, 0.],
+                        [0., 1e-250, 1.], [1., 0., 1e250]]])
+    np.testing.assert_array_equal(determinants_3x3(values), np.linalg.det(values))
+    assert determinants_3x3(values)[0] == pytest.approx(2e-250, rel=1e-12, abs=0)
+
+
 @pytest.mark.parametrize('value', [np.eye(3), np.ones((2,2,2)),
                                   np.eye(3)[None]*1j, np.full((1,3,3),np.nan)])
 def test_bad_input_rejected(value):
