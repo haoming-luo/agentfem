@@ -674,6 +674,11 @@ class QuadratureField:
         return int(np.prod(self.value_shape)) if self.value_shape else 1
 
     @property
+    def point_count(self) -> int:
+        """Number of locally visible points, including ghosts, without values."""
+        return self._cell_count() * len(self.points)
+
+    @property
     def values(self) -> np.ndarray:
         """Return values in deterministic ``cell, point, component`` order.
 
@@ -1001,7 +1006,7 @@ class MaterialQuadratureState:
                 value_shape=variable.shape,
                 **common,
             )
-            point_count = len(committed_field.values)
+            point_count = committed_field.point_count
             initial = variable.initial_values().reshape(
                 (1, *variable.shape) if variable.shape else (1,)
             )
@@ -1104,7 +1109,7 @@ class MaterialQuadratureState:
         """Unpack point-state rows into the named trial quadrature fields."""
 
         selected = np.asarray(values, dtype=float)
-        point_count = len(self.reference_field.values)
+        point_count = self.reference_field.point_count
         if selected.shape != (point_count, self.state_schema.size):
             raise ValueError(
                 "Trial state vectors require shape "
@@ -1339,7 +1344,7 @@ class J2QuadratureState:
             "kind": "j2_quadrature_state",
             "degree": self.degree,
             "scheme": self.scheme,
-            "points_local": int(len(self.equivalent_plastic_strain.values)),
+            "points_local": self.equivalent_plastic_strain.point_count,
             "points_owned": int(cell_map.size_local) * points_per_cell,
             "points_global": int(cell_map.size_global) * points_per_cell,
             "portable_cell_identity": "dolfinx_original_cell_index",
@@ -1700,7 +1705,7 @@ class ChabocheQuadratureState:
             "kind": "chaboche_quadrature_state",
             "degree": self.degree,
             "scheme": self.scheme,
-            "points_local": int(len(self.equivalent_plastic_strain.values)),
+            "points_local": self.equivalent_plastic_strain.point_count,
             "points_owned": int(cell_map.size_local) * points_per_cell,
             "points_global": int(cell_map.size_global) * points_per_cell,
             "portable_cell_identity": "dolfinx_original_cell_index",
@@ -2155,7 +2160,7 @@ class CreepQuadratureState:
             "kind": "creep_quadrature_state",
             "degree": self.degree,
             "scheme": self.scheme,
-            "points_local": int(len(self.equivalent_creep_strain.values)),
+            "points_local": self.equivalent_creep_strain.point_count,
             "points_owned": int(cell_map.size_local) * points_per_cell,
             "points_global": int(cell_map.size_global) * points_per_cell,
             "portable_cell_identity": "dolfinx_original_cell_index",

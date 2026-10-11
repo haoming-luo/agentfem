@@ -66,6 +66,24 @@ def fixture():
     )
 
 
+def test_assigning_state_does_not_copy_values_to_count_points(monkeypatch):
+    from agentfem.constitutive.quadrature import QuadratureField
+
+    material, state, _ = fixture()
+    count = len(state.reference_field.values)
+    assert count == state.reference_field.point_count
+    original = QuadratureField.values
+
+    def forbidden(_):
+        raise AssertionError("Counting points must not materialize field values")
+
+    monkeypatch.setattr(QuadratureField, "values", property(forbidden))
+    values = np.arange(count*material.state_schema.size, dtype=float).reshape(count, -1)
+    state.assign_trial_state_vectors(values)
+    monkeypatch.setattr(QuadratureField, "values", original)
+    np.testing.assert_array_equal(state.trial_state_vectors(), values)
+
+
 def test_real_quadrature_trial_commit_rollback_and_piola():
     material, state, options = fixture()
     result = update_explicit_material_points(
