@@ -1363,6 +1363,13 @@ material tangents into an unproven whole-path stability estimate.
   moving-contact, bonded-interface trajectories with and without viscosity
   agree bitwise with the original advanced-indexing implementation. Component
   timings are not a completed full-model performance claim.
+- The central-difference integrator reuses the existing array update kernels
+  instead of allocating eager temporary finite-element fields for every sum.
+  Function-space checks precede mutation, and each target still performs its
+  ghost update. The 124-test serial targeted suite passed (8 distributed-only
+  checks skipped there); five dedicated kinematic tests and five distributed
+  contact tests passed on two ranks. Stale-ghost algebra comparisons and a
+  full material/contact/viscosity trajectory agree bitwise with field algebra.
 - [Abaqus explicit dynamics](https://docs.software.vt.edu/abaqusv2025/English/SIMACAETHERefMap/simathe-c-expdynamic.htm):
   linear and compression-only quadratic artificial bulk viscosity. Matching
   these formulas alone does not establish identical characteristic lengths,

@@ -185,6 +185,36 @@ def test_cell_gather_preserves_response_trajectory(monkeypatch, viscosity):
     assert optimized.history_records == reference.history_records
 
 
+def test_array_kinematics_preserve_full_response_trajectory(monkeypatch):
+    from agentfem.time.explicit import ExplicitDynamicsIntegrator
+
+    optimized = make_step(contact="cylinder", bond=True, viscosity=True)
+    optimized.run()
+
+    def predict(self, dt):
+        self.state.u_next.assign(self.state.u + dt * self.state.v
+                                 + .5 * dt**2 * self.state.a)
+
+    def midpoint(self, dt):
+        self.state.v_mid.assign(self.state.v + .5 * dt * self.state.a)
+
+    def velocity(self, dt):
+        self.state.v_next.assign(self.state.v_mid + .5 * dt * self.state.a_next)
+
+    monkeypatch.setattr(ExplicitDynamicsIntegrator, "predict_displacement", predict)
+    monkeypatch.setattr(ExplicitDynamicsIntegrator, "update_midstep_velocity", midpoint)
+    monkeypatch.setattr(ExplicitDynamicsIntegrator, "update_velocity", velocity)
+    reference = make_step(contact="cylinder", bond=True, viscosity=True)
+    reference.run()
+    for name in ("u", "v", "a"):
+        np.testing.assert_array_equal(
+            getattr(optimized.state, name).value.x.array,
+            getattr(reference.state, name).value.x.array,
+        )
+    assert optimized.residual.snapshot() == reference.residual.snapshot()
+    assert optimized.history_records == reference.history_records
+
+
 @pytest.mark.parametrize(
     "contact,bond", [(True, False), ("cylinder", False), ("cylinder", True)]
 )
