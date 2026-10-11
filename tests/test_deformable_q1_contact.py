@@ -123,6 +123,53 @@ def test_closed_interior_ambiguous_projection_is_still_rejected():
         op.evaluate(np.zeros_like(points), np.zeros_like(vertices))
 
 
+def test_closed_outside_missing_projection_with_loose_bound_is_force_free(monkeypatch):
+    from test_closed_q1_surface import solid
+    from agentfem._q1_surface_search import Q1SurfaceSearch
+
+    vertices, faces = solid(concave=True)
+    points = np.array([[1.2,1.2,.4], [1.3,1.2,.4],
+                       [1.3,1.3,.4], [1.2,1.3,.4]])
+    original = Q1SurfaceSearch.distance_lower_bounds
+    # Loosening an existing valid lower bound remains conservative. It models
+    # the broad-phase bound/radius mismatch without inventing a separation.
+    monkeypatch.setattr(Q1SurfaceSearch, "distance_lower_bounds",
+        lambda self, queries: np.minimum(original(self, queries), .01))
+    op = DeformableQ1Penalty(
+        BilinearReferenceTrace(points, np.array([[0,1,2,3]]), tolerance=1e-10),
+        BilinearReferenceTrace(vertices, faces, tolerance=1e-10),
+        candidate_nodes=np.ones(4,dtype=bool), penalty=100., search_radius=.1,
+        geometry_policy="reviewed_closed_solid")
+    answer = op.evaluate(np.zeros_like(points), np.zeros_like(vertices))
+    assert answer.projection is None
+    assert np.all(answer.gap_lower_bounds > 0)
+    np.testing.assert_array_equal(answer.secondary_residual, 0)
+    assert answer.potential_energy == 0
+
+
+def test_closed_interior_outside_radius_still_rejected():
+    from test_closed_q1_surface import solid
+    from agentfem._q1_surface_search import SurfaceOutsideSearchRadius
+
+    vertices, faces = solid()
+    points = np.array([[.4,.4,.4],[.6,.4,.4],[.6,.6,.4],[.4,.6,.4]])
+    op = DeformableQ1Penalty(
+        BilinearReferenceTrace(points, np.array([[0,1,2,3]]), tolerance=1e-10),
+        BilinearReferenceTrace(vertices, faces, tolerance=1e-10),
+        candidate_nodes=np.ones(4,dtype=bool), penalty=100., search_radius=.1,
+        geometry_policy="reviewed_closed_solid")
+    with pytest.raises(SurfaceOutsideSearchRadius):
+        op.evaluate(np.zeros_like(points), np.zeros_like(vertices))
+
+
+def test_open_surface_outside_radius_still_rejected():
+    from agentfem._q1_surface_search import SurfaceOutsideSearchRadius
+    op, us, up = setup()
+    us[:,2] += 1.
+    with pytest.raises(SurfaceOutsideSearchRadius):
+        op.evaluate(us, up)
+
+
 def test_mixed_path_certificates_only_search_uncertain_points(monkeypatch):
     from test_closed_q1_surface import solid
     from agentfem._closed_q1_surface import ClosedQ1Surface

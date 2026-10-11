@@ -19,6 +19,14 @@ class AmbiguousSurfaceProjection(ValueError):
         super().__init__(f"Q1 query {query_index}: ambiguous surface projection.")
 
 
+class SurfaceOutsideSearchRadius(ValueError):
+    """No projection in the requested radius; does not classify solid side."""
+
+    def __init__(self, query_index):
+        self.query_index = int(query_index)
+        super().__init__(f"Q1 query {query_index}: no surface within search radius.")
+
+
 def _patch_enclosure_bound(vertices, point, pad, target, depth=0):
     box = np.sqrt(
         _bbox_squared_distance(point, vertices.min(axis=0), vertices.max(axis=0))
@@ -269,7 +277,7 @@ class Q1SurfaceSearch:
             ]
             choices = [(f, r) for f, r in choices if r[-1] <= maximum_distance]
             if not choices:
-                raise ValueError(f"Q1 query {index}: no surface within search radius.")
+                raise SurfaceOutsideSearchRadius(index)
             choices.sort(key=lambda item: (item[1][-1], item[0]))
             best = choices[0]
             # A physical search radius is not an ambiguity tolerance. Close to

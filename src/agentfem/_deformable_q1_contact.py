@@ -262,19 +262,26 @@ class DeformableQ1Penalty:
         # not an arbitrarily selected closest face. Near a seam, equally close
         # numerical projections may remain unresolved even when the complete
         # solid is provably separated. Preserve that distinction on restart too.
-        from ._q1_surface_search import AmbiguousSurfaceProjection
+        from ._q1_surface_search import (
+            AmbiguousSurfaceProjection, SurfaceOutsideSearchRadius,
+        )
 
         while len(selected):
             try:
                 found = search.project(query[selected], maximum_distance=self.search_radius)
                 break
-            except AmbiguousSurfaceProjection as error:
+            except (AmbiguousSurfaceProjection, SurfaceOutsideSearchRadius) as error:
                 if lower is None:
                     raise
                 index = selected[error.query_index]
                 bound = search.search.distance_lower_bounds(query[index:index + 1])[0]
                 if bound <= 0 or search._inside(query[index]):
                     raise
+                # A conservative distance bound can be smaller than the search
+                # radius even when the actual closest surface is farther away.
+                # Only an independent outside classification AND positive
+                # separation admit a force-free point. Never enlarge the radius
+                # or suppress missing projections for an interior/open surface.
                 lower[index] = bound
                 selected = np.delete(selected, error.query_index)
         else:
