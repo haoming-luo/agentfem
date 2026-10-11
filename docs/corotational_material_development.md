@@ -172,6 +172,15 @@ It constructs only chunked 8x8 upper operators rather than global or element
 majorant. Neither this conversion nor the mass planner establishes the original
 history material's modulus over the eventual damage path.
 
+The response-only viscosity screen can now explicitly bind the same reviewed
+numerical-inertia owner as the Explicit integrator. The Procedure checks that
+identity through residual wrappers before advancement. Its frozen-geometry
+damping spectral bound decreases by the minimum nodal mass factor; physical
+density, viscosity force and artificial work are unchanged. A changed inertia
+identity rejects restart. This is a conditional correction to the existing
+caller-ceiling screen, not a new material stability assertion. Optional bulk
+viscosity row majorants retain the default force path's allocation size.
+
 The next response-only step policy should accept provider-declared effective
 moduli or a reviewed wave-speed bound with units and provenance, combine it
 with current element geometry, and account separately for interface/contact

@@ -20,6 +20,7 @@ class BulkViscosityResponse:
     volumetric_rate: np.ndarray
     isotropic_stress: np.ndarray
     mass_scaled_damping_bound: np.ndarray
+    damping_row_majorant: np.ndarray | None = None
 
 
 def bulk_viscosity_response(
@@ -32,6 +33,7 @@ def bulk_viscosity_response(
     characteristic_length,
     linear=0.06,
     quadratic=1.2,
+    include_row_majorant=False,
 ):
     """Tension-positive stress q I, with q*div(v) >= 0.
 
@@ -77,7 +79,19 @@ def bulk_viscosity_response(
     bound = (
         volume * eta * np.sum(gradients**2 / cells.lumped_mass[..., None], axis=(1, 2))
     )
+    if not isinstance(include_row_majorant, (bool, np.bool_)):
+        raise ValueError("include_row_majorant must be boolean.")
+    # At fixed configuration D_e = V*eta*vec(grad) outer vec(grad).
+    # Return unscaled (cell,node,component) rows only when an inertia policy
+    # needs them; the common force path retains its existing memory footprint.
+    rows = None
+    if include_row_majorant:
+        absolute = np.abs(gradients)
+        rows = (volume * eta * absolute.sum(axis=(1, 2)))[:, None, None] * absolute
+        if not np.isfinite(rows).all():
+            raise ValueError("Nonfinite damping row majorant.")
+        rows = _frozen(rows)
     arrays = (force, power, theta, q, bound)
     if not all(np.isfinite(array).all() for array in arrays):
         raise ValueError("Nonfinite bulk viscosity response.")
-    return BulkViscosityResponse(*(_frozen(array) for array in arrays))
+    return BulkViscosityResponse(*(_frozen(array) for array in arrays), rows)

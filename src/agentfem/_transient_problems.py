@@ -209,6 +209,18 @@ class ExplicitDynamicsStep:
         inertia_owner = _explicit_inertia_state_owner(self)
         if inertia_owner is not None:
             inertia_owner.validate_procedure(self)
+        # Wrapped residual contributions must use the same numerical inertia
+        # as the integrator when interpreting any mass-scaled restriction.
+        contribution = self.residual
+        visited = set()
+        while contribution is not None:
+            if id(contribution) in visited:
+                raise ValueError("Explicit residual base chain contains a cycle.")
+            visited.add(id(contribution))
+            validate_inertia = getattr(contribution, "validate_explicit_inertia", None)
+            if callable(validate_inertia):
+                validate_inertia(self.integrator.mass)
+            contribution = getattr(contribution, "base", None)
         _validate_checkpoint_policy(self)
         _configure_transient_history(self, history)
         selected_progress = self.progress if progress is None else progress

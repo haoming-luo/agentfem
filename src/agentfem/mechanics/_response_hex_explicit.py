@@ -97,6 +97,7 @@ class ResponseHexExplicitResidual:
         cohesive=None,
         bulk_viscosity=None,
         require_material_increment_limit=False,
+        numerical_inertia=None,
     ):
         from ..constitutive._explicit_material_driver import ExplicitQuadratureResponse
         from ..constitutive._explicit_material import explicit_increment_policy_identity
@@ -129,6 +130,23 @@ class ResponseHexExplicitResidual:
         if not np.array_equal(committed, np.broadcast_to(initial, committed.shape)):
             raise ValueError("Response-only initialization requires virgin state.")
         self.internal, self.material = internal, material
+        self.numerical_inertia = numerical_inertia
+        if numerical_inertia is not None:
+            from ..time._scaled_inertia import FixedScaledInertia
+            from ..time._variable_inertia import VariableScaledInertia
+
+            if not isinstance(
+                numerical_inertia, (FixedScaledInertia, VariableScaledInertia)
+            ):
+                raise TypeError(
+                    "Response damping requires a reviewed numerical inertia owner."
+                )
+            if not np.array_equal(
+                numerical_inertia.physical_mass_diagonal, internal.mass_diagonal
+            ):
+                raise ValueError(
+                    "Response numerical inertia has different physical mass."
+                )
         self.bulk_viscosity = bulk_viscosity
         self._secant_velocity = None
         if bulk_viscosity is not None:
@@ -173,6 +191,11 @@ class ResponseHexExplicitResidual:
                     "ceiling": ceiling,
                     "stress_free_initial_state": True,
                     **(
+                        {"numerical_inertia": numerical_inertia.checkpoint_identity()}
+                        if numerical_inertia is not None
+                        else {}
+                    ),
+                    **(
                         {"material_increment_policy": self.material_increment_policy}
                         if self.material_increment_policy is not None
                         else {}
@@ -211,6 +234,12 @@ class ResponseHexExplicitResidual:
     def validate_time_increment(self, dt):
         if not np.isfinite(dt) or dt <= 0 or dt > self.ceiling * (1 + 1e-12):
             raise ValueError("Increment exceeds the declared resolution ceiling.")
+
+    def validate_explicit_inertia(self, mass):
+        if self.numerical_inertia is not None and mass is not self.numerical_inertia:
+            raise ValueError(
+                "Response damping and explicit integrator must share numerical inertia."
+            )
 
     def update_time(self, time):
         if not np.isfinite(time) or time < self.accepted_time:
@@ -274,6 +303,11 @@ class ResponseHexExplicitResidual:
                     damping_bound = float(
                         np.max(viscous.mass_scaled_damping_bound, initial=0.0)
                     )
+                    if self.numerical_inertia is not None:
+                        # M_num >= min(factors)*M_phys implies this conservative
+                        # spectral reduction for the PSD frozen-geometry damping.
+                        # Physical density, damping force and work are unchanged.
+                        damping_bound /= float(self.numerical_inertia.factors.min())
                     # Conditional fixed-coefficient estimate: ceiling is still
                     # supplied, NOT a proven material/contact spectral bound.
                     omega = 2 / self.ceiling
