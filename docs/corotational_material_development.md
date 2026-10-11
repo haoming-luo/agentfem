@@ -90,6 +90,15 @@ upper-bound proof, or achieved runtime improvement is claimed. Even the tighter
 initial plan remains strongly mass-scaled. Keep the original pilot unchanged
 until response sensitivity and evolving-domain checks justify another policy.
 
+Fixed-inertia time refinement now explicitly separates the planning increment
+from the integration increment in the private pilot. At common time `1e-4` s,
+100 steps of `1e-6` and 200 steps of `5e-7` retain the same mass plan. Endpoint
+maximum displacement differs by 0.597%, tool work by 0.00229%, and internal work
+by 0.0592% (relative to the finer result). However, the two fixed-tool normal
+forces differ by about 18--19%; their magnitudes are small during startup, but
+that does not justify calling force convergence complete. A third refinement
+is needed. These comparisons neither test mass sensitivity nor the full load.
+
 An original-mesh nodal-contact pilot accepted 66 increments, then rejected
 increment 67 because subtracting accepted times reconstructed `1e-6` with a
 floating-point tail above an overly narrow tolerance. Provider limits now account
