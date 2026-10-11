@@ -784,34 +784,41 @@ class DolfinxExplicitContactResidual:
             assembly, response, friction_assembly, friction_response = (
                 self._collective_local_contact()
             )
-            contact = vector.duplicate()
-            try:
-                values = np.asarray(
-                    assembly.nodal_structural_residual,
+            values = np.asarray(
+                assembly.nodal_structural_residual,
+                dtype=float,
+            ).reshape(-1)
+            if friction_assembly is not None:
+                values = values + np.asarray(
+                    friction_assembly.nodal_structural_residual,
                     dtype=float,
                 ).reshape(-1)
-                if friction_assembly is not None:
-                    values = values + np.asarray(
-                        friction_assembly.nodal_structural_residual,
-                        dtype=float,
-                    ).reshape(-1)
-                with contact.localForm() as local:
-                    local.set(0.0)
-                    if local.array.shape != values.shape:
-                        raise ValueError(
-                            "Contact trace residual and PETSc local layouts differ: "
-                            f"trace={values.shape}, vector={local.array.shape}."
-                        )
-                    local.array[:] = values
-                contact.ghostUpdate(
-                    addv=PETSc.InsertMode.ADD_VALUES,
-                    mode=PETSc.ScatterMode.REVERSE,
-                )
-                if vector.array.shape != contact.array.shape:
-                    raise ValueError("Contact and base owned vector layouts differ.")
-                vector.array[:] += contact.array
-            finally:
-                contact.destroy()
+            if self.communicator.size == 1:
+                # No ghost contributions exist in a serial trace. Preserve the
+                # same layout check without a full duplicate/zero/copy vector.
+                if vector.array.shape != values.shape:
+                    raise ValueError("Contact and base serial vector layouts differ.")
+                vector.array[:] += values
+            else:
+                contact = vector.duplicate()
+                try:
+                    with contact.localForm() as local:
+                        local.set(0.0)
+                        if local.array.shape != values.shape:
+                            raise ValueError(
+                                "Contact trace residual and PETSc local layouts differ: "
+                                f"trace={values.shape}, vector={local.array.shape}."
+                            )
+                        local.array[:] = values
+                    contact.ghostUpdate(
+                        addv=PETSc.InsertMode.ADD_VALUES,
+                        mode=PETSc.ScatterMode.REVERSE,
+                    )
+                    if vector.array.shape != contact.array.shape:
+                        raise ValueError("Contact and base owned vector layouts differ.")
+                    vector.array[:] += contact.array
+                finally:
+                    contact.destroy()
             self.trial_evidence = self._global_evidence(
                 assembly,
                 response,
