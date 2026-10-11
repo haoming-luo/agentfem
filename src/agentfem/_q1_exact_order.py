@@ -51,7 +51,38 @@ def _strong_convexity_modulus(coefficients):
     determinant = first*second-off*off
     if first > 0 and second > 0 and determinant > 0:
         return max(gershgorin, determinant/(first+second))
-    return gershgorin
+    return max(gershgorin, _bernstein_hessian_modulus(coefficients))
+
+
+def _bernstein_hessian_modulus(coefficients):
+    """Exact SPD certificate retaining correlated Q1 Hessian entries.
+
+    The determinant of the half squared-distance Hessian is biquadratic.
+    Its tensor Bernstein coefficients bound it over the entire unit square.
+    Positive coefficients and squared-norm diagonal entries certify SPD;
+    det_lower / trace_upper then bounds its least eigenvalue. An inconclusive
+    enclosure returns zero, never an approximate positivity decision.
+    """
+    a, b, c, d = coefficients
+    bb, cc, dd = _dot(b, b), _dot(c, c), _dot(d, d)
+    bd, cd = _dot(b, d), _dot(c, d)
+    first, second = (bb, 2*bd, dd), (cc, 2*cd, dd)
+    off = {(0, 0): _dot(b, c)+_dot(a, d), (1, 0): 2*bd,
+           (0, 1): 2*cd, (1, 1): 2*dd}
+    power = {(i, j): second[i]*first[j] for i in range(3) for j in range(3)}
+    for (i, j), x in off.items():
+        for (k, l), y in off.items():
+            power[i+k, j+l] -= x*y
+    # Degree-two power -> Bernstein transform, in each parameter.
+    weights = ((Q(1), Q(0), Q(0)), (Q(1), Q(1, 2), Q(0)),
+               (Q(1), Q(1), Q(1)))
+    lower = min(sum((power[k, l]*weights[i][k]*weights[j][l]
+                     for k in range(i+1) for l in range(j+1)), Q(0))
+                for i in range(3) for j in range(3))
+    if lower <= 0:
+        return Q(0)
+    trace = max(bb, bb+2*bd+dd)+max(cc, cc+2*cd+dd)
+    return lower/trace
 
 
 def witness_within_distance(vertices, point, uv, tolerance):

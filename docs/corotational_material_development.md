@@ -1345,6 +1345,13 @@ material tangents into an unproven whole-path stability estimate.
   thread and joins geometry work before rollback; it is not a public threaded
   execution promise. Serial/parallel field identity, restart and injected
   failure tests must pass before any full-mesh timing claim.
+- The exact Q1 convexity recovery additionally encloses the correlated Hessian
+  determinant in the degree-(2,2) Bernstein basis. This is tried only when the
+  cheaper diagonal/off-diagonal comparison is inconclusive. Strictly positive
+  rational coefficients certify the whole parameter square; an inconclusive
+  result still falls back. No contact tolerance, quadrature, or time step is
+  changed. A generic warped patch, scaling checks, and indefinite/degenerate
+  rejection are included in the targeted exact-geometry tests.
 - [Abaqus explicit dynamics](https://docs.software.vt.edu/abaqusv2025/English/SIMACAETHERefMap/simathe-c-expdynamic.htm):
   linear and compression-only quadratic artificial bulk viscosity. Matching
   these formulas alone does not establish identical characteristic lengths,

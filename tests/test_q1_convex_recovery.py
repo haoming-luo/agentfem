@@ -75,3 +75,31 @@ def test_comparison_bound_below_sampled_warped_hessian_eigenvalues():
             off = du@dv+delta@d
             hessian = [[du@du, off], [off, dv@dv]]
             assert bound <= np.linalg.eigvalsh(hessian)[0]+1e-16
+
+
+@pytest.mark.parametrize("exponent", [-100, 0, 100])
+def test_correlated_hessian_certificate_recovers_warped_patch(exponent):
+    from agentfem._q1_exact_order import _coefficients, _bernstein_hessian_modulus
+
+    scale = 2.0**exponent
+    x = scale*np.array([[0., .5, -.375], [.875, .25, -.375],
+                        [1.125, .875, 0.], [0., .75, .25]])
+    p = scale*np.array([.875, -.75, -.875])
+    bound = float(_bernstein_hessian_modulus(_coefficients(x, p)))
+    assert bound > 0
+    np.testing.assert_array_equal(convex_closest_parameters(x, p), [1., 0.])
+    a, b, c, d = x[0]-p, x[1]-x[0], x[3]-x[0], x[2]-x[1]-x[3]+x[0]
+    for u in np.linspace(0, 1, 11):
+        for v in np.linspace(0, 1, 11):
+            du, dv = b+d*v, c+d*u
+            delta = a+b*u+c*v+d*u*v
+            off = du@dv+delta@d
+            assert bound <= np.linalg.eigvalsh([[du@du, off], [off, dv@dv]])[0]
+
+
+def test_bernstein_certificate_rejects_flat_and_indefinite_hessians():
+    from agentfem._q1_exact_order import _coefficients, _bernstein_hessian_modulus
+
+    assert _bernstein_hessian_modulus(_coefficients(np.zeros((4, 3)), [1., 2., 3.])) == 0
+    x = np.array([[0., 0, 0], [1., 0, 0], [1., 1, 2], [0., 1, 0]])
+    assert _bernstein_hessian_modulus(_coefficients(x, [.5, .5, 10])) == 0
