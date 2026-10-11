@@ -242,7 +242,7 @@ class FiniteUniformHexResidual:
                 element = self.cells._response_from_checked_displacement(
                     displacement, first_piola=self.response.first_piola_stress.owned_values,
                     stored_energy_density=response.stored_energy_density)
-                vector = self._scatter(element.internal_force)
+                cell_force = element.internal_force
                 viscosity = None
                 if bulk_viscosity is not None:
                     from ..fields import unwrap
@@ -258,11 +258,10 @@ class FiniteUniformHexResidual:
                     viscosity = _bulk_viscosity_from_checked_gradient(
                         self.cells, gradient,
                         velocity_field.x.array.reshape(-1, 3)[self.cell_nodes], **options)
-                    damping_vector = self._scatter(viscosity.internal_force)
-                    try:
-                        vector.axpy(1., damping_vector)
-                    finally:
-                        damping_vector.destroy()
+                    # Both contributions share the same cell-to-node map.
+                    # Assemble once, retaining separate response/energy records.
+                    cell_force = cell_force + viscosity.internal_force
+                vector = self._scatter(cell_force)
                 gradient.setflags(write=False)
                 yield vector, FiniteHexMaterialTrial(gradient, element, response, viscosity)
                 if not np.array_equal(self.displacement.x.array, nodal):

@@ -88,7 +88,7 @@ def test_viscosity_invalid_coefficients_and_rigid_motion():
             )
 
 
-def test_viscosity_composes_with_material_trial_and_downstream_rollback():
+def test_viscosity_composes_with_material_trial_and_downstream_rollback(monkeypatch):
     from agentfem.constitutive._explicit_material import ExplicitMaterialBatchOutput
 
     class Material:
@@ -97,14 +97,14 @@ def test_viscosity_composes_with_material_trial_and_downstream_rollback():
         def update_explicit_array_batch(self, request):
             n = request.point_count
             return ExplicitMaterialBatchOutput(
-                np.zeros((n, 3, 3)),
+                np.tile(np.diag([.2, .3, .4]), (n, 1, 1)),
                 request.state_old + 1,
                 self.state_schema,
                 np.zeros(n),
             )
 
     domain = mesh.create_unit_cube(
-        MPI.COMM_SELF, 1, 1, 1, cell_type=mesh.CellType.hexahedron
+        MPI.COMM_SELF, 2, 1, 1, cell_type=mesh.CellType.hexahedron
     )
     space = fem.functionspace(domain, ("Lagrange", 1, (3,)))
     u, v = fem.Function(space), fem.Function(space)
@@ -115,19 +115,36 @@ def test_viscosity_composes_with_material_trial_and_downstream_rollback():
     )
     v.interpolate(lambda x: -0.1 * x)
     options = dict(
-        deformation_gradient_old=np.eye(3)[None],
+        deformation_gradient_old=np.tile(np.eye(3), (2, 1, 1)),
         time=0.0,
         time_increment=0.01,
         velocity=v,
         bulk_viscosity=dict(density=1.0, wave_speed=2.0, characteristic_length=1.0),
     )
+    original_scatter = operator._scatter
+    calls = []
+
+    def counted_scatter(values, **kwargs):
+        calls.append(1)
+        return original_scatter(values, **kwargs)
+
+    monkeypatch.setattr(operator, "_scatter", counted_scatter)
     with pytest.raises(ValueError, match="downstream"):
         with operator.explicit_trial_evaluation(material, **options) as (force, trial):
+            assert len(calls) == 1
             assert trial.element_response.physical_energy is None
             assert trial.material_response.internal_work_density_increment[0] == 0
-            assert force.array @ v.x.array == pytest.approx(
-                trial.bulk_viscosity_response.artificial_power.sum()
-            )
+            elastic = original_scatter(trial.element_response.internal_force)
+            damping = original_scatter(trial.bulk_viscosity_response.internal_force)
+            try:
+                np.testing.assert_allclose(force.array, elastic.array + damping.array,
+                                           atol=1e-14, rtol=1e-14)
+                assert damping.array @ v.x.array == pytest.approx(
+                    trial.bulk_viscosity_response.artificial_power.sum()
+                )
+            finally:
+                elastic.destroy()
+                damping.destroy()
             raise ValueError("downstream")
     np.testing.assert_array_equal(response.state.trial_state_vectors(), 0.0)
     np.testing.assert_array_equal(response.state.committed_state_vectors(), 0.0)

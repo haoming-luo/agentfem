@@ -968,6 +968,12 @@ fields together; injected provider/consumer mutations have dedicated tests.
 
 ## Primary design references
 
+The response-only Hex8 trial now combines material/hourglass and bulk-viscosity
+cell forces before a single nodal scatter. Constitutive work and artificial
+viscosity power remain distinct records. A two-cell regression compares the
+result against independently scattered contributions and checks downstream
+rollback; this is an assembly optimization, not a changed damping law.
+
 Closed-solid explicit contact now rejects unresolved outside-to-outside paths
 before updating material State. For linear nodal trajectories, two positive
 endpoint gaps can only exclude a crossing when their sum exceeds the bound on
