@@ -103,11 +103,13 @@ def _bulk_viscosity_from_checked_gradient(
     if (
         f.shape != (n, 3, 3)
         or not np.isfinite(f).all()
-        or np.any(np.linalg.det(f) <= 0)
     ):
         raise ValueError(
             "Admitted gradients must be finite and orientation-preserving."
         )
+    jacobian = np.linalg.det(f)
+    if np.any(jacobian <= 0) or not np.isfinite(jacobian).all():
+        raise ValueError("Admitted gradients require positive finite determinants.")
     gradients = cells.average_gradient @ np.linalg.inv(f)
     theta = np.einsum("nai,nai->n", gradients, velocity)
     compression = np.minimum(theta, 0)
@@ -115,7 +117,7 @@ def _bulk_viscosity_from_checked_gradient(
     quadratic_factor = rho * (b2 * length) ** 2
     q = linear_factor * theta - quadratic_factor * compression**2
     eta = linear_factor - 2 * quadratic_factor * compression
-    volume = cells.volume * np.linalg.det(f)
+    volume = cells.volume * jacobian
     force = volume[:, None, None] * q[:, None, None] * gradients
     power = volume * q * theta
     bound = (

@@ -13,6 +13,8 @@ from typing import Mapping
 
 import numpy as np
 
+from .._orientation import positive_finite_determinants
+
 from .user_material import (
     MaterialStateSchema,
     MaterialTangentConvention,
@@ -57,7 +59,7 @@ class MaterialPointArrayBatchInput:
         count = len(values)
         for name in ("deformation_gradient_old", "deformation_gradient_new"):
             value = _array(getattr(self, name), (count, 3, 3), name)
-            if np.any(np.linalg.det(value) <= 0):
+            if not positive_finite_determinants(value).all():
                 raise ValueError(f"{name} must have positive determinants.")
             object.__setattr__(self, name, value)
         object.__setattr__(

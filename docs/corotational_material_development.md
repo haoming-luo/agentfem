@@ -23,6 +23,17 @@ and commercial reference curves remain separate gates.
 
 ## Ordered gates
 
+### Orientation-only admission cost
+
+Repeated orientation checks now use the sufficient near-identity condition
+`||F-I||_infinity < 1/2`, with the original LU determinant outside that strict
+ball. The path `I+t(F-I)` proves sign preservation inside the ball; this is
+neither an approximation to J nor a replacement for whole-cell Jacobian checks.
+Bulk viscosity computes its required determinant once instead of twice. The
+focused orientation, material-array, finite-Hex and damping selection passes
+65 tests, including inversion, singularity, overflow and fallback boundaries.
+No physical configuration, numerical inertia or accepted time step changes.
+
 ### Conservative separated-contact reuse
 
 Closed Q1 contact now distinguishes exact projection records from force-free
