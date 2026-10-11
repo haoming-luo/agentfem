@@ -203,9 +203,16 @@ class Q1SurfaceSearch:
         triangles = np.stack((ids[:, [0, 1, 2]], ids[:, [0, 2, 3]]), axis=1).reshape(
             -1, 3
         )
-        nodes, inverse = np.unique(
-            self.vertices.reshape(-1, 3), axis=0, return_inverse=True
+        nodes, first, inverse = np.unique(
+            self.vertices.reshape(-1, 3), axis=0, return_index=True, return_inverse=True
         )
+        # Coordinate welding is unchanged, but storage follows first facet
+        # occurrence rather than lexicographic current coordinates. Ordinary
+        # motion must not gratuitously renumber unchanged triangle topology.
+        order = np.argsort(first, kind="stable")
+        renumber = np.empty_like(order)
+        renumber[order] = np.arange(len(order))
+        nodes, inverse = nodes[order], renumber[inverse]
         surface = TriangulatedRigidSurface(nodes, inverse[triangles])
         if _previous is not None:
             if (not isinstance(_previous, Q1SurfaceSearch)

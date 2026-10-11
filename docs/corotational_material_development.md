@@ -7,6 +7,15 @@ conversion; Procedure and State own acceptance and recovery.
 
 ## Bounded contact retries and filtered geometry (2026-10-12)
 
+Reviewed triangle topology now has a bounded byte-keyed cache (at most four
+connectivity payloads of 4 MiB each). Vertex count and exact connectivity gate
+reuse; coordinates, duplicate vertices, facet areas, normals and geometry
+fingerprints are still checked/recomputed. The Q1 broad phase keeps coordinate
+welding but numbers welded vertices by first facet occurrence, avoiding
+topological renumbering under ordinary motion. This is computation reuse, not
+permission to retain old contact projections or skip deformed-geometry checks.
+Targeted surface, import, search and deformable-contact regression: 120 passed.
+
 The polynomial Q1 oracle also has a rare recovery when floating-point
 elimination produces no admissible stationary candidate. Exact rational
 Gershgorin bounds must first establish strong convexity on the entire

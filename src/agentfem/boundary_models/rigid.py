@@ -1065,20 +1065,11 @@ class TriangulatedRigidSurface(RigidSurface):
                 raise ValueError("Surface triangle indices must be integers.")
         else:
             triangles = triangles_raw.astype(np.int64, copy=True)
-        if np.any(triangles < 0) or np.any(triangles >= vertices.shape[0]):
-            raise ValueError("Surface triangle index lies outside the vertex table.")
-        if np.unique(triangles).size != vertices.shape[0]:
-            raise ValueError(
-                "Every surface vertex must belong to at least one triangle."
-            )
-        if np.any(
-            (triangles[:, 0] == triangles[:, 1])
-            | (triangles[:, 1] == triangles[:, 2])
-            | (triangles[:, 2] == triangles[:, 0])
-        ):
-            raise ValueError(
-                "Surface triangles must reference three distinct vertices."
-            )
+        from ._triangle_topology import reviewed_triangle_topology
+
+        edge_count, boundary_edge_count = reviewed_triangle_topology(
+            len(vertices), triangles
+        )
 
         lower = np.min(vertices, axis=0)
         upper = np.max(vertices, axis=0)
@@ -1116,14 +1107,6 @@ class TriangulatedRigidSurface(RigidSurface):
             )
         normals = area_vectors / twice_areas[:, None]
 
-        canonical_indices = np.sort(triangles, axis=1)
-        if np.unique(canonical_indices, axis=0).shape[0] != triangles.shape[0]:
-            raise ValueError("Triangulated surface contains duplicate facets.")
-        # Finite, unique vertex coordinates were required above. Therefore the
-        # vertex-index map is injective: geometric facet duplication is exactly
-        # unordered index duplication, already rejected here. Do not repeat the
-        # same check with a Python coordinate-sort loop on every geometry update.
-
         if self.facet_ids is None:
             facet_ids = np.arange(triangles.shape[0], dtype=np.int64)
             identity_source = "generated_local_index"
@@ -1140,38 +1123,6 @@ class TriangulatedRigidSurface(RigidSurface):
             if np.any(facet_ids < 0) or np.unique(facet_ids).size != facet_ids.size:
                 raise ValueError("Facet IDs must be unique non-negative integers.")
             identity_source = "user_provided"
-
-        # Integer topology is checked in batches. In a refitted contact trace
-        # this same validation otherwise creates three Python tuples/lists per
-        # triangle on every increment. Preserve both rejection criteria and
-        # the first-input-edge diagnostic, rather than dropping the check.
-        directed_edges = triangles[:, ((0, 1), (1, 2), (2, 0))].reshape(-1, 2)
-        edges, first, inverse, counts = np.unique(
-            np.sort(directed_edges, axis=1), axis=0,
-            return_index=True, return_inverse=True, return_counts=True,
-        )
-        non_manifold = np.flatnonzero(counts > 2)
-        if non_manifold.size:
-            edge = tuple(int(v) for v in edges[
-                non_manifold[np.argmin(first[non_manifold])]
-            ])
-            raise ValueError(
-                "Triangulated surface contains non-manifold edges; first edge "
-                f"is {edge}."
-            )
-        directions = np.where(directed_edges[:, 0] < directed_edges[:, 1], 1, -1)
-        orientation_sum = np.zeros(len(edges), dtype=np.int64)
-        np.add.at(orientation_sum, inverse, directions)
-        orientation_conflicts = np.flatnonzero((counts == 2) & (orientation_sum != 0))
-        if orientation_conflicts.size:
-            edge = tuple(int(v) for v in edges[
-                orientation_conflicts[np.argmin(first[orientation_conflicts])]
-            ])
-            raise ValueError(
-                "Adjacent surface facets have inconsistent orientation; first "
-                f"edge is {edge}."
-            )
-        boundary_edge_count = int(np.count_nonzero(counts == 1))
 
         fingerprint = _sha256_geometry(
             "triangulated_rigid_surface",
@@ -1202,7 +1153,7 @@ class TriangulatedRigidSurface(RigidSurface):
             self,
             "_topology_summary",
             {
-                "edge_count": len(edges),
+                "edge_count": edge_count,
                 "boundary_edge_count": boundary_edge_count,
                 "closed": boundary_edge_count == 0,
                 "manifold": True,
