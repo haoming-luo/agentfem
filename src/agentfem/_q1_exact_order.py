@@ -30,6 +30,21 @@ def _value(coefficients, s, t):
                  for ai, bi, ci, di in zip(a, b, c, d, strict=True))
 
 
+def _strong_convexity_modulus(coefficients):
+    """Exact Gershgorin lower bound for Hessian(distance squared / 2)."""
+    a, b, c, d = coefficients
+    dd = _dot(d, d)
+
+    def diagonal_lower(direction):
+        r = max(Q(0), min(Q(1), -_dot(direction, d)/dd)) if dd else Q(0)
+        vector = tuple(x+r*y for x, y in zip(direction, d, strict=True))
+        return _dot(vector, vector)
+
+    off = max(abs(_dot(b, c)+_dot(a, d)+2*x*_dot(b, d)
+                  +2*y*_dot(c, d)+2*x*y*dd) for x in (0, 1) for y in (0, 1))
+    return min(diagonal_lower(b), diagonal_lower(c))-off
+
+
 def witness_within_distance(vertices, point, uv, tolerance):
     """Prove a feasible Q1 point lies inside a closed distance ball exactly.
 
@@ -53,16 +68,7 @@ def convex_closest_parameters(vertices, point):
     """
     coeff = _coefficients(vertices, point)
     a, b, c, d = coeff
-    dd = _dot(d, d)
-
-    def diagonal_lower(direction):
-        r = max(Q(0), min(Q(1), -_dot(direction, d)/dd)) if dd else Q(0)
-        vector = tuple(x+r*y for x, y in zip(direction, d, strict=True))
-        return _dot(vector, vector)
-
-    off = max(abs(_dot(b, c)+_dot(a, d)+2*x*_dot(b, d)
-                  +2*y*_dot(c, d)+2*x*y*dd) for x in (0, 1) for y in (0, 1))
-    modulus = min(diagonal_lower(b), diagonal_lower(c))-off
+    modulus = _strong_convexity_modulus(coeff)
     if modulus <= 0:
         return None
     u = v = Q(1)/2
@@ -95,16 +101,7 @@ def _convex_minimum_interval(vertices, point, uv):
     """Exact squared-distance enclosure from strong convexity and Newton witnesses."""
     coeff = _coefficients(vertices, point)
     a, b, c, d = coeff
-    dd = _dot(d, d)
-
-    def diagonal_lower(direction):
-        r = max(Q(0), min(Q(1), -_dot(direction, d)/dd)) if dd else Q(0)
-        return _dot(tuple(x+r*y for x, y in zip(direction, d, strict=True)),
-                    tuple(x+r*y for x, y in zip(direction, d, strict=True)))
-
-    off = max(abs(_dot(b, c)+_dot(a, d)+2*x*_dot(b, d)
-                  +2*y*_dot(c, d)+2*x*y*dd) for x in (0, 1) for y in (0, 1))
-    modulus = min(diagonal_lower(b), diagonal_lower(c))-off
+    modulus = _strong_convexity_modulus(coeff)
     if modulus <= 0:
         return None
     u, v = (Q(float(x)) for x in uv)
@@ -157,17 +154,7 @@ without square roots or floating-point subtraction. No uncertain result passes.
     witness_squared = _dot(witness, witness)
     coeff = _coefficients(other_vertices, point)
     a, b, c, d = coeff
-    dd = _dot(d, d)
-
-    def diagonal_lower(direction):
-        r = max(Q(0), min(Q(1), -_dot(direction, d)/dd)) if dd else Q(0)
-        vector = tuple(x + r*y for x, y in zip(direction, d, strict=True))
-        return _dot(vector, vector)
-
-    off = max(abs(_dot(b, c) + _dot(a, d) + 2*x*_dot(b, d)
-                  + 2*y*_dot(c, d) + 2*x*y*dd)
-              for x in (0, 1) for y in (0, 1))
-    if min(diagonal_lower(b), diagonal_lower(c)) <= off:
+    if _strong_convexity_modulus(coeff) <= 0:
         return False
     corners = ((Q(0), Q(0)), (Q(1), Q(0)), (Q(1), Q(1)), (Q(0), Q(1)))
     for start, end in zip(corners, corners[1:] + corners[:1], strict=True):
