@@ -1320,6 +1320,15 @@ material tangents into an unproven whole-path stability estimate.
   This changes neither contact tolerance nor dynamics time step. Manufactured
   narrow gaps at three scales and true impacts pass the 33-test targeted suite;
   unresolved queries still reject. Full-path reproduction remains unverified.
+  Follow-up acceptance: 289 targeted geometry, constitutive, viscosity,
+  subincrement and restart tests passed. A private native depth-30 interval
+  filter agreed with rational separation on 306 captured difficult paths
+  (295 separated, 11 unresolved/rejected); 90 manufactured impacts at three
+  scales remained rejected. An identical ten-step full-mesh replay retained
+  bitwise field/material equality after topology-cache and filter changes.
+  Cache-tiled material execution and a larger Newton iteration budget were
+  measured but not selected: neither improved the tested runtime. These are
+  bounded algorithm/runtime checks, not a completed loading-path validation.
 - [Abaqus explicit dynamics](https://docs.software.vt.edu/abaqusv2025/English/SIMACAETHERefMap/simathe-c-expdynamic.htm):
   linear and compression-only quadratic artificial bulk viscosity. Matching
   these formulas alone does not establish identical characteristic lengths,
