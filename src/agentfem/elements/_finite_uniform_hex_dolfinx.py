@@ -221,7 +221,20 @@ class FiniteUniformHexResidual:
                 vector = self._scatter(element.internal_force)
                 viscosity = None
                 if bulk_viscosity is not None:
-                    damping_vector, viscosity = self.assemble_bulk_viscosity(velocity, **bulk_viscosity)
+                    from ..fields import unwrap
+                    from ._bulk_viscosity import _bulk_viscosity_from_checked_gradient
+                    from ._bulk_viscosity_policy import BulkViscosityPolicy
+
+                    velocity_field = unwrap(velocity)
+                    if velocity_field.function_space is not self.displacement.function_space:
+                        raise ValueError("Velocity and displacement must share the function space.")
+                    options = (bulk_viscosity.options(np.linalg.det(gradient))
+                               if isinstance(bulk_viscosity, BulkViscosityPolicy)
+                               else bulk_viscosity)
+                    viscosity = _bulk_viscosity_from_checked_gradient(
+                        self.cells, gradient,
+                        velocity_field.x.array.reshape(-1, 3)[self.cell_nodes], **options)
+                    damping_vector = self._scatter(viscosity.internal_force)
                     try:
                         vector.axpy(1., damping_vector)
                     finally:

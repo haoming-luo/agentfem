@@ -5,6 +5,22 @@ source materials stay outside the distribution. Model retains engineering
 assets; constitutive providers own local updates; Operator owns stress/force
 conversion; Procedure and State own acceptance and recovery.
 
+## Same-trial reuse and ordered contact identity (2026-10-11)
+
+Profiling the private original-mesh startup identified duplicate full Hex8
+Jacobian admission in response and damping evaluation. The response-only trial
+now reuses its admitted gradient for damping inside the same guarded scope.
+Standalone damping still checks complete cell geometry; provider mutation and
+downstream failure retain rollback. Already canonical contact point IDs avoid a
+second projection reorder/validation, retaining owned IDs and immutable fields.
+No material, load, time step, or acceptance threshold is changed by this reuse.
+
+Targeted real-runtime regression: **75 passed, 3 two-rank-only tests skipped**.
+This is not MPI validation or completed original-case validation. The original
+mesh startup is still inactive contact; speed measured there must not be reported
+as full forming performance. Later loading, damage, source mass-scaling identity,
+and commercial reference curves remain separate gates.
+
 ## Ordered gates
 
 ### Immediate reusable interface work

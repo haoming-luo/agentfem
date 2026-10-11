@@ -55,7 +55,7 @@ class ContactTrace:
         point_ids = _integer_array(
             self.point_ids, name="Contact point IDs", dimensions=1
         )
-        if np.unique(point_ids).size != point_ids.size:
+        if not np.all(point_ids[1:] > point_ids[:-1]) and np.unique(point_ids).size != point_ids.size:
             raise ValueError("Contact point IDs must be unique.")
         node_ids = _integer_array(self.node_ids, name="Contact node IDs", dimensions=2)
         if node_ids.shape[0] != point_ids.size or node_ids.shape[1] < 1:
@@ -161,7 +161,7 @@ class ContactTraceAssembly:
         point_ids = _integer_array(
             self.point_ids, name="Contact point IDs", dimensions=1
         )
-        if np.unique(point_ids).size != point_ids.size:
+        if not np.all(point_ids[1:] > point_ids[:-1]) and np.unique(point_ids).size != point_ids.size:
             raise ValueError("Contact point IDs must be unique.")
         nodal = np.asarray(self.nodal_structural_residual, dtype=float)
         point_residual = np.asarray(

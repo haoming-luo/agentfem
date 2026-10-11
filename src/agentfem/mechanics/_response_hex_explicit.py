@@ -266,62 +266,48 @@ class ResponseHexExplicitResidual:
         dt = self.time - self.accepted_time
         self.validate_time_increment(dt)
         self._trial = None
+        increment = self.internal.displacement.x.array - self.accepted_displacement
+        if self.bulk_viscosity is not None:
+            self._secant_velocity.x.array[:] = increment / dt
         with self.internal.explicit_trial_evaluation(
             self.material,
             deformation_gradient_old=self.accepted_gradient,
             time=self.accepted_time,
             time_increment=dt,
+            velocity=self._secant_velocity,
+            bulk_viscosity=self.bulk_viscosity,
         ) as (vector, trial):
             viscosity_work = self.viscosity_work
             damping_bound = 0.0
             if self.bulk_viscosity is not None:
-                increment = (
-                    self.internal.displacement.x.array - self.accepted_displacement
-                )
-                self._secant_velocity.x.array[:] = increment / dt
-                damping, viscous = self.internal.assemble_bulk_viscosity(
-                    self._secant_velocity,
-                    **self.bulk_viscosity.options(
-                        np.linalg.det(trial.deformation_gradient)
-                    ),
-                )
-                try:
-                    contribution = float(damping.array @ increment)
-                    expected = dt * float(viscous.artificial_power.sum())
-                    roundoff = (
-                        128
-                        * np.finfo(float).eps
-                        * float(np.sum(np.abs(damping.array * increment)))
+                viscous = trial.bulk_viscosity_response
+                cell_increment = increment.reshape(-1, 3)[self.internal.cell_nodes]
+                products = viscous.internal_force * cell_increment
+                contribution = float(products.sum())
+                expected = dt * float(viscous.artificial_power.sum())
+                roundoff = 128 * np.finfo(float).eps * float(np.abs(products).sum())
+                if (
+                    expected < 0
+                    or abs(contribution - expected) > roundoff + 1e-10 * expected
+                ):
+                    raise ValueError(
+                        "Artificial damping work is not conjugate to the increment."
                     )
-                    if (
-                        expected < 0
-                        or abs(contribution - expected) > roundoff + 1e-10 * expected
-                    ):
-                        raise ValueError(
-                            "Artificial damping work is not conjugate to the increment."
-                        )
-                    damping_bound = float(
-                        np.max(viscous.mass_scaled_damping_bound, initial=0.0)
+                damping_bound = float(
+                    np.max(viscous.mass_scaled_damping_bound, initial=0.0)
+                )
+                if self.numerical_inertia is not None:
+                    # Physical density, damping force and work are unchanged.
+                    damping_bound /= float(self.numerical_inertia.factors.min())
+                # Conditional fixed-coefficient estimate: ceiling is still
+                # supplied, NOT a proven material/contact spectral bound.
+                omega = 2 / self.ceiling
+                limit = 4 / (np.hypot(damping_bound, 2 * omega) + damping_bound)
+                if dt > limit * (1 + 1e-12):
+                    raise ValueError(
+                        "Increment exceeds the damping-adjusted resolution ceiling."
                     )
-                    if self.numerical_inertia is not None:
-                        # M_num >= min(factors)*M_phys implies this conservative
-                        # spectral reduction for the PSD frozen-geometry damping.
-                        # Physical density, damping force and work are unchanged.
-                        damping_bound /= float(self.numerical_inertia.factors.min())
-                    # Conditional fixed-coefficient estimate: ceiling is still
-                    # supplied, NOT a proven material/contact spectral bound.
-                    omega = 2 / self.ceiling
-                    limit = 4 / (np.hypot(damping_bound, 2 * omega) + damping_bound)
-                    if dt > limit * (1 + 1e-12):
-                        raise ValueError(
-                            "Increment exceeds the damping-adjusted resolution ceiling."
-                        )
-                    vector.axpy(1.0, damping)
-                    # Equivalent positive local-power contraction avoids
-                    # cancellation of opposite nodal forces in rigid motion.
-                    viscosity_work += expected
-                finally:
-                    damping.destroy()
+                viscosity_work += expected
             interface_energy = 0.0
             if self.cohesive is not None:
                 try:

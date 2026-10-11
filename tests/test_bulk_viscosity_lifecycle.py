@@ -73,3 +73,25 @@ def test_viscosity_rigid_translation_has_no_artificial_work():
     step.state.v.value.x.array.reshape(-1, 3)[:] = [0.1, -0.2, 0.3]
     step.run()
     assert abs(step.residual.viscosity_work) < 1e-25
+
+
+def test_one_geometry_admission_per_damped_trial(monkeypatch):
+    step = make_step(viscosity=True)
+    cells = step.residual.internal.cells
+    original = cells.deformation_gradient
+    calls = []
+
+    def checked(displacement):
+        calls.append(1)
+        return original(displacement)
+
+    monkeypatch.setattr(cells, "deformation_gradient", checked)
+    step.run(until_step=1)
+    assert len(calls) == 1
+    # Standalone damping still performs its own geometry admission.
+    force, _ = step.residual.internal.assemble_bulk_viscosity(
+        step.state.v.value,
+        **step.residual.bulk_viscosity.options(np.ones(len(cells.volume))),
+    )
+    force.destroy()
+    assert len(calls) == 2

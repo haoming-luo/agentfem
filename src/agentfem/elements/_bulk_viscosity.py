@@ -41,6 +41,40 @@ def bulk_viscosity_response(
     The returned bound is per-element M^-1/2 D M^-1/2, not a global time-step
     certificate. D differentiates damping force w.r.t. velocity at fixed F.
     """
+    if np.iscomplexobj(displacement):
+        raise ValueError("Kinematics must be real.")
+    gradient = cells.deformation_gradient(displacement)
+    return _bulk_viscosity_from_checked_gradient(
+        cells,
+        gradient,
+        velocity,
+        density=density,
+        wave_speed=wave_speed,
+        characteristic_length=characteristic_length,
+        linear=linear,
+        quadratic=quadratic,
+        include_row_majorant=include_row_majorant,
+    )
+
+
+def _bulk_viscosity_from_checked_gradient(
+    cells,
+    gradient,
+    velocity,
+    *,
+    density,
+    wave_speed,
+    characteristic_length,
+    linear=0.06,
+    quadratic=1.2,
+    include_row_majorant=False,
+):
+    """Continue an admitted, unchanged cell evaluation inside one trial scope.
+
+    This does not admit cell geometry: the caller must already have performed
+    the full Jacobian check on its frozen configuration. Standalone callers use
+    bulk_viscosity_response(), which never bypasses that check.
+    """
     n = len(cells.volume)
 
     def values(value, name, positive=False):
@@ -60,12 +94,20 @@ def bulk_viscosity_response(
         values(linear, "linear viscosity"),
         values(quadratic, "quadratic viscosity"),
     )
-    if np.iscomplexobj(velocity) or np.iscomplexobj(displacement):
+    if np.iscomplexobj(velocity) or np.iscomplexobj(gradient):
         raise ValueError("Kinematics must be real.")
     velocity = np.asarray(velocity, dtype=float)
     if velocity.shape != (n, 8, 3) or not np.isfinite(velocity).all():
         raise ValueError("Velocity must be finite (cells, 8, 3).")
-    f = cells.deformation_gradient(displacement)
+    f = np.asarray(gradient, dtype=float)
+    if (
+        f.shape != (n, 3, 3)
+        or not np.isfinite(f).all()
+        or np.any(np.linalg.det(f) <= 0)
+    ):
+        raise ValueError(
+            "Admitted gradients must be finite and orientation-preserving."
+        )
     gradients = np.einsum("naJ,nJi->nai", cells.average_gradient, np.linalg.inv(f))
     theta = np.einsum("nai,nai->n", gradients, velocity)
     compression = np.minimum(theta, 0)
