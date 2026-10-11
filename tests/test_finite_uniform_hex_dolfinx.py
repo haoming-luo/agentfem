@@ -62,6 +62,29 @@ def evaluate(residual, law):
     )
 
 
+@pytest.mark.parametrize("chunked", [False, True])
+def test_additive_scatter_matches_precombined_forces(chunked):
+    _, _, _, residual = setup(MPI.COMM_WORLD)
+    rng = np.random.default_rng(317 + MPI.COMM_WORLD.rank)
+    a = rng.normal(size=(len(residual.cell_nodes), 8, 3))
+    b = rng.normal(size=a.shape)
+    expected = residual._scatter(a + b, chunked=chunked)
+    actual = residual._scatter(a, additional_cell_values=b, chunked=chunked)
+    try:
+        np.testing.assert_array_equal(actual.array, expected.array)
+    finally:
+        expected.destroy()
+        actual.destroy()
+
+
+def test_additive_scatter_rejects_invalid_contribution():
+    _, _, _, residual = setup()
+    a = np.zeros((len(residual.cell_nodes), 8, 3))
+    for bad in (np.zeros((1, 3)), np.full_like(a, np.nan)):
+        with pytest.raises(ValueError, match="Additional Hex8"):
+            residual._scatter(a, additional_cell_values=bad)
+
+
 @pytest.mark.parametrize("exception", [RuntimeError, KeyboardInterrupt])
 def test_open_trial_scope_cleans_up_downstream_failure(exception):
     from agentfem.elements._finite_uniform_hex_material import response_fields

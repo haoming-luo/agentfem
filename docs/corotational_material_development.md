@@ -5,6 +5,17 @@ source materials stay outside the distribution. Model retains engineering
 assets; constitutive providers own local updates; Operator owns stress/force
 conversion; Procedure and State own acceptance and recovery.
 
+## Additive force assembly (2026-10-11)
+
+The Hex8 scatter accepts a second cell-force contribution on the same topology.
+Body and artificial-viscosity responses remain separate for work accounting;
+assembly adds their components before nodal accumulation, without constructing
+a full combined `(cells, 8, 3)` intermediate. The serial and chunked paths match
+the previous precombined force bitwise. Targeted real-runtime tests: 29 passed;
+both additive paths also passed on two MPI ranks. This changes neither the
+material law nor numerical inertia, increment admission, or energy meaning.
+Private compiled scatter experiments remain outside the distributed runtime.
+
 ## Same-trial reuse and ordered contact identity (2026-10-11)
 
 Profiling the private original-mesh startup identified duplicate full Hex8

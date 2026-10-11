@@ -85,7 +85,7 @@ class FiniteUniformHexResidual:
             chunk_size=chunk_size,
         )
 
-    def _scatter(self, cell_values, *, chunked=False):
+    def _scatter(self, cell_values, *, chunked=False, additional_cell_values=None):
         from petsc4py import PETSc
 
         vector = self.displacement.x.petsc_vec.duplicate()
@@ -99,6 +99,11 @@ class FiniteUniformHexResidual:
                     raise ValueError(
                         "Finite Hex8 scatter requires finite cell vectors."
                     )
+                if additional_cell_values is not None and (
+                    np.shape(additional_cell_values) != np.shape(cell_values)
+                    or not np.isfinite(additional_cell_values).all()
+                ):
+                    raise ValueError("Additional Hex8 forces require matching finite cell vectors.")
                 with vector.localForm() as local:
                     local.set(0)
                     values = local.array.reshape(-1, 3)
@@ -106,9 +111,12 @@ class FiniteUniformHexResidual:
                         force = cell_values.reshape(-1, 3)
                         nodes = self.cell_nodes.ravel()
                         for component in range(3):
+                            weights = force[:, component]
+                            if additional_cell_values is not None:
+                                weights = weights + additional_cell_values.reshape(-1, 3)[:, component]
                             values[:, component] = np.bincount(
                                 nodes,
-                                weights=force[:, component],
+                                weights=weights,
                                 minlength=len(values),
                             )
                     else:
@@ -117,8 +125,11 @@ class FiniteUniformHexResidual:
                         ):
                             force = cell_values[region].reshape(-1, 3)
                             for component in range(3):
+                                weights = force[:, component]
+                                if additional_cell_values is not None:
+                                    weights = weights + additional_cell_values[region].reshape(-1, 3)[:, component]
                                 values[nodes, component] += np.bincount(
-                                    inverse, weights=force[:, component],
+                                    inverse, weights=weights,
                                     minlength=len(nodes),
                                 )
 
@@ -261,8 +272,10 @@ class FiniteUniformHexResidual:
                         velocity_field.x.array.reshape(-1, 3)[self.cell_nodes], **options)
                     # Both contributions share the same cell-to-node map.
                     # Assemble once, retaining separate response/energy records.
-                    cell_force = cell_force + viscosity.internal_force
-                vector = self._scatter(cell_force)
+                vector = self._scatter(
+                    cell_force,
+                    additional_cell_values=None if viscosity is None else viscosity.internal_force,
+                )
                 gradient.setflags(write=False)
                 yield vector, FiniteHexMaterialTrial(gradient, element, response, viscosity)
                 if not np.array_equal(self.displacement.x.array, nodal):
