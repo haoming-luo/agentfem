@@ -99,6 +99,18 @@ forces differ by about 18--19%; their magnitudes are small during startup, but
 that does not justify calling force convergence complete. A third refinement
 is needed. These comparisons neither test mass sensitivity nor the full load.
 
+The third run completed 400 steps at `2.5e-7`, again reaching `1e-4` with the
+same initial mass plan. Exported geometry and topology arrays match exactly.
+Successive displacement-coefficient relative Euclidean differences are 0.7474%
+and 0.3891%; these are coefficient norms, not volume-weighted continuum L2
+errors. Absolute maximum component differences are `4.11e-9` and `1.19e-9`
+in source length units. Fixed-tool endpoint force differences decrease to
+about 6--7%, but peak displacement is nonmonotone and the coefficient difference
+ratio is only 1.92. This is an early-load refinement trend, not a second-order
+certificate or a passed engineering force tolerance. The finest ledger relative
+residual is about 0.00104. All three runs saved checkpoints and displacement
+fields; no full `0.1`-second trajectory or mass-sensitivity admission follows.
+
 An original-mesh nodal-contact pilot accepted 66 increments, then rejected
 increment 67 because subtracting accepted times reconstructed `1e-6` with a
 floating-point tail above an overly narrow tolerance. Provider limits now account
