@@ -130,6 +130,12 @@ class ClosedQ1Surface:
                 return bool(winding)
         raise ValueError("No two unambiguous Q1 rays classify this query.")
 
+    def zero_gap_resolution(self, points):
+        """Existing binary64 distance resolution, not a penetration allowance."""
+        return 128 * np.finfo(float).eps * max(
+            self.scale, float(np.max(np.abs(points), initial=0))
+        )
+
     def project(self, points, *, maximum_distance):
         found = self.search.project(
             points, maximum_distance=maximum_distance, require_unique_normal=False
@@ -137,11 +143,7 @@ class ClosedQ1Surface:
         query = np.asarray(points, dtype=float)
         delta = query - found["points"]
         distance = np.linalg.norm(delta, axis=1)
-        tolerance = (
-            128
-            * np.finfo(float).eps
-            * max(self.scale, float(np.max(np.abs(query), initial=0)))
-        )
+        tolerance = self.zero_gap_resolution(query)
         gaps = np.zeros(len(query))
         normal = found["normals"].copy()
         for i in np.flatnonzero(distance > tolerance):

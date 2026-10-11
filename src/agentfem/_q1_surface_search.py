@@ -32,7 +32,8 @@ class SurfaceOutsideSearchRadius(ValueError):
         super().__init__(f"Q1 query {query_index}: no surface within search radius.")
 
 
-def _interior_dominates_shared_edge(vertices, node_ids, point, interior, edge):
+def _interior_dominates_shared_edge(vertices, node_ids, point, interior, edge,
+                                  *, allow_exact=True):
     """Resolve a candidate versus a neighboring patch sharing a physical edge.
 
     Near an edge, distance differences are quadratic in edge distance and can
@@ -46,13 +47,20 @@ def _interior_dominates_shared_edge(vertices, node_ids, point, interior, edge):
     fi, ri = interior
     fe, re = edge
     shared = set(node_ids[fi]) & set(node_ids[fe])
-    if len(shared) != 2:
+    if len(shared) not in (1, 2):
         return False
     for node in shared:
         vi = vertices[fi, np.flatnonzero(node_ids[fi] == node)]
         ve = vertices[fe, np.flatnonzero(node_ids[fe] == node)]
         if vi.shape != (1, 3) or not np.array_equal(vi, ve):
             return False
+    if len(shared) == 1:
+        # Corner-adjacent patches need no invented common edge. The exact
+        # comparison proves global ordering independently on the other patch.
+        from ._q1_exact_order import witness_beats_boundary_minimum
+
+        return allow_exact and witness_beats_boundary_minimum(
+            vertices[fi], point, ri[0], vertices[fe])
     for row in (node_ids[fi], node_ids[fe]):
         positions = [i for i, node in enumerate(row) if node in shared]
         if (positions[1] - positions[0]) % 4 not in (1, 3):
@@ -60,7 +68,7 @@ def _interior_dominates_shared_edge(vertices, node_ids, point, interior, edge):
     from ._q1_exact_order import witness_beats_boundary_minimum
 
     def exact_order():
-        return witness_beats_boundary_minimum(
+        return allow_exact and witness_beats_boundary_minimum(
             vertices[fi], point, ri[0], vertices[fe])
 
     eps = np.finfo(float).eps
@@ -391,15 +399,48 @@ class Q1SurfaceSearch:
             )
             for candidate in choices[1:]:
                 if abs(candidate[1][-1] - best[1][-1]) <= tolerance:
+                    # Two boundary projections already equivalent under the
+                    # geometric AND trace contracts need no rational ordering
+                    # proof. Strict interiors still use the convex screen.
+                    coincident_boundary = False
+                    if (self.node_ids is not None
+                            and all(np.any((r[0] == 0) | (r[0] == 1))
+                                    for _, r in (best, candidate))
+                            and np.linalg.norm(candidate[1][2]-best[1][2]) <= point_tolerance
+                            and (not require_unique_normal or
+                                 np.linalg.norm(candidate[1][3]-best[1][3]) <= 1e-8)):
+                        coefficients = {}
+                        for (facet, record), sign in ((best, 1.), (candidate, -1.)):
+                            for node, weight in zip(self.node_ids[facet], record[1], strict=True):
+                                coefficients[int(node)] = coefficients.get(int(node), 0.) + sign*weight
+                        coincident_boundary = max(map(abs, coefficients.values()), default=0.) <= 1e-10
                     if _interior_dominates_shared_edge(
-                        self.vertices, self.node_ids, point, best, candidate
+                        self.vertices, self.node_ids, point, best, candidate,
+                        allow_exact=not coincident_boundary,
                     ):
                         continue
                     if _interior_dominates_shared_edge(
-                        self.vertices, self.node_ids, point, candidate, best
+                        self.vertices, self.node_ids, point, candidate, best,
+                        allow_exact=not coincident_boundary,
                     ):
                         best = candidate
                         continue
+                    if not coincident_boundary and np.linalg.norm(
+                        candidate[1][2] - best[1][2]
+                    ) > point_tolerance:
+                        from ._q1_exact_order import convex_minimum_precedes
+
+                        if convex_minimum_precedes(
+                            self.vertices[best[0]], point, best[1][0],
+                            self.vertices[candidate[0]], candidate[1][0],
+                        ):
+                            continue
+                        if convex_minimum_precedes(
+                            self.vertices[candidate[0]], point, candidate[1][0],
+                            self.vertices[best[0]], best[1][0],
+                        ):
+                            best = candidate
+                            continue
                     if np.linalg.norm(
                         candidate[1][2] - best[1][2]
                     ) > point_tolerance or (

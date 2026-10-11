@@ -87,6 +87,18 @@ def test_near_corner_edge_witness_has_exact_distance_order(reverse):
     assert answer['facet_indices'][0] == int(reverse)
 
 
+def test_corner_adjacent_patches_use_exact_not_invented_edge_order():
+    vertices = np.array([
+        [[-.01, -1., 1.], [-.01, -1., 0.], [0., 0., 0.], [0., 0., 1.]],
+        [[0., 0., 1.], [-.01, 1., 1.], [1., 1., 1.], [1., 0., 1.]],
+    ])
+    nodes = np.array([[0, 1, 2, 3], [3, 4, 5, 6]])
+    query = [[-3e-12, -1e-13, 1.+6e-13]]
+    answer = Q1SurfaceSearch(vertices, node_ids=nodes).project(
+        query, maximum_distance=.1, require_unique_normal=False)
+    assert answer['facet_indices'][0] == 0
+
+
 @pytest.mark.parametrize("length", [1e-3, 1.0, 1e3])
 def test_resolvable_near_seam_is_not_a_false_ambiguity(length):
     surface = np.array([square(), square() + [1, 0, 0]]) * length

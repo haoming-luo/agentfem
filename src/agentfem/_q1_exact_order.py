@@ -30,6 +30,70 @@ def _value(coefficients, s, t):
                  for ai, bi, ci, di in zip(a, b, c, d, strict=True))
 
 
+def witness_within_distance(vertices, point, uv, tolerance):
+    """Prove a feasible Q1 point lies inside a closed distance ball exactly.
+
+    This bounds distance only; it does not establish a unique normal or side.
+    """
+    s, t = (Q(float(x)) for x in uv)
+    radius = Q(float(tolerance))
+    if radius < 0 or not (0 <= s <= 1 and 0 <= t <= 1):
+        return False
+    delta = _value(_coefficients(vertices, point), s, t)
+    return _dot(delta, delta) <= radius * radius
+
+
+def _convex_minimum_interval(vertices, point, uv):
+    """Exact squared-distance enclosure from strong convexity and Newton witnesses."""
+    coeff = _coefficients(vertices, point)
+    a, b, c, d = coeff
+    dd = _dot(d, d)
+
+    def diagonal_lower(direction):
+        r = max(Q(0), min(Q(1), -_dot(direction, d)/dd)) if dd else Q(0)
+        return _dot(tuple(x+r*y for x, y in zip(direction, d, strict=True)),
+                    tuple(x+r*y for x, y in zip(direction, d, strict=True)))
+
+    off = max(abs(_dot(b, c)+_dot(a, d)+2*x*_dot(b, d)
+                  +2*y*_dot(c, d)+2*x*y*dd) for x in (0, 1) for y in (0, 1))
+    modulus = min(diagonal_lower(b), diagonal_lower(c))-off
+    if modulus <= 0:
+        return None
+    u, v = (Q(float(x)) for x in uv)
+    if not (0 <= u <= 1 and 0 <= v <= 1):
+        return None
+    lower, upper = Q(0), None
+    for iteration in range(3):
+        delta = _value(coeff, u, v)
+        du = tuple(x+v*y for x, y in zip(b, d, strict=True))
+        dv = tuple(x+u*y for x, y in zip(c, d, strict=True))
+        gu, gv = _dot(delta, du), _dot(delta, dv)
+        squared = _dot(delta, delta)
+        upper = squared if upper is None else min(upper, squared)
+        # For f=distance²/2 and Hessian >= modulus I,
+        # 2 f* >= 2 f(x) - |gradient f(x)|²/modulus.
+        lower = max(lower, squared-(gu*gu+gv*gv)/modulus)
+        if iteration == 2:
+            break
+        huu, hvv = _dot(du, du), _dot(dv, dv)
+        huv = _dot(du, dv)+_dot(delta, d)
+        determinant = huu*hvv-huv*huv
+        if determinant <= 0:
+            break
+        u = max(Q(0), min(Q(1), u-(hvv*gu-huv*gv)/determinant))
+        v = max(Q(0), min(Q(1), v-(huu*gv-huv*gu)/determinant))
+    return lower, upper
+
+
+def convex_minimum_precedes(vertices, point, uv, other_vertices, other_uv):
+    """Strict exact ordering only; genuine ties remain unresolved."""
+    first = _convex_minimum_interval(vertices, point, uv)
+    if first is None:
+        return False
+    second = _convex_minimum_interval(other_vertices, point, other_uv)
+    return second is not None and first[1] < second[0]
+
+
 def witness_beats_boundary_minimum(witness_vertices, point, uv, other_vertices):
     """Certify a feasible witness is closer than every point of another patch.
 

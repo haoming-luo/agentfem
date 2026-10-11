@@ -1129,6 +1129,38 @@ count. Keep geometry, constitutive parameters, physical loading duration,
 inertia and acceptance criteria fixed for a same-checkpoint replay. Compare
 nodal arrays, material history and work records, not elapsed time alone.
 
+### Local geometry certificates, not enlarged tolerances
+
+The bounded Q1 contact path now distinguishes three different questions:
+
+- Nearest-face ordering: binary64-distance ties may be ordered using exact
+  rational strong-convexity bounds on the squared Q1 distance. Projected Newton
+  iterates supply feasible witnesses only; the Hessian lower bound and gradient
+  inequality supply the certificate. Genuine ties/nonconvex unresolved patches
+  remain rejected. Shared-node boundary equivalence retains its existing trace
+  and normal policies.
+- Numerical zero gap: an exact feasible witness may establish distance within
+  the existing closed-surface binary64 resolution. An ambiguous point then has
+  no invented projection or normal, zero penalty force, explicit zero-gap
+  indices/tolerance, and a **negative** resolution-band lower bound. It cannot
+  be cached as positive separation. Resolvable interior penetration still
+  requires an admissible projection.
+- Swept separation: when the global travel estimate is inconclusive, the
+  relative linear-point/moving-Q1 map has eight trilinear control vectors.
+  Exact separating planes and bounded dyadic subdivision can exclude zero.
+  Failure to certify still rejects the increment; this does not find impact
+  times, admit curved temporal trajectories, or certify surface self-intersection.
+
+These are reusable geometry/Procedure safeguards, not new material laws or a
+claim that the private full-model reproduction is validated. Native batch
+acceleration remains a separately audited private runtime prototype. Benchmark
+frozen geometry separately from accepted dynamic trajectories; do not infer a
+whole-run speedup from one contact evaluation.
+
+Related method: [Tight Inclusion continuous-collision-detection reference](https://github.com/Continuous-Collision-Detection/Tight-Inclusion).
+The present Q1 certificate uses exact trilinear convex-hull exclusion, not that
+package's triangle CCD implementation or a complete time-of-impact algorithm.
+
 1. Remove redundant geometry work and array transfers. Triangle coordinates
    are already finite and unique, so duplicate unordered connectivity also
    detects geometrically duplicate facets. A second per-facet Python coordinate

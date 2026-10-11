@@ -28,8 +28,30 @@ class DeformableContactResponse:
     primary_weights: np.ndarray | None
     separation_lower_bounds: np.ndarray | None = None
     projection_indices: np.ndarray | None = None
+    zero_gap_indices: np.ndarray | None = None
+    zero_gap_tolerance: float = 0.0
 
     def __post_init__(self):
+        zero = np.asarray(
+            [] if self.zero_gap_indices is None else self.zero_gap_indices,
+            dtype=np.int64 if self.zero_gap_indices is None else None,
+        )
+        if (
+            zero.ndim != 1 or zero.dtype.kind not in "iu"
+            or len(np.unique(zero)) != len(zero)
+            or not np.isfinite(self.zero_gap_tolerance)
+            or self.zero_gap_tolerance < 0
+            or (len(zero) and (self.zero_gap_tolerance <= 0
+                              or self.separation_lower_bounds is None))
+        ):
+            raise ValueError("Invalid unresolved zero-gap evidence.")
+        if self.separation_lower_bounds is not None:
+            bounds = np.asarray(self.separation_lower_bounds)
+            if (bounds.ndim != 1 or np.any(zero < 0)
+                    or np.any(zero >= len(bounds))
+                    or np.any(bounds[zero] != -self.zero_gap_tolerance)):
+                raise ValueError("Zero-gap bounds must retain the resolution band.")
+        object.__setattr__(self, "zero_gap_indices", _readonly_array(zero, dtype=np.int64))
         if self.projection_indices is not None and (
             self.projection is None or self.separation_lower_bounds is None
         ):
@@ -51,7 +73,7 @@ class DeformableContactResponse:
                 bound.ndim != 1
                 or np.iscomplexobj(bound)
                 or not np.isfinite(bound).all()
-                or np.any(bound <= 0)
+                or np.any(np.delete(bound, zero) <= 0)
                 or self.potential_energy != 0
                 or self.primary_nodes is not None
                 or self.primary_weights is not None
@@ -59,7 +81,7 @@ class DeformableContactResponse:
                 or np.any(self.primary_residual)
             ):
                 raise ValueError(
-                    "Bound-only contact must be strictly separated and force-free."
+                    "Bound-only contact needs separation or zero-gap evidence and must be force-free."
                 )
             object.__setattr__(self, "separation_lower_bounds", _readonly_array(bound))
         elif self.separation_lower_bounds is not None:
@@ -87,6 +109,9 @@ class DeformableContactResponse:
                 raise ValueError("Contact separation lower bounds are inconsistent.")
             unprojected = np.ones(len(bound), dtype=bool)
             unprojected[indices] = False
+            if np.any(~unprojected[zero]):
+                raise ValueError("Zero-gap evidence must not invent a projection.")
+            unprojected[zero] = False
             if np.any(bound[unprojected] <= 0):
                 raise ValueError(
                     "Unprojected contact points need positive separation bounds."
@@ -220,6 +245,8 @@ class DeformableQ1Penalty:
         xs, xp = current
         query = xs[self.nodes]
         selected = np.arange(len(query))
+        zero_indices = []
+        zero_tolerance = 0.0
         lower = None
         if self.geometry_policy == "reviewed_closed_solid":
             from ._closed_q1_surface import ClosedQ1Surface
@@ -277,6 +304,27 @@ class DeformableQ1Penalty:
                 if lower is None:
                     raise
                 index = selected[error.query_index]
+                if isinstance(error, AmbiguousSurfaceProjection) and error.facets:
+                    from ._q1_exact_order import witness_within_distance
+                    from ._q1_surface_geometry import q1_closest_point
+
+                    tolerance = search.zero_gap_resolution(query)
+                    for facet in error.facets:
+                        vertices = xp[self.primary.quadrilaterals[facet]]
+                        uv = q1_closest_point(vertices, query[index])[0]
+                        if witness_within_distance(vertices, query[index], uv, tolerance):
+                            # A certified numerical zero band needs no arbitrary
+                            # normal. Keep its negative lower bound: it must not
+                            # become positive separation for skipping next time.
+                            zero_tolerance = tolerance
+                            zero_indices.append(index)
+                            lower[index] = -tolerance
+                            break
+                    else:
+                        vertices = None
+                    if vertices is not None:
+                        selected = np.delete(selected, error.query_index)
+                        continue
                 bound = search.search.distance_lower_bounds(query[index:index + 1])[0]
                 if bound <= 0 or search._inside(query[index]):
                     raise
@@ -289,7 +337,9 @@ class DeformableQ1Penalty:
                 selected = np.delete(selected, error.query_index)
         else:
             return DeformableContactResponse(
-                np.zeros_like(xs), np.zeros_like(xp), 0.0, None, None, None, lower
+                np.zeros_like(xs), np.zeros_like(xp), 0.0, None, None, None, lower,
+                zero_gap_indices=np.asarray(zero_indices, dtype=np.int64),
+                zero_gap_tolerance=zero_tolerance,
             )
         query = query[selected]
         separation = query - found["points"]
@@ -342,6 +392,8 @@ class DeformableQ1Penalty:
             found["weights"],
             lower,
             selected if len(selected) != len(self.nodes) else None,
+            np.asarray(zero_indices, dtype=np.int64),
+            zero_tolerance,
         )
 
     def summary(self):

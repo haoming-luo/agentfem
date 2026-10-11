@@ -43,6 +43,51 @@ def test_open_and_closed_analytic_response():
     np.testing.assert_allclose(r.primary_residual.sum(axis=0), [0, 0, 0.08], atol=1e-14)
 
 
+def test_closed_zero_resolution_needs_distance_proof_not_a_normal(monkeypatch):
+    from test_closed_q1_surface import solid
+    from agentfem._q1_surface_search import Q1SurfaceSearch, AmbiguousSurfaceProjection
+
+    vertices, faces = solid()
+    points = np.array([[.2, .2, 1e-15], [.4, .2, 1e-15],
+                       [.4, .4, 1e-15], [.2, .4, 1e-15]])
+    op = DeformableQ1Penalty(
+        BilinearReferenceTrace(points, np.array([[0, 1, 2, 3]]), tolerance=1e-10),
+        BilinearReferenceTrace(vertices, faces, tolerance=1e-10),
+        candidate_nodes=np.ones(4, dtype=bool), penalty=100., search_radius=.3,
+        geometry_policy="reviewed_closed_solid")
+    bottom = int(np.flatnonzero(np.all(vertices[faces, 2] == 0, axis=1))[0])
+
+    def ambiguous(*args, **kwargs):
+        raise AmbiguousSurfaceProjection(0, facets=(bottom,))
+
+    monkeypatch.setattr(Q1SurfaceSearch, 'project', ambiguous)
+    result = op.evaluate(np.zeros_like(points), np.zeros_like(vertices))
+    assert result.projection is None
+    np.testing.assert_array_equal(result.zero_gap_indices, np.arange(4))
+    assert np.all(result.gap_lower_bounds == -result.zero_gap_tolerance)
+    assert result.potential_energy == 0
+    np.testing.assert_array_equal(result.secondary_residual, 0)
+    # Same ambiguity at resolvable interior penetration is NOT suppressed.
+    displacement = np.zeros_like(points)
+    displacement[:, 2] = 1e-6
+    with pytest.raises(AmbiguousSurfaceProjection):
+        op.evaluate(displacement, np.zeros_like(vertices))
+
+
+def test_zero_resolution_contract_rejects_missing_or_false_bounds():
+    from agentfem._deformable_q1_contact import DeformableContactResponse
+
+    args = (np.zeros((1, 3)), np.zeros((4, 3)), 0., None, None, None)
+    with pytest.raises(ValueError):
+        DeformableContactResponse(*args, np.array([0.]))
+    with pytest.raises(ValueError):
+        DeformableContactResponse(*args, np.array([0.]),
+                                 zero_gap_indices=np.array([0]), zero_gap_tolerance=1e-12)
+    with pytest.raises(ValueError):
+        DeformableContactResponse(*args, np.array([-1e-12]),
+                                 zero_gap_indices=np.array([1]), zero_gap_tolerance=1e-12)
+
+
 def test_closed_solid_keeps_far_candidates_without_fake_projections():
     from test_closed_q1_surface import solid
 

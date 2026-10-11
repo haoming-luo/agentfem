@@ -144,6 +144,18 @@ class DeformableQ1ContactResidual:
                     values[1] - self.accepted[1],
                 )
                 if np.any(uncertain):
+                    from .._q1_swept_separation import separated_q1_paths
+
+                    indices = self.operator.nodes[uncertain]
+                    separated = separated_q1_paths(
+                        self.operator.primary.vertices + self.accepted[1],
+                        self.operator.primary.vertices + values[1],
+                        self.operator.primary.quadrilaterals,
+                        self.operator.secondary.vertices[indices] + self.accepted[0][indices],
+                        self.operator.secondary.vertices[indices] + values[0][indices],
+                    )
+                    uncertain[np.flatnonzero(uncertain)[separated]] = False
+                if np.any(uncertain):
                     raise ValueError(
                         "Potential missed contact crossing: outside endpoints do not "
                         "resolve the swept path; reduce the increment or use a "
