@@ -190,11 +190,34 @@ def admits_affine_perturbation(coordinates, displacement, gradient, radius):
     x, u, f = coordinates[selected], displacement[selected], gradient[selected]
     relative = x - x[:, :1]
     remainder = (u - u[:, :1]) - relative @ (f - np.eye(3)).swapaxes(1, 2)
-    singular = np.linalg.svd(f, compute_uv=False)
     change = _jacobian_frobenius_bound(remainder)
-    scale = (np.max(np.abs(x), axis=(1, 2)) * (1 + singular[:, 0])
-             + np.max(np.abs(u), axis=(1, 2)))
-    guard = 256*np.finfo(float).eps*scale
-    budget = radius[selected]*singular[:, -1]
-    admitted[selected] = np.isfinite(change+guard) & (change+guard < budget)
+    x_scale = np.max(np.abs(x), axis=(1, 2))
+    u_scale = np.max(np.abs(u), axis=(1, 2))
+    selected_radius = radius[selected]
+    # A strict Gram-matrix ball bounds both extreme singular values without
+    # decomposing every almost-rigid cell.  This is only a sufficient screen:
+    # inconclusive points retain the original SVD and Bernstein path.
+    with np.errstate(over="ignore", invalid="ignore"):
+        gram = f.swapaxes(1, 2) @ f
+        gram_norm = np.max(np.sum(np.abs(gram), axis=2), axis=1)
+        delta = np.max(np.sum(np.abs(gram - np.eye(3)), axis=2), axis=1)
+        delta += 128 * np.finfo(float).eps * (1 + gram_norm)
+    fast = np.isfinite(delta) & (delta < 0.5)
+    local = np.zeros(len(f), dtype=bool)
+    if np.any(fast):
+        lower = np.sqrt(1 - delta[fast])
+        upper = np.sqrt(1 + delta[fast])
+        guard = 256 * np.finfo(float).eps * (
+            x_scale[fast] * (1 + upper) + u_scale[fast])
+        total = change[fast] + guard
+        local[fast] = np.isfinite(total) & (total < selected_radius[fast] * lower)
+    remaining = ~local
+    if np.any(remaining):
+        singular = np.linalg.svd(f[remaining], compute_uv=False)
+        scale = x_scale[remaining] * (1 + singular[:, 0]) + u_scale[remaining]
+        guard = 256 * np.finfo(float).eps * scale
+        total = change[remaining] + guard
+        budget = selected_radius[remaining] * singular[:, -1]
+        local[remaining] = np.isfinite(total) & (total < budget)
+    admitted[selected] = local
     return admitted

@@ -1390,3 +1390,11 @@ material tangents into an unproven whole-path stability estimate.
   nine-component temporary per point. The 95-test material/response suite
   passed, including extreme scales and adjacent floating-point values at the
   symmetry threshold. Component timing is not a full-model speedup claim.
+- The affine-removed Hex8 validity screen first bounds singular values using a
+  strict Gram-matrix norm ball, with a floating-point guard. Only inconclusive
+  cells retain the original SVD; unresolved geometry still takes the Bernstein
+  path. This avoids a large SVD batch when reference-displacement admission
+  becomes inconclusive during otherwise admissible finite motion. It changes
+  neither deformation gradients nor force assembly. The 81-test targeted
+  geometry/material/contact suite passed, including SVD-path equivalence at
+  three scales and selective fallback for nonaffine or large-stretch cells.
