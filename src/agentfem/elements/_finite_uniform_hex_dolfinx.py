@@ -260,11 +260,12 @@ class FiniteUniformHexResidual:
                     from ..fields import unwrap
                     from ._bulk_viscosity import _bulk_viscosity_from_checked_gradient
                     from ._bulk_viscosity_policy import BulkViscosityPolicy
+                    from .._small_matrix import determinants_3x3
 
                     velocity_field = unwrap(velocity)
                     if velocity_field.function_space is not self.displacement.function_space:
                         raise ValueError("Velocity and displacement must share the function space.")
-                    options = (bulk_viscosity.options(np.linalg.det(gradient))
+                    options = (bulk_viscosity.options(determinants_3x3(gradient))
                                if isinstance(bulk_viscosity, BulkViscosityPolicy)
                                else bulk_viscosity)
                     viscosity = _bulk_viscosity_from_checked_gradient(
