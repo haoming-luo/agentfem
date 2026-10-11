@@ -88,7 +88,21 @@ def _check_explicit_increment(material, request):
         allowed = float(limit.maximum_time_increment[point])
         # Accepted times are accumulated and subtracted by the Procedure;
         # tolerate only floating-point reconstruction noise at equality.
-        rounding = 32 * np.finfo(float).eps * max(request.time_increment, allowed)
+        endpoint = float(request.time + request.time_increment)
+        if not np.isfinite(endpoint):
+            raise ValueError("Material increment endpoint must be finite.")
+        clock_rounding = 2 * max(
+            abs(np.spacing(float(request.time))),
+            abs(np.spacing(endpoint)),
+        )
+        if clock_rounding > 1e-6 * min(request.time_increment, allowed):
+            raise ValueError(
+                "Absolute material time cannot resolve the increment limit; "
+                "use a better-resolved time origin or units."
+            )
+        rounding = clock_rounding + 32 * np.finfo(float).eps * max(
+            request.time_increment, allowed
+        )
         if request.time_increment - allowed > rounding:
             raise ExplicitMaterialIncrementExceeded(
                 requested=request.time_increment,

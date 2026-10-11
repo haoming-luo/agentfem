@@ -33,6 +33,30 @@ class Limited:
         return response(value.point_count)
 
 
+@pytest.mark.parametrize("index", [67, 100, 1000, 10000, 100000])
+def test_limit_equality_uses_clock_roundoff_not_only_increment_roundoff(index):
+    nominal = 1e-6
+    old_time, new_time = (index - 1) * nominal, index * nominal
+    provider = Limited(nominal)
+    value = replace(request(), time=old_time, time_increment=new_time - old_time)
+    validated_explicit_material_update(provider, value)
+    assert provider.calls == 1
+    with pytest.raises(ExplicitMaterialIncrementExceeded):
+        validated_explicit_material_update(
+            provider, replace(value, time_increment=nominal * (1 + 1e-8))
+        )
+    assert provider.calls == 1
+
+
+def test_unresolvable_absolute_clock_cannot_relax_material_limit():
+    provider = Limited(1e-6)
+    with pytest.raises(ValueError, match="cannot resolve"):
+        validated_explicit_material_update(
+            provider, replace(request(), time=1e20, time_increment=2e-6)
+        )
+    assert provider.calls == 0
+
+
 def test_limit_consumed_before_response_and_does_not_invent_tangent():
     provider = Limited(0.05)
     with pytest.raises(ExplicitMaterialIncrementExceeded) as failure:

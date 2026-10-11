@@ -23,6 +23,22 @@ and commercial reference curves remain separate gates.
 
 ## Ordered gates
 
+### Long-clock increment comparison and unchanged reference cells
+
+An original-mesh nodal-contact pilot accepted 66 increments, then rejected
+increment 67 because subtracting accepted times reconstructed `1e-6` with a
+floating-point tail above an overly narrow tolerance. Provider limits now account
+for endpoint clock ULPs as well as increment roundoff. A clock too coarse to
+resolve the limit fails explicitly; a genuine `1e-8` relative excess remains
+rejected in tests through the 100,000th increment. This does not increase the
+physical/provider limit or add automatic retries. The rejected trial left the
+accepted checkpoint intact.
+
+Exactly zero-displacement cells reuse their immutable, previously admitted
+reference geometry. Any nonzero cell displacement still invokes full Bernstein
+Jacobian admission; no small-displacement tolerance or unchecked interval is
+introduced. Dedicated mixed-cell tests retain inversion rejection.
+
 ### Explicit contact integration choice
 
 The DOLFINx boundary adapter now accepts `integration="nodal_lumped"` for

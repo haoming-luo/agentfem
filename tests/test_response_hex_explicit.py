@@ -26,7 +26,15 @@ def test_unaccepted_response_cannot_be_restored():
     assert step.residual.snapshot() == before
 
 
-def make_step(dt=1e-4, *, contact=False, bond=False, viscosity=False, quintic=False):
+def make_step(
+    dt=1e-4,
+    *,
+    contact=False,
+    bond=False,
+    viscosity=False,
+    quintic=False,
+    integration="gauss",
+):
     if bond:
         from test_nonmatching_global import _blocks
 
@@ -102,7 +110,7 @@ def make_step(dt=1e-4, *, contact=False, bond=False, viscosity=False, quintic=Fa
                 domain, tags, tag=1, name=f"side_{side}"
             )
             adapter = boundary_models.dolfinx_boundary_region_contact_trace(
-                region, u.function_space
+                region, u.function_space, integration=integration
             )
             direction = 1.0 if side == 0 else -1.0
             schedule = boundary_models.prescribed_rigid_motion_schedule(

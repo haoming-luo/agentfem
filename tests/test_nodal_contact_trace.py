@@ -91,6 +91,35 @@ def test_high_order_and_unknown_lumping_rejected():
         )
 
 
+def test_nodal_moving_tools_material_bond_and_damping_restart(tmp_path):
+    from test_response_hex_explicit import make_step
+
+    options = dict(
+        contact="cylinder", bond=True, viscosity=True, integration="nodal_lumped"
+    )
+    full = make_step(**options)
+    full.run()
+    partial = make_step(**options)
+    partial.run(until_step=3)
+    path = partial.save_checkpoint(tmp_path / "nodal")
+    resumed = make_step(**options)
+    resumed.load_checkpoint(path)
+    resumed.run()
+    np.testing.assert_array_equal(
+        full.state.u.value.x.array, resumed.state.u.value.x.array
+    )
+    assert full.residual.snapshot() == resumed.residual.snapshot()
+    assert full.history_records == resumed.history_records
+    incompatible = make_step(**{**options, "integration": "gauss"})
+    original = incompatible.state.snapshot()
+    with pytest.raises(ValueError):
+        incompatible.load_checkpoint(path)
+    for name, value in original["fields"].items():
+        np.testing.assert_array_equal(
+            incompatible.state.snapshot()["fields"][name], value
+        )
+
+
 @pytest.mark.skipif(MPI.COMM_WORLD.size != 2, reason="requires exactly two ranks")
 def test_nodal_trace_two_ranks_matches_serial_identity_and_area():
     domain = _hex_cube(MPI.COMM_WORLD, cells_x=2)

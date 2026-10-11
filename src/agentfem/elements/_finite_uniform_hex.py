@@ -160,7 +160,14 @@ class FiniteUniformHexBatch:
         u = self._displacement(displacement)
         gradients = []
         for region in self._regions():
-            require_positive_hex_jacobian(self.coordinates[region] + u[region])
+            # The immutable reference geometry was admitted at construction.
+            # Exact-zero cells are still that geometry, not a small-strain
+            # approximation. Every changed cell retains the complete check.
+            changed = np.any(u[region] != 0.0, axis=(1, 2))
+            if np.any(changed):
+                require_positive_hex_jacobian(
+                    self.coordinates[region][changed] + u[region][changed]
+                )
             f = np.eye(3) + np.einsum(
                 "cai,caJ->ciJ", u[region], self.average_gradient[region]
             )

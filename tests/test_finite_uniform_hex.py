@@ -83,6 +83,36 @@ def test_finite_affine_patch_and_large_rigid_rotations(distorted):
         np.testing.assert_allclose(response.hourglass_energy, 0, atol=1e-25)
 
 
+def test_exact_reference_cells_reuse_admission_but_changed_cells_never_skip(
+    monkeypatch,
+):
+    from agentfem.elements import _finite_uniform_hex as module
+
+    op = _operator(True, count=3)
+    original = module.require_positive_hex_jacobian
+    sizes = []
+
+    def checked(coordinates):
+        sizes.append(len(coordinates))
+        return original(coordinates)
+
+    monkeypatch.setattr(module, "require_positive_hex_jacobian", checked)
+    zero = np.zeros_like(op.coordinates)
+    np.testing.assert_array_equal(
+        op.deformation_gradient(zero), np.tile(np.eye(3), (3, 1, 1))
+    )
+    assert sizes == []
+    moved = zero.copy()
+    moved[1] = 1e-10 * op.coordinates[1]
+    op.deformation_gradient(moved)
+    assert sum(sizes) == 1
+    # Even an arbitrarily small nonzero displacement is checked; no tolerance
+    # hides topology changes or future inversions.
+    moved[2, :, 0] = -2 * op.coordinates[2, :, 0]
+    with pytest.raises(ValueError, match="Jacobian"):
+        op.deformation_gradient(moved)
+
+
 def test_superposed_rotation_preserves_energy_and_rotates_force_with_hourglass():
     op = _operator(True, count=3)
     rng = np.random.default_rng(111)
