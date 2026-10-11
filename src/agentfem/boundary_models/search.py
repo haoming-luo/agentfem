@@ -572,9 +572,11 @@ class TriangleSurfaceBVH:
         left_nodes: list[int] = []
         right_nodes: list[int] = []
         facet_nodes: list[int] = []
+        depths: list[int] = []
 
-        def build(indices: np.ndarray) -> int:
+        def build(indices: np.ndarray, depth=0) -> int:
             node = len(lower_nodes)
+            depths.append(depth)
             lower_nodes.append(np.min(facet_lower[indices], axis=0))
             upper_nodes.append(np.max(facet_upper[indices], axis=0))
             left_nodes.append(-1)
@@ -589,8 +591,8 @@ class TriangleSurfaceBVH:
             order = np.lexsort((facet_ids[indices], centroids[indices, axis]))
             ordered = indices[order]
             middle = ordered.size // 2
-            left_nodes[node] = build(ordered[:middle])
-            right_nodes[node] = build(ordered[middle:])
+            left_nodes[node] = build(ordered[:middle], depth + 1)
+            right_nodes[node] = build(ordered[middle:], depth + 1)
             return node
 
         root = build(np.arange(triangle_points.shape[0], dtype=np.int64))
@@ -602,6 +604,41 @@ class TriangleSurfaceBVH:
         self._right = _readonly_array(right_nodes, dtype=np.int64)
         self._facet = _readonly_array(facet_nodes, dtype=np.int64)
         self._root = root
+        depth_array = np.asarray(depths)
+        self._refit_levels = tuple(
+            _readonly_array(np.flatnonzero((depth_array == d) & (self._facet < 0)),
+                            dtype=np.int64)
+            for d in range(int(depth_array.max()), -1, -1)
+        )
+
+    def _refitted(self, surface):
+        """New immutable tree with the same ordered facet identities.
+
+        Only the bounding hierarchy is reused. Exact geometry and normals come
+        from the newly validated surface; old trees remain usable after rollback.
+        Deformation can reduce tree quality, but never changes leaf coverage.
+        """
+        if (not isinstance(surface, TriangulatedRigidSurface)
+                or not np.array_equal(surface.facet_ids, self.surface.facet_ids)
+                or surface.triangles.shape != self.surface.triangles.shape):
+            raise ValueError("BVH refit requires the same ordered facet identities.")
+        points = np.asarray(surface.vertices[surface.triangles], dtype=float)
+        lower, upper = np.empty_like(self._lower), np.empty_like(self._upper)
+        leaves = np.flatnonzero(self._facet >= 0)
+        lower[leaves] = points.min(axis=1)[self._facet[leaves]]
+        upper[leaves] = points.max(axis=1)[self._facet[leaves]]
+        for indices in self._refit_levels:
+            left, right = self._left[indices], self._right[indices]
+            lower[indices] = np.minimum(lower[left], lower[right])
+            upper[indices] = np.maximum(upper[left], upper[right])
+        result = object.__new__(TriangleSurfaceBVH)
+        result._surface = surface
+        result._triangle_points = _readonly_array(points)
+        result._facet_normals = _readonly_array(surface.facet_normals)
+        result._lower, result._upper = _readonly_array(lower), _readonly_array(upper)
+        result._left, result._right, result._facet = self._left, self._right, self._facet
+        result._root, result._refit_levels = self._root, self._refit_levels
+        return result
 
     @property
     def surface(self) -> TriangulatedRigidSurface:

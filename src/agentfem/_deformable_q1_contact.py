@@ -162,7 +162,7 @@ class DeformableQ1Penalty:
         if geometry_policy == "reviewed_closed_solid":
             from ._closed_q1_surface import ClosedQ1Surface
 
-            ClosedQ1Surface(primary.vertices, primary.quadrilaterals)
+            self._closed_search = ClosedQ1Surface(primary.vertices, primary.quadrilaterals)
         self.nodes = _readonly_array(np.flatnonzero(mask), dtype=np.int64)
         self.weights = _readonly_array(secondary.nodal_measures[self.nodes])
         self.search_radius = float(search_radius)
@@ -224,7 +224,10 @@ class DeformableQ1Penalty:
         if self.geometry_policy == "reviewed_closed_solid":
             from ._closed_q1_surface import ClosedQ1Surface
 
-            search = ClosedQ1Surface(xp, self.primary.quadrilaterals)
+            search = self._closed_search.refitted(xp)
+            # Geometry-only cache: no accepted/trial physical state. Every
+            # evaluation refits all leaves, including after a failed increment.
+            self._closed_search = search
             # Outside the complete current solid box is provably outside the
             # solid. Far candidates remain in the domain, with a distance bound
             # rather than a fabricated closest point or a silently missing pair.

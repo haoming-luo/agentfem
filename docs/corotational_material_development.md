@@ -1062,6 +1062,16 @@ not qualify. Ambiguity errors retain competing facet IDs and distance evidence.
 This changes geometric admission only; it does not add bonded compression
 contact, establish ALL EXTERIOR coverage, or validate a mass-scaled trajectory.
 
+For unchanged closed-Q1 topology, contact can refit the existing BVH rather
+than recursively sorting and rebuilding it at every geometry evaluation.
+Refitting creates a new immutable tree: current leaf boxes are recomputed and
+parent boxes are reduced bottom-up. Exact Q1 projection and solid-side tests
+remain unchanged. Closed-shell topology is reused only through a vertex-only
+refit operation; geometric validation remains active. The cache owns no
+material/contact history, and a rejected increment can refit back to accepted
+coordinates. Large deformation may degrade traversal efficiency; refitting is
+not a guarantee of optimal tree quality or nonlinear physical validity.
+
 Fixed elastic interface and penalty-contact spectral rows now reuse one
 bounded-memory stencil kernel. Signed interpolation and shared-node assembly
 are retained; tests compare independent dense spectra and prior scalar rows.

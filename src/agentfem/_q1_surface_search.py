@@ -145,7 +145,7 @@ class Q1SurfaceSearch:
     a performance-qualified production search.
     """
 
-    def __init__(self, vertices, *, node_ids=None):
+    def __init__(self, vertices, *, node_ids=None, _previous=None):
         self.vertices = np.array(vertices, dtype=float, copy=True)
         self.node_ids = None
         if node_ids is not None:
@@ -181,9 +181,15 @@ class Q1SurfaceSearch:
         nodes, inverse = np.unique(
             self.vertices.reshape(-1, 3), axis=0, return_inverse=True
         )
-        self.tree = TriangleSurfaceBVH(
-            TriangulatedRigidSurface(nodes, inverse[triangles])
-        )
+        surface = TriangulatedRigidSurface(nodes, inverse[triangles])
+        if _previous is not None:
+            if (not isinstance(_previous, Q1SurfaceSearch)
+                    or self.vertices.shape != _previous.vertices.shape
+                    or not np.array_equal(self.node_ids, _previous.node_ids)):
+                raise ValueError("Q1 refit requires unchanged ordered trace topology.")
+            self.tree = _previous.tree._refitted(surface)
+        else:
+            self.tree = TriangleSurfaceBVH(surface)
         self._bound_lower = self.vertices.min(axis=1)
         self._bound_upper = self.vertices.max(axis=1)
         self._bound_origins = self.vertices[:, 0]

@@ -63,6 +63,22 @@ class ClosedQ1Surface:
         self.search = Q1SurfaceSearch(x[cells], node_ids=cells)
         self.lower, self.upper = x.min(axis=0), x.max(axis=0)
         self.scale = float(np.linalg.norm(self.upper - self.lower))
+        self._vertex_shape = x.shape
+
+    def refitted(self, vertices):
+        """Update geometry without rechecking unchanged closed-shell topology."""
+        raw = np.asarray(vertices)
+        if (np.iscomplexobj(raw) or raw.shape != self._vertex_shape
+                or not np.isfinite(raw).all()):
+            raise ValueError("Closed Q1 refit requires unchanged finite real vertices.")
+        x = np.asarray(raw, dtype=float)
+        result = object.__new__(ClosedQ1Surface)
+        result.search = Q1SurfaceSearch(
+            x[self.search.node_ids], node_ids=self.search.node_ids, _previous=self.search)
+        result.lower, result.upper = x.min(axis=0), x.max(axis=0)
+        result.scale = float(np.linalg.norm(result.upper - result.lower))
+        result._vertex_shape = x.shape
+        return result
 
     def _inside(self, point):
         # Fixed directions make restart deterministic. Two nonsingular rays
