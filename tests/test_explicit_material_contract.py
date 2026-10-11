@@ -49,6 +49,23 @@ def test_work_can_be_negative_and_does_not_become_stored_energy():
     assert not result.internal_work_density_increment.flags.writeable
 
 
+def test_response_revalidation_reuses_immutable_bytes_not_array_metadata():
+    original = response()
+    checked = replace(original)
+    assert np.shares_memory(original.state_new, checked.state_new)
+    assert original.state_new is not checked.state_new
+    original.state_new.shape = (4,)
+    assert checked.state_new.shape == (2, 2)
+    with pytest.raises(ValueError):
+        checked.state_new.setflags(write=True)
+    # Noncontiguous external storage is copied and normalized, never aliased.
+    raw = np.arange(8., dtype=float).reshape(2, 4)[:, ::2]
+    selected = replace(response(), state_new=raw)
+    before = selected.state_new.copy()
+    raw[:] = -1
+    np.testing.assert_array_equal(selected.state_new, before)
+
+
 def test_decomposition_is_optional_not_thermodynamic_certification():
     result = replace(
         response(),

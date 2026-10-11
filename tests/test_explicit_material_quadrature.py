@@ -102,8 +102,10 @@ def test_single_batch_response_is_owned_and_matches_chunked(monkeypatch):
     assert len(provider_output) == 1
     for name in ("cauchy_stress", "state_new", "internal_work_density_increment"):
         array = getattr(provider_output[0], name)
-        array.setflags(write=True)
-        array[:] = 42
+        with pytest.raises(ValueError):
+            array.setflags(write=True)
+        array.shape = (array.size,)
+        object.__setattr__(provider_output[0], name, np.full_like(array, 42))
         np.testing.assert_array_equal(getattr(actual.response, name),
                                       getattr(expected.response, name))
     np.testing.assert_array_equal(actual.first_piola_stress, expected.first_piola_stress)

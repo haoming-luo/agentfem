@@ -112,6 +112,27 @@ def _check_explicit_increment(material, request):
             )
 
 
+def _response_array(value, shape, label):
+    """Own immutable bytes, with independent array metadata on every validation.
+
+    A NumPy write flag alone is reversible for an owning array. Immutable byte
+    storage permits revalidation without another payload copy, while rebuilding
+    the view prevents a provider's later shape/dtype mutation affecting consumers.
+    """
+    if np.iscomplexobj(value):
+        raise ValueError(f"{label} must be real; complex values are not supported.")
+    selected = np.asarray(value, dtype=float)
+    if selected.shape != shape or not np.isfinite(selected).all():
+        raise ValueError(f"{label} must be finite with shape {shape}.")
+    owner = selected
+    while isinstance(owner, np.ndarray):
+        owner = owner.base
+    if not (isinstance(owner, bytes) and selected.flags.c_contiguous
+            and selected.nbytes == len(owner)):
+        owner = selected.tobytes(order="C")
+    return np.frombuffer(owner, dtype=float).reshape(shape)
+
+
 @dataclass(frozen=True)
 class ExplicitMaterialBatchOutput:
     cauchy_stress: np.ndarray
@@ -129,7 +150,7 @@ class ExplicitMaterialBatchOutput:
         if values.ndim != 3:
             raise ValueError("Stress requires shape (points, 3, 3).")
         count = len(values)
-        stress = _array(values, (count, 3, 3), "cauchy_stress")
+        stress = _response_array(values, (count, 3, 3), "cauchy_stress")
         scale = np.maximum(np.max(np.abs(stress), axis=(1, 2)), np.finfo(float).tiny)
         if np.any(
             np.max(np.abs(stress - stress.transpose(0, 2, 1)), axis=(1, 2))
@@ -140,12 +161,12 @@ class ExplicitMaterialBatchOutput:
         object.__setattr__(
             self,
             "state_new",
-            _array(self.state_new, (count, self.state_schema.size), "state_new"),
+            _response_array(self.state_new, (count, self.state_schema.size), "state_new"),
         )
         object.__setattr__(
             self,
             "internal_work_density_increment",
-            _array(
+            _response_array(
                 self.internal_work_density_increment,
                 (count,),
                 "internal_work_density_increment",
@@ -154,13 +175,13 @@ class ExplicitMaterialBatchOutput:
         for name in ("stored_energy_density", "dissipation_density_increment"):
             value = getattr(self, name)
             if value is not None:
-                object.__setattr__(self, name, _array(value, (count,), name))
+                object.__setattr__(self, name, _response_array(value, (count,), name))
         scales = (
             np.ones(count)
             if self.requested_time_scale is None
             else self.requested_time_scale
         )
-        scales = _array(scales, (count,), "requested_time_scale")
+        scales = _response_array(scales, (count,), "requested_time_scale")
         if np.any(scales <= 0) or np.any(scales > 1):
             raise ValueError("Requested time scale must lie in (0, 1].")
         object.__setattr__(self, "requested_time_scale", scales)
