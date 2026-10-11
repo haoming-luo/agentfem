@@ -22,6 +22,30 @@ def _record(trace, projection):
     return boundary_models.ContactProjectionRecord(trace.point_ids, projection)
 
 
+@pytest.mark.parametrize("nodal", [False, True])
+def test_sparse_trace_scatter_preserves_original_accumulation(nodal):
+    rng = np.random.default_rng(151)
+    count, nodes = 400, 31
+    ids = np.stack([(np.arange(count)+j)%nodes for j in range(4)], axis=1)
+    shape = np.eye(4)[np.arange(count)%4] if nodal else rng.uniform(-.1,.4,(count,4))
+    if not nodal:
+        shape[:,3] = 1-shape[:,:3].sum(axis=1)
+    trace = boundary_models.ContactTrace(np.arange(count), ids, shape, rng.uniform(.1,1,count))
+    positions = rng.normal(size=(nodes,3))
+    evaluation = trace.evaluate(positions)
+    np.testing.assert_allclose(evaluation.query_points,
+                              np.einsum('qi,qid->qd',shape,positions[ids]),rtol=0,atol=0)
+    surface = boundary_models.rigid_plane(point=(0,0,0),normal=(0,0,1))
+    record = _record(trace,surface.project(evaluation.query_points))
+    response = boundary_models.frictionless_penalty_contact_law(10).evaluate(record.projection)
+    result = evaluation.assemble(record,response)
+    expected = np.zeros((nodes,3))
+    point = result.point_structural_residual_contributions
+    for j in range(4):
+        np.add.at(expected,ids[:,j],shape[:,j,None]*point)
+    np.testing.assert_array_equal(result.nodal_structural_residual,expected)
+
+
 def test_contact_trace_interpolates_and_assembles_plane_response():
     trace = _line_trace()
     evaluation = trace.evaluate(((0.0, -0.1), (1.0, -0.1)))

@@ -32,3 +32,10 @@ def test_piola_conversion_rejects_invalid_kinematics(invalid):
         f[0, 0, 0] = -1
     with pytest.raises(ValueError):
         _cauchy_to_first_piola(f, sigma)
+
+
+def test_cofactor_conversion_handles_wide_diagonal_scales():
+    f = np.diag([1e100, 1e-100, 2.])[None]
+    sigma = np.eye(3)[None]
+    np.testing.assert_allclose(_cauchy_to_first_piola(f, sigma),
+                              np.diag([2e-100,2e100,1.])[None], rtol=1e-14)

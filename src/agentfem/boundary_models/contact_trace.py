@@ -101,6 +101,16 @@ class ContactTrace:
         object.__setattr__(self, "shape_values", _readonly_array(shape_values))
         object.__setattr__(self, "weights", _readonly_array(weights))
         object.__setattr__(self, "source", str(self.source))
+        # Preserve local-node-major accumulation order, but omit exact zeros.
+        # This is algebraic sparsity, not a change of quadrature or tolerance.
+        local, point = np.nonzero(shape_values.T)
+        object.__setattr__(self, "_scatter_nodes", _readonly_array(node_ids[point, local], dtype=np.int64))
+        object.__setattr__(self, "_scatter_points", _readonly_array(point, dtype=np.int64))
+        object.__setattr__(self, "_scatter_shapes", _readonly_array(shape_values[point, local]))
+        nodal = np.all(np.count_nonzero(shape_values, axis=1) == 1) and np.all(shape_values[point, local] == 1)
+        object.__setattr__(self, "_direct_nodes", (
+            _readonly_array(node_ids[np.arange(len(point_ids)), np.argmax(shape_values, axis=1)], dtype=np.int64)
+            if nodal else None))
 
     @property
     def point_count(self) -> int:
@@ -120,7 +130,7 @@ class ContactTrace:
             raise ValueError("Contact nodal positions must be finite.")
         if self.node_ids.size and int(np.max(self.node_ids)) >= positions.shape[0]:
             raise ValueError("Contact trace references a node outside nodal positions.")
-        query_points = np.einsum(
+        query_points = positions[self._direct_nodes] if self._direct_nodes is not None else np.einsum(
             "qi,qid->qd",
             self.shape_values,
             positions[self.node_ids],
@@ -546,17 +556,11 @@ class ContactTraceEvaluation:
             raise ValueError("Contact point fields must be finite before assembly.")
         point_residual = structural * weights[:, None]
         point_potential = potential * weights
-        nodal_residual = np.zeros(
-            (self.number_of_nodes, int(dimension)),
-            dtype=float,
-        )
-        for local_node in range(self.trace.nodes_per_point):
-            contribution = self.trace.shape_values[:, local_node, None] * point_residual
-            np.add.at(
-                nodal_residual,
-                self.trace.node_ids[:, local_node],
-                contribution,
-            )
+        contributions = self.trace._scatter_shapes[:, None] * point_residual[self.trace._scatter_points]
+        nodal_residual = np.column_stack([
+            np.bincount(self.trace._scatter_nodes, weights=contributions[:, component],
+                        minlength=self.number_of_nodes)
+            for component in range(int(dimension))])
         surface_generalized = np.sum(
             surface * weights[:, None],
             axis=0,
