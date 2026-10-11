@@ -99,12 +99,19 @@ def _q1_closest_point_polynomial(vertices, point):
     q = (query - physical[0]) / scale
     a, b, c, d = -q, x[1], x[3], x[2] - x[1] - x[3]
     # x-query = (a+c*v) + (b+d*v)*u; optimal u=-A/B.
-    e = [P([a[i], c[i]]) for i in range(3)]
-    f = [P([b[i], d[i]]) for i in range(3)]
-    A = sum((e[i] * f[i] for i in range(3)), P([0]))
-    B = sum((f[i] * f[i] for i in range(3)), P([0]))
-    equation = sum(
-        ((e[i] * B - f[i] * A) * (c[i] * B - d[i] * A) for i in range(3)), P([0])
+    ac, cc, ab, ad, bc, cd, bb, bd, dd = (
+        a @ c, c @ c, a @ b, a @ d, b @ c, c @ d, b @ b, b @ d, d @ d
+    )
+    A = P([ab, ad + bc, cd])
+    B = P([bb, 2*bd, dd])
+    # Expand vector dot products before polynomial construction. The same
+    # elimination equation is (e.c)B² - A(e.d+f.c)B + A²(f.d), e=a+cv,
+    # f=b+dv. Fixed-size convolutions avoid thousands of temporary Polynomial
+    # objects per contact query without changing the root/polishing policy.
+    equation = P(
+        np.convolve([ac, cc], np.convolve(B.coef, B.coef))
+        - np.convolve([ad + bc, 2*cd], np.convolve(A.coef, B.coef))
+        + np.convolve([bd, dd], np.convolve(A.coef, A.coef))
     )
     # Geometry can reduce this polynomial's degree (e.g. a planar trapezoid).
     # Roundoff-only leading coefficients produce enormous companion roots and

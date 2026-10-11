@@ -140,3 +140,20 @@ def test_zero_child_bound_stops_redundant_subdivision(monkeypatch):
     # One chain through depths 0..6 is sufficient; all other children have
     # nonnegative bounds and cannot change the exact minimum.
     assert len(calls) == 7
+
+
+def test_warped_elimination_recovers_constructed_normal_projections():
+    from agentfem._q1_surface_geometry import _q1_closest_point_polynomial
+
+    rng = np.random.default_rng(517)
+    for _ in range(80):
+        x = np.array([[0., 0., 0.], [1., 0., 0.],
+                      [1., 1., rng.uniform(-.2, .2)], [0., 1., 0.]])
+        u, v = rng.uniform(.05, .95, 2)
+        weights = np.array([(1-u)*(1-v), u*(1-v), u*v, (1-u)*v])
+        normal = np.cross([1., 0., x[2, 2]*v], [0., 1., x[2, 2]*u])
+        normal /= np.linalg.norm(normal)
+        query = weights @ x + rng.uniform(-.01, .01)*normal
+        result = _q1_closest_point_polynomial(x, query)
+        np.testing.assert_allclose(result[0], [u, v], atol=1e-11, rtol=0)
+        np.testing.assert_allclose(result[1], weights, atol=1e-11, rtol=0)
