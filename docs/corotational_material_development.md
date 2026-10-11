@@ -25,6 +25,21 @@ and commercial reference curves remain separate gates.
 
 ### Long-clock increment comparison and unchanged reference cells
 
+The original-mesh pilot subsequently restored the accepted increment-66
+checkpoint and completed its original 100-increment horizon at `6a13c303`.
+It saved a new checkpoint and displacement visualization; physical time reached
+`1e-4` s, not the source's `0.1` s. The endpoint ledger reports relative balance
+error about `0.0065022` under its work-only accounting. This is nonzero early
+contact/recovery evidence, not thermodynamic closure or commercial validation.
+The initial frozen inertia plan remains heavily scaled (added/physical mass
+about 767.77), so this trajectory cannot establish quasi-static fidelity.
+
+An attempted restore into 1,000 configured increments was correctly rejected
+because the checkpoint retains a 100-increment horizon. No checkpoint metadata
+was edited to bypass compatibility. A separate continuous 1,000-increment pilot
+is used for further bounded investigation and overlapping-history comparison;
+completion and equivalence must be checked from its actual output.
+
 An original-mesh nodal-contact pilot accepted 66 increments, then rejected
 increment 67 because subtracting accepted times reconstructed `1e-6` with a
 floating-point tail above an overly narrow tolerance. Provider limits now account
