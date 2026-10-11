@@ -40,6 +40,19 @@ was edited to bypass compatibility. A separate continuous 1,000-increment pilot
 is used for further bounded investigation and overlapping-history comparison;
 completion and equivalence must be checked from its actual output.
 
+That pilot stopped normally at its 2,400-second wall budget after 814 accepted
+increments (`0.000814` s); checkpoint and displacement output were saved. The
+recorded physical quantities at increments 70/80/90/100 exactly match the
+increment-66 restart run (wall-clock timing excluded). At the last sampled
+increment, 810, ledger relative error is `3.93e-6`, but numerical kinetic energy
+is about 46% of accounted energy. A small ledger residual therefore does NOT
+establish a quasi-static trajectory. The approximately three seconds per
+increment would imply roughly 83 hours for 100,000 increments if cost stayed
+constant; this is a feasibility extrapolation, not a validated full-run ETA.
+Before spending that time, prioritize inertia/response sensitivity and the
+combined controlling operators. Do not enlarge dt or accelerate source time
+silently to fit a requested runtime.
+
 An original-mesh nodal-contact pilot accepted 66 increments, then rejected
 increment 67 because subtracting accepted times reconstructed `1e-6` with a
 floating-point tail above an overly narrow tolerance. Provider limits now account
