@@ -366,3 +366,23 @@ def test_identical_contact_geometry_reuses_search_but_not_material_update(monkey
     monkeypatch.setattr(step.residual.base, "assemble_vector", counted_material)
     step.run()
     assert calls == {"search": 1, "material": 3}
+
+
+def test_geometry_evaluation_does_not_assemble_or_commit_body(monkeypatch):
+    step = make_step(steps=3, closed=True)
+    step.run(until_step=1)
+    residual = step.residual
+    before = residual.snapshot()
+    values = residual._values()
+    for value in values:
+        value.flags.writeable = False
+
+    def forbidden():
+        raise AssertionError("Geometry evaluation accessed the body or PETSc field")
+
+    monkeypatch.setattr(residual.base, "assemble_vector", forbidden)
+    monkeypatch.setattr(residual, "_values", forbidden)
+    response = residual._evaluate_contact(values)
+    assert response is residual.accepted[2]
+    assert residual.trial is None
+    assert residual.snapshot() == before

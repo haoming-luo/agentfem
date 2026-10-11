@@ -1337,6 +1337,14 @@ material tangents into an unproven whole-path stability estimate.
   Cache-tiled material execution and a larger Newton iteration budget were
   measured but not selected: neither improved the tested runtime. These are
   bounded algorithm/runtime checks, not a completed loading-path validation.
+- Contact geometry evaluation now has an isolated private array-input seam.
+  The default residual remains serial: it validates geometry before body
+  assembly, and retains its original rollback and commit order. The seam does
+  not access PETSc vectors, but its geometry cache still requires exclusive
+  ownership. A private overlap experiment keeps all PETSc work on the caller
+  thread and joins geometry work before rollback; it is not a public threaded
+  execution promise. Serial/parallel field identity, restart and injected
+  failure tests must pass before any full-mesh timing claim.
 - [Abaqus explicit dynamics](https://docs.software.vt.edu/abaqusv2025/English/SIMACAETHERefMap/simathe-c-expdynamic.htm):
   linear and compression-only quadratic artificial bulk viscosity. Matching
   these formulas alone does not establish identical characteristic lengths,

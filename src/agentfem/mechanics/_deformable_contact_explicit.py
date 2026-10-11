@@ -124,41 +124,7 @@ class DeformableQ1ContactResidual:
         vector = None
         try:
             values = self._values()
-            response = (
-                self.accepted[2]
-                if self.accepted is not None
-                and all(
-                    np.array_equal(a, b)
-                    for a, b in zip(values, self.accepted[:2], strict=True)
-                )
-                else self._evaluate_current(values)
-            )
-            if (
-                self.accepted is not None
-                and self.operator.geometry_policy == "reviewed_closed_solid"
-            ):
-                uncertain = unresolved_outside_paths(
-                    self.accepted[2].path_gaps,
-                    response.path_gaps,
-                    (values[0] - self.accepted[0])[self.operator.nodes],
-                    values[1] - self.accepted[1],
-                )
-                if np.any(uncertain):
-                    from .._q1_swept_separation import separated_q1_paths
-
-                    indices = self.operator.nodes[uncertain]
-                    separated = separated_q1_paths(
-                        self.operator.primary.vertices + self.accepted[1],
-                        self.operator.primary.vertices + values[1],
-                        self.operator.primary.quadrilaterals,
-                        self.operator.secondary.vertices[indices] + self.accepted[0][indices],
-                        self.operator.secondary.vertices[indices] + values[0][indices],
-                    )
-                    uncertain[np.flatnonzero(uncertain)[separated]] = False
-                if np.any(uncertain):
-                    from .._contact_path_guard import ContactPathResolutionError
-
-                    raise ContactPathResolutionError(np.flatnonzero(uncertain))
+            response = self._evaluate_contact(values)
             vector = self.base.assemble_vector()
             self._add(vector, response)
             self.trial = (*values, response)
@@ -168,6 +134,50 @@ class DeformableQ1ContactResidual:
                 vector.destroy()
             self.rollback()
             raise
+
+    def _evaluate_contact(self, values):
+        """Geometry-only evaluation from copied displacement arrays.
+
+        Does not access PETSc vectors or commit a physical trial. The operator's
+        geometry cache is mutable, so callers must retain exclusive ownership.
+        """
+        response = (
+            self.accepted[2]
+            if self.accepted is not None
+            and all(
+                np.array_equal(a, b)
+                for a, b in zip(values, self.accepted[:2], strict=True)
+            )
+            else self._evaluate_current(values)
+        )
+        if (
+            self.accepted is not None
+            and self.operator.geometry_policy == "reviewed_closed_solid"
+        ):
+            uncertain = unresolved_outside_paths(
+                self.accepted[2].path_gaps,
+                response.path_gaps,
+                (values[0] - self.accepted[0])[self.operator.nodes],
+                values[1] - self.accepted[1],
+            )
+            if np.any(uncertain):
+                from .._q1_swept_separation import separated_q1_paths
+
+                indices = self.operator.nodes[uncertain]
+                separated = separated_q1_paths(
+                    self.operator.primary.vertices + self.accepted[1],
+                    self.operator.primary.vertices + values[1],
+                    self.operator.primary.quadrilaterals,
+                    self.operator.secondary.vertices[indices]
+                    + self.accepted[0][indices],
+                    self.operator.secondary.vertices[indices] + values[0][indices],
+                )
+                uncertain[np.flatnonzero(uncertain)[separated]] = False
+            if np.any(uncertain):
+                from .._contact_path_guard import ContactPathResolutionError
+
+                raise ContactPathResolutionError(np.flatnonzero(uncertain))
+        return response
 
     def _evaluate_current(self, values):
         # Only a closed solid supplies signed-distance separation evidence.
@@ -231,16 +241,21 @@ class DeformableQ1ContactResidual:
             shapes = np.empty((0, 5))
             weights = np.empty(0)
         else:
-            indices = (np.arange(len(self.operator.nodes))
-                       if response.projection_indices is None
-                       else response.projection_indices)
+            indices = (
+                np.arange(len(self.operator.nodes))
+                if response.projection_indices is None
+                else response.projection_indices
+            )
             active = projection.signed_gaps < 0
-            nodes = np.column_stack((
-                self.secondary_dofs[self.operator.nodes[indices[active]]],
-                self.primary_dofs[response.primary_nodes[active]],
-            ))
-            shapes = np.column_stack((np.ones(active.sum()),
-                                      -response.primary_weights[active]))
+            nodes = np.column_stack(
+                (
+                    self.secondary_dofs[self.operator.nodes[indices[active]]],
+                    self.primary_dofs[response.primary_nodes[active]],
+                )
+            )
+            shapes = np.column_stack(
+                (np.ones(active.sum()), -response.primary_weights[active])
+            )
             weights = self.operator.weights[indices[active]]
         return penalty_stencil_row_sums(
             nodes, shapes, weights, self.operator.law.penalty, mass
