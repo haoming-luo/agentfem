@@ -58,6 +58,18 @@ def test_invalid_and_empty_queries():
         separated_q1_paths(x,x,[[0,1,2,3]],[[0,0,np.nan]],[[0,0,0]])
 
 
+@pytest.mark.parametrize('exponent', [-100, 0, 100])
+def test_narrow_curved_gap_uses_proof_depth_not_time_subdivision(exponent):
+    x = square(); x[2, 2] = .25
+    p = np.array([[.3125, .4375, .25*.3125*.4375 + 2.**-28]])
+    x *= 2.**exponent; p *= 2.**exponent
+    assert not separated_q1_paths(x, x, [[0,1,2,3]], p, p, max_depth=18)[0]
+    assert separated_q1_paths(x, x, [[0,1,2,3]], p, p)[0]
+    # The true on-surface state remains inadmissible at the larger budget.
+    p[0, 2] = .25*.3125*.4375*2.**exponent
+    assert not separated_q1_paths(x, x, [[0,1,2,3]], p, p)[0]
+
+
 def test_manufactured_dyadic_impacts_are_never_certified_separated():
     rng = np.random.default_rng(52)
     for _ in range(40):

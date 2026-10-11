@@ -100,8 +100,13 @@ def _patch_path_separated(old, new, point_old, point_new, *, max_depth):
 
 
 def separated_q1_paths(vertices_old, vertices_new, quadrilaterals,
-                       points_old, points_new, *, max_depth=18):
-    """Return a proof mask; False means unresolved, not a detected collision."""
+                       points_old, points_new, *, max_depth=30):
+    """Return a proof mask; False means unresolved, not a detected collision.
+
+    The depth is a computational proof budget, not a physical gap tolerance.
+    Narrow curved gaps can need more subdivision even when shortening the
+    time interval cannot help. The independent 4096-box work limit remains.
+    """
     raw = [np.asarray(v) for v in (vertices_old, vertices_new, points_old, points_new)]
     if any(np.iscomplexobj(v) or not np.isfinite(v).all() for v in raw):
         raise ValueError('Swept Q1 separation requires finite real geometry.')

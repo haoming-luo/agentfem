@@ -1311,6 +1311,15 @@ material tangents into an unproven whole-path stability estimate.
   nonaffine pull-back is nonlinear and requires convergence control.
 - [DefElement Q1 quadrilateral](https://defelement.org/elements/examples/quadrilateral-lagrange-gll-1.html):
   the four-node tensor-product basis must not be replaced by a triangular field.
+- [Tight Inclusion CCD](https://continuous-collision-detection.github.io/tight_inclusion/):
+  bounded interval subdivision distinguishes a proof of separation from an
+  unresolved query. A narrow curved gap can exhaust spatial proof depth even
+  for a stationary path; cutting the physical time step then cannot resolve it.
+  The swept-Q1 default proof budget is now 30 subdivisions (previously 18),
+  retaining the independent 4096-box cap and exact strict separation test.
+  This changes neither contact tolerance nor dynamics time step. Manufactured
+  narrow gaps at three scales and true impacts pass the 33-test targeted suite;
+  unresolved queries still reject. Full-path reproduction remains unverified.
 - [Abaqus explicit dynamics](https://docs.software.vt.edu/abaqusv2025/English/SIMACAETHERefMap/simathe-c-expdynamic.htm):
   linear and compression-only quadratic artificial bulk viscosity. Matching
   these formulas alone does not establish identical characteristic lengths,
