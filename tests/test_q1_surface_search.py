@@ -213,3 +213,12 @@ def test_failed_batch_reuses_only_successful_geometry_prefix(monkeypatch):
         search.project([good, far], maximum_distance=.1)
     search.project([good], maximum_distance=.2)
     assert len(calls) == 4  # A changed search policy cannot use the prefix.
+def test_coordinate_welding_keeps_first_occurrence_and_exact_equality():
+    from agentfem._q1_surface_search import _weld_coordinates
+
+    points = np.array([[2., 1., 0.], [0., -0., 0.], [2., 1., 0.],
+                       [-0., 0., -0.], [0., 0., np.nextafter(0., 1.)]])
+    nodes, inverse = _weld_coordinates(points)
+    np.testing.assert_array_equal(inverse, [0, 1, 0, 1, 2])
+    np.testing.assert_array_equal(nodes, points[[0, 1, 4]])
+    np.testing.assert_array_equal(nodes[inverse], points)
