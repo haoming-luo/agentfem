@@ -136,6 +136,42 @@ actual initial bond set.
 
 ### Next bounded engineering increment (not an unbounded proof project)
 
+Current integration sprint prioritizes (1) combined stiffness/contact/damping
+inertia planning, (2) an actual nonzero accepted contact trajectory with recovery
+and refinement, and (3) original-mesh feasibility before committing to a long
+loading run. A user-reported commercial runtime of 3--4 hours is useful context,
+not a matched performance benchmark: hardware, core count, increment history,
+mass changes and output cadence have not been supplied.
+
+The private radial-tool envelope now retains both signs of the geometric
+Hessian. For active sphere/cylinder radial penalty its eigenvalues include
+`k` and `k*(1-R/r)` (plus an axial zero for a cylinder). An explicit positive
+radial-distance floor bounds the negative curvature of exterior contact.
+Interior cavities have nonnegative tangential curvature. These fixed-reference
+trace envelopes do not cover friction, follower area or a deformable master;
+invalid/rim projections and out-of-domain endpoints reject. Mass scaling does
+not remove the negative curvature. Independent force differentiation, signed
+trace assembly, changed mass and rigid translation are tested. This remains a
+private screening component, not automatic curved-contact admission.
+
+A private nodal inertia planner combines supplied diagonal majorants of
+stiffness and lagged-velocity damping through `h^2 K + 2 h C <= 4 M`, with
+`h=target_dt/safety_factor`. It retains named additive contributions and never
+reduces accepted mass. Its fixed-coefficient stability interpretation requires
+symmetric PSD operators; a damaged or geometrically indefinite response does
+not inherit that assertion. The existing VariableScaledInertia still owns
+budgets, accepted mass, artificial momentum/energy and checkpoint identity.
+Real Step tests compare an independent damped recurrence, bitwise disk restart
+and budget-failure rollback. Random noncommuting SPD matrix tests check both
+the matrix inequality and discrete amplification eigenvalues.
+
+The Hex8 operator supplies a compact unscaled nodal majorant from a separately
+declared material modulus, including its existing hourglass contribution.
+It constructs only chunked 8x8 upper operators rather than global or element
+24x24 tangents. Independent distorted anisotropic dense operators verify the
+majorant. Neither this conversion nor the mass planner establishes the original
+history material's modulus over the eventual damage path.
+
 The next response-only step policy should accept provider-declared effective
 moduli or a reviewed wave-speed bound with units and provenance, combine it
 with current element geometry, and account separately for interface/contact

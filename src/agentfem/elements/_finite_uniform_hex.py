@@ -191,7 +191,11 @@ class FiniteUniformHexBatch:
         """
         u = self._displacement(displacement)
         p = np.asarray(first_piola, dtype=float)
-        energy = None if stored_energy_density is None else np.asarray(stored_energy_density, dtype=float)
+        energy = (
+            None
+            if stored_energy_density is None
+            else np.asarray(stored_energy_density, dtype=float)
+        )
         count = len(self.coordinates)
         if (
             p.shape != (count, 3, 3)
@@ -374,6 +378,41 @@ class FiniteUniformHexBatch:
         )
         return float(upper.max(initial=0)), float(lower.max(initial=0))
 
+    def tangent_envelope_cell_row_majorant(self, *, positive_modulus):
+        """Unscaled isotropic nodal diagonal majorant, including hourglass.
+
+        Given symmetric A <= c I, K_e <= (c V G G.T + k_hg Gamma Gamma.T)
+        tensor I. Absolute row sums of this 8x8 upper operator give a diagonal
+        majorant without storing 24x24 element matrices. Assemble these (cell,8)
+        rows before combining other operators in an inertia plan. This is not
+        evidence that the actual material is PSD or its declared c is valid.
+        """
+        raw = np.asarray(positive_modulus)
+        count = len(self.coordinates)
+        if (
+            raw.dtype.kind not in "fiu"
+            or raw.shape not in ((), (count,))
+            or not np.isfinite(raw).all()
+            or np.any(raw < 0)
+        ):
+            raise ValueError(
+                "positive_modulus must be nonnegative real scalar or (cells,)."
+            )
+        coefficient = np.broadcast_to(raw, (count,))
+        result = np.empty((count, 8))
+        for region in self._regions():
+            g, gamma = self.average_gradient[region], self.hourglass_modes[region]
+            upper = (coefficient[region] * self.volume[region])[
+                :, None, None
+            ] * np.einsum("caJ,cbJ->cab", g, g)
+            upper += self.hourglass_coefficient[region, None, None] * np.einsum(
+                "cam,cbm->cab", gamma, gamma
+            )
+            result[region] = np.abs(upper).sum(axis=2)
+        if not np.isfinite(result).all():
+            raise ValueError("Finite Hex8 diagonal majorant overflowed.")
+        return _frozen(result)
+
     def tangent_envelope_cell_bounds(self, *, positive_modulus, negative_modulus=0.0):
         """Per-element physical-mass envelope for an external inertia policy.
 
@@ -390,7 +429,9 @@ class FiniteUniformHexBatch:
                 or not np.isfinite(array).all()
                 or np.any(array < 0)
             ):
-                raise ValueError(f"{name} must be a nonnegative finite scalar or (cells,).")
+                raise ValueError(
+                    f"{name} must be a nonnegative finite scalar or (cells,)."
+                )
             return np.broadcast_to(array, (count,))
 
         positive = coefficients(positive_modulus, "positive_modulus")
@@ -402,5 +443,7 @@ class FiniteUniformHexBatch:
         upper = positive * factor + self._hourglass_spectral_bound
         lower_magnitude = negative * factor
         if not np.isfinite(upper).all() or not np.isfinite(lower_magnitude).all():
-            raise ValueError("Finite Hex8 material-envelope spectral conversion overflowed.")
+            raise ValueError(
+                "Finite Hex8 material-envelope spectral conversion overflowed."
+            )
         return upper, lower_magnitude
