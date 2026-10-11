@@ -380,6 +380,8 @@ class DolfinxContactTraceAdapter:
 def dolfinx_boundary_region_contact_trace(
     region,
     function_space,
+    *,
+    integration: str = "gauss",
 ) -> DolfinxContactTraceAdapter:
     """Adapt a tagged tetrahedral or hexahedral CG1/CG2 boundary trace.
 
@@ -387,6 +389,9 @@ def dolfinx_boundary_region_contact_trace(
     supports first- or second-order coordinate geometry, owned exterior
     facets, and a continuous blocked vector CG1 or CG2 displacement space.
     Positive reference-area quadrature is emitted per facet.
+    ``nodal_lumped`` moves the positive P1/Q1 reference tributary areas to
+    facet nodes. This is a different, explicitly selected contact discretization,
+    not higher-order Gaussian integration or automatic commercial equivalence.
     """
 
     if region is None or not hasattr(region, "domain"):
@@ -398,6 +403,10 @@ def dolfinx_boundary_region_contact_trace(
     interpolation_degree = int(element.degree)
     geometry_degree = int(domain.geometry.cmaps[0].degree)
     high_order = interpolation_degree == 2 or geometry_degree == 2
+    if integration not in {"gauss", "nodal_lumped"}:
+        raise ValueError("Contact integration must be gauss or nodal_lumped.")
+    if integration == "nodal_lumped" and high_order:
+        raise NotImplementedError("Nodal lumped contact requires first-order geometry and CG1 displacement.")
     if cell_type == "CellType.tetrahedron":
         facet_topology = "triangle"
         partition = (
@@ -539,7 +548,8 @@ def dolfinx_boundary_region_contact_trace(
             )
         if local_facet_ids.shape != (owned.size,):
             raise RuntimeError("contact facet identity differs from owned facets")
-        if global_facet_count > np.iinfo(np.int64).max // points_per_facet:
+        identity_factor = 2 if integration == "nodal_lumped" else 1
+        if global_facet_count > np.iinfo(np.int64).max // (points_per_facet * identity_factor):
             raise OverflowError("contact quadrature point identity exceeds int64")
 
         coordinates = np.asarray(domain.geometry.x, dtype=float)[:, :3]
@@ -694,14 +704,26 @@ def dolfinx_boundary_region_contact_trace(
                         )
                     facet_shape_values.append(values)
                     facet_weights.append(0.25 * jacobian)
+            if integration == "nodal_lumped":
+                # Integrate each nonnegative P1/Q1 shape function with the
+                # existing positive rule, then collocate at its owning node.
+                # Keep facet-local point identities across rank partitions;
+                # shared nodes accumulate the adjacent facet contributions.
+                facet_weights = np.asarray(facet_shape_values).T @ np.asarray(facet_weights)
+                facet_shape_values = np.eye(nodes_per_facet)
             for quadrature_index, (values, weight) in enumerate(
                 zip(facet_shape_values, facet_weights, strict=True)
             ):
-                point_ids.append(int(facet_id) * points_per_facet + quadrature_index)
+                # Disjoint identity namespace prevents loading a Gauss-point
+                # contact history into a nodally collocated discretization.
+                offset = global_facet_count if integration == "nodal_lumped" else 0
+                point_ids.append((int(facet_id) + offset) * points_per_facet + quadrature_index)
                 node_ids.append(blocks)
                 shape_values.append(tuple(float(value) for value in values))
                 weights.append(float(weight))
 
+        if integration == "nodal_lumped":
+            quadrature_rule = f"{facet_topology}_nodal_lumped_reference_area"
         trace = ContactTrace(
             point_ids=np.asarray(point_ids, dtype=np.int64),
             node_ids=np.asarray(node_ids, dtype=np.int64).reshape(
@@ -716,6 +738,7 @@ def dolfinx_boundary_region_contact_trace(
                 "dolfinx_owned_exterior_"
                 f"{facet_topology}s_continuous_blocked_vector_"
                 f"cg{interpolation_degree}"
+                + ("_nodal_lumped" if integration == "nodal_lumped" else "")
             ),
         )
         adapter = DolfinxContactTraceAdapter(

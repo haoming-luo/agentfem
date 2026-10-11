@@ -23,6 +23,25 @@ and commercial reference curves remain separate gates.
 
 ## Ordered gates
 
+### Explicit contact integration choice
+
+The DOLFINx boundary adapter now accepts `integration="nodal_lumped"` for
+first-order triangle/quadrilateral geometry and CG1 displacement. Tributary
+reference areas are the existing positive quadrature integral of each shape
+function; contact is then evaluated at its node. Default Gauss integration is
+unchanged. Facet-local point IDs occupy a disjoint namespace, including under
+repartitioning, so old Gauss histories cannot silently become nodal histories.
+CG2/curved higher-order lumping is rejected, not approximated by corner sampling.
+
+Four serial tests cover area, force, moment, virtual work, cylindrical contact
+onset, and rejected combinations. One two-rank test passes for identity and area.
+This is a discretization option, not vendor hard-contact/edge-contact equivalence.
+Both [Abaqus general contact](https://docs.software.vt.edu/abaqusv2025/English/SIMACAEITNRefMap/simaitn-c-contactgeneral.htm)
+and [MOOSE contact](https://mooseframework.inl.gov/moose/syntax/Contact/index.html)
+distinguish node/surface enforcement from face integration. The private startup
+audit exposed a meaningful onset difference for a curved rigid tool; it must be
+recorded explicitly in any comparison rather than hidden by advancing time.
+
 ### Immediate reusable interface work
 
 Keep the responsibilities separate: geometry returns projections and gaps;
