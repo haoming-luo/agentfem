@@ -53,6 +53,18 @@ Before spending that time, prioritize inertia/response sensitivity and the
 combined controlling operators. Do not enlarge dt or accelerate source time
 silently to fit a requested runtime.
 
+The original-mesh initial-row ablation at `65bbb035` localizes this issue:
+at target `1e-6`, body/hourglass alone requires added/physical mass 741.38,
+versus 767.77 for the combined plan. Removing the body term leaves 25.39;
+removing damping leaves 764.38. These are diagnostic omissions only, never
+alternate admissible dynamics. This points first to the anisotropic body
+majorant and thin-cell geometry, not contact-search speed or damping removal.
+The current scalar modulus envelope discards material directions; investigate
+a directional, provider-declared bound against independent assembled spectra
+before using a tighter plan. An initial elastic tangent must not be promoted to
+a bound over evolving damage/rotation. Mass and time sensitivity must still be
+separated at common physical times.
+
 An original-mesh nodal-contact pilot accepted 66 increments, then rejected
 increment 67 because subtracting accepted times reconstructed `1e-6` with a
 floating-point tail above an overly narrow tolerance. Provider limits now account
