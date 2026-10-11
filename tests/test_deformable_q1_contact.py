@@ -81,6 +81,48 @@ def test_closed_solid_keeps_far_candidates_without_fake_projections():
     assert separated.potential_energy == 0
 
 
+def test_closed_exterior_medial_axis_needs_separation_not_a_chosen_face():
+    from test_closed_q1_surface import solid
+    from agentfem._q1_surface_search import AmbiguousSurfaceProjection
+    from agentfem._closed_q1_surface import ClosedQ1Surface
+
+    vertices, faces = solid(concave=True)
+    points = np.array([[1.1, 1.1, .4], [1.2, 1.1, .4],
+                       [1.2, 1.1, .6], [1.1, 1.1, .6]])
+    surface = ClosedQ1Surface(vertices, faces)
+    with pytest.raises(AmbiguousSurfaceProjection):
+        surface.project(points, maximum_distance=.3)
+    secondary = BilinearReferenceTrace(points, np.array([[0, 1, 2, 3]]), tolerance=1e-10)
+    primary = BilinearReferenceTrace(vertices, faces, tolerance=1e-10)
+    op = DeformableQ1Penalty(secondary, primary, candidate_nodes=np.ones(4, dtype=bool),
+                           penalty=100., search_radius=.3,
+                           geometry_policy="reviewed_closed_solid")
+    answer = op.evaluate(np.zeros_like(points), np.zeros_like(vertices))
+    np.testing.assert_array_equal(answer.secondary_residual, 0)
+    np.testing.assert_array_equal(answer.primary_residual, 0)
+    assert answer.potential_energy == 0
+    assert np.all(answer.gap_lower_bounds > 0)
+    np.testing.assert_array_equal(answer.projection_indices, [1, 2])
+    # Fresh geometry evaluation agrees, as required during checkpoint restore.
+    again = op.evaluate(np.zeros_like(points), np.zeros_like(vertices))
+    np.testing.assert_array_equal(answer.gap_lower_bounds, again.gap_lower_bounds)
+
+
+def test_closed_interior_ambiguous_projection_is_still_rejected():
+    from test_closed_q1_surface import solid
+    from agentfem._q1_surface_search import AmbiguousSurfaceProjection
+
+    vertices, faces = solid()
+    points = np.array([[.5, .5, .5], [.6, .5, .5], [.6, .6, .5], [.5, .6, .5]])
+    op = DeformableQ1Penalty(
+        BilinearReferenceTrace(points, np.array([[0, 1, 2, 3]]), tolerance=1e-10),
+        BilinearReferenceTrace(vertices, faces, tolerance=1e-10),
+        candidate_nodes=np.ones(4, dtype=bool), penalty=100., search_radius=.6,
+        geometry_policy="reviewed_closed_solid")
+    with pytest.raises(AmbiguousSurfaceProjection):
+        op.evaluate(np.zeros_like(points), np.zeros_like(vertices))
+
+
 @pytest.mark.parametrize("warp", [0.0, 0.3])
 def test_current_force_moment_objectivity_and_variation(warp):
     op, us, up = setup(warp)

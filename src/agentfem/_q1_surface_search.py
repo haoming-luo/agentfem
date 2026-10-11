@@ -11,6 +11,14 @@ from .boundary_models.rigid import TriangulatedRigidSurface
 from .boundary_models.search import TriangleSurfaceBVH, _bbox_squared_distance
 
 
+class AmbiguousSurfaceProjection(ValueError):
+    """A nearest-point choice is unresolved; not evidence of penetration."""
+
+    def __init__(self, query_index):
+        self.query_index = int(query_index)
+        super().__init__(f"Q1 query {query_index}: ambiguous surface projection.")
+
+
 def _patch_enclosure_bound(vertices, point, pad, target, depth=0):
     box = np.sqrt(
         _bbox_squared_distance(point, vertices.min(axis=0), vertices.max(axis=0))
@@ -281,9 +289,7 @@ class Q1SurfaceSearch:
                         require_unique_normal
                         and np.linalg.norm(candidate[1][3] - best[1][3]) > 1e-8
                     ):
-                        raise ValueError(
-                            f"Q1 query {index}: ambiguous surface projection."
-                        )
+                        raise AmbiguousSurfaceProjection(index)
                     if not require_unique_normal:
                         coefficients = {}
                         for (facet, record), sign in ((best, 1.0), (candidate, -1.0)):

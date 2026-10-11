@@ -23,6 +23,17 @@ and commercial reference curves remain separate gates.
 
 ## Ordered gates
 
+### Exterior projection ambiguity versus separation
+
+A closed-solid exterior query can have unresolved nearest-face choices while
+remaining strictly separated. Such a query now uses the existing conservative
+Q1 distance enclosure and independent ray classification to establish zero
+contact force; it does not choose a face, average normals or invent interpolation
+weights. Interior and zero-bound ambiguities still reject, as do open-surface
+ambiguities. Fresh evaluation during restore uses the same rule. The original
+private early-loading run stopped at increment 1684 on this distinction; its
+checkpoint is not evidence of a completed forming trajectory.
+
 ### Smooth Q1 contact curvature
 
 The private local distance-potential Hessian now eliminates the two closest-point

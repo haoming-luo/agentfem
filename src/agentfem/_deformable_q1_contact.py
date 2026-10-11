@@ -235,8 +235,30 @@ class DeformableQ1Penalty:
             search = Q1SurfaceSearch(
                 xp[self.primary.quadrilaterals], node_ids=self.primary.quadrilaterals
             )
+        # An exterior force-free point needs a positive separation certificate,
+        # not an arbitrarily selected closest face. Near a seam, equally close
+        # numerical projections may remain unresolved even when the complete
+        # solid is provably separated. Preserve that distinction on restart too.
+        from ._q1_surface_search import AmbiguousSurfaceProjection
+
+        while len(selected):
+            try:
+                found = search.project(query[selected], maximum_distance=self.search_radius)
+                break
+            except AmbiguousSurfaceProjection as error:
+                if lower is None:
+                    raise
+                index = selected[error.query_index]
+                bound = search.search.distance_lower_bounds(query[index:index + 1])[0]
+                if bound <= 0 or search._inside(query[index]):
+                    raise
+                lower[index] = bound
+                selected = np.delete(selected, error.query_index)
+        else:
+            return DeformableContactResponse(
+                np.zeros_like(xs), np.zeros_like(xp), 0.0, None, None, None, lower
+            )
         query = query[selected]
-        found = search.project(query, maximum_distance=self.search_radius)
         separation = query - found["points"]
         gaps = found.get(
             "signed_gaps", np.einsum("ij,ij->i", separation, found["normals"])
