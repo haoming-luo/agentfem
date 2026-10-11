@@ -1352,6 +1352,11 @@ material tangents into an unproven whole-path stability estimate.
   result still falls back. No contact tolerance, quadrature, or time step is
   changed. A generic warped patch, scaling checks, and indefinite/degenerate
   rejection are included in the targeted exact-geometry tests.
+- Quadrature point counting now uses layout metadata rather than constructing
+  a detached history array merely to obtain its length. Counts still include
+  visible ghost points. The 48-test targeted state/layout suite passed; the
+  20 layout tests also passed under a bounded two-rank TCP-backed MPI launch.
+  This does not admit the private response-only full simulation to MPI.
 - [Abaqus explicit dynamics](https://docs.software.vt.edu/abaqusv2025/English/SIMACAETHERefMap/simathe-c-expdynamic.htm):
   linear and compression-only quadratic artificial bulk viscosity. Matching
   these formulas alone does not establish identical characteristic lengths,

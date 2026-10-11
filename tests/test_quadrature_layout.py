@@ -21,6 +21,8 @@ def test_bulk_layout_matches_backend_cell_dofs(shape, degree, cell):
     V = field.function.function_space
     cell_map = domain.topology.index_map(3)
     n = cell_map.size_local + cell_map.num_ghosts
+    assert field.point_count == n * len(field.points)
+    assert field.point_count == len(field.values)
     expected = np.concatenate(
         [
             (
