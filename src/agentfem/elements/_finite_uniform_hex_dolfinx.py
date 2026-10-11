@@ -229,7 +229,8 @@ class FiniteUniformHexResidual:
         try:
             with field_transaction(_kinematics=self.displacement, **self.response.trial_fields()):
                 nodal = self.displacement.x.array.copy()
-                displacement = nodal.reshape(-1, 3)[self.cell_nodes].copy()
+                # Integer cell indexing already creates detached storage.
+                displacement = nodal.reshape(-1, 3)[self.cell_nodes]
                 gradient = self.cells.deformation_gradient(displacement)
                 prepared = _prepare_explicit_material_points(
                     material, self.response.state, deformation_gradient_old=deformation_gradient_old,

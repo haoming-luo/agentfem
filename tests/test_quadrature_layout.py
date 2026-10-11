@@ -47,3 +47,26 @@ def test_bulk_layout_matches_backend_cell_dofs(shape, degree, cell):
     original = field.values.copy()
     field.assign(original)
     np.testing.assert_array_equal(field.values, original)
+
+
+@pytest.mark.parametrize("blocks", [1, 2])
+def test_material_state_vectors_remain_detached_and_schema_ordered(blocks):
+    from agentfem.constitutive.quadrature import MaterialQuadratureState
+    from agentfem.constitutive.user_material import MaterialStateSchema, MaterialStateVariable
+
+    domain = mesh.create_unit_cube(MPI.COMM_WORLD, 2, 1, 1,
+                                   cell_type=mesh.CellType.hexahedron)
+    schema = MaterialStateSchema("packed-history", tuple(
+        MaterialStateVariable(f"block{i}", shape=(3,)) for i in range(blocks)))
+    state = MaterialQuadratureState.create(domain, schema, degree=1)
+    count = len(state.reference_field.values)
+    expected = np.arange(count * schema.size, dtype=float).reshape(count, schema.size)
+    state.assign_trial_state_vectors(expected)
+    state.commit()
+    packed = state.committed_state_vectors()
+    np.testing.assert_array_equal(packed, expected)
+    packed[:] = -123
+    np.testing.assert_array_equal(state.committed_state_vectors(), expected)
+    trial = state.trial_state_vectors()
+    trial[:] = -456
+    np.testing.assert_array_equal(state.trial_state_vectors(), expected)

@@ -1076,6 +1076,10 @@ class MaterialQuadratureState:
             elif len(flattened) != point_count:
                 raise RuntimeError("Material state fields have inconsistent point counts.")
             columns.append(flattened)
+        if len(columns) == 1:
+            # QuadratureField.values already returns detached cell-ordered data.
+            # A single named history block needs no second full-state copy.
+            return columns[0]
         return np.concatenate(columns, axis=1)
 
     def committed_state_vectors(self) -> np.ndarray:
