@@ -180,8 +180,10 @@ class DeformableQ1Penalty:
             }
         )
 
-    def evaluate(self, secondary_displacement, primary_displacement):
-        return self._evaluate(secondary_displacement, primary_displacement)
+    def evaluate(self, secondary_displacement, primary_displacement, *,
+                 _path_lower_bounds=None):
+        return self._evaluate(secondary_displacement, primary_displacement,
+                              path_lower_bounds=_path_lower_bounds)
 
     def _evaluate(
         self, secondary_displacement, primary_displacement, *, path_lower_bounds=None

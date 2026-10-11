@@ -232,7 +232,7 @@ def test_proved_separation_skips_search_without_fabricating_projection(monkeypat
     assert active.potential_energy > 0
 
 
-def test_partial_separation_lifecycle_uses_fresh_contact_for_expired_bounds():
+def test_partial_separation_lifecycle_uses_fresh_contact_for_expired_bounds(monkeypatch):
     step = make_step(closed=True)
     residual = step.residual
     step.state.u.value.x.array.reshape(-1, 3)[residual.secondary_dofs, 2] = -.1
@@ -250,6 +250,16 @@ def test_partial_separation_lifecycle_uses_fresh_contact_for_expired_bounds():
     # Search optimization must not modify the accepted transaction.
     np.testing.assert_array_equal(residual.accepted[0][:, 2], -.1)
     assert residual.trial is None
+    # A policy wrapper around evaluation must still see active responses.
+    original = residual.operator.evaluate
+    def separation_only(*args, **options):
+        answer = original(*args, **options)
+        if answer.potential_energy > 0:
+            raise ValueError("policy refuses active contact")
+        return answer
+    monkeypatch.setattr(residual.operator, "evaluate", separation_only)
+    with pytest.raises(ValueError, match="policy refuses"):
+        residual._evaluate_current(values)
 
 
 def test_bound_only_response_rejects_forces_or_false_separation():
