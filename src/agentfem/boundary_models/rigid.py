@@ -1119,14 +1119,10 @@ class TriangulatedRigidSurface(RigidSurface):
         canonical_indices = np.sort(triangles, axis=1)
         if np.unique(canonical_indices, axis=0).shape[0] != triangles.shape[0]:
             raise ValueError("Triangulated surface contains duplicate facets.")
-        geometric_facets = []
-        for facet in (vertices[item] for item in triangles):
-            ordered = facet[np.lexsort((facet[:, 2], facet[:, 1], facet[:, 0]))]
-            geometric_facets.append(tuple(ordered.reshape(-1).tolist()))
-        if len(set(geometric_facets)) != len(geometric_facets):
-            raise ValueError(
-                "Triangulated surface contains geometrically duplicate facets."
-            )
+        # Finite, unique vertex coordinates were required above. Therefore the
+        # vertex-index map is injective: geometric facet duplication is exactly
+        # unordered index duplication, already rejected here. Do not repeat the
+        # same check with a Python coordinate-sort loop on every geometry update.
 
         if self.facet_ids is None:
             facet_ids = np.arange(triangles.shape[0], dtype=np.int64)

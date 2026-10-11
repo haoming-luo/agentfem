@@ -1072,6 +1072,46 @@ material/contact history, and a rejected increment can refit back to accepted
 coordinates. Large deformation may degrade traversal efficiency; refitting is
 not a guarantee of optimal tree quality or nonlinear physical validity.
 
+### Explicit performance priorities after contact refitting
+
+The optimization order is measured step cost first, then justified increment
+count. Keep geometry, constitutive parameters, physical loading duration,
+inertia and acceptance criteria fixed for a same-checkpoint replay. Compare
+nodal arrays, material history and work records, not elapsed time alone.
+
+1. Remove redundant geometry work and array transfers. Triangle coordinates
+   are already finite and unique, so duplicate unordered connectivity also
+   detects geometrically duplicate facets. A second per-facet Python coordinate
+   sort is unnecessary. All vertex, degeneracy and manifold checks remain.
+2. Profile native material batches and state snapshots after each improvement;
+   worker waiting time is not by itself proof of a locking defect. Separate
+   preparation, advancement, checkpoint and visualization costs.
+3. Audit the critical material, contact and damping contributions before
+   increasing the increment. Initial elastic bounds are not a certificate for
+   an evolving damaged/contacting system. A converged Rayleigh quotient alone
+   is not a conservative upper bound on the largest eigenvalue.
+4. Assess added-inertia distribution and response sensitivity before changing
+   mass scaling. Preserve the physical loading time of history-dependent laws.
+   Frequency-selective mass scaling is a separate algorithmic project, not
+   another name for scaling a selected subset of diagonal nodal masses.
+
+References and their bounded implications:
+
+- [Abaqus explicit dynamics](https://docs.software.vt.edu/abaqusv2025/English/SIMACAEANLRefMap/simaanl-c-expdynamic.htm):
+  global versus element increment estimation and the effects of penalty
+  stiffness and damping motivate a combined stability audit, not a fixed
+  multiplier applied to an unverified nonlinear step.
+- [DYNAmore mass-scaling guidance](https://www.dynasupport.com/howtos/general/mass-scaling):
+  added mass changes inertia; inspect its distribution and perform reduced-mass
+  sensitivity runs. A balanced numerical work ledger cannot replace this test.
+- [DYNAmore selective mass scaling](https://www.dynasupport.com/howtos/general/selective-mass-scaling-sms-2):
+  targeting high-frequency modes can better preserve low-frequency behavior,
+  but introduces a non-diagonal mass solve and additional cost. Historical
+  example speedups are not a prediction for this runtime or material law.
+- [Wald, Boulos and Shirley, dynamic BVHs](https://graphics.stanford.edu/~boulos/research.htm):
+  fixed-topology refitting motivates geometry-cache reuse. The graphics
+  acceleration technique does not establish finite-element contact validity.
+
 Fixed elastic interface and penalty-contact spectral rows now reuse one
 bounded-memory stencil kernel. Signed interpolation and shared-node assembly
 are retained; tests compare independent dense spectra and prior scalar rows.

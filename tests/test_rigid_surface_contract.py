@@ -6,6 +6,25 @@ import pytest
 from agentfem import boundary_models
 
 
+@pytest.mark.parametrize("permutation", [(0, 1, 2), (0, 2, 1), (1, 0, 2),
+                                        (1, 2, 0), (2, 0, 1), (2, 1, 0)])
+def test_geometric_duplicate_facets_rejected_for_every_vertex_order(permutation):
+    vertices = np.array(((0., 0., 0.), (1., 0., 0.), (0., 1., 0.)))
+    with pytest.raises(ValueError, match="duplicate facets"):
+        boundary_models.TriangulatedRigidSurface(
+            vertices=vertices, triangles=np.array(((0, 1, 2), permutation)),
+        )
+    # Separate indices at the same coordinates cannot bypass the index check,
+    # including signed zero (equal geometric coordinates, unequal bit patterns).
+    copied = vertices[list(permutation)].copy()
+    copied[copied == 0.] = -0.
+    with pytest.raises(ValueError, match="duplicate vertices"):
+        boundary_models.TriangulatedRigidSurface(
+            vertices=np.vstack((vertices, copied)),
+            triangles=np.array(((0, 1, 2), (3, 4, 5))),
+        )
+
+
 @pytest.mark.parametrize("dtype", [float, np.int64, bool, str])
 def test_contact_arrays_own_immutable_payload_with_independent_metadata(dtype):
     from agentfem.boundary_models.rigid import _readonly_array
