@@ -385,6 +385,65 @@ class FiniteUniformHexBatch:
         )
         return float(upper.max(initial=0)), float(lower.max(initial=0))
 
+    def directional_cell_row_majorant(self, *, positive_tensor):
+        """Map a supplied symmetric PSD dP/dF upper tensor to nodal rows.
+
+        The provider must establish A <= positive_tensor in the same reference
+        frame over the intended domain. This routine proves no material bound.
+        It retains directional information rather than replacing the tensor by
+        its largest eigenvalue. Chunk-local 24x24 matrices are discarded after
+        absolute row summation; no global stiffness or material State is built.
+        The returned (cells,8,3) rows include fixed hourglass stiffness.
+        """
+        raw = np.asarray(positive_tensor)
+        count = len(self.coordinates)
+        if (
+            raw.dtype.kind not in "fiu"
+            or raw.shape not in ((3, 3, 3, 3), (count, 3, 3, 3, 3))
+            or not np.isfinite(raw).all()
+        ):
+            raise ValueError(
+                "Expected finite real positive tensor (3,3,3,3) or cell batch."
+            )
+        tensors = np.broadcast_to(raw, (count, 3, 3, 3, 3))
+        result = np.empty((count, 8, 3))
+        for region in self._regions():
+            matrix = np.asarray(tensors[region], dtype=float).reshape(-1, 9, 9)
+            scale = np.max(np.abs(matrix), axis=(1, 2))
+            tolerance = (
+                64 * np.finfo(float).eps * np.maximum(scale, np.finfo(float).tiny)
+            )
+            if np.any(
+                np.max(np.abs(matrix - matrix.swapaxes(1, 2)), axis=(1, 2)) > tolerance
+            ):
+                raise ValueError("Positive tensor must be symmetric in paired indices.")
+            matrix = (matrix + matrix.swapaxes(1, 2)) / 2
+            minimum = np.linalg.eigvalsh(matrix)[:, 0]
+            if np.any(minimum < -tolerance):
+                raise ValueError("Positive tensor must be positive semidefinite.")
+            # Lift only admitted eigensolver-scale negative roundoff, never
+            # convert genuine softening into positive stiffness.
+            matrix = matrix + np.maximum(-minimum, 0)[:, None, None] * np.eye(9)
+            g = self.average_gradient[region]
+            upper = self.volume[region, None, None, None, None] * np.einsum(
+                "caJ,ciJkL,cbL->caibk",
+                g,
+                matrix.reshape(-1, 3, 3, 3, 3),
+                g,
+                optimize=True,
+            )
+            modes = self.hourglass_modes[region]
+            stabilization = self.hourglass_coefficient[region, None, None] * np.einsum(
+                "cam,cbm->cab", modes, modes
+            )
+            upper += (
+                stabilization[:, :, None, :, None] * np.eye(3)[None, None, :, None, :]
+            )
+            result[region] = np.abs(upper).sum(axis=(3, 4))
+        if not np.isfinite(result).all():
+            raise ValueError("Directional Hex8 majorant overflowed.")
+        return _frozen(result)
+
     def tangent_envelope_cell_row_majorant(self, *, positive_modulus):
         """Unscaled isotropic nodal diagonal majorant, including hourglass.
 

@@ -65,6 +65,19 @@ before using a tighter plan. An initial elastic tangent must not be promoted to
 a bound over evolving damage/rotation. Mass and time sensitivity must still be
 separated at common physical times.
 
+The private Hex8 operator now provides `directional_cell_row_majorant` for a
+provider-supplied symmetric PSD first-Piola upper tensor. It maps that tensor
+through the reference gradients, adds fixed hourglass stiffness, and reduces
+chunk-local element matrices to absolute nodal rows. It neither derives a
+material envelope nor silently changes the source pilot's inertia plan.
+Independent tangent-action column assembly verifies every row and the diagonal
+majorant inequality; chunk invariance, invalid tensors, empty batches and a
+thin anisotropic cell are covered. The latter demonstrates why a largest-modulus
+scalar can be unnecessarily conservative, not a measured original-case gain.
+The focused directional and finite-Hex selection passes 25 tests. Original
+material tensor conversion, frame identity and damaged-path admission remain
+separate gates before deployment in that case.
+
 An original-mesh nodal-contact pilot accepted 66 increments, then rejected
 increment 67 because subtracting accepted times reconstructed `1e-6` with a
 floating-point tail above an overly narrow tolerance. Provider limits now account
