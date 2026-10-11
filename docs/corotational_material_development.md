@@ -1051,6 +1051,17 @@ median query time 11.812 s versus 0.641 s, 18.4x for this search component only.
 No full-loading speedup is inferred. Parallel rays, endpoints, zero-length
 segments, randomized exhaustive boxes and actual contact restart are tested.
 
+Near a shared Q1 edge, squared-distance differences can be second-order small
+even when an interior closest point is distinguishable from the edge. Search
+now admits a bounded topological dominance screen: identical shared node
+coordinates, a strictly interior stationary point, and a positive global
+Gershgorin lower bound on the squared-distance Hessian. The stationarity margin
+includes coordinate-roundoff allowance. If these checks are inconclusive,
+the existing ambiguity rejection remains. Disconnected coincident traces do
+not qualify. Ambiguity errors retain competing facet IDs and distance evidence.
+This changes geometric admission only; it does not add bonded compression
+contact, establish ALL EXTERIOR coverage, or validate a mass-scaled trajectory.
+
 Fixed elastic interface and penalty-contact spectral rows now reuse one
 bounded-memory stencil kernel. Signed interpolation and shared-node assembly
 are retained; tests compare independent dense spectra and prior scalar rows.

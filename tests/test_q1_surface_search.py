@@ -1,7 +1,7 @@
 import numpy as np
 import pytest
 
-from agentfem._q1_surface_search import Q1SurfaceSearch
+from agentfem._q1_surface_search import AmbiguousSurfaceProjection, Q1SurfaceSearch
 
 
 def square():
@@ -27,8 +27,14 @@ def test_cross_facet_and_seam_search():
 
 def test_ambiguous_missing_and_budget_rejected():
     search = Q1SurfaceSearch(np.array([square(), square() + [0, 0, 0.1]]))
-    with pytest.raises(ValueError, match="ambiguous"):
+    with pytest.raises(AmbiguousSurfaceProjection, match="ambiguous") as captured:
         search.project([[0.5, 0.5, 0.05]], maximum_distance=0.2)
+    error = captured.value
+    assert error.query_index == 0
+    assert error.facets == (0, 1)
+    np.testing.assert_allclose(error.distances, (.05, .05))
+    assert error.point_separation == pytest.approx(.1)
+    assert 0 < error.distance_tolerance < 1e-12
     with pytest.raises(ValueError, match="no surface"):
         search.project([[3, 3, 3]], maximum_distance=0.1)
     with pytest.raises(ValueError, match="budget"):
@@ -46,6 +52,24 @@ def test_warped_surface_search_and_empty():
         0,
         4,
     )
+
+
+@pytest.mark.parametrize("length", [1e-3, 1., 1e3])
+@pytest.mark.parametrize("reverse", [False, True])
+def test_convex_interior_beats_shared_edge_despite_distance_roundoff(length, reverse):
+    vertices = np.array([square(), square() + [1, 0, 0]]) * length
+    nodes = np.array([[0, 1, 2, 3], [1, 4, 5, 2]])
+    if reverse:
+        vertices, nodes = vertices[::-1], nodes[::-1]
+    query = np.array([[1 - 2e-10, .4, 1e-5]]) * length
+    answer = Q1SurfaceSearch(vertices, node_ids=nodes).project(
+        query, maximum_distance=.01*length, require_unique_normal=False)
+    assert answer['facet_indices'][0] == int(reverse)
+    np.testing.assert_allclose(answer['points'], query * [1, 1, 0], atol=1e-14*length)
+    # Coincident geometry without shared physical DOFs cannot use this screen.
+    with pytest.raises(AmbiguousSurfaceProjection):
+        Q1SurfaceSearch(vertices, node_ids=np.arange(8).reshape(2,4)).project(
+            query, maximum_distance=.01*length, require_unique_normal=False)
 
 
 @pytest.mark.parametrize("length", [1e-3, 1.0, 1e3])

@@ -14,8 +14,13 @@ from .boundary_models.search import TriangleSurfaceBVH, _bbox_squared_distance
 class AmbiguousSurfaceProjection(ValueError):
     """A nearest-point choice is unresolved; not evidence of penetration."""
 
-    def __init__(self, query_index):
+    def __init__(self, query_index, *, facets=None, distances=None,
+                 point_separation=None, distance_tolerance=None):
         self.query_index = int(query_index)
+        self.facets = None if facets is None else tuple(int(f) for f in facets)
+        self.distances = None if distances is None else tuple(float(d) for d in distances)
+        self.point_separation = point_separation
+        self.distance_tolerance = distance_tolerance
         super().__init__(f"Q1 query {query_index}: ambiguous surface projection.")
 
 
@@ -25,6 +30,64 @@ class SurfaceOutsideSearchRadius(ValueError):
     def __init__(self, query_index):
         self.query_index = int(query_index)
         super().__init__(f"Q1 query {query_index}: no surface within search radius.")
+
+
+def _interior_dominates_shared_edge(vertices, node_ids, point, interior, edge):
+    """Resolve only a strict convex interior minimum versus its own shared edge.
+
+    Near an edge, distance differences are quadratic in edge distance and can
+    disappear in a distance-based tie tolerance. Topology plus a strongly
+    convex squared-distance objective supplies an independent ordering screen.
+    Overlapping, disconnected and nonconvex alternatives remain unresolved.
+    """
+    if node_ids is None:
+        return False
+    fi, ri = interior
+    fe, re = edge
+    shared = set(node_ids[fi]) & set(node_ids[fe])
+    if len(shared) != 2:
+        return False
+    for node in shared:
+        vi = vertices[fi, np.flatnonzero(node_ids[fi] == node)]
+        ve = vertices[fe, np.flatnonzero(node_ids[fe] == node)]
+        if vi.shape != (1, 3) or not np.array_equal(vi, ve):
+            return False
+    for row in (node_ids[fi], node_ids[fe]):
+        positions = [i for i, node in enumerate(row) if node in shared]
+        if (positions[1] - positions[0]) % 4 not in (1, 3):
+            return False
+    eps = np.finfo(float).eps
+    outside = [w for node, w in zip(node_ids[fe], re[1], strict=True)
+               if node not in shared]
+    if max(map(abs, outside), default=1.) > 64 * eps:
+        return False
+    s, t = ri[1][1] + ri[1][2], ri[1][2] + ri[1][3]
+    margin = min(s, t, 1 - s, 1 - t)
+    if margin <= 256 * eps:
+        return False
+    v = vertices[fi]
+    a = v[0] - point
+    b, c = v[1] - v[0], v[3] - v[0]
+    d = (v[2] - v[3]) - b
+
+    def minimum_norm_squared(direction):
+        dd = float(d @ d)
+        coordinate = 0. if dd == 0 else np.clip(-float(direction @ d) / dd, 0., 1.)
+        tangent = direction + coordinate * d
+        return float(tangent @ tangent)
+
+    off = max(abs(float(b @ c + a @ d + 2*x*(b @ d)
+                        + 2*y*(c @ d) + 2*x*y*(d @ d)))
+              for x in (0., 1.) for y in (0., 1.))
+    curvature = min(minimum_norm_squared(b), minimum_norm_squared(c)) - off
+    scale = max(np.linalg.norm(b), np.linalg.norm(c), np.linalg.norm(d))
+    if curvature <= 256 * eps * scale**2:
+        return False
+    delta = a + b*s + c*t + d*s*t
+    gradient = np.array([delta @ (b+d*t), delta @ (c+d*s)])
+    # Include translated-coordinate cancellation, not only local arithmetic.
+    error = 256 * eps * max(scale, np.linalg.norm(point), np.max(abs(v))) * scale
+    return bool(np.linalg.norm(gradient) + error < curvature * margin / 16)
 
 
 def _patch_enclosure_bound(vertices, point, pad, target, depth=0):
@@ -291,13 +354,28 @@ class Q1SurfaceSearch:
             )
             for candidate in choices[1:]:
                 if abs(candidate[1][-1] - best[1][-1]) <= tolerance:
+                    if _interior_dominates_shared_edge(
+                        self.vertices, self.node_ids, point, best, candidate
+                    ):
+                        continue
+                    if _interior_dominates_shared_edge(
+                        self.vertices, self.node_ids, point, candidate, best
+                    ):
+                        best = candidate
+                        continue
                     if np.linalg.norm(
                         candidate[1][2] - best[1][2]
                     ) > point_tolerance or (
                         require_unique_normal
                         and np.linalg.norm(candidate[1][3] - best[1][3]) > 1e-8
                     ):
-                        raise AmbiguousSurfaceProjection(index)
+                        raise AmbiguousSurfaceProjection(
+                            index, facets=(best[0], candidate[0]),
+                            distances=(best[1][-1], candidate[1][-1]),
+                            point_separation=float(np.linalg.norm(
+                                candidate[1][2] - best[1][2])),
+                            distance_tolerance=float(tolerance),
+                        )
                     if not require_unique_normal:
                         coefficients = {}
                         for (facet, record), sign in ((best, 1.0), (candidate, -1.0)):
