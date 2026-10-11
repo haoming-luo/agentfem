@@ -1074,6 +1074,25 @@ not a guarantee of optimal tree quality or nonlinear physical validity.
 
 ### Explicit performance priorities after contact refitting
 
+Filtered exact geometry is a robustness path, not a contact tolerance change.
+For a shared-edge distance tie rejected by the existing floating-point screen,
+an exact binary64-rational witness may certify strict ordering: the neighboring
+Q1 squared-distance Hessian must be positive on the complete parameter square,
+an exact edge minimizer must satisfy box KKT conditions, and a feasible witness
+on the chosen patch must be strictly closer. An equality or unsuccessful screen
+remains unresolved. No arbitrary-precision numerical root is treated as a proof.
+
+For closed-solid classification, ambiguous floating-point rays have a bounded
+rational-interval fallback. Exact elimination coefficients and isolating square
+root intervals certify open-facet parameters, positive ray distance and oriented
+crossing signs. Genuine seams, origin hits, tangencies and degeneracy still
+reject. Two independent accepted directions must still agree. Ordinary rays
+keep their existing fast path; the fallback is not a self-intersection test.
+This follows the filtered/exact design principle described by
+[Shewchuk](https://www.cs.cmu.edu/~quake/robust.html), not his orientation/incircle
+predicate implementation. Full-run cost and numerical inertia remain separate
+acceptance questions.
+
 Near-touching contact coverage exposes a separate geometric cost: enclosure
 refinement toward zero. Closed-solid projection now requests exterior distance
 certificates only for positive signed gaps; interior and touching points retain

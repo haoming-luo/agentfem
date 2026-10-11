@@ -110,7 +110,14 @@ class ClosedQ1Surface:
             try:
                 hits = q1_ray_crossings(self.search.vertices[facets], point, direction)
             except AmbiguousRay:
-                continue
+                from ._q1_ray_exact import exact_q1_ray_crossings
+
+                try:
+                    hits = exact_q1_ray_crossings(
+                        self.search.vertices[facets], point, direction
+                    )
+                except AmbiguousRay:
+                    continue
             winding = int(hits[:, 4].sum())
             if winding not in (0, 1):
                 raise ValueError(

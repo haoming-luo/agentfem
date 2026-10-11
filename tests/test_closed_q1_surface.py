@@ -101,6 +101,13 @@ def test_separation_certificate_refines_only_exterior_queries(monkeypatch):
     np.testing.assert_array_equal(inside["separation_lower_bounds"], inside["signed_gaps"])
 
 
+def test_near_boundary_classification_uses_certified_rays():
+    x, cells = solid()
+    surface = ClosedQ1Surface(x, cells)
+    assert surface._inside(np.array([3e-12, .3, .4]))
+    assert not surface._inside(np.array([-3e-12, .3, .4]))
+
+
 def test_warped_closed_surface_sign_retains_q1_not_triangle():
     x, cells = solid()
     x[6, 2] = 1.4

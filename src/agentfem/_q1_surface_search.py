@@ -87,7 +87,16 @@ def _interior_dominates_shared_edge(vertices, node_ids, point, interior, edge):
     gradient = np.array([delta @ (b+d*t), delta @ (c+d*s)])
     # Include translated-coordinate cancellation, not only local arithmetic.
     error = 256 * eps * max(scale, np.linalg.norm(point), np.max(abs(v))) * scale
-    return bool(np.linalg.norm(gradient) + error < curvature * margin / 16)
+    if np.linalg.norm(gradient) + error < curvature * margin / 16:
+        return True
+    # A cancellation-limited tie need not be physically ambiguous. Only this
+    # rare filtered case pays for exact binary64-rational arithmetic; prove
+    # global ordering against the neighboring convex patch, or keep rejecting.
+    from ._q1_exact_order import witness_beats_boundary_minimum
+
+    return witness_beats_boundary_minimum(
+        vertices[fi], point, (s, t), vertices[fe]
+    )
 
 
 def _patch_enclosure_bound(vertices, point, pad, target, depth=0):
