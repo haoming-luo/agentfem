@@ -1374,3 +1374,14 @@ material tangents into an unproven whole-path stability estimate.
   linear and compression-only quadratic artificial bulk viscosity. Matching
   these formulas alone does not establish identical characteristic lengths,
   velocity sampling, stable increments or whole-solver equivalence.
+- [Abaqus mass-scaling verification](https://docs.software.vt.edu/abaqusv2025/English/SIMACAEVERRefMap/simaver-c-mscale.htm)
+  explicitly bases bulk viscosity on scaled mass after the first increment.
+  Our current physical-density viscosity policy deliberately does not do this.
+  Treat this as a separate vendor-comparison gap, not as harmless inertia-only
+  bookkeeping. With unchanged stiffness and length, a uniform density factor
+  `f` scales linear viscosity by `sqrt(f)` and quadratic viscosity by `f`.
+  A frozen-kinematics work comparison cannot bound the changed trajectory.
+  Nonuniform nodal inertia does not uniquely define element density factors;
+  any conversion needs an explicit policy and independent damping/increment
+  verification. Do not silently change damping halfway through a checkpoint
+  continuation or reinterpret this diagnostic as vendor equivalence.
