@@ -43,6 +43,44 @@ def test_open_and_closed_analytic_response():
     np.testing.assert_allclose(r.primary_residual.sum(axis=0), [0, 0, 0.08], atol=1e-14)
 
 
+def test_closed_solid_keeps_far_candidates_without_fake_projections():
+    from test_closed_q1_surface import solid
+
+    vertices, faces = solid()
+    near = np.array(
+        [[0.2, 0.2, 0.01], [0.4, 0.2, 0.01], [0.4, 0.4, 0.01], [0.2, 0.4, 0.01]]
+    )
+    secondary = BilinearReferenceTrace(
+        np.vstack((near, near + [20, 0, 0])),
+        np.array([[0, 1, 2, 3], [4, 5, 6, 7]]),
+        tolerance=1e-10,
+    )
+    primary = BilinearReferenceTrace(vertices, faces, tolerance=1e-10)
+    op = DeformableQ1Penalty(
+        secondary,
+        primary,
+        candidate_nodes=np.ones(8, dtype=bool),
+        penalty=100.0,
+        search_radius=0.1,
+        geometry_policy="reviewed_closed_solid",
+    )
+    us, up = np.zeros_like(secondary.vertices), np.zeros_like(vertices)
+    result = op.evaluate(us, up)
+    np.testing.assert_array_equal(result.projection_indices, np.arange(4))
+    assert len(result.projection.signed_gaps) == 4
+    assert result.path_gaps.shape == (8,)
+    assert np.all(result.path_gaps[:4] < 0) and np.all(result.path_gaps[4:] > 0)
+    np.testing.assert_array_equal(result.secondary_residual[4:], 0)
+    np.testing.assert_allclose(
+        result.secondary_residual.sum(0) + result.primary_residual.sum(0), 0, atol=1e-14
+    )
+    us[:4, 0] = 20
+    separated = op.evaluate(us, up)
+    assert separated.projection is None
+    assert np.all(separated.gap_lower_bounds > 0)
+    assert separated.potential_energy == 0
+
+
 @pytest.mark.parametrize("warp", [0.0, 0.3])
 def test_current_force_moment_objectivity_and_variation(warp):
     op, us, up = setup(warp)

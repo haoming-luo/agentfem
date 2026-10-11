@@ -44,6 +44,16 @@ in the focused regression. The original private 1,000 unbonded queries all have
 positive refined bounds (minimum approximately `1.25515e-4` in source units).
 That is a geometry result, not ALL EXTERIOR coverage or a completed simulation.
 
+Far nodes on a larger closed-solid candidate domain now retain positive
+separation bounds and explicit indices for the subset with exact projections.
+The original open-patch search-escape rejection remains unchanged. A private
+original-geometry audit covers 64,170 unbonded parent exterior nodes against
+the complete patch: 1,000 need near-field projections, all have positive initial
+separation bounds. A 20-increment original-mesh pilot includes this domain as a
+strict separation audit, rejecting first possible body/body contact. It does
+not certify active deformable-contact stability, symmetric contact, self-contact,
+or commercial ALL EXTERIOR equivalence.
+
 ### Long-clock increment comparison and unchanged reference cells
 
 The original-mesh pilot subsequently restored the accepted increment-66

@@ -27,8 +27,15 @@ class DeformableContactResponse:
     primary_nodes: np.ndarray | None
     primary_weights: np.ndarray | None
     separation_lower_bounds: np.ndarray | None = None
+    projection_indices: np.ndarray | None = None
 
     def __post_init__(self):
+        if self.projection_indices is not None and (
+            self.projection is None or self.separation_lower_bounds is None
+        ):
+            raise ValueError(
+                "Partial contact projections require bounds and a projection."
+            )
         for name in ("secondary_residual", "primary_residual", "primary_weights"):
             if getattr(self, name) is not None:
                 object.__setattr__(self, name, _readonly_array(getattr(self, name)))
@@ -57,13 +64,37 @@ class DeformableContactResponse:
             object.__setattr__(self, "separation_lower_bounds", _readonly_array(bound))
         elif self.separation_lower_bounds is not None:
             bound = np.asarray(self.separation_lower_bounds)
+            indices = (
+                np.arange(len(self.projection.signed_gaps))
+                if self.projection_indices is None
+                else np.asarray(self.projection_indices)
+            )
             if (
                 np.iscomplexobj(bound)
-                or bound.shape != self.projection.signed_gaps.shape
+                or bound.ndim != 1
+                or (
+                    self.projection_indices is None
+                    and bound.shape != self.projection.signed_gaps.shape
+                )
+                or indices.dtype.kind not in "iu"
+                or indices.shape != self.projection.signed_gaps.shape
+                or np.any(indices < 0)
+                or np.any(indices >= len(bound))
+                or len(np.unique(indices)) != len(indices)
                 or not np.isfinite(bound).all()
-                or np.any(bound > self.projection.signed_gaps)
+                or np.any(bound[indices] > self.projection.signed_gaps)
             ):
                 raise ValueError("Contact separation lower bounds are inconsistent.")
+            unprojected = np.ones(len(bound), dtype=bool)
+            unprojected[indices] = False
+            if np.any(bound[unprojected] <= 0):
+                raise ValueError(
+                    "Unprojected contact points need positive separation bounds."
+                )
+            if self.projection_indices is not None:
+                object.__setattr__(
+                    self, "projection_indices", _readonly_array(indices, dtype=np.int64)
+                )
             object.__setattr__(self, "separation_lower_bounds", _readonly_array(bound))
 
     @property
@@ -78,6 +109,10 @@ class DeformableContactResponse:
     def path_gaps(self):
         # Preserve the existing endpoint guard for exact projected states.
         # A bound-only state is strictly outside, with a conservative distance.
+        if self.projection_indices is not None:
+            gaps = self.separation_lower_bounds.copy()
+            gaps[self.projection_indices] = self.projection.signed_gaps
+            return gaps
         return (
             self.projection.signed_gaps
             if self.projection is not None
@@ -163,14 +198,44 @@ class DeformableQ1Penalty:
             current.append(trace.vertices + raw)
         xs, xp = current
         query = xs[self.nodes]
+        selected = np.arange(len(query))
+        lower = None
         if self.geometry_policy == "reviewed_closed_solid":
             from ._closed_q1_surface import ClosedQ1Surface
 
             search = ClosedQ1Surface(xp, self.primary.quadrilaterals)
+            # Outside the complete current solid box is provably outside the
+            # solid. Far candidates remain in the domain, with a distance bound
+            # rather than a fabricated closest point or a silently missing pair.
+            distance = np.linalg.norm(
+                np.maximum(np.maximum(search.lower - query, query - search.upper), 0),
+                axis=1,
+            )
+            pad = (
+                256
+                * np.finfo(float).eps
+                * max(
+                    float(np.max(np.abs(xp))), float(np.max(np.abs(query), initial=0))
+                )
+            )
+            lower = np.maximum(0.0, distance - pad)
+            selected = np.flatnonzero(lower <= self.search_radius)
+            if len(selected):
+                geometric = search.search.distance_lower_bounds(query[selected])
+                for local in np.flatnonzero(geometric > self.search_radius):
+                    index = selected[local]
+                    if not search._inside(query[index]):
+                        lower[index] = geometric[local]
+                selected = np.flatnonzero(lower <= self.search_radius)
+            if not len(selected):
+                return DeformableContactResponse(
+                    np.zeros_like(xs), np.zeros_like(xp), 0.0, None, None, None, lower
+                )
         else:
             search = Q1SurfaceSearch(
                 xp[self.primary.quadrilaterals], node_ids=self.primary.quadrilaterals
             )
+        query = query[selected]
         found = search.project(query, maximum_distance=self.search_radius)
         separation = query - found["points"]
         gaps = found.get(
@@ -199,9 +264,11 @@ class DeformableQ1Penalty:
             method="current_q1_closest_point_reference_nodal_measure",
         )
         response = self.law.evaluate(projection)
-        point_force = self.weights[:, None] * response.structural_residual_tractions
+        point_force = (
+            self.weights[selected, None] * response.structural_residual_tractions
+        )
         secondary_force = np.zeros_like(xs)
-        secondary_force[self.nodes] = point_force
+        secondary_force[self.nodes[selected]] = point_force
         primary_force = np.zeros_like(xp)
         nodes = self.primary.quadrilaterals[found["facet_indices"]]
         np.add.at(
@@ -209,14 +276,17 @@ class DeformableQ1Penalty:
             nodes.ravel(),
             (-found["weights"][:, :, None] * point_force[:, None, :]).reshape(-1, 3),
         )
+        if lower is not None:
+            lower[selected] = found["separation_lower_bounds"]
         return DeformableContactResponse(
             secondary_force,
             primary_force,
-            float(self.weights @ response.potential_densities),
+            float(self.weights[selected] @ response.potential_densities),
             projection,
             nodes,
             found["weights"],
-            found.get("separation_lower_bounds"),
+            lower,
+            selected if len(selected) != len(self.nodes) else None,
         )
 
     def summary(self):
@@ -231,5 +301,8 @@ class DeformableQ1Penalty:
             "implicit_tangent": False,
             "mpi": False,
             "geometry_policy": self.geometry_policy,
+            "far_candidate_policy": ("positive_closed_solid_distance_bound"
+                                     if self.geometry_policy == "reviewed_closed_solid"
+                                     else "reject_search_escape"),
             "self_intersection_certificate": False,
         }
