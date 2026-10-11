@@ -6,6 +6,35 @@ import pytest
 from agentfem import boundary_models
 
 
+@pytest.mark.parametrize("dtype", [float, np.int64, bool, str])
+def test_contact_arrays_own_immutable_payload_with_independent_metadata(dtype):
+    from agentfem.boundary_models.rigid import _readonly_array
+    source = np.arange(12).reshape(4, 3)
+    selected = _readonly_array(source, dtype=dtype)
+    expected = selected.copy()
+    source[:] = 0
+    np.testing.assert_array_equal(selected, expected)
+    with pytest.raises(ValueError):
+        selected.setflags(write=True)
+    reused = _readonly_array(selected, dtype=dtype)
+    assert np.shares_memory(selected, reused)
+    selected.shape = (12,)
+    assert reused.shape == (4, 3)
+    np.testing.assert_array_equal(reused, expected)
+    strided = _readonly_array(reused[::2], dtype=dtype)
+    np.testing.assert_array_equal(strided, expected[::2])
+    assert not np.shares_memory(strided, reused)
+
+
+def test_contact_array_empty_and_object_compatibility():
+    from agentfem.boundary_models.rigid import _readonly_array
+    assert _readonly_array(np.empty((0, 3))).shape == (0, 3)
+    objects = np.array(["a", "b"], dtype=object)
+    copied = _readonly_array(objects, dtype=object)
+    objects[0] = "changed"
+    assert copied[0] == "a" and not copied.flags.writeable
+
+
 def test_plane_projection_preserves_signed_gap_and_closest_point_semantics():
     surface = boundary_models.rigid_plane(
         point=(1.0, 0.5),

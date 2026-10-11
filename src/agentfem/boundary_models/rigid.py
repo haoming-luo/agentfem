@@ -22,9 +22,21 @@ from agentfem import dependencies
 
 
 def _readonly_array(value, *, dtype=float) -> np.ndarray:
-    selected = np.array(value, dtype=dtype, copy=True)
-    selected.setflags(write=False)
-    return selected
+    selected = np.asarray(value, dtype=dtype)
+    if selected.dtype.hasobject:
+        # Object payloads cannot be reconstructed safely from raw pointer bytes.
+        selected = selected.copy()
+        selected.setflags(write=False)
+        return selected
+    owner = selected
+    while isinstance(owner, np.ndarray):
+        owner = owner.base
+    if not (isinstance(owner, bytes) and selected.flags.c_contiguous
+            and selected.nbytes == len(owner)):
+        owner = selected.tobytes(order="C")
+    # Immutable numeric/string payloads can cross evidence boundaries without
+    # copying again; independent array metadata still prevents shape aliasing.
+    return np.frombuffer(owner, dtype=selected.dtype).reshape(selected.shape)
 
 
 def _finite_nonnegative(value, *, name: str) -> float:
