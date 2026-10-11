@@ -23,6 +23,22 @@ and commercial reference curves remain separate gates.
 
 ## Ordered gates
 
+### Smooth Q1 contact curvature
+
+The private local distance-potential Hessian now eliminates the two closest-point
+coordinates analytically. Its Schur complement retains moving-projection
+geometry: `K = K_fixed - S`, with `S` positive semidefinite at a strict interior
+projection minimum. Separate assembled diagonal upper and negative-magnitude
+enclosures do not hide geometric softening. Independent differences of the
+existing contact force check every matrix column on flat and warped surfaces;
+translation, rotation, scaling, singular projection and activation rejection
+are included (31 focused contact tests pass).
+
+This is an instantaneous smooth-interior diagnostic, not a certified nonlinear
+time step or an implicit Step. Seams, rims, ambiguous projection, activation,
+negative material curvature and whole-increment changes remain separate gates.
+The original-case separated-contact pilot is not silently promoted by this work.
+
 ### Orientation-only admission cost
 
 Repeated orientation checks now use the sufficient near-identity condition
