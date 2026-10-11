@@ -75,6 +75,32 @@ def test_concave_interior_edge_has_central_force_direction():
     )
 
 
+def test_separation_certificate_refines_only_exterior_queries(monkeypatch):
+    x, cells = solid()
+    surface = ClosedQ1Surface(x, cells)
+    points = np.array([[.2, .3, .1], [0., .3, .4], [-.1, .3, .4]])
+    reference = surface.project(points, maximum_distance=.5)
+    original = surface.search.distance_lower_bounds
+    calls = []
+
+    def checked(query, **options):
+        calls.append(query.copy())
+        # Neither a penetration nor an exactly touching point needs an
+        # exterior separation certificate.
+        np.testing.assert_array_equal(query, points[2:])
+        return original(query, **options)
+
+    monkeypatch.setattr(surface.search, "distance_lower_bounds", checked)
+    result = surface.project(points, maximum_distance=.5)
+    assert len(calls) == 1
+    for name in ("signed_gaps", "normals", "separation_lower_bounds"):
+        np.testing.assert_array_equal(result[name], reference[name])
+    calls.clear()
+    inside = surface.project(points[:2], maximum_distance=.5)
+    assert not calls
+    np.testing.assert_array_equal(inside["separation_lower_bounds"], inside["signed_gaps"])
+
+
 def test_warped_closed_surface_sign_retains_q1_not_triangle():
     x, cells = solid()
     x[6, 2] = 1.4

@@ -121,3 +121,22 @@ def test_near_degree_reduction_keeps_finite_stationary_root():
         answer = q1_closest_point(vertices, point)
         np.testing.assert_allclose(answer[0], [0.5, 0.7], atol=1e-10)
         assert answer[-1] < 1e-12
+
+
+def test_zero_child_bound_stops_redundant_subdivision(monkeypatch):
+    import agentfem._q1_surface_search as module
+
+    original = module._patch_enclosure_bound
+    calls = []
+
+    def counted(*args, **kwargs):
+        calls.append(1)
+        return original(*args, **kwargs)
+
+    monkeypatch.setattr(module, "_patch_enclosure_bound", counted)
+    vertices = np.array([[0., 0., 0.], [1., 0., 0.],
+                         [1., 1., 0.], [0., 1., 0.]])
+    assert counted(vertices, vertices[0], 1e-14, .1) == 0.
+    # One chain through depths 0..6 is sufficient; all other children have
+    # nonnegative bounds and cannot change the exact minimum.
+    assert len(calls) == 7

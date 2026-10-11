@@ -123,15 +123,20 @@ def _patch_enclosure_bound(vertices, point, pad, target, depth=0):
         (d + a) / 2,
         vertices.mean(axis=0),
     )
-    return min(
-        _patch_enclosure_bound(np.array(v), point, pad, target, depth + 1)
-        for v in (
-            (a, ab, center, da),
-            (ab, b, bc, center),
-            (center, bc, c, cd),
-            (da, center, cd, d),
-        )
-    )
+    best = float("inf")
+    for vertices_child in (
+        (a, ab, center, da), (ab, b, bc, center),
+        (center, bc, c, cd), (da, center, cd, d),
+    ):
+        best = min(best, _patch_enclosure_bound(
+            np.array(vertices_child), point, pad, target, depth + 1
+        ))
+        # Every child bound is nonnegative. Once zero is found, additional
+        # subdivision cannot lower the minimum. This is an exact early exit,
+        # not a relaxed distance tolerance or an assumed closest projection.
+        if best == 0.0:
+            break
+    return best
 
 
 class Q1SurfaceSearch:

@@ -22,7 +22,7 @@ from test_nonmatching_global import _blocks
 from test_quadrilateral_global import _trace
 
 
-def make_step(dt=1e-4, steps=20, *, closed=False, separated=False):
+def make_step(dt=1e-4, steps=20, *, closed=False, separated=False, exclude_first=False):
     domain = _blocks(1, 2, cell_type="hexahedron")
     # A smaller lower block puts its contact nodes strictly inside the upper
     # surface. Coincident boundary edges need the separate normal-cone gate.
@@ -71,10 +71,13 @@ def make_step(dt=1e-4, steps=20, *, closed=False, separated=False):
         faces = faces[first[count == 1]]
         nb, inverse = np.unique(faces, return_inverse=True)
         b = BilinearReferenceTrace(xyz[nb], inverse.reshape(-1, 4), tolerance=1e-10)
+    candidates = np.ones(len(a.vertices), dtype=bool)
+    if exclude_first:
+        candidates[0] = False
     operator = DeformableQ1Penalty(
         a,
         b,
-        candidate_nodes=np.ones(len(a.vertices), dtype=bool),
+        candidate_nodes=candidates,
         penalty=100.0,
         search_radius=0.5,
         geometry_policy="reviewed_closed_solid" if closed else "oriented_open_patch",
@@ -138,6 +141,20 @@ def test_actual_two_body_contact_restart_and_momentum(tmp_path, closed):
     mass = continuous.residual.base.internal.mass_diagonal.reshape(-1, 3)
     momentum = np.sum(mass * continuous.state.v.value.x.array.reshape(-1, 3), axis=0)
     np.testing.assert_allclose(momentum, initial_momentum, atol=1e-14)
+
+
+def test_changed_contact_coverage_cannot_resume_old_checkpoint(tmp_path):
+    old = make_step(closed=True, exclude_first=True)
+    old.run(until_step=2)
+    path = old.save_checkpoint(tmp_path / "excluded")
+    expanded = make_step(closed=True)
+    before = [getattr(expanded.state, name).value.x.array.copy()
+              for name in ("u", "v", "a")]
+    with pytest.raises(ValueError):
+        expanded.load_checkpoint(path)
+    for name, expected in zip(("u", "v", "a"), before, strict=True):
+        np.testing.assert_array_equal(getattr(expanded.state, name).value.x.array, expected)
+    assert expanded.completed_steps == 0
 
 
 def test_deformable_contact_outer_commit_failure_rolls_back(monkeypatch):

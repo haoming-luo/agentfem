@@ -1074,6 +1074,22 @@ not a guarantee of optimal tree quality or nonlinear physical validity.
 
 ### Explicit performance priorities after contact refitting
 
+Near-touching contact coverage exposes a separate geometric cost: enclosure
+refinement toward zero. Closed-solid projection now requests exterior distance
+certificates only for positive signed gaps; interior and touching points retain
+their already-computed signed gaps. Recursive nonnegative child bounds stop
+after an exact zero minimum. Neither optimization relaxes projection tolerances
+or introduces fabricated positive separation. Broad-phase bounds, actual Q1
+projection and accepted path-crossing guards retain their separate roles.
+
+Bonded-interface normal closure must be assessed as an explicit force-law
+composition, not silently enabled during restart. A private case may test an
+elastic reference bond in parallel with an independent unilateral current-face
+penalty using the existing contact operator. Coverage must include the declared
+bonded secondary nodes and change the operator/checkpoint identity. This is not
+an automatic translation of a vendor hard-contact stiffness or ALL EXTERIOR
+self-contact; the added stiffness requires a new stability/inertia review.
+
 The optimization order is measured step cost first, then justified increment
 count. Keep geometry, constitutive parameters, physical loading duration,
 inertia and acceptance criteria fixed for a same-checkpoint replay. Compare

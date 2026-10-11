@@ -144,9 +144,15 @@ class ClosedQ1Surface:
             normal[i] = delta[i] / gaps[i]
         # Numerical closest distance controls refinement effort only. Returned
         # admission evidence comes exclusively from convex Q1 enclosures.
-        lower = self.search.distance_lower_bounds(
-            query, refinement_distance=distance / 4
-        )
+        # Only exterior points consume a positive separation certificate.
+        # Interior/on-surface points retain the signed gap below; recursively
+        # refining their enclosure (often toward zero) cannot change that result.
+        exterior = gaps > 0
+        lower = np.zeros(len(query))
+        if np.any(exterior):
+            lower[exterior] = self.search.distance_lower_bounds(
+                query[exterior], refinement_distance=distance[exterior] / 4
+            )
         return {
             **found,
             "normals": normal,
