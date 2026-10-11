@@ -192,7 +192,12 @@ def _q1_closest_point_polynomial(vertices, point):
     )
     uv = uv[np.all(admissible, axis=1)]
     if not len(uv):
-        raise ValueError("No resolved constrained Q1 minimum.")
+        from ._q1_exact_order import convex_closest_parameters
+
+        recovered = convex_closest_parameters(physical, query)
+        if recovered is None:
+            raise ValueError("No resolved constrained Q1 minimum.")
+        uv = np.asarray([recovered])
     basis = _element().tabulate(1, uv)[..., 0][:, :, [0, 1, 3, 2]]
     positions = basis[0] @ x
     distances = np.linalg.norm(positions - q, axis=1)

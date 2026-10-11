@@ -1,0 +1,44 @@
+# SPDX-FileCopyrightText: 2026 Haoming Luo and AgentFEM contributors
+# SPDX-License-Identifier: Apache-2.0
+import numpy as np
+import pytest
+
+from agentfem._q1_exact_order import convex_closest_parameters
+from agentfem import _q1_surface_geometry as geometry
+
+
+@pytest.mark.parametrize("uv", [(1e-8, 1e-12), (.37, .61), (1-1e-12, 1e-9)])
+def test_warped_interior_recovery_has_small_parameter_error(uv):
+    x = np.array([[0., 0, 0], [1, 0, 1e-7], [1.03, 1.4, 3e-7], [0, 1.41, -1e-7]])
+    u, v = uv
+    b, c, d = x[1]-x[0], x[3]-x[0], x[2]-x[1]-x[3]+x[0]
+    normal = np.cross(b+d*v, c+d*u)
+    normal /= np.linalg.norm(normal)
+    point = x[0]+b*u+c*v+d*u*v+normal*1e-5
+    result = convex_closest_parameters(x, point)
+    assert result is not None
+    np.testing.assert_allclose(result, uv, rtol=0, atol=4e-15)
+
+
+@pytest.mark.parametrize("point,expected", [([-1., .3, .2], [0., .3]),
+                                            ([2., 3., .1], [1., 1.]),
+                                            ([.2, .4, .5], [.2, .4])])
+def test_affine_box_minimum_including_active_constraints(point, expected):
+    x = np.array([[0., 0, 0], [1, 0, 0], [1, 1, 0], [0, 1, 0]])
+    np.testing.assert_allclose(convex_closest_parameters(x, point), expected,
+                               atol=1e-15, rtol=0)
+
+
+def test_recovery_does_not_admit_unproved_nonconvex_patch():
+    x = np.array([[0., 0, 0], [1, 0, 0], [1, 1, 2], [0, 1, 0]])
+    assert convex_closest_parameters(x, [.5, .5, 10]) is None
+
+
+def test_missing_polynomial_candidate_recovers_only_with_certificate(monkeypatch):
+    x = np.array([[0., 0, 0], [1, 0, 0], [1, 1, .02], [0, 1, 0]])
+    point = np.array([.3, .4, .1])
+    reference = geometry._q1_closest_point_polynomial(x, point)
+    monkeypatch.setattr(geometry, "_projection_roots", lambda _: [])
+    actual = geometry._q1_closest_point_polynomial(x, point)
+    np.testing.assert_allclose(actual[0], reference[0], atol=1e-13, rtol=0)
+    np.testing.assert_allclose(actual[2], reference[2], atol=1e-13, rtol=0)

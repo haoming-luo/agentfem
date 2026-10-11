@@ -43,6 +43,54 @@ def witness_within_distance(vertices, point, uv, tolerance):
     return _dot(delta, delta) <= radius * radius
 
 
+def convex_closest_parameters(vertices, point):
+    """Rare recovery with an exact strong-convexity/KKT error certificate.
+
+    Each Newton witness is rounded back to binary64 to bound rational growth.
+    The returned feasible witness is within 2**-48 in parameter norm of the
+    unique box minimizer. This follows from the exact Hessian lower bound and
+    a normal-cone stationarity residual; an unproved case returns None.
+    """
+    coeff = _coefficients(vertices, point)
+    a, b, c, d = coeff
+    dd = _dot(d, d)
+
+    def diagonal_lower(direction):
+        r = max(Q(0), min(Q(1), -_dot(direction, d)/dd)) if dd else Q(0)
+        vector = tuple(x+r*y for x, y in zip(direction, d, strict=True))
+        return _dot(vector, vector)
+
+    off = max(abs(_dot(b, c)+_dot(a, d)+2*x*_dot(b, d)
+                  +2*y*_dot(c, d)+2*x*y*dd) for x in (0, 1) for y in (0, 1))
+    modulus = min(diagonal_lower(b), diagonal_lower(c))-off
+    if modulus <= 0:
+        return None
+    u = v = Q(1)/2
+    tolerance = Q(1)/2**48
+    for _ in range(12):
+        delta = _value(coeff, u, v)
+        du = tuple(x+v*y for x, y in zip(b, d, strict=True))
+        dv = tuple(x+u*y for x, y in zip(c, d, strict=True))
+        gu, gv = _dot(delta, du), _dot(delta, dv)
+        residual = [Q(0) if (z == 0 and g >= 0) or (z == 1 and g <= 0) else g
+                    for z, g in ((u, gu), (v, gv))]
+        if _dot(residual, residual) <= (tolerance*modulus)**2:
+            return float(u), float(v)
+        huu, hvv = _dot(du, du), _dot(dv, dv)
+        huv = _dot(du, dv)+_dot(delta, d)
+        determinant = huu*hvv-huv*huv
+        if determinant <= 0:
+            return None
+        if u in (0, 1) and residual[0] == 0:
+            un, vn = u, v-gv/hvv
+        elif v in (0, 1) and residual[1] == 0:
+            un, vn = u-gu/huu, v
+        else:
+            un, vn = u-(hvv*gu-huv*gv)/determinant, v-(huu*gv-huv*gu)/determinant
+        u, v = (Q(float(max(Q(0), min(Q(1), z)))) for z in (un, vn))
+    return None
+
+
 def _convex_minimum_interval(vertices, point, uv):
     """Exact squared-distance enclosure from strong convexity and Newton witnesses."""
     coeff = _coefficients(vertices, point)

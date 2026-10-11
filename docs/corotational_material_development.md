@@ -7,6 +7,15 @@ conversion; Procedure and State own acceptance and recovery.
 
 ## Bounded contact retries and filtered geometry (2026-10-12)
 
+The polynomial Q1 oracle also has a rare recovery when floating-point
+elimination produces no admissible stationary candidate. Exact rational
+Gershgorin bounds must first establish strong convexity on the entire
+parameter square. Bounded Newton witnesses are rounded back to binary64;
+an exact normal-cone residual divided by the positive convexity modulus must
+certify a parameter error no greater than `2**-48`. Unproved/nonconvex cases
+remain rejected. This recovers cancellation-limited interior minima near a
+corner without flattening a warped facet or accepting a guessed boundary point.
+
 The swept Q1 separation proof first tries outward-rounded interval dot
 products on proposed separating axes. A strict common sign excludes zero
 from the trilinear control hull; uncertain arithmetic still reaches the exact
