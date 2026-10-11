@@ -974,6 +974,19 @@ viscosity power remain distinct records. A two-cell regression compares the
 result against independently scattered contributions and checks downstream
 rollback; this is an assembly optimization, not a changed damping law.
 
+Directional inertia planning also has a mass-shaped diagonal-majorant option:
+the small material Gram supplies an element frequency bound, which multiplies
+the physical element lumped mass before assembly. Independent dense actions
+check the resulting Loewner upper bound. Neither this option nor absolute rows
+is uniformly tighter; do not take their entrywise minimum, which need not be a
+majorant. The supplied tensor's material domain remains the caller's obligation.
+
+Explicit material responses use immutable byte-backed arrays. Revalidation
+still checks shapes, finiteness and stress symmetry, but may reuse immutable
+payload bytes with a fresh metadata view. Provider-side shape changes and field
+replacement cannot alter a prepared consumer response. This removes redundant
+payload copies without weakening the trial/commit/rollback contract.
+
 Closed-solid explicit contact now rejects unresolved outside-to-outside paths
 before updating material State. For linear nodal trajectories, two positive
 endpoint gaps can only exclude a crossing when their sum exceeds the bound on

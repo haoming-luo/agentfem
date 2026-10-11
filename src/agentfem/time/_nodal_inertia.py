@@ -42,7 +42,7 @@ class NodalInertiaPlan:
             ),
             "maximum_nodal_factor": float(self.nodal_factors.max()),
             "nodes_scaled": int(np.count_nonzero(self.nodal_factors > 1)),
-            "scope": "supplied_fixed_symmetric_PSD_operator_absolute_row_bounds",
+            "scope": "supplied_fixed_symmetric_PSD_operator_diagonal_majorants",
             "nonlinear_path_certified": False,
         }
 

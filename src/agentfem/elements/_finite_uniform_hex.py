@@ -456,6 +456,45 @@ class FiniteUniformHexBatch:
             raise ValueError("Directional Hex8 majorant overflowed.")
         return _frozen(result)
 
+    def directional_cell_mass_majorant(self, *, positive_tensor):
+        """Return a mass-shaped diagonal upper bound for a supplied PSD tensor.
+
+        K_e <= lambda_e M_e implies K <= assembled diag(lambda_e M_e).
+        The material spectrum uses a 9x9 Gram; the positive hourglass bound
+        is added separately. This is an alternative to absolute element rows,
+        not a claim that either bound is always smaller. The caller still owns
+        the tensor's domain of validity; no evolving material bound is inferred.
+        """
+        raw = np.asarray(positive_tensor)
+        count = len(self.coordinates)
+        if (raw.dtype.kind not in "fiu"
+                or raw.shape not in ((3, 3, 3, 3), (count, 3, 3, 3, 3))
+                or not np.isfinite(raw).all()):
+            raise ValueError("Expected finite real positive tensor (3,3,3,3) or cell batch.")
+        tensors = np.broadcast_to(raw, (count, 3, 3, 3, 3))
+        result = np.empty((count, 8, 3))
+        for region in self._regions():
+            matrix = np.asarray(tensors[region], dtype=float).reshape(-1, 9, 9)
+            scale = np.max(np.abs(matrix), axis=(1, 2))
+            tolerance = 64 * np.finfo(float).eps * np.maximum(scale, np.finfo(float).tiny)
+            if np.any(np.max(abs(matrix-matrix.swapaxes(1, 2)), axis=(1, 2)) > tolerance):
+                raise ValueError("Positive tensor must be symmetric in paired indices.")
+            eigenvalues, vectors = np.linalg.eigh((matrix+matrix.swapaxes(1, 2))/2)
+            if np.any(eigenvalues[:, 0] < -tolerance):
+                raise ValueError("Positive tensor must be positive semidefinite.")
+            root = vectors * np.sqrt(np.maximum(eigenvalues, 0))[:, None, :]
+            gram = np.einsum("ik,cJL->ciJkL", np.eye(3),
+                             self._mass_gradient_gram[region]).reshape(-1, 9, 9)
+            reduced = root.swapaxes(1, 2) @ gram @ root
+            physical = self.volume[region] * np.maximum(
+                np.linalg.eigvalsh((reduced+reduced.swapaxes(1, 2))/2)[:, -1], 0)
+            upper = (physical+self._hourglass_spectral_bound[region]) * (
+                1+256*np.finfo(float).eps)
+            result[region] = upper[:, None, None] * self.lumped_mass[region, :, None]
+        if not np.isfinite(result).all():
+            raise ValueError("Mass-shaped Hex8 majorant overflowed.")
+        return _frozen(result)
+
     def tangent_envelope_cell_row_majorant(self, *, positive_modulus):
         """Unscaled isotropic nodal diagonal majorant, including hourglass.
 

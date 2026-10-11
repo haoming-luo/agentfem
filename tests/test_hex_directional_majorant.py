@@ -39,10 +39,11 @@ def test_directional_rows_bound_independent_dense_actions_and_are_chunk_invarian
     assert not rows.flags.writeable
 
 
+@pytest.mark.parametrize("method", ["directional_cell_row_majorant", "directional_cell_mass_majorant"])
 @pytest.mark.parametrize(
     "kind", ["negative", "nonsymmetric", "nonfinite", "shape", "complex"]
 )
-def test_invalid_upper_tensor_rejected(kind):
+def test_invalid_upper_tensor_rejected(kind, method):
     tensor = np.eye(9)
     if kind == "negative":
         tensor[0, 0] = -1
@@ -56,7 +57,28 @@ def test_invalid_upper_tensor_rejected(kind):
     if kind == "complex":
         tensor = tensor.astype(complex)
     with pytest.raises(ValueError):
-        operator().directional_cell_row_majorant(positive_tensor=tensor)
+        getattr(operator(), method)(positive_tensor=tensor)
+
+
+def test_mass_shaped_majorant_encloses_dense_element_actions():
+    op = operator()
+    rng = np.random.default_rng(95)
+    roots = rng.normal(size=(3, 9, 9))
+    tensor = (roots @ roots.swapaxes(1, 2)).reshape(3, 3, 3, 3, 3)
+    rows = op.directional_cell_mass_majorant(positive_tensor=tensor)
+    columns = []
+    for i in range(24):
+        v = np.zeros((3, 8, 3))
+        v.reshape(3, 24)[:, i] = 1
+        columns.append(op.tangent_action(v, first_piola_tangent=tensor).reshape(3, 24))
+    dense = np.stack(columns, axis=-1)
+    for c in range(3):
+        assert np.linalg.eigvalsh(np.diag(rows[c].ravel())-dense[c])[0] > -1e-11
+    np.testing.assert_allclose(rows, operator(chunk_size=1).directional_cell_mass_majorant(
+        positive_tensor=tensor), rtol=1e-13)
+    assert not rows.flags.writeable
+    assert operator(0).directional_cell_mass_majorant(
+        positive_tensor=np.zeros((3, 3, 3, 3))).shape == (0, 8, 3)
 
 
 def test_zero_and_empty_material_tensors_are_legal():
