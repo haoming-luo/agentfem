@@ -1097,6 +1097,15 @@ nodal arrays, material history and work records, not elapsed time alone.
 
 References and their bounded implications:
 
+- [Sierra/SM explicit performance guide](https://www.sandia.gov/files/sierra/SM_Users_5_26/main/appendix/performance.html)
+  and [nodal stability theory](https://www.sandia.gov/files/sierra/SM_Theory_5_20/main/dynamics.html):
+  compare assembled nodal modal-stiffness bounds before adopting an occasional
+  Lanczos estimate. Sierra explicitly notes the latter's overhead and possible
+  instability. Our existing initial directional/mass-weighted cell majorants
+  are a starting point; evolving material and contact bounds remain necessary.
+  Do not copy performance suggestions that change this reproduction's physics
+  (substituting elastic material, disabling required contact, or skipping damage
+  decisions). Timers and uniform-gradient Hex8 kernels are compatible priorities.
 - [Abaqus explicit dynamics](https://docs.software.vt.edu/abaqusv2025/English/SIMACAEANLRefMap/simaanl-c-expdynamic.htm):
   global versus element increment estimation and the effects of penalty
   stiffness and damping motivate a combined stability audit, not a fixed
