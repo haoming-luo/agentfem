@@ -34,6 +34,21 @@ def fixture(count=7):
     return material, request
 
 
+def test_revalidated_request_shares_only_immutable_payload():
+    _, request = fixture()
+    checked = replace(request)
+    for name in ("deformation_gradient_old", "deformation_gradient_new", "state_old"):
+        original = getattr(request, name)
+        protected = getattr(checked, name)
+        shape = protected.shape
+        assert np.shares_memory(original, protected)
+        assert original is not protected
+        with pytest.raises(ValueError):
+            original.setflags(write=True)
+        original.shape = (original.size,)
+        assert protected.shape == shape
+
+
 @pytest.mark.parametrize("history", [False, True])
 def test_direction_batched_tangent_crosses_chunks_and_matches_fixed_state_difference(
     history,

@@ -24,14 +24,20 @@ from .user_material import (
 
 
 def _array(value, shape, label):
+    """Immutable payload with independent metadata across validation boundaries."""
     if np.iscomplexobj(value):
         raise ValueError(f"{label} must be real; complex values are not supported.")
     selected = np.asarray(value, dtype=float)
     if selected.shape != shape or not np.isfinite(selected).all():
         raise ValueError(f"{label} must be finite with shape {shape}.")
-    selected = selected.copy()
-    selected.setflags(write=False)
-    return selected
+    owner = selected
+    while isinstance(owner, np.ndarray):
+        owner = owner.base
+    if not (isinstance(owner, bytes) and selected.flags.c_contiguous
+            and selected.nbytes == len(owner)):
+        owner = selected.tobytes(order="C")
+    # A fresh view protects shape/dtype metadata without copying immutable data.
+    return np.frombuffer(owner, dtype=float).reshape(shape)
 
 
 @dataclass(frozen=True)
