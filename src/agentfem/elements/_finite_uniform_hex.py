@@ -17,6 +17,7 @@ from ._hex_validity import (
     require_positive_hex_jacobian,
     reference_perturbation_radius,
     admits_reference_perturbation,
+    admits_affine_perturbation,
 )
 from ._uniform_hex import _frozen, _geometry
 
@@ -169,16 +170,21 @@ class FiniteUniformHexBatch:
         u = self._displacement(displacement)
         gradients = []
         for region in self._regions():
+            f = np.eye(3) + u[region].swapaxes(1, 2) @ self.average_gradient[region]
             admitted = admits_reference_perturbation(
                 self.coordinates[region],
                 u[region],
                 self._reference_perturbation_radius[region],
             )
             if np.any(~admitted):
+                admitted[~admitted] = admits_affine_perturbation(
+                    self.coordinates[region][~admitted], u[region][~admitted],
+                    f[~admitted], self._reference_perturbation_radius[region][~admitted],
+                )
+            if np.any(~admitted):
                 require_positive_hex_jacobian(
                     self.coordinates[region][~admitted] + u[region][~admitted]
                 )
-            f = np.eye(3) + u[region].swapaxes(1, 2) @ self.average_gradient[region]
             if not positive_finite_determinants(f).all():
                 raise ValueError(
                     "Mean deformation gradient must have positive determinant."

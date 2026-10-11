@@ -106,9 +106,12 @@ def test_reference_perturbation_admission_and_full_geometry_fallback(
     moved[1] = 1e-10 * op.coordinates[1]
     op.deformation_gradient(moved)
     assert sizes == []
-    # A sufficient nonsingularity bound admits this perturbation. A large
-    # proper rotation falls back to full admission without being rejected.
+    # The affine-removed bound admits proper rotation without 27-point work.
     moved[1] = op.coordinates[1] @ np.diag([-1.0, -1.0, 1.0]) - op.coordinates[1]
+    op.deformation_gradient(moved)
+    assert sizes == []
+    # A large nonaffine perturbation still requires full admission.
+    moved[0, 7, 2] = .3
     op.deformation_gradient(moved)
     assert sum(sizes) == 1
     moved[2, :, 0] = -2 * op.coordinates[2, :, 0]

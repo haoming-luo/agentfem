@@ -129,3 +129,34 @@ def test_cancellation_does_not_admit_near_degenerate_affine_cell(scale, height):
     mapping = np.array([[1, 1, 0], [1, 1 + height, 0], [0, 0, 1]])
     with pytest.raises(ValueError, match="near-singular"):
         require_positive_hex_jacobian((scale * (vertices @ mapping.T))[None])
+
+
+@pytest.mark.parametrize("angle", [.8,2.,3.14])
+def test_affine_removed_admission_preserves_large_rotation_and_shear(angle):
+    from agentfem.elements._hex_validity import (
+        reference_perturbation_radius, admits_affine_perturbation,
+        admits_reference_perturbation,
+    )
+    x=basix.cell.geometry(basix.CellType.hexahedron)[None].copy()
+    x[0,7]+=[.05,.02,.03]
+    c,s=np.cos(angle),np.sin(angle)
+    f=np.array([[c,-s,0],[s,c,0],[0,0,1.]]) @ np.array([[1.2,.3,0],[0,.8,0],[0,0,1.1]])
+    u=x@(f-np.eye(3)).T+[2.,-3.,4.]
+    radius=reference_perturbation_radius(x)
+    assert not admits_reference_perturbation(x,u,radius).any()
+    assert admits_affine_perturbation(x,u,f[None],radius).all()
+    assert require_positive_hex_jacobian(x+u)[0]>0
+    assert not admits_affine_perturbation(x,u,(-f)[None],radius).any()
+
+
+def test_affine_removed_random_nonaffine_admission_is_conservative():
+    from agentfem.elements._hex_validity import reference_perturbation_radius, admits_affine_perturbation
+    rng=np.random.default_rng(231)
+    x=basix.cell.geometry(basix.CellType.hexahedron)+rng.uniform(-.03,.03,(250,8,3))
+    radius=reference_perturbation_radius(x)
+    f=np.tile(np.array([[0.,-1.,0],[1.,0,0],[0,0,1.]]),(len(x),1,1))
+    u=x@(f-np.eye(3)).swapaxes(1,2)
+    u+=rng.normal(size=u.shape)*np.linspace(1e-5,.4,len(x))[:,None,None]
+    admitted=admits_affine_perturbation(x,u,f,radius)
+    assert admitted.any() and not admitted.all()
+    assert np.all(require_positive_hex_jacobian((x+u)[admitted])>0)

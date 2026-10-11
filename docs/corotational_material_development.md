@@ -50,6 +50,15 @@ focused orientation, material-array, finite-Hex and damping selection passes
 65 tests, including inversion, singularity, overflow and fallback boundaries.
 No physical configuration, numerical inertia or accepted time step changes.
 
+If the reference perturbation screen is inconclusive, an affine-removed check
+now writes the current cell as `F X + r + translation`. The reference singular
+value lower bound, multiplied by `sigma_min(F)`, bounds the permissible
+nonaffine Jacobian perturbation. Orientation-reversing F is never admitted;
+inconclusive cases still use Bernstein subdivision. Large proper rotations,
+shears, random nonaffine perturbations and the existing inversion cases pass
+47 focused tests. This improves admission cost, not allowable distortion or
+the material's finite-strain domain.
+
 Dynamic finite-Hex force scatter now reduces the complete owned-cell array
 with three indexed reductions instead of looping over geometry chunks. Ghost
 reverse accumulation remains unchanged; initial mass retains its original

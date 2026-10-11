@@ -171,3 +171,30 @@ def admits_reference_perturbation(coordinates, displacement, radius):
     )
     guard = 128 * np.finfo(float).eps * scale
     return np.isfinite(change + guard) & (change + guard < radius)
+
+
+def admits_affine_perturbation(coordinates, displacement, gradient, radius):
+    """Sufficient validity after removing an orientation-preserving affine map.
+
+    Write x = F X + r + translation, so J_current = F J_reference + J_r.
+    The reference radius times sigma_min(F) is a conservative perturbation
+    budget. Pure finite rotation/shear need not trigger 27-sample subdivision.
+    False still requests the full Bernstein check; no inversion is repaired.
+    """
+    from .._orientation import positive_finite_determinants
+
+    admitted = np.zeros(len(coordinates), dtype=bool)
+    selected = positive_finite_determinants(gradient)
+    if not np.any(selected):
+        return admitted
+    x, u, f = coordinates[selected], displacement[selected], gradient[selected]
+    relative = x - x[:, :1]
+    remainder = (u - u[:, :1]) - relative @ (f - np.eye(3)).swapaxes(1, 2)
+    singular = np.linalg.svd(f, compute_uv=False)
+    change = _jacobian_frobenius_bound(remainder)
+    scale = (np.max(np.abs(x), axis=(1, 2)) * (1 + singular[:, 0])
+             + np.max(np.abs(u), axis=(1, 2)))
+    guard = 256*np.finfo(float).eps*scale
+    budget = radius[selected]*singular[:, -1]
+    admitted[selected] = np.isfinite(change+guard) & (change+guard < budget)
+    return admitted
