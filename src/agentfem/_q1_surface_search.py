@@ -346,8 +346,22 @@ class Q1SurfaceSearch:
             or maximum_candidates < 1
         ):
             raise ValueError("maximum_candidates must be a positive integer.")
+        # Closed-solid callers can reject a provably exterior ambiguous point
+        # and retry the remaining batch. Reuse only successful prefix queries
+        # on this immutable geometry, with identical search/normal policies.
+        # The cache is emptied on success and never transferred on refit.
+        policy = (float(maximum_distance), maximum_candidates, require_unique_normal)
+        previous = getattr(self, "_retry_projection_prefix", {})
+        self._retry_projection_prefix = {}
         found, counts = [], []
         for index, point in enumerate(points):
+            key = (policy, point.tobytes())
+            if key in previous:
+                best, count = previous[key]
+                found.append(best)
+                counts.append(count)
+                self._retry_projection_prefix[key] = (best, count)
+                continue
             radius = maximum_distance + self.padding
             facets = np.unique(
                 self.tree.overlapping_facets(point - radius, point + radius) // 2
@@ -412,6 +426,8 @@ class Q1SurfaceSearch:
                     if candidate[0] < best[0]:
                         best = candidate
             found.append(best)
+            self._retry_projection_prefix[key] = (best, counts[-1])
+        self._retry_projection_prefix = {}
         return {
             "facet_indices": np.array([f for f, _ in found], dtype=np.int64),
             "weights": np.array([r[1] for _, r in found]).reshape(-1, 4),

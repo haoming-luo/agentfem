@@ -157,3 +157,32 @@ def test_warped_elimination_recovers_constructed_normal_projections():
         result = _q1_closest_point_polynomial(x, query)
         np.testing.assert_allclose(result[0], [u, v], atol=1e-11, rtol=0)
         np.testing.assert_allclose(result[1], weights, atol=1e-11, rtol=0)
+
+
+def test_failed_batch_reuses_only_successful_geometry_prefix(monkeypatch):
+    import agentfem._q1_surface_search as module
+
+    x = np.array([[[0., 0., 0.], [1., 0., 0.], [1., 1., 0.], [0., 1., 0.]]])
+    search = module.Q1SurfaceSearch(x)
+    good, far = np.array([.2, .3, .01]), np.array([4., 5., 6.])
+    original = module.q1_closest_point
+    calls = []
+
+    def counted(*args):
+        calls.append(1)
+        return original(*args)
+
+    monkeypatch.setattr(module, "q1_closest_point", counted)
+    with pytest.raises(module.SurfaceOutsideSearchRadius):
+        search.project([good, far], maximum_distance=.1)
+    assert len(calls) == 1
+    recovered = search.project([good], maximum_distance=.1)
+    assert len(calls) == 1
+    assert search._retry_projection_prefix == {}
+    fresh = search.project([good], maximum_distance=.1)
+    assert len(calls) == 2
+    np.testing.assert_array_equal(recovered["points"], fresh["points"])
+    with pytest.raises(module.SurfaceOutsideSearchRadius):
+        search.project([good, far], maximum_distance=.1)
+    search.project([good], maximum_distance=.2)
+    assert len(calls) == 4  # A changed search policy cannot use the prefix.
