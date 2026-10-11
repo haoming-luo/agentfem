@@ -72,6 +72,21 @@ def test_convex_interior_beats_shared_edge_despite_distance_roundoff(length, rev
             query, maximum_distance=.01*length, require_unique_normal=False)
 
 
+@pytest.mark.parametrize('reverse', [False, True])
+def test_near_corner_edge_witness_has_exact_distance_order(reverse):
+    vertices = np.array([
+        [[-.01, -1., 1.], [-.01, -1., 0.], [0., 0., 0.], [0., 0., 1.]],
+        [[-.01, 1., 0.], [-.01, 1., 1.], [0., 0., 1.], [0., 0., 0.]],
+    ])
+    nodes = np.array([[0, 1, 2, 3], [4, 5, 3, 2]])
+    if reverse:
+        vertices, nodes = vertices[::-1], nodes[::-1]
+    answer = Q1SurfaceSearch(vertices, node_ids=nodes).project(
+        [[-3e-12, -1e-13, 1.+6e-13]], maximum_distance=.1,
+        require_unique_normal=False)
+    assert answer['facet_indices'][0] == int(reverse)
+
+
 @pytest.mark.parametrize("length", [1e-3, 1.0, 1e3])
 def test_resolvable_near_seam_is_not_a_false_ambiguity(length):
     surface = np.array([square(), square() + [1, 0, 0]]) * length

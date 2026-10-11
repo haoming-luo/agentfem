@@ -33,12 +33,13 @@ class SurfaceOutsideSearchRadius(ValueError):
 
 
 def _interior_dominates_shared_edge(vertices, node_ids, point, interior, edge):
-    """Resolve only a strict convex interior minimum versus its own shared edge.
+    """Resolve a candidate versus a neighboring patch sharing a physical edge.
 
     Near an edge, distance differences are quadratic in edge distance and can
     disappear in a distance-based tie tolerance. Topology plus a strongly
     convex squared-distance objective supplies an independent ordering screen.
-    Overlapping, disconnected and nonconvex alternatives remain unresolved.
+    A filtered exact convex-boundary proof also covers near-corner edge
+    candidates. Overlapping/disconnected/nonconvex alternatives remain unresolved.
     """
     if node_ids is None:
         return False
@@ -56,15 +57,21 @@ def _interior_dominates_shared_edge(vertices, node_ids, point, interior, edge):
         positions = [i for i, node in enumerate(row) if node in shared]
         if (positions[1] - positions[0]) % 4 not in (1, 3):
             return False
+    from ._q1_exact_order import witness_beats_boundary_minimum
+
+    def exact_order():
+        return witness_beats_boundary_minimum(
+            vertices[fi], point, ri[0], vertices[fe])
+
     eps = np.finfo(float).eps
     outside = [w for node, w in zip(node_ids[fe], re[1], strict=True)
                if node not in shared]
     if max(map(abs, outside), default=1.) > 64 * eps:
-        return False
-    s, t = ri[1][1] + ri[1][2], ri[1][2] + ri[1][3]
+        return exact_order()
+    s, t = ri[0]
     margin = min(s, t, 1 - s, 1 - t)
     if margin <= 256 * eps:
-        return False
+        return exact_order()
     v = vertices[fi]
     a = v[0] - point
     b, c = v[1] - v[0], v[3] - v[0]
@@ -92,11 +99,7 @@ def _interior_dominates_shared_edge(vertices, node_ids, point, interior, edge):
     # A cancellation-limited tie need not be physically ambiguous. Only this
     # rare filtered case pays for exact binary64-rational arithmetic; prove
     # global ordering against the neighboring convex patch, or keep rejecting.
-    from ._q1_exact_order import witness_beats_boundary_minimum
-
-    return witness_beats_boundary_minimum(
-        vertices[fi], point, (s, t), vertices[fe]
-    )
+    return exact_order()
 
 
 def _patch_enclosure_bound(vertices, point, pad, target, depth=0):

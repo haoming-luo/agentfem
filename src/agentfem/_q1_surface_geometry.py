@@ -14,6 +14,26 @@ import basix
 import numpy as np
 
 
+def _projection_roots(equation):
+    """Avoid cancellation of a tiny root beside a huge quadratic root.
+
+    Nearly affine Q1 patches often reduce to this case. Obtain the smaller
+    root from the root product rather than subtracting nearly equal numbers
+    (Kahan's quadratic formula). Physical stationarity checks still follow.
+    Higher degrees retain the existing companion solver.
+    """
+    if equation.degree() != 2:
+        return equation.roots()
+    c, b, a = equation.coef / np.max(np.abs(equation.coef))
+    discriminant = b*b - 4*a*c
+    if discriminant < 0:
+        return equation.roots()
+    q = -0.5 * (b + np.copysign(np.sqrt(discriminant), b))
+    if q == 0:
+        return np.array([0.0, 0.0])
+    return np.array([q/a, c/q])
+
+
 def q1_closest_point(vertices, point):
     """Exact Q1 closest point, with a convex affine fast path.
 
@@ -121,7 +141,7 @@ def _q1_closest_point_polynomial(vertices, point):
         tol=64 * np.finfo(float).eps * np.max(np.abs(equation.coef))
     )
     candidates = []
-    for root in equation.roots():
+    for root in _projection_roots(equation):
         if abs(root.imag) > 1e-8 or not 0 < root.real < 1:
             continue
         v = float(root.real)

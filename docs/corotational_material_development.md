@@ -5,6 +5,21 @@ source materials stay outside the distribution. Model retains engineering
 assets; constitutive providers own local updates; Operator owns stress/force
 conversion; Procedure and State own acceptance and recovery.
 
+## Cancellation-limited closest-point recovery (2026-10-11)
+
+Nearly affine Q1 elimination can produce a tiny admissible quadratic root and
+an enormous inadmissible root. The small root now uses the stable root-product
+formula rather than companion eigenvalues; unchanged physical stationarity
+and constrained-minimum checks still decide admission. The rare exact
+shared-edge ordering proof now accepts feasible edge witnesses near corners,
+not just strict interior witnesses. Binary64 inputs are compared as rationals;
+equal or unproved ordering remains an error. Synthetic tests cover both facet
+orders, strongly separated root magnitudes and near-edge warped projections.
+
+This repaired a private original-grid checkpoint reconstruction; it is not
+evidence of completed loading or nonlinear stability. Numerical background:
+[Kahan, quadratic root cancellation](https://people.eecs.berkeley.edu/~wkahan/Qdrtcs.pdf).
+
 ## Additive force assembly (2026-10-11)
 
 The Hex8 scatter accepts a second cell-force contribution on the same topology.
