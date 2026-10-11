@@ -508,6 +508,14 @@ def load_portable_quadrature_state(path, state, *, material=None) -> None:
     state.restore(snapshot)
 
 
+def _state_value_snapshot(selected) -> np.ndarray:
+    # The concrete field already returns an independent, cell-ordered copy.
+    # Other providers (including subclasses) may expose live views, so retain
+    # the defensive copy for the open state protocol.
+    values = np.asarray(selected.values)
+    return values if type(selected) is QuadratureField else values.copy()
+
+
 @dataclass
 class QuadratureTransaction:
     """Shared trial/commit/rollback contract for integration-point state.
@@ -568,7 +576,7 @@ class QuadratureTransaction:
         """Atomically accept every trial state variable."""
 
         snapshots = {
-            name: np.asarray(selected.values).copy()
+            name: _state_value_snapshot(selected)
             for name, selected in self.trial.items()
         }
         for name, selected in self.committed.items():
@@ -578,7 +586,7 @@ class QuadratureTransaction:
         """Discard all trial variables and restore the committed state."""
 
         snapshots = {
-            name: np.asarray(selected.values).copy()
+            name: _state_value_snapshot(selected)
             for name, selected in self.committed.items()
         }
         for name, selected in self.trial.items():
@@ -588,7 +596,7 @@ class QuadratureTransaction:
         """Return a restart-safe copy of committed state values."""
 
         return {
-            name: np.asarray(selected.values).copy()
+            name: _state_value_snapshot(selected)
             for name, selected in self.committed.items()
         }
 
