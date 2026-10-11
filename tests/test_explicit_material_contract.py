@@ -49,6 +49,39 @@ def test_work_can_be_negative_and_does_not_become_stored_energy():
     assert not result.internal_work_density_increment.flags.writeable
 
 
+def test_owned_response_reuses_checked_bytes_and_detaches_metadata(monkeypatch):
+    from agentfem.constitutive._explicit_material import _owned_validated_response
+    original = response()
+    def reject_rescan(*args, **kwargs):
+        raise AssertionError("Unchanged immutable response should not be rescanned.")
+    with monkeypatch.context() as context:
+        context.setattr(np, "isfinite", reject_rescan)
+        checked = _owned_validated_response(original)
+    assert checked is not original
+    assert np.shares_memory(checked.state_new, original.state_new)
+    original.state_new.shape = (4,)
+    assert checked.state_new.shape == (2, 2)
+    with pytest.raises(ValueError):
+        checked.state_new.setflags(write=True)
+    with pytest.raises(ValueError):
+        _owned_validated_response(original)
+
+
+def test_owned_response_rechecks_replaced_array_and_dtype():
+    from agentfem.constitutive._explicit_material import _owned_validated_response
+    original = response()
+    object.__setattr__(original, "state_new", np.full((2, 2), np.nan))
+    with pytest.raises(ValueError):
+        _owned_validated_response(original)
+    original = response()
+    original.state_new.dtype = np.int64
+    # Revalidation may admit real finite converted values, but never reuse the
+    # old float payload certificate after a dtype reinterpretation.
+    expected = replace(original)
+    actual = _owned_validated_response(original)
+    np.testing.assert_array_equal(actual.state_new, expected.state_new)
+
+
 def test_response_revalidation_reuses_immutable_bytes_not_array_metadata():
     original = response()
     checked = replace(original)

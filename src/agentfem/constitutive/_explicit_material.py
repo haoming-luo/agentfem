@@ -15,6 +15,61 @@ from .material_array_batch import MaterialPointArrayBatchInput, _array
 from .user_material import MaterialStateSchema
 
 
+_RESPONSE_ARRAYS = (
+    "cauchy_stress", "state_new", "internal_work_density_increment",
+    "stored_energy_density", "dissipation_density_increment", "requested_time_scale",
+)
+
+
+def _response_transport_stamp(response):
+    """Remember immutable payloads and mutable NumPy metadata separately."""
+    entries = []
+    for name in _RESPONSE_ARRAYS:
+        value = getattr(response, name)
+        if value is None:
+            entries.append((name, None, None, None, None))
+            continue
+        owner = value
+        while isinstance(owner, np.ndarray):
+            owner = owner.base
+        if not isinstance(owner, bytes):  # only constructor-owned byte storage
+            return None
+        metadata = (value.shape, value.strides, value.dtype.str, value.nbytes)
+        entries.append((name, value, owner, metadata, value.ctypes.data))
+    return response.state_schema, tuple(entries)
+
+
+def _owned_validated_response(response):
+    """Copy transport ownership without rescanning unchanged immutable values.
+
+    Subclasses and changed metadata/fields take the full constructor path.
+    This is ordinary runtime validation, not isolation from malicious Python.
+    """
+    stamp = getattr(response, "_transport_stamp", None)
+    if type(response) is not ExplicitMaterialBatchOutput or stamp is None:
+        return replace(response)
+    schema, entries = stamp
+    if response.state_schema is not schema:
+        return replace(response)
+    for name, original, owner, metadata, pointer in entries:
+        value = getattr(response, name)
+        if value is not original:
+            return replace(response)
+        if value is not None and (
+            value.flags.writeable
+            or (value.shape, value.strides, value.dtype.str, value.nbytes) != metadata
+            or value.ctypes.data != pointer
+        ):
+            return replace(response)
+    result = object.__new__(ExplicitMaterialBatchOutput)
+    object.__setattr__(result, "state_schema", schema)
+    for name, original, owner, metadata, pointer in entries:
+        value = None if original is None else np.frombuffer(owner, dtype=float).reshape(metadata[0])
+        object.__setattr__(result, name, value)
+    object.__setattr__(result, "_transport_stamp", _response_transport_stamp(result))
+    return result
+
+
 @dataclass(frozen=True)
 class ExplicitMaterialIncrementLimit:
     """Provider-declared material-update limit in the request's time units.
@@ -164,6 +219,7 @@ class ExplicitMaterialBatchOutput:
         if np.any(scales <= 0) or np.any(scales > 1):
             raise ValueError("Requested time scale must lie in (0, 1].")
         object.__setattr__(self, "requested_time_scale", scales)
+        object.__setattr__(self, "_transport_stamp", _response_transport_stamp(self))
 
     @property
     def point_count(self):
@@ -201,7 +257,7 @@ def validated_explicit_material_update(material, request):
         raise TypeError(
             "Expected ExplicitMaterialBatchOutput; no implicit response coercion."
         )
-    response = replace(response)
+    response = _owned_validated_response(response)
     if (
         response.state_schema != request.state_schema
         or response.point_count != request.point_count

@@ -16,6 +16,15 @@ both additive paths also passed on two MPI ranks. This changes neither the
 material law nor numerical inertia, increment admission, or energy meaning.
 Private compiled scatter experiments remain outside the distributed runtime.
 
+Explicit material response transport now recognizes constructor-validated,
+immutable byte payloads. An unchanged response crosses the provider boundary
+with a fresh object and independent array metadata, without rescanning its
+values. Replaced fields, changed shape/dtype/strides/data pointer, and subclasses
+still take full constructor validation. This is not a security boundary against
+malicious Python. Contract, quadrature ownership and rollback tests: 55 passed;
+the private original-grid three-increment replay retained bitwise identical
+stress, state and deformation-gradient arrays.
+
 ## Same-trial reuse and ordered contact identity (2026-10-11)
 
 Profiling the private original-mesh startup identified duplicate full Hex8
