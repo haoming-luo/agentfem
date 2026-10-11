@@ -120,10 +120,28 @@ rejected in tests through the 100,000th increment. This does not increase the
 physical/provider limit or add automatic retries. The rejected trial left the
 accepted checkpoint intact.
 
-Exactly zero-displacement cells reuse their immutable, previously admitted
-reference geometry. Any nonzero cell displacement still invokes full Bernstein
-Jacobian admission; no small-displacement tolerance or unchecked interval is
-introduced. Dedicated mixed-cell tests retain inversion rejection.
+The subsequent geometry fast path uses a sufficient perturbation bound, not a
+small-displacement tolerance. The reference Bernstein determinant lower bound
+and Q1 edge-based Frobenius upper bound imply a uniform lower singular-value
+bound. A guarded perturbation strictly smaller than one quarter of that bound
+cannot cross a singular Jacobian along the reference-to-current homotopy.
+Inconclusive cells still receive full Bernstein admission, including large
+rotations and possible inversions. This is floating-point guarded admission,
+not interval arithmetic. Random distorted/scaled cells are compared with the
+full check and independent Basix derivatives.
+
+On the same original-mesh checkpoint, a 30-increment loaded segment (815--844)
+took 90.15 s before and 81.14 s with this geometry admission, under profiling;
+sampled physical histories match exactly. This approximately 10% reduction is
+segment-specific, not a full simulation claim. Increasing kernel chunk size
+to 8192 was not measured: re-preparation changed numerical-inertia byte identity
+and restart correctly rejected it. No identity check was bypassed.
+
+Material stretch-domain checks additionally use sufficient Gershgorin bounds
+on F.T F and retain SVD for inconclusive points. The declared domain and its
+existing endpoint tolerance are unchanged. Independent SVD-oracle tests cover
+random rotated states, boundary values, reflections and invalid input. This
+does not derive or strengthen the provider's material envelope.
 
 ### Explicit contact integration choice
 

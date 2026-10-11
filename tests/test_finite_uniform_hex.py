@@ -83,7 +83,7 @@ def test_finite_affine_patch_and_large_rigid_rotations(distorted):
         np.testing.assert_allclose(response.hourglass_energy, 0, atol=1e-25)
 
 
-def test_exact_reference_cells_reuse_admission_but_changed_cells_never_skip(
+def test_reference_perturbation_admission_and_full_geometry_fallback(
     monkeypatch,
 ):
     from agentfem.elements import _finite_uniform_hex as module
@@ -105,9 +105,12 @@ def test_exact_reference_cells_reuse_admission_but_changed_cells_never_skip(
     moved = zero.copy()
     moved[1] = 1e-10 * op.coordinates[1]
     op.deformation_gradient(moved)
+    assert sizes == []
+    # A sufficient nonsingularity bound admits this perturbation. A large
+    # proper rotation falls back to full admission without being rejected.
+    moved[1] = op.coordinates[1] @ np.diag([-1.0, -1.0, 1.0]) - op.coordinates[1]
+    op.deformation_gradient(moved)
     assert sum(sizes) == 1
-    # Even an arbitrarily small nonzero displacement is checked; no tolerance
-    # hides topology changes or future inversions.
     moved[2, :, 0] = -2 * op.coordinates[2, :, 0]
     with pytest.raises(ValueError, match="Jacobian"):
         op.deformation_gradient(moved)

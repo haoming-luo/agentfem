@@ -11,7 +11,11 @@ from dataclasses import dataclass
 
 import numpy as np
 
-from ._hex_validity import require_positive_hex_jacobian
+from ._hex_validity import (
+    require_positive_hex_jacobian,
+    reference_perturbation_radius,
+    admits_reference_perturbation,
+)
 from ._uniform_hex import _frozen, _geometry
 
 
@@ -87,15 +91,18 @@ class FiniteUniformHexBatch:
             self._mass_gradient_gram = _frozen(np.empty((0, 3, 3)))
             self._hourglass_spectral_bound = _frozen(np.empty(0))
             self._isotropic_mass_gradient_bound = _frozen(np.empty(0))
+            self._reference_perturbation_radius = _frozen(np.empty(0))
             return
-        volumes, gradients, modes, nodal = [], [], [], []
+        volumes, gradients, modes, nodal, radii = [], [], [], [], []
         for region in self._regions():
             volume, gradient, gamma, nodal_volume = _geometry(x[region])
             volumes.append(volume)
             gradients.append(gradient)
             modes.append(gamma)
             nodal.append(nodal_volume)
+            radii.append(reference_perturbation_radius(x[region]))
         self.volume = _frozen(np.concatenate(volumes))
+        self._reference_perturbation_radius = _frozen(np.concatenate(radii))
         self.average_gradient = _frozen(np.concatenate(gradients))
         self.hourglass_modes = _frozen(np.concatenate(modes))
         self.lumped_mass = _frozen(rho[:, None] * np.concatenate(nodal))
@@ -160,13 +167,14 @@ class FiniteUniformHexBatch:
         u = self._displacement(displacement)
         gradients = []
         for region in self._regions():
-            # The immutable reference geometry was admitted at construction.
-            # Exact-zero cells are still that geometry, not a small-strain
-            # approximation. Every changed cell retains the complete check.
-            changed = np.any(u[region] != 0.0, axis=(1, 2))
-            if np.any(changed):
+            admitted = admits_reference_perturbation(
+                self.coordinates[region],
+                u[region],
+                self._reference_perturbation_radius[region],
+            )
+            if np.any(~admitted):
                 require_positive_hex_jacobian(
-                    self.coordinates[region][changed] + u[region][changed]
+                    self.coordinates[region][~admitted] + u[region][~admitted]
                 )
             f = np.eye(3) + np.einsum(
                 "cai,caJ->ciJ", u[region], self.average_gradient[region]

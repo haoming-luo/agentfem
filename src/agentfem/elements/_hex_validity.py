@@ -113,3 +113,61 @@ def require_positive_hex_jacobian(coordinates):
         except ValueError as error:
             raise ValueError(f"Geometry batch cell {index}: {error}") from error
     return lower
+
+
+@lru_cache(maxsize=1)
+def _coordinate_edges():
+    corners = basix.cell.geometry(basix.CellType.hexahedron)
+    edges = []
+    for axis in range(3):
+        pairs = []
+        for start, point in enumerate(corners):
+            if point[axis] != 0:
+                continue
+            end = point.copy()
+            end[axis] = 1
+            pairs.append(
+                (start, int(np.flatnonzero(np.all(corners == end, axis=1))[0]))
+            )
+        edges.append(pairs)
+    result = np.asarray(edges)
+    result.setflags(write=False)
+    return result
+
+
+def _jacobian_frobenius_bound(values):
+    """Uniform bound from the four convex edge differences per Q1 derivative."""
+    edges = _coordinate_edges()
+    differences = values[:, edges[:, :, 1]] - values[:, edges[:, :, 0]]
+    return np.sqrt(
+        np.sum(np.max(np.sum(differences * differences, axis=3), axis=2), axis=1)
+    )
+
+
+def reference_perturbation_radius(coordinates):
+    """Conservative sufficient perturbation radius, not a small-strain tolerance.
+
+    For every reference point, sigma_min(J) >= 2*det(J)/||J||_F**2.
+    The Bernstein lower determinant and convex edge upper norm give a uniform
+    bound. A strict quarter of it leaves room for floating-point guards. This
+    remains floating-point admission, not an interval-arithmetic certificate.
+    """
+    lower = require_positive_hex_jacobian(coordinates)
+    norm = _jacobian_frobenius_bound(coordinates)
+    with np.errstate(over="ignore", under="ignore", invalid="ignore", divide="ignore"):
+        radius = 0.5 * lower / (norm * norm)
+    return np.where(np.isfinite(radius) & (radius > 0), radius, 0.0)
+
+
+def admits_reference_perturbation(coordinates, displacement, radius):
+    """Sufficient no-singularity homotopy check; False requests full admission.
+
+    No accepted-state cache or displacement threshold is used. Large rigid
+    rotation can fail this sufficient test and still pass the Bernstein path.
+    """
+    change = _jacobian_frobenius_bound(displacement)
+    scale = np.max(np.abs(coordinates), axis=(1, 2)) + np.max(
+        np.abs(displacement), axis=(1, 2)
+    )
+    guard = 128 * np.finfo(float).eps * scale
+    return np.isfinite(change + guard) & (change + guard < radius)

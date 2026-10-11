@@ -212,7 +212,8 @@ class FiniteUniformHexResidual:
                 gradient = self.cells.deformation_gradient(displacement)
                 response = self.response.update(
                     material, deformation_gradient_old=deformation_gradient_old,
-                    deformation_gradient_new=gradient, time=time, time_increment=time_increment)
+                    deformation_gradient_new=gradient, time=time, time_increment=time_increment,
+                    max_batch_points=self.cells.chunk_size)
                 if not np.array_equal(self.displacement.x.array, nodal):
                     raise RuntimeError("Material callback changed the admitted Hex8 configuration.")
                 element = self.cells._response_from_checked_displacement(

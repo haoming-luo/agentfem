@@ -79,3 +79,38 @@ def test_chunked_guard_checks_last_point_and_rejects_complex_inputs():
         envelope().validate_response(f.astype(complex), a)
     with pytest.raises(ValueError, match="real"):
         envelope().validate_response(f, a.astype(complex))
+
+
+def test_stretch_fast_admission_keeps_svd_for_inconclusive_points(monkeypatch):
+    original = np.linalg.svd
+    counts = []
+    def tracked(value, *args, **kwargs):
+        counts.append(len(value))
+        return original(value, *args, **kwargs)
+    monkeypatch.setattr(np.linalg, 'svd', tracked)
+    f = np.tile(np.eye(3), (8, 1, 1))
+    envelope().validate_deformation(f)
+    assert sum(counts) == 0
+    # Endpoint tolerance remains exactly the SVD contract, not Gershgorin.
+    f[-1, 0, 0] = 1.3
+    envelope().validate_deformation(f)
+    assert sum(counts) == 1
+    f[-1, 0, 0] = 1.3 * (1 + 2e-12)
+    with pytest.raises(ValueError, match='domain'):
+        envelope().validate_deformation(f)
+
+
+def test_stretch_guard_matches_svd_oracle_for_rotated_random_states():
+    rng = np.random.default_rng(912)
+    f = rng.normal(size=(300, 3, 3)) * .2 + np.eye(3)
+    item = envelope()
+    singular = np.linalg.svd(f, compute_uv=False)
+    expected = ((np.linalg.det(f) > 0)
+                & (singular[:, -1] >= .8 * (1 - 1e-12))
+                & (singular[:, 0] <= 1.3 * (1 + 1e-12)))
+    for matrix, admitted in zip(f, expected):
+        if admitted:
+            item.validate_deformation(matrix[None])
+        else:
+            with pytest.raises(ValueError, match='domain'):
+                item.validate_deformation(matrix[None])
