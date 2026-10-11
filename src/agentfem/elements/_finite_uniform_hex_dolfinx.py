@@ -57,7 +57,10 @@ class FiniteUniformHexResidual:
             comm=self.comm,
             label="Finite Hex8 local preparation",
         )
-        mass = self._scatter(np.repeat(self.cells.lumped_mass[..., None], 3, axis=2))
+        # Preserve established mass summation and checkpoint identities. Dynamic
+        # force scatter can reduce whole owned-cell arrays without chunk loops.
+        mass = self._scatter(np.repeat(self.cells.lumped_mass[..., None], 3, axis=2),
+                             chunked=True)
         try:
             self.mass_diagonal = mass.array.copy()
         finally:
@@ -82,7 +85,7 @@ class FiniteUniformHexResidual:
             chunk_size=chunk_size,
         )
 
-    def _scatter(self, cell_values):
+    def _scatter(self, cell_values, *, chunked=False):
         from petsc4py import PETSc
 
         vector = self.displacement.x.petsc_vec.duplicate()
@@ -99,16 +102,25 @@ class FiniteUniformHexResidual:
                 with vector.localForm() as local:
                     local.set(0)
                     values = local.array.reshape(-1, 3)
-                    for region, (nodes, inverse) in zip(
-                        self.cells._regions(), self._scatter_plans
-                    ):
-                        force = cell_values[region].reshape(-1, 3)
+                    if not chunked:
+                        force = cell_values.reshape(-1, 3)
+                        nodes = self.cell_nodes.ravel()
                         for component in range(3):
-                            values[nodes, component] += np.bincount(
-                                inverse,
+                            values[:, component] = np.bincount(
+                                nodes,
                                 weights=force[:, component],
-                                minlength=len(nodes),
+                                minlength=len(values),
                             )
+                    else:
+                        for region, (nodes, inverse) in zip(
+                            self.cells._regions(), self._scatter_plans
+                        ):
+                            force = cell_values[region].reshape(-1, 3)
+                            for component in range(3):
+                                values[nodes, component] += np.bincount(
+                                    inverse, weights=force[:, component],
+                                    minlength=len(nodes),
+                                )
 
             collective_call(local_scatter, comm=self.comm, label="Finite Hex8 scatter")
             vector.ghostUpdate(

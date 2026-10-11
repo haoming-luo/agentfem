@@ -10,9 +10,9 @@ from agentfem.constitutive.material_driver import MaterialQuadratureResponse
 from agentfem.elements._finite_uniform_hex_dolfinx import FiniteUniformHexResidual
 
 
-def setup():
+def setup(comm=MPI.COMM_SELF):
     domain = mesh.create_box(
-        MPI.COMM_SELF,
+        comm,
         [[0, 0, 0], [2, 1, 1]],
         [3, 2, 2],
         cell_type=mesh.CellType.hexahedron,
@@ -36,6 +36,21 @@ def setup():
         chunk_size=5,
     )
     return u, law, response, residual
+
+
+def test_direct_scatter_matches_chunked_owned_and_ghost_reduction():
+    _, _, _, residual = setup(MPI.COMM_WORLD)
+    rng = np.random.default_rng(998 + MPI.COMM_WORLD.rank)
+    values = rng.normal(size=(len(residual.cell_nodes), 8, 3))
+    direct = residual._scatter(values)
+    chunked = residual._scatter(values, chunked=True)
+    try:
+        np.testing.assert_allclose(direct.array, chunked.array, rtol=2e-14, atol=2e-14)
+        expected = MPI.COMM_WORLD.allreduce(values.sum(axis=(0,1)))
+        actual = MPI.COMM_WORLD.allreduce(direct.array.reshape(-1,3).sum(axis=0))
+        np.testing.assert_allclose(actual, expected, rtol=2e-14, atol=2e-14)
+    finally:
+        direct.destroy(); chunked.destroy()
 
 
 def evaluate(residual, law):

@@ -50,6 +50,14 @@ focused orientation, material-array, finite-Hex and damping selection passes
 65 tests, including inversion, singularity, overflow and fallback boundaries.
 No physical configuration, numerical inertia or accepted time step changes.
 
+Dynamic finite-Hex force scatter now reduces the complete owned-cell array
+with three indexed reductions instead of looping over geometry chunks. Ghost
+reverse accumulation remains unchanged; initial mass retains its original
+summation order for checkpoint identity. Serial focused regression passes 24
+tests; a bounded two-rank test independently checks old/new scatter and global
+force sums on shared nodes (one test per rank). This is not admission of the
+private response-only material route to MPI.
+
 ### Conservative separated-contact reuse
 
 Closed Q1 contact now distinguishes exact projection records from force-free
