@@ -196,7 +196,8 @@ def test_response_only_nested_moving_contact_and_restart(
 
 
 @pytest.mark.parametrize("bond", [False, True])
-def test_nested_contact_late_failure_is_atomic(monkeypatch, bond):
+@pytest.mark.parametrize("failure", [RuntimeError, KeyboardInterrupt])
+def test_nested_contact_late_failure_is_atomic(monkeypatch, tmp_path, bond, failure):
     step = make_step(contact=True, bond=bond, viscosity=True)
     step.run(until_step=2)
     accepted = step.residual.snapshot()
@@ -206,14 +207,23 @@ def test_nested_contact_late_failure_is_atomic(monkeypatch, bond):
 
     def fail_after_commit():
         original()
-        raise RuntimeError("outer contact failed after commit")
+        raise failure("outer contact failed after commit")
 
     monkeypatch.setattr(work, "commit", fail_after_commit)
-    with pytest.raises(RuntimeError, match="outer contact"):
+    with pytest.raises(failure, match="outer contact"):
         step.run()
     assert step.residual.snapshot() == accepted
     for name, value in nodal["fields"].items():
         np.testing.assert_array_equal(value, step.state.snapshot()["fields"][name])
+    monkeypatch.setattr(work, "commit", original)
+    path = step.save_checkpoint(tmp_path / "cancelled")
+    resumed = make_step(contact=True, bond=bond, viscosity=True)
+    resumed.load_checkpoint(path)
+    resumed.run()
+    reference = make_step(contact=True, bond=bond, viscosity=True)
+    reference.run()
+    np.testing.assert_array_equal(resumed.state.u.value.x.array, reference.state.u.value.x.array)
+    assert resumed.history_records == reference.history_records
 
 
 def test_bond_failure_clears_both_trials(monkeypatch):
