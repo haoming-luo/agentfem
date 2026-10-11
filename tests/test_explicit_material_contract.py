@@ -136,6 +136,25 @@ def test_unsymmetric_stress_and_empty_partition():
     assert response(0).point_count == 0
 
 
+@pytest.mark.parametrize("pair", [(0, 1), (0, 2), (1, 2)])
+@pytest.mark.parametrize("scale", [1e-200, 1., 1e200])
+def test_unique_pair_symmetry_matches_full_tensor_threshold(pair, scale):
+    for perturbation in (0., np.nextafter(1e-12, 0.), 1e-12,
+                         np.nextafter(1e-12, np.inf), 2e-12):
+        stress = np.tile(np.eye(3) * scale, (7, 1, 1))
+        stress[-1, pair[0], pair[1]] = perturbation * scale
+        bound = 1e-12 * np.maximum(np.max(np.abs(stress), axis=(1, 2)),
+                                  np.finfo(float).tiny)
+        rejected = np.any(np.max(np.abs(stress-stress.transpose(0, 2, 1)),
+                                 axis=(1, 2)) > bound)
+        if rejected:
+            with pytest.raises(ValueError, match="symmetric"):
+                replace(response(7), cauchy_stress=stress)
+        else:
+            np.testing.assert_array_equal(
+                replace(response(7), cauchy_stress=stress).cauchy_stress, stress)
+
+
 def test_provider_boundary_revalidates_and_rejects_wrong_count():
     class Provider:
         state_schema = SCHEMA

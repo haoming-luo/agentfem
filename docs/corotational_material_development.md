@@ -1385,3 +1385,8 @@ material tangents into an unproven whole-path stability estimate.
   any conversion needs an explicit policy and independent damping/increment
   verification. Do not silently change damping halfway through a checkpoint
   continuation or reinterpret this diagnostic as vendor equivalence.
+- Explicit Cauchy symmetry validation checks the three unique off-diagonal
+  pairs under the unchanged full-tensor scale/tolerance. This avoids a second
+  nine-component temporary per point. The 95-test material/response suite
+  passed, including extreme scales and adjacent floating-point values at the
+  symmetry threshold. Component timing is not a full-model speedup claim.

@@ -186,11 +186,13 @@ class ExplicitMaterialBatchOutput:
         count = len(values)
         stress = _array(values, (count, 3, 3), "cauchy_stress")
         scale = np.maximum(np.max(np.abs(stress), axis=(1, 2)), np.finfo(float).tiny)
-        if np.any(
-            np.max(np.abs(stress - stress.transpose(0, 2, 1)), axis=(1, 2))
-            > 1.0e-12 * scale
-        ):
-            raise ValueError("Cauchy stress must be symmetric.")
+        # Finite diagonal entries cancel identically; each off-diagonal pair
+        # occurs twice in the full tensor difference. Check the three unique
+        # pairs without allocating another nine-component field per point.
+        tolerance = 1.0e-12 * scale
+        for i, j in ((0, 1), (0, 2), (1, 2)):
+            if np.any(np.abs(stress[:, i, j] - stress[:, j, i]) > tolerance):
+                raise ValueError("Cauchy stress must be symmetric.")
         object.__setattr__(self, "cauchy_stress", stress)
         object.__setattr__(
             self,
