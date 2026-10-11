@@ -181,6 +181,25 @@ class DeformableQ1Penalty:
         )
 
     def evaluate(self, secondary_displacement, primary_displacement):
+        return self._evaluate(secondary_displacement, primary_displacement)
+
+    def _evaluate(
+        self, secondary_displacement, primary_displacement, *, path_lower_bounds=None
+    ):
+        # Internal lifecycle optimization only: these bounds must come from
+        # accepted geometry and the conservative linear-motion path guard.
+        # They are not user-supplied distances or a replacement contact law.
+        certified = np.zeros(len(self.nodes), dtype=bool)
+        if path_lower_bounds is not None:
+            bound = np.asarray(path_lower_bounds)
+            if (
+                self.geometry_policy != "reviewed_closed_solid"
+                or bound.shape != (len(self.nodes),)
+                or np.iscomplexobj(bound)
+                or not np.isfinite(bound).all()
+            ):
+                raise ValueError("Path bounds require finite closed-solid candidates.")
+            certified = bound > 0
         current = []
         for trace, displacement in (
             (self.secondary, secondary_displacement),
@@ -219,14 +238,16 @@ class DeformableQ1Penalty:
                 )
             )
             lower = np.maximum(0.0, distance - pad)
-            selected = np.flatnonzero(lower <= self.search_radius)
+            if path_lower_bounds is not None:
+                lower[certified] = np.maximum(lower[certified], bound[certified])
+            selected = np.flatnonzero((lower <= self.search_radius) & ~certified)
             if len(selected):
                 geometric = search.search.distance_lower_bounds(query[selected])
                 for local in np.flatnonzero(geometric > self.search_radius):
                     index = selected[local]
                     if not search._inside(query[index]):
                         lower[index] = geometric[local]
-                selected = np.flatnonzero(lower <= self.search_radius)
+                selected = np.flatnonzero((lower <= self.search_radius) & ~certified)
             if not len(selected):
                 return DeformableContactResponse(
                     np.zeros_like(xs), np.zeros_like(xp), 0.0, None, None, None, lower

@@ -232,6 +232,26 @@ def test_proved_separation_skips_search_without_fabricating_projection(monkeypat
     assert active.potential_energy > 0
 
 
+def test_partial_separation_lifecycle_uses_fresh_contact_for_expired_bounds():
+    step = make_step(closed=True)
+    residual = step.residual
+    step.state.u.value.x.array.reshape(-1, 3)[residual.secondary_dofs, 2] = -.1
+    residual.initialize_accepted_state()
+    values = tuple(a.copy() for a in residual.accepted[:2])
+    values[0][:2, 2] += .11
+    values[0][2:, 2] += .01
+    mixed = residual._evaluate_current(values)
+    exact = residual.operator.evaluate(*values)
+    assert mixed.projection_indices is not None
+    np.testing.assert_array_equal(mixed.projection_indices, [0, 1])
+    np.testing.assert_allclose(mixed.secondary_residual, exact.secondary_residual)
+    np.testing.assert_allclose(mixed.primary_residual, exact.primary_residual)
+    assert mixed.potential_energy == pytest.approx(exact.potential_energy)
+    # Search optimization must not modify the accepted transaction.
+    np.testing.assert_array_equal(residual.accepted[0][:, 2], -.1)
+    assert residual.trial is None
+
+
 def test_bound_only_response_rejects_forces_or_false_separation():
     from agentfem._deformable_q1_contact import DeformableContactResponse
 

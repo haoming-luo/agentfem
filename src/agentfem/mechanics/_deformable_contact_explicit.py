@@ -181,6 +181,8 @@ class DeformableQ1ContactResidual:
                     None,
                     lower,
                 )
+            if np.any(lower > 0):
+                return self.operator._evaluate(*values, path_lower_bounds=lower)
         return self.operator.evaluate(*values)
 
     def assemble_accepted_vector(self):

@@ -123,6 +123,63 @@ def test_closed_interior_ambiguous_projection_is_still_rejected():
         op.evaluate(np.zeros_like(points), np.zeros_like(vertices))
 
 
+def test_mixed_path_certificates_only_search_uncertain_points(monkeypatch):
+    from test_closed_q1_surface import solid
+    from agentfem._closed_q1_surface import ClosedQ1Surface
+    from agentfem._contact_path_guard import outside_gap_lower_bounds
+
+    vertices, faces = solid()
+    near = np.array([[.2, .2, -.02], [.4, .2, -.02],
+                     [.4, .4, -.02], [.2, .4, -.02]])
+    points = np.vstack((near, near + [.4, 0, 0]))
+    op = DeformableQ1Penalty(
+        BilinearReferenceTrace(points, np.arange(8).reshape(2, 4), tolerance=1e-10),
+        BilinearReferenceTrace(vertices, faces, tolerance=1e-10),
+        candidate_nodes=np.ones(8, dtype=bool), penalty=100., search_radius=.2,
+        geometry_policy="reviewed_closed_solid")
+    old = np.zeros_like(points)
+    up = np.zeros_like(vertices)
+    accepted = op.evaluate(old, up)
+    moved = old.copy()
+    moved[:4, 2] = .03
+    moved[4:, 2] = .001
+    lower = outside_gap_lower_bounds(accepted.gap_lower_bounds, moved, up)
+    assert np.all(lower[:4] < 0) and np.all(lower[4:] > 0)
+    exact = op.evaluate(moved, up)
+    counts = []
+    project = ClosedQ1Surface.project
+
+    def counted(self, query, **kwargs):
+        counts.append(len(query))
+        return project(self, query, **kwargs)
+
+    monkeypatch.setattr(ClosedQ1Surface, "project", counted)
+    bounded = op._evaluate(moved, up, path_lower_bounds=lower)
+    assert counts == [4]
+    np.testing.assert_array_equal(bounded.projection_indices, np.arange(4))
+    np.testing.assert_allclose(bounded.secondary_residual, exact.secondary_residual)
+    np.testing.assert_allclose(bounded.primary_residual, exact.primary_residual)
+    assert bounded.potential_energy == exact.potential_energy
+    assert np.all(bounded.gap_lower_bounds <= exact.path_gaps + 1e-14)
+    # Once the formerly separated points approach, their certificates expire.
+    newer = moved.copy()
+    newer[4:, 2] = .04
+    lower2 = outside_gap_lower_bounds(bounded.gap_lower_bounds, newer - moved, up)
+    counts.clear()
+    next_response = op._evaluate(newer, up, path_lower_bounds=lower2)
+    assert counts == [8]
+    fresh = op.evaluate(newer, up)
+    np.testing.assert_allclose(next_response.primary_residual, fresh.primary_residual)
+
+
+@pytest.mark.parametrize("bound", [np.ones(3), np.full(4, np.nan),
+                                    np.ones(4, dtype=complex)])
+def test_path_certificates_reject_invalid_or_open_surface(bound):
+    op, us, up = setup()
+    with pytest.raises(ValueError, match="Path bounds"):
+        op._evaluate(us, up, path_lower_bounds=bound)
+
+
 @pytest.mark.parametrize("warp", [0.0, 0.3])
 def test_current_force_moment_objectivity_and_variation(warp):
     op, us, up = setup(warp)

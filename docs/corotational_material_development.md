@@ -23,6 +23,23 @@ and commercial reference curves remain separate gates.
 
 ## Ordered gates
 
+### Per-point closed-solid separation reuse
+
+The explicit contact lifecycle now retains conservative positive path-distance
+bounds independently per candidate. A single approaching point no longer forces
+all separated candidates through narrow-phase projection. Expired/nonpositive
+bounds receive a fresh projection; no closest point or normal is fabricated for
+certified-separated points. Current closed-surface geometry validation and the
+outside-to-outside swept-path rejection remain in place. Open patches cannot
+use this optimization. Accepted state is unchanged by evaluation, and restart
+continues to reconstruct geometry rather than trusting a serialized cache.
+
+The focused contact/search/path suite passes **74 tests**. A mixed eight-point
+case projects four points instead of eight with unchanged force and potential;
+when the remaining certificates expire all eight are searched again. This is
+not a measured full-model speedup, continuous collision detection, self-contact,
+or a nonlinear stability certificate.
+
 ### One enclosing response transaction
 
 Response-only material preparation now produces the complete validated batch
