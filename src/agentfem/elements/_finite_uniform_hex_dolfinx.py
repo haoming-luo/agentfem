@@ -28,6 +28,7 @@ class FiniteUniformHexResidual:
         hourglass_modulus,
         hourglass_scale,
         chunk_size=1024,
+        material_batch_points=None,
     ):
         from ..fields import unwrap
 
@@ -35,6 +36,12 @@ class FiniteUniformHexResidual:
         domain = self.displacement.function_space.mesh
         self.comm = domain.comm
         self.response = response
+        selected_batch = chunk_size if material_batch_points is None else material_batch_points
+        if (isinstance(selected_batch, (bool, np.bool_))
+                or not isinstance(selected_batch, (int, np.integer))
+                or selected_batch < 1):
+            raise ValueError("material_batch_points must be a positive integer.")
+        self.material_batch_points = int(selected_batch)
         from dolfinx import fem
         from dataclasses import replace
 
@@ -213,7 +220,7 @@ class FiniteUniformHexResidual:
                 response = self.response.update(
                     material, deformation_gradient_old=deformation_gradient_old,
                     deformation_gradient_new=gradient, time=time, time_increment=time_increment,
-                    max_batch_points=self.cells.chunk_size)
+                    max_batch_points=self.material_batch_points)
                 if not np.array_equal(self.displacement.x.array, nodal):
                     raise RuntimeError("Material callback changed the admitted Hex8 configuration.")
                 element = self.cells._response_from_checked_displacement(

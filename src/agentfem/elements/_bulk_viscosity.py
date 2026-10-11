@@ -108,7 +108,7 @@ def _bulk_viscosity_from_checked_gradient(
         raise ValueError(
             "Admitted gradients must be finite and orientation-preserving."
         )
-    gradients = np.einsum("naJ,nJi->nai", cells.average_gradient, np.linalg.inv(f))
+    gradients = cells.average_gradient @ np.linalg.inv(f)
     theta = np.einsum("nai,nai->n", gradients, velocity)
     compression = np.minimum(theta, 0)
     linear_factor = rho * b1 * speed * length

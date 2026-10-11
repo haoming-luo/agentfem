@@ -176,9 +176,7 @@ class FiniteUniformHexBatch:
                 require_positive_hex_jacobian(
                     self.coordinates[region][~admitted] + u[region][~admitted]
                 )
-            f = np.eye(3) + np.einsum(
-                "cai,caJ->ciJ", u[region], self.average_gradient[region]
-            )
+            f = np.eye(3) + u[region].swapaxes(1, 2) @ self.average_gradient[region]
             if not np.isfinite(f).all() or np.any(np.linalg.det(f) <= 0):
                 raise ValueError(
                     "Mean deformation gradient must have positive determinant."
@@ -225,14 +223,12 @@ class FiniteUniformHexBatch:
         for region in self._regions():
             gamma = self.hourglass_modes[region]
             # gamma^T X = 0, so gamma^T u = gamma^T x and rotates objectively.
-            modes = np.einsum("cam,cai->cmi", gamma, u[region])
+            modes = gamma.swapaxes(1, 2) @ u[region]
             coefficient = self.hourglass_coefficient[region]
-            force = self.volume[region, None, None] * np.einsum(
-                "ciJ,caJ->cai", p[region], self.average_gradient[region]
+            force = self.volume[region, None, None] * (
+                self.average_gradient[region] @ p[region].swapaxes(1, 2)
             )
-            force += coefficient[:, None, None] * np.einsum(
-                "cam,cmi->cai", gamma, modes
-            )
+            force += coefficient[:, None, None] * (gamma @ modes)
             forces.append(force)
             artificial.append(0.5 * coefficient * np.sum(modes**2, axis=(1, 2)))
         result = FiniteUniformHexResponse(

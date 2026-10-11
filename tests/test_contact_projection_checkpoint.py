@@ -154,3 +154,17 @@ def test_numeric_projection_preserves_invalid_geometry_without_nan_archive():
     corrupt["closest_points"][1, 0] = 1
     with pytest.raises(ValueError, match="zero-filled"):
         numeric_projection_state_from_snapshot(corrupt, point_ids=(0, 1))
+# Canonical encoding remains byte-for-byte equivalent for arbitrary providers.
+@pytest.mark.parametrize('count', [0, 1, 2, 1000])
+def test_status_run_encoding_matches_general_unique(count):
+    from agentfem.boundary_models.contact_projection_checkpoint import _status_encoding
+    rng = np.random.default_rng(572)
+    for values in (
+        np.full(count, 'projected'),
+        np.resize(['invalid', 'α', 'projected'], count),
+        np.sort(rng.choice(['invalid', 'α', 'projected'], count)),
+    ):
+        actual = _status_encoding(values)
+        expected = np.unique(values, return_inverse=True)
+        for a, b in zip(actual, expected):
+            np.testing.assert_array_equal(a, b)

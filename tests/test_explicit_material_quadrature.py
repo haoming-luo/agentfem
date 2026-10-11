@@ -110,7 +110,8 @@ def test_failure_keeps_all_real_quadrature_state_unchanged(monkeypatch, failure)
 
 @pytest.mark.parametrize("nx", [1, 2])
 @pytest.mark.parametrize("chunk_size", [1, 4])
-def test_real_hex_force_assembly_without_invented_energy_or_tangent(nx, chunk_size):
+@pytest.mark.parametrize("material_batch", [None, 1, 4])
+def test_real_hex_force_assembly_without_invented_energy_or_tangent(nx, chunk_size, material_batch):
     from agentfem.constitutive._explicit_material_driver import (
         ExplicitQuadratureResponse,
     )
@@ -125,6 +126,7 @@ def test_real_hex_force_assembly_without_invented_energy_or_tangent(nx, chunk_si
     residual = FiniteUniformHexResidual(
         displacement, response, density=1.0, hourglass_modulus=10.0, hourglass_scale=0.1,
         chunk_size=chunk_size,
+        material_batch_points=material_batch,
     )
     displacement.interpolate(lambda x: np.vstack((0.02 * x[0], 0 * x[1], 0 * x[2])))
     old = np.tile(np.eye(3), (nx, 1, 1))
@@ -132,7 +134,8 @@ def test_real_hex_force_assembly_without_invented_energy_or_tangent(nx, chunk_si
         material, deformation_gradient_old=old, time=0.0, time_increment=0.1
     ) as (vector, trial):
         assert trial.element_response.physical_energy is None
-        assert material.calls == (nx + chunk_size - 1) // chunk_size
+        batch = chunk_size if material_batch is None else material_batch
+        assert material.calls == (nx + batch - 1) // batch
         assert not hasattr(response, "tangent")
         forces = vector.array.reshape(-1, 3)
         xyz = displacement.function_space.tabulate_dof_coordinates()

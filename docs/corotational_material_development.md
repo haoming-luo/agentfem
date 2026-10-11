@@ -143,6 +143,21 @@ existing endpoint tolerance are unchanged. Independent SVD-oracle tests cover
 random rotated states, boundary values, reflections and invalid input. This
 does not derive or strengthen the provider's material envelope.
 
+The next targeted optimization keeps material batch size independent of
+geometry/scatter chunking: `material_batch_points` controls provider calls
+without changing reference preparation or inertia bytes. Contact numeric
+snapshots encode repeated status runs before catalog reduction, preserving the
+same sorted catalog and inverse indices for arbitrary strings. Finite-Hex
+force and bulk-viscosity contractions use algebraically equivalent batched
+matrix products; material and State ownership are unchanged. The combined
+targeted selection passes 73 tests, with one MPI-only test skipped (not passed).
+
+Private performance experiments keep compiled source material and optional
+small-matrix kinematics outside the package. Their full-size kernel gain is
+not advertised as a software-wide speedup. The loaded 30-increment checkpoint
+segment is the comparison unit; neither it nor the microbenchmarks demonstrate
+the requested complete 0.1-second simulation or its commercial equivalence.
+
 ### Explicit contact integration choice
 
 The DOLFINx boundary adapter now accepts `integration="nodal_lumped"` for

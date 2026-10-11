@@ -22,6 +22,22 @@ _SCHEMA = "agentfem.global-contact-projection-state.v1"
 _NUMERIC_SCHEMA = "agentfem.local-numeric-contact-projection-state.v1"
 
 
+def _status_encoding(status):
+    """Retain canonical catalogs without sorting repeated strings per point.
+
+    Analytical surfaces commonly return one status or a few contiguous runs.
+    For interleaved/unstructured statuses retain NumPy's general encoder.
+    No vocabulary is hard-coded and archive bytes have the same semantics.
+    """
+    if len(status) == 0:
+        return np.unique(status, return_inverse=True)
+    starts = np.r_[0, np.flatnonzero(status[1:] != status[:-1]) + 1]
+    if len(starts) > max(1, len(status) // 4):
+        return np.unique(status, return_inverse=True)
+    catalog, run_codes = np.unique(status[starts], return_inverse=True)
+    return catalog, np.repeat(run_codes, np.diff(np.r_[starts, len(status)]))
+
+
 def numeric_projection_state_snapshot(record):
     """Encode a fixed partition without millions of Python point dictionaries.
 
@@ -32,7 +48,7 @@ def numeric_projection_state_snapshot(record):
     if not isinstance(record, ContactProjectionRecord):
         raise TypeError("Projection checkpoint requires ContactProjectionRecord.")
     p = record.projection
-    catalog, codes = np.unique(p.status_codes, return_inverse=True)
+    catalog, codes = _status_encoding(p.status_codes)
 
     def masked(values):
         if values is None:
