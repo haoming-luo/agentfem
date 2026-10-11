@@ -85,6 +85,30 @@ def test_real_quadrature_trial_commit_rollback_and_piola():
     )
 
 
+def test_single_batch_response_is_owned_and_matches_chunked(monkeypatch):
+    material, state, options = fixture()
+    expected = update_explicit_material_points(material, state, **options, max_batch_points=1)
+    state.rollback()
+    provider_output = []
+    original = material.update_explicit_array_batch
+
+    def retain(request):
+        value = original(request)
+        provider_output.append(value)
+        return value
+
+    monkeypatch.setattr(material, "update_explicit_array_batch", retain)
+    actual = update_explicit_material_points(material, state, **options)
+    assert len(provider_output) == 1
+    for name in ("cauchy_stress", "state_new", "internal_work_density_increment"):
+        array = getattr(provider_output[0], name)
+        array.setflags(write=True)
+        array[:] = 42
+        np.testing.assert_array_equal(getattr(actual.response, name),
+                                      getattr(expected.response, name))
+    np.testing.assert_array_equal(actual.first_piola_stress, expected.first_piola_stress)
+
+
 @pytest.mark.parametrize("failure", ["provider", "cutback", "assignment"])
 def test_failure_keeps_all_real_quadrature_state_unchanged(monkeypatch, failure):
     material, state, options = fixture()

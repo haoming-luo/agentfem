@@ -181,18 +181,23 @@ def _prepare_explicit_material_points(
         "dissipation_density_increment",
         "requested_time_scale",
     )
-    combined = {}
-    for name in channels:
-        values = [getattr(batch, name) for batch in batches]
-        if any(value is None for value in values):
-            if not all(value is None for value in values):
-                raise ValueError(
-                    f"Explicit material changed {name} availability across chunks."
-                )
-            combined[name] = None
-        else:
-            combined[name] = np.concatenate(values)
-    result = ExplicitMaterialBatchOutput(state_schema=state.state_schema, **combined)
+    if len(batches) == 1:
+        # validated_explicit_material_update already made an owned, checked
+        # response. There is no concatenation boundary to validate again.
+        result = batches[0]
+    else:
+        combined = {}
+        for name in channels:
+            values = [getattr(batch, name) for batch in batches]
+            if any(value is None for value in values):
+                if not all(value is None for value in values):
+                    raise ValueError(
+                        f"Explicit material changed {name} availability across chunks."
+                    )
+                combined[name] = None
+            else:
+                combined[name] = np.concatenate(values)
+        result = ExplicitMaterialBatchOutput(state_schema=state.state_schema, **combined)
     if np.any(result.requested_time_scale < 1):
         raise ValueError(
             "Material requested a smaller increment; trial rejected without state mutation."
