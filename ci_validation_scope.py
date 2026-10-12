@@ -80,6 +80,11 @@ _CORE_SOURCE_TEST_MAP = {
     "src/agentfem/_step_response_hex.py": (
         "tests/test_response_material_step.py", "tests/test_response_deformable_step.py",
         "tests/test_owned_explicit_state.py", "tests/test_response_substeps.py",
+        "tests/test_contact_overlap_execution.py",
+    ),
+    "src/agentfem/mechanics/_deformable_contact_explicit.py": (
+        "tests/test_contact_overlap_execution.py", "tests/test_deformable_contact_explicit.py",
+        "tests/test_response_deformable_step.py",
     ),
     "src/agentfem/constitutive/_owned_explicit_state.py": (
         "tests/test_owned_explicit_state.py", "tests/test_response_material_step.py",

@@ -7,7 +7,7 @@ from test_quadrilateral_global import _trace
 from test_response_material_step import problem
 
 
-def make_step():
+def make_step(**options):
     domain = _blocks(1, 2, cell_type="hexahedron")
     cells = domain.geometry.dofmaps[0]
     lower = np.unique(cells[domain.geometry.x[cells, 2].mean(axis=1) < 0])
@@ -23,7 +23,7 @@ def make_step():
         secondary_dofs=na, primary_dofs=nb, candidate_nodes=np.ones(len(na), dtype=bool),
         penalty=100., search_radius=.5))
     step = model.step(target=u, element_policy=policy, dt=1e-4, steps=4,
-                      time_increment_ceiling=1e-3, stress_free_initial_state=True, progress=False)
+                      time_increment_ceiling=1e-3, stress_free_initial_state=True, progress=False, **options)
     xyz = u.value.function_space.tabulate_dof_coordinates()
     for nodes in step.material_residual.internal.cell_nodes:
         step.state.v.value.x.array.reshape(-1, 3)[nodes, 2] = -.1 * np.sign(xyz[nodes, 2].mean())

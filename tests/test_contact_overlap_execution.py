@@ -71,3 +71,20 @@ def test_step_rejects_overlap_without_deformable_pair():
         make_step(contact_execution='overlap')
     with pytest.raises(ValueError, match='serial or overlap'):
         make_step(contact_execution='anything')
+
+
+def test_public_step_scopes_worker_and_result(tmp_path):
+    from test_response_deformable_step import make_step
+    serial = make_step()
+    serial.run()
+    partial = make_step(contact_execution='overlap')
+    partial.run(until_step=2)
+    assert partial.deformable_residual._geometry_executor is None
+    saved = partial.save_checkpoint(tmp_path/'public')
+    resumed = make_step(contact_execution='overlap')
+    resumed.load_checkpoint(saved)
+    assert resumed.solve_result() is not None
+    assert resumed.deformable_residual._geometry_executor is None
+    assert resumed.summary()['contact_execution'] == 'overlap'
+    np.testing.assert_array_equal(serial.state.u.value.x.array, resumed.state.u.value.x.array)
+    assert serial.history_records == resumed.history_records
