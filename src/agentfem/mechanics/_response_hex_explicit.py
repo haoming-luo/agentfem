@@ -86,6 +86,10 @@ class ResponseHexWorkMonitor:
 
 
 class ResponseHexExplicitResidual:
+    # Experimental execution policy, not a public solver option. Real-model
+    # screens have not established a throughput benefit over ordinary copies.
+    _resident_records_enabled = False
+
     def __init__(
         self,
         internal,
@@ -370,6 +374,8 @@ class ResponseHexExplicitResidual:
         self.viscosity_work = viscosity_work
         self.damping_rate_bound = damping_bound
         self.accepted_displacement = displacement
+        if self._resident_records_enabled:
+            self._remember_accepted_fields(trial)
         self._trial = None
 
     def assemble_accepted_vector(self):
@@ -441,8 +447,55 @@ class ResponseHexExplicitResidual:
             "cohesive": None if self.cohesive is None else self.cohesive.snapshot(),
             "accepted_force": self.accepted_force.copy(),
             "accepted_displacement": self.accepted_displacement.copy(),
-            "fields": {k: v.x.array.copy() for k, v in self._fields().items()},
+            "fields": (self._field_records().capture(self._fields())
+                       if self._resident_records_enabled else
+                       {k: v.x.array.copy() for k, v in self._fields().items()}),
         }
+
+    def _field_records(self):
+        from .._resident_field_records import ResidentFieldRecords
+
+        if not hasattr(self, "_resident_fields"):
+            self._resident_fields = ResidentFieldRecords()
+        return self._resident_fields
+
+    def _remember_accepted_fields(self, trial):
+        """Seed disposable cache from owned response transport, never live views.
+
+        Capture still compares live storage: a custom commit or external write
+        cannot be hidden by this optimization. Other layouts use normal capture.
+        """
+        from ..constitutive.quadrature import QuadratureField
+        from .._resident_field_records import _freeze
+
+        response = self.internal.response
+        values = {"S": trial.material_response.cauchy_stress,
+                  "WORK": trial.material_response.internal_work_density_increment}
+        records = self._field_records()
+        # Piola is produced by the operator rather than the provider transport.
+        # Freeze once for both mirrored fields, not once per rollback entry.
+        piola = response.response_transaction.committed["P"]
+        if type(piola) is QuadratureField:
+            payload = _freeze(piola.function.x.array)
+            records.remember("P", payload)
+            records.remember("committed_response_P", payload)
+        for name, value in values.items():
+            field = response.response_transaction.committed[name]
+            if type(field) is not QuadratureField:
+                continue
+            field._array_indices()
+            if field._identity_layout_cache:
+                records.remember(name, value.reshape(-1))
+                records.remember("committed_response_" + name, value.reshape(-1))
+        if len(response.state.state_schema.variables) == 1:
+            name = response.state.state_schema.variables[0].name
+            field = response.state.committed[name]
+            if type(field) is QuadratureField:
+                field._array_indices()
+            if type(field) is QuadratureField and field._identity_layout_cache:
+                value = trial.material_response.state_new.reshape(-1)
+                records.remember("state_" + name, value)
+                records.remember("committed_state_" + name, value)
 
     checkpoint_snapshot = transaction_snapshot
 

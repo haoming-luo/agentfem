@@ -21,6 +21,11 @@ from .contact_state import ContactProjectionRecord
 from .rigid import _readonly_array
 
 
+def _sum_spatial_vectors(values):
+    """Ordered component-wise reduction of spatial vectors."""
+    return np.sum(values, axis=0)
+
+
 def _integer_array(value, *, name: str, dimensions: int) -> np.ndarray:
     raw = np.asarray(value)
     if raw.ndim != dimensions:
@@ -255,7 +260,7 @@ class ContactTraceAssembly:
         ):
             raise ValueError("Contact force does not equal the integrated residual.")
         if not np.allclose(
-            np.sum(nodal, axis=0),
+            _sum_spatial_vectors(nodal),
             np.sum(point_residual, axis=0),
             rtol=256.0 * np.finfo(float).eps,
             atol=256.0 * np.finfo(float).eps,

@@ -133,6 +133,19 @@ def _immutable_committed_history(state):
             if field._identity_layout_cache:
                 shape = (field.point_count, state.state_schema.size)
                 values = field.function.x.array[:indices.size].reshape(shape)
+                from .._field_rollback_scope import _borrowed_field_snapshot
+                from .._resident_field_records import _same_bits
+
+                saved = _borrowed_field_snapshot(field.function)
+                owner = saved
+                while isinstance(owner, np.ndarray):
+                    owner = owner.base
+                if (isinstance(owner, bytes)
+                        and _same_bits(values, saved.reshape(shape))):
+                    # The joined increment already owns these accepted bytes.
+                    # A time callback may modify the live field after capture;
+                    # exact comparison keeps that write visible to the provider.
+                    return _array(saved.reshape(shape), shape, "state_old")
                 return _array(values, shape, "state_old")
     values = state.committed_state_vectors()
     return _array(values, (len(values), state.state_schema.size), "state_old")

@@ -104,6 +104,8 @@ from .performance import (
 )
 
 _LAZY_EXPORTS = {
+    "AcceptedHistoryJournal": "journal",
+    "read_accepted_history": "journal",
     "FiniteStrainDiagnosticRequest": "plan",
     "HistoryRequest": "plan",
     "OutputPlan": "plan",

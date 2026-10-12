@@ -277,6 +277,12 @@ neighbor-collective scalability claim.
 
 ## Design Principle
 
+For long custom transient loops, use `results.AcceptedHistoryJournal` when
+repeatedly rewriting the accumulated JSON history dominates reporting. Append
+new accepted stations through `append_records`, then publish the returned tip
+with status. Retain normal checkpoints for restart and publish ordinary final
+result artifacts; the journal neither commits state nor certifies physics.
+
 The bounded serial/MPI finite-Hex route accepts an equal-stiffness elastic
 `cohesive_force` plus one registered translating-plane contact boundary model
 through the same `model.step`. Their trace nodes must be disjoint. Both remain

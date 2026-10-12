@@ -21,6 +21,14 @@ _RESPONSE_ARRAYS = (
 )
 
 
+def _symmetric_cauchy_stress(stress):
+    """Check the three independent pairs of an already finite stress batch."""
+    scale = np.maximum(np.max(np.abs(stress), axis=(1, 2)), np.finfo(float).tiny)
+    tolerance = 1.0e-12 * scale
+    return all(not np.any(np.abs(stress[:, i, j] - stress[:, j, i]) > tolerance)
+               for i, j in ((0, 1), (0, 2), (1, 2)))
+
+
 def _response_transport_stamp(response):
     """Remember immutable payloads and mutable NumPy metadata separately."""
     entries = []
@@ -190,14 +198,11 @@ class ExplicitMaterialBatchOutput:
             raise ValueError("Stress requires shape (points, 3, 3).")
         count = len(values)
         stress = _array(values, (count, 3, 3), "cauchy_stress")
-        scale = np.maximum(np.max(np.abs(stress), axis=(1, 2)), np.finfo(float).tiny)
         # Finite diagonal entries cancel identically; each off-diagonal pair
         # occurs twice in the full tensor difference. Check the three unique
         # pairs without allocating another nine-component field per point.
-        tolerance = 1.0e-12 * scale
-        for i, j in ((0, 1), (0, 2), (1, 2)):
-            if np.any(np.abs(stress[:, i, j] - stress[:, j, i]) > tolerance):
-                raise ValueError("Cauchy stress must be symmetric.")
+        if not _symmetric_cauchy_stress(stress):
+            raise ValueError("Cauchy stress must be symmetric.")
         object.__setattr__(self, "cauchy_stress", stress)
         object.__setattr__(
             self,

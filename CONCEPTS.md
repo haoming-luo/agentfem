@@ -654,6 +654,13 @@ or physical behavior.
 
 ## Simulation Result
 
+An accepted-history journal is an append-only reporting artifact, not a solver
+state or restart checkpoint. `results.AcceptedHistoryJournal` receives newly
+accepted reporting stations from one writer. Its digest chain and externally
+retained final tip detect damaged, reordered, or truncated evidence; they do
+not confer scientific validity or replace the State lifecycle. A restart may
+create another journal segment while retaining its checkpoint provenance.
+
 The scientific view of one completed analysis: named quantities of interest,
 fields, histories, solver/model metadata, and artifact links. XDMF, CSV, and
 NumPy files are result artifacts rather than the result abstraction itself.

@@ -1,5 +1,36 @@
 # Performance evidence
 
+## Accepted state and reporting boundaries (2026-10-12)
+
+The reusable core now has immutable field-record transport and exact live-field
+comparison before borrowing an accepted material-history snapshot. External
+field writes remain observable. The optional finite-Hex record cache is off by
+default: correctness tests alone do not establish a throughput benefit.
+
+`results.AcceptedHistoryJournal(path).append_records(new_records)` provides
+single-writer, append-only accepted reporting, avoiding repeated serialization
+of an ever-growing history. Submit only new records, preserve the returned
+`sha256_tip` in final evidence, and read with
+`read_accepted_history(path, expected_tip=...)`. It rejects invalid batches
+before writing and poisons the writer after I/O failure. It is not a solver
+checkpoint, MPI collector or scientific certification.
+
+The architecture priority is one authoritative accepted state per lifecycle:
+Operator produces trial response, State accepts/rejects it, Result publishes
+observations. An exclusive array owner must not silently replace live fields
+when callbacks may access them. Private native fused execution and local exact
+repair therefore remain external prototypes until explicit ownership,
+multi-variable layout and observer contracts are independently tested. Material
+laws and native ABI-specific state widths do not belong in the generic core.
+
+For performance promotion, compare repeated early/nonlinear/late segments at
+identical accepted stations, including hidden history, work, damage and
+rollback. Then time one complete installed-project run including preparation,
+checkpoints and export. A projected wall time is not a full-run result. Thread
+counts, numerical inertia and private contact assumptions are not defaults for
+other cases. Avoid a broad Model/Procedure redesign merely to accommodate one
+fast experimental implementation.
+
 ## Bounded constitutive stress conversion measurement (2026-10-09)
 
 The shared finite-strain quadrature driver converts Cauchy to first Piola stress
