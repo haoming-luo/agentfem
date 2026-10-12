@@ -19,7 +19,13 @@ def positive_finite_determinants(gradients):
         raise ValueError("Orientation requires (points,3,3) gradients.")
     finite = np.isfinite(f).all(axis=(1, 2))
     with np.errstate(over="ignore", invalid="ignore"):
-        radius = np.max(np.sum(np.abs(f - np.eye(3)), axis=2), axis=1)
+        # Three column views avoid allocating/reducing an entire (n,3,3)
+        # temporary. Keep left-associated row sums and the same strict ball.
+        radius = np.zeros(len(f))
+        for i in range(3):
+            row = (np.abs(f[:, i, 0] - (i == 0))
+                   + np.abs(f[:, i, 1] - (i == 1))) + np.abs(f[:, i, 2] - (i == 2))
+            np.maximum(radius, row, out=radius)
     admitted = finite & (radius < 0.5)
     remaining = finite & ~admitted
     if np.any(remaining):

@@ -39,3 +39,21 @@ def test_invalid_and_empty():
     assert positive_finite_determinants(np.empty((0, 3, 3))).size == 0
     with pytest.raises(ValueError):
         positive_finite_determinants(np.eye(3))
+
+
+def test_row_screen_retains_original_radius_and_fallback_partition(monkeypatch):
+    rng = np.random.default_rng(938)
+    f = np.eye(3) + rng.normal(size=(5000,3,3)) * .15
+    f[0,0] = [1, .25, .25]
+    f[1,0] = [1, .25, np.nextafter(.25, 0)]
+    finite = np.isfinite(f).all(axis=(1,2))
+    remaining = finite & (np.max(np.sum(abs(f-np.eye(3)),axis=2),axis=1) >= .5)
+    original = np.linalg.det
+    seen = []
+    def det(value):
+        seen.append(value.copy())
+        return original(value)
+    monkeypatch.setattr(np.linalg, 'det', det)
+    actual = positive_finite_determinants(f)
+    np.testing.assert_array_equal(seen[0], f[remaining])
+    np.testing.assert_array_equal(actual, original(f)>0)
