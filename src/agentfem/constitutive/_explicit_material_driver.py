@@ -117,6 +117,27 @@ class ExplicitQuadratureResponse:
             self.response_transaction.rollback()
 
 
+def _immutable_committed_history(state):
+    """Freeze serial single-block history once at the provider boundary.
+
+    No borrowed mutable field leaves this function. General schemas/layouts
+    and open state implementations retain their ordinary packing contract.
+    """
+    from .quadrature import MaterialQuadratureState, QuadratureField
+
+    if type(state) is MaterialQuadratureState and len(state.state_schema.variables) == 1:
+        variable = state.state_schema.variables[0]
+        field = state.committed[variable.name]
+        if type(field) is QuadratureField and state.domain.comm.size == 1:
+            indices = field._array_indices()
+            if field._identity_layout_cache:
+                shape = (field.point_count, state.state_schema.size)
+                values = field.function.x.array[:indices.size].reshape(shape)
+                return _array(values, shape, "state_old")
+    values = state.committed_state_vectors()
+    return _array(values, (len(values), state.state_schema.size), "state_old")
+
+
 def _prepare_explicit_material_points(
     material,
     state,
@@ -146,7 +167,7 @@ def _prepare_explicit_material_points(
         or max_batch_points < 1
     ):
         raise ValueError("max_batch_points must be a positive integer.")
-    accepted = state.committed_state_vectors()
+    accepted = _immutable_committed_history(state)
     count = len(accepted)
     if count == 0:
         raise ValueError("Serial material quadrature requires at least one point.")

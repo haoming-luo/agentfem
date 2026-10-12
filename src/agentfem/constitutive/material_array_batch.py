@@ -33,11 +33,20 @@ def _array(value, shape, label):
     owner = selected
     while isinstance(owner, np.ndarray):
         owner = owner.base
-    if not (isinstance(owner, bytes) and selected.flags.c_contiguous
-            and selected.nbytes == len(owner)):
+    offset = 0
+    if isinstance(owner, bytes) and selected.flags.c_contiguous:
+        # A contiguous batch may occupy only part of an immutable allocation.
+        # Rebuild its metadata over that allocation, not over the caller's
+        # mutable ndarray object. Read-only views of writable owners are NOT
+        # eligible. Bounds also cover unaligned and empty byte-backed slices.
+        offset = (selected.__array_interface__["data"][0]
+                  - np.frombuffer(owner, dtype=np.uint8).__array_interface__["data"][0])
+        if offset < 0 or offset + selected.nbytes > len(owner):
+            raise ValueError(f"{label} has invalid immutable storage bounds.")
+    else:
         owner = selected.tobytes(order="C")
     # A fresh view protects shape/dtype metadata without copying immutable data.
-    return np.frombuffer(owner, dtype=float).reshape(shape)
+    return np.frombuffer(owner, dtype=float, count=selected.size, offset=offset).reshape(shape)
 
 
 @dataclass(frozen=True)

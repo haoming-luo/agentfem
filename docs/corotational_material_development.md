@@ -1478,3 +1478,41 @@ material tangents into an unproven whole-path stability estimate.
   and is neither a fresh full-run timing nor Abaqus cross-validation. Duplicate
   outer/inner rollback snapshots are deliberately retained: removing them
   needs an explicit transaction-ownership design, not global suppression.
+
+### Prepared body execution: ownership before fusion
+
+The next performance route targets the complete body branch, not contact-only
+microbenchmarks. Follow the restriction/kernel/backend separation described by
+[libCEED](https://libceed.org/en/latest/libCEEDapi/), without changing Model or
+claiming that the already matrix-free Hex8 force evaluation is a new algorithm.
+
+1. Freeze accepted inputs once and allow contiguous sub-batches to retain that
+   immutable storage with independent array metadata. A NumPy read-only flag on
+   mutable storage is not sufficient. Concrete serial identity-layout history
+   may be frozen directly; custom providers and other layouts retain packing.
+2. Prepare topology, material groups and worker resources once. Evaluate each
+   batch through gather, kinematics, material response, Piola mapping and force
+   before publishing fields. A material-only chunk benchmark does not test this
+   complete execution route.
+3. Establish one explicit acceptance owner before removing nested snapshots.
+   Workers must finish before rejection; callbacks, partial commit failure,
+   retained output aliases, standalone calls and restart all require tests.
+   Existing rollback protections remain until that contract is implemented.
+4. Compare the original mesh from identical accepted states, first as a bounded
+   screen, then repeated A-B-B-A runs of at least 1,000 increments in multiple
+   deformation stages. Preserve mass, time schedule, physics and output. Report
+   setup, advancement, persistence and full process wall time separately.
+
+The immutable transport work is a prerequisite, not completion of resident
+State or end-to-end fusion. No speedup target becomes a capability claim until
+the full branch and trajectory comparisons support it.
+
+Initial transport validation: 148 targeted serial tests passed; the layout and
+snapshot-ownership selection passed on two ranks (27 tests per rank). The
+private original-mesh 600-increment screen retained bitwise-equal saved fields
+and history arrays and equal selected quantities at all 60 reporting stations.
+Advance times were 121.588 s and 118.791 s in one reference/candidate pair.
+This approximately 2.3% difference is not a demonstrated throughput gain: the
+screen is shorter than the performance admission protocol and has no repeated
+run uncertainty estimate. It supports numerical compatibility only; it neither
+completes the fused body executor nor admits a larger time increment.
