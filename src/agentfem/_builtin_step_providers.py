@@ -74,6 +74,18 @@ def _lower_finite_uniform_hex(model, request):
     return lower(model, request)
 
 
+def _accept_response_uniform_hex(model, request):
+    from .constitutive import ExplicitUserMaterial
+    return (_accept_finite_uniform_hex(model, request)
+            and any(isinstance(record.item, ExplicitUserMaterial)
+                    for record in model.materials))
+
+
+def _lower_response_uniform_hex(model, request):
+    from ._step_response_hex import lower
+    return lower(model, request)
+
+
 def _lower_elastic_interface(model, request):
     from ._step_nonmatching import lower
     return lower(model, request)
@@ -936,6 +948,20 @@ register_step_provider(StepProvider(
     procedure="explicit/central_difference",
     option_contract=_option_contract("element_policy", "cohesive_force", "dt", "steps", "save_every", "print_every",
         "history_every", "progress", "status_file", "checkpoint", required=("element_policy", "dt", "steps")),
+))
+
+register_step_provider(StepProvider(
+    name="response_material_hex8_explicit",
+    analyses=("explicit_dynamics", "second_order_dynamics"),
+    accepts=_accept_response_uniform_hex,
+    lower=_lower_response_uniform_hex,
+    priority=182,
+    description="Experimental serial response-only Hex8 with frictionless translating rigid tools; no implicit tangent or automatic stability claim.",
+    procedure="explicit/central_difference",
+    option_contract=_option_contract("element_policy", "dt", "steps", "time_increment_ceiling",
+        "stress_free_initial_state", "bulk_viscosity", "mass_scaling_factor", "save_every", "print_every", "history_every", "progress",
+        "status_file", "checkpoint", required=("element_policy", "dt", "steps",
+        "time_increment_ceiling", "stress_free_initial_state")),
 ))
 
 register_step_provider(StepProvider(

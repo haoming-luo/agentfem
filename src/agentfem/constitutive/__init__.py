@@ -18,6 +18,13 @@ from . import user_material
 from . import viscoelasticity
 from .catalog import ConstitutiveCapability, capabilities, capability
 from .stability import FirstPiolaTangentEnvelope
+from .explicit_user_material import (
+    ExplicitUserMaterial,
+    ExplicitMaterialBatchOutput,
+    ExplicitMaterialIncrementLimit,
+    ExplicitMaterialIncrementExceeded,
+    explicit_user_material,
+)
 from .creep import (
     ArrheniusPowerLawCreep,
     CreepDamageState,
@@ -226,6 +233,11 @@ from .._material_history import (
 )
 
 __all__ = [
+    "ExplicitUserMaterial",
+    "ExplicitMaterialBatchOutput",
+    "ExplicitMaterialIncrementLimit",
+    "ExplicitMaterialIncrementExceeded",
+    "explicit_user_material",
     "FirstPiolaTangentEnvelope",
     "catalog",
     "creep",

@@ -1,6 +1,6 @@
 # SPDX-FileCopyrightText: 2026 Haoming Luo and AgentFEM contributors
 # SPDX-License-Identifier: Apache-2.0
-"""Private explicit damping coefficients with an inspectable geometry rule.
+"""Explicit damping coefficients with an inspectable geometry rule.
 
 Physical reference density is not a mass-scaling parameter. The length rule
 is volume-equivalent, not an assertion of vendor characteristic-length parity.
