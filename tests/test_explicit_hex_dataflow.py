@@ -73,3 +73,28 @@ def test_gather_failure_preserves_trial_fields(monkeypatch):
             pytest.fail("Failed gather must not yield")
     for key, field in response.trial_fields().items():
         np.testing.assert_array_equal(field.x.array, saved[key])
+
+
+def test_prepared_force_failure_does_not_publish_state(monkeypatch):
+    material, state, options = fixture()
+    response = ExplicitQuadratureResponse.create(state.domain, material.state_schema)
+    u = fem.Function(fem.functionspace(state.domain, ("Lagrange", 1, (3,))))
+    residual = FiniteUniformHexResidual(
+        u, response, density=1, hourglass_modulus=1, hourglass_scale=0.1
+    )
+    saved = {
+        key: field.x.array.copy() for key, field in response.trial_fields().items()
+    }
+
+    def fail(*args, **kwargs):
+        for key, field in response.trial_fields().items():
+            np.testing.assert_array_equal(field.x.array, saved[key])
+        raise RuntimeError("detached force preparation failed")
+
+    monkeypatch.setattr(residual.cells, "_response_from_checked_displacement", fail)
+    options.pop("deformation_gradient_new")
+    with pytest.raises(RuntimeError, match="detached force preparation"):
+        with residual.explicit_trial_evaluation(material, **options):
+            pytest.fail("Incomplete response must not be published")
+    for key, field in response.trial_fields().items():
+        np.testing.assert_array_equal(field.x.array, saved[key])

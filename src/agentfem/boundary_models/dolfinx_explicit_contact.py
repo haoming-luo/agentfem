@@ -968,6 +968,11 @@ class DolfinxExplicitContactResidual:
 
         return self._accepted_snapshot("transaction_snapshot", canonical_base=False)
 
+    def _increment_field_scope(self, record):
+        from .._field_rollback_scope import _increment_field_scope
+
+        return _increment_field_scope(self.base, record["base_state"])
+
     def checkpoint_capabilities(self):
         """A contact wrapper cannot broaden its nested State's portability."""
         from dataclasses import replace

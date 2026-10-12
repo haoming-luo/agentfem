@@ -1516,3 +1516,57 @@ This approximately 2.3% difference is not a demonstrated throughput gain: the
 screen is shorter than the performance admission protocol and has no repeated
 run uncertainty estimate. It supports numerical compatibility only; it neither
 completes the fused body executor nor admits a larger time increment.
+
+### Detached body continuation and accepted field ownership (2026-10-12)
+
+The response-only Hex lowering now separates detached material/Piola/element
+preparation from trial-field publication. Its default arithmetic is unchanged.
+An execution lowering may fuse that continuation, but cannot commit history,
+omit the material increment policy, or move PETSc work to background workers.
+Preparation or force failure must leave the trial fields unchanged.
+
+The serial response owner may explicitly lend the Procedure's existing accepted
+field snapshots to nested field transactions. This is a joined increment, not
+a nested savepoint: any child rejection poisons acceptance, even if an inner
+callback catches the exception. Cleanup transactions remain usable so the
+original scientific error is not replaced by a secondary cleanup error. The
+outer Procedure restores motion, material history, contact state and time inputs
+on rejection, including a failure after material publication. Independently
+called field transactions retain their ordinary savepoint behavior. Distributed
+borrowing is refused; the existing collective rollback path remains unchanged.
+
+A private original-mesh experiment fuses response, Piola conversion and element
+force work in the same material worker partition. It preserves the source
+increment/domain checks and independent material audit. It is not a new public
+provider capability or a material-specific kernel in the AgentFEM core. The
+exploratory 1,200-increment pair took 235.640 s with independent preparation/savepoints
+and 207.558 s with the joined candidate (advancement only; setup and export are
+excluded). All saved numeric arrays were bitwise equal and selected physical
+quantities matched at all 120 common reporting stations. Repeated runs and a
+second trajectory segment are required before a broader performance claim;
+this does not establish Abaqus equivalence or whole-run wall time.
+The exploratory ownership timing predates restoration of the live-field finite
+check at transaction entry and is not an admitted final performance result.
+The final candidate retains that check; a private exact IEEE-754 classifier
+avoids its temporary boolean array. A 4,096-cell cache-tiling experiment increased
+dispatch overhead and was safely paused rather than selected for delivery.
+
+The source-slice transport regression also now retains the byte offset into an
+immutable owner's storage instead of reshaping the entire parent buffer.
+
+Final full-check repeat evidence: the original mesh was replayed from accepted
+increment 98,000 through 99,200 twice per route. Reference advancement took
+235.640 / 237.554 s; the final whole-worker continuation plus accepted-snapshot
+reuse and exact finite classification took 220.068 / 225.482 s. Mean advancement
+time decreased 5.84% (not the requested 10%). Including startup/restart/export,
+process wall times were 284.26 / 283.45 s versus 267.77 / 273.31 s. All saved
+numeric arrays were bitwise equal, and selected physical quantities matched at
+all 120 reporting stations in each pair. These are two independent repeats,
+not 120 independent timing samples; no confidence interval or full-trajectory
+gain is claimed. The second deformation-stage comparison remains undone.
+
+Validation: 108 targeted serial tests passed, the two-rank default-rollback and
+serial-only-borrowing guard passed on both ranks, and five private executor tests
+covered tiled/untiled arithmetic, worker failure cleanup and exact finite checks.
+The private fused executor is not promoted to a public backend, nor does this
+evidence validate the underlying scaled-inertia case against Abaqus.

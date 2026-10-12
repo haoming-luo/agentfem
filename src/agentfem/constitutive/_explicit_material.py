@@ -64,7 +64,12 @@ def _owned_validated_response(response):
     result = object.__new__(ExplicitMaterialBatchOutput)
     object.__setattr__(result, "state_schema", schema)
     for name, original, owner, metadata, pointer in entries:
-        value = None if original is None else np.frombuffer(owner, dtype=float).reshape(metadata[0])
+        if original is None:
+            value = None
+        else:
+            offset = pointer - np.frombuffer(owner, dtype=np.uint8).ctypes.data
+            value = np.frombuffer(owner, dtype=float, count=original.size,
+                                  offset=offset).reshape(metadata[0])
         object.__setattr__(result, name, value)
     object.__setattr__(result, "_transport_stamp", _response_transport_stamp(result))
     return result

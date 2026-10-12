@@ -168,3 +168,21 @@ def test_permuted_history_uses_cell_order_not_storage_order():
     actual = _immutable_committed_history(state)
     np.testing.assert_array_equal(actual, expected)
     assert not np.shares_memory(actual, field.function.x.array)
+
+
+def test_explicit_response_revalidation_preserves_sliced_storage():
+    from agentfem.constitutive._explicit_material import (
+        ExplicitMaterialBatchOutput, _owned_validated_response,
+    )
+    from agentfem.constitutive.user_material import MaterialStateSchema, MaterialStateVariable
+    schema = MaterialStateSchema("slice", (MaterialStateVariable("x"),))
+    whole = ExplicitMaterialBatchOutput(np.zeros((4, 3, 3)), np.arange(4.).reshape(4, 1),
+                                       schema, np.arange(4.))
+    part = ExplicitMaterialBatchOutput(whole.cauchy_stress[1:3], whole.state_new[1:3],
+                                      schema, whole.internal_work_density_increment[1:3])
+    copied = _owned_validated_response(part)
+    np.testing.assert_array_equal(copied.state_new, [[1.], [2.]])
+    np.testing.assert_array_equal(copied.internal_work_density_increment, [1., 2.])
+    assert np.shares_memory(copied.state_new, whole.state_new)
+    part.state_new.shape = (2,)
+    assert copied.state_new.shape == (2, 1)

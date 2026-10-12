@@ -400,49 +400,52 @@ class ExplicitDynamicsStep:
             else None
         )
         try:
-            if inertia_owner is not None and increment_size is None:
-                inertia_owner.prepare_increment(
-                    self.state, increment=self.completed_steps + 1,
-                    time=accepted_time, dt=dt,
-                )
-            if self.update_load is not None:
-                from .provenance import collective_call
+            from ._field_rollback_scope import _increment_field_scope
 
-                collective_call(
-                    lambda: self.update_load(t),
-                    comm=fields.unwrap(self.state.u).function_space.mesh.comm,
-                    label="Explicit time inputs",
-                )
-            if hasattr(self.residual, "update_time"):
-                from .provenance import collective_call
+            # Opt-in providers lend this increment's existing accepted field
+            # snapshot. Scope rejection stays INSIDE the complete restore path.
+            with _increment_field_scope(self.residual, residual_state):
+                if inertia_owner is not None and increment_size is None:
+                    inertia_owner.prepare_increment(
+                        self.state, increment=self.completed_steps + 1,
+                        time=accepted_time, dt=dt,
+                    )
+                if self.update_load is not None:
+                    from .provenance import collective_call
 
-                collective_call(
-                    lambda: self.residual.update_time(t),
-                    comm=fields.unwrap(self.state.u).function_space.mesh.comm,
-                    label="Explicit residual time",
+                    collective_call(
+                        lambda: self.update_load(t),
+                        comm=fields.unwrap(self.state.u).function_space.mesh.comm,
+                        label="Explicit time inputs",
+                    )
+                if hasattr(self.residual, "update_time"):
+                    from .provenance import collective_call
+
+                    collective_call(
+                        lambda: self.residual.update_time(t),
+                        comm=fields.unwrap(self.state.u).function_space.mesh.comm,
+                        label="Explicit residual time",
+                    )
+                self.integrator.step(
+                    dt,
+                    time=t,
+                    residual_operator=self.residual,
+                    prescribed=self.prescribed,
+                    constraints=self.constraints,
                 )
-            self.integrator.step(
-                dt,
-                time=t,
-                residual_operator=self.residual,
-                prescribed=self.prescribed,
-                constraints=self.constraints,
-            )
-            if hasattr(self.residual, "commit"):
-                # The residual owns collectives inside its commit. Synchronize
-                # the completed phase before another rank can enter monitoring
-                # or a new increment while a failed rank starts rollback.
-                commit_failure = None
-                try:
-                    self.residual.commit()
-                except BaseException as exc:
-                    commit_failure = exc
-                comm = fields.unwrap(self.state.u).function_space.mesh.comm
-                failures = comm.allgather(None if commit_failure is None else str(commit_failure))
-                if commit_failure is not None:
-                    raise commit_failure
-                if any(value is not None for value in failures):
-                    raise RuntimeError(f"Explicit residual commit failed on another rank: {failures}")
+                if hasattr(self.residual, "commit"):
+                    # Synchronize completed commit before monitoring or retry.
+                    commit_failure = None
+                    try:
+                        self.residual.commit()
+                    except BaseException as exc:
+                        commit_failure = exc
+                    comm = fields.unwrap(self.state.u).function_space.mesh.comm
+                    failures = comm.allgather(None if commit_failure is None else str(commit_failure))
+                    if commit_failure is not None:
+                        raise commit_failure
+                    if any(value is not None for value in failures):
+                        raise RuntimeError(f"Explicit residual commit failed on another rank: {failures}")
         except BaseException as failure:
             # A user interrupt is still a rejected increment. Restore the
             # accepted station before propagating it; never swallow cancellation.

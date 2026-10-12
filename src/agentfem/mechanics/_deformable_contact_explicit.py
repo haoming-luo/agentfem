@@ -292,6 +292,11 @@ class DeformableQ1ContactResidual:
     def transaction_snapshot(self):
         return self._snapshot("transaction_snapshot")
 
+    def _increment_field_scope(self, record):
+        from .._field_rollback_scope import _increment_field_scope
+
+        return _increment_field_scope(self.base, record["base"])
+
     def checkpoint_snapshot(self):
         return self._snapshot("checkpoint_snapshot")
 

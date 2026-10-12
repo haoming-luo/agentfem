@@ -224,7 +224,7 @@ class FiniteUniformHexResidual:
         and the accepted work-only ledger are independently admitted.
         """
         from ..constitutive._explicit_material_driver import (
-            ExplicitQuadratureResponse, _prepare_explicit_material_points,
+            ExplicitQuadratureResponse,
         )
         from ._finite_uniform_hex_material import FiniteHexMaterialTrial
         from ..state import field_transaction
@@ -244,20 +244,14 @@ class FiniteUniformHexResidual:
                 # the generic multi-axis advanced-indexing overhead.
                 displacement = self._gather_cell_vectors(nodal.reshape(-1, 3))
                 gradient = self.cells.deformation_gradient(displacement)
-                prepared = _prepare_explicit_material_points(
-                    material, self.response.state, deformation_gradient_old=deformation_gradient_old,
-                    deformation_gradient_new=gradient, time=time, time_increment=time_increment,
-                    max_batch_points=self.material_batch_points)
+                prepared, element = self._prepare_explicit_response(
+                    material, displacement, gradient,
+                    deformation_gradient_old=deformation_gradient_old,
+                    time=time, time_increment=time_increment)
                 self.response._assign_prepared(prepared)
                 response = prepared.response
                 if not np.array_equal(self.displacement.x.array, nodal):
                     raise RuntimeError("Material callback changed the admitted Hex8 configuration.")
-                element = self.cells._response_from_checked_displacement(
-                    # Prepared stress already owns immutable, cell-ordered
-                    # storage. Keep field assignment for State/output, but do
-                    # not read/copy the same stress back out for this assembly.
-                    displacement, first_piola=prepared.first_piola_stress,
-                    stored_energy_density=response.stored_energy_density)
                 cell_force = element.internal_force
                 viscosity = None
                 if bulk_viscosity is not None:
@@ -293,6 +287,25 @@ class FiniteUniformHexResidual:
     def _gather_cell_vectors(self, values):
         """Detached cell vectors; no retained mutable scratch across trials."""
         return np.take(values, self.cell_nodes, axis=0)
+
+    def _prepare_explicit_response(self, material, displacement, gradient, *,
+                                   deformation_gradient_old, time, time_increment):
+        """Detached body continuation; field publication remains with the owner.
+
+        Execution lowerings may fuse this arithmetic, but cannot commit history
+        or omit the material increment policy. No PETSc work belongs here.
+        """
+        from ..constitutive._explicit_material_driver import _prepare_explicit_material_points
+
+        prepared = _prepare_explicit_material_points(
+            material, self.response.state,
+            deformation_gradient_old=deformation_gradient_old,
+            deformation_gradient_new=gradient, time=time, time_increment=time_increment,
+            max_batch_points=self.material_batch_points)
+        element = self.cells._response_from_checked_displacement(
+            displacement, first_piola=prepared.first_piola_stress,
+            stored_energy_density=prepared.response.stored_energy_density)
+        return prepared, element
 
     def tangent_action(self, direction):
         """Apply the most recently evaluated trial tangent; never update history."""

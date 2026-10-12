@@ -446,6 +446,14 @@ class ResponseHexExplicitResidual:
 
     checkpoint_snapshot = transaction_snapshot
 
+    def _increment_field_scope(self, record):
+        from .._field_rollback_scope import _accepted_field_scope
+
+        if (record.get("schema") != "agentfem.private-response-hex.v4"
+                or record.get("identity") != self.identity):
+            raise ValueError("Increment field owner identity mismatch.")
+        return _accepted_field_scope(self._fields(), record["fields"])
+
     def checkpoint_capabilities(self):
         from ..checkpointing import CheckpointCapabilities
 
