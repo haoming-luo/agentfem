@@ -1215,9 +1215,7 @@ def finite_strain_cell_fields(
                 "Mixed finite-strain output requires the independent pressure field."
             )
         pressure_function = getattr(pressure, "value", pressure)
-        P = hyperelasticity.mixed_first_piola(
-            function, pressure_function, properties
-        )
+        P = hyperelasticity.mixed_first_piola(function, pressure_function, properties)
         sigma = hyperelasticity.mixed_cauchy_stress(
             function, pressure_function, properties
         )
@@ -1229,6 +1227,15 @@ def finite_strain_cell_fields(
         P = hyperelasticity.first_piola(function, properties)
         sigma = hyperelasticity.cauchy_stress(function, properties)
         psi = hyperelasticity.strain_energy_density(function, properties)
+    if isinstance(properties, hyperelasticity.SaintVenantKirchhoffProperties):
+        from ..constitutive.geometric_elasticity import embedded_gradient
+
+        F = embedded_gradient(F, properties)
+        E = (F.T * F - ufl.Identity(3)) / 2
+        J = ufl.det(F)
+        S2 = properties.lambda_ * ufl.tr(E) * ufl.Identity(3) + 2 * properties.mu * E
+        P = F * S2
+        sigma = P * F.T / J
     identity = ufl.Identity(F.ufl_shape[0])
     deviator = sigma - ufl.tr(sigma) / 3.0 * identity
     von_mises = ufl.sqrt(1.5 * ufl.inner(deviator, deviator))
@@ -1243,9 +1250,13 @@ def finite_strain_cell_fields(
         )
         if selected_density is None:
             raise ValueError("KED output requires a material or explicit density.")
-        kinetic_density = 0.5 * selected_density * ufl.inner(
-            velocity_function,
-            velocity_function,
+        kinetic_density = (
+            0.5
+            * selected_density
+            * ufl.inner(
+                velocity_function,
+                velocity_function,
+            )
         )
     sampled_F = None
     fields = []
@@ -1439,7 +1450,9 @@ def finite_strain_dynamic_cell_fields(
             raise ValueError("Mixed dynamic fields require the independent pressure.")
         pressure_function = getattr(pressure, "value", pressure)
         P = hyperelasticity.mixed_first_piola(function, pressure_function, properties)
-        sigma = hyperelasticity.mixed_cauchy_stress(function, pressure_function, properties)
+        sigma = hyperelasticity.mixed_cauchy_stress(
+            function, pressure_function, properties
+        )
         psi = hyperelasticity.mixed_strain_energy_density(
             function, pressure_function, properties
         )
@@ -1447,7 +1460,21 @@ def finite_strain_dynamic_cell_fields(
         P = hyperelasticity.first_piola(function, properties)
         sigma = hyperelasticity.cauchy_stress(function, properties)
         psi = hyperelasticity.strain_energy_density(function, properties)
-    selected_density = getattr(properties, "density", None) if density is None else density
+    if isinstance(properties, hyperelasticity.SaintVenantKirchhoffProperties):
+        from ..constitutive.geometric_elasticity import embedded_gradient
+
+        F = embedded_gradient(F, properties)
+        green = (F.T * F - ufl.Identity(3)) / 2
+        J = ufl.det(F)
+        S2 = (
+            properties.lambda_ * ufl.tr(green) * ufl.Identity(3)
+            + 2 * properties.mu * green
+        )
+        P = F * S2
+        sigma = P * F.T / J
+    selected_density = (
+        getattr(properties, "density", None) if density is None else density
+    )
     kinetic = (
         None
         if selected_density is None

@@ -95,3 +95,65 @@ def displacement_controlled_response(
             ("load_factor", "displacement", "reaction", "monitor_displacement")
         )
     }
+
+
+def load_controlled_response(
+    model, step, *, support, monitor, component=0, monitor_component=1
+):
+    """Measure a conservative traction-driven accepted path.
+
+    Support reaction is reconstructed from internal virtual work. Consequently
+    the support must be unloaded, and body forces, amplitudes and other load
+    families are rejected. Boundary displacements are reference-area means;
+    2-D forces are per unit reference thickness. Saved solutions are untouched.
+    """
+    from ..loads import BoundaryLoad
+
+    if (
+        len(model.materials) != 1
+        or model.boundary_models
+        or model.eigenstrains
+        or any(not isinstance(load, BoundaryLoad) for load in model.loads)
+    ):
+        raise ValueError(
+            "Load response requires one hyperelastic material and conservative tractions only."
+        )
+    domain = step.solution.function_space.mesh
+    if support.domain is not domain or monitor.domain is not domain:
+        raise ValueError("Response boundaries must belong to the solved mesh.")
+    support_dofs = fem.locate_dofs_topological(
+        step.solution.function_space, domain.topology.dim - 1, support.facets
+    )
+    for load in model.loads:
+        location = getattr(load, "location", None)
+        if location is None or getattr(location, "domain", None) is not domain:
+            raise ValueError(
+                "Traction response requires explicit mesh boundary regions."
+            )
+        loaded_dofs = fem.locate_dofs_topological(
+            step.solution.function_space, domain.topology.dim - 1, location.facets
+        )
+        overlap = np.intersect1d(support_dofs, loaded_dofs).size
+        if domain.comm.allreduce(int(overlap), op=MPI.SUM):
+            raise ValueError(
+                "Reaction support must not share nodes with an applied traction."
+            )
+        if step.solution in ufl.algorithms.extract_coefficients(
+            load.form(ufl.TestFunction(step.solution.function_space))
+        ):
+            raise ValueError(
+                "Response requires displacement-independent reference traction."
+            )
+    # The existing reconstruction consumes only material and saved solutions.
+    proxy = SimpleNamespace(
+        materials=model.materials, loads=(), boundary_models=(), eigenstrains=()
+    )
+    response = displacement_controlled_response(
+        proxy,
+        step,
+        on=support,
+        component=component,
+        monitor=monitor,
+        monitor_component=monitor_component,
+    )
+    return response

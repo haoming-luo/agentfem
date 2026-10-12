@@ -132,6 +132,12 @@ For a collection of related cases, continue with:
     domain, and retain a high-fidelity FEM fallback where extrapolation would
     be unsafe.
 
+For elastic finite rotations, choose `constitutive.saint_venant_kirchhoff`
+explicitly and retain `model.step(...)`. The material declares its 2D
+assumption; the Study must agree. Reference tractions, initial geometry
+imperfections, accepted increments and reaction histories retain their usual
+owners. See `docs/guide/geometric_elasticity.md`.
+
 ## Module Map
 
 Package paths below are relative to `src/agentfem/`.

@@ -41,6 +41,14 @@ class BenchmarkSpec:
 
 _BENCHMARKS = (
     BenchmarkSpec(
+        identifier="saint_venant_kirchhoff_material_and_patch",
+        capability="saint_venant_kirchhoff",
+        level="material_point_and_finite_element",
+        reference="Green-Lagrange quadratic energy; exact S33=0 condensation; homogeneous affine solution",
+        criterion="energy/tangent finite differences, rigid-rotation objectivity and 2D/3D standard-step patch agreement",
+        automated_test="tests/test_geometric_elasticity.py",
+    ),
+    BenchmarkSpec(
         identifier="cae_reliability_cliffs",
         capability="scientific_verification",
         level="workflow",

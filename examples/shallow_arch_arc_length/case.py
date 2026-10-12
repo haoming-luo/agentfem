@@ -17,7 +17,7 @@ from agentfem import (
 )
 
 
-def solve_arch(*, nx=32, arc_size=0.04, increments=80, output=None):
+def solve_arch(*, nx=32, arc_size=0.04, increments=80, output=None, material=None):
     domain = mesh.rectangle(
         (-1.0, -0.02), (1.0, 0.02), (nx, 2), cell_type="quadrilateral"
     )
@@ -30,7 +30,11 @@ def solve_arch(*, nx=32, arc_size=0.04, increments=80, output=None):
         mesh=domain,
     )
     u = model.field(fields.displacement(domain, degree=2))
-    model.material(constitutive.neo_hookean(young=1000.0, poisson=0.0))
+    model.material(
+        material
+        if material is not None
+        else constitutive.neo_hookean(young=1000.0, poisson=0.0)
+    )
     ends = mesh.boundary(
         domain, lambda x: np.isclose(np.abs(x[0]), 1.0), name="clamped_ends"
     )

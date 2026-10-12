@@ -294,6 +294,15 @@ and mass conversion; the Procedure composes contributions and selects time.
 Observed violations reject the increment. A declaration is not a proof of
 nonlinear trajectory stability or scientific verification.
 
+### Finite-rotation elasticity
+
+`constitutive.saint_venant_kirchhoff(...)` explicitly couples Green–Lagrange
+strain to second Piola–Kirchhoff stress. It supports finite rotations with
+small material strains through the existing nonlinear-static Study and Newton
+Procedure. Plane stress eliminates the thickness strain; it is not a renamed
+plane-strain law. Standard `S` output remains Cauchy stress. See
+`docs/guide/geometric_elasticity.md`.
+
 ## Material Record
 
 A reusable set of material constants with units and provenance. Material

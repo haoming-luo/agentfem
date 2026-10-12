@@ -107,6 +107,28 @@ class HyperelasticArcLengthStep:
         u.x.array[:] = 0.0
         u.x.array[self.free] = values
         u.x.scatter_forward()
+        from ..results.quantities import quadrature_extrema
+
+        F = hyperelasticity.deformation_gradient(u)
+        minimum_j, _ = quadrature_extrema(ufl.det(F), u.function_space.mesh, degree=8)
+        if not np.isfinite(minimum_j) or minimum_j <= 0:
+            raise FloatingPointError(
+                "Arc-length trial has a non-positive deformation Jacobian."
+            )
+        material = self.model.materials[0].item
+        if (
+            isinstance(material, hyperelasticity.SaintVenantKirchhoffProperties)
+            and material.plane_stress
+        ):
+            from ..constitutive.geometric_elasticity import thickness_squared
+
+            minimum_t2, _ = quadrature_extrema(
+                thickness_squared(F, material), u.function_space.mesh, degree=8
+            )
+            if not np.isfinite(minimum_t2) or minimum_t2 <= 0:
+                raise FloatingPointError(
+                    "Arc-length trial has no positive plane-stress thickness."
+                )
         residual = fem_petsc.assemble_vector(self.residual_form)
         matrix = None
         try:

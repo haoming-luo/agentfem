@@ -1,0 +1,29 @@
+{
+  "base_commit": "44360903",
+  "full_serial_suite": {
+    "passed": 2455,
+    "skipped": 157,
+    "failed": 2,
+    "pre_existing_failures": [
+      "test_multi_void_fixed_stack_matches_versioned_golden",
+      "test_unreleased_checkout_does_not_reuse_a_published_tag_version"
+    ]
+  },
+  "new_material_tests_passed": 21,
+  "new_structural_tests_passed": 3,
+  "mpi_ranks": 2,
+  "mpi_dimensions": [
+    2,
+    3
+  ],
+  "installed_projects_completed": [
+    "geometric_elastic_column",
+    "geometric_elastic_cantilever",
+    "reentrant_honeycomb"
+  ],
+  "final_targeted_regression": {
+    "passed": 90,
+    "skipped": 1,
+    "failed": 0
+  }
+}

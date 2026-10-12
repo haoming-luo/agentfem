@@ -670,6 +670,24 @@
       "title": "Locally condensed finite-strain plane-stress Neo-Hookean membrane"
     },
     {
+      "id": "agentfem.material.geometric_elasticity",
+      "kind": "material",
+      "public_api": [
+        "agentfem.constitutive.saint_venant_kirchhoff",
+        "agentfem.constitutive.SaintVenantKirchhoffProperties",
+        "agentfem.constitutive.geometric_elasticity.response_value",
+        "agentfem.mechanics.load_controlled_response",
+        "agentfem.constraints.pin"
+      ],
+      "related_cards": [
+        "agentfem.workflow.solution_procedures"
+      ],
+      "source": "src/agentfem/knowledge/cards/geometric_elasticity.json",
+      "status": "supported",
+      "summary": "Saint-Venant\u2013Kirchhoff elasticity through the standard model.step workflow, with objective finite-rotation kinematics, exact plane-stress thickness condensation and consistent tangent.",
+      "title": "Finite-rotation elastic solids with exact plane-stress reduction"
+    },
+    {
       "id": "agentfem.material.global_implicit_creep",
       "kind": "material",
       "public_api": [
