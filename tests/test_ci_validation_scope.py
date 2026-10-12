@@ -67,6 +67,14 @@ def test_targeted_source_change_selects_stable_owner_tests():
     )
 
 
+def test_response_workflow_and_batch_geometry_select_owner_regressions():
+    scope = classify_changes(['src/agentfem/_step_response_hex.py',
+                              'src/agentfem/boundary_models/q1_execution.py'])
+    assert scope.level == 'core'
+    assert {'tests/test_response_material_step.py','tests/test_owned_explicit_state.py',
+            'tests/test_response_substeps.py','tests/test_q1_execution.py'} <= set(scope.tests)
+
+
 def test_promotion_contract_change_tests_the_gate_without_replaying_release():
     scope = classify_changes(
         [

@@ -25,7 +25,7 @@ step = model.step(
 result = step.solve_result()
 ```
 
-The runnable [`response_only_material.py`](../examples/response_only_material.py)
+The runnable `examples/response_only_material.py`
 example supplies a small external elastic callback and moving tools, then saves
 an accepted checkpoint and material arrays. It requires no confidential assets.
 Run it with the installed package and an explicit fresh `--output` directory.

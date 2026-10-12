@@ -77,6 +77,32 @@ _SOURCE_TEST_MAP = {
     ),
 }
 _CORE_SOURCE_TEST_MAP = {
+    "src/agentfem/_step_response_hex.py": (
+        "tests/test_response_material_step.py", "tests/test_response_deformable_step.py",
+        "tests/test_owned_explicit_state.py", "tests/test_response_substeps.py",
+    ),
+    "src/agentfem/constitutive/_owned_explicit_state.py": (
+        "tests/test_owned_explicit_state.py", "tests/test_response_material_step.py",
+        "tests/test_response_substeps.py",
+    ),
+    "src/agentfem/elements/explicit_execution.py": (
+        "tests/test_explicit_hex_execution.py", "tests/test_owned_explicit_state.py",
+    ),
+    "src/agentfem/boundary_models/q1_execution.py": (
+        "tests/test_q1_execution.py", "tests/test_closed_q1_surface.py",
+        "tests/test_response_deformable_step.py",
+    ),
+    "src/agentfem/_q1_surface_search.py": (
+        "tests/test_q1_surface_search.py", "tests/test_q1_execution.py",
+        "tests/test_closed_q1_surface.py", "tests/test_q1_exact_order.py",
+    ),
+    "src/agentfem/time/substeps.py": (
+        "tests/test_response_substeps.py", "tests/test_owned_explicit_state.py",
+    ),
+    "src/agentfem/_exact_rational.py": (
+        "tests/test_exact_rational.py", "tests/test_q1_exact_order.py",
+        "tests/test_q1_ray_exact.py", "tests/test_q1_swept_separation.py",
+    ),
     "src/agentfem/assembly.py": ("tests/test_lumped_mass_contract.py",),
     "src/agentfem/_step_builders_contact.py": (
         "tests/test_rigid_obstacle_contact.py",
