@@ -1398,3 +1398,16 @@ material tangents into an unproven whole-path stability estimate.
   neither deformation gradients nor force assembly. The 81-test targeted
   geometry/material/contact suite passed, including SVD-path equivalence at
   three scales and selective fallback for nonaffine or large-stretch cells.
+- Serial quadrature commit/rollback can transfer from borrowed identity-layout
+  source views when all destinations are concrete, same-mesh fields and no
+  destination aliases any source. This removes an intermediate copy, not the
+  caller's failure transaction. Open providers, custom assignment, permuted
+  layouts, cross-aliases and distributed fields retain detached transfers;
+  checkpoint snapshots remain detached in every case. The 73-test targeted
+  ownership/layout/material/response suite passed, including failures after
+  material commit. A paired 180-increment private full-mesh replay had bitwise
+  equal saved state arrays; mean advance time changed from 0.20986 to 0.20234
+  seconds per increment (3.6% lower in that pair). This excludes setup/export
+  and is neither a fresh full-run timing nor Abaqus cross-validation. Duplicate
+  outer/inner rollback snapshots are deliberately retained: removing them
+  needs an explicit transaction-ownership design, not global suppression.

@@ -516,6 +516,40 @@ def _state_value_snapshot(selected) -> np.ndarray:
     return values if type(selected) is QuadratureField else values.copy()
 
 
+def _disjoint_serial_state_views(source, target):
+    """Borrow identity-layout sources only for a synchronous disjoint transfer.
+
+    Never use these views as snapshots. Open providers, distributed fields,
+    permuted layouts and cross-aliased state retain the detached-copy route.
+    Caller-owned field transactions still protect destination assignment.
+    """
+    selected = tuple(source.values()) + tuple(target.values())
+    if any(type(item) is not QuadratureField for item in selected):
+        return None
+    domain = selected[0].function.function_space.mesh
+    if domain.comm.size != 1 or any(
+        item.function.function_space.mesh is not domain for item in selected
+    ):
+        return None
+    # An overridden assignment may mutate sources or retain an argument.
+    if any(getattr(item.assign, "__func__", None) is not QuadratureField.assign
+           for item in target.values()):
+        return None
+    inputs = [item.function.x.array for item in source.values()]
+    outputs = [item.function.x.array for item in target.values()]
+    if any(np.shares_memory(a, b) for a in inputs for b in outputs):
+        return None
+    views = {}
+    for name, item in source.items():
+        indices = item._array_indices()
+        if not item._identity_layout_cache:
+            return None
+        views[name] = item.function.x.array[:indices.size].reshape(
+            (-1, *item.value_shape)
+        )
+    return views
+
+
 @dataclass
 class QuadratureTransaction:
     """Shared trial/commit/rollback contract for integration-point state.
@@ -575,20 +609,24 @@ class QuadratureTransaction:
     def commit(self) -> None:
         """Atomically accept every trial state variable."""
 
-        snapshots = {
-            name: _state_value_snapshot(selected)
-            for name, selected in self.trial.items()
-        }
+        snapshots = _disjoint_serial_state_views(self.trial, self.committed)
+        if snapshots is None:
+            snapshots = {
+                name: _state_value_snapshot(selected)
+                for name, selected in self.trial.items()
+            }
         for name, selected in self.committed.items():
             selected.assign(snapshots[name])
 
     def rollback(self) -> None:
         """Discard all trial variables and restore the committed state."""
 
-        snapshots = {
-            name: _state_value_snapshot(selected)
-            for name, selected in self.committed.items()
-        }
+        snapshots = _disjoint_serial_state_views(self.committed, self.trial)
+        if snapshots is None:
+            snapshots = {
+                name: _state_value_snapshot(selected)
+                for name, selected in self.committed.items()
+            }
         for name, selected in self.trial.items():
             selected.assign(snapshots[name])
 
