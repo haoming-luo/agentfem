@@ -1570,3 +1570,34 @@ serial-only-borrowing guard passed on both ranks, and five private executor test
 covered tiled/untiled arithmetic, worker failure cleanup and exact finite checks.
 The private fused executor is not promoted to a public backend, nor does this
 evidence validate the underlying scaled-inertia case against Abaqus.
+
+### Public workflow migration gate (2026-10-13)
+
+The bounded response-only path now lowers through ordinary `model.step` and its
+option contract. General reusable mechanisms are in core: explicitly selected
+initial elastic bonds, one-sided Q1 deformable contact, translating rigid tools,
+trace integration policy, damping, fixed numerical inertia, bounded cutbacks,
+accepted material export and serial accepted-array ownership. Private source
+laws, source-deck assumptions and native implementations remain external.
+
+Instance-local body and geometry execution contracts replace the private
+process-wide replacements. Core owns state acceptance, rollback, restart and
+structural validation. Trusted kernels remain responsible for mathematical
+equivalence, conservative geometric certificates and pinned implementation
+identity. Optional GMP arithmetic preserves exact binary64 geometry predicates;
+the standard-library fallback remains supported.
+
+Current admission evidence: 155 focused serial regressions passed; 34 tests
+passed against a frozen installed wheel from outside the repository. A public
+elastic-user-material example completed ten increments and exported accepted
+state without confidential assets. The private full original mesh prepared
+through the new public workflow with matching node/mesh identities, reference
+adjustment fingerprint and frozen inertia. This is assembly admission only.
+
+Architecture decision: keep one accepted material owner, explicit publication
+boundaries and instance-local execution callbacks. Do not introduce a parallel
+case-specific solver, a second checkpoint format, or global native patches.
+The next promotion gate is same-station full-case numerical comparison followed
+by complete end-to-end timing. The older private-backend long run is a separate
+baseline and cannot certify the new public route. No new MPI, automatic stable
+step, mass-sensitivity or independent vendor-validation claim is made.

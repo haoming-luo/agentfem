@@ -25,6 +25,11 @@ step = model.step(
 result = step.solve_result()
 ```
 
+The runnable [`response_only_material.py`](../examples/response_only_material.py)
+example supplies a small external elastic callback and moving tools, then saves
+an accepted checkpoint and material arrays. It requires no confidential assets.
+Run it with the installed package and an explicit fresh `--output` directory.
+
 The current admission is serial, three-dimensional, one full-domain material,
 and finite uniform-strain Hex8. It starts from a stress-free, virgin state.
 Multiple `RigidContactPair` model assets may use frictionless planes or cylinders
