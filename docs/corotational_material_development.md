@@ -1601,3 +1601,12 @@ The next promotion gate is same-station full-case numerical comparison followed
 by complete end-to-end timing. The older private-backend long run is a separate
 baseline and cannot certify the new public route. No new MPI, automatic stable
 step, mass-sensitivity or independent vendor-validation claim is made.
+
+## Public execution scheduling follow-up
+
+The installed public workflow initially serialized body evaluation and deformable
+geometry that the private baseline overlapped. The bounded `contact_execution`
+option now moves only copied-array geometry to a run-scoped worker, retaining
+owner-thread PETSc, force ordering and rollback. Promotion still requires the
+frozen full original case; the completed private baseline took 13529.506969 s
+including startup/export/shutdown, not a measurement of this new provider.

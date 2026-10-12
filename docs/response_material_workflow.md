@@ -171,3 +171,19 @@ this is not a tolerance relaxation or a geometric approximation. See the
 
 The earlier frozen private-backend run is a baseline, not an end-to-end test of
 this new workflow. Confidential source laws and meshes remain external.
+
+## Independent geometry scheduling
+
+`contact_execution="overlap"` is an opt-in execution choice for a registered
+deformable pair. It evaluates copied contact kinematics in one run-scoped worker
+while the owner evaluates the body. Only the owner accesses PETSc, adds forces,
+publishes trial state and commits. A rejected branch joins the other branch
+before contact rollback; serial contact-before-body error precedence is retained.
+Worker shutdown occurs on every `run` exit, including failure. The default is
+`"serial"`; MPI and concurrent use of the same Step are not supported.
+
+This requires the geometry operator and its trusted callbacks to have exclusive
+state and no access to live FEM fields or the body material. It is not generic
+thread safety for arbitrary callbacks. Scheduling does not change the contact
+law, assembly order, time grid or checkpoint schema. Small serial/overlap and
+restart comparisons are regression evidence, not a full-case speed claim.

@@ -13,6 +13,12 @@ from ._transient_problems import ExplicitDynamicsStep
 
 
 class ResponseMaterialHexStep(ExplicitDynamicsStep):
+    def run(self, *args, **kwargs):
+        if self.contact_execution == 'overlap':
+            with self.deformable_residual.overlap_execution():
+                return super().run(*args, **kwargs)
+        return super().run(*args, **kwargs)
+
     def accepted_material_fields(self):
         """Detached accepted cell records for export, never trial data.
 
@@ -48,6 +54,7 @@ class ResponseMaterialHexStep(ExplicitDynamicsStep):
                 "element_policy": self.element_policy.summary(),
                 "execution_scope": "experimental_serial_response_only_hex8",
                 "material_storage": self.material_storage,
+                "contact_execution": self.contact_execution,
                 "operator_increment_ceilings": dict(self.operator_increment_ceilings),
                 "stability_scope": "caller_increment_ceiling_not_stability_proof",
                 "numerical_inertia": None if self.numerical_inertia is None else self.numerical_inertia.summary(),
@@ -82,6 +89,11 @@ def lower(model, request):
                        if isinstance(pair, boundary_models.DeformableContactPair))
     if len(deformable) > 1:
         raise NotImplementedError("Response-only Hex8 currently admits one deformable contact pair")
+    contact_execution = options.pop('contact_execution', 'serial')
+    if contact_execution not in ('serial', 'overlap'):
+        raise ValueError('contact_execution must be serial or overlap')
+    if contact_execution == 'overlap' and not deformable:
+        raise ValueError('Contact overlap requires a deformable contact pair')
     pairs = tuple(pair for pair in model.boundary_models
                   if not isinstance(pair, boundary_models.DeformableContactPair))
     names = set()
@@ -205,6 +217,7 @@ def lower(model, request):
             residual = DeformableQ1ContactResidual(residual, operator=operator,
                 displacement=history.u.value, secondary_dofs=pair.secondary_dofs,
                 primary_dofs=pair.primary_dofs, time_increment_ceiling=roles['deformable_contact'], name=pair.name)
+        deformable_residual = residual if deformable else None
         # Share only reference geometry for the identical boundary object in
         # this lowering call. Tool-specific filters and physical histories stay
         # independent; no cache survives a mesh/Step lifecycle.
@@ -235,6 +248,8 @@ def lower(model, request):
         step.numerical_inertia = numerical_inertia
         step.execution_kernel = execution_kernel
         step.material_storage = storage
+        step.contact_execution = contact_execution
+        step.deformable_residual = deformable_residual
         from types import MappingProxyType
         step.operator_increment_ceilings = MappingProxyType(roles)
         step.substep_policy = substeps

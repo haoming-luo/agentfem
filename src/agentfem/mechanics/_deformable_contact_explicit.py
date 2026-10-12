@@ -3,6 +3,7 @@
 """Private serial deformable contact composition for existing central difference."""
 
 from dataclasses import replace
+from contextlib import contextmanager
 
 import numpy as np
 
@@ -13,6 +14,26 @@ from ..provenance import content_fingerprint
 
 
 class DeformableQ1ContactResidual:
+    @contextmanager
+    def overlap_execution(self):
+        """Run-scoped speculative geometry; PETSc remains on the calling thread.
+
+        The geometry operator/cache belongs exclusively to this residual. Join
+        its worker before rollback or scope exit. This changes scheduling only,
+        not force assembly order, accepted history or failure precedence.
+        """
+        from concurrent.futures import ThreadPoolExecutor
+        from threading import get_ident
+        if getattr(self, '_geometry_executor', None) is not None:
+            raise RuntimeError('Contact overlap execution is already active')
+        with ThreadPoolExecutor(max_workers=1, thread_name_prefix='agentfem-contact') as pool:
+            self._geometry_executor = pool
+            self._geometry_owner = get_ident()
+            try:
+                yield
+            finally:
+                self._geometry_executor = None
+
     def __init__(
         self,
         base,
@@ -121,6 +142,8 @@ class DeformableQ1ContactResidual:
         values[self.primary_dofs] += response.primary_residual
 
     def assemble_vector(self):
+        if getattr(self, '_geometry_executor', None) is not None:
+            return self._assemble_overlapped()
         vector = None
         try:
             values = self._values()
@@ -134,6 +157,44 @@ class DeformableQ1ContactResidual:
                 vector.destroy()
             self.rollback()
             raise
+
+    def _assemble_overlapped(self):
+        from threading import get_ident
+        if get_ident() != self._geometry_owner or getattr(self, '_geometry_busy', False):
+            raise RuntimeError('Contact overlap requires its exclusive owner thread')
+        self._geometry_busy = True
+        vector = future = None
+        try:
+            values = self._values()
+            for value in values:
+                value.flags.writeable = False
+            future = self._geometry_executor.submit(self._evaluate_contact, values)
+            body_error = None
+            try:
+                vector = self.base.assemble_vector()
+            except BaseException as error:
+                body_error = error
+            # Preserve contact-before-body failure precedence of serial assembly.
+            response = future.result()
+            if body_error is not None:
+                raise body_error
+            self._add(vector, response)
+            self.trial = (*values, response)
+            return vector
+        except BaseException:
+            if future is not None:
+                while not future.done():
+                    try:
+                        future.result()
+                    except BaseException:
+                        # An owner interrupt must not race geometry rollback.
+                        pass
+            if vector is not None:
+                vector.destroy()
+            self.rollback()
+            raise
+        finally:
+            self._geometry_busy = False
 
     def _evaluate_contact(self, values):
         """Geometry-only evaluation from copied displacement arrays.
