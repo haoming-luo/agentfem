@@ -416,7 +416,8 @@ class ResponseHexExplicitResidual:
 
     def _fields(self):
         response = self.internal.response
-        result = dict(response.trial_fields())
+        response.publish_accepted()
+        result = dict(response._storage_trial_fields())
         result.update(
             {
                 "committed_state_" + k: v.function
@@ -447,7 +448,9 @@ class ResponseHexExplicitResidual:
             "cohesive": None if self.cohesive is None else self.cohesive.snapshot(),
             "accepted_force": self.accepted_force.copy(),
             "accepted_displacement": self.accepted_displacement.copy(),
-            "fields": (self._field_records().capture(self._fields())
+            "fields": (self.internal.response._owned.snapshot()
+                       if self.internal.response._owned is not None else
+                       self._field_records().capture(self._fields())
                        if self._resident_records_enabled else
                        {k: v.x.array.copy() for k, v in self._fields().items()}),
         }
@@ -505,6 +508,9 @@ class ResponseHexExplicitResidual:
         if (record.get("schema") != "agentfem.private-response-hex.v4"
                 or record.get("identity") != self.identity):
             raise ValueError("Increment field owner identity mismatch.")
+        if self.internal.response._owned is not None:
+            from contextlib import nullcontext
+            return nullcontext()
         return _accepted_field_scope(self._fields(), record["fields"])
 
     def checkpoint_capabilities(self):
@@ -638,3 +644,5 @@ class ResponseHexExplicitResidual:
         self.accepted_force = force.copy()
         self.accepted_displacement = displacement.copy()
         self._trial = None
+        if self.internal.response._owned is not None:
+            self.internal.response._owned.capture()

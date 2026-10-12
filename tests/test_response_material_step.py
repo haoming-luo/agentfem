@@ -75,6 +75,14 @@ def test_no_auto_dt_or_silent_load_drop():
     assert not model.steps
 
 
+@pytest.mark.parametrize('name,error,pattern', (
+    ('output', NotImplementedError, 'does not yet lower declarative'),
+    ('history', TypeError, 'Unsupported Step option')))
+def test_no_silent_declarative_observer_drop(name, error, pattern):
+    with pytest.raises(error, match=pattern):
+        make_step(**{name: {}})
+
+
 def contact_step(bond=False, cylinder=False, **options):
     from agentfem import boundary_models, mesh as af_mesh
     domain = None

@@ -35,6 +35,7 @@ class ExplicitQuadratureResponse:
     cauchy_stress: object
     internal_work_density_increment: object
     response_transaction: object
+    _owned: object = None
 
     @classmethod
     def create(cls, domain, state_schema, *, degree=1):
@@ -71,6 +72,9 @@ class ExplicitQuadratureResponse:
         return self.state.domain
 
     def trial_fields(self):
+        return {} if self._owned is not None else self._storage_trial_fields()
+
+    def _storage_trial_fields(self):
         return {
             "P": self.first_piola_stress.function,
             "S": self.cauchy_stress.function,
@@ -81,14 +85,31 @@ class ExplicitQuadratureResponse:
             },
         }
 
+    def enable_owned_arrays(self):
+        if self._owned is not None:
+            raise RuntimeError("Owned array storage already enabled")
+        from ._owned_explicit_state import OwnedExplicitState
+        self._owned = OwnedExplicitState(self)
+
+    def committed_history(self):
+        return (_immutable_committed_history(self.state) if self._owned is None
+                else self._owned.history)
+
+    def publish_accepted(self):
+        if self._owned is not None:
+            self._owned.publish()
+
     def update(self, material, **options):
         with field_transaction(**self.trial_fields()):
-            trial = _prepare_explicit_material_points(material, self.state, **options)
+            trial = _prepare_explicit_material_points(material, self.state,
+                accepted_history=self.committed_history(), **options)
             self._assign_prepared(trial)
         return trial.response
 
     def _assign_prepared(self, trial):
         """Assign under the caller's complete trial-field transaction only."""
+        if self._owned is not None:
+            return self._owned.assign(trial)
         self.state.assign_trial_state_vectors(trial.response.state_new)
         self.first_piola_stress.assign(trial.first_piola_stress)
         self.cauchy_stress.assign(trial.response.cauchy_stress)
@@ -97,6 +118,8 @@ class ExplicitQuadratureResponse:
         )
 
     def commit(self):
+        if self._owned is not None:
+            return self._owned.commit()
         fields = {
             f"state_{name}": value.function
             for name, value in self.state.committed.items()
@@ -112,6 +135,8 @@ class ExplicitQuadratureResponse:
             self.response_transaction.commit()
 
     def rollback(self):
+        if self._owned is not None:
+            return self._owned.rollback()
         with field_transaction(**self.trial_fields()):
             self.state.rollback()
             self.response_transaction.rollback()
@@ -161,6 +186,7 @@ def _prepare_explicit_material_points(
     time_increment,
     properties=(),
     max_batch_points=1024,
+    accepted_history=None,
 ):
     """Prepare all chunks without writing fields; caller assigns and commits.
 
@@ -180,7 +206,8 @@ def _prepare_explicit_material_points(
         or max_batch_points < 1
     ):
         raise ValueError("max_batch_points must be a positive integer.")
-    accepted = _immutable_committed_history(state)
+    accepted = (_immutable_committed_history(state) if accepted_history is None
+                else _array(accepted_history, (state.reference_field.point_count, state.state_schema.size), "state_old"))
     count = len(accepted)
     if count == 0:
         raise ValueError("Serial material quadrature requires at least one point.")

@@ -205,7 +205,7 @@ class DeformableQ1Penalty:
                 "measure": "reference_nodal",
                 "normal": "primary_connectivity_outward",
                 "geometry_policy": self.geometry_policy,
-                "execution": None if execution is None else execution.summary(),
+                **({"execution": execution.summary()} if execution is not None else {}),
             }
         )
 

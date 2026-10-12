@@ -163,8 +163,12 @@ class DeformableQ1ContactResidual:
             if np.any(uncertain):
                 from .._q1_swept_separation import separated_q1_paths
 
+                execution = self.operator.execution
+                separate = (separated_q1_paths if execution is None else
+                            lambda *args: execution.separated(*args, reference=separated_q1_paths))
+
                 indices = self.operator.nodes[uncertain]
-                separated = separated_q1_paths(
+                separated = separate(
                     self.operator.primary.vertices + self.accepted[1],
                     self.operator.primary.vertices + values[1],
                     self.operator.primary.quadrilaterals,

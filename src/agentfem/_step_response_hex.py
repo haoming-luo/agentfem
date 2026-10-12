@@ -24,6 +24,9 @@ class ResponseMaterialHexStep(ExplicitDynamicsStep):
         if body._trial is not None:
             raise RuntimeError("Material export requires an accepted station")
         response = body.internal.response
+        if response._owned is not None and response._owned.trial is not None:
+            raise RuntimeError("Material export requires an accepted station")
+        response.publish_accepted()
         def frozen(value):
             array = np.ascontiguousarray(value)
             return np.frombuffer(array.tobytes(), dtype=array.dtype).reshape(array.shape)
@@ -44,6 +47,7 @@ class ResponseMaterialHexStep(ExplicitDynamicsStep):
         return {**super().summary(), "material": self.material_residual.material.summary(),
                 "element_policy": self.element_policy.summary(),
                 "execution_scope": "experimental_serial_response_only_hex8",
+                "material_storage": self.material_storage,
                 "stability_scope": "caller_increment_ceiling_not_stability_proof",
                 "numerical_inertia": None if self.numerical_inertia is None else self.numerical_inertia.summary(),
                 "execution_kernel": None if self.execution_kernel is None else self.execution_kernel.summary(),
@@ -97,8 +101,11 @@ def lower(model, request):
     for name in ("K", "F", "material", "solver_options", "constraints"):
         if options.pop(name, None) is not None:
             raise ValueError(f"Response-only Hex8 does not accept {name}")
-    options.pop("output", None)
-    options.pop("history", None)
+    for name in ("output", "history"):
+        if options.pop(name, None) is not None:
+            raise NotImplementedError(
+                f"Response-only Hex8 does not yet lower declarative {name}; "
+                "use explicit accepted-state export and the built-in energy ledger")
     dt = options.pop("dt")
     if isinstance(dt, (str, bool)):
         raise ValueError("Response-only Hex8 needs a numerical dt, never dt='auto'")
@@ -112,6 +119,9 @@ def lower(model, request):
     viscosity = options.pop("bulk_viscosity", None)
     inertia_factor = options.pop("mass_scaling_factor", None)
     execution_kernel = options.pop("execution_kernel", None)
+    storage = options.pop("material_storage", "fields")
+    if storage not in ("fields", "owned_arrays"):
+        raise ValueError("material_storage must be fields or owned_arrays")
     substeps = options.pop("substep_policy", None)
     if substeps is not None and not isinstance(substeps, time.ExplicitSubstepPolicy):
         raise TypeError("substep_policy requires ExplicitSubstepPolicy")
@@ -160,11 +170,14 @@ def lower(model, request):
         residual = ResponseHexExplicitResidual(internal, material,
             time_increment_ceiling=ceiling, material_identity={**material.summary(),
                 "execution_kernel": None if execution_kernel is None else execution_kernel.summary(),
+                "material_storage": storage,
                 "substep_policy": None if substeps is None else substeps.summary(),
                 "contact_trace_policy": trace_policy.summary(), "bond_contact_policy": overlap_policy},
             stress_free_initial_state=True, bulk_viscosity=viscosity,
             numerical_inertia=numerical_inertia, cohesive=cohesive)
         material_residual = residual
+        if storage == "owned_arrays":
+            response.enable_owned_arrays()
         for pair in deformable:
             from ._deformable_q1_contact import DeformableQ1Penalty
             from .mechanics._deformable_contact_explicit import DeformableQ1ContactResidual
@@ -199,6 +212,7 @@ def lower(model, request):
         step.material_residual = material_residual
         step.numerical_inertia = numerical_inertia
         step.execution_kernel = execution_kernel
+        step.material_storage = storage
         step.substep_policy = substeps
         if substeps is not None:
             from .time.substeps import _ExplicitSubsteps

@@ -6,7 +6,7 @@ from agentfem import constitutive, time
 from test_response_material_step import problem
 
 
-def make_step(terminal=False):
+def make_step(terminal=False, material_storage="fields"):
     model, u, policy = problem()
     original = model.materials[0].item
     def update(request):
@@ -18,7 +18,8 @@ def make_step(terminal=False):
         update=update, identity={"test": "bounded_cutback", "terminal": terminal}, density=1.))
     step = model.step(target=u, element_policy=policy, dt=1e-4, steps=4,
         time_increment_ceiling=1e-3, stress_free_initial_state=True, progress=False,
-        substep_policy=time.ExplicitSubstepPolicy(3, True), history_every=1)
+        substep_policy=time.ExplicitSubstepPolicy(3, True), history_every=1,
+        material_storage=material_storage)
     step.state.v.value.x.array[::3] = .01
     return step
 
@@ -39,8 +40,9 @@ def test_typed_retry_keeps_macro_clock_and_restart(tmp_path):
     assert resumed.residual.snapshot() == whole.residual.snapshot()
 
 
-def test_terminal_retry_restores_entire_macro():
-    step = make_step(terminal=True)
+@pytest.mark.parametrize('storage', ('fields', 'owned_arrays'))
+def test_terminal_retry_restores_entire_macro(storage):
+    step = make_step(terminal=True, material_storage=storage)
     step.run(until_step=1)
     before = step.residual.snapshot()
     u = step.state.u.value.x.array.copy()

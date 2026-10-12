@@ -60,3 +60,30 @@ def test_kernel_identity_change_refuses_restart(tmp_path):
     other = contact_step(execution_kernel=reference_kernel([], identity="different"))
     with pytest.raises(ValueError):
         other.load_checkpoint(path)
+
+
+def test_kinematic_screen_preserves_reference_and_rejects_fold():
+    from dataclasses import replace
+    from agentfem.elements._hex_validity import admits_reference_perturbation
+    from agentfem.elements.explicit_execution import prepare_kernel_kinematics
+    def geometry_kernel(geometry, u):
+        assert not u.flags.writeable
+        f = np.eye(3) + u.swapaxes(1,2) @ geometry.average_gradient
+        mask = admits_reference_perturbation(geometry.coordinates, u,
+                                             geometry.reference_perturbation_radius)
+        return f, mask
+    kernel = replace(reference_kernel([]), prepare_kinematics=geometry_kernel)
+    plain = contact_step()
+    fast = contact_step(execution_kernel=kernel, material_storage='owned_arrays')
+    plain.run()
+    fast.run()
+    np.testing.assert_array_equal(fast.state.u.value.x.array, plain.state.u.value.x.array)
+    geometry = fast.material_residual.internal._execution_geometry
+    folded = np.zeros_like(geometry.coordinates)
+    folded[:,:,0] = -2*geometry.coordinates[:,:,0]
+    with pytest.raises(ValueError):
+        prepare_kernel_kinematics(kernel, geometry, folded)
+    malformed = replace(kernel, prepare_kinematics=lambda geometry,u: (np.tile(np.eye(3), (len(u),1,1)),
+                                                                     np.ones(len(u))))
+    with pytest.raises(ValueError, match='boolean reference certificate'):
+        prepare_kernel_kinematics(malformed, geometry, np.zeros_like(folded))

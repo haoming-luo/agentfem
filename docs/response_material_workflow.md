@@ -84,18 +84,27 @@ trial publication and acceptance. The kernel identity participates in restart
 admission. This removes the need to replace global methods for fused body
 arithmetic; it does not itself prove a native kernel mathematically equivalent
 or faster. Private constitutive constants and native binaries remain external.
+An optional `prepare_kinematics` callback fuses the mean gradient and the
+reference-perturbation sufficient screen. It must not certify cell validity
+from the mean determinant alone. Uncertified cells retain core affine and
+Bernstein checks, and all mean gradients retain positive-determinant admission.
 
 The tests exercise ordinary Step selection, response contracts, moving-tool
 work, damping/scaling combinations and exact checkpoint continuation on tiny
 meshes. They do not establish full industrial-case equivalence or speed.
 
 `boundary_models.Q1ContactExecution` supplies instance-local trusted closest
-point and closed-solid classification callbacks. Core still selects candidates,
+point, closed-solid classification, conservative distance-bound and swept-path
+callbacks. Core still selects candidates,
 resolves ambiguities, constructs forces and owns transactions. Callback results
 are structurally checked; this is not a proof that a plugin found the global
 minimum or classified a solid correctly. Identity is included in contact
 restart admission. Reference fallbacks and refitted geometry keep the same
 instance configuration; unrelated models are unchanged.
+Distance and swept certificates are trusted numerical algorithms, not arbitrary
+heuristics: uncertain geometry must use the reference proof or remain
+unresolved. A false separation certificate can skip a physical contact and is
+not made safe merely by returning a well-shaped boolean array.
 
 `interfaces.project_reference_points` and `propose_reference_adjustment`
 support explicit pre-model preparation. Adjustment returns a proposal, never
@@ -107,12 +116,24 @@ export: state schema, internal variables, Cauchy stress, deformation gradient
 and cell identity. It rejects an active trial. Private state-variable names and
 their interpretation remain the external material provider's responsibility.
 
+`material_storage="owned_arrays"` is an explicit serial execution option for
+this bounded Procedure. Immutable accepted arrays are the single material-state
+owner; quadrature Functions are internal publication buffers. User material
+callbacks must consume the supplied request only, not capture/read internal
+quadrature Functions. Use `accepted_material_fields()` for observation and the
+ordinary checkpoint API for persistence. Those boundaries publish accepted
+data; rollback restores the accepted owner. Arbitrary internal-field observers
+are not supported in this mode. The default `"fields"` keeps ordinary field
+ownership. Both modes retain material validation and finite checks; this
+choice does not change the law, time step or inertia. Multiple named state
+variables are supported, not a fixed material-specific history length.
+
 ## Remaining promotion gates
 
 - Full-case validation of the newly composed interfaces and migrated kernels.
-- Remaining batch-search, swept-path and bulk geometry acceleration without
-  process-wide patches (scalar projection and batch classification are wired).
-- Accepted-state ownership with explicit field publication for all observers.
+- Remaining batch-search and bulk damping acceleration without process-wide
+  patches; validate the newly wired geometry/path callbacks on the real case.
+- Full-case timing and observation audit of the opt-in accepted-array owner.
 - A separately frozen installed project using these interfaces, followed by a
   complete timed run and comparison at identical accepted stations.
 

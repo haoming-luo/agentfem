@@ -79,7 +79,8 @@ class FiniteUniformHexResidual:
         self.inv_mass.setflags(write=False)
         self._execution_geometry = None if execution_kernel is None else ExplicitHexGeometry(
             self.cells.average_gradient, self.cells.hourglass_modes,
-            self.cells.volume, self.cells.hourglass_coefficient)
+            self.cells.volume, self.cells.hourglass_coefficient,
+            self.cells.coordinates, self.cells._reference_perturbation_radius)
 
     def _prepare_cells(self, density, hourglass_modulus, hourglass_scale, chunk_size):
         if self.response.domain is not self.displacement.function_space.mesh:
@@ -253,7 +254,14 @@ class FiniteUniformHexResidual:
                 # Axis-specific gather creates detached cell storage without
                 # the generic multi-axis advanced-indexing overhead.
                 displacement = self._gather_cell_vectors(nodal.reshape(-1, 3))
-                gradient = self.cells.deformation_gradient(displacement)
+                if self.execution_kernel is not None and self.execution_kernel.prepare_kinematics is not None:
+                    from .explicit_execution import prepare_kernel_kinematics
+                    from ..constitutive.material_array_batch import _array
+                    displacement = _array(displacement, displacement.shape, 'cell_displacement')
+                    gradient = prepare_kernel_kinematics(self.execution_kernel,
+                                                         self._execution_geometry, displacement)
+                else:
+                    gradient = self.cells.deformation_gradient(displacement)
                 prepared, element = self._prepare_explicit_response(
                     material, displacement, gradient,
                     deformation_gradient_old=deformation_gradient_old,
@@ -318,7 +326,8 @@ class FiniteUniformHexResidual:
             material, self.response.state,
             deformation_gradient_old=deformation_gradient_old,
             deformation_gradient_new=gradient, time=time, time_increment=time_increment,
-            max_batch_points=self.material_batch_points)
+            max_batch_points=self.material_batch_points,
+            accepted_history=self.response.committed_history())
         element = self.cells._response_from_checked_displacement(
             displacement, first_piola=prepared.first_piola_stress,
             stored_energy_density=prepared.response.stored_energy_density)

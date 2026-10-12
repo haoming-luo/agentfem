@@ -16,6 +16,8 @@ class Q1ContactExecution:
     identity: dict
     closest_point: object = None
     classify_inside: object = None
+    distance_bounds: object = None
+    separated_paths: object = None
     _identity_json: str = field(init=False, repr=False)
 
     def __post_init__(self):
@@ -23,14 +25,16 @@ class Q1ContactExecution:
             raise ValueError("Q1 execution requires a nonempty JSON identity")
         encoded = json.dumps(self.identity, sort_keys=True, allow_nan=False)
         object.__setattr__(self, "_identity_json", encoded)
-        for name in ("closest_point", "classify_inside"):
+        for name in ("closest_point", "classify_inside", "distance_bounds", "separated_paths"):
             if getattr(self, name) is not None and not callable(getattr(self, name)):
                 raise TypeError(f"{name} must be callable or None")
 
     def summary(self):
         return {"kind": "trusted_q1_geometry_execution", "identity": json.loads(self._identity_json),
                 "closest_point": self.closest_point is not None,
-                "classify_inside": self.classify_inside is not None}
+                "classify_inside": self.classify_inside is not None,
+                "distance_bounds": self.distance_bounds is not None,
+                "separated_paths": self.separated_paths is not None}
 
     def closest(self, vertices, point, reference):
         if self.closest_point is None:
@@ -65,3 +69,21 @@ class Q1ContactExecution:
         if result.dtype.kind != "b" or result.shape != (len(points),):
             raise ValueError("Q1 classification kernel must return one boolean per point")
         return result.copy()
+
+    def bounds(self, surface, points, reference, *, refinement_distance):
+        if self.distance_bounds is None:
+            return reference(points, refinement_distance=refinement_distance)
+        values = np.asarray(self.distance_bounds(surface, points, reference,
+                                                  refinement_distance=refinement_distance))
+        if (values.shape != (len(points),) or np.iscomplexobj(values)
+                or not np.isfinite(values).all() or np.any(values < 0)):
+            raise ValueError("Q1 lower bounds must be finite nonnegative query-sized arrays")
+        return values.copy()
+
+    def separated(self, old, new, cells, start, end, reference):
+        if self.separated_paths is None:
+            return reference(old, new, cells, start, end)
+        values = np.asarray(self.separated_paths(old, new, cells, start, end, reference))
+        if values.dtype.kind != 'b' or values.shape != (len(start),):
+            raise ValueError("Q1 swept separation requires one boolean certificate per path")
+        return values.copy()

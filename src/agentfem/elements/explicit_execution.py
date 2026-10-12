@@ -22,6 +22,8 @@ class ExplicitHexGeometry:
     hourglass_modes: np.ndarray
     volume: np.ndarray
     hourglass_coefficient: np.ndarray
+    coordinates: np.ndarray | None = None
+    reference_perturbation_radius: np.ndarray | None = None
 
     def __post_init__(self):
         n = len(self.volume)
@@ -31,6 +33,14 @@ class ExplicitHexGeometry:
             object.__setattr__(self, name, _array(getattr(self, name), shape, name))
         if np.any(self.volume <= 0) or np.any(self.hourglass_coefficient < 0):
             raise ValueError("Invalid explicit Hex8 reference geometry")
+        if (self.coordinates is None) != (self.reference_perturbation_radius is None):
+            raise ValueError("Kinematic geometry requires coordinates and perturbation radii")
+        if self.coordinates is not None:
+            object.__setattr__(self, 'coordinates', _array(self.coordinates, (n,8,3), 'coordinates'))
+            object.__setattr__(self, 'reference_perturbation_radius', _array(
+                self.reference_perturbation_radius, (n,), 'reference_perturbation_radius'))
+            if np.any(self.reference_perturbation_radius < 0):
+                raise ValueError("Negative reference perturbation radius")
 
 
 @dataclass(frozen=True)
@@ -63,6 +73,7 @@ class ExplicitHexBodyKernel:
     """
     evaluate: Callable
     identity: Mapping
+    prepare_kinematics: Callable | None = None
     _identity_json: str = field(init=False, repr=False)
 
     def __post_init__(self):
@@ -72,21 +83,54 @@ class ExplicitHexBodyKernel:
         if not self.identity:
             raise ValueError("Kernel requires a nonempty pinned identity")
         object.__setattr__(self, "_identity_json", encoded)
+        if self.prepare_kinematics is not None and not callable(self.prepare_kinematics):
+            raise TypeError("prepare_kinematics must be callable or None")
 
     def summary(self):
         return {"kind": "trusted_explicit_hex_body_kernel", "identity": json.loads(self._identity_json),
-                "state_owner": "core", "scope": "serial_response_only_hex8"}
+                "state_owner": "core", "scope": "serial_response_only_hex8",
+                "kinematic_screen": self.prepare_kinematics is not None}
+
+
+def prepare_kernel_kinematics(kernel, geometry, displacement):
+    """Optional fused gradient/reference-ball screen with unchanged fallbacks.
+
+The trusted callback returns F and a boolean mask certifying the same
+reference-perturbation sufficient condition as the core. It cannot use a
+positive mean determinant alone to certify the entire cell. Uncertified cells
+retain affine/Bernstein checks; every mean F still needs positive determinant.
+"""
+    from ._hex_validity import admits_affine_perturbation, require_positive_hex_jacobian
+    from .._orientation import positive_finite_determinants
+    u = _array(displacement, geometry.coordinates.shape, 'cell_displacement')
+    result = kernel.prepare_kinematics(geometry, u)
+    if not isinstance(result, (tuple, list)) or len(result) != 2:
+        raise TypeError("Kinematic kernel must return gradient and certified mask")
+    f = _array(result[0], (len(u),3,3), 'deformation_gradient')
+    admitted = np.asarray(result[1])
+    if admitted.dtype.kind != 'b' or admitted.shape != (len(u),):
+        raise ValueError("Kinematic kernel needs one boolean reference certificate per cell")
+    admitted = admitted.copy()
+    pending = ~admitted
+    if np.any(pending):
+        admitted[pending] = admits_affine_perturbation(geometry.coordinates[pending],
+            u[pending], f[pending], geometry.reference_perturbation_radius[pending])
+    if np.any(~admitted):
+        require_positive_hex_jacobian(geometry.coordinates[~admitted]+u[~admitted])
+    if not positive_finite_determinants(f).all():
+        raise ValueError("Mean deformation gradient must have positive determinant.")
+    return f
 
 
 def prepare_kernel_response(kernel, geometry, owner, material, displacement, gradient,
                             *, deformation_gradient_old, time, time_increment):
     from ..constitutive.material_array_batch import MaterialPointArrayBatchInput
     from ..constitutive._explicit_material import validated_explicit_material_update
-    from ..constitutive._explicit_material_driver import ExplicitQuadratureTrial, _immutable_committed_history
+    from ..constitutive._explicit_material_driver import ExplicitQuadratureTrial
     from ._finite_uniform_hex import FiniteUniformHexResponse
 
     request = MaterialPointArrayBatchInput(deformation_gradient_old, gradient,
-        _immutable_committed_history(owner.response.state), material.state_schema, time, time_increment)
+        owner.response.committed_history(), material.state_schema, time, time_increment)
     u = _array(displacement, (request.point_count, 8, 3), "cell_displacement")
     outputs = []
 

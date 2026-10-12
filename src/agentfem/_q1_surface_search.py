@@ -254,6 +254,12 @@ class Q1SurfaceSearch:
         self._slab_lower, self._slab_upper = offsets.min(axis=1), offsets.max(axis=1)
 
     def distance_lower_bounds(self, points, *, refinement_distance=None):
+        if self.execution is not None:
+            return self.execution.bounds(self, points, self._distance_lower_bounds_reference,
+                                          refinement_distance=refinement_distance)
+        return self._distance_lower_bounds_reference(points, refinement_distance=refinement_distance)
+
+    def _distance_lower_bounds_reference(self, points, *, refinement_distance=None):
         """Conservative distance to convex enclosures of the original Q1 faces.
 
         Each face lies inside its vertex box and a normal slab because Q1
