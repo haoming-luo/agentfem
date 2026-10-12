@@ -51,6 +51,19 @@ def test_public_step_result_and_restart(tmp_path):
     assert resumed.residual.snapshot() == complete.residual.snapshot()
 
 
+def test_accepted_material_export_is_detached_and_read_only():
+    step = make_step()
+    step.run(until_step=2)
+    record = step.accepted_material_fields()
+    state = record['state'].copy()
+    assert record['time'] == pytest.approx(2e-4)
+    for key in ('state', 'cauchy_stress', 'deformation_gradient', 'cell_keys'):
+        assert not record[key].flags.writeable
+    step.run()
+    np.testing.assert_array_equal(record['state'], state)
+    assert not np.array_equal(step.accepted_material_fields()['state'], state)
+
+
 def test_no_auto_dt_or_silent_load_drop():
     with pytest.raises(ValueError, match="numerical dt"):
         make_step(dt="auto")

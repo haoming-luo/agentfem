@@ -89,10 +89,29 @@ The tests exercise ordinary Step selection, response contracts, moving-tool
 work, damping/scaling combinations and exact checkpoint continuation on tiny
 meshes. They do not establish full industrial-case equivalence or speed.
 
+`boundary_models.Q1ContactExecution` supplies instance-local trusted closest
+point and closed-solid classification callbacks. Core still selects candidates,
+resolves ambiguities, constructs forces and owns transactions. Callback results
+are structurally checked; this is not a proof that a plugin found the global
+minimum or classified a solid correctly. Identity is included in contact
+restart admission. Reference fallbacks and refitted geometry keep the same
+instance configuration; unrelated models are unchanged.
+
+`interfaces.project_reference_points` and `propose_reference_adjustment`
+support explicit pre-model preparation. Adjustment returns a proposal, never
+mutates a live bulk mesh, and does not infer bond eligibility. Apply through
+original node identities, validate affected bulk cells and rebuild pairing.
+
+`step.accepted_material_fields()` returns detached read-only cell records for
+export: state schema, internal variables, Cauchy stress, deformation gradient
+and cell identity. It rejects an active trial. Private state-variable names and
+their interpretation remain the external material provider's responsibility.
+
 ## Remaining promotion gates
 
 - Full-case validation of the newly composed interfaces and migrated kernels.
-- Instance-local contact/geometry acceleration without process-wide patches.
+- Remaining batch-search, swept-path and bulk geometry acceleration without
+  process-wide patches (scalar projection and batch classification are wired).
 - Accepted-state ownership with explicit field publication for all observers.
 - A separately frozen installed project using these interfaces, followed by a
   complete timed run and comparison at identical accepted stations.

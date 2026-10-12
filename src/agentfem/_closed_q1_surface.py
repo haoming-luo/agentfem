@@ -15,7 +15,8 @@ from ._q1_surface_search import Q1SurfaceSearch
 
 
 class ClosedQ1Surface:
-    def __init__(self, vertices, quadrilaterals):
+    def __init__(self, vertices, quadrilaterals, *, execution=None):
+        self.execution = execution
         if np.iscomplexobj(vertices):
             raise ValueError("Closed Q1 geometry must be real.")
         x, cells = np.asarray(vertices, dtype=float), np.asarray(quadrilaterals)
@@ -60,7 +61,7 @@ class ClosedQ1Surface:
                     stack.extend(adjacency[face] - seen)
             if len(seen) != len(adjacency):
                 raise ValueError("Closed Q1 solid has a nonmanifold vertex.")
-        self.search = Q1SurfaceSearch(x[cells], node_ids=cells)
+        self.search = Q1SurfaceSearch(x[cells], node_ids=cells, execution=execution)
         self.lower, self.upper = x.min(axis=0), x.max(axis=0)
         self.scale = float(np.linalg.norm(self.upper - self.lower))
         self._vertex_shape = x.shape
@@ -73,8 +74,10 @@ class ClosedQ1Surface:
             raise ValueError("Closed Q1 refit requires unchanged finite real vertices.")
         x = np.asarray(raw, dtype=float)
         result = object.__new__(ClosedQ1Surface)
+        result.execution = self.execution
         result.search = Q1SurfaceSearch(
-            x[self.search.node_ids], node_ids=self.search.node_ids, _previous=self.search)
+            x[self.search.node_ids], node_ids=self.search.node_ids, _previous=self.search,
+            execution=self.execution)
         result.lower, result.upper = x.min(axis=0), x.max(axis=0)
         result.scale = float(np.linalg.norm(result.upper - result.lower))
         result._vertex_shape = x.shape
@@ -138,6 +141,11 @@ class ClosedQ1Surface:
 
     def _inside_batch(self, points):
         """Reference batch seam; every point retains the two-ray contract."""
+        if self.execution is not None:
+            return self.execution.inside(self, points, self._inside_batch_reference)
+        return self._inside_batch_reference(points)
+
+    def _inside_batch_reference(self, points):
         return np.fromiter((self._inside(p) for p in points), dtype=bool,
                            count=len(points))
 

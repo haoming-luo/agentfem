@@ -164,6 +164,7 @@ class DeformableQ1Penalty:
         penalty,
         search_radius,
         geometry_policy="oriented_open_patch",
+        execution=None,
     ):
         if not all(isinstance(s, BilinearReferenceTrace) for s in (secondary, primary)):
             raise TypeError("Deformable contact requires original Q1 traces.")
@@ -184,10 +185,12 @@ class DeformableQ1Penalty:
         if geometry_policy not in ("oriented_open_patch", "reviewed_closed_solid"):
             raise ValueError("Unknown deformable contact geometry policy.")
         self.geometry_policy = geometry_policy
+        self.execution = execution
         if geometry_policy == "reviewed_closed_solid":
             from ._closed_q1_surface import ClosedQ1Surface
 
-            self._closed_search = ClosedQ1Surface(primary.vertices, primary.quadrilaterals)
+            self._closed_search = ClosedQ1Surface(primary.vertices, primary.quadrilaterals,
+                                                  execution=execution)
         self.nodes = _readonly_array(np.flatnonzero(mask), dtype=np.int64)
         self.weights = _readonly_array(secondary.nodal_measures[self.nodes])
         self.search_radius = float(search_radius)
@@ -202,6 +205,7 @@ class DeformableQ1Penalty:
                 "measure": "reference_nodal",
                 "normal": "primary_connectivity_outward",
                 "geometry_policy": self.geometry_policy,
+                "execution": None if execution is None else execution.summary(),
             }
         )
 
@@ -286,7 +290,8 @@ class DeformableQ1Penalty:
                 )
         else:
             search = Q1SurfaceSearch(
-                xp[self.primary.quadrilaterals], node_ids=self.primary.quadrilaterals
+                xp[self.primary.quadrilaterals], node_ids=self.primary.quadrilaterals,
+                execution=self.execution
             )
         # An exterior force-free point needs a positive separation certificate,
         # not an arbitrarily selected closest face. Near a seam, equally close

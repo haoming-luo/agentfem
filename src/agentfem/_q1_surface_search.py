@@ -179,7 +179,8 @@ class Q1SurfaceSearch:
     a performance-qualified production search.
     """
 
-    def __init__(self, vertices, *, node_ids=None, _previous=None):
+    def __init__(self, vertices, *, node_ids=None, _previous=None, execution=None):
+        self.execution = execution
         self.vertices = np.array(vertices, dtype=float, copy=True)
         self.node_ids = None
         if node_ids is not None:
@@ -391,7 +392,9 @@ class Q1SurfaceSearch:
                 raise ValueError(f"Q1 query {index}: candidate budget exceeded.")
             counts.append(len(facets))
             choices = [
-                (int(f), q1_closest_point(self.vertices[f], point)) for f in facets
+                (int(f), q1_closest_point(self.vertices[f], point)
+                 if self.execution is None else self.execution.closest(
+                     self.vertices[f], point, q1_closest_point)) for f in facets
             ]
             choices = [(f, r) for f, r in choices if r[-1] <= maximum_distance]
             if not choices:

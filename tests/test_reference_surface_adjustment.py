@@ -4,6 +4,7 @@ import pytest
 from agentfem._reference_surface_adjustment import propose_reference_surface_adjustment
 from agentfem._initial_nodal_bond import initial_nodal_q1_pairing
 from agentfem._interface_quadrilateral import BilinearReferenceTrace
+from agentfem import interfaces
 
 
 def traces():
@@ -38,6 +39,17 @@ def test_explicit_proposal_preserves_inputs_and_unselected_nodes():
         a, b, selected_nodes=~mask, maximum_distance=0.002, tolerance=1e-10
     )
     assert result.fingerprint != other.fingerprint
+
+
+def test_public_reference_preparation_preserves_explicit_eligibility():
+    a, b = traces()
+    projected = interfaces.project_reference_points(b, a.vertices,
+        maximum_distance=.002, require_unique_normal=False)
+    np.testing.assert_allclose(projected['distances'], .001)
+    proposal = interfaces.propose_reference_adjustment(a, b,
+        selected_nodes=np.array([True, True, False, False]), maximum_distance=.002, tolerance=1e-10)
+    assert proposal.summary()['selected_node_count'] == 2
+    assert proposal.summary()['live_model_modified'] is False
 
 
 def test_excess_distance_and_invalid_selection_are_atomic():

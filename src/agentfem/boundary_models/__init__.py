@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 """Reusable weak boundary models."""
+from .q1_execution import Q1ContactExecution
 
 from . import absorbing
 from . import contact_state
@@ -124,6 +125,7 @@ from .search import (
 from .thermal import ConvectionBoundary, convection
 
 __all__ = [
+    "Q1ContactExecution",
     "RigidContactTracePolicy",
     "DeformableContactPair", "deformable_contact_pair",
     "ConvectionBoundary",

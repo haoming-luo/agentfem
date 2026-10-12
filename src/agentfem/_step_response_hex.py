@@ -13,6 +13,28 @@ from ._transient_problems import ExplicitDynamicsStep
 
 
 class ResponseMaterialHexStep(ExplicitDynamicsStep):
+    def accepted_material_fields(self):
+        """Detached accepted cell records for export, never trial data.
+
+        One quadrature point per cell; no smoothing, energy relabelling or
+        source-law-specific variable names are introduced by this observer.
+        """
+        import numpy as np
+        body = self.material_residual
+        if body._trial is not None:
+            raise RuntimeError("Material export requires an accepted station")
+        response = body.internal.response
+        def frozen(value):
+            array = np.ascontiguousarray(value)
+            return np.frombuffer(array.tobytes(), dtype=array.dtype).reshape(array.shape)
+        return {"time": body.accepted_time, "state_schema": body.material.state_schema.summary(),
+                "cell_keys": frozen(response.state.reference_field.owned_cell_keys),
+                "state": frozen(response.state.committed_state_vectors()),
+                "cauchy_stress": frozen(response.response_transaction.committed['S'].values),
+                "deformation_gradient": frozen(body.accepted_gradient),
+                "location": "one_material_point_per_uniform_strain_hex8_cell",
+                "stress_measure": "cauchy"}
+
     def _advance_one(self, t, *, increment_size=None):
         if self.substep_policy is None or increment_size is not None:
             return super()._advance_one(t, increment_size=increment_size)
@@ -150,7 +172,8 @@ def lower(model, request):
                 raise ValueError("Contact pair names must be unique")
             operator = DeformableQ1Penalty(pair.secondary, pair.primary,
                 candidate_nodes=pair.candidate_nodes, penalty=pair.penalty,
-                search_radius=pair.search_radius, geometry_policy=pair.geometry_policy)
+                search_radius=pair.search_radius, geometry_policy=pair.geometry_policy,
+                execution=pair.execution)
             residual = DeformableQ1ContactResidual(residual, operator=operator,
                 displacement=history.u.value, secondary_dofs=pair.secondary_dofs,
                 primary_dofs=pair.primary_dofs, time_increment_ceiling=ceiling, name=pair.name)

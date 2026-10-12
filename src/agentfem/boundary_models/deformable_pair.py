@@ -16,8 +16,12 @@ class DeformableContactPair:
     search_radius: float
     geometry_policy: str = "oriented_open_patch"
     name: str = "deformable_contact"
+    execution: object = None
 
     def __post_init__(self):
+        from .q1_execution import Q1ContactExecution
+        if self.execution is not None and not isinstance(self.execution, Q1ContactExecution):
+            raise TypeError("Expected Q1ContactExecution")
         from .._interface_quadrilateral import BilinearReferenceTrace
         for trace, name in ((self.secondary, "secondary_dofs"), (self.primary, "primary_dofs")):
             if not isinstance(trace, BilinearReferenceTrace):
@@ -47,6 +51,7 @@ class DeformableContactPair:
                     "primary": self.primary_dofs.tolist(), "candidates": self.candidate_nodes.tolist()}),
                 "penalty": float(self.penalty), "search_radius": float(self.search_radius),
                 "geometry_policy": self.geometry_policy,
+                "execution": None if self.execution is None else self.execution.summary(),
                 "scope": "one_sided_reference_nodal_penalty_not_self_contact"}
 
 

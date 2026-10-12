@@ -2991,6 +2991,27 @@ def reference_trace(vertices, cells, *, topology, tolerance, geometry="affine"):
     raise NotImplementedError("Reference traces support triangle or affine quadrilateral topology.")
 
 
+def project_reference_points(surface, points, *, maximum_distance, require_unique_normal=True):
+    """Bounded closest-point query on original Q1 geometry, not contact detection."""
+    from ._interface_quadrilateral import BilinearReferenceTrace
+    from ._q1_surface_search import Q1SurfaceSearch
+    if not isinstance(surface, BilinearReferenceTrace):
+        raise TypeError("Reference projection requires a bilinear Q1 trace")
+    return Q1SurfaceSearch(surface.vertices[surface.quadrilaterals], node_ids=surface.quadrilaterals).project(
+        points, maximum_distance=maximum_distance, require_unique_normal=require_unique_normal)
+
+
+def propose_reference_adjustment(negative, positive, *, selected_nodes, maximum_distance, tolerance):
+    """Return an explicit strain-free geometry proposal; never change a live mesh.
+
+    Caller must apply it by original node identities to a new mesh, check bulk
+    element validity and rebuild initial bonds. Eligibility is never inferred.
+    """
+    from ._reference_surface_adjustment import propose_reference_surface_adjustment
+    return propose_reference_surface_adjustment(negative, positive,
+        selected_nodes=selected_nodes, maximum_distance=maximum_distance, tolerance=tolerance)
+
+
 def initial_nodal_bond(negative, positive, *, eligible_nodes, tolerance):
     """Pair explicitly eligible coincident Q1 nodes once, without snapping.
 
@@ -3185,6 +3206,8 @@ __all__ = [
     "reference_trace_from_boundary",
     "pair_reference_traces",
     "initial_nodal_bond",
+    "project_reference_points",
+    "propose_reference_adjustment",
     "audit_mode_i_kinematics",
     "audit_split_interface_rigid_modes",
     "mixed_mode_bilinear_cohesive",
