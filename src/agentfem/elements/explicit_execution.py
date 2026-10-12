@@ -64,6 +64,46 @@ class ExplicitHexBodyOutput:
             object.__setattr__(self, name, _array(getattr(self, name), shape, name))
         if np.any(self.hourglass_energy < 0):
             raise ValueError("Hourglass stabilization energy must be nonnegative")
+        records = []
+        for name in ('first_piola_stress', 'internal_force', 'hourglass_energy'):
+            value = getattr(self, name)
+            owner = value
+            while isinstance(owner, np.ndarray):
+                owner = owner.base
+            records.append((name, value, owner, value.shape, value.strides,
+                            value.dtype.str, value.ctypes.data))
+        object.__setattr__(self, '_transport_stamp', (n, tuple(records)))
+
+
+def _owned_body_output(output, response):
+    """Re-own unchanged immutable payload metadata, otherwise fully recheck.
+
+    No accepted state is cached here. As for material response transport, this
+    avoids rescanning constructor-validated byte storage and does not sandbox
+    malicious Python callbacks.
+    """
+    stamp = getattr(output, '_transport_stamp', None)
+    if type(output) is ExplicitHexBodyOutput and stamp is not None:
+        count, entries = stamp
+        unchanged = count == response.point_count
+        for name, original, owner, shape, strides, dtype, pointer in entries:
+            value = getattr(output, name)
+            unchanged = unchanged and (value is original and isinstance(owner, bytes)
+                and not value.flags.writeable and value.shape == shape
+                and value.strides == strides and value.dtype.str == dtype
+                and value.ctypes.data == pointer)
+        if unchanged:
+            result = object.__new__(ExplicitHexBodyOutput)
+            object.__setattr__(result, 'material_response', response)
+            for name, original, owner, shape, strides, dtype, pointer in entries:
+                offset = pointer - np.frombuffer(owner, dtype=np.uint8).ctypes.data
+                value = np.frombuffer(owner, dtype=float, count=original.size, offset=offset).reshape(shape)
+                object.__setattr__(result, name, value)
+            # This internal transfer is consumed immediately, not republished
+            # as a callback-owned validated record.
+            return result
+    return ExplicitHexBodyOutput(response, output.first_piola_stress,
+                                 output.internal_force, output.hourglass_energy)
 
 
 @dataclass(frozen=True)
@@ -184,8 +224,7 @@ def prepare_kernel_response(kernel, geometry, owner, material, displacement, gra
     output = outputs[0]
     # Repeat transport validation at the execution boundary, including mutated
     # NumPy shape metadata, without copying immutable byte-backed payloads.
-    output = ExplicitHexBodyOutput(response, output.first_piola_stress,
-                                   output.internal_force, output.hourglass_energy)
+    output = _owned_body_output(output, response)
     energy = None if response.stored_energy_density is None else response.stored_energy_density * geometry.volume
     return ExplicitQuadratureTrial(response, output.first_piola_stress), FiniteUniformHexResponse(
         output.internal_force, energy, output.hourglass_energy)

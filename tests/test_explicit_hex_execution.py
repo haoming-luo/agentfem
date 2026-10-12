@@ -7,6 +7,33 @@ from agentfem import elements
 from test_response_material_step import contact_step
 
 
+def test_body_transport_reowns_metadata_and_rechecks_mutation():
+    from agentfem import constitutive
+    from agentfem.constitutive.user_material import MaterialStateSchema, MaterialStateVariable
+    from agentfem.elements.explicit_execution import _owned_body_output
+    schema = MaterialStateSchema('test', (MaterialStateVariable('history'),))
+    response = constitutive.ExplicitMaterialBatchOutput(np.zeros((2,3,3)),
+        np.zeros((2,1)), schema, np.zeros(2))
+    def body():
+        return elements.ExplicitHexBodyOutput(response, np.zeros((2,3,3)),
+            np.zeros((2,8,3)), np.zeros(2))
+    a = body()
+    b = _owned_body_output(a, response)
+    assert np.shares_memory(a.internal_force,b.internal_force)
+    a.internal_force.shape = (2,24)
+    assert b.internal_force.shape == (2,8,3)
+    with pytest.raises(ValueError, match='shape'):
+        _owned_body_output(a,response)
+    a = body()
+    object.__setattr__(a, 'hourglass_energy', np.array([-1.,0.]))
+    with pytest.raises(ValueError, match='nonnegative'):
+        _owned_body_output(a,response)
+    a = body()
+    object.__setattr__(a, 'internal_force', np.full((2,8,3), np.nan))
+    with pytest.raises(ValueError, match='finite'):
+        _owned_body_output(a,response)
+
+
 def reference_kernel(calls, identity="reference-v1", fail=False):
     def evaluate(material, request, geometry, displacement):
         calls.append(request.time)
