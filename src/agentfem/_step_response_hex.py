@@ -13,12 +13,19 @@ from ._transient_problems import ExplicitDynamicsStep
 
 
 class ResponseMaterialHexStep(ExplicitDynamicsStep):
+    def _advance_one(self, t, *, increment_size=None):
+        if self.substep_policy is None or increment_size is not None:
+            return super()._advance_one(t, increment_size=increment_size)
+        return self._substeps.advance(t)
+
     def summary(self):
         return {**super().summary(), "material": self.material_residual.material.summary(),
                 "element_policy": self.element_policy.summary(),
                 "execution_scope": "experimental_serial_response_only_hex8",
                 "stability_scope": "caller_increment_ceiling_not_stability_proof",
                 "numerical_inertia": None if self.numerical_inertia is None else self.numerical_inertia.summary(),
+                "execution_kernel": None if self.execution_kernel is None else self.execution_kernel.summary(),
+                "substeps": None if self.substep_policy is None else self._substeps.summary(),
                 "energy_scope": "accepted_internal_work_not_stored_energy"}
 
 
@@ -44,7 +51,12 @@ def lower(model, request):
     # Fail closed instead of silently dropping an asset not yet lowered here.
     if model.loads or model.constraints or model.eigenstrains:
         raise NotImplementedError("Response-only ordinary Step does not yet admit loads, constraints or eigenstrains")
-    pairs = tuple(model.boundary_models)
+    deformable = tuple(pair for pair in model.boundary_models
+                       if isinstance(pair, boundary_models.DeformableContactPair))
+    if len(deformable) > 1:
+        raise NotImplementedError("Response-only Hex8 currently admits one deformable contact pair")
+    pairs = tuple(pair for pair in model.boundary_models
+                  if not isinstance(pair, boundary_models.DeformableContactPair))
     names = set()
     for pair in pairs:
         if (not isinstance(pair, boundary_models.RigidContactPair)
@@ -77,6 +89,34 @@ def lower(model, request):
         raise ValueError("Explicit stress-free initial-state declaration is required")
     viscosity = options.pop("bulk_viscosity", None)
     inertia_factor = options.pop("mass_scaling_factor", None)
+    execution_kernel = options.pop("execution_kernel", None)
+    substeps = options.pop("substep_policy", None)
+    if substeps is not None and not isinstance(substeps, time.ExplicitSubstepPolicy):
+        raise TypeError("substep_policy requires ExplicitSubstepPolicy")
+    trace_policy = options.pop("contact_trace_policy", boundary_models.RigidContactTracePolicy())
+    if not isinstance(trace_policy, boundary_models.RigidContactTracePolicy):
+        raise TypeError("contact_trace_policy requires RigidContactTracePolicy")
+    cohesive = options.pop("cohesive_force", None)
+    overlap_policy = options.pop("bond_contact_policy", "disjoint")
+    if overlap_policy not in ("disjoint", "independent"):
+        raise ValueError("bond_contact_policy must be disjoint or independent")
+    if cohesive is not None:
+        from ._nonmatching_force import NonmatchingCohesiveForce
+        if not isinstance(cohesive, NonmatchingCohesiveForce):
+            raise TypeError("cohesive_force requires a nonmatching interface force")
+        if overlap_policy == "disjoint":
+            from dolfinx import fem
+            bonded = np.union1d(cohesive.negative_dofs, cohesive.positive_dofs)
+            for pair in deformable:
+                nodes = np.union1d(pair.secondary_dofs[pair.candidate_nodes], pair.primary_dofs)
+                if np.intersect1d(nodes, bonded).size:
+                    raise ValueError("Bond/contact traces overlap; declare independent contributions explicitly")
+            for pair in pairs:
+                region = pair.slave_boundary
+                nodes = fem.locate_dofs_topological(request.target.value.function_space,
+                    domain.topology.dim - 1, region.facet_tags.find(region.tag))
+                if np.intersect1d(nodes, bonded).size:
+                    raise ValueError("Bond/contact traces overlap; declare independent contributions explicitly")
     if viscosity is not None:
         from .elements import BulkViscosityPolicy
         if not isinstance(viscosity, BulkViscosityPolicy):
@@ -88,7 +128,7 @@ def lower(model, request):
         response = ExplicitQuadratureResponse.create(domain, material.state_schema)
         internal = FiniteUniformHexResidual(history.u, response, density=material.density,
             hourglass_modulus=policy.hourglass_modulus, hourglass_scale=policy.hourglass_scale,
-            chunk_size=policy.chunk_size)
+            chunk_size=policy.chunk_size, execution_kernel=execution_kernel)
         numerical_inertia = None
         if inertia_factor is not None:
             from .time._scaled_inertia import FixedScaledInertia
@@ -96,13 +136,28 @@ def lower(model, request):
             numerical_inertia.validate_state(history)
         inertia = internal if numerical_inertia is None else numerical_inertia
         residual = ResponseHexExplicitResidual(internal, material,
-            time_increment_ceiling=ceiling, material_identity=material.summary(),
+            time_increment_ceiling=ceiling, material_identity={**material.summary(),
+                "execution_kernel": None if execution_kernel is None else execution_kernel.summary(),
+                "substep_policy": None if substeps is None else substeps.summary(),
+                "contact_trace_policy": trace_policy.summary(), "bond_contact_policy": overlap_policy},
             stress_free_initial_state=True, bulk_viscosity=viscosity,
-            numerical_inertia=numerical_inertia)
+            numerical_inertia=numerical_inertia, cohesive=cohesive)
         material_residual = residual
+        for pair in deformable:
+            from ._deformable_q1_contact import DeformableQ1Penalty
+            from .mechanics._deformable_contact_explicit import DeformableQ1ContactResidual
+            if pair.name in names:
+                raise ValueError("Contact pair names must be unique")
+            operator = DeformableQ1Penalty(pair.secondary, pair.primary,
+                candidate_nodes=pair.candidate_nodes, penalty=pair.penalty,
+                search_radius=pair.search_radius, geometry_policy=pair.geometry_policy)
+            residual = DeformableQ1ContactResidual(residual, operator=operator,
+                displacement=history.u.value, secondary_dofs=pair.secondary_dofs,
+                primary_dofs=pair.primary_dofs, time_increment_ceiling=ceiling, name=pair.name)
         for pair in pairs:
             adapter = boundary_models.dolfinx_boundary_region_contact_trace(
-                pair.slave_boundary, history.u.value.function_space)
+                pair.slave_boundary, history.u.value.function_space, integration=trace_policy.integration)
+            adapter = trace_policy.apply(adapter, pair)
             residual = boundary_models.dolfinx_explicit_contact_residual(
                 residual, adapter=adapter, displacement=history.u.value,
                 contact_pair=pair, maximum_stable_time_increment=ceiling,
@@ -120,4 +175,9 @@ def lower(model, request):
         step.element_policy = policy
         step.material_residual = material_residual
         step.numerical_inertia = numerical_inertia
+        step.execution_kernel = execution_kernel
+        step.substep_policy = substeps
+        if substeps is not None:
+            from .time.substeps import _ExplicitSubsteps
+            step._substeps = _ExplicitSubsteps(step, super(ResponseMaterialHexStep, step)._advance_one, substeps)
     return model.add_step(step)

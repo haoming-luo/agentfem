@@ -17,6 +17,7 @@ from ._explicit_material import (
     ExplicitMaterialBatchOutput,
     ExplicitMaterialIncrementLimit,
     ExplicitMaterialIncrementExceeded,
+    ExplicitMaterialCutbackRequest,
     validated_explicit_material_update,
 )
 
@@ -120,5 +121,6 @@ def explicit_user_material(*, state_schema, update, identity, name="user_explici
 
 
 __all__ = ["ExplicitUserMaterial", "ExplicitMaterialBatchOutput",
+           "ExplicitMaterialCutbackRequest",
            "ExplicitMaterialIncrementLimit", "ExplicitMaterialIncrementExceeded",
            "explicit_user_material"]

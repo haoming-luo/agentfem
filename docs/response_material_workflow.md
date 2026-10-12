@@ -33,6 +33,27 @@ geometric limitations; this does not add end-cap, self-contact, or general
 ALL EXTERIOR enforcement. Rotation, external loads, constraints, eigenstrains,
 regional material dispatch and MPI are refused by this provider.
 
+One `boundary_models.deformable_contact_pair` is admitted with explicit
+bilinear Q1 traces, independent node maps and candidate selection. It reuses
+the existing one-sided reference-area penalty operator, including conservative
+path rejection. It is not symmetric ALL EXTERIOR, self-contact or hard contact.
+
+`interfaces.reference_trace(..., geometry="bilinear")` preserves warped Q1
+faces. `interfaces.initial_nodal_bond` binds an explicitly eligible, coincident
+node set once; `fracture.nonmatching_cohesive_force` passes that pairing to the
+Step as `cohesive_force`. Only isotropic elastic bonds are admitted here. The
+default `bond_contact_policy="disjoint"` rejects shared trace nodes;
+`"independent"` explicitly adds the declared contributions without switching,
+rebonding or silently disabling either law. One-sided integration still needs
+refinement and side-swap assessment.
+
+Optional `boundary_models.RigidContactTracePolicy` selects Gauss or nodal
+integration. Only uniform frictionless nodal laws may coalesce coincident
+quadrature nodes by summing their reference areas. A cylinder transverse-strip
+bound requires an explicit unit direction, displacement budget, and compatible
+nonrotating motion. The budget is checked over every displacement node before
+each evaluation; exceeding it rejects the trial rather than omitting contact.
+
 `bulk_viscosity=elements.BulkViscosityPolicy(...)` selects the existing
 volume-equivalent length rule. Its reference density must equal the physical
 material density. Artificial viscosity work is not constitutive dissipation.
@@ -49,14 +70,29 @@ when contact and damping are present. This provider does not select an automatic
 stable step. Internal work is reported as work, not relabelled stored energy.
 `completed` does not imply independent physical verification.
 
+`time.ExplicitSubstepPolicy` enables bounded dyadic retries for typed contact
+path failures and optionally material cutback requests. Intermediate work is
+recorded along accepted subincrements; a terminal failure rolls back the whole
+macro increment. This serial path requires `history_every=1`. Ordinary unknown
+exceptions remain failures, not reasons to keep trying. Retry counts describe
+the current process and are not a cumulative restart history.
+
+`elements.ExplicitHexBodyKernel` is an optional trusted execution extension.
+It receives immutable arrays and fixed reference geometry, not finite-element
+Fields or commit operations. Core retains increment checks, output validation,
+trial publication and acceptance. The kernel identity participates in restart
+admission. This removes the need to replace global methods for fused body
+arithmetic; it does not itself prove a native kernel mathematically equivalent
+or faster. Private constitutive constants and native binaries remain external.
+
 The tests exercise ordinary Step selection, response contracts, moving-tool
 work, damping/scaling combinations and exact checkpoint continuation on tiny
 meshes. They do not establish full industrial-case equivalence or speed.
 
 ## Remaining promotion gates
 
-- Initial bonding and contact-overlap semantics through existing interface laws.
-- Instance-local optimized body execution, without process-wide monkey patches.
+- Full-case validation of the newly composed interfaces and migrated kernels.
+- Instance-local contact/geometry acceleration without process-wide patches.
 - Accepted-state ownership with explicit field publication for all observers.
 - A separately frozen installed project using these interfaces, followed by a
   complete timed run and comparison at identical accepted stations.

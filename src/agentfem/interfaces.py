@@ -2969,21 +2969,46 @@ def pair_nonmatching_triangles(negative, positive, *, tolerance, maximum_points=
                                   maximum_points=maximum_points)
 
 
-def reference_trace(vertices, cells, *, topology, tolerance):
+def reference_trace(vertices, cells, *, topology, tolerance, geometry="affine"):
     """Create fixed reference geometry with its original P1 or affine Q1 trace.
 
     Quadrilateral connectivity is cyclic perimeter order. This is not a
     rigid-body declaration or automatic extraction from a volume mesh.
     """
+    if geometry not in ("affine", "bilinear"):
+        raise ValueError("Trace geometry must be affine or bilinear")
     if topology == "quadrilateral":
-        from ._interface_quadrilateral import QuadrilateralReferenceTrace
-        return QuadrilateralReferenceTrace(vertices, cells, tolerance=tolerance)
+        from ._interface_quadrilateral import QuadrilateralReferenceTrace, BilinearReferenceTrace
+        trace = BilinearReferenceTrace if geometry == "bilinear" else QuadrilateralReferenceTrace
+        return trace(vertices, cells, tolerance=tolerance)
     if topology == "triangle":
+        if geometry != "affine":
+            raise ValueError("Bilinear geometry requires quadrilateral topology")
         from .boundary_models.rigid import TriangulatedRigidSurface
         if not np.isfinite(float(tolerance)) or float(tolerance) <= 0:
             raise ValueError("Trace tolerance must be positive finite.")
         return TriangulatedRigidSurface(vertices, cells)
     raise NotImplementedError("Reference traces support triangle or affine quadrilateral topology.")
+
+
+def initial_nodal_bond(negative, positive, *, eligible_nodes, tolerance):
+    """Pair explicitly eligible coincident Q1 nodes once, without snapping.
+
+    Uses one-sided nodal area integration, not common refinement. Requires
+    mesh/side sensitivity assessment. Finite-rotation execution is restricted
+    to equal normal and tangential elastic stiffness by the Step provider.
+    No later rebonding or automatic contact-to-bond conversion is performed.
+    """
+    from ._initial_nodal_bond import initial_nodal_q1_pairing
+    from ._interface_quadrilateral import QuadrilateralReferenceTrace, BilinearReferenceTrace
+    def bilinear(trace):
+        # Affine Q1 is a subset of bilinear Q1, with identical shape functions.
+        if type(trace) is QuadrilateralReferenceTrace:
+            return BilinearReferenceTrace(trace.vertices, trace.quadrilaterals, tolerance=tolerance)
+        return trace
+    negative, positive = bilinear(negative), bilinear(positive)
+    return initial_nodal_q1_pairing(negative, positive,
+                                  eligible_nodes=eligible_nodes, tolerance=tolerance)
 
 
 def pair_reference_traces(negative, positive, *, tolerance, maximum_points=200_000):
@@ -3159,6 +3184,7 @@ __all__ = [
     "reference_trace",
     "reference_trace_from_boundary",
     "pair_reference_traces",
+    "initial_nodal_bond",
     "audit_mode_i_kinematics",
     "audit_split_interface_rigid_modes",
     "mixed_mode_bilinear_cohesive",

@@ -29,6 +29,7 @@ class FiniteUniformHexResidual:
         hourglass_scale,
         chunk_size=1024,
         material_batch_points=None,
+        execution_kernel=None,
     ):
         from ..fields import unwrap
 
@@ -36,6 +37,12 @@ class FiniteUniformHexResidual:
         domain = self.displacement.function_space.mesh
         self.comm = domain.comm
         self.response = response
+        from .explicit_execution import ExplicitHexBodyKernel, ExplicitHexGeometry
+        if execution_kernel is not None and not isinstance(execution_kernel, ExplicitHexBodyKernel):
+            raise TypeError("execution_kernel requires ExplicitHexBodyKernel")
+        if execution_kernel is not None and domain.comm.size != 1:
+            raise NotImplementedError("Explicit body kernels currently require serial execution")
+        self.execution_kernel = execution_kernel
         selected_batch = chunk_size if material_batch_points is None else material_batch_points
         if (isinstance(selected_batch, (bool, np.bool_))
                 or not isinstance(selected_batch, (int, np.integer))
@@ -70,6 +77,9 @@ class FiniteUniformHexResidual:
         self.inv_mass = inverse_diagonal(self.mass_diagonal, comm=domain.comm)
         self.mass_diagonal.setflags(write=False)
         self.inv_mass.setflags(write=False)
+        self._execution_geometry = None if execution_kernel is None else ExplicitHexGeometry(
+            self.cells.average_gradient, self.cells.hourglass_modes,
+            self.cells.volume, self.cells.hourglass_coefficient)
 
     def _prepare_cells(self, density, hourglass_modulus, hourglass_scale, chunk_size):
         if self.response.domain is not self.displacement.function_space.mesh:
@@ -296,6 +306,13 @@ class FiniteUniformHexResidual:
         or omit the material increment policy. No PETSc work belongs here.
         """
         from ..constitutive._explicit_material_driver import _prepare_explicit_material_points
+
+        if self.execution_kernel is not None:
+            from .explicit_execution import prepare_kernel_response
+            return prepare_kernel_response(self.execution_kernel, self._execution_geometry,
+                self, material, displacement, gradient,
+                deformation_gradient_old=deformation_gradient_old,
+                time=time, time_increment=time_increment)
 
         prepared = _prepare_explicit_material_points(
             material, self.response.state,

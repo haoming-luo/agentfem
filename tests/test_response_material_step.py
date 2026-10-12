@@ -8,8 +8,9 @@ from agentfem import constitutive, elements, fields, models, studies, loads
 from agentfem.constitutive.user_material import MaterialStateSchema, MaterialStateVariable
 
 
-def problem():
-    domain = mesh.create_unit_cube(MPI.COMM_SELF, 1, 1, 1, cell_type=mesh.CellType.hexahedron)
+def problem(domain=None):
+    if domain is None:
+        domain = mesh.create_unit_cube(MPI.COMM_SELF, 1, 1, 1, cell_type=mesh.CellType.hexahedron)
     model = models.create(study=studies.dynamic_solid(dimension=3), mesh=domain)
     u = model.field(fields.displacement(domain))
     schema = MaterialStateSchema("clock", (MaterialStateVariable("clock"),))
@@ -61,16 +62,34 @@ def test_no_auto_dt_or_silent_load_drop():
     assert not model.steps
 
 
-def contact_step(**options):
+def contact_step(bond=False, cylinder=False, **options):
     from agentfem import boundary_models, mesh as af_mesh
-    model, u, policy = problem()
+    domain = None
+    if bond:
+        from test_nonmatching_global import _blocks
+        domain = _blocks(1, 2, cell_type="hexahedron")
+    model, u, policy = problem(domain)
     domain = u.value.function_space.mesh
+    if bond:
+        from agentfem import fracture, interfaces
+        from test_quadrilateral_global import _trace
+        a, na = _trace(u.value.function_space, False)
+        b, nb = _trace(u.value.function_space, True)
+        pairing = interfaces.initial_nodal_bond(a, b,
+            eligible_nodes=np.ones(len(a.vertices), dtype=bool), tolerance=1e-10)
+        options["cohesive_force"] = fracture.nonmatching_cohesive_force(pairing, u,
+            interfaces.elastic_cohesive(normal_stiffness=100, tangential_stiffness=100),
+            negative_dofs=na, positive_dofs=nb)
+        options.setdefault("bond_contact_policy", "independent")
     for side in (0, 1):
         region = af_mesh.boundary(domain, lambda x, side=side: np.isclose(x[0], side),
                                   name=f"side_{side}")
         direction = 1 if side == 0 else -1
-        tool = boundary_models.rigid_body(
-            boundary_models.rigid_plane(point=(side, 0, 0), normal=(direction, 0, 0)),
+        surface = boundary_models.rigid_plane(point=(side, 0, 0), normal=(direction, 0, 0))
+        if cylinder:
+            surface = boundary_models.rigid_cylinder(axis_point=(side - direction * .8, 0, .5),
+                axis_direction=(0, 1, 0), radius=1., axial_interval=(-1, 2))
+        tool = boundary_models.rigid_body(surface,
             motion_schedule=boundary_models.prescribed_rigid_motion_schedule(
                 boundary_models.prescribed_rigid_motion(translation=(direction * 1e-4, 0, 0)),
                 end_time=.001), name=f"tool_{side}")
@@ -83,9 +102,11 @@ def contact_step(**options):
 
 @pytest.mark.parametrize("viscous", [False, True])
 @pytest.mark.parametrize("factor", [None, 2.])
-def test_multiple_public_tools_work_and_restart(tmp_path, viscous, factor):
+@pytest.mark.parametrize("bond", [False, True])
+def test_multiple_public_tools_work_and_restart(tmp_path, viscous, factor, bond):
     options = {"bulk_viscosity": elements.BulkViscosityPolicy(1., 1., 1.)} if viscous else {}
     options["mass_scaling_factor"] = factor
+    options["bond"] = bond
     complete = contact_step(**options)
     complete.run()
     evidence = complete.residual.contact_energy_evidence()
@@ -107,3 +128,8 @@ def test_multiple_public_tools_work_and_restart(tmp_path, viscous, factor):
 def test_viscosity_requires_physical_density():
     with pytest.raises(ValueError, match="physical reference density"):
         make_step(bulk_viscosity=elements.BulkViscosityPolicy(2., 1., 1.))
+
+
+def test_overlap_is_not_silent():
+    with pytest.raises(ValueError, match="traces overlap"):
+        contact_step(bond=True, bond_contact_policy="disjoint")

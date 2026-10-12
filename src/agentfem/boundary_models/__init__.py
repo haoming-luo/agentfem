@@ -45,6 +45,8 @@ from .contact_friction import (
     tangential_contact_state,
 )
 from .contact_pair import RigidContactPair, rigid_contact_pair
+from .deformable_pair import DeformableContactPair, deformable_contact_pair
+from .trace_policy import RigidContactTracePolicy
 from .contact_response import (
     FrictionlessPenaltyContactLaw,
     FrictionlessPenaltyContactResponse,
@@ -122,6 +124,8 @@ from .search import (
 from .thermal import ConvectionBoundary, convection
 
 __all__ = [
+    "RigidContactTracePolicy",
+    "DeformableContactPair", "deformable_contact_pair",
     "ConvectionBoundary",
     "ContactProjectionRecord",
     "ContactProjectionState",

@@ -233,7 +233,8 @@ def _prepare_explicit_material_points(
                 combined[name] = np.concatenate(values)
         result = ExplicitMaterialBatchOutput(state_schema=state.state_schema, **combined)
     if np.any(result.requested_time_scale < 1):
-        raise ValueError(
+        from ._explicit_material import ExplicitMaterialCutbackRequest
+        raise ExplicitMaterialCutbackRequest(
             "Material requested a smaller increment; trial rejected without state mutation."
         )
     piola = _cauchy_to_first_piola(new, result.cauchy_stress)

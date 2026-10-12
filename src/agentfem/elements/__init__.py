@@ -24,6 +24,7 @@ from agentfem.mesh.compatibility import TopologyCompatibility, describe_topology
 from agentfem.validation import ValidationIssue, ValidationReport, issue
 from .policies import UniformStrainHex8, uniform_strain_hex8
 from ._bulk_viscosity_policy import BulkViscosityPolicy
+from .explicit_execution import ExplicitHexBodyKernel, ExplicitHexBodyOutput, ExplicitHexGeometry
 
 if TYPE_CHECKING:
     from agentfem.mesh.quality import GeometryIdentity, MeshQualityReport
@@ -509,6 +510,7 @@ def _normal_label(value) -> str | None:
 
 
 __all__ = [
+    "ExplicitHexBodyKernel", "ExplicitHexBodyOutput", "ExplicitHexGeometry",
     "BulkViscosityPolicy",
     "UniformStrainHex8",
     "uniform_strain_hex8",

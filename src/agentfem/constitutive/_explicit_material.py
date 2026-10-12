@@ -124,6 +124,11 @@ class ExplicitMaterialIncrementExceeded(ValueError):
         )
 
 
+class ExplicitMaterialCutbackRequest(ValueError):
+    """Typed request to retry a rejected update, never to accept old stress."""
+    code = "explicit_material_cutback_requested"
+
+
 def explicit_increment_policy_identity(material):
     """Read the optional provider contract without executing a material update."""
     method = getattr(material, "explicit_increment_limit", None)
@@ -249,7 +254,7 @@ class ExplicitMaterialBatchOutput:
         }
 
 
-def validated_explicit_material_update(material, request):
+def validated_explicit_material_update(material, request, *, response_evaluator=None):
     """Pure local provider evaluation: never accept state or fall back silently."""
     if not isinstance(request, MaterialPointArrayBatchInput):
         raise TypeError("Expected MaterialPointArrayBatchInput.")
@@ -260,7 +265,11 @@ def validated_explicit_material_update(material, request):
     method = getattr(material, "update_explicit_array_batch", None)
     if not callable(method):
         raise TypeError("Material must implement update_explicit_array_batch.")
-    response = method(request)
+    # An instance-local fused body backend may supply the arithmetic, while
+    # admission, increment policy and output ownership stay in this boundary.
+    if response_evaluator is not None and not callable(response_evaluator):
+        raise TypeError("response_evaluator must be callable")
+    response = method(request) if response_evaluator is None else response_evaluator(request)
     if explicit_increment_policy_identity(material) != identity:
         raise ValueError(
             "Material increment policy changed during response evaluation."

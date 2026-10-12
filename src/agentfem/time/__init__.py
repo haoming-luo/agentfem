@@ -18,6 +18,7 @@ from ..input_effects import (
     update as input_update,
 )
 from .runtime import ProgressPrinter, TimeStep, TimeStepper, format_duration
+from .substeps import ExplicitSubstepPolicy
 from .stability import (
     ExplicitStabilityContribution,
     ExplicitStabilityEstimate,
@@ -25,6 +26,7 @@ from .stability import (
 )
 
 __all__ = [
+    "ExplicitSubstepPolicy",
     "ProgressPrinter",
     "TimeStep",
     "TimeStepper",

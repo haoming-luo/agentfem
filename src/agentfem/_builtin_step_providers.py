@@ -959,7 +959,8 @@ register_step_provider(StepProvider(
     description="Experimental serial response-only Hex8 with frictionless translating rigid tools; no implicit tangent or automatic stability claim.",
     procedure="explicit/central_difference",
     option_contract=_option_contract("element_policy", "dt", "steps", "time_increment_ceiling",
-        "stress_free_initial_state", "bulk_viscosity", "mass_scaling_factor", "save_every", "print_every", "history_every", "progress",
+        "stress_free_initial_state", "bulk_viscosity", "mass_scaling_factor", "execution_kernel",
+        "cohesive_force", "bond_contact_policy", "contact_trace_policy", "substep_policy", "save_every", "print_every", "history_every", "progress",
         "status_file", "checkpoint", required=("element_policy", "dt", "steps",
         "time_increment_ceiling", "stress_free_initial_state")),
 ))

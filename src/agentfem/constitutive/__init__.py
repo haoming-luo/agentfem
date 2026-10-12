@@ -23,6 +23,7 @@ from .explicit_user_material import (
     ExplicitMaterialBatchOutput,
     ExplicitMaterialIncrementLimit,
     ExplicitMaterialIncrementExceeded,
+    ExplicitMaterialCutbackRequest,
     explicit_user_material,
 )
 from .creep import (
@@ -237,6 +238,7 @@ __all__ = [
     "ExplicitMaterialBatchOutput",
     "ExplicitMaterialIncrementLimit",
     "ExplicitMaterialIncrementExceeded",
+    "ExplicitMaterialCutbackRequest",
     "explicit_user_material",
     "FirstPiolaTangentEnvelope",
     "catalog",
