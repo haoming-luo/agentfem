@@ -151,6 +151,26 @@ def test_viscosity_requires_physical_density():
         make_step(bulk_viscosity=elements.BulkViscosityPolicy(2., 1., 1.))
 
 
+def test_body_damping_ceiling_is_distinct_from_global_increment_cap():
+    config = dict(time_increment_ceiling=1e-4,
+                  bulk_viscosity=elements.BulkViscosityPolicy(1.,1.,1.))
+    rejected = make_step(**config)
+    with pytest.raises(ValueError, match='damping-adjusted'):
+        rejected.run()
+    assert rejected.completed_steps == 0
+    step = make_step(**config, operator_increment_ceilings={'body':1e-3})
+    step.run()
+    assert step.completed_steps == 4 and step.dt == 1e-4
+    assert step.summary()['operator_increment_ceilings']['body'] == 1e-3
+
+
+@pytest.mark.parametrize('limits', ({'unknown':1}, {'body':True}, {'body':float('nan')},
+                                   {'body':1e-9}, {'rigid_contact':1}, []))
+def test_bad_operator_increment_ceilings_fail_before_execution(limits):
+    with pytest.raises(ValueError, match='increment ceiling'):
+        make_step(operator_increment_ceilings=limits)
+
+
 def test_overlap_is_not_silent():
     with pytest.raises(ValueError, match="traces overlap"):
         contact_step(bond=True, bond_contact_policy="disjoint")

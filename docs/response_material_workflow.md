@@ -75,6 +75,14 @@ when contact and damping are present. This provider does not select an automatic
 stable step. Internal work is reported as work, not relabelled stored energy.
 `completed` does not imply independent physical verification.
 
+`operator_increment_ceilings` may explicitly distinguish `body`, `rigid_contact`
+and `deformable_contact` limits; omitted roles inherit `time_increment_ceiling`.
+Every declared limit must be finite and at least the actual `dt`, and a contact
+override requires that asset. Body damping reduces the declared undamped body
+ceiling, so setting the body ceiling equal to `dt` can correctly reject a damped
+increment. This option preserves distinct operator assumptions rather than
+silencing damping checks; it does not certify their chosen numerical values.
+
 `time.ExplicitSubstepPolicy` enables bounded dyadic retries for typed contact
 path failures and optionally material cutback requests. Intermediate work is
 recorded along accepted subincrements; a terminal failure rolls back the whole

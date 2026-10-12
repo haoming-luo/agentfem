@@ -48,6 +48,7 @@ class ResponseMaterialHexStep(ExplicitDynamicsStep):
                 "element_policy": self.element_policy.summary(),
                 "execution_scope": "experimental_serial_response_only_hex8",
                 "material_storage": self.material_storage,
+                "operator_increment_ceilings": dict(self.operator_increment_ceilings),
                 "stability_scope": "caller_increment_ceiling_not_stability_proof",
                 "numerical_inertia": None if self.numerical_inertia is None else self.numerical_inertia.summary(),
                 "execution_kernel": None if self.execution_kernel is None else self.execution_kernel.summary(),
@@ -113,6 +114,19 @@ def lower(model, request):
     ceiling = float(options.pop("time_increment_ceiling"))
     if not math.isfinite(dt) or not math.isfinite(ceiling) or not 0 < dt <= ceiling:
         raise ValueError("Require 0 < dt <= finite caller time_increment_ceiling")
+    from collections.abc import Mapping
+    overrides = options.pop('operator_increment_ceilings', {})
+    roles = {'body': ceiling, 'rigid_contact': ceiling, 'deformable_contact': ceiling}
+    if not isinstance(overrides, Mapping) or set(overrides)-roles.keys():
+        raise ValueError('Operator increment ceilings accept body, rigid_contact and deformable_contact only')
+    if ('rigid_contact' in overrides and not pairs
+            or 'deformable_contact' in overrides and not deformable):
+        raise ValueError('An operator increment ceiling requires the corresponding contact asset')
+    for role, value in overrides.items():
+        if (isinstance(value, (str, bool, np.bool_, complex)) or not np.isscalar(value)
+                or not np.isfinite(value) or not dt <= value):
+            raise ValueError('Operator increment ceilings must be finite scalars no smaller than dt')
+        roles[role] = float(value)
     stress_free = options.pop("stress_free_initial_state")
     if stress_free is not True:
         raise ValueError("Explicit stress-free initial-state declaration is required")
@@ -168,7 +182,8 @@ def lower(model, request):
             numerical_inertia.validate_state(history)
         inertia = internal if numerical_inertia is None else numerical_inertia
         residual = ResponseHexExplicitResidual(internal, material,
-            time_increment_ceiling=ceiling, material_identity={**material.summary(),
+            time_increment_ceiling=roles['body'], material_identity={**material.summary(),
+                "operator_increment_ceilings": roles,
                 "execution_kernel": None if execution_kernel is None else execution_kernel.summary(),
                 "material_storage": storage,
                 "substep_policy": None if substeps is None else substeps.summary(),
@@ -189,14 +204,14 @@ def lower(model, request):
                 execution=pair.execution)
             residual = DeformableQ1ContactResidual(residual, operator=operator,
                 displacement=history.u.value, secondary_dofs=pair.secondary_dofs,
-                primary_dofs=pair.primary_dofs, time_increment_ceiling=ceiling, name=pair.name)
+                primary_dofs=pair.primary_dofs, time_increment_ceiling=roles['deformable_contact'], name=pair.name)
         for pair in pairs:
             adapter = boundary_models.dolfinx_boundary_region_contact_trace(
                 pair.slave_boundary, history.u.value.function_space, integration=trace_policy.integration)
             adapter = trace_policy.apply(adapter, pair)
             residual = boundary_models.dolfinx_explicit_contact_residual(
                 residual, adapter=adapter, displacement=history.u.value,
-                contact_pair=pair, maximum_stable_time_increment=ceiling,
+                contact_pair=pair, maximum_stable_time_increment=roles['rigid_contact'],
                 name=pair.name)
         options["checkpoint_policy"] = options.pop("checkpoint", None)
         options["name"] = options.get("name") or "response_material_hex8_explicit"
@@ -213,6 +228,8 @@ def lower(model, request):
         step.numerical_inertia = numerical_inertia
         step.execution_kernel = execution_kernel
         step.material_storage = storage
+        from types import MappingProxyType
+        step.operator_increment_ceilings = MappingProxyType(roles)
         step.substep_policy = substeps
         if substeps is not None:
             from .time.substeps import _ExplicitSubsteps
