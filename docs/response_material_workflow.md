@@ -109,6 +109,13 @@ Distance and swept certificates are trusted numerical algorithms, not arbitrary
 heuristics: uncertain geometry must use the reference proof or remain
 unresolved. A false separation certificate can skip a physical contact and is
 not made safe merely by returning a well-shaped boolean array.
+An optional `project_batch` callback receives validated query arrays, search
+options and an instance-bound reference fallback. It may accelerate complete,
+strictly ordered candidate sets, but must preserve candidate budgets, ties,
+trace/normal ambiguity and query-indexed errors. Core checks returned facet
+identities, bilinear weights, reconstructed points, distances and unit normals
+in batches. This transport check does not prove global minimum ordering. No
+callback may replace global geometry methods or modify another model's search.
 
 `interfaces.project_reference_points` and `propose_reference_adjustment`
 support explicit pre-model preparation. Adjustment returns a proposal, never
@@ -143,8 +150,8 @@ this is not a tolerance relaxation or a geometric approximation. See the
 ## Remaining promotion gates
 
 - Full-case validation of the newly composed interfaces and migrated kernels.
-- Remaining batch-search and bulk damping acceleration without process-wide
-  patches; validate the newly wired geometry/path callbacks on the real case.
+- Full-case admission of instance-local batch-search and bulk damping
+  acceleration; validate the newly wired geometry/path callbacks on the real case.
 - Full-case timing and observation audit of the opt-in accepted-array owner.
 - A separately frozen installed project using these interfaces, followed by a
   complete timed run and comparison at identical accepted stations.

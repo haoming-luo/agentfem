@@ -347,6 +347,20 @@ class Q1SurfaceSearch:
         return result
 
     def project(
+        self, points, *, maximum_distance, maximum_candidates=128,
+        require_unique_normal=True,
+    ):
+        options = dict(maximum_distance=maximum_distance,
+                       maximum_candidates=maximum_candidates,
+                       require_unique_normal=require_unique_normal)
+        # Input admission must be identical before an optional backend runs.
+        self._validate_project(points, **options)
+        if self.execution is not None and self.execution.project_batch is not None:
+            return self.execution.project(self, np.asarray(points, dtype=float),
+                                          self._project_reference, **options)
+        return self._project_reference(points, **options)
+
+    def _validate_project(
         self,
         points,
         *,
@@ -374,6 +388,20 @@ class Q1SurfaceSearch:
             or maximum_candidates < 1
         ):
             raise ValueError("maximum_candidates must be a positive integer.")
+
+    def _project_reference(self, points, *, maximum_distance, maximum_candidates=128,
+                           require_unique_normal=True, _closest=None, _overlap=None):
+        self._validate_project(points, maximum_distance=maximum_distance,
+                               maximum_candidates=maximum_candidates,
+                               require_unique_normal=require_unique_normal)
+        points = np.asarray(points, dtype=float)
+        overlap = self.tree.overlapping_facets if _overlap is None else _overlap
+        def closest(vertices, point):
+            if _closest is not None:
+                return _closest(vertices, point)
+            if self.execution is None:
+                return q1_closest_point(vertices, point)
+            return self.execution.closest(vertices, point, q1_closest_point)
         # Closed-solid callers can reject a provably exterior ambiguous point
         # and retry the remaining batch. Reuse only successful prefix queries
         # on this immutable geometry, with identical search/normal policies.
@@ -392,15 +420,13 @@ class Q1SurfaceSearch:
                 continue
             radius = maximum_distance + self.padding
             facets = np.unique(
-                self.tree.overlapping_facets(point - radius, point + radius) // 2
+                overlap(point - radius, point + radius) // 2
             )
             if len(facets) > maximum_candidates:
                 raise ValueError(f"Q1 query {index}: candidate budget exceeded.")
             counts.append(len(facets))
             choices = [
-                (int(f), q1_closest_point(self.vertices[f], point)
-                 if self.execution is None else self.execution.closest(
-                     self.vertices[f], point, q1_closest_point)) for f in facets
+                (int(f), closest(self.vertices[f], point)) for f in facets
             ]
             choices = [(f, r) for f, r in choices if r[-1] <= maximum_distance]
             if not choices:

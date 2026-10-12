@@ -18,6 +18,7 @@ class Q1ContactExecution:
     classify_inside: object = None
     distance_bounds: object = None
     separated_paths: object = None
+    project_batch: object = None
     _identity_json: str = field(init=False, repr=False)
 
     def __post_init__(self):
@@ -25,7 +26,7 @@ class Q1ContactExecution:
             raise ValueError("Q1 execution requires a nonempty JSON identity")
         encoded = json.dumps(self.identity, sort_keys=True, allow_nan=False)
         object.__setattr__(self, "_identity_json", encoded)
-        for name in ("closest_point", "classify_inside", "distance_bounds", "separated_paths"):
+        for name in ("closest_point", "classify_inside", "distance_bounds", "separated_paths", "project_batch"):
             if getattr(self, name) is not None and not callable(getattr(self, name)):
                 raise TypeError(f"{name} must be callable or None")
 
@@ -34,7 +35,50 @@ class Q1ContactExecution:
                 "closest_point": self.closest_point is not None,
                 "classify_inside": self.classify_inside is not None,
                 "distance_bounds": self.distance_bounds is not None,
-                "separated_paths": self.separated_paths is not None}
+                "separated_paths": self.separated_paths is not None,
+                "project_batch": self.project_batch is not None}
+
+    def project(self, surface, points, reference, **options):
+        """Validate transport, not the plugin's global-minimum certificate."""
+        result = self.project_batch(surface, points, reference, **options)
+        if not isinstance(result, dict):
+            raise ValueError('Q1 batch projection requires a result dictionary')
+        n = len(points)
+        shapes = {'facet_indices': (n,), 'weights': (n,4), 'points': (n,3),
+                  'normals': (n,3), 'distances': (n,), 'candidate_counts': (n,)}
+        checked = {}
+        for name, shape in shapes.items():
+            value = np.asarray(result.get(name))
+            if (value.shape != shape or value.dtype.kind not in 'fiu'
+                    or not np.isfinite(value).all()):
+                raise ValueError(f'Q1 batch projection invalid {name}')
+            if name in ('facet_indices', 'candidate_counts') and value.dtype.kind not in 'iu':
+                raise ValueError(f'Q1 batch projection requires integer {name}')
+            checked[name] = value.copy()
+        facets = checked['facet_indices']
+        counts = checked['candidate_counts']
+        weights = checked['weights']
+        distance = checked['distances']
+        if (np.any(facets < 0) or np.any(facets >= len(surface.vertices))
+                or np.any(counts < 1) or np.any(counts > options['maximum_candidates'])
+                or np.any(distance < 0) or np.any(distance > options['maximum_distance'])):
+            raise ValueError('Q1 batch projection violates search limits')
+        uv = np.column_stack((weights[:,1]+weights[:,2], weights[:,2]+weights[:,3]))
+        expected = np.column_stack(((1-uv[:,0])*(1-uv[:,1]), uv[:,0]*(1-uv[:,1]),
+                                    uv[:,0]*uv[:,1], (1-uv[:,0])*uv[:,1]))
+        vertices = surface.vertices[facets]
+        scale = np.maximum(1., np.maximum(np.linalg.norm(vertices, axis=(1,2)),
+                                          np.linalg.norm(points, axis=1)))
+        tolerance = 512*np.finfo(float).eps*scale
+        if (np.any(uv < 0) or np.any(uv > 1)
+                or np.any(np.abs(expected-weights) > 512*np.finfo(float).eps)
+                or np.any(np.linalg.norm(checked['points']-np.einsum('ni,nij->nj',weights,vertices),axis=1)>tolerance)
+                or np.any(np.abs(distance-np.linalg.norm(checked['points']-points,axis=1))>tolerance)
+                or np.any(np.abs(np.linalg.norm(checked['normals'],axis=1)-1)>1e-10)
+                or result.get('unique_normal_required') is not options['require_unique_normal']):
+            raise ValueError('Q1 batch projection returned inconsistent geometry')
+        checked['unique_normal_required'] = options['require_unique_normal']
+        return checked
 
     def closest(self, vertices, point, reference):
         if self.closest_point is None:

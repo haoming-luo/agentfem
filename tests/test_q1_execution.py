@@ -69,3 +69,38 @@ def test_bounds_and_path_callbacks_preserve_instance_and_validate_transport():
         invalid.bounds(fast, query, plain.search.distance_lower_bounds, refinement_distance=None)
     with pytest.raises(ValueError, match='boolean certificate'):
         invalid.separated(x, x, cells, query, query, lambda *args: np.ones(2,dtype=bool))
+
+
+def test_batch_project_reference_and_locality():
+    x, cells = solid()
+    queries = np.array([[-.1,.2,.3], [.2,.3,.1]])
+    calls = []
+    def batch(surface, points, reference, **options):
+        calls.append(len(points))
+        return reference(points, **options)
+    plain = Q1SurfaceSearch(x[cells])
+    fast = Q1SurfaceSearch(x[cells], execution=Q1ContactExecution({'batch':1}, project_batch=batch))
+    actual = fast.project(queries, maximum_distance=.5)
+    expected = plain.project(queries, maximum_distance=.5)
+    for name in actual:
+        np.testing.assert_array_equal(actual[name], expected[name])
+    assert calls == [2]
+    with pytest.raises(ValueError, match='finite'):
+        fast.project([[np.nan,0,0]], maximum_distance=.5)
+    assert calls == [2]
+    empty = fast.project(np.empty((0,3)), maximum_distance=.5)
+    assert empty['weights'].shape == (0,4)
+
+
+@pytest.mark.parametrize('field,value', [('facet_indices', [-1]), ('distances', [np.nan]),
+    ('weights', [[.5,.5,.5,.5]]), ('normals', [[0,0,0]]), ('candidate_counts',[129]),
+    ('facet_indices', [0.0]), ('unique_normal_required', False)])
+def test_batch_project_rejects_bad_transport(field,value):
+    x, cells = solid()
+    def batch(surface, points, reference, **options):
+        result = reference(points, **options)
+        result[field] = value
+        return result
+    search = Q1SurfaceSearch(x[cells], execution=Q1ContactExecution({'batch':2}, project_batch=batch))
+    with pytest.raises(ValueError, match='Q1 batch projection'):
+        search.project([[-.1,.2,.3]], maximum_distance=.5)
