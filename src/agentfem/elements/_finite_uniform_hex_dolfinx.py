@@ -80,7 +80,8 @@ class FiniteUniformHexResidual:
         self._execution_geometry = None if execution_kernel is None else ExplicitHexGeometry(
             self.cells.average_gradient, self.cells.hourglass_modes,
             self.cells.volume, self.cells.hourglass_coefficient,
-            self.cells.coordinates, self.cells._reference_perturbation_radius)
+            self.cells.coordinates, self.cells._reference_perturbation_radius,
+            self.cells.lumped_mass)
 
     def _prepare_cells(self, density, hourglass_modulus, hourglass_scale, chunk_size):
         if self.response.domain is not self.displacement.function_space.mesh:
@@ -284,9 +285,16 @@ class FiniteUniformHexResidual:
                     options = (bulk_viscosity.options(determinants_3x3(gradient))
                                if isinstance(bulk_viscosity, BulkViscosityPolicy)
                                else bulk_viscosity)
-                    viscosity = _bulk_viscosity_from_checked_gradient(
-                        self.cells, gradient,
-                        self._gather_cell_vectors(velocity_field.x.array.reshape(-1, 3)), **options)
+                    cell_velocity = self._gather_cell_vectors(velocity_field.x.array.reshape(-1, 3))
+                    def reference_viscosity():
+                        return _bulk_viscosity_from_checked_gradient(
+                            self.cells, gradient, cell_velocity, **options)
+                    if self.execution_kernel is not None and self.execution_kernel.evaluate_viscosity is not None:
+                        from .explicit_execution import prepare_kernel_viscosity
+                        viscosity = prepare_kernel_viscosity(self.execution_kernel, self._execution_geometry,
+                            gradient, cell_velocity, options, reference_viscosity)
+                    else:
+                        viscosity = reference_viscosity()
                     # Both contributions share the same cell-to-node map.
                     # Assemble once, retaining separate response/energy records.
                 vector = self._scatter(

@@ -49,6 +49,7 @@ Changelog = "https://github.com/haoming-luo/agentfem/blob/main/CHANGELOG.md"
 agentfem = "agentfem._cli_entry:main"
 
 [project.optional-dependencies]
+exact-geometry = ["gmpy2>=2.1,<3"]
 mesh-formats = ["meshio"]
 gmsh = ["gmsh>=4.11"]
 visualization = [

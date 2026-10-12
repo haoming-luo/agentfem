@@ -3,6 +3,7 @@
 
 """Reusable weak boundary models."""
 from .q1_execution import Q1ContactExecution
+from .._exact_rational import exact_geometry_arithmetic
 
 from . import absorbing
 from . import contact_state
@@ -126,6 +127,7 @@ from .thermal import ConvectionBoundary, convection
 
 __all__ = [
     "Q1ContactExecution",
+    "exact_geometry_arithmetic",
     "RigidContactTracePolicy",
     "DeformableContactPair", "deformable_contact_pair",
     "ConvectionBoundary",

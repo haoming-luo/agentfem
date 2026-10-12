@@ -88,6 +88,10 @@ An optional `prepare_kinematics` callback fuses the mean gradient and the
 reference-perturbation sufficient screen. It must not certify cell validity
 from the mean determinant alone. Uncertified cells retain core affine and
 Bernstein checks, and all mean gradients retain positive-determinant admission.
+`evaluate_viscosity` optionally replaces only the admitted bulk-damping
+arithmetic. It receives immutable physical coefficients and a reference
+fallback; core validates force, power and damping-bound outputs and keeps
+artificial damping separate from constitutive dissipation.
 
 The tests exercise ordinary Step selection, response contracts, moving-tool
 work, damping/scaling combinations and exact checkpoint continuation on tiny
@@ -127,6 +131,14 @@ are not supported in this mode. The default `"fields"` keeps ordinary field
 ownership. Both modes retain material validation and finite checks; this
 choice does not change the law, time step or inertia. Multiple named state
 variables are supported, not a fixed material-specific history length.
+
+The optional `agentfem[exact-geometry]` extra uses GMP rational arithmetic for
+exact Q1 fallback predicates when installed. Without it, standard-library
+`Fraction` remains available. Selection happens once on import; no case replaces
+global geometry functions. `boundary_models.exact_geometry_arithmetic()` reports
+the selected library/version. Both paths interpret binary64 inputs exactly;
+this is not a tolerance relaxation or a geometric approximation. See the
+[gmpy2 rational documentation](https://gmpy2.readthedocs.io/en/stable/mpq.html).
 
 ## Remaining promotion gates
 

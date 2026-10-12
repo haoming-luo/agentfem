@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 """Bounded rational-interval fallback for ambiguous bilinear ray crossings."""
 
-from fractions import Fraction as Q
+from ._exact_rational import Rational as Q
 from math import isqrt
 
 import numpy as np

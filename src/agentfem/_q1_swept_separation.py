@@ -7,7 +7,7 @@ enclose its image. Exact rational separating planes and dyadic subdivision
 can exclude zero; unresolved/touching/crossing paths return False. This does
 not locate impact times or certify self-intersection-free solid motion.
 """
-from fractions import Fraction as Q
+from ._exact_rational import Rational as Q
 
 import numpy as np
 

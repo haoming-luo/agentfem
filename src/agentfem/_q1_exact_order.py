@@ -6,7 +6,7 @@ Binary64 inputs are interpreted exactly as rationals. This is not a general
 closest-point solver: unsuccessful convexity/KKT screens return False.
 """
 
-from fractions import Fraction as Q
+from ._exact_rational import Rational as Q
 
 
 def _dot(a, b):

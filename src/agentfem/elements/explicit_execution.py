@@ -24,6 +24,7 @@ class ExplicitHexGeometry:
     hourglass_coefficient: np.ndarray
     coordinates: np.ndarray | None = None
     reference_perturbation_radius: np.ndarray | None = None
+    lumped_mass: np.ndarray | None = None
 
     def __post_init__(self):
         n = len(self.volume)
@@ -41,6 +42,10 @@ class ExplicitHexGeometry:
                 self.reference_perturbation_radius, (n,), 'reference_perturbation_radius'))
             if np.any(self.reference_perturbation_radius < 0):
                 raise ValueError("Negative reference perturbation radius")
+        if self.lumped_mass is not None:
+            object.__setattr__(self, 'lumped_mass', _array(self.lumped_mass, (n,8), 'lumped_mass'))
+            if np.any(self.lumped_mass <= 0):
+                raise ValueError("Positive physical lumped masses required")
 
 
 @dataclass(frozen=True)
@@ -74,6 +79,7 @@ class ExplicitHexBodyKernel:
     evaluate: Callable
     identity: Mapping
     prepare_kinematics: Callable | None = None
+    evaluate_viscosity: Callable | None = None
     _identity_json: str = field(init=False, repr=False)
 
     def __post_init__(self):
@@ -85,11 +91,41 @@ class ExplicitHexBodyKernel:
         object.__setattr__(self, "_identity_json", encoded)
         if self.prepare_kinematics is not None and not callable(self.prepare_kinematics):
             raise TypeError("prepare_kinematics must be callable or None")
+        if self.evaluate_viscosity is not None and not callable(self.evaluate_viscosity):
+            raise TypeError("evaluate_viscosity must be callable or None")
 
     def summary(self):
         return {"kind": "trusted_explicit_hex_body_kernel", "identity": json.loads(self._identity_json),
                 "state_owner": "core", "scope": "serial_response_only_hex8",
-                "kinematic_screen": self.prepare_kinematics is not None}
+                "kinematic_screen": self.prepare_kinematics is not None,
+                "bulk_viscosity": self.evaluate_viscosity is not None}
+
+
+def prepare_kernel_viscosity(kernel, geometry, gradient, velocity, options, reference):
+    from types import MappingProxyType
+    from ._bulk_viscosity import BulkViscosityResponse
+    n = len(geometry.volume)
+    coefficients = {}
+    for name in ('density', 'wave_speed', 'characteristic_length', 'linear', 'quadratic'):
+        raw = np.asarray(options[name])
+        if raw.shape not in ((), (n,)):
+            raise ValueError("Bulk coefficients require scalar or cellwise values")
+        values = _array(np.broadcast_to(raw, (n,)), (n,), name)
+        if np.any(values < 0 if name in ('linear', 'quadratic') else values <= 0):
+            raise ValueError("Invalid bulk viscosity coefficient sign")
+        coefficients[name] = values
+    f = _array(gradient, (n,3,3), 'admitted_gradient')
+    v = _array(velocity, (n,8,3), 'cell_velocity')
+    response = kernel.evaluate_viscosity(geometry, f, v, MappingProxyType(coefficients), reference)
+    if not isinstance(response, BulkViscosityResponse) or response.damping_row_majorant is not None:
+        raise TypeError("Bulk kernel requires the bounded BulkViscosityResponse contract")
+    result = BulkViscosityResponse(*(_array(getattr(response, name), shape, name)
+        for name,shape in (('internal_force',(n,8,3)), ('artificial_power',(n,)),
+                           ('volumetric_rate',(n,)), ('isotropic_stress',(n,)),
+                           ('mass_scaled_damping_bound',(n,)))))
+    if np.any(result.artificial_power < 0) or np.any(result.mass_scaled_damping_bound < 0):
+        raise ValueError("Artificial damping power and bound must be nonnegative")
+    return result
 
 
 def prepare_kernel_kinematics(kernel, geometry, displacement):

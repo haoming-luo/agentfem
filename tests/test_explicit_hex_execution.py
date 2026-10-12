@@ -87,3 +87,35 @@ def test_kinematic_screen_preserves_reference_and_rejects_fold():
                                                                      np.ones(len(u))))
     with pytest.raises(ValueError, match='boolean reference certificate'):
         prepare_kernel_kinematics(malformed, geometry, np.zeros_like(folded))
+
+
+def test_bulk_execution_equivalence_and_invalid_output_rollback():
+    from dataclasses import replace
+    viscosity = elements.BulkViscosityPolicy(1., 10., .5)
+    calls = []
+    def bulk(geometry, gradient, velocity, coefficients, reference):
+        calls.append(len(gradient))
+        assert not velocity.flags.writeable
+        assert not coefficients['density'].flags.writeable
+        return reference()
+    kernel = replace(reference_kernel([]), evaluate_viscosity=bulk)
+    plain = contact_step(bulk_viscosity=viscosity)
+    fast = contact_step(bulk_viscosity=viscosity, execution_kernel=kernel, material_storage='owned_arrays')
+    plain.run(); fast.run()
+    np.testing.assert_array_equal(fast.state.u.value.x.array, plain.state.u.value.x.array)
+    assert fast.material_residual.viscosity_work == plain.material_residual.viscosity_work
+    assert calls
+    attempts = []
+    def invalid(*args):
+        attempts.append(1)
+        result = args[-1]()
+        if len(attempts) == 1:
+            return result
+        return replace(result, artificial_power=np.full_like(result.artificial_power, -1.))
+    failing = contact_step(bulk_viscosity=viscosity, material_storage='owned_arrays',
+        execution_kernel=replace(kernel, evaluate_viscosity=invalid))
+    failing.run(until_step=1)
+    before = failing.residual.snapshot()
+    with pytest.raises(ValueError, match='nonnegative'):
+        failing.run()
+    assert failing.residual.snapshot() == before
