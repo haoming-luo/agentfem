@@ -5,6 +5,73 @@ source materials stay outside the distribution. Model retains engineering
 assets; constitutive providers own local updates; Operator owns stress/force
 conversion; Procedure and State own acceptance and recovery.
 
+## Explicit response data flow (2026-10-12)
+
+Accepted prescribed-tool work history now has a columnar numeric checkpoint
+encoding, lowered through the existing numeric-tree archive. It retains every
+station, the same work quadrature and history fingerprint; legacy JSON input
+remains readable. The new encoding is selected only for the existing serial,
+same-partition numeric contact checkpoint path. It is not a new MPI portability
+claim. All columns are checked before State publication, including shape,
+dtype, finite values, identity and strictly increasing accepted times.
+
+In-memory rollback tokens share immutable blocks of at most 64 stations rather
+than copying the full accepted history on every increment. Token creation is
+constant-size, while durable save and restore remain linear in history length.
+Old tokens remain valid across further commits and alternate continuation
+branches. This separates transaction cost from durable archive encoding without
+introducing another work ledger or dropping accepted observations.
+
+Response-only Hex8 assembly reuses the prepared immutable first Piola array
+after assigning the corresponding quadrature field. This avoids a redundant
+field readback without dropping the field, its checkpoint identity, or its
+trial/commit/rollback lifecycle. Displacement and viscosity velocity extraction
+share a private detached-gather seam; NumPy remains the default implementation.
+The seam is not a public native-backend or distributed-execution guarantee.
+
+Private, opt-in native gathering was compared on identical original-mesh
+continuations. Three 1,200-increment early/late/end pairs reduced advance time by
+2.6%, 4.5% and 6.35%, respectively, with bitwise-identical final saved field and
+material arrays. The early pair also retained exact equality at all 120 saved
+reporting stations. A shorter late pair gave 6.2%; these are stage-dependent
+paired timings, not a measured fresh full-run speedup or a default-backend
+performance claim. No increment, mass, contact tolerance, or material law was
+changed. A separate immutable-native-output experiment was not selected:
+ownership tests passed but measured material-batch time increased.
+
+Performance admission must distinguish preparation, restart, advancement,
+checkpoint, export and full-process wall time. Overlapping body and contact
+timers are not additive; speeding the hidden branch need not shorten the
+critical path. Repeated same-checkpoint comparisons and a complete-run timing
+are required before publishing a general percentage. Fixed-operator bound
+contribution percentages are not CPU-time percentages.
+
+Directional-increment research must include current stretch/rotation and the
+stress-dependent geometric derivative. Agreement of a sampled symmetric-part
+upper comparison does not certify a nonsymmetric/softening material, global
+contact dynamics, or the complete loading path. Audit archives now need the
+actual evaluated input time and content identity: filenames and target step
+counts do not establish which material increment was sampled, and repeated
+copies of one audit must not be counted as independent time stations.
+
+## Fixed-operator increment attribution (2026-10-12)
+
+`time._nodal_inertia.diagnose_nodal_increment` explains supplied nodal
+stiffness and damping majorants without changing any mass or state. It reuses
+the inertia planner's input contract and solves the row condition
+`h*h*k + 2*h*c <= 4*m`, where `h = requested_increment / safety_factor`.
+Stiffness and damping sources are added before deriving the limit; taking
+the minimum of separate source time limits is not an equivalent calculation.
+The report includes controlling node/component indices, each source's demand
+ratio, finite node-limit quantiles, and explicitly unbounded zero rows.
+
+This internal diagnostic certifies neither operator coverage nor a nonlinear
+path. Its node indices refer to the supplied local ordering. Initial elastic
+rows cannot silently stand in for damaged material, deformed geometry or
+active deformable contact. Passing a target increment after planning mass for
+that same increment is expected by construction, not independent validation.
+The report does not automatically select an increment or alter a Procedure.
+
 ## Bounded contact retries and filtered geometry (2026-10-12)
 
 Reviewed triangle topology now has a bounded byte-keyed cache (at most four

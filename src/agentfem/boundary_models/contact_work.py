@@ -24,6 +24,10 @@ from .rigid import PrescribedRigidMotion
 
 _STATION_SCHEMA = "agentfem.prescribed-contact-work-station.v1"
 _STATE_SCHEMA = "agentfem.prescribed-contact-work-state.v1"
+_NUMERIC_STATE_SCHEMA = "agentfem.prescribed-contact-work-state.v2"
+_SCALAR_COLUMNS = ("time", "factor", "contact_potential_energy")
+_VECTOR_COLUMNS = ("generalized_force", "generalized_coordinate", "contact_resultant")
+_COUNT_COLUMNS = ("active_point_count", "invalid_point_count")
 
 
 @dataclass(frozen=True)
@@ -210,12 +214,51 @@ class PrescribedContactWorkStation:
         )
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, eq=False)
+class _WorkHistoryBlock:
+    """Persistent full block shared by accepted-boundary rollback tokens."""
+
+    previous: _WorkHistoryBlock | None
+    stations: tuple[PrescribedContactWorkStation, ...]
+
+
+_HISTORY_BLOCK_SIZE = 64
+
+
+@dataclass(frozen=True, eq=False)
 class _WorkTransaction:
-    """In-memory immutable station references; never a durable file format."""
+    """Constant-size in-memory token; never a durable file format.
+
+    Frozen blocks and a bounded frozen tail keep old tokens valid when a run
+    commits, rolls back, or forks from an earlier accepted boundary. They do
+    not alias a mutable accepted-history list.
+    """
 
     identity: str
-    accepted: tuple[PrescribedContactWorkStation, ...]
+    blocks: _WorkHistoryBlock | None
+    tail: tuple[PrescribedContactWorkStation, ...]
+
+    @property
+    def accepted(self) -> tuple[PrescribedContactWorkStation, ...]:
+        blocks = []
+        current = self.blocks
+        while current is not None:
+            blocks.append(current.stations)
+            current = current.previous
+        return (
+            tuple(station for block in reversed(blocks) for station in block)
+            + self.tail
+        )
+
+    def __eq__(self, other):
+        if not isinstance(other, _WorkTransaction):
+            return NotImplemented
+        if self.identity != other.identity:
+            return False
+        if self.blocks is other.blocks and self.tail is other.tail:
+            return True
+        # Do not recurse through a potentially very long linked block chain.
+        return self.accepted == other.accepted
 
 
 class PrescribedContactWorkState:
@@ -234,6 +277,24 @@ class PrescribedContactWorkState:
         self.trial: PrescribedContactWorkStation | None = None
         self._path_work = 0.0
         self._history_fingerprint = self._fingerprint(())
+        self._history_blocks: _WorkHistoryBlock | None = None
+        self._history_tail: tuple[PrescribedContactWorkStation, ...] = ()
+
+    def _appended_history(self, station):
+        tail = self._history_tail + (station,)
+        if len(tail) == _HISTORY_BLOCK_SIZE:
+            return _WorkHistoryBlock(self._history_blocks, tail), ()
+        return self._history_blocks, tail
+
+    @staticmethod
+    def _blocked_history(stations):
+        blocks = None
+        full = len(stations) - len(stations) % _HISTORY_BLOCK_SIZE
+        for start in range(0, full, _HISTORY_BLOCK_SIZE):
+            blocks = _WorkHistoryBlock(
+                blocks, tuple(stations[start : start + _HISTORY_BLOCK_SIZE])
+            )
+        return blocks, tuple(stations[full:])
 
     @staticmethod
     def _extend_fingerprint(previous, station):
@@ -282,7 +343,9 @@ class PrescribedContactWorkState:
             raise RuntimeError("Prescribed-contact work State is already initialized.")
         station = self._validated_next(station, initial=True)
         fingerprint = self._extend_fingerprint(self._history_fingerprint, station)
+        blocks, tail = self._appended_history(station)
         self.accepted.append(station)
+        self._history_blocks, self._history_tail = blocks, tail
         self._history_fingerprint = fingerprint
 
     def begin(self, station: PrescribedContactWorkStation) -> None:
@@ -303,7 +366,9 @@ class PrescribedContactWorkState:
         if not np.isfinite(total):
             raise ValueError("Non-finite accumulated prescribed contact work.")
         fingerprint = self._extend_fingerprint(self._history_fingerprint, accepted)
+        blocks, tail = self._appended_history(accepted)
         self.accepted.append(accepted)
+        self._history_blocks, self._history_tail = blocks, tail
         self._path_work = total
         self._history_fingerprint = fingerprint
         self.trial = None
@@ -348,7 +413,37 @@ class PrescribedContactWorkState:
             raise RuntimeError(
                 "Contact work transaction requires an accepted boundary."
             )
-        return _WorkTransaction(self.identity, tuple(self.accepted))
+        return _WorkTransaction(self.identity, self._history_blocks, self._history_tail)
+
+    def checkpoint_snapshot(self):
+        """Detached columnar history for the existing numeric-tree archive.
+
+        Retain every accepted station and the same work quadrature. The legacy
+        JSON snapshot remains available; this changes encoding, not sampling.
+        """
+        if self.trial is not None:
+            raise RuntimeError("Contact work checkpoint requires an accepted boundary.")
+        columns = {
+            name: np.asarray(
+                [getattr(station, name) for station in self.accepted], dtype=np.float64
+            )
+            for name in _SCALAR_COLUMNS
+        }
+        for name in _VECTOR_COLUMNS:
+            columns[name] = (
+                np.stack([getattr(station, name) for station in self.accepted])
+                if self.accepted
+                else np.empty((0, 0), dtype=np.float64)
+            )
+        for name in _COUNT_COLUMNS:
+            columns[name] = np.asarray(
+                [getattr(station, name) for station in self.accepted], dtype=np.int64
+            )
+        return {
+            "schema": _NUMERIC_STATE_SCHEMA,
+            "identity": self.identity,
+            "accepted": columns,
+        }
 
     def restore(self, snapshot: object) -> None:
         if isinstance(snapshot, _WorkTransaction):
@@ -362,15 +457,21 @@ class PrescribedContactWorkState:
             fingerprint = self._fingerprint(restored)
             self.accepted, self._path_work, self.trial = restored, work, None
             self._history_fingerprint = fingerprint
+            self._history_blocks, self._history_tail = snapshot.blocks, snapshot.tail
             return
-        if not isinstance(snapshot, dict) or snapshot.get("schema") != _STATE_SCHEMA:
+        if not isinstance(snapshot, dict) or snapshot.get("schema") not in {
+            _STATE_SCHEMA,
+            _NUMERIC_STATE_SCHEMA,
+        }:
             raise ValueError("Unsupported prescribed-contact work State snapshot.")
         if set(snapshot) != {"schema", "identity", "accepted"}:
             raise ValueError("Prescribed-contact work State fields do not match.")
         if snapshot["identity"] != self.identity:
             raise ValueError("Prescribed-contact work State identity differs.")
         raw = snapshot["accepted"]
-        if not isinstance(raw, list):
+        if snapshot["schema"] == _NUMERIC_STATE_SCHEMA:
+            raw = _numeric_stations(raw)
+        elif not isinstance(raw, list):
             raise ValueError("Prescribed-contact accepted stations must be a list.")
         restored: list[PrescribedContactWorkStation] = []
         for item in raw:
@@ -392,9 +493,11 @@ class PrescribedContactWorkState:
         if not np.isfinite(work):
             raise ValueError("Non-finite restored contact work.")
         fingerprint = self._fingerprint(restored)
+        blocks, tail = self._blocked_history(restored)
         self.accepted = restored
         self._path_work = work
         self._history_fingerprint = fingerprint
+        self._history_blocks, self._history_tail = blocks, tail
         self.trial = None
 
     def summary(self) -> dict[str, object]:
@@ -410,6 +513,52 @@ class PrescribedContactWorkState:
             "trial_present": self.trial is not None,
             "integration": "trapezoidal_generalized_force_coordinate",
         }
+
+
+def _numeric_stations(columns):
+    """Validate the whole table before producing legacy-equivalent stations."""
+    names = _SCALAR_COLUMNS + _VECTOR_COLUMNS + _COUNT_COLUMNS
+    if not isinstance(columns, dict) or set(columns) != set(names):
+        raise ValueError("Contact work numeric columns differ from the schema.")
+    if any(not isinstance(columns[name], np.ndarray) for name in names):
+        raise ValueError("Contact work numeric columns must be arrays.")
+    times = columns["time"]
+    if times.ndim != 1:
+        raise ValueError("Contact work time column must be one-dimensional.")
+    count = len(times)
+    for name in names:
+        value = columns[name]
+        expected_dtype = np.dtype(np.int64 if name in _COUNT_COLUMNS else np.float64)
+        if value.dtype != expected_dtype or not np.isfinite(value).all():
+            raise ValueError("Contact work column dtype or finite values are invalid.")
+        if name not in _VECTOR_COLUMNS:
+            if value.shape != (count,):
+                raise ValueError("Contact work scalar column length differs.")
+        elif (
+            value.ndim != 2
+            or value.shape[0] != count
+            or (count and value.shape[1] < 1)
+            or (not count and value.shape[1] != 0)
+        ):
+            raise ValueError("Contact work vector column layout differs.")
+    if columns["generalized_force"].shape != columns["generalized_coordinate"].shape:
+        raise ValueError("Contact work generalized column dimensions differ.")
+    if count and columns["contact_resultant"].shape[1] not in (2, 3):
+        raise ValueError("Contact work resultant dimension is invalid.")
+    # Station constructors and restore still own value ranges, monotonic time,
+    # cumulative-work reconstruction, fingerprint, and atomic publication.
+    return (
+        {
+            "schema": _STATION_SCHEMA,
+            **{
+                name: columns[name][i]
+                if name in _VECTOR_COLUMNS
+                else columns[name][i].item()
+                for name in names
+            },
+        }
+        for i in range(count)
+    )
 
 
 def prescribed_contact_work_state(*, identity: str) -> PrescribedContactWorkState:

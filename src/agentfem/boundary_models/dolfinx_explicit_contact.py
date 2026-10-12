@@ -1058,6 +1058,8 @@ class DolfinxExplicitContactResidual:
                 else (
                     self.work_state.transaction_snapshot()
                     if base_method == "transaction_snapshot"
+                    else self.work_state.checkpoint_snapshot()
+                    if numeric and base_method == "checkpoint_snapshot"
                     else self.work_state.snapshot()
                 )
             ),

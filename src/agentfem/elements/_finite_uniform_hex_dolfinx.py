@@ -242,7 +242,7 @@ class FiniteUniformHexResidual:
                 nodal = self.displacement.x.array.copy()
                 # Axis-specific gather creates detached cell storage without
                 # the generic multi-axis advanced-indexing overhead.
-                displacement = np.take(nodal.reshape(-1, 3), self.cell_nodes, axis=0)
+                displacement = self._gather_cell_vectors(nodal.reshape(-1, 3))
                 gradient = self.cells.deformation_gradient(displacement)
                 prepared = _prepare_explicit_material_points(
                     material, self.response.state, deformation_gradient_old=deformation_gradient_old,
@@ -253,7 +253,10 @@ class FiniteUniformHexResidual:
                 if not np.array_equal(self.displacement.x.array, nodal):
                     raise RuntimeError("Material callback changed the admitted Hex8 configuration.")
                 element = self.cells._response_from_checked_displacement(
-                    displacement, first_piola=self.response.first_piola_stress.owned_values,
+                    # Prepared stress already owns immutable, cell-ordered
+                    # storage. Keep field assignment for State/output, but do
+                    # not read/copy the same stress back out for this assembly.
+                    displacement, first_piola=prepared.first_piola_stress,
                     stored_energy_density=response.stored_energy_density)
                 cell_force = element.internal_force
                 viscosity = None
@@ -271,7 +274,7 @@ class FiniteUniformHexResidual:
                                else bulk_viscosity)
                     viscosity = _bulk_viscosity_from_checked_gradient(
                         self.cells, gradient,
-                        np.take(velocity_field.x.array.reshape(-1, 3), self.cell_nodes, axis=0), **options)
+                        self._gather_cell_vectors(velocity_field.x.array.reshape(-1, 3)), **options)
                     # Both contributions share the same cell-to-node map.
                     # Assemble once, retaining separate response/energy records.
                 vector = self._scatter(
@@ -286,6 +289,10 @@ class FiniteUniformHexResidual:
             if vector is not None:
                 vector.destroy()
             raise
+
+    def _gather_cell_vectors(self, values):
+        """Detached cell vectors; no retained mutable scratch across trials."""
+        return np.take(values, self.cell_nodes, axis=0)
 
     def tangent_action(self, direction):
         """Apply the most recently evaluated trial tangent; never update history."""

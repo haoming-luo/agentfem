@@ -47,6 +47,93 @@ class NodalInertiaPlan:
         }
 
 
+def diagnose_nodal_increment(
+    nodal_mass, *, stiffness_rows, damping_rows=None,
+    requested_increment, safety_factor=0.8, top_count=10,
+):
+    """Explain a fixed-coefficient row bound, without changing mass or state.
+
+    This only diagnoses supplied symmetric PSD stiffness / lagged damping
+    majorants. Missing operators and evolving nonlinear validity are the
+    caller's responsibility; no complete-path stability claim is made.
+    Node indices use the supplied ordering, not global mesh identifiers.
+    """
+    if isinstance(top_count, bool) or not isinstance(top_count, int) or top_count < 1:
+        raise ValueError("top_count must be a positive integer.")
+    # Reuse the planner's finite, shape, name and scalar validation contract.
+    plan = plan_nodal_inertia(
+        nodal_mass, stiffness_rows=stiffness_rows, damping_rows=damping_rows,
+        target_increment=requested_increment, safety_factor=safety_factor,
+    )
+    mass = plan.physical_nodal_mass.astype(float)
+    groups = (stiffness_rows, {} if damping_rows is None else damping_rows)
+    shape = np.asarray(next(iter(stiffness_rows.values()))).shape
+    k = sum((np.asarray(v, dtype=float) for v in groups[0].values()), np.zeros(shape))
+    c = sum((np.asarray(v, dtype=float) for v in groups[1].values()), np.zeros(shape))
+    # Work in mass-normalized units. hypot avoids squaring large damping.
+    with np.errstate(over="ignore", invalid="ignore", divide="ignore"):
+        a, b = k / mass[:, None], c / mass[:, None]
+        denominator = np.hypot(b, 2 * np.sqrt(a)) + b
+        limits = np.full(shape, np.inf)
+        np.divide(4 * safety_factor, denominator, out=limits, where=denominator > 0)
+        h = float(requested_increment) / safety_factor
+        demand = (h * h * a + 2 * h * b) / 4
+    if (not np.isfinite(demand).all() or not np.isfinite(denominator).all()
+            or np.any(limits <= 0)):
+        raise ValueError("Increment diagnostic overflowed/underflowed.")
+    node_limits = limits.min(axis=1)
+    order = np.argsort(node_limits, kind="stable")[:top_count]
+    controllers = []
+    for node in order:
+        if not np.isfinite(node_limits[node]):
+            continue
+        component = int(np.argmin(limits[node]))
+        shares = {}
+        for group, coefficient in zip(groups, (h * h / 4, h / 2)):
+            for name, values in group.items():
+                shares[name] = float(coefficient * np.asarray(values)[node, component] / mass[node])
+        controllers.append({
+            "node_index": int(node), "component": component,
+            "selected_increment": float(node_limits[node]),
+            "requested_demand_ratio": float(demand[node, component]),
+            "contribution_demand_ratios": shares,
+        })
+    selected = float(node_limits.min())
+    finite = node_limits[np.isfinite(node_limits)]
+    # Report rounding at the boundary separately, never as a stability pass.
+    band = 32 * np.finfo(float).eps * (sum(len(g) for g in groups) + 1)
+    per_node_demand = demand.max(axis=1)
+    maximum_demand = float(per_node_demand.max())
+    classification = (
+        "outside_supplied_bound" if maximum_demand > 1 + band else
+        "roundoff_boundary" if maximum_demand >= 1 - band else
+        "inside_supplied_bound"
+    )
+    return {
+        "schema": "agentfem.fixed_operator_increment_diagnostic.v1",
+        "scope": "supplied_fixed_symmetric_PSD_operator_diagonal_majorants",
+        "nonlinear_path_certified": False,
+        "operator_coverage_certified": False,
+        "requested_increment": float(requested_increment),
+        "safety_factor": float(safety_factor),
+        "selected_increment": selected if np.isfinite(selected) else None,
+        "requested_within_supplied_bound": bool(np.all(demand <= 1)),
+        "classification": classification,
+        "maximum_demand_ratio": maximum_demand,
+        "roundoff_classification_band": float(band),
+        "roundoff_boundary_nodes": int(np.count_nonzero(abs(per_node_demand - 1) <= band)),
+        "nodes_exceeding_supplied_bound": int(np.count_nonzero(np.any(demand > 1, axis=1))),
+        "node_count": len(mass),
+        "unbounded_nodes": int(np.count_nonzero(~np.isfinite(node_limits))),
+        "finite_node_increment_quantiles": (
+            dict(zip(("minimum", "p01", "p10", "median", "p90", "maximum"),
+                     np.quantile(finite, (0, .01, .1, .5, .9, 1)).tolist()))
+            if finite.size else {}
+        ),
+        "controllers": controllers,
+    }
+
+
 def plan_nodal_inertia(
     physical_nodal_mass,
     *,
