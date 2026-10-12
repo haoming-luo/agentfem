@@ -6,6 +6,30 @@ from agentfem import boundary_models
 from test_response_material_step import contact_step
 
 
+def test_shared_boundary_reference_is_prepared_once_per_step(monkeypatch):
+    from test_response_material_step import problem
+    from agentfem import mesh
+    original = boundary_models.dolfinx_boundary_region_contact_trace
+    calls = []
+    def traced(*args, **kwargs):
+        calls.append(args[0])
+        return original(*args, **kwargs)
+    monkeypatch.setattr(boundary_models, 'dolfinx_boundary_region_contact_trace', traced)
+    for unused in range(2):
+        model, u, policy = problem()
+        region = mesh.boundary(u.value.function_space.mesh, lambda x: np.isclose(x[0], 0))
+        for index in range(2):
+            surface = boundary_models.rigid_plane(point=(-1-index,0,0), normal=(1,0,0))
+            pair = boundary_models.rigid_contact_pair(region,
+                boundary_models.rigid_body(surface), penalty=100, name=f'tool_{index}')
+            model.add_boundary_model(pair)
+        step = model.step(target=u, element_policy=policy, dt=1e-4, steps=2,
+            time_increment_ceiling=1e-3, stress_free_initial_state=True, progress=False)
+        step.run()
+        assert len(step.residual.contact_energy_evidence()) == 2
+    assert len(calls) == 2  # No global cross-Step geometry cache.
+
+
 def test_coalesced_uniform_tools_preserve_motion_response():
     plain = contact_step(contact_trace_policy=boundary_models.RigidContactTracePolicy("nodal_lumped"))
     compact = contact_step(contact_trace_policy=boundary_models.RigidContactTracePolicy("nodal_lumped", True))

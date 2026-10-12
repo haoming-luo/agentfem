@@ -205,9 +205,16 @@ def lower(model, request):
             residual = DeformableQ1ContactResidual(residual, operator=operator,
                 displacement=history.u.value, secondary_dofs=pair.secondary_dofs,
                 primary_dofs=pair.primary_dofs, time_increment_ceiling=roles['deformable_contact'], name=pair.name)
+        # Share only reference geometry for the identical boundary object in
+        # this lowering call. Tool-specific filters and physical histories stay
+        # independent; no cache survives a mesh/Step lifecycle.
+        reference_traces = {}
         for pair in pairs:
-            adapter = boundary_models.dolfinx_boundary_region_contact_trace(
-                pair.slave_boundary, history.u.value.function_space, integration=trace_policy.integration)
+            key = id(pair.slave_boundary)
+            if key not in reference_traces:
+                reference_traces[key] = boundary_models.dolfinx_boundary_region_contact_trace(
+                    pair.slave_boundary, history.u.value.function_space, integration=trace_policy.integration)
+            adapter = reference_traces[key]
             adapter = trace_policy.apply(adapter, pair)
             residual = boundary_models.dolfinx_explicit_contact_residual(
                 residual, adapter=adapter, displacement=history.u.value,
