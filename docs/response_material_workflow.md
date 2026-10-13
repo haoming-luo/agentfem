@@ -226,17 +226,22 @@ the selected library/version. Both paths interpret binary64 inputs exactly;
 this is not a tolerance relaxation or a geometric approximation. See the
 [gmpy2 rational documentation](https://gmpy2.readthedocs.io/en/stable/mpq.html).
 
-## Remaining promotion gates
+## Acceptance and remaining promotion gates
 
-- Full-case validation of the newly composed interfaces and migrated kernels.
-- Full-case admission of instance-local batch-search and bulk damping
-  acceleration; validate the newly wired geometry/path callbacks on the real case.
-- Full-case timing and observation audit of the opt-in accepted-array owner.
-- A separately frozen installed project using these interfaces, followed by a
-  complete timed run and comparison at identical accepted stations.
+The migrated installed workflow has completed a separately frozen full-case
+run, including owned-array state, batch Q1 search, body/viscosity acceleration,
+scheduled checkpoints and accepted reporting. Final nodal/material/contact
+evidence and the complete reporting history match the retained prior core
+implementation; independent ParaView reading verifies the new single-grid
+output. The readable-case refactor additionally passed short-run parity and
+final checkpoint recovery. See the bounded
+[candidate evidence](internal/release_0.4.2_candidate.md).
 
-The earlier frozen private-backend run is a baseline, not an end-to-end test of
-this new workflow. Confidential source laws and meshes remain external.
+This is implementation and delivery acceptance, not independent physical
+validation. General stability, discretization/inertia sensitivity and external
+solver agreement remain model-specific obligations. The bounded serial scope
+and unsupported-combination checks above remain unchanged. Confidential source
+laws, meshes and detailed case results remain external.
 
 ## Independent geometry scheduling
 

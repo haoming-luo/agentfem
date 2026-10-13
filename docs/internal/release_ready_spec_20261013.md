@@ -61,3 +61,14 @@ coverage or caching arbitrary mutable arrays is not that proof.
 
 - [SIMULIA: model and history input](https://docs.software.vt.edu/abaqusv2025/English/SIMACAEMODRefMap/simamod-c-ov.htm)
 - [PyPA: binary extension packaging](https://packaging.python.org/en/latest/guides/packaging-binary-extensions/)
+
+## Acceptance checkpoint
+
+Readable case, core ownership for the bounded execution route, fresh full-run
+timing, implementation parity, one-volume-grid output and final-state recovery
+have concrete evidence in [the candidate record](release_0.4.2_candidate.md).
+The complete run measured 4 h 17 min 45 s. This meets the approximate four-hour
+delivery target, not a strict under-four-hour threshold or the faster prior
+private-backend time. Installed candidate checks and the unrelated public
+classic example passed. Final PR checks and any later release publication are
+separate gates; no stable tag is implied by this record.

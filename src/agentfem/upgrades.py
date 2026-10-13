@@ -16,6 +16,7 @@ from copy import deepcopy
 from dataclasses import dataclass
 from hashlib import sha256
 import json
+import os
 from pathlib import Path
 import re
 from typing import Iterable
@@ -178,24 +179,45 @@ def _project_python_files(project: ProjectConfig) -> tuple[Path, ...]:
         "dist",
         "outputs",
         "__pycache__",
+        "site-packages",
+        "dist-packages",
     }
     paths = []
-    for path in project.root.rglob("*.py"):
-        relative = path.relative_to(project.root)
-        if any(part in excluded or part.startswith(".") for part in relative.parts):
-            continue
-        resolved = path.resolve()
+    # Prune environments and installed wheel targets rather than scanning their
+    # implementation and recommending that the user rewrite dependency code.
+    # Do not blanket-ignore a folder called "runtime": it may contain the
+    # user's own helpers. Editable-source egg-info is not an installed wheel.
+    for directory, children, files in os.walk(project.root, followlinks=False):
+        root = Path(directory)
+        installed = root != project.root and ((root / "pyvenv.cfg").is_file() or any(
+            name.endswith(".dist-info")
+            and (root / name / "METADATA").is_file()
+            and (root / name / "RECORD").is_file()
+            for name in children
+        ))
         try:
-            resolved.relative_to(project.root)
-        except ValueError:
-            continue
-        try:
-            resolved.relative_to(project.output_directory)
+            root.resolve().relative_to(project.output_directory)
         except ValueError:
             pass
         else:
+            installed = True
+        if installed:
+            children[:] = []
             continue
-        paths.append(resolved)
+        children[:] = [name for name in children
+                       if name not in excluded and not name.startswith(".")]
+        for name in files:
+            if not name.endswith(".py") or name.startswith("."):
+                continue
+            resolved = (root / name).resolve()
+            try:
+                resolved.relative_to(project.root)
+            except ValueError:
+                continue
+            try:
+                resolved.relative_to(project.output_directory)
+            except ValueError:
+                paths.append(resolved)
     if project.entrypoint.is_file() and project.entrypoint not in paths:
         paths.append(project.entrypoint)
     return tuple(sorted(set(paths)))
