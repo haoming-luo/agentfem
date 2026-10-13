@@ -204,6 +204,16 @@ external mesh includes, duplicate fields and asynchronous frames are rejected,
 not interpolated or silently merged. This is a presentation conversion, not a
 checkpoint rewrite or a change to mesh connectivity.
 
+For an independent check with an installed ParaView (no solver import):
+
+```bash
+pvpython tools/check_paraview_warp.py fields-single-grid.xdmf --vector displacement
+```
+
+This emits JSON and fails on duplicate blocks, incomplete vectors or a Warp
+coordinate mismatch. It checks the reader's initial frame and presentation
+only, not solution accuracy. Use the actual point-vector name in the file.
+
 Prefer `step.solve_result(output=...)`: serial static and transient analyses
 write the compact single-grid XDMF/HDF5 layout. Under MPI, AgentFEM retains the
 collective XDMF/HDF5 scientific record and also registers a

@@ -165,6 +165,10 @@ adapter repairs old single-mesh synchronized archives without modifying their
 HDF5 arrays. Independent VTK reading/warp of two full-sized previous archives
 confirmed one grid, 255,041 volume cells, 296,074 points, and coordinates x+u.
 The originals remain intact. This does not alter the already frozen full run.
+Installed ParaView 6.1.1 additionally reproduced seven blocks from the legacy
+file and read exactly one block from the corrected descriptor using
+`Xdmf3ReaderS`. Its actual Warp filter produced x+u with zero maximum coordinate
+error. The reusable `tools/check_paraview_warp.py` records this presentation gate.
 
 Cell-array export is now reusable through `cell_field_from_values`, with
 explicit cell identities and no cross-interface smoothing. DG0 export reads
@@ -188,3 +192,12 @@ original mesh produced bitwise-identical stress, state, work, Piola stress,
 force, hourglass, geometry admission and viscosity outputs versus the previous
 private arithmetic. The probe overlapped the frozen full run, used one repeat,
 and is correctness evidence only—not a speed comparison or full trajectory.
+
+After integration with the current main branch, the installed wheel passed
+223 focused tests, including geometric-elasticity regression. An independently
+pinned public elastic-bar project completed 640 increments with 40 cells:
+relative displacement error against the linear-limit reference was
+0.000709678842, and relative energy-balance error was 0.00000193265549.
+This is a small public workflow check, not the original composite full-run
+acceptance or a large-strain validation. The original full run remains on its
+frozen revision-1 dispatcher; it does not inherit revision-2 repair changes.
