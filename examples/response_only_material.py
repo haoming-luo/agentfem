@@ -11,7 +11,7 @@ from pathlib import Path
 import numpy as np
 from mpi4py import MPI
 from dolfinx import mesh as dmesh
-from agentfem import boundary_models, constitutive, elements, fields, mesh, models, studies
+from agentfem import boundary_models, checkpointing, constitutive, elements, fields, mesh, models, results, studies
 from agentfem.constitutive.user_material import MaterialStateSchema, MaterialStateVariable
 
 
@@ -36,7 +36,7 @@ def user_elastic_material():
         identity={'example_law':'saint_venant_kirchhoff','lambda':lam,'mu':mu,'revision':1},density=1.)
 
 
-def build():
+def build(*, checkpoint=None):
     domain = dmesh.create_unit_cube(MPI.COMM_SELF,2,2,2,cell_type=dmesh.CellType.hexahedron)
     model = models.create(study=studies.dynamic_solid(dimension=3),mesh=domain)
     u = model.field(fields.displacement(domain))
@@ -52,7 +52,8 @@ def build():
     return model.step(target=u,element_policy=elements.uniform_strain_hex8(
         kinematics='finite_strain',hourglass_modulus=3.,hourglass_scale=.1),dt=.001,steps=10,
         time_increment_ceiling=.001,stress_free_initial_state=True,
-        material_storage='owned_arrays',history_every=1,progress=False)
+        material_storage='owned_arrays',history_every=1,progress=False,
+        checkpoint=checkpoint)
 
 
 def main():
@@ -60,15 +61,15 @@ def main():
     parser.add_argument('--output',type=Path,required=True)
     args=parser.parse_args()
     args.output.mkdir(parents=True,exist_ok=False)
-    step=build()
-    step.solve_result()
-    step.save_checkpoint(args.output/'accepted')
+    step=build(checkpoint=checkpointing.every(5, directory=args.output/'checkpoints'))
+    journal=results.AcceptedHistoryJournal(args.output/'history.jsonl')
+    step.solve_result(progress=journal.reporter(step, every=2))
     record=step.accepted_material_fields()
     np.savez(args.output/'material.npz',stress=record['cauchy_stress'],state=record['state'],
              cell_keys=record['cell_keys'])
     report={'completed_steps':step.completed_steps,'physical_time':record['time'],
             'independently_validated':False,'energy':step.history_records[-1],
-            'capability':step.summary()['execution_scope']}
+            'capability':step.summary()['execution_scope'], 'journal':journal.summary()}
     (args.output/'report.json').write_text(json.dumps(report,indent=2)+'\n')
     print(json.dumps(report))
 

@@ -71,9 +71,68 @@ class AcceptedHistoryJournal:
                 raise
             self.count += len(pending)
             self.last_increment, self.tip = last, tip
+        return self.summary()
+
+    def summary(self):
+        """Return the current digest tip without touching the file."""
         return {"path": self.path.name, "records": self.count,
                 "sha256_tip": self.tip, "checkpoint": False,
                 "scope": "accepted reporting stations"}
+
+    def reporter(self, step, *, every=1):
+        """Observe serial transient history through the existing event stream.
+
+        Pass the returned observer as ``progress`` to ``run`` or ``solve_result``.
+        Sampling uses absolute accepted increments, independently of display
+        cadence. It does not advance the solver, evaluate physics or save state.
+        Create a new journal segment after restarting from a checkpoint.
+        """
+        from .._transient_problems import (
+            ExplicitDynamicsStep, ImplicitDynamicsStep, FirstOrderTransientStep,
+        )
+        from ..diagnostics import comm_of
+
+        if type(every) is not int or every <= 0:
+            raise ValueError("Journal every must be a positive integer")
+        if not isinstance(step, (ExplicitDynamicsStep, ImplicitDynamicsStep,
+                                 FirstOrderTransientStep)):
+            raise TypeError("Journal reporter requires a supported transient Step")
+        solution = step.current if isinstance(step, FirstOrderTransientStep) else step.state.u
+        if comm_of(solution).size != 1:
+            raise NotImplementedError("Journal reporter is serial; MPI collection is not implicit")
+        history_every = int(getattr(step, "history_every", 1))
+        if every % history_every:
+            raise ValueError("Journal every must be a multiple of history_every")
+        if self.count or self._failed:
+            raise ValueError("Bind the reporter to a fresh journal segment")
+        return _TransientHistoryReporter(self, step, every)
+
+
+class _TransientHistoryReporter:
+    """Read accepted scalar histories; never own or mutate numerical state."""
+
+    def __init__(self, journal, step, every):
+        self.journal = journal
+        self.step = step
+        self.every = every
+
+    def emit(self, event):
+        if event.kind != "time_increment":
+            return
+        step = self.step
+        increment = event.increment
+        if event.step_name != step.name or increment != step.completed_steps:
+            raise ValueError("Journal event does not identify the bound accepted Step")
+        if increment % self.every and increment != step.steps:
+            return
+        records = step.history_records
+        if not records or records[-1].get("time") != event.time:
+            raise ValueError("Journal requires a current accepted history frame; refusing stale data")
+        frame = dict(records[-1])
+        if "increment" in frame or "step_name" in frame:
+            raise ValueError("History channel conflicts with journal station identity")
+        frame.update(increment=int(increment), step_name=str(step.name))
+        self.journal.append_records([frame])
 
 
 def read_accepted_history(path, *, expected_tip=None):

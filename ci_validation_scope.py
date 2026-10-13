@@ -77,10 +77,15 @@ _SOURCE_TEST_MAP = {
     ),
 }
 _CORE_SOURCE_TEST_MAP = {
+    "src/agentfem/results/journal.py": (
+        "tests/test_accepted_history_journal.py",
+        "tests/test_transient_history_journal.py",
+    ),
     "src/agentfem/_step_response_hex.py": (
         "tests/test_response_material_step.py", "tests/test_response_deformable_step.py",
         "tests/test_owned_explicit_state.py", "tests/test_response_substeps.py",
         "tests/test_contact_overlap_execution.py",
+        "tests/test_transient_history_journal.py",
     ),
     "src/agentfem/mechanics/_deformable_contact_explicit.py": (
         "tests/test_contact_overlap_execution.py", "tests/test_deformable_contact_explicit.py",
@@ -155,6 +160,7 @@ _CORE_SOURCE_TEST_MAP = {
         "tests/test_time_inputs.py",
         "tests/test_transient_heat_decay_workflow.py",
         "tests/test_transient_restart.py",
+        "tests/test_transient_history_journal.py",
     ),
     "src/agentfem/checkpointing.py": ("tests/test_transient_restart.py",),
     "src/agentfem/fatigue_fracture.py": (

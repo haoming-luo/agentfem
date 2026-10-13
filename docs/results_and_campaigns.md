@@ -49,9 +49,20 @@ solved.verify(
 Standard nonlinear, explicit, implicit-dynamic, first-order transient, and J2
 steps emit the same JSON-safe `SolveEvent` contract. The terminal, optional
 `.sta` status file, result histories, and complete manifest trace are views of
-that one stream. `print_every` changes only human display cadence: every
-accepted time increment remains in `result.metadata["execution"]`, while
-cutbacks and failed attempts remain auditable rather than being filtered out.
+that one stream. `print_every` changes human display cadence, not the emission
+of accepted-increment events. The in-memory execution recorder is bounded;
+older repetitive events may be dropped, so `result.metadata["execution"]` is
+not an unbounded full-run journal. Use an explicit durable observer when the
+complete selected station history must be retained.
+
+For serial transient scalar histories,
+`results.AcceptedHistoryJournal(path).reporter(step, every=10)` plugs into the
+ordinary `progress` argument. It appends already accepted history frames without
+re-entering the solver or recomputing physical quantities. The sampling interval
+must cover retained history stations, and a fresh segment is required after
+restart. Store `journal.summary()` and register the journal artifact in the
+result before writing its manifest. Its digest chain is integrity evidence,
+not a checkpoint or physical validation.
 
 This is important for both reproducibility and AI operation. An agent does not
 infer convergence by scraping prose, and a human does not receive a simplified

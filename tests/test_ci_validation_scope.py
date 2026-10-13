@@ -75,6 +75,16 @@ def test_response_workflow_and_batch_geometry_select_owner_regressions():
             'tests/test_response_substeps.py','tests/test_q1_execution.py'} <= set(scope.tests)
 
 
+def test_journal_changes_select_serial_event_and_restart_contracts():
+    scope = classify_changes(["src/agentfem/results/journal.py"])
+    assert scope.level == "core"
+    assert set(scope.tests) == {
+        "tests/test_accepted_history_journal.py",
+        "tests/test_transient_history_journal.py",
+        "tests/test_results.py",
+    }
+
+
 def test_promotion_contract_change_tests_the_gate_without_replaying_release():
     scope = classify_changes(
         [

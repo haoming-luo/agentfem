@@ -30,6 +30,38 @@ example supplies a small external elastic callback and moving tools, then saves
 an accepted checkpoint and material arrays. It requires no confidential assets.
 Run it with the installed package and an explicit fresh `--output` directory.
 
+Checkpoint cadence belongs to the Procedure, not a case-specific stepping loop.
+Pass `checkpoint=checkpointing.every(5000, directory="run/checkpoints")` to
+`model.step(...)`. The policy saves accepted states at absolute increment
+multiples and at the final increment. After `step.load_checkpoint(path)`, call
+`step.run()` or `step.solve_result()` normally: a restart between stations does
+not shift the schedule. A partial `run(until_step=...)` does not create an
+unscheduled checkpoint; call `save_checkpoint(...)` explicitly when that pause
+must be retained. The response-only provider retains its serial-only boundary;
+scheduled saving does not add MPI portability.
+
+For append-only scalar reporting, use the existing accepted event stream rather
+than repeatedly calling `run(until_step=...)` just to inspect the last record:
+
+```python
+journal = results.AcceptedHistoryJournal("run/history.jsonl")
+result = step.solve_result(progress=journal.reporter(step, every=10))
+result.metadata["accepted_history_journal"] = journal.summary()
+result.add_artifact("accepted_history", journal.path)
+```
+
+The observer copies an already evaluated history frame; it does not evaluate
+the material, own state, or create a checkpoint. It samples absolute increment
+multiples and the final increment, regardless of terminal display cadence.
+`every` must be a multiple of `history_every`; stale frames are rejected, not
+relabeled with the current time. Use the normal `history=(results.history(...),)`
+solve argument for additional scalar channels. Start a new journal after
+restart. This observer is serial-only and also works with ordinary explicit,
+implicit-dynamic and heat Steps. An output failure is raised after numerical
+acceptance: stop the run, save the accepted state if possible, and resume with a
+new journal; do not retry a poisoned writer. It does not silently roll back an
+already accepted physical increment.
+
 The current admission is serial, three-dimensional, one full-domain material,
 and finite uniform-strain Hex8. It starts from a stress-free, virgin state.
 Multiple `RigidContactPair` model assets may use frictionless planes or cylinders

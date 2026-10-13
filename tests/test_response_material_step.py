@@ -64,6 +64,37 @@ def test_accepted_material_export_is_detached_and_read_only():
     assert not np.array_equal(step.accepted_material_fields()['state'], state)
 
 
+@pytest.mark.parametrize("storage", ["fields", "owned_arrays"])
+def test_scheduled_checkpoints_keep_absolute_cadence_after_restart(tmp_path, storage):
+    """A restart between output stations must not shift checkpoint cadence."""
+    import json
+    from agentfem import checkpointing
+
+    complete = make_step(steps=7, material_storage=storage)
+    complete.run()
+    partial = make_step(steps=7, material_storage=storage)
+    partial.run(until_step=2)
+    restart = partial.save_checkpoint(tmp_path / "interrupted")
+    directory = tmp_path / "scheduled"
+    resumed = make_step(steps=7, material_storage=storage,
+        checkpoint=checkpointing.every(3, directory=directory))
+    resumed.load_checkpoint(restart)
+    # Pausing at step 4 is not a scheduled checkpoint or the final state.
+    resumed.run(until_step=4)
+    manifests = lambda: sorted(json.loads(path.read_text())["completed_steps"]
+                              for path in directory.glob("*.checkpoint.json"))
+    assert manifests() == [3]
+    resumed.run()
+    assert manifests() == [3, 6, 7]
+    np.testing.assert_array_equal(resumed.state.u.value.x.array,
+                                  complete.state.u.value.x.array)
+    assert resumed.residual.snapshot() == complete.residual.snapshot()
+    restored = make_step(steps=7, material_storage=storage)
+    restored.load_checkpoint(resumed.checkpoints[-1].path)
+    assert restored.completed_steps == 7
+    assert restored.residual.snapshot() == complete.residual.snapshot()
+
+
 def test_no_auto_dt_or_silent_load_drop():
     with pytest.raises(ValueError, match="numerical dt"):
         make_step(dt="auto")
