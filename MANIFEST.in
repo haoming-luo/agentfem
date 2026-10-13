@@ -39,6 +39,7 @@ include src/agentfem/_hex_body_native.h
 include src/agentfem/_hex_auxiliary.h
 include src/agentfem/_hex_auxiliary_dispatch.h
 include src/agentfem/_hex_affine_native.h
+include src/agentfem/_native_worker_pool.h
 include src/agentfem/_body_pipeline.c
 recursive-include src/agentfem/native *.c
 recursive-include src/agentfem/operators *.md

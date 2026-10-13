@@ -1,7 +1,7 @@
 /* SPDX-FileCopyrightText: 2026 Haoming Luo and AgentFEM contributors
  * SPDX-License-Identifier: Apache-2.0
- * Disjoint-cell dispatch. No pool, retained scratch, or material/state owner.
- * Every started worker joins before buffers can be published or released.
+ * Disjoint-cell dispatch. Optional instance executor, no retained scratch or
+ * material/state owner. Every batch completes before publication or release.
  */
 typedef struct {
     int operation, n, invalid;
@@ -38,8 +38,9 @@ static void *execute_auxiliary(void *raw) {
     return NULL;
 }
 
-static int dispatch_auxiliary(auxiliary_job *jobs, int workers) {
+static int dispatch_auxiliary(auxiliary_job *jobs, int workers, NativePool *pool) {
     if (workers == 1) { execute_auxiliary(jobs); return 0; }
+    if(pool) { native_pool_dispatch(pool,jobs,sizeof(auxiliary_job),workers,execute_auxiliary);return 0; }
     pthread_t threads[16]; int started = 0, failed = 0;
     for (int i = 0; i < workers; i++) {
         if (pthread_create(&threads[started], NULL, execute_auxiliary, &jobs[i])) {
@@ -54,11 +55,20 @@ static int dispatch_auxiliary(auxiliary_job *jobs, int workers) {
 static PyObject *auxiliary(PyObject *self, PyObject *args) {
     int operation, workers; PyObject *inputs, *result = NULL, *outputs[6] = {NULL};
     Py_buffer buffers[10] = {{0}};
-    if (!PyArg_ParseTuple(args, "iOi", &operation, &inputs, &workers)) return NULL;
+    PyObject *executor=Py_None;NativePool *pool=NULL;int acquired=0;
+    if (!PyArg_ParseTuple(args, "iOi|O", &operation, &inputs, &workers,&executor)) return NULL;
     int count = operation == 0 ? 5 : operation == 1 ? 10 : operation == 2 ? 2 : 0;
     if (!count || workers < 1 || workers > 16 || !PyTuple_Check(inputs)
         || PyTuple_GET_SIZE(inputs) != count) {
         PyErr_SetString(PyExc_ValueError, "Invalid native auxiliary configuration"); return NULL;
+    }
+    if(executor!=Py_None) {
+        if(Py_TYPE(executor)!=&NativePoolType) {
+            PyErr_SetString(PyExc_TypeError,"Expected an instance native executor");return NULL;
+        }
+        pool=(NativePool *)executor;
+        if(native_pool_acquire(pool,workers))return NULL;
+        acquired=1;
     }
     for (int i = 0; i < count; i++) {
         int integer = (operation == 0 && i == 4) || (operation == 2 && i == 1);
@@ -126,7 +136,7 @@ static PyObject *auxiliary(PyObject *self, PyObject *args) {
     }
     int failed;
     Py_BEGIN_ALLOW_THREADS
-    failed = dispatch_auxiliary(jobs, workers);
+    failed = dispatch_auxiliary(jobs, workers,pool);
     Py_END_ALLOW_THREADS
     if (PyErr_CheckSignals()) goto cleanup;
     if (failed) { PyErr_SetString(PyExc_RuntimeError, "Native auxiliary thread creation failed"); goto cleanup; }
@@ -136,6 +146,7 @@ static PyObject *auxiliary(PyObject *self, PyObject *args) {
     result = PyTuple_New(output_count);
     if (result) for (int i = 0; i < output_count; i++) PyTuple_SET_ITEM(result, i, Py_NewRef(outputs[i]));
 cleanup:
+    if(acquired)pool->busy=0;
     for (int i = 0; i < 6; i++) Py_XDECREF(outputs[i]);
     for (int i = 0; i < 10; i++) if (buffers[i].obj) PyBuffer_Release(&buffers[i]);
     return result;

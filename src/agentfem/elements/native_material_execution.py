@@ -43,6 +43,10 @@ def native_explicit_hex_kernel(material, function, *, properties, density,
     if width < 1:
         raise ValueError('Native material ABI requires a nonempty state schema')
     address = ctypes.cast(function, ctypes.c_void_p).value
+    from .body_auxiliary import validate_cell_workers
+    validate_cell_workers(cell_workers)
+    executor = (_body_pipeline.create_pool(max(workers, cell_workers))
+                if max(workers, cell_workers) > 1 else None)
 
     def evaluate(selected, request, geometry, displacement):
         # Capturing function pins the executable, not just its numerical address.
@@ -67,7 +71,7 @@ def native_explicit_hex_kernel(material, function, *, properties, density,
             (request.deformation_gradient_old, request.deformation_gradient_new,
              request.state_old, parameters, displacement, geometry.average_gradient,
              geometry.hourglass_modes, geometry.volume, geometry.hourglass_coefficient),
-            request.time_increment, density, workers, width, len(parameters), repair)
+            request.time_increment, density, workers, width, len(parameters), repair, executor)
         n = request.point_count
         shapes = ((n,3,3), (n,width), (n,), (n,3,3), (n,8,3), (n,))
         stress, state, work, piola, force, energy = (
@@ -79,12 +83,14 @@ def native_explicit_hex_kernel(material, function, *, properties, density,
         return ExplicitHexBodyOutput(response, piola, force, energy)
 
     from .body_auxiliary import auxiliary_callbacks, gather_callback
-    kinematics, viscosity = auxiliary_callbacks(workers=cell_workers)
+    kinematics, viscosity = auxiliary_callbacks(workers=cell_workers, executor=executor)
     return ExplicitHexBodyKernel(evaluate, {
-        'provider': 'agentfem.native_material_hex', 'abi': 1, 'revision': 4,
+        'provider': 'agentfem.native_material_hex', 'abi': 1, 'revision': 5,
+        'worker_lifecycle': 'instance_sleeping_joined_batches',
         'fused_affine_screen': True,
         'material': identity, 'state_width': width, 'property_count': len(parameters),
         'workers': workers, 'cell_workers': cell_workers, 'state_owner': 'core', 'density': float(density),
         'properties_sha256': hashlib.sha256(parameters.tobytes()).hexdigest()},
         prepare_kinematics=kinematics, evaluate_viscosity=viscosity,
-        gather_cell_vectors=gather_callback(workers=cell_workers))
+        gather_cell_vectors=gather_callback(workers=cell_workers, executor=executor),
+        release_resources=None if executor is None else executor.close)

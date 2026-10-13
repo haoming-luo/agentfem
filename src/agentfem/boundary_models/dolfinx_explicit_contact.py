@@ -529,6 +529,7 @@ class DolfinxExplicitContactResidual:
             projection.record,
             response,
             surface_reference_point=reference,
+            compact=self.communicator.size == 1,
         )
         friction_assembly = None
         friction_response = None
@@ -561,6 +562,7 @@ class DolfinxExplicitContactResidual:
                 projection.record,
                 friction_response,
                 surface_reference_point=reference,
+                compact=self.communicator.size == 1,
             )
             self.friction_state.begin(friction_response)
             self.friction_kinematics.begin(
@@ -789,6 +791,8 @@ class DolfinxExplicitContactResidual:
                 dtype=float,
             ).reshape(-1)
             if friction_assembly is not None:
+                if not np.array_equal(assembly.node_ids, friction_assembly.mechanical.node_ids):
+                    raise ValueError("Normal and friction contact node maps differ.")
                 values = values + np.asarray(
                     friction_assembly.nodal_structural_residual,
                     dtype=float,
@@ -796,9 +800,13 @@ class DolfinxExplicitContactResidual:
             if self.communicator.size == 1:
                 # No ghost contributions exist in a serial trace. Preserve the
                 # same layout check without a full duplicate/zero/copy vector.
-                if vector.array.shape != values.shape:
+                dimension = assembly.nodal_structural_residual.shape[1]
+                if vector.array.size != assembly.number_of_nodes * dimension:
                     raise ValueError("Contact and base serial vector layouts differ.")
-                vector.array[:] += values
+                if assembly.node_ids is None:
+                    vector.array[:] += values
+                else:
+                    vector.array.reshape(-1, dimension)[assembly.node_ids] += values.reshape(-1, dimension)
             else:
                 contact = vector.duplicate()
                 try:

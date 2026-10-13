@@ -121,6 +121,7 @@ class ExplicitHexBodyKernel:
     prepare_kinematics: Callable | None = None
     evaluate_viscosity: Callable | None = None
     gather_cell_vectors: Callable | None = None
+    release_resources: Callable | None = field(default=None, repr=False, compare=False)
     _identity_json: str = field(init=False, repr=False)
 
     def __post_init__(self):
@@ -136,6 +137,19 @@ class ExplicitHexBodyKernel:
             raise TypeError("evaluate_viscosity must be callable or None")
         if self.gather_cell_vectors is not None and not callable(self.gather_cell_vectors):
             raise TypeError("gather_cell_vectors must be callable or None")
+        if self.release_resources is not None and not callable(self.release_resources):
+            raise TypeError("release_resources must be callable or None")
+
+    def close(self):
+        """Release instance execution resources, never solver state."""
+        if self.release_resources is not None:
+            self.release_resources()
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *_exception):
+        self.close()
 
     def summary(self):
         return {"kind": "trusted_explicit_hex_body_kernel", "identity": json.loads(self._identity_json),

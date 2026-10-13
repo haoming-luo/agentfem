@@ -32,8 +32,9 @@ ill-conditioned bulk conversion retains the reference implementation.
 screen, bulk-viscosity and nodal-to-cell gathering. A larger explicit budget
 (1–16) partitions only disjoint cells, preserves arithmetic order inside each
 cell, and joins all workers before returning. Small batches stay serial.
-There is no retained scratch or worker pool to close. Material `workers` and
-`cell_workers` belong to different sequential phases; neither changes the time
+The standalone `explicit_hex_kernel` retains no worker pool. The compiled
+material binding below reuses one instance-owned executor. Material `workers`
+and `cell_workers` belong to different sequential phases; neither changes the time
 grid, constitutive law or inertia. Contact overlap can still compete for CPU,
 so select budgets from whole-increment measurements on the intended machine.
 
@@ -78,6 +79,36 @@ gradient workers. The standalone and fused routes share one C implementation;
 no threshold is relaxed. Inconclusive cells still take the same SVD/Bernstein
 fallback. This avoids repacking and serial dispatch of already certifiable
 rotated/deformed cells rather than skipping geometry admission.
+
+Revision 5 reuses sleeping native workers for the material and auxiliary
+phases, with the same fixed contiguous cell slices and per-cell arithmetic.
+The executor owns neither material state nor retained numerical buffers. Each
+batch completes before repair, publication, rollback or error propagation.
+It refuses concurrent/reentrant use, close while busy and reuse after fork.
+Use the kernel as a context manager or call `kernel.close()` in the provider's
+cleanup; close is idempotent and previously returned immutable arrays remain
+valid. Object destruction is a cleanup backstop, not a substitute for explicit
+ownership. Single-worker bindings start no background worker. No process-global
+pool, scheduling-interval change or automatic CPU-budget selection is made.
+
+```python
+with elements.native_explicit_hex_kernel(
+    material, c_function, properties=parameters, density=density,
+    identity=implementation_identity, fallback=reference_update,
+    workers=material_workers, cell_workers=cell_workers,
+) as kernel:
+    step = model.step(target=u, execution_kernel=kernel, **step_options)
+    result = step.solve_result()
+```
+
+Rigid-contact residuals in serial execution use indexed boundary-node storage,
+rather than allocate a full-volume zero field for every contact pair. The
+backend-neutral trace retains its dense default; `assemble(..., compact=True)`
+returns explicitly numbered rows and the full logical node count.
+`dense_nodal_residual()` materializes the original view if needed. Only exact
+structural zeros are omitted: quadrature, contact response, contribution order,
+force/moment and energy checks remain unchanged. MPI assembly retains the
+existing dense local-plus-ghost path.
 
 This ABI is trusted executable code, not a sandbox: do not load function
 addresses from a model file. ABI v1 supports stress, internal state and internal

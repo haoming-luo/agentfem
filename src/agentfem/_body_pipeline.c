@@ -21,6 +21,7 @@
 #include "_hex_body_native.h"
 #include "_hex_affine_native.h"
 #include "_hex_auxiliary.h"
+#include "_native_worker_pool.h"
 typedef void (*material_fn)(int,const double*,const double*,const double*,const double*,double,double,double*,double*,double*,int*);
 typedef struct {
     material_fn material;
@@ -28,6 +29,7 @@ typedef struct {
 } body_job;
 static void *execute_body(void *raw) {
     body_job *j=raw;
+    if(j->repair && !j->has_rejected)return NULL;
     if(!j->repair) {
         /* Only the external provider's outputs need sentinels. Initialize in
          * each worker's slice, not a second full-body write on the GIL thread. */
@@ -53,10 +55,14 @@ static void *execute_body(void *raw) {
     }
     return NULL;
 }
-static int execute_jobs(body_job *jobs,int workers) {
+static int execute_jobs(body_job *jobs,int workers,NativePool *pool) {
     /* Called without the GIL. A single worker needs no temporary OS thread;
      * repair needs workers only for slices containing rejected points. */
     if(workers==1) { execute_body(&jobs[0]); return 0; }
+    if(pool) {
+        native_pool_dispatch(pool,jobs,sizeof(body_job),workers,execute_body);
+        return 0;
+    }
     pthread_t threads[16]; int started=0,failed=0;
     for(int i=0;i<workers;i++) {
         if(jobs[i].repair && !jobs[i].has_rejected) continue;
@@ -69,10 +75,19 @@ static int execute_jobs(body_job *jobs,int workers) {
 static PyObject *run(PyObject *self,PyObject *args) {
     unsigned long long ma; Py_ssize_t state_width,property_count; PyObject *inputs,*callback;
     Py_buffer buffers[9]={{0}}; PyObject *out[6]={NULL}; PyObject *result=NULL;
-    int workers,*status=NULL; double dt,rho;
-    if(!PyArg_ParseTuple(args,"KOddinnO",&ma,&inputs,&dt,&rho,&workers,&state_width,&property_count,&callback)) return NULL;
+    int workers,*status=NULL,acquired=0; double dt,rho;
+    PyObject *executor=Py_None;NativePool *pool=NULL;
+    if(!PyArg_ParseTuple(args,"KOddinnO|O",&ma,&inputs,&dt,&rho,&workers,&state_width,&property_count,&callback,&executor)) return NULL;
     if(!PyCallable_Check(callback)||!ma||state_width<1||property_count<0||!PyTuple_Check(inputs)||PyTuple_GET_SIZE(inputs)!=9||workers<1||workers>16||!isfinite(dt)||dt<=0||!isfinite(rho)||rho<=0) {
         PyErr_SetString(PyExc_ValueError,"Invalid native material/body configuration"); return NULL;
+    }
+    if(executor!=Py_None) {
+        if(Py_TYPE(executor)!=&NativePoolType) {
+            PyErr_SetString(PyExc_TypeError,"Expected an instance native executor");return NULL;
+        }
+        pool=(NativePool *)executor;
+        if(native_pool_acquire(pool,workers))return NULL;
+        acquired=1;
     }
     const Py_ssize_t iw[9]={9,9,state_width,0,24,24,32,1,1},ow[6]={9,state_width,1,9,24,1};
     for(int i=0;i<9;i++) {
@@ -103,7 +118,7 @@ static PyObject *run(PyObject *self,PyObject *args) {
         for(int k=0;k<6;k++) jobs[i].out[k]=(double*)PyBytes_AS_STRING(out[k])+ow[k]*start;
     }
     Py_BEGIN_ALLOW_THREADS
-    failed=execute_jobs(jobs,workers);
+    failed=execute_jobs(jobs,workers,pool);
     Py_END_ALLOW_THREADS
     if(PyErr_CheckSignals()) goto cleanup;
     if(failed) { PyErr_SetString(PyExc_RuntimeError,"Native body thread creation failed"); goto cleanup; }
@@ -139,7 +154,7 @@ static PyObject *run(PyObject *self,PyObject *args) {
         if(!valid) goto cleanup;
         for(int j=0;j<workers;j++) jobs[j].repair=1;
         Py_BEGIN_ALLOW_THREADS
-        failed=execute_jobs(jobs,workers);
+        failed=execute_jobs(jobs,workers,pool);
         Py_END_ALLOW_THREADS
         if(PyErr_CheckSignals()) goto cleanup;
         if(failed) {PyErr_SetString(PyExc_RuntimeError,"Native repair thread creation failed");goto cleanup;}
@@ -149,6 +164,7 @@ static PyObject *run(PyObject *self,PyObject *args) {
     result=PyTuple_New(6);
     if(result) for(int i=0;i<6;i++) PyTuple_SET_ITEM(result,i,Py_NewRef(out[i]));
 cleanup:
+    if(acquired)pool->busy=0;
     PyMem_Free(status);
     for(int i=0;i<6;i++) Py_XDECREF(out[i]);
     for(int i=0;i<9;i++) if(buffers[i].obj) PyBuffer_Release(&buffers[i]);
@@ -156,8 +172,12 @@ cleanup:
 }
 #include "_hex_auxiliary_dispatch.h"
 static PyMethodDef methods[]={
+    {"create_pool",native_pool_create,METH_O,"Create an instance-owned sleeping native executor"},
     {"run",run,METH_VARARGS,"Trusted C material ABI with core-owned immutable body output"},
     {"auxiliary",auxiliary,METH_VARARGS,"Joined disjoint-cell arithmetic with immutable output"},
     {NULL,NULL,0,NULL}};
 static struct PyModuleDef module={PyModuleDef_HEAD_INIT,"_body_pipeline",NULL,-1,methods};
-PyMODINIT_FUNC PyInit__body_pipeline(void) { return PyModule_Create(&module); }
+PyMODINIT_FUNC PyInit__body_pipeline(void) {
+    if(PyType_Ready(&NativePoolType)<0)return NULL;
+    return PyModule_Create(&module);
+}

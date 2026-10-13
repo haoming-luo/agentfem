@@ -10,7 +10,7 @@ def validate_cell_workers(workers):
     return workers
 
 
-def auxiliary_callbacks(*, workers=1):
+def auxiliary_callbacks(*, workers=1, executor=None):
     from .. import _body_pipeline
     from ._hex_validity import _coordinate_edges
     from ._bulk_viscosity import BulkViscosityResponse
@@ -30,7 +30,7 @@ def auxiliary_callbacks(*, workers=1):
         raw = _body_pipeline.auxiliary(0, (
             checked(geometry.coordinates,(n,8,3)), checked(displacement,(n,8,3)),
             checked(geometry.average_gradient,(n,8,3)),
-            checked(geometry.reference_perturbation_radius,(n,)), edges), workers)
+            checked(geometry.reference_perturbation_radius,(n,)), edges), workers, executor)
         return np.frombuffer(raw[0], dtype=float).reshape(n,3,3), np.frombuffer(raw[1], dtype=np.int32).astype(bool)
 
     def viscosity(geometry, f, velocity, coefficients, reference):
@@ -42,7 +42,7 @@ def auxiliary_callbacks(*, workers=1):
             checked(velocity,(n,8,3)), checked(geometry.lumped_mass,(n,8)),
             checked(geometry.volume,(n,)),
             *[checked(coefficients[name],(n,)) for name in
-              ('density','wave_speed','characteristic_length','linear','quadratic')]), workers)
+              ('density','wave_speed','characteristic_length','linear','quadratic')]), workers, executor)
         if np.any(np.frombuffer(raw[-1], dtype=np.int32)):
             return reference()
         return BulkViscosityResponse(*(
@@ -52,14 +52,14 @@ def auxiliary_callbacks(*, workers=1):
     return kinematics, viscosity
 
 
-def gather_callback(*, workers=1):
+def gather_callback(*, workers=1, executor=None):
     from .. import _body_pipeline
     validate_cell_workers(workers)
 
     def gather(values, cell_nodes):
         # Check indices while copying disjoint cells. Never mutate or cache the
         # solver's live nodal data, connectivity, or previous trial's output.
-        raw, = _body_pipeline.auxiliary(2, (values, cell_nodes), workers)
+        raw, = _body_pipeline.auxiliary(2, (values, cell_nodes), workers, executor)
         return np.frombuffer(raw, dtype=float).reshape(len(cell_nodes), 8, 3)
 
     return gather
