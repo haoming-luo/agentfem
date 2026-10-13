@@ -10,7 +10,7 @@ from agentfem.constitutive.user_material import MaterialStateSchema, MaterialSta
 
 @pytest.mark.parametrize('width', [1, 7, 31])
 @pytest.mark.parametrize('workers', [1, 3])
-@pytest.mark.parametrize('reject', [False, True])
+@pytest.mark.parametrize('reject', [False, True, 'single', 'all'])
 def test_generic_native_state_width_atomic_repair(width, workers, reject):
     pytest.importorskip('agentfem._body_pipeline')
     real = ctypes.POINTER(ctypes.c_double)
@@ -35,7 +35,14 @@ def test_generic_native_state_width_atomic_repair(width, workers, reject):
         np.ctypeslib.as_array(new, shape=(n*width,))[:] = (old+1).ravel()
         np.ctypeslib.as_array(stress, shape=(n*9,))[:] = np.tile(np.eye(3)*2, (n,1,1)).ravel()
         np.ctypeslib.as_array(work, shape=(n,))[:] = .1
-        np.ctypeslib.as_array(status, shape=(n,))[:] = (old[:,0] % (2*width) == 0) if reject else 0
+        rejected = ((old[:,0] % (2*width) == 0) if reject is True else
+                    old[:,0] == 0 if reject == 'single' else
+                    np.ones(n, dtype=bool) if reject == 'all' else np.zeros(n, dtype=bool))
+        np.ctypeslib.as_array(status, shape=(n,))[:] = rejected
+        # Rejected bytes are deliberately unusable until exact repair.
+        np.ctypeslib.as_array(stress, shape=(n*9,)).reshape(n, 9)[rejected] = np.nan
+        np.ctypeslib.as_array(new, shape=(n*width,)).reshape(n, width)[rejected] = np.nan
+        np.ctypeslib.as_array(work, shape=(n,))[rejected] = np.nan
     function = abi(implementation)
     kernel = elements.native_explicit_hex_kernel(material, function, properties=[], density=1.,
         identity={'fixture': width}, fallback=fallback, workers=workers)
@@ -48,7 +55,10 @@ def test_generic_native_state_width_atomic_repair(width, workers, reject):
     for name in ('first_piola_stress', 'internal_force', 'hourglass_energy'):
         np.testing.assert_array_equal(getattr(actual,name),getattr(expected,name))
     np.testing.assert_array_equal(actual.material_response.state_new, state+1)
-    assert sorted(repaired) == (state[::2,0].tolist() if reject else [])
+    expected_repaired = (state[::2,0].tolist() if reject is True else
+                         state[:1,0].tolist() if reject == 'single' else
+                         state[:,0].tolist() if reject == 'all' else [])
+    assert sorted(repaired) == expected_repaired
     np.testing.assert_array_equal(request.state_old, state)
     if reject:
         def fail(request):

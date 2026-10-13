@@ -18,10 +18,12 @@ checkpoint, MPI collector or scientific certification.
 The architecture priority is one authoritative accepted state per lifecycle:
 Operator produces trial response, State accepts/rejects it, Result publishes
 observations. An exclusive array owner must not silently replace live fields
-when callbacks may access them. Private native fused execution and local exact
-repair therefore remain external prototypes until explicit ownership,
-multi-variable layout and observer contracts are independently tested. Material
-laws and native ABI-specific state widths do not belong in the generic core.
+when callbacks may access them. The reusable native fused execution and local
+exact repair have since moved into the optional built-in execution modules,
+with arbitrary state-width, repair-failure and observer tests (see
+`native_explicit_execution.md`). Private material laws remain external; no
+fixed native ABI state width belongs in the generic core. Installed full-model
+timing remains a separate promotion gate.
 
 For performance promotion, compare repeated early/nonlinear/late segments at
 identical accepted stations, including hidden history, work, damage and

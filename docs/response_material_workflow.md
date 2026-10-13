@@ -172,6 +172,28 @@ export: state schema, internal variables, Cauchy stress, deformation gradient
 and cell identity. It rejects an active trial. Private state-variable names and
 their interpretation remain the external material provider's responsibility.
 
+Use the reusable cell-data adapter instead of private dof-indexing loops:
+
+```python
+accepted = step.accepted_material_fields()
+stress = results.cell_field_from_values(
+    mesh, accepted["cauchy_stress"], name="cauchy_stress",
+    cell_keys=accepted["cell_keys"],
+)
+with io.ResultWriter("fields.xdmf", mesh, (u, stress)) as writer:
+    writer.write(accepted["time"])
+```
+
+`cell_field_from_values` requires one finite scalar/vector/tensor per cell in
+this serial workflow. Optional keys are original mesh input cell indices, not
+external element labels; missing, duplicate or foreign keys are rejected.
+It writes detached DG0 values through the actual cell-to-dof map in one array
+operation. It does not average material points, smooth interfaces, infer units
+or interpret damage columns. Add units and processing evidence to
+`SimulationResult.add_field` when publishing the field as a scientific result.
+The writer retains reference coordinates and all attributes on one grid, so
+ParaView Warp acts on the complete dataset.
+
 `material_storage="owned_arrays"` is an explicit serial execution option for
 this bounded Procedure. Immutable accepted arrays are the single material-state
 owner; quadrature Functions are internal publication buffers. User material

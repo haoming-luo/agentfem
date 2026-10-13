@@ -46,6 +46,12 @@ exact fallback and optional validation callback must be declared. No fixed
 material name, parameter count or damage-state layout appears in the dispatcher.
 Rejected points are repaired only after all workers join, before immutable
 outputs are published. A repair failure cannot commit partial state.
+The revision-2 dispatcher also restricts body-force repair to rejected points
+and avoids starting repair workers for unaffected slices. A one-worker call
+executes directly without creating a temporary thread. This changes execution
+work, not the material law, fallback, time increment or accepted-state owner.
+Execution revision remains part of checkpoint identity; an ongoing frozen run
+must not be silently switched to another dispatcher revision.
 
 This ABI is trusted executable code, not a sandbox: do not load function
 addresses from a model file. ABI v1 supports stress, internal state and internal

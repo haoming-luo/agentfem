@@ -543,7 +543,14 @@ class UnifiedXDMFTimeSeries:
         if not fields:
             raise ValueError("UnifiedXDMFTimeSeries requires at least one field.")
         primary, *auxiliary = fields
+        domain = primary.function_space.mesh
+        if any((item.field if hasattr(item, "field") else item).function_space.mesh
+               is not domain for item in auxiliary):
+            raise ValueError("Single-grid XDMF fields must belong to the same mesh.")
+        if self._h5 is not None and domain is not self._mesh:
+            raise ValueError("Single-grid XDMF mesh changed between frames.")
         if self._h5 is None:
+            self._mesh = domain
             self._initialize(primary)
         if tuple(getattr(primary, "ufl_shape", ())) != self._primary_shape:
             raise ValueError("Unified XDMF primary-field shape changed between frames.")
@@ -1073,7 +1080,10 @@ def _unified_field_values(
                 "Project to DG0 for cell output or use a dedicated high-order "
                 "visualization backend."
             )
-        shaped = values.reshape(cell_count, value_size)
+        cell_dofs = np.asarray(function.function_space.dofmap.list)
+        if cell_dofs.shape != (cell_count, 1):
+            raise ValueError("DG0 result output requires one block dof per cell.")
+        shaped = values.reshape(cell_count, value_size)[cell_dofs[:, 0]]
         return "Cell", shaped[:, 0] if value_size == 1 else shaped
 
     if values.size != point_count * value_size:

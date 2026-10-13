@@ -184,6 +184,26 @@ no duplicate displacement array is written.
 
 The low-level `io.XDMFTimeSeries` mirrors DOLFINx and may expose one XDMF Grid
 per Function. It is an expert compatibility API, not the normal result path.
+For standalone serial exports, `io.ResultWriter(path, mesh, fields)` now uses
+the same single-grid writer in write mode. Put the nodal scalar/vector primary
+field first, followed by compatible nodal fields or DG0 cell fields. It retains
+reference coordinates, preserves the primary field name, and needs exactly one
+Warp operation for displacement. Select a `.pvd` path for collective MPI
+visualization. Legacy XDMF append mode retains DOLFINx's layout.
+
+Existing single-mesh DOLFINx output can be repaired without recomputing:
+
+```python
+view = results.consolidate_xdmf_fields("fields.xdmf", "fields-single-grid.xdmf")
+```
+
+Open the returned descriptor in ParaView. This leaves the original descriptor
+and HDF5 data unchanged; retain the HDF5 files when sharing. It combines only
+fields on the same reference mesh with identical time grids. Multiple meshes,
+external mesh includes, duplicate fields and asynchronous frames are rejected,
+not interpolated or silently merged. This is a presentation conversion, not a
+checkpoint rewrite or a change to mesh connectivity.
+
 Prefer `step.solve_result(output=...)`: serial static and transient analyses
 write the compact single-grid XDMF/HDF5 layout. Under MPI, AgentFEM retains the
 collective XDMF/HDF5 scientific record and also registers a

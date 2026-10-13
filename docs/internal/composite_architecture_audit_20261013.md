@@ -151,3 +151,40 @@ Remaining acceptance: diagnose whole-step differences; sample damaged and late
 states; freeze the new project/runtime; measure a complete fresh original case
 including preparation/export; compare all accepted scientific outputs. Generic
 geometry/export preparation and independent vendor validation remain separate.
+
+## Single-grid export correction
+
+The delivered legacy descriptor repeated the mesh for each function. The
+displacement attribute therefore existed on only part of the multiblock output;
+Warp left other blocks undeformed. This was an output-layout bug, not evidence
+of two physical bodies or a need to change the solver's connectivity.
+
+`ResultWriter` now routes new serial output through the existing unified writer;
+the classic example uses it. The presentation-only `consolidate_xdmf_fields`
+adapter repairs old single-mesh synchronized archives without modifying their
+HDF5 arrays. Independent VTK reading/warp of two full-sized previous archives
+confirmed one grid, 255,041 volume cells, 296,074 points, and coordinates x+u.
+The originals remain intact. This does not alter the already frozen full run.
+
+Cell-array export is now reusable through `cell_field_from_values`, with
+explicit cell identities and no cross-interface smoothing. DG0 export reads
+the actual cell-to-dof map instead of assuming identity ordering. Cross-mesh
+field mixing is rejected even when array sizes match. These changes reduce
+case-owned export plumbing; no whole-run acceleration percentage is claimed.
+
+## Localized native repair
+
+The native material/body dispatcher now computes successful point forces in
+the original worker pass and revisits only rejected points after exact material
+repair. Unaffected worker slices are not launched for repair, and one-worker
+execution avoids temporary thread creation. Output remains unpublished until
+every phase joins; failed repair still aborts the trial. Execution identity is
+revision 2, so a revision-1 checkpoint/run is not silently retargeted.
+
+The installed candidate passed 196 focused tests, including no/single/alternating/
+all-point rejection for multiple state widths and worker counts, result output,
+restart and the public bar example. A fixed damaged final-state probe on the
+original mesh produced bitwise-identical stress, state, work, Piola stress,
+force, hourglass, geometry admission and viscosity outputs versus the previous
+private arithmetic. The probe overlapped the frozen full run, used one repeat,
+and is correctness evidence only—not a speed comparison or full trajectory.

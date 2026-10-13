@@ -23,7 +23,7 @@
 typedef void (*material_fn)(int,const double*,const double*,const double*,const double*,double,double,double*,double*,double*,int*);
 typedef struct {
     material_fn material;
-    int n, repair; Py_ssize_t state_width; const double *in[9]; double *out[6]; int *status; double dt,rho;
+    int n, repair, has_rejected; Py_ssize_t state_width; const double *in[9]; double *out[6]; int *status; double dt,rho;
 } body_job;
 static void *execute_body(void *raw) {
     body_job *j=raw;
@@ -35,8 +35,12 @@ static void *execute_body(void *raw) {
     }
     if(!j->repair) j->material(j->n,j->in[0],j->in[1],j->in[2],j->in[3],j->dt,j->rho,
                 j->out[0],j->out[1],j->out[2],j->status);
-    if(!j->repair) for(int i=0;i<j->n;i++) if(j->status[i]) return NULL;
     for(int k=0;k<j->n;k++) {
+        /* Keep successful points local to the material pass. After the exact
+         * repair callback, revisit only rejected points, never the whole
+         * batch. No buffer is published until both phases have joined. */
+        if(!j->repair && j->status[k]) { j->has_rejected=1; continue; }
+        if(j->repair && !j->status[k]) continue;
         if(!body_cell(j->in[1]+9*k,j->out[0]+9*k,j->in[4]+24*k,j->in[5]+24*k,
               j->in[6]+32*k,j->in[7][k],j->in[8][k],j->out[3]+9*k,
               j->out[4]+24*k,j->out[5]+k)) {
@@ -47,6 +51,19 @@ static void *execute_body(void *raw) {
         }
     }
     return NULL;
+}
+static int execute_jobs(body_job *jobs,int workers) {
+    /* Called without the GIL. A single worker needs no temporary OS thread;
+     * repair needs workers only for slices containing rejected points. */
+    if(workers==1) { execute_body(&jobs[0]); return 0; }
+    pthread_t threads[16]; int started=0,failed=0;
+    for(int i=0;i<workers;i++) {
+        if(jobs[i].repair && !jobs[i].has_rejected) continue;
+        if(pthread_create(&threads[started],NULL,execute_body,&jobs[i])) {failed=1;break;}
+        started++;
+    }
+    for(int i=0;i<started;i++) pthread_join(threads[i],NULL);
+    return failed;
 }
 static PyObject *run(PyObject *self,PyObject *args) {
     unsigned long long ma; Py_ssize_t state_width,property_count; PyObject *inputs,*callback;
@@ -75,21 +92,17 @@ static PyObject *run(PyObject *self,PyObject *args) {
     status=PyMem_Calloc((size_t)n,sizeof(int));
     if(!status) { PyErr_NoMemory(); goto cleanup; }
     if(workers>n) workers=(int)n;
-    pthread_t threads[16]; body_job jobs[16]; int started=0,failed=0;
+    body_job jobs[16]; int failed=0;
     for(int i=0;i<workers;i++) {
         Py_ssize_t start=n*i/workers,end=n*(i+1)/workers;
-        jobs[i].repair=0; jobs[i].state_width=state_width; jobs[i].material=(material_fn)(uintptr_t)ma;
+        jobs[i].repair=0; jobs[i].has_rejected=0; jobs[i].state_width=state_width; jobs[i].material=(material_fn)(uintptr_t)ma;
         jobs[i].n=(int)(end-start); jobs[i].dt=dt; jobs[i].rho=rho;
         jobs[i].status=status+start;
         for(int k=0;k<9;k++) jobs[i].in[k]=(const double*)buffers[k].buf+iw[k]*start;
         for(int k=0;k<6;k++) jobs[i].out[k]=(double*)PyBytes_AS_STRING(out[k])+ow[k]*start;
     }
     Py_BEGIN_ALLOW_THREADS
-    for(int i=0;i<workers;i++) {
-        if(pthread_create(&threads[i],NULL,execute_body,&jobs[i])) { failed=1; break; }
-        started++;
-    }
-    for(int i=0;i<started;i++) pthread_join(threads[i],NULL);
+    failed=execute_jobs(jobs,workers);
     Py_END_ALLOW_THREADS
     if(PyErr_CheckSignals()) goto cleanup;
     if(failed) { PyErr_SetString(PyExc_RuntimeError,"Native body thread creation failed"); goto cleanup; }
@@ -123,14 +136,9 @@ static PyObject *run(PyObject *self,PyObject *args) {
         for(int j=0;j<3;j++) if(fixed[j].obj) PyBuffer_Release(&fixed[j]);
         Py_DECREF(replacement);Py_DECREF(indices);
         if(!valid) goto cleanup;
-        started=0;failed=0;
         for(int j=0;j<workers;j++) jobs[j].repair=1;
         Py_BEGIN_ALLOW_THREADS
-        for(int j=0;j<workers;j++) {
-            if(pthread_create(&threads[j],NULL,execute_body,&jobs[j])) {failed=1;break;}
-            started++;
-        }
-        for(int j=0;j<started;j++) pthread_join(threads[j],NULL);
+        failed=execute_jobs(jobs,workers);
         Py_END_ALLOW_THREADS
         if(PyErr_CheckSignals()) goto cleanup;
         if(failed) {PyErr_SetString(PyExc_RuntimeError,"Native repair thread creation failed");goto cleanup;}

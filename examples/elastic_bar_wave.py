@@ -12,7 +12,8 @@ from pathlib import Path
 from time import perf_counter
 import numpy as np
 from mpi4py import MPI
-from dolfinx import mesh as dmesh, io
+from dolfinx import mesh as dmesh
+from agentfem.io import ResultWriter
 from agentfem import constitutive, elements, fields, models, studies, checkpointing
 from agentfem.constitutive.user_material import MaterialStateSchema, MaterialStateVariable
 
@@ -59,9 +60,8 @@ def run(output, *, cells=40, backend='auto'):
     actual = step.state.u.value.x.array.reshape(-1,3)
     expected = amplitude*np.cos(np.pi*x)*np.sin(np.pi*duration)
     relative_error = float(np.linalg.norm(actual[:,0]-expected)/np.linalg.norm(expected))
-    with io.XDMFFile(mesh.comm,str(output/'fields.xdmf'),'w') as archive:
-        archive.write_mesh(mesh)
-        archive.write_function(displacement.value,duration)
+    with ResultWriter(output/'fields.xdmf', mesh, (displacement,)) as archive:
+        archive.write(duration)
     np.savez(output/'comparison.npz',x=x,displacement=actual,analytical=expected)
     result.add_artifact('fields',output/'fields.xdmf')
     result.write_manifest(output/'simulation-result.json')
