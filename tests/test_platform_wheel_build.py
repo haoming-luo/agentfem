@@ -62,3 +62,17 @@ def test_source_selection_and_candidate_overwrite_are_fail_closed(tmp_path):
     (tmp_path / "agentfem-0.4.3.tar.gz").write_bytes(b"another source")
     with pytest.raises(ValueError, match="exactly one"):
         builder.select_source(tmp_path)
+
+
+def test_publication_does_not_upload_or_validate_build_json_as_a_distribution():
+    import yaml
+    workflow = yaml.safe_load((Path(__file__).parents[1] / ".github/workflows/publish-pypi.yml").read_text())
+    steps = workflow["jobs"]["build"]["steps"]
+    validation = next(step["run"] for step in steps if "twine check" in step.get("run", ""))
+    assert "twine check dist/*.whl dist/*.tar.gz" in validation
+    distributions = next(step for step in steps
+                         if step.get("uses", "").startswith("actions/upload-artifact@")
+                         and step.get("with", {}).get("name") == "python-package-distributions")
+    assert set(distributions["with"]["path"].splitlines()) == {"dist/*.whl", "dist/*.tar.gz"}
+    evidence = next(step for step in steps if step.get("with", {}).get("name") == "platform-build-evidence")
+    assert evidence["with"]["path"] == "dist/platform-build.json"

@@ -88,7 +88,7 @@ jobs:
 
       - name: Validate metadata, payload, and release identity
         run: |
-          python -m twine check dist/*
+          python -m twine check dist/*.whl dist/*.tar.gz
           python release_gate.py --dist dist --tag "${RELEASE_TAG}"
 
       - name: Upload immutable candidate distributions
@@ -98,6 +98,14 @@ jobs:
           path: |
             dist/*.whl
             dist/*.tar.gz
+          if-no-files-found: error
+
+      - name: Record platform build evidence separately from distributions
+        if: github.event_name != 'workflow_dispatch'
+        uses: actions/upload-artifact@v7
+        with:
+          name: platform-build-evidence
+          path: dist/platform-build.json
           if-no-files-found: error
 
       - name: Generate the SPDX source-licensing record
