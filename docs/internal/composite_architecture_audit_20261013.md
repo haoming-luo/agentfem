@@ -236,3 +236,43 @@ platform acceptance. Promotion still requires one version and source commit;
 platform-specific binaries correctly have distinct hashes. Twelve local gate
 and installed-identity regressions passed; remote acceptance of this correction
 is still required. No native platform gate was removed or marked passed by hand.
+
+## Accepted-body ownership and installed diagnostics
+
+A three-second read-only macOS process sample of the frozen original run showed
+material/polar updates, body arithmetic, memory movement/freeing and worker waits.
+Thread-wait samples include idle workers; they are not additive wall-time phase
+percentages and do not establish a projected speedup. Sampling and local build/
+test activity overlapped the run and must be disclosed with its eventual timing.
+
+The response-only body's accepted gradient, force and displacement are now
+immutable payloads. Rollback capture creates fresh array descriptors over those
+bytes, instead of three additional whole-array copies. This reuses the existing
+freeze helper; it does not add a competing state owner or a persistent cache.
+For a model with 255,041 cells and 296,074 three-component nodes, those arrays
+contain 32,574,504 bytes per snapshot (excluding material and contact state).
+This is an eliminated allocation/copy count, not a measured elapsed-time saving.
+Tests cover independent snapshot metadata, write rejection, old-record retention,
+failure rollback and restart in both material storage modes.
+
+Installed `doctor` now reports native modules as available, not built or failed
+to load, without running kernels or creating worker pools. All three packaged
+extensions loaded from the separately installed macOS candidate. Availability
+does not imply that a Step selected that backend or passed scientific validation.
+
+The stricter output guard initially rejected two real mixed-element regressions
+because separately collapsed but equivalent spaces have different object
+identities. It now compares the UFL/Basix element, block sizes and cell-to-dof
+maps when identities differ. Both previously failing mixed-element tests and
+the additional reconstructed-space fixture passed; incompatible layouts remain
+rejected. The source-only focused group passed 50 checks, and the separately
+installed ownership/native/contact group passed 114 checks before this last
+output correction. These do not replace remote release acceptance.
+
+Final combined installed-wheel check: 243 targeted tests passed, including both
+previous remote output failures, before submission for renewed CI acceptance.
+The original frozen run's step-40,000 station matched the completed previous
+implementation bitwise for 3 nodal arrays, 57 auxiliary arrays, 20 numeric
+history channels, the damage subset and 76 contact evidence entries. This is
+offline implementation replay; it neither admits a restart migration nor
+validates the scientific model against Abaqus.

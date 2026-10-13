@@ -153,6 +153,24 @@ def test_equal_size_different_nodal_variants_are_interpolated():
     np.testing.assert_allclose(values, coordinates[:, 0]**3 + 2*coordinates[:, 1], atol=2e-14)
 
 
+def test_reconstructed_primary_space_keeps_layout_but_not_object_identity(tmp_path):
+    import h5py
+    domain, u, _ = fields()
+    copy_space = fem.functionspace(domain, u.function_space.ufl_element())
+    assert copy_space != u.function_space
+    other = fem.Function(copy_space, name=u.name)
+    other.interpolate(lambda x: .2*x)
+    incompatible = fem.Function(fem.functionspace(domain, ("DG", 1, (3,))), name=u.name)
+    path = tmp_path/"equivalent-space.xdmf"
+    with ResultWriter(path, domain) as writer:
+        writer.write(0., u)
+        with pytest.raises(ValueError, match="function space layout"):
+            writer.write(.5, incompatible)
+        writer.write(1., other)
+    with h5py.File(path.with_suffix('.h5')) as data:
+        np.testing.assert_array_equal(data[f'Frames/0001/Point/{u.name}'][:], other.x.array.reshape(-1,3))
+
+
 def test_result_writer_rejects_same_size_different_mesh(tmp_path):
     domain, u, _ = fields()
     _, _, other = fields()

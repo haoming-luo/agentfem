@@ -11,6 +11,7 @@ from hashlib import sha256
 
 from ..provenance import content_fingerprint
 from ..state import field_transaction
+from .._resident_field_records import _freeze
 
 
 class ResponseHexWorkMonitor:
@@ -224,7 +225,7 @@ class ResponseHexExplicitResidual:
             digest.update(cohesive.negative_dofs.tobytes())
             digest.update(cohesive.positive_dofs.tobytes())
             self.identity = digest.hexdigest()
-        self.accepted_gradient = np.tile(np.eye(3), (len(internal.cell_nodes), 1, 1))
+        self.accepted_gradient = _freeze(np.tile(np.eye(3), (len(internal.cell_nodes), 1, 1)))
         self.accepted_time = self.time = 0.0
         self.internal_work = 0.0
         self.hourglass_energy = 0.0
@@ -232,8 +233,8 @@ class ResponseHexExplicitResidual:
         self.viscosity_work = 0.0
         self.damping_rate_bound = 0.0
         self._trial = None
-        self.accepted_force = np.zeros_like(internal.mass_diagonal)
-        self.accepted_displacement = internal.displacement.x.array.copy()
+        self.accepted_force = _freeze(np.zeros_like(internal.mass_diagonal))
+        self.accepted_displacement = _freeze(internal.displacement.x.array)
 
     def validate_time_increment(self, dt):
         if not np.isfinite(dt) or dt <= 0 or dt > self.ceiling * (1 + 1e-12):
@@ -337,8 +338,8 @@ class ResponseHexExplicitResidual:
                 work,
                 hg,
                 self.time,
-                self.internal.displacement.x.array.copy(),
-                vector.array.copy(),
+                _freeze(self.internal.displacement.x.array),
+                _freeze(vector.array),
                 interface_energy,
                 viscosity_work,
                 damping_bound,
@@ -363,10 +364,13 @@ class ResponseHexExplicitResidual:
             displacement, self.internal.displacement.x.array
         ):
             raise RuntimeError("Configuration changed after response-only trial.")
+        # Allocate immutable accepted data before advancing material state.
+        # Already owned bytes need only fresh ndarray metadata, not another copy.
+        accepted_gradient = _freeze(trial.deformation_gradient)
         self.internal.response.commit()
         if self.cohesive is not None:
             self.cohesive.commit()
-        self.accepted_gradient = trial.deformation_gradient.copy()
+        self.accepted_gradient = accepted_gradient
         self.accepted_time = time
         self.internal_work, self.hourglass_energy = work, hg
         self.accepted_force = force
@@ -439,15 +443,15 @@ class ResponseHexExplicitResidual:
             "schema": "agentfem.private-response-hex.v4",
             "identity": self.identity,
             "time": self.accepted_time,
-            "gradient": self.accepted_gradient.copy(),
+            "gradient": _freeze(self.accepted_gradient),
             "internal_work": self.internal_work,
             "hourglass_energy": self.hourglass_energy,
             "interface_energy": self.interface_energy,
             "viscosity_work": self.viscosity_work,
             "damping_rate_bound": self.damping_rate_bound,
             "cohesive": None if self.cohesive is None else self.cohesive.snapshot(),
-            "accepted_force": self.accepted_force.copy(),
-            "accepted_displacement": self.accepted_displacement.copy(),
+            "accepted_force": _freeze(self.accepted_force),
+            "accepted_displacement": _freeze(self.accepted_displacement),
             "fields": (self.internal.response._owned.snapshot()
                        if self.internal.response._owned is not None else
                        self._field_records().capture(self._fields())
@@ -619,6 +623,10 @@ class ResponseHexExplicitResidual:
                 raise ValueError("Checkpoint contains unaccepted material response.")
         if (record.get("cohesive") is None) != (self.cohesive is None):
             raise ValueError("Response-only checkpoint interface differs.")
+        # Archive arrays may be writable; freeze before changing live state.
+        accepted_gradient = _freeze(gradient)
+        accepted_force = _freeze(force)
+        accepted_displacement = _freeze(displacement)
         previous_interface = None if self.cohesive is None else self.cohesive.snapshot()
         try:
             if self.cohesive is not None:
@@ -632,7 +640,7 @@ class ResponseHexExplicitResidual:
             if self.cohesive is not None:
                 self.cohesive.restore(previous_interface)
             raise
-        self.accepted_gradient = gradient.copy()
+        self.accepted_gradient = accepted_gradient
         self.accepted_time = self.time = float(values[0])
         (
             self.internal_work,
@@ -641,8 +649,8 @@ class ResponseHexExplicitResidual:
             self.viscosity_work,
             self.damping_rate_bound,
         ) = map(float, values[1:])
-        self.accepted_force = force.copy()
-        self.accepted_displacement = displacement.copy()
+        self.accepted_force = accepted_force
+        self.accepted_displacement = accepted_displacement
         self._trial = None
         if self.internal.response._owned is not None:
             self.internal.response._owned.capture()

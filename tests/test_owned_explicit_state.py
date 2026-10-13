@@ -68,3 +68,50 @@ def test_corrupt_restore_does_not_replace_accepted_owner():
         body.restore(invalid)
     assert body.snapshot() == before
     assert body.internal.response._owned.trial is None
+
+
+@pytest.mark.parametrize('storage', ['fields', 'owned_arrays'])
+def test_body_accepted_records_share_bytes_not_mutable_metadata(tmp_path, storage):
+    step = contact_step(bond=True, material_storage=storage)
+    step.run(until_step=2)
+    body = step.material_residual
+    first, second = body.transaction_snapshot(), body.transaction_snapshot()
+    owners = {'gradient': body.accepted_gradient, 'accepted_force': body.accepted_force,
+              'accepted_displacement': body.accepted_displacement}
+    saved = {}
+    for key, owner in owners.items():
+        a, b = first[key], second[key]
+        saved[key] = a.copy()
+        assert a is not b and a is not owner
+        assert np.shares_memory(a, b) and np.shares_memory(a, owner)
+        with pytest.raises(ValueError):
+            a.flags.writeable = True
+        with pytest.raises(ValueError):
+            a.flat[0] = 42
+        old_shape = owner.shape
+        a.shape = (a.size,)
+        assert owner.shape == b.shape == old_shape
+    checkpoint = step.save_checkpoint(tmp_path/'accepted')
+    step.run()
+    for key in saved:
+        np.testing.assert_array_equal(second[key], saved[key])
+    resumed = contact_step(bond=True, material_storage=storage)
+    resumed.load_checkpoint(checkpoint)
+    resumed.run()
+    assert resumed.residual.snapshot() == step.residual.snapshot()
+
+
+@pytest.mark.parametrize('storage', ['fields', 'owned_arrays'])
+def test_failed_trial_does_not_invalidate_shared_body_records(storage):
+    step = contact_step(material_storage=storage, execution_kernel=reference_kernel([], fail=True))
+    step.run(until_step=1)
+    body = step.material_residual
+    record = body.transaction_snapshot()
+    saved = body.snapshot()
+    with pytest.raises(RuntimeError, match='injected kernel failure'):
+        step.run()
+    assert body.snapshot() == saved
+    after = body.transaction_snapshot()
+    for key in ('gradient', 'accepted_force', 'accepted_displacement'):
+        np.testing.assert_array_equal(record[key], after[key])
+        assert np.shares_memory(record[key], after[key])

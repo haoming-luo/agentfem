@@ -571,7 +571,16 @@ class UnifiedXDMFTimeSeries:
         if tuple(getattr(primary, "ufl_shape", ())) != self._primary_shape:
             raise ValueError("Unified XDMF primary-field shape changed between frames.")
         if primary.function_space != self._primary_space:
-            raise ValueError("Output primary function space changed between frames.")
+            # Mixed-field snapshots may reconstruct an equivalent collapsed
+            # space. Object identity is not a scientific layout contract, but
+            # equal coefficient counts alone are insufficient as well.
+            previous = self._primary_space
+            current = primary.function_space
+            if (current.ufl_element() != previous.ufl_element()
+                    or current.dofmap.bs != previous.dofmap.bs
+                    or current.dofmap.index_map_bs != previous.dofmap.index_map_bs
+                    or not np.array_equal(current.dofmap.list, previous.dofmap.list)):
+                raise ValueError("Output primary function space layout changed between frames.")
         if not np.array_equal(domain.geometry.x, self._mesh_coordinates):
             raise ValueError("Output reference mesh moved; use explicit deformation output.")
 

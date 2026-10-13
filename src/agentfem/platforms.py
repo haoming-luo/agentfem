@@ -7,7 +7,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from hashlib import sha256
-from importlib import metadata
+from importlib import import_module, metadata
 import json
 import os
 import platform as _platform
@@ -169,6 +169,10 @@ class RuntimeReport:
             f"{item.version if item.available else 'not installed'}"
             for item in self.optional
         )
+        for name, item in self.execution.get("accelerators", {}).items():
+            lines.append(f"  accelerator {name}: {item['status']}")
+            if item.get("error"):
+                lines.append(f"    {item['error']['message']}")
         return "\n".join(lines)
 
 
@@ -365,7 +369,42 @@ def _execution_identity(*, runtime_version: str | None = None) -> dict[str, obje
         "source_root": None if source_root is None else str(source_root),
         "source": source_identity,
         "distribution": distribution_identity,
+        "accelerators": _native_accelerators(),
     }
+
+
+def _native_accelerators() -> dict[str, object]:
+    """Probe packaged stateless extensions without starting execution workers.
+
+    Available means loadable here, not selected by a Step or scientifically
+    verified. Missing optional extensions never make the reference solver
+    unavailable. Distinguish absence from loader/ABI failures for installation QA.
+    """
+
+    records = {}
+    for name, module_name, entry_point in (
+        ("hex_arithmetic", "agentfem._hex_native", "body_response"),
+        ("material_body_pipeline", "agentfem._body_pipeline", "run"),
+        ("q1_geometry", "agentfem._q1_native", None),
+    ):
+        record = {"module": module_name, "available": False, "status": "not_built",
+                  "scope": "availability only; Step identity records actual selection"}
+        try:
+            module = import_module(module_name)
+            if entry_point is not None and not callable(getattr(module, entry_point, None)):
+                raise ImportError(f"Native module lacks required entry point {entry_point!r}.")
+            if name == "q1_geometry" and getattr(module, "projection_policy", None) != (
+                "scale-conditioned-margin+bernstein-gmp-v1"
+            ):
+                raise ImportError("Native Q1 module has an unsupported projection policy.")
+            record.update(available=True, status="available", path=str(module.__file__))
+        except Exception as error:
+            missing = isinstance(error, ModuleNotFoundError) and error.name == module_name
+            record.update(status="not_built" if missing else "load_failed",
+                          error={"code": "native_extension_missing" if missing else "native_extension_load_failed",
+                                 "type": type(error).__name__, "message": str(error)})
+        records[name] = record
+    return records
 
 
 def _mpi_runtime() -> dict[str, object]:

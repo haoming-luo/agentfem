@@ -76,6 +76,14 @@ wheel is not a portable Linux/Windows release artifact.
 unchanged across a restart. An implementation change requires a separately
 reviewed migration or a fresh run, not removal of checkpoint identity checks.
 
+`agentfem doctor --json` reports `execution.accelerators` for the installed Hex
+arithmetic, material/body dispatcher and Q1 geometry. `available` means the
+extension can load; `not_built` means absent; `load_failed` records a loader or
+interface error (for example a missing GMP library). This probe starts no worker
+pool and does not select a backend. The Step's execution identity remains the
+authority for actual use; availability is neither a speed claim nor a validation
+badge. Optional absence does not disable the reference solver.
+
 ## Verification and performance
 
 `examples/elastic_bar_wave.py` is a public free-bar standing-wave example with
@@ -97,6 +105,15 @@ tolerance and tiny-value floor are identical to the NumPy reference; tests
 cover threshold neighbors, extreme scales, unaligned buffers and nonfinite
 data. The ordinary Python fallback remains supported. This reduces temporary
 storage and repeated passes; it is not a measured whole-run speedup.
+
+Response-only body rollback now shares immutable accepted gradient, force and
+displacement bytes, with a fresh array descriptor for every snapshot. Live
+trial data is frozen at publication; old snapshots remain valid across commit,
+rejection and restart. This is ownership, not a cache of possibly stale fields.
+It avoids copying these three arrays again for every rollback capture. It does
+not remove validation, callback isolation, or copies of mutable solver fields.
+Both field-backed and owned-array material modes retain the same numerical
+results in the targeted regression tests; full-run throughput is a separate gate.
 
 The design follows the separation of operator action from global matrix
 storage described in [MFEM's assembly levels](https://mfem.org/howto/assembly_levels/)
