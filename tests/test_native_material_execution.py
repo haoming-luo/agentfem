@@ -68,3 +68,33 @@ def test_generic_native_state_width_atomic_repair(width, workers, reject):
         with pytest.raises(RuntimeError, match='repair failure'):
             bad.evaluate(material, request, geometry, u)
         np.testing.assert_array_equal(request.state_old, state)
+
+
+@pytest.mark.parametrize('failure', ['cutback', 'energy', 'nonfinite'])
+def test_native_repair_preserves_scientific_rejection(failure):
+    pytest.importorskip('agentfem._body_pipeline')
+    from agentfem.constitutive._explicit_material import ExplicitMaterialCutbackRequest
+    real = ctypes.POINTER(ctypes.c_double)
+    abi = ctypes.CFUNCTYPE(None, ctypes.c_int, real, real, real, real,
+        ctypes.c_double, ctypes.c_double, real, real, real, ctypes.POINTER(ctypes.c_int))
+    schema = MaterialStateSchema('one', (MaterialStateVariable('q'),))
+    f = np.eye(3)[None]
+    request = MaterialPointArrayBatchInput(f, f, np.zeros((1, 1)), schema, 0., .001)
+    def reference(r):
+        options = {'requested_time_scale': np.full(1, .5)} if failure == 'cutback' else (
+            {'stored_energy_density': np.zeros(1)} if failure == 'energy' else {})
+        stress = np.full((1, 3, 3), np.nan) if failure == 'nonfinite' else np.zeros((1, 3, 3))
+        return constitutive.ExplicitMaterialBatchOutput(stress, np.ones((1, 1)),
+            schema, np.zeros(1), **options)
+    material = constitutive.explicit_user_material(state_schema=schema, update=reference,
+        identity={'test': failure}, density=1.)
+    def reject(n, f0, f1, old, props, dt, rho, stress, state, work, status):
+        status[0] = 1
+    kernel = elements.native_explicit_hex_kernel(material, abi(reject), properties=[],
+        density=1., identity={'test': failure}, fallback=reference)
+    geometry = elements.ExplicitHexGeometry(np.zeros((1, 8, 3)),
+        np.zeros((1, 8, 4)), np.ones(1), np.zeros(1))
+    expected = ExplicitMaterialCutbackRequest if failure == 'cutback' else ValueError
+    with pytest.raises(expected):
+        kernel.evaluate(material, request, geometry, np.zeros((1, 8, 3)))
+    np.testing.assert_array_equal(request.state_old, 0.)

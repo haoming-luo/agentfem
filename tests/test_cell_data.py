@@ -8,8 +8,10 @@ from agentfem.results import cell_field_from_values
 
 
 @pytest.mark.parametrize("shape", [(), (3,), (3, 3)])
-def test_cell_values_preserve_order_identity_and_input(shape):
-    domain = mesh.create_unit_cube(MPI.COMM_SELF, 2, 2, 2, cell_type=mesh.CellType.hexahedron)
+@pytest.mark.parametrize("cell_name", ["hexahedron", "tetrahedron"])
+def test_cell_values_preserve_order_identity_and_input(shape, cell_name):
+    domain = mesh.create_unit_cube(MPI.COMM_SELF, 2, 2, 2,
+                                  cell_type=getattr(mesh.CellType, cell_name))
     count = domain.topology.index_map(3).size_local
     values = np.arange(count*int(np.prod(shape)), dtype=float).reshape((count, *shape))
     original = domain.topology.original_cell_index.copy()

@@ -17,7 +17,7 @@ def fields():
     u = fem.Function(fem.functionspace(domain, ("Lagrange", 1, (3,))), name="displacement")
     u.interpolate(lambda x: .1*x)
     damage = fem.Function(fem.functionspace(domain, ("DG", 0)), name="damage")
-    damage.x.array[:] = .25
+    damage.interpolate(lambda x: .1*(x[0]+2*x[1]+4*x[2]))
     return domain, u, damage
 
 
@@ -32,7 +32,11 @@ def check_warp(path):
     assert grid.GetNumberOfCells() == 8
     points = vtk_to_numpy(grid.GetPoints().GetData()).copy()
     assert grid.GetPointData().GetArray("displacement").GetNumberOfTuples() == len(points)
-    np.testing.assert_allclose(vtk_to_numpy(grid.GetCellData().GetArray("damage")), .25)
+    damage = vtk_to_numpy(grid.GetCellData().GetArray("damage"))
+    for index in range(grid.GetNumberOfCells()):
+        cell = grid.GetCell(index)
+        center = np.mean([points[cell.GetPointId(i)] for i in range(8)], axis=0)
+        assert damage[index] == pytest.approx(.1*np.dot(center, [1, 2, 4]))
     warp = vtk.vtkWarpVector()
     warp.SetInputConnection(reader.GetOutputPort())
     warp.SetInputArrayToProcess(0, 0, 0, vtk.vtkDataObject.FIELD_ASSOCIATION_POINTS, "displacement")
