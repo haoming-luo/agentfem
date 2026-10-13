@@ -263,7 +263,10 @@ static PyObject *determinants(PyObject *self, PyObject *object) {
     PyBuffer_Release(&b);return Py_BuildValue("NN",values,states);
 }
 
+#include "_hex_body_native.h"
+
 static PyMethodDef methods[]={
+    {"body_response",body_response,METH_VARARGS,"Material-independent Piola, Hex8 force and hourglass contraction."},
     {"affine_screen",screen,METH_VARARGS,"Conservative cell-local affine certificate mask."},
     {"orientation_screen",orientation,METH_O,"Near-identity orientation: 1 admitted, 0 use LU, 2 nonfinite."},
     {"scatter",scatter,METH_VARARGS,"Ordered finite nodal force reduction."},

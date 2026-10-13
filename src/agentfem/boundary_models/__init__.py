@@ -224,6 +224,19 @@ __all__ = [
     "triangle_surface_bvh",
     "triangulated_rigid_surface",
     "triangulated_rigid_surface_from_mesh",
+    "q1_contact_runtime",
     "thermal",
     "tangential_contact_state",
 ]
+
+
+def q1_contact_runtime(*, backend="auto", geometry_workers=0, projection_workers=1):
+    """Instance-owned Q1 arithmetic; use as a context around the Step lifetime.
+
+    Pass runtime.execution to the ordinary deformable-contact pair. Native
+    algorithms are optional. Reference fallback preserves geometry, contact
+    laws, ambiguity rules and state ownership; it is not a second solver.
+    """
+    from .native_execution import Q1ContactRuntime
+    return Q1ContactRuntime(backend=backend, geometry_workers=geometry_workers,
+                            projection_workers=projection_workers)

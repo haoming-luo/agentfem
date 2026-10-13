@@ -7,7 +7,7 @@ a composite-case solver or another time loop. The original confidential input,
 material law, geometry preparation and installed run remain outside the public
 repository. This audit is not an Abaqus-equivalence claim.
 
-## Ownership and actual admission
+## Ownership and actual admission before native promotion
 
 | Concern | Reusable core surface | Remaining boundary |
 | --- | --- | --- |
@@ -100,3 +100,54 @@ new runtime nor establishes equivalence to the external solver.
   reusable packed constants/coefficients avoid repeated preparation when inputs
   are unchanged. This supports explicit preparation ownership; it does not
   justify caching evolving damage or displacement across accepted increments.
+
+## Native promotion — implementation, not final acceptance
+
+The generic fast paths now have core implementations and ordinary factories:
+
+- `elements.explicit_hex_kernel`: material-independent Piola conversion,
+  uniform-strain internal force and hourglass force, with a NumPy reference.
+- `elements.native_explicit_hex_kernel`: a trusted, reentrant material callback
+  ABI with arbitrary state/property widths, joined workers and exact repair of
+  rejected points before trial publication. The confidential law stays outside.
+- `boundary_models.q1_contact_runtime`: packaged Q1 bounds, candidate search,
+  swept separation and exact-predicate acceleration. Ambiguity and unresolved
+  certificates still use the established reference behavior.
+- The candidate private case uses those factories, one Procedure run, scheduled
+  checkpoints and an accepted-event journal. The completed old project is intact.
+
+Native compilation is attempted by default and remains optional. GMP-dependent
+Q1 acceleration and the threaded material ABI are currently POSIX build paths;
+the locally tested macOS wheel is not a claim of Windows or Linux wheel coverage.
+See [execution contracts](../native_explicit_execution.md).
+
+Evidence so far: 112 targeted tests passed against a separately installed wheel.
+State widths 1, 7 and 31, reference repair, guarded geometry and both accepted
+storage modes are exercised. On identical original-mesh accepted inputs, old
+and new material/body/kinematics/viscosity responses were bitwise equal. This is
+a local arithmetic comparison, not trajectory validation or measured acceleration.
+The same quantities were bitwise equal for a small-increment offline probe on
+the old full-run damaged final state. A pure-Python wheel separately passed
+five applicable checks (14 native-only checks skipped), including the classic
+wave example. Native and pure builds used separate build/install directories.
+
+The first 200-increment candidate failed the unchanged pointwise acceleration
+gate (relative L2 error approximately 6.13e-9). Cross-product runs isolated the
+cause to Q1 projection: packaging omitted the scale-conditioned margin build
+option, selecting different projection branches near edges. Restoring that
+existing policy made all 2,000 archived difficult projections bitwise equal;
+the complete 200-increment replay then passed the original gate. Both failed
+and successful comparisons are retained. The packaged module now requires
+that policy at compile time and exposes its identity for installation tests.
+This is not yet full-trajectory or vendor validation.
+
+A nonconfidential classic example, `examples/elastic_bar_wave.py`, runs through
+the ordinary installed interface. Joint spatial/time refinement at 20/40/80
+axial cells gave displacement errors approximately 0.2714/0.0710/0.0209 percent
+against the small-amplitude analytical standing wave. This demonstrates a
+bounded elastic workflow, not contact, large-strain or industrial validation.
+
+Remaining acceptance: diagnose whole-step differences; sample damaged and late
+states; freeze the new project/runtime; measure a complete fresh original case
+including preparation/export; compare all accepted scientific outputs. Generic
+geometry/export preparation and independent vendor validation remain separate.

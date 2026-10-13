@@ -35,6 +35,10 @@ recursive-include src/agentfem/benchmarks *.py *.md
 recursive-include src/agentfem/knowledge *.json *.md *.csv
 recursive-include src/agentfem/elements *.md
 include src/agentfem/_hex_native.c
+include src/agentfem/_hex_body_native.h
+include src/agentfem/_hex_auxiliary.h
+include src/agentfem/_body_pipeline.c
+recursive-include src/agentfem/native *.c
 recursive-include src/agentfem/operators *.md
 recursive-include tests *.py
 recursive-include tools *.py *.sh *.md Dockerfile

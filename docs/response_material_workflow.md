@@ -239,7 +239,9 @@ existing affine/SVD/Bernstein admission; a positive mean determinant alone is
 never sufficient. It does not change the element formulation or stable step.
 Force reduction preserves the input order for every nodal component, validates
 indices and finite outputs, and returns detached storage before PETSc publication.
-No material law, accepted state, thread pool or geometric cache lives in C.
+Those stateless arithmetic kernels contain no material law or accepted state.
+The optional fused material dispatcher described below owns only temporary,
+joined worker batches; accepted-state ownership remains in the Procedure.
 The work contraction still uses force times nodal displacement, not a power
 substitute. Its signed and absolute products use bounded pairwise reduction;
 floating-point reduction grouping may differ from NumPy and is checked against
@@ -253,3 +255,7 @@ runtime artifacts must still be recorded in performance/reproducibility evidence
 Native and reference results must be compared at equal accepted stations before
 making a throughput claim; native availability alone proves neither speed nor
 independent physical validity.
+
+For packaged material-independent body and Q1 geometry acceleration, including
+the trusted compiled-material ABI and ordinary factories, see
+[built-in explicit execution](native_explicit_execution.md).
