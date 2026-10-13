@@ -943,8 +943,8 @@ and evidence remain in the linked guides and scientific function reference.
 | class | `ExplicitHexBodyKernel` | Trusted callback: ``evaluate(material, request, geometry, displacement)``. |
 | class | `ExplicitHexBodyOutput` | Public AgentFEM object. |
 | class | `ExplicitHexGeometry` | Public AgentFEM object. |
-| function | `explicit_hex_kernel(*, backend = 'auto')` | Use installed native arithmetic or the reference NumPy implementation. |
-| function | `native_explicit_hex_kernel(material, function, *, properties, density, identity, fallback, validate = None, workers = 1)` | Bind trusted C material code, not a data-file address. |
+| function | `explicit_hex_kernel(*, backend = 'auto', cell_workers = 1)` | Use installed native arithmetic or the reference NumPy implementation. |
+| function | `native_explicit_hex_kernel(material, function, *, properties, density, identity, fallback, validate = None, workers = 1, cell_workers = 1)` | Bind trusted C material code, not a data-file address. |
 
 ## `agentfem.expressions`
 
