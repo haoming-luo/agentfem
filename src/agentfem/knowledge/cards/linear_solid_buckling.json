@@ -1,0 +1,90 @@
+{
+  "schema": "agentfem.scientific-function-card",
+  "schema_version": "0.1.0",
+  "id": "agentfem.workflow.linear_solid_buckling",
+  "title": "Conservative initial-stress solid buckling",
+  "kind": "analysis_step",
+  "status": "experimental",
+  "summary": "Small-displacement elastic reference and fixed-base states define a linear buckling pencil; reference load factors are not postbuckling capacities.",
+  "public_api": [
+    "agentfem.studies.buckling_solid",
+    "agentfem.procedures.linear_buckling",
+    "agentfem.operators.geometric_stiffness"
+  ],
+  "implementation": [
+    "mechanics/buckling.py",
+    "backends/_buckling.py",
+    "operators/geometric.py"
+  ],
+  "science": {
+    "statement": "Small-displacement elastic reference and fixed-base states define a linear buckling pencil; reference load factors are not postbuckling capacities.",
+    "equations": [
+      {
+        "label": "Conservative initial-stress solid buckling",
+        "expression": "(\\mathbf K+\\mathbf K_G(\\mathbf u_b)+\\lambda\\mathbf K_G(\\mathbf u_r))\\boldsymbol\\phi=\\mathbf0",
+        "description": "Small-displacement elastic reference and fixed-base states define a linear buckling pencil; reference load factors are not postbuckling capacities."
+      }
+    ],
+    "inputs": [
+      {
+        "name": "equilibrium reference fields",
+        "type": "FEniCSx fields and material/constraint objects",
+        "unit_role": "consistent mechanical units",
+        "description": "Caller declares material, geometry and reference-state or cell-loading semantics."
+      }
+    ],
+    "outputs": [
+      {
+        "name": "load factors and relative modes",
+        "type": "SimulationResult",
+        "unit_role": "dimensionless factors or mechanical moduli",
+        "description": "Computed numerical evidence; independent physical validation remains a separate claim."
+      }
+    ],
+    "assumptions": [
+      "Only 2D plane stress/strain and 3D solids with homogeneous strong perturbation constraints and conservative loading.",
+      "Reference/base fields must be equilibrated on the same mesh with the same material assignments; the provider snapshots their displacement fields but does not certify their originating load equilibrium."
+    ],
+    "conventions": [
+      "Tension-positive stress; conservative dead reference loads; positive real load factors; maximum absolute mode component one."
+    ],
+    "applicability": [
+      "Conservative initial-stress solid buckling"
+    ],
+    "limitations": [
+      "Only 2D plane stress/strain and 3D solids with homogeneous strong perturbation constraints and conservative loading.",
+      "Reference/base fields must be equilibrated on the same mesh with the same material assignments; the provider snapshots their displacement fields but does not certify their originating load equilibrium.",
+      "No follower-load stiffness, contact, plasticity, shell/beam, MPC eigenproblem, geometry imperfections or general postbuckling continuation.",
+      "A stable nonsingular elastic base is required; this initial-stress approximation does not update base geometry. Repeated modes may rotate within their eigenspace.",
+      "The near-zero search filters positive real factors; insufficient accepted factors raise instead of returning a partial requested spectrum."
+    ]
+  },
+  "usage": {
+    "minimal_example": "model.step(target=u, reference_displacement=u0, reference_name=\"unit compression\", modes=3).solve_result()",
+    "examples": [
+      "examples/linear_buckling_column/case.py"
+    ]
+  },
+  "verification": {
+    "tests": [
+      "tests/test_stability_periodic.py"
+    ],
+    "benchmarks": [],
+    "validation_rules": [
+      "Recover analytical column or homogeneous-cell references.",
+      "Check scaling, geometry/mesh sensitivity and independent conservation evidence.",
+      "Keep finite specimens distinct from periodic effective materials."
+    ]
+  },
+  "references": [
+    {
+      "title": "FEniCSx solid buckling",
+      "locator": "https://bleyerj.github.io/comet-fenicsx/tours/eigenvalue_problems/buckling_3d_solid/buckling_3d_solid.html"
+    },
+    {
+      "title": "SLEPc EPS problem types",
+      "locator": "https://slepc.upv.es/release/documentation/manual/eps.html"
+    }
+  ],
+  "related_cards": []
+}

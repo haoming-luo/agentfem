@@ -18,6 +18,7 @@ from mpi4py import MPI
 
 from agentfem import dependencies
 
+from .honeycomb import reentrant_honeycomb
 from . import formats
 from . import quality
 from . import abaqus
@@ -1261,3 +1262,5 @@ def from_arrays(*, cells, coordinates, coordinate_element, comm=None,
                             e=coordinate_element,
                             x=np.ascontiguousarray(points),
                             partitioner=partitioner)
+
+from .imperfection import apply_mode_imperfection, GeometryImperfection

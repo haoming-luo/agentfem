@@ -160,6 +160,14 @@ def finite_strain_explicit_dynamics(
     from . import time as time_api
     from .constitutive import hyperelasticity
 
+    if any(
+        isinstance(record.item, hyperelasticity.SaintVenantKirchhoffProperties)
+        for record in model.materials
+    ):
+        raise NotImplementedError(
+            "Saint-Venant--Kirchhoff currently supports static solid studies only."
+        )
+
     selected_constraints = model.constraints if constraints is None else constraints
     model.check(
         target=target,
@@ -207,9 +215,7 @@ def finite_strain_explicit_dynamics(
     if cohesive_force is not None:
         cohesive_force = cohesive_force.for_displacement(selected_state.u)
     selected_mass = (
-        mass
-        if mass is not None
-        else model.lumped_mass(target, material=material)
+        mass if mass is not None else model.lumped_mass(target, material=material)
     )
     selected_contact_pairs = _finite_strain_explicit_contact_pairs(
         model,

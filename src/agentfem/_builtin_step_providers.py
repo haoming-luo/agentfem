@@ -228,6 +228,14 @@ def _accept_neo_hookean(model, request: StepRequest) -> bool:
     )
 
 
+def _accept_geometric_elasticity(model, request: StepRequest) -> bool:
+    from .constitutive.geometric_elasticity import SaintVenantKirchhoffProperties
+
+    return isinstance(
+        _selected_material(model, request), SaintVenantKirchhoffProperties
+    ) and _accept_neo_hookean(model, request)
+
+
 def _accept_fabric_membrane(model, request: StepRequest) -> bool:
     from .constitutive.fabric import DecoupledFabricSurface, FabricStack
 
@@ -1455,6 +1463,27 @@ register_step_provider(
 )
 register_step_provider(
     StepProvider(
+        name="saint_venant_kirchhoff_finite_strain_static",
+        analyses=("nonlinear_static",),
+        accepts=_accept_geometric_elasticity,
+        lower=_lower_neo_hookean,
+        priority=110,
+        description="Total-Lagrangian elastic solids with exact plane-stress condensation, finite rotations and consistent Newton tangent.",
+        procedure="standard/newton",
+        option_contract=_option_contract(
+            "measure",
+            "petsc_options_prefix",
+            "incrementation",
+            "increments",
+            "load_factors",
+            "output_every",
+            "progress",
+            "status_file",
+        ),
+    )
+)
+register_step_provider(
+    StepProvider(
         name="neo_hookean_finite_strain_static",
         analyses=("nonlinear_static",),
         accepts=_accept_neo_hookean,
@@ -1552,6 +1581,66 @@ register_step_provider(
             "checkpoint",
             "history",
             required=("dt", "steps"),
+        ),
+    )
+)
+
+
+def _accept_buckling(model, request):
+    return (_is_vector_target(request.target)
+            and getattr(model.study, "physics", None) == "solid_mechanics"
+            and _all_materials_support(model, request, _supports_elasticity))
+
+
+def _lower_buckling(model, request):
+    from .mechanics.buckling import lower_buckling
+    return lower_buckling(model, request)
+
+
+register_step_provider(StepProvider(
+    name="linear_solid_buckling", analyses=("linear_buckling",),
+    accepts=_accept_buckling, lower=_lower_buckling, priority=110,
+    description="Experimental conservative initial-stress solid buckling with an indefinite geometric pencil.",
+    procedure="standard/generalized_nonhermitian_eigenproblem",
+    option_contract=StepOptionContract(
+        accepted=("K", "F", "solver_options", "reference_displacement", "reference_name", "base_displacement", "base_name",
+                  "constraints", "modes", "tolerance", "maximum_iterations", "name", "output"),
+        required=("reference_displacement", "reference_name")),
+))
+
+
+def _accept_arc_length(model, request):
+    return getattr(request.procedure, "algorithm", None) == "spherical_arc_length"
+
+
+def _lower_arc_length(model, request):
+    from .mechanics.continuation import lower_arc_length
+
+    return lower_arc_length(model, request)
+
+
+register_step_provider(
+    StepProvider(
+        name="hyperelastic_spherical_arc_length",
+        analyses=("nonlinear_static",),
+        accepts=_accept_arc_length,
+        lower=_lower_arc_length,
+        priority=1000,
+        description="Serial sparse continuation adapter for conservative hyperelastic solids.",
+        procedure="standard/spherical_arc_length",
+        option_contract=StepOptionContract(
+            accepted=(
+                "K",
+                "F",
+                "solver_options",
+                "material",
+                "constraints",
+                "arc_options",
+                "increments",
+                "name",
+                "output",
+            ),
+            required=("increments",),
         ),
     )
 )

@@ -7,6 +7,7 @@ This package gives users K/M/C/F language while keeping weak forms available in
 ``agentfem.forms`` and low-level assembly in ``agentfem.assembly``.
 """
 
+from .geometric import geometric_stiffness
 from . import elasticity
 from .core import (
     LumpedMassOperator,
@@ -111,6 +112,7 @@ assemble_lumped_mass = lumped_mass
 assemble_lumped_operator = lumped_operator
 
 __all__ = [
+    "geometric_stiffness",
     "LumpedMassOperator",
     "CellGradientEnergyOperator",
     "CellAverageGradientOperator",

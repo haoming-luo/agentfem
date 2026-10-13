@@ -84,3 +84,11 @@ otherwise; runnable examples remain in the repository-level `examples/`.
 
 Application geometry, case inputs, and problem-specific sources should stay in
 application packages or examples until they become reusable platform concepts.
+
+### Geometrically nonlinear elasticity
+
+`constitutive/geometric_elasticity.py` owns StVK material parameters, exact
+plane-stress reduction and independent numerical material responses.
+`constitutive/hyperelasticity.py` dispatches the common energy/stress interface;
+the standard finite-strain Step owns increments and acceptance. See
+`guide/geometric_elasticity.md` and the `geometric_elastic_*` example projects.

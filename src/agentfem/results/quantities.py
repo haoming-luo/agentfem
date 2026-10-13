@@ -237,8 +237,12 @@ def quadrature_extrema(
 
     if tuple(getattr(expression, "ufl_shape", ())):
         raise ValueError("quadrature_extrema currently requires a scalar expression.")
+    expression = ufl.as_ufl(expression)
+    if not ufl.domain.extract_domains(expression):
+        value = float(expression)
+        return value, value
     points, _ = basix.make_quadrature(domain.basix_cell(), int(degree))
-    evaluator = fem.Expression(expression, points)
+    evaluator = fem.Expression(expression, points, comm=domain.comm)
     cells = np.arange(
         domain.topology.index_map(domain.topology.dim).size_local,
         dtype=np.int32,

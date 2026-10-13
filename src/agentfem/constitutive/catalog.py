@@ -29,6 +29,17 @@ class ConstitutiveCapability:
 
 
 _CAPABILITIES = {
+    "saint_venant_kirchhoff": ConstitutiveCapability(
+        name="saint_venant_kirchhoff",
+        model="total-Lagrangian geometrically nonlinear isotropic elasticity",
+        maturity="fem_integrated",
+        available_scope="static 3D, 2D plane strain and exactly condensed plane stress; standard Newton increments and conservative serial arc-length",
+        limitations=(
+            "small material strains with finite rotations",
+            "one material in convenience step",
+            "no mixed incompressibility, initial stress, thermal strain, plasticity or automatic dynamics",
+        ),
+    ),
     "linear_elasticity": ConstitutiveCapability(
         name="linear_elasticity",
         model="isotropic and oriented 2D/3D anisotropic small-strain elasticity",

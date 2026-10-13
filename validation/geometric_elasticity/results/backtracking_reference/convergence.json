@@ -1,0 +1,26 @@
+[
+  {
+    "imperfection_mm": 0.1,
+    "nx": 40,
+    "ny": 2,
+    "increment": 0.05,
+    "tip_mm": 11.728987527442541,
+    "reaction_N": 10699.999999999107,
+    "maximum_reaction_error_N": 1.1223164619877934e-09,
+    "minimum_J": 0.9962320507875545,
+    "accepted_increments": 720,
+    "attempted_increments": 721
+  },
+  {
+    "imperfection_mm": 0.1,
+    "nx": 80,
+    "ny": 4,
+    "increment": 0.05,
+    "tip_mm": 11.952520866420334,
+    "reaction_N": 10699.999999999283,
+    "maximum_reaction_error_N": 9.713403414934874e-10,
+    "minimum_J": 0.995804240328854,
+    "accepted_increments": 761,
+    "attempted_increments": 762
+  }
+]

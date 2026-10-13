@@ -608,6 +608,7 @@ def _resolve_procedure(model, *, analysis: str, options, requested):
         "second_order_dynamics",
         "explicit_dynamics",
         "modal",
+        "linear_buckling",
         "frequency_domain",
     }
     if analysis not in known:

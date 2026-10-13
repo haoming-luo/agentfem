@@ -33,6 +33,7 @@ path = [
   "src/**",
   "tests/**",
   "tools/**",
+  "validation/geometric_elasticity/**",
 ]
 precedence = "closest"
 SPDX-FileCopyrightText = "2026 Haoming Luo and AgentFEM contributors"

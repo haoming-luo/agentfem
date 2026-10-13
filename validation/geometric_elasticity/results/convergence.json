@@ -1,0 +1,98 @@
+[
+  {
+    "imperfection_mm": 0.1,
+    "nx": 40,
+    "ny": 2,
+    "increment": 0.05,
+    "tip_mm": 11.728987529315498,
+    "reaction_N": 10699.999999999165,
+    "maximum_reaction_error_N": 8.349161362275481e-10,
+    "minimum_J": 0.9962320507870365,
+    "accepted_increments": 20,
+    "attempted_increments": 20
+  },
+  {
+    "imperfection_mm": 0.1,
+    "nx": 80,
+    "ny": 4,
+    "increment": 0.05,
+    "tip_mm": 11.9525208703552,
+    "reaction_N": 10699.999999999856,
+    "maximum_reaction_error_N": 5.375113687478006e-10,
+    "minimum_J": 0.9958042403276687,
+    "accepted_increments": 20,
+    "attempted_increments": 20
+  },
+  {
+    "imperfection_mm": 0.1,
+    "nx": 120,
+    "ny": 6,
+    "increment": 0.05,
+    "tip_mm": 12.0047794486306,
+    "reaction_N": 10700.000000000002,
+    "maximum_reaction_error_N": 3.2241587177850306e-10,
+    "minimum_J": 0.9955024665466319,
+    "accepted_increments": 20,
+    "attempted_increments": 20
+  },
+  {
+    "imperfection_mm": 0.1,
+    "nx": 120,
+    "ny": 6,
+    "increment": 0.025,
+    "tip_mm": 12.004779444294792,
+    "reaction_N": 10700.000000000227,
+    "maximum_reaction_error_N": 6.166374078020453e-10,
+    "minimum_J": 0.9955024665480214,
+    "accepted_increments": 40,
+    "attempted_increments": 40
+  },
+  {
+    "imperfection_mm": 0.2,
+    "nx": 40,
+    "ny": 2,
+    "increment": 0.05,
+    "tip_mm": 19.249376989105265,
+    "reaction_N": 10700.000000000207,
+    "maximum_reaction_error_N": 1.190528564620763e-09,
+    "minimum_J": 0.9941415218598012,
+    "accepted_increments": 20,
+    "attempted_increments": 20
+  },
+  {
+    "imperfection_mm": 0.2,
+    "nx": 80,
+    "ny": 4,
+    "increment": 0.05,
+    "tip_mm": 19.49008933226333,
+    "reaction_N": 10699.999999999614,
+    "maximum_reaction_error_N": 9.00399754755199e-10,
+    "minimum_J": 0.9935225600823154,
+    "accepted_increments": 20,
+    "attempted_increments": 20
+  },
+  {
+    "imperfection_mm": 0.2,
+    "nx": 120,
+    "ny": 6,
+    "increment": 0.05,
+    "tip_mm": 19.545816450815977,
+    "reaction_N": 10699.999999999909,
+    "maximum_reaction_error_N": 8.86757334228605e-10,
+    "minimum_J": 0.9930732512691851,
+    "accepted_increments": 20,
+    "attempted_increments": 20
+  },
+  {
+    "imperfection_mm": 0.2,
+    "nx": 120,
+    "ny": 6,
+    "increment": 0.025,
+    "tip_mm": 19.545816450819107,
+    "reaction_N": 10700.000000000184,
+    "maximum_reaction_error_N": 1.0059011401608586e-09,
+    "minimum_J": 0.993073251269184,
+    "accepted_increments": 40,
+    "attempted_increments": 40
+  }
+]

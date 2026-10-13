@@ -38,6 +38,7 @@ and evidence remain in the linked guides and scientific function reference.
 | function | `explicit_dynamics(*, physics: str, dimension: int, assumption: str \| None = None, name: str \| None = None) -> Study` | Define second-order dynamics with an Explicit preference. |
 | function | `dynamic_solid(*, dimension: int, assumption: str \| None = None, method: str = 'explicit', name: str \| None = None) -> Study` | Define structural dynamics without repeating the physics name. |
 | function | `modal_solid(*, dimension: int, assumption: str \| None = None, name: str \| None = None) -> Study` | Define a linear structural modal analysis. |
+| function | `buckling_solid(*, dimension: int, assumption: str \| None = None, name: str \| None = None) -> Study` | Linear initial-stress buckling of conservative elastic solid structures. |
 
 ## `agentfem.mesh`
 
@@ -99,6 +100,7 @@ and evidence remain in the linked guides and scientific function reference.
 | function | `facet_normal(domain)` | Return the outward facet normal for boundary models. |
 | function | `tagged_boundary_measure(domain, marker, tag: int)` | Locate/tag exterior facets and return ``(ds, facet_tags)``. |
 | function | `from_arrays(*, cells, coordinates, coordinate_element, comm = None, partitioner = None)` | Create a DOLFINx mesh through explicit topology/geometry keywords. |
+| function | `reentrant_honeycomb(*, angle = -30.0, ligament = 1.0, vertical = 1.5, thickness = 0.12, repeats = (1, 1), mesh_size = 0.06, comm = MPI.COMM_WORLD, connected_specimen = False)` | Mesh a rectangular cut of a periodic rounded-joint honeycomb. |
 | class | `CellCompatibility` | One meshio-style source cell mapped to an AgentFEM solver topology. |
 | class | `TopologyCapability` | One narrowly scoped, evidence-bearing runtime topology capability. |
 | class | `TopologyCompatibility` | Runtime solver-topology support independent of source element names. |
@@ -130,6 +132,8 @@ and evidence remain in the linked guides and scientific function reference.
 | function | `layer(axis: str \| int, lower = None, upper = None) -> Selector` | Select points inside a coordinate interval along one axis. |
 | function | `plane(axis: str \| int, value: float, *, tolerance: float = 1e-12) -> Selector` | Select points near a coordinate plane such as ``x = 0``. |
 | function | `where(predicate, *, name: str \| None = None) -> Selector` | Create a selector from a vectorized coordinate predicate. |
+| function | `apply_mode_imperfection(domain, modes, *, amplitudes, minimum_quality = 0.001)` | Perturb geometry in place, retaining original coordinates in the receipt. |
+| class | `GeometryImperfection` | Own the original coordinates; restore before reusing original forms/tags. |
 
 ## `agentfem.models`
 
@@ -295,6 +299,8 @@ and evidence remain in the linked guides and scientific function reference.
 | function | `turning_points(history) -> np.ndarray` | Return endpoints and local reversals from a scalar stress history. |
 | class | `FiniteStrainJ2Logarithmic` | Multiplicative finite-strain J2 plasticity with Hencky elasticity. |
 | function | `finite_strain_j2_logarithmic(*, young: float, poisson: float, yield_stress: float, hardening_modulus: float = 0.0, tangent_relative_step: float = 2e-06, tangent_evaluation: str = 'analytic_spectral', density: float \| None = None) -> FiniteStrainJ2Logarithmic` | Create the logarithmic finite-strain J2 material provider. |
+| class | `SaintVenantKirchhoffProperties` | Public AgentFEM object. |
+| function | `saint_venant_kirchhoff(*, young: float, poisson: float, density: float \| None = None, plane_stress: bool = False, name: str = 'Saint-Venant--Kirchhoff') -> SaintVenantKirchhoffProperties` | Create explicit geometrically nonlinear elastic material parameters. |
 | class | `FiniteStrainKinematics` | Standard total-Lagrangian kinematics derived from one displacement. |
 | class | `MixedNeoHookeanProperties` | Isochoric Neo-Hookean solid with an independent pressure field. |
 | class | `MooneyRivlinProperties` | Two-parameter isotropic Mooney-Rivlin finite-strain solid. |
@@ -1123,6 +1129,9 @@ and evidence remain in the linked guides and scientific function reference.
 
 | Kind | Public object | Purpose |
 | --- | --- | --- |
+| function | `periodic_elasticity(model, target, *, anchor, amplitude = 0.001, periodic_tolerance = 1e-09, name = 'periodic_elasticity')` | Solve all 3/6 macrostrain cases on a rectangular matching periodic cell. |
+| function | `elastic_engineering_properties(stiffness)` | Directional E_i and nu_ij=-S_ji/S_ii; no isotropy assumption. |
+| function | `apparent_poisson_ratio(target, *, axial_axis, transverse_axis, axial_faces, transverse_faces, axial_length, transverse_length, strain_tolerance = 1e-12)` | Measure finite-specimen strains from area-averaged gauge displacements. |
 | class | `CreepEnergyFrame` | Accepted work and energy evidence for one physical-time increment. |
 | class | `CreepIncrementInfo` | Public AgentFEM object. |
 | class | `CreepPathInfo` | Public AgentFEM object. |
@@ -1172,11 +1181,14 @@ and evidence remain in the linked guides and scientific function reference.
 | class | `ViscoelasticQuadratureState` | Typed committed/trial Maxwell state and current response fields. |
 | function | `harmonic_viscoelastic_step(*, displacement, material, frequency: float \| None = None, angular_frequency: float \| None = None, external_force = None, constraints = (), density: float \| None = None, load_phase: float = 0.0, temperature: float \| None = None, study = None, solver_options = None, name: str = 'harmonic_viscoelastic') -> HarmonicViscoelasticStep` | Build one direct 3D harmonic generalized-Maxwell equilibrium Step. |
 | function | `quasistatic_viscoelastic_step(*, displacement, material, duration: float, steps: int \| None = None, time_points = None, incrementation = None, time_error_tolerance: float \| None = None, external_force = None, constraints = (), study = None, solver_options = None, quadrature_degree: int = 2, amplitude = None, temperature = None, time_unit: str \| None = None, progress = True, status_file = None, checkpoint_policy = None, name: str = 'viscoelastic') -> QuasistaticViscoelasticStep` | Build a 3D quasi-static generalized-Maxwell Step. |
+| function | `displacement_controlled_response(model, step, *, on, component = 0, monitor = None, monitor_component = 1)` | Return accepted factor, mean boundary displacement and reaction arrays. |
+| function | `load_controlled_response(model, step, *, support, monitor, component = 0, monitor_component = 1)` | Measure a conservative traction-driven accepted path. |
 
 ## `agentfem.operators`
 
 | Kind | Public object | Purpose |
 | --- | --- | --- |
+| function | `geometric_stiffness(target, stress, *, measure = ufl.dx, name = 'KG')` | Return KG with tension-positive stress (compression destabilizes). |
 | class | `LumpedMassOperator` | Diagonal mass operator owned by the mathematical operator layer. |
 | class | `NonlinearOperatorContribution` | Additive nonlinear contribution consumed by a numerical Procedure. |
 | class | `OperatorForm` | Named scientific operator with a current backend expression. |
@@ -1270,7 +1282,9 @@ and evidence remain in the linked guides and scientific function reference.
 | --- | --- | --- |
 | class | `SolutionProcedure` | Inspectable, backend-neutral description of a solution algorithm. |
 | function | `linear_static() -> SolutionProcedure` | Public AgentFEM object. |
+| function | `linear_buckling() -> SolutionProcedure` | Generalized pencil with potentially indefinite geometric stiffness. |
 | function | `modal() -> SolutionProcedure` | Undamped linear modes from ``K phi = lambda M phi``. |
+| function | `arc_length() -> SolutionProcedure` | Spherical continuation with load factor as an additional unknown. |
 | function | `nonlinear_static(*, stateful: bool = False) -> SolutionProcedure` | Public AgentFEM object. |
 | function | `implicit_euler(*, nonlinear: bool = False, stateful: bool = True) -> SolutionProcedure` | Public AgentFEM object. |
 | function | `staggered_implicit_euler() -> SolutionProcedure` | Backward Euler advanced through converged participant iterations. |

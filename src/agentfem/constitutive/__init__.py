@@ -124,6 +124,10 @@ from .finite_strain_plasticity import (
     FiniteStrainJ2Logarithmic,
     finite_strain_j2_logarithmic,
 )
+from .geometric_elasticity import (
+    SaintVenantKirchhoffProperties,
+    saint_venant_kirchhoff,
+)
 from .hyperelasticity import (
     FiniteStrainKinematics,
     MixedNeoHookeanProperties,
@@ -293,6 +297,8 @@ __all__ = [
     "MixedNeoHookeanProperties",
     "MooneyRivlinProperties",
     "NeoHookeanProperties",
+    "SaintVenantKirchhoffProperties",
+    "saint_venant_kirchhoff",
     "PlaneStressNeoHookeanProperties",
     "MaterialPointInput",
     "MaterialPointBatchInput",
