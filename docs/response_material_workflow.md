@@ -226,6 +226,44 @@ the selected library/version. Both paths interpret binary64 inputs exactly;
 this is not a tolerance relaxation or a geometric approximation. See the
 [gmpy2 rational documentation](https://gmpy2.readthedocs.io/en/stable/mpq.html).
 
+## Public material-frame utilities
+
+User providers may import `constitutive.polar_strain_increment` and
+`constitutive.push_corotational_stress` without depending on private module
+paths. The first returns a `CorotationalIncrement` with tensor strain (including
+tensor shear), endpoint material-to-spatial frames and an explicit `method`.
+Inputs are finite real batches of shape `(points, 3, 3)`; total deformation
+gradients must preserve orientation and be well-conditioned, and optional
+`reference_frame` values must be proper orthonormal axes in the same batch
+layout. Masked components are rejected, not silently unmasked. Returned arrays
+are detached and read-only; the helper does not own material state.
+
+```python
+kinematics = constitutive.polar_strain_increment(
+    request.deformation_gradient_old, request.deformation_gradient_new,
+    integration_rule="exact",
+)
+# The user's constitutive update consumes kinematics.strain_increment and
+# accepted material history, then returns local symmetric Cauchy stress.
+spatial_stress = constitutive.push_corotational_stress(
+    local_stress, kinematics.frame_new,
+)
+```
+
+The declared path is linear in right stretch. `exact` integrates that path;
+it does not reconstruct an unknown history, equal `log(U_new)-log(U_old)` for
+general noncommuting stretches, or certify a vendor's VUMAT increment. The
+opt-in `midpoint` rule has a separate method identity and second-order
+subdivision evidence. Include the chosen rule and material axes in provider
+identity. Stress rotation does not change Cauchy stress into Piola stress;
+core owns the latter conversion in the element route. These helpers imply no
+constitutive energy decomposition, tangent, or automatic stable increment.
+
+The separation follows the general distinction between kinematics and material
+updates described by [MOOSE finite-strain kinematics](https://mooseframework.inl.gov/source/materials/ComputeFiniteStrain.html)
+and [VUMAT local-coordinate conventions](https://docs.software.vt.edu/abaqusv2025/English/SIMACAESUBRefMap/simasub-c-vumat.htm).
+Their different increment algorithms are not presented as equivalent.
+
 ## Acceptance and remaining promotion gates
 
 The migrated installed workflow has completed a separately frozen full-case

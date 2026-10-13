@@ -18,6 +18,8 @@ def _transpose(value):
 
 
 def _checked(value, name):
+    if np.ma.isMaskedArray(value):
+        raise ValueError(f"{name} must not hide masked material points or components.")
     if np.iscomplexobj(value):
         raise ValueError(f"{name} must be real.")
     array = np.asarray(value, dtype=float)

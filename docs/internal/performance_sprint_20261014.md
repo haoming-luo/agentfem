@@ -213,3 +213,23 @@ checks. Thirteen tiny metadata/archive tests pass; the full-model 15,000-step
 station passes 374 compared entries. This is stronger implementation evidence,
 not source-vendor or inertia-sensitivity validation. The checker took 0.66 s
 while the numerical job continued; no second simulation was started.
+
+The follow-up interface audit found that a material fallback still imported the
+private polar-frame implementation. The same checked implementation is now
+available as `constitutive.polar_strain_increment` and
+`constitutive.push_corotational_stress`, also in the public `corotational`
+submodule. Legacy imports remain identical. Masked inputs are rejected rather
+than losing component masks. Thirty-three small-array tests pass through the
+public route (0.27 s), including noncommuting-stretch quadrature, finite rigid
+rotation, material axes, virtual-power invariance and midpoint subdivision.
+This promotes an explicit numerical utility, not a VUMAT compatibility claim,
+new native speedup or implicit tangent. The running frozen provider/runtime is
+unchanged; its imports will be migrated only in a subsequent frozen project.
+
+At increment 30,000, the stricter offline comparison passes all 374 entries.
+At the nearby 30,300 station, the 100-to-station elapsed span is 4,185.778 s
+versus 4,447.485 s in the prior complete reference (5.88% less). The recent
+1,000-step span is 4.86% less. These are partial-path observations, not a new
+end-to-end time. Light metadata tests, checkpoint reads and plot generation
+overlapped the full process and are disclosed; no second full/FEM/MPI numerical
+job or competing timing benchmark overlapped it.

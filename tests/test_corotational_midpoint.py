@@ -3,7 +3,7 @@
 import numpy as np
 import pytest
 
-from agentfem.constitutive._corotational import (
+from agentfem.constitutive import (
     polar_strain_increment,
     push_corotational_stress,
 )

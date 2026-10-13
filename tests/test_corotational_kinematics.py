@@ -1,10 +1,34 @@
 import numpy as np
 import pytest
 
-from agentfem.constitutive._corotational import (
+from agentfem.constitutive import (
     polar_strain_increment,
     push_corotational_stress,
 )
+
+
+def test_public_and_legacy_routes_share_arithmetic():
+    from agentfem import constitutive
+    from agentfem.constitutive import _corotational, corotational
+    for name in corotational.__all__:
+        assert getattr(constitutive, name) is getattr(_corotational, name)
+        assert getattr(corotational, name) is getattr(_corotational, name)
+        assert name in constitutive.__all__
+
+
+@pytest.mark.parametrize("masked_argument", ["old", "new", "axes", "stress", "frame"])
+def test_masked_values_cannot_silently_enter_material_update(masked_argument):
+    identity = np.eye(3)[None]
+    masked = np.ma.array(identity, mask=np.zeros_like(identity, dtype=bool))
+    masked.mask[0, 0, 0] = True
+    with pytest.raises(ValueError, match="masked"):
+        if masked_argument in ("stress", "frame"):
+            push_corotational_stress(masked if masked_argument == "stress" else identity,
+                                     masked if masked_argument == "frame" else identity)
+        else:
+            polar_strain_increment(masked if masked_argument == "old" else identity,
+                masked if masked_argument == "new" else identity,
+                reference_frame=masked if masked_argument == "axes" else identity)
 
 
 def rotation(angle):
