@@ -1,0 +1,54 @@
+{
+  "schema": "agentfem.scientific-function-card",
+  "schema_version": "0.1.0",
+  "id": "agentfem.workflow.result_visualization_contract",
+  "title": "Single-grid results, connectivity and ParaView Warp",
+  "kind": "workflow",
+  "status": "supported",
+  "summary": "Keep topology and field ordering inside the output backend. The serial ResultWriter stores one grid per time with complete point/cell attributes, rejecting invalid frames before storage; ParaView Warp needs no duplicate-block cleanup.",
+  "public_api": [
+    "agentfem.io.ResultWriter",
+    "agentfem.io.ParaViewTimeSeries",
+    "agentfem.results.cell_field_from_values",
+    "agentfem.results.consolidate_xdmf_fields"
+  ],
+  "implementation": ["io.py", "results/output.py", "results/cell_data.py", "results/xdmf_layout.py"],
+  "science": {
+    "statement": "Connectivity encodes the finite-element topology in the target reader's ordering. A field must be transferred through its basis and entity identity, not matched solely by coefficient count.",
+    "equations": [{
+      "label": "display coordinates",
+      "expression": "\\mathbf{x}_{\\mathrm{display}}=\\mathbf{X}+s\\mathbf{u}",
+      "description": "Warp adds a scaled nodal displacement to reference coordinates; applying it again to deformed coordinates double-counts motion."
+    }],
+    "inputs": [{"name": "mesh and fields", "type": "finite-element mesh and Functions", "unit_role": "declared model units", "description": "One nodal scalar/vector primary, compatible continuous auxiliary fields or explicit DG0 cell fields."}],
+    "outputs": [{"name": "visualization artifact", "type": "single-grid serial XDMF/HDF5 or collective PVD", "unit_role": "retained field units", "description": "One geometry per saved time with attached point/cell fields and a known geometry convention."}],
+    "assumptions": ["The serial unified series retains one mesh and primary function space.", "Cell array keys are original input cell indices, not external element labels."],
+    "conventions": [
+      "Prefer step.solve_result(output=...) for the ordinary result lifecycle; use io.ResultWriter only for explicit custom export.",
+      "Do not hand-write connectivity, guess VTK permutations, or merge coincident crack/interface nodes to repair visualization blocks.",
+      "Use the manifest's recommended_visualization_artifact under MPI; low-level DOLFINx XDMF can contain one block per field.",
+      "Frame times must be finite and strictly increasing; names, associations and shapes must remain stable.",
+      "Duplicate names and nonfinite fields fail before frame storage. A storage failure requires a new artifact.",
+      "Reference geometry uses Warp once. Already deformed presentation geometry requires no additional Warp.",
+      "Discontinuous cell fields are not automatically smoothed across material interfaces."
+    ],
+    "applicability": ["Human- and AI-authored static/transient result export, finite-element visualization and repair of synchronous single-mesh DOLFINx archives."],
+    "limitations": ["Presentation checks do not establish physical accuracy.", "Serial ResultWriter write mode is single-grid; legacy append and MPI scientific XDMF retain distinct contracts.", "Unsupported topology, cross-mesh transfer and raw integration-point interpretation are not inferred."]
+  },
+  "usage": {
+    "minimal_example": "result = step.solve_result(output='fields.xdmf')\n# For custom serial exports:\nwith io.ResultWriter('custom.xdmf', domain, (u, stress_cell)) as writer:\n    writer.write(physical_time)",
+    "examples": ["examples/elastic_bar_wave.py"]
+  },
+  "verification": {
+    "tests": ["tests/test_xdmf_layout.py", "tests/test_xdmf_cell_ordering.py", "tests/test_cell_data.py", "tests/test_results.py"],
+    "benchmarks": [],
+    "validation_rules": [
+      "Read exported Hex/Tet fields through independent VTK readers and compare warped coordinates.",
+      "Compare equal-size fields with different nodal variants against physical coordinates after interpolation.",
+      "Reject invalid frames without leaving partially written groups; reject reuse after storage failure.",
+      "Verify unchanged reference geometry shares HDF5 storage across frames."
+    ]
+  },
+  "references": [{"title": "ParaView Warp By Vector", "locator": "https://docs.paraview.org/en/latest/Tutorials/SelfDirectedTutorial/basicUsage.html"}, {"title": "PyVista unstructured-grid topology", "locator": "https://docs.pyvista.org/examples/00-load/create_unstructured_surface"}],
+  "related_cards": ["agentfem.workflow.standard_result_projection", "agentfem.workflow.result_field_sampling"]
+}

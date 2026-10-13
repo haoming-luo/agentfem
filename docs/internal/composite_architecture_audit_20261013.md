@@ -201,3 +201,38 @@ relative displacement error against the linear-limit reference was
 This is a small public workflow check, not the original composite full-run
 acceptance or a large-strain validation. The original full run remains on its
 frozen revision-1 dispatcher; it does not inherit revision-2 repair changes.
+
+## Result contract hardening
+
+Serial frame admission now precedes HDF5 mutation. Nonfinite values, invalid
+time coordinates, duplicate/reserved names, schema changes and moved reference
+geometry cannot leave half a frame. Storage exceptions poison the writer.
+Continuous auxiliary fields are interpolated using the primary's actual nodal
+element variant, including equal-coefficient-count/different-node cases.
+Unchanged reference geometry uses one shared HDF5 dataset across time.
+
+The installed candidate passed 195 targeted output, native admission, material
+transaction and restart tests. Its Cauchy-stress symmetry check preserves the
+same relative predicate while removing whole-mesh absolute-tensor temporaries;
+no integration-throughput claim is made while the frozen full run is active.
+The standard installed templates and discoverable visualization knowledge card
+direct agents to the same output APIs rather than hand-built connectivity.
+Arbitrary external Python exporters cannot be controlled by this contract.
+
+Independent ParaView 6.1.1 reading and Warp passed for a two-frame series whose
+first saved time is 1 (one volume grid, 27 points, 8 cells, zero coordinate
+error on that frame). The checker now selects an actual saved time rather than
+silently requesting the reader's default time zero. This is presentation QA,
+not a scientific verification of the field.
+
+## Native distribution acceptance
+
+Linux numerical, MPI and release-example acceptance passed on candidate
+`c3ab5a7f`. The following macOS stage failed because it attempted to install the
+Linux native wheel, exposing an obsolete platform-independent-wheel assumption.
+The corrected workflow builds a macOS wheel from the exact Linux-tested source
+archive, requires the installed native body and arithmetic modules, and reruns
+platform acceptance. Promotion still requires one version and source commit;
+platform-specific binaries correctly have distinct hashes. Twelve local gate
+and installed-identity regressions passed; remote acceptance of this correction
+is still required. No native platform gate was removed or marked passed by hand.

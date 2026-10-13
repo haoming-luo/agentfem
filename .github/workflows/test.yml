@@ -585,7 +585,7 @@ jobs:
           channels: conda-forge
           channel-priority: strict
 
-      - name: Download the exact Linux-tested candidate
+      - name: Download the Linux-tested source distribution
         uses: actions/download-artifact@v8
         with:
           name: tested-python-package-distributions
@@ -600,9 +600,40 @@ jobs:
       - name: Install optional mesh interoperability used by release smoke
         run: python -m pip install meshio
 
+      - name: Build the macOS native wheel from the same source distribution
+        env:
+          AGENTFEM_BUILD_NATIVE: '1'
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import shutil
+          import subprocess
+          import sys
+
+          source = Path('/tmp/agentfem-foundation-fan-in/dist')
+          sdists = list(source.glob('agentfem-*.tar.gz'))
+          if len(sdists) != 1:
+              raise SystemExit('Expected exactly one Linux-tested source distribution.')
+          target = Path('/tmp/agentfem-foundation-fan-in/macos-dist')
+          target.mkdir()
+          # Native wheels are platform-specific; only the source archive is
+          # shared. Installed identity checks still compare to this checkout.
+          shutil.copy2(sdists[0], target / sdists[0].name)
+          subprocess.run([sys.executable, '-m', 'pip', 'wheel', str(sdists[0]),
+                          '--no-deps', '--wheel-dir', str(target)], check=True)
+          PY
+
+      - name: Verify the installed macOS native execution paths
+        run: |
+          python -m pip install --no-deps --force-reinstall /tmp/agentfem-foundation-fan-in/macos-dist/*.whl
+          python -c "import agentfem._hex_native, agentfem._body_pipeline"
+          python -m pytest -o pythonpath='' -q \
+            tests/test_hex_native.py tests/test_native_material_execution.py \
+            tests/test_builtin_hex_execution.py
+
       - name: Run installed-use acceptance on macOS
         run: |
-          DIST=/tmp/agentfem-foundation-fan-in/dist
+          DIST=/tmp/agentfem-foundation-fan-in/macos-dist
           python release_gate.py --dist "${DIST}" --smoke --mpi-ranks 2 \
             --report /tmp/agentfem-macos-agent-acceptance.json \
             --platform-report /tmp/agentfem-macos-platform-acceptance.json \
@@ -644,6 +675,14 @@ jobs:
             /tmp/agentfem-macos-agent-acceptance.json
             /tmp/agentfem-macos-platform-acceptance.json
             /tmp/agentfem-platform-promotion.json
+          if-no-files-found: error
+
+      - name: Upload the platform-specific tested macOS distributions
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: tested-macos-package-distributions
+          path: /tmp/agentfem-foundation-fan-in/macos-dist/
           if-no-files-found: error
 
   ml-optional:

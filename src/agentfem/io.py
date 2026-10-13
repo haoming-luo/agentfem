@@ -116,6 +116,10 @@ class ResultWriter:
 
     def __init__(self, path: Path, domain, fields=(), mode: str = "w") -> None:
         self.path = Path(path)
+        if self.path.suffix.lower() not in {".xdmf", ".xmf", ".pvd"}:
+            raise ValueError("ResultWriter requires .xdmf/.xmf or .pvd, not a hand-written raw topology format.")
+        if mode not in {"w", "a"}:
+            raise ValueError("ResultWriter mode must be 'w' or 'a'.")
         self.domain = domain
         self.fields = tuple(fields)
         self.mode = mode

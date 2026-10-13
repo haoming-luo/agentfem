@@ -258,6 +258,13 @@ never changes solver access, results, verification, or update behavior.
   semantics. Under MPI, open the `field_output` metadata's
   `recommended_visualization_artifact` (normally PVD), not the scientific
   multi-Grid XDMF; that route needs no Extract Block step.
+  Never write VTK/XDMF connectivity or reorder element nodes in an application
+  case. Use `solve_result(output=...)`, or `io.ResultWriter` for a custom loop.
+  Use `results.cell_field_from_values` with explicit cell keys for external
+  per-cell data. Equal array lengths do not establish matching field layouts.
+  Keep reference geometry for Warp; do not apply Warp again to an already
+  deformed presentation artifact. Never merge coincident physical nodes merely
+  to remove duplicate visualization blocks: cracks/interfaces may require them.
   For field-learning data, create a fixed `surrogates.ObservationGrid` and call
   `datasets.fem_observation_sample`; preserve its units, layout, and mask.
   For a direct solver or external benchmark contract, use

@@ -1403,6 +1403,24 @@
       "title": "MPI-safe point and path field sampling"
     },
     {
+      "id": "agentfem.workflow.result_visualization_contract",
+      "kind": "workflow",
+      "public_api": [
+        "agentfem.io.ResultWriter",
+        "agentfem.io.ParaViewTimeSeries",
+        "agentfem.results.cell_field_from_values",
+        "agentfem.results.consolidate_xdmf_fields"
+      ],
+      "related_cards": [
+        "agentfem.workflow.standard_result_projection",
+        "agentfem.workflow.result_field_sampling"
+      ],
+      "source": "src/agentfem/knowledge/cards/result_visualization_contract.json",
+      "status": "supported",
+      "summary": "Keep topology and field ordering inside the output backend. The serial ResultWriter stores one grid per time with complete point/cell attributes, rejecting invalid frames before storage; ParaView Warp needs no duplicate-block cleanup.",
+      "title": "Single-grid results, connectivity and ParaView Warp"
+    },
+    {
       "id": "agentfem.workflow.scalable_campaign_evidence",
       "kind": "workflow",
       "public_api": [

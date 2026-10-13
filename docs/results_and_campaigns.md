@@ -191,6 +191,16 @@ reference coordinates, preserves the primary field name, and needs exactly one
 Warp operation for displacement. Select a `.pvd` path for collective MPI
 visualization. Legacy XDMF append mode retains DOLFINx's layout.
 
+The serial writer checks the whole frame before creating its HDF5 frame group:
+time must be finite and increasing; field names, associations and shapes must
+remain stable; values must be finite and real. Duplicate/reserved names are
+errors, not silently dropped fields. A rejected frame can be corrected and
+resubmitted; an actual storage failure poisons the writer and requires a new
+artifact. Continuous auxiliary fields are interpolated to the primary nodal
+element, even when coefficient counts happen to agree. Reference geometry is
+stored once and shared through HDF5 links, rather than compressed repeatedly.
+The caller still owns the physical meaning and units of its fields.
+
 Existing single-mesh DOLFINx output can be repaired without recomputing:
 
 ```python

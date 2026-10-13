@@ -14,6 +14,11 @@ import numpy as np
 from .material_array_batch import MaterialPointArrayBatchInput, _array
 from .user_material import MaterialStateSchema
 
+try:
+    from .._hex_native import symmetric_stress as _native_symmetric_stress
+except ImportError:
+    _native_symmetric_stress = None
+
 
 _RESPONSE_ARRAYS = (
     "cauchy_stress", "state_new", "internal_work_density_increment",
@@ -23,6 +28,8 @@ _RESPONSE_ARRAYS = (
 
 def _symmetric_cauchy_stress(stress):
     """Check the three independent pairs of an already finite stress batch."""
+    if _native_symmetric_stress is not None and stress.flags.c_contiguous:
+        return _native_symmetric_stress(stress)
     scale = np.maximum(np.max(np.abs(stress), axis=(1, 2)), np.finfo(float).tiny)
     tolerance = 1.0e-12 * scale
     return all(not np.any(np.abs(stress[:, i, j] - stress[:, j, i]) > tolerance)

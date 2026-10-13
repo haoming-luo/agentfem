@@ -180,6 +180,31 @@ static PyObject *all_finite(PyObject *self, PyObject *object) {
     PyBuffer_Release(&b);return PyBool_FromLong(!invalid);
 }
 
+static PyObject *symmetric_stress(PyObject *self, PyObject *object) {
+    Py_buffer b={0};
+    if(PyObject_GetBuffer(object,&b,PyBUF_CONTIG_RO|PyBUF_FORMAT)<0)return NULL;
+    if(b.itemsize!=sizeof(double) || !b.format ||
+       (strcmp(b.format,"d") && strcmp(b.format,"=d")) || b.len%72 ||
+       b.ndim!=3 || b.shape[1]!=3 || b.shape[2]!=3) {
+        PyBuffer_Release(&b);PyErr_SetString(PyExc_ValueError,"Stress scan requires (n,3,3) native float64 storage");return NULL;
+    }
+    const unsigned char *data=b.buf;Py_ssize_t n=b.len/72;int valid=1;
+    Py_BEGIN_ALLOW_THREADS
+    for(Py_ssize_t i=0;i<n && valid;++i) {
+        /* memcpy also admits byte-backed unaligned immutable payloads. */
+        double s[9],scale=DBL_MIN;memcpy(s,data+72*i,72);
+        for(int j=0;j<9;++j) {
+            if(!isfinite(s[j])) {valid=0;break;}
+            scale=fmax(scale,fabs(s[j]));
+        }
+        double tolerance=1.e-12*scale;
+        if(fabs(s[1]-s[3])>tolerance || fabs(s[2]-s[6])>tolerance ||
+           fabs(s[5]-s[7])>tolerance) valid=0;
+    }
+    Py_END_ALLOW_THREADS
+    PyBuffer_Release(&b);return PyBool_FromLong(valid);
+}
+
 static PyObject *cell_work(PyObject *self, PyObject *args) {
     PyObject *force,*nodes,*increment;Py_ssize_t width;Py_buffer f={0},n={0},u={0};
     if(!PyArg_ParseTuple(args,"OOOn",&force,&nodes,&increment,&width))return NULL;
@@ -271,6 +296,7 @@ static PyMethodDef methods[]={
     {"orientation_screen",orientation,METH_O,"Near-identity orientation: 1 admitted, 0 use LU, 2 nonfinite."},
     {"scatter",scatter,METH_VARARGS,"Ordered finite nodal force reduction."},
     {"all_finite",all_finite,METH_O,"Exact binary64 finite scan without temporary masks."},
+    {"symmetric_stress",symmetric_stress,METH_O,"Finite symmetric Cauchy stress scan with the core relative tolerance."},
     {"cell_work",cell_work,METH_VARARGS,"Pairwise force-displacement work blocks with checked indices."},
     {"determinants",determinants,METH_O,"Six-product determinants with finite/cancellation/LU flags."},
     {NULL,NULL,0,NULL}};

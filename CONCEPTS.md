@@ -600,6 +600,13 @@ criterion rolls back the same complete transaction.
 
 ## Output Interval and Frame
 
+A visualization frame owns one geometry and the point/cell attributes attached
+to that geometry. Element node ordering is a backend output responsibility,
+not an application modeling choice. Field length alone is not a spatial map.
+The serial unified writer validates a complete frame before storage, preserves
+the time/schema contract, and shares unchanged reference geometry. Presentation
+validity and scientific verification remain distinct.
+
 An output interval or time point requests when fields should be persisted. A
 Frame is the saved result state produced at one such point or accepted
 Increment. Frames do not drive the nonlinear algorithm. Exact output marks may

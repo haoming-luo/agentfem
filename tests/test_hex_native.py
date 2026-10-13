@@ -89,3 +89,23 @@ def test_determinants_keep_reference_arithmetic_and_lu(monkeypatch):
     monkeypatch.setattr(module,'_native_determinants',None)
     expected=module.determinants_3x3(a)
     np.testing.assert_array_equal(actual,expected)
+@pytest.mark.parametrize("scale", [0., 1.e-310, 1.e-200, 1., 1.e100, 1.e300])
+def test_native_symmetric_stress_matches_reference_at_threshold(scale):
+    native = pytest.importorskip("agentfem._hex_native")
+    random = np.random.default_rng(4921).normal(size=(100, 3, 3))
+    stress = scale * (random + random.transpose(0, 2, 1))
+    def reference(values):
+        tolerance = 1e-12*np.maximum(np.max(np.abs(values), axis=(1, 2)), np.finfo(float).tiny)
+        return all(not np.any(np.abs(values[:, i,j]-values[:, j,i]) > tolerance)
+                   for i,j in ((0,1),(0,2),(1,2)))
+    for multiplier in (0., .999, 1., 1.001, 2.):
+        sample = stress.copy()
+        sample[0, 0, 1] += multiplier * 1e-12 * max(np.max(np.abs(stress[0])), np.finfo(float).tiny)
+        assert native.symmetric_stress(sample) == reference(sample)
+        unaligned = np.frombuffer(b"x" + sample.tobytes(), dtype=float, offset=1).reshape(sample.shape)
+        assert native.symmetric_stress(unaligned) == reference(sample)
+    assert native.symmetric_stress(np.empty((0,3,3)))
+    for invalid in (np.nan, np.inf, -np.inf):
+        sample = stress.copy()
+        sample[0,0,0] = invalid
+        assert not native.symmetric_stress(sample)

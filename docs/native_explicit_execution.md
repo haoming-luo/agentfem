@@ -91,6 +91,13 @@ Full-model elapsed time and late-stage numerical equivalence are separate
 acceptance gates; passing these local tests establishes neither a whole-run
 speedup nor independent vendor agreement.
 
+Native builds also perform Cauchy-stress symmetry admission in one scalar
+scan per point, without a full-mesh absolute-stress temporary. The relative
+tolerance and tiny-value floor are identical to the NumPy reference; tests
+cover threshold neighbors, extreme scales, unaligned buffers and nonfinite
+data. The ordinary Python fallback remains supported. This reduces temporary
+storage and repeated passes; it is not a measured whole-run speedup.
+
 The design follows the separation of operator action from global matrix
 storage described in [MFEM's assembly levels](https://mfem.org/howto/assembly_levels/)
 and keeps broad-phase spatial search distinct from narrow-phase geometry,

@@ -96,6 +96,9 @@ record.
 19. Write visualization/output artifacts and attach them to the result. The
     standard transient lifecycle performs this automatically; low-level
     `run(output=...)` remains available for expert loops.
+    Format-specific connectivity belongs to the writer, not to the case or AI
+    agent. For custom exports use `io.ResultWriter`; transfer fields through
+    their spaces or explicit cell identities, never equal-length array guesses.
 20. Apply `result.verify("exploratory" | "engineering" | "release")` and
     declare required quantities, histories, and artifacts. Add reference,
     invariant, discretization, or validation claims when the result will be

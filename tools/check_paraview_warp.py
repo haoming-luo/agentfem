@@ -37,7 +37,12 @@ def check(path, vector, scale=1.):
         raise RuntimeError("ParaView did not admit the result file.")
     warped = None
     try:
-        source.UpdatePipeline()
+        source.UpdatePipelineInformation()
+        times = list(getattr(source, "TimestepValues", ()))
+        # A continuation segment may begin at t>0. The pipeline default of
+        # zero is not necessarily a saved frame and may omit its attributes.
+        selected_time = float(times[0]) if times else 0.
+        source.UpdatePipeline(time=selected_time)
         grids = list(leaves(servermanager.Fetch(source)))
         if len(grids) != 1:
             raise ValueError(f"Expected one mesh per time, got {len(grids)} blocks.")
@@ -52,7 +57,7 @@ def check(path, vector, scale=1.):
         warped = WarpByVector(Input=source)
         warped.Vectors = ["POINTS", vector]
         warped.ScaleFactor = scale
-        warped.UpdatePipeline()
+        warped.UpdatePipeline(time=selected_time)
         output = list(leaves(servermanager.Fetch(warped)))
         if len(output) != 1 or output[0].GetNumberOfCells() != grid.GetNumberOfCells():
             raise ValueError("Warp introduced or lost geometry blocks/cells.")
@@ -63,6 +68,7 @@ def check(path, vector, scale=1.):
                 "reader": source.SMProxy.GetXMLName(), "path": str(Path(path).resolve()),
                 "blocks": 1, "points": len(coordinates), "cells": grid.GetNumberOfCells(),
                 "vector": vector, "scale": scale,
+                "checked_time": selected_time, "available_times": times,
                 "maximum_coordinate_error": float(np.max(np.abs(actual-expected))),
                 "scope": "presentation only; not scientific validation"}
     finally:
