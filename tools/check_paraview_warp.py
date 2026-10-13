@@ -10,9 +10,33 @@ import json
 from pathlib import Path
 
 import numpy as np
-from paraview import servermanager
-from paraview.simple import OpenDataFile, WarpByVector, Delete
-from vtkmodules.util.numpy_support import vtk_to_numpy
+
+
+def _reader_times(value):
+    """Readers may expose one saved time as a scalar, not a sequence."""
+    values = () if value is None else (value,) if np.isscalar(value) else value
+    times = [float(item) for item in values]
+    if not np.isfinite(times).all():
+        raise ValueError("Reader returned nonfinite time coordinates.")
+    return times
+
+
+def _warp_error(coordinates, values, actual, scale):
+    """Do not let NaN equality or broadcasting turn invalid output into a pass."""
+    if (coordinates.ndim != 2 or coordinates.shape[1] != 3
+            or not len(coordinates) or values.shape != coordinates.shape
+            or actual.shape != coordinates.shape):
+        raise ValueError("Warp must preserve a nonempty (points, 3) geometry and vector.")
+    if (not np.isfinite(scale)
+            or any(not np.isfinite(array).all()
+                   for array in (coordinates, values, actual))):
+        raise ValueError("Warp coordinates, vector and scale must be finite.")
+    with np.errstate(over="ignore", invalid="ignore"):
+        expected = coordinates + scale * values
+    if not np.isfinite(expected).all():
+        raise ValueError("Warp exceeds the finite coordinate range.")
+    np.testing.assert_allclose(actual, expected, rtol=1e-7, atol=1e-8, equal_nan=False)
+    return float(np.max(np.abs(actual - expected)))
 
 
 def leaves(data):
@@ -30,6 +54,10 @@ def leaves(data):
 
 
 def check(path, vector, scale=1.):
+    from paraview import servermanager
+    from paraview.simple import OpenDataFile, WarpByVector, Delete
+    from vtkmodules.util.numpy_support import vtk_to_numpy
+
     if not np.isfinite(scale):
         raise ValueError("Warp scale must be finite.")
     source = OpenDataFile(str(Path(path).resolve()))
@@ -38,7 +66,7 @@ def check(path, vector, scale=1.):
     warped = None
     try:
         source.UpdatePipelineInformation()
-        times = list(getattr(source, "TimestepValues", ()))
+        times = _reader_times(getattr(source, "TimestepValues", ()))
         # A continuation segment may begin at t>0. The pipeline default of
         # zero is not necessarily a saved frame and may omit its attributes.
         selected_time = float(times[0]) if times else 0.
@@ -62,14 +90,13 @@ def check(path, vector, scale=1.):
         if len(output) != 1 or output[0].GetNumberOfCells() != grid.GetNumberOfCells():
             raise ValueError("Warp introduced or lost geometry blocks/cells.")
         actual = vtk_to_numpy(output[0].GetPoints().GetData())
-        expected = coordinates + scale*values
-        np.testing.assert_allclose(actual, expected, rtol=1e-7, atol=1e-8)
+        error = _warp_error(coordinates, values, actual, scale)
         return {"schema": "agentfem.paraview-warp-check.v1", "passed": True,
                 "reader": source.SMProxy.GetXMLName(), "path": str(Path(path).resolve()),
                 "blocks": 1, "points": len(coordinates), "cells": grid.GetNumberOfCells(),
                 "vector": vector, "scale": scale,
                 "checked_time": selected_time, "available_times": times,
-                "maximum_coordinate_error": float(np.max(np.abs(actual-expected))),
+                "maximum_coordinate_error": error,
                 "scope": "presentation only; not scientific validation"}
     finally:
         if warped is not None:

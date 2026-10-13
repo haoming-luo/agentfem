@@ -243,6 +243,17 @@ jobs:
       - name: Validate versioned scientific knowledge
         run: python build_knowledge.py --check --check-imports
 
+      - name: Verify installed field archives through an independent volume reader
+        run: |
+          # A release must not silently skip connectivity/Warp checks simply
+          # because the solver environment does not otherwise need VTK.
+          # No renderer or display server is involved; runtime stays optional.
+          python -m pip install "vtk>=9.3,<10"
+          python -c "import vtk; assert hasattr(vtk, 'vtkXdmfReader')"
+          python -m pytest -q -o pythonpath= \
+            tests/test_xdmf_cell_ordering.py tests/test_xdmf_layout.py \
+            tests/test_paraview_warp_tool.py
+
       - name: Run unit and interface tests
         run: |
           if [[ "${VALIDATION_LEVEL}" == "core" && -n "${CHANGED_TESTS}" ]]; then

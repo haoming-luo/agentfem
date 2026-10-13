@@ -276,3 +276,27 @@ implementation bitwise for 3 nodal arrays, 57 auxiliary arrays, 20 numeric
 history channels, the damage subset and 76 contact evidence entries. This is
 offline implementation replay; it neither admits a restart migration nor
 validates the scientific model against Abaqus.
+
+## Independent output and cross-platform acceptance
+
+Candidate `6a401521` passed the complete remote Linux numerical/release gate
+and macOS installed-wheel foundation acceptance (workflow `38363421566`).
+macOS built its native wheel from the exact Linux-tested source archive and
+passed promotion; binaries were not treated as platform independent.
+
+The follow-up output gate makes VTK reading mandatory in core/release CI,
+instead of allowing the optional dependency to silently skip connectivity and
+Warp regressions. The installed candidate passed all 53 selected output/tool
+checks locally, with no skips. The reader checker normalizes scalar and
+sequence time properties and rejects nonfinite geometry, vectors, overflow
+and shape broadcasting; matching NaNs cannot become a successful comparison.
+Actual ParaView 6.1.1 reading of the public classic result still produced one
+volume grid and zero Warp coordinate error. Remote acceptance of this final
+gate addition is separate from the `6a401521` result above.
+
+The frozen original model's step-50,000 station also matched the older full
+run bitwise for all compared arrays, numeric histories and contact evidence.
+Its computation remains in progress. Presentation repair and independent
+reader checking are a one-shot postprocessing stage outside the frozen
+numerical runtime, preserving original field arrays and recording their cost
+separately. Neither this comparison nor a single-grid image is vendor validation.
