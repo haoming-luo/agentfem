@@ -187,3 +187,37 @@ state and no access to live FEM fields or the body material. It is not generic
 thread safety for arbitrary callbacks. Scheduling does not change the contact
 law, assembly order, time grid or checkpoint schema. Small serial/overlap and
 restart comparisons are regression evidence, not a full-case speed claim.
+
+## Optional stateless native arithmetic
+
+Source builds may opt into `AGENTFEM_BUILD_NATIVE=1 python -m pip wheel .`.
+This compiles a small core extension, without NumPy C headers, for conservative
+affine/orientation screens, guarded small determinants, finite-storage scans,
+ordered cell-to-node force reduction and bounded pairwise work contraction. Ordinary
+pure-Python builds remain supported; a missing compiler or unavailable extension
+retains NumPy, LU and Bernstein fallbacks. No compilation occurs during solve.
+Native compilation disables floating-point contraction and refuses fast-math
+builds; finite-value admission must not be optimized away. CI imports the
+installed extension explicitly before its targeted suite, so a silent optional
+build fallback cannot count as native-kernel acceptance.
+
+The affine screen uses a near-identity homotopy for orientation and a guarded
+Gram-matrix bound for the residual deformation. Uncertified cells still use the
+existing affine/SVD/Bernstein admission; a positive mean determinant alone is
+never sufficient. It does not change the element formulation or stable step.
+Force reduction preserves the input order for every nodal component, validates
+indices and finite outputs, and returns detached storage before PETSc publication.
+No material law, accepted state, thread pool or geometric cache lives in C.
+The work contraction still uses force times nodal displacement, not a power
+substitute. Its signed and absolute products use bounded pairwise reduction;
+floating-point reduction grouping may differ from NumPy and is checked against
+the same absolute-product roundoff budget. Small determinants retain the exact
+six-product order and the LU fallback for cancellation, overflow and tiny inputs.
+Finite-storage scans preserve NaN/Inf rejection, including unaligned buffers.
+
+The response Step summary reports `affine_geometry_screen`. Checkpoint physics
+identity remains unchanged by this implementation-only optimization. Builds and
+runtime artifacts must still be recorded in performance/reproducibility evidence.
+Native and reference results must be compared at equal accepted stations before
+making a throughput claim; native availability alone proves neither speed nor
+independent physical validity.

@@ -13,6 +13,16 @@ from itertools import product
 import basix
 import numpy as np
 
+try:
+    from .._hex_native import affine_screen as _native_affine_screen
+except ImportError:
+    _native_affine_screen = None
+
+
+def affine_screen_backend():
+    """Execution evidence, not a distinct material or geometric contract."""
+    return 'native_c_with_reference_fallback' if _native_affine_screen is not None else 'numpy'
+
 
 @lru_cache(maxsize=1)
 def _derivatives():
@@ -181,6 +191,40 @@ def admits_affine_perturbation(coordinates, displacement, gradient, radius):
     budget. Pure finite rotation/shear need not trigger 27-sample subdivision.
     False still requests the full Bernstein check; no inversion is repaired.
     """
+    # Validity is cell-local. Bound temporary edge/Gram arrays to a cache-sized
+    # block instead of copying the complete mesh several times per increment.
+    # Every block retains the identical sufficient test and SVD fallback.
+    block = 2048
+    if len(coordinates) > block:
+        admitted = np.empty(len(coordinates), dtype=bool)
+        for start in range(0, len(coordinates), block):
+            stop = start + block
+            admitted[start:stop] = _admits_affine_perturbation_block(
+                coordinates[start:stop], displacement[start:stop],
+                gradient[start:stop], radius[start:stop])
+        return admitted
+    return _admits_affine_perturbation_block(coordinates, displacement, gradient, radius)
+
+
+def _admits_affine_perturbation_block(coordinates, displacement, gradient, radius):
+    """Cell-independent reference arithmetic, shared by each bounded block."""
+    if _native_affine_screen is not None and len(coordinates):
+        arrays = [np.require(value, dtype=np.float64, requirements=['C','A'])
+                  for value in (coordinates, displacement, gradient, radius)]
+        count = len(coordinates)
+        if [a.shape for a in arrays] != [(count,8,3),(count,8,3),(count,3,3),(count,)]:
+            raise ValueError('Invalid affine geometry array shape')
+        raw = _native_affine_screen(*arrays, np.ascontiguousarray(_coordinate_edges(), dtype=np.int32))
+        admitted = np.frombuffer(raw, dtype=np.uint8).astype(bool)
+        pending = np.flatnonzero(~admitted)
+        if len(pending):
+            admitted[pending] = _affine_reference(*(a[pending] for a in arrays))
+        return admitted
+    return _affine_reference(coordinates, displacement, gradient, radius)
+
+
+def _affine_reference(coordinates, displacement, gradient, radius):
+    """Unaccelerated arithmetic retained for every uncertified cell."""
     from .._orientation import positive_finite_determinants
 
     admitted = np.zeros(len(coordinates), dtype=bool)

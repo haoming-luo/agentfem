@@ -10,6 +10,11 @@ from ._finite_uniform_hex_material import material_trial
 from ._hex_dolfinx_layout import prepare_layout
 from ..provenance import collective_call
 
+try:
+    from .._hex_native import scatter as _native_scatter
+except ImportError:
+    _native_scatter = None
+
 
 class FiniteUniformHexResidual:
     """Map existing material transactions to a DOLFINx Q1 residual.
@@ -106,19 +111,42 @@ class FiniteUniformHexResidual:
             def local_scatter():
                 if (
                     np.shape(cell_values) != (len(self.cell_nodes), 8, 3)
-                    or not np.isfinite(cell_values).all()
                 ):
                     raise ValueError(
                         "Finite Hex8 scatter requires finite cell vectors."
                     )
                 if additional_cell_values is not None and (
                     np.shape(additional_cell_values) != np.shape(cell_values)
-                    or not np.isfinite(additional_cell_values).all()
                 ):
                     raise ValueError("Additional Hex8 forces require matching finite cell vectors.")
                 with vector.localForm() as local:
                     local.set(0)
                     values = local.array.reshape(-1, 3)
+                    native = (_native_scatter is not None and not chunked
+                              and cell_values.dtype == np.dtype(float)
+                              and cell_values.flags.c_contiguous and cell_values.flags.aligned
+                              and self.cell_nodes.flags.c_contiguous and self.cell_nodes.flags.aligned
+                              and self.cell_nodes.dtype in (np.dtype('int32'),np.dtype('int64'))
+                              and (additional_cell_values is None or (
+                                  additional_cell_values.dtype == np.dtype(float)
+                                  and additional_cell_values.flags.c_contiguous
+                                  and additional_cell_values.flags.aligned)))
+                    if native:
+                        try:
+                            raw = _native_scatter(cell_values, self.cell_nodes,
+                                                  additional_cell_values, len(values))
+                        except ValueError:
+                            if not np.isfinite(cell_values).all():
+                                raise ValueError('Finite Hex8 scatter requires finite cell vectors.') from None
+                            if additional_cell_values is not None and not np.isfinite(additional_cell_values).all():
+                                raise ValueError('Additional Hex8 forces require matching finite cell vectors.') from None
+                            raise
+                        values[:] = np.frombuffer(raw,dtype=float).reshape(values.shape)
+                        return
+                    if not np.isfinite(cell_values).all():
+                        raise ValueError('Finite Hex8 scatter requires finite cell vectors.')
+                    if additional_cell_values is not None and not np.isfinite(additional_cell_values).all():
+                        raise ValueError('Additional Hex8 forces require matching finite cell vectors.')
                     if not chunked:
                         force = cell_values.reshape(-1, 3)
                         nodes = self.cell_nodes.ravel()

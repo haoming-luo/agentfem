@@ -11,6 +11,7 @@ include WORKFLOW.md
 include CONCEPTS.md
 include AGENT_GUIDE.md
 include pyproject.toml
+include setup.py
 include environment.yml
 include release_gate.py
 include promotion_gate.py
@@ -33,6 +34,7 @@ recursive-include examples/extensions *.toml
 recursive-include src/agentfem/benchmarks *.py *.md
 recursive-include src/agentfem/knowledge *.json *.md *.csv
 recursive-include src/agentfem/elements *.md
+include src/agentfem/_hex_native.c
 recursive-include src/agentfem/operators *.md
 recursive-include tests *.py
 recursive-include tools *.py *.sh *.md Dockerfile

@@ -13,6 +13,11 @@ from typing import Mapping
 
 import numpy as np
 
+try:
+    from .._hex_native import all_finite as _native_all_finite
+except ImportError:
+    _native_all_finite = None
+
 from .._orientation import positive_finite_determinants
 
 from .user_material import (
@@ -28,7 +33,11 @@ def _array(value, shape, label):
     if np.iscomplexobj(value):
         raise ValueError(f"{label} must be real; complex values are not supported.")
     selected = np.asarray(value, dtype=float)
-    if selected.shape != shape or not np.isfinite(selected).all():
+    if selected.shape != shape:
+        raise ValueError(f"{label} must be finite with shape {shape}.")
+    finite = (_native_all_finite(selected) if _native_all_finite is not None
+              and selected.flags.c_contiguous else np.isfinite(selected).all())
+    if not finite:
         raise ValueError(f"{label} must be finite with shape {shape}.")
     owner = selected
     while isinstance(owner, np.ndarray):

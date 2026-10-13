@@ -92,6 +92,24 @@ _CORE_SOURCE_TEST_MAP = {
     ),
     "src/agentfem/elements/explicit_execution.py": (
         "tests/test_explicit_hex_execution.py", "tests/test_owned_explicit_state.py",
+        "tests/test_hex_validity_blocks.py",
+    ),
+    "src/agentfem/elements/_hex_validity.py": (
+        "tests/test_hex_validity_blocks.py", "tests/test_hex_validity.py",
+        "tests/test_explicit_hex_execution.py",
+    ),
+    "src/agentfem/_hex_native.c": (
+        "tests/test_hex_native.py",
+        "tests/test_hex_validity_blocks.py", "tests/test_hex_validity.py",
+        "tests/test_explicit_hex_execution.py",
+        "tests/test_bulk_viscosity.py", "tests/test_bulk_viscosity_lifecycle.py",
+        "tests/test_orientation.py", "tests/test_small_matrix.py",
+    ),
+    "src/agentfem/_orientation.py": (
+        "tests/test_orientation.py", "tests/test_hex_native.py",
+    ),
+    "src/agentfem/_small_matrix.py": (
+        "tests/test_small_matrix.py", "tests/test_hex_native.py",
     ),
     "src/agentfem/boundary_models/q1_execution.py": (
         "tests/test_q1_execution.py", "tests/test_closed_q1_surface.py",
@@ -281,6 +299,7 @@ _CORE_SOURCE_TEST_MAP = {
         "tests/test_element_contracts.py",
         "tests/test_validation.py",
         "tests/test_hex_validity.py",
+        "tests/test_hex_validity_blocks.py",
         "tests/test_uniform_hex.py",
         "tests/test_finite_uniform_hex.py",
         "tests/test_finite_uniform_hex_material.py",

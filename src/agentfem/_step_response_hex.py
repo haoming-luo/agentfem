@@ -50,11 +50,13 @@ class ResponseMaterialHexStep(ExplicitDynamicsStep):
         return self._substeps.advance(t)
 
     def summary(self):
+        from .elements._hex_validity import affine_screen_backend
         return {**super().summary(), "material": self.material_residual.material.summary(),
                 "element_policy": self.element_policy.summary(),
                 "execution_scope": "experimental_serial_response_only_hex8",
                 "material_storage": self.material_storage,
                 "contact_execution": self.contact_execution,
+                "affine_geometry_screen": affine_screen_backend(),
                 "operator_increment_ceilings": dict(self.operator_increment_ceilings),
                 "stability_scope": "caller_increment_ceiling_not_stability_proof",
                 "numerical_inertia": None if self.numerical_inertia is None else self.numerical_inertia.summary(),

@@ -252,6 +252,22 @@ jobs:
             python -m pytest
           fi
 
+      - name: Verify the optional stateless native kernels from an installed wheel
+        run: |
+          native_root=$(mktemp -d)
+          AGENTFEM_BUILD_NATIVE=1 python -m build --wheel --outdir "${native_root}/dist"
+          python -m pip install --no-deps --target "${native_root}/site" "${native_root}"/dist/*.whl
+          export PYTHONPATH="${native_root}/site"
+          python -c "import agentfem._hex_native"
+          python -m pytest -q -o pythonpath= \
+            tests/test_hex_native.py tests/test_hex_validity_blocks.py \
+            tests/test_hex_validity.py tests/test_orientation.py \
+            tests/test_small_matrix.py tests/test_material_array_batch.py \
+            tests/test_bulk_viscosity.py tests/test_bulk_viscosity_lifecycle.py \
+            tests/test_explicit_hex_execution.py tests/test_owned_explicit_state.py \
+            tests/test_response_substeps.py tests/test_response_deformable_step.py \
+            tests/test_finite_uniform_hex_dolfinx.py
+
       - name: Prove an independently installed external provider
         run: |
           rm -rf /tmp/agentfem-reference-extension-dist

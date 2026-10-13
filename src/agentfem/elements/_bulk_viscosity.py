@@ -13,6 +13,11 @@ import numpy as np
 
 from ._uniform_hex import _frozen
 
+try:
+    from .._hex_native import cell_work as _native_cell_work
+except ImportError:
+    _native_cell_work = None
+
 
 @dataclass(frozen=True)
 class BulkViscosityResponse:
@@ -48,6 +53,14 @@ def _cell_increment_work(force, cell_nodes, nodal_increment, *, chunk_size=4096)
     ):
         raise ValueError("Cell work requires real Hex8 forces, node map and nodal increments.")
     increment = np.asarray(increment, dtype=float)
+    if (_native_cell_work is not None and force.dtype == np.dtype(float)
+        and nodes.dtype in (np.dtype('int32'),np.dtype('int64'))
+        and all(a.flags.c_contiguous and a.flags.aligned for a in (force,nodes,increment))):
+        signed, absolute = _native_cell_work(force,nodes,increment,min(chunk_size,1024))
+        result = (fsum(np.frombuffer(signed,dtype=float)),fsum(np.frombuffer(absolute,dtype=float)))
+        if not np.isfinite(result).all():
+            raise ValueError('Cell increment work overflowed.')
+        return result
     signed_parts, absolute_parts = [], []
     for start in range(0, len(nodes), chunk_size):
         selected = nodes[start:start + chunk_size]

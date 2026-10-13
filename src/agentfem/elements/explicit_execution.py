@@ -189,8 +189,12 @@ retain affine/Bernstein checks; every mean F still needs positive determinant.
     admitted = admitted.copy()
     pending = ~admitted
     if np.any(pending):
-        admitted[pending] = admits_affine_perturbation(geometry.coordinates[pending],
-            u[pending], f[pending], geometry.reference_perturbation_radius[pending])
+        # Avoid full-mesh advanced-index copies before the cell-local screen.
+        indices = np.flatnonzero(pending)
+        for start in range(0, len(indices), 2048):
+            selected = indices[start:start + 2048]
+            admitted[selected] = admits_affine_perturbation(geometry.coordinates[selected],
+                u[selected], f[selected], geometry.reference_perturbation_radius[selected])
     if np.any(~admitted):
         require_positive_hex_jacobian(geometry.coordinates[~admitted]+u[~admitted])
     if not positive_finite_determinants(f).all():

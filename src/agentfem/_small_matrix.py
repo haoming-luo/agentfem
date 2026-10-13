@@ -3,6 +3,11 @@
 """Bounded-size arithmetic helpers; not finite-element validity certificates."""
 import numpy as np
 
+try:
+    from ._hex_native import determinants as _native_determinants
+except ImportError:
+    _native_determinants = None
+
 
 def determinants_3x3(matrices):
     """Batch determinants, retaining LU for cancellation/overflow-sensitive rows.
@@ -15,6 +20,17 @@ def determinants_3x3(matrices):
     if raw.ndim != 3 or raw.shape[1:] != (3, 3) or np.iscomplexobj(raw):
         raise ValueError("Determinants require real (count,3,3) matrices.")
     a = np.asarray(raw, dtype=float)
+    if _native_determinants is not None and a.flags.c_contiguous and a.flags.aligned:
+        values, flags = _native_determinants(a)
+        status = np.frombuffer(flags,dtype=np.uint8)
+        if np.any(status==2):
+            raise ValueError('Determinants require finite matrices.')
+        result = np.frombuffer(values,dtype=float).copy()
+        pending = status==0
+        if np.any(pending):
+            with np.errstate(over='ignore',invalid='ignore',under='ignore'):
+                result[pending] = np.linalg.det(a[pending])
+        return result
     if not np.isfinite(a).all():
         raise ValueError("Determinants require finite matrices.")
     with np.errstate(over="ignore", invalid="ignore", under="ignore"):

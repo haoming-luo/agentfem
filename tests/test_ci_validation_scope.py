@@ -155,6 +155,7 @@ def test_discretization_owners_select_focused_serial_and_mpi_evidence():
         "tests/test_finite_uniform_hex_dolfinx.py",
         "tests/test_finite_uniform_hex_material.py",
         "tests/test_hex_validity.py",
+        "tests/test_hex_validity_blocks.py",
         "tests/test_ir.py",
         "tests/test_mesh_formats.py",
         "tests/test_mesh_quality.py",
