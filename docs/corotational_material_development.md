@@ -5,6 +5,30 @@ source materials stay outside the distribution. Model retains engineering
 assets; constitutive providers own local updates; Operator owns stress/force
 conversion; Procedure and State own acceptance and recovery.
 
+## Current installed boundary (2026-10-14)
+
+The bounded serial response-only Hex8 route now uses ordinary `model.step`,
+with built-in optional native body/auxiliary kernels, a generic compiled-material
+ABI, native Q1 contact execution, accepted-state recovery and the shared result
+writer. Confidential constitutive equations and source-model preparation remain
+project providers. The current interface and installation contract is
+[native explicit execution](native_explicit_execution.md).
+
+A frozen 255,041-cell review experiment completed its 100,000-increment path
+using the installed generic core in 15,465.05 s. It retained exact agreement
+with the previous implementation's compared fields and 10,000 reported history
+stations. This is an implementation/timing result, not independent Abaqus
+validation or proof of the original contact/mass-scaling semantics. A subsequent
+worker-lifecycle/compact-assembly candidate has passed installed targeted and
+MPI contact checks; its new complete-run timing remains a separate gate.
+
+The dated sections below retain the development sequence. Statements that a
+kernel was private, Step admission was pending, or only startup had run describe
+that stage; they do not supersede the current installed interface. Still open
+are source-equivalent contact/initialization, quantitative inertia and increment
+sensitivity, and independent full-model reference comparison. Do not extrapolate
+the serial response-only route to unsupported MPI or material capabilities.
+
 ## Explicit response data flow (2026-10-12)
 
 Accepted prescribed-tool work history now has a columnar numeric checkpoint

@@ -19,6 +19,34 @@ or a successful run is not by itself a validated engineering capability.
 
 ## Current product phase: the 0.4 foundation
 
+### Installed explicit workflow and delivery gate (2026-10-14)
+
+The bounded serial response-only Hex8 workflow has progressed from its private
+startup prototype to ordinary `model.step`, reusable core execution, readable
+case files and a completed frozen full-grid review path. Native body/auxiliary
+arithmetic, compiled-material dispatch and Q1 contact acceleration now ship as
+optional core modules; confidential equations and source geometry stay external.
+See [native explicit execution](native_explicit_execution.md) for the supported
+interfaces and [performance evidence](performance_evidence.md) for measured scope.
+
+The delivery priorities are now:
+
+1. Freeze and measure the installed candidate, preserve equal-station response
+   comparisons, verify the exported volume mesh with an independent reader,
+   and pass platform/CI gates. A short segment is not a full-run speed claim.
+2. Close independent source-case validation and inertia/time/penalty sensitivity
+   without changing inputs to meet a timing target. Completion of the reviewed
+   experiment does not establish equivalence to the source solver's contact,
+   initial-bond or variable-mass behavior.
+3. Use whole-increment evidence to choose the next bottleneck. Preserve one
+   accepted State owner; optimize execution/data movement without a second
+   solver or a case-specific core. Keep unsupported distributed response-only
+   combinations rejected until their own lifecycle gates pass.
+
+The older dated entries below document intermediate gates, not the current
+claim that only a startup pilot exists. They remain useful as provenance for
+scientific boundaries that have not yet closed.
+
 ### Corotational history-material gate (2026-10-10)
 
 The source-material review now has a compiled local reference and an independent

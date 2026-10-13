@@ -1,5 +1,39 @@
 # Performance evidence
 
+## Completed core migration and next installed candidate (2026-10-14)
+
+The frozen `b962a777` generic-core run has now completed the same 255,041-cell,
+100,000-increment review path in **15,465.05 s (4 h 17 min 45 s)**, including
+preparation, export and worker shutdown. The previous migrated-core run took
+19,119.11 s; the earlier private implementation took 13,529.51 s. The new
+measured total is 19.11% below the former and remains 14.31% above the latter.
+These are local complete timings, not a hardware-normalized commercial-solver
+comparison or an isolated causal experiment: lightweight source/metadata work
+overlapped the new run, and the earlier core run had additional build/test load.
+
+Final compared nodal/material/damage/contact arrays and all 10,000 shared
+reporting stations agreed exactly. Actual ParaView read one volume mesh with
+255,041 Hex8 cells, a complete displacement vector and zero Warp coordinate
+error. The retained fixed-inertia, initial-adjustment and penalty-contact
+experiment has not been independently validated against the source solver.
+
+Candidate `608c50bb` additionally reuses instance-owned sleeping native workers
+and keeps rigid-contact residuals in indexed boundary-node storage through
+serial assembly. Two fresh 100→600-increment spans took 81.678/80.525 s, versus
+86.036 s for a current-HEAD baseline: about 5.7% less mean segment time. Early
+checkpoint comparisons passed; body-only replays at steps 20,000/60,000/90,000
+retained all 12 arrays bitwise, but worker reuse alone gave no meaningful late
+body-time reduction. Do not infer full-run savings from that short segment or
+attribute the combined change to a faster material law.
+
+The selected macOS source-built wheel passed 238 targeted installed tests,
+nine contact tests per MPI rank, and clean-checkout installed platform acceptance.
+Its source-archive/native-header packaging is checked separately. A new frozen
+project has passed a fresh 600-step state comparison and an actual ParaView
+one-volume Warp check. Its complete fresh-run timing is still in progress.
+No mass, loading duration, increment, contact tolerance or material law was
+changed for this execution optimization.
+
 ## Accepted state and reporting boundaries (2026-10-12)
 
 The first frozen generalized native run exposed a migration regression:

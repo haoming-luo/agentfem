@@ -165,3 +165,35 @@ The first platform-status command correctly refused promotion from the dirty
 development worktree. Pre-existing generated `site/` files are preserved.
 Clean-commit/source identity is a separate release check; the successful
 numerical smoke must not be reported as that platform gate passing.
+
+After committing the selected code as `608c50bb`, the same wheel passed the
+complete macOS release gate from a clean detached checkout (`source_dirty=false`).
+The original generated files were not deleted. The public standing-wave example
+also completed 640 increments, with relative displacement error 0.000709679
+and relative energy-balance residual 1.93266e-6 in its small-amplitude scope.
+
+The new frozen private project keeps the preceding readable `case.py`, execution
+settings, mesh, inertia and source law unchanged. Its sole provider edit closes
+the core-owned executor explicitly. All 631 frozen files are hash-checked before
+launch. The fresh 600-step project/export check took 120.982 s and passed the
+checkpoint comparison. Actual ParaView 6.1.1 read one grid, 296,074 points and
+255,041 three-dimensional Hex8 cells with complete displacement and zero Warp
+error. A new full 100,000-step process started at approximately 18:22 UTC on
+October 13. It runs against that frozen installation; subsequent documentation
+edits do not change its runtime. No second numerical job will overlap it.
+
+The first 5,000-step full-run checkpoint passed 156 compared entries against
+the earlier completed core run (150 numeric arrays/histories bitwise equal;
+the remaining entries are scalar/string evidence). This is progress evidence,
+not completion. The performance commit also passed remote Linux native
+packaging, FEniCSx and macOS installed-wheel checks in run 38445551355.
+
+The subsequent result-contract audit reproduced eight failing acceptance tests:
+empty arrays were verified vacuously, array broadcasting hid layout differences,
+and complex NumPy inputs lost their imaginary component. The comparison helper
+now requires real, nonempty observations and matching layouts, with an explicit
+scalar constant-reference exception. It rejects masked input requiring a common
+selection and preserves immutable compared evidence when callers reuse buffers.
+Thirty-seven targeted verification/result/golden checks passed, without a
+second finite-element solve. This separate acceptance-layer change does not
+alter the frozen full-run runtime, equations or comparison tolerances.
