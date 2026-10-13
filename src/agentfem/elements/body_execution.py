@@ -64,10 +64,11 @@ def explicit_hex_kernel(*, backend="auto", cell_workers=1):
         except ImportError:
             pass
     return ExplicitHexBodyKernel(evaluate, {
-        "provider": "agentfem.explicit_hex_body", "revision": 2,
+        "provider": "agentfem.explicit_hex_body", "revision": 3,
         "arithmetic": "native" if native is not None else "numpy",
         "material_protocol": "explicit_array_batch", "state_owner": "core",
         "native_auxiliary": kinematics is not None,
+        "fused_affine_screen": kinematics is not None,
         "cell_workers": cell_workers if kinematics is not None else 1,
     }, prepare_kinematics=kinematics, evaluate_viscosity=viscosity,
         gather_cell_vectors=gather)

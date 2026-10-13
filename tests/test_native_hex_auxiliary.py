@@ -35,6 +35,10 @@ def test_auxiliary_parallel_is_exact_and_retains_reference(n):
     edges = np.ascontiguousarray(_coordinate_edges(), dtype=np.int32)
     gradient(n, geometry.coordinates, u, geometry.average_gradient,
         geometry.reference_perturbation_radius, edges, f, flags)
+    standalone = pytest.importorskip('agentfem._hex_native')
+    affine = np.frombuffer(standalone.affine_screen(geometry.coordinates, u, f,
+        geometry.reference_perturbation_radius, edges), dtype=np.uint8)
+    flags = flags.astype(bool) | affine.astype(bool)
     coefficients = {name: np.full(n, value) for name, value in
         [('density', 2.), ('wave_speed', 3.), ('characteristic_length', .4),
          ('linear', .06), ('quadratic', 1.2)]}
@@ -135,3 +139,33 @@ def test_gather_provider_cannot_retain_solver_storage():
     old = retained.copy()
     step.run(until_step=2)
     np.testing.assert_array_equal(retained, old)
+
+
+def test_fused_affine_screen_recovers_thin_cell_rotations_without_admitting_reflection():
+    import basix
+    from agentfem import elements
+    from agentfem.elements._finite_uniform_hex import FiniteUniformHexBatch
+    from agentfem.elements._hex_validity import admits_reference_perturbation
+    from agentfem.elements.explicit_execution import prepare_kernel_kinematics
+    pytest.importorskip('agentfem._body_pipeline')
+    x = np.tile(basix.cell.geometry(basix.CellType.hexahedron)*[2., 1., .05], (3,1,1))
+    cells = FiniteUniformHexBatch(x, density=1., hourglass_modulus=1., hourglass_scale=.1)
+    geometry = elements.ExplicitHexGeometry(cells.average_gradient, cells.hourglass_modes,
+        cells.volume, cells.hourglass_coefficient, cells.coordinates,
+        cells._reference_perturbation_radius, cells.lumped_mass)
+    f = np.tile(np.eye(3), (3,1,1))
+    f[0,0,1] = .2
+    c, s = np.cos(.2), np.sin(.2)
+    f[1] = [[c, 0, -s], [0, 1, 0], [s, 0, c]]
+    f[2,0,0] = -1
+    u = x @ (f-np.eye(3)).swapaxes(1,2)
+    assert not admits_reference_perturbation(x, u, geometry.reference_perturbation_radius).any()
+    kernel = elements.explicit_hex_kernel(backend='native', cell_workers=4)
+    actual, flags = kernel.prepare_kinematics(geometry, u)
+    # Thin-cell gradients scale as 1/thickness; the analytical affine map is
+    # compared at the arithmetic's cancellation scale, not a fixed unit-cube ulp.
+    tolerance = 32*np.finfo(float).eps*np.max(np.abs(u))*np.max(np.abs(cells.average_gradient))
+    np.testing.assert_allclose(actual, f, rtol=0, atol=tolerance)
+    np.testing.assert_array_equal(flags, [True, True, False])
+    with pytest.raises(ValueError):
+        prepare_kernel_kinematics(kernel, geometry, u)

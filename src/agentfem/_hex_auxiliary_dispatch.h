@@ -17,6 +17,9 @@ static void *execute_auxiliary(void *raw) {
     if (j->operation == 0) {
         hex_gradient(j->n, j->in[0], j->in[1], j->in[2], j->in[3],
                      (const int *)j->indices, j->out[0], j->status);
+        for (int k = 0; k < j->n; k++) if (!j->status[k])
+            j->status[k] = hex_affine_admitted(j->in[0]+24*k, j->in[1]+24*k,
+                j->out[0]+9*k, j->in[3][k], (const int *)j->indices);
     } else if (j->operation == 1) {
         hex_bulk_response(j->n, j->in[0], j->in[1], j->in[2], j->in[3],
             j->in[4], j->in[5], j->in[6], j->in[7], j->in[8], j->in[9],

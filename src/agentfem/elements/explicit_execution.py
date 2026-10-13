@@ -175,8 +175,8 @@ def prepare_kernel_viscosity(kernel, geometry, gradient, velocity, options, refe
 def prepare_kernel_kinematics(kernel, geometry, displacement):
     """Optional fused gradient/reference-ball screen with unchanged fallbacks.
 
-The trusted callback returns F and a boolean mask certifying the same
-reference-perturbation sufficient condition as the core. It cannot use a
+The trusted callback returns F and a boolean mask certifying the core's
+reference-ball or orientation-preserving affine-remainder condition. It cannot use a
 positive mean determinant alone to certify the entire cell. Uncertified cells
 retain affine/Bernstein checks; every mean F still needs positive determinant.
 """

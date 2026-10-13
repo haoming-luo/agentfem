@@ -73,6 +73,11 @@ Revision 3 adds the explicitly recorded `cell_workers` execution budget and
 the immutable native auxiliary path. It does not authorize migration from an
 older checkpoint identity. Retain the frozen runtime for that continuation or
 start a new run; compare archived stations without rewriting their identities.
+Revision 4 also reuses the existing strict affine-remainder screen inside the
+gradient workers. The standalone and fused routes share one C implementation;
+no threshold is relaxed. Inconclusive cells still take the same SVD/Bernstein
+fallback. This avoids repacking and serial dispatch of already certifiable
+rotated/deformed cells rather than skipping geometry admission.
 
 This ABI is trusted executable code, not a sandbox: do not load function
 addresses from a model file. ABI v1 supports stress, internal state and internal

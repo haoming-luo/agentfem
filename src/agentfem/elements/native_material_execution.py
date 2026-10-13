@@ -81,7 +81,8 @@ def native_explicit_hex_kernel(material, function, *, properties, density,
     from .body_auxiliary import auxiliary_callbacks, gather_callback
     kinematics, viscosity = auxiliary_callbacks(workers=cell_workers)
     return ExplicitHexBodyKernel(evaluate, {
-        'provider': 'agentfem.native_material_hex', 'abi': 1, 'revision': 3,
+        'provider': 'agentfem.native_material_hex', 'abi': 1, 'revision': 4,
+        'fused_affine_screen': True,
         'material': identity, 'state_width': width, 'property_count': len(parameters),
         'workers': workers, 'cell_workers': cell_workers, 'state_owner': 'core', 'density': float(density),
         'properties_sha256': hashlib.sha256(parameters.tobytes()).hexdigest()},

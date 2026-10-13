@@ -19,6 +19,7 @@
 #error Native body arithmetic requires strict floating point.
 #endif
 #include "_hex_body_native.h"
+#include "_hex_affine_native.h"
 #include "_hex_auxiliary.h"
 typedef void (*material_fn)(int,const double*,const double*,const double*,const double*,double,double,double*,double*,double*,int*);
 typedef struct {
