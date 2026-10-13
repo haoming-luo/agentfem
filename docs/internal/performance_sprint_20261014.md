@@ -197,3 +197,19 @@ selection and preserves immutable compared evidence when callers reuse buffers.
 Thirty-seven targeted verification/result/golden checks passed, without a
 second finite-element solve. This separate acceptance-layer change does not
 alter the frozen full-run runtime, equations or comparison tolerances.
+
+The source-deck review also found that a generic second-order Study inherited
+`linearity="linear"` even when its selected residual was nonlinear. Its default
+is now `unspecified`: time order/integrator preference is not a constitutive or
+geometric linearity declaration. Explicitly declared Study values and existing
+algorithm routing are preserved. Four metadata-only workflow checks pass. This
+fix does not alter the running installation or rewrite archived reports.
+
+The private review project now includes a strict offline checkpoint checker:
+it compares partition/field identities, all auxiliary leaves (not only selected
+array keys), every-increment history and hash-verified payloads. One explicitly
+pinned body-execution identity change is recorded; it does not bypass restart
+checks. Thirteen tiny metadata/archive tests pass; the full-model 15,000-step
+station passes 374 compared entries. This is stronger implementation evidence,
+not source-vendor or inertia-sensitivity validation. The checker took 0.66 s
+while the numerical job continued; no second simulation was started.

@@ -526,4 +526,8 @@ def _default_time_domain(analysis: str) -> str:
 def _default_linearity(analysis: str) -> str:
     if analysis.startswith("nonlinear"):
         return "nonlinear"
+    if analysis == "second_order_dynamics":
+        # Temporal order and an explicit/implicit preference do not identify
+        # the material, geometry or contact response as linear.
+        return "unspecified"
     return "linear"

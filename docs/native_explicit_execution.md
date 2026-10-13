@@ -20,6 +20,19 @@ Hex8 route, not a new Model or solver. Its existing unsupported-combination
 checks, stability limits, accepted-state transaction, restart and result trust
 levels remain in force. No MPI capability is added by selecting native code.
 
+A general second-order dynamics Study reports `linearity="unspecified"`
+unless the user explicitly declares it through `Study`. Time order and the
+explicit/implicit preference do not establish linear physics. The actual
+material, kinematics and boundary operators determine the response; a
+declaration alone does not enable an unsupported capability.
+`SolutionProcedure.nonlinear` describes the global solution algorithm, not
+whether a central-difference residual can contain nonlinear constitutive or
+contact contributions. In particular, explicit dynamics can advance nonlinear
+responses without a Newton loop or global tangent, as described in the
+[Abaqus explicit formulation](https://docs.software.vt.edu/abaqusv2025/English/SIMACAEANLRefMap/simaanl-c-expdynamic.htm).
+This metadata correction changes neither numerical advancement nor accepted
+state; frozen reports retain the declaration emitted by their original runtime.
+
 `explicit_hex_kernel` accepts the ordinary array-batch material protocol and
 arbitrary state schemas. It contracts Cauchy stress into work-conjugate first
 Piola stress, material force and hourglass force/energy without a global
