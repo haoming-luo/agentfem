@@ -12,6 +12,50 @@ execution paths, not the physical model. Byte-identical tests do not establish
 a speedup: compare frozen installed runs and multiple nonlinear stations
 before promoting a worker budget. Keep the original slower run and its timing.
 
+### Installed migration check (2026-10-13)
+
+The first frozen generic-core full run (runtime `38b007c0`) completed 100,000
+increments in 19,119.11 s, versus 13,529.51 s for the earlier private execution.
+All compared final scientific fields, material histories and work/contact
+records agreed exactly. This is a recorded regression, not a speedup. Local
+builds, short tests and a three-second diagnostic overlapped the generic run,
+so these two complete timings are not an isolated performance experiment.
+
+After it exited, installed candidate `b962a777` was compared sequentially with
+installed baseline `7e3c567c`, on the same 255,041-cell model and Apple Silicon
+host (4 performance and 6 efficiency cores, 32 GiB RAM). Both used 8 material
+workers, the same contact settings, process-local TCP transport, and one
+OpenBLAS/OMP thread. The candidate explicitly selected 4 auxiliary workers;
+physics, inertia, fixed time grid and reporting cadence were unchanged.
+
+| Fresh-run pair; increments 100–600 | Baseline | Candidate | Time reduction |
+| --- | ---: | ---: | ---: |
+| 1 | 93.416 s | 86.286 s | 7.6% |
+| 2 | 93.054 s | 88.776 s | 4.6% |
+
+Each run started from zero and advanced 600 increments; the table excludes
+preparation and its first 100 increments. Both final checkpoint comparisons
+passed with identical numerical arrays and shared numeric histories. The
+variation and early loading range limit the interpretation of these savings.
+
+Read-only replay of the same archived states separately measured the complete
+body trial: gather, geometry admission, material/force update, viscosity and
+scatter. Two warmups preceded 15 timed repetitions per station.
+
+| Archived accepted step | Baseline median | Candidate median | Time reduction |
+| --- | ---: | ---: | ---: |
+| 20,000 | 96.737 ms | 66.544 ms | 31.2% |
+| 60,000 | 107.008 ms | 66.582 ms | 37.8% |
+| 90,000 | 112.418 ms | 70.755 ms | 37.1% |
+
+All 12 output arrays at each station were byte-identical, including stress,
+hidden state, internal work, force and viscosity response. Replay did not
+migrate checkpoint identity or commit a global increment. It excludes contact,
+global acceptance and I/O. It therefore does not establish a 31–38% whole-run
+speedup. The private input assets and detailed archives are retained locally,
+not distributed as a public benchmark. A new frozen complete run is the next
+timing gate; independent vendor agreement remains unverified.
+
 The reusable core now has immutable field-record transport and exact live-field
 comparison before borrowing an accepted material-history snapshot. External
 field writes remain observable. The optional finite-Hex record cache is off by
