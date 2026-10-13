@@ -233,3 +233,29 @@ versus 4,447.485 s in the prior complete reference (5.88% less). The recent
 end-to-end time. Light metadata tests, checkpoint reads and plot generation
 overlapped the full process and are disclosed; no second full/FEM/MPI numerical
 job or competing timing benchmark overlapped it.
+
+## Delivery and scientific audit
+
+At increment 40,000, all 374 strict checkpoint comparisons pass. The nearby
+40,400 station's post-warmup elapsed span is 5,647.061 s versus 5,971.892 s
+(5.44% less); this remains partial-path evidence. The confidential project now
+has a read-only completion reviewer: fresh-run counters/process status,
+published result/artifact hashes, checkpoint state/history, journal integrity,
+independent ParaView volume/Warp and tool-motion work are separate gates.
+Twenty-one tiny archive/metadata tests pass. The review does not launch a solve,
+wait for completion, or promote a running path to completed.
+
+Re-examining the prior complete accepted history exposed substantial intermediate
+numerical inertia despite a small endpoint kinetic/work ratio. This is inherited
+by the matching implementation, not introduced by this optimization. Exact
+software parity can share a modeling error; it is not independent validation.
+The private review preserves the full-path physical/added/numerical kinetic
+partition and near-zero denominator policy. Do not infer quasi-static accuracy
+from the endpoint, the physical-mass kinetic component alone, or a small
+numerical ledger residual. No physical input is changed in the frozen run.
+
+Public-entrypoint commit `865adc30` passed the complete remote workflow
+`38456603613`, including Linux native packaging/numerical tests and macOS
+installed-wheel acceptance. Later prose-only closeout records do not replace
+the frozen `608c50bb` full-run runtime. The PR remains a candidate; no stable
+release tag or completed new end-to-end time is implied.

@@ -101,6 +101,14 @@ numerical inertia, not physical material density. Restart verifies inertia
 identity; changing nodal order or scaling is not a portable continuation.
 The summary records added mass. A successful scaled run does not establish
 quasi-static accuracy or mass sensitivity.
+Inspect the accepted loading history, not only the final kinetic-energy ratio:
+a small endpoint value can hide substantial intermediate inertia. Numerical
+kinetic energy belongs in the dynamic balance; its physical-mass and added-
+inertia components are separate diagnostics, not interchangeable measures.
+State the denominator and a near-zero rule for any ratio. In particular, do
+not label internal work as recoverable energy or infer quasi-static validity
+from an exactly closed numerical ledger. Compare the response under controlled
+inertia/time-grid changes before making that scientific claim.
 
 The caller's increment ceiling is **not a stability certificate**, including
 when contact and damping are present. This provider does not select an automatic
