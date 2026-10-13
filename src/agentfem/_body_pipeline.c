@@ -153,6 +153,10 @@ cleanup:
     for(int i=0;i<9;i++) if(buffers[i].obj) PyBuffer_Release(&buffers[i]);
     return result;
 }
-static PyMethodDef methods[]={{"run",run,METH_VARARGS,"Trusted C material ABI with core-owned immutable body output"},{NULL,NULL,0,NULL}};
+#include "_hex_auxiliary_dispatch.h"
+static PyMethodDef methods[]={
+    {"run",run,METH_VARARGS,"Trusted C material ABI with core-owned immutable body output"},
+    {"auxiliary",auxiliary,METH_VARARGS,"Joined disjoint-cell arithmetic with immutable output"},
+    {NULL,NULL,0,NULL}};
 static struct PyModuleDef module={PyModuleDef_HEAD_INIT,"_body_pipeline",NULL,-1,methods};
 PyMODINIT_FUNC PyInit__body_pipeline(void) { return PyModule_Create(&module); }

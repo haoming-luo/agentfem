@@ -87,6 +87,8 @@ class FiniteUniformHexResidual:
             self.cells.volume, self.cells.hourglass_coefficient,
             self.cells.coordinates, self.cells._reference_perturbation_radius,
             self.cells.lumped_mass)
+        self._execution_cell_nodes = (None if execution_kernel is None else
+            np.frombuffer(self.cell_nodes.tobytes(), dtype=np.int32).reshape(self.cell_nodes.shape))
 
     def _prepare_cells(self, density, hourglass_modulus, hourglass_scale, chunk_size):
         if self.response.domain is not self.displacement.function_space.mesh:
@@ -340,6 +342,16 @@ class FiniteUniformHexResidual:
 
     def _gather_cell_vectors(self, values):
         """Detached cell vectors; no retained mutable scratch across trials."""
+        kernel = getattr(self, 'execution_kernel', None)
+        if kernel is not None and kernel.gather_cell_vectors is not None:
+            from ..constitutive.material_array_batch import _array
+            # Freeze the smaller nodal input once; providers cannot retain a
+            # writable solver buffer. The much larger cell result can share
+            # immutable native storage instead of another full-mesh copy.
+            nodal = _array(values, values.shape, 'nodal_vectors')
+            nodes = self._execution_cell_nodes.view()
+            return _array(kernel.gather_cell_vectors(nodal, nodes),
+                          (len(self.cell_nodes), 8, 3), 'gathered_cell_vectors')
         return np.take(values, self.cell_nodes, axis=0)
 
     def _prepare_explicit_response(self, material, displacement, gradient, *,

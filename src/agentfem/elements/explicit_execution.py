@@ -120,6 +120,7 @@ class ExplicitHexBodyKernel:
     identity: Mapping
     prepare_kinematics: Callable | None = None
     evaluate_viscosity: Callable | None = None
+    gather_cell_vectors: Callable | None = None
     _identity_json: str = field(init=False, repr=False)
 
     def __post_init__(self):
@@ -133,12 +134,15 @@ class ExplicitHexBodyKernel:
             raise TypeError("prepare_kinematics must be callable or None")
         if self.evaluate_viscosity is not None and not callable(self.evaluate_viscosity):
             raise TypeError("evaluate_viscosity must be callable or None")
+        if self.gather_cell_vectors is not None and not callable(self.gather_cell_vectors):
+            raise TypeError("gather_cell_vectors must be callable or None")
 
     def summary(self):
         return {"kind": "trusted_explicit_hex_body_kernel", "identity": json.loads(self._identity_json),
                 "state_owner": "core", "scope": "serial_response_only_hex8",
                 "kinematic_screen": self.prepare_kinematics is not None,
-                "bulk_viscosity": self.evaluate_viscosity is not None}
+                "bulk_viscosity": self.evaluate_viscosity is not None,
+                "cell_gather": self.gather_cell_vectors is not None}
 
 
 def prepare_kernel_viscosity(kernel, geometry, gradient, velocity, options, reference):

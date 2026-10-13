@@ -7,7 +7,7 @@ from .explicit_execution import ExplicitHexBodyKernel, ExplicitHexBodyOutput
 from ..constitutive._explicit_material import ExplicitMaterialBatchOutput
 
 
-def explicit_hex_kernel(*, backend="auto"):
+def explicit_hex_kernel(*, backend="auto", cell_workers=1):
     """Use installed native arithmetic or the reference NumPy implementation.
 
     Material updates keep their ordinary array-batch interface and arbitrary
@@ -17,6 +17,8 @@ def explicit_hex_kernel(*, backend="auto"):
     """
     if backend not in ("auto", "native", "numpy"):
         raise ValueError("Body backend must be auto, native or numpy")
+    from .body_auxiliary import validate_cell_workers
+    validate_cell_workers(cell_workers)
     native = None
     if backend != "numpy":
         try:
@@ -53,16 +55,19 @@ def explicit_hex_kernel(*, backend="auto"):
             energy = .5 * geometry.hourglass_coefficient * np.sum(modes**2, axis=(1, 2))
         return ExplicitHexBodyOutput(response, piola, force, energy)
 
-    kinematics = viscosity = None
+    kinematics = viscosity = gather = None
     if native is not None:
         try:
-            from .body_auxiliary import auxiliary_callbacks
-            kinematics, viscosity = auxiliary_callbacks()
+            from .body_auxiliary import auxiliary_callbacks, gather_callback
+            kinematics, viscosity = auxiliary_callbacks(workers=cell_workers)
+            gather = gather_callback(workers=cell_workers)
         except ImportError:
             pass
     return ExplicitHexBodyKernel(evaluate, {
-        "provider": "agentfem.explicit_hex_body", "revision": 1,
+        "provider": "agentfem.explicit_hex_body", "revision": 2,
         "arithmetic": "native" if native is not None else "numpy",
         "material_protocol": "explicit_array_batch", "state_owner": "core",
         "native_auxiliary": kinematics is not None,
-    }, prepare_kinematics=kinematics, evaluate_viscosity=viscosity)
+        "cell_workers": cell_workers if kinematics is not None else 1,
+    }, prepare_kinematics=kinematics, evaluate_viscosity=viscosity,
+        gather_cell_vectors=gather)

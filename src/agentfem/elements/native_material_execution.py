@@ -15,7 +15,7 @@ from ..constitutive._explicit_material import ExplicitMaterialBatchOutput, Expli
 
 
 def native_explicit_hex_kernel(material, function, *, properties, density,
-                               identity, fallback, validate=None, workers=1):
+                               identity, fallback, validate=None, workers=1, cell_workers=1):
     """Bind trusted C material code, not a data-file address.
 
     ABI: void(int n, double* F_old, F_new, state_old, properties,
@@ -78,11 +78,12 @@ def native_explicit_hex_kernel(material, function, *, properties, density,
             validate(response)
         return ExplicitHexBodyOutput(response, piola, force, energy)
 
-    from .body_auxiliary import auxiliary_callbacks
-    kinematics, viscosity = auxiliary_callbacks()
+    from .body_auxiliary import auxiliary_callbacks, gather_callback
+    kinematics, viscosity = auxiliary_callbacks(workers=cell_workers)
     return ExplicitHexBodyKernel(evaluate, {
-        'provider': 'agentfem.native_material_hex', 'abi': 1, 'revision': 2,
+        'provider': 'agentfem.native_material_hex', 'abi': 1, 'revision': 3,
         'material': identity, 'state_width': width, 'property_count': len(parameters),
-        'workers': workers, 'state_owner': 'core', 'density': float(density),
+        'workers': workers, 'cell_workers': cell_workers, 'state_owner': 'core', 'density': float(density),
         'properties_sha256': hashlib.sha256(parameters.tobytes()).hexdigest()},
-        prepare_kinematics=kinematics, evaluate_viscosity=viscosity)
+        prepare_kinematics=kinematics, evaluate_viscosity=viscosity,
+        gather_cell_vectors=gather_callback(workers=cell_workers))

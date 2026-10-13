@@ -2,6 +2,16 @@
 
 ## Accepted state and reporting boundaries (2026-10-12)
 
+The first frozen generalized native run exposed a migration regression:
+private parallel cell auxiliaries had become serial, and mutable auxiliary
+outputs needed full-cell copies at the immutable execution boundary. The
+candidate correction provides explicit, bounded `cell_workers` and creates
+detached gradient, viscosity and gathered-cell outputs directly in immutable
+storage. Each cell retains its original arithmetic order. This fixes missing
+execution paths, not the physical model. Byte-identical tests do not establish
+a speedup: compare frozen installed runs and multiple nonlinear stations
+before promoting a worker budget. Keep the original slower run and its timing.
+
 The reusable core now has immutable field-record transport and exact live-field
 comparison before borrowing an accepted material-history snapshot. External
 field writes remain observable. The optional finite-Hex record cache is off by

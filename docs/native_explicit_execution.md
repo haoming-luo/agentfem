@@ -28,6 +28,23 @@ construction with the existing sufficient geometry screen and provide bounded
 bulk-viscosity arithmetic. Ambiguous geometry retains the Bernstein checks;
 ill-conditioned bulk conversion retains the reference implementation.
 
+`cell_workers=1` is the reproducible default for native gradient, validity
+screen, bulk-viscosity and nodal-to-cell gathering. A larger explicit budget
+(1–16) partitions only disjoint cells, preserves arithmetic order inside each
+cell, and joins all workers before returning. Small batches stay serial.
+There is no retained scratch or worker pool to close. Material `workers` and
+`cell_workers` belong to different sequential phases; neither changes the time
+grid, constitutive law or inertia. Contact overlap can still compete for CPU,
+so select budgets from whole-increment measurements on the intended machine.
+
+Native auxiliary outputs are allocated directly as immutable core-owned byte
+buffers. The execution boundary still checks finite values, geometry and
+material admission, but it no longer needs to copy full cell arrays merely to
+detach callback storage. Gathering freezes the smaller nodal inputs, checks
+every connectivity index, and emits the solver's existing Basix cell order;
+this is not a new mesh ordering or an output-format conversion. Previously
+published arrays remain valid across later calls, errors and rollback.
+
 `q1_contact_runtime` owns only geometry workers and caches. Its optional native
 backend includes Q1 projection, exact-rational convexity recovery, batch BVH
 search, closed-surface classification, conservative distance bounds and swept
@@ -52,6 +69,10 @@ executes directly without creating a temporary thread. This changes execution
 work, not the material law, fallback, time increment or accepted-state owner.
 Execution revision remains part of checkpoint identity; an ongoing frozen run
 must not be silently switched to another dispatcher revision.
+Revision 3 adds the explicitly recorded `cell_workers` execution budget and
+the immutable native auxiliary path. It does not authorize migration from an
+older checkpoint identity. Retain the frozen runtime for that continuation or
+start a new run; compare archived stations without rewriting their identities.
 
 This ABI is trusted executable code, not a sandbox: do not load function
 addresses from a model file. ABI v1 supports stress, internal state and internal
