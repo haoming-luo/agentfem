@@ -4,7 +4,7 @@
 import numpy as np
 import pytest
 
-from tools.check_paraview_warp import _reader_times, _warp_error
+from tools.check_paraview_warp import _cell_topology, _reader_times, _warp_error
 
 
 @pytest.mark.parametrize('raw,expected', [
@@ -54,3 +54,41 @@ def test_warp_overflow_does_not_pass_as_matching_infinity():
     values = np.full((4, 3), 1.e308)
     with pytest.raises(ValueError, match='finite coordinate range'):
         _warp_error(values, values, values, 2.)
+
+
+class _Grid:
+    def __init__(self, cells):
+        self.cells = cells
+
+    def GetNumberOfCells(self):
+        return len(self.cells)
+
+    def GetCellType(self, index):
+        return self.cells[index][0]
+
+    def GetCell(self, index):
+        class Cell:
+            def GetCellDimension(inner):
+                return self.cells[index][1]
+        return Cell()
+
+
+def test_reader_topology_distinguishes_embedded_surface_from_volume():
+    assert _cell_topology(_Grid([(12, 3), (12, 3), (10, 3)]), 3) == {
+        "cell_types": {12: {"dimension": 3, "count": 2},
+                       10: {"dimension": 3, "count": 1}},
+        "cell_dimensions": {3: 3},
+    }
+    for cells in ([(9, 2)], [(12, 3), (9, 2)]):
+        with pytest.raises(ValueError, match="Expected only 3D cells"):
+            _cell_topology(_Grid(cells), 3)
+
+
+def test_dimension_is_explicit_and_does_not_forbid_valid_lower_dimensional_models():
+    grid = _Grid([(9, 2)])
+    assert _cell_topology(grid, 2)["cell_dimensions"] == {2: 1}
+    assert _cell_topology(grid)["cell_dimensions"] == {2: 1}
+    with pytest.raises(ValueError, match="nonempty"):
+        _cell_topology(_Grid([]), 3)
+    with pytest.raises(ValueError, match="must be"):
+        _cell_topology(grid, 4)

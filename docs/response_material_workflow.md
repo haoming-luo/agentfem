@@ -194,6 +194,18 @@ or interpret damage columns. Add units and processing evidence to
 The writer retains reference coordinates and all attributes on one grid, so
 ParaView Warp acts on the complete dataset.
 
+For delivery of a 3D solid result, the independent reader check can also
+require volume cells:
+
+```sh
+pvpython tools/check_paraview_warp.py fields.xdmf --vector Displacement --cell-dimension 3
+```
+
+Use the actual exported vector name. This checks one mesh, cell types/dimensions,
+complete displacement and Warp coordinates; it does not certify mesh Jacobian
+quality or physical accuracy. Two-dimensional models should request dimension
+2, not be forced into the solid check.
+
 `material_storage="owned_arrays"` is an explicit serial execution option for
 this bounded Procedure. Immutable accepted arrays are the single material-state
 owner; quadrature Functions are internal publication buffers. User material
