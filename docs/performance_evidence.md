@@ -28,11 +28,43 @@ attribute the combined change to a faster material law.
 
 The selected macOS source-built wheel passed 238 targeted installed tests,
 nine contact tests per MPI rank, and clean-checkout installed platform acceptance.
-Its source-archive/native-header packaging is checked separately. A new frozen
-project has passed a fresh 600-step state comparison and an actual ParaView
-one-volume Warp check. Its complete fresh-run timing is still in progress.
+Its source-archive/native-header packaging is checked separately. The frozen
+project subsequently completed its full fresh run in **14,646.987 s
+(4 h 4 min 7 s)**, 5.29% below the preceding core baseline. All 374 final
+checkpoint checks pass, including 60 bitwise-equal numeric arrays, and all
+10,000 reporting records agree. Actual ParaView confirms one 3D Hex8 volume
+with complete displacement and zero Warp coordinate error. This is measured
+end-to-end improvement, not a strictly sub-four-hour result. Lightweight
+source/metadata work and read-only diagnostics overlapped the run, so it is
+not an isolated causal benchmark.
 No mass, loading duration, increment, contact tolerance or material law was
 changed for this execution optimization.
+
+### Frozen-project delivery preflight
+
+Before starting a shared frozen project, run the standalone tool from a source
+checkout or copy it alongside the trusted delivery (it needs only Python 3.11+
+for metadata checks):
+
+```bash
+python tools/check_frozen_project.py /path/to/project --requirements /path/to/requirements.json
+python tools/check_frozen_project.py /path/to/project --requirements /path/to/requirements.json --probe --output new-preflight.json
+```
+
+The project must declare a `agentfem.frozen-core-project.v2` manifest containing
+an installed-site path and nonempty file SHA-256 map. The separate requirements
+document uses `agentfem.frozen-project-requirements.v1`, names the artifact's
+`system`, `machine` and `python_cache_tag`, and declares `imports` and pinned
+`native_libraries`. This is a bounded frozen-delivery format, not a general
+environment solver or automatic installer. Only probe code you trust: the probe
+imports modules and loads libraries, though it does not execute the case.
+
+Missing/corrupt files and incompatible binary platforms fail before imports.
+The optional probe checks the pinned AgentFEM import, reports missing native
+dependencies and has a timeout. `runtime_ready` is separate from
+`scientifically_validated`; neither elapsed time nor a matching machine makes
+a physical model correct. For another platform, rebuild the artifact and verify
+it there instead of relaxing file checks or changing the engineering Model.
 
 ## Accepted state and reporting boundaries (2026-10-12)
 
@@ -305,6 +337,14 @@ declared accuracy target. Record at least:
 Startup, mesh generation, JIT compilation, solve, output, and verification
 should be compared separately. A faster run with different physics or a looser
 accuracy target is not an AgentFEM performance claim.
+
+Do not confuse recording a discretization with requiring it to remain fixed
+for every comparison. Execution optimizations hold it fixed; numerical-method
+studies may vary mesh or time grid while comparing error, histories and
+quantities at common physical stations. Bitwise equality is appropriate for
+unchanged arithmetic, not a universal gate on new algorithms or hardware.
+Wall-time targets and winning worker counts are observations on a declared
+machine, not scientific correctness requirements or global defaults.
 
 ## Contact search measurement
 

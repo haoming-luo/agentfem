@@ -29,11 +29,21 @@ optional core modules; confidential equations and source geometry stay external.
 See [native explicit execution](native_explicit_execution.md) for the supported
 interfaces and [performance evidence](performance_evidence.md) for measured scope.
 
+Frozen candidate `608c50bb` has now completed the same full path in
+14,646.987 s (4 h 4 min 7 s), 5.29% less than the previous core baseline.
+Final checkpoint, reporting journal and independent volume/Warp checks pass;
+this does not close source-case or numerical-inertia validation. The next
+architecture slices are recorded in
+[portable explicit performance](internal/portable_explicit_performance.md):
+separate scientific accuracy from execution configuration, target the compiled
+accepted-increment path, and investigate the controlling time limit before
+committing to general multirate or device execution.
+
 The delivery priorities are now:
 
-1. Freeze and measure the installed candidate, preserve equal-station response
-   comparisons, verify the exported volume mesh with an independent reader,
-   and pass platform/CI gates. A short segment is not a full-run speed claim.
+1. Preserve the completed installed candidate and its platform/CI, full-run,
+   response and volume-output evidence. New algorithms are compared at a
+   declared accuracy target, not forced to reproduce its exact step count.
 2. Close independent source-case validation and inertia/time/penalty sensitivity
    without changing inputs to meet a timing target. Completion of the reviewed
    experiment does not establish equivalence to the source solver's contact,
@@ -42,6 +52,17 @@ The delivery priorities are now:
    accepted State owner; optimize execution/data movement without a second
    solver or a case-specific core. Keep unsupported distributed response-only
    combinations rejected until their own lifecycle gates pass.
+
+The follow-up adds a frozen-project preflight with separate integrity,
+artifact-platform and runtime-readiness results; it must not turn this Mac's
+binary/worker configuration into Model requirements. Ordered installed
+comparisons rejected the new copy/scan execution candidate; no new solver
+optimization was selected in that follow-up. A separate
+five-times-larger time-step experiment was rejected after early energy growth;
+material incremental admissibility alone is not global dynamic stability.
+Next-method work must identify the controlling body/contact/damping bound
+before selecting a multirate scheme. Do not promote that failed screen or a
+small copy/scan benchmark as a new full-run speedup.
 
 The older dated entries below document intermediate gates, not the current
 claim that only a startup pilot exists. They remain useful as provenance for
