@@ -1,0 +1,16 @@
+[
+  {
+    "format": ".xdmf",
+    "frames": 5,
+    "points": 175,
+    "warp": true,
+    "max_displacement_difference_vs_xdmf": 0.0
+  },
+  {
+    "format": ".pvd",
+    "frames": 5,
+    "points": 175,
+    "warp": true,
+    "max_displacement_difference_vs_xdmf": 8.673617379884035e-19
+  }
+]

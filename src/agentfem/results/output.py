@@ -50,6 +50,7 @@ class ResultFieldArtifacts:
     geometry_dimension: int = 3
     physical_model_dimension: int = 3
     warp_compatible: bool = False
+    field_conversions: tuple[dict, ...] = ()
 
     def summary(self) -> dict[str, object]:
         visualization = self.paraview if self.paraview is not None else self.xdmf
@@ -61,7 +62,7 @@ class ResultFieldArtifacts:
             "scientific_artifact": str(self.xdmf),
             "scientific_xdmf_layout": (
                 "collective_grid_per_field"
-                if self.paraview is not None
+                if self.layout == "scientific_xdmf_plus_single_paraview_dataset"
                 else "single_uniform_grid"
             ),
             "recommended_visualization_artifact": str(visualization),
@@ -80,6 +81,8 @@ class ResultFieldArtifacts:
                 else {self.warp_field_semantic: self.warp_field}
             ),
         }
+        if self.field_conversions:
+            summary["field_conversions"] = list(self.field_conversions)
         if self.paraview is not None:
             summary["paraview"] = str(self.paraview)
         return summary
@@ -526,7 +529,9 @@ class UnifiedXDMFTimeSeries:
         self._h5.attrs["primary_storage_components"] = (
             self._geometry_dimension if vector_primary else 1
         )
-        self._h5.attrs["warp_compatible"] = bool(vector_primary)
+        self._h5.attrs["warp_compatible"] = bool(
+            vector_primary and primary_semantic_name in {"Displacement", "Mode shape"}
+        )
         self._h5.attrs["geometry_mode"] = (
             "deformed" if effective_scale != 0.0 else "reference"
         )
@@ -578,15 +583,16 @@ class UnifiedXDMFTimeSeries:
             primary_dataset.attrs["semantic_name"] = (
                 self.primary_semantic_name or "Displacement"
             )
+        magnitude_name = "UMAG" if self._primary_name == "U" else self._primary_name + "_MAG"
         attributes = [(self._primary_name, "Node", stored_primary)]
         if self._vector_primary:
             magnitude = np.linalg.norm(primary_values, axis=1)
-            point_group.create_dataset("UMAG", data=magnitude, **self._h5_options)
-            attributes.append(("UMAG", "Node", magnitude))
+            point_group.create_dataset(magnitude_name, data=magnitude, **self._h5_options)
+            attributes.append((magnitude_name, "Node", magnitude))
 
         for field in auxiliary:
             name = str(getattr(field, "name", "Field"))
-            if name in {self._primary_name, "UMAG"}:
+            if name in {self._primary_name, magnitude_name}:
                 continue
             center, shaped = _unified_field_values(
                 field,
@@ -676,28 +682,32 @@ def write_unified_xdmf_series(
     Reference coordinates remain in HDF5 for provenance.
     """
 
-    selected = tuple(snapshots)
-    fields_by_frame = tuple(cell_fields)
-    if not selected or len(selected) != len(fields_by_frame):
-        raise ValueError(
-            "Unified XDMF requires equal non-empty snapshot and field frames."
-        )
-    xdmf = Path(xdmf_path)
-    with UnifiedXDMFTimeSeries(
-        xdmf,
-        deformation_scale=deformation_scale,
-        store_reference_geometry=store_reference_geometry,
-        compression=compression,
-        primary_name=primary_name,
-        primary_semantic_name=primary_semantic_name,
-    ) as writer:
-        for snapshot, fields in zip(selected, fields_by_frame):
-            writer.write_fields(
-                float(snapshot.load_factor),
-                snapshot.solution,
-                *tuple(fields),
-            )
-    return xdmf
+    from itertools import zip_longest, chain
+    from .core import SimulationResult
+    from .series import output_series
+
+    iterator = iter(snapshots)
+    first = next(iterator, None)
+    if first is None:
+        raise ValueError("Unified XDMF requires equal non-empty snapshot and field frames.")
+    vector = len(first.solution.ufl_shape) == 1
+    selected_name = primary_name or ("U" if vector else first.solution.name)
+    selected_semantic = primary_semantic_name or ("Displacement" if vector else selected_name)
+    result = SimulationResult(name="field_export")
+    sentinel = object()
+    with output_series(
+        result, xdmf_path, deformation_scale=deformation_scale if vector else 0.0,
+        primary_name=selected_name,
+        primary_semantic_name=selected_semantic,
+        compression=compression, store_reference_geometry=store_reference_geometry,
+        coordinate_name="load_factor", overwrite=True,
+    ) as series:
+        for snapshot, fields in zip_longest(chain((first,), iterator), cell_fields, fillvalue=sentinel):
+            if snapshot is sentinel or fields is sentinel:
+                raise ValueError("Unified XDMF requires equal non-empty snapshot and field frames.")
+            series.write_accepted(coordinate=float(snapshot.load_factor),
+                                  primary=snapshot.solution, fields=fields)
+    return Path(xdmf_path)
 
 
 def write_result_fields(
@@ -800,13 +810,14 @@ def write_result_fields(
     if modal_shape:
         storage_name = str(getattr(solution, "name", "") or primary.name)
         warp_semantic = "Mode shape"
-    elif vector_solution:
+    elif vector_solution and primary.name in {"U", "Displacement", "displacement"}:
         storage_name = "U"
         warp_semantic = "Displacement"
     else:
         storage_name = str(getattr(solution, "name", "") or primary.name)
         warp_semantic = None
     selected_path = Path(path)
+    conversions = ()
     if domain.comm.size == 1:
         write_unified_xdmf_series(
             selected_path,
@@ -814,32 +825,23 @@ def write_result_fields(
             (auxiliary,),
             deformation_scale=float(deformation_scale),
             primary_name=storage_name,
-            primary_semantic_name=warp_semantic,
+            primary_semantic_name=warp_semantic or primary.name,
         )
         layout = "single_uniform_grid"
         backend = "agentfem_unified_xdmf"
         paraview = None
     else:
-        from .. import io
+        from .core import SimulationResult
+        from .series import output_series
 
-        output_fields = []
-        for function in (solution, *auxiliary):
-            if function is solution:
-                coordinate_maps = getattr(domain.geometry, "cmaps", ())
-                degree = int(
-                    getattr(coordinate_maps[0], "degree", 1) if coordinate_maps else 1
-                )
-                function = io.interpolate_for_xdmf(
-                    function,
-                    degree=degree,
-                    name=storage_name,
-                )
-            output_fields.append(function)
-        with io.XDMFTimeSeries(selected_path, domain) as writer:
-            writer.write_fields(float(time), *output_fields)
+        with output_series(
+            SimulationResult(name="field_export"), selected_path, paraview=True,
+            primary_name=storage_name, primary_semantic_name=warp_semantic or primary.name,
+            overwrite=True,
+        ) as series:
+            series.write_accepted(coordinate=float(time), primary=solution, fields=auxiliary)
+        conversions = tuple(series.record.get("field_conversions", ()))
         paraview = selected_path.with_suffix(".pvd")
-        with io.ParaViewTimeSeries(paraview, domain) as writer:
-            writer.write_fields(float(time), *output_fields)
         layout = "scientific_xdmf_plus_single_paraview_dataset"
         backend = "dolfinx_collective_xdmf_and_vtk"
     hdf5 = selected_path.with_suffix(".h5")
@@ -850,15 +852,16 @@ def write_result_fields(
         backend=backend,
         layout=layout,
         geometry=("deformed" if float(deformation_scale) != 0.0 else "reference"),
-        warp_field=(storage_name if vector_solution else None),
+        warp_field=(storage_name if warp_semantic is not None and not deformation_scale else None),
         warp_field_semantic=warp_semantic,
         physical_components=physical_components,
         stored_components=stored_components,
         geometry_dimension=geometry_dimension,
         physical_model_dimension=int(domain.geometry.dim),
         warp_compatible=bool(
-            vector_solution and stored_components == geometry_dimension
+            warp_semantic is not None and not deformation_scale and stored_components == geometry_dimension
         ),
+        field_conversions=conversions,
         field_names=tuple(item.name for item in writable),
         omitted_fields=tuple(
             item.name
@@ -881,6 +884,7 @@ def attach_result_field_output(
     """Write and register one result dataset without hiding solve success."""
 
     selected_path = Path(path)
+    result.metadata["output_policy"] = {"strict": bool(strict)}
     try:
         artifacts = write_result_fields(
             result,

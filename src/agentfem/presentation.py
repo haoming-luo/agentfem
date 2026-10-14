@@ -195,6 +195,18 @@ def format_record(record: Mapping[str, object], path: Path) -> str:
             lines.append(f"  error: {code}")
         if message:
             lines.append(f"  reason: {_compact(message)}")
+    metadata = record.get("metadata", {})
+    series = metadata.get("output_series", ())
+    output = series[-1] if series else metadata.get("field_output", {})
+    if output.get("recommended_visualization_artifact"):
+        lines.append("  open in ParaView: " + str(output["recommended_visualization_artifact"]))
+    if output.get("scientific_artifact"):
+        lines.append("  field data: " + str(output["scientific_artifact"]))
+    if metadata.get("output_advice"):
+        lines.append("  output note: " + str(metadata["output_advice"]))
+    errors = metadata.get("output_validation", {}).get("errors", ())
+    for error in errors[:3]:
+        lines.append("  output issue: " + str(error))
     lines.append(f"  record: {path}")
     return "\n".join(lines)
 
@@ -248,6 +260,18 @@ def format_result(record: Mapping[str, object], path: Path, *, maximum_quantitie
     artifacts = record.get("artifacts", {})
     if isinstance(artifacts, Mapping) and artifacts:
         lines.append("  files: " + ", ".join(sorted(str(value) for value in artifacts.values())))
+    metadata = record.get("metadata", {})
+    series = metadata.get("output_series", ())
+    output = series[-1] if series else metadata.get("field_output", {})
+    if output.get("recommended_visualization_artifact"):
+        lines.append("  open in ParaView: " + str(output["recommended_visualization_artifact"]))
+    if output.get("scientific_artifact"):
+        lines.append("  field data: " + str(output["scientific_artifact"]))
+    if metadata.get("output_advice"):
+        lines.append("  output note: " + str(metadata["output_advice"]))
+    errors = metadata.get("output_validation", {}).get("errors", ())
+    for error in errors[:3]:
+        lines.append("  output issue: " + str(error))
     lines.append(f"  record: {path}")
     return "\n".join(lines)
 

@@ -1,0 +1,92 @@
+{
+  "schema": "agentfem.scientific-function-card",
+  "schema_version": "0.1.0",
+  "id": "agentfem.workflow.accepted_frame_output",
+  "title": "Accepted-frame scientific and presentation output",
+  "kind": "workflow",
+  "status": "supported",
+  "summary": "Streams accepted finite-element frames through existing XDMF and optional VTK backends, records field semantics, and checks declared output dependencies.",
+  "public_api": [
+    "agentfem.results.output_series",
+    "agentfem.results.inspect_output"
+  ],
+  "implementation": [
+    "results/series.py",
+    "results/output.py",
+    "project.py"
+  ],
+  "science": {
+    "statement": "Output consumes committed solver states; field recovery and display conversion do not alter the governing equations or supply convergence evidence.",
+    "equations": [
+      {
+        "label": "accepted coordinate order",
+        "expression": "s_{n+1}>s_n",
+        "description": "s denotes physical time, load factor or another explicitly named segment coordinate."
+      }
+    ],
+    "inputs": [
+      {
+        "name": "accepted fields",
+        "type": "finite-element functions",
+        "unit_role": "declared by the analysis",
+        "description": "Lagrange primary field and compatible auxiliary fields on one fixed mesh."
+      }
+    ],
+    "outputs": [
+      {
+        "name": "field and presentation artifacts",
+        "type": "XDMF/HDF5 and optional PVD/VTU",
+        "unit_role": "preserved or recorded with conversion",
+        "description": "Not a substitute for raw material state or restart checkpoints."
+      }
+    ],
+    "assumptions": [
+      "Caller writes only accepted states.",
+      "Fixed mesh and field schema within a segment."
+    ],
+    "conventions": [
+      "Explicit displacement semantics for Warp.",
+      "MPI primary interpolation to geometry degree is recorded."
+    ],
+    "applicability": [
+      "Standard static/history exporters and custom finite-element loops."
+    ],
+    "limitations": [
+      "No arbitrary remeshing within a segment.",
+      "No recovery guarantee for crashed collective MPI I/O.",
+      "Dependency checks are not physical validation."
+    ]
+  },
+  "usage": {
+    "minimal_example": "with results.output_series(result, 'fields.xdmf', paraview=True) as series:\n    series.write_accepted(coordinate=1., primary=u, fields=(stress,))",
+    "examples": [
+      "examples/custom_energy_output/case.py"
+    ]
+  },
+  "verification": {
+    "tests": [
+      "tests/test_output_series.py",
+      "tests/test_results.py",
+      "tests/output_series_mpi_driver.py"
+    ],
+    "benchmarks": [],
+    "validation_rules": [
+      "Read every saved frame and compare preserved values.",
+      "Reject rank-local invalid fields collectively.",
+      "Preserve field data when optional presentation fails."
+    ]
+  },
+  "references": [
+    {
+      "title": "DOLFINx I/O",
+      "locator": "https://docs.fenicsproject.org/dolfinx/main/cpp/io.html"
+    },
+    {
+      "title": "MOOSE output system",
+      "locator": "https://mooseframework.inl.gov/syntax/Outputs/"
+    }
+  ],
+  "related_cards": [
+    "agentfem.workflow.standard_result_projection"
+  ]
+}

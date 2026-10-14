@@ -690,6 +690,9 @@ class RunContext:
             raise TypeError("RunContext.publish requires a SimulationResult-like object.")
         from .presentation import result_summary_markdown
 
+        from .results.series import validate_published_output
+
+        validate_published_output(result)
         result.metadata.setdefault("run", self.summary())
         path = result.write_manifest(
             self.manifest_path,
@@ -701,7 +704,7 @@ class RunContext:
             result_summary_markdown(record, Path("result.json")),
             encoding="utf-8",
         )
-        self.write_execution("completed", result_manifest=path, structured_result=True)
+        self.write_execution(result.status, result_manifest=path, structured_result=True)
         return path
 
     def _write_latest_pointer(self, status: str) -> None:

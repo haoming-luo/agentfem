@@ -612,6 +612,8 @@ and evidence remain in the linked guides and scientific function reference.
 | function | `attach_performance(result, *, stages: Mapping[str, object], solution = None, source = None, scope: str = 'solve_result_call')` | Attach normalized performance evidence and return ``result``. |
 | function | `increment_performance(records) -> dict[str, object]` | Summarize provider-owned nonlinear increment timings. |
 | function | `performance_evidence(*, stages: Mapping[str, object], solution = None, source = None, scope: str = 'solve_result_call') -> PerformanceEvidence` | Build collective, rank-consistent evidence from local stage timings. |
+| function | `output_series(result, path, *, paraview = False, coordinate_name = 'time', primary_name = None, primary_semantic_name = None, strict = True, overwrite = False, deformation_scale = 0.0, compression = 4, store_reference_geometry = True)` | Stream solver-accepted frames with optional ParaView output and registration. |
+| function | `inspect_output(path)` | Check a local XDMF/PVD dependency graph without claiming physical validity. |
 | class | `FiniteStrainDiagnosticRequest` | Record physical admissibility and constraint checks. |
 | class | `HistoryRequest` | Evaluate one scientific quantity on every accepted output frame. |
 | class | `OutputPlan` | One declarative output contract for a completed finite-strain step. |

@@ -584,3 +584,13 @@ For high-order mixed-field boundary data, use `spaces.independent_subspace(W, i)
 and paired parent/independent dof location. Transfer output by interpolation;
 never copy coefficient arrays between different numberings. See
 `docs/guide/high_order_mixed_fields.md`.
+
+## Custom accepted-state field output
+
+Ordinary cases keep `step.solve_result(output="fields.xdmf")`. Custom residual
+loops use `results.output_series(result, path, paraview=True)` and call
+`write_accepted` only after convergence and state commitment. The session
+writes XDMF/HDF5 and optionally PVD, registers files, and records field semantics.
+Declare displacement explicitly; other vectors are not automatically Warp
+displacements. Checkpoint and raw material state remain separate products.
+See `docs/guide/result_output_sessions.md` and `examples/custom_energy_output`.

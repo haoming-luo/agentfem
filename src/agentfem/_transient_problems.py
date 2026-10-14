@@ -271,6 +271,7 @@ class ExplicitDynamicsStep:
         self.last_output = actual_output
         self.last_output_backend = backend
         self.last_output_layout = layout
+        self.last_output_session = getattr(series, "record", None)
         with series as xdmf:
             _refresh_transient_output_fields(live_field_sets)
             xdmf.write_fields(self.completed_steps * self.dt, *output_fields)
@@ -656,6 +657,7 @@ class ImplicitDynamicsStep:
         self.last_output = actual_output
         self.last_output_backend = backend
         self.last_output_layout = layout
+        self.last_output_session = getattr(series, "record", None)
         try:
             with series as xdmf:
                 xdmf.write_fields(self.completed_steps * self.dt, *output_fields)
@@ -1150,6 +1152,7 @@ class FirstOrderTransientStep:
             self.last_output = actual_output
             self.last_output_backend = backend
             self.last_output_layout = layout
+            self.last_output_session = getattr(series, "record", None)
             with series as xdmf:
                 xdmf.write_fields(self.completed_steps * self.dt, *selected_fields)
                 for info in stepper:
@@ -2037,7 +2040,7 @@ def _transient_result_series(path, domain):
     """Choose one ParaView-readable dataset layout for transient output."""
 
     selected = Path(path)
-    if selected.suffix.lower() == ".pvd" or domain.comm.size > 1:
+    if selected.suffix.lower() == ".pvd":
         from . import io
 
         actual = (
@@ -2052,15 +2055,17 @@ def _transient_result_series(path, domain):
             "single_unstructured_grid_per_time",
         )
 
-    from .results.output import UnifiedXDMFTimeSeries
+    from .results.core import SimulationResult
+    from .results.series import output_series
 
     if selected.suffix.lower() != ".xdmf":
         raise ValueError("Transient field output must use an .xdmf or .pvd path.")
     return (
-        UnifiedXDMFTimeSeries(selected, deformation_scale=0.0),
+        output_series(SimulationResult(name="transient_output"), selected,
+                      paraview=domain.comm.size > 1, overwrite=True),
         selected,
-        "agentfem_unified_xdmf",
-        "single_uniform_grid",
+        "agentfem_unified_xdmf" if domain.comm.size == 1 else "agentfem_collective_xdmf_with_vtk",
+        "single_uniform_grid" if domain.comm.size == 1 else "collective_grid_per_field",
     )
 
 

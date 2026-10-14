@@ -285,6 +285,9 @@ def _rank_error(exc: Exception | None, *, rank: int) -> dict[str, object] | None
         "traceback": traceback.format_exc(),
         "stage": "case_execution",
     }
+    if getattr(exc, "code", None) is not None:
+        record["code"] = str(exc.code)
+        record["stage"] = getattr(exc, "stage", "case_execution")
     report = getattr(exc, "report", None)
     if report is not None and hasattr(report, "as_dict"):
         validation = report.as_dict()
@@ -463,7 +466,7 @@ def _command_run(args) -> int:
         as_json=args.json,
         human=human,
     )
-    return 0
+    return 1 if record.get("status") == "completed_with_output_errors" else 0
 
 
 def _command_inspect(args) -> int:

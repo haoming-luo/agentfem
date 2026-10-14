@@ -1006,6 +1006,21 @@
       "title": "Reviewed Abaqus model and user-material migration"
     },
     {
+      "id": "agentfem.workflow.accepted_frame_output",
+      "kind": "workflow",
+      "public_api": [
+        "agentfem.results.output_series",
+        "agentfem.results.inspect_output"
+      ],
+      "related_cards": [
+        "agentfem.workflow.standard_result_projection"
+      ],
+      "source": "src/agentfem/knowledge/cards/accepted_frame_output.json",
+      "status": "supported",
+      "summary": "Streams accepted finite-element frames through existing XDMF and optional VTK backends, records field semantics, and checks declared output dependencies.",
+      "title": "Accepted-frame scientific and presentation output"
+    },
+    {
       "id": "agentfem.workflow.campaign_learning_pipeline",
       "kind": "workflow",
       "public_api": [

@@ -134,6 +134,7 @@ nav:
           - Solid Mechanics: guide/solid_mechanics.md
           - Stability and Periodic Elasticity: guide/stability_and_periodic_elasticity.md
           - Geometric Elasticity: guide/geometric_elasticity.md
+          - Accepted-frame output: guide/result_output_sessions.md
           - Heat Transfer: guide/heat_transfer.md
           - Transient Heat Example: guide/transient_heat_workflow.md
           - Dynamics and Waves: guide/dynamics.md

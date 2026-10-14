@@ -42,6 +42,7 @@ the compact machine-readable `agentfem/knowledge/catalog.json`.
 | [`agentfem.verification.discrete_inf_sup_evidence`](#agentfem-verification-discrete_inf_sup_evidence) | Norm-aware discrete inf-sup evidence | operator | experimental |
 | [`agentfem.workflow.abaqus_engineering_regions`](#agentfem-workflow-abaqus_engineering_regions) | Abaqus node, element, and element-face sets as FEM regions | workflow | supported |
 | [`agentfem.workflow.abaqus_reviewed_migration`](#agentfem-workflow-abaqus_reviewed_migration) | Reviewed Abaqus model and user-material migration | workflow | experimental |
+| [`agentfem.workflow.accepted_frame_output`](#agentfem-workflow-accepted_frame_output) | Accepted-frame scientific and presentation output | workflow | supported |
 | [`agentfem.workflow.campaign_learning_pipeline`](#agentfem-workflow-campaign_learning_pipeline) | Simulation campaign to guarded learning workflow | workflow | supported |
 | [`agentfem.workflow.cell_neighborhood_topology`](#agentfem-workflow-cell_neighborhood_topology) | Partition-aware cell neighborhood topology | workflow | experimental |
 | [`agentfem.workflow.cohesive_state_portability`](#agentfem-workflow-cohesive_state_portability) | Physical-keyed cohesive state across MPI partitions | workflow | experimental |
@@ -3420,6 +3421,96 @@ agentfem inspect-abaqus model.inp --json; agentfem migrate-abaqus model.inp migr
 
 - Abaqus amplitude commands and time spans: `https://docs.software.vt.edu/abaqusv2025/English/SIMACAEKERRefMap/simaker-m-AmpPyc-sb.htm`
 - Abaqus UMAT interface and conventions: `https://docs.software.vt.edu/abaqusv2025/English/SIMACAESUBRefMap/simasub-c-umat.htm`
+
+<a id="agentfem-workflow-accepted_frame_output"></a>
+
+## Accepted-frame scientific and presentation output
+
+**Stable ID:** `agentfem.workflow.accepted_frame_output`<br>
+**Kind:** `workflow`<br>
+**Status:** `supported`<br>
+**Source card:** `src/agentfem/knowledge/cards/accepted_frame_output.json`
+
+Streams accepted finite-element frames through existing XDMF and optional VTK backends, records field semantics, and checks declared output dependencies.
+
+### Public API
+
+- `agentfem.results.output_series`
+- `agentfem.results.inspect_output`
+
+### Scientific contract
+
+Output consumes committed solver states; field recovery and display conversion do not alter the governing equations or supply convergence evidence.
+
+**accepted coordinate order**
+
+$$
+s_{n+1}>s_n
+$$
+
+s denotes physical time, load factor or another explicitly named segment coordinate.
+
+#### Inputs
+
+| Name | Type | Unit role | Meaning |
+| --- | --- | --- | --- |
+| accepted fields | finite-element functions | declared by the analysis | Lagrange primary field and compatible auxiliary fields on one fixed mesh. |
+
+#### Outputs
+
+| Name | Type | Unit role | Meaning |
+| --- | --- | --- | --- |
+| field and presentation artifacts | XDMF/HDF5 and optional PVD/VTU | preserved or recorded with conversion | Not a substitute for raw material state or restart checkpoints. |
+
+#### Assumptions
+
+- Caller writes only accepted states.
+- Fixed mesh and field schema within a segment.
+
+#### Conventions
+
+- Explicit displacement semantics for Warp.
+- MPI primary interpolation to geometry degree is recorded.
+
+#### Applicability
+
+- Standard static/history exporters and custom finite-element loops.
+
+#### Limitations
+
+- No arbitrary remeshing within a segment.
+- No recovery guarantee for crashed collective MPI I/O.
+- Dependency checks are not physical validation.
+
+### Minimal example
+
+```python
+with results.output_series(result, 'fields.xdmf', paraview=True) as series:
+    series.write_accepted(coordinate=1., primary=u, fields=(stress,))
+```
+
+### Verification
+
+**Tests**
+
+- `tests/test_output_series.py`
+- `tests/test_results.py`
+- `tests/output_series_mpi_driver.py`
+
+**Benchmarks**
+
+- None declared.
+
+**Validation rules**
+
+- Read every saved frame and compare preserved values.
+- Reject rank-local invalid fields collectively.
+- Preserve field data when optional presentation fails.
+
+### References
+
+- DOLFINx I/O: `https://docs.fenicsproject.org/dolfinx/main/cpp/io.html`
+- MOOSE output system: `https://mooseframework.inl.gov/syntax/Outputs/`
 
 <a id="agentfem-workflow-campaign_learning_pipeline"></a>
 

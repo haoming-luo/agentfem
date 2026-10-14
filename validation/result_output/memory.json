@@ -1,0 +1,14 @@
+[
+  {
+    "frames": 10,
+    "python_peak_bytes": 4559664,
+    "one_primary_array_bytes": 59536,
+    "retained_all_primary_arrays_bytes": 595360
+  },
+  {
+    "frames": 200,
+    "python_peak_bytes": 6703537,
+    "one_primary_array_bytes": 59536,
+    "retained_all_primary_arrays_bytes": 11907200
+  }
+]

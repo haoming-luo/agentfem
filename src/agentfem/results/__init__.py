@@ -104,6 +104,8 @@ from .performance import (
 )
 
 _LAZY_EXPORTS = {
+    "output_series": "series",
+    "inspect_output": "series",
     "FiniteStrainDiagnosticRequest": "plan",
     "HistoryRequest": "plan",
     "OutputPlan": "plan",
@@ -151,6 +153,8 @@ def __getattr__(name: str):
 
 
 __all__ = [
+    "output_series",
+    "inspect_output",
     "CheckpointRecord",
     "FieldResult",
     "FieldOutput",

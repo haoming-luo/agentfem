@@ -337,3 +337,13 @@ route within the public workflow, not a competing physical Study language.
 High-order mixed-component boundary and output fields may use
 `spaces.independent_subspace(W, i)`; preserve their physical field by explicit
 interpolation, not by assuming identical coefficient order.
+
+## Custom accepted-state field output
+
+Ordinary cases keep `step.solve_result(output="fields.xdmf")`. Custom residual
+loops use `results.output_series(result, path, paraview=True)` and call
+`write_accepted` only after convergence and state commitment. The session
+writes XDMF/HDF5 and optionally PVD, registers files, and records field semantics.
+Declare displacement explicitly; other vectors are not automatically Warp
+displacements. Checkpoint and raw material state remain separate products.
+See `docs/guide/result_output_sessions.md` and `examples/custom_energy_output`.

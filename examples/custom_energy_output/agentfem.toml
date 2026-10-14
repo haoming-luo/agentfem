@@ -1,0 +1,6 @@
+[project]
+name = "custom_energy_output"
+entrypoint = "case.py"
+schema_version = "0.2.0"
+[run]
+output_directory = "outputs"

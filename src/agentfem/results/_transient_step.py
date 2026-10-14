@@ -141,7 +141,7 @@ def _attach_field_output(result, step, output_fields) -> None:
         if not vector_primary
         else (
             "U"
-            if backend == "agentfem_unified_xdmf"
+            if backend in {"agentfem_unified_xdmf", "agentfem_collective_xdmf_with_vtk"}
             else str(getattr(primary, "name", "Displacement"))
         )
     )
@@ -187,6 +187,15 @@ def _attach_field_output(result, step, output_fields) -> None:
         heavy_data = path.with_suffix(".h5")
         if heavy_data.is_file():
             result.add_artifact("fields_hdf5", heavy_data)
+    session = getattr(step, "last_output_session", None)
+    if session is not None:
+        result.metadata.setdefault("output_series", []).append(dict(session))
+        if backend == "agentfem_collective_xdmf_with_vtk":
+            result.add_artifact("fields_paraview", path.with_suffix(".pvd"))
+            result.metadata["field_output"].update(
+                scientific_xdmf_layout="collective_grid_per_field",
+                recommended_visualization_artifact=str(path.with_suffix(".pvd")),
+            )
     for item in output_fields:
         function = getattr(item, "value", item)
         name = getattr(function, "name", type(function).__name__)
