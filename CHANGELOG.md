@@ -6,6 +6,14 @@ experimental formulation to a validated one.
 
 ## [Unreleased]
 
+### Installed project execution
+
+- Isolate project arguments from `agentfem run` options, support explicit
+  `-- CASE_ARGUMENTS` forwarding (including MPI), and resolve sibling imports
+  as for an ordinary Python script. Restore interpreter state after execution.
+- Persist unsuccessful case `SystemExit` and interruption as failed execution
+  evidence; retain planned-pause status instead of announcing completion.
+
 ### Experimental Hex8 and nonmatching interfaces
 
 - Add bounded distributed finite-Hex elastic bonding plus a separate moving

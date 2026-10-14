@@ -275,7 +275,7 @@ def _run_context(
     return context
 
 
-def _rank_error(exc: Exception | None, *, rank: int) -> dict[str, object] | None:
+def _rank_error(exc: BaseException | None, *, rank: int) -> dict[str, object] | None:
     if exc is None:
         return None
     record = {
@@ -285,6 +285,8 @@ def _rank_error(exc: Exception | None, *, rank: int) -> dict[str, object] | None
         "traceback": traceback.format_exc(),
         "stage": "case_execution",
     }
+    if isinstance(exc, SystemExit):
+        record["exit_code"] = exc.code if isinstance(exc.code, int) else 1
     report = getattr(exc, "report", None)
     if report is not None and hasattr(report, "as_dict"):
         validation = report.as_dict()
@@ -321,6 +323,7 @@ def _launch_mpi(args) -> int:
         child.append("--json")
     child.extend("-v" for _ in range(args.verbose))
     child.append("--inside-mpi")
+    child.extend(args.case_arguments)
     command = mpi_command(args.mpi, child)
     return subprocess.run(command, check=False).returncode
 
@@ -344,6 +347,9 @@ def _command_mpi_run(args) -> int:
 
 
 def _command_run(args) -> int:
+    case_arguments = list(args.case_arguments)
+    if case_arguments and case_arguments.pop(0) != "--":
+        raise ValueError("Pass case arguments after `agentfem run [options] --`.")
     if args.mpi > 1 and MPI.COMM_WORLD.size == 1 and not args.inside_mpi:
         return _launch_mpi(args)
     project = _project(args.project)
@@ -362,9 +368,15 @@ def _command_run(args) -> int:
     previous_environment = {key: os.environ.get(key) for key in environment}
     os.environ.update(environment)
     previous_directory = Path.cwd()
+    previous_argv = sys.argv
+    previous_path = sys.path
     local_error = None
     try:
         os.chdir(project.root)
+        # Match Python script invocation without leaking the product shell's
+        # flags into application argparse, or requiring a project PYTHONPATH.
+        sys.argv = [str(project.entrypoint), *case_arguments]
+        sys.path = [str(project.entrypoint.parent), *previous_path]
         if MPI.COMM_WORLD.rank == 0 and not args.json:
             output = context.output_directory
             try:
@@ -399,9 +411,14 @@ def _command_run(args) -> int:
                 stack.enter_context(redirect_stdout(stdout_log))
                 stack.enter_context(redirect_stderr(stderr_log))
             runpy.run_path(str(project.entrypoint), run_name="__main__")
-    except Exception as exc:
+    except SystemExit as exc:
+        if exc.code is not None and exc.code != 0:
+            local_error = _rank_error(exc, rank=MPI.COMM_WORLD.rank)
+    except (Exception, KeyboardInterrupt) as exc:
         local_error = _rank_error(exc, rank=MPI.COMM_WORLD.rank)
     finally:
+        sys.argv = previous_argv
+        sys.path = previous_path
         os.chdir(previous_directory)
         for key, value in previous_environment.items():
             if value is None:
@@ -422,6 +439,8 @@ def _command_run(args) -> int:
             "validation": primary.get("validation"),
             "rank_errors": rank_errors,
         }
+        if "exit_code" in primary:
+            error["exit_code"] = primary["exit_code"]
         if MPI.COMM_WORLD.rank == 0:
             context.write_execution("failed", error=error, structured_result=False)
         _emit(
@@ -445,8 +464,9 @@ def _command_run(args) -> int:
         if MPI.COMM_WORLD.rank == 0
         else {}
     )
+    status = MPI.COMM_WORLD.bcast(record.get("status"), root=0)
     human = (
-        f"Run completed · {project.name}\n"
+        f"Run {status} · {project.name}\n"
         f"  run: {context.output_directory.name}\n"
         f"  result: script completed without a published SimulationResult\n"
         f"  record: {context.execution_path}"
@@ -463,7 +483,7 @@ def _command_run(args) -> int:
         as_json=args.json,
         human=human,
     )
-    return 0
+    return 1 if status == "failed" else 0
 
 
 def _command_inspect(args) -> int:
@@ -852,6 +872,10 @@ def build_parser() -> argparse.ArgumentParser:
     )
     run.add_argument("--json", action="store_true")
     run.add_argument("--inside-mpi", action="store_true", help=argparse.SUPPRESS)
+    run.add_argument(
+        "case_arguments", nargs=argparse.REMAINDER, metavar="-- CASE_ARGUMENTS",
+        help="Arguments passed unchanged to the project entrypoint after --.",
+    )
 
     mpi_run = sub.add_parser(
         "mpi-run",
