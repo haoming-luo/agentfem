@@ -380,3 +380,13 @@ than coordinate matching. Source node labels must first be mapped to the mesh's
 input indices. Extract a tagged boundary through
 `interfaces.reference_trace_from_boundary`; explicitly request
 `geometry="bilinear"` for a warped Q1 face, never substitute triangular P1 traces.
+
+## Reviewed legacy VUMAT sources
+
+Inspect a source with `agentfem inspect-user-material --kind VUMAT` before
+explicitly trusting and compiling it with `constitutive.compile_vumat`.
+Supply every physical channel through `VumatBatchInput`; retain returned state
+only after the enclosing increment is accepted. This experimental batch bridge
+does not infer objective kinematics or a stable increment. Reuse
+`explicit_user_material` and the existing Step lifecycle for a separately
+verified global adapter. See [the compatibility boundary](docs/abaqus_user_material_bridge.md).

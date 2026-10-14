@@ -220,6 +220,10 @@ and evidence remain in the linked guides and scientific function reference.
 | function | `capabilities() -> tuple[ConstitutiveCapability, ...]` | Return all constitutive capabilities in stable name order. |
 | function | `capability(name: str) -> ConstitutiveCapability` | Return one capability or raise with the available names. |
 | class | `FirstPiolaTangentEnvelope` | Declared symmetric dP/dF envelope over a principal-stretch domain. |
+| class | `VumatBatchInput` | Complete legacy VUMAT input; no missing channel is filled implicitly. |
+| class | `VumatBatchOutput` | Uncommitted local response. Missing optional energy remains unavailable. |
+| class | `CompiledVumat(path, *, state_schema, properties, material_name, identity)` | One loaded library; one native call per block, never per material point. |
+| function | `compile_vumat(source, *, state_schema, properties, cache_directory, material_name = 'USER_MATERIAL', trusted = False, compiler = 'gfortran')` | Compile explicitly trusted legacy VUMAT source; no solve-time downloads. |
 | class | `ExplicitUserMaterial` | A named, restart-identifiable batch response without synthetic tangent. |
 | function | `explicit_user_material(*, state_schema, update, identity, name = 'user_explicit_material', increment_limit = None, increment_policy_identity = None, density = None)` | Public AgentFEM object. |
 | class | `ArrheniusPowerLawCreep` | Temperature-dependent Mises power-law creep. |

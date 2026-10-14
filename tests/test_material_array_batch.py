@@ -49,6 +49,17 @@ def test_revalidated_request_shares_only_immutable_payload():
         assert protected.shape == shape
 
 
+def test_zero_width_immutable_field_arrays_can_be_revalidated_and_sliced():
+    _, request = fixture()
+    request = replace(request, field_variables=np.empty((request.point_count, 0)))
+    checked = replace(request)
+    assert checked.field_variables.shape == (request.point_count, 0)
+    from agentfem.constitutive.material_array_batch import _array
+    empty = _array(checked.field_variables[:1], (1, 0), "fields")
+    assert empty.shape == (1, 0)
+    assert not empty.flags.writeable
+
+
 @pytest.mark.parametrize("history", [False, True])
 def test_direction_batched_tangent_crosses_chunks_and_matches_fixed_state_difference(
     history,

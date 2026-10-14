@@ -921,11 +921,11 @@ def build_parser() -> argparse.ArgumentParser:
 
     inspect_user_material = sub.add_parser(
         "inspect-user-material",
-        help="Classify an Abaqus UMAT/UHYPER source before adapter development.",
+        help="Classify an Abaqus UMAT/UHYPER/VUMAT source without executing it.",
     )
     inspect_user_material.add_argument("path")
     inspect_user_material.add_argument(
-        "--kind", choices=("auto", "UMAT", "UHYPER"), default="auto"
+        "--kind", choices=("auto", "UMAT", "UHYPER", "VUMAT"), default="auto"
     )
     inspect_user_material.add_argument("--write")
     inspect_user_material.add_argument("--json", action="store_true")
