@@ -159,9 +159,12 @@ Ordinary completion now accepts
 `model.step(..., output="fields.xdmf", history=(request,)).solve_result()`.
 The existing writer owns connectivity and attaches U/V/A to one grid per time;
 additional material fields still require explicitly named accepted-state data.
-Substep retry remains limited to the built-in energy ledger; custom history
-requests with substeps are rejected. Final-only output does not reconstruct an
-animation of increments that were not stored.
+Substep retries retain the built-in physical work ledger at accepted fine
+increments. Pure configured history requests are evaluated once at each
+accepted macro station, after all retries succeed; rejected branches do not
+publish user observations. Observers must not mutate the model or accepted
+state. Final-only output does not reconstruct an animation of increments that
+were not stored.
 
 Inspect the accepted loading history, not only the final kinetic-energy ratio:
 a small endpoint value can hide substantial intermediate inertia. Numerical

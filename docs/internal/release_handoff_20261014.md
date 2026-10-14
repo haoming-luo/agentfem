@@ -129,6 +129,36 @@ screen. It must retain failed channels and cannot certify either full-path
 convergence or quasi-static accuracy. The old completed reference remains
 identified separately from this candidate and its new initial mass distribution.
 
+### Frozen recipient candidate: installed entrypoint and recovery
+
+The source-built `016e665d` candidate passed 144 focused installed response,
+interface, mass and state checks, 103 installed native/output checks and 78
+installed CLI/project checks. These suites overlap; their counts are not a
+claim of that many distinct new scientific benchmarks.
+
+The original mesh ran through ordinary `agentfem run` from outside the project
+directory. A 600-increment pause followed by recovery to 1,200 increments
+matches a fresh 1,200-increment run exactly across all 385 compared accepted
+state/metadata leaves. The actual ParaView reader sees one three-dimensional
+Hex8 grid and a complete nonzero point displacement; Warp agrees with reference
+coordinates plus displacement. The confidential source law is built locally,
+and its named case parameters are checked against the supplied material data.
+Independent virgin and retained-damaged material-point replay passes the
+declared numerical tolerances; it is not a global vendor comparison.
+
+The recipient package keeps numerical mass preparation in AgentFEM and contains
+no required inertia-array input. It includes the pinned core source archive,
+one-time local build instructions, case and operational TOML, private material,
+compact acceptance and a clearly labelled earlier full reference. A different
+platform rebuilds its native artifacts; a Mac binary is not a Windows artifact.
+
+The loaded time-grid screen and a complete run of this new source freeze remain
+separate gates. At the 0.02-second prefix of the initial-mass experiment,
+numerical kinetic energy is about 55% of accumulated external work. Its small
+discrete energy-ledger residual does not establish quasi-static accuracy.
+Do not promote this candidate to a validated reproduction or transfer the
+retained full run's performance claim to it.
+
 ### Initial preparation implemented, original-case acceptance still pending
 
 The bounded response-Hex provider now also admits `time.InitialMassScaling`.
