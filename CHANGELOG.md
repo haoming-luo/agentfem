@@ -6,6 +6,8 @@ experimental formulation to a validated one.
 
 ## [Unreleased]
 
+## [0.4.2] - 2026-10-14
+
 ### Reviewed user-material sources
 
 - Add an experimental legacy 3D VUMAT batch bridge with explicit physical
