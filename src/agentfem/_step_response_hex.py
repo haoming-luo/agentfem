@@ -86,6 +86,47 @@ class ResponseMaterialHexStep(ExplicitDynamicsStep):
                 "location": "one_material_point_per_uniform_strain_hex8_cell",
                 "stress_measure": "cauchy"}
 
+    def accepted_interface_evidence(self):
+        """Observe the bounded elastic bond at committed body configuration.
+
+        Evaluates the elastic interface at fixed history, without beginning a
+        trial or reintegrating the body material. Opening/slip use the declared
+        reference normal; they are not finite-rotation fracture mode measures.
+        Returns None when the model has no bonded interface.
+        """
+        import numpy as np
+        self._require_accepted_observation()
+        body = self.material_residual
+        force = body.cohesive
+        if force is None:
+            return None
+        if force.assembler._trial is not None:
+            raise RuntimeError("Interface observation requires an accepted station")
+        pair = force.assembler.pairing
+        response = force.evaluate()
+        un, up = force._values()
+        physical = (-response.negative_residual, -response.positive_residual)
+        resultants = [value.sum(axis=0) for value in physical]
+        moments = [np.cross(x, f).sum(axis=0) for x, f in zip(
+            (pair.negative.vertices+un, pair.positive.vertices+up), physical, strict=True)]
+        normal = np.einsum('ij,ij->i', response.jump, pair.normals)
+        slip = np.linalg.norm(response.jump-normal[:, None]*pair.normals, axis=1)
+        return {"schema": "agentfem.accepted_interface_observation.v1",
+                "time": body.accepted_time, "pairing": pair.summary(),
+                "negative_force": resultants[0].tolist(), "positive_force": resultants[1].tolist(),
+                "negative_moment": moments[0].tolist(), "positive_moment": moments[1].tolist(),
+                "moment_reference_point": [0., 0., 0.],
+                "force_balance_residual": (resultants[0]+resultants[1]).tolist(),
+                "moment_balance_residual": (moments[0]+moments[1]).tolist(),
+                "maximum_reference_normal_opening": float(normal.max(initial=0)),
+                "maximum_reference_normal_compression": float((-normal).max(initial=0)),
+                "maximum_reference_tangential_slip": float(slip.max(initial=0)),
+                "stored_energy": response.stored_energy,
+                "dissipated_energy": response.dissipated_energy,
+                "force_convention": "physical_force_opposite_potential_gradient",
+                "jump_convention": "positive_displacement_minus_negative_displacement",
+                "scientifically_validated": False}
+
     def _advance_one(self, t, *, increment_size=None):
         if self.substep_policy is None or increment_size is not None:
             return super()._advance_one(t, increment_size=increment_size)

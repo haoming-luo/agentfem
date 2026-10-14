@@ -354,6 +354,14 @@ reference area and explicit selected-candidate coverage. Certified separation
 does not invent a closest-point projection. These observations reject live
 trial/unaccepted displacement and never promote scientific trust.
 
+`step.accepted_interface_evidence()` observes the bounded elastic bond at the
+same accepted station. It evaluates that interface at fixed history, without
+reintegrating the body, and records separate side forces, current-coordinate
+moments, force/moment balance, interface energy and reference-normal opening /
+reference-tangential slip. These are not finite-rotation fracture mode measures.
+Pairing metadata reports integration area and both trace areas, explicitly not
+a geometric overlap proof. With no bond it returns `None`.
+
 Declare custom histories in `model.step(history=(results.history(...),))` or
 pass them when first calling `run`. The ordinary configured route works for
 both `run` and `solve_result`. With automatic substeps, pure custom callbacks

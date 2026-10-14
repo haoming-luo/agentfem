@@ -105,6 +105,15 @@ class FixedReferencePairing:
         return tuple(result)
 
     def summary(self):
+        areas = []
+        for side in (self.negative, self.positive):
+            if hasattr(side, "nodal_measures"):
+                area = float(side.nodal_measures.sum())
+            else:
+                x = side.vertices[side.triangles]
+                area = float(.5 * np.linalg.norm(
+                    np.cross(x[:, 1] - x[:, 0], x[:, 2] - x[:, 0]), axis=1).sum())
+            areas.append(area)
         return {
             "schema": "agentfem.fixed-reference-pairing.v1",
             "fingerprint": self.fingerprint,
@@ -120,6 +129,10 @@ class FixedReferencePairing:
             "negative_basis": "Q1" if self.negative_nodes.shape[1] == 4 else "P1",
             "positive_basis": "Q1" if self.positive_nodes.shape[1] == 4 else "P1",
             "reference_area": float(self.weights.sum()),
+            "negative_trace_reference_area": areas[0],
+            "positive_trace_reference_area": areas[1],
+            "integration_measure_to_negative_trace_ratio": float(self.weights.sum()) / areas[0],
+            "measure_ratio_is_geometric_overlap_proof": False,
             "maximum_reference_mismatch": float(
                 np.linalg.norm(self.reference_mismatch, axis=1).max(initial=0)
             ),

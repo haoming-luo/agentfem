@@ -53,6 +53,8 @@ def test_overlap_nodal_patch_and_side_swap(n, m):
     for item in pair.constant_traction_audit()["sides"].values():
         assert item["relative_nodal_measure_error_l2"] < 1e-12
     assert pair.weights.sum() == pytest.approx(1)
+    assert pair.summary()['negative_trace_reference_area'] == pytest.approx(1)
+    assert pair.summary()['positive_trace_reference_area'] == pytest.approx(1)
     rng = np.random.default_rng(16)
     un, up = rng.normal(size=a.vertices.shape), rng.normal(size=b.vertices.shape)
     jump = pair.jump(un, up)

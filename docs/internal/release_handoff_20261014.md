@@ -104,6 +104,31 @@ complete installed-run gates above. This remains an unreleased candidate.
 
 ## Scientific reference
 
+### Recipient source package and accepted observations
+
+The recipient candidate is a source-built, independently installed project:
+one readable physical case, operational TOML, private user law and one-time
+local preparation. No developer checkout or saved inertia array is required.
+Shared trace construction now uses tagged boundaries and input-node identities;
+the private source labels and initial-adjustment hypothesis remain in the case.
+Material export consumes the named state schema and the ordinary one-grid writer.
+Accepted interface observations report current-coordinate force/moment balance,
+reference-frame opening/slip and the pairing's integration measure. No overlap
+or nonlinear stability claim is inferred from those diagnostic quantities.
+
+The latest observation boundary passed 130 focused real-FEniCSx tests, including
+triangular/Q1 pairing, no-bond behavior, immutable observation, trial rejection,
+checkpoint recovery, contact composition, mass preparation and substeps.
+The earlier installed candidate passed 151 focused tests, plus 38 CLI/history
+checks. A two-rank warped-Q1 boundary-extraction check passed; it does not certify
+MPI response-material execution. A new source freeze still needs its own
+installed original-mesh entrypoint/export/recovery check before handoff.
+
+The original-mesh time-step comparison is explicitly a partial loaded-path
+screen. It must retain failed channels and cannot certify either full-path
+convergence or quasi-static accuracy. The old completed reference remains
+identified separately from this candidate and its new initial mass distribution.
+
 ### Initial preparation implemented, original-case acceptance still pending
 
 The bounded response-Hex provider now also admits `time.InitialMassScaling`.
