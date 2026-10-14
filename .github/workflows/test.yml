@@ -69,6 +69,33 @@ jobs:
             --head "${GITHUB_SHA}" \
             --github-output "${GITHUB_OUTPUT}"
 
+  portable-distribution:
+    name: Portable Linux native distribution
+    needs: change-scope
+    if: needs.change-scope.outputs.level == 'release'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+      - name: Exercise the publication build and repair path
+        run: |
+          python -m pip install build auditwheel patchelf packaging twine
+          python -m build --sdist --outdir /tmp/agentfem-portable-source
+          python tools/build_platform_wheel.py --source-dir /tmp/agentfem-portable-source \
+            --output /tmp/agentfem-portable-dist --repair linux
+          python -m twine check /tmp/agentfem-portable-dist/*.whl /tmp/agentfem-portable-dist/*.tar.gz
+          python -m pip install --no-deps /tmp/agentfem-portable-dist/*.whl
+          cd /tmp
+          python -c "import agentfem._hex_native, agentfem._body_pipeline"
+      - uses: actions/upload-artifact@v7
+        with:
+          name: portable-linux-build-evidence
+          path: /tmp/agentfem-portable-dist/platform-build.json
+          if-no-files-found: error
+
   static-analysis:
     name: Python correctness lint
     needs: change-scope
@@ -243,6 +270,17 @@ jobs:
       - name: Validate versioned scientific knowledge
         run: python build_knowledge.py --check --check-imports
 
+      - name: Verify installed field archives through an independent volume reader
+        run: |
+          # A release must not silently skip connectivity/Warp checks simply
+          # because the solver environment does not otherwise need VTK.
+          # No renderer or display server is involved; runtime stays optional.
+          python -m pip install "vtk>=9.3,<10"
+          python -c "import vtk; assert hasattr(vtk, 'vtkXdmfReader')"
+          python -m pytest -q -o pythonpath= \
+            tests/test_xdmf_cell_ordering.py tests/test_xdmf_layout.py \
+            tests/test_paraview_warp_tool.py
+
       - name: Run unit and interface tests
         run: |
           if [[ "${VALIDATION_LEVEL}" == "core" && -n "${CHANGED_TESTS}" ]]; then
@@ -251,6 +289,25 @@ jobs:
           else
             python -m pytest
           fi
+
+      - name: Verify the optional stateless native kernels from an installed wheel
+        run: |
+          native_root=$(mktemp -d)
+          AGENTFEM_BUILD_NATIVE=1 python -m build --wheel --outdir "${native_root}/dist"
+          python -m pip install --no-deps --target "${native_root}/site" "${native_root}"/dist/*.whl
+          export PYTHONPATH="${native_root}/site"
+          python -c "import agentfem._hex_native"
+          python -m pytest -q -o pythonpath= \
+            tests/test_hex_native.py tests/test_hex_validity_blocks.py \
+            tests/test_hex_validity.py tests/test_orientation.py \
+            tests/test_small_matrix.py tests/test_material_array_batch.py \
+            tests/test_bulk_viscosity.py tests/test_bulk_viscosity_lifecycle.py \
+            tests/test_explicit_hex_execution.py tests/test_owned_explicit_state.py \
+            tests/test_builtin_hex_execution.py tests/test_native_material_execution.py \
+            tests/test_native_hex_auxiliary.py \
+            tests/test_builtin_q1_execution.py \
+            tests/test_response_substeps.py tests/test_response_deformable_step.py \
+            tests/test_finite_uniform_hex_dolfinx.py
 
       - name: Prove an independently installed external provider
         run: |
@@ -567,7 +624,7 @@ jobs:
           channels: conda-forge
           channel-priority: strict
 
-      - name: Download the exact Linux-tested candidate
+      - name: Download the Linux-tested source distribution
         uses: actions/download-artifact@v8
         with:
           name: tested-python-package-distributions
@@ -582,9 +639,23 @@ jobs:
       - name: Install optional mesh interoperability used by release smoke
         run: python -m pip install meshio
 
+      - name: Build the macOS native wheel from the same source distribution
+        run: |
+          python tools/build_platform_wheel.py \
+            --source-dir /tmp/agentfem-foundation-fan-in/dist \
+            --output /tmp/agentfem-foundation-fan-in/macos-dist
+
+      - name: Verify the installed macOS native execution paths
+        run: |
+          python -m pip install --no-deps --force-reinstall /tmp/agentfem-foundation-fan-in/macos-dist/*.whl
+          python -c "import agentfem._hex_native, agentfem._body_pipeline"
+          python -m pytest -o pythonpath='' -q \
+            tests/test_hex_native.py tests/test_native_material_execution.py \
+            tests/test_builtin_hex_execution.py tests/test_native_hex_auxiliary.py
+
       - name: Run installed-use acceptance on macOS
         run: |
-          DIST=/tmp/agentfem-foundation-fan-in/dist
+          DIST=/tmp/agentfem-foundation-fan-in/macos-dist
           python release_gate.py --dist "${DIST}" --smoke --mpi-ranks 2 \
             --report /tmp/agentfem-macos-agent-acceptance.json \
             --platform-report /tmp/agentfem-macos-platform-acceptance.json \
@@ -626,6 +697,14 @@ jobs:
             /tmp/agentfem-macos-agent-acceptance.json
             /tmp/agentfem-macos-platform-acceptance.json
             /tmp/agentfem-platform-promotion.json
+          if-no-files-found: error
+
+      - name: Upload the platform-specific tested macOS distributions
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: tested-macos-package-distributions
+          path: /tmp/agentfem-foundation-fan-in/macos-dist/
           if-no-files-found: error
 
   ml-optional:

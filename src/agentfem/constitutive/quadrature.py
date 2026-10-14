@@ -508,6 +508,48 @@ def load_portable_quadrature_state(path, state, *, material=None) -> None:
     state.restore(snapshot)
 
 
+def _state_value_snapshot(selected) -> np.ndarray:
+    # The concrete field already returns an independent, cell-ordered copy.
+    # Other providers (including subclasses) may expose live views, so retain
+    # the defensive copy for the open state protocol.
+    values = np.asarray(selected.values)
+    return values if type(selected) is QuadratureField else values.copy()
+
+
+def _disjoint_serial_state_views(source, target):
+    """Borrow identity-layout sources only for a synchronous disjoint transfer.
+
+    Never use these views as snapshots. Open providers, distributed fields,
+    permuted layouts and cross-aliased state retain the detached-copy route.
+    Caller-owned field transactions still protect destination assignment.
+    """
+    selected = tuple(source.values()) + tuple(target.values())
+    if any(type(item) is not QuadratureField for item in selected):
+        return None
+    domain = selected[0].function.function_space.mesh
+    if domain.comm.size != 1 or any(
+        item.function.function_space.mesh is not domain for item in selected
+    ):
+        return None
+    # An overridden assignment may mutate sources or retain an argument.
+    if any(getattr(item.assign, "__func__", None) is not QuadratureField.assign
+           for item in target.values()):
+        return None
+    inputs = [item.function.x.array for item in source.values()]
+    outputs = [item.function.x.array for item in target.values()]
+    if any(np.shares_memory(a, b) for a in inputs for b in outputs):
+        return None
+    views = {}
+    for name, item in source.items():
+        indices = item._array_indices()
+        if not item._identity_layout_cache:
+            return None
+        views[name] = item.function.x.array[:indices.size].reshape(
+            (-1, *item.value_shape)
+        )
+    return views
+
+
 @dataclass
 class QuadratureTransaction:
     """Shared trial/commit/rollback contract for integration-point state.
@@ -567,20 +609,24 @@ class QuadratureTransaction:
     def commit(self) -> None:
         """Atomically accept every trial state variable."""
 
-        snapshots = {
-            name: np.asarray(selected.values).copy()
-            for name, selected in self.trial.items()
-        }
+        snapshots = _disjoint_serial_state_views(self.trial, self.committed)
+        if snapshots is None:
+            snapshots = {
+                name: _state_value_snapshot(selected)
+                for name, selected in self.trial.items()
+            }
         for name, selected in self.committed.items():
             selected.assign(snapshots[name])
 
     def rollback(self) -> None:
         """Discard all trial variables and restore the committed state."""
 
-        snapshots = {
-            name: np.asarray(selected.values).copy()
-            for name, selected in self.committed.items()
-        }
+        snapshots = _disjoint_serial_state_views(self.committed, self.trial)
+        if snapshots is None:
+            snapshots = {
+                name: _state_value_snapshot(selected)
+                for name, selected in self.committed.items()
+            }
         for name, selected in self.trial.items():
             selected.assign(snapshots[name])
 
@@ -588,7 +634,7 @@ class QuadratureTransaction:
         """Return a restart-safe copy of committed state values."""
 
         return {
-            name: np.asarray(selected.values).copy()
+            name: _state_value_snapshot(selected)
             for name, selected in self.committed.items()
         }
 
@@ -664,6 +710,11 @@ class QuadratureField:
     @property
     def component_count(self) -> int:
         return int(np.prod(self.value_shape)) if self.value_shape else 1
+
+    @property
+    def point_count(self) -> int:
+        """Number of locally visible points, including ghosts, without values."""
+        return self._cell_count() * len(self.points)
 
     @property
     def values(self) -> np.ndarray:
@@ -833,17 +884,14 @@ class QuadratureField:
         V = self.function.function_space
         points_per_cell = len(self.points)
         block_size = int(V.dofmap.bs)
-        cell_dofs = np.empty(
-            (self._cell_count(), points_per_cell),
-            dtype=np.int64,
-        )
-        for cell in range(self._cell_count()):
-            dofs = np.asarray(V.dofmap.cell_dofs(cell), dtype=np.int64)
-            if dofs.size != points_per_cell:
-                raise RuntimeError(
-                    "Quadrature dof count does not match the selected rule."
-                )
-            cell_dofs[cell] = dofs
+        # The backend already owns this cell-local adjacency table, including
+        # ghosts. Read it in bulk instead of rebuilding it with one Python/C++
+        # call per cell (costly for every new history field on large meshes).
+        cell_dofs = np.asarray(V.dofmap.list, dtype=np.int64)
+        if cell_dofs.shape != (self._cell_count(), points_per_cell):
+            raise RuntimeError(
+                "Quadrature dof count does not match the selected rule."
+            )
         indices = (
             cell_dofs[..., None] * block_size
             + np.arange(block_size, dtype=np.int64)
@@ -996,7 +1044,7 @@ class MaterialQuadratureState:
                 value_shape=variable.shape,
                 **common,
             )
-            point_count = len(committed_field.values)
+            point_count = committed_field.point_count
             initial = variable.initial_values().reshape(
                 (1, *variable.shape) if variable.shape else (1,)
             )
@@ -1079,6 +1127,10 @@ class MaterialQuadratureState:
             elif len(flattened) != point_count:
                 raise RuntimeError("Material state fields have inconsistent point counts.")
             columns.append(flattened)
+        if len(columns) == 1:
+            # QuadratureField.values already returns detached cell-ordered data.
+            # A single named history block needs no second full-state copy.
+            return columns[0]
         return np.concatenate(columns, axis=1)
 
     def committed_state_vectors(self) -> np.ndarray:
@@ -1095,7 +1147,7 @@ class MaterialQuadratureState:
         """Unpack point-state rows into the named trial quadrature fields."""
 
         selected = np.asarray(values, dtype=float)
-        point_count = len(self.reference_field.values)
+        point_count = self.reference_field.point_count
         if selected.shape != (point_count, self.state_schema.size):
             raise ValueError(
                 "Trial state vectors require shape "
@@ -1330,7 +1382,7 @@ class J2QuadratureState:
             "kind": "j2_quadrature_state",
             "degree": self.degree,
             "scheme": self.scheme,
-            "points_local": int(len(self.equivalent_plastic_strain.values)),
+            "points_local": self.equivalent_plastic_strain.point_count,
             "points_owned": int(cell_map.size_local) * points_per_cell,
             "points_global": int(cell_map.size_global) * points_per_cell,
             "portable_cell_identity": "dolfinx_original_cell_index",
@@ -1691,7 +1743,7 @@ class ChabocheQuadratureState:
             "kind": "chaboche_quadrature_state",
             "degree": self.degree,
             "scheme": self.scheme,
-            "points_local": int(len(self.equivalent_plastic_strain.values)),
+            "points_local": self.equivalent_plastic_strain.point_count,
             "points_owned": int(cell_map.size_local) * points_per_cell,
             "points_global": int(cell_map.size_global) * points_per_cell,
             "portable_cell_identity": "dolfinx_original_cell_index",
@@ -2146,7 +2198,7 @@ class CreepQuadratureState:
             "kind": "creep_quadrature_state",
             "degree": self.degree,
             "scheme": self.scheme,
-            "points_local": int(len(self.equivalent_creep_strain.values)),
+            "points_local": self.equivalent_creep_strain.point_count,
             "points_owned": int(cell_map.size_local) * points_per_cell,
             "points_global": int(cell_map.size_global) * points_per_cell,
             "portable_cell_identity": "dolfinx_original_cell_index",

@@ -6,6 +6,54 @@ import pytest
 from agentfem import boundary_models
 
 
+@pytest.mark.parametrize("permutation", [(0, 1, 2), (0, 2, 1), (1, 0, 2),
+                                        (1, 2, 0), (2, 0, 1), (2, 1, 0)])
+def test_geometric_duplicate_facets_rejected_for_every_vertex_order(permutation):
+    vertices = np.array(((0., 0., 0.), (1., 0., 0.), (0., 1., 0.)))
+    with pytest.raises(ValueError, match="duplicate facets"):
+        boundary_models.TriangulatedRigidSurface(
+            vertices=vertices, triangles=np.array(((0, 1, 2), permutation)),
+        )
+    # Separate indices at the same coordinates cannot bypass the index check,
+    # including signed zero (equal geometric coordinates, unequal bit patterns).
+    copied = vertices[list(permutation)].copy()
+    copied[copied == 0.] = -0.
+    with pytest.raises(ValueError, match="duplicate vertices"):
+        boundary_models.TriangulatedRigidSurface(
+            vertices=np.vstack((vertices, copied)),
+            triangles=np.array(((0, 1, 2), (3, 4, 5))),
+        )
+
+
+@pytest.mark.parametrize("dtype", [float, np.int64, bool, str])
+def test_contact_arrays_own_immutable_payload_with_independent_metadata(dtype):
+    from agentfem.boundary_models.rigid import _readonly_array
+    source = np.arange(12).reshape(4, 3)
+    selected = _readonly_array(source, dtype=dtype)
+    expected = selected.copy()
+    source[:] = 0
+    np.testing.assert_array_equal(selected, expected)
+    with pytest.raises(ValueError):
+        selected.setflags(write=True)
+    reused = _readonly_array(selected, dtype=dtype)
+    assert np.shares_memory(selected, reused)
+    selected.shape = (12,)
+    assert reused.shape == (4, 3)
+    np.testing.assert_array_equal(reused, expected)
+    strided = _readonly_array(reused[::2], dtype=dtype)
+    np.testing.assert_array_equal(strided, expected[::2])
+    assert not np.shares_memory(strided, reused)
+
+
+def test_contact_array_empty_and_object_compatibility():
+    from agentfem.boundary_models.rigid import _readonly_array
+    assert _readonly_array(np.empty((0, 3))).shape == (0, 3)
+    objects = np.array(["a", "b"], dtype=object)
+    copied = _readonly_array(objects, dtype=object)
+    objects[0] = "changed"
+    assert copied[0] == "a" and not copied.flags.writeable
+
+
 def test_plane_projection_preserves_signed_gap_and_closest_point_semantics():
     surface = boundary_models.rigid_plane(
         point=(1.0, 0.5),
@@ -329,6 +377,40 @@ def test_infinite_cylinder_projection_and_motion_are_exact():
     assert surface.summary()["geometric_shape"] == "infinite_circular_cylinder"
 
 
+def test_bounded_cylinder_lateral_interval_preserves_origin_and_motion():
+    surface = boundary_models.rigid_cylinder(
+        axis_point=(0, 5, 0),
+        axis_direction=(0, -1, 0),
+        radius=1,
+        axial_interval=(0, 2),
+    )
+    points = np.array([[2.0, 4, 0], [2, 5, 0], [2, 3, 0], [2, 2, 0]])
+    result = surface.project(points)
+    np.testing.assert_array_equal(result.valid, [True, False, False, False])
+    np.testing.assert_allclose(result.closest_points[0], [1, 4, 0])
+    assert list(result.status_codes[1:]) == ["unsupported_rim"] * 3
+    assert np.isnan(result.closest_points[1:]).all()
+    motion = boundary_models.prescribed_rigid_motion(
+        translation=(2, 3, 1),
+        rotation=(0, 0, np.pi / 2),
+    )
+    rotation = motion.rotation_matrix(1.0)
+    moved = surface.project(points @ rotation.T + [2, 3, 1], motion=motion, factor=1.0)
+    np.testing.assert_array_equal(moved.valid, result.valid)
+    np.testing.assert_allclose(
+        moved.closest_points[0], rotation @ result.closest_points[0] + [2, 3, 1]
+    )
+    np.testing.assert_allclose(moved.normals[0], rotation @ result.normals[0], atol=1e-14)
+    infinite = boundary_models.rigid_cylinder((0, 5, 0), (0, -1, 0), 1)
+    assert infinite.geometry_fingerprint != surface.geometry_fingerprint
+
+
+@pytest.mark.parametrize("interval", [(0, 0), (1, 0), (0, np.inf), (0, 1, 2)])
+def test_invalid_cylinder_interval(interval):
+    with pytest.raises(ValueError):
+        boundary_models.rigid_cylinder((0, 0, 0), (0, 1, 0), 1, axial_interval=interval)
+
+
 def test_infinite_cylinder_fails_closed_on_axis():
     surface = boundary_models.rigid_cylinder(
         axis_point=(1.0, 2.0, 3.0),
@@ -346,7 +428,11 @@ def test_infinite_cylinder_fails_closed_on_axis():
 @pytest.mark.parametrize(
     "factory, kwargs, message",
     [
-        (boundary_models.rigid_sphere, {"center": (0.0, 0.0), "radius": 0.0}, "positive"),
+        (
+            boundary_models.rigid_sphere,
+            {"center": (0.0, 0.0), "radius": 0.0},
+            "positive",
+        ),
         (
             boundary_models.rigid_sphere,
             {"center": (0.0, 0.0), "radius": 1.0, "admissible_side": "both"},

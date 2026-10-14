@@ -171,10 +171,20 @@ never changes solver access, results, verification, or update behavior.
 - Absorbing or Robin-like terms: use `boundary_models/`.
 - Assembly or lumped operators: inspect `assembly.py`.
 - Time stepping: inspect `time/` and `problems.py`.
+  For the serial response-Hex route use `mass_scaling=FixedMassScaling(...)`
+  or `InitialMassScaling(...)` (reference estimate), or
+  `TargetIncrementMassScaling(...)` instead of generating nodal arrays in a
+  case. Target planning requires a reviewed bound provider and a mass budget.
+  Never fill a missing contact/hourglass/damping contribution with zero merely
+  to satisfy its coverage check. Never infer path stability from a single
+  initial elastic tangent. An NPZ from another geometry is not a mass policy.
 - Time histories: define reusable assets in `amplitudes.py`, register important
   histories with `model.amplitude("name", history)`, and reference the name
   from loads or prescribed data. Static single-solve, nonlinear normalized
   step time, and transient physical time have distinct documented coordinates.
+  Do not substitute the half-cosine `smooth_step` for a quintic loading law:
+  use `quintic_step` and pass its physical-time amplitude to the rigid-motion
+  schedule. Changing that history changes checkpoint identity.
   Attach histories to model loads, prescribed values, or supported boundary
   models. Transient procedures update registered histories automatically; use
   callbacks only for genuinely application-specific state. Type a custom
@@ -255,6 +265,13 @@ never changes solver access, results, verification, or update behavior.
   semantics. Under MPI, open the `field_output` metadata's
   `recommended_visualization_artifact` (normally PVD), not the scientific
   multi-Grid XDMF; that route needs no Extract Block step.
+  Never write VTK/XDMF connectivity or reorder element nodes in an application
+  case. Use `solve_result(output=...)`, or `io.ResultWriter` for a custom loop.
+  Use `results.cell_field_from_values` with explicit cell keys for external
+  per-cell data. Equal array lengths do not establish matching field layouts.
+  Keep reference geometry for Warp; do not apply Warp again to an already
+  deformed presentation artifact. Never merge coincident physical nodes merely
+  to remove duplicate visualization blocks: cracks/interfaces may require them.
   For field-learning data, create a fixed `surrogates.ObservationGrid` and call
   `datasets.fem_observation_sample`; preserve its units, layout, and mask.
   For a direct solver or external benchmark contract, use
@@ -442,10 +459,10 @@ never changes solver access, results, verification, or update behavior.
   Never invent an envelope from one initial tangent or equate `dt="auto"`
   with adaptive stepping. Native finite J2 still requires the caller ceiling.
   Its bounded finite-Hex contact candidate accepts one registered frictionless
-  fixed/translating plane in serial or MPI without a bonded interface. Keep the
+  fixed/translating plane in serial or MPI with optional elastic bonding. Keep the
   reference-surface penalty meaning explicit; rotating/curved tools, multiple
   pairs and friction are not admitted. An equal-stiffness elastic reference
-  bond can coexist in serial on disjoint
+  bond can coexist on disjoint
   trace nodes; this is not debonding/contact switching. Use
   `examples/finite_hex_moving_plane.py` or `examples/finite_hex_bond_contact.py`.
 - Treat a surface projection as evidence, not merely coordinates. Preserve its
@@ -474,7 +491,9 @@ never changes solver access, results, verification, or update behavior.
   route as a general neighborhood-collective or extreme-scale contact search.
 - `RigidSphereSurface` and `RigidCylinderSurface` provide exact analytical
   projection. The sphere also represents a 2D circle; the cylinder is 3D and
-  infinite. Keep their interior/exterior admissible side explicit, preserve
+  infinite by default. Its optional `axial_interval` admits finite lateral
+  interior only; rim/end queries remain unsupported. Keep their
+  interior/exterior admissible side explicit, preserve
   `singular_projection`, and do not claim that projection-only geometry is an
   executable contact law.
 - Do not hide the finite-element workflow inside overly broad abstractions.
@@ -584,3 +603,17 @@ For high-order mixed-field boundary data, use `spaces.independent_subspace(W, i)
 and paired parent/independent dof location. Transfer output by interpolation;
 never copy coefficient arrays between different numberings. See
 `docs/guide/high_order_mixed_fields.md`.
+
+For serial degree-one imported nodes, `spaces.locate_input_nodes` uses mesh input
+identity and backend entity layouts; it is not a coordinate or source-label
+lookup. Use `interfaces.reference_trace_from_boundary(..., geometry="bilinear")`
+for explicitly supported warped Q1 boundary traces. Do not hand-write face
+connectivity or collapse coincident nodes at a bonded interface.
+
+For the bounded response-Hex route, use `accepted_material_fields()` for named
+state arrays and `accepted_contact_evidence(name=...)` for accepted pair evidence.
+Keep source-law SDV names in the provider, not the core. Observe only accepted
+stations; custom history callbacks are pure observations, never material
+updates. Their absence must not change the mechanical solution. Mass-preparation
+diagnostics describe supplied reference bounds, not a whole-path stability
+proof. Keep worker and reporting budgets separate from scientific controls.

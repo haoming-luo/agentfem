@@ -22,9 +22,21 @@ from agentfem import dependencies
 
 
 def _readonly_array(value, *, dtype=float) -> np.ndarray:
-    selected = np.array(value, dtype=dtype, copy=True)
-    selected.setflags(write=False)
-    return selected
+    selected = np.asarray(value, dtype=dtype)
+    if selected.dtype.hasobject:
+        # Object payloads cannot be reconstructed safely from raw pointer bytes.
+        selected = selected.copy()
+        selected.setflags(write=False)
+        return selected
+    owner = selected
+    while isinstance(owner, np.ndarray):
+        owner = owner.base
+    if not (isinstance(owner, bytes) and selected.flags.c_contiguous
+            and selected.nbytes == len(owner)):
+        owner = selected.tobytes(order="C")
+    # Immutable numeric/string payloads can cross evidence boundaries without
+    # copying again; independent array metadata still prevents shape aliasing.
+    return np.frombuffer(owner, dtype=selected.dtype).reshape(selected.shape)
 
 
 def _finite_nonnegative(value, *, name: str) -> float:
@@ -146,9 +158,7 @@ class SurfaceProjection:
                     "Valid discrete projections require non-negative entity IDs."
                 )
             if np.any(entity_ids[~valid] != -1):
-                raise ValueError(
-                    "Invalid discrete projections must use entity ID -1."
-                )
+                raise ValueError("Invalid discrete projections must use entity ID -1.")
         fingerprint = self.geometry_fingerprint
         if fingerprint is not None:
             fingerprint = str(fingerprint).lower()
@@ -218,9 +228,7 @@ class SurfaceProjection:
         object.__setattr__(
             self,
             "local_coordinates",
-            None
-            if local_coordinates is None
-            else _readonly_array(local_coordinates),
+            None if local_coordinates is None else _readonly_array(local_coordinates),
         )
         object.__setattr__(self, "local_coordinate_system", local_system)
 
@@ -430,8 +438,7 @@ class RigidPlaneSurface(RigidSurface):
         norm = float(np.linalg.norm(normal))
         if not np.isclose(norm, 1.0, rtol=0.0, atol=1.0e-12):
             raise ValueError(
-                "Rigid-plane normal must be a unit vector; "
-                f"norm={norm:.16g}."
+                f"Rigid-plane normal must be a unit vector; norm={norm:.16g}."
             )
         if not str(self.name).strip():
             raise ValueError("Rigid plane requires a name.")
@@ -469,9 +476,8 @@ class RigidPlaneSurface(RigidSurface):
         state = motion.state(factor)
         center = np.asarray(motion.reference_point, dtype=float)
         rotation = state["rotation_matrix"]
-        point = (
-            state["reference_point"]
-            + rotation @ (np.asarray(self.point, dtype=float) - center)
+        point = state["reference_point"] + rotation @ (
+            np.asarray(self.point, dtype=float) - center
         )
         normal = rotation @ np.asarray(self.normal, dtype=float)
         return {**state, "point": point, "normal": normal}
@@ -706,10 +712,11 @@ class RigidSphereSurface(RigidSurface):
 
 @dataclass(frozen=True)
 class RigidCylinderSurface(RigidSurface):
-    """Analytical three-dimensional infinite circular cylinder.
+    """Analytical circular cylinder, optionally restricted to a lateral interval.
 
-    End caps and rim ambiguity are intentionally absent.  A finite capped tool
-    is a compound surface and belongs to the later reviewed search backend.
+    ``axial_interval`` is measured from the supplied axis point along the
+    supplied direction. Only strict-interior lateral projections are admitted;
+    rim/end queries are explicitly unsupported, never treated as an end cap.
     """
 
     axis_point: object
@@ -717,6 +724,7 @@ class RigidCylinderSurface(RigidSurface):
     radius: float
     admissible_side: str = "exterior"
     name: str = "rigid_cylinder"
+    axial_interval: object | None = None
 
     def __post_init__(self) -> None:
         point = _finite_vector(
@@ -738,12 +746,27 @@ class RigidCylinderSurface(RigidSurface):
         first_significant = np.flatnonzero(
             np.abs(direction) > np.finfo(float).eps * 64.0
         )
-        if first_significant.size and direction[int(first_significant[0])] < 0.0:
+        interval = None
+        if self.axial_interval is not None:
+            interval = _finite_vector(
+                self.axial_interval, name="Cylinder axial interval", dimension=2
+            )
+            if interval[0] >= interval[1]:
+                raise ValueError("Cylinder axial interval must be strictly increasing.")
+            object.__setattr__(
+                self, "axial_interval", tuple(float(v) for v in interval)
+            )
+        if (
+            interval is None
+            and first_significant.size
+            and direction[int(first_significant[0])] < 0.0
+        ):
             direction = -direction
         # One infinite axis has infinitely many point representations.  Store
         # the closest axis point to the global origin so equivalent inputs
         # share one geometry identity and checkpoint fingerprint.
-        point = point - float(np.dot(point, direction)) * direction
+        if interval is None:
+            point = point - float(np.dot(point, direction)) * direction
         direction[direction == 0.0] = 0.0
         point[point == 0.0] = 0.0
         radius = _positive_radius(self.radius)
@@ -772,6 +795,11 @@ class RigidCylinderSurface(RigidSurface):
             np.asarray(self.axis_direction, dtype="<f8"),
             np.asarray((self.radius,), dtype="<f8"),
             np.asarray((self.admissible_side,), dtype="S8"),
+            *(
+                ()
+                if self.axial_interval is None
+                else (np.asarray(self.axial_interval, dtype="<f8"),)
+            ),
         )
 
     def project(
@@ -807,6 +835,17 @@ class RigidCylinderSurface(RigidSurface):
         gaps = side_direction * (radial_distances - self.radius)
         statuses = np.where(valid, "ok", "singular_projection").astype("<U20")
 
+        if self.axial_interval is not None:
+            low, high = self.axial_interval
+            tolerance = (
+                64 * np.finfo(float).eps * max(1.0, abs(low), abs(high), self.radius)
+            )
+            outside = (axial_coordinates <= low + tolerance) | (
+                axial_coordinates >= high - tolerance
+            )
+            valid[outside] = False
+            statuses[outside] = "unsupported_rim"
+
         if maximum_distance is not None:
             distance = _finite_nonnegative(
                 maximum_distance,
@@ -827,7 +866,11 @@ class RigidCylinderSurface(RigidSurface):
             signed_gaps=gaps,
             valid=valid,
             status_codes=statuses,
-            method="exact_infinite_cylinder_projection",
+            method=(
+                "exact_infinite_cylinder_projection"
+                if self.axial_interval is None
+                else "exact_interior_lateral_cylinder_projection"
+            ),
             geometry_fingerprint=self.geometry_fingerprint,
         )
 
@@ -836,14 +879,24 @@ class RigidCylinderSurface(RigidSurface):
             "name": self.name,
             "kind": "rigid_cylinder_surface",
             "dimension": 3,
-            "geometric_shape": "infinite_circular_cylinder",
+            "geometric_shape": (
+                "infinite_circular_cylinder"
+                if self.axial_interval is None
+                else "bounded_circular_cylinder_lateral_patch"
+            ),
+            "axial_interval": self.axial_interval,
+            "rim_and_end_caps": "unsupported",
             "axis_point": self.axis_point,
             "axis_direction": self.axis_direction,
             "radius": self.radius,
             "admissible_side": self.admissible_side,
             "geometry_fingerprint": self.geometry_fingerprint,
             "representation": "analytical",
-            "projection": "exact_radial_to_infinite_axis",
+            "projection": (
+                "exact_radial_to_infinite_axis"
+                if self.axial_interval is None
+                else "strict_interior_lateral_projection"
+            ),
             "signed_gap_convention": "positive_admissible_negative_penetration",
             "entity_identity": "not_applicable",
         }
@@ -977,9 +1030,8 @@ class TriangulatedRigidSurface(RigidSurface):
         if source_format is not None:
             if not source_format:
                 raise ValueError("Imported triangle source format cannot be empty.")
-            if (
-                len(source_sha256) != 64
-                or any(character not in "0123456789abcdef" for character in source_sha256)
+            if len(source_sha256) != 64 or any(
+                character not in "0123456789abcdef" for character in source_sha256
             ):
                 raise ValueError(
                     "Imported triangle source SHA-256 must be 64 lowercase hex digits."
@@ -1013,16 +1065,11 @@ class TriangulatedRigidSurface(RigidSurface):
                 raise ValueError("Surface triangle indices must be integers.")
         else:
             triangles = triangles_raw.astype(np.int64, copy=True)
-        if np.any(triangles < 0) or np.any(triangles >= vertices.shape[0]):
-            raise ValueError("Surface triangle index lies outside the vertex table.")
-        if np.unique(triangles).size != vertices.shape[0]:
-            raise ValueError("Every surface vertex must belong to at least one triangle.")
-        if np.any(
-            (triangles[:, 0] == triangles[:, 1])
-            | (triangles[:, 1] == triangles[:, 2])
-            | (triangles[:, 2] == triangles[:, 0])
-        ):
-            raise ValueError("Surface triangles must reference three distinct vertices.")
+        from ._triangle_topology import reviewed_triangle_topology
+
+        edge_count, boundary_edge_count = reviewed_triangle_topology(
+            len(vertices), triangles
+        )
 
         lower = np.min(vertices, axis=0)
         upper = np.max(vertices, axis=0)
@@ -1060,18 +1107,6 @@ class TriangulatedRigidSurface(RigidSurface):
             )
         normals = area_vectors / twice_areas[:, None]
 
-        canonical_indices = np.sort(triangles, axis=1)
-        if np.unique(canonical_indices, axis=0).shape[0] != triangles.shape[0]:
-            raise ValueError("Triangulated surface contains duplicate facets.")
-        geometric_facets = []
-        for facet in (vertices[item] for item in triangles):
-            ordered = facet[np.lexsort((facet[:, 2], facet[:, 1], facet[:, 0]))]
-            geometric_facets.append(tuple(ordered.reshape(-1).tolist()))
-        if len(set(geometric_facets)) != len(geometric_facets):
-            raise ValueError(
-                "Triangulated surface contains geometrically duplicate facets."
-            )
-
         if self.facet_ids is None:
             facet_ids = np.arange(triangles.shape[0], dtype=np.int64)
             identity_source = "generated_local_index"
@@ -1089,34 +1124,6 @@ class TriangulatedRigidSurface(RigidSurface):
                 raise ValueError("Facet IDs must be unique non-negative integers.")
             identity_source = "user_provided"
 
-        edge_uses: dict[tuple[int, int], list[int]] = {}
-        for triangle in triangles:
-            for start, end in (
-                (int(triangle[0]), int(triangle[1])),
-                (int(triangle[1]), int(triangle[2])),
-                (int(triangle[2]), int(triangle[0])),
-            ):
-                key = (min(start, end), max(start, end))
-                direction = 1 if (start, end) == key else -1
-                edge_uses.setdefault(key, []).append(direction)
-        non_manifold = [edge for edge, uses in edge_uses.items() if len(uses) > 2]
-        if non_manifold:
-            raise ValueError(
-                "Triangulated surface contains non-manifold edges; first edge "
-                f"is {non_manifold[0]}."
-            )
-        orientation_conflicts = [
-            edge
-            for edge, uses in edge_uses.items()
-            if len(uses) == 2 and uses[0] == uses[1]
-        ]
-        if orientation_conflicts:
-            raise ValueError(
-                "Adjacent surface facets have inconsistent orientation; first "
-                f"edge is {orientation_conflicts[0]}."
-            )
-        boundary_edge_count = sum(len(uses) == 1 for uses in edge_uses.values())
-
         fingerprint = _sha256_geometry(
             "triangulated_rigid_surface",
             np.asarray(vertices, dtype="<f8"),
@@ -1130,8 +1137,12 @@ class TriangulatedRigidSurface(RigidSurface):
         object.__setattr__(self, "source_sha256", source_sha256)
         object.__setattr__(self, "source_coordinate_scale", source_scale)
         object.__setattr__(self, "vertices", _readonly_array(vertices))
-        object.__setattr__(self, "triangles", _readonly_array(triangles, dtype=np.int64))
-        object.__setattr__(self, "facet_ids", _readonly_array(facet_ids, dtype=np.int64))
+        object.__setattr__(
+            self, "triangles", _readonly_array(triangles, dtype=np.int64)
+        )
+        object.__setattr__(
+            self, "facet_ids", _readonly_array(facet_ids, dtype=np.int64)
+        )
         object.__setattr__(self, "tolerance", tolerance)
         object.__setattr__(self, "ambiguity_tolerance", ambiguity_tolerance)
         object.__setattr__(self, "_facet_normals", _readonly_array(normals))
@@ -1142,7 +1153,7 @@ class TriangulatedRigidSurface(RigidSurface):
             self,
             "_topology_summary",
             {
-                "edge_count": len(edge_uses),
+                "edge_count": edge_count,
                 "boundary_edge_count": boundary_edge_count,
                 "closed": boundary_edge_count == 0,
                 "manifold": True,
@@ -1280,7 +1291,9 @@ class TriangulatedRigidSurface(RigidSurface):
             translated_reference = reference
         else:
             if motion.dimension != 3:
-                raise ValueError("Triangulated surface motion must be three-dimensional.")
+                raise ValueError(
+                    "Triangulated surface motion must be three-dimensional."
+                )
             state = motion.state(factor)
             rotation = np.asarray(state["rotation_matrix"], dtype=float)
             reference = np.asarray(motion.reference_point, dtype=float)
@@ -1292,8 +1305,7 @@ class TriangulatedRigidSurface(RigidSurface):
         )
         if motion is not None:
             closest[valid] = (
-                translated_reference
-                + (closest[valid] - reference) @ rotation.T
+                translated_reference + (closest[valid] - reference) @ rotation.T
             )
             normals[valid] = normals[valid] @ rotation.T
         return SurfaceProjection(
@@ -1376,9 +1388,7 @@ def _canonical_triangle_geometry(points, triangles, *, coordinate_scale: float):
     # unoriented vertex set while retaining each facet's winding, making
     # stable facet IDs independent of file/block ordering.
     facet_keys = np.sort(connectivity, axis=1)
-    facet_order = np.lexsort(
-        (facet_keys[:, 2], facet_keys[:, 1], facet_keys[:, 0])
-    )
+    facet_order = np.lexsort((facet_keys[:, 2], facet_keys[:, 1], facet_keys[:, 0]))
     return vertices, connectivity[facet_order]
 
 
@@ -1505,8 +1515,9 @@ def rigid_cylinder(
     *,
     admissible_side: str = "exterior",
     name: str = "rigid_cylinder",
+    axial_interval=None,
 ) -> RigidCylinderSurface:
-    """Create an analytical three-dimensional infinite cylinder."""
+    """Create a cylinder; optional axial interval admits lateral interior only."""
 
     return RigidCylinderSurface(
         axis_point=axis_point,
@@ -1514,6 +1525,7 @@ def rigid_cylinder(
         radius=radius,
         admissible_side=admissible_side,
         name=name,
+        axial_interval=axial_interval,
     )
 
 

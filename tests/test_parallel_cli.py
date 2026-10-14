@@ -9,7 +9,8 @@ import pytest
 from agentfem import cli
 
 
-def test_cli_collectively_reports_a_single_rank_failure(tmp_path):
+@pytest.mark.parametrize("failure", ["RuntimeError('injected rank-one failure')", "SystemExit(2)"])
+def test_cli_collectively_reports_a_single_rank_failure(tmp_path, failure):
     if MPI.COMM_WORLD.size < 2:
         pytest.skip("collective CLI failure requires at least two MPI ranks")
 
@@ -24,7 +25,7 @@ def test_cli_collectively_reports_a_single_rank_failure(tmp_path):
         (project / "case.py").write_text(
             "from mpi4py import MPI\n"
             "if MPI.COMM_WORLD.rank == 1:\n"
-            "    raise RuntimeError('injected rank-one failure')\n",
+            f"    raise {failure}\n",
             encoding="utf-8",
         )
     MPI.COMM_WORLD.barrier()
@@ -56,5 +57,5 @@ def test_cli_collectively_reports_a_single_rank_failure(tmp_path):
         assert execution["status"] == "failed"
         assert execution["error"]["rank"] == 1
         assert execution["error"]["rank_errors"][0]["message"] == (
-            "injected rank-one failure"
+            "2" if failure.startswith("SystemExit") else "injected rank-one failure"
         )

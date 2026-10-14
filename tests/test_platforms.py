@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 from pathlib import Path
+from types import SimpleNamespace
+import json
 import subprocess
 import sys
 
@@ -102,6 +104,9 @@ def test_runtime_report_is_serializable_and_names_optional_integrations():
     assert report["execution"]["runtime_version"] == __version__
     assert "source" in report["execution"]
     assert "distribution" in report["execution"]
+    assert set(report["execution"]["accelerators"]) == {
+        "hex_arithmetic", "material_body_pipeline", "q1_geometry"
+    }
     assert report["workspace"]["schema"] == "agentfem.workspace"
     assert isinstance(
         report["workspace"]["protected_from_distribution_removal"], bool
@@ -119,6 +124,41 @@ def test_runtime_report_is_serializable_and_names_optional_integrations():
         "meshio",
         "torch",
     }
+
+
+def test_native_inventory_distinguishes_missing_broken_and_loadable(monkeypatch):
+    seen = []
+    def importer(name):
+        seen.append(name)
+        if name == "agentfem._hex_native":
+            raise ModuleNotFoundError("optional extension absent", name=name)
+        if name == "agentfem._q1_native":
+            raise ImportError("GMP shared library unavailable")
+        def forbidden(*args):
+            raise AssertionError("Inventory must not execute an accelerator")
+        return SimpleNamespace(__file__="installed/_body_pipeline.so", run=forbidden)
+    monkeypatch.setattr(platforms, "import_module", importer)
+    records = platforms._native_accelerators()
+    json.dumps(records, allow_nan=False)
+    assert len(seen) == 3
+    assert records["hex_arithmetic"]["status"] == "not_built"
+    assert records["material_body_pipeline"]["available"] is True
+    assert records["q1_geometry"]["status"] == "load_failed"
+    assert records["q1_geometry"]["error"]["message"] == "GMP shared library unavailable"
+
+
+@pytest.mark.parametrize("policy", [None, "wrong-policy"])
+def test_native_inventory_rejects_incomplete_modules_and_wrong_q1_policy(monkeypatch, policy):
+    monkeypatch.setattr(platforms, "import_module",
+                        lambda name: SimpleNamespace(__file__=name, projection_policy=policy))
+    assert all(item["status"] == "load_failed" for item in platforms._native_accelerators().values())
+
+
+def test_native_inventory_does_not_mislabel_a_missing_dependency(monkeypatch):
+    def broken(name):
+        raise ModuleNotFoundError("dependency unavailable", name="external_dependency")
+    monkeypatch.setattr(platforms, "import_module", broken)
+    assert all(item["status"] == "load_failed" for item in platforms._native_accelerators().values())
 
 
 def test_runtime_report_fails_closed_when_dolfinx_has_no_jit_compiler(monkeypatch):

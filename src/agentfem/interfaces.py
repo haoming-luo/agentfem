@@ -2969,21 +2969,67 @@ def pair_nonmatching_triangles(negative, positive, *, tolerance, maximum_points=
                                   maximum_points=maximum_points)
 
 
-def reference_trace(vertices, cells, *, topology, tolerance):
+def reference_trace(vertices, cells, *, topology, tolerance, geometry="affine"):
     """Create fixed reference geometry with its original P1 or affine Q1 trace.
 
     Quadrilateral connectivity is cyclic perimeter order. This is not a
     rigid-body declaration or automatic extraction from a volume mesh.
     """
+    if geometry not in ("affine", "bilinear"):
+        raise ValueError("Trace geometry must be affine or bilinear")
     if topology == "quadrilateral":
-        from ._interface_quadrilateral import QuadrilateralReferenceTrace
-        return QuadrilateralReferenceTrace(vertices, cells, tolerance=tolerance)
+        from ._interface_quadrilateral import QuadrilateralReferenceTrace, BilinearReferenceTrace
+        trace = BilinearReferenceTrace if geometry == "bilinear" else QuadrilateralReferenceTrace
+        return trace(vertices, cells, tolerance=tolerance)
     if topology == "triangle":
+        if geometry != "affine":
+            raise ValueError("Bilinear geometry requires quadrilateral topology")
         from .boundary_models.rigid import TriangulatedRigidSurface
         if not np.isfinite(float(tolerance)) or float(tolerance) <= 0:
             raise ValueError("Trace tolerance must be positive finite.")
         return TriangulatedRigidSurface(vertices, cells)
     raise NotImplementedError("Reference traces support triangle or affine quadrilateral topology.")
+
+
+def project_reference_points(surface, points, *, maximum_distance, require_unique_normal=True):
+    """Bounded closest-point query on original Q1 geometry, not contact detection."""
+    from ._interface_quadrilateral import BilinearReferenceTrace
+    from ._q1_surface_search import Q1SurfaceSearch
+    if not isinstance(surface, BilinearReferenceTrace):
+        raise TypeError("Reference projection requires a bilinear Q1 trace")
+    return Q1SurfaceSearch(surface.vertices[surface.quadrilaterals], node_ids=surface.quadrilaterals).project(
+        points, maximum_distance=maximum_distance, require_unique_normal=require_unique_normal)
+
+
+def propose_reference_adjustment(negative, positive, *, selected_nodes, maximum_distance, tolerance):
+    """Return an explicit strain-free geometry proposal; never change a live mesh.
+
+    Caller must apply it by original node identities to a new mesh, check bulk
+    element validity and rebuild initial bonds. Eligibility is never inferred.
+    """
+    from ._reference_surface_adjustment import propose_reference_surface_adjustment
+    return propose_reference_surface_adjustment(negative, positive,
+        selected_nodes=selected_nodes, maximum_distance=maximum_distance, tolerance=tolerance)
+
+
+def initial_nodal_bond(negative, positive, *, eligible_nodes, tolerance):
+    """Pair explicitly eligible coincident Q1 nodes once, without snapping.
+
+    Uses one-sided nodal area integration, not common refinement. Requires
+    mesh/side sensitivity assessment. Finite-rotation execution is restricted
+    to equal normal and tangential elastic stiffness by the Step provider.
+    No later rebonding or automatic contact-to-bond conversion is performed.
+    """
+    from ._initial_nodal_bond import initial_nodal_q1_pairing
+    from ._interface_quadrilateral import QuadrilateralReferenceTrace, BilinearReferenceTrace
+    def bilinear(trace):
+        # Affine Q1 is a subset of bilinear Q1, with identical shape functions.
+        if type(trace) is QuadrilateralReferenceTrace:
+            return BilinearReferenceTrace(trace.vertices, trace.quadrilaterals, tolerance=tolerance)
+        return trace
+    negative, positive = bilinear(negative), bilinear(positive)
+    return initial_nodal_q1_pairing(negative, positive,
+                                  eligible_nodes=eligible_nodes, tolerance=tolerance)
 
 
 def pair_reference_traces(negative, positive, *, tolerance, maximum_points=200_000):
@@ -3118,17 +3164,19 @@ from .cohesive_checkpoint import (  # noqa: E402
 )
 
 
-def reference_trace_from_boundary(displacement, boundary, *, tolerance=1e-10):
+def reference_trace_from_boundary(displacement, boundary, *, tolerance=1e-10, geometry="affine"):
     """Extract an outward reference trace and DOF map from a named boundary.
 
-    Serial continuous P1 tetrahedra and affine-face Q1 hexahedra only. Both
+    Continuous P1 tetrahedra and Q1 hexahedra with degree-one geometry. Select
+    ``geometry="bilinear"`` for warped Q1 faces; the default retains the stricter
+    affine-face admission. This retains Q1 interpolation, never triangular P1. Both
     interface sides must have independent boundary labels and displacement DOFs.
     Returns ``(trace, dofs)`` for ``pair_reference_traces`` and
     ``fracture.nonmatching_cohesive_force``; it does not split or merge a mesh.
     """
     from ._interface_boundary import reference_trace_from_boundary as extract
 
-    return extract(displacement, boundary, tolerance=tolerance)
+    return extract(displacement, boundary, tolerance=tolerance, geometry=geometry)
 
 
 __all__ = [
@@ -3159,6 +3207,9 @@ __all__ = [
     "reference_trace",
     "reference_trace_from_boundary",
     "pair_reference_traces",
+    "initial_nodal_bond",
+    "project_reference_points",
+    "propose_reference_adjustment",
     "audit_mode_i_kinematics",
     "audit_split_interface_rigid_modes",
     "mixed_mode_bilinear_cohesive",

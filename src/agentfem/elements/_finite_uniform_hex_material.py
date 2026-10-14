@@ -16,6 +16,7 @@ class FiniteHexMaterialTrial:
     deformation_gradient: np.ndarray
     element_response: object
     material_response: object
+    bulk_viscosity_response: object | None = None
 
 
 def response_fields(response):

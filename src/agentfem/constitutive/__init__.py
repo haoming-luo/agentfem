@@ -4,6 +4,7 @@
 """Constitutive laws and material-model helpers."""
 
 from . import catalog
+from . import corotational
 from . import creep
 from . import elasticity
 from . import fatigue
@@ -17,7 +18,20 @@ from . import small_strain_user_material
 from . import user_material
 from . import viscoelasticity
 from .catalog import ConstitutiveCapability, capabilities, capability
+from .corotational import (
+    CorotationalIncrement,
+    polar_strain_increment,
+    push_corotational_stress,
+)
 from .stability import FirstPiolaTangentEnvelope
+from .explicit_user_material import (
+    ExplicitUserMaterial,
+    ExplicitMaterialBatchOutput,
+    ExplicitMaterialIncrementLimit,
+    ExplicitMaterialIncrementExceeded,
+    ExplicitMaterialCutbackRequest,
+    explicit_user_material,
+)
 from .creep import (
     ArrheniusPowerLawCreep,
     CreepDamageState,
@@ -230,6 +244,16 @@ from .._material_history import (
 )
 
 __all__ = [
+    "corotational",
+    "CorotationalIncrement",
+    "polar_strain_increment",
+    "push_corotational_stress",
+    "ExplicitUserMaterial",
+    "ExplicitMaterialBatchOutput",
+    "ExplicitMaterialIncrementLimit",
+    "ExplicitMaterialIncrementExceeded",
+    "ExplicitMaterialCutbackRequest",
+    "explicit_user_material",
     "FirstPiolaTangentEnvelope",
     "catalog",
     "creep",

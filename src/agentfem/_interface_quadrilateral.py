@@ -5,11 +5,11 @@
 from dataclasses import dataclass
 from hashlib import sha256
 
-import basix
 import numpy as np
 
 from ._interface_overlap import planar_overlap_pairing
 from ._interface_pairing import _make_pairing
+from ._q1_surface_geometry import planar_q1_pull_back, q1_surface_quadrature
 from .boundary_models.rigid import TriangulatedRigidSurface
 
 
@@ -28,7 +28,7 @@ class QuadrilateralReferenceTrace:
     geometry_fingerprint: str
     nodal_measures: np.ndarray
 
-    def __init__(self, vertices, quadrilaterals, *, tolerance):
+    def __init__(self, vertices, quadrilaterals, *, tolerance, _bilinear=False):
         vertices = np.asarray(vertices, dtype=float)
         quads = np.asarray(quadrilaterals)
         tolerance = float(tolerance)
@@ -57,7 +57,7 @@ class QuadrilateralReferenceTrace:
         mismatch = points[:, 0] + points[:, 2] - points[:, 1] - points[:, 3]
         scale = np.linalg.norm(np.ptp(points, axis=1), axis=1)
         # Geometric coincidence tolerance cannot relax the affine-map restriction.
-        if np.any(
+        if not _bilinear and np.any(
             np.linalg.norm(mismatch, axis=1) > np.minimum(tolerance, 1e-11 * scale)
         ):
             raise NotImplementedError(
@@ -69,11 +69,21 @@ class QuadrilateralReferenceTrace:
             np.cross(points[:, 1] - points[:, 0], points[:, 3] - points[:, 0]), axis=1
         )
         measures = np.zeros(len(vertices))
-        np.add.at(measures, quads.ravel(), np.repeat(area / 4, 4))
+        if _bilinear:
+            _, basis, weights, _ = q1_surface_quadrature(points, order=3)
+            np.add.at(
+                measures, quads.ravel(), np.einsum("fq,qk->fk", weights, basis).ravel()
+            )
+        else:
+            np.add.at(measures, quads.ravel(), np.repeat(area / 4, 4))
         quads = np.array(quads, dtype=np.int64, copy=True)
         quads.setflags(write=False)
         measures.setflags(write=False)
-        digest = sha256(b"agentfem.affine-q1-reference-trace.v1")
+        digest = sha256(
+            b"agentfem.bilinear-q1-reference-trace.v1"
+            if _bilinear
+            else b"agentfem.affine-q1-reference-trace.v1"
+        )
         digest.update(surface.geometry_fingerprint.encode())
         digest.update(quads.astype("<i8").tobytes())
         for name, value in dict(
@@ -90,36 +100,30 @@ class QuadrilateralReferenceTrace:
         return self.triangulated.triangles
 
 
+class BilinearReferenceTrace(QuadrilateralReferenceTrace):
+    """Private true-Q1 geometry with positive lumped nodal area measures.
+
+    This does not admit common-refinement or imply exact quadrature on warped
+    surfaces. Nodal measures use order-three tensor quadrature.
+    """
+
+    def __init__(self, vertices, quadrilaterals, *, tolerance):
+        super().__init__(vertices, quadrilaterals, tolerance=tolerance, _bilinear=True)
+
+
 def _q1_values(trace, triangle_nodes, points):
     lookup = {tuple(nodes): i // 2 for i, nodes in enumerate(trace.triangles)}
     parents = np.array([lookup[tuple(nodes)] for nodes in triangle_nodes])
     nodes = trace.quadrilaterals[parents]
     vertices = trace.vertices[nodes]
-    axes = np.stack(
-        (vertices[:, 1] - vertices[:, 0], vertices[:, 3] - vertices[:, 0]), axis=2
-    )
-    gram = np.einsum("qia,qib->qab", axes, axes)
-    rhs = np.einsum("qia,qi->qa", axes, points - vertices[:, 0])
-    local = np.linalg.solve(gram, rhs[..., None])[..., 0]
-    if np.any(local < -1e-9) or np.any(local > 1 + 1e-9):
-        raise ValueError("Quadrilateral integration point lies outside its parent.")
-    element = basix.create_element(
-        basix.ElementFamily.P,
-        basix.CellType.quadrilateral,
-        1,
-        basix.LagrangeVariant.equispaced,
-    )
-    # Basix tensor-product node order -> declared cyclic trace connectivity.
-    weights = element.tabulate(0, local)[0, :, :, 0][:, [0, 1, 3, 2]]
+    _, weights = planar_q1_pull_back(vertices, points)
     return nodes, weights
 
 
 def quadrilateral_overlap_pairing(
     negative, positive, *, tolerance, maximum_points=200_000
 ):
-    if not all(
-        isinstance(s, QuadrilateralReferenceTrace) for s in (negative, positive)
-    ):
+    if not all(type(s) is QuadrilateralReferenceTrace for s in (negative, positive)):
         raise TypeError("Expected affine Q1 reference traces on both sides.")
     integration = planar_overlap_pairing(
         negative.triangulated,

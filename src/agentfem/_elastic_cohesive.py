@@ -102,9 +102,9 @@ class _ElasticTransaction:
         if (
             isinstance(size, bool)
             or not isinstance(size, (int, np.integer))
-            or size <= 0
+            or size < 0
         ):
-            raise ValueError("Elastic transaction size must be a positive integer.")
+            raise ValueError("Elastic transaction size must be a nonnegative integer.")
         self.law, self.size, self.trial = law, int(size), None
 
     def evaluate(self, jump):

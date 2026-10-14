@@ -11,6 +11,8 @@ from agentfem import boundary_models
 from agentfem.boundary_models.contact_projection_checkpoint import (
     global_projection_state_snapshot,
     local_projection_state_from_snapshot,
+    numeric_projection_state_snapshot,
+    numeric_projection_state_from_snapshot,
 )
 
 
@@ -92,3 +94,77 @@ def test_projection_checkpoint_is_rank_canonical_and_redistributable():
         point_ids=(other_id,),
     )
     assert restored.point_ids.tolist() == [other_id]
+
+
+def test_numeric_projection_roundtrip_through_common_array_codec():
+    from agentfem._checkpoint_arrays import encode_tree, decode_tree
+
+    record = _record()
+    numeric = numeric_projection_state_snapshot(record)
+    encoded, arrays = encode_tree(numeric)
+    restored = numeric_projection_state_from_snapshot(
+        decode_tree(encoded, arrays), point_ids=(12, 4)
+    )
+    np.testing.assert_array_equal(
+        restored.projection.query_points, record.projection.query_points
+    )
+    np.testing.assert_array_equal(
+        restored.projection.local_coordinates, record.projection.local_coordinates
+    )
+    assert "records" not in numeric
+    assert len(arrays) > 5
+
+
+@pytest.mark.parametrize(
+    "field,value",
+    [
+        ("status_indices", np.array([0, 42])),
+        ("status_catalog", ["ok", "ok"]),
+        ("point_ids", np.array([4, 99])),
+        ("valid", np.array([1, 1])),
+        ("normals", np.full((2, 3), np.nan)),
+    ],
+)
+def test_numeric_projection_rejects_corruption(field, value):
+    snapshot = numeric_projection_state_snapshot(_record())
+    snapshot[field] = value
+    with pytest.raises((ValueError, TypeError)):
+        numeric_projection_state_from_snapshot(snapshot, point_ids=(12, 4))
+
+
+def test_numeric_projection_preserves_invalid_geometry_without_nan_archive():
+    cylinder = boundary_models.rigid_cylinder(
+        axis_point=(0, 0, 0),
+        axis_direction=(0, 0, 1),
+        radius=1,
+        axial_interval=(0, 2),
+    )
+    projection = cylinder.project(np.array([[2.0, 0.0, 1.0], [2.0, 0.0, 3.0]]))
+    record = boundary_models.ContactProjectionRecord((0, 1), projection)
+    snapshot = numeric_projection_state_snapshot(record)
+    assert not snapshot["valid"][1]
+    assert np.all(np.isfinite(snapshot["closest_points"]))
+    restored = numeric_projection_state_from_snapshot(snapshot, point_ids=(0, 1))
+    np.testing.assert_array_equal(restored.projection.valid, record.projection.valid)
+    np.testing.assert_array_equal(
+        restored.projection.status_codes, record.projection.status_codes
+    )
+    assert np.all(np.isnan(restored.projection.closest_points[1]))
+    corrupt = deepcopy(snapshot)
+    corrupt["closest_points"][1, 0] = 1
+    with pytest.raises(ValueError, match="zero-filled"):
+        numeric_projection_state_from_snapshot(corrupt, point_ids=(0, 1))
+# Canonical encoding remains byte-for-byte equivalent for arbitrary providers.
+@pytest.mark.parametrize('count', [0, 1, 2, 1000])
+def test_status_run_encoding_matches_general_unique(count):
+    from agentfem.boundary_models.contact_projection_checkpoint import _status_encoding
+    rng = np.random.default_rng(572)
+    for values in (
+        np.full(count, 'projected'),
+        np.resize(['invalid', 'α', 'projected'], count),
+        np.sort(rng.choice(['invalid', 'α', 'projected'], count)),
+    ):
+        actual = _status_encoding(values)
+        expected = np.unique(values, return_inverse=True)
+        for a, b in zip(actual, expected):
+            np.testing.assert_array_equal(a, b)

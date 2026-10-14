@@ -25,6 +25,8 @@ from .contact_lifecycle import ContactProjectionLifecycle
 from .contact_projection_checkpoint import (
     global_projection_state_snapshot,
     local_projection_state_from_snapshot,
+    numeric_projection_state_snapshot,
+    numeric_projection_state_from_snapshot,
 )
 from .contact_friction import (
     PenaltyCoulombFrictionLaw,
@@ -96,7 +98,9 @@ class ExplicitContactEvidence:
     def __post_init__(self) -> None:
         potential = float(self.potential_energy)
         if not np.isfinite(potential) or potential < 0.0:
-            raise ValueError("Contact potential energy must be finite and non-negative.")
+            raise ValueError(
+                "Contact potential energy must be finite and non-negative."
+            )
         structure = np.asarray(self.contact_force_on_structure, dtype=float)
         surface = np.asarray(self.contact_force_on_surface, dtype=float)
         if structure.shape != (3,) or surface.shape != (3,):
@@ -115,7 +119,9 @@ class ExplicitContactEvidence:
             moment = np.asarray(moment, dtype=float)
             if moment.shape != (3,) or not np.all(np.isfinite(moment)):
                 raise ValueError("Explicit contact moment must be one finite 3-vector.")
-            object.__setattr__(self, "surface_generalized_moment", _readonly_array(moment))
+            object.__setattr__(
+                self, "surface_generalized_moment", _readonly_array(moment)
+            )
         active = int(self.active_point_count)
         invalid = int(self.invalid_point_count)
         if active < 0 or invalid < 0:
@@ -278,7 +284,9 @@ class DolfinxExplicitContactResidual:
         if not isinstance(adapter, DolfinxContactTraceAdapter):
             raise TypeError("Explicit contact requires DolfinxContactTraceAdapter.")
         if displacement.function_space is not adapter.function_space:
-            raise ValueError("Explicit contact displacement differs from its trace space.")
+            raise ValueError(
+                "Explicit contact displacement differs from its trace space."
+            )
         if not isinstance(lifecycle, ContactProjectionLifecycle):
             raise TypeError("Explicit contact requires ContactProjectionLifecycle.")
         if not np.array_equal(lifecycle.point_ids, adapter.trace.point_ids):
@@ -291,9 +299,7 @@ class DolfinxExplicitContactResidual:
             raise TypeError("Explicit friction requires PenaltyCoulombFrictionLaw.")
         if rigid_body is not None and not isinstance(rigid_body, RigidBody):
             raise TypeError("Explicit contact rigid_body must be RigidBody.")
-        if contact_pair is not None and not isinstance(
-            contact_pair, RigidContactPair
-        ):
+        if contact_pair is not None and not isinstance(contact_pair, RigidContactPair):
             raise TypeError("Explicit contact contact_pair must be RigidContactPair.")
         limit = float(maximum_stable_time_increment)
         if not np.isfinite(limit) or limit <= 0.0:
@@ -320,9 +326,7 @@ class DolfinxExplicitContactResidual:
                     "CombinedExplicitStabilityEstimate."
                 )
             tolerance = (
-                64.0
-                * np.finfo(float).eps
-                * combined_stability_estimate.selected
+                64.0 * np.finfo(float).eps * combined_stability_estimate.selected
             )
             if limit > combined_stability_estimate.selected + tolerance:
                 raise ValueError(
@@ -343,7 +347,9 @@ class DolfinxExplicitContactResidual:
                 )
         options = {} if projection_options is None else dict(projection_options)
         if any(not isinstance(key, str) or not key for key in options):
-            raise ValueError("Contact projection option names must be non-empty strings.")
+            raise ValueError(
+                "Contact projection option names must be non-empty strings."
+            )
         reference = (
             None
             if surface_reference_point is None
@@ -395,9 +401,7 @@ class DolfinxExplicitContactResidual:
                     "Explicit contact rigid body differs from its contact pair."
                 )
             if law is not contact_pair.law:
-                raise ValueError(
-                    "Explicit contact law differs from its contact pair."
-                )
+                raise ValueError("Explicit contact law differs from its contact pair.")
             if adapter.boundary_name != contact_pair.slave_boundary.name:
                 raise ValueError(
                     "Explicit contact trace boundary differs from its contact pair."
@@ -408,9 +412,7 @@ class DolfinxExplicitContactResidual:
         self.lifecycle = lifecycle
         self.law = law
         self.friction_law = friction_law
-        self.friction_state = (
-            None if friction_law is None else TangentialContactState()
-        )
+        self.friction_state = None if friction_law is None else TangentialContactState()
         self.friction_kinematics = (
             None if friction_law is None else TangentialKinematicState()
         )
@@ -497,14 +499,10 @@ class DolfinxExplicitContactResidual:
                 else self.contact_pair.scientific_identity
             ),
             "rigid_body_identity": (
-                None
-                if self.rigid_body is None
-                else self.rigid_body.scientific_identity
+                None if self.rigid_body is None else self.rigid_body.scientific_identity
             ),
             "motion_schedule": (
-                None
-                if self.motion_schedule is None
-                else self.motion_schedule.summary()
+                None if self.motion_schedule is None else self.motion_schedule.summary()
             ),
         }
         encoded = _canonical_json(payload).encode("utf-8")
@@ -531,6 +529,7 @@ class DolfinxExplicitContactResidual:
             projection.record,
             response,
             surface_reference_point=reference,
+            compact=self.communicator.size == 1,
         )
         friction_assembly = None
         friction_response = None
@@ -563,6 +562,7 @@ class DolfinxExplicitContactResidual:
                 projection.record,
                 friction_response,
                 surface_reference_point=reference,
+                compact=self.communicator.size == 1,
             )
             self.friction_state.begin(friction_response)
             self.friction_kinematics.begin(
@@ -687,12 +687,16 @@ class DolfinxExplicitContactResidual:
             maximum_penetration=maximum_penetration,
         )
 
-    def _work_station(self, evidence: ExplicitContactEvidence) -> PrescribedContactWorkStation:
+    def _work_station(
+        self, evidence: ExplicitContactEvidence
+    ) -> PrescribedContactWorkStation:
         if self.motion_schedule is None:
             raise RuntimeError("Fixed contact does not own prescribed-motion work.")
         moment = evidence.surface_generalized_moment
         if moment is None:
-            raise RuntimeError("Moving rigid contact requires generalized moment evidence.")
+            raise RuntimeError(
+                "Moving rigid contact requires generalized moment evidence."
+            )
         generalized_force = np.concatenate(
             (evidence.contact_force_on_structure, moment)
         )
@@ -714,9 +718,8 @@ class DolfinxExplicitContactResidual:
 
         if hasattr(self.base, "initialize_accepted_state"):
             self.base.initialize_accepted_state(time=time)
-        if (
-            (self.work_state is None and self.accepted_evidence is not None)
-            or (self.work_state is not None and self.work_state.accepted)
+        if (self.work_state is None and self.accepted_evidence is not None) or (
+            self.work_state is not None and self.work_state.accepted
         ):
             return
         self.update_time(time)
@@ -764,7 +767,9 @@ class DolfinxExplicitContactResidual:
             self.work_state.current is None
             or self.work_state.current.time != self.current_time
         ):
-            raise RuntimeError("Accepted contact force requires the accepted motion time.")
+            raise RuntimeError(
+                "Accepted contact force requires the accepted motion time."
+            )
         try:
             return self._assemble_with_base(accepted=True)
         finally:
@@ -772,39 +777,56 @@ class DolfinxExplicitContactResidual:
 
     def _assemble_with_base(self, *, accepted):
         cached = getattr(self.base, "assemble_accepted_vector", None)
-        vector = cached() if accepted and callable(cached) else operators.assemble_vector(self.base)
+        vector = (
+            cached()
+            if accepted and callable(cached)
+            else operators.assemble_vector(self.base)
+        )
         try:
             assembly, response, friction_assembly, friction_response = (
                 self._collective_local_contact()
             )
-            contact = vector.duplicate()
-            try:
-                values = np.asarray(
-                    assembly.nodal_structural_residual,
+            values = np.asarray(
+                assembly.nodal_structural_residual,
+                dtype=float,
+            ).reshape(-1)
+            if friction_assembly is not None:
+                if not np.array_equal(assembly.node_ids, friction_assembly.mechanical.node_ids):
+                    raise ValueError("Normal and friction contact node maps differ.")
+                values = values + np.asarray(
+                    friction_assembly.nodal_structural_residual,
                     dtype=float,
                 ).reshape(-1)
-                if friction_assembly is not None:
-                    values = values + np.asarray(
-                        friction_assembly.nodal_structural_residual,
-                        dtype=float,
-                    ).reshape(-1)
-                with contact.localForm() as local:
-                    local.set(0.0)
-                    if local.array.shape != values.shape:
-                        raise ValueError(
-                            "Contact trace residual and PETSc local layouts differ: "
-                            f"trace={values.shape}, vector={local.array.shape}."
-                        )
-                    local.array[:] = values
-                contact.ghostUpdate(
-                    addv=PETSc.InsertMode.ADD_VALUES,
-                    mode=PETSc.ScatterMode.REVERSE,
-                )
-                if vector.array.shape != contact.array.shape:
-                    raise ValueError("Contact and base owned vector layouts differ.")
-                vector.array[:] += contact.array
-            finally:
-                contact.destroy()
+            if self.communicator.size == 1:
+                # No ghost contributions exist in a serial trace. Preserve the
+                # same layout check without a full duplicate/zero/copy vector.
+                dimension = assembly.nodal_structural_residual.shape[1]
+                if vector.array.size != assembly.number_of_nodes * dimension:
+                    raise ValueError("Contact and base serial vector layouts differ.")
+                if assembly.node_ids is None:
+                    vector.array[:] += values
+                else:
+                    vector.array.reshape(-1, dimension)[assembly.node_ids] += values.reshape(-1, dimension)
+            else:
+                contact = vector.duplicate()
+                try:
+                    with contact.localForm() as local:
+                        local.set(0.0)
+                        if local.array.shape != values.shape:
+                            raise ValueError(
+                                "Contact trace residual and PETSc local layouts differ: "
+                                f"trace={values.shape}, vector={local.array.shape}."
+                            )
+                        local.array[:] = values
+                    contact.ghostUpdate(
+                        addv=PETSc.InsertMode.ADD_VALUES,
+                        mode=PETSc.ScatterMode.REVERSE,
+                    )
+                    if vector.array.shape != contact.array.shape:
+                        raise ValueError("Contact and base owned vector layouts differ.")
+                    vector.array[:] += contact.array
+                finally:
+                    contact.destroy()
             self.trial_evidence = self._global_evidence(
                 assembly,
                 response,
@@ -842,8 +864,7 @@ class DolfinxExplicitContactResidual:
                 "No moving-contact work trial is available to commit at this time."
             )
         if self.friction_state is not None and (
-            self.friction_state.trial is None
-            or self.friction_kinematics.trial is None
+            self.friction_state.trial is None or self.friction_kinematics.trial is None
         ):
             raise RuntimeError("No explicit-friction trial is available to commit.")
         if hasattr(self.base, "commit"):
@@ -896,10 +917,15 @@ class DolfinxExplicitContactResidual:
             return None
         return global_projection_state_snapshot(accepted, self.communicator)
 
-    def _validated_global_projection_record(self, snapshot: object):
+    def _validated_global_projection_record(self, snapshot: object, *, numeric=False):
         if snapshot is None:
             return None
-        restored = local_projection_state_from_snapshot(
+        decode = (
+            numeric_projection_state_from_snapshot
+            if numeric
+            else local_projection_state_from_snapshot
+        )
+        restored = decode(
             snapshot,
             point_ids=self.adapter.trace.point_ids,
         )
@@ -934,7 +960,10 @@ class DolfinxExplicitContactResidual:
         """Canonical contact records with provider-owned nested State."""
 
         return self._accepted_snapshot(
-            "snapshot", canonical_base=not callable(getattr(self.base, "checkpoint_snapshot", None)),
+            "snapshot",
+            canonical_base=not callable(
+                getattr(self.base, "checkpoint_snapshot", None)
+            ),
         )
 
     def checkpoint_snapshot(self) -> dict[str, object]:
@@ -947,12 +976,19 @@ class DolfinxExplicitContactResidual:
 
         return self._accepted_snapshot("transaction_snapshot", canonical_base=False)
 
+    def _increment_field_scope(self, record):
+        from .._field_rollback_scope import _increment_field_scope
+
+        return _increment_field_scope(self.base, record["base_state"])
+
     def checkpoint_capabilities(self):
         """A contact wrapper cannot broaden its nested State's portability."""
         from dataclasses import replace
         from ..checkpointing import CheckpointCapabilities, TRANSIENT_CHECKPOINT_SCHEMA
 
-        components = ("accepted contact projection, friction and prescribed-motion work",)
+        components = (
+            "accepted contact projection, friction and prescribed-motion work",
+        )
         identities = ("contact pair, rigid geometry and prescribed motion",)
         declaration = getattr(self.base, "checkpoint_capabilities", None)
         if callable(declaration):
@@ -960,7 +996,9 @@ class DolfinxExplicitContactResidual:
             if not isinstance(nested, CheckpointCapabilities):
                 raise TypeError("Nested residual must declare CheckpointCapabilities.")
             if nested.boundary != "accepted_step":
-                raise ValueError("Contact and nested residual acceptance boundaries differ.")
+                raise ValueError(
+                    "Contact and nested residual acceptance boundaries differ."
+                )
             return replace(
                 nested,
                 state_components=nested.state_components + components,
@@ -971,11 +1009,15 @@ class DolfinxExplicitContactResidual:
         # partition contract before their capability can be advertised.
         has_numeric_state = callable(getattr(self.base, "checkpoint_snapshot", None))
         if has_numeric_state:
-            raise ValueError("Numeric nested State requires an explicit checkpoint capability contract.")
+            raise ValueError(
+                "Numeric nested State requires an explicit checkpoint capability contract."
+            )
         return CheckpointCapabilities(
             schemas=(TRANSIENT_CHECKPOINT_SCHEMA,),
-            boundary="accepted_step", payload_scope="full_restart_state",
-            state_components=components, atomic_publication=True,
+            boundary="accepted_step",
+            payload_scope="full_restart_state",
+            state_components=components,
+            atomic_publication=True,
             rank_count_portability="requires_portable_policy",
             identity_scope=identities,
             limitations=("Nested State retains its own restart restrictions.",),
@@ -994,9 +1036,23 @@ class DolfinxExplicitContactResidual:
                 )
             )
         ):
-            raise RuntimeError("Explicit contact can only checkpoint an accepted boundary.")
+            raise RuntimeError(
+                "Explicit contact can only checkpoint an accepted boundary."
+            )
+        # The numeric archive remains explicitly same-partition. Keep the
+        # existing global record format for portable and MPI consumers.
+        numeric = (
+            base_method != "snapshot"
+            and self.communicator.size == 1
+            and self.checkpoint_capabilities().rank_count_portability == "unsupported"
+        )
+        accepted_projection = self.lifecycle.state.accepted
         snapshot = {
-            "schema": "agentfem.dolfinx-explicit-contact-residual.v6",
+            "schema": (
+                "agentfem.dolfinx-explicit-contact-residual.v7"
+                if numeric
+                else "agentfem.dolfinx-explicit-contact-residual.v6"
+            ),
             "name": self.name,
             "contact_pair_identity": (
                 None
@@ -1004,19 +1060,20 @@ class DolfinxExplicitContactResidual:
                 else self.contact_pair.scientific_identity
             ),
             "rigid_body_identity": (
-                None
-                if self.rigid_body is None
-                else self.rigid_body.scientific_identity
+                None if self.rigid_body is None else self.rigid_body.scientific_identity
             ),
             "motion_schedule": (
-                None
-                if self.motion_schedule is None
-                else self.motion_schedule.summary()
+                None if self.motion_schedule is None else self.motion_schedule.summary()
             ),
             "work_state": (
-                None if self.work_state is None else (
+                None
+                if self.work_state is None
+                else (
                     self.work_state.transaction_snapshot()
-                    if base_method == "transaction_snapshot" else self.work_state.snapshot()
+                    if base_method == "transaction_snapshot"
+                    else self.work_state.checkpoint_snapshot()
+                    if numeric and base_method == "checkpoint_snapshot"
+                    else self.work_state.snapshot()
                 )
             ),
             "accepted_evaluations": self.accepted_evaluations,
@@ -1026,24 +1083,39 @@ class DolfinxExplicitContactResidual:
                 else self.accepted_evidence.summary()
             ),
             "friction_state": self._global_friction_records(),
-            "projection_state": self._global_projection_record(),
+            "projection_state": (
+                numeric_projection_state_snapshot(accepted_projection)
+                if numeric and accepted_projection is not None
+                else None
+                if numeric
+                else self._global_projection_record()
+            ),
             "base_state": (
                 getattr(self.base, base_method, self.base.snapshot)()
-                if hasattr(self.base, "snapshot") else None
+                if hasattr(self.base, "snapshot")
+                else None
             ),
         }
+        if numeric:
+            # Shared checkpoint encoding hashes numeric arrays. Serial local
+            # transactions need neither JSON expansion nor MPI allgather.
+            return snapshot
         # Contact records are global/canonical; a numeric material buffer is
         # owned by one partition. Its provider and the common array archive
         # validate that identity without gathering the large payload here.
-        canonical = snapshot if canonical_base else {
-            key: value for key, value in snapshot.items() if key != "base_state"
-        }
+        canonical = (
+            snapshot
+            if canonical_base
+            else {key: value for key, value in snapshot.items() if key != "base_state"}
+        )
         if base_method == "transaction_snapshot" and self.work_state is not None:
             canonical["work_state"] = self.work_state.summary()
         encoded = _canonical_json(canonical)
         copies = tuple(self.communicator.allgather(encoded))
         if any(item != copies[0] for item in copies[1:]):
-            raise RuntimeError("Explicit contact checkpoint State differs across MPI ranks.")
+            raise RuntimeError(
+                "Explicit contact checkpoint State differs across MPI ranks."
+            )
         return snapshot
 
     def contact_energy_evidence(self) -> tuple[dict[str, object], ...]:
@@ -1073,6 +1145,28 @@ class DolfinxExplicitContactResidual:
         )
         return tuple(terms)
 
+    def accepted_contact_observation(self) -> dict[str, object]:
+        """Local accepted evidence; no search, material update or state write."""
+        if (self.accepted_evidence is None or self.trial_evidence is not None
+                or self.lifecycle.state.trial is not None
+                or (self.work_state is not None and (
+                    self.work_state.current is None
+                    or self.work_state.current.time != self.current_time))):
+            raise RuntimeError("Rigid contact observation requires an accepted station")
+        _, reference = self._projection_context()
+        coordinate = (np.zeros(6) if self.motion_schedule is None else
+                      self.motion_schedule.generalized_coordinate_at(self.current_time))
+        return {**self.accepted_evidence.summary(),
+                "schema": "agentfem.accepted_contact_observation.v1",
+                "name": self.name, "kind": "rigid_contact", "time": self.current_time,
+                "generalized_coordinate": coordinate.tolist(),
+                "moment_reference_point": None if reference is None else reference.tolist(),
+                "moment_convention": "surface_motion_generalized_force_not_tool_reaction",
+                "contact_motion_work": 0.0 if self.work_state is None else self.work_state.path_work,
+                "contact_motion_interval_power": (None if self.work_state is None else
+                                                  self.work_state.latest_interval_power),
+                "scientifically_validated": False}
+
     def contact_progress_evidence(self) -> tuple[dict[str, object], ...]:
         """Return compact accepted contact diagnostics for throttled progress."""
 
@@ -1087,9 +1181,7 @@ class DolfinxExplicitContactResidual:
                 "invalid_point_count": self.accepted_evidence.invalid_point_count,
                 "maximum_penetration": self.accepted_evidence.maximum_penetration,
                 "contact_force_norm": float(
-                    np.linalg.norm(
-                        self.accepted_evidence.contact_force_on_structure
-                    )
+                    np.linalg.norm(self.accepted_evidence.contact_force_on_structure)
                 ),
                 "contact_motion_work": (
                     0.0 if self.work_state is None else self.work_state.path_work
@@ -1128,30 +1220,35 @@ class DolfinxExplicitContactResidual:
         if (
             not isinstance(snapshot, dict)
             or snapshot.get("schema")
-            != "agentfem.dolfinx-explicit-contact-residual.v6"
+            not in {
+                "agentfem.dolfinx-explicit-contact-residual.v6",
+                "agentfem.dolfinx-explicit-contact-residual.v7",
+            }
             or set(snapshot) != required
         ):
             raise ValueError("Unsupported explicit-contact residual snapshot.")
+        numeric = snapshot["schema"] == "agentfem.dolfinx-explicit-contact-residual.v7"
+        if numeric and (
+            self.communicator.size != 1
+            or self.checkpoint_capabilities().rank_count_portability != "unsupported"
+        ):
+            raise ValueError(
+                "Numeric contact State requires its serial same-partition contract."
+            )
         expected_schedule = (
             None if self.motion_schedule is None else self.motion_schedule.summary()
         )
         expected_body_identity = (
-            None
-            if self.rigid_body is None
-            else self.rigid_body.scientific_identity
+            None if self.rigid_body is None else self.rigid_body.scientific_identity
         )
         expected_pair_identity = (
-            None
-            if self.contact_pair is None
-            else self.contact_pair.scientific_identity
+            None if self.contact_pair is None else self.contact_pair.scientific_identity
         )
         if (
             snapshot.get("name") != self.name
             or snapshot.get("contact_pair_identity") != expected_pair_identity
             or snapshot.get("rigid_body_identity") != expected_body_identity
-            or _canonical_json(
-                snapshot.get("motion_schedule")
-            )
+            or _canonical_json(snapshot.get("motion_schedule"))
             != _canonical_json(expected_schedule)
         ):
             raise ValueError("Explicit-contact checkpoint identity differs.")
@@ -1159,7 +1256,9 @@ class DolfinxExplicitContactResidual:
         validated_work = None
         if self.work_state is None:
             if raw_work is not None:
-                raise ValueError("Fixed contact cannot restore moving-contact work State.")
+                raise ValueError(
+                    "Fixed contact cannot restore moving-contact work State."
+                )
         else:
             if raw_work is None:
                 raise ValueError("Moving contact checkpoint lacks its work State.")
@@ -1180,7 +1279,8 @@ class DolfinxExplicitContactResidual:
         validated_friction = self._validated_global_friction_records(raw_friction)
         raw_projection = snapshot["projection_state"]
         validated_projection = self._validated_global_projection_record(
-            raw_projection
+            raw_projection,
+            numeric=numeric,
         )
         raw_base = snapshot["base_state"]
         base_restore = getattr(self.base, "restore", None)
@@ -1197,16 +1297,29 @@ class DolfinxExplicitContactResidual:
             raise ValueError(
                 "Explicit-contact checkpoint lacks required nested residual State."
             )
-        return (raw_base, validated_work, count, evidence,
-                validated_friction, validated_projection)
+        return (
+            raw_base,
+            validated_work,
+            count,
+            evidence,
+            validated_friction,
+            validated_projection,
+        )
 
     def restore(self, snapshot: object) -> None:
         """Reject rank-local outer corruption before nested State collectives."""
         from ..provenance import collective_call
 
-        (raw_base, validated_work, count, evidence,
-         validated_friction, validated_projection) = collective_call(
-            lambda: self._validate_restore(snapshot), comm=self.communicator,
+        (
+            raw_base,
+            validated_work,
+            count,
+            evidence,
+            validated_friction,
+            validated_projection,
+        ) = collective_call(
+            lambda: self._validate_restore(snapshot),
+            comm=self.communicator,
             label="Explicit-contact restore validation",
         )
         # Every outer field is validated before nested State is allowed to
@@ -1285,9 +1398,7 @@ class DolfinxExplicitContactResidual:
                 else self.accepted_evidence.summary()
             ),
             "motion_schedule": (
-                None
-                if self.motion_schedule is None
-                else self.motion_schedule.summary()
+                None if self.motion_schedule is None else self.motion_schedule.summary()
             ),
             "rigid_body": (
                 None if self.rigid_body is None else self.rigid_body.summary()
@@ -1307,7 +1418,9 @@ class DolfinxExplicitContactResidual:
             "friction_state": (
                 None if self.friction_state is None else self.friction_state.summary()
             ),
-            "base": self.base.summary() if hasattr(self.base, "summary") else repr(self.base),
+            "base": self.base.summary()
+            if hasattr(self.base, "summary")
+            else repr(self.base),
         }
 
 
@@ -1385,9 +1498,7 @@ def dolfinx_explicit_contact_residual(
             "global_geometry_fingerprint",
             projector_summary.get("geometry_fingerprint"),
         )
-        expected_fingerprint = rigid_body.surface.summary().get(
-            "geometry_fingerprint"
-        )
+        expected_fingerprint = rigid_body.surface.summary().get("geometry_fingerprint")
         if (
             projected_fingerprint is not None
             and expected_fingerprint is not None
@@ -1431,9 +1542,7 @@ def dolfinx_explicit_contact_residual(
             lumped_mass=lumped_mass,
             normal_penalty=law.penalty,
             tangential_penalty=(
-                None
-                if friction_law is None
-                else friction_law.tangential_penalty
+                None if friction_law is None else friction_law.tangential_penalty
             ),
             friction_coefficient=(
                 0.0 if friction_law is None else friction_law.coefficient
@@ -1468,9 +1577,7 @@ def dolfinx_explicit_contact_residual(
         contact_stability_estimate,
         ContactStabilityEstimate,
     ):
-        raise TypeError(
-            "contact_stability_estimate must be ContactStabilityEstimate."
-        )
+        raise TypeError("contact_stability_estimate must be ContactStabilityEstimate.")
     elif noncontact_unsafed_stability_limit is not None:
         raise ValueError(
             "noncontact_unsafed_stability_limit requires lumped_mass so the "

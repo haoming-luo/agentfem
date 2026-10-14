@@ -423,6 +423,8 @@ class UnifiedXDMFTimeSeries:
         self.path = Path(path)
         self.h5_path = self.path.with_suffix(".h5")
         self.deformation_scale = float(deformation_scale)
+        if not np.isfinite(self.deformation_scale):
+            raise ValueError("Output deformation scale must be finite.")
         self.store_reference_geometry = bool(store_reference_geometry)
         self.compression = int(compression)
         self.primary_name = primary_name
@@ -432,6 +434,8 @@ class UnifiedXDMFTimeSeries:
         self._temporal = None
         self._frame_count = 0
         self._field_contract = None
+        self._last_time = None
+        self._write_failed = False
 
     def __enter__(self):
         self.path.parent.mkdir(parents=True, exist_ok=True)
@@ -441,6 +445,8 @@ class UnifiedXDMFTimeSeries:
         if self._h5 is not None:
             self._h5.close()
             self._h5 = None
+        if exc_type is None and self._write_failed:
+            raise RuntimeError("Output storage failed; incomplete artifact was not published.")
         if exc_type is None:
             if self._frame_count == 0:
                 raise ValueError("UnifiedXDMFTimeSeries wrote no result frames.")
@@ -483,6 +489,8 @@ class UnifiedXDMFTimeSeries:
         self._connectivity = connectivity
         self._reference_coordinates = coordinates
         self._topology_type = topology_type
+        self._vtk_cell_type = int(unique_cell_types[0])
+        self._primary_semantic_name = primary_semantic_name
         self._nodes_per_cell = nodes_per_cell
         self._cell_count = len(cell_types)
         self._point_count = coordinates.shape[0]
@@ -492,6 +500,8 @@ class UnifiedXDMFTimeSeries:
         self._primary_name = primary_name
         self._vector_primary = vector_primary
         self._effective_scale = effective_scale
+        self._primary_space = primary.function_space
+        self._mesh_coordinates = domain.geometry.x.copy()
         self._h5_options = {
             "compression": "gzip",
             "compression_opts": self.compression,
@@ -507,34 +517,35 @@ class UnifiedXDMFTimeSeries:
             GridType="Collection",
             CollectionType="Temporal",
         )
+    def _open_storage(self) -> None:
         self._h5 = h5py.File(self.h5_path, "w")
         self._h5.attrs["agentfem_schema"] = "agentfem.unified-xdmf"
         self._h5.attrs["schema_version"] = "0.1.0"
-        self._h5.attrs["deformation_scale"] = effective_scale
-        self._h5.attrs["vtk_cell_type"] = int(unique_cell_types[0])
-        self._h5.attrs["xdmf_topology_type"] = topology_type
-        self._h5.attrs["nodes_per_cell"] = nodes_per_cell
+        self._h5.attrs["deformation_scale"] = self._effective_scale
+        self._h5.attrs["vtk_cell_type"] = self._vtk_cell_type
+        self._h5.attrs["xdmf_topology_type"] = self._topology_type
+        self._h5.attrs["nodes_per_cell"] = self._nodes_per_cell
         self._h5.attrs["point_count"] = self._point_count
         self._h5.attrs["cell_count"] = self._cell_count
-        self._h5.attrs["primary_field"] = primary_name
-        self._h5.attrs["primary_semantic_name"] = primary_semantic_name
+        self._h5.attrs["primary_field"] = self._primary_name
+        self._h5.attrs["primary_semantic_name"] = self._primary_semantic_name
         self._h5.attrs["geometry_dimension"] = self._geometry_dimension
         self._h5.attrs["physical_model_dimension"] = self._physical_model_dimension
         self._h5.attrs["primary_physical_components"] = (
-            int(primary_shape[0]) if vector_primary else 1
+            int(self._primary_shape[0]) if self._vector_primary else 1
         )
         self._h5.attrs["primary_storage_components"] = (
-            self._geometry_dimension if vector_primary else 1
+            self._geometry_dimension if self._vector_primary else 1
         )
-        self._h5.attrs["warp_compatible"] = bool(vector_primary)
+        self._h5.attrs["warp_compatible"] = bool(self._vector_primary)
         self._h5.attrs["geometry_mode"] = (
-            "deformed" if effective_scale != 0.0 else "reference"
+            "deformed" if self._effective_scale != 0.0 else "reference"
         )
         mesh_group = self._h5.create_group("Mesh")
-        mesh_group.create_dataset("Topology", data=connectivity, **self._h5_options)
+        mesh_group.create_dataset("Topology", data=self._connectivity, **self._h5_options)
         if self.store_reference_geometry:
             mesh_group.create_dataset(
-                "ReferenceGeometry", data=coordinates, **self._h5_options
+                "ReferenceGeometry", data=self._reference_coordinates, **self._h5_options
             )
 
     def write_fields(self, time: float, *fields) -> None:
@@ -542,14 +553,41 @@ class UnifiedXDMFTimeSeries:
 
         if not fields:
             raise ValueError("UnifiedXDMFTimeSeries requires at least one field.")
+        if self._write_failed:
+            raise RuntimeError("Output writer failed during storage; start a new artifact.")
+        time = float(time)
+        if not np.isfinite(time) or (self._last_time is not None and time <= self._last_time):
+            raise ValueError("Output frame times must be finite and strictly increasing.")
         primary, *auxiliary = fields
-        if self._h5 is None:
+        domain = primary.function_space.mesh
+        if any((item.field if hasattr(item, "field") else item).function_space.mesh
+               is not domain for item in auxiliary):
+            raise ValueError("Single-grid XDMF fields must belong to the same mesh.")
+        if self._root is not None and domain is not self._mesh:
+            raise ValueError("Single-grid XDMF mesh changed between frames.")
+        if self._root is None:
+            self._mesh = domain
             self._initialize(primary)
         if tuple(getattr(primary, "ufl_shape", ())) != self._primary_shape:
             raise ValueError("Unified XDMF primary-field shape changed between frames.")
+        if primary.function_space != self._primary_space:
+            # Mixed-field snapshots may reconstruct an equivalent collapsed
+            # space. Object identity is not a scientific layout contract, but
+            # equal coefficient counts alone are insufficient as well.
+            previous = self._primary_space
+            current = primary.function_space
+            if (current.ufl_element() != previous.ufl_element()
+                    or current.dofmap.bs != previous.dofmap.bs
+                    or current.dofmap.index_map_bs != previous.dofmap.index_map_bs
+                    or not np.array_equal(current.dofmap.list, previous.dofmap.list)):
+                raise ValueError("Output primary function space layout changed between frames.")
+        if not np.array_equal(domain.geometry.x, self._mesh_coordinates):
+            raise ValueError("Output reference mesh moved; use explicit deformation output.")
 
         value_size = int(np.prod(self._primary_shape)) if self._primary_shape else 1
         primary_values = np.asarray(primary.x.array).reshape(-1, value_size)
+        if np.iscomplexobj(primary_values) or not np.isfinite(primary_values).all():
+            raise ValueError("Output primary field must contain finite real values.")
         if primary_values.shape[0] != self._point_count:
             raise ValueError("Unified XDMF primary-field dofs must match mesh points.")
         displacement = np.zeros_like(self._reference_coordinates)
@@ -557,37 +595,21 @@ class UnifiedXDMFTimeSeries:
             displacement[:, : int(self._primary_shape[0])] = primary_values
         geometry = self._reference_coordinates + self._effective_scale * displacement
 
-        frame_name = f"{self._frame_count:04d}"
-        frame_group = self._h5.create_group(f"Frames/{frame_name}")
-        frame_group.attrs["load_factor"] = float(time)
-        frame_group.attrs["coordinate"] = float(time)
-        frame_group.create_dataset("Geometry", data=geometry, **self._h5_options)
-        point_group = frame_group.create_group("Point")
-        cell_group = frame_group.create_group("Cell")
         stored_primary = displacement if self._vector_primary else primary_values[:, 0]
-        primary_dataset = point_group.create_dataset(
-            self._primary_name, data=stored_primary, **self._h5_options
-        )
-        primary_dataset.attrs["physical_components"] = (
-            int(self._primary_shape[0]) if self._vector_primary else 1
-        )
-        primary_dataset.attrs["stored_components"] = (
-            self._geometry_dimension if self._vector_primary else 1
-        )
-        if self._vector_primary:
-            primary_dataset.attrs["semantic_name"] = (
-                self.primary_semantic_name or "Displacement"
-            )
         attributes = [(self._primary_name, "Node", stored_primary)]
+        component_metadata = {self._primary_name: (
+            int(self._primary_shape[0]) if self._vector_primary else 1,
+            self._geometry_dimension if self._vector_primary else 1)}
         if self._vector_primary:
+            if self._primary_name == "UMAG":
+                raise ValueError("UMAG is reserved for the generated displacement magnitude.")
             magnitude = np.linalg.norm(primary_values, axis=1)
-            point_group.create_dataset("UMAG", data=magnitude, **self._h5_options)
             attributes.append(("UMAG", "Node", magnitude))
 
         for field in auxiliary:
             name = str(getattr(field, "name", "Field"))
-            if name in {self._primary_name, "UMAG"}:
-                continue
+            if name in {item[0] for item in attributes}:
+                raise ValueError(f"Duplicate/reserved output field name {name!r}.")
             center, shaped = _unified_field_values(
                 field,
                 solution_space=primary.function_space,
@@ -599,24 +621,55 @@ class UnifiedXDMFTimeSeries:
                 field,
                 components=self._geometry_dimension,
             )
-            group = point_group if center == "Node" else cell_group
-            dataset = group.create_dataset(name, data=shaped, **self._h5_options)
             field_shape = tuple(getattr(field, "ufl_shape", ()))
             if len(field_shape) == 1:
-                dataset.attrs["physical_components"] = int(field_shape[0])
-                dataset.attrs["stored_components"] = int(np.asarray(shaped).shape[-1])
+                component_metadata[name] = (int(field_shape[0]), int(np.asarray(shaped).shape[-1]))
             attributes.append((name, center, shaped))
 
         contract = tuple(
             (name, center, tuple(np.asarray(values).shape[1:]))
             for name, center, values in attributes
         )
-        if self._field_contract is None:
-            self._field_contract = contract
-        elif contract != self._field_contract:
+        if self._field_contract is not None and contract != self._field_contract:
             raise ValueError(
                 "Unified XDMF field names, locations, or shapes changed between frames."
             )
+        for name, _, values in attributes:
+            if not name or name in {".", ".."} or "/" in name or "\x00" in name:
+                raise ValueError(f"Invalid output field name {name!r}.")
+            if np.iscomplexobj(values) or not np.isfinite(values).all():
+                raise ValueError(f"Output field {name!r} must contain finite real values.")
+        if not np.isfinite(geometry).all():
+            raise ValueError("Output coordinates must be finite.")
+
+        # Admit the complete frame before touching storage. A rejected schema,
+        # time or field cannot poison the next valid frame or publish partial data.
+        frame_name = f"{self._frame_count:04d}"
+        try:
+            if self._h5 is None:
+                self._open_storage()
+            frame_group = self._h5.create_group(f"Frames/{frame_name}")
+            frame_group.attrs["load_factor"] = time
+            frame_group.attrs["coordinate"] = time
+            if self._effective_scale == 0 and self._frame_count:
+                frame_group["Geometry"] = self._h5["Frames/0000/Geometry"]
+            elif self._effective_scale == 0 and self.store_reference_geometry:
+                frame_group["Geometry"] = self._h5["Mesh/ReferenceGeometry"]
+            else:
+                frame_group.create_dataset("Geometry", data=geometry, **self._h5_options)
+            groups = {"Node": frame_group.create_group("Point"),
+                      "Cell": frame_group.create_group("Cell")}
+            for name, center, values in attributes:
+                dataset = groups[center].create_dataset(name, data=values, **self._h5_options)
+                if name in component_metadata:
+                    physical, stored = component_metadata[name]
+                    dataset.attrs["physical_components"] = physical
+                    dataset.attrs["stored_components"] = stored
+                if name == self._primary_name and self._vector_primary:
+                    dataset.attrs["semantic_name"] = self._primary_semantic_name
+        except BaseException:
+            self._write_failed = True
+            raise
 
         grid = ET.SubElement(
             self._temporal,
@@ -654,6 +707,8 @@ class UnifiedXDMFTimeSeries:
                 f"{self.h5_path.name}:/Frames/{frame_name}/{group_name}/{name}",
             )
         self._frame_count += 1
+        self._last_time = time
+        self._field_contract = contract
 
 
 def write_unified_xdmf_series(
@@ -1073,20 +1128,23 @@ def _unified_field_values(
                 "Project to DG0 for cell output or use a dedicated high-order "
                 "visualization backend."
             )
-        shaped = values.reshape(cell_count, value_size)
+        cell_dofs = np.asarray(function.function_space.dofmap.list)
+        if cell_dofs.shape != (cell_count, 1):
+            raise ValueError("DG0 result output requires one block dof per cell.")
+        shaped = values.reshape(cell_count, value_size)[cell_dofs[:, 0]]
         return "Cell", shaped[:, 0] if value_size == 1 else shaped
 
-    if values.size != point_count * value_size:
-        degree = _element_degree(solution_space)
-        target_element = (
-            ("Lagrange", degree)
-            if not value_shape
-            else ("Lagrange", degree, value_shape)
-        )
-        target_space = fem.functionspace(solution_space.mesh, target_element)
-        interpolated = fem.Function(target_space, name=function.name)
-        interpolated.interpolate(function)
-        values = np.asarray(interpolated.x.array)
+    # Equal coefficient counts do not establish equal nodal numbering/basis.
+    # Always transfer a continuous auxiliary field through the primary's nodal
+    # output element. This is a presentation interpolation, never state copying.
+    import basix.ufl
+    target_element = basix.ufl.wrap_element(solution_space.ufl_element().basix_element)
+    if value_shape:
+        target_element = basix.ufl.blocked_element(target_element, shape=value_shape)
+    target_space = fem.functionspace(solution_space.mesh, target_element)
+    interpolated = fem.Function(target_space, name=function.name)
+    interpolated.interpolate(function)
+    values = np.asarray(interpolated.x.array)
     if values.size != point_count * value_size:
         raise ValueError(
             f"Point field {function.name!r} does not align with the output mesh "

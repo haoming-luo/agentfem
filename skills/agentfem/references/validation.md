@@ -91,3 +91,13 @@ bound, output shape, step convention, and missing-case decision. Check
 finite-difference step sensitivity before interpreting a derivative. Preserve
 event brackets and censoring; interpolation does not replace local time-step
 refinement for discontinuous events.
+# Long-run performance and evidence
+
+Compare identical physical stations, state identities, inertia, contact law,
+output cadence and stopping criteria. Separate preparation, accepted advance,
+checkpoint and export time. Measure early, nonlinear and late segments and
+repeat a segment before projecting whole-run time. A projection is not a
+completed run. Compare hidden state, damage and work as well as displacement.
+Use `results.AcceptedHistoryJournal` for append-only accepted reports where
+appropriate; retain its final digest tip and ordinary solver checkpoints.
+Never promote case-specific mass scaling or thread counts into global defaults.

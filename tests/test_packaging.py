@@ -246,6 +246,9 @@ def test_pypi_publication_requires_exact_wheel_foundation_audit():
     assert "name: python-package-distributions" in macos_job
     assert "--require-platform macos" in macos_job
     assert "python -m build" not in macos_job
+    assert "build_platform_wheel.py --source-dir dist" in macos_job
+    assert "--dist /tmp/agentfem-release-macos-dist" in macos_job
+    assert "import agentfem._hex_native, agentfem._body_pipeline" in macos_job
 
 
 def test_platform_acceptance_distinguishes_native_and_wsl_routes(tmp_path, monkeypatch):
@@ -336,6 +339,7 @@ def test_publish_workflow_verifies_the_same_artifacts_it_builds_once():
     assert build_job.count("python -m build") == 1
     # The other build is the independent provider, never a replacement core wheel.
     assert workflow.count("python -m build") == 2
+    assert "--source-dir source-dist --output dist --repair linux" in build_job
     assert "examples/extensions/reference_material" in workflow
     assert "workflow_dispatch:" in workflow
     assert "run-id: ${{ inputs.candidate_run_id }}" in workflow

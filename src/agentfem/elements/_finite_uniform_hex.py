@@ -11,14 +11,21 @@ from dataclasses import dataclass
 
 import numpy as np
 
-from ._hex_validity import require_positive_hex_jacobian
+from .._orientation import positive_finite_determinants
+
+from ._hex_validity import (
+    require_positive_hex_jacobian,
+    reference_perturbation_radius,
+    admits_reference_perturbation,
+    admits_affine_perturbation,
+)
 from ._uniform_hex import _frozen, _geometry
 
 
 @dataclass(frozen=True)
 class FiniteUniformHexResponse:
     internal_force: np.ndarray
-    physical_energy: np.ndarray
+    physical_energy: np.ndarray | None
     hourglass_energy: np.ndarray
 
 
@@ -87,15 +94,18 @@ class FiniteUniformHexBatch:
             self._mass_gradient_gram = _frozen(np.empty((0, 3, 3)))
             self._hourglass_spectral_bound = _frozen(np.empty(0))
             self._isotropic_mass_gradient_bound = _frozen(np.empty(0))
+            self._reference_perturbation_radius = _frozen(np.empty(0))
             return
-        volumes, gradients, modes, nodal = [], [], [], []
+        volumes, gradients, modes, nodal, radii = [], [], [], [], []
         for region in self._regions():
             volume, gradient, gamma, nodal_volume = _geometry(x[region])
             volumes.append(volume)
             gradients.append(gradient)
             modes.append(gamma)
             nodal.append(nodal_volume)
+            radii.append(reference_perturbation_radius(x[region]))
         self.volume = _frozen(np.concatenate(volumes))
+        self._reference_perturbation_radius = _frozen(np.concatenate(radii))
         self.average_gradient = _frozen(np.concatenate(gradients))
         self.hourglass_modes = _frozen(np.concatenate(modes))
         self.lumped_mass = _frozen(rho[:, None] * np.concatenate(nodal))
@@ -160,11 +170,22 @@ class FiniteUniformHexBatch:
         u = self._displacement(displacement)
         gradients = []
         for region in self._regions():
-            require_positive_hex_jacobian(self.coordinates[region] + u[region])
-            f = np.eye(3) + np.einsum(
-                "cai,caJ->ciJ", u[region], self.average_gradient[region]
+            f = np.eye(3) + u[region].swapaxes(1, 2) @ self.average_gradient[region]
+            admitted = admits_reference_perturbation(
+                self.coordinates[region],
+                u[region],
+                self._reference_perturbation_radius[region],
             )
-            if not np.isfinite(f).all() or np.any(np.linalg.det(f) <= 0):
+            if np.any(~admitted):
+                admitted[~admitted] = admits_affine_perturbation(
+                    self.coordinates[region][~admitted], u[region][~admitted],
+                    f[~admitted], self._reference_perturbation_radius[region][~admitted],
+                )
+            if np.any(~admitted):
+                require_positive_hex_jacobian(
+                    self.coordinates[region][~admitted] + u[region][~admitted]
+                )
+            if not positive_finite_determinants(f).all():
                 raise ValueError(
                     "Mean deformation gradient must have positive determinant."
                 )
@@ -172,6 +193,7 @@ class FiniteUniformHexBatch:
         return np.concatenate(gradients) if gradients else np.empty((0, 3, 3))
 
     def response(self, displacement, *, first_piola, stored_energy_density):
+        """Map stress to force; None energy remains unavailable, never zero."""
         u = self._displacement(displacement)
         # Full cell validity is distinct from det(F_bar)>0: the latter can hide folds.
         self.deformation_gradient(u)
@@ -190,13 +212,17 @@ class FiniteUniformHexBatch:
         """
         u = self._displacement(displacement)
         p = np.asarray(first_piola, dtype=float)
-        energy = np.asarray(stored_energy_density, dtype=float)
+        energy = (
+            None
+            if stored_energy_density is None
+            else np.asarray(stored_energy_density, dtype=float)
+        )
         count = len(self.coordinates)
         if (
             p.shape != (count, 3, 3)
-            or energy.shape != (count,)
+            or (energy is not None and energy.shape != (count,))
             or not np.isfinite(p).all()
-            or not np.isfinite(energy).all()
+            or (energy is not None and not np.isfinite(energy).all())
         ):
             raise ValueError(
                 "Expected finite first Piola (cells,3,3) and reference energy density (cells,)."
@@ -205,19 +231,17 @@ class FiniteUniformHexBatch:
         for region in self._regions():
             gamma = self.hourglass_modes[region]
             # gamma^T X = 0, so gamma^T u = gamma^T x and rotates objectively.
-            modes = np.einsum("cam,cai->cmi", gamma, u[region])
+            modes = gamma.swapaxes(1, 2) @ u[region]
             coefficient = self.hourglass_coefficient[region]
-            force = self.volume[region, None, None] * np.einsum(
-                "ciJ,caJ->cai", p[region], self.average_gradient[region]
+            force = self.volume[region, None, None] * (
+                self.average_gradient[region] @ p[region].swapaxes(1, 2)
             )
-            force += coefficient[:, None, None] * np.einsum(
-                "cam,cmi->cai", gamma, modes
-            )
+            force += coefficient[:, None, None] * (gamma @ modes)
             forces.append(force)
             artificial.append(0.5 * coefficient * np.sum(modes**2, axis=(1, 2)))
         result = FiniteUniformHexResponse(
             np.concatenate(forces) if forces else np.empty((0, 8, 3)),
-            self.volume * energy,
+            None if energy is None else self.volume * energy,
             np.concatenate(artificial) if artificial else np.empty(0),
         )
         if any(
@@ -227,6 +251,7 @@ class FiniteUniformHexBatch:
                 result.physical_energy,
                 result.hourglass_energy,
             )
+            if value is not None
         ):
             raise ValueError("Finite Hex8 response overflowed.")
         return result
@@ -367,6 +392,151 @@ class FiniteUniformHexBatch:
         system when element masses assemble into the same positive lumped mass.
         Return (positive upper bound, negative magnitude bound); never take |A|.
         """
+        upper, lower = self.tangent_envelope_cell_bounds(
+            positive_modulus=positive_modulus, negative_modulus=negative_modulus
+        )
+        return float(upper.max(initial=0)), float(lower.max(initial=0))
+
+    def directional_cell_row_majorant(self, *, positive_tensor):
+        """Map a supplied symmetric PSD dP/dF upper tensor to nodal rows.
+
+        The provider must establish A <= positive_tensor in the same reference
+        frame over the intended domain. This routine proves no material bound.
+        It retains directional information rather than replacing the tensor by
+        its largest eigenvalue. Chunk-local 24x24 matrices are discarded after
+        absolute row summation; no global stiffness or material State is built.
+        The returned (cells,8,3) rows include fixed hourglass stiffness.
+        """
+        raw = np.asarray(positive_tensor)
+        count = len(self.coordinates)
+        if (
+            raw.dtype.kind not in "fiu"
+            or raw.shape not in ((3, 3, 3, 3), (count, 3, 3, 3, 3))
+            or not np.isfinite(raw).all()
+        ):
+            raise ValueError(
+                "Expected finite real positive tensor (3,3,3,3) or cell batch."
+            )
+        tensors = np.broadcast_to(raw, (count, 3, 3, 3, 3))
+        result = np.empty((count, 8, 3))
+        for region in self._regions():
+            matrix = np.asarray(tensors[region], dtype=float).reshape(-1, 9, 9)
+            scale = np.max(np.abs(matrix), axis=(1, 2))
+            tolerance = (
+                64 * np.finfo(float).eps * np.maximum(scale, np.finfo(float).tiny)
+            )
+            if np.any(
+                np.max(np.abs(matrix - matrix.swapaxes(1, 2)), axis=(1, 2)) > tolerance
+            ):
+                raise ValueError("Positive tensor must be symmetric in paired indices.")
+            matrix = (matrix + matrix.swapaxes(1, 2)) / 2
+            minimum = np.linalg.eigvalsh(matrix)[:, 0]
+            if np.any(minimum < -tolerance):
+                raise ValueError("Positive tensor must be positive semidefinite.")
+            # Lift only admitted eigensolver-scale negative roundoff, never
+            # convert genuine softening into positive stiffness.
+            matrix = matrix + np.maximum(-minimum, 0)[:, None, None] * np.eye(9)
+            g = self.average_gradient[region]
+            upper = self.volume[region, None, None, None, None] * np.einsum(
+                "caJ,ciJkL,cbL->caibk",
+                g,
+                matrix.reshape(-1, 3, 3, 3, 3),
+                g,
+                optimize=True,
+            )
+            modes = self.hourglass_modes[region]
+            stabilization = self.hourglass_coefficient[region, None, None] * np.einsum(
+                "cam,cbm->cab", modes, modes
+            )
+            upper += (
+                stabilization[:, :, None, :, None] * np.eye(3)[None, None, :, None, :]
+            )
+            result[region] = np.abs(upper).sum(axis=(3, 4))
+        if not np.isfinite(result).all():
+            raise ValueError("Directional Hex8 majorant overflowed.")
+        return _frozen(result)
+
+    def directional_cell_mass_majorant(self, *, positive_tensor):
+        """Return a mass-shaped diagonal upper bound for a supplied PSD tensor.
+
+        K_e <= lambda_e M_e implies K <= assembled diag(lambda_e M_e).
+        The material spectrum uses a 9x9 Gram; the positive hourglass bound
+        is added separately. This is an alternative to absolute element rows,
+        not a claim that either bound is always smaller. The caller still owns
+        the tensor's domain of validity; no evolving material bound is inferred.
+        """
+        raw = np.asarray(positive_tensor)
+        count = len(self.coordinates)
+        if (raw.dtype.kind not in "fiu"
+                or raw.shape not in ((3, 3, 3, 3), (count, 3, 3, 3, 3))
+                or not np.isfinite(raw).all()):
+            raise ValueError("Expected finite real positive tensor (3,3,3,3) or cell batch.")
+        tensors = np.broadcast_to(raw, (count, 3, 3, 3, 3))
+        result = np.empty((count, 8, 3))
+        for region in self._regions():
+            matrix = np.asarray(tensors[region], dtype=float).reshape(-1, 9, 9)
+            scale = np.max(np.abs(matrix), axis=(1, 2))
+            tolerance = 64 * np.finfo(float).eps * np.maximum(scale, np.finfo(float).tiny)
+            if np.any(np.max(abs(matrix-matrix.swapaxes(1, 2)), axis=(1, 2)) > tolerance):
+                raise ValueError("Positive tensor must be symmetric in paired indices.")
+            eigenvalues, vectors = np.linalg.eigh((matrix+matrix.swapaxes(1, 2))/2)
+            if np.any(eigenvalues[:, 0] < -tolerance):
+                raise ValueError("Positive tensor must be positive semidefinite.")
+            root = vectors * np.sqrt(np.maximum(eigenvalues, 0))[:, None, :]
+            gram = np.einsum("ik,cJL->ciJkL", np.eye(3),
+                             self._mass_gradient_gram[region]).reshape(-1, 9, 9)
+            reduced = root.swapaxes(1, 2) @ gram @ root
+            physical = self.volume[region] * np.maximum(
+                np.linalg.eigvalsh((reduced+reduced.swapaxes(1, 2))/2)[:, -1], 0)
+            upper = (physical+self._hourglass_spectral_bound[region]) * (
+                1+256*np.finfo(float).eps)
+            result[region] = upper[:, None, None] * self.lumped_mass[region, :, None]
+        if not np.isfinite(result).all():
+            raise ValueError("Mass-shaped Hex8 majorant overflowed.")
+        return _frozen(result)
+
+    def tangent_envelope_cell_row_majorant(self, *, positive_modulus):
+        """Unscaled isotropic nodal diagonal majorant, including hourglass.
+
+        Given symmetric A <= c I, K_e <= (c V G G.T + k_hg Gamma Gamma.T)
+        tensor I. Absolute row sums of this 8x8 upper operator give a diagonal
+        majorant without storing 24x24 element matrices. Assemble these (cell,8)
+        rows before combining other operators in an inertia plan. This is not
+        evidence that the actual material is PSD or its declared c is valid.
+        """
+        raw = np.asarray(positive_modulus)
+        count = len(self.coordinates)
+        if (
+            raw.dtype.kind not in "fiu"
+            or raw.shape not in ((), (count,))
+            or not np.isfinite(raw).all()
+            or np.any(raw < 0)
+        ):
+            raise ValueError(
+                "positive_modulus must be nonnegative real scalar or (cells,)."
+            )
+        coefficient = np.broadcast_to(raw, (count,))
+        result = np.empty((count, 8))
+        for region in self._regions():
+            g, gamma = self.average_gradient[region], self.hourglass_modes[region]
+            upper = (coefficient[region] * self.volume[region])[
+                :, None, None
+            ] * np.einsum("caJ,cbJ->cab", g, g)
+            upper += self.hourglass_coefficient[region, None, None] * np.einsum(
+                "cam,cbm->cab", gamma, gamma
+            )
+            result[region] = np.abs(upper).sum(axis=2)
+        if not np.isfinite(result).all():
+            raise ValueError("Finite Hex8 diagonal majorant overflowed.")
+        return _frozen(result)
+
+    def tangent_envelope_cell_bounds(self, *, positive_modulus, negative_modulus=0.0):
+        """Per-element physical-mass envelope for an external inertia policy.
+
+        Same supplied material-envelope assumptions as tangent_envelope_bounds;
+        positive and negative curvature remain separate. Numerical mass scaling
+        cannot cure negative physical curvature.
+        """
         count = len(self.coordinates)
 
         def coefficients(value, name):
@@ -376,17 +546,21 @@ class FiniteUniformHexBatch:
                 or not np.isfinite(array).all()
                 or np.any(array < 0)
             ):
-                raise ValueError(f"{name} must be a nonnegative finite scalar or (cells,).")
+                raise ValueError(
+                    f"{name} must be a nonnegative finite scalar or (cells,)."
+                )
             return np.broadcast_to(array, (count,))
 
         positive = coefficients(positive_modulus, "positive_modulus")
         negative = coefficients(negative_modulus, "negative_modulus")
         if count == 0:
-            return 0.0, 0.0
+            return np.empty(0), np.empty(0)
         # No cell 24x24 stiffness and no material 9x9 array is constructed.
         factor = self.volume * np.linalg.eigvalsh(self._mass_gradient_gram)[:, -1]
-        upper = float(np.max(positive * factor + self._hourglass_spectral_bound))
-        lower_magnitude = float(np.max(negative * factor))
-        if not np.isfinite(upper) or not np.isfinite(lower_magnitude):
-            raise ValueError("Finite Hex8 material-envelope spectral conversion overflowed.")
+        upper = positive * factor + self._hourglass_spectral_bound
+        lower_magnitude = negative * factor
+        if not np.isfinite(upper).all() or not np.isfinite(lower_magnitude).all():
+            raise ValueError(
+                "Finite Hex8 material-envelope spectral conversion overflowed."
+            )
         return upper, lower_magnitude

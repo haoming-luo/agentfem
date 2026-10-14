@@ -257,17 +257,27 @@ class FiniteStrainRegionalEnergyMonitor:
 
 def nonmatching_cohesive_force(pairing, displacement, law, *, negative_dofs,
                               positive_dofs, tangential="mixed", tangential_stiffness=None):
-    """Lower fixed P1/Q1 traces to a serial reference interface force.
+    """Lower fixed P1/Q1 traces to a reference interface force.
 
     The ordinary linear-static Step currently consumes only elastic laws.
     Local damage evaluation is not an incremental global damage capability.
     Dof maps must retain independent traces even at coincident coordinates.
+    MPI admits elastic Explicit finite-Hex execution with partition-local State;
+    maps use -1 for absent nodes and geometry is replicated at construction.
     """
     from ._interface_pairing import FixedReferenceCohesiveAssembler
     from ._nonmatching_force import NonmatchingCohesiveForce
-    assembler = FixedReferenceCohesiveAssembler(pairing, law, tangential=tangential,
-                                               tangential_stiffness=tangential_stiffness)
-    return NonmatchingCohesiveForce(assembler, displacement, negative_dofs=negative_dofs,
+    from .provenance import collective_call
+    comm = field_api.unwrap(displacement).function_space.mesh.comm
+    assembler = collective_call(
+        lambda: FixedReferenceCohesiveAssembler(pairing, law, tangential=tangential,
+                                               tangential_stiffness=tangential_stiffness),
+        comm=comm, label="Nonmatching material construction")
+    factory = NonmatchingCohesiveForce
+    if comm.size > 1:
+        from ._nonmatching_mpi import DistributedNonmatchingForce
+        factory = DistributedNonmatchingForce
+    return factory(assembler, displacement, negative_dofs=negative_dofs,
                                    positive_dofs=positive_dofs)
 
 
@@ -3440,11 +3450,18 @@ class DynamicEnergyLedger:
             "prescribed_motion_work",
             "initial_accounted_energy",
         }
+        if hasattr(self.mass, "energy_input"):
+            required.add("numerical_inertia_energy_input")
         missing = sorted(required.difference(history_record))
         if missing:
             raise ValueError(
                 "Dynamic energy restart lacks channels: " + ", ".join(missing)
             )
+        if hasattr(self.mass, "energy_input") and not np.isclose(
+            history_record["numerical_inertia_energy_input"],
+            self.mass.energy_input, rtol=1e-12, atol=0.0,
+        ):
+            raise ValueError("Dynamic energy history and restored numerical inertia State differ.")
         contact_terms = self._contact_terms()
         if any(bool(item["moving"]) for item in contact_terms):
             if "contact_motion_work" not in history_record:
@@ -3586,10 +3603,14 @@ class DynamicEnergyLedger:
         if self._initial_accounted_energy is None:
             self._initial_accounted_energy = accounted
         external = work["external_work"]
-        balance = self._initial_accounted_energy + external - accounted
+        numerical_input = float(values.get("numerical_inertia_energy_input", 0.0))
+        if not np.isfinite(numerical_input) or numerical_input < 0:
+            raise ValueError("Numerical inertia energy input must be finite and nonnegative.")
+        balance = self._initial_accounted_energy + external + numerical_input - accounted
         scale = max(
             abs(self._initial_accounted_energy),
             abs(external),
+            abs(numerical_input),
             abs(accounted),
             np.finfo(float).eps,
         )

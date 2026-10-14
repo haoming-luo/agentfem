@@ -77,6 +77,60 @@ _SOURCE_TEST_MAP = {
     ),
 }
 _CORE_SOURCE_TEST_MAP = {
+    "src/agentfem/results/journal.py": (
+        "tests/test_accepted_history_journal.py",
+        "tests/test_transient_history_journal.py",
+    ),
+    "src/agentfem/_step_response_hex.py": (
+        "tests/test_response_material_step.py", "tests/test_response_deformable_step.py",
+        "tests/test_owned_explicit_state.py", "tests/test_response_substeps.py",
+        "tests/test_contact_overlap_execution.py",
+        "tests/test_transient_history_journal.py",
+    ),
+    "src/agentfem/mechanics/_deformable_contact_explicit.py": (
+        "tests/test_contact_overlap_execution.py", "tests/test_deformable_contact_explicit.py",
+        "tests/test_response_deformable_step.py",
+    ),
+    "src/agentfem/constitutive/_owned_explicit_state.py": (
+        "tests/test_owned_explicit_state.py", "tests/test_response_material_step.py",
+        "tests/test_response_substeps.py",
+    ),
+    "src/agentfem/elements/explicit_execution.py": (
+        "tests/test_explicit_hex_execution.py", "tests/test_owned_explicit_state.py",
+        "tests/test_hex_validity_blocks.py",
+    ),
+    "src/agentfem/elements/_hex_validity.py": (
+        "tests/test_hex_validity_blocks.py", "tests/test_hex_validity.py",
+        "tests/test_explicit_hex_execution.py",
+    ),
+    "src/agentfem/_hex_native.c": (
+        "tests/test_hex_native.py",
+        "tests/test_hex_validity_blocks.py", "tests/test_hex_validity.py",
+        "tests/test_explicit_hex_execution.py",
+        "tests/test_bulk_viscosity.py", "tests/test_bulk_viscosity_lifecycle.py",
+        "tests/test_orientation.py", "tests/test_small_matrix.py",
+    ),
+    "src/agentfem/_orientation.py": (
+        "tests/test_orientation.py", "tests/test_hex_native.py",
+    ),
+    "src/agentfem/_small_matrix.py": (
+        "tests/test_small_matrix.py", "tests/test_hex_native.py",
+    ),
+    "src/agentfem/boundary_models/q1_execution.py": (
+        "tests/test_q1_execution.py", "tests/test_closed_q1_surface.py",
+        "tests/test_response_deformable_step.py",
+    ),
+    "src/agentfem/_q1_surface_search.py": (
+        "tests/test_q1_surface_search.py", "tests/test_q1_execution.py",
+        "tests/test_closed_q1_surface.py", "tests/test_q1_exact_order.py",
+    ),
+    "src/agentfem/time/substeps.py": (
+        "tests/test_response_substeps.py", "tests/test_owned_explicit_state.py",
+    ),
+    "src/agentfem/_exact_rational.py": (
+        "tests/test_exact_rational.py", "tests/test_q1_exact_order.py",
+        "tests/test_q1_ray_exact.py", "tests/test_q1_swept_separation.py",
+    ),
     "src/agentfem/assembly.py": ("tests/test_lumped_mass_contract.py",),
     "src/agentfem/_step_builders_contact.py": (
         "tests/test_rigid_obstacle_contact.py",
@@ -106,6 +160,7 @@ _CORE_SOURCE_TEST_MAP = {
         "tests/test_time_inputs.py",
         "tests/test_transient_heat_decay_workflow.py",
         "tests/test_transient_restart.py",
+        "tests/test_transient_history_journal.py",
     ),
     "src/agentfem/checkpointing.py": ("tests/test_transient_restart.py",),
     "src/agentfem/fatigue_fracture.py": (
@@ -250,6 +305,7 @@ _CORE_SOURCE_TEST_MAP = {
         "tests/test_element_contracts.py",
         "tests/test_validation.py",
         "tests/test_hex_validity.py",
+        "tests/test_hex_validity_blocks.py",
         "tests/test_uniform_hex.py",
         "tests/test_finite_uniform_hex.py",
         "tests/test_finite_uniform_hex_material.py",
@@ -307,6 +363,10 @@ _CORE_SOURCE_TEST_MAP = {
     "src/agentfem/_architecture_contract.py": ("tests/test_architecture_contract.py",),
 }
 _CORE_SOURCE_MPI_TEST_MAP = {
+    "src/agentfem/_nonmatching": ("tests/test_parallel_nonmatching.py",),
+    "src/agentfem/_interface_boundary.py": ("tests/test_parallel_nonmatching.py",),
+    "src/agentfem/_interface_pairing.py": ("tests/test_parallel_nonmatching.py",),
+    "src/agentfem/_elastic_cohesive.py": ("tests/test_parallel_nonmatching.py",),
     "src/agentfem/assembly.py": ("tests/test_lumped_mass_contract.py",),
     "src/agentfem/_step_builders_contact.py": (
         "tests/test_rigid_obstacle_contact.py",
@@ -359,6 +419,7 @@ _CORE_SOURCE_MPI_TEST_MAP = {
     "src/agentfem/mechanics/_finite_hex_explicit.py": (
         "tests/test_parallel_finite_hex.py",
         "tests/test_parallel_finite_hex_step.py",
+        "tests/test_parallel_nonmatching.py",
     ),
     "src/agentfem/mechanics/_finite_hex_energy.py": (
         "tests/test_parallel_finite_hex.py",
@@ -367,6 +428,7 @@ _CORE_SOURCE_MPI_TEST_MAP = {
     "src/agentfem/_step_finite_uniform_hex.py": (
         "tests/test_parallel_finite_hex_step.py",
         "tests/test_parallel_finite_hex_contact.py",
+        "tests/test_parallel_nonmatching.py",
     ),
     "src/agentfem/constitutive/stability.py": (
         "tests/test_parallel_finite_hex_step.py",

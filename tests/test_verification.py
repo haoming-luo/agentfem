@@ -6,6 +6,105 @@ import pytest
 from agentfem import constraints, results, verification
 
 
+@pytest.mark.parametrize("actual,expected", [([], []), ([], 0.0),
+    (np.empty((0, 3)), np.empty((0, 3)))])
+def test_reference_comparison_cannot_verify_an_empty_observation(actual, expected):
+    claim = verification.VerificationClaim.compare(
+        name="empty", observable="response", actual=actual, expected=expected,
+        reference="independent reference",
+    )
+    assert claim.status == "inconclusive"
+    assert "empty" in claim.message.lower()
+    assert verification.report(claim).trust_level != "verified"
+
+
+@pytest.mark.parametrize("actual,expected", [
+    (np.ones((2, 1)), np.ones(2)), (1.0, np.ones(2)),
+    (np.ones(2), np.ones(1)), (np.ones(2), np.ones(3)),
+])
+def test_reference_comparison_does_not_broadcast_distinct_sample_layouts(actual, expected):
+    claim = verification.VerificationClaim.compare(
+        name="layout", observable="response", actual=actual, expected=expected,
+        reference="independent reference",
+    )
+    assert claim.status == "failed"
+    assert "shape" in claim.message.lower()
+
+
+def test_reference_comparison_retains_explicit_scalar_constant_reference():
+    claim = verification.VerificationClaim.compare(
+        name="stress_free", observable="stress", actual=np.zeros((4, 3, 3)),
+        expected=0.0, reference="homogeneous free thermal expansion",
+    )
+    assert claim.status == "passed"
+
+
+@pytest.mark.parametrize("side", ["actual", "expected"])
+def test_reference_comparison_cannot_silently_drop_a_sample_mask(side):
+    values = dict(actual=np.ones(2), expected=np.ones(2))
+    values[side] = np.ma.array([1.0, 1.0], mask=[False, True])
+    with pytest.raises(ValueError, match="common sample"):
+        verification.VerificationClaim.compare(
+            name="masked", observable="response", reference="independent reference",
+            **values,
+        )
+
+
+def test_reference_comparison_retains_evidence_after_caller_reuses_storage():
+    actual = np.ones((2, 3))
+    expected = actual.copy()
+    claim = verification.VerificationClaim.compare(
+        name="station", observable="response", actual=actual, expected=expected,
+        reference="independent reference",
+    )
+    actual[:] = 7
+    expected[:] = 11
+    assert claim.status == "passed"
+    np.testing.assert_array_equal(claim.actual, np.ones((2, 3)))
+    np.testing.assert_array_equal(claim.expected, np.ones((2, 3)))
+    for value in (claim.actual, claim.expected):
+        with pytest.raises(ValueError):
+            value.flags.writeable = True
+
+
+@pytest.mark.parametrize("actual,expected", [(1+2j, 1), (1, 1+2j),
+    (np.array([1+2j]), np.array([1+3j]))])
+def test_reference_comparison_rejects_lossy_complex_conversion(actual, expected):
+    with pytest.raises(TypeError, match="real"):
+        verification.VerificationClaim.compare(
+            name="complex", observable="response", actual=actual, expected=expected,
+            reference="independent reference",
+        )
+
+
+@pytest.mark.parametrize("actual,expected", [(np.nan, 0.0), (np.inf, np.inf),
+    ([1.0, -np.inf], [1.0, -np.inf])])
+def test_reference_comparison_does_not_verify_nonfinite_data(actual, expected):
+    claim = verification.VerificationClaim.compare(
+        name="finite", observable="response", actual=actual, expected=expected,
+        reference="independent reference",
+    )
+    assert claim.status == "failed"
+
+
+@pytest.mark.parametrize("name", ["absolute_tolerance", "relative_tolerance"])
+@pytest.mark.parametrize("value", [-1.0, np.nan, np.inf])
+def test_reference_comparison_checks_tolerances_before_empty_data(name, value):
+    with pytest.raises(ValueError, match="tolerances"):
+        verification.VerificationClaim.compare(
+            name="tolerance", observable="response", actual=[], expected=[],
+            reference="independent reference", **{name: value},
+        )
+
+
+def test_outside_domain_remains_inconclusive_for_incompatible_reference_layout():
+    claim = verification.VerificationClaim.compare(
+        name="domain", observable="response", actual=np.ones(2), expected=np.ones(3),
+        reference="independent reference", applicable=False,
+    )
+    assert claim.status == "inconclusive"
+
+
 def test_reference_claim_does_not_confuse_inapplicable_theory_with_failure():
     applicable = verification.VerificationClaim.compare(
         name="slender_beam_displacement",
