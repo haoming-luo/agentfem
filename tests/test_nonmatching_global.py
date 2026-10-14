@@ -26,7 +26,7 @@ from agentfem._nonmatching_force import NonmatchingCohesiveForce
 from agentfem.boundary_models.rigid import TriangulatedRigidSurface
 
 
-def _blocks(n, m, *, cell_type="tetrahedron"):
+def _blocks(n, m, *, cell_type="tetrahedron", comm=MPI.COMM_SELF):
     parts = [
         mesh.create_box(
             MPI.COMM_SELF,
@@ -44,7 +44,8 @@ def _blocks(n, m, *, cell_type="tetrahedron"):
         )
     )
     domain = ufl.Mesh(basix.ufl.element("Lagrange", cell_type, 1, shape=(3,)))
-    return mesh.create_mesh(MPI.COMM_SELF, cells.astype(np.int64), domain, vertices)
+    return mesh.create_mesh(comm, cells.astype(np.int64) if comm.rank == 0 else np.empty((0, cells.shape[1]), dtype=np.int64),
+                            domain, vertices if comm.rank == 0 else np.empty((0, 3)))
 
 
 def _trace(space, positive):

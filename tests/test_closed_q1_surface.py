@@ -1,0 +1,202 @@
+# SPDX-FileCopyrightText: 2026 Haoming Luo and AgentFEM contributors
+# SPDX-License-Identifier: Apache-2.0
+import numpy as np
+import pytest
+
+from agentfem._closed_q1_surface import ClosedQ1Surface
+
+
+def solid(concave=False):
+    vertices = []
+    lookup = {}
+    faces = {}
+    local = np.array(
+        [
+            [0, 0, 0],
+            [1, 0, 0],
+            [1, 1, 0],
+            [0, 1, 0],
+            [0, 0, 1],
+            [1, 0, 1],
+            [1, 1, 1],
+            [0, 1, 1],
+        ]
+    )
+    indices = [
+        [0, 3, 2, 1],
+        [4, 5, 6, 7],
+        [0, 1, 5, 4],
+        [1, 2, 6, 5],
+        [2, 3, 7, 6],
+        [3, 0, 4, 7],
+    ]
+    for offset in [[0, 0, 0], [1, 0, 0], [0, 1, 0]] if concave else [[0, 0, 0]]:
+        nodes = []
+        for point in local + offset:
+            key = tuple(point)
+            if key not in lookup:
+                lookup[key] = len(vertices)
+                vertices.append(point)
+            nodes.append(lookup[key])
+        for face in indices:
+            row = np.array(nodes)[face]
+            key = tuple(sorted(row))
+            if key in faces:
+                del faces[key]
+            else:
+                faces[key] = row
+    return np.array(vertices, dtype=float), np.array(list(faces.values()))
+
+
+def test_closed_cube_face_edge_corner_sign_and_gradient():
+    x, cells = solid()
+    search = ClosedQ1Surface(x, cells)
+    points = np.array(
+        [[0.2, 0.3, 0.1], [-0.1, 0.3, 0.4], [-0.1, -0.2, 0.4], [-0.1, -0.2, -0.3]]
+    )
+    found = search.project(points, maximum_distance=0.5)
+    np.testing.assert_allclose(
+        found["signed_gaps"], [-0.1, 0.1, np.sqrt(0.05), np.sqrt(0.14)], atol=1e-12
+    )
+    np.testing.assert_allclose(
+        points - found["points"],
+        found["signed_gaps"][:, None] * found["normals"],
+        atol=1e-12,
+    )
+
+
+def test_concave_interior_edge_has_central_force_direction():
+    x, cells = solid(concave=True)
+    answer = ClosedQ1Surface(x, cells).project([[0.9, 0.9, 0.4]], maximum_distance=0.3)
+    np.testing.assert_allclose(answer["signed_gaps"], [-np.sqrt(0.02)], atol=1e-12)
+    np.testing.assert_allclose(answer["points"], [[1, 1, 0.4]], atol=1e-12)
+    np.testing.assert_allclose(
+        answer["normals"], [[1 / np.sqrt(2), 1 / np.sqrt(2), 0]], atol=1e-12
+    )
+
+
+def test_separation_certificate_refines_only_exterior_queries(monkeypatch):
+    x, cells = solid()
+    surface = ClosedQ1Surface(x, cells)
+    points = np.array([[.2, .3, .1], [0., .3, .4], [-.1, .3, .4]])
+    reference = surface.project(points, maximum_distance=.5)
+    original = surface.search.distance_lower_bounds
+    calls = []
+
+    def checked(query, **options):
+        calls.append(query.copy())
+        # Neither a penetration nor an exactly touching point needs an
+        # exterior separation certificate.
+        np.testing.assert_array_equal(query, points[2:])
+        return original(query, **options)
+
+    monkeypatch.setattr(surface.search, "distance_lower_bounds", checked)
+    result = surface.project(points, maximum_distance=.5)
+    assert len(calls) == 1
+    for name in ("signed_gaps", "normals", "separation_lower_bounds"):
+        np.testing.assert_array_equal(result[name], reference[name])
+    calls.clear()
+    inside = surface.project(points[:2], maximum_distance=.5)
+    assert not calls
+    np.testing.assert_array_equal(inside["separation_lower_bounds"], inside["signed_gaps"])
+
+
+def test_near_boundary_classification_uses_certified_rays():
+    x, cells = solid()
+    surface = ClosedQ1Surface(x, cells)
+    assert surface._inside(np.array([3e-12, .3, .4]))
+    assert not surface._inside(np.array([-3e-12, .3, .4]))
+
+
+def test_warped_closed_surface_sign_retains_q1_not_triangle():
+    x, cells = solid()
+    x[6, 2] = 1.4
+    search = ClosedQ1Surface(x, cells)
+    # At (.3,.6), exact top is 1.072, not either triangular surrogate.
+    points = [[0.3, 0.6, 1.065], [0.3, 0.6, 1.08]]
+    answer = search.project(points, maximum_distance=0.1)
+    assert answer["signed_gaps"][0] < 0 < answer["signed_gaps"][1]
+
+
+def test_rigid_rotation_and_scale():
+    x, cells = solid(concave=True)
+    rotation, _ = np.linalg.qr(np.random.default_rng(44).normal(size=(3, 3)))
+    if np.linalg.det(rotation) < 0:
+        rotation[:, 0] *= -1
+    for scale in (1e-3, 1.0, 1e3):
+        y = scale * x @ rotation.T + [3, 4, 5]
+        query = scale * np.array([[0.9, 0.9, 0.4]]) @ rotation.T + [3, 4, 5]
+        answer = ClosedQ1Surface(y, cells).project(query, maximum_distance=0.3 * scale)
+        np.testing.assert_allclose(
+            answer["signed_gaps"], [-np.sqrt(0.02) * scale], rtol=1e-10
+        )
+
+
+def test_open_and_reversed_surfaces_rejected():
+    x, cells = solid()
+    with pytest.raises(ValueError, match="two oppositely"):
+        ClosedQ1Surface(x, cells[:-1])
+    with pytest.raises(ValueError, match="outward"):
+        ClosedQ1Surface(x, cells[:, ::-1]).project(
+            [[0.2, 0.3, 0.1]], maximum_distance=0.5
+        )
+
+
+def test_zero_distance_does_not_need_an_arbitrary_sign():
+    x, cells = solid()
+    result = ClosedQ1Surface(x, cells).project(
+        [[0, 0, 0.4], [0, 0, 0]], maximum_distance=0.1
+    )
+    np.testing.assert_array_equal(result["signed_gaps"], 0)
+
+
+def test_distance_enclosures_under_rotation_and_warpage():
+    rng = np.random.default_rng(742)
+    for warped in (False, True):
+        x, cells = solid()
+        if warped:
+            x[6, 2] += 0.4
+        rotation, _ = np.linalg.qr(rng.normal(size=(3, 3)))
+        x = x @ rotation.T + [10, -20, 30]
+        surface = ClosedQ1Surface(x, cells)
+        points = rng.uniform(-0.2, 1.2, (80, 3)) @ rotation.T + [10, -20, 30]
+        projected = surface.search.project(
+            points, maximum_distance=2, require_unique_normal=False
+        )
+        bound = surface.search.distance_lower_bounds(
+            points, refinement_distance=projected["distances"] / 4
+        )
+        assert np.all(bound <= projected["distances"] + 1e-12)
+        assert np.all(bound >= 0)
+        assert not bound.flags.writeable
+        if not warped:
+            assert np.count_nonzero(bound > 0) == len(bound)
+
+
+def test_q1_subdivision_bound_cannot_exclude_surface_points():
+    x, cells = solid()
+    x[6, 2] += 0.4
+    surface = ClosedQ1Surface(x, cells)
+    # Direct bilinear interpolation supplies exact-on-surface points, including
+    # a warped face whose triangular surrogate does not pass through them.
+    rng = np.random.default_rng(55)
+    points = []
+    for face in x[cells]:
+        for local in rng.uniform(-1, 1, (3, 2)):
+            r, s = local
+            weights = (
+                np.array(
+                    [
+                        (1 - r) * (1 - s),
+                        (1 + r) * (1 - s),
+                        (1 + r) * (1 + s),
+                        (1 - r) * (1 + s),
+                    ]
+                )
+                / 4
+            )
+            points.append(weights @ face)
+    bounds = surface.search.distance_lower_bounds(
+        np.asarray(points), refinement_distance=np.full(len(points), 0.01)
+    )
+    np.testing.assert_array_equal(bounds, 0)

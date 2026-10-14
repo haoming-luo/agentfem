@@ -10,6 +10,8 @@ from typing import Mapping
 
 import numpy as np
 
+from .._orientation import positive_finite_determinants
+
 from .quadrature import MaterialQuadratureState
 from .quadrature import QuadratureField
 from .quadrature import QuadratureMaterialMap
@@ -721,12 +723,15 @@ def _cauchy_to_first_piola(gradients, stresses):
     for start in range(0, len(gradients), 1024):
         region = slice(start, start + 1024)
         f = gradients[region]
-        jacobian = np.linalg.det(f)
-        if np.any(jacobian <= 0) or not np.isfinite(jacobian).all():
+        if not positive_finite_determinants(f).all():
             raise ValueError("Stress conversion requires positive finite det(F).")
-        result[region] = jacobian[:, None, None] * (
-            stresses[region] @ np.linalg.inv(f).swapaxes(1, 2)
-        )
+        # J F^-T is the cofactor matrix. Direct polynomial evaluation avoids
+        # an inverse followed by cancellation of its determinant denominator.
+        # Keep the independent orientation check above, including near singular F.
+        cofactor = np.stack((np.cross(f[:, :, 1], f[:, :, 2]),
+                             np.cross(f[:, :, 2], f[:, :, 0]),
+                             np.cross(f[:, :, 0], f[:, :, 1])), axis=2)
+        result[region] = stresses[region] @ cofactor
     if not np.isfinite(result).all():
         raise ValueError("First Piola stress conversion overflowed.")
     return result

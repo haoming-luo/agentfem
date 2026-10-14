@@ -189,6 +189,12 @@ from symbolic weak-form expressions.
 
 ## Amplitude
 
+`amplitudes.quintic_step(...)` is a C2 polynomial transition with zero first
+and second endpoint derivatives. `smooth_step(...)` retains its existing
+half-cosine meaning. These are different loading histories, not interchangeable
+spellings. Rigid-motion schedules may consume an explicit amplitude on their
+physical start/end interval; that amplitude is part of restart identity.
+
 A named time history or scale factor used to drive prescribed data. Amplitudes
 may be constant, ramped, tabular, sinusoidal, or application-defined. They are
 model assets, but they are not finite-element fields: they do not own a
@@ -372,7 +378,7 @@ linear-static Step is serial and small-strain; local damage transactions do
 not imply global damage evolution, finite rotations or portable restart.
 
 For the bounded finite-reference Hex8 route, an equal-stiffness elastic
-nonmatching bond may coexist with one serial translating-plane contact boundary
+nonmatching bond may coexist with one serial/MPI translating-plane contact boundary
 on disjoint trace nodes. This composes existing Operators and State transactions;
 it does not imply a damage-to-contact transition or convected anisotropic law.
 
@@ -423,6 +429,10 @@ normal away from the body and `interior` points it into a cavity. A query at a
 sphere center or on a cylinder axis has no unique closest point and therefore
 returns `singular_projection`, not an invented normal. A finite capped
 cylinder remains a compound/trimmed surface and is not implied by this asset.
+The optional cylinder `axial_interval` bounds its lateral patch along the
+supplied axis. It admits only strict-interior radial projections; queries
+at or beyond either rim return `unsupported_rim`. It neither adds caps nor
+silently extends a finite tool to an infinite one.
 
 An oriented three-dimensional triangle surface is the reference discrete
 geometry asset. It validates indices, scale-aware facet area, duplicates,
@@ -590,6 +600,13 @@ criterion rolls back the same complete transaction.
 
 ## Output Interval and Frame
 
+A visualization frame owns one geometry and the point/cell attributes attached
+to that geometry. Element node ordering is a backend output responsibility,
+not an application modeling choice. Field length alone is not a spatial map.
+The serial unified writer validates a complete frame before storage, preserves
+the time/schema contract, and shares unchanged reference geometry. Presentation
+validity and scientific verification remain distinct.
+
 An output interval or time point requests when fields should be persisted. A
 Frame is the saved result state produced at one such point or accepted
 Increment. Frames do not drive the nonlinear algorithm. Exact output marks may
@@ -629,6 +646,16 @@ while sharing state-transition and restart semantics.
 
 ## Time Integrator
 
+Numerical mass scaling is a Procedure policy, not a new material density.
+`time.FixedMassScaling` declares factors and an added-mass budget;
+`time.InitialMassScaling` constructs fixed nodal mass from the current mesh,
+declared reference stiffness and admitted initial penalty/damping operators;
+`time.TargetIncrementMassScaling` computes factors from provider-supplied named
+operator majorants. The owning State retains accepted mass, artificial energy
+and momentum inputs, rollback and restart. Bound-provider identity and coverage
+are explicit. A target increment is not a nonlinear stability certificate or
+a claim that altered inertia preserves the physical response.
+
 A time integrator advances a transient state according to a named numerical
 method. AgentFEM provides implicit Newmark and generalized-alpha descriptions
 for linear structural dynamics and
@@ -652,6 +679,13 @@ A scalar or field quantity used to inspect correctness, convergence, stability,
 or physical behavior.
 
 ## Simulation Result
+
+An accepted-history journal is an append-only reporting artifact, not a solver
+state or restart checkpoint. `results.AcceptedHistoryJournal` receives newly
+accepted reporting stations from one writer. Its digest chain and externally
+retained final tip detect damaged, reordered, or truncated evidence; they do
+not confer scientific validity or replace the State lifecycle. A restart may
+create another journal segment while retaining its checkpoint provenance.
 
 The scientific view of one completed analysis: named quantities of interest,
 fields, histories, solver/model metadata, and artifact links. XDMF, CSV, and
@@ -894,6 +928,20 @@ A local, sanitized and integrity-sealed diagnostic task for a human or AI
 agent. It contains structural failure and runtime evidence but no scientific
 model or result. Creating a bundle is local; transmitting it is a separate
 user-authorized action.
+
+## Accepted response observations
+
+An accepted observation is a detached view of an already committed station,
+not another state owner or a new physics evaluation. Named material variables
+retain their registered schema and cell identity. Contact resultants retain
+their force sign, moment reference, integration measure and declared coverage;
+equal-and-opposite total forces alone do not prove moment or energy closure.
+Adaptive subincrements may update the physical work ledger, but user history
+callbacks observe only successfully accepted macro stations.
+
+Imported mesh input-node identity is distinct from source-file node labels,
+coordinates and finite-element DOF numbering. Coincident interface nodes may
+have independent identities; matching coordinates would incorrectly tie them.
 
 ## Incremental UFL adoption
 

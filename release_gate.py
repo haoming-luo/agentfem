@@ -10,10 +10,11 @@ from __future__ import annotations
 
 import argparse
 import ast
-from contextlib import contextmanager
+from contextlib import contextmanager, nullcontext
 from datetime import datetime, timezone
 from hashlib import sha256
 import importlib
+from importlib.machinery import EXTENSION_SUFFIXES
 from importlib import metadata
 import json
 import os
@@ -633,7 +634,7 @@ def _smoke_environment(wheel: Path | None):
 
 
 def _check_installed_identity(*, wheel: Path | None = None) -> None:
-    """Prove that every runtime file in the tested wheel matches this source."""
+    """Check source files against checkout and native binaries against the wheel."""
 
     distribution = metadata.distribution("agentfem")
     expected = check_versions()
@@ -673,15 +674,27 @@ def _check_installed_identity(*, wheel: Path | None = None) -> None:
         and "__pycache__" not in Path(name).parts
     )
     mismatches = []
+    # Native extensions are build products, not files in a clean checkout.
+    # Their exact artifact bytes must still match the wheel being accepted.
+    with zipfile.ZipFile(wheel) if wheel is not None else nullcontext() as archive:
+        native_hashes = {
+            member: sha256(archive.read(member)).hexdigest()
+            for member in runtime_members
+            if archive is not None and member.endswith(tuple(EXTENSION_SUFFIXES))
+        }
     for member in runtime_members:
         relative = Path(member).relative_to("agentfem")
         source = SOURCE_PACKAGE / relative
         installed = distribution_root / relative
-        if (
+        if member in native_hashes:
+            mismatch = not installed.is_file() or _sha256(installed) != native_hashes[member]
+        else:
+            mismatch = (
             not source.is_file()
             or not installed.is_file()
             or _sha256(installed) != _sha256(source)
-        ):
+            )
+        if mismatch:
             mismatches.append(str(relative))
     if mismatches:
         raise RuntimeError(

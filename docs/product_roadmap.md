@@ -19,6 +19,124 @@ or a successful run is not by itself a validated engineering capability.
 
 ## Current product phase: the 0.4 foundation
 
+### Installed explicit workflow and delivery gate (2026-10-14)
+
+The bounded serial response-only Hex8 workflow has progressed from its private
+startup prototype to ordinary `model.step`, reusable core execution, readable
+case files and a completed frozen full-grid review path. Native body/auxiliary
+arithmetic, compiled-material dispatch and Q1 contact acceleration now ship as
+optional core modules; confidential equations and source geometry stay external.
+See [native explicit execution](native_explicit_execution.md) for the supported
+interfaces and [performance evidence](performance_evidence.md) for measured scope.
+
+Frozen candidate `608c50bb` has now completed the same full path in
+14,646.987 s (4 h 4 min 7 s), 5.29% less than the previous core baseline.
+Final checkpoint, reporting journal and independent volume/Warp checks pass;
+this does not close source-case or numerical-inertia validation. The next
+architecture slices are recorded in
+[portable explicit performance](internal/portable_explicit_performance.md):
+separate scientific accuracy from execution configuration, target the compiled
+accepted-increment path, and investigate the controlling time limit before
+committing to general multirate or device execution.
+
+The delivery priorities are now:
+
+1. Preserve the completed installed candidate and its platform/CI, full-run,
+   response and volume-output evidence. New algorithms are compared at a
+   declared accuracy target, not forced to reproduce its exact step count.
+2. Close independent source-case validation and inertia/time/penalty sensitivity
+   without changing inputs to meet a timing target. Completion of the reviewed
+   experiment does not establish equivalence to the source solver's contact,
+   initial-bond or variable-mass behavior.
+3. Use whole-increment evidence to choose the next bottleneck. Preserve one
+   accepted State owner; optimize execution/data movement without a second
+   solver or a case-specific core. Keep unsupported distributed response-only
+   combinations rejected until their own lifecycle gates pass.
+
+The follow-up adds a frozen-project preflight with separate integrity,
+artifact-platform and runtime-readiness results; it must not turn this Mac's
+binary/worker configuration into Model requirements. Ordered installed
+comparisons rejected the new copy/scan execution candidate; no new solver
+optimization was selected in that follow-up. A separate
+five-times-larger time-step experiment was rejected after early energy growth;
+material incremental admissibility alone is not global dynamic stability.
+Next-method work must identify the controlling body/contact/damping bound
+before selecting a multirate scheme. Do not promote that failed screen or a
+small copy/scan benchmark as a new full-run speedup.
+
+The older dated entries below document intermediate gates, not the current
+claim that only a startup pilot exists. They remain useful as provenance for
+scientific boundaries that have not yet closed.
+
+### Corotational history-material gate (2026-10-10)
+
+The source-material review now has a compiled local reference and an independent
+private batch implementation. General polar-frame kinematics are implemented
+as a private core candidate, with objective stress transport and independent
+noncoaxial integration checks. This does not admit that material to finite-Hex
+`model.step`: its work-only energy output and response-only stability need
+explicit contracts, followed by single-element/global lifecycle verification.
+The next local slice now supplies a genuine response-only work contract,
+serial quadrature transactions and real Hex8 internal-force assembly without
+inventing DPDF/SENER fields. Trial failures restore state and response fields.
+The private response-only route now advances the existing central difference
+Procedure, records internal work separately from artificial energy, and restores
+accepted material/force state atomically. Two moving planes or bounded lateral
+cylinders compose with the existing contact work ledger and disk restart.
+Independent explicit stability, ordinary Step admission and MPI remain open.
+The original 255,041-cell mesh now runs a bounded four-tool startup pilot and
+passes independent continuous/restarted four-increment bitwise comparison.
+That endpoint is only 4e-10 s, not the full 0.1 s loading. Original interface
+initialization, variable mass scaling and commercial comparison remain open.
+Current-configuration deformable Q1 penalty contact now has a private serial
+face-interior composition with force/moment/virtual-work and time-refinement
+checks. This does not admit edge/corner normal cones or source ALL EXTERIOR
+hard contact. A following closed-solid candidate now classifies all 1,000
+unbonded source candidates with two true-Q1 rays; they are outside the complete
+patch, so old open-patch negative gaps were not evidence of penetration.
+Concave-edge force/moment/work checks and serial two-body restart pass. The
+original case can opt into this bounded initial-candidate contact; arbitrary
+ALL EXTERIOR search, collision detection and mass-scaled full loading remain open.
+Follow-up: private accepted artificial-viscosity work/restart now passes its
+targeted composition gates; this does not close variable mass scaling or
+vendor-equivalent viscosity/stability. Explicit reference-surface adjustment
+proposals preserve the original mesh and require an independently selected
+bond mask plus validation of affected bulk cells. The source's initial bond set
+is still unknown. Its body/body hard-contact behavior is also not equivalent to
+a compression spring. A reusable quintic amplitude and amplitude-driven rigid
+schedule now address the source loading-history mismatch without changing the
+existing half-cosine `smooth_step` API.
+The ordered nine-gate plan is
+[corotational material development](corotational_material_development.md).
+Keep confidential source equations and parameters in external project providers.
+
+2026-10-11 continuation: segment/BVH pruning reduced the private 1,000-point
+closed-Q1 query median from 11.812 s to 0.641 s with identical signed gaps.
+This is a search-component result, not whole-loading throughput. Fixed and
+variable numerical inertia now have private serial state/identity contracts,
+accepted acceleration adjustment, artificial energy/linear/angular-momentum
+inputs, atomic rejection and disk restart. A selective element-bound planner
+assembles nodal inertia without changing physical constitutive density.
+The planner consumes supplied positive element bounds; it does not establish
+an evolving damaged-material/contact/damping stability certificate.
+
+Remaining source-reproduction gates, in execution order:
+
+1. Admit a justified evolving increment/mass policy and quantify added-inertia
+   sensitivity; retain separate negative-curvature/damping handling. The initial
+   elastic screen alone is approximately 8.5e-9 s, not the requested source dt.
+2. Extend bounded initial candidates to the required body/body contact coverage
+   with missed-crossing protection; penalty convergence is not exact HARD contact.
+3. Confirm source initial bond eligibility/adjustment and review stabilization/
+   characteristic-length differences. Do not invent interface damage or deletion
+   absent from the supplied source deck.
+4. Run nonzero/full physical loading with force--displacement, artificial-energy,
+   penetration, increment and mass-scaling convergence; then compare independent
+   source-solver evidence. Startup/restart capacity is not a completed reproduction.
+5. Promote only proven combinations into ordinary Step options and MPI; keep
+   general mortar, relaxation stabilization and deletion as separate product
+   gates rather than prerequisites invented for this one elastic interface.
+
 ### User-driven mesh/interface slice (2026-10-09)
 
 2026-10-10 continuation: the bounded finite Hex8 route now has ordinary-Step
@@ -88,7 +206,7 @@ refinement, restart equality and post-commit rollback are exercised together.
 The next candidate lowers one registered frictionless translating plane through
 ordinary finite-Hex `model.step`, preserving the separate constitutive owner.
 It passes a scalar finite-compression ODE comparison and a native finite-J2
-plastic work/restart test. Distributed bonded composition, curved/rotating tools,
+plastic work/restart test. Curved/rotating tools,
 multiple pairs, friction and the tester's actual orthotropic material remain
 open; do not equate this serial slice with industrial forming completion.
 
@@ -98,17 +216,21 @@ restart, empty partitions, rank-inconsistent admission/corrupt outer-state
 rejection and post-commit rollback. The combined contact/finite-Hex MPI
 regression passes 62 tests per rank; serial contact/bond regressions pass 57
 with eight MPI-only skips. These are overlapping selections, not 124 distinct
-MPI tests. Distributed nonmatching interface ownership and cross-partition
-finite-material restart remain separate work; no VUMAT is needed to develop
-those infrastructure contracts.
+MPI tests. Cross-partition finite-material restart remains separate work.
 
 The next prerequisite hardens the existing sparse cohesive communication owner:
 collective schedule/payload rejection, idle consumers and transpose virtual-work
 checks now pass with two/three processes. This preserves sparse numeric payloads;
-the added readiness exchange carries only small status records. It is not yet a
-distributed nonmatching force. Next implement physically identified integration
-point ownership, remote trace schedules, single-count energy/stability and joint
-restart as one bounded acceptance slice rather than removing the serial guard.
+the added readiness exchange carries only small status records.
+
+The following bounded distributed nonmatching slice now owns quadrature points
+once, uses remote trace schedules, assembles single-count interface energy and
+the global owner-summed stability bound, and preserves joint same-partition
+restart. Two-rank elastic/J2 bulk + bond + tool tests compare with serial values,
+ordinary results and exact resumed trajectories; corrupted interface identity
+and post-commit failure roll back collectively. Reference geometry is replicated
+and point identity remains partition-bound: scalable geometry discovery and
+cross-partition finite-material recovery are NOT completed by this slice.
 
 The next serial combination now composes bulk, an equal-stiffness nonmatching
 elastic bond and an external translating plane through the same Step. Contact
@@ -116,7 +238,7 @@ and bond must have disjoint trace nodes (even shared edge nodes are conservative
 rejected). All three stiffness contributions enter the existing summed stability
 bound once. Independent four-mass axial dynamics, temporal refinement, separate
 energy channels, native-J2 plastic response and exact interrupted recovery are
-the acceptance tests. This is not post-failure contact, distributed bonding or
+the acceptance tests. This is not post-failure contact or
 the tester's unspecified finite orthotropic law. Obtain that law, orientation
 update and parameters before claiming equivalence; do not substitute J2.
 A separate, rotated orthotropic Green-strain test provider also passes tangent,

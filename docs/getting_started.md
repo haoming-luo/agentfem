@@ -99,6 +99,19 @@ regions, fields, materials, constraints, loads, steps, and result requests.
 `agentfem.toml` does not duplicate the physics; it only identifies the project
 name, Python entrypoint, and output root.
 
+Cases may use an ordinary Python argument parser and import sibling modules.
+The runner isolates its own options; pass case-specific arguments after `--`:
+
+```bash
+agentfem run --name trial -- --load-scale 0.5
+```
+
+Here `--load-scale` must be defined by that case, not by AgentFEM. The same
+arguments are forwarded under `--mpi N`. A case's unsuccessful `SystemExit`
+(including argument-parser errors) produces a failed execution record and a
+nonzero command status. A planned pause remains `paused`, not `completed`.
+Running a prepared project requires no AI service, account, or skill.
+
 For an existing Abaqus input deck, begin with migration rather than a blank
 template:
 

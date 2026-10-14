@@ -1,0 +1,279 @@
+# SPDX-FileCopyrightText: 2026 Haoming Luo and AgentFEM contributors
+# SPDX-License-Identifier: Apache-2.0
+"""Private serial quadrature lowering for response-only material trials.
+
+Reuse MaterialQuadratureState. No second state store, implicit commit,
+synthetic tangent, artificial storage field or global Step registration.
+"""
+
+from dataclasses import dataclass
+
+import numpy as np
+
+from ._explicit_material import (
+    ExplicitMaterialBatchOutput,
+    ExplicitMaterialIncrementExceeded,
+    validated_explicit_material_update,
+)
+from .material_array_batch import MaterialPointArrayBatchInput, _array
+from .material_driver import _cauchy_to_first_piola
+from ..state import field_transaction
+
+
+@dataclass(frozen=True)
+class ExplicitQuadratureTrial:
+    response: ExplicitMaterialBatchOutput
+    first_piola_stress: np.ndarray
+
+
+@dataclass
+class ExplicitQuadratureResponse:
+    """Real stress/work fields only; no placeholder DPDF or SENER exists."""
+
+    state: object
+    first_piola_stress: object
+    cauchy_stress: object
+    internal_work_density_increment: object
+    response_transaction: object
+    _owned: object = None
+
+    @classmethod
+    def create(cls, domain, state_schema, *, degree=1):
+        from .quadrature import (
+            MaterialQuadratureState,
+            QuadratureField,
+            QuadratureTransaction,
+        )
+
+        state = MaterialQuadratureState.create(domain, state_schema, degree=degree)
+        shapes = {"P": (3, 3), "S": (3, 3), "WORK": ()}
+        trial = {
+            name: QuadratureField.create(
+                domain, name=name, value_shape=shape, degree=degree
+            )
+            for name, shape in shapes.items()
+        }
+        committed = {
+            name: QuadratureField.create(
+                domain, name=name + "_accepted", value_shape=shape, degree=degree
+            )
+            for name, shape in shapes.items()
+        }
+        return cls(
+            state,
+            trial["P"],
+            trial["S"],
+            trial["WORK"],
+            QuadratureTransaction(committed, trial, "explicit-material-response"),
+        )
+
+    @property
+    def domain(self):
+        return self.state.domain
+
+    def trial_fields(self):
+        return {} if self._owned is not None else self._storage_trial_fields()
+
+    def _storage_trial_fields(self):
+        return {
+            "P": self.first_piola_stress.function,
+            "S": self.cauchy_stress.function,
+            "WORK": self.internal_work_density_increment.function,
+            **{
+                f"state_{name}": value.function
+                for name, value in self.state.trial.items()
+            },
+        }
+
+    def enable_owned_arrays(self):
+        if self._owned is not None:
+            raise RuntimeError("Owned array storage already enabled")
+        from ._owned_explicit_state import OwnedExplicitState
+        self._owned = OwnedExplicitState(self)
+
+    def committed_history(self):
+        return (_immutable_committed_history(self.state) if self._owned is None
+                else self._owned.history)
+
+    def publish_accepted(self):
+        if self._owned is not None:
+            self._owned.publish()
+
+    def update(self, material, **options):
+        with field_transaction(**self.trial_fields()):
+            trial = _prepare_explicit_material_points(material, self.state,
+                accepted_history=self.committed_history(), **options)
+            self._assign_prepared(trial)
+        return trial.response
+
+    def _assign_prepared(self, trial):
+        """Assign under the caller's complete trial-field transaction only."""
+        if self._owned is not None:
+            return self._owned.assign(trial)
+        self.state.assign_trial_state_vectors(trial.response.state_new)
+        self.first_piola_stress.assign(trial.first_piola_stress)
+        self.cauchy_stress.assign(trial.response.cauchy_stress)
+        self.internal_work_density_increment.assign(
+            trial.response.internal_work_density_increment
+        )
+
+    def commit(self):
+        if self._owned is not None:
+            return self._owned.commit()
+        fields = {
+            f"state_{name}": value.function
+            for name, value in self.state.committed.items()
+        }
+        fields.update(
+            {
+                f"response_{name}": value.function
+                for name, value in self.response_transaction.committed.items()
+            }
+        )
+        with field_transaction(**fields):
+            self.state.commit()
+            self.response_transaction.commit()
+
+    def rollback(self):
+        if self._owned is not None:
+            return self._owned.rollback()
+        with field_transaction(**self.trial_fields()):
+            self.state.rollback()
+            self.response_transaction.rollback()
+
+
+def _immutable_committed_history(state):
+    """Freeze serial single-block history once at the provider boundary.
+
+    No borrowed mutable field leaves this function. General schemas/layouts
+    and open state implementations retain their ordinary packing contract.
+    """
+    from .quadrature import MaterialQuadratureState, QuadratureField
+
+    if type(state) is MaterialQuadratureState and len(state.state_schema.variables) == 1:
+        variable = state.state_schema.variables[0]
+        field = state.committed[variable.name]
+        if type(field) is QuadratureField and state.domain.comm.size == 1:
+            indices = field._array_indices()
+            if field._identity_layout_cache:
+                shape = (field.point_count, state.state_schema.size)
+                values = field.function.x.array[:indices.size].reshape(shape)
+                from .._field_rollback_scope import _borrowed_field_snapshot
+                from .._resident_field_records import _same_bits
+
+                saved = _borrowed_field_snapshot(field.function)
+                owner = saved
+                while isinstance(owner, np.ndarray):
+                    owner = owner.base
+                if (isinstance(owner, bytes)
+                        and _same_bits(values, saved.reshape(shape))):
+                    # The joined increment already owns these accepted bytes.
+                    # A time callback may modify the live field after capture;
+                    # exact comparison keeps that write visible to the provider.
+                    return _array(saved.reshape(shape), shape, "state_old")
+                return _array(values, shape, "state_old")
+    values = state.committed_state_vectors()
+    return _array(values, (len(values), state.state_schema.size), "state_old")
+
+
+def _prepare_explicit_material_points(
+    material,
+    state,
+    *,
+    deformation_gradient_old,
+    deformation_gradient_new,
+    time,
+    time_increment,
+    properties=(),
+    max_batch_points=1024,
+    accepted_history=None,
+):
+    """Prepare all chunks without writing fields; caller assigns and commits.
+
+    MPI is intentionally refused until assignment/ghost exchange failures have
+    their own collective acceptance. A per-point cutback request rejects this
+    fixed-increment candidate before touching trial or committed fields.
+    """
+    if state.domain.comm.size != 1:
+        raise NotImplementedError(
+            "Response-only material quadrature MPI is not yet admitted."
+        )
+    if state.state_schema != material.state_schema:
+        raise ValueError("Material and quadrature state schemas differ.")
+    if (
+        isinstance(max_batch_points, bool)
+        or not isinstance(max_batch_points, (int, np.integer))
+        or max_batch_points < 1
+    ):
+        raise ValueError("max_batch_points must be a positive integer.")
+    accepted = (_immutable_committed_history(state) if accepted_history is None
+                else _array(accepted_history, (state.reference_field.point_count, state.state_schema.size), "state_old"))
+    count = len(accepted)
+    if count == 0:
+        raise ValueError("Serial material quadrature requires at least one point.")
+    old = _array(deformation_gradient_old, (count, 3, 3), "deformation_gradient_old")
+    new = _array(deformation_gradient_new, (count, 3, 3), "deformation_gradient_new")
+    batches = []
+    for start in range(0, count, max_batch_points):
+        region = slice(start, start + max_batch_points)
+        request = MaterialPointArrayBatchInput(
+            old[region],
+            new[region],
+            accepted[region],
+            state.state_schema,
+            time,
+            time_increment,
+            properties=np.asarray(properties),
+        )
+        try:
+            batches.append(validated_explicit_material_update(material, request))
+        except ExplicitMaterialIncrementExceeded as error:
+            raise ExplicitMaterialIncrementExceeded(
+                requested=error.requested_time_increment,
+                allowed=error.allowed_time_increment,
+                point_index=start + error.point_index,
+                policy_identity=error.policy_identity,
+            ) from error
+    channels = (
+        "cauchy_stress",
+        "state_new",
+        "internal_work_density_increment",
+        "stored_energy_density",
+        "dissipation_density_increment",
+        "requested_time_scale",
+    )
+    if len(batches) == 1:
+        # validated_explicit_material_update already made an owned, checked
+        # response. There is no concatenation boundary to validate again.
+        result = batches[0]
+    else:
+        combined = {}
+        for name in channels:
+            values = [getattr(batch, name) for batch in batches]
+            if any(value is None for value in values):
+                if not all(value is None for value in values):
+                    raise ValueError(
+                        f"Explicit material changed {name} availability across chunks."
+                    )
+                combined[name] = None
+            else:
+                combined[name] = np.concatenate(values)
+        result = ExplicitMaterialBatchOutput(state_schema=state.state_schema, **combined)
+    if np.any(result.requested_time_scale < 1):
+        from ._explicit_material import ExplicitMaterialCutbackRequest
+        raise ExplicitMaterialCutbackRequest(
+            "Material requested a smaller increment; trial rejected without state mutation."
+        )
+    piola = _cauchy_to_first_piola(new, result.cauchy_stress)
+    piola.setflags(write=False)
+    return ExplicitQuadratureTrial(result, piola)
+
+
+def update_explicit_material_points(material, state, **options):
+    """Atomically assign prepared history; preserve the standalone entrypoint."""
+    trial = _prepare_explicit_material_points(material, state, **options)
+    with field_transaction(
+        **{name: value.function for name, value in state.trial.items()}
+    ):
+        state.assign_trial_state_vectors(trial.response.state_new)
+    return trial

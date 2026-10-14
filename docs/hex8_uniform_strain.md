@@ -684,9 +684,9 @@ the bulk/hourglass/interface ceiling before selecting a fixed increment; a
 caller ceiling or a reviewed material envelope is still required for the bulk.
 
 This admission supports one frictionless plane, fixed or in prescribed
-translation, in serial or distributed execution without bonded interfaces.
+translation, in serial or distributed execution, with an optional elastic bond.
 Rotation, curved tools, multiple pairs and friction reject before stepping.
-Serial bonding on a separate trace is bounded
+Bonding on a separate trace is bounded
 as described below; no bond-failure/contact switching is admitted. The
 penalty potential uses the reference-surface quadrature weights; it must not be
 interpreted as an independently validated current-area pressure formulation.
@@ -712,7 +712,7 @@ restart, an intentionally empty rank, collective rejection of inconsistent
 contact descriptions or corrupt outer records, and rollback after a rank-local
 post-commit failure. Nested material State remains rank-local; contact work
 records remain canonical. This does not establish repartitioned finite-material
-restart or distributed nonmatching bonding, which remain unsupported.
+restart. Distributed nonmatching bonding has its separate acceptance below.
 
 Clean candidate `afef243a` passes 29 isolated installed-wheel checks with source
 injection disabled; all 299 packaged Python modules match source. The installed
@@ -728,6 +728,13 @@ reference bond together with one external translating frictionless plane. The
 contact boundary and either bond trace must have disjoint nodal support; shared
 edges are conservatively refused as well. This intentionally excludes contact
 on the bonded interface and any automatic transition after failure.
+
+The finite-Hex composition also passes two-rank elastic/J2 bulk comparison,
+ordinary result output, stable-step equality, exact same-partition restart,
+corrupt interface-state rejection and post-commit rollback. Reference geometry
+is replicated; each integration point is owned once and force exchange is sparse.
+See `tests/test_parallel_nonmatching.py`. Cross-partition recovery, distributed
+implicit interfaces and damage remain outside this admission.
 
 Bulk/hourglass, interface and contact contributions enter the common spectral
 sum once. The existing material State owns the bond transaction; the contact

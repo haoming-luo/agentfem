@@ -35,6 +35,9 @@ record.
 8. Create state containers when needed.
 9. Load or define material properties, then choose constitutive laws.
 10. Define reusable amplitudes for prescribed time histories or scale factors.
+    For a fifth-order smooth ramp, use `amplitudes.quintic_step(...)`; the
+    existing `smooth_step(...)` is half-cosine. Pass the same amplitude asset to
+    a rigid-motion schedule rather than coding a second clock in the case.
 11. Define essential constraints.
 12. Define weak loads and boundary models.
 13. Build operators or weak forms. Use model-first helpers such as
@@ -93,6 +96,9 @@ record.
 19. Write visualization/output artifacts and attach them to the result. The
     standard transient lifecycle performs this automatically; low-level
     `run(output=...)` remains available for expert loops.
+    Format-specific connectivity belongs to the writer, not to the case or AI
+    agent. For custom exports use `io.ResultWriter`; transfer fields through
+    their spaces or explicit cell identities, never equal-length array guesses.
 20. Apply `result.verify("exploratory" | "engineering" | "release")` and
     declare required quantities, histories, and artifacts. Add reference,
     invariant, discretization, or validation claims when the result will be
@@ -172,7 +178,10 @@ Package paths below are relative to `src/agentfem/`.
   `boundary_models/mechanical.py`. Projection uses positive-admissible,
   negative-penetration signed gaps and explicit validity/status evidence. The
   plane, circle/sphere, and infinite-cylinder implementations are exact
-  analytical projectors. The oriented-triangle implementation is a reviewed
+  analytical projectors. A cylinder's optional `axial_interval` restricts
+  admission to its finite lateral interior; rim/end projection remains
+  explicitly unsupported, without an implicit end cap.
+  The oriented-triangle implementation is a reviewed
   exhaustive reference. `boundary_models/search.py` adds deterministic local
   and distributed-reference AABB/BVH paths whose exact leaves preserve the
   same ambiguity and facet-identity contract. The distributed path owns a
@@ -277,7 +286,35 @@ neighbor-collective scalability claim.
 
 ## Design Principle
 
-The bounded serial finite-Hex route accepts an equal-stiffness elastic
+For admitted response-only Explicit Hex8 cases, declare numerical inertia with
+`model.step(mass_scaling=time.FixedMassScaling(...))` or a
+`time.InitialMassScaling` reference-operator estimate or a
+`time.TargetIncrementMassScaling` bound-provider policy. Do not make a previous
+case's nodal-factor NPZ a prerequisite for a new mesh. Core combines named
+operator bounds, enforces the explicit mass budget and owns State; providers
+remain responsible for the validity of their material/contact bounds. See
+`docs/response_material_workflow.md` for the experimental scope.
+Initial reference planning uses the actual mesh and declared contact/bond
+assets; it is not a whole-path nonlinear stability certificate.
+Use the preparation report's physical/numerical increment diagnostics to locate
+the limiting reference contribution. Do not reinterpret that diagnosis as a
+certificate for a damaged or deformed configuration.
+
+For accepted response-Hex output, call `step.accepted_material_fields()` and
+`step.accepted_contact_evidence()`, then use the ordinary result writer.
+Named material variables come from the material's state schema; contact records
+declare force/moment conventions and coverage. These read-only observations
+neither advance state nor establish scientific verification. Configured
+`model.step(history=...)` requests also apply to plain `step.run()`; substeps
+publish custom histories only at accepted macro stations.
+
+For long custom transient loops, use `results.AcceptedHistoryJournal` when
+repeatedly rewriting the accumulated JSON history dominates reporting. Append
+new accepted stations through `append_records`, then publish the returned tip
+with status. Retain normal checkpoints for restart and publish ordinary final
+result artifacts; the journal neither commits state nor certifies physics.
+
+The bounded serial/MPI finite-Hex route accepts an equal-stiffness elastic
 `cohesive_force` plus one registered translating-plane contact boundary model
 through the same `model.step`. Their trace nodes must be disjoint. Both remain
 separate scientific assets; the common Procedure owns the summed stability bound,
@@ -337,3 +374,9 @@ route within the public workflow, not a competing physical Study language.
 High-order mixed-component boundary and output fields may use
 `spaces.independent_subspace(W, i)`; preserve their physical field by explicit
 interpolation, not by assuming identical coefficient order.
+
+For serial P1/Q1 imported node identity, use `spaces.locate_input_nodes` rather
+than coordinate matching. Source node labels must first be mapped to the mesh's
+input indices. Extract a tagged boundary through
+`interfaces.reference_trace_from_boundary`; explicitly request
+`geometry="bilinear"` for a warped Q1 face, never substitute triangular P1 traces.

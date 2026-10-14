@@ -220,6 +220,8 @@ and evidence remain in the linked guides and scientific function reference.
 | function | `capabilities() -> tuple[ConstitutiveCapability, ...]` | Return all constitutive capabilities in stable name order. |
 | function | `capability(name: str) -> ConstitutiveCapability` | Return one capability or raise with the available names. |
 | class | `FirstPiolaTangentEnvelope` | Declared symmetric dP/dF envelope over a principal-stretch domain. |
+| class | `ExplicitUserMaterial` | A named, restart-identifiable batch response without synthetic tangent. |
+| function | `explicit_user_material(*, state_schema, update, identity, name = 'user_explicit_material', increment_limit = None, increment_policy_identity = None, density = None)` | Public AgentFEM object. |
 | class | `ArrheniusPowerLawCreep` | Temperature-dependent Mises power-law creep. |
 | class | `CreepDamageState` | Local creep strain and scalar continuum-damage state. |
 | class | `CreepDamageUpdate` | Accepted material-point increment from a creep-damage law. |
@@ -466,6 +468,7 @@ and evidence remain in the linked guides and scientific function reference.
 | function | `constant(value: float, *, name: str = 'constant') -> Amplitude` | Create a constant amplitude. |
 | function | `ramp(start_value: float = 0.0, end_value: float = 1.0, *, start_time: float = 0.0, end_time: float = 1.0, name: str = 'ramp') -> Amplitude` | Create a clipped linear ramp amplitude. |
 | function | `smooth_step(start_value: float = 0.0, end_value: float = 1.0, *, start_time: float = 0.0, end_time: float = 1.0, name: str = 'smooth_step') -> Amplitude` | Create a clipped half-cosine transition with zero endpoint slopes. |
+| function | `quintic_step(start_value: float = 0.0, end_value: float = 1.0, *, start_time: float = 0.0, end_time: float = 1.0, name: str = 'quintic_step') -> Amplitude` | Clamped quintic transition with zero endpoint velocity/acceleration. |
 | function | `tabular(times, values, *, name: str = 'tabular', left: float \| None = None, right: float \| None = None) -> Amplitude` | Create a linearly interpolated tabular amplitude. |
 | function | `sine(amplitude: float = 1.0, frequency: float = 1.0, *, phase: float = 0.0, offset: float = 0.0, name: str = 'sine') -> Amplitude` | Create a sinusoidal amplitude. |
 | function | `gaussian_modulated_sine(amplitude: float, frequency: float, width: float, *, center: float \| None = None, phase: float = 0.0, name: str = 'gaussian_modulated_sine') -> Amplitude` | Create a Gaussian-windowed sinusoidal pulse. |
@@ -528,6 +531,8 @@ and evidence remain in the linked guides and scientific function reference.
 
 | Kind | Public object | Purpose |
 | --- | --- | --- |
+| function | `consolidate_xdmf_fields(source, destination) -> Path` | Group synchronized fields on one grid per time, without copying HDF5. |
+| function | `cell_field_from_values(domain, values, *, name, cell_keys = None)` | Create a detached DG0 field from one scalar/vector/tensor per cell. |
 | class | `CheckpointRecord` | One restart asset with an explicit portability boundary. |
 | class | `FieldResult` | A named live field or an external field artifact. |
 | class | `HistoryResult` | Time, load, or iteration history with a fixed value shape. |
@@ -612,6 +617,8 @@ and evidence remain in the linked guides and scientific function reference.
 | function | `attach_performance(result, *, stages: Mapping[str, object], solution = None, source = None, scope: str = 'solve_result_call')` | Attach normalized performance evidence and return ``result``. |
 | function | `increment_performance(records) -> dict[str, object]` | Summarize provider-owned nonlinear increment timings. |
 | function | `performance_evidence(*, stages: Mapping[str, object], solution = None, source = None, scope: str = 'solve_result_call') -> PerformanceEvidence` | Build collective, rank-consistent evidence from local stage timings. |
+| class | `AcceptedHistoryJournal(path)` | Durable, exclusive-create evidence stream. Not a state/restart owner. |
+| function | `read_accepted_history(path, *, expected_tip = None)` | Read a complete segment; optionally require the externally saved tip. |
 | class | `FiniteStrainDiagnosticRequest` | Record physical admissibility and constraint checks. |
 | class | `HistoryRequest` | Evaluate one scientific quantity on every accepted output frame. |
 | class | `OutputPlan` | One declarative output contract for a completed finite-strain step. |
@@ -708,6 +715,8 @@ and evidence remain in the linked guides and scientific function reference.
 
 | Kind | Public object | Purpose |
 | --- | --- | --- |
+| function | `q1_contact_runtime(*, backend = 'auto', geometry_workers = 0, projection_workers = 1)` | Instance-owned Q1 arithmetic; use as a context around the Step lifetime. |
+| class | `Q1ContactExecution` | Public AgentFEM object. |
 | class | `ElasticFoundation` | Distributed linear spring support on a solid boundary. |
 | class | `RigidObstaclePenaltyContact` | Frictionless one-sided contact with one analytical rigid plane. |
 | function | `elastic_foundation(*, on = None, location = None, stiffness, mode: str = 'isotropic', normal = None, name: str = 'elastic_foundation') -> ElasticFoundation` | Public AgentFEM object. |
@@ -729,6 +738,9 @@ and evidence remain in the linked guides and scientific function reference.
 | function | `tangential_contact_state() -> TangentialContactState` | Public AgentFEM object. |
 | class | `RigidContactPair` | Bind one slave boundary, rigid body, and local contact law. |
 | function | `rigid_contact_pair(slave_boundary: BoundaryRegion, rigid_body: RigidBody, *, penalty, friction_coefficient: float \| None = None, tangential_penalty = None, invalid_policy: str = 'reject', name: str = 'rigid_contact_pair') -> RigidContactPair` | Create one solver-neutral rigid pair with optional friction semantics. |
+| class | `DeformableContactPair` | Public AgentFEM object. |
+| function | `deformable_contact_pair(secondary, primary, **options)` | Public AgentFEM object. |
+| class | `RigidContactTracePolicy` | Public AgentFEM object. |
 | class | `FrictionlessPenaltyContactLaw` | Evaluate a conservative one-sided penalty law on projected points. |
 | class | `FrictionlessPenaltyContactResponse` | Immutable pointwise response to one reviewed surface projection. |
 | function | `frictionless_penalty_contact_law(penalty, *, invalid_policy: str = 'reject', name: str = 'frictionless_penalty_contact') -> FrictionlessPenaltyContactLaw` | Create the geometry-neutral local frictionless contact law. |
@@ -745,25 +757,25 @@ and evidence remain in the linked guides and scientific function reference.
 | class | `PrescribedContactWorkStation` | One globally reduced rigid-tool force/coordinate station. |
 | class | `PrescribedRigidMotionSchedule` | A proportional rigid motion over one explicit physical-time interval. |
 | function | `prescribed_contact_work_state(*, identity: str) -> PrescribedContactWorkState` | Public AgentFEM object. |
-| function | `prescribed_rigid_motion_schedule(motion: PrescribedRigidMotion, *, start_time: float = 0.0, end_time: float, name: str = 'prescribed_rigid_motion_schedule') -> PrescribedRigidMotionSchedule` | Public AgentFEM object. |
+| function | `prescribed_rigid_motion_schedule(motion: PrescribedRigidMotion, *, start_time: float = 0.0, end_time: float, name: str = 'prescribed_rigid_motion_schedule', amplitude = None) -> PrescribedRigidMotionSchedule` | Public AgentFEM object. |
 | function | `dolfinx_boundary_region_triangle_partition(region, *, name: str \| None = None, tolerance: float \| None = None, ambiguity_tolerance: float \| None = None) -> TriangleSurfacePartition` | Adapt an AgentFEM named boundary region into the search contract. |
 | function | `dolfinx_exterior_triangle_partition(domain, *, facets = None, name: str = 'dolfinx_exterior_triangle_surface', tolerance: float \| None = None, ambiguity_tolerance: float \| None = None) -> TriangleSurfacePartition` | Build a stable distributed triangle partition from owned exterior facets. |
 | function | `dolfinx_tagged_exterior_triangle_partition(domain, facet_tags, *, tag: int, name: str \| None = None, tolerance: float \| None = None, ambiguity_tolerance: float \| None = None) -> TriangleSurfacePartition` | Build a distributed triangle partition from one DOLFINx facet tag. |
 | class | `DolfinxContactTraceAdapter` | Bind one reviewed DOLFINx CG1/CG2 boundary trace to displacement. |
-| function | `dolfinx_boundary_region_contact_trace(region, function_space) -> DolfinxContactTraceAdapter` | Adapt a tagged tetrahedral or hexahedral CG1/CG2 boundary trace. |
+| function | `dolfinx_boundary_region_contact_trace(region, function_space, *, integration: str = 'gauss') -> DolfinxContactTraceAdapter` | Adapt a tagged tetrahedral or hexahedral CG1/CG2 boundary trace. |
 | function | `estimate_dolfinx_contact_stability(*, adapter: DolfinxContactTraceAdapter, lumped_mass, normal_penalty, tangential_penalty = None, friction_coefficient: float = 0.0, safety_factor: float = 0.8) -> ContactStabilityEstimate` | Estimate the contact contribution to explicit stability. |
 | class | `DolfinxExplicitContactResidual(base, *, adapter: DolfinxContactTraceAdapter, displacement, lifecycle: ContactProjectionLifecycle, law: FrictionlessPenaltyContactLaw, friction_law: PenaltyCoulombFrictionLaw \| None = None, maximum_stable_time_increment: float, contact_stability_estimate: ContactStabilityEstimate \| None = None, combined_stability_estimate: CombinedExplicitStabilityEstimate \| None = None, declared_maximum_stable_time_increment: float \| None = None, contact_pair: RigidContactPair \| None = None, rigid_body: RigidBody \| None = None, motion_schedule: PrescribedRigidMotionSchedule \| None = None, surface_reference_point = None, projection_options = None, name: str = 'dolfinx_explicit_contact_residual') -> None` | Add reviewed trace contact to a DOLFINx explicit residual. |
 | class | `ExplicitContactEvidence` | MPI-global evidence from one contact residual evaluation. |
 | function | `dolfinx_explicit_contact_residual(base, *, adapter, displacement, projector = None, rigid_body = None, contact_pair = None, penalty = None, maximum_stable_time_increment = None, lumped_mass = None, contact_stability_estimate = None, noncontact_unsafed_stability_limit = None, contact_stability_safety_factor: float = 0.8, motion_schedule = None, invalid_policy: str = 'reject', surface_reference_point = None, projection_options = None, name: str = 'dolfinx_explicit_contact_residual') -> DolfinxExplicitContactResidual` | Build the reviewed first explicit contact residual consumer. |
 | class | `PrescribedRigidMotion` | Normalized prescribed rigid-body translation and rotation. |
-| class | `RigidCylinderSurface` | Analytical three-dimensional infinite circular cylinder. |
+| class | `RigidCylinderSurface` | Analytical circular cylinder, optionally restricted to a lateral interval. |
 | class | `RigidPlaneSurface` | Analytical rigid plane with one explicit point and unit normal. |
 | class | `RigidSphereSurface` | Analytical circle or sphere with an explicit admissible side. |
 | class | `RigidSurface` | Solver-neutral contract for auditable rigid-surface projection. |
 | class | `SurfaceProjection` | Immutable closest-point evidence produced by one rigid surface. |
 | class | `TriangulatedRigidSurface` | Reviewed three-dimensional oriented triangle surface. |
 | function | `prescribed_rigid_motion(*, translation, rotation = 0.0, reference_point = None, name: str = 'prescribed_rigid_motion') -> PrescribedRigidMotion` | Describe one normalized proportional rigid translation and rotation. |
-| function | `rigid_cylinder(axis_point, axis_direction, radius: float, *, admissible_side: str = 'exterior', name: str = 'rigid_cylinder') -> RigidCylinderSurface` | Create an analytical three-dimensional infinite cylinder. |
+| function | `rigid_cylinder(axis_point, axis_direction, radius: float, *, admissible_side: str = 'exterior', name: str = 'rigid_cylinder', axial_interval = None) -> RigidCylinderSurface` | Create a cylinder; optional axial interval admits lateral interior only. |
 | function | `rigid_plane(*, point, normal, name: str = 'rigid_plane') -> RigidPlaneSurface` | Describe one analytical rigid plane independently of a contact law. |
 | function | `rigid_sphere(center, radius: float, *, admissible_side: str = 'exterior', name: str = 'rigid_sphere') -> RigidSphereSurface` | Create an analytical circle/sphere with explicit gap orientation. |
 | function | `triangulated_rigid_surface(*, vertices, triangles, facet_ids = None, tolerance: float \| None = None, ambiguity_tolerance: float \| None = None, name: str = 'triangulated_rigid_surface') -> TriangulatedRigidSurface` | Create one reviewed oriented triangle surface for rigid projection. |
@@ -926,6 +938,13 @@ and evidence remain in the linked guides and scientific function reference.
 | function | `audit(model, *, check_quality: bool = False, quality_threshold: float = 0.1, reject_poor_quality: bool = False) -> DiscretizationAudit` | Audit mesh topology, field elements, Study shapes, and mesh quality. |
 | class | `UniformStrainHex8` | Experimental uniform-gradient formulation with explicit kinematics. |
 | function | `uniform_strain_hex8(*, hourglass_modulus, hourglass_scale, chunk_size = 1024, kinematics = 'small_strain')` | Declare stabilization explicitly; not an automatic C3D8R translation. |
+| class | `BulkViscosityPolicy` | Public AgentFEM object. |
+| class | `BulkViscosityResponse` | Public AgentFEM object. |
+| class | `ExplicitHexBodyKernel` | Trusted callback: ``evaluate(material, request, geometry, displacement)``. |
+| class | `ExplicitHexBodyOutput` | Public AgentFEM object. |
+| class | `ExplicitHexGeometry` | Public AgentFEM object. |
+| function | `explicit_hex_kernel(*, backend = 'auto', cell_workers = 1)` | Use installed native arithmetic or the reference NumPy implementation. |
+| function | `native_explicit_hex_kernel(material, function, *, properties, density, identity, fallback, validate = None, workers = 1, cell_workers = 1)` | Bind trusted C material code, not a data-file address. |
 
 ## `agentfem.expressions`
 
@@ -988,7 +1007,7 @@ and evidence remain in the linked guides and scientific function reference.
 | function | `finite_strain_internal_force(displacement, test_function, material, *, measure = ufl.dx, name: str = 'F_internal_finite_strain') -> OperatorForm` | Return the current Total-Lagrangian hyperelastic internal force. |
 | class | `FiniteStrainEnergyMonitor` | Accepted-frame kinetic and hyperelastic bulk energy monitor. |
 | class | `FiniteStrainRegionalEnergyMonitor` | Accepted-frame energy for a partitioned hyperelastic solid. |
-| function | `nonmatching_cohesive_force(pairing, displacement, law, *, negative_dofs, positive_dofs, tangential = 'mixed', tangential_stiffness = None)` | Lower fixed P1/Q1 traces to a serial reference interface force. |
+| function | `nonmatching_cohesive_force(pairing, displacement, law, *, negative_dofs, positive_dofs, tangential = 'mixed', tangential_stiffness = None)` | Lower fixed P1/Q1 traces to a reference interface force. |
 | class | `DofMappedCohesiveForce(assembler, displacement, *, node_to_block_dof)` | Map a serial cohesive facet kernel to vector finite-element dofs. |
 | class | `NamedCohesiveResponse` | Responses and aggregate energy from several named interfaces. |
 | class | `CohesiveForceCollection(interfaces)` | Atomically compose independent named cohesive-interface forces. |
@@ -1082,13 +1101,16 @@ and evidence remain in the linked guides and scientific function reference.
 | class | `CohesiveSurface` | Public description of a fixed-path zero-thickness interface. |
 | function | `elastic_cohesive(*, normal_stiffness, tangential_stiffness, second_tangential_stiffness = None, name = 'elastic traction-separation')` | Undamaged reference-area interface elasticity with explicit local stiffnesses. |
 | function | `pair_nonmatching_triangles(negative, positive, *, tolerance, maximum_points = 200000)` | Experimental fixed coplanar P1 common-refinement trace integration. |
-| function | `reference_trace(vertices, cells, *, topology, tolerance)` | Create fixed reference geometry with its original P1 or affine Q1 trace. |
+| function | `reference_trace(vertices, cells, *, topology, tolerance, geometry = 'affine')` | Create fixed reference geometry with its original P1 or affine Q1 trace. |
+| function | `project_reference_points(surface, points, *, maximum_distance, require_unique_normal = True)` | Bounded closest-point query on original Q1 geometry, not contact detection. |
+| function | `propose_reference_adjustment(negative, positive, *, selected_nodes, maximum_distance, tolerance)` | Return an explicit strain-free geometry proposal; never change a live mesh. |
+| function | `initial_nodal_bond(negative, positive, *, eligible_nodes, tolerance)` | Pair explicitly eligible coincident Q1 nodes once, without snapping. |
 | function | `pair_reference_traces(negative, positive, *, tolerance, maximum_points = 200000)` | Common-refinement pairing without replacing the original field bases. |
 | function | `bilinear_cohesive(*, strength: float, fracture_energy: float, initial_stiffness: float, compression_stiffness: float \| None = None, name: str = 'bilinear Mode-I cohesive law') -> BilinearCohesiveLaw` | Create a bilinear Mode-I cohesive law. |
 | function | `mixed_mode_bilinear_cohesive(*, normal_strength: float, shear_strength: float, normal_fracture_energy: float, shear_fracture_energy: float, normal_stiffness: float, tangential_stiffness: float, interaction: str = 'bk', interaction_exponent: float = 1.45, compression_stiffness: float \| None = None, residual_tangential_fraction: float = 0.0, friction_coefficient: float = 0.0, friction_regularization: float = 1e-08, name: str = 'bilinear mixed-mode cohesive law') -> MixedModeBilinearCohesiveLaw` | Create a quadratic-initiation, energy-evolution mixed-mode law. |
 | function | `cohesive_surface(*, law, mode: str = 'normal', name: str = 'cohesive surface') -> CohesiveSurface` | Declare a fixed-path zero-thickness cohesive interface. |
 | function | `cohesive_characteristic_length(*, young: float, fracture_energy: float, strength: float) -> float` | Return the declared scale ``E * Gamma / strength**2``. |
-| function | `reference_trace_from_boundary(displacement, boundary, *, tolerance = 1e-10)` | Extract an outward reference trace and DOF map from a named boundary. |
+| function | `reference_trace_from_boundary(displacement, boundary, *, tolerance = 1e-10, geometry = 'affine')` | Extract an outward reference trace and DOF map from a named boundary. |
 
 ## `agentfem.manifests`
 
@@ -1649,7 +1671,7 @@ and evidence remain in the linked guides and scientific function reference.
 | class | `CSVLogger` | Rank-zero CSV writer for time histories and scalar diagnostics. |
 | class | `XDMFTimeSeries(path: Path, domain, mode: str = 'w') -> None` | Small context manager for writing a mesh and time-dependent fields. |
 | class | `ParaViewTimeSeries(path: Path, domain, mode: str = 'w') -> None` | Collective VTK/PVD series with one geometry carrying all fields. |
-| class | `ResultWriter(path: Path, domain, fields = (), mode: str = 'w') -> None` | Named result writer for one mesh and a stable field list. |
+| class | `ResultWriter(path: Path, domain, fields = (), mode: str = 'w') -> None` | Named visualization writer for one mesh and a stable field list. |
 | function | `interpolate_for_xdmf(field, *, degree: int = 1, name: str \| None = None)` | Interpolate a field to an XDMF-friendly Lagrange output space. |
 
 ## `agentfem.integrations`
@@ -1731,6 +1753,7 @@ This package exposes its public objects through focused submodules.
 
 | Kind | Public object | Purpose |
 | --- | --- | --- |
+| function | `locate_input_nodes(space, input_node_indices)` | Map original mesh input indices to scalar/block P1/Q1 DOFs, in order. |
 | function | `lagrange_space(domain, degree: int = 1)` | Create a scalar Lagrange function space. |
 | function | `scalar_space(domain, degree: int = 1)` | Create a scalar Lagrange function space. |
 | function | `vector_lagrange_space(domain, degree: int = 1, dim: int \| None = None)` | Create a vector Lagrange function space. |
@@ -1756,6 +1779,12 @@ This package exposes its public objects through focused submodules.
 | class | `TimeStep` | Metadata for one transient-solve step. |
 | class | `TimeStepper` | Iterate over transient-solve step metadata. |
 | function | `format_duration(seconds: float) -> str` | Format elapsed seconds as ``HH:MM:SS``. |
+| class | `ExplicitSubstepPolicy` | Public AgentFEM object. |
+| class | `FixedMassScaling` | Explicit uniform/nodal factors; never a stable-increment estimator. |
+| class | `InitialMassScaling` | Generate fixed nodal mass from an explicit reference-stiffness model. |
+| class | `TargetIncrementMassScaling` | Calculate nodal factors from a declared bound provider, not an NPZ. |
+| class | `MassScalingBounds` | Named, unscaled (nodes, components) diagonal majorants of K and C. |
+| class | `MassScalingRequest` | Read-only accepted data in this serial displacement-node ordering. |
 | class | `ExplicitStabilityContribution` | One conservative contribution to an explicit spectral bound. |
 | class | `ExplicitStabilityEstimate` | Conservative whole-system estimate from additive spectral bounds. |
 | function | `combine_explicit_stability(contributions, *, safety_factor: float = 0.8) -> ExplicitStabilityEstimate` | Combine conservative stiffness contributions before choosing ``dt``. |

@@ -1,5 +1,158 @@
 # Performance evidence
 
+## Completed core migration and next installed candidate (2026-10-14)
+
+The frozen `b962a777` generic-core run has now completed the same 255,041-cell,
+100,000-increment review path in **15,465.05 s (4 h 17 min 45 s)**, including
+preparation, export and worker shutdown. The previous migrated-core run took
+19,119.11 s; the earlier private implementation took 13,529.51 s. The new
+measured total is 19.11% below the former and remains 14.31% above the latter.
+These are local complete timings, not a hardware-normalized commercial-solver
+comparison or an isolated causal experiment: lightweight source/metadata work
+overlapped the new run, and the earlier core run had additional build/test load.
+
+Final compared nodal/material/damage/contact arrays and all 10,000 shared
+reporting stations agreed exactly. Actual ParaView read one volume mesh with
+255,041 Hex8 cells, a complete displacement vector and zero Warp coordinate
+error. The retained fixed-inertia, initial-adjustment and penalty-contact
+experiment has not been independently validated against the source solver.
+
+Candidate `608c50bb` additionally reuses instance-owned sleeping native workers
+and keeps rigid-contact residuals in indexed boundary-node storage through
+serial assembly. Two fresh 100→600-increment spans took 81.678/80.525 s, versus
+86.036 s for a current-HEAD baseline: about 5.7% less mean segment time. Early
+checkpoint comparisons passed; body-only replays at steps 20,000/60,000/90,000
+retained all 12 arrays bitwise, but worker reuse alone gave no meaningful late
+body-time reduction. Do not infer full-run savings from that short segment or
+attribute the combined change to a faster material law.
+
+The selected macOS source-built wheel passed 238 targeted installed tests,
+nine contact tests per MPI rank, and clean-checkout installed platform acceptance.
+Its source-archive/native-header packaging is checked separately. The frozen
+project subsequently completed its full fresh run in **14,646.987 s
+(4 h 4 min 7 s)**, 5.29% below the preceding core baseline. All 374 final
+checkpoint checks pass, including 60 bitwise-equal numeric arrays, and all
+10,000 reporting records agree. Actual ParaView confirms one 3D Hex8 volume
+with complete displacement and zero Warp coordinate error. This is measured
+end-to-end improvement, not a strictly sub-four-hour result. Lightweight
+source/metadata work and read-only diagnostics overlapped the run, so it is
+not an isolated causal benchmark.
+No mass, loading duration, increment, contact tolerance or material law was
+changed for this execution optimization.
+
+### Frozen-project delivery preflight
+
+Before starting a shared frozen project, run the standalone tool from a source
+checkout or copy it alongside the trusted delivery (it needs only Python 3.11+
+for metadata checks):
+
+```bash
+python tools/check_frozen_project.py /path/to/project --requirements /path/to/requirements.json
+python tools/check_frozen_project.py /path/to/project --requirements /path/to/requirements.json --probe --output new-preflight.json
+```
+
+The project must declare a `agentfem.frozen-core-project.v2` manifest containing
+an installed-site path and nonempty file SHA-256 map. The separate requirements
+document uses `agentfem.frozen-project-requirements.v1`, names the artifact's
+`system`, `machine` and `python_cache_tag`, and declares `imports` and pinned
+`native_libraries`. This is a bounded frozen-delivery format, not a general
+environment solver or automatic installer. Only probe code you trust: the probe
+imports modules and loads libraries, though it does not execute the case.
+
+Missing/corrupt files and incompatible binary platforms fail before imports.
+The optional probe checks the pinned AgentFEM import, reports missing native
+dependencies and has a timeout. `runtime_ready` is separate from
+`scientifically_validated`; neither elapsed time nor a matching machine makes
+a physical model correct. For another platform, rebuild the artifact and verify
+it there instead of relaxing file checks or changing the engineering Model.
+
+## Accepted state and reporting boundaries (2026-10-12)
+
+The first frozen generalized native run exposed a migration regression:
+private parallel cell auxiliaries had become serial, and mutable auxiliary
+outputs needed full-cell copies at the immutable execution boundary. The
+candidate correction provides explicit, bounded `cell_workers` and creates
+detached gradient, viscosity and gathered-cell outputs directly in immutable
+storage. Each cell retains its original arithmetic order. This fixes missing
+execution paths, not the physical model. Byte-identical tests do not establish
+a speedup: compare frozen installed runs and multiple nonlinear stations
+before promoting a worker budget. Keep the original slower run and its timing.
+
+### Installed migration check (2026-10-13)
+
+The first frozen generic-core full run (runtime `38b007c0`) completed 100,000
+increments in 19,119.11 s, versus 13,529.51 s for the earlier private execution.
+All compared final scientific fields, material histories and work/contact
+records agreed exactly. This is a recorded regression, not a speedup. Local
+builds, short tests and a three-second diagnostic overlapped the generic run,
+so these two complete timings are not an isolated performance experiment.
+
+After it exited, installed candidate `b962a777` was compared sequentially with
+installed baseline `7e3c567c`, on the same 255,041-cell model and Apple Silicon
+host (4 performance and 6 efficiency cores, 32 GiB RAM). Both used 8 material
+workers, the same contact settings, process-local TCP transport, and one
+OpenBLAS/OMP thread. The candidate explicitly selected 4 auxiliary workers;
+physics, inertia, fixed time grid and reporting cadence were unchanged.
+
+| Fresh-run pair; increments 100–600 | Baseline | Candidate | Time reduction |
+| --- | ---: | ---: | ---: |
+| 1 | 93.416 s | 86.286 s | 7.6% |
+| 2 | 93.054 s | 88.776 s | 4.6% |
+
+Each run started from zero and advanced 600 increments; the table excludes
+preparation and its first 100 increments. Both final checkpoint comparisons
+passed with identical numerical arrays and shared numeric histories. The
+variation and early loading range limit the interpretation of these savings.
+
+Read-only replay of the same archived states separately measured the complete
+body trial: gather, geometry admission, material/force update, viscosity and
+scatter. Two warmups preceded 15 timed repetitions per station.
+
+| Archived accepted step | Baseline median | Candidate median | Time reduction |
+| --- | ---: | ---: | ---: |
+| 20,000 | 96.737 ms | 66.544 ms | 31.2% |
+| 60,000 | 107.008 ms | 66.582 ms | 37.8% |
+| 90,000 | 112.418 ms | 70.755 ms | 37.1% |
+
+All 12 output arrays at each station were byte-identical, including stress,
+hidden state, internal work, force and viscosity response. Replay did not
+migrate checkpoint identity or commit a global increment. It excludes contact,
+global acceptance and I/O. It therefore does not establish a 31–38% whole-run
+speedup. The private input assets and detailed archives are retained locally,
+not distributed as a public benchmark. A new frozen complete run is the next
+timing gate; independent vendor agreement remains unverified.
+
+The reusable core now has immutable field-record transport and exact live-field
+comparison before borrowing an accepted material-history snapshot. External
+field writes remain observable. The optional finite-Hex record cache is off by
+default: correctness tests alone do not establish a throughput benefit.
+
+`results.AcceptedHistoryJournal(path).append_records(new_records)` provides
+single-writer, append-only accepted reporting, avoiding repeated serialization
+of an ever-growing history. Submit only new records, preserve the returned
+`sha256_tip` in final evidence, and read with
+`read_accepted_history(path, expected_tip=...)`. It rejects invalid batches
+before writing and poisons the writer after I/O failure. It is not a solver
+checkpoint, MPI collector or scientific certification.
+
+The architecture priority is one authoritative accepted state per lifecycle:
+Operator produces trial response, State accepts/rejects it, Result publishes
+observations. An exclusive array owner must not silently replace live fields
+when callbacks may access them. The reusable native fused execution and local
+exact repair have since moved into the optional built-in execution modules,
+with arbitrary state-width, repair-failure and observer tests (see
+`native_explicit_execution.md`). Private material laws remain external; no
+fixed native ABI state width belongs in the generic core. Installed full-model
+timing remains a separate promotion gate.
+
+For performance promotion, compare repeated early/nonlinear/late segments at
+identical accepted stations, including hidden history, work, damage and
+rollback. Then time one complete installed-project run including preparation,
+checkpoints and export. A projected wall time is not a full-run result. Thread
+counts, numerical inertia and private contact assumptions are not defaults for
+other cases. Avoid a broad Model/Procedure redesign merely to accommodate one
+fast experimental implementation.
+
 ## Bounded constitutive stress conversion measurement (2026-10-09)
 
 The shared finite-strain quadrature driver converts Cauchy to first Piola stress
@@ -184,6 +337,14 @@ declared accuracy target. Record at least:
 Startup, mesh generation, JIT compilation, solve, output, and verification
 should be compared separately. A faster run with different physics or a looser
 accuracy target is not an AgentFEM performance claim.
+
+Do not confuse recording a discretization with requiring it to remain fixed
+for every comparison. Execution optimizations hold it fixed; numerical-method
+studies may vary mesh or time grid while comparing error, histories and
+quantities at common physical stations. Bitwise equality is appropriate for
+unchanged arithmetic, not a universal gate on new algorithms or hardware.
+Wall-time targets and winning worker counts are observations on a declared
+machine, not scientific correctness requirements or global defaults.
 
 ## Contact search measurement
 

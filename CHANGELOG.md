@@ -6,8 +6,44 @@ experimental formulation to a validated one.
 
 ## [Unreleased]
 
+### Installed project execution
+
+- Isolate project arguments from `agentfem run` options, support explicit
+  `-- CASE_ARGUMENTS` forwarding (including MPI), and resolve sibling imports
+  as for an ordinary Python script. Restore interpreter state after execution.
+- Persist unsuccessful case `SystemExit` and interruption as failed execution
+  evidence; retain planned-pause status instead of announcing completion.
+
 ### Experimental Hex8 and nonmatching interfaces
 
+- Promote material-independent native body execution, batched Q1 contact
+  geometry, joined worker dispatch and accepted reporting to installed core
+  factories. Keep trusted user-material code separate; worker budgets are
+  execution choices, not universal performance guarantees.
+- Admit explicit fixed, initial-reference and provider-bounded target-increment
+  numerical mass policies on the bounded serial response-Hex route. Inventory
+  body/bond/contact/viscosity roles, require an added-mass budget and report
+  physical versus numerical mass and reference increment controllers. Do not
+  infer a nonlinear-path stability certificate from initial elastic data.
+- Expose detached accepted material variables by state-schema name and
+  per-contact force/moment/work/coverage records. Honor model-configured
+  histories in ordinary `run`; dyadic retries publish custom observations only
+  after successful macro acceptance. Retain subincrement work and rollback.
+- Expose accepted elastic-bond resultants, current-coordinate moments and
+  reference-frame opening/slip without advancing state. Report trace and
+  integration areas separately, without treating their ratio as overlap proof.
+- Extract explicitly bilinear Q1 boundary traces from tagged FEM boundaries;
+  map serial degree-one input-node identity through backend entity layouts.
+  Preserve coincident independent nodes instead of guessing by coordinates.
+- Exercise independent elastic bonding plus unilateral compression contact
+  under opening, closure and mixed shear. Preserve the declared contribution
+  policy; these checks do not assert vendor cohesive-contact equivalence.
+- Add bounded distributed finite-Hex elastic bonding plus a separate moving
+  plane through ordinary Step. Own each reference integration point once,
+  reuse sparse trace/force exchange and joint energy/restart. Verify elastic
+  and finite-J2 bulk against serial execution, stable-step agreement and atomic
+  failure recovery. Reference geometry remains replicated; no implicit MPI
+  interface, damage, repartitioned restart or VUMAT equivalence is claimed.
 - Harden the existing sparse cohesive exchange before reuse by nonmatching
   interfaces: collectively reject invalid ownership, payloads and component
   conventions before numeric communication. Empty consumers retain the same

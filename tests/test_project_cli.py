@@ -781,6 +781,46 @@ def test_safe_upgrade_replaces_an_older_operational_schema(tmp_path):
     assert 'schema_version="0.2.0"' in config.read_text(encoding="utf-8")
 
 
+def test_upgrade_skips_installed_runtimes_but_preserves_user_helpers(tmp_path):
+    (tmp_path / "agentfem.toml").write_text("[project]\nname='review'\nentrypoint='case.py'\n")
+    (tmp_path / "case.py").write_text("# ordinary case\n")
+    legacy = "model.add_step('legacy')\n"
+    target = tmp_path / "runtime/core"
+    metadata = target / "agentfem-1.dist-info"
+    metadata.mkdir(parents=True)
+    (metadata / "METADATA").write_text("Name: agentfem\nVersion: 1\n")
+    (metadata / "RECORD").write_text("")
+    (target / "library.py").write_text(legacy)
+    (tmp_path / "runtime/helpers.py").write_text(legacy)
+    environment = tmp_path / "custom-environment"
+    environment.mkdir()
+    (environment / "pyvenv.cfg").write_text("home = /python\n")
+    (environment / "library.py").write_text(legacy)
+    packages = tmp_path / "vendor/site-packages"
+    packages.mkdir(parents=True)
+    (packages / "library.py").write_text(legacy)
+    source = tmp_path / "src"
+    (source / "my_model.egg-info").mkdir(parents=True)
+    (source / "helper.py").write_text(legacy)
+    config = project.ProjectConfig.load(tmp_path)
+    found = {item.path.relative_to(tmp_path).as_posix()
+             for item in upgrades.inspect_project(config).findings
+             if item.code == "AFM-UPG-104"}
+    assert found == {"runtime/helpers.py", "src/helper.py"}
+    # Installing a dependency directly beside the case does not hide the
+    # entire explicitly selected project root and its user modules.
+    local_metadata = tmp_path / "dependency-1.dist-info"
+    local_metadata.mkdir()
+    (local_metadata / "METADATA").write_text("Name: dependency\nVersion: 1\n")
+    (local_metadata / "RECORD").write_text("")
+    assert tmp_path / "runtime/helpers.py" in upgrades._project_python_files(config)
+    # An explicitly chosen entrypoint remains inspectable, even in an excluded
+    # tree. The inspection is advisory, not a hidden case-admission mechanism.
+    from dataclasses import replace
+    selected = replace(config, entrypoint=target / "library.py")
+    assert target / "library.py" in upgrades._project_python_files(selected)
+
+
 def test_upgrade_scans_project_modules_but_ignores_generated_outputs(tmp_path):
     (tmp_path / "case.py").write_text("from helpers import area\n", encoding="utf-8")
     (tmp_path / "helpers.py").write_text(

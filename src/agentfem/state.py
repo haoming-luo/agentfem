@@ -20,6 +20,7 @@ import numpy as np
 
 from . import fields, spaces, time
 from .kernel import dofs
+from ._field_rollback_scope import _borrowed_field_snapshot, _reject_field_scope
 
 
 @contextmanager
@@ -48,11 +49,14 @@ def field_transaction(**named_fields):
             function = functions[name]
             if function.function_space.mesh is not domain:
                 raise ValueError("Field transactions require one shared mesh.")
-            snapshots[name] = _array(function).copy()
+            borrowed = _borrowed_field_snapshot(function)
+            current = _array(function)
+            snapshots[name] = current.copy() if borrowed is None else borrowed
     except Exception as exc:
         failure = exc
     errors = comm.allgather(None if failure is None else str(failure))
     if any(error is not None for error in errors):
+        _reject_field_scope()
         raise ValueError(f"AFM-TRANSFER-001: invalid transaction fields: {errors}") from failure
     failure = None
     try:
@@ -63,6 +67,7 @@ def field_transaction(**named_fields):
         failure = exc
     errors = comm.allgather(None if failure is None else str(failure))
     if any(error is not None for error in errors):
+        _reject_field_scope()
         for name in names:
             _assign(functions[name], snapshots[name], label=name)
         if failure is not None:

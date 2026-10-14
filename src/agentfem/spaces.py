@@ -11,6 +11,55 @@ import ufl
 from dolfinx import fem
 
 
+def locate_input_nodes(space, input_node_indices):
+    """Map original mesh input indices to scalar/block P1/Q1 DOFs, in order.
+
+    Serial degree-one coordinate and continuous nodal spaces only. Input
+    indices are ``mesh.geometry.input_global_indices``, not source-solver node
+    labels. The backend's entity layouts determine the map; coordinates are not
+    matched, so coincident independent interface nodes remain independent.
+    Returned indices address blocks, not flattened vector components.
+    """
+    import numpy as np
+    domain = space.mesh
+    if domain.comm.size != 1:
+        raise NotImplementedError("Input-node lookup currently requires a serial mesh")
+    if np.ma.isMaskedArray(input_node_indices):
+        raise ValueError("Input-node indices cannot be masked")
+    requested = np.asarray(input_node_indices)
+    if requested.ndim != 1 or requested.dtype.kind not in 'iu':
+        raise ValueError("Input-node indices must be an integer vector")
+    element = space.element.basix_element
+    maps = getattr(domain.geometry, 'cmaps', None)
+    if maps is not None and len(maps) != 1:
+        raise NotImplementedError("Input-node lookup requires one coordinate element")
+    coordinate = maps[0] if maps is not None else domain.geometry.cmap
+    vertices = basix.cell.topology(element.cell_type)[0]
+    layout = coordinate.create_dof_layout()
+    geometric = [layout.entity_dofs(0, vertex) for vertex in range(len(vertices))]
+    field = element.entity_dofs[0]
+    if (element.degree != 1 or element.discontinuous or coordinate.degree != 1
+            or any(len(dofs) != 1 for dofs in (*geometric, *field))
+            or element.dim != len(vertices)):
+        raise NotImplementedError("Input-node lookup requires continuous nodal P1/Q1 and degree-one geometry")
+    count = domain.topology.index_map(domain.topology.dim).size_local
+    gmap = np.asarray(domain.geometry.dofmaps[0])[:count, np.array(geometric)[:, 0]]
+    dofs = np.asarray(space.dofmap.list)[:count, np.array(field)[:, 0]]
+    ids = np.asarray(domain.geometry.input_global_indices)[gmap]
+    size = space.dofmap.index_map.size_local
+    low, high = np.full(size, np.iinfo(np.int64).max), np.full(size, -1, dtype=np.int64)
+    np.minimum.at(low, dofs.ravel(), ids.ravel())
+    np.maximum.at(high, dofs.ravel(), ids.ravel())
+    if np.any(low != high) or len(np.unique(low)) != size:
+        raise ValueError("Input-node identity does not define a one-to-one nodal DOF map")
+    order = np.argsort(low)
+    positions = np.searchsorted(low[order], requested)
+    if np.any(positions >= size) or not np.array_equal(low[order[positions]], requested):
+        raise ValueError("Requested input node is absent from this function space")
+    selected = np.ascontiguousarray(order[positions], dtype=np.int32)
+    return np.frombuffer(selected.tobytes(), dtype=selected.dtype)
+
+
 def lagrange_space(domain, degree: int = 1):
     """Create a scalar Lagrange function space."""
 

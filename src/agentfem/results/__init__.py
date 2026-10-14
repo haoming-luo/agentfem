@@ -4,6 +4,8 @@
 """Simulation results, quantities of interest, and dataset bridges."""
 
 from importlib import import_module as _import_module
+from .xdmf_layout import consolidate_xdmf_fields
+from .cell_data import cell_field_from_values
 
 from .core import (
     CheckpointRecord,
@@ -104,6 +106,8 @@ from .performance import (
 )
 
 _LAZY_EXPORTS = {
+    "AcceptedHistoryJournal": "journal",
+    "read_accepted_history": "journal",
     "FiniteStrainDiagnosticRequest": "plan",
     "HistoryRequest": "plan",
     "OutputPlan": "plan",
@@ -151,6 +155,8 @@ def __getattr__(name: str):
 
 
 __all__ = [
+    "cell_field_from_values",
+    "consolidate_xdmf_fields",
     "CheckpointRecord",
     "FieldResult",
     "FieldOutput",

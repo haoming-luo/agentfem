@@ -113,6 +113,18 @@ The validity domain is part of the claim. If `is_slender` is false, the claim
 is `inconclusive`; AgentFEM does not declare either the finite-element result
 or the reference formula correct by construction.
 
+`VerificationClaim.compare` compares real observations at matching sample
+layouts. A scalar `expected` is an explicit constant reference, such as zero
+stress everywhere; other shape mismatches fail instead of broadcasting samples
+silently. Empty observations or references are inconclusive. Masked samples
+require an explicit common selection, and complex inputs require an explicit
+real observable (for example a separately justified magnitude or phase), not
+discarding the imaginary part. Nonfinite values fail the numerical comparison.
+The claim keeps detached immutable copies of the compared values, so reusing
+the caller's working arrays cannot rewrite its evidence. Units, coordinates,
+time stations and model identity still need the caller's declared comparison
+contract; equal array shape alone does not establish physical correspondence.
+
 ## Discretization evidence
 
 `verification.ConvergenceStudy` consumes coarse-to-fine samples with a

@@ -5,6 +5,7 @@
 import numpy as np
 import pytest
 from dolfinx import mesh
+from mpi4py import MPI
 
 from agentfem import boundary_models, constitutive, elements, fields, fracture, interfaces, models, studies
 from agentfem import mesh as mesh_api
@@ -13,8 +14,8 @@ from test_quadrilateral_global import _trace
 from test_finite_hex_material_envelope_step import BoundedNeoHookean
 
 
-def prepare(*, dt=1e-4, stiffness=100, tool_z=1.0, plastic=False, material=None):
-    domain = _blocks(1, 2, cell_type="hexahedron")
+def prepare(*, dt=1e-4, stiffness=100, tool_z=1.0, plastic=False, material=None, comm=MPI.COMM_SELF):
+    domain = _blocks(1, 2, cell_type="hexahedron", comm=comm)
     model = models.create(study=studies.dynamic_solid(dimension=3), mesh=domain)
     u = model.field(fields.displacement(domain))
     model.material(material or (constitutive.finite_strain_j2_logarithmic(
@@ -22,8 +23,21 @@ def prepare(*, dt=1e-4, stiffness=100, tool_z=1.0, plastic=False, material=None)
     ) if plastic else BoundedNeoHookean()))
     model.fix(u, on=lambda x: np.ones(x.shape[1], dtype=bool), components=(0, 1))
     model.fix(u, on=lambda x: np.isclose(x[2], -1), components=2)
-    a, na = _trace(u.value.function_space, False)
-    b, nb = _trace(u.value.function_space, True)
+    if comm.size == 1:
+        a, na = _trace(u.value.function_space, False)
+        b, nb = _trace(u.value.function_space, True)
+    else:
+        domain.topology.create_connectivity(2, 3)
+        facets = mesh.locate_entities_boundary(domain, 2, lambda x: np.isclose(x[2], 0))
+        xyz = u.value.function_space.tabulate_dof_coordinates()
+        signs = []
+        for facet in facets:
+            cell = domain.topology.connectivity(2, 3).links(facet)[0]
+            nodes = u.value.function_space.dofmap.cell_dofs(cell)
+            signs.append(2 if xyz[nodes, 2].mean() > 0 else 1)
+        tags = mesh.meshtags(domain, 2, facets, np.asarray(signs, dtype=np.int32))
+        a, na = interfaces.reference_trace_from_boundary(u, mesh_api.tagged_boundary_region(domain, tags, tag=1, name="negative"))
+        b, nb = interfaces.reference_trace_from_boundary(u, mesh_api.tagged_boundary_region(domain, tags, tag=2, name="positive"))
     force = fracture.nonmatching_cohesive_force(
         interfaces.pair_reference_traces(a, b, tolerance=1e-10), u,
         interfaces.elastic_cohesive(normal_stiffness=stiffness, tangential_stiffness=stiffness),

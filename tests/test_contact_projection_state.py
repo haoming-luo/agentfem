@@ -51,6 +51,22 @@ def test_contact_projection_state_is_atomic_and_inspectable():
     np.testing.assert_allclose(selected.accepted.projection.signed_gaps, (-0.2, -0.1))
 
 
+def test_ordered_identity_reuses_validated_projection_but_owns_ids():
+    projection = _projection()
+    ids = np.array([2**55 + 1, 2**55 + 3], dtype=np.int64)
+    record = boundary_models.ContactProjectionRecord(ids, projection)
+    assert record.projection is projection
+    ids[:] = 0
+    np.testing.assert_array_equal(record.point_ids, [2**55 + 1, 2**55 + 3])
+    assert not record.point_ids.flags.writeable
+    with pytest.raises(ValueError, match="unique"):
+        boundary_models.ContactProjectionRecord([7, 7], projection)
+    reversed_record = boundary_models.ContactProjectionRecord([9, 3], projection)
+    np.testing.assert_array_equal(
+        reversed_record.projection.query_points, projection.query_points[::-1]
+    )
+
+
 def test_contact_projection_allows_facet_change_but_not_identity_change():
     selected = boundary_models.ContactProjectionState()
     selected.begin((3, 9), _projection())

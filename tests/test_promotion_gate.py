@@ -66,6 +66,24 @@ def test_candidate_identity_is_bound_to_the_current_checkout():
     assert commit is None or len(commit) == 40
 
 
+def test_platforms_allow_different_binaries_but_require_one_source_candidate():
+    version, commit = "0.4.1", "a" * 40
+    records = tuple({
+        "schema": "agentfem.platform-acceptance",
+        "platform_id": platform,
+        "status": "passed",
+        "installed_wheel": True,
+        "release_smoke": "passed",
+        "agentfem_version": version,
+        "source_commit": commit,
+        "source_dirty": False,
+        "wheel_sha256": digest * 64,
+    } for platform, digest in (("linux", "1"), ("macos", "2")))
+    assert promotion_gate._gate_platforms(records, version=version, commit=commit).status == "passed"
+    mismatched = (records[0], {**records[1], "source_commit": "b" * 40})
+    assert promotion_gate._gate_platforms(mismatched, version=version, commit=commit).status != "passed"
+
+
 def test_core_promotion_gates_are_executable_and_external_gaps_stay_visible():
     report = promotion_gate.evaluate()
 

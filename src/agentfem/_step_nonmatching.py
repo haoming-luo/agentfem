@@ -24,6 +24,9 @@ class ElasticInterfaceStep:
         from ._nonmatching_force import NonmatchingCohesiveForce
         from .solvers import LinearSolverOptions
 
+        if target.value.function_space.mesh.comm.size > 1:
+            raise NotImplementedError("Distributed nonmatching implicit equilibrium is not admitted.")
+
         if not isinstance(force, NonmatchingCohesiveForce) or not isinstance(
             force.assembler.law, ElasticCohesiveLaw
         ):

@@ -66,9 +66,26 @@ class FirstPiolaTangentEnvelope:
             raise ValueError("Envelope requires finite (points,3,3) deformation gradients.")
         if not len(f):
             return
-        singular = np.linalg.svd(f, compute_uv=False)
-        if (np.any(np.linalg.det(f) <= 0)
-                or np.any(singular[:, -1] < self.minimum_stretch * (1 - 1e-12))
+        if np.any(np.linalg.det(f) <= 0):
+            raise ValueError("Deformation leaves the material stability envelope domain.")
+        # Gershgorin bounds on F.T F are sufficient inside the SAME stretch
+        # domain. Inconclusive points retain the original SVD check, including
+        # its endpoint tolerance. This is not a fitted or relaxed envelope.
+        gram = f.swapaxes(1, 2) @ f
+        diagonal = np.diagonal(gram, axis1=1, axis2=2)
+        rows = np.sum(np.abs(gram), axis=2)
+        radius = rows - np.abs(diagonal)
+        guard = 64 * np.finfo(float).eps * np.max(rows, axis=1)
+        lower = np.min(diagonal - radius, axis=1) - guard
+        upper = np.max(diagonal + radius, axis=1) + guard
+        with np.errstate(over="ignore", under="ignore"):
+            minimum_squared = np.square(self.minimum_stretch)
+            maximum_squared = np.square(self.maximum_stretch)
+        admitted = (np.isfinite(lower) & np.isfinite(upper)
+                    & (lower >= minimum_squared)
+                    & (upper <= maximum_squared))
+        singular = np.linalg.svd(f[~admitted], compute_uv=False)
+        if (np.any(singular[:, -1] < self.minimum_stretch * (1 - 1e-12))
                 or np.any(singular[:, 0] > self.maximum_stretch * (1 + 1e-12))):
             raise ValueError("Deformation leaves the material stability envelope domain.")
 

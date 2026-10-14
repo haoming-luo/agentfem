@@ -55,6 +55,11 @@ class ExplicitDynamicsIntegrator:
         repr=False,
     )
 
+    def __post_init__(self):
+        validate = getattr(self.mass, "validate_state", None)
+        if callable(validate):
+            validate(self.state)
+
     @property
     def inv_mass(self) -> np.ndarray:
         """Return the inverse lumped mass diagonal."""
@@ -71,10 +76,13 @@ class ExplicitDynamicsIntegrator:
             raise NotImplementedError(
                 "ExplicitDynamicsIntegrator currently supports beta=0 central difference."
             )
-        self.state.u_next.assign(
-            self.state.u
-            + dt * self.state.v
-            + 0.5 * dt**2 * self.state.a
+        from . import central_difference_predict_displacement
+
+        for value in (self.state.u, self.state.v, self.state.a):
+            fields.require_same_space(self.state.u_next, value)
+        central_difference_predict_displacement(
+            fields.unwrap(self.state.u_next), fields.unwrap(self.state.u),
+            fields.unwrap(self.state.v), fields.unwrap(self.state.a), dt,
         )
 
     def update_displacement(self) -> None:
@@ -90,7 +98,14 @@ class ExplicitDynamicsIntegrator:
             raise NotImplementedError(
                 "ExplicitDynamicsIntegrator currently supports gamma=1/2 central difference."
             )
-        self.state.v_mid.assign(self.state.v + 0.5 * dt * self.state.a)
+        from . import central_difference_update_midstep_velocity
+
+        for value in (self.state.v, self.state.a):
+            fields.require_same_space(self.state.v_mid, value)
+        central_difference_update_midstep_velocity(
+            fields.unwrap(self.state.v_mid), fields.unwrap(self.state.v),
+            fields.unwrap(self.state.a), dt,
+        )
 
     def solve_acceleration(self, residual) -> None:
         """Solve the explicit acceleration update ``a_next = -M^{-1} r``."""
@@ -100,7 +115,14 @@ class ExplicitDynamicsIntegrator:
     def update_velocity(self, dt: float) -> None:
         """Update whole-step velocity ``v_next = v_mid + dt/2 a_next``."""
 
-        self.state.v_next.assign(self.state.v_mid + 0.5 * dt * self.state.a_next)
+        from . import central_difference_update_velocity
+
+        for value in (self.state.v_mid, self.state.a_next):
+            fields.require_same_space(self.state.v_next, value)
+        central_difference_update_velocity(
+            fields.unwrap(self.state.v_next), fields.unwrap(self.state.v_mid),
+            fields.unwrap(self.state.a_next), dt,
+        )
 
     def advance_state(self) -> None:
         """Advance ``u``, ``v``, and ``a`` to the next time level."""

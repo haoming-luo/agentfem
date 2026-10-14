@@ -49,6 +49,7 @@ otherwise; runnable examples remain in the repository-level `examples/`.
 | Assembly | `assembly.py` |
 | Engineering-level K/M/C/F, registered-assignment and model-first operator lowering, transport, SUPG, and reaction operators | `operators/`, `operators/_model_lowering.py` |
 | Central difference, Newmark, generalized-alpha, Procedure-owned additive spectral stability composition, and runtime cadence | `time/`, `time/stability.py` |
+| Declared fixed/initial-reference/target-increment numerical mass policies, provider bound coverage and accepted inertia lifecycle | `time/mass_scaling.py`, `time/_initial_mass_scaling.py` |
 | Common analysis steps, discrete system problems, factories, and compatibility delegates | `problems.py` |
 | Incremental/affine nonlinear procedures, state transactions, cutback, and nonlinear checkpointing | `_nonlinear_problems.py` |
 | First-/second-order transient and explicit-dynamics procedure implementations | `_transient_problems.py` |

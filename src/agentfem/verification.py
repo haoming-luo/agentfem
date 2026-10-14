@@ -114,15 +114,31 @@ class VerificationClaim:
         kind: ClaimKind = "verification",
         evidence: Mapping[str, object] | None = None,
     ) -> "VerificationClaim":
-        """Compare an observable with a reference under explicit tolerances."""
+        """Compare real observations at the same sample layout.
 
+        A scalar ``expected`` explicitly denotes a constant reference (for
+        example zero stress at every point). Other shapes must match exactly;
+        NumPy broadcasting cannot establish correspondence between samples.
+        Empty observations are inconclusive, never a vacuous verification.
+        """
+
+        if np.iscomplexobj(actual) or np.iscomplexobj(expected):
+            raise TypeError("Verification comparison requires real observations.")
+        if np.ma.is_masked(actual) or np.ma.is_masked(expected):
+            raise ValueError("Masked observations require an explicit common sample selection.")
         actual_array = np.asarray(actual, dtype=float)
         expected_array = np.asarray(expected, dtype=float)
+        for tolerance in (relative_tolerance, absolute_tolerance):
+            if not isfinite(tolerance) or tolerance < 0.0:
+                raise ValueError("Comparison tolerances must be finite and nonnegative.")
+        nonempty = actual_array.size > 0 and expected_array.size > 0
+        same_layout = (actual_array.shape == expected_array.shape
+                       or expected_array.ndim == 0)
         finite = bool(
             np.all(np.isfinite(actual_array))
             and np.all(np.isfinite(expected_array))
         )
-        accepted = finite and bool(
+        accepted = nonempty and same_layout and finite and bool(
             np.allclose(
                 actual_array,
                 expected_array,
@@ -133,6 +149,15 @@ class VerificationClaim:
         if not applicable:
             status: ClaimStatus = "inconclusive"
             message = "The declared reference is outside its validity domain."
+        elif not nonempty:
+            status = "inconclusive"
+            message = "An empty observation or reference cannot establish verification."
+        elif not same_layout:
+            status = "failed"
+            message = (
+                f"Observation shape {actual_array.shape} differs from reference "
+                f"shape {expected_array.shape}; explicit sample correspondence is required."
+            )
         elif accepted:
             status = "passed"
             message = "The observable satisfies the declared numerical contract."
@@ -149,8 +174,10 @@ class VerificationClaim:
                 f"atol={float(absolute_tolerance):g})"
             ),
             kind=kind,
-            actual=actual_array,
-            expected=expected_array,
+            # Evidence describes the compared station, not the caller's next
+            # writable state. Keep a detached immutable numeric receipt.
+            actual=np.frombuffer(actual_array.tobytes(), dtype=float).reshape(actual_array.shape),
+            expected=np.frombuffer(expected_array.tobytes(), dtype=float).reshape(expected_array.shape),
             relative_tolerance=float(relative_tolerance),
             absolute_tolerance=float(absolute_tolerance),
             validity_domain=validity_domain,

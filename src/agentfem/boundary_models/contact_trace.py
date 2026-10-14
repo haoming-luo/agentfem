@@ -21,6 +21,11 @@ from .contact_state import ContactProjectionRecord
 from .rigid import _readonly_array
 
 
+def _sum_spatial_vectors(values):
+    """Ordered component-wise reduction of spatial vectors."""
+    return np.sum(values, axis=0)
+
+
 def _integer_array(value, *, name: str, dimensions: int) -> np.ndarray:
     raw = np.asarray(value)
     if raw.ndim != dimensions:
@@ -55,7 +60,7 @@ class ContactTrace:
         point_ids = _integer_array(
             self.point_ids, name="Contact point IDs", dimensions=1
         )
-        if np.unique(point_ids).size != point_ids.size:
+        if not np.all(point_ids[1:] > point_ids[:-1]) and np.unique(point_ids).size != point_ids.size:
             raise ValueError("Contact point IDs must be unique.")
         node_ids = _integer_array(self.node_ids, name="Contact node IDs", dimensions=2)
         if node_ids.shape[0] != point_ids.size or node_ids.shape[1] < 1:
@@ -101,6 +106,19 @@ class ContactTrace:
         object.__setattr__(self, "shape_values", _readonly_array(shape_values))
         object.__setattr__(self, "weights", _readonly_array(weights))
         object.__setattr__(self, "source", str(self.source))
+        # Preserve local-node-major accumulation order, but omit exact zeros.
+        # This is algebraic sparsity, not a change of quadrature or tolerance.
+        local, point = np.nonzero(shape_values.T)
+        object.__setattr__(self, "_scatter_nodes", _readonly_array(node_ids[point, local], dtype=np.int64))
+        object.__setattr__(self, "_scatter_points", _readonly_array(point, dtype=np.int64))
+        object.__setattr__(self, "_scatter_shapes", _readonly_array(shape_values[point, local]))
+        compact_nodes, compact_indices = np.unique(node_ids[point, local], return_inverse=True)
+        object.__setattr__(self, "_compact_nodes", _readonly_array(compact_nodes, dtype=np.int64))
+        object.__setattr__(self, "_compact_indices", _readonly_array(compact_indices, dtype=np.int64))
+        nodal = np.all(np.count_nonzero(shape_values, axis=1) == 1) and np.all(shape_values[point, local] == 1)
+        object.__setattr__(self, "_direct_nodes", (
+            _readonly_array(node_ids[np.arange(len(point_ids)), np.argmax(shape_values, axis=1)], dtype=np.int64)
+            if nodal else None))
 
     @property
     def point_count(self) -> int:
@@ -120,7 +138,7 @@ class ContactTrace:
             raise ValueError("Contact nodal positions must be finite.")
         if self.node_ids.size and int(np.max(self.node_ids)) >= positions.shape[0]:
             raise ValueError("Contact trace references a node outside nodal positions.")
-        query_points = np.einsum(
+        query_points = positions[self._direct_nodes] if self._direct_nodes is not None else np.einsum(
             "qi,qid->qd",
             self.shape_values,
             positions[self.node_ids],
@@ -144,7 +162,12 @@ class ContactTrace:
 
 @dataclass(frozen=True, eq=False)
 class ContactTraceAssembly:
-    """Integrated residual, potential, and generalized rigid-surface evidence."""
+    """Integrated residual, potential, and generalized rigid-surface evidence.
+
+    By default nodal rows use the full local node layout. With ``node_ids``,
+    rows map to explicitly numbered nodes in ``number_of_nodes``; omitted
+    nodes contribute exact zeros, not a tolerance-truncated contact force.
+    """
 
     point_ids: object
     nodal_structural_residual: object
@@ -156,12 +179,14 @@ class ContactTraceAssembly:
     surface_generalized_force: object
     surface_generalized_moment: object | None
     measure_configuration: str
+    node_ids: object | None = None
+    number_of_nodes: int | None = None
 
     def __post_init__(self) -> None:
         point_ids = _integer_array(
             self.point_ids, name="Contact point IDs", dimensions=1
         )
-        if np.unique(point_ids).size != point_ids.size:
+        if not np.all(point_ids[1:] > point_ids[:-1]) and np.unique(point_ids).size != point_ids.size:
             raise ValueError("Contact point IDs must be unique.")
         nodal = np.asarray(self.nodal_structural_residual, dtype=float)
         point_residual = np.asarray(
@@ -172,6 +197,19 @@ class ContactTraceAssembly:
         if nodal.ndim != 2 or nodal.shape[1] not in {2, 3}:
             raise ValueError("Contact nodal residual must have shape (nodes, 2 or 3).")
         dimension = int(nodal.shape[1])
+        count = len(nodal) if self.number_of_nodes is None else self.number_of_nodes
+        if isinstance(count, bool) or not isinstance(count, (int, np.integer)) or count < 0:
+            raise ValueError("Contact local node count must be a nonnegative integer.")
+        if self.node_ids is None:
+            if len(nodal) != count:
+                raise ValueError("Dense contact residual must match its local node count.")
+        else:
+            nodes = _integer_array(self.node_ids, name="Contact residual node IDs", dimensions=1)
+            if (nodes.size != len(nodal) or np.any(nodes[1:] <= nodes[:-1])
+                    or (nodes.size and nodes[-1] >= count)):
+                raise ValueError("Compact contact node IDs must be ordered, unique and in range.")
+            object.__setattr__(self, "node_ids", _readonly_array(nodes, dtype=np.int64))
+        object.__setattr__(self, "number_of_nodes", int(count))
         if point_residual.shape != (point_ids.size, dimension):
             raise ValueError("Contact point residual contributions have wrong shape.")
         if point_potential.shape != (point_ids.size,):
@@ -245,7 +283,7 @@ class ContactTraceAssembly:
         ):
             raise ValueError("Contact force does not equal the integrated residual.")
         if not np.allclose(
-            np.sum(nodal, axis=0),
+            _sum_spatial_vectors(nodal),
             np.sum(point_residual, axis=0),
             rtol=256.0 * np.finfo(float).eps,
             atol=256.0 * np.finfo(float).eps,
@@ -275,9 +313,19 @@ class ContactTraceAssembly:
         for name, value in vectors.items():
             object.__setattr__(self, name, _readonly_array(value))
 
+    def dense_nodal_residual(self) -> np.ndarray:
+        """Explicitly materialize the full local-node view when a consumer needs it."""
+        if self.node_ids is None:
+            return self.nodal_structural_residual
+        result = np.zeros((self.number_of_nodes, self.nodal_structural_residual.shape[1]))
+        result[self.node_ids] = self.nodal_structural_residual
+        return _readonly_array(result)
+
     def summary(self) -> dict[str, object]:
         return {
             "kind": "contact_trace_assembly",
+            "nodal_storage": "dense" if self.node_ids is None else "indexed",
+            "number_of_nodes": self.number_of_nodes,
             "point_count": int(self.point_ids.size),
             "potential_energy": self.potential_energy,
             "contact_force_norm": float(
@@ -419,6 +467,7 @@ class ContactTraceEvaluation:
         response: FrictionlessPenaltyContactResponse,
         *,
         surface_reference_point=None,
+        compact=False,
     ) -> ContactTraceAssembly:
         """Integrate one matching local response through the trace contract."""
 
@@ -446,6 +495,7 @@ class ContactTraceEvaluation:
             dimension=response.dimension,
             valid=response.projection.valid,
             surface_reference_point=surface_reference_point,
+            compact=compact,
         )
 
     def assemble_friction(
@@ -454,6 +504,7 @@ class ContactTraceEvaluation:
         response: PenaltyCoulombFrictionResponse,
         *,
         surface_reference_point=None,
+        compact=False,
     ) -> FrictionContactTraceAssembly:
         """Integrate one matching tangential return-map response."""
 
@@ -487,6 +538,7 @@ class ContactTraceEvaluation:
             dimension=response.record.dimension,
             valid=projection.valid,
             surface_reference_point=surface_reference_point,
+            compact=compact,
         )
         weights = self.trace.weights
         point_dissipation = response.dissipation_increment_densities * weights
@@ -523,8 +575,12 @@ class ContactTraceEvaluation:
         dimension: int,
         valid,
         surface_reference_point,
+        compact=False,
     ) -> ContactTraceAssembly:
         """Integrate reviewed point fields without taking law ownership."""
+
+        if not isinstance(compact, bool):
+            raise TypeError("Contact compact storage must be explicitly boolean.")
 
         weights = self.trace.weights
         structural = np.asarray(structural_residual_tractions, dtype=float)
@@ -546,17 +602,13 @@ class ContactTraceEvaluation:
             raise ValueError("Contact point fields must be finite before assembly.")
         point_residual = structural * weights[:, None]
         point_potential = potential * weights
-        nodal_residual = np.zeros(
-            (self.number_of_nodes, int(dimension)),
-            dtype=float,
-        )
-        for local_node in range(self.trace.nodes_per_point):
-            contribution = self.trace.shape_values[:, local_node, None] * point_residual
-            np.add.at(
-                nodal_residual,
-                self.trace.node_ids[:, local_node],
-                contribution,
-            )
+        contributions = self.trace._scatter_shapes[:, None] * point_residual[self.trace._scatter_points]
+        scatter_nodes = self.trace._compact_indices if compact else self.trace._scatter_nodes
+        storage_count = len(self.trace._compact_nodes) if compact else self.number_of_nodes
+        nodal_residual = np.column_stack([
+            np.bincount(scatter_nodes, weights=contributions[:, component],
+                        minlength=storage_count)
+            for component in range(int(dimension))])
         surface_generalized = np.sum(
             surface * weights[:, None],
             axis=0,
@@ -595,6 +647,8 @@ class ContactTraceEvaluation:
             surface_generalized_force=surface_generalized,
             surface_generalized_moment=moment,
             measure_configuration=self.trace.measure_configuration,
+            node_ids=self.trace._compact_nodes if compact else None,
+            number_of_nodes=self.number_of_nodes,
         )
 
     def summary(self) -> dict[str, object]:

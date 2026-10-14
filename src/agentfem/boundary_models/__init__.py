@@ -2,6 +2,8 @@
 # SPDX-License-Identifier: Apache-2.0
 
 """Reusable weak boundary models."""
+from .q1_execution import Q1ContactExecution
+from .._exact_rational import exact_geometry_arithmetic
 
 from . import absorbing
 from . import contact_state
@@ -45,6 +47,8 @@ from .contact_friction import (
     tangential_contact_state,
 )
 from .contact_pair import RigidContactPair, rigid_contact_pair
+from .deformable_pair import DeformableContactPair, deformable_contact_pair
+from .trace_policy import RigidContactTracePolicy
 from .contact_response import (
     FrictionlessPenaltyContactLaw,
     FrictionlessPenaltyContactResponse,
@@ -122,6 +126,10 @@ from .search import (
 from .thermal import ConvectionBoundary, convection
 
 __all__ = [
+    "Q1ContactExecution",
+    "exact_geometry_arithmetic",
+    "RigidContactTracePolicy",
+    "DeformableContactPair", "deformable_contact_pair",
     "ConvectionBoundary",
     "ContactProjectionRecord",
     "ContactProjectionState",
@@ -216,6 +224,19 @@ __all__ = [
     "triangle_surface_bvh",
     "triangulated_rigid_surface",
     "triangulated_rigid_surface_from_mesh",
+    "q1_contact_runtime",
     "thermal",
     "tangential_contact_state",
 ]
+
+
+def q1_contact_runtime(*, backend="auto", geometry_workers=0, projection_workers=1):
+    """Instance-owned Q1 arithmetic; use as a context around the Step lifetime.
+
+    Pass runtime.execution to the ordinary deformable-contact pair. Native
+    algorithms are optional. Reference fallback preserves geometry, contact
+    laws, ambiguity rules and state ownership; it is not a second solver.
+    """
+    from .native_execution import Q1ContactRuntime
+    return Q1ContactRuntime(backend=backend, geometry_workers=geometry_workers,
+                            projection_workers=projection_workers)

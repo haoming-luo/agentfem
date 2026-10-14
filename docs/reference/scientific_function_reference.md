@@ -61,6 +61,7 @@ the compact machine-readable `agentfem/knowledge/catalog.json`.
 | [`agentfem.workflow.periodic_cell_homogenization`](#agentfem-workflow-periodic_cell_homogenization) | Finite-strain periodic-cell homogenization evidence | workflow | experimental |
 | [`agentfem.workflow.physical_field_statistics`](#agentfem-workflow-physical_field_statistics) | Physical-measure statistics for quadrature fields | workflow | supported |
 | [`agentfem.workflow.result_field_sampling`](#agentfem-workflow-result_field_sampling) | MPI-safe point and path field sampling | workflow | supported |
+| [`agentfem.workflow.result_visualization_contract`](#agentfem-workflow-result_visualization_contract) | Single-grid results, connectivity and ParaView Warp | workflow | supported |
 | [`agentfem.workflow.scalable_campaign_evidence`](#agentfem-workflow-scalable_campaign_evidence) | Spawned campaign ensembles and convergence certificates | workflow | supported |
 | [`agentfem.workflow.scientific_response_experiments`](#agentfem-workflow-scientific_response_experiments) | Campaign-backed scientific response experiments | workflow | supported |
 | [`agentfem.workflow.scientific_verification`](#agentfem-workflow-scientific_verification) | Scientific trust and verification workflow | workflow | supported |
@@ -5466,6 +5467,107 @@ sensor = results.probe_history('tip_U2', at=(L, H/2), component=1, unit='m'); re
 ### References
 
 - DOLFINx geometry and finite-element function evaluation: `https://docs.fenicsproject.org/dolfinx/main/python/generated/dolfinx.geometry.html`
+
+<a id="agentfem-workflow-result_visualization_contract"></a>
+
+## Single-grid results, connectivity and ParaView Warp
+
+**Stable ID:** `agentfem.workflow.result_visualization_contract`<br>
+**Kind:** `workflow`<br>
+**Status:** `supported`<br>
+**Source card:** `src/agentfem/knowledge/cards/result_visualization_contract.json`
+
+Keep topology and field ordering inside the output backend. The serial ResultWriter stores one grid per time with complete point/cell attributes, rejecting invalid frames before storage; ParaView Warp needs no duplicate-block cleanup.
+
+### Public API
+
+- `agentfem.io.ResultWriter`
+- `agentfem.io.ParaViewTimeSeries`
+- `agentfem.results.cell_field_from_values`
+- `agentfem.results.consolidate_xdmf_fields`
+
+### Scientific contract
+
+Connectivity encodes the finite-element topology in the target reader's ordering. A field must be transferred through its basis and entity identity, not matched solely by coefficient count.
+
+**display coordinates**
+
+$$
+\mathbf{x}_{\mathrm{display}}=\mathbf{X}+s\mathbf{u}
+$$
+
+Warp adds a scaled nodal displacement to reference coordinates; applying it again to deformed coordinates double-counts motion.
+
+#### Inputs
+
+| Name | Type | Unit role | Meaning |
+| --- | --- | --- | --- |
+| mesh and fields | finite-element mesh and Functions | declared model units | One nodal scalar/vector primary, compatible continuous auxiliary fields or explicit DG0 cell fields. |
+
+#### Outputs
+
+| Name | Type | Unit role | Meaning |
+| --- | --- | --- | --- |
+| visualization artifact | single-grid serial XDMF/HDF5 or collective PVD | retained field units | One geometry per saved time with attached point/cell fields and a known geometry convention. |
+
+#### Assumptions
+
+- The serial unified series retains one mesh and primary function space.
+- Cell array keys are original input cell indices, not external element labels.
+
+#### Conventions
+
+- Prefer step.solve_result(output=...) for the ordinary result lifecycle; use io.ResultWriter only for explicit custom export.
+- Do not hand-write connectivity, guess VTK permutations, or merge coincident crack/interface nodes to repair visualization blocks.
+- Use the manifest's recommended_visualization_artifact under MPI; low-level DOLFINx XDMF can contain one block per field.
+- Frame times must be finite and strictly increasing; names, associations and shapes must remain stable.
+- Duplicate names and nonfinite fields fail before frame storage. A storage failure requires a new artifact.
+- Reference geometry uses Warp once. Already deformed presentation geometry requires no additional Warp.
+- Discontinuous cell fields are not automatically smoothed across material interfaces.
+
+#### Applicability
+
+- Human- and AI-authored static/transient result export, finite-element visualization and repair of synchronous single-mesh DOLFINx archives.
+
+#### Limitations
+
+- Presentation checks do not establish physical accuracy.
+- Serial ResultWriter write mode is single-grid; legacy append and MPI scientific XDMF retain distinct contracts.
+- Unsupported topology, cross-mesh transfer and raw integration-point interpretation are not inferred.
+
+### Minimal example
+
+```python
+result = step.solve_result(output='fields.xdmf')
+# For custom serial exports:
+with io.ResultWriter('custom.xdmf', domain, (u, stress_cell)) as writer:
+    writer.write(physical_time)
+```
+
+### Verification
+
+**Tests**
+
+- `tests/test_xdmf_layout.py`
+- `tests/test_xdmf_cell_ordering.py`
+- `tests/test_cell_data.py`
+- `tests/test_results.py`
+
+**Benchmarks**
+
+- None declared.
+
+**Validation rules**
+
+- Read exported Hex/Tet fields through independent VTK readers and compare warped coordinates.
+- Compare equal-size fields with different nodal variants against physical coordinates after interpolation.
+- Reject invalid frames without leaving partially written groups; reject reuse after storage failure.
+- Verify unchanged reference geometry shares HDF5 storage across frames.
+
+### References
+
+- ParaView Warp By Vector: `https://docs.paraview.org/en/latest/Tutorials/SelfDirectedTutorial/basicUsage.html`
+- PyVista unstructured-grid topology: `https://docs.pyvista.org/examples/00-load/create_unstructured_surface`
 
 <a id="agentfem-workflow-scalable_campaign_evidence"></a>
 

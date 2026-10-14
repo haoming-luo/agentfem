@@ -62,7 +62,9 @@ class Amplitude:
             serializable=self.serializable,
         )
 
-    def derivative(self, time: float, *, order: int = 1, step: float | None = None) -> float:
+    def derivative(
+        self, time: float, *, order: int = 1, step: float | None = None
+    ) -> float:
         """Evaluate a declared derivative or a deterministic numerical fallback."""
 
         selected_order = int(order)
@@ -81,7 +83,9 @@ class Amplitude:
         if selected_order == 1:
             return (self(selected_time + h) - self(selected_time - h)) / (2.0 * h)
         return (
-            self(selected_time + h) - 2.0 * self(selected_time) + self(selected_time - h)
+            self(selected_time + h)
+            - 2.0 * self(selected_time)
+            + self(selected_time - h)
         ) / h**2
 
     def velocity(self, time: float) -> float:
@@ -155,10 +159,9 @@ class Amplitude:
                 "origin": selected_origin,
             },
             derivatives=tuple(
-                lambda time, order=order: self.derivative(
-                    source_time(time), order=order
+                lambda time, order=order: (
+                    self.derivative(source_time(time), order=order) / selected**order
                 )
-                / selected**order
                 for order in (1, 2)
             ),
             serializable=self.serializable,
@@ -169,7 +172,9 @@ class Amplitude:
 
         selected = np.asarray(times, dtype=float)
         if selected.ndim != 1 or not np.all(np.isfinite(selected)):
-            raise ValueError("Amplitude sample times must be a finite one-dimensional array.")
+            raise ValueError(
+                "Amplitude sample times must be a finite one-dimensional array."
+            )
         if int(derivative) == 0:
             return np.asarray([self(item) for item in selected], dtype=float)
         return np.asarray(
@@ -280,7 +285,9 @@ class AmplitudeAudit:
             "interval": (self.start_time, self.end_time),
             "sample_count": self.sample_count,
             "finite": self.finite,
-            "derivatives": {key: dict(value) for key, value in self.derivatives.items()},
+            "derivatives": {
+                key: dict(value) for key, value in self.derivatives.items()
+            },
             "fingerprint": self.fingerprint,
         }
 
@@ -417,6 +424,68 @@ def smooth_step(
     )
 
 
+def quintic_step(
+    start_value: float = 0.0,
+    end_value: float = 1.0,
+    *,
+    start_time: float = 0.0,
+    end_time: float = 1.0,
+    name: str = "quintic_step",
+) -> Amplitude:
+    """Clamped quintic transition with zero endpoint velocity/acceleration.
+
+    Blend = s**3*(10-15*s+6*s**2). Unlike smooth_step's half cosine,
+    this transition is C2 across the constant endpoint extensions.
+    """
+    values = (start_value, end_value, start_time, end_time)
+    if any(
+        np.iscomplexobj(v) or not np.isscalar(v) or not np.isfinite(v) for v in values
+    ):
+        raise ValueError("quintic_step requires finite real scalar values/times.")
+    start_value, end_value, start_time, end_time = map(float, values)
+    if end_time <= start_time:
+        raise ValueError("quintic_step requires end_time > start_time.")
+    duration = end_time - start_time
+    delta = end_value - start_value
+
+    def evaluate(time):
+        if time <= start_time:
+            return start_value
+        if time >= end_time:
+            return end_value
+        s = (time - start_time) / duration
+        # Symmetric evaluation avoids cancellation/overshoot near s=1.
+        r = s if s <= 0.5 else 1 - s
+        blend = r**3 * (10 + r * (-15 + 6 * r))
+        return start_value + delta * blend if s <= 0.5 else end_value - delta * blend
+
+    def velocity(time):
+        if not start_time < time < end_time:
+            return 0.0
+        s = (time - start_time) / duration
+        return delta * 30 * s**2 * (1 - s) ** 2 / duration
+
+    def acceleration(time):
+        if not start_time < time < end_time:
+            return 0.0
+        s = (time - start_time) / duration
+        return delta * 60 * s * (1 - s) * (1 - 2 * s) / duration**2
+
+    return Amplitude(
+        name=name,
+        value=evaluate,
+        kind="quintic_step",
+        metadata={
+            "start_value": start_value,
+            "end_value": end_value,
+            "start_time": start_time,
+            "end_time": end_time,
+            "endpoint_derivatives": "zero_first_and_second",
+        },
+        derivatives=(velocity, acceleration),
+    )
+
+
 def tabular(
     times,
     values,
@@ -442,9 +511,13 @@ def tabular(
     right_value = value_data[-1] if right is None else float(right)
 
     def evaluate(time: float) -> float:
-        return float(np.interp(time, time_data, value_data, left=left_value, right=right_value))
+        return float(
+            np.interp(time, time_data, value_data, left=left_value, right=right_value)
+        )
 
-    slopes = np.diff(value_data) / np.diff(time_data) if len(time_data) > 1 else np.zeros(0)
+    slopes = (
+        np.diff(value_data) / np.diff(time_data) if len(time_data) > 1 else np.zeros(0)
+    )
 
     def velocity(time: float) -> float:
         if len(time_data) < 2 or time <= time_data[0] or time >= time_data[-1]:
@@ -538,9 +611,13 @@ def gaussian_modulated_sine(
         omega = 2.0 * pi * frequency
         tau = time - center_time
         envelope = exp(-(tau**2) / (2.0 * width**2))
-        return amplitude * envelope * (
-            omega * cos(omega * time + phase)
-            - tau * sin(omega * time + phase) / width**2
+        return (
+            amplitude
+            * envelope
+            * (
+                omega * cos(omega * time + phase)
+                - tau * sin(omega * time + phase) / width**2
+            )
         )
 
     def acceleration(time: float) -> float:
@@ -548,10 +625,12 @@ def gaussian_modulated_sine(
         tau = time - center_time
         angle = omega * time + phase
         envelope = exp(-(tau**2) / (2.0 * width**2))
-        sine_factor = -omega**2 - 1.0 / width**2 + tau**2 / width**4
+        sine_factor = -(omega**2) - 1.0 / width**2 + tau**2 / width**4
         cosine_factor = -2.0 * omega * tau / width**2
-        return amplitude * envelope * (
-            sine_factor * sin(angle) + cosine_factor * cos(angle)
+        return (
+            amplitude
+            * envelope
+            * (sine_factor * sin(angle) + cosine_factor * cos(angle))
         )
 
     return Amplitude(
@@ -590,7 +669,9 @@ class AmplitudeBasis:
             else tuple(str(item).strip() for item in self.coefficient_names)
         )
         if len(names) != len(selected) or any(not item for item in names):
-            raise ValueError("AmplitudeBasis coefficient names must match its components.")
+            raise ValueError(
+                "AmplitudeBasis coefficient names must match its components."
+            )
         if len(set(names)) != len(names):
             raise ValueError("AmplitudeBasis coefficient names must be unique.")
         object.__setattr__(self, "components", selected)
@@ -601,7 +682,9 @@ class AmplitudeBasis:
     def dimension(self) -> int:
         return len(self.components)
 
-    def coefficients(self, values: Sequence[float] | Mapping[str, float]) -> tuple[float, ...]:
+    def coefficients(
+        self, values: Sequence[float] | Mapping[str, float]
+    ) -> tuple[float, ...]:
         if isinstance(values, Mapping):
             missing = [name for name in self.coefficient_names if name not in values]
             extra = [name for name in values if name not in self.coefficient_names]
@@ -631,13 +714,20 @@ class AmplitudeBasis:
         def evaluate(time: float) -> float:
             return base_amplitude(time) + sum(
                 coefficient * component(time)
-                for coefficient, component in zip(selected, self.components, strict=True)
+                for coefficient, component in zip(
+                    selected, self.components, strict=True
+                )
             )
 
         def derivative(order: int):
-            return lambda time: base_amplitude.derivative(time, order=order) + sum(
-                coefficient * component.derivative(time, order=order)
-                for coefficient, component in zip(selected, self.components, strict=True)
+            return lambda time: (
+                base_amplitude.derivative(time, order=order)
+                + sum(
+                    coefficient * component.derivative(time, order=order)
+                    for coefficient, component in zip(
+                        selected, self.components, strict=True
+                    )
+                )
             )
 
         serializable = base_amplitude.serializable and all(
@@ -717,5 +807,6 @@ __all__ = [
     "ramp",
     "sine",
     "smooth_step",
+    "quintic_step",
     "tabular",
 ]

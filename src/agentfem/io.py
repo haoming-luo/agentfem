@@ -107,14 +107,31 @@ class ParaViewTimeSeries:
 
 
 class ResultWriter:
-    """Named result writer for one mesh and a stable field list."""
+    """Named visualization writer for one mesh and a stable field list.
+
+    New serial XDMF results carry all fields on a single reference geometry;
+    use Warp By Vector once. Choose ``.pvd`` for collective MPI visualization.
+    Legacy append mode retains the low-level DOLFINx archive layout.
+    """
 
     def __init__(self, path: Path, domain, fields=(), mode: str = "w") -> None:
         self.path = Path(path)
+        if self.path.suffix.lower() not in {".xdmf", ".xmf", ".pvd"}:
+            raise ValueError("ResultWriter requires .xdmf/.xmf or .pvd, not a hand-written raw topology format.")
+        if mode not in {"w", "a"}:
+            raise ValueError("ResultWriter mode must be 'w' or 'a'.")
         self.domain = domain
         self.fields = tuple(fields)
         self.mode = mode
-        self._series = XDMFTimeSeries(self.path, self.domain, self.mode)
+        self._unified = False
+        if self.path.suffix.lower() == ".pvd":
+            self._series = ParaViewTimeSeries(self.path, self.domain, self.mode)
+        elif mode == "w" and domain.comm.size == 1:
+            from .results.output import UnifiedXDMFTimeSeries
+            self._series = UnifiedXDMFTimeSeries(self.path, deformation_scale=0.0)
+            self._unified = True
+        else:
+            self._series = XDMFTimeSeries(self.path, self.domain, self.mode)
 
     def __enter__(self):
         self._series.__enter__()
@@ -129,7 +146,12 @@ class ResultWriter:
         selected = fields if fields else self.fields
         if not selected:
             raise ValueError("ResultWriter.write requires fields or default fields.")
-        self._series.write_fields(time, *selected)
+        if any(field_api.unwrap(field).function_space.mesh is not self.domain
+               for field in selected):
+            raise ValueError("ResultWriter fields must belong to its declared mesh.")
+        if self._unified and self._series.primary_name is None:
+            self._series.primary_name = field_api.unwrap(selected[0]).name
+        self._series.write_fields(time, *(field_api.unwrap(field) for field in selected))
 
 
 def interpolate_for_xdmf(field, *, degree: int = 1, name: str | None = None):

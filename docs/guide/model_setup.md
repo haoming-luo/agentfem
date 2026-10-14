@@ -409,6 +409,12 @@ point, local law, and stable scientific identities enter result and checkpoint
 evidence. The earlier direct `projector` plus `motion_schedule` form remains
 available as a lower-level route.
 
+The schedule defaults to a linear factor. For a C2 loading transition, pass
+`amplitude=amplitudes.quintic_step(start_time=..., end_time=...)` with the same
+physical interval. It must run from factor zero to one; sampled factors outside
+`[0,1]` are rejected. `amplitudes.smooth_step` retains its half-cosine definition.
+The explicit amplitude summary participates in restart identity.
+
 Moving contact records an MPI-global initial force/moment station and one
 station at every accepted increment. Generalized tool work is integrated from
 force--translation and moment--rotation pairs by the trapezoidal rule. Rejected

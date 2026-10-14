@@ -13,6 +13,13 @@ from typing import Mapping
 
 import numpy as np
 
+try:
+    from .._hex_native import all_finite as _native_all_finite
+except ImportError:
+    _native_all_finite = None
+
+from .._orientation import positive_finite_determinants
+
 from .user_material import (
     MaterialStateSchema,
     MaterialTangentConvention,
@@ -22,14 +29,33 @@ from .user_material import (
 
 
 def _array(value, shape, label):
+    """Immutable payload with independent metadata across validation boundaries."""
     if np.iscomplexobj(value):
         raise ValueError(f"{label} must be real; complex values are not supported.")
     selected = np.asarray(value, dtype=float)
-    if selected.shape != shape or not np.isfinite(selected).all():
+    if selected.shape != shape:
         raise ValueError(f"{label} must be finite with shape {shape}.")
-    selected = selected.copy()
-    selected.setflags(write=False)
-    return selected
+    finite = (_native_all_finite(selected) if _native_all_finite is not None
+              and selected.flags.c_contiguous else np.isfinite(selected).all())
+    if not finite:
+        raise ValueError(f"{label} must be finite with shape {shape}.")
+    owner = selected
+    while isinstance(owner, np.ndarray):
+        owner = owner.base
+    offset = 0
+    if isinstance(owner, bytes) and selected.flags.c_contiguous:
+        # A contiguous batch may occupy only part of an immutable allocation.
+        # Rebuild its metadata over that allocation, not over the caller's
+        # mutable ndarray object. Read-only views of writable owners are NOT
+        # eligible. Bounds also cover unaligned and empty byte-backed slices.
+        offset = (selected.__array_interface__["data"][0]
+                  - np.frombuffer(owner, dtype=np.uint8).__array_interface__["data"][0])
+        if offset < 0 or offset + selected.nbytes > len(owner):
+            raise ValueError(f"{label} has invalid immutable storage bounds.")
+    else:
+        owner = selected.tobytes(order="C")
+    # A fresh view protects shape/dtype metadata without copying immutable data.
+    return np.frombuffer(owner, dtype=float, count=selected.size, offset=offset).reshape(shape)
 
 
 @dataclass(frozen=True)
@@ -57,7 +83,7 @@ class MaterialPointArrayBatchInput:
         count = len(values)
         for name in ("deformation_gradient_old", "deformation_gradient_new"):
             value = _array(getattr(self, name), (count, 3, 3), name)
-            if np.any(np.linalg.det(value) <= 0):
+            if not positive_finite_determinants(value).all():
                 raise ValueError(f"{name} must have positive determinants.")
             object.__setattr__(self, name, value)
         object.__setattr__(

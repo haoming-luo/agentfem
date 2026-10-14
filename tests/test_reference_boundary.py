@@ -66,3 +66,42 @@ def test_coincident_nodes_keep_independent_parent_dofs(topology):
         side["relative_nodal_measure_error_l2"] < 1e-12
         for side in pair.constant_traction_audit()["sides"].values()
     )
+
+
+def test_warped_q1_trace_is_explicit_not_silently_triangulated():
+    from agentfem._interface_quadrilateral import BilinearReferenceTrace
+    domain = mesh.create_unit_cube(MPI.COMM_SELF, 1, 1, 1, cell_type=mesh.CellType.hexahedron)
+    domain.geometry.x[:, 2] += .2*domain.geometry.x[:, 0]*domain.geometry.x[:, 1]
+    u = fem.Function(fem.functionspace(domain, ('Lagrange', 1, (3,))))
+    top = mesh_api.boundary_region(domain, lambda x: x[2] > .9)
+    with pytest.raises(NotImplementedError, match='affine'):
+        interfaces.reference_trace_from_boundary(u, top)
+    trace, dofs = interfaces.reference_trace_from_boundary(u, top, geometry='bilinear')
+    assert isinstance(trace, BilinearReferenceTrace)
+    assert trace.quadrilaterals.shape == (1, 4)
+    np.testing.assert_array_equal(trace.vertices, u.function_space.tabulate_dof_coordinates()[dofs])
+    assert trace.nodal_measures.sum() > 1.
+
+
+@pytest.mark.parametrize('topology', ('tetrahedron', 'hexahedron'))
+@pytest.mark.parametrize('vector', (False, True))
+def test_input_identity_mapping_preserves_coincident_nodes(topology, vector):
+    from agentfem import spaces
+    domain = _blocks(1, 2, cell_type=topology)
+    space = fem.functionspace(domain, ('Lagrange', 1, (3,)) if vector else ('Lagrange', 1))
+    original = np.asarray(domain.geometry.input_global_indices)
+    # Deliberately query backwards; lookup must preserve request order.
+    selected = spaces.locate_input_nodes(space, original[::-1])
+    xyz = space.tabulate_dof_coordinates()
+    np.testing.assert_allclose(xyz[selected], domain.geometry.x[::-1], atol=1e-15)
+    assert len(np.unique(selected)) == len(original)
+    assert len(np.unique(domain.geometry.x, axis=0)) < len(xyz)  # independent coincident input nodes
+    with pytest.raises(ValueError):
+        selected.setflags(write=True)
+    with pytest.raises(ValueError, match='absent'):
+        spaces.locate_input_nodes(space, np.array([original.max()+1]))
+    with pytest.raises(ValueError, match='integer'):
+        spaces.locate_input_nodes(space, np.array([0.5]))
+    higher = fem.functionspace(domain, ('Lagrange', 2))
+    with pytest.raises(NotImplementedError, match='P1/Q1'):
+        spaces.locate_input_nodes(higher, original)

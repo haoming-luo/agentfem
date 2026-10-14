@@ -13,6 +13,16 @@ from itertools import product
 import basix
 import numpy as np
 
+try:
+    from .._hex_native import affine_screen as _native_affine_screen
+except ImportError:
+    _native_affine_screen = None
+
+
+def affine_screen_backend():
+    """Execution evidence, not a distinct material or geometric contract."""
+    return 'native_c_with_reference_fallback' if _native_affine_screen is not None else 'numpy'
+
 
 @lru_cache(maxsize=1)
 def _derivatives():
@@ -113,3 +123,145 @@ def require_positive_hex_jacobian(coordinates):
         except ValueError as error:
             raise ValueError(f"Geometry batch cell {index}: {error}") from error
     return lower
+
+
+@lru_cache(maxsize=1)
+def _coordinate_edges():
+    corners = basix.cell.geometry(basix.CellType.hexahedron)
+    edges = []
+    for axis in range(3):
+        pairs = []
+        for start, point in enumerate(corners):
+            if point[axis] != 0:
+                continue
+            end = point.copy()
+            end[axis] = 1
+            pairs.append(
+                (start, int(np.flatnonzero(np.all(corners == end, axis=1))[0]))
+            )
+        edges.append(pairs)
+    result = np.asarray(edges)
+    result.setflags(write=False)
+    return result
+
+
+def _jacobian_frobenius_bound(values):
+    """Uniform bound from the four convex edge differences per Q1 derivative."""
+    edges = _coordinate_edges()
+    differences = values[:, edges[:, :, 1]] - values[:, edges[:, :, 0]]
+    return np.sqrt(
+        np.sum(np.max(np.sum(differences * differences, axis=3), axis=2), axis=1)
+    )
+
+
+def reference_perturbation_radius(coordinates):
+    """Conservative sufficient perturbation radius, not a small-strain tolerance.
+
+    For every reference point, sigma_min(J) >= 2*det(J)/||J||_F**2.
+    The Bernstein lower determinant and convex edge upper norm give a uniform
+    bound. A strict quarter of it leaves room for floating-point guards. This
+    remains floating-point admission, not an interval-arithmetic certificate.
+    """
+    lower = require_positive_hex_jacobian(coordinates)
+    norm = _jacobian_frobenius_bound(coordinates)
+    with np.errstate(over="ignore", under="ignore", invalid="ignore", divide="ignore"):
+        radius = 0.5 * lower / (norm * norm)
+    return np.where(np.isfinite(radius) & (radius > 0), radius, 0.0)
+
+
+def admits_reference_perturbation(coordinates, displacement, radius):
+    """Sufficient no-singularity homotopy check; False requests full admission.
+
+    No accepted-state cache or displacement threshold is used. Large rigid
+    rotation can fail this sufficient test and still pass the Bernstein path.
+    """
+    change = _jacobian_frobenius_bound(displacement)
+    scale = np.max(np.abs(coordinates), axis=(1, 2)) + np.max(
+        np.abs(displacement), axis=(1, 2)
+    )
+    guard = 128 * np.finfo(float).eps * scale
+    return np.isfinite(change + guard) & (change + guard < radius)
+
+
+def admits_affine_perturbation(coordinates, displacement, gradient, radius):
+    """Sufficient validity after removing an orientation-preserving affine map.
+
+    Write x = F X + r + translation, so J_current = F J_reference + J_r.
+    The reference radius times sigma_min(F) is a conservative perturbation
+    budget. Pure finite rotation/shear need not trigger 27-sample subdivision.
+    False still requests the full Bernstein check; no inversion is repaired.
+    """
+    # Validity is cell-local. Bound temporary edge/Gram arrays to a cache-sized
+    # block instead of copying the complete mesh several times per increment.
+    # Every block retains the identical sufficient test and SVD fallback.
+    block = 2048
+    if len(coordinates) > block:
+        admitted = np.empty(len(coordinates), dtype=bool)
+        for start in range(0, len(coordinates), block):
+            stop = start + block
+            admitted[start:stop] = _admits_affine_perturbation_block(
+                coordinates[start:stop], displacement[start:stop],
+                gradient[start:stop], radius[start:stop])
+        return admitted
+    return _admits_affine_perturbation_block(coordinates, displacement, gradient, radius)
+
+
+def _admits_affine_perturbation_block(coordinates, displacement, gradient, radius):
+    """Cell-independent reference arithmetic, shared by each bounded block."""
+    if _native_affine_screen is not None and len(coordinates):
+        arrays = [np.require(value, dtype=np.float64, requirements=['C','A'])
+                  for value in (coordinates, displacement, gradient, radius)]
+        count = len(coordinates)
+        if [a.shape for a in arrays] != [(count,8,3),(count,8,3),(count,3,3),(count,)]:
+            raise ValueError('Invalid affine geometry array shape')
+        raw = _native_affine_screen(*arrays, np.ascontiguousarray(_coordinate_edges(), dtype=np.int32))
+        admitted = np.frombuffer(raw, dtype=np.uint8).astype(bool)
+        pending = np.flatnonzero(~admitted)
+        if len(pending):
+            admitted[pending] = _affine_reference(*(a[pending] for a in arrays))
+        return admitted
+    return _affine_reference(coordinates, displacement, gradient, radius)
+
+
+def _affine_reference(coordinates, displacement, gradient, radius):
+    """Unaccelerated arithmetic retained for every uncertified cell."""
+    from .._orientation import positive_finite_determinants
+
+    admitted = np.zeros(len(coordinates), dtype=bool)
+    selected = positive_finite_determinants(gradient)
+    if not np.any(selected):
+        return admitted
+    x, u, f = coordinates[selected], displacement[selected], gradient[selected]
+    relative = x - x[:, :1]
+    remainder = (u - u[:, :1]) - relative @ (f - np.eye(3)).swapaxes(1, 2)
+    change = _jacobian_frobenius_bound(remainder)
+    x_scale = np.max(np.abs(x), axis=(1, 2))
+    u_scale = np.max(np.abs(u), axis=(1, 2))
+    selected_radius = radius[selected]
+    # A strict Gram-matrix ball bounds both extreme singular values without
+    # decomposing every almost-rigid cell.  This is only a sufficient screen:
+    # inconclusive points retain the original SVD and Bernstein path.
+    with np.errstate(over="ignore", invalid="ignore"):
+        gram = f.swapaxes(1, 2) @ f
+        gram_norm = np.max(np.sum(np.abs(gram), axis=2), axis=1)
+        delta = np.max(np.sum(np.abs(gram - np.eye(3)), axis=2), axis=1)
+        delta += 128 * np.finfo(float).eps * (1 + gram_norm)
+    fast = np.isfinite(delta) & (delta < 0.5)
+    local = np.zeros(len(f), dtype=bool)
+    if np.any(fast):
+        lower = np.sqrt(1 - delta[fast])
+        upper = np.sqrt(1 + delta[fast])
+        guard = 256 * np.finfo(float).eps * (
+            x_scale[fast] * (1 + upper) + u_scale[fast])
+        total = change[fast] + guard
+        local[fast] = np.isfinite(total) & (total < selected_radius[fast] * lower)
+    remaining = ~local
+    if np.any(remaining):
+        singular = np.linalg.svd(f[remaining], compute_uv=False)
+        scale = x_scale[remaining] * (1 + singular[:, 0]) + u_scale[remaining]
+        guard = 256 * np.finfo(float).eps * scale
+        total = change[remaining] + guard
+        budget = selected_radius[remaining] * singular[:, -1]
+        local[remaining] = np.isfinite(total) & (total < budget)
+    admitted[selected] = local
+    return admitted

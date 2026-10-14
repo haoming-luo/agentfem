@@ -80,9 +80,15 @@ class ContactProjectionRecord:
             )
         if np.any(point_ids < 0):
             raise ValueError("Contact point IDs must be non-negative.")
-        if np.unique(point_ids).size != point_ids.size:
-            raise ValueError("Contact point IDs must be unique.")
+        ordered = bool(np.all(point_ids[1:] > point_ids[:-1]))
+        if ordered:
+            # Most adapters already emit canonical IDs. The projection owns
+            # validated read-only arrays; do not sort/copy/revalidate it again.
+            object.__setattr__(self, "point_ids", _readonly_array(point_ids, dtype=np.int64))
+            return
         order = np.argsort(point_ids, kind="stable")
+        if np.any(point_ids[order][1:] == point_ids[order][:-1]):
+            raise ValueError("Contact point IDs must be unique.")
         object.__setattr__(
             self,
             "point_ids",

@@ -46,14 +46,16 @@ jobs:
           python-version: "3.11"
 
       - name: Install build tools
-        run: python -m pip install --upgrade build "reuse>=5,<6" twine
+        run: python -m pip install --upgrade build "reuse>=5,<6" twine auditwheel patchelf packaging
 
       - name: Validate machine-readable source licensing
         run: reuse lint
 
       - name: Build source and wheel distributions once
         if: github.event_name != 'workflow_dispatch'
-        run: python -m build
+        run: |
+          python -m build --sdist --outdir source-dist
+          python tools/build_platform_wheel.py --source-dir source-dist --output dist --repair linux
 
       - name: Restore the original immutable candidate distributions
         if: github.event_name == 'workflow_dispatch'
@@ -86,14 +88,24 @@ jobs:
 
       - name: Validate metadata, payload, and release identity
         run: |
-          python -m twine check dist/*
+          python -m twine check dist/*.whl dist/*.tar.gz
           python release_gate.py --dist dist --tag "${RELEASE_TAG}"
 
       - name: Upload immutable candidate distributions
         uses: actions/upload-artifact@v7
         with:
           name: python-package-distributions
-          path: dist/
+          path: |
+            dist/*.whl
+            dist/*.tar.gz
+          if-no-files-found: error
+
+      - name: Record platform build evidence separately from distributions
+        if: github.event_name != 'workflow_dispatch'
+        uses: actions/upload-artifact@v7
+        with:
+          name: platform-build-evidence
+          path: dist/platform-build.json
           if-no-files-found: error
 
       - name: Generate the SPDX source-licensing record
@@ -322,7 +334,7 @@ jobs:
           if-no-files-found: error
 
   foundation-verify:
-    name: Verify the same wheel on macOS and close the foundation audit
+    name: Verify the same source on macOS and close the foundation audit
     needs: verify
     runs-on: macos-14
     timeout-minutes: 30
@@ -353,10 +365,19 @@ jobs:
           name: release-foundation-linux
           path: /tmp/agentfem-foundation-linux
 
+      - name: Build the macOS native wheel from the Linux-tested source
+        run: |
+          python tools/build_platform_wheel.py --source-dir dist --output /tmp/agentfem-release-macos-dist
+
       - name: Verify installed macOS workflows and MPI
         run: |
           python -m pip install meshio
-          python release_gate.py --dist dist --tag "${RELEASE_TAG}" --smoke --mpi-ranks 2 \
+          python -m pip install --no-deps --force-reinstall /tmp/agentfem-release-macos-dist/*.whl
+          python -c "import agentfem._hex_native, agentfem._body_pipeline"
+          python -m pytest -o pythonpath='' -q \
+            tests/test_hex_native.py tests/test_native_material_execution.py \
+            tests/test_builtin_hex_execution.py tests/test_native_hex_auxiliary.py
+          python release_gate.py --dist /tmp/agentfem-release-macos-dist --tag "${RELEASE_TAG}" --smoke --mpi-ranks 2 \
             --report /tmp/agentfem-macos-agent-acceptance.json \
             --platform-report /tmp/agentfem-macos-platform-acceptance.json \
             --require-platform macos
@@ -378,6 +399,13 @@ jobs:
             /tmp/agentfem-macos-agent-acceptance.json
             /tmp/agentfem-macos-platform-acceptance.json
             /tmp/agentfem-platform-promotion.json
+          if-no-files-found: error
+
+      - name: Retain the separately tested macOS native distribution
+        uses: actions/upload-artifact@v7
+        with:
+          name: release-macos-package-distributions
+          path: /tmp/agentfem-release-macos-dist/
           if-no-files-found: error
 
   ml-verify:

@@ -22,6 +22,69 @@ def _record(trace, projection):
     return boundary_models.ContactProjectionRecord(trace.point_ids, projection)
 
 
+@pytest.mark.parametrize("nodal", [False, True])
+def test_sparse_trace_scatter_preserves_original_accumulation(nodal):
+    rng = np.random.default_rng(151)
+    count, nodes = 400, 31
+    ids = np.stack([(np.arange(count)+j)%nodes for j in range(4)], axis=1)
+    shape = np.eye(4)[np.arange(count)%4] if nodal else rng.uniform(-.1,.4,(count,4))
+    if not nodal:
+        shape[:,3] = 1-shape[:,:3].sum(axis=1)
+    trace = boundary_models.ContactTrace(np.arange(count), ids, shape, rng.uniform(.1,1,count))
+    positions = rng.normal(size=(nodes,3))
+    evaluation = trace.evaluate(positions)
+    np.testing.assert_allclose(evaluation.query_points,
+                              np.einsum('qi,qid->qd',shape,positions[ids]),rtol=0,atol=0)
+    surface = boundary_models.rigid_plane(point=(0,0,0),normal=(0,0,1))
+    record = _record(trace,surface.project(evaluation.query_points))
+    response = boundary_models.frictionless_penalty_contact_law(10).evaluate(record.projection)
+    result = evaluation.assemble(record,response)
+    expected = np.zeros((nodes,3))
+    point = result.point_structural_residual_contributions
+    for j in range(4):
+        np.add.at(expected,ids[:,j],shape[:,j,None]*point)
+    np.testing.assert_array_equal(result.nodal_structural_residual,expected)
+    compact = evaluation.assemble(record, response, compact=True)
+    np.testing.assert_array_equal(compact.dense_nodal_residual(), expected)
+    np.testing.assert_array_equal(compact.contact_force_on_structure, result.contact_force_on_structure)
+
+
+@pytest.mark.parametrize('dimension', [2, 3])
+@pytest.mark.parametrize('points', [0, 41, 713])
+def test_indexed_contact_omits_only_structural_zeros(dimension, points):
+    rng = np.random.default_rng(157)
+    active_nodes = np.array([7, 91, 209, 1801, 4098])
+    local = np.stack([(np.arange(points)+j)%len(active_nodes) for j in range(3)], axis=1)
+    ids = active_nodes[local]
+    shape = rng.uniform(-.2,.4,(points,3))
+    shape[:,2] = 1-shape[:,:2].sum(axis=1)
+    trace = boundary_models.ContactTrace(np.arange(points), ids, shape, np.ones(points))
+    positions = rng.normal(size=(5000,dimension))
+    evaluation = trace.evaluate(positions)
+    normal = np.zeros(dimension);normal[-1]=1
+    surface = boundary_models.rigid_plane(point=np.zeros(dimension),normal=normal)
+    record = _record(trace, surface.project(evaluation.query_points))
+    response = boundary_models.frictionless_penalty_contact_law(10).evaluate(record.projection)
+    dense = evaluation.assemble(record,response,surface_reference_point=np.zeros(dimension))
+    compact = evaluation.assemble(record,response,surface_reference_point=np.zeros(dimension),compact=True)
+    assert compact.number_of_nodes == 5000
+    assert len(compact.nodal_structural_residual) <= len(active_nodes)
+    np.testing.assert_array_equal(compact.dense_nodal_residual(),dense.nodal_structural_residual)
+    for name in ('contact_force_on_structure','contact_force_on_surface',
+                 'surface_generalized_force','surface_generalized_moment',
+                 'point_structural_residual_contributions','point_potential_contributions'):
+        np.testing.assert_array_equal(getattr(compact,name),getattr(dense,name))
+    assert compact.potential_energy == dense.potential_energy
+    with pytest.raises(ValueError): compact.node_ids.setflags(write=True)
+    with pytest.raises(ValueError): compact.nodal_structural_residual.setflags(write=True)
+    with pytest.raises(TypeError): evaluation.assemble(record,response,compact='yes')
+    from dataclasses import replace
+    with pytest.raises(ValueError): replace(compact,number_of_nodes=-1)
+    if points:
+        with pytest.raises(ValueError): replace(compact,node_ids=compact.node_ids[::-1])
+        with pytest.raises(ValueError): replace(compact,number_of_nodes=10)
+
+
 def test_contact_trace_interpolates_and_assembles_plane_response():
     trace = _line_trace()
     evaluation = trace.evaluate(((0.0, -0.1), (1.0, -0.1)))
@@ -119,6 +182,11 @@ def test_contact_trace_assembles_friction_force_and_distinct_energy_channels():
         friction,
         surface_reference_point=(0.0, -1.0),
     )
+    compact = evaluation.assemble_friction(
+        record, friction, surface_reference_point=(0.0,-1.0), compact=True)
+    np.testing.assert_array_equal(compact.mechanical.dense_nodal_residual(),assembly.nodal_structural_residual)
+    assert compact.dissipation_increment == assembly.dissipation_increment
+    assert compact.recoverable_penalty_energy == assembly.recoverable_penalty_energy
 
     np.testing.assert_allclose(
         np.sum(assembly.nodal_structural_residual, axis=0),

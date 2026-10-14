@@ -56,6 +56,14 @@ evidence.
     - solver/output/history/progress/checkpoint inputs are retained as one
       inspectable execution-policy summary; declare transient histories on the
       Step when they should be consumed automatically by `solve_result()`.
+    - on the bounded response-Hex route, numerical mass scaling is a declared
+      `time.FixedMassScaling`, `time.InitialMassScaling` or
+      `time.TargetIncrementMassScaling` policy.
+      Initial planning uses the current mesh and reference operators, not a
+      damaged-path certificate or an automatic choice of accurate time step.
+      A target policy consumes reviewed named Operator bounds and an explicit
+      added-mass budget, never another case's prepared inertia array. Missing
+      contribution coverage must fail rather than be replaced with zeros.
 15. Structured validation and optional AF-IR record
 16. Assembly, solve, or time integration
     - shared transient procedures may pause through `run(until_step=...)` and
@@ -72,6 +80,9 @@ evidence.
     diagnostic, and optional presentation requests
 20. Compact unified XDMF/HDF5 artifacts attached to the result; use PVD/VTU
     only when specifically required
+    - use `checkpointing.every(..., keep_last=...)` for bounded checkpoint
+      storage; do not implement directory deletion in a case or keep repeated
+      full delivery ZIPs as a substitute for compact verification evidence.
 21. Optional runtime lock before a frozen or blind experiment
 
 If execution fails, read the structured execution record with

@@ -49,9 +49,20 @@ solved.verify(
 Standard nonlinear, explicit, implicit-dynamic, first-order transient, and J2
 steps emit the same JSON-safe `SolveEvent` contract. The terminal, optional
 `.sta` status file, result histories, and complete manifest trace are views of
-that one stream. `print_every` changes only human display cadence: every
-accepted time increment remains in `result.metadata["execution"]`, while
-cutbacks and failed attempts remain auditable rather than being filtered out.
+that one stream. `print_every` changes human display cadence, not the emission
+of accepted-increment events. The in-memory execution recorder is bounded;
+older repetitive events may be dropped, so `result.metadata["execution"]` is
+not an unbounded full-run journal. Use an explicit durable observer when the
+complete selected station history must be retained.
+
+For serial transient scalar histories,
+`results.AcceptedHistoryJournal(path).reporter(step, every=10)` plugs into the
+ordinary `progress` argument. It appends already accepted history frames without
+re-entering the solver or recomputing physical quantities. The sampling interval
+must cover retained history stations, and a fresh segment is required after
+restart. Store `journal.summary()` and register the journal artifact in the
+result before writing its manifest. Its digest chain is integrity evidence,
+not a checkpoint or physical validation.
 
 This is important for both reproducibility and AI operation. An agent does not
 infer convergence by scraping prose, and a human does not receive a simplified
@@ -173,6 +184,46 @@ no duplicate displacement array is written.
 
 The low-level `io.XDMFTimeSeries` mirrors DOLFINx and may expose one XDMF Grid
 per Function. It is an expert compatibility API, not the normal result path.
+For standalone serial exports, `io.ResultWriter(path, mesh, fields)` now uses
+the same single-grid writer in write mode. Put the nodal scalar/vector primary
+field first, followed by compatible nodal fields or DG0 cell fields. It retains
+reference coordinates, preserves the primary field name, and needs exactly one
+Warp operation for displacement. Select a `.pvd` path for collective MPI
+visualization. Legacy XDMF append mode retains DOLFINx's layout.
+
+The serial writer checks the whole frame before creating its HDF5 frame group:
+time must be finite and increasing; field names, associations and shapes must
+remain stable; values must be finite and real. Duplicate/reserved names are
+errors, not silently dropped fields. A rejected frame can be corrected and
+resubmitted; an actual storage failure poisons the writer and requires a new
+artifact. Continuous auxiliary fields are interpolated to the primary nodal
+element, even when coefficient counts happen to agree. Reference geometry is
+stored once and shared through HDF5 links, rather than compressed repeatedly.
+The caller still owns the physical meaning and units of its fields.
+
+Existing single-mesh DOLFINx output can be repaired without recomputing:
+
+```python
+view = results.consolidate_xdmf_fields("fields.xdmf", "fields-single-grid.xdmf")
+```
+
+Open the returned descriptor in ParaView. This leaves the original descriptor
+and HDF5 data unchanged; retain the HDF5 files when sharing. It combines only
+fields on the same reference mesh with identical time grids. Multiple meshes,
+external mesh includes, duplicate fields and asynchronous frames are rejected,
+not interpolated or silently merged. This is a presentation conversion, not a
+checkpoint rewrite or a change to mesh connectivity.
+
+For an independent check with an installed ParaView (no solver import):
+
+```bash
+pvpython tools/check_paraview_warp.py fields-single-grid.xdmf --vector displacement
+```
+
+This emits JSON and fails on duplicate blocks, incomplete vectors or a Warp
+coordinate mismatch. It checks the reader's initial frame and presentation
+only, not solution accuracy. Use the actual point-vector name in the file.
+
 Prefer `step.solve_result(output=...)`: serial static and transient analyses
 write the compact single-grid XDMF/HDF5 layout. Under MPI, AgentFEM retains the
 collective XDMF/HDF5 scientific record and also registers a

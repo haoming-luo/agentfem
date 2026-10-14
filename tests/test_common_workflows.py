@@ -792,8 +792,26 @@ def test_common_dynamic_study_factory_keeps_physics_and_procedure_distinct():
 
     assert explicit.physics == implicit.physics == "solid_mechanics"
     assert explicit.analysis == implicit.analysis == "second_order_dynamics"
+    assert explicit.linearity == implicit.linearity == "unspecified"
     assert explicit.preferred_procedure == "central_difference"
     assert implicit.preferred_procedure == "generalized_alpha"
+
+
+def test_dynamics_order_does_not_claim_linear_physics_or_change_procedure():
+    declared = studies.Study(
+        analysis="second_order_dynamics", physics="solid_mechanics", dimension=3,
+        linearity="nonlinear", preferred_procedure="central_difference",
+    )
+    assert declared.summary()["linearity"] == "nonlinear"
+    assert studies.second_order_dynamics(physics="solid_mechanics", dimension=3).linearity == "unspecified"
+    selected = procedures.resolve(
+        analysis=declared.analysis, requested=declared.preferred_procedure,
+    )
+    assert selected.algorithm == "central_difference"
+    assert not selected.requires_global_solve
+    assert studies.static_solid(dimension=3).linearity == "linear"
+    assert studies.static_solid(dimension=3, nonlinear=True).linearity == "nonlinear"
+    assert studies.modal_solid(dimension=3).linearity == "linear"
 
 
 def test_monotonic_target_controller_preserves_requested_outputs_and_state_owner():

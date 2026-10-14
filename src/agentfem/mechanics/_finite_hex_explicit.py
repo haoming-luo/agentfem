@@ -306,13 +306,7 @@ class FiniteHexExplicitResidual:
             initial_interface = None
             if self.cohesive is not None:
                 initial_interface = self.cohesive.evaluate()
-                values = vector.array.reshape(-1, 3)
-                values[self.cohesive.negative_dofs] += (
-                    initial_interface.negative_residual
-                )
-                values[self.cohesive.positive_dofs] += (
-                    initial_interface.positive_residual
-                )
+                self.cohesive.add_response_to_vector(vector, initial_interface)
             self._subtract_external(vector)
             force = vector.array.copy()
         finally:
