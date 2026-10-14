@@ -110,6 +110,27 @@ mass_scaling = time.FixedMassScaling(factor=2.0, maximum_added_mass_ratio=1.1)
 ```
 
 The numbers above illustrate the interface, not a universal recommended mass.
+For the admitted zero-displacement/zero-velocity initial state, the built-in
+`time.InitialMassScaling(target_increment=..., reference_modulus=...,
+maximum_added_mass_ratio=...)` generates a fixed numerical mass directly from
+the current mesh. `reference_modulus` is a stress-unit bound on the declared
+reference `dP/dF`, **not automatically Young's modulus**. The software combines
+the uniform-Hex body/hourglass reference estimate, isotropic elastic bond,
+each rigid penalty trace, each initial deformable-contact candidate neighborhood,
+and initial linear bulk viscosity. It reuses the actual force trace adapters;
+no prepared inertia file or case-written nodal assembler is needed.
+
+Its `mass_scaling_preparation` report identifies all contributions and candidate
+coverage. The deformable estimate bounds nonnegative frozen Q1 interpolation
+on initial candidate facets; shared vertices are counted once per secondary
+point. It does not bound the derivative of moving closest-point projections,
+later contact neighborhoods, curved negative geometric stiffness, damage
+softening or nonzero-velocity quadratic viscosity. This is explicitly a
+**reference-model initial estimate**, not an all-state tangent inferred from
+an arbitrary user material. It leaves the explicit step ceiling, cutback,
+energy ledger and sensitivity obligations in place. Its mass remains fixed;
+use the provider policy below for reviewed evolving bounds.
+
 `time.TargetIncrementMassScaling(target_increment=..., bounds=provider,
 identity={...}, maximum_added_mass_ratio=...)` instead computes nodal factors
 from `MassScalingBounds(stiffness={...}, damping={...})`. Its immutable

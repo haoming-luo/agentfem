@@ -20,7 +20,7 @@ from ..input_effects import (
 from .runtime import ProgressPrinter, TimeStep, TimeStepper, format_duration
 from .substeps import ExplicitSubstepPolicy
 from .mass_scaling import (
-    FixedMassScaling, TargetIncrementMassScaling, MassScalingBounds, MassScalingRequest,
+    FixedMassScaling, InitialMassScaling, TargetIncrementMassScaling, MassScalingBounds, MassScalingRequest,
 )
 from .stability import (
     ExplicitStabilityContribution,
@@ -30,6 +30,7 @@ from .stability import (
 
 __all__ = [
     "FixedMassScaling",
+    "InitialMassScaling",
     "TargetIncrementMassScaling",
     "MassScalingBounds",
     "MassScalingRequest",

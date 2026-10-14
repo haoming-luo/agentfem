@@ -648,6 +648,8 @@ while sharing state-transition and restart semantics.
 
 Numerical mass scaling is a Procedure policy, not a new material density.
 `time.FixedMassScaling` declares factors and an added-mass budget;
+`time.InitialMassScaling` constructs fixed nodal mass from the current mesh,
+declared reference stiffness and admitted initial penalty/damping operators;
 `time.TargetIncrementMassScaling` computes factors from provider-supplied named
 operator majorants. The owning State retains accepted mass, artificial energy
 and momentum inputs, rollback and restart. Bound-provider identity and coverage

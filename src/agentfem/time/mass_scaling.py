@@ -119,6 +119,43 @@ class FixedMassScaling:
 
 
 @dataclass(frozen=True)
+class InitialMassScaling:
+    """Generate fixed nodal mass from an explicit reference-stiffness model.
+
+    This initial, stress-free estimate is NOT a damaged-path tangent bound.
+    ``reference_modulus`` is a nonnegative upper modulus of the declared
+    reference dP/dF model (stress units), not density or a frequency. The Step
+    supplies mesh, physical mass, hourglass, bonds, contact and initial damping.
+    No nodal file, user callback, network or AI participates in planning.
+    """
+    target_increment: float
+    reference_modulus: float
+    maximum_added_mass_ratio: float
+    safety_factor: float = .8
+
+    def __post_init__(self):
+        for name in ('target_increment', 'reference_modulus'):
+            object.__setattr__(self, name, _scalar(getattr(self, name), name))
+        object.__setattr__(self, 'maximum_added_mass_ratio', _scalar(
+            self.maximum_added_mass_ratio, 'maximum_added_mass_ratio', inclusive=True))
+        safety = _scalar(self.safety_factor, 'safety_factor')
+        if safety >= 1:
+            raise ValueError('safety_factor must be strictly below one')
+        object.__setattr__(self, 'safety_factor', safety)
+
+    def summary(self):
+        return {'kind': 'initial_operator_mass_scaling',
+                'target_increment': self.target_increment,
+                'reference_modulus': self.reference_modulus,
+                'maximum_added_mass_ratio': self.maximum_added_mass_ratio,
+                'safety_factor': self.safety_factor,
+                'scope': 'reference_stiffness_surrogate_initial_geometry_zero_velocity',
+                'material_density_changed': False,
+                'automatic_stability_certificate': False,
+                'evolving_contact_and_damage_certified': False}
+
+
+@dataclass(frozen=True)
 class TargetIncrementMassScaling:
     """Calculate nodal factors from a declared bound provider, not an NPZ.
 

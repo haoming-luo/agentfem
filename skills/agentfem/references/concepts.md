@@ -71,6 +71,8 @@
   density. Operators supply valid stiffness/damping bounds; Procedure selects
   evaluation cadence; State owns accepted mass, artificial energy/momentum,
   rollback and restart. Successful planning is not a stability/accuracy proof.
+  `InitialMassScaling` is an explicitly scoped reference-geometry estimate;
+  evolving nonlinear bounds require a separate reviewed provider.
 - Modal analysis: constrained generalized Hermitian eigensolve
   \(K\phi=\omega^2M\phi\); strong prescribed degrees of freedom are removed
   before solving and each accepted mode retains a relative residual.

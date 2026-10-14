@@ -103,6 +103,23 @@ complete installed-run gates above. This remains an unreleased candidate.
 
 ## Scientific reference
 
+### Initial preparation implemented, original-case acceptance still pending
+
+The bounded response-Hex provider now also admits `time.InitialMassScaling`.
+It reuses the current element/reference geometry, elastic bond assembler,
+filtered rigid traces, deformable candidate neighborhoods and linear viscosity.
+The material supplies an explicit reference modulus, not an invented tangent.
+No nodal-factor file is needed. Shared candidate-patch vertices are deduplicated;
+the frozen-Q1 diagonal estimate is tested against independently assembled
+stencils. Mass-budget rejection, deterministic factor execution, checkpoint
+identity and operator inventory have targeted numerical regressions.
+
+This deliberately does not promote initial elastic data to nonlinear-path
+certification. Moving projection derivatives, future contact neighborhoods,
+damage and curved negative stiffness remain outside its estimate. A new
+recipient project must record and compare the generated mass, then test
+the response; it cannot inherit the old full run's timing or physical claims.
+
 [Abaqus mass-scaling documentation](https://docs.software.vt.edu/abaqusv2025/English/SIMACAEANLRefMap/simaanl-c-massscaling.htm)
 distinguishes fixed and variable scaling, and requires checking inertial effects.
 AgentFEM keeps the same separation between a declared numerical strategy and

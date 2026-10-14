@@ -65,6 +65,7 @@ class ResponseMaterialHexStep(ExplicitDynamicsStep):
                 "stability_scope": "caller_increment_ceiling_not_stability_proof",
                 "numerical_inertia": None if self.numerical_inertia is None else self.numerical_inertia.summary(),
                 "mass_scaling_policy": None if self.mass_scaling_policy is None else self.mass_scaling_policy.summary(),
+                "mass_scaling_preparation": self.mass_scaling_preparation,
                 "execution_kernel": None if self.execution_kernel is None else self.execution_kernel.summary(),
                 "substeps": None if self.substep_policy is None else self._substeps.summary(),
                 "energy_scope": "accepted_internal_work_not_stored_energy"}
@@ -153,7 +154,8 @@ def lower(model, request):
     inertia_factor = options.pop("mass_scaling_factor", None)
     scaling_policy = options.pop("mass_scaling", None)
     if scaling_policy is not None:
-        if not isinstance(scaling_policy, (time.FixedMassScaling, time.TargetIncrementMassScaling)):
+        if not isinstance(scaling_policy, (time.FixedMassScaling, time.InitialMassScaling,
+                                           time.TargetIncrementMassScaling)):
             raise TypeError("mass_scaling requires a declared mass-scaling policy")
         if inertia_factor is not None:
             raise ValueError("Use mass_scaling or mass_scaling_factor, not both")
@@ -202,12 +204,28 @@ def lower(model, request):
         internal = FiniteUniformHexResidual(history.u, response, density=material.density,
             hourglass_modulus=policy.hourglass_modulus, hourglass_scale=policy.hourglass_scale,
             chunk_size=policy.chunk_size, execution_kernel=execution_kernel)
+        # One reference trace per boundary and one filtered adapter per tool.
+        # The same adapters supply initial mass preparation and actual forces.
+        reference_traces, rigid_adapters = {}, []
+        for pair in pairs:
+            key = id(pair.slave_boundary)
+            if key not in reference_traces:
+                reference_traces[key] = boundary_models.dolfinx_boundary_region_contact_trace(
+                    pair.slave_boundary, history.u.value.function_space, integration=trace_policy.integration)
+            rigid_adapters.append((pair, trace_policy.apply(reference_traces[key], pair)))
         numerical_inertia = None
+        mass_preparation = None
         if inertia_factor is not None:
             from .time._scaled_inertia import FixedScaledInertia
             numerical_inertia = FixedScaledInertia(internal.mass_diagonal, factor=inertia_factor)
             numerical_inertia.validate_state(history)
-        if scaling_policy is not None:
+        if isinstance(scaling_policy, time.InitialMassScaling):
+            from .time._initial_mass_scaling import lower_initial_mass_scaling
+            numerical_inertia, mass_preparation = lower_initial_mass_scaling(
+                scaling_policy, internal, history, dt=dt, cohesive=cohesive,
+                rigid_adapters=rigid_adapters, deformable=deformable, viscosity=viscosity)
+            numerical_inertia.validate_state(history)
+        elif scaling_policy is not None:
             from .time.mass_scaling import _lower_mass_scaling
             numerical_inertia = _lower_mass_scaling(
                 scaling_policy, internal, history, dt=dt,
@@ -244,17 +262,7 @@ def lower(model, request):
                 displacement=history.u.value, secondary_dofs=pair.secondary_dofs,
                 primary_dofs=pair.primary_dofs, time_increment_ceiling=roles['deformable_contact'], name=pair.name)
         deformable_residual = residual if deformable else None
-        # Share only reference geometry for the identical boundary object in
-        # this lowering call. Tool-specific filters and physical histories stay
-        # independent; no cache survives a mesh/Step lifecycle.
-        reference_traces = {}
-        for pair in pairs:
-            key = id(pair.slave_boundary)
-            if key not in reference_traces:
-                reference_traces[key] = boundary_models.dolfinx_boundary_region_contact_trace(
-                    pair.slave_boundary, history.u.value.function_space, integration=trace_policy.integration)
-            adapter = reference_traces[key]
-            adapter = trace_policy.apply(adapter, pair)
+        for pair, adapter in rigid_adapters:
             residual = boundary_models.dolfinx_explicit_contact_residual(
                 residual, adapter=adapter, displacement=history.u.value,
                 contact_pair=pair, maximum_stable_time_increment=roles['rigid_contact'],
@@ -274,6 +282,7 @@ def lower(model, request):
         step.material_residual = material_residual
         step.numerical_inertia = numerical_inertia
         step.mass_scaling_policy = scaling_policy
+        step.mass_scaling_preparation = mass_preparation
         step.execution_kernel = execution_kernel
         step.material_storage = storage
         step.contact_execution = contact_execution

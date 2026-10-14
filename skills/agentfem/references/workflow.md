@@ -57,7 +57,10 @@ evidence.
       inspectable execution-policy summary; declare transient histories on the
       Step when they should be consumed automatically by `solve_result()`.
     - on the bounded response-Hex route, numerical mass scaling is a declared
-      `time.FixedMassScaling` or `time.TargetIncrementMassScaling` policy.
+      `time.FixedMassScaling`, `time.InitialMassScaling` or
+      `time.TargetIncrementMassScaling` policy.
+      Initial planning uses the current mesh and reference operators, not a
+      damaged-path certificate or an automatic choice of accurate time step.
       A target policy consumes reviewed named Operator bounds and an explicit
       added-mass budget, never another case's prepared inertia array. Missing
       contribution coverage must fail rather than be replaced with zeros.
