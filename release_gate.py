@@ -32,6 +32,8 @@ ROOT = Path(__file__).resolve().parent
 SOURCE_PACKAGE = ROOT / "src" / "agentfem"
 REQUIRED_WHEEL_MEMBERS = (
     "agentfem/__init__.py",
+    "agentfem/constitutive/vumat.py",
+    "agentfem/constitutive/_vumat_build.py",
     "agentfem/_axisymmetric.py",
     "agentfem/_material_history.py",
     "agentfem/_modal.py",

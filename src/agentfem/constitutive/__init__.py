@@ -24,6 +24,7 @@ from .corotational import (
     push_corotational_stress,
 )
 from .stability import FirstPiolaTangentEnvelope
+from .vumat import VumatBatchInput, VumatBatchOutput, CompiledVumat, compile_vumat
 from .explicit_user_material import (
     ExplicitUserMaterial,
     ExplicitMaterialBatchOutput,
@@ -244,6 +245,7 @@ from .._material_history import (
 )
 
 __all__ = [
+    "VumatBatchInput", "VumatBatchOutput", "CompiledVumat", "compile_vumat",
     "corotational",
     "CorotationalIncrement",
     "polar_strain_increment",

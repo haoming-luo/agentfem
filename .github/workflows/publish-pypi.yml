@@ -188,6 +188,11 @@ jobs:
       - name: Run the complete serial suite
         run: python -m pytest
 
+      - name: Verify the installed legacy VUMAT bridge with a real compiler
+        run: |
+          gfortran --version
+          python -m pytest -o pythonpath='' -q tests/test_vumat_bridge.py
+
       - name: Prove an independently installed external provider
         run: |
           python -m build --wheel --no-isolation \

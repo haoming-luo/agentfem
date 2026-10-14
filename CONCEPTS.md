@@ -953,3 +953,13 @@ nonlinear residual must be identified explicitly with `role="residual"`.
 A standalone mixed component retains its finite-element meaning, but need not
 retain the parent coefficient numbering. `spaces.independent_subspace` creates
 an independent space; field interpolation is the transfer contract.
+
+## Native material transport is not a constitutive formulation
+
+A compiled user-subroutine bridge owns ABI validation, batch array transport
+and build identity, not objective kinematics, history acceptance, stable
+stepping or numerical verification. The restricted legacy VUMAT bridge returns
+uncommitted corotational stress/state and optional energy per mass. Conversion
+to spatial stress and reference-volume work belongs to a verified adapter;
+Procedure and State ownership remain unchanged. Missing energy or tangent is
+unavailable, not a manufactured zero.

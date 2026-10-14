@@ -987,9 +987,14 @@ _ABAQUS_UTILITY_NAMES = {
     "VSPRINC",
     "VSPRIND",
     "XIT",
+    "XPLB_EXIT",
 }
 
 _REQUIRED_CONTRACT_SYMBOLS = {
+    "VUMAT": {
+        "NBLOCK", "NDIR", "NSHR", "NSTATEV", "NPROPS", "PROPS",
+        "STRAININC", "STRESSOLD", "STRESSNEW", "STATEOLD", "STATENEW",
+    },
     "UMAT": {
         "STRESS",
         "STATEV",
@@ -1143,7 +1148,7 @@ def inspect_abaqus_user_material(
     *,
     kind: str = "auto",
 ) -> AbaqusUserMaterialInspection:
-    """Inventory a Fortran UMAT/UHYPER source and select a credible next route.
+    """Inventory a Fortran UMAT/UHYPER/VUMAT source without executing it.
 
     Inspection is deliberately source-only. It neither compiles the routine nor
     claims Abaqus ABI compatibility; that distinction is part of the returned
@@ -1173,15 +1178,15 @@ def inspect_abaqus_user_material(
         )
     )
     material_entrypoints = tuple(
-        item for item in entrypoints if item in {"UMAT", "UHYPER"}
+        item for item in entrypoints if item in {"UMAT", "UHYPER", "VUMAT"}
     )
     selected_kind = str(kind).strip().upper()
     if selected_kind == "AUTO":
         interface = material_entrypoints[0] if len(material_entrypoints) == 1 else None
-    elif selected_kind in {"UMAT", "UHYPER"}:
+    elif selected_kind in {"UMAT", "UHYPER", "VUMAT"}:
         interface = selected_kind
     else:
-        raise ValueError("kind must be 'auto', 'UMAT', or 'UHYPER'.")
+        raise ValueError("kind must be 'auto', 'UMAT', 'UHYPER', or 'VUMAT'.")
 
     includes = tuple(
         dict.fromkeys(
@@ -1190,7 +1195,7 @@ def inspect_abaqus_user_material(
         )
     )
     calls = tuple(
-        dict.fromkeys(re.findall(r"(?im)\bCALL\s+([A-Z][A-Z0-9_]*)\s*\(", upper))
+        dict.fromkeys(re.findall(r"(?im)\bCALL\s+([A-Z][A-Z0-9_]*)\b", upper))
     )
     utilities = tuple(item for item in calls if item in _ABAQUS_UTILITY_NAMES)
     project_calls = tuple(
@@ -1215,7 +1220,7 @@ def inspect_abaqus_user_material(
             UserMaterialInspectionIssue(
                 "AFM-USERMAT-SOURCE-001",
                 "error",
-                "Source inspection requires exactly one UMAT or UHYPER entry point.",
+                "Source inspection requires exactly one UMAT, UHYPER or VUMAT entry point.",
             )
         )
     elif interface not in material_entrypoints:
@@ -1264,7 +1269,9 @@ def inspect_abaqus_user_material(
                 message.strip() or issue,
             )
         )
-    if interface == "UHYPER":
+    if interface == "VUMAT":
+        route = "restricted_vumat_batch_adapter"
+    elif interface == "UHYPER":
         route = "restricted_uhyper_energy_adapter"
     elif interface == "UMAT":
         route = "restricted_umat_material_point_adapter"
@@ -1276,8 +1283,9 @@ def inspect_abaqus_user_material(
                 "AFM-USERMAT-SOURCE-100",
                 "info",
                 "The source is a candidate for adapter development. Compilation, "
-                "material-point path comparison, tangent checks, and global FEM "
-                "integration remain required before execution.",
+                "material-point path comparison, "
+                + ("explicit kinematics/stability checks" if interface == "VUMAT" else "tangent checks")
+                + ", and global FEM integration remain required before production use.",
             )
         )
     return AbaqusUserMaterialInspection(

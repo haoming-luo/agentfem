@@ -39,6 +39,11 @@ def _array(value, shape, label):
               and selected.flags.c_contiguous else np.isfinite(selected).all())
     if not finite:
         raise ValueError(f"{label} must be finite with shape {shape}.")
+    if selected.size == 0:
+        # NumPy may use a different sentinel address for an empty bytes view
+        # and its zero-width slice. No data are addressed: pointer subtraction
+        # is neither necessary nor a meaningful storage-bound test here.
+        return np.frombuffer(b"", dtype=float).reshape(shape)
     owner = selected
     while isinstance(owner, np.ndarray):
         owner = owner.base

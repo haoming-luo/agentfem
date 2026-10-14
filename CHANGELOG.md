@@ -6,6 +6,16 @@ experimental formulation to a validated one.
 
 ## [Unreleased]
 
+### Reviewed user-material sources
+
+- Add an experimental legacy 3D VUMAT batch bridge with explicit physical
+  inputs, arbitrary state/field counts, tensor shear, trusted GNU Fortran
+  compilation and integrity-checked caching. This is material-point transport,
+  not automatic global Abaqus compatibility. No tangent, stable increment,
+  kinematics or unavailable energy is invented.
+- Fix immutable zero-width material-array revalidation and slicing, including
+  empty field-variable channels; retain input ownership and bounds checks.
+
 ### Installed project execution
 
 - Isolate project arguments from `agentfem run` options, support explicit

@@ -1,4 +1,65 @@
-# Abaqus UMAT and UHYPER Migration Boundary
+# Abaqus User-Material Migration Boundary
+
+## Restricted VUMAT batch bridge (experimental)
+
+`constitutive.compile_vumat` compiles explicitly trusted source once and loads
+one native library per bridge instance. `CompiledVumat.update` transports an
+entire block in one call, rather than calling Python per integration point.
+Supported: the legacy `lanneal` / scalar `dt` signature, three-dimensional
+solids (`ndir=3`, `nshr=3`), binary64, and GNU Fortran on macOS, Linux or WSL2.
+Modern `jInfoArray` / `dtArray`, shells, plane stress, annealing and vendor
+utility calls are outside this profile. Formal argument names and ordering
+must match the legacy signature.
+
+```python
+from agentfem import constitutive
+
+schema = constitutive.MaterialStateSchema(
+    "my-material-v1",
+    (constitutive.MaterialStateVariable("history", shape=(8,)),),
+)
+material = constitutive.compile_vumat(
+    "material.for", state_schema=schema, properties=[1000., 0.3],
+    cache_directory=".agentfem/material-build", trusted=True,
+)
+# request = constitutive.VumatBatchInput(...)  # all physical channels required
+# response = material.update(request)
+```
+
+Properties above are illustrative; their meaning belongs to the supplied law.
+State and field counts are arbitrary, including zero. All physical channels
+are required: density, coordinates, characteristic length, old/new stretch and
+deformation gradient, temperatures, fields, stress, state, strain and relative
+spin increments. There is no implicit unit conversion or fabricated zero input.
+The caller supplies corotational quantities. Symmetric order is
+`11,22,33,12,23,31` with **tensor shear**; deformation-gradient order is
+`11,22,33,12,23,31,21,32,13`.
+
+The bridge supplies a minimal `vaba_param.inc` precision declaration, not an
+Abaqus runtime or a copy of its header. Reviewed local includes are fingerprinted.
+The cache identity includes source graph, wrapper, compiler version, flags and
+platform; library integrity is checked before reuse. Compilation downloads
+nothing and retains diagnostics on failure. `trusted=True` is not a sandbox:
+native code can terminate a process or access its files. Review sources first.
+
+Inputs are protected against accidental native writes; new state is returned
+without committing it. Hidden `SAVE`/`COMMON` history is unsuitable for restart
+and rollback even though calls on one bridge instance are serialized. Physical
+history must live in the declared state vector. Non-finite stress/state or
+partially written energy fails; an entirely unwritten optional energy is `None`,
+not zero. Internal/inelastic energies are **per mass**, not elastic storage or
+reference-volume work increments.
+
+This is not automatic global VUMAT compatibility. An adapter to the existing
+`explicit_user_material` must also establish objective kinematics, stress
+rotation, density/energy conversion, state layout and stable-step policy.
+Procedure owns acceptance and checkpoints; no VUMAT solver or fake tangent is
+introduced. Verify material paths, a single element and then a structural path.
+Compilation alone establishes neither finite-rotation, deletion nor MPI parity.
+
+See the [Abaqus VUMAT reference](https://docs.software.vt.edu/abaqusv2025/English/SIMACAESUBRefMap/simasub-c-vumat.htm)
+for conventions. The wrapper uses [Fortran C interoperability](https://gcc.gnu.org/onlinedocs/gfortran/Interoperability-with-C.html),
+not a direct Python call into a compiler-dependent Fortran entry point.
 
 ## What “compatible” should mean
 
