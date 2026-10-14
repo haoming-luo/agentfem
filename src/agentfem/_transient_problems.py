@@ -1826,6 +1826,9 @@ def _configure_transient_history(step, requests) -> None:
 
     selected = tuple(requests)
     if not selected:
+        context = getattr(step, "execution_context", None)
+        selected = tuple(getattr(context, "configured_history", ()))
+    if not selected:
         return
     names = [str(getattr(request, "name", "")) for request in selected]
     if any(not name for name in names):

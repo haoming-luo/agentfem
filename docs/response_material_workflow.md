@@ -336,6 +336,38 @@ Their different increment algorithms are not presented as equivalent.
 
 ## Acceptance and remaining promotion gates
 
+### Accepted fields, pair evidence and configured histories
+
+`step.accepted_material_fields()` returns detached, read-only cell arrays and
+`state_variables`, a dictionary named by the registered `MaterialStateSchema`.
+The flattened `state` array remains available for compatibility. No stress or
+SDV smoothing is implicit. Export through `results.cell_field_from_values` and
+`io.ResultWriter`, keeping displacement on the same volumetric grid.
+
+`step.accepted_contact_evidence(name=None)` returns JSON-compatible records from
+the contact owners without rerunning search or material updates. Rigid records
+include accepted forces, motion coordinates, generalized moment, contact
+potential and path work. The moment is the surface-motion generalized force,
+not an ambiguously labelled tool reaction. Deformable records include opposite
+physical forces, current-coordinate moments about a common origin, active
+reference area and explicit selected-candidate coverage. Certified separation
+does not invent a closest-point projection. These observations reject live
+trial/unaccepted displacement and never promote scientific trust.
+
+Declare custom histories in `model.step(history=(results.history(...),))` or
+pass them when first calling `run`. The ordinary configured route works for
+both `run` and `solve_result`. With automatic substeps, pure custom callbacks
+observe accepted macro stations only; the physical work ledger still consumes
+each accepted subincrement. Checkpoint recovery retains stored histories;
+changing their schema mid-run is not an implicit migration.
+
+For imported serial P1/Q1 node identities use `spaces.locate_input_nodes`.
+For finite-Hex boundary geometry use a tagged boundary and
+`interfaces.reference_trace_from_boundary(..., geometry="bilinear")` where
+appropriate. Neither helper identifies coincident nodes by coordinate equality.
+
+### Scope of existing full-run evidence
+
 The migrated installed workflow has completed a separately frozen full-case
 run, including owned-array state, batch Q1 search, body/viscosity acceleration,
 scheduled checkpoints and accepted reporting. Final nodal/material/contact

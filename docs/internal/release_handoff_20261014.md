@@ -60,7 +60,8 @@ reviewed bound provider and sensitivity acceptance before that migration.
 3. Use ordinary Step completion and one-grid output. The response provider now
    accepts an XDMF output path and ordinary accepted-history declarations;
    material state columns still require explicit semantic selection. Dyadic
-   substeps retain their built-in-ledger-only history boundary.
+   substeps now admit pure configured observations at accepted macro stations,
+   while retaining per-subincrement physical work accounting.
 4. Keep a compiled user law separate from general software execution. Existing
    ExplicitUserMaterial is the neutral batch/state mechanism. A restricted
    VUMAT adapter is a separate compatibility task: shear order, material frame,

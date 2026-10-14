@@ -428,6 +428,50 @@ class DeformableQ1ContactResidual:
             },
         )
 
+    def accepted_contact_observation(self):
+        """Selected secondary-node evidence, not unrestricted exterior coverage.
+
+        Residuals are potential gradients; physical contact forces have the
+        opposite sign. Moments use current coordinates and a common origin.
+        Certified-separated and unresolved zero-gap points have no invented
+        closest-point projection or active area.
+        """
+        if (self.accepted is None or self.trial is not None
+                or self.time != self.accepted_time
+                or any(not np.array_equal(a, b) for a, b in
+                       zip(self._values(), self.accepted[:2], strict=True))):
+            raise RuntimeError("Deformable contact observation requires an accepted station")
+        secondary, primary, response = self.accepted
+        forces = (-response.secondary_residual, -response.primary_residual)
+        resultants = [force.sum(axis=0) for force in forces]
+        moments = [np.cross(x, force).sum(axis=0)
+                   for x, force in zip((secondary, primary), forces, strict=True)]
+        projection = response.projection
+        projected = 0 if projection is None else len(projection.signed_gaps)
+        active = np.zeros(0, dtype=bool) if projection is None else projection.signed_gaps < 0
+        indices = (np.arange(projected) if response.projection_indices is None else
+                   response.projection_indices)
+        area = float(self.operator.weights[indices[active]].sum())
+        return {"schema": "agentfem.accepted_contact_observation.v1",
+                "name": self.name, "kind": "deformable_contact", "time": self.accepted_time,
+                "secondary_force": resultants[0].tolist(), "primary_force": resultants[1].tolist(),
+                "secondary_moment": moments[0].tolist(), "primary_moment": moments[1].tolist(),
+                "moment_reference_point": [0., 0., 0.],
+                "force_balance_residual": (resultants[0] + resultants[1]).tolist(),
+                "moment_balance_residual": (moments[0] + moments[1]).tolist(),
+                "potential_energy": response.potential_energy,
+                "maximum_penetration": (0.0 if projection is None else
+                                        float(np.maximum(-projection.signed_gaps, 0).max(initial=0))),
+                "candidate_point_count": len(self.operator.nodes),
+                "projected_point_count": projected,
+                "zero_gap_resolution_count": len(response.zero_gap_indices),
+                "certified_separated_point_count": (len(self.operator.nodes)-projected
+                                                    -len(response.zero_gap_indices)),
+                "active_point_count": int(active.sum()), "active_reference_area": area,
+                "integration_measure": "secondary_reference_nodal_area",
+                "coverage_scope": "declared_secondary_candidates_only",
+                "scientifically_validated": False}
+
     def summary(self):
         return {
             **self.operator.summary(),

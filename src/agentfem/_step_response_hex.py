@@ -15,13 +15,43 @@ from ._transient_problems import ExplicitDynamicsStep
 
 class ResponseMaterialHexStep(ExplicitDynamicsStep):
     def run(self, *args, **kwargs):
-        if self.substep_policy is not None and (kwargs.get('history') or self.history_requests):
-            raise NotImplementedError(
-                "Response substeps currently require the built-in accepted energy ledger only")
         if self.contact_execution == 'overlap':
             with self.deformable_residual.overlap_execution():
                 return super().run(*args, **kwargs)
         return super().run(*args, **kwargs)
+
+    def _require_accepted_observation(self):
+        import numpy as np
+        body = self.material_residual
+        if (body._trial is not None or body.time != body.accepted_time
+                or not np.array_equal(body.internal.displacement.x.array,
+                                      body.accepted_displacement)):
+            raise RuntimeError("Observation requires the accepted displacement and time")
+
+    def accepted_contact_evidence(self, *, name=None):
+        """Detached per-pair forces, motion and quality at an accepted station.
+
+        An optional exact pair name avoids evaluating unrelated observations.
+        Results are plain JSON-compatible records; observation never reassembles
+        contact or advances a material. Force and moment conventions are supplied
+        by the owning contact operator, not inferred from an energy value.
+        """
+        self._require_accepted_observation()
+        if name is not None and (not isinstance(name, str) or not name.strip()):
+            raise ValueError("Contact observation name must be a nonempty string")
+        records, visited = [], set()
+        operator = self.residual
+        while operator is not None:
+            if id(operator) in visited:
+                raise RuntimeError("Contact observation encountered a residual cycle")
+            visited.add(id(operator))
+            observe = getattr(operator, "accepted_contact_observation", None)
+            if callable(observe) and (name is None or operator.name == name):
+                records.append(observe())
+            operator = getattr(operator, "base", None)
+        if name is not None and not records:
+            raise KeyError(f"No contact pair named {name!r}")
+        return tuple(records)
 
     def accepted_material_fields(self):
         """Detached accepted cell records for export, never trial data.
@@ -30,6 +60,7 @@ class ResponseMaterialHexStep(ExplicitDynamicsStep):
         source-law-specific variable names are introduced by this observer.
         """
         import numpy as np
+        self._require_accepted_observation()
         body = self.material_residual
         if body._trial is not None:
             raise RuntimeError("Material export requires an accepted station")
@@ -40,9 +71,16 @@ class ResponseMaterialHexStep(ExplicitDynamicsStep):
         def frozen(value):
             array = np.ascontiguousarray(value)
             return np.frombuffer(array.tobytes(), dtype=array.dtype).reshape(array.shape)
-        return {"time": body.accepted_time, "state_schema": body.material.state_schema.summary(),
+        schema = body.material.state_schema
+        state_values = frozen(response.state.committed_state_vectors())
+        variables, offset = {}, 0
+        for variable in schema.variables:
+            variables[variable.name] = state_values[:, offset:offset + variable.size].reshape(
+                (len(state_values), *variable.shape))
+            offset += variable.size
+        return {"time": body.accepted_time, "state_schema": schema.summary(),
                 "cell_keys": frozen(response.state.reference_field.owned_cell_keys),
-                "state": frozen(response.state.committed_state_vectors()),
+                "state": state_values, "state_variables": variables,
                 "cauchy_stress": frozen(response.response_transaction.committed['S'].values),
                 "deformation_gradient": frozen(body.accepted_gradient),
                 "location": "one_material_point_per_uniform_strain_hex8_cell",
@@ -126,7 +164,7 @@ def lower(model, request):
     output = options.pop("output", None)
     if output is not None and not isinstance(output, (str, PathLike)):
         raise TypeError("Transient output must be an XDMF path")
-    history_requests = options.pop("history", None)
+    options.pop("history", None)  # retained by the shared execution context
     dt = options.pop("dt")
     if isinstance(dt, (str, bool)):
         raise ValueError("Response-only Hex8 needs a numerical dt, never dt='auto'")
@@ -166,8 +204,6 @@ def lower(model, request):
     substeps = options.pop("substep_policy", None)
     if substeps is not None and not isinstance(substeps, time.ExplicitSubstepPolicy):
         raise TypeError("substep_policy requires ExplicitSubstepPolicy")
-    if substeps is not None and history_requests:
-        raise NotImplementedError("Response substeps currently require the built-in accepted energy ledger only")
     trace_policy = options.pop("contact_trace_policy", boundary_models.RigidContactTracePolicy())
     if not isinstance(trace_policy, boundary_models.RigidContactTracePolicy):
         raise TypeError("contact_trace_policy requires RigidContactTracePolicy")

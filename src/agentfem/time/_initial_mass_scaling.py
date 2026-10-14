@@ -7,7 +7,7 @@ no search projection is selected, and no trial/accepted State is mutated.
 """
 import numpy as np
 
-from ._nodal_inertia import plan_nodal_inertia
+from ._nodal_inertia import plan_nodal_inertia, diagnose_nodal_increment
 from ._scaled_inertia import FixedScaledInertia
 
 
@@ -110,7 +110,19 @@ def lower_initial_mass_scaling(policy, internal, history, *, dt, cohesive,
     mass = FixedScaledInertia(internal.mass_diagonal, factor=plan.nodal_factors)
     if mass.summary()['added_mass_ratio'] > policy.maximum_added_mass_ratio:
         raise ValueError('Mass scaling exceeds its added-mass budget')
+    diagnostics = {}
+    coordinates = history.u.value.function_space.tabulate_dof_coordinates()
+    for name, nodal_mass in (('physical_mass', physical),
+                             ('numerical_mass', plan.numerical_nodal_mass)):
+        diagnostic = diagnose_nodal_increment(
+            nodal_mass, stiffness_rows=contributions, damping_rows=damping,
+            requested_increment=dt, safety_factor=policy.safety_factor)
+        for controller in diagnostic['controllers']:
+            controller['reference_coordinates'] = coordinates[controller['node_index']].tolist()
+        diagnostic['node_identity_scope'] = 'current_serial_displacement_node_order'
+        diagnostics[name] = diagnostic
     report = {**policy.summary(), 'plan': plan.summary(), 'operator_details': details,
+              'increment_diagnostics': diagnostics,
               'maximum_unscaled_stiffness_rows': {key: float(row.max(initial=0))
                                                  for key, row in contributions.items()},
               'generated_from_current_mesh': True,

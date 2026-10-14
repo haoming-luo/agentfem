@@ -3164,17 +3164,19 @@ from .cohesive_checkpoint import (  # noqa: E402
 )
 
 
-def reference_trace_from_boundary(displacement, boundary, *, tolerance=1e-10):
+def reference_trace_from_boundary(displacement, boundary, *, tolerance=1e-10, geometry="affine"):
     """Extract an outward reference trace and DOF map from a named boundary.
 
-    Serial continuous P1 tetrahedra and affine-face Q1 hexahedra only. Both
+    Continuous P1 tetrahedra and Q1 hexahedra with degree-one geometry. Select
+    ``geometry="bilinear"`` for warped Q1 faces; the default retains the stricter
+    affine-face admission. This retains Q1 interpolation, never triangular P1. Both
     interface sides must have independent boundary labels and displacement DOFs.
     Returns ``(trace, dofs)`` for ``pair_reference_traces`` and
     ``fracture.nonmatching_cohesive_force``; it does not split or merge a mesh.
     """
     from ._interface_boundary import reference_trace_from_boundary as extract
 
-    return extract(displacement, boundary, tolerance=tolerance)
+    return extract(displacement, boundary, tolerance=tolerance, geometry=geometry)
 
 
 __all__ = [

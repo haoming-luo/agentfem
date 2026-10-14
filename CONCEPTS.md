@@ -929,6 +929,20 @@ agent. It contains structural failure and runtime evidence but no scientific
 model or result. Creating a bundle is local; transmitting it is a separate
 user-authorized action.
 
+## Accepted response observations
+
+An accepted observation is a detached view of an already committed station,
+not another state owner or a new physics evaluation. Named material variables
+retain their registered schema and cell identity. Contact resultants retain
+their force sign, moment reference, integration measure and declared coverage;
+equal-and-opposite total forces alone do not prove moment or energy closure.
+Adaptive subincrements may update the physical work ledger, but user history
+callbacks observe only successfully accepted macro stations.
+
+Imported mesh input-node identity is distinct from source-file node labels,
+coordinates and finite-element DOF numbering. Coincident interface nodes may
+have independent identities; matching coordinates would incorrectly tie them.
+
 ## Incremental UFL adoption
 
 `operators.from_ufl(form, name=...)` retains an integrated UFL form unchanged

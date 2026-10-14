@@ -603,3 +603,17 @@ For high-order mixed-field boundary data, use `spaces.independent_subspace(W, i)
 and paired parent/independent dof location. Transfer output by interpolation;
 never copy coefficient arrays between different numberings. See
 `docs/guide/high_order_mixed_fields.md`.
+
+For serial degree-one imported nodes, `spaces.locate_input_nodes` uses mesh input
+identity and backend entity layouts; it is not a coordinate or source-label
+lookup. Use `interfaces.reference_trace_from_boundary(..., geometry="bilinear")`
+for explicitly supported warped Q1 boundary traces. Do not hand-write face
+connectivity or collapse coincident nodes at a bonded interface.
+
+For the bounded response-Hex route, use `accepted_material_fields()` for named
+state arrays and `accepted_contact_evidence(name=...)` for accepted pair evidence.
+Keep source-law SDV names in the provider, not the core. Observe only accepted
+stations; custom history callbacks are pure observations, never material
+updates. Their absence must not change the mechanical solution. Mass-preparation
+diagnostics describe supplied reference bounds, not a whole-path stability
+proof. Keep worker and reporting budgets separate from scientific controls.

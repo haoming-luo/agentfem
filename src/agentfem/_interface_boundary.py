@@ -6,7 +6,7 @@ import basix
 import numpy as np
 
 
-def reference_trace_from_boundary(displacement, boundary, *, tolerance):
+def reference_trace_from_boundary(displacement, boundary, *, tolerance, geometry="affine"):
     from .fields import unwrap
     from .interfaces import reference_trace
     from .provenance import collective_call, collective_canonical_record
@@ -18,7 +18,8 @@ def reference_trace_from_boundary(displacement, boundary, *, tolerance):
         label="Reference interface extraction",
     )
     collective_canonical_record(
-        {"topology": topology, "tag": int(boundary.tag), "tolerance": float(tolerance)},
+        {"topology": topology, "tag": int(boundary.tag), "tolerance": float(tolerance),
+         "geometry": geometry},
         comm=comm, label="Reference trace description")
     if comm.size > 1:
         index = space.dofmap.index_map
@@ -40,7 +41,7 @@ def reference_trace_from_boundary(displacement, boundary, *, tolerance):
         nodes = np.array([local.get(node, -1) for node in ordered], dtype=np.int32)
     elif not len(cells):
         raise ValueError("Interface boundary selects no facets.")
-    trace = reference_trace(xyz, cells, topology=topology, tolerance=tolerance)
+    trace = reference_trace(xyz, cells, topology=topology, tolerance=tolerance, geometry=geometry)
     nodes.setflags(write=False)
     return trace, nodes
 

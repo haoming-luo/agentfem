@@ -296,6 +296,17 @@ remain responsible for the validity of their material/contact bounds. See
 `docs/response_material_workflow.md` for the experimental scope.
 Initial reference planning uses the actual mesh and declared contact/bond
 assets; it is not a whole-path nonlinear stability certificate.
+Use the preparation report's physical/numerical increment diagnostics to locate
+the limiting reference contribution. Do not reinterpret that diagnosis as a
+certificate for a damaged or deformed configuration.
+
+For accepted response-Hex output, call `step.accepted_material_fields()` and
+`step.accepted_contact_evidence()`, then use the ordinary result writer.
+Named material variables come from the material's state schema; contact records
+declare force/moment conventions and coverage. These read-only observations
+neither advance state nor establish scientific verification. Configured
+`model.step(history=...)` requests also apply to plain `step.run()`; substeps
+publish custom histories only at accepted macro stations.
 
 For long custom transient loops, use `results.AcceptedHistoryJournal` when
 repeatedly rewriting the accumulated JSON history dominates reporting. Append
@@ -363,3 +374,9 @@ route within the public workflow, not a competing physical Study language.
 High-order mixed-component boundary and output fields may use
 `spaces.independent_subspace(W, i)`; preserve their physical field by explicit
 interpolation, not by assuming identical coefficient order.
+
+For serial P1/Q1 imported node identity, use `spaces.locate_input_nodes` rather
+than coordinate matching. Source node labels must first be mapped to the mesh's
+input indices. Extract a tagged boundary through
+`interfaces.reference_trace_from_boundary`; explicitly request
+`geometry="bilinear"` for a warped Q1 face, never substitute triangular P1 traces.

@@ -35,6 +35,12 @@ def test_generated_mass_matches_explicit_factor_execution(storage):
     assert report['generated_from_current_mesh']
     assert not report['automatic_stability_certificate']
     assert not report['nonlinear_material_tangent_included']
+    physical = report['increment_diagnostics']['physical_mass']
+    numerical = report['increment_diagnostics']['numerical_mass']
+    assert physical['classification'] == 'outside_supplied_bound'
+    assert numerical['classification'] in ('inside_supplied_bound', 'roundoff_boundary')
+    assert not numerical['nonlinear_path_certified']
+    assert len(numerical['controllers'][0]['reference_coordinates']) == 3
 
 
 def test_initial_planner_restart_identity(tmp_path):

@@ -1145,6 +1145,28 @@ class DolfinxExplicitContactResidual:
         )
         return tuple(terms)
 
+    def accepted_contact_observation(self) -> dict[str, object]:
+        """Local accepted evidence; no search, material update or state write."""
+        if (self.accepted_evidence is None or self.trial_evidence is not None
+                or self.lifecycle.state.trial is not None
+                or (self.work_state is not None and (
+                    self.work_state.current is None
+                    or self.work_state.current.time != self.current_time))):
+            raise RuntimeError("Rigid contact observation requires an accepted station")
+        _, reference = self._projection_context()
+        coordinate = (np.zeros(6) if self.motion_schedule is None else
+                      self.motion_schedule.generalized_coordinate_at(self.current_time))
+        return {**self.accepted_evidence.summary(),
+                "schema": "agentfem.accepted_contact_observation.v1",
+                "name": self.name, "kind": "rigid_contact", "time": self.current_time,
+                "generalized_coordinate": coordinate.tolist(),
+                "moment_reference_point": None if reference is None else reference.tolist(),
+                "moment_convention": "surface_motion_generalized_force_not_tool_reaction",
+                "contact_motion_work": 0.0 if self.work_state is None else self.work_state.path_work,
+                "contact_motion_interval_power": (None if self.work_state is None else
+                                                  self.work_state.latest_interval_power),
+                "scientifically_validated": False}
+
     def contact_progress_evidence(self) -> tuple[dict[str, object], ...]:
         """Return compact accepted contact diagnostics for throttled progress."""
 

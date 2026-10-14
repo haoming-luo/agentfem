@@ -29,7 +29,7 @@ class _ExplicitSubsteps:
         from ..fields import unwrap
         if unwrap(step.state.u).function_space.mesh.comm.size != 1:
             raise NotImplementedError("Explicit substeps require serial execution")
-        if step.history_every != 1 or step.history_requests:
+        if step.history_every != 1:
             raise NotImplementedError("Substeps require the accepted energy ledger at each macro station")
         if not callable(getattr(step.history_monitor, "restore", None)):
             raise TypeError("Substeps require a restorable energy ledger")
@@ -72,6 +72,10 @@ class _ExplicitSubsteps:
                 interval(a, middle, depth+1)
                 interval(middle, b, depth+1)
             else:
+                # Only the physical work ledger consumes accepted subincrements.
+                # Pure user observations are evaluated by the ordinary Procedure
+                # once the complete macro increment has succeeded. A failed
+                # branch therefore cannot publish an observation/history row.
                 _record_transient_history(step, b, store=False)
                 accepted.append({"start": a, "end": b, "dt": b-a, "depth": depth})
 

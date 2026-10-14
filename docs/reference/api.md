@@ -1110,7 +1110,7 @@ and evidence remain in the linked guides and scientific function reference.
 | function | `mixed_mode_bilinear_cohesive(*, normal_strength: float, shear_strength: float, normal_fracture_energy: float, shear_fracture_energy: float, normal_stiffness: float, tangential_stiffness: float, interaction: str = 'bk', interaction_exponent: float = 1.45, compression_stiffness: float \| None = None, residual_tangential_fraction: float = 0.0, friction_coefficient: float = 0.0, friction_regularization: float = 1e-08, name: str = 'bilinear mixed-mode cohesive law') -> MixedModeBilinearCohesiveLaw` | Create a quadratic-initiation, energy-evolution mixed-mode law. |
 | function | `cohesive_surface(*, law, mode: str = 'normal', name: str = 'cohesive surface') -> CohesiveSurface` | Declare a fixed-path zero-thickness cohesive interface. |
 | function | `cohesive_characteristic_length(*, young: float, fracture_energy: float, strength: float) -> float` | Return the declared scale ``E * Gamma / strength**2``. |
-| function | `reference_trace_from_boundary(displacement, boundary, *, tolerance = 1e-10)` | Extract an outward reference trace and DOF map from a named boundary. |
+| function | `reference_trace_from_boundary(displacement, boundary, *, tolerance = 1e-10, geometry = 'affine')` | Extract an outward reference trace and DOF map from a named boundary. |
 
 ## `agentfem.manifests`
 
@@ -1753,6 +1753,7 @@ This package exposes its public objects through focused submodules.
 
 | Kind | Public object | Purpose |
 | --- | --- | --- |
+| function | `locate_input_nodes(space, input_node_indices)` | Map original mesh input indices to scalar/block P1/Q1 DOFs, in order. |
 | function | `lagrange_space(domain, degree: int = 1)` | Create a scalar Lagrange function space. |
 | function | `scalar_space(domain, degree: int = 1)` | Create a scalar Lagrange function space. |
 | function | `vector_lagrange_space(domain, degree: int = 1, dim: int \| None = None)` | Create a vector Lagrange function space. |
