@@ -1779,6 +1779,11 @@ This package exposes its public objects through focused submodules.
 | class | `TimeStepper` | Iterate over transient-solve step metadata. |
 | function | `format_duration(seconds: float) -> str` | Format elapsed seconds as ``HH:MM:SS``. |
 | class | `ExplicitSubstepPolicy` | Public AgentFEM object. |
+| class | `FixedMassScaling` | Explicit uniform/nodal factors; never a stable-increment estimator. |
+| class | `InitialMassScaling` | Generate fixed nodal mass from an explicit reference-stiffness model. |
+| class | `TargetIncrementMassScaling` | Calculate nodal factors from a declared bound provider, not an NPZ. |
+| class | `MassScalingBounds` | Named, unscaled (nodes, components) diagonal majorants of K and C. |
+| class | `MassScalingRequest` | Read-only accepted data in this serial displacement-node ordering. |
 | class | `ExplicitStabilityContribution` | One conservative contribution to an explicit spectral bound. |
 | class | `ExplicitStabilityEstimate` | Conservative whole-system estimate from additive spectral bounds. |
 | function | `combine_explicit_stability(contributions, *, safety_factor: float = 0.8) -> ExplicitStabilityEstimate` | Combine conservative stiffness contributions before choosing ``dt``. |

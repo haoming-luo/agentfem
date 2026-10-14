@@ -120,6 +120,38 @@ damage and curved negative stiffness remain outside its estimate. A new
 recipient project must record and compare the generated mass, then test
 the response; it cannot inherit the old full run's timing or physical claims.
 
+The source implementation passed 109 targeted checks and the independent
+source-built native installation passed 76 related checks. The original
+255,041-cell project now prepares through ordinary `agentfem run` without an
+inertia-file input. Preparation took 21.4 seconds on the development host;
+this is not a transferable performance promise. The new reference estimate
+changes the mass distribution (total numerical mass about 2.2% below the
+retained experiment), so old results are not relabelled as new acceptance.
+
+Fresh continuous and interrupted/resumed runs at 1,200 increments agreed
+exactly on all 385 checked accepted-state/metadata leaves, including material
+and contact state. This is same-installation recovery evidence, not a promise
+of bitwise agreement across compilers or hardware.
+
+At the initial physical station 0.0006 s, halving the time increment while
+holding generated mass fixed gave relative L2 changes of about 0.020% in
+displacement, 0.58% in stress and 0.0061% in the moving-tool force histories.
+Acceleration changed about 20.4%; the predeclared all-channel 2% screening
+therefore **failed**. Do not weaken that recorded check or describe the path
+as time-converged. This prefix does not exercise the full damage evolution.
+
+A separate same-time-grid experiment reduced the generated added-mass ratio
+from 750.74 to 187.78, without changing density, material law or the prescribed
+motion. At this same initial station the stress and moving-tool force histories
+changed by about 56% and 46% respectively (maximum absolute stress change
+0.00562 and resultant change 0.128 in the declared model units). This also
+fails the screening, and is not evidence that mass scaling is negligible.
+Early forces are small and damage is not yet exercised: retain both absolute
+and relative changes, then assess representative loaded stations before any
+quasi-static or whole-path claim. Full installed-run acceptance remains open.
+The core implementation is a candidate, not an announcement of completed
+reproduction.
+
 [Abaqus mass-scaling documentation](https://docs.software.vt.edu/abaqusv2025/English/SIMACAEANLRefMap/simaanl-c-massscaling.htm)
 distinguishes fixed and variable scaling, and requires checking inertial effects.
 AgentFEM keeps the same separation between a declared numerical strategy and

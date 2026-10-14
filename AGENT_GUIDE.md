@@ -172,7 +172,8 @@ never changes solver access, results, verification, or update behavior.
 - Assembly or lumped operators: inspect `assembly.py`.
 - Time stepping: inspect `time/` and `problems.py`.
   For the serial response-Hex route use `mass_scaling=FixedMassScaling(...)`
-  or `TargetIncrementMassScaling(...)` instead of generating nodal arrays in a
+  or `InitialMassScaling(...)` (reference estimate), or
+  `TargetIncrementMassScaling(...)` instead of generating nodal arrays in a
   case. Target planning requires a reviewed bound provider and a mass budget.
   Never fill a missing contact/hourglass/damping contribution with zero merely
   to satisfy its coverage check. Never infer path stability from a single
