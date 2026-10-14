@@ -41,3 +41,25 @@ remain executable during 0.2.x, but new cases use the canonical vocabulary.
 The skill complements the machine-readable `/agentfem.json` manifest and
 scientific `src/agentfem/knowledge/catalog.json`; it does not replace the public API or the
 solver's deterministic checks.
+
+## Performance and reproducible delivery
+
+The optional companion skill
+[`skills/agentfem-performance/SKILL.md`](https://github.com/haoming-luo/agentfem/blob/main/skills/agentfem-performance/SKILL.md)
+guides performance investigation, fast-path migration and reproducible project
+delivery. Keep its `references/` directory with it. Install the complete
+`skills/agentfem-performance/` directory in a supported skill location using
+the same copy-or-link approach above. The repository is the versioned source;
+refresh local copies deliberately when updating, preserving local changes.
+
+It distinguishes unchanged-algorithm comparisons from new-method accuracy
+studies and hardware tuning. Past worker counts, step counts and timings are
+not universal requirements. It contains no private meshes or material laws.
+
+Both skills are development guidance distributed under the repository's
+Apache-2.0 license, not numerical libraries or runtime dependencies. An ordinary
+prepared project runs through the installed AgentFEM program without a skill,
+an AI account or an agent editing its files during the solve. Record the actual
+runtime and test the documented launch command before claiming that a particular
+delivery supports it; a custom launcher is not evidence that `agentfem run`
+has been accepted for that delivery.
