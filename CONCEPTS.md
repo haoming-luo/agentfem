@@ -646,6 +646,14 @@ while sharing state-transition and restart semantics.
 
 ## Time Integrator
 
+Numerical mass scaling is a Procedure policy, not a new material density.
+`time.FixedMassScaling` declares factors and an added-mass budget;
+`time.TargetIncrementMassScaling` computes factors from provider-supplied named
+operator majorants. The owning State retains accepted mass, artificial energy
+and momentum inputs, rollback and restart. Bound-provider identity and coverage
+are explicit. A target increment is not a nonlinear stability certificate or
+a claim that altered inertia preserves the physical response.
+
 A time integrator advances a transient state according to a named numerical
 method. AgentFEM provides implicit Newmark and generalized-alpha descriptions
 for linear structural dynamics and

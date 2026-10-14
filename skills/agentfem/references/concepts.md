@@ -67,6 +67,10 @@
 - Explicit dynamics integrator: time integrator such as
   `time.explicit.central_difference(...)`; central difference is Newmark with
   beta=0 and gamma=1/2.
+- Mass-scaling policy: explicit numerical inertia control, not material
+  density. Operators supply valid stiffness/damping bounds; Procedure selects
+  evaluation cadence; State owns accepted mass, artificial energy/momentum,
+  rollback and restart. Successful planning is not a stability/accuracy proof.
 - Modal analysis: constrained generalized Hermitian eigensolve
   \(K\phi=\omega^2M\phi\); strong prescribed degrees of freedom are removed
   before solving and each accepted mode retains a relative residual.

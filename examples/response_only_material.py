@@ -36,7 +36,7 @@ def user_elastic_material():
         identity={'example_law':'saint_venant_kirchhoff','lambda':lam,'mu':mu,'revision':1},density=1.)
 
 
-def build(*, checkpoint=None):
+def build(*, checkpoint=None, output=None, mass_scaling=None):
     domain = dmesh.create_unit_cube(MPI.COMM_SELF,2,2,2,cell_type=dmesh.CellType.hexahedron)
     model = models.create(study=studies.dynamic_solid(dimension=3),mesh=domain)
     u = model.field(fields.displacement(domain))
@@ -53,7 +53,7 @@ def build(*, checkpoint=None):
         kinematics='finite_strain',hourglass_modulus=3.,hourglass_scale=.1),dt=.001,steps=10,
         time_increment_ceiling=.001,stress_free_initial_state=True,
         material_storage='owned_arrays',history_every=1,progress=False,
-        checkpoint=checkpoint)
+        checkpoint=checkpoint, output=output, mass_scaling=mass_scaling)
 
 
 def main():
@@ -61,7 +61,8 @@ def main():
     parser.add_argument('--output',type=Path,required=True)
     args=parser.parse_args()
     args.output.mkdir(parents=True,exist_ok=False)
-    step=build(checkpoint=checkpointing.every(5, directory=args.output/'checkpoints'))
+    step=build(checkpoint=checkpointing.every(5, directory=args.output/'checkpoints', keep_last=2),
+               output=args.output/'fields.xdmf')
     journal=results.AcceptedHistoryJournal(args.output/'history.jsonl')
     step.solve_result(progress=journal.reporter(step, every=2))
     record=step.accepted_material_fields()

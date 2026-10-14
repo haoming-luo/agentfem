@@ -171,6 +171,12 @@ never changes solver access, results, verification, or update behavior.
 - Absorbing or Robin-like terms: use `boundary_models/`.
 - Assembly or lumped operators: inspect `assembly.py`.
 - Time stepping: inspect `time/` and `problems.py`.
+  For the serial response-Hex route use `mass_scaling=FixedMassScaling(...)`
+  or `TargetIncrementMassScaling(...)` instead of generating nodal arrays in a
+  case. Target planning requires a reviewed bound provider and a mass budget.
+  Never fill a missing contact/hourglass/damping contribution with zero merely
+  to satisfy its coverage check. Never infer path stability from a single
+  initial elastic tangent. An NPZ from another geometry is not a mass policy.
 - Time histories: define reusable assets in `amplitudes.py`, register important
   histories with `model.amplitude("name", history)`, and reference the name
   from loads or prescribed data. Static single-solve, nonlinear normalized

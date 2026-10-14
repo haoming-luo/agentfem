@@ -82,7 +82,13 @@ def _cell_topology(grid, expected_dimension=None):
     return {"cell_types": types, "cell_dimensions": dimensions}
 
 
-def check(path, vector, scale=1., cell_dimension=None):
+def _frame_time(times, frame):
+    if frame not in ('first', 'last'):
+        raise ValueError('Frame must be first or last.')
+    return float(times[0 if frame == 'first' else -1]) if times else 0.
+
+
+def check(path, vector, scale=1., cell_dimension=None, *, frame='first'):
     from paraview import servermanager
     from paraview.simple import OpenDataFile, WarpByVector, Delete
     from vtkmodules.util.numpy_support import vtk_to_numpy
@@ -98,7 +104,7 @@ def check(path, vector, scale=1., cell_dimension=None):
         times = _reader_times(getattr(source, "TimestepValues", ()))
         # A continuation segment may begin at t>0. The pipeline default of
         # zero is not necessarily a saved frame and may omit its attributes.
-        selected_time = float(times[0]) if times else 0.
+        selected_time = _frame_time(times, frame)
         source.UpdatePipeline(time=selected_time)
         grids = list(leaves(servermanager.Fetch(source)))
         if len(grids) != 1:
@@ -129,6 +135,7 @@ def check(path, vector, scale=1., cell_dimension=None):
                 **topology, "expected_cell_dimension": cell_dimension,
                 "vector": vector, "scale": scale,
                 "checked_time": selected_time, "available_times": times,
+                "maximum_vector_component": float(np.max(np.abs(values))),
                 "maximum_coordinate_error": error,
                 "scope": "presentation only; not scientific validation"}
     finally:
@@ -145,9 +152,11 @@ if __name__ == "__main__":
     parser.add_argument("--cell-dimension", type=int, choices=(1, 2, 3),
                         help="Reject accidental shells/surfaces for a volume result, or vice versa")
     parser.add_argument("--output", type=Path)
+    parser.add_argument("--frame", choices=('first', 'last'), default='first',
+                        help="Use last to check actual deformation, not just the initial frame")
     args = parser.parse_args()
     try:
-        report = check(args.path, args.vector, args.scale, args.cell_dimension)
+        report = check(args.path, args.vector, args.scale, args.cell_dimension, frame=args.frame)
     except Exception as error:
         report = {"schema": "agentfem.paraview-warp-check.v1", "passed": False,
                   "path": str(args.path.resolve()),

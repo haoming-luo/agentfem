@@ -8,12 +8,16 @@ model assets are rejected before any numerical state is allocated.
 """
 from dataclasses import fields as dataclass_fields
 import math
+from os import PathLike
 
 from ._transient_problems import ExplicitDynamicsStep
 
 
 class ResponseMaterialHexStep(ExplicitDynamicsStep):
     def run(self, *args, **kwargs):
+        if self.substep_policy is not None and (kwargs.get('history') or self.history_requests):
+            raise NotImplementedError(
+                "Response substeps currently require the built-in accepted energy ledger only")
         if self.contact_execution == 'overlap':
             with self.deformable_residual.overlap_execution():
                 return super().run(*args, **kwargs)
@@ -60,6 +64,7 @@ class ResponseMaterialHexStep(ExplicitDynamicsStep):
                 "operator_increment_ceilings": dict(self.operator_increment_ceilings),
                 "stability_scope": "caller_increment_ceiling_not_stability_proof",
                 "numerical_inertia": None if self.numerical_inertia is None else self.numerical_inertia.summary(),
+                "mass_scaling_policy": None if self.mass_scaling_policy is None else self.mass_scaling_policy.summary(),
                 "execution_kernel": None if self.execution_kernel is None else self.execution_kernel.summary(),
                 "substeps": None if self.substep_policy is None else self._substeps.summary(),
                 "energy_scope": "accepted_internal_work_not_stored_energy"}
@@ -116,11 +121,11 @@ def lower(model, request):
     for name in ("K", "F", "material", "solver_options", "constraints"):
         if options.pop(name, None) is not None:
             raise ValueError(f"Response-only Hex8 does not accept {name}")
-    for name in ("output", "history"):
-        if options.pop(name, None) is not None:
-            raise NotImplementedError(
-                f"Response-only Hex8 does not yet lower declarative {name}; "
-                "use explicit accepted-state export and the built-in energy ledger")
+    # Common completion owns output/history; never create a second writer here.
+    output = options.pop("output", None)
+    if output is not None and not isinstance(output, (str, PathLike)):
+        raise TypeError("Transient output must be an XDMF path")
+    history_requests = options.pop("history", None)
     dt = options.pop("dt")
     if isinstance(dt, (str, bool)):
         raise ValueError("Response-only Hex8 needs a numerical dt, never dt='auto'")
@@ -146,6 +151,12 @@ def lower(model, request):
         raise ValueError("Explicit stress-free initial-state declaration is required")
     viscosity = options.pop("bulk_viscosity", None)
     inertia_factor = options.pop("mass_scaling_factor", None)
+    scaling_policy = options.pop("mass_scaling", None)
+    if scaling_policy is not None:
+        if not isinstance(scaling_policy, (time.FixedMassScaling, time.TargetIncrementMassScaling)):
+            raise TypeError("mass_scaling requires a declared mass-scaling policy")
+        if inertia_factor is not None:
+            raise ValueError("Use mass_scaling or mass_scaling_factor, not both")
     execution_kernel = options.pop("execution_kernel", None)
     storage = options.pop("material_storage", "fields")
     if storage not in ("fields", "owned_arrays"):
@@ -153,6 +164,8 @@ def lower(model, request):
     substeps = options.pop("substep_policy", None)
     if substeps is not None and not isinstance(substeps, time.ExplicitSubstepPolicy):
         raise TypeError("substep_policy requires ExplicitSubstepPolicy")
+    if substeps is not None and history_requests:
+        raise NotImplementedError("Response substeps currently require the built-in accepted energy ledger only")
     trace_policy = options.pop("contact_trace_policy", boundary_models.RigidContactTracePolicy())
     if not isinstance(trace_policy, boundary_models.RigidContactTracePolicy):
         raise TypeError("contact_trace_policy requires RigidContactTracePolicy")
@@ -194,12 +207,23 @@ def lower(model, request):
             from .time._scaled_inertia import FixedScaledInertia
             numerical_inertia = FixedScaledInertia(internal.mass_diagonal, factor=inertia_factor)
             numerical_inertia.validate_state(history)
+        if scaling_policy is not None:
+            from .time.mass_scaling import _lower_mass_scaling
+            numerical_inertia = _lower_mass_scaling(
+                scaling_policy, internal, history, dt=dt,
+                stiffness_names=("body", "hourglass")
+                    + (("cohesive",) if cohesive is not None else ())
+                    + tuple(f"rigid_contact:{pair.name}" for pair in pairs)
+                    + tuple(f"deformable_contact:{pair.name}" for pair in deformable),
+                damping_names=("bulk_viscosity",) if viscosity is not None else ())
+            numerical_inertia.validate_state(history)
         inertia = internal if numerical_inertia is None else numerical_inertia
         residual = ResponseHexExplicitResidual(internal, material,
             time_increment_ceiling=roles['body'], material_identity={**material.summary(),
                 "operator_increment_ceilings": roles,
                 "execution_kernel": None if execution_kernel is None else execution_kernel.summary(),
                 "material_storage": storage,
+                **({"mass_scaling_policy": scaling_policy.summary()} if scaling_policy is not None else {}),
                 "substep_policy": None if substeps is None else substeps.summary(),
                 "contact_trace_policy": trace_policy.summary(), "bond_contact_policy": overlap_policy},
             stress_free_initial_state=True, bulk_viscosity=viscosity,
@@ -242,12 +266,14 @@ def lower(model, request):
             residual=residual, dt=dt, study=model.study,
             history_monitor=fracture.DynamicEnergyLedger(energy=ResponseHexWorkMonitor(
                 material_residual, numerical_inertia=numerical_inertia),
-                state=history, mass=inertia.mass_diagonal, residual=residual), **options)
+                state=history, mass=(inertia if hasattr(inertia, "prepare_increment")
+                                     else inertia.mass_diagonal), residual=residual), **options)
         step = ResponseMaterialHexStep(**{f.name: getattr(base, f.name)
                                          for f in dataclass_fields(base) if f.init})
         step.element_policy = policy
         step.material_residual = material_residual
         step.numerical_inertia = numerical_inertia
+        step.mass_scaling_policy = scaling_policy
         step.execution_kernel = execution_kernel
         step.material_storage = storage
         step.contact_execution = contact_execution

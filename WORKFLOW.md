@@ -286,6 +286,14 @@ neighbor-collective scalability claim.
 
 ## Design Principle
 
+For admitted response-only Explicit Hex8 cases, declare numerical inertia with
+`model.step(mass_scaling=time.FixedMassScaling(...))` or a
+`time.TargetIncrementMassScaling` bound-provider policy. Do not make a previous
+case's nodal-factor NPZ a prerequisite for a new mesh. Core combines named
+operator bounds, enforces the explicit mass budget and owns State; providers
+remain responsible for the validity of their material/contact bounds. See
+`docs/response_material_workflow.md` for the experimental scope.
+
 For long custom transient loops, use `results.AcceptedHistoryJournal` when
 repeatedly rewriting the accumulated JSON history dominates reporting. Append
 new accepted stations through `append_records`, then publish the returned tip

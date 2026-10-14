@@ -106,12 +106,32 @@ def test_no_auto_dt_or_silent_load_drop():
     assert not model.steps
 
 
-@pytest.mark.parametrize('name,error,pattern', (
-    ('output', NotImplementedError, 'does not yet lower declarative'),
-    ('history', TypeError, 'Unsupported Step option')))
-def test_no_silent_declarative_observer_drop(name, error, pattern):
-    with pytest.raises(error, match=pattern):
-        make_step(**{name: {}})
+def test_invalid_declarative_output_fails_before_execution():
+    with pytest.raises(TypeError, match='XDMF path'):
+        make_step(output={})
+
+
+def test_declarative_output_and_history_use_common_lifecycle(tmp_path):
+    import h5py
+    import xml.etree.ElementTree as ET
+    from agentfem import results
+    path = tmp_path / 'declared.xdmf'
+    request = results.history('displacement_mean',
+        lambda step, t: float(step.state.u.value.x.array[::3].mean()))
+    step = make_step(output=path, history=(request,), save_every=2)
+    result = step.solve_result()
+    assert result is not None and path.is_file()
+    assert step.history_records[-1]['displacement_mean'] == pytest.approx(4e-6)
+    grids = ET.parse(path).findall('.//Grid[@GridType="Uniform"]')
+    assert len(grids) == 3  # initial, second and fourth accepted increments
+    with h5py.File(path.with_suffix('.h5'), 'r') as h5:
+        for grid in grids:
+            assert grid.find('Topology').attrib['TopologyType'] == 'Hexahedron'
+            vectors = [a for a in grid.findall('Attribute') if a.attrib['AttributeType'] == 'Vector']
+            assert len(vectors) == 3
+            for a in vectors:
+                dataset = a.find('DataItem').text.strip().split(':', 1)[1]
+                assert h5[dataset].shape == (8, 3)
 
 
 def contact_step(bond=False, cylinder=False, **options):

@@ -101,6 +101,47 @@ numerical inertia, not physical material density. Restart verifies inertia
 identity; changing nodal order or scaling is not a portable continuation.
 The summary records added mass. A successful scaled run does not establish
 quasi-static accuracy or mass sensitivity.
+
+For new cases prefer the explicit numerical policy:
+
+```python
+mass_scaling = time.FixedMassScaling(factor=2.0, maximum_added_mass_ratio=1.1)
+# Pass mass_scaling=mass_scaling to model.step(...).
+```
+
+The numbers above illustrate the interface, not a universal recommended mass.
+`time.TargetIncrementMassScaling(target_increment=..., bounds=provider,
+identity={...}, maximum_added_mass_ratio=...)` instead computes nodal factors
+from `MassScalingBounds(stiffness={...}, damping={...})`. Its immutable
+`MassScalingRequest` provides physical nodal masses, reference coordinates,
+cell-to-node layout, accepted displacement/velocity, current factors, time and
+the exact required contribution names. There is no precomputed-file dependency.
+The provider is trusted deterministic code and must supply all named body,
+hourglass, cohesive, contact and damping contributions applicable to the Step.
+The code validates coverage and arrays, not the mathematical correctness of a
+user's estimate. Bounds are unscaled diagonal majorants for symmetric PSD
+stiffness and lagged damping, not previously mass-scaled eigenvalues. A user
+material's initial elastic stiffness need not bound a damaged nonlinear path.
+
+`update_every=None` plans once before execution. A positive integer updates at
+macro increments `1, 1+n, ...` in the existing transaction; substep retries do
+not shift this schedule. The provider must cover evolution between evaluations.
+Mass never decreases, and a budget breach rejects rather than silently clips
+the proposal. Velocity remains unchanged and the artificial energy/momentum
+inputs are recorded separately from external work. Restart checks provider,
+policy and layout identity. This is serial and not partition-portable.
+`dt` remains explicit and cannot exceed the target used for planning. A policy
+neither selects the time step nor proves physical accuracy or full-path
+stability. Do not combine `mass_scaling` with legacy `mass_scaling_factor`.
+
+Ordinary completion now accepts
+`model.step(..., output="fields.xdmf", history=(request,)).solve_result()`.
+The existing writer owns connectivity and attaches U/V/A to one grid per time;
+additional material fields still require explicitly named accepted-state data.
+Substep retry remains limited to the built-in energy ledger; custom history
+requests with substeps are rejected. Final-only output does not reconstruct an
+animation of increments that were not stored.
+
 Inspect the accepted loading history, not only the final kinetic-energy ratio:
 a small endpoint value can hide substantial intermediate inertia. Numerical
 kinetic energy belongs in the dynamic balance; its physical-mass and added-

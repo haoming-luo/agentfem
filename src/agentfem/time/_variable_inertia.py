@@ -23,6 +23,7 @@ class VariableScaledInertia:
         policy_identity,
         maximum_added_mass_ratio,
         block_size=3,
+        update_every=1,
     ):
         if (
             not callable(policy)
@@ -39,6 +40,10 @@ class VariableScaledInertia:
             raise ValueError(
                 "Variable mechanical inertia requires two or three components."
             )
+        if (isinstance(update_every, (bool, np.bool_))
+                or not isinstance(update_every, (int, np.integer)) or update_every < 1):
+            raise ValueError("update_every must be a positive integer.")
+        self.update_every = int(update_every)
         self._initial = FixedScaledInertia(
             physical_mass_diagonal, factor=1.0, block_size=block_size
         )
@@ -51,6 +56,7 @@ class VariableScaledInertia:
                 "physical": self._initial.identity,
                 "policy": policy_identity,
                 "maximum_added_mass_ratio": limit,
+                **({"update_every": self.update_every} if self.update_every != 1 else {}),
             }
         )
         self.energy_input = 0.0
@@ -117,6 +123,10 @@ class VariableScaledInertia:
             raise ValueError(
                 "Variable inertia requires consecutive accepted increments and valid time."
             )
+        if (increment - 1) % self.update_every:
+            # No policy call or full nodal copies between declared stations.
+            self.last_increment = int(increment)
+            return
         displacement = unwrap(state.u).x.array.copy()
         velocity = unwrap(state.v).x.array.copy()
         displacement.flags.writeable = velocity.flags.writeable = False
@@ -271,4 +281,5 @@ class VariableScaledInertia:
             "numerical_inertia_momentum_input": self.momentum_input.tolist(),
             "numerical_inertia_angular_momentum_input": self.angular_momentum_input.tolist(),
             "automatic_stability_certificate": False,
+            "update_every": self.update_every,
         }

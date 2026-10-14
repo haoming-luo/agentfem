@@ -4,7 +4,16 @@
 import numpy as np
 import pytest
 
-from tools.check_paraview_warp import _cell_topology, _reader_times, _warp_error
+from tools.check_paraview_warp import _cell_topology, _frame_time, _reader_times, _warp_error
+
+
+def test_final_frame_does_not_silently_check_undeformed_initial_state():
+    assert _frame_time([0., .1], 'last') == .1
+    assert _frame_time([0., .1], 'first') == 0.
+    assert _frame_time([.7], 'last') == .7
+    assert _frame_time([], 'last') == 0.
+    with pytest.raises(ValueError, match='Frame'):
+        _frame_time([0., .1], 'middle')
 
 
 @pytest.mark.parametrize('raw,expected', [

@@ -19,6 +19,9 @@ from ..input_effects import (
 )
 from .runtime import ProgressPrinter, TimeStep, TimeStepper, format_duration
 from .substeps import ExplicitSubstepPolicy
+from .mass_scaling import (
+    FixedMassScaling, TargetIncrementMassScaling, MassScalingBounds, MassScalingRequest,
+)
 from .stability import (
     ExplicitStabilityContribution,
     ExplicitStabilityEstimate,
@@ -26,6 +29,10 @@ from .stability import (
 )
 
 __all__ = [
+    "FixedMassScaling",
+    "TargetIncrementMassScaling",
+    "MassScalingBounds",
+    "MassScalingRequest",
     "ExplicitSubstepPolicy",
     "ProgressPrinter",
     "TimeStep",
