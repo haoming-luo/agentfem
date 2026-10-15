@@ -6,6 +6,7 @@
 from importlib import import_module as _import_module
 from .xdmf_layout import consolidate_xdmf_fields
 from .cell_data import cell_field_from_values
+from .comparison import compare_records
 
 from .core import (
     CheckpointRecord,
@@ -155,6 +156,7 @@ def __getattr__(name: str):
 
 
 __all__ = [
+    "compare_records",
     "cell_field_from_values",
     "consolidate_xdmf_fields",
     "CheckpointRecord",

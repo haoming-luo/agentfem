@@ -139,7 +139,7 @@ def _record_path(value: str | None, project_path: str | None) -> Path:
     return selected
 
 
-def _check_project(project: ProjectConfig) -> dict[str, object]:
+def _check_project(project: ProjectConfig, *, runtime: bool = False) -> dict[str, object]:
     errors = list(project.check())
     storage = project.summary()["storage"]
     warnings = tuple(
@@ -158,6 +158,12 @@ def _check_project(project: ProjectConfig) -> dict[str, object]:
         message = f"{item.code}: {item.message}"
         if not any(item.message in existing for existing in errors):
             errors.append(message)
+    runtime_record = None
+    if runtime:
+        runtime_report = platforms.runtime_report()
+        runtime_record = runtime_report.summary()
+        if not runtime_report.solver_ready:
+            errors.append("AFM-PREFLIGHT-RUNTIME: Numerical runtime is not ready. Run agentfem doctor.")
     return {
         "schema": "agentfem.project-check",
         "schema_version": "0.1.0",
@@ -166,6 +172,9 @@ def _check_project(project: ProjectConfig) -> dict[str, object]:
         "syntax": syntax,
         "errors": errors,
         "warnings": warnings,
+        "runtime": runtime_record,
+        "scope": "structure_syntax_and_runtime" if runtime else "structure_and_syntax_only",
+        "model_executed": False,
         "upgrade_status": upgrade.status,
         "upgrade_findings": tuple(
             item.as_dict(root=project.root) for item in upgrade.findings
@@ -177,6 +186,10 @@ def _format_check(record: dict[str, object]) -> str:
     if record["status"] != "passed":
         return "Project check failed:\n" + "\n".join(record["errors"])
     text = "Project check passed."
+    text += "\nScope: project structure and syntax" + (
+        "; numerical runtime checked." if record.get("runtime") is not None
+        else "; runtime not checked (use --runtime).")
+    text += "\nNo model executed; mesh, material and solver compatibility require model validation."
     if record["upgrade_status"] != "current":
         count = len(record["upgrade_findings"])
         text += (
@@ -486,11 +499,13 @@ def _command_run(args) -> int:
     return 1 if status == "failed" else 0
 
 
-def _command_inspect(args) -> int:
-    selected = _record_path(args.path, args.project)
+def _load_record(value, project_path=None):
+    selected = _record_path(value, project_path)
     if not selected.is_file():
         raise FileNotFoundError(f"No inspectable AgentFEM record found at {selected}.")
     record = json.loads(selected.read_text(encoding="utf-8"))
+    if not isinstance(record, dict):
+        raise ValueError("AFM-RECORD-FORMAT: expected a JSON object")
     if record.get("schema") == "agentfem.latest-run":
         latest = record
         target = Path(str(record.get("result_manifest", ""))).expanduser()
@@ -499,6 +514,8 @@ def _command_inspect(args) -> int:
         if target.is_file():
             selected = target
             record = json.loads(target.read_text(encoding="utf-8"))
+            if not isinstance(record, dict):
+                raise ValueError("AFM-RECORD-FORMAT: expected a JSON object")
             # Inspecting ``latest`` returns the scientific result, but run
             # identity remains part of that answer.  This keeps humans,
             # automation and release acceptance from having to reopen the
@@ -506,8 +523,52 @@ def _command_inspect(args) -> int:
             for name in ("run_id", "run_name", "run_number", "directory_name"):
                 if latest.get(name) is not None:
                     record.setdefault(name, latest[name])
+    if not isinstance(record, dict):
+        raise ValueError("AFM-RECORD-FORMAT: expected a JSON object")
+    return record, selected
+
+
+def _command_inspect(args) -> int:
+    record, selected = _load_record(args.path, args.project)
+    if getattr(args, "files", False):
+        files = []
+        artifacts = record.get("artifacts", {})
+        if not isinstance(artifacts, dict) or any(not isinstance(v, str) or not v for v in artifacts.values()):
+            raise ValueError("AFM-RECORD-ARTIFACTS: expected named file paths")
+        for name, value in artifacts.items():
+            path = Path(value).expanduser()
+            path = path if path.is_absolute() else selected.parent / path
+            files.append({"name": name, "path": str(path.resolve()), "exists": path.is_file()})
+        record = {"schema": "agentfem.result-files", "schema_version": "0.1.0", "record": str(selected), "files": files}
+        human = "Result files (keep XDMF and its HDF5 companions together):\n" + (
+            "\n".join(f"  {'OK' if f['exists'] else 'MISSING'}  {f['path']}" for f in files)
+            or "  No artifacts recorded. Use agentfem show for execution status.")
+        _emit(record, as_json=args.json, human=human)
+        return 2 if any(not f["exists"] for f in files) else 0
     _emit(record, as_json=args.json, human=presentation.format_record(record, selected))
     return 0
+
+
+def _command_compare(args) -> int:
+    from .results.comparison import compare_records
+    reference, left = _load_record(args.reference, args.project)
+    candidate, right = _load_record(args.candidate, args.project)
+    record = compare_records(reference, candidate, quantities=args.quantity,
+                             histories=args.history, atol=args.atol, rtol=args.rtol)
+    record.update(reference=str(left), candidate=str(right))
+    lines = [f"Result comparison: {record['status']}"]
+    for check in record["checks"]:
+        if "maximum_absolute_error" in check:
+            relative = check["relative_l2_error"]
+            relative_text = f"{relative:.6g}" if relative is not None else "unavailable (zero reference)"
+            lines.append(f"  {check['name']}: {check['status']} | "
+                         f"max abs: {check['maximum_absolute_error']:.6g} {check['unit']} | "
+                         f"relative L2: {relative_text}")
+        else:
+            lines.append(f"  {check['name']}: {check['code']} — {check['message']}")
+    lines.append("Selected observables only; this does not promote scientific trust or compare fields.")
+    _emit(record, as_json=args.json, human="\n".join(lines))
+    return 0 if record["status"] == "within_tolerance" else 2
 
 
 def _command_runs(args) -> int:
@@ -847,6 +908,7 @@ def build_parser() -> argparse.ArgumentParser:
     check = sub.add_parser("check", help="Check project structure and Python syntax without solving.")
     check.add_argument("--project")
     check.add_argument("--json", action="store_true")
+    check.add_argument("--runtime", action="store_true", help="Also check the numerical runtime; never execute case.py.")
 
     upgrade = sub.add_parser(
         "upgrade",
@@ -894,6 +956,17 @@ def build_parser() -> argparse.ArgumentParser:
     show.add_argument("path", nargs="?", default="latest")
     show.add_argument("--project")
     show.add_argument("--json", action="store_true")
+    show.add_argument("--files", action="store_true", help="List resolved artifact paths and missing files without opening applications.")
+
+    compare = sub.add_parser("compare", help="Compare selected result quantities or histories, without modifying results.")
+    compare.add_argument("reference")
+    compare.add_argument("candidate")
+    compare.add_argument("--project")
+    compare.add_argument("--quantity", action="append", default=[])
+    compare.add_argument("--history", action="append", default=[])
+    compare.add_argument("--atol", type=float, required=True, help="Absolute tolerance in each selected observable's declared unit.")
+    compare.add_argument("--rtol", type=float, default=0.0)
+    compare.add_argument("--json", action="store_true")
 
     runs = sub.add_parser("runs", help="List recent runs for the current project.")
     runs.add_argument("--project")
@@ -1090,7 +1163,7 @@ def _dispatch(argv: list[str] | None = None) -> int:
             _emit(record, as_json=args.json, human=f"Created AgentFEM project: {target}\nNext: cd {target} && agentfem check && agentfem run")
             return 0
         if args.command == "check":
-            record = _check_project(_project(args.project))
+            record = _check_project(_project(args.project), runtime=args.runtime)
             _emit(record, as_json=args.json, human=_format_check(record))
             return 0 if record["status"] == "passed" else 2
         if args.command == "upgrade":
@@ -1107,6 +1180,8 @@ def _dispatch(argv: list[str] | None = None) -> int:
             return _command_inspect(args)
         if args.command == "show":
             return _command_inspect(args)
+        if args.command == "compare":
+            return _command_compare(args)
         if args.command == "runs":
             if args.limit <= 0:
                 parser.error("--limit must be positive")

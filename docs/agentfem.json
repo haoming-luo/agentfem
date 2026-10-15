@@ -46,6 +46,7 @@
     "mpi_run": "agentfem mpi-run -n 2 -- python case.py",
     "inspect": "agentfem inspect --json",
     "show_latest": "agentfem show latest --json",
+    "compare_results": "agentfem compare REFERENCE CANDIDATE --quantity NAME --atol 0 --json",
     "runs": "agentfem runs --json",
     "mesh_inspect": "agentfem inspect-mesh model.msh --json",
     "abaqus_inspect": "agentfem inspect-abaqus model.inp --json",

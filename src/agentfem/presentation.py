@@ -247,7 +247,11 @@ def format_result(record: Mapping[str, object], path: Path, *, maximum_quantitie
         lines.append("  fields: " + ", ".join(str(item) for item in fields))
     artifacts = record.get("artifacts", {})
     if isinstance(artifacts, Mapping) and artifacts:
-        lines.append("  files: " + ", ".join(sorted(str(value) for value in artifacts.values())))
+        paths = sorted(set(str(value) for value in artifacts.values()),
+                       key=lambda value: (Path(value).suffix not in (".xdmf", ".h5", ".vtu", ".pvd"), value))
+        lines.append("  files: " + ", ".join(paths[:6]))
+        if len(paths) > 6:
+            lines.append(f"  + {len(paths) - 6} more files; use agentfem show <record-or-run> --files")
     lines.append(f"  record: {path}")
     return "\n".join(lines)
 

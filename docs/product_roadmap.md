@@ -19,6 +19,25 @@ or a successful run is not by itself a validated engineering capability.
 
 ## Current product phase: the 0.4 foundation
 
+### Bounded usability sprint and return to physics (2026-10-15)
+
+The usability scope is runtime-aware non-executing project checks, discoverable
+result files, explicit observable comparison, concise terminal summaries and an
+installed real-FEM heat campaign template. See [workflow usability](workflow_usability.md).
+It reuses Project, SimulationResult and Campaign rather than introducing another
+workflow. Field remapping, a GUI and automatic scientific certification are not
+part of this sprint.
+
+The next scientific lane is composability of contact, friction and history
+materials: first audit the existing supported combinations and their accepted
+state, work/dissipation and restart contracts; then close one demonstrated gap
+with a small general benchmark. Coulomb state, moving tools and explicit friction
+already exist below; do not rebuild them. Damage coupling must preserve material
+energy semantics and failure rollback, not inherit validation from elastic
+friction tests. Keep bounded thermoelastic coupling as a maintained capability,
+not a new open-ended rewrite. Shell/solid-shell forming, self-contact and broad
+industrial validation remain feedback-driven longer-term work.
+
 ### Installed explicit workflow and delivery gate (2026-10-14)
 
 The bounded serial response-only Hex8 workflow has progressed from its private
