@@ -547,7 +547,7 @@ and evidence remain in the linked guides and scientific function reference.
 | function | `cell_field_from_values(domain, values, *, name, cell_keys = None)` | Create a detached DG0 field from one scalar/vector/tensor per cell. |
 | function | `compare_records(reference: Mapping, candidate: Mapping, *, quantities: Sequence[str] = (), histories: Sequence[str] = (), atol: float = 0.0, rtol: float = 0.0) -> dict` | Compare selected observables with explicit componentwise tolerances. |
 | class | `AcceptedResponseSeries(path, *, state_fields = None, velocity = False, acceleration = False, units = None)` | Streaming accepted fields; fixed mesh stored once, never a restart archive. |
-| function | `export_accepted_response(step, directory, *, state_fields = None, velocity = False, acceleration = False, units = None)` | Export one accepted response, raw state and cell keys. |
+| function | `export_accepted_response(step, directory, *, state_fields = None, velocity = False, acceleration = False, units = None, visualization = True)` | Export one accepted response, raw state and cell keys. |
 | class | `CheckpointRecord` | One restart asset with an explicit portability boundary. |
 | class | `FieldResult` | A named live field or an external field artifact. |
 | class | `HistoryResult` | Time, load, or iteration history with a fixed value shape. |

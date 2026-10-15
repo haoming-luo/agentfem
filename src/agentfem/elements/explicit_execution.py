@@ -64,15 +64,19 @@ class ExplicitHexBodyOutput:
             object.__setattr__(self, name, _array(getattr(self, name), shape, name))
         if np.any(self.hourglass_energy < 0):
             raise ValueError("Hourglass stabilization energy must be nonnegative")
-        records = []
-        for name in ('first_piola_stress', 'internal_force', 'hourglass_energy'):
-            value = getattr(self, name)
-            owner = value
-            while isinstance(owner, np.ndarray):
-                owner = owner.base
-            records.append((name, value, owner, value.shape, value.strides,
-                            value.dtype.str, value.ctypes.data))
-        object.__setattr__(self, '_transport_stamp', (n, tuple(records)))
+        object.__setattr__(self, '_transport_stamp', _body_transport_stamp(self))
+
+
+def _body_transport_stamp(output):
+    records = []
+    for name in ('first_piola_stress', 'internal_force', 'hourglass_energy'):
+        value = getattr(output, name)
+        owner = value
+        while isinstance(owner, np.ndarray):
+            owner = owner.base
+        records.append((name, value, owner, value.shape, value.strides,
+                        value.dtype.str, value.ctypes.data))
+    return output.material_response.point_count, tuple(records)
 
 
 def _owned_body_output(output, response):

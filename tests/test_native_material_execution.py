@@ -8,6 +8,44 @@ from agentfem.constitutive.material_array_batch import MaterialPointArrayBatchIn
 from agentfem.constitutive.user_material import MaterialStateSchema, MaterialStateVariable
 
 
+@pytest.mark.parametrize('fault', ['stress', 'state', 'work', 'asymmetric', 'untouched', 'force_overflow'])
+@pytest.mark.parametrize('workers', [1, 3])
+def test_checked_worker_rejects_invalid_output_before_publication(fault, workers):
+    native = pytest.importorskip('agentfem._body_pipeline')
+    if not hasattr(native, 'run_checked'):
+        pytest.skip('requires newly built checked dispatcher')
+    real = ctypes.POINTER(ctypes.c_double)
+    abi = ctypes.CFUNCTYPE(None, ctypes.c_int, real, real, real, real,
+        ctypes.c_double, ctypes.c_double, real, real, real, ctypes.POINTER(ctypes.c_int))
+    schema = MaterialStateSchema('one', (MaterialStateVariable('q'),))
+    n = 37
+    f = np.tile(np.eye(3), (n, 1, 1))
+    request = MaterialPointArrayBatchInput(f, f, np.zeros((n, 1)), schema, 0., .001)
+    def reference(r):
+        return constitutive.ExplicitMaterialBatchOutput(np.zeros((r.point_count,3,3)),
+            np.zeros((r.point_count,1)), schema, np.zeros(r.point_count))
+    material = constitutive.explicit_user_material(state_schema=schema, update=reference,
+        identity={'test': fault}, density=1.)
+    def callback(count, f0, f1, old, props, dt, rho, stress, state, work, status):
+        if fault == 'untouched':
+            return
+        np.ctypeslib.as_array(stress, shape=(count*9,))[:] = 0.
+        np.ctypeslib.as_array(state, shape=(count,))[:] = 0.
+        np.ctypeslib.as_array(work, shape=(count,))[:] = 0.
+        if fault == 'stress': stress[0] = float('nan')
+        if fault == 'state': state[0] = float('nan')
+        if fault == 'work': work[0] = float('inf')
+        if fault == 'asymmetric': stress[1] = 1.
+        if fault == 'force_overflow': stress[0] = 1.e308
+    geometry = elements.ExplicitHexGeometry(np.full((n,8,3), 10.),
+        np.zeros((n,8,4)), np.ones(n), np.zeros(n))
+    with elements.native_explicit_hex_kernel(material, abi(callback), properties=[],
+            density=1., identity={'test': fault}, fallback=reference, workers=workers) as kernel:
+        with pytest.raises(ValueError, match='native material/body output'):
+            kernel.evaluate(material, request, geometry, np.zeros((n,8,3)))
+    np.testing.assert_array_equal(request.state_old, 0.)
+
+
 @pytest.mark.parametrize('width,n', [(1,19), (7,19), (31,19), (7,17003)])
 @pytest.mark.parametrize('workers', [1, 3])
 @pytest.mark.parametrize('reject', [False, True, 'single', 'all'])

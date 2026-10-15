@@ -11,6 +11,53 @@ from agentfem import boundary_models
 from agentfem import mesh as agent_mesh
 
 
+@pytest.mark.parametrize('topology', ['triangle', 'quadrilateral'])
+@pytest.mark.parametrize('integration', ['gauss', 'nodal_lumped'])
+def test_batched_linear_trace_matches_scalar_rule_and_keeps_coincident_owners(topology, integration):
+    from types import SimpleNamespace
+    from agentfem.boundary_models.dolfinx_contact_trace import (
+        _linear_trace_arrays, _TRIANGLE_DEGREE_TWO, _QUADRILATERAL_DEGREE_THREE,
+        _quadrilateral_shape_values, _quadrilateral_shape_derivatives,
+    )
+    width = 3 if topology == 'triangle' else 4
+    points = np.array([[0.,0.,0.], [1.,0.,0.], [0.,1.,0.], [1.,1.,.2]])[:width]
+    # More than one internal chunk; coincident bodies have separate node IDs.
+    count = 4101
+    coordinates = np.tile(points, (count, 1))
+    blocks = np.arange(count*width).reshape(count, width)
+    domain = SimpleNamespace(topology=SimpleNamespace(dim=3,
+        connectivity=lambda *_: SimpleNamespace(links=lambda facet: [facet])))
+    space = SimpleNamespace(dofmap=SimpleNamespace(list=blocks))
+    ids, nodes, shapes, weights = _linear_trace_arrays(domain, space,
+        np.arange(count), blocks, np.arange(count), count, topology=topology,
+        coordinates=coordinates, dof_coordinates=coordinates,
+        global_vertices=np.arange(count*width), tolerance=1.e-12, integration=integration)
+    if width == 3:
+        basis = _TRIANGLE_DEGREE_TWO
+        reference = np.full(3, np.linalg.norm(np.cross(points[1]-points[0], points[2]-points[0]))/6.)
+    else:
+        basis = np.array([_quadrilateral_shape_values(r,s) for r,s in _QUADRILATERAL_DEGREE_THREE])
+        reference = []
+        for r,s in _QUADRILATERAL_DEGREE_THREE:
+            dr,ds = _quadrilateral_shape_derivatives(r,s)
+            reference.append(.25*np.linalg.norm(np.cross(dr@points, ds@points)))
+        reference = np.array(reference)
+    if integration == 'nodal_lumped':
+        reference = basis.T@reference
+        basis = np.eye(width)
+    np.testing.assert_array_equal(nodes, np.repeat(blocks,width,axis=0))
+    np.testing.assert_array_equal(shapes,np.tile(basis,(count,1)))
+    np.testing.assert_allclose(weights,np.tile(reference,count),rtol=8*np.finfo(float).eps,atol=0.)
+    offset = count*width if integration == 'nodal_lumped' else 0
+    np.testing.assert_array_equal(ids,np.arange(count*width)+offset)
+    # A duplicate within the *same* owning cell must still fail.
+    coordinates[1] = coordinates[0]
+    with pytest.raises(ValueError, match='exactly one'):
+        _linear_trace_arrays(domain, space, np.arange(count), blocks, np.arange(count), count,
+            topology=topology, coordinates=coordinates, dof_coordinates=coordinates,
+            global_vertices=np.arange(count*width), tolerance=1.e-12, integration=integration)
+
+
 def _cube(comm, *, cells_x: int = 1):
     return mesh.create_unit_cube(
         comm,

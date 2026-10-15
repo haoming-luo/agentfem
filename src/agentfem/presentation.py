@@ -247,6 +247,11 @@ def format_result(record: Mapping[str, object], path: Path, *, maximum_quantitie
         lines.append("  fields: " + ", ".join(str(item) for item in fields))
     artifacts = record.get("artifacts", {})
     if isinstance(artifacts, Mapping) and artifacts:
+        metadata = record.get("metadata", {})
+        view = metadata.get("visualization", {}) if isinstance(metadata, Mapping) else {}
+        primary = artifacts.get(view.get("primary_artifact")) if isinstance(view, Mapping) else None
+        if isinstance(primary, str) and primary:
+            lines.append("  open in ParaView: " + primary)
         paths = sorted(set(str(value) for value in artifacts.values()),
                        key=lambda value: (Path(value).suffix not in (".xdmf", ".h5", ".vtu", ".pvd"), value))
         lines.append("  files: " + ", ".join(paths[:6]))

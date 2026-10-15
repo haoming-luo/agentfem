@@ -104,6 +104,16 @@ valid. Object destruction is a cleanup backstop, not a substitute for explicit
 ownership. Single-worker bindings start no background worker. No process-global
 pool, scheduling-interval change or automatic CPU-budget selection is made.
 
+Revision 6 fuses finite output, Cauchy symmetry and nonnegative hourglass-energy
+checks into the body workers before publication. Repaired points pass the same
+checks after exact repair. The checked built-in dispatcher emits immutable byte
+storage; its internal transport no longer scans those same arrays again through
+ordinary public constructors. External callbacks still use full validation.
+No constitutive arithmetic, acceptance threshold or physical time grid changes.
+This revision is recorded in execution identity; retain the previous runtime
+for an old checkpoint rather than rewriting that identity. Local equivalence
+tests alone are not a whole-run timing claim.
+
 ```python
 with elements.native_explicit_hex_kernel(
     material, c_function, properties=parameters, density=density,

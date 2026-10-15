@@ -62,6 +62,42 @@ output files are rejected. No field is silently smoothed or averaged across an
 interface. Source labels, mesh provenance and physical units remain project
 assets; cell input identity is not a source file's element label.
 
+### One visualization entry point
+
+For an animation, keep the endpoint in the same series instead of exporting a
+second visualization of it:
+
+```python
+frames = results.AcceptedResponseSeries(
+    context.output_directory / "fields.xdmf",
+    state_fields={"damage": ("history", 3)},
+)
+report = project.execute_step(
+    step, context=context,
+    policy=project.RunPolicy(field_intervals=40),
+    frames=frames,
+    export=lambda accepted, directory: results.export_accepted_response(
+        accepted, directory, visualization=False,
+    ),
+)
+```
+
+Open `fields.xdmf` in ParaView and select a time station; the last station is
+the final accepted state. `fields.h5` is its companion data file, not another
+visualization to open. `accepted_material.npz` preserves the full raw terminal
+material state; it is not a restart checkpoint. The archive-only option creates
+no second XDMF/HDF5 pair. Existing endpoint-only callers retain their default.
+The series reuses a checked cell-identity mapping and DG0 spaces, never field
+coefficients: each frame remains a detached, unsmoothed snapshot.
+
+`report.json` identifies the primary visualization and separates restart,
+initial fields, advancement, accepted callbacks, terminal checkpoint, terminal
+fields/export and publication times. Advancement includes callbacks and
+scheduled checkpoints; the callback-subtracted figure still includes scheduled
+checkpoints and is not a pure solver-kernel time. These timings exclude model
+construction and material compilation before `execute_step`, and the final
+report write. Use process elapsed time for end-to-end comparisons.
+
 ## Trusted native source bundles
 
 ```toml
@@ -122,6 +158,11 @@ Declare an installed-software requirement in the project configuration:
 name = "my-study"
 entrypoint = "case.py"
 requires_agentfem = ">=0.4.3.dev0"
+requires_api = [
+  "constitutive.StrainHistoryRuntime",
+  "results.AcceptedResponseSeries",
+  "results.export_accepted_response",
+]
 ```
 
 Project checks and the CLI run admission validate this constraint without
@@ -130,3 +171,31 @@ lock. Freeze runtime identity and scientific inputs separately for reviewed
 runs. Moving code from a project into the library changes implementation
 identity: retain the old environment for old checkpoints or start a fresh run;
 do not remove restart guards to make old archives load.
+
+`requires_api` optionally names public AgentFEM attributes. It catches missing
+interfaces in older builds that share a development version, before executing
+`case.py`. It imports the named AgentFEM modules but does not call the attributes.
+Presence is not signature compatibility or a runtime lock: record the package
+hash/commit for a reproducible handoff, not just its version string.
+
+## WSL execution environment
+
+`agentfem check` and `agentfem run` issue read-only advisories for Windows-mounted
+working/output directories, low available memory, or numerical-library thread
+settings exceeding the CPU affinity. Run admission saves
+`execution-environment.json` beside the outputs. It records visible resources,
+mount detection and explicitly supplied thread settings, not a speed prediction
+or a claim that all available cores are used.
+
+For I/O-heavy runs, a WSL-native working copy can avoid Windows filesystem
+interop costs. Export or back up results to Windows afterward: a distribution's
+internal files can be lost when it is unregistered. AgentFEM never moves the
+project, changes `.wslconfig`, or alters global thread settings automatically.
+Keep the existing project-custody safeguards. CPU affinity and startup memory
+are observations, not hardware-specific scientific limits; changing computers
+does not change the model's physical inputs.
+
+See Microsoft's [WSL filesystem guidance](https://learn.microsoft.com/en-us/windows/wsl/filesystems)
+and [WSL configuration reference](https://learn.microsoft.com/en-us/windows/wsl/wsl-config).
+The advice does not replace measuring the actual installed backend: optional
+accelerators being available and being selected by the Step are different facts.

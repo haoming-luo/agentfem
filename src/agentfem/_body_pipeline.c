@@ -25,8 +25,18 @@
 typedef void (*material_fn)(int,const double*,const double*,const double*,const double*,double,double,double*,double*,double*,int*);
 typedef struct {
     material_fn material;
-    int n, repair, has_rejected; Py_ssize_t state_width; const double *in[9]; double *out[6]; int *status; double dt,rho;
+    int n, repair, has_rejected, checked, invalid; Py_ssize_t state_width; const double *in[9]; double *out[6]; int *status; double dt,rho;
 } body_job;
+static int checked_body_point(body_job *j,int k) {
+    const Py_ssize_t widths[6]={9,j->state_width,1,9,24,1};
+    for(int h=0;h<6;h++)for(Py_ssize_t i=0;i<widths[h];i++)
+        if(!isfinite(j->out[h][k*widths[h]+i]))return 0;
+    const double *s=j->out[0]+9*k;double scale=DBL_MIN;
+    for(int i=0;i<9;i++)scale=fmax(scale,fabs(s[i]));
+    double tol=1.e-12*scale;
+    return fabs(s[1]-s[3])<=tol && fabs(s[2]-s[6])<=tol &&
+           fabs(s[5]-s[7])<=tol && j->out[5][k]>=0.;
+}
 static void *execute_body(void *raw) {
     body_job *j=raw;
     if(j->repair && !j->has_rejected)return NULL;
@@ -52,6 +62,10 @@ static void *execute_body(void *raw) {
             for(int h=0;h<24;h++)j->out[4][24*k+h]=NAN;
             j->out[5][k]=NAN;
         }
+        /* Exactly the material/body constructor checks, while the cell is
+         * local to its worker. Rejected material points are checked only
+         * after exact repair. Publication still waits for every worker. */
+        if(j->checked && !checked_body_point(j,k))j->invalid=1;
     }
     return NULL;
 }
@@ -72,7 +86,7 @@ static int execute_jobs(body_job *jobs,int workers,NativePool *pool) {
     for(int i=0;i<started;i++) pthread_join(threads[i],NULL);
     return failed;
 }
-static PyObject *run(PyObject *self,PyObject *args) {
+static PyObject *run_impl(PyObject *self,PyObject *args,int checked) {
     unsigned long long ma; Py_ssize_t state_width,property_count; PyObject *inputs,*callback;
     Py_buffer buffers[9]={{0}}; PyObject *out[6]={NULL}; PyObject *result=NULL;
     int workers,*status=NULL,acquired=0; double dt,rho;
@@ -111,7 +125,8 @@ static PyObject *run(PyObject *self,PyObject *args) {
     body_job jobs[16]; int failed=0;
     for(int i=0;i<workers;i++) {
         Py_ssize_t start=n*i/workers,end=n*(i+1)/workers;
-        jobs[i].repair=0; jobs[i].has_rejected=0; jobs[i].state_width=state_width; jobs[i].material=(material_fn)(uintptr_t)ma;
+        jobs[i].repair=0; jobs[i].has_rejected=0; jobs[i].checked=checked; jobs[i].invalid=0;
+        jobs[i].state_width=state_width; jobs[i].material=(material_fn)(uintptr_t)ma;
         jobs[i].n=(int)(end-start); jobs[i].dt=dt; jobs[i].rho=rho;
         jobs[i].status=status+start;
         for(int k=0;k<9;k++) jobs[i].in[k]=(const double*)buffers[k].buf+iw[k]*start;
@@ -159,6 +174,9 @@ static PyObject *run(PyObject *self,PyObject *args) {
         if(PyErr_CheckSignals()) goto cleanup;
         if(failed) {PyErr_SetString(PyExc_RuntimeError,"Native repair thread creation failed");goto cleanup;}
     }
+    for(int j=0;j<workers;j++)if(jobs[j].invalid) {
+        PyErr_SetString(PyExc_ValueError,"Nonfinite or inadmissible native material/body output");goto cleanup;
+    }
     /* The Python material/body constructors validate all immutable buffers
      * before they can enter a trial. Avoid an identical full-array scan here. */
     result=PyTuple_New(6);
@@ -170,10 +188,13 @@ cleanup:
     for(int i=0;i<9;i++) if(buffers[i].obj) PyBuffer_Release(&buffers[i]);
     return result;
 }
+static PyObject *run(PyObject *self,PyObject *args) {return run_impl(self,args,0);}
+static PyObject *run_checked(PyObject *self,PyObject *args) {return run_impl(self,args,1);}
 #include "_hex_auxiliary_dispatch.h"
 static PyMethodDef methods[]={
     {"create_pool",native_pool_create,METH_O,"Create an instance-owned sleeping native executor"},
     {"run",run,METH_VARARGS,"Trusted C material ABI with core-owned immutable body output"},
+    {"run_checked",run_checked,METH_VARARGS,"Worker-validated immutable material and body output"},
     {"auxiliary",auxiliary,METH_VARARGS,"Joined disjoint-cell arithmetic with immutable output"},
     {NULL,NULL,0,NULL}};
 static struct PyModuleDef module={PyModuleDef_HEAD_INIT,"_body_pipeline",NULL,-1,methods};

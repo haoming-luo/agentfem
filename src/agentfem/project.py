@@ -411,6 +411,7 @@ class ProjectConfig:
     schema_version: str = CURRENT_PROJECT_SCHEMA_VERSION
     created_with: str | None = None
     requires_agentfem: str | None = None
+    requires_api: tuple[str, ...] = ()
 
     @classmethod
     def load(cls, path: str | Path) -> "ProjectConfig":
@@ -427,6 +428,11 @@ class ProjectConfig:
         entrypoint = root / project.get("entrypoint", "case.py")
         output_directory = root / run.get("output_directory", "outputs")
         required_extensions = extension_record.get("required", [])
+        required_api = project.get("requires_api", [])
+        if (not isinstance(required_api, list) or any(
+                not isinstance(item, str) or not re.fullmatch(r"[A-Za-z][A-Za-z0-9_]*(?:\.[A-Za-z][A-Za-z0-9_]*)+", item)
+                for item in required_api)):
+            raise ValueError("project.requires_api must contain public module.attribute paths.")
         if not isinstance(required_extensions, list) or not all(
             isinstance(item, str) and item.strip() for item in required_extensions
         ):
@@ -446,6 +452,7 @@ class ProjectConfig:
                 else str(project["created_with"])
             ),
             requires_agentfem=project.get("requires_agentfem"),
+            requires_api=tuple(required_api),
         )
 
     def check(self) -> tuple[str, ...]:
@@ -489,6 +496,16 @@ class ProjectConfig:
                     errors.append(f"AFM-PROJECT-VERSION: requires AgentFEM {self.requires_agentfem}; installed {__version__}")
             except InvalidSpecifier as error:
                 errors.append(f"AFM-PROJECT-VERSION: invalid requires_agentfem: {error}")
+        if self.requires_api:
+            import importlib
+            for path in self.requires_api:
+                parts = path.split('.')
+                try:
+                    value = importlib.import_module('agentfem.' + parts[0])
+                    for name in parts[1:]:
+                        value = getattr(value, name)
+                except (ImportError, AttributeError) as error:
+                    errors.append(f"AFM-PROJECT-API: required public API {path} is unavailable: {error}")
         if self.extensions:
             from .extensions import missing_extensions
 
@@ -506,6 +523,7 @@ class ProjectConfig:
             "schema_version": self.schema_version,
             "created_with": self.created_with,
             "requires_agentfem": self.requires_agentfem,
+            "requires_api": self.requires_api,
             "name": self.name,
             "root": str(self.root),
             "entrypoint": str(self.entrypoint),
