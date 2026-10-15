@@ -224,6 +224,9 @@ and evidence remain in the linked guides and scientific function reference.
 | class | `VumatBatchOutput` | Uncommitted local response. Missing optional energy remains unavailable. |
 | class | `CompiledVumat(path, *, state_schema, properties, material_name, identity)` | One loaded library; one native call per block, never per material point. |
 | function | `compile_vumat(source, *, state_schema, properties, cache_directory, material_name = 'USER_MATERIAL', trusted = False, compiler = 'gfortran')` | Compile explicitly trusted legacy VUMAT source; no solve-time downloads. |
+| class | `NativeLibraryBundle` | Public AgentFEM object. |
+| function | `build_native_libraries(manifest, *, cache_directory, trusted = False, compiler = 'gfortran', timeout = 180)` | Build a reviewed GNU Fortran bundle on macOS/Linux/WSL2. |
+| class | `CompiledCorotationalIncrement(bundle, target)` | Bind an explicitly built polar_increment C ABI, keeping its library alive. |
 | class | `ExplicitUserMaterial` | A named, restart-identifiable batch response without synthetic tangent. |
 | function | `explicit_user_material(*, state_schema, update, identity, name = 'user_explicit_material', increment_limit = None, increment_policy_identity = None, density = None)` | Public AgentFEM object. |
 | class | `ArrheniusPowerLawCreep` | Temperature-dependent Mises power-law creep. |
@@ -538,6 +541,7 @@ and evidence remain in the linked guides and scientific function reference.
 | function | `consolidate_xdmf_fields(source, destination) -> Path` | Group synchronized fields on one grid per time, without copying HDF5. |
 | function | `cell_field_from_values(domain, values, *, name, cell_keys = None)` | Create a detached DG0 field from one scalar/vector/tensor per cell. |
 | function | `compare_records(reference: Mapping, candidate: Mapping, *, quantities: Sequence[str] = (), histories: Sequence[str] = (), atol: float = 0.0, rtol: float = 0.0) -> dict` | Compare selected observables with explicit componentwise tolerances. |
+| function | `export_accepted_response(step, directory, *, state_fields = None, velocity = False, acceleration = False, units = None)` | Export accepted response fields with explicit state selectors. |
 | class | `CheckpointRecord` | One restart asset with an explicit portability boundary. |
 | class | `FieldResult` | A named live field or an external field artifact. |
 | class | `HistoryResult` | Time, load, or iteration history with a fixed value shape. |

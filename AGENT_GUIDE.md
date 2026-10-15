@@ -168,6 +168,12 @@ never changes solver access, results, verification, or update behavior.
   reviewed, trusted Python code and records its content hash. Do not use it to
   inspect downloaded code. TOML may select an asset but is not a constitutive
   language; installed or private collections belong in extension packages.
+  For reviewed multi-source Fortran providers use
+  `constitutive.build_native_libraries` rather than rewriting compiler/cache
+  logic in a project. Keep source trust explicit. For supported serial transient
+  delivery use `project.execute_step` around the ordinary Step, not a case-owned
+  integration loop. See `docs/project_execution.md`. Project version constraints
+  belong in `project.requires_agentfem`, not private-module probes or commit IDs.
 - Absorbing or Robin-like terms: use `boundary_models/`.
 - Assembly or lumped operators: inspect `assembly.py`.
 - Time stepping: inspect `time/` and `problems.py`.

@@ -20,6 +20,7 @@ include foundation_gate.py
 include build_docs.py
 include build_knowledge.py
 include src/agentfem/py.typed
+recursive-include src/agentfem/constitutive/native *.f90
 include src/agentfem/origin.json
 include logo/AgentFEM_logo.png
 include logo/AgentFEM_logo_transparent.png

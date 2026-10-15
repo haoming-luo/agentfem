@@ -956,6 +956,13 @@ an independent space; field interpolation is the transfer contract.
 
 ## Native material transport is not a constitutive formulation
 
+Project execution is operational orchestration around an already constructed
+Step, not another Procedure. It owns delivery status and journal/artifact
+publication; the Step remains the state, integration and checkpoint authority.
+A native source build owns immutable input snapshots, compiler identity and
+cached binaries. It does not infer an ABI, a material law or its scientific
+compatibility. Keep material-specific state mapping and domain limits external.
+
 A compiled user-subroutine bridge owns ABI validation, batch array transport
 and build identity, not objective kinematics, history acceptance, stable
 stepping or numerical verification. The restricted legacy VUMAT bridge returns

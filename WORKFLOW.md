@@ -383,6 +383,14 @@ input indices. Extract a tagged boundary through
 
 ## Reviewed legacy VUMAT sources
 
+For long serial transient projects, `project.execute_step` may handle accepted
+journals, partial status, final checkpoints and publication around an already
+constructed Step. It never selects physics or replaces `model.step`. Use
+`results.export_accepted_response` for supported accepted cell-response fields.
+Trusted custom Fortran bundles use `constitutive.build_native_libraries` with
+an explicit source manifest; ordinary legacy VUMAT sources retain
+`constitutive.compile_vumat`. See [lean project execution](docs/project_execution.md).
+
 Inspect a source with `agentfem inspect-user-material --kind VUMAT` before
 explicitly trusting and compiling it with `constitutive.compile_vumat`.
 Supply every physical channel through `VumatBatchInput`; retain returned state

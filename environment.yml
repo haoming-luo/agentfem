@@ -17,5 +17,6 @@ dependencies:
   - gmsh
   - python-gmsh
   - numpy
+  - packaging
   - pytest
   - pip
