@@ -42,7 +42,7 @@ def compare_records(reference: Mapping, candidate: Mapping, *,
     checks = []
     for kind, names, key in (("quantity", quantities, "quantity_records"),
                              ("history", histories, "history_records")):
-        def index(record):
+        def index(record, key=key):
             items = record.get(key, [])
             if not isinstance(items, (list, tuple)) or any(not isinstance(x, Mapping) for x in items):
                 raise ValueError("AFM-COMPARE-RECORD: malformed observable records")
