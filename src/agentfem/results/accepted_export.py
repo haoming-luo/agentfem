@@ -6,19 +6,7 @@ import json
 import numpy as np
 
 
-def export_accepted_response(step, directory, *, state_fields=None,
-                             velocity=False, acceleration=False, units=None):
-    """Export accepted response fields with explicit state selectors.
-
-    ``state_fields`` maps output names to ``(schema_variable, component)``.
-    Component is a nonnegative integer for a vector variable, or None for the
-    entire variable. No source-law SDV numbering is inferred. Raw state and
-    cell keys are retained in NPZ; visual fields use the ordinary ResultWriter.
-    Currently serial and one response point per cell, as declared by the
-    owning provider. This is output, not validation or state advancement.
-    """
-    from ..io import ResultWriter
-    from ..checkpointing import atomic_savez, atomic_write_text
+def _response_fields(step, *, state_fields=None, velocity=False, acceleration=False):
     from .cell_data import cell_field_from_values
 
     record = step.accepted_material_fields()
@@ -50,6 +38,23 @@ def export_accepted_response(step, directory, *, state_fields=None,
             raise ValueError("AFM-EXPORT-FLAG: expected boolean")
         if enabled:
             nodal.append(getattr(step.state, name).value)
+    return record, nodal, fields, selected
+
+
+def export_accepted_response(step, directory, *, state_fields=None,
+                             velocity=False, acceleration=False, units=None):
+    """Export one accepted response, raw state and cell keys.
+
+    State selectors map names to (schema_variable, component); no SDV meaning
+    is inferred. Serial, one response point per cell. Does not advance state.
+    """
+    from ..io import ResultWriter
+    from ..checkpointing import atomic_savez, atomic_write_text
+
+    record, nodal, fields, selected = _response_fields(step, state_fields=state_fields,
+        velocity=velocity, acceleration=acceleration)
+    domain = nodal[0].function_space.mesh
+    keys = record["cell_keys"]
     metadata = {"schema": "agentfem.accepted-response-export", "schema_version": "0.1.0",
                 "time": record["time"], "complete": step.completed_steps == step.steps,
                 "location": record["location"], "stress_measure": record["stress_measure"],
@@ -70,3 +75,69 @@ def export_accepted_response(step, directory, *, state_fields=None,
                  physical_time=np.asarray(record["time"]))
     atomic_write_text(paths["accepted_material_metadata"], encoded)
     return paths
+
+
+class AcceptedResponseSeries:
+    """Streaming accepted fields; fixed mesh stored once, never a restart archive.
+
+    Use with project.execute_step(frames=..., RunPolicy(field_intervals=...)),
+    or write accepted stations explicitly and close. A continuation is a new
+    file, never an append to an earlier run. Private state selection stays data.
+    """
+
+    def __init__(self, path, *, state_fields=None, velocity=False, acceleration=False, units=None):
+        self.path = Path(path)
+        if self.path.suffix != ".xdmf":
+            raise ValueError("AFM-FRAMES-PATH: expected .xdmf")
+        self.options = dict(state_fields=state_fields, velocity=velocity, acceleration=acceleration)
+        self.units = json.loads(json.dumps(units or {}, allow_nan=False))
+        self._writer = None
+        self._closed = False
+        self._published = False
+        self.stations = []
+        self._identity = None
+
+    def write(self, step):
+        from ..io import ResultWriter
+
+        if self._closed:
+            raise RuntimeError("AFM-FRAMES-CLOSED: use a new series")
+        record, nodal, fields, selected = _response_fields(step, **self.options)
+        identity = (record["state_schema"], selected)
+        if self._identity is not None and identity != self._identity:
+            raise ValueError("AFM-FRAMES-SCHEMA: state schema changed")
+        if self._writer is None:
+            if any(p.exists() for p in (self.path, self.path.with_suffix('.h5'), self.path.with_suffix('.json'))):
+                raise FileExistsError("AFM-FRAMES-EXISTS: use a fresh series path")
+            self._writer = ResultWriter(self.path, nodal[0].function_space.mesh)
+            self._writer.__enter__()
+            self._identity = identity
+        self._writer.write(record["time"], *nodal, *fields)
+        self.stations.append({"increment": int(step.completed_steps), "time": float(record["time"])})
+
+    def close(self, *, complete=False):
+        from ..checkpointing import atomic_write_text
+
+        if self._closed:
+            return self.artifacts()
+        self._closed = True
+        if self._writer is not None:
+            if self.stations:
+                self._writer.__exit__(None, None, None)
+            else:
+                self._writer.__exit__(RuntimeError, RuntimeError("No accepted frames"), None)
+        if self.stations:
+            atomic_write_text(self.path.with_suffix('.json'), json.dumps({
+                "schema": "agentfem.accepted-response-series.v1", "complete": bool(complete),
+                "restart_archive": False, "scientifically_validated": False,
+                "stations": self.stations, "units": self.units,
+                "state_schema": self._identity[0], "state_fields": self._identity[1],
+            }, indent=2, allow_nan=False) + '\n')
+            self._published = True
+        return self.artifacts()
+
+    def artifacts(self):
+        if not self._published:
+            return {}
+        return {"process_fields": self.path, "process_arrays": self.path.with_suffix('.h5'),
+                "process_metadata": self.path.with_suffix('.json')}

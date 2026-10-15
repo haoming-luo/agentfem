@@ -1,5 +1,11 @@
 # AgentFEM Concepts
 
+Process frames are selected accepted fields, not restart states. Their cadence
+is independent of checkpoints and scalar histories. A completed run may retain
+one integrity-checked owned checkpoint while preserving many visualization
+frames; failure/partial runs retain their restart safety policy. See
+`docs/accepted_process_output.md`.
+
 This file defines the vocabulary that humans and AI agents should use when
 working with AgentFEM.
 

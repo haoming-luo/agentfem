@@ -7,7 +7,7 @@ from importlib import import_module as _import_module
 from .xdmf_layout import consolidate_xdmf_fields
 from .cell_data import cell_field_from_values
 from .comparison import compare_records
-from .accepted_export import export_accepted_response
+from .accepted_export import AcceptedResponseSeries, export_accepted_response
 
 from .core import (
     CheckpointRecord,
@@ -158,6 +158,7 @@ def __getattr__(name: str):
 
 __all__ = [
     "export_accepted_response",
+    "AcceptedResponseSeries",
     "compare_records",
     "cell_field_from_values",
     "consolidate_xdmf_fields",

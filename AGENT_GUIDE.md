@@ -1,5 +1,12 @@
 # AgentFEM Agent Guide
 
+For serial response-material process visualization, use
+`results.AcceptedResponseSeries` and `project.RunPolicy(field_intervals=...)`.
+Never reconstruct unsaved damage fields by interpolating endpoints. Keep
+checkpoint cadence separate; opt-in `completed_checkpoint_keep=1` prunes only
+owned checkpoints after successful completion/export. Read the checkpoint
+path from the result, not a guessed `accepted-final` filename.
+
 Use this guide when an AI agent is asked to build, review, extend, or debug a
 finite-element simulation with AgentFEM.
 

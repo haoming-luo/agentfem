@@ -1,5 +1,11 @@
 # AgentFEM Workflow
 
+For serial accepted-response histories, `results.AcceptedResponseSeries` with
+`project.RunPolicy(field_intervals=...)` streams process fields independently
+of checkpoint cadence. `completed_checkpoint_keep=1` optionally retains only
+the final owned checkpoint after successful completion/export. See
+`docs/accepted_process_output.md`; output does not change the solve time grid.
+
 AgentFEM uses a standard finite-element workflow. Application code should make
 this sequence visible unless there is a strong reason to encapsulate it.
 

@@ -24,8 +24,14 @@ class RunPolicy:
     observation_every: int = 100
     export_partial: bool = False
     prepare_only: bool = False
+    field_intervals: int | None = None
+    completed_checkpoint_keep: int | None = None
 
     def __post_init__(self):
+        for key in ("field_intervals", "completed_checkpoint_keep"):
+            value = getattr(self, key)
+            if value is not None and (type(value) is not int or value <= 0):
+                raise ValueError(f"AFM-RUN-POLICY: {key} must be a positive integer or None")
         for key in ("progress_every", "journal_every", "observation_every"):
             if type(getattr(self, key)) is not int or getattr(self, key) <= 0:
                 raise ValueError(f"AFM-RUN-POLICY: {key} must be a positive integer")
@@ -41,7 +47,7 @@ class RunPolicy:
 
 
 def execute_step(step, *, context, policy=None, metadata=None, observations=None,
-                 export=None, progress_quantities=None):
+                 export=None, progress_quantities=None, frames=None):
     """Run a serial transient Step and publish complete or paused evidence.
 
     ``observations`` maps names to pure accepted-state callbacks ``fn(step)``.
@@ -60,6 +66,10 @@ def execute_step(step, *, context, policy=None, metadata=None, observations=None
     policy = RunPolicy() if policy is None else policy
     if not isinstance(policy, RunPolicy):
         raise TypeError("Expected RunPolicy")
+    if (frames is None) != (policy.field_intervals is None):
+        raise ValueError("AFM-RUN-FRAMES: provide frames and field_intervals together")
+    if frames is not None and not isinstance(frames, results.AcceptedResponseSeries):
+        raise TypeError("AFM-RUN-FRAMES: expected AcceptedResponseSeries")
     solution = getattr(step, "current", None)
     if solution is None:
         solution = step.state.u
@@ -107,6 +117,13 @@ def execute_step(step, *, context, policy=None, metadata=None, observations=None
         if until < step.completed_steps:
             raise ValueError("AFM-RUN-POLICY: requested endpoint precedes restored state")
         report["initial_step"] = step.completed_steps
+        # Exact integer stations, aligned to the original fixed time grid.
+        # Output never changes dt and restart never shifts the global schedule.
+        frame_stations = set()
+        if frames is not None:
+            intervals = min(policy.field_intervals, step.steps)
+            frame_stations = {(i*step.steps + intervals-1)//intervals for i in range(1, intervals+1)}
+            frames.write(step)
         journal = results.AcceptedHistoryJournal(output / "accepted-history.jsonl")
         accepted = journal.reporter(step, every=policy.journal_every)
         observation_journal = results.AcceptedHistoryJournal(output / "observations.jsonl") if observers else None
@@ -125,6 +142,8 @@ def execute_step(step, *, context, policy=None, metadata=None, observations=None
                     return
                 if event.increment % policy.observation_every == 0:
                     observe()
+                if frames is not None and event.increment in frame_stations:
+                    frames.write(step)
                 if printer.should_print(event.increment):
                     printer.update(event.increment, time=event.time, elapsed_seconds=perf_counter()-started,
                                    quantities={} if progress_quantities is None else progress_quantities(step))
@@ -140,9 +159,14 @@ def execute_step(step, *, context, policy=None, metadata=None, observations=None
         if observation_journal is not None:
             report["observations"] = observation_journal.summary()
             artifacts["observations"] = str(observation_journal.path)
-        checkpoint = step.save_checkpoint(output / "accepted-final")
+        from ._project_checkpoints import final_checkpoint, retain_completed
+        checkpoint = final_checkpoint(step, output)
         artifacts["checkpoint"] = str(checkpoint)
         complete = step.completed_steps == step.steps
+        if frames is not None:
+            if frames.stations[-1]["increment"] != step.completed_steps:
+                frames.write(step)
+            artifacts.update({k: str(v) for k, v in frames.close(complete=complete).items()})
         if export is not None and (complete or policy.export_partial):
             exported = dict(export(step, output))
             if set(exported) & set(artifacts):
@@ -154,6 +178,9 @@ def execute_step(step, *, context, policy=None, metadata=None, observations=None
                 if not path.is_file():
                     raise ValueError(f"AFM-RUN-ARTIFACT: missing export {name}")
                 artifacts[name] = str(path)
+        if complete and policy.completed_checkpoint_keep is not None:
+            report["checkpoint_retention"] = retain_completed(step, output, checkpoint,
+                policy.completed_checkpoint_keep, comm)
         report.update(complete=complete, status="completed" if complete else "paused",
                       accepted_steps=step.completed_steps, summary=step.summary())
         if complete:
@@ -167,6 +194,11 @@ def execute_step(step, *, context, policy=None, metadata=None, observations=None
         return report
     except BaseException as error:
         report.update(status="failed", failure={"type": type(error).__name__, "message": str(error)})
+        if frames is not None:
+            try:
+                artifacts.update({k: str(v) for k, v in frames.close(complete=False).items()})
+            except Exception as frame_error:
+                report["frame_close_failure"] = str(frame_error)
         try:
             report["failure_checkpoint"] = str(step.save_checkpoint(output / "accepted-failure"))
         except BaseException as checkpoint_error:
