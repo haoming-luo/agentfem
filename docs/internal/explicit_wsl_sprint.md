@@ -121,3 +121,80 @@ The existing runtime and frozen full run are unchanged.
 
 The latter motivates SIMD-friendly small-matrix algorithms; its graphics/SIMD
 performance is not transferable evidence for this double-precision workload.
+
+## Geometry-service admission (2026-10-15)
+
+The next installed candidate passes **122 targeted tests**, including malformed
+transport, terminated children, bounded timeout, ordered chunking, unchanged
+parent environment and whole accepted-increment rollback in serial/overlapped
+contact execution. `geometry_timeout` is an optional operational deadline, not
+a hardware qualification or scientific checkpoint identity. A timed-out child
+cannot publish a partial contact update. The candidate source archive and its
+installed native wheel were checked separately; no private material or mesh
+is included in the software archive.
+
+The selected same-checkpoint 200-step late comparison reduced advance time
+from 46.178 to 31.686 s with exact saved fields, material and histories. This is
+not a full-run speed claim. Extended late-state validation and the original
+frozen full-run gate remain separate. Details and rejected alternatives are in
+[portable explicit performance](portable_explicit_performance.md).
+
+The process-launch audit also inspected Campaign's independent-case workers.
+Those workers actually solve separate FEM problems and need their own runtime;
+they are not data-only contact services. Their deliberate safe-spawn policy
+was not replaced by unsafe post-MPI `fork`, nor by this specialized protocol.
+The optimization follows ownership and workload, not a blanket ban on MPI or
+multiprocessing throughout the software.
+
+## Critical-path audit and parallel winding
+
+After isolating the data-only geometry services, a 120-accepted-increment
+installed replay at 65000 measured body assembly at 104 ms/call and contact
+at 123 ms/call. These overlap: neither the two times nor their percentages
+may be added. A separate instrumented profile located 38 ms/contact call in
+serial two-ray classification, 26 ms in refitting/preparation and 44 ms in
+closest-point projection/recovery. Profiling overhead is not speed evidence.
+
+The existing `projection_workers` budget now also partitions independent
+winding queries. Each query retains the same ordered rays, ambiguity rules,
+native fallback and output position. Per-call C workspaces are local; shared
+tree buffers are read-only. Failed native slices fall back as whole slices;
+workers join before any exception or output publication. No new global thread
+environment, scientific option or checkpoint identity was introduced.
+
+Installed comparison, alternating serial/parallel/serial/parallel (120 accepted
+increments, same checkpoint/physics/output): solver-loop times were
+18.003 / 16.799 / 18.702 / 16.700 seconds. Pairwise reductions are 6.7% and
+10.7%. All 65 saved arrays in the final serial/parallel comparison were exact.
+The selected installed candidate passes 57 targeted tests, including disjoint
+query ordering, failed-slice fallback, geometry-service failure and contact
+rollback. This is a short-run benefit, not a three-hour full-run acceptance.
+
+A separate outer-box ray-skip experiment certified only nine of about 924,000
+classifications in this replay and did not improve timing. It was withdrawn;
+the existing operator already excludes far exterior candidates.
+
+The preceding geometry-service candidate's 5000-increment replay also has exact
+saved final arrays. Its 500 scalar history stations differ only in contact
+potential energy, by at most 2.220446049250313e-16 (reference maximum magnitude
+0.7057051180628224). The strict exact-history gate therefore did **not** pass;
+do not rewrite that finding as bitwise history equality or independent physical
+validation. The earlier full run was stopped on user request at increment
+73620 with a successful accepted-failure checkpoint; it is not running.
+
+The three-hour target requires less than 108 ms/accepted increment for 100,000
+increments before allowing setup/export. The new short samples are around
+140 ms/increment. Both the body critical path and remaining contact work must
+improve; optimizing reporting alone cannot close the gap.
+
+External algorithm review: Abaqus documents local contact tracking between
+global searches, while LAMMPS uses displacement-bounded neighbor-list reuse.
+These motivate conservative temporal certificates, not blindly copying an
+every-100-increments search schedule. Our current broad phase already refits a
+BVH and reuses proven exterior separation. The unresolved high-value question
+is reuse of **interior classification evidence**, with a proved boundary-motion
+bound, without caching forces or ignoring damage/contact changes. It needs
+explicit invalidation on exhausted clearance, failed trial and restart.
+
+- https://docs.software.vt.edu/abaqusv2025/English/SIMACAEITNRefMap/simaitn-c-expcontactpairform.htm
+- https://docs.lammps.org/Developer_par_neigh.html
