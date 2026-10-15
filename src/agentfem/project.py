@@ -31,6 +31,10 @@ PROJECT_FILENAME = "agentfem.toml"
 PROJECT_SCHEMA = "agentfem.project"
 CURRENT_PROJECT_SCHEMA_VERSION = "0.2.0"
 RUN_SCHEMA = "agentfem.run"
+_API_REQUIREMENT = re.compile(
+    r"([A-Za-z][A-Za-z0-9_]*(?:\.[A-Za-z][A-Za-z0-9_]*)+)"
+    r"(?:\(([A-Za-z][A-Za-z0-9_]*)\))?"
+)
 
 _ENV_PROJECT_ROOT = "AGENTFEM_PROJECT_ROOT"
 _ENV_PROJECT_NAME = "AGENTFEM_PROJECT_NAME"
@@ -436,9 +440,9 @@ class ProjectConfig:
                 for item in required_accelerators)):
             raise ValueError("project.requires_accelerators must contain accelerator names.")
         if (not isinstance(required_api, list) or any(
-                not isinstance(item, str) or not re.fullmatch(r"[A-Za-z][A-Za-z0-9_]*(?:\.[A-Za-z][A-Za-z0-9_]*)+", item)
+                not isinstance(item, str) or not _API_REQUIREMENT.fullmatch(item)
                 for item in required_api)):
-            raise ValueError("project.requires_api must contain public module.attribute paths.")
+            raise ValueError("project.requires_api requires public module.attribute paths, optionally followed by (keyword).")
         if not isinstance(required_extensions, list) or not all(
             isinstance(item, str) and item.strip() for item in required_extensions
         ):
@@ -505,14 +509,24 @@ class ProjectConfig:
                 errors.append(f"AFM-PROJECT-VERSION: invalid requires_agentfem: {error}")
         if self.requires_api:
             import importlib
-            for path in self.requires_api:
-                parts = path.split('.')
+            import inspect
+            for requirement in self.requires_api:
                 try:
+                    match = _API_REQUIREMENT.fullmatch(requirement)
+                    if match is None:
+                        raise ValueError("invalid public API requirement")
+                    path, keyword = match.groups()
+                    parts = path.split('.')
                     value = importlib.import_module('agentfem.' + parts[0])
                     for name in parts[1:]:
                         value = getattr(value, name)
-                except (ImportError, AttributeError) as error:
-                    errors.append(f"AFM-PROJECT-API: required public API {path} is unavailable: {error}")
+                    if keyword is not None:
+                        parameter = inspect.signature(value).parameters.get(keyword)
+                        if parameter is None or parameter.kind not in (
+                                inspect.Parameter.POSITIONAL_OR_KEYWORD, inspect.Parameter.KEYWORD_ONLY):
+                            raise ValueError(f"{path} does not explicitly accept keyword {keyword!r}")
+                except (ImportError, AttributeError, TypeError, ValueError) as error:
+                    errors.append(f"AFM-PROJECT-API: required public API {requirement} is unavailable: {error}")
         if self.requires_accelerators:
             from .platforms import _native_accelerators
             available = _native_accelerators()

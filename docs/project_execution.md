@@ -161,7 +161,7 @@ requires_agentfem = ">=0.4.3.dev0"
 requires_api = [
   "constitutive.StrainHistoryRuntime",
   "results.AcceptedResponseSeries",
-  "results.export_accepted_response",
+  "results.export_accepted_response(visualization)",
 ]
 ```
 
@@ -175,8 +175,13 @@ do not remove restart guards to make old archives load.
 `requires_api` optionally names public AgentFEM attributes. It catches missing
 interfaces in older builds that share a development version, before executing
 `case.py`. It imports the named AgentFEM modules but does not call the attributes.
-Presence is not signature compatibility or a runtime lock: record the package
-hash/commit for a reproducible handoff, not just its version string.
+The optional `(keyword)` suffix requires an explicitly named keyword-capable
+parameter in the callable's signature. It is a declaration, never evaluated
+Python: defaults, calls and multiple arguments are not accepted. A generic
+`**kwargs` alone does not prove support. This catches older exporters before a
+long solve, rather than failing only at final output. Presence/signatures still
+do not prove semantic compatibility: record the package hash/commit for a
+reproducible handoff, not just its version string.
 
 A project deliberately selecting a native-only execution route can additionally
 declare `requires_accelerators = ["hex_arithmetic", "material_body_pipeline",

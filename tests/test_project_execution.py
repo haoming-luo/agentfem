@@ -113,6 +113,40 @@ def test_project_runtime_requirement(tmp_path):
             assert "AFM-PROJECT-VERSION" in errors[0]
 
 
+def test_project_required_keyword_is_checked_without_calling_case(tmp_path, monkeypatch):
+    from agentfem import results
+    (tmp_path/'case.py').write_text("raise RuntimeError('must not run')")
+    path = tmp_path/'agentfem.toml'
+    path.write_text('[project]\nname="api"\nrequires_api=["results.export_accepted_response(visualization)"]\n')
+    config = project.ProjectConfig.load(path)
+    assert not config.check()
+    def old_export(step, directory, **kwargs):
+        raise AssertionError('preflight must never call the API')
+    monkeypatch.setattr(results, 'export_accepted_response', old_export)
+    assert 'visualization' in config.check()[0]
+    def positional(visualization, /):
+        raise AssertionError('must not run')
+    monkeypatch.setattr(results, 'export_accepted_response', positional)
+    assert 'AFM-PROJECT-API' in config.check()[0]
+    def supported(*, visualization=True):
+        raise AssertionError('must not run')
+    monkeypatch.setattr(results, 'export_accepted_response', supported)
+    assert not config.check()
+
+
+@pytest.mark.parametrize('requirement', [
+    'results.export_accepted_response()', 'results.export_accepted_response(a,b)',
+    'results.export_accepted_response(visualization=False)',
+    'results.export_accepted_response(visualization);run()',
+])
+def test_project_required_keyword_is_not_executable_syntax(tmp_path, requirement):
+    (tmp_path/'case.py').write_text('pass')
+    path = tmp_path/'agentfem.toml'
+    path.write_text('[project]\nname="api"\nrequires_api=["'+requirement+'"]\n')
+    with pytest.raises(ValueError, match='requires_api'):
+        project.ProjectConfig.load(path)
+
+
 def test_project_required_accelerators_are_opt_in_preflight(tmp_path, monkeypatch):
     from agentfem import platforms
     calls = []
