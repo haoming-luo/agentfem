@@ -5,9 +5,31 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
+import math
+import os
+import sys
+from typing import Mapping, TextIO
 
 from mpi4py import MPI
+
+
+def _display_text(value: str) -> str:
+    """Keep caller labels from injecting terminal controls or extra lines."""
+    return "".join(char if char.isprintable() else ascii(char)[1:-1] for char in str(value))
+
+
+def format_quantity(value: float, unit: str = "", *, precision: int = 6) -> str:
+    """Compact terminal display only; never round values stored as evidence.
+
+    Units are caller-declared. Nonfinite diagnostics remain visible instead of
+    being hidden as zero. No unit conversion or physical reduction is performed.
+    """
+    if isinstance(precision, bool) or not isinstance(precision, int) or not 1 <= precision <= 17:
+        raise ValueError("precision must be an integer between 1 and 17")
+    number = float(value)
+    text = format(number, f".{precision}g") if number != 0 else "0"
+    return f"{text} {_display_text(unit)}" if unit else text
 
 
 def format_duration(seconds: float) -> str:
@@ -87,6 +109,38 @@ class ProgressPrinter:
     total_steps: int
     every: int
     comm: MPI.Comm
+    stream: TextIO | None = field(default=None, kw_only=True, repr=False)
+    width: int | None = field(default=None, kw_only=True)
+
+    def __post_init__(self):
+        for name, value, minimum in (("total_steps", self.total_steps, 1),
+                                      ("every", self.every, 0)):
+            if isinstance(value, bool) or not isinstance(value, int) or value < minimum:
+                raise ValueError(f"{name} must be an integer >= {minimum}")
+        if self.width is not None and (
+            isinstance(self.width, bool) or not isinstance(self.width, int) or self.width < 20
+        ):
+            raise ValueError("width must be None or an integer >= 20")
+
+    def _write(self, parts):
+        """Append readable lines; never redraw or truncate scientific values."""
+        stream = self.stream if self.stream is not None else sys.stderr
+        width = self.width
+        if width is None and getattr(stream, "isatty", lambda: False)():
+            try:
+                width = max(20, os.get_terminal_size(stream.fileno()).columns)
+            except (AttributeError, OSError, ValueError):
+                width = 80
+        line = parts[0]
+        lines = []
+        for part in parts[1:]:
+            if width is not None and len(line) + 3 + len(part) > width:
+                lines.append(line)
+                line = "  " + part
+            else:
+                line += " | " + part
+        lines.append(line)
+        print("\n".join(lines), file=stream, flush=True)
 
     def should_print(self, step: int) -> bool:
         """Return true when this step should be reported."""
@@ -105,3 +159,48 @@ class ProgressPrinter:
             f"step {step:>6}/{self.total_steps} ({percent:5.1f}%) | {message}",
             flush=True,
         )
+
+    def update(
+        self, step: int, *, time: float, elapsed_seconds: float,
+        time_unit: str = "s",
+        quantities: Mapping[str, tuple[float, str]] | None = None,
+        force: bool = False,
+    ) -> None:
+        """Print an accepted station at the configured cadence, on rank zero.
+
+        The caller owns acceptance and any MPI reductions. ``time`` uses the
+        declared model unit; wall-clock elapsed time is always seconds. ``force``
+        can display a partial/restart stop, but does not override ``every=0``.
+        This method does not write machine logs or modify supplied quantities.
+        """
+        if self.comm.rank != 0 or self.every <= 0:
+            return
+        if isinstance(step, bool) or not isinstance(step, int) or not 0 <= step <= self.total_steps:
+            raise ValueError("step must lie between zero and positive total_steps")
+        if not (force or self.should_print(step)):
+            return
+        if not math.isfinite(elapsed_seconds) or elapsed_seconds < 0:
+            raise ValueError("elapsed_seconds must be finite and nonnegative")
+        parts = [
+            f"Step {step:,}/{self.total_steps:,} ({100 * step / self.total_steps:.1f}%)",
+            f"Time: {format_quantity(time, time_unit)}",
+            f"Elapsed: {format_duration(elapsed_seconds) if elapsed_seconds >= 60 else f'{elapsed_seconds:.1f} s'}",
+        ]
+        parts.extend(self._quantities(quantities))
+        self._write(parts)
+
+    @staticmethod
+    def _quantities(quantities):
+        return [f"{_display_text(name)}: {format_quantity(value, unit)}"
+                for name, (value, unit) in (quantities or {}).items()]
+
+    def status(
+        self, message: str, *, quantities: Mapping[str, tuple[float, str]] | None = None,
+    ) -> None:
+        """Print an explicit lifecycle message, even when progress is disabled.
+
+        Use accurate labels such as 'Model ready', 'Partial run completed' or
+        'Run failed'. The printer never infers scientific verification status.
+        """
+        if self.comm.rank == 0:
+            self._write([_display_text(message), *self._quantities(quantities)])

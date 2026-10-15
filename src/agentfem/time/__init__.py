@@ -17,7 +17,7 @@ from ..input_effects import (
     summary_of as input_summary,
     update as input_update,
 )
-from .runtime import ProgressPrinter, TimeStep, TimeStepper, format_duration
+from .runtime import ProgressPrinter, TimeStep, TimeStepper, format_duration, format_quantity
 from .substeps import ExplicitSubstepPolicy
 from .mass_scaling import (
     FixedMassScaling, InitialMassScaling, TargetIncrementMassScaling, MassScalingBounds, MassScalingRequest,
@@ -54,6 +54,7 @@ __all__ = [
     "generalized_alpha",
     "newmark",
     "format_duration",
+    "format_quantity",
     "error_step_factor",
     "compose_inputs",
     "input_effects",
