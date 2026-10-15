@@ -80,6 +80,11 @@ never changes solver access, results, verification, or update behavior.
 - Mesh or boundary tagging: read `docs/module_map.md`, then use
   `mesh.summarize_mesh`, `mesh.require_cell_tags`, and
   `mesh.require_facet_tags`.
+  Reviewed array archives use `mesh.read_array_mesh` and an explicit ordering
+  manifest; part exteriors use `mesh.exterior_regions`, not case-owned MeshTags
+  construction. Preserve input-cell identity and independent coincident nodes.
+  See `docs/guide/array_mesh_inputs.md`; a shared material interface is not an
+  exterior surface and must not be silently turned into contact.
 - Abaqus migration: run `agentfem inspect-abaqus source.inp --json` before
   conversion and read `docs/abaqus_migration.md`. Preserve element formulation
   suffixes and report topology-only support; never substitute a native element

@@ -109,6 +109,10 @@ and evidence remain in the linked guides and scientific function reference.
 | function | `describe_topology(topology: str) -> TopologyCompatibility` | Describe one runtime cell topology without inferring formulation. |
 | function | `from_geometry_spec(specification: Mapping[str, object], *, resolution: int = 32, comm: MPI.Comm = MPI.COMM_WORLD)` | Create an :class:`agentfem.mesh.FEMMesh` from a public geometry spec. |
 | class | `RegionSet` | Named collection of regions sharing one mesh tag object. |
+| class | `ArrayMesh` | Ordinary mesh, immutable input arrays and detached provenance metadata. |
+| function | `read_array_mesh(path, *, manifest = None, comm = None)` | Read a checksummed NPZ and ``agentfem.array-mesh.v1`` JSON manifest. |
+| function | `exterior_regions(domain, *, input_cell_tags, names)` | Select global exterior facets by the owning cell's input-order tag. |
+| function | `exterior_boundary(domain, *, name = 'exterior')` | Return all exterior facets as an ordinary named BoundaryRegion (serial). |
 | class | `CellGradientOperator` | Reusable local sparse operator from cell values to owned-cell gradients. |
 | class | `CellGradientReconstruction` | Owned-cell gradients and conditioning evidence for one reconstruction. |
 | class | `CellGradientStencil` | One owned cell's compact linear gradient stencil. |

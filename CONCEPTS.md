@@ -48,6 +48,12 @@ A mesh summary records dimension, local/global entity counts, and available
 cell/facet tags. A required-tag check is a modeling guard: it should fail early
 when a material region or boundary label is missing.
 
+A numeric mesh archive binds connectivity order, geometry degree, units and
+byte identity without defining a physical problem. Input cell tags must follow
+the backend's original-cell identity after reordering. Part-exterior extraction
+selects global exterior facets by their parent cells; it does not split an
+internal shared-node material interface or merge coincident independent nodes.
+
 External CAE mesh formats such as Abaqus input, NASTRAN bulk data, VTK, and
 COMSOL-exported neutral formats should be converted into a DOLFINx-readable
 format before analysis. AgentFEM treats this as mesh-format conversion, not as a

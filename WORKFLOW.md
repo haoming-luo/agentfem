@@ -26,6 +26,10 @@ record.
    Standard/generalized-alpha, or Explicit/central difference. Keep this
    numerical choice separate from the study.
 3. Define, import, convert, or read the mesh.
+   Reviewed numeric archives can use `mesh.read_array_mesh`; use
+   `mesh.exterior_regions` to select part exteriors by input-cell identity.
+   Keep contact/bond choices in the case, not the reader. See
+   `docs/guide/array_mesh_inputs.md` for the serial degree-one contract.
 4. Create a lightweight model registry when auditability or agent inspection is
    useful.
 5. Inspect the mesh summary and require expected material/boundary tags.

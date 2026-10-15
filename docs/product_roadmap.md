@@ -21,6 +21,13 @@ or a successful run is not by itself a validated engineering capability.
 
 ### Lean project boundary (2026-10-15)
 
+Checked serial array-mesh import and parent-cell-based exterior regions now
+remove application-owned NPZ validation and boundary MeshTags construction.
+Input-node lookup reuses the existing identity-based P1/Q1 helper. Private
+surface selection and bonding eligibility remain explicit scientific inputs;
+the reader does not merge nodes or create internal contact surfaces. See
+[array mesh inputs](guide/array_mesh_inputs.md).
+
 Promote reusable execution, trusted native compilation/cache, guarded polar
 increments and accepted response export into the installed package. Keep private
 constitutive equations, state mappings and problem geometry in the project.

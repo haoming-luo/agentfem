@@ -147,6 +147,7 @@ nav:
           - Field Expression Inputs: guide/field_expression_inputs.md
           - High-order Mixed Fields: guide/high_order_mixed_fields.md
           - Mesh Interoperability: mesh_interoperability.md
+          - Checked Array Meshes: guide/array_mesh_inputs.md
           - Migrating Abaqus Projects: abaqus_migration.md
           - Engineering Workflow: engineering_workflows.md
       - Results and Data:

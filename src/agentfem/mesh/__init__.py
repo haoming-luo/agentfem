@@ -33,6 +33,7 @@ from .compatibility import (
 from . import selectors as select
 from .specs import SUPPORTED_GEOMETRIES, from_geometry_spec
 from .regions import RegionSet
+from .archive import ArrayMesh, read_array_mesh, exterior_regions, exterior_boundary
 from .reconstruction import (
     CellGradientOperator,
     CellGradientReconstruction,
