@@ -68,6 +68,24 @@ by arbitrarily choosing the first face. Use the context manager to join workers.
 Defaults are conservative: no process workers and one batch worker. Select and
 measure larger worker budgets per machine; do not infer them from another case.
 
+For the bounded closed-solid deformable-contact route,
+`q1_contact_runtime(..., separation_reuse="anchored")` optionally retains an
+immutable separation certificate. It measures relative movement from that
+certified configuration rather than repeatedly subtracting accumulated travel.
+Small oscillations can therefore avoid needless reclassification. The bound
+covers both endpoints and the complete linear increment using convex Q1
+weights; it never freezes an active normal, contact force or slip state.
+Nonpositive bounds still invoke current-geometry search and the ordinary swept
+guard remains active. Rollback/restart discards this derived cache. Open patches
+retain the existing route; changing topology, self-intersection and curved
+temporal trajectories are not admitted by this certificate.
+
+The default `separation_reuse="incremental"` is unchanged. The optional policy
+is recorded in execution identity and is an experiment until whole-increment
+measurements show a benefit. Additional bound evaluation can itself cost time.
+The reusable idea resembles [displacement-bounded neighbor reuse in LAMMPS](https://docs.lammps.org/Developer_par_neigh.html),
+but a particle cutoff is not substituted for the deformable Q1 distance problem.
+
 ## Compiled user materials
 
 Provider authors may use `elements.native_explicit_hex_kernel` to fuse a
@@ -113,6 +131,25 @@ No constitutive arithmetic, acceptance threshold or physical time grid changes.
 This revision is recorded in execution identity; retain the previous runtime
 for an old checkpoint rather than rewriting that identity. Local equivalence
 tests alone are not a whole-run timing claim.
+
+`tile_size=N` is an opt-in material scheduling experiment. Instead of assigning
+one equal slice to every worker, joined workers claim disjoint contiguous tiles
+from an instance-local queue. This can reduce slow-worker tails on heterogeneous
+CPUs or uneven material workloads; small tiles can instead increase dispatch
+overhead. The default `None` preserves static slices and existing execution
+identity. No automatic hardware tuning or speed guarantee is implied.
+
+The trusted provider must produce the same pointwise response independently of
+batch partitioning. Stress, state, work and body arithmetic retain original cell
+order; this is not a parallel reduction. Exact repair runs only after all tiles
+join, preserves global rejected-point ordering, and repairs only those points.
+Queue scheduling and tile size are recorded in execution identity, so a frozen
+checkpoint must not silently switch scheduling. Test representative damaged
+states as well as startup before choosing an operational tile size.
+The approach uses the existing pthread executor, without adding OpenMP or oneTBB
+dependencies; their [dynamic scheduling](https://openmp.org/spec-html/5.0/openmpsu41.html)
+and [chunking tradeoffs](https://uxlfoundation.github.io/oneTBB/main/tbb_userguide/Automatic_Chunking.html)
+provide general design context, not evidence of an AgentFEM speedup.
 
 ```python
 with elements.native_explicit_hex_kernel(

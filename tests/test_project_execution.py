@@ -113,6 +113,43 @@ def test_project_runtime_requirement(tmp_path):
             assert "AFM-PROJECT-VERSION" in errors[0]
 
 
+def test_project_required_accelerators_are_opt_in_preflight(tmp_path, monkeypatch):
+    from agentfem import platforms
+    calls = []
+    def probe():
+        calls.append(True)
+        return {'hex_arithmetic': {'available': True, 'status': 'available'},
+                'q1_geometry': {'available': False, 'status': 'load_failed',
+                    'error': {'message': 'GMP library unavailable'}}}
+    monkeypatch.setattr(platforms, '_native_accelerators', probe)
+    (tmp_path/'case.py').write_text("raise RuntimeError('must not run')")
+    path = tmp_path/'agentfem.toml'
+    path.write_text('[project]\nname="native"\n')
+    assert not project.ProjectConfig.load(path).check()
+    assert not calls
+    path.write_text('[project]\nname="native"\nrequires_accelerators=["hex_arithmetic"]\n')
+    assert not project.ProjectConfig.load(path).check()
+    path.write_text('[project]\nname="native"\nrequires_accelerators=["q1_geometry", "typo"]\n')
+    errors = project.ProjectConfig.load(path).check()
+    assert len(errors) == 2 and all('AFM-PROJECT-ACCELERATOR' in e for e in errors)
+    assert 'GMP library unavailable' in errors[0]
+    assert 'unknown accelerator' in errors[1]
+    path.write_text('[project]\nname="native"\nrequires_accelerators="hex_arithmetic"\n')
+    with pytest.raises(ValueError, match='requires_accelerators'):
+        project.ProjectConfig.load(path)
+
+
+def test_partial_presentation_selects_declared_visualization(tmp_path):
+    from agentfem import presentation
+    record = {'schema': 'agentfem.step-execution', 'status': 'paused', 'accepted_steps': 600,
+        'visualization': {'primary_artifact': 'process_fields'},
+        'artifacts': {'process_fields': 'fields.xdmf'}}
+    text = presentation.format_record(record, tmp_path/'report.json')
+    assert 'accepted steps: 600' in text
+    assert 'open in ParaView: fields.xdmf' in text
+    assert 'not a completed scientific result' in text
+
+
 def test_streaming_frames_and_completion_retention(tmp_path):
     from agentfem import results, checkpointing
     from test_response_material_step import make_step

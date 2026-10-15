@@ -187,6 +187,16 @@ def format_record(record: Mapping[str, object], path: Path) -> str:
         value = record.get(key)
         if value is not None:
             lines.append(f"  {key.replace('_', ' ')}: {_value(value)}")
+    if schema == "agentfem.step-execution":
+        lines.append(f"  accepted steps: {_value(record.get('accepted_steps', 'unknown'))}")
+        view, artifacts = record.get('visualization', {}), record.get('artifacts', {})
+        if isinstance(view, Mapping) and isinstance(artifacts, Mapping):
+            key = view.get('primary_artifact')
+            primary = artifacts.get(key) if isinstance(key, str) else None
+            if isinstance(primary, str) and primary:
+                lines.append(f"  open in ParaView: {primary}")
+        if record.get('status') == 'paused':
+            lines.append("  result: accepted partial run; not a completed scientific result")
     error = record.get("error")
     if isinstance(error, Mapping):
         code = error.get("code")

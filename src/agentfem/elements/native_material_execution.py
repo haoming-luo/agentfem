@@ -15,7 +15,8 @@ from ..constitutive._explicit_material import ExplicitMaterialBatchOutput, Expli
 
 
 def native_explicit_hex_kernel(material, function, *, properties, density,
-                               identity, fallback, validate=None, workers=1, cell_workers=1):
+                               identity, fallback, validate=None, workers=1, cell_workers=1,
+                               tile_size=None):
     """Bind trusted C material code, not a data-file address.
 
     ABI: void(int n, double* F_old, F_new, state_old, properties,
@@ -23,10 +24,17 @@ def native_explicit_hex_kernel(material, function, *, properties, density,
     Arrays are contiguous row-major float64. Nonzero status requests repair.
     Every worker is joined before repair and before publishing immutable output.
     function must retain its CDLL owner for the entire kernel lifetime.
+    Optional tile_size dynamically distributes independent material points.
+    Providers must be invariant to batch partitioning. None retains static slices.
     """
     from .. import _body_pipeline
     if isinstance(workers, bool) or not isinstance(workers, int) or not 1 <= workers <= 16:
         raise ValueError('Native material workers must be an integer in [1,16]')
+    if tile_size is not None:
+        if type(tile_size) is not int or not 1 <= tile_size <= 2147483647:
+            raise ValueError('Native material tile_size must be a positive 32-bit integer or None')
+        if not hasattr(_body_pipeline, 'run_tiled_checked'):
+            raise RuntimeError('This installed native dispatcher does not support tiled execution')
     if not isinstance(function, ctypes._CFuncPtr):
         raise TypeError('A trusted ctypes C function is required')
     if not callable(fallback) or (validate is not None and not callable(validate)):
@@ -68,12 +76,14 @@ def native_explicit_hex_kernel(material, function, *, properties, density,
                ('temperature', 'temperature_increment', 'field_variables')):
             raise ValueError('Native material ABI v1 does not carry extra fields')
         checked = hasattr(_body_pipeline, 'run_checked')
-        execute = _body_pipeline.run_checked if checked else _body_pipeline.run
+        execute = (_body_pipeline.run_tiled_checked if tile_size is not None else
+                   _body_pipeline.run_checked if checked else _body_pipeline.run)
         raw = execute(address,
             (request.deformation_gradient_old, request.deformation_gradient_new,
              request.state_old, parameters, displacement, geometry.average_gradient,
              geometry.hourglass_modes, geometry.volume, geometry.hourglass_coefficient),
-            request.time_increment, density, workers, width, len(parameters), repair, executor)
+            request.time_increment, density, workers, width, len(parameters), repair, executor,
+            *((tile_size,) if tile_size is not None else ()))
         n = request.point_count
         if checked:
             from ._checked_body_transport import checked_body_transport
@@ -98,6 +108,7 @@ def native_explicit_hex_kernel(material, function, *, properties, density,
         'worker_lifecycle': 'instance_sleeping_joined_batches',
         'fused_affine_screen': True,
         'material': identity, 'state_width': width, 'property_count': len(parameters),
+        **({'material_scheduling': 'dynamic_tiles', 'tile_size': tile_size} if tile_size is not None else {}),
         'workers': workers, 'cell_workers': cell_workers, 'state_owner': 'core', 'density': float(density),
         'properties_sha256': hashlib.sha256(parameters.tobytes()).hexdigest()},
         prepare_kinematics=kinematics, evaluate_viscosity=viscosity,

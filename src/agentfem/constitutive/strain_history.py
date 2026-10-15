@@ -178,12 +178,15 @@ class StrainHistoryRuntime:
     The chosen polar path is not a claim of arbitrary VUMAT equivalence.
     """
     def __init__(self, manifest, *, parameters, density, cache_directory,
-                 trusted=False, workers=1, cell_workers=1, compiler="gfortran"):
+                 trusted=False, workers=1, cell_workers=1, compiler="gfortran",
+                 tile_size=None):
         if trusted is not True:
             raise ValueError("AFM-HISTORY-TRUST: source and channel review required")
         path, spec = _read_spec(manifest)
         if type(workers) is not int or not 1 <= workers <= 16:
             raise ValueError("AFM-HISTORY-WORKERS: require integer in [1,16]")
+        if tile_size is not None and (type(tile_size) is not int or not 1 <= tile_size <= 2147483647):
+            raise ValueError("AFM-HISTORY-TILE: require positive 32-bit integer or None")
         if not spec["thread_safe"]:
             raise ValueError("AFM-HISTORY-THREADS: fused source reentrancy must be reviewed; otherwise use compile_vumat")
         if not isinstance(parameters, dict) or set(parameters) != set(spec["property_names"]):
@@ -230,7 +233,7 @@ class StrainHistoryRuntime:
         self.kernel = native_explicit_hex_kernel(self.material, function,
             properties=self._properties, density=self._density, identity=self._identity,
             fallback=self.update, validate=lambda response: self._check_state(response.state_new),
-            workers=workers, cell_workers=cell_workers)
+            workers=workers, cell_workers=cell_workers, tile_size=tile_size)
 
     def summary(self):
         return json.loads(json.dumps(self._identity))

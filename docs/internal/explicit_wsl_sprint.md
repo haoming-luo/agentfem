@@ -64,3 +64,38 @@ Next gates: independent ParaView check of the single-series project; frozen
 full-run comparison and late-state investigation. A large solver throughput
 improvement has **not** yet been demonstrated. WSL hardware timing is still
 unavailable; the mount/resource diagnostics are covered by fixture tests only.
+
+## Opt-in candidates and second admission gate
+
+- Dynamically queued material/body tiles reuse the instance-owned native pool.
+  They change scheduling only; pointwise providers must be invariant to batch
+  partitioning. The default remains static slices. Exact local repair, joined
+  validation and immutable old state remain mandatory. No throughput benefit
+  is established yet; small tiles can increase dispatch cost.
+- Anchored closed-surface separation certificates avoid accumulating obsolete
+  oscillatory travel. Both endpoints of the current linear increment are
+  bounded against immutable accepted geometry; positive bounds certify the
+  whole segment. Forces, normals and projections are never cached by this
+  mechanism. Exhaustion, rollback and restart discard the derived cache.
+  This is opt-in and is not a finite search-skip interval.
+- Projects can explicitly require native accelerators at preflight. Ordinary
+  projects do not acquire this requirement. Paused runs show accepted progress
+  and their primary visualization rather than implying scientific completion.
+- Candidate 6 installed-package gate: **226 passed** (native scheduling,
+  contact bounds/lifecycle, response material step, project/CLI/environment).
+  The earlier real-Fortran candidate gate passed **129 tests**. No WSL machine
+  or full-run speedup is certified by these results.
+- PR110 Linux source CI: 3597 passed, 270 skipped, one stale test failed because
+  it patched the replaced scalar vertex matcher. The test now checks the batch
+  distance candidate dimension (eight owner-cell vertices), preserving its
+  locality assertion. Focused response/trace gate: 34 passed, three MPI skips.
+- The frozen full run is still candidate 3; independent builds and small tests
+  overlapped it. Its wall time must retain this interference qualification.
+
+Further rationale: OpenMP scheduling and oneTBB automatic chunking document
+the balance/overhead tradeoff; LAMMPS neighbor rebuilding motivates conservative
+motion-based invalidation, not transfer of a particle cutoff rule to Q1 faces.
+
+- https://openmp.org/spec-html/5.0/openmpsu41.html
+- https://uxlfoundation.github.io/oneTBB/main/tbb_userguide/Automatic_Chunking.html
+- https://docs.lammps.org/Developer_par_neigh.html

@@ -12,7 +12,10 @@ from ._projection_workers import ProjectionWorkers
 
 class Q1ContactRuntime:
 
-    def __init__(self, geometry_workers=0, projection_workers=1, backend='auto'):
+    def __init__(self, geometry_workers=0, projection_workers=1, backend='auto',
+                 separation_reuse='incremental'):
+        if separation_reuse not in ('incremental', 'anchored'):
+            raise ValueError('separation_reuse must be incremental or anchored')
         if isinstance(geometry_workers, bool) or not isinstance(geometry_workers, int) or geometry_workers < 0:
             raise ValueError('Nonnegative integer geometry_workers required')
         if isinstance(projection_workers, bool) or not isinstance(projection_workers, int) or projection_workers not in (1, 2, 4, 8):
@@ -26,7 +29,7 @@ class Q1ContactRuntime:
         library = None if backend == 'reference' else load_library(required=backend == 'native')
         if library is None:
             self.execution = Q1ContactExecution({'provider': 'agentfem.q1_geometry',
-                'revision': 1, 'arithmetic': 'reference'})
+                'revision': 1, 'arithmetic': 'reference'}, separation_reuse=separation_reuse)
             return
         self.convex_library = self.winding_library = library
         real = np.ctypeslib.ndpointer(dtype=np.float64, flags='C_CONTIGUOUS')
@@ -49,7 +52,7 @@ class Q1ContactRuntime:
             'scope': 'projection-classification-conservative-bounds-swept-proof'},
             closest_point=self.closest, classify_inside=self.inside,
             distance_bounds=make_bounds(), separated_paths=make_swept(),
-            project_batch=self.batch)
+            project_batch=self.batch, separation_reuse=separation_reuse)
         if geometry_workers:
             self.workers = ProjectionWorkers(geometry_workers)
 

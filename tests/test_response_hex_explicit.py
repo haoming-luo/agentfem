@@ -320,14 +320,17 @@ def test_accepted_force_does_not_update_material():
 def test_contact_vertex_lookup_is_cell_local(monkeypatch):
     from agentfem.boundary_models import dolfinx_contact_trace as implementation
 
-    original = implementation._matching_dof_block
+    original = implementation.np.linalg.norm
     sizes = []
 
-    def checked(point, coordinates, **options):
-        sizes.append(len(coordinates))
-        return original(point, coordinates, **options)
+    def checked(values, *args, **options):
+        # Batched vertex matching is (facet, corner, owner-cell block, xyz).
+        # Guard the search width, not the former scalar helper's existence.
+        if values.ndim == 4 and options.get("axis") == 3:
+            sizes.append(values.shape[2])
+        return original(values, *args, **options)
 
-    monkeypatch.setattr(implementation, "_matching_dof_block", checked)
+    monkeypatch.setattr(implementation.np.linalg, "norm", checked)
     make_step(contact=True, bond=True)
     assert sizes and max(sizes) == 8
 

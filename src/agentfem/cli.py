@@ -498,12 +498,25 @@ def _command_run(args) -> int:
         else {}
     )
     status = MPI.COMM_WORLD.bcast(record.get("status"), root=0)
+    result_status = ("paused; no completed scientific result published" if status == "paused"
+                     else "script completed without a published SimulationResult")
     human = (
         f"Run {status} · {project.name}\n"
         f"  run: {context.output_directory.name}\n"
-        f"  result: script completed without a published SimulationResult\n"
+        f"  result: {result_status}\n"
         f"  record: {context.execution_path}"
     )
+    if MPI.COMM_WORLD.rank == 0 and not context.manifest_path.is_file():
+        step_report_path = context.output_directory / "report.json"
+        if step_report_path.is_file():
+            try:
+                step_report = json.loads(step_report_path.read_text(encoding="utf-8"))
+            except (ValueError, OSError):
+                step_report = None
+            if (isinstance(step_report, dict)
+                    and step_report.get("schema") == "agentfem.step-execution"
+                    and step_report.get("status") == status):
+                human = presentation.format_record(step_report, step_report_path)
     if MPI.COMM_WORLD.rank == 0 and context.manifest_path.is_file():
         result_record = json.loads(context.manifest_path.read_text(encoding="utf-8"))
         try:

@@ -178,6 +178,14 @@ interfaces in older builds that share a development version, before executing
 Presence is not signature compatibility or a runtime lock: record the package
 hash/commit for a reproducible handoff, not just its version string.
 
+A project deliberately selecting a native-only execution route can additionally
+declare `requires_accelerators = ["hex_arithmetic", "material_body_pipeline",
+"q1_geometry"]` under `[project]`. The check reports missing builds and loader
+errors before executing the case. These names reuse `agentfem doctor`'s existing
+availability probes; no worker is started. The empty default preserves ordinary
+reference-only projects. Do not add this requirement to a project that supports
+reference fallback, and do not confuse availability with measured performance.
+
 ## WSL execution environment
 
 `agentfem check` and `agentfem run` issue read-only advisories for Windows-mounted

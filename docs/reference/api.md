@@ -231,7 +231,7 @@ and evidence remain in the linked guides and scientific function reference.
 | class | `NativeLibraryBundle` | Public AgentFEM object. |
 | function | `build_native_libraries(manifest, *, cache_directory, trusted = False, compiler = 'gfortran', timeout = 180)` | Build a reviewed GNU Fortran bundle on macOS/Linux/WSL2. |
 | class | `CompiledCorotationalIncrement(bundle, target)` | Bind an explicitly built polar_increment C ABI, keeping its library alive. |
-| class | `StrainHistoryRuntime(manifest, *, parameters, density, cache_directory, trusted = False, workers = 1, cell_workers = 1, compiler = 'gfortran')` | Experimental 3D strain-history source and optional fused Hex execution. |
+| class | `StrainHistoryRuntime(manifest, *, parameters, density, cache_directory, trusted = False, workers = 1, cell_workers = 1, compiler = 'gfortran', tile_size = None)` | Experimental 3D strain-history source and optional fused Hex execution. |
 | class | `ExplicitUserMaterial` | A named, restart-identifiable batch response without synthetic tangent. |
 | function | `explicit_user_material(*, state_schema, update, identity, name = 'user_explicit_material', increment_limit = None, increment_policy_identity = None, density = None)` | Public AgentFEM object. |
 | class | `ArrheniusPowerLawCreep` | Temperature-dependent Mises power-law creep. |
@@ -730,7 +730,7 @@ and evidence remain in the linked guides and scientific function reference.
 
 | Kind | Public object | Purpose |
 | --- | --- | --- |
-| function | `q1_contact_runtime(*, backend = 'auto', geometry_workers = 0, projection_workers = 1)` | Instance-owned Q1 arithmetic; use as a context around the Step lifetime. |
+| function | `q1_contact_runtime(*, backend = 'auto', geometry_workers = 0, projection_workers = 1, separation_reuse = 'incremental')` | Instance-owned Q1 arithmetic; use as a context around the Step lifetime. |
 | class | `Q1ContactExecution` | Public AgentFEM object. |
 | class | `ElasticFoundation` | Distributed linear spring support on a solid boundary. |
 | class | `RigidObstaclePenaltyContact` | Frictionless one-sided contact with one analytical rigid plane. |
@@ -959,7 +959,7 @@ and evidence remain in the linked guides and scientific function reference.
 | class | `ExplicitHexBodyOutput` | Public AgentFEM object. |
 | class | `ExplicitHexGeometry` | Public AgentFEM object. |
 | function | `explicit_hex_kernel(*, backend = 'auto', cell_workers = 1)` | Use installed native arithmetic or the reference NumPy implementation. |
-| function | `native_explicit_hex_kernel(material, function, *, properties, density, identity, fallback, validate = None, workers = 1, cell_workers = 1)` | Bind trusted C material code, not a data-file address. |
+| function | `native_explicit_hex_kernel(material, function, *, properties, density, identity, fallback, validate = None, workers = 1, cell_workers = 1, tile_size = None)` | Bind trusted C material code, not a data-file address. |
 
 ## `agentfem.expressions`
 

@@ -230,7 +230,8 @@ __all__ = [
 ]
 
 
-def q1_contact_runtime(*, backend="auto", geometry_workers=0, projection_workers=1):
+def q1_contact_runtime(*, backend="auto", geometry_workers=0, projection_workers=1,
+                       separation_reuse="incremental"):
     """Instance-owned Q1 arithmetic; use as a context around the Step lifetime.
 
     Pass runtime.execution to the ordinary deformable-contact pair. Native
@@ -239,4 +240,5 @@ def q1_contact_runtime(*, backend="auto", geometry_workers=0, projection_workers
     """
     from .native_execution import Q1ContactRuntime
     return Q1ContactRuntime(backend=backend, geometry_workers=geometry_workers,
-                            projection_workers=projection_workers)
+                            projection_workers=projection_workers,
+                            separation_reuse=separation_reuse)
