@@ -165,6 +165,7 @@ SMOKE_COMMANDS = (
     ("examples/static_elasticity_surrogate_campaign.py", ()),
 )
 INSTALLED_PROJECT_TEMPLATES = (
+    "heat-campaign",
     "static-solid",
     "steady-heat",
     "structural-dynamics",

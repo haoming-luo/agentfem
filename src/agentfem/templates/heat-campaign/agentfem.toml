@@ -1,0 +1,10 @@
+# SPDX-FileCopyrightText: 2026 Haoming Luo and AgentFEM contributors
+# SPDX-License-Identifier: Apache-2.0
+[project]
+name = "{{PROJECT_NAME}}"
+entrypoint = "case.py"
+schema_version = "0.2.0"
+created_with = "{{AGENTFEM_VERSION}}"
+
+[run]
+output_directory = "outputs"
