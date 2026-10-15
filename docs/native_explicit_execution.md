@@ -68,6 +68,14 @@ by arbitrarily choosing the first face. Use the context manager to join workers.
 Defaults are conservative: no process workers and one batch worker. Select and
 measure larger worker budgets per machine; do not infer them from another case.
 
+Reference-projection process workers are isolated numeric services: they do
+not reimport `case.py` or initialize another FEM/MPI runtime. They remain asleep
+between batches, limit their own nested arithmetic threads, and preserve the
+reference projection algorithm. A crashed or timed-out service fails the
+request and is cleaned up; it never substitutes a guessed projection. The
+parent solver's environment and signal handlers are not changed. This avoids
+hidden communication-thread contention without changing the model or time step.
+
 For the bounded closed-solid deformable-contact route,
 `q1_contact_runtime(..., separation_reuse="anchored")` optionally retains an
 immutable separation certificate. It measures relative movement from that
