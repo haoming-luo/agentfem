@@ -135,3 +135,25 @@ def test_chunked_geometry_batches_keep_input_order(monkeypatch):
                 np.testing.assert_array_equal(value, expected)
     finally:
         workers.close()
+
+
+@pytest.mark.parametrize('value', [0, -1, np.nan, np.inf, True, 'fast'])
+def test_runtime_rejects_invalid_geometry_deadline(value):
+    from agentfem import boundary_models
+
+    with pytest.raises(ValueError, match='geometry_timeout'):
+        boundary_models.q1_contact_runtime(backend='reference', geometry_timeout=value)
+
+
+def test_geometry_deadline_is_optional_operational_policy():
+    from agentfem import boundary_models
+
+    with boundary_models.q1_contact_runtime(backend='reference', geometry_timeout=None) as a:
+        with boundary_models.q1_contact_runtime(backend='reference', geometry_timeout=1200.) as b:
+            assert a.execution.summary() == b.execution.summary()
+    workers = ProjectionWorkers(1, timeout=None)
+    try:
+        assert workers.timeout is None
+        assert all(answer is not None for answer in workers(*queries()))
+    finally:
+        workers.close()

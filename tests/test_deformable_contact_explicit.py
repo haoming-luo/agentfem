@@ -192,6 +192,37 @@ def test_corrupt_contact_restore_does_not_touch_body():
     assert step.residual.snapshot() == before
 
 
+@pytest.mark.parametrize('overlap', [False, True])
+def test_geometry_service_failure_preserves_whole_accepted_increment(monkeypatch, overlap):
+    from contextlib import nullcontext
+
+    step = make_step(steps=3, closed=True)
+    step.run(until_step=2)
+    before = step.residual.snapshot()
+    fields = {name: getattr(step.state, name).value.x.array.copy() for name in ('u', 'v', 'a')}
+    history = deepcopy(step.history_records)
+    original = step.residual._evaluate_contact
+
+    def failed_service(values):
+        raise TimeoutError('Q1 geometry worker batch timed out')
+
+    monkeypatch.setattr(step.residual, '_evaluate_contact', failed_service)
+    context = step.residual.overlap_execution() if overlap else nullcontext()
+    with context, pytest.raises(TimeoutError, match='timed out'):
+        step.run(until_step=3)
+    assert step.residual.snapshot() == before
+    assert step.history_records == history
+    for name, value in fields.items():
+        np.testing.assert_array_equal(getattr(step.state, name).value.x.array, value)
+
+    monkeypatch.setattr(step.residual, '_evaluate_contact', original)
+    step.run()
+    reference = make_step(steps=3, closed=True)
+    reference.run()
+    assert step.residual.snapshot() == reference.residual.snapshot()
+    assert step.history_records == reference.history_records
+
+
 def test_two_body_energy_time_refinement():
     errors = []
     for dt, steps in ((1e-3, 20), (5e-4, 40), (2.5e-4, 80)):

@@ -231,14 +231,17 @@ __all__ = [
 
 
 def q1_contact_runtime(*, backend="auto", geometry_workers=0, projection_workers=1,
-                       separation_reuse="incremental"):
+                       separation_reuse="incremental", geometry_timeout=300.0):
     """Instance-owned Q1 arithmetic; use as a context around the Step lifetime.
 
     Pass runtime.execution to the ordinary deformable-contact pair. Native
     algorithms are optional. Reference fallback preserves geometry, contact
     laws, ambiguity rules and state ownership; it is not a second solver.
+    geometry_timeout bounds a reference-worker batch in wall-clock seconds;
+    None disables that operational deadline. It does not alter physical time.
     """
     from .native_execution import Q1ContactRuntime
     return Q1ContactRuntime(backend=backend, geometry_workers=geometry_workers,
                             projection_workers=projection_workers,
-                            separation_reuse=separation_reuse)
+                            separation_reuse=separation_reuse,
+                            geometry_timeout=geometry_timeout)

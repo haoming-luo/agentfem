@@ -75,6 +75,10 @@ reference projection algorithm. A crashed or timed-out service fails the
 request and is cleaned up; it never substitutes a guessed projection. The
 parent solver's environment and signal handlers are not changed. This avoids
 hidden communication-thread contention without changing the model or time step.
+`geometry_timeout=300.0` bounds a worker batch in elapsed seconds. Increase it
+for unusually expensive batches or set it to `None` to disable the deadline.
+It is an operational failure guard, not a physical increment or a performance
+qualification threshold, and is not part of scientific checkpoint identity.
 
 For the bounded closed-solid deformable-contact route,
 `q1_contact_runtime(..., separation_reuse="anchored")` optionally retains an

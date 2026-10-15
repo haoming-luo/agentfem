@@ -13,7 +13,13 @@ from ._projection_workers import ProjectionWorkers
 class Q1ContactRuntime:
 
     def __init__(self, geometry_workers=0, projection_workers=1, backend='auto',
-                 separation_reuse='incremental'):
+                 separation_reuse='incremental', geometry_timeout=300.0):
+        if geometry_timeout is not None and (
+            isinstance(geometry_timeout, (bool, np.bool_))
+            or not isinstance(geometry_timeout, (int, float, np.floating))
+            or not np.isfinite(geometry_timeout) or geometry_timeout <= 0
+        ):
+            raise ValueError('geometry_timeout must be positive finite seconds or None')
         if separation_reuse not in ('incremental', 'anchored'):
             raise ValueError('separation_reuse must be incremental or anchored')
         if isinstance(geometry_workers, bool) or not isinstance(geometry_workers, int) or geometry_workers < 0:
@@ -54,7 +60,7 @@ class Q1ContactRuntime:
             distance_bounds=make_bounds(), separated_paths=make_swept(),
             project_batch=self.batch, separation_reuse=separation_reuse)
         if geometry_workers:
-            self.workers = ProjectionWorkers(geometry_workers)
+            self.workers = ProjectionWorkers(geometry_workers, timeout=geometry_timeout)
 
     def _recover(self, vertices, points):
         return self.workers(vertices, points)

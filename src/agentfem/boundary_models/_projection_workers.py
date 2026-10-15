@@ -129,9 +129,13 @@ class ProjectionWorkers:
     def __init__(self, workers, *, timeout=300.0):
         if isinstance(workers, bool) or not isinstance(workers, int) or workers < 1:
             raise ValueError("Positive integer worker count required")
-        if not np.isfinite(timeout) or timeout <= 0:
+        if timeout is not None and (
+            isinstance(timeout, (bool, np.bool_))
+            or not isinstance(timeout, (int, float, np.floating))
+            or not np.isfinite(timeout) or timeout <= 0
+        ):
             raise ValueError("Positive finite geometry worker timeout required")
-        self.workers, self.timeout = workers, float(timeout)
+        self.workers, self.timeout = workers, None if timeout is None else float(timeout)
         self.services = [_Service() for _ in range(workers)]
         self.pool = ThreadPoolExecutor(
             max_workers=workers, thread_name_prefix="agentfem-projection-io"

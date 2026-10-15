@@ -730,7 +730,7 @@ and evidence remain in the linked guides and scientific function reference.
 
 | Kind | Public object | Purpose |
 | --- | --- | --- |
-| function | `q1_contact_runtime(*, backend = 'auto', geometry_workers = 0, projection_workers = 1, separation_reuse = 'incremental')` | Instance-owned Q1 arithmetic; use as a context around the Step lifetime. |
+| function | `q1_contact_runtime(*, backend = 'auto', geometry_workers = 0, projection_workers = 1, separation_reuse = 'incremental', geometry_timeout = 300.0)` | Instance-owned Q1 arithmetic; use as a context around the Step lifetime. |
 | class | `Q1ContactExecution` | Public AgentFEM object. |
 | class | `ElasticFoundation` | Distributed linear spring support on a solid boundary. |
 | class | `RigidObstaclePenaltyContact` | Frictionless one-sided contact with one analytical rigid plane. |
