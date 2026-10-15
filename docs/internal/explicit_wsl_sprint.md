@@ -99,3 +99,25 @@ motion-based invalidation, not transfer of a particle cutoff rule to Q1 faces.
 - https://openmp.org/spec-html/5.0/openmpsu41.html
 - https://uxlfoundation.github.io/oneTBB/main/tbb_userguide/Automatic_Chunking.html
 - https://docs.lammps.org/Developer_par_neigh.html
+
+## Storage and next arithmetic probe
+
+Transient manifests now use compact JSON, preserving the schema, every history
+row and standard readers. The retained private final manifest is 107,175,430
+bytes; a compact-JSON inspection is approximately 88,342,412 bytes. This is a
+storage observation, not a solver speed claim. Recovery/retention/contact-work
+gate: 57 passed. No old archive was rewritten or deleted.
+
+A private inverse-Newton 3x3 polar candidate retains the existing near-rotation
+admission and residual gates. In 300 rotated/stretched random points, maximum
+strain error against the independent reference was 2.43e-15; all 300 points
+passed native admission. This is not a material-history, damage or dynamics
+acceptance and no timing gain is established. Keep it outside the package
+until comparative arithmetic and material-history evidence justifies promotion.
+The existing runtime and frozen full run are unchanged.
+
+- https://eprints.maths.manchester.ac.uk/694/
+- https://pages.cs.wisc.edu/~sifakis/papers/SVD_TR1690.pdf
+
+The latter motivates SIMD-friendly small-matrix algorithms; its graphics/SIMD
+performance is not transferable evidence for this double-precision workload.
