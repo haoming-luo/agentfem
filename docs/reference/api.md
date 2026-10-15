@@ -1783,6 +1783,7 @@ This package exposes its public objects through focused submodules.
 | class | `TimeStep` | Metadata for one transient-solve step. |
 | class | `TimeStepper` | Iterate over transient-solve step metadata. |
 | function | `format_duration(seconds: float) -> str` | Format elapsed seconds as ``HH:MM:SS``. |
+| function | `format_quantity(value: float, unit: str = '', *, precision: int = 6) -> str` | Compact terminal display only; never round values stored as evidence. |
 | class | `ExplicitSubstepPolicy` | Public AgentFEM object. |
 | class | `FixedMassScaling` | Explicit uniform/nodal factors; never a stable-increment estimator. |
 | class | `InitialMassScaling` | Generate fixed nodal mass from an explicit reference-stiffness model. |

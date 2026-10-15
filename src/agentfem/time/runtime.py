@@ -6,8 +6,23 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+import math
+from typing import Mapping
 
 from mpi4py import MPI
+
+
+def format_quantity(value: float, unit: str = "", *, precision: int = 6) -> str:
+    """Compact terminal display only; never round values stored as evidence.
+
+    Units are caller-declared. Nonfinite diagnostics remain visible instead of
+    being hidden as zero. No unit conversion or physical reduction is performed.
+    """
+    if isinstance(precision, bool) or not isinstance(precision, int) or not 1 <= precision <= 17:
+        raise ValueError("precision must be an integer between 1 and 17")
+    number = float(value)
+    text = format(number, f".{precision}g") if number != 0 else "0"
+    return f"{text} {unit}" if unit else text
 
 
 def format_duration(seconds: float) -> str:
@@ -105,3 +120,48 @@ class ProgressPrinter:
             f"step {step:>6}/{self.total_steps} ({percent:5.1f}%) | {message}",
             flush=True,
         )
+
+    def update(
+        self, step: int, *, time: float, elapsed_seconds: float,
+        time_unit: str = "s",
+        quantities: Mapping[str, tuple[float, str]] | None = None,
+        force: bool = False,
+    ) -> None:
+        """Print an accepted station at the configured cadence, on rank zero.
+
+        The caller owns acceptance and any MPI reductions. ``time`` uses the
+        declared model unit; wall-clock elapsed time is always seconds. ``force``
+        can display a partial/restart stop, but does not override ``every=0``.
+        This method does not write machine logs or modify supplied quantities.
+        """
+        if self.comm.rank != 0 or self.every <= 0:
+            return
+        if not (force or self.should_print(step)):
+            return
+        if not 0 <= step <= self.total_steps or self.total_steps <= 0:
+            raise ValueError("step must lie between zero and positive total_steps")
+        if not math.isfinite(elapsed_seconds) or elapsed_seconds < 0:
+            raise ValueError("elapsed_seconds must be finite and nonnegative")
+        parts = [
+            f"Step {step:,}/{self.total_steps:,} ({100 * step / self.total_steps:.1f}%)",
+            f"Time: {format_quantity(time, time_unit)}",
+            f"Elapsed: {elapsed_seconds:.1f} s",
+        ]
+        parts.extend(self._quantities(quantities))
+        print(" | ".join(parts), flush=True)
+
+    @staticmethod
+    def _quantities(quantities):
+        return [f"{name}: {format_quantity(value, unit)}"
+                for name, (value, unit) in (quantities or {}).items()]
+
+    def status(
+        self, message: str, *, quantities: Mapping[str, tuple[float, str]] | None = None,
+    ) -> None:
+        """Print an explicit lifecycle message, even when progress is disabled.
+
+        Use accurate labels such as 'Model ready', 'Partial run completed' or
+        'Run failed'. The printer never infers scientific verification status.
+        """
+        if self.comm.rank == 0:
+            print(" | ".join([message, *self._quantities(quantities)]), flush=True)

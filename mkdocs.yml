@@ -123,6 +123,7 @@ nav:
   - Getting Started:
       - get_started/index.md
       - Install and First Project: getting_started.md
+      - Terminal Progress: progress_display.md
       - Offline Runtime Installers: runtime_installers.md
       - For AI Agents: agents/index.md
       - Connect with MCP: agents/mcp.md
