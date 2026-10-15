@@ -31,6 +31,13 @@ evidence.
 2. Solution procedure preference when more than one algorithm can solve the
    same physical equation
 3. Mesh
+   - for reviewed numeric archives, use `mesh.read_array_mesh` with explicit
+     topology/order/degree/unit and checksum metadata; see
+     `docs/guide/array_mesh_inputs.md` for the bounded serial contract;
+   - select part exteriors with `mesh.exterior_regions` using input-cell tags;
+     an internal shared-node material interface is not an exterior;
+   - retain independent coincident nodes and map input identities through
+     `spaces.locate_input_nodes`, never through coordinate coincidence.
 4. Model registry when auditability is useful
 5. Mesh summary and required tag checks
 6. Function spaces

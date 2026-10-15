@@ -24,6 +24,7 @@ import shutil
 import subprocess
 import tomllib
 from typing import Mapping
+from ._project_execution import RunPolicy, execute_step
 
 
 PROJECT_FILENAME = "agentfem.toml"
@@ -409,6 +410,7 @@ class ProjectConfig:
     extensions: tuple[str, ...] = ()
     schema_version: str = CURRENT_PROJECT_SCHEMA_VERSION
     created_with: str | None = None
+    requires_agentfem: str | None = None
 
     @classmethod
     def load(cls, path: str | Path) -> "ProjectConfig":
@@ -443,6 +445,7 @@ class ProjectConfig:
                 if project.get("created_with") is None
                 else str(project["created_with"])
             ),
+            requires_agentfem=project.get("requires_agentfem"),
         )
 
     def check(self) -> tuple[str, ...]:
@@ -475,6 +478,17 @@ class ProjectConfig:
                 f"Project schema {self.schema_version} is newer than this runtime "
                 f"supports ({CURRENT_PROJECT_SCHEMA_VERSION})."
             )
+        if self.requires_agentfem is not None:
+            from packaging.specifiers import InvalidSpecifier, SpecifierSet
+            from . import __version__
+            try:
+                if not isinstance(self.requires_agentfem, str) or not self.requires_agentfem.strip():
+                    raise InvalidSpecifier("require a nonempty version constraint")
+                requirement = SpecifierSet(self.requires_agentfem)
+                if not requirement.contains(__version__, prereleases=True):
+                    errors.append(f"AFM-PROJECT-VERSION: requires AgentFEM {self.requires_agentfem}; installed {__version__}")
+            except InvalidSpecifier as error:
+                errors.append(f"AFM-PROJECT-VERSION: invalid requires_agentfem: {error}")
         if self.extensions:
             from .extensions import missing_extensions
 
@@ -491,6 +505,7 @@ class ProjectConfig:
             "schema": PROJECT_SCHEMA,
             "schema_version": self.schema_version,
             "created_with": self.created_with,
+            "requires_agentfem": self.requires_agentfem,
             "name": self.name,
             "root": str(self.root),
             "entrypoint": str(self.entrypoint),
@@ -761,6 +776,8 @@ def _write_json(path: Path, record: Mapping[str, object]) -> None:
 
 
 __all__ = [
+    "RunPolicy",
+    "execute_step",
     "CURRENT_PROJECT_SCHEMA_VERSION",
     "PROJECT_FILENAME",
     "PROJECT_SCHEMA",

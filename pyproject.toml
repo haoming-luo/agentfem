@@ -36,6 +36,7 @@ dependencies = [
   "h5py",
   "numpy",
   "mpi4py",
+  "packaging>=23",
 ]
 
 [project.urls]
@@ -110,6 +111,7 @@ packages = [
 ]
 
 [tool.setuptools.package-data]
+"agentfem.constitutive" = ["native/*.f90"]
 "agentfem.materials" = ["data/*.json"]
 "agentfem.knowledge" = [
   "README.md",

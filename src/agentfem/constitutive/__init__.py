@@ -25,6 +25,9 @@ from .corotational import (
 )
 from .stability import FirstPiolaTangentEnvelope
 from .vumat import VumatBatchInput, VumatBatchOutput, CompiledVumat, compile_vumat
+from .native_build import NativeLibraryBundle, build_native_libraries
+from .compiled_corotational import CompiledCorotationalIncrement
+from .strain_history import StrainHistoryRuntime
 from .explicit_user_material import (
     ExplicitUserMaterial,
     ExplicitMaterialBatchOutput,
@@ -245,6 +248,10 @@ from .._material_history import (
 )
 
 __all__ = [
+    "CompiledCorotationalIncrement",
+    "StrainHistoryRuntime",
+    "NativeLibraryBundle",
+    "build_native_libraries",
     "VumatBatchInput", "VumatBatchOutput", "CompiledVumat", "compile_vumat",
     "corotational",
     "CorotationalIncrement",

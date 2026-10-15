@@ -1,5 +1,12 @@
 # AgentFEM Agent Guide
 
+For serial response-material process visualization, use
+`results.AcceptedResponseSeries` and `project.RunPolicy(field_intervals=...)`.
+Never reconstruct unsaved damage fields by interpolating endpoints. Keep
+checkpoint cadence separate; opt-in `completed_checkpoint_keep=1` prunes only
+owned checkpoints after successful completion/export. Read the checkpoint
+path from the result, not a guessed `accepted-final` filename.
+
 Use this guide when an AI agent is asked to build, review, extend, or debug a
 finite-element simulation with AgentFEM.
 
@@ -80,6 +87,11 @@ never changes solver access, results, verification, or update behavior.
 - Mesh or boundary tagging: read `docs/module_map.md`, then use
   `mesh.summarize_mesh`, `mesh.require_cell_tags`, and
   `mesh.require_facet_tags`.
+  Reviewed array archives use `mesh.read_array_mesh` and an explicit ordering
+  manifest; part exteriors use `mesh.exterior_regions`, not case-owned MeshTags
+  construction. Preserve input-cell identity and independent coincident nodes.
+  See `docs/guide/array_mesh_inputs.md`; a shared material interface is not an
+  exterior surface and must not be silently turned into contact.
 - Abaqus migration: run `agentfem inspect-abaqus source.inp --json` before
   conversion and read `docs/abaqus_migration.md`. Preserve element formulation
   suffixes and report topology-only support; never substitute a native element
@@ -138,6 +150,10 @@ never changes solver access, results, verification, or update behavior.
   `constitutive.capabilities()`, then use `constitutive/`. Never turn a
   material-point law into a claimed FEM step without state/tangent/solver
   evidence.
+  For a reviewed strain-history VUMAT, read `docs/strain_history_runtime.md`.
+  Use the declared runtime instead of writing project-specific ctypes/Fortran
+  bridges. Never declare unused thermal, time, length or energy channels without
+  source review, or infer state layouts and step limits from another case.
   `constitutive.chaboche(...)` is an experimental three-dimensional global
   combined-hardening route with quadrature rollback/restart and `ALPHA`
   output. Keep its external-definition evidence distinct from a calibrated
@@ -168,6 +184,12 @@ never changes solver access, results, verification, or update behavior.
   reviewed, trusted Python code and records its content hash. Do not use it to
   inspect downloaded code. TOML may select an asset but is not a constitutive
   language; installed or private collections belong in extension packages.
+  For reviewed multi-source Fortran providers use
+  `constitutive.build_native_libraries` rather than rewriting compiler/cache
+  logic in a project. Keep source trust explicit. For supported serial transient
+  delivery use `project.execute_step` around the ordinary Step, not a case-owned
+  integration loop. See `docs/project_execution.md`. Project version constraints
+  belong in `project.requires_agentfem`, not private-module probes or commit IDs.
 - Absorbing or Robin-like terms: use `boundary_models/`.
 - Assembly or lumped operators: inspect `assembly.py`.
 - Time stepping: inspect `time/` and `problems.py`.

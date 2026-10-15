@@ -1,5 +1,11 @@
 # AgentFEM Concepts
 
+Process frames are selected accepted fields, not restart states. Their cadence
+is independent of checkpoints and scalar histories. A completed run may retain
+one integrity-checked owned checkpoint while preserving many visualization
+frames; failure/partial runs retain their restart safety policy. See
+`docs/accepted_process_output.md`.
+
 This file defines the vocabulary that humans and AI agents should use when
 working with AgentFEM.
 
@@ -47,6 +53,12 @@ measures should use reusable helpers when possible.
 A mesh summary records dimension, local/global entity counts, and available
 cell/facet tags. A required-tag check is a modeling guard: it should fail early
 when a material region or boundary label is missing.
+
+A numeric mesh archive binds connectivity order, geometry degree, units and
+byte identity without defining a physical problem. Input cell tags must follow
+the backend's original-cell identity after reordering. Part-exterior extraction
+selects global exterior facets by their parent cells; it does not split an
+internal shared-node material interface or merge coincident independent nodes.
 
 External CAE mesh formats such as Abaqus input, NASTRAN bulk data, VTK, and
 COMSOL-exported neutral formats should be converted into a DOLFINx-readable
@@ -240,6 +252,14 @@ rupture relation and nontrivial interaction curve retains its source;
 AgentFEM does not embed licensed or material-specific allowable data.
 
 ## Constitutive Law
+
+A declared strain-history runtime lowers a reviewed user source into existing
+material and execution contracts. Its manifest describes source dependencies,
+state layout, unused channels and the chosen kinematic/work convention; it is
+not an operational project setting. The runtime owns transport and batching,
+not constitutive equations or global acceptance. Unsupported context-dependent
+laws retain the complete material-point input contract rather than fabricated
+physical inputs. See `docs/strain_history_runtime.md`.
 
 A local response relation that maps state to stress, flux, tangent, or another
 response quantity. Elastic stress-strain equations belong here. Future
@@ -955,6 +975,13 @@ retain the parent coefficient numbering. `spaces.independent_subspace` creates
 an independent space; field interpolation is the transfer contract.
 
 ## Native material transport is not a constitutive formulation
+
+Project execution is operational orchestration around an already constructed
+Step, not another Procedure. It owns delivery status and journal/artifact
+publication; the Step remains the state, integration and checkpoint authority.
+A native source build owns immutable input snapshots, compiler identity and
+cached binaries. It does not infer an ABI, a material law or its scientific
+compatibility. Keep material-specific state mapping and domain limits external.
 
 A compiled user-subroutine bridge owns ABI validation, batch array transport
 and build identity, not objective kinematics, history acceptance, stable

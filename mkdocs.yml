@@ -124,7 +124,10 @@ nav:
       - get_started/index.md
       - Install and First Project: getting_started.md
       - Terminal Progress: progress_display.md
+      - Process Frames and Restart Custody: accepted_process_output.md
       - Check, Inspect and Compare: workflow_usability.md
+      - Lean Project Execution: project_execution.md
+      - Strain-History Materials: strain_history_runtime.md
       - Offline Runtime Installers: runtime_installers.md
       - For AI Agents: agents/index.md
       - Connect with MCP: agents/mcp.md
@@ -146,6 +149,7 @@ nav:
           - Field Expression Inputs: guide/field_expression_inputs.md
           - High-order Mixed Fields: guide/high_order_mixed_fields.md
           - Mesh Interoperability: mesh_interoperability.md
+          - Checked Array Meshes: guide/array_mesh_inputs.md
           - Migrating Abaqus Projects: abaqus_migration.md
           - Engineering Workflow: engineering_workflows.md
       - Results and Data:

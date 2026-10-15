@@ -6,6 +6,19 @@ experimental formulation to a validated one.
 
 ## [Unreleased]
 
+- Stream selected accepted response fields as a single-grid process time series,
+  independently of history and checkpoint cadence. Fixed mesh geometry is shared;
+  restart segments preserve the original schedule without changing integration.
+  Reuse scheduled endpoint checkpoints and optionally prune only owned current-run
+  checkpoints after successful completion/export with final payload integrity checks.
+
+- Add experimental declared strain-history VUMAT runtime: named parameter
+  bounds, arbitrary history width, explicit unused-channel/kinematic/work
+  semantics, generated native fusion, original-source repair and inspectable
+  identity. Reuse existing build cache, material transactions and native Hex
+  execution instead of project-specific wrappers. No general VUMAT compatibility,
+  stability certificate or whole-run speedup is implied.
+
 ## [0.4.2] - 2026-10-14
 
 ### Reviewed user-material sources

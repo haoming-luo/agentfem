@@ -109,6 +109,10 @@ and evidence remain in the linked guides and scientific function reference.
 | function | `describe_topology(topology: str) -> TopologyCompatibility` | Describe one runtime cell topology without inferring formulation. |
 | function | `from_geometry_spec(specification: Mapping[str, object], *, resolution: int = 32, comm: MPI.Comm = MPI.COMM_WORLD)` | Create an :class:`agentfem.mesh.FEMMesh` from a public geometry spec. |
 | class | `RegionSet` | Named collection of regions sharing one mesh tag object. |
+| class | `ArrayMesh` | Ordinary mesh, immutable input arrays and detached provenance metadata. |
+| function | `read_array_mesh(path, *, manifest = None, comm = None)` | Read a checksummed NPZ and ``agentfem.array-mesh.v1`` JSON manifest. |
+| function | `exterior_regions(domain, *, input_cell_tags, names)` | Select global exterior facets by the owning cell's input-order tag. |
+| function | `exterior_boundary(domain, *, name = 'exterior')` | Return all exterior facets as an ordinary named BoundaryRegion (serial). |
 | class | `CellGradientOperator` | Reusable local sparse operator from cell values to owned-cell gradients. |
 | class | `CellGradientReconstruction` | Owned-cell gradients and conditioning evidence for one reconstruction. |
 | class | `CellGradientStencil` | One owned cell's compact linear gradient stencil. |
@@ -224,6 +228,10 @@ and evidence remain in the linked guides and scientific function reference.
 | class | `VumatBatchOutput` | Uncommitted local response. Missing optional energy remains unavailable. |
 | class | `CompiledVumat(path, *, state_schema, properties, material_name, identity)` | One loaded library; one native call per block, never per material point. |
 | function | `compile_vumat(source, *, state_schema, properties, cache_directory, material_name = 'USER_MATERIAL', trusted = False, compiler = 'gfortran')` | Compile explicitly trusted legacy VUMAT source; no solve-time downloads. |
+| class | `NativeLibraryBundle` | Public AgentFEM object. |
+| function | `build_native_libraries(manifest, *, cache_directory, trusted = False, compiler = 'gfortran', timeout = 180)` | Build a reviewed GNU Fortran bundle on macOS/Linux/WSL2. |
+| class | `CompiledCorotationalIncrement(bundle, target)` | Bind an explicitly built polar_increment C ABI, keeping its library alive. |
+| class | `StrainHistoryRuntime(manifest, *, parameters, density, cache_directory, trusted = False, workers = 1, cell_workers = 1, compiler = 'gfortran')` | Experimental 3D strain-history source and optional fused Hex execution. |
 | class | `ExplicitUserMaterial` | A named, restart-identifiable batch response without synthetic tangent. |
 | function | `explicit_user_material(*, state_schema, update, identity, name = 'user_explicit_material', increment_limit = None, increment_policy_identity = None, density = None)` | Public AgentFEM object. |
 | class | `ArrheniusPowerLawCreep` | Temperature-dependent Mises power-law creep. |
@@ -538,6 +546,8 @@ and evidence remain in the linked guides and scientific function reference.
 | function | `consolidate_xdmf_fields(source, destination) -> Path` | Group synchronized fields on one grid per time, without copying HDF5. |
 | function | `cell_field_from_values(domain, values, *, name, cell_keys = None)` | Create a detached DG0 field from one scalar/vector/tensor per cell. |
 | function | `compare_records(reference: Mapping, candidate: Mapping, *, quantities: Sequence[str] = (), histories: Sequence[str] = (), atol: float = 0.0, rtol: float = 0.0) -> dict` | Compare selected observables with explicit componentwise tolerances. |
+| class | `AcceptedResponseSeries(path, *, state_fields = None, velocity = False, acceleration = False, units = None)` | Streaming accepted fields; fixed mesh stored once, never a restart archive. |
+| function | `export_accepted_response(step, directory, *, state_fields = None, velocity = False, acceleration = False, units = None)` | Export one accepted response, raw state and cell keys. |
 | class | `CheckpointRecord` | One restart asset with an explicit portability boundary. |
 | class | `FieldResult` | A named live field or an external field artifact. |
 | class | `HistoryResult` | Time, load, or iteration history with a fixed value shape. |

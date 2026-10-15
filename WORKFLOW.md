@@ -1,5 +1,11 @@
 # AgentFEM Workflow
 
+For serial accepted-response histories, `results.AcceptedResponseSeries` with
+`project.RunPolicy(field_intervals=...)` streams process fields independently
+of checkpoint cadence. `completed_checkpoint_keep=1` optionally retains only
+the final owned checkpoint after successful completion/export. See
+`docs/accepted_process_output.md`; output does not change the solve time grid.
+
 AgentFEM uses a standard finite-element workflow. Application code should make
 this sequence visible unless there is a strong reason to encapsulate it.
 
@@ -26,6 +32,10 @@ record.
    Standard/generalized-alpha, or Explicit/central difference. Keep this
    numerical choice separate from the study.
 3. Define, import, convert, or read the mesh.
+   Reviewed numeric archives can use `mesh.read_array_mesh`; use
+   `mesh.exterior_regions` to select part exteriors by input-cell identity.
+   Keep contact/bond choices in the case, not the reader. See
+   `docs/guide/array_mesh_inputs.md` for the serial degree-one contract.
 4. Create a lightweight model registry when auditability or agent inspection is
    useful.
 5. Inspect the mesh summary and require expected material/boundary tags.
@@ -382,6 +392,20 @@ input indices. Extract a tagged boundary through
 `geometry="bilinear"` for a warped Q1 face, never substitute triangular P1 traces.
 
 ## Reviewed legacy VUMAT sources
+
+For explicitly reviewed strain-history-only sources, use
+`constitutive.StrainHistoryRuntime` with a material declaration rather than
+project-owned ctypes, polar wrappers or a second time loop. All unused input
+channels and material-domain limits must be declared; this is not general VUMAT
+emulation. See [strain-history runtime](docs/strain_history_runtime.md).
+
+For long serial transient projects, `project.execute_step` may handle accepted
+journals, partial status, final checkpoints and publication around an already
+constructed Step. It never selects physics or replaces `model.step`. Use
+`results.export_accepted_response` for supported accepted cell-response fields.
+Trusted custom Fortran bundles use `constitutive.build_native_libraries` with
+an explicit source manifest; ordinary legacy VUMAT sources retain
+`constitutive.compile_vumat`. See [lean project execution](docs/project_execution.md).
 
 Inspect a source with `agentfem inspect-user-material --kind VUMAT` before
 explicitly trusting and compiling it with `constitutive.compile_vumat`.
