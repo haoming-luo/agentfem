@@ -6,6 +6,13 @@ experimental formulation to a validated one.
 
 ## [Unreleased]
 
+- Add experimental declared strain-history VUMAT runtime: named parameter
+  bounds, arbitrary history width, explicit unused-channel/kinematic/work
+  semantics, generated native fusion, original-source repair and inspectable
+  identity. Reuse existing build cache, material transactions and native Hex
+  execution instead of project-specific wrappers. No general VUMAT compatibility,
+  stability certificate or whole-run speedup is implied.
+
 ## [0.4.2] - 2026-10-14
 
 ### Reviewed user-material sources

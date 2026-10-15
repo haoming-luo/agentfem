@@ -231,6 +231,7 @@ and evidence remain in the linked guides and scientific function reference.
 | class | `NativeLibraryBundle` | Public AgentFEM object. |
 | function | `build_native_libraries(manifest, *, cache_directory, trusted = False, compiler = 'gfortran', timeout = 180)` | Build a reviewed GNU Fortran bundle on macOS/Linux/WSL2. |
 | class | `CompiledCorotationalIncrement(bundle, target)` | Bind an explicitly built polar_increment C ABI, keeping its library alive. |
+| class | `StrainHistoryRuntime(manifest, *, parameters, density, cache_directory, trusted = False, workers = 1, cell_workers = 1, compiler = 'gfortran')` | Experimental 3D strain-history source and optional fused Hex execution. |
 | class | `ExplicitUserMaterial` | A named, restart-identifiable batch response without synthetic tangent. |
 | function | `explicit_user_material(*, state_schema, update, identity, name = 'user_explicit_material', increment_limit = None, increment_policy_identity = None, density = None)` | Public AgentFEM object. |
 | class | `ArrheniusPowerLawCreep` | Temperature-dependent Mises power-law creep. |

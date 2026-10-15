@@ -247,6 +247,14 @@ AgentFEM does not embed licensed or material-specific allowable data.
 
 ## Constitutive Law
 
+A declared strain-history runtime lowers a reviewed user source into existing
+material and execution contracts. Its manifest describes source dependencies,
+state layout, unused channels and the chosen kinematic/work convention; it is
+not an operational project setting. The runtime owns transport and batching,
+not constitutive equations or global acceptance. Unsupported context-dependent
+laws retain the complete material-point input contract rather than fabricated
+physical inputs. See `docs/strain_history_runtime.md`.
+
 A local response relation that maps state to stress, flux, tangent, or another
 response quantity. Elastic stress-strain equations belong here. Future
 viscoelasticity, plasticity, thermal conduction, and coupled response laws

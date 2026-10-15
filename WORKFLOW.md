@@ -387,6 +387,12 @@ input indices. Extract a tagged boundary through
 
 ## Reviewed legacy VUMAT sources
 
+For explicitly reviewed strain-history-only sources, use
+`constitutive.StrainHistoryRuntime` with a material declaration rather than
+project-owned ctypes, polar wrappers or a second time loop. All unused input
+channels and material-domain limits must be declared; this is not general VUMAT
+emulation. See [strain-history runtime](docs/strain_history_runtime.md).
+
 For long serial transient projects, `project.execute_step` may handle accepted
 journals, partial status, final checkpoints and publication around an already
 constructed Step. It never selects physics or replaces `model.step`. Use

@@ -143,6 +143,10 @@ never changes solver access, results, verification, or update behavior.
   `constitutive.capabilities()`, then use `constitutive/`. Never turn a
   material-point law into a claimed FEM step without state/tangent/solver
   evidence.
+  For a reviewed strain-history VUMAT, read `docs/strain_history_runtime.md`.
+  Use the declared runtime instead of writing project-specific ctypes/Fortran
+  bridges. Never declare unused thermal, time, length or energy channels without
+  source review, or infer state layouts and step limits from another case.
   `constitutive.chaboche(...)` is an experimental three-dimensional global
   combined-hardening route with quadrature rollback/restart and `ALPHA`
   output. Keep its external-definition evidence distinct from a calibrated
